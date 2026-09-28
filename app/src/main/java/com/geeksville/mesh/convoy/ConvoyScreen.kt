@@ -405,7 +405,9 @@ fun ConvoyScreen(
             wv.evaluateJavascript("clearMarkers()", null)
             validNodes.forEach { node ->
                 val color = node.markerColor
-                val label = node.callsign.ifEmpty { node.nodeId.takeLast(4) }
+                val label = node.callsign.ifEmpty { node.nodeId.takeLast(4) } +   // TICKDATA-2026-09-28 (Fred): callsign \u00b7 role
+                    (if (node.rideRole.isBlank()) "" else " \u00b7 " + when (node.rideRole) {
+                        "leader" -> "Leader"; "middle" -> "Middle"; "tail_gunner" -> "Tail gunner"; else -> "Rider" })
                 val isMine = node.isMyCart
                 val isOffTrack = offTrackIds.contains(node.nodeId)
                 wv.evaluateJavascript("addMarker('${node.nodeId}', ${node.latitude}, ${node.longitude}, '$color', '$label', $isMine, $isOffTrack)", null)
@@ -3452,12 +3454,15 @@ fun CartPickerPanel(
                     // CARTPICKER5-2026-09-28 (Fred): Leader, Middle, Tail gunner first, then Riders -- checked-in Riders before bare
                     // radios; alphabetical within each. (Until the roles piece only this cart can show a special role.)
                     fun rank(n: com.geeksville.mesh.convoy.ConvoyNode): Int {
-                        val ci = n.isMyCart && myRole.isNotBlank()
-                        return when (if (ci) myRole else "rider") { "leader" -> 0; "middle" -> 1; "tail_gunner" -> 2; else -> if (ci) 3 else 4 }
+                        val r = n.rideRole.ifBlank { if (n.isMyCart) myRole else "" }   // TICKDATA: the node's own role
+                        val ci = r.isNotBlank()
+                        return when (if (ci) r else "rider") { "leader" -> 0; "middle" -> 1; "tail_gunner" -> 2; else -> if (ci) 3 else 4 }
                     }
                     nodes.sortedWith(compareBy<com.geeksville.mesh.convoy.ConvoyNode>({ rank(it) }, { it.callsign.lowercase() })).forEach { node ->
-                        val checkedIn = node.isMyCart && myRole.isNotBlank()
-                        val role = if (checkedIn) roleLabel(myRole) else "Rider"
+                        // TICKDATA-2026-09-28 (Fred): each cart's OWN role, from the tick (your own cart falls back to your check-in).
+                        val nodeRole = node.rideRole.ifBlank { if (node.isMyCart) myRole else "" }
+                        val checkedIn = nodeRole.isNotBlank()
+                        val role = if (checkedIn) roleLabel(nodeRole) else "Rider"
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()

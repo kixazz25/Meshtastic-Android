@@ -290,6 +290,11 @@ class ConvoyViewModel @Inject constructor(
     var recordingState = androidx.compose.runtime.mutableStateOf(com.geeksville.mesh.convoy.RecordingState.CHECK_IN)
     /** The current check-in (CODE RULE 1: null = not checked in). Set by the check-in; handed to the end form at END. */
     val checkIn = androidx.compose.runtime.mutableStateOf<ConvoyRideStore.CheckIn?>(null)
+    /** TICKDATA-2026-09-28 (Fred): the rider's CALLSIGN for this tablet's node -- the check-in's, else the profile's (read once,
+     *  then kept: not a database read every tick), else the device model only if neither exists. */
+    private val profileCallsign: String by lazy { runCatching { ConvoyProfileStore.load()?.callsign }.getOrNull()?.trim().orEmpty() }
+    private fun tickCallsign(): String =
+        checkIn.value?.callsign?.trim()?.takeIf { it.isNotEmpty() } ?: profileCallsign.takeIf { it.isNotEmpty() } ?: android.os.Build.MODEL
     /** The check-in of the recording being ended -- read by the end form; cleared on save or delete. */
     var endingCheckIn: ConvoyRideStore.CheckIn? = null
     var pendingTrackName = androidx.compose.runtime.mutableStateOf("")
@@ -998,7 +1003,9 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             val hdg = loc?.bearing ?: 0f
             return listOf(ConvoyNode(
                 nodeId = "!phone",
-                callsign = android.os.Build.MODEL,
+                // TICKDATA-2026-09-28 (Fred): the rider's callsign (was the device model, e.g. "P50") and the check-in's role.
+                callsign = tickCallsign(),
+                rideRole = checkIn.value?.role ?: "",
                 latitude = lat,
                 longitude = lon,
                 altitude_m = alt,
@@ -1062,6 +1069,9 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             ConvoyNode(
                 nodeId = nodeId,
                 callsign = callsign,
+                // TICKDATA-2026-09-28: this tablet's own radio carries the check-in's role; other radios' roles arrive from their
+                // reports in the next step ("" until then = bare radio). Display only.
+                rideRole = if (node.num == myNum) (checkIn.value?.role ?: "") else "",
                 latitude = latLon.first,
                 longitude = latLon.second,
                 altitude_m = ((pos.altitude ?: 0) * 3.28084f).toInt(),

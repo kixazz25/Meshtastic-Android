@@ -28,7 +28,10 @@ data class ConvoyNode(
     val milesToLead: Float = 0f,
     val milesToTail: Float = 0f,
     val cotType: String = "a-f-G-U-C",
-    val timestampUtc: String = ""
+    val timestampUtc: String = "",
+    // TICKDATA-2026-09-28 (Fred): the GroupTrack RIDE ROLE (leader / middle / tail_gunner / rider) carried through the tick
+    // for DISPLAY only -- "" = none (a bare radio). Not the engine's `role` label above, which the engine rewrites every tick.
+    val rideRole: String = ""
 ) {
     val markerColor: String get() {
         // Error states use blink only - keep assigned color

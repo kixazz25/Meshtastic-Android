@@ -53,7 +53,7 @@ fun ConvoyMapBar(
         ) {
             // Nav button
             Surface(
-                modifier = Modifier.weight(1f).clickable { onNavigate() },
+                modifier = Modifier.weight(0.5f).clickable { onNavigate() },   // NAVHALF-2026-09-28 (Fred): half length -- it overlapped the check-in button
                 shape = RoundedCornerShape(4.dp),
                 // PLANGATE-2026-08-12C: green with a connection, yellow without.
                 color = navTint ?: Color(0xFF2A3545)
