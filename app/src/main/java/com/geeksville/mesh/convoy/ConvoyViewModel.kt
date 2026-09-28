@@ -763,7 +763,17 @@ class ConvoyViewModel @Inject constructor(
         // V2.4: Lead assigned manually via dialog before ride start -- no auto-lock
         // Lead assignment REMOVED from tick — only through setLeadCart()
         // Lead assigned at RECORD time in startGroupTrack() or via cart HUD
-        val tailNodeId: String? = null
+        // ROLETICK-2026-09-28 (Fred): LEAD AND TAIL FROM THE RIDE ROLES, every tick -- nothing else in the tick changes.
+        //  - A node reporting Leader is the lead: set through setLeadCart (the existing path -- all three lead flags, and the
+        //    lead track's reset) ONLY when it differs from the current lead. No Leader reported -> the lead keeps its value.
+        //  - A node reporting Tail gunner is the tail. None -> null: the engine's own (the last active cart), as before.
+        nodes.firstOrNull { it.rideRole == "leader" }?.nodeId?.let { lid ->
+            if (lid != lockedLeadNodeId) {
+                setLeadCart(lid)
+                convoyLog("ROLETICK: lead = " + (nodes.firstOrNull { it.nodeId == lid }?.callsign ?: lid) + " (reports Leader)")
+            }
+        }
+        val tailNodeId: String? = nodes.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId
 
         val state = ConvoyEngine.compute(
             nodes = nodes,
