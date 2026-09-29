@@ -13,4 +13,6 @@ object TakRoleStore {
 
     /** The last role a node reported, or null if it never sent one. */
     fun roleOf(nodeNum: Int): String? = roles[nodeNum]
+    /** LEADCLEAN-2026-09-29 (Fred): END -- the ride's roles end with the ride. */
+    fun clear() { roles.clear() }
 }

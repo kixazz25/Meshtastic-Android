@@ -2918,6 +2918,23 @@ fun ConvoyScreen(
             onSelectCart = { showCartPicker = true },
             modifier = Modifier.align(Alignment.BottomCenter)
         )
+        // ROLECHANGE-2026-09-29 (Fred): CHANGE MY ROLE from the group panel -- MY OWN cart only; nobody changes anyone else's.
+        // A special role someone holds is refused (released first); Rider releases mine. The Leader is the last assignment.
+        var showRoleChange by remember { mutableStateOf(false) }
+        if (showRoleChange) viewModel.checkIn.value?.let { rci ->
+            RoleChangeDialog(
+                currentRole = rci.role,
+                heldBy = convoyState.nodes
+                    .filter { !it.isMyCart && it.rideRole in setOf("leader", "middle", "tail_gunner") }
+                    .associate { it.rideRole to it.callsign.ifBlank { it.nodeId } },
+                onApply = { newRole ->
+                    viewModel.checkIn.value = rci.copy(role = newRole)
+                    viewModel.startRoleReports(if (rci.rideId != null) newRole else "")
+                    showRoleChange = false
+                },
+                onDismiss = { showRoleChange = false }
+            )
+        }
         // ── Cart Picker Panel (Phase 0 stub) ──────────────────────────────
         if (showCartPicker) {
             // CARTPICKER-2026-09-28: the ride and this tablet's role, from the check-in.
@@ -2930,10 +2947,13 @@ fun ConvoyScreen(
                     .filter { it.isNotBlank() }.joinToString(" \u00b7 ") } ?: "",
                 myRole = pickCi?.role ?: "",
                 onSelect = { selectedNode ->
-                    viewModel.onMarkerTapped(selectedNode)
+                    // ROLECHANGE-2026-09-29: MY OWN cart (checked in) -> change my role; any other cart -> its information, as before
+                    if (selectedNode.isMyCart && viewModel.checkIn.value != null) showRoleChange = true
+                    else viewModel.onMarkerTapped(selectedNode)
                     showCartPicker = false
                 },
-                onDismiss = { showCartPicker = false }
+                onDismiss = { showCartPicker = false },
+                onChangeMyRole = { showRoleChange = true; showCartPicker = false }   // ROLEBTN-2026-09-29
             )
         }
 
@@ -3431,7 +3451,8 @@ fun CartPickerPanel(
     rideSub: String,     // its date and rollout, or ""
     myRole: String,      // this tablet's check-in role ("leader"...), or "" when not checked in
     onSelect: (com.geeksville.mesh.convoy.ConvoyNode) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onChangeMyRole: () -> Unit   // ROLEBTN-2026-09-29 (Fred): opens "Change my role" -- my own cart only
 ) {
     fun roleLabel(r: String) = when (r) { "leader" -> "Leader"; "middle" -> "Middle"; "tail_gunner" -> "Tail gunner"; else -> "Rider" }
     val green = Color(0xFF35C46A); val red = Color(0xFFE0453A); val dim = Color(0xFF8FA3B8)
@@ -3457,6 +3478,11 @@ fun CartPickerPanel(
                     Text(rideTitle, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     if (rideSub.isNotBlank()) Text(rideSub, color = dim, fontSize = 12.sp)
                 } else Text("Not checked in to a ride", color = dim, fontSize = 13.sp)
+                // ROLEBTN-2026-09-29 (Fred): change MY role from here -- whether or not my own cart is in the list.
+                if (rideTitle.isNotBlank()) androidx.compose.material3.TextButton(onClick = { onChangeMyRole() }) {
+                    Text("CHANGE MY ROLE \u00b7 now " + roleLabel(myRole), color = Color(0xFFFFD166),
+                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                }
                 // The title and the list's own CLOSE (tapping outside still closes it too).
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
@@ -3807,5 +3833,49 @@ private fun GpsOutlinedText(text: String, color: Color, sizeSp: Int, weight: Fon
                 drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
                     width = 6f, join = androidx.compose.ui.graphics.StrokeJoin.Round)))
         Text(text, color = color, fontSize = sizeSp.sp, fontWeight = weight)
+    }
+}
+
+// === ROLECHANGE-2026-09-29 (Fred): "Change my role" -- opened from MY OWN cart in SELECT CART ===
+@Composable
+fun RoleChangeDialog(currentRole: String, heldBy: Map<String, String>, onApply: (String) -> Unit, onDismiss: () -> Unit) {
+    val roles = listOf("leader" to "Leader", "rider" to "Rider", "middle" to "Middle", "tail_gunner" to "Tail gunner")
+    val now = currentRole.ifBlank { "rider" }
+    var role by remember { mutableStateOf(now) }
+    var heldWarn by remember { mutableStateOf<String?>(null) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Change my role", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Now: " + (roles.firstOrNull { it.first == now }?.second ?: "Rider"))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    roles.forEach { (v, l) ->
+                        androidx.compose.material3.FilterChip(selected = role == v,
+                            onClick = { if (heldBy[v] != null) heldWarn = v else role = v }, label = { Text(l) })
+                    }
+                }
+                Text("To give up a role, choose Rider. A role someone holds must be released first. The Leader is changed last.",
+                    fontSize = 12.sp, color = Color(0xFF8899AA))
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(enabled = role != now, onClick = { onApply(role) }) { Text("APPLY") }
+        },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("CANCEL") } }
+    )
+    heldWarn?.let { w ->
+        val label = roles.firstOrNull { it.first == w }?.second ?: w
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { heldWarn = null },
+            containerColor = Color(0xFFB3261E),
+            titleContentColor = Color.White,
+            textContentColor = Color.White,
+            title = { Text("\u26D4 " + label + " is taken", fontWeight = FontWeight.Black, fontSize = 22.sp) },
+            text = { Text(label + " is held by " + (heldBy[w] ?: "another cart") + ".\n\n" +
+                "It must be released first: its holder changes to Rider.", fontSize = 17.sp) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { heldWarn = null }) {
+                Text("OK", color = Color.White, fontWeight = FontWeight.Black) } }
+        )
     }
 }

@@ -92,9 +92,9 @@ object ConvoyEngine {
 
     /**
      * Assign lead and tail roles.
-     * Lead: identified by lockedLeadNodeId from ViewModel distance accumulator.
-     *       Null until first node travels 1/4 mile after RECORD pressed.
-     * Tail: identified by tailNodeId (minimum distance accumulator node), dynamic every tick.
+     * LEADCLEAN-2026-09-29 (Fred): the engine never picks a lead.
+     * Lead: the lead field (lockedLeadNodeId) -- from a Leader report, or the rider's pick at REC. Null = no lead.
+     * Tail: the Tail gunner (tailNodeId, from the roles); none -> the last cart by position (the fallback).
      */
     fun assignLeadTail(
         nodes: List<ConvoyNode>,
@@ -103,12 +103,12 @@ object ConvoyEngine {
     ): List<ConvoyNode> {
         val active = nodes.filter { it.status == ConvoyStatus.ACTIVE }
         if (active.isEmpty()) return nodes
-        // Lead — locked by nodeId. Null until 1/4 mile accumulator fires in ViewModel.
+        // Lead — the lead field: from a Leader report or the rider's pick at REC. Null = no lead.
         val leadNode = if (lockedLeadNodeId != null)
             nodes.firstOrNull { it.nodeId == lockedLeadNodeId }
         else
             null
-        // Tail — minimum distance accumulator node, provided by ViewModel. Fallback to position.
+        // Tail — the Tail gunner (from the roles); none -> the last cart by position.
         val tailNode = if (tailNodeId != null)
             nodes.firstOrNull { it.nodeId == tailNodeId }
         else

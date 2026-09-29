@@ -77,8 +77,7 @@ class ConvoyViewModel @Inject constructor(
 
     // ── Lead lock state ──────────────────────────────────────────────────
     private var _leadLockedFlag: Boolean = false
-    // Per-node distance accumulators — key = nodeId, value = miles traveled
-    private var nodeDistanceAccum: MutableMap<String, Float> = mutableMapOf()
+    // LEADCLEAN-2026-09-29: the per-node distance accumulator (the old quarter-mile lead finder) is removed -- it was never filled.
     private var nodeLastLat: MutableMap<String, Double> = mutableMapOf()
     private var nodeLastLon: MutableMap<String, Double> = mutableMapOf()
     // 60-second fixed window speed computation per node
@@ -225,12 +224,14 @@ class ConvoyViewModel @Inject constructor(
         _myCartId.value = if (myNum != null) "!%08x".format(myNum) else "!phone"
         val nodes = readLiveNodes(System.currentTimeMillis())
 
-        // LEAD: Assign if not already set by ConvoyScreen dialog
+        // LEADCLEAN-2026-09-29 (Fred): the lead comes from a Leader report (the tick) or the rider's pick at REC -- nothing
+        // else. Only a solo ride leads itself: one cart -> it, none -> my cart. Several carts and no lead -> it stays
+        // EMPTY (REC asks -- RECLEAD). The old automatic "several carts -> my cart" pick is removed.
         if (lockedLeadNodeId == null) {
             when {
                 nodes.size == 1 -> setLeadCart(nodes[0].nodeId)
                 nodes.isEmpty() -> setLeadCart(_myCartId.value)
-                else -> setLeadCart(_myCartId.value)
+                else -> convoyLog("TRACK START: several carts and no lead -- left empty (REC asks)")
             }
         }
 
@@ -245,7 +246,7 @@ class ConvoyViewModel @Inject constructor(
         _autoPan.value = false   // autoPan OFF when recording stops
         _leadLockedFlag = false
         lockedLeadNodeId = null
-        nodeDistanceAccum.clear()
+        org.meshtastic.core.data.manager.TakRoleStore.clear()   // LEADCLEAN-2026-09-29 (Fred): END -- the ride's roles end with the ride (the lead is cleared above)
         nodeLastLat.clear()
         nodeLastLon.clear()
         _leadLocked.value = false
@@ -256,6 +257,7 @@ class ConvoyViewModel @Inject constructor(
         nodeSpeedWindowStart.clear()
         nodeLastComputedSpeed.clear()
         rideStartTimeMs = 0L
+        roleReportJob?.cancel()   // ROLECHANGE-2026-09-29 (Fred): END -- the role reports stop with the ride
     }
 
     /**
@@ -267,24 +269,37 @@ class ConvoyViewModel @Inject constructor(
     // CODE RULE 1: null = no report run in progress (a new check-in cancels the previous run).
     private var roleReportJob: kotlinx.coroutines.Job? = null
     fun startRoleReports(rideRole: String) {
+        // ROLECHANGE-2026-09-29 (Fred): every cart reports ONLY its own role. A rider who HELD a special role and now checks in (or
+        // changes) as Rider RELEASES it: announced as HQ ("now Rider") so every tablet drops it. Riders otherwise never report.
+        val myNum = _myNodeInfo.value?.myNodeNum
         val role = when (rideRole) {
             "leader" -> org.meshtastic.proto.MemberRole.TeamLead
             "middle" -> org.meshtastic.proto.MemberRole.RTO
             "tail_gunner" -> org.meshtastic.proto.MemberRole.ForwardObserver
-            else -> { android.util.Log.i("ROLEREPORT", "ROLEREPORT: role '$rideRole' -- riders do not report"); return }
+            else -> {
+                val held = myNum?.let { org.meshtastic.core.data.manager.TakRoleStore.roleOf(it) }
+                if (held == "TeamLead" || held == "RTO" || held == "ForwardObserver") org.meshtastic.proto.MemberRole.HQ
+                else {
+                    roleReportJob?.cancel()
+                    android.util.Log.i("ROLEREPORT", "ROLEREPORT: role '$rideRole' -- riders do not report")
+                    return
+                }
+            }
         }
-        // OWNROLE-2026-09-28 (Fred): MY role lives in the SAME store as everyone else's (against my own radio's number) --
-        // not owned by the check-in, not dependent on the tick recognising my node. Displays from the node array like theirs.
-        _myNodeInfo.value?.myNodeNum?.let { org.meshtastic.core.data.manager.TakRoleStore.put(it, role.name) }
+        // OWNROLE-2026-09-28 (Fred): MY role lives in the SAME store as everyone else's (against my own radio's number).
+        myNum?.let { org.meshtastic.core.data.manager.TakRoleStore.put(it, role.name) }
         roleReportJob?.cancel()
+        val startedAt = System.currentTimeMillis()
         roleReportJob = viewModelScope.launch {
-            for (n in 1..7) {
+            var n = 0
+            while (true) {
+                n++
                 runCatching {
                     val me = _convoyState.value.nodes.firstOrNull { it.isMyCart }
                     val loc = getPhoneLocation()
                     val lat = me?.latitude?.takeIf { it != 0.0 } ?: loc?.latitude
                     val lon = me?.longitude?.takeIf { it != 0.0 } ?: loc?.longitude
-                    if (lat == null || lon == null) { android.util.Log.w("ROLEREPORT", "ROLEREPORT $n/7: no position -- skipped"); return@runCatching }
+                    if (lat == null || lon == null) { android.util.Log.w("ROLEREPORT", "ROLEREPORT #$n: no position -- skipped"); return@runCatching }
                     val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
                     val tak = org.meshtastic.proto.TAKPacket(
                         is_compressed = false,
@@ -297,11 +312,16 @@ class ConvoyViewModel @Inject constructor(
                         dataType = org.meshtastic.proto.PortNum.ATAK_PLUGIN.value,
                         wantAck = false,
                     ))
-                    android.util.Log.i("ROLEREPORT", "ROLEREPORT sent $n/7: $cs as $role")
-                }.onFailure { android.util.Log.w("ROLEREPORT", "ROLEREPORT $n/7 not sent: ${it.message}") }
-                if (n < 7) kotlinx.coroutines.delay(30_000L)
+                    android.util.Log.i("ROLEREPORT", "ROLEREPORT sent #$n at ${System.currentTimeMillis()}: $cs as $role")
+                }.onFailure { android.util.Log.w("ROLEREPORT", "ROLEREPORT #$n not sent: ${it.message}") }
+                kotlinx.coroutines.delay(if (n < 3) 5_000L else 30_000L)   // ROLEBTN-2026-09-29: the first three 5 s apart, then 30 s
+                // THE SCHEDULE (Fred): until 3 minutes after REC; a change made DURING the ride: 3 minutes from the change.
+                // No REC yet: keep going (capped at 4 hours). END cancels this job (stopGroupTrack).
+                val recAt = rideStartTimeMs
+                val endAt = if (recAt == 0L) startedAt + 4 * 3_600_000L else maxOf(recAt, startedAt) + 180_000L
+                if (System.currentTimeMillis() >= endAt) break
             }
-            android.util.Log.i("ROLEREPORT", "ROLEREPORT: run complete (7 reports, 3 minutes)")
+            android.util.Log.i("ROLEREPORT", "ROLEREPORT: run complete ($n reports, $role)")
         }
     }
 
@@ -829,6 +849,7 @@ class ConvoyViewModel @Inject constructor(
             if (lid != lockedLeadNodeId) {
                 setLeadCart(lid)
                 convoyLog("ROLETICK: lead = " + (nodes.firstOrNull { it.nodeId == lid }?.callsign ?: lid) + " (reports Leader)")
+                android.util.Log.i("ROLEREPORT", "ROLETICK applied at ${System.currentTimeMillis()}: lead = " + lid)   // ROLECHANGE-2026-09-29
             }
         }
         val tailNodeId: String? = nodes.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId
@@ -854,11 +875,7 @@ class ConvoyViewModel @Inject constructor(
         if (_trackActive.value) {
             val leadOut = state.lead?.callsign ?: "NONE"
             val trackFrom = currentLeadNodeId ?: "NONE"
-            val accumStr = nodeDistanceAccum.entries.joinToString(" ") { (id, d) ->
-                val name = nodes.firstOrNull { it.nodeId == id }?.callsign ?: id.takeLast(4)
-                "$name=${String.format("%.3f", d)}mi"
-            }
-            convoyLog("tick | lead=$leadOut | trackFrom=$trackFrom | locked=$_leadLockedFlag | [$accumStr]")
+            convoyLog("tick | lead=$leadOut | trackFrom=$trackFrom | locked=$_leadLockedFlag")   // LEADCLEAN-2026-09-29
         }
 
         // Accumulate route trail — lead only or all carts
@@ -1162,7 +1179,12 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 val isStale = rideStartTimeMs > 0L && fixTimeMs > 0L && fixTimeMs < rideStartTimeMs
                 if (isStale) {
                     convoyLog("STALE POS REJECTED: node=$callsign fixTime=$fixTimeMs rideStart=$rideStartTimeMs age=${(rideStartTimeMs - fixTimeMs)/1000}s lat=$lat lon=$lon → using lastKnown")
-                    lastKnownPosition[nodeId] ?: return@mapNotNull null
+                    // RECSTALE3-2026-09-29 (Fred): checked in = here. The cart keeps its position from the PREVIOUS TICK (the
+                    // group as shown a moment ago); not in it -> its own reported position. Never the last-known map, never dropped.
+                    _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+                        ?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }
+                        ?.let { Pair(it.latitude, it.longitude) }
+                        ?: Pair(lat, lon)
                 } else {
                     lastKnownPosition[nodeId] = Pair(lat, lon)
                     if (_trackActive.value) {
