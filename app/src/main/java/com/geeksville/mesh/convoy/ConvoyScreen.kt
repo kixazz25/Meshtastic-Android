@@ -1862,10 +1862,11 @@ fun ConvoyScreen(
                 ) {
                     androidx.compose.material3.Text(
                         "GRP Awareness",
-                        color = com.geeksville.mesh.convoy.grpAwarenessColor(),   // GRPAWARE: green/red, pulsing
+                        color = Color.White,   // GRPBOX2-2026-09-29 (Fred): white text -- the status is the green/red box behind it
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
+                        modifier = Modifier.background(com.geeksville.mesh.convoy.grpAwarenessColor(),   // GRPBOX2-2026-09-29: green/red box, pulsing
+                            androidx.compose.foundation.shape.RoundedCornerShape(4.dp)).padding(horizontal = 10.dp, vertical = 10.dp)
                     )
                 }
             }
