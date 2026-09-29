@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Ride messages: process spec (stubs) — 2026-09-28 v1</title>
+<style>
+  body { margin:0; background:#0d1117; color:#e6edf3; font:14px/1.5 -apple-system,"Segoe UI",Roboto,Arial,sans-serif; padding:24px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  h2 { font-size:16px; margin:26px 0 8px; color:#8FD0FF; }
+  p.sub { color:#9FB0C2; margin:0 0 16px; max-width:980px; }
+  table { border-collapse:collapse; width:100%; margin:8px 0 14px; }
+  th, td { border:1px solid #30363d; padding:7px 9px; vertical-align:top; text-align:left; }
+  th { background:#161b22; }
+  code { color:#8FD0FF; }
+  .box { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px 14px; margin:12px 0; max-width:980px; }
+  .stub { display:inline-block; font-size:11px; padding:1px 7px; border-radius:4px; background:#2A2210; border:1px dashed #6B5A2A; color:#E8A33D; }
+  .ok { color:#6EE0A5; }
+</style>
+</head>
+<body>
+<h1>Ride messages — process spec (stubs)</h1>
+<p class="sub">2026-09-28 v1 · Fred. <b>Formats and behaviour only</b> — the mechanics (encoding, transport, parsing, storage) are written with the <b>roles piece</b>. <span class="stub">STUB</span> marks each part not yet built.</p>
+
+<div class="box">
+<b>The rules — for every ride message</b>
+<ol>
+<li><b>Sent only at check-in, or on a confirmed action.</b> <b>Nothing is sent while riding</b> — no periodic packets.</li>
+<li><b>One format</b> for all messages: a type, the ride's id, the sender, and the type's own fields.</li>
+<li><b>Every message carries the ride's id</b>; a tablet ignores messages for a ride it is not checked in to.</li>
+<li><b>Travels on the ride's radio network</b>, the same network the group rides on.</li>
+<li><b>Changes that affect others need CONFIRM</b> before they are sent (role changes, removals).</li>
+<li><b>Only the Leader, Middle or Tail gunner</b> may send ROLE_CHANGE and REMOVE_FROM_RIDE; only the <b>Leader</b> sends NOTES_UPDATE and NOTES_REPLY.</li>
+<li><b>The latest message wins</b>: each tablet applies messages in the order they were sent (the sender's time), so a late, stale message never overrides a newer one.</li>
+</ol>
+</div>
+
+<h2>The common format <span class="stub">STUB</span></h2>
+<table>
+<tr><th>Field</th><th>Meaning</th></tr>
+<tr><td><code>type</code></td><td>ROLE_CHANGE · REMOVE_FROM_RIDE · NOTES_UPDATE · NOTES_REQUEST · NOTES_REPLY</td></tr>
+<tr><td><code>rideId</code></td><td>The ride the message belongs to</td></tr>
+<tr><td><code>from</code></td><td>The sender's callsign (and radio id)</td></tr>
+<tr><td><code>sentAt</code></td><td>The sender's time — for "the latest message wins"</td></tr>
+<tr><td><i>the type's own fields</i></td><td>Below, per message</td></tr>
+</table>
+
+<h2>1 · ROLE_CHANGE <span class="stub">STUB</span></h2>
+<table>
+<tr><th>Trigger</th><td>SELECT CART → a cart → CHANGE ROLE → <b>CONFIRM</b></td></tr>
+<tr><th>Sent by</th><td>The Leader, Middle or Tail gunner (any of them, for any of the three roles)</td></tr>
+<tr><th>Fields</th><td><code>target</code> (the cart receiving the role) · <code>role</code> (Leader / Middle / Tail gunner / Rider) · <code>swapWith</code> (the role's previous holder, who takes the target's old role)</td></tr>
+<tr><th>Receivers</th><td>Every tablet updates both carts' roles in its list and on its map. The <b>target's</b> tablet writes the new role to its radio; the <b>previous holder's</b> tablet writes its new role to its radio. The tick follows the latest change.</td></tr>
+<tr><th>Rules</th><td>A special role <b>moves</b> — always exactly one Leader, one Middle, one Tail gunner. Announced on every tablet ("lost again made Jim B the Leader").</td></tr>
+</table>
+
+<h2>2 · REMOVE_FROM_RIDE <span class="stub">STUB</span></h2>
+<table>
+<tr><th>Trigger</th><td>SELECT CART → a cart → REMOVE FROM RIDE → <b>CONFIRM</b></td></tr>
+<tr><th>Sent by</th><td>The Leader, Middle or Tail gunner</td></tr>
+<tr><th>Fields</th><td><code>target</code> (the cart removed)</td></tr>
+<tr><th>Receivers</th><td>Every tablet drops the cart from the ride's list. The target's radio is <b>not</b> changed.</td></tr>
+<tr><th>Rules</th><td>A removed cart holding a special role — to be decided with the roles piece (e.g. removal refused until its role is moved first).</td></tr>
+</table>
+
+<h2>3 · NOTES_UPDATE <span class="stub">STUB</span></h2>
+<table>
+<tr><th>Trigger</th><td>The <b>leader's check-in</b>, when he changed the ride's Leader's Notes</td></tr>
+<tr><th>Sent by</th><td>The Leader — <b>once</b>, and only if the notes changed</td></tr>
+<tr><th>Fields</th><td><code>notes</code> (the ride's Leader's Notes, in full)</td></tr>
+<tr><th>Receivers</th><td>Every tablet updates <b>its copy of the ride's notes</b> (the database) and shows them in MY CART / MY GROUP.</td></tr>
+<tr><th>Rules</th><td>The notes are the ride's record; after sending, the <b>leader's check-in</b> is the only place they change. Typical use: the day's radio frequency, a changed meeting point.</td></tr>
+</table>
+
+<h2>4 · NOTES_REQUEST <span class="stub">STUB</span></h2>
+<table>
+<tr><th>Trigger</th><td><b>Every rider's check-in</b></td></tr>
+<tr><th>Sent by</th><td>The rider checking in</td></tr>
+<tr><th>Fields</th><td>none beyond the common format</td></tr>
+<tr><th>Receivers</th><td>The <b>leader's tablet</b> answers with NOTES_REPLY. Other tablets ignore it.</td></tr>
+<tr><th>Rules</th><td>No answer (leader not checked in, or out of range): the rider keeps the notes from the ride file, and gets the new ones from the leader's NOTES_UPDATE when he checks in.</td></tr>
+</table>
+
+<h2>5 · NOTES_REPLY <span class="stub">STUB</span></h2>
+<table>
+<tr><th>Trigger</th><td>A NOTES_REQUEST reaching the leader's tablet</td></tr>
+<tr><th>Sent by</th><td>The Leader's tablet — automatically, once per request</td></tr>
+<tr><th>Fields</th><td><code>to</code> (the rider who asked) · <code>notes</code> (in full)</td></tr>
+<tr><th>Receivers</th><td>The asking rider's tablet updates its copy of the ride's notes.</td></tr>
+</table>
+
+<h2>Together, every rider ends up with the latest notes</h2>
+<table>
+<tr><th>Case</th><th>Covered by</th></tr>
+<tr><td>Riders checked in <b>before</b> the leader changes the notes</td><td>The leader's NOTES_UPDATE at his check-in</td></tr>
+<tr><td>Riders checking in <b>after</b></td><td>Their own NOTES_REQUEST → NOTES_REPLY</td></tr>
+<tr><td>The leader <b>not there yet</b></td><td>The ride file's notes now; NOTES_UPDATE when he arrives</td></tr>
+<tr><td>While riding</td><td class="ok">Nothing is sent</td></tr>
+</table>
+
+<div class="box"><b>Where these live:</b> the panels are designed (SELECT CART design v4, the check-in panel). The code stubs — message types and <code>send…</code> / <code>onReceive…</code> functions that only log "not implemented yet" — are written at the <b>start of the roles day</b>, and filled in that day.</div>
+</body>
+</html>

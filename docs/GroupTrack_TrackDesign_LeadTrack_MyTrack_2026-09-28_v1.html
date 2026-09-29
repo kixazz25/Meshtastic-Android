@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Track design: the lead track and my track (2026-09-28 v1)</title>
+<style>
+  :root { --bg:#0f1216; --panel:#161b22; --line:#30363d; --ink:#e6edf3; --dim:#8b949e; --accent:#58a6ff; --good:#3fb950; --warn:#d29922; --bad:#f85149; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system,"Segoe UI",Roboto,Arial,sans-serif; }
+  .wrap { max-width:1000px; margin:0 auto; padding:24px 20px 60px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--dim); margin:0 0 20px; }
+  h2 { font-size:17px; color:var(--accent); border-bottom:1px solid var(--line); padding-bottom:6px; margin:28px 0 12px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:10px 0; }
+  .tag { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; margin-right:6px; }
+  .t-fact { background:#12304f; color:#9cc7f5; } .t-dec { background:#0e2a1a; color:#6ee0a5; } .t-open { background:#2a2210; color:#f2c14e; } .t-rej { background:#2a1414; color:#f08c84; }
+  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:14px; }
+  th, td { border:1px solid var(--line); padding:7px 9px; vertical-align:top; text-align:left; }
+  th { background:#1c2330; color:var(--accent); }
+  code { background:#1c2330; padding:1px 5px; border-radius:4px; font-size:13px; }
+  .dim { color:var(--dim); }
+  ul { margin:6px 0 6px 20px; padding:0; } li { margin:4px 0; }
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>Track design — the lead track and my track</h1>
+<p class="sub">Design notes, 2026-09-28 v1 · to be settled with the January field tests in Utah · internal (resume context)</p>
+
+<h2>Purpose</h2>
+<div class="card">
+<p>When the ride starts, every tablet can show up to three lines: <b>the route</b> (the plan), <b>the lead track</b> (where the Leader has been) and <b>my track</b> (where I have been). This document records what each one is, what it costs, where it goes wrong, and the choices still to make — so that when we get to the track work, we start from what we already know rather than re-covering it.</p>
+</div>
+
+<h2>The three lines</h2>
+<table>
+<tr><th>Line</th><th>Source</th><th>Radio traffic</th><th>Accuracy</th><th>Where it is seen</th></tr>
+<tr><td><b>The route</b></td><td>The ride's route, put on the ride map at <b>check-in</b> (with its trailhead, fitted)</td><td>None</td><td><b>Exact</b> — the planned path</td><td>Every tablet, from check-in</td></tr>
+<tr><td><b>The lead track</b></td><td>The <b>Leader's radio position reports</b> (TAK reports, every 4 s moving / 15 s stopped), joined with straight lines</td><td><b>None extra</b> — the Leader's radio sends these reports anyway, like every radio</td><td>Good when reports are frequent; <b>cuts corners</b> when they are sparse (see below)</td><td>Every tablet, live</td></tr>
+<tr><td><b>My track</b></td><td><b>The tablet's own GPS</b>, about once a second</td><td>None — recorded and drawn entirely on the tablet</td><td><b>Follows the trail precisely</b> — dense enough to hold every bend and switchback with no snapping</td><td>Behind my cart, on my map, live; <b>saved at END</b> as the ride's track</td></tr>
+</table>
+
+<h2>Facts established (09-28)</h2>
+<div class="card"><span class="tag t-fact">FACT</span><b>The lead track adds no radio traffic.</b> It is drawn from the Leader's normal position reports, which every radio sends regardless (Fred, 09-28). An earlier statement that it "depends on radio traffic" was wrong: the only dependency is <b>reception</b>.</div>
+<div class="card"><span class="tag t-fact">FACT</span><b>Reception gaps.</b> Out of range of the Leader, the lead track has gaps. The existing <b>proxy snap</b> (the lead track borrows the nearest cart's position after a stale tick) covers short gaps.</div>
+<div class="card"><span class="tag t-fact">FACT</span><b>Large groups space the reports out</b> (Fred, 09-28). With many radios sharing the channel, reports are delayed or dropped; at 15 s or more between points, straight lines <b>cut across switchbacks and bends</b>, and the lead track looks off the trail even when the Leader never left it — misleading exactly where it matters.</div>
+<div class="card"><span class="tag t-fact">FACT</span><b>My track is the accurate record.</b> About one GPS point a second from the tablet itself; no radio involved. The code keeps it separately from the lead track (the GPS trail segments). It is what gets saved at END — named after the ride, rated, and optionally shared.</div>
+<div class="card"><span class="tag t-fact">FACT</span><b>The Leader is now known from the ride roles.</b> Proven 09-28: the special roles (Leader → TAK Team Lead, Middle → RTO, Tail gunner → Forward Observer) travel in a standard TAK position report that the tablet fills in; every tablet lifts the role and the tick makes that cart the lead / tail. So the lead track follows the <b>assigned</b> Leader, not a guess.</div>
+
+<h2>Options</h2>
+<table>
+<tr><th>Option</th><th>Strengths</th><th>Weaknesses</th><th>Fits</th></tr>
+<tr><td><b>A. Route + my track</b> (lead track off)</td><td>Exact plan; exact personal record; clean map; unaffected by group size</td><td>Does not show a deviation from the plan (detour, closed trail)</td><td>Planned rides, especially <b>large groups</b></td></tr>
+<tr><td><b>B. Route + my track + lead track</b></td><td>Shows the plan <i>and</i> where the Leader actually went</td><td>Lead track cuts corners when reports are sparse; busier map</td><td>Small groups; rides likely to leave the plan</td></tr>
+<tr><td><b>C. Lead track + my track</b> (no route)</td><td>Works with no planned route</td><td>Only as good as the Leader's reception and report rate</td><td>Improvised rides, <b>No scheduled ride</b> groups</td></tr>
+<tr><td><b>D. Lead track snapped to the trail network</b></td><td>Removes the corner cutting</td><td>A substantial feature (map-matching against the trail data); only worth it if riders really want the live lead track</td><td>Later, if field tests show demand</td></tr>
+</table>
+
+<h2>Proposed defaults (to be confirmed in the field)</h2>
+<div class="card"><span class="tag t-dec">PROPOSED</span>
+<ul>
+<li><b>Large groups on a planned route:</b> <b>A</b> — route + my track, lead track off.</li>
+<li><b>Small groups, or an improvised ride:</b> <b>B</b> or <b>C</b> — lead track on.</li>
+<li><b>The switch already exists:</b> <i>Show Lead Track</i> — the Leader (or each rider) turns it on when the ride goes off plan.</li>
+<li><b>My track is always on</b> — it is the accurate record and costs nothing.</li>
+</ul>
+<p class="dim">Fred, 09-28: "we will let it play out." Nothing here is decided until the field tests.</p>
+</div>
+
+<h2>Open questions — January field tests (Utah)</h2>
+<div class="card"><span class="tag t-open">OPEN</span>
+<ul>
+<li>On a <b>planned</b> ride, do riders want the Leader's live track, or just the route?</li>
+<li>In a <b>large group</b>, what report interval do we actually see, and how badly does the lead track cut corners?</li>
+<li>Does <b>my track</b> draw behind my cart live, following the trail, independent of the lead track? (confirm on the trail)</li>
+<li>Is the <b>proxy snap</b> enough for the gaps we see, or do riders read the gaps as errors?</li>
+<li>Is a <b>snapped lead track (D)</b> worth building?</li>
+</ul>
+</div>
+
+<h2>Rejected — and why</h2>
+<div class="card"><span class="tag t-rej">CORRECTED</span><b>"The lead track depends on radio traffic."</b> Wrong: it uses the reports the Leader's radio sends anyway. Its only dependency is reception. (Fred, 09-28)</div>
+
+<h2>Related (09-28)</h2>
+<div class="card">
+<ul>
+<li><b>Ride roles:</b> the special roles broadcast in a tablet-filled TAK position report — every 30 s from check-in until 3 minutes after REC, then silent; fixed until reassigned (a reassignment broadcasts, HQ = Rider) or END. Blank role = Rider.</li>
+<li><b>Trailhead order:</b> everybody checks in first thing (the check-in puts each radio on the ride's network); special roles among the first; the ride starts when everyone has checked in.</li>
+<li><b>Commits:</b> <code>48c2a81a3</code> role report test (proven both ways) · roles into lead/tail every tick · <code>59b7ebb2e</code> own role in the same role store.</li>
+</ul>
+</div>
+
+</div></body>
+</html>
