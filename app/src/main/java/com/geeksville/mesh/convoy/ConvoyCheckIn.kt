@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import androidx.compose.foundation.layout.heightIn   // CHECKINTIGHT-2026-09-29
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -48,7 +49,8 @@ object CheckInLauncher {
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: () -> Unit) {   // CHECKINMAP: + show on the ride map
+fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: () -> Unit,
+                 heldBy: Map<String, String>) {   // HELDROLE-2026-09-29: special role -> the callsign of ANOTHER cart holding it (as SELECT CART shows)   // CHECKINMAP: + show on the ride map
     val me = remember { ConvoyProfileStore.load() }
     val rides = remember { ConvoyRideStore.openRecentRides() }
     val today = remember { java.time.LocalDate.now().toString() }
@@ -102,7 +104,7 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
                     if (shown.isNotEmpty()) rideList.scrollToItem(todayAt)   // CHECKINORG: always at today
                 }
                 if (shown.isEmpty()) Text(if (rides.isEmpty()) "No rides on this tablet." else "No rides here.", color = dim, fontSize = 12.sp)
-                else androidx.compose.foundation.lazy.LazyColumn(state = rideList, modifier = Modifier.fillMaxWidth().height(200.dp)) {
+                else androidx.compose.foundation.lazy.LazyColumn(state = rideList, modifier = Modifier.fillMaxWidth().heightIn(max = 170.dp)) {   // CHECKINTIGHT-2026-09-29: sizes to its rides
                     items(shown.size) { i ->
                         val r = shown[i]
                         FilterChip(selected = picked && chosen?.rideId == r.rideId,
@@ -116,19 +118,38 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
                     label = { Text("No scheduled ride") })
                 if (picked && chosen == null)
                     Text("A normal recording: no survey and no sharing \u2014 you name the track at the end.", color = dim, fontSize = 12.sp)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))   // CHECKINTIGHT-2026-09-29
                 OutlinedTextField(value = callsign, onValueChange = { callsign = it.take(39) }, singleLine = true,
                     modifier = Modifier.fillMaxWidth(), label = { Text("Callsign for this ride") })
                 if (me != null && callsign.trim() != me.callsign)
                     Text("For this ride only \u2014 your profile is not changed.", color = dim, fontSize = 12.sp)
                 // CHECKINFIX2-2026-09-27 (Fred): the role is ALWAYS on this panel -- No scheduled ride included.
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))   // CHECKINTIGHT-2026-09-29
                 Text("Role", fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    roles.take(2).forEach { (v, l) -> FilterChip(selected = role == v, onClick = { role = v }, label = { Text(l) }) }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {   // CHECKINTIGHT-2026-09-29: all four roles in ONE row
+                    roles.forEach { (v, l) -> FilterChip(selected = role == v, onClick = { role = v }, label = { Text(l) }) }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    roles.drop(2).forEach { (v, l) -> FilterChip(selected = role == v, onClick = { role = v }, label = { Text(l) }) }
+                // HELDROLE-2026-09-29 (Fred): ONE Leader, ONE Middle, ONE Tail gunner. A special role another cart already holds
+                // cannot be taken here; only a Leader, Middle or Tail gunner can reassign it. Rider is never limited.
+                // HELDROLE2-2026-09-29 (Fred): shown as a RED WINDOW across the screen (the inline line fell below the visible
+                // panel). Chosen or pre-selected, a held role goes back to Rider and the check-in continues -- choose again.
+                var heldWarn by remember { mutableStateOf<String?>(null) }
+                androidx.compose.runtime.LaunchedEffect(role, heldBy) {
+                    if (heldBy[role] != null) { heldWarn = role; role = "rider" }
+                }
+                heldWarn?.let { w ->
+                    val label = roles.firstOrNull { it.first == w }?.second ?: w
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { heldWarn = null },
+                        containerColor = Color(0xFFB3261E),
+                        titleContentColor = Color.White,
+                        textContentColor = Color.White,
+                        title = { Text("\u26D4 " + label + " is taken", fontWeight = FontWeight.Black, fontSize = 22.sp) },
+                        text = { Text(label + " is already held by " + (heldBy[w] ?: "another cart") + ".\n\n" +
+                            "A Leader, Middle or Tail gunner can reassign it.\n\nChoose another role to check in.", fontSize = 17.sp) },
+                        confirmButton = { TextButton(onClick = { heldWarn = null }) {
+                            Text("CHOOSE ANOTHER ROLE", color = Color.White, fontWeight = FontWeight.Black) } }
+                    )
                 }
                 if (chosen != null) Row {   // CHECKINMAP-2026-09-28
                     androidx.compose.material3.Checkbox(checked = showOnMap, onCheckedChange = { showOnMap = it })
@@ -151,7 +172,7 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
             }
         },
         confirmButton = {
-            TextButton(enabled = picked && callsign.isNotBlank() && radioOn, onClick = {   // CHECKINRADIO: a radio is required
+            TextButton(enabled = picked && callsign.isNotBlank() && radioOn && heldBy[role] == null /* HELDROLE-2026-09-29 */, onClick = {   // CHECKINRADIO: a radio is required
                 if (needsSetup) {
                     // CHECKINAPPLY-2026-09-28 (Fred): set the radio up for this ride FIRST (the configurator's own apply,
                     // straight away), then check in -- or reopen with the choices kept if the setup fails.

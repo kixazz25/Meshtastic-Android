@@ -572,6 +572,61 @@ class ConvoyViewModel @Inject constructor(
         }
     }
 
+    // === GPSPANEL-2026-09-29 (Fred): "Sent every XX seconds" -- the location interval, written to the radio ONCE ===
+    // Replaces setGpsInterval (the retired HUD slider), which wrote gps_update_interval -- the GPS FIX rate, not the
+    // SENDING rate -- on every drag step, as a two-field PositionConfig that wiped the radio's other position settings.
+    // This reads the radio's FULL current position section and changes ONLY broadcast_smart_minimum_interval_secs
+    // (how often it sends its location while moving; the ride configuration's 4 s), with the configurator's own
+    // awaited calls (radioOps): begin -> write -> commit, then 3 s -> disconnect -> 10 s -> reconnect (Fred 09-29).
+    // Runs on viewModelScope so closing the panel cannot cut it off between the disconnect and the reconnect.
+    // FUTURE (Fred 09-29): the LEADER's panel request broadcast in a REPORT (as the ride roles are) and applied by
+    //   every cart's tablet to its own radio -- the whole group changes together; only a Leader's request honoured.
+    // FUTURE (Fred 09-29): the interval set by group VOLUME at check-in (carts -> seconds, from collected field data).
+    private val _gpsApply = MutableStateFlow<String?>(null)          // CODE RULE 1: null = nothing to report (idle)
+    val gpsApply: StateFlow<String?> = _gpsApply.asStateFlow()
+    private val _gpsApplyBusy = MutableStateFlow(false)
+    val gpsApplyBusy: StateFlow<Boolean> = _gpsApplyBusy.asStateFlow()
+    fun clearGpsApplyStatus() { if (!_gpsApplyBusy.value) _gpsApply.value = null }
+
+    fun applyLocationInterval(ui: com.geeksville.mesh.model.UIViewModel, secs: Int) {
+        if (_gpsApplyBusy.value) return
+        if (secs !in 3..10) { _gpsApply.value = "Enter a number from 3 to 10."; return }
+        val ops = radioOps(ui) ?: run { _gpsApply.value = "Connect your radio first (GRP Awareness)."; return }
+        _gpsApplyBusy.value = true
+        viewModelScope.launch {
+            var disconnected = false
+            try {
+                // DeviceProfile.config / .position are optional in the proto: null = the app has not read them yet.
+                val pos = ops.retrieve().config?.position
+                if (pos == null) { _gpsApply.value = "The radio's settings are not read yet -- try again in a moment."; return@launch }
+                val was = pos.broadcast_smart_minimum_interval_secs
+                if (was == secs) { _gpsApply.value = "Already every $secs s -- nothing to change."; return@launch }
+                android.util.Log.i("GPSINT", "apply ${was}s -> ${secs}s at ${System.currentTimeMillis()}")
+                _gpsApply.value = "Writing every $secs s to the radio..."
+                ops.beginEdit()
+                ops.writeConfig(org.meshtastic.proto.Config(position = pos.copy(broadcast_smart_minimum_interval_secs = secs)))
+                ops.commitEdit()
+                _currentIntervalSecs.value = secs
+                android.util.Log.i("GPSINT", "written at ${System.currentTimeMillis()}")
+                _gpsApply.value = "Written. Disconnecting in 3 s..."
+                kotlinx.coroutines.delay(3_000)
+                ops.disconnect(); disconnected = true
+                android.util.Log.i("GPSINT", "disconnect at ${System.currentTimeMillis()}")
+                _gpsApply.value = "Radio restarting. Reconnecting in 10 s..."
+                kotlinx.coroutines.delay(10_000)
+                ops.reconnect(); disconnected = false
+                android.util.Log.i("GPSINT", "reconnect at ${System.currentTimeMillis()}")
+                _gpsApply.value = "Done -- location sent every $secs s while moving."
+            } catch (e: Exception) {
+                android.util.Log.e("GPSINT", "failed: ${e.message}", e)
+                _gpsApply.value = "Could not apply: ${e.message ?: e.javaClass.simpleName}"
+                if (disconnected) runCatching { ops.reconnect() }.onSuccess { android.util.Log.i("GPSINT", "reconnect after failure") }
+            } finally {
+                _gpsApplyBusy.value = false
+            }
+        }
+    }
+
     fun removeNode(nodeId: String) {
         _selectedNode.value = null
         _hudMode.value = HudMode.GROUP

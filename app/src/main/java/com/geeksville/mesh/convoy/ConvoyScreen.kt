@@ -615,6 +615,11 @@ fun ConvoyScreen(
     var showCheckIn by CheckInLauncher.showing   // CHECKINAPPLY-2026-09-28: shared -- the check-in reopens after a radio setup that failed
     if (showCheckIn) {
         CheckInSheet(
+            // HELDROLE-2026-09-29 (Fred): the roles already held -- the SAME node list the group check-in panel (SELECT CART) shows,
+            // other carts only (my own cart excluded, so re-checking in with my own role is never a conflict).
+            heldBy = convoyState.nodes
+                .filter { !it.isMyCart && it.rideRole in setOf("leader", "middle", "tail_gunner") }
+                .associate { it.rideRole to it.callsign.ifBlank { it.nodeId } },
             onDone = { ci, showOnMap ->
                 viewModel.checkIn.value = ci
                 viewModel.startRoleReports(if (ci.rideId != null) ci.role else "")   // ROLEREPORT-2026-09-29 (Fred): the test run
@@ -2934,8 +2939,23 @@ fun ConvoyScreen(
 
         val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
         val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
+        // GPSPANEL-2026-09-29 (Fred): the GPS button's panel -- "Sent every XX seconds" (3-10), applied to the radio ONCE.
+        val gpsLocalCfg by channelViewModel.localConfig.collectAsStateWithLifecycle()
+        val gpsNowSecs = gpsLocalCfg.position?.broadcast_smart_minimum_interval_secs ?: 0   // proto optional: 0 = not read yet
+        val gpsStatus by viewModel.gpsApply.collectAsStateWithLifecycle()
+        val gpsBusy by viewModel.gpsApplyBusy.collectAsStateWithLifecycle()
+        var showGpsPanel by remember { mutableStateOf(false) }
+        if (showGpsPanel) GpsIntervalDialog(
+            currentSecs = gpsNowSecs, channelUtil = avgChannelUtil, carts = convoyState.nodes.size,
+            status = gpsStatus, busy = gpsBusy,
+            onApply = { secs -> viewModel.applyLocationInterval(uiViewModel, secs) },
+            onDismiss = { showGpsPanel = false; viewModel.clearGpsApplyStatus() }
+        )
         // ── HUD strip ─────────────────────────────────────────────────────
         Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 48.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { // GPSPANEL-2026-09-29
+                if (hudMode != HudMode.COLLAPSED) GpsLocationRow(intervalSecs = gpsNowSecs, channelUtil = avgChannelUtil,
+                    onOpen = { viewModel.clearGpsApplyStatus(); showGpsPanel = true })
             when (hudMode) {
                 HudMode.GROUP -> GroupHud(
                     state = convoyState,
@@ -2981,6 +3001,7 @@ fun ConvoyScreen(
                     onExpand = { viewModel.setHudMode(HudMode.GROUP) }
                 )
             }
+            } // GPSPANEL-2026-09-29: end of the column (GPS row on top of the HUD)
         }
     }
     }
@@ -3020,7 +3041,7 @@ fun GroupHud(
         // is ConvoyViewModel.myNodeInfo != null (what ConvoyApplyRadioScreen uses). If
         // convoy state is ever populated without a radio (see simulationMode), guard
         // setGpsInterval too.
-        if (state.nodes.size > 1) {
+        if (false) { // GPSPANEL-2026-09-29: the slider is retired -- the GPS button's panel replaces it
         // Vertical interval slider — flush against HudCard
         Column(
             modifier = Modifier.padding(0.dp).offset(x = (-12).dp),
@@ -3071,7 +3092,7 @@ fun GroupHud(
                         modifier = Modifier.padding(bottom = 6.dp),
                         style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
                 }
-                Column(horizontalAlignment = Alignment.CenterHorizontally,
+                if (false) /* GPSPANEL-2026-09-29: CH% moved to the GPS row on top of the HUD */ Column(horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(bottom = 6.dp)) {
                     Text("CH%", color = Color(0xFF111111), fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
@@ -3694,4 +3715,97 @@ fun convoyParseGpx(text: String): List<Pair<Double, Double>> {
         }
     }
     return coords
+}
+
+// === GPSPANEL-2026-09-29 (Fred): the GPS button + congestion meter (on top of the HUD, left edge), and its panel ===
+// Crisp text on solid dark backgrounds (no blurred halo -- see the outdoor-legibility work).
+private fun gpsChColor(util: Float): Color = when {
+    util > 40f -> Color(0xFFFF4444)      // red: a congestion problem
+    util > 25f -> Color(0xFFFFAA00)      // yellow: the range to adjust in
+    else       -> Color(0xFF00CC44)      // green: leave it
+}
+
+@Composable
+fun GpsLocationRow(intervalSecs: Int, channelUtil: Float, onOpen: () -> Unit) {
+    val c = gpsChColor(channelUtil)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.padding(start = 4.dp)) {
+        // the satellite with "GPS" across it -- tap to open "Sent every XX seconds"
+        Box(modifier = Modifier.size(54.dp)
+                .background(Color(0xE6111820), RoundedCornerShape(10.dp))
+                .clickable { onOpen() },
+            contentAlignment = Alignment.Center) {
+            Text("\uD83D\uDEF0", fontSize = 28.sp)
+            Text("GPS", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black,
+                modifier = Modifier.background(Color(0xDD2E75B6), RoundedCornerShape(3.dp)).padding(horizontal = 4.dp))
+        }
+        // the meter: the interval, and the channel use in its colour
+        // GPSMETER-CLEAR-2026-09-29: transparent -- no tile; crisp dark outline instead of a background or a blurred halo
+        Column(modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp)) {
+            GpsOutlinedText(if (intervalSecs > 0) "${intervalSecs} s" else "-- s", Color.White, 18, FontWeight.Black)   // GPSMETER-LABEL-2026-09-29
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(modifier = Modifier.size(12.dp)
+                    .background(Color(0xFF111111), RoundedCornerShape(3.dp))
+                    .padding(1.5.dp)
+                    .background(c, RoundedCornerShape(2.dp)))
+                GpsOutlinedText("%.0f%%".format(channelUtil), c, 18, FontWeight.Black)
+            }
+        }
+    }
+}
+
+@Composable
+fun GpsIntervalDialog(currentSecs: Int, channelUtil: Float, carts: Int, status: String?, busy: Boolean,
+                      onApply: (Int) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(if (currentSecs in 3..10) currentSecs.toString() else "") }
+    val secs = text.trim().toIntOrNull()
+    val valid = secs != null && secs in 3..10
+    val done = status?.startsWith("Done") == true
+    val c = gpsChColor(channelUtil)
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Sent every " + (if (currentSecs > 0) "$currentSecs" else "--") + " seconds", fontWeight = FontWeight.Bold) },   // GPSMETER-LABEL-2026-09-29
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Now: every " + (if (currentSecs > 0) "$currentSecs s" else "--") + " while moving")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Channel use ")
+                    Text("%.0f%%".format(channelUtil), color = c, fontWeight = FontWeight.Black)
+                    Text("  \u00b7  $carts carts")
+                }
+                Text("Green: leave it.  Yellow: send less often (a higher number).  Red: congestion.", fontSize = 12.sp)
+                androidx.compose.material3.OutlinedTextField(
+                    value = text,
+                    onValueChange = { v -> text = v.filter { it.isDigit() }.take(2) },
+                    label = { Text("Seconds (3 to 10)") },
+                    singleLine = true,
+                    enabled = !busy,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                )
+                if (text.isNotEmpty() && !valid) Text("Enter a number from 3 to 10.", color = Color(0xFFFF6B6B))
+                if (status != null) Text(status, fontWeight = FontWeight.Bold)
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = { secs?.let(onApply) },
+                enabled = valid && !busy && !done && secs != currentSecs) { Text("APPLY") }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss, enabled = !busy) { Text(if (done) "CLOSE" else "CANCEL") }
+        }
+    )
+}
+
+// GPSMETER-CLEAR-2026-09-29: text that stays readable over the map with no background -- a dark STROKE drawn under the fill.
+// A crisp edge, not a blur (the blurred white halo is what reads as haze outdoors).
+@Composable
+private fun GpsOutlinedText(text: String, color: Color, sizeSp: Int, weight: FontWeight) {
+    Box {
+        Text(text, color = Color(0xFF111111), fontSize = sizeSp.sp, fontWeight = weight,
+            style = androidx.compose.ui.text.TextStyle(
+                drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
+                    width = 6f, join = androidx.compose.ui.graphics.StrokeJoin.Round)))
+        Text(text, color = color, fontSize = sizeSp.sp, fontWeight = weight)
+    }
 }
