@@ -622,8 +622,9 @@ fun ConvoyScreen(
                 .associate { it.rideRole to it.callsign.ifBlank { it.nodeId } },
             onDone = { ci, showOnMap ->
                 viewModel.checkIn.value = ci
-                viewModel.startRoleReports(if (ci.rideId != null) ci.role else "")   // ROLEREPORT-2026-09-29 (Fred): the test run
-                CartPickerLauncher.open()   // CARTLIST2-2026-09-28 (Fred): see who is on the network
+                viewModel.startRoleReports(ci.role)   // ROLEANYRIDE-2026-09-29 (Fred): broadcast on ANY ride, scheduled or not   // ROLEREPORT-2026-09-29 (Fred): the test run
+                // NOCARTPOP-2026-09-29 (Fred): SELECT CART no longer pops up after check-in -- it opens from the
+                // CHECKIN / SELECT CART button.
                 // CHECKINMAP-2026-09-28 (Fred): the ride map shows THIS ride's route and its trailhead -- done the way FIT
                 // does it: every type OFF, the route + its trailhead waypoint SELECTED, the frame fitted to both, saved.
                 if (showOnMap && ci.rideId != null) {
@@ -1783,17 +1784,10 @@ fun ConvoyScreen(
                 // PLAINCTRL-2026-08-17: words, not a glyph -- riders are 65-75
                 // and icon literacy cannot be assumed. The white blur shadow is
                 // what keeps it readable over bright satellite.
-                androidx.compose.material3.Text(
+                HiVisText(
                     "Map Keys",
                     fontSize = 13.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    style = androidx.compose.ui.text.TextStyle(
-                        shadow = androidx.compose.ui.graphics.Shadow(
-                            color = androidx.compose.ui.graphics.Color.White,
-                            offset = androidx.compose.ui.geometry.Offset(0f, 0f),
-                            blurRadius = 6f
-                        )
-                    ),
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
                 )
             }
@@ -1837,17 +1831,10 @@ fun ConvoyScreen(
             contentColor = Color(0xFFFF00FF),
             modifier = Modifier.align(Alignment.TopEnd).padding(top = 280.dp, end = 12.dp)
         ) {
-            Text(
+            HiVisText(
                 "Work with Rides",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                style = androidx.compose.ui.text.TextStyle(
-                    shadow = androidx.compose.ui.graphics.Shadow(
-                        color = androidx.compose.ui.graphics.Color.White,
-                        offset = androidx.compose.ui.geometry.Offset(0f, 0f),
-                        blurRadius = 6f
-                    )
-                ),
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
             )
         }
@@ -1872,18 +1859,11 @@ fun ConvoyScreen(
                 androidx.compose.foundation.layout.Box(
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
+                    HiVisText(
                         "GRP Awareness",
                         color = com.geeksville.mesh.convoy.grpAwarenessColor(),   // GRPAWARE: green/red, pulsing
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        style = androidx.compose.ui.text.TextStyle(
-                            shadow = androidx.compose.ui.graphics.Shadow(
-                                color = androidx.compose.ui.graphics.Color.White,
-                                offset = androidx.compose.ui.geometry.Offset(0f, 0f),
-                                blurRadius = 6f
-                            )
-                        ),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
                     )
                 }
@@ -1902,17 +1882,10 @@ fun ConvoyScreen(
         ) {
             androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
                 // PLAINCTRL2-2026-08-17: the word, for the same reason as the others.
-                androidx.compose.material3.Text(
+                HiVisText(
                     "Help",
                     fontSize = 13.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    style = androidx.compose.ui.text.TextStyle(
-                        shadow = androidx.compose.ui.graphics.Shadow(
-                            color = androidx.compose.ui.graphics.Color.White,
-                            offset = androidx.compose.ui.geometry.Offset(0f, 0f),
-                            blurRadius = 6f
-                        )
-                    ),
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
                 )
             }
@@ -1934,17 +1907,10 @@ fun ConvoyScreen(
                     // PLAINCTRL-2026-08-17: words, not a glyph. Riders are 65-75 and icon
                     // literacy cannot be assumed. White blur shadow matches GroupHud so the
                     // text survives bright satellite imagery now that the dark fill is gone.
-                    androidx.compose.material3.Text(
+                    HiVisText(
                         "Map Features",
                         fontSize = 13.sp,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        style = androidx.compose.ui.text.TextStyle(
-                            shadow = androidx.compose.ui.graphics.Shadow(
-                                color = androidx.compose.ui.graphics.Color.White,
-                                offset = androidx.compose.ui.geometry.Offset(0f, 0f),
-                                blurRadius = 6f
-                            )
-                        ),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
                     )
                 }
@@ -2929,7 +2895,7 @@ fun ConvoyScreen(
                     .associate { it.rideRole to it.callsign.ifBlank { it.nodeId } },
                 onApply = { newRole ->
                     viewModel.checkIn.value = rci.copy(role = newRole)
-                    viewModel.startRoleReports(if (rci.rideId != null) newRole else "")
+                    viewModel.startRoleReports(newRole)   // ROLEANYRIDE-2026-09-29 (Fred): broadcast on ANY ride, scheduled or not
                     showRoleChange = false
                 },
                 onDismiss = { showRoleChange = false }
@@ -3091,26 +3057,22 @@ fun GroupHud(
         }
         } // HUDINTGATE-2026-08-17: end group-only interval slider
         HudCard {
-            Text("GROUP", color = Color(0xFF111111), fontSize = 13.sp,
+            HiVisText("GROUP", color = Color.White, fontSize = 13.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
-                modifier = Modifier.padding(bottom = 4.dp),
-                style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
+                modifier = Modifier.padding(bottom = 4.dp))
             // Row 1: SPAN big + CH% color block
             Row(verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text("SPAN", color = Color(0xFF111111), fontSize = 11.sp,
+                    HiVisText("SPAN", color = Color.White, fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
-                        modifier = Modifier.padding(end = 4.dp, bottom = 6.dp),
-                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
-                    Text("%.1f".format(state.span_miles),
-                        color = Color(0xFF111111),
-                        fontSize = 36.sp, fontWeight = FontWeight.Black, lineHeight = 36.sp,
-                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 10f)))
-                    Text(" mi", color = Color(0xFF111111), fontSize = 13.sp,
+                        modifier = Modifier.padding(end = 4.dp, bottom = 6.dp))
+                    HiVisText("%.1f".format(state.span_miles),
+                        color = Color.White,
+                        fontSize = 36.sp, fontWeight = FontWeight.Black, lineHeight = 36.sp)
+                    HiVisText(" mi", color = Color.White, fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 6.dp),
-                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
+                        modifier = Modifier.padding(bottom = 6.dp))
                 }
                 if (false) /* GPSPANEL-2026-09-29: CH% moved to the GPS row on top of the HUD */ Column(horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(bottom = 6.dp)) {
@@ -3156,14 +3118,12 @@ fun MyCartHud(
     val myCart = state.nodes.firstOrNull { it.isMyCart }
     HudCard {
         // Title
-        Text("My Cart  ★ ${myCart?.callsign ?: myCartId.takeLast(8)}", color = Color(0xFF111111), fontSize = 13.sp,
+        HiVisText("My Cart  ★ ${myCart?.callsign ?: myCartId.takeLast(8)}", color = Color.White, fontSize = 13.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
-            modifier = Modifier.padding(bottom = 6.dp),
-            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
+            modifier = Modifier.padding(bottom = 6.dp))
         if (myCart == null) {
-            Text("MY CART not found", color = Color(0xFF111111), fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
+            HiVisText("MY CART not found", color = Color.White, fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold)
         } else {
             // Row 1: Heading · Battery · Altitude
             Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -3179,17 +3139,14 @@ fun MyCartHud(
                 modifier = Modifier.padding(top = 4.dp)
             ) {
                 Column {
-                    Text("Speed", color = Color(0xFF111111), fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
-                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
+                    HiVisText("Speed", color = Color.White, fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text("%.0f".format(myCart.speed_mph), color = Color(0xFF111111),
-                            fontSize = 36.sp, fontWeight = FontWeight.Black, lineHeight = 36.sp,
-                            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 10f)))
-                        Text(" mph", color = Color(0xFF111111), fontSize = 13.sp,
+                        HiVisText("%.0f".format(myCart.speed_mph), color = Color.White,
+                            fontSize = 36.sp, fontWeight = FontWeight.Black, lineHeight = 36.sp)
+                        HiVisText(" mph", color = Color.White, fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 6.dp),
-                            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
+                            modifier = Modifier.padding(bottom = 6.dp))
                     }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -3218,10 +3175,9 @@ fun NodeDetailHud(
 ) {
     HudCard {
         // Title — cart callsign
-        Text(node.callsign, color = Color(0xFF111111), fontSize = 13.sp,
+        HiVisText(node.callsign, color = Color.White, fontSize = 13.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
-            modifier = Modifier.padding(bottom = 6.dp),
-            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
+            modifier = Modifier.padding(bottom = 6.dp))
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             HudStat("STATUS", node.status.name,
@@ -3356,14 +3312,12 @@ fun HudCard(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-fun HudStat(label: String, value: String, valueColor: Color = Color(0xFF111111)) {
+fun HudStat(label: String, value: String, valueColor: Color = Color.White) {   // HUDTEXT-2026-09-29: default white
     Column(horizontalAlignment = Alignment.Start) {
-        Text(label, color = Color(0xFF111111), fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
-            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
-        Text(value, color = valueColor, fontSize = 16.sp,
-            fontWeight = FontWeight.Black,
-            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
+        HiVisText(label, color = Color.White, fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
+        HiVisText(value, color = valueColor, fontSize = 16.sp,
+            fontWeight = FontWeight.Black)
     }
 }
 
@@ -3877,5 +3831,41 @@ fun RoleChangeDialog(currentRole: String, heldBy: Map<String, String>, onApply: 
             confirmButton = { androidx.compose.material3.TextButton(onClick = { heldWarn = null }) {
                 Text("OK", color = Color.White, fontWeight = FontWeight.Black) } }
         )
+    }
+}
+
+// === HUDTEXT-2026-09-29 (Fred): OUTDOOR LEGIBILITY -- the shared high-visibility text ===
+// The fill drawn over a CRISP DARK STROKE -- no blur (the white 6-10 px blurred glow read as haze over SAT imagery).
+// Readable over SAT (the light fill) and over TOPO / TOPO+ (the dark edge). Same parameters as Text. No colour given ->
+// the surrounding content colour, as Text does. Nullable parameters mirror Text's own API (null = inherit) -- CODE RULE 1.
+const val HIVIS_EDGE_PX = 6f          // the edge thickness -- tune outdoors, here only
+
+@Composable
+fun HiVisText(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
+    fontStyle: androidx.compose.ui.text.font.FontStyle? = null,
+    fontWeight: androidx.compose.ui.text.font.FontWeight? = null,
+    fontFamily: androidx.compose.ui.text.font.FontFamily? = null,
+    letterSpacing: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
+    textAlign: androidx.compose.ui.text.style.TextAlign? = null,
+    lineHeight: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
+    overflow: androidx.compose.ui.text.style.TextOverflow = androidx.compose.ui.text.style.TextOverflow.Clip,
+    softWrap: Boolean = true,
+    maxLines: Int = Int.MAX_VALUE,
+    edgeColor: Color = Color(0xFF111111),
+) {
+    val fill = if (color != Color.Unspecified) color else androidx.compose.material3.LocalContentColor.current
+    Box(modifier) {
+        androidx.compose.material3.Text(text, color = edgeColor, fontSize = fontSize, fontStyle = fontStyle,
+            fontWeight = fontWeight, fontFamily = fontFamily, letterSpacing = letterSpacing, textAlign = textAlign,
+            lineHeight = lineHeight, overflow = overflow, softWrap = softWrap, maxLines = maxLines,
+            style = androidx.compose.ui.text.TextStyle(drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = HIVIS_EDGE_PX, join = androidx.compose.ui.graphics.StrokeJoin.Round)))
+        androidx.compose.material3.Text(text, color = fill, fontSize = fontSize, fontStyle = fontStyle,
+            fontWeight = fontWeight, fontFamily = fontFamily, letterSpacing = letterSpacing, textAlign = textAlign,
+            lineHeight = lineHeight, overflow = overflow, softWrap = softWrap, maxLines = maxLines)
     }
 }

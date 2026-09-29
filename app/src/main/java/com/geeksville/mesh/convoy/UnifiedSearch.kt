@@ -351,17 +351,10 @@ fun UnifiedSearch(
             Box(contentAlignment = Alignment.Center) {
                 // PLAINCTRL-2026-08-17: words, not a glyph -- see the hamburger note in
                 // ConvoyScreen. Shared component, so this changes BOTH maps.
-                Text(
+                HiVisText(
                     "Search",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    style = androidx.compose.ui.text.TextStyle(
-                        shadow = androidx.compose.ui.graphics.Shadow(
-                            color = androidx.compose.ui.graphics.Color.White,
-                            offset = androidx.compose.ui.geometry.Offset(0f, 0f),
-                            blurRadius = 6f
-                        )
-                    ),
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
                 )
             }

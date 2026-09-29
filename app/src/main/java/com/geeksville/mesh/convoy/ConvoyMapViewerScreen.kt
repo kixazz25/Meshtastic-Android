@@ -1956,17 +1956,10 @@ fun ConvoyMapViewerScreen(
                     // PLAINCTRL-2026-08-17: words, not a glyph -- riders are
                     // 65-75 and icon literacy cannot be assumed. The white blur
                     // shadow is what keeps it readable over bright satellite.
-                    androidx.compose.material3.Text(
+                    HiVisText(
                         "Map Keys",
                         fontSize = 13.sp,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        style = androidx.compose.ui.text.TextStyle(
-                            shadow = androidx.compose.ui.graphics.Shadow(
-                                color = androidx.compose.ui.graphics.Color.White,
-                                offset = androidx.compose.ui.geometry.Offset(0f, 0f),
-                                blurRadius = 6f
-                            )
-                        ),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
                     )
                 }
@@ -1980,17 +1973,10 @@ fun ConvoyMapViewerScreen(
                 contentColor = Color(0xFFFF00FF),
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 272.dp, end = 12.dp)
             ) {
-                Text(
+                HiVisText(
                     "Work with Rides",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    style = androidx.compose.ui.text.TextStyle(
-                        shadow = androidx.compose.ui.graphics.Shadow(
-                            color = androidx.compose.ui.graphics.Color.White,
-                            offset = androidx.compose.ui.geometry.Offset(0f, 0f),
-                            blurRadius = 6f
-                        )
-                    ),
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
                 )
             }
@@ -2016,18 +2002,11 @@ fun ConvoyMapViewerScreen(
                     androidx.compose.foundation.layout.Box(
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
+                        HiVisText(
                             "GRP Awareness",
                             color = com.geeksville.mesh.convoy.grpAwarenessColor(),   // GRPAWARE: green/red, pulsing
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            style = androidx.compose.ui.text.TextStyle(
-                                shadow = androidx.compose.ui.graphics.Shadow(
-                                    color = androidx.compose.ui.graphics.Color.White,
-                                    offset = androidx.compose.ui.geometry.Offset(0f, 0f),
-                                    blurRadius = 6f
-                                )
-                            ),
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
                         )
                     }
@@ -2046,17 +2025,10 @@ fun ConvoyMapViewerScreen(
             ) {
                 androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
                     // PLAINCTRL2-2026-08-17: the word, for the same reason as the others.
-                    androidx.compose.material3.Text(
+                    HiVisText(
                         "Help",
                         fontSize = 13.sp,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        style = androidx.compose.ui.text.TextStyle(
-                            shadow = androidx.compose.ui.graphics.Shadow(
-                                color = androidx.compose.ui.graphics.Color.White,
-                                offset = androidx.compose.ui.geometry.Offset(0f, 0f),
-                                blurRadius = 6f
-                            )
-                        ),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
                     )
                 }
@@ -2075,17 +2047,10 @@ fun ConvoyMapViewerScreen(
                     modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 12.dp)
                 ) {
                     androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                        androidx.compose.material3.Text(
+                        HiVisText(
                             "Map Features",
                             fontSize = 13.sp,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                            style = androidx.compose.ui.text.TextStyle(
-                                shadow = androidx.compose.ui.graphics.Shadow(
-                                    color = androidx.compose.ui.graphics.Color.White,
-                                    offset = androidx.compose.ui.geometry.Offset(0f, 0f),
-                                    blurRadius = 6f
-                                )
-                            ),
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
                         )
                     }
