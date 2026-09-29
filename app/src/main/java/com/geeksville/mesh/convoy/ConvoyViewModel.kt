@@ -651,8 +651,8 @@ class ConvoyViewModel @Inject constructor(
                 kotlinx.coroutines.delay(3_000)
                 ops.disconnect(); disconnected = true
                 android.util.Log.i("GPSINT", "disconnect at ${System.currentTimeMillis()}")
-                _gpsApply.value = "Radio restarting. Reconnecting in 10 s..."
-                kotlinx.coroutines.delay(10_000)
+                _gpsApply.value = "Radio restarting. Reconnecting in 20 s..."
+                kotlinx.coroutines.delay(20_000)   // GPSRECON20-2026-09-29 (Fred): 10 s was too short for the radio to restart
                 ops.reconnect(); disconnected = false
                 android.util.Log.i("GPSINT", "reconnect at ${System.currentTimeMillis()}")
                 _gpsApply.value = "Done -- location sent every $secs s while moving."

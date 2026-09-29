@@ -1784,7 +1784,8 @@ fun ConvoyScreen(
                 // PLAINCTRL-2026-08-17: words, not a glyph -- riders are 65-75
                 // and icon literacy cannot be assumed. The white blur shadow is
                 // what keeps it readable over bright satellite.
-                HiVisText(
+                // NAVPLAIN-2026-09-29 (Fred): the navigation words are PLAIN coloured text -- no glow, no outline.
+                androidx.compose.material3.Text(
                     "Map Keys",
                     fontSize = 13.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
@@ -1831,7 +1832,7 @@ fun ConvoyScreen(
             contentColor = Color(0xFFFF00FF),
             modifier = Modifier.align(Alignment.TopEnd).padding(top = 280.dp, end = 12.dp)
         ) {
-            HiVisText(
+            androidx.compose.material3.Text(
                 "Work with Rides",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
@@ -1859,7 +1860,7 @@ fun ConvoyScreen(
                 androidx.compose.foundation.layout.Box(
                     contentAlignment = Alignment.Center
                 ) {
-                    HiVisText(
+                    androidx.compose.material3.Text(
                         "GRP Awareness",
                         color = com.geeksville.mesh.convoy.grpAwarenessColor(),   // GRPAWARE: green/red, pulsing
                         fontSize = 13.sp,
@@ -1882,7 +1883,7 @@ fun ConvoyScreen(
         ) {
             androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
                 // PLAINCTRL2-2026-08-17: the word, for the same reason as the others.
-                HiVisText(
+                androidx.compose.material3.Text(
                     "Help",
                     fontSize = 13.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
@@ -1907,7 +1908,7 @@ fun ConvoyScreen(
                     // PLAINCTRL-2026-08-17: words, not a glyph. Riders are 65-75 and icon
                     // literacy cannot be assumed. White blur shadow matches GroupHud so the
                     // text survives bright satellite imagery now that the dark fill is gone.
-                    HiVisText(
+                    androidx.compose.material3.Text(
                         "Map Features",
                         fontSize = 13.sp,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
@@ -2937,8 +2938,11 @@ fun ConvoyScreen(
             onApply = { secs -> viewModel.applyLocationInterval(uiViewModel, secs) },
             onDismiss = { showGpsPanel = false; viewModel.clearGpsApplyStatus() }
         )
+        // HUDSCHEME-2026-09-29 (Fred): the HUD's colour scheme follows the map -- SAT (or a hybrid) is dark imagery.
+        val hudOnDark = mapTypeLabel.uppercase().let { it.startsWith("SAT") || it.contains("HYB") }
         // ── HUD strip ─────────────────────────────────────────────────────
         Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 48.dp)) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalHudOnDark provides hudOnDark) {   // HUDSCHEME-2026-09-29
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { // GPSPANEL-2026-09-29
                 if (hudMode != HudMode.COLLAPSED) GpsLocationRow(intervalSecs = gpsNowSecs, channelUtil = avgChannelUtil,
                     onOpen = { viewModel.clearGpsApplyStatus(); showGpsPanel = true })
@@ -2988,6 +2992,7 @@ fun ConvoyScreen(
                 )
             }
             } // GPSPANEL-2026-09-29: end of the column (GPS row on top of the HUD)
+            } // HUDSCHEME-2026-09-29: end of the HUD's colour scheme
         }
     }
     }
@@ -3841,6 +3846,10 @@ fun RoleChangeDialog(currentRole: String, heldBy: Map<String, String>, onApply: 
 // HUDEDGE-2026-09-29 (Fred): the edge SCALES WITH THE TEXT -- a fixed 6 px flooded the small letters. Tune outdoors, here only.
 const val HIVIS_EDGE_RATIO = 0.06f    // edge = 6% of the font size in pixels
 const val HIVIS_EDGE_MIN_PX = 1.5f    // never thinner than this
+// HUDSCHEME-2026-09-29 (Fred): NO edge -- plain text, white on the dark map (SAT), dark on the light maps (TOPO / TOPO+).
+const val HIVIS_EDGE_ON = false       // the outline, kept for the field: set true to bring it back
+/** HUDSCHEME-2026-09-29: true when the HUD sits over a DARK map (SAT). Provided around the HUD strip by the ride map. */
+val LocalHudOnDark = androidx.compose.runtime.compositionLocalOf { true }
 
 @Composable
 fun HiVisText(
@@ -3859,13 +3868,18 @@ fun HiVisText(
     maxLines: Int = Int.MAX_VALUE,
     edgeColor: Color = Color(0xFF111111),
 ) {
-    val fill = if (color != Color.Unspecified) color else androidx.compose.material3.LocalContentColor.current
+    val onDark = LocalHudOnDark.current   // HUDSCHEME-2026-09-29
+    val fill = when {
+        color == Color.Unspecified -> androidx.compose.material3.LocalContentColor.current
+        color == Color.White && !onDark -> Color(0xFF111111)   // labels: dark on the light maps
+        else -> color                                           // colours unchanged
+    }
     val sizePx = with(androidx.compose.ui.platform.LocalDensity.current) {
         (if (fontSize.isSp) fontSize else 14.sp).toPx()
     }
     val edgePx = maxOf(HIVIS_EDGE_MIN_PX, sizePx * HIVIS_EDGE_RATIO)   // HUDEDGE-2026-09-29
     Box(modifier) {
-        androidx.compose.material3.Text(text, color = edgeColor, fontSize = fontSize, fontStyle = fontStyle,
+        if (HIVIS_EDGE_ON) androidx.compose.material3.Text(text, color = edgeColor, fontSize = fontSize, fontStyle = fontStyle,
             fontWeight = fontWeight, fontFamily = fontFamily, letterSpacing = letterSpacing, textAlign = textAlign,
             lineHeight = lineHeight, overflow = overflow, softWrap = softWrap, maxLines = maxLines,
             style = androidx.compose.ui.text.TextStyle(drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(

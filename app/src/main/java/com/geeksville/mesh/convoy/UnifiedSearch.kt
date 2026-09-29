@@ -351,7 +351,8 @@ fun UnifiedSearch(
             Box(contentAlignment = Alignment.Center) {
                 // PLAINCTRL-2026-08-17: words, not a glyph -- see the hamburger note in
                 // ConvoyScreen. Shared component, so this changes BOTH maps.
-                HiVisText(
+                // NAVPLAIN-2026-09-29 (Fred): the navigation words are PLAIN coloured text -- no glow, no outline.
+                androidx.compose.material3.Text(
                     "Search",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,

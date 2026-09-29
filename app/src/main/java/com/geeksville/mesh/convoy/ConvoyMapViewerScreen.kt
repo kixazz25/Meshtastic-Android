@@ -1956,7 +1956,8 @@ fun ConvoyMapViewerScreen(
                     // PLAINCTRL-2026-08-17: words, not a glyph -- riders are
                     // 65-75 and icon literacy cannot be assumed. The white blur
                     // shadow is what keeps it readable over bright satellite.
-                    HiVisText(
+                    // NAVPLAIN-2026-09-29 (Fred): the navigation words are PLAIN coloured text -- no glow, no outline.
+                    androidx.compose.material3.Text(
                         "Map Keys",
                         fontSize = 13.sp,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
@@ -1973,7 +1974,7 @@ fun ConvoyMapViewerScreen(
                 contentColor = Color(0xFFFF00FF),
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 272.dp, end = 12.dp)
             ) {
-                HiVisText(
+                androidx.compose.material3.Text(
                     "Work with Rides",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
@@ -2002,7 +2003,7 @@ fun ConvoyMapViewerScreen(
                     androidx.compose.foundation.layout.Box(
                         contentAlignment = Alignment.Center
                     ) {
-                        HiVisText(
+                        androidx.compose.material3.Text(
                             "GRP Awareness",
                             color = com.geeksville.mesh.convoy.grpAwarenessColor(),   // GRPAWARE: green/red, pulsing
                             fontSize = 13.sp,
@@ -2025,7 +2026,7 @@ fun ConvoyMapViewerScreen(
             ) {
                 androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
                     // PLAINCTRL2-2026-08-17: the word, for the same reason as the others.
-                    HiVisText(
+                    androidx.compose.material3.Text(
                         "Help",
                         fontSize = 13.sp,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
@@ -2047,7 +2048,7 @@ fun ConvoyMapViewerScreen(
                     modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 12.dp)
                 ) {
                     androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                        HiVisText(
+                        androidx.compose.material3.Text(
                             "Map Features",
                             fontSize = 13.sp,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
