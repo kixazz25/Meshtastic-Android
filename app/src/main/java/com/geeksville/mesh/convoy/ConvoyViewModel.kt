@@ -617,14 +617,33 @@ class ConvoyViewModel @Inject constructor(
             var disconnected = false
             try {
                 // DeviceProfile.config / .position are optional in the proto: null = the app has not read them yet.
-                val pos = ops.retrieve().config?.position
-                if (pos == null) { _gpsApply.value = "The radio's settings are not read yet -- try again in a moment."; return@launch }
+                // GPSRIDE-2026-09-29 (Fred): the ride's standard position values -- the GroupTrack default's network.standalone,
+                // "the base under every ride", exactly what the check-in's radio setup writes -- with ONLY the smart interval
+                // replaced. Every managed field is set explicitly (as RadioConfigurator.build does), so a zero read back from
+                // the radio is never written (it silenced a radio at the 15-minute firmware default on 09-29).
+                val st = runCatching {
+                    org.json.JSONObject(appContext.assets.open("grouptrack_default.json").bufferedReader().use { it.readText() })
+                        .getJSONObject("network").getJSONObject("standalone")
+                }.getOrNull()
+                if (st == null) { _gpsApply.value = "The GroupTrack default settings could not be read -- nothing written."; return@launch }
+                // CODE RULE 1: the radio's position section may not be read yet (null) -- the managed fields are all set below.
+                val pos = ops.retrieve().config?.position ?: org.meshtastic.proto.Config.PositionConfig()
+                val newPos = pos.copy(
+                    position_broadcast_secs = st.getInt("positionBroadcastSecs"),
+                    position_broadcast_smart_enabled = st.getBoolean("smartPositionEnabled"),
+                    broadcast_smart_minimum_interval_secs = secs,
+                    broadcast_smart_minimum_distance = st.getInt("smartMinDistanceMeters"),
+                    gps_mode = org.meshtastic.proto.Config.PositionConfig.GpsMode.valueOf(st.getString("gpsMode")),
+                    gps_update_interval = st.getInt("gpsUpdateSecs"),
+                    fixed_position = st.getBoolean("fixedPosition"),
+                )
                 val was = pos.broadcast_smart_minimum_interval_secs
-                if (was == secs) { _gpsApply.value = "Already every $secs s -- nothing to change."; return@launch }
-                android.util.Log.i("GPSINT", "apply ${was}s -> ${secs}s at ${System.currentTimeMillis()}")
+                if (newPos == pos) { _gpsApply.value = "Already every $secs s with the ride's settings -- nothing to change."; return@launch }
+                android.util.Log.i("GPSINT", "apply smart ${was}s -> ${secs}s, standing ${pos.position_broadcast_secs}s -> " +
+                    "${newPos.position_broadcast_secs}s at ${System.currentTimeMillis()}")
                 _gpsApply.value = "Writing every $secs s to the radio..."
                 ops.beginEdit()
-                ops.writeConfig(org.meshtastic.proto.Config(position = pos.copy(broadcast_smart_minimum_interval_secs = secs)))
+                ops.writeConfig(org.meshtastic.proto.Config(position = newPos))
                 ops.commitEdit()
                 _currentIntervalSecs.value = secs
                 android.util.Log.i("GPSINT", "written at ${System.currentTimeMillis()}")

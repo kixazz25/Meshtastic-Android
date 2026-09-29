@@ -3838,7 +3838,9 @@ fun RoleChangeDialog(currentRole: String, heldBy: Map<String, String>, onApply: 
 // The fill drawn over a CRISP DARK STROKE -- no blur (the white 6-10 px blurred glow read as haze over SAT imagery).
 // Readable over SAT (the light fill) and over TOPO / TOPO+ (the dark edge). Same parameters as Text. No colour given ->
 // the surrounding content colour, as Text does. Nullable parameters mirror Text's own API (null = inherit) -- CODE RULE 1.
-const val HIVIS_EDGE_PX = 6f          // the edge thickness -- tune outdoors, here only
+// HUDEDGE-2026-09-29 (Fred): the edge SCALES WITH THE TEXT -- a fixed 6 px flooded the small letters. Tune outdoors, here only.
+const val HIVIS_EDGE_RATIO = 0.06f    // edge = 6% of the font size in pixels
+const val HIVIS_EDGE_MIN_PX = 1.5f    // never thinner than this
 
 @Composable
 fun HiVisText(
@@ -3858,12 +3860,16 @@ fun HiVisText(
     edgeColor: Color = Color(0xFF111111),
 ) {
     val fill = if (color != Color.Unspecified) color else androidx.compose.material3.LocalContentColor.current
+    val sizePx = with(androidx.compose.ui.platform.LocalDensity.current) {
+        (if (fontSize.isSp) fontSize else 14.sp).toPx()
+    }
+    val edgePx = maxOf(HIVIS_EDGE_MIN_PX, sizePx * HIVIS_EDGE_RATIO)   // HUDEDGE-2026-09-29
     Box(modifier) {
         androidx.compose.material3.Text(text, color = edgeColor, fontSize = fontSize, fontStyle = fontStyle,
             fontWeight = fontWeight, fontFamily = fontFamily, letterSpacing = letterSpacing, textAlign = textAlign,
             lineHeight = lineHeight, overflow = overflow, softWrap = softWrap, maxLines = maxLines,
             style = androidx.compose.ui.text.TextStyle(drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                width = HIVIS_EDGE_PX, join = androidx.compose.ui.graphics.StrokeJoin.Round)))
+                width = edgePx, join = androidx.compose.ui.graphics.StrokeJoin.Round)))
         androidx.compose.material3.Text(text, color = fill, fontSize = fontSize, fontStyle = fontStyle,
             fontWeight = fontWeight, fontFamily = fontFamily, letterSpacing = letterSpacing, textAlign = textAlign,
             lineHeight = lineHeight, overflow = overflow, softWrap = softWrap, maxLines = maxLines)
