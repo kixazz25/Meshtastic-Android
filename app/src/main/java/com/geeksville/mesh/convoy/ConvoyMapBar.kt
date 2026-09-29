@@ -90,7 +90,7 @@ fun ConvoyMapBar(
                 ) {
                     Text(
                         label,
-                        color = if (isActive) Color.White else Color(0xFF4A6080),
+                        color = Color.White,   // SRCBTNWHITE-2026-09-29 (Fred): white on every source button -- the selected one is the blue box
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,

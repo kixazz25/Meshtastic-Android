@@ -244,16 +244,10 @@ fun GrpAwarenessPanel(
                         Text("SELECT A RIDE AND APPLY SETTINGS TO THE RADIO", color = Color(0xFF7FC4FF), fontSize = 10.sp,
                             fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
                     }
-                    Surface(modifier = Modifier.weight(1f).clickable {
-                        if (hasInternet(ctx)) {
-                            if (busy) message = "The radio must be disconnected to use the web client. Tap DISCONNECT above, then RADIO SETTINGS again."
-                            else {
-                                message = ""
-                                runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://client.meshtastic.org"))
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                            }
-                        } else onLocalSettings()
-                    }, shape = RoundedCornerShape(8.dp), color = Color(0xFF2A2210)) {
+                    // NOWEBCLIENT-2026-09-29 (Fred): RADIO SETTINGS always opens the Meshtastic app's own radio settings -- the web
+                    // client left the radio disconnected, and the internet check was unreliable (said online with it off).
+                    Surface(modifier = Modifier.weight(1f).clickable { message = ""; onLocalSettings() },
+                        shape = RoundedCornerShape(8.dp), color = Color(0xFF2A2210)) {
                         Column(modifier = Modifier.padding(8.dp)) {
                             Text("RADIO SETTINGS", color = Color(0xFFF2C14E), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             Text("\u26A0 experienced mesh operators only", color = Color(0xFFC9A659), fontSize = 9.sp)
