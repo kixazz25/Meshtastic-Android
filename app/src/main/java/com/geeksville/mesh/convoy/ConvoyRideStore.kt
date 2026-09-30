@@ -174,11 +174,12 @@ object ConvoyRideStore {
      * expiry sweep's own rule). Logs what the table holds, so an empty list explains itself.
      */
     fun openRecentRides(): List<RideChoice> = try {
+        expireRides()   // RIDESTATUS-2026-09-30: apply the rule, then read only open rides
         val today = java.time.LocalDate.now()
         var rows = 0; var sample = ""
         val out = ArrayList<RideChoice>()
         SpatialDbManager.getExtensionDb()?.rawQuery(
-            "SELECT ride_id, ride_name, ride_date, start_time, organizer_name, organizer_id, is_public, expires_at FROM rides", null)?.use { c ->
+            "SELECT ride_id, ride_name, ride_date, start_time, organizer_name, organizer_id, is_public, expires_at FROM rides WHERE COALESCE(status,'open') <> 'expired'", null)?.use { c ->
             while (c.moveToNext()) {
                 rows++
                 val exp = c.getString(7)
@@ -314,6 +315,34 @@ object ConvoyRideStore {
         }
     }
 
+    // ---- RIDESTATUS-2026-09-30 (Fred): expiry is a STATE, not a removal ------------------------------------
+    /**
+     * Marks every OPEN ride past its expiry (expires_at, or ride date + 30) as 'expired'. NOTHING is deleted: the
+     * ride row, its file, its picture and its survey stay (3.0 removes a ride only when it is expired AND its survey
+     * has been sent to AWS). A ride with no readable date is never expired (logged). Every reader of open rides runs
+     * this first. Same date rule as the old RIDEEXPIRE sweep, which deleted.
+     */
+    fun expireRides() {
+        ensureSchema()
+        val db = SpatialDbManager.getExtensionDb() ?: return
+        try {
+            val today = LocalDate.now().toString()
+            val expired = mutableListOf<String>()
+            db.rawQuery("SELECT ride_id, ride_date, expires_at FROM rides WHERE COALESCE(status,'open') <> 'expired'", null).use { c ->
+                while (c.moveToNext()) {
+                    val rid = c.getString(0) ?: continue
+                    val exp = c.getString(2)?.takeIf { it.isNotBlank() } ?: expiresFor(padDate(c.getString(1) ?: ""))
+                    if (exp == null) { Log.w(TAG, "RIDESTATUS: $rid has no readable ride date -- kept open"); continue }
+                    if (exp < today) expired += rid
+                }
+            }
+            expired.forEach { rid ->
+                db.execSQL("UPDATE rides SET status='expired', updated_at=? WHERE ride_id=?", arrayOf<Any?>(nowUtc(), rid))
+                Log.i(TAG, "RIDESTATUS: $rid expired (30 days after its ride date) -- kept, not deleted")
+            }
+        } catch (e: Exception) { Log.w(TAG, "RIDESTATUS: expiry failed: ${e.message}") }
+    }
+
     // ---- RIDEHEAL-2026-09-26 (Fred): the ride library heals itself ----------------------------------
     /**
      * Reconciles the ride FILES (rides/<id>.json) with the rides TABLE before any ride list is shown.
@@ -379,21 +408,9 @@ object ConvoyRideStore {
         }
         rows.filter { r -> files.none { it.nameWithoutExtension == r } }
             .forEach { Log.w(TAG, "RIDEHEAL: row $it has no ride file (logged only)") }
-        // RIDEEXPIRE-2026-09-26 (Fred): a ride's data is deleted 30 days after its ride date (its own published
-        // expiry: expires_at = date + 30). A ride with no readable date is never expired -- it is logged instead.
-        try {
-            val today = LocalDate.now().toString()
-            val expired = mutableListOf<String>()
-            db.rawQuery("SELECT ride_id, ride_date, expires_at FROM rides", null).use { c ->
-                while (c.moveToNext()) {
-                    val rid = c.getString(0) ?: continue
-                    val exp = c.getString(2)?.takeIf { it.isNotBlank() } ?: expiresFor(padDate(c.getString(1) ?: ""))
-                    if (exp == null) { Log.w(TAG, "RIDEEXPIRE: $rid has no readable ride date -- kept"); continue }
-                    if (exp < today) expired += rid
-                }
-            }
-            expired.forEach { deleteRide(context, it, "expired: 30 days after its ride date") }
-        } catch (e: Exception) { Log.w(TAG, "RIDEEXPIRE: sweep failed: ${e.message}") }
+        // RIDESTATUS-2026-09-30 (Fred): expiry flips the ride's STATE -- nothing is deleted
+        // (was RIDEEXPIRE-2026-09-26: deleteRide 30 days after the ride date).
+        expireRides()
     }
 
     /**
@@ -448,6 +465,15 @@ object ConvoyRideStore {
             Log.i(TAG, "RIDECFG-2026-09-23: rides.distributed_at added")
         } catch (e: Exception) {
             Log.d(TAG, "rides.distributed_at already present")
+        }
+        // RIDESTATUS-2026-09-30 (Fred): CODE RULE 3 -- one-time, no marker. Only Fred's two tablets have the rides
+        // table without it; new installs get it from schema_device_additions.sql. REMOVE with the distributed_at
+        // ALTER above when 2.7a is cut.
+        try {
+            db.execSQL("ALTER TABLE rides ADD COLUMN status TEXT NOT NULL DEFAULT 'open'")
+            Log.i(TAG, "RIDESTATUS-2026-09-30: rides.status added")
+        } catch (e: Exception) {
+            Log.d(TAG, "rides.status already present")
         }
         try {
             db.execSQL(

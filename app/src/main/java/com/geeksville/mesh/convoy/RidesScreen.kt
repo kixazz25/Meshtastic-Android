@@ -72,7 +72,7 @@ private fun loadRideLines(context: android.content.Context): List<RideLine> {
     return try {
         db.rawQuery(
             "SELECT ride_id, ride_name, ride_date, COALESCE(organizer_id,''), COALESCE(organizer_name,''), " +
-                "COALESCE(distributed_at,'') FROM rides ORDER BY created_at DESC LIMIT 200", null,
+                "COALESCE(distributed_at,'') FROM rides WHERE COALESCE(status,'open') <> 'expired' ORDER BY created_at DESC LIMIT 200", null,   // RIDESTATUS-2026-09-30: open rides only
         ).use { c ->
             val out = mutableListOf<RideLine>()
             while (c.moveToNext()) {

@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS rides (
                             CHECK (config_mode IN ('inherit_org','inherit_leader','unique')),
     config_id               TEXT,
     expires_at              TEXT,
+    distributed_at          TEXT,
+    status                  TEXT NOT NULL DEFAULT 'open',
     created_at              TEXT NOT NULL,
     updated_at              TEXT NOT NULL
 );
