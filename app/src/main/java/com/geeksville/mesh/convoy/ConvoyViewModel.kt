@@ -221,7 +221,8 @@ class ConvoyViewModel @Inject constructor(
 
         // IDENTITY: Set _myCartId ONCE — my radio node from Meshtastic, or !phone if no radio
         val myNum = _myNodeInfo.value?.myNodeNum
-        _myCartId.value = if (myNum != null) "!%08x".format(myNum) else "!phone"
+        // MYCARTGPS-2026-09-30 (Fred): radio number present -> that radio; blank -> identity unchanged.
+        if (myNum != null) _myCartId.value = "!%08x".format(myNum)
         val nodes = readLiveNodes(System.currentTimeMillis())
 
         // LEADCLEAN-2026-09-29 (Fred): the lead comes from a Leader report (the tick) or the rider's pick at REC -- nothing
@@ -522,7 +523,9 @@ class ConvoyViewModel @Inject constructor(
                 // [2026-07-01] Event-driven identity: device-default, radio overrides on connect.
                 // Guard: never reassign identity mid-recording (record-lock).
                 if (!_trackActive.value) {
-                    _myCartId.value = if (num != null) "!%08x".format(num) else "!phone"
+                    // MYCARTGPS-2026-09-30 (Fred): once a radio is assigned it stays the device. A blank node info
+                    // (radio restart, reconnect, dropout) leaves the identity as it is -- it never reverts to the tablet.
+                    if (num != null) _myCartId.value = "!%08x".format(num)
                 }
             }
         }
@@ -1124,6 +1127,14 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         // message applies once nodes are present.
         _noPositionError.value = false
         _networkPositionWarning.value = false
+        // MYCARTGPS-2026-09-30 (Fred): keep the Android substitute live WITH a radio too. A radio that restarts
+        // or reconnects has no position until its GPS fixes; my cart takes the tablet's GPS meanwhile.
+        // startPhoneGps() returns at once if the listener is already running; nothing stops it.
+        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                appContext, android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            startPhoneGps()
+        }
         // No radio — device IS a node. Phone GPS only after permission granted.
         if (nodeMap.isEmpty()) {
             if (androidx.core.content.ContextCompat.checkSelfPermission(
@@ -1212,15 +1223,27 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                     Pair(lat, lon)
                 }
             } else {
-                val fallback = lastKnownPosition[nodeId]
+                // MYCARTGPS-2026-09-30 (Fred): MY assigned radio with no position -> the tablet's current Android
+                // GPS, before anything else, until the radio's own GPS returns. Identity unchanged.
+                val myAndroid = if (nodeId == resolveMyCartId())
+                    getPhoneLocation()?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 } else null
+                if (myAndroid != null) {
+                    android.util.Log.i("MYCART", "MYCARTGPS-2026-09-30 $nodeId radio has no position -> Android GPS " +
+                        "${myAndroid.latitude},${myAndroid.longitude} (${myAndroid.provider})")
+                }
+                val fallback = if (myAndroid != null) Pair(myAndroid.latitude, myAndroid.longitude) else lastKnownPosition[nodeId]
                 if (fallback != null) {
                     convoyLog("ZERO POS: node=$callsign — using lastKnown lat=${fallback.first} lon=${fallback.second}")
                     fallback
                 } else {
                     // V2.4: No radio GPS and no lastKnown -- fall back to phone GPS
-                    val phoneLoc = getPhoneLocation()
+                    // MYCARTGPS-2026-09-30 (Fred): a REMOTE cart with no position keeps its PREVIOUS-TICK position --
+                    // never this tablet's GPS (the V2.4 rule drew other carts at my location). My cart is handled above.
+                    val phoneLoc = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+                        ?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }
+                        ?.let { prev -> android.location.Location("prevtick").apply { latitude = prev.latitude; longitude = prev.longitude } }
                     if (phoneLoc != null && phoneLoc.latitude != 0.0 && phoneLoc.longitude != 0.0) {
-                        convoyLog("ZERO POS: node=$callsign — using phone GPS lat=${phoneLoc.latitude} lon=${phoneLoc.longitude}")
+                        convoyLog("ZERO POS: node=$callsign — using previous tick (MYCARTGPS-2026-09-30) lat=${phoneLoc.latitude} lon=${phoneLoc.longitude}")
                         Pair(phoneLoc.latitude, phoneLoc.longitude)
                     } else {
                         convoyLog("ZERO POS: node=$callsign — no lastKnown, no phone GPS, dropping node this tick")
