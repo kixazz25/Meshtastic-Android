@@ -402,8 +402,9 @@ fun ArtifactDetailPanel(
             title = { Text("Change Waypoint Type") },
             text = {
                 Column {
-                    listOf("trailhead", "fuel", "gate", "hazard", "scenic",
-                        "water", "camp", "parking", "rally", "other").forEach { wType ->
+                    // WPTTYPE-2026-09-30: exactly the maps' 12 types (was scenic/camp, which the maps do not draw).
+                    listOf("trailhead", "hazard", "gate", "water", "fuel", "shelter",
+                        "viewpoint", "campsite", "parking", "junction", "rally", "other").forEach { wType ->
                         TextButton(onClick = {
                             onChangeType?.invoke(id, wType); showTypeChooser = false; onDismiss(null, null)
                         }) { Text(wType.replaceFirstChar { it.uppercase() }) }
