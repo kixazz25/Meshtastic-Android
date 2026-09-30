@@ -3431,7 +3431,7 @@ fun CartPickerPanel(
     // usable (taps outside the panel reach the map); the list closes with CLOSE or REC.
     Box(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()   // CARTBTN-2026-09-30: fill the screen so BottomCenter places it above the bar
             .padding(bottom = 96.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
@@ -3498,8 +3498,9 @@ fun CartPickerPanel(
                                 }
                                 Text(role.uppercase(), color = Color(0xFF9CC7F5), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 if (!node.isMyCart) {   // CARTACTIVE-2026-09-30 (Fred): one tap -- Active -> Removed (my own cart: never)
-                                    Text("ACTIVE", color = green, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(start = 10.dp).clickable { onToggleActive(node.nodeId, node.callsign) })
+                                    Text("REMOVE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,   // CARTBTN-2026-09-30: the action
+                                        modifier = Modifier.padding(start = 10.dp).background(red, RoundedCornerShape(6.dp))
+                                            .clickable { onToggleActive(node.nodeId, node.callsign) }.padding(horizontal = 10.dp, vertical = 5.dp))
                                 }
                             }
                         }
@@ -3514,8 +3515,9 @@ fun CartPickerPanel(
                                 Text(rcall, color = dim, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 Text("removed \u00b7 off the map", color = dim, fontSize = 11.sp)
                             }
-                            Text("REMOVED", color = red, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.clickable { onToggleActive(rid, rcall) }.padding(start = 10.dp))
+                            Text("ACTIVATE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,   // CARTBTN-2026-09-30: the action
+                                modifier = Modifier.padding(start = 10.dp).background(green, RoundedCornerShape(6.dp))
+                                    .clickable { onToggleActive(rid, rcall) }.padding(horizontal = 10.dp, vertical = 5.dp))
                         }
                     }
                 }
