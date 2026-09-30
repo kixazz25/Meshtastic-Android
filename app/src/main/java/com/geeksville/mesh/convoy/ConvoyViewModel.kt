@@ -768,6 +768,9 @@ class ConvoyViewModel @Inject constructor(
         } else { gpsService?.resumeTrack(); _routeRecording.value = true }
     }
     fun stopRecording() {
+        // CARTRESET-2026-09-30 (Fred): END resets every cart to Active, ride or no ride -- nothing hidden carries over.
+        _removedCarts.value = emptyMap()
+        viewModelScope.launch { settingsRepository.clearRemovedCarts() }
         endingCheckIn = checkIn.value; checkIn.value = null   // CHECKIN-2026-09-27: the next recording needs a new check-in
         pendingTempFile = gpsService?.stopTrack()
     }

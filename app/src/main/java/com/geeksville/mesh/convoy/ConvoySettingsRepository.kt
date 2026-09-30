@@ -94,6 +94,11 @@ class ConvoySettingsRepository @Inject constructor(
         }
     }
 
+    /** CARTRESET-2026-09-30 (Fred): the end of a ride resets every cart to Active -- the list is emptied, old days too. */
+    suspend fun clearRemovedCarts() {
+        context.convoyDataStore.edit { prefs -> prefs[KEY_REMOVED_CARTS] = emptySet() }
+    }
+
     /** Reinstate a removed cart */
     suspend fun reinstateCart(nodeId: String) {
         val today = LocalDate.now().toEpochDay().toString()
