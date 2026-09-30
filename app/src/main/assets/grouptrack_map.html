@@ -489,6 +489,13 @@
             // the commonest route-building gesture; swallowing it here would
             // break drawing. Mirrors what the track handlers already do.
             L.DomEvent.stopPropagation(e);
+            // WPTTAP-2026-09-30 (Fred): waypoints open the detail panel, like trails, tracks and routes.
+            // The popup stays only as the fallback when the bridge is absent.
+            var __wid = (feature.properties && feature.properties.waypoint_id) || '';
+            if (__wid && window.Android && window.Android.onWaypointTap) {
+              try { layer.closePopup(); } catch (err) {}
+              window.Android.onWaypointTap(__wid);
+            }
           });
         }
       });

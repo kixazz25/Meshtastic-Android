@@ -866,7 +866,6 @@ function loadWaypoints(geojsonData) {
     onEachFeature: function(feature, layer) {
       var p = feature.properties || {};
       var name = p.name || 'Unnamed Waypoint';
-      layer.on('click', function(){ console.log('ARTIFACTTAP waypoint name=' + name + ' routeMode=' + window.__routeMode); });
       var wType = p.wpt_type || 'other';
       var popup = '<div style="font-family:monospace;font-size:12px;">' +
         '<b style="color:' + waypointColor(wType) + ';">' + name + '</b><br>' +
@@ -874,6 +873,17 @@ function loadWaypoints(geojsonData) {
         (p.description ? '<br>' + p.description : '') +
         '</div>';
       layer.bindPopup(popup);
+      // WPTTAP-2026-09-30 (Fred): registered AFTER bindPopup so it runs after Leaflet opens the popup and can
+      // close it -- the same order as the trail block. Waypoints open the detail panel on the ride map too.
+      layer.on('click', function(e){
+        console.log('ARTIFACTTAP waypoint name=' + name + ' routeMode=' + window.__routeMode);
+        var __wid = (feature.properties && feature.properties.waypoint_id) || '';
+        if (__wid && window.Android && window.Android.onWaypointTap) {
+          try { layer.closePopup(); } catch (err) {}
+          window.Android.onWaypointTap(__wid);
+        }
+        if (__wid && window.Android && window.Android.onWaypointTap) { L.DomEvent.stopPropagation(e); }
+      });
     }
   });
 }

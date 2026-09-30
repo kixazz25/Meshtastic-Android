@@ -1041,7 +1041,9 @@ object SpatialDbManager {
             if (match != null) {
                 val lon = match.groupValues[1]
                 val lat = match.groupValues[2]
-                sb.append("{\"type\":\"Feature\",\"properties\":{\"name\":\"$name\",\"wpt_type\":\"$wptType\"},\"geometry\":{\"type\":\"Point\",\"coordinates\":[$lon,$lat]}}")
+                // WPTTAP-2026-09-30 (Fred): the id a tap sends to the detail panel (the query selects it; it was dropped here).
+                val wid = (wpt["waypoint_id"] ?: "").replace("\"", "\\\"")
+                sb.append("{\"type\":\"Feature\",\"properties\":{\"waypoint_id\":\"$wid\",\"name\":\"$name\",\"wpt_type\":\"$wptType\"},\"geometry\":{\"type\":\"Point\",\"coordinates\":[$lon,$lat]}}")
             }
         }
         sb.append("]}")
@@ -2393,6 +2395,47 @@ object SpatialDbManager {
         notes.put("recipe", recipe)
         return writeRouteNotes(routeId, notes) >= 0
     }
+    /**
+     * WPTTAP-2026-09-30 (Fred): a waypoint that is a route's trailhead cannot be retyped or deleted while the
+     * route exists -- the route must be removed first. A route stores its trailhead as recipe.anchorLat/anchorLon
+     * (setRouteAnchor), copied from the waypoint's own position, so the match is by position (within ~10 m).
+     * Returns the name of the first route using it, or null (not a trailhead, or no route uses it).
+     */
+    fun routeUsingTrailhead(waypointId: String): String? {
+        val db = spatialDb ?: return null
+        try {
+            var wLat = 0.0
+            var wLon = 0.0
+            var isTrailhead = false
+            db.rawQuery("SELECT type, geometry FROM waypoints WHERE waypoint_id=?", arrayOf(waypointId)).use { c ->
+                if (!c.moveToFirst()) return null
+                isTrailhead = (c.getString(0) ?: "") == "trailhead"
+                val p = (c.getString(1) ?: return null).removePrefix("POINT(").removeSuffix(")").trim().split(" ")
+                if (p.size < 2) return null
+                wLon = p[0].toDoubleOrNull() ?: return null
+                wLat = p[1].toDoubleOrNull() ?: return null
+            }
+            if (!isTrailhead) return null
+            val routes = mutableListOf<Pair<String, String>>()
+            db.rawQuery("SELECT route_id, name FROM routes", null).use { c ->
+                while (c.moveToNext()) {
+                    val rid = c.getString(0)
+                    if (rid != null) routes += Pair(rid, c.getString(1) ?: "a route")
+                }
+            }
+            for ((rid, rname) in routes) {
+                val recipe = readRouteNotes(rid)?.optJSONObject("recipe") ?: continue
+                if (!recipe.has("anchorLat") || !recipe.has("anchorLon")) continue
+                val mi = ConvoyEngine.haversineMiles(wLat, wLon,
+                    recipe.optDouble("anchorLat"), recipe.optDouble("anchorLon")).toDouble()
+                if (mi <= 0.006) return rname   // ~10 m
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "routeUsingTrailhead error: " + e.message)
+        }
+        return null
+    }
+
     // ---- end TRAILHEAD-2026-09-23 ------------------------------------------------------------
 
     fun buildWaypointGpxById(waypointId: String): Pair<String, String>? {

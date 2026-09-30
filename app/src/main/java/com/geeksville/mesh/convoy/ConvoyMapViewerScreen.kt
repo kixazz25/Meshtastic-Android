@@ -715,7 +715,9 @@ fun ConvoyMapViewerScreen(
     val emulatedDrafts = remember(draftListTick) {
         RouteDraftStore.listDrafts().sortedBy { it.createdAt }
     }
-    var newWaypointType by remember { mutableStateOf("other") }
+    // WPTTAP-2026-09-30 (Fred): a new waypoint starts as a TRAILHEAD (routes and rides need one); Other asks once.
+    var newWaypointType by remember { mutableStateOf("trailhead") }
+    var otherConfirm by remember { mutableStateOf(false) }
     var newWaypointName by remember { mutableStateOf("") }
 
     var importFileList by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -1184,6 +1186,7 @@ fun ConvoyMapViewerScreen(
                                                 selected = newWaypointType == key,
                                                 onClick = {
                                                     newWaypointType = key
+                                                    otherConfirm = false
                                                     if (newWaypointName.isBlank() || WAYPOINT_TYPES.any { it.second.substringAfter(" ") == newWaypointName }) {
                                                         newWaypointName = label.substringAfter(" ")
                                                     }
@@ -1203,7 +1206,8 @@ fun ConvoyMapViewerScreen(
                             },
                             confirmButton = {
                                 androidx.compose.material3.TextButton(onClick = {
-                                    val nm = if (newWaypointName.isBlank()) "Waypoint" else newWaypointName
+                                    if (newWaypointType == "other" && !otherConfirm) { otherConfirm = true; return@TextButton }   // WPTTAP-2026-09-30
+                                    val nm = if (newWaypointName.isBlank()) (WAYPOINT_TYPES.firstOrNull { it.first == newWaypointType }?.second?.substringAfter(" ") ?: "Waypoint") else newWaypointName
                                     val ty = newWaypointType
                                     Thread {
                                         try {
@@ -1240,14 +1244,14 @@ fun ConvoyMapViewerScreen(
                                     }.start()
                                     pendingWaypoint = null
                                     newWaypointName = ""
-                                    newWaypointType = "other"
-                                }) { androidx.compose.material3.Text("Create") }
+                                    newWaypointType = "trailhead"; otherConfirm = false
+                                }) { androidx.compose.material3.Text(if (otherConfirm) "Save as Other?" else "Create") }
                             },
                             dismissButton = {
                                 androidx.compose.material3.TextButton(onClick = {
                                     pendingWaypoint = null
                                     newWaypointName = ""
-                                    newWaypointType = "other"
+                                    newWaypointType = "trailhead"; otherConfirm = false
                                 }) { androidx.compose.material3.Text("Cancel") }
                             }
                         )
@@ -1612,6 +1616,20 @@ fun ConvoyMapViewerScreen(
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     android.util.Log.d("TrackTap", "PLANNER post -> setting state id=$id")
                                     pendingDetailType = "Tracks"
+                                    pendingDetailId = id
+                                }
+                            }
+                            @JavascriptInterface
+                            fun onWaypointTap(id: String) {
+                                // WPTTAP-2026-09-30 (Fred): waypoints open the detail panel -- mirrors onTrailTap, including the
+                                // addPointMode suppression (a tap mid-draw places a vertex, not a panel).
+                                android.util.Log.d("WaypointTap", "PLANNER bridge id=$id addPointMode=$addPointMode")
+                                if (addPointMode) {
+                                    android.util.Log.d("WaypointTap", "PLANNER SUPPRESSED by addPointMode")
+                                    return
+                                }
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    pendingDetailType = "Waypoints"
                                     pendingDetailId = id
                                 }
                             }

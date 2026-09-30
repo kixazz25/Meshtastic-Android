@@ -76,6 +76,20 @@ object ConvoyArtifactOps {
 
     /** DELETE: DB enforces guards. Caller refreshes its map. */
     suspend fun delete(context: Context, artifactType: String, artifactId: String) {
+        // WPTTAP-2026-09-30 (Fred): a route's trailhead cannot be deleted while the route exists.
+        if (artifactType == "Waypoints") {
+            val usedBy = withContext(Dispatchers.IO) {
+                SpatialDbManager.init(context); SpatialDbManager.routeUsingTrailhead(artifactId)
+            }
+            if (usedBy != null) {
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(context, "This is the trailhead of route \"$usedBy\". " +
+                        "Remove the route first.", android.widget.Toast.LENGTH_LONG).show()
+                }
+                Log.d(TAG, "DELETE REFUSED $artifactId -- trailhead of $usedBy")
+                return
+            }
+        }
         withContext(Dispatchers.IO) {
             SpatialDbManager.init(context)
             when (artifactType) {
@@ -226,6 +240,20 @@ object ConvoyArtifactOps {
 
     /** CHANGE TYPE: change waypoint type. Caller refreshes its map. */
     suspend fun changeType(context: Context, waypointId: String, newTypeId: String) {
+        // WPTTAP-2026-09-30 (Fred): a route's trailhead stays a Trailhead while the route exists.
+        if (newTypeId != "trailhead") {
+            val usedBy = withContext(Dispatchers.IO) {
+                SpatialDbManager.init(context); SpatialDbManager.routeUsingTrailhead(waypointId)
+            }
+            if (usedBy != null) {
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(context, "This is the trailhead of route \"$usedBy\" -- it stays a " +
+                        "Trailhead. Remove the route first.", android.widget.Toast.LENGTH_LONG).show()
+                }
+                Log.d(TAG, "CHANGE TYPE REFUSED $waypointId -- trailhead of $usedBy")
+                return
+            }
+        }
         withContext(Dispatchers.IO) {
             SpatialDbManager.init(context)
             SpatialDbManager.changeWaypointType(waypointId, newTypeId)

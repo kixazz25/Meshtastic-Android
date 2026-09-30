@@ -274,7 +274,9 @@ fun ConvoyScreen(
         // live In-Progress list: real draft names from RouteDraftStore (refreshed on draftListTick)
         var draftListTick by remember { mutableStateOf(0) }
         val emulatedDrafts = remember(draftListTick) { RouteDraftStore.listDrafts().map { it.name } }
-        var newWaypointType by remember { mutableStateOf("other") }
+        // WPTTAP-2026-09-30 (Fred): a new waypoint starts as a TRAILHEAD (routes and rides need one); Other asks once.
+        var newWaypointType by remember { mutableStateOf("trailhead") }
+        var otherConfirm by remember { mutableStateOf(false) }
         var newWaypointName by remember { mutableStateOf("") }
 
         var lastViewportSouth by remember { mutableStateOf(0.0) }
@@ -818,6 +820,16 @@ fun ConvoyScreen(
                             }
                         }
                         @android.webkit.JavascriptInterface
+                        fun onWaypointTap(id: String) {
+                            // WPTTAP-2026-09-30 (Fred): mirrors onTrailTap. There are TWO bridge objects in this file
+                            // (reuse and create); this method is on both, or it is invisible to one of them.
+                            android.util.Log.d("WaypointTap", "CONVOY bridge id=$id")
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                pendingDetailType = "Waypoints"
+                                pendingDetailId = id
+                            }
+                        }
+                        @android.webkit.JavascriptInterface
                         fun onTrailTap(id: String) {
                             // CONVOYTRAILTAP-2026-09-03: mirrors onTrackTap. ⚠ There
                             // are TWO bridge objects in this file -- reuse and create
@@ -1152,6 +1164,16 @@ fun ConvoyScreen(
                                 }
                             }
                             @android.webkit.JavascriptInterface
+                            fun onWaypointTap(id: String) {
+                                // WPTTAP-2026-09-30 (Fred): mirrors onTrailTap. There are TWO bridge objects in this file
+                                // (reuse and create); this method is on both, or it is invisible to one of them.
+                                android.util.Log.d("WaypointTap", "CONVOY bridge id=$id")
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    pendingDetailType = "Waypoints"
+                                    pendingDetailId = id
+                                }
+                            }
+                            @android.webkit.JavascriptInterface
                             fun onTrailTap(id: String) {
                                 // CONVOYTRAILTAP-2026-09-03: the create-path bridge.
                                 android.util.Log.d("TrailTap", "CONVOY(create) bridge id=$id")
@@ -1361,6 +1383,7 @@ fun ConvoyScreen(
                                                 selected = newWaypointType == key,
                                                 onClick = {
                                                     newWaypointType = key
+                                                    otherConfirm = false
                                                     if (newWaypointName.isBlank() || WAYPOINT_TYPES.any { it.second.substringAfter(" ") == newWaypointName }) {
                                                         newWaypointName = label.substringAfter(" ")
                                                     }
@@ -1380,7 +1403,8 @@ fun ConvoyScreen(
                             },
                             confirmButton = {
                                 androidx.compose.material3.TextButton(onClick = {
-                                    val nm = if (newWaypointName.isBlank()) "Waypoint" else newWaypointName
+                                    if (newWaypointType == "other" && !otherConfirm) { otherConfirm = true; return@TextButton }   // WPTTAP-2026-09-30
+                                    val nm = if (newWaypointName.isBlank()) (WAYPOINT_TYPES.firstOrNull { it.first == newWaypointType }?.second?.substringAfter(" ") ?: "Waypoint") else newWaypointName
                                     val ty = newWaypointType
                                     Thread {
                                         try {
@@ -1395,14 +1419,14 @@ fun ConvoyScreen(
                                     }.start()
                                     pendingWaypoint = null
                                     newWaypointName = ""
-                                    newWaypointType = "other"
-                                }) { androidx.compose.material3.Text("Create") }
+                                    newWaypointType = "trailhead"; otherConfirm = false
+                                }) { androidx.compose.material3.Text(if (otherConfirm) "Save as Other?" else "Create") }
                             },
                             dismissButton = {
                                 androidx.compose.material3.TextButton(onClick = {
                                     pendingWaypoint = null
                                     newWaypointName = ""
-                                    newWaypointType = "other"
+                                    newWaypointType = "trailhead"; otherConfirm = false
                                 }) { androidx.compose.material3.Text("Cancel") }
                             }
                         )
