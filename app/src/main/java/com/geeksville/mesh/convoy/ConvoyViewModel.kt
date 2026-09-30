@@ -655,6 +655,20 @@ class ConvoyViewModel @Inject constructor(
                 kotlinx.coroutines.delay(20_000)   // GPSRECON20-2026-09-29 (Fred): 10 s was too short for the radio to restart
                 ops.reconnect(); disconnected = false
                 android.util.Log.i("GPSINT", "reconnect at ${System.currentTimeMillis()}")
+                // GPSCYCLE2-2026-09-30 (Fred): once the reconnect above has CONNECTED, one more cycle -- 3 s -> disconnect ->
+                // 3 s -> reconnect. Fred's manual disconnect/reconnect restores my cart's position and ID every time; the first
+                // reconnect alone leaves my cart off the map. The wait is on the connection state (as the configurator's), capped.
+                _gpsApply.value = "Reconnected. Reconnecting once more..."
+                val firstUp = kotlinx.coroutines.withTimeoutOrNull(60_000) {
+                    ops.connection.first { it == org.meshtastic.core.model.ConnectionState.Connected }
+                } != null
+                android.util.Log.i("GPSINT", "cycle2 first reconnect connected=$firstUp at ${System.currentTimeMillis()}")
+                kotlinx.coroutines.delay(3_000)
+                ops.disconnect(); disconnected = true
+                android.util.Log.i("GPSINT", "cycle2 disconnect at ${System.currentTimeMillis()}")
+                kotlinx.coroutines.delay(3_000)
+                ops.reconnect(); disconnected = false
+                android.util.Log.i("GPSINT", "cycle2 reconnect at ${System.currentTimeMillis()}")
                 _gpsApply.value = "Done -- location sent every $secs s while moving."
             } catch (e: Exception) {
                 android.util.Log.e("GPSINT", "failed: ${e.message}", e)
