@@ -2933,6 +2933,12 @@ fun ConvoyScreen(
             val pickCi = viewModel.checkIn.value
             val pickRide = remember(pickCi?.rideId) { pickCi?.rideId?.let { ConvoyRideStore.rideForEdit(it) } }
             CartPickerPanel(
+                removed = viewModel.removedCarts.collectAsStateWithLifecycle().value,   // CARTACTIVE-2026-09-30
+                onToggleActive = { id, cs ->
+                    val removing = !viewModel.removedCarts.value.containsKey(id)
+                    viewModel.toggleCartActive(id, cs)
+                    if (removing) webViewRef.value?.evaluateJavascript("removeMarker('$id')", null)   // as the old REMOVE did
+                },
                 nodes = convoyState.nodes,
                 rideTitle = pickRide?.name ?: (if (pickCi != null) "No scheduled ride" else ""),
                 rideSub = pickRide?.let { r -> listOf(r.date, if (r.startTime.isNotBlank()) "rollout " + r.startTime else "")
@@ -3227,30 +3233,8 @@ fun NodeDetailHud(
             HudStat("SEEN", node.lastSeenAgo)
         }
         Spacer(Modifier.height(8.dp))
-        // SET AS LEAD -- local fallback for manual correction
-        androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-            Surface(
-                modifier = Modifier.clickable { onSetLead(node); onDismiss() },
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFF006633)
-            ) {
-                Text("SET AS LEAD", color = Color.White, fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-            Surface(
-                modifier = Modifier.clickable { onRemove(node); onDismiss() },
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFF8B0000)
-            ) {
-                Text("REMOVE FROM RIDE", color = Color.White, fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
-            }
-        }
+        // CARTACTIVE-2026-09-30 (Fred): SET AS LEAD and REMOVE FROM RIDE removed -- the lead comes from the roles, and a
+        // cart is removed or reactivated in SELECT CART (REMOVE FROM RIDE never stuck: the next tick put the cart back).
     }
 }
 
@@ -3436,6 +3420,8 @@ fun CartPickerPanel(
     myRole: String,      // this tablet's check-in role ("leader"...), or "" when not checked in
     onSelect: (com.geeksville.mesh.convoy.ConvoyNode) -> Unit,
     onDismiss: () -> Unit,
+    removed: Map<String, String>,              // CARTACTIVE-2026-09-30: nodeId -> callsign, removed on this tablet today
+    onToggleActive: (String, String) -> Unit,  // CARTACTIVE-2026-09-30: one tap -- Active <-> Removed
     onChangeMyRole: () -> Unit   // ROLEBTN-2026-09-29 (Fred): opens "Change my role" -- my own cart only
 ) {
     fun roleLabel(r: String) = when (r) { "leader" -> "Leader"; "middle" -> "Middle"; "tail_gunner" -> "Tail gunner"; else -> "Rider" }
@@ -3511,7 +3497,25 @@ fun CartPickerPanel(
                                         color = dim, fontSize = 11.sp)
                                 }
                                 Text(role.uppercase(), color = Color(0xFF9CC7F5), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                if (!node.isMyCart) {   // CARTACTIVE-2026-09-30 (Fred): one tap -- Active -> Removed (my own cart: never)
+                                    Text("ACTIVE", color = green, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(start = 10.dp).clickable { onToggleActive(node.nodeId, node.callsign) })
+                                }
                             }
+                        }
+                    }
+                }
+                // CARTACTIVE-2026-09-30 (Fred): carts removed on this tablet -- off the map and out of the group; one tap reactivates.
+                removed.filterKeys { k -> nodes.none { it.nodeId == k } }.toList().sortedBy { it.second.lowercase() }.forEach { (rid, rcall) ->
+                    Surface(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), shape = RoundedCornerShape(8.dp), color = Color(0x802A3545)) {
+                        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("\u25CB", color = dim, fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(rcall, color = dim, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("removed \u00b7 off the map", color = dim, fontSize = 11.sp)
+                            }
+                            Text("REMOVED", color = red, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { onToggleActive(rid, rcall) }.padding(start = 10.dp))
                         }
                     }
                 }

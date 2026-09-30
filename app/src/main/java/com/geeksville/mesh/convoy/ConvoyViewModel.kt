@@ -510,9 +510,25 @@ class ConvoyViewModel @Inject constructor(
     private var tickJob: Job? = null
     private var admissionWindowHours: Int = 1
 
+    // CARTACTIVE-2026-09-30 (Fred): nodeId -> callsign of carts removed on this tablet today (the settings store,
+    // cleared by day). One tap in SELECT CART toggles Active <-> Removed. My own cart is never removed.
+    private val _removedCarts = MutableStateFlow<Map<String, String>>(emptyMap())
+    val removedCarts: StateFlow<Map<String, String>> = _removedCarts.asStateFlow()
+    fun toggleCartActive(nodeId: String, callsign: String) {
+        if (nodeId == resolveMyCartId()) return
+        viewModelScope.launch {
+            if (_removedCarts.value.containsKey(nodeId)) settingsRepository.reinstateCart(nodeId)
+            else settingsRepository.removeCart(nodeId, callsign.ifBlank { nodeId }.replace("|", "/"))
+        }
+    }
+
     init {
         viewModelScope.launch {
             settingsRepository.admissionWindowHours.collect { admissionWindowHours = it }
+        }
+        // CARTACTIVE-2026-09-30 (Fred): carts removed on this tablet today -- the tick skips them, SELECT CART lists them.
+        viewModelScope.launch {
+            settingsRepository.removedCartsForToday.collect { _removedCarts.value = it }
         }
 
         viewModelScope.launch {
@@ -1203,6 +1219,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             val pos = node.position
             val callsign = user.long_name.ifBlank { user.short_name }.ifBlank { "!${node.num}" }
             val nodeId = "!%08x".format(node.num)
+            if (nodeId in _removedCarts.value && node.num != myNum) return@mapNotNull null   // CARTACTIVE-2026-09-30: removed on this tablet
             val hasPos = (pos.latitude_i != 0 || pos.longitude_i != 0)
             val latLon = if (hasPos) {
                 val lat = (pos.latitude_i ?: 0) * 1e-7
