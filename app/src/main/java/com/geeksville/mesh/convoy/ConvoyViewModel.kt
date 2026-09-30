@@ -655,18 +655,20 @@ class ConvoyViewModel @Inject constructor(
                 kotlinx.coroutines.delay(20_000)   // GPSRECON20-2026-09-29 (Fred): 10 s was too short for the radio to restart
                 ops.reconnect(); disconnected = false
                 android.util.Log.i("GPSINT", "reconnect at ${System.currentTimeMillis()}")
-                // GPSCYCLE2-2026-09-30 (Fred): once the reconnect above has CONNECTED, one more cycle -- 3 s -> disconnect ->
-                // 3 s -> reconnect. Fred's manual disconnect/reconnect restores my cart's position and ID every time; the first
+                // GPSCYCLE2-2026-09-30 (Fred): once the reconnect above has CONNECTED, one more cycle -- wait -> disconnect ->
+                // gap -> reconnect (GpsReconnectTiming: 20 s / 4 s by default). Fred's manual disconnect/reconnect restores my cart's
+                // position and ID every time; the first
                 // reconnect alone leaves my cart off the map. The wait is on the connection state (as the configurator's), capped.
                 _gpsApply.value = "Reconnected. Reconnecting once more..."
                 val firstUp = kotlinx.coroutines.withTimeoutOrNull(60_000) {
                     ops.connection.first { it == org.meshtastic.core.model.ConnectionState.Connected }
                 } != null
-                android.util.Log.i("GPSINT", "cycle2 first reconnect connected=$firstUp wait=${GpsCycleTest.waitSecs}s gap=${GpsCycleTest.gapSecs}s at ${System.currentTimeMillis()}")   // GPSCYCLETEST-2026-09-30
-                kotlinx.coroutines.delay(GpsCycleTest.waitSecs * 1000L)   // GPSCYCLETEST-2026-09-30: after Connected
+                android.util.Log.i("GPSINT", "cycle2 first reconnect connected=$firstUp wait=${GpsReconnectTiming.waitSecs}s " +
+                    "gap=${GpsReconnectTiming.gapSecs}s at ${System.currentTimeMillis()}")   // GPSTIMING-2026-09-30
+                kotlinx.coroutines.delay(GpsReconnectTiming.waitSecs * 1000L)   // GPSTIMING-2026-09-30: after Connected
                 ops.disconnect(); disconnected = true
                 android.util.Log.i("GPSINT", "cycle2 disconnect at ${System.currentTimeMillis()}")
-                kotlinx.coroutines.delay(GpsCycleTest.gapSecs * 1000L)   // GPSCYCLETEST-2026-09-30: disconnect -> reconnect
+                kotlinx.coroutines.delay(GpsReconnectTiming.gapSecs * 1000L)   // GPSTIMING-2026-09-30: disconnect -> reconnect
                 ops.reconnect(); disconnected = false
                 android.util.Log.i("GPSINT", "cycle2 reconnect at ${System.currentTimeMillis()}")
                 _gpsApply.value = "Done -- location sent every $secs s while moving."

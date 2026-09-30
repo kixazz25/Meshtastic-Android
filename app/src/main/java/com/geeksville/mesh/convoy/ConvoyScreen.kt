@@ -3744,9 +3744,11 @@ fun GpsLocationRow(intervalSecs: Int, channelUtil: Float, onOpen: () -> Unit) {
 fun GpsIntervalDialog(currentSecs: Int, channelUtil: Float, carts: Int, status: String?, busy: Boolean,
                       onApply: (Int) -> Unit, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf(if (currentSecs in 3..10) currentSecs.toString() else "") }
-    // GPSCYCLETEST-2026-09-30 (Fred): TEST ONLY -- the second cycle's two pauses, editable here.
-    var waitText by remember { mutableStateOf(GpsCycleTest.waitSecs.toString()) }
-    var gapText by remember { mutableStateOf(GpsCycleTest.gapSecs.toString()) }
+    // GPSTIMING-2026-09-30 (Fred): the second reconnect's timing -- 20 s / 4 s from the bench (Nathan's default too),
+    // kept under a twistie so it can be raised on the trail if a cart ever fails to reappear. Defaults are in the code.
+    var timingOpen by remember { mutableStateOf(false) }
+    var waitText by remember { mutableStateOf(GpsReconnectTiming.waitSecs.toString()) }
+    var gapText by remember { mutableStateOf(GpsReconnectTiming.gapSecs.toString()) }
     val secs = text.trim().toIntOrNull()
     val valid = secs != null && secs in 3..10
     val done = status?.startsWith("Done") == true
@@ -3773,26 +3775,31 @@ fun GpsIntervalDialog(currentSecs: Int, channelUtil: Float, carts: Int, status: 
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                 )
                 if (text.isNotEmpty() && !valid) Text("Enter a number from 3 to 10.", color = Color(0xFFFF6B6B))
-                // GPSCYCLETEST-2026-09-30: TEST ONLY -- removed once values are settled.
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    androidx.compose.material3.OutlinedTextField(
-                        value = waitText,
-                        onValueChange = { v -> waitText = v.filter { it.isDigit() }.take(2)
-                            waitText.toIntOrNull()?.takeIf { it in 0..60 }?.let { GpsCycleTest.waitSecs = it } },
-                        label = { Text("TEST: wait after connected (s)", fontSize = 11.sp) },
-                        singleLine = true, enabled = !busy, modifier = Modifier.weight(1f),
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                    )
-                    androidx.compose.material3.OutlinedTextField(
-                        value = gapText,
-                        onValueChange = { v -> gapText = v.filter { it.isDigit() }.take(2)
-                            gapText.toIntOrNull()?.takeIf { it in 0..60 }?.let { GpsCycleTest.gapSecs = it } },
-                        label = { Text("TEST: gap (s)", fontSize = 11.sp) },
-                        singleLine = true, enabled = !busy, modifier = Modifier.weight(1f),
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                    )
+                // GPSTIMING-2026-09-30: the twistie -- collapsed, it shows the values in use.
+                Text((if (timingOpen) "\u25BE" else "\u25B8") + "  Reconnect timing  \u00b7  wait ${GpsReconnectTiming.waitSecs} s  \u00b7  gap ${GpsReconnectTiming.gapSecs} s",
+                    fontSize = 12.sp, modifier = Modifier.fillMaxWidth().clickable { timingOpen = !timingOpen }.padding(vertical = 4.dp))
+                if (timingOpen) {
+                    Text("Raise the wait if your cart does not reappear after APPLY.", fontSize = 11.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = waitText,
+                            onValueChange = { v -> waitText = v.filter { it.isDigit() }.take(2)
+                                waitText.toIntOrNull()?.takeIf { it in 1..60 }?.let { GpsReconnectTiming.waitSecs = it } },
+                            label = { Text("Wait after connected (s)", fontSize = 11.sp) },
+                            singleLine = true, enabled = !busy, modifier = Modifier.weight(1f),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                        )
+                        androidx.compose.material3.OutlinedTextField(
+                            value = gapText,
+                            onValueChange = { v -> gapText = v.filter { it.isDigit() }.take(2)
+                                gapText.toIntOrNull()?.takeIf { it in 1..60 }?.let { GpsReconnectTiming.gapSecs = it } },
+                            label = { Text("Gap (s)", fontSize = 11.sp) },
+                            singleLine = true, enabled = !busy, modifier = Modifier.weight(1f),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                        )
+                    }
                 }
                 if (status != null) Text(status, fontWeight = FontWeight.Bold)
             }
@@ -3807,12 +3814,14 @@ fun GpsIntervalDialog(currentSecs: Int, channelUtil: Float, carts: Int, status: 
     )
 }
 
-// GPSCYCLETEST-2026-09-30 (Fred): TEST ONLY -- the GPS apply's second cycle: the pause after the first reconnect is
-// Connected (waitSecs) and the pause between its disconnect and reconnect (gapSecs). Set from the GPS panel so values
-// can be tried on the tablet without a rebuild. Once settled they become constants and this object goes.
-object GpsCycleTest {
-    var waitSecs by mutableStateOf(3)
-    var gapSecs by mutableStateOf(3)
+// GPSTIMING-2026-09-30 (Fred): the GPS apply's second reconnect -- the wait after the first reconnect is Connected,
+// and the gap between its disconnect and reconnect. Bench 09-30: 10 s failed, 15 s failed 1 of 2, 20 s worked 3 of 3
+// (Nathan's default too). The defaults live here; the GPS panel's twistie can raise them for the session.
+object GpsReconnectTiming {
+    const val DEFAULT_WAIT_SECS = 20
+    const val DEFAULT_GAP_SECS = 4
+    var waitSecs by mutableStateOf(DEFAULT_WAIT_SECS)
+    var gapSecs by mutableStateOf(DEFAULT_GAP_SECS)
 }
 
 // GPSMETER-CLEAR-2026-09-29: text that stays readable over the map with no background -- a dark STROKE drawn under the fill.
