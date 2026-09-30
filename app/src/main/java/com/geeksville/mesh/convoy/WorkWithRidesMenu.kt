@@ -94,16 +94,12 @@ fun WorkWithRidesMenu(
                         .combinedClickable(onClick = {}, onLongClick = { onDismiss(); onDeveloperSettings() }))
 
                 if (!picking) {
-                    WwrEntry("Rides \u2014 send, edit, delete", built = true) { onDismiss(); RidesLauncher.open() } // RIDESLIST-2026-09-26
-                    WwrEntry("Send a ride via email", built = true) { status = ""; picking = true }
+                    WwrEntry("Rides \u2014 share, edit, delete", built = true) { onDismiss(); RidesLauncher.open() } // RIDESLIST-2026-09-26
                     WwrEntry("Import a ride", built = true) { importPicker.launch(arrayOf("*/*")) } // RIDEIMPORT3-2026-09-25
                     WwrEntry("Apply ride to radio / Nucleus", built = true) { onDismiss(); onApplyToRadio() } // RADIOCFG4-2026-09-25
-                    // DISCONTINUED-2026-09-26 (Fred): the old T1000 write stays on the menu, switched off. The new process
-                    // (Apply ride to radio) writes and verifies every field GroupTrack uses; Compare shows the rest.
-                    Text("Apply ride to standalone T1000-E  (discontinued \u2014 use Apply ride to radio)",
-                        color = Color(0xFF5A6068), fontSize = 14.sp,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 11.dp))
-                    WwrEntry("Review / apply saved configs", built = true) { onDismiss(); onReviewSavedConfigs() }
+                    // WWRMENU-2026-09-30 (Fred): removed the email-send entry (sharing is Rides -> Share) and the
+                    // discontinued standalone T1000-E line; renamed the saved-configs entry. Labels only.
+                    WwrEntry("Compare / Apply Archive Configs", built = true) { onDismiss(); onReviewSavedConfigs() }
                 } else {
                     Text("Choose the ride to send", color = Color(0xFFE8EEF5), fontSize = 13.sp,
                         modifier = Modifier.padding(bottom = 8.dp))

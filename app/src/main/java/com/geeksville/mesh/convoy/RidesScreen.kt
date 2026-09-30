@@ -160,11 +160,11 @@ fun RidesScreen(onClose: () -> Unit) {
                                 } else "Forwarding a received ride comes next."
                             },
                             enabled = !r.mine || r.complete,
-                        ) { Text("Send") }
+                        ) { Text("Share") }   // WWRMENU-2026-09-30 (Fred): Share, not Send
                         OutlinedButton(onClick = { editing = selected }, enabled = r.mine) { Text("Edit") }   /* EDITRIDE-2026-09-27 */
                         OutlinedButton(onClick = { confirmDelete = r }) { Text("Delete") }
                     }
-                    if (r.mine && !r.complete) Text("Incomplete rides cannot be sent yet.", color = RLDIM, fontSize = 12.sp)
+                    if (r.mine && !r.complete) Text("Incomplete rides cannot be shared yet.", color = RLDIM, fontSize = 12.sp)
                 }
             }
             if (message.isNotEmpty()) { Spacer(Modifier.height(8.dp)); Text(message, color = RLINK, fontSize = 13.sp) }
