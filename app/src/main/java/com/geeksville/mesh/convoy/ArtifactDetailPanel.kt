@@ -15,6 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 
 /**
  * ArtifactDetailPanel -- standalone, callable detail popup for ANY artifact.
@@ -401,7 +404,7 @@ fun ArtifactDetailPanel(
             onDismissRequest = { showTypeChooser = false },
             title = { Text("Change Waypoint Type") },
             text = {
-                Column {
+                Column(modifier = Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {   // WPTSCROLL-2026-09-30: 12 types -- scrolls
                     // WPTTYPE-2026-09-30: exactly the maps' 12 types (was scenic/camp, which the maps do not draw).
                     listOf("trailhead", "hazard", "gate", "water", "fuel", "shelter",
                         "viewpoint", "campsite", "parking", "junction", "rally", "other").forEach { wType ->
