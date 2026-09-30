@@ -662,11 +662,11 @@ class ConvoyViewModel @Inject constructor(
                 val firstUp = kotlinx.coroutines.withTimeoutOrNull(60_000) {
                     ops.connection.first { it == org.meshtastic.core.model.ConnectionState.Connected }
                 } != null
-                android.util.Log.i("GPSINT", "cycle2 first reconnect connected=$firstUp at ${System.currentTimeMillis()}")
-                kotlinx.coroutines.delay(3_000)
+                android.util.Log.i("GPSINT", "cycle2 first reconnect connected=$firstUp wait=${GpsCycleTest.waitSecs}s gap=${GpsCycleTest.gapSecs}s at ${System.currentTimeMillis()}")   // GPSCYCLETEST-2026-09-30
+                kotlinx.coroutines.delay(GpsCycleTest.waitSecs * 1000L)   // GPSCYCLETEST-2026-09-30: after Connected
                 ops.disconnect(); disconnected = true
                 android.util.Log.i("GPSINT", "cycle2 disconnect at ${System.currentTimeMillis()}")
-                kotlinx.coroutines.delay(3_000)
+                kotlinx.coroutines.delay(GpsCycleTest.gapSecs * 1000L)   // GPSCYCLETEST-2026-09-30: disconnect -> reconnect
                 ops.reconnect(); disconnected = false
                 android.util.Log.i("GPSINT", "cycle2 reconnect at ${System.currentTimeMillis()}")
                 _gpsApply.value = "Done -- location sent every $secs s while moving."

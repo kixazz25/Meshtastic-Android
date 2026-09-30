@@ -3744,6 +3744,9 @@ fun GpsLocationRow(intervalSecs: Int, channelUtil: Float, onOpen: () -> Unit) {
 fun GpsIntervalDialog(currentSecs: Int, channelUtil: Float, carts: Int, status: String?, busy: Boolean,
                       onApply: (Int) -> Unit, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf(if (currentSecs in 3..10) currentSecs.toString() else "") }
+    // GPSCYCLETEST-2026-09-30 (Fred): TEST ONLY -- the second cycle's two pauses, editable here.
+    var waitText by remember { mutableStateOf(GpsCycleTest.waitSecs.toString()) }
+    var gapText by remember { mutableStateOf(GpsCycleTest.gapSecs.toString()) }
     val secs = text.trim().toIntOrNull()
     val valid = secs != null && secs in 3..10
     val done = status?.startsWith("Done") == true
@@ -3770,6 +3773,27 @@ fun GpsIntervalDialog(currentSecs: Int, channelUtil: Float, carts: Int, status: 
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                 )
                 if (text.isNotEmpty() && !valid) Text("Enter a number from 3 to 10.", color = Color(0xFFFF6B6B))
+                // GPSCYCLETEST-2026-09-30: TEST ONLY -- removed once values are settled.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = waitText,
+                        onValueChange = { v -> waitText = v.filter { it.isDigit() }.take(2)
+                            waitText.toIntOrNull()?.takeIf { it in 0..60 }?.let { GpsCycleTest.waitSecs = it } },
+                        label = { Text("TEST: wait after connected (s)", fontSize = 11.sp) },
+                        singleLine = true, enabled = !busy, modifier = Modifier.weight(1f),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                    )
+                    androidx.compose.material3.OutlinedTextField(
+                        value = gapText,
+                        onValueChange = { v -> gapText = v.filter { it.isDigit() }.take(2)
+                            gapText.toIntOrNull()?.takeIf { it in 0..60 }?.let { GpsCycleTest.gapSecs = it } },
+                        label = { Text("TEST: gap (s)", fontSize = 11.sp) },
+                        singleLine = true, enabled = !busy, modifier = Modifier.weight(1f),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                    )
+                }
                 if (status != null) Text(status, fontWeight = FontWeight.Bold)
             }
         },
@@ -3781,6 +3805,14 @@ fun GpsIntervalDialog(currentSecs: Int, channelUtil: Float, carts: Int, status: 
             androidx.compose.material3.TextButton(onClick = onDismiss, enabled = !busy) { Text(if (done) "CLOSE" else "CANCEL") }
         }
     )
+}
+
+// GPSCYCLETEST-2026-09-30 (Fred): TEST ONLY -- the GPS apply's second cycle: the pause after the first reconnect is
+// Connected (waitSecs) and the pause between its disconnect and reconnect (gapSecs). Set from the GPS panel so values
+// can be tried on the tablet without a rebuild. Once settled they become constants and this object goes.
+object GpsCycleTest {
+    var waitSecs by mutableStateOf(3)
+    var gapSecs by mutableStateOf(3)
 }
 
 // GPSMETER-CLEAR-2026-09-29: text that stays readable over the map with no background -- a dark STROKE drawn under the fill.
