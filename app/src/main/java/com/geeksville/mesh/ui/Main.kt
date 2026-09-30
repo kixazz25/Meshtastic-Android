@@ -640,6 +640,18 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 com.geeksville.mesh.convoy.CheckInLauncher.showing.value = true
             }
         }
+        // SETTINGSBACK-2026-09-29 (Fred): RADIO SETTINGS opens Meshtastic's Settings -- a top-level page with no back arrow.
+        // While it is open from there, a BACK TO MAP button overlays it (the same as Android's back button).
+        var settingsFromGrp by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+        val onSettingsPage = currentDestination?.hierarchy?.any { it.hasRoute(SettingsRoutes.Settings::class) } == true
+        androidx.compose.runtime.LaunchedEffect(onSettingsPage) { if (!onSettingsPage) settingsFromGrp = false }
+        if (settingsFromGrp && onSettingsPage) {
+            androidx.compose.material3.Button(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(top = 40.dp, start = 12.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF2E75B6)),
+            ) { Text("\u25C0 BACK TO MAP", color = Color.White, fontWeight = FontWeight.Bold) }
+        }
         if (com.geeksville.mesh.convoy.GrpAwarenessLauncher.showing.value) {
             val grpLast = androidx.compose.runtime.remember(grpMyNode, connectionState) {
                 com.geeksville.mesh.convoy.lastAppliedLine(grpCtx, grpMyNode?.myNodeNum)
@@ -653,6 +665,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 onDisconnect = { scanModel.disconnect() },
                 onLocalSettings = {
                     com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()
+                    settingsFromGrp = true   // SETTINGSBACK-2026-09-29: show BACK TO MAP on the Settings page
                     navController.navigate(SettingsRoutes.Settings())
                 },
                 onApplyRide = {
