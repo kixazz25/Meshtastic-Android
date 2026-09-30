@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Documentation rebuild: the process (2026-09-29 v1)</title>
+<style>
+  :root { --bg:#0f1216; --panel:#161b22; --line:#30363d; --ink:#e6edf3; --dim:#8b949e; --accent:#58a6ff; --good:#3fb950; --warn:#d29922; --bad:#f85149; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system,"Segoe UI",Roboto,Arial,sans-serif; }
+  .wrap { max-width:1060px; margin:0 auto; padding:24px 20px 60px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--dim); margin:0 0 18px; }
+  h2 { font-size:18px; color:var(--accent); border-bottom:1px solid var(--line); padding-bottom:6px; margin:30px 0 12px; }
+  h3 { font-size:15.5px; margin:18px 0 8px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:10px 0; }
+  .p { border-left:4px solid var(--accent); }
+  .warn { border-left:4px solid var(--warn); }
+  .bad { border-left:4px solid var(--bad); }
+  .good { border-left:4px solid var(--good); }
+  .tag { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; margin-right:6px; vertical-align:middle; }
+  .t-tool { background:#12304f; color:#9cc7f5; } .t-fred { background:#2a2210; color:#f2c14e; } .t-claude { background:#0e2a1a; color:#6ee0a5; } .t-dec { background:#2a1414; color:#f08c84; }
+  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:14px; }
+  th, td { border:1px solid var(--line); padding:7px 9px; vertical-align:top; text-align:left; }
+  th { background:#1c2330; color:var(--accent); }
+  code { background:#1c2330; padding:1px 5px; border-radius:4px; font-size:13px; }
+  pre { background:#0b0e12; border:1px solid var(--line); border-radius:6px; padding:10px; overflow-x:auto; font-size:13px; }
+  .dim { color:var(--dim); }
+  ul, ol { margin:6px 0 6px 20px; padding:0; } li { margin:4px 0; }
+  .grid { display:grid; grid-template-columns: 150px 1fr; gap:4px 12px; }
+  .grid div:nth-child(odd) { color:var(--dim); }
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>Documentation rebuild — the process</h1>
+<p class="sub">2026-09-29 v1 · defined this morning, to start and finish this week · internal (resume context) · to be embedded in the living checklist's documentation section tonight</p>
+
+<h2>0 · The goal, and the principles it rests on</h2>
+<div class="card good">
+<p><b>Goal:</b> a <b>new version</b> of the rider documentation (manual, Quick Start, release notes) that matches the app as it is now, built from <b>the app's own click paths</b>, with <b>only the screens that changed recaptured</b> — and the old version <b>kept complete, images included</b>.</p>
+<ol>
+<li><b>The manual mirrors the click tree</b> (Fred 09-29). Every clickable on every panel is traced through its call stack; the traces form indented path hierarchies; the manual's twisties follow them. <b>Only one layer is open at a time — the current path</b> — so the manual is a focused cookbook, click by click. (The manual's accordion already works this way: opening a section closes its siblings; a link opens exactly its path.)</li>
+<li><b>The process is the identity; the letter is its position</b> (Fred 09-29). Letters A, B, C … and section numbers re-sequence when menus change; the content under a process name (Help, Search, Map Features …) <b>moves as a whole section</b> when its screens have not changed. So: section ids, folder names and image names are keyed by <b>process</b>; letters and numbers are applied last, from the current order.</li>
+<li><b>Launch points barely changed; additions sit at the bottom, in one area</b> (Fred 09-29). Most existing sections keep their place; new features with complex navigation append at the end of their menus. Removals are the only thing that shifts letters (e.g. Work with Rides B and E).</li>
+<li><b>Capture only what is designated</b> (Fred 09-29): screens whose code changed after the image was taken, and new screens. Every designated capture gets a placeholder at its exact step in the process, before capturing starts.</li>
+<li><b>Old version saved complete; new version built beside it</b> (Fred 09-29). Nothing is edited out of the old one.</li>
+<li><b>Documentation follows decisions</b> (Fred 09-28): open issues with screen or process impact are settled before the screens they touch are documented or captured.</li>
+</ol>
+</div>
+
+<h2>1 · What was found this morning (the facts the process must handle)</h2>
+<div class="card warn">
+<ul>
+<li><b>The 112 images in manual v23 carry no date.</b> They are JPEGs embedded in the HTML with only a caption (<code>alt</code>); <b>no EXIF metadata</b>, and <b>no build stamp drawn on screen</b>. Their age must be <b>recovered</b> (process P5), and every new capture must <b>carry its date and build</b> from now on (P9).</li>
+<li><b>Some pictures have letters drawn onto them</b> (the ride map, the Meshtastic rail, the Work with Rides menu). Relabelling today means re-stamping images.</li>
+<li><b>The 09-27 capture tree (folder script v2, 87 folders) is named by number and letter</b> — every relabel renames folders. It also still holds <i>3.12 Mesh on, mesh off</i> and <i>5.6 F · GroupTrack Mesh Radio Setup</i> (removed 09-28).</li>
+<li><b>The 09-28 cross-reference followed nav routes only</b> and missed every panel shown over the maps by state (GRP Awareness, check-in, SELECT CART, Map Features). Replaced by <code>navxref_2026-09-29.py</code> (built and tested this morning).</li>
+<li><b>Text recognition (tesseract) runs here</b> and roughly reads the small images (e.g. the rail's <i>GroupTrack Mesh Radio Setup</i> read as "crouprack") — good enough to <b>flag</b> stale markers, with a visual check to confirm.</li>
+<li><b>23 capture placeholders</b> already exist in v23, as HTML comments (<code>PENDING-CAPTURE-2.7 [cap_NN_…]</code>) — invisible to a reader.</li>
+</ul>
+</div>
+
+<h2>2 · Prerequisites — freeze the screens before any capture</h2>
+<div class="card bad">
+<p><b>A capture taken before a screen-changing patch is wasted.</b> These go in first (code), then the cross-reference runs on the final build:</p>
+<table>
+<tr><th>Item</th><th>Screen impact</th><th>Why before capture</th></tr>
+<tr><td><b>Outdoor legibility</b> — the shared high-visibility text style (27 halos)</td><td><b>Every map screen, the HUD, search</b></td><td>Changes the look of text on almost every picture. If it lands after capturing, nearly everything is captured twice. <b>Decide first.</b></td></tr>
+<tr><td>Work with Rides menu: remove <i>Send a ride via email</i> and <i>Apply ride to standalone T1000-E</i>; rename <i>Review / apply saved configs</i> → <i>Compare / Apply Archive Configs</i></td><td>The menu, its letters, two sections removed, one retitled</td><td>Sets the letters (A–D) the label map uses.</td></tr>
+<tr><td>Blank role = Rider (map label; SELECT CART drops "bare radio" and the red dot)</td><td>Map labels, SELECT CART</td><td>Visible on the ride map and the cart list.</td></tr>
+<tr><td>Role broadcasts completed (schedule, reassignment, END)</td><td>Process (the trailhead text)</td><td>The manual's check-in and roles narrative describes it.</td></tr>
+<tr><td>Small ready patches: Leader's Notes on the check-in, scroll hint, SELECT CART instruction line</td><td>Check-in, SELECT CART</td><td>Small, already written — apply or drop, then capture.</td></tr>
+<tr><td>The open-issues review (Fred's rule)</td><td>Any</td><td>Settles what else is in or out of this version.</td></tr>
+</table>
+<p><b>Freeze point:</b> after these, one build is tagged <code>docs-freeze-2026-MM-DD</code> and installed on the capture tablet (Droid 1). <b>All captures come from that build.</b></p>
+</div>
+
+<h2>3 · The processes to create</h2>
+<p class="dim">Each: purpose · inputs → outputs · the tool · who does what · done when. <span class="tag t-tool">TOOL</span> = a script or page Claude writes (dated, new name every revision) · <span class="tag t-fred">FRED</span> = on the laptop or tablet · <span class="tag t-claude">CLAUDE</span> = here.</p>
+
+<h3>P1 · Archive the old version, complete</h3>
+<div class="card p">
+<div class="grid">
+<div>Purpose</div><div>Keep the current documentation exactly as it is — text and all 112 images — before anything is rebuilt.</div>
+<div>Inputs → outputs</div><div>manual v23, Quick Start v61, release notes v15 → <code>GroupTrack_ARCHIVE_2.7pre_manual_2026-09-28_v23.html</code> (identical copy; the images are inside it) + the same for the Quick Start and release notes + <code>GroupTrack_ARCHIVE_2.7pre_images_2026-09-28.zip</code>: every image extracted, named <code>NNN_&lt;section-id&gt;_&lt;slug&gt;.jpg</code>, with <code>index.csv</code> (number, section id, section title, caption, size, SHA-1, perceptual hash).</div>
+<div>Tool</div><div><span class="tag t-tool">TOOL</span> <code>docarchive_2026-09-29.py</code> <span class="tag t-claude">CLAUDE</span> runs it here.</div>
+<div>Done when</div><div>The archive copies are byte-identical to v23/v61/v15; the zip holds 112 images and a 112-row index; Fred stores them in AllDocs.</div>
+</div>
+</div>
+
+<h3>P2 · The navigation cross-reference (the click tree)</h3>
+<div class="card p">
+<div class="grid">
+<div>Purpose</div><div>The truth of the app's navigation: every clickable, its label, what it opens, down every path — including panels shown by state over the maps.</div>
+<div>Inputs → outputs</div><div>the repo at the freeze build → <code>navigation_xref_2026-09-29.txt</code> (or later date): 1 the click tree · 2 each panel with its file's <b>last commit date</b> · 3 state flags → panels · 4 every clickable, flat · 5 clickables with no action (check by hand).</div>
+<div>Tool</div><div><span class="tag t-tool">TOOL</span> <code>navxref_2026-09-29.py</code> (built this morning; read-only) <span class="tag t-fred">FRED</span> runs it from the repo root and uploads the .txt <span class="tag t-claude">CLAUDE</span> reviews the tree against the known panels (GRP Awareness, check-in, SELECT CART, Map Features …) and refines the script if anything is missed (new name each time).</div>
+<div>Done when</div><div>Every launch point and every 09-28 panel appears in the tree; section 5 is empty or each entry explained.</div>
+</div>
+</div>
+
+<h3>P3 · The process registry — the spine everything hangs on</h3>
+<div class="card p">
+<div class="grid">
+<div>Purpose</div><div>One table of <b>processes</b> (stable identities), their place in the click tree, their manual section, their images, and the date their code last changed. Every later step reads it; nothing else holds structure.</div>
+<div>Row</div><div><code>process id</code> (stable, = manual section id, e.g. <code>m-search</code>, <code>m-wr-import</code>, <code>m-grpawareness</code>) · display name · parent process · order among siblings · <b>letter / number (derived, never typed)</b> · source composables (from P2) · code last-changed date · status (<b>keep · moved · changed · new · removed</b>) · images (from P5) · designation (from P6).</div>
+<div>Inputs → outputs</div><div>P2 tree + manual v23 sections (ids, titles, nesting) + P4 label map → <code>GroupTrack_ProcessRegistry_2026-MM-DD_vN.html</code> (reviewable table) + <code>process_registry.json</code> (for the scripts).</div>
+<div>Tool</div><div><span class="tag t-tool">TOOL</span> <code>registry_build_….py</code> <span class="tag t-claude">CLAUDE</span> builds and matches; unmatched sections and unmatched tree nodes are listed for decision <span class="tag t-fred">FRED</span> reviews.</div>
+<div>Done when</div><div>Every v23 section maps to a process or is marked removed (with its reason); every tree node that a rider uses maps to a process; Fred has approved the order.</div>
+</div>
+</div>
+
+<h3>P4 · The label map — drag the new labels onto the items</h3>
+<div class="card p">
+<div class="grid">
+<div>Purpose</div><div>For each <b>lettered picture</b> (launch panels: the ride map, the planning map, the Meshtastic rail, the Work with Rides menu, and any other the manual letters): show the panel with its <b>old labels in their old positions</b>, and let Fred <b>drag the new labels onto the items</b> — this becomes the high-level navigation (Fred 09-29).</div>
+<div>The page</div><div><code>GroupTrack_LabelMap_2026-MM-DD_v1.html</code> — one tab per lettered picture. Left: the current screenshot (freeze build) with <b>ghost badges</b> where the old letters were and a list <i>old letter → process</i>. Right: <b>new badges</b> (A, B, C … generated from the registry's order) to drag onto the picture. Unplaced badges and old badges with no new home are listed (new / removed). <b>Export</b> writes <code>labelmap.json</code>: per picture, per badge — letter, process id, x/y as a fraction of the image. Nothing is stamped into the image.</div>
+<div>How letters show</div><div><span class="tag t-dec">DECISION</span> <b>Proposed: letters become HTML overlays</b> positioned on the image from <code>labelmap.json</code>, instead of being drawn into the picture. Then a future relabel changes only the JSON — <b>the image never needs re-stamping</b>, and the letters stay crisp at any zoom. (Fallback: stamp them into the image with a script.)</div>
+<div>Tool</div><div><span class="tag t-tool">TOOL</span> the page (self-contained, works offline in a browser) <span class="tag t-fred">FRED</span> drags and exports <span class="tag t-claude">CLAUDE</span> feeds the JSON to P3 and P8.</div>
+<div>Done when</div><div>Every lettered picture has every new badge placed; the registry's letters match the export.</div>
+</div>
+</div>
+
+<h3>P5 · The image inventory, and each image's age</h3>
+<div class="card p">
+<div class="grid">
+<div>Purpose</div><div>For each of the 112 existing images: which process and step it belongs to, and <b>when it was captured</b> — so it can be judged against the code's last change.</div>
+<div>Dating, three ways (best first)</div><div>
+<ol>
+<li><b>Match to the original capture files.</b> The images came from files on Fred's drive (adb screencaps, Android <i>Screenshot_YYYYMMDD-HHMMSS</i> files, capture folders). A script scans a folder Fred names, computes a perceptual hash of every picture, matches each manual image, and takes the date from the file name or its modified time. <span class="tag t-tool">TOOL</span> <code>imagedate_match_….py</code> <span class="tag t-fred">FRED</span> runs it on the laptop over his capture folders; uploads the result CSV.</li>
+<li><b>Stale markers</b> — visible elements that did not exist, or changed, after a known date. Examples: <i>GroupTrack Mesh Radio Setup</i> in the rail (gone 09-28) · <i>Mesh</i> where <i>GRP Awareness</i> now is (09-28) · a plain <b>REC</b> where <b>✔ CHK IN › REC</b> is (09-27) · <i>SELECT CART</i> alone where <b>CHECKIN / SELECT CART</b> is (09-28) · a full-width <i>Ride Planning</i> button (halved 09-28) · <i>Review / apply saved configs</i> · blurred-halo text (after the legibility fix). <span class="tag t-claude">CLAUDE</span> runs text recognition (upscaled) to flag candidates, then checks each image visually.</li>
+<li><b>Fred's knowledge</b> for anything left undated.</li>
+</ol></div>
+<div>Output</div><div><code>GroupTrack_ImageInventory_2026-MM-DD_v1.html</code>: thumbnail · number · section/process · caption · date (and how it was found) · stale markers found.</div>
+<div>Done when</div><div>Every image has a date or a stale marker or Fred's call.</div>
+</div>
+</div>
+
+<h3>P6 · Change detection — what needs recapturing</h3>
+<div class="card p">
+<div class="grid">
+<div>Rule</div><div>For each image: <b>RECAPTURE</b> if its process's code changed after the image's date, or it shows a stale marker, or the legibility change affects it · <b>KEEP</b> otherwise (the section moves whole, relabelled) · <b>REMOVE</b> if its process is removed. For each process step with no image: <b>NEW</b> capture.</div>
+<div>Output</div><div><code>GroupTrack_CaptureDesignations_2026-MM-DD_v1.html</code>: by process, in click-tree order — each image with its designation and reason; each new capture with <b>the exact screen and state to capture</b> (what to open, what to select, which ride).</div>
+<div>Tool</div><div><span class="tag t-claude">CLAUDE</span> applies the rule from P2 dates + P5 inventory <span class="tag t-fred">FRED</span> approves (can promote a KEEP to RECAPTURE, or the reverse).</div>
+<div>Done when</div><div>Approved: the capture list is final.</div>
+</div>
+</div>
+
+<h3>P7 · The capture tree — one folder per step of each path</h3>
+<div class="card p">
+<div class="grid">
+<div>Purpose</div><div>Folders that mirror the click path: <b>each function call in the stack is its own subdirectory</b>; Fred captures the screen at each level (Fred 09-29).</div>
+<div>Naming</div><div>By <b>process, not letter</b>, with a two-digit order prefix for sorting: <code>03 Rides/07 Work with rides/02 Import a ride/</code>. A relabel never renames a folder. (The capture tree is issued only when revisions are finished — Fred 09-27.)</div>
+<div>In each folder</div><div><code>CAPTURE.txt</code> — what to capture here, in order (from P6), or <code>KEEP — no capture needed</code>. Only designated folders ask for pictures.</div>
+<div>Capturing</div><div><span class="tag t-tool">TOOL</span> <code>cap.sh</code> (dated name) run inside a folder: takes the next <code>NN.png</code> from the capture tablet and appends <b>date, time, tablet, and the freeze build</b> to <code>capture.log</code> — so every new image carries its date and build (fixing the finding in section 1). <span class="tag t-fred">FRED</span> captures, zips the tree, uploads.</div>
+<div>Tool</div><div><span class="tag t-tool">TOOL</span> <code>GroupTrack_CaptureFolders_2026-MM-DD_v3.sh</code> generated from the registry (replaces v2).</div>
+<div>Done when</div><div>Every designated folder has its pictures; <code>capture.log</code> shows the freeze build throughout.</div>
+</div>
+</div>
+
+<h3>P8 · Build the new manual (and the old one stays untouched)</h3>
+<div class="card p">
+<div class="grid">
+<div>Purpose</div><div>The new version's structure, from the registry, before any new picture arrives.</div>
+<div>Steps</div><div>
+<ol>
+<li>Start from manual v23. For each process in registry order: <b>move its section whole</b> (keyed by id) into its new place; <b>retitle</b> with the derived number and letter.</li>
+<li><b>KEEP</b> images stay. <b>RECAPTURE</b> images are swapped for a <b>visible placeholder</b> at the same spot (a framed box: <i>"Picture coming — &lt;process&gt; / NN: &lt;what it shows&gt;"</i>), replacing the invisible comments. <b>NEW</b> captures get placeholders at their exact step.</li>
+<li><b>REMOVED</b> sections leave the new manual (they stay in the archive).</li>
+<li><b>New sections</b> (09-28 panels) are created at their place in the tree with the narrative from P10.</li>
+<li>Letters on pictures become <b>overlays from <code>labelmap.json</code></b> (if the P4 decision is overlays).</li>
+</ol></div>
+<div>Tool</div><div><span class="tag t-tool">TOOL</span> <code>manual_rebuild_….py</code> <span class="tag t-claude">CLAUDE</span></div>
+<div>Output</div><div><code>grouptrack_manual_2026-MM-DD_v24.html</code> — the new version, with placeholders.</div>
+<div>Done when</div><div>Every archived section is accounted for (kept · moved · changed · removed — with reason); every designated capture has exactly one placeholder.</div>
+</div>
+</div>
+
+<h3>P9 · The image injector — pictures into their placeholders</h3>
+<div class="card p">
+<div class="grid">
+<div>Purpose</div><div>Put Fred's captures into the new manual automatically, in click-path order.</div>
+<div>How</div><div>Reads the uploaded capture tree: folder → process → that process's placeholders in order → <code>01.png</code>, <code>02.png</code> …; resizes and compresses to the manual's standard (450×720 portrait / 720×450 landscape JPEG, as now); embeds each with <b><code>data-proc</code>, <code>data-captured</code>, <code>data-build</code></b> attributes from <code>capture.log</code> — so <b>the next rebuild can date every image automatically</b>. Reports leftover pictures and unfilled placeholders.</div>
+<div>Tool</div><div><span class="tag t-tool">TOOL</span> <code>imageinject_….py</code> <span class="tag t-claude">CLAUDE</span></div>
+<div>Done when</div><div>Zero placeholders left; zero leftover pictures (or each explained).</div>
+</div>
+</div>
+
+<h3>P10 · The narrative — text to move, change and create</h3>
+<div class="card p">
+<ul>
+<li><b>Moved whole:</b> sections whose screens did not change — text untouched except letters, numbers and cross-references.</li>
+<li><b>Stale-phrase scan</b> <span class="tag t-tool">TOOL</span> across the manual, Quick Start and release notes, listing every hit with its location for rewriting: <i>Mesh</i> (as the label) · <i>GroupTrack Mesh Radio Setup</i> · <i>Group Com</i> · <i>Send a ride via email</i> · <i>standalone T1000-E</i> · <i>Review / apply saved configs</i> · a lone <i>REC</i> to start a ride · <i>not checked in / bare radio</i> · old letters (e.g. "5.6 F", "3.7.6 F") · <i>Connection</i> as the way to pair.</li>
+<li><b>To create</b> (from verified, decided behaviour): GRP Awareness (panel, connect/pair/forget, Last applied, the three actions) · the check-in (radio required, CHECK IN sets the radio up, the ride list, trailhead order, solo REC) · SELECT CART (the list, sorting, roles) · Roles on the trail (special roles broadcast; lead/tail follow; fixed until reassigned; end with the ride; blank = Rider) · Hide Mesh returns to the ride map · Compare / Apply Archive Configs.</li>
+<li><b>To remove</b> (kept in the archive): 5.6 F GroupTrack Mesh Radio Setup and its five subsections (replaced by GRP Awareness) · 3.7.2 B Send a ride via email · 3.7.5 E standalone T1000-E · 3.12 <i>Mesh on, mesh off</i> (became GRP Awareness 09-28).</li>
+<li><b>Process text</b> — each new section written as its click path: where you start, what you tap, what opens, what each item does, the next level's twisty.</li>
+</ul>
+</div>
+
+<h3>P11 · Quick Start and release notes aligned</h3>
+<div class="card p">
+<ul>
+<li>Quick Start exercises re-checked against the new tree (their starting points and taps); release notes entries relinked to the new sections.</li>
+<li><span class="tag t-tool">TOOL</span> <b>Link check</b>: every <code>grouptrack_manual.html#…</code> link in the Quick Start and release notes, and every <code>#…</code> link inside the manual, resolves to an id in the new manual; the report lists any that do not.</li>
+</ul>
+</div>
+
+<h3>P12 · Verification</h3>
+<div class="card p">
+<ul>
+<li><b>Accounted-for report:</b> every archived section and image → kept · moved · recaptured · removed (with reason).</li>
+<li>Zero placeholders; link check clean; the stale-phrase scan clean.</li>
+<li><span class="tag t-fred">FRED</span> <b>On the tablet:</b> Help → the three documents open from the app's assets; a sample of click paths followed from the manual on the real app.</li>
+</ul>
+</div>
+
+<h3>P13 · Publish</h3>
+<div class="card p">
+<ul>
+<li>Copy the rider docs into <code>app/src/main/assets/</code>, commit, build, install, check Help.</li>
+<li>The web copies (per <i>GroupTrack_Website_Maintenance</i>), if published there.</li>
+<li>The archive, the registry, the label map, the designations and the capture tree into AllDocs.</li>
+</ul>
+</div>
+
+<h2>4 · This week</h2>
+<table>
+<tr><th>Day</th><th>Work</th></tr>
+<tr><td><b>Tue 09-29</b></td><td>This process defined (today, done). Code: role broadcast rules, the controlled reconnect, then legibility and the Work with Rides menu if time allows. <span class="tag t-claude">CLAUDE</span> P1 archive (can run now — it only copies).</td></tr>
+<tr><td><b>Wed 09-30</b></td><td>Finish the screen-changing patches → <b>freeze build</b> (tag) on Droid 1. P2 cross-reference on it. Open-issues review. P5 dating: Fred runs the matcher over his capture folders; Claude flags stale markers.</td></tr>
+<tr><td><b>Thu 10-01</b></td><td>P3 registry · P4 label map (Fred drags) · P6 designations (Fred approves) · P7 capture tree issued. Fred starts capturing.</td></tr>
+<tr><td><b>Fri 10-02</b></td><td>Captures finished and uploaded · P8 new manual · P10 narrative · P9 injection.</td></tr>
+<tr><td><b>Sat 10-03</b></td><td>P11 Quick Start and release notes · P12 verification · P13 publish.</td></tr>
+</table>
+
+<h2>5 · Decisions needed (early)</h2>
+<div class="card">
+<ol>
+<li><span class="tag t-dec">DECISION</span> <b>Letters as HTML overlays</b> (proposed) or stamped into the images.</li>
+<li><span class="tag t-dec">DECISION</span> <b>The legibility fix before the freeze</b> — proposed yes, since it changes nearly every picture.</li>
+<li><span class="tag t-dec">DECISION</span> <b>Which pictures are "lettered"</b> — the list for the label map (proposed: the ride map, the planning map, the Meshtastic rail, the Work with Rides menu; others Fred names).</li>
+<li><span class="tag t-dec">DECISION</span> <b>Where the original capture files are</b> on the laptop (folders for the dating matcher).</li>
+<li><span class="tag t-dec">DECISION</span> <b>The new version's number</b> — manual v24 as the first of the new version, or a fresh series (e.g. "2.7 edition").</li>
+</ol>
+</div>
+
+<h2>6 · Risks</h2>
+<div class="card warn">
+<ul>
+<li><b>A screen changes after capturing</b> → recapture. Mitigation: the freeze tag; patches after it wait for the next doc version unless Fred accepts the recapture.</li>
+<li><b>Undatable images</b> → treated as RECAPTURE if their process's code changed at all in 2.7; otherwise Fred's call.</li>
+<li><b>The cross-reference is heuristic</b> — Kotlin patterns it does not recognise could hide a clickable. Mitigation: section 5 of its output, and Fred's walk of every panel against the tree.</li>
+<li><b>Two tablets differ</b> (screen size, Android version) — capture on one (Droid 1) only.</li>
+<li><b>Scope creep</b> — new features found mid-week go to the next doc version, not this one.</li>
+</ul>
+</div>
+
+</div></body>
+</html>
