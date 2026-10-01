@@ -230,6 +230,7 @@ fun RadioConfigScreen(
                     convoyViewModel.exportProfileToFile(context, f).getOrThrow()
                     RadioBackups.writeMeta(f, t.name + (if (radioCallsign.trim().isNotEmpty() && radioCallsign.trim() != callsign) " \u2014 for ${radioCallsign.trim()}" else ""), t.rideId, r.verified) // SAVETITLE: the ride's own title, carried forward
                     savedAs = RadioBackups.describe(f)
+                    if (r.verified) RadioSetupState.markDone(context) // RADIOSETUPTEST-2026-10-01
                 }
             } catch (e: Exception) {
                 addLog("ERROR: ${e.message}")

@@ -259,9 +259,31 @@ fun GrpAwarenessPanel(
                             Text("temporary", color = Color(0xFF6F8196), fontSize = 9.sp)
                         }
                     }
+                    // RADIOSETUPTEST-2026-10-01: the startup radio-setup question, here for testing only.
+                    Surface(modifier = Modifier.weight(1f).clickable { message = ""; RadioSetupState.showing.value = true },
+                        shape = RoundedCornerShape(8.dp), color = Color(0xFF1E3A22)) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text("STARTUP RADIO SETUP", color = Color(0xFF8FE0A0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("test", color = Color(0xFF6F8196), fontSize = 9.sp)
+                        }
+                    }
                 }
             }
         }
+    }
+    // RADIOSETUPTEST-2026-10-01: YES -> connected: straight to select-and-apply; not connected: connect first, here.
+    if (RadioSetupState.showing.value) {
+        RadioSetupPrompt(
+            ctx = ctx,
+            onYes = {
+                RadioSetupState.showing.value = false
+                if (connected) onApplyRide()
+                else message = "Turn on your radio and select it below to connect. Then tap SELECT A RIDE AND APPLY " +
+                    "SETTINGS TO THE RADIO and choose the GroupTrack default."
+            },
+            onNo = { RadioSetupState.markNo(ctx); RadioSetupState.showing.value = false },
+            onDismiss = { RadioSetupState.showing.value = false },
+        )
     }
     // FORGET, confirmed: from GroupTrack and from Android's Bluetooth pairings.
     forgetting?.let { r ->
