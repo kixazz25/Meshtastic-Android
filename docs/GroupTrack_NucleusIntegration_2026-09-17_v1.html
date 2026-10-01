@@ -1,0 +1,254 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack ↔ Nucleus — Integration Design v1, 2026-09-17</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack ↔ Nucleus — integration design v1</h1>
+<p>2026-09-17 · <b>Companion to Communications Layer Design v7.</b> That document
+is the architecture; this one is the WORKFLOWS, the API surface, and what needs
+to be built on each side. Self-contained.</p>
+
+<div class="card done">
+<p class="hi">⭐⭐⭐ <b>THE CHANGE THAT DRIVES EVERYTHING ELSE:</b></p>
+<p><b>The APP generates the payload. The radio becomes a transport.</b></p>
+<p>Today a radio's own config decides its behaviour — broadcast interval,
+distance threshold, what gets sent. Changing any of it means reconfiguring
+hardware, per device, per rider.</p>
+<p>⭐ <b>With GroupTrack emitting <code>TAKPacket</code> directly, the radio
+carries what the app hands it, at the rate the app chooses.</b> Frequency,
+content, who is included, and what a separated rider receives all become
+APPLICATION decisions — changed in a release, not on a device.</p>
+<p>⚠ <b>What does NOT change:</b> the radio still needs its channel, PSK and
+region — transport-level settings, now set once per ride rather than tuned per
+rider. <b>And airtime is still airtime.</b> The app choosing the rate does not
+create capacity; measured congestion at 3–4 radios on a 3-second update is a
+physical limit. ⭐ <b>What changes is that we can now respond to it in software.</b></p>
+</div>
+
+<h2>⛔ Hardware reality — corrections established 09-17</h2>
+<div class="card bad">
+<table>
+<tr><th>Claim</th><th>Reality</th></tr>
+<tr><td>"The T1000-E supports an IP connection via WiFi"</td><td>⛔ <b>FALSE.</b> Its nRF52840 supports Bluetooth 5.0, Thread and Zigbee — <b>no WiFi radio.</b></td></tr>
+<tr><td>Spec sheets mention "Wi-Fi positioning"</td><td>That is the LR1110 <b>sniffing access-point MACs for geolocation</b>, on the <b>LoRaWAN variant</b> — not a network connection, and not the Meshtastic model.</td></tr>
+<tr><td>Nucleus ~$150–200</td><td>⛔ <b>~$600.</b> This materially changes the tier economics.</td></tr>
+</table>
+<p>⭐⭐ <b>THE RULE: THE MCU DECIDES.</b></p>
+<table>
+<tr><th>MCU</th><th>Examples</th><th>WiFi</th><th>Meshtastic <code>NetworkConfig</code></th></tr>
+<tr><td><b>nRF52840</b></td><td>T1000-E, RAK3401</td><td>❌</td><td>Does not apply</td></tr>
+<tr><td><b>ESP32 / S3</b></td><td>Heltec V3 (~$25), LoRa32 V4, ThinkNode M2</td><td>✅</td><td>Applies — radio joins an SSID, takes DHCP, is reached over <b>TCP</b></td></tr>
+</table>
+<p>⛔⛔ <b>AND THE MODE TRAP.</b> The protobuf comment is explicit:
+<code>wifi_enabled</code> — <i>"Enable WiFi (disables Bluetooth)"</i>. <b>It is one
+or the other.</b> A radio that joins WiFi loses BLE permanently until something
+changes that flag — <b>and if the network is not there, it is unreachable by any
+means and needs a physical reset.</b> A one-way door.</p>
+<p>⚠ <b>High-power + WiFi is not a consumer option.</b> Station G2 is
+discontinued; the G3 successor is ~$159 and out of stock — <b>and above 1 W on
+US915 requires an FCC Part 97 amateur licence.</b> Not something to recommend to a
+club. RAK's 1 W kit ($39) is Part 15 but is nRF52, so <b>no WiFi</b>.</p>
+</div>
+
+<h2>⭐⭐ Connection matrix — what GroupTrack already has</h2>
+<div class="card done">
+<p><b>The fork inherits all three transports from upstream Meshtastic.</b>
+<code>ui/connections/DeviceType.kt</code>:</p>
+<pre>enum class DeviceType { BLE, TCP, USB, MOCK }</pre>
+<p>with <code>BLEDevices.kt</code>, <code>NetworkDevices.kt</code> (discovery) and
+<code>UsbDevices.kt</code> in the connections UI, and working
+<code>usb-serial-for-android</code> plumbing in
+<code>repository/usb/SerialConnectionImpl.kt</code>.</p>
+<p>⭐⭐ <b>SO THE IP PATH IS LARGELY FREE.</b> An earlier assumption that TCP
+support would have to be written was wrong.</p>
+<table>
+<tr><th>Transport</th><th>Used for</th><th>Notes</th></tr>
+<tr><td><b>USB</b></td><td>⭐ <b>The LEADER configures their radio</b></td><td>Works regardless of BLE/WiFi mode — <b>no one-way door, cannot brick.</b> Needs USB-OTG host cable. ⚠ Confirm a T1000-E accepts CONFIG over its pogo pins, not only DFU/serial logging.</td></tr>
+<tr><td><b>BLE</b></td><td>Riders on nRF52 radios; bootstrapping a fresh device</td><td>The only state a factory radio is in. <b>The door in.</b></td></tr>
+<tr><td><b>TCP</b></td><td>ESP32 radios on the ride network; <code>meshtasticd</code> on a Nucleus</td><td>⚠ DHCP means the address moves — <b>mDNS discovery required.</b></td></tr>
+</table>
+</div>
+
+<h2>The config record — owned by club, leader, or ride</h2>
+<div class="card next">
+<p>⛔ <b>CLEANUP REQUIRED ON OUR SIDE:</b> "ride" currently holds organizer, club
+and ride identity together. <b>Split it.</b></p>
+<table>
+<tr><th></th><th></th></tr>
+<tr><td><b>A RIDE</b></td><td>an EVENT — date, trailhead, route, enrolled riders</td></tr>
+<tr><td><b>A CONFIG RECORD</b></td><td>a NETWORK IDENTITY — name, derived keys, owner</td></tr>
+</table>
+<p>⭐ <b>Many-to-one: a ride REFERENCES a config.</b> A club config serves every
+ride that club runs; a leader config serves theirs; a ride config is one-off with
+an expiry.</p>
+<table>
+<tr><th>Owner</th><th>Tenure</th></tr>
+<tr><td><b>Club / org</b></td><td>Permanent, reserved</td></tr>
+<tr><td><b>Ride leader</b></td><td>Permanent, reserved — belongs to the PERSON</td></tr>
+<tr><td><b>One-time ride</b></td><td>Expires; on expiry the saved network is removed</td></tr>
+</table>
+<p>🔴 <b>OPEN: precedence.</b> If a ride references a club config AND has its own,
+which wins? <b>State the rule; do not let it be inferred.</b></p>
+
+<h3>⭐⭐ One name, one password, both transports</h3>
+<p><b>The rider sees TWO FIELDS. The channel name IS the network name.</b></p>
+<p>⚠ <b>But the KEYS are DERIVED, not shared.</b> A WPA2 passphrase and a
+Meshtastic PSK have different formats and lengths — <b>they cannot be the same
+value.</b> One password feeds a KDF; each transport gets a properly formatted key.</p>
+<p>⛔⛔ <b>THE DERIVATION IS THE SINGLE POINT EVERYTHING RESTS ON.</b> It must be
+identical on every build and <b>versioned from day one</b>. Two riders on
+different releases deriving different PSKs from the same password is a silent,
+total failure.</p>
+<p>⚠ <b>Check the Meshtastic channel-name length limit</b> before fixing the
+naming scheme — a network name that truncates differently puts riders on
+different channels.</p>
+</div>
+
+<h2>⭐ WORKFLOWS</h2>
+
+<div class="card next">
+<h3>W1 — Leader creates a ride config (at home, has internet)</h3>
+<ol>
+<li>App generates the config record: <b>name + password</b> → derives WiFi key and
+Meshtastic PSK.</li>
+<li>Stored against the owner — club, leader, or this ride.</li>
+<li>⭐ <b>GroupTrack is the SYSTEM OF RECORD for network identity.</b></li>
+</ol>
+
+<h3>W2 — Leader configures their own radio (at home) — ⭐ USB</h3>
+<ol>
+<li>Radio connected by USB-OTG. ⭐ <b>Works in either mode; cannot brick.</b></li>
+<li>App applies channel name + PSK + region from a <b>picker listing configs by
+owner</b>:
+<pre>Apply configuration
+  CLUB    Southern Utah UTV
+  LEADER  &lt;leader name&gt;
+  RIDE    Sand Hollow 03 Oct   (expires 10 Oct)</pre></li>
+<li>For an ESP32 radio, optionally also the WiFi credentials.</li>
+</ol>
+<p>⚠ <b>This picker is a LEADER'S tool.</b> A rider never chooses — they get the
+config the ride references.</p>
+
+<h3>W3 — Leader provisions the Nucleus — 🔴 NEEDS NATHAN'S API</h3>
+<ol>
+<li>Tablet joins the node's <b>current</b> AP.</li>
+<li><b>POSTs the network identity</b> (name + key) to the node's local endpoint.</li>
+<li>Node provisions its own WiFi mesh AND its attached Meshtastic radio.</li>
+<li>Node reboots (~60 s) and comes up on the ride network.</li>
+</ol>
+<p>⛔ <b>CHICKEN-AND-EGG, AND IT IS INHERENT:</b> to reach the API the tablet must
+already be on the node's AP. <b>So this CHANGES a network, it does not create one
+from nothing.</b> The node ships with a default AP; the leader joins it and pushes
+the ride identity. ⚠ <b>The node then drops every client</b> — the app must expect
+the disconnect, not treat it as failure.</p>
+<p>🔴 <b>AND A MANAGEMENT INTERFACE MUST SURVIVE THE CHANGE</b>, or a wrong push
+strands the node exactly as a bad WiFi config strands a radio.</p>
+
+<h3>W4 — Bootstrapping a rider's ESP32 radio onto WiFi — the mode trap</h3>
+<p>⛔ A fresh radio has <b>no SSID and Bluetooth on</b>. BLE is the ONLY way in.
+Enabling WiFi turns BLE off — <b>one shot.</b></p>
+<p>⭐ <b>SAFE PATH — use the tablet's own hotspot as a setup jig:</b></p>
+<ol>
+<li>Tablet raises its hotspot. ⭐ <b>It created the network, so it knows both the
+SSID and the key</b> — Android will not reveal a saved password for any other
+network.</li>
+<li>Configure the radio over BLE to join THAT network.</li>
+<li>Radio reboots; BLE goes off; it joins.</li>
+<li>⭐ <b>Verify over TCP immediately</b> — a known-good network we control, so a
+failure is visible at once rather than at a trailhead.</li>
+</ol>
+<p>⚠ <b>App must handle the gap:</b> wait for the reboot, discover by <b>mDNS</b>
+(address is not fixed), and <b>say plainly if it does not come back</b> — a radio
+that fails to rejoin is invisible on both transports and the rider needs to know
+to reset it, not to assume the app is broken.</p>
+<p>🔴 <b>OPEN: does <code>NetworkConfig</code> hold ONE SSID or several?</b> The
+proto shows a single <code>wifi_ssid</code>/<code>wifi_psk</code> pair — <b>which
+means switching networks needs BLE, which is off. That circularity must be
+solved.</b> ⚠ <b>USB is the escape hatch</b> and is the strongest argument for it.</p>
+
+<h3>W5 — Rider joins a ride</h3>
+<ol>
+<li>Rider receives the ride definition — route, trailhead, maps, <b>and network
+identity</b>.</li>
+<li>Tablet joins the ride network.</li>
+<li>Rider's radio is already on the ride channel (configured at home, or by the
+leader).</li>
+<li>⭐ <b>Riders always assume the config of the network they join. Nothing to
+choose.</b></li>
+</ol>
+
+<h3>W6 — Running</h3>
+<ol>
+<li>App emits <code>TAKPacket</code> (portnum 72) at the <b>app-chosen</b> cadence.</li>
+<li>Nucleus module converts, compresses, forwards to LoRa; and receives,
+decompresses, delivers back over the AP.</li>
+<li>⭐ <b>Both meshes run in PARALLEL with deduplication</b> (Natak): every CoT
+packet goes over WiFi AND LoRa, LoRa rate-limited. <i>"The polling required to get
+quick network switching between wifi and Lora is very tough to get right."</i></li>
+</ol>
+</div>
+
+<h2>🔴 API SURFACE NEEDED FROM NATAK</h2>
+<div class="card bad">
+<p class="hi">⭐ <b>Nathan has committed to a config API.</b> These are the
+specifics it needs to cover.</p>
+<table>
+<tr><th>#</th><th>Need</th><th>Why</th></tr>
+<tr><td><b>A1</b></td><td><b>ACCEPT a network identity</b> — POST name + key; node provisions its WiFi mesh AND its attached radio</td><td>⭐ The whole enrollment model. <b>More than a config read.</b></td></tr>
+<tr><td><b>A2</b></td><td><b>SERVE the current config</b> — GET</td><td>A tablet already on the AP can pick up settings without being told them</td></tr>
+<tr><td><b>A3</b></td><td>⛔ <b>AUTHENTICATION on both</b></td><td>An open endpoint that reconfigures a node is a way to hijack a ride. ⚠ Natak flagged that internet-facing security has not been a focus.</td></tr>
+<tr><td><b>A4</b></td><td><b>ATOMIC success/failure reporting</b></td><td>We must know whether the join took. <b>Partial application is the dangerous state</b> — half-joined looks like our app is broken.</td></tr>
+<tr><td><b>A5</b></td><td><b>A management path that survives a network change</b></td><td>Otherwise a wrong push strands the node</td></tr>
+<tr><td><b>A6</b></td><td>Settling time contract</td><td>~60 s with a reboot today — the app needs to wait rather than fail</td></tr>
+</table>
+
+<h3>🔴 STILL OUTSTANDING FROM THE LAST EXCHANGE</h3>
+<p>⭐⭐ <b>Does the bridge relay ONLY <code>TAKPacket</code>, or does it generate a
+CoT event for ANY Meshtastic position it receives?</b></p>
+<p><b>A plain T1000-E with no phone attached still broadcasts its position on
+portnum 3.</b> Being able to hand someone a radio and have them appear — with no
+app at all — is a core promise of this product. <b>If the bridge only carries
+portnum 72, that rider is visible to LoRa riders and invisible on the IP
+mesh.</b></p>
+<p>⚠ <b>And Natak asked US a question we owe an answer to:</b> what is our packet
+size? He runs small packets at a high-speed LoRa preset. <b>If we are on a slower
+preset, that alone could explain our congestion at 3–4 radios against his
+calculated 25.</b> ⭐ Checkable in our own config — <b>and the preset belongs in
+the ride config alongside channel and PSK.</b></p>
+</div>
+
+<h2>⚠ What each side builds</h2>
+<div class="card warn">
+<table>
+<tr><th>GroupTrack (Android)</th><th>Natak (Nucleus)</th></tr>
+<tr><td><b>Config record</b> split out of "ride"; owner tiers; expiry</td><td><b>A1</b> accept-network-identity endpoint</td></tr>
+<tr><td><b>KDF</b> — one password → WiFi key + Meshtastic PSK, versioned</td><td><b>A3</b> authentication</td></tr>
+<tr><td><b>Config picker</b> by owner (leader tool)</td><td><b>A4</b> atomic result reporting</td></tr>
+<tr><td><b>USB config path</b> (plumbing exists; wire it to the picker)</td><td><b>A5</b> management path surviving a change</td></tr>
+<tr><td><b>TAKPacket emit/parse</b> at the layer-1 boundary</td><td>⭐ Bridge already does conversion + compression + forwarding</td></tr>
+<tr><td><b>mDNS discovery</b> + reboot-gap handling</td><td>Confirm portnum-3 relay behaviour</td></tr>
+<tr><td>Ride definition carries the network identity</td><td>Onboard GPS (open — would fully position a chipless tablet)</td></tr>
+</table>
+<p>⛔ <b>AND THE FRAMING FOR THE CONVERSATION:</b> Natak's model is a
+<b>preconfigured team</b> — a standard config applied per group at build time.
+Ours is <b>individuals who join and switch per ride</b>. <b>That gap is the
+difference between ATAK and the SxS market he says he wants to reach, and closing
+it is what a partnership delivers.</b></p>
+</div>
+
+</body></html>

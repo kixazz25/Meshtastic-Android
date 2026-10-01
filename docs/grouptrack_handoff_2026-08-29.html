@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — Session Handoff 2026-08-29</title>
+<style>
+ :root{--bg:#12141A;--card:#1B1E26;--line:#2E3440;--tx:#E6E9EF;--dim:#9AA4B2;
+       --red:#FF5C5C;--amb:#FFC53D;--grn:#4ADE80;--blu:#60A5FA;}
+ *{box-sizing:border-box}
+ body{margin:0 auto;background:var(--bg);color:var(--tx);max-width:980px;
+   font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;padding:34px 22px 90px}
+ h1{font-size:25px;margin:0 0 4px;letter-spacing:-.3px}
+ .sub{color:var(--dim);font-size:13.5px;margin:0 0 26px}
+ h2{font-size:16px;margin:34px 0 10px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+ h3{font-size:14px;margin:20px 0 6px;color:var(--blu)}
+ .card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:15px 17px;margin:13px 0}
+ .card.stop{border-color:#5C2A2A;background:#20161A}
+ .card.warn{border-color:#5C4A1E;background:#1F1C14}
+ .card.good{border-color:#26502F;background:#141E17}
+ code{background:#0C0E13;padding:1.5px 5px;border-radius:4px;font-size:12.5px;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ pre{background:#0C0E13;border:1px solid var(--line);border-radius:7px;padding:11px 13px;
+   overflow-x:auto;font-size:12.5px;line-height:1.5;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}
+ th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+ th{background:#171A21;font-weight:600;color:var(--dim)}
+ ul,ol{padding-left:20px;margin:7px 0} li{margin:5px 0}
+ .k{color:var(--amb);font-weight:700} .g{color:var(--grn);font-weight:700}
+ .r{color:var(--red);font-weight:700} .lead{font-size:15.5px}
+</style>
+</head>
+<body>
+<p style="font:11px monospace;color:#8b949e">DOCUMENT ID: HANDOFF-2026-08-29</p>
+
+<h2>Where things stand</h2>
+<p><b>The AI route planner is complete and device-proven.</b> Six screens on one
+<code>pinStep</code> machine; the recipe rebuilds a batch from a saved route in one press; and the
+cached-graph bug that made a second search in the same area return worse routes is fixed and
+verified by re-running the exact sequence that produced it.</p>
+
+<h2>⭐ THE BUG THAT TOOK TWO DAYS TO SEE</h2>
+<div class="card">
+<p><b>Symptom:</b> the same four pins covered 2 of 4 on one run and 4 of 4 on another, from
+identical inputs. Deterministic within a session, different across one.</p>
+<p><b>Cause:</b> <code>splitEdgeAt(g, ..)</code> writes into whatever graph it is handed, and a
+cache hit returned the cached object <b>by reference</b>. So the first run's pin splits became the
+next run's starting topology.</p>
+<p><b>Fred's observation is what cracked it:</b> <i>"the only difference I am aware of is one was
+the first run of the day and another followed a previous run in that area."</i> A cold cache was
+right; a warm one was not.</p>
+<p><b>⚠ It had been flagged on 08-27 and left unproven</b> — "splitEdgeAt mutates the cached
+graph, which would break recipe determinism SILENTLY — NOT VERIFIED". It did.</p>
+<p><b>Fix:</b> <code>copyOf()</code> on every cache hit. All seven Graph fields, including
+<code>adj</code>'s inner lists, which <code>splitEdgeAt</code> appends to. A copy rather than a
+cache key, because two identical runs would still hit and the second would inherit the first's
+splits.</p>
+<p><b>⭐ VERIFIED:</b> the same sequence — trailhead-only search, then the same four pins — now
+returns two routes with four pins and four with three, matching a cold start.</p>
+</div>
+
+<h2>What shipped 2026-08-29</h2>
+<table border="0" cellpadding="6">
+<tr><th>Commit</th><th>What</th></tr>
+<tr><td><code>956a7ae54</code></td><td>The recipe button wired; creating a trailhead now selects
+it; toolbar gate; layer states; the quarter-mile ring; search opens at the trailhead step;
+<code>order</code> on the assess trace.</td></tr>
+<tr><td><code>46798c44c</code></td><td>The recipe goes into every draft, not only the batch file —
+which is why the button never appeared on any saved route.</td></tr>
+<tr><td><code>851db572d</code></td><td>The cached graph is copied on every hit; the trailhead
+banner explains the blue circle and the two-character state hint.</td></tr>
+</table>
+
+<h2>⬜ Left on the route planner</h2>
+<table border="0" cellpadding="6">
+<tr><th>#</th><th>Item</th><th>Note</th></tr>
+<tr><td>1</td><td><b>GPX <code>&lt;desc&gt;</code></b></td><td>⭐ <b>The one that matters.</b>
+<code>buildRouteGpxById</code> writes <code>&lt;desc&gt;</code> only if a column exists that is
+not in its SELECT — so the branch has never fired and no narrative has ever been shared. It should
+read <code>readRouteNotes()</code>. And the route parser ignores <code>&lt;desc&gt;</code> on
+import, though the waypoint parser already handles it.</td></tr>
+<tr><td>2</td><td><b>assess on recipe load</b></td><td>The recipe jumps straight to the summary, so
+<code>gpRunAssess()</code> never runs and feasibility is unknown until after the search. ⚠ With it,
+the button can be <b>disabled with a reason</b>: <i>"This route is fine and you can ride it.
+Rebuilding alternatives needs trails that are not on this device."</i></td></tr>
+<tr><td>3</td><td><b>Trailhead gate</b></td><td>The ring is drawn but enforces nothing. Zero
+candidate starts at the tapped point should refuse the drop — the same query the search already
+runs, at the map centre.</td></tr>
+<tr><td>4</td><td><b>Pin count on the summary</b></td><td>The summary reads back the trailhead,
+mileage, duration and pace, and never says how many pins. It is the last screen before a build
+that takes real time.</td></tr>
+</table>
+
+<h3>⚠ Deliberately NOT done, and why</h3>
+<p><b>The 600-yard walk to the nearest routable trail.</b> Designed to fix pins snapping to
+stranded fragments — and then the evidence said it never happens. All four pins snapped 218–289 ft
+to trails in the anchor's 1,143-trail network. <code>onFragment</code> already reports the case and
+the at-drop check already refuses it. <b>Good enough until it is seen.</b></p>
+<p><b>The z16 minimum</b> — dropped in favour of the ring, which shows the rider what is in range
+rather than telling them a number.</p>
+
+<h2>Verification tools built today</h2>
+<p><code>assess_pins_v2_2026-08-29.py</code> — standalone reachability against a pulled device
+database. Builds the graph with the 25-foot join rule, reports each pin's snap distance, the trail
+it lands on, and <b>whether it shares the anchor's connected component</b>.</p>
+<div class="card warn">
+<p><span class="k">⚠ AND ITS FIRST VERSION WAS WRONG IN AN INSTRUCTIVE WAY.</span> v1 joined
+trails at their ENDPOINTS only and reported 1,836 components across 3,854 trails — barely anything
+connected. Precise, plausible, and entirely an artefact: the engine splits edges at
+intersections, so two trails crossing mid-span connect there.</p>
+<p><b>Same lesson as the six-thousand-foot pin snap: a proxy that is cheap to write will
+confidently answer a different question from the one asked.</b></p>
+</div>
+
+<h2>⬜ SPECIFIED — the startup import check</h2>
+
+<div class="card">
+<p><b>Fred, 08-29:</b> <i>"record failure on incompletes on app restart — open imports for any
+reason. Suggest a rerun of that import to correct any issue that may have arisen."</i></p>
+<p><b>⭐ AN IMPORT STILL OPEN ON RESTART DID NOT FINISH</b>, and that is the whole test. No failure
+logging is needed at import time: network off, app killed, crash, battery — all look the same and
+all want the same answer. <b>It cannot miss anything, because it does not depend on the failure
+path being reached.</b> A process that dies mid-import writes no error but leaves an open
+record.</p>
+</div>
+
+<div class="card good">
+<p><span class="g">⭐ THE MACHINERY ALREADY EXISTS.</span> <code>HomeStateImportController</code>
+tracks a per-source <code>status</code> and skips <code>"completed"</code> at :259; at :916 it
+scans the state JSON files for <code>process_state == "completed"</code>.</p>
+<p><b>So this is a READ, not new tracking</b> — the same shape as
+<code>PinFeasibility.unreachable</code>, which had been computed and ignored for days. Find the
+files whose <code>process_state</code> is not <code>completed</code>, report the source and its
+date, offer the rerun.</p>
+<p><b>⭐ And :259 is what makes the rerun safe:</b> completed sources are skipped, so a rerun
+fetches only what is missing and duplicates nothing. The rider risks nothing by accepting.</p>
+</div>
+
+<h3>The dialog</h3>
+<table>
+<tr><th>Rule</th><th>Why</th></tr>
+<tr><td><b>On launch, only when something is open</b></td><td>⚠ A message every launch gets
+ignored, and then the one that matters is ignored too.</td></tr>
+<tr><td><b>Name the source and the date</b></td><td>"Open Source Maps, 12 August" tells the rider
+whether this is today's problem or one they have been riding with for weeks.</td></tr>
+<tr><td><b>Two buttons per entry: REMOVE and RERUN</b></td><td>⭐ <b>RERUN launches the import
+immediately</b> — not a link to the import screen, not a confirmation. The rider said what they
+wanted.</td></tr>
+<tr><td><b>REMOVE takes it off the report</b></td><td>For the state they do not want. ⚠ Annotated
+as removed, <b>never deleted</b> — imports number under twenty, so the history costs nothing and
+the import screen still shows every attempt and its outcome.</td></tr>
+</table>
+
+<div class="card">
+<p><b>⚠ NO TIME WINDOW.</b> An earlier draft had one, on the reasoning that an import abandoned in
+June should stop nagging by itself. <b>It should not.</b> Removal is a decision a rider makes; a
+window hides things nobody decided about, which is exactly what REMOVE exists to prevent.</p>
+</div>
+
+<div class="card">
+<p><b>⭐ WHY THIS IS WORTH BUILDING</b> — Fred, 08-29: six sources appeared to fail in nine
+seconds, and the cause was the network being switched off. Not a defect, and struck from the
+backlog. <b>But the app reported nothing.</b> A rider who does the same has no idea their trails
+are incomplete, and sparse results look exactly like sparse country.</p>
+</div>
+
+<h2>⬜ ROUTE PLANNING — OPEN ITEMS AT BREAKPOINT (2026-08-29)</h2>
+
+<div class="card">
+<p><b>Route planning is at a breakpoint.</b> The flow is complete and device-proven, the recipe
+rebuilds a batch in one press, and the narrative now travels in the GPX. What follows is what was
+deliberately left, with the reason in each case.</p>
+</div>
+
+<table>
+<tr><th>#</th><th>Item</th><th>Why it was left</th></tr>
+
+<tr><td>R1</td><td><b>Trailhead gate — zero candidate starts should refuse the drop</b></td>
+<td>The quarter-mile ring is drawn and enforces nothing. The check is the same query the search
+already runs, at the map centre rather than at a chosen anchor. <b>Polish, not a defect</b> — a
+rider who drops a trailhead with nothing near it gets no routes and can see why.</td></tr>
+
+<tr><td>R2</td><td><b>Pin count on the summary</b></td><td>The summary reads back the trailhead,
+mileage, duration and pace, and never says how many pins. ⚠ It is the last screen before a build
+that takes real time, and "including your 4 points" is what a rider would confirm.</td></tr>
+
+<tr><td>R3</td><td><b><code>buildWaypointGpxById</code> has the same dead column guard</b></td>
+<td>Guards on <code>columnCount &gt; 3</code> while selecting three columns, so waypoint
+descriptions have never exported either. <b>Same bug as the route builder, found while fixing
+it</b>, and left rather than widened the patch.</td></tr>
+
+<tr><td>R4</td><td><b>Compare-table scroll bar</b></td><td>Widened from 3dp to 6dp on 08-27 and
+<b>never seen on a device</b>. It draws only when the content overflows, so it may be correct and
+untested, or still invisible.</td></tr>
+
+<tr><td>R5</td><td><b>The 600-yard walk to the nearest ROUTABLE trail</b></td>
+<td>⭐ <b>Deliberately not built.</b> Designed to stop pins snapping to stranded fragments — then
+the evidence said it does not happen. All four pins snapped 218–289 ft into the anchor's
+1,143-trail network. <code>onFragment</code> already reports the case and the at-drop check
+already refuses it. <b>Good enough until it is seen.</b></td></tr>
+
+<tr><td>R6</td><td><b>Route ordering when a route skips a rider's pin</b></td>
+<td>Fred, 08-29: <i>"interesting that from a points standpoint a non-user route finished
+second."</i> A three-pin route ranked above four-pin ones. <b>That is the scorer working</b> —
+pins decay per class, features earn on gain per mile — but a rider who dropped four must-sees may
+not expect it. The compare table shows coverage, so it is visible; the ORDERING is the open
+question.</td></tr>
+
+<tr><td>R7</td><td><b>GPX round trip through Gaia and onX</b></td><td>⚠ <b>UNTESTED.</b> The
+narrative now goes out in <code>&lt;desc&gt;</code> and the payload in
+<code>&lt;extensions&gt;</code>. Whether those apps <b>preserve unknown extensions on
+re-export</b>, and whether they truncate long descriptions, decides if a recipe survives a trip
+through them.</td></tr>
+
+<tr><td>R8</td><td><b>Startup import check</b></td><td>Specified in full above. A read of
+<code>process_state</code>, which <code>HomeStateImportController</code> already
+maintains.</td></tr>
+
+<tr><td>R9</td><td><b>Picker checkboxes and multi-delete</b></td><td>Needs a button and selectors.
+Rename and the empty-list case landed on 08-27.</td></tr>
+
+<tr><td>R10</td><td><b>57 <code>.bak_*</code> files inside <code>app/src/main/java</code></b></td>
+<td>⚠ They appear in every recursive grep and have twice sent a search to the wrong file.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ AND ONE THING TO VERIFY BEFORE CALLING IT DONE:</span> the GPX share round
+trip between two devices — export a planner-built route from one, import on the other, and confirm
+BOTH that the narrative arrived and that the rebuild button appears. <b>That is the first real
+test of the recipe travelling</b>, and it is what the 08-29 build exists for.</p>
+</div>
+
+<h2>⭐⭐ THE TRAIL-TYPE FILTER — the design this classification is for (2026-08-29)</h2>
+
+<div class="card good">
+<p><b>Fred's vision, stated at the end of the classification run:</b></p>
+<p><i>"We have types which control what is eligible to be displayed — tracks, routes, trails and
+waypoints. Within trails we have a setting under the legend that controls the types of trails you
+will display, and those values are saved from session to session. Then in route building we show
+the current filter values and allow you to accept or reselect."</i></p>
+</div>
+
+<h3>Two levels, and they are different questions</h3>
+<pre>ARTIFACT TYPE     tracks · routes · trails · waypoints      what is drawn at all
+  └─ TRAIL TYPE   OHV · 4wd · motorized track · hiking ·    which trails, of those
+                  hiking and biking · biking · equestrian ·
+                  unclassified motorized · unclassified unknown</pre>
+<p>The outer level exists today. <b>The inner one is what trail_type makes possible.</b></p>
+
+<h3>Why this is the point of the whole OSM exercise</h3>
+<div class="card">
+<p><b>⭐ It resolves several open threads with one mechanism:</b></p>
+<table>
+<tr><th>Problem</th><th>What the filter does</th></tr>
+<tr><td>Hiking trails now IN the table</td><td>Shown, labelled, <b>not routed</b> — Fred:
+<i>"it can go back in because it clearly has a category identity."</i> A path with a correct label
+is a feature; a path silently mixed in was the reason 08-24 removed it.</td></tr>
+<tr><td><code>buildGraph</code> reads every trail</td><td>Reads what the filter permits.</td></tr>
+<tr><td>Tracks invisible to the planner</td><td>The same mechanism — a TYPE, not a separate
+table.</td></tr>
+<tr><td>A rider on a dirt bike, not a SxS</td><td>A different selection over the same
+data.</td></tr>
+</table>
+<p><b>⚠ AND IT RETIRES AN OLD COMPROMISE.</b> The standing rule was <i>"display and routing are
+the same filter — cannot be both."</i> With types they can be <b>the same mechanism with different
+selections</b>, which is what was wanted all along and was not expressible before.</p>
+</div>
+
+<h3>Where the settings live</h3>
+<table>
+<tr><th>Surface</th><th>Behaviour</th></tr>
+<tr><td><b>The legend</b></td><td>The trail-type toggles sit here, under Trails. <b>Saved session
+to session</b> — a rider who never wants hiking trails on the map sets it once.</td></tr>
+<tr><td><b>Route building</b></td><td>⭐ <b>Shows the CURRENT filter and asks.</b> Accept it, or
+reselect for this ride. The rider is told what the planner will use rather than inheriting a map
+setting silently.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ AND THAT SECOND POINT IS THE ONE THAT MATTERS.</span> A display setting that
+silently bounds a search is exactly the kind of invisible state that cost two days this week. <b>The
+planner should say what it is about to use</b> — and the parameters step is where it already asks
+everything else.</p>
+<p><b>⚠ It also belongs in the recipe.</b> A rebuild that used a different filter from the original
+would produce different routes for a reason nothing recorded.</p>
+</div>
+
+<h2>⭐ THE CLASSIFICATION MEASURED — Utah, 2026-08-29</h2>
+
+<div class="card good">
+<p><b>GPKG joined to PBF on osm_id</b> — both are OSM, both carry it, 424,951 of 699,537 rows
+matched within the widened net. Nothing touched the device.</p>
+</div>
+
+<pre>KEPT           77,340   in today's filter, rules agree
+ADDED          48,491   rejected today, rideable under the rules
+DROPPED         9,739   in today's filter, excluded now
+TOTAL IN      125,831   (today: 87,079)
+
+CLASSIFIED     83,916   67%  -- a type from real tags   (today: 0)
+UNCLASSIFIED   41,915   33%  -- in on shape alone</pre>
+
+<table>
+<tr><th>Type</th><th>Ways</th><th>Note</th></tr>
+<tr><td>unclassified unknown</td><td>41,915</td><td>⚠ The honest remainder — in on shape, as
+today.</td></tr>
+<tr><td><b>unclassified motorized</b></td><td>28,090</td><td>⭐ <b>The category Fred invented
+today</b>, and the second largest. Unnamed ground the rider can trust.</td></tr>
+<tr><td>hiking only / hiking and biking</td><td>27,512</td><td>Now labelled rather than
+absent.</td></tr>
+<tr><td>track grade1–5</td><td>16,522</td><td>From <code>tracktype</code>, on 32% of
+tracks.</td></tr>
+<tr><td>4wd only · OHV designated</td><td>2,777</td><td>The strongest signals, and the
+rarest.</td></tr>
+</table>
+
+<h3>⭐ WHAT IT FIXED, BY NAME</h3>
+<div class="card">
+<p><b>DROPPED, asphalt <code>unclassified</code>:</b> Main Street · Center Street · 6000 West ·
+Thermo Road · Manderfield Road. <b>The community-roads-as-trails fault, solved.</b>
+<code>unclassified</code> is OSM's tag for a minor public road, so a paved lane matched the old
+filter exactly.</p>
+<p><b>ADDED, unpaved <code>tertiary</code> and <code>residential</code>:</b> Johnson Canyon Road ·
+Strevell Road · Dove Creek Road · West Pass Road · 3300 South. <b>The rideable-roads-missing
+fault, solved</b> — and this is the Mountain Spring Road case: <code>highway=tertiary</code>,
+<code>surface=dirt</code>, on the map, ridden, and never in the trails table.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ TWO DROPPED ENTRIES TO EXPLAIN BEFORE THIS SHIPS:</span> <b>Bonneville
+Shoreline Trail</b> and <b>Weaver Way</b>, both <code>track</code> with no surface tag. They were
+dropped by an access or motor_vehicle restriction, which may be correct — but the Bonneville
+Shoreline is a known route and a rule that removes it needs to be understood rather than
+accepted.</p>
+</div>
+
+<h3>⚠ Open before any of this is built</h3>
+<ul>
+<li><b>The trails table has no <code>osm_id</code>.</b> <code>source_id</code> is null on every
+row and nothing carries the OSM way id — so there is <b>no join from the device to either
+source</b>, and no incremental update is possible until the import keeps it.</li>
+<li><b>Two vocabularies already exist.</b> <code>carto_code</code> holds USGS values —
+"2 - Hiking and Biking Allowed", "1 - Hiking Only", "5 - Biking Only", "4 - Road-concurrent" — on
+38% of rows, and is null on the other 62%. <b>The OSM classification must map INTO that
+vocabulary</b> or the table will carry three.</li>
+<li><b>Rules are a first draft.</b> Exclusions first (private, motor_vehicle=no), then motorized
+confirmation, then surface for roads, then tracks in on shape. <b>They have not been reviewed
+against ground anyone has ridden</b> beyond the examples above.</li>
+</ul>
+
+<h2>⭐⭐ OSM DATA REFRESH — clear and reimport, by source, quarterly (2026-08-29)</h2>
+
+<div class="card good">
+<p><b>Fred's plan, and it replaces the incremental-update design below:</b></p>
+<p><i>"Use the last import date for OSM data as the trigger to refresh. Remind the user to refresh
+map data — once a quarter is enough. In the startup job: pending map update, execute now or wait.
+Keeps showing up till the refresh is completed. Good for another 90 days."</i></p>
+</div>
+
+<h3>⭐ WHY THIS IS BETTER THAN THE INCREMENTAL DESIGN</h3>
+<div class="card">
+<p><b>Clear the OSM-owned rows, reimport, done.</b> No three-way reconcile, no version comparison,
+and — the hard one — <b>no deletion-detection problem</b>. The 08-29 research spent most of its
+length on how to tell a deleted way from one that is merely absent from a truncated extract. <b>A
+clear-and-reload never asks.</b></p>
+<p><b>⛔ AND IT ONLY WORKS BECAUSE OF SOURCE OWNERSHIP.</b> Clearing every trail would take the
+USGS rows and anything a rider created. Clearing only what OSM owns is safe by construction —
+which is what makes the ownership column load-bearing rather than tidy.</p>
+</div>
+
+<h3>The mechanism</h3>
+<table>
+<tr><th>Piece</th><th>Behaviour</th></tr>
+<tr><td><b>The trigger</b></td><td>The last import date for the OSM source. No version checking,
+no diffing — a date.</td></tr>
+<tr><td><b>The interval</b></td><td><b>90 days.</b> Geofabrik rebuilds daily, but the QA evidence
+is roughly one change per month across 1,600 trails — quarterly is proportionate to how much
+actually moves.</td></tr>
+<tr><td><b>Where it appears</b></td><td>The startup job, beside the incomplete-import check. Same
+place, same shape.</td></tr>
+<tr><td><b>What it asks</b></td><td><i>"Pending map update — execute now or wait."</i></td></tr>
+<tr><td><b>If they wait</b></td><td>⭐ <b>It keeps showing up until the refresh completes.</b> Same
+rule as the incomplete-import prompt: the only way off the list is doing the thing.</td></tr>
+<tr><td><b>After</b></td><td>Good for another 90 days.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ WHAT A CLEAR-AND-RELOAD COSTS, and both are acceptable:</span></p>
+<p><b>Extension rows attached to OSM trails go with them</b>, if they key on geometry. ⚠ That is
+the one thing worth settling first — <b>are extension rows keyed by geom_hash or by
+trail_id?</b> If by id, and the ids are reassigned on reimport, rider notes detach. <b>If the
+answer is bad, the fix is upstream of this plan.</b></p>
+<p><b>It is a full state download.</b> Which is why it is quarterly and prompted rather than
+automatic.</p>
+</div>
+
+<div class="card">
+<p><b>⭐ AND ROUTES SURVIVE REGARDLESS.</b> Fred: <i>"do we build a route because we have two ids?
+No, we build it with ids. They are not missing."</i> A route's vertices reference trail ids and
+<code>queryGeomByIds</code> fetches by them, so geometry moving underneath does not break a saved
+route. <b>The hash question is about joining sources, not about routing.</b></p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ THE INCREMENTAL DESIGN BELOW IS NOW A FALLBACK.</span> It stays recorded
+because the reasoning about way-splitting and id stability is still true, and because if
+clear-and-reload turns out to cost too much — a rider on a metered connection, or extension rows
+that cannot survive it — the three-way reconcile is the alternative that was already worked
+out.</p>
+</div>
+
+<h2>⭐ THE WAY FORWARD ON OSM — four stages, in order (2026-08-29)</h2>
+
+<div class="card good">
+<p><b>Fred, closing the session:</b> <i>"We need to build and vet our new skinny table with new categories. Then modify the OSM import process to include picking up and extracting PBF files by
+state and processing by state. Then monitor state and area for 90-day age, to clear and reimport
+OSM data for that state or area."</i></p>
+<p><b>⭐ The order matters and it is the right one</b> — prove the data before changing the
+pipeline, and change the pipeline before automating when it runs.</p>
+</div>
+
+<h3>STAGE 1 — build and vet the new skinny table</h3>
+<table>
+<tr><th>Step</th><th>Note</th></tr>
+<tr><td><b>Widen stage one, classify in stage two</b></td><td>Measured 08-29 against Utah:
+125,831 in against 87,079 today, <b>67% classified against a baseline of zero.</b></td></tr>
+<tr><td><b>Vet the rules against ground someone has ridden</b></td><td>⛔ <b>The vetting is the
+work, not the writing.</b> The rules are a first draft. Two known cases already need explaining:
+<b>Bonneville Shoreline Trail</b> and <b>Weaver Way</b> were dropped, and the Bonneville Shoreline
+is a real route.</td></tr>
+<tr><td><b>Map into the USGS vocabulary</b></td><td>⚠ <code>carto_code</code> already holds
+"1 - Hiking Only", "2 - Hiking and Biking Allowed", "5 - Biking Only", "4 - Road-concurrent" on
+38% of rows. <b>The OSM types must land in the same vocabulary or the table carries
+three.</b></td></tr>
+<tr><td><b>Add the ownership column</b></td><td>Every row says which source owns it. <b>Everything
+in stage 3 depends on this</b> — a clear-and-reload that cannot tell OSM rows from USGS rows takes
+both.</td></tr>
+</table>
+
+<h3>STAGE 2 — a new start: clear, and repopulate the home state</h3>
+
+<div class="card">
+<p><b>Fred, sharpening it:</b> <i>"Stage 2 — automate the initial load, with a clear of trail data
+and repopulation of home state, clear of download json. A new start."</i></p>
+<p><b>⭐ NOT INCREMENTAL ADOPTION.</b> The new classification changes what belongs in the table and
+in what vocabulary — migrating existing rows would mean reconciling two schemes across 139,688
+rows, most of which have no provenance at all. <b>A clean slate is smaller than the migration
+would be.</b></p>
+</div>
+
+<table>
+<tr><th>Step</th><th>Note</th></tr>
+<tr><td><b>Clear the trail data</b></td><td>⚠ Everything, not only OSM rows — this is before
+ownership exists to protect anything, which is exactly why it happens at stage 2 and never
+again.</td></tr>
+<tr><td><b>Clear the download JSON</b></td><td>The per-source state files go with it. <b>A new
+start means the import history starts empty too</b>, or stage 3 would be scheduling against dates
+that describe a table no longer there.</td></tr>
+<tr><td><b>⭐ EVERY ROW TAGGED WITH ITS OWNING SOURCE</b></td><td>Fred: <i>"initial load tags
+each trail creation with an owning source."</i> ⛔ <b>At CREATION, not retrofitted.</b> A row
+written without provenance can never gain it — the 139,688 rows on the device today have
+<code>source_id</code> null and there is no way to work out where any of them came from. <b>This
+is the one chance to get it right, and everything in stage 4 depends on it:</b> a clear-and-reload
+that cannot tell OSM rows from USGS rows takes both.</td></tr>
+<tr><td><b>Repopulate the home state</b></td><td>Automated, one state, through the new path:
+GPKG for geometry, PBF for tags, joined on <code>osm_id</code>, classified at extract, written
+with its owning source.</td></tr>
+<tr><td><b>Fetch and extract the PBF per state</b></td><td>Alongside the GeoPackage, not instead of
+it — the GPKG carries geometry cleanly, the PBF carries the tags Geofabrik strips.</td></tr>
+<tr><td><b>Join on <code>osm_id</code> during extract</b></td><td>⭐ Proven 08-29: 424,951 of
+699,537 Utah rows matched. Text one side, integer the other, one cast.</td></tr>
+<tr><td><b>Classify ONCE, at extract</b></td><td>The skinny arrives already carrying
+<code>trail_type</code> — not computed on read, not recomputed per query.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ AND THE SPATIAL TABLE STILL HAS NO osm_id.</span> <code>source_id</code> is
+null on all 139,688 rows. It is not needed for the quarterly reload, but <b>without it nothing on
+the device can be joined back to either source</b> — no per-way diagnosis, no "why is this trail
+classified that way", and no fallback to incremental update if the quarterly reload proves too
+costly. <b>Stage 2 is the moment it costs nothing to start keeping.</b></p>
+</div>
+
+<h3>STAGE 3 — the filter, on the map and in route building</h3>
+
+<div class="card good">
+<p><b>⭐ THIS IS WHERE THE CLASSIFICATION PAYS.</b> Stages 1 and 2 put a type on every trail;
+stage 3 is the first thing a rider can see and use. It comes BEFORE the refresh cycle because
+there is no point automating the upkeep of data nothing consumes yet.</p>
+</div>
+
+<table>
+<tr><th>Piece</th><th>Behaviour</th></tr>
+<tr><td><b>Trail types under the legend</b></td><td>The inner level of the existing artifact
+toggles: within Trails, which TYPES are drawn.</td></tr>
+<tr><td><b>Saved session to session</b></td><td>A rider who never wants hiking trails on the map
+sets it once.</td></tr>
+<tr><td><b>Route building shows the current filter</b></td><td>⭐ Accept it, or reselect for this
+ride. <b>The planner says what it is about to use</b> rather than inheriting a map setting
+silently.</td></tr>
+<tr><td><b><code>buildGraph</code> reads the filter</b></td><td>Today it reads every row of
+<code>trails</code> and nothing else. With types it reads what the filter permits — <b>which is
+also how tracks finally join the graph:</b> as a type, not a second table.</td></tr>
+<tr><td><b>The filter goes into the recipe</b></td><td>⚠ A rebuild that used a different filter
+from the original would produce different routes for a reason nothing recorded.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ AND IT RETIRES AN OLD COMPROMISE.</span> The standing rule was <i>"display and
+routing are the same filter — cannot be both."</i> With types they are <b>the same mechanism with
+different selections</b>, which is what was wanted and was not expressible before.</p>
+<p><b>⚠ A display setting that silently bounds a search is exactly the kind of invisible state
+that cost two days this week</b> — which is why route building asks rather than assumes.</p>
+</div>
+
+<h3>STAGE 4 — monitor the completed JSON, and schedule the refresh</h3>
+
+<div class="card">
+<p><b>Fred:</b> <i>"Stage 3 is monitoring completed json and scheduling updates."</i></p>
+<p><b>⭐ WHICH IS THE SAME READ AS THE INCOMPLETE-IMPORT CHECK</b>, one field along.
+<code>HomeStateImportController</code> already writes <code>process_state</code> per source: that
+check looks for <b>not completed</b>, this one looks at <b>when completed</b>. One mechanism, two
+questions.</p>
+</div>
+
+<table>
+<tr><th>Step</th><th>Note</th></tr>
+<tr><td><b>Read the completion date per state</b></td><td>From the JSON the import already
+writes. No new tracking.</td></tr>
+<tr><td><b>90 days</b></td><td>Geofabrik rebuilds daily; the QA evidence is roughly one change a
+month across 1,600 trails. Quarterly is proportionate to what actually moves.</td></tr>
+<tr><td><b>Prompt at startup</b></td><td><i>"Pending map update — execute now or wait."</i> Beside
+the incomplete-import prompt, same shape, same screen.</td></tr>
+<tr><td><b>Keeps appearing until done</b></td><td>⭐ The only way off the list is doing the
+thing.</td></tr>
+<tr><td><b>Clear only what OSM owns</b></td><td>By then ownership exists, so USGS rows and
+rider-created trails survive the refresh. <b>This is the difference between stage 2's clear and
+every clear after it.</b></td></tr>
+<tr><td><b>Per state and per area</b></td><td>A rider who has three states does not refresh all
+three because one aged out.</td></tr>
+</table>
+
+<div class="card">
+<p><b>⭐ WHY THE ORDER IS RIGHT.</b> Stage 1 answers "are these rules any good" with no code
+changed and nothing on a device at risk — it runs in Python against two files on D:. Stage 2 only
+begins once the answer is yes. And stage 3 automates a process that by then has been run by hand
+and understood.</p>
+<p><b>⚠ The one thing that could reorder it:</b> if extension rows turn out to key on something a
+reimport destroys, that has to be settled before stage 3 exists — and it is worth checking during
+stage 1, when it costs nothing.</p>
+</div>
+
+<h2>⭐⭐ THE APPROACH — build alongside, then clear and reimport Utah (2026-08-29)</h2>
+
+<div class="card good">
+<p><b>Fred, closing:</b> <i>"My gut says write the new import process alongside the existing. Clear
+the trails DB and reimport Utah when we have finished the new import process. That gives time to
+inspect results, develop the filter etc. The launch process will basically duplicate what we have
+done — clear the trails and reimport home state."</i></p>
+</div>
+
+<h3>Why alongside, and not in place</h3>
+<table>
+<tr><th>Reason</th><th></th></tr>
+<tr><td><b>The existing import keeps working</b></td><td>⭐ A rider on the current build is
+unaffected while the new path is written. Nothing is half-migrated at any point — the failure mode
+that cost most of 08-28.</td></tr>
+<tr><td><b>The switch is one reimport, not a migration</b></td><td>Clear the trails, run the new
+path, done. <b>No reconciling two vocabularies across 139,688 rows</b>, most of which have no
+provenance to reconcile ON.</td></tr>
+<tr><td><b>Utah is the test AND the control</b></td><td>The only state whose
+<code>carto_code</code> is populated, and the state the classification was measured against.</td></tr>
+<tr><td><b>⭐ TIME TO INSPECT BEFORE COMMITTING</b></td><td>The reimport produces a table that can
+be looked at, counted and argued with <b>before</b> the filter is built on top of it. The filter is
+stage 3 precisely because it should be designed against real classified data, not against
+projections.</td></tr>
+</table>
+
+<div class="card">
+<p><b>⭐ AND THE LAUNCH PROCESS IS THE SAME ACT.</b> Fred: <i>"the launch process will basically
+duplicate what we have done — clear the trails and reimport home state."</i></p>
+<p>Which means the Utah reimport is not a throwaway rehearsal. <b>It IS the launch process, run
+once by hand first.</b> Whatever is written to reimport Utah becomes what ships — so it is worth
+writing as the real thing rather than as a test harness.</p>
+</div>
+
+<h2>⭐ DOES THIS IMPROVE THE DATA? — the aggregate answer</h2>
+
+<div class="card">
+<p><b>Fred: </b><i>"I don't care about individual trails, I care about aggregate shapes. What
+shape is the data now and what shape is the data when we are finished? Missing cats are a smaller
+problem if we omitted identified trails by having a better universe."</i></p>
+</div>
+
+<table>
+<tr><th></th><th>Today</th><th>After</th></tr>
+<tr><td><b>Ways in the trails table</b></td><td>87,079</td><td><b>125,831</b> &nbsp;(+44%)</td></tr>
+<tr><td><b>Carrying a type</b></td><td>0 &nbsp;(0%)</td><td><b>83,916</b> &nbsp;(67%)</td></tr>
+<tr><td><b>Unknown</b></td><td>87,079 &nbsp;(100%)</td><td>41,915 &nbsp;(33%)</td></tr>
+<tr><td><b>Paved roads wrongly included</b></td><td>~4,485 asphalt
+<code>unclassified</code></td><td><b>0</b> — dropped by surface</td></tr>
+<tr><td><b>Rideable ground wrongly excluded</b></td><td>48,491</td><td><b>0</b> — added</td></tr>
+</table>
+
+<div class="card good">
+<p><span class="g">⭐ AND THE ANSWER TURNS ON FRED'S POINT, not on the classification rate.</span>
+<b>33% unknown in a universe 44% larger and no longer full of Main Street is plainly better than
+100% unknown in a smaller polluted one.</b></p>
+<p><b>An unclassified trail is a LABELLING gap</b> — the ground is there, the router can use it,
+the rider can ride it, and a later import can fill the label in. <b>A missing trail is a COVERAGE
+gap</b>, and nothing downstream can work around it: the planner cannot route on ground it has
+never heard of, which is exactly what Mountain Spring Road demonstrated.</p>
+<p><b>⭐ The composition changes character too.</b> 28,090 ways become "unclassified motorized" —
+ground a rider can trust, which today is indistinguishable from everything else in a single
+undifferentiated bucket.</p>
+</div>
+
+<h2>⭐⭐ THE ACCEPTANCE TEST FOR STAGE 2 — two devices, one recipe (2026-08-29)</h2>
+
+<div class="card good">
+<p><b>Fred:</b> <i>"I can put Droid 1 and 2 side by side, auto-build trails in areas and reconcile
+the difference in ground and routes suggested. And I can use the recipe over saved routes on both
+devices — identical tests with only the trails changed."</i></p>
+<p><b>⭐ THIS IS WHY THE RECIPE MATTERED.</b> It was built as a rider feature and a debugging tool;
+it turns out to be the acceptance test for the entire OSM effort. <b>Identical parameters, one
+press each, and the only variable is the trail data underneath.</b></p>
+</div>
+
+<h3>The setup</h3>
+<table>
+<tr><th>Device</th><th>Role</th></tr>
+<tr><td><b>Droid 1</b> <code>8624SBCEDF00001789</code></td><td>⛔ <b>THE CONTROL. Do not clear
+it.</b> 89K trails on the old import. It holds the BEFORE, and once cleared the comparison is gone
+— there is no way back to the old classification without rebuilding the old import.</td></tr>
+<tr><td><b>Droid 2</b> <code>24039703201775</code></td><td>The new import. Cleared and reloaded
+through the new path.</td></tr>
+</table>
+
+<h3>Why this is a real experiment and not a demo</h3>
+<div class="card">
+<p><b>⭐ ONE VARIABLE.</b> The recipe fixes the anchor, the mileage band, the pace, the pins and
+the loop answer. Both devices run the same build from the same saved route. <b>Everything except
+the trail data is held constant by construction.</b></p>
+<p><b>⭐ AND THE CACHE FIX IS WHAT MAKES IT TRUSTWORTHY.</b> Before <code>GRAPHCOPY</code>, a
+second run in the same area returned different routes because the previous run's pin splits were
+still in the cached graph. <b>Any difference measured across devices would have been
+uninterpretable</b> — the experiment would have been measuring the cache. That is fixed and
+verified.</p>
+</div>
+
+<h3>What each outcome means</h3>
+<table>
+<tr><th>Observation</th><th>Reading</th></tr>
+<tr><td><b>Droid 2 finds routes Droid 1 cannot</b></td><td>⭐ The widened net working — ground that
+was invisible is now routable. The dirt-tertiary case: Mountain Spring Road and its
+kind.</td></tr>
+<tr><td><b>Droid 1 routes down ground Droid 2 refuses</b></td><td>⭐ The surface exclusion working
+— asphalt <code>unclassified</code>, the subdivision problem.</td></tr>
+<tr><td><b>The shared backbone is identical</b></td><td>The rules did not disturb the middle. ⚠
+Expect this for most mileage; the changes are at the edges.</td></tr>
+<tr><td><b>⛔ Droid 1 finds a route Droid 2 does NOT</b></td><td><b>THE IMPORTANT CASE.</b> A rule
+is dropping ground it should not. This is the one to chase — Bonneville Shoreline Trail and Weaver
+Way are already on the list of candidates.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ RUN THE RECIPE TWICE ON EACH DEVICE FIRST.</span> Same device, same recipe,
+no restart. If a device does not reproduce its own result, it cannot be compared with the other
+one — and that check costs two presses.</p>
+</div>
+
+<h2>⛔⛔ THE SHIP BOUNDARY — stages 1 to 3 go together, or nothing does (2026-08-29)</h2>
+
+<div class="card stop">
+<p><b>Fred:</b> <i>"Understand that we cannot test without the filters on both screen panels and
+route building. Has to be a complete implementation except for refresh to ship."</i></p>
+<p><span class="r">⛔ THE STAGES ARE AN ORDER OF WORK, NOT AN ORDER OF RELEASE.</span> Stage 2
+alone puts hiking trails, cycleways and footpaths into the trails table — <b>21,845 paths and
+9,595 cycleways in Utah alone</b> — with nothing to keep them off the map or out of the routing
+graph. <b>That is strictly worse than today.</b></p>
+</div>
+
+<h3>What "complete" means here</h3>
+<table>
+<tr><th>Must ship together</th><th>Why</th></tr>
+<tr><td><b>Stage 1</b> — vetted rules and the classification</td><td>Nothing downstream works
+without a type on the row.</td></tr>
+<tr><td><b>Stage 2</b> — the new import, ownership at creation</td><td>Produces the classified
+table.</td></tr>
+<tr><td><b>Stage 3</b> — the filter, on BOTH map panels and in route building</td><td>⛔ <b>The
+thing that makes the widened universe safe.</b> Without it the rider sees hiking trails they did
+not ask for and the planner routes a side-by-side down them.</td></tr>
+<tr><td><b>Stage 4</b> — the 90-day refresh</td><td>⭐ <b>The only one that can follow later,
+and there is a measured runway.</b> Fred: <i>"we have 90 days to complete, based on clear and
+reimport."</i> The clear-and-reimport at stage 2 <b>starts the clock</b> — the data it produces is
+current for 90 days by the very rule stage 4 will enforce, so the refresh cycle cannot be needed
+before then. That is not a guess about priority; it is the interval itself.
+It changes WHEN data is renewed, not what the data means. A rider on stale-but-correct data is
+fine; a rider on unfiltered data is not.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ BOTH PANELS, not one.</span> <code>ConvoyScreen</code> and
+<code>ConvoyMapViewerScreen</code> both render <code>convoy_map.html</code> and both draw trails.
+A filter on one is a rider seeing different ground depending on which map they opened — and this
+project has already been bitten by two implementations of the same idea drifting apart.</p>
+<p><b>⭐ ONE FILTER, THREE CONSUMERS:</b> the two map panels and <code>buildGraph</code>. Per the
+standing rule — <b>shared modules, not parallel implementations.</b></p>
+</div>
+
+<div class="card">
+<p><b>⭐ AND IT IS ALSO WHY THE TEST CANNOT RUN EARLY.</b> The two-device comparison measures
+routes suggested. If Droid 2 has no filter, its planner routes over hiking trails and every
+difference from Droid 1 is noise. <b>The filter is not the thing being tested — it is a
+precondition for the test to mean anything.</b></p>
+</div>
+
+<h2>⭐ RELEASE STRATEGY — ship route creation, hold the trail work (2026-08-29)</h2>
+
+<div class="card good">
+<p><b>Fred:</b> <i>"We should be anticipating what needs to change in these docs based on what is
+currently completed and what needs to change based on route creation. We will need to make a
+decision on releasing route creation and holding trail data scrubbing and segmenting to the next
+release. The last should be the 90-day update cycle. In the interim we will have users beating on
+the route creation."</i></p>
+</div>
+
+<table>
+<tr><th>Release</th><th>Contains</th><th>Why here</th></tr>
+<tr><td><b>2.6g</b> — this one</td><td><b>Route creation, complete.</b> Six-screen planner, the compare
+table, the recipe rebuild, the narrative in the GPX, the cached-graph fix.</td>
+<td>⭐ <b>It is finished and device-proven, and it is the feature testers can exercise
+immediately.</b> Holding it back to travel with the trail work would waste the weeks the OSM
+stages will take.</td></tr>
+
+<tr><td><b>the next 2.6</b></td><td><b>Trail data: scrubbing and segmenting.</b> OSM stages 1–3 — the
+classification, the new import with ownership at creation, and the filter on both map panels and
+in route building.</td>
+<td>⛔ <b>These three ship together or not at all</b> — see the ship boundary above. Stage 2 alone
+puts hiking trails in the routing graph with nothing to keep them out.</td></tr>
+
+<tr><td><b>the LAST 2.6</b></td><td><b>The 90-day refresh cycle for OSM data.</b> Stage 4, and the last thing in 2.6 — after it, 2.7 is the convoy rewrite.</td>
+<td>⭐ <b>It has a measured runway.</b> The clear-and-reimport starts the clock, so the refresh
+cannot be needed until 90 days after the trail release ships.</td></tr>
+</table>
+
+<div class="card">
+<p><b>⭐ AND THE INTERIM IS THE POINT, not a gap.</b> Fred: <i>"in the interim we will have users
+beating on the route creation."</i> Around 40 beta testers exercising the planner on real ground,
+in real areas, while the trail work is built — <b>which surfaces the route-creation faults that a
+developer with two devices in one state will never find.</b></p>
+<p><b>⚠ It also front-loads the feedback that matters for the trail work.</b> A tester reporting
+"the planner would not use a road I ride every week" is exactly the Mountain Spring Road case, and
+each one is a rule to check before the classification ships.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ ONE THING THE INTERIM CHANGES:</span> testers will build routes on the OLD
+trail data, and the trail release will change the ground underneath. <b>Saved routes survive</b> —
+they are stored as geometry and referenced by id — but a recipe rebuilt after the trail release
+may return different alternatives than it did before. <b>That is correct behaviour and it will
+look like a regression</b> unless the release notes say so plainly.</p>
+</div>
+
+<h2>⭐ IN-APP DOCUMENTS — 2.6g requirement (2026-08-29)</h2>
+
+<div class="card good">
+<p><b>Fred:</b> <i>"This next release should incorporate the QuickStart document into assets and
+launch QuickStart on any user's new install. Release notes should autolaunch on any update —
+bullets referencing the manual, not bible-length instructions."</i></p>
+</div>
+
+<table>
+<tr><th>Document</th><th>Bundled</th><th>Shown</th></tr>
+<tr><td><b>QuickStart</b></td><td>In <code>assets/</code>, beside the manual and release
+notes</td><td>⭐ <b>On a NEW INSTALL, automatically.</b> A first-run rider has no idea what the app
+expects of them — the QuickStart is the shortest path from installed to riding.</td></tr>
+<tr><td><b>Release notes</b></td><td>In <code>assets/</code></td><td>⭐ <b>On any UPDATE,
+automatically.</b> Not on every launch — on the launch after a version change.</td></tr>
+<tr><td><b>Manual</b></td><td>Already bundled</td><td>On request, and <b>as the destination the
+other two point at.</b></td></tr>
+</table>
+
+<h3>⚠ The tone rule, and it is a real constraint</h3>
+<div class="card warn">
+<p><b>Fred: "bullets referencing the manual, not bible-length instructions."</b></p>
+<p><span class="k">⚠ AN AUTOLAUNCHED DOCUMENT IS AN INTERRUPTION.</span> The rider opened the app
+to do something else, and every line they will not read makes the lines they would read less
+likely to land. <b>The release notes exist to say what changed and where to read more</b> — the
+manual carries the detail, and it is one tap away.</p>
+<p><b>⭐ Which also means the release notes must be WRITTEN as bullets</b>, not as prose that gets
+truncated. The 2026-08-29 notes as drafted are close but still run long for an autolaunch — they
+want cutting to bullets with manual references before they ship.</p>
+</div>
+
+<h3>⚠ Mechanics to settle</h3>
+<ul>
+<li><b>How is "new install" told from "update"?</b> A stored version marker: absent means new
+install, different means update, same means neither. One value, and it drives both.</li>
+<li><b>Dismissal.</b> Both should be dismissible and both should stay reachable afterwards —
+<b>autolaunch once, available always.</b></li>
+<li><b>⚠ Do not fire both.</b> A new install is not also an update; showing release notes to
+someone who has never used the app describes changes to something they have never seen.</li>
+</ul>
+
+<h2>⭐⭐ TOMORROW — the sequence, and why it is this order (2026-08-29 EOD)</h2>
+
+<div class="card good">
+<p><b>Fred's plan for the day:</b> <i>"Take imports to a clean walkaway point with a POC that works
+from a data standpoint. Then a blast analysis on what steps must be refreshed or created to
+implement our manually proved process. A solid walkaway point where the process has shape and
+identity, that we have to code and implement to a design. Then peel away and address manuals and
+their roles in the new release, and get route planning shipped."</i></p>
+<p><b>⭐ POC FIRST, THEN BLAST, THEN DESIGN.</b> Everything useful today came from scripts that ran
+in seconds against two files on D:. None needed a build — and one of them was <b>confidently
+wrong</b> in a way that would have cost days had it been written in Kotlin first.</p>
+</div>
+
+<h3>SESSION 1 — the POC: make the manual process work end to end</h3>
+<table>
+<tr><th>Step</th><th>How</th></tr>
+<tr><td><b>1. Unzip the GPKG</b></td><td><code>zipfile.ZipFile("D:/Utah_OSM/utah-260828-free.gpkg.zip").extract("utah.gpkg","D:/Utah_OSM/")</code>
+— 665 MB, 4 seconds.</td></tr>
+<tr><td><b>2. Re-run the classifier</b></td><td><code>osm_classify_2026-08-29.py</code>, carried in
+full below. Baseline: 125,831 in, 67% classified, 9,739 dropped, 48,491 added.</td></tr>
+<tr><td><b>3. Vet the rules</b></td><td>⛔ <b>THE ACTUAL WORK.</b> Chase the DROPPED list by name.
+<b>Bonneville Shoreline Trail</b> and <b>Weaver Way</b> are already known and unexplained —
+both <code>track</code> with no surface tag, dropped by an access or motor_vehicle
+restriction.</td></tr>
+<tr><td><b>4. Map into the USGS vocabulary</b></td><td><code>carto_code</code> already holds
+"1 - Hiking Only", "2 - Hiking and Biking Allowed", "5 - Biking Only", "4 - Road-concurrent" on
+38% of device rows. <b>The OSM types must land in THAT vocabulary</b>, not a parallel one.</td></tr>
+<tr><td><b>5. Write the skinny</b></td><td>The POC's output is a skinny DB with
+<code>trail_type</code> and an owning source on every row — <b>the same artefact the real import
+will produce.</b></td></tr>
+</table>
+
+<div class="card">
+<p><b>⭐ THE WALKAWAY POINT IS A FILE.</b> A skinny DB that can be opened, counted and argued with.
+If it looks right, the import is a matter of doing in Kotlin what the script already does. If it
+does not, nothing has been built on a wrong answer.</p>
+</div>
+
+<h3>SESSION 2 — blast radius: what must change to implement it</h3>
+
+<div class="card stop">
+<p><b>Fred:</b> <i>"Adding a trail source means that every import process must change."</i> And:
+<i>"That is why blast radius is so important — everything that adds OR CHANGES trail data."</i></p>
+<p><span class="r">⛔ CHANGES, NOT ONLY ADDS.</span> Rename, merge, split, delete, geometry edits.
+A rename on a USGS trail is fine; a refresh silently overwriting one is not. <b>A path that does
+not set ownership writes an unclaimed row</b> — which is exactly the state that made today's
+139,688 rows untraceable. <b>Nobody decided that; it is a column nobody filled.</b></p>
+</div>
+
+<table>
+<tr><th>Read</th><th>What it answers</th></tr>
+<tr><td><code>where_used_raw.txt</code> on <code>trails</code></td><td>⭐ <b>Every touch point in
+one read</b> — better than grepping for inserts, because it catches the UPDATES too.</td></tr>
+<tr><td><code>grep -rn "INSERT INTO trails" app/src</code></td><td>The creation sites, and how big
+this is.</td></tr>
+<tr><td><code>field_crossref_raw.txt</code> on <code>geom_hash</code></td><td>⚠ <b>Settle the
+extension-DB question:</b> are rider notes keyed by <code>geom_hash</code> or by
+<code>trail_id</code>? If a reimport reassigns ids or the hash moves, notes detach — <b>and that is
+upstream of the whole refresh plan.</b></td></tr>
+<tr><td><code>OsmImportWorker</code>, <code>HomeStateImportController</code></td><td>Where the
+skinny becomes trails, and where <code>osm_id</code> is currently dropped.</td></tr>
+</table>
+
+<h3>The new processes, defined</h3>
+<table>
+<tr><th>Process</th><th>Shape</th><th>Blast radius</th></tr>
+<tr><td><b>Two-stage trail filter</b></td><td>Widen by <code>highway</code>, narrow by tags.
+Replaces <code>filter_values</code> in <code>osm_layers.json</code>.</td><td>The catalogue JSON,
+<code>OsmExtractWorker</code>, and the skinny schema. ⭐ <b>The override at
+<code>/sdcard/…/config/osm_layers.json</code> means rules can be tested on a device with no
+build.</b></td></tr>
+<tr><td><b>Classification at extract</b></td><td><code>trail_type</code> written ONCE, when the
+skinny is built — not computed per read.</td><td>Skinny schema, <code>OsmImportWorker</code>, and
+the trails insert.</td></tr>
+<tr><td><b>⛔ Owning source at creation</b></td><td>Every trail row says which source owns
+it.</td><td><b>EVERY writer of trail data, and every mutator.</b> ⭐ Stub-first: mark each site
+<code>STUB:SOURCE</code>, add the column once, then <code>grep -rn "STUB:SOURCE" app/src</code>
+returns zero at release.</td></tr>
+<tr><td><b>Trail-type filter</b></td><td>Legend toggles, saved across sessions; route building
+shows and asks; <code>buildGraph</code> reads it.</td><td>⚠ <b>BOTH map panels</b> —
+<code>ConvoyScreen</code> and <code>ConvoyMapViewerScreen</code> both draw trails. One shared
+module, three consumers. And <b>the filter belongs in the recipe.</b></td></tr>
+<tr><td><b>Clear and reimport by source</b></td><td>Delete OSM-owned rows, reimport that state.
+</td><td>Depends entirely on ownership existing. ⚠ And on the extension-DB answer.</td></tr>
+<tr><td><b>90-day age check</b></td><td>Read the completion date from the import JSON, prompt at
+startup.</td><td>⭐ <b>The same read as the incomplete-import check, one field along</b> — that one
+asks "not completed", this asks "when completed".</td></tr>
+</table>
+
+<h3>SESSION 3 — peel away and ship 2.6g</h3>
+<ul>
+<li><b>Cut the release notes to bullets.</b> ⚠ Today's draft reads well as a document and is too
+long for an autolaunch. Bullets, each pointing at the manual.</li>
+<li><b>QuickStart into <code>assets/</code></b>, autolaunched on new install; release notes
+autolaunched on update. ⚠ <b>This is CODE, not documentation</b> — bundling, a stored version
+marker, two launch paths, dismissal. Cost it as a task.</li>
+<li><b>The GPX share round trip between the two devices</b> — the one thing in 2.6g that has never
+been tested. Export from Droid 2, import on Droid 1, confirm the narrative arrives AND the rebuild
+button appears.</li>
+<li>Then R1–R10 as time allows.</li>
+</ul>
+
+<div class="card warn">
+<p><span class="k">⚠ THE ONE THING THAT COULD REORDER ALL OF IT:</span> if extension rows turn out
+to key on something a reimport destroys, that has to be settled before stage 3 exists. <b>It costs
+one xref read during session 2</b>, and it is the cheapest question with the largest
+consequences.</p>
+</div>
+
+<h2>⚠ Traps</h2>
+<p><b>Nothing is a unique anchor.</b> In a 3,700-line file, <code>draftNames.forEach</code>,
+<code>val f = batchFile()</code>, <code>LaunchedEffect(pinStep)</code> and
+<code>DisposableEffect(Unit)</code> all appear more than once. <b>Anchor on dated markers.</b></p>
+<p><b>FLOWTRACE wrapped every transition.</b> All 18 <code>pinStep = PIN_STEP_X</code> sites now
+carry a log call in front, so a patch anchoring on the bare assignment will not match.</p>
+<p><b>Read immediately before writing.</b> A patch holding a file across another patch's
+application erases it — that is how <code>MAPFEATTIMING</code> was committed and then absent.</p>
+<p><b>Guards must strip comments.</b> Twice now a check has read its own explanatory comment as
+evidence against itself.</p>
+<p><b>Before designing, grep for it.</b> <code>queryGeomByIds</code>,
+<code>PinFeasibility.unreachable</code> and <code>idx_waypoints_bbox</code> were all already
+built.</p>
+
+<h2>The trace</h2>
+<pre>adb logcat -d | grep PanelTrace
+
+STEP WELCOME -> DISTANCE        every transition, by name
+PICKER &lt;- false / renders       both halves of both panels
+RECIPE loaded: 55-80 mi, 4 pin(s)
+ASSESS 4 pin(s), ceiling 80 mi
+ASSESS -> order=[..] unreachable=[..] onFragment=[..] over=0.0</pre>
+
+<h2>⚠ Struck from the backlog</h2>
+<p><b>"Six import sources failing in nine seconds"</b> — Fred, 08-29: the network was off. Not a
+defect.</p>
+<p><b>⭐ But it argues for the startup import check:</b> the app reported nothing. A rider who does
+the same has no idea their trails are incomplete, and it looks exactly like sparse country.</p>
+\n<hr><p style="font:11px monospace;color:#8b949e">— carried forward from 2026-08-28 —</p>\n
+<p style="font:11px monospace;color:#8b949e">DOCUMENT ID: HANDOFF-2026-08-28</p>
+
+<h2>Where things stand</h2>
+<p><b>The AI checklist is replaced.</b> Six screens, one machine, running end to end on device at
+13:52 — four pins, search, six routes, compare, saved. Living master =
+<code>grouptrack_living_master_2026-08-28_v37.html</code>, which also carries the <b>OSM/PBF design
+notes</b>.</p>
+
+<h2>⚠ Cleanup first — found on the last build of 08-28</h2>
+<table border="0" cellpadding="6">
+<tr><th>#</th><th>What</th><th>Where</th></tr>
+<tr><td>a</td><td><b>ROUTE + reappears at the trailhead step.</b> The gate is
+<code>pinStep &gt;= PIN_STEP_NONE</code>, which is true for every positive step — it only hides
+during the two negative ones.</td><td>One line: <code>== PIN_STEP_NONE</code>.</td></tr>
+<tr><td>b</td><td><b>Creating a trailhead does not register as selecting one.</b> ⚠ Likely the
+checklist's original two-step design showing through — creating and choosing were deliberately
+separate acts, so creation may set the waypoint without setting
+<code>pinTrailName</code>/<code>pinTrailLat</code>.</td><td>Needs a read of the long-press
+handler.</td></tr>
+<tr><td>c</td><td><b>Going to compare hides layers in JS but leaves the Kotlin states on.</b> The
+<code>hide()</code> calls run; <code>trailState</code> and friends still say
+<code>DS_ON</code>, so anything re-reading them puts the layers back.</td><td>Set the states
+too.</td></tr>
+<tr><td>d</td><td><b>A pin refusal has never fired.</b> ⛔ Four pins were accepted on 08-28 and
+the routes may not reach all four. <b>The saved recipe is the test case</b> — it carries the pins
+as tapped, and the route's <code>stops_in_order</code> carries what was actually
+reached.</td><td>Compare the two.</td></tr>
+</table>
+
+<h2>Then, still open</h2>
+<ul>
+<li><b>Quarter-mile circle</b> at map centre for trailhead selection, and it stays through the
+step. New Leaflet — nothing existing draws a radius ring
+(<code>searchCenterMarker</code> is a fixed-pixel dot).</li>
+<li><b>z16 minimum</b> before a trailhead can be dropped, and <b>no trails in the circle → no
+drop</b>.</li>
+<li><b>Step order:</b> pins before the finish question. Five one-line destination changes; it was
+built and lost in the reset.</li>
+<li><b>Step labels</b> renumbered to the real order.</li>
+<li><b>The recipe button</b> — ⛔ until it exists the batch design is lossy, and the overview
+promises it.</li>
+</ul>
+
+<h2>⚠ Traps</h2>
+<p><b>The trace changed every transition.</b> <code>FLOWTRACE</code> wrapped all 18
+<code>pinStep = PIN_STEP_X</code> sites, so a patch anchoring on the bare assignment will not
+match. Anchor on the log text or the surrounding lines.</p>
+<p><b>Read immediately before writing.</b> A patch that holds a file across another patch's
+application will erase it — that is how <code>MAPFEATTIMING</code> was committed and then absent
+from the tree.</p>
+<p><b>Do the asked-for thing.</b> Three cheaper substitutes for "one callable panel per step" cost
+more than the replacement would have, and ended in a reset.</p>
+<p><b>Instrument before the second guess.</b> Two panels were "fixed" three times without being
+identified; 38 trace points settled it in one look.</p>
+<p><b>Before designing, grep for it.</b> <code>queryGeomByIds</code> and
+<code>PinFeasibility.unreachable</code> were both already built.</p>
+
+<h2>The trace</h2>
+<pre>adb logcat -d | grep PanelTrace
+
+STEP WELCOME -> DISTANCE      every transition, by name
+PICKER &lt;- false / renders     both halves of both panels
+ASSESS 4 pin(s), ceiling 80   what feasibility was asked
+PIN removed: no route         a refusal, when it fires</pre>
+
+<hr><p style="font:11px monospace;color:#8b949e">— carried forward from 2026-08-27 —</p>
+
+<p style="font:11px monospace;color:#8b949e">DOCUMENT ID: HANDOFF-2026-08-27</p>
+
+<h2>00-DOCUMENT-INDEX — current as of 2026-08-27</h2>
+
+<div class="card">
+<p><b>Every document below is the CURRENT version.</b> Where an older dated copy exists, this one
+supersedes it. Filenames are exact — search on them.</p>
+</div>
+
+<table>
+<tr><th>Document</th><th>Date / ver</th><th>What is in it</th></tr>
+
+<tr><td><b><code>grouptrack_living_master_2026-08-27_v36.html</code></b></td><td>08-27 v36</td>
+<td>THIS DOCUMENT. Full project history, every session, every decision.</td></tr>
+
+<tr><td><b><code>grouptrack_handoff_2026-08-27.html</code></b></td><td>08-27</td>
+<td>⭐ <b>READ FIRST AT SESSION START.</b> Start-here tasks, what to verify, the traps, the state
+on disk.</td></tr>
+
+<tr><td><b><code>GroupTrack_components_2026-08-27.html</code></b></td><td>08-27</td>
+<td>⭐⭐ <b>THE CURRENT DESIGN DOC for the AI planner.</b> The compare table as built, the Route+
+lock, the recipe, the build order — plus the open items: recipe button, picker checkboxes, startup
+import check, the create-a-trail process, and the <b>tracks-fill-missing-trails prototype
+plan</b>.</td></tr>
+
+<tr><td><code>GroupTrack_process_spec_2026-08-26.html</code></td><td>08-26</td>
+<td>The planner's three processes end to end.</td></tr>
+
+<tr><td><code>GroupTrack_algorithm_annotated_2026-08-26.html</code></td><td>08-26</td>
+<td>⭐ Every rule in the route engine and the measurement behind it. <b>Read before touching
+RouteExplorer.</b></td></tr>
+
+<tr><td><code>GroupTrack_design_candidate_routes_2026-08-26.html</code></td><td>08-26</td>
+<td>Working legend mockup on real data.</td></tr>
+
+<tr><td><code>GroupTrack_mockup_banner_flow_v12_2026-08-27.html</code></td><td>08-27 v12</td>
+<td>⭐ <b>Interactive mockup for the CHECKLIST REPLACEMENT</b> — the next task.</td></tr>
+
+<tr><td><code>GroupTrack_design_banner_flow_2026-08-25.html</code></td><td>08-25</td>
+<td>The banner flow design behind the mockup.</td></tr>
+
+<tr><td><code>GroupTrack_design_contextual_help_2026-08-25.html</code></td><td>08-25</td>
+<td>Contextual help design.</td></tr>
+
+<tr><td><code>GroupTrack_radio_link_design_2026-08-27.html</code></td><td>08-27</td>
+<td>⚠ <b>SPECULATIVE — not 2.6 work.</b> Slotted position reporting over KISS, the airtime budget,
+Wi-Fi HaLow link budget. <b>Blocked on a demand finding, not a technical one:</b> riders will not
+buy a $40 radio, and every option priced runs $145–$500+.</td></tr>
+
+<tr><td><code>grouptrack_release_notes_2026-08-27.html</code></td><td>08-27</td>
+<td>Rider-facing notes.</td></tr>
+
+<tr><td><code>grouptrack_manual_2026-08-27.html</code></td><td>08-27</td>
+<td>User manual. ⚠ Warnings moved OUT of Installation on 08-27.</td></tr>
+
+<tr><td><b><code>GroupTrack_QuickStart_Checklist_2026-08-27_v12.html</code></b></td><td>08-27 v12</td>
+<td>⭐ <b>The checklist QuickStart</b> — tickable, references manual sections. <b>Fred's preferred
+shape.</b></td></tr>
+
+<tr><td><code>GroupTrack_QuickStart_2026-08-27_v11.html</code></td><td>08-27 v11</td>
+<td>Prose QuickStart, same content restructured. ⚠ Kept until one is chosen.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ SUPERSEDED — do not work from these:</span>
+<code>grouptrack_living_master_2026-08-26_v35.html</code> ·
+<code>grouptrack_handoff_2026-08-26.html</code> ·
+<code>GroupTrack_QuickStart_Installation_Troubleshooting_2026-08-27_v10.html</code> and its v9.</p>
+</div>
+
+<h2>Where things stand</h2>
+<p><b>The AI route-planning backend is complete.</b> A search writes a batch and draws its routes
+in colour; Route+ opens a table that compares them; SAVE SELECTED promotes what was kept, deletes
+the rest and clears the lock. Eleven commits, all device-proven.</p>
+
+<h2>Start here tomorrow</h2>
+<table border="0" cellpadding="6">
+<tr><th>#</th><th>Task</th><th>Why now</th></tr>
+<tr><td>1</td><td><b>Item 4 — the checklist replacement</b></td><td>The last piece of the planner.
+Banner prompts replacing the checklist, incrementally: banner alongside, migrate one step at a
+time, <code>pinStep</code> machine unchanged. Least-coupled step first; trailhead step last.
+⭐ The only process change is the recipe section in the narrative.</td></tr>
+<tr><td>2</td><td><b>The recipe button</b></td><td>⛔ Until this exists the batch design is
+LOSSY. The whole argument for discarding five of six was that the kept one can rebuild them.
+A MODIFICATION to the existing narrative display; <b>saved routes only</b> — on a WIP it would be
+a second door into building six more from inside the batch that is blocking route work.</td></tr>
+<tr><td>3</td><td><b>Picker checkboxes + multi-delete</b></td><td>Needs a button and selectors.
+Rename and the empty-list case landed today.</td></tr>
+</table>
+
+<h2>Verify first</h2>
+<ul>
+<li><b>The scroll bar.</b> It was drawing but invisible — 3dp at 13% white on a near-black panel.
+Widened to 6dp opaque, <b>not yet seen on device</b>.</li>
+<li><b>The by-id geometry.</b> SAVE SELECTED now fetches trail shapes by lineId rather than
+viewport. Save a route whose far end is off-screen and confirm it still follows the trail.</li>
+<li><b>The empty picker.</b> With no drafts, Route+ should start a route directly — no dialog.</li>
+</ul>
+
+<h2>⚠ Traps</h2>
+<p><b>Four setters call <code>showInProgressPicker</code>.</b> The render is deliberately NOT
+gated — Fred: <i>"gating the screen is just deferring the problem."</i> Fix causes, not
+symptoms.</p>
+<p><b>A guard is only as good as the code before its <code>return</code>.</b> The Route+ fork fell
+through into the old picker when <code>drawBatch</code> threw. Anything that can throw between the
+test and the return silently unlocks what the guard exists to prevent.</p>
+<p><b>Every WebView call posts to main</b> via <code>onMain()</code> in RouteDraftStore. Reads stay
+on the calling thread; drawing does not.</p>
+<p><b>The xrefs are stale.</b> Generated 08-24; several hundred lines have moved. Structure right,
+line numbers wrong — worth regenerating before the next session.</p>
+<p><b>57 <code>.bak_*</code> files</b> sit inside <code>app/src/main/java</code> and appear in
+every recursive grep.</p>
+
+<h2>The state on disk</h2>
+<pre>route_drafts/batch/open_batch.json   the lock. Its ABSENCE means resolved.
+route_drafts/&lt;name&gt;.json             one per generated route
+  notes.summary      total_miles, est_hours, features, unconfirmed_junctions
+  notes.narrative    headline, what_you_will_see, stops_in_order, ground_covered
+  notes.legs[]       { trail, from_mi, to_mi, miles }
+open_batch.recipe    anchorLat/Lon, milesLow/High, mphLow/High, pins, finish</pre>
+<p>⚠ <code>anchorName</code> is null — nothing stores the tapped waypoint's name.</p>
+<p>⚠ <code>stops_in_order</code> carries Latin-1 mojibake on every draft already written; it is
+repaired on read, not at the writer.</p>
+
+<hr><p style="font:11px monospace;color:#8b949e">— carried forward from 2026-08-26 —</p>
+
+<div style="font:11.5px ui-monospace,Menlo,Consolas,monospace;color:#8b949e;letter-spacing:.4px;margin:0 0 14px">DOCUMENT ID <b style="color:#60A5FA">HANDOFF-2026-08-26</b> &middot; issued 26 August 2026</div>
+
+
+<h1>Session Handoff — 2026-08-26</h1>
+<p class="sub">Rel 2.6h · branch <code>feature/convoy-event-ride</code> · ten commits ·
+Droid 2 <code>24039703201775</code> · <b>35 engine revisions</b>, nearly all in Python</p>
+
+<div class="card good">
+<p class="lead"><span class="g">⭐⭐⭐ THE ROUTE ENGINE IS REBUILT, DEVICE-PROVEN AND
+FAST.</span></p>
+<p><b>Measured on device at Birch Spring / Pass Creek:</b> 12 trails → 1 network, tested
+ceiling 4, enrichment to 7 features, <b>six routes between 79.0 and 80.0 miles against an
+80-mile ceiling, in four seconds.</b></p>
+<p>Yesterday morning the same ground gave <b>one route to Brian Head</b>, from an origin 613 ft
+away down a single spoke.</p>
+<p><span class="g">Fred, 08-26:</span> <i>"six routes are all different enough to warrant
+judgement"</i> — which was the whole target.</p>
+</div>
+
+<h2>⭐⭐ THE TURNING POINT, and it was not technical</h2>
+<div class="card">
+<p><span class="k">Fred, 08-26:</span> <i>"trying to rationalise the old engine with components
+that were not built for the problem we were solving was the turning point. Natural resistance
+to replacing the familiar with the unknown. But the familiar was a round peg in a square
+hole."</i></p>
+<p><b>The greedy was built for "find me a ride somewhere near here."</b> Once the question
+became "reach these places, from where I am standing, and show me options", it was the wrong
+tool — and no amount of tuning fixes a wrong tool. Yesterday afternoon went on adjusting
+weights and thresholds on a mechanism that could not answer the question.</p>
+<p><span class="r">⚠ The resistance was mine.</span> Fred proposed replacing it early; I kept
+proposing patches. Every wrong theory yesterday was an attempt to make the familiar thing
+correct.</p>
+<p><b>⭐ RULE EARNED — it will come up again in the convoy rewrite:</b> when the question
+changes, check whether the mechanism was built for it BEFORE tuning.</p>
+</div>
+
+<h2>⭐⭐ PROTOTYPE-FIRST PAID FOR ITSELF SEVERAL TIMES OVER</h2>
+<div class="card good">
+<p><b>35 engine revisions in a day</b>, at ten seconds a run instead of thirty minutes a build.
+Fred set the rule this morning after the previous day; it is now standing.</p>
+<p><span class="g">⭐ And it was not only speed — it was the freedom to be WRONG.</span></p>
+<ul>
+<li>The <b>subset proxy</b> looked obviously correct and was not — it counted six independent
+feature sets, stopped, and the real overlap test then dropped one to five.</li>
+<li>The <b>detour screen</b> measured from the wrong points twice.</li>
+<li><b>Removing the cap</b> entirely ran forever.</li>
+</ul>
+<p>Each was a ten-second lesson instead of a wasted evening. And the things they found —
+<b>ride 6 at 79.7 mi that stopping early would have thrown away</b>, the <b>80% overlap</b>
+between rides 4 and 6 — would otherwise have shipped silently.</p>
+<p><b>⚠ Carry it into the next phases.</b> The approval panel reads a JSON file, so it is
+testable against a hand-written batch with no engine run at all. Same principle, applied to
+UI.</p>
+</div>
+
+<h2>The algorithm, settled</h2>
+<pre>corridor (ceiling/3) → graph → candidate starts within 600 yds, EDGE-SPLIT
+  → collapse to one origin per component (alternatives kept)
+  → features via spatial grid, on ANY origin's component
+  → rider pins as high-value features, split onto their trail
+  → distance matrix → out-and-back filter → pairwise table + TESTED ceiling
+  → working array: features earn their way in
+  → ENRICH the top 20 (rides x features, not combinations)
+  → dedupe: same origin+features · any origin · 75% shared trails
+  → six</pre>
+<p>Fully annotated with every measurement in
+<code>GroupTrack_algorithm_annotated_2026-08-26.html</code>.</p>
+
+<div class="card good">
+<p><span class="g">⭐ FRED'S TWO IDEAS DID ~94% OF THE PERFORMANCE WORK.</span></p>
+<table>
+<tr><th>Change</th><th>Effect</th></tr>
+<tr><td><b>Pairwise table</b> — the minimum ride holding both A and B is
+<code>origin→A + A→B + B→origin</code></td><td>98% of combinations killed without a tour
+solve. Whole branches never generated.</td></tr>
+<tr><td><b>Collapse origins per component</b></td><td>13 car parks onto one network were being
+solved 13 times for near-identical answers.</td></tr>
+<tr><td><b>Spatial grid for features</b></td><td>5.8s → 0.1s. 274 POIs × 12,231 nodes was 3.3
+million haversines.</td></tr>
+<tr><td><b>Enrich rather than enumerate</b></td><td>Best ride 6 → 8 features, scores 6.0–8.5 →
+12.3–14.8, every ride within 5.4 mi of the ceiling.</td></tr>
+</table>
+<p><b>67.8s → 3.8s with identical results</b>, then 4s on device.</p>
+</div>
+
+<h2>What shipped today</h2>
+<table>
+<tr><th>Commit</th><th>What</th></tr>
+<tr><td><code>8174c03a6</code></td><td><b>NEWENGINE</b> — the greedy replaced.
+436 insertions, 115 deletions.</td></tr>
+<tr><td><code>3ded23447</code></td><td><b>MAXPOI</b> — feature cap; the port omitted it and
+55 features gave a descent starting at 22.</td></tr>
+<tr><td><code>a1a4fb39e</code></td><td><b>ENRICH</b> — working array, tested ceiling,
+enrichment of the top 20.</td></tr>
+<tr><td><code>bdfaface7</code></td><td><b>DONEALWAYS + PINCAP</b> — DONE unconditional,
+<code>PIN_MAX</code> 10 → 5, stale assess results kept.</td></tr>
+<tr><td><code>5e233bfe4</code></td><td><b>SPLITGEOM</b> — a split edge carries only its own
+polyline.</td></tr>
+<tr><td colspan="2">Plus JUNKCLASS (settlements out of scoring) and OVERLAP3
+(75% shared trails is one ride).</td></tr>
+</table>
+
+<h2>⛔ THE DEFECTS FOUND AND FIXED</h2>
+<table>
+<tr><th>Defect</th><th>Measured</th></tr>
+<tr><td><b>The origin was 613 ft away with ONE spoke</b></td><td>Every one of 2,500 restarts
+began down that spoke; other directions were structurally excluded. <b>Now 24 ft, 2 spokes,
+12 candidate starts.</b></td></tr>
+<tr><td><b>Pins snapped up to 6,001 ft</b>, ten collapsing onto four nodes</td><td><b>Now
+16–150 ft onto named trails</b> — Horse Valley Road, FSR 082.</td></tr>
+<tr><td><b>Settlements were scoring</b></td><td><code>locality</code> 3,271,
+<code>hamlet</code> 1,220, <code>suburb</code> 47, <code>farm</code> 21 — 4,559 of 16,992.
+A locality sits on roads, so routes followed roads to reach one. <b>Fred: "my route created in
+towns and developments."</b></td></tr>
+<tr><td><b>DONE was hidden</b> when feasibility was unknown</td><td>Removed the only way out of
+the step. <b>Fred: "if i drop 4 pins i don't want to drop six more to exit."</b></td></tr>
+<tr><td><b>Split edges drew the parent's whole polyline</b></td><td>Both halves carried
+<code>e.pts</code>, so a route crossing one emitted it twice and the drawn line ran out and
+back — the straight segments near the pins.</td></tr>
+</table>
+
+<h2>🔴 TOMORROW</h2>
+<ol>
+<li><b>Verify SPLITGEOM on device</b> — straight lines near pins gone, each pin sitting ON the
+drawn route. Distances must not move.</li>
+<li><b>Process 3, the approval panel.</b> ⭐ Standalone: reads
+<code>open_batch.json</code> and the drafts it names, opens from Route+, <b>testable against a
+hand-written JSON with no engine run</b>.</li>
+<li><b>Process 1, the banner flow</b> — designed and mocked at v11, not built.</li>
+<li><b>Then the carto / PBF work.</b></li>
+</ol>
+
+<div class="card stop">
+<p><span class="r">⛔ THE PRODUCT RISK, and Fred named it:</span> <i>"it is a better tool in
+the deep wilds than near towns — and most people will test near towns."</i></p>
+<p>Measured at 37.8963,-113.659: <b>sixteen candidate starts, all residential streets</b> —
+Avenue B, Avenue C, Cutter Street, McGarry Street, Taylor Street. The <code>trails</code>
+table contains roads and the engine cannot tell them apart.</p>
+<p><b>A tester who runs it from their driveway gets road loops and concludes the app does not
+work.</b> First impressions do not get a second chance.</p>
+<p><b>⭐ Two answers, and the second is cheap:</b> the carto work moves up the queue — and
+until it lands, <b>the app can say so</b>. If every candidate start is a residential street
+that is detectable, and "you are in town; move to where the trails start" beats six road
+loops.</p>
+</div>
+
+<h2>⚠ Still open</h2>
+<ul>
+<li><b>Pins do not survive promotion</b>, so Fred saves routes he does not want purely to
+compare them. ⭐ The <code>mine: true</code> feature data fixes the record; process 3 fixes
+the need.</li>
+<li><b>Over five pins</b> — the designed answer is not built: pins as a fixed skeleton from
+<code>assess()</code>'s tour, enriched rather than enumerated. Until then <code>PIN_MAX</code>
+is 5, and it is a compute bound: ten pins took the tested ceiling from 4 to 11 and the build
+ran five minutes without finishing.</li>
+<li><b>Six colours that read on satellite</b> — untested. Red is unavailable; the HUD and pins
+own <code>#FF0000</code>.</li>
+<li><b>The welcome copy promises process 3.</b> ⛔ Do not ship that wording until the panel
+exists.</li>
+<li><b>Orphaned route notes</b> — <code>writeRouteNotes: no route aa328c07-…</code>, predates
+this session.</li>
+<li><b>Six import sources failing in nine seconds</b> — 08-24, unexplained.</li>
+</ul>
+
+<h2>Documents in this set</h2>
+<ul>
+<li><code>GroupTrack_process_spec_2026-08-26.html</code> — ⭐ <b>the map of the others.</b>
+Three processes, what each owns, the batch JSON, what is and is not built.</li>
+<li><code>GroupTrack_algorithm_annotated_2026-08-26.html</code> — the engine, every rule and
+the measurement behind it.</li>
+<li><code>GroupTrack_design_candidate_routes_2026-08-26.html</code> — the approval panel, with
+a <b>working legend mockup</b> on real 08-26 data.</li>
+<li><code>GroupTrack_mockup_banner_flow_v11_2026-08-26.html</code> — the guided flow,
+interactive.</li>
+<li><code>grouptrack_living_master_2026-08-27_v36.html</code></li>
+<li>Release notes, QuickStart, manual — carried forward.</li>
+</ul>
+
+</body></html>

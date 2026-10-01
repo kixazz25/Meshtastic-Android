@@ -1,0 +1,149 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-01</title>
+<style>
+body{font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:900px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:30px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.win{border-left:4px solid #3fb950}.bad{border-left:4px solid #f85149}
+.warn{border-left:4px solid #d29922}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:5px 0}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-01</h1>
+<p><code>feature/convoy-event-ride</code> · commits <code>c1c4edc5b</code> →
+<code>d40d593cb</code> · Droid 2 (24039703201775)</p>
+
+<h2>The headline</h2>
+<div class="card bad">
+<p><b>Fred, end of day:</b> <i>"I have spent four days adding trails and expanding our net to find
+why these trails are not displaying, and the whole time we had a hole in the net."</i></p>
+<p>The data was never the problem. Four days of widening coverage were spent chasing trails that
+were in the database the whole time. <b>The defect is in the display path</b>, and three separate
+ones were found today — none of them known this morning.</p>
+</div>
+
+<h2>What shipped</h2>
+<div class="card win">
+<ul>
+<li><b>Colour on the new category names</b>, all three asset files. <code>charAt(0)</code> could not
+work any more — <i>hiking</i> and <i>hiking and biking</i> share 'h' — so the lookups are now a
+full-string table carrying <b>colour, dash and weight</b>, wired at every call site. Blue = rideable,
+shade = confidence.</li>
+<li><b>Nineteen source attributes captured at import</b> — status, trail class, system name,
+recreation area, restrictions, ref, operator and more. Schema, catalogue mapping, and
+<code>TrailImporter</code>. Also fixed an existing bug: the catalogue mapped
+<code>DataSteward</code>, which is not a field UGRC publishes.</li>
+<li><b>The Map Keys panel</b>, one shared composable on BOTH maps — the planner's legend was
+replaced and the convoy map, which never had one, gained it.</li>
+<li><b>The land filter reaches the SQL</b> — one predicate in
+<code>queryTrailsByViewport</code>, which every trail on either map passes through.
+⭐ <b>And it works:</b> Public removed the Beryl Junction town clutter on a toggle. That was the
+week's original problem.</li>
+</ul>
+</div>
+
+<h2>⛔ The missing trail — where it actually stands</h2>
+<div class="card bad">
+<p><b>"Spanish George Road"</b> — five miles, OSM, forestry/access road, PUBLIC. Never drew, at any
+zoom.</p>
+<table>
+<tr><th>Stage</th><th>Result</th></tr>
+<tr><td>In the trails table</td><td>✅ valid geometry, clean ASCII name, min_lat populated</td></tr>
+<tr><td><code>queryTrailsByViewport</code></td><td>✅ device trace: <code>raw=1 items=1 json=true</code></td></tr>
+<tr><td><code>queryArtifactList</code> by hand</td><td>✅ 69 rows returned, including it</td></tr>
+<tr><td>The app's row list</td><td>⛔ 34 rows, NOT including it</td></tr>
+<tr><td>On the map</td><td>⛔ never, at any zoom</td></tr>
+<tr><td>Neighbouring trails</td><td>✅ all draw and list correctly</td></tr>
+</table>
+<p><b>⚠ Precisely what the trace proves:</b> the name is in the GeoJSON STRING passed to
+<code>evaluateJavascript</code>. It does <b>not</b> prove the call succeeded, that 538KB parsed, or
+that Leaflet added the feature. I claimed "it reaches Leaflet" and Fred was right to challenge it.</p>
+</div>
+
+<h2>The side alleys — three defects in the display path</h2>
+<div class="card warn">
+<h3>1. "Not Named" is a name</h3>
+<p>The map query ordered named trails first via <code>name IS NULL OR name = ''</code>. But ~69% of
+rows carry the literal string <b>"Not Named"</b> — neither null nor empty — so tens of thousands of
+placeholders sorted as NAMED. A 200-foot connector outranked a ten-mile track.
+<b>Fixed:</b> order by extent alone.</p>
+
+<h3>2. A second query nobody was looking at</h3>
+<p>The row list is <code>queryArtifactList</code>, not <code>queryTrailsByViewport</code>. Different
+SQL, and <code>ORDER BY name LIMIT 200</code>. ⭐ <b>Fred said "rows start at 200" for hours and I
+kept answering I could not find a 200.</b> It was at <code>SpatialDbManager:1987</code>. Alphabetical,
+so numbered roads fill the list and anything starting with S never gets near it.
+<b>Not fixed</b> — it cannot explain a list of 34, but it will bite at 200+ trails in view.</p>
+
+<h3>3. Per-trail selection was a trap</h3>
+<p><code>SpatialDisplayManager</code> filters to <code>checkedIds</code> when the state is SELECTED,
+so a trail imported after that list was saved silently never drew.
+<b>Fixed:</b> SELECT greyed for Trails; a saved SELECTED reads as ALL so a stuck device recovers.</p>
+
+<h3>4. Unresolved: the list and the draw disagree</h3>
+<p>They come from different queries. <b>If the list is meant to document what was drawn, they have
+drifted</b> — a defect in itself. If it is an independent view, its disagreement proves less than it
+appears to. Worth settling which.</p>
+</div>
+
+<h2>Tomorrow, in order</h2>
+<div class="card">
+<ol>
+<li>⭐⭐ <b>Connect the console bridge on <code>grouptrack_map.html</code></b> — it has NO
+<code>WebChromeClient</code>, so JS errors are invisible. This is the 07-30 lesson repeating: four
+theories died that day before eight lines of bridge found the real parse error.</li>
+<li><b>Instrument inside <code>updateTrails</code></b> — features in, features added. And find out
+whether it CLEARS the layer or MERGES: if it merges, a feature that failed once may never retry.</li>
+<li><b>Compare the trails path against tracks and routes</b> (Fred's suggestion). Tracks draw
+reliably; the difference should be visible.</li>
+<li><b>Audit the spatial-era display path as a whole.</b> Three defects in one day in code nobody had
+re-read. There are likely more.</li>
+<li>⚠ <b>The LIFECYCLE probes are in the build but never fire</b> — they instrument
+<code>onEditDisplay</code>, and greying SELECT closed that door. My own fix blocked my own
+diagnostic. Remove or re-open.</li>
+</ol>
+</div>
+
+<h2>UI backlog (a cleanup day is owed)</h2>
+<div class="card">
+<ul>
+<li>Map Key rows not selectable — headers work, rows do not</li>
+<li>Close control on Search, Map Features, Help/Info</li>
+<li>Map Keys text launcher on the planner (convoy has it, planner does not)</li>
+<li>Trail tap → detail panel, like tracks; panel must read <code>land_status</code>,
+<code>use_type</code>, <code>carto_code</code> from <code>trails</code></li>
+<li>Trail detail expansion — populated fields only, real source names, no OSM jargon
+(mockup: <code>trail_detail_mockup_v2_0901.html</code>)</li>
+<li><code>TrailImporter</code> writing status to both stores</li>
+<li>Recipe carries the trail-selection filter</li>
+<li>Route+ and AI planning mutually exclusive; Compare draggable</li>
+<li>Colours settled once the map can be trusted</li>
+</ul>
+</div>
+
+<h2>Data findings</h2>
+<div class="card">
+<ul>
+<li><b>Surface is the only analysable attribute</b> — 39% of the motorized set: dirt 12,167,
+unpaved 6,657, ground 6,022, gravel 2,163.</li>
+<li><b>The width hunt ended empty.</b> OSM has 155 width values statewide; UGRC's
+<code>OtherRestrictions</code> has 2 on the motorized set. ⭐ <b>Restriction is not permission</b> —
+a trail saying "50 inch maximum" tells a wide machine to stay off; silence says nothing. So the only
+sound use is a rider stating their width and prohibiting trails dropping out.</li>
+<li><b>Status:</b> EXISTING 18,192 · UNCERTAIN 303 · UNOFFICIAL 198 · CLOSED 47. Closed never draws;
+unofficial/uncertain is one red dashed row.</li>
+<li><b>Smoothness</b> is the rocks-and-boulders attribute as vehicle capability — very_bad 4,737,
+horrible 987, very_horrible 338. Captured, unused.</li>
+<li>⭐ <b>The standard agreed:</b> on one record it is INFORMATION — show it. Across many it is DATA
+— analyse it. In between it earns a place in the route NARRATIVE if it distinguishes two routes.</li>
+</ul>
+</div>
+
+</body></html>

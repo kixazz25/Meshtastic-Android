@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-03</title>
+<style>
+body{font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:940px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:30px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.win{border-left:4px solid #3fb950}.bad{border-left:4px solid #f85149}
+.warn{border-left:4px solid #d29922}.next{border-left:4px solid #58a6ff}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:5px 0}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-03</h1>
+<p><code>feature/convoy-event-ride</code> · Droid 1 <code>8624SBCEDF00001789</code>
+· Droid 2 <code>24039703201775</code> · <b>2.6g releases 2026-09-08</b></p>
+
+<div class="card bad">
+<p>⭐⭐ <b>THE RELEASE PLAN, because it changed three times today.</b></p>
+<table>
+<tr><th>2.6f</th><td>shipped, gone</td></tr>
+<tr><th>2.6g</th><td><b>2026-09-08.</b> The DOCUMENTS first, then non-critical
+fixes. Early build is with 2–3 testers now.</td></tr>
+<tr><th>2.6h</th><td>Fifty-state land ownership · crashed-import restart ·
+deferred items</td></tr>
+<tr><th>2.7</th><td>3D map tools · mesh as a plugin · IP stack as a plugin ·
+GroupTrack as a mapping function showing one cart or all carts</td></tr>
+</table>
+<p>⭐ <b>THE DOCUMENTS OUTRANK FUNCTIONALITY IN 2.6g</b> (Fred): <i>"our
+documentation must become useful, accessible and relevant."</i> ⚠ The app now
+does things nobody can discover — the filter MOVED, the classification exists,
+the default hides two thirds of the trails.</p>
+</div>
+
+<h2>⛔ Read before touching anything</h2>
+<div class="card bad">
+<ul>
+<li>⛔⛔ <b>LOOK FOR THE EXISTING COMPONENT BEFORE WRITING A NEW ONE.</b> THIRD
+time this week: three copies of trailColor, two docs choosers, and today I wrote
+a whole <code>RouteProsePanel.kt</code> before finding
+<code>ConvoyNotesPanel</code>, <code>notesFromRouteId</code> and a shared section
+model already wired. Fred: <i>"all the components existed, which is why I
+question."</i></li>
+<li>⛔ <b>PULL THE LOGCAT BEFORE THEORISING.</b> Every real diagnosis today came
+from a log; every wrong one came from reading code and reasoning forward. Fred
+asked for the log three exchanges before I ran it.</li>
+<li>⛔ <b>ANCHORS FROM <code>cat -A</code>, NEVER <code>sed</code>.</b> Seven
+whitespace failures this week, three in one patch.</li>
+<li>⚠ <b><code>TrailFilterState</code> is a plain singleton, NOT Compose
+state.</b> Every composable reading it must take <code>tick</code>. Cost eight
+builds on 09-02.</li>
+<li>⚠ <b>Bash eats <code>!</code></b> — history expansion mangled two one-liners
+today. Use a script for anything with a negation.</li>
+</ul>
+</div>
+
+<h2>⭐ THE RELEASE PROCEDURE — two hand-edited lines nothing prompts for</h2>
+<div class="card warn">
+<p>Both were missed, and both are now on the list for the locked doc:</p>
+<ul>
+<li><b>The release label</b> — hardcoded in <code>ConvoySettingsScreen.kt</code>.
+It said 2.6f until today.</li>
+<li>⛔ <b><code>window.__htmlVersion</code> in BOTH map HTML files.</b> It said
+<code>2026-08-13a</code> for three weeks while the files changed constantly. Its
+own comment reads <i>"bump this or the display starts lying"</i> — and it was
+lying, so when a tester reported old popups on the current build, the one tool
+built to tell a stale asset from a stale build could not.</li>
+<li><b>The schema marker</b> in <code>StartupHousekeeping</code>, when the
+trail schema changes.</li>
+</ul>
+</div>
+
+<h2>Shipped today</h2>
+<div class="card win">
+<ul>
+<li><b>One startup housekeeping job the gate waits for</b> — palette, release
+check, clear, ALTER, reload. ⛔ The 09-03 log had the gate answering
+<b>sixty-eight seconds before the clear ran</b>, letting a rider into an empty
+map while a delete was still going. Fred: <i>"we are lucky this did not
+ANR."</i></li>
+<li><b>Red banner on the access screen</b>, Continue disabled while it runs. ⚠ On
+the screen with the BUTTON — Fred predicted that trap before I saw it.</li>
+<li><b>One import at a time</b>, owned by the controller. ⛔ Two ran concurrently
+on 09-03 and a cancelled one downloaded 67 MB for eight more minutes.</li>
+<li><b>Step 8 tracked in the manifest</b>, and the summary rebuilt from it so
+leaving the app no longer destroys it.</li>
+<li>⛔ <b>A failed import recorded itself as a success</b> —
+<code>if (allOk) "completed" else "completed"</code>.</li>
+<li><b>Tap a route → the narrative</b>, with foldable sections and two actions.</li>
+<li>Search aligned · hours as a range · surface on trail labels · ride-map trail
+taps · probes removed · readable labels.</li>
+<li>⭐ <b>The ownership download proved itself unattended</b> — 78 MB fetched,
+145,942 classified, 43,880 private.</li>
+</ul>
+</div>
+
+<h2>TOMORROW — the Quick Start, for real</h2>
+<div class="card next">
+<p>⭐⭐ <b>EDUCATE, DON'T POLICE.</b> We designed a saved checklist with progress
+and a retirement rule; Fred cut all of it: <i>"providing the material and the
+stages is enough."</i></p>
+<p><b>Each stage ends with something to go and try.</b> Read the setup section,
+play with the setup. Read the pre-ride section, play with that. ⭐ Then record a
+track around your house before the first real ride.</p>
+<p><b>Structure:</b> installation and base trail setup (common) → navigation and
+functions overview, each bullet LINKED TO ITS MANUAL SECTION → pick your
+implementation → twisties per rider type (Android solo, no group tracking · Mesh
+group).</p>
+<p><b>The manual, same day:</b> anchors per section (⭐ also the groundwork for
+context-sensitive help) · re-record every screen image · ⭐⭐ <b>use the function
+xref to confirm every feature is shown from EVERY surface it launches from</b> —
+popup panels now do real work.</p>
+<p>⚠ <code>GroupTrack_QuickStart_2026-09-03_v21.html</code> is the current draft
+and is a GETTING-STARTED WALKTHROUGH, not this. It has no orientation. Use it for
+the twisty content, not the shape.</p>
+</div>
+
+<h2>2.6h</h2>
+<div class="card">
+<ul>
+<li><b>Fifty-state land ownership.</b> ⛔ The URL is the easy part; a layer that
+lists PUBLIC land positively INVERTS our test — absence would mean private OR
+unmapped, and marking unmapped trails private hides them under the default,
+which looks exactly like missing data. Each entry needs: item id · which field
+carries ownership · continuous or positive.</li>
+<li><b>Crashed-import restart from the manifest.</b> ⚠ Step 8 became a real
+stage today, which was the prerequisite.</li>
+<li><b>The ride map has NO route tap at all</b>, and <b>trails now win taps over
+routes</b> — layer order should be trails, tracks, routes, reasserted after every
+trail redraw.</li>
+<li><b>BUILD FROM RECIPE on the notes panel</b> — needs its fifty-line lambda
+extracted.</li>
+<li><b>The import timer.</b> Suspect: <code>republishProgress</code> passes
+<code>currentTimeMillis()</code> as <code>startMs</code>.</li>
+<li>Two import bugs: 712 rows hold the literal <b>"null"</b>, 866 hold
+<b>"321"</b>.</li>
+<li><b>Route archive-on-graduate</b> — still the only unrecoverable data class,
+and testers are building routes now.</li>
+</ul>
+</div>
+
+<h2>Documents</h2>
+<div class="card win">
+<ul>
+<li><code>grouptrack_living_master_2026-09-03_v46.html</code> — 389 h3, originals intact</li>
+<li><code>grouptrack_checklist_2026-09-03_v5.html</code> — shipped / tomorrow / 2.6g / 2.6h / 2.7</li>
+<li><code>grouptrack_release_notes_2026-09-03.html</code></li>
+<li><code>grouptrack_manual_2026-09-03.html</code></li>
+<li><code>GroupTrack_QuickStart_2026-09-03_v21.html</code> — ⚠ superseded tomorrow</li>
+<li><code>route_prose_panel_mockup_2026-09-03.html</code> — the design that shipped</li>
+</ul>
+</div>
+
+</body></html>

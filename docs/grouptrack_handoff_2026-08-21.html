@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Session Handoff — 2026-08-21</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--line:#26303b;--fg:#c9d1d9;--muted:#8b949e;
+   --accent:#58a6ff;--amber:#e3b341;--red:#f85149;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:26px 20px 70px;background:var(--bg);color:var(--fg);
+  font:14.5px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:960px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:12px;margin-bottom:22px}
+ h1{margin:0 0 5px;font-size:24px;color:var(--accent)}
+ .sub{color:var(--muted);font-size:13px}
+ h2{font-size:17px;margin:28px 0 8px;padding-bottom:5px;
+   border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:14.5px;margin:16px 0 5px}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:11px 14px;margin:9px 0}
+ .card.key{border-left-color:var(--accent)} .card.warn{border-left-color:var(--amber)}
+ .card.stop{border-left-color:var(--red)} .card.good{border-left-color:var(--green)}
+ code{background:#0d1117;border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:12.5px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ ul,ol{margin:6px 0 6px 21px} li{margin:4px 0}
+ table{border-collapse:collapse;width:100%;margin:8px 0}
+ td,th{border:1px solid var(--line);padding:5px 9px;font-size:12.5px;text-align:left;
+   vertical-align:top}
+ th{background:#1c2531;color:var(--accent)}
+ .hi{color:var(--amber)} .muted{color:var(--muted)} .ok{color:var(--green)}
+ .no{color:var(--red)}
+</style></head><body><div class="wrap">
+
+<header>
+<h1>GroupTrack — Session Handoff — 2026-08-21</h1>
+<div class="sub">Release 2.6g · branch <code>feature/convoy-event-ride</code> · HEAD <code>45d55f48d</code><br>
+Session focus: <b>import recap counters, then AREA import built and run end to end on a four-state box.</b></div>
+</header>
+
+<div class="card good">
+<b>⭐⭐⭐ AREA IMPORT WORKS.</b> Four commits, every one compile-gated. A four-state drawn box
+resolved, built its manifest, and ran all ten sources — catalog first, then four Geofabrik states in
+sequence. 41 minutes. <b>The recap counters landed first and immediately exposed three sources
+failing every record.</b>
+<p class="muted" style="margin:6px 0 0">Manual and quickstart deliberately NOT touched today — held
+until state + area are complete and certified (Fred).</p>
+</div>
+
+<h2>1. Commits</h2>
+<table>
+<tr><th>#</th><th>Hash</th><th>What</th><th>Verified</th></tr>
+<tr><td>1</td><td><code>2e6973353</code></td>
+    <td>Recap counters (5 per source) + <code>manifest_id</code>; twisty on the completion panel</td>
+    <td class="ok">compile + JSON on device</td></tr>
+<tr><td>2</td><td><code>e8099c1ae</code></td>
+    <td>Controller takes bbox + state LIST; <code>executeArea()</code>; <code>execute(state)</code> becomes a wrapper</td>
+    <td class="ok">compile</td></tr>
+<tr><td>3</td><td><code>12083fcfc</code></td>
+    <td>Area import wired — drawn bbox resolves states, runs all sources, reuses picker progress UI</td>
+    <td class="ok">compile + device run</td></tr>
+<tr><td>4</td><td><code>45d55f48d</code></td>
+    <td>Import Trails selector BY STATE / BY AREA; old source-selection screen unreferenced; Import OSM Data removed</td>
+    <td class="ok">compile + device</td></tr>
+</table>
+<p class="muted">Also verified today: the 08-20 track export/share fix is committed in
+<code>ef6ad0e4a</code> — a commit whose message describes the download progress meter and says
+nothing about tracks. ⚠ <b>The 08-20 handoff's commit table lists <code>f42700b1b</code> for that
+work; that was the hash abandoned when the commit was Ctrl-C'd and redone.</b> Rows 7-down of that
+table are wrong.</p>
+
+<h2>2. The shape that made it small</h2>
+<div class="card key">
+<p><b>Fred: "The bbox is the decider; where it comes from is the driver."</b> State and area share
+one pipeline — the state run's bbox is the state's corners, the area run's is the drawn box.
+Catalog resolution, the manifest builder, the execution loop and the recap counters are shared and
+unmodified.</p>
+<p><b>Fred: "The existing progress and completion IS the import process. Everything else is serving
+it. Building the JSON, no work."</b> Selection UI decides a bbox and writes a manifest. That is why
+the multi-state loop is <b>not a new loop</b> — the builder emits one <code>geofabrik_area</code> row
+per state and the existing source loop sees N pending rows.</p>
+<p>⭐ <b>Granular restart recovery is now latent.</b> The whole plan — every source, and the bbox that
+defines the work — is written down before any of it runs. A drawn box is ephemeral;
+<code>area.bbox</code> survives the app dying.</p>
+</div>
+
+<h2>3. Device run — Droid 2</h2>
+<div class="card">
+<p>Box <code>S=36.180 W=-114.573 N=37.022 E=-113.167</code> — Lake Mead corner, 58 × 78 mi.
+Resolved <b>Arizona, California, Nevada, Utah</b>: 6 catalog rows + 4 <code>geofabrik_area</code> rows.
+Run time <b>41 minutes</b>.</p>
+<table>
+<tr><th>Source</th><th>processed</th><th>selected</th><th>dupes</th><th>adds</th><th>errors</th></tr>
+<tr><td>Utah Trails and Pathways (UGRC)</td><td>117</td><td>117</td><td>0</td><td>0</td><td class="no">117</td></tr>
+<tr><td>Arizona State Parks &amp; Trails</td><td>10,935</td><td>10,935</td><td>0</td><td class="ok">10,935</td><td>0</td></tr>
+<tr><td>Bureau of Land Management Trails</td><td>617</td><td>617</td><td>0</td><td class="ok">617</td><td>0</td></tr>
+<tr><td>US Forest Service Trails</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>US Geological Survey National Trails</td><td>718</td><td>718</td><td>0</td><td>0</td><td class="no">718</td></tr>
+<tr><td>National Park Service Trails</td><td>2</td><td>2</td><td>0</td><td class="ok">2</td><td>0</td></tr>
+<tr><td>Arizona Open Source Maps</td><td colspan="3" class="muted">bbox-filtered</td><td class="ok">3,335</td><td>—</td></tr>
+<tr><td>California North Open Source Maps</td><td colspan="3" class="muted">downloaded, extracted, swept</td><td>0</td><td>—</td></tr>
+</table>
+<p><b>✅ The three things this proved:</b></p>
+<ul>
+<li><b>The <code>"area"</code> scope reached the OSM worker</b> — Arizona 3,335 against 134,242
+whole-state. This was the assumption I was least sure of in the build.</li>
+<li><b>The loop advances</b> — California downloaded, extracted, imported and cleaned up after
+Arizona finished.</li>
+<li><b>The manifest is correct</b> — <code>type: "bbox"</code>, four states, California's nested slug
+<code>california/norcal</code> intact, catalog first / Geofabrik last.</li>
+</ul>
+</div>
+
+<h2>4. 🔴🔴 Parked findings — start here</h2>
+
+<div class="card stop">
+<h3>4.1 Three sources fail EVERY record, and the counters are the only reason we know</h3>
+<ul>
+<li><code>usgs_national_trails</code> — <b>391/391 errors (NH), 718/718 errors (SW).</b> Fails
+everywhere. Nothing on this device for it to collide with. <b>Unexplained.</b></li>
+<li><code>ugrc_utah_trails</code> — <b>117/117 errors.</b> Fred's read: the box clipped southern Utah
+and all 117 were already present from the full-state import → likely a <b>collision misclassified as
+an error</b>. ⚠ It was the FIRST source in the run, so nothing in that run had written yet — the DB's
+prior contents are the only possible collision source.</li>
+<li><code>nps_public_trails</code> — <b>6/6 errors in NH but 2/2 SUCCESS in the SW.</b> Same source,
+same code, same day → <b>data-dependent, not a broken source.</b></li>
+</ul>
+<p>⭐ All three previously reported <code>imported: 0</code> and were read as "no coverage for this
+state." <b>That reading was wrong.</b></p>
+<p><b>Evidence saved:</b> <code>/d/grouptrack_screenshots/trailimporter_2026-08-21.txt</code> (71 lines).
+<b>Next step is one command</b> — the per-record error text:<br>
+<code>grep -vE "Done |^--------" /d/grouptrack_screenshots/trailimporter_2026-08-21.txt | head -30</code></p>
+<p class="hi">⚠ If collisions are landing in <code>errors</code>, the recap's most important line cries
+wolf on every re-import — and that is the line built to expose real failures.</p>
+</div>
+
+<div class="card warn">
+<h3>4.2 Geofabrik 16-record gap</h3>
+<p>NH re-import: <b>42,316 processed</b> vs <b>42,300</b> in the parts (42,295 dupes + 5 adds +
+0 errors). Likely <code>geometryChanged</code> — a real bucket that is not among the five. Decide
+whether it folds into dupes or earns its own line.</p>
+</div>
+
+<div class="card warn">
+<h3>4.3 Manifest overwrite</h3>
+<p>Filename is <code>import_[date]_[area].json</code>, so a same-day same-state re-run <b>replaces</b>
+the earlier record — observed 08:24 → 08:26 on Droid 2. <code>manifest_id</code> distinguishes them
+inside the file; the filename does not. Matters once history exists.</p>
+</div>
+
+<div class="card warn">
+<h3>4.4 Completion twisty does not render</h3>
+<p><code>MANIFESTUI-2026-08-21</code> compiled (marker count 2) and the counters are in the JSON, but
+the per-source twisty does not open on device. <b>Presentation only</b> — the values are where the
+sweep and a support call need them.</p>
+</div>
+
+<h2>5. Bbox state selection is over-inclusive — decided, not built</h2>
+<div class="card">
+<p><b>Measured:</b> <code>findByBbox</code> tests the drawn box against each state's RECTANGLE.
+California's reaches east to <code>-114.13</code>; the box's west edge was <code>-114.573</code>. So
+California was selected, downloaded (600 MB+), extracted, imported <b>ZERO trails</b>, and swept.
+<b>A rectangle tested against a rectangle can only ever be a rectangle.</b></p>
+<p>⭐⭐ <b>DECISION (Fred): the deselect checkbox is the fix</b>, on the bbox confirmation screen the
+08-18 mockup already specifies. No network dependency, no tuning parameter, no failure modes — and
+<b>honest</b>: the rider knows the ground, the app does not.</p>
+<p><b>The panel must EXPLAIN the mechanism, not just offer the control.</b> Draft wording:</p>
+<p class="muted" style="padding-left:12px;border-left:2px solid var(--line)">
+<b>Some states may not have trails in your area.</b><br>
+States are matched using a rectangle around each state, and those rectangles overlap. A state can be
+listed here without reaching into the area you drew. If you know a state isn't part of your ride,
+uncheck it — you'll skip its download.</p>
+<ul>
+<li>⚠ Keep "bounding box" out of rider-facing text — audience is riders 65–75.</li>
+<li><b>Default ALL CHECKED.</b> Over-inclusion costs time; under-inclusion costs coverage the rider
+does not discover until they are out there.</li>
+<li>Show the download size per state if available — that is what makes the choice real.</li>
+</ul>
+<p>💡 <b>Considered and NOT chosen: perimeter geocoding.</b> Sample the box edge every ~10 mi,
+reverse-geocode each point, deselect any bbox-selected state whose name never appears. ⭐ Fred's
+insight: <b>a state cannot be inside the box without crossing its edge</b>, so perimeter sampling is
+complete for a rectangle and interior points add nothing. Measured on the real box: <b>28 sample
+points</b>, 11 west of California's bbox edge. Written and parked as
+<code>resolveStatesByPerimeter_2026-08-21.kt</code>. More correct in principle; costs a network round
+trip, a tuning parameter and three failure modes to buy what a checkbox does for free.
+⚠ <b>If ever revived: bbox proposes, perimeter DESELECTS</b> — never let the geocoder add, and
+deselect nothing when lookups fail.</p>
+</div>
+
+<h2>6. 🧹 Cleanup pass — after area is certified, as its own commit</h2>
+<div class="card">
+<p>⛔ <b>Removal happens AFTER verification, never before</b> — deleting the old path while area is
+half-built takes away the fallback. Its own commit, because a removal mixed into a feature commit
+cannot be cleanly reverted at 9pm.</p>
+<ol>
+<li><b>Convoy submenu "Work with Tracks"</b> — <code>ConvoyTrackExportSheet</code> +
+<code>ConvoySubMenu.onExportTracks</code>. Superseded by the 08-20 export fix, device-verified.
+⚠ Lives in frozen convoy — check blast radius first.</li>
+<li><code>ConvoyDownloadPanel.kt:295</code> — "Import OSM by Area" row.</li>
+<li><code>osmChecked</code> + its clause in the <code>:326</code> gate. <b>Two flags for one concept
+is the <code>00f</code> defect.</b></li>
+<li>The old source-selection screen — now unreferenced by both exits.</li>
+<li><code>TrailImporter.launchMode</code> / <code>writePendingArea</code> on the area path —
+vestigial, marked in place at both call sites.</li>
+<li><code>"OSM" -> { }</code> empty branch — delete the whole case.</li>
+<li><b>Rename <code>HomeStatePickerScreen</code></b> — it now serves three entries
+(home / any-state / area) and the name is wrong for two of them.</li>
+</ol>
+</div>
+
+<h2>7. Gate startup job — designed, not built</h2>
+<div class="card">
+<p>Full design is in the living master under <code>00-GATE-FINAL (08-16, UPDATED 08-21)</code>.
+It <b>supersedes</b> unified-spec §8 and the recovery half of §7A. Short form:</p>
+<ul>
+<li><b>Sweep:</b> completed manifests → history; incomplete → stamped <code>killed</code> → history.
+<b>Stamp first, then move.</b></li>
+<li><b>Zero-data check:</b> spatial DB file exists? → trail count &gt; 0? Both misses land on Home
+State. ⛔ <b>The file check must NOT open the DB</b> — refuse-to-create is unbuilt and the gate halts
+before any DB opens by design.</li>
+<li><b>Cut from 2.6g:</b> resume-from-<code>last_item</code>, the "not finished, complete now?" prompt,
+and <code>restart_of</code>. Rerun is the recovery.</li>
+</ul>
+<p class="hi">⚠ Fred: not wiring the gate until state + area are complete. Discovery is banked in the
+living master so it is not repeated.</p>
+</div>
+
+<h2>8. ⚠ Method — mine. All three cost real time.</h2>
+<div class="card warn">
+<p><b>1. ⛔⛔ I designed for hours against a design that already existed.</b> The unified import spec
+answers the gate integration, the Import Trails replacement, the BY STATE / BY AREA selector and the
+OSM removal. Fred had uploaded it. I reconstructed from greps, then asked three questions the
+document answers. ⭐⭐⭐ <b>Fred: "we have all docs for a reason. you need to be checking that for a
+design question before assuming there is no design."</b> The 08-09 rule already said this and it did
+not hold. <b>Before proposing any mechanism: ask which document owns the subject, and read it.</b></p>
+<p><b>2. I guessed the APK path</b> and sent a command that failed twice, while the correct path sat
+in the locked environment file — which exists so nobody guesses it. Same class as (1).</p>
+<p><b>3. Two patch scripts misreported their own state.</b> One dry run said "anchors matched" on an
+already-applied file (its guard checked the wrong marker for that file); another said "already
+patched" immediately after its own write. The guards were right; the <b>reporting</b> was not.
+⭐ <b>Verify against the file and <code>git log</code>, never the script's summary.</b></p>
+<p class="ok"><b>What worked:</b> every guard that mattered fired. Patch B aborted on a
+<code>sed</code>-derived anchor missing three blank lines (<code>cat -A</code> found them in one
+command — the sediment rule, third instance). B aborted again on stale <code>state.</code> references
+that would not have compiled, and on a blanket <code>state.name</code> replace that would have
+produced <code>areaLabel = areaLabel</code> inside my own new code. <b>Three would-be build failures
+caught before a build.</b></p>
+</div>
+
+<h2>9. State of the tree</h2>
+<div class="card">
+<ul>
+<li>HEAD <code>45d55f48d</code>, working tree clean, <b>4 commits ahead of origin — not pushed.</b></li>
+<li>APK <code>29320889</code> installed on Droid 2 (sacrificial). Droid 1 untouched today.</li>
+<li>Droid 2 DBs healthy pre-run: <code>grouptrack_data.db</code> 35.9 MB ·
+<code>grouptrack_spatial.db</code> 339 MB.</li>
+<li>⚠ <code>Documents/GroupTrack/imports/</code> accumulates — the sweep is not built. Cleared
+manually before today's area run.</li>
+</ul>
+</div>
+
+<h2>10. Next session</h2>
+<div class="card key">
+<ol>
+<li><b>The three failing sources</b> (§4.1) — one grep has the answer.</li>
+<li><b>Finish the area run's verification</b> — Nevada and Utah rows; Utah should show heavy dupes
+against the existing full-state OSM import.</li>
+<li><b>Bbox confirmation screen</b> with the deselect checkboxes and the explanatory wording (§5).</li>
+<li><b>Gate startup job</b> — build order is in the living master, §9 of that section.</li>
+<li><b>Cleanup pass</b> (§6), once area is certified.</li>
+<li><b>Then</b> manual + quickstart: the Installation &amp; First-Time Setup section, Import Trails
+by State / by Area, and the screenshots Fred captured 08-21 before the OSM harness was removed.</li>
+</ol>
+</div>
+
+</div></body></html>

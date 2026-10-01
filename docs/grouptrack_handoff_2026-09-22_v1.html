@@ -1,0 +1,102 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack handoff — 2026-09-22</title><style>body{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1200px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:23px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:18px;color:#58a6ff;margin-top:34px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:15px;color:#b8c2cc;margin:18px 0 6px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+td:first-child{font-weight:600;color:#e3b341;white-space:nowrap}
+.hi{color:#e3b341} .fig{overflow-x:auto;background:#161b22;border-radius:6px;padding:8px 0}
+.fig svg{max-width:100%;height:auto;display:block;margin:0 auto}
+li{margin:5px 0}</style></head><body>
+<h1>GroupTrack handoff — end of 2026-09-22</h1>
+<p>Written for a FRESH CONVERSATION. Everything needed to pick up tomorrow is here or named here.</p>
+
+<div class="card done">
+<p class="hi"><b>Today in one line: the data model stopped moving, and the identity chain exists in code.</b>
+Seven commits on <code>feature/convoy-event-ride</code>, two AWS migrations, and a rider can now create a ride from a route on Droid 1's real data.</p>
+</div>
+
+<h2>1 · Read these first</h2>
+<div class="card">
+<p><b><code>grouptrack_living_master_2026-09-22_v80.html</code></b> — the checklist and every decision. The sections that matter today:
+<b>RIDEMODEL-2026-09-22</b> (identity chain, networks, distributed model, role rules, profile, API touchpoints) ·
+<b>RIDEFILE-2026-09-22</b> (the .convoy format 3) ·
+<b>NUCLEUS-2026-09-22</b> (Nathan's answer and the delivery paradox) ·
+<b>RIDEBUILD-2026-09-22</b> (what was built, and the entry path) ·
+<b>In-Progress</b> (tomorrow's eight items).</p>
+<p><b>Supporting docs, all 2026-09-22:</b> <code>GroupTrack_DataModel_Convergence_..._v24.html</code> · <code>GroupTrack_APITouchpoints_ProfileRideRadio_..._v1.html</code> ·
+<code>GroupTrack_ConvoyFileFormat3_..._v1.html</code> · <code>GroupTrack_BlastRadius_ConfigCut_..._v1.html</code> ·
+<code>GroupTrack_DeviceSchemaAdditions_..._v4.sql</code> · <code>GroupTrack_AWS_Alignment_PhaseA_..._v1.sql</code>.</p>
+</div>
+
+<h2>2 · Where the code is</h2>
+<div class="card">
+<p><b>Branch <code>feature/convoy-event-ride</code>, seven commits today, newest first:</b></p>
+<ul>
+<li><code>02fe5591f</code> — ADD A RIDE on a route's detail panel (planner only; convoy untouched)</li>
+<li><code>eafe45cbd</code> — the ride creation shell (<code>ConvoyRideStore</code>, <code>ConvoyRideCreateScreen</code>)</li>
+<li><code>fa055099a</code> — profile reachable from settings + keyboard padding</li>
+<li><code>ce958b6b4</code> — the rider profile at first launch (<code>ConvoyProfileStore</code>, <code>ConvoyRiderProfileScreen</code>, gate check)</li>
+<li><code>37153e7d0</code> — distributed model: rides carry organizer_name / org_name; enrollments carry callsign / display_name; ids optional; callsign uniqueness removed</li>
+<li><code>1a758a8d9</code> — <code>rides.config_mode</code> gains <code>inherit_org</code></li>
+<li><code>0dd20cd3d</code> — ten V3-shaped tables added at startup from <code>schema_device_additions.sql</code></li>
+</ul>
+<p><b>Deployed and walked on Droid 1</b> (<code>8624SBCEDF00001789</code>, V3 OFF): first-launch profile, settings edit, keyboard, ADD A RIDE → form with the route drawn. Droid 2 has NOT had this build.</p>
+<p><b>AWS:</b> mirror + rules applied; Phase A alignment applied and verified on scratch copies first; <code>inherit_org</code> added. <b>Phase B is owed</b> (organizer_name / org_name / callsign / display_name, ids loosened) — nothing writes them yet, so it waits for the code regeneration.</p>
+</div>
+
+<h2>3 · The rules a new conversation must not break</h2>
+<div class="card">
+<ul>
+<li><b>Leader = organizer = a role on the profile.</b> Several orgs per rider. In 2.7 the leader of a ride you create is ALWAYS you.</li>
+<li><b>Networks are generated in exactly three places:</b> an org is added · a leader chooses "my own" · a ride asks for a unique one. Each produces a GT id (GT + 9), a 32-byte key, region/preset/hop/role, TX at or below the licence-free limit, and the base version. <b>Immutable — rotation makes a new one.</b></li>
+<li><b>ONE WRITE PATH:</b> profile maintenance creates every rider, org, leader setting and network. Ride creation asks and hands off.</li>
+<li><b>Other people exist only as ride data</b> — rides carry the organizer's name, enrollments carry callsigns. No organizer or org records on a receiving tablet.</li>
+<li><b>Callsigns may repeat</b> (three Steve S. can ride). Riders are matched by DEVICE: tak_uid, or node_num for radio-only.</li>
+<li><b>Four role rules:</b> single-holder leader/middle/tail gunner · release then claim · <b>only a person changes a role</b> (a quiet radio means nothing) · leaving the ride releases it.</li>
+<li><b>Only routes travel, distilled to a polyline.</b> Identity is (type, geom_hash), never the hash alone.</li>
+<li><b>Nothing is written until Save.</b> No ghosts.</li>
+<li><b>Nothing is sent to GroupTrack unless the rider shares</b> — and sharing sends only their ride and their email.</li>
+<li>⛔ <b>No OSM-derived data on GroupTrack infrastructure, ever.</b></li>
+<li>⛔ <b>The convoy map is FROZEN.</b> <code>ConvoyScreen.kt</code> is not to be edited. The MENU (<code>ConvoySubMenu</code>, from <code>ui/Main.kt</code>) and the planner are not frozen.</li>
+</ul>
+</div>
+
+<h2>4 · Tomorrow, in order</h2>
+<div class="card next">
+<ol>
+<li><b>MESH ON / MESH OFF as coloured text</b> — the existing control; tapping pops the connect panel, which closes on success.</li>
+<li><b>WORK WITH RIDES</b> on both maps: change · send by email · import from email · connect radio · apply to radio · restore prior config. <b>These survive hiding the mesh.</b></li>
+<li><b>My open rides</b> behind "Change an existing ride (adds done by tapping a route on the map)".</li>
+<li><b>A real date picker.</b></li>
+<li><b>Trailhead picker; zip derived from it and off the screen</b> (the zip is a search key for public rides within a rider's radius).</li>
+<li><b>The small planner map</b> instead of the Canvas vignette — gestures off, tiles offline, test memory on Droid 1.</li>
+<li><b>Exit returns to the planner</b> with the route open.</li>
+<li><b>ADD A RIDE on track detail panels</b> — convert first (<code>ConvoyArtifactOps.toRoute</code>, line 99), name shown for editing.</li>
+</ol>
+</div>
+
+<h2>5 · Open questions carried forward</h2>
+<div class="card">
+<p><b>Ride file:</b> does an arriving ride wait at a review screen or import silently? · zipped or plain · simplify tolerance.</p>
+<p><b>Ride creation:</b> where the trailhead comes from · how a zip is derived offline · whether the picker-by-name survives now that the map's search is the entry.</p>
+<p><b>Networks:</b> the setup network's GT id (once, never casually changed) · base values, which bench test T3 feeds.</p>
+<p><b>Natak:</b> CoT port and transport · does a Nucleus ship on a tailnet · <b>does the API set SSID and password</b> (decides whether we can generate the IP half ourselves). Reply drafted; he is building radios for a few days.</p>
+<p><b>3.0:</b> the ride sync queue · choosing other people's organizers and orgs · premium gating at runtime · AWS Phase B · what happens to downloaded community routes when premium lapses.</p>
+</div>
+
+<h2>6 · Environment reminders</h2>
+<div class="card">
+<p><b>Application id <code>com.grouptrack.android</code></b>; source path is still <code>com/geeksville/mesh/convoy/</code>. Every adb path uses the application id.</p>
+<p><b>Install with <code>-r</code> and by serial</b> — <code>adb -s 8624SBCEDF00001789 install -r …</code>. ⛔ NEVER uninstall to get a build on: it takes the database with it.</p>
+<p><b>Builds:</b> <code>./gradlew :app:compileGoogleReleaseKotlin</code> (~1.5 min) then <code>:app:assembleGoogleRelease</code> (~13 min).</p>
+<p><b>Patches:</b> dated Python to <code>~/Downloads</code>, idempotent, backs up, aborts without writing on a missing anchor. <b>NEVER reuse a filename.</b>
+⚠ Lesson from today: embed Kotlin in a patch script as a RAW literal (<code>r"""…"""</code>) — a non-raw literal ate the backslashes and broke the file it wrote.</p>
+<p><b>Long commands break in CloudShell and Git Bash pastes</b> — keep them under ~2,700 characters or split them.</p>
+</div>
+</body></html>

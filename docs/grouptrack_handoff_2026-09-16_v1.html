@@ -1,0 +1,230 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-16</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-16</h1>
+<p><code>feature/convoy-event-ride</code> · <b>29321137 BUILT AND VERIFIED</b> ·
+Fred away until ~09-22</p>
+
+<div class="card done">
+<p class="hi">⭐⭐ <b>A crash that killed six new installs is closed, and the
+project has a clear focus for the first time in a fortnight: the three-layer
+separation, with a vision statement to build against.</b></p>
+</div>
+
+<h2>⛔ The OOM crash — six new installs, first run</h2>
+<div class="card bad">
+<pre>OutOfMemoryError: Failed to allocate a 134250504 byte allocation
+with 8388608 free bytes, growth limit 201326592
+  ... TextStreamsKt.readText -> FilesKt.readText
+  ... OwnershipReclass.loadRings   (R8 mismapped it to ConvoySubMenuKt)
+  ... HomeStateImportController.executeRun</pre>
+<p><code>OwnershipReclass.loadRings():353</code> did
+<code>val text = f.readText()</code> on <code>Land_Ownership.geojson</code> —
+<b>78,700,909 bytes</b>. ⭐ <b>The arithmetic is the proof:</b> UTF-8 → UTF-16
+doubles it to ~157 MB, and StringBuilder growth asks for <b>one 128 MB
+block</b> against a 192 MB limit.</p>
+<p>⛔ <b>On the FIRST-RUN home-state import — the path every new user takes.</b>
+⚠ Reports came from 29321125 and 29321127, both pre-release, but the defect was
+still live in 29321134.</p>
+<p>⚠ <b>Android 11 is correlation, not cause</b> — a 192 MB growth limit means a
+low-RAM device. <b>Every affected user has a smaller heap than our test
+hardware.</b></p>
+</div>
+
+<h3>✅ Shipped in 29321137</h3>
+<div class="card done">
+<table>
+<tr><th>Marker</th><th>What</th></tr>
+<tr><td><code>OOMGUARD-2026-09-15</code> A</td><td>Heap guard in <code>loadRings</code> — peak estimated at 3× file vs available heap; too big → empty list, loud log.</td></tr>
+<tr><td><code>OOMGUARD-2026-09-15</code> B</td><td><code>OutOfMemoryError</code> backstop at the step-8 call → the EXISTING <code>changed &lt; 0</code> skipped sentinel.</td></tr>
+<tr><td><code>LARGEHEAP-2026-09-16</code></td><td><code>android:largeHeap="true"</code>. ⚠ <b>Had never been set.</b> ~384 MB instead of 192 MB on the crashing device.</td></tr>
+</table>
+<p>⭐⭐ <b>A and B are safe because the tolerance already existed.</b> Step 8's own
+comments: <i>"a missing ownership file is not a reason to call the import
+failed"</i>. We routed a new failure into a path built for this shape of
+problem.</p>
+<p>⛔ <b>Streaming (C) DELIBERATELY DEFERRED.</b> Fred: <i>"I cannot afford to
+break the app and be gone a week."</i> Right call — the guard either fires or
+does nothing; a rewritten scanner could silently misparse polygons, invisible
+from Vermont.</p>
+<p>⭐ <b>C is scoped:</b> <code>parseRings</code> is ALREADY a char-at-a-time
+scanner and converts almost unchanged. <code>loadRings</code> needs restating as
+a streaming scan (advance-to-literal, read-next-quoted-string). ⚠ Its lookahead
+boundary becomes bracket-depth-zero — <b>arguably more correct.</b></p>
+</div>
+
+<h2>⛔⛔ The correction that matters most today</h2>
+<div class="card bad">
+<p>⚠ <b>I argued that OHV designation supersedes ownership and step 8 could be
+deleted. WRONG.</b></p>
+<p>⭐⭐⭐ <b>Fred:</b> <i>"that is used to eliminate many rural roads that
+cluttered the map in order to get trails in public areas."</i></p>
+<p><b>Ownership is CLUTTER REMOVAL, not labelling.</b> A driveway and a public
+forest road are both <code>track_grade</code> in OSM with no distinguishing tag —
+<b>the only thing separating them is whose land they are on.</b></p>
+<p>⛔ <b>So ownership and OHV designation do DIFFERENT JOBS and disagree in BOTH
+directions:</b> public land with OHV closed (ownership says go, rider must not);
+private land with permission (ownership says stop, trail is rideable).</p>
+<p>⭐⭐ <b>SCOPE, REACHED TWICE INDEPENDENTLY: the western 10–12 states.</b> Fred:
+the western land pattern — vast federal holdings threaded with ranch roads — is
+unique. <b>Eastern states are mostly private with public land in discrete parks;
+the ambiguity barely exists.</b> 🔴 Cheap January test: import one eastern state
+from OSM and look.</p>
+</div>
+
+<h2>⭐ Federal trail data found — national, not per-state</h2>
+<div class="card next">
+<ul>
+<li><b>BLM Ground Transportation Linear Features</b> — Limited Public Motorized
+Trails subset, plus <code>OHV_DSG_PUB_POLY</code> (where OHV use is permitted
+under CFR). GeoJSON.</li>
+<li>⭐⭐ <b>USDA Forest Service FSGeodata</b> — national trails plus <b>which
+vehicle types are allowed and their SEASONS OF USE.</b> That is
+<code>motorized_allowed</code> at national scale — the field 07-27 found missing
+everywhere. <b>Nobody else shows seasonal closure.</b> ⚠ Needs conversion from
+shapefile.</li>
+</ul>
+<p>⛔ <b>ESRI REST caps at 1000 records per request</b> — Utah's 49,125 need
+paging. Our UGRC import must already handle it; check how.</p>
+<p>⭐ <b>Sequence: BLM and Forest Service first.</b> Per-state portals are the long
+tail.</p>
+</div>
+
+<h2>⭐⭐⭐ The vision — what the separation is for</h2>
+<div class="card done">
+<p class="hi"><b>RIDE DEFINITION IN. AWARENESS OVERLAY OUT.</b></p>
+<p>Layers 1 and 2 take a ride definition — network name, keys, radio settings,
+ride identity — and produce <b>a map layer of who is where.</b> Nothing above
+them knows about transports, radios, node merging or channels.</p>
+<p>⭐⭐ <b>TESTABLE END STATE, better than the import count: layers 1 and 2 must
+work with NO LAYER 3 PRESENT.</b> Feed them a ride definition, get an overlay.</p>
+<p>⭐ <b>Which makes it portable</b> — GroupTrack's app becomes ONE CONSUMER of
+the overlay, not its owner. GPX/KML are universal; GroupTrack-specific fields
+ride in a container other apps skip.</p>
+<p>⚠ <b>Cross-app delivery is one-directional</b> — a distribution channel, not a
+technical partnership.</p>
+<p>⭐⭐ <b>COMPETITIVE POSITION:</b> onX Offroad HAS group tracking and it is
+<b>Starlink/cell based.</b> <b>Our product exists in the gap they cannot
+serve</b> — and they have validated the category for us. ⛔ <b>Which argues
+AGAINST the plugin idea:</b> they would need our TRANSPORT, not our layer.</p>
+</div>
+
+<h2>⭐⭐ V3 re-understood</h2>
+<div class="card done">
+<p><b>The backend was not abandoned — it was waiting for something worth handing
+off to.</b> A ride definition carrying route, trailhead, maps and radio config is
+only valuable if the app can DO something with each. In April it could not.</p>
+<p>⭐⭐⭐ <b>And that closes the comms-layer loop:</b> "how does a rider get the
+channel name and PSK?" — <b>the same way they get the maps. It is a field in the
+ride definition.</b></p>
+<p>⭐⭐ <b>It also resolves the leader conflict:</b> the NETWORK has no leader
+(Natak), the RIDE does (ours), and the ride is created before anyone leaves
+home.</p>
+<p><b>Flow:</b> publish → follow → notify → enroll → ride. ⭐ Following is already
+built. ⭐ <b>Cold start is smaller than it looks</b> — most of V3 is single-club
+and works with zero network effect.</p>
+<p>⛔ <b>April docs are HISTORY, not a plan.</b> 🔴 First task when V3 resumes is a
+RECONNECTION — what exists in code vs what the docs say. <b>A walkthrough beats
+reading.</b> ⚠ AWS is IP-restricted and renewal is MARCH — <b>fix access before
+March.</b></p>
+</div>
+
+<h2>📋 Website plan — grouptrack.org is two releases stale</h2>
+<div class="card next">
+<p><b>Wrong today:</b> V2.4 throughout; "authorized beta testing, contact us for
+the APK"; beta closing 1 August; "Play Store release planned for V3.0"; five
+V2.4 PDFs; ⛔ a tablet recommended as <b>"28GB RAM"</b> — and after today,
+hardware guidance is a support issue.</p>
+<p><b>Missing:</b> trails for 50 states, automated route creation, corridor
+downloads, that <b>every recorded track adds trails to the database.</b></p>
+<p>⭐ <b>Hero:</b> OFF-GRID · TRAILS FOR ALL 50 STATES · AUTOMATED ROUTE CREATION ·
+MESH RADIO FOR GROUP AWARENESS · STILL FREE</p>
+<p>⭐ <b>Two lead features the site does not mention:</b> automated route creation
+(pin + distance → six scored routes with POIs, compared side by side) and
+rides-improve-the-map. <b>The site currently leads with position tracking — the
+least differentiated thing it does.</b></p>
+<p>⭐ <b>Radio is OPTIONAL</b> — required only for group riding. Android tablet
+required, <b>4 GB RAM / 64 GB storage recommended.</b></p>
+<p>⭐ <b>Documentation: swap five V2.4 PDFs for the three current HTML assets.</b>
+Already written, already current, already shipping in the app.</p>
+<p>⚠ <b>Vision section, with the honest caveat:</b> a community clearinghouse —
+public rides posted, riders enroll, routes and trails shared. <b>"We are not
+there yet."</b> ⛔ Do NOT put the Natak/IP direction on the site — it is a
+partnership in discussion.</p>
+<p>🔴 <b>OPEN: "STILL FREE" vs the $3/month in the V3 paywall.</b> Settle before
+publishing.</p>
+</div>
+
+<h2>Natak Mesh — answered, and one question outstanding</h2>
+<div class="card done">
+<p>⭐ <b>Bridge mode is NOT gone</b> — only its UI. The module still runs
+bidirectionally and now carries <b>voice over LoRa.</b> <b>The node relays, not
+the app.</b></p>
+<p>⭐ <b><code>TAKPacket</code> confirmed</b> — he uses the Meshtastic TAKPacket
+SDK. SA on <code>239.2.3.1:6969</code>, chat on <code>224.10.10.1:17012</code>.</p>
+<p>⭐⭐ <b>PARALLEL MESH, not failover.</b> Every CoT packet goes over BOTH WiFi
+and LoRa with deduplication, LoRa rate-limited. His reason: <i>"the polling
+required to get quick network switching between wifi and Lora is very tough to
+get right."</i> <b>Do not choose a transport — send both and dedupe.</b></p>
+<p>⛔ <b>NO LEADER NODE</b> — none privileged, none required, all identical.</p>
+<p>⭐ Config: channel URL, web UI, ~60s reboot. <b>Can read existing config and
+choose whether to overwrite.</b> ⚠ No API, web UI only — <b>but he is open to
+building one.</b></p>
+<p>⚠ <b>He asked US a question:</b> what is our packet size? He runs small packets
+at a high-speed LoRa preset. <b>If we are on a slower preset that alone could
+explain 4-vs-25</b> — checkable in our own config.</p>
+<p>🔴 <b>OUTSTANDING:</b> does the bridge relay only TAKPackets, or generate a CoT
+event for ANY Meshtastic position it receives? <b>A bare T1000-E with no phone
+still broadcasts on portnum 3 — "hand someone a radio and they appear" is a core
+promise.</b></p>
+</div>
+
+<h2>Where to pick up</h2>
+<div class="card next">
+<ol>
+<li>🔴 <b>THE SEPARATION.</b> Fred: <i>"the scope of this solution is very big. We
+need to focus on mesh separation and the IP integration."</i> ⛔ <b>A refactor,
+NOT a rewrite</b> — behaviour unchanged, every step verifiable against current
+behaviour.</li>
+<li>🔴 Nathan's outstanding question, and our LoRa preset.</li>
+<li>⚠ Website — copy is drafted in the master; the doc swap is the biggest single
+win.</li>
+<li>⚠ Streaming rewrite of <code>loadRings</code> (C), scoped above.</li>
+<li>⚠ Still GPS-only: <code>getPhoneLocation</code>'s last-known fallback and
+<code>ConvoyGpsService</code>'s recording subscription.</li>
+<li>⚠ Move <code>*.kt.bak_*</code> out of <code>app/src/main/java/</code>.</li>
+<li>⚠ AWS access before March.</li>
+</ol>
+</div>
+
+<h2>Files</h2>
+<div class="card done">
+<ul>
+<li><code>grouptrack_living_master_2026-09-16_v65.html</code> — 144 h2 / 486 h3,
+additive on v63</li>
+<li><code>GroupTrack_CommsDesign_2026-09-15_v7.html</code> — level 1 design, sent
+to Natak</li>
+<li>⚠ Manual, Quick Start and release notes NOT updated — 29321137 has no
+user-visible change; the note goes in Play Console's "what's new".</li>
+</ul>
+</div>
+
+</body></html>

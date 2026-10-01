@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — Session Handoff 2026-08-25</title>
+<style>
+ :root{--bg:#12141A;--card:#1B1E26;--line:#2E3440;--tx:#E6E9EF;--dim:#9AA4B2;
+       --red:#FF5C5C;--amb:#FFC53D;--grn:#4ADE80;--blu:#60A5FA;}
+ *{box-sizing:border-box}
+ body{margin:0;background:var(--bg);color:var(--tx);
+   font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;
+   max-width:960px;margin:0 auto;padding:34px 22px 90px}
+ h1{font-size:25px;margin:0 0 4px;letter-spacing:-.3px}
+ .sub{color:var(--dim);font-size:13.5px;margin:0 0 26px}
+ h2{font-size:16px;margin:34px 0 10px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+ h3{font-size:14px;margin:20px 0 6px;color:var(--blu)}
+ .card{background:var(--card);border:1px solid var(--line);border-radius:9px;
+   padding:15px 17px;margin:13px 0}
+ .card.stop{border-color:#5C2A2A;background:#20161A}
+ .card.warn{border-color:#5C4A1E;background:#1F1C14}
+ .card.good{border-color:#26502F;background:#141E17}
+ code{background:#0C0E13;padding:1.5px 5px;border-radius:4px;font-size:12.5px;
+   color:#C8D4E4;font-family:ui-monospace,Menlo,Consolas,monospace}
+ pre{background:#0C0E13;border:1px solid var(--line);border-radius:7px;
+   padding:11px 13px;overflow-x:auto;font-size:12.5px;line-height:1.5;
+   font-family:ui-monospace,Menlo,Consolas,monospace;color:#C8D4E4}
+ table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}
+ th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+ th{background:#171A21;font-weight:600;color:var(--dim)}
+ ul{padding-left:20px;margin:7px 0}
+ li{margin:5px 0}
+ .k{color:var(--amb);font-weight:700}
+ .g{color:var(--grn);font-weight:700}
+ .r{color:var(--red);font-weight:700}
+ .lead{font-size:15.5px}
+</style>
+</head>
+<body>
+
+<h1>Session Handoff — 2026-08-25</h1>
+<p class="sub">Rel 2.6h · branch <code>feature/convoy-event-ride</code> · seven commits ·
+Droid 2 <code>24039703201775</code></p>
+
+<div class="card stop">
+<p class="lead"><span class="r">⛔⛔ THE FINDING THAT MATTERS: rider-placed points never
+become graph nodes.</span></p>
+<p>A waypoint tapped on a trail is used to <b>centre the corridor box</b> and then
+discarded. The ride's origin is whatever pre-existing junction node happens to be
+nearest — measured today at <b>600 feet</b> from Fred's trailhead, with no trail in
+between. Pins behave the same way: ten pins collapsed onto <b>four nodes</b>, one moved
+<b>6,001 feet</b>.</p>
+<p><span class="k">⭐ Fred's framing, and it is the correct one:</span> a trailhead sits
+on a road with spurs radiating from it like a hub. Picking one arbitrary node picks one
+spoke — and <b>every one of the 2,500 restarts then starts down that spoke</b>. The other
+directions are not under-explored, they are structurally excluded.</p>
+<p><span class="r">This is not a pin-feature bug. It is the correctness of the whole
+engine.</span> "Find me a ride in this area" has always meant "find me a ride from one
+arbitrarily chosen spoke."</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠⚠ AND IT WAS OBSERVED WEEKS AGO AND EXPLAINED AWAY.</span> Fred
+raised that rides radiated in one direction. The answer given was that POI distribution
+dictated it. That explanation was plausible, unfalsifiable without instrumentation, and
+<b>wrong</b> — it stopped the investigation. The measurement that found the real cause
+took twenty minutes.</p>
+<p><b>The rule this earns:</b> when the person who uses the app says something looks
+wrong, the answer is a measurement, not an explanation.</p>
+</div>
+
+<h2>⭐⭐⭐ STATE AT END</h2>
+<table>
+<tr><th>Area</th><th>State</th></tr>
+<tr><td>Trail data</td><td><span class="g">RESTORED.</span> Full Utah reimported —
+UGRC ~47,900 + Geofabrik ~86,900. Corridor now 30,312 edges,
+<code>mainComponent</code> 9,250 nodes.</td></tr>
+<tr><td>Explore mode</td><td><span class="g">FOUR ROUTES.</span> Was one all day; the
+cause was data, not code.</td></tr>
+<tr><td>Pin plumbing</td><td><span class="g">COMPLETE AND VERIFIED</span> end to end:
+tap → <code>pinPoints</code> → markers → <code>Request</code> → <code>poiAt</code> →
+<code>poiNodes</code>.</td></tr>
+<tr><td>Pin scoring</td><td><span class="g">WORKS.</span> <code>USERPIN</code> matches,
+pins score 109–154 against a peak's 3.0.</td></tr>
+<tr><td>Pin placement</td><td><span class="r">BROKEN.</span> Snap up to 6,001 ft;
+ten pins → four nodes.</td></tr>
+<tr><td>Route origin</td><td><span class="r">BROKEN.</span> 600 ft from the waypoint,
+one spoke only.</td></tr>
+<tr><td>Trails-clear loop</td><td><span class="g">FIXED AND DEVICE-PROVEN</span>
+(MARKERFIX-M).</td></tr>
+<tr><td>Instrumentation</td><td>DBG1a applied — per-pin node, snap feet, score,
+candidacy, <code>mainComponent</code> size. <b>Keep it.</b></td></tr>
+</table>
+
+<h2>1. 🔴 TOMORROW — the fix, in order</h2>
+
+<h3>Step 1 — prototype the edge split in Python</h3>
+<p>Against <code>D:\nav_test\spatial_after.db</code> at Panguitch. <b>No Kotlin until this
+is proven.</b> The empirical-first rule; today cost a day to changes reasoned about rather
+than measured.</p>
+<pre>1. Find the nearest EDGE, not the nearest node — perpendicular
+   distance from the point to each line segment in the corridor.
+2. Project the point onto that edge (clamped to the segment).
+3. Split: A→B becomes A→P and P→B, miles divided at the projection.
+4. Insert P into nodes with the RIDER'S coordinates.
+5. Rewire adj: P linked to A and B.
+6. Add P to mainComponent if A or B is in it.</pre>
+
+<h3>Step 2 — apply it to the trailhead first</h3>
+<p>The origin matters more than the pins. With the waypoint as a real node, <b>all spokes
+are adjacent to the origin</b> and the first hop can go any direction.</p>
+
+<div class="card good">
+<p><span class="g">⭐ THE SUCCESS TEST, in Fred's words:</span> <i>"i would be happy to
+see some radiation of direction. more than one spoke ridden."</i></p>
+<p>Four routes fanning out from the hub instead of stacking down one spoke. Visible on
+the map in one run — no instrumentation needed.</p>
+</div>
+
+<h3>Step 3 — then the pins</h3>
+<p>Same operation at each pin. Ten pins become ten destinations where they were dropped.</p>
+
+<div class="card warn">
+<p><span class="k">⚠ Watch for, once the origin is fixed:</span>
+<code>PENALTY = 2.2</code> is applied to route 1's edges before route 2 is built. If the
+hub's own road is on route 1, penalising it pushes route 2 <b>away from the hub</b>
+rather than down a different spoke. May be fine at 2.2, may not — a tuning question with
+a visible answer.</p>
+</div>
+
+<h3>Step 4 — cap E's insertion</h3>
+<p><code>assess()</code> enforces <code>SNAP_POINT_MI = 0.5</code> and refuses distant
+pins. <b>E's insertion has no cap at all</b> and silently accepts them — which is how a
+6,001 ft pin became a POI. Two snap policies for the same pin; they must agree.</p>
+
+<h2>2. ⛔ WHAT THE DAY ACTUALLY COST, and why</h2>
+<p>Hours were spent on theories about the corridor, the scorer, the mileage floor, POI
+class decay, graph fragmentation and duplicate sources. <b>Every one of them was wrong.</b>
+The diff showed <code>explore()</code> unchanged since <code>bee787622</code>; the
+instrumentation showed the snap.</p>
+
+<div class="card warn">
+<p><span class="k">⚠ Two things would have shortened this to an hour:</span></p>
+<ul>
+<li><b>Read the import manifests first.</b> They held the answer to the single-route
+failure from the beginning — a complete 137,690-trail import at 16:31 on 08-24, wiped by
+the L clear at 20:01, and a replacement that died nine seconds in with six sources
+<code>failed</code> and Geofabrik never starting.</li>
+<li><b>Instrument before theorising.</b> DBG1a is ~20 lines and answered in one run what
+six hours of reasoning did not.</li>
+</ul>
+</div>
+
+<h2>3. What shipped today</h2>
+<table>
+<tr><th>Commit</th><th>What</th></tr>
+<tr><td><code>d8eacea78</code></td><td>Stage 1 — <code>assess()</code>,
+<code>PinFeasibility</code>, <code>RouteShape</code>, pin step machine, Distance HUD</td></tr>
+<tr><td><code>2fbf1c3d8</code></td><td>K/L trail clear + <span class="g">MARKERFIX-M</span> —
+the guard now shares a lifetime with what it guards</td></tr>
+<tr><td><code>770950fd4</code></td><td>PINTAP-B3a — open-ground taps reach Kotlin;
+AIMODE-B4b panel-entry reset</td></tr>
+<tr><td><code>7904e65aa</code></td><td>B4c — entry reset must not clear route mode;
+C4 half-width panel</td></tr>
+<tr><td><code>438db210e</code></td><td>PINDRAW-P1/P2b — numbered markers; C5 panel hard left</td></tr>
+<tr><td><code>b45e6a8e9</code></td><td>USERPOI-E — pins as high-value POIs; S1 — the
+"drop pins?" question that restored explore mode</td></tr>
+<tr><td><code>3e77e56e3</code></td><td>USERPOI-W1 — <b>the pins never reached the
+search</b>; <code>explore()</code>'s Request had no <code>includePoints</code></td></tr>
+</table>
+<p><span class="k">⚠ Two revert commits and two re-applies</span>
+(<code>fcaec8f11</code>, <code>97f783ec2</code>, <code>97bcd1922</code>,
+<code>d8be44be8</code>) sit in history from a rollback that was tried and undone. Harmless,
+but they make the log read oddly.</p>
+
+<h2>4. ⭐ THE ASYMMETRY THAT HID THE PIN BUG ALL DAY</h2>
+<p>Two <code>RouteExplorer.Request(...)</code> call sites exist. <code>assess()</code> takes
+the points as a <b>separate argument</b>; <code>explore()</code> built a Request with no
+<code>includePoints</code> at all.</p>
+<p>So the mileage readout worked perfectly — through the other door — while the routes had
+no reason to go near the rider's places. <b>The half that measures was wired; the half that
+builds was not.</b> Every symptom pointed at scoring because the measuring half looked
+healthy.</p>
+
+<h2>5. ⭐ MEASURED TODAY — the numbers</h2>
+<pre>PIN[1]  tap=37.818964,-112.416906  node=…6572  snap=715 ft
+PIN[2]  tap=37.816160,-112.415532  node=…6572  snap=396 ft
+PIN[3]  tap=37.822196,-112.418432  node=…6572  snap=1970 ft
+PIN[10] tap=37.829873,-112.389632  node=…7485  snap=6001 ft
+
+mainComponent=9250 nodes, poiNodes=68
+corridor: 30312 edges, 68 POI nodes
+
+PIN[1] inPoiNodes=true inMain=true score=150.8 poisHere=3
+       classes=userpin/userpin/userpin</pre>
+<ul>
+<li><b>Ten pins, four nodes.</b> Three share one node — hence
+<code>floor=0.0 mi</code>, <code>marginal=0.0</code>: they <i>are</i> one node.</li>
+<li><b><code>scoreSet</code> decays per class even within USERPIN</b> — three pins on one
+node score 150.8, not 180. Shared function; changing it would move every natural POI.</li>
+<li><b>The graph is healthy.</b> 9,250-node main component. Fragmentation was never the
+problem.</li>
+</ul>
+
+<h2>6. ⚠ Open, and not from today</h2>
+<ul>
+<li><b>Orphaned route notes.</b> <code>writeRouteNotes: no route aa328c07-…</code> — the
+insert stored a different <code>route_id</code> than the notes expected. Route survives,
+notes do not attach, and it may be why a promoted route was hard to find in the list.
+<b>Nothing in today's commits touched the promote path.</b></li>
+<li><b>Six import sources failed in nine seconds</b> on 08-24 at 20:09. A single upstream
+condition the importer did not surface. It recurred tonight in a milder form
+(UGRC short, then recovered on retry).</li>
+<li><b>Graph cache key</b> is box coordinates at 3 decimals (~300 ft) plus trail count.
+Two anchors within 300 ft reuse the same graph. Force-stop before A/B testing.</li>
+</ul>
+
+<h2>7. Carried, not forgotten</h2>
+<ul>
+<li><b>K's reversal</b> — restore <code>path</code> and <code>bridleway</code> to
+<code>osm_layers.json</code> as part of the carto work. Dropping classes at extract is
+irreversible and contradicts classify-at-import / filter-at-use.</li>
+<li><b>The banner UI</b> replaces the guided checklist — see the design doc in this set.</li>
+<li><b>Pins into the WIP JSON</b>, dropped on promotion. Design intent, not route content.</li>
+<li><b>Unreachable pins must say so.</b> A pin the engine discarded still draws solid red.
+Silent failure, same class as the invisible drop.</li>
+<li><b>B5</b> — key the pin effect on <code>routeMode</code> so AI mode cannot outlive a
+route session.</li>
+<li><b>Tester report items</b> — Rate Your App (Settings deep link + In-App Review at a
+natural moment, <b>not</b> a button), ASO text, screenshots, walkthrough. Provider
+findings section carries no evidence of depth; treat the four items as listing-surface
+observations.</li>
+</ul>
+
+<h2>8. Documents in this set</h2>
+<ul>
+<li>This handoff</li>
+<li><code>GroupTrack_design_banner_flow_2026-08-25.html</code> — the checklist replacement</li>
+<li><code>GroupTrack_mockup_banner_flow_v2_2026-08-25.html</code> — interactive</li>
+<li><code>GroupTrack_osm_access_tags_reference_2026-08-25.md</code> — PBF task detail</li>
+<li><code>GroupTrack_living_master_2026-08-25_v34.html</code> — origin defect recorded</li>
+</ul>
+
+</body>
+</html>

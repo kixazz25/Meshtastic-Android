@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack ↔ Nucleus — Implementation targets v6, 2026-09-21</title><style>body{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1180px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:23px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:18px;color:#58a6ff;margin-top:36px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:15px;color:#b8c2cc;margin:22px 0 6px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF;position:sticky;top:0}
+td:first-child{white-space:nowrap;font-weight:600;color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:11px;border-radius:6px;font-size:12px;overflow-x:auto;color:#c9d6e0;line-height:1.45}
+.hi{color:#e3b341} .s-new{color:#f0883e;font-weight:600}.s-chg{color:#58a6ff;font-weight:600}.s-ok{color:#3fb950;font-weight:600}.s-q{color:#d29922;font-weight:600}
+li{margin:5px 0}</style></head><body>
+<h1>GroupTrack ↔ Nucleus — implementation targets</h1>
+<p>2026-09-21 · v6 · <b>G4: completeness gate — only a complete ride exports; import rejects incomplete packets. rides.route_id becomes required.</b><br>2026-09-21 · v5 · <b>N4: the label is the ride name GroupTrack sends with the config.</b><br>2026-09-21 · v4 · <b>G6 has three implementations: Bluetooth, USB and Nucleus.</b><br>2026-09-21 · v3 · <b>G6 has two starts — local selection and network sign-in.</b><br>2026-09-21 · v2 · <b>G4 never writes to a radio; G6 is the only code that does.</b><br>2026-09-21 · v1 · <b>What each platform changes, with inputs, outputs and data.</b> Companion to the
+Ride Config Planning document (v33), which holds the agreed model and the reasons. This one is for
+building: every change has an id to track it by.</p>
+<div class="card done">
+<p class="hi"><b>The three workstreams</b> — each depends on the one before:</p>
+<ol><li><b>Unbundle the mesh connection</b> — the 2.7 separation (G15).</li>
+<li><b>Move the payload to TAK</b> — V2 packets, the shared SDK (G13, G14, X2).</li>
+<li><b>Simplify the config to the transport fields</b> — 48 fields down to 8, one apply process,
+snapshots instead of images (G6–G10).</li></ol>
+<p>Status key: <span class="s-ok">EXISTS</span> already there · <span class="s-chg">CHANGE</span> existing code changes · <span class="s-new">NEW</span> to build · <span class="s-q">CONFIRM</span> to confirm · <span class="s-chg">REMOVE</span> delete.</p>
+</div>
+
+<h2>GroupTrack — the app</h2><table><tr><th>ID</th><th>Change</th><th>In</th><th>Out</th><th>Data / where</th><th>Status</th><th>Needs</th></tr><tr><td>G1</td><td><b>One id generator</b> — <code>GT</code> + 9 random <code>[A-Z0-9]</code></td><td>—</td><td><code>String</code>, 11 chars</td><td>Replaces three copies: <code>ConvoyCreateEventScreen.kt:68</code>, <code>ConvoyCreateRideScreen.kt:76</code>, <code>ConvoyDownloadRideConfigScreen.kt:249</code> (today <code>"CONVOY-"</code> + 4)</td><td><span class="s-chg">CHANGE</span></td><td>—</td></tr><tr><td>G2</td><td><b>Config library</b> — the network configs GroupTrack holds (org, leader, unique ride)</td><td>Config JSON (§A)</td><td>Stored config</td><td>Local table/JSON store: <code>network_config</code>. Never deactivated. <b>Remove = regenerate</b> (new id, keys, login)</td><td><span class="s-new">NEW</span></td><td>G1</td></tr><tr><td>G3</td><td><b>Config resolution</b> — which config a ride uses</td><td>Ride</td><td>Config</td><td>Rule: unique config if requested → else org default → else leader default. <b>Resolved at apply time</b>, never stored</td><td><span class="s-new">NEW</span></td><td>G2</td></tr><tr><td>G4</td><td><b>Ride object</b> — export and import</td><td>Ride + route + waypoints + config</td><td><code>.convoy</code> file (§B)</td><td><b>Completeness gate:</b> export only when name, date, radio config, route and waypoints are all set — the email action is unavailable until then; import rejects an incomplete packet. Export: attach to email. Import: add event + trailhead, import route, queue corridor maps, <b>store</b> login + config (not applied). <b>Never writes to a radio</b> — only G6 does. ⚠ Inventory the existing <code>.convoy</code> format first — this is the target</td><td><span class="s-chg">CHANGE</span></td><td>G2, G5</td></tr><tr><td>G5</td><td><b>Track → route conversion</b></td><td>Track points</td><td>Route polyline</td><td>Cross-track simplification, start 5–10 m tolerance; <b>no snapping</b>; keep the original track</td><td><span class="s-new">NEW</span></td><td>—</td></tr><tr><td>G6</td><td><b>One apply process</b> — Bluetooth, USB, Nucleus</td><td>Radio connection + config</td><td>Result JSON (§D)</td><td><b>The only code that writes to a radio.</b> <b>Two starts:</b> selected from the local ride definition (leader or rider, G2/G3), or signing in to a Nucleus network (G11). Read the transport fields → snapshot → compare → write only what differs → await restart → reconnect → read back → verify → restore on failure. <b>Three implementations:</b> <b>Bluetooth</b> and <b>USB</b> through <code>IRadioInterface</code> (<code>NordicBleInterface</code>, <code>SerialInterface</code>) and the existing admin writes (<code>ConvoyRadioWriter</code>); <b>Nucleus</b> through Natak's API (G12) — the node's history is the backup (N1), the dry run is the compare</td><td><span class="s-chg">CHANGE</span></td><td>G7, G9</td></tr><tr><td>G7</td><td><b>Radio snapshot store</b></td><td>Values read before a write</td><td>Snapshot JSON (§C)</td><td>One per apply, per radio. <b>Restore = write the snapshot back</b></td><td><span class="s-new">NEW</span></td><td>—</td></tr><tr><td>G8</td><td><b>Stop writing radio names</b></td><td>—</td><td>—</td><td>Remove the long-name write <code>ConvoyProfileBuilder.kt:184</code> (185 already strips the short name). Remove the rename prompt — the "Long Name" row, setup wizard step 3 (<code>ConvoyDeviceConfigScreen</code>)</td><td><span class="s-chg">REMOVE</span></td><td>—</td></tr><tr><td>G9</td><td><b>Transport field set</b> — 48 → 8</td><td>—</td><td>—</td><td><code>convoy_apply_list.json</code>: region, modem_preset, role, hop_limit, tx_power, frequency_slot, channel_name, psk. Position fields pending the TAK-role test (T3)</td><td><span class="s-chg">CHANGE</span></td><td>T3</td></tr><tr><td>G10</td><td><b>"Already on this config?" check</b></td><td>Radio values + config</td><td>Yes / no</td><td>Compare channel name, key fingerprint and LoRa values. <b>Derived every time, never stored</b></td><td><span class="s-new">NEW</span></td><td>G6</td></tr><tr><td>G11</td><td><b>Network selection and login</b></td><td>Ride object login</td><td>Joined network</td><td>List networks named <code>GT…</code>; show <i>long description · last four</i> (e.g. <i>Iron County SxS · 9QXR</i>); join a local, no-internet network with the stored login. <b>On sign-in, starts G6</b> for a radio not yet on the config</td><td><span class="s-new">NEW</span></td><td>G4</td></tr><tr><td>G12</td><td><b>Nucleus client</b> — Natak HTTP API</td><td>Node address + requests</td><td>Responses</td><td>Base URL = the tablet's gateway (to confirm, Q6). Version, config get/put, apply with dry run, radio config, op-status polling, history (N2), auth header (N6). Pattern: <code>ConvoyApiClient</code></td><td><span class="s-new">NEW</span></td><td>N1–N6</td></tr><tr><td>G13</td><td><b>TAK V2 payload</b></td><td>Position, callsign</td><td><code>TAKPacketV2</code></td><td>TAKPacket-SDK pinned to Natak's version (X2); port 78 (<code>ATAK_PLUGIN_V2</code>); per-send firmware check or a minimum firmware. Callsign = GroupTrack user id. Fork today: V1 <code>atak.proto</code> — pick up V2 from upstream</td><td><span class="s-chg">CHANGE</span></td><td>X2</td></tr><tr><td>G14</td><td><b>Layer-2 de-duplication</b></td><td>Packets from Bluetooth + IP</td><td>One position</td><td>Drop duplicates by Meshtastic packet id</td><td><span class="s-new">NEW</span></td><td>G13</td></tr><tr><td>G15</td><td><b>Mesh separation</b> (2.7)</td><td>—</td><td>—</td><td>Unbundle the mesh connection into layer 1 behind <code>IRadioInterface</code></td><td><span class="s-chg">CHANGE</span></td><td>—</td></tr><tr><td>G16</td><td><b>Channel as QR</b> — display only</td><td>Config</td><td>QR image</td><td>A representation of the channel data for entering it where GroupTrack isn't. Upstream <code>Channel.kt</code> already generates one</td><td><span class="s-ok">EXISTS</span></td><td>—</td></tr></table>
+<h2>Natak — the Nucleus node</h2>
+<p>Against the published API, V3 OS 0.8.0.</p><table><tr><th>ID</th><th>Change</th><th>In</th><th>Out</th><th>Data / where</th><th>Status</th><th>Needs</th></tr><tr><td>N1</td><td><b>History on every apply</b></td><td><code>POST /api/v1/apply</code></td><td>History entry (§E)</td><td>Before applying, write the current saved config — <b>both halves, WiFi mesh and radio</b> — to history, in the same step</td><td><span class="s-new">NEW</span></td><td>N3, N4</td></tr><tr><td>N2</td><td><b>History endpoints</b></td><td>—</td><td>List / entry / result</td><td><code>GET /api/v1/config/history</code> → <code>[{id,label,saved_at}]</code> · <code>GET /api/v1/config/history/{id}</code> → entry · <code>POST /api/v1/config/history/{id}/apply</code> → backs up the current config first (N1), then applies</td><td><span class="s-new">NEW</span></td><td>N1</td></tr><tr><td>N3</td><td><b>Radio settings inside the node config</b></td><td><code>PUT /api/v1/config</code></td><td>—</td><td>Accept the 8 transport fields in the node config, so one apply — and one history entry — covers the WiFi mesh and the radio together</td><td><span class="s-new">NEW</span></td><td>—</td></tr><tr><td>N4</td><td><b>Label field</b></td><td>Config</td><td>Kept in history</td><td><b>The ride name</b>, sent by GroupTrack with the config at apply: <i>ride name · config name · last four · date</i>, e.g. <i>Sand Hollow loop · Iron County SxS · 9QXR · 2026-10-03</i>. Configs are reused, so the ride name is what tells history entries apart. Validation must accept it. <b>The only ride information the node receives</b></td><td><span class="s-new">NEW</span></td><td>—</td></tr><tr><td>N5</td><td><b>Network identity from GroupTrack</b></td><td>Config: <code>ssid</code>, <code>password</code></td><td>—</td><td>Node takes the WiFi network name (= the generated id) and password we supply. Confirm length and character limits</td><td><span class="s-q">CONFIRM</span></td><td>—</td></tr><tr><td>N6</td><td><b>Token on write endpoints</b></td><td>Header, e.g. <code>Authorization: Bearer …</code></td><td><code>401</code> without it</td><td>Writes only: <code>PUT /config</code>, <code>POST /apply</code>, <code>/meshtastic/config/apply</code>, <code>/channel-url</code>, history apply. <b>Reads stay open</b> (suspenders path). Who issues the token — open</td><td><span class="s-new">NEW</span></td><td>—</td></tr><tr><td>N7</td><td><b>Failed apply</b></td><td>—</td><td>Precise result</td><td>On an error partway, either restore the last history entry automatically, or report exactly which settings groups applied</td><td><span class="s-new">NEW</span></td><td>N1</td></tr><tr><td>N8</td><td><b>Node apply progress</b></td><td>—</td><td>Status</td><td>A way to poll a node apply the way <code>op-status</code> covers radio operations</td><td><span class="s-q">CONFIRM</span></td><td>—</td></tr><tr><td>—</td><td><i>Complete-without-saving</i></td><td>—</td><td>—</td><td><b>Dropped</b> — the dry run at the site already validates</td><td><span class="s-ok">EXISTS</span></td><td>—</td></tr></table>
+<h2>GroupTrack server — V3 database (later)</h2>
+<p>Live schema <code>convoy_tracker</code>, read 2026-09-20. Not needed for the ride flow itself — the ride object
+carries everything — but this is where configs live once the backend returns.</p><table><tr><th>ID</th><th>Change</th><th>In</th><th>Out</th><th>Data / where</th><th>Status</th><th>Needs</th></tr><tr><td>S1</td><td><b><code>network_configs</code> table</b></td><td>—</td><td>—</td><td><code>config_id char(11) PK</code> (<code>GT…</code>) · <code>owner_type enum(org,leader,ride)</code> · <code>owner_id char(36)</code> · <code>display_name varchar(255)</code> · <code>net_password</code> · radio fields (8) · <code>removed_at datetime NULL</code> — null means in use; set when removed, so it can never be restored</td><td><span class="s-new">NEW</span></td><td>—</td></tr><tr><td>S2</td><td><b>Org and leader defaults</b></td><td>—</td><td>—</td><td><code>organizations.default_config_id</code>, <code>users.default_config_id</code></td><td><span class="s-new">NEW</span></td><td>S1</td></tr><tr><td>S3</td><td><b><code>rides.unique_config_id</code></b></td><td>—</td><td>—</td><td><code>char(11) NULL</code> — null means use the owner's default (the rule in G3). <code>rides.channel_name</code> / <code>channel_psk</code> retire after migration</td><td><span class="s-chg">CHANGE</span></td><td>S1</td></tr><tr><td>S4</td><td><b>Callsign</b></td><td>—</td><td>—</td><td><code>users.callsign</code> beside <code>user_id char(36)</code>, not replacing it</td><td><span class="s-new">NEW</span></td><td>—</td></tr><tr><td>S5</td><td><b>One route table</b></td><td>—</td><td>—</td><td>Rides reference <code>kml_routes</code> only — tracks become routes (G5), which settles the <code>route_id</code> ambiguity with <code>ride_tracks</code>. And <code>rides.route_id</code> becomes <b>required</b> — today it allows null, but only a complete ride can be distributed</td><td><span class="s-chg">CHANGE</span></td><td>G5</td></tr></table>
+<h2>Shared — both sides</h2><table><tr><th>ID</th><th>Change</th><th>In</th><th>Out</th><th>Data / where</th><th>Status</th><th>Needs</th></tr><tr><td>X1</td><td><b>Key derivation — possibly no longer needed</b></td><td>—</td><td>—</td><td>It existed so one typed password could make both WiFi and Meshtastic keys. Configs are now generated data and nothing is typed, so keys can be random values stored in the config. <b>Confirm</b></td><td><span class="s-q">CONFIRM</span></td><td>—</td></tr><tr><td>X2</td><td><b>TAKPacket-SDK version</b></td><td>—</td><td>—</td><td>Pinned to the same version on both sides; upgraded together. Dictionary versions are wire-incompatible and fail silently</td><td><span class="s-q">CONFIRM</span></td><td>—</td></tr><tr><td>X3</td><td><b>Field mapping</b></td><td>—</td><td>—</td><td>Our 8 transport fields ↔ Natak's radio fields: identical names; <code>owner</code>/<code>owner_short</code> never sent</td><td><span class="s-ok">EXISTS</span></td><td>—</td></tr></table>
+<h2>Tests — before building</h2><table><tr><th>ID</th><th>Test</th><th>Decides</th></tr><tr><td>T1</td><td>Port 4403 reachable across the mesh?</td><td>Decides whether G6 reaches a Nucleus radio directly</td></tr><tr><td>T2</td><td>Channel data applied to a T1000-E and to one other Meshtastic radio</td><td>Decides whether automatic setup covers every radio</td></tr><tr><td>T3</td><td>Does the <code>TAK</code> role stop a radio broadcasting its own position?</td><td>Decides whether G9 needs position fields</td></tr><tr><td>T4</td><td>A group on <code>SHORT_FAST</code></td><td>Does the 3–4 radio ceiling lift?</td></tr><tr><td>T5</td><td>USB configuration on a T1000-E</td><td>Decides whether USB covers the T1000-E or only other radios</td></tr><tr><td>T6</td><td>Budget tablets holding a Bluetooth link to a T1000-E</td><td>The device compatibility list</td></tr></table>
+
+<h2>Data structures</h2>
+<div class="card next">
+<h3>§A — Config (GroupTrack's library, G2)</h3><pre>{
+  &quot;format_version&quot;: 1,
+  &quot;config_id&quot;:    &quot;GT7K2M9QXR&quot;,            // G1 — also the WiFi network name and the channel name
+  &quot;owner&quot;:        { &quot;type&quot;: &quot;org&quot;, &quot;id&quot;: &quot;&lt;org uuid&gt;&quot; },   // org | leader | ride
+  &quot;display_name&quot;: &quot;Iron County SxS&quot;,        // what riders read; shown with the last four: &quot;· 9QXR&quot;
+  &quot;created_at&quot;:   &quot;2026-09-21T14:00:00Z&quot;,
+  &quot;network&quot;: { &quot;ssid&quot;: &quot;GT7K2M9QXR&quot;, &quot;password&quot;: &quot;&lt;generated&gt;&quot; },
+  &quot;radio&quot;: {                                // the 8 transport fields (G9) — never owner/owner_short
+    &quot;region&quot;: &quot;US&quot;, &quot;modem_preset&quot;: &quot;SHORT_FAST&quot;, &quot;role&quot;: &quot;TAK&quot;,
+    &quot;hop_limit&quot;: 3, &quot;tx_power&quot;: 30, &quot;frequency_slot&quot;: 0,
+    &quot;channel_name&quot;: &quot;GT7K2M9QXR&quot;, &quot;psk&quot;: &quot;base64:&lt;32 random bytes&gt;&quot;
+  },
+  &quot;tak_sdk_version&quot;: &quot;&lt;pinned, X2&gt;&quot;
+}</pre>
+<p>⚠ The same id is the channel name and the WiFi network name — frequency slot 0 then follows from the
+name on every node. <code>tx_power</code> never above the licence-free limit for the region.</p>
+<h3>§B — Ride object (<code>.convoy</code> file, G4)</h3><pre>{
+  &quot;format_version&quot;: 1,
+  &quot;ride&quot;: {
+    // REQUIRED to distribute: name, date, route, waypoints (at least the trailhead), config
+    &quot;ride_id&quot;: &quot;&lt;uuid&gt;&quot;, &quot;name&quot;: &quot;Sand Hollow loop&quot;, &quot;date&quot;: &quot;2026-10-03&quot;, &quot;start_time&quot;: &quot;09:00&quot;,
+    &quot;description&quot;: &quot;...&quot;,
+    &quot;trailhead&quot;: { &quot;name&quot;: &quot;West lot&quot;, &quot;lat&quot;: 37.1234567, &quot;lon&quot;: -113.3456789 }
+  },
+  &quot;route&quot;:     { &quot;name&quot;: &quot;Sand Hollow loop&quot;, &quot;gpx&quot;: &quot;&lt;GPX 1.1, route only — tracks converted (G5)&gt;&quot; },
+  &quot;waypoints&quot;: [ { &quot;name&quot;: &quot;Lunch&quot;, &quot;lat&quot;: 37.13, &quot;lon&quot;: -113.36 } ],
+  &quot;maps&quot;:      { &quot;mode&quot;: &quot;corridor&quot;, &quot;sources&quot;: [&quot;SAT&quot;, &quot;TOPO&quot;] },
+  &quot;config&quot;:    { ...config JSON (A)... }  // login + radio config — STORED on import, applied when selected
+}</pre>
+<p>⚠ Target shape. <b>Inventory the current <code>.convoy</code> format first</b> — riders already have files in it,
+so import must read both and <code>format_version</code> tells them apart.</p>
+<h3>§C — Radio snapshot (G7)</h3><pre>{
+  &quot;snapshot_id&quot;: &quot;&lt;uuid&gt;&quot;,
+  &quot;radio&quot;:       { &quot;node_id&quot;: &quot;!67c599e4&quot;, &quot;label&quot;: &quot;Fred &amp; June&quot; },   // the owner&#x27;s name, read not written
+  &quot;taken_at&quot;:    &quot;2026-10-03T08:42:10Z&quot;,
+  &quot;reason&quot;:      &quot;before applying GT7K2M9QXR&quot;,
+  &quot;values&quot;:      { &quot;region&quot;: &quot;US&quot;, &quot;modem_preset&quot;: &quot;LONG_FAST&quot;, &quot;role&quot;: &quot;CLIENT&quot;,
+                   &quot;hop_limit&quot;: 3, &quot;tx_power&quot;: 27, &quot;frequency_slot&quot;: 0,
+                   &quot;channel_name&quot;: &quot;LongFast&quot;, &quot;psk&quot;: &quot;default&quot; }
+}</pre>
+<h3>§D — Apply result (G6)</h3><pre>{
+  &quot;status&quot;:      &quot;applied&quot;,          // applied | already | restored | failed
+  &quot;config_id&quot;:   &quot;GT7K2M9QXR&quot;,
+  &quot;snapshot_id&quot;: &quot;&lt;uuid&gt;&quot;,           // what restore will write back
+  &quot;written&quot;:     [&quot;lora&quot;, &quot;channel&quot;],   // settings groups written — each one a restart
+  &quot;message&quot;:     &quot;Your radio is on Iron County SxS · 9QXR.&quot;
+}</pre>
+<h3>§E — Nucleus history entry (N1, N2)</h3><pre>{
+  &quot;id&quot;:       &quot;h_0012&quot;,
+  &quot;label&quot;:    &quot;Sand Hollow loop · Iron County SxS · 9QXR · 2026-10-03&quot;,   // N4 — the ride name GroupTrack sends
+  &quot;saved_at&quot;: &quot;2026-10-03T08:40:02Z&quot;,
+  &quot;config&quot;:   { ...the node&#x27;s complete saved config: WiFi mesh + the 8 radio fields (N3)... }
+}</pre>
+</div>
+
+<h2>Open questions for Natak</h2>
+<div class="card warn"><ol>
+<li><b>Q1</b> — Is the LoRa ⇄ IP rebroadcast packet-level or CoT-level?</li>
+<li><b>Q2</b> — Port 4403 reachable across the mesh? (T1)</li>
+<li><b>Q3</b> — Which multicast group carries SA?</li>
+<li><b>Q4</b> — TAKPacket-SDK version, V1 or V2, and upgrading in lockstep (X2).</li>
+<li><b>Q5</b> — Network name and password limits (N5).</li>
+<li><b>Q6</b> — Is a tablet's gateway always its node's address?</li>
+<li><b>Q7</b> — Who issues write tokens (N6)?</li>
+</ol></div>
+</body></html>

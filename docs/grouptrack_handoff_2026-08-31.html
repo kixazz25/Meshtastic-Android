@@ -1,0 +1,148 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — Session Handoff 2026-08-31</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0;padding-left:20px}li{margin:4px 0}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono)}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+table{border-collapse:collapse;width:100%;font:12.5px var(--mono);margin:8px 0}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+th{background:#12203a;color:var(--accent)}
+</style></head><body>
+<header><div class="ttl">GroupTrack — <b>Session Handoff</b> 2026-08-31</div>
+<div class="sub">INTERNAL · read first · living master = grouptrack_living_master_2026-08-31_v40.html</div></header>
+<main>
+
+<h2>▶ START HERE TOMORROW</h2>
+<div class="card">
+<p>⛔ <b>THE MAP IS FLAT AND THAT IS EXPECTED.</b> <code>carto_code</code> now holds category NAMES —
+<code>forestry/access road</code>, <code>shape only</code>, <code>track</code> — and all four colour
+lookups still key on <code>charAt(0)</code> expecting the old digits. First characters are now
+<code>f s h t O b e u</code>, none of which match. <b>Everything draws cyan.</b></p>
+<p><b>FIRST JOB: recolour on the new categories.</b> Four lookups, and they have diverged before:
+<code>convoy_map.html</code>, <code>grouptrack_map.html</code>, <code>spatial_artifacts.js</code>,
+<code>ArtifactDetailPanel.kt:398</code>.</p>
+<p>⭐ <b>Blue family for motorized, shade carrying CONFIDENCE</b> (Fred's principle: <i>"I want to
+look at the map and see what is potentially rideable ... that would make all riding trails a shade of
+blue"</i>): OHV brightest (stated) · track · forestry/access road · shape only faintest (nothing
+said). Green for non-motorized unknowns. Pink <code>#FF1493</code> for private.</p>
+<p><b>SECOND: the two filters.</b> Ownership and use, three states each — public / private / both.
+⭐ Applied to what is DRAWN <b>and</b> to what the router builds on. Fred: <i>"the objective is to
+focus the trails on the map to the needs to focus route building."</i></p>
+</div>
+
+<h2>✅ WHAT LANDED TODAY</h2>
+<div class="card">
+<table>
+<tr><th>Commit</th><th>What</th></tr>
+<tr><td><code>a57d77bc7</code></td><td><b>The blocking defect fixed.</b> The classification now
+reaches the spatial DB. <code>writeProperties</code> was passing EMPTY STRINGS for every attribute —
+the classification was computed at extract, stored in the skinny, and thrown away at
+import.</td></tr>
+<tr><td><code>3048a100c</code></td><td><b>Step 8</b> — land-ownership reclass, plus the R residential
+category and the colour in three asset files. 414 insertions.</td></tr>
+</table>
+<p><span class="tag t-good">ON DEVICE</span> <b>Full Utah import in 1,427s (24 min), all seven
+sources.</b> UGRC 47,918 · tag pass 425,023 rows in 24.5s · extract kept 93,327 classified 51,402 ·
+<b>step 8 reclassified 13,628 roads</b>. ⭐ <b>Town grids draw pink on the map.</b> First visible
+answer this problem has ever had.</p>
+</div>
+
+<h2>THE DESIGN THAT CAME OUT OF IT</h2>
+<div class="card">
+<p><b>FOUR FIELDS, ONE PASS.</b> <code>carto_code_source</code> (raw, per source, preserved) ·
+<code>carto_code</code> (our category) · <code>land_status</code> (PUBLIC/PRIVATE) ·
+<code>use_type</code> (MOTORIZED/NON-MOTORIZED).</p>
+<p>⭐ <b>Applied to all 145,931 rows tonight and pushed to the device.</b> The four cells:</p>
+<table>
+<tr><th>Cell</th><th>Rows</th><th>%</th></tr>
+<tr><td><b>MOTORIZED · PUBLIC — the riding set</b></td><td><b>83,274</b></td><td>57.1%</td></tr>
+<tr><td>MOTORIZED · PRIVATE</td><td>34,158</td><td>23.4%</td></tr>
+<tr><td>NON-MOTORIZED · PRIVATE</td><td>20,013</td><td>13.7%</td></tr>
+<tr><td>NON-MOTORIZED · PUBLIC</td><td>8,486</td><td>5.8%</td></tr>
+</table>
+<p><b>private OFF</b> hides 54,171 · <b>non-motorized OFF</b> hides 28,499.</p>
+<p>⭐⭐ <b><code>classify4_2026-08-31_v1.py</code> IS THE SPECIFICATION for the Kotlin.</b> It gets
+ported into the import as the single pass — not a follow-on step (Fred: <i>"no more new
+processes"</i>).</p>
+</div>
+
+<h2>WHAT THE MEASUREMENTS SETTLED</h2>
+<div class="card">
+<ul>
+<li>⭐ <b>Land ownership works where eight other approaches failed.</b> Point-in-polygon against
+SITLA: complaint areas 97% Private, backcountry 74% Federal. <b>The first real separation in ten
+attempts.</b> It has no coverage hole by construction — every acre is owned by someone.</li>
+<li><b>Non-motorized is 70% private</b> — 20,013 of 28,499. <code>3 - Paved Shared Use</code> alone
+is 13,493 private against 247 public, so it is sidewalks and park paths. That answered Fred's
+question about whether a private bucket pays: it does, and most of all there.</li>
+<li>⛔ <b>87% of "Motorized Access" is INFERENCE, not evidence.</b> 28,055 <code>unclassified
+motorized</code> plus 16,482 bare tracks against ~6,800 actually stated — and all carry
+<code>motorized_allowed = Y</code>. A farm track in a subdivision reads as rideable on nothing more
+than <code>highway=track</code>. Splitting stated from inferred is the honest fix.</li>
+<li>⭐ <b><code>charAt(0)</code> constrains the code to ONE CHARACTER, not one DIGIT.</b> All of 0-9
+were taken; letters were always free. Neither of us saw it for two days.</li>
+<li>⚠ <b>The legend has been wrong all along.</b> <code>trailColor</code> has NEVER had a case for
+<code>'2'</code>, so Hiking and Biking — 7,513 rows — always drew cyan. The 08-30 orange change only
+made an existing lie collide with something real.</li>
+<li>⭐ <b>The audit trail corrected me within minutes of existing.</b> I said step 8 destroyed the
+identity of 13,628 rows; it was <b>201</b> — <code>designated_uses</code> still held the original for
+the rest. <b>1.5% of what I claimed.</b></li>
+</ul>
+</div>
+
+<h2>⚠ OPEN</h2>
+<div class="card">
+<ul>
+<li><b>Segmentation, not sampling.</b> OSM splits a long road into many ways and each is judged
+alone, so private-public-private has its middle flagged private. 9 of 11 <code>24000 North</code>
+segments flipped on the laptop run — a road Fred rides. ⭐ Half-mile sampling is NOT the suspect: on
+a twenty-mile road that is forty points and any ONE public point keeps it. <b>Grouping by name before
+deciding is the fix.</b></li>
+<li><b>Fred's 90-track test, ready to run.</b> <i>"I have 90 tracks to test that my route has a trail
+on public and not a private that disappears."</i> ⚠ The failure that matters is not a wholly-private
+track — it is a <b>public-private-public GAP</b>, a route broken by a connector that vanishes when
+private is switched off.</li>
+<li><b>Step 8 as built only tests rows with no carto code</b>, so it misses 17,283 private motorized
+and 20,013 private non-motorized. The four-field pass fixes this; the Kotlin has not caught up.</li>
+<li><b>USFS paging 500 and UGRC SocketTimeout</b> on the first run of the day — both recovered.
+⚠ <code>downloadFile</code> still needs retry-with-backoff on 5xx; the redirect recursion has no
+depth limit.</li>
+<li><b>Parallelism.</b> Fred: <i>"the whole job would run in 10 minutes instead of 25."</i> The six
+catalogue sources are network-bound while the CPU idles; the OSM download could overlap them, gated
+so processing waits. Not started.</li>
+</ul>
+</div>
+
+<h2>⚠ METHOD — MINE</h2>
+<div class="card">
+<ul>
+<li><b>I proposed "score residential areas at zero" as a leading candidate</b> when no such boundary
+exists in the data — describing something that would have to be BUILT as though it were present.
+Fred: <i>"how can we penalize on data we cannot specify?"</i> He was right and I had to withdraw
+it.</li>
+<li><b>I seeded the touches-a-trail test from <code>fclass LIKE 'track%'</code></b> — a SHAPE answer,
+which is the exact fault the project exists to remove, reintroduced inside the test meant to measure
+it. It kept Sundown Drive and I called it a pass.</li>
+<li><b>Three wrong marker counts in patch guards</b> across two days. Each time the guard refused to
+write. The pattern: a replacement carrying a DATE but not the marker string still reads as "marked"
+to me.</li>
+<li><b>I kept trying to collapse ownership into the category</b> and Fred kept pulling it back out,
+four times, before the four-field design landed. His framing was right from the first statement of
+it.</li>
+<li><b>Two cp1252 console crashes</b> from non-ASCII in <code>print()</code> — the second AFTER a
+successful commit, which is the worst place for it.</li>
+</ul>
+</div>
+
+</main></body></html>

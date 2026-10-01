@@ -1,0 +1,353 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Working Checklist 2026-09-03</title>
+<style>
+body{font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:30px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:18px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.now{border-left:4px solid #f85149}.next{border-left:4px solid #d29922}
+.v27{border-left:4px solid #58a6ff}.done{border-left:4px solid #3fb950}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack — Working Checklist, 2026-09-03</h1>
+<p><code>feature/convoy-event-ride</code> · Droid 1 <code>8624SBCEDF00001789</code>
+· Droid 2 <code>24039703201775</code></p>
+
+<div class="card now">
+<p><b>⛔ THE STATE OF PLAY.</b> The classification WORKS — Droid 1 proved it on
+09-02: <b>145,942 classified, 43,880 private, 129 seconds</b>. What is broken is
+everything AROUND it: the import has no owner, so on 09-03 two ran at once, a
+cancelled one kept downloading, and step 8 died with a dismissed panel leaving
+every trail unclassified and the manifest reading as a success.</p>
+</div>
+
+<h2>✅ SHIPPED 2026-09-03</h2>
+
+<div class="card done">
+<ul>
+<li><b>One startup housekeeping job the gate waits for</b> — palette, release
+check, clear, ALTER, reload, blocking, in that order. ⭐ Proven on Droid 2
+against the Aug 10 database: the clear ran BEFORE the gate answered.</li>
+<li><b>Red banner on the access screen</b>, Continue disabled while it runs.</li>
+<li><b>One import at a time</b>, owned by the controller. Cancel reaches the
+work; dismissing a screen no longer orphans it.</li>
+<li><b>Step 8 is a tracked manifest stage</b> — a failed classification can no
+longer read as a finished import.</li>
+<li><b>The summary is rebuilt from the manifest</b>, so leaving the app does not
+destroy it. Shown until acknowledged.</li>
+<li>⛔ <b>A failed import recorded itself as a success</b> —
+<code>if (allOk) "completed" else "completed"</code>, both branches identical.
+Fixed.</li>
+<li><b>Hours as a range</b>, not the low end.</li>
+<li><b>Surface appended to trail labels</b> in the compare table.</li>
+<li><b>Ride map trail taps</b> open the detail panel.</li>
+<li><b>The TRACE and LIFECYCLE probes are out.</b></li>
+<li><b>Readable field labels</b> — Type, Source said, Land, Use, Roughness.</li>
+<li><b>Search word aligned</b> at end = 12 on both maps. ⛔ Convoy was left at
+132 when the planner was reverted — eight attempts went into offsets before a
+side-by-side read of the two call sites showed a one-line leftover.</li>
+<li><b>Settings panel says 2.6g.</b> ⚠ It is HARDCODED in
+<code>ConvoySettingsScreen.kt</code> and nothing prompts for it — add it to the
+release procedure in the locked doc.</li>
+<li><b>Tap a route, get the narrative.</b> ⭐ Fred: <i>"frustrating to demo and
+have to navigate three screens to show route info."</i> ⛔ And an old route with
+no narrative still goes straight to the detail panel — a prose panel with no
+prose is the failure that would make it feel broken.</li>
+<li><b>Foldable note sections</b> — WHAT YOU WILL SEE and IN ORDER start folded
+with their counts. ⚠ BEFORE YOU GO stays open: a folded warning is not a
+warning.</li>
+<li><b>ROUTE DETAILS and DOWNLOAD MAPS</b> on the notes panel.</li>
+<li><b>Both map HTML versions bumped</b> — ⛔ <code>__htmlVersion</code> had said
+<code>2026-08-13a</code> for three weeks while the files changed constantly. Its
+own comment says "bump this or the display starts lying". It was lying, which is
+why a tester's stale assets could not be diagnosed.</li>
+<li><b>The classify stage is a manifest SLOT, not a source.</b> ⛔ The loop tried
+to run it, hit "Unknown process type" and marked it failed — then step 8
+succeeded. The summary reported a failure for work that had worked.</li>
+<li>⭐ <b>THE OWNERSHIP DOWNLOAD PROVED ITSELF.</b> Droid 2, no file and no
+markers, fetched 78 MB and classified 145,942 trails unattended. Fred: "the land
+use file picked up perfectly."</li>
+</ul>
+</div>
+
+<h2>2.6g — RELEASES 2026-09-08 (7 days)</h2>
+
+<div class="card now">
+<p>⭐⭐ <b>THE DOCUMENTS COME FIRST.</b> Fred, 09-03: <i>"that is more important
+than any functionality. Our documentation must become useful, accessible and
+relevant."</i></p>
+<p>⚠ And he is right about the urgency: the app now does things nobody can
+discover. The filter MOVED to Map Features, the classification exists, the
+styling is tunable, the default hides two thirds of the trails — and none of it
+reaches a rider who does not already know.</p>
+</div>
+
+<div class="card next">
+<h3>The documents — structure, content and purpose</h3>
+<p>⚠ Fred's word was <b>purpose</b>, so this is a rethink of what each document
+is FOR, not an append pass.</p>
+<p><b>Quick Start, in the order Fred specified (09-03):</b></p>
+<ol>
+<li><b>Who the app is for</b> — two riders. The solo Android rider who wants
+trails, maps and their own tracks. And the GroupTrack rider running a Meshtastic
+radio for group awareness.</li>
+<li>⭐ <b>What to ignore</b> — the whole LEFT VERTICAL NAVIGATION is the
+Meshtastic app's own. Naming it up front is the most useful thing the document
+can do, because a phone-only rider currently opens the app and sees radio panels
+that mean nothing to them.</li>
+<li><b>Install and setup</b> — common to both.</li>
+<li><b>Before your first ride — Android.</b></li>
+<li><b>Before your first ride — group tracking.</b></li>
+</ol>
+<p>⭐⭐ <b>AND THE GROUP SECTION IS SHAPED TO GROW.</b> Fred, 09-03: method →
+connect your device in that method → identify your device to GroupTrack → use
+GroupTrack for group awareness. ⚠ Only step two differs per transport, so adding
+IP and cellular is a new step-two variant rather than a rewrite.</p>
+<p><b>Release notes:</b> the 08-30 shape — each item says what it is, what it
+means to me, and links to the manual.</p>
+<p><b>Manual:</b> organised by what a rider is trying to do, not by when a feature
+was built. ⚠ It currently carries dated chapter titles like "Map Keys and filters
+(2026-09-01)", which is a changelog habit.</p>
+</div>
+
+<h3 style="color:#58a6ff;margin-top:26px">Then the fixes</h3>
+
+<div class="card next">
+<h3>Moved in 09-03</h3>
+<ul>
+<li><b>The route narrative</b> — surface, roughness and restrictions in the ride
+description. ⭐ The 08-31 standard: on one record it is information, across many
+it is data, and in between it earns a place in the NARRATIVE. Roughness and a
+posted machine-width limit are exactly that.</li>
+<li><b>Launch-time failed-import check</b> with REMOVE and RERUN — the 08-29
+design, specified and never built. ⭐ <code>unacknowledgedImport()</code> shipped
+today IS the mechanism it needs, so this is mostly wiring now.</li>
+<li><b>The searchsplit patch</b> — written, not applied. The alignment is fixed
+without it; this is what stops the panel opening OVER the launcher words. ⚠ It
+also renames <code>Fab()</code> to <code>Launcher()</code>, a name that outlived
+its glyph on 08-17 and confused both of us today.</li>
+<li><b>Detail panel key names</b> — improved today, but
+<code>carto_code_source</code> and friends still read as title-cased column
+names in places.</li>
+</ul>
+</div>
+
+
+<div class="card next">
+<ul>
+<li>⭐⭐ <b>ROUTE ARCHIVE-ON-GRADUATE.</b> The only unrecoverable data class:
+trails re-import, tracks resync, but a graduated route has nothing behind it.
+Testers are building routes now, so the exposure grows daily. ⭐ Cheapest useful
+version is a COPY at save time with the DB row staying authoritative — a few
+lines, no new read path, no format decision.</li>
+<li>⭐ <b>REFUSE-TO-CREATE.</b> Flagged 08-16 as arguably promotable. After 09-02
+— a schema change that existed on one device, a filter referencing columns that
+did not exist — the argument is stronger.</li>
+<li><b>The startup-task survey never ran.</b> Fred, 08-16: <i>"who knows how many
+other start-up tasks are embedded in convoy using the hunt-seek-find method."</i>
+⭐ 09-02's landmine was exactly that shape. An hour of grep, no builds, no device
+risk.</li>
+<li>Discard/save module · route recovery · map-recipe re-import · fit-route ·
+route-dedup · rename/delete triggers · radio-meter crash-guard · remove
+<code>ConvoyTrackExportSheet</code>.</li>
+</ul>
+</div>
+
+<h2>TOMORROW — the Quick Start, for real</h2>
+
+<div class="card now">
+<p>⭐⭐ <b>EDUCATE, DON'T POLICE.</b> Fred, 09-03, after we had designed a saved
+checklist with progress tracking and a retirement rule: <i>"let's simplify. Our
+goal is to provide the material and a path that is convenient. I think providing
+the material and the stages is enough."</i></p>
+<p>⭐ <b>That drops all of it</b> — no tracking, no progress state, no nagging at
+sign-on. The DOCUMENT does the work.</p>
+<p><b>Each stage ends with something to go and try:</b> read the setup section
+and play with the setup. Come back, read the pre-ride section, play with that.
+⭐ <b>Then record a track around your house</b> and be comfortable with it before
+the first real ride. That is what turns reading into knowing, and it needs no
+state at all.</p>
+</div>
+
+<div class="card now">
+<h3>Structure (Fred, 09-03)</h3>
+<ol>
+<li><b>Installation and base trail setup for your state</b> — common to
+everyone, written once.</li>
+<li><b>Navigation and functions overview</b> — the blueprint. Every launcher,
+one sentence each, ⭐ <b>each linked to its manual section</b>.</li>
+<li><b>Pick the implementation you are interested in.</b></li>
+<li><b>Twisties per rider type</b> — before your first ride, and your first
+ride. ⚠ Two types: <b>Android solo</b> (no group tracking at all) and
+<b>Mesh group</b>.</li>
+</ol>
+<p>⚠ <b>The overview is NOT split.</b> One blueprint for everyone, with the left
+vertical navigation marked as the radio's — Fred, 09-03: naming it is the most
+useful thing the document can do for a solo rider, who currently opens the app
+and sees panels that mean nothing to them.</p>
+</div>
+
+<div class="card now">
+<h3>The manual, same day</h3>
+<ul>
+<li>⭐ <b>ANCHORS PER SECTION</b>, so the Quick Start bullets link into it. ⚠ And
+that is the groundwork for context-sensitive help — a panel could open the manual
+at its own section, which the docs viewer can already do
+(<code>grouptrack_manual.html#recording</code>).</li>
+<li><b>Re-record every screen image.</b> ⚠ The app has changed shape this week:
+the filter MOVED to Map Features, the key panel was rewritten, trails and routes
+open panels they did not open before.</li>
+<li>⭐⭐ <b>USE THE FUNCTION XREF to confirm every feature is shown from EVERY
+surface it launches from</b> (Fred, 09-03). ⚠ Popup panels now do real work —
+a feature documented only where it was first built will be missed where a rider
+actually meets it.</li>
+<li><b>Organised by what a rider is trying to do</b>, not by when a feature was
+built. ⚠ It carries dated chapter titles like "Map Keys and filters
+(2026-09-01)", which is a changelog habit.</li>
+</ul>
+</div>
+
+<h2>2.6h — after 2.6g</h2>
+
+<div class="card next">
+<h3>Land ownership for all fifty states</h3>
+<p>⭐ Utah works and proved itself unattended on 09-03. The other forty-nine need
+their own entries.</p>
+<p><b>The URL pattern is fixed</b> — only the item id changes:<br>
+<code>hub.arcgis.com/api/v3/datasets/{ID}/downloads/data?format=geojson&amp;spatialRefId=4326&amp;where=1%3D1</code><br>
+⚠ <code>spatialRefId=4326</code> is load-bearing: Utah's layer is named "WM" and
+arrives in web mercator without it.</p>
+<p>⭐ Most state catalogues are ArcGIS Open Data, so the same endpoint works and
+this is a LOOKUP exercise rather than an integration. ⚠ But not all: Nevada's SMA
+layer is on a BLM hub, Colorado's is shapefile/KMZ/web service, and Arizona's
+trust land sits behind a parcel viewer with no direct download.</p>
+<p>⛔⛔ <b>THE REAL WORK IS WHAT THE POLYGONS MEAN, NOT THE URL.</b> Utah maps
+ownership CONTINUOUSLY, so "not inside a private polygon" means public. ⚠ A layer
+that lists PUBLIC land positively inverts that: absence would mean private
+<i>or</i> unmapped, and marking every unmapped trail private hides it under the
+shipped default — which looks exactly like missing data.</p>
+<p><b>So each catalogue entry needs three things:</b> the item id · which field
+carries ownership · whether the layer is continuous or positive.</p>
+<p>⭐ <b>PUBLIC MEANS STATE AND FEDERAL</b> (Fred, 09-03), which is why a single
+national BLM layer will not do — it would miss state trust land, state parks and
+state forests, and that is the ground riders use.</p>
+</div>
+
+<div class="card next">
+<h3>Route tap — what is still missing underneath it</h3>
+<ul>
+<li><b>The ride map has NO route tap at all.</b> <code>convoy_map.html</code> has
+no <code>onRouteTap</code> wiring, so routes there fall through to the Leaflet
+default. The planner has it; convoy never got it.</li>
+<li><b>Trails now win taps over routes.</b> Trails got a handler on 09-03 and
+draw ON TOP. ⭐ Layer order should be <b>trails, then tracks, then routes</b> —
+rider-owned above source data. ⚠ And it must be reasserted after every trail
+redraw, because a pan rebuilds that layer.</li>
+<li><b>BUILD FROM RECIPE on the notes panel.</b> ⚠ Its lambda on the detail panel
+is fifty-odd lines of inline state restoration; calling it from a second place
+means extracting it properly. Deliberately deferred, not forgotten.</li>
+</ul>
+</div>
+
+<div class="card next">
+<h3>The import timer</h3>
+<p>⚠ The running clock on the import checklist is gone. Fred: <i>"I just liked
+the clock running so you know it is still working."</i> ⭐ Same principle as the
+housekeeping banner — a long process must show it is alive.</p>
+<p><b>Suspect:</b> <code>republishProgress</code> passes
+<code>System.currentTimeMillis()</code> as <code>startMs</code> rather than the
+manifest's real start, so a timer has nothing sensible to count from.</p>
+</div>
+
+<div class="card next">
+<h3>Two import bugs found 09-03</h3>
+<ul>
+<li><code>designated_uses</code> holds the literal string <b>"null"</b> on 712
+rows — it prints as "null" on any card showing it.</li>
+<li>866 rows hold <b>"321"</b>, an untranslated code.</li>
+</ul>
+<p>⚠ And <b>"OHV Wide" never reaches the database at all</b> — the 08-31 survey
+saw it in raw UGRC; our own table has 633 rows saying "OHV designated" and
+nothing else. A capture gap, though it changes nothing: it was never enough to
+filter on.</p>
+</div>
+
+<div class="card next">
+<h3>Recovery from a failed state download</h3>
+<p>⛔ 09-03 lost a complete Utah import — seven sources, a 316 MB download, a tag
+pass over 425,069 rows — because the last step failed. ⭐ The manifest is already
+the right place; it needs each stage annotated as it completes so a restart picks
+up where it stopped. ⚠ Step 8 became a real stage today, which was the
+prerequisite.</p>
+</div>
+
+
+
+<h2>2.7 — the rewrite</h2>
+
+<div class="card v27">
+<p>⭐ Fred, 09-03. Not a bag of deferred items — one coherent piece of work:</p>
+<ul>
+<li><b>Examine map tools for 3D.</b></li>
+<li><b>Separate mesh as a plugin.</b></li>
+<li><b>Add the IP stack, as another plugin.</b> ⭐ IP and cellular share it, so a
+new transport is an implementation rather than a new feature path.</li>
+<li>⭐⭐ <b>Separate GroupTrack as a MAPPING FUNCTION</b> with a display that shows
+one cart or all carts. <b>Group tracking becomes a display concern over a
+position source</b>, rather than something mesh owns.</li>
+</ul>
+<p><b>The three layers, with clean seams:</b> TRANSPORT describes a connection and
+nothing else · IDENTITY says who is in the group and where they are, independent
+of how the bytes arrived · DISPLAY takes identities and positions and knows
+nothing about their origin.</p>
+</div>
+
+<div class="card v27">
+<h3>Carried</h3>
+<ul>
+<li><b>Track architecture cleanup</b> — <code>my_tracks/</code> as an error queue,
+<code>track_archives/</code> as permanent originals, spatial DB as the single
+source of truth.</li>
+<li><b>Private land as a shaded map LAYER</b> (Fred: <i>"just a layer"</i>), from
+the SITLA polygons already on the device. ⚠ Only if it proves a problem in use.</li>
+<li><b>Tracks and routes stylable</b> from the key. ⚠ Their styles are hardcoded
+in the three asset files, so Apply would save and nothing would happen. Whole or
+not at all.</li>
+<li><b>Schema-version refactor</b> — a version, a defined step per increment, and
+a floor below which the answer is clear-and-reload.</li>
+<li><b>Extend the xref tools to <code>assets/*.js</code> and
+<code>*.html</code>.</b> ⛔ Neither covers them, which is how
+<code>spatial_artifacts.js</code> sat a version behind for two days — ⚠ and that
+file is COPY-PASTED into convoy_map.html rather than loaded.</li>
+</ul>
+</div>
+
+<h2>⚠ Things that will bite</h2>
+<div class="card">
+<ul>
+<li>⛔⛔ <b><code>TrailFilterState</code> is a plain singleton, NOT Compose
+state.</b> Every composable reading it must take <code>tick</code> or Compose
+skips it. Cost eight builds on 09-02.</li>
+<li>⛔ <b>Anchors from <code>cat -A</code>, never <code>sed</code>.</b> Seven
+whitespace failures this week.</li>
+<li>⚠ <b>The launcher column is absolute top padding, not a stack.</b> Convoy
+152/184/216 · planner 64/116/168.</li>
+<li>⚠ <b>The shipped default hides all non-motorized and all private.</b> It will
+read as missing data; the quickstart coverage is load-bearing.</li>
+<li>⭐ <b>A close control that is not legible AS A BUTTON is the same as no
+close.</b> Five panels needed one this week; three already had one.</li>
+<li>⭐ <b>The open list is CARRIED FORWARD, never re-derived.</b> "Port classify4
+into the import" fell out of the 09-01 handoff and cost 09-02.</li>
+</ul>
+</div>
+
+</body></html>
