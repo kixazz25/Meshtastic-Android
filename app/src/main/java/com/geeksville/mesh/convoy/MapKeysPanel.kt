@@ -366,7 +366,7 @@ val CATEGORY_HELP: List<Pair<String, String>> = listOf(
     "OHV" to "Posted trails for ATV/OHV use only",
     "Track" to "Two wheel tracks, farm, forest or open country",
     "Forestry / access" to "Access unless posted otherwise",
-    "Shape only" to "Mapped trails but unclassified",
+    "Shape only" to "Shape and route of reported trails that are otherwise unclassified",   // SHAPETEXT-2026-10-01 (Fred): was "Mapped trails but unclassified"
     "Rider trails" to "Ridden on a recorded ride \u2014 UTV accessible",
     "Unofficial / uncertain" to "Not available for riding",
     "Hiking & biking" to "Non-motorized, walkers and bicycles",
