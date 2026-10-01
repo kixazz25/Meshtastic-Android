@@ -453,28 +453,12 @@ object ConvoyRideStore {
     @Volatile private var schemaChecked = false
 
     /**
-     * CODE RULE 3 -- one-time code, no marker. The ALTER exists only for tablets that already have
-     * the rides table (Droid 1); an existing column is fine. REMOVE the ALTER, and add
-     * distributed_at to schema_device_additions.sql, when 2.7 is cut.
+     * ALTERREMOVED-2026-09-30 (Fred): the one-time ALTERs for rides.distributed_at (09-23) and rides.status (09-30)
+     * were removed once Droid 1 and Droid 2 had run them. Both columns are in schema_device_additions.sql.
      */
     private fun ensureSchema() {
         if (schemaChecked) return
         val db = SpatialDbManager.getExtensionDb() ?: return
-        try {
-            db.execSQL("ALTER TABLE rides ADD COLUMN distributed_at TEXT")
-            Log.i(TAG, "RIDECFG-2026-09-23: rides.distributed_at added")
-        } catch (e: Exception) {
-            Log.d(TAG, "rides.distributed_at already present")
-        }
-        // RIDESTATUS-2026-09-30 (Fred): CODE RULE 3 -- one-time, no marker. Only Fred's two tablets have the rides
-        // table without it; new installs get it from schema_device_additions.sql. REMOVE with the distributed_at
-        // ALTER above when 2.7a is cut.
-        try {
-            db.execSQL("ALTER TABLE rides ADD COLUMN status TEXT NOT NULL DEFAULT 'open'")
-            Log.i(TAG, "RIDESTATUS-2026-09-30: rides.status added")
-        } catch (e: Exception) {
-            Log.d(TAG, "rides.status already present")
-        }
         try {
             db.execSQL(
                 "CREATE TABLE IF NOT EXISTS ride_waypoints (ride_id TEXT NOT NULL, " +
