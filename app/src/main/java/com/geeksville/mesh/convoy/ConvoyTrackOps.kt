@@ -842,7 +842,7 @@ object ConvoyTrackOps {
     /** Share artifact as GPX via email intent. Creates temp file, attaches, deletes after. */
     fun shareGpx(context: android.content.Context, name: String, gpxContent: String) {
         try {
-            val tempFile = java.io.File(context.cacheDir, "${name.replace(" ", "_")}.gpx")
+            val tempFile = java.io.File(context.cacheDir, "${(name.replace(Regex("[^A-Za-z0-9._-]+"), "_").trim('_').ifEmpty { "track" })}.gpx")   // GPXNAME-2026-10-01: safe file name
             tempFile.writeText(gpxContent, Charsets.UTF_8)
             val uri = androidx.core.content.FileProvider.getUriForFile(
                 context, context.packageName + ".provider", tempFile)
@@ -866,7 +866,7 @@ object ConvoyTrackOps {
         return try {
             val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
                 android.os.Environment.DIRECTORY_DOWNLOADS)
-            val file = java.io.File(downloadsDir, "${name.replace(" ", "_")}.gpx")
+            val file = java.io.File(downloadsDir, "${(name.replace(Regex("[^A-Za-z0-9._-]+"), "_").trim('_').ifEmpty { "track" })}.gpx")   // GPXNAME-2026-10-01: safe file name
             file.writeText(gpxContent, Charsets.UTF_8)
             android.util.Log.i("TrackOps", "Exported to Downloads: ${file.absolutePath}")
             true
