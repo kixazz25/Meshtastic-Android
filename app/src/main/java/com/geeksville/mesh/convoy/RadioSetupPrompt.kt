@@ -15,13 +15,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /*
- * RADIOSETUPTEST-2026-10-01 (GroupTrack 2.7a) -- the startup radio-setup question.
+ * RADIOSETUPSTART-2026-10-01 (GroupTrack 2.7a) -- the startup radio-setup question.
  * 2.7a moves GroupTrack to TAK messaging, so every radio used with it needs the GroupTrack configuration.
- * Fred 10-01: the app cannot tell whether the rider has a radio, so it ASKS.
- *   YES -> connect, select, apply (GRP Awareness).  NO -> set it up later in GRP Awareness, before the first ride.
- *   Not asked again after NO, or after an apply that finished verified. YES without a verified apply asks again.
- * TEST STAGE: opened from GRP Awareness. Next: the same prompt as NeedRadioSetup in the startup gate,
- * just before the state-imports test, and the GRP Awareness entry removed.
+ * Fred 10-01: the app cannot tell whether the rider has a radio, so it ASKS -- once, at install.
+ *   Shown by the startup gate (AuthorityState.NeedRadioSetup) after background location, before the trail check.
+ *   YES -> GRP Awareness: connect, select, apply.   NO -> set it up later in GRP Awareness, before the first ride.
+ *   NOT asked when: answered NO; an apply finished verified (RadioConfigScreen marks DONE); a saved config exists
+ *   (a 2.7 configurator save = .cfg + .json companion); or already answered in this session (the gate re-checks on
+ *   every resume). An uninstall empties app storage, so a reinstall asks again.
+ * (Tested 10-01 as a GRP Awareness entry, RADIOSETUPTEST-2026-10-01; that entry is removed by this patch.)
  */
 object RadioSetupState {
     private const val PREFS = "grouptrack_radio_setup"
@@ -29,38 +31,53 @@ object RadioSetupState {
     const val NO = "no"
     const val DONE = "done"
 
+    /** In memory only: answered (YES or NO) in this app session. YES is not stored -- it asks again next launch
+     *  unless the apply finished verified, which leaves a saved config and marks DONE. */
+    @Volatile var answeredThisSession = false
+
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     /** "" = not answered (or YES not completed yet), "no", or "done". */
     fun answer(ctx: Context): String = prefs(ctx).getString(KEY, "") ?: ""
 
-    /** The startup question is needed while there is no answer that settles it. */
-    fun needsAsking(ctx: Context): Boolean = answer(ctx).isEmpty()
+    /** A save made by the 2.7 configurator: a .cfg in convoy_backups/<radio>/ with its .json companion. */
+    fun hasSavedConfig(ctx: Context): Boolean = try {
+        val root = java.io.File(ctx.filesDir, "convoy_backups")
+        (root.listFiles() ?: emptyArray()).filter { it.isDirectory }.any { dir ->
+            (dir.listFiles() ?: emptyArray()).any { f ->
+                f.isFile && f.extension == "cfg" && java.io.File(dir, f.nameWithoutExtension + ".json").isFile
+            }
+        }
+    } catch (e: Exception) {
+        log("saved-config check failed: " + e.message + " -- treated as none")
+        false
+    }
 
-    fun markNo(ctx: Context) { prefs(ctx).edit().putString(KEY, NO).apply(); log("answer = no") }
+    fun needsAsking(ctx: Context): Boolean {
+        if (answeredThisSession) return false
+        val a = answer(ctx)
+        if (a.isNotEmpty()) return false
+        if (hasSavedConfig(ctx)) { log("saved config present -- not asked"); return false }
+        return true
+    }
+
+    fun markYes() { answeredThisSession = true; log("answer = yes (this session; GRP Awareness opened)") }
+
+    fun markNo(ctx: Context) { answeredThisSession = true; prefs(ctx).edit().putString(KEY, NO).apply(); log("answer = no") }
 
     /** Called by the standard apply when it finishes VERIFIED. */
     fun markDone(ctx: Context) { prefs(ctx).edit().putString(KEY, DONE).apply(); log("answer = done (verified apply)") }
 
-    /** TEST ONLY: clear the answer so the question can be re-tested. */
-    fun clear(ctx: Context) { prefs(ctx).edit().remove(KEY).apply(); log("answer cleared (test)") }
-
     private fun log(s: String) = android.util.Log.i("RadioSetup", "RADIOSETUP: " + s)
-
-    /** Shown in GRP Awareness while testing. */
-    var showing = androidx.compose.runtime.mutableStateOf(false)
 }
 
 @Composable
 fun RadioSetupPrompt(
-    ctx: Context,
     onYes: () -> Unit,
     onNo: () -> Unit,
-    onDismiss: () -> Unit,
 ) {
-    val stored = RadioSetupState.answer(ctx)
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { },   // a startup question: answered with YES or NO, not dismissed
         title = { Text("Do you have a mesh radio to use with GroupTrack?") },
         text = {
             Column {
@@ -72,7 +89,6 @@ fun RadioSetupPrompt(
                     "default, and apply.")
                 Text("If your tablet asks for a pairing code: 123456 is the default. If your radio has a screen and " +
                     "shows a different code, use that one.", fontSize = 12.sp, color = Color(0xFF8FA3B8))
-                // RADIOSETUPTEXT2-2026-10-01 (Fred): the callsign, and additional radios.
                 Text("Your user-profile callsign becomes the radio's name.")
                 Text("More than one radio? Repeat this for each one: connect it in GRP Awareness and apply the " +
                     "GroupTrack default to it. Change the callsign for each additional radio so it does not inherit yours.",
@@ -81,19 +97,9 @@ fun RadioSetupPrompt(
                 Text("NO", fontWeight = FontWeight.Bold)
                 Text("You will set up your radio later. Before your first ride, use GRP Awareness to connect, " +
                     "select a ride, and apply the new configuration.")
-                Spacer(Modifier.height(10.dp))
-                Text("TEST: stored answer = " + (if (stored.isEmpty()) "(none -- would ask at startup)" else stored),
-                    fontSize = 11.sp, color = Color(0xFFE8C27A))
             }
         },
         confirmButton = { TextButton(onClick = onYes) { Text("YES") } },
-        dismissButton = {
-            Column {
-                TextButton(onClick = onNo) { Text("NO") }
-                TextButton(onClick = { RadioSetupState.clear(ctx); onDismiss() }) {
-                    Text("CLEAR ANSWER (test)", color = Color(0xFFF08C84), fontSize = 11.sp)
-                }
-            }
-        },
+        dismissButton = { TextButton(onClick = onNo) { Text("NO") } },
     )
 }

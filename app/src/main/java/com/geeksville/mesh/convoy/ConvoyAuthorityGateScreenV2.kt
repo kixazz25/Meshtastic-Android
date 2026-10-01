@@ -84,6 +84,8 @@ private sealed class AuthorityState {
     // Evaluated only AFTER storage and background pass, so it can never
     // pre-empt or alter any of the three certified authority paths.
     object NeedTrailData     : AuthorityState()   // authority OK, zero trails -> Home State
+    // RADIOSETUPSTART-2026-10-01: authority OK, the radio question not yet answered -> ask it (before the trail check)
+    object NeedRadioSetup    : AuthorityState()
 }
 
 // GATEJOB-2026-08-21G: one-shot latch. evaluateState runs on every resume and on
@@ -220,6 +222,7 @@ private fun evaluateState(context: android.content.Context, attempt: Int): Autho
     val result = when {
         !storage     -> AuthorityState.NeedStorage
         !background  -> AuthorityState.NeedBackground
+        RadioSetupState.needsAsking(context) -> AuthorityState.NeedRadioSetup   // RADIOSETUPSTART-2026-10-01
         needsTrails  -> AuthorityState.NeedTrailData
         else         -> AuthorityState.Granted
     }
@@ -875,6 +878,29 @@ fun ConvoyAuthorityGateScreenV2(
                 // owns this surface -- it already carries the state list, the
                 // progress display and the completion recap. Full-screen because
                 // the import is the whole task at this point.
+                // RADIOSETUPSTART-2026-10-01: the radio question. Answered, the gate continues with the SAME rule the
+                // first evaluation uses -- trails just cleared by housekeeping still go to the state import.
+                is AuthorityState.NeedRadioSetup -> {
+                    val afterRadio: () -> Unit = {
+                        val next = evaluateState(context)
+                        val resolvedNext =
+                            if (housekeeping?.needsReload == true && next is AuthorityState.Granted)
+                                AuthorityState.NeedTrailData
+                            else next
+                        if (resolvedNext is AuthorityState.Granted) onProceed() else state = resolvedNext
+                    }
+                    RadioSetupPrompt(
+                        onYes = {
+                            RadioSetupState.markYes()
+                            GrpAwarenessLauncher.open()   // a Main.kt overlay, drawn above the NavHost and so above the gate
+                            afterRadio()
+                        },
+                        onNo = {
+                            RadioSetupState.markNo(context)
+                            afterRadio()
+                        },
+                    )
+                }
                 is AuthorityState.NeedTrailData -> {
                     HomeStatePickerScreen(
                         onNavigateBack = {
