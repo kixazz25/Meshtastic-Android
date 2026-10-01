@@ -91,6 +91,9 @@ import androidx.compose.material3.TextButton
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 
+// RMTRACE-2026-10-01: diagnostic -- logs every route-mode transition with the site that made it. Remove with the fix.
+private fun rmTrace(v: Boolean, site: String): Boolean { android.util.Log.i("ROUTEMODE", "$site -> $v"); return v }
+
 /**
  * ConvoyScreen — IMP-001 Task 4.2 + 5.1 + 5.2 + 5.3 + 5.4
  * Full-screen WebView/Leaflet map + HUD strip.
@@ -802,6 +805,14 @@ fun ConvoyScreen(
                         // ⚠ No addPointMode test: there is no route building on this
                         // screen, so there is no flag to suppress against.
                         @android.webkit.JavascriptInterface
+                        fun onRouteModeOffRequested() {
+                            // RMBADGE-2026-10-01 (Fred): the red ROUTE+ badge was tapped -- the ride map is never in route mode.
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                routeMode = rmTrace(false, "RM@badge")
+                                webViewRef.value?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null)
+                            }
+                        }
+                        @android.webkit.JavascriptInterface
                         fun onRouteTap(id: String) {
                             android.util.Log.d("RouteTap", "CONVOY bridge id=$id")
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -1147,6 +1158,14 @@ fun ConvoyScreen(
                             // RIDEROUTETAP-2026-09-08: the SECOND interface object.
                             // ⛔ Both get it or the tap works on one WebView and not
                             // the other -- the failure this codebase keeps recording.
+                            @android.webkit.JavascriptInterface
+                            fun onRouteModeOffRequested() {
+                                // RMBADGE-2026-10-01 (Fred): the red ROUTE+ badge was tapped -- the ride map is never in route mode.
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    routeMode = rmTrace(false, "RM@badge")
+                                    webViewRef.value?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null)
+                                }
+                            }
                             @android.webkit.JavascriptInterface
                             fun onRouteTap(id: String) {
                                 android.util.Log.d("RouteTap", "CONVOY bridge id=$id")
@@ -2288,7 +2307,7 @@ fun ConvoyScreen(
                         if (res) {
                             RouteManager.clearRoute()
                             webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
-                            routeMode = false
+                            routeMode = rmTrace(false, "RM@ConvoyScreen:2291")
                             webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
                         } else {
                             android.widget.Toast.makeText(context, "Need at least 2 points to save", android.widget.Toast.LENGTH_SHORT).show()
@@ -2326,7 +2345,7 @@ fun ConvoyScreen(
                                     routeNameTaken = false
                                     routeLifecycleState = ROUTE_LS_NEW
                                     showRouteNameDialog = false
-                                    routeMode = true
+                                    routeMode = rmTrace(true, "RM@ConvoyScreen:2329")
                                     webViewRef.value?.evaluateJavascript("setRouteMode(true)", null)  // arm tap-to-place
                                 }
                             }) { androidx.compose.material3.Text("Start") }
@@ -2366,7 +2385,7 @@ fun ConvoyScreen(
                         onExit = {
                             RouteManager.clearRoute()
                             webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
-                            routeMode = false
+                            routeMode = rmTrace(false, "RM@ConvoyScreen:2369")
                         }
                     )
                 }
@@ -2398,7 +2417,7 @@ fun ConvoyScreen(
                                 draftListTick++
                                 RouteManager.clearRoute()
                                 webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
-                                routeMode = false
+                                routeMode = rmTrace(false, "RM@ConvoyScreen:2401")
                             }) { androidx.compose.material3.Text("Save as in progress") }
                         }
                     )
@@ -2425,7 +2444,7 @@ fun ConvoyScreen(
                                 draftListTick++
                                 RouteManager.clearRoute()
                                 webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
-                                routeMode = false
+                                routeMode = rmTrace(false, "RM@ConvoyScreen:2428")
                             }) { androidx.compose.material3.Text("Delete in-progress") }
                         }
                     )
@@ -2454,7 +2473,7 @@ fun ConvoyScreen(
                                             routeMethod = when (od?.method) { "draw" -> ROUTE_METHOD_DRAW; "suggest" -> ROUTE_METHOD_SUGGEST; else -> ROUTE_METHOD_P2P }
                                             routeLifecycleState = ROUTE_LS_RESUMED
                                             showInProgressPicker = false
-                                            routeMode = true
+                                            routeMode = rmTrace(true, "RM@ConvoyScreen:2457")
                                             val rsPts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
                                             webViewRef.value?.evaluateJavascript("setRouteMode(true); drawBuildLine('" + rsPts + "')", null)
                                         }) { androidx.compose.material3.Text(d) }

@@ -414,6 +414,34 @@
     // Defined on window.* so evaluateJavascript (global scope) can reach them.
     window.setRouteMode = function(on) {
       window.__routeMode = !!on;
+      // RMBADGE-2026-10-01 (Fred): a red ROUTE+ badge beside N · Z whenever route mode is ON -- tap to turn it off.
+      try {
+        var __rmb = document.getElementById('routeModeBadge');
+        if (!__rmb) {
+          __rmb = document.createElement('div');
+          __rmb.id = 'routeModeBadge';
+          __rmb.textContent = 'ROUTE+';
+          __rmb.style.cssText = 'position:fixed;top:8px;left:calc(50% + 62px);z-index:1001;background:#C62828;' +
+            'color:#fff;font:bold 12px monospace;padding:4px 9px;border-radius:4px;display:none;cursor:pointer;';
+          __rmb.onclick = function(ev) {
+            if (ev) { ev.stopPropagation(); }
+            console.log('ROUTEMODE badge tapped -> off');
+            if (window.Android && Android.onRouteModeOffRequested) { Android.onRouteModeOffRequested(); }
+            else { window.setRouteMode(false); }
+          };
+          document.body.appendChild(__rmb);
+          window.__rmOrphanShown = false;
+          window.__rmBadgeSync = function() {
+            var b = document.getElementById('routeModeBadge'); if (!b) return;
+            var orphan = !!window.__routeMode && !window.__routePlusSession;   // taps place points, no Route+ open
+            b.style.display = orphan ? 'block' : 'none';
+            if (orphan && !window.__rmOrphanShown) { console.log('ROUTEMODE ORPHAN -- route mode ON with no Route+ session'); }
+            window.__rmOrphanShown = orphan;
+          };
+          setInterval(window.__rmBadgeSync, 1000);
+        }
+        window.__rmBadgeSync();
+      } catch (e) {}
       console.log('ROUTEMODE -> ' + window.__routeMode);
       // Stop Leaflet artifact layers from catching the route-build tap (popup +
       // redraw-over-route). While building, route their pointer events out so the

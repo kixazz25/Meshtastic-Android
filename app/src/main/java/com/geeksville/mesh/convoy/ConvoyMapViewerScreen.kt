@@ -56,6 +56,9 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.layout.Box
 
+// RMTRACE-2026-10-01: diagnostic -- logs every route-mode transition with the site that made it. Remove with the fix.
+private fun rmTrace(v: Boolean, site: String): Boolean { android.util.Log.i("ROUTEMODE", "$site -> $v"); return v }
+
 /**
  * Standalone map viewer with trail overlays and track display.
  * V2.4 -- independent from convoy map. Uses grouptrack_map.html.
@@ -343,8 +346,9 @@ fun ConvoyMapViewerScreen(
     // Isolated second read of the saved route-open flag (independent of pmSeed@224,
     // which is read later than this declaration). Gives routeMode its persisted value
     // BEFORE the back-gate at ~204 uses it, so a crash-left-open route restores on launch.
-    val routeSeedOpen = remember { MapStateStore.readMap("planning").routeState?.open == true }
+    val routeSeedOpen = remember { rmTrace(MapStateStore.readMap("planning").routeState?.open == true, "RM-SEED planner: saved routeState.open read at entry") }   // RMTRACE-2026-10-01
     var routeMode by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(routeMode, webViewRef) { webViewRef?.evaluateJavascript("window.__routePlusSession=" + routeMode + "; if (window.__rmBadgeSync) window.__rmBadgeSync();", null) }   // RMSESSION-2026-10-01: tells the page whether a Route+ session is open (the ROUTE+ alarm)
     // ROUTEAI-2026-08-23P: the AI Design panel is a full-screen overlay, not part of
     // the floating toolbar -- it carries a name field, two modes, two ranges and
     // the results list, which the toolbar has no room for. Same pattern as
@@ -1655,6 +1659,15 @@ fun ConvoyMapViewerScreen(
                                 }
                             }
                             @JavascriptInterface
+                            fun onRouteModeOffRequested() {
+                                // RMBADGE-2026-10-01 (Fred): the red ROUTE+ badge was tapped -- route mode OFF in the app and on the page.
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    addPointMode = rmTrace(false, "RM@badge")
+                                    routeMode = rmTrace(false, "RM@badge")
+                                    webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null)
+                                }
+                            }
+                            @JavascriptInterface
                             fun onRouteTap(id: String) {
                                 // ROUTETAP-2026-08-23Z: mirrors onTrackTap above. A route
                                 // is an artifact we own, so it opens the shared detail
@@ -1871,7 +1884,7 @@ fun ConvoyMapViewerScreen(
                                         // [draft-resolver 2026-08-01] Retired: the resolver above acts on
                                         // the draft directory directly instead of showing a notice that tells
                                         // the user to go do it themselves.
-                                        if (routeSeedOpen && !recoveryLaunched) {
+                                        if (rmTrace(routeSeedOpen && !recoveryLaunched, "RM-RECOVERY onPageFinished seedOpen=$routeSeedOpen recoveryLaunched=$recoveryLaunched")) {   // RMTRACE-2026-10-01
                                             recoveryLaunched = true
                                         }
                                         return@postDelayed
@@ -2334,8 +2347,8 @@ fun ConvoyMapViewerScreen(
                         }
                     }
                     // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
-                    addPointMode = true
-                    routeMode = true   // route-add selected: panel has no cancel, both picks build a route
+                    addPointMode = rmTrace(true, "RM@ConvoyMapViewerScreen:2337")
+                    routeMode = rmTrace(true, "RM@ConvoyMapViewerScreen:2338")   // route-add selected: panel has no cancel, both picks build a route
                     android.util.Log.i("PanelTrace", "PICKER <- true"); showInProgressPicker = true
                 },
                 onSearch = { type, term ->
@@ -3663,8 +3676,8 @@ fun ConvoyMapViewerScreen(
                             routeNameTaken = false
                             routeEntryNonce++
                             // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
-                            addPointMode = true
-                            routeMode = true
+                            addPointMode = rmTrace(true, "RM@ConvoyMapViewerScreen:3666")
+                            routeMode = rmTrace(true, "RM@ConvoyMapViewerScreen:3667")
                             webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)  // arm tap-to-place (no name prompt)
                         }) { androidx.compose.material3.Text("New Route") }
                     },
@@ -3753,8 +3766,8 @@ fun ConvoyMapViewerScreen(
                         draftListTick++
                         webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                         // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
-                        addPointMode = false
-                        routeMode = false
+                        addPointMode = rmTrace(false, "RM@ConvoyMapViewerScreen:3756")
+                        routeMode = rmTrace(false, "RM@ConvoyMapViewerScreen:3757")
                         webViewRef?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
                     } else {
                         android.widget.Toast.makeText(context, "Need at least 2 points to save", android.widget.Toast.LENGTH_SHORT).show()
@@ -3794,8 +3807,8 @@ fun ConvoyMapViewerScreen(
                                 showNameDialog = false
                                 routeEntryNonce++
                                 // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
-                                addPointMode = true
-                                routeMode = true
+                                addPointMode = rmTrace(true, "RM@ConvoyMapViewerScreen:3797")
+                                routeMode = rmTrace(true, "RM@ConvoyMapViewerScreen:3798")
                                 webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)  // arm tap-to-place
                             }
                         }) { androidx.compose.material3.Text("Start") }
@@ -3931,7 +3944,7 @@ fun ConvoyMapViewerScreen(
                     // ARMSTATE-2026-08-13F: the highlight is the real armed state.
                     addArmed = addPointMode,
                     onAddModeChanged = { armed ->
-                        addPointMode = armed
+                        addPointMode = rmTrace(armed, "RM@ConvoyMapViewerScreen:3934")
                         // AIMODE-2026-08-25B4b: choosing Draw ENDS the AI flow.
                         // The rider has said they want to place vertices by hand.
                         //
@@ -3986,7 +3999,7 @@ fun ConvoyMapViewerScreen(
                     // popup unbind/rebind, which the raw flag does not.
                     onClose = {
                         android.util.Log.i("PanelTrace", "ROUTE+ <- closed by X")
-                        routeMode = false
+                        routeMode = rmTrace(false, "RM@ConvoyMapViewerScreen:3989")
                         webViewRef?.evaluateJavascript(
                             "window.__routeMode=false;setRouteMode(false)", null)
                     },
@@ -4000,8 +4013,8 @@ fun ConvoyMapViewerScreen(
                         draftListTick++
                         webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                         // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
-                        addPointMode = false
-                        routeMode = false
+                        addPointMode = rmTrace(false, "RM@ConvoyMapViewerScreen:4003")
+                        routeMode = rmTrace(false, "RM@ConvoyMapViewerScreen:4004")
                     }
                 )
             }
@@ -4072,8 +4085,8 @@ fun ConvoyMapViewerScreen(
                                     draftListTick++
                                     webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                                     // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
-                                    addPointMode = false
-                                    routeMode = false
+                                    addPointMode = rmTrace(false, "RM@ConvoyMapViewerScreen:4075")
+                                    routeMode = rmTrace(false, "RM@ConvoyMapViewerScreen:4076")
                                     // [saveinprogress-trace 2026-08-01] This path disarmed silently -- no trace,
                                     // no toast. Every route-mode write announces itself while instrumentation is in.
                                 }
@@ -4135,8 +4148,8 @@ fun ConvoyMapViewerScreen(
                             draftListTick++
                             webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                             // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
-                            addPointMode = false
-                            routeMode = false
+                            addPointMode = rmTrace(false, "RM@ConvoyMapViewerScreen:4138")
+                            routeMode = rmTrace(false, "RM@ConvoyMapViewerScreen:4139")
                             routeName = ""
                         }) { androidx.compose.material3.Text("Delete in-progress") }
                     }
@@ -4248,8 +4261,8 @@ fun ConvoyMapViewerScreen(
                     routeName = RouteDraftStore.UNNAMED
                     routeNameTaken = false
                     routeEntryNonce++
-                    addPointMode = true
-                    routeMode = true
+                    addPointMode = rmTrace(true, "RM@ConvoyMapViewerScreen:4251")
+                    routeMode = rmTrace(true, "RM@ConvoyMapViewerScreen:4252")
                     webViewRef?.evaluateJavascript(
                         "window.__routeMode=true;setRouteMode(true)", null)
                 }
@@ -4259,7 +4272,7 @@ fun ConvoyMapViewerScreen(
                 // be told apart from a render that ignores it
                 android.util.Log.i("PanelTrace", "PICKER renders")
                 androidx.compose.material3.AlertDialog(
-                    onDismissRequest = { android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false; routeMode = false; webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) },
+                    onDismissRequest = { android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false; routeMode = rmTrace(false, "RM@ConvoyMapViewerScreen:4262"); webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) },
                     title = { androidx.compose.material3.Text("Continue editing or create a new route") },
                     text = {
                         androidx.compose.foundation.layout.Column {
@@ -4277,8 +4290,8 @@ fun ConvoyMapViewerScreen(
                                         android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false
                                         routeEntryNonce++
                                         // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
-                                        addPointMode = true
-                                        routeMode = true
+                                        addPointMode = rmTrace(true, "RM@ConvoyMapViewerScreen:4280")
+                                        routeMode = rmTrace(true, "RM@ConvoyMapViewerScreen:4281")
                                         savePlanningState()   // stamp open:true on In-Progress resume (matches New Route @872)
                                         scope.launch {
                                             val rsPts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -4335,13 +4348,13 @@ fun ConvoyMapViewerScreen(
                             routeNameTaken = false
                             routeEntryNonce++
                             // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
-                            addPointMode = true
-                            routeMode = true
+                            addPointMode = rmTrace(true, "RM@ConvoyMapViewerScreen:4338")
+                            routeMode = rmTrace(true, "RM@ConvoyMapViewerScreen:4339")
                             webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)
                         }) { androidx.compose.material3.Text("+ Plan a New Route") }
                     },
                     dismissButton = {
-                        androidx.compose.material3.TextButton(onClick = { android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false; routeMode = false; webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) }) {
+                        androidx.compose.material3.TextButton(onClick = { android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false; routeMode = rmTrace(false, "RM@ConvoyMapViewerScreen:4344"); webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) }) {
                             androidx.compose.material3.Text("Cancel")
                         }
                     }
