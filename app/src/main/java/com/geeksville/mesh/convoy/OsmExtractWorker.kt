@@ -46,8 +46,27 @@ import java.util.zip.ZipFile
  */
 class OsmExtractWorker(
     appContext: Context,
-    params: WorkerParameters
-) : CoroutineWorker(appContext, params) {
+    private val runSlug: String,
+    private val onProgress: (String) -> Unit
+) {
+    // INPROCESS-2026-10-02 (Fred): no background job. The state import calls this directly, inside its own coordinator --
+    // one owner, visible on screen, and gone when the app closes, so nothing can be left "running".
+    // The shims below keep the job body exactly as it was.
+    private val applicationContext: Context = appContext.applicationContext
+    private val inputData: Data = workDataOf(KEY_SLUG to runSlug)
+    private val isStopped = false   // cancel is the coordinator's job (cooperative, at its suspension points)
+    private fun setProgressAsync(d: Data) { d.getString(OsmExtractProgress.KEY)?.let(onProgress) }
+    @Suppress("UNUSED_PARAMETER")
+    private fun setForegroundAsync(info: ForegroundInfo) { /* the import screen shows progress */ }
+    sealed class Result {
+        object Success : Result()
+        class Failure(val data: Data) : Result()
+        companion object {
+            fun success(): Result = Success
+            fun failure(data: Data): Result = Failure(data)
+        }
+    }
+
 
     companion object {
         private const val TAG = "OsmExtract"
@@ -68,13 +87,8 @@ class OsmExtractWorker(
         fun uniqueName(slug: String) = "osm_extract_$slug"
 
         fun enqueue(ctx: Context, slug: String) {
-            val req = OneTimeWorkRequestBuilder<OsmExtractWorker>()
-                .setInputData(workDataOf(KEY_SLUG to slug))
-                .build()
-            WorkManager.getInstance(ctx).enqueueUniqueWork(
-                uniqueName(slug), ExistingWorkPolicy.KEEP, req
-            )
-            Log.i(TAG, "enqueued extract for $slug")
+            // INPROCESS-2026-10-02: retired -- the state import runs the extract directly. Nothing enqueues a job.
+            Log.w(TAG, "INPROCESS-2026-10-02: background extract for $slug retired; not enqueued")
         }
     }
 
@@ -85,7 +99,7 @@ class OsmExtractWorker(
     // panel is updated -- see the two constants in OsmExtractProgress.
     private var lastNotifyMs = 0L
 
-    override suspend fun doWork(): Result {
+    suspend fun doWork(): Result {   // INPROCESS-2026-10-02
         val ctx = applicationContext
         val slug = inputData.getString(KEY_SLUG)
             ?: return fail("no slug supplied")

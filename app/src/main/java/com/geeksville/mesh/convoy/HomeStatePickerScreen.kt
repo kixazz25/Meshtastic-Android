@@ -69,9 +69,16 @@ fun HomeStatePickerScreen(
     var selectedItem by remember { mutableStateOf<StatePickerItem?>(null) }
     var searchText by remember { mutableStateOf("") }
     val progress by HomeStateImportController.progress.collectAsState()
+    // KILLEDIMPORT-2026-10-02: a running import this screen did not start still ends in "done".
+    LaunchedEffect(progress?.phase) {
+        if (phase == "running" && !HomeStateImportController.isImporting &&
+            (progress?.phase == "completed" || progress?.phase == "failed")) phase = "done"
+    }
 
     // ── Detect on launch ─────────────────────────────────────────
     LaunchedEffect(Unit) {
+        // KILLEDIMPORT-2026-10-02: an import is already running -- show it, never a list that cannot start.
+        if (HomeStateImportController.isImporting) { phase = "running"; return@LaunchedEffect }
         // AREAWIRE-2026-08-21C: AREA MODE -- skip detection entirely. The states are
         // resolved from the DRAWN bbox; their own Geofabrik bboxes are only the
         // reference used to select them, never the area imported.
@@ -131,7 +138,8 @@ fun HomeStatePickerScreen(
         // ⭐ THE CONTROLLER OWNS THE JOB NOW. It outlives every screen, one
         // import at a time, and cancel reaches the work instead of the panel.
         if (!HomeStateImportController.beginImport()) {
-            Log.w(TAG, "import already running -- ignoring request")
+            Log.w(TAG, "import already running -- showing its progress")
+            phase = "running"   // KILLEDIMPORT-2026-10-02: was a silent return -- the panel that would not proceed
             return
         }
         phase = "running"
@@ -179,6 +187,20 @@ fun HomeStatePickerScreen(
             }
         }
 
+        // KILLEDIMPORT-2026-10-02 (Fred): an import that did not finish is removed at startup -- say so, and re-pick.
+        val killedArea = HomeStateImportController.killedImportArea
+        if (killedArea != null && (phase == "detecting" || phase == "confirm" || phase == "list")) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                color = Color(0xFF4A3410), shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(
+                    "The $killedArea state import did not finish and was removed. Select a state and process again.",
+                    color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
+        }
         when (phase) {
             "detecting" -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

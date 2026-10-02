@@ -5003,10 +5003,8 @@ fun ConvoyMapViewerScreen(
                             OsmImportLedger.pendingBbox(context, s) == null
                         ) s else null
                     }
-                    if (await != null) {
-                        osmAwaitingSlug = await
-                        panelOsmChecked = true
-                    }
+                    // INPROCESS-2026-10-02: the 2.6e four-step OSM panel is retired -- a leftover ledger no longer revives it.
+                    if (await != null) android.util.Log.i("OsmArea", "INPROCESS-2026-10-02: leftover 2.6e ledger for $await ignored")
                 } else {
                     pmDownloadedOn = false
                 }
@@ -5045,7 +5043,7 @@ fun ConvoyMapViewerScreen(
                     osmAwaitingSlug = null
                     panelOsmChecked = false
                     showDownloadPanel = false
-                    showOsmPanel = true
+                    showOsmPanel = false   // INPROCESS-2026-10-02: the 2.6e panel is retired
                 }
             }
             // ── Floating download execute button (outside panel for landscape) ──

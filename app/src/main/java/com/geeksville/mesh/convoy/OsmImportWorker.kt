@@ -46,8 +46,27 @@ import java.util.UUID
  */
 class OsmImportWorker(
     appContext: Context,
-    params: WorkerParameters
-) : CoroutineWorker(appContext, params) {
+    private val runSlug: String,
+    private val onProgress: (String) -> Unit
+) {
+    // INPROCESS-2026-10-02 (Fred): no background job. The state import calls this directly, inside its own coordinator --
+    // one owner, visible on screen, and gone when the app closes, so nothing can be left "running".
+    // The shims below keep the job body exactly as it was.
+    private val applicationContext: Context = appContext.applicationContext
+    private val inputData: Data = workDataOf(KEY_SLUG to runSlug)
+    private val isStopped = false   // cancel is the coordinator's job (cooperative, at its suspension points)
+    private fun setProgressAsync(d: Data) { d.getString(OsmExtractProgress.KEY)?.let(onProgress) }
+    @Suppress("UNUSED_PARAMETER")
+    private fun setForegroundAsync(info: ForegroundInfo) { /* the import screen shows progress */ }
+    sealed class Result {
+        object Success : Result()
+        class Failure(val data: Data) : Result()
+        companion object {
+            fun success(): Result = Success
+            fun failure(data: Data): Result = Failure(data)
+        }
+    }
+
 
     companion object {
         private const val TAG = "OsmImport"
@@ -71,16 +90,8 @@ class OsmImportWorker(
         fun uniqueName(slug: String) = "osm_import_$slug"
 
         fun enqueue(ctx: Context, slug: String) {
-            val req = OneTimeWorkRequestBuilder<OsmImportWorker>()
-                .setInputData(workDataOf(KEY_SLUG to slug))
-                .build()
-            // KEEP: the panel relaunches on every refresh while a pending bbox
-            // exists, so a second enqueue must be a no-op rather than a second
-            // import.
-            WorkManager.getInstance(ctx).enqueueUniqueWork(
-                uniqueName(slug), ExistingWorkPolicy.KEEP, req
-            )
-            Log.i(TAG, "enqueued import for $slug")
+            // INPROCESS-2026-10-02: retired -- the state import runs the import directly. Nothing enqueues a job.
+            Log.w(TAG, "INPROCESS-2026-10-02: background import for $slug retired; not enqueued")
         }
     }
 
@@ -89,7 +100,7 @@ class OsmImportWorker(
     private var lastPublishMs = 0L
     private var lastNotifyMs = 0L
 
-    override suspend fun doWork(): Result {
+    suspend fun doWork(): Result {   // INPROCESS-2026-10-02
         val ctx = applicationContext
         val slug = inputData.getString(KEY_SLUG) ?: return fail("no slug supplied")
 

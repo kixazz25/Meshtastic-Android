@@ -211,7 +211,8 @@ private fun evaluateState(context: android.content.Context, attempt: Int): Autho
 
     val needsTrails = if (storage && background) {
         try {
-            HomeStateImportController.needsTrailData(context)
+            HomeStateImportController.needsTrailData(context) ||
+                HomeStateImportController.killedImportArea != null   // KILLEDIMPORT-2026-10-02: never strand the rider
         } catch (e: Exception) {
             // Never strand the rider at the gate over a failed check.
             android.util.Log.e("ConvoyGate", "trail check failed: " + e.message)

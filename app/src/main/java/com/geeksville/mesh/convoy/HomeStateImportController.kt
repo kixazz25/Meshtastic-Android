@@ -116,9 +116,15 @@ object HomeStateImportController {
      * caller must not start. ⚠ @Synchronized because two taps a few hundred ms
      * apart is exactly how 09-03 got two imports.
      */
+    /** KILLEDIMPORT-2026-10-02: the state whose import the startup sweep found unfinished and stamped "killed".
+     *  Non-null -> the gate opens the state picker even though trails exist, and the picker shows a banner.
+     *  In memory only: set by this launch's sweep, cleared when a new import starts. */
+    @Volatile var killedImportArea: String? = null
+
     @Synchronized
     fun beginImport(): Boolean {
         if (isImporting) return false
+        killedImportArea = null   // KILLEDIMPORT-2026-10-02: a new import answers the banner
         return true
     }
 
@@ -792,8 +798,13 @@ object HomeStateImportController {
 
         // Step 3: Extract
         updateSourceStep(src, "Extracting", null)
-        OsmExtractWorker.enqueue(context, slug)
-        val extractOk = awaitWorker(context, OsmExtractWorker.uniqueName(slug))
+        // INPROCESS-2026-10-02: run the extract directly -- no background job to strand.
+        val extractOk = try {
+            OsmExtractWorker(context, slug) { raw -> progressDetail(raw)?.let { downloadDetailFlow.value = it } }
+                .doWork() is OsmExtractWorker.Result.Success
+        } finally {
+            downloadDetailFlow.value = null
+        }
         if (!extractOk) {
             Log.e(TAG, "Extract failed for $slug")
             return false
@@ -814,8 +825,13 @@ object HomeStateImportController {
 
         // Step 5: Import
         updateSourceStep(src, "Importing", null)
-        OsmImportWorker.enqueue(context, slug)
-        val importOk = awaitWorker(context, OsmImportWorker.uniqueName(slug))
+        // INPROCESS-2026-10-02: run the import directly -- no background job to strand.
+        val importOk = try {
+            OsmImportWorker(context, slug) { raw -> progressDetail(raw)?.let { downloadDetailFlow.value = it } }
+                .doWork() is OsmImportWorker.Result.Success
+        } finally {
+            downloadDetailFlow.value = null
+        }
         if (!importOk) {
             Log.e(TAG, "Import failed for $slug")
             return false
@@ -1056,6 +1072,24 @@ object HomeStateImportController {
      *
      * The label is the FIRST INCOMPLETE ITEM, which is the one being serviced.
      */
+    /** INPROCESS-2026-10-02: the running step's progress JSON (OsmExtractProgress) as one line, or null. Same reading
+     *  as workerDetail, from the string the step now hands over directly. Defensive: never crashes an import. */
+    private fun progressDetail(raw: String): String? = try {
+        val arr = org.json.JSONArray(raw)
+        var line: String? = null
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optBoolean("complete", false)) continue
+            val sb = StringBuilder(o.optString("label", o.optString("id", "Working")))
+            val done = o.optInt("done", 0); val total = o.optInt("total", 0); val eta = o.optInt("eta_sec", -1)
+            if (total > 0) sb.append(" - ").append(done).append(" of ").append(total)
+            else if (done > 0) sb.append(" - ").append(done)
+            if (eta > 0) sb.append(" (~").append(eta).append("s)")
+            line = sb.toString(); break
+        }
+        line
+    } catch (_: Exception) { null }
+
     private fun workerDetail(wi: WorkInfo): String? {
         return try {
             val raw = wi.progress.getString("osm_extract_progress")
@@ -1409,6 +1443,9 @@ object HomeStateImportController {
                     // STAMP FIRST.
                     json.put("process_state", "killed")
                     json.put("killed_at", iso8601Now())
+                    // KILLEDIMPORT-2026-10-02: remember it -- the gate re-opens the picker, the picker says so.
+                    killedImportArea = json.optString("state", "").ifBlank { json.optString("area", "") }
+                        .ifBlank { "last" }
                     f.writeText(json.toString(2))
                 }
 
