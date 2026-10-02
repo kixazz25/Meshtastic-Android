@@ -39,11 +39,11 @@ fun ConvoyQueuesPanel(onDismiss: () -> Unit = {}, modifier: Modifier = Modifier)
             }
             AnimatedVisibility(visible = expanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("ALL | TILE | UPLOAD | DOWNLOAD", color = Color(0xFF4A6080), fontSize = 8.sp, fontFamily = mono)
+                    Text("ALL | TILE | UPLOAD | DOWNLOAD", color = Color(0xFFFFFFFF), fontSize = 8.sp, fontFamily = mono)
                     QRow("Tile Queue", 0, Color(0xFF1CF0A0))
                     QRow("Upload Queue", 0, Color(0xFFBC8CFF))
                     QRow("Download Queue", 0, Color(0xFF4DA6FF))
-                    Text("[ Pass 1 scaffold ]", color = Color(0xFF4A6080), fontSize = 8.sp, fontFamily = mono)
+                    Text("[ Pass 1 scaffold ]", color = Color(0xFFFFFFFF), fontSize = 8.sp, fontFamily = mono)
                 }
             }
         }

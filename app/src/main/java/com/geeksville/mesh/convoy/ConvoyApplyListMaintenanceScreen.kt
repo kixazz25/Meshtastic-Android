@@ -221,7 +221,7 @@ fun ConvoyApplyListMaintenanceScreen(
             Spacer(Modifier.height(8.dp))
             Text(
                 "After saving, run: bash ~/Meshtastic-Android/docs/sync_assets_v1.sh",
-                color = Color(0xFF4A6080), fontSize = 9.sp,
+                color = Color(0xFFFFFFFF), fontSize = 9.sp,
                 fontFamily = FontFamily.Monospace
             )
             Spacer(Modifier.height(32.dp))
@@ -265,7 +265,7 @@ private fun MaintFieldRow(label: String, checked: Boolean, locked: Boolean = fal
             enabled = !locked,
             colors = CheckboxDefaults.colors(
                 checkedColor = Color(0xFF97D5A5),
-                uncheckedColor = Color(0xFF4A6080),
+                uncheckedColor = Color(0xFFFFFFFF),
                 disabledCheckedColor = Color(0xFF97D5A5).copy(alpha = 0.5f)
             )
         )
@@ -277,7 +277,7 @@ private fun MaintFieldRow(label: String, checked: Boolean, locked: Boolean = fal
         )
         if (locked) {
             Spacer(Modifier.width(8.dp))
-            Text("LOCKED", color = Color(0xFF4A6080), fontSize = 9.sp,
+            Text("LOCKED", color = Color(0xFFFFFFFF), fontSize = 9.sp,
                 fontFamily = FontFamily.Monospace)
         }
     }

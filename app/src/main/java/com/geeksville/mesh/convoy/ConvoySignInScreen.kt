@@ -370,7 +370,7 @@ fun ConvoySignInScreen(
                 colors = androidx.compose.material3.SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFFFFCC44),
                     checkedTrackColor = Color(0xFF886633),
-                    uncheckedThumbColor = Color(0xFF445566),
+                    uncheckedThumbColor = Color(0xFFFFFFFF),
                     uncheckedTrackColor = Color(0xFF223344)
                 )
             )
@@ -386,7 +386,7 @@ fun ConvoySignInScreen(
         ) {
             Text(
                 text = "By signing in you agree to the GroupTrack\nRider Terms and Privacy Policy",
-                color = Color(0xFF445566),
+                color = Color(0xFFFFFFFF),
                 fontSize = 10.sp,
                 textAlign = TextAlign.Center,
                 lineHeight = 15.sp

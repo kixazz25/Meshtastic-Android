@@ -371,7 +371,7 @@ private fun GtNavBtn(icon: String, label: String, isActive: Boolean, onClick: ()
         androidx.compose.material3.Text(
             text = label,
             color = if (isActive) GroupTrackColors.SkyBlue
-                    else androidx.compose.ui.graphics.Color(0xFF445566),
+                    else androidx.compose.ui.graphics.Color(0xFFFFFFFF),
             fontSize = 9.sp,
             fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
             letterSpacing = 1.sp
@@ -402,7 +402,7 @@ private fun GtMenuLabel(title: String) {
     )
     androidx.compose.material3.HorizontalDivider(
         thickness = 0.5.dp,
-        color = androidx.compose.ui.graphics.Color(0xFF4A6080)
+        color = androidx.compose.ui.graphics.Color(0xFFFFFFFF)
     )
 }
 
@@ -413,7 +413,7 @@ private fun GtMenuItem(label: String, active: Boolean, onClick: () -> Unit) {
             .background(androidx.compose.ui.graphics.Color(0xFF2C3E50)),
         colors = androidx.compose.material3.MenuDefaults.itemColors(
             textColor = androidx.compose.ui.graphics.Color(0xFFE8EEF5),
-            disabledTextColor = androidx.compose.ui.graphics.Color(0xFF4A6080)
+            disabledTextColor = androidx.compose.ui.graphics.Color(0xFF7D8A99)
         ),
         text = {
             androidx.compose.foundation.layout.Row(
@@ -424,7 +424,7 @@ private fun GtMenuItem(label: String, active: Boolean, onClick: () -> Unit) {
                 androidx.compose.material3.Text(
                     text = label,
                     color = if (active) androidx.compose.ui.graphics.Color(0xFFE8EEF5)
-                            else androidx.compose.ui.graphics.Color(0xFF4A6080),
+                            else androidx.compose.ui.graphics.Color(0xFFFFFFFF),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace

@@ -36,7 +36,7 @@ import kotlin.math.roundToInt
 private val panelBg = Color(0xEE131820)
 private val itemBg = Color(0xFF1A2233)
 private val textBright = Color(0xFFCCDDEE)
-private val textDim = Color(0xFF4A6080)
+private val textDim = Color(0xFFFFFFFF)
 private val accentBlue = Color(0xFF4DA6FF)
 private val accentGreen = Color(0xFF1CF0A0)
 private val mono = FontFamily.Monospace

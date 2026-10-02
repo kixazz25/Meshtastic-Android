@@ -36,13 +36,13 @@ fun ConvoyBroadcastScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
             Text(text = "SUNDAY DESERT RUN", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text(text = "April 13, 2026  ·  9:00 AM", color = Color(0xFF445566), fontSize = 12.sp)
+            Text(text = "April 13, 2026  ·  9:00 AM", color = Color(0xFFFFFFFF), fontSize = 12.sp)
 
             // Audience stats
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                 .background(Color(0xFF0F2035)).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = "BROADCAST AUDIENCE", color = Color(0xFF445566), fontSize = 9.sp, letterSpacing = 2.sp)
+                Text(text = "BROADCAST AUDIENCE", color = Color(0xFFFFFFFF), fontSize = 9.sp, letterSpacing = 2.sp)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(text = "Followers", color = Color(0xFFAABBCC), fontSize = 12.sp)
                     Text(text = "12", color = Color(0xFF4AB8E8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -61,7 +61,7 @@ fun ConvoyBroadcastScreen(
                         fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(text = "This ride has already been broadcast. One-time only.",
-                    color = Color(0xFF445566), fontSize = 11.sp)
+                    color = Color(0xFFFFFFFF), fontSize = 11.sp)
             } else {
                 Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                     .background(Color(0xFFF59E0B).copy(alpha = 0.15f))
@@ -73,7 +73,7 @@ fun ConvoyBroadcastScreen(
                         fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(text = "Sends email to all followers who have opted in. One-time only per ride.",
-                    color = Color(0xFF445566), fontSize = 11.sp)
+                    color = Color(0xFFFFFFFF), fontSize = 11.sp)
             }
         }
 

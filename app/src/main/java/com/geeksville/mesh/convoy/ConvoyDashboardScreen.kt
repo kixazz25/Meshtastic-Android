@@ -304,7 +304,7 @@ fun ConvoyDashboardScreen(
                                     if (location.isNotEmpty()) append(location)
                                     if (trailhead.isNotEmpty()) append(" \u00b7 $trailhead")
                                 },
-                                color = Color(0xFF445566), fontSize = 11.sp
+                                color = Color(0xFFFFFFFF), fontSize = 11.sp
                             )
                         }
                         if (date.isNotEmpty()) {
@@ -314,7 +314,7 @@ fun ConvoyDashboardScreen(
                                     if (arriveTime.isNotEmpty()) append(" \u00b7 Arrive $arriveTime")
                                     if (departTime.isNotEmpty()) append(" \u00b7 Depart $departTime")
                                 },
-                                color = Color(0xFF445566), fontSize = 11.sp
+                                color = Color(0xFFFFFFFF), fontSize = 11.sp
                             )
                         }
                         if (description.isNotEmpty()) {
@@ -336,7 +336,7 @@ fun ConvoyDashboardScreen(
                                     if (accepted > 0) NotifAccordion("ACCEPTED ($accepted)", Color(0xFF22C55E), acceptedOpen) { acceptedOpen = !acceptedOpen }
                                     if (maybe > 0)    NotifAccordion("MAYBE ($maybe)", Color(0xFFF59E0B), maybeOpen) { maybeOpen = !maybeOpen }
                                     if (declined > 0) NotifAccordion("DECLINED ($declined)", Color(0xFFEF4444), declinedOpen) { declinedOpen = !declinedOpen }
-                                    if (invited > 0)  NotifAccordion("INVITED ($invited)", Color(0xFF445566), invitedOpen) { invitedOpen = !invitedOpen }
+                                    if (invited > 0)  NotifAccordion("INVITED ($invited)", Color(0xFFFFFFFF), invitedOpen) { invitedOpen = !invitedOpen }
                                 }
                             }
                         }
@@ -470,7 +470,7 @@ fun ConvoyDashboardScreen(
                             onValueChange = { zipCode = it; ConvoySessionManager.setZipCode(context, it) },
                             modifier = Modifier.width(90.dp).height(48.dp),
                             singleLine = true,
-                            label = { Text("ZIP", fontSize = 9.sp, color = Color(0xFF445566)) },
+                            label = { Text("ZIP", fontSize = 9.sp, color = Color(0xFFFFFFFF)) },
                             textStyle = androidx.compose.ui.text.TextStyle(
                                 color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace
                             ),
@@ -479,13 +479,13 @@ fun ConvoyDashboardScreen(
                                 focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color(0xFF4AB8E8)
                             )
                         )
-                        Text("\u00b7", color = Color(0xFF445566), fontSize = 12.sp)
+                        Text("\u00b7", color = Color(0xFFFFFFFF), fontSize = 12.sp)
                         OutlinedTextField(
                             value = radius,
                             onValueChange = { v -> radius = v; v.toIntOrNull()?.let { r -> ConvoySessionManager.setSearchRadius(context, r) } },
                             modifier = Modifier.width(64.dp).height(48.dp),
                             singleLine = true,
-                            label = { Text("MI", fontSize = 9.sp, color = Color(0xFF445566)) },
+                            label = { Text("MI", fontSize = 9.sp, color = Color(0xFFFFFFFF)) },
                             textStyle = androidx.compose.ui.text.TextStyle(
                                 color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace
                             ),
@@ -494,7 +494,7 @@ fun ConvoyDashboardScreen(
                                 focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color(0xFF4AB8E8)
                             )
                         )
-                        Text("mi", color = Color(0xFF445566), fontSize = 10.sp)
+                        Text("mi", color = Color(0xFFFFFFFF), fontSize = 10.sp)
                         if (pubCount > 0) {
                             Box(modifier = Modifier.clip(RoundedCornerShape(10.dp))
                                 .background(Color(0xFF4AB8E8)).padding(horizontal = 6.dp, vertical = 2.dp)) {
@@ -511,7 +511,7 @@ fun ConvoyDashboardScreen(
                                 .background(Color(0xFF0A1628)).padding(16.dp),
                                 contentAlignment = Alignment.Center) {
                                 Text("No public rides found near $zipCode within $radius miles",
-                                    color = Color(0xFF445566), fontSize = 12.sp, textAlign = TextAlign.Center)
+                                    color = Color(0xFFFFFFFF), fontSize = 12.sp, textAlign = TextAlign.Center)
                             }
                         } else {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -639,7 +639,7 @@ private fun RideDisplayPanel(
                     if (city.isNotEmpty()) append(city)
                     if (trailhead.isNotEmpty()) append(" \u2014 $trailhead")
                 },
-                color = Color(0xFF445566), fontSize = 11.sp,
+                color = Color(0xFFFFFFFF), fontSize = 11.sp,
                 modifier = Modifier.weight(1f)
             )
             if (showFollow) {
@@ -725,7 +725,7 @@ private fun RideDisplayPanel(
         if (orgEmail.isNotEmpty()) {
             Text(
                 text = orgEmail,
-                color = Color(0xFF445566), fontSize = 10.sp,
+                color = Color(0xFFFFFFFF), fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace
             )
         }
@@ -759,12 +759,12 @@ private fun RideActionButton(
     activeColor: Color, onClick: () -> Unit
 ) {
     val borderColor = when {
-        !enabled -> Color(0xFF445566)
+        !enabled -> Color(0xFF7D8A99)
         active   -> Color(0xFF22C55E)
         else     -> Color(0xFFEF4444)
     }
     val textColor = when {
-        !enabled -> Color(0xFF445566)
+        !enabled -> Color(0xFF7D8A99)
         active   -> Color(0xFF22C55E)
         else     -> Color(0xFFEF4444)
     }
@@ -799,10 +799,10 @@ private fun VisibilityBadge(visibility: String) {
 private fun RideStatusBadge(status: String) {
     val (color, label) = when (status.lowercase()) {
         "open"      -> Color(0xFF22C55E) to "OPEN"
-        "closed"    -> Color(0xFF445566) to "CLOSED"
+        "closed"    -> Color(0xFFFFFFFF) to "CLOSED"
         "cancelled" -> Color(0xFFEF4444) to "CANCELLED"
-        "pending"   -> Color(0xFF445566) to "PENDING"
-        "completed" -> Color(0xFF445566) to "COMPLETED"
+        "pending"   -> Color(0xFFFFFFFF) to "PENDING"
+        "completed" -> Color(0xFFFFFFFF) to "COMPLETED"
         else        -> Color(0xFF22C55E) to "OPEN"
     }
     Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
@@ -876,7 +876,7 @@ private fun dashStatusColor(status: String) = when (status.lowercase()) {
     "maybe"     -> Color(0xFFF59E0B)
     "declined"  -> Color(0xFFEF4444)
     "invited"   -> Color(0xFFF59E0B)
-    "completed" -> Color(0xFF445566)
-    "pending"   -> Color(0xFF445566)
-    else        -> Color(0xFF445566)
+    "completed" -> Color(0xFFFFFFFF)
+    "pending"   -> Color(0xFFFFFFFF)
+    else        -> Color(0xFFFFFFFF)
 }

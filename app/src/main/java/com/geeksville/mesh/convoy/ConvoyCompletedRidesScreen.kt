@@ -160,7 +160,7 @@ fun ConvoyCompletedRidesScreen(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
                             focusedLabelColor = Color(0xFF4AB8E8),
-                            unfocusedLabelColor = Color(0xFF445566),
+                            unfocusedLabelColor = Color(0xFFFFFFFF),
                             cursorColor = Color(0xFF4AB8E8)
                         )
                     )
@@ -247,7 +247,7 @@ fun ConvoyCompletedRidesScreen(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
                                 focusedLabelColor = Color(0xFF4AB8E8),
-                                unfocusedLabelColor = Color(0xFF445566),
+                                unfocusedLabelColor = Color(0xFFFFFFFF),
                                 cursorColor = Color(0xFF4AB8E8)
                             )
                         )
@@ -262,7 +262,7 @@ fun ConvoyCompletedRidesScreen(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
                                 focusedLabelColor = Color(0xFF4AB8E8),
-                                unfocusedLabelColor = Color(0xFF445566),
+                                unfocusedLabelColor = Color(0xFFFFFFFF),
                                 cursorColor = Color(0xFF4AB8E8)
                             )
                         )
@@ -330,7 +330,7 @@ private fun FilterBar(
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("RADIUS", color = Color(0xFF445566), fontSize = 9.sp,
+                Text("RADIUS", color = Color(0xFFFFFFFF), fontSize = 9.sp,
                     fontFamily = FontFamily.Monospace)
                 Text(
                     buildString {
@@ -412,13 +412,13 @@ fun CompletedRideCard(ride: CompletedRide, onClick: () -> Unit) {
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
         }
-        Text("${ride.city}  —  ${ride.trailhead}", color = Color(0xFF445566), fontSize = 11.sp)
+        Text("${ride.city}  —  ${ride.trailhead}", color = Color(0xFFFFFFFF), fontSize = 11.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(ride.date, color = Color(0xFF4AB8E8), fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace)
-            Text(ride.organizer, color = Color(0xFF445566), fontSize = 10.sp,
+            Text(ride.organizer, color = Color(0xFFFFFFFF), fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace)
-            Text(ride.distance, color = Color(0xFF445566), fontSize = 10.sp,
+            Text(ride.distance, color = Color(0xFFFFFFFF), fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace)
         }
         Text("→ TAP FOR DETAILS", color = Color(0xFF2A4060), fontSize = 8.sp,

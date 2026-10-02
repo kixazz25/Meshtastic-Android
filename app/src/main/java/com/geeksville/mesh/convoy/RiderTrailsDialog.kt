@@ -70,7 +70,7 @@ fun RiderTrailsDialog(
                         Text("%.2f miles".format(r.miles), color = Color(0xFF8FD0FF),
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         Text("from ${r.tracksScanned} track(s)",
-                            color = Color(0xFF4A6080),
+                            color = Color(0xFFFFFFFF),
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         if (r.trailsAdded == 0) {
                             Spacer(modifier = Modifier.height(10.dp))
@@ -78,7 +78,7 @@ fun RiderTrailsDialog(
                             // rider should not have to wonder.
                             Text("Every track is already covered by a known " +
                                 "trail. Nothing new to add.",
-                                color = Color(0xFF4A6080),
+                                color = Color(0xFFFFFFFF),
                                 fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                         }
                     }
@@ -89,7 +89,7 @@ fun RiderTrailsDialog(
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         Spacer(modifier = Modifier.height(10.dp))
                         Text("Safe to run more than once.",
-                            color = Color(0xFF4A6080),
+                            color = Color(0xFFFFFFFF),
                             fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                     }
                 }
@@ -101,7 +101,7 @@ fun RiderTrailsDialog(
                 enabled = !running && result == null
             ) {
                 Text("START", color = if (running || result != null)
-                    Color(0xFF4A6080) else Color(0xFF39FF14),
+                    Color(0xFFFFFFFF) else Color(0xFF39FF14),
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                     fontSize = 13.sp)
             }
@@ -109,7 +109,7 @@ fun RiderTrailsDialog(
         dismissButton = {
             TextButton(onClick = { if (!running) onClose() }) {
                 Text("CLOSE",
-                    color = if (running) Color(0xFF4A6080) else Color(0xFF8FD0FF),
+                    color = if (running) Color(0xFFFFFFFF) else Color(0xFF8FD0FF),
                     fontFamily = FontFamily.Monospace, fontSize = 13.sp)
             }
         }

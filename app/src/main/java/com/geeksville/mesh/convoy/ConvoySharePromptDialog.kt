@@ -44,7 +44,7 @@ fun ConvoySharePromptDialog(
                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
             Text("Share '$artifactName' with other GroupTrack users?",
                 color = Color(0xFFCCDDEE), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-            Text("V2.5: collecting only", color = Color(0xFF4A6080), fontSize = 8.sp,
+            Text("V2.5: collecting only", color = Color(0xFFFFFFFF), fontSize = 8.sp,
                 fontFamily = FontFamily.Monospace)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextButton(onClick = onNo) { Text("NO", color = Color(0xFF7A8DA0)) }

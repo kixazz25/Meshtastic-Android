@@ -104,9 +104,9 @@ fun ConvoyDownloadRideConfigScreen(
                     fontSize = 10.sp, fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
                 Text("Internet required  \u2022  No radio needed at this step.",
-                    color = Color(0xFF445566), fontSize = 10.sp)
+                    color = Color(0xFFFFFFFF), fontSize = 10.sp)
                 Text("Connect radio separately to apply config.",
-                    color = Color(0xFF445566), fontSize = 10.sp)
+                    color = Color(0xFFFFFFFF), fontSize = 10.sp)
             }
 
             if (masterConfig == null) {
@@ -156,7 +156,7 @@ fun ConvoyDownloadRideConfigScreen(
                         Text(ride["date"] ?: "", color = Color(0xFF4AB8E8), fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace)
                         Text("${ride["location"] ?: ""}  \u2022  ${ride["organizer"] ?: ""}",
-                            color = Color(0xFF445566), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                            color = Color(0xFFFFFFFF), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                         if (isSelected) {
                             Text("\u2713 SELECTED", color = Color(0xFF4AB8E8), fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
@@ -189,15 +189,15 @@ fun ConvoyDownloadRideConfigScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("\u2713 RIDE CONFIG DOWNLOADED", color = Color(0xFF22C55E),
                         fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                    Text("Config saved to device.", color = Color(0xFF445566), fontSize = 10.sp)
+                    Text("Config saved to device.", color = Color(0xFFFFFFFF), fontSize = 10.sp)
                     Text("Go to Radio \u2192 Apply Master / Ride Config when radio is connected.",
-                        color = Color(0xFF445566), fontSize = 10.sp)
+                        color = Color(0xFFFFFFFF), fontSize = 10.sp)
                 }
                 "error" -> Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                     .background(Color(0xFF2A1A1A)).padding(12.dp)) {
                     Text("\u2717 DOWNLOAD FAILED", color = Color(0xFFF44336),
                         fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                    Text(errorMsg, color = Color(0xFF445566), fontSize = 10.sp)
+                    Text(errorMsg, color = Color(0xFFFFFFFF), fontSize = 10.sp)
                 }
                 else -> {}
             }
@@ -215,7 +215,7 @@ fun ConvoyDownloadRideConfigScreen(
                         Text(selectedRide["name"] ?: "", color = Color.White,
                             fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Text("${selectedRide["date"] ?: ""}  •  ${selectedRide["organizer"] ?: ""}",
-                            color = Color(0xFF445566), fontSize = 9.sp,
+                            color = Color(0xFFFFFFFF), fontSize = 9.sp,
                             fontFamily = FontFamily.Monospace)
                         Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
                             .background(Color(0xFF2A1A1A)).clickable {

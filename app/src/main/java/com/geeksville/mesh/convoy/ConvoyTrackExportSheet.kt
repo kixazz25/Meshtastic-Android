@@ -138,7 +138,7 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit, onNavigateToTrackImport: () ->
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             decorationBox = { inner ->
                 if (searchText.isEmpty())
-                    Text("Search tracks...", color = Color(0xFF445566), fontSize = 13.sp,
+                    Text("Search tracks...", color = Color(0xFFFFFFFF), fontSize = 13.sp,
                         fontFamily = FontFamily.Monospace)
                 inner()
             }

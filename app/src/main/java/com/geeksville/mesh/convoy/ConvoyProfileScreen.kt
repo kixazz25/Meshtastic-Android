@@ -74,7 +74,7 @@ fun ConvoyProfileScreen(
             ) {
                 StatusBadge(
                     label = if (isSubscribed) "SUBSCRIBED" else "FREE",
-                    color = if (isSubscribed) Color(0xFF22C55E) else Color(0xFF445566)
+                    color = if (isSubscribed) Color(0xFF22C55E) else Color(0xFFFFFFFF)
                 )
                 if (isOrganizer) {
                     StatusBadge(label = "ORGANIZER", color = Color(0xFF4AB8E8))
@@ -104,7 +104,7 @@ fun ConvoyProfileScreen(
             }
             Text(
                 text = "Rides within this radius of your zip code appear on your Dashboard",
-                color = Color(0xFF445566), fontSize = 10.sp,
+                color = Color(0xFFFFFFFF), fontSize = 10.sp,
                 modifier = Modifier.padding(top = 2.dp)
             )
             ProfileSectionLabel("ADDRESS")
@@ -138,7 +138,7 @@ fun ConvoyProfileScreen(
                     )
                     Text(
                         text = "Receive ride announcements from organizers you follow",
-                        color = Color(0xFF445566), fontSize = 10.sp
+                        color = Color(0xFFFFFFFF), fontSize = 10.sp
                     )
                 }
                 Switch(
@@ -147,7 +147,7 @@ fun ConvoyProfileScreen(
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color(0xFF4AB8E8),
                         checkedTrackColor = Color(0xFF1A3050),
-                        uncheckedThumbColor = Color(0xFF445566),
+                        uncheckedThumbColor = Color(0xFFFFFFFF),
                         uncheckedTrackColor = Color(0xFF0A1628)
                     )
                 )
@@ -281,9 +281,9 @@ private fun ProfileField(
             disabledBorderColor = Color(0xFF0F1E2E),
             focusedTextColor = Color.White,
             unfocusedTextColor = Color.White,
-            disabledTextColor = Color(0xFF445566),
+            disabledTextColor = Color(0xFF7D8A99),
             focusedLabelColor = Color(0xFF4AB8E8),
-            unfocusedLabelColor = Color(0xFF445566),
+            unfocusedLabelColor = Color(0xFFFFFFFF),
             disabledLabelColor = Color(0xFF334455),
             cursorColor = Color(0xFF4AB8E8)
         )

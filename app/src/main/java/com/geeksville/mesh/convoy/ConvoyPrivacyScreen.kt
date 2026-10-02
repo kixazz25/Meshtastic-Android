@@ -36,7 +36,7 @@ fun ConvoyPrivacyScreen(
         Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             GroupTrackButton(text = "I ACCEPT THE PRIVACY POLICY", onClick = { ConvoySessionManager.acceptPrivacy(context); onAccept() })
             GroupTrackButton(text = "DECLINE", onClick = onDecline, color = Color(0xFF2A3545))
-            Text(text = "You must accept the Privacy Policy to use GroupTrack platform features.", color = Color(0xFF445566), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            Text(text = "You must accept the Privacy Policy to use GroupTrack platform features.", color = Color(0xFFFFFFFF), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
     }
 }

@@ -134,7 +134,7 @@ fun ConvoyMyOrganizersScreen(
                             verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(org.name, color = Color.White, fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold)
-                            Text(org.location, color = Color(0xFF445566), fontSize = 10.sp,
+                            Text(org.location, color = Color(0xFFFFFFFF), fontSize = 10.sp,
                                 fontFamily = FontFamily.Monospace)
                         }
 

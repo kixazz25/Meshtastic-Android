@@ -227,7 +227,7 @@ fun ConvoyApplyRadioScreen(
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("LONG NAME", color = Color(0xFF8B938A), fontSize = 9.sp,
                             fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
-                        Text("Working config default: $workingLongName", color = Color(0xFF4A6080),
+                        Text("Working config default: $workingLongName", color = Color(0xFFFFFFFF),
                             fontSize = 8.sp, fontFamily = FontFamily.Monospace)
                         Spacer(Modifier.height(4.dp))
                         OutlinedTextField(value = longName, onValueChange = { longName = it },
@@ -245,14 +245,14 @@ fun ConvoyApplyRadioScreen(
                     color = Color(0xFF0D1A2A)) {
                     Column(modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("NEW CHANNEL", color = Color(0xFF4A6080), fontSize = 9.sp,
+                        Text("NEW CHANNEL", color = Color(0xFFFFFFFF), fontSize = 9.sp,
                             fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
                         Spacer(Modifier.height(4.dp))
                         Text(displayChannelName, color = Color(0xFF4DA6FF), fontSize = 26.sp,
                             fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center)
                         Spacer(Modifier.height(4.dp))
-                        Text("AES-256 ENCRYPTED", color = Color(0xFF4A6080), fontSize = 9.sp,
+                        Text("AES-256 ENCRYPTED", color = Color(0xFFFFFFFF), fontSize = 9.sp,
                             fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
                     }
                 }
@@ -549,13 +549,13 @@ fun ConvoyApplyRadioScreen(
 @Composable
 private fun ConfirmHeader() {
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
-        Text("FIELD", color = Color(0xFF4A6080), fontSize = 8.sp,
+        Text("FIELD", color = Color(0xFFFFFFFF), fontSize = 8.sp,
             fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
-        Text("CURRENT", color = Color(0xFF4A6080), fontSize = 8.sp,
+        Text("CURRENT", color = Color(0xFFFFFFFF), fontSize = 8.sp,
             fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
-        Text("NEW VALUE", color = Color(0xFF4A6080), fontSize = 8.sp,
+        Text("NEW VALUE", color = Color(0xFFFFFFFF), fontSize = 8.sp,
             fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
-        Text("RULE", color = Color(0xFF4A6080), fontSize = 8.sp,
+        Text("RULE", color = Color(0xFFFFFFFF), fontSize = 8.sp,
             fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
     }
 }

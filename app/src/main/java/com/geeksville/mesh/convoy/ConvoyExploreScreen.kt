@@ -16,10 +16,10 @@ fun ConvoyExploreScreen(onBack: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
         GroupTrackHeader(subtitle = "Explore")
         Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-            Text(text = "Explore — Phase C", color = Color(0xFF445566), fontSize = 13.sp)
+            Text(text = "Explore — Phase C", color = Color(0xFFFFFFFF), fontSize = 13.sp)
         }
         Box(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628)).padding(16.dp).clickable { onBack() }, contentAlignment = Alignment.Center) {
-            Text(text = "← BACK", color = Color(0xFF445566), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(text = "← BACK", color = Color(0xFFFFFFFF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

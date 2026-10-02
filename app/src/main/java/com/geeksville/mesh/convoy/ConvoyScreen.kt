@@ -1467,7 +1467,7 @@ fun ConvoyScreen(
                 },
                 dismissButton = {
                     androidx.compose.material3.TextButton(onClick = { showLocationPermissionDialog = false }) {
-                        androidx.compose.material3.Text("CANCEL", color = androidx.compose.ui.graphics.Color(0xFF445566))
+                        androidx.compose.material3.Text("CANCEL", color = androidx.compose.ui.graphics.Color(0xFFFFFFFF))
                     }
                 },
                 containerColor = androidx.compose.ui.graphics.Color(0xFF0F2035)
@@ -2156,7 +2156,7 @@ fun ConvoyScreen(
                     val queueState = DownloadQueueManager.queue.collectAsState()
                     if (queueState.value.isEmpty()) {
                         Text("No downloads in queue",
-                            color = Color(0xFF4A6080), fontSize = 10.sp,
+                            color = Color(0xFFFFFFFF), fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace,
                             modifier = Modifier.padding(8.dp))
                     }

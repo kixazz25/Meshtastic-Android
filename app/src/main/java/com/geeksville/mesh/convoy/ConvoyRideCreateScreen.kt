@@ -228,7 +228,7 @@ fun ConvoyRideCreateScreen(
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = GroupTrackColors.SkyBlue,
                         checkedTrackColor = Color(0xFF1A3050),
-                        uncheckedThumbColor = Color(0xFF445566),
+                        uncheckedThumbColor = Color(0xFFFFFFFF),
                         uncheckedTrackColor = Color(0xFF0A1628)))
             }
 
@@ -308,7 +308,7 @@ fun ConvoyRideCreateScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (routes.isEmpty()) {
                         Text("No routes yet \u2014 build one in the planner, or convert a track.",
-                            color = Color(0xFF445566), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                            color = Color(0xFFFFFFFF), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                     }
                     routes.forEach { r ->
                         Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
@@ -345,7 +345,7 @@ fun ConvoyRideCreateScreen(
                         Text("CHANGE ROUTE", color = GroupTrackColors.SkyBlue, fontSize = 10.sp,
                             fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     }
-                    Text("${routePts.size} points", color = Color(0xFF445566), fontSize = 10.sp,
+                    Text("${routePts.size} points", color = Color(0xFFFFFFFF), fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace, modifier = Modifier.align(Alignment.CenterVertically))
                 }
             }
@@ -420,7 +420,7 @@ fun ConvoyRideCreateScreen(
                 }
                 .padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
                 Text("SAVE RIDE",
-                    color = if (canSave) GroupTrackColors.SkyBlue else Color(0xFF445566),
+                    color = if (canSave) GroupTrackColors.SkyBlue else Color(0xFFFFFFFF),
                     fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
             // RIDECANCEL-2026-09-26 (Fred): leave the form. NOTHING is written -- a ride is saved only by SAVE RIDE
@@ -518,6 +518,6 @@ private fun RideField(label: String, value: String, placeholder: String, onChang
             focusedTextColor = Color.White,
             unfocusedTextColor = Color.White,
             focusedLabelColor = GroupTrackColors.SkyBlue,
-            unfocusedLabelColor = Color(0xFF445566),
+            unfocusedLabelColor = Color(0xFFFFFFFF),
             cursorColor = GroupTrackColors.SkyBlue))
 }

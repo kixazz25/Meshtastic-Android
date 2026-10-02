@@ -35,14 +35,14 @@ fun ConvoyInviteSendScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
             Text(text = "SUNDAY DESERT RUN", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text(text = "April 13, 2026  ·  9:00 AM", color = Color(0xFF445566), fontSize = 12.sp)
+            Text(text = "April 13, 2026  ·  9:00 AM", color = Color(0xFFFFFFFF), fontSize = 12.sp)
 
             // QR Code placeholder
             Box(modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFF0F2035)), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(text = "▦", color = Color(0xFF4AB8E8), fontSize = 80.sp)
-                    Text(text = "QR CODE — Phase C", color = Color(0xFF445566),
+                    Text(text = "QR CODE — Phase C", color = Color(0xFFFFFFFF),
                         fontSize = 10.sp, letterSpacing = 2.sp)
                 }
             }
@@ -51,7 +51,7 @@ fun ConvoyInviteSendScreen(
             Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                 .background(Color(0xFF0F2035)).padding(14.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(text = "INVITE LINK", color = Color(0xFF445566), fontSize = 9.sp, letterSpacing = 2.sp)
+                    Text(text = "INVITE LINK", color = Color(0xFFFFFFFF), fontSize = 9.sp, letterSpacing = 2.sp)
                     Text(text = "grouptrack.org/invite/dev-token-001",
                         color = Color(0xFF4AB8E8), fontSize = 11.sp)
                 }
@@ -67,7 +67,7 @@ fun ConvoyInviteSendScreen(
             }
 
             Text(text = "Riders tap the link to download ride data, maps, and radio config automatically.",
-                color = Color(0xFF445566), fontSize = 11.sp, textAlign = TextAlign.Center,
+                color = Color(0xFFFFFFFF), fontSize = 11.sp, textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth())
         }
 

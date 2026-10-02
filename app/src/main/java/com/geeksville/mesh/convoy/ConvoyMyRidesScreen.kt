@@ -67,14 +67,14 @@ fun ConvoyMyRidesScreen(
                     text = {
                         Text(text = title, fontSize = 10.sp, fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp,
-                            color = if (selectedTab == i) Color(0xFF4AB8E8) else Color(0xFF445566))
+                            color = if (selectedTab == i) Color(0xFF4AB8E8) else Color(0xFFFFFFFF))
                     })
             }
         }
 
         if (filteredRides.isEmpty()) {
             Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Text(text = "No rides in this category", color = Color(0xFF445566), fontSize = 12.sp)
+                Text(text = "No rides in this category", color = Color(0xFFFFFFFF), fontSize = 12.sp)
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f),
@@ -94,15 +94,15 @@ fun ConvoyMyRidesScreen(
                             val color = when (status) {
                                 "ORGANIZED" -> Color(0xFF4AB8E8)
                                 "ENROLLED" -> Color(0xFF22C55E)
-                                "COMPLETED" -> Color(0xFF445566)
-                                else -> Color(0xFF445566)
+                                "COMPLETED" -> Color(0xFFFFFFFF)
+                                else -> Color(0xFFFFFFFF)
                             }
                             Text(text = status, color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         }
                         Text(text = "${ride["date"]}  ·  ${ride["time"]}",
-                            color = Color(0xFF445566), fontSize = 11.sp)
+                            color = Color(0xFFFFFFFF), fontSize = 11.sp)
                         Text(text = "Organizer: ${ride["organizer"]}  ·  ${ride["email"]}",
-                            color = Color(0xFF445566), fontSize = 11.sp)
+                            color = Color(0xFFFFFFFF), fontSize = 11.sp)
 
                         // Device readiness icons
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -121,7 +121,7 @@ fun ConvoyMyRidesScreen(
                                 .background(if (isFollowing) Color(0xFF4AB8E8) else Color(0xFF1A3050))
                                 .clickable { isFollowing = !isFollowing })
                             Text(text = if (isFollowing) "Following organizer" else "Follow organizer",
-                                color = if (isFollowing) Color(0xFF4AB8E8) else Color(0xFF445566),
+                                color = if (isFollowing) Color(0xFF4AB8E8) else Color(0xFFFFFFFF),
                                 fontSize = 10.sp)
                         }
                     }

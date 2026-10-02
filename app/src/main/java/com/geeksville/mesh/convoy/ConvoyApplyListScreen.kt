@@ -453,13 +453,13 @@ fun ConvoyApplyListScreen(
 @Composable
 private fun ConfirmHeader() {
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
-        Text("FIELD", color = Color(0xFF4A6080), fontSize = 8.sp,
+        Text("FIELD", color = Color(0xFFFFFFFF), fontSize = 8.sp,
             fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
-        Text("CURRENT", color = Color(0xFF4A6080), fontSize = 8.sp,
+        Text("CURRENT", color = Color(0xFFFFFFFF), fontSize = 8.sp,
             fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
-        Text("NEW VALUE", color = Color(0xFF4A6080), fontSize = 8.sp,
+        Text("NEW VALUE", color = Color(0xFFFFFFFF), fontSize = 8.sp,
             fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
-        Text("RULE", color = Color(0xFF4A6080), fontSize = 8.sp,
+        Text("RULE", color = Color(0xFFFFFFFF), fontSize = 8.sp,
             fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
     }
 }

@@ -20,8 +20,8 @@ fun ConvoyRouteCreateScreen(onNavigateBack: () -> Unit = {}) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("ROUTE CREATION", color = Color(0xFFBC8CFF), fontSize = 14.sp,
                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-            Text("Draw / Snap / Convert", color = Color(0xFF4A6080), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-            Text("[ Pass 1 scaffold ]", color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+            Text("Draw / Snap / Convert", color = Color(0xFFFFFFFF), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+            Text("[ Pass 1 scaffold ]", color = Color(0xFFFFFFFF), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
         }
     }
 }

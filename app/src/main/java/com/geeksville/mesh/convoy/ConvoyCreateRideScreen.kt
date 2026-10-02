@@ -137,9 +137,9 @@ fun ConvoyCreateRideScreen(
                     .background(Color(0xFF0A1628)).padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("${masterConfig.hardwareModel}  •  fw ${masterConfig.firmwareVersion}",
-                        color = Color(0xFF445566), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        color = Color(0xFFFFFFFF), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     Text("${masterConfig.loraRegion}  •  ${masterConfig.loraModemPreset}  •  ${masterConfig.loraTxPower} dBm",
-                        color = Color(0xFF445566), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        color = Color(0xFFFFFFFF), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     Text("Channel: $channelName",
                         color = Color(0xFF4AB8E8), fontSize = 11.sp,
                         fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
@@ -193,13 +193,13 @@ fun ConvoyCreateRideScreen(
                     Text("PUBLIC RIDE", color = Color(0xFFAABBCC), fontSize = 12.sp,
                         fontWeight = FontWeight.Bold)
                     Text("Visible in Public Rides Near Me",
-                        color = Color(0xFF445566), fontSize = 10.sp)
+                        color = Color(0xFFFFFFFF), fontSize = 10.sp)
                 }
                 Switch(checked = isPublic, onCheckedChange = { isPublic = it },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor   = Color(0xFF4AB8E8),
                         checkedTrackColor   = Color(0xFF1A3050),
-                        uncheckedThumbColor = Color(0xFF445566),
+                        uncheckedThumbColor = Color(0xFFFFFFFF),
                         uncheckedTrackColor = Color(0xFF0A1628)))
             }
 
@@ -312,7 +312,7 @@ fun ConvoyCreateRideScreen(
                     contentAlignment = Alignment.Center) {
                     Text(
                         if (isProcessing) "SAVING..." else "SAVE AS PENDING",
-                        color = if (canSave) Color(0xFF4AB8E8) else Color(0xFF445566),
+                        color = if (canSave) Color(0xFF4AB8E8) else Color(0xFFFFFFFF),
                         fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 }
 
@@ -566,6 +566,6 @@ private fun CreateField(
             focusedTextColor     = Color.White,
             unfocusedTextColor   = Color.White,
             focusedLabelColor    = Color(0xFF4AB8E8),
-            unfocusedLabelColor  = Color(0xFF445566),
+            unfocusedLabelColor  = Color(0xFFFFFFFF),
             cursorColor          = Color(0xFF4AB8E8)))
 }

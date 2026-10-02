@@ -651,7 +651,7 @@ fun ConvoyTrackImportScreen(
                                     },
                                     colors = CheckboxDefaults.colors(
                                         checkedColor = Color(0xFF39FF14),
-                                        uncheckedColor = Color(0xFF445566),
+                                        uncheckedColor = Color(0xFFFFFFFF),
                                         checkmarkColor = Color(0xFF101510)
                                     )
                                 )
@@ -742,7 +742,7 @@ fun ConvoyTrackImportScreen(
                             },
                             colors = CheckboxDefaults.colors(
                                 checkedColor = Color(0xFF39FF14),
-                                uncheckedColor = Color(0xFF445566),
+                                uncheckedColor = Color(0xFFFFFFFF),
                                 checkmarkColor = Color(0xFF101510)
                             )
                         )

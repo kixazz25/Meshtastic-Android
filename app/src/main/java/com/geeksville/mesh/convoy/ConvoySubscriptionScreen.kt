@@ -45,7 +45,7 @@ private val SkyBlue    = Color(0xFF4AB8E8)
 private val SkyDim     = Color(0xFF2A6888)
 private val White      = Color(0xFFFFFFFF)
 private val WhiteDim   = Color(0xFFAABBCC)
-private val WhiteFaint = Color(0xFF445566)
+private val WhiteFaint = Color(0xFFFFFFFF)
 private val Gold       = Color(0xFFFFCC44)
 private val GoldDim    = Color(0xFF886633)
 

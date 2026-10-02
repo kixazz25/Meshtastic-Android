@@ -211,7 +211,7 @@ fun ConvoyMasterCaptureScreen(
                             color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                         // Show live radio values that will be captured
                         Spacer(Modifier.height(8.dp))
-                        Text("WILL CAPTURE:", color = Color(0xFF4A6080), fontSize = 9.sp,
+                        Text("WILL CAPTURE:", color = Color(0xFFFFFFFF), fontSize = 9.sp,
                             fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         Text("  LoRa Region:    ${localConfig.lora?.region?.name ?: "\u2014"}",
                             color = Color(0xFF8B938A), fontSize = 9.sp, fontFamily = FontFamily.Monospace)

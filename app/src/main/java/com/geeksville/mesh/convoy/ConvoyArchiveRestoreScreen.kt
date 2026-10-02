@@ -181,7 +181,7 @@ fun ConvoyArchiveRestoreScreen(
                                 modifier = Modifier.padding(16.dp))
                         }
                     } else {
-                        Text("SELECT ARCHIVE TO RESTORE", color = Color(0xFF4A6080),
+                        Text("SELECT ARCHIVE TO RESTORE", color = Color(0xFFFFFFFF),
                             fontSize = 9.sp, fontFamily = FontFamily.Monospace,
                             letterSpacing = 2.sp)
                         Spacer(Modifier.height(6.dp))
@@ -204,11 +204,11 @@ fun ConvoyArchiveRestoreScreen(
                                                 fontSize = 13.sp, fontFamily = FontFamily.Monospace,
                                                 fontWeight = FontWeight.Bold)
                                             Text(file.name,
-                                                color = Color(0xFF4A6080), fontSize = 8.sp,
+                                                color = Color(0xFFFFFFFF), fontSize = 8.sp,
                                                 fontFamily = FontFamily.Monospace)
                                         }
                                         Text(formatFileSize(file),
-                                            color = Color(0xFF4A6080), fontSize = 9.sp,
+                                            color = Color(0xFFFFFFFF), fontSize = 9.sp,
                                             fontFamily = FontFamily.Monospace)
                                         if (isSelected) {
                                             Spacer(Modifier.width(8.dp))

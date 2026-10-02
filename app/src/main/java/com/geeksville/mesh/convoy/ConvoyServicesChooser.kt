@@ -165,7 +165,7 @@ fun ConvoyServicesChooser(
             // Always active note
             Text(
                 text = "Offline services always active — no internet or subscription required",
-                color = Color(0xFF445566),
+                color = Color(0xFFFFFFFF),
                 fontSize = 10.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
@@ -176,7 +176,7 @@ fun ConvoyServicesChooser(
             // Dismiss
             Text(
                 text = "✕  CLOSE",
-                color = Color(0xFF445566),
+                color = Color(0xFFFFFFFF),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,

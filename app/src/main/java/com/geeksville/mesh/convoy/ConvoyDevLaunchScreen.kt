@@ -56,7 +56,7 @@ fun ConvoyDevLaunchScreen(onLaunch: () -> Unit) {
             )
             Text(
                 text = "Select scenario to simulate — sets SharedPreferences and launches",
-                color = Color(0xFF445566), fontSize = 11.sp,
+                color = Color(0xFFFFFFFF), fontSize = 11.sp,
                 modifier = Modifier.padding(top = 4.dp)
             )
         }

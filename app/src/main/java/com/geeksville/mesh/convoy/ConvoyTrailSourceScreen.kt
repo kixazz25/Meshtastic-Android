@@ -34,7 +34,7 @@ import org.json.JSONObject
 
 private val mono = FontFamily.Monospace
 private val txtB = Color(0xFFCCDDEE)
-private val txtD = Color(0xFF4A6080)
+private val txtD = Color(0xFFFFFFFF)
 private val blue = Color(0xFF4DA6FF)
 private val green = Color(0xFF1CF0A0)
 private val orange = Color(0xFFD29922)
@@ -587,7 +587,7 @@ private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, isImpor
                 Text("\u2705", fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
             }
             Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                Text(source.name, color = if (isImported) Color(0xFF4A6080) else txtB,
+                Text(source.name, color = if (isImported) Color(0xFFFFFFFF) else txtB,
                     fontSize = 11.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
                 if (isImported) {
                     Text("IMPORTED", color = green, fontSize = 9.sp, fontFamily = mono)

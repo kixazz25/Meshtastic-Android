@@ -2191,7 +2191,7 @@ fun ConvoyMapViewerScreen(
                         val queueState = DownloadQueueManager.queue.collectAsState()
                         if (queueState.value.isEmpty()) {
                             Text("No downloads in queue",
-                                color = Color(0xFF4A6080), fontSize = 10.sp,
+                                color = Color(0xFFFFFFFF), fontSize = 10.sp,
                                 fontFamily = FontFamily.Monospace,
                                 modifier = Modifier.padding(8.dp))
                         }
@@ -4663,7 +4663,7 @@ fun ConvoyMapViewerScreen(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth())
                         }
                         Spacer(Modifier.height(8.dp))
-                        Text("GPX/KML files in Downloads:", color = Color(0xFF4A6080),
+                        Text("GPX/KML files in Downloads:", color = Color(0xFFFFFFFF),
                             fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                         Spacer(Modifier.height(8.dp))
                         if (importFileList.isEmpty()) {
@@ -4698,7 +4698,7 @@ fun ConvoyMapViewerScreen(
                         }
                         Spacer(Modifier.height(8.dp))
                         Text("Tap file to import. Tracks, waypoints, and routes are extracted automatically.",
-                            color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                            color = Color(0xFFFFFFFF), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
             }
@@ -4979,7 +4979,7 @@ fun ConvoyMapViewerScreen(
                                     migratePreview = null
                                 }
                             }) {
-                                Text("CANCEL", color = Color(0xFF4A6080), fontSize = 11.sp,
+                                Text("CANCEL", color = Color(0xFFFFFFFF), fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace)
                             }
                         }

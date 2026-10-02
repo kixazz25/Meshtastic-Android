@@ -98,7 +98,7 @@ fun ConvoyDownloadPanel(
     val red = Color(0xFFf85149)
     val orange = Color(0xFFd29922)
     val purple = Color(0xFFbc8cff)
-    val dimText = Color(0xFF4A6080)
+    val dimText = Color(0xFFFFFFFF)
     val panelBg = Color(0xEE131820)
     val rowBg = Color(0xFF1A2A3A)
     val sectionBorder = Color(0xFF30363d)
@@ -562,7 +562,7 @@ private fun ArtifactCheckRow(
             ) {
                 Text(
                     badge,
-                    color = Color(0xFF4A6080),
+                    color = Color(0xFFFFFFFF),
                     fontSize = 7.sp,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
@@ -594,7 +594,7 @@ private fun PanelActionButton(
     ) {
         Text(
             label,
-            color = if (enabled) color else Color(0xFF4A6080),
+            color = if (enabled) color else Color(0xFF7D8A99),
             fontSize = 9.sp,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,

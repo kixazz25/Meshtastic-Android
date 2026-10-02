@@ -175,7 +175,7 @@ private fun ArtifactListItem(
                 modifier = Modifier.size(20.dp),
                 colors = CheckboxDefaults.colors(
                     checkedColor = Color(0xFF4DA6FF),
-                    uncheckedColor = Color(0xFF4A6080)
+                    uncheckedColor = Color(0xFFFFFFFF)
                 )
             )
             Spacer(Modifier.width(8.dp))

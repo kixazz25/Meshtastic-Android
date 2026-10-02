@@ -24,12 +24,12 @@ fun ConvoyWaypointCreateDialog(
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("CREATE WAYPOINT", color = Color(0xFFD29922), fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-            Text("%.4f N, %.4f W".format(lat, kotlin.math.abs(lon)), color = Color(0xFF4A6080),
+            Text("%.4f N, %.4f W".format(lat, kotlin.math.abs(lon)), color = Color(0xFFFFFFFF),
                 fontSize = 9.sp, fontFamily = FontFamily.Monospace)
             Text("1. Select Type", color = Color(0xFFCCDDEE), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
             Text("2. Proximity + Alias", color = Color(0xFFCCDDEE), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
             Text("3. Name + Share", color = Color(0xFFCCDDEE), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-            Text("[ Pass 1 scaffold ]", color = Color(0xFF4A6080), fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+            Text("[ Pass 1 scaffold ]", color = Color(0xFFFFFFFF), fontSize = 8.sp, fontFamily = FontFamily.Monospace)
         }
     }
 }

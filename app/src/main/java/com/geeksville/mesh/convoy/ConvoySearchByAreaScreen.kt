@@ -88,7 +88,7 @@ fun ConvoySearchByAreaScreen(
                 ).forEach { item ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("•", color = Color(0xFF4AB8E8), fontSize = 11.sp)
-                        Text(item, color = Color(0xFF445566), fontSize = 11.sp, lineHeight = 16.sp)
+                        Text(item, color = Color(0xFFFFFFFF), fontSize = 11.sp, lineHeight = 16.sp)
                     }
                 }
             }

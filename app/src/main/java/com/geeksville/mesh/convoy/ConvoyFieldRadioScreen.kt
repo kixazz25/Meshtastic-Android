@@ -33,7 +33,7 @@ private val NavyDark = Color(0xFF0A1628)
 private val SkyBlue  = Color(0xFF4AB8E8)
 private val White    = Color(0xFFFFFFFF)
 private val WhiteDim = Color(0xFFAABBCC)
-private val Grey     = Color(0xFF445566)
+private val Grey     = Color(0xFFFFFFFF)
 private val Green    = Color(0xFF1CF0A0)
 
 @Composable

@@ -92,7 +92,7 @@ fun ConvoyCompletedRideDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(ride["name"] ?: "", color = Color.White, fontSize = 15.sp,
                     fontWeight = FontWeight.Bold)
-                Text("${ride["city"]}  —  ${ride["trailhead"]}", color = Color(0xFF445566),
+                Text("${ride["city"]}  —  ${ride["trailhead"]}", color = Color(0xFFFFFFFF),
                     fontSize = 11.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     DetailField("DATE",     ride["date"] ?: "")
@@ -100,7 +100,7 @@ fun ConvoyCompletedRideDetailScreen(
                     DetailField("ROLLOUT",  ride["rollout"] ?: "")
                     DetailField("DISTANCE", ride["distance"] ?: "")
                 }
-                Text(ride["desc"] ?: "", color = Color(0xFF445566), fontSize = 11.sp,
+                Text(ride["desc"] ?: "", color = Color(0xFFFFFFFF), fontSize = 11.sp,
                     lineHeight = 16.sp)
             }
 
@@ -140,7 +140,7 @@ fun ConvoyCompletedRideDetailScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("VIEW ON MAP", color = Color.White, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold)
-                    Text("Show ride track on convoy map", color = Color(0xFF445566), fontSize = 10.sp)
+                    Text("Show ride track on convoy map", color = Color(0xFFFFFFFF), fontSize = 10.sp)
                 }
                 Text("→", color = Color(0xFF4AB8E8), fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
@@ -155,7 +155,7 @@ fun ConvoyCompletedRideDetailScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("DOWNLOAD TRACKS", color = Color.White, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold)
-                    Text("Save GPX/KML to My Tracks  •  Phase C", color = Color(0xFF445566), fontSize = 10.sp)
+                    Text("Save GPX/KML to My Tracks  •  Phase C", color = Color(0xFFFFFFFF), fontSize = 10.sp)
                 }
                 Text("↓", color = Color(0xFF4AB8E8), fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
@@ -170,7 +170,7 @@ fun ConvoyCompletedRideDetailScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("SURVEY + COMMENTS", color = Color.White, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold)
-                        Text("Rate this ride and leave trail comments", color = Color(0xFF445566),
+                        Text("Rate this ride and leave trail comments", color = Color(0xFFFFFFFF),
                             fontSize = 10.sp)
                     }
                     Text(if (surveyExpanded) "▲" else "▼", color = Color(0xFF4AB8E8),

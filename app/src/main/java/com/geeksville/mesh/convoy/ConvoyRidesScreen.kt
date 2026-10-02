@@ -157,7 +157,7 @@ private fun RidesMenuItem(
                 color = if (isActive) Color.White else Color(0xFF2A4060),
                 fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Text(subtitle,
-                color = if (isActive) Color(0xFF445566) else Color(0xFF1A3050),
+                color = if (isActive) Color(0xFFFFFFFF) else Color(0xFF1A3050),
                 fontSize = 10.sp, lineHeight = 14.sp)
         }
         Box(modifier = Modifier.clip(RoundedCornerShape(3.dp))

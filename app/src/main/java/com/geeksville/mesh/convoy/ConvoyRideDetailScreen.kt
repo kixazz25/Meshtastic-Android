@@ -199,7 +199,7 @@ fun ConvoyRideDetailScreen(
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(text = orgName, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    Text("\u00b7", color = Color(0xFF445566), fontSize = 9.sp)
+                    Text("\u00b7", color = Color(0xFFFFFFFF), fontSize = 9.sp)
                     Text(
                         text = orgEmail, color = Color(0xFF4AB8E8), fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace,
@@ -249,7 +249,7 @@ fun ConvoyRideDetailScreen(
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()) {
-                            Text(label, color = Color(0xFF445566), fontSize = 9.sp,
+                            Text(label, color = Color(0xFFFFFFFF), fontSize = 9.sp,
                                 fontFamily = FontFamily.Monospace,
                                 modifier = Modifier.width(76.dp))
                             OutlinedTextField(
@@ -346,7 +346,7 @@ fun ConvoyRideDetailScreen(
                             Text("COMING SOON", color = Color(0xFF4AB8E8), fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
                                 letterSpacing = 3.sp)
-                            Text("PHASE C — MAP INTEGRATION", color = Color(0xFF445566),
+                            Text("PHASE C — MAP INTEGRATION", color = Color(0xFFFFFFFF),
                                 fontSize = 8.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
                         }
                     }
@@ -390,7 +390,7 @@ fun ConvoyRideDetailScreen(
                     { declExpanded = !declExpanded }) {
                     declined.forEach { EnrolleeRow(it) { launchEmail(it.email) } }
                 }
-                EnrollmentTwistie("INVITED — PENDING", invited.size, Color(0xFF445566), invExpanded,
+                EnrollmentTwistie("INVITED — PENDING", invited.size, Color(0xFFFFFFFF), invExpanded,
                     { invExpanded = !invExpanded }) {
                     invited.forEach { EnrolleeRow(it) { launchEmail(it.email) } }
                 }
@@ -479,7 +479,7 @@ private fun EnrolleeRow(
                 fontFamily = FontFamily.Monospace,
                 modifier = Modifier.clickable { onEmailTap() })
         }
-        Text(date, color = Color(0xFF445566), fontSize = 8.sp,
+        Text(date, color = Color(0xFFFFFFFF), fontSize = 8.sp,
             fontFamily = FontFamily.Monospace)
     }
 }
@@ -491,7 +491,7 @@ private fun DetailActionButton(
     activeColor: Color, onClick: () -> Unit
 ) {
     val textColor = when {
-        !enabled -> Color(0xFF445566)
+        !enabled -> Color(0xFF7D8A99)
         active   -> activeColor
         else     -> activeColor.copy(alpha = 0.6f)
     }
@@ -527,10 +527,10 @@ private fun DetailVisibilityBadge(visibility: String) {
 private fun DetailRideStatusBadge(status: String) {
     val (color, label) = when (status.lowercase()) {
         "open"      -> Color(0xFF22C55E) to "OPEN"
-        "closed"    -> Color(0xFF445566) to "CLOSED"
+        "closed"    -> Color(0xFFFFFFFF) to "CLOSED"
         "cancelled" -> Color(0xFFEF4444) to "CANCELLED"
-        "pending"   -> Color(0xFF445566) to "PENDING"
-        "completed" -> Color(0xFF445566) to "COMPLETED"
+        "pending"   -> Color(0xFFFFFFFF) to "PENDING"
+        "completed" -> Color(0xFFFFFFFF) to "COMPLETED"
         else        -> Color(0xFF22C55E) to "OPEN"
     }
     Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))

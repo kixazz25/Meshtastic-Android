@@ -367,14 +367,14 @@ val CATEGORY_HELP: List<Pair<String, String>> = listOf(
     "Track" to "Two wheel tracks, farm, forest or open country",
     "Forestry / access" to "Access unless posted otherwise",
     "Shape only" to "Shape and route of reported trails that are otherwise unclassified",   // SHAPETEXT-2026-10-01 (Fred): was "Mapped trails but unclassified"
-    "Rider trails" to "Ridden on a recorded ride \u2014 UTV accessible",
+    "Rider trails" to "Ridden on a recorded track \u2014 UTV accessible",   // MAPKEYSVOCAB-2026-10-02: a track is a recording
     "Unofficial / uncertain" to "Not available for riding",
     "Hiking & biking" to "Non-motorized, walkers and bicycles",
     "Hiking" to "On foot only",
     "Biking" to "Bicycles only",
     "Equestrian" to "Horse trails",
     "Steps / bridge" to "Stairs and footbridges \u2014 not rideable",
-    "My tracks" to "Rides you have recorded on this device",
+    "My tracks" to "Tracks you have recorded on this device",   // MAPKEYSVOCAB-2026-10-02
     "My routes" to "Routes you have planned or been sent",
 )
 

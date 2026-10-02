@@ -75,7 +75,7 @@ fun SyncTracksDialog(
                     Text("properties ${res.propsWritten}/${res.propsTotal} written",
                         color = Color(0xFF97D5A5), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     Spacer(Modifier.height(8.dp))
-                    Text("\u2014 full detail below \u2014", color = Color(0xFF4A6080),
+                    Text("\u2014 full detail below \u2014", color = Color(0xFFFFFFFF),
                         fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 }
                 // Auto-scroll the live feed to the newest line.
@@ -117,7 +117,7 @@ fun SyncTracksDialog(
                 onClick = onStart
             ) {
                 Text(if (syncResult == null) "START" else "RE-RUN",
-                    color = if (syncRunning) Color(0xFF4A6080) else Color(0xFF39FF14),
+                    color = if (syncRunning) Color(0xFFFFFFFF) else Color(0xFF39FF14),
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
             }
         },
@@ -127,7 +127,7 @@ fun SyncTracksDialog(
                 onClick = onClose
             ) {
                 Text("CLOSE",
-                    color = if (syncRunning) Color(0xFF4A6080) else Color(0xFF7A8DA0),
+                    color = if (syncRunning) Color(0xFFFFFFFF) else Color(0xFF7A8DA0),
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
             }
         }

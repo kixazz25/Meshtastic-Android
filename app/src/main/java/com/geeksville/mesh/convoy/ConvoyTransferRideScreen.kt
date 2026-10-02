@@ -124,13 +124,13 @@ fun ConvoyTransferRideScreen(
                 // Column headers
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)) {
                     Text("", modifier = Modifier.width(20.dp))
-                    Text("RIDE NAME", color = Color(0xFF4A6080), fontSize = 8.sp,
+                    Text("RIDE NAME", color = Color(0xFFFFFFFF), fontSize = 8.sp,
                         fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
-                    Text("DATE", color = Color(0xFF4A6080), fontSize = 8.sp,
+                    Text("DATE", color = Color(0xFFFFFFFF), fontSize = 8.sp,
                         fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
-                    Text("ORGANIZER", color = Color(0xFF4A6080), fontSize = 8.sp,
+                    Text("ORGANIZER", color = Color(0xFFFFFFFF), fontSize = 8.sp,
                         fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1.5f))
-                    Text("CH", color = Color(0xFF4A6080), fontSize = 8.sp,
+                    Text("CH", color = Color(0xFFFFFFFF), fontSize = 8.sp,
                         fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
                 }
 
@@ -162,7 +162,7 @@ fun ConvoyTransferRideScreen(
                                     if (isSelected) "\u2713" else if (isFuture) "\u25cf" else "\u25cb",
                                     color = if (isSelected) Color(0xFF4DA6FF)
                                             else if (isFuture) Color(0xFF97D5A5)
-                                            else Color(0xFF4A6080),
+                                            else Color(0xFFFFFFFF),
                                     fontSize = 10.sp, modifier = Modifier.width(20.dp)
                                 )
                                 // Ride name
@@ -175,7 +175,7 @@ fun ConvoyTransferRideScreen(
                                     modifier = Modifier.weight(2f))
                                 // Date
                                 Text(ride.eventDate,
-                                    color = if (isFuture) Color(0xFF97D5A5) else Color(0xFF4A6080),
+                                    color = if (isFuture) Color(0xFF97D5A5) else Color(0xFFFFFFFF),
                                     fontSize = 9.sp, fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.weight(1f))
                                 // Organizer
@@ -185,7 +185,7 @@ fun ConvoyTransferRideScreen(
                                     modifier = Modifier.weight(1.5f))
                                 // Channel
                                 Text(ride.channelName,
-                                    color = Color(0xFF4A6080), fontSize = 9.sp,
+                                    color = Color(0xFFFFFFFF), fontSize = 9.sp,
                                     fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.weight(1f))
                             }

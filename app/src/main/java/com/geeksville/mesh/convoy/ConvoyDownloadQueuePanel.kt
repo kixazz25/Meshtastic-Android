@@ -44,7 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 private val panelBg = Color(0xE6131820)
 private val accentGreen = Color(0xFF1CF0A0)
 private val accentBlue = Color(0xFF4DA6FF)
-private val dimText = Color(0xFF4A6080)
+private val dimText = Color(0xFFFFFFFF)
 private val brightText = Color(0xFFCCDDEE)
 private val dangerRed = Color(0xFFFF5555)
 private val mono = FontFamily.Monospace

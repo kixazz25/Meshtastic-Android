@@ -278,13 +278,13 @@ fun ConvoyVerifyConfigScreen(
                     Spacer(Modifier.height(6.dp))
 
                     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
-                        Text("FIELD", color = Color(0xFF4A6080), fontSize = 8.sp,
+                        Text("FIELD", color = Color(0xFFFFFFFF), fontSize = 8.sp,
                             fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
-                        Text("EXPECTED", color = Color(0xFF4A6080), fontSize = 8.sp,
+                        Text("EXPECTED", color = Color(0xFFFFFFFF), fontSize = 8.sp,
                             fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
-                        Text("ACTUAL", color = Color(0xFF4A6080), fontSize = 8.sp,
+                        Text("ACTUAL", color = Color(0xFFFFFFFF), fontSize = 8.sp,
                             fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
-                        Text("GRP", color = Color(0xFF4A6080), fontSize = 8.sp,
+                        Text("GRP", color = Color(0xFFFFFFFF), fontSize = 8.sp,
                             fontFamily = FontFamily.Monospace, modifier = Modifier.width(40.dp))
                     }
                     Spacer(Modifier.height(4.dp))
@@ -306,7 +306,7 @@ fun ConvoyVerifyConfigScreen(
                                 Text(result.actual, color = Color(0xFFFFB4AB),
                                     fontSize = 9.sp, fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.weight(2f))
-                                Text(result.group, color = Color(0xFF4A6080),
+                                Text(result.group, color = Color(0xFFFFFFFF),
                                     fontSize = 8.sp, fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.width(40.dp))
                             }
