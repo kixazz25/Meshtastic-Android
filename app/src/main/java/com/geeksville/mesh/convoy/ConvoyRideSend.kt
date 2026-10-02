@@ -52,9 +52,12 @@ object ConvoyRideSend {
                     else
                         "This is a private ride for the riders invited. Please don't forward this email.\n\n"
                     "You're invited: $rideName ($day)\n\n" + forward +
+                        "Don't be left behind! Click the link below to download GroupTrack Off-Road Navigation on your Android, " +
+                        "and reap the benefits beginning with this ride!\n" +
+                        "https://play.google.com/store/apps/details?id=com.grouptrack.android&hl=en_US\n\n" + // INVITELINK-2026-10-02
                         "If you're a GroupTrack user, tap the attachment below, choose GroupTrack, then tap \"Always\". " +
                         "This imports the route, and downloads the maps for offline use during this ride.\n\n" +
-                        "Using a GroupTrack radio? Remember to apply the ride to your radio before your ride (Work with Rides \u2192 Apply ride to radio).\n\n" + // RIDEMAIL2-2026-09-26
+                        "Riding with a mesh radio? Check in at the trailhead and GroupTrack sets your radio up for this ride.\n\n" + // INVITELINK-2026-10-02 (was RIDEMAIL2-2026-09-26: apply by hand -- 2.7a check-in does it)
                         "Enjoy the ride!"
                 })
                 putExtra(Intent.EXTRA_STREAM, uri)
