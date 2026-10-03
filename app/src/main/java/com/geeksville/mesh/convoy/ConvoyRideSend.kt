@@ -31,35 +31,53 @@ object ConvoyRideSend {
             val ride = org.json.JSONObject(stored.readText()).optJSONObject("ride")
             val name = ride?.optString("name", "Ride") ?: "Ride"
             val date = ride?.optString("date", "") ?: ""
-            val safe = (name + "_" + date).replace(Regex("[^a-zA-Z0-9_-]"), "_")
-            val out = File(context.cacheDir, "grouptrack_ride_$safe.convoy")
+            // INVITE2-2026-10-03 (Fred): the attachment is named after the ride -- "panguitch 1 - Wed 7 Oct.convoy".
+            // File-safe like the 10-01 GPX fix; the .convoy ending is what opens it in GroupTrack.
+            val dayShort = runCatching {
+                java.time.LocalDate.parse(date).format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", java.util.Locale.US))
+            }.getOrDefault(date)
+            val label = (name.trim() + (if (dayShort.isNotBlank()) " - $dayShort" else ""))
+                .replace(Regex("[^A-Za-z0-9 ._-]"), "_").replace(Regex("\\s+"), " ").trim().take(60)
+                .ifBlank { "GroupTrack ride" }
+            context.cacheDir.listFiles { f -> f.name.endsWith(".convoy") }?.forEach { it.delete() }
+            val out = File(context.cacheDir, "$label.convoy")
             stored.copyTo(out, overwrite = true)
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", out)
+            // INVITE2-2026-10-03 (Fred): the same invite twice -- plain text (unchanged, URL visible) and HTML in which
+            // "GroupTrack Off-Road Navigation" is a link to Google Play. Apps that ignore HTML show the plain text.
+            // RIDEMAIL-2026-09-25 (Fred): the email COACHES the rider -- tap the attachment, choose GroupTrack, "Always".
+            val play = "https://play.google.com/store/apps/details?id=com.grouptrack.android&hl=en_US"
+            val day = runCatching {
+                java.time.LocalDate.parse(date).format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM", java.util.Locale.US))
+            }.getOrDefault(date)
+            // RIDEPUBLIC-2026-09-27 (Fred): public rides may be forwarded; private rides may not.
+            val forward = if (ride?.optBoolean("isPublic", false) == true)
+                "This is an open ride. Feel free to forward this email to friends who would like to come."
+            else
+                "This is a private ride for the riders invited. Please don't forward this email."
+            val inviteText = "You're invited: $name ($day)\n\n" + forward + "\n\n" +
+                "Don't be left behind! Click the link below to download GroupTrack Off-Road Navigation on your Android, " +
+                "and reap the benefits beginning with this ride!\n" + play + "\n\n" +
+                "If you're a GroupTrack user, tap the attachment below, choose GroupTrack, then tap \"Always\". " +
+                "This imports the route, and downloads the maps for offline use during this ride.\n\n" +
+                "Riding with a mesh radio? Check in at the trailhead and GroupTrack sets your radio up for this ride.\n\n" +
+                "Enjoy the ride!"
+            fun esc(s: String): String = android.text.TextUtils.htmlEncode(s)
+            val inviteHtml = "<p>You're invited: <b>" + esc(name) + "</b> (" + esc(day) + ")</p>" +
+                "<p>" + esc(forward) + "</p>" +
+                "<p>Don't be left behind! Click the link below to download " +
+                "<a href=\"" + play + "\">GroupTrack Off-Road Navigation</a> on your Android, " +
+                "and reap the benefits beginning with this ride!<br>" +
+                "<a href=\"" + play + "\">" + esc(play) + "</a></p>" +
+                "<p>If you're a GroupTrack user, tap the attachment below, choose GroupTrack, then tap &quot;Always&quot;. " +
+                "This imports the route, and downloads the maps for offline use during this ride.</p>" +
+                "<p>Riding with a mesh radio? Check in at the trailhead and GroupTrack sets your radio up for this ride.</p>" +
+                "<p>Enjoy the ride!</p>"
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = MIME
                 putExtra(Intent.EXTRA_SUBJECT, "GroupTrack ride: $name \u2014 $date")
-                putExtra(Intent.EXTRA_TEXT, run {
-                    // RIDEMAIL-2026-09-25 (Fred): the email COACHES the rider -- tap the attachment, choose GroupTrack, "Always"
-                    // (after which every ride file opens in GroupTrack directly). Name and date as in the subject.
-                    val rideName = "$name"
-                    val rideDate = "$date"
-                    val day = runCatching {
-                        java.time.LocalDate.parse(rideDate).format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM", java.util.Locale.US))
-                    }.getOrDefault(rideDate)
-                    // RIDEPUBLIC-2026-09-27 (Fred): public rides may be forwarded; private rides may not.
-                    val forward = if (ride?.optBoolean("isPublic", false) == true)
-                        "This is an open ride. Feel free to forward this email to friends who would like to come.\n\n"
-                    else
-                        "This is a private ride for the riders invited. Please don't forward this email.\n\n"
-                    "You're invited: $rideName ($day)\n\n" + forward +
-                        "Don't be left behind! Click the link below to download GroupTrack Off-Road Navigation on your Android, " +
-                        "and reap the benefits beginning with this ride!\n" +
-                        "https://play.google.com/store/apps/details?id=com.grouptrack.android&hl=en_US\n\n" + // INVITELINK-2026-10-02
-                        "If you're a GroupTrack user, tap the attachment below, choose GroupTrack, then tap \"Always\". " +
-                        "This imports the route, and downloads the maps for offline use during this ride.\n\n" +
-                        "Riding with a mesh radio? Check in at the trailhead and GroupTrack sets your radio up for this ride.\n\n" + // INVITELINK-2026-10-02 (was RIDEMAIL2-2026-09-26: apply by hand -- 2.7a check-in does it)
-                        "Enjoy the ride!"
-                })
+                putExtra(Intent.EXTRA_TEXT, inviteText)
+                putExtra(Intent.EXTRA_HTML_TEXT, inviteHtml)
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
