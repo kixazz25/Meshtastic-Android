@@ -128,6 +128,7 @@ fun radioLongName(d: com.geeksville.mesh.model.DeviceListEntry): String =
     // RADIONAMES-2026-10-03 (Fred): the long name LAST USED from the radio name table first (by Bluetooth address, then node id)
     d.fullAddress?.let { org.meshtastic.core.data.manager.RadioNameStore.nameForAddress(it) }
         ?: d.node?.num?.let { org.meshtastic.core.data.manager.RadioNameStore.nameOf(it) }
+        ?: org.meshtastic.core.data.manager.RadioNameStore.nameForBluetoothName(d.name)   // RADIONAMES2-2026-10-04 v5: by the Bluetooth name's suffix
         ?: d.node?.user?.long_name?.takeIf { it.isNotBlank() } ?: d.name
 
 /**

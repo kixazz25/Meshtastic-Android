@@ -555,9 +555,22 @@ class ConvoyViewModel @Inject constructor(
             }
         }
         org.meshtastic.core.data.manager.RadioNameStore.load(appContext.filesDir)   // RADIONAMES-2026-10-03: the radio name table, before the first tick
+        org.meshtastic.core.data.manager.RadioNameStore.mirrorDir = appContext.getExternalFilesDir(null)   // RADIONAMES2-2026-10-04: a pullable copy
         // LINKFIX-2026-10-03: every change in the radio's node list is radio traffic.
         viewModelScope.launch {
-            nodeRepository.nodeDBbyNum.collect { lastRadioTrafficMs = System.currentTimeMillis() }
+            nodeRepository.nodeDBbyNum.collect { db ->
+                lastRadioTrafficMs = System.currentTimeMillis()
+                // RADIONAMES2-2026-10-04 (Fred): WHILE CONNECTED the radio's own node list holds the CURRENT names (right the moment
+                // we connect, before any TAK broadcast) -> into the table, only on change, so they survive a disconnect.
+                // v4: the radio service's OWN state (no lag) -- the cached names that blink back on a disconnect never get in.
+                if (radioController.connectionState.value == org.meshtastic.core.model.ConnectionState.Connected) {
+                    db.forEach { (num, n) ->
+                        n.user.long_name.takeIf { it.isNotBlank() }?.let {
+                            org.meshtastic.core.data.manager.RadioNameStore.put(num, it, "radio node list")
+                        }
+                    }
+                }
+            }
         }
         startTick()
         viewModelScope.launch(Dispatchers.IO) { scanImportDirectory() }

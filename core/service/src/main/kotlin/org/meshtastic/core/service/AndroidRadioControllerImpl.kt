@@ -204,7 +204,9 @@ constructor(
         // Ensure service is running/restarted to handle the new address
         val intent =
             android.content.Intent().apply {
-                setClassName("com.geeksville.mesh", "com.geeksville.mesh.service.MeshService")
+                // SVCPKG-2026-10-04 (GroupTrack): OUR package, not the hard-coded "com.geeksville.mesh" -- since 07-26 the app id is
+                // com.grouptrack.android, so the old name was "not found" and this restart never happened (radio stuck connecting).
+                setClassName(context.packageName, "com.geeksville.mesh.service.MeshService")
             }
         context.startForegroundService(intent)
     }

@@ -30,6 +30,9 @@ object RadioNameStore {
     /** CODE RULE 1: null until load() has been given GroupTrack's files directory (the app does it at startup). */
     @Volatile private var file: File? = null
     @Volatile private var dirty = false
+    /** RADIONAMES2-2026-10-04: where each save also COPIES the file, so adb can pull it on a release build.
+     *  CODE RULE 1: null = no copy (external storage unavailable, or not set). Set by the app at startup. */
+    @Volatile var mirrorDir: File? = null
 
     /** Reads radio_names.json once; later calls do nothing. */
     @Synchronized
@@ -79,6 +82,14 @@ object RadioNameStore {
         return true
     }
 
+    /** RADIONAMES2-2026-10-04 v5: a Meshtastic radio's Bluetooth name ends in "_" + 4 hex digits, normally the last 4 of its
+     *  device id ("T1000-E_de0a"). The long name last used for the ONE radio in the table that fits, else null. */
+    fun nameForBluetoothName(btName: String): String? {
+        val suffix = btName.substringAfterLast('_', "").lowercase()
+        if (suffix.length != 4 || !suffix.all { it in "0123456789abcdef" }) return null
+        return entries.values.filter { "%08x".format(it.num).endsWith(suffix) }.singleOrNull()?.longName
+    }
+
     /** Remembers which Bluetooth address this radio answers on (known only once connected). */
     fun noteAddress(num: Int, fullAddress: String) {
         val e = entries[num] ?: return
@@ -112,6 +123,14 @@ object RadioNameStore {
             }
             dirty = false
             android.util.Log.i(TAG, "RADIONAMES-2026-10-03 saved ${entries.size} radios ($reason)")
+            // RADIONAMES2-2026-10-04 (Fred: "just copy the doc over"): a copy adb can pull on a release build
+            mirrorDir?.let { d -> try { f.copyTo(File(d, f.name), overwrite = true) } catch (x: Exception) {
+                android.util.Log.e(TAG, "copy to ${d.path} failed: ${x.message}") } }
+            // RADIONAMES2-2026-10-04: the whole table into the log (release builds cannot read the file from the PC)
+            val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
+            entries.values.sortedBy { it.firstSeen }.forEach { e ->
+                android.util.Log.i(TAG, "table: !${"%08x".format(e.num)} = \"${e.longName}\" (${e.updatedBy}, ${fmt.format(java.util.Date(e.updatedAt))})")
+            }
         } catch (e: Exception) {
             android.util.Log.e(TAG, "RADIONAMES-2026-10-03 save failed ($reason): ${e.message}")
         }
