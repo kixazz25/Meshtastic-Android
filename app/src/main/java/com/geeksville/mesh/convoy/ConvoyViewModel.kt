@@ -115,6 +115,7 @@ class ConvoyViewModel @Inject constructor(
     private var linkWasConnected = false
     private var radioTalkingNow = false
     private val LINK_SILENCE_MS = 120_000L
+    private var namesAtConnectPending = false   // RADIONAMES-2026-10-03: record the connected radio once its own record arrives
     private var phoneLocationListener: android.location.LocationListener? = null
 
     /**
@@ -213,6 +214,7 @@ class ConvoyViewModel @Inject constructor(
     }
 
     fun startGroupTrack() {
+        org.meshtastic.core.data.manager.RadioNameStore.save("RECORD")   // RADIONAMES-2026-10-03: the table is written at RECORD
         _routeTrailSegments.value = emptyList()
         leadActualLat = null
         leadActualLon = null
@@ -428,6 +430,7 @@ class ConvoyViewModel @Inject constructor(
             override suspend fun setOwner(longName: String) {
                 val user = requireNotNull(nodeRepository.ourNodeInfo.value?.user) { "no user record for this radio" }
                 radioController.setOwner(destNum, user.copy(long_name = longName), radioController.getPacketId())
+                org.meshtastic.core.data.manager.RadioNameStore.put(destNum, longName, "config written")   // RADIONAMES-2026-10-03
             }
             override suspend fun beginEdit() { radioController.beginEditSettings(destNum) }
             override suspend fun commitEdit() { radioController.commitEditSettings(destNum) }
@@ -551,6 +554,7 @@ class ConvoyViewModel @Inject constructor(
                 }
             }
         }
+        org.meshtastic.core.data.manager.RadioNameStore.load(appContext.filesDir)   // RADIONAMES-2026-10-03: the radio name table, before the first tick
         // LINKFIX-2026-10-03: every change in the radio's node list is radio traffic.
         viewModelScope.launch {
             nodeRepository.nodeDBbyNum.collect { lastRadioTrafficMs = System.currentTimeMillis() }
@@ -901,7 +905,19 @@ class ConvoyViewModel @Inject constructor(
         val nowMs = System.currentTimeMillis()
         // LINKFIX-2026-10-03: is the radio talking? (see the fields at livePhoneLocation)
         val linkConnected = GrpAwarenessLauncher.connected.value
-        if (linkConnected && !linkWasConnected) lastRadioTrafficMs = nowMs   // a fresh connection gets its full grace
+        if (linkConnected && !linkWasConnected) { lastRadioTrafficMs = nowMs; namesAtConnectPending = true }   // a fresh connection gets its full grace
+        // RADIONAMES-2026-10-03 (Fred): AT CONNECT -- the radio's own long name and its Bluetooth address go into the table, and the
+        // table is written (once the radio's own record has arrived; until then, retried each tick).
+        if (namesAtConnectPending && linkConnected) {
+            val cNum = GrpAwarenessLauncher.myNodeNum.value
+            val cName = nodeRepository.ourNodeInfo.value?.user?.long_name
+            if (cNum != null && !cName.isNullOrBlank()) {
+                org.meshtastic.core.data.manager.RadioNameStore.put(cNum, cName, "radio at connect")
+                GrpAwarenessLauncher.connectedAddress.value?.let { org.meshtastic.core.data.manager.RadioNameStore.noteAddress(cNum, it) }
+                org.meshtastic.core.data.manager.RadioNameStore.save("connect")
+                namesAtConnectPending = false
+            }
+        }
         linkWasConnected = linkConnected
         radioTalkingNow = linkConnected && nowMs - lastRadioTrafficMs < LINK_SILENCE_MS
         GrpAwarenessLauncher.talking.value = radioTalkingNow
@@ -1256,7 +1272,9 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             }
             val user = node.user
             val pos = node.position
-            val callsign = user.long_name.ifBlank { user.short_name }.ifBlank { "!${node.num}" }
+            // RADIONAMES-2026-10-03 (Fred): the long name LAST USED from the radio name table; the node database's first-heard name
+            // only for a radio not yet in the table.
+            val callsign = org.meshtastic.core.data.manager.RadioNameStore.nameOf(node.num) ?: user.long_name.ifBlank { user.short_name }.ifBlank { "!${node.num}" }
             val nodeId = "!%08x".format(node.num)
             if (nodeId in _removedCarts.value && node.num != myNum) return@mapNotNull null   // CARTACTIVE-2026-09-30: removed on this tablet
             val hasPos = (pos.latitude_i != 0 || pos.longitude_i != 0)

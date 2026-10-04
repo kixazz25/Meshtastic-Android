@@ -633,6 +633,11 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         // GRPAWARE2-2026-09-28 (Fred): the panel, design v8 -- Meshtastic's own scanner inside, and the last apply.
         val grpMyNode by uIViewModel.myNodeInfo.collectAsStateWithLifecycle()
         androidx.compose.runtime.LaunchedEffect(grpMyNode) { com.geeksville.mesh.convoy.GrpAwarenessLauncher.myNodeNum.value = grpMyNode?.myNodeNum }   // CHECKINAPPLY-2026-09-28
+        // RADIONAMES-2026-10-03: the Bluetooth address of the radio in use, for the radio name table (noted at connect)
+        androidx.compose.runtime.LaunchedEffect(connectionState) {
+            com.geeksville.mesh.convoy.GrpAwarenessLauncher.connectedAddress.value =
+                scanModel.selectedAddressFlow.value?.takeIf { it.isNotBlank() && it != "n" }
+        }
         // CHECKINCONNECT-2026-09-28 (Fred): CHK IN with no radio opened GRP Awareness -- once a radio connects, on to the check-in.
         androidx.compose.runtime.LaunchedEffect(connectionState) {
             if (connectionState == ConnectionState.Connected && com.geeksville.mesh.convoy.GrpAwarenessLauncher.thenCheckIn) {

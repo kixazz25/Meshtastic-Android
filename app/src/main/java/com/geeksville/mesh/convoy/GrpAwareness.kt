@@ -77,6 +77,8 @@ object GrpAwarenessLauncher {
     /** LINKFIX-2026-10-03: the automatic reconnects failed -- ask the rider to turn the radio off and on. */
     val powerCycle = mutableStateOf(false)
     var powerCycleDismissed = false
+    /** RADIONAMES-2026-10-03: the Bluetooth address of the radio in use. CODE RULE 1: null = no radio selected. Set by Main.kt. */
+    val connectedAddress = mutableStateOf<String?>(null)
 }
 
 /** The label's colour: green / red by connection, brightening briefly on each pulse. */
@@ -123,7 +125,10 @@ private fun openBluetoothSettings(ctx: Context) {
 
 /** GRPAWARE2: the radio's own name for itself (its long name), else the Bluetooth name until the radio is known. */
 fun radioLongName(d: com.geeksville.mesh.model.DeviceListEntry): String =
-    d.node?.user?.long_name?.takeIf { it.isNotBlank() } ?: d.name
+    // RADIONAMES-2026-10-03 (Fred): the long name LAST USED from the radio name table first (by Bluetooth address, then node id)
+    d.fullAddress?.let { org.meshtastic.core.data.manager.RadioNameStore.nameForAddress(it) }
+        ?: d.node?.num?.let { org.meshtastic.core.data.manager.RadioNameStore.nameOf(it) }
+        ?: d.node?.user?.long_name?.takeIf { it.isNotBlank() } ?: d.name
 
 /**
  * GRPAWARE2-2026-09-28 (Fred): "Last applied" for the connected radio -- the most recent APPLY the configurator recorded
