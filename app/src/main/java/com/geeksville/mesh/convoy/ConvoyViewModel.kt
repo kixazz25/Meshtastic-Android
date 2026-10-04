@@ -106,6 +106,15 @@ class ConvoyViewModel @Inject constructor(
 
     // Active phone GPS for standalone (no radio) users
     @Volatile private var livePhoneLocation: android.location.Location? = null
+    // LINKFIX-2026-10-03 (Fred, after the testers' field day): THE RADIO-LINK RULES.
+    // "Talking" = Android reports the radio connected AND the radio's node list changed within LINK_SILENCE_MS
+    // (every report the radio passes on -- its own position, other carts' reports -- changes the list).
+    // Not talking, at ANY moment -> Android-only mode: my cart at the tablet's GPS under the SAME cart id, the
+    // other carts held at their last tick position, GRP Awareness red. Recovery runs in Main.kt. Nothing is stored.
+    @Volatile private var lastRadioTrafficMs = 0L
+    private var linkWasConnected = false
+    private var radioTalkingNow = false
+    private val LINK_SILENCE_MS = 120_000L
     private var phoneLocationListener: android.location.LocationListener? = null
 
     /**
@@ -542,6 +551,10 @@ class ConvoyViewModel @Inject constructor(
                 }
             }
         }
+        // LINKFIX-2026-10-03: every change in the radio's node list is radio traffic.
+        viewModelScope.launch {
+            nodeRepository.nodeDBbyNum.collect { lastRadioTrafficMs = System.currentTimeMillis() }
+        }
         startTick()
         viewModelScope.launch(Dispatchers.IO) { scanImportDirectory() }
     }
@@ -886,6 +899,16 @@ class ConvoyViewModel @Inject constructor(
             return
         }
         val nowMs = System.currentTimeMillis()
+        // LINKFIX-2026-10-03: is the radio talking? (see the fields at livePhoneLocation)
+        val linkConnected = GrpAwarenessLauncher.connected.value
+        if (linkConnected && !linkWasConnected) lastRadioTrafficMs = nowMs   // a fresh connection gets its full grace
+        linkWasConnected = linkConnected
+        radioTalkingNow = linkConnected && nowMs - lastRadioTrafficMs < LINK_SILENCE_MS
+        GrpAwarenessLauncher.talking.value = radioTalkingNow
+        // Automatic recovery only with a group to get back to, or no tablet GPS (the radio is then the only position).
+        val othersInTick = _convoyState.value.nodes.any { !it.isMyCart }
+        val tabletHasGps = appContext.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LOCATION_GPS)
+        GrpAwarenessLauncher.needsRecovery.value = !radioTalkingNow && (othersInTick || !tabletHasGps)
         val nodes: List<ConvoyNode> = if (_simulationMode.value) {
             ConvoySimulation.tick(nowMs)
         } else {
@@ -1152,6 +1175,14 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         } catch (e: SecurityException) { null }
     }
 
+    // LINKFIX-2026-10-03 (Fred): in Android-only mode the other carts stay where the tick array last had them (only if they
+    // were in it) and move again when the radio comes back. Nothing is invented or stored.
+    private fun heldCarts(radioKnown: Boolean): List<ConvoyNode> {
+        if (!radioKnown) return emptyList()
+        val mine = resolveMyCartId()
+        return _convoyState.value.nodes.filter { !it.isMyCart && it.nodeId != mine && (it.latitude != 0.0 || it.longitude != 0.0) }
+    }
+
     private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
         val nodeMap = try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { emptyMap() }
         // NOGPSMSG-2026-09-15: clear both here so the RADIO path resets them without its own edit.
@@ -1160,7 +1191,9 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         _noPositionError.value = false
         _networkPositionWarning.value = false
         // No radio — device IS a node. Phone GPS only after permission granted.
-        if (nodeMap.isEmpty()) {
+        // LINKFIX-2026-10-03: Android-only mode whenever the radio is not talking (was: only when the node list was empty,
+        // so a connected-but-silent radio never let the tablet's GPS take over and my cart was dropped every tick).
+        if (nodeMap.isEmpty() || !radioTalkingNow) {
             if (androidx.core.content.ContextCompat.checkSelfPermission(
                     appContext, android.Manifest.permission.ACCESS_FINE_LOCATION
                 ) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -1195,7 +1228,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             val spd = (loc?.speed ?: 0f) * 2.23694f
             val hdg = loc?.bearing ?: 0f
             return listOf(ConvoyNode(
-                nodeId = "!phone",
+                nodeId = resolveMyCartId(),   // LINKFIX-2026-10-03: the SAME cart id in both modes (my radio's, else !phone)
                 // TICKDATA-2026-09-28 (Fred): the rider's callsign (was the device model, e.g. "P50") and the check-in's role.
                 callsign = tickCallsign(),
                 rideRole = checkIn.value?.role ?: "",
@@ -1207,7 +1240,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 battery_pct = 100,
                 lastSeenMs = nowMs,
                 status = ConvoyStatus.ACTIVE
-            ))
+            )) + heldCarts(nodeMap.isNotEmpty())   // LINKFIX-2026-10-03
         }
         // STALEREAD-2026-09-25 (Fred): drop stale nodes AT THE READ -- never build a cart only to eliminate it later.
         // A node not heard for 3 hours is not on the ride (phantoms from earlier / other channels); my own radio is
@@ -1248,12 +1281,16 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                     Pair(lat, lon)
                 }
             } else {
-                val fallback = lastKnownPosition[nodeId]
-                if (fallback != null) {
-                    convoyLog("ZERO POS: node=$callsign — using lastKnown lat=${fallback.first} lon=${fallback.second}")
-                    fallback
+                // LINKFIX-2026-10-03 (Fred): no position from this radio. Others: their PREVIOUS TICK position (the tick array,
+                // never a stored map), else not shown this tick. MY radio: the tablet's GPS (switched on here).
+                val prevTick = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+                    ?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }?.let { Pair(it.latitude, it.longitude) }
+                if (node.num != myNum && prevTick != null) {
+                    prevTick
+                } else if (node.num != myNum) {
+                    return@mapNotNull null
                 } else {
-                    // V2.4: No radio GPS and no lastKnown -- fall back to phone GPS
+                    startPhoneGps()
                     val phoneLoc = getPhoneLocation()
                     if (phoneLoc != null && phoneLoc.latitude != 0.0 && phoneLoc.longitude != 0.0) {
                         convoyLog("ZERO POS: node=$callsign — using phone GPS lat=${phoneLoc.latitude} lon=${phoneLoc.longitude}")

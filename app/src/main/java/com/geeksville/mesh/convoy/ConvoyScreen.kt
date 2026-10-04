@@ -937,9 +937,31 @@ fun ConvoyScreen(
                                             val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
                                             val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
                                                 ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
-                                            if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
+                                            // RIDEENTRY-2026-10-03 (Fred): entering the ride map ALWAYS positions it. My cart from the TICK first (radio GPS
+                                            // or tablet GPS, whichever the tick is using); then Android's cached fix; else wait for the first fix
+                                            // (every 2 s, up to 2 minutes) instead of leaving the map at its default view.
+                                            val meNow = viewModel.convoyState.value.nodes.firstOrNull { it.isMyCart && it.latitude != 0.0 && it.longitude != 0.0 }
+                                            if (meNow != null) {
+                                                android.util.Log.d("ConvoyMap", "RIDEENTRY: centring on my cart from the tick: ${meNow.latitude}, ${meNow.longitude}")
+                                                view.evaluateJavascript("setView(${meNow.latitude}, ${meNow.longitude}, 15)", null)
+                                            } else if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
                                                 android.util.Log.d("ConvoyMap", "Centering map on device GPS: ${loc.latitude}, ${loc.longitude}")
                                                 view.evaluateJavascript("setView(${loc.latitude}, ${loc.longitude}, 15)", null)
+                                            } else {
+                                                android.util.Log.w("ConvoyMap", "RIDEENTRY: no position yet -- centring on the first fix")
+                                                val wv: android.webkit.WebView = view
+                                                fun centreOnFirstFix(triesLeft: Int) {
+                                                    wv.postDelayed({
+                                                        val m = viewModel.convoyState.value.nodes.firstOrNull { it.isMyCart && it.latitude != 0.0 && it.longitude != 0.0 }
+                                                        if (m != null) {
+                                                            android.util.Log.d("ConvoyMap", "RIDEENTRY: first fix -- centring: ${m.latitude}, ${m.longitude}")
+                                                            wv.evaluateJavascript("setView(${m.latitude}, ${m.longitude}, 15)", null)
+                                                        } else if (triesLeft > 0) {
+                                                            centreOnFirstFix(triesLeft - 1)
+                                                        }
+                                                    }, 2000)
+                                                }
+                                                centreOnFirstFix(60)
                                             }
                                         } catch (e: SecurityException) {
                                             android.util.Log.w("ConvoyMap", "Location permission not granted — map stays at default view")

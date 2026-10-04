@@ -70,12 +70,20 @@ object GrpAwarenessLauncher {
     fun pulse() { pulseAt.value = System.currentTimeMillis() }
     /** CHECKINAPPLY-2026-09-28: the connected radio's node number (set from Main). CODE RULE 1: null = no radio. */
     val myNodeNum = mutableStateOf<Int?>(null)
+    /** LINKFIX-2026-10-03 (Fred): the radio is TALKING -- connected AND its node list changed recently. Set by the tick. */
+    val talking = mutableStateOf(false)
+    /** LINKFIX-2026-10-03: not talking AND (other carts in the tick array OR no tablet GPS) -- Main.kt reconnects automatically. */
+    val needsRecovery = mutableStateOf(false)
+    /** LINKFIX-2026-10-03: the automatic reconnects failed -- ask the rider to turn the radio off and on. */
+    val powerCycle = mutableStateOf(false)
+    var powerCycleDismissed = false
 }
 
 /** The label's colour: green / red by connection, brightening briefly on each pulse. */
 @Composable
 fun grpAwarenessColor(): Color {
-    val base = if (GrpAwarenessLauncher.connected.value) Color(0xFF35C46A) else Color(0xFFE0453A)
+    // LINKFIX-2026-10-03 (Fred): green only while the radio is TALKING; a connected-but-silent radio is red.
+    val base = if (GrpAwarenessLauncher.connected.value && GrpAwarenessLauncher.talking.value) Color(0xFF35C46A) else Color(0xFFE0453A)
     var lit by remember { mutableStateOf(false) }
     val at = GrpAwarenessLauncher.pulseAt.value
     LaunchedEffect(at) { if (at > 0L) { lit = true; delay(400); lit = false } }

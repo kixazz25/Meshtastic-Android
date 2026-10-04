@@ -640,6 +640,35 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 com.geeksville.mesh.convoy.CheckInLauncher.showing.value = true
             }
         }
+        // LINKFIX-2026-10-03 (Fred): the radio is not talking -> recover. Automatic only when other carts are in the tick array
+        // or the tablet has no GPS (otherwise this may be a real Android-only ride: the rider services the red button).
+        // Up to 3 disconnect -> reconnect cycles, 30 s apart; then ask for a power cycle. Talking again resets it all.
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            var linkAttempts = 0
+            var linkLastAttempt = 0L
+            while (true) {
+                kotlinx.coroutines.delay(5000)
+                val link = com.geeksville.mesh.convoy.GrpAwarenessLauncher
+                if (link.talking.value) {
+                    if (linkAttempts > 0) android.util.Log.i("LINKFIX", "radio talking again after $linkAttempts reconnect(s)")
+                    linkAttempts = 0; link.powerCycle.value = false; link.powerCycleDismissed = false
+                    continue
+                }
+                val saved = scanModel.selectedAddressFlow.value
+                if (!link.needsRecovery.value || saved.isNullOrBlank() || saved == "n") continue
+                val now = System.currentTimeMillis()
+                if (now - linkLastAttempt < 30_000L) continue
+                if (linkAttempts < 3) {
+                    linkAttempts++; linkLastAttempt = now
+                    android.util.Log.i("LINKFIX", "radio not talking -> reconnect $linkAttempts of 3 ($saved)")
+                    uIViewModel.setDeviceAddress("n")
+                    kotlinx.coroutines.delay(1500)
+                    uIViewModel.setDeviceAddress(saved)
+                } else if (!link.powerCycleDismissed) {
+                    link.powerCycle.value = true
+                }
+            }
+        }
         // SETTINGSBACK-2026-09-29 (Fred): RADIO SETTINGS opens Meshtastic's Settings -- a top-level page with no back arrow.
         // While it is open from there, a BACK TO MAP button overlays it (the same as Android's back button).
         var settingsFromGrp by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -651,6 +680,27 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 modifier = Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(top = 40.dp, start = 12.dp),
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF2E75B6)),
             ) { Text("\u25C0 BACK TO MAP", color = Color.White, fontWeight = FontWeight.Bold) }
+        }
+        // LINKFIX-2026-10-03 (Fred): the reconnects failed -- one plain instruction; it clears itself when the radio talks again.
+        if (com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value &&
+            !com.geeksville.mesh.convoy.GrpAwarenessLauncher.talking.value) {
+            androidx.compose.material3.Surface(
+                modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 96.dp, start = 16.dp, end = 16.dp),
+                color = Color(0xFFB3261E),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                shadowElevation = 6.dp,
+            ) {
+                androidx.compose.foundation.layout.Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                ) {
+                    Text("Your radio isn't answering. Turn it off and on again.", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    androidx.compose.material3.TextButton(onClick = {
+                        com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false
+                        com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycleDismissed = true
+                    }) { Text("OK", color = Color.White, fontWeight = FontWeight.Bold) }
+                }
+            }
         }
         if (com.geeksville.mesh.convoy.GrpAwarenessLauncher.showing.value) {
             val grpLast = androidx.compose.runtime.remember(grpMyNode, connectionState) {
