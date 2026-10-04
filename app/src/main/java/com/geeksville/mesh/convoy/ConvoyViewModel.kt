@@ -1201,6 +1201,9 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             }
             // _myCartId no longer set here — set ONCE in startGroupTrack()
             val loc = getPhoneLocation()
+            // LINKFIX2-2026-10-03 (Fred): no tablet fix -> my cart stays at its PREVIOUS TICK position (the tick array, never a
+            // stored one) until a real position returns.
+            val prevMe = if (loc == null) _convoyState.value.nodes.firstOrNull { it.isMyCart && (it.latitude != 0.0 || it.longitude != 0.0) } else null
 
             // NOGPSMSG-2026-09-15: report WHICH state we are in. See the declarations above.
             // provider is reliable for this: sources 1 and 3 of getPhoneLocation
@@ -1208,7 +1211,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             // report "network".
             val fromNetwork = loc != null &&
                 loc.provider == android.location.LocationManager.NETWORK_PROVIDER
-            if (loc == null) {
+            if (loc == null && prevMe == null) {   // LINKFIX2-2026-10-03: the hard message only with no position at all
                 if (!_noPositionError.value) {
                     android.util.Log.e("ConvoyVM",
                         "NOGPSMSG-2026-09-15: NO POSITION from any source -- device cannot function")
@@ -1222,8 +1225,8 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 _networkPositionWarning.value = true
             }
 
-            val lat = loc?.latitude ?: 0.0
-            val lon = loc?.longitude ?: 0.0
+            val lat = loc?.latitude ?: prevMe?.latitude ?: 0.0   // LINKFIX2-2026-10-03
+            val lon = loc?.longitude ?: prevMe?.longitude ?: 0.0
             val alt = ((loc?.altitude ?: 0.0) * 3.28084).toInt()
             val spd = (loc?.speed ?: 0f) * 2.23694f
             val hdg = loc?.bearing ?: 0f
@@ -1240,7 +1243,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 battery_pct = 100,
                 lastSeenMs = nowMs,
                 status = ConvoyStatus.ACTIVE
-            )) + heldCarts(nodeMap.isNotEmpty())   // LINKFIX-2026-10-03
+            )) + heldCarts(true)   // LINKFIX-2026-10-03 / LINKFIX2-2026-10-03: held whenever not talking (a disconnect empties the node list)
         }
         // STALEREAD-2026-09-25 (Fred): drop stale nodes AT THE READ -- never build a cart only to eliminate it later.
         // A node not heard for 3 hours is not on the ride (phantoms from earlier / other channels); my own radio is

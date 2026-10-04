@@ -646,18 +646,30 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         androidx.compose.runtime.LaunchedEffect(Unit) {
             var linkAttempts = 0
             var linkLastAttempt = 0L
+            var linkNotTalkingSince = 0L   // LINKFIX2-2026-10-03
+            var linkConnectingSince = 0L   // LINKFIX2-2026-10-03 (STUCK45)
             while (true) {
                 kotlinx.coroutines.delay(5000)
                 val link = com.geeksville.mesh.convoy.GrpAwarenessLauncher
                 if (link.talking.value) {
                     if (linkAttempts > 0) android.util.Log.i("LINKFIX", "radio talking again after $linkAttempts reconnect(s)")
-                    linkAttempts = 0; link.powerCycle.value = false; link.powerCycleDismissed = false
+                    linkAttempts = 0; link.powerCycle.value = false; link.powerCycleDismissed = false; linkNotTalkingSince = 0L; linkConnectingSince = 0L
                     continue
                 }
+                val now = System.currentTimeMillis()
+                // LINKFIX2-2026-10-03 (Fred, Droid 2 log 20:49): never cut off a handshake (the first version did, 4 s in) -- and never
+                // wait forever on a stuck one ("always connecting, never connects"). A good handshake takes ~12 s:
+                // CONNECTING < 45 s -> leave it; >= 45 s -> stuck, reconnect. Otherwise act after 60 s not talking.
+                val linkState = uIViewModel.connectionState.value
+                if (linkState == ConnectionState.Connecting) { if (linkConnectingSince == 0L) linkConnectingSince = now } else linkConnectingSince = 0L
+                val linkStuck = linkConnectingSince != 0L && now - linkConnectingSince >= 45_000L
+                if (linkState == ConnectionState.Connecting && !linkStuck) continue
+                if (linkNotTalkingSince == 0L) linkNotTalkingSince = now
                 val saved = scanModel.selectedAddressFlow.value
                 if (!link.needsRecovery.value || saved.isNullOrBlank() || saved == "n") continue
-                val now = System.currentTimeMillis()
-                if (now - linkLastAttempt < 30_000L) continue
+                if (!linkStuck && now - linkNotTalkingSince < 60_000L) continue
+                if (now - linkLastAttempt < 45_000L) continue
+                if (linkStuck) { android.util.Log.i("LINKFIX", "connecting for ${(now - linkConnectingSince) / 1000} s -- stuck"); linkConnectingSince = 0L }
                 if (linkAttempts < 3) {
                     linkAttempts++; linkLastAttempt = now
                     android.util.Log.i("LINKFIX", "radio not talking -> reconnect $linkAttempts of 3 ($saved)")
@@ -694,7 +706,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 ) {
-                    Text("Your radio isn't answering. Turn it off and on again.", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Your radio isn't answering. Turn it off and on again. Still nothing? Close GroupTrack and open it again.", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     androidx.compose.material3.TextButton(onClick = {
                         com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false
                         com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycleDismissed = true
