@@ -57,6 +57,8 @@ data class ManagedValues(
     val channelName: String,
     val key: ByteString,
     val reporting: ReportingValues,
+    /** NOPIN-2026-10-04 (Fred): the radio's Bluetooth pairing mode -- GroupTrack's standard is NO_PIN. Bluetooth is always enabled. */
+    val bluetoothMode: Config.BluetoothConfig.PairingMode,
 )
 
 /**
@@ -71,6 +73,7 @@ class ConfigPlan(
     val device: Config.DeviceConfig?, // null = unchanged
     val channel: Channel?, // null = unchanged -> group 2 skipped
     val position: Config.PositionConfig?, // null = unchanged -> group 3 skipped
+    val bluetooth: Config.BluetoothConfig?, // NOPIN-2026-10-04: null = unchanged -> group 4 skipped
     val changes: List<String>, // "field: old -> new", managed fields only
 ) {
     val isEmpty: Boolean get() = changes.isEmpty()
@@ -114,6 +117,7 @@ object RadioConfigurator {
                 fixedPosition = st.getBoolean("fixedPosition"),
                 positionPrecision = st.getInt("positionPrecision"),
             ),
+            bluetoothMode = Config.BluetoothConfig.PairingMode.valueOf(st.getString("bluetoothMode")),   // NOPIN-2026-10-04
         )
     }
 
@@ -134,6 +138,9 @@ object RadioConfigurator {
                 pos.gps_mode, pos.gps_update_interval, lora.tx_enabled,
                 pos.fixed_position, primary.module_settings?.position_precision ?: 0,
             ),
+            // NOPIN-2026-10-04: a backup reapplies as NO_PIN, GroupTrack's standard -- restoring an old PIN would bring the
+            // pairing breaks back.
+            bluetoothMode = Config.BluetoothConfig.PairingMode.NO_PIN,
         )
     }
 
@@ -186,12 +193,19 @@ object RadioConfigurator {
         note("gps mode", pos.gps_mode, r.gpsMode); note("gps update", pos.gps_update_interval, r.gpsUpdateSecs)
         note("fixed position", pos.fixed_position, r.fixedPosition)
 
+        // NOPIN-2026-10-04 (Fred): Bluetooth enabled, pairing NO_PIN. A retrieve without a Bluetooth section gets a full one written.
+        val bt = current.config?.bluetooth ?: Config.BluetoothConfig()
+        val newBt = bt.copy(enabled = true, mode = t.bluetoothMode)
+        note("bluetooth pairing", bt.mode, t.bluetoothMode)
+        note("bluetooth enabled", bt.enabled, true)
+
         return ConfigPlan(
             ownerLongName = owner,
             lora = newLora.takeIf { it != lora },
             device = newDevice.takeIf { it != device },
             channel = if (newPrimary != primary) Channel(index = 0, settings = newPrimary, role = Channel.Role.PRIMARY) else null,
             position = newPos.takeIf { it != pos },
+            bluetooth = newBt.takeIf { it != bt },   // NOPIN-2026-10-04
             changes = changes,
         )
     }
@@ -221,6 +235,8 @@ object RadioConfigurator {
             c("gps mode", r.gpsMode, pos?.gps_mode), c("gps update", r.gpsUpdateSecs, pos?.gps_update_interval),
             c("fixed position", r.fixedPosition, pos?.fixed_position),
             c("position precision", r.positionPrecision, primary?.module_settings?.position_precision ?: 0),
+            c("bluetooth pairing", t.bluetoothMode, after.config?.bluetooth?.mode),   // NOPIN-2026-10-04
+            c("bluetooth enabled", true, after.config?.bluetooth?.enabled),
         )
     }
 

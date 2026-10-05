@@ -109,6 +109,19 @@ class RadioConfigWriter(
             if (!waitBack("2 channel")) return WriteResult.Stopped("2 channel", "radio did not come back", written)
         }
 
+        // NOPIN-2026-10-04 (Fred): GROUP 4, LAST -- Bluetooth pairing NO_PIN. Changing the pairing mode can break THIS tablet's
+        // stored pairing once (10-04: link up, no data, only forget + re-pair helped), so it goes after everything else, and if
+        // the radio does not come back the rider is told exactly what to do. The next check-in finds NO_PIN and skips this.
+        plan.bluetooth?.let { bt ->
+            log("RADIOWRITER: group 4 -- bluetooth enabled=${bt.enabled} pairing=${bt.mode} (last)")
+            ops.beginEdit()
+            ops.writeConfig(Config(bluetooth = bt))
+            ops.commitEdit()
+            written += "4 bluetooth"
+            if (!waitBack("4 bluetooth")) return WriteResult.Stopped("4 bluetooth",
+                "the radio's Bluetooth pairing changed to No PIN -- forget the radio in Bluetooth settings, pair it again, then check in again", written)
+        }
+
         if (ops.connection.value != ConnectionState.Connected) {
             log("RADIOWRITER: not connected before the retrieve -- waiting")
             if (!waitConnected()) return WriteResult.Stopped("retrieve", "radio not connected", written)
