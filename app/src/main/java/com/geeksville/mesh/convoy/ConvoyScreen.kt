@@ -121,6 +121,13 @@ private val WAYPOINT_TYPES: List<Pair<String, String>> = listOf(
 private const val DS_ON = 1
 private const val DS_SELECTED = 2
 
+// RIDEMAPSTATE-2026-10-05 (Fred): the ride map's state lives as long as its WebView (viewModel.persistentWebView), not as long as
+// one composition of this screen. The kept WebView's JavaScript keeps calling the FIRST visit's bridge (Android swaps a
+// JavaScript interface in only on the next page load), so every value a bridge writes must be shared by all visits.
+@Suppress("UNCHECKED_CAST")
+private fun <T> ConvoyViewModel.rideMapState(key: String, init: () -> T): androidx.compose.runtime.MutableState<T> =
+    convoyRideMapStates.getOrPut(key) { androidx.compose.runtime.mutableStateOf(init()) } as androidx.compose.runtime.MutableState<T>
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConvoyScreen(
@@ -130,6 +137,9 @@ fun ConvoyScreen(
     onNavigateToTrackExport: () -> Unit = {},
     onNavigateToTrackImport: () -> Unit = {},
     onNavigateToMapViewer: () -> Unit = {},
+    // TRACKRIDE-CONVOY-2026-10-05 (Fred): opens the ride form for a route id. REQUIRED (CODE RULE 1) -- no default, so the compiler
+    // checks every caller wires it; the ride map's detail panel uses it for ADD A RIDE and CREATE RIDE.
+    onAddRide: (String, String) -> Unit,
     viewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val channelViewModel: ChannelViewModel = hiltViewModel()
@@ -242,14 +252,14 @@ fun ConvoyScreen(
         var showMapSettings by remember { mutableStateOf(false) }
         // Spatial DB display states — per-map state from MapStateStore (independent of planning map)
         val cmSeed = remember { MapStateStore.readMap("convoy") }
-        var trailState by remember { mutableStateOf(cmSeed.types["Trails"]?.state ?: DS_OFF) }
-        var trackState by remember { mutableStateOf(cmSeed.types["Tracks"]?.state ?: DS_OFF) }
-        var waypointState by remember { mutableStateOf(cmSeed.types["Waypoints"]?.state ?: DS_OFF) }
-        var routeState by remember { mutableStateOf(cmSeed.types["Routes"]?.state ?: DS_OFF) }
+        var trailState by viewModel.rideMapState("trailState") { cmSeed.types["Trails"]?.state ?: DS_OFF }   // RIDEMAPSTATE-2026-10-05
+        var trackState by viewModel.rideMapState("trackState") { cmSeed.types["Tracks"]?.state ?: DS_OFF }   // RIDEMAPSTATE-2026-10-05
+        var waypointState by viewModel.rideMapState("waypointState") { cmSeed.types["Waypoints"]?.state ?: DS_OFF }   // RIDEMAPSTATE-2026-10-05
+        var routeState by viewModel.rideMapState("routeState") { cmSeed.types["Routes"]?.state ?: DS_OFF }   // RIDEMAPSTATE-2026-10-05
         var searchResults by remember { mutableStateOf(emptyList<ArtifactResult>()) }
-        var pendingDetailId by remember { mutableStateOf<String?>(null) }
-        var pendingDetailType by remember { mutableStateOf<String?>(null) }
-        var pendingWaypoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+        var pendingDetailId by viewModel.rideMapState<String?>("pendingDetailId") { null }   // RIDEMAPSTATE-2026-10-05
+        var pendingDetailType by viewModel.rideMapState<String?>("pendingDetailType") { null }   // RIDEMAPSTATE-2026-10-05
+        var pendingWaypoint by viewModel.rideMapState<Pair<Double, Double>?>("pendingWaypoint") { null }   // RIDEMAPSTATE-2026-10-05
 
         // CONVOY-LONGPRESS-2026-07-31: long-press detection state.
         //
@@ -263,7 +273,7 @@ fun ConvoyScreen(
         val lpRunnable = remember { arrayOfNulls<Runnable>(1) }
         val lpDown = remember { FloatArray(2) }
         // ROUTE BUILDER: route mode active -> Route+ toolbar shown (read by next patch)
-        var routeMode by remember { mutableStateOf(false) }
+        var routeMode by viewModel.rideMapState("routeMode") { false }   // RIDEMAPSTATE-2026-10-05
         var routeMethod by remember { mutableStateOf(ROUTE_METHOD_P2P) }
         var routeName by remember { mutableStateOf("") }
         var showRouteNameDialog by remember { mutableStateOf(false) }
@@ -282,17 +292,17 @@ fun ConvoyScreen(
         var otherConfirm by remember { mutableStateOf(false) }
         var newWaypointName by remember { mutableStateOf("") }
 
-        var lastViewportSouth by remember { mutableStateOf(0.0) }
-        var lastViewportWest by remember { mutableStateOf(0.0) }
-        var lastViewportNorth by remember { mutableStateOf(0.0) }
-        var lastViewportEast by remember { mutableStateOf(0.0) }
+        var lastViewportSouth by viewModel.rideMapState("lastViewportSouth") { 0.0 }   // RIDEMAPSTATE-2026-10-05
+        var lastViewportWest by viewModel.rideMapState("lastViewportWest") { 0.0 }   // RIDEMAPSTATE-2026-10-05
+        var lastViewportNorth by viewModel.rideMapState("lastViewportNorth") { 0.0 }   // RIDEMAPSTATE-2026-10-05
+        var lastViewportEast by viewModel.rideMapState("lastViewportEast") { 0.0 }   // RIDEMAPSTATE-2026-10-05
         var artifactList by remember { mutableStateOf<List<Map<String, String?>>>(emptyList()) }
         var selectedArtifactIds by remember { mutableStateOf<Set<String>>(emptySet()) }
         var activeListType by remember { mutableStateOf<String?>(null) }
-        var trailCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(cmSeed, "Trails")) }
-        var trackCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(cmSeed, "Tracks")) }
-        var waypointCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(cmSeed, "Waypoints")) }
-        var routeCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(cmSeed, "Routes")) }
+        var trailCheckedIds by viewModel.rideMapState("trailCheckedIds") { MapStateStore.checkedIdsFor(cmSeed, "Trails") }   // RIDEMAPSTATE-2026-10-05
+        var trackCheckedIds by viewModel.rideMapState("trackCheckedIds") { MapStateStore.checkedIdsFor(cmSeed, "Tracks") }   // RIDEMAPSTATE-2026-10-05
+        var waypointCheckedIds by viewModel.rideMapState("waypointCheckedIds") { MapStateStore.checkedIdsFor(cmSeed, "Waypoints") }   // RIDEMAPSTATE-2026-10-05
+        var routeCheckedIds by viewModel.rideMapState("routeCheckedIds") { MapStateStore.checkedIdsFor(cmSeed, "Routes") }   // RIDEMAPSTATE-2026-10-05
         // [convoy-routemode-reset 2026-08-01] One-shot log flag. The route-mode reset fires on
         // every viewport event; this keeps the trace to one line per entry. remember{} scope
         // means it clears on re-entry, so each convoy entry logs exactly once.
@@ -2768,6 +2778,22 @@ fun ConvoyScreen(
             )
             if (pendingDetailId != null && pendingDetailType != null) {
                 ArtifactDetailPanel(
+                    // TRACKRIDE-CONVOY-2026-10-05 (Fred): ADD A RIDE (routes) and CREATE RIDE (tracks) on the RIDE map too -- the SAME panel
+                    // actions as the planner (ConvoyMapViewerScreen), the same track->route conversion, the same ride form.
+                    // No picture capture here: it would fit the map to the route, moving the rider's view away from the
+                    // carts; the ride form falls back to the drawn route line (RidePreview: "never blocks").
+                    onAddRide = { a: String, b: String -> onAddRide(a, b) },
+                    onCreateRideFromTrack = { tid: String, name: String, desc: String, th: ConvoyArtifactOps.RouteTrailhead ->
+                        coroutineScope.launch {
+                            val rid = ConvoyArtifactOps.trackToRoute(context, tid, name, desc, th)
+                            if (rid == null) {
+                                android.widget.Toast.makeText(context, "Could not make a route from this track", android.widget.Toast.LENGTH_LONG).show()
+                            } else {
+                                pendingDetailId = null; pendingDetailType = null
+                                onAddRide("Route", rid)
+                            }
+                        }
+                    },
                     artifactType = pendingDetailType!!,
                     id = pendingDetailId!!,
                     mapKey = "convoy",

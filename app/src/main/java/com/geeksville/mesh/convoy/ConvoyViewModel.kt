@@ -486,6 +486,9 @@ class ConvoyViewModel @Inject constructor(
     fun clearWorkingConfig() { _workingConfig.value = null }
 
     var persistentWebView: android.webkit.WebView? = null
+    /** RIDEMAPSTATE-2026-10-05 (Fred): the ride map's bridge-written state (detail target, lists, viewport, long-press, route mode),
+     *  shared by every visit -- it must live as long as persistentWebView, whose JavaScript keeps calling the first bridge. */
+    val convoyRideMapStates = HashMap<String, androidx.compose.runtime.MutableState<*>>()
 
     private val _simulationMode = MutableStateFlow(false)
     val simulationMode: StateFlow<Boolean> = _simulationMode.asStateFlow()

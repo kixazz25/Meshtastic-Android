@@ -84,6 +84,8 @@ fun NavGraphBuilder.convoyGraph(
     }
     composable<ConvoyRoutes.Convoy> {
         ConvoyScreen(
+            // TRACKRIDE-CONVOY-2026-10-05: ADD A RIDE / CREATE RIDE on the ride map's detail panel -> the ride form (as the planner).
+            onAddRide = { _, routeId -> navController?.navigate(ConvoyRoutes.ConvoyRideCreate(routeId)) },
             onNavigateToMapViewer = { navController?.navigate(ConvoyRoutes.ConvoyMapViewer) },
             onNavigateToTrackExport = { navController?.navigate(ConvoyRoutes.ConvoyTracks) },
             onNavigateToTrackImport = { navController?.navigate(ConvoyRoutes.ConvoyTrackImport) },
