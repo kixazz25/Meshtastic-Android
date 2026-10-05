@@ -711,7 +711,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 ) {
-                    Text("Your radio isn't answering. Turn it off and on again. Still nothing? Close GroupTrack and open it again.", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(/* BANNER-2026-10-04 (Fred): forget + re-pair is what fixed the stuck radio */ "Your radio isn't answering. Open GRP Awareness, FORGET the radio, then PAIR it again. Not in the list? Turn it off and on.", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     androidx.compose.material3.TextButton(onClick = {
                         com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false
                         com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycleDismissed = true
