@@ -653,6 +653,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             var linkLastAttempt = 0L
             var linkNotTalkingSince = 0L   // LINKFIX2-2026-10-03
             var linkConnectingSince = 0L   // LINKFIX2-2026-10-03 (STUCK45)
+            var linkPrevState: Any? = null; var linkPrevSaved: String? = null   // LINKHB-2026-10-05
             while (true) {
                 kotlinx.coroutines.delay(5000)
                 val link = com.geeksville.mesh.convoy.GrpAwarenessLauncher
@@ -666,22 +667,29 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 // wait forever on a stuck one ("always connecting, never connects"). A good handshake takes ~12 s:
                 // CONNECTING < 45 s -> leave it; >= 45 s -> stuck, reconnect. Otherwise act after 60 s not talking.
                 val linkState = uIViewModel.connectionState.value
+                // LINKHB-2026-10-05: any change of connection state or chosen radio restarts the clock (Droid 2 17:52: a manual
+                // CONNECT was cut 3 s in because the clock still ran from 17:11).
+                val linkSavedNow = scanModel.selectedAddressFlow.value
+                if (linkState != linkPrevState || linkSavedNow != linkPrevSaved) { linkNotTalkingSince = now; linkPrevState = linkState; linkPrevSaved = linkSavedNow }
                 if (linkState == ConnectionState.Connecting) { if (linkConnectingSince == 0L) linkConnectingSince = now } else linkConnectingSince = 0L
                 val linkStuck = linkConnectingSince != 0L && now - linkConnectingSince >= 45_000L
                 if (linkState == ConnectionState.Connecting && !linkStuck) continue
                 if (linkNotTalkingSince == 0L) linkNotTalkingSince = now
                 val saved = scanModel.selectedAddressFlow.value
                 if (!link.needsRecovery.value || saved.isNullOrBlank() || saved == "n") continue
-                if (!linkStuck && now - linkNotTalkingSince < 60_000L) continue
+                if (!linkStuck && now - linkNotTalkingSince < 20_000L) continue   // LINKHB-2026-10-05: the heartbeat already waited 45 s
                 if (now - linkLastAttempt < 45_000L) continue
                 if (linkStuck) { android.util.Log.i("LINKFIX", "connecting for ${(now - linkConnectingSince) / 1000} s -- stuck"); linkConnectingSince = 0L }
-                if (linkAttempts < 3) {
+                // LINKHB-2026-10-05: 3 tries 45 s apart, then every 2 minutes for as long as the radio stays silent (quietly);
+                // the banner only while riding with a group.
+                if (linkAttempts < 3 || now - linkLastAttempt >= 120_000L) {
                     linkAttempts++; linkLastAttempt = now
-                    android.util.Log.i("LINKFIX", "radio not talking -> reconnect $linkAttempts of 3 ($saved)")
+                    android.util.Log.i("LINKFIX", "radio not talking -> reconnect $linkAttempts ($saved)")
                     uIViewModel.setDeviceAddress("n")
                     kotlinx.coroutines.delay(1500)
                     uIViewModel.setDeviceAddress(saved)
-                } else if (!link.powerCycleDismissed) {
+                }
+                if (linkAttempts >= 3 && !link.powerCycleDismissed && link.ridingGroup.value) {
                     link.powerCycle.value = true
                 }
             }

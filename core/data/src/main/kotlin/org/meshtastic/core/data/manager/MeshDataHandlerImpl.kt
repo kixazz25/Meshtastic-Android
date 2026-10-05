@@ -371,6 +371,7 @@ constructor(
         android.util.Log.i("TAKDUMP", "TAKDUMP-2026-09-25 port 72 from ${packet.from}: ${org.meshtastic.proto.TAKPacket.ADAPTER.toOneLiner(tak)}") // CLEANUP-2026-09-25
         // TAKDUP-2026-09-26: every TAK report reaches the tablet twice -- the over-the-air original (is_compressed=true,
         // callsign unishox-compressed, unreadable) and a copy the RECEIVING radio decompresses for the phone. Use only that one.
+        TakSeenStore.saw(packet.from)   // LINKHB-2026-10-05: every TAK report -- our own radio's is the hand-off heartbeat
         if (tak.is_compressed) return
         // RADIONAMES-2026-10-03 (Fred): the callsign in a TAK payload is that radio's long name last used (only on change).
         tak.contact?.callsign?.let { RadioNameStore.put(packet.from, it, "TAK payload") }

@@ -115,6 +115,8 @@ class ConvoyViewModel @Inject constructor(
     private var linkWasConnected = false
     private var radioTalkingNow = false
     private val LINK_SILENCE_MS = 120_000L
+    private var linkConnectedAtMs = 0L            // LINKHB-2026-10-05: when the current connection began (grace for the first report)
+    private var radioConnectedThisSession = false // LINKHB-2026-10-05: a radio was connected on this tablet this session
     private var namesAtConnectPending = false   // RADIONAMES-2026-10-03: record the connected radio once its own record arrives
     private var phoneLocationListener: android.location.LocationListener? = null
 
@@ -918,7 +920,7 @@ class ConvoyViewModel @Inject constructor(
         val nowMs = System.currentTimeMillis()
         // LINKFIX-2026-10-03: is the radio talking? (see the fields at livePhoneLocation)
         val linkConnected = GrpAwarenessLauncher.connected.value
-        if (linkConnected && !linkWasConnected) { lastRadioTrafficMs = nowMs; namesAtConnectPending = true }   // a fresh connection gets its full grace
+        if (linkConnected && !linkWasConnected) { lastRadioTrafficMs = nowMs; namesAtConnectPending = true; linkConnectedAtMs = nowMs; radioConnectedThisSession = true }   // a fresh connection gets its full grace
         // RADIONAMES-2026-10-03 (Fred): AT CONNECT -- the radio's own long name and its Bluetooth address go into the table, and the
         // table is written (once the radio's own record has arrived; until then, retried each tick).
         if (namesAtConnectPending && linkConnected) {
@@ -932,12 +934,21 @@ class ConvoyViewModel @Inject constructor(
             }
         }
         linkWasConnected = linkConnected
-        radioTalkingNow = linkConnected && nowMs - lastRadioTrafficMs < LINK_SILENCE_MS
+        // LINKHB-2026-10-05 (Fred): the Bluetooth HAND-OFF heartbeat -- our own radio hands us its TAK report every ~15 s. No report
+        // from MY radio for 45 s = the hand-off has failed, any time. A radio that has never sent one (not yet TAK_TRACKER)
+        // is judged by the node-list signal as before. A fresh connection gets 45 s for its first report.
+        val hbNum = GrpAwarenessLauncher.myNodeNum.value
+        val ownTakMs = hbNum?.let { org.meshtastic.core.data.manager.TakSeenStore.lastFrom(it) }
+        radioTalkingNow = linkConnected && (if (ownTakMs != null) nowMs - maxOf(ownTakMs, linkConnectedAtMs) < 45_000L
+                                            else nowMs - lastRadioTrafficMs < LINK_SILENCE_MS)
         GrpAwarenessLauncher.talking.value = radioTalkingNow
         // Automatic recovery only with a group to get back to, or no tablet GPS (the radio is then the only position).
         val othersInTick = _convoyState.value.nodes.any { !it.isMyCart }
         val tabletHasGps = appContext.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LOCATION_GPS)
-        GrpAwarenessLauncher.needsRecovery.value = !radioTalkingNow && (othersInTick || !tabletHasGps)
+        // LINKHB-2026-10-05 (Fred): reconnect whenever a radio was connected on this tablet this session -- GPS or not, group or not
+        // ("much better than losing the radio mid ride"). The banner only while riding with a group. tabletHasGps stays for the log.
+        GrpAwarenessLauncher.needsRecovery.value = !radioTalkingNow && radioConnectedThisSession
+        GrpAwarenessLauncher.ridingGroup.value = othersInTick
         val nodes: List<ConvoyNode> = if (_simulationMode.value) {
             ConvoySimulation.tick(nowMs)
         } else {

@@ -77,6 +77,8 @@ object GrpAwarenessLauncher {
     /** LINKFIX-2026-10-03: the automatic reconnects failed -- ask the rider to turn the radio off and on. */
     val powerCycle = mutableStateOf(false)
     var powerCycleDismissed = false
+    /** LINKHB-2026-10-05: other carts in the tick array -- the power-cycle banner only shows while riding with a group. */
+    val ridingGroup = mutableStateOf(false)
     /** RADIONAMES-2026-10-03: the Bluetooth address of the radio in use. CODE RULE 1: null = no radio selected. Set by Main.kt. */
     val connectedAddress = mutableStateOf<String?>(null)
 }
