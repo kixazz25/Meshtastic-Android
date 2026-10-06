@@ -1,0 +1,37 @@
+diff --git a/app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt b/app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt
+index 6286a5571..dbd463c97 100644
+--- a/app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt
++++ b/app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt
+@@ -130,6 +130,9 @@ fun ConvoyScreen(
+     onNavigateToTrackExport: () -> Unit = {},
+     onNavigateToTrackImport: () -> Unit = {},
+     onNavigateToMapViewer: () -> Unit = {},
++    // TRACKRIDE-CONVOY-2026-10-05 (Fred): opens the ride form for a route id. REQUIRED (CODE RULE 1) -- no default, so the compiler
++    // checks every caller wires it; the ride map's detail panel uses it for ADD A RIDE and CREATE RIDE.
++    onAddRide: (String, String) -> Unit,
+     viewModel: ConvoyViewModel = hiltViewModel()
+ ) {
+     val channelViewModel: ChannelViewModel = hiltViewModel()
+@@ -2768,6 +2771,22 @@ fun ConvoyScreen(
+             )
+             if (pendingDetailId != null && pendingDetailType != null) {
+                 ArtifactDetailPanel(
++                    // TRACKRIDE-CONVOY-2026-10-05 (Fred): ADD A RIDE (routes) and CREATE RIDE (tracks) on the RIDE map too -- the SAME panel
++                    // actions as the planner (ConvoyMapViewerScreen), the same track->route conversion, the same ride form.
++                    // No picture capture here: it would fit the map to the route, moving the rider's view away from the
++                    // carts; the ride form falls back to the drawn route line (RidePreview: "never blocks").
++                    onAddRide = { a: String, b: String -> onAddRide(a, b) },
++                    onCreateRideFromTrack = { tid: String, name: String, desc: String, th: ConvoyArtifactOps.RouteTrailhead ->
++                        coroutineScope.launch {
++                            val rid = ConvoyArtifactOps.trackToRoute(context, tid, name, desc, th)
++                            if (rid == null) {
++                                android.widget.Toast.makeText(context, "Could not make a route from this track", android.widget.Toast.LENGTH_LONG).show()
++                            } else {
++                                pendingDetailId = null; pendingDetailType = null
++                                onAddRide("Route", rid)
++                            }
++                        }
++                    },
+                     artifactType = pendingDetailType!!,
+                     id = pendingDetailId!!,
+                     mapKey = "convoy",
