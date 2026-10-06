@@ -442,6 +442,10 @@ class ConvoyViewModel @Inject constructor(
             override suspend fun writeChannel(channel: org.meshtastic.proto.Channel) {
                 radioController.setRemoteChannel(destNum, channel, radioController.getPacketId())
             }
+            // RADIODEFAULTS-2026-10-06: the serial module write (group 3).
+            override suspend fun writeModuleConfig(config: org.meshtastic.proto.ModuleConfig) {
+                radioController.setModuleConfig(destNum, config, radioController.getPacketId())
+            }
             override suspend fun disconnect() { ui.setDeviceAddress("n") }
             override suspend fun reconnect() { ui.setDeviceAddress(saved) }
             override suspend fun retrieve(): DeviceProfile = currentProfile()
@@ -486,6 +490,9 @@ class ConvoyViewModel @Inject constructor(
     fun clearWorkingConfig() { _workingConfig.value = null }
 
     var persistentWebView: android.webkit.WebView? = null
+    /** COSMETICS-2026-10-06 (Fred): the HUD text colour chosen with the toggle, PER MAP TYPE, for this session only
+     *  (true = white text). A map type with no entry uses its default (HUDSCHEME-2026-09-29). */
+    val hudTextWhiteByMap = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
     /** RIDEMAPSTATE-2026-10-05 (Fred): the ride map's bridge-written state (detail target, lists, viewport, long-press, route mode),
      *  shared by every visit -- it must live as long as persistentWebView, whose JavaScript keeps calling the first bridge. */
     val convoyRideMapStates = HashMap<String, androidx.compose.runtime.MutableState<*>>()

@@ -43,6 +43,10 @@ data class ReportingValues(
     val fixedPosition: Boolean,
     /** On the CHANNEL (module settings), written with the channel in group 2. 32 = full precision; 0 = not shared. */
     val positionPrecision: Int,
+    /** RADIODEFAULTS-2026-10-06: the position flags (which fields a position carries) -- written with position in group 1b. */
+    val positionFlags: Int,
+    /** RADIODEFAULTS-2026-10-06: the serial module enabled -- a MODULE setting, written in group 3. */
+    val serialEnabled: Boolean,
 )
 
 /** Every value the configurator manages. All required: a target without one of them is not a usable target. */
@@ -74,6 +78,7 @@ class ConfigPlan(
     val channel: Channel?, // null = unchanged -> group 2 skipped
     val position: Config.PositionConfig?, // null = unchanged -> group 3 skipped
     val bluetooth: Config.BluetoothConfig?, // NOPIN-2026-10-04: null = unchanged -> group 4 skipped
+    val serial: org.meshtastic.proto.ModuleConfig.SerialConfig?, // RADIODEFAULTS-2026-10-06: null = unchanged -> group 3 skipped
     val changes: List<String>, // "field: old -> new", managed fields only
 ) {
     val isEmpty: Boolean get() = changes.isEmpty()
@@ -116,6 +121,8 @@ object RadioConfigurator {
                 txEnabled = st.getBoolean("txEnabled"),
                 fixedPosition = st.getBoolean("fixedPosition"),
                 positionPrecision = st.getInt("positionPrecision"),
+                positionFlags = st.getInt("positionFlags"),         // RADIODEFAULTS-2026-10-06
+                serialEnabled = st.getBoolean("serialEnabled"),     // RADIODEFAULTS-2026-10-06
             ),
             bluetoothMode = Config.BluetoothConfig.PairingMode.valueOf(st.getString("bluetoothMode")),   // NOPIN-2026-10-04
         )
@@ -137,6 +144,9 @@ object RadioConfigurator {
                 pos.broadcast_smart_minimum_interval_secs, pos.broadcast_smart_minimum_distance,
                 pos.gps_mode, pos.gps_update_interval, lora.tx_enabled,
                 pos.fixed_position, primary.module_settings?.position_precision ?: 0,
+                // RADIODEFAULTS-2026-10-06: a backup from before serial was managed may not carry the serial module;
+                // absent = the radio's own default (off), which is what that radio really had.
+                pos.position_flags, p.module_config?.serial?.enabled ?: false,
             ),
             // NOPIN-2026-10-04: a backup reapplies as NO_PIN, GroupTrack's standard -- restoring an old PIN would bring the
             // pairing breaks back.
@@ -185,6 +195,7 @@ object RadioConfigurator {
             broadcast_smart_minimum_interval_secs = r.smartMinIntervalSecs,
             broadcast_smart_minimum_distance = r.smartMinDistanceMeters,
             gps_mode = r.gpsMode, gps_update_interval = r.gpsUpdateSecs, fixed_position = r.fixedPosition,
+            position_flags = r.positionFlags,   // RADIODEFAULTS-2026-10-06
         )
         note("broadcast interval", pos.position_broadcast_secs, r.broadcastSecs)
         note("smart position", pos.position_broadcast_smart_enabled, r.smartEnabled)
@@ -192,6 +203,12 @@ object RadioConfigurator {
         note("smart distance", pos.broadcast_smart_minimum_distance, r.smartMinDistanceMeters)
         note("gps mode", pos.gps_mode, r.gpsMode); note("gps update", pos.gps_update_interval, r.gpsUpdateSecs)
         note("fixed position", pos.fixed_position, r.fixedPosition)
+        note("position flags", pos.position_flags, r.positionFlags)   // RADIODEFAULTS-2026-10-06
+
+        // RADIODEFAULTS-2026-10-06 (Fred): the serial module enabled. A retrieve without a serial section gets a full one written.
+        val ser = current.module_config?.serial ?: org.meshtastic.proto.ModuleConfig.SerialConfig()
+        val newSer = ser.copy(enabled = r.serialEnabled)
+        note("serial enabled", ser.enabled, r.serialEnabled)
 
         // NOPIN-2026-10-04 (Fred): Bluetooth enabled, pairing NO_PIN. A retrieve without a Bluetooth section gets a full one written.
         val bt = current.config?.bluetooth ?: Config.BluetoothConfig()
@@ -206,6 +223,7 @@ object RadioConfigurator {
             channel = if (newPrimary != primary) Channel(index = 0, settings = newPrimary, role = Channel.Role.PRIMARY) else null,
             position = newPos.takeIf { it != pos },
             bluetooth = newBt.takeIf { it != bt },   // NOPIN-2026-10-04
+            serial = newSer.takeIf { it != ser },    // RADIODEFAULTS-2026-10-06
             changes = changes,
         )
     }
@@ -237,6 +255,8 @@ object RadioConfigurator {
             c("position precision", r.positionPrecision, primary?.module_settings?.position_precision ?: 0),
             c("bluetooth pairing", t.bluetoothMode, after.config?.bluetooth?.mode),   // NOPIN-2026-10-04
             c("bluetooth enabled", true, after.config?.bluetooth?.enabled),
+            c("position flags", r.positionFlags, pos?.position_flags),               // RADIODEFAULTS-2026-10-06
+            c("serial enabled", r.serialEnabled, after.module_config?.serial?.enabled), // RADIODEFAULTS-2026-10-06
         )
     }
 

@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn   // CARTROLES-2026-10-06
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.height
@@ -66,6 +67,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border   // COSMETICS2-2026-10-06
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -2990,8 +2992,9 @@ fun ConvoyScreen(
                     viewModel.checkIn.value = rci.copy(role = newRole)
                     viewModel.startRoleReports(newRole)   // ROLEANYRIDE-2026-09-29 (Fred): broadcast on ANY ride, scheduled or not
                     showRoleChange = false
+                    CartPickerLauncher.open()   // ROLERETURN-2026-10-06 (Fred): back to VIEW CART ROLES, showing the new role
                 },
-                onDismiss = { showRoleChange = false }
+                onDismiss = { showRoleChange = false; CartPickerLauncher.open() }   // ROLERETURN-2026-10-06: Cancel returns there too
             )
         }
         // ── Cart Picker Panel (Phase 0 stub) ──────────────────────────────
@@ -3012,10 +3015,21 @@ fun ConvoyScreen(
                     .filter { it.isNotBlank() }.joinToString(" \u00b7 ") } ?: "",
                 myRole = pickCi?.role ?: "",
                 onSelect = { selectedNode ->
-                    // ROLECHANGE-2026-09-29: MY OWN cart (checked in) -> change my role; any other cart -> its information, as before
-                    if (selectedNode.isMyCart && viewModel.checkIn.value != null) showRoleChange = true
-                    else viewModel.onMarkerTapped(selectedNode)
-                    showCartPicker = false
+                    // CARTROLESTAP-2026-10-06 (Fred): only MY OWN role can be changed here. Another cart -> say so and stay
+                    // open (it used to open that cart's information and close the panel, which looked like it vanished).
+                    when {
+                        selectedNode.isMyCart && viewModel.checkIn.value != null -> { showRoleChange = true; showCartPicker = false }
+                        selectedNode.isMyCart -> android.widget.Toast.makeText(context,
+                            "Check in first \u2014 tap CHECK IN at the top left.", android.widget.Toast.LENGTH_LONG).show()
+                        else -> {
+                            // ROLEMSG-2026-10-06 (Fred): name the radio this tablet is connected to (a guest radio later on)
+                            val mine = convoyState.nodes.firstOrNull { it.isMyCart }?.callsign?.takeIf { it.isNotBlank() }
+                            android.widget.Toast.makeText(context,
+                                if (mine != null) "You can only change the role of \"" + mine + "\"."
+                                else "You can only change the role of the radio connected to this tablet.",
+                                android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }
                 },
                 onDismiss = { showCartPicker = false },
                 onChangeMyRole = { showRoleChange = true; showCartPicker = false }   // ROLEBTN-2026-09-29
@@ -3037,13 +3051,18 @@ fun ConvoyScreen(
             onDismiss = { showGpsPanel = false; viewModel.clearGpsApplyStatus() }
         )
         // HUDSCHEME-2026-09-29 (Fred): the HUD's colour scheme follows the map -- SAT (or a hybrid) is dark imagery.
-        val hudOnDark = mapTypeLabel.uppercase().let { it.startsWith("SAT") || it.contains("HYB") }
+        val hudMapKey = mapTypeLabel.uppercase()
+        val hudDefaultWhite = hudMapKey.let { it.startsWith("SAT") || it.contains("HYB") }
+        // COSMETICS-2026-10-06 (Fred): the toggle's choice for this map type (session), else the map's default.
+        val hudOnDark = viewModel.hudTextWhiteByMap[hudMapKey] ?: hudDefaultWhite
         // ── HUD strip ─────────────────────────────────────────────────────
         Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 48.dp)) {
             androidx.compose.runtime.CompositionLocalProvider(LocalHudOnDark provides hudOnDark) {   // HUDSCHEME-2026-09-29
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { // GPSPANEL-2026-09-29
                 if (hudMode != HudMode.COLLAPSED) GpsLocationRow(intervalSecs = gpsNowSecs, channelUtil = avgChannelUtil,
-                    onOpen = { viewModel.clearGpsApplyStatus(); showGpsPanel = true })
+                    onOpen = { viewModel.clearGpsApplyStatus(); showGpsPanel = true },
+                    textWhite = hudOnDark,   // COSMETICS-2026-10-06: the HUD text toggle, beside the interval and meter
+                    onToggleText = { viewModel.hudTextWhiteByMap[hudMapKey] = !hudOnDark })
             when (hudMode) {
                 HudMode.GROUP -> GroupHud(
                     state = convoyState,
@@ -3504,17 +3523,19 @@ fun CartPickerPanel(
     ) {
         Surface(
             modifier = Modifier
+                .widthIn(max = 360.dp)   // CARTROLES-2026-10-06 (Fred): narrower
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            color = Color(0x8C1A2E4A)   // CARTPICKER4-2026-09-28 (Fred): ~55%, the map clearly visible
+            color = Color.Black   // CARTROLES-2026-10-06 (Fred): SOLID black -- was ~55% see-through and unreadable over the map
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 // The ride, on top.
                 if (rideTitle.isNotBlank()) {
                     Text(rideTitle, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     if (rideSub.isNotBlank()) Text(rideSub, color = dim, fontSize = 12.sp)
-                } else Text("Not checked in to a ride", color = dim, fontSize = 13.sp)
+                } else Text("Not checked in yet \u2014 tap CHECK IN at the top left to choose your ride.",   // CARTROLES-2026-10-06
+                    color = Color(0xFFFFD166), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 // ROLEBTN-2026-09-29 (Fred): change MY role from here -- whether or not my own cart is in the list.
                 if (rideTitle.isNotBlank()) androidx.compose.material3.TextButton(onClick = { onChangeMyRole() }) {
                     Text("CHANGE MY ROLE \u00b7 now " + roleLabel(myRole), color = Color(0xFFFFD166),
@@ -3525,7 +3546,7 @@ fun CartPickerPanel(
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(if (listOpen) "\u25BE" else "\u25B8", color = Color(0xFF67EA94), fontSize = 18.sp,   // CARTPICKER3
                         modifier = Modifier.clickable { listOpen = !listOpen }.padding(end = 8.dp))
-                    Text("SELECT CART \u00b7 ${nodes.size} radio" + (if (nodes.size == 1) "" else "s") + " on this network",
+                    Text("CART ROLES \u00b7 ${nodes.size} radio" + (if (nodes.size == 1) "" else "s") + " on this network",   // CARTROLES
                         color = Color(0xFF67EA94), fontSize = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f))
                     androidx.compose.material3.TextButton(onClick = { onDismiss() }) {
@@ -3554,10 +3575,11 @@ fun CartPickerPanel(
                                 .padding(vertical = 3.dp)
                                 .clickable { onSelect(node) },
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0x802A3545)   // CARTPICKER4: ~50%
+                            color = Color(0xFF1E2630)   // CARTROLES-2026-10-06: solid (was ~50%)
                         ) {
                             Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("\u25CF", color = if (checkedIn) green else red, fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
+                                Text(if (checkedIn) "\u2714" else "\u25CF", color = if (checkedIn) green else red, fontSize = 16.sp,   // CARTROLES: check / dot
+                                    fontWeight = FontWeight.Black, modifier = Modifier.padding(end = 10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(node.callsign, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     Text((if (checkedIn) "checked in" else if (node.isMyCart) "not checked in" else "bare radio") + (if (node.isMyCart) " \u00b7 you" else ""),
@@ -3575,7 +3597,7 @@ fun CartPickerPanel(
                 }
                 // CARTACTIVE-2026-09-30 (Fred): carts removed on this tablet -- off the map and out of the group; one tap reactivates.
                 removed.filterKeys { k -> nodes.none { it.nodeId == k } }.toList().sortedBy { it.second.lowercase() }.forEach { (rid, rcall) ->
-                    Surface(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), shape = RoundedCornerShape(8.dp), color = Color(0x802A3545)) {
+                    Surface(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), shape = RoundedCornerShape(8.dp), color = Color(0xFF1E2630)) {   // CARTROLES: solid
                         Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("\u25CB", color = dim, fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
                             Column(modifier = Modifier.weight(1f)) {
@@ -3588,8 +3610,8 @@ fun CartPickerPanel(
                         }
                     }
                 }
-                Text("\u25CF checked in    \u25CF bare radio \u2014 no GroupTrack role in its reports: counted as Rider. " +
-                    "Checked-in riders show green once the roles update carries their role.", color = dim, fontSize = 10.sp,
+                Text("\u2714 checked in    \u25CF not checked in \u2014 a bare radio, or a rider who has not checked in yet: " +   // CARTROLES
+                    "counted as Rider.", color = dim, fontSize = 10.sp,
                     modifier = Modifier.padding(top = 8.dp))
                 }   // CARTPICKER3: end of the folding list
             }
@@ -3663,7 +3685,7 @@ fun ConvoyButtonBar(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "CHECKIN /\nSELECT\nCART",   // CARTBTN-2026-09-28 (Fred): who is checked in, and a cart to select
+                text = "VIEW\nCART\nROLES",   // CARTROLES-2026-10-06 (Fred): was "CHECKIN / SELECT CART"
                 color = Color(0xFFCAC4D0),
                 fontSize = 8.sp,
                 fontFamily = FontFamily.Monospace,
@@ -3809,7 +3831,8 @@ private fun gpsChColor(util: Float): Color = when {
 }
 
 @Composable
-fun GpsLocationRow(intervalSecs: Int, channelUtil: Float, onOpen: () -> Unit) {
+fun GpsLocationRow(intervalSecs: Int, channelUtil: Float, onOpen: () -> Unit,
+                   textWhite: Boolean, onToggleText: () -> Unit) {   // COSMETICS-2026-10-06
     val c = gpsChColor(channelUtil)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.padding(start = 4.dp)) {
@@ -3832,6 +3855,21 @@ fun GpsLocationRow(intervalSecs: Int, channelUtil: Float, onOpen: () -> Unit) {
                     .padding(1.5.dp)
                     .background(c, RoundedCornerShape(2.dp)))
                 GpsOutlinedText("%.0f%%".format(channelUtil), c, 18, FontWeight.Black)
+            }
+        }
+        // COSMETICS-2026-10-06 (Fred): HUD text colour -- shows the CURRENT text colour; tap to flip it (all three HUDs,
+        // this map type, this session).
+        Box(modifier = Modifier.size(40.dp)
+                .background(Color(0xE6111820), RoundedCornerShape(8.dp))
+                .clickable { onToggleText() },
+            contentAlignment = Alignment.Center) {
+            // COSMETICS2-2026-10-06 (Fred): a half-white / half-black circle = "switch the text light/dark". Drawn, not a
+            // font glyph, so it looks the same on every tablet.
+            Row(modifier = Modifier.size(24.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .border(1.5.dp, Color(0xFF888888), androidx.compose.foundation.shape.CircleShape)) {
+                Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color.White))
+                Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color(0xFF111111)))
             }
         }
     }

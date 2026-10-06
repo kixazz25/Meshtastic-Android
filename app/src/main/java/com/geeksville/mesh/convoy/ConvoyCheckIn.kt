@@ -83,6 +83,12 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
 
     AlertDialog(
         onDismissRequest = onCancel,
+        // COSMETICS-2026-10-06 (Fred): narrower, and SOLID black -- the map must never show through text you have to read.
+        // CHECKINWIDTH-2026-10-06 (Fred): original width -- 340 dp made the role buttons wrap (Tail gunner vertical).
+        containerColor = Color.Black,
+        titleContentColor = Color.White,
+        textContentColor = Color.White,
+        tonalElevation = 0.dp,
         title = { Text("Check in") },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {

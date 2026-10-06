@@ -41,6 +41,8 @@ interface RadioOps {
     suspend fun commitEdit()
     suspend fun writeConfig(config: Config)
     suspend fun writeChannel(channel: Channel)
+    /** RADIODEFAULTS-2026-10-06: a module setting (the serial module), inside a begin/commit like the config groups. */
+    suspend fun writeModuleConfig(config: org.meshtastic.proto.ModuleConfig)
     /** Drop the app's Bluetooth link (the old wait: setDeviceAddress("n")). */
     suspend fun disconnect()
     /** Reconnect to the saved radio (the old wait: setDeviceAddress(savedAddress)). */
@@ -107,6 +109,16 @@ class RadioConfigWriter(
             ops.writeChannel(ch)
             written += "2 channel"
             if (!waitBack("2 channel")) return WriteResult.Stopped("2 channel", "radio did not come back", written)
+        }
+
+        // RADIODEFAULTS-2026-10-06 (Fred): GROUP 3 -- the serial module (a module setting), before Bluetooth (which stays last).
+        plan.serial?.let { s ->
+            log("RADIOWRITER: group 3 -- serial enabled=${s.enabled}")
+            ops.beginEdit()
+            ops.writeModuleConfig(org.meshtastic.proto.ModuleConfig(serial = s))
+            ops.commitEdit()
+            written += "3 serial"
+            if (!waitBack("3 serial")) return WriteResult.Stopped("3 serial", "radio did not come back", written)
         }
 
         // NOPIN-2026-10-04 (Fred): GROUP 4, LAST -- Bluetooth pairing NO_PIN. Changing the pairing mode can break THIS tablet's
