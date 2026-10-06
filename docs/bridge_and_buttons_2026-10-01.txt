@@ -1,0 +1,180 @@
+=== BRIDGE (@JavascriptInterface)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1175:                    // plain @JavascriptInterface callback with none of this
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1176-                    // problem. Long press keeps its ONE meaning: create a waypoint.
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1177-                    pendingWaypoint?.let { (wLat, wLon) ->
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1178-                        androidx.compose.material3.AlertDialog(
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1179-                            onDismissRequest = { pendingWaypoint = null },
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1180-                            title = { androidx.compose.material3.Text("New Waypoint") },
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1181-                            text = {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1292:                            @JavascriptInterface
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1293-                            fun onMapTap(lat: Double, lon: Double) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1294-                                android.util.Log.d("RouteBridge", "onMapTap lat=$lat lon=$lon")
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1295-                                kotlinx.coroutines.MainScope().launch {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1296-                                    val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1297-                                        SpatialDbManager.init(context)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1298-                                        val trails = SpatialDbManager.queryTrailsByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1383:                            @JavascriptInterface
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1384-                            fun onMapLongPress(lat: Double, lon: Double) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1385-                                // WAYPOINT-ALWAYS-2026-07-30 (Fred): "waypoints
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1386-                                // (long press) should always register to create
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1387-                                // waypoints." The guard removed here was added
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1388-                                // because popups were not responding, so long
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1389-                                // presses were frustrated attempts at a popup that
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1400:                            @JavascriptInterface
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1401-                            fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1402-                                android.util.Log.i("DownloadPanel", "onAreaSelected: n=$north s=$south e=$east w=$west")
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1403-                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1404-                                    downloadBbox = DownloadBbox(north = north, south = south, east = east, west = west)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1405-                                    isDrawingArea = false
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1406-                                    android.util.Log.i("DownloadPanel", "downloadBbox updated: valid=${downloadBbox.isValid}")
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1409:                            @JavascriptInterface
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1410-                            fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1411:                            @JavascriptInterface
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1412-                            fun onProximityTap(lat: Double, lon: Double) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1413-                                // TAPTRACE-2026-07-30: silent until now. The four
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1414-                                // display states are logged because every branch
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1415-                                // below is gated on them -- a DS_OFF type
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1416-                                // contributes nothing and looks like a dead tap.
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1417-                                android.util.Log.d(
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1491:                                        // @JavascriptInterface method -- that
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1492-                                        // exact throw killed convoy's artifact
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1493-                                        // draw on 2026-08-01.
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1494-                                        android.widget.Toast.makeText(
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1495-                                            context,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1496-                                            pinPoints.size.toString() + " of " +
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1497-                                                PIN_MAX + " places",
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1597:                            @JavascriptInterface
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1598-                            fun onTrackTap(id: String) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1599-                                // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1600-                                //
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1601-                                // TAPTRACE-2026-07-30: addPointMode is a KOTLIN flag,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1602-                                // distinct from the JS window.__routeMode. The 07-30
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1603-                                // logs proved __routeMode=false at tap time; they say
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1622:                            @JavascriptInterface
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1623-                            fun onWaypointTap(id: String) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1624-                                // WPTTAP-2026-09-30 (Fred): waypoints open the detail panel -- mirrors onTrailTap, including the
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1625-                                // addPointMode suppression (a tap mid-draw places a vertex, not a panel).
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1626-                                android.util.Log.d("WaypointTap", "PLANNER bridge id=$id addPointMode=$addPointMode")
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1627-                                if (addPointMode) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1628-                                    android.util.Log.d("WaypointTap", "PLANNER SUPPRESSED by addPointMode")
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1636:                            @JavascriptInterface
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1637-                            fun onTrailTap(id: String) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1638-                                // TRAILTAP-2026-09-02: mirrors onTrackTap and
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1639-                                // onRouteTap exactly -- copied, not invented, so
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1640-                                // the three behave alike.
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1641-                                // ⚠ SAME addPointMode SUPPRESSION. Opening a
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1642-                                // detail panel mid-draw would interrupt route
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1657:                            @JavascriptInterface
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1658-                            fun onRouteTap(id: String) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1659-                                // ROUTETAP-2026-08-23Z: mirrors onTrackTap above. A route
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1660-                                // is an artifact we own, so it opens the shared detail
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1661-                                // panel; trails and waypoints keep their popups.
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1662-                                android.util.Log.d(
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1663-                                    "RouteTap", "PLANNER bridge id=$id addPointMode=$addPointMode"
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1692:                            @JavascriptInterface
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1693-                            fun onMapReady(n: Double, s: Double, e: Double, w: Double) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1694-                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1695-                                    val wv = webViewRef ?: return@post
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1696-                                    val src = ConvoyConfig.ACTIVE_TILE_SOURCE
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1697-                                    val url = MapSourceManager.getSlotSources().find { it.first == src }?.third
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1698-                                        ?: tileSources.firstOrNull()?.third ?: return@post
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1712:                            @JavascriptInterface
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1713-                            fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1714-                                lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1715-                                lastViewportZoom = zoom   // SNAPRADIUS-2026-07-30: was discarded
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1716-                                viewportSaveHandler.removeCallbacks(viewportSaveRunnable); viewportSaveHandler.postDelayed(viewportSaveRunnable, 400)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1717-                                // GATE: reseed this map's local state from JSON only if the active
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1718-                                // map changed since last refresh (else live vars stay authoritative).
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1726:                                    // @JavascriptInterface methods run off-main; WebView methods must run on
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1727-                                    // main and THROW otherwise -- and the throw aborted the rest of this
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1728-                                    // method, so the state reads, lastMapProcessed and processViewport below
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1729-                                    // never ran. Post to main and continue. Mirrors SpatialDisplayManager,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1730-                                    // which posts every evaluateJavascript through main.post.
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1731-                                    webViewRef?.let { _wv ->
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-1732-                                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:5005:            // is a @JavascriptInterface with no slug and no scope, and disk I/O
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-5006-            // there would run on the JS thread -- so it keeps doing only what it
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-5007-            // does today (set downloadBbox) and the reaction happens here.
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-5008-            LaunchedEffect(downloadBbox, panelOsmChecked, osmAwaitingSlug) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-5009-                val slug = osmAwaitingSlug
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-5010-                if (slug != null && panelOsmChecked && downloadBbox.isValid) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt-5011-                    val ok = kotlinx.coroutines.withContext(
+
+=== DetailActionButton calls
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-124-                    if (artifactType != "Trails" && onRename != null) {
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:125:                        DetailActionButton("RENAME", aBlue) { renameText = dName; showRenameDialog = true }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-126-                    }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-127-                    // RIDERTRAILDELETE-2026-09-08: trails were excluded outright.
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-128-                    // ⭐ Now: a trail YOU created can be deleted; a surveyed one
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-138-                    if ((artifactType != "Trails" || riderMade) && onDelete != null) {
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:139:                        DetailActionButton("DELETE", Color(0xFFFF6B6B)) { showDeleteConfirm = true }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-140-                    }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:141:                    if (onShare != null) { DetailActionButton("SHARE", aGreen) { onShare(id) } }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:142:                    if (onExport != null) { DetailActionButton("EXPORT", aGreen) { onExport(id) } }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-143-                    // NARRBTN-2026-08-23Y
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-144-                    // ⭐ RECIPEBTN-2026-08-29: a rider knows what an overview is.
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-145-                    // "Narrative" is our word for the generated prose.
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:146:                    if (onShowNotes != null) { DetailActionButton("OVERVIEW", aOrange) { onShowNotes(id) } }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-147-                    // TRACKRIDE-2026-09-26 (Fred): a track -> a route (named, editable) -> the ride form.
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-148-                    if (onCreateRideFromTrack != null && singular == "track") {
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:149:                        DetailActionButton("CREATE RIDE", aGreen) { rideRouteName = dName; thPick = -1; thNewName = dName + " trailhead"; chosenTh = ConvoyArtifactOps.trackStart(id)?.let { f -> SpatialDbManager.trailheadsNear(f.second, f.first, 0.1).firstOrNull()?.let { t -> ConvoyArtifactOps.RouteTrailhead(t.name, t.lat, t.lon, false) } }; if (chosenTh != null) showRideNameDialog = true else showThPopup = true }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-150-                    }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-151-                    // FIRSTPOINT-2026-09-27 (Fred): the trail's FIRST POINT is its trailhead -- an existing Trailhead within 0.1 mile is
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-152-                    // reused (no popup); otherwise this popup only asks for the new trailhead's NAME, creates it at the first point
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-209-                    if (onAddRide != null && singular == "route") {
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:210:                        DetailActionButton("ADD A RIDE", aGreen) { onAddRide(singular, id) }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-211-                    }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-212-                    /* ⭐ Shown only when this route carries a recipe. Absent for
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-213-                     * hand-drawn and imported routes, and for drafts, which are
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-215-                    if (onBuildFromRecipe != null) {
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:216:                        DetailActionButton("BUILD ROUTES FROM RECIPE", aOrange) {
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-217-                            onBuildFromRecipe(id)
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-218-                        }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-219-                    }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-220-                    if (artifactType == "Waypoints" && onChangeType != null) {
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:221:                        DetailActionButton("CHANGE TYPE", aOrange) { showTypeChooser = true }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-222-                    }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-223-                    // CORRIDOR-CUTOVER-2026-07-24: the area SAVE MAPS button is GONE.
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-224-                    // Corridor measured ~107,000 tiles against 1,000,000+ for the
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-237-                        onDownloadCorridor != null) {
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:238:                        DetailActionButton("SAVE MAPS", aGreen) {
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-239-                            val gh = detailFields["geom_hash"]
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-240-                            if (!gh.isNullOrBlank()) onDownloadCorridor(gh)
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-241-                        }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-242-                    }
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:243:                    DetailActionButton("FIT", aBlue) {
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-244-                        // onDismiss-only: ConvoyScreen's FIT branch owns the write (live vars +
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-245-                        // saveConvoyState). The earlier double-call to ConvoyArtifactOps.fit()
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-246-                        // wrote a second JSON that the onDismiss save then clobbered -> removed.
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-425-@Composable
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:426:private fun DetailActionButton(label: String, color: Color, onClick: () -> Unit) {
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-427-    Text(
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-428-        label, color = color, fontSize = 10.sp,
+app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt-429-        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt-364-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt:365:                        DetailActionButton("ACCEPT",  myStatus == "accepted", canRespond, Color(0xFF22C55E)) { myStatus = "accepted" }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt:366:                        DetailActionButton("MAYBE",   myStatus == "maybe",    canRespond, Color(0xFFF59E0B)) { myStatus = "maybe" }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt:367:                        DetailActionButton("DECLINE", myStatus == "declined", canRespond, Color(0xFFEF4444)) { myStatus = "declined" }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt-368-                    }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt-369-                }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt-370-            }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt-488-@Composable
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt:489:private fun DetailActionButton(
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt-490-    label: String, active: Boolean, enabled: Boolean,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt-491-    activeColor: Color, onClick: () -> Unit
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt-492-) {
+
+=== detail panel: branches by type
+30: * @param artifactType plural ("Tracks"/"Trails"/"Waypoints"/"Routes") -- drives gating + singular
+37:    artifactType: String,
+86:    val singular = artifactType.lowercase().removeSuffix("s")
+124:                    if (artifactType != "Trails" && onRename != null) {
+138:                    if ((artifactType != "Trails" || riderMade) && onDelete != null) {
+148:                    if (onCreateRideFromTrack != null && singular == "track") {
+209:                    if (onAddRide != null && singular == "route") {
+220:                    if (artifactType == "Waypoints" && onChangeType != null) {
+236:                    if ((artifactType == "Tracks" || artifactType == "Routes") &&
+247:                        onDismiss(artifactType, id)
+369:            title = { Text("Rename $artifactType") },
+623:        "track" -> 0xFF00AAFF
+641:    "track" -> "Track"

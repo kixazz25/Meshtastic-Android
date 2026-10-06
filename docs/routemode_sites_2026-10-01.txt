@@ -1,0 +1,88 @@
+=== PLANNER
+328:    // assignment in this file, :1256 `addPointMode = armed`, sets it true when
+333:    // is "LIVE session state ... Recovery launches in onPageFinished after
+346:    val routeSeedOpen = remember { MapStateStore.readMap("planning").routeState?.open == true }
+658:    var savedNotesRouteId by remember { mutableStateOf<String?>(null) }   // LIVE session state (back-gate). Recovery launches in onPageFinished after render, not here.
+686:    var recoveryLaunched by remember { mutableStateOf(false) }   // one-shot: recovery detected this session (in onPageFinished)
+1701:                                    // rather than in onPageFinished. This handler already
+1720:                                    // ⚠ setRouteMode(false), NOT `__routeMode = false` -- the
+1733:                                            _wv.evaluateJavascript("setRouteMode(false)", null)
+1810:                            override fun onPageFinished(view: WebView?, url: String?) {
+1821:                                super.onPageFinished(view, url)
+1874:                                        if (routeSeedOpen && !recoveryLaunched) {
+2298:                        webViewRef?.evaluateJavascript("setRouteMode(false)", null)
+2337:                    addPointMode = true
+2338:                    routeMode = true   // route-add selected: panel has no cancel, both picks build a route
+3644:                    onDismissRequest = { showEntryChoice = false },
+3649:                            showEntryChoice = false
+3666:                            addPointMode = true
+3667:                            routeMode = true
+3668:                            webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)  // arm tap-to-place (no name prompt)
+3673:                            showEntryChoice = false
+3754:                        webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+3756:                        addPointMode = false
+3757:                        routeMode = false
+3797:                                addPointMode = true
+3798:                                routeMode = true
+3799:                                webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)  // arm tap-to-place
+3934:                        addPointMode = armed
+3950:                        webViewRef?.evaluateJavascript("window.__routeMode=" + armed + ";setRouteMode(" + armed + ")", null)
+3984:                    // ⚠ Setting only `routeMode = false` leaves the map still
+3985:                    // in route mode; setRouteMode(false) also reasserts the
+3989:                        routeMode = false
+3991:                            "window.__routeMode=false;setRouteMode(false)", null)
+4001:                        webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+4003:                        addPointMode = false
+4004:                        routeMode = false
+4073:                                    webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+4075:                                    addPointMode = false
+4076:                                    routeMode = false
+4136:                            webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+4138:                            addPointMode = false
+4139:                            routeMode = false
+4251:                    addPointMode = true
+4252:                    routeMode = true
+4254:                        "window.__routeMode=true;setRouteMode(true)", null)
+4262:                    onDismissRequest = { android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false; routeMode = false; webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) },
+4280:                                        addPointMode = true
+4281:                                        routeMode = true
+4298:                                            webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true); drawBuildLine('" + rsPts + "')", null)
+4338:                            addPointMode = true
+4339:                            routeMode = true
+4340:                            webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)
+4344:                        androidx.compose.material3.TextButton(onClick = { android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false; routeMode = false; webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) }) {
+=== RIDE MAP
+263:        var routeMode by remember { mutableStateOf(false) }
+296:        var routeModeResetLogged by remember { mutableStateOf(false) }
+872:                            override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+883:                                view?.evaluateJavascript("setRouteMode(false)", null)
+2290:                            webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+2291:                            routeMode = false
+2329:                                    routeMode = true
+2330:                                    webViewRef.value?.evaluateJavascript("setRouteMode(true)", null)  // arm tap-to-place
+2341:                if (routeMode) {
+2354:                            webViewRef.value?.evaluateJavascript("setRouteMode(true)", null)
+2368:                            webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+2369:                            routeMode = false
+2400:                                webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+2401:                                routeMode = false
+2427:                                webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+2428:                                routeMode = false
+2457:                                            routeMode = true
+2459:                                            webViewRef.value?.evaluateJavascript("setRouteMode(true); drawBuildLine('" + rsPts + "')", null)
+=== TOOLBAR
+76:    onAddModeChanged: (Boolean) -> Unit = {},
+81:    // both REFLECT this value and TOGGLE it through onAddModeChanged - one
+83:    addArmed: Boolean = false,
+117:    routeEntryNonce: Int = 0,
+132:    // A new route session re-opens it -- routeEntryNonce already signals that.
+133:    androidx.compose.runtime.LaunchedEffect(routeEntryNonce) { methodOpen = true }
+137:    // ARMSTATE-2026-08-13F: the private copy is gone - addArmed is a parameter.
+143:    androidx.compose.runtime.LaunchedEffect(routeEntryNonce) { building = true }
+243:                    if (building) { onSelectMethod(ROUTE_METHOD_P2P); onAddModeChanged(true) }
+250:                    // This called onAddModeChanged(false), and that is the
+290:            // behaviour. addArmed true = taps place vertices; false = taps open
+295:                SegHalf("DRAW ROUTE ON", addArmed && building, building, Modifier.weight(1f)) {
+296:                    if (building && !addArmed) { onAddModeChanged(true) }
+298:                SegHalf("MAP TAPS ON",   !addArmed && building, building, Modifier.weight(1f)) {
+299:                    if (building && addArmed) { onAddModeChanged(false) }
