@@ -2349,6 +2349,7 @@ fun ConvoyMapViewerScreen(
                     // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
                     addPointMode = rmTrace(true, "RM@ConvoyMapViewerScreen:2337")
                     routeMode = rmTrace(true, "RM@ConvoyMapViewerScreen:2338")   // route-add selected: panel has no cancel, both picks build a route
+                    showArtifactsPanel = false   // FEATURESCLOSE-2026-10-06 (Fred): Route+ chosen -> Map Features closes (the toolbar does not live in it)
                     android.util.Log.i("PanelTrace", "PICKER <- true"); showInProgressPicker = true
                 },
                 onSearch = { type, term ->
