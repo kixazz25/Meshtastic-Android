@@ -700,6 +700,7 @@ fun ConvoyMapViewerScreen(
     var routeNameTaken by remember { mutableStateOf(false) }
     // live In-Progress list: real draft names from RouteDraftStore (refreshed on draftListTick)
     var draftListTick by remember { mutableStateOf(0) }
+    var clearAiRoutesAsk by remember { mutableStateOf(false) }   // TOOLBARCLEARAI-2026-10-07
     // ROUTETHB-2026-09-27 (Fred): a route is never saved without a trailhead -- the prompt at SAVE when none is near.
     var routeThPrompt by remember { mutableStateOf(false) }
     var routeThName by remember { mutableStateOf("") }
@@ -3883,6 +3884,7 @@ fun ConvoyMapViewerScreen(
             if (routeMode && !showAiDesign && pinStep == PIN_STEP_NONE) {
                 ConvoyRouteToolbar(
                     isConvoyMap = false,
+                    onClearAiRoutes = { clearAiRoutesAsk = true },   // TOOLBARCLEARAI-2026-10-07
                     vertexCount = RouteManager.routeVertexCount(),
                     routeEntryNonce = routeEntryNonce,
                     selectedMethod = routeMethod,
@@ -4321,6 +4323,27 @@ fun ConvoyMapViewerScreen(
              * Route does, so the tap starts a route. A silently ignored tap
              * would be worse than the empty dialog.
              */
+            if (clearAiRoutesAsk) {   // TOOLBARCLEARAI-2026-10-07 (Fred): from the route toolbar, under Save / Discard
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { clearAiRoutesAsk = false },
+                    title = { androidx.compose.material3.Text("Clear AI routes?") },
+                    text = { androidx.compose.material3.Text("Delete all AI-suggested routes and the compare set? Your own routes are kept.") },
+                    confirmButton = { androidx.compose.material3.TextButton(onClick = {
+                        val wasAi = routeMethod == ROUTE_METHOD_SUGGEST
+                        val n = RouteDraftStore.deleteAllAiRoutes()   // compare header FIRST, then AI routes only
+                        batchGridOpen = false; batchRows = emptyList()
+                        webViewRef?.evaluateJavascript("clearBatchRoutes()", null)
+                        if (wasAi) { RouteManager.clearRoute(); webViewRef?.evaluateJavascript("clearBuildLine();", null) }
+                        draftListTick++
+                        clearAiRoutesAsk = false
+                        RouteDraftStore.traceCompare("Route toolbar", "CLEAR AI ROUTES: compare set + $n AI route(s) deleted")
+                        android.widget.Toast.makeText(context, "AI routes cleared ($n). Your own routes are kept.",
+                            android.widget.Toast.LENGTH_LONG).show()
+                    }) { androidx.compose.material3.Text("CLEAR") } },
+                    dismissButton = { androidx.compose.material3.TextButton(onClick = { clearAiRoutesAsk = false }) {
+                        androidx.compose.material3.Text("CANCEL") } }
+                )
+            }
             if (showInProgressPicker && emulatedDrafts.isEmpty()) {
                 androidx.compose.runtime.LaunchedEffect(routeEntryNonce, showInProgressPicker) {
                     android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false

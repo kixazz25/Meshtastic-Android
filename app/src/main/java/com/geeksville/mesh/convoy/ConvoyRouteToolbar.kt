@@ -95,6 +95,9 @@ fun ConvoyRouteToolbar(
     onMethodLockedTap: () -> Unit = {},
     onSaveRequested: () -> Unit = {},
     onDiscardRequested: () -> Unit = {},
+    /** TOOLBARCLEARAI-2026-10-07 (Fred): "Clear AI routes" under Save / Discard. PLANNER ONLY: the default no-op keeps
+     *  the frozen convoy call site unedited (same precedent as onMethodLockedTap); the button shows only off the convoy map. */
+    onClearAiRoutes: () -> Unit = {},
     onSelectInProgress: () -> Unit = {},
     /**
      * ROUTECLOSE-2026-09-02: CLOSE THE TOOL. Not discard.
@@ -332,6 +335,11 @@ fun ConvoyRouteToolbar(
                     building = false
                     if (routeLifecycleState == ROUTE_LS_RESUMED) onDiscardRequested() else onExit()
                 }
+            }
+            // TOOLBARCLEARAI-2026-10-07 (Fred): directly under Save / Discard -- planner only
+            if (!isConvoyMap) {
+                Spacer(Modifier.height(5.dp))
+                BuildBtn("\uD83D\uDDD1 Clear AI routes", rtAmber, Modifier.fillMaxWidth()) { onClearAiRoutes() }
             }
         }
     }
