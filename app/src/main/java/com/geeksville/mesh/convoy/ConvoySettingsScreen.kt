@@ -132,6 +132,132 @@ fun ConvoySettingsScreen(
                 )
             }
 
+            // ROUTEFILES-2026-10-07 (Fred): see and clean up the AI-create route files in-app.
+            var showRouteFiles by remember { mutableStateOf(false) }
+            var routeFilesTick by remember { mutableStateOf(0) }
+            var routeFileView by remember { mutableStateOf<String?>(null) }      // a draft name, or RF_HEADER
+            var routeFilesConfirm by remember { mutableStateOf<String?>(null) }  // "batch" | "all"
+            var routeZipConfirm by remember { mutableStateOf(false) }               // ROUTEZIP-2026-10-07
+            val RF_HEADER = "__compare_set_header__"
+            val rfCtx = androidx.compose.ui.platform.LocalContext.current
+            fun rfShare(subject: String, body: String) {
+                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(android.content.Intent.EXTRA_SUBJECT, subject)
+                    putExtra(android.content.Intent.EXTRA_TEXT, body)
+                }
+                rfCtx.startActivity(android.content.Intent.createChooser(send, "Send"))
+            }
+            SectionLabel("Route files (AI create)")
+            ListItem(
+                headlineContent = { Text("View route files", style = MaterialTheme.typography.bodyLarge) },
+                supportingContent = { Text("In-progress routes, the compare set and the last AI search -- view, share, clean up", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                modifier = Modifier.clickable { routeFilesTick++; showRouteFiles = true }
+            )
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            if (showRouteFiles) {
+                val report = remember(routeFilesTick) { RouteDraftStore.routeFilesReport() }
+                val names = remember(routeFilesTick) { RouteDraftStore.draftNames() }
+                val hasHeader = remember(routeFilesTick) { RouteDraftStore.readBatchText() != null }
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showRouteFiles = false },
+                    confirmButton = { TextButton(onClick = { showRouteFiles = false }) { Text("CLOSE") } },
+                    dismissButton = { TextButton(onClick = { rfShare("GroupTrack route files", report) }) { Text("SHARE") } },
+                    title = { Text("Route files") },
+                    text = {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            Text(report, style = MaterialTheme.typography.bodySmall,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                            Spacer(Modifier.height(10.dp))
+                            Text("Tap a file to view it:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            if (hasHeader) TextButton(onClick = { routeFileView = RF_HEADER }) { Text("Compare set header") }
+                            names.forEach { n -> TextButton(onClick = { routeFileView = n }) { Text(n) } }
+                            Spacer(Modifier.height(10.dp))
+                            if (hasHeader) TextButton(onClick = { routeFilesConfirm = "batch" }) { Text("CLEAR COMPARE SET (keeps the routes)") }
+                            // ROUTEZIP-2026-10-07 (Fred): zip everything, email it, THEN empty the folders.
+                            TextButton(onClick = {
+                                val z = RouteDraftStore.zipRouteFiles(rfCtx)
+                                if (z == null) {
+                                    android.widget.Toast.makeText(rfCtx, "Could not make the zip -- nothing was deleted", android.widget.Toast.LENGTH_LONG).show()
+                                } else {
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(rfCtx, "${rfCtx.packageName}.provider", z)
+                                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "application/zip"
+                                        putExtra(android.content.Intent.EXTRA_SUBJECT, "GroupTrack route files " + z.name)
+                                        putExtra(android.content.Intent.EXTRA_TEXT, report)
+                                        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    rfCtx.startActivity(android.content.Intent.createChooser(send, "Send route files"))
+                                    routeZipConfirm = true
+                                }
+                            }) { Text("ZIP + EMAIL, THEN EMPTY") }
+                            if (names.isNotEmpty() || hasHeader) TextButton(onClick = { routeFilesConfirm = "all" }) { Text("DELETE ALL ROUTE FILES") }
+                        }
+                    }
+                )
+            }
+            routeFileView?.let { v ->
+                val isHeader = v == RF_HEADER
+                val body = remember(v, routeFilesTick) {
+                    (if (isHeader) RouteDraftStore.readBatchText() else RouteDraftStore.readDraftText(v)) ?: "(file not found)"
+                }
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { routeFileView = null },
+                    confirmButton = { TextButton(onClick = { routeFileView = null }) { Text("CLOSE") } },
+                    dismissButton = { TextButton(onClick = { rfShare("GroupTrack route file: " + (if (isHeader) "compare set header" else v), body) }) { Text("SHARE") } },
+                    title = { Text(if (isHeader) "Compare set header" else v) },
+                    text = {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            if (!isHeader) TextButton(onClick = {
+                                if (RouteDraftStore.deleteDraft(v)) {
+                                    android.widget.Toast.makeText(rfCtx, "Deleted: " + v, android.widget.Toast.LENGTH_SHORT).show()
+                                    routeFileView = null; routeFilesTick++
+                                } else android.widget.Toast.makeText(rfCtx,
+                                    "This route is part of an open compare set. Clear the compare set first, or keep or discard them in the compare table.",
+                                    android.widget.Toast.LENGTH_LONG).show()
+                            }) { Text("DELETE THIS ROUTE") }
+                            Text(body, style = MaterialTheme.typography.bodySmall,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                        }
+                    }
+                )
+            }
+            if (routeZipConfirm) {   // ROUTEZIP-2026-10-07: asked when the rider comes back from sending
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { routeZipConfirm = false },
+                    title = { Text("Empty the route folders now?") },
+                    text = { Text("Send the zip first. Then CLEAR removes the compare set and every in-progress route file, leaving the folders empty. The zip is a separate copy. Saved routes, tracks and maps are not touched.") },
+                    confirmButton = { TextButton(onClick = {
+                        val n = RouteDraftStore.emptyRouteFolders()
+                        android.widget.Toast.makeText(rfCtx, "Route folders emptied ($n files)", android.widget.Toast.LENGTH_SHORT).show()
+                        routeZipConfirm = false; routeFilesTick++
+                    }) { Text("CLEAR") } },
+                    dismissButton = { TextButton(onClick = { routeZipConfirm = false }) { Text("NOT NOW") } }
+                )
+            }
+            routeFilesConfirm?.let { which ->
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { routeFilesConfirm = null },
+                    title = { Text(if (which == "batch") "Clear the compare set?" else "Delete ALL route files?") },
+                    text = { Text(if (which == "batch")
+                        "The compare-set header is removed. Its routes stay, as ordinary in-progress routes, and Route+ starts a new route."
+                        else "Every in-progress route and the compare set are deleted. Saved routes are not affected. This cannot be undone.") },
+                    confirmButton = { TextButton(onClick = {
+                        if (which == "batch") {
+                            RouteDraftStore.clearBatch()
+                            android.widget.Toast.makeText(rfCtx, "Compare set cleared", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            val n = RouteDraftStore.deleteAllRouteFiles()
+                            android.widget.Toast.makeText(rfCtx, "Deleted $n route file(s)", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        routeFilesConfirm = null; routeFilesTick++
+                    }) { Text(if (which == "batch") "CLEAR" else "DELETE ALL") } },
+                    dismissButton = { TextButton(onClick = { routeFilesConfirm = null }) { Text("CANCEL") } }
+                )
+            }
+
             SectionLabel("Your Profile")
             androidx.compose.material3.ListItem(
                 headlineContent = { Text("Edit rider profile", style = MaterialTheme.typography.bodyLarge) },

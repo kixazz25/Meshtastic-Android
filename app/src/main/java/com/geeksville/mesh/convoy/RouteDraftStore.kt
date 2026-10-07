@@ -165,6 +165,151 @@ object RouteDraftStore {
         return true
     }
 
+    // ROUTEFILES-2026-10-07 (Fred): Settings -> "Route files (AI create)" -- see and clean up these files in-app.
+    private const val LAST_SEARCH_FILE = "last_ai_search.json"
+
+    /** Written by the AI search thread at its end (so it survives a rebuilt screen): routes made, header written, error. */
+    fun recordSearchOutcome(routes: Int, headerWritten: Boolean, error: String?) {
+        runCatching {
+            val o = JSONObject().put("at", now()).put("routes", routes).put("headerWritten", headerWritten)
+            if (error != null) o.put("error", error)
+            File(batchDir(), LAST_SEARCH_FILE).writeText(o.toString(2))
+            Log.i(TAG, "ROUTEFILES: last AI search -- routes=$routes header=$headerWritten error=${error ?: "-"}")
+        }.onFailure { Log.w(TAG, "ROUTEFILES: could not record the search outcome: ${it.message}") }
+    }
+
+    /** The plain-text report the Settings screen shows (and shares). Read-only. */
+    fun routeFilesReport(): String {
+        val sb = StringBuilder()
+        val ls = runCatching {
+            File(batchDir(), LAST_SEARCH_FILE).takeIf { it.exists() }?.readText()?.let { JSONObject(it) }
+        }.getOrNull()
+        sb.append("LAST AI SEARCH\n")
+        if (ls == null) sb.append("  none recorded yet on this version\n") else {
+            sb.append("  when: ").append(ls.optString("at")).append('\n')
+            sb.append("  routes made: ").append(ls.optInt("routes")).append('\n')
+            sb.append("  compare header written: ").append(if (ls.optBoolean("headerWritten")) "yes" else "NO").append('\n')
+            if (ls.has("error")) sb.append("  error: ").append(ls.optString("error")).append('\n')
+        }
+        sb.append("\nCOMPARE SET (header)\n")
+        val b = readBatch()
+        if (b == null) sb.append("  none -- Route+ starts a new route\n") else {
+            sb.append("  name: ").append(b.optString("batchName")).append('\n')
+            sb.append("  created: ").append(b.optString("createdAt")).append('\n')
+            val arr = b.optJSONArray("routes")
+            var live = 0
+            if (arr != null) for (i in 0 until arr.length()) {
+                val n = arr.optJSONObject(i)?.optString("name").orEmpty()
+                val ok = n.isNotEmpty() && fileFor(n).exists()
+                if (ok) live++
+                sb.append(if (ok) "  \u2714 " else "  \u2716 MISSING ").append(n).append('\n')
+            }
+            sb.append(if (live > 0) "  -> Route+ on the planning map opens this compare set\n"
+                      else "  -> none of its routes exist: Route+ will clear it\n")
+        }
+        sb.append("\nROUTE FILES (in progress)\n")
+        val drafts = listDrafts()
+        if (drafts.isEmpty()) sb.append("  none\n")
+        for (d in drafts) {
+            sb.append("  ").append(if (isInOpenBatch(d.name)) "[compare] " else "").append(d.name)
+              .append("  (").append(d.pointCount).append(" pts, ").append(d.updatedAt.take(16)).append(")\n")
+        }
+        return sb.toString()
+    }
+
+    // COMPARETRACE-2026-10-07 (Fred): every compare decision, with the paths it looked at -- read-only on the routes.
+    private const val TRACE_FILE = "compare_trace.log"
+
+    fun traceCompare(where: String, decision: String) {
+        runCatching {
+            val sb = StringBuilder()
+            sb.append(now()).append("  ").append(where).append(" -> ").append(decision).append('\n')
+            sb.append("   folder: ").append(draftDir().absolutePath)
+              .append("  internal=").append(GroupTrackStorage.isInternal()).append('\n')
+            val hf = batchFile()
+            sb.append("   header: ").append(hf.absolutePath)
+              .append(if (hf.exists()) "  FOUND (" + hf.length() + " B)" else "  NOT FOUND").append('\n')
+            val b = readBatch()
+            if (hf.exists() && b == null) sb.append("   header UNREADABLE (not valid JSON)\n")
+            b?.optJSONArray("routes")?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val n = arr.optJSONObject(i)?.optString("name").orEmpty()
+                    val rf = fileFor(n)
+                    sb.append("   route '").append(n).append("': ").append(rf.absolutePath)
+                      .append(if (rf.exists()) "  OK" else "  MISSING").append('\n')
+                }
+            }
+            val present = draftDir().listFiles { f -> f.isFile && f.name.endsWith(".json") }?.map { it.name }.orEmpty()
+            sb.append("   route files present: ").append(present.size)
+              .append(if (present.isEmpty()) "" else present.take(15).joinToString(", ", " [", "]")).append('\n')
+            val f = File(batchDir(), TRACE_FILE)
+            val old = if (f.exists()) f.readLines() else emptyList()
+            f.writeText((old + sb.toString().trimEnd('\n').split('\n')).takeLast(400).joinToString("\n") + "\n")
+            Log.i(TAG, "COMPARETRACE: " + sb.toString().trimEnd('\n').replace("\n", " | "))
+        }.onFailure { Log.w(TAG, "COMPARETRACE: could not write the trace: ${it.message}") }
+    }
+
+    fun compareTraceTail(lines: Int = 60): String = runCatching {
+        File(batchDir(), TRACE_FILE).takeIf { it.exists() }?.readLines()?.takeLast(lines)?.joinToString("\n")
+    }.getOrNull() ?: "(no compare decisions recorded yet)"
+
+    fun draftNames(): List<String> = listDrafts().map { it.name }
+    fun readDraftText(name: String): String? = runCatching { fileFor(name).takeIf { it.exists() }?.readText() }.getOrNull()
+    fun readBatchText(): String? = runCatching { batchFile().takeIf { it.exists() }?.readText() }.getOrNull()
+
+    /** Settings cleanup: the compare header FIRST (so nothing is refused), then every route file. Returns files deleted. */
+    fun deleteAllRouteFiles(): Int {
+        clearBatch()
+        var n = 0
+        for (d in listDrafts()) if (deleteDraft(d.name)) n++
+        Log.i(TAG, "ROUTEFILES: deleted all route files ($n)")
+        return n
+    }
+
+    /** ROUTEZIP-2026-10-07 (Fred): zip every file under route_drafts/ (routes, compare header, last-search record) plus a
+     *  REPORT.txt into the app cache -- the folder the file provider shares -- for emailing. Originals untouched. */
+    fun zipRouteFiles(ctx: Context): File? = runCatching {
+        val root = draftDir()
+        ctx.cacheDir.listFiles { f -> f.name.startsWith("GroupTrack_route_files_") }?.forEach { it.delete() }
+        val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmm"))
+        val out = File(ctx.cacheDir, "GroupTrack_route_files_$stamp.zip")
+        java.util.zip.ZipOutputStream(out.outputStream().buffered()).use { zip ->
+            root.walkTopDown().filter { it.isFile && it.name != ".nomedia" }.forEach { f ->
+                zip.putNextEntry(java.util.zip.ZipEntry(f.relativeTo(root).path))
+                f.inputStream().use { it.copyTo(zip) }
+                zip.closeEntry()
+            }
+            zip.putNextEntry(java.util.zip.ZipEntry("REPORT.txt"))
+            zip.write(routeFilesReport().toByteArray())
+            zip.closeEntry()
+            // ROUTELOG-2026-10-07 (Fred): GroupTrack's OWN log since it started -- no adb, no permission needed.
+            zip.putNextEntry(java.util.zip.ZipEntry("APPLOG.txt"))
+            zip.write(ownLog().toByteArray())
+            zip.closeEntry()
+        }
+        Log.i(TAG, "ROUTEZIP: ${out.name} (${out.length()} bytes)")
+        out
+    }.onFailure { Log.e(TAG, "ROUTEZIP: zip failed: ${it.message}") }.getOrNull()
+
+    /** ROUTELOG-2026-10-07: this app's own log lines (logcat filtered to our process), last 20,000 lines. */
+    private fun ownLog(): String = runCatching {
+        val p = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-v", "time", "--pid=" + android.os.Process.myPid()))
+        val lines = p.inputStream.bufferedReader().readLines()
+        p.waitFor()
+        "GroupTrack log since start (" + lines.size + " lines; last 20000 kept)\n" + lines.takeLast(20000).joinToString("\n")
+    }.getOrElse { "could not read the app log: " + it.message }
+
+    /** ROUTEZIP-2026-10-07 (Fred): EMPTY the route folders -- compare header first, then every route file, then anything
+     *  left (the last-search record, stray .tmp files). Saved routes (the routes DB) are not touched. Returns files deleted. */
+    fun emptyRouteFolders(): Int {
+        var n = deleteAllRouteFiles()
+        for (dir in listOf(batchDir(), draftDir())) dir.listFiles()?.forEach { f ->
+            if (f.isFile && f.name != ".nomedia" && f.delete()) n++
+        }
+        Log.i(TAG, "ROUTEZIP: route folders emptied ($n files)")
+        return n
+    }
+
     /** BATCHGUARD-2026-10-07 (Fred): true when [name] is one of the routes of the open compare batch. Read-only. */
     fun isInOpenBatch(name: String): Boolean {
         val arr = readBatch()?.optJSONArray("routes") ?: return false

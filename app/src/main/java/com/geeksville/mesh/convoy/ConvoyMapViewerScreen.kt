@@ -2276,6 +2276,7 @@ fun ConvoyMapViewerScreen(
                      * in front of the thing in the way, with the tools to clear
                      * it.
                      */
+                    RouteDraftStore.traceCompare("Route+", "checking for a compare set")   // COMPARETRACE-2026-10-07
                     if (RouteDraftStore.hasOpenBatch()) {
                         /* FORKGUARD-2026-08-27: THE LOCK HOLDS EVEN IF THE DRAW
                          * FAILS.
@@ -2304,6 +2305,8 @@ fun ConvoyMapViewerScreen(
                         batchHidden = emptySet()
                         batchSave = emptySet()
                         android.util.Log.i("PanelTrace", "BATCH <- true"); batchGridOpen = true
+                        RouteDraftStore.traceCompare("Route+", "compare table OPENED with " + batchRows.size + " row(s)" +
+                            (if (batchRows.isEmpty()) " -- NOTHING TO DRAW" else ""))   // COMPARETRACE-2026-10-07
                         /* ⚠ ROUTE MODE STAYS OFF. With it live, every tap on a
                          * drawn route -- which is how the rider inspects them --
                          * becomes a vertex on a route they never meant to edit.
@@ -2332,6 +2335,7 @@ fun ConvoyMapViewerScreen(
                         showArtifactsPanel = false
                         return@ConvoyArtifactsPanel
                     }
+                    RouteDraftStore.traceCompare("Route+", "NO compare set -> new route / In-Progress")   // COMPARETRACE-2026-10-07
                     // +ROUTE -> choose New vs In-Progress BEFORE the toolbar opens.
                     // Recovery test: if the SAVED state still had a route open, a prior
                     // session left it open (crash/kill never closed cleanly) = recovery.
@@ -2667,6 +2671,7 @@ fun ConvoyMapViewerScreen(
                              * may not have redrawn it. If it still has nothing to show, the In-Progress
                              * list opens. Never a blank screen. (hasOpenBatch() now clears a batch whose
                              * routes are all gone.) */
+                            RouteDraftStore.traceCompare("CONTINUE TO COMPARE", "checking (table open=" + batchGridOpen + ", rows=" + batchRows.size + ")")   // COMPARETRACE-2026-10-07
                             if (RouteDraftStore.hasOpenBatch()) {
                                 if (!batchGridOpen || batchRows.isEmpty()) {
                                     runCatching {
@@ -2683,6 +2688,9 @@ fun ConvoyMapViewerScreen(
                             } else {
                                 android.util.Log.i("PanelTrace", "PICKER <- true"); showInProgressPicker = true
                             }
+                            RouteDraftStore.traceCompare("CONTINUE TO COMPARE",
+                                if (batchGridOpen && batchRows.isNotEmpty()) "compare table SHOWN with " + batchRows.size + " row(s)"
+                                else "compare table NOT shown -> In-Progress list")   // COMPARETRACE-2026-10-07
                         },
                         onClose = {
                             showAiDesign = false
@@ -3062,11 +3070,16 @@ fun ConvoyMapViewerScreen(
                                      * holding the last of six routes the rider
                                      * was only looking at.
                                      */
+                                    // ROUTEFILES-2026-10-07: record this search's outcome (from this thread -- survives a rebuilt screen)
+                                    RouteDraftStore.recordSearchOutcome(out.size,
+                                        RouteDraftStore.readBatch()?.optString("batchName") == rn, null)
+                                    RouteDraftStore.traceCompare("AI search end", "made " + out.size + " route(s) for '" + rn + "'")   // COMPARETRACE-2026-10-07
                                     batchRows = RouteDraftStore.drawBatch(webViewRef)
                                     batchName = rn
                                     batchGridOpen = batchRows.isNotEmpty()
                                 } catch (e: Exception) {
                                     android.util.Log.e("RouteExplorer", "explore failed", e)
+                                    RouteDraftStore.recordSearchOutcome(-1, false, e.message ?: e.toString())   // ROUTEFILES-2026-10-07
                                     aiProgress = "Could not build rides: " +
                                         (e.message ?: "error")
                                 } finally {
