@@ -266,6 +266,16 @@ object RouteDraftStore {
         return n
     }
 
+    /** CLEARAIROUTES-2026-10-07 (Fred): the compare-set header FIRST, then every AI-made route (method "suggest").
+     *  Hand-drawn in-progress routes are never touched. Returns the number of route files deleted. */
+    fun deleteAllAiRoutes(): Int {
+        clearBatch()
+        var n = 0
+        for (d in listDrafts()) if (isAiDraft(d.name) && deleteDraft(d.name)) n++
+        Log.i(TAG, "CLEARAIROUTES: compare set cleared, $n AI route(s) deleted")
+        return n
+    }
+
     fun draftNames(): List<String> = listDrafts().map { it.name }
     fun readDraftText(name: String): String? = runCatching { fileFor(name).takeIf { it.exists() }?.readText() }.getOrNull()
     fun readBatchText(): String? = runCatching { batchFile().takeIf { it.exists() }?.readText() }.getOrNull()
@@ -279,49 +289,7 @@ object RouteDraftStore {
         return n
     }
 
-    /** ROUTEZIP-2026-10-07 (Fred): zip every file under route_drafts/ (routes, compare header, last-search record) plus a
-     *  REPORT.txt into the app cache -- the folder the file provider shares -- for emailing. Originals untouched. */
-    fun zipRouteFiles(ctx: Context): File? = runCatching {
-        val root = draftDir()
-        ctx.cacheDir.listFiles { f -> f.name.startsWith("GroupTrack_route_files_") }?.forEach { it.delete() }
-        val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmm"))
-        val out = File(ctx.cacheDir, "GroupTrack_route_files_$stamp.zip")
-        java.util.zip.ZipOutputStream(out.outputStream().buffered()).use { zip ->
-            root.walkTopDown().filter { it.isFile && it.name != ".nomedia" }.forEach { f ->
-                zip.putNextEntry(java.util.zip.ZipEntry(f.relativeTo(root).path))
-                f.inputStream().use { it.copyTo(zip) }
-                zip.closeEntry()
-            }
-            zip.putNextEntry(java.util.zip.ZipEntry("REPORT.txt"))
-            zip.write(routeFilesReport().toByteArray())
-            zip.closeEntry()
-            // ROUTELOG-2026-10-07 (Fred): GroupTrack's OWN log since it started -- no adb, no permission needed.
-            zip.putNextEntry(java.util.zip.ZipEntry("APPLOG.txt"))
-            zip.write(ownLog().toByteArray())
-            zip.closeEntry()
-        }
-        Log.i(TAG, "ROUTEZIP: ${out.name} (${out.length()} bytes)")
-        out
-    }.onFailure { Log.e(TAG, "ROUTEZIP: zip failed: ${it.message}") }.getOrNull()
-
-    /** ROUTELOG-2026-10-07: this app's own log lines (logcat filtered to our process), last 20,000 lines. */
-    private fun ownLog(): String = runCatching {
-        val p = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-v", "time", "--pid=" + android.os.Process.myPid()))
-        val lines = p.inputStream.bufferedReader().readLines()
-        p.waitFor()
-        "GroupTrack log since start (" + lines.size + " lines; last 20000 kept)\n" + lines.takeLast(20000).joinToString("\n")
-    }.getOrElse { "could not read the app log: " + it.message }
-
-    /** ROUTEZIP-2026-10-07 (Fred): EMPTY the route folders -- compare header first, then every route file, then anything
-     *  left (the last-search record, stray .tmp files). Saved routes (the routes DB) are not touched. Returns files deleted. */
-    fun emptyRouteFolders(): Int {
-        var n = deleteAllRouteFiles()
-        for (dir in listOf(batchDir(), draftDir())) dir.listFiles()?.forEach { f ->
-            if (f.isFile && f.name != ".nomedia" && f.delete()) n++
-        }
-        Log.i(TAG, "ROUTEZIP: route folders emptied ($n files)")
-        return n
-    }
+    // NOROUTEZIP-2026-10-07 (Fred): the zip / email / app-log function was removed with the Settings Route files screen.
 
     /** BATCHGUARD-2026-10-07 (Fred): true when [name] is one of the routes of the open compare batch. Read-only. */
     fun isInOpenBatch(name: String): Boolean {

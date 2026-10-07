@@ -2276,6 +2276,13 @@ fun ConvoyMapViewerScreen(
                      * in front of the thing in the way, with the tools to clear
                      * it.
                      */
+                    // ROUTEPLUSCLEAN-2026-10-07 (Fred): FIRST, delete every leftover AI route (an earlier run's Route 1-5) that is
+                    // not in an open compare set -- AI leftovers never reach anything below. Hand-drawn routes are kept.
+                    val rpAiLeft = RouteDraftStore.deleteOrphanAiDrafts()
+                    if (rpAiLeft > 0) {
+                        draftListTick++
+                        RouteDraftStore.traceCompare("Route+", "removed $rpAiLeft leftover AI route(s) first")
+                    }
                     RouteDraftStore.traceCompare("Route+", "checking for a compare set")   // COMPARETRACE-2026-10-07
                     if (RouteDraftStore.hasOpenBatch()) {
                         /* FORKGUARD-2026-08-27: THE LOCK HOLDS EVEN IF THE DRAW
@@ -4332,6 +4339,7 @@ fun ConvoyMapViewerScreen(
                 // ⚠ logs the RENDER, so a flag that will not clear can
                 // be told apart from a render that ignores it
                 android.util.Log.i("PanelTrace", "PICKER renders")
+                var clearAllAsk by remember { mutableStateOf(false) }   // CLEARAIROUTES-2026-10-07
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false; routeMode = rmTrace(false, "RM@ConvoyMapViewerScreen:4262"); webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) },
                     title = { androidx.compose.material3.Text("Continue editing or create a new route") },
@@ -4399,6 +4407,11 @@ fun ConvoyMapViewerScreen(
                                     ) }
                                 }
                             }
+                            // CLEARAIROUTES-2026-10-07 (Fred): AI-suggested routes + compare header only
+                            androidx.compose.material3.TextButton(onClick = { clearAllAsk = true }) {
+                                androidx.compose.material3.Text("\uD83D\uDDD1 Clear AI routes",
+                                    color = androidx.compose.ui.graphics.Color(0xFFE86B6B))
+                            }
                         }
                     },
                     confirmButton = {
@@ -4425,6 +4438,26 @@ fun ConvoyMapViewerScreen(
                         }
                     }
                 )
+                if (clearAllAsk) {   // CLEARAIROUTES-2026-10-07
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { clearAllAsk = false },
+                        title = { androidx.compose.material3.Text("Clear AI routes?") },
+                        text = { androidx.compose.material3.Text("Delete all AI-suggested routes and the compare set? Your own in-progress routes and saved routes are kept.") },
+                        confirmButton = { androidx.compose.material3.TextButton(onClick = {
+                            val n = RouteDraftStore.deleteAllAiRoutes()   // CLEARAIROUTES: compare header FIRST, then AI routes only
+                            draftListTick++
+                            clearAllAsk = false
+                            android.util.Log.i("PanelTrace", "PICKER <- false (clear AI routes)"); showInProgressPicker = false
+                            routeMode = rmTrace(false, "RM@CLEARAIROUTES")
+                            webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null)
+                            RouteDraftStore.traceCompare("Route+ panel", "CLEAR AI ROUTES: compare set + $n AI route(s) deleted")
+                            android.widget.Toast.makeText(context, "AI routes cleared ($n). Your own routes are kept.",
+                                android.widget.Toast.LENGTH_LONG).show()
+                        }) { androidx.compose.material3.Text("CLEAR") } },
+                        dismissButton = { androidx.compose.material3.TextButton(onClick = { clearAllAsk = false }) {
+                            androidx.compose.material3.Text("CANCEL") } }
+                    )
+                }
             }
             // THREEFIX-2026-08-27: the rename dialog is gone with its button.
             // ⚠ draftRenameTarget/Text/Err stay declared -- unused state is
