@@ -146,7 +146,54 @@ object RouteDraftStore {
         }
     }
 
-    fun hasOpenBatch(): Boolean = readBatch() != null
+    /* BATCHHEAL-2026-10-07 (tester, AI create): a batch only counts while at least one of its routes still exists.
+     * Drafts can be deleted elsewhere while this file stays; a batch naming only missing drafts draws NO rows, and the
+     * compare table (gated on rows) never shows -- a blank, repeatable dead end. So such a batch is CLEARED here. */
+    fun hasOpenBatch(): Boolean {
+        val b = readBatch() ?: return false
+        val arr = b.optJSONArray("routes")
+        var live = 0
+        if (arr != null) for (i in 0 until arr.length()) {
+            val n = arr.optJSONObject(i)?.optString("name").orEmpty()
+            if (n.isNotEmpty() && fileFor(n).exists()) live++
+        }
+        if (live == 0) {
+            Log.w(TAG, "BATCHHEAL: open batch '${b.optString("batchName")}' names no surviving drafts -- cleared")
+            clearBatch()
+            return false
+        }
+        return true
+    }
+
+    /** BATCHGUARD-2026-10-07 (Fred): true when [name] is one of the routes of the open compare batch. Read-only. */
+    fun isInOpenBatch(name: String): Boolean {
+        val arr = readBatch()?.optJSONArray("routes") ?: return false
+        for (i in 0 until arr.length()) if (arr.optJSONObject(i)?.optString("name") == name) return true
+        return false
+    }
+
+    /** BATCHHEAL-2026-10-07: take a deleted draft out of the open batch; the last one gone clears the batch. */
+    private fun pruneFromBatch(name: String) {
+        runCatching {
+            val b = readBatch() ?: return
+            val arr = b.optJSONArray("routes") ?: return
+            val kept = JSONArray()
+            var removed = false
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                if (o.optString("name") == name) removed = true else kept.put(o)
+            }
+            if (!removed) return
+            if (kept.length() == 0) {
+                clearBatch()
+                Log.i(TAG, "BATCHHEAL: '$name' was the last route of the open batch -- batch cleared")
+            } else {
+                b.put("routes", kept)
+                batchFile().writeText(b.toString(2))
+                Log.i(TAG, "BATCHHEAL: '$name' removed from the open batch (${kept.length()} left)")
+            }
+        }.onFailure { Log.w(TAG, "BATCHHEAL: prune of '$name' failed: ${it.message}") }
+    }
 
     fun clearBatch() {
         runCatching { batchFile().delete() }
@@ -668,10 +715,17 @@ object RouteDraftStore {
     }
 
     fun deleteDraft(name: String): Boolean {
+        // BATCHDELETE-2026-10-07 (Fred): UNIVERSAL -- a route of the open compare batch is never deleted on its own.
+        // The batch is resolved in the compare table, which clears the batch header first (then these are ordinary drafts).
+        if (isInOpenBatch(name)) {
+            Log.w(TAG, "BATCHDELETE: refused to delete '$name' -- it belongs to the open compare batch")
+            return false
+        }
         return try {
             val f = fileFor(name)
             val ok = if (f.exists()) f.delete() else true
             Log.d(TAG, "deleteDraft '$name' -> $ok")
+            if (ok) pruneFromBatch(name)   // BATCHHEAL-2026-10-07: the batch never names a draft that is gone
             ok
         } catch (e: Exception) {
             Log.e(TAG, "deleteDraft '$name' failed", e)

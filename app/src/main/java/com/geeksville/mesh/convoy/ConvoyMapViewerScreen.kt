@@ -2662,7 +2662,25 @@ fun ConvoyMapViewerScreen(
                              * is the rider's only way to whatever WAS produced.
                              * Removing it outright would strand them.
                              */
-                            if (!RouteDraftStore.hasOpenBatch()) {
+                            /* BATCHHEAL-2026-10-07 (tester): with an open batch, make sure the compare
+                             * table is actually drawn and open -- it may have been closed, or the search
+                             * may not have redrawn it. If it still has nothing to show, the In-Progress
+                             * list opens. Never a blank screen. (hasOpenBatch() now clears a batch whose
+                             * routes are all gone.) */
+                            if (RouteDraftStore.hasOpenBatch()) {
+                                if (!batchGridOpen || batchRows.isEmpty()) {
+                                    runCatching {
+                                        batchRows = RouteDraftStore.drawBatch(webViewRef)
+                                        batchName = RouteDraftStore.readBatch()?.optString("batchName") ?: ""
+                                    }.onFailure { android.util.Log.e("BatchGrid", "BATCHHEAL: compare draw failed: " + it.message, it) }
+                                    batchHidden = emptySet()
+                                    batchSave = emptySet()
+                                    android.util.Log.i("PanelTrace", "BATCH <- " + batchRows.isNotEmpty()); batchGridOpen = batchRows.isNotEmpty()
+                                }
+                                if (batchRows.isEmpty()) {
+                                    android.util.Log.i("PanelTrace", "PICKER <- true (batch had nothing to show)"); showInProgressPicker = true
+                                }
+                            } else {
                                 android.util.Log.i("PanelTrace", "PICKER <- true"); showInProgressPicker = true
                             }
                         },
@@ -3401,6 +3419,9 @@ fun ConvoyMapViewerScreen(
                          * only because zoom 11 happens to show the whole route.
                          */
                         var ok = 0
+                        // BATCHDELETE-2026-10-07 (Fred): the batch header goes FIRST -- after this its routes are ordinary
+                        // drafts, so the deletes below are allowed. A failure part-way leaves ordinary In-Progress routes.
+                        RouteDraftStore.clearBatch()
                         for (r in keep) {
                             if (RouteDraftStore.loadIntoRouteManager(r.name) == null) {
                                 android.util.Log.e("BatchGrid", "load failed: " + r.name)
@@ -3459,8 +3480,7 @@ fun ConvoyMapViewerScreen(
                         }
                         // the ones nobody kept
                         for (r in drop) RouteDraftStore.deleteDraft(r.name)
-                        // ⛔ LAST
-                        RouteDraftStore.clearBatch()
+                        // BATCHDELETE-2026-10-07: the batch header was cleared FIRST (above), not last
                         ok
                     }
                     RouteManager.clearRoute()
@@ -4142,7 +4162,12 @@ fun ConvoyMapViewerScreen(
                             // any later save wrote the draft back under it. That is
                             // why a fresh autosave appeared on the way out.
                             RouteManager.clearRoute()
-                            RouteDraftStore.deleteDraft(routeName)
+                            // BATCHGUARD-2026-10-07 (Fred): a compare-set route closes, but its file stays with the set
+                            if (RouteDraftStore.isInOpenBatch(routeName)) {
+                                android.widget.Toast.makeText(context, "This route is part of an open compare set. Open Route+ to compare them, then keep or discard them there.", android.widget.Toast.LENGTH_LONG).show()
+                            } else {
+                                RouteDraftStore.deleteDraft(routeName)
+                            }
                             // LISTTICK-2026-08-13G: the In-Progress list is keyed on this tick. Without the
                             // bump the file is deleted and the row stays on screen, so a
                             // delete that already worked looks broken and gets repeated.
@@ -4326,6 +4351,11 @@ fun ConvoyMapViewerScreen(
                                     // silently: the file would still list
                                     // "x Route 3" and no such draft would exist.
                                     androidx.compose.material3.TextButton(onClick = {
+                                        // BATCHGUARD-2026-10-07 (Fred): never delete one route of an open compare set
+                                        if (RouteDraftStore.isInOpenBatch(d)) {
+                                            android.widget.Toast.makeText(context, "This route is part of an open compare set. Open Route+ to compare them, then keep or discard them there.", android.widget.Toast.LENGTH_LONG).show()
+                                            return@TextButton
+                                        }
                                         RouteDraftStore.deleteDraft(d)
                                         draftListTick++   // refresh the picker list
                                     }) { androidx.compose.material3.Text(
