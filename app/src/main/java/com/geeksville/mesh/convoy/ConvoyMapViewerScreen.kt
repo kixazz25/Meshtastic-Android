@@ -3885,6 +3885,28 @@ fun ConvoyMapViewerScreen(
                         // toolbar already reports the change, so no new callback is
                         // needed on the shared component.
                         if (it == ROUTE_METHOD_SUGGEST) {
+                            /* AISTARTCLEAN-2026-10-07 (Fred): an AI run starts with a CLEAN PIPELINE. A leftover in-progress
+                             * route -- e.g. one left open when the rider swiped out of the app -- kept the AI attempt from
+                             * reaching compare, every time. The editor is emptied and "Auto Saved In Progress" deleted.
+                             * NAMED in-progress routes keep their files; compare-set routes are never touched. */
+                            // AIORPHANS-2026-10-07 (Fred): AI routes from an earlier run with no compare set are orphans -- out.
+                            val aiOrphans = RouteDraftStore.deleteOrphanAiDrafts()
+                            if (aiOrphans > 0) {
+                                draftListTick++
+                                RouteDraftStore.traceCompare("AI start", "removed $aiOrphans orphaned AI route(s) (no compare set)")
+                                android.widget.Toast.makeText(context,
+                                    "$aiOrphans earlier AI route(s) without a compare set were cleared.", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                            if (RouteManager.routeVertices().isNotEmpty() || RouteDraftStore.draftExists(RouteDraftStore.UNNAMED)) {
+                                RouteManager.clearRoute()
+                                if (!RouteDraftStore.isInOpenBatch(RouteDraftStore.UNNAMED)) RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
+                                routeName = RouteDraftStore.UNNAMED
+                                draftListTick++
+                                webViewRef?.evaluateJavascript("clearBuildLine();", null)
+                                RouteDraftStore.traceCompare("AI start", "removed the leftover in-progress route from the pipeline")
+                                android.widget.Toast.makeText(context,
+                                    "A leftover unfinished route was cleared so the AI starts clean.", android.widget.Toast.LENGTH_LONG).show()
+                            }
                             // CHIPLIVE-2026-08-24J2: A FRESH SESSION STARTS EMPTY.
                             //
                             // The panel decides its phase from `results` at first

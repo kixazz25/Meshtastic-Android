@@ -211,7 +211,8 @@ object RouteDraftStore {
         val drafts = listDrafts()
         if (drafts.isEmpty()) sb.append("  none\n")
         for (d in drafts) {
-            sb.append("  ").append(if (isInOpenBatch(d.name)) "[compare] " else "").append(d.name)
+            sb.append("  ").append(if (isInOpenBatch(d.name)) "[compare] "
+                                   else if (isAiDraft(d.name)) "[AI, no compare set] " else "").append(d.name)   // AIORPHANS-2026-10-07
               .append("  (").append(d.pointCount).append(" pts, ").append(d.updatedAt.take(16)).append(")\n")
         }
         return sb.toString()
@@ -252,6 +253,18 @@ object RouteDraftStore {
     fun compareTraceTail(lines: Int = 60): String = runCatching {
         File(batchDir(), TRACE_FILE).takeIf { it.exists() }?.readLines()?.takeLast(lines)?.joinToString("\n")
     }.getOrNull() ?: "(no compare decisions recorded yet)"
+
+    // AIORPHANS-2026-10-07 (Fred): AI-made routes carry "method": "suggest". Outside the open compare set they are orphans.
+    fun isAiDraft(name: String): Boolean =
+        runCatching { JSONObject(fileFor(name).readText()).optString("method") == "suggest" }.getOrDefault(false)
+
+    /** Delete every AI-made route that is NOT in the open compare set. Hand-drawn routes are never touched. */
+    fun deleteOrphanAiDrafts(): Int {
+        var n = 0
+        for (d in listDrafts()) if (!isInOpenBatch(d.name) && isAiDraft(d.name) && deleteDraft(d.name)) n++
+        if (n > 0) Log.i(TAG, "AIORPHANS: deleted $n orphaned AI route(s)")
+        return n
+    }
 
     fun draftNames(): List<String> = listDrafts().map { it.name }
     fun readDraftText(name: String): String? = runCatching { fileFor(name).takeIf { it.exists() }?.readText() }.getOrNull()
