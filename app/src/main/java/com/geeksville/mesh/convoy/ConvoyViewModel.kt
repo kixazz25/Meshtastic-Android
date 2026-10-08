@@ -260,7 +260,7 @@ class ConvoyViewModel @Inject constructor(
         _autoPan.value = false   // autoPan OFF when recording stops
         _leadLockedFlag = false
         lockedLeadNodeId = null
-        org.meshtastic.core.data.manager.TakRoleStore.clear()   // LEADCLEAN-2026-09-29 (Fred): END -- the ride's roles end with the ride (the lead is cleared above)
+        commMessaging.clearRoles()   // COMMRECV-2026-10-08 (via the Comm API) · LEADCLEAN-2026-09-29 (Fred): END -- the ride's roles end with the ride (the lead is cleared above)
         nodeLastLat.clear()
         nodeLastLon.clear()
         _leadLocked.value = false
@@ -286,13 +286,16 @@ class ConvoyViewModel @Inject constructor(
         // ROLECHANGE-2026-09-29 (Fred): every cart reports ONLY its own role. A rider who HELD a special role and now checks in (or
         // changes) as Rider RELEASES it: announced as HQ ("now Rider") so every tablet drops it. Riders otherwise never report.
         val myNum = _myNodeInfo.value?.myNodeNum
+        // COMMRECV-2026-10-08: the ride role in the Comm API's terms (LEADER/MIDDLE/TAIL_GUNNER/RIDER); the mesh translator
+        // maps it to TAK (TeamLead/RTO/ForwardObserver/HQ) -- the same 2.7a table.
         val role = when (rideRole) {
-            "leader" -> org.meshtastic.proto.MemberRole.TeamLead
-            "middle" -> org.meshtastic.proto.MemberRole.RTO
-            "tail_gunner" -> org.meshtastic.proto.MemberRole.ForwardObserver
+            "leader" -> com.grouptrack.comm.Role.LEADER
+            "middle" -> com.grouptrack.comm.Role.MIDDLE
+            "tail_gunner" -> com.grouptrack.comm.Role.TAIL_GUNNER
             else -> {
-                val held = myNum?.let { org.meshtastic.core.data.manager.TakRoleStore.roleOf(it) }
-                if (held == "TeamLead" || held == "RTO" || held == "ForwardObserver") org.meshtastic.proto.MemberRole.HQ
+                val held = myNum?.let { commMessaging.reportedRole(it.toString()) }
+                if (held == com.grouptrack.comm.Role.LEADER || held == com.grouptrack.comm.Role.MIDDLE ||
+                    held == com.grouptrack.comm.Role.TAIL_GUNNER) com.grouptrack.comm.Role.RIDER
                 else {
                     roleReportJob?.cancel()
                     android.util.Log.i("ROLEREPORT", "ROLEREPORT: role '$rideRole' -- riders do not report")
@@ -301,14 +304,7 @@ class ConvoyViewModel @Inject constructor(
             }
         }
         // OWNROLE-2026-09-28 (Fred): MY role lives in the SAME store as everyone else's (against my own radio's number).
-        myNum?.let { org.meshtastic.core.data.manager.TakRoleStore.put(it, role.name) }
-        // COMMSEND-2026-10-08: the same role in the Comm API's terms (the translator maps it back: the 2.7a table).
-        val commRole = when (role) {
-            org.meshtastic.proto.MemberRole.TeamLead -> com.grouptrack.comm.Role.LEADER
-            org.meshtastic.proto.MemberRole.RTO -> com.grouptrack.comm.Role.MIDDLE
-            org.meshtastic.proto.MemberRole.ForwardObserver -> com.grouptrack.comm.Role.TAIL_GUNNER
-            else -> com.grouptrack.comm.Role.RIDER
-        }
+        myNum?.let { commMessaging.recordOwnRole(it.toString(), role) }   // COMMRECV-2026-10-08
         roleReportJob?.cancel()
         val startedAt = System.currentTimeMillis()
         roleReportJob = viewModelScope.launch {
@@ -330,7 +326,7 @@ class ConvoyViewModel @Inject constructor(
                         type = "a-f-G-U-C", how = "m-g",
                         timeMs = nowMs, startMs = nowMs, staleAtMs = nowMs + 90_000L,   // stale = 3 report intervals (not on the V1 wire)
                         point = com.grouptrack.comm.CotPoint(lat, lon, null, null, null),
-                        callsign = cs, role = commRole, team = "Cyan",
+                        callsign = cs, role = role, team = "Cyan",
                         track = null, batteryPct = null,
                         groupTrack = com.grouptrack.comm.GroupTrackDetail(checkIn.value?.rideId ?: "",
                             com.grouptrack.comm.GroupTrackDetail.Kind.REPORT),
@@ -391,12 +387,12 @@ class ConvoyViewModel @Inject constructor(
 
     /** TAKROLE-2026-09-28 (Fred): a radio's RIDE ROLE from its TAK reports -- THE one mapping table (the send side uses the
      *  same). TeamMember (every radio's default), no report, or anything else = "" = a bare radio. Display only. */
-    private fun takRideRole(nodeNum: Int): String = when (org.meshtastic.core.data.manager.TakRoleStore.roleOf(nodeNum)) {
-        "TeamLead" -> "leader"
-        "RTO" -> "middle"
-        "ForwardObserver" -> "tail_gunner"
-        "HQ" -> "rider"
-        else -> ""
+    private fun takRideRole(nodeNum: Int): String = when (commMessaging.reportedRole(nodeNum.toString())) {   // COMMRECV-2026-10-08
+        com.grouptrack.comm.Role.LEADER -> "leader"
+        com.grouptrack.comm.Role.MIDDLE -> "middle"
+        com.grouptrack.comm.Role.TAIL_GUNNER -> "tail_gunner"
+        com.grouptrack.comm.Role.RIDER -> "rider"
+        null -> ""
     }
     /** The check-in of the recording being ended -- read by the end form; cleared on save or delete. */
     var endingCheckIn: ConvoyRideStore.CheckIn? = null
@@ -958,7 +954,7 @@ class ConvoyViewModel @Inject constructor(
         // from MY radio for 45 s = the hand-off has failed, any time. A radio that has never sent one (not yet TAK_TRACKER)
         // is judged by the node-list signal as before. A fresh connection gets 45 s for its first report.
         val hbNum = GrpAwarenessLauncher.myNodeNum.value
-        val ownTakMs = hbNum?.let { org.meshtastic.core.data.manager.TakSeenStore.lastFrom(it) }
+        val ownTakMs = hbNum?.let { commMessaging.lastReportFromMs(it.toString()) }   // COMMRECV-2026-10-08
         radioTalkingNow = linkConnected && (if (ownTakMs != null) nowMs - maxOf(ownTakMs, linkConnectedAtMs) < 45_000L
                                             else nowMs - lastRadioTrafficMs < LINK_SILENCE_MS)
         GrpAwarenessLauncher.talking.value = radioTalkingNow

@@ -6,6 +6,9 @@ import com.grouptrack.comm.CommMessaging
 import com.grouptrack.comm.CommResult
 import com.grouptrack.comm.Member
 import com.grouptrack.comm.ReportingRequest
+import com.grouptrack.comm.Role
+import org.meshtastic.core.data.manager.TakRoleStore
+import org.meshtastic.core.data.manager.TakSeenStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import javax.inject.Inject
@@ -32,6 +35,17 @@ class MeshCommMessaging @Inject constructor(
 
     override suspend fun deliverText(text: String): CommResult = CommResult.NotSupported      // step 2b
     override suspend fun setReporting(request: ReportingRequest): CommResult = CommResult.NotSupported
-    override val events: Flow<CommEvent> = emptyFlow()                                        // step 2b
-    override fun members(): List<Member> = emptyList()                                       // step 2b
+    override val events: Flow<CommEvent> = emptyFlow()                                        // cycle 3 (tick removal)
+    override fun members(): List<Member> = emptyList()                                       // cycle 3 (tick removal)
+
+    // COMMRECV-2026-10-08 (step 2b): what Meshtastic's receive path recorded (MeshDataHandlerImpl -> TakRoleStore /
+    // TakSeenStore, unchanged), read through the translator's role table. memberId = node number as text.
+    override fun reportedRole(memberId: String): Role? =
+        memberId.toIntOrNull()?.let { MeshTakTranslator.roleFromName(TakRoleStore.roleOf(it)) }
+    override fun lastReportFromMs(memberId: String): Long? =
+        memberId.toIntOrNull()?.let { TakSeenStore.lastFrom(it) }
+    override fun recordOwnRole(memberId: String, role: Role) {
+        memberId.toIntOrNull()?.let { TakRoleStore.put(it, MeshTakTranslator.memberRole(role).name) }
+    }
+    override fun clearRoles() = TakRoleStore.clear()
 }

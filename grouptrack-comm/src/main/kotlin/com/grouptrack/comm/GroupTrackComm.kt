@@ -187,6 +187,18 @@ interface CommMessaging {
     /** D14 — the event stream: deduped, normalised. Hot; collectors start at the current state via members(). */
     val events: Flow<CommEvent>
     fun members(): List<Member>                                       // snapshot for a screen opening mid-ride
+    /* COMMRECV-2026-10-08 (v0.3, additive; 2.7b step 2b): READ-WHAT-WAS-HEARD calls for GroupTrack's tick, which still runs
+     * until cycle 3 replaces it with the events above. memberId = the member's id as the transport knows it (mesh: the
+     * radio's node number as text). */
+    /** The role a member last reported; null = no report, or a role that is not a ride role (a bare radio). */
+    fun reportedRole(memberId: String): Role?
+    /** When a member's last TAK report arrived (ms); null = none since the app started. Our own radio's is the
+     *  Bluetooth hand-off heartbeat (LINKHB-2026-10-05). */
+    fun lastReportFromMs(memberId: String): Long?
+    /** MY role, kept with everyone else's (OWNROLE-2026-09-28) -- what reportedRole() answers for my own id. */
+    fun recordOwnRole(memberId: String, role: Role)
+    /** END: the ride's roles end with the ride (LEADCLEAN-2026-09-29). */
+    fun clearRoles()
 }
 
 /** E · CommSession — joining and leaving a ride's network. Services E15–E16. */

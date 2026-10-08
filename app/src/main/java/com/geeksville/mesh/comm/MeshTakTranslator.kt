@@ -29,6 +29,16 @@ object MeshTakTranslator {
         Role.RIDER -> MemberRole.HQ
     }
 
+    /** COMMRECV-2026-10-08: a TAK role NAME as recorded on receive -> the ride role; anything else (TeamMember, every
+     *  radio's default; none) = null = a bare radio. The same table as memberRole(), read the other way. */
+    fun roleFromName(name: String?): Role? = when (name) {
+        "TeamLead" -> Role.LEADER
+        "RTO" -> Role.MIDDLE
+        "ForwardObserver" -> Role.TAIL_GUNNER
+        "HQ" -> Role.RIDER
+        else -> null
+    }
+
     /** CoT __group name -> TAK team; an unknown name is Cyan (the 2.7a team). */
     fun team(name: String): Team = Team.values().firstOrNull { it.name == name } ?: Team.Cyan
 
