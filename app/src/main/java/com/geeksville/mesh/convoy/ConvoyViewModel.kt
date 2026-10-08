@@ -392,9 +392,7 @@ class ConvoyViewModel @Inject constructor(
     var pendingEnrollmentEmail = androidx.compose.runtime.mutableStateOf("")
     var hasSeenNodes = androidx.compose.runtime.mutableStateOf(false)
 
-    private val _workingConfig = MutableStateFlow<WorkingConfig?>(null)
-    val workingConfig: StateFlow<WorkingConfig?> = _workingConfig.asStateFlow()
-    fun setWorkingConfig(config: WorkingConfig) { _workingConfig.value = config }
+    // RETIRE26-2026-10-08: WorkingConfig (2.6 apply chain state) removed
 
     val deviceProfileFlow = radioConfigRepository.deviceProfileFlow
 
@@ -487,7 +485,6 @@ class ConvoyViewModel @Inject constructor(
             java.io.File(context.filesDir, "master.cfg")
     }
 
-    fun clearWorkingConfig() { _workingConfig.value = null }
 
     var persistentWebView: android.webkit.WebView? = null
     /** COSMETICS-2026-10-06 (Fred): the HUD text colour chosen with the toggle, PER MAP TYPE, for this session only

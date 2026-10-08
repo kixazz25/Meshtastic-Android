@@ -586,10 +586,10 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         if (com.geeksville.mesh.convoy.WorkWithRidesLauncher.showing) {
             com.geeksville.mesh.convoy.WorkWithRidesMenu(
                 onDismiss            = { com.geeksville.mesh.convoy.WorkWithRidesLauncher.close() },
-                onApplyToT1000       = { navController.navigate(ConvoyRoutes.ConvoyApplyRadio) },
+                onApplyToT1000       = { com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() },   // RETIRE26-2026-10-08: the 2.6 apply chain is retired
                 onApplyToRadio       = { com.geeksville.mesh.convoy.RadioConfigLauncher.open() }, // RADIOCFG4-2026-09-25
                 onReviewSavedConfigs = { com.geeksville.mesh.convoy.ConfigReviewLauncher.open() }, // CONFIGREVIEW-2026-09-25
-                onDeveloperSettings  = { navController.navigate(ConvoyRoutes.ConvoySettingsPanel) }
+                onDeveloperSettings  = { }   // RETIRE26-2026-10-08: developer panel retired (it drove only the 2.6 apply chain)
             )
         }
 
@@ -765,12 +765,11 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                     navController.navigate(ConvoyRoutes.ConvoyEmailGate)
                 },
                 onNavigateToSettingsPanel = {
-                    showConvoyMenu = false
-                    navController.navigate(ConvoyRoutes.ConvoySettingsPanel)
+                    showConvoyMenu = false   // RETIRE26-2026-10-08: developer panel retired
                 },
                 onNavigateToApplyList = {
                     showConvoyMenu = false
-                    navController.navigate(ConvoyRoutes.ConvoyApplyRadio)
+                    com.geeksville.mesh.convoy.GrpAwarenessLauncher.open()   // RETIRE26-2026-10-08: was the retired 2.6 apply chain
                 },
                 onNavigateToArchiveRestore = {
                     showConvoyMenu = false

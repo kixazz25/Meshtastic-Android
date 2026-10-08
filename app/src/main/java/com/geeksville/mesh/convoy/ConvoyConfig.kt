@@ -75,6 +75,16 @@ object ConvoyConfig {
     var LOST_MINUTES = 10f
     var OFF_TRACK_MILES = 0.028f  // 150 feet
     const val API_BASE_URL = "https://grouptrack.org/convoy_api.php/"  // V3.0 backend
+    /* V3-REFRESH (RETIRE26-2026-10-08, Fred): V3 PICK-UP PLANNING -- these legacy items MUST be addressed before
+     * this flag is turned on. The V3 screens are a reference to the old code, to be refreshed to the 2.7 functions:
+     *  - Create Ride / Ride Detail / Profile / Dashboard "Apply Master / Ride Config to Radio" and Field Radio
+     *    "APPLY MASTER CONFIG" + "VERIFY CONFIG": temporarily open GRP Awareness; refresh to the 2.7 configurator /
+     *    check-in apply + verify (comm module API at 2.7b).
+     *  - Field Radio "APPLY RIDE CONFIG" (disabled) and Dashboard "Download Ride Details to Device": define on 2.7.
+     *  - "Restore Config from Archive": opens Saved configs (ConfigReviewScreen); no whole-image restore.
+     *  - GroupTrackBottomNav RADIO menu (GroupTrackTheme.kt) and the dev long-press menu: review against 2.7.
+     *  - The retired 2.6 chain (checklist field arrays, apply rules, WorkingConfig verify) is reference only:
+     *    docs/reference/retired_2.6_radio_apply/. Nothing there compiles or may be re-wired as-is. */
     const val V3_FEATURES_ENABLED = false
     const val PAYWALL_ENABLED = false              // Flip to true when growth warrants paywall                  // Flip to true to expose V3 to testers
     const val IS_STANDALONE_BUILD = true  // true = beta APK, false = Google Play build

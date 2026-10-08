@@ -12,11 +12,7 @@ import com.geeksville.mesh.convoy.ConvoyEmailGateScreen
 import com.geeksville.mesh.convoy.ConvoyCreateEventScreen
 import com.geeksville.mesh.convoy.ConvoyEnrollmentScreen
 import androidx.navigation.toRoute
-import com.geeksville.mesh.convoy.ConvoyMasterCaptureScreen
 import com.geeksville.mesh.convoy.ConvoyScreen
-import com.geeksville.mesh.convoy.ConvoyApplyListScreen
-import com.geeksville.mesh.convoy.ConvoyApplyRadioScreen
-import com.geeksville.mesh.convoy.ConvoyArchiveRestoreScreen
 import com.geeksville.mesh.convoy.ConvoyDownloadRideConfigScreen
 import com.geeksville.mesh.convoy.ConvoyMyOrganizersScreen
 import com.geeksville.mesh.convoy.ConvoyCompletedRidesScreen
@@ -24,11 +20,6 @@ import com.geeksville.mesh.convoy.ConvoyNavArgs
 import com.geeksville.mesh.convoy.ConvoyCompletedRideDetailScreen
 import com.geeksville.mesh.convoy.ConvoySearchByAreaScreen
 import com.geeksville.mesh.convoy.ConvoyTransferRideScreen
-import com.geeksville.mesh.convoy.ConvoyReconnectWaitScreen
-import com.geeksville.mesh.convoy.ConvoyVerifyConfigScreen
-import com.geeksville.mesh.convoy.ConvoyMasterSuccessScreen
-import com.geeksville.mesh.convoy.ConvoySettingsGate
-import com.geeksville.mesh.convoy.ConvoySettingsPanelScreen
 import com.geeksville.mesh.convoy.ConvoySettingsScreen
 import com.geeksville.mesh.convoy.ConvoyMapSourceScreen
 import com.geeksville.mesh.convoy.ConvoyViewModel
@@ -184,47 +175,8 @@ fun NavGraphBuilder.convoyGraph(
         }
     }
 
-    // ── Developer settings panel — password protected ─────────────────────
-    composable<ConvoyRoutes.ConvoySettingsPanel> {
-        var authenticated by remember { mutableStateOf(false) }
-        var showPanel     by remember { mutableStateOf(false) }
-        if (!authenticated) {
-            ConvoySettingsGate(
-                onAuthenticated = { authenticated = true; showPanel = true },
-                onDismiss       = { navController?.popBackStack() }
-            )
-        } else if (showPanel) {
-            ConvoySettingsPanelScreen(
-                onBack                = { navController?.popBackStack() },
-                onNavigateToCapture          = { navController?.navigate(ConvoyRoutes.ConvoyMasterCapture) },
-                onNavigateToApplyList        = { navController?.navigate(ConvoyRoutes.ConvoyApplyList) },
-                onNavigateToArchiveRestore   = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) },
-                onNavigateToApplyListMaint   = { navController?.navigate(ConvoyRoutes.ConvoyApplyListMaint) },
-                onNavigateToCaptureMaint     = { navController?.navigate(ConvoyRoutes.ConvoyMasterCaptureMaint) }
-            )
-        }
-    }
-
-    // ── Apply list checklist ──────────────────────────────────────────────
-    composable<ConvoyRoutes.ConvoyApplyList> {
-        ConvoyApplyListScreen(
-            onDone             = { navController?.popBackStack() },
-            onCaptureNewMaster = { navController?.navigate(ConvoyRoutes.ConvoyMasterCapture) }
-        )
-    }
-
-    // ── Apply Radio Config ────────────────────────────────────────────────
-    // Entry point for both MASTER and RIDE apply processes.
-    // MASTER: builds WorkingConfig -> archives binary -> imports master.cfg -> navigates to Verify
-    // RIDE:   builds WorkingConfig -> archives binary -> imports ride.cfg -> navigates to Verify
-    composable<ConvoyRoutes.ConvoyApplyRadio> {
-        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
-        ConvoyApplyRadioScreen(
-            convoyViewModel = vm,
-            onDone          = { navController?.popBackStack() },
-            navController   = navController
-        )
-    }
+    // RETIRE26-2026-10-08: the 2.6 apply chain (developer panel, apply list, apply radio, reconnect wait, verify, master
+    // capture/success, maintenance) is retired -- reference copies in docs/reference/retired_2.6_radio_apply/.
 
     // ── Transfer Ride ─────────────────────────────────────────────────────
     composable<ConvoyRoutes.ConvoyTransferRide> {
@@ -237,23 +189,10 @@ fun NavGraphBuilder.convoyGraph(
     composable<ConvoyRoutes.ConvoyArchiveRestore> {
         // NORESTORE-2026-09-25 (Fred): there is NO whole-image restore. Every path that led here (developer panel,
         // old apply screens) now opens SAVED CONFIGS: Apply = the configurator, managed fields only; Compare =
-        // information. The old ConvoyArchiveRestoreScreen is unused and goes at the 2.7 cut.
+        // information. The old ConvoyArchiveRestoreScreen was deleted (RETIRE26-2026-10-08).
         com.geeksville.mesh.convoy.ConfigReviewScreen(onClose = { navController?.popBackStack() })
     }
 
-    // ── Apply List Maintenance ────────────────────────────────────────────
-    composable<ConvoyRoutes.ConvoyApplyListMaint> {
-        com.geeksville.mesh.convoy.ConvoyApplyListMaintenanceScreen(
-            onBack = { navController?.popBackStack() }
-        )
-    }
-    // ── Master Capture Maintenance ────────────────────────────────────────
-    composable<ConvoyRoutes.ConvoyMasterCaptureMaint> {
-        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
-        com.geeksville.mesh.convoy.ConvoyMasterCaptureMaintScreen(
-            onBack = { navController?.popBackStack() }
-        )
-    }
     // ── Track Export ─────────────────────────────────────────────────────
     composable<ConvoyRoutes.ConvoyTracks> {
         com.geeksville.mesh.convoy.ConvoyTrackExportSheet(
@@ -278,73 +217,6 @@ fun NavGraphBuilder.convoyGraph(
             onDismiss = { navController?.popBackStack() }
         )
     }
-    // ── Reconnect Wait — between import and verify ───────────────────────
-    composable<ConvoyRoutes.ConvoyReconnectWait> {
-        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
-        ConvoyReconnectWaitScreen(
-            convoyViewModel = vm,
-            // CLEANUP-2026-09-25: go to verify AND drop the wait screen -- Back from verify used to reopen the wait,
-            // which sent you straight back to verify (a loop only a force stop ended).
-            onProceed = { navController?.navigate(ConvoyRoutes.ConvoyWriteVerify) { popUpTo(ConvoyRoutes.ConvoyReconnectWait) { inclusive = true } } },
-            onCancel  = { navController?.navigate(ConvoyRoutes.Convoy) { popUpTo(ConvoyRoutes.Convoy) { inclusive = false } } }
-        )
-    }
-
-    // ── Verify Config ─────────────────────────────────────────────────────
-    // Final step after master.cfg or ride.cfg import.
-    // Reads back radio and compares all fields against WorkingConfig.
-    // PASS: done, navigate to convoy map.
-    // FAIL: shows failed fields — user can cancel or retry delta corrections.
-    composable<ConvoyRoutes.ConvoyWriteVerify> {
-        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
-        val wc = vm.workingConfig.collectAsState().value
-        if (wc == null) {
-            android.util.Log.e("ConvoyNav", "workingConfig is NULL on WriteVerify")
-            return@composable
-        }
-        ConvoyVerifyConfigScreen(
-            workingConfig = wc,
-            onDone = {
-                vm.clearWorkingConfig()
-                navController?.navigate(ConvoyRoutes.Convoy) {
-                    popUpTo(ConvoyRoutes.Convoy) { inclusive = false }
-                }
-            },
-            onBack = { navController?.popBackStack() }
-        )
-    }
-
-    // ── Master capture success ────────────────────────────────────────────
-    composable<ConvoyRoutes.ConvoyMasterSuccess> {
-        ConvoyMasterSuccessScreen(
-            onSaveAndChecklist = {
-                navController?.navigate(ConvoyRoutes.ConvoyApplyList) {
-                    popUpTo(ConvoyRoutes.ConvoyMasterCapture) { inclusive = true }
-                }
-            },
-            onCaptureNew = {
-                navController?.navigate(ConvoyRoutes.ConvoyMasterCapture) {
-                    popUpTo(ConvoyRoutes.ConvoyMasterCapture) { inclusive = true }
-                }
-            }
-        )
-    }
-
-    // ── Master config capture — developer only ────────────────────────────
-    composable<ConvoyRoutes.ConvoyMasterCapture> {
-        if (viewModel != null) {
-            ConvoyMasterCaptureScreen(
-                viewModel        = viewModel,
-                onBack           = { navController?.popBackStack() },
-                onCaptureSuccess = {
-                    navController?.navigate(ConvoyRoutes.ConvoyMasterSuccess) {
-                        popUpTo(ConvoyRoutes.ConvoyMasterCapture) { inclusive = true }
-                    }
-                }
-            )
-        }
-    }
-
     // ── Sign-In — V3 Phase B ──────────────────────────────────────────────
     // First launch gate. On success navigates to Dashboard (subscribed)
     // or Subscription screen (free user).
@@ -403,7 +275,7 @@ fun NavGraphBuilder.convoyGraph(
         ConvoyCreateRideScreen(
             onRideCreated = { navController?.navigate(ConvoyRoutes.ConvoyRideDetail) },
             onNavigateToFieldRadio = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
-            onApplyMasterConfig = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
+            onApplyMasterConfig = { com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() },   // V3-REFRESH (RETIRE26-2026-10-08): was the retired 2.6 apply chain; refresh to the 2.7 radio functions at V3 pick-up
             onArchiveRestore = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) },
             onBack = { navController?.popBackStack() })
     }
@@ -414,7 +286,7 @@ fun NavGraphBuilder.convoyGraph(
             onNavigateToBroadcast  = { navController?.navigate(ConvoyRoutes.ConvoyBroadcast) },
             onNavigateToCreateRide = { navController?.navigate(ConvoyRoutes.ConvoyCreateRide) },
             onNavigateToFieldRadio = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
-            onApplyMasterConfig = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
+            onApplyMasterConfig = { com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() },   // V3-REFRESH (RETIRE26-2026-10-08): was the retired 2.6 apply chain; refresh to the 2.7 radio functions at V3 pick-up
             onArchiveRestore = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) },
             onBack = { navController?.popBackStack() })
     }
@@ -422,7 +294,7 @@ fun NavGraphBuilder.convoyGraph(
         ConvoyProfileScreen(
             onBack = { navController?.popBackStack() },
             onMyOrganizers = { navController?.navigate(ConvoyRoutes.ConvoyMyOrganizers) },
-            onApplyMasterConfig = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
+            onApplyMasterConfig = { com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() },   // V3-REFRESH (RETIRE26-2026-10-08): was the retired 2.6 apply chain; refresh to the 2.7 radio functions at V3 pick-up
             onArchiveRestore = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) }
         )
     }
@@ -472,7 +344,7 @@ fun NavGraphBuilder.convoyGraph(
             onNavigateToFieldRadio  = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
             onShowSubscription      = { navController?.navigate(ConvoyRoutes.ConvoySubscription) },
             onBack                  = { navController?.popBackStack() },
-            onApplyMasterConfig     = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
+            onApplyMasterConfig     = { com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() },   // V3-REFRESH (RETIRE26-2026-10-08): was the retired 2.6 apply chain; refresh to the 2.7 radio functions at V3 pick-up
             onArchiveRestore        = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) },
             onDownloadRideConfig    = { navController?.navigate(ConvoyRoutes.ConvoyDownloadRideConfig) },
             onNavigateToCompletedRides = { tab ->
@@ -499,8 +371,8 @@ fun NavGraphBuilder.convoyGraph(
     // Always active. No internet needed. Radio config only.
     composable<ConvoyRoutes.ConvoyFieldRadio> {
         ConvoyFieldRadioScreen(
-            onNavigateToApplyMaster = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
-            onNavigateToVerify      = { navController?.navigate(ConvoyRoutes.ConvoyWriteVerify) },
+            onNavigateToApplyMaster = { com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() },   // V3-REFRESH (RETIRE26-2026-10-08): was the retired 2.6 apply chain; refresh to the 2.7 radio functions at V3 pick-up
+            onNavigateToVerify      = { com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() },   // V3-REFRESH (RETIRE26-2026-10-08): was the retired 2.6 apply chain; refresh to the 2.7 radio functions at V3 pick-up
             onBack                  = { navController?.popBackStack() }
         )
     }
