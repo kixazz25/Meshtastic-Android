@@ -747,9 +747,9 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                     com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()
                     com.geeksville.mesh.convoy.RadioConfigLauncher.open()
                 },
-                onMeshtastic = {   // TEMPORARY (Fred): today's "Mesh" action -- unfold the Meshtastic rail
+                onMeshtastic = {   // COMMMENUS-2026-10-08: the Meshtastic menu is REQUESTED through the Comm API
                     com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()
-                    com.geeksville.mesh.convoy.MeshNavFold.setFolded(grpCtx, false)
+                    convoyViewModel.openCommMenu("mesh-menu")
                 },
                 onClose = { com.geeksville.mesh.convoy.GrpAwarenessLauncher.close() },
             )

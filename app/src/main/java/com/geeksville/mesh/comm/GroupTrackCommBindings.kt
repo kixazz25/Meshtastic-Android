@@ -1,5 +1,6 @@
 package com.geeksville.mesh.comm
 
+import com.grouptrack.comm.CommMenus
 import com.grouptrack.comm.CommMessaging
 import dagger.Binds
 import dagger.Module
@@ -16,4 +17,6 @@ import dagger.hilt.android.components.ViewModelComponent
 abstract class GroupTrackCommBindings {
     @Binds
     abstract fun messaging(impl: MeshCommMessaging): CommMessaging
+    @Binds
+    abstract fun menus(impl: MeshCommMenus): CommMenus   // COMMMENUS-2026-10-08
 }

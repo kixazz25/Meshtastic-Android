@@ -52,6 +52,7 @@ class ConvoyViewModel @Inject constructor(
     private val installProfileUseCase: InstallProfileUseCase,
     private val radioController: org.meshtastic.core.model.RadioController, // RADIOCFG4-2026-09-25
     private val commMessaging: com.grouptrack.comm.CommMessaging, // COMMSEND-2026-10-08: TAK out through the Comm API
+    private val commMenus: com.grouptrack.comm.CommMenus, // COMMMENUS-2026-10-08: Meshtastic menus opened by request
 ) : ViewModel() {
 
     private val _convoyState = MutableStateFlow(ConvoyEngine.ConvoyState.empty())
@@ -253,6 +254,14 @@ class ConvoyViewModel @Inject constructor(
         _trackActive.value = true
         _autoPan.value = true   // autoPan ON during recording
         convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
+    }
+
+    /** COMMMENUS-2026-10-08: open one of the comm side's menus by id (e.g. "mesh-menu"). GroupTrack never names a
+     *  Meshtastic screen; the comm side answers NotSupported for an id it does not offer. */
+    fun openCommMenu(id: String): com.grouptrack.comm.CommResult {
+        val r = commMenus.open(id)
+        android.util.Log.i("CommMenus", "COMMMENUS open '$id' -> $r")
+        return r
     }
 
     fun stopGroupTrack() {
