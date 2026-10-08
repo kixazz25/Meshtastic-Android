@@ -1,0 +1,244 @@
+GROUPTRACK -> MESHTASTIC: WHAT IS CALLED AND WHERE  (2026-10-08, branch 2.7b after COMMRECV + COMMMENUS)
+The pruning queue for cycle 1: each line is replaced by an API request (action) or an API event/read (state heard).
+
+=== GROUPED BY API SERVICE (the order of work is decided in planning) ===
+
+CommLink  (connection: which radio, connect / disconnect / reconnect, link state, radio names)
+  ConvoyViewModel   ui.getDeviceAddress, ui.setDeviceAddress (disconnect, reconnect), ui.connectionState,
+                    radioController.connectionState, RadioNameStore.put/save/load/nameOf/mirrorDir, ConnectionState
+  ConvoyScreen      uiViewModel.getDeviceAddress / setDeviceAddress (a reconnect), UIViewModel
+  GrpAwareness      scanModel.onSelected (pair / connect), DeviceListEntry(.Ble), Nordic scanner, BLE constants,
+                    RadioNameStore.nameOf / nameForAddress / nameForBluetoothName           -> PLANNING FIRST
+  ConfigReviewScreen, RadioConfigScreen, RadioConfigWriter   connectionState checks
+
+CommIdentity  (this radio: node number, long name)
+  ConvoyViewModel   nodeRepository.ourNodeInfo (x5), nodeRepository.myNodeInfo (x4), MyNodeInfo
+
+CommConfig  (apply / verify / saved configs)                                                 -> PLANNING FIRST
+  ConvoyViewModel   radioController.setOwner, beginEditSettings, commitEditSettings, setConfig, setRemoteChannel,
+                    setModuleConfig, getPacketId; radioConfigRepository.deviceProfileFlow; Import/Export/Install
+                    ProfileUseCase; channelViewModel.setConfig (setGpsInterval)
+  RadioConfigurator, RadioConfigWriter, ConfigCompare, ConfigReviewScreen   protobufs Config, DeviceProfile, Channel,
+                    ChannelSet, ModuleConfig (the managed-field list)
+  ConvoyScreen      channelViewModel.localConfig (read)
+
+CommMessaging  (what is heard: nodes and positions for the tick -> events at cycle 3)
+  ConvoyViewModel   nodeRepository.nodeDBbyNum (readLiveNodes x2, toggleCartActive), Node
+
+Platform services (not comm)
+  ConvoyScreen      BuildConfig.VERSION_NAME, R.drawable.grouptrack_splash
+  ConvoySettingsScreen  BuildConfig
+
+Note: "function" columns are the nearest enclosing fun -- inside lambdas they can name the function above.
+      A few GrpAwareness "d." lines are a File variable that shares the name d (not a radio call).
+
+SERVICE CALLS THROUGH MESHTASTIC OBJECTS (fields typed as Meshtastic classes)
+
+====================================================================================================
+ConvoyViewModel.kt  (31)
+  nodeRepository.ourNodeInfo                       x5   66 (file level), 449 setOwner, 469 ownNodeNum, 474 installProfileToRadio, 953 tick
+  radioConfigRepository.deviceProfileFlow          x3   415 takRideRole, 418 exportProfileToFile, 436 currentProfile
+  nodeRepository.myNodeInfo                        x4   433 radioNodeNum, 520 resolveMyCartId, 574 toggleCartActive, 1316 readLiveNodes
+  ui.getDeviceAddress                              x1   445 radioOps
+  ui.connectionState                               x1   447 radioOps
+  radioController.setOwner                         x1   450 setOwner
+  radioController.getPacketId                      x4   450 setOwner, 456 writeConfig, 459 writeChannel, 463 writeModuleConfig
+  radioController.beginEditSettings                x1   453 beginEdit
+  radioController.commitEditSettings               x1   454 commitEdit
+  radioController.setConfig                        x1   456 writeConfig
+  radioController.setRemoteChannel                 x1   459 writeChannel
+  radioController.setModuleConfig                  x1   463 writeModuleConfig
+  ui.setDeviceAddress                              x2   465 disconnect, 466 reconnect
+  nodeRepository.nodeDBbyNum                       x3   588 toggleCartActive, 1252 readLiveNodes, 1421 readLiveNodes
+  radioController.connectionState                  x1   593 toggleCartActive
+  channelViewModel.setConfig                       x1   654 setGpsInterval
+====================================================================================================
+GrpAwareness.kt  (15)
+  d.fullAddress                                    x1   131 radioLongName
+  d.node                                           x2   132 radioLongName, 134 radioLongName
+  d.name                                           x8   133 radioLongName, 134 radioLongName, 147 lastAppliedRide, 147 lastAppliedRide, 147 lastAppliedRide, 159 lastAppliedLine, 159 lastAppliedLine, 159 las
+  d.isDirectory                                    x2   147 lastAppliedRide, 159 lastAppliedLine
+  scanModel.onSelected                             x2   245 GrpAwarenessPanel, 264 GrpAwarenessPanel
+====================================================================================================
+ConvoyScreen.kt  (4)
+  uiViewModel.getDeviceAddress                     x1   1743 onTrackTap
+  uiViewModel.setDeviceAddress                     x2   1744 onTrackTap, 1761 onTrackTap
+  channelViewModel.localConfig                     x1   3056 shouldOverrideUrlLoading
+====================================================================================================
+ConfigReviewScreen.kt  (1)
+  uiViewModel.connectionState                      x1   75 ConfigReviewScreen
+====================================================================================================
+RadioConfigScreen.kt  (1)
+  uiViewModel.connectionState                      x1   273 apply
+
+GROUPTRACK -> MESHTASTIC CALL SITES  (current 2.7b code after COMMRECV + COMMMENUS)
+
+TOTAL call-site lines: 106 in 9 files
+
+====================================================================================================
+ConvoyViewModel.kt  (36)
+     47  (file level)                 o.m.core.repository.NodeRepository                      | private val nodeRepository: NodeRepository,
+     49  (file level)                 o.m.core.repository.RadioConfigRepository               | private val radioConfigRepository: RadioConfigRepository,
+     50  (file level)                 o.m.core.domain.usecase.settings.ImportProfileUseCase   | private val importProfileUseCase: ImportProfileUseCase,
+     51  (file level)                 o.m.core.domain.usecase.settings.ExportProfileUseCase   | private val exportProfileUseCase: ExportProfileUseCase,
+     52  (file level)                 o.m.core.domain.usecase.settings.InstallProfileUseCase  | private val installProfileUseCase: InstallProfileUseCase,
+     53  (file level)                 o.m.core.model.RadioController                          | private val radioController: org.meshtastic.core.model.RadioController,
+     64  (file level)                 o.m.core.model.MyNodeInfo                               | private val _myNodeInfo = MutableStateFlow<MyNodeInfo?>(null)
+     65  (file level)                 o.m.core.model.MyNodeInfo                               | val myNodeInfo: StateFlow<MyNodeInfo?> = _myNodeInfo.asStateFlow()
+     66  (file level)                 o.m.core.model.Node                                     | val ourNodeInfo: StateFlow<org.meshtastic.core.model.Node?> = nodeRepository.ourNodeInfo
+    221  startGroupTrack              o.m.core.data.manager.RadioNameStore.save               | org.meshtastic.core.data.manager.RadioNameStore.save("RECORD")
+    426  importProfileFromFile        o.m.proto.DeviceProfile                                 | fun importProfileFromFile(file: java.io.File): Result<DeviceProfile> = runCatching {
+    436  currentProfile               o.m.proto.DeviceProfile                                 | suspend fun currentProfile(): DeviceProfile = radioConfigRepository.deviceProfileFlow.first()
+    443  radioOps                     c.g.m.model.UIViewModel                                 | fun radioOps(ui: com.geeksville.mesh.model.UIViewModel): RadioOps? {
+    451  setOwner                     o.m.core.data.manager.RadioNameStore.put                | org.meshtastic.core.data.manager.RadioNameStore.put(destNum, longName, "config written")
+    455  writeConfig                  o.m.proto.Config                                        | override suspend fun writeConfig(config: org.meshtastic.proto.Config) {
+    458  writeChannel                 o.m.proto.Channel                                       | override suspend fun writeChannel(channel: org.meshtastic.proto.Channel) {
+    462  writeModuleConfig            o.m.proto.ModuleConfig                                  | override suspend fun writeModuleConfig(config: org.meshtastic.proto.ModuleConfig) {
+    467  retrieve                     o.m.proto.DeviceProfile                                 | override suspend fun retrieve(): DeviceProfile = currentProfile()
+    473  installProfileToRadio        o.m.proto.DeviceProfile                                 | fun installProfileToRadio(destNum: Int, profile: DeviceProfile) {
+    584  toggleCartActive             o.m.core.data.manager.RadioNameStore.load               | org.meshtastic.core.data.manager.RadioNameStore.load(appContext.filesDir)
+    585  toggleCartActive             o.m.core.data.manager.RadioNameStore.mirrorDir          | org.meshtastic.core.data.manager.RadioNameStore.mirrorDir = appContext.getExternalFilesDir(null)
+    593  toggleCartActive             o.m.core.model.ConnectionState.Connected                | if (radioController.connectionState.value == org.meshtastic.core.model.ConnectionState.Connected) {
+    596  toggleCartActive             o.m.core.data.manager.RadioNameStore.put                | org.meshtastic.core.data.manager.RadioNameStore.put(num, it, "radio node list")
+    650  setGpsInterval               c.g.m.ui.sharing.ChannelViewModel                       | fun setGpsInterval(secs: Int, channelViewModel: com.geeksville.mesh.ui.sharing.ChannelViewModel) {
+    655  setGpsInterval               o.m.proto.Config                                        | org.meshtastic.proto.Config(
+    656  setGpsInterval               o.m.proto.Config.PositionConfig                         | position = org.meshtastic.proto.Config.PositionConfig(
+    658  setGpsInterval               o.m.proto.Config.PositionConfig.GpsMode.ENABLED         | gps_mode = org.meshtastic.proto.Config.PositionConfig.GpsMode.ENABLED
+    684  applyLocationInterval        c.g.m.model.UIViewModel                                 | fun applyLocationInterval(ui: com.geeksville.mesh.model.UIViewModel, secs: Int) {
+    703  applyLocationInterval        o.m.proto.Config.PositionConfig                         | val pos = ops.retrieve().config?.position ?: org.meshtastic.proto.Config.PositionConfig()
+    709  applyLocationInterval        o.m.proto.Config.PositionConfig.GpsMode.valueOf         | gps_mode = org.meshtastic.proto.Config.PositionConfig.GpsMode.valueOf(st.getString("gpsMode")),
+    719  applyLocationInterval        o.m.proto.Config                                        | ops.writeConfig(org.meshtastic.proto.Config(position = newPos))
+    737  applyLocationInterval        o.m.core.model.ConnectionState.Connected                | ops.connection.first { it == org.meshtastic.core.model.ConnectionState.Connected }
+    955  tick                         o.m.core.data.manager.RadioNameStore.put                | org.meshtastic.core.data.manager.RadioNameStore.put(cNum, cName, "radio at connect")
+    956  tick                         o.m.core.data.manager.RadioNameStore.noteAddress        | GrpAwarenessLauncher.connectedAddress.value?.let { org.meshtastic.core.data.manager.RadioNameStore.noteAddress
+    957  tick                         o.m.core.data.manager.RadioNameStore.save               | org.meshtastic.core.data.manager.RadioNameStore.save("connect")
+   1326  readLiveNodes                o.m.core.data.manager.RadioNameStore.nameOf             | val callsign = org.meshtastic.core.data.manager.RadioNameStore.nameOf(node.num) ?: user.long_name.ifBlank { us
+====================================================================================================
+RadioConfigurator.kt  (27)
+     40  (file level)                 o.m.proto.Config                                        | val gpsMode: Config.PositionConfig.GpsMode,
+     55  (file level)                 o.m.proto.Config                                        | val region: Config.LoRaConfig.RegionCode,
+     56  (file level)                 o.m.proto.Config                                        | val preset: Config.LoRaConfig.ModemPreset,
+     60  (file level)                 o.m.proto.Config                                        | val role: Config.DeviceConfig.Role,
+     65  (file level)                 o.m.proto.Config                                        | val bluetoothMode: Config.BluetoothConfig.PairingMode,
+     76  (file level)                 o.m.proto.Config                                        | val lora: Config.LoRaConfig?,
+     77  (file level)                 o.m.proto.Config                                        | val device: Config.DeviceConfig?,
+     78  (file level)                 o.m.proto.Channel                                       | val channel: Channel?,
+     79  (file level)                 o.m.proto.Config                                        | val position: Config.PositionConfig?,
+     80  (file level)                 o.m.proto.Config                                        | val bluetooth: Config.BluetoothConfig?,
+     81  (file level)                 o.m.proto.ModuleConfig.SerialConfig                     | val serial: org.meshtastic.proto.ModuleConfig.SerialConfig?,
+    106  fromRideFile                 o.m.proto.Config                                        | region = Config.LoRaConfig.RegionCode.valueOf(mesh.getString("region")),
+    107  fromRideFile                 o.m.proto.Config                                        | preset = Config.LoRaConfig.ModemPreset.valueOf(mesh.getString("preset")),
+    111  fromRideFile                 o.m.proto.Config                                        | role = Config.DeviceConfig.Role.valueOf(mesh.getString("role")),
+    119  fromRideFile                 o.m.proto.Config                                        | gpsMode = Config.PositionConfig.GpsMode.valueOf(st.getString("gpsMode")),
+    127  fromRideFile                 o.m.proto.Config                                        | bluetoothMode = Config.BluetoothConfig.PairingMode.valueOf(st.getString("bluetoothMode")),
+    132  fromProfile                  o.m.proto.DeviceProfile                                 | fun fromProfile(p: DeviceProfile): ManagedValues {
+    153  fromProfile                  o.m.proto.Config                                        | bluetoothMode = Config.BluetoothConfig.PairingMode.NO_PIN,
+    160  build                        o.m.proto.DeviceProfile                                 | fun build(current: DeviceProfile, t: ManagedValues): ConfigPlan {
+    187  note                         o.m.proto.ModuleSettings                                | module_settings = (primary.module_settings ?: ModuleSettings()).copy(position_precision = r.positionPrecision)
+    211  note                         o.m.proto.ModuleConfig.SerialConfig                     | val ser = current.module_config?.serial ?: org.meshtastic.proto.ModuleConfig.SerialConfig()
+    216  note                         o.m.proto.Config                                        | val bt = current.config?.bluetooth ?: Config.BluetoothConfig()
+    225  note                         o.m.proto.Channel                                       | channel = if (newPrimary != primary) Channel(index = 0, settings = newPrimary, role = Channel.Role.PRIMARY) el
+    236  verify                       o.m.proto.DeviceProfile                                 | fun verify(after: DeviceProfile, t: ManagedValues): List<FieldCheck> {
+    269  primaryChannel               o.m.proto.ChannelSettings                               | fun primaryChannel(p: DeviceProfile): ChannelSettings {
+    269  primaryChannel               o.m.proto.DeviceProfile                                 | fun primaryChannel(p: DeviceProfile): ChannelSettings {
+    273  primaryChannel               o.m.proto.ChannelSet                                    | val set = ChannelSet.ADAPTER.decode(java.util.Base64.getUrlDecoder().decode(frag))
+====================================================================================================
+RadioConfigWriter.kt  (16)
+     38  (file level)                 o.m.core.model.ConnectionState                          | val connection: StateFlow<ConnectionState>
+     42  writeConfig                  o.m.proto.Config                                        | suspend fun writeConfig(config: Config)
+     43  writeChannel                 o.m.proto.Channel                                       | suspend fun writeChannel(channel: Channel)
+     45  writeModuleConfig            o.m.proto.ModuleConfig                                  | suspend fun writeModuleConfig(config: org.meshtastic.proto.ModuleConfig)
+     51  retrieve                     o.m.proto.DeviceProfile                                 | suspend fun retrieve(): DeviceProfile
+     71  ownNodeNum                   o.m.proto.DeviceProfile                                 | data class Done(val after: DeviceProfile, val checks: List<FieldCheck>, val groupsWritten: List<String>) : Wri
+     99  apply                        o.m.proto.Config                                        | plan.lora?.let { ops.writeConfig(Config(lora = it)) }
+    100  apply                        o.m.proto.Config                                        | plan.device?.let { ops.writeConfig(Config(device = it)) }
+    101  apply                        o.m.proto.Config                                        | plan.position?.let { ops.writeConfig(Config(position = it)) }
+    118  apply                        o.m.proto.ModuleConfig                                  | ops.writeModuleConfig(org.meshtastic.proto.ModuleConfig(serial = s))
+    130  apply                        o.m.proto.Config                                        | ops.writeConfig(Config(bluetooth = bt))
+    137  apply                        o.m.core.model.ConnectionState                          | if (ops.connection.value != ConnectionState.Connected) {
+    171  waitBack                     o.m.core.model.ConnectionState                          | if (droppedAfter == null && ops.connection.value != ConnectionState.Connected) droppedAfter = waited
+    178  waitBack                     o.m.core.model.ConnectionState                          | withTimeoutOrNull(timing.dropWaitMs) { ops.connection.first { it != ConnectionState.Connected } }
+    206  cycle                        o.m.core.model.ConnectionState                          | withTimeoutOrNull(timing.dropWaitMs) { ops.connection.first { it != ConnectionState.Connected } }
+    216  waitConnected                o.m.core.model.ConnectionState                          | withTimeoutOrNull(timing.reconnectTimeoutMs) { ops.connection.first { it == ConnectionState.Connected } } != n
+====================================================================================================
+GrpAwareness.kt  (12)
+    129  radioLongName                c.g.m.model.DeviceListEntry                             | fun radioLongName(d: com.geeksville.mesh.model.DeviceListEntry): String =
+    131  radioLongName                o.m.core.data.manager.RadioNameStore.nameForAddress     | d.fullAddress?.let { org.meshtastic.core.data.manager.RadioNameStore.nameForAddress(it) }
+    132  radioLongName                o.m.core.data.manager.RadioNameStore.nameOf             | ?: d.node?.num?.let { org.meshtastic.core.data.manager.RadioNameStore.nameOf(it) }
+    133  radioLongName                o.m.core.data.manager.RadioNameStore.nameForBluetoothNa | ?: org.meshtastic.core.data.manager.RadioNameStore.nameForBluetoothName(d.name)
+    184  GrpAwarenessPanel            c.g.m.ui.connections.ScannerViewModel                   | scanModel: com.geeksville.mesh.ui.connections.ScannerViewModel,
+    185  GrpAwarenessPanel            c.g.m.model.DeviceListEntry                             | paired: List<com.geeksville.mesh.model.DeviceListEntry>,
+    197  GrpAwarenessPanel            c.g.m.model.DeviceListEntry                             | var forgetting by remember { mutableStateOf<com.geeksville.mesh.model.DeviceListEntry?>(null) }
+    212  GrpAwarenessPanel            o.m.core.ble.MeshtasticBleConstants.BLE_NAME_PATTERN    | val filterState = rememberFilterState(filter = { Any { ServiceUuid(SERVICE_UUID); Name(Regex(BLE_NAME_PATTERN)
+    212  GrpAwarenessPanel            o.m.core.ble.MeshtasticBleConstants.SERVICE_UUID        | val filterState = rememberFilterState(filter = { Any { ServiceUuid(SERVICE_UUID); Name(Regex(BLE_NAME_PATTERN)
+    245  GrpAwarenessPanel            c.g.m.model.DeviceListEntry.Ble                         | onScanResultSelected = { result -> if (!busy) scanModel.onSelected(com.geeksville.mesh.model.DeviceListEntry.B
+    249  GrpAwarenessPanel            c.g.m.model.DeviceListEntry.Ble                         | ?: com.geeksville.mesh.model.DeviceListEntry.Ble(result.peripheral)
+    256  GrpAwarenessPanel            c.g.m.model.DeviceListEntry.Ble                         | val target = if (isBonded) device else com.geeksville.mesh.model.DeviceListEntry.Ble(result.peripheral)
+====================================================================================================
+ConfigCompare.kt  (5)
+     41  differences                  o.m.proto.DeviceProfile                                 | fun differences(a: DeviceProfile, b: DeviceProfile, includeManaged: Boolean = false): List<ConfigDiff> {
+     54  flatten                      o.m.proto.DeviceProfile                                 | fun flatten(p: DeviceProfile): Map<String, String> {
+     85  channelSet                   o.m.proto.ChannelSet                                    | private fun channelSet(p: DeviceProfile): ChannelSet? {
+     85  channelSet                   o.m.proto.DeviceProfile                                 | private fun channelSet(p: DeviceProfile): ChannelSet? {
+     88  channelSet                   o.m.proto.ChannelSet                                    | return runCatching { ChannelSet.ADAPTER.decode(java.util.Base64.getUrlDecoder().decode(frag)) }.getOrNull()
+====================================================================================================
+ConvoyScreen.kt  (4)
+    147  ConvoyScreen                 c.g.m.ui.sharing.ChannelViewModel                       | val channelViewModel: ChannelViewModel = hiltViewModel()
+    148  ConvoyScreen                 c.g.m.model.UIViewModel                                 | val uiViewModel: UIViewModel = hiltViewModel()
+    396  docsBack                     c.g.m.BuildConfig.VERSION_NAME                          | context, com.geeksville.mesh.BuildConfig.VERSION_NAME
+   1340  onTrackTap                   c.g.m.R.drawable.grouptrack_splash                      | id = com.geeksville.mesh.R.drawable.grouptrack_splash
+====================================================================================================
+ConfigReviewScreen.kt  (3)
+     68  ConfigReviewScreen           c.g.m.model.UIViewModel                                 | uiViewModel: UIViewModel = hiltViewModel(),
+     75  ConfigReviewScreen           o.m.core.model.ConnectionState                          | val connected = uiViewModel.connectionState.value == ConnectionState.Connected
+     94  load                         o.m.proto.DeviceProfile                                 | suspend fun load(k: String): DeviceProfile =
+====================================================================================================
+RadioConfigScreen.kt  (2)
+    139  RadioConfigScreen            c.g.m.model.UIViewModel                                 | uiViewModel: UIViewModel = hiltViewModel(),
+    273  apply                        o.m.core.model.ConnectionState                          | val connected = uiViewModel.connectionState.value == ConnectionState.Connected
+====================================================================================================
+ConvoySettingsScreen.kt  (1)
+    306  ConvoySettingsScreen         c.g.m.BuildConfig                                       | text     = "GroupTrack Rel 2.7a — Build ${BuildConfig.BUILD_STAMP}",
+
+====================================================================================================
+BY MESHTASTIC NAME (how many call-site lines, which files)
+
+   24  org.meshtastic.proto.Config                                            ConvoyViewModel.kt, RadioConfigWriter.kt, RadioConfigurator.kt
+   14  org.meshtastic.proto.DeviceProfile                                     ConfigCompare.kt, ConfigReviewScreen.kt, ConvoyViewModel.kt, RadioConfigWriter.kt, RadioConfigurator.kt
+    8  org.meshtastic.core.model.ConnectionState                              ConfigReviewScreen.kt, RadioConfigScreen.kt, RadioConfigWriter.kt
+    5  com.geeksville.mesh.model.UIViewModel                                  ConfigReviewScreen.kt, ConvoyScreen.kt, ConvoyViewModel.kt, RadioConfigScreen.kt
+    4  org.meshtastic.proto.Channel                                           ConvoyViewModel.kt, RadioConfigWriter.kt, RadioConfigurator.kt
+    3  org.meshtastic.proto.ChannelSet                                        ConfigCompare.kt, RadioConfigurator.kt
+    3  org.meshtastic.core.data.manager.RadioNameStore.put                    ConvoyViewModel.kt
+    3  org.meshtastic.proto.ModuleConfig                                      ConvoyViewModel.kt, RadioConfigWriter.kt
+    3  com.geeksville.mesh.model.DeviceListEntry                              GrpAwareness.kt
+    3  com.geeksville.mesh.model.DeviceListEntry.Ble                          GrpAwareness.kt
+    2  com.geeksville.mesh.ui.sharing.ChannelViewModel                        ConvoyScreen.kt, ConvoyViewModel.kt
+    2  org.meshtastic.core.model.MyNodeInfo                                   ConvoyViewModel.kt
+    2  org.meshtastic.core.data.manager.RadioNameStore.save                   ConvoyViewModel.kt
+    2  org.meshtastic.core.model.ConnectionState.Connected                    ConvoyViewModel.kt
+    2  org.meshtastic.proto.Config.PositionConfig                             ConvoyViewModel.kt
+    2  org.meshtastic.core.data.manager.RadioNameStore.nameOf                 ConvoyViewModel.kt, GrpAwareness.kt
+    2  org.meshtastic.proto.ModuleConfig.SerialConfig                         RadioConfigurator.kt
+    1  com.geeksville.mesh.BuildConfig.VERSION_NAME                           ConvoyScreen.kt
+    1  com.geeksville.mesh.R.drawable.grouptrack_splash                       ConvoyScreen.kt
+    1  com.geeksville.mesh.BuildConfig                                        ConvoySettingsScreen.kt
+    1  org.meshtastic.core.repository.NodeRepository                          ConvoyViewModel.kt
+    1  org.meshtastic.core.repository.RadioConfigRepository                   ConvoyViewModel.kt
+    1  org.meshtastic.core.domain.usecase.settings.ImportProfileUseCase       ConvoyViewModel.kt
+    1  org.meshtastic.core.domain.usecase.settings.ExportProfileUseCase       ConvoyViewModel.kt
+    1  org.meshtastic.core.domain.usecase.settings.InstallProfileUseCase      ConvoyViewModel.kt
+    1  org.meshtastic.core.model.RadioController                              ConvoyViewModel.kt
+    1  org.meshtastic.core.model.Node                                         ConvoyViewModel.kt
+    1  org.meshtastic.core.data.manager.RadioNameStore.load                   ConvoyViewModel.kt
+    1  org.meshtastic.core.data.manager.RadioNameStore.mirrorDir              ConvoyViewModel.kt
+    1  org.meshtastic.proto.Config.PositionConfig.GpsMode.ENABLED             ConvoyViewModel.kt
+    1  org.meshtastic.proto.Config.PositionConfig.GpsMode.valueOf             ConvoyViewModel.kt
+    1  org.meshtastic.core.data.manager.RadioNameStore.noteAddress            ConvoyViewModel.kt
+    1  org.meshtastic.core.data.manager.RadioNameStore.nameForAddress         GrpAwareness.kt
+    1  org.meshtastic.core.data.manager.RadioNameStore.nameForBluetoothName   GrpAwareness.kt
+    1  com.geeksville.mesh.ui.connections.ScannerViewModel                    GrpAwareness.kt
+    1  org.meshtastic.core.ble.MeshtasticBleConstants.BLE_NAME_PATTERN        GrpAwareness.kt
+    1  org.meshtastic.core.ble.MeshtasticBleConstants.SERVICE_UUID            GrpAwareness.kt
+    1  org.meshtastic.proto.ModuleSettings                                    RadioConfigurator.kt
+    1  org.meshtastic.proto.ChannelSettings                                   RadioConfigurator.kt
