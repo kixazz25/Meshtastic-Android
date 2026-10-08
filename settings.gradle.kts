@@ -43,6 +43,7 @@ include(
     ":feature:node",
     ":feature:settings",
     ":feature:firmware",
+    ":grouptrack-comm", // COMMAPI3-2026-10-08: the GroupTrack Comm API (contract)
     ":mesh_service_example",
 )
 rootProject.name = "MeshtasticAndroid"

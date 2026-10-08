@@ -225,6 +225,7 @@ dependencies {
     implementation(projects.core.di)
     implementation(projects.core.model)
     implementation(projects.core.navigation)
+    implementation(projects.grouptrackComm) // COMMAPI3-2026-10-08: the GroupTrack Comm API (contract)
     implementation(projects.core.network)
     implementation(projects.core.nfc)
     implementation(projects.core.prefs)
