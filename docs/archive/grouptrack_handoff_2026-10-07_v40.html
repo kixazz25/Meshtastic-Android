@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack handoff 2026-10-07 v40</title>
+<style>
+:root{--bg:#0f1216;--card:#161b22;--line:#30363d;--txt:#e6edf3;--dim:#8b949e;--accent:#58a6ff;--ok:#3fb950;--warn:#d29922;--bad:#f85149}
+body{background:var(--bg);color:var(--txt);font:15px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:24px;max-width:1100px}
+h1{font-size:24px;margin:0 0 4px}h2{font-size:19px;color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:6px;margin-top:34px}
+h3{font-size:16px;margin:18px 0 6px}.sub{color:var(--dim);margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:12px 0}
+.tag{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:6px;border:1px solid var(--line)}
+.ok{color:var(--ok);border-color:var(--ok)}.warn{color:var(--warn);border-color:var(--warn)}.bad{color:var(--bad);border-color:var(--bad)}.info{color:var(--accent);border-color:var(--accent)}
+table{border-collapse:collapse;width:100%;margin:8px 0;font-size:14px}th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{background:#1c2128}
+code,pre{font-family:SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}pre{background:#0b0e12;border:1px solid var(--line);border-radius:6px;padding:10px;overflow-x:auto;white-space:pre-wrap}
+ul{margin:6px 0 6px 20px;padding:0}li{margin:3px 0}
+</style></head><body>
+<h1>GroupTrack handoff — 2026-10-07 (v40)</h1>
+<div class="sub">Session 10-07 (continues 10-06 v39). Fred out this afternoon, back 10-08. Mac = development / build / release / Play upload; PC = tablet install + logs until the USB expansion arrives.</div>
+
+<h2>1. Where we are — in one card</h2>
+<div class="card">
+<p><span class="tag ok">TESTERS</span> Release <b>v2.7a-internal-2026-10-07e</b> — commit <code>3db12ebd9</code>, version code <b>29321295</b> (2.7.14). Built, bundle-checked, archived, <b>tested on Fred's tablet</b>, uploaded to Play. The remote tester has picked it up.</p>
+<p><span class="tag ok">ROOT CAUSE FOUND</span> The tester's "compare never launches / back to the start" was <b>not</b> compare, the batch files or his tablet. He had <b>switched all trail types off in the map key</b> and dropped his trailhead on one of his <b>tracks</b>. GroupTrack converts tracks into trails where no trail exists, so it <i>looked</i> like a trail — but those trails were hidden by the key. By design (Fred 09-01, "we route what you put on the map") the AI search uses only the trails the map key shows → <b>empty network → 0 routes → no compare header → nothing to compare</b>. The search's "no connected network" exit was <b>silent</b> (log only) and the AI panel, given no results, reopens on its first page — so the rider just saw "back to the start".</p>
+<p><span class="tag warn">IN FLIGHT</span> Release <b>…-07f</b> (not built yet): <b>removes</b> the "Clear AI routes" buttons (wasted effort once the cause was found) and <b>adds the real fix</b> — TRAILHEADNEAR: the AI trailhead step refuses a trailhead with no <i>shown</i> trail within ½ mile, with a message, and the search's own reach becomes ½ mile. <b>Decision owed:</b> TRAILHEADNEAR v1 (one message) or v2 (two messages: "trail here but hidden by the map key" vs "no trail nearby") — see §5.</p>
+<p><span class="tag info">CODE</span> Mac and GitHub at <code>3db12ebd9</code> (tag …-07e). The Mac's working tree <b>may</b> hold the uncommitted "release f step 1" if it was run — <b>check first thing</b> (§6, step 0).</p>
+<p><span class="tag warn">OPEN</span> GA (Thu/Fri) still waits on the overnight radio soak result (§7). TOPO+ / OpenTopoMap usage-policy question still open.</p>
+</div>
+
+<h2>2. Releases made today (all on the Mac, tag = release name)</h2>
+<table>
+<tr><th>Tag</th><th>Commit</th><th>Version code</th><th>What it added</th><th>Play</th></tr>
+<tr><td>v2.7a-internal-2026-10-06b</td><td><code>9a4ee85dd</code></td><td>29321290</td><td>STATIONARY30 (radio stopped 120 → 30 s; reconnect loop) + FEATURESCLOSE (Route+ closes Map Features) on top of TOPO+ <code>331b3bf57</code></td><td><span class="tag warn">upload from the PC was started 10-06 night, never confirmed</span> — superseded anyway</td></tr>
+<tr><td>v2.7a-internal-2026-10-07</td><td><code>243e9c3d2</code></td><td>29321291 (verified with aapt)</td><td>BATCHHEAL + BATCHGUARD + BATCHDELETE</td><td><span class="tag ok">uploaded</span></td></tr>
+<tr><td>…-07b</td><td><code>7095a0eb8</code></td><td>29321292</td><td>ROUTEFILES + ROUTEZIP + COMPARETRACE + ROUTELOG (diagnostics)</td><td><span class="tag ok">uploaded</span></td></tr>
+<tr><td>…-07c</td><td><code>993cc69b0</code></td><td>29321293</td><td>AISTARTCLEAN + AIORPHANS</td><td><span class="tag bad">NOT uploaded</span> (superseded)</td></tr>
+<tr><td>…-07d</td><td><code>2be195dfe</code></td><td>29321294</td><td>ROUTEPLUSCLEAN + CLEARAIROUTES; Settings restored to pre-Route-files; NOROUTEZIP</td><td><span class="tag bad">NOT uploaded</span> (superseded)</td></tr>
+<tr><td><b>…-07e</b></td><td><code>3db12ebd9</code></td><td><b>29321295</b></td><td>TOOLBARCLEARAI (Clear AI routes under Save / Discard)</td><td><span class="tag ok">uploaded, tablet-tested, tester has it</span></td></tr>
+</table>
+<p class="sub">Version codes after 29321291 are derived from the commit count (+1 per commit) — 29321295 matches the tester's install. Desktop still holds the c and d bundles: <b>never upload them</b>; they can be deleted.</p>
+
+<h2>3. Patches — KEPT (in testers' build and/or in release f), with why</h2>
+<table>
+<tr><th>Marker</th><th>Files</th><th>What it does</th><th>Why kept</th></tr>
+<tr><td>STATIONARY30</td><td>grouptrack_default.json</td><td>stopped radio reports every 30 s (was 120)</td><td>120 s tripped the 45 s LINKHB heartbeat → disconnect/reconnect loop on still radios. Proven: loop stopped on both tablets; Droid 2 clean all night.</td></tr>
+<tr><td>FEATURESCLOSE</td><td>ConvoyMapViewerScreen</td><td>Route+ in Map Features closes the panel</td><td>the Route+ toolbar does not live in that panel</td></tr>
+<tr><td>TOPOPLUS (<code>331b3bf57</code>)</td><td>map_sources.json</td><td>TOPO+ slot (default_slots slot 3) → OpenTopoMap; Esri USA Topo marked DEAD</td><td>Esri service stopped serving tiles. Tested on Droid 2. <span class="tag warn">open</span> OpenTopoMap is volunteer-run and rate-limited; bulk/offline downloading may break its usage policy — read their policy before GA.</td></tr>
+<tr><td>BATCHHEAL</td><td>RouteDraftStore, MapViewer</td><td><code>hasOpenBatch()</code> clears a compare header whose routes are all gone; CONTINUE TO COMPARE draws/opens the table or falls to the In-Progress list — never a blank screen</td><td>a stale header (routes deleted elsewhere) locked Route+ onto an empty compare table</td></tr>
+<tr><td>BATCHGUARD</td><td>RouteDraftStore, MapViewer</td><td>message when a rider deletes/discards a compare-set route</td><td>tells the rider why the delete is refused</td></tr>
+<tr><td>BATCHDELETE</td><td>RouteDraftStore, MapViewer</td><td><code>deleteDraft()</code> refuses any route of the open compare set (universal); the compare table's Save/Delete-all clears the header FIRST</td><td>Fred: put the test in the delete function itself</td></tr>
+<tr><td>COMPARETRACE</td><td>RouteDraftStore, MapViewer</td><td>writes <code>route_drafts/batch/compare_trace.log</code> at every compare decision (paths, header found/not, routes OK/MISSING)</td><td>invisible, cheap; was the diagnostic. <span class="tag info">no screen shows it now</span></td></tr>
+<tr><td>ROUTEFILES (internal part only)</td><td>RouteDraftStore, MapViewer</td><td><code>recordSearchOutcome()</code> → <code>last_ai_search.json</code> (routes made, header written, error)</td><td>called by the AI search; invisible. The Settings screen part was REMOVED (§4). <span class="tag warn">cleanup later</span> the report/reader helpers (routeFilesReport, readDraftText, readBatchText, draftNames, deleteAllRouteFiles) are now dead code in RouteDraftStore — harmless; remove in 2.7b.</td></tr>
+<tr><td>AISTARTCLEAN</td><td>MapViewer</td><td>choosing AI DESIGN empties the route editor and deletes a leftover "Auto Saved In Progress"; toast "A leftover unfinished route was cleared so the AI starts clean."</td><td>swipe-out leftovers. Not reproducible on Fred's tablets; defensive.</td></tr>
+<tr><td>AIORPHANS</td><td>RouteDraftStore, MapViewer</td><td><code>isAiDraft()</code> (method = "suggest") + <code>deleteOrphanAiDrafts()</code>: AI routes (Route 1–5) not in an open compare set are deleted at AI DESIGN start</td><td>AI routes are stamped "suggest" — exact, never touches hand-drawn routes named "Route 1"</td></tr>
+<tr><td>ROUTEPLUSCLEAN</td><td>MapViewer</td><td>the FIRST thing Route+ does: <code>deleteOrphanAiDrafts()</code></td><td>Fred: delete remaining Route 1–5 before route create launches. Silent, traced.</td></tr>
+<tr><td><b>TRAILHEADNEAR</b> <span class="tag warn">release f</span></td><td>RouteExplorer, MapViewer</td><td><code>RouteExplorer.nearestShownTrailMiles()</code> (same map-key filter the search uses, point-to-segment). Both trailhead acceptance sites (tap marker; long-press create) refuse when the Trails layer is off or no shown trail is within ½ mile — step does not advance, message shown. Search <code>startYds</code> 600 → 880 (½ mile) so check and search agree.</td><td><b>THE REAL FIX</b> for the tester's case. Tested on copies only so far.</td></tr>
+</table>
+
+<h2>4. Patches — REMOVED or NEVER TO RUN, with why</h2>
+<table>
+<tr><th>Patch file / marker</th><th>Status</th><th>Why</th></tr>
+<tr><td>ROUTEFILES — Settings → "Route files (AI create)" screen</td><td><span class="tag bad">removed in d</span> (ConvoySettingsScreen restored from <code>243e9c3d2</code>)</td><td>Fred: "we are not putting 100 fixes on the panel." Also: it required leaving the planner, which threw away the state being diagnosed.</td></tr>
+<tr><td>ROUTEZIP (zip + email + empty) and ROUTELOG (app log in the zip)</td><td><span class="tag bad">removed in d</span> by <code>patch_noroutezip_2026-10-07.py</code></td><td>Fred: no email anywhere. (Note: a tester email arrived with no attachment — the SHARE button sent text only; two send buttons was a trap.)</td></tr>
+<tr><td>CLEARAIROUTES (Route+ dialog button + <code>deleteAllAiRoutes()</code>)</td><td><span class="tag bad">in d/e — removed in f</span></td><td>the dialog it lived in is never reached in this flow; then the root cause made it unnecessary</td></tr>
+<tr><td>TOOLBARCLEARAI (button under Save / Discard)</td><td><span class="tag bad">in e — removed in f</span></td><td>Fred: "we can also remove the AI delete — what a wasted effort." Root cause was the map key, not leftovers.</td></tr>
+<tr><td><code>patch_clearinprogress_2026-10-07.py</code></td><td><span class="tag bad">never run</span></td><td>cleared hand-drawn routes too; replaced by CLEARAIROUTES (now also gone)</td></tr>
+<tr><td><code>patch_aiemptyemail_2026-10-07.py</code></td><td><span class="tag bad">never run</span></td><td>had email buttons; Fred: no email</td></tr>
+<tr><td><code>patch_aiempty_2026-10-07.py</code></td><td><span class="tag bad">never run</span></td><td>no-email version (reason on the results page + TRY AGAIN). Dropped with "not 100 fixes on the panel". <span class="tag info">note</span> the silent "back to the start" on 0 routes still exists; TRAILHEADNEAR prevents the main cause up front.</td></tr>
+<tr><td><code>patch_routefiles</code>, <code>patch_routezip</code>, <code>patch_comparetrace</code>, <code>patch_routelog</code>, <code>patch_batchheal</code>, <code>patch_batchguard</code>, <code>patch_batchdelete</code>, <code>patch_aistartclean</code>, <code>patch_aiorphans</code>, <code>patch_clearairoutes</code>, <code>patch_toolbarclearai</code></td><td><span class="tag info">history</span></td><td>already applied and committed (or deliberately reverted). Do not re-run. Leave them in Downloads only as a record, or move them to <code>GroupTrack/commands/retired</code>-style archive.</td></tr>
+</table>
+
+<h2>5. Release f — the plan (exact)</h2>
+<div class="card">
+<p><b>Decision first:</b> TRAILHEADNEAR <b>v1</b> (single message: "No trail shown on the map within 1/2 mile of this trailhead. Turn trail types on in the map key, or choose a trailhead closer to a trail.") or <b>v2</b> (checks twice: with the map-key filter, then without → "There's a trail here, but the map key has that trail type switched off…" vs "No trail within 1/2 mile…"). v2 would have told the tester exactly what was wrong. If v2: Claude writes <code>patch_trailheadnear_2026-10-07_v2.py</code> (new name; converts v1 in place if already applied).</p>
+<p><b>Step 1 (Mac)</b> — put MapViewer + RouteDraftStore back to <code>993cc69b0</code> (c), the toolbar back to <code>2be195dfe</code>, RouteExplorer to HEAD; apply routeplusclean, noroutezip, trailheadnear; test build:</p>
+<pre>cd "$GT_REPO" &amp;&amp; C=app/src/main/java/com/geeksville/mesh/convoy &amp;&amp; git checkout 993cc69b0 -- $C/ConvoyMapViewerScreen.kt $C/RouteDraftStore.kt &amp;&amp; git checkout 2be195dfe -- $C/ConvoyRouteToolbar.kt &amp;&amp; git checkout -- $C/RouteExplorer.kt &amp;&amp; OK=1; for p in patch_routeplusclean_2026-10-07 patch_noroutezip_2026-10-07 patch_trailheadnear_2026-10-07; do P=""; for d in "$GT_INBOX" ~/Downloads; do [ -f "$d/$p.py" ] &amp;&amp; P="$d/$p.py" &amp;&amp; break; done; echo "using: ${P:-NOT FOUND: $p}"; if [ -n "$P" ]; then python3 "$P" || OK=0; else OK=0; fi; done; [ $OK = 1 ] &amp;&amp; bash "$GT_CMDS/gt_build.sh" || echo "NOT BUILT -- fix the line above first"</pre>
+<p>Verified on copies: both Clear-AI buttons, their dialogs, <code>deleteAllAiRoutes</code> and the zip code are GONE; TRAILHEADNEAR, ROUTEPLUSCLEAN, AISTARTCLEAN, <code>deleteOrphanAiDrafts</code>, <code>recordSearchOutcome</code>, <code>traceCompare</code>, <code>hasOpenBatch</code>, <code>drawBatch</code> present; brackets unchanged. Settings is untouched (already restored in d).</p>
+<p><b>Step 2 (PC)</b> — <code>bash "$GT_CMDS/deploy.sh" &lt;build name&gt;</code>, then the tablet test: (1) all trail types OFF in the map key → Route+ → AI DESIGN → tap a trailhead → <b>refused with the message</b>; (2) trails ON → same trailhead → accepted, AI run reaches compare; (3) <b>no</b> Clear AI routes under Save / Discard.</p>
+<p><b>Step 3 (Mac)</b> — commit RouteExplorer, MapViewer, RouteDraftStore, ConvoyRouteToolbar; tag <code>v2.7a-internal-2026-10-08</code> (or …-07f); <code>gt_release.sh</code>; <code>check_build_v2.sh</code> on the Desktop AAB + extra markers (MUST BE IN: <code>TRAILHEADNEAR</code>, <code>No trail shown on the map</code>, <code>so the AI starts clean</code>, <code>leftover AI route</code>; MUST BE GONE: <code>Clear AI routes</code>, <code>CLEARAIROUTES:</code>, <code>Route files (AI create)</code>, <code>ZIP + EMAIL</code>); <code>build_publish_v2.sh --release</code>.</p>
+<p><b>Step 4</b> — upload the Desktop AAB in Play Console (Mac). Release note: trailhead must be near a trail shown on the map; AI routes only on trails the map key shows.</p>
+</div>
+
+<h2>6. Tomorrow — first things, in order</h2>
+<div class="card"><ul>
+<li><b>Step 0 — where is the Mac's tree?</b> <code>cd "$GT_REPO" &amp;&amp; git status --short | grep -v '^??'; git log --oneline -3</code>. Expect HEAD <code>3db12ebd9</code>. If files show as modified, release-f step 1 was run (or partly) — the step-1 command resets them first anyway, so it is safe to re-run.</li>
+<li>Decide TRAILHEADNEAR v1 or v2 (§5), then release f — with the <b>tablet test before Play</b>.</li>
+<li>Tell the tester: turn trail types back on in the map key; AI routes use trails only, and his trailhead must be near a trail the map shows.</li>
+<li>Radio soak + GA decision (§7).</li>
+<li>EOD doc set: Living Master needs Fred's <b>v132</b> uploaded as the baseline (never recreated from memory); Where We Are v37; Environment v3 (release procedure below).</li>
+</ul></div>
+
+<h2>7. Radio — findings and open items</h2>
+<div class="card"><ul>
+<li><b>Reconnect loop</b> (status: fixed): every ~76 s on old builds; gone with 30 s stationary (Droid 1 clean 20:53–21:34 on 10-06; Droid 2 clean all night with one self-healed drop).</li>
+<li><b>Droid 1's radio …C4:6A</b> dropped at the Bluetooth level (status 8) on 10-06 night despite 100 % battery → factory reset. After the reset it carried <code>position.gps_en_gpio: 43</code> (the other radio …DE:DA has none; same firmware) → cleared to 0. Both radios then matched and their LED patterns synced. Cause of the drops still unproven.</li>
+<li><b>"Every 4 s" TAK traffic</b> was a counting artifact: each report <b>received over the air</b> is logged twice (uncompressed + compressed, 30 ms apart — two transmissions would need ~210 ms each). Own radio's reports appear once. Real rate ~8–12 s. <span class="tag warn">to prove</span> sender's <code>numPacketsTx</code> over 60 s (the CLI 2.7.11 <code>--info</code> did not print it).</li>
+<li><b>Hop experiment</b>: channel utilization ~6.6–7.0 % at hop 3 → ~5.0 % at hop 0 (relays ≈ 2 points with two radios); ~4–5 % is outside traffic on the frequency. Both radios now <b>hop 2</b>, 30 s / 100 m / 6 s, set by CLI (existing rides still carry hop 3 — a check-in to an old ride writes 3 back; use a fresh ride).</li>
+<li><b>CLI over USB knocks the tablet's Bluetooth session off</b> (one app connection at a time) — no CLI readings during a soak.</li>
+<li><b>Soak</b>: the hop-2 overnight run's logs (<code>~/soak/droid1_night_2026-10-07_full.txt</code>, <code>droid2_…</code> on the PC) — status not confirmed; compress and upload. GA decision depends on it. Fallback if not clean: ship GA with the 10-05 proven values (15 s, old smart, hop 3).</li>
+<li>Debug Panel export writes a <b>0-byte</b> file — defect, not urgent.</li>
+</ul></div>
+
+<h2>8. Tools and procedure changes today</h2>
+<div class="card">
+<p><b>Release procedure (standing, Mac):</b> commit + tag → <code>gt_release.sh &lt;name&gt;</code> (refuses uncommitted code / untagged HEAD / missing keystore; checks the release certificate; bundle to the Desktop; nothing to Drive) → <code>check_build_v2.sh ~/Desktop/&lt;file&gt;.aab</code> (+ that release's markers) → <code>build_publish_v2.sh --release &lt;name&gt;</code> (one Drive copy, releases/ only; LATEST points at it) → <b>PC: deploy by name + tablet test — the gate</b> → Play upload from the Mac Desktop.</p>
+<ul>
+<li><code>gt_release.sh</code> (new), <code>build_publish_v2.sh</code> (new; a release publishes ONCE, was twice ≈ 210 MB), <code>check_build_v2.sh</code> (new; 15 markers incl. STATIONARY30 at 30 s; accepts an AAB path) — v1 retired. <code>check_build_v1.sh</code> had been written in another session 10-06 13:58.</li>
+<li>Play Console uploads now happen on the Mac.</li>
+<li>No tooling changes until the tablets can be loaded from the Mac (USB expansion) — then <code>gt_build_v2</code>. Idea recorded: Mac SMB share of build outputs so the PC installs without the Drive round-trip.</li>
+<li>macOS showed a one-time Desktop permission prompt that paused a release copy — allow once.</li>
+<li>Pasting very long commands sometimes splits in zsh (<code>dquote&gt;</code>) — Ctrl+C and paste the shorter form.</li>
+</ul></div>
+
+<h2>9. Lessons (for the Living Master)</h2>
+<div class="card"><ul>
+<li><b>Ask what the rider actually did before building fixes.</b> Ten rounds of compare/batch/leftover fixes were built before the cause (map key off + trailhead on a track) came from looking at his map. The first question for a single-device failure: version installed, and a screenshot of the screen.</li>
+<li><b>Load and test locally before Play</b> (Fred: "this is what happens when we do not load and test locally — a mess"). Now a gate in the procedure.</li>
+<li><b>Fixes go where the rider is</b>: a tool that needs leaving the screen destroys the state it should capture; a button in a dialog the flow never reaches does not exist.</li>
+<li><b>Silent exits are bugs</b>: two of the AI search's five zero-route exits only logged; and 0 routes reopens the AI panel at its first page. TRAILHEADNEAR stops the main cause up front; the silent restart itself remains (patch_aiempty was dropped by choice).</li>
+<li>Tracks become trails where no trail exists — so a trailhead "on a track" is on a trail, and the map key can hide it.</li>
+</ul></div>
+
+<h2>10. Status of other threads</h2>
+<div class="card"><ul>
+<li>GA Thu/Fri: release notes v31, What's-new text (476 chars), promote to production — after the soak and release f.</li>
+<li>2.7b (Mac, structure only) plan unchanged from v39: comm separation + transport interface + GRP Awareness switch; CoT names; one cutover (tick removal + CoT messaging + lead-track new method). Nucleus devices arriving this week.</li>
+<li>Doubled TAK packets on receive: clean up in the 2.7b comm work (handle one form).</li>
+<li>Dead code to remove in 2.7b: RouteDraftStore route-files report/readers (§3).</li>
+</ul></div>
+</body></html>
