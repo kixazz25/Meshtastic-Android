@@ -700,7 +700,6 @@ fun ConvoyMapViewerScreen(
     var routeNameTaken by remember { mutableStateOf(false) }
     // live In-Progress list: real draft names from RouteDraftStore (refreshed on draftListTick)
     var draftListTick by remember { mutableStateOf(0) }
-    var clearAiRoutesAsk by remember { mutableStateOf(false) }   // TOOLBARCLEARAI-2026-10-07
     // ROUTETHB-2026-09-27 (Fred): a route is never saved without a trailhead -- the prompt at SAVE when none is near.
     var routeThPrompt by remember { mutableStateOf(false) }
     var routeThName by remember { mutableStateOf("") }
@@ -1091,6 +1090,25 @@ fun ConvoyMapViewerScreen(
                    else null
     }
     var showArtifactsPanel by remember { mutableStateOf(false) }   // FAB closed-state vs panel open-state
+    /* AICANCEL-2026-10-08 (Fred): CANCEL AI BUILD -- leave the AI flow completely from any step before the build.
+     * ONE definition, used by every step's cancel. The "Auto Saved In Progress" route is this run's (AISTARTCLEAN
+     * removes any leftover at AI start); a compare-set route is never touched. */
+    val aiCancelBuild: () -> Unit = {
+        pinTrailName = ""; pinTrailLat = 0.0; pinTrailLon = 0.0
+        pinNotice = ""; pinIsLoop = null; pinEndLat = 0.0; pinEndLon = 0.0
+        pinPoints = emptyList(); pinFeas = null
+        android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> NONE (cancel AI build)"); pinStep = PIN_STEP_NONE
+        showAiDesign = false
+        showArtifactsPanel = false
+        RouteManager.clearRoute()
+        if (RouteDraftStore.draftExists(RouteDraftStore.UNNAMED) && !RouteDraftStore.isInOpenBatch(RouteDraftStore.UNNAMED))
+            RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
+        routeName = RouteDraftStore.UNNAMED
+        draftListTick++
+        routeMode = rmTrace(false, "RM@AICANCEL")
+        webViewRef?.evaluateJavascript("showAimRing(false);clearBuildLine();window.__routeMode=false;setRouteMode(false)", null)
+        android.widget.Toast.makeText(context, "AI build cancelled.", android.widget.Toast.LENGTH_SHORT).show()
+    }
     var pmDownloadedOn by remember { mutableStateOf(false) }
     var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
     var mapZoomLevel by remember { mutableStateOf(ConvoyConfig.DOWNLOAD_ZOOM.toFloat()) }
@@ -1231,8 +1249,14 @@ fun ConvoyMapViewerScreen(
                                              * here, and searching for a row we just
                                              * wrote would race the commit.
                                              */
+                                            val thNear = trailState != DS_OFF && SpatialDbManager.getSpatialDb()?.let {
+                                                RouteExplorer.nearestShownTrailMeters(it, wLat, wLon) } != null   // RELEASEF-2026-10-08 TRAILHEADNEAR2
+                                            if (ty == "trailhead" && pinStep == PIN_STEP_TRAILHEAD && !thNear) {
+                                                pinNotice = "No trail shown on the map within the half-mile circle of this trailhead. Turn trail types on in the map key, or choose a trailhead closer to a trail."
+                                                android.util.Log.i("PanelTrace", "TRAILHEAD created but refused (no shown trail in the aim ring): " + nm)
+                                            }
                                             if (ty == "trailhead" &&
-                                                pinStep == PIN_STEP_TRAILHEAD) {
+                                                pinStep == PIN_STEP_TRAILHEAD && thNear) {
                                                 pinTrailName = nm
                                                 pinTrailLat = wLat
                                                 pinTrailLon = wLon
@@ -1542,6 +1566,12 @@ fun ConvoyMapViewerScreen(
                                                     "trailhead marker itself, or add one " +
                                                     "with a long press."
                                                 pinExpanded = true
+                                            } else if (trailState == DS_OFF || SpatialDbManager.getSpatialDb()?.let {
+                                                    RouteExplorer.nearestShownTrailMeters(it, la, lo) } == null) {
+                                                // RELEASEF-2026-10-08 TRAILHEADNEAR2 (Fred): no shown trail inside the aim ring -- do not proceed
+                                                pinNotice = "No trail shown on the map within the half-mile circle of this trailhead. Turn trail types on in the map key, or choose a trailhead closer to a trail."
+                                                pinExpanded = true
+                                                android.util.Log.i("PanelTrace", "TRAILHEAD refused (no shown trail in the aim ring): " + fnm)
                                             } else {
                                                 pinTrailName = fnm
                                                 pinTrailLat = la
@@ -2250,7 +2280,7 @@ fun ConvoyMapViewerScreen(
                         batchPrevLayers = null
                     },
                     modifier = Modifier.align(Alignment.TopStart)
-                        .padding(8.dp).fillMaxWidth(0.75f)
+                        .padding(8.dp)   // RELEASEF-2026-10-08 COMPARENARROW: the table sizes itself to its rides
                 )
             }
             // -- WORK WITH ARTIFACTS (V2.5 scaffold) -- FAB-gated, opens expanded --
@@ -3152,6 +3182,7 @@ fun ConvoyMapViewerScreen(
                     ConvoyAiStepScreen(
                         steps = steps,
                         onStartOver = { pinReset() },
+                        onCancelBuild = { aiCancelBuild() },   // AICANCEL-2026-10-08
                         actions = actions,
                         notice = pinNotice,
                         /* ⚠ The half-width, hard-left rule was for a panel
@@ -3180,7 +3211,8 @@ fun ConvoyMapViewerScreen(
                         // the setup panel. A rider changing their mind here is
                         // changing the trailhead or the loop answer, not the name
                         // or the mileage.
-                        onStartOver = { pinReset() }
+                        onStartOver = { pinReset() },
+                        onCancelBuild = { aiCancelBuild() }   // AICANCEL-2026-10-08
                     )
                 }
             }
@@ -3627,7 +3659,7 @@ fun ConvoyMapViewerScreen(
                         webViewRef?.evaluateJavascript("show" + ly + "()", null)
                     }
                     webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                    showArtifactsPanel = true
+                    // AICANCEL-2026-10-08 (Fred): Map Features no longer opens here -- it reappeared over the flow after Route+
                 }
                 // the next run gets its defaults; this one never fights the rider
                 if (pinStep == PIN_STEP_NONE) aiMapReady = false
@@ -3658,7 +3690,7 @@ fun ConvoyMapViewerScreen(
                             pinMiHigh.toDouble() / pinMphLow.toDouble().coerceAtLeast(1.0))
                         "$lo to $hi hours"
                     },
-                    onCancel = { android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> NONE"); pinStep = PIN_STEP_NONE },
+                    onCancel = { aiCancelBuild() },   // AICANCEL-2026-10-08: the full cancel, not just the step
                     onContinue = {
                         if (pinStep == PIN_STEP_WELCOME) {
                             android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> DISTANCE"); pinStep = PIN_STEP_DISTANCE
@@ -3884,7 +3916,6 @@ fun ConvoyMapViewerScreen(
             if (routeMode && !showAiDesign && pinStep == PIN_STEP_NONE) {
                 ConvoyRouteToolbar(
                     isConvoyMap = false,
-                    onClearAiRoutes = { clearAiRoutesAsk = true },   // TOOLBARCLEARAI-2026-10-07
                     vertexCount = RouteManager.routeVertexCount(),
                     routeEntryNonce = routeEntryNonce,
                     selectedMethod = routeMethod,
@@ -4323,27 +4354,6 @@ fun ConvoyMapViewerScreen(
              * Route does, so the tap starts a route. A silently ignored tap
              * would be worse than the empty dialog.
              */
-            if (clearAiRoutesAsk) {   // TOOLBARCLEARAI-2026-10-07 (Fred): from the route toolbar, under Save / Discard
-                androidx.compose.material3.AlertDialog(
-                    onDismissRequest = { clearAiRoutesAsk = false },
-                    title = { androidx.compose.material3.Text("Clear AI routes?") },
-                    text = { androidx.compose.material3.Text("Delete all AI-suggested routes and the compare set? Your own routes are kept.") },
-                    confirmButton = { androidx.compose.material3.TextButton(onClick = {
-                        val wasAi = routeMethod == ROUTE_METHOD_SUGGEST
-                        val n = RouteDraftStore.deleteAllAiRoutes()   // compare header FIRST, then AI routes only
-                        batchGridOpen = false; batchRows = emptyList()
-                        webViewRef?.evaluateJavascript("clearBatchRoutes()", null)
-                        if (wasAi) { RouteManager.clearRoute(); webViewRef?.evaluateJavascript("clearBuildLine();", null) }
-                        draftListTick++
-                        clearAiRoutesAsk = false
-                        RouteDraftStore.traceCompare("Route toolbar", "CLEAR AI ROUTES: compare set + $n AI route(s) deleted")
-                        android.widget.Toast.makeText(context, "AI routes cleared ($n). Your own routes are kept.",
-                            android.widget.Toast.LENGTH_LONG).show()
-                    }) { androidx.compose.material3.Text("CLEAR") } },
-                    dismissButton = { androidx.compose.material3.TextButton(onClick = { clearAiRoutesAsk = false }) {
-                        androidx.compose.material3.Text("CANCEL") } }
-                )
-            }
             if (showInProgressPicker && emulatedDrafts.isEmpty()) {
                 androidx.compose.runtime.LaunchedEffect(routeEntryNonce, showInProgressPicker) {
                     android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false
@@ -4362,7 +4372,6 @@ fun ConvoyMapViewerScreen(
                 // ⚠ logs the RENDER, so a flag that will not clear can
                 // be told apart from a render that ignores it
                 android.util.Log.i("PanelTrace", "PICKER renders")
-                var clearAllAsk by remember { mutableStateOf(false) }   // CLEARAIROUTES-2026-10-07
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false; routeMode = rmTrace(false, "RM@ConvoyMapViewerScreen:4262"); webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) },
                     title = { androidx.compose.material3.Text("Continue editing or create a new route") },
@@ -4430,11 +4439,6 @@ fun ConvoyMapViewerScreen(
                                     ) }
                                 }
                             }
-                            // CLEARAIROUTES-2026-10-07 (Fred): AI-suggested routes + compare header only
-                            androidx.compose.material3.TextButton(onClick = { clearAllAsk = true }) {
-                                androidx.compose.material3.Text("\uD83D\uDDD1 Clear AI routes",
-                                    color = androidx.compose.ui.graphics.Color(0xFFE86B6B))
-                            }
                         }
                     },
                     confirmButton = {
@@ -4461,26 +4465,6 @@ fun ConvoyMapViewerScreen(
                         }
                     }
                 )
-                if (clearAllAsk) {   // CLEARAIROUTES-2026-10-07
-                    androidx.compose.material3.AlertDialog(
-                        onDismissRequest = { clearAllAsk = false },
-                        title = { androidx.compose.material3.Text("Clear AI routes?") },
-                        text = { androidx.compose.material3.Text("Delete all AI-suggested routes and the compare set? Your own in-progress routes and saved routes are kept.") },
-                        confirmButton = { androidx.compose.material3.TextButton(onClick = {
-                            val n = RouteDraftStore.deleteAllAiRoutes()   // CLEARAIROUTES: compare header FIRST, then AI routes only
-                            draftListTick++
-                            clearAllAsk = false
-                            android.util.Log.i("PanelTrace", "PICKER <- false (clear AI routes)"); showInProgressPicker = false
-                            routeMode = rmTrace(false, "RM@CLEARAIROUTES")
-                            webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null)
-                            RouteDraftStore.traceCompare("Route+ panel", "CLEAR AI ROUTES: compare set + $n AI route(s) deleted")
-                            android.widget.Toast.makeText(context, "AI routes cleared ($n). Your own routes are kept.",
-                                android.widget.Toast.LENGTH_LONG).show()
-                        }) { androidx.compose.material3.Text("CLEAR") } },
-                        dismissButton = { androidx.compose.material3.TextButton(onClick = { clearAllAsk = false }) {
-                            androidx.compose.material3.Text("CANCEL") } }
-                    )
-                }
             }
             // THREEFIX-2026-08-27: the rename dialog is gone with its button.
             // ⚠ draftRenameTarget/Text/Err stay declared -- unused state is

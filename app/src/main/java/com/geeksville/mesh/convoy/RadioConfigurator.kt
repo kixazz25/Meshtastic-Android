@@ -196,6 +196,7 @@ object RadioConfigurator {
             broadcast_smart_minimum_distance = r.smartMinDistanceMeters,
             gps_mode = r.gpsMode, gps_update_interval = r.gpsUpdateSecs, fixed_position = r.fixedPosition,
             position_flags = r.positionFlags,   // RADIODEFAULTS-2026-10-06
+            gps_en_gpio = 0,   // RELEASEF-2026-10-08 GPSPINOFF (Fred): a set GPS power pin made a T1000-E misbehave -- always 0
         )
         note("broadcast interval", pos.position_broadcast_secs, r.broadcastSecs)
         note("smart position", pos.position_broadcast_smart_enabled, r.smartEnabled)
@@ -204,6 +205,7 @@ object RadioConfigurator {
         note("gps mode", pos.gps_mode, r.gpsMode); note("gps update", pos.gps_update_interval, r.gpsUpdateSecs)
         note("fixed position", pos.fixed_position, r.fixedPosition)
         note("position flags", pos.position_flags, r.positionFlags)   // RADIODEFAULTS-2026-10-06
+        note("gps power pin", pos.gps_en_gpio, 0)   // RELEASEF-2026-10-08 GPSPINOFF
 
         // RADIODEFAULTS-2026-10-06 (Fred): the serial module enabled. A retrieve without a serial section gets a full one written.
         val ser = current.module_config?.serial ?: org.meshtastic.proto.ModuleConfig.SerialConfig()
@@ -257,6 +259,7 @@ object RadioConfigurator {
             c("bluetooth enabled", true, after.config?.bluetooth?.enabled),
             c("position flags", r.positionFlags, pos?.position_flags),               // RADIODEFAULTS-2026-10-06
             c("serial enabled", r.serialEnabled, after.module_config?.serial?.enabled), // RADIODEFAULTS-2026-10-06
+            c("gps power pin", 0, pos?.gps_en_gpio),                                   // RELEASEF-2026-10-08 GPSPINOFF
         )
     }
 

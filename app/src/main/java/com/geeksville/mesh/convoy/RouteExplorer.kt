@@ -258,6 +258,39 @@ object RouteExplorer {
         return out
     }
 
+    /** RELEASEF-2026-10-08 TRAILHEADNEAR2: the aim ring's radius -- MUST equal showAimRing() in grouptrack_map.html
+     *  (L.circle radius 402, "a quarter mile"; the ring is half a mile across). Change both together. */
+    const val AIM_RING_M = 402.0
+
+    /** RELEASEF-2026-10-08 TRAILHEADNEAR2 (Fred): metres from (lat, lon) to the nearest trail the MAP KEY shows -- the
+     *  same filter the search routes on -- or null if none within [maxM]. Point-to-segment, local flat projection. */
+    fun nearestShownTrailMeters(db: SQLiteDatabase, lat: Double, lon: Double, maxM: Double = AIM_RING_M,
+                                filter: String = TrailFilterState.whereOrEmpty()): Double? {
+        val ky = 111_320.0
+        val kx = 111_320.0 * max(0.1, cos(Math.toRadians(lat)))
+        val dLat = maxM / ky; val dLon = maxM / kx
+        var best = Double.MAX_VALUE
+        db.rawQuery("SELECT geometry FROM trails WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=?" + filter,
+            arrayOf((lat + dLat).toString(), (lat - dLat).toString(), (lon + dLon).toString(), (lon - dLon).toString())
+        ).use { c ->
+            while (c.moveToNext()) {
+                val pts = wktPoints(c.getString(0))
+                for (i in pts.indices) {
+                    val ax = (pts[i][1] - lon) * kx; val ay = (pts[i][0] - lat) * ky
+                    if (i == 0) { best = min(best, kotlin.math.sqrt(ax * ax + ay * ay)); continue }
+                    val bx = (pts[i - 1][1] - lon) * kx; val by = (pts[i - 1][0] - lat) * ky
+                    val dx = ax - bx; val dy = ay - by; val l2 = dx * dx + dy * dy
+                    val t = if (l2 == 0.0) 0.0 else ((-bx) * dx + (-by) * dy) / l2
+                    val tt = t.coerceIn(0.0, 1.0)
+                    val px = bx + tt * dx; val py = by + tt * dy
+                    best = min(best, kotlin.math.sqrt(px * px + py * py))
+                }
+            }
+        }
+        Log.i(TAG, "TRAILHEADNEAR2: nearest shown trail " + (if (best == Double.MAX_VALUE) "none" else "%.0f m".format(best)))
+        return if (best <= maxM) best else null
+    }
+
     /** Snapped grid key. Packs the two cell indices into one Long. */
     private fun cellKey(lat: Double, lon: Double): Long {
         val d = (SNAP_FT / 5280.0) / 69.0

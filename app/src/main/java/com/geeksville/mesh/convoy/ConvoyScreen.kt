@@ -1783,15 +1783,29 @@ fun ConvoyScreen(
           }
         // ── Task 5.3: Show Lead Track toggle + Task 5.4: Route Recorder ──
         // -- FIXED SOURCE BAR --
+        // RELEASEF-2026-10-08 PLANPOS (Fred): Ride Planning waits for a position -- my cart's, or Android's own (GPS or
+        // Wi-Fi; Android falls back by itself, so planning indoors still works).
+        val planPosKnown = remember(convoyState) {
+            (convoyState.nodes.firstOrNull { it.isMyCart }?.let { it.latitude != 0.0 && it.longitude != 0.0 } == true) ||
+                runCatching {
+                    val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+                    listOf(android.location.LocationManager.GPS_PROVIDER, android.location.LocationManager.NETWORK_PROVIDER, "fused")
+                        .any { p -> runCatching { lm.getLastKnownLocation(p) }.getOrNull() != null }
+                }.getOrDefault(false)
+        }
         ConvoyMapBar(
             // PLAINCTRL-2026-08-17: plain language for the planning entry point.
             navLabel = "Ride Planning",
             // PLANGATE-2026-08-12C: green with a connection, yellow without. NOT red - the
             // record button beside this one is red, and a second red control
             // reads as a second recording state.
-            navTint = if (hasInternet) Color(0xFF2E7D32) else Color(0xFFB8860B),
+            navTint = if (!planPosKnown) Color(0xFF5A6370)   // RELEASEF-2026-10-08 PLANPOS: grey until a position is known
+                else if (hasInternet) Color(0xFF2E7D32) else Color(0xFFB8860B),
             onNavigate = {
-                if (hasInternet) onNavigateToMapViewer()
+                if (!planPosKnown) android.widget.Toast.makeText(context,   // RELEASEF-2026-10-08 PLANPOS
+                    "Waiting for your position \u2014 Ride Planning opens once GPS or Wi-Fi location is available.",
+                    android.widget.Toast.LENGTH_LONG).show()
+                else if (hasInternet) onNavigateToMapViewer()
                 else android.widget.Toast.makeText(
                     context, "Planning Map requires internet access",
                     android.widget.Toast.LENGTH_LONG

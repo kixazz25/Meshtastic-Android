@@ -171,6 +171,10 @@ fun ConvoyBatchGridPanel(
 
     var offsetX by remember { mutableStateOf(0f) }
     var offsetY by remember { mutableStateOf(0f) }
+    // RELEASEF-2026-10-08 COMPARENARROW (Fred): as wide as the rides it holds (max six), not 75% of the screen; the table
+    // collapses with the twisty so the routes underneath can be seen.
+    var tableOpen by remember { mutableStateOf(true) }
+    val tableW = maxOf(LABEL_W + COL_W * rows.size + 26.dp, 300.dp)
     Surface(
         modifier = modifier
             .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
@@ -185,7 +189,7 @@ fun ConvoyBatchGridPanel(
         color = panelBg,
         shadowElevation = 6.dp
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
+        Column(modifier = Modifier.width(tableW).padding(8.dp)) {   // RELEASEF-2026-10-08 COMPARENARROW
             // COMPARECLOSE-2026-09-02: ⛔ THE COMPARE PANEL HAD NO CLOSE. I
             // added the DRAG here this morning and not the exit -- Fred tested
             // it and reported "no close on compare", which is the fifth panel
@@ -215,7 +219,7 @@ fun ConvoyBatchGridPanel(
             }
             // ⚠ (7) tapping a header is not discoverable, and the dimming only
             // makes sense once the rider knows it is a control
-            Text("Click on route to hide / unhide on map",
+            Text("Tap a ride name to show or hide its route",   // RELEASEF-2026-10-08
                 color = dimText, fontSize = 9.5.sp, fontFamily = mono,
                 modifier = Modifier.padding(top = 2.dp, bottom = 6.dp))
 
@@ -255,6 +259,11 @@ fun ConvoyBatchGridPanel(
                 }
             }
 
+            // RELEASEF-2026-10-08 COMPARENARROW (Fred): the twisty below the checkbox line
+            Text(if (tableOpen) "\u25BE Hide" else "\u25B8 Expand",
+                color = accentBlue, fontSize = 10.sp, fontFamily = mono, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 2.dp, bottom = 4.dp).clickable { tableOpen = !tableOpen })
+            if (tableOpen) {   // RELEASEF-2026-10-08 COMPARENARROW
             /* ⚠ HEIGHT IS THE CONSTRAINT, NOT WIDTH. Twenty rows will not fit,
              * so the table scrolls inside a capped height and the map keeps the
              * rest of the screen. */
@@ -340,6 +349,7 @@ fun ConvoyBatchGridPanel(
                 }
             }
 
+            }   // RELEASEF-2026-10-08 COMPARENARROW: end of the collapsible table
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 // ⚠ the deletion is the half a rider would otherwise find out about

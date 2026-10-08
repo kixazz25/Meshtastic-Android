@@ -266,16 +266,6 @@ object RouteDraftStore {
         return n
     }
 
-    /** CLEARAIROUTES-2026-10-07 (Fred): the compare-set header FIRST, then every AI-made route (method "suggest").
-     *  Hand-drawn in-progress routes are never touched. Returns the number of route files deleted. */
-    fun deleteAllAiRoutes(): Int {
-        clearBatch()
-        var n = 0
-        for (d in listDrafts()) if (isAiDraft(d.name) && deleteDraft(d.name)) n++
-        Log.i(TAG, "CLEARAIROUTES: compare set cleared, $n AI route(s) deleted")
-        return n
-    }
-
     fun draftNames(): List<String> = listDrafts().map { it.name }
     fun readDraftText(name: String): String? = runCatching { fileFor(name).takeIf { it.exists() }?.readText() }.getOrNull()
     fun readBatchText(): String? = runCatching { batchFile().takeIf { it.exists() }?.readText() }.getOrNull()

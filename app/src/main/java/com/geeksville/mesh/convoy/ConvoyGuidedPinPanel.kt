@@ -120,6 +120,8 @@ fun ConvoyGuidedSummaryPanel(
     progress: String,
     onProceed: () -> Unit,
     onStartOver: () -> Unit,
+    /** AICANCEL-2026-10-08: leave the AI flow completely. Required -- one caller, wired. */
+    onCancelBuild: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -183,6 +185,8 @@ fun ConvoyGuidedSummaryPanel(
                         onClick = onProceed)
                     Spacer(Modifier.height(7.dp))
                     GpButton("START OVER", primary = false, onClick = onStartOver)
+                    Spacer(Modifier.height(7.dp))
+                    GpButton("CANCEL AI BUILD", primary = false, onClick = onCancelBuild)   // AICANCEL-2026-10-08
                 }
             }
         }
@@ -366,6 +370,8 @@ fun ConvoyAiStepScreen(
     actions: List<Pair<String, () -> Unit>> = emptyList(),
     notice: String = "",
     onStartOver: () -> Unit,
+    /** AICANCEL-2026-10-08: leave the AI flow completely. Required -- one caller, wired. */
+    onCancelBuild: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // ⚠ the CURRENT step, or the last one — the same rule the header used
@@ -450,6 +456,8 @@ fun ConvoyAiStepScreen(
                     else "START OVER",
                     primary = false, onClick = onStartOver
                 )
+                Spacer(Modifier.height(7.dp))
+                GpButton("CANCEL AI BUILD", primary = false, onClick = onCancelBuild)   // AICANCEL-2026-10-08
             }
         }
         return

@@ -195,6 +195,17 @@ fun GrpAwarenessPanel(
     val ctx = LocalContext.current
     var message by remember { mutableStateOf("") }
     var forgetting by remember { mutableStateOf<com.geeksville.mesh.model.DeviceListEntry?>(null) }
+    // RELEASEF-2026-10-08 FORGETREFRESH (Fred): the paired list handed in is a snapshot; after FORGET the row kept
+    // CONNECT/FORGET until the panel was reopened. Android's paired list is re-read here; a forgotten radio shows PAIR at once.
+    var bondedNow by remember { mutableStateOf(pairedMacs(ctx)) }
+    var forgottenMacs by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var bondTick by remember { mutableStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(bondTick) {
+        if (bondTick > 0) {   // Android removes the bond a moment after the request
+            kotlinx.coroutines.delay(800); bondedNow = pairedMacs(ctx)
+            kotlinx.coroutines.delay(1500); bondedNow = pairedMacs(ctx)
+        }
+    }
     val busy = connected || (selectedAddress.isNotBlank() && selectedAddress != "n")   // one radio at a time
     val current = paired.firstOrNull { it.fullAddress == selectedAddress }
     val green = Color(0xFF35C46A); val red = Color(0xFFE0453A); val dim = Color(0xFF8899AA)
@@ -237,17 +248,23 @@ fun GrpAwarenessPanel(
                                 paired.find { it.fullAddress == "x${result.peripheral.address}" }
                                     ?: com.geeksville.mesh.model.DeviceListEntry.Ble(result.peripheral)
                             }
+                            // RELEASEF-2026-10-08 FORGETREFRESH: bonded = the snapshot says so, it was not just forgotten, and
+                            // Android still has it (when Android's list can be read at all)
+                            val mac = result.peripheral.address.uppercase()
+                            val isBonded = device.bonded && (mac !in forgottenMacs || mac in bondedNow) &&
+                                (bondedNow.isEmpty() || mac in bondedNow)
+                            val target = if (isBonded) device else com.geeksville.mesh.model.DeviceListEntry.Ble(result.peripheral)
                             if (!(device.fullAddress == selectedAddress && busy)) {   // the radio in use lives in its box
                                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(radioLongName(device), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                        Text(if (device.bonded) device.address else "NEW TO THIS ANDROID \u00b7 " + device.address,
-                                            color = if (device.bonded) dim else Color(0xFFF2C14E), fontSize = 11.sp)
+                                        Text(radioLongName(target), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text(if (isBonded) device.address else "NEW TO THIS ANDROID \u00b7 " + device.address,
+                                            color = if (isBonded) dim else Color(0xFFF2C14E), fontSize = 11.sp)
                                     }
-                                    TextButton(enabled = !busy, onClick = { scanModel.onSelected(device); message = "" }) {
-                                        Text(if (device.bonded) "CONNECT" else "PAIR")
+                                    TextButton(enabled = !busy, onClick = { scanModel.onSelected(target); message = "" }) {
+                                        Text(if (isBonded) "CONNECT" else "PAIR")
                                     }
-                                    if (device.bonded) TextButton(onClick = { forgetting = device }) { Text("FORGET", color = Color(0xFFF08C84)) }
+                                    if (isBonded) TextButton(onClick = { forgetting = device }) { Text("FORGET", color = Color(0xFFF08C84)) }
                                 }
                             }
                         },
@@ -290,6 +307,7 @@ fun GrpAwarenessPanel(
                 if (r.fullAddress == selectedAddress) onDisconnect()
                 val ok = forgetPairing(ctx, r.address)
                 message = if (ok) radioLongName(r) + " is forgotten." else "Android needs you to do it: tap " + r.name + " \u2192 Forget, then come back."
+                if (ok) { forgottenMacs = forgottenMacs + r.address.uppercase(); bondTick++ }   // RELEASEF-2026-10-08 FORGETREFRESH
                 if (!ok) openBluetoothSettings(ctx)
                 forgetting = null
             }) { Text("FORGET") } },
