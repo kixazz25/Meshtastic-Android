@@ -51,6 +51,7 @@ class ConvoyViewModel @Inject constructor(
     private val exportProfileUseCase: ExportProfileUseCase,
     private val installProfileUseCase: InstallProfileUseCase,
     private val radioController: org.meshtastic.core.model.RadioController, // RADIOCFG4-2026-09-25
+    private val commMessaging: com.grouptrack.comm.CommMessaging, // COMMSEND-2026-10-08: TAK out through the Comm API
 ) : ViewModel() {
 
     private val _convoyState = MutableStateFlow(ConvoyEngine.ConvoyState.empty())
@@ -301,6 +302,13 @@ class ConvoyViewModel @Inject constructor(
         }
         // OWNROLE-2026-09-28 (Fred): MY role lives in the SAME store as everyone else's (against my own radio's number).
         myNum?.let { org.meshtastic.core.data.manager.TakRoleStore.put(it, role.name) }
+        // COMMSEND-2026-10-08: the same role in the Comm API's terms (the translator maps it back: the 2.7a table).
+        val commRole = when (role) {
+            org.meshtastic.proto.MemberRole.TeamLead -> com.grouptrack.comm.Role.LEADER
+            org.meshtastic.proto.MemberRole.RTO -> com.grouptrack.comm.Role.MIDDLE
+            org.meshtastic.proto.MemberRole.ForwardObserver -> com.grouptrack.comm.Role.TAIL_GUNNER
+            else -> com.grouptrack.comm.Role.RIDER
+        }
         roleReportJob?.cancel()
         val startedAt = System.currentTimeMillis()
         roleReportJob = viewModelScope.launch {
@@ -314,17 +322,22 @@ class ConvoyViewModel @Inject constructor(
                     val lon = me?.longitude?.takeIf { it != 0.0 } ?: loc?.longitude
                     if (lat == null || lon == null) { android.util.Log.w("ROLEREPORT", "ROLEREPORT #$n: no position -- skipped"); return@runCatching }
                     val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
-                    val tak = org.meshtastic.proto.TAKPacket(
-                        is_compressed = false,
-                        contact = org.meshtastic.proto.Contact(callsign = cs, device_callsign = cs),
-                        group = org.meshtastic.proto.Group(role = role, team = org.meshtastic.proto.Team.Cyan),
-                        pli = org.meshtastic.proto.PLI(latitude_i = (lat * 1e7).toInt(), longitude_i = (lon * 1e7).toInt()),
-                    )
-                    radioController.sendMessage(org.meshtastic.core.model.DataPacket(
-                        bytes = okio.ByteString.of(*org.meshtastic.proto.TAKPacket.ADAPTER.encode(tak)),
-                        dataType = org.meshtastic.proto.PortNum.ATAK_PLUGIN.value,
-                        wantAck = false,
+                    // COMMSEND-2026-10-08 (2.7b cycle 1 step 2a): the report is a CoT message handed to the Comm API; the mesh
+                    // translator (app module) turns it into the same TAK V1 report on port 72 as before -- same bytes on the air.
+                    val nowMs = System.currentTimeMillis()
+                    val res = commMessaging.deliver(com.grouptrack.comm.CommMessage(
+                        uid = "GroupTrack-" + (myNum ?: 0),   // cycle 2: the rider's GroupTrack id (V1 does not carry a uid)
+                        type = "a-f-G-U-C", how = "m-g",
+                        timeMs = nowMs, startMs = nowMs, staleAtMs = nowMs + 90_000L,   // stale = 3 report intervals (not on the V1 wire)
+                        point = com.grouptrack.comm.CotPoint(lat, lon, null, null, null),
+                        callsign = cs, role = commRole, team = "Cyan",
+                        track = null, batteryPct = null,
+                        groupTrack = com.grouptrack.comm.GroupTrackDetail(checkIn.value?.rideId ?: "",
+                            com.grouptrack.comm.GroupTrackDetail.Kind.REPORT),
                     ))
+                    if (res !is com.grouptrack.comm.CommResult.Ok) {
+                        android.util.Log.w("ROLEREPORT", "ROLEREPORT #$n not sent: $res"); return@runCatching
+                    }
                     android.util.Log.i("ROLEREPORT", "ROLEREPORT sent #$n at ${System.currentTimeMillis()}: $cs as $role")
                 }.onFailure { android.util.Log.w("ROLEREPORT", "ROLEREPORT #$n not sent: ${it.message}") }
                 kotlinx.coroutines.delay(if (n < 3) 5_000L else 30_000L)   // ROLEBTN-2026-09-29: the first three 5 s apart, then 30 s
