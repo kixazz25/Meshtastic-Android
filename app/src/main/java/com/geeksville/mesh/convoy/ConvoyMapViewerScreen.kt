@@ -1300,6 +1300,7 @@ fun ConvoyMapViewerScreen(
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             AndroidView(
                 factory = { ctx ->
+                    android.webkit.WebView.setWebContentsDebuggingEnabled(true)   // WEBDEBUG-2026-10-09: chrome://inspect -- 2.7b TEST builds only
                     WebView(ctx).apply {
                         // TAPTRACE-2026-07-30: the planner had NO WebChromeClient,
                         // so every console.log in grouptrack_map.html has gone
