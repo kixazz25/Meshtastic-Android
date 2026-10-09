@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="leaflet.polylineDecorator.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js">
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    #map { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
+    #north { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(0,0,0,0.6); color: #4DA6FF; font-family: monospace; font-size: 14px; font-weight: bold; padding: 4px 10px; border-radius: 4px; pointer-events: none; }
+      .leaflet-top .leaflet-control-zoom {
+      margin-top: 95px !important;
+      margin-left: 8px !important;
+    }
+    </style>
+</head>
+<body>
+  <div id="north">N · Z<span id="zoomLevel">--</span></div>
+  <div id="map"></div>
+  <script>
+    var map, tileLayer, trailLayer = null, trailsVisible = false;
+    var trackLayer = null, tracksVisible = false;
+    var trackArrows = null;
+    var labelLayer1 = null, labelLayer2 = null;
+    var drawnItems = null;
+    var drawControl = null;
+    var trackLines = [];
+    // HTMLVER-2026-08-13B: this file's own version, read back by Kotlin after the
+    // page loads and shown in the settings panel. A tester can read it off the
+    // screen, so stale bundled HTML is visible without logcat.
+    // ⚠ BUMP THIS WHENEVER THIS FILE CHANGES, or the display starts lying.
+    window.__htmlVersion = "2026-09-08a";
+    var currentMaxNative = 18;
+
+    // ══════════════════════════════════════════════
+    // TRAIL DISPLAY -- CATCOLOR-2026-08-31
+    // carto_code now holds CATEGORY NAMES, not digit-prefixed source values, so
+    // charAt(0) cannot work: "hiking" and "hiking and biking" share 'h'.
+    // ⭐ Blue = rideable; the SHADE CARRIES CONFIDENCE.
+    // ⛔ Status OVERRIDES the category -- red is closed, period.
+    // ══════════════════════════════════════════════
+    // STYLEEMPTY-2026-09-11: \u26d4 DELIBERATELY EMPTY. This used to hold a
+    // hardcoded copy of the palette -- a stale snapshot that had drifted from both
+    // the shipped asset and the rider's file, and it was what the map actually drew
+    // from. A rider's own colours only arrived when they edited something in the key
+    // panel, so a solid line reverted to dashed on every restart.
+    // \u2b50 The palette now comes from ONE place: the rider's map_keys.json, pushed by
+    // setTrailStyles from Android.onMapReady (STYLEONREADY-2026-09-11). The file is
+    // guaranteed to exist and be complete by ensureDefaults + mergeShippedCategories
+    // on every launch (DEFAULTSEVERY-2026-09-11).
+    // \u26a0 DO NOT PUT DEFAULTS BACK HERE. A category with no entry falls through to
+    // the cyan default at the end of trailStyleOf, which is the correct behaviour for
+    // the moment before the push arrives. Re-adding a literal recreates the drift.
+    var TRAIL_STYLE = {};
+    var STATUS_STYLE = {
+      'CLOSED':  { c: '#FF2222', w: 3, d: null },
+      'PLANNED': { c: '#556070', w: 2, d: '3,6' }
+    };
+    function trailStyleOf(cartoCode, status) {
+      var s = status ? String(status).toUpperCase() : '';
+      if (STATUS_STYLE[s]) return STATUS_STYLE[s];
+      var k = cartoCode ? String(cartoCode).trim() : '';
+      if (TRAIL_STYLE[k]) return TRAIL_STYLE[k];
+      if (k.indexOf('R -') === 0) return { c: '#FF1493', w: 2, d: null };
+      return { c: '#00FFFF', w: 2, d: null };
+    }
+    function trailColor(cartoCode, status)  { return trailStyleOf(cartoCode, status).c; }
+    function trailWeight(cartoCode, status) { return trailStyleOf(cartoCode, status).w; }
+    function trailDash(cartoCode, status)   { return trailStyleOf(cartoCode, status).d; }
+    function setTrailStyles(json) {
+      // TRAILSTYLE-2026-09-02: the rider's own colours, patterns and weights.
+      // ⭐ MERGE, not replace: a category the rider has never touched keeps its
+      // shipped default, so a category added in a later release still draws before
+      // anyone has an opinion about it.
+      // ⚠ Nothing is stored on this side. TrailFilterState owns map_keys.json and
+      // hands the table here; this function is a sink, not a source.
+      try {
+        var o = (typeof json === 'string') ? JSON.parse(json) : json;
+        for (var k in o) {
+          if (!o.hasOwnProperty(k)) continue;
+          var v = o[k];
+          TRAIL_STYLE[k] = {
+            c: v.c || '#00FFFF',
+            w: (typeof v.w === 'number') ? v.w : 2,
+            d: (v.d === null || v.d === undefined || v.d === '') ? null : v.d
+          };
+        }
+        // ⛔ THE REDRAW IS NOT OPTIONAL. Leaflet applies the style function ONCE, at
+        // add time, and caches the result -- so changing the table alone changes
+        // nothing already on screen. setStyle re-runs it over every layer in place.
+        // ⭐ In place, NOT a rebuild: rebuilding the GeoJSON layer would rebind
+        // every popup and click handler, and POPUPBIND-2026-08-13H documents what
+        // that costs during route mode.
+        if (trailLayer) {
+          trailLayer.setStyle(function(feature) {
+            var cc = feature.properties.CartoCode || '';
+            var st = feature.properties.Status || '';
+            return {
+              color: trailColor(cc, st),
+              weight: trailWeight(cc, st),
+              dashArray: trailDash(cc, st),
+              opacity: 0.85,
+              smoothFactor: 0
+            };
+          });
+        }
+      } catch (e) {
+        console.log('setTrailStyles failed: ' + e);
+      }
+    }
+
+    // -- Tile source --
+    function setTileUrl(url, label) {
+      if (tileLayer) map.removeLayer(tileLayer);
+      // ZOOMSLOT-2026-08-10E: satellite to z18, rendered maps to z16 - the SAME
+      // rule the download path uses (ConvoyTileCalculator.maxZoomForSlot),
+      // so the map never offers a zoom level the store cannot hold.
+      //
+      // Was a list of source names capped at 17. Keyed on the slot instead:
+      // one sentence, no table of vendor ceilings, and nothing to update
+      // when a source is added.
+      //
+      // Stores built before the cap hold higher topo tiles. They are not
+      // deleted and cost nothing, but they stop being drawn - the map
+      // upscales instead. That is the trade for display and download
+      // agreeing; leaving them out of step is what produced blank tiles.
+      currentMaxNative = (label === "SAT") ? 18 : 16;
+      tileLayer = L.tileLayer(url, {
+        maxZoom: 22, maxNativeZoom: currentMaxNative,
+        crossOrigin: false, tileSize: 256,
+        subdomains: (url.indexOf('google.com') !== -1 ? '0123' : 'abc')  // SUBDOMAINS-2026-08-02
+      });
+      tileLayer.addTo(map);
+      // V2.4: no zoom enforcement — allow overzoom
+      // Label overlays — re-applied on every base change so the base<->overlay
+      // relationship survives source swaps (offline convoy:// swap AND back). /* [V2.6-PASS1-OVERLAY-REAPPLY] */
+      if (lastOverlayJson) { setOverlayLayers(lastOverlayJson); } else { clearOverlayLayers(); }
+      // Auto-toggle trails: ON for SAT and TOPO, OFF for TOPO+
+      if (label === 'SAT' || label === 'TOPO') {
+        showTrails();
+      } else {
+        hideTrails();
+      }
+    }
+
+    // -- Overlay layer management (injected from Kotlin) --
+    var overlayLayers = [];
+    var lastOverlayJson = null;   /* [V2.6-PASS1-OVERLAY-REAPPLY] remembered so a base swap can re-add overlays */
+    function clearOverlayLayers() {
+      overlayLayers.forEach(function(layer) { map.removeLayer(layer); });
+      overlayLayers = [];
+    }
+    function setOverlayLayers(jsonStr) {
+      lastOverlayJson = jsonStr;   /* [V2.6-PASS1-OVERLAY-REAPPLY] */
+      clearOverlayLayers();
+      try {
+        var layers = JSON.parse(jsonStr);
+        layers.forEach(function(l) {
+          var overlay = L.tileLayer(l.url, {
+            maxZoom: 22, maxNativeZoom: l.maxNativeZoom || 18,
+            crossOrigin: false, tileSize: 256, opacity: 1, pane: 'overlayPane'
+          });
+          overlay.addTo(map);
+          overlayLayers.push(overlay);
+        });
+        console.log('OVERLAYS SET: ' + layers.length + ' layers');
+      } catch(e) { console.log('OVERLAY PARSE ERROR: ' + e); }
+    }
+
+
+    /* LAYERSTACK-2026-09-08: put the layers back in their intended order.
+     *
+     * ⭐ trails (widest, 5) underneath, then tracks (4), then routes (3) on top.
+     * Each shows as a fringe outside the one above it, and a tap reaches the
+     * narrowest feature the rider was aiming at instead of the widest.
+     *
+     * ⚠ THE LAST bringToFront WINS, so the calls run bottom-up. Reverse them and
+     * routes end up beneath tracks.
+     *
+     * ⚠ CALLED AFTER EVERY TRAIL REBUILD, not once at startup. loadTrails()
+     * removes and recreates the trail layer on every viewport update, which is
+     * what put trails back on top after each pan.
+     *
+     * Idempotent and cheap -- calling it more often than needed costs nothing and
+     * is the safe direction.
+     */
+    function restackLayers() {
+      try {
+        if (typeof trackLayer !== 'undefined' && trackLayer && trackLayer.bringToFront) {
+          trackLayer.bringToFront();
+        }
+        if (typeof trackArrows !== 'undefined' && trackArrows && trackArrows.bringToFront) {
+          trackArrows.bringToFront();
+        }
+        if (typeof routeLayer !== 'undefined' && routeLayer && routeLayer.bringToFront) {
+          routeLayer.bringToFront();
+        }
+      } catch (e) {
+        /* A restack failure must never stop the map drawing. */
+        console.log('restackLayers: ' + e);
+      }
+    }
+
+    // -- Trail overlay -- (color via digit-keyed trailColor defined above)
+
+    function loadTrails(geojsonData) {
+      if (trailLayer) map.removeLayer(trailLayer);
+      trailLayer = L.geoJSON(geojsonData, {
+        style: function(feature) {
+          var cc = feature.properties.CartoCode || '';
+          // CATCOLOR-2026-08-31: status overrides the category.
+          var st = feature.properties.Status || '';
+          return {
+            color: trailColor(cc, st),
+            weight: trailWeight(cc, st),
+            dashArray: trailDash(cc, st),
+            opacity: 0.85,
+            // SMOOTHFACTOR-TRAILS-2026-07-31: Leaflet simplifies polylines in SCREEN SPACE
+            // and defaults smoothFactor to 1.0. At z11 a winding trail's
+            // vertices fall sub-pixel apart, most are discarded, and the line
+            // draws as a few long chords across terrain. Nothing here ever set
+            // this - the low-zoom splay was never a deliberate performance
+            // choice. 0 = no simplification (test value; see the script header
+            // on mid-zoom cost before treating it as the ship value).
+            smoothFactor: 0
+          };
+        },
+        onEachFeature: function(feature, layer) {
+          var p = feature.properties;
+          var name = p.PrimaryName || p.SystemName || 'Unnamed Trail';
+          var cc = p.CartoCode || 'Unknown';
+          var surface = p.SurfaceType || 'Unknown';
+          var uses = p.DesignatedUses || 'Unknown';
+          var motor = p.MotorizedAllowed || 'Unknown';
+          var horse = p.HorseAllowed || 'Unknown';
+          var hikeDiff = p.HikeDifficulty || '';
+          var bikeDiff = p.BikeDifficulty || '';
+          var owner = p.OwnerSteward || '';
+          var county = p.County || '';
+          var popup = '<div style="font-family:monospace;font-size:12px;max-width:260px;">' +
+            '<b style="font-size:14px;color:#00AAFF;">' + name + '</b><br>' +
+            '<hr style="border:0;border-top:1px solid #444;margin:4px 0;">' +
+            '<b>Type:</b> ' + cc + '<br>' +
+            '<b>Surface:</b> ' + surface + '<br>' +
+            '<b>Uses:</b> ' + uses + '<br>' +
+            '<b>Motorized:</b> ' + motor + '<br>' +
+            '<b>Horse:</b> ' + horse + '<br>';
+          if (hikeDiff) popup += '<b>Hike Diff:</b> ' + hikeDiff + '<br>';
+          if (bikeDiff) popup += '<b>Bike Diff:</b> ' + bikeDiff + '<br>';
+          if (owner) popup += '<b>Steward:</b> ' + owner + '<br>';
+          if (county) popup += '<b>County:</b> ' + county + '<br>';
+          popup += '</div>';
+          // TAPTRACE-2026-07-30: bind ALWAYS -- suppression during route build is
+          // setRouteMode's job (it stashes + unbinds, restores on exit). Binding
+          // conditionally at DRAW time meant a layer drawn during route mode had
+          // nothing to stash and stayed popup-less forever.
+          // stopPropagation mirrors what the track handler already does: without
+          // it the layer click opens this popup AND reaches map.on('click'),
+          // whose popup closes it again -- the 547 ms double-fire in the log.
+          // POPUPBIND-2026-08-13H: while route mode is ON, STASH instead of binding.
+          // A pan rebuilds these layers, and a freshly bound popup absorbs the
+          // tap before it reaches the map handler - so no vertex is recorded and
+          // it looks like route mode dropped. setRouteMode's OFF branch restores
+          // anything holding _savedPopupContent, so this is symmetric with it.
+          // TRAILTAP-2026-09-02: ⭐ TRAILS OPEN THE DETAIL PANEL NOW, like
+          // tracks and routes. The Leaflet popup above is kept ONLY as the
+          // fallback for when the bridge is absent -- the panel can show the
+          // classification fields (land_status, use_type, carto_code) that live
+          // on the trails table and were never in this popup at all.
+          // ⚠ onRouteTap's comment used to read "trails and waypoints keep
+          // their popups". That was deliberate then; this supersedes it.
+          if (window.__routeMode) { layer._savedPopupContent = popup; }
+          else { layer.bindPopup(popup); }
+          layer.on('click', function(e){
+            console.log('ARTIFACTTAP trail(db) routeMode=' + window.__routeMode);
+            if (window.__routeMode) return;   // ROUTEFALLTHROUGH-2026-07-30: let the tap reach map.on('click')
+            // -> Android.onMapTap so a vertex is placed. Tapping ON a trail is
+            // the commonest route-building gesture; swallowing it here would
+            // break drawing. Mirrors what the track handlers already do.
+            L.DomEvent.stopPropagation(e);
+            // ⚠ The bridge takes precedence: close the popup Leaflet is about
+            // to open, and hand the id to Kotlin. If the bridge is missing the
+            // popup stands, so nothing is lost on an older shell.
+            var __tid = (feature.properties && (feature.properties.trail_id ||
+                         feature.properties.id)) || '';
+            if (__tid && window.Android && window.Android.onTrailTap) {
+              try { layer.closePopup(); } catch (err) {}
+              window.Android.onTrailTap(__tid);
+            }
+          });
+        }
+      });
+    }
+
+    function showTrails() {
+      if (trailLayer && !trailsVisible) {
+        trailLayer.addTo(map);
+        trailsVisible = true;
+      }
+      // LAYERSTACK-2026-09-08: the trail layer has just gone on top of
+      // everything -- push tracks and routes back above it.
+      restackLayers();
+    }
+
+    function hideTrails() {
+      if (trailLayer && trailsVisible) {
+        map.removeLayer(trailLayer);
+        trailsVisible = false;
+      }
+    }
+
+    function toggleTrails() {
+      if (trailsVisible) hideTrails();
+      else showTrails();
+      return trailsVisible;
+    }
+
+    function updateTrails(geojsonData) {
+      if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
+      var wasVisible = trailsVisible;
+      if (trailsVisible && trailLayer) map.removeLayer(trailLayer);
+      loadTrails(geojsonData);
+      trailsVisible = false;
+      if (wasVisible) showTrails();
+    }
+
+
+    // ── TRACK DISPLAY (dashed neon green) ──
+    function loadTracks(geojsonData) {
+      if (trackLayer) map.removeLayer(trackLayer);
+      if (trackArrows) { map.removeLayer(trackArrows); trackArrows = null; }
+      trackLayer = L.geoJSON(geojsonData, {
+        // CANVAS-RENDERER-2026-07-31: tracks are pinned to the SVG renderer while the
+        // map default is canvas. polylineDecorator (track arrows, ~line 257)
+        // walks per-path geometry that canvas does not expose. Tracks number in
+        // the low hundreds so the DOM cost is irrelevant here; trails are the
+        // layer canvas exists for.
+        renderer: L.svg(),
+        style: function() {
+          return { color: '#39FF14', weight: 3, opacity: 0.85, dashArray: '10,5' };
+        },
+        onEachFeature: function(feature, layer) {
+          var name = (feature.properties && feature.properties.name) || 'Unnamed Track';
+          var tid = feature.properties && feature.properties.track_id;
+          // TRACKTAP-BINDTIME-2026-08-01: bridge was tested at BIND time; if
+          // addJavascriptInterface had not landed, a popup was bound permanently.
+          layer.on("click", function(e){
+            L.DomEvent.stopPropagation(e);
+            if (tid && window.__detailPanelEnabled !== false &&
+                window.Android && window.Android.onTrackTap) {
+              window.Android.onTrackTap(tid);
+            } else {
+              layer.bindPopup('<b>' + name + '</b>').openPopup();
+            }
+          });
+        }
+      });
+      try {
+        if (typeof L.polylineDecorator === 'function' && L.Symbol && L.Symbol.arrowHead) {
+          trackArrows = L.polylineDecorator(trackLayer.getLayers(), { patterns: [
+            { offset: '8%', repeat: 80, symbol: L.Symbol.arrowHead({ pixelSize: 14, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#39FF14', weight: 3, opacity: 1 } }) }
+          ] });
+        }
+      } catch (e) { trackArrows = null; }
+    }
+    function showTracks() {
+      if (trackLayer && !tracksVisible) { trackLayer.addTo(map); if (trackArrows) trackArrows.addTo(map); tracksVisible = true; }
+    }
+    function hideTracks() {
+      if (trackLayer && tracksVisible) { map.removeLayer(trackLayer); if (trackArrows) map.removeLayer(trackArrows); tracksVisible = false; }
+    }
+    function updateTracks(geojsonData) {
+      if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
+      var wasVisible = tracksVisible;
+      if (tracksVisible && trackLayer) map.removeLayer(trackLayer);
+      loadTracks(geojsonData);
+      tracksVisible = false;
+      if (wasVisible) showTracks();
+    }
+    function clearTracks() {
+      if (trackLayer) { map.removeLayer(trackLayer); trackLayer = null; }
+      if (trackArrows) { map.removeLayer(trackArrows); trackArrows = null; }
+      tracksVisible = false;
+    }
+
+    function clearTrails() {
+      if (trailLayer) { map.removeLayer(trailLayer); trailLayer = null; }
+      trailsVisible = false;
+    }
+    function triggerViewportUpdate() {
+      var b = map.getBounds();
+      var z = map.getZoom();
+      try { Android.onViewportChanged(b.getNorth(), b.getSouth(), b.getEast(), b.getWest(), z); } catch(e) {}
+    }
+
+    // ── WAYPOINT DISPLAY (type-based colored markers) ──
+    var waypointLayer = null, waypointsVisible = false;
+
+    function waypointColor(type) {
+      switch(type) {
+        case 'hazard':    return '#FF4136';
+        case 'gate':      return '#FF4136';
+        case 'water':     return '#0074D9';
+        case 'fuel':      return '#0074D9';
+        case 'shelter':   return '#0074D9';
+        case 'trailhead': return '#2ECC40';
+        case 'viewpoint': return '#2ECC40';
+        case 'campsite':  return '#2ECC40';
+        case 'parking':   return '#AAAAAA';
+        case 'junction':  return '#AAAAAA';
+        case 'rally':     return '#F012BE';
+        case 'other':     return '#DDDDDD';
+        default:          return '#DDDDDD';
+      }
+    }
+
+    function waypointSymbol(type) {
+      switch(type) {
+        case 'hazard':    return '☠';
+        case 'gate':      return '⛔';
+        case 'water':     return '💧';
+        case 'fuel':      return '⛽';
+        case 'shelter':   return '🏠';
+        case 'trailhead': return '🥾';
+        case 'viewpoint': return '👁';
+        case 'campsite':  return '⛺';
+        case 'parking':   return 'P';
+        case 'junction':  return 'Y';
+        case 'rally':     return '🚩';
+        case 'other':     return '•';
+        default:          return '•';
+      }
+    }
+
+    function loadWaypoints(geojsonData) {
+      if (waypointLayer) map.removeLayer(waypointLayer);
+      waypointLayer = L.geoJSON(geojsonData, {
+        pointToLayer: function(feature, latlng) {
+          var wType = (feature.properties && feature.properties.wpt_type) || 'other';
+          var color = waypointColor(wType);
+          var sym = waypointSymbol(wType);
+          var icon = L.divIcon({
+            className: '',
+            html: '<div style="width:26px;height:26px;background:' + color + ';border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 0 4px rgba(0,0,0,0.5);"><span style="transform:rotate(45deg);font-size:13px;font-weight:bold;color:#000;font-family:-apple-system,Segoe UI Emoji,Noto Color Emoji,sans-serif;">' + sym + '</span></div>',
+            iconSize: [26, 26],
+            iconAnchor: [13, 26]
+          });
+          return L.marker(latlng, { icon: icon });
+        },
+        onEachFeature: function(feature, layer) {
+          var p = feature.properties || {};
+          var name = p.name || 'Unnamed Waypoint';
+          var wType = p.wpt_type || 'other';
+          var popup = '<div style="font-family:monospace;font-size:12px;">' +
+            '<b style="color:' + waypointColor(wType) + ';">' + name + '</b><br>' +
+            '<span style="color:#aaa;">Type: ' + wType + '</span></div>';
+          // TAPTRACE-2026-07-30: see the trail block above.
+          // POPUPBIND-2026-08-13H: while route mode is ON, STASH instead of binding.
+          // A pan rebuilds these layers, and a freshly bound popup absorbs the
+          // tap before it reaches the map handler - so no vertex is recorded and
+          // it looks like route mode dropped. setRouteMode's OFF branch restores
+          // anything holding _savedPopupContent, so this is symmetric with it.
+          if (window.__routeMode) { layer._savedPopupContent = popup; }
+          else { layer.bindPopup(popup); }
+          layer.on('click', function(e){
+            console.log('ARTIFACTTAP waypoint name=' + name + ' routeMode=' + window.__routeMode + ' pinSelect=' + window.__pinSelect);
+            // PINSELECT-2026-08-24G: the guided flow is asking WHICH TRAILHEAD.
+            // A tap means that and nothing else, so this one DOES stop
+            // propagation -- no vertex, no popup.
+            //
+            // ⚠ A SEPARATE FLAG, deliberately. __routeMode is also on while the
+            // rider is drawing by hand, and branching on it here would stop a
+            // waypoint tap placing a vertex -- the exact gesture the
+            // ROUTEFALLTHROUGH note below exists to protect.
+            if (window.__pinSelect) {
+              L.DomEvent.stopPropagation(e);
+              if (window.Android && Android.onProximityTap) {
+                Android.onProximityTap(e.latlng.lat, e.latlng.lng);
+              }
+              return;
+            }
+            if (window.__routeMode) return;   // ROUTEFALLTHROUGH-2026-07-30: let the tap reach map.on('click')
+            // -> Android.onMapTap so a vertex is placed. Tapping ON a trail is
+            // the commonest route-building gesture; swallowing it here would
+            // break drawing. Mirrors what the track handlers already do.
+            L.DomEvent.stopPropagation(e);
+          });
+        }
+      });
+    }
+
+    function showWaypoints() {
+      if (waypointLayer && !waypointsVisible) { waypointLayer.addTo(map); waypointsVisible = true; }
+    }
+    function hideWaypoints() {
+      if (waypointLayer && waypointsVisible) { map.removeLayer(waypointLayer); waypointsVisible = false; }
+    }
+    function updateWaypoints(geojsonData) {
+      if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
+      var wasVisible = waypointsVisible;
+      if (waypointsVisible && waypointLayer) map.removeLayer(waypointLayer);
+      loadWaypoints(geojsonData);
+      waypointsVisible = false;
+      if (wasVisible) showWaypoints();
+    }
+    function clearWaypoints() {
+      if (waypointLayer) { map.removeLayer(waypointLayer); waypointLayer = null; }
+      waypointsVisible = false;
+    }
+    function toggleWaypoints() {
+      if (waypointsVisible) hideWaypoints(); else showWaypoints();
+      return waypointsVisible;
+    }
+
+    // ── ROUTE DISPLAY (gold dot-dash lines) ──
+    var routeLayer = null, routesVisible = false;
+
+    function loadRoutes(geojsonData) {
+      if (routeLayer) map.removeLayer(routeLayer);
+      routeLayer = L.geoJSON(geojsonData, {
+        style: function() {
+          // ROUTESOLID-2026-09-11: was dashArray '15,5,5,5'. A 15px dash with
+      // 5px gaps at weight 3 reads as solid over satellite anyway, and
+      // every other motorized line is solid. The legend matches.
+      return { color: '#FF00FF', weight: 3, opacity: 0.9 };
+        },
+        onEachFeature: function(feature, layer) {
+          var name = (feature.properties && feature.properties.name) || 'Unnamed Route';
+          // TAPTRACE-2026-07-30: see the trail block above.
+          // POPUPBIND-2026-08-13H: same as the trail and waypoint binds above.
+          if (window.__routeMode) {
+            layer._savedPopupContent = '<b style="color:#FF00FF;">' + name + '</b>';
+          } else {
+            layer.bindPopup('<b style="color:#FF00FF;">' + name + '</b>');
+          }
+          layer.on('click', function(e){
+            console.log('ARTIFACTTAP route name=' + name + ' routeMode=' + window.__routeMode);
+            if (window.__routeMode) return;   // ROUTEFALLTHROUGH-2026-07-30: let the tap reach map.on('click')
+            // -> Android.onMapTap so a vertex is placed. Tapping ON a trail is
+            // the commonest route-building gesture; swallowing it here would
+            // break drawing. Mirrors what the track handlers already do.
+            L.DomEvent.stopPropagation(e);
+            // ROUTETAP-2026-08-23Z: a route is an artifact we own, so it opens the
+            // shared detail panel rather than a popup -- exactly as tracks do.
+            // Trails and waypoints keep bindPopup: they are imported data.
+            var __rid = feature.properties && feature.properties.route_id;
+            if (__rid && window.Android && window.Android.onRouteTap) {
+              window.Android.onRouteTap(__rid);
+            } else {
+              // ⚠ visible on purpose. If the id never reaches properties the tap
+              // would silently do nothing, which is the hardest kind of failure
+              // to find later.
+              console.log('ARTIFACTTAP route NO ID -- detail panel unreachable');
+            }
+          });
+        }
+      });
+    }
+
+    function showRoutes() {
+      if (routeLayer && !routesVisible) { routeLayer.addTo(map); routesVisible = true; }
+    }
+    function hideRoutes() {
+      if (routeLayer && routesVisible) { map.removeLayer(routeLayer); routesVisible = false; }
+    }
+    function updateRoutes(geojsonData) {
+      if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
+      var wasVisible = routesVisible;
+      if (routesVisible && routeLayer) map.removeLayer(routeLayer);
+      loadRoutes(geojsonData);
+      routesVisible = false;
+      if (wasVisible) showRoutes();
+    }
+    function clearRoutes() {
+      if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+      routesVisible = false;
+    }
+    function toggleRoutes() {
+      if (routesVisible) hideRoutes(); else showRoutes();
+      return routesVisible;
+    }
+
+    // -- Imported track file overlays --
+    var importedTracks = {};
+    var importedTrackVisible = true;
+
+    function loadTrackFile(name, coordsJson, color) {
+      removeTrackFile(name);
+      var coords = JSON.parse(coordsJson);
+      if (coords.length < 2) return;
+      // TRACKWEIGHT-2026-09-08: 3 -> 4. The three tiers are trails 5, tracks
+      // 4, routes 3 -- widest underneath, so each type shows as a fringe
+      // outside the one above it where they share ground.
+      var line = L.polyline(coords, {color: color, weight: 4, opacity: 0.9}).addTo(map);
+      var __tid = name.replace(/\.gpx$/i, '');
+      line.on('click', function(e){
+        console.log('ARTIFACTTAP track(file) name=' + name + ' tid=' + __tid + ' routeMode=' + window.__routeMode);
+        if (window.__routeMode) return;
+        L.DomEvent.stopPropagation(e);
+        // TRACKPOPUP-2026-07-30: see convoy_map.html. Skip the bridge while the
+        // detail panel does not render from a map tap; the else branch below
+        // shows a plain popup instead.
+        if (window.__detailPanelEnabled !== false &&
+            window.Android && window.Android.onTrackTap) { window.Android.onTrackTap(__tid); }
+        else { line.bindPopup('<b style="color:' + color + ';">' + name + '</b><br>' + coords.length + ' points'); line.openPopup(); }
+      });
+      importedTracks[name] = line;
+    }
+
+    function removeTrackFile(name) {
+      if (importedTracks[name]) {
+        map.removeLayer(importedTracks[name]);
+        delete importedTracks[name];
+      }
+    }
+
+    function clearAllTrackFiles() {
+      for (var name in importedTracks) map.removeLayer(importedTracks[name]);
+      importedTracks = {};
+    }
+
+    function hideAllTrackFiles() {
+      for (var name in importedTracks) map.removeLayer(importedTracks[name]);
+      importedTrackVisible = false;
+    }
+
+    function showAllTrackFiles() {
+      for (var name in importedTracks) importedTracks[name].addTo(map);
+      importedTrackVisible = true;
+    }
+
+    function toggleTrackFiles() {
+      if (importedTrackVisible) hideAllTrackFiles(); else showAllTrackFiles();
+      return importedTrackVisible;
+    }
+
+    function fitTrackFile(name) {
+      if (importedTracks[name]) {
+        map.fitBounds(importedTracks[name].getBounds(), {padding: [40, 40]});
+      }
+    }
+
+    function fitAllTrackFiles() {
+      var group = L.featureGroup(Object.values(importedTracks));
+      if (group.getLayers().length > 0) {
+        map.fitBounds(group.getBounds(), {padding: [40, 40]});
+      }
+    }
+
+    // -- User tracks (neon green) --
+    function drawTrack(segments) {
+      trackLines.forEach(function(l) { map.removeLayer(l); });
+      trackLines = [];
+      segments.forEach(function(seg) {
+        var line = L.polyline(
+          [[seg.startLat, seg.startLon], [seg.endLat, seg.endLon]],
+          { color: '#39FF14', weight: 4, opacity: 0.95 }
+        ).addTo(map);
+        trackLines.push(line);
+      });
+    }
+
+    function clearTrack() {
+      trackLines.forEach(function(l) { map.removeLayer(l); });
+      trackLines = [];
+    }
+
+    // -- Search center marker --
+    var searchCenterMarker = null;
+    var crosshairLines = [];
+    // ── Draw tool functions ────────────────────────────────────────────
+    function initDrawTool() {
+      drawnItems = new L.FeatureGroup();
+      map.addLayer(drawnItems);
+      drawControl = new L.Draw.Rectangle(map, {
+        shapeOptions: { color: '#FFB74D', weight: 2, fillOpacity: 0.15 }
+      });
+      map.on(L.Draw.Event.CREATED, function(e) {
+        drawnItems.clearLayers();
+        drawnItems.addLayer(e.layer);
+        var b = e.layer.getBounds();
+        if (typeof Android !== 'undefined' && Android.onAreaSelected) {
+          Android.onAreaSelected(b.getNorth(), b.getSouth(), b.getEast(), b.getWest());
+        }
+      });
+    }
+    function activateDrawMode() {
+      if (drawnItems) drawnItems.clearLayers();
+      if (drawControl) drawControl.enable();
+    }
+    function cancelDrawMode() {
+      if (drawControl) drawControl.disable();
+      if (drawnItems) drawnItems.clearLayers();
+    }
+    function clearAreaBoundary() { if (drawnItems) drawnItems.clearLayers(); }
+    function showDownloadArea(n, s, e, w) {
+      if (!drawnItems) return;
+      drawnItems.clearLayers();
+      var rect = L.rectangle([[s, w], [n, e]], {
+        color: '#27AE60', weight: 2, fillOpacity: 0.1, dashArray: '5,5'
+      });
+      drawnItems.addLayer(rect);
+    }
+    var downloadedAreaLayer = null;
+    // ── Show queued download regions as red rectangles ──
+    var queuedLayers = [];
+    function showQueuedAreas(boundsJson) {
+      clearQueuedAreas();
+      try {
+        var bounds = typeof boundsJson === 'string' ? JSON.parse(boundsJson) : boundsJson;
+        for (var i = 0; i < bounds.length; i++) {
+          var b = bounds[i];
+          var rect = L.rectangle([[b.s, b.w], [b.n, b.e]], {
+            // OVERLAYZ16-2026-08-12E: a corridor bbox is an OVERSIZED ESTIMATE - the box
+            // around a winding track, not the band that will be fetched. Drawn
+            // HOLLOW with a longer dash: a filled box says "this ground", an
+            // outline says "somewhere in here".
+            color: '#FF3333', weight: b.corridor ? 2 : 1, fillColor: '#FF3333',
+            fillOpacity: b.corridor ? 0.0 : 0.15,
+            dashArray: b.corridor ? '12,8' : '6,3'
+          }).addTo(map);
+          if (b.label) rect.bindTooltip(b.label, {permanent: false, direction: 'center'});
+          queuedLayers.push(rect);
+        }
+      } catch(e) { console.error('showQueuedAreas:', e); }
+    }
+    function clearQueuedAreas() {
+      for (var i = 0; i < queuedLayers.length; i++) map.removeLayer(queuedLayers[i]);
+      queuedLayers = [];
+    }
+
+        function showDownloadedAreas(bounds) {
+      if (downloadedAreaLayer) { map.removeLayer(downloadedAreaLayer); }
+      downloadedAreaLayer = L.layerGroup();
+      for (var i = 0; i < bounds.length; i++) {
+        var b = bounds[i];
+        L.rectangle([[b.s, b.w], [b.n, b.e]], {
+          color: 'transparent', weight: 0, fillColor: '#4DA6FF',
+          fillOpacity: 0.22
+        }).addTo(downloadedAreaLayer);
+      }
+      downloadedAreaLayer.addTo(map);
+    }
+    function clearDownloadedAreas() {
+      if (downloadedAreaLayer) { map.removeLayer(downloadedAreaLayer); downloadedAreaLayer = null; }
+    }
+    function clearSearchCenter() {
+      if (searchCenterMarker) { map.removeLayer(searchCenterMarker); searchCenterMarker = null; }
+      crosshairLines.forEach(function(l) { map.removeLayer(l); });
+      crosshairLines = [];
+    }
+    function getMapBounds() {
+      var b = map.getBounds();
+      Android.onMapBoundsReady(b.getNorth(), b.getSouth(), b.getEast(), b.getWest());
+    }
+
+    function showSearchCenter(lat, lng) {
+      if (searchCenterMarker) map.removeLayer(searchCenterMarker);
+      searchCenterMarker = L.circleMarker([lat, lng], {
+        radius: 6, color: '#FF6B35', fillColor: '#FF6B35', fillOpacity: 1, weight: 2
+      }).addTo(map);
+      crosshairLines.forEach(function(l) { map.removeLayer(l); });
+      crosshairLines = [];
+      var latLine = L.polyline([[lat, -180], [lat, 180]], {color: '#4DA6FF', weight: 1.5, opacity: 0.7, dashArray: '6,4'}).addTo(map);
+      var lngLine = L.polyline([[-90, lng], [90, lng]], {color: '#4DA6FF', weight: 1.5, opacity: 0.7, dashArray: '6,4'}).addTo(map);
+      crosshairLines.push(latLine, lngLine);
+    }
+    function clearSearchCenter() {
+      if (searchCenterMarker) { map.removeLayer(searchCenterMarker); searchCenterMarker = null; }
+      crosshairLines.forEach(function(l) { map.removeLayer(l); });
+      crosshairLines = [];
+    }
+
+    // -- Map view controls --
+    function reportViewport() {
+      setTimeout(function() {
+        var b = map.getBounds(); var z = map.getZoom();
+        try { Android.onViewportChanged(b.getNorth(), b.getSouth(), b.getEast(), b.getWest(), z); } catch(e) {}
+      }, 450);
+    }
+    function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); reportViewport(); }
+    function panTo(lat, lon) { map.panTo([lat, lon]); }
+    function fitBounds(lats, lons) {
+      if (!lats.length) return;
+      if (lats.length === 1) { map.setView([lats[0], lons[0]], 16); return; }
+      var b = L.latLngBounds();
+      for (var i = 0; i < lats.length; i++) b.extend([lats[i], lons[i]]);
+      // NOPAD-2026-08-04: 60px padding removed - the saved bbox is the frame we want.
+      // maxZoom STAYS: it stops the fit zooming past downloaded tile coverage,
+      // which ends at z18.
+      map.fitBounds(b, { maxZoom: currentMaxNative });
+    }
+
+    function fitTrailBounds() {
+      if (trailLayer) {
+        var bounds = trailLayer.getBounds();
+        if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40] });
+      }
+    }
+
+    // -- Device location --
+    var deviceMarker = null;
+    function initDeviceLocation() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        var lat = pos.coords.latitude, lon = pos.coords.longitude;
+        if (deviceMarker) map.removeLayer(deviceMarker);
+        var icon = L.divIcon({className:"",
+          html:"<div style='width:16px;height:16px;background:#2196F3;border:3px solid white;border-radius:50%;box-shadow:0 0 8px rgba(33,150,243,0.8)'></div>",
+          iconSize:[16,16],iconAnchor:[8,8]});
+        deviceMarker = L.marker([lat,lon],{icon:icon}).addTo(map);
+        deviceMarker.bindTooltip("ME",{permanent:true,direction:"top"});
+        setView(lat,lon,14);
+      }, function(err) {
+        console.log('GPS error: ' + err.message);
+      }, {enableHighAccuracy:true,timeout:10000});
+    }
+
+    // -- Init --
+    document.addEventListener("DOMContentLoaded", function() {
+      setTimeout(function() {
+        map = L.map("map", { zoomControl: true, renderer: L.canvas({ tolerance: 44 }), tapTolerance: 30, doubleClickZoom: false }).setView([39.8, -98.6], 4);
+
+    // ---- Proximity tap -> Kotlin (PROXFIX-2026-07-30) ----
+    // MOVED HERE from the head-of-file script block that used to sit at
+    // :9-72. Its first statement was map.on('click', ...) -- but map is created
+    // on the line above THIS comment, ~720 lines later. It threw
+    //     Uncaught TypeError: Cannot read properties of undefined (reading 'on')
+    // at parse time and killed the whole block. Two things died with it:
+    //   1. Android.onProximityTap was never registered -> short taps never
+    //      reached Kotlin at all.
+    //   2. showProximityPopup was never defined -> ConvoyMapViewerScreen.kt:578
+    //      called it by name into nothing.
+    // Neither was visible: the planner had no WebChromeClient until 2026-07-30.
+    //
+    // The guard + __proxTapWired flag copy the long-press handler below, which
+    // survived precisely because it sat in this block and checked first.
+    // PROXREMOVE-2026-08-03: planner proximity tap REMOVED (Fred 08-03).
+    // Was a click registration bridging to Kotlin, which queried the spatial DB
+    // and popped a list of artifacts the map was NOT rendering - phantom trails
+    // on a blank map, because the query layer does not consult visibility state.
+    // Also inert during route planning by design (ROUTETAP-2026-08-02 guard), and
+    // redundant with ARTIFACTTAP when route mode is off. The Kotlin side is left
+    // in place and is now uncalled; retire it with its caller.
+    // Show proximity popup from Kotlin results. Called by name from
+    // ConvoyMapViewerScreen.kt:578 via evaluateJavascript -- this is the ONLY
+    // definition in the codebase, so it must stay reachable at global scope.
+    window.showProximityPopup = function(lat, lon, html) {
+      var popup = L.popup({autoClose: true, closeOnClick: true})
+        .setLatLng([lat, lon])
+        .setContent('<div style="font-size:11px;line-height:1.6;">' + html + '</div>')
+        .openOn(map);
+      setTimeout(function() { map.closePopup(popup); }, 5000);
+    };
+    // ---- Waypoint create: long-press -> Kotlin ----
+    if (typeof map !== 'undefined' && map && !map.__wptLongPressWired) {
+      map.__wptLongPressWired = true;
+      map.on('contextmenu', function(e) {
+        try {
+          if (window.Android && Android.onMapLongPress) {
+            Android.onMapLongPress(e.latlng.lat, e.latlng.lng);
+          }
+        } catch (err) {}
+      });
+    }
+
+    // ---- Route build: tap -> Kotlin (route mode only) ----
+    if (typeof map !== 'undefined' && map && !map.__routeTapWired) {
+      map.__routeTapWired = true;
+      // ROUTEMODEFIX-2026-08-12W: the route-mode reset that used to sit here is GONE.
+      //
+      // It disarmed route planning on pan and zoom. This block is guarded by
+      // __routeTapWired, but the guard only holds for one map object - whenever
+      // the map is rebuilt or this setup runs again, the assignment fired and
+      // silently ended the draw session.
+      //
+      // Both reported symptoms were that one flag: with __routeMode false the
+      // artifact handlers stop returning early (popups come back) and the map
+      // click handler stops forwarding to Android.onMapTap (no points drop).
+      //
+      // Route mode is an ACTIVITY, not restorable state. It is armed only by a
+      // user action and cleared by save, discard, or the Kotlin planner-entry
+      // reset. A drawing routine has no business touching it.
+      //
+      // No initialiser is needed: undefined is falsy, so every read
+      // guard in this file behaves exactly as it did before.
+      // TRACKPOPUP-2026-07-30: false = tracks show a plain popup instead of
+      // calling Android.onTrackTap. Set true to restore the detail panel.
+      // DETAILPANEL-ON-2026-07-31: re-enabled. Was a 07-30 stopgap (tracks showed a
+      // plain popup because the detail panel would not open). Worth flipping
+      // now because the 07-30 work added TrackTap logging around the planner's
+      // addPointMode guard, so a failure is no longer silent — it says where it
+      // stops.
+      window.__detailPanelEnabled = true;
+      window.__buildLayer = null;
+      map.on('click', function(e) {
+        try {
+          // PINTAP-2026-08-25B3: AI PIN TAPS, BEFORE THE ROUTE-MODE TEST.
+          //
+          // The finish point and the include points are taps on OPEN GROUND,
+          // so they never touch the waypoint handler where __pinSelect was
+          // previously read -- which is why the trailhead worked and nothing
+          // after it did.
+          //
+          // ⭐ AHEAD of __routeMode, deliberately. The checklist runs DURING
+          // route mode, so a branch below that guard is never reached. Same
+          // rule PINSELECT-G2 follows in the waypoint handler, and the same
+          // one Patch C broke on 08-24.
+          //
+          // ⭐ The two flags are not alternatives: __routeMode means a route
+          // session is open, __pinSelect means what a tap MEANS right now.
+          // Both are true during the AI flow, which is what keeps route mode
+          // suppressing artifact popups while taps still drop pins.
+          // PINTAP-2026-08-25B3a: TWO NESTED TESTS, not two sequential ones.
+          //
+          // Fred, 08-25: "route add is on, ai mode yes drop pins for ai, ai
+          // mode off drop vertices."
+          //
+          // ⭐ ROUTE ADD IS THE OUTER GATE; AI MODE IS THE INNER
+          // DISCRIMINATOR. They are not alternatives. Route mode stays on for
+          // the whole AI flow -- which is what keeps artifact popups
+          // suppressed, since setRouteMode stashes and unbinds them -- and AI
+          // mode only decides what a tap MEANS inside that session.
+          //
+          // ⚠ B3 had these as siblings with the pin test first, so pins
+          // dropped even with route add off. That is a different machine.
+          if (window.__routeMode && window.Android) {
+            if (window.__pinSelect && Android.onProximityTap) {
+              console.log('PINTAP -> onProximityTap ' + e.latlng.lat + ',' + e.latlng.lng);
+              Android.onProximityTap(e.latlng.lat, e.latlng.lng);
+            } else if (Android.onMapTap) {
+              Android.onMapTap(e.latlng.lat, e.latlng.lng);
+            }
+          }
+        } catch (err) {}
+      });
+    }
+    // Defined on window.* so evaluateJavascript (global scope) can reach them.
+    window.setRouteMode = function(on) {
+      window.__routeMode = !!on;
+      console.log('ROUTEMODE -> ' + window.__routeMode);
+      // Suppress artifact popups while route-building: unbind on ON (stash first),
+      // rebind on OFF. Trail/waypoint/route use bindPopup() which auto-opens on
+      // tap, so a handler return-guard alone can't stop them.
+      try {
+        var __gtLayers = [
+          (typeof trailLayer    !== 'undefined') ? trailLayer    : null,
+          (typeof trackLayer    !== 'undefined') ? trackLayer    : null,
+          (typeof waypointLayer !== 'undefined') ? waypointLayer : null,
+          (typeof routeLayer    !== 'undefined') ? routeLayer    : null
+        ];
+        __gtLayers.forEach(function(lyr) {
+          if (!lyr || !lyr.eachLayer) return;
+          lyr.eachLayer(function(sub) {
+            if (!sub) return;
+            if (on) {
+              if (sub.getPopup && sub.getPopup()) {
+                sub._savedPopupContent = sub.getPopup().getContent();
+                sub.unbindPopup();
+              }
+            } else {
+              if (sub._savedPopupContent != null) {
+                sub.bindPopup(sub._savedPopupContent);
+                sub._savedPopupContent = null;
+              }
+            }
+          });
+        });
+      } catch (e) {}
+    };
+    window.drawBuildLine = function(jsonPts) {
+      try {
+        var pts = (typeof jsonPts === 'string') ? JSON.parse(jsonPts) : jsonPts;
+        if (window.__buildLayer) { map.removeLayer(window.__buildLayer); window.__buildLayer = null; }
+        if (pts && pts.length > 0) {
+          if (pts.length === 1) {
+            window.__buildLayer = L.circleMarker(pts[0], {radius:5, color:'#FF00FF', fillColor:'#FF00FF', fillOpacity:1}).addTo(map);
+          } else {
+            window.__buildLayer = L.polyline(pts, {color:'#FF00FF', weight:4, opacity:0.95}).addTo(map);
+          }
+        }
+      } catch (err) {}
+    };
+    /* SATFIXES-2026-08-29: the quarter-mile ring.
+     *
+     * ⭐ CENTRED, not tap-placed. It is a targeting aid while the rider pans —
+     * fixed at the centre it moves with the map and they hunt by dragging until
+     * trails fall inside it. Tap-to-place would make it a result rather than a
+     * guide, and tap is already the waypoint selection.
+     *
+     * ⚠ TRAILHEAD STEP ONLY. During pins it would mislead: pins have a
+     * different radius and a different rule.
+     */
+    window.__aimRing = null;
+    window.showAimRing = function(on) {
+      try {
+        if (!on) {
+          if (window.__aimRing) { map.removeLayer(window.__aimRing); window.__aimRing = null; }
+          if (window.__aimMove) { map.off('move', window.__aimMove); window.__aimMove = null; }
+          return;
+        }
+        if (window.__aimRing) return;
+        var draw = function() {
+          var c = map.getCenter();
+          if (window.__aimRing) { window.__aimRing.setLatLng(c); return; }
+          window.__aimRing = L.circle(c, {
+            radius: 402,                 // a quarter mile
+            color: '#7FC8FF', weight: 2, opacity: 0.9,
+            fillColor: '#7FC8FF', fillOpacity: 0.08,
+            interactive: false
+          }).addTo(map);
+        };
+        draw();
+        window.__aimMove = draw;
+        map.on('move', window.__aimMove);
+      } catch (e) { console.log('aim ring: ' + e); }
+    };
+    window.clearBuildLine = function() {
+      if (window.__buildLayer) { map.removeLayer(window.__buildLayer); window.__buildLayer = null; }
+    };
+    /* BATCHDRAW-2026-08-27: the AI batch, six routes at once.
+     *
+     * drawBuildLine above draws ONE work-in-progress route into one named
+     * global, in hard-coded magenta, replaced on every call. Compare needs all
+     * six on the map together, each in its own colour, and then two or three
+     * left visible.
+     *
+     * This mirrors drawBuildLine's shape on purpose -- same try/catch, same
+     * string-or-object handling, same single-point circleMarker case. A route
+     * drawn from one point should not behave differently because it is in a
+     * batch.
+     *
+     * KEYED BY DRAFT NAME, because that is a route's identity everywhere else
+     * in GroupTrack (RouteDraftStore: "identity in the in-progress world = the
+     * typed NAME").
+     */
+    window.__batchLayers = {};
+
+    window.drawBatchRoute = function(name, jsonPts, color) {
+      try {
+        var pts = (typeof jsonPts === 'string') ? JSON.parse(jsonPts) : jsonPts;
+        if (window.__batchLayers[name]) {
+          map.removeLayer(window.__batchLayers[name]);
+          delete window.__batchLayers[name];
+        }
+        if (!pts || pts.length === 0) return;
+        var c = color || '#FF00FF';
+        var lyr;
+        if (pts.length === 1) {
+          lyr = L.circleMarker(pts[0], {radius:5, color:c, fillColor:c, fillOpacity:1});
+        } else {
+          /* ⚠ WEIGHT 3, not drawBuildLine's 4. That draws one line; six at
+           * weight 4 over the same ground is soup. */
+          lyr = L.polyline(pts, {color:c, weight:4, opacity:0.95});
+        }
+        lyr.addTo(map);
+        window.__batchLayers[name] = lyr;
+        console.log('BATCHDRAW ' + name + ' ' + c + ' ' + pts.length + ' pts');
+      } catch (err) {
+        /* ⚠ VISIBLE ON PURPOSE. A route that silently fails to draw leaves the
+         * rider comparing five lines against a legend showing six. */
+        console.log('BATCHDRAW FAILED ' + name + ' ' + err);
+      }
+    };
+
+    /* Show or hide one route WITHOUT redrawing it.
+     *
+     * ⭐ Compare narrows from six to three and back constantly. Rebuilding the
+     * geometry each time would be wasteful and would throw away the map's own
+     * render caching -- toggling an existing layer is what this is for.
+     */
+    window.showBatchRoute = function(name, on, weight) {
+      var lyr = window.__batchLayers[name];
+      if (!lyr) { console.log('SHOWBATCH no layer ' + name); return false; }
+      /* GRIDFIX-2026-08-27: lift the survivors.
+       * ⚠ Weight cannot fix routes that SHARE TRAIL -- they merge whatever it
+       * is, which is exactly why toggling inside compare matters. This only
+       * makes the two or three left unmistakable against the ground. */
+      if (weight && lyr.setStyle) { try { lyr.setStyle({weight: weight}); } catch (e) {} }
+      if (on) { if (!map.hasLayer(lyr)) lyr.addTo(map); }
+      else    { if (map.hasLayer(lyr)) map.removeLayer(lyr); }
+      console.log('SHOWBATCH ' + name + ' ' + on);
+      return true;
+    };
+
+    window.clearBatchRoutes = function() {
+      for (var k in window.__batchLayers) {
+        if (window.__batchLayers[k]) map.removeLayer(window.__batchLayers[k]);
+      }
+      window.__batchLayers = {};
+    };
+
+    /* Fit the map to the routes currently shown.
+     *
+     * ⚠ Compare must not open with the rider zoomed somewhere the compared
+     * routes barely appear. Called on entry; the previous view is restored on
+     * exit by the caller.
+     */
+    window.fitBatchRoutes = function() {
+      try {
+        var b = null;
+        for (var k in window.__batchLayers) {
+          var lyr = window.__batchLayers[k];
+          if (!lyr || !map.hasLayer(lyr)) continue;
+          var lb = lyr.getBounds ? lyr.getBounds() : null;
+          if (!lb) continue;
+          b = b ? b.extend(lb) : lb;
+        }
+        if (b && b.isValid()) map.fitBounds(b, {padding:[30,30]});
+      } catch (err) {}
+    };
+
+    /* PINDRAW-2026-08-25P1: the rider's dropped points, drawn.
+     *
+     * Without these a drop is invisible -- the only feedback is the mileage
+     * moving, and a point that adds little does not move it perceptibly.
+     *
+     * renderPins() CLEARS AND REDRAWS THE WHOLE SET. The Kotlin side sends the
+     * complete list on every change, so add, remove and Start Over are one
+     * path. An incremental addPin() would need every mutation site kept in
+     * step, and the next one added would silently not draw.
+     *
+     * The label is DROP ORDER. Tour order changes as points are added, so a
+     * tour-numbered marker would renumber under the rider's finger.
+     */
+    window.__pinLayers = [];
+    window.clearPins = function() {
+      try {
+        for (var i = 0; i < window.__pinLayers.length; i++) {
+          map.removeLayer(window.__pinLayers[i]);
+        }
+      } catch (err) {}
+      window.__pinLayers = [];
+    };
+    window.renderPins = function(json) {
+      window.clearPins();
+      try {
+        var pts = JSON.parse(json);
+        for (var i = 0; i < pts.length; i++) {
+          var icon = L.divIcon({
+            className: "",
+            html: '<div style="background:#FF0000;color:#fff;border:2px solid #fff;'
+                + 'border-radius:50%;width:26px;height:26px;line-height:22px;'
+                + 'text-align:center;font-weight:900;font-size:13px;'
+                + 'box-shadow:0 1px 4px rgba(0,0,0,0.5)">' + (i + 1) + '</div>',
+            iconSize: [26, 26],
+            iconAnchor: [13, 13]
+          });
+          var m = L.marker([pts[i][0], pts[i][1]], { icon: icon }).addTo(map);
+          window.__pinLayers.push(m);
+        }
+        console.log('PINDRAW rendered ' + pts.length + ' pin(s)');
+      } catch (err) {
+        console.log('PINDRAW failed: ' + err);
+      }
+    };
+
+
+        map.whenReady(function() {
+          if (window.Android) {
+            var b = map.getBounds();
+            Android.onMapReady(b.getNorth(), b.getSouth(), b.getEast(), b.getWest());
+          }
+        });
+        map.on("zoomend", function() {
+          // V2.4: allow overzoom — Leaflet stretches tiles beyond maxNativeZoom
+        });
+        // -- Max offline zoom display --
+        var maxOfflineZoom = null;
+        function setMaxOfflineZoom(z) {
+          maxOfflineZoom = z;
+          var el = document.getElementById('offlineZoom');
+          if (el) el.textContent = z;
+        }
+
+        // -- Zoom level display --
+        document.getElementById('zoomLevel').textContent = map.getZoom();
+        map.on('zoomend', function() {
+          document.getElementById('zoomLevel').textContent = map.getZoom();
+        });
+        // -- Viewport-driven trail lazy load --
+        var viewportTimer = null;
+        map.on('moveend', function() {
+          // Always fire viewport update — data preloaded regardless of toggle
+          if (viewportTimer) clearTimeout(viewportTimer);
+          viewportTimer = setTimeout(function() {
+            var b = map.getBounds();
+            var z = map.getZoom();
+            try { Android.onViewportChanged(b.getNorth(), b.getSouth(), b.getEast(), b.getWest(), z); } catch(e) {}
+          }, 400);
+        });
+        map.invalidateSize();
+        initDeviceLocation();
+        initDrawTool();
+        // Default tile set by Kotlin in onPageFinished — no hardcoded URL here
+        // setTileUrl injected by Kotlin after page load
+        // Trail data loaded from spatial DB via Kotlin evaluateJavascript
+        // (utah_trails_stgeorge.geojson fetch removed — spatial DB is source now)
+      }, 500);
+    });
+  
+    // ── Proximity tap: show all nearby artifacts ──────────
+    // PROXREMOVE-2026-08-03: top-level JS artifact scan REMOVED (Fred 08-03).
+    // It sat OUTSIDE the DOMContentLoaded/setTimeout callback that creates the map
+    // object at ~:640, so it evaluated at PARSE TIME against an undefined variable
+    // and threw on every single page load:
+    //   Uncaught TypeError: Cannot read properties of undefined (reading 'on')
+    // It therefore never registered - which is why the 08-02 three-tap test never
+    // saw its log tag fire once. Third copy of a block relocated on 07-30 (~:642).
+
+  </script>
+
+<!-- CANVAS-RENDERER-2026-07-31: renderer switched from L.svg to L.canvas.
+     `tolerance` is a Canvas option and was IGNORED by L.svg, so the
+     effective tap target was the 3px stroke width, not 44px. Device
+     evidence 07-31: ~40 taps at z18, 3 hits, 0 trails.
+     Canvas also removes the one-DOM-element-per-path cost that ANR'd
+     the WebView at 120,000 trails -- so the z11 gate and 10,000 cap
+     in SpatialDisplayManager are worth revisiting SEPARATELY once
+     this is proven stable.
+     WATCH: polylineDecorator track arrows may not survive canvas. -->
+</body>
+</html>
