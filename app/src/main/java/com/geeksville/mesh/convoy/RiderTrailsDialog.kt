@@ -25,8 +25,8 @@ import androidx.compose.ui.unit.sp
  *
  * WHAT THE RUN DOES: walks every recorded track, finds the stretches where the
  * ride left the published trail network, and writes each one as an unnamed
- * trail. RIDERRULES-2026-10-09: every run REBUILDS -- all rider trails are cleared and laid again from the
- * tracks -- so a repeat gives the same result, and the numbers are the rider trails that now exist.
+ * trail. RIDERIDS-2026-10-09: every run RECONCILES -- unchanged rider trails keep their IDs, new ground is added,
+ * ground no longer produced is removed -- so a repeat reports 0 added, 0 removed.
  *
  * A null [result] means NOT RUN. A result with zero trails means it ran and
  * found nothing new, which after a first successful pass is the expected
@@ -61,18 +61,23 @@ fun RiderTrailsDialog(
                     }
                     r != null -> {
                         // The number that matters, first and largest.
-                        Text("${r.trailsAdded} rider trail(s) rebuilt",   // RIDERRULES-2026-10-09
+                        // RIDERIDS-2026-10-09: the TRUE adds first -- unchanged trails keep their IDs and dates.
+                        Text("${r.trailsAdded} rider trail(s) added",
                             color = if (r.trailsAdded > 0) Color(0xFF39FF14)
                                     else Color(0xFF97D5A5),
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("%.2f miles".format(r.miles), color = Color(0xFF8FD0FF),
+                        Text("%.2f miles added".format(r.miles), color = Color(0xFF8FD0FF),
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                        Text("from ${r.tracksScanned} track(s)",   // the miles above = all rider trails, not an increase
+                        Text("${r.trailsUnchanged} unchanged \u00b7 ${r.trailsRemoved} removed \u00b7 " +
+                            "${r.trailsTotal} in all (%.2f mi)".format(r.milesTotal),
+                            color = Color(0xFF8FD0FF),
+                            fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        Text("from ${r.tracksScanned} track(s)",
                             color = Color(0xFFFFFFFF),
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                        if (r.trailsAdded == 0) {
+                        if (r.trailsTotal == 0) {
                             Spacer(modifier = Modifier.height(10.dp))
                             // Zero is the RIGHT answer on a second run, and a
                             // rider should not have to wonder.
@@ -83,7 +88,7 @@ fun RiderTrailsDialog(
                         }
                     }
                     else -> {
-                        Text("Rebuilds rider trails from every recorded track: " +
+                        Text("Adds rider trails from every recorded track: " +
                             "the ground you rode where no trail is published.",
                             color = Color(0xFF8FD0FF),
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
