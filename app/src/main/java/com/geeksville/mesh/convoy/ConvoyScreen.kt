@@ -1048,7 +1048,7 @@ fun ConvoyScreen(
                         }
                         webChromeClient = object : android.webkit.WebChromeClient() {
                             override fun onConsoleMessage(msg: android.webkit.ConsoleMessage): Boolean {
-                                android.util.Log.d("ConvoyJS", "[${msg.messageLevel()}] ${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})")
+                                android.util.Log.i("ConvoyJS", "[${msg.messageLevel()}] ${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})")
                                 return true
                             }
                         }

@@ -1308,7 +1308,7 @@ fun ConvoyMapViewerScreen(
                             override fun onConsoleMessage(
                                 cm: android.webkit.ConsoleMessage
                             ): Boolean {
-                                android.util.Log.d(
+                                android.util.Log.i(   // RIDERESC-2026-10-09: was .d -- stripped from release builds
                                     "MapJS", cm.message() + "  @" + cm.lineNumber()
                                 )
                                 return true
