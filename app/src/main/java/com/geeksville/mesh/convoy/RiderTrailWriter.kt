@@ -72,12 +72,33 @@ object RiderTrailWriter {
      */
     private val UNNAMED = Regex("^\\s*Unnamed\\s+\\d+\\s*$", RegexOption.IGNORE_CASE)
 
+    /** RIDERIDS-2026-10-09: a run RECONCILES -- [trailsAdded]/[miles] are the GENUINELY NEW pieces (true adds for the
+     *  day); [trailsUnchanged] kept their IDs; [trailsRemoved] are no longer produced; [trailsTotal]/[milesTotal] = what
+     *  exists after the run. */
     data class Result(
         val tracksScanned: Int,
         val trailsAdded: Int,
         val miles: Double,
-        val tracksRemoved: Int
+        val tracksRemoved: Int,
+        val trailsTotal: Int,
+        val trailsRemoved: Int,
+        val trailsUnchanged: Int,
+        val milesTotal: Double
     )
+
+    /**
+     * RIDERIDS-2026-10-09 (Fred): rider trails were ADDED or REMOVED -- the maps reload the trails on screen, and only then
+     * (a run that changes nothing reloads nothing). The value is a stamp; 0 = no change yet this session.
+     */
+    val trailsChanged = kotlinx.coroutines.flow.MutableStateFlow(0L)
+    private val reloadSeen = java.util.WeakHashMap<android.webkit.WebView, Long>()
+
+    /** True ONCE per change per map. A map seen for the first time is loading fresh anyway, so it only records the stamp. */
+    @Synchronized
+    fun takeReload(wv: android.webkit.WebView, stamp: Long): Boolean {
+        val last = reloadSeen.put(wv, stamp)
+        return last != null && last != stamp
+    }
 
     // -- geometry text ---------------------------------------------------
 
@@ -161,7 +182,9 @@ object RiderTrailWriter {
      * device is not a slow index, it is an allocation that does not come back.
      * One track covers a small area, so its bounding box is the query.
      */
-    private fun candidatesFor(pts: List<RiderTrailScanner.Pt>): List<List<RiderTrailScanner.Pt>> {
+    // RIDERIDS-2026-10-09: excludeRider = true for the reconcile pass -- the ride is matched against the REAL trails only
+    // (plus this run's own pieces, added by the caller); false for a single track added on its own (additive, as before).
+    private fun candidatesFor(pts: List<RiderTrailScanner.Pt>, excludeRider: Boolean): List<List<RiderTrailScanner.Pt>> {
         val db = SpatialDbManager.getSpatialDb() ?: return emptyList()
         var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
         var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
@@ -175,7 +198,8 @@ object RiderTrailWriter {
         try {
             db.rawQuery(
                 "SELECT geometry FROM trails WHERE min_lat IS NOT NULL " +
-                    "AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?",
+                    "AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?" +
+                    (if (excludeRider) " AND (carto_code IS NULL OR carto_code <> '$CATEGORY')" else ""),
                 arrayOf(
                     (minLat - BBOX_MARGIN_DEG).toString(), (maxLat + BBOX_MARGIN_DEG).toString(),
                     (minLon - BBOX_MARGIN_DEG).toString(), (maxLon + BBOX_MARGIN_DEG).toString()
@@ -244,13 +268,15 @@ object RiderTrailWriter {
             return Pair(0, 0.0)
         }
         SpatialDbManager.beginDedupSession()
-        return scanTrack(foundName, geom)
+        val r = scanTrack(foundName, geom)
+        if (r.first > 0) trailsChanged.value = System.currentTimeMillis()   // RIDERIDS-2026-10-09: the maps reload
+        return r
     }
 
     fun scanTrack(trackName: String?, geometry: String?): Pair<Int, Double> {
         val pts = parseGeometry(geometry)
         if (pts.size < 2) return Pair(0, 0.0)
-        val network = candidatesFor(pts)
+        val network = candidatesFor(pts, excludeRider = false)
         val found = RiderTrailScanner.scan(pts, network)
         if (found.isEmpty()) return Pair(0, 0.0)
 
@@ -332,55 +358,39 @@ object RiderTrailWriter {
     }
 
     /**
-     * RIDERLINE-2026-10-09: remove every rider trail through the app's own delete (spatial row, properties, aliases).
-     * Not a loss: deleteTrailFromDb's own note -- "THIS IS NOT PERMANENT FOR A RIDER TRAIL" -- they come back from the
-     * tracks on the next pass, which [scanAll] runs straight after. Returns how many were removed.
-     */
-    fun clearRiderTrails(): Int {
-        val db = SpatialDbManager.getSpatialDb() ?: return 0
-        val ids = ArrayList<String>()
-        try {
-            db.rawQuery("SELECT trail_id FROM trails WHERE carto_code=?", arrayOf(CATEGORY)).use { c ->
-                while (c.moveToNext()) if (!c.isNull(0)) ids.add(c.getString(0))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "RIDERLINE-2026-10-09: rider trail list failed: ${e.message}")
-            return 0
-        }
-        var n = 0
-        for (id in ids) {
-            try { SpatialDbManager.deleteTrailFromDb(id); n++ } catch (e: Exception) { Log.w(TAG, "delete $id: ${e.message}") }
-        }
-        Log.i(TAG, "RIDERLINE-2026-10-09: cleared $n rider trail(s) before the rebuild")
-        return n
-    }
-
-    /**
-     * Every track, in one pass. Under a hundred tracks, so no batching.
+     * Every track, in one pass -- RIDERIDS-2026-10-09 (Fred): RECONCILE, NEVER CLEAR. The release g/h clear-and-rebuild gave
+     * every rider trail a NEW random ID on every run, so anything holding a rider trail's ID (a saved route snapped to it,
+     * a selection) broke on every run, and "added" meant "re-laid". Now:
+     *   1. each track is matched against the REAL trails only (rider trails excluded from the candidates), plus the pieces
+     *      THIS RUN has already produced -- so two recordings of one ride do not both lay it (what the DB did before);
+     *   2. each piece is compared with the rider trails already stored, BY GEOMETRY HASH:
+     *        same piece already stored -> UNCHANGED, untouched, same ID, same created_at;
+     *        new piece                 -> ADDED (today's date -- "added" is a true add for the day);
+     *   3. stored rider trails this run no longer produces -> REMOVED.
+     * On an unchanged database a second run reports 0 added, 0 removed. The dedup session is opened ONCE for the pass.
      *
-     * The dedup session is opened ONCE for the whole pass. Without it
-     * resolveByGeom reads an empty map and every trail looks new.
-     *
-     * TRACKS ARE READ ONE AT A TIME AND CANDIDATES QUERIED PER TRACK, against
-     * LIVE data. That is what makes the pass self-deduplicating: two riders
-     * over the same unmapped ground, and the first track's new trail is already
-     * present when the second is scanned, so it reads as covered. Index once up
-     * front and the same ground is written twice, with different hashes, and
-     * nothing catches it.
-     *
-     * @param onProgress optional; null where there is no UI to report to, which
-     *                   is a real case -- the import stage has a manifest
-     *                   instead. OwnershipReclass takes the same shape.
+     * @param onProgress optional; null where there is no UI to report to (the import stage has a manifest instead).
      */
     fun scanAll(onProgress: ((Int, Int) -> Unit)? = null): Result {
-        val removed = removeUnnamedTracks()
-        // RIDERLINE-2026-10-09: REBUILD, not add. Rider trails are derived ONLY from tracks, so every one goes and the
-        // pass rebuilds them all with the current matcher. Left in place, the old pieces would be read as network
-        // and the new matcher would only fill the gaps between them.
-        clearRiderTrails()
-
+        val tracksRemoved = removeUnnamedTracks()
         val db = SpatialDbManager.getSpatialDb()
-            ?: return Result(0, 0, 0.0, removed)
+            ?: return Result(0, 0, 0.0, tracksRemoved, 0, 0, 0, 0.0)
+
+        // the rider trails stored now: geometry hash -> trail_id (hash from the stored geometry when the column is empty)
+        val stored = HashMap<String, String>()
+        try {
+            db.rawQuery("SELECT trail_id, geom_hash, geometry FROM trails WHERE carto_code=?", arrayOf(CATEGORY)).use { c ->
+                while (c.moveToNext()) {
+                    if (c.isNull(0)) continue
+                    val h = if (!c.isNull(1)) c.getString(1)
+                            else if (!c.isNull(2)) SpatialDbManager.computeGeomHash(c.getString(2)) else continue
+                    stored[h] = c.getString(0)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "RIDERIDS: rider trail read failed: ${e.message}")
+            return Result(0, 0, 0.0, tracksRemoved, 0, 0, 0, 0.0)
+        }
 
         val ids = ArrayList<Pair<String, String?>>()
         try {
@@ -394,24 +404,54 @@ object RiderTrailWriter {
                 }
         } catch (e: Exception) {
             Log.e(TAG, "track read failed: ${e.message}")
-            return Result(0, 0, 0.0, removed)
+            return Result(0, 0, 0.0, tracksRemoved, 0, 0, 0, 0.0)
         }
 
         SpatialDbManager.beginDedupSession()
 
-        var trails = 0
-        var miles = 0.0
+        val produced = HashSet<String>()
+        val runPieces = ArrayList<List<RiderTrailScanner.Pt>>()   // this run's pieces -- network for the tracks after
+        var added = 0; var unchanged = 0
+        var addedMi = 0.0; var totalMi = 0.0
         for (i in ids.indices) {
             onProgress?.invoke(i, ids.size)
             val (geom, name) = ids[i]
-            val r = scanTrack(name, geom)
-            trails += r.first
-            miles += r.second
+            val pts = parseGeometry(geom)
+            if (pts.size < 2) continue
+            val network = candidatesFor(pts, excludeRider = true) + piecesNear(runPieces, pts)
+            var n = 0
+            for (t in RiderTrailScanner.scan(pts, network)) {
+                val hash = SpatialDbManager.computeGeomHash(buildGeometry(t.points))
+                if (!produced.add(hash)) continue          // the same piece twice in one run: once is enough
+                runPieces.add(t.points)
+                val mi = t.totalM / 1609.34
+                if (stored.containsKey(hash)) { unchanged++; totalMi += mi; n++ }
+                else if (writeOne(t)) { added++; addedMi += mi; totalMi += mi; n++ }
+            }
+            if (n > 0) Log.i(TAG, "${name ?: "(unnamed)"}: $n rider trail(s)")
+        }
+
+        var removed = 0
+        for ((hash, id) in stored) {
+            if (hash in produced) continue
+            try { SpatialDbManager.deleteTrailFromDb(id); removed++ } catch (e: Exception) { Log.w(TAG, "delete $id: ${e.message}") }
         }
         onProgress?.invoke(ids.size, ids.size)
+        if (added + removed > 0) trailsChanged.value = System.currentTimeMillis()   // the maps reload -- only on a change
 
-        Log.i(TAG, "scanAll: ${ids.size} track(s), $trails trail(s), %.2f mi, $removed removed"
-            .format(miles))
-        return Result(ids.size, trails, miles, removed)
+        Log.i(TAG, "RIDERIDS scanAll: ${ids.size} track(s) -> ${added + unchanged} rider trail(s): $added added (%.2f mi), "
+            .format(addedMi) + "$unchanged unchanged, $removed removed; total %.2f mi; $tracksRemoved unnamed track(s) removed"
+            .format(totalMi))
+        return Result(ids.size, added, addedMi, tracksRemoved, added + unchanged, removed, unchanged, totalMi)
+    }
+
+    /** RIDERIDS-2026-10-09: this run's pieces whose box touches the track's box (+ the candidate margin). */
+    private fun piecesNear(pieces: List<List<RiderTrailScanner.Pt>>, pts: List<RiderTrailScanner.Pt>): List<List<RiderTrailScanner.Pt>> {
+        if (pieces.isEmpty()) return emptyList()
+        val la1 = pts.minOf { it.lat } - BBOX_MARGIN_DEG; val la2 = pts.maxOf { it.lat } + BBOX_MARGIN_DEG
+        val lo1 = pts.minOf { it.lon } - BBOX_MARGIN_DEG; val lo2 = pts.maxOf { it.lon } + BBOX_MARGIN_DEG
+        return pieces.filter { p ->
+            p.maxOf { it.lat } >= la1 && p.minOf { it.lat } <= la2 && p.maxOf { it.lon } >= lo1 && p.minOf { it.lon } <= lo2
+        }
     }
 }

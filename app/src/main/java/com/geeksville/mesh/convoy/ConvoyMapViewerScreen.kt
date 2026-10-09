@@ -267,6 +267,13 @@ fun ConvoyMapViewerScreen(
     remember { TrailFilterState.load(); true }
 
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    // RIDERIDS-2026-10-09 (Fred): rider trails were added or removed -> reload the trails on this map, once, and only then.
+    androidx.compose.runtime.LaunchedEffect(webViewRef) {
+        val wv = webViewRef ?: return@LaunchedEffect
+        RiderTrailWriter.trailsChanged.collect { stamp ->
+            if (RiderTrailWriter.takeReload(wv, stamp)) wv.post { wv.evaluateJavascript("triggerViewportUpdate()", null) }
+        }
+    }
 
     // Clean up WebView when leaving Planning Map
     DisposableEffect(Unit) {

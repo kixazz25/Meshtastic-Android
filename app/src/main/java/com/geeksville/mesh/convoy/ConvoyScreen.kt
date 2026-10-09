@@ -412,6 +412,13 @@ fun ConvoyScreen(
     // ── Renderer (stable across recompositions) ───────────────────────────
     val renderer = remember { ConvoyMarkerRenderer(context, onNodeTapped = viewModel::onMarkerTapped) }
     val webViewRef = remember { androidx.compose.runtime.mutableStateOf<android.webkit.WebView?>(null) }
+    // RIDERIDS-2026-10-09 (Fred): rider trails were added or removed -> reload the trails on this map, once, and only then.
+    androidx.compose.runtime.LaunchedEffect(webViewRef.value) {
+        val wv = webViewRef.value ?: return@LaunchedEffect
+        RiderTrailWriter.trailsChanged.collect { stamp ->
+            if (RiderTrailWriter.takeReload(wv, stamp)) wv.post { wv.evaluateJavascript("triggerViewportUpdate()", null) }
+        }
+    }
     var mapReady by remember { mutableStateOf(0) } // increments each time map page finishes loading
 
     // ── Push node markers to Leaflet map ────────────────────────────────────
