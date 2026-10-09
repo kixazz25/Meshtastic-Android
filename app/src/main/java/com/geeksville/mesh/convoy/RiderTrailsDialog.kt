@@ -25,8 +25,8 @@ import androidx.compose.ui.unit.sp
  *
  * WHAT THE RUN DOES: walks every recorded track, finds the stretches where the
  * ride left the published trail network, and writes each one as an unnamed
- * trail. The scan is safe to repeat -- ground already covered by a rider trail
- * reads as on-network the second time and produces nothing.
+ * trail. RIDERRULES-2026-10-09: every run REBUILDS -- all rider trails are cleared and laid again from the
+ * tracks -- so a repeat gives the same result, and the numbers are the rider trails that now exist.
  *
  * A null [result] means NOT RUN. A result with zero trails means it ran and
  * found nothing new, which after a first successful pass is the expected
@@ -61,7 +61,7 @@ fun RiderTrailsDialog(
                     }
                     r != null -> {
                         // The number that matters, first and largest.
-                        Text("${r.trailsAdded} new trail(s)",
+                        Text("${r.trailsAdded} rider trail(s) rebuilt",   // RIDERRULES-2026-10-09
                             color = if (r.trailsAdded > 0) Color(0xFF39FF14)
                                     else Color(0xFF97D5A5),
                             fontFamily = FontFamily.Monospace,
@@ -69,22 +69,22 @@ fun RiderTrailsDialog(
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("%.2f miles".format(r.miles), color = Color(0xFF8FD0FF),
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                        Text("from ${r.tracksScanned} track(s)",
+                        Text("from ${r.tracksScanned} track(s)",   // the miles above = all rider trails, not an increase
                             color = Color(0xFFFFFFFF),
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         if (r.trailsAdded == 0) {
                             Spacer(modifier = Modifier.height(10.dp))
                             // Zero is the RIGHT answer on a second run, and a
                             // rider should not have to wonder.
-                            Text("Every track is already covered by a known " +
-                                "trail. Nothing new to add.",
+                            Text("Every track stays on known trails. " +
+                                "No rider trails needed.",
                                 color = Color(0xFFFFFFFF),
                                 fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                         }
                     }
                     else -> {
-                        Text("Reads every recorded track and adds the ground " +
-                            "you rode where no trail is published.",
+                        Text("Rebuilds rider trails from every recorded track: " +
+                            "the ground you rode where no trail is published.",
                             color = Color(0xFF8FD0FF),
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         Spacer(modifier = Modifier.height(10.dp))
