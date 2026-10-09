@@ -11,6 +11,24 @@ package com.geeksville.mesh.convoy
  *   3. direction = over [BEAR_WIN_M] of track either side (was [SMOOTH] points -- 200 m to over 1 km on onX);
  *   4. a trail segment is indexed in EVERY grid cell its box touches (was: its midpoint's cell only).
  * Only the recorded points (plus each piece's two ends) are written -- no 10 m filler in the database.
+ * ⚠ CORRECTION 10-09 (afternoon): the "proven" figures above were TRACK AGAINST TRACK -- the harness used a second
+ *   recording of Broken Ridge as the network, never the real trails. Against the real trails release g still left
+ *   16 gaps (up to 135 m) -- see RIDERRULES below.
+ *
+ * RIDERRULES-2026-10-09 (Fred): THE AGREED PROCESS, NOTHING ELSE. Overlay the track's polyline on the trails; every
+ * stretch where it leaves the trails and comes back to a trail is ONE piece, joined at both ends. The old process's
+ * heuristics are GONE: no direction test (was BEARING_D / BEAR_WIN_M), no "sustained rejoin" (was REJOIN_M 120 m),
+ * no minimum length for a connector (MIN_RUN_M 150 m threw away exactly the short connectors riders were missing).
+ *   - ONE tolerance: [NEAR_M] -- the polyline within 20 m of a trail's line is ON that trail (GPS error).
+ *   - Fred's rule for the tiny ones: a piece joined at both ends and shorter than [TINY_M] (10 m) is written ONLY if
+ *     it is the only connection -- different trails at its two ends that do not already meet there. Same trail at
+ *     both ends (the GPS wandered off and back) or two trails that already meet -> skipped.
+ *   - [MIN_RUN_M] stays ONLY for a piece NOT joined at both ends (a dead end or open ground), so GPS wander out in
+ *     the open is not laid down as trail.
+ * MEASURED off-device, 10-09, against the REAL trails around Broken Ridge (Fred's PC copy spatial_0909.db: 251
+ * trails; the 105 old rider stubs left out as the clear leaves them; written pieces fed back as network, as scanAll
+ * does): release g left 16 gaps of 30 m+ (up to 135 m); this version leaves 0 on all three recordings, 58 pieces,
+ * and wrote none under 10 m (all 7 were wobble). Uncovered remainder 0.03-0.08 mi per recording, in scraps < 30 m.
  * This now DIVERGES from ridertrails_2026-09-06_v3.py on purpose; this file is the reference from 10-09.
  *
  * A PORT of `ridertrails_2026-09-06_v3.py`, which was proven on Broken Ridge and
@@ -62,24 +80,17 @@ package com.geeksville.mesh.convoy
  */
 object RiderTrailScanner {
 
-    // -- THE TUNING. Tuned on Broken Ridge and Steamboat; expect to revisit.
-    /** A trail this close, going your way, means you are on it. */
+    // -- THE RULES (RIDERRULES-2026-10-09). One tolerance, Fred's tiny-connector rule, a floor for loose ends.
+    /** THE tolerance: the polyline within this of a trail's line is ON that trail (GPS error). */
     const val NEAR_M = 20.0
-    /** ...and within this many degrees is THE SAME trail. */
-    const val BEARING_D = 45.0
-    /** Shorter than this is a wobble, not a trail. */
+    /** Fred 10-09: a piece joined at both ends and shorter than this is written only if it is the only connection. */
+    const val TINY_M = 10.0
+    /** ONLY for a piece NOT joined at both ends: shorter than this is GPS wander, not a trail. */
     const val MIN_RUN_M = 150.0
-    /** How far the track must STAY on the network before a run closes. */
-    const val REJOIN_M = 120.0
     /** A longer connector is a guess, not a gap. */
     const val MAX_CONN_M = 60.0
-    /** Points either side used to smooth a point's bearing. */
-    const val SMOOTH = 7
     /** RIDERLINE-2026-10-09: the track is filled in to this spacing before matching (onX records 30-700 m apart). */
     const val DENSE_M = 10.0
-    /** RIDERLINE-2026-10-09: a point's direction = the track's direction over this distance either side
-     *  (replaces [SMOOTH] points, which spanned 200 m to over 1 km on onX tracks). */
-    const val BEAR_WIN_M = 30.0
 
     /**
      * A ~200 m grid over the candidate segments. Comparing every track point
@@ -119,7 +130,8 @@ object RiderTrailScanner {
     private class Seg(
         val lo1: Double, val la1: Double,
         val lo2: Double, val la2: Double,
-        val bearing: Double
+        /** RIDERRULES-2026-10-09: which candidate trail this segment belongs to (the tiny-connector rule). */
+        val line: Int
     )
 
     // -- geometry --------------------------------------------------------
@@ -172,12 +184,12 @@ object RiderTrailScanner {
         // segment (sparse trail data: nodes hundreds of metres apart) was invisible to a track point near one end --
         // the whole ride then read as new ground and was laid down as duplicate trail.
         val grid = HashMap<Long, MutableList<Seg>>()
-        for (line in network) {
+        for ((li, line) in network.withIndex()) {
             for (k in 0 until line.size - 1) {
                 val a = line[k]
                 val b = line[k + 1]
                 if (a.lon == b.lon && a.lat == b.lat) continue
-                val seg = Seg(a.lon, a.lat, b.lon, b.lat, bearingDeg(a.lon, a.lat, b.lon, b.lat))
+                val seg = Seg(a.lon, a.lat, b.lon, b.lat, li)
                 val r1 = (Math.min(a.lat, b.lat) / CELL).toInt()
                 val r2 = (Math.max(a.lat, b.lat) / CELL).toInt()
                 val c1 = (Math.min(a.lon, b.lon) / CELL).toInt()
@@ -207,22 +219,11 @@ object RiderTrailScanner {
         val cum = DoubleArray(n)
         for (k in 1 until n) cum[k] = cum[k - 1] + haversineM(dense[k - 1].lat, dense[k - 1].lon, dense[k].lat, dense[k].lon)
 
-        // -- RIDERLINE-2026-10-09: direction over a DISTANCE (BEAR_WIN_M either side), not a point count ------
-        // null where the window collapses (a zero-length track). Justified nullable: "no bearing available" is a
-        // real state and anchorAt treats it as "match on distance alone", as before.
-        val brs = arrayOfNulls<Double>(n)
-        var lo = 0
-        var hi = 0
-        for (i in 0 until n) {
-            while (cum[i] - cum[lo] > BEAR_WIN_M) lo++
-            while (hi < n - 1 && cum[hi] - cum[i] < BEAR_WIN_M) hi++
-            brs[i] = if (lo != hi) bearingDeg(dense[lo].lon, dense[lo].lat, dense[hi].lon, dense[hi].lat) else null
-        }
-
         // -- is each point on the network, and WHERE on the trail's line ------
         // null MEANS OFF-NETWORK. That is the whole signal this scan runs on, not a shortcut.
         val anchor = arrayOfNulls<Pt>(n)
-        for (i in 0 until n) anchor[i] = anchorAt(grid, dense[i].lon, dense[i].lat, brs[i])
+        val anchorLine = IntArray(n) { -1 }
+        for (i in 0 until n) anchor[i] = anchorAt(grid, dense[i].lon, dense[i].lat, anchorLine, i)
 
         val out = ArrayList<RiderTrail>()
         var i = 0
@@ -230,26 +231,23 @@ object RiderTrailScanner {
             if (anchor[i] != null) { i++; continue }
             val start = i
 
-            // RUN UNTIL A SUSTAINED REJOIN. Passing near a trail is not rejoining it. (Unchanged -- now measured
-            // along the filled-in line, so REJOIN_M means metres of real overlap, not two or three sparse points.)
+            // RIDERRULES-2026-10-09: the piece runs until the polyline is back ON a trail -- the first on-trail point.
+            // (Was: until it STAYED on for REJOIN_M 120 m, which swallowed junctions and short connectors.)
             var j = i
-            while (j < n) {
-                if (anchor[j] == null) { j++; continue }
-                var k = j
-                var runM = 0.0
-                while (k + 1 < n && anchor[k + 1] != null) {
-                    runM += cum[k + 1] - cum[k]
-                    if (runM >= REJOIN_M) break
-                    k++
-                }
-                if (runM >= REJOIN_M || k + 1 >= n) break  // genuinely back
-                j = k + 1                                   // a brush past
-            }
+            while (j < n && anchor[j] == null) j++
             val end = j
 
             if (end - start >= 2) {
                 val riddenM = cum[end - 1] - cum[start]
-                if (riddenM >= MIN_RUN_M) {
+                val hj = start > 0 && haversineM(anchor[start - 1]!!.lat, anchor[start - 1]!!.lon, dense[start].lat, dense[start].lon) <= MAX_CONN_M
+                val tj = end < n && haversineM(dense[end - 1].lat, dense[end - 1].lon, anchor[end]!!.lat, anchor[end]!!.lon) <= MAX_CONN_M
+                // RIDERRULES-2026-10-09: joined at both ends -> written from TINY_M up; under TINY_M only when it is the ONLY
+                // connection (different trails at its ends that do not already meet there). Not joined at both ends -> MIN_RUN_M.
+                val keep = if (hj && tj) {
+                    riddenM >= TINY_M || (anchorLine[start - 1] != anchorLine[end] &&
+                        !linesMeetNear(grid, anchorLine[start - 1], anchorLine[end], dense[start].lon, dense[start].lat))
+                } else riddenM >= MIN_RUN_M
+                if (keep) {
                     val head = if (start > 0) anchor[start - 1] else null
                     val tail = if (end < n) anchor[end] else null
 
@@ -313,9 +311,37 @@ object RiderTrailScanner {
      * read as off-network, and the anchor (the join) landed on a corner, not where the track meets the trail.
      * Local flat-earth metres around the point -- exact enough at 20 m.
      */
+    /** RIDERRULES-2026-10-09: do trails [a] and [b] already meet (come within [NEAR_M]) in the cells around this point? */
+    private fun linesMeetNear(grid: Map<Long, MutableList<Seg>>, a: Int, b: Int, lon: Double, lat: Double): Boolean {
+        val r = (lat / CELL).toInt()
+        val c = (lon / CELL).toInt()
+        val kx = 111320.0 * Math.cos(Math.toRadians(lat))
+        val ky = 111320.0
+        val sa = ArrayList<Seg>()
+        val sb = ArrayList<Seg>()
+        for (dr in -1..1) for (dc in -1..1) for (s in grid[key(r + dr, c + dc)] ?: continue) {
+            if (s.line == a) sa.add(s) else if (s.line == b) sb.add(s)
+        }
+        fun d(px: Double, py: Double, s: Seg): Double {
+            val ax = (s.lo1 - px) * kx
+            val ay = (s.la1 - py) * ky
+            val dx = (s.lo2 - px) * kx - ax
+            val dy = (s.la2 - py) * ky - ay
+            val l2 = dx * dx + dy * dy
+            val t = if (l2 == 0.0) 0.0 else Math.max(0.0, Math.min(1.0, -(ax * dx + ay * dy) / l2))
+            return Math.hypot(ax + t * dx, ay + t * dy)
+        }
+        for (x in sa) for (y in sb) {
+            if (d(x.lo1, x.la1, y) <= NEAR_M || d(x.lo2, x.la2, y) <= NEAR_M ||
+                d(y.lo1, y.la1, x) <= NEAR_M || d(y.lo2, y.la2, x) <= NEAR_M) return true
+        }
+        return false
+    }
+
     private fun anchorAt(
         grid: Map<Long, MutableList<Seg>>,
-        lon: Double, lat: Double, br: Double?
+        lon: Double, lat: Double,
+        outLine: IntArray, idx: Int
     ): Pt? {
         val r = (lat / CELL).toInt()
         val c = (lon / CELL).toInt()
@@ -327,7 +353,6 @@ object RiderTrailScanner {
             for (dc in -1..1) {
                 val bucket = grid[key(r + dr, c + dc)] ?: continue
                 for (s in bucket) {
-                    if (br != null && angleDiff(br, s.bearing) > BEARING_D) continue
                     val ax = (s.lo1 - lon) * kx
                     val ay = (s.la1 - lat) * ky
                     val dx = (s.lo2 - lon) * kx - ax
@@ -338,6 +363,7 @@ object RiderTrailScanner {
                     if (d < bestD) {
                         bestD = d
                         best = Pt(s.lo1 + (s.lo2 - s.lo1) * t, s.la1 + (s.la2 - s.la1) * t)
+                        outLine[idx] = s.line
                     }
                 }
             }

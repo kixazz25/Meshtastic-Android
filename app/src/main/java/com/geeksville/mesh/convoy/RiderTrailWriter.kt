@@ -35,10 +35,9 @@ import android.util.Log
  * byte-identical -- the same reason OSM and UGRC turned out to be independent
  * surveys with 9 hash matches in 89,554.
  *
- * It is the DIRECTION TEST. A rider trail written on the first pass now lies
- * under the track, going the same way, within NEAR_M -- so the second pass
- * reads that ground as on-network and produces nothing. The dedup happens in
- * the scanner, before anything reaches the database.
+ * RIDERRULES-2026-10-09: IT IS THE REBUILD. scanAll clears every rider trail first, so a second run lays the same
+ * set again. Within one run, each track's candidates come from the database, so a piece written for an earlier
+ * track is network for the later ones -- two recordings of one ride do not both lay it. (Was: the direction test.)
  *
  * A second layer sits behind it: source_unique_id is the geometry hash, so the
  * INSERT OR IGNORE on (source_id, source_unique_id) drops an exact repeat.

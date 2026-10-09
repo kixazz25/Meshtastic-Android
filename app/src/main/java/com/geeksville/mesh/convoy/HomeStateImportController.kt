@@ -456,9 +456,10 @@ object HomeStateImportController {
             // track reads as entirely off-network and all 3,651 miles are
             // promoted whole.
             //
-            // ⭐ TWO PASSES, MEASURED (Droid 1, 09-07): 1,537 trails, then 70,
-            // then 0. The second pass is the network settling around the
-            // connectors the first wrote. One pass leaves ~5% unsettled.
+            // ⛔ ONE PASS (RIDERRULES-2026-10-09). The 09-07 "two passes" (1,537, then 70, then 0) settled the OLD
+            // matcher. Since RIDERLINE every scanAll CLEARS all rider trails and rebuilds, so a second pass undid and
+            // redid the first -- and its miles were ADDED to the first, reporting double. Settling happens inside one
+            // pass: each track's candidates are read from the DB, so it sees the pieces written for the tracks before it.
             //
             // ⚠ NEVER FAILS THE IMPORT, same stance as step 8 below.
             try {
@@ -478,22 +479,10 @@ object HomeStateImportController {
                 publishProgress(areaLabel, totalSources, sources, "running", startMs)
                 val rider = withContext(Dispatchers.IO) {
                     SpatialDbManager.init(context)
-                    val first = RiderTrailWriter.scanAll { done, total ->
+                    RiderTrailWriter.scanAll { done, total ->
                         downloadDetailFlow.value =
                             "Trails from tracks - $done of $total"
                     }
-                    // The settling pass. Its count is added to the first --
-                    // both are trails that were not there before.
-                    val second = RiderTrailWriter.scanAll { done, total ->
-                        downloadDetailFlow.value =
-                            "Trails from tracks, second pass - $done of $total"
-                    }
-                    RiderTrailWriter.Result(
-                        first.tracksScanned,
-                        first.trailsAdded + second.trailsAdded,
-                        first.miles + second.miles,
-                        first.tracksRemoved + second.tracksRemoved
-                    )
                 }
                 downloadDetailFlow.value = null
                 findStage(sources, RIDER_STAGE_ID)?.apply {
