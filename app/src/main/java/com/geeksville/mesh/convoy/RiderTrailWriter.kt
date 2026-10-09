@@ -333,6 +333,30 @@ object RiderTrailWriter {
     }
 
     /**
+     * RIDERLINE-2026-10-09: remove every rider trail through the app's own delete (spatial row, properties, aliases).
+     * Not a loss: deleteTrailFromDb's own note -- "THIS IS NOT PERMANENT FOR A RIDER TRAIL" -- they come back from the
+     * tracks on the next pass, which [scanAll] runs straight after. Returns how many were removed.
+     */
+    fun clearRiderTrails(): Int {
+        val db = SpatialDbManager.getSpatialDb() ?: return 0
+        val ids = ArrayList<String>()
+        try {
+            db.rawQuery("SELECT trail_id FROM trails WHERE carto_code=?", arrayOf(CATEGORY)).use { c ->
+                while (c.moveToNext()) if (!c.isNull(0)) ids.add(c.getString(0))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "RIDERLINE-2026-10-09: rider trail list failed: ${e.message}")
+            return 0
+        }
+        var n = 0
+        for (id in ids) {
+            try { SpatialDbManager.deleteTrailFromDb(id); n++ } catch (e: Exception) { Log.w(TAG, "delete $id: ${e.message}") }
+        }
+        Log.i(TAG, "RIDERLINE-2026-10-09: cleared $n rider trail(s) before the rebuild")
+        return n
+    }
+
+    /**
      * Every track, in one pass. Under a hundred tracks, so no batching.
      *
      * The dedup session is opened ONCE for the whole pass. Without it
@@ -351,6 +375,10 @@ object RiderTrailWriter {
      */
     fun scanAll(onProgress: ((Int, Int) -> Unit)? = null): Result {
         val removed = removeUnnamedTracks()
+        // RIDERLINE-2026-10-09: REBUILD, not add. Rider trails are derived ONLY from tracks, so every one goes and the
+        // pass rebuilds them all with the current matcher. Left in place, the old pieces would be read as network
+        // and the new matcher would only fill the gaps between them.
+        clearRiderTrails()
 
         val db = SpatialDbManager.getSpatialDb()
             ?: return Result(0, 0, 0.0, removed)
