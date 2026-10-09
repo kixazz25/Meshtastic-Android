@@ -240,57 +240,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleTrackFileImport(uri: Uri) {
-        // Refactored to delegate to ConvoyTrackOps.importTrackFile
-        // (gives intent-based imports earliest-time date preservation)
-        kotlinx.coroutines.MainScope().launch {
-            try {
-                // Get filename
-                var name = "imported_track.kml"
-                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                    val nameIdx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    if (cursor.moveToFirst() && nameIdx >= 0) {
-                        name = cursor.getString(nameIdx) ?: name
-                    }
-                }
-                // Copy URI content to a cache temp file
-                val tempFile = java.io.File(cacheDir, name)
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    contentResolver.openInputStream(uri)?.use { input ->
-                        tempFile.outputStream().use { output -> input.copyTo(output) }
-                    }
-                }
-                if (!tempFile.exists() || tempFile.length() == 0L) {
-                    android.widget.Toast.makeText(
-                        this@MainActivity,
-                        "Could not read $name",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                    return@launch
-                }
-                // Delegate to ConvoyTrackOps for parsing, splitting, date preservation
-                val result = com.geeksville.mesh.convoy.ConvoyTrackOps.importTrackFile(tempFile)
-                // Clean up temp file
-                try { tempFile.delete() } catch (_: Exception) {}
-                // Build user-facing message from structured result
-                val msg = when (result) {
-                    is com.geeksville.mesh.convoy.ConvoyTrackOps.ImportResult.Success ->
-                        if (result.createdFiles.size == 1) "Track imported: ${result.createdFiles.first()}"
-                        else "Imported ${result.createdFiles.size} tracks from $name"
-                    is com.geeksville.mesh.convoy.ConvoyTrackOps.ImportResult.PartialSuccess ->
-                        "Imported ${result.createdFiles.size}, skipped ${result.skippedFiles.size} (existed) from $name"
-                    is com.geeksville.mesh.convoy.ConvoyTrackOps.ImportResult.Failed ->
-                        "Import failed: ${result.reason}"
-                }
-                android.util.Log.i("TrackImport", msg)
-                android.widget.Toast.makeText(this@MainActivity, msg, android.widget.Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                android.util.Log.e("TrackImport", "Import error: ${e.message}")
-                android.widget.Toast.makeText(
-                    this@MainActivity,
-                    "Import failed",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
-            }
+        // GPXOPEN-2026-10-09 (Fred): ONE GPX process. A GPX/KML opened from another app goes to the same import panel
+        // as every other import (tracks, routes and waypoints alike) -- no separate background import with a toast.
+        lifecycleScope.launch {
+            val message = com.geeksville.mesh.convoy.GpxOpen.fromUri(this@MainActivity, uri)
+            android.util.Log.i("TrackImport", "GPXOPEN-2026-10-09: $message")
+            android.widget.Toast.makeText(this@MainActivity, message, android.widget.Toast.LENGTH_LONG).show()
         }
     }
 

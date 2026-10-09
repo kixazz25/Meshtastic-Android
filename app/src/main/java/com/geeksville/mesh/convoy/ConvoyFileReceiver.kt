@@ -10,6 +10,9 @@ import java.io.File
 /**
  * ConvoyFileReceiver
  *
+ * GPXOPEN-2026-10-09: ALSO the door for emailed GPX/KML files (Gmail sends application/octet-stream, which only this
+ * activity accepts) -- they go to the one GPX import panel via [GpxOpen]. Nothing is ever dropped silently.
+ *
  * Standalone Activity registered exclusively for mime type application/x-convoy-ride.
  * Completely isolated from MainActivity and all Meshtastic code.
  *
@@ -51,6 +54,18 @@ class ConvoyFileReceiver : Activity() {
                 return
             }
 
+            // GPXOPEN-2026-10-09 (Fred): Gmail hands EVERY attachment over as application/octet-stream and only this
+            // receiver accepts that type (ONEOPEN-2026-09-26 took it off MainActivity), so emailed GPX/KML files land
+            // HERE -- and were dropped silently ("Not a convoy file -- ignoring"; proven 10-08 with two onX files).
+            // An XML file that is GPX or KML goes to THE one GPX import: staged and opened in the import panel
+            // (tracks, routes and waypoints alike), exactly like a ride's GPX. Ride files are JSON, so XML is checked
+            // first and can never be mistaken for a ride.
+            if (content.trimStart().startsWith("<") && GpxOpen.looksLikeGpxOrKml(content)) {
+                val message = GpxOpen.stageAndOffer(this, GpxOpen.displayName(this, uri), content, bringForward = true)
+                android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
+                return
+            }
+
             // RIDEIMPORT2-2026-09-24 (Fred): a GroupTrack ride file (format 3). First, STORE it unchanged as
             // rides/<rideId>.json -- Apply Ride and Send read rides from there. Then STAGE its GPX where the import
             // panel stages picked files and open that panel with it ticked (no picker): route, trailhead, recipe
@@ -67,7 +82,9 @@ class ConvoyFileReceiver : Activity() {
             // Validate this is actually a convoy file before processing
             if (!content.contains("convoyDocType")) {
                 Log.w(TAG, "Not a convoy file — ignoring")
-                finish()
+                // GPXOPEN-2026-10-09: never silent -- the rider is told what happened.
+                android.widget.Toast.makeText(this, "This file isn't a GroupTrack ride or a GPX / KML track.",
+                    android.widget.Toast.LENGTH_LONG).show()
                 return
             }
 
@@ -109,8 +126,10 @@ class ConvoyFileReceiver : Activity() {
 
         } catch (e: Exception) {
             Log.e(TAG, "ConvoyFileReceiver failed: ${e.message}")
+            // GPXOPEN-2026-10-09: never silent.
+            android.widget.Toast.makeText(this, "Could not open the file: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         } finally {
-            finish()
+            if (!isFinishing) finish()   // GPXOPEN-2026-10-09: once ("Duplicate finish request" in the log)
         }
     }
 
@@ -175,5 +194,75 @@ object RideImport {
             Log.e(TAG, "RIDEIMPORT3-2026-09-25: store failed: ${e.message}")
             "Could not store the ride: ${e.message}"
         }
+    }
+}
+
+
+/**
+ * GPXOPEN-2026-10-09 (Fred: "the import is the same process for any GPX type -- route, track or waypoint").
+ * A GPX/KML opened from OUTSIDE the app (email, Files, another app) goes to THE one GPX import: it is staged where the
+ * import panel stages picked files and the panel opens with it ticked -- the same path a ride's GPX takes
+ * ([RideImport]). The rider chooses maps and taps IMPORT; the panel's recap says what came in (tracks, routes,
+ * waypoints). Used by ConvoyFileReceiver (Gmail: octet-stream) and MainActivity (apps sending the GPX/KML types).
+ */
+object GpxOpen {
+    private const val TAG = "GpxOpen"
+
+    /** XML whose root is GPX or KML (checked on the first few KB -- the root element is near the top). */
+    fun looksLikeGpxOrKml(text: String): Boolean {
+        val head = text.take(4000).lowercase()
+        return head.contains("<gpx") || head.contains("<kml")
+    }
+
+    /** The file name the sending app gives (e.g. "onx-markups-2026-07-23.gpx"). CODE RULE 1: null = the sender gave none. */
+    fun displayName(context: android.content.Context, uri: android.net.Uri): String? = try {
+        context.contentResolver.query(uri, null, null, null, null)?.use { c ->
+            val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            if (c.moveToFirst() && i >= 0) c.getString(i) else null
+        }
+    } catch (e: Exception) { null }
+
+    /** Stage the file and open the import panel with it. Returns the message to show the rider. */
+    fun stageAndOffer(context: android.content.Context, displayName: String?, content: String, bringForward: Boolean): String {
+        val ext = if (content.take(4000).lowercase().contains("<kml")) ".kml" else ".gpx"
+        val base = (displayName ?: "import_${System.currentTimeMillis()}").substringBeforeLast('.')
+            .replace(Regex("[^A-Za-z0-9 _-]"), "_").trim().ifBlank { "import" }
+        return try {
+            // The panel's own policy: staging holds only the current selection.
+            val stage = java.io.File(context.filesDir, "gpx_staging")
+            if (stage.exists()) stage.listFiles()?.forEach { it.delete() }
+            stage.mkdirs()
+            val f = java.io.File(stage, base + ext)
+            f.writeText(content)
+            MapSourceManager.init(context.applicationContext)   // real map sources, even from cold (as RideImport)
+            RideImportLauncher.offer(f)
+            if (bringForward) {
+                context.packageManager.getLaunchIntentForPackage(context.packageName)?.let { launch ->
+                    launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                        android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    context.startActivity(launch)
+                }
+            }
+            Log.i(TAG, "GPXOPEN-2026-10-09: staged ${f.name} (${f.length()} bytes) -> import panel")
+            "Opening ${f.name} \u2014 choose maps and tap IMPORT."
+        } catch (e: Exception) {
+            Log.e(TAG, "GPXOPEN-2026-10-09: staging failed: ${e.message}")
+            "Could not open the file: ${e.message}"
+        }
+    }
+
+    /** MainActivity's path: read the shared file off the main thread, then stage it. */
+    suspend fun fromUri(context: android.content.Context, uri: android.net.Uri): String {
+        val read = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val name = displayName(context, uri)
+            val text = try { context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } }
+                       catch (e: Exception) { null }
+            name to text
+        }
+        val text = read.second
+        if (text.isNullOrBlank()) return "Could not read ${read.first ?: "the file"}."
+        if (!looksLikeGpxOrKml(text)) return "${read.first ?: "This file"} isn't a GPX or KML track."
+        return stageAndOffer(context, read.first, text, bringForward = false)
     }
 }
