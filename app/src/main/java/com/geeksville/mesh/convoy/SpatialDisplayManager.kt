@@ -312,7 +312,15 @@ object SpatialDisplayManager {
         }
 
         main.post {
-            wv.evaluateJavascript(b.jsUpdate + "(" + json + ")", null)
+            // RIDERESC-2026-10-09: TRAILDRAW -- did the PAGE take the batch? We could see what was SENT (TRACE) but never
+            // what the page did with it. 'ok N' = N trail features on the page after the update; 'ERR ...' = it threw;
+            // 'null' = the call never ran at all (the batch was not valid JavaScript). INFO level: survives a release build.
+            val probe = if (type == "Trails")
+                "(typeof trailLayer!=='undefined'&&trailLayer&&trailLayer.getLayers)?trailLayer.getLayers().length:-1" else "-1"
+            wv.evaluateJavascript("(function(){try{" + b.jsUpdate + "(" + json + ");return 'ok '+(" + probe +
+                    ");}catch(e){return 'ERR '+e;}})()") { res ->
+                android.util.Log.i("SpatialDisplay", "TRAILDRAW $type: sent ${items.size} -> page $res")
+            }
             wv.evaluateJavascript(b.jsShow + "()", null)
         }
     }

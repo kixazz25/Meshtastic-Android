@@ -641,6 +641,25 @@ object SpatialDbManager {
         }
     }
 
+    /**
+     * RIDERESC-2026-10-09: THE ONE ESCAPE for a value placed inside a JSON string in the map batches -- backslash, quote,
+     * and every control character (a GPX <name> can carry a line break). The trail builder turned a quote into \\" (an
+     * escaped backslash then a quote that ENDS the string), so ONE trail with a quote in its name -- Droid 1 has three:
+     * Rush "Fly By Night", Old quigley "Wood Road", SCAR "LOOP" SPUR A -- made the whole updateTrails(...) call invalid
+     * JavaScript and blanked EVERY trail on that screen. Tracks, waypoints and routes escaped the quote but not \ or
+     * line breaks. All four builders use this now.
+     */
+    fun jsonEsc(v: String): String {
+        val sb = StringBuilder(v.length + 8)
+        for (ch in v) when {
+            ch == '\\' -> sb.append("\\\\")
+            ch == '"' -> sb.append("\\\"")
+            ch.code < 0x20 || ch == '\u2028' || ch == '\u2029' -> sb.append(String.format("\\u%04x", ch.code))
+            else -> sb.append(ch)
+        }
+        return sb.toString()
+    }
+
     /** Build GeoJSON FeatureCollection from viewport query results */
     fun buildTrailGeoJson(trails: List<Map<String, String?>>): String {
         val sb = StringBuilder()
@@ -653,7 +672,7 @@ object SpatialDbManager {
             if (!first) sb.append(",")
             first = false
             val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
-            fun s(k: String): String = (trail[k] ?: "").replace("\\", "\\\\").replace("\"", "\\\\\"")
+            fun s(k: String): String = jsonEsc(trail[k] ?: "")   // RIDERESC-2026-10-09 (was: a quote became \\" -> broken batch)
             sb.append("{\"type\":\"Feature\",\"properties\":{")
             // TRAILTAP-2026-09-02: ⛔ THE ID WAS NEVER IN THE PROPERTIES. Every
             // other artifact hands its id to Kotlin on tap; a trail had nothing
@@ -814,14 +833,14 @@ object SpatialDbManager {
         tracks.forEachIndexed { idx, track ->
             if (idx > 0) sb.append(",")
             val geom = track["geometry"] ?: return@forEachIndexed
-            val name = (track["name"] ?: "Unnamed Track").replace("\"", "\\\"")
+            val name = jsonEsc(track["name"] ?: "Unnamed Track")
             val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
             val coords = coordStr.split(",").joinToString(",") { pair ->
                 val parts = pair.trim().split(" ")
                 if (parts.size >= 2) "[${parts[0]},${parts[1]}]" else "[0,0]"
             }
-            val cc = (track["carto_code"] ?: "").replace("\"", "\\\"")
-            val tid = (track["track_id"] ?: "").replace("\"", "\\\"")
+            val cc = jsonEsc(track["carto_code"] ?: "")
+            val tid = jsonEsc(track["track_id"] ?: "")
             sb.append("{\"type\":\"Feature\",\"properties\":{\"name\":\"$name\",\"cartoCode\":\"$cc\",\"track_id\":\"$tid\"},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[$coords]}}")
         }
         sb.append("]}")
@@ -1034,15 +1053,15 @@ object SpatialDbManager {
         waypoints.forEachIndexed { idx, wpt ->
             if (idx > 0) sb.append(",")
             val geom = wpt["geometry"] ?: return@forEachIndexed
-            val name = (wpt["name"] ?: "Unnamed").replace("\"", "\\\"")
-            val wptType = (wpt["type"] ?: "other").replace("\"", "\\\"")
+            val name = jsonEsc(wpt["name"] ?: "Unnamed")
+            val wptType = jsonEsc(wpt["type"] ?: "other")
             // Parse POINT(lon lat)
             val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(geom)
             if (match != null) {
                 val lon = match.groupValues[1]
                 val lat = match.groupValues[2]
                 // WPTTAP-2026-09-30 (Fred): the id a tap sends to the detail panel (the query selects it; it was dropped here).
-                val wid = (wpt["waypoint_id"] ?: "").replace("\"", "\\\"")
+                val wid = jsonEsc(wpt["waypoint_id"] ?: "")
                 sb.append("{\"type\":\"Feature\",\"properties\":{\"waypoint_id\":\"$wid\",\"name\":\"$name\",\"wpt_type\":\"$wptType\"},\"geometry\":{\"type\":\"Point\",\"coordinates\":[$lon,$lat]}}")
             }
         }
@@ -1084,7 +1103,7 @@ object SpatialDbManager {
         routes.forEachIndexed { idx, route ->
             if (idx > 0) sb.append(",")
             val geom = route["geometry"] ?: return@forEachIndexed
-            val name = (route["name"] ?: "Unnamed Route").replace("\"", "\\\"")
+            val name = jsonEsc(route["name"] ?: "Unnamed Route")
             val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
             val coords = coordStr.split(",").joinToString(",") { pair ->
                 val parts = pair.trim().split(" ")
@@ -1093,7 +1112,7 @@ object SpatialDbManager {
             // ROUTETAP-2026-08-23Z: emit route_id. It was in the row map all along
             // (queryRoutesByViewport returns it) but never reached properties, so
             // the JS had nothing to hand back on a tap. Tracks already carry theirs.
-            val rid = (route["route_id"] ?: "").replace("\"", "\\\"")
+            val rid = jsonEsc(route["route_id"] ?: "")
             sb.append("{\"type\":\"Feature\",\"properties\":{\"name\":\"$name\",\"route_id\":\"$rid\"},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[$coords]}}")
         }
         sb.append("]}")
