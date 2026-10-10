@@ -80,7 +80,8 @@ fun ConvoyRideCreateScreen(
     // RIDENET-2026-09-27: public by default (isPrivate off); the organizer's network by default (newNetworkForRide off).
     var isPrivate by remember { mutableStateOf(false) }
     var newNetworkForRide by remember { mutableStateOf(false) }
-    // DEFAULTNET-2026-10-10 (Fred): the GroupTrack default network replaces the organizer network and is the DEFAULT.
+    // DEFAULTNET-2026-10-10 (Fred): the GroupTrack default network is the first choice and the DEFAULT (THREENET: the
+    // creator's own network and a private ride network follow it).
     var useDefaultNetwork by remember { mutableStateOf(true) }
     // FORMLAYOUT-2026-09-27: generated when you toggle to a new network; used only when the ride is added.
     // CODE RULE 1: null = not generated (the organizer network is chosen, or it has not been toggled yet).
@@ -239,11 +240,14 @@ fun ConvoyRideCreateScreen(
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                 .background(Color(0xFF1A0A00)).padding(horizontal = 14.dp, vertical = 10.dp)) {
                 Text("RADIO NETWORK", color = GroupTrackColors.Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                // DEFAULTNET-2026-10-10 (Fred): "My organizer network" is REPLACED by the GroupTrack default network (the channel
-                // every radio already has from install -- riders need no radio setup). 0 = default, 2 = a new network for this
-                // ride; 1 (an organizer network) is only ever SHOWN, for a ride made before this change and opened to edit.
+                // DEFAULTNET-2026-10-10 / THREENET-2026-10-10 (Fred): three choices, the default first and selected --
+                // 0 = the GroupTrack default network (the channel every radio already has from install: no radio setup),
+                // 1 = the creator's own network, shown as "Creator's name · network id" (reused for all their rides),
+                // 2 = a private network generated for this ride only.
                 val netChoice = if (useDefaultNetwork) 0 else if (newNetworkForRide) 2 else 1
-                listOf(0 to "GroupTrack default network", 2 to "Create a new network for this ride").forEach { (opt, label) ->
+                listOf(0 to "GroupTrack default network",
+                    1 to (myNetworkName ?: "My network \u2014 not available, check your rider profile"),   // THREENET-2026-10-10
+                    2 to "Create a private network for this ride").forEach { (opt, label) ->
                     Text((if (netChoice == opt) "\u25C9  " else "\u25CB  ") + label,
                         color = if (netChoice == opt) GroupTrackColors.SkyBlue else Color(0xFFAABBCC), fontSize = 13.sp,
                         modifier = Modifier.fillMaxWidth().clickable(enabled = editRideId == null) {   // EDITRIDE: a ride's network is not changed here
