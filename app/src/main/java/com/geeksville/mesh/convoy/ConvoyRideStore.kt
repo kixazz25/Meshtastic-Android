@@ -129,11 +129,19 @@ object ConvoyRideStore {
         // every ride after (users.config_id, config_mode 'own') -- or, when asked, a NEW network for this ride only.
         // Every network is NAMED after the organizer. Only the rider's OWN network or a new one: never another
         // organizer's (theirs arrive only to JOIN their rides). Supersedes RIDECFG-2026-09-23's always-unique path.
-        val cfg = (if (rideNetworkId != null) ConvoyNetworkStore.load(rideNetworkId)
-                   else organizerNetwork(me.userId, leaderName)) ?: run {
-            Log.w(TAG, "saveRide refused: the ride's network was not available"); return null
+        // DEFAULTNET-2026-10-10 (Fred): the GroupTrack default network -- the channel every radio carries from install.
+        // It is not a stored config (nothing to create, nothing to delete): config_id = "GroupTrack", mode inherit_org.
+        val useDefault = rideNetworkId == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL
+        val cfgId: String = if (useDefault) com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL
+            else ((if (rideNetworkId != null) ConvoyNetworkStore.load(rideNetworkId)
+                   else organizerNetwork(me.userId, leaderName))?.configId ?: run {
+                Log.w(TAG, "saveRide refused: the ride's network was not available"); return null
+            })
+        val mode = when {
+            useDefault -> "inherit_org"
+            rideNetworkId != null -> "unique"
+            else -> "inherit_leader"
         }
-        val mode = if (rideNetworkId != null) "unique" else "inherit_leader"
         val expires = expiresFor(rideDate)
         return try {
             db.execSQL(
@@ -145,16 +153,16 @@ object ConvoyRideStore {
                     id, me.userId, leaderName, routeId,
                     rideName.trim(), rideDate.trim(), startTime.trim(), description.trim(),
                     zipCode.trim(), if (isPublic) 1 else 0,
-                    mode, cfg.configId, expires, now, now
+                    mode, cfgId, expires, now, now
                 )
             )
             Log.i(TAG, "RIDECREATE-2026-09-22: ride saved $id name=$rideName route=$routeId")
             markOrganizer(me.userId)   // RIDENET-2026-09-27: creating a ride makes you an organizer
-            Log.i(TAG, "RIDENET: ride $id on ${cfg.configId} ($mode)")
+            Log.i(TAG, "RIDENET: ride $id on $cfgId ($mode)")
             id
         } catch (e: Exception) {
             Log.e(TAG, "saveRide failed: ${e.message}")
-            if (rideNetworkId != null) ConvoyNetworkStore.deleteUnused(cfg.configId)   // RIDECFG: no ghost config (never the organizer's own)
+            if (rideNetworkId != null && !useDefault) ConvoyNetworkStore.deleteUnused(cfgId)   // RIDECFG: no ghost config (never the organizer's own)
             null
         }
     }

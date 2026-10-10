@@ -80,6 +80,8 @@ fun ConvoyRideCreateScreen(
     // RIDENET-2026-09-27: public by default (isPrivate off); the organizer's network by default (newNetworkForRide off).
     var isPrivate by remember { mutableStateOf(false) }
     var newNetworkForRide by remember { mutableStateOf(false) }
+    // DEFAULTNET-2026-10-10 (Fred): the GroupTrack default network replaces the organizer network and is the DEFAULT.
+    var useDefaultNetwork by remember { mutableStateOf(true) }
     // FORMLAYOUT-2026-09-27: generated when you toggle to a new network; used only when the ride is added.
     // CODE RULE 1: null = not generated (the organizer network is chosen, or it has not been toggled yet).
     var rideNetwork by remember { mutableStateOf<com.grouptrack.core.NetworkConfig?>(null) }
@@ -89,6 +91,7 @@ fun ConvoyRideCreateScreen(
         val e = editRideId?.let { ConvoyRideStore.rideForEdit(it) } ?: return@LaunchedEffect
         rideName = e.name; rideDate = e.date; startTime = e.startTime; description = e.description
         isPrivate = !e.isPublic; newNetworkForRide = e.unique
+        useDefaultNetwork = e.configId == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL   // DEFAULTNET-2026-10-10
         if (e.unique) rideNetwork = e.configId?.let { ConvoyNetworkStore.load(it) }
     }
     // CODE RULE 1: null is a real state -- this rider has no network yet; their first ride creates it.
@@ -236,20 +239,30 @@ fun ConvoyRideCreateScreen(
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                 .background(Color(0xFF1A0A00)).padding(horizontal = 14.dp, vertical = 10.dp)) {
                 Text("RADIO NETWORK", color = GroupTrackColors.Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                listOf(false to "My organizer network", true to "Create a new network for this ride").forEach { (isNew, label) ->
-                    Text((if (newNetworkForRide == isNew) "\u25C9  " else "\u25CB  ") + label,
-                        color = if (newNetworkForRide == isNew) GroupTrackColors.SkyBlue else Color(0xFFAABBCC), fontSize = 13.sp,
+                // DEFAULTNET-2026-10-10 (Fred): "My organizer network" is REPLACED by the GroupTrack default network (the channel
+                // every radio already has from install -- riders need no radio setup). 0 = default, 2 = a new network for this
+                // ride; 1 (an organizer network) is only ever SHOWN, for a ride made before this change and opened to edit.
+                val netChoice = if (useDefaultNetwork) 0 else if (newNetworkForRide) 2 else 1
+                listOf(0 to "GroupTrack default network", 2 to "Create a new network for this ride").forEach { (opt, label) ->
+                    Text((if (netChoice == opt) "\u25C9  " else "\u25CB  ") + label,
+                        color = if (netChoice == opt) GroupTrackColors.SkyBlue else Color(0xFFAABBCC), fontSize = 13.sp,
                         modifier = Modifier.fillMaxWidth().clickable(enabled = editRideId == null) {   // EDITRIDE: a ride's network is not changed here
-                            newNetworkForRide = isNew
-                            if (isNew && rideNetwork == null) rideNetwork = ConvoyRideStore.createRideNetwork()   // generated now, used only when the ride is added
+                            useDefaultNetwork = opt == 0
+                            newNetworkForRide = opt == 2
+                            if (opt == 2 && rideNetwork == null) rideNetwork = ConvoyRideStore.createRideNetwork()   // generated now, used only when the ride is added
                         }.padding(vertical = 6.dp))
                 }
-                Text("Network assigned: " + (if (newNetworkForRide)
-                        (rideNetwork?.let { "Private \u2013 " + it.configId } ?: "\u26a0 not created \u2014 check your rider profile")
-                    else (myNetworkName ?: "\u26a0 not available \u2014 check your rider profile")),
+                Text("Network assigned: " + when (netChoice) {
+                        0 -> "GroupTrack default"
+                        2 -> rideNetwork?.let { "Private \u2013 " + it.configId } ?: "\u26a0 not created \u2014 check your rider profile"
+                        else -> myNetworkName ?: "\u26a0 not available \u2014 check your rider profile"
+                    },
                     color = Color(0xFFE8C27A), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
-                Text(if (newNetworkForRide) "Used only by this ride. Every rider sets up their radio for it, even if they have ridden with you before."
-                    else "Used for all your rides \u2014 riders who joined any of your rides are already on it.",
+                Text(when (netChoice) {
+                        0 -> "The channel every GroupTrack radio already has \u2014 riders need no radio setup. Anyone running GroupTrack within radio range shares it."
+                        2 -> "Used only by this ride. Every rider sets up their radio for it, even if they have ridden with you before."
+                        else -> "Used for all your rides \u2014 riders who joined any of your rides are already on it."
+                    },
                     color = Color(0xFFCCBB99), fontSize = 11.sp)
             }
 
@@ -399,7 +412,8 @@ fun ConvoyRideCreateScreen(
                         rideName = rideName, rideDate = rideDate, startTime = startTime,
                         description = description, zipCode = zipCode,
                         isPublic = !isPrivate,
-                        rideNetworkId = if (newNetworkForRide) rideNetwork?.configId else null,   // FORMLAYOUT-2026-09-27
+                        rideNetworkId = if (useDefaultNetwork) com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL   // DEFAULTNET-2026-10-10
+                            else if (newNetworkForRide) rideNetwork?.configId else null,   // FORMLAYOUT-2026-09-27
                         routeId = routeId
                     )
                     if (id != null) {
@@ -412,7 +426,7 @@ fun ConvoyRideCreateScreen(
                             else -> "\u2713 Saved in progress \u2014 missing: " + missing.joinToString(", ")
                         }
                         if (!newNetworkForRide) rideNetwork?.let { ConvoyNetworkStore.deleteUnused(it.configId); rideNetwork = null }   // FORMLAYOUT: unused
-                        if (!wasOrganizer) status += "\n\u2713 You're now an organizer \u2014 your rides use your own network: " +
+                        if (!wasOrganizer && !useDefaultNetwork && !newNetworkForRide) status += "\n\u2713 You're now an organizer \u2014 your rides use your own network: " +
                             (ConvoyRideStore.myNetworkName() ?: "created with this ride") + "."   // RIDENET-2026-09-27
                         onRideCreated(id)
                     }
