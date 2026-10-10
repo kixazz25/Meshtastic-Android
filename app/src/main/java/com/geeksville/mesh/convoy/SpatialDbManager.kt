@@ -2257,6 +2257,63 @@ object SpatialDbManager {
      *  Ordered + logged; each step best-effort (a missing piece is a no-op).
      *  SEPARATE from the add-time dupe/alias source-file cleanup (that lives in
      *  the add resolver and deletes the INCOMING source file, not <hash>.gpx). */
+    /** REMOVEALLTRAILS-2026-10-10: what clearAllTrailData removed; error = null when every step worked. */
+    data class TrailClearResult(val trails: Int, val properties: Int, val aliases: Int, val error: String?)
+
+    /**
+     * REMOVEALLTRAILS-2026-10-10 (Fred): Settings -> "Remove all trail data". The bulk form of
+     * deleteTrailFromDb below -- the same three stores, every trail:
+     *   spatial   trails
+     *   extension trail_properties
+     *   extension artifact_aliases (artifact_type = 'trail' only)
+     *
+     * ⚠ BOTH DATABASES, ALWAYS. The import skips a trail whose (source_id, source_unique_id) is already in
+     *   trail_properties (dedupSourceUids), and the map draws a trail from its properties. A properties row
+     *   left behind therefore blocks that trail's re-import -- the clean start this exists for would not be clean.
+     * ⚠ The two older bulk clears (clearTrailsOnce, jobSchemaConverge) leave the trail aliases behind; this does not.
+     * ⚠ Refuses while an import holds its dedup session: its in-memory hashes would describe rows that are gone.
+     * Tracks, routes, waypoints, route_notes and source_ingestions are NOT touched.
+     */
+    @Synchronized
+    fun clearAllTrailData(): TrailClearResult {
+        if (dedupSessionActive) return TrailClearResult(0, 0, 0, "an import is running -- try again when it has finished")
+        val db = spatialDb ?: return TrailClearResult(0, 0, 0, "the trail database is not open")
+        val ext = extensionDb
+        fun count(d: SQLiteDatabase, sql: String): Int =
+            d.rawQuery(sql, null).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+        var trails = 0; var props = 0; var aliases = 0
+        val errors = ArrayList<String>()
+        try {
+            trails = count(db, "SELECT COUNT(*) FROM trails")
+            db.beginTransaction()
+            try { db.execSQL("DELETE FROM trails"); db.setTransactionSuccessful() } finally { db.endTransaction() }
+        } catch (e: Exception) {
+            android.util.Log.e("TrailClear", "trails: ${e.message}")
+            return TrailClearResult(0, 0, 0, "trails could not be removed: ${e.message}")
+        }
+        if (ext == null) {
+            errors.add("the details database is not open -- trail details were NOT removed")
+        } else {
+            try {
+                props = count(ext, "SELECT COUNT(*) FROM trail_properties")
+                ext.execSQL("DELETE FROM trail_properties")
+            } catch (e: Exception) {
+                android.util.Log.e("TrailClear", "trail_properties: ${e.message}")
+                errors.add("trail details: ${e.message}")
+            }
+            try {
+                aliases = count(ext, "SELECT COUNT(*) FROM artifact_aliases WHERE artifact_type='trail'")
+                ext.execSQL("DELETE FROM artifact_aliases WHERE artifact_type='trail'")
+            } catch (e: Exception) {
+                android.util.Log.e("TrailClear", "artifact_aliases: ${e.message}")
+                errors.add("trail aliases: ${e.message}")
+            }
+        }
+        android.util.Log.i("TrailClear", "clearAllTrailData: removed trails=$trails trail_properties=$props trail_aliases=$aliases" +
+            if (errors.isEmpty()) "" else " ERRORS=" + errors.joinToString("; "))
+        return TrailClearResult(trails, props, aliases, if (errors.isEmpty()) null else errors.joinToString("\n"))
+    }
+
     /**
      * RIDERTRAILDELETE-2026-09-08: remove one trail, both stores.
      *
