@@ -81,6 +81,8 @@ fun WorkWithRidesMenu(
             onDismiss()
         }
     }
+    // FILEPICKNOTICE-2026-10-10: the panel before the picker.
+    val importNotice = rememberPickerNotice("to choose the ride file you want to import", "file")
     var includeRecent by remember { mutableStateOf(false) }   // DATEFILTER-2026-09-24
 
     Dialog(onDismissRequest = onDismiss) {
@@ -95,7 +97,7 @@ fun WorkWithRidesMenu(
 
                 if (!picking) {
                     WwrEntry("Rides \u2014 share, edit, delete", built = true) { onDismiss(); RidesLauncher.open() } // RIDESLIST-2026-09-26
-                    WwrEntry("Import a ride", built = true) { importPicker.launch(arrayOf("*/*")) } // RIDEIMPORT3-2026-09-25
+                    WwrEntry("Import a ride", built = true) { importNotice.ask { importPicker.launch(arrayOf("*/*")) } } // RIDEIMPORT3-2026-09-25
                     WwrEntry("Apply ride to radio / Nucleus", built = true) { onDismiss(); onApplyToRadio() } // RADIOCFG4-2026-09-25
                     // WWRMENU-2026-09-30 (Fred): removed the email-send entry (sharing is Rides -> Share) and the
                     // discontinued standalone T1000-E line; renamed the saved-configs entry. Labels only.

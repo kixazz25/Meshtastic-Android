@@ -103,23 +103,29 @@ object OwnershipReclass {
         eDb: SQLiteDatabase,
         onProgress: ((Int, Int) -> Unit)? = null,
     ): Int {
-        val f = ownershipFile()
-        if (!f.exists() || f.length() < 1024L) {
-            Log.i(TAG, "no ownership file at ${f.absolutePath} -- skipping step 8")
-            return -1
-        }
-
+        // CATEGORYALWAYS-2026-10-10 (Fred): "our categories are meaningless unless they are applied. Land ownership
+        // just happened to be in the same process." This step used to RETURN -1 right here when the ownership file
+        // was missing, small or unreadable -- and with it skipped the CATEGORY and USE of every trail, not just its
+        // land. Every non-Utah import (an empty file is placed on purpose) and any failed Utah download left OSM rows
+        // with carto_code NULL (hidden by every Map Keys selection with anything off) and agency rows with raw codes
+        // (never hideable), and use_type NULL for the route builder.
+        // \u2b50 Now: categories and use ALWAYS. Land from the file when it can be read; otherwise every trail is
+        // PUBLIC (Fred's default) -- with no rings, allPrivate() finds no polygon and answers false.
         val started = System.currentTimeMillis()
-        val rings = try {
+        val f = ownershipFile()
+        val rings: List<Ring> = if (!f.exists() || f.length() < 1024L) {
+            Log.i(TAG, "no ownership file at ${f.absolutePath} -- categories and use only, land PUBLIC")
+            emptyList()
+        } else try {
             loadRings(f)
+        } catch (e: OutOfMemoryError) {
+            Log.e(TAG, "ownership file too large for this heap -- categories and use only, land PUBLIC")
+            emptyList()
         } catch (e: Exception) {
-            Log.e(TAG, "ownership parse failed: ${e.javaClass.simpleName} ${e.message}")
-            return -1
+            Log.e(TAG, "ownership parse failed: ${e.javaClass.simpleName} ${e.message} -- land PUBLIC")
+            emptyList()
         }
-        if (rings.isEmpty()) {
-            Log.e(TAG, "ownership file carried no usable rings")
-            return -1
-        }
+        if (rings.isEmpty()) Log.w(TAG, "CATEGORYALWAYS: no usable ownership rings -- every trail's land is PUBLIC this pass")
 
         val grid = HashMap<Long, MutableList<Int>>()
         rings.forEachIndexed { i, r ->
@@ -252,6 +258,67 @@ object OwnershipReclass {
 
         Log.i(TAG, "step 8 complete: $n classified, $priv private, " +
             "in ${(System.currentTimeMillis() - started) / 1000}s")
+        return n
+    }
+
+    /**
+     * CATEGORYALWAYS-2026-10-10: the launch pass (StartupHousekeeping.jobCategories). Converts ONLY the rows that do
+     * not yet carry one of our categories, a use or a land answer -- the same category and use rules as run(), land
+     * kept where it exists and PUBLIC where it does not. A converted database costs one COUNT. Returns rows written,
+     * 0 when there was nothing to do, -1 on failure (nothing half-written: one transaction per store).
+     */
+    fun applyMissingCategories(sDb: SQLiteDatabase, eDb: SQLiteDatabase): Int {
+        val ours = TrailClassifier.CATEGORIES.joinToString(",") { "'" + it.replace("'", "") + "'" }
+        val pending = "carto_code IS NULL OR use_type IS NULL OR land_status IS NULL OR carto_code NOT IN ($ours)"
+        val todo = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE $pending", null)
+            .use { if (it.moveToFirst()) it.getInt(0) else 0 }
+        if (todo == 0) return 0
+        val started = System.currentTimeMillis()
+        val ids = ArrayList<String>(todo); val srcs = ArrayList<String>(todo); val lands = ArrayList<String?>(todo)
+        sDb.rawQuery("SELECT trail_id, COALESCE(NULLIF(TRIM(carto_code_source),''), carto_code), land_status " +
+            "FROM trails WHERE $pending", null).use { c ->
+            while (c.moveToNext()) {
+                ids.add(c.getString(0)); srcs.add(c.getString(1) ?: ""); lands.add(c.getString(2))
+            }
+        }
+        val useOf = HashMap<String, String>()
+        try {
+            eDb.rawQuery("SELECT trail_id, designated_uses FROM trail_properties " +
+                "WHERE designated_uses IS NOT NULL AND TRIM(designated_uses) <> ''", null).use { c ->
+                while (c.moveToNext()) useOf[c.getString(0)] = c.getString(1)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "CATEGORYALWAYS: designated_uses read failed: ${e.message}")
+        }
+        var n = 0
+        sDb.beginTransaction()
+        eDb.beginTransaction()
+        try {
+            val s1 = sDb.compileStatement(
+                "UPDATE trails SET carto_code_source=?, carto_code=?, land_status=?, use_type=? WHERE trail_id=?")
+            val s2 = eDb.compileStatement("UPDATE trail_properties SET carto_code=? WHERE trail_id=?")
+            for (i in ids.indices) {
+                val cat = TrailClassifier.categoryOf(srcs[i], useOf[ids[i]] ?: "")
+                s1.clearBindings()
+                s1.bindString(1, srcs[i]); s1.bindString(2, cat)
+                s1.bindString(3, lands[i]?.takeIf { it.isNotBlank() } ?: "PUBLIC")
+                s1.bindString(4, TrailClassifier.useOf(cat)); s1.bindString(5, ids[i])
+                s1.executeUpdateDelete()
+                s2.clearBindings(); s2.bindString(1, cat); s2.bindString(2, ids[i])
+                s2.executeUpdateDelete()
+                n++
+            }
+            sDb.setTransactionSuccessful()
+            eDb.setTransactionSuccessful()
+        } catch (e: Exception) {
+            Log.e(TAG, "CATEGORYALWAYS: launch pass failed: ${e.message}")
+            return -1
+        } finally {
+            eDb.endTransaction()
+            sDb.endTransaction()
+        }
+        Log.i(TAG, "CATEGORYALWAYS: launch pass converted $n of $todo trail(s) in " +
+            "${(System.currentTimeMillis() - started) / 1000}s")
         return n
     }
 

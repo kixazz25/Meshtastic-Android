@@ -60,6 +60,9 @@ object TrailClassifier {
 
     fun useOf(category: String): String = USE_OF[category] ?: MOTORIZED
 
+    /** CATEGORYALWAYS-2026-10-10: every category we write -- the launch pass converts any row not carrying one. */
+    val CATEGORIES: Set<String> get() = USE_OF.keys
+
     /**
      * The category, from what the source said.
      *
@@ -99,6 +102,10 @@ object TrailClassifier {
         if (u.startsWith("non-motorized")) return "hiking and biking"
         // ⚠ NOTHING WAS SAID about this way. It is in on shape alone.
         if (u.startsWith("unclassified unknown")) return "shape only"
+
+        // CATEGORYALWAYS-2026-10-10: a value ALREADY in our vocabulary is ours. Without this a second pass over a row
+        // with no designated_uses turned "shape only" (and every other category) into "unknown".
+        if (USE_OF.containsKey(c)) return c
 
         // ── UGRC's numbered vocabulary ──────────────────────────────────
         // ⭐ 4 (road-concurrent) is MOTORIZED: the trail shares a road

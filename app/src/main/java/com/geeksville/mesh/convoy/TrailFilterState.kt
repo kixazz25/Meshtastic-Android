@@ -257,7 +257,9 @@ object TrailFilterState {
             // ⚠ Categories are our own controlled vocabulary, not rider text,
             // so they cannot carry a quote. The apostrophe strip is belt and
             // braces: a category that somehow did would break the statement.
-            sb.append(" AND carto_code NOT IN (")
+            // CATEGORYALWAYS-2026-10-10: a NULL category compared with NOT IN is NULL, so the row was dropped under
+            // EVERY selection with anything off. A missing category now counts as "shape only".
+            sb.append(" AND COALESCE(carto_code,'shape only') NOT IN (")
             sb.append(cats.joinToString(",") { "'" + it.replace("'", "") + "'" })
             sb.append(")")
         }

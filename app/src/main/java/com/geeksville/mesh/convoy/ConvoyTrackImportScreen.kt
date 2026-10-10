@@ -214,6 +214,8 @@ fun ConvoyTrackImportScreen(
         // with inside stageAndList.
         stageAndList(uris)
     }
+    // FILEPICKNOTICE-2026-10-10: the panel before the picker -- both launches below go through it.
+    val pickNotice = rememberPickerNotice("to choose the track files you want to import", "files")
 
     // \u26a0 scanning starts FALSE -- there is nothing to scan any more.
     // STORAGECTX-2026-09-13: \u2b50 AND THE PICKER OPENS ITSELF. The entry panel
@@ -227,9 +229,9 @@ fun ConvoyTrackImportScreen(
         scanning = false
         if (!pickerOpened && files.isEmpty()) {
             pickerOpened = true
-            pickFiles.launch(arrayOf(
+            pickNotice.ask { pickFiles.launch(arrayOf(
                 "application/gpx+xml", "application/vnd.google-earth.kml+xml",
-                "application/octet-stream", "text/xml", "*/*"))
+                "application/octet-stream", "text/xml", "*/*")) }
         }
     }
 
@@ -568,9 +570,9 @@ fun ConvoyTrackImportScreen(
                             // \u26a0 GPX and KML are frequently reported as
                             // octet-stream, so the wildcard has to be there or
                             // the rider sees an empty picker.
-                            pickFiles.launch(arrayOf(
+                            pickNotice.ask { pickFiles.launch(arrayOf(
                                 "application/gpx+xml", "application/vnd.google-earth.kml+xml",
-                                "application/octet-stream", "text/xml", "*/*"))
+                                "application/octet-stream", "text/xml", "*/*")) }
                         },
                         shape = RoundedCornerShape(10.dp),
                         color = Color(0xFF1A3A1A)
