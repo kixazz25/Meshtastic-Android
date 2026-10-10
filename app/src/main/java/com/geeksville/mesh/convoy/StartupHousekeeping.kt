@@ -222,6 +222,9 @@ object StartupHousekeeping {
         // Every launch. Failure here is clutter, not a fault.
         jobManifestSweep(ctx)
 
+        // CATEGORYALWAYS-2026-10-10: every launch, no marker (rule 3) -- OUT when the next release is cut.
+        jobCategories(ctx)
+
         val ms = System.currentTimeMillis() - started
         Log.i(TAG, "=== HOUSEKEEPING DONE in ${ms}ms ===")
         return result
@@ -327,6 +330,27 @@ object StartupHousekeeping {
      * \u26a0 Failure is not worth aborting for: an un-swept manifest is clutter, not
      * a fault. \u26d4 Which is why it catches its own and returns quietly -- rule 6.
      */
+    /**
+     * CATEGORYALWAYS-2026-10-10 (Fred): PHASE 2, every launch, NO MARKER (rule 3 -- remove when the next release is
+     * cut). Gives every existing trail our category, its use and a land answer, so a tablet whose import skipped
+     * step 8 is fixed without a re-import. On a converted database it is one COUNT.
+     * \u26a0 After jobSchemaConverge: a schema clear empties the table first and this then has nothing to do.
+     */
+    private fun jobCategories(ctx: Context) {
+        try {
+            val s = SpatialDbManager.getSpatialDb() ?: return
+            val e = SpatialDbManager.getExtensionDb() ?: return
+            val n = OwnershipReclass.applyMissingCategories(s, e)
+            Log.i(TAG, "jobCategories: " + when {
+                n < 0 -> "failed (see OwnershipReclass)"
+                n == 0 -> "every trail already carries its category"
+                else -> "$n trail(s) given their category, use and land"
+            })
+        } catch (t: Throwable) {
+            Log.w(TAG, "jobCategories: ${t.javaClass.simpleName} ${t.message}")
+        }
+    }
+
     private fun jobManifestSweep(ctx: Context) {
         try {
             HomeStateImportController.sweepManifests(ctx)

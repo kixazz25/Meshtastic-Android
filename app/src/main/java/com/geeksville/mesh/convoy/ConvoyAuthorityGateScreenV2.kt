@@ -379,6 +379,9 @@ fun ConvoyAuthorityGateScreenV2(
         }
     }
 
+    // FILEPICKNOTICE-2026-10-10: the panel before the folder chooser.
+    val treeNotice = rememberPickerNotice("to choose the Documents folder and allow access", "folder")
+
     val pickTree = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()
     ) { uri: android.net.Uri? ->
@@ -706,7 +709,7 @@ fun ConvoyAuthorityGateScreenV2(
                                     "content://com.android.externalstorage.documents/" +
                                         "document/primary%3ADocuments")
                             } catch (e: Exception) { null }
-                            pickTree.launch(hint)
+                            treeNotice.ask { pickTree.launch(hint) }
                         }
                     }
                 }

@@ -561,7 +561,10 @@ object HomeStateImportController {
                 // ⭐ An EMPTY file makes OwnershipReclass.run() return -1 at its
                 // first check, which the caller ALREADY treats as a COMPLETED stage
                 // with zero records. No new path, no new sentinel.
-                val ownershipApplies = areaLabel.trim().equals("Utah", ignoreCase = true)
+                // CATEGORYALWAYS-2026-10-10: by the run's STATES, not its label. An area import is labelled
+                // "area-utah" or "area-N-states", so a box drawn over Utah never got Utah's land check.
+                val ownershipApplies = states.any { it.slug.equals("utah", ignoreCase = true) ||
+                    it.name.trim().equals("Utah", ignoreCase = true) }
                 if (!ownershipApplies && !ownFile.exists()) {
                     try {
                         ownFile.parentFile?.mkdirs()

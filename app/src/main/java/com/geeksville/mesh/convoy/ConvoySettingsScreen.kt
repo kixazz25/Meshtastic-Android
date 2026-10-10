@@ -197,6 +197,71 @@ fun ConvoySettingsScreen(
                 )
             }
 
+            // TRAILCHECK-2026-10-10 (Fred): why a trail does or does not show -- its rows in both databases walked through
+            // the map's own steps (zoom, view, Map Keys, cap, ALL/SELECT), as one JSON the rider emails. READ ONLY.
+            var tcOpen by remember { mutableStateOf(false) }
+            var tcInput by remember { mutableStateOf("") }
+            var tcBusy by remember { mutableStateOf(false) }
+            var tcResult by remember { mutableStateOf<org.json.JSONObject?>(null) }
+            val tcCtx = androidx.compose.ui.platform.LocalContext.current
+            val tcScope = rememberCoroutineScope()
+            ListItem(
+                headlineContent = { Text("Check a trail", style = MaterialTheme.typography.bodyLarge) },
+                supportingContent = { Text("Why a trail does or does not show on the map — a report you can email", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                modifier = Modifier.clickable { tcOpen = true; tcResult = null }
+            )
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            if (tcOpen) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { if (!tcBusy) { tcOpen = false; tcResult = null } },
+                    title = { Text("Check a trail") },
+                    text = {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            Text("First open the map on the spot where the trail should be — the check uses each map's last view.\n\n" +
+                                "Then enter the trail's Agency Id (from its detail panel on a tablet that shows it), its Id, or part of its name.",
+                                style = MaterialTheme.typography.bodySmall)
+                            Spacer(Modifier.height(8.dp))
+                            androidx.compose.material3.OutlinedTextField(
+                                value = tcInput, onValueChange = { tcInput = it; tcResult = null }, singleLine = true,
+                                label = { Text("Agency Id, Id or name") }, modifier = Modifier.fillMaxWidth())
+                            if (tcBusy) Text("Checking…", style = MaterialTheme.typography.bodySmall)
+                            tcResult?.let { r ->
+                                Spacer(Modifier.height(8.dp))
+                                Text(r.optString("verdict"), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        val r = tcResult
+                        if (r == null) {
+                            TextButton(enabled = !tcBusy && tcInput.isNotBlank(), onClick = {
+                                tcBusy = true
+                                tcScope.launch {
+                                    tcResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        try { TrailCheck.run(tcCtx, tcInput) }
+                                        catch (e: Exception) { org.json.JSONObject().put("verdict", "The check failed: " + e.message) }
+                                    }
+                                    tcBusy = false
+                                }
+                            }) { Text("CHECK") }
+                        } else {
+                            TextButton(onClick = {
+                                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "GroupTrack trail check: " + tcInput.trim())
+                                    putExtra(android.content.Intent.EXTRA_TEXT, r.toString(2))
+                                }
+                                tcCtx.startActivity(android.content.Intent.createChooser(send, "Send the trail check"))
+                            }) { Text("SEND") }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(enabled = !tcBusy, onClick = { tcOpen = false; tcResult = null }) { Text("CLOSE") }
+                    }
+                )
+            }
+
             SectionLabel("Your Profile")
             androidx.compose.material3.ListItem(
                 headlineContent = { Text("Edit rider profile", style = MaterialTheme.typography.bodyLarge) },
