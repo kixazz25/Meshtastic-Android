@@ -84,8 +84,16 @@ object ConvoyRideJsonWriter {
             .put("email", nul(ConvoyProfileStore.load()?.email?.takeIf { it.isNotBlank() }))
 
         // ---- network: the config the ride points at ---------------------------------------------
-        val cfg = r[9]?.let { ConvoyNetworkStore.load(it) }
-        val network: Any = if (cfg == null) {
+        // DEFAULTNET-2026-10-10: the GroupTrack default network is not a stored config -- its block IS
+        // grouptrack_default.json's network (channel GroupTrack, the default key), exactly what every radio carries.
+        val defaultNet: JSONObject? = if (r[9] == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL) try {
+            JSONObject(context.assets.open("grouptrack_default.json").bufferedReader().use { it.readText() })
+                .getJSONObject("network")
+        } catch (e: Exception) {
+            Log.e(TAG, "DEFAULTNET: grouptrack_default.json network unreadable: ${e.message}"); null
+        } else null
+        val cfg = if (defaultNet != null) null else r[9]?.let { ConvoyNetworkStore.load(it) }
+        val network: Any = if (defaultNet != null) defaultNet else if (cfg == null) {
             missing += "network"; JSONObject.NULL
         } else JSONObject()
             .put("id", cfg.configId)

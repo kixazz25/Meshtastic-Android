@@ -78,7 +78,17 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
     val last = remember(nodeNum, radioOn) { lastAppliedRide(ctx, nodeNum) }   // (rideId, title), or null
     val chosenNet = remember(chosen?.rideId) { chosen?.rideId?.let { ConvoyRideStore.rideForEdit(it)?.configId } }
     val lastNet = remember(last) { last?.first?.let { ConvoyRideStore.rideForEdit(it)?.configId } }
-    val needsSetup = chosen != null && radioOn && (lastNet == null || lastNet != chosenNet)
+    // DEFAULTNET-2026-10-10: a ride on the GroupTrack default network needs setup only if this radio was moved to
+    // another ride's network; a radio never applied (lastNet null) is on the default from install.
+    val onDefault = chosenNet == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL
+    val needsSetup = chosen != null && radioOn &&
+        (if (onDefault) (lastNet != null && lastNet != chosenNet) else (lastNet == null || lastNet != chosenNet))
+    // NORIDEDEFAULT-2026-10-10 (Fred): "No scheduled ride" uses the GroupTrack default config unless the rider asks
+    // otherwise. The radio is on the default if it was never applied (install) or last got the default / a default ride.
+    val radioOnDefault = last == null || lastNet == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL ||
+        (last.first == null && last.second == "GroupTrack default")
+    var keepRadioAsIs by remember { mutableStateOf(false) }
+    val noRideNeedsDefault = picked && chosen == null && radioOn && !radioOnDefault && !keepRadioAsIs
     val dim = Color(0xFF8899AA)
 
     AlertDialog(
@@ -124,6 +134,14 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
                     label = { Text("No scheduled ride") })
                 if (picked && chosen == null)
                     Text("A normal recording: no survey and no sharing \u2014 you name the track at the end.", color = dim, fontSize = 12.sp)
+                if (picked && chosen == null && radioOn && !radioOnDefault) {   // NORIDEDEFAULT-2026-10-10
+                    if (!keepRadioAsIs) Text("\u26A0 Your radio is set up for " + (last?.second ?: "another network") +
+                        " \u2014 it will be set back to the GroupTrack default when you check in.", color = Color(0xFFE8A33D), fontSize = 13.sp)
+                    Row {
+                        androidx.compose.material3.Checkbox(checked = keepRadioAsIs, onCheckedChange = { keepRadioAsIs = it })
+                        Text("Keep my radio as it is", modifier = Modifier.padding(top = 12.dp), fontSize = 13.sp)
+                    }
+                }
                 Spacer(Modifier.height(4.dp))   // CHECKINTIGHT-2026-09-29
                 OutlinedTextField(value = callsign, onValueChange = { callsign = it.take(39) }, singleLine = true,
                     modifier = Modifier.fillMaxWidth(), label = { Text("Callsign for this ride") })
@@ -179,7 +197,24 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
         },
         confirmButton = {
             TextButton(enabled = picked && callsign.isNotBlank() && radioOn && heldBy[role] == null /* HELDROLE-2026-09-29 */, onClick = {   // CHECKINRADIO: a radio is required
-                if (needsSetup) {
+                if (noRideNeedsDefault) {
+                    // NORIDEDEFAULT-2026-10-10: the radio back to the GroupTrack default FIRST (the configurator's own apply),
+                    // then check in with no ride -- or reopen with the choices kept if the setup fails.
+                    CheckInLauncher.pending = CheckInLauncher.Pending(null, callsign, role, false, "")
+                    RadioConfigLauncher.autoRideId = com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL
+                    RadioConfigLauncher.onAutoResult = { ok ->
+                        val p = CheckInLauncher.pending
+                        if (ok && p != null) {
+                            CheckInLauncher.pending = null
+                            ConvoyRideStore.checkIn(null, p.callsign, p.role)?.let { onDone(it, false) }
+                        } else {
+                            CheckInLauncher.pending = p?.copy(error = "The radio was not set back to the GroupTrack default \u2014 CHECK IN to try again, or tick Keep my radio as it is.")
+                            CheckInLauncher.showing.value = true
+                        }
+                    }
+                    onCancel()
+                    RadioConfigLauncher.open()
+                } else if (needsSetup) {
                     // CHECKINAPPLY-2026-09-28 (Fred): set the radio up for this ride FIRST (the configurator's own apply,
                     // straight away), then check in -- or reopen with the choices kept if the setup fails.
                     val c = chosen!!

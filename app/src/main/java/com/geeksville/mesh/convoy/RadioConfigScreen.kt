@@ -243,7 +243,10 @@ fun RadioConfigScreen(
     LaunchedEffect(targets) {
         val rid = RadioConfigLauncher.autoRideId ?: return@LaunchedEffect
         if (targets.isEmpty()) return@LaunchedEffect
-        val t = targets.firstOrNull { it.rideId == rid }
+        // NORIDEDEFAULT-2026-10-10: "GroupTrack" asks for the GroupTrack default target (it carries no ride id).
+        val t = if (rid == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL)
+            targets.firstOrNull { it.rideId == null && it.backup == null && it.name == "GroupTrack default" }
+        else targets.firstOrNull { it.rideId == rid }
         if (t == null) {
             addLog("CHECKINAPPLY: ride $rid not found on this tablet")
             val cb = RadioConfigLauncher.onAutoResult
@@ -253,7 +256,9 @@ fun RadioConfigScreen(
     }
     LaunchedEffect(phase) {
         if (RadioConfigLauncher.autoRideId == null) return@LaunchedEffect
-        if (phase == "PREVIEW" && chosen?.rideId == RadioConfigLauncher.autoRideId) apply()
+        val autoDefault = RadioConfigLauncher.autoRideId == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL &&
+            chosen?.rideId == null && chosen?.name == "GroupTrack default"   // NORIDEDEFAULT-2026-10-10
+        if (phase == "PREVIEW" && (chosen?.rideId == RadioConfigLauncher.autoRideId || autoDefault)) apply()
         if (phase == "RESULT") {
             val ok = (result as? WriteResult.Done)?.verified == true
             android.util.Log.i("RadioConfig", "CHECKINAPPLY: ride ${RadioConfigLauncher.autoRideId} applied, verified=$ok")
