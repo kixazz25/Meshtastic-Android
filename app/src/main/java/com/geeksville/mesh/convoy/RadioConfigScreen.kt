@@ -187,6 +187,7 @@ fun RadioConfigScreen(
     fun addLog(s: String) { android.util.Log.i("RadioConfig", s); log = log + s.removePrefix("RADIOWRITER: ") }
 
     fun choose(t: RadioTarget) {
+        if (phase == "APPLYING") return   // APPLYGUARD-2026-10-10: never re-prepared in the middle of an apply
         scope.launch {
             try {
                 val v = if (t.json != null) RadioConfigurator.fromRideFile(t.json, requireNotNull(defaultJson) { "default asset missing" }, radioCallsign.trim().ifEmpty { callsign })
@@ -196,7 +197,11 @@ fun RadioConfigScreen(
                 chosen = t; values = v; plan = RadioConfigurator.build(current, v)
                 drift = if (last != null) ConfigCompare.differences(last, current) else emptyList()
                 phase = "PREVIEW"
-            } catch (e: Exception) { message = "Cannot use this target: ${e.message}" }
+            } catch (e: Exception) {
+                // APPLYTRACE-2026-10-10: the WHOLE error into the log -- the message alone hid where it failed.
+                android.util.Log.e("RadioConfig", "APPLYTRACE: cannot use target '" + t.name + "'", e)
+                message = "Cannot use this target: ${e.message}"
+            }
         }
     }
 
@@ -243,6 +248,9 @@ fun RadioConfigScreen(
     LaunchedEffect(targets) {
         val rid = RadioConfigLauncher.autoRideId ?: return@LaunchedEffect
         if (targets.isEmpty()) return@LaunchedEffect
+        // APPLYGUARD-2026-10-10: only the FIRST target list may start the automatic apply. The list is rebuilt when
+        // the radio reconnects (its node id goes null and back during the apply's restart after group 1b).
+        if (phase != "PICK") return@LaunchedEffect
         // NORIDEDEFAULT-2026-10-10: "GroupTrack" asks for the GroupTrack default target (it carries no ride id).
         val t = if (rid == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL)
             targets.firstOrNull { it.rideId == null && it.backup == null && it.name == "GroupTrack default" }
