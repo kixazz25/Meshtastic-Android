@@ -132,6 +132,71 @@ fun ConvoySettingsScreen(
                 )
             }
 
+
+            // REMOVEALLTRAILS-2026-10-10 (Fred): every trail and its details, both databases, so a tablet whose
+            // trails will not show can import them again clean. Tracks, routes, waypoints and maps stay.
+            var trailClearAsk by remember { mutableStateOf(false) }
+            var trailClearBusy by remember { mutableStateOf(false) }
+            var trailClearDone by remember { mutableStateOf<String?>(null) }
+            val trailClearScope = rememberCoroutineScope()
+            ListItem(
+                headlineContent = { Text("Remove all trail data", style = MaterialTheme.typography.bodyLarge) },
+                supportingContent = { Text("Every trail and its details, so trails can be imported again clean. Tracks, routes, waypoints and maps stay.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                modifier = Modifier.clickable(enabled = !trailClearBusy) { trailClearAsk = true }
+            )
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            if (trailClearAsk) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { trailClearAsk = false },
+                    title = { Text("Remove all trail data?") },
+                    text = {
+                        Text("This deletes every trail on this tablet \u2014 state trails and rider trails \u2014 and their details.\n\n" +
+                            "Your tracks, routes, waypoints and downloaded maps are not touched.\n\n" +
+                            "Trails stay gone until you import them again: Import Trails by State, then ADD TRAILS FROM TRACKS.\n\n" +
+                            "This cannot be undone.",
+                            style = MaterialTheme.typography.bodyMedium)
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            trailClearAsk = false
+                            trailClearBusy = true
+                            trailClearScope.launch {
+                                val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    SpatialDbManager.clearAllTrailData()
+                                }
+                                if (r.trails > 0) RiderTrailWriter.trailsChanged.value = System.currentTimeMillis()  // the maps reload
+                                trailClearBusy = false
+                                trailClearDone = if (r.error == null) {
+                                    "Removed %,d trails and %,d trail details.\n\nNext: Import Trails by State for your states, then ADD TRAILS FROM TRACKS."
+                                        .format(r.trails, r.properties)
+                                } else {
+                                    "Removed %,d trails and %,d trail details, but not everything worked:\n%s\n\nRun Remove all trail data again before importing."
+                                        .format(r.trails, r.properties, r.error)
+                                }
+                            }
+                        }) { Text("REMOVE") }
+                    },
+                    dismissButton = { TextButton(onClick = { trailClearAsk = false }) { Text("CANCEL") } }
+                )
+            }
+            if (trailClearBusy) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { },
+                    confirmButton = { },
+                    title = { Text("Removing trail data\u2026") },
+                    text = { Text("This can take a minute on a tablet with many trails.", style = MaterialTheme.typography.bodyMedium) }
+                )
+            }
+            trailClearDone?.let { msg ->
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { trailClearDone = null },
+                    confirmButton = { TextButton(onClick = { trailClearDone = null }) { Text("OK") } },
+                    title = { Text("Trail data") },
+                    text = { Text(msg, style = MaterialTheme.typography.bodyMedium) }
+                )
+            }
+
             SectionLabel("Your Profile")
             androidx.compose.material3.ListItem(
                 headlineContent = { Text("Edit rider profile", style = MaterialTheme.typography.bodyLarge) },
