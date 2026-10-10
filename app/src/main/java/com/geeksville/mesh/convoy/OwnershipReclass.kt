@@ -418,30 +418,12 @@ object OwnershipReclass {
     private fun loadRings(f: File): List<Ring> {
         val out = ArrayList<Ring>(20000)
 
-        // OOMGUARD-2026-09-15: DO NOT READ A FILE THIS HEAP CANNOT HOLD.
-        // readText() decodes UTF-8 into a UTF-16 String, so the file DOUBLES,
-        // and StringBuilder growth asks for one contiguous block on the way
-        // there. Measured crash: a 78.7 MB file requesting a single 128 MB
-        // allocation against a 192 MB growth limit. Six of six new installs.
-        // Peak is estimated at 3x the file: 2x for the decode, plus a doubling
-        // step that briefly holds old and new buffers together.
-        // ⚠ Returning EMPTY is a supported outcome -- step 8 treats a missing
-        // ownership file as a DEGRADED run, not a failure. A rider gets a
-        // working map without ownership classification instead of no app.
-        val rt = Runtime.getRuntime()
-        val available = rt.maxMemory() - (rt.totalMemory() - rt.freeMemory())
-        val needed = f.length() * 3
-        if (needed > available / 2) {
-            android.util.Log.e(
-                "OwnershipReclass",
-                "OOMGUARD-2026-09-15: SKIPPING land-ownership reclass -- file is " +
-                    "${f.length() / 1048576} MB, estimated peak " +
-                    "${needed / 1048576} MB, heap can spare " +
-                    "${available / 1048576} MB. Trails keep their categories; " +
-                    "only ownership classification is skipped."
-            )
-            return out
-        }
+        // OWNERSHIPGUARD-2026-10-10: the OOMGUARD-2026-09-15 heap pre-check that stood here is REMOVED. It sized the
+        // read as 3x the file because readText() held it all; STREAMRINGS-2026-09-17 replaced that read with a stream
+        // and its note below says the pre-check was "GONE ON PURPOSE" -- but it never was. Measured on Droid 1 10-10:
+        // the download came down whole (78,700,909 bytes) and the guard refused it ("estimated peak 225 MB, heap can
+        // spare 125 MB"), so step 9 classified NOTHING on every tablet that fetched the file after it grew past ~72 MB.
+        // ⭐ The stream holds rings, not text. The OutOfMemoryError backstop in run() (CATEGORYALWAYS) stays.
 
         // STREAMRINGS-2026-09-17: STREAMED. Nothing is held as a String.
         // ⚠ The heap pre-check that used to sit above this line is GONE ON
