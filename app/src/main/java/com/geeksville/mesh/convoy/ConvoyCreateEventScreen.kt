@@ -290,9 +290,8 @@ fun ConvoyCreateEventScreen(
                             try {
                                 // Step 1 — read
                                 step = 1
-                                val nodeInfo = viewModel.myNodeInfo.value
-                                val hwId     = if (nodeInfo != null) "!%08x".format(nodeInfo.myNodeNum) else "unknown"
-                                val devId    = nodeInfo?.deviceId ?: ""
+                                val hwId     = viewModel.rideHardwareId()   // COMMIDENT-2026-10-09: through the Comm API
+                                val devId    = viewModel.rideDeviceId()
 
                                 // Step 2 — backup
                                 step = 2

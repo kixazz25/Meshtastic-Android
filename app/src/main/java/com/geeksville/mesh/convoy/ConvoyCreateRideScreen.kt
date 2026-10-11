@@ -271,9 +271,8 @@ fun ConvoyCreateRideScreen(
                             statusMsg = ""
                             try {
                                 step = 1
-                                val nodeInfo = viewModel?.myNodeInfo?.value
-                                val hwId = if (nodeInfo != null) "!%08x".format(nodeInfo.myNodeNum) else "unknown"
-                                val devId = nodeInfo?.deviceId ?: ""
+                                val hwId = viewModel?.rideHardwareId() ?: "unknown"   // COMMIDENT-2026-10-09: through the Comm API
+                                val devId = viewModel?.rideDeviceId() ?: ""
 
                                 step = 2
                                 val pskBytes = ByteArray(32)

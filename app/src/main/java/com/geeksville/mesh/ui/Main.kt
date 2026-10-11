@@ -631,8 +631,10 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             }
         }
         // GRPAWARE2-2026-09-28 (Fred): the panel, design v8 -- Meshtastic's own scanner inside, and the last apply.
-        val grpMyNode by uIViewModel.myNodeInfo.collectAsStateWithLifecycle()
-        androidx.compose.runtime.LaunchedEffect(grpMyNode) { com.geeksville.mesh.convoy.GrpAwarenessLauncher.myNodeNum.value = grpMyNode?.myNodeNum }   // CHECKINAPPLY-2026-09-28
+        // COMMIDENTMAIN-2026-10-11: THIS RADIO through the Comm API (CommIdentity via ConvoyViewModel.myDevice) -- was Meshtastic's
+        // UIViewModel.myNodeInfo. On the mesh the device id is the node number as text.
+        val grpMyNode by convoyViewModel.myDevice.collectAsStateWithLifecycle()
+        androidx.compose.runtime.LaunchedEffect(grpMyNode) { com.geeksville.mesh.convoy.GrpAwarenessLauncher.myNodeNum.value = grpMyNode?.id?.toIntOrNull() }   // CHECKINAPPLY-2026-09-28
         // RADIONAMES-2026-10-03: the Bluetooth address of the radio in use, for the radio name table (noted at connect)
         androidx.compose.runtime.LaunchedEffect(connectionState) {
             com.geeksville.mesh.convoy.GrpAwarenessLauncher.connectedAddress.value =
@@ -729,7 +731,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         }
         if (com.geeksville.mesh.convoy.GrpAwarenessLauncher.showing.value) {
             val grpLast = androidx.compose.runtime.remember(grpMyNode, connectionState) {
-                com.geeksville.mesh.convoy.lastAppliedLine(grpCtx, grpMyNode?.myNodeNum)
+                com.geeksville.mesh.convoy.lastAppliedLine(grpCtx, grpMyNode?.id?.toIntOrNull())
             }
             com.geeksville.mesh.convoy.GrpAwarenessPanel(
                 scanModel = scanModel,

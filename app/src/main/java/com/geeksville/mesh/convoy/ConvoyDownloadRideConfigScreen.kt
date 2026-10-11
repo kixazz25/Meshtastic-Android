@@ -251,8 +251,8 @@ fun ConvoyDownloadRideConfigScreen(
                         val event = ConvoyEventConfig.createFromMaster(
                             master           = masterConfig,
                             organizer        = organizer,
-                            hardwareId       = viewModel?.myNodeInfo?.value?.let { "!%08x".format(it.myNodeNum) } ?: "unknown",
-                            deviceId         = viewModel?.myNodeInfo?.value?.deviceId ?: "",
+                            hardwareId       = viewModel?.rideHardwareId() ?: "unknown",   // COMMIDENT-2026-10-09: through the Comm API
+                            deviceId         = viewModel?.rideDeviceId() ?: "",
                             eventName        = ride["name"] ?: "",
                             eventDate        = ride["date"] ?: "",
                             eventDescription = ride["location"] ?: "",

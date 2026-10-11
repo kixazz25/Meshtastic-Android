@@ -3168,7 +3168,7 @@ fun GroupHud(
         // the reliable fix. It is also the correct behaviour on its own terms — with a
         // single node there is nobody to broadcast to, so the interval is meaningless.
         // NOTE: node count infers radio presence rather than testing it. The direct signal
-        // is ConvoyViewModel.myNodeInfo != null (what ConvoyApplyRadioScreen uses). If
+        // is ConvoyViewModel.myDevice != null (COMMIDENT-2026-10-09; ConvoyApplyRadioScreen retired, RETIRE26). If
         // convoy state is ever populated without a radio (see simulationMode), guard
         // setGpsInterval too.
         if (false) { // GPSPANEL-2026-09-29: the slider is retired -- the GPS button's panel replaces it

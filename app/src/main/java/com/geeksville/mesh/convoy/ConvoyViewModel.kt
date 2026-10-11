@@ -9,7 +9,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import org.meshtastic.core.model.MyNodeInfo
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -53,6 +52,7 @@ class ConvoyViewModel @Inject constructor(
     private val radioController: org.meshtastic.core.model.RadioController, // RADIOCFG4-2026-09-25
     private val commMessaging: com.grouptrack.comm.CommMessaging, // COMMSEND-2026-10-08: TAK out through the Comm API
     private val commMenus: com.grouptrack.comm.CommMenus, // COMMMENUS-2026-10-08: Meshtastic menus opened by request
+    private val commIdentity: com.grouptrack.comm.CommIdentity, // COMMIDENT-2026-10-09: this radio through the Comm API
 ) : ViewModel() {
 
     private val _convoyState = MutableStateFlow(ConvoyEngine.ConvoyState.empty())
@@ -61,9 +61,17 @@ class ConvoyViewModel @Inject constructor(
     val rideState: StateFlow<RideState> = _rideState.asStateFlow()
     private val _activeRide = MutableStateFlow<ConvoyEventConfig?>(null)
     val activeRide: StateFlow<ConvoyEventConfig?> = _activeRide.asStateFlow()
-    private val _myNodeInfo = MutableStateFlow<MyNodeInfo?>(null)
-    val myNodeInfo: StateFlow<MyNodeInfo?> = _myNodeInfo.asStateFlow()
-    val ourNodeInfo: StateFlow<org.meshtastic.core.model.Node?> = nodeRepository.ourNodeInfo
+    // COMMIDENT-2026-10-09 (2.7b cycle 1 P1): THIS RADIO through the Comm API (CommIdentity) -- was Meshtastic's MyNodeInfo / Node.
+    // CODE RULE 1: null = no radio has reported yet (no radio, or waiting for the link) -- the phone-only state.
+    private val _myDevice = MutableStateFlow<com.grouptrack.comm.DeviceInfo?>(null)
+    val myDevice: StateFlow<com.grouptrack.comm.DeviceInfo?> = _myDevice.asStateFlow()
+    /** This radio's node number, while the tick still reads the radio's node list (cycle 3 retires it). On the mesh the
+     *  device id is the node number as text -- the same id the Comm API uses for members. */
+    private fun myRadioNum(): Int? = _myDevice.value?.id?.toIntOrNull()
+    /** The ride record's radio fields (V3 screens): hardwareId = "!xxxxxxxx" (the cart id form); deviceId = the hardware's
+     *  own id. "unknown" / "" with no radio -- as before. */
+    fun rideHardwareId(): String = myRadioNum()?.let { "!%08x".format(it) } ?: "unknown"
+    fun rideDeviceId(): String = _myDevice.value?.deviceId ?: ""
 
     private val _hudMode = MutableStateFlow(HudMode.GROUP)
     val hudMode: StateFlow<HudMode> = _hudMode.asStateFlow()
@@ -235,7 +243,7 @@ class ConvoyViewModel @Inject constructor(
         nodeLastComputedSpeed.clear()
 
         // IDENTITY: Set _myCartId ONCE — my radio node from Meshtastic, or !phone if no radio
-        val myNum = _myNodeInfo.value?.myNodeNum
+        val myNum = myRadioNum()   // COMMIDENT-2026-10-09
         _myCartId.value = if (myNum != null) "!%08x".format(myNum) else "!phone"
         val nodes = readLiveNodes(System.currentTimeMillis())
 
@@ -294,7 +302,7 @@ class ConvoyViewModel @Inject constructor(
     fun startRoleReports(rideRole: String) {
         // ROLECHANGE-2026-09-29 (Fred): every cart reports ONLY its own role. A rider who HELD a special role and now checks in (or
         // changes) as Rider RELEASES it: announced as HQ ("now Rider") so every tablet drops it. Riders otherwise never report.
-        val myNum = _myNodeInfo.value?.myNodeNum
+        val myNum = myRadioNum()   // COMMIDENT-2026-10-09
         // COMMRECV-2026-10-08: the ride role in the Comm API's terms (LEADER/MIDDLE/TAIL_GUNNER/RIDER); the mesh translator
         // maps it to TAK (TeamLead/RTO/ForwardObserver/HQ) -- the same 2.7a table.
         val role = when (rideRole) {
@@ -430,7 +438,9 @@ class ConvoyViewModel @Inject constructor(
     }
 
     // RADIOCFG4-2026-09-25: the radio configurator's links to the radio (RadioConfigWriter.RadioOps).
-    fun radioNodeNum(): Int? = nodeRepository.myNodeInfo.value?.myNodeNum
+    // COMMIDENT-2026-10-09: radioOps + installProfileToRadio keep their 3 nodeRepository.ourNodeInfo reads -- the radio-write
+    // adapter needs Meshtastic's User record; it moves behind the API as one piece when CommConfig is converted.
+    fun radioNodeNum(): Int? = myRadioNum()
 
     /** All values, as the app holds them after the latest (re)connect -- the same record exportProfileToFile saves. */
     suspend fun currentProfile(): DeviceProfile = radioConfigRepository.deviceProfileFlow.first()
@@ -517,7 +527,7 @@ class ConvoyViewModel @Inject constructor(
 
     private val _myCartId = MutableStateFlow("!phone")   // [2026-07-01] device-default (was ConvoySimulation.MY_CART_ID / HOTEL-10 sim ghost); radio overrides on connect via observer
     private fun resolveMyCartId(): String {
-        val num = nodeRepository.myNodeInfo.value?.myNodeNum
+        val num = myRadioNum()
         return if (num != null) "!%08x".format(num) else _myCartId.value
     }
     val myCartId: StateFlow<String> = _myCartId.asStateFlow()
@@ -571,9 +581,9 @@ class ConvoyViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            nodeRepository.myNodeInfo.collect { info ->
-                _myNodeInfo.value = info
-                val num = info?.myNodeNum
+            commIdentity.device.collect { d ->   // COMMIDENT-2026-10-09: this radio through the Comm API
+                _myDevice.value = d
+                val num = d?.id?.toIntOrNull()
                 // [2026-07-01] Event-driven identity: device-default, radio overrides on connect.
                 // Guard: never reassign identity mid-recording (record-lock).
                 if (!_trackActive.value) {
@@ -950,7 +960,7 @@ class ConvoyViewModel @Inject constructor(
         // table is written (once the radio's own record has arrived; until then, retried each tick).
         if (namesAtConnectPending && linkConnected) {
             val cNum = GrpAwarenessLauncher.myNodeNum.value
-            val cName = nodeRepository.ourNodeInfo.value?.user?.long_name
+            val cName = _myDevice.value?.name   // COMMIDENT-2026-10-09
             if (cNum != null && !cName.isNullOrBlank()) {
                 org.meshtastic.core.data.manager.RadioNameStore.put(cNum, cName, "radio at connect")
                 GrpAwarenessLauncher.connectedAddress.value?.let { org.meshtastic.core.data.manager.RadioNameStore.noteAddress(cNum, it) }
@@ -1313,7 +1323,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         // STALEREAD-2026-09-25 (Fred): drop stale nodes AT THE READ -- never build a cart only to eliminate it later.
         // A node not heard for 3 hours is not on the ride (phantoms from earlier / other channels); my own radio is
         // always kept.
-        val myNum = nodeRepository.myNodeInfo.value?.myNodeNum
+        val myNum = myRadioNum()
         val allNodes = nodeMap.values.mapNotNull { node ->
             // SLIDERREAD-2026-09-25 (Fred): the hours come from the Settings slider (admissionWindowHours).
             if (node.num != myNum && nowMs - node.lastHeard.toLong() * 1000L > admissionWindowHours * 3_600_000L) {

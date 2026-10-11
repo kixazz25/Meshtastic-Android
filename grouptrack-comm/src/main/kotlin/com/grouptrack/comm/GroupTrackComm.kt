@@ -30,7 +30,6 @@ package com.grouptrack.comm
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
-import org.json.JSONObject
 
 // ═════════════════════════════════ 0 · SETUP — the Group riding switch ═════════════════════════════════
 // Fred 10-03: the plugin is On/Off in Settings. The install question ("Do you have a radio to set up?") sets the
@@ -65,9 +64,13 @@ data class RadioEntry(val id: String, val name: String, val paired: Boolean,
                       /** CODE RULE 1: null = the transport cannot measure signal (IP; some scans). */
                       val signalDbm: Int?)
 
+/** id = the transport's id for this device -- the same form as member ids (mesh: the node number as text). */
 data class DeviceInfo(val id: String, val name: String,
                       /** CODE RULE 1: null = not reported by this device/transport. */
-                      val model: String?, val firmware: String?)
+                      val model: String?, val firmware: String?,
+                      /** COMMIDENT-2026-10-09 (additive): the hardware's own id (mesh: the radio's device id), carried into
+                       *  ride records. CODE RULE 1: null = not reported by this device/transport. */
+                      val deviceId: String?)
 
 /** A member as heard. Position fields null = that member has sent no fix (a real state on a mesh). */
 data class Member(
@@ -139,7 +142,9 @@ data class Capabilities(
     val deliverTak: Boolean, val receiveTak: Boolean,
 )
 
-data class CheckInRequest(val configDoc: JSONObject, val rideId: String, val callsign: String, val role: Role)
+/** COMMIDENT-2026-10-09 KMP GUARDRAIL (design v18 R8): configDoc is the config doc as JSON TEXT (was org.json.JSONObject,
+ *  which is Android-only). Changed before anything implements or calls it. */
+data class CheckInRequest(val configDoc: String, val rideId: String, val callsign: String, val role: Role)
 /** v0.3: one interval PER TRANSPORT + the stationary floor (§R5.3); all managed values, tunable from the field.
  *  CODE RULE 1: wifiIntervalSecs null = this implementation has no Wi-Fi path (bare radio). */
 data class ReportingRequest(
@@ -167,12 +172,16 @@ interface CommLink {
 interface CommIdentity {
     /** CODE RULE 1: null = the transport has not yet reported it (waiting for the link). */
     suspend fun myDevice(): DeviceInfo?                               // B7
+    /** COMMIDENT-2026-10-09 (additive): the same, as it changes (a radio connects, is renamed or swapped). Emits the current
+     *  value first. GroupTrack keeps the latest for screens and the tick. CODE RULE 1: null = as myDevice(). */
+    val device: Flow<DeviceInfo?>
 }
 
-/** C · CommConfig — the config doc says WHAT; the implementation decides HOW. Services C8–C11. */
+/** C · CommConfig — the config doc says WHAT; the implementation decides HOW. Services C8–C11.
+ *  COMMIDENT-2026-10-09: configDoc = the config doc as JSON text (KMP guardrail). */
 interface CommConfig {
-    suspend fun previewConfig(configDoc: JSONObject, callsign: String): Pair<List<ConfigChange>, CommResult>   // C8
-    suspend fun applyConfig(configDoc: JSONObject, callsign: String): CommResult                                // C9
+    suspend fun previewConfig(configDoc: String, callsign: String): Pair<List<ConfigChange>, CommResult>   // C8
+    suspend fun applyConfig(configDoc: String, callsign: String): CommResult                                // C9
     suspend fun savedConfigs(): List<SavedConfig>                                                               // C10
     suspend fun compareSaved(a: String, b: String): Pair<List<ConfigChange>, CommResult>                       // C10
     suspend fun restoreSaved(id: String): CommResult                                                            // C10 — returns a result (inventory: was fire-and-forget)
