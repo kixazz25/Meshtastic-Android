@@ -1,8 +1,8 @@
 ==============================================================================
 GROUPTRACK -- NAVIGATION CROSS-REFERENCE v2 (the click tree, for the user manual)
 ==============================================================================
-Generated: 2026-10-09 18:46   branch feature/convoy-event-ride @ c42fb2c07   files scanned: 186   composables: 260
-Clickables: 536   state-opened panels: 83   routes: 43
+Generated: 2026-10-11 07:32   branch feature/convoy-event-ride @ 607a47cb8   files scanned: 188   composables: 262
+Clickables: 546   state-opened panels: 84   routes: 43
 Each panel shows [file last commit date]: a screenshot whose build date is OLDER than that date needs a recapture.
 
 === 1. THE CLICK TREE (from each screen downward) ===
@@ -46,22 +46,22 @@ ConvoyScreen  [ConvoyScreen.kt:134 · 2026-10-09]
    ▸ “CANCEL”  (line 1570)
       → does: showLeadDialog = false
    ▸ “No scheduled ride”  (line 1582)
-      CheckInSheet  [ConvoyCheckIn.kt:51 · 2026-10-06]  ← opens (showCheckIn)
-         ▸ “All”  (line 103)
+      CheckInSheet  [ConvoyCheckIn.kt:51 · 2026-10-10]  ← opens (showCheckIn)
+         ▸ “All”  (line 113)
             → does: rideFilter = ""
-         ▸ “No rides on this tablet.”  (line 104)
+         ▸ “No rides on this tablet.”  (line 114)
             → does: rideFilter = o
-         ▸ “No scheduled ride”  (line 117)
+         ▸ “No scheduled ride”  (line 127)
             → does: chosen = r; picked = true; role = defaultRole(r)
-         ▸ “No scheduled ride”  (line 123)
+         ▸ “No scheduled ride”  (line 133)
             → does: chosen = null; picked = true
-         ▸ “⛔ ”  (line 136)
+         ▸ “⛔ ”  (line 154)
             → does: role = v
-         ▸ “CHOOSE ANOTHER ROLE”  (line 156)
+         ▸ “CHOOSE ANOTHER ROLE”  (line 174)
             → does: heldWarn = null
-         ▸ “OPEN GRP AWARENESS”  (line 167)
+         ▸ “OPEN GRP AWARENESS”  (line 185)
             → calls back ConvoyScreen  (onCancel → showCheckIn = false)
-         ▸ “CHECK IN”  (line 181)
+         ▸ “”  (line 199)
             TrailStylePanel  [TrailStylePanel.kt:56 · 2026-09-02]  ← opens (via ConvoyScreen.onDone)
                ▸ “✕”  (line 92)
                   → calls back MapKeysPanel  (onCancel → styling = null)
@@ -191,28 +191,28 @@ ConvoyScreen  [ConvoyScreen.kt:134 · 2026-10-09]
                SourceSelectCard  [ConvoyTrailSourceScreen.kt:568 · 2026-10-02]  ← part of this screen
                   ▸ “✅”  (line 571)
                      → calls back ConvoyTrailSourceScreen  (onClick → selectedSourceId = src.id)
-            ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:64 · 2026-10-02]  ← goes to (via ConvoyMapViewerScreen.onImport)
-               ▸ “Import Tracks from Downloads”  (line 380)
+            ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:64 · 2026-10-10]  ← goes to (via ConvoyMapViewerScreen.onImport)
+               ▸ “Import Tracks from Downloads”  (line 382)
                   → calls back MainScreen  (onDismiss → com.geeksville.mesh.convoy.RideImportLauncher.clear())
                   → calls back NAV HOST  (onDismiss → navController?.popBackStack())
-               ▸ “RESYNC TRACKS”  (line 406)
+               ▸ “RESYNC TRACKS”  (line 408)
                   SyncTracksDialog  [SyncTracksDialog.kt:35 · 2026-10-02]  ← opens (showSyncDialog)
-               ▸ “ADD TRAILS FROM TRACKS”  (line 439)
+               ▸ “ADD TRAILS FROM TRACKS”  (line 441)
                   RiderTrailsDialog  [RiderTrailsDialog.kt:36 · 2026-10-09]  ← opens (showRiderDialog)
                      ▸ “CLOSE”  (line 115)
                         → calls back ConvoyTrackImportScreen  (onClose → showRiderDialog = false)
-               ▸ “Delete the originals after copying”  (line 554)
+               ▸ “Delete the originals after copying”  (line 556)
                   → does: deleteOriginals = !deleteOriginals
-               ▸ “  SELECT FILES  ”  (line 567)
+               ▸ “  SELECT FILES  ”  (line 569)
                   → does: // \u26a0 GPX and KML are frequently reported as // octet-stream, so the wildcard has to be there or // the r…
-               ▸ “  Back to Map  ”  (line 586)
+               ▸ “  Back to Map  ”  (line 588)
                   → calls back MainScreen  (onDismiss → com.geeksville.mesh.convoy.RideImportLauncher.clear())
                   → calls back NAV HOST  (onDismiss → navController?.popBackStack())
-               ▸ “?”  (line 632)
+               ▸ “?”  (line 634)
                   → does: selected = if (checked) selected - file.name else selected + file.name
-               ▸ “Select All  (${selected.size} of ${files.size})”  (line 732)
+               ▸ “Select All  (${selected.size} of ${files.size})”  (line 734)
                   → does: selected = if (selected.size == files.size) emptySet() else files.map { it.name }.toSet()
-               ▸ “Select files to import”  (line 766)
+               ▸ “Select files to import”  (line 768)
                   ConvoyDownloadConfirm  [ConvoyDownloadConfirm.kt:40 · 2026-07-07]  ← opens (showSourcePopup)
                      ▸ “ → ”  (line 85)
                         → does: selectedSlots = if (checked) selectedSlots - slot.slotName else selectedSlots + slot.slotName
@@ -224,7 +224,7 @@ ConvoyScreen  [ConvoyScreen.kt:134 · 2026-10-09]
                         → calls back ConvoyTrackImportScreen  (onProceed → _, sel, replace -> selectedSlots = sel replaceExisting = replace showSourcePopu…)
          ▸ “IMPORT TRACKS,\nWAYPOINTS & ROUTES”  (line 254)
             ConvoyTrailSourceScreen  [ConvoyTrailSourceScreen.kt:63 · 2026-10-02]  ← goes to (via ConvoyMapViewerScreen.onImport)  (expanded above)
-            ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:64 · 2026-10-02]  ← goes to (via ConvoyMapViewerScreen.onImport)  (expanded above)
+            ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:64 · 2026-10-10]  ← goes to (via ConvoyMapViewerScreen.onImport)  (expanded above)
          ArtifactRow  [ConvoyArtifactsPanel.kt:421 · 2026-09-02]  ← part of this screen
             ▸ “OFF”  (line 463)
                → does: onSetState(typeName, 0)
@@ -331,7 +331,7 @@ ConvoyScreen  [ConvoyScreen.kt:134 · 2026-10-09]
                   ▸ “CLOSE”  (line 141)
                      → calls back ConvoyMapViewerScreen  (onClose → savedNotesRouteId = null)
                   ▸ “${s.lines.size}”  (line 173)
-                     → does: open = !open
+                     PickerBackPicture  [FilePickerNotice.kt:88 · 2026-10-10]  ← opens (open)
                   ▸ “?”  (line 258)
                      → does: action()
             ▸ “CREATE TRAILHEAD”  (line 2566)
@@ -584,7 +584,7 @@ ConfigReviewScreen  [ConfigReviewScreen.kt:65 · 2026-09-25]
       → does: compared = null; selected = null
 
 ### ROUTE ConvoyAuthorityGate
-ConvoyAuthorityGateScreenV2  [ConvoyAuthorityGateScreenV2.kt:239 · 2026-10-02]
+ConvoyAuthorityGateScreenV2  [ConvoyAuthorityGateScreenV2.kt:239 · 2026-10-10]
 
 ### ROUTE ConvoyBroadcast
 ConvoyBroadcastScreen  [ConvoyBroadcastScreen.kt:24 · 2026-10-02]
@@ -892,28 +892,28 @@ ConvoyProfileScreen  [ConvoyProfileScreen.kt:31 · 2026-10-02]  (expanded above)
 ConvoyReconnectWaitScreen  [ConvoyReconnectWaitScreen.kt:42 · 2026-09-25]  (expanded above)
 
 ### ROUTE ConvoyRideCreate
-ConvoyRideCreateScreen  [ConvoyRideCreateScreen.kt:61 · 2026-10-02]
-   ▸ “← BACK”  (line 193)
+ConvoyRideCreateScreen  [ConvoyRideCreateScreen.kt:61 · 2026-10-10]
+   ▸ “← BACK”  (line 197)
       → calls back RidesScreen  (onBack → editing = null)
       → calls back NAV HOST  (onBack → navController?.popBackStack())
-   ▸ “Network assigned: ”  (line 242)
-      → does: // EDITRIDE: a ride's network is not changed here newNetworkForRide = isNew if (isNew && rideNetwork == null)…
-   ▸ “No trailhead waypoint near this route's start. Describe where to meet — it goes at the top of the ride's description.”  (line 267)
+   ▸ “Network assigned: ”  (line 253)
+      → does: // EDITRIDE: a ride's network is not changed here useDefaultNetwork = opt == 0 newNetworkForRide = opt == 2 i…
+   ▸ “No trailhead waypoint near this route's start. Describe where to meet — it goes at the top of the ride's description.”  (line 284)
       → does: showDatePicker = true
-   ▸ “No routes yet — build one in the planner, or convert a track.”  (line 297)
+   ▸ “No routes yet — build one in the planner, or convert a track.”  (line 314)
       → does: trailhead = c
-   ▸ “›”  (line 316)
+   ▸ “›”  (line 333)
       → does: routeId = r.routeId; routeName = r.name; pickerOpen = false
-   ▸ “CHANGE ROUTE”  (line 339)
+   ▸ “CHANGE ROUTE”  (line 356)
       → does: android.widget.Toast.makeText(context, "A ride's route can't be changed. To use a " + "different route, delet…
-   ▸ “✗ Cannot save yet — a ride needs a name.”  (line 363)
+   ▸ “✗ Cannot save yet — a ride needs a name.”  (line 380)
       → calls back RidesScreen  (onRideCreated → editing = null; rides = loadRideLines(context))
       → calls back NAV HOST  (onRideCreated → navController?.popBackStack())
-   ▸ “CANCEL”  (line 429)
+   ▸ “CANCEL”  (line 447)
       → calls back RidesScreen  (onBack → editing = null)
       → calls back NAV HOST  (onBack → navController?.popBackStack())
-   RideDatePickerDialog  [ConvoyRideCreateScreen.kt:448 · 2026-10-02]  ← part of this screen
-      ▸ “OK”  (line 457)
+   RideDatePickerDialog  [ConvoyRideCreateScreen.kt:466 · 2026-10-10]  ← part of this screen
+      ▸ “OK”  (line 475)
          → calls back ConvoyRideCreateScreen  (onPick → rideDate = it; showDatePicker = false)
 
 ### ROUTE ConvoyRideDetail
@@ -939,16 +939,32 @@ ConvoySearchByAreaScreen  [ConvoySearchByAreaScreen.kt:38 · 2026-10-02]
       → calls back NAV HOST  (onBack → navController?.popBackStack())
 
 ### ROUTE ConvoySettings
-ConvoySettingsScreen  [ConvoySettingsScreen.kt:51 · 2026-10-07]
+ConvoySettingsScreen  [ConvoySettingsScreen.kt:51 · 2026-10-10]
    ▸ “CLOSE”  (line 104)
       → does: showConversionRecord = true
    ▸ “CLOSE”  (line 113)
       → does: showConversionRecord = false
    ▸ “SHARE”  (line 117)
       → does: val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply { type = "text/plain" putExtra(an…
-   ▸ “Change Map Sources”  (line 139)
+   ▸ “Remove all trail data?”  (line 145)
+      → does: trailClearAsk = true
+   ▸ “REMOVE”  (line 161)
+      → does: trailClearAsk = false trailClearBusy = true trailClearScope.launch { val r = kotlinx.coroutines.withContext(k…
+   ▸ “CANCEL”  (line 180)
+      → does: trailClearAsk = false
+   ▸ “OK”  (line 194)
+      → does: trailClearDone = null
+   ▸ “Check a trail”  (line 211)
+      → does: tcOpen = true; tcResult = null
+   ▸ “CHECK”  (line 238)
+      → does: tcBusy = true tcScope.launch { tcResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {…
+   ▸ “SEND”  (line 249)
+      → does: val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply { type = "text/plain" putExtra(an…
+   ▸ “CLOSE”  (line 260)
+      → does: tcOpen = false; tcResult = null
+   ▸ “Change Map Sources”  (line 269)
       ConvoyRiderProfileScreen  [ConvoyRiderProfileScreen.kt:62 · 2026-09-22]  ← goes to (via NAV HOST.onNavigateToProfile)  (expanded above)
-   ▸ “Signal Drop”  (line 148)
+   ▸ “Signal Drop”  (line 278)
       ConvoyMapSourceScreen  [ConvoyMapSourceScreen.kt:74 · 2026-08-11]  ← goes to (via NAV HOST.onNavigateToMapSources)  (expanded above)
 
 ### ROUTE ConvoySettingsPanel
@@ -974,12 +990,12 @@ ConvoyTermsScreen  [ConvoyTermsScreen.kt:17 · 2026-10-02]
    GroupTrackHeader  [GroupTrackTheme.kt:85 · 2026-10-02]  ← part of this screen  (expanded above)
 
 ### ROUTE ConvoyTrackImport
-ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:64 · 2026-10-02]  (expanded above)
+ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:64 · 2026-10-10]  (expanded above)
 
 ### ROUTE ConvoyTracks
 ConvoyTrackExportSheet  [ConvoyTrackExportSheet.kt:38 · 2026-10-02]
    ▸ “Import”  (line 93)
-      ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:64 · 2026-10-02]  ← goes to (via NAV HOST.onNavigateToTrackImport)  (expanded above)
+      ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:64 · 2026-10-10]  ← goes to (via NAV HOST.onNavigateToTrackImport)  (expanded above)
    ▸ “Fix Dates”  (line 105)
       → does: if (visibleTracks.isNotEmpty()) { scope.launch { statusMsg = "Fixing dates..." val result = ConvoyTrackOps.fi…
    ▸ “Date ↓”  (line 150)
@@ -1045,7 +1061,7 @@ ArtifactDetailPanel  [ArtifactDetailPanel.kt:35 · 2026-09-30]
    ▸ “Cancel”  (line 177)
       → does: showThPopup = false
    ▸ “CREATE ROUTE & RIDE”  (line 201)
-      ConvoyRideCreateScreen  [ConvoyRideCreateScreen.kt:61 · 2026-10-02]  ← goes to (via ConvoyScreen.onCreateRideFromTrack)  (expanded above)
+      ConvoyRideCreateScreen  [ConvoyRideCreateScreen.kt:61 · 2026-10-10]  ← goes to (via ConvoyScreen.onCreateRideFromTrack)  (expanded above)
    ▸ “Cancel”  (line 206)
       → does: showRideNameDialog = false
    ▸ “×”  (line 271)
@@ -1335,8 +1351,8 @@ HudModeRow  [ConvoyScreen.kt:3445 · 2026-10-09]
    ▸ “⚙”  (line 3501)
       → does: onNavigateToSettings()
 
-ImportRecapDialog  [ConvoyTrackImportScreen.kt:870 · 2026-10-02]
-   ▸ “DELETE FILES & CLOSE”  (line 890)
+ImportRecapDialog  [ConvoyTrackImportScreen.kt:872 · 2026-10-10]
+   ▸ “DELETE FILES & CLOSE”  (line 892)
       → calls back ConvoyTrackImportScreen  (onFilesDelete → scope.launch { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO…)
       → calls back MainScreen  (via ConvoyTrackImportScreen.onDismiss)
       → calls back NAV HOST  (via ConvoyTrackImportScreen.onDismiss)
@@ -1350,14 +1366,14 @@ MainScreen  [Main.kt:173 · 2026-10-05]
       ConvoySubMenu  [ConvoySubMenu.kt:47 · 2026-09-12]  ← opens (showConvoyMenu)  (expanded above)
       ConvoyServicesChooser  [ConvoyServicesChooser.kt:30 · 2026-10-02]  ← opens (showServicesChooser)  (expanded above)
       → goes to route  (route route)
-      ConvoyAuthorityGateScreenV2  [ConvoyAuthorityGateScreenV2.kt:239 · 2026-10-02]  ← goes to (route ConvoyAuthorityGate)  (expanded above)
+      ConvoyAuthorityGateScreenV2  [ConvoyAuthorityGateScreenV2.kt:239 · 2026-10-10]  ← goes to (route ConvoyAuthorityGate)  (expanded above)
    ▸ “Hide Mesh”  (line 545)
-      ConvoyAuthorityGateScreenV2  [ConvoyAuthorityGateScreenV2.kt:239 · 2026-10-02]  ← goes to (route ConvoyAuthorityGate)  (expanded above)
+      ConvoyAuthorityGateScreenV2  [ConvoyAuthorityGateScreenV2.kt:239 · 2026-10-10]  ← goes to (route ConvoyAuthorityGate)  (expanded above)
    ▸ “◀ BACK TO MAP”  (line 704)
       → does: navController.popBackStack()
    ▸ “OK”  (line 723)
       → does: com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false com.geeksville.mesh.convoy.GrpAwaren…
-   ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:64 · 2026-10-02]  ← part of this screen  (expanded above)
+   ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:64 · 2026-10-10]  ← part of this screen  (expanded above)
 
 MaintFieldRow  [ConvoyApplyListMaintenanceScreen.kt:253 · 2026-10-02]
    ▸ “LOCKED”  (line 258)
@@ -1389,14 +1405,14 @@ OsmImportPanel  [OsmImportPanel.kt:111 · 2026-08-30]
    ▸ “CANCEL”  (line 1071)
       → does: Log.i(PANEL_TAG, "CONFIRM -> CANCEL pressed") confirm = null
 
-RadioConfigScreen  [RadioConfigScreen.kt:136 · 2026-10-01]
-   ▸ “Apply ride to radio”  (line 267)
+RadioConfigScreen  [RadioConfigScreen.kt:136 · 2026-10-10]
+   ▸ “Apply ride to radio”  (line 280)
       → ⚠ no action found
-   ▸ “${chosen?.name}”  (line 291)
+   ▸ “${chosen?.name}”  (line 304)
       → does: choose(t)
-   ▸ “Back”  (line 310)
+   ▸ “Back”  (line 323)
       → does: apply()
-   ▸ “Back”  (line 311)
+   ▸ “Back”  (line 324)
       → does: phase = "PICK"
 
 ResultsBox  [UnifiedSearch.kt:262 · 2026-09-29]
@@ -1432,7 +1448,7 @@ RidesScreen  [RidesScreen.kt:100 · 2026-09-30]
       → does: val ok = ConvoyRideStore.deleteRide(context, r.id, "deleted by the rider") message = if (ok) "Deleted \u201c$…
    ▸ “Cancel”  (line 188)
       → does: confirmDelete = null
-   ConvoyRideCreateScreen  [ConvoyRideCreateScreen.kt:61 · 2026-10-02]  ← part of this screen  (expanded above)
+   ConvoyRideCreateScreen  [ConvoyRideCreateScreen.kt:61 · 2026-10-10]  ← part of this screen  (expanded above)
 
 SearchBlock  [ConvoyArtifactsPanel.kt:286 · 2026-09-02]
    ▸ “v”  (line 310)
@@ -1452,20 +1468,26 @@ TrailFilterPanel  [TrailFilterPanel.kt:57 · 2026-09-02]
       → does: TrailFilterState.setLand( if (includePrivate) "PUBLIC" else "ALL") changed()
    FilterColumn  [TrailFilterPanel.kt:130 · 2026-09-02]  ← part of this screen  (expanded above)
 
-WorkWithRidesMenu  [WorkWithRidesMenu.kt:50 · 2026-09-30]
-   ▸ “Choose the ride to send”  (line 94)
+WorkWithRidesMenu  [WorkWithRidesMenu.kt:50 · 2026-10-10]
+   ▸ “Choose the ride to send”  (line 96)
       → ⚠ no action found
-   ▸ “Choose the ride to send”  (line 94)
+   ▸ “Choose the ride to send”  (line 96)
       → ⚠ no action found
-   ▸ “Choose the ride to send”  (line 94)
+   ▸ “Choose the ride to send”  (line 96)
       → calls back MainScreen  (onDismiss → com.geeksville.mesh.convoy.WorkWithRidesLauncher.close())
       ConvoySettingsGate  [ConvoySettingsPanel.kt:60 · 2026-04-09]  ← goes to (via MainScreen.onDeveloperSettings)  (expanded above)
-   ▸ “No rides on this tablet yet. Create one from a route on the planning map.”  (line 109)
+   ▸ “No rides on this tablet yet. Create one from a route on the planning map.”  (line 111)
       → does: includeRecent = !includeRecent
 
-WwrEntry  [WorkWithRidesMenu.kt:149 · 2026-09-30]
-   ▸ “$label  (coming in 2.7)”  (line 155)
+WwrEntry  [WorkWithRidesMenu.kt:151 · 2026-10-10]
+   ▸ “$label  (coming in 2.7)”  (line 157)
       → does: onClick()
+
+rememberPickerNotice  [FilePickerNotice.kt:54 · 2026-10-10]
+   ▸ “CONTINUE”  (line 69)
+      → does: notice.pending = null; open()
+   ▸ “CANCEL”  (line 70)
+      → does: notice.pending = null
 
 === 2. PANELS AND SCREENS — source file and its last commit date ===
 2026-09-30  ArtifactDetailPanel                          app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:35  (14 clickables)
@@ -1494,7 +1516,7 @@ WwrEntry  [WorkWithRidesMenu.kt:149 · 2026-09-30]
 2026-10-08  TableButton                                  app/src/main/java/com/geeksville/mesh/convoy/ConvoyBatchGridPanel.kt:411  (1 clickables)
 2026-10-02  ConvoyBroadcastScreen                        app/src/main/java/com/geeksville/mesh/convoy/ConvoyBroadcastScreen.kt:24  (1 clickables)
 2026-10-02  BcastNavBtn                                  app/src/main/java/com/geeksville/mesh/convoy/ConvoyBroadcastScreen.kt:89  (1 clickables)
-2026-10-06  CheckInSheet                                 app/src/main/java/com/geeksville/mesh/convoy/ConvoyCheckIn.kt:51  (8 clickables)
+2026-10-10  CheckInSheet                                 app/src/main/java/com/geeksville/mesh/convoy/ConvoyCheckIn.kt:51  (8 clickables)
 2026-10-02  ConvoyCompletedRideDetailScreen              app/src/main/java/com/geeksville/mesh/convoy/ConvoyCompletedRideDetailScreen.kt:31  (7 clickables)
 2026-10-02  ConvoyCompletedRidesScreen                   app/src/main/java/com/geeksville/mesh/convoy/ConvoyCompletedRidesScreen.kt:46  (7 clickables)
 2026-10-02  FilterBar                                    app/src/main/java/com/geeksville/mesh/convoy/ConvoyCompletedRidesScreen.kt:290  (2 clickables)
@@ -1557,8 +1579,8 @@ WwrEntry  [WorkWithRidesMenu.kt:149 · 2026-09-30]
 2026-03-17  ConvoyConfigHeader                           app/src/main/java/com/geeksville/mesh/convoy/ConvoyRadioConfigScreens.kt:149  (1 clickables)
 2026-03-17  ConvoyWriteArchiveScreen                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyRadioConfigScreens.kt:181  (3 clickables)
 2026-09-25  ConvoyReconnectWaitScreen                    app/src/main/java/com/geeksville/mesh/convoy/ConvoyReconnectWaitScreen.kt:42  (1 clickables)
-2026-10-02  ConvoyRideCreateScreen                       app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideCreateScreen.kt:61  (8 clickables)
-2026-10-02  RideDatePickerDialog                         app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideCreateScreen.kt:448  (1 clickables)
+2026-10-10  ConvoyRideCreateScreen                       app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideCreateScreen.kt:61  (8 clickables)
+2026-10-10  RideDatePickerDialog                         app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideCreateScreen.kt:466  (1 clickables)
 2026-10-02  ConvoyRideDetailScreen                       app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt:33  (8 clickables)
 2026-10-02  EnrollmentTwistie                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt:421  (1 clickables)
 2026-10-02  EnrolleeRow                                  app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt:462  (1 clickables)
@@ -1581,7 +1603,7 @@ WwrEntry  [WorkWithRidesMenu.kt:149 · 2026-09-30]
 2026-10-02  ConvoyServicesChooser                        app/src/main/java/com/geeksville/mesh/convoy/ConvoyServicesChooser.kt:30  (3 clickables)
 2026-04-09  ConvoySettingsGate                           app/src/main/java/com/geeksville/mesh/convoy/ConvoySettingsPanel.kt:60  (2 clickables)
 2026-04-09  ConvoySettingsPanelScreen                    app/src/main/java/com/geeksville/mesh/convoy/ConvoySettingsPanel.kt:143  (4 clickables)
-2026-10-07  ConvoySettingsScreen                         app/src/main/java/com/geeksville/mesh/convoy/ConvoySettingsScreen.kt:51  (5 clickables)
+2026-10-10  ConvoySettingsScreen                         app/src/main/java/com/geeksville/mesh/convoy/ConvoySettingsScreen.kt:51  (13 clickables)
 2026-10-02  ConvoySignInScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConvoySignInScreen.kt:108  (3 clickables)
 2026-09-12  ConvoySubMenu                                app/src/main/java/com/geeksville/mesh/convoy/ConvoySubMenu.kt:47  (13 clickables)
 2026-09-12  SubMenuItem                                  app/src/main/java/com/geeksville/mesh/convoy/ConvoySubMenu.kt:393  (1 clickables)
@@ -1592,14 +1614,15 @@ WwrEntry  [WorkWithRidesMenu.kt:149 · 2026-09-30]
 2026-10-02  ConvoyTrackExportSheet                       app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackExportSheet.kt:38  (4 clickables)
 2026-10-02  FilterTab                                    app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackExportSheet.kt:284  (1 clickables)
 2026-10-02  TrackRow                                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackExportSheet.kt:300  (1 clickables)
-2026-10-02  ConvoyTrackImportScreen                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt:64  (9 clickables)
-2026-10-02  ImportRecapDialog                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt:870  (1 clickables)
+2026-10-10  ConvoyTrackImportScreen                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt:64  (9 clickables)
+2026-10-10  ImportRecapDialog                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt:872  (1 clickables)
 2026-10-02  ConvoyTracksScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConvoyTracksScreen.kt:14  (1 clickables)
 2026-10-02  ConvoyTrailSourceScreen                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrailSourceScreen.kt:63  (17 clickables)
 2026-10-02  MethodCard                                   app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrailSourceScreen.kt:552  (1 clickables)
 2026-10-02  SourceSelectCard                             app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrailSourceScreen.kt:568  (1 clickables)
 2026-10-02  ConvoyTransferRideScreen                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyTransferRideScreen.kt:29  (4 clickables)
 2026-10-02  ConvoyVerifyConfigScreen                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyVerifyConfigScreen.kt:33  (2 clickables)
+2026-10-10  rememberPickerNotice                         app/src/main/java/com/geeksville/mesh/convoy/FilePickerNotice.kt:54  (2 clickables)
 2026-10-02  GroupTrackHeader                             app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:85  (4 clickables)
 2026-10-02  DevMenuButton                                app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:180  (1 clickables)
 2026-10-02  GtNavBtn                                     app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:363  (1 clickables)
@@ -1612,7 +1635,7 @@ WwrEntry  [WorkWithRidesMenu.kt:149 · 2026-09-30]
 2026-10-02  KeyRow                                       app/src/main/java/com/geeksville/mesh/convoy/MapKeysPanel.kt:252  (1 clickables)
 2026-10-02  LandCheck                                    app/src/main/java/com/geeksville/mesh/convoy/MapKeysPanel.kt:309  (1 clickables)
 2026-08-30  OsmImportPanel                               app/src/main/java/com/geeksville/mesh/convoy/OsmImportPanel.kt:111  (10 clickables)
-2026-10-01  RadioConfigScreen                            app/src/main/java/com/geeksville/mesh/convoy/RadioConfigScreen.kt:136  (4 clickables)
+2026-10-10  RadioConfigScreen                            app/src/main/java/com/geeksville/mesh/convoy/RadioConfigScreen.kt:136  (4 clickables)
 2026-10-09  RiderTrailsDialog                            app/src/main/java/com/geeksville/mesh/convoy/RiderTrailsDialog.kt:36  (1 clickables)
 2026-09-30  RidesScreen                                  app/src/main/java/com/geeksville/mesh/convoy/RidesScreen.kt:100  (8 clickables)
 2026-09-02  TrailFilterPanel                             app/src/main/java/com/geeksville/mesh/convoy/TrailFilterPanel.kt:57  (2 clickables)
@@ -1624,8 +1647,8 @@ WwrEntry  [WorkWithRidesMenu.kt:149 · 2026-09-30]
 2026-09-29  SearchBar                                    app/src/main/java/com/geeksville/mesh/convoy/UnifiedSearch.kt:172  (2 clickables)
 2026-09-29  ResultsBox                                   app/src/main/java/com/geeksville/mesh/convoy/UnifiedSearch.kt:262  (2 clickables)
 2026-09-29  Fab                                          app/src/main/java/com/geeksville/mesh/convoy/UnifiedSearch.kt:336  (1 clickables)
-2026-09-30  WorkWithRidesMenu                            app/src/main/java/com/geeksville/mesh/convoy/WorkWithRidesMenu.kt:50  (4 clickables)
-2026-09-30  WwrEntry                                     app/src/main/java/com/geeksville/mesh/convoy/WorkWithRidesMenu.kt:149  (1 clickables)
+2026-10-10  WorkWithRidesMenu                            app/src/main/java/com/geeksville/mesh/convoy/WorkWithRidesMenu.kt:50  (4 clickables)
+2026-10-10  WwrEntry                                     app/src/main/java/com/geeksville/mesh/convoy/WorkWithRidesMenu.kt:151  (1 clickables)
 2026-10-05  MainScreen                                   app/src/main/java/com/geeksville/mesh/ui/Main.kt:173  (4 clickables)
 
 === 3. STATE FLAGS → PANELS THEY SHOW ===
@@ -1678,6 +1701,7 @@ onCreateRideFromTrack              → DetailActionButton
 onExport                           → DetailActionButton
 onShare                            → DetailActionButton
 onShowNotes                        → DetailActionButton
+open                               → PickerBackPicture
 organizer                          → CellLabel, CreateSectionLabel
 pendingDetailId                    → ArtifactDetailPanel
 phase                              → RangeRow
@@ -1809,14 +1833,14 @@ ConvoyBatchGridPanel.kt:265 | ConvoyBatchGridPanel | “Miles” | tableOpen = !
 ConvoyBatchGridPanel.kt:422 | TableButton | “?” | onClick()
 ConvoyBroadcastScreen.kt:68 | ConvoyBroadcastScreen | “SEND BROADCAST” | broadcastSent = true android.widget.Toast.makeText(context, "Broadcast queued — Phase C", android.widget.Toast.LENGTH_S…
 ConvoyBroadcastScreen.kt:92 | BcastNavBtn | “?” | onClick()
-ConvoyCheckIn.kt:103 | CheckInSheet | “All” | rideFilter = ""
-ConvoyCheckIn.kt:104 | CheckInSheet | “No rides on this tablet.” | rideFilter = o
-ConvoyCheckIn.kt:117 | CheckInSheet | “No scheduled ride” | chosen = r; picked = true; role = defaultRole(r)
-ConvoyCheckIn.kt:123 | CheckInSheet | “No scheduled ride” | chosen = null; picked = true
-ConvoyCheckIn.kt:136 | CheckInSheet | “⛔ ” | role = v
-ConvoyCheckIn.kt:156 | CheckInSheet | “CHOOSE ANOTHER ROLE” | heldWarn = null
-ConvoyCheckIn.kt:167 | CheckInSheet | “OPEN GRP AWARENESS” | onCancel(); GrpAwarenessLauncher.open()
-ConvoyCheckIn.kt:181 | CheckInSheet | “CHECK IN” | // CHECKINRADIO: a radio is required if (needsSetup) { // CHECKINAPPLY-2026-09-28 (Fred): set the radio up for this rid…
+ConvoyCheckIn.kt:113 | CheckInSheet | “All” | rideFilter = ""
+ConvoyCheckIn.kt:114 | CheckInSheet | “No rides on this tablet.” | rideFilter = o
+ConvoyCheckIn.kt:127 | CheckInSheet | “No scheduled ride” | chosen = r; picked = true; role = defaultRole(r)
+ConvoyCheckIn.kt:133 | CheckInSheet | “No scheduled ride” | chosen = null; picked = true
+ConvoyCheckIn.kt:154 | CheckInSheet | “⛔ ” | role = v
+ConvoyCheckIn.kt:174 | CheckInSheet | “CHOOSE ANOTHER ROLE” | heldWarn = null
+ConvoyCheckIn.kt:185 | CheckInSheet | “OPEN GRP AWARENESS” | onCancel(); GrpAwarenessLauncher.open()
+ConvoyCheckIn.kt:199 | CheckInSheet | “” | // CHECKINRADIO: a radio is required if (noRideNeedsDefault) { // NORIDEDEFAULT-2026-10-10: the radio back to the Group…
 ConvoyCompletedRideDetailScreen.kt:70 | ConvoyCompletedRideDetailScreen | “← BACK” | onBack()
 ConvoyCompletedRideDetailScreen.kt:121 | ConvoyCompletedRideDetailScreen | “POST-RIDE ACTIONS” | launchEmail(ride["email"] ?: "")
 ConvoyCompletedRideDetailScreen.kt:136 | ConvoyCompletedRideDetailScreen | “VIEW ON MAP” | onNavigateToMap()
@@ -2015,15 +2039,15 @@ ConvoyRadioConfigScreens.kt:257 | ConvoyWriteArchiveScreen | “ARCHIVE RADIO ST
 ConvoyRadioConfigScreens.kt:309 | ConvoyWriteArchiveScreen | “↺ RETRY ARCHIVE” | archiveFailed = false; archiveDone = false
 ConvoyRadioConfigScreens.kt:321 | ConvoyWriteArchiveScreen | “PROCEED TO DEVICE CONFIG →” | onProceed()
 ConvoyReconnectWaitScreen.kt:264 | ConvoyReconnectWaitScreen | “CANCEL” | onCancel()
-ConvoyRideCreateScreen.kt:193 | ConvoyRideCreateScreen | “← BACK” | onBack()
-ConvoyRideCreateScreen.kt:242 | ConvoyRideCreateScreen | “Network assigned: ” | // EDITRIDE: a ride's network is not changed here newNetworkForRide = isNew if (isNew && rideNetwork == null) rideNetwo…
-ConvoyRideCreateScreen.kt:267 | ConvoyRideCreateScreen | “No trailhead waypoint near this route's start. Describe where to meet — it goes at the top of the ride's description.” | showDatePicker = true
-ConvoyRideCreateScreen.kt:297 | ConvoyRideCreateScreen | “No routes yet — build one in the planner, or convert a track.” | trailhead = c
-ConvoyRideCreateScreen.kt:316 | ConvoyRideCreateScreen | “›” | routeId = r.routeId; routeName = r.name; pickerOpen = false
-ConvoyRideCreateScreen.kt:339 | ConvoyRideCreateScreen | “CHANGE ROUTE” | android.widget.Toast.makeText(context, "A ride's route can't be changed. To use a " + "different route, delete this rid…
-ConvoyRideCreateScreen.kt:363 | ConvoyRideCreateScreen | “✗ Cannot save yet — a ride needs a name.” | // SAVEWHY-2026-09-23: the high-visibility palette hides a disabled button, so Save // is always tappable and SAYS what…
-ConvoyRideCreateScreen.kt:429 | ConvoyRideCreateScreen | “CANCEL” | rideNetwork?.let { ConvoyNetworkStore.deleteUnused(it.configId) } // FORMLAYOUT-2026-09-27: no ghost network onBack()
-ConvoyRideCreateScreen.kt:457 | RideDatePickerDialog | “OK” | val ms = state.selectedDateMillis if (ms != null) { onPick(java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneOffs…
+ConvoyRideCreateScreen.kt:197 | ConvoyRideCreateScreen | “← BACK” | onBack()
+ConvoyRideCreateScreen.kt:253 | ConvoyRideCreateScreen | “Network assigned: ” | // EDITRIDE: a ride's network is not changed here useDefaultNetwork = opt == 0 newNetworkForRide = opt == 2 if (opt == …
+ConvoyRideCreateScreen.kt:284 | ConvoyRideCreateScreen | “No trailhead waypoint near this route's start. Describe where to meet — it goes at the top of the ride's description.” | showDatePicker = true
+ConvoyRideCreateScreen.kt:314 | ConvoyRideCreateScreen | “No routes yet — build one in the planner, or convert a track.” | trailhead = c
+ConvoyRideCreateScreen.kt:333 | ConvoyRideCreateScreen | “›” | routeId = r.routeId; routeName = r.name; pickerOpen = false
+ConvoyRideCreateScreen.kt:356 | ConvoyRideCreateScreen | “CHANGE ROUTE” | android.widget.Toast.makeText(context, "A ride's route can't be changed. To use a " + "different route, delete this rid…
+ConvoyRideCreateScreen.kt:380 | ConvoyRideCreateScreen | “✗ Cannot save yet — a ride needs a name.” | // SAVEWHY-2026-09-23: the high-visibility palette hides a disabled button, so Save // is always tappable and SAYS what…
+ConvoyRideCreateScreen.kt:447 | ConvoyRideCreateScreen | “CANCEL” | rideNetwork?.let { ConvoyNetworkStore.deleteUnused(it.configId) } // FORMLAYOUT-2026-09-27: no ghost network onBack()
+ConvoyRideCreateScreen.kt:475 | RideDatePickerDialog | “OK” | val ms = state.selectedDateMillis if (ms != null) { onPick(java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneOffs…
 ConvoyRideDetailScreen.kt:144 | ConvoyRideDetailScreen | “← BACK” | onBack()
 ConvoyRideDetailScreen.kt:180 | ConvoyRideDetailScreen | “CHANGE” | showChangeForm = !showChangeForm
 ConvoyRideDetailScreen.kt:206 | ConvoyRideDetailScreen | “FOLLOW” | launchEmail(orgEmail)
@@ -2129,8 +2153,16 @@ ConvoySettingsPanel.kt:229 | ConvoySettingsPanelScreen | “CAPTURE MASTER CONFI
 ConvoySettingsScreen.kt:104 | ConvoySettingsScreen | “CLOSE” | showConversionRecord = true
 ConvoySettingsScreen.kt:113 | ConvoySettingsScreen | “CLOSE” | showConversionRecord = false
 ConvoySettingsScreen.kt:117 | ConvoySettingsScreen | “SHARE” | val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply { type = "text/plain" putExtra(android.cont…
-ConvoySettingsScreen.kt:139 | ConvoySettingsScreen | “Change Map Sources” | onNavigateToProfile()
-ConvoySettingsScreen.kt:148 | ConvoySettingsScreen | “Signal Drop” | onNavigateToMapSources()
+ConvoySettingsScreen.kt:145 | ConvoySettingsScreen | “Remove all trail data?” | trailClearAsk = true
+ConvoySettingsScreen.kt:161 | ConvoySettingsScreen | “REMOVE” | trailClearAsk = false trailClearBusy = true trailClearScope.launch { val r = kotlinx.coroutines.withContext(kotlinx.cor…
+ConvoySettingsScreen.kt:180 | ConvoySettingsScreen | “CANCEL” | trailClearAsk = false
+ConvoySettingsScreen.kt:194 | ConvoySettingsScreen | “OK” | trailClearDone = null
+ConvoySettingsScreen.kt:211 | ConvoySettingsScreen | “Check a trail” | tcOpen = true; tcResult = null
+ConvoySettingsScreen.kt:238 | ConvoySettingsScreen | “CHECK” | tcBusy = true tcScope.launch { tcResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { try { Tra…
+ConvoySettingsScreen.kt:249 | ConvoySettingsScreen | “SEND” | val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply { type = "text/plain" putExtra(android.cont…
+ConvoySettingsScreen.kt:260 | ConvoySettingsScreen | “CLOSE” | tcOpen = false; tcResult = null
+ConvoySettingsScreen.kt:269 | ConvoySettingsScreen | “Change Map Sources” | onNavigateToProfile()
+ConvoySettingsScreen.kt:278 | ConvoySettingsScreen | “Signal Drop” | onNavigateToMapSources()
 ConvoySignInScreen.kt:258 | ConvoySignInScreen | “DEV SIGN IN (BYPASS GOOGLE)” | val uid = "dev-user-" + devEmail.hashCode().toString().takeLast(6) saveUserToPrefs(context, uid, "google-dev-$uid", dev…
 ConvoySignInScreen.kt:282 | ConvoySignInScreen | “Skip for now — ride tracking works without an account” | errorMessage = "" signInLauncher.launch(googleSignInClient.signInIntent)
 ConvoySignInScreen.kt:350 | ConvoySignInScreen | “🌱 SEEDED” | if (seeded) { ConvoyDevSeeder.clear(context); seeded = false } else { ConvoyDevSeeder.seed(context); seeded = true }
@@ -2162,16 +2194,16 @@ ConvoyTrackExportSheet.kt:150 | ConvoyTrackExportSheet | “Date ↓” | sortMo
 ConvoyTrackExportSheet.kt:195 | ConvoyTrackExportSheet | “Copied to Downloads” | actionTarget = f
 ConvoyTrackExportSheet.kt:287 | FilterTab | “?” | Text(label, color = if (selected) Color.White else Color(0xFF7A8DA0), fontSize = 11.sp, fontFamily = FontFamily.Monospa…
 ConvoyTrackExportSheet.kt:308 | TrackRow | “${dateFmt.format(Date(file.lastModified()))}    ${ConvoyTrackOps.formatSize(file.length())}” | Surface( modifier = Modifier.size(8.dp), shape = RoundedCornerShape(4.dp), color = if (isInProgress) Color(0xFFCC8800) …
-ConvoyTrackImportScreen.kt:380 | ConvoyTrackImportScreen | “Import Tracks from Downloads” | onDismiss()
-ConvoyTrackImportScreen.kt:406 | ConvoyTrackImportScreen | “RESYNC TRACKS” | // Open the visible sync control dialog (no silent inline run). syncLines = emptyList(); syncResult = null; showSyncDia…
-ConvoyTrackImportScreen.kt:439 | ConvoyTrackImportScreen | “ADD TRAILS FROM TRACKS” | riderStatus = ""; riderResult = null; showRiderDialog = true
-ConvoyTrackImportScreen.kt:554 | ConvoyTrackImportScreen | “Delete the originals after copying” | deleteOriginals = !deleteOriginals
-ConvoyTrackImportScreen.kt:567 | ConvoyTrackImportScreen | “  SELECT FILES  ” | // \u26a0 GPX and KML are frequently reported as // octet-stream, so the wildcard has to be there or // the rider sees …
-ConvoyTrackImportScreen.kt:586 | ConvoyTrackImportScreen | “  Back to Map  ” | onDismiss()
-ConvoyTrackImportScreen.kt:632 | ConvoyTrackImportScreen | “?” | selected = if (checked) selected - file.name else selected + file.name
-ConvoyTrackImportScreen.kt:732 | ConvoyTrackImportScreen | “Select All  (${selected.size} of ${files.size})” | selected = if (selected.size == files.size) emptySet() else files.map { it.name }.toSet()
-ConvoyTrackImportScreen.kt:766 | ConvoyTrackImportScreen | “Select files to import” | if (selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport()
-ConvoyTrackImportScreen.kt:890 | ImportRecapDialog | “DELETE FILES & CLOSE” | onFilesDelete(); onDismiss()
+ConvoyTrackImportScreen.kt:382 | ConvoyTrackImportScreen | “Import Tracks from Downloads” | onDismiss()
+ConvoyTrackImportScreen.kt:408 | ConvoyTrackImportScreen | “RESYNC TRACKS” | // Open the visible sync control dialog (no silent inline run). syncLines = emptyList(); syncResult = null; showSyncDia…
+ConvoyTrackImportScreen.kt:441 | ConvoyTrackImportScreen | “ADD TRAILS FROM TRACKS” | riderStatus = ""; riderResult = null; showRiderDialog = true
+ConvoyTrackImportScreen.kt:556 | ConvoyTrackImportScreen | “Delete the originals after copying” | deleteOriginals = !deleteOriginals
+ConvoyTrackImportScreen.kt:569 | ConvoyTrackImportScreen | “  SELECT FILES  ” | // \u26a0 GPX and KML are frequently reported as // octet-stream, so the wildcard has to be there or // the rider sees …
+ConvoyTrackImportScreen.kt:588 | ConvoyTrackImportScreen | “  Back to Map  ” | onDismiss()
+ConvoyTrackImportScreen.kt:634 | ConvoyTrackImportScreen | “?” | selected = if (checked) selected - file.name else selected + file.name
+ConvoyTrackImportScreen.kt:734 | ConvoyTrackImportScreen | “Select All  (${selected.size} of ${files.size})” | selected = if (selected.size == files.size) emptySet() else files.map { it.name }.toSet()
+ConvoyTrackImportScreen.kt:768 | ConvoyTrackImportScreen | “Select files to import” | if (selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport()
+ConvoyTrackImportScreen.kt:892 | ImportRecapDialog | “DELETE FILES & CLOSE” | onFilesDelete(); onDismiss()
 ConvoyTracksScreen.kt:21 | ConvoyTracksScreen | “← BACK” | onBack()
 ConvoyTrailSourceScreen.kt:120 | ConvoyTrailSourceScreen | “IMPORT FULL SOURCE” | when (step) { ImportStep.METHOD_SELECT -> onNavigateBack() ImportStep.A1_SOURCE_SELECT -> onNavigateBack() ImportStep.A…
 ConvoyTrailSourceScreen.kt:155 | ConvoyTrailSourceScreen | “BACK” | step = ImportStep.A1_SOURCE_SELECT
@@ -2198,6 +2230,8 @@ ConvoyTransferRideScreen.kt:216 | ConvoyTransferRideScreen | “CANCEL” | sele
 ConvoyTransferRideScreen.kt:234 | ConvoyTransferRideScreen | “CANCEL” | onBack()
 ConvoyVerifyConfigScreen.kt:215 | ConvoyVerifyConfigScreen | “VERIFY CONFIG” | onBack()
 ConvoyVerifyConfigScreen.kt:339 | ConvoyVerifyConfigScreen | “✓ DONE â RETURN TO CONVOY” | onDone()
+FilePickerNotice.kt:69 | rememberPickerNotice | “CONTINUE” | notice.pending = null; open()
+FilePickerNotice.kt:70 | rememberPickerNotice | “CANCEL” | notice.pending = null
 GroupTrackTheme.kt:98 | GroupTrackHeader | “grouptrack_logo” | androidx.compose.foundation.interaction.MutableInteractionSource()
 GroupTrackTheme.kt:101 | GroupTrackHeader | “grouptrack_logo” | 
 GroupTrackTheme.kt:102 | GroupTrackHeader | “grouptrack_logo” | if (ConvoyConfig.V3_FEATURES_ENABLED) showDevMenu = true
@@ -2231,10 +2265,10 @@ OsmImportPanel.kt:962 | OsmImportPanel | “Delete” | val s = slug!! val name 
 OsmImportPanel.kt:1033 | OsmImportPanel | “OK” | message = null
 OsmImportPanel.kt:1063 | OsmImportPanel | “CONTINUE” | Log.i(PANEL_TAG, "CONFIRM -> CONTINUE pressed") confirm = null action() Log.i(PANEL_TAG, "CONFIRM -> action() returned")
 OsmImportPanel.kt:1071 | OsmImportPanel | “CANCEL” | Log.i(PANEL_TAG, "CONFIRM -> CANCEL pressed") confirm = null
-RadioConfigScreen.kt:267 | RadioConfigScreen | “Apply ride to radio” | 
-RadioConfigScreen.kt:291 | RadioConfigScreen | “${chosen?.name}” | choose(t)
-RadioConfigScreen.kt:310 | RadioConfigScreen | “Back” | apply()
-RadioConfigScreen.kt:311 | RadioConfigScreen | “Back” | phase = "PICK"
+RadioConfigScreen.kt:280 | RadioConfigScreen | “Apply ride to radio” | 
+RadioConfigScreen.kt:304 | RadioConfigScreen | “${chosen?.name}” | choose(t)
+RadioConfigScreen.kt:323 | RadioConfigScreen | “Back” | apply()
+RadioConfigScreen.kt:324 | RadioConfigScreen | “Back” | phase = "PICK"
 RiderTrailsDialog.kt:115 | RiderTrailsDialog | “CLOSE” | if (!running) onClose()
 RidesScreen.kt:126 | RidesScreen | “Rides” | 
 RidesScreen.kt:135 | RidesScreen | “${r.date.ifBlank { ” | filter = f; selected = null; message = ""
@@ -2261,11 +2295,11 @@ UnifiedSearch.kt:215 | SearchBar | “?” | selMode = mode
 UnifiedSearch.kt:283 | ResultsBox | “no matches” | showResults = false
 UnifiedSearch.kt:298 | ResultsBox | “fitBounds([$s,$n],[$w,$e])” | showResults = false // SEARCHFIT-2026-09-02: ⭐ FRAME IT, THEN // open the card. Fred, 09-02: "we select the // returned…
 UnifiedSearch.kt:339 | Fab | “Search” | barOpen = !barOpen if (barOpen) showResults = false
-WorkWithRidesMenu.kt:94 | WorkWithRidesMenu | “Choose the ride to send” | 
-WorkWithRidesMenu.kt:94 | WorkWithRidesMenu | “Choose the ride to send” | 
-WorkWithRidesMenu.kt:94 | WorkWithRidesMenu | “Choose the ride to send” | onDismiss(); onDeveloperSettings()
-WorkWithRidesMenu.kt:109 | WorkWithRidesMenu | “No rides on this tablet yet. Create one from a route on the planning map.” | includeRecent = !includeRecent
-WorkWithRidesMenu.kt:155 | WwrEntry | “$label  (coming in 2.7)” | onClick()
+WorkWithRidesMenu.kt:96 | WorkWithRidesMenu | “Choose the ride to send” | 
+WorkWithRidesMenu.kt:96 | WorkWithRidesMenu | “Choose the ride to send” | 
+WorkWithRidesMenu.kt:96 | WorkWithRidesMenu | “Choose the ride to send” | onDismiss(); onDeveloperSettings()
+WorkWithRidesMenu.kt:111 | WorkWithRidesMenu | “No rides on this tablet yet. Create one from a route on the planning map.” | includeRecent = !includeRecent
+WorkWithRidesMenu.kt:157 | WwrEntry | “$label  (coming in 2.7)” | onClick()
 Main.kt:467 | MainScreen | “?” | val isRepress = destination == topLevelDestination if (isRepress) { when (destination) { TopLevelDestination.Nodes -> {…
 Main.kt:545 | MainScreen | “Hide Mesh” | MeshNavFold.setFolded(ctx, true) // HIDEMESH-2026-09-28 (Fred): Hide Mesh also RETURNS TO THE RIDE MAP -- the map tab's…
 Main.kt:704 | MainScreen | “◀ BACK TO MAP” | navController.popBackStack()
@@ -2282,8 +2316,8 @@ ConvoySubMenu.kt:220 | ConvoySubMenu | “Create Rides Unique Radio Config” |
 GroupTrackTheme.kt:101 | GroupTrackHeader | “grouptrack_logo” | 
 GroupTrackTheme.kt:114 | GroupTrackHeader | “DEV MENU” | 
 GroupTrackTheme.kt:395 | GtMenuLabel | “?” | 
-RadioConfigScreen.kt:267 | RadioConfigScreen | “Apply ride to radio” | 
+RadioConfigScreen.kt:280 | RadioConfigScreen | “Apply ride to radio” | 
 RidesScreen.kt:126 | RidesScreen | “Rides” | 
-WorkWithRidesMenu.kt:94 | WorkWithRidesMenu | “Choose the ride to send” | 
-WorkWithRidesMenu.kt:94 | WorkWithRidesMenu | “Choose the ride to send” | 
+WorkWithRidesMenu.kt:96 | WorkWithRidesMenu | “Choose the ride to send” | 
+WorkWithRidesMenu.kt:96 | WorkWithRidesMenu | “Choose the ride to send” | 
 (14 unresolved)
