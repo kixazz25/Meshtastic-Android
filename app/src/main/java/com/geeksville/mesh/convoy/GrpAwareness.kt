@@ -100,12 +100,7 @@ private fun hasInternet(ctx: Context): Boolean = try {
     cm?.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
 } catch (e: Exception) { false }
 
-/** GRPAWARE: remove Android's pairing with a radio. Android has no public "unpair", so this uses the hidden
- *  BluetoothDevice.removeBond(); false where Android refuses -- the caller then opens Bluetooth settings instead. */
-private fun forgetPairing(ctx: Context, mac: String): Boolean = try {
-    val dev = ctx.getSystemService(BluetoothManager::class.java)?.adapter?.getRemoteDevice(mac)
-    (dev?.javaClass?.getMethod("removeBond")?.invoke(dev) as? Boolean) == true
-} catch (e: Exception) { false }
+// COMMLINKREQ-2026-10-11: forgetPairing() moved to the comm side (MeshCommLink.forget).
 
 /** GRPAWARE-SYNC: the MACs Android currently has paired. Empty if Bluetooth is off or not permitted.
  *  ANDROID'S PAIRED LIST IS THE SOURCE OF TRUTH -- GroupTrack never shows or keeps a Bluetooth radio Android has not paired. */
@@ -187,6 +182,8 @@ fun GrpAwarenessPanel(
     connected: Boolean,
     lastApplied: String,   // lastAppliedLine(): "" no radio, "none" never applied, else "<ride> . <date>"
     onDisconnect: () -> Unit,
+    onConnect: (String) -> Unit,   // COMMLINKREQ-2026-10-11: a PAIRED radio, by its id, through the Comm API
+    onForget: (String, (Boolean) -> Unit) -> Unit,   // COMMLINKREQ-2026-10-11: true = forgotten; false = Android refused
     onLocalSettings: () -> Unit,
     onApplyRide: () -> Unit,
     onMeshtastic: () -> Unit,
@@ -261,7 +258,7 @@ fun GrpAwarenessPanel(
                                         Text(if (isBonded) device.address else "NEW TO THIS ANDROID \u00b7 " + device.address,
                                             color = if (isBonded) dim else Color(0xFFF2C14E), fontSize = 11.sp)
                                     }
-                                    TextButton(enabled = !busy, onClick = { scanModel.onSelected(target); message = "" }) {
+                                    TextButton(enabled = !busy, onClick = { if (isBonded) onConnect(target.fullAddress) else scanModel.onSelected(target); message = "" }) {   // COMMLINKREQ-2026-10-11: PAIR stays on the scanner until P2b
                                         Text(if (isBonded) "CONNECT" else "PAIR")
                                     }
                                     if (isBonded) TextButton(onClick = { forgetting = device }) { Text("FORGET", color = Color(0xFFF08C84)) }
@@ -305,10 +302,12 @@ fun GrpAwarenessPanel(
                 "reappears as new to this Android while the panel scans \u2014 PAIR it with the radio's PIN.") },
             confirmButton = { TextButton(onClick = {
                 if (r.fullAddress == selectedAddress) onDisconnect()
-                val ok = forgetPairing(ctx, r.address)
-                message = if (ok) radioLongName(r) + " is forgotten." else "Android needs you to do it: tap " + r.name + " \u2192 Forget, then come back."
-                if (ok) { forgottenMacs = forgottenMacs + r.address.uppercase(); bondTick++ }   // RELEASEF-2026-10-08 FORGETREFRESH
-                if (!ok) openBluetoothSettings(ctx)
+                val rName = radioLongName(r); val rBt = r.name; val rMac = r.address.uppercase()
+                onForget(r.fullAddress) { ok ->   // COMMLINKREQ-2026-10-11: the comm side forgets; GroupTrack says what happened
+                    message = if (ok) rName + " is forgotten." else "Android needs you to do it: tap " + rBt + " \u2192 Forget, then come back."
+                    if (ok) { forgottenMacs = forgottenMacs + rMac; bondTick++ }   // RELEASEF-2026-10-08 FORGETREFRESH
+                    if (!ok) openBluetoothSettings(ctx)
+                }
                 forgetting = null
             }) { Text("FORGET") } },
             dismissButton = { TextButton(onClick = { forgetting = null }) { Text("CANCEL") } },

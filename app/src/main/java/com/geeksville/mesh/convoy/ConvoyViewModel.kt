@@ -68,6 +68,16 @@ class ConvoyViewModel @Inject constructor(
     val myDevice: StateFlow<com.grouptrack.comm.DeviceInfo?> = _myDevice.asStateFlow()
     /** COMMLINK-2026-10-11 (2.7b P2.1): the radio link -- CONNECTED / CONNECTING / DISCONNECTED -- through the Comm API (CommLink). */
     val link: StateFlow<com.grouptrack.comm.Link> = commLink.link
+    /** COMMLINKREQ-2026-10-11 (2.7b P2.2): the rider's radio requests, through the Comm API. A request never waits for its outcome --
+     *  the link state shows it. forgetRadio reports back: true = forgotten; false = Android refused or not a pairing. */
+    fun connectRadio(radioId: String) { viewModelScope.launch { linkResult("connect", commLink.connect(radioId)) } }
+    fun disconnectRadio() { viewModelScope.launch { linkResult("disconnect", commLink.disconnect()) } }
+    fun forgetRadio(radioId: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch { val r = commLink.forget(radioId); linkResult("forget", r); onResult(r is com.grouptrack.comm.CommResult.Ok) }
+    }
+    private fun linkResult(what: String, r: com.grouptrack.comm.CommResult) {
+        android.util.Log.i("CommLink", "COMMLINKREQ-2026-10-11: $what -> $r")
+    }
     /** This radio's node number, while the tick still reads the radio's node list (cycle 3 retires it). On the mesh the
      *  device id is the node number as text -- the same id the Comm API uses for members. */
     private fun myRadioNum(): Int? = _myDevice.value?.id?.toIntOrNull()

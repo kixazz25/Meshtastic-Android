@@ -31,6 +31,8 @@ import javax.inject.Inject
  */
 class MeshCommLink @Inject constructor(
     serviceRepository: ServiceRepository,
+    private val radioController: org.meshtastic.core.model.RadioController,   // COMMLINKREQ-2026-10-11
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,   // COMMLINKREQ-2026-10-11
 ) : CommLink {
     // Held by the owner (ConvoyViewModel, application-long); Eagerly so the first read is the real state.
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -43,10 +45,31 @@ class MeshCommLink @Inject constructor(
     override val onBoxWifi: StateFlow<String?> = _onBoxWifi.asStateFlow()
 
     override suspend fun listRadios(): List<RadioEntry> = emptyList()           // P2b
-    override suspend fun connect(radioId: String): CommResult = CommResult.NotSupported   // P2.2
-    override suspend fun disconnect(): CommResult = CommResult.NotSupported             // P2.2
-    override suspend fun forget(radioId: String): CommResult = CommResult.NotSupported  // P2.2
-    override suspend fun reconnect(): CommResult = CommResult.NotSupported              // P2.2
+    // COMMLINKREQ-2026-10-11 (2.7b P2.2): the rider's requests. Each returns at once; the link state reports the outcome.
+    /** A PAIRED radio (radioId = Meshtastic's address, e.g. "x" + Bluetooth MAC). Pairing a NEW radio stays on the
+     *  scanner until the headless radio list (P2b) -- it needs the scanned radio itself. */
+    override suspend fun connect(radioId: String): CommResult {
+        if (radioId.isBlank() || radioId == "n") return CommResult.Failed("NO_RADIO_ID")
+        radioController.setDeviceAddress(radioId)
+        return CommResult.Ok
+    }
+    override suspend fun disconnect(): CommResult {
+        radioController.setDeviceAddress("n")   // Meshtastic's "no radio"
+        return CommResult.Ok
+    }
+    /** Removes Android's pairing with a Bluetooth radio. Android has no public "unpair": the hidden
+     *  BluetoothDevice.removeBond() is used (moved here from GroupTrack's GrpAwareness.forgetPairing). Android may refuse
+     *  -> Failed("FORGET_REFUSED"); GroupTrack then says so and opens Bluetooth settings. Only Bluetooth radios
+     *  ("x" + MAC) are Android pairings -> anything else is NotSupported. */
+    override suspend fun forget(radioId: String): CommResult {
+        if (!radioId.startsWith("x") || radioId.length < 2) return CommResult.NotSupported
+        val ok = try {
+            val dev = context.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.getRemoteDevice(radioId.substring(1))
+            (dev?.javaClass?.getMethod("removeBond")?.invoke(dev) as? Boolean) == true
+        } catch (e: Exception) { false }
+        return if (ok) CommResult.Ok else CommResult.Failed("FORGET_REFUSED")
+    }
+    override suspend fun reconnect(): CommResult = CommResult.NotSupported   // P2.3: keeping the link is the comm side's job (Fred 10-11)
 
     private fun toLink(s: ConnectionState): Link = when (s) {
         ConnectionState.Connected -> Link.CONNECTED

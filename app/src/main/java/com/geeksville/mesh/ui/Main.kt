@@ -741,7 +741,9 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 selectedAddress = grpSelected ?: "",
                 connected = grpLink == com.grouptrack.comm.Link.CONNECTED,   // COMMLINK-2026-10-11
                 lastApplied = grpLast,
-                onDisconnect = { scanModel.disconnect() },
+                onDisconnect = { convoyViewModel.disconnectRadio() },   // COMMLINKREQ-2026-10-11
+                onConnect = { id -> convoyViewModel.connectRadio(id) },   // COMMLINKREQ-2026-10-11
+                onForget = { id, done -> convoyViewModel.forgetRadio(id, done) },   // COMMLINKREQ-2026-10-11
                 onLocalSettings = {
                     com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()
                     settingsFromGrp = true   // SETTINGSBACK-2026-09-29: show BACK TO MAP on the Settings page
