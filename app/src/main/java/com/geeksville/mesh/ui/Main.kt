@@ -610,8 +610,10 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
 
         // GRPAWARE-2026-09-28 (Fred): GRP Awareness -- the label's state (connected; the pulse on every node-list update),
         // and the panel (callable from either map) with our own connection section on Meshtastic's scanner.
-        androidx.compose.runtime.LaunchedEffect(connectionState) {
-            com.geeksville.mesh.convoy.GrpAwarenessLauncher.connected.value = connectionState == ConnectionState.Connected
+        // COMMLINK-2026-10-11 (2.7b P2.1): GRP Awareness reads the radio link through the Comm API (was Meshtastic's connection state).
+        val grpLink by convoyViewModel.link.collectAsStateWithLifecycle()
+        androidx.compose.runtime.LaunchedEffect(grpLink) {
+            com.geeksville.mesh.convoy.GrpAwarenessLauncher.connected.value = grpLink == com.grouptrack.comm.Link.CONNECTED
         }
         val grpConvoy by convoyViewModel.convoyState.collectAsStateWithLifecycle()
         androidx.compose.runtime.LaunchedEffect(grpConvoy.nodes) { com.geeksville.mesh.convoy.GrpAwarenessLauncher.pulse() }
@@ -636,13 +638,13 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         val grpMyNode by convoyViewModel.myDevice.collectAsStateWithLifecycle()
         androidx.compose.runtime.LaunchedEffect(grpMyNode) { com.geeksville.mesh.convoy.GrpAwarenessLauncher.myNodeNum.value = grpMyNode?.id?.toIntOrNull() }   // CHECKINAPPLY-2026-09-28
         // RADIONAMES-2026-10-03: the Bluetooth address of the radio in use, for the radio name table (noted at connect)
-        androidx.compose.runtime.LaunchedEffect(connectionState) {
+        androidx.compose.runtime.LaunchedEffect(grpLink) {   // COMMLINK-2026-10-11
             com.geeksville.mesh.convoy.GrpAwarenessLauncher.connectedAddress.value =
                 scanModel.selectedAddressFlow.value?.takeIf { it.isNotBlank() && it != "n" }
         }
         // CHECKINCONNECT-2026-09-28 (Fred): CHK IN with no radio opened GRP Awareness -- once a radio connects, on to the check-in.
-        androidx.compose.runtime.LaunchedEffect(connectionState) {
-            if (connectionState == ConnectionState.Connected && com.geeksville.mesh.convoy.GrpAwarenessLauncher.thenCheckIn) {
+        androidx.compose.runtime.LaunchedEffect(grpLink) {   // COMMLINK-2026-10-11
+            if (grpLink == com.grouptrack.comm.Link.CONNECTED && com.geeksville.mesh.convoy.GrpAwarenessLauncher.thenCheckIn) {
                 com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()
                 com.geeksville.mesh.convoy.CheckInLauncher.showing.value = true
             }
@@ -668,14 +670,14 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 // LINKFIX2-2026-10-03 (Fred, Droid 2 log 20:49): never cut off a handshake (the first version did, 4 s in) -- and never
                 // wait forever on a stuck one ("always connecting, never connects"). A good handshake takes ~12 s:
                 // CONNECTING < 45 s -> leave it; >= 45 s -> stuck, reconnect. Otherwise act after 60 s not talking.
-                val linkState = uIViewModel.connectionState.value
+                val linkState = convoyViewModel.link.value   // COMMLINK-2026-10-11
                 // LINKHB-2026-10-05: any change of connection state or chosen radio restarts the clock (Droid 2 17:52: a manual
                 // CONNECT was cut 3 s in because the clock still ran from 17:11).
                 val linkSavedNow = scanModel.selectedAddressFlow.value
                 if (linkState != linkPrevState || linkSavedNow != linkPrevSaved) { linkNotTalkingSince = now; linkPrevState = linkState; linkPrevSaved = linkSavedNow }
-                if (linkState == ConnectionState.Connecting) { if (linkConnectingSince == 0L) linkConnectingSince = now } else linkConnectingSince = 0L
+                if (linkState == com.grouptrack.comm.Link.CONNECTING) { if (linkConnectingSince == 0L) linkConnectingSince = now } else linkConnectingSince = 0L
                 val linkStuck = linkConnectingSince != 0L && now - linkConnectingSince >= 45_000L
-                if (linkState == ConnectionState.Connecting && !linkStuck) continue
+                if (linkState == com.grouptrack.comm.Link.CONNECTING && !linkStuck) continue
                 if (linkNotTalkingSince == 0L) linkNotTalkingSince = now
                 val saved = scanModel.selectedAddressFlow.value
                 if (!link.needsRecovery.value || saved.isNullOrBlank() || saved == "n") continue
@@ -730,14 +732,14 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             }
         }
         if (com.geeksville.mesh.convoy.GrpAwarenessLauncher.showing.value) {
-            val grpLast = androidx.compose.runtime.remember(grpMyNode, connectionState) {
+            val grpLast = androidx.compose.runtime.remember(grpMyNode, grpLink) {   // COMMLINK-2026-10-11
                 com.geeksville.mesh.convoy.lastAppliedLine(grpCtx, grpMyNode?.id?.toIntOrNull())
             }
             com.geeksville.mesh.convoy.GrpAwarenessPanel(
                 scanModel = scanModel,
                 paired = grpRadiosBle + grpRadiosUsb,
                 selectedAddress = grpSelected ?: "",
-                connected = connectionState == ConnectionState.Connected,
+                connected = grpLink == com.grouptrack.comm.Link.CONNECTED,   // COMMLINK-2026-10-11
                 lastApplied = grpLast,
                 onDisconnect = { scanModel.disconnect() },
                 onLocalSettings = {

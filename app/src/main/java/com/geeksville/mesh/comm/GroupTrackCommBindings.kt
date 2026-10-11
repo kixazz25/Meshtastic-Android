@@ -1,6 +1,7 @@
 package com.geeksville.mesh.comm
 
 import com.grouptrack.comm.CommIdentity
+import com.grouptrack.comm.CommLink
 import com.grouptrack.comm.CommMenus
 import com.grouptrack.comm.CommMessaging
 import dagger.Binds
@@ -22,4 +23,6 @@ abstract class GroupTrackCommBindings {
     abstract fun menus(impl: MeshCommMenus): CommMenus   // COMMMENUS-2026-10-08
     @Binds
     abstract fun identity(impl: MeshCommIdentity): CommIdentity   // COMMIDENT-2026-10-09
+    @Binds
+    abstract fun link(impl: MeshCommLink): CommLink   // COMMLINK-2026-10-11
 }

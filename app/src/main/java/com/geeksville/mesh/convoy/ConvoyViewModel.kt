@@ -53,6 +53,7 @@ class ConvoyViewModel @Inject constructor(
     private val commMessaging: com.grouptrack.comm.CommMessaging, // COMMSEND-2026-10-08: TAK out through the Comm API
     private val commMenus: com.grouptrack.comm.CommMenus, // COMMMENUS-2026-10-08: Meshtastic menus opened by request
     private val commIdentity: com.grouptrack.comm.CommIdentity, // COMMIDENT-2026-10-09: this radio through the Comm API
+    private val commLink: com.grouptrack.comm.CommLink, // COMMLINK-2026-10-11: the radio link through the Comm API
 ) : ViewModel() {
 
     private val _convoyState = MutableStateFlow(ConvoyEngine.ConvoyState.empty())
@@ -65,6 +66,8 @@ class ConvoyViewModel @Inject constructor(
     // CODE RULE 1: null = no radio has reported yet (no radio, or waiting for the link) -- the phone-only state.
     private val _myDevice = MutableStateFlow<com.grouptrack.comm.DeviceInfo?>(null)
     val myDevice: StateFlow<com.grouptrack.comm.DeviceInfo?> = _myDevice.asStateFlow()
+    /** COMMLINK-2026-10-11 (2.7b P2.1): the radio link -- CONNECTED / CONNECTING / DISCONNECTED -- through the Comm API (CommLink). */
+    val link: StateFlow<com.grouptrack.comm.Link> = commLink.link
     /** This radio's node number, while the tick still reads the radio's node list (cycle 3 retires it). On the mesh the
      *  device id is the node number as text -- the same id the Comm API uses for members. */
     private fun myRadioNum(): Int? = _myDevice.value?.id?.toIntOrNull()
