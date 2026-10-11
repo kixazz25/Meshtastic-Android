@@ -7,15 +7,16 @@ import com.grouptrack.comm.CommMessaging
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
-import dagger.hilt.android.components.ViewModelComponent
+import dagger.hilt.components.SingletonComponent
 
 /**
  * COMMSEND-2026-10-08 -- THE ONE WIRING POINT (design §R6.1): each GroupTrack Comm API interface is bound to its mesh
  * implementation here, and nowhere else. A Nucleus/IP or Apple implementation replaces these bindings, not GroupTrack.
- * ViewModelComponent for now: the only user is ConvoyViewModel (widened when a non-ViewModel caller needs it).
+ * COMMSINGLE-2026-10-11 (Fred 10-11): SingletonComponent -- keeping the radio link alive is the comm side's job and runs for the
+ * life of the app (P2.3). Was ViewModelComponent (only ConvoyViewModel used it).
  */
 @Module
-@InstallIn(ViewModelComponent::class)
+@InstallIn(SingletonComponent::class)   // COMMSINGLE-2026-10-11
 abstract class GroupTrackCommBindings {
     @Binds
     abstract fun messaging(impl: MeshCommMessaging): CommMessaging

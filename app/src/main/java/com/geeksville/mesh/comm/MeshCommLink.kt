@@ -29,6 +29,7 @@ import javax.inject.Inject
  * until P2.2 implements them here; nothing calls them yet (Comm API rule R3: every call may answer NotSupported).
  * onBoxWifi: null = not on a box's Wi-Fi -- there is no Nucleus/IP implementation yet (CODE RULE 1: null documented).
  */
+@javax.inject.Singleton   // COMMSINGLE-2026-10-11: ONE link for the whole app (its state and, from P2.3b, the keep-alive)
 class MeshCommLink @Inject constructor(
     serviceRepository: ServiceRepository,
     private val radioController: org.meshtastic.core.model.RadioController,   // COMMLINKREQ-2026-10-11
