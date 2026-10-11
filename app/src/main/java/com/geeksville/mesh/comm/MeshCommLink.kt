@@ -3,6 +3,7 @@ package com.geeksville.mesh.comm
 import com.grouptrack.comm.CommLink
 import com.grouptrack.comm.CommResult
 import com.grouptrack.comm.Link
+import com.grouptrack.comm.LinkHealth   // COMMHEALTH-2026-10-11
 import com.grouptrack.comm.RadioEntry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.meshtastic.core.model.ConnectionState
 import org.meshtastic.core.repository.ServiceRepository
 import javax.inject.Inject
@@ -32,6 +35,8 @@ import javax.inject.Inject
 @javax.inject.Singleton   // COMMSINGLE-2026-10-11: ONE link for the whole app (its state and, from P2.3b, the keep-alive)
 class MeshCommLink @Inject constructor(
     serviceRepository: ServiceRepository,
+    private val nodeRepository: org.meshtastic.core.repository.NodeRepository,   // COMMHEALTH-2026-10-11: node-list traffic, my node number
+    private val radioInterfaceService: org.meshtastic.core.repository.RadioInterfaceService,   // COMMHEALTH-2026-10-11: the saved radio
     private val radioController: org.meshtastic.core.model.RadioController,   // COMMLINKREQ-2026-10-11
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,   // COMMLINKREQ-2026-10-11
 ) : CommLink {
@@ -71,6 +76,97 @@ class MeshCommLink @Inject constructor(
         return if (ok) CommResult.Ok else CommResult.Failed("FORGET_REFUSED")
     }
     override suspend fun reconnect(): CommResult = CommResult.NotSupported   // P2.3: keeping the link is the comm side's job (Fred 10-11)
+
+    // ---------------------------------------------------------------- COMMHEALTH-2026-10-11 (P2.3b-1, SHADOW)
+    // The keep-alive, computed HERE (the comm side's job, Fred 10-11) -- step 1 LOGS its decisions only (tag COMMHEALTH);
+    // GroupTrack's own heartbeat and recovery loop still act. Numbers copied from LINKFIX / LINKFIX2 / LINKHB unchanged.
+    private val _health = MutableStateFlow(LinkHealth(false, false, 0, "NOT_CONNECTED"))
+    override val health: StateFlow<LinkHealth> = _health.asStateFlow()
+
+    @Volatile private var hTrafficMs = 0L                  // last change of the radio's node list (= radio traffic)
+    private var hWasConnected = false
+    private var hConnectedAtMs = 0L                         // grace for the first report on a fresh connection
+    private var hConnectedThisSession = false
+    private var hAttempts = 0
+    private var hLastAttemptMs = 0L
+    private var hNotTalkingSinceMs = 0L
+    private var hConnectingSinceMs = 0L
+    private var hPrevState: Link? = null
+    private var hPrevSaved: String? = null
+
+    init {
+        scope.launch { nodeRepository.nodeDBbyNum.collect { hTrafficMs = System.currentTimeMillis() } }
+        scope.launch {
+            while (true) {
+                delay(5_000L)
+                try { healthStep() } catch (e: Exception) { android.util.Log.w("COMMHEALTH", "step failed: ${e.message}") }
+            }
+        }
+    }
+
+    private fun pairedMacs(): Set<String> = try {
+        context.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.bondedDevices
+            ?.map { it.address.uppercase() }?.toSet() ?: emptySet()
+    } catch (e: Exception) { emptySet() }
+
+    private fun healthStep() {
+        val now = System.currentTimeMillis()
+        val state = link.value
+        val connected = state == Link.CONNECTED
+        if (connected && !hWasConnected) { hTrafficMs = now; hConnectedAtMs = now; hConnectedThisSession = true }
+        hWasConnected = connected
+        val myNum = nodeRepository.myNodeInfo.value?.myNodeNum
+        val ownTakMs = myNum?.let { org.meshtastic.core.data.manager.TakSeenStore.lastFrom(it) }
+        val talking = connected && (if (ownTakMs != null) now - maxOf(ownTakMs, hConnectedAtMs) < 45_000L
+                                    else now - hTrafficMs < 120_000L)
+        val needsRecovery = !talking && hConnectedThisSession
+        val saved = radioInterfaceService.currentDeviceAddressFlow.value
+
+        // ghost sync (Main.kt GRPAWARE-SYNC): the saved Bluetooth radio is no longer paired in Android
+        var ghost = false
+        if (saved != null && saved.startsWith("x") && saved.length > 1) {
+            val paired = pairedMacs()
+            ghost = paired.isNotEmpty() && saved.substring(1).uppercase() !in paired
+            if (ghost) android.util.Log.i("COMMHEALTH", "WOULD clear ghost: saved radio $saved is not paired in Android")
+        }
+
+        // the recovery loop (Main.kt LINKFIX / LINKFIX2 / LINKHB), decisions only
+        var stuck = false
+        if (talking) {
+            if (hAttempts > 0) android.util.Log.i("COMMHEALTH", "radio talking again after $hAttempts reconnect(s)")
+            hAttempts = 0; hNotTalkingSinceMs = 0L; hConnectingSinceMs = 0L
+        } else {
+            if (state != hPrevState || saved != hPrevSaved) { hNotTalkingSinceMs = now; hPrevState = state; hPrevSaved = saved }
+            if (state == Link.CONNECTING) { if (hConnectingSinceMs == 0L) hConnectingSinceMs = now } else hConnectingSinceMs = 0L
+            stuck = hConnectingSinceMs != 0L && now - hConnectingSinceMs >= 45_000L
+            val waitConnecting = state == Link.CONNECTING && !stuck
+            if (!waitConnecting) {
+                if (hNotTalkingSinceMs == 0L) hNotTalkingSinceMs = now
+                val act = needsRecovery && !saved.isNullOrBlank() && saved != "n" &&
+                    (stuck || now - hNotTalkingSinceMs >= 20_000L) && now - hLastAttemptMs >= 45_000L
+                if (act) {
+                    if (stuck) { android.util.Log.i("COMMHEALTH", "connecting for ${(now - hConnectingSinceMs) / 1000} s -- stuck"); hConnectingSinceMs = 0L }
+                    if (hAttempts < 3 || now - hLastAttemptMs >= 120_000L) {
+                        hAttempts++; hLastAttemptMs = now
+                        android.util.Log.i("COMMHEALTH", "WOULD reconnect $hAttempts ($saved)")
+                    }
+                }
+            }
+        }
+        val reason = when {
+            talking -> null
+            ghost -> "RADIO_UNPAIRED"
+            stuck -> "CONNECT_TIMEOUT"
+            hAttempts >= 3 -> "RECOVERY_EXHAUSTED"
+            connected -> "RADIO_SILENT"
+            else -> "NOT_CONNECTED"
+        }
+        val h = LinkHealth(talking = talking, recovering = !talking && hAttempts > 0, attempts = hAttempts, reason = reason)
+        if (h != _health.value) {
+            android.util.Log.i("COMMHEALTH", "health: talking=${h.talking} recovering=${h.recovering} attempts=${h.attempts} reason=${h.reason} (link=$state own=${ownTakMs?.let { (now - it) / 1000 }}s traffic=${(now - hTrafficMs) / 1000}s)")
+            _health.value = h
+        }
+    }
 
     private fun toLink(s: ConnectionState): Link = when (s) {
         ConnectionState.Connected -> Link.CONNECTED

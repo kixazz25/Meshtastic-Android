@@ -989,6 +989,7 @@ class ConvoyViewModel @Inject constructor(
         val ownTakMs = hbNum?.let { commMessaging.lastReportFromMs(it.toString()) }   // COMMRECV-2026-10-08
         radioTalkingNow = linkConnected && (if (ownTakMs != null) nowMs - maxOf(ownTakMs, linkConnectedAtMs) < 45_000L
                                             else nowMs - lastRadioTrafficMs < LINK_SILENCE_MS)
+        if (GrpAwarenessLauncher.talking.value != radioTalkingNow) android.util.Log.i("LINKFIX", "talking -> $radioTalkingNow (tick)")   // COMMHEALTH-2026-10-11: compare with COMMHEALTH; removed in P2.3b-2
         GrpAwarenessLauncher.talking.value = radioTalkingNow
         // Automatic recovery only with a group to get back to, or no tablet GPS (the radio is then the only position).
         val othersInTick = _convoyState.value.nodes.any { !it.isMyCart }

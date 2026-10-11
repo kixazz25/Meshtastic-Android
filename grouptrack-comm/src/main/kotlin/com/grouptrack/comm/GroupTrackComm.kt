@@ -58,6 +58,11 @@ interface CommSetupStore {
 // ═════════════════════════════════ PLAIN DATA (R2) ═════════════════════════════════
 
 enum class Link { DISCONNECTED, CONNECTING, CONNECTED }
+/** COMMHEALTH-2026-10-11 (additive, Fred 10-11: keeping the link is the comm side's job; GroupTrack reports it).
+ *  talking = the radio is really passing traffic (not just "connected"). recovering = the comm side is reconnecting on
+ *  its own. attempts = reconnects since the radio last talked. reason -- CODE RULE 1: null = talking, nothing to say;
+ *  else NOT_CONNECTED · RADIO_SILENT · CONNECT_TIMEOUT · RECOVERY_EXHAUSTED · RADIO_UNPAIRED (GroupTrack owns the words). */
+data class LinkHealth(val talking: Boolean, val recovering: Boolean, val attempts: Int, val reason: String?)
 enum class Role { LEADER, MIDDLE, TAIL_GUNNER, RIDER }          // GroupTrack's roles; TAK mapping is Layer 1's
 
 data class RadioEntry(val id: String, val name: String, val paired: Boolean,
@@ -159,6 +164,7 @@ data class ReportingRequest(
 /** A · CommLink — connection. Services A1–A6. */
 interface CommLink {
     val link: StateFlow<Link>                                         // A1
+    val health: StateFlow<LinkHealth>                                 // A1b -- COMMHEALTH-2026-10-11
     /** v0.3: the box whose Wi-Fi this device is on; null = not on a box's Wi-Fi (no Wi-Fi path — LoRa only). */
     val onBoxWifi: StateFlow<String?>
     suspend fun listRadios(): List<RadioEntry>                        // A2 (empty + NotSupported cap. on IP)
