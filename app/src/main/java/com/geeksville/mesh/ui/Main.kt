@@ -621,17 +621,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         val grpRadiosBle by scanModel.bleDevicesForUi.collectAsStateWithLifecycle()
         val grpRadiosUsb by scanModel.usbDevicesForUi.collectAsStateWithLifecycle()
         val grpSelected by scanModel.selectedAddressFlow.collectAsStateWithLifecycle()
-        // GRPAWARE-SYNC (Fred): no ghosts -- if the saved Bluetooth radio is no longer paired in Android (FORGET, Android's
-        // settings, another app), the app is set to no radio, so it stops trying to reach it. Always on, every 5 s.
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            while (true) {
-                if (com.geeksville.mesh.convoy.isGhostSelection(grpCtx, scanModel.selectedAddressFlow.value)) {
-                    android.util.Log.i("GrpAwareness", "SYNC: saved radio ${scanModel.selectedAddressFlow.value} is no longer paired in Android -> no radio")
-                    scanModel.disconnect()
-                }
-                kotlinx.coroutines.delay(5000)
-            }
-        }
+        // COMMHEALTH2-2026-10-11: the ghost check (GRPAWARE-SYNC) moved to the comm side -- it clears a radio Android no longer has paired.
         // GRPAWARE2-2026-09-28 (Fred): the panel, design v8 -- Meshtastic's own scanner inside, and the last apply.
         // COMMIDENTMAIN-2026-10-11: THIS RADIO through the Comm API (CommIdentity via ConvoyViewModel.myDevice) -- was Meshtastic's
         // UIViewModel.myNodeInfo. On the mesh the device id is the node number as text.
@@ -649,54 +639,14 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 com.geeksville.mesh.convoy.CheckInLauncher.showing.value = true
             }
         }
-        // LINKFIX-2026-10-03 (Fred): the radio is not talking -> recover. Automatic only when other carts are in the tick array
-        // or the tablet has no GPS (otherwise this may be a real Android-only ride: the rider services the red button).
-        // Up to 3 disconnect -> reconnect cycles, 30 s apart; then ask for a power cycle. Talking again resets it all.
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            var linkAttempts = 0
-            var linkLastAttempt = 0L
-            var linkNotTalkingSince = 0L   // LINKFIX2-2026-10-03
-            var linkConnectingSince = 0L   // LINKFIX2-2026-10-03 (STUCK45)
-            var linkPrevState: Any? = null; var linkPrevSaved: String? = null   // LINKHB-2026-10-05
-            while (true) {
-                kotlinx.coroutines.delay(5000)
-                val link = com.geeksville.mesh.convoy.GrpAwarenessLauncher
-                if (link.talking.value) {
-                    if (linkAttempts > 0) android.util.Log.i("LINKFIX", "radio talking again after $linkAttempts reconnect(s)")
-                    linkAttempts = 0; link.powerCycle.value = false; link.powerCycleDismissed = false; linkNotTalkingSince = 0L; linkConnectingSince = 0L
-                    continue
-                }
-                val now = System.currentTimeMillis()
-                // LINKFIX2-2026-10-03 (Fred, Droid 2 log 20:49): never cut off a handshake (the first version did, 4 s in) -- and never
-                // wait forever on a stuck one ("always connecting, never connects"). A good handshake takes ~12 s:
-                // CONNECTING < 45 s -> leave it; >= 45 s -> stuck, reconnect. Otherwise act after 60 s not talking.
-                val linkState = convoyViewModel.link.value   // COMMLINK-2026-10-11
-                // LINKHB-2026-10-05: any change of connection state or chosen radio restarts the clock (Droid 2 17:52: a manual
-                // CONNECT was cut 3 s in because the clock still ran from 17:11).
-                val linkSavedNow = scanModel.selectedAddressFlow.value
-                if (linkState != linkPrevState || linkSavedNow != linkPrevSaved) { linkNotTalkingSince = now; linkPrevState = linkState; linkPrevSaved = linkSavedNow }
-                if (linkState == com.grouptrack.comm.Link.CONNECTING) { if (linkConnectingSince == 0L) linkConnectingSince = now } else linkConnectingSince = 0L
-                val linkStuck = linkConnectingSince != 0L && now - linkConnectingSince >= 45_000L
-                if (linkState == com.grouptrack.comm.Link.CONNECTING && !linkStuck) continue
-                if (linkNotTalkingSince == 0L) linkNotTalkingSince = now
-                val saved = scanModel.selectedAddressFlow.value
-                if (!link.needsRecovery.value || saved.isNullOrBlank() || saved == "n") continue
-                if (!linkStuck && now - linkNotTalkingSince < 20_000L) continue   // LINKHB-2026-10-05: the heartbeat already waited 45 s
-                if (now - linkLastAttempt < 45_000L) continue
-                if (linkStuck) { android.util.Log.i("LINKFIX", "connecting for ${(now - linkConnectingSince) / 1000} s -- stuck"); linkConnectingSince = 0L }
-                // LINKHB-2026-10-05: 3 tries 45 s apart, then every 2 minutes for as long as the radio stays silent (quietly);
-                // the banner only while riding with a group.
-                if (linkAttempts < 3 || now - linkLastAttempt >= 120_000L) {
-                    linkAttempts++; linkLastAttempt = now
-                    android.util.Log.i("LINKFIX", "radio not talking -> reconnect $linkAttempts ($saved)")
-                    uIViewModel.setDeviceAddress("n")
-                    kotlinx.coroutines.delay(1500)
-                    uIViewModel.setDeviceAddress(saved)
-                }
-                if (linkAttempts >= 3 && !link.powerCycleDismissed && link.ridingGroup.value) {
-                    link.powerCycle.value = true
-                }
-            }
+        // COMMHEALTH2-2026-10-11 (Fred 10-11): keeping the link is the COMM side's job -- the recovery loop (LINKFIX / LINKFIX2 / LINKHB) runs
+        // there, numbers unchanged. GroupTrack REPORTS it: the power-cycle banner shows once the comm side has made 3 tries
+        // (health.attempts >= 3) while riding with a group, unless dismissed; talking again clears it -- the same rule as before.
+        val grpHealth by convoyViewModel.health.collectAsStateWithLifecycle()
+        androidx.compose.runtime.LaunchedEffect(grpHealth, com.geeksville.mesh.convoy.GrpAwarenessLauncher.ridingGroup.value) {
+            val link = com.geeksville.mesh.convoy.GrpAwarenessLauncher
+            if (grpHealth.talking) { link.powerCycle.value = false; link.powerCycleDismissed = false }
+            else if (grpHealth.attempts >= 3 && !link.powerCycleDismissed && link.ridingGroup.value) link.powerCycle.value = true
         }
         // SETTINGSBACK-2026-09-29 (Fred): RADIO SETTINGS opens Meshtastic's Settings -- a top-level page with no back arrow.
         // While it is open from there, a BACK TO MAP button overlays it (the same as Android's back button).
@@ -740,6 +690,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 paired = grpRadiosBle + grpRadiosUsb,
                 selectedAddress = grpSelected ?: "",
                 connected = grpLink == com.grouptrack.comm.Link.CONNECTED,   // COMMLINK-2026-10-11
+                unpairedNote = grpHealth.reason == "RADIO_UNPAIRED",   // COMMHEALTH2-2026-10-11
                 lastApplied = grpLast,
                 onDisconnect = { convoyViewModel.disconnectRadio() },   // COMMLINKREQ-2026-10-11
                 onConnect = { id -> convoyViewModel.connectRadio(id) },   // COMMLINKREQ-2026-10-11

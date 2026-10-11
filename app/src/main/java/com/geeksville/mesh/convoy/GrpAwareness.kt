@@ -70,10 +70,8 @@ object GrpAwarenessLauncher {
     fun pulse() { pulseAt.value = System.currentTimeMillis() }
     /** CHECKINAPPLY-2026-09-28: the connected radio's node number (set from Main). CODE RULE 1: null = no radio. */
     val myNodeNum = mutableStateOf<Int?>(null)
-    /** LINKFIX-2026-10-03 (Fred): the radio is TALKING -- connected AND its node list changed recently. Set by the tick. */
+    /** LINKFIX-2026-10-03 (Fred): the radio is TALKING. COMMHEALTH2-2026-10-11: from the comm side's link health, set by the tick. */
     val talking = mutableStateOf(false)
-    /** LINKFIX-2026-10-03: not talking AND (other carts in the tick array OR no tablet GPS) -- Main.kt reconnects automatically. */
-    val needsRecovery = mutableStateOf(false)
     /** LINKFIX-2026-10-03: the automatic reconnects failed -- ask the rider to turn the radio off and on. */
     val powerCycle = mutableStateOf(false)
     var powerCycleDismissed = false
@@ -108,13 +106,7 @@ fun pairedMacs(ctx: Context): Set<String> = try {
     ctx.getSystemService(BluetoothManager::class.java)?.adapter?.bondedDevices?.map { it.address.uppercase() }?.toSet() ?: emptySet()
 } catch (e: Exception) { emptySet() }
 
-/** GRPAWARE-SYNC: true when the app's saved radio is a Bluetooth radio Android no longer has paired -- a ghost. */
-fun isGhostSelection(ctx: Context, selectedAddress: String?): Boolean {
-    val a = selectedAddress ?: return false
-    if (!a.startsWith("x") || a.length < 2) return false          // "x" = Bluetooth; USB/TCP are not Android pairings
-    val paired = pairedMacs(ctx)
-    return paired.isNotEmpty() && a.substring(1).uppercase() !in paired
-}
+// COMMHEALTH2-2026-10-11: the ghost check (isGhostSelection) moved to the comm side (MeshCommLink).
 
 private fun openBluetoothSettings(ctx: Context) {
     runCatching { ctx.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
@@ -180,6 +172,7 @@ fun GrpAwarenessPanel(
     paired: List<com.geeksville.mesh.model.DeviceListEntry>,   // the paired radios (their long names)
     selectedAddress: String,
     connected: Boolean,
+    unpairedNote: Boolean,   // COMMHEALTH2-2026-10-11: the comm side cleared a radio Android no longer has paired (RADIO_UNPAIRED)
     lastApplied: String,   // lastAppliedLine(): "" no radio, "none" never applied, else "<ride> . <date>"
     onDisconnect: () -> Unit,
     onConnect: (String) -> Unit,   // COMMLINKREQ-2026-10-11: a PAIRED radio, by its id, through the Comm API
@@ -217,6 +210,7 @@ fun GrpAwarenessPanel(
                 }
                 // CHECKINCONNECT-2026-09-28: opened by CHK IN with no radio
                 if (GrpAwarenessLauncher.thenCheckIn) Text("Connect your radio to check in.", color = Color(0xFFE8C27A), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                if (unpairedNote) Text("Your radio was forgotten by Android \u2014 PAIR it again.", color = Color(0xFFE8A33D), fontSize = 13.sp, fontWeight = FontWeight.Bold)   // COMMHEALTH2-2026-10-11
                 // CONNECTED TO -- empty when nothing is connected
                 Surface(shape = RoundedCornerShape(10.dp), color = if (busy) Color(0xFF0E2A1A) else Color(0xFF0D1A2C)) {
                     Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {

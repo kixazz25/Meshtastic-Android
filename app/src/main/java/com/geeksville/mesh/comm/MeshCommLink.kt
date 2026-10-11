@@ -75,11 +75,17 @@ class MeshCommLink @Inject constructor(
         } catch (e: Exception) { false }
         return if (ok) CommResult.Ok else CommResult.Failed("FORGET_REFUSED")
     }
-    override suspend fun reconnect(): CommResult = CommResult.NotSupported   // P2.3: keeping the link is the comm side's job (Fred 10-11)
+    /** COMMHEALTH2-2026-10-11: one reconnect attempt now (the keep-alive below runs its own; nothing calls this yet). */
+    override suspend fun reconnect(): CommResult {
+        val saved = radioInterfaceService.currentDeviceAddressFlow.value
+        if (saved.isNullOrBlank() || saved == "n") return CommResult.Failed("NO_RADIO_ID")
+        radioController.setDeviceAddress("n"); delay(1_500L); radioController.setDeviceAddress(saved)
+        return CommResult.Ok
+    }
 
     // ---------------------------------------------------------------- COMMHEALTH-2026-10-11 (P2.3b-1, SHADOW)
-    // The keep-alive, computed HERE (the comm side's job, Fred 10-11) -- step 1 LOGS its decisions only (tag COMMHEALTH);
-    // GroupTrack's own heartbeat and recovery loop still act. Numbers copied from LINKFIX / LINKFIX2 / LINKHB unchanged.
+    // The keep-alive, run HERE (the comm side's job, Fred 10-11). COMMHEALTH2-2026-10-11 (P2.3b-2): it ACTS -- GroupTrack's own heartbeat
+    // and recovery loop are removed; GroupTrack reads `health`. Numbers copied from LINKFIX / LINKFIX2 / LINKHB unchanged.
     private val _health = MutableStateFlow(LinkHealth(false, false, 0, "NOT_CONNECTED"))
     override val health: StateFlow<LinkHealth> = _health.asStateFlow()
 
@@ -93,6 +99,7 @@ class MeshCommLink @Inject constructor(
     private var hConnectingSinceMs = 0L
     private var hPrevState: Link? = null
     private var hPrevSaved: String? = null
+    private var hUnpaired = false                           // COMMHEALTH2-2026-10-11: the ghost check cleared the saved radio
 
     init {
         scope.launch { nodeRepository.nodeDBbyNum.collect { hTrafficMs = System.currentTimeMillis() } }
@@ -109,7 +116,7 @@ class MeshCommLink @Inject constructor(
             ?.map { it.address.uppercase() }?.toSet() ?: emptySet()
     } catch (e: Exception) { emptySet() }
 
-    private fun healthStep() {
+    private suspend fun healthStep() {   // COMMHEALTH2-2026-10-11: suspend -- the reconnect waits 1.5 s
         val now = System.currentTimeMillis()
         val state = link.value
         val connected = state == Link.CONNECTED
@@ -127,10 +134,15 @@ class MeshCommLink @Inject constructor(
         if (saved != null && saved.startsWith("x") && saved.length > 1) {
             val paired = pairedMacs()
             ghost = paired.isNotEmpty() && saved.substring(1).uppercase() !in paired
-            if (ghost) android.util.Log.i("COMMHEALTH", "WOULD clear ghost: saved radio $saved is not paired in Android")
+            if (ghost) {   // COMMHEALTH2-2026-10-11: acts (was Main.kt GRPAWARE-SYNC)
+                android.util.Log.i("COMMHEALTH", "ghost: saved radio $saved is not paired in Android -> no radio")
+                radioController.setDeviceAddress("n")
+                hUnpaired = true
+            }
         }
 
-        // the recovery loop (Main.kt LINKFIX / LINKFIX2 / LINKHB), decisions only
+        if (!ghost && !saved.isNullOrBlank() && saved != "n") hUnpaired = false   // another radio chosen
+        // the recovery loop (was Main.kt LINKFIX / LINKFIX2 / LINKHB) -- COMMHEALTH2-2026-10-11: acts
         var stuck = false
         if (talking) {
             if (hAttempts > 0) android.util.Log.i("COMMHEALTH", "radio talking again after $hAttempts reconnect(s)")
@@ -148,15 +160,19 @@ class MeshCommLink @Inject constructor(
                     if (stuck) { android.util.Log.i("COMMHEALTH", "connecting for ${(now - hConnectingSinceMs) / 1000} s -- stuck"); hConnectingSinceMs = 0L }
                     if (hAttempts < 3 || now - hLastAttemptMs >= 120_000L) {
                         hAttempts++; hLastAttemptMs = now
-                        android.util.Log.i("COMMHEALTH", "WOULD reconnect $hAttempts ($saved)")
+                        android.util.Log.i("COMMHEALTH", "radio not talking -> reconnect $hAttempts ($saved)")
+                        radioController.setDeviceAddress("n")
+                        delay(1_500L)
+                        radioController.setDeviceAddress(saved!!)   // act requires a saved radio (checked above)
                     }
                 }
             }
         }
         val reason = when {
             talking -> null
-            ghost -> "RADIO_UNPAIRED"
+            hUnpaired && !connected -> "RADIO_UNPAIRED"
             stuck -> "CONNECT_TIMEOUT"
+            state == Link.CONNECTING -> "CONNECTING"   // COMMHEALTH2-2026-10-11
             hAttempts >= 3 -> "RECOVERY_EXHAUSTED"
             connected -> "RADIO_SILENT"
             else -> "NOT_CONNECTED"

@@ -68,6 +68,8 @@ class ConvoyViewModel @Inject constructor(
     val myDevice: StateFlow<com.grouptrack.comm.DeviceInfo?> = _myDevice.asStateFlow()
     /** COMMLINK-2026-10-11 (2.7b P2.1): the radio link -- CONNECTED / CONNECTING / DISCONNECTED -- through the Comm API (CommLink). */
     val link: StateFlow<com.grouptrack.comm.Link> = commLink.link
+    /** COMMHEALTH2-2026-10-11: the link's health from the comm side (talking, recovering, attempts, reason). */
+    val health: StateFlow<com.grouptrack.comm.LinkHealth> = commLink.health
     /** COMMLINKREQ-2026-10-11 (2.7b P2.2): the rider's radio requests, through the Comm API. A request never waits for its outcome --
      *  the link state shows it. forgetRadio reports back: true = forgotten; false = Android refused or not a pairing. */
     fun connectRadio(radioId: String) { viewModelScope.launch { linkResult("connect", commLink.connect(radioId)) } }
@@ -130,16 +132,13 @@ class ConvoyViewModel @Inject constructor(
     // Active phone GPS for standalone (no radio) users
     @Volatile private var livePhoneLocation: android.location.Location? = null
     // LINKFIX-2026-10-03 (Fred, after the testers' field day): THE RADIO-LINK RULES.
-    // "Talking" = Android reports the radio connected AND the radio's node list changed within LINK_SILENCE_MS
+    // "Talking" = the radio is really passing traffic -- judged on the comm side since COMMHEALTH2-2026-10-11
     // (every report the radio passes on -- its own position, other carts' reports -- changes the list).
     // Not talking, at ANY moment -> Android-only mode: my cart at the tablet's GPS under the SAME cart id, the
-    // other carts held at their last tick position, GRP Awareness red. Recovery runs in Main.kt. Nothing is stored.
-    @Volatile private var lastRadioTrafficMs = 0L
+    // other carts held at their last tick position, GRP Awareness red. Nothing is stored.
+    // COMMHEALTH2-2026-10-11: "talking" and the recovery now come from the COMM side (CommLink.health) -- the heartbeat fields moved there.
     private var linkWasConnected = false
     private var radioTalkingNow = false
-    private val LINK_SILENCE_MS = 120_000L
-    private var linkConnectedAtMs = 0L            // LINKHB-2026-10-05: when the current connection began (grace for the first report)
-    private var radioConnectedThisSession = false // LINKHB-2026-10-05: a radio was connected on this tablet this session
     private var namesAtConnectPending = false   // RADIONAMES-2026-10-03: record the connected radio once its own record arrives
     private var phoneLocationListener: android.location.LocationListener? = null
 
@@ -606,10 +605,9 @@ class ConvoyViewModel @Inject constructor(
         }
         org.meshtastic.core.data.manager.RadioNameStore.load(appContext.filesDir)   // RADIONAMES-2026-10-03: the radio name table, before the first tick
         org.meshtastic.core.data.manager.RadioNameStore.mirrorDir = appContext.getExternalFilesDir(null)   // RADIONAMES2-2026-10-04: a pullable copy
-        // LINKFIX-2026-10-03: every change in the radio's node list is radio traffic.
+        // COMMHEALTH2-2026-10-11: the radio's node list (names below). The traffic signal moved to the comm side.
         viewModelScope.launch {
             nodeRepository.nodeDBbyNum.collect { db ->
-                lastRadioTrafficMs = System.currentTimeMillis()
                 // RADIONAMES2-2026-10-04 (Fred): WHILE CONNECTED the radio's own node list holds the CURRENT names (right the moment
                 // we connect, before any TAK broadcast) -> into the table, only on change, so they survive a disconnect.
                 // v4: the radio service's OWN state (no lag) -- the cached names that blink back on a disconnect never get in.
@@ -968,7 +966,7 @@ class ConvoyViewModel @Inject constructor(
         val nowMs = System.currentTimeMillis()
         // LINKFIX-2026-10-03: is the radio talking? (see the fields at livePhoneLocation)
         val linkConnected = GrpAwarenessLauncher.connected.value
-        if (linkConnected && !linkWasConnected) { lastRadioTrafficMs = nowMs; namesAtConnectPending = true; linkConnectedAtMs = nowMs; radioConnectedThisSession = true }   // a fresh connection gets its full grace
+        if (linkConnected && !linkWasConnected) namesAtConnectPending = true   // COMMHEALTH2-2026-10-11: the grace and traffic clock moved to the comm side
         // RADIONAMES-2026-10-03 (Fred): AT CONNECT -- the radio's own long name and its Bluetooth address go into the table, and the
         // table is written (once the radio's own record has arrived; until then, retried each tick).
         if (namesAtConnectPending && linkConnected) {
@@ -982,21 +980,12 @@ class ConvoyViewModel @Inject constructor(
             }
         }
         linkWasConnected = linkConnected
-        // LINKHB-2026-10-05 (Fred): the Bluetooth HAND-OFF heartbeat -- our own radio hands us its TAK report every ~15 s. No report
-        // from MY radio for 45 s = the hand-off has failed, any time. A radio that has never sent one (not yet TAK_TRACKER)
-        // is judged by the node-list signal as before. A fresh connection gets 45 s for its first report.
-        val hbNum = GrpAwarenessLauncher.myNodeNum.value
-        val ownTakMs = hbNum?.let { commMessaging.lastReportFromMs(it.toString()) }   // COMMRECV-2026-10-08
-        radioTalkingNow = linkConnected && (if (ownTakMs != null) nowMs - maxOf(ownTakMs, linkConnectedAtMs) < 45_000L
-                                            else nowMs - lastRadioTrafficMs < LINK_SILENCE_MS)
-        if (GrpAwarenessLauncher.talking.value != radioTalkingNow) android.util.Log.i("LINKFIX", "talking -> $radioTalkingNow (tick)")   // COMMHEALTH-2026-10-11: compare with COMMHEALTH; removed in P2.3b-2
+        // COMMHEALTH2-2026-10-11 (Fred 10-11): keeping the link is the comm side's job; GroupTrack reports it. talking = the comm side's
+        // health (the 45 s hand-off heartbeat, the 120 s traffic rule and the recovery run there, unchanged).
+        radioTalkingNow = commLink.health.value.talking
         GrpAwarenessLauncher.talking.value = radioTalkingNow
-        // Automatic recovery only with a group to get back to, or no tablet GPS (the radio is then the only position).
+        // The power-cycle banner only while riding with a group (other carts in the tick array) -- GroupTrack's fact.
         val othersInTick = _convoyState.value.nodes.any { !it.isMyCart }
-        val tabletHasGps = appContext.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LOCATION_GPS)
-        // LINKHB-2026-10-05 (Fred): reconnect whenever a radio was connected on this tablet this session -- GPS or not, group or not
-        // ("much better than losing the radio mid ride"). The banner only while riding with a group. tabletHasGps stays for the log.
-        GrpAwarenessLauncher.needsRecovery.value = !radioTalkingNow && radioConnectedThisSession
         GrpAwarenessLauncher.ridingGroup.value = othersInTick
         val nodes: List<ConvoyNode> = if (_simulationMode.value) {
             ConvoySimulation.tick(nowMs)
