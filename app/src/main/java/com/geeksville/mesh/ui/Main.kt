@@ -627,11 +627,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         // UIViewModel.myNodeInfo. On the mesh the device id is the node number as text.
         val grpMyNode by convoyViewModel.myDevice.collectAsStateWithLifecycle()
         androidx.compose.runtime.LaunchedEffect(grpMyNode) { com.geeksville.mesh.convoy.GrpAwarenessLauncher.myNodeNum.value = grpMyNode?.id?.toIntOrNull() }   // CHECKINAPPLY-2026-09-28
-        // RADIONAMES-2026-10-03: the Bluetooth address of the radio in use, for the radio name table (noted at connect)
-        androidx.compose.runtime.LaunchedEffect(grpLink) {   // COMMLINK-2026-10-11
-            com.geeksville.mesh.convoy.GrpAwarenessLauncher.connectedAddress.value =
-                scanModel.selectedAddressFlow.value?.takeIf { it.isNotBlank() && it != "n" }
-        }
+        // COMMNAMES-2026-10-11: the Bluetooth address of the radio in use is noted by the comm side at connect (name table).
         // CHECKINCONNECT-2026-09-28 (Fred): CHK IN with no radio opened GRP Awareness -- once a radio connects, on to the check-in.
         androidx.compose.runtime.LaunchedEffect(grpLink) {   // COMMLINK-2026-10-11
             if (grpLink == com.grouptrack.comm.Link.CONNECTED && com.geeksville.mesh.convoy.GrpAwarenessLauncher.thenCheckIn) {
@@ -691,6 +687,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 selectedAddress = grpSelected ?: "",
                 connected = grpLink == com.grouptrack.comm.Link.CONNECTED,   // COMMLINK-2026-10-11
                 unpairedNote = grpHealth.reason == "RADIO_UNPAIRED",   // COMMHEALTH2-2026-10-11
+                rememberedName = { addr, num, bt -> convoyViewModel.rememberedRadioName(addr, num, bt) },   // COMMNAMES-2026-10-11
                 lastApplied = grpLast,
                 onDisconnect = { convoyViewModel.disconnectRadio() },   // COMMLINKREQ-2026-10-11
                 onConnect = { id -> convoyViewModel.connectRadio(id) },   // COMMLINKREQ-2026-10-11

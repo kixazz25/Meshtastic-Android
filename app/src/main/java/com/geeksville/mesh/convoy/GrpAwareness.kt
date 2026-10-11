@@ -77,8 +77,6 @@ object GrpAwarenessLauncher {
     var powerCycleDismissed = false
     /** LINKHB-2026-10-05: other carts in the tick array -- the power-cycle banner only shows while riding with a group. */
     val ridingGroup = mutableStateOf(false)
-    /** RADIONAMES-2026-10-03: the Bluetooth address of the radio in use. CODE RULE 1: null = no radio selected. Set by Main.kt. */
-    val connectedAddress = mutableStateOf<String?>(null)
 }
 
 /** The label's colour: green / red by connection, brightening briefly on each pulse. */
@@ -113,11 +111,10 @@ private fun openBluetoothSettings(ctx: Context) {
 }
 
 /** GRPAWARE2: the radio's own name for itself (its long name), else the Bluetooth name until the radio is known. */
-fun radioLongName(d: com.geeksville.mesh.model.DeviceListEntry): String =
-    // RADIONAMES-2026-10-03 (Fred): the long name LAST USED from the radio name table first (by Bluetooth address, then node id)
-    d.fullAddress?.let { org.meshtastic.core.data.manager.RadioNameStore.nameForAddress(it) }
-        ?: d.node?.num?.let { org.meshtastic.core.data.manager.RadioNameStore.nameOf(it) }
-        ?: org.meshtastic.core.data.manager.RadioNameStore.nameForBluetoothName(d.name)   // RADIONAMES2-2026-10-04 v5: by the Bluetooth name's suffix
+// RADIONAMES-2026-10-03 (Fred): the long name LAST USED first. COMMNAMES-2026-10-11: the name table is the comm side's -- asked through
+// [remembered] (ConvoyViewModel.rememberedRadioName -> CommLink.radioName).
+fun radioLongName(d: com.geeksville.mesh.model.DeviceListEntry, remembered: (String, Int?, String) -> String?): String =
+    remembered(d.fullAddress, d.node?.num, d.name)
         ?: d.node?.user?.long_name?.takeIf { it.isNotBlank() } ?: d.name
 
 /**
@@ -173,6 +170,7 @@ fun GrpAwarenessPanel(
     selectedAddress: String,
     connected: Boolean,
     unpairedNote: Boolean,   // COMMHEALTH2-2026-10-11: the comm side cleared a radio Android no longer has paired (RADIO_UNPAIRED)
+    rememberedName: (String, Int?, String) -> String?,   // COMMNAMES-2026-10-11: the comm side's name table, by address / node / Bluetooth name
     lastApplied: String,   // lastAppliedLine(): "" no radio, "none" never applied, else "<ride> . <date>"
     onDisconnect: () -> Unit,
     onConnect: (String) -> Unit,   // COMMLINKREQ-2026-10-11: a PAIRED radio, by its id, through the Comm API
@@ -218,7 +216,7 @@ fun GrpAwarenessPanel(
                             Text(if (connected) "\u25CF CONNECTED TO" else if (busy) "\u25CC CONNECTING TO" else "CONNECTED TO",
                                 color = if (busy) Color(0xFF6EE0A5) else Color(0xFF5E7288), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             if (busy) {
-                                Text(current?.let { radioLongName(it) } ?: "your radio", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text(current?.let { radioLongName(it, rememberedName) } ?: "your radio", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                 if (connected && lastApplied.isNotBlank()) Text(
                                     if (lastApplied == "none") "No GroupTrack configuration applied to this radio yet" else "Last applied: " + lastApplied,
                                     color = if (lastApplied == "none") Color(0xFFE8A33D) else Color(0xFFB8C8D8), fontSize = 12.sp)
@@ -248,7 +246,7 @@ fun GrpAwarenessPanel(
                             if (!(device.fullAddress == selectedAddress && busy)) {   // the radio in use lives in its box
                                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(radioLongName(target), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text(radioLongName(target, rememberedName), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                         Text(if (isBonded) device.address else "NEW TO THIS ANDROID \u00b7 " + device.address,
                                             color = if (isBonded) dim else Color(0xFFF2C14E), fontSize = 11.sp)
                                     }
@@ -291,12 +289,12 @@ fun GrpAwarenessPanel(
     forgetting?.let { r ->
         AlertDialog(
             onDismissRequest = { forgetting = null },
-            title = { Text("Forget " + radioLongName(r) + "?") },
+            title = { Text("Forget " + radioLongName(r, rememberedName) + "?") },
             text = { Text("It will be removed from GroupTrack and from this tablet's Android Bluetooth pairings. To use it again it " +
                 "reappears as new to this Android while the panel scans \u2014 PAIR it with the radio's PIN.") },
             confirmButton = { TextButton(onClick = {
                 if (r.fullAddress == selectedAddress) onDisconnect()
-                val rName = radioLongName(r); val rBt = r.name; val rMac = r.address.uppercase()
+                val rName = radioLongName(r, rememberedName); val rBt = r.name; val rMac = r.address.uppercase()
                 onForget(r.fullAddress) { ok ->   // COMMLINKREQ-2026-10-11: the comm side forgets; GroupTrack says what happened
                     message = if (ok) rName + " is forgotten." else "Android needs you to do it: tap " + rBt + " \u2192 Forget, then come back."
                     if (ok) { forgottenMacs = forgottenMacs + rMac; bondTick++ }   // RELEASEF-2026-10-08 FORGETREFRESH

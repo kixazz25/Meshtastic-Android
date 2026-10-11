@@ -51,6 +51,10 @@ class MeshCommLink @Inject constructor(
     override val onBoxWifi: StateFlow<String?> = _onBoxWifi.asStateFlow()
 
     override suspend fun listRadios(): List<RadioEntry> = emptyList()           // P2b
+    override fun radioName(radioId: String, memberId: String?, bluetoothName: String): String? =   // COMMNAMES-2026-10-11
+        org.meshtastic.core.data.manager.RadioNameStore.nameForAddress(radioId)
+            ?: memberId?.toIntOrNull()?.let { org.meshtastic.core.data.manager.RadioNameStore.nameOf(it) }
+            ?: org.meshtastic.core.data.manager.RadioNameStore.nameForBluetoothName(bluetoothName)   // RADIONAMES2-2026-10-04 v5
     // COMMLINKREQ-2026-10-11 (2.7b P2.2): the rider's requests. Each returns at once; the link state reports the outcome.
     /** A PAIRED radio (radioId = Meshtastic's address, e.g. "x" + Bluetooth MAC). Pairing a NEW radio stays on the
      *  scanner until the headless radio list (P2b) -- it needs the scanned radio itself. */
@@ -100,9 +104,26 @@ class MeshCommLink @Inject constructor(
     private var hPrevState: Link? = null
     private var hPrevSaved: String? = null
     private var hUnpaired = false                           // COMMHEALTH2-2026-10-11: the ghost check cleared the saved radio
+    private var namesAtConnect = false                      // COMMNAMES-2026-10-11: record my radio once its own record arrives
 
     init {
-        scope.launch { nodeRepository.nodeDBbyNum.collect { hTrafficMs = System.currentTimeMillis() } }
+        // COMMNAMES-2026-10-11: the name table lives on the comm side -- loaded here, before GroupTrack's first tick reads it.
+        org.meshtastic.core.data.manager.RadioNameStore.load(context.filesDir)
+        org.meshtastic.core.data.manager.RadioNameStore.mirrorDir = context.getExternalFilesDir(null)   // RADIONAMES2-2026-10-04: a pullable copy
+        scope.launch {
+            nodeRepository.nodeDBbyNum.collect { db ->
+                hTrafficMs = System.currentTimeMillis()
+                // RADIONAMES2-2026-10-04 v4 (moved here, COMMNAMES-2026-10-11): WHILE CONNECTED (the radio service's own state) the node
+                // list holds the CURRENT names -> into the table, only on change; the file is written when one changed.
+                if (radioController.connectionState.value == ConnectionState.Connected) {
+                    var changed = false
+                    db.forEach { (num, n) ->
+                        n.user.long_name.takeIf { it.isNotBlank() }?.let { if (org.meshtastic.core.data.manager.RadioNameStore.put(num, it, "radio node list")) changed = true }
+                    }
+                    if (changed) org.meshtastic.core.data.manager.RadioNameStore.save("node list")
+                }
+            }
+        }
         scope.launch {
             while (true) {
                 delay(5_000L)
@@ -120,7 +141,20 @@ class MeshCommLink @Inject constructor(
         val now = System.currentTimeMillis()
         val state = link.value
         val connected = state == Link.CONNECTED
-        if (connected && !hWasConnected) { hTrafficMs = now; hConnectedAtMs = now; hConnectedThisSession = true }
+        if (connected && !hWasConnected) { hTrafficMs = now; hConnectedAtMs = now; hConnectedThisSession = true; namesAtConnect = true }
+        // RADIONAMES-2026-10-03 (moved here, COMMNAMES-2026-10-11): AT CONNECT -- my radio's own long name and the Bluetooth address it
+        // answers on go into the table, and the file is written (once the radio's own record has arrived; retried each step).
+        if (namesAtConnect && connected) {
+            val cNum = nodeRepository.myNodeInfo.value?.myNodeNum
+            val cName = nodeRepository.ourNodeInfo.value?.user?.long_name
+            if (cNum != null && !cName.isNullOrBlank()) {
+                org.meshtastic.core.data.manager.RadioNameStore.put(cNum, cName, "radio at connect")
+                radioInterfaceService.currentDeviceAddressFlow.value?.takeIf { it.isNotBlank() && it != "n" }
+                    ?.let { org.meshtastic.core.data.manager.RadioNameStore.noteAddress(cNum, it) }
+                org.meshtastic.core.data.manager.RadioNameStore.save("connect")
+                namesAtConnect = false
+            }
+        }
         hWasConnected = connected
         val myNum = nodeRepository.myNodeInfo.value?.myNodeNum
         val ownTakMs = myNum?.let { org.meshtastic.core.data.manager.TakSeenStore.lastFrom(it) }

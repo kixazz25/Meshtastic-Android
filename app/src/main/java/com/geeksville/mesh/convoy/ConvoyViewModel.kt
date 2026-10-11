@@ -70,6 +70,9 @@ class ConvoyViewModel @Inject constructor(
     val link: StateFlow<com.grouptrack.comm.Link> = commLink.link
     /** COMMHEALTH2-2026-10-11: the link's health from the comm side (talking, recovering, attempts, reason). */
     val health: StateFlow<com.grouptrack.comm.LinkHealth> = commLink.health
+    /** COMMNAMES-2026-10-11: the name a radio in GRP Awareness's list last used (the comm side's table); null = not known. */
+    fun rememberedRadioName(radioId: String, memberNum: Int?, bluetoothName: String): String? =
+        commLink.radioName(radioId, memberNum?.toString(), bluetoothName)
     /** COMMLINKREQ-2026-10-11 (2.7b P2.2): the rider's radio requests, through the Comm API. A request never waits for its outcome --
      *  the link state shows it. forgetRadio reports back: true = forgotten; false = Android refused or not a pairing. */
     fun connectRadio(radioId: String) { viewModelScope.launch { linkResult("connect", commLink.connect(radioId)) } }
@@ -137,9 +140,7 @@ class ConvoyViewModel @Inject constructor(
     // Not talking, at ANY moment -> Android-only mode: my cart at the tablet's GPS under the SAME cart id, the
     // other carts held at their last tick position, GRP Awareness red. Nothing is stored.
     // COMMHEALTH2-2026-10-11: "talking" and the recovery now come from the COMM side (CommLink.health) -- the heartbeat fields moved there.
-    private var linkWasConnected = false
     private var radioTalkingNow = false
-    private var namesAtConnectPending = false   // RADIONAMES-2026-10-03: record the connected radio once its own record arrives
     private var phoneLocationListener: android.location.LocationListener? = null
 
     /**
@@ -238,7 +239,7 @@ class ConvoyViewModel @Inject constructor(
     }
 
     fun startGroupTrack() {
-        org.meshtastic.core.data.manager.RadioNameStore.save("RECORD")   // RADIONAMES-2026-10-03: the table is written at RECORD
+        // COMMNAMES-2026-10-11: the name table is kept (and written on every real change) by the comm side -- no save at RECORD.
         _routeTrailSegments.value = emptyList()
         leadActualLat = null
         leadActualLon = null
@@ -603,23 +604,7 @@ class ConvoyViewModel @Inject constructor(
                 }
             }
         }
-        org.meshtastic.core.data.manager.RadioNameStore.load(appContext.filesDir)   // RADIONAMES-2026-10-03: the radio name table, before the first tick
-        org.meshtastic.core.data.manager.RadioNameStore.mirrorDir = appContext.getExternalFilesDir(null)   // RADIONAMES2-2026-10-04: a pullable copy
-        // COMMHEALTH2-2026-10-11: the radio's node list (names below). The traffic signal moved to the comm side.
-        viewModelScope.launch {
-            nodeRepository.nodeDBbyNum.collect { db ->
-                // RADIONAMES2-2026-10-04 (Fred): WHILE CONNECTED the radio's own node list holds the CURRENT names (right the moment
-                // we connect, before any TAK broadcast) -> into the table, only on change, so they survive a disconnect.
-                // v4: the radio service's OWN state (no lag) -- the cached names that blink back on a disconnect never get in.
-                if (radioController.connectionState.value == org.meshtastic.core.model.ConnectionState.Connected) {
-                    db.forEach { (num, n) ->
-                        n.user.long_name.takeIf { it.isNotBlank() }?.let {
-                            org.meshtastic.core.data.manager.RadioNameStore.put(num, it, "radio node list")
-                        }
-                    }
-                }
-            }
-        }
+        // COMMNAMES-2026-10-11: the name table (load, the node-list names) moved to the comm side (MeshCommLink).
         startTick()
         viewModelScope.launch(Dispatchers.IO) { scanImportDirectory() }
     }
@@ -965,21 +950,7 @@ class ConvoyViewModel @Inject constructor(
         }
         val nowMs = System.currentTimeMillis()
         // LINKFIX-2026-10-03: is the radio talking? (see the fields at livePhoneLocation)
-        val linkConnected = GrpAwarenessLauncher.connected.value
-        if (linkConnected && !linkWasConnected) namesAtConnectPending = true   // COMMHEALTH2-2026-10-11: the grace and traffic clock moved to the comm side
-        // RADIONAMES-2026-10-03 (Fred): AT CONNECT -- the radio's own long name and its Bluetooth address go into the table, and the
-        // table is written (once the radio's own record has arrived; until then, retried each tick).
-        if (namesAtConnectPending && linkConnected) {
-            val cNum = GrpAwarenessLauncher.myNodeNum.value
-            val cName = _myDevice.value?.name   // COMMIDENT-2026-10-09
-            if (cNum != null && !cName.isNullOrBlank()) {
-                org.meshtastic.core.data.manager.RadioNameStore.put(cNum, cName, "radio at connect")
-                GrpAwarenessLauncher.connectedAddress.value?.let { org.meshtastic.core.data.manager.RadioNameStore.noteAddress(cNum, it) }
-                org.meshtastic.core.data.manager.RadioNameStore.save("connect")
-                namesAtConnectPending = false
-            }
-        }
-        linkWasConnected = linkConnected
+        // COMMNAMES-2026-10-11: the at-connect names moved to the comm side (MeshCommLink).
         // COMMHEALTH2-2026-10-11 (Fred 10-11): keeping the link is the comm side's job; GroupTrack reports it. talking = the comm side's
         // health (the 45 s hand-off heartbeat, the 120 s traffic rule and the recovery run there, unchanged).
         radioTalkingNow = commLink.health.value.talking
@@ -1336,7 +1307,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             val pos = node.position
             // RADIONAMES-2026-10-03 (Fred): the long name LAST USED from the radio name table; the node database's first-heard name
             // only for a radio not yet in the table.
-            val callsign = org.meshtastic.core.data.manager.RadioNameStore.nameOf(node.num) ?: user.long_name.ifBlank { user.short_name }.ifBlank { "!${node.num}" }
+            val callsign = commMessaging.memberName(node.num.toString()) ?: user.long_name.ifBlank { user.short_name }.ifBlank { "!${node.num}" }
             val nodeId = "!%08x".format(node.num)
             if (nodeId in _removedCarts.value && node.num != myNum) return@mapNotNull null   // CARTACTIVE-2026-09-30: removed on this tablet
             val hasPos = (pos.latitude_i != 0 || pos.longitude_i != 0)

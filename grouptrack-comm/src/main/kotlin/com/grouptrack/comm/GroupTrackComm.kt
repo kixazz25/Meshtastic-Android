@@ -173,6 +173,10 @@ interface CommLink {
     suspend fun disconnect(): CommResult                              // A4
     suspend fun forget(radioId: String): CommResult                   // A5 (iPad: partial — system pairing is the rider's)
     suspend fun reconnect(): CommResult                               // A6 — ONE implementation (inventory: was 3)
+    /** COMMNAMES-2026-10-11: the name a radio LAST USED, for a radio in a list: by the address it answers on (radioId), then by its
+     *  member id, then by its Bluetooth name's suffix. CODE RULE 1: memberId null = a scanned radio not yet heard;
+     *  result null = not known -- the caller shows the radio's own or Bluetooth name. */
+    fun radioName(radioId: String, memberId: String?, bluetoothName: String): String?
 }
 
 /** B · CommIdentity — this device. Service B7. */
@@ -211,6 +215,9 @@ interface CommMessaging {
     /** When a member's last TAK report arrived (ms); null = none since the app started. Our own radio's is the
      *  Bluetooth hand-off heartbeat (LINKHB-2026-10-05). */
     fun lastReportFromMs(memberId: String): Long?
+    /** COMMNAMES-2026-10-11: the name this member's radio LAST USED (the comm side's name table). CODE RULE 1: null = not known yet
+     *  -- the caller falls back to what it has (e.g. the name first heard). */
+    fun memberName(memberId: String): String?
     /** MY role, kept with everyone else's (OWNROLE-2026-09-28) -- what reportedRole() answers for my own id. */
     fun recordOwnRole(memberId: String, role: Role)
     /** END: the ride's roles end with the ride (LEADCLEAN-2026-09-29). */

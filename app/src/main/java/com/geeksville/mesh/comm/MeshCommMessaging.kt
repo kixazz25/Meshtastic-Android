@@ -44,6 +44,8 @@ class MeshCommMessaging @Inject constructor(
         memberId.toIntOrNull()?.let { MeshTakTranslator.roleFromName(TakRoleStore.roleOf(it)) }
     override fun lastReportFromMs(memberId: String): Long? =
         memberId.toIntOrNull()?.let { TakSeenStore.lastFrom(it) }
+    override fun memberName(memberId: String): String? =   // COMMNAMES-2026-10-11
+        memberId.toIntOrNull()?.let { org.meshtastic.core.data.manager.RadioNameStore.nameOf(it) }
     override fun recordOwnRole(memberId: String, role: Role) {
         memberId.toIntOrNull()?.let { TakRoleStore.put(it, MeshTakTranslator.memberRole(role).name) }
     }
