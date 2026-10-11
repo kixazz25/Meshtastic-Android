@@ -10,10 +10,8 @@ import android.provider.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
-import no.nordicsemi.android.common.scanner.rememberFilterState
-import no.nordicsemi.android.common.scanner.view.ScannerView
-import org.meshtastic.core.ble.MeshtasticBleConstants.BLE_NAME_PATTERN
-import org.meshtastic.core.ble.MeshtasticBleConstants.SERVICE_UUID
+import androidx.compose.foundation.rememberScrollState   // COMMRADIOS-2026-10-11: our own rows (the Nordic scanner screen is gone)
+import androidx.compose.foundation.verticalScroll
 import org.json.JSONObject
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -98,11 +96,7 @@ private fun hasInternet(ctx: Context): Boolean = try {
 
 // COMMLINKREQ-2026-10-11: forgetPairing() moved to the comm side (MeshCommLink.forget).
 
-/** GRPAWARE-SYNC: the MACs Android currently has paired. Empty if Bluetooth is off or not permitted.
- *  ANDROID'S PAIRED LIST IS THE SOURCE OF TRUTH -- GroupTrack never shows or keeps a Bluetooth radio Android has not paired. */
-fun pairedMacs(ctx: Context): Set<String> = try {
-    ctx.getSystemService(BluetoothManager::class.java)?.adapter?.bondedDevices?.map { it.address.uppercase() }?.toSet() ?: emptySet()
-} catch (e: Exception) { emptySet() }
+// COMMBOND-2026-10-11: the pairedMacs helper is removed -- the paired list handed to the panel is kept current by the comm side.
 
 // COMMHEALTH2-2026-10-11: the ghost check (isGhostSelection) moved to the comm side (MeshCommLink).
 
@@ -110,12 +104,11 @@ private fun openBluetoothSettings(ctx: Context) {
     runCatching { ctx.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
-/** GRPAWARE2: the radio's own name for itself (its long name), else the Bluetooth name until the radio is known. */
-// RADIONAMES-2026-10-03 (Fred): the long name LAST USED first. COMMNAMES-2026-10-11: the name table is the comm side's -- asked through
-// [remembered] (ConvoyViewModel.rememberedRadioName -> CommLink.radioName).
-fun radioLongName(d: com.geeksville.mesh.model.DeviceListEntry, remembered: (String, Int?, String) -> String?): String =
-    remembered(d.fullAddress, d.node?.num, d.name)
-        ?: d.node?.user?.long_name?.takeIf { it.isNotBlank() } ?: d.name
+// COMMRADIOS-2026-10-11: radioLongName removed -- each radio's name arrives in the comm side's list (RadioEntry.name, the name table).
+
+private fun openAppSettings(ctx: Context) {   // COMMRADIOS-2026-10-11: where Android grants the Nearby devices permission
+    runCatching { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+}
 
 /**
  * GRPAWARE2-2026-09-28 (Fred): "Last applied" for the connected radio -- the most recent APPLY the configurator recorded
@@ -152,28 +145,26 @@ fun lastAppliedLine(ctx: Context, nodeNum: Int?): String {
 }
 
 /**
- * GRPAWARE2-2026-09-28 (Fred): the GRP Awareness panel -- design v8.
+ * GRPAWARE2-2026-09-28 (Fred): the GRP Awareness panel -- design v8. COMMRADIOS-2026-10-11 (2.7b P2b): GroupTrack draws its
+ * OWN rows from the comm side's radio list (paired first, then new radios nearby) -- Meshtastic's scanner screen is no longer
+ * embedded. Same look and words as before.
  *  - The title red until a radio is connected, then green.
- *  - CONNECTED TO: the radio's long name with DISCONNECT, and "Last applied: <ride> . <date>"; empty when not connected.
- *  - AVAILABLE RADIOS: the radios found nearby by Meshtastic's own scanner (Nordic ScannerView, Meshtastic's filter):
- *    paired ones with CONNECT and FORGET; new ones marked NEW TO THIS ANDROID with PAIR. One radio at a time: CONNECT
- *    and PAIR are greyed while a radio is connected (DISCONNECT first). The connected radio is only in its box.
+ *  - CONNECTED TO: the radio's name with DISCONNECT, and "Last applied: <ride> . <date>"; empty when not connected.
+ *  - AVAILABLE RADIOS: paired ones with CONNECT and FORGET; new ones marked NEW TO THIS ANDROID with PAIR. One radio at a
+ *    time: CONNECT and PAIR are greyed while a radio is in use (DISCONNECT first). The radio in use is only in its box.
  *  - FORGET, confirmed: removed from GroupTrack and from Android's Bluetooth pairings.
- *  - Three actions side by side: SELECT A RIDE AND APPLY SETTINGS TO THE RADIO . RADIO SETTINGS (experienced mesh
- *    operators only; the web client with internet -- after DISCONNECT -- the app's settings without) . MESHTASTIC
- *    SIDE MENU (temporary). The X closes.
+ *  - Three actions side by side: SELECT A RIDE AND APPLY SETTINGS TO THE RADIO . RADIO SETTINGS . MESHTASTIC SIDE MENU.
  */
 @Composable
 fun GrpAwarenessPanel(
-    scanModel: com.geeksville.mesh.ui.connections.ScannerViewModel,
-    paired: List<com.geeksville.mesh.model.DeviceListEntry>,   // the paired radios (their long names)
+    radios: List<com.grouptrack.comm.RadioEntry>,   // COMMRADIOS-2026-10-11: paired first, then new radios nearby
+    scanProblem: String?,   // COMMRADIOS-2026-10-11: CODE RULE 1: null = scanning; PERMISSION_MISSING / BLUETOOTH_OFF = say so
     selectedAddress: String,
     connected: Boolean,
     unpairedNote: Boolean,   // COMMHEALTH2-2026-10-11: the comm side cleared a radio Android no longer has paired (RADIO_UNPAIRED)
-    rememberedName: (String, Int?, String) -> String?,   // COMMNAMES-2026-10-11: the comm side's name table, by address / node / Bluetooth name
     lastApplied: String,   // lastAppliedLine(): "" no radio, "none" never applied, else "<ride> . <date>"
     onDisconnect: () -> Unit,
-    onConnect: (String) -> Unit,   // COMMLINKREQ-2026-10-11: a PAIRED radio, by its id, through the Comm API
+    onConnect: (String, (String) -> Unit) -> Unit,   // COMMRADIOS-2026-10-11: CONNECT or PAIR by id; the callback gets a failure reason
     onForget: (String, (Boolean) -> Unit) -> Unit,   // COMMLINKREQ-2026-10-11: true = forgotten; false = Android refused
     onLocalSettings: () -> Unit,
     onApplyRide: () -> Unit,
@@ -182,41 +173,37 @@ fun GrpAwarenessPanel(
 ) {
     val ctx = LocalContext.current
     var message by remember { mutableStateOf("") }
-    var forgetting by remember { mutableStateOf<com.geeksville.mesh.model.DeviceListEntry?>(null) }
-    // RELEASEF-2026-10-08 FORGETREFRESH (Fred): the paired list handed in is a snapshot; after FORGET the row kept
-    // CONNECT/FORGET until the panel was reopened. Android's paired list is re-read here; a forgotten radio shows PAIR at once.
-    var bondedNow by remember { mutableStateOf(pairedMacs(ctx)) }
-    var forgottenMacs by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var bondTick by remember { mutableStateOf(0) }
-    androidx.compose.runtime.LaunchedEffect(bondTick) {
-        if (bondTick > 0) {   // Android removes the bond a moment after the request
-            kotlinx.coroutines.delay(800); bondedNow = pairedMacs(ctx)
-            kotlinx.coroutines.delay(1500); bondedNow = pairedMacs(ctx)
-        }
-    }
+    var forgetting by remember { mutableStateOf<com.grouptrack.comm.RadioEntry?>(null) }
     val busy = connected || (selectedAddress.isNotBlank() && selectedAddress != "n")   // one radio at a time
-    val current = paired.firstOrNull { it.fullAddress == selectedAddress }
+    val btOff = scanProblem == "BLUETOOTH_OFF"   // COMMBTOFF-2026-10-11 (Fred 10-11): Bluetooth off -> NO radio status, only the message
+    val current = radios.firstOrNull { it.id == selectedAddress }
     val green = Color(0xFF35C46A); val red = Color(0xFFE0453A); val dim = Color(0xFF8899AA)
-    val filterState = rememberFilterState(filter = { Any { ServiceUuid(SERVICE_UUID); Name(Regex(BLE_NAME_PATTERN)) } })
+    fun failWords(reason: String): String = when (reason) {
+        "PERMISSION_MISSING" -> "GroupTrack needs the Nearby devices permission to pair a radio."
+        "BLUETOOTH_OFF" -> "Bluetooth is off — turn it on to connect your radio."   // COMMBTOFF-2026-10-11
+        "RADIO_NOT_FOUND" -> "That radio is no longer nearby — turn it on and try again."
+        "PAIR_FAILED" -> "Pairing did not finish — try PAIR again and enter the radio's PIN (123456, or the code on its screen)."
+        else -> "The radio could not be connected ($reason)."
+    }
     Box(modifier = Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
         Surface(modifier = Modifier.fillMaxWidth().padding(16.dp), shape = RoundedCornerShape(14.dp), color = Color(0xFF12213A)) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("GRP Awareness", color = if (connected) green else red, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f))
-                    TextButton(onClick = onClose) { Text("\u2715", color = Color(0xFF7FB2E5), fontSize = 18.sp) }
+                    TextButton(onClick = onClose) { Text("✕", color = Color(0xFF7FB2E5), fontSize = 18.sp) }
                 }
                 // CHECKINCONNECT-2026-09-28: opened by CHK IN with no radio
                 if (GrpAwarenessLauncher.thenCheckIn) Text("Connect your radio to check in.", color = Color(0xFFE8C27A), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                if (unpairedNote) Text("Your radio was forgotten by Android \u2014 PAIR it again.", color = Color(0xFFE8A33D), fontSize = 13.sp, fontWeight = FontWeight.Bold)   // COMMHEALTH2-2026-10-11
-                // CONNECTED TO -- empty when nothing is connected
-                Surface(shape = RoundedCornerShape(10.dp), color = if (busy) Color(0xFF0E2A1A) else Color(0xFF0D1A2C)) {
+                if (unpairedNote) Text("Your radio was forgotten by Android — PAIR it again.", color = Color(0xFFE8A33D), fontSize = 13.sp, fontWeight = FontWeight.Bold)   // COMMHEALTH2-2026-10-11
+                // CONNECTED TO -- empty when nothing is connected; not shown at all while Bluetooth is off (COMMBTOFF-2026-10-11)
+                if (!btOff) Surface(shape = RoundedCornerShape(10.dp), color = if (busy) Color(0xFF0E2A1A) else Color(0xFF0D1A2C)) {
                     Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(if (connected) "\u25CF CONNECTED TO" else if (busy) "\u25CC CONNECTING TO" else "CONNECTED TO",
+                            Text(if (connected) "● CONNECTED TO" else if (busy) "◌ CONNECTING TO" else "CONNECTED TO",
                                 color = if (busy) Color(0xFF6EE0A5) else Color(0xFF5E7288), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             if (busy) {
-                                Text(current?.let { radioLongName(it, rememberedName) } ?: "your radio", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text(current?.name ?: "your radio", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                 if (connected && lastApplied.isNotBlank()) Text(
                                     if (lastApplied == "none") "No GroupTrack configuration applied to this radio yet" else "Last applied: " + lastApplied,
                                     color = if (lastApplied == "none") Color(0xFFE8A33D) else Color(0xFFB8C8D8), fontSize = 12.sp)
@@ -225,39 +212,38 @@ fun GrpAwarenessPanel(
                         if (busy) TextButton(onClick = { onDisconnect(); message = "" }) { Text("DISCONNECT", color = Color(0xFFF08C84), fontWeight = FontWeight.Bold) }
                     }
                 }
-                Text("AVAILABLE RADIOS", color = Color(0xFF8FA3B8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                if (!busy) Text("Select a radio from the list to connect.", color = Color(0xFFE8C27A), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                else Text("One radio at a time \u2014 DISCONNECT the one above to connect or pair another.", color = dim, fontSize = 11.sp)
-                Box(modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp)) {
-                    ScannerView(
-                        state = filterState,
-                        onScanResultSelected = { result -> if (!busy) scanModel.onSelected(com.geeksville.mesh.model.DeviceListEntry.Ble(result.peripheral)) },
-                        deviceItem = { result ->
-                            val device = remember(result.peripheral.address, paired) {
-                                paired.find { it.fullAddress == "x${result.peripheral.address}" }
-                                    ?: com.geeksville.mesh.model.DeviceListEntry.Ble(result.peripheral)
+                if (!btOff) Text("AVAILABLE RADIOS", color = Color(0xFF8FA3B8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                if (btOff) Unit else if (!busy) Text("Select a radio from the list to connect.", color = Color(0xFFE8C27A), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                else Text("One radio at a time — DISCONNECT the one above to connect or pair another.", color = dim, fontSize = 11.sp)
+                // COMMRADIOS-2026-10-11: why no radios can be found, in GroupTrack's words, with the way to fix it
+                when (scanProblem) {
+                    "BLUETOOTH_OFF" -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Bluetooth is off — turn it on to find your radio.", color = Color(0xFFE8A33D), fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { openBluetoothSettings(ctx) }) { Text("BLUETOOTH") }
+                    }
+                    "PERMISSION_MISSING" -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("GroupTrack needs the Nearby devices permission to find radios.", color = Color(0xFFE8A33D), fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { openAppSettings(ctx) }) { Text("ALLOW") }
+                    }
+                    else -> {}
+                }
+                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
+                    val rows = radios.filter { !(it.id == selectedAddress && busy) }   // the radio in use lives in its box
+                    if (rows.isEmpty() && scanProblem == null) Text("Looking for radios nearby…", color = dim, fontSize = 12.sp)
+                    rows.forEach { radio ->
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(radio.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(if (radio.paired) radio.id.drop(1) else "NEW TO THIS ANDROID · " + radio.id.drop(1),
+                                    color = if (radio.paired) dim else Color(0xFFF2C14E), fontSize = 11.sp)
                             }
-                            // RELEASEF-2026-10-08 FORGETREFRESH: bonded = the snapshot says so, it was not just forgotten, and
-                            // Android still has it (when Android's list can be read at all)
-                            val mac = result.peripheral.address.uppercase()
-                            val isBonded = device.bonded && (mac !in forgottenMacs || mac in bondedNow) &&
-                                (bondedNow.isEmpty() || mac in bondedNow)
-                            val target = if (isBonded) device else com.geeksville.mesh.model.DeviceListEntry.Ble(result.peripheral)
-                            if (!(device.fullAddress == selectedAddress && busy)) {   // the radio in use lives in its box
-                                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(radioLongName(target, rememberedName), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                        Text(if (isBonded) device.address else "NEW TO THIS ANDROID \u00b7 " + device.address,
-                                            color = if (isBonded) dim else Color(0xFFF2C14E), fontSize = 11.sp)
-                                    }
-                                    TextButton(enabled = !busy, onClick = { if (isBonded) onConnect(target.fullAddress) else scanModel.onSelected(target); message = "" }) {   // COMMLINKREQ-2026-10-11: PAIR stays on the scanner until P2b
-                                        Text(if (isBonded) "CONNECT" else "PAIR")
-                                    }
-                                    if (isBonded) TextButton(onClick = { forgetting = device }) { Text("FORGET", color = Color(0xFFF08C84)) }
-                                }
-                            }
-                        },
-                    )
+                            TextButton(enabled = !busy, onClick = {
+                                message = if (radio.paired) "" else "Pairing " + radio.name + " — enter the radio's PIN when Android asks."
+                                onConnect(radio.id) { reason -> message = failWords(reason) }
+                            }) { Text(if (radio.paired) "CONNECT" else "PAIR") }
+                            if (radio.paired) TextButton(onClick = { forgetting = radio }) { Text("FORGET", color = Color(0xFFF08C84)) }
+                        }
+                    }
                 }
                 if (message.isNotBlank()) Text(message, color = Color(0xFFE8A33D), fontSize = 13.sp)
                 // Three actions, side by side
@@ -272,7 +258,7 @@ fun GrpAwarenessPanel(
                         shape = RoundedCornerShape(8.dp), color = Color(0xFF2A2210)) {
                         Column(modifier = Modifier.padding(8.dp)) {
                             Text("RADIO SETTINGS", color = Color(0xFFF2C14E), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            Text("\u26A0 experienced mesh operators only", color = Color(0xFFC9A659), fontSize = 9.sp)
+                            Text("⚠ experienced mesh operators only", color = Color(0xFFC9A659), fontSize = 9.sp)
                         }
                     }
                     Surface(modifier = Modifier.weight(1f).clickable { onMeshtastic() }, shape = RoundedCornerShape(8.dp), color = Color(0xFF16263E)) {
@@ -289,15 +275,14 @@ fun GrpAwarenessPanel(
     forgetting?.let { r ->
         AlertDialog(
             onDismissRequest = { forgetting = null },
-            title = { Text("Forget " + radioLongName(r, rememberedName) + "?") },
+            title = { Text("Forget " + r.name + "?") },
             text = { Text("It will be removed from GroupTrack and from this tablet's Android Bluetooth pairings. To use it again it " +
-                "reappears as new to this Android while the panel scans \u2014 PAIR it with the radio's PIN.") },
+                "reappears as new to this Android while the panel scans — PAIR it with the radio's PIN.") },
             confirmButton = { TextButton(onClick = {
-                if (r.fullAddress == selectedAddress) onDisconnect()
-                val rName = radioLongName(r, rememberedName); val rBt = r.name; val rMac = r.address.uppercase()
-                onForget(r.fullAddress) { ok ->   // COMMLINKREQ-2026-10-11: the comm side forgets; GroupTrack says what happened
-                    message = if (ok) rName + " is forgotten." else "Android needs you to do it: tap " + rBt + " \u2192 Forget, then come back."
-                    if (ok) { forgottenMacs = forgottenMacs + rMac; bondTick++ }   // RELEASEF-2026-10-08 FORGETREFRESH
+                if (r.id == selectedAddress) onDisconnect()
+                val rName = r.name
+                onForget(r.id) { ok ->   // COMMLINKREQ-2026-10-11: the comm side forgets; GroupTrack says what happened
+                    message = if (ok) rName + " is forgotten." else "Android needs you to do it: tap " + rName + " → Forget, then come back."
                     if (!ok) openBluetoothSettings(ctx)
                 }
                 forgetting = null

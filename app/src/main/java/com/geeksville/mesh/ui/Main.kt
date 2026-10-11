@@ -618,9 +618,10 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         val grpConvoy by convoyViewModel.convoyState.collectAsStateWithLifecycle()
         androidx.compose.runtime.LaunchedEffect(grpConvoy.nodes) { com.geeksville.mesh.convoy.GrpAwarenessLauncher.pulse() }
         val grpCtx = androidx.compose.ui.platform.LocalContext.current
-        val grpRadiosBle by scanModel.bleDevicesForUi.collectAsStateWithLifecycle()
-        val grpRadiosUsb by scanModel.usbDevicesForUi.collectAsStateWithLifecycle()
-        val grpSelected by scanModel.selectedAddressFlow.collectAsStateWithLifecycle()
+        // COMMRADIOS-2026-10-11: GRP Awareness's radios and the radio in use come from the comm side (not Meshtastic's scanner model).
+        val grpRadios by convoyViewModel.radios.collectAsStateWithLifecycle()
+        val grpSelected by convoyViewModel.selectedRadioId.collectAsStateWithLifecycle()
+        val grpScanProblem by convoyViewModel.scanProblem.collectAsStateWithLifecycle()   // COMMBTOFF-2026-10-11: live, follows Bluetooth
         // COMMHEALTH2-2026-10-11: the ghost check (GRPAWARE-SYNC) moved to the comm side -- it clears a radio Android no longer has paired.
         // GRPAWARE2-2026-09-28 (Fred): the panel, design v8 -- Meshtastic's own scanner inside, and the last apply.
         // COMMIDENTMAIN-2026-10-11: THIS RADIO through the Comm API (CommIdentity via ConvoyViewModel.myDevice) -- was Meshtastic's
@@ -677,20 +678,24 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 }
             }
         }
+        // COMMRADIOS-2026-10-11: the comm side looks for radios nearby only while GRP Awareness is open.
+        androidx.compose.runtime.LaunchedEffect(com.geeksville.mesh.convoy.GrpAwarenessLauncher.showing.value) {
+            if (com.geeksville.mesh.convoy.GrpAwarenessLauncher.showing.value) convoyViewModel.startRadioScan()   // COMMBTOFF-2026-10-11
+            else convoyViewModel.stopRadioScan()
+        }
         if (com.geeksville.mesh.convoy.GrpAwarenessLauncher.showing.value) {
             val grpLast = androidx.compose.runtime.remember(grpMyNode, grpLink) {   // COMMLINK-2026-10-11
                 com.geeksville.mesh.convoy.lastAppliedLine(grpCtx, grpMyNode?.id?.toIntOrNull())
             }
             com.geeksville.mesh.convoy.GrpAwarenessPanel(
-                scanModel = scanModel,
-                paired = grpRadiosBle + grpRadiosUsb,
+                radios = grpRadios,   // COMMRADIOS-2026-10-11
+                scanProblem = grpScanProblem,   // COMMRADIOS-2026-10-11
                 selectedAddress = grpSelected ?: "",
                 connected = grpLink == com.grouptrack.comm.Link.CONNECTED,   // COMMLINK-2026-10-11
                 unpairedNote = grpHealth.reason == "RADIO_UNPAIRED",   // COMMHEALTH2-2026-10-11
-                rememberedName = { addr, num, bt -> convoyViewModel.rememberedRadioName(addr, num, bt) },   // COMMNAMES-2026-10-11
                 lastApplied = grpLast,
                 onDisconnect = { convoyViewModel.disconnectRadio() },   // COMMLINKREQ-2026-10-11
-                onConnect = { id -> convoyViewModel.connectRadio(id) },   // COMMLINKREQ-2026-10-11
+                onConnect = { id, fail -> convoyViewModel.connectRadio(id, fail) },   // COMMRADIOS-2026-10-11: CONNECT or PAIR
                 onForget = { id, done -> convoyViewModel.forgetRadio(id, done) },   // COMMLINKREQ-2026-10-11
                 onLocalSettings = {
                     com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()

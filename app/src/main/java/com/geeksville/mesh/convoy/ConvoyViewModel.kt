@@ -75,7 +75,21 @@ class ConvoyViewModel @Inject constructor(
         commLink.radioName(radioId, memberNum?.toString(), bluetoothName)
     /** COMMLINKREQ-2026-10-11 (2.7b P2.2): the rider's radio requests, through the Comm API. A request never waits for its outcome --
      *  the link state shows it. forgetRadio reports back: true = forgotten; false = Android refused or not a pairing. */
-    fun connectRadio(radioId: String) { viewModelScope.launch { linkResult("connect", commLink.connect(radioId)) } }
+    /** COMMRADIOS-2026-10-11: CONNECT or PAIR by id; [onFail] gets the reason when it did not work (the panel says so). */
+    fun connectRadio(radioId: String, onFail: (String) -> Unit) {
+        viewModelScope.launch {
+            val r = commLink.connect(radioId); linkResult("connect", r)
+            if (r is com.grouptrack.comm.CommResult.Failed) onFail(r.reason)
+        }
+    }
+    /** COMMRADIOS-2026-10-11: the radio list (paired first) and the radio in use, from the comm side. */
+    val radios: StateFlow<List<com.grouptrack.comm.RadioEntry>> = commLink.radios
+    val selectedRadioId: StateFlow<String?> = commLink.selectedRadioId
+    /** COMMRADIOS-2026-10-11: GRP Awareness opened -- look for radios nearby. CODE RULE 1: null = scanning; else why not. */
+    fun startRadioScan(): String? = (commLink.startScan() as? com.grouptrack.comm.CommResult.Failed)?.reason
+    fun stopRadioScan() { commLink.stopScan() }
+    /** COMMBTOFF-2026-10-11: why the radio list cannot look for radios, LIVE. CODE RULE 1: null = nothing wrong. */
+    val scanProblem: StateFlow<String?> = commLink.scanProblem
     fun disconnectRadio() { viewModelScope.launch { linkResult("disconnect", commLink.disconnect()) } }
     fun forgetRadio(radioId: String, onResult: (Boolean) -> Unit) {
         viewModelScope.launch { val r = commLink.forget(radioId); linkResult("forget", r); onResult(r is com.grouptrack.comm.CommResult.Ok) }

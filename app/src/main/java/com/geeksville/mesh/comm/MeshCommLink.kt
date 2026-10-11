@@ -37,6 +37,8 @@ class MeshCommLink @Inject constructor(
     serviceRepository: ServiceRepository,
     private val nodeRepository: org.meshtastic.core.repository.NodeRepository,   // COMMHEALTH-2026-10-11: node-list traffic, my node number
     private val radioInterfaceService: org.meshtastic.core.repository.RadioInterfaceService,   // COMMHEALTH-2026-10-11: the saved radio
+    private val bluetoothRepository: org.meshtastic.core.ble.BluetoothRepository,   // COMMBOND-2026-10-11: the paired list
+    private val radioList: MeshRadioList,   // COMMRADIOS-2026-10-11
     private val radioController: org.meshtastic.core.model.RadioController,   // COMMLINKREQ-2026-10-11
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,   // COMMLINKREQ-2026-10-11
 ) : CommLink {
@@ -50,7 +52,12 @@ class MeshCommLink @Inject constructor(
     private val _onBoxWifi = MutableStateFlow<String?>(null)
     override val onBoxWifi: StateFlow<String?> = _onBoxWifi.asStateFlow()
 
-    override suspend fun listRadios(): List<RadioEntry> = emptyList()           // P2b
+    override suspend fun listRadios(): List<RadioEntry> = radioList.radios.value   // COMMRADIOS-2026-10-11
+    override val radios: StateFlow<List<RadioEntry>> = radioList.radios          // COMMRADIOS-2026-10-11
+    override val selectedRadioId: StateFlow<String?> = radioList.selectedRadioId // COMMRADIOS-2026-10-11
+    override fun startScan(): CommResult = radioList.startScan()                 // COMMRADIOS-2026-10-11
+    override fun stopScan() = radioList.stopScan()                               // COMMRADIOS-2026-10-11
+    override val scanProblem: StateFlow<String?> = radioList.scanProblem          // COMMBTOFF-2026-10-11
     override fun radioName(radioId: String, memberId: String?, bluetoothName: String): String? =   // COMMNAMES-2026-10-11
         org.meshtastic.core.data.manager.RadioNameStore.nameForAddress(radioId)
             ?: memberId?.toIntOrNull()?.let { org.meshtastic.core.data.manager.RadioNameStore.nameOf(it) }
@@ -60,6 +67,22 @@ class MeshCommLink @Inject constructor(
      *  scanner until the headless radio list (P2b) -- it needs the scanned radio itself. */
     override suspend fun connect(radioId: String): CommResult {
         if (radioId.isBlank() || radioId == "n") return CommResult.Failed("NO_RADIO_ID")
+        if (radioId.startsWith("x") && !bluetoothOn()) return CommResult.Failed("BLUETOOTH_OFF")   // COMMBTOFF-2026-10-11
+        // COMMRADIOS-2026-10-11 (D5): a Bluetooth radio Android has not paired is PAIRED first (Android's PIN prompt), then connected.
+        if (radioId.startsWith("x") && bluetoothRepository.state.value.bondedDevices.none { "x" + it.address == radioId }) {
+            val p = radioList.scanned(radioId) ?: return CommResult.Failed("RADIO_NOT_FOUND")
+            try {
+                android.util.Log.i("COMMRADIOS", "pairing $radioId")
+                bluetoothRepository.bond(p)
+            } catch (e: SecurityException) {
+                return CommResult.Failed("PERMISSION_MISSING")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w("COMMRADIOS", "pairing failed: ${e.message}")
+                return CommResult.Failed("PAIR_FAILED")
+            }
+        }
         radioController.setDeviceAddress(radioId)
         return CommResult.Ok
     }
@@ -106,7 +129,27 @@ class MeshCommLink @Inject constructor(
     private var hUnpaired = false                           // COMMHEALTH2-2026-10-11: the ghost check cleared the saved radio
     private var namesAtConnect = false                      // COMMNAMES-2026-10-11: record my radio once its own record arrives
 
+    // COMMBOND-2026-10-11 (P2.5): ONE truth for "is this radio paired". Meshtastic's paired list (BluetoothRepository) refreshes
+    // only on Bluetooth on/off or after its own bond(); a pairing removed by FORGET or changed in Android's settings was
+    // never seen. Android announces every pairing change -- refresh on each one.
+    private val bondReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+            val state = i.getIntExtra(android.bluetooth.BluetoothDevice.EXTRA_BOND_STATE, -1)
+            if (state == android.bluetooth.BluetoothDevice.BOND_BONDED || state == android.bluetooth.BluetoothDevice.BOND_NONE) {
+                android.util.Log.i("COMMHEALTH", "pairing changed (" + (if (state == android.bluetooth.BluetoothDevice.BOND_BONDED) "paired" else "removed") + ") -> paired list refreshed")
+                bluetoothRepository.refreshState()
+            }
+        }
+    }
+
     init {
+        try {   // COMMBOND-2026-10-11
+            context.applicationContext.let { app ->
+                androidx.core.content.ContextCompat.registerReceiver(app, bondReceiver,
+                    android.content.IntentFilter(android.bluetooth.BluetoothDevice.ACTION_BOND_STATE_CHANGED),
+                    androidx.core.content.ContextCompat.RECEIVER_EXPORTED)   // a system broadcast (as Meshtastic's USB receiver)
+            }
+        } catch (e: Exception) { android.util.Log.w("COMMHEALTH", "pairing listener not registered: ${e.message}") }
         // COMMNAMES-2026-10-11: the name table lives on the comm side -- loaded here, before GroupTrack's first tick reads it.
         org.meshtastic.core.data.manager.RadioNameStore.load(context.filesDir)
         org.meshtastic.core.data.manager.RadioNameStore.mirrorDir = context.getExternalFilesDir(null)   // RADIONAMES2-2026-10-04: a pullable copy
@@ -131,6 +174,12 @@ class MeshCommLink @Inject constructor(
             }
         }
     }
+
+    // COMMBTOFF-2026-10-11: is Bluetooth on -- read from Android each time. Cannot tell -> treated as on (nothing held back).
+    private fun bluetoothOn(): Boolean = try {
+        context.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.isEnabled ?: true
+    } catch (e: Exception) { true }
+    private var hBtOff = false
 
     private fun pairedMacs(): Set<String> = try {
         context.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.bondedDevices
@@ -176,6 +225,14 @@ class MeshCommLink @Inject constructor(
         }
 
         if (!ghost && !saved.isNullOrBlank() && saved != "n") hUnpaired = false   // another radio chosen
+        // COMMBTOFF-2026-10-11: a Bluetooth radio cannot answer while Bluetooth is off -- NO reconnects and NO tries counted (3 tries
+        // raise the banner telling the rider to FORGET a good radio). Recovery starts fresh when Bluetooth is back on.
+        val btOff = !talking && saved != null && saved.startsWith("x") && !bluetoothOn()
+        if (btOff != hBtOff) {
+            android.util.Log.i("COMMHEALTH", if (btOff) "Bluetooth off -- reconnects held" else "Bluetooth on -- reconnects resume")
+            hBtOff = btOff
+        }
+        if (btOff) { hAttempts = 0; hNotTalkingSinceMs = now; hConnectingSinceMs = 0L; hLastAttemptMs = 0L }
         // the recovery loop (was Main.kt LINKFIX / LINKFIX2 / LINKHB) -- COMMHEALTH2-2026-10-11: acts
         var stuck = false
         if (talking) {
@@ -188,7 +245,7 @@ class MeshCommLink @Inject constructor(
             val waitConnecting = state == Link.CONNECTING && !stuck
             if (!waitConnecting) {
                 if (hNotTalkingSinceMs == 0L) hNotTalkingSinceMs = now
-                val act = needsRecovery && !saved.isNullOrBlank() && saved != "n" &&
+                val act = !btOff && needsRecovery && !saved.isNullOrBlank() && saved != "n" &&   // COMMBTOFF-2026-10-11
                     (stuck || now - hNotTalkingSinceMs >= 20_000L) && now - hLastAttemptMs >= 45_000L
                 if (act) {
                     if (stuck) { android.util.Log.i("COMMHEALTH", "connecting for ${(now - hConnectingSinceMs) / 1000} s -- stuck"); hConnectingSinceMs = 0L }
@@ -204,6 +261,7 @@ class MeshCommLink @Inject constructor(
         }
         val reason = when {
             talking -> null
+            btOff -> "BLUETOOTH_OFF"   // COMMBTOFF-2026-10-11
             hUnpaired && !connected -> "RADIO_UNPAIRED"
             stuck -> "CONNECT_TIMEOUT"
             state == Link.CONNECTING -> "CONNECTING"   // COMMHEALTH2-2026-10-11

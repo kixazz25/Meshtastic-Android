@@ -177,6 +177,16 @@ interface CommLink {
      *  member id, then by its Bluetooth name's suffix. CODE RULE 1: memberId null = a scanned radio not yet heard;
      *  result null = not known -- the caller shows the radio's own or Bluetooth name. */
     fun radioName(radioId: String, memberId: String?, bluetoothName: String): String?
+    /** COMMRADIOS-2026-10-11: the radios this device can use -- PAIRED first, then radios found nearby (new to this device). */
+    val radios: StateFlow<List<RadioEntry>>
+    /** COMMRADIOS-2026-10-11: the radio this device uses. CODE RULE 1: null = none chosen. */
+    val selectedRadioId: StateFlow<String?>
+    /** COMMRADIOS-2026-10-11: look for radios nearby (while a radio list is on screen). Failed(PERMISSION_MISSING / BLUETOOTH_OFF). */
+    fun startScan(): CommResult
+    fun stopScan()
+    /** COMMBTOFF-2026-10-11: why radios nearby cannot be looked for, LIVE (follows Bluetooth on/off and the permission).
+     *  CODE RULE 1: null = nothing wrong; else BLUETOOTH_OFF / PERMISSION_MISSING -- GroupTrack says so in its words. */
+    val scanProblem: StateFlow<String?>
 }
 
 /** B · CommIdentity — this device. Service B7. */
