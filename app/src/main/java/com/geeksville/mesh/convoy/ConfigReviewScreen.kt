@@ -34,6 +34,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.geeksville.mesh.model.UIViewModel
 import kotlinx.coroutines.launch
+import com.geeksville.mesh.comm.ConfigCompare   // COMMCONFIG-2026-10-12: transitional -- P4.3 moves this screen to CommConfig
+import com.geeksville.mesh.comm.ConfigDiff
+import com.geeksville.mesh.comm.RadioBackups
 import org.meshtastic.core.model.ConnectionState
 import org.meshtastic.proto.DeviceProfile
 

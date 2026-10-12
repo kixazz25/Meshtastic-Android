@@ -33,11 +33,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.geeksville.mesh.model.UIViewModel
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import org.meshtastic.core.model.ConnectionState
-import org.meshtastic.proto.DeviceProfile
+import androidx.compose.runtime.collectAsState
+import com.geeksville.mesh.comm.RadioBackups   // COMMCONFIG-2026-10-12: transitional -- a preselected save's title (P4.3)
+import com.grouptrack.comm.ApplyRequest
+import com.grouptrack.comm.CommResult
+import com.grouptrack.comm.ConfigChange
 
 /*
  * RADIOCFG4-2026-09-25 (GroupTrack 2.7) -- the radio configurator, part 4: the SCREEN.
@@ -48,6 +50,8 @@ import org.meshtastic.proto.DeviceProfile
  *   PREVIEW  the managed changes (part 1) + what changed on the radio since its last backup (part 3)
  *   APPLY    part 2's writer, live log; CLOSE IS DISABLED while it runs (never walk away mid-transaction)
  *   RESULT   the 19 checks; the backup saved as "<config> -- <date>" (or "... unverified")
+ * COMMCONFIG-2026-10-12 (P4.2): the plan, the writer, the verify and the saves are the COMM SIDE's (CommConfig); this screen
+ *   sends the ride file + the callsign and shows the change list, the log, the checks and the save it reports.
  * Backups: convoy_backups/<radio id>/<id>_<yyyyMMdd>_<HHmmss>_<label>.cfg. If the radio's folder has no .cfg yet,
  * its state is saved FIRST as "as-found". Radios GroupTrack configures only (T1000-E / app-attached);
  * Nucleus radios are Natak's (the "/ Nucleus" half of this entry comes with Nathan's API).
@@ -66,65 +70,7 @@ object RadioConfigLauncher {
     fun close() { showing = false; preselect = null }
 }
 
-/** Per-radio backups: one folder per radio id; names carry the date, time and the config applied. */
-object RadioBackups {
-    fun dir(context: android.content.Context, nodeId: String) =
-        java.io.File(context.filesDir, "convoy_backups/$nodeId").also { it.mkdirs() }
-
-    fun list(context: android.content.Context, nodeId: String): List<java.io.File> =
-        dir(context, nodeId).listFiles { f -> f.isFile && f.extension == "cfg" }?.sortedByDescending { it.name.split("_").drop(1).take(2).joinToString("") }
-            ?: emptyList()
-
-    fun newFile(context: android.content.Context, nodeId: String, label: String): java.io.File {
-        val ts = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-        val slug = label.replace(Regex("[^A-Za-z0-9 '-]"), "").trim().replace(Regex("\\s+"), "-").take(40).ifEmpty { "config" }
-        return java.io.File(dir(context, nodeId), "${nodeId}_${ts}_$slug.cfg")
-    }
-
-    /**
-     * SAVETITLE-2026-09-25 (Fred): each save is titled with the RIDE it was applied from, exactly -- kept in a
-     * companion file beside the .cfg (the file name can only hold a squeezed version of the title).
-     */
-    fun writeMeta(cfg: java.io.File, title: String, rideId: String?, verified: Boolean) {
-        runCatching {
-            java.io.File(cfg.path.removeSuffix(".cfg") + ".json").writeText(
-                JSONObject().put("title", title).put("rideId", rideId ?: JSONObject.NULL)
-                    .put("appliedAt", java.time.LocalDateTime.now().toString()).put("verified", verified).toString(2),
-            )
-        }
-    }
-
-    private fun meta(f: java.io.File): JSONObject? =
-        runCatching { JSONObject(java.io.File(f.path.removeSuffix(".cfg") + ".json").readText()) }.getOrNull()
-
-    /** The save's title: the ride title it was applied from (companion file), else the name's label. */
-    fun title(f: java.io.File): String = meta(f)?.optString("title")?.takeIf { it.isNotBlank() }
-        ?: f.nameWithoutExtension.split("_").drop(3).joinToString(" ").replace('-', ' ').ifEmpty { "backup" }
-
-    /** The ride id the save came from (null for the default, "as found", or old saves). */
-    fun rideId(f: java.io.File): String? = meta(f)?.optString("rideId")?.takeIf { it.isNotBlank() && it != "null" }
-
-    /** "applied 2026-09-25 14:20 . verified" -- the detail line under the title. */
-    fun detail(f: java.io.File): String {
-        val p = f.nameWithoutExtension.split("_")
-        val at = runCatching { val d = p[1]; val t = p[2]
-            "${d.substring(0, 4)}-${d.substring(4, 6)}-${d.substring(6, 8)} ${t.substring(0, 2)}:${t.substring(2, 4)}" }.getOrDefault("")
-        val v = meta(f)?.let { if (it.optBoolean("verified", true)) " \u00b7 verified \u2713" else " \u00b7 NOT verified" }.orEmpty()
-        return "applied $at$v"
-    }
-
-    /** "!0ba3deda_20260925_142011_GroupTrack-default.cfg" -> "2026-09-25 14:20 -- GroupTrack default". */
-    fun describe(f: java.io.File): String {
-        val p = f.nameWithoutExtension.split("_")
-        return runCatching {
-            val d = p[1]; val t = p[2]
-            val label = title(f)
-            "${d.substring(0, 4)}-${d.substring(4, 6)}-${d.substring(6, 8)} ${t.substring(0, 2)}:${t.substring(2, 4)} \u2014 $label"
-        }.getOrDefault(f.name)
-    }
-}
-
-private class RadioTarget(val name: String, val detail: String, val json: JSONObject?, val backup: java.io.File?, val rideId: String? = null)
+private class RadioTarget(val name: String, val detail: String, val json: JSONObject?, val savedId: String?, val rideId: String? = null)
 
 private val BG = Color(0xF20F1216)
 private val INK = Color(0xFFE8EEF5)
@@ -133,6 +79,9 @@ private val GOOD = Color(0xFF3FB950)
 private val BAD = Color(0xFFF85149)
 private val ACCENT = Color(0xFF58A6FF)
 
+/** COMMCONFIG-2026-10-12: a change line as the configurator wrote it ("field: old -> new", or a whole line such as "channel key: changed"). */
+private fun ConfigChange.line(): String = if (from.isEmpty() && to.isEmpty()) field else "$field: $from -> $to"
+
 @Composable
 fun RadioConfigScreen(
     onClose: () -> Unit,
@@ -140,16 +89,15 @@ fun RadioConfigScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val config = convoyViewModel.radioConfig   // COMMCONFIG-2026-10-12: the Comm API
     var phase by remember { mutableStateOf("PICK") }
     var message by remember { mutableStateOf("") }
     var targets by remember { mutableStateOf(listOf<RadioTarget>()) }
     var chosen by remember { mutableStateOf<RadioTarget?>(null) }
-    var values by remember { mutableStateOf<ManagedValues?>(null) }
-    var plan by remember { mutableStateOf<ConfigPlan?>(null) }
-    var drift by remember { mutableStateOf(listOf<ConfigDiff>()) }
-    var log by remember { mutableStateOf(listOf<String>()) }
-    var result by remember { mutableStateOf<WriteResult?>(null) }
-    var savedAs by remember { mutableStateOf("") }
+    var changes by remember { mutableStateOf<List<ConfigChange>?>(null) }   // CODE RULE 1: null = nothing previewed yet
+    var drift by remember { mutableStateOf(listOf<ConfigChange>()) }
+    var applied by remember { mutableStateOf<CommResult?>(null) }          // CODE RULE 1: null = not applied yet
+    val report by config.applyReport.collectAsState()
 
     val nodeNum = convoyViewModel.radioNodeNum()
     val nodeId = nodeNum?.let { "!%08x".format(it) }
@@ -173,72 +121,52 @@ fun RadioConfigScreen(
                 val r = j.optJSONObject("ride")
                 val name = r?.optString("name")?.takeIf { it.isNotBlank() && it != "null" } ?: "Unnamed ride"
                 val rid = r?.optString("rideId")?.takeIf { it.isNotBlank() && it != "null" }
-                list += RadioTarget(name, "Ride \u2022 " + (r?.optString("date")?.takeIf { it != "null" } ?: "no date"), j, null, rid)
+                list += RadioTarget(name, "Ride • " + (r?.optString("date")?.takeIf { it != "null" } ?: "no date"), j, null, rid)
             }
         // SPLITLISTS-2026-09-26 (Fred): Apply ride to radio shows the DEFAULT and RIDES only -- saves are applied from
         // Saved configs (Review / apply saved configs). A save chosen THERE arrives here as the preselect: it alone.
         RadioConfigLauncher.preselect?.let { f ->
-            if (f.exists()) list += RadioTarget(RadioBackups.title(f), "This radio's save \u2022 " + RadioBackups.detail(f), null, f, RadioBackups.rideId(f))
+            if (f.exists()) list += RadioTarget(RadioBackups.title(f), "This radio's save • " + RadioBackups.detail(f), null, f.absolutePath, RadioBackups.rideId(f))
         }
         targets = list
     }
 
-    fun addLog(s: String) { android.util.Log.i("RadioConfig", s); log = log + s.removePrefix("RADIOWRITER: ") }
+    fun forThisRadio() = radioCallsign.trim().ifEmpty { callsign }
+    fun saveTitle(t: RadioTarget) =
+        t.name + (if (radioCallsign.trim().isNotEmpty() && radioCallsign.trim() != callsign) " — for ${radioCallsign.trim()}" else "")
 
     fun choose(t: RadioTarget) {
         if (phase == "APPLYING") return   // APPLYGUARD-2026-10-10: never re-prepared in the middle of an apply
         scope.launch {
-            try {
-                val v = if (t.json != null) RadioConfigurator.fromRideFile(t.json, requireNotNull(defaultJson) { "default asset missing" }, radioCallsign.trim().ifEmpty { callsign })
-                else RadioConfigurator.fromProfile(requireNotNull(convoyViewModel.importProfileFromFile(t.backup!!).getOrNull()) { "backup unreadable" })
-                val current = convoyViewModel.currentProfile()
-                val last = RadioBackups.list(context, nodeId!!).firstOrNull()?.let { convoyViewModel.importProfileFromFile(it).getOrNull() }
-                chosen = t; values = v; plan = RadioConfigurator.build(current, v)
-                drift = if (last != null) ConfigCompare.differences(last, current) else emptyList()
-                phase = "PREVIEW"
-            } catch (e: Exception) {
-                // APPLYTRACE-2026-10-10: the WHOLE error into the log -- the message alone hid where it failed.
-                android.util.Log.e("RadioConfig", "APPLYTRACE: cannot use target '" + t.name + "'", e)
-                message = "Cannot use this target: ${e.message}"
-            }
+            // COMMCONFIG-2026-10-12: the comm side plans against the radio as it is; GroupTrack shows the changes.
+            val (c, r) = if (t.json != null) config.previewConfig(t.json.toString(), forThisRadio()) else config.previewSaved(t.savedId!!)
+            if (r is CommResult.Failed) { message = "Cannot use this target: ${r.reason}"; return@launch }
+            chosen = t; changes = c
+            drift = config.driftSinceLastSave()
+            phase = "PREVIEW"
         }
     }
 
     // CONFIGREVIEW-2026-09-25: opened from Saved configs -> Apply: straight to that save's preview.
     LaunchedEffect(targets) {
         val f = RadioConfigLauncher.preselect ?: return@LaunchedEffect
-        val t = targets.firstOrNull { it.backup?.absolutePath == f.absolutePath } ?: return@LaunchedEffect
+        val t = targets.firstOrNull { it.savedId == f.absolutePath } ?: return@LaunchedEffect
         RadioConfigLauncher.preselect = null
         choose(t)
     }
 
     fun apply() {
-        val ops = convoyViewModel.radioOps() ?: run { message = "No radio connected."; return }   // COMMRADIOOPS-2026-10-12
-        val p = plan ?: return
-        val v = values ?: return
         val t = chosen ?: return
-        phase = "APPLYING"; log = emptyList()
+        if (changes == null) return
+        if (nodeId == null || convoyViewModel.link.value != com.grouptrack.comm.Link.CONNECTED) { message = "No radio connected."; return }
+        phase = "APPLYING"; applied = null
         scope.launch {
-            try {
-                if (RadioBackups.list(context, nodeId!!).isEmpty()) {
-                    val f = RadioBackups.newFile(context, nodeId, "as-found")
-                    convoyViewModel.exportProfileToFile(context, f).getOrThrow()
-                    RadioBackups.writeMeta(f, "As found", null, true)
-                    addLog("first backup of this radio saved: as found")
-                }
-                val r = RadioConfigWriter(ops, ::addLog).apply(p, v)
-                result = r
-                if (r is WriteResult.Done) {
-                    val label = t.name + if (r.verified) "" else " unverified"
-                    val f = RadioBackups.newFile(context, nodeId, label)
-                    convoyViewModel.exportProfileToFile(context, f).getOrThrow()
-                    RadioBackups.writeMeta(f, t.name + (if (radioCallsign.trim().isNotEmpty() && radioCallsign.trim() != callsign) " \u2014 for ${radioCallsign.trim()}" else ""), t.rideId, r.verified) // SAVETITLE: the ride's own title, carried forward
-                    savedAs = RadioBackups.describe(f)
-                    if (r.verified) RadioSetupState.markDone(context) // RADIOSETUPTEST-2026-10-01
-                }
-            } catch (e: Exception) {
-                addLog("ERROR: ${e.message}")
-            }
+            // COMMCONFIG-2026-10-12: WHAT goes on the radio; the comm side does the HOW (first save, writer, verify, save) and reports.
+            val r = if (t.json != null) config.applyRide(ApplyRequest(t.json.toString(), forThisRadio(), t.name, saveTitle(t), t.rideId))
+                    else config.applySaved(t.savedId!!, saveTitle(t))
+            applied = r
+            if (r is CommResult.Applied && r.verified) RadioSetupState.markDone(context) // RADIOSETUPTEST-2026-10-01
+            if (r is CommResult.Failed && r.reason == "NO_RADIO") message = "No radio connected."
             phase = "RESULT"
         }
     }
@@ -252,10 +180,10 @@ fun RadioConfigScreen(
         if (phase != "PICK") return@LaunchedEffect
         // NORIDEDEFAULT-2026-10-10: "GroupTrack" asks for the GroupTrack default target (it carries no ride id).
         val t = if (rid == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL)
-            targets.firstOrNull { it.rideId == null && it.backup == null && it.name == "GroupTrack default" }
+            targets.firstOrNull { it.rideId == null && it.savedId == null && it.name == "GroupTrack default" }
         else targets.firstOrNull { it.rideId == rid }
         if (t == null) {
-            addLog("CHECKINAPPLY: ride $rid not found on this tablet")
+            android.util.Log.i("RadioConfig", "CHECKINAPPLY: ride $rid not found on this tablet")
             val cb = RadioConfigLauncher.onAutoResult
             RadioConfigLauncher.autoRideId = null; RadioConfigLauncher.onAutoResult = null
             onClose(); cb?.invoke(false)
@@ -267,7 +195,7 @@ fun RadioConfigScreen(
             chosen?.rideId == null && chosen?.name == "GroupTrack default"   // NORIDEDEFAULT-2026-10-10
         if (phase == "PREVIEW" && (chosen?.rideId == RadioConfigLauncher.autoRideId || autoDefault)) apply()
         if (phase == "RESULT") {
-            val ok = (result as? WriteResult.Done)?.verified == true
+            val ok = (applied as? CommResult.Applied)?.verified == true
             android.util.Log.i("RadioConfig", "CHECKINAPPLY: ride ${RadioConfigLauncher.autoRideId} applied, verified=$ok")
             kotlinx.coroutines.delay(1500)   // the result shows briefly
             val cb = RadioConfigLauncher.onAutoResult
@@ -279,7 +207,7 @@ fun RadioConfigScreen(
     Box(Modifier.fillMaxSize().background(BG).clickable(enabled = false) {}) {
         Column(Modifier.fillMaxSize().padding(18.dp).verticalScroll(rememberScrollState())) {
             Text("Apply ride to radio", color = INK, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text("Radio ${nodeId ?: "(none)"} \u2022 callsign ${callsign.ifEmpty { "(no profile)" }}", color = DIM, fontSize = 13.sp)
+            Text("Radio ${nodeId ?: "(none)"} • callsign ${callsign.ifEmpty { "(no profile)" }}", color = DIM, fontSize = 13.sp)
             Spacer(Modifier.height(10.dp))
 
             val connected = convoyViewModel.link.value == com.grouptrack.comm.Link.CONNECTED   // COMMRADIOOPS-2026-10-12
@@ -287,7 +215,7 @@ fun RadioConfigScreen(
                 phase == "PICK" && (nodeId == null || !connected) ->
                     Text("No radio connected. Connect your radio first, then open this again.", color = BAD)
                 phase == "PICK" && callsign.isEmpty() ->
-                    Text("Set your rider profile first (Settings \u2192 Your Profile): your callsign becomes the radio's name.", color = BAD)
+                    Text("Set your rider profile first (Settings → Your Profile): your callsign becomes the radio's name.", color = BAD)
                 phase == "PICK" -> {
                     // CALLSIGNOVR-2026-09-26: whose radio is this? Your callsign unless you type another rider's.
                     OutlinedTextField(value = radioCallsign, onValueChange = { radioCallsign = it.take(39) }, singleLine = true,
@@ -296,7 +224,7 @@ fun RadioConfigScreen(
                     Text("Mainly for setting up someone else's radio at the trailhead: type their callsign, and their radio joins the ride under their name. For your own radio, leave it as it is.",
                         color = Color(0xFF8899AA), fontSize = 12.sp)
                     if (radioCallsign.trim().isNotEmpty() && radioCallsign.trim() != callsign)
-                        Text("Setting up a radio for ${radioCallsign.trim()} \u2014 your own profile is not changed.", color = ACCENT, fontSize = 12.sp)
+                        Text("Setting up a radio for ${radioCallsign.trim()} — your own profile is not changed.", color = ACCENT, fontSize = 12.sp)
                     Spacer(Modifier.height(8.dp))
                     Text("Choose what to put on the radio:", color = INK)
                     targets.forEach { t ->
@@ -307,40 +235,42 @@ fun RadioConfigScreen(
                     }
                 }
                 phase == "PREVIEW" -> {
-                    val p = plan!!
+                    val c = changes.orEmpty()
                     Text("${chosen?.name}", color = ACCENT, fontSize = 17.sp)
                     Spacer(Modifier.height(6.dp))
-                    if (p.isEmpty) Text("The radio already holds these values. Applying will only verify them.", color = GOOD)
-                    else { Text("Will change (${p.changes.size}):", color = INK); p.changes.forEach { Text("  \u2022 $it", color = INK, fontSize = 13.sp) } }
+                    if (c.isEmpty()) Text("The radio already holds these values. Applying will only verify them.", color = GOOD)
+                    else { Text("Will change (${c.size}):", color = INK); c.forEach { Text("  • ${it.line()}", color = INK, fontSize = 13.sp) } }
                     Spacer(Modifier.height(8.dp))
                     if (drift.isNotEmpty()) {
                         Text("Changed on this radio since its last backup (not touched):", color = DIM)
-                        drift.forEach { Text("  ${it.path}: ${it.a} \u2192 ${it.b}", color = DIM, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
+                        drift.forEach { Text("  ${it.field}: ${it.from} → ${it.to}", color = DIM, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(onClick = { apply() }) { Text(if (p.isEmpty) "Verify" else "Apply") }
+                        Button(onClick = { apply() }) { Text(if (c.isEmpty()) "Verify" else "Apply") }
                         OutlinedButton(onClick = { phase = "PICK" }) { Text("Back") }
                     }
                 }
                 phase == "APPLYING" || phase == "RESULT" -> {
-                    Text(if (phase == "APPLYING") "Applying \u2014 do not close. The radio restarts; Bluetooth reconnects after each step." else "Done", color = INK)
-                    if (phase == "RESULT") Button(onClick = onClose) { Text("Done \u2014 back to the map") } // CLEANUP-2026-09-25
+                    Text(if (phase == "APPLYING") "Applying — do not close. The radio restarts; Bluetooth reconnects after each step." else "Done", color = INK)
+                    if (phase == "RESULT") Button(onClick = onClose) { Text("Done — back to the map") } // CLEANUP-2026-09-25
                     Spacer(Modifier.height(6.dp))
-                    log.forEach { Text(it, color = DIM, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
-                    when (val r = result) {
-                        is WriteResult.Done -> {
+                    val rep = report
+                    rep?.log?.forEach { Text(it, color = DIM, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
+                    if (rep != null && !rep.running) when {
+                        rep.stoppedAt != null ->
+                            Text("Stopped at ${rep.stoppedAt}: ${rep.stopReason}. Written before it: ${rep.groupsWritten}", color = BAD)
+                        rep.checks.isNotEmpty() -> {
                             Spacer(Modifier.height(8.dp))
-                            Text(if (r.verified) "Verified: all ${r.checks.size} settings are on the radio." else "NOT verified \u2014 see the red lines.",
-                                color = if (r.verified) GOOD else BAD, fontWeight = FontWeight.Bold)
-                            r.checks.forEach { c ->
-                                Text("${if (c.ok) "\u2713" else "\u2717"} ${c.field}: ${c.actual}" + if (c.ok) "" else " (expected ${c.expected})",
+                            Text(if (rep.verified) "Verified: all ${rep.checks.size} settings are on the radio." else "NOT verified — see the red lines.",
+                                color = if (rep.verified) GOOD else BAD, fontWeight = FontWeight.Bold)
+                            rep.checks.forEach { c ->
+                                Text("${if (c.ok) "✓" else "✗"} ${c.field}: ${c.actual}" + if (c.ok) "" else " (expected ${c.expected})",
                                     color = if (c.ok) GOOD else BAD, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                             }
-                            if (savedAs.isNotEmpty()) Text("Saved as: $savedAs", color = INK, fontSize = 13.sp)
+                            rep.savedAs?.let { Text("Saved as: $it", color = INK, fontSize = 13.sp) }
                         }
-                        is WriteResult.Stopped -> Text("Stopped at ${r.group}: ${r.reason}. Written before it: ${r.groupsWritten}", color = BAD)
-                        null -> {}
+                        else -> {}
                     }
                 }
             }

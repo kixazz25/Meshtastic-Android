@@ -1,6 +1,6 @@
 package com.geeksville.mesh.comm
 
-import com.geeksville.mesh.convoy.RadioOps
+// COMMCONFIG-2026-10-12: RadioOps moved to the comm side (same package)
 import kotlinx.coroutines.flow.first
 import org.meshtastic.proto.DeviceProfile
 import javax.inject.Inject

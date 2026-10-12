@@ -1,4 +1,6 @@
-package com.geeksville.mesh.convoy
+package com.geeksville.mesh.comm
+
+// COMMCONFIG-2026-10-12: moved from convoy/ to the comm side (P4.2) -- code unchanged.
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow

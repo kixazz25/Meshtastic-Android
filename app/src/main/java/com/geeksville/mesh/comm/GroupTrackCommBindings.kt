@@ -26,4 +26,6 @@ abstract class GroupTrackCommBindings {
     abstract fun identity(impl: MeshCommIdentity): CommIdentity   // COMMIDENT-2026-10-09
     @Binds
     abstract fun link(impl: MeshCommLink): CommLink   // COMMLINK-2026-10-11
+    @Binds
+    abstract fun config(impl: MeshCommConfig): com.grouptrack.comm.CommConfig   // COMMCONFIG-2026-10-12
 }

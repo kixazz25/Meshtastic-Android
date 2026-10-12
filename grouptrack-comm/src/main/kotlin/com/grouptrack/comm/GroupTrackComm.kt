@@ -207,7 +207,29 @@ interface CommConfig {
     suspend fun compareSaved(a: String, b: String): Pair<List<ConfigChange>, CommResult>                       // C10
     suspend fun restoreSaved(id: String): CommResult                                                            // C10 — returns a result (inventory: was fire-and-forget)
     suspend fun networkLink(): Pair<String?, CommResult>                                                        // C11
+    /* COMMCONFIG-2026-10-12 (P4.2, additive): the apply as it runs and when it ends; the ride apply with the title its save is filed
+     * under; a radio's own save as a target; what changed on the radio since its last save. */
+    /** CODE RULE 1: null = no apply since the app started. */
+    val applyReport: StateFlow<ApplyReport?>
+    suspend fun applyRide(request: ApplyRequest): CommResult
+    suspend fun previewSaved(id: String): Pair<List<ConfigChange>, CommResult>
+    suspend fun applySaved(id: String, saveTitle: String): CommResult
+    suspend fun driftSinceLastSave(): List<ConfigChange>
 }
+
+/** COMMCONFIG-2026-10-12: what to apply -- the config doc (the ride file, JSON), the name the radio gets, the title of the config
+ *  ("GroupTrack default" or the ride's name), the title its save is filed under, and the ride id (CODE RULE 1: null = the
+ *  GroupTrack default, which belongs to no ride). */
+data class ApplyRequest(val configDoc: String, val callsign: String, val title: String, val saveTitle: String, val rideId: String?)
+/** COMMCONFIG-2026-10-12: one check after an apply -- the setting, what was wanted, what the radio holds. */
+data class ConfigCheck(val field: String, val expected: String, val actual: String) { val ok: Boolean get() = expected == actual }
+/** COMMCONFIG-2026-10-12: an apply as it runs and when it ends. [log] = the comm side's technical progress lines, shown as they are.
+ *  CODE RULE 1: stoppedAt / stopReason null = not stopped (the radio did not come back after a group); savedAs null = nothing
+ *  saved (stopped, failed, or still running). */
+data class ApplyReport(
+    val running: Boolean, val log: List<String>, val checks: List<ConfigCheck>, val verified: Boolean,
+    val stoppedAt: String?, val stopReason: String?, val groupsWritten: List<String>, val savedAs: String?,
+)
 
 /** D · CommMessaging — TAK out, events in. Services D12–D14. */
 interface CommMessaging {

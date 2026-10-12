@@ -19,6 +19,7 @@ import org.meshtastic.core.domain.usecase.settings.InstallProfileUseCase
 import org.meshtastic.core.repository.NodeRepository
 import org.meshtastic.core.repository.RadioConfigRepository
 import org.meshtastic.proto.DeviceProfile
+import com.geeksville.mesh.comm.RadioOps   // COMMCONFIG-2026-10-12: moved to the comm side (P4.4 removes this use)
 import javax.inject.Inject
 
 /**
@@ -50,7 +51,8 @@ class ConvoyViewModel @Inject constructor(
     private val exportProfileUseCase: ExportProfileUseCase,
     private val installProfileUseCase: InstallProfileUseCase,
     private val radioController: org.meshtastic.core.model.RadioController, // RADIOCFG4-2026-09-25
-    private val meshRadioOps: com.geeksville.mesh.comm.MeshRadioOps, // COMMRADIOOPS-2026-10-12: transitional until P4.2
+    private val meshRadioOps: com.geeksville.mesh.comm.MeshRadioOps, // COMMRADIOOPS-2026-10-12: transitional -- the GPS interval apply (P4.4)
+    private val commConfig: com.grouptrack.comm.CommConfig, // COMMCONFIG-2026-10-12: the radio configurator, through the Comm API
     private val commMessaging: com.grouptrack.comm.CommMessaging, // COMMSEND-2026-10-08: TAK out through the Comm API
     private val commMenus: com.grouptrack.comm.CommMenus, // COMMMENUS-2026-10-08: Meshtastic menus opened by request
     private val commIdentity: com.grouptrack.comm.CommIdentity, // COMMIDENT-2026-10-09: this radio through the Comm API
@@ -484,6 +486,8 @@ class ConvoyViewModel @Inject constructor(
     /** COMMRADIOOPS-2026-10-12 (P4.1): the radio adapter lives on the comm side (comm/MeshRadioOps) -- same calls, same order.
      *  TRANSITIONAL: P4.2 moves the configurator behind CommConfig.applyConfig and this goes. CODE RULE 1: null = no radio. */
     fun radioOps(): RadioOps? = meshRadioOps.ops()
+    /** COMMCONFIG-2026-10-12 (P4.2): applying a ride (or a save) to the radio goes through the Comm API -- the ride file in, the report out. */
+    val radioConfig: com.grouptrack.comm.CommConfig get() = commConfig
 
     fun installProfileToRadio(destNum: Int, profile: DeviceProfile) {
         val currentUser = nodeRepository.ourNodeInfo.value?.user
