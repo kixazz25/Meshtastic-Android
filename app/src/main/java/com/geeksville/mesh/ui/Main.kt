@@ -698,6 +698,16 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             val grpLast = androidx.compose.runtime.remember(grpMyNode, grpLink) {   // COMMLINK-2026-10-11
                 com.geeksville.mesh.convoy.lastAppliedLine(grpCtx, grpMyNode?.id?.toIntOrNull())
             }
+            // RADIONET-2026-10-12: the radio's network, through the Comm API. Asked again for a few seconds after connecting (its settings
+            // arrive after the link). CODE RULE 1: null = not connected / not read yet.
+            val grpNet by androidx.compose.runtime.produceState<String?>(null, grpMyNode, grpLink) {
+                value = null
+                if (grpLink != com.grouptrack.comm.Link.CONNECTED) return@produceState
+                repeat(6) {
+                    convoyViewModel.radioConfig.currentNetwork()?.let { value = it; return@produceState }
+                    kotlinx.coroutines.delay(2000)
+                }
+            }
             com.geeksville.mesh.convoy.GrpAwarenessPanel(
                 radios = grpRadios,   // COMMRADIOS-2026-10-11
                 scanProblem = grpScanProblem,   // COMMRADIOS-2026-10-11
@@ -705,6 +715,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 connected = grpLink == com.grouptrack.comm.Link.CONNECTED,   // COMMLINK-2026-10-11
                 unpairedNote = grpHealth.reason == "RADIO_UNPAIRED",   // COMMHEALTH2-2026-10-11
                 lastApplied = grpLast,
+                network = grpNet,   // RADIONET-2026-10-12
                 onDisconnect = { convoyViewModel.disconnectRadio() },   // COMMLINKREQ-2026-10-11
                 onConnect = { id, fail -> convoyViewModel.connectRadio(id, fail) },   // COMMRADIOS-2026-10-11: CONNECT or PAIR
                 onForget = { id, done -> convoyViewModel.forgetRadio(id, done) },   // COMMLINKREQ-2026-10-11

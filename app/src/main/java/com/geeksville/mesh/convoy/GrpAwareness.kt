@@ -163,6 +163,7 @@ fun GrpAwarenessPanel(
     connected: Boolean,
     unpairedNote: Boolean,   // COMMHEALTH2-2026-10-11: the comm side cleared a radio Android no longer has paired (RADIO_UNPAIRED)
     lastApplied: String,   // lastAppliedLine(): "" no radio, "none" never applied, else "<ride> . <date>"
+    network: String?,   // RADIONET-2026-10-12: the radio's network (CommConfig.currentNetwork). CODE RULE 1: null = not read yet -> record line only
     onDisconnect: () -> Unit,
     onConnect: (String, (String) -> Unit) -> Unit,   // COMMRADIOS-2026-10-11: CONNECT or PAIR by id; the callback gets a failure reason
     onForget: (String, (Boolean) -> Unit) -> Unit,   // COMMLINKREQ-2026-10-11: true = forgotten; false = Android refused
@@ -205,9 +206,17 @@ fun GrpAwarenessPanel(
                                 color = if (busy) Color(0xFF6EE0A5) else Color(0xFF5E7288), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             if (busy) {
                                 Text(current?.name ?: "your radio", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                // RADIONET-2026-10-12 (Fred 10-12): set up for GroupTrack = the RADIO is on a "Group..." network; this
+                                // tablet's record (by radio id) is the second line. Amber only for a radio on another network.
+                                if (connected && network != null) {
+                                    val shown = network.ifBlank { "the radio's default" }
+                                    if (network.startsWith(com.grouptrack.core.NetworkGenerator.CHANNEL_PREFIX))
+                                        Text("GroupTrack network " + shown, color = Color(0xFF6EE0A5), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    else Text("Not set up for GroupTrack (network " + shown + ")", color = Color(0xFFE8A33D), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
                                 if (connected && lastApplied.isNotBlank()) Text(
-                                    if (lastApplied == "none") "No GroupTrack configuration applied to this radio yet" else "Last applied: " + lastApplied,
-                                    color = if (lastApplied == "none") Color(0xFFE8A33D) else Color(0xFFB8C8D8), fontSize = 12.sp)
+                                    if (lastApplied == "none") "Not applied from this tablet before" else "Last applied here: " + lastApplied,
+                                    color = Color(0xFFB8C8D8), fontSize = 12.sp)
                             }
                         }
                         if (busy) TextButton(onClick = { onDisconnect(); message = "" }) { Text("DISCONNECT", color = Color(0xFFF08C84), fontWeight = FontWeight.Bold) }

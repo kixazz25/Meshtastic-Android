@@ -215,6 +215,10 @@ interface CommConfig {
     suspend fun previewSaved(id: String): Pair<List<ConfigChange>, CommResult>
     suspend fun applySaved(id: String, saveTitle: String): CommResult
     suspend fun driftSinceLastSave(): List<ConfigChange>
+    /** RADIONET-2026-10-12 (additive): the network the radio is on, as text (MESH: the primary channel's name; "" = the radio's
+     *  own default). GroupTrack decides what it means ("Group..." = set up for GroupTrack).
+     *  CODE RULE 1: null = not known -- no radio, or its settings not read yet. */
+    suspend fun currentNetwork(): String?
 }
 
 /** COMMCONFIG-2026-10-12: what to apply -- the config doc (the ride file, JSON), the name the radio gets, the title of the config

@@ -149,6 +149,11 @@ class MeshCommConfig @Inject constructor(
             .map { ConfigChange(it.path, it.a, it.b) } to CommResult.Ok
     } catch (e: Exception) { emptyList<ConfigChange>() to CommResult.Failed(e.message ?: e.javaClass.simpleName) }
 
+    // RADIONET-2026-10-12: the radio's own answer -- the primary channel's name from the settings it reported. null if not read yet.
+    override suspend fun currentNetwork(): String? = try {
+        if (nodeId() == null) null else RadioConfigurator.primaryChannel(current()).name
+    } catch (e: Exception) { android.util.Log.i("RadioConfig", "RADIONET-2026-10-12: network not known yet (${e.message})"); null }
+
     override suspend fun restoreSaved(id: String): CommResult = CommResult.NotSupported   // P4.3
     override suspend fun networkLink(): Pair<String?, CommResult> = null to CommResult.NotSupported   // Nucleus: not built
 }
