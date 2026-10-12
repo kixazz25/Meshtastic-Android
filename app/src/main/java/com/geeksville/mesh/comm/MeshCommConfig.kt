@@ -7,6 +7,8 @@ import com.grouptrack.comm.CommResult
 import com.grouptrack.comm.ConfigChange
 import com.grouptrack.comm.ConfigCheck
 import com.grouptrack.comm.SavedConfig
+import com.grouptrack.comm.SavedSetup   // SAVEDCFG-2026-10-12
+import com.grouptrack.comm.ConfigDifference
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -153,6 +155,21 @@ class MeshCommConfig @Inject constructor(
     override suspend fun currentNetwork(): String? = try {
         if (nodeId() == null) null else RadioConfigurator.primaryChannel(current()).name
     } catch (e: Exception) { android.util.Log.i("RadioConfig", "RADIONET-2026-10-12: network not known yet (${e.message})"); null }
+
+    // SAVEDCFG-2026-10-12 (P4.3): the saved-configs screen's list and comparison.
+    override suspend fun savedSetups(): List<SavedSetup> = nodeId()?.let { id ->
+        RadioBackups.list(context, id).map { SavedSetup(it.absolutePath, RadioBackups.title(it), RadioBackups.detail(it), it.lastModified(), RadioBackups.rideId(it)) }
+    } ?: emptyList()
+
+    private suspend fun profileOf(id: String): DeviceProfile = if (id == CommConfig.RADIO_NOW) current() else load(java.io.File(id))
+
+    override suspend fun compareConfigs(a: String, b: String): Pair<List<ConfigDifference>, CommResult> = try {
+        ConfigCompare.differences(profileOf(a), profileOf(b), includeManaged = true)
+            .map { ConfigDifference(it.path, it.a, it.b, it.path in ConfigCompare.MANAGED) } to CommResult.Ok
+    } catch (e: Exception) {
+        android.util.Log.w("RadioConfig", "SAVEDCFG-2026-10-12: cannot compare: ${e.message}")
+        emptyList<ConfigDifference>() to CommResult.Failed(e.message ?: e.javaClass.simpleName)
+    }
 
     override suspend fun restoreSaved(id: String): CommResult = CommResult.NotSupported   // P4.3
     override suspend fun networkLink(): Pair<String?, CommResult> = null to CommResult.NotSupported   // Nucleus: not built

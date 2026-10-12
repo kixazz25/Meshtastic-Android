@@ -32,13 +32,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.geeksville.mesh.model.UIViewModel
 import kotlinx.coroutines.launch
-import com.geeksville.mesh.comm.ConfigCompare   // COMMCONFIG-2026-10-12: transitional -- P4.3 moves this screen to CommConfig
-import com.geeksville.mesh.comm.ConfigDiff
-import com.geeksville.mesh.comm.RadioBackups
-import org.meshtastic.core.model.ConnectionState
-import org.meshtastic.proto.DeviceProfile
+import com.grouptrack.comm.CommConfig   // SAVEDCFG-2026-10-12 (P4.3): the list and the comparison come from the comm side
+import com.grouptrack.comm.CommResult
+import com.grouptrack.comm.ConfigDifference
+import com.grouptrack.comm.SavedSetup
 
 /*
  * CONFIGREVIEW-2026-09-25 v3 (Fred) -- Work with Rides -> "Review / apply saved configs".
@@ -56,7 +54,7 @@ object ConfigReviewLauncher {
     fun close() { showing = false }
 }
 
-private const val NOW = "(radio now)"
+private const val NOW = CommConfig.RADIO_NOW   // SAVEDCFG-2026-10-12
 private val RBG = Color(0xF20F1216)
 private val RCARD = Color(0xFF161B22)
 private val RSEL = Color(0xFF1F4E79)
@@ -73,11 +71,13 @@ fun ConfigReviewScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val nodeId = convoyViewModel.radioNodeNum()?.let { "!%08x".format(it) }
-    val saves = remember(nodeId) { nodeId?.let { RadioBackups.list(context, it) } ?: emptyList() }
+    val config = convoyViewModel.radioConfig   // SAVEDCFG-2026-10-12: the Comm API
+    var saves by remember { mutableStateOf(listOf<SavedSetup>()) }
+    androidx.compose.runtime.LaunchedEffect(nodeId) { saves = config.savedSetups() }
     val connected = convoyViewModel.link.value == com.grouptrack.comm.Link.CONNECTED   // COMMRADIOOPS-2026-10-12
     var selected by remember { mutableStateOf<String?>(null) } // NOW or a file path
     var comparing by remember { mutableStateOf(false) } // compare mode: waiting for the second line
-    var compared by remember { mutableStateOf<Pair<List<ConfigDiff>, List<ConfigDiff>>?>(null) }
+    var compared by remember { mutableStateOf<Pair<List<ConfigDifference>, List<ConfigDifference>>?>(null) }
     var names by remember { mutableStateOf("" to "") }
     var message by remember { mutableStateOf("") }
 
@@ -90,20 +90,18 @@ fun ConfigReviewScreen(
         }
     }
 
-    fun titleOf(k: String) = if (k == NOW) "Radio now" else RadioBackups.title(java.io.File(k))
-    fun detailOf(k: String) = if (k == NOW) "live \u2014 what the radio holds at this moment" else RadioBackups.detail(java.io.File(k))
-
-    suspend fun load(k: String): DeviceProfile =
-        if (k == NOW) convoyViewModel.currentProfile()
-        else requireNotNull(convoyViewModel.importProfileFromFile(java.io.File(k)).getOrNull()) { "save unreadable" }
+    fun titleOf(k: String) = if (k == NOW) "Radio now" else saves.firstOrNull { it.id == k }?.title ?: "a saved config"
+    fun detailOf(k: String) = if (k == NOW) "live \u2014 what the radio holds at this moment" else saves.firstOrNull { it.id == k }?.detail.orEmpty()
 
     fun compare(a: String, b: String) {
         scope.launch {
-            try {
-                val all = ConfigCompare.differences(load(a), load(b), includeManaged = true)
-                compared = all.filter { it.path in ConfigCompare.MANAGED } to all.filter { it.path !in ConfigCompare.MANAGED }
+            // SAVEDCFG-2026-10-12: the comm side compares; each row says if it is managed (what an apply would change).
+            val (all, r) = config.compareConfigs(a, b)
+            if (r is CommResult.Failed) message = "Cannot compare: ${r.reason}"
+            else {
+                compared = all.filter { it.managed } to all.filter { !it.managed }
                 names = titleOf(a) to titleOf(b)
-            } catch (e: Exception) { message = "Cannot compare: ${e.message}" }
+            }
             comparing = false
         }
     }
@@ -119,7 +117,7 @@ fun ConfigReviewScreen(
     }
 
     fun apply(k: String) {
-        RadioConfigLauncher.preselect = java.io.File(k)
+        RadioConfigLauncher.preselect = k   // SAVEDCFG-2026-10-12: the save's id
         onClose()
         RadioConfigLauncher.open()
     }
@@ -165,7 +163,7 @@ fun ConfigReviewScreen(
             // the list, or the comparison -- scrolls under the actions
             Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
                 if (c == null) {
-                    val entries = (if (connected) listOf(NOW) else emptyList()) + saves.map { it.absolutePath }
+                    val entries = (if (connected) listOf(NOW) else emptyList()) + saves.map { it.id }
                     if (entries.isEmpty()) Text("No saved configs for this radio yet.", color = RDIM)
                     entries.forEach { k ->
                         val on = k == selected
@@ -182,12 +180,12 @@ fun ConfigReviewScreen(
                     if (c.first.isEmpty() && c.second.isEmpty()) Text("Identical.", color = RACC)
                     if (c.first.isNotEmpty()) {
                         Text("Managed \u2014 what an apply would change (${c.first.size})", color = RWARN, fontWeight = FontWeight.Bold)
-                        c.first.forEach { Text("  ${it.path}: ${it.a} \u2192 ${it.b}", color = RWARN, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
+                        c.first.forEach { Text("  ${it.field}: ${it.a} \u2192 ${it.b}", color = RWARN, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
                         Spacer(Modifier.height(8.dp))
                     }
                     if (c.second.isNotEmpty()) {
                         Text("Everything else \u2014 information only (${c.second.size})", color = RINK, fontWeight = FontWeight.Bold)
-                        c.second.forEach { Text("  ${it.path}: ${it.a} \u2192 ${it.b}", color = RDIM, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
+                        c.second.forEach { Text("  ${it.field}: ${it.a} \u2192 ${it.b}", color = RDIM, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
                     }
                 }
             }

@@ -219,7 +219,20 @@ interface CommConfig {
      *  own default). GroupTrack decides what it means ("Group..." = set up for GroupTrack).
      *  CODE RULE 1: null = not known -- no radio, or its settings not read yet. */
     suspend fun currentNetwork(): String?
+    /* SAVEDCFG-2026-10-12 (P4.3, additive): the saved-configs screen through the API. */
+    /** This radio's saves, newest first. Empty = no radio, or nothing saved for it yet. */
+    suspend fun savedSetups(): List<SavedSetup>
+    /** Compare two configs by id -- a save's id, or [RADIO_NOW] for the radio as it is. Each row says if it is a managed setting
+     *  (what an apply would change). The comparison never applies anything. */
+    suspend fun compareConfigs(a: String, b: String): Pair<List<ConfigDifference>, CommResult>
+    companion object { /** SAVEDCFG-2026-10-12: the id that means "the radio as it is right now". */ const val RADIO_NOW = "radio-now" }
 }
+
+/** SAVEDCFG-2026-10-12: one save, in words GroupTrack can show as they are. detail = "applied 2026-10-12 11:39 \u00b7 verified \u2713".
+ *  CODE RULE 1: rideId null = the GroupTrack default, "as found", or an old save -- none of them belongs to a ride. */
+data class SavedSetup(val id: String, val title: String, val detail: String, val savedAtMs: Long, val rideId: String?)
+/** SAVEDCFG-2026-10-12: one difference between two configs; managed = a setting GroupTrack's apply sets. */
+data class ConfigDifference(val field: String, val a: String, val b: String, val managed: Boolean)
 
 /** COMMCONFIG-2026-10-12: what to apply -- the config doc (the ride file, JSON), the name the radio gets, the title of the config
  *  ("GroupTrack default" or the ride's name), the title its save is filed under, and the ride id (CODE RULE 1: null = the

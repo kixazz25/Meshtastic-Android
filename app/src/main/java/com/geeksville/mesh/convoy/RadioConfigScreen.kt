@@ -36,7 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import androidx.compose.runtime.collectAsState
-import com.geeksville.mesh.comm.RadioBackups   // COMMCONFIG-2026-10-12: transitional -- a preselected save's title (P4.3)
+// SAVEDCFG-2026-10-12: RadioBackups no longer used here -- a preselected save's title comes from CommConfig.savedSetups()
 import com.grouptrack.comm.ApplyRequest
 import com.grouptrack.comm.CommResult
 import com.grouptrack.comm.ConfigChange
@@ -60,7 +60,7 @@ import com.grouptrack.comm.ConfigChange
 object RadioConfigLauncher {
     var showing by mutableStateOf(false)
     /** CONFIGREVIEW-2026-09-25: a save chosen in Saved configs -> Apply; cleared once used or on close. */
-    var preselect: java.io.File? = null
+    var preselect: String? = null   // SAVEDCFG-2026-10-12: the save's id (CommConfig.savedSetups) -- CODE RULE 1: null = none chosen
     /** CHECKINAPPLY-2026-09-28 (Fred): opened by CHECK IN -- apply THIS ride straight away, then report back.
      *  CODE RULE 1: null = normal use (the rider picks). */
     var autoRideId: String? = null
@@ -125,8 +125,10 @@ fun RadioConfigScreen(
             }
         // SPLITLISTS-2026-09-26 (Fred): Apply ride to radio shows the DEFAULT and RIDES only -- saves are applied from
         // Saved configs (Review / apply saved configs). A save chosen THERE arrives here as the preselect: it alone.
-        RadioConfigLauncher.preselect?.let { f ->
-            if (f.exists()) list += RadioTarget(RadioBackups.title(f), "This radio's save • " + RadioBackups.detail(f), null, f.absolutePath, RadioBackups.rideId(f))
+        RadioConfigLauncher.preselect?.let { id ->   // SAVEDCFG-2026-10-12
+            config.savedSetups().firstOrNull { it.id == id }?.let { s ->
+                list += RadioTarget(s.title, "This radio's save • " + s.detail, null, s.id, s.rideId)
+            }
         }
         targets = list
     }
@@ -150,7 +152,7 @@ fun RadioConfigScreen(
     // CONFIGREVIEW-2026-09-25: opened from Saved configs -> Apply: straight to that save's preview.
     LaunchedEffect(targets) {
         val f = RadioConfigLauncher.preselect ?: return@LaunchedEffect
-        val t = targets.firstOrNull { it.savedId == f.absolutePath } ?: return@LaunchedEffect
+        val t = targets.firstOrNull { it.savedId == f } ?: return@LaunchedEffect   // SAVEDCFG-2026-10-12: by id
         RadioConfigLauncher.preselect = null
         choose(t)
     }

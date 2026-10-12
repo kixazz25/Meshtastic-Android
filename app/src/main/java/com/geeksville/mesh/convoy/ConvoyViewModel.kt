@@ -469,19 +469,14 @@ class ConvoyViewModel @Inject constructor(
         android.util.Log.i("ConvoyProfile", "Exported profile to: ${file.absolutePath}")
     }
 
-    fun importProfileFromFile(file: java.io.File): Result<DeviceProfile> = runCatching {
-        file.inputStream().use { inputStream ->
-            importProfileUseCase(inputStream).getOrElse { throw it }
-        }
-    }
+    // SAVEDCFG-2026-10-12: importProfileFromFile removed -- the saved-configs screen asks CommConfig (P4.3).
 
     // RADIOCFG4-2026-09-25: the radio configurator's links to the radio (RadioConfigWriter.RadioOps).
     // COMMIDENT-2026-10-09: radioOps + installProfileToRadio keep their 3 nodeRepository.ourNodeInfo reads -- the radio-write
     // adapter needs Meshtastic's User record; it moves behind the API as one piece when CommConfig is converted.
     fun radioNodeNum(): Int? = myRadioNum()
 
-    /** All values, as the app holds them after the latest (re)connect -- the same record exportProfileToFile saves. */
-    suspend fun currentProfile(): DeviceProfile = radioConfigRepository.deviceProfileFlow.first()
+    // SAVEDCFG-2026-10-12: currentProfile removed -- "Radio now" is CommConfig.RADIO_NOW (P4.3).
 
     /** COMMRADIOOPS-2026-10-12 (P4.1): the radio adapter lives on the comm side (comm/MeshRadioOps) -- same calls, same order.
      *  TRANSITIONAL: P4.2 moves the configurator behind CommConfig.applyConfig and this goes. CODE RULE 1: null = no radio. */
