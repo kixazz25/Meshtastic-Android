@@ -158,7 +158,14 @@ data class ReportingRequest(
     val wifiIntervalSecs: Int?,
     val stationaryIntervalSecs: Int,
     val method: Method,
+    /* COMMREPORT-2026-10-12 (additive): field tuning for a transport that must restart to take the change (mesh: the wait after the
+     * reconnect, then the gap before the second reconnect -- GPSCYCLE2). An implementation that does not restart ignores them. */
+    val settleWaitSecs: Int = 20,
+    val reconnectGapSecs: Int = 4,
 ) { enum class Method { BROADCAST_TO_RIDE_GROUP } }
+
+/** COMMREPORT-2026-10-12: the steps of a reporting change, for GroupTrack's words. UNCHANGED = already so, nothing written. */
+enum class ReportingStep { WRITING, WRITTEN, RESTARTING, RECONNECTING_AGAIN, UNCHANGED, DONE }
 
 // ═════════════════════════════════ THE MODULES (each becomes an API) ═════════════════════════════════
 
@@ -253,6 +260,8 @@ interface CommMessaging {
     suspend fun deliver(message: CommMessage): CommResult             // D12 — Layer 1 builds the content, passes it in
     suspend fun deliverText(text: String): CommResult                 // v0.3 — plain text on port 1
     suspend fun setReporting(request: ReportingRequest): CommResult   // D13 — ONE implementation (inventory: was 2)
+    /** COMMREPORT-2026-10-12 (additive): the same, telling each step as it happens. Default: no steps told. */
+    suspend fun setReporting(request: ReportingRequest, onStep: (ReportingStep) -> Unit): CommResult = setReporting(request)
     /** D14 — the event stream: deduped, normalised. Hot; collectors start at the current state via members(). */
     val events: Flow<CommEvent>
     fun members(): List<Member>                                       // snapshot for a screen opening mid-ride

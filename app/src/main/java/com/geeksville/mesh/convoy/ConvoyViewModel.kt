@@ -19,7 +19,7 @@ import org.meshtastic.core.domain.usecase.settings.InstallProfileUseCase
 import org.meshtastic.core.repository.NodeRepository
 import org.meshtastic.core.repository.RadioConfigRepository
 import org.meshtastic.proto.DeviceProfile
-import com.geeksville.mesh.comm.RadioOps   // COMMCONFIG-2026-10-12: moved to the comm side (P4.4 removes this use)
+// COMMREPORT-2026-10-12: RadioOps no longer used here -- the GPS interval goes through CommMessaging.setReporting (P4.4)
 import javax.inject.Inject
 
 /**
@@ -51,7 +51,6 @@ class ConvoyViewModel @Inject constructor(
     private val exportProfileUseCase: ExportProfileUseCase,
     private val installProfileUseCase: InstallProfileUseCase,
     private val radioController: org.meshtastic.core.model.RadioController, // RADIOCFG4-2026-09-25
-    private val meshRadioOps: com.geeksville.mesh.comm.MeshRadioOps, // COMMRADIOOPS-2026-10-12: transitional -- the GPS interval apply (P4.4)
     private val commConfig: com.grouptrack.comm.CommConfig, // COMMCONFIG-2026-10-12: the radio configurator, through the Comm API
     private val commMessaging: com.grouptrack.comm.CommMessaging, // COMMSEND-2026-10-08: TAK out through the Comm API
     private val commMenus: com.grouptrack.comm.CommMenus, // COMMMENUS-2026-10-08: Meshtastic menus opened by request
@@ -478,9 +477,7 @@ class ConvoyViewModel @Inject constructor(
 
     // SAVEDCFG-2026-10-12: currentProfile removed -- "Radio now" is CommConfig.RADIO_NOW (P4.3).
 
-    /** COMMRADIOOPS-2026-10-12 (P4.1): the radio adapter lives on the comm side (comm/MeshRadioOps) -- same calls, same order.
-     *  TRANSITIONAL: P4.2 moves the configurator behind CommConfig.applyConfig and this goes. CODE RULE 1: null = no radio. */
-    fun radioOps(): RadioOps? = meshRadioOps.ops()
+    // COMMREPORT-2026-10-12: the radio-adapter accessor removed -- its last user (the GPS interval) goes through CommMessaging.setReporting.
     /** COMMCONFIG-2026-10-12 (P4.2): applying a ride (or a save) to the radio goes through the Comm API -- the ride file in, the report out. */
     val radioConfig: com.grouptrack.comm.CommConfig get() = commConfig
 
@@ -678,74 +675,38 @@ class ConvoyViewModel @Inject constructor(
     val gpsApplyBusy: StateFlow<Boolean> = _gpsApplyBusy.asStateFlow()
     fun clearGpsApplyStatus() { if (!_gpsApplyBusy.value) _gpsApply.value = null }
 
-    fun applyLocationInterval(ui: com.geeksville.mesh.model.UIViewModel, secs: Int) {
+    fun applyLocationInterval(ui: com.geeksville.mesh.model.UIViewModel, secs: Int) {   // CODE RULE 1 n/a; `ui` unused since P4.1 (caller unchanged)
         if (_gpsApplyBusy.value) return
         if (secs !in 3..10) { _gpsApply.value = "Enter a number from 3 to 10."; return }
-        val ops = radioOps() ?: run { _gpsApply.value = "Connect your radio first (GRP Awareness)."; return }   // COMMRADIOOPS-2026-10-12: `ui` unused now (P4.4)
+        if (link.value != com.grouptrack.comm.Link.CONNECTED) { _gpsApply.value = "Connect your radio first (GRP Awareness)."; return }
+        // COMMREPORT-2026-10-12 (P4.4): WHAT -- moving every `secs` s, the ride's stationary floor (the GroupTrack default's standalone
+        // positionBroadcastSecs, STATIONARY30), the field-tuned reconnect timing. The comm side does HOW and tells the steps;
+        // the words below are the ones this panel always showed. Runs on viewModelScope so closing the panel cannot cut it off.
+        val stationary = runCatching {
+            org.json.JSONObject(appContext.assets.open("grouptrack_default.json").bufferedReader().use { it.readText() })
+                .getJSONObject("network").getJSONObject("standalone").getInt("positionBroadcastSecs")
+        }.getOrNull() ?: run { _gpsApply.value = "The GroupTrack default settings could not be read -- nothing written."; return }
         _gpsApplyBusy.value = true
         viewModelScope.launch {
-            var disconnected = false
             try {
-                // DeviceProfile.config / .position are optional in the proto: null = the app has not read them yet.
-                // GPSRIDE-2026-09-29 (Fred): the ride's standard position values -- the GroupTrack default's network.standalone,
-                // "the base under every ride", exactly what the check-in's radio setup writes -- with ONLY the smart interval
-                // replaced. Every managed field is set explicitly (as RadioConfigurator.build does), so a zero read back from
-                // the radio is never written (it silenced a radio at the 15-minute firmware default on 09-29).
-                val st = runCatching {
-                    org.json.JSONObject(appContext.assets.open("grouptrack_default.json").bufferedReader().use { it.readText() })
-                        .getJSONObject("network").getJSONObject("standalone")
-                }.getOrNull()
-                if (st == null) { _gpsApply.value = "The GroupTrack default settings could not be read -- nothing written."; return@launch }
-                // CODE RULE 1: the radio's position section may not be read yet (null) -- the managed fields are all set below.
-                val pos = ops.retrieve().config?.position ?: org.meshtastic.proto.Config.PositionConfig()
-                val newPos = pos.copy(
-                    position_broadcast_secs = st.getInt("positionBroadcastSecs"),
-                    position_broadcast_smart_enabled = st.getBoolean("smartPositionEnabled"),
-                    broadcast_smart_minimum_interval_secs = secs,
-                    broadcast_smart_minimum_distance = st.getInt("smartMinDistanceMeters"),
-                    gps_mode = org.meshtastic.proto.Config.PositionConfig.GpsMode.valueOf(st.getString("gpsMode")),
-                    gps_update_interval = st.getInt("gpsUpdateSecs"),
-                    fixed_position = st.getBoolean("fixedPosition"),
-                )
-                val was = pos.broadcast_smart_minimum_interval_secs
-                if (newPos == pos) { _gpsApply.value = "Already every $secs s with the ride's settings -- nothing to change."; return@launch }
-                android.util.Log.i("GPSINT", "apply smart ${was}s -> ${secs}s, standing ${pos.position_broadcast_secs}s -> " +
-                    "${newPos.position_broadcast_secs}s at ${System.currentTimeMillis()}")
-                _gpsApply.value = "Writing every $secs s to the radio..."
-                ops.beginEdit()
-                ops.writeConfig(org.meshtastic.proto.Config(position = newPos))
-                ops.commitEdit()
-                _currentIntervalSecs.value = secs
-                android.util.Log.i("GPSINT", "written at ${System.currentTimeMillis()}")
-                _gpsApply.value = "Written. Disconnecting in 3 s..."
-                kotlinx.coroutines.delay(3_000)
-                ops.disconnect(); disconnected = true
-                android.util.Log.i("GPSINT", "disconnect at ${System.currentTimeMillis()}")
-                _gpsApply.value = "Radio restarting. Reconnecting in 20 s..."
-                kotlinx.coroutines.delay(20_000)   // GPSRECON20-2026-09-29 (Fred): 10 s was too short for the radio to restart
-                ops.reconnect(); disconnected = false
-                android.util.Log.i("GPSINT", "reconnect at ${System.currentTimeMillis()}")
-                // GPSCYCLE2-2026-09-30 (Fred): once the reconnect above has CONNECTED, one more cycle -- wait -> disconnect ->
-                // gap -> reconnect (GpsReconnectTiming: 20 s / 4 s by default). Fred's manual disconnect/reconnect restores my cart's
-                // position and ID every time; the first
-                // reconnect alone leaves my cart off the map. The wait is on the connection state (as the configurator's), capped.
-                _gpsApply.value = "Reconnected. Reconnecting once more..."
-                val firstUp = kotlinx.coroutines.withTimeoutOrNull(60_000) {
-                    ops.connection.first { it == org.meshtastic.core.model.ConnectionState.Connected }
-                } != null
-                android.util.Log.i("GPSINT", "cycle2 first reconnect connected=$firstUp wait=${GpsReconnectTiming.waitSecs}s " +
-                    "gap=${GpsReconnectTiming.gapSecs}s at ${System.currentTimeMillis()}")   // GPSTIMING-2026-09-30
-                kotlinx.coroutines.delay(GpsReconnectTiming.waitSecs * 1000L)   // GPSTIMING-2026-09-30: after Connected
-                ops.disconnect(); disconnected = true
-                android.util.Log.i("GPSINT", "cycle2 disconnect at ${System.currentTimeMillis()}")
-                kotlinx.coroutines.delay(GpsReconnectTiming.gapSecs * 1000L)   // GPSTIMING-2026-09-30: disconnect -> reconnect
-                ops.reconnect(); disconnected = false
-                android.util.Log.i("GPSINT", "cycle2 reconnect at ${System.currentTimeMillis()}")
-                _gpsApply.value = "Done -- location sent every $secs s while moving."
-            } catch (e: Exception) {
-                android.util.Log.e("GPSINT", "failed: ${e.message}", e)
-                _gpsApply.value = "Could not apply: ${e.message ?: e.javaClass.simpleName}"
-                if (disconnected) runCatching { ops.reconnect() }.onSuccess { android.util.Log.i("GPSINT", "reconnect after failure") }
+                val request = com.grouptrack.comm.ReportingRequest(secs, null, stationary,
+                    com.grouptrack.comm.ReportingRequest.Method.BROADCAST_TO_RIDE_GROUP,
+                    settleWaitSecs = GpsReconnectTiming.waitSecs, reconnectGapSecs = GpsReconnectTiming.gapSecs)
+                val r = commMessaging.setReporting(request) { step ->
+                    _gpsApply.value = when (step) {
+                        com.grouptrack.comm.ReportingStep.WRITING -> "Writing every $secs s to the radio..."
+                        com.grouptrack.comm.ReportingStep.WRITTEN -> { _currentIntervalSecs.value = secs; "Written. Disconnecting in 3 s..." }
+                        com.grouptrack.comm.ReportingStep.RESTARTING -> "Radio restarting. Reconnecting in 20 s..."
+                        com.grouptrack.comm.ReportingStep.RECONNECTING_AGAIN -> "Reconnected. Reconnecting once more..."
+                        com.grouptrack.comm.ReportingStep.UNCHANGED -> "Already every $secs s with the ride's settings -- nothing to change."
+                        com.grouptrack.comm.ReportingStep.DONE -> "Done -- location sent every $secs s while moving."
+                    }
+                }
+                if (r is com.grouptrack.comm.CommResult.Failed) _gpsApply.value = when (r.reason) {
+                    "NO_RADIO" -> "Connect your radio first (GRP Awareness)."
+                    "NO_DEFAULT" -> "The GroupTrack default settings could not be read -- nothing written."
+                    else -> "Could not apply: ${r.reason}"
+                }
             } finally {
                 _gpsApplyBusy.value = false
             }
