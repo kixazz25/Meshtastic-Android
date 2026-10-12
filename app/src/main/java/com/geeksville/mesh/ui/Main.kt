@@ -645,14 +645,25 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             if (grpHealth.talking) { link.powerCycle.value = false; link.powerCycleDismissed = false }
             else if (grpHealth.attempts >= 3 && !link.powerCycleDismissed && link.ridingGroup.value) link.powerCycle.value = true
         }
-        // SETTINGSBACK-2026-09-29 (Fred): RADIO SETTINGS opens Meshtastic's Settings -- a top-level page with no back arrow.
-        // While it is open from there, a BACK TO MAP button overlays it (the same as Android's back button).
-        var settingsFromGrp by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-        val onSettingsPage = currentDestination?.hierarchy?.any { it.hasRoute(SettingsRoutes.Settings::class) } == true
-        androidx.compose.runtime.LaunchedEffect(onSettingsPage) { if (!onSettingsPage) settingsFromGrp = false }
-        if (settingsFromGrp && onSettingsPage) {
+        // COMMSETTINGS-2026-10-12 · MESHTASTIC SHELL (comm side -- moves out with the shell at step 6): carries out the comm side's screen
+        // requests on Meshtastic's own navigation, and reports when the requested Settings page has been left.
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            com.geeksville.mesh.comm.MeshScreens.requests.collect { req ->
+                when (req) {
+                    com.geeksville.mesh.comm.MeshScreens.OPEN_SETTINGS -> navController.navigate(SettingsRoutes.Settings())
+                    com.geeksville.mesh.comm.MeshScreens.CLOSE -> navController.popBackStack()
+                    else -> {}
+                }
+            }
+        }
+        val meshOnSettingsPage = currentDestination?.hierarchy?.any { it.hasRoute(SettingsRoutes.Settings::class) } == true
+        androidx.compose.runtime.LaunchedEffect(meshOnSettingsPage) { com.geeksville.mesh.comm.MeshScreens.onSettingsPage(meshOnSettingsPage) }
+        // COMMSETTINGS-2026-10-12 · GROUPTRACK: BACK TO MAP (SETTINGSBACK-2026-09-29, Fred) -- GroupTrack's words, shown while the comm side reports
+        // its radio settings screen open; the tap asks the comm side to close it. Android's back button works as before.
+        val grpOpenMenu by convoyViewModel.openMenu.collectAsStateWithLifecycle()
+        if (grpOpenMenu == "radio-settings") {
             androidx.compose.material3.Button(
-                onClick = { navController.popBackStack() },
+                onClick = { convoyViewModel.closeCommMenu("radio-settings") },
                 modifier = Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(top = 40.dp, start = 12.dp),
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF2E75B6)),
             ) { Text("\u25C0 BACK TO MAP", color = Color.White, fontWeight = FontWeight.Bold) }
@@ -697,10 +708,10 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 onDisconnect = { convoyViewModel.disconnectRadio() },   // COMMLINKREQ-2026-10-11
                 onConnect = { id, fail -> convoyViewModel.connectRadio(id, fail) },   // COMMRADIOS-2026-10-11: CONNECT or PAIR
                 onForget = { id, done -> convoyViewModel.forgetRadio(id, done) },   // COMMLINKREQ-2026-10-11
-                onLocalSettings = {
+                menus = convoyViewModel.commMenuIds,   // COMMSETTINGS-2026-10-12
+                onLocalSettings = {   // COMMSETTINGS-2026-10-12: asked through the comm side (CommMenus)
                     com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()
-                    settingsFromGrp = true   // SETTINGSBACK-2026-09-29: show BACK TO MAP on the Settings page
-                    navController.navigate(SettingsRoutes.Settings())
+                    convoyViewModel.openCommMenu("radio-settings")
                 },
                 onApplyRide = {
                     com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()

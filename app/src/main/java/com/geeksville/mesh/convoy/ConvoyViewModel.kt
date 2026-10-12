@@ -298,6 +298,14 @@ class ConvoyViewModel @Inject constructor(
         android.util.Log.i("CommMenus", "COMMMENUS open '$id' -> $r")
         return r
     }
+    /** COMMSETTINGS-2026-10-12: the comm-side screen open now (CODE RULE 1: null = none); closing it; the menus the comm side offers. */
+    val openMenu: StateFlow<String?> = commMenus.openMenu
+    fun closeCommMenu(id: String): com.grouptrack.comm.CommResult {
+        val r = commMenus.close(id)
+        android.util.Log.i("CommMenus", "COMMSETTINGS-2026-10-12 close '$id' -> $r")
+        return r
+    }
+    val commMenuIds: Set<String> = commMenus.items().map { it.id }.toSet()
 
     fun stopGroupTrack() {
         _trackActive.value = false

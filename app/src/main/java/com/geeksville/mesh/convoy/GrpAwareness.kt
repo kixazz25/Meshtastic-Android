@@ -166,6 +166,7 @@ fun GrpAwarenessPanel(
     onDisconnect: () -> Unit,
     onConnect: (String, (String) -> Unit) -> Unit,   // COMMRADIOS-2026-10-11: CONNECT or PAIR by id; the callback gets a failure reason
     onForget: (String, (Boolean) -> Unit) -> Unit,   // COMMLINKREQ-2026-10-11: true = forgotten; false = Android refused
+    menus: Set<String>,   // COMMSETTINGS-2026-10-12: the comm-side screens offered (CommMenus.items) -- a button shows only when offered
     onLocalSettings: () -> Unit,
     onApplyRide: () -> Unit,
     onMeshtastic: () -> Unit,
@@ -254,14 +255,14 @@ fun GrpAwarenessPanel(
                     }
                     // NOWEBCLIENT-2026-09-29 (Fred): RADIO SETTINGS always opens the Meshtastic app's own radio settings -- the web
                     // client left the radio disconnected, and the internet check was unreliable (said online with it off).
-                    Surface(modifier = Modifier.weight(1f).clickable { message = ""; onLocalSettings() },
+                    if ("radio-settings" in menus) Surface(modifier = Modifier.weight(1f).clickable { message = ""; onLocalSettings() },   // COMMSETTINGS-2026-10-12
                         shape = RoundedCornerShape(8.dp), color = Color(0xFF2A2210)) {
                         Column(modifier = Modifier.padding(8.dp)) {
                             Text("RADIO SETTINGS", color = Color(0xFFF2C14E), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             Text("⚠ experienced mesh operators only", color = Color(0xFFC9A659), fontSize = 9.sp)
                         }
                     }
-                    Surface(modifier = Modifier.weight(1f).clickable { onMeshtastic() }, shape = RoundedCornerShape(8.dp), color = Color(0xFF16263E)) {
+                    if ("mesh-menu" in menus) Surface(modifier = Modifier.weight(1f).clickable { onMeshtastic() }, shape = RoundedCornerShape(8.dp), color = Color(0xFF16263E)) {   // COMMSETTINGS-2026-10-12
                         Column(modifier = Modifier.padding(8.dp)) {
                             Text("MESHTASTIC SIDE MENU", color = Color(0xFF9CC7F5), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             Text("temporary", color = Color(0xFF6F8196), fontSize = 9.sp)

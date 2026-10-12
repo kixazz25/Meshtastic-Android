@@ -246,6 +246,10 @@ data class CommMenuItem(val id: String, val label: String, val group: String)
 interface CommMenus {
     fun items(): List<CommMenuItem>
     fun open(id: String): CommResult                                  // NotSupported for an unknown id
+    /** COMMSETTINGS-2026-10-12: the comm-side screen open over GroupTrack now. CODE RULE 1: null = none (GroupTrack's own screens). */
+    val openMenu: StateFlow<String?>
+    /** COMMSETTINGS-2026-10-12: close a screen opened by open(id) -- GroupTrack's way back. NotSupported if it is not open. */
+    fun close(id: String): CommResult
 }
 
 /** F · the plugin as a whole: capabilities + lifecycle. Service F17. */
