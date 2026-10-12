@@ -122,64 +122,72 @@ fun ConfigReviewScreen(
     }
 
     Box(Modifier.fillMaxSize().background(RBG).clickable(enabled = false) {}) {
-        Column(Modifier.fillMaxSize().padding(18.dp).verticalScroll(rememberScrollState())) {
-            Text("Saved configs", color = RINK, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text("Radio ${nodeId ?: "(none)"} \u2022 ${saves.size} saved", color = RDIM, fontSize = 13.sp)
+        // CFGTOP-2026-10-12 (Fred 10-12): the actions stay at the top; the list, or the comparison, scrolls underneath.
+        Column(Modifier.fillMaxSize().padding(18.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Saved configs", color = RINK, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("Radio ${nodeId ?: "(none)"} \u2022 ${saves.size} saved", color = RDIM, fontSize = 13.sp)
+                }
+                OutlinedButton(onClick = onClose) { Text("Close") }
+            }
             Spacer(Modifier.height(10.dp))
             val c = compared
-            if (c == null) {
-                if (comparing) {
+            val sel = selected
+            // the actions for the current step -- always in view
+            when {
+                c != null -> {
+                    Text("A: ${names.first}", color = RINK, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("B: ${names.second}", color = RINK, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(onClick = { compared = null; selected = null }) { Text("Back to the list") }
+                }
+                comparing -> {
                     Text("Comparing \u201c${titleOf(selected!!)}\u201d with\u2026 tap another line", color = RACC, fontWeight = FontWeight.Bold)
-                } else {
-                    Text("Tap a config, then Apply or Compare.", color = RINK)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(onClick = { comparing = false }) { Text("Cancel compare") }
                 }
-                Spacer(Modifier.height(6.dp))
-                val entries = (if (connected) listOf(NOW) else emptyList()) + saves.map { it.absolutePath }
-                if (entries.isEmpty()) Text("No saved configs for this radio yet.", color = RDIM)
-                entries.forEach { k ->
-                    val on = k == selected
-                    Column(
-                        Modifier.fillMaxWidth().padding(vertical = 3.dp)
-                            .background(if (on) RSEL else RCARD, RoundedCornerShape(8.dp))
-                            .clickable { tap(k) }.padding(horizontal = 12.dp, vertical = 10.dp),
-                    ) {
-                        Text(titleOf(k), color = if (on) Color.White else RINK, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text(detailOf(k), color = RDIM, fontSize = 12.sp)
-                    }
-                }
-                val sel = selected
-                if (sel != null && !comparing) {
-                    Spacer(Modifier.height(12.dp))
+                sel != null -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Button(onClick = { apply(sel) }, enabled = sel != NOW && connected) { Text("Apply") }
                         Button(onClick = { comparing = true }) { Text("Compare with\u2026") }
                         OutlinedButton(onClick = { selected = null }) { Text("Cancel") }
                     }
                     if (sel == NOW) Text("Radio now is the radio itself \u2014 it can be compared, not applied.", color = RDIM, fontSize = 12.sp)
-                } else if (comparing) {
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedButton(onClick = { comparing = false }) { Text("Cancel compare") }
                 }
-            } else {
-                Text("A: ${names.first}", color = RINK, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text("B: ${names.second}", color = RINK, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                if (c.first.isEmpty() && c.second.isEmpty()) Text("Identical.", color = RACC)
-                if (c.first.isNotEmpty()) {
-                    Text("Managed \u2014 what an apply would change (${c.first.size})", color = RWARN, fontWeight = FontWeight.Bold)
-                    c.first.forEach { Text("  ${it.path}: ${it.a} \u2192 ${it.b}", color = RWARN, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
-                    Spacer(Modifier.height(8.dp))
-                }
-                if (c.second.isNotEmpty()) {
-                    Text("Everything else \u2014 information only (${c.second.size})", color = RINK, fontWeight = FontWeight.Bold)
-                    c.second.forEach { Text("  ${it.path}: ${it.a} \u2192 ${it.b}", color = RDIM, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
-                }
-                Spacer(Modifier.height(12.dp))
-                OutlinedButton(onClick = { compared = null; selected = null }) { Text("Back to the list") }
+                else -> Text("Tap a config, then Apply or Compare.", color = RINK)
             }
             if (message.isNotEmpty()) Text(message, color = Color(0xFFF85149), fontSize = 13.sp)
-            Spacer(Modifier.height(14.dp))
-            OutlinedButton(onClick = onClose) { Text("Close") }
+            Spacer(Modifier.height(10.dp))
+            // the list, or the comparison -- scrolls under the actions
+            Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
+                if (c == null) {
+                    val entries = (if (connected) listOf(NOW) else emptyList()) + saves.map { it.absolutePath }
+                    if (entries.isEmpty()) Text("No saved configs for this radio yet.", color = RDIM)
+                    entries.forEach { k ->
+                        val on = k == selected
+                        Column(
+                            Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                                .background(if (on) RSEL else RCARD, RoundedCornerShape(8.dp))
+                                .clickable { tap(k) }.padding(horizontal = 12.dp, vertical = 10.dp),
+                        ) {
+                            Text(titleOf(k), color = if (on) Color.White else RINK, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(detailOf(k), color = RDIM, fontSize = 12.sp)
+                        }
+                    }
+                } else {
+                    if (c.first.isEmpty() && c.second.isEmpty()) Text("Identical.", color = RACC)
+                    if (c.first.isNotEmpty()) {
+                        Text("Managed \u2014 what an apply would change (${c.first.size})", color = RWARN, fontWeight = FontWeight.Bold)
+                        c.first.forEach { Text("  ${it.path}: ${it.a} \u2192 ${it.b}", color = RWARN, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    if (c.second.isNotEmpty()) {
+                        Text("Everything else \u2014 information only (${c.second.size})", color = RINK, fontWeight = FontWeight.Bold)
+                        c.second.forEach { Text("  ${it.path}: ${it.a} \u2192 ${it.b}", color = RDIM, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
+                    }
+                }
+            }
         }
     }
 }
