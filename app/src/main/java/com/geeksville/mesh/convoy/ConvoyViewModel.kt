@@ -50,6 +50,7 @@ class ConvoyViewModel @Inject constructor(
     private val exportProfileUseCase: ExportProfileUseCase,
     private val installProfileUseCase: InstallProfileUseCase,
     private val radioController: org.meshtastic.core.model.RadioController, // RADIOCFG4-2026-09-25
+    private val meshRadioOps: com.geeksville.mesh.comm.MeshRadioOps, // COMMRADIOOPS-2026-10-12: transitional until P4.2
     private val commMessaging: com.grouptrack.comm.CommMessaging, // COMMSEND-2026-10-08: TAK out through the Comm API
     private val commMenus: com.grouptrack.comm.CommMenus, // COMMMENUS-2026-10-08: Meshtastic menus opened by request
     private val commIdentity: com.grouptrack.comm.CommIdentity, // COMMIDENT-2026-10-09: this radio through the Comm API
@@ -480,40 +481,9 @@ class ConvoyViewModel @Inject constructor(
     /** All values, as the app holds them after the latest (re)connect -- the same record exportProfileToFile saves. */
     suspend fun currentProfile(): DeviceProfile = radioConfigRepository.deviceProfileFlow.first()
 
-    /**
-     * The Bluetooth adapter: the app's existing radio calls, AWAITED IN ORDER (not the fire-and-forget view-model
-     * wrappers), and the old reconnect wait's forced cycle (setDeviceAddress "n" / saved address).
-     * CODE RULE 1: null = no radio connected (no node number or no saved address) -- the screen says so.
-     */
-    fun radioOps(ui: com.geeksville.mesh.model.UIViewModel): RadioOps? {
-        val destNum = radioNodeNum() ?: return null
-        val saved = ui.getDeviceAddress()?.takeIf { it.isNotBlank() && it != "n" } ?: return null
-        return object : RadioOps {
-            override val connection = ui.connectionState
-            override suspend fun setOwner(longName: String) {
-                val user = requireNotNull(nodeRepository.ourNodeInfo.value?.user) { "no user record for this radio" }
-                radioController.setOwner(destNum, user.copy(long_name = longName), radioController.getPacketId())
-                org.meshtastic.core.data.manager.RadioNameStore.put(destNum, longName, "config written")   // RADIONAMES-2026-10-03
-            }
-            override suspend fun beginEdit() { radioController.beginEditSettings(destNum) }
-            override suspend fun commitEdit() { radioController.commitEditSettings(destNum) }
-            override suspend fun writeConfig(config: org.meshtastic.proto.Config) {
-                radioController.setConfig(destNum, config, radioController.getPacketId())
-            }
-            override suspend fun writeChannel(channel: org.meshtastic.proto.Channel) {
-                radioController.setRemoteChannel(destNum, channel, radioController.getPacketId())
-            }
-            // RADIODEFAULTS-2026-10-06: the serial module write (group 3).
-            override suspend fun writeModuleConfig(config: org.meshtastic.proto.ModuleConfig) {
-                radioController.setModuleConfig(destNum, config, radioController.getPacketId())
-            }
-            override suspend fun disconnect() { ui.setDeviceAddress("n") }
-            override suspend fun reconnect() { ui.setDeviceAddress(saved) }
-            override suspend fun retrieve(): DeviceProfile = currentProfile()
-            // OWNNODE-2026-09-26: the app's own radio as it holds it now -- its own entry in the node list.
-            override fun ownNodeNum(): Int? = nodeRepository.ourNodeInfo.value?.num
-        }
-    }
+    /** COMMRADIOOPS-2026-10-12 (P4.1): the radio adapter lives on the comm side (comm/MeshRadioOps) -- same calls, same order.
+     *  TRANSITIONAL: P4.2 moves the configurator behind CommConfig.applyConfig and this goes. CODE RULE 1: null = no radio. */
+    fun radioOps(): RadioOps? = meshRadioOps.ops()
 
     fun installProfileToRadio(destNum: Int, profile: DeviceProfile) {
         val currentUser = nodeRepository.ourNodeInfo.value?.user
@@ -712,7 +682,7 @@ class ConvoyViewModel @Inject constructor(
     fun applyLocationInterval(ui: com.geeksville.mesh.model.UIViewModel, secs: Int) {
         if (_gpsApplyBusy.value) return
         if (secs !in 3..10) { _gpsApply.value = "Enter a number from 3 to 10."; return }
-        val ops = radioOps(ui) ?: run { _gpsApply.value = "Connect your radio first (GRP Awareness)."; return }
+        val ops = radioOps() ?: run { _gpsApply.value = "Connect your radio first (GRP Awareness)."; return }   // COMMRADIOOPS-2026-10-12: `ui` unused now (P4.4)
         _gpsApplyBusy.value = true
         viewModelScope.launch {
             var disconnected = false

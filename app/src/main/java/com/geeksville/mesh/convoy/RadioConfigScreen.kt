@@ -136,7 +136,6 @@ private val ACCENT = Color(0xFF58A6FF)
 @Composable
 fun RadioConfigScreen(
     onClose: () -> Unit,
-    uiViewModel: UIViewModel = hiltViewModel(),
     convoyViewModel: ConvoyViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -214,7 +213,7 @@ fun RadioConfigScreen(
     }
 
     fun apply() {
-        val ops = convoyViewModel.radioOps(uiViewModel) ?: run { message = "No radio connected."; return }
+        val ops = convoyViewModel.radioOps() ?: run { message = "No radio connected."; return }   // COMMRADIOOPS-2026-10-12
         val p = plan ?: return
         val v = values ?: return
         val t = chosen ?: return
@@ -283,7 +282,7 @@ fun RadioConfigScreen(
             Text("Radio ${nodeId ?: "(none)"} \u2022 callsign ${callsign.ifEmpty { "(no profile)" }}", color = DIM, fontSize = 13.sp)
             Spacer(Modifier.height(10.dp))
 
-            val connected = uiViewModel.connectionState.value == ConnectionState.Connected
+            val connected = convoyViewModel.link.value == com.grouptrack.comm.Link.CONNECTED   // COMMRADIOOPS-2026-10-12
             when {
                 phase == "PICK" && (nodeId == null || !connected) ->
                     Text("No radio connected. Connect your radio first, then open this again.", color = BAD)

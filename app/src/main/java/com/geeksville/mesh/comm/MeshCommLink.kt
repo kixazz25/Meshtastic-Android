@@ -180,6 +180,11 @@ class MeshCommLink @Inject constructor(
         context.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.isEnabled ?: true
     } catch (e: Exception) { true }
     private var hBtOff = false
+    // COMMRADIOOPS-2026-10-12 (P4 D4): a radio-settings apply restarts the radio on purpose (disconnect -> wait -> reconnect). While one
+    // is running -- any adapter call (MeshRadioOps) in the last 90 s -- the keep-alive HOLDS: no reconnects, no tries counted.
+    @Volatile private var hHoldUntilMs = 0L
+    private var hApplying = false
+    fun holdReconnects(ms: Long = 90_000L) { hHoldUntilMs = maxOf(hHoldUntilMs, System.currentTimeMillis() + ms) }
 
     private fun pairedMacs(): Set<String> = try {
         context.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.bondedDevices
@@ -233,6 +238,12 @@ class MeshCommLink @Inject constructor(
             hBtOff = btOff
         }
         if (btOff) { hAttempts = 0; hNotTalkingSinceMs = now; hConnectingSinceMs = 0L; hLastAttemptMs = 0L }
+        val applying = now < hHoldUntilMs   // COMMRADIOOPS-2026-10-12
+        if (applying != hApplying) {
+            android.util.Log.i("COMMHEALTH", if (applying) "radio settings being applied -- reconnects held" else "settings apply over -- reconnects resume")
+            hApplying = applying
+        }
+        if (applying) { hAttempts = 0; hNotTalkingSinceMs = now; hConnectingSinceMs = 0L; hLastAttemptMs = 0L }
         // the recovery loop (was Main.kt LINKFIX / LINKFIX2 / LINKHB) -- COMMHEALTH2-2026-10-11: acts
         var stuck = false
         if (talking) {
@@ -245,7 +256,7 @@ class MeshCommLink @Inject constructor(
             val waitConnecting = state == Link.CONNECTING && !stuck
             if (!waitConnecting) {
                 if (hNotTalkingSinceMs == 0L) hNotTalkingSinceMs = now
-                val act = !btOff && needsRecovery && !saved.isNullOrBlank() && saved != "n" &&   // COMMBTOFF-2026-10-11
+                val act = !btOff && !applying && needsRecovery && !saved.isNullOrBlank() && saved != "n" &&   // COMMBTOFF-2026-10-11 + COMMRADIOOPS-2026-10-12
                     (stuck || now - hNotTalkingSinceMs >= 20_000L) && now - hLastAttemptMs >= 45_000L
                 if (act) {
                     if (stuck) { android.util.Log.i("COMMHEALTH", "connecting for ${(now - hConnectingSinceMs) / 1000} s -- stuck"); hConnectingSinceMs = 0L }

@@ -65,14 +65,13 @@ private val RWARN = Color(0xFFE3B341)
 @Composable
 fun ConfigReviewScreen(
     onClose: () -> Unit,
-    uiViewModel: UIViewModel = hiltViewModel(),
     convoyViewModel: ConvoyViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val nodeId = convoyViewModel.radioNodeNum()?.let { "!%08x".format(it) }
     val saves = remember(nodeId) { nodeId?.let { RadioBackups.list(context, it) } ?: emptyList() }
-    val connected = uiViewModel.connectionState.value == ConnectionState.Connected
+    val connected = convoyViewModel.link.value == com.grouptrack.comm.Link.CONNECTED   // COMMRADIOOPS-2026-10-12
     var selected by remember { mutableStateOf<String?>(null) } // NOW or a file path
     var comparing by remember { mutableStateOf(false) } // compare mode: waiting for the second line
     var compared by remember { mutableStateOf<Pair<List<ConfigDiff>, List<ConfigDiff>>?>(null) }
