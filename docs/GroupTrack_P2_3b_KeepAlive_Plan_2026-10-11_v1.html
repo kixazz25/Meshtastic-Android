@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — 2.7b P2.3b: the radio keep-alive moves to the comm side — plan v1</title>
+<style>
+body{font:14px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1100px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
+h1{font-size:20px;border-bottom:2px solid #2e75b6;padding-bottom:6px}
+h2{font-size:16px;color:#1f4e79;margin:24px 0 6px;border-bottom:1px solid #ddd;padding-bottom:3px}
+table{border-collapse:collapse;width:100%;margin:8px 0 14px}td,th{border:1px solid #ccd;padding:5px 8px;vertical-align:top;text-align:left;font-size:13px}
+th{background:#eef2f7}code{background:#f1f3f6;padding:0 3px;border-radius:3px;font-size:12px}
+.q{background:#fff8e6;border-left:4px solid #e0a800;padding:8px 12px;margin:8px 0}
+</style></head><body>
+<h1>2.7b cycle 1 — P2.3b: the radio keep-alive moves to the comm side — plan v1 (10-11, for Fred's approval before code)</h1>
+<p><b>Baseline:</b> <code>2.7b</code> at <code>57a533937</code> (P1, P2.1, P2.2, P2.3a committed and tablet-checked 10-11).
+<b>Fred's rule (10-11, D2):</b> maintaining the radio connection is a COMM activity; reporting its state is GroupTrack's.
+<b>The timing does not change</b> — the numbers below are copied, not re-tuned: they are what kept both radios up three days with no intervention.</p>
+
+<h2>1. What moves to the comm side (MeshCommLink, its own app-wide 5-second loop)</h2>
+<table><tr><th>Piece</th><th>Today (2.7b 57a533937)</th><th>Rule, unchanged</th></tr>
+<tr><td>Radio traffic signal</td><td>ConvoyViewModel 610–612 (node-list collector sets <code>lastRadioTrafficMs</code>)</td><td>every change in the radio's node list = traffic</td></tr>
+<tr><td>Fresh connection</td><td>tick 970–971, 984 (<code>linkWasConnected</code>, <code>linkConnectedAtMs</code>, <code>radioConnectedThisSession</code>)</td><td>a new connection restarts the traffic clock and gets 45 s for its first report</td></tr>
+<tr><td>"Talking" (heartbeat)</td><td>tick 986–992 → <code>GrpAwarenessLauncher.talking</code></td><td>connected AND (my radio's own TAK report within 45 s of max(report, connect) — or, for a radio that never sent one, node-list traffic within 120 s)</td></tr>
+<tr><td>Needs recovery</td><td>tick 998 → <code>GrpAwarenessLauncher.needsRecovery</code></td><td>not talking AND a radio was connected this session</td></tr>
+<tr><td>Recovery loop</td><td>Main.kt ~655–705 (LINKFIX / LINKFIX2 / LINKHB)</td><td>every 5 s · any change of link state or saved radio restarts the clock · CONNECTING &lt; 45 s → wait; ≥ 45 s → stuck · act after 20 s more not talking · attempts ≥ 45 s apart · 3 tries, then every 2 min while silent · action: radio "n", 1.5 s, radio back to the saved address · log lines kept (tag LINKFIX)</td></tr>
+<tr><td>Ghost sync</td><td>Main.kt 624–632 + GrpAwareness <code>isGhostSelection</code>/<code>pairedMacs</code></td><td>every 5 s: the saved Bluetooth radio is no longer paired in Android → no radio</td></tr>
+</table>
+<p>The comm side reads only comm data: Meshtastic's connection state, its node list, my node number, my radio's last TAK report (<code>TakSeenStore</code>), the saved radio (<code>RadioInterfaceService.currentDeviceAddressFlow</code>) and Android's paired list.</p>
+
+<h2>2. What GroupTrack keeps (reporting the state)</h2>
+<table><tr><th>Piece</th><th>How it reads the state after P2.3b</th></tr>
+<tr><td>GRP Awareness green / red, the pulse</td><td>from <code>CommLink.health</code> (talking) + <code>link</code></td></tr>
+<tr><td>The banner "Your radio isn't answering…" and its OK</td><td>shown when health says <code>RECOVERY_EXHAUSTED</code> (3 tries done, still silent) AND riding with a group (GroupTrack's own fact: other carts in the tick) AND not dismissed — same condition as today</td></tr>
+<tr><td>Android-only mode (tablet GPS for my cart when the radio is silent)</td><td><code>readLiveNodes</code> reads talking from health instead of the tick's own flag</td></tr>
+<tr><td>Names at connect (RADIONAMES)</td><td>unchanged in this step — the name table moves in P2.4</td></tr>
+</table>
+
+<h2>3. Contract addition (additive, GroupTrackComm.kt)</h2>
+<p><code>data class LinkHealth(val talking: Boolean, val recovering: Boolean, val attempts: Int, val reason: String?)</code> and <code>val health: StateFlow&lt;LinkHealth&gt;</code> on <code>CommLink</code>; <code>reconnect()</code> answers <code>NotSupported</code> no longer — it runs one attempt now (for a future "try again" button; nothing calls it yet).</p>
+<table><tr><th>reason</th><th>When</th><th>GroupTrack's words</th></tr>
+<tr><td><code>null</code></td><td>talking</td><td>—</td></tr>
+<tr><td><code>RADIO_SILENT</code></td><td>connected, not talking</td><td>(red; no banner yet)</td></tr>
+<tr><td><code>CONNECT_TIMEOUT</code></td><td>CONNECTING ≥ 45 s</td><td>(red; the loop reconnects)</td></tr>
+<tr><td><code>RECOVERY_EXHAUSTED</code></td><td>3 tries done, still silent</td><td>today's banner, unchanged wording</td></tr>
+<tr><td><code>RADIO_UNPAIRED</code></td><td>ghost sync cleared the saved radio</td><td>GRP Awareness: "Your radio was forgotten by Android — PAIR it again."</td></tr>
+</table>
+
+<h2>4. Removed from GroupTrack by this step</h2>
+<p>Main.kt: the recovery loop (~50 lines) and the ghost-sync loop · ConvoyViewModel: 6 link fields + ~15 heartbeat lines in the tick, the traffic line in the node-list collector · <code>GrpAwarenessLauncher.talking / needsRecovery / powerCycle</code> as shared writable globals (GroupTrack derives them from health) · Main.kt's last <code>uIViewModel.setDeviceAddress</code> and <code>scanModel.disconnect</code> calls.</p>
+
+<h2>5. Tablet checks (both droids)</h2>
+<ol>
+<li>Normal: green, stays green 5 minutes, log shows no LINKFIX reconnects.</li>
+<li>Radio off &lt; 45 s, back on: red, then green with no help.</li>
+<li>Radio off 4 minutes (riding with a group = two tablets checked in): 3 reconnects ~45 s apart in the log, then the banner; radio on → green, banner gone.</li>
+<li>Same with one tablet only (no group): reconnects, NO banner.</li>
+<li>Manual CONNECT in GRP Awareness is not cut off by a reconnect (LINKHB 10-05 case).</li>
+<li>Forget the radio in Android's Bluetooth settings: GroupTrack goes to no radio and says why.</li>
+<li>Android-only: radio off while recording → my cart follows the tablet GPS, other carts held.</li>
+</ol>
+<div class="q"><b>Two patches:</b> P2.3b-1 = the comm side computes health and runs the loop <i>in parallel</i>, logging only (GroupTrack unchanged) — compare its log with today's LINKFIX lines on the tablets; P2.3b-2 = GroupTrack switches to health and its own loop/fields are removed. A wrong number shows up in step 1 before it can matter.</div>
+</body></html>

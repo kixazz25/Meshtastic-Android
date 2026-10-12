@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — 2.7b P2 GRP Awareness through services — plan v1</title>
+<style>
+body{font:14px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1100px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
+h1{font-size:20px;border-bottom:2px solid #2e75b6;padding-bottom:6px}
+h2{font-size:16px;color:#1f4e79;margin:24px 0 6px;border-bottom:1px solid #ddd;padding-bottom:3px}
+table{border-collapse:collapse;width:100%;margin:8px 0 14px}td,th{border:1px solid #ccd;padding:5px 8px;vertical-align:top;text-align:left;font-size:13px}
+th{background:#eef2f7}code{background:#f1f3f6;padding:0 3px;border-radius:3px;font-size:12px}
+.q{background:#fff8e6;border-left:4px solid #e0a800;padding:8px 12px;margin:8px 0}
+.ok{color:#1a7f37;font-weight:600}.mv{color:#b35900;font-weight:600}.stay{color:#555;font-weight:600}
+</style></head><body>
+<h1>2.7b cycle 1 — P2: GRP Awareness through services — plan v1 (10-11, for Fred's review before any code)</h1>
+<p><b>Baseline:</b> branch <code>2.7b</code> at <code>98604950e</code> (P1 CommIdentity committed and tablet-checked 10-11). Line numbers below are from that commit.
+<b>Rules (design v17 §R7, Fred 10-08):</b> GroupTrack owns the panels and the words; the comm module is headless and returns results · requests GroupTrack → comm, events comm → GroupTrack · a request never waits for its outcome · recovery is a request, performed in the comm module; reconnection is an event · errors are events with reason codes · no new direct Meshtastic calls · one service at a time · where-used before and after each step.</p>
+
+<h2>1. Inventory — every place GRP Awareness reaches Meshtastic or Android Bluetooth today</h2>
+<table>
+<tr><th>#</th><th>What it does</th><th>Where (2.7b 98604950e)</th><th>Reaches</th><th>Target</th></tr>
+<tr><td>A</td><td>Connected / not connected (the green/red, "connected" flag)</td><td>Main.kt 613–615 → <code>GrpAwarenessLauncher.connected</code>; read by ConvoyViewModel 957 (tick), GrpAwarenessPanel <code>connected</code>, CHECKINCONNECT (Main.kt ~643)</td><td><code>uIViewModel.connectionState</code></td><td class="mv">CommLink.link (Link: DISCONNECTED / CONNECTING / CONNECTED) — the API already has it (A1)</td></tr>
+<tr><td>B</td><td>"Is my radio talking?" (heartbeat: own TAK report within 45 s, else node-list traffic)</td><td>ConvoyViewModel 596–599 (node-list collector = traffic), 972–986 (talking, needsRecovery, ridingGroup)</td><td><code>nodeRepository.nodeDBbyNum</code>; <code>commMessaging.lastReportFromMs</code> (already API)</td><td class="q">Decision D1</td></tr>
+<tr><td>C</td><td>Automatic recovery: 3 reconnects 45 s apart, then every 2 min; banner only while riding with a group</td><td>Main.kt ~651–700 (LINKFIX / LINKFIX2 / LINKHB loop)</td><td><code>uIViewModel.connectionState</code>, <code>scanModel.selectedAddressFlow</code>, <code>uIViewModel.setDeviceAddress("n"/saved)</code></td><td class="mv">the ACTION → <code>CommLink.reconnect()</code> (A6, "one implementation"); the WHEN stays GroupTrack (it knows "riding with a group") — Decision D2</td></tr>
+<tr><td>D</td><td>Ghost sync: the saved radio is no longer paired in Android → set to no radio (every 5 s)</td><td>Main.kt 624–632; GrpAwareness.kt 112–122 (<code>pairedMacs</code>, <code>isGhostSelection</code>)</td><td>Android <code>bondedDevices</code>; <code>scanModel.selectedAddressFlow</code>, <code>scanModel.disconnect()</code></td><td class="mv">inside the comm module (transport-specific); GroupTrack gets a LinkChanged + reason (e.g. <code>RADIO_UNPAIRED</code>)</td></tr>
+<tr><td>E</td><td>The radio list (paired radios + live Bluetooth scan) and the radio in use</td><td>Main.kt 618–621 (<code>bleDevicesForUi</code>, <code>usbDevicesForUi</code>, <code>selectedAddressFlow</code>); GrpAwareness.kt 209–270: Meshtastic's <code>ScannerView</code> composable with a BLE filter (<code>SERVICE_UUID</code>, <code>BLE_NAME_PATTERN</code>), <code>DeviceListEntry</code></td><td>ScannerViewModel, Meshtastic's scanner UI, core.ble constants</td><td class="q">Decision D3 (headless list = <code>listRadios()</code> + a list that changes)</td></tr>
+<tr><td>F</td><td>CONNECT / PAIR · DISCONNECT · FORGET</td><td>GrpAwareness.kt 245, 264 (<code>scanModel.onSelected</code>), Main.kt 742 (<code>scanModel.disconnect()</code>), GrpAwareness.kt 105–108 (<code>removeBond</code> by reflection) + 124 (open Bluetooth settings when Android refuses)</td><td>ScannerViewModel; Android BluetoothDevice (hidden API)</td><td class="mv"><code>connect(id)</code> (pairs when needed, as onSelected does — D5) · <code>disconnect()</code> · <code>forget(id)</code> → <code>Failed("FORGET_REFUSED")</code> → GroupTrack opens Bluetooth settings and says why</td></tr>
+<tr><td>G</td><td>Radio names (the name table: last-used long name by node, Bluetooth address, BT-name suffix)</td><td>ConvoyViewModel 600–606 (node list → names while connected), 960–968 (at connect); GrpAwareness.kt 129–135 (<code>radioLongName</code>); Main.kt 637–641 (<code>connectedAddress</code>)</td><td><code>org.meshtastic.core.data.manager.RadioNameStore</code> (our code inside Meshtastic's core), <code>radioController.connectionState</code></td><td class="mv">comm side; the name arrives in <code>RadioEntry.name</code> / <code>DeviceInfo.name</code> (D4)</td></tr>
+<tr><td>H</td><td>"Last applied" line</td><td>GrpAwareness.kt 143–180 (convoy_backups files)</td><td>GroupTrack's own files; radio id via P1</td><td class="stay">stays GroupTrack — done by P1</td></tr>
+<tr><td>I</td><td>Panel buttons: MESHTASTIC SIDE MENU · RADIO SETTINGS · APPLY RIDE</td><td>Main.kt 743–752</td><td>CommMenus (done 10-08) · Meshtastic Settings route · RadioConfigScreen</td><td class="stay">side menu done (COMMMENUS); RADIO SETTINGS = P3; APPLY RIDE = P4</td></tr>
+</table>
+
+<h2>2. Decisions needed from Fred before code</h2>
+<div class="q"><b>D1 — who judges "talking"?</b> Today GroupTrack's tick decides (own TAK report within 45 s, else node-list traffic within LINK_SILENCE_MS). Option (a): the comm side owns link health — it sees the radio's traffic — and reports it as an event (additive: <code>CommEvent.LinkHealth(talking, quietSinceMs)</code>); GroupTrack only shows it and decides on recovery. Option (b): keep the judgement in GroupTrack using <code>lastReportFromMs</code> (already API) and a new additive "last traffic" timestamp from the comm side. <b>Proposed: (a)</b> — "is the link alive" is a transport fact; on IP or Apple it is measured differently.</div>
+<div class="q"><b>D2 — who decides WHEN to recover?</b> Recorded rule 10-08: recovery is a request, the action is performed in the comm module, reconnection is an event. <b>Proposed:</b> GroupTrack keeps the timing policy (3 tries 45 s apart, then 2 min; banner only while riding with a group — it knows the ride) and calls <code>reconnect()</code>; the comm side does the disconnect → wait → reconnect it does today and reports LinkChanged.</div>
+<div class="q"><b>D3 — the radio list.</b> Today GroupTrack's panel embeds Meshtastic's own <code>ScannerView</code> (a Meshtastic screen piece inside a GroupTrack panel — against "GroupTrack owns the panels, comm is headless"). Headless replacement: the comm side scans and publishes <code>radios: Flow&lt;List&lt;RadioEntry&gt;&gt;</code> (+ <code>startScan()/stopScan()</code>, additive); GroupTrack draws the rows. Risk: Meshtastic's scanner also handles Bluetooth permission prompts and the scan lifecycle. <b>Proposed:</b> split — P2a without it (everything else), P2b = the headless list, planned on its own.</div>
+<div class="q"><b>D4 — the name table.</b> <code>RadioNameStore</code> is GroupTrack code living in Meshtastic's core module. <b>Proposed:</b> it belongs to the comm side (names are what the radios call themselves); GroupTrack reads names only from <code>RadioEntry.name</code> / <code>DeviceInfo.name</code> / member callsigns.</div>
+<div class="q"><b>D5 — pair vs connect.</b> Meshtastic's <code>onSelected</code> pairs an unpaired radio and connects a paired one. <b>Proposed:</b> one request, <code>connect(id)</code>, does both (Capabilities.pair = true on Android); the panel still says PAIR or CONNECT from <code>RadioEntry.paired</code>.</div>
+
+<h2>3. Reason codes (comm → GroupTrack; GroupTrack owns the words)</h2>
+<table><tr><th>Code</th><th>When</th><th>GroupTrack's words (draft)</th></tr>
+<tr><td><code>BLUETOOTH_OFF</code></td><td>connect/scan with Bluetooth off</td><td>Turn on Bluetooth to connect your radio.</td></tr>
+<tr><td><code>PERMISSION_MISSING</code></td><td>no nearby-devices permission</td><td>GroupTrack needs permission to find nearby radios.</td></tr>
+<tr><td><code>RADIO_UNPAIRED</code></td><td>ghost sync: Android no longer has it paired</td><td>Your radio was forgotten by Android — PAIR it again.</td></tr>
+<tr><td><code>FORGET_REFUSED</code></td><td>Android refused removeBond</td><td>Android would not forget the radio here — opening Bluetooth settings; forget it there.</td></tr>
+<tr><td><code>RADIO_SILENT</code></td><td>connected, no traffic past the heartbeat (D1)</td><td>(today's banner) Your radio isn't answering…</td></tr>
+<tr><td><code>CONNECT_TIMEOUT</code></td><td>CONNECTING ≥ 45 s (STUCK45)</td><td>The radio did not finish connecting — trying again.</td></tr>
+</table>
+
+<h2>4. Sequence — each step = one patch · one Mac build · both droids checked · one commit</h2>
+<table><tr><th>Step</th><th>Moves</th><th>Tablet checks</th></tr>
+<tr><td><b>P2.1</b> Link state</td><td>New <code>MeshCommLink</code> (comm side) implements <code>link</code> from Meshtastic's connection state; GroupTrack's connected flag (A), CHECKINCONNECT and the recovery loop's state read use <code>CommLink.link</code>. Nothing else.</td><td>green/red follows connect/disconnect; CHK IN with no radio → connect → check-in opens; power-cycle → red → green with no help</td></tr>
+<tr><td><b>P2.2</b> Actions + recovery</td><td><code>connect(id)</code>, <code>disconnect()</code>, <code>forget(id)</code>, <code>reconnect()</code> implemented comm-side (removeBond inside); panel buttons and the recovery loop call them; FORGET_REFUSED → Bluetooth settings (D2, D5).</td><td>CONNECT · DISCONNECT · FORGET then PAIR · power-cycle with the radio off &gt; 2 min (3 tries, then 2-min retries; banner only with a group)</td></tr>
+<tr><td><b>P2.3</b> Health, ghost sync, names</td><td>D1 health event; ghost sync and the name table move comm-side (D4); reason codes become events; GroupTrack's words.</td><td>forget in Android settings → panel shows no radio and says why; names right after a rename; the heartbeat banner</td></tr>
+<tr><td><b>P2b</b> (planned separately)</td><td>Headless radio list replaces Meshtastic's ScannerView (D3).</td><td>—</td></tr>
+</table>
+<p><b>Measure:</b> GroupTrack → Meshtastic call sites before/after each step (10-08 snapshot: 9 files, ~106 lines, 52 service calls). <b>Expected after P2.1–P2.3:</b> no <code>scanModel</code>, <code>uIViewModel.connectionState</code>, <code>setDeviceAddress</code>, <code>RadioNameStore</code> or BluetoothDevice use left in GroupTrack code except the ScannerView embed (P2b).</p>
+<p><b>Not in P2:</b> RADIO SETTINGS / native Meshtastic screens (P3) · the configurator and the 3 radio-write reads (P4) · what is heard / the tick (P5).</p>
+</body></html>

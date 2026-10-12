@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — 2.7b P4: the radio configurator through the comm side — plan v1</title>
+<style>
+body{font:14px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1100px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
+h1{font-size:20px;border-bottom:2px solid #2e75b6;padding-bottom:6px}
+h2{font-size:16px;color:#1f4e79;margin:24px 0 6px;border-bottom:1px solid #ddd;padding-bottom:3px}
+table{border-collapse:collapse;width:100%;margin:8px 0 14px}td,th{border:1px solid #ccd;padding:5px 8px;vertical-align:top;text-align:left;font-size:13px}
+th{background:#eef2f7}code{background:#f1f3f6;padding:0 3px;border-radius:3px;font-size:12px}
+.q{background:#fff8e6;border-left:4px solid #e0a800;padding:8px 12px;margin:8px 0}
+@media (max-width:600px){body{padding:0 12px}table{display:block;overflow-x:auto}}
+</style></head><body>
+<h1>2.7b cycle 1 — P4: the radio configurator through the comm side — plan v1 (10-12, for Fred's decisions before code)</h1>
+<p><b>Baseline:</b> <code>2.7b</code> at <code>05ce8849d</code> (P1–P3 committed, tablet-checked). P4 moves the last big piece of radio work out of GroupTrack: <b>writing settings to the radio</b> — APPLY RIDE, the check-in apply, the GPS interval apply, the radio's name, and the saved radio setups (backups, compare, restore). It is the check-in path, so it is done in small steps, each tablet-checked.</p>
+
+<h2>1. Inventory (2.7b 05ce8849d)</h2>
+<table><tr><th>Piece</th><th>Where today</th><th>Meshtastic it reaches</th></tr>
+<tr><td><b>The radio adapter</b> — <code>RadioOps</code>: setOwner (the radio's name), begin/commit edit, write config / channel / module, disconnect / reconnect, retrieve (what the radio holds), ownNodeNum</td><td><code>ConvoyViewModel.radioOps(ui)</code> (~475–516). The interface is in <code>RadioConfigWriter.kt</code>.</td><td><code>RadioController</code> (setOwner, setConfig, setRemoteChannel, setModuleConfig, begin/commitEditSettings), <code>UIViewModel</code> (connectionState, setDeviceAddress "n"/saved), <code>RadioConfigRepository.deviceProfileFlow</code>, <b>the 3 <code>nodeRepository.ourNodeInfo</code> reads</b> (setOwner's User record, ownNodeNum, installProfileToRadio's User)</td></tr>
+<tr><td><b>The configurator</b> — builds what to write from the ride file + GroupTrack default + callsign; plans the changes</td><td><code>RadioConfigurator.kt</code> (276 lines)</td><td>Meshtastic's settings types (<code>Config</code>, <code>Channel</code>, <code>ChannelSet</code>, <code>ModuleSettings</code>, <code>DeviceProfile</code>)</td></tr>
+<tr><td><b>The writer</b> — writes the groups in order, waits for the radio to restart, reads back and ticks each setting</td><td><code>RadioConfigWriter.kt</code> (217 lines)</td><td>the same types, through <code>RadioOps</code> only</td></tr>
+<tr><td><b>The screens</b> — Apply ride to radio (also opened by CHECK IN), saved configs, compare</td><td><code>RadioConfigScreen.kt</code>, <code>ConfigReviewScreen.kt</code>, <code>ConfigCompare.kt</code></td><td><code>UIViewModel.connectionState</code> (2 screens), <code>DeviceProfile</code>, the export/import/install profile use cases</td></tr>
+<tr><td><b>GPS interval apply</b> (the GPS button)</td><td><code>ConvoyViewModel.applyLocationInterval</code> (~713+)</td><td>through <code>radioOps</code>: begin / write position / commit, disconnect, reconnect (twice)</td></tr>
+<tr><td><b>Restore a saved setup</b></td><td><code>ConvoyViewModel.installProfileToRadio</code></td><td><code>InstallProfileUseCase</code> + ourNodeInfo's User</td></tr>
+</table>
+<p class="q"><b>Good news:</b> the writer already talks to the radio only through <code>RadioOps</code> (designed that way 09-25). So the move is mostly <i>where the adapter lives</i>, not a rewrite.</p>
+
+<h2>2. The contract already has the shape (v0.3, <code>CommConfig</code>)</h2>
+<p><code>previewConfig(configDoc, callsign)</code> → the list of changes · <code>applyConfig(configDoc, callsign)</code> · <code>savedConfigs()</code> · <code>compareSaved(a, b)</code> · <code>restoreSaved(id)</code> · <code>networkLink()</code>. The config doc is JSON text (the ride file), the changes are plain <code>ConfigChange</code> rows — no Meshtastic types cross to GroupTrack.</p>
+
+<h2>3. Steps</h2>
+<table><tr><th>Step</th><th>What moves</th><th>GroupTrack after</th></tr>
+<tr><td><b>P4.1 — the adapter</b></td><td><code>RadioOps</code>'s implementation moves to the comm side (<code>comm/MeshRadioOps</code>, app-wide): RadioController calls, the 3 ourNodeInfo reads, retrieve; disconnect/reconnect through the comm side's link (the saved radio), not UIViewModel. The two screens read connected from <code>CommLink.link</code>.</td><td>No RadioController, no ourNodeInfo, no UIViewModel in the configurator screens. Behaviour unchanged — same calls, same order, same waits.</td></tr>
+<tr><td><b>P4.2 — configurator + writer</b></td><td><code>RadioConfigurator</code>, <code>RadioConfigWriter</code>, <code>ConfigCompare</code> move to the comm side behind <code>CommConfig.previewConfig / applyConfig</code>; the writer's progress (each group, each tick) comes back as structured progress (additive).</td><td>Apply ride / check-in apply show the change list and the ticks in GroupTrack's words; no Meshtastic settings types in GroupTrack.</td></tr>
+<tr><td><b>P4.3 — saved setups</b></td><td>Backups (<code>convoy_backups/&lt;radio&gt;/…cfg</code>), compare, restore → <code>savedConfigs / compareSaved / restoreSaved</code>.</td><td>The saved-configs screen lists, compares and restores by id.</td></tr>
+<tr><td><b>P4.4 — GPS interval</b></td><td><code>applyLocationInterval</code> → <code>CommMessaging.setReporting</code> (D13: one reporting implementation).</td><td>The GPS panel asks for seconds; the comm side writes, restarts and reconnects.</td></tr>
+</table>
+
+<h2>4. Decisions for Fred</h2>
+<div class="q"><b>D1 — steps:</b> four patches as above, each tablet-checked and committed (proposed), or fewer, larger ones. P4.1 is the safest first move: same behaviour, the adapter just changes home.</div>
+<div class="q"><b>D2 — Meshtastic settings types stay on the comm side:</b> GroupTrack sees only the ride file (JSON), the callsign, and plain change rows (setting, was, becomes). <b>Proposed: yes</b> — the same rule as P2's radio list.</div>
+<div class="q"><b>D3 — progress words:</b> the comm side reports progress as steps (group n of m · writing · radio restarting · reconnected · setting ticked / failed), GroupTrack turns them into the words on screen. <b>Proposed: yes</b> ("GroupTrack owns the words").</div>
+<div class="q"><b>D4 — the radio restart during apply:</b> the writer's own disconnect → wait → reconnect cycle and the keep-alive (P2.3) must not fight. Today the keep-alive could count the writer's deliberate disconnect as a failure. <b>Proposed:</b> while the comm side is applying, its keep-alive holds (as with Bluetooth off) — the comm side owns both, so it can.</div>
+
+<h2>5. Tablet checks (each step, both droids)</h2>
+<ol>
+<li>Work with Rides → Apply ride to radio → GroupTrack default: the change list, apply, every setting ticked.</li>
+<li>CHECK IN to a ride whose network differs: the radio is set up (about a minute), then checked in — no error.</li>
+<li>CHECK IN again: "Radio ready for this ride".</li>
+<li>No scheduled ride: back to the GroupTrack default; "Keep my radio as it is" leaves it.</li>
+<li>Callsign for this radio (a guest's name): the radio's name changes; your profile does not.</li>
+<li>Saved configs: list, compare two, restore one (P4.3).</li>
+<li>GPS button: a new interval applied, the radio restarts and reconnects (P4.4).</li>
+<li>Throughout: no "reconnect N" from the keep-alive during an apply (D4); <code>COMMHEALTH</code> quiet.</li>
+</ol>
+<p><b>Not in P4:</b> what is heard / the tick (P5) · moving the Meshtastic shell out of Main.kt (step 6).</p>
+</body></html>
