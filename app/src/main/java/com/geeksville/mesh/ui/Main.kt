@@ -694,6 +694,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             if (com.geeksville.mesh.convoy.GrpAwarenessLauncher.showing.value) convoyViewModel.startRadioScan()   // COMMBTOFF-2026-10-11
             else convoyViewModel.stopRadioScan()
         }
+        com.geeksville.mesh.convoy.GroupModeActivatePopup()   // GRPMODE-2026-10-13: "Group mode needs to be activated in Settings..."
         if (com.geeksville.mesh.convoy.GrpAwarenessLauncher.showing.value) {
             val grpLast = androidx.compose.runtime.remember(grpMyNode, grpLink) {   // COMMLINK-2026-10-11
                 com.geeksville.mesh.convoy.lastAppliedLine(grpCtx, grpMyNode?.id?.toIntOrNull())

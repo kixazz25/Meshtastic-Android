@@ -3082,7 +3082,7 @@ fun ConvoyScreen(
             androidx.compose.runtime.CompositionLocalProvider(LocalHudOnDark provides hudOnDark) {   // HUDSCHEME-2026-09-29
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { // GPSPANEL-2026-09-29
                 if (hudMode != HudMode.COLLAPSED) GpsLocationRow(intervalSecs = gpsNowSecs, channelUtil = avgChannelUtil,
-                    onOpen = { viewModel.clearGpsApplyStatus(); showGpsPanel = true },
+                    onOpen = { if (!GroupMode.on.value) GroupMode.askToActivate() else { viewModel.clearGpsApplyStatus(); showGpsPanel = true } },   // GRPMODE-2026-10-13
                     textWhite = hudOnDark,   // COSMETICS-2026-10-06: the HUD text toggle, beside the interval and meter
                     onToggleText = { viewModel.hudTextWhiteByMap[hudMapKey] = !hudOnDark })
             when (hudMode) {
@@ -3127,7 +3127,7 @@ fun ConvoyScreen(
                     totalNodes = convoyState.nodes.size,
                     lostCount = convoyState.lostCount,
                     hasLost = convoyState.hasLost,
-                    onExpand = { viewModel.setHudMode(HudMode.GROUP) }
+                    onExpand = { viewModel.setHudMode(if (GroupMode.on.value) HudMode.GROUP else HudMode.MY_CART) }   // GRPMODE-2026-10-13
                 )
             }
             } // GPSPANEL-2026-09-29: end of the column (GPS row on top of the HUD)
@@ -3458,7 +3458,7 @@ fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSe
         ) {
             Text(
                 text = "GROUP",
-                color = if (current == HudMode.GROUP) Color.White else Color(0xFF7A8DA0),
+                color = if (!GroupMode.on.value) Color(0xFF4A5560) else if (current == HudMode.GROUP) Color.White else Color(0xFF7A8DA0),   // GRPMODE-2026-10-13
                 fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -3689,7 +3689,7 @@ fun ConvoyButtonBar(
             ) {
                 Text(
                     text = label,
-                    color = if (isActive) Color(0xFF67EA94) else Color(0xFFCAC4D0),
+                    color = if (label == "GROUP" && !GroupMode.on.value) Color(0xFF5A5560) else if (isActive) Color(0xFF67EA94) else Color(0xFFCAC4D0),   // GRPMODE-2026-10-13
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
@@ -3860,6 +3860,7 @@ fun GpsLocationRow(intervalSecs: Int, channelUtil: Float, onOpen: () -> Unit,
         modifier = Modifier.padding(start = 4.dp)) {
         // the satellite with "GPS" across it -- tap to open "Sent every XX seconds"
         Box(modifier = Modifier.size(54.dp)
+                .alpha(if (GroupMode.on.value) 1f else 0.35f)   // GRPMODE-2026-10-13: greyed while group awareness is off
                 .background(Color(0xE6111820), RoundedCornerShape(10.dp))
                 .clickable { onOpen() },
             contentAlignment = Alignment.Center) {

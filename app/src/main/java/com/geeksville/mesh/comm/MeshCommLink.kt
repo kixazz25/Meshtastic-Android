@@ -90,6 +90,23 @@ class MeshCommLink @Inject constructor(
         radioController.setDeviceAddress("n")   // Meshtastic's "no radio"
         return CommResult.Ok
     }
+    /** GRPMODE-2026-10-13: group awareness off -> the radio in use is remembered and dropped ("n" = no radio: the keep-alive below has no
+     *  saved radio, so it makes no reconnects and counts no tries). On -> the remembered radio is used again. */
+    override suspend fun setActive(active: Boolean): CommResult {
+        val p = context.getSharedPreferences("grouptrack_comm_link", android.content.Context.MODE_PRIVATE)
+        val current = radioInterfaceService.currentDeviceAddressFlow.value
+        if (!active) {
+            if (!current.isNullOrBlank() && current != "n") p.edit().putString("radio_before_off", current).apply()
+            if (!current.isNullOrBlank() && current != "n") radioController.setDeviceAddress("n")
+            android.util.Log.i("COMMHEALTH", "GRPMODE-2026-10-13: group awareness off -- radio dropped (remembered: ${p.getString("radio_before_off", null)})")
+        } else {
+            val back = p.getString("radio_before_off", null)
+            if ((current.isNullOrBlank() || current == "n") && !back.isNullOrBlank()) radioController.setDeviceAddress(back)
+            p.edit().remove("radio_before_off").apply()
+            android.util.Log.i("COMMHEALTH", "GRPMODE-2026-10-13: group awareness on -- radio ${if (back.isNullOrBlank()) "unchanged" else back}")
+        }
+        return CommResult.Ok
+    }
     /** Removes Android's pairing with a Bluetooth radio. Android has no public "unpair": the hidden
      *  BluetoothDevice.removeBond() is used (moved here from GroupTrack's GrpAwareness.forgetPairing). Android may refuse
      *  -> Failed("FORGET_REFUSED"); GroupTrack then says so and opens Bluetooth settings. Only Bluetooth radios
