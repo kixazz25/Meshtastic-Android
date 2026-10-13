@@ -13,6 +13,7 @@ import org.meshtastic.core.data.manager.TakSeenStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first   // COMMREPORT-2026-10-12
+import kotlinx.coroutines.flow.map   // REPORTNOW-2026-10-13
 import javax.inject.Inject
 
 /**
@@ -28,6 +29,7 @@ class MeshCommMessaging @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,   // COMMREPORT-2026-10-12
     private val radioOps: MeshRadioOps,   // COMMREPORT-2026-10-12: the radio adapter (keep-alive held while it is used)
     private val nodeRepository: org.meshtastic.core.repository.NodeRepository,   // HEARDSHADOW-2026-10-13: what the radio has heard
+    private val radioConfigRepository: org.meshtastic.core.repository.RadioConfigRepository,   // REPORTNOW-2026-10-13: read only
 ) : CommMessaging {
 
     override suspend fun deliver(message: CommMessage): CommResult = try {
@@ -111,6 +113,10 @@ class MeshCommMessaging @Inject constructor(
         }
     }
     override val events: Flow<CommEvent> = emptyFlow()                                        // cycle 3 (tick removal)
+    // REPORTNOW-2026-10-13 (P5.2): the value ChannelViewModel showed (position.broadcast_smart_minimum_interval_secs). Passive -- no radio call.
+    // CODE RULE 1: the proto field is optional; 0 / missing = not read yet -> null.
+    override val currentReportingSecs: Flow<Int?> = radioConfigRepository.localConfigFlow
+        .map { cfg -> cfg.position?.broadcast_smart_minimum_interval_secs?.takeIf { it > 0 } }
     /**
      * HEARDSHADOW-2026-10-13 (P5.1a) -- what the radio has heard, RAW: one Member per node in Meshtastic's node database. No filtering:
      * the admission window, stale fixes, removed carts, the previous-tick hold and speed are GroupTrack's display rules (Fred
