@@ -58,7 +58,7 @@ fun ConvoySettingsScreen(
     convoyViewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val trackLeadOnly by convoyViewModel.trackLeadOnly.collectAsStateWithLifecycle()
+    val showLeadTrack by convoyViewModel.showLeadTrack.collectAsStateWithLifecycle()   // GRPMODE2-2026-10-13
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.userMessage) {
@@ -300,12 +300,14 @@ fun ConvoySettingsScreen(
             }
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
+            // GRPMODE2-2026-10-13 (Fred 10-13): the group settings -- shown ONLY while group awareness is on (they act on other carts).
+            // Removed: the multicolour track, the all-carts track, the recording-format switch (always GPX), the removed-carts list (SELECT CART has it).
+            if (GroupMode.on.value) {
             // ── Alert Thresholds ──────────────────────────────────────────
             SectionLabel("Alert Thresholds")
-
             AlertSlider(
                 title       = "Signal Drop",
-                description = "Minutes before radio disconnect warning fires",
+                description = "Minutes without a report before a cart turns yellow",
                 valueLabel  = "${uiState.signalDropMinutes.roundToInt()} min",
                 value       = uiState.signalDropMinutes,
                 valueRange  = 1f..10f,
@@ -313,10 +315,9 @@ fun ConvoySettingsScreen(
                 onValueChangeFinished = viewModel::onSignalDropChanged
             )
             HorizontalDivider()
-
             AlertSlider(
                 title       = "Signal Lost",
-                description = "Minutes without a packet before node is considered lost",
+                description = "Minutes without a report before a cart is considered lost (red)",
                 valueLabel  = "${uiState.signalLostMinutes.roundToInt()} min",
                 value       = uiState.signalLostMinutes,
                 valueRange  = 5f..30f,
@@ -324,131 +325,48 @@ fun ConvoySettingsScreen(
                 onValueChangeFinished = viewModel::onSignalLostChanged
             )
             HorizontalDivider()
-
             AlertSlider(
                 title       = "Off Track",
-                description = "Miles from convoy track before off-route alert fires",
+                description = "Miles from the lead's track before the off-track alert fires",
                 valueLabel  = "${"%.1f".format(uiState.offTrackMiles)} mi",
                 value       = uiState.offTrackMiles,
                 valueRange  = 0.1f..2f,
                 steps       = 18,
                 onValueChangeFinished = viewModel::onOffTrackChanged
             )
-
             Spacer(Modifier.height(8.dp))
-
             // ── Node Filter ───────────────────────────────────────────────
             SectionLabel("Node Filter")
-
             AlertSlider(
                 title       = "Admission Window",
-                description = "Node must have been heard within this window today to appear on map",
+                description = "A radio must have been heard within this time to appear on the map",
                 valueLabel  = "${uiState.admissionWindowHours} hr",
                 value       = uiState.admissionWindowHours.toFloat(),
                 valueRange  = 1f..12f,
                 steps       = 10,
                 onValueChangeFinished = { viewModel.onAdmissionWindowChanged(it.roundToInt()) }
             )
-
             Spacer(Modifier.height(8.dp))
-
-            // ── Track Display ─────────────────────────────────────────────
-            SectionLabel("Track Display")
-
-            var trackMulticolor by remember { mutableStateOf(ConvoyConfig.TRACK_MULTICOLOR) }
+            // ── Lead track ────────────────────────────────────────────────
+            SectionLabel("Lead track")
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text("Multicolor Track", style = MaterialTheme.typography.bodyLarge)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Show lead track", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        text = if (trackMulticolor) "Track colored by node position" else "Track shown in black",
+                        text = if (showLeadTrack) "The lead cart's track is drawn on the ride map" else "The lead cart's track is hidden",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Switch(
-                    checked = trackMulticolor,
-                    onCheckedChange = {
-                        trackMulticolor = it
-                        ConvoyConfig.TRACK_MULTICOLOR = it
-                    }
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // ── Track Recording ───────────────────────────────────────────
-            SectionLabel("Track Recording")
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("Lead Cart Only", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        text = if (trackLeadOnly) "Recording lead cart track only" else "Recording all carts",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = trackLeadOnly,
-                    onCheckedChange = { convoyViewModel.toggleLeadOnly() }
-                )
+                Switch(checked = showLeadTrack, onCheckedChange = { convoyViewModel.setShowLeadTrack(it) })
             }
             HorizontalDivider()
-
-            var trackExportGpx by remember { mutableStateOf(ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX") }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("Track Recording Format  KML / GPX", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        text = if (trackExportGpx) "GPX — Garmin, Strava, AllTrails" else "KML — Google Earth",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = trackExportGpx,
-                    onCheckedChange = {
-                        trackExportGpx = it
-                        ConvoyConfig.TRACK_EXPORT_FORMAT = if (it) "GPX" else "KML"
-                    }
-                )
-            }
-            HorizontalDivider()
+            }   // GRPMODE2-2026-10-13: end of the group settings
             Spacer(Modifier.height(8.dp))
-
-            SectionLabel("Removed Carts")
-
-            if (uiState.removedCarts.isEmpty()) {
-                ListItem(
-                    headlineContent = {
-                        Text(
-                            text  = "No carts removed today",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                )
-            } else {
-                uiState.removedCarts.forEach { (nodeId, callsign) ->
-                    RemovedCartRow(
-                        callsign    = callsign,
-                        nodeId      = nodeId,
-                        onReinstate = { viewModel.onReinstateCart(nodeId, callsign) }
-                    )
-                    HorizontalDivider()
-                }
-            }
-
             // ── Build stamp ──────────────────────────────────────────
             Spacer(Modifier.height(8.dp))
             Text(
