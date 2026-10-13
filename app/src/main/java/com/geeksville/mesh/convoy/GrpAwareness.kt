@@ -61,10 +61,7 @@ object GrpAwarenessLauncher {
     val connected = mutableStateOf(false)
     /** The time of the last radio traffic -- the label pulses when it changes. */
     val pulseAt = mutableStateOf(0L)
-    fun open() {   // GRPMODE-2026-10-13: group awareness off -> the popup instead of the panel
-        if (!GroupMode.on.value) { GroupMode.askToActivate(); return }
-        showing.value = true
-    }
+    fun open() { showing.value = true }
     /** CHECKINCONNECT-2026-09-28 (Fred): opened by CHK IN with no radio -- once a radio connects, the check-in opens. */
     var thenCheckIn = false
     fun close() { showing.value = false; thenCheckIn = false }
@@ -84,8 +81,7 @@ object GrpAwarenessLauncher {
 @Composable
 fun grpAwarenessColor(): Color {
     // LINKFIX-2026-10-03 (Fred): green only while the radio is TALKING; a connected-but-silent radio is red.
-    val base = if (!GroupMode.on.value) Color(0xFF5A6470)   // GRPMODE-2026-10-13: greyed while group awareness is off
-        else if (GrpAwarenessLauncher.connected.value && GrpAwarenessLauncher.talking.value) Color(0xFF35C46A) else Color(0xFFE0453A)
+    val base = if (GrpAwarenessLauncher.connected.value && GrpAwarenessLauncher.talking.value) Color(0xFF35C46A) else Color(0xFFE0453A)
     var lit by remember { mutableStateOf(false) }
     val at = GrpAwarenessLauncher.pulseAt.value
     LaunchedEffect(at) { if (at > 0L) { lit = true; delay(400); lit = false } }

@@ -78,7 +78,7 @@ fun RadioSetupPrompt(
 ) {
     AlertDialog(
         onDismissRequest = { },   // a startup question: answered with YES or NO, not dismissed
-        title = { Text("Will you use a Meshtastic radio to see your group on the map?") },   // GRPMODE-2026-10-13 (G1)
+        title = { Text("Do you have a mesh radio to use with GroupTrack?") },
         text = {
             Column {
                 Text("GroupTrack uses TAK messaging. Any radio used with GroupTrack must be set up with the new " +
@@ -95,12 +95,11 @@ fun RadioSetupPrompt(
                     fontSize = 12.sp)
                 Spacer(Modifier.height(10.dp))
                 Text("NO", fontWeight = FontWeight.Bold)
-                Text("You can change this later in Settings (Group awareness).", fontWeight = FontWeight.Bold)   // GRPMODE-2026-10-13
                 Text("You will set up your radio later. Before your first ride, use GRP Awareness to connect, " +
                     "select a ride, and apply the new configuration.")
             }
         },
-        confirmButton = { TextButton(onClick = onYes) { Text("YES, I HAVE A RADIO") } },
-        dismissButton = { TextButton(onClick = onNo) { Text("NO, THIS TABLET ONLY") } },
+        confirmButton = { TextButton(onClick = onYes) { Text("YES") } },
+        dismissButton = { TextButton(onClick = onNo) { Text("NO") } },
     )
 }

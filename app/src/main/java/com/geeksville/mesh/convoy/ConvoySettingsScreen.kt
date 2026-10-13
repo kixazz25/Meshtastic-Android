@@ -280,26 +280,6 @@ fun ConvoySettingsScreen(
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
 
-            // GRPMODE-2026-10-13 (Fred): group awareness -- any time. Off = this tablet only, no radio calls.
-            SectionLabel("Group awareness")
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Group awareness with a Meshtastic radio", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        text = if (GroupMode.on.value) "On \u2014 GRP Awareness and the group HUD are active"
-                               else "Off \u2014 this tablet only. Turn on only when your mesh radio is with you.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(checked = GroupMode.on.value, onCheckedChange = { convoyViewModel.setGroupMode(it) })
-            }
-            HorizontalDivider()
-            Spacer(Modifier.height(8.dp))
             // ── Alert Thresholds ──────────────────────────────────────────
             SectionLabel("Alert Thresholds")
 
