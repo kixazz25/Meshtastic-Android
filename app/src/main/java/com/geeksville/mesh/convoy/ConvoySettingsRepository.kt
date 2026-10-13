@@ -29,7 +29,7 @@ class ConvoySettingsRepository @Inject constructor(
         val KEY_ADMISSION_WINDOW_HOURS = intPreferencesKey("admission_window_hours")
         // Format: "nodeId|callsign|epochDay"
         val KEY_REMOVED_CARTS          = stringSetPreferencesKey("removed_carts")
-        val KEY_LEAD_LOCK_FEET         = floatPreferencesKey("lead_lock_feet")
+        // GRPMODE2-2026-10-13: KEY_LEAD_LOCK_FEET removed (never shown, never used)
     }
 
     // ── Flows ─────────────────────────────────────────────────────────────
@@ -43,11 +43,12 @@ class ConvoySettingsRepository @Inject constructor(
     val offTrackMiles: Flow<Float> = context.convoyDataStore.data
         .map { it[KEY_OFF_TRACK_MILES] ?: 0.5f }
 
+    /** GRPMODE2-2026-10-13: the rider's Off Track value. CODE RULE 1: null = never set -- the built-in 150 ft stays in force. */
+    val offTrackMilesSaved: Flow<Float?> = context.convoyDataStore.data
+        .map { it[KEY_OFF_TRACK_MILES] }
+
     val admissionWindowHours: Flow<Int> = context.convoyDataStore.data
         .map { it[KEY_ADMISSION_WINDOW_HOURS] ?: 1 }
-    // Lead lock distance — 300 to 1500 feet. Default 500 feet (~17 sec at 20mph)
-    val leadLockFeet: Flow<Float> = context.convoyDataStore.data
-        .map { it[KEY_LEAD_LOCK_FEET] ?: 330f }
 
     /** Map of nodeId -> callsign for carts removed today only */
     val removedCartsForToday: Flow<Map<String, String>> = context.convoyDataStore.data
@@ -80,9 +81,6 @@ class ConvoySettingsRepository @Inject constructor(
 
     suspend fun setAdmissionWindowHours(value: Int) {
         context.convoyDataStore.edit { it[KEY_ADMISSION_WINDOW_HOURS] = value }
-    }
-    suspend fun setLeadLockFeet(value: Float) {
-        context.convoyDataStore.edit { it[KEY_LEAD_LOCK_FEET] = value }
     }
 
     /** Remove a cart for today — stored with callsign for display in settings */
