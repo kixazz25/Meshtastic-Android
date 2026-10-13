@@ -1202,6 +1202,46 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         return _convoyState.value.nodes.filter { !it.isMyCart && it.nodeId != mine && (it.latitude != 0.0 || it.longitude != 0.0) }
     }
 
+    // HEARDSHADOW-2026-10-13 (P5.1a, TEMPORARY -- removed in P5.1b): the tick still reads the node database; this compares it, field by
+    // field, with what the comm side reports (CommMessaging.members()). Logcat tag HEARDSHADOW. Nothing displayed changes.
+    private var heardShadowSameLogMs = 0L
+    private fun heardShadowDiffs(): Pair<Int, List<String>> {
+        val nodeMap = nodeRepository.nodeDBbyNum.value
+        val members = commMessaging.members().associateBy { it.id }
+        val diffs = mutableListOf<String>()
+        for ((num, node) in nodeMap) {
+            val m = members[num.toString()]
+            if (m == null) { diffs += "!$num missing"; continue }
+            val pos = node.position
+            fun chk(name: String, tick: Any?, comm: Any?) { if (tick != comm) diffs += "!$num $name tick=$tick comm=$comm" }
+            chk("callsign", commMessaging.memberName(num.toString()) ?: node.user.long_name.ifBlank { node.user.short_name }.ifBlank { "!$num" }, m.callsign)
+            chk("lat", (pos.latitude_i ?: 0) * 1e-7, m.latitude ?: 0.0)
+            chk("lon", (pos.longitude_i ?: 0) * 1e-7, m.longitude ?: 0.0)
+            chk("alt", pos.altitude ?: 0, m.altitudeM ?: 0)
+            chk("fix", (pos.time ?: 0).toLong() * 1000L, m.fixTimeMs ?: 0L)
+            chk("heard", node.lastHeard.toLong() * 1000L, m.lastHeardMs)
+            chk("heading", (((pos.ground_track ?: 0).toFloat() / 100000f) % 360f + 360f) % 360f, m.headingDeg ?: 0f)
+            chk("battery", node.deviceMetrics.battery_level ?: 0, m.batteryPct ?: 0)
+            chk("chutil", node.deviceMetrics.channel_utilization, m.channelUtilPct)
+        }
+        val known = nodeMap.keys.map { it.toString() }.toSet()
+        members.keys.filter { it !in known }.forEach { diffs += "!$it extra" }
+        return Pair(nodeMap.size, diffs)
+    }
+    private fun heardShadow() {
+        runCatching {
+            var (n, diffs) = heardShadowDiffs()
+            if (diffs.isNotEmpty()) { val again = heardShadowDiffs(); n = again.first; diffs = again.second }   // a node update between the reads
+            val now = System.currentTimeMillis()
+            if (diffs.isNotEmpty()) {
+                android.util.Log.w("HEARDSHADOW", "diff n=$n " + diffs.take(6).joinToString("; ") + if (diffs.size > 6) " (+${diffs.size - 6})" else "")
+            } else if (now - heardShadowSameLogMs >= 60_000L) {
+                heardShadowSameLogMs = now
+                android.util.Log.i("HEARDSHADOW", "same n=$n")
+            }
+        }.onFailure { android.util.Log.w("HEARDSHADOW", "error ${it.message}") }
+    }
+
     private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
         // GRPMODE-2026-10-13: group awareness off -> no radio node list (this tablet only, no other carts held).
         val nodeMap = if (!GroupMode.on.value) emptyMap() else try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { emptyMap() }
@@ -1378,6 +1418,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 } catch (e: Exception) { null }
             }.average().toFloat().takeIf { !it.isNaN() } ?: 0f
         _avgChannelUtil.value = avgUtil
+        heardShadow()   // HEARDSHADOW-2026-10-13 (P5.1a): compare with the comm side's members() -- log only
         // ONEFILTER-2026-09-25 (Fred): staleness is decided ONCE, at the read (STALEREAD: not heard for 3 hours = no
         // cart). ConvoyNodeFilter's time rules -- "heard today" (after local midnight) and the admission window --
         // disagreed with it (a rider heard at 23:50 vanished at midnight; "once admitted, visible all day" kept

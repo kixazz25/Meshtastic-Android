@@ -27,6 +27,7 @@ class MeshCommMessaging @Inject constructor(
     private val radioController: org.meshtastic.core.model.RadioController,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,   // COMMREPORT-2026-10-12
     private val radioOps: MeshRadioOps,   // COMMREPORT-2026-10-12: the radio adapter (keep-alive held while it is used)
+    private val nodeRepository: org.meshtastic.core.repository.NodeRepository,   // HEARDSHADOW-2026-10-13: what the radio has heard
 ) : CommMessaging {
 
     override suspend fun deliver(message: CommMessage): CommResult = try {
@@ -110,7 +111,40 @@ class MeshCommMessaging @Inject constructor(
         }
     }
     override val events: Flow<CommEvent> = emptyFlow()                                        // cycle 3 (tick removal)
-    override fun members(): List<Member> = emptyList()                                       // cycle 3 (tick removal)
+    /**
+     * HEARDSHADOW-2026-10-13 (P5.1a) -- what the radio has heard, RAW: one Member per node in Meshtastic's node database. No filtering:
+     * the admission window, stale fixes, removed carts, the previous-tick hold and speed are GroupTrack's display rules (Fred
+     * 10-13, D3). Seconds -> milliseconds here (the one place). memberId = node number as text (as reportedRole / memberName).
+     */
+    override fun members(): List<Member> {
+        // CODE RULE 1: the node database may be unreadable (radio service not up yet) -- then nothing has been heard.
+        val nodes = runCatching { nodeRepository.nodeDBbyNum.value }.getOrNull() ?: return emptyList()
+        return nodes.values.map { memberOf(it) }
+    }
+
+    private fun memberOf(node: org.meshtastic.core.model.Node): Member {
+        val id = node.num.toString()
+        val pos = node.position
+        val latI = pos.latitude_i ?: 0
+        val lonI = pos.longitude_i ?: 0
+        val hasPos = latI != 0 || lonI != 0
+        val fixMs = (pos.time ?: 0).toLong() * 1000L
+        return Member(
+            id = id,
+            // RADIONAMES-2026-10-03: the name last used (radio name table), else the node database's long / short name.
+            callsign = memberName(id) ?: node.user.long_name.ifBlank { node.user.short_name }.ifBlank { "!${node.num}" },
+            staleAtMs = null,                                   // CODE RULE 1: the mesh report carries no CoT stale yet (tick replacement)
+            latitude = if (hasPos) latI * 1e-7 else null,       // CODE RULE 1 (lat, lon): null = no position from this radio (0/0)
+            longitude = if (hasPos) lonI * 1e-7 else null,
+            altitudeM = pos.altitude,                           // metres; null = not reported
+            fixTimeMs = if (fixMs > 0L) fixMs else null,        // CODE RULE 1: null = no fix time reported
+            lastHeardMs = node.lastHeard.toLong() * 1000L,
+            reportedRole = reportedRole(id),
+            channelUtilPct = node.deviceMetrics.channel_utilization,
+            headingDeg = pos.ground_track?.let { ((it.toFloat() / 100000f) % 360f + 360f) % 360f },
+            batteryPct = node.deviceMetrics.battery_level,
+        )
+    }
 
     // COMMRECV-2026-10-08 (step 2b): what Meshtastic's receive path recorded (MeshDataHandlerImpl -> TakRoleStore /
     // TakSeenStore, unchanged), read through the translator's role table. memberId = node number as text.

@@ -86,6 +86,9 @@ data class Member(
     val fixTimeMs: Long?, val lastHeardMs: Long,
     val reportedRole: Role?,                         // null = no TAK report from this member yet
     val channelUtilPct: Float?,                      // null = not reported (IP)
+    // HEARDSHADOW-2026-10-13 (P5.1a, D1, additive). CODE RULE 1 (both): null = not reported by the transport (IP may not carry them).
+    val headingDeg: Float?,                          // course over ground, 0-360
+    val batteryPct: Int?,
 )
 
 /** CoT IS THE DATA STANDARD (Fred 10-03). Messages are CoT-shaped: uid, type, time/start/stale, point with accuracy,
