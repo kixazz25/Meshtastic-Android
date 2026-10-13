@@ -12,8 +12,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.SharingStarted   // REPORTNOW-2026-10-13
-import kotlinx.coroutines.flow.stateIn   // REPORTNOW-2026-10-13
 import kotlinx.coroutines.launch
 import org.meshtastic.core.domain.usecase.settings.ExportProfileUseCase
 import org.meshtastic.core.domain.usecase.settings.ImportProfileUseCase
@@ -120,8 +118,6 @@ class ConvoyViewModel @Inject constructor(
     val offTrackIds: StateFlow<Set<String>> = _offTrackIds.asStateFlow()
     private val _trackActive = MutableStateFlow(false)
     val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
-    /** REPORTNOW-2026-10-13 (P5.2): the radio's reporting interval now, from the comm side. CODE RULE 1: null = not read yet. */
-    val reportingNowSecs: StateFlow<Int?> by lazy { commMessaging.currentReportingSecs.stateIn(viewModelScope, SharingStarted.Eagerly, null) }
 
     // ── Lead lock state ──────────────────────────────────────────────────
     private var _leadLockedFlag: Boolean = false

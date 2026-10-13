@@ -271,9 +271,6 @@ interface CommMessaging {
     /** D14 — the event stream: deduped, normalised. Hot; collectors start at the current state via members(). */
     val events: Flow<CommEvent>
     fun members(): List<Member>                                       // snapshot for a screen opening mid-ride
-    /** REPORTNOW-2026-10-13 (P5.2, additive): the moving reporting interval the radio holds NOW, in seconds (read only).
-     *  CODE RULE 1: null = not read yet, or the transport cannot tell. Default: null. */
-    val currentReportingSecs: Flow<Int?> get() = kotlinx.coroutines.flow.flowOf(null)
     /* COMMRECV-2026-10-08 (v0.3, additive; 2.7b step 2b): READ-WHAT-WAS-HEARD calls for GroupTrack's tick, which still runs
      * until cycle 3 replaces it with the events above. memberId = the member's id as the transport knows it (mesh: the
      * radio's node number as text). */

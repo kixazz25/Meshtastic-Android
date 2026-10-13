@@ -3061,8 +3061,8 @@ fun ConvoyScreen(
         val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
         val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
         // GPSPANEL-2026-09-29 (Fred): the GPS button's panel -- "Sent every XX seconds" (3-10), applied to the radio ONCE.
-        // REPORTNOW-2026-10-13 (P5.2): from the comm side (was read from ChannelViewModel's radio config). 0 = not read yet, as before.
-        val gpsNowSecs = viewModel.reportingNowSecs.collectAsStateWithLifecycle().value ?: 0
+        val gpsLocalCfg by channelViewModel.localConfig.collectAsStateWithLifecycle()
+        val gpsNowSecs = gpsLocalCfg.position?.broadcast_smart_minimum_interval_secs ?: 0   // proto optional: 0 = not read yet
         val gpsStatus by viewModel.gpsApply.collectAsStateWithLifecycle()
         val gpsBusy by viewModel.gpsApplyBusy.collectAsStateWithLifecycle()
         var showGpsPanel by remember { mutableStateOf(false) }
