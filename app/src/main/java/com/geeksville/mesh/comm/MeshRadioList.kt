@@ -38,6 +38,7 @@ class MeshRadioList @Inject constructor(
     private val usbRepository: com.geeksville.mesh.repository.usb.UsbRepository,
     private val usbManager: dagger.Lazy<android.hardware.usb.UsbManager>,
     private val radioInterfaceService: org.meshtastic.core.repository.RadioInterfaceService,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,   // NAMELOAD-2026-10-13
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val namePattern = Regex(MeshtasticBleConstants.BLE_NAME_PATTERN)
@@ -46,6 +47,10 @@ class MeshRadioList @Inject constructor(
     @Volatile private var scanJob: Job? = null
 
     private fun usable(a: String?): String? = a?.takeIf { it.isNotBlank() && it != "n" }
+
+    // NAMELOAD-2026-10-13 (Fred 10-13): the name table BEFORE the first list is built (below) -- this class is built before
+    // MeshCommLink, whose own load() came too late, so the first list showed raw Meshtastic_xxxx names. load() is once-only.
+    init { RadioNameStore.load(context.filesDir) }
 
     /** The radio this device uses. CODE RULE 1: null = none chosen. */
     val selectedRadioId: StateFlow<String?> = radioInterfaceService.currentDeviceAddressFlow
