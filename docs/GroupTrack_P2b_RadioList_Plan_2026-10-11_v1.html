@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — 2.7b P2b: our own radio list and pairing — plan v1</title>
+<style>
+body{font:14px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1100px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
+h1{font-size:20px;border-bottom:2px solid #2e75b6;padding-bottom:6px}
+h2{font-size:16px;color:#1f4e79;margin:24px 0 6px;border-bottom:1px solid #ddd;padding-bottom:3px}
+table{border-collapse:collapse;width:100%;margin:8px 0 14px}td,th{border:1px solid #ccd;padding:5px 8px;vertical-align:top;text-align:left;font-size:13px}
+th{background:#eef2f7}code{background:#f1f3f6;padding:0 3px;border-radius:3px;font-size:12px}
+.q{background:#fff8e6;border-left:4px solid #e0a800;padding:8px 12px;margin:8px 0}
+</style></head><body>
+<h1>2.7b cycle 1 — P2b: our own radio list and pairing — plan v1 (10-11, for Fred's approval before code)</h1>
+<p><b>Baseline:</b> <code>2.7b</code> at <code>9e2d57c59</code> (P1 → P2.4 committed and tablet-checked 10-11). The last piece of P2: GRP Awareness stops
+embedding Meshtastic's scanner screen and draws its own rows from a list the comm side provides — <b>paired radios first</b> (Fred 10-11).
+The scanning itself stays Meshtastic's (the same Nordic scanner underneath); only the wiring and the widget change.</p>
+
+<h2>1. Inventory — what the panel uses today (2.7b 9e2d57c59)</h2>
+<table><tr><th>Piece</th><th>Where</th><th>Meshtastic / Android it reaches</th><th>Moves to</th></tr>
+<tr><td>Nearby radios (live scan) + the row widget</td><td>GrpAwareness.kt ~200–270: Nordic <code>ScannerView</code> + <code>rememberFilterState</code> with Meshtastic's filter (<code>SERVICE_UUID</code>, <code>BLE_NAME_PATTERN</code>)</td><td>Nordic scanner UI (scanning, its permission / Bluetooth-off prompts)</td><td>comm side scans with <code>BleScanner</code> (core/ble, same filter); GroupTrack draws the rows</td></tr>
+<tr><td>Paired radios (Bluetooth + USB) and the radio in use</td><td>Main.kt 621–623 (<code>scanModel.bleDevicesForUi</code>, <code>usbDevicesForUi</code>, <code>selectedAddressFlow</code>) → panel <code>paired</code>, <code>selectedAddress</code></td><td>ScannerViewModel</td><td>comm side: <code>BluetoothRepository.state.bondedDevices</code> + <code>GetDiscoveredDevicesUseCase</code> (USB) + <code>RadioInterfaceService.currentDeviceAddressFlow</code></td></tr>
+<tr><td>PAIR a new radio · tap a scan row</td><td>GrpAwareness.kt 234, 253 (<code>scanModel.onSelected</code>)</td><td>ScannerViewModel → <code>BluetoothRepository.bond(peripheral)</code> + set address</td><td><code>CommLink.connect(id)</code> pairs when needed (D5, agreed) — the comm side keeps the scanned radio</td></tr>
+<tr><td>FORGET refresh (row turns to PAIR at once)</td><td>GrpAwareness.kt 186–194, 243 (<code>pairedMacs</code>, <code>bondedNow</code>, <code>forgottenMacs</code>)</td><td>Android paired list</td><td>comm side: the list re-reads Android's paired list after a forget</td></tr>
+<tr><td>Types</td><td><code>DeviceListEntry</code> (panel, <code>radioLongName</code>)</td><td>Meshtastic model</td><td><code>RadioEntry</code> (contract) — <code>radioLongName</code> goes; the name arrives in <code>RadioEntry.name</code> (P2.4 table)</td></tr>
+</table>
+
+<h2>2. Contract additions (additive)</h2>
+<table><tr><th>Addition</th><th>Meaning</th></tr>
+<tr><td><code>val radios: StateFlow&lt;List&lt;RadioEntry&gt;&gt;</code></td><td>paired radios (Bluetooth + USB) <b>first</b>, then radios found nearby; each with id, name (last used, from the table), paired, signal</td></tr>
+<tr><td><code>val selectedRadioId: StateFlow&lt;String?&gt;</code></td><td>the radio this device uses (CODE RULE 1: null = none chosen)</td></tr>
+<tr><td><code>fun startScan(): CommResult</code> / <code>fun stopScan()</code></td><td>GroupTrack starts the scan when GRP Awareness opens and stops it when it closes. Answers <code>Failed("BLUETOOTH_OFF")</code> or <code>Failed("PERMISSION_MISSING")</code> — GroupTrack says so (and offers Android's permission prompt / Bluetooth settings)</td></tr>
+<tr><td><code>connect(id)</code> — behaviour widened</td><td>a radio not yet paired is paired first (Android shows its PIN prompt), then connected — one request, as agreed (D5)</td></tr>
+</table>
+
+<h2>3. GroupTrack after P2b</h2>
+<p>The panel draws its own rows from <code>radios</code>: paired → name, address, <b>CONNECT</b>, <b>FORGET</b>; new → name, "NEW TO THIS ANDROID", <b>PAIR</b>. The radio in use stays in its own box at the top. Same look and wording as today. Main.kt stops reading <code>scanModel</code> for GRP Awareness; the panel loses its <code>scanModel</code> and <code>DeviceListEntry</code> parameters; <code>pairedMacs</code>, <code>bondedNow</code>, <code>forgottenMacs</code>, <code>radioLongName</code> and the Nordic / Meshtastic BLE imports leave GroupTrack.</p>
+
+<h2>4. Two patches, as P2.3b</h2>
+<div class="q"><b>P2b-1 (shadow):</b> the comm side builds <code>radios</code> + <code>selectedRadioId</code> and scans while GRP Awareness is open, <b>logging the list</b> (tag COMMRADIOS) — the panel still uses Meshtastic's scanner. Compare the two on the tablet: same radios, same paired/new, paired first.<br>
+<b>P2b-2:</b> the panel switches to <code>radios</code>; PAIR goes through <code>connect(id)</code>; the scanner, the snapshot lists and the Meshtastic types leave GroupTrack.</div>
+
+<h2>5. Tablet checks (P2b-2, both droids)</h2>
+<ol>
+<li>Open GRP Awareness: paired radios listed first, nearby new radios appear within a few seconds; the radio in use in its box.</li>
+<li>CONNECT / DISCONNECT as today.</li>
+<li>FORGET a radio: it turns to NEW TO THIS ANDROID / PAIR at once.</li>
+<li>PAIR it: Android's PIN prompt (123456 or the screen code) → connected, green.</li>
+<li>Bluetooth off, open GRP Awareness: GroupTrack says Bluetooth is off (no crash, no empty silent list).</li>
+<li>Close GRP Awareness: the log shows the scan stopped.</li>
+</ol>
+<p><b>Not in P2b:</b> RADIO SETTINGS / native Meshtastic screens (P3) · the configurator and its 3 radio-write reads + the setOwner name (P4) · what is heard / the tick (P5).</p>
+</body></html>
