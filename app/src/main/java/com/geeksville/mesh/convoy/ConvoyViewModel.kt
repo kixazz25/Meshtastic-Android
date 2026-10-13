@@ -580,10 +580,6 @@ class ConvoyViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.admissionWindowHours.collect { admissionWindowHours = it }
         }
-        // GRPMODE2-2026-10-13 (bug fix): the saved alert values were never read back -- after every restart the built-in ones applied.
-        viewModelScope.launch { settingsRepository.signalDropMinutes.collect { ConvoyConfig.SIGNAL_DROP_MINUTES = it } }
-        viewModelScope.launch { settingsRepository.signalLostMinutes.collect { ConvoyConfig.LOST_MINUTES = it } }
-        viewModelScope.launch { settingsRepository.offTrackMilesSaved.collect { v -> if (v != null) ConvoyConfig.OFF_TRACK_MILES = v } }
         // CARTACTIVE-2026-09-30 (Fred): carts removed on this tablet today -- the tick skips them, SELECT CART lists them.
         viewModelScope.launch {
             settingsRepository.removedCartsForToday.collect { _removedCarts.value = it }

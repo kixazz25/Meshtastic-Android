@@ -17,6 +17,7 @@ data class ConvoySettingsUiState(
     val offTrackMiles:        Float              = 0.5f,
     val admissionWindowHours: Int                = 1,
     // Map of nodeId -> callsign for removed carts today
+    val leadLockFeet:         Float               = 330f,
     val removedCarts:         Map<String, String> = emptyMap(),
     val userMessage:          String?             = null
 )
@@ -52,6 +53,11 @@ class ConvoySettingsViewModel @Inject constructor(
                 )
             }.collect { _uiState.value = it }
         }
+        viewModelScope.launch {
+            repository.leadLockFeet.collect { feet ->
+                _uiState.update { it.copy(leadLockFeet = feet) }
+            }
+        }
     }
 
     fun onSignalDropChanged(value: Float) {
@@ -66,7 +72,10 @@ class ConvoySettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setOffTrackMiles(value) }
     }
 
-    // GRPMODE2-2026-10-13: the lead lock distance removed (never shown, never used)
+    fun setLeadLockFeet(value: Float) {
+        viewModelScope.launch { repository.setLeadLockFeet(value) }
+    }
+    val leadLockFeet = repository.leadLockFeet
     fun onAdmissionWindowChanged(value: Int) {
         viewModelScope.launch { repository.setAdmissionWindowHours(value) }
     }
