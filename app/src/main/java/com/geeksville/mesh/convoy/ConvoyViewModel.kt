@@ -314,7 +314,7 @@ class ConvoyViewModel @Inject constructor(
         _autoPan.value = false   // autoPan OFF when recording stops
         _leadLockedFlag = false
         lockedLeadNodeId = null
-        commMessaging.clearRoles()   // COMMRECV-2026-10-08 (via the Comm API) · LEADCLEAN-2026-09-29 (Fred): END -- the ride's roles end with the ride (the lead is cleared above)
+        if (GroupMode.on.value) commMessaging.clearRoles()   // GRPMODE-2026-10-13 · COMMRECV-2026-10-08 (via the Comm API) · LEADCLEAN-2026-09-29 (Fred): END -- the ride's roles end with the ride (the lead is cleared above)
         nodeLastLat.clear()
         nodeLastLon.clear()
         _leadLocked.value = false
@@ -358,6 +358,7 @@ class ConvoyViewModel @Inject constructor(
             }
         }
         // OWNROLE-2026-09-28 (Fred): MY role lives in the SAME store as everyone else's (against my own radio's number).
+        if (!GroupMode.on.value) { android.util.Log.i("ROLEREPORT", "GRPMODE-2026-10-13: group awareness off -- no role reports"); return }
         myNum?.let { commMessaging.recordOwnRole(it.toString(), role) }   // COMMRECV-2026-10-08
         roleReportJob?.cancel()
         val startedAt = System.currentTimeMillis()
@@ -573,6 +574,9 @@ class ConvoyViewModel @Inject constructor(
     }
 
     init {
+        // GRPMODE-2026-10-13: group awareness -- read once; off -> the comm side goes quiet and the HUD shows MY CART.
+        GroupMode.load(appContext)
+        if (!GroupMode.on.value) { _hudMode.value = HudMode.MY_CART; viewModelScope.launch { commLink.setActive(false) } }
         viewModelScope.launch {
             settingsRepository.admissionWindowHours.collect { admissionWindowHours = it }
         }
@@ -634,9 +638,19 @@ class ConvoyViewModel @Inject constructor(
         }
     }
 
-    fun setHudMode(mode: HudMode) { _hudMode.value = mode }
+    fun setHudMode(mode: HudMode) {   // GRPMODE-2026-10-13: GROUP while group awareness is off -> the popup, MY CART stays
+        if (mode == HudMode.GROUP && !GroupMode.on.value) { GroupMode.askToActivate(); _hudMode.value = HudMode.MY_CART; return }
+        _hudMode.value = mode
+    }
+    /** GRPMODE-2026-10-13 (Fred): group awareness on/off, from Settings -- any time. The comm side is told once (setActive). */
+    fun setGroupMode(on: Boolean) {
+        GroupMode.set(appContext, on)
+        viewModelScope.launch { commLink.setActive(on) }
+        if (!on && _hudMode.value == HudMode.GROUP) _hudMode.value = HudMode.MY_CART
+        if (!on) { roleReportJob?.cancel(); GrpAwarenessLauncher.close() }
+    }
     fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
-    fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = HudMode.GROUP }
+    fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = if (GroupMode.on.value) HudMode.GROUP else HudMode.MY_CART }   // GRPMODE-2026-10-13
 
     private val _currentIntervalSecs = MutableStateFlow(5)
     val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
@@ -905,7 +919,7 @@ class ConvoyViewModel @Inject constructor(
         // COMMNAMES-2026-10-11: the at-connect names moved to the comm side (MeshCommLink).
         // COMMHEALTH2-2026-10-11 (Fred 10-11): keeping the link is the comm side's job; GroupTrack reports it. talking = the comm side's
         // health (the 45 s hand-off heartbeat, the 120 s traffic rule and the recovery run there, unchanged).
-        radioTalkingNow = commLink.health.value.talking
+        radioTalkingNow = GroupMode.on.value && commLink.health.value.talking   // GRPMODE-2026-10-13: off = this tablet only
         GrpAwarenessLauncher.talking.value = radioTalkingNow
         // The power-cycle banner only while riding with a group (other carts in the tick array) -- GroupTrack's fact.
         val othersInTick = _convoyState.value.nodes.any { !it.isMyCart }
@@ -1185,7 +1199,8 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
     }
 
     private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
-        val nodeMap = try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { emptyMap() }
+        // GRPMODE-2026-10-13: group awareness off -> no radio node list (this tablet only, no other carts held).
+        val nodeMap = if (!GroupMode.on.value) emptyMap() else try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { emptyMap() }
         // NOGPSMSG-2026-09-15: clear both here so the RADIO path resets them without its own edit.
         // A radio supplies position through a different route entirely; neither
         // message applies once nodes are present.
@@ -1244,7 +1259,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 battery_pct = 100,
                 lastSeenMs = nowMs,
                 status = ConvoyStatus.ACTIVE
-            )) + heldCarts(true)   // LINKFIX-2026-10-03 / LINKFIX2-2026-10-03: held whenever not talking (a disconnect empties the node list)
+            )) + heldCarts(GroupMode.on.value)   // GRPMODE-2026-10-13 · LINKFIX-2026-10-03 / LINKFIX2-2026-10-03: held whenever not talking (a disconnect empties the node list)
         }
         // STALEREAD-2026-09-25 (Fred): drop stale nodes AT THE READ -- never build a cart only to eliminate it later.
         // A node not heard for 3 hours is not on the ride (phantoms from earlier / other channels); my own radio is

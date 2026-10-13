@@ -895,11 +895,13 @@ fun ConvoyAuthorityGateScreenV2(
                     }
                     RadioSetupPrompt(
                         onYes = {
+                            GroupMode.set(context, true)   // GRPMODE-2026-10-13: YES = group awareness on (before GRP Awareness opens)
                             RadioSetupState.markYes()
                             GrpAwarenessLauncher.open()   // a Main.kt overlay, drawn above the NavHost and so above the gate
                             afterRadio()
                         },
                         onNo = {
+                            GroupMode.set(context, false)   // GRPMODE-2026-10-13: NO = this tablet only
                             RadioSetupState.markNo(context)
                             afterRadio()
                         },

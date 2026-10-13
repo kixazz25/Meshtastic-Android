@@ -180,6 +180,9 @@ interface CommLink {
     suspend fun disconnect(): CommResult                              // A4
     suspend fun forget(radioId: String): CommResult                   // A5 (iPad: partial — system pairing is the rider's)
     suspend fun reconnect(): CommResult                               // A6 — ONE implementation (inventory: was 3)
+    /** GRPMODE-2026-10-13 (additive): group awareness on/off. Off = the transport goes quiet -- no link kept, no reconnects; the radio
+     *  in use is remembered. On = the remembered radio is used again. */
+    suspend fun setActive(active: Boolean): CommResult
     /** COMMNAMES-2026-10-11: the name a radio LAST USED, for a radio in a list: by the address it answers on (radioId), then by its
      *  member id, then by its Bluetooth name's suffix. CODE RULE 1: memberId null = a scanned radio not yet heard;
      *  result null = not known -- the caller shows the radio's own or Bluetooth name. */
