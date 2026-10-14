@@ -529,7 +529,7 @@ class ConvoyViewModel @Inject constructor(
     init {
         // GRPMODE-2026-10-13: group awareness -- read once; off -> the comm side goes quiet and the HUD shows MY CART.
         GroupMode.load(appContext)
-        if (!GroupMode.on.value) { _hudMode.value = HudMode.MY_CART; viewModelScope.launch { commLink.setActive(false) } }
+        if (!GroupMode.on.value) { _hudMode.value = HudMode.MY_CART; viewModelScope.launch { commLink.setActive(false) }; enterAndroidMode() }   // ANDROIDMODE1-2026-10-14
         viewModelScope.launch {
             settingsRepository.admissionWindowHours.collect { admissionWindowHours = it }
         }
@@ -604,7 +604,30 @@ class ConvoyViewModel @Inject constructor(
         GroupMode.set(appContext, on)
         viewModelScope.launch { commLink.setActive(on) }
         if (!on && _hudMode.value == HudMode.GROUP) _hudMode.value = HudMode.MY_CART
-        if (!on) { roleReportJob?.cancel(); GrpAwarenessLauncher.close() }
+        if (!on) { roleReportJob?.cancel(); GrpAwarenessLauncher.close(); enterAndroidMode() }   // ANDROIDMODE1-2026-10-14
+    }
+
+    /**
+     * ANDROIDMODE1-2026-10-14 (tick replacement task 1, Fred 10-14): ANDROID MODE starts EMPTY -- everything the tick keeps about other carts
+     * is cleared, so nothing from before can come back. Android mode = group awareness off (Settings; later also 3 failed automatic
+     * reconnects). NOT called on a plain radio disconnect: Android DATA keeps the held carts until the radio reconnects.
+     */
+    private fun enterAndroidMode() {
+        val mine = resolveMyCartId()
+        val myNodes = _convoyState.value.nodes.filter { it.isMyCart || it.nodeId == mine }
+        setLeadCart(null)                                   // no group, no lead (Fred 10-14)
+        currentLeadNodeId = null
+        _routeTrailSegments.value = emptyList()             // the drawn lead track
+        lastLeadLat = null; lastLeadLon = null
+        lastKnownPosition.keys.retainAll { it == mine }
+        lastNodePositions.keys.retainAll { it == mine }
+        nodeLastLat.keys.retainAll { it == mine }
+        nodeLastLon.keys.retainAll { it == mine }
+        nodeSpeedWindowStart.keys.retainAll { it == mine }
+        nodeLastComputedSpeed.keys.retainAll { it == mine }
+        _convoyState.value = if (myNodes.isEmpty()) ConvoyEngine.ConvoyState.empty()
+            else ConvoyEngine.compute(nodes = myNodes, myCartId = mine, nowMs = System.currentTimeMillis())
+        android.util.Log.i("ANDROIDMODE", "ANDROIDMODE1-2026-10-14: Android mode -- other carts cleared (kept my cart: ${myNodes.size})")
     }
     fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
     fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = if (GroupMode.on.value) HudMode.GROUP else HudMode.MY_CART }   // GRPMODE-2026-10-13
