@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first   // COMMREPORT-2026-10-12
 import kotlinx.coroutines.flow.map   // REPORTNOW-2026-10-13
+import kotlinx.coroutines.flow.shareIn   // HEARDEVENTS-2026-10-14
 import javax.inject.Inject
 
 /**
@@ -112,7 +113,21 @@ class MeshCommMessaging @Inject constructor(
             CommResult.Failed(e.message ?: e.javaClass.simpleName)
         }
     }
-    override val events: Flow<CommEvent> = emptyFlow()                                        // cycle 3 (tick removal)
+    // HEARDEVENTS-2026-10-14 (tick replacement T3): what the radio hears, as it is heard. A member's record changing in the node database
+    // (any packet moves lastHeard; a position moves the fix) = one MemberHeard -- the same Member members() returns. Hot, no replay.
+    private val eventScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+    override val events: Flow<CommEvent> = kotlinx.coroutines.flow.flow {
+        var last = emptyMap<Int, org.meshtastic.core.model.Node>()
+        nodeRepository.nodeDBbyNum.collect { db ->
+            for ((num, n) in db) {
+                val p = last[num]
+                if (p == null || p.lastHeard != n.lastHeard || p.position != n.position || p.user != n.user || p.deviceMetrics != n.deviceMetrics) {
+                    emit(CommEvent.MemberHeard(memberOf(n)))
+                }
+            }
+            last = db
+        }
+    }.shareIn(eventScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(), 0)
     // REPORTNOW-2026-10-13 (P5.2): the value ChannelViewModel showed (position.broadcast_smart_minimum_interval_secs). Passive -- no radio call.
     // CODE RULE 1: the proto field is optional; 0 / missing = not read yet -> null.
     override val currentReportingSecs: Flow<Int?> = radioConfigRepository.localConfigFlow
