@@ -697,7 +697,7 @@ class ConvoyViewModel @Inject constructor(
     val gpsApplyBusy: StateFlow<Boolean> = _gpsApplyBusy.asStateFlow()
     fun clearGpsApplyStatus() { if (!_gpsApplyBusy.value) _gpsApply.value = null }
 
-    fun applyLocationInterval(ui: com.geeksville.mesh.model.UIViewModel, secs: Int) {   // CODE RULE 1 n/a; `ui` unused since P4.1 (caller unchanged)
+    fun applyLocationInterval(secs: Int) {   // SLEEPCOMM-2026-10-14: the unused UIViewModel parameter removed
         if (_gpsApplyBusy.value) return
         if (secs !in 3..10) { _gpsApply.value = "Enter a number from 3 to 10."; return }
         if (link.value != com.grouptrack.comm.Link.CONNECTED) { _gpsApply.value = "Connect your radio first (GRP Awareness)."; return }
@@ -795,6 +795,20 @@ class ConvoyViewModel @Inject constructor(
         bindGpsService(context) { svc -> svc.startTrack(); _routeRecording.value = true }
     }
     fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
+    // SLEEPCOMM-2026-10-14 (P5.3): sleep / wake through the comm side (was ConvoyScreen -> UIViewModel.setDeviceAddress). Same calls
+    // underneath: the radio dropped ("n") on sleep, the same radio put back on wake. Fred 10-14: the app's sleep drops
+    // Bluetooth at 10 / 20 min on purpose, before the T1000-E's own sleep. Held in memory only, as before.
+    private var radioBeforeSleep = ""
+    fun sleepRadio() {
+        radioBeforeSleep = commLink.selectedRadioId.value ?: ""
+        viewModelScope.launch { commLink.disconnect() }
+        android.util.Log.i("ConvoyScreen", "SLEEP: BLE disconnected")
+    }
+    fun wakeRadio() {
+        val r = radioBeforeSleep
+        if (r.isNotBlank()) viewModelScope.launch { commLink.resume(r) }
+        android.util.Log.i("ConvoyScreen", "WAKE: BLE reconnecting")
+    }
     fun wakeFromSleep(context: android.content.Context) {
         gpsService?.wakeSleep()
         resumeRecording(context)

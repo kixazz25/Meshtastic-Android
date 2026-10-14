@@ -81,7 +81,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.graphics.graphicsLayer
 import com.geeksville.mesh.ui.sharing.ChannelViewModel
-import com.geeksville.mesh.model.UIViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -145,7 +144,6 @@ fun ConvoyScreen(
     viewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val channelViewModel: ChannelViewModel = hiltViewModel()
-    val uiViewModel: UIViewModel = hiltViewModel()
     val convoyState by viewModel.convoyState.collectAsStateWithLifecycle()
     val hudMode by viewModel.hudMode.collectAsStateWithLifecycle()
     val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
@@ -1743,15 +1741,9 @@ fun ConvoyScreen(
           }
 
           // -- SLEEPING overlay -- BLE disconnect on sleep, reconnect on wake --
-          var savedDeviceAddress by remember { mutableStateOf("") }
-
-          // Auto-disconnect BLE when sleep triggers
+          // SLEEPCOMM-2026-10-14 (P5.3): the radio is dropped on sleep and put back on wake through the comm side (ConvoyViewModel).
           LaunchedEffect(recordingState) {
-              if (recordingState == RecordingState.SLEEPING) {
-                  savedDeviceAddress = uiViewModel.getDeviceAddress() ?: ""
-                  uiViewModel.setDeviceAddress("n")
-                  android.util.Log.i("ConvoyScreen", "SLEEP: BLE disconnected")
-              }
+              if (recordingState == RecordingState.SLEEPING) viewModel.sleepRadio()
           }
 
           if (recordingState == RecordingState.SLEEPING) {
@@ -1766,10 +1758,9 @@ fun ConvoyScreen(
                   modifier = Modifier.align(Alignment.Center)
                       .clickable {
                           coroutineScope.launch {
-                              uiViewModel.setDeviceAddress(savedDeviceAddress)
+                              viewModel.wakeRadio()   // SLEEPCOMM-2026-10-14
                               viewModel.wakeFromSleep(context)
                               recordingState = RecordingState.RECORDING
-                              android.util.Log.i("ConvoyScreen", "WAKE: BLE reconnecting")
                           }
                       },
                   shape = RoundedCornerShape(16.dp),
@@ -3069,7 +3060,7 @@ fun ConvoyScreen(
         if (showGpsPanel) GpsIntervalDialog(
             currentSecs = gpsNowSecs, channelUtil = avgChannelUtil, carts = convoyState.nodes.size,
             status = gpsStatus, busy = gpsBusy,
-            onApply = { secs -> viewModel.applyLocationInterval(uiViewModel, secs) },
+            onApply = { secs -> viewModel.applyLocationInterval(secs) },
             onDismiss = { showGpsPanel = false; viewModel.clearGpsApplyStatus() }
         )
         // HUDSCHEME-2026-09-29 (Fred): the HUD's colour scheme follows the map -- SAT (or a hybrid) is dark imagery.

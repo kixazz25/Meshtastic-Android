@@ -90,6 +90,12 @@ class MeshCommLink @Inject constructor(
         radioController.setDeviceAddress("n")   // Meshtastic's "no radio"
         return CommResult.Ok
     }
+    /** SLEEPCOMM-2026-10-14 (P5.3): the same radio back after sleep -- exactly what ConvoyScreen did before (setDeviceAddress(saved)). */
+    override suspend fun resume(radioId: String): CommResult {
+        if (radioId.isBlank() || radioId == "n") return CommResult.Failed("NO_RADIO_ID")
+        radioController.setDeviceAddress(radioId)
+        return CommResult.Ok
+    }
     /** GRPMODE-2026-10-13: group awareness off -> the radio in use is remembered and dropped ("n" = no radio: the keep-alive below has no
      *  saved radio, so it makes no reconnects and counts no tries). On -> the remembered radio is used again. */
     override suspend fun setActive(active: Boolean): CommResult {

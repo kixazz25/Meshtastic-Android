@@ -183,6 +183,9 @@ interface CommLink {
     suspend fun disconnect(): CommResult                              // A4
     suspend fun forget(radioId: String): CommResult                   // A5 (iPad: partial — system pairing is the rider's)
     suspend fun reconnect(): CommResult                               // A6 — ONE implementation (inventory: was 3)
+    /** SLEEPCOMM-2026-10-14 (P5.3, additive): put back the radio that was in use before a DELIBERATE disconnect (sleep). No Bluetooth
+     *  check and no pairing: the transport retries by itself once Bluetooth is back. Default: connect(). */
+    suspend fun resume(radioId: String): CommResult = connect(radioId)
     /** GRPMODE-2026-10-13 (additive): group awareness on/off. Off = the transport goes quiet -- no link kept, no reconnects; the radio
      *  in use is remembered. On = the remembered radio is used again. */
     suspend fun setActive(active: Boolean): CommResult
