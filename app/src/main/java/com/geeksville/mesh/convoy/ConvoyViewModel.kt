@@ -1206,49 +1206,10 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         return _convoyState.value.nodes.filter { !it.isMyCart && it.nodeId != mine && (it.latitude != 0.0 || it.longitude != 0.0) }
     }
 
-    // HEARDSHADOW-2026-10-13 (P5.1a, TEMPORARY -- removed in P5.1b): the tick still reads the node database; this compares it, field by
-    // field, with what the comm side reports (CommMessaging.members()). Logcat tag HEARDSHADOW. Nothing displayed changes.
-    private var heardShadowSameLogMs = 0L
-    private fun heardShadowDiffs(): Pair<Int, List<String>> {
-        val nodeMap = nodeRepository.nodeDBbyNum.value
-        val members = commMessaging.members().associateBy { it.id }
-        val diffs = mutableListOf<String>()
-        for ((num, node) in nodeMap) {
-            val m = members[num.toString()]
-            if (m == null) { diffs += "!$num missing"; continue }
-            val pos = node.position
-            fun chk(name: String, tick: Any?, comm: Any?) { if (tick != comm) diffs += "!$num $name tick=$tick comm=$comm" }
-            chk("callsign", commMessaging.memberName(num.toString()) ?: node.user.long_name.ifBlank { node.user.short_name }.ifBlank { "!$num" }, m.callsign)
-            chk("lat", (pos.latitude_i ?: 0) * 1e-7, m.latitude ?: 0.0)
-            chk("lon", (pos.longitude_i ?: 0) * 1e-7, m.longitude ?: 0.0)
-            chk("alt", pos.altitude ?: 0, m.altitudeM ?: 0)
-            chk("fix", (pos.time ?: 0).toLong() * 1000L, m.fixTimeMs ?: 0L)
-            chk("heard", node.lastHeard.toLong() * 1000L, m.lastHeardMs)
-            chk("heading", (((pos.ground_track ?: 0).toFloat() / 100000f) % 360f + 360f) % 360f, m.headingDeg ?: 0f)
-            chk("battery", node.deviceMetrics.battery_level ?: 0, m.batteryPct ?: 0)
-            chk("chutil", node.deviceMetrics.channel_utilization, m.channelUtilPct)
-        }
-        val known = nodeMap.keys.map { it.toString() }.toSet()
-        members.keys.filter { it !in known }.forEach { diffs += "!$it extra" }
-        return Pair(nodeMap.size, diffs)
-    }
-    private fun heardShadow() {
-        runCatching {
-            var (n, diffs) = heardShadowDiffs()
-            if (diffs.isNotEmpty()) { val again = heardShadowDiffs(); n = again.first; diffs = again.second }   // a node update between the reads
-            val now = System.currentTimeMillis()
-            if (diffs.isNotEmpty()) {
-                android.util.Log.w("HEARDSHADOW", "diff n=$n " + diffs.take(6).joinToString("; ") + if (diffs.size > 6) " (+${diffs.size - 6})" else "")
-            } else if (now - heardShadowSameLogMs >= 60_000L) {
-                heardShadowSameLogMs = now
-                android.util.Log.i("HEARDSHADOW", "same n=$n")
-            }
-        }.onFailure { android.util.Log.w("HEARDSHADOW", "error ${it.message}") }
-    }
-
     private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
         // GRPMODE-2026-10-13: group awareness off -> no radio node list (this tablet only, no other carts held).
-        val nodeMap = if (!GroupMode.on.value) emptyMap() else try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { emptyMap() }
+        // HEARDSWITCH-2026-10-13 (P5.1b): what the radio has heard, from the comm side (raw; the display rules below are GroupTrack's).
+        val heard = if (!GroupMode.on.value) emptyList() else try { commMessaging.members() } catch (e: Exception) { emptyList() }
         // NOGPSMSG-2026-09-15: clear both here so the RADIO path resets them without its own edit.
         // A radio supplies position through a different route entirely; neither
         // message applies once nodes are present.
@@ -1257,7 +1218,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         // No radio — device IS a node. Phone GPS only after permission granted.
         // LINKFIX-2026-10-03: Android-only mode whenever the radio is not talking (was: only when the node list was empty,
         // so a connected-but-silent radio never let the tablet's GPS take over and my cart was dropped every tick).
-        if (nodeMap.isEmpty() || !radioTalkingNow) {
+        if (heard.isEmpty() || !radioTalkingNow) {
             if (androidx.core.content.ContextCompat.checkSelfPermission(
                     appContext, android.Manifest.permission.ACCESS_FINE_LOCATION
                 ) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -1306,33 +1267,35 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 heading_deg = hdg,
                 battery_pct = 100,
                 lastSeenMs = nowMs,
-                status = ConvoyStatus.ACTIVE
+                status = ConvoyStatus.ACTIVE,
+                tabletLat = loc?.latitude, tabletLon = loc?.longitude,   // HEARDSWITCH-2026-10-13: my cart's tablet fix (recorded)
+                tabletFixMs = loc?.let { if (it.time > 0L) it.time else nowMs }
             )) + heldCarts(GroupMode.on.value)   // GRPMODE-2026-10-13 · LINKFIX-2026-10-03 / LINKFIX2-2026-10-03: held whenever not talking (a disconnect empties the node list)
         }
         // STALEREAD-2026-09-25 (Fred): drop stale nodes AT THE READ -- never build a cart only to eliminate it later.
         // A node not heard for 3 hours is not on the ride (phantoms from earlier / other channels); my own radio is
         // always kept.
         val myNum = myRadioNum()
-        val allNodes = nodeMap.values.mapNotNull { node ->
+        val myTablet = getPhoneLocation()   // HEARDSWITCH-2026-10-13: what the tablet already has -- no GPS is started for it
+        val allNodes = heard.mapNotNull { m ->
+            val num = m.id.toIntOrNull() ?: return@mapNotNull null   // HEARDSWITCH-2026-10-13: mesh member ids are node numbers
             // SLIDERREAD-2026-09-25 (Fred): the hours come from the Settings slider (admissionWindowHours).
-            if (node.num != myNum && nowMs - node.lastHeard.toLong() * 1000L > admissionWindowHours * 3_600_000L) {
+            if (num != myNum && nowMs - m.lastHeardMs > admissionWindowHours * 3_600_000L) {
                 return@mapNotNull null
             }
-            val user = node.user
-            val pos = node.position
             // RADIONAMES-2026-10-03 (Fred): the long name LAST USED from the radio name table; the node database's first-heard name
             // only for a radio not yet in the table.
-            val callsign = commMessaging.memberName(node.num.toString()) ?: user.long_name.ifBlank { user.short_name }.ifBlank { "!${node.num}" }
-            val nodeId = "!%08x".format(node.num)
-            if (nodeId in _removedCarts.value && node.num != myNum) return@mapNotNull null   // CARTACTIVE-2026-09-30: removed on this tablet
-            val hasPos = (pos.latitude_i != 0 || pos.longitude_i != 0)
+            val callsign = m.callsign   // HEARDSWITCH-2026-10-13: the same rule (name table, else long, short, !num) -- applied on the comm side
+            val nodeId = "!%08x".format(num)
+            if (nodeId in _removedCarts.value && num != myNum) return@mapNotNull null   // CARTACTIVE-2026-09-30: removed on this tablet
+            val hasPos = m.latitude != null && m.longitude != null   // HEARDSWITCH-2026-10-13: null = no position (was 0/0)
             val latLon = if (hasPos) {
-                val lat = (pos.latitude_i ?: 0) * 1e-7
-                val lon = (pos.longitude_i ?: 0) * 1e-7
+                val lat = m.latitude ?: 0.0
+                val lon = m.longitude ?: 0.0
                 // Reject stale rebroadcast packets: pos.time is the GPS fix timestamp
                 // (Unix seconds). If it predates ride start it is a relay-rebroadcast
                 // of a packet the node sent from a prior location — use lastKnownPosition.
-                val fixTimeMs = (pos.time ?: 0).toLong() * 1000L
+                val fixTimeMs = m.fixTimeMs ?: 0L
                 val isStale = rideStartTimeMs > 0L && fixTimeMs > 0L && fixTimeMs < rideStartTimeMs
                 if (isStale) {
                     convoyLog("STALE POS REJECTED: node=$callsign fixTime=$fixTimeMs rideStart=$rideStartTimeMs age=${(rideStartTimeMs - fixTimeMs)/1000}s lat=$lat lon=$lon → using lastKnown")
@@ -1354,9 +1317,9 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 // never a stored map), else not shown this tick. MY radio: the tablet's GPS (switched on here).
                 val prevTick = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
                     ?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }?.let { Pair(it.latitude, it.longitude) }
-                if (node.num != myNum && prevTick != null) {
+                if (num != myNum && prevTick != null) {
                     prevTick
-                } else if (node.num != myNum) {
+                } else if (num != myNum) {
                     return@mapNotNull null
                 } else {
                     startPhoneGps()
@@ -1370,7 +1333,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                     }
                 }
             }
-            val lastSeenMs = node.lastHeard.toLong() * 1000L
+            val lastSeenMs = m.lastHeardMs
             ConvoyNode(
                 nodeId = nodeId,
                 callsign = callsign,
@@ -1378,10 +1341,10 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 // reports in the next step ("" until then = bare radio). Display only.
                 // OWNROLE-2026-09-28 (Fred): EVERY radio node -- mine included -- takes its role from the store first; the check-in
                 // is only the fallback for my own node (a Rider, who sends no report).
-                rideRole = takRideRole(node.num).ifBlank { if (node.num == myNum) (checkIn.value?.role ?: "") else "" },
+                rideRole = takRideRole(num).ifBlank { if (num == myNum) (checkIn.value?.role ?: "") else "" },
                 latitude = latLon.first,
                 longitude = latLon.second,
-                altitude_m = ((pos.altitude ?: 0) * 3.28084f).toInt(),
+                altitude_m = ((m.altitudeM ?: 0) * 3.28084f).toInt(),
                 speed_mph = run {
                     // 60-second fixed window: distance from window start to now * 60 = mph
                     val nowMs = System.currentTimeMillis()
@@ -1406,23 +1369,25 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                         }
                     }
                 },
-                heading_deg = (((pos.ground_track ?: 0).toFloat() / 100000f) % 360f + 360f) % 360f,
-                battery_pct = node.deviceMetrics.battery_level ?: 0,
-                snr_db = node.snr,
+                heading_deg = m.headingDeg ?: 0f,
+                battery_pct = m.batteryPct ?: 0,
+                // HEARDSWITCH-2026-10-13 (Fred 10-12): MY cart records both fixes (shown as before; the display rule comes with the tick replacement).
+                radioLat = if (num == myNum) m.latitude else null, radioLon = if (num == myNum) m.longitude else null,
+                radioFixMs = if (num == myNum) m.fixTimeMs else null,
+                tabletLat = if (num == myNum) myTablet?.latitude else null, tabletLon = if (num == myNum) myTablet?.longitude else null,
+                tabletFixMs = if (num == myNum) myTablet?.let { if (it.time > 0L) it.time else nowMs } else null,
                 lastSeenMs = lastSeenMs,
                 cotType = "a-f-G-U-C",
                 timestampUtc = java.time.Instant.ofEpochMilli(lastSeenMs).toString()
             )
         }
+        // HEARDSWITCH-2026-10-13: channel use from the comm side (Member.channelUtilPct; null = not reported) -- same average as before.
+        val utilById = heard.associate { it.id to it.channelUtilPct }
         val avgUtil = if (allNodes.isEmpty()) 0f else
             allNodes.mapNotNull { node ->
-                try {
-                    val nodeRaw = nodeRepository.nodeDBbyNum.value[node.nodeId.removePrefix("!").toLong(16).toInt()]
-                    nodeRaw?.deviceMetrics?.channel_utilization
-                } catch (e: Exception) { null }
+                node.nodeId.removePrefix("!").toLongOrNull(16)?.toInt()?.toString()?.let { utilById[it] }
             }.average().toFloat().takeIf { !it.isNaN() } ?: 0f
         _avgChannelUtil.value = avgUtil
-        heardShadow()   // HEARDSHADOW-2026-10-13 (P5.1a): compare with the comm side's members() -- log only
         // ONEFILTER-2026-09-25 (Fred): staleness is decided ONCE, at the read (STALEREAD: not heard for 3 hours = no
         // cart). ConvoyNodeFilter's time rules -- "heard today" (after local midnight) and the admission window --
         // disagreed with it (a rider heard at 23:50 vanished at midnight; "once admitted, visible all day" kept

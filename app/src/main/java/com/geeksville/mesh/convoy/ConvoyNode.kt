@@ -31,7 +31,11 @@ data class ConvoyNode(
     val timestampUtc: String = "",
     // TICKDATA-2026-09-28 (Fred): the GroupTrack RIDE ROLE (leader / middle / tail_gunner / rider) carried through the tick
     // for DISPLAY only -- "" = none (a bare radio). Not the engine's `role` label above, which the engine rewrites every tick.
-    val rideRole: String = ""
+    val rideRole: String = "",
+    // HEARDSWITCH-2026-10-13 (P5.1b, Fred 10-12): MY cart records BOTH fixes; which one is SHOWN is decided at the tick replacement.
+    // CODE RULE 1 (all six): null = not available -- and ALWAYS null on other carts (extended for my cart only, Fred 10-12).
+    val radioLat: Double? = null, val radioLon: Double? = null, val radioFixMs: Long? = null,
+    val tabletLat: Double? = null, val tabletLon: Double? = null, val tabletFixMs: Long? = null,
 ) {
     val markerColor: String get() {
         // Error states use blink only - keep assigned color
