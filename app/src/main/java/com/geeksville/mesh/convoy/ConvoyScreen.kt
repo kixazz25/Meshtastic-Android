@@ -80,7 +80,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.graphics.graphicsLayer
-import com.geeksville.mesh.ui.sharing.ChannelViewModel
+// CLEANDEAD-2026-10-14: ChannelViewModel no longer used here (its last use was the retired slider)
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -143,7 +143,6 @@ fun ConvoyScreen(
     onAddRide: (String, String) -> Unit,
     viewModel: ConvoyViewModel = hiltViewModel()
 ) {
-    val channelViewModel: ChannelViewModel = hiltViewModel()
     val convoyState by viewModel.convoyState.collectAsStateWithLifecycle()
     val hudMode by viewModel.hudMode.collectAsStateWithLifecycle()
     val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
@@ -3088,7 +3087,6 @@ fun ConvoyScreen(
                     onToggleLeadOnly = { viewModel.toggleLeadOnly() },
                         avgChannelUtil = avgChannelUtil,
                         currentIntervalSecs = currentIntervalSecs,
-                        onIntervalChange = { secs -> viewModel.setGpsInterval(secs, channelViewModel) },
                 )
                 HudMode.MY_CART -> MyCartHud(
                     state = convoyState,

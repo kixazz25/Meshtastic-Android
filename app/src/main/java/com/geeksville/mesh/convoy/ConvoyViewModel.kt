@@ -15,12 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.SharingStarted   // REPORTNOW-2026-10-13
 import kotlinx.coroutines.flow.stateIn   // REPORTNOW-2026-10-13
 import kotlinx.coroutines.launch
-import org.meshtastic.core.domain.usecase.settings.ExportProfileUseCase
-import org.meshtastic.core.domain.usecase.settings.ImportProfileUseCase
-import org.meshtastic.core.domain.usecase.settings.InstallProfileUseCase
-import org.meshtastic.core.repository.NodeRepository
-import org.meshtastic.core.repository.RadioConfigRepository
-import org.meshtastic.proto.DeviceProfile
+// CLEANDEAD-2026-10-14: the Meshtastic imports removed (profile use cases, node / config repositories, DeviceProfile)
 // COMMREPORT-2026-10-12: RadioOps no longer used here -- the GPS interval goes through CommMessaging.setReporting (P4.4)
 import javax.inject.Inject
 
@@ -46,13 +41,7 @@ enum class RideState {
 @HiltViewModel
 class ConvoyViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
-    private val nodeRepository: NodeRepository,
     private val settingsRepository: ConvoySettingsRepository,
-    private val radioConfigRepository: RadioConfigRepository,
-    private val importProfileUseCase: ImportProfileUseCase,
-    private val exportProfileUseCase: ExportProfileUseCase,
-    private val installProfileUseCase: InstallProfileUseCase,
-    private val radioController: org.meshtastic.core.model.RadioController, // RADIOCFG4-2026-09-25
     private val commConfig: com.grouptrack.comm.CommConfig, // COMMCONFIG-2026-10-12: the radio configurator, through the Comm API
     private val commMessaging: com.grouptrack.comm.CommMessaging, // COMMSEND-2026-10-08: TAK out through the Comm API
     private val commMenus: com.grouptrack.comm.CommMenus, // COMMMENUS-2026-10-08: Meshtastic menus opened by request
@@ -462,22 +451,11 @@ class ConvoyViewModel @Inject constructor(
 
     // RETIRE26-2026-10-08: WorkingConfig (2.6 apply chain state) removed
 
-    val deviceProfileFlow = radioConfigRepository.deviceProfileFlow
-
-    suspend fun exportProfileToFile(context: android.content.Context, file: java.io.File): Result<Unit> = runCatching {
-        val profile = radioConfigRepository.deviceProfileFlow.first()
-        file.parentFile?.mkdirs()
-        file.outputStream().use { outputStream ->
-            exportProfileUseCase(outputStream, profile).getOrElse { throw it }
-        }
-        android.util.Log.i("ConvoyProfile", "Exported profile to: ${file.absolutePath}")
-    }
+    // CLEANDEAD-2026-10-14: deviceProfileFlow + exportProfileToFile removed (no caller; saved configs are the comm side's, P4.3).
 
     // SAVEDCFG-2026-10-12: importProfileFromFile removed -- the saved-configs screen asks CommConfig (P4.3).
 
     // RADIOCFG4-2026-09-25: the radio configurator's links to the radio (RadioConfigWriter.RadioOps).
-    // COMMIDENT-2026-10-09: radioOps + installProfileToRadio keep their 3 nodeRepository.ourNodeInfo reads -- the radio-write
-    // adapter needs Meshtastic's User record; it moves behind the API as one piece when CommConfig is converted.
     fun radioNodeNum(): Int? = myRadioNum()
 
     // SAVEDCFG-2026-10-12: currentProfile removed -- "Radio now" is CommConfig.RADIO_NOW (P4.3).
@@ -486,18 +464,7 @@ class ConvoyViewModel @Inject constructor(
     /** COMMCONFIG-2026-10-12 (P4.2): applying a ride (or a save) to the radio goes through the Comm API -- the ride file in, the report out. */
     val radioConfig: com.grouptrack.comm.CommConfig get() = commConfig
 
-    fun installProfileToRadio(destNum: Int, profile: DeviceProfile) {
-        val currentUser = nodeRepository.ourNodeInfo.value?.user
-        viewModelScope.launch {
-            try {
-                android.util.Log.i("ConvoyProfile", "Installing profile to radio: ${"!%08x".format(destNum)}")
-                installProfileUseCase(destNum, profile, currentUser)
-                android.util.Log.i("ConvoyProfile", "Profile install complete — radio will reboot")
-            } catch (e: Exception) {
-                android.util.Log.e("ConvoyProfile", "Profile install failed: ${e.message}")
-            }
-        }
-    }
+    // CLEANDEAD-2026-10-14: installProfileToRadio removed (no caller -- whole-image restore was never offered).
 
     object ConvoyProfilePaths {
         fun masterCfg(context: android.content.Context) =
@@ -663,23 +630,7 @@ class ConvoyViewModel @Inject constructor(
     private val _currentIntervalSecs = MutableStateFlow(5)
     val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
 
-    fun setGpsInterval(secs: Int, channelViewModel: com.geeksville.mesh.ui.sharing.ChannelViewModel) {
-        _currentIntervalSecs.value = secs
-        viewModelScope.launch {
-            try {
-                channelViewModel.setConfig(
-                    org.meshtastic.proto.Config(
-                        position = org.meshtastic.proto.Config.PositionConfig(
-                            gps_update_interval = secs,
-                            gps_mode = org.meshtastic.proto.Config.PositionConfig.GpsMode.ENABLED
-                        )
-                    )
-                )
-            } catch (e: Exception) {
-                android.util.Log.e("ConvoyGPS", "Failed to set GPS interval: ${e.message}")
-            }
-        }
-    }
+    // CLEANDEAD-2026-10-14: setGpsInterval removed -- the retired HUD slider's writer (slider under if(false) since 09-29).
 
     // === GPSPANEL-2026-09-29 (Fred): "Sent every XX seconds" -- the location interval, written to the radio ONCE ===
     // Replaces setGpsInterval (the retired HUD slider), which wrote gps_update_interval -- the GPS FIX rate, not the
