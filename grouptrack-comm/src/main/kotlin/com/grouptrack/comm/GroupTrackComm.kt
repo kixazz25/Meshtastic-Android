@@ -241,12 +241,20 @@ interface CommConfig {
     /** Compare two configs by id -- a save's id, or [RADIO_NOW] for the radio as it is. Each row says if it is a managed setting
      *  (what an apply would change). The comparison never applies anything. */
     suspend fun compareConfigs(a: String, b: String): Pair<List<ConfigDifference>, CommResult>
+    /** COMMSAVES-2026-10-14 (P5.4b, additive): what THIS tablet applied to a radio, newest first, from the comm side's own records.
+     *  memberId = the radio's id (mesh: node number as text). Empty = nothing recorded. Default: empty. */
+    fun appliedHistory(memberId: String): List<AppliedRecord> = emptyList()
+    /** COMMSAVES-2026-10-14: any setup saved on this tablet, for any radio (the first-start question -- runs with no radio). Default: false. */
+    fun hasAnySavedSetup(): Boolean = false
     companion object { /** SAVEDCFG-2026-10-12: the id that means "the radio as it is right now". */ const val RADIO_NOW = "radio-now" }
 }
 
 /** SAVEDCFG-2026-10-12: one save, in words GroupTrack can show as they are. detail = "applied 2026-10-12 11:39 \u00b7 verified \u2713".
  *  CODE RULE 1: rideId null = the GroupTrack default, "as found", or an old save -- none of them belongs to a ride. */
 data class SavedSetup(val id: String, val title: String, val detail: String, val savedAtMs: Long, val rideId: String?)
+/** COMMSAVES-2026-10-14: one apply recorded on this tablet. title = the config's title as saved ("" = none); appliedAt = local date-time
+ *  as recorded (ISO). CODE RULE 1: rideId null = the GroupTrack default, "as found" or an old save -- no ride. */
+data class AppliedRecord(val title: String, val rideId: String?, val appliedAt: String)
 /** SAVEDCFG-2026-10-12: one difference between two configs; managed = a setting GroupTrack's apply sets. */
 data class ConfigDifference(val field: String, val a: String, val b: String, val managed: Boolean)
 

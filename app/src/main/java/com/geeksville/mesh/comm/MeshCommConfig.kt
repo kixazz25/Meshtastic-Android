@@ -171,6 +171,36 @@ class MeshCommConfig @Inject constructor(
         emptyList<ConfigDifference>() to CommResult.Failed(e.message ?: e.javaClass.simpleName)
     }
 
+    // COMMSAVES-2026-10-14 (P5.4b): moved unchanged from GroupTrack (GrpAwareness.lastAppliedLine / lastAppliedRide, RadioSetupState.hasSavedConfig).
+    private fun radioFolder(memberId: String): java.io.File? {
+        val num = memberId.toIntOrNull() ?: return null
+        if (num == 0) return null
+        val hex = "%08x".format(num)
+        return java.io.File(context.filesDir, "convoy_backups").listFiles()?.firstOrNull { d ->
+            d.isDirectory && (d.name.lowercase().contains(hex) || d.name == num.toString() || d.name == (num.toLong() and 0xffffffffL).toString())
+        }
+    }
+    override fun appliedHistory(memberId: String): List<com.grouptrack.comm.AppliedRecord> {
+        val dir = radioFolder(memberId) ?: return emptyList()
+        return (dir.listFiles { f -> f.extension == "json" } ?: emptyArray())
+            .mapNotNull { f -> runCatching { org.json.JSONObject(f.readText()) }.getOrNull() }
+            .filter { it.optString("appliedAt").isNotBlank() }
+            .sortedByDescending { it.optString("appliedAt") }
+            .map { o -> com.grouptrack.comm.AppliedRecord(o.optString("title"),
+                o.optString("rideId").takeIf { it.isNotBlank() && it != "null" }, o.optString("appliedAt")) }
+    }
+    override fun hasAnySavedSetup(): Boolean = try {
+        val root = java.io.File(context.filesDir, "convoy_backups")
+        (root.listFiles() ?: emptyArray()).filter { it.isDirectory }.any { dir ->
+            (dir.listFiles() ?: emptyArray()).any { f ->
+                f.isFile && f.extension == "cfg" && java.io.File(dir, f.nameWithoutExtension + ".json").isFile
+            }
+        }
+    } catch (e: Exception) {
+        android.util.Log.w("RadioSetup", "saved-config check failed: " + e.message + " -- treated as none")
+        false
+    }
+
     override suspend fun restoreSaved(id: String): CommResult = CommResult.NotSupported   // P4.3
     override suspend fun networkLink(): Pair<String?, CommResult> = null to CommResult.NotSupported   // Nucleus: not built
 }

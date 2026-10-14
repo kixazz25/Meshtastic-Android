@@ -121,31 +121,20 @@ private fun openAppSettings(ctx: Context) {   // COMMRADIOS-2026-10-11: where An
  */
 /** CHECKINAPPLY-2026-09-28: the ride LAST APPLIED to this radio -- (rideId, title) from the configurator's records.
  *  CODE RULE 1: null = nothing applied by GroupTrack (or no radio); rideId null = GroupTrack default / not a ride. */
-fun lastAppliedRide(ctx: Context, nodeNum: Int?): Pair<String?, String>? {
+fun lastAppliedRide(ctx: Context, nodeNum: Int?): Pair<String?, String>? {   // COMMSAVES-2026-10-14: through the Comm API
     if (nodeNum == null || nodeNum == 0) return null
-    val hex = "%08x".format(nodeNum)
-    val dir = java.io.File(ctx.filesDir, "convoy_backups").listFiles()?.firstOrNull { d ->
-        d.isDirectory && (d.name.lowercase().contains(hex) || d.name == nodeNum.toString() || d.name == (nodeNum.toLong() and 0xffffffffL).toString())
-    } ?: return null
-    val best = dir.listFiles { f -> f.extension == "json" }?.mapNotNull { f -> runCatching { JSONObject(f.readText()) }.getOrNull() }
-        ?.filter { it.optString("appliedAt").isNotBlank() && it.optString("title") != "As found" }?.maxByOrNull { it.optString("appliedAt") } ?: return null
-    val rid = best.optString("rideId").takeIf { it.isNotBlank() && it != "null" }
-    return Pair(rid, best.optString("title").ifBlank { "a saved configuration" })
+    val best = com.geeksville.mesh.comm.CommAccess.config(ctx).appliedHistory(nodeNum.toString()).firstOrNull { it.title != "As found" } ?: return null
+    return Pair(best.rideId, best.title.ifBlank { "a saved configuration" })
 }
 
-fun lastAppliedLine(ctx: Context, nodeNum: Int?): String {
+fun lastAppliedLine(ctx: Context, nodeNum: Int?): String {   // COMMSAVES-2026-10-14: through the Comm API
     if (nodeNum == null || nodeNum == 0) return ""
-    val hex = "%08x".format(nodeNum)
-    val dir = java.io.File(ctx.filesDir, "convoy_backups").listFiles()?.firstOrNull { d ->
-        d.isDirectory && (d.name.lowercase().contains(hex) || d.name == nodeNum.toString() || d.name == (nodeNum.toLong() and 0xffffffffL).toString())
-    } ?: return "none"
-    val best = dir.listFiles { f -> f.extension == "json" }?.mapNotNull { f -> runCatching { JSONObject(f.readText()) }.getOrNull() }
-        ?.filter { it.optString("appliedAt").isNotBlank() }?.maxByOrNull { it.optString("appliedAt") } ?: return "none"
+    val best = com.geeksville.mesh.comm.CommAccess.config(ctx).appliedHistory(nodeNum.toString()).firstOrNull() ?: return "none"
     val whenText = runCatching {
-        java.time.LocalDateTime.parse(best.optString("appliedAt"))
+        java.time.LocalDateTime.parse(best.appliedAt)
             .format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM, HH:mm"))
-    }.getOrDefault(best.optString("appliedAt"))
-    return best.optString("title").ifBlank { "a saved configuration" } + " \u00b7 " + whenText
+    }.getOrDefault(best.appliedAt)
+    return best.title.ifBlank { "a saved configuration" } + " \u00b7 " + whenText
 }
 
 /**

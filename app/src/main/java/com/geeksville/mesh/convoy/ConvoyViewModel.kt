@@ -466,25 +466,7 @@ class ConvoyViewModel @Inject constructor(
 
     // CLEANDEAD-2026-10-14: installProfileToRadio removed (no caller -- whole-image restore was never offered).
 
-    object ConvoyProfilePaths {
-        fun masterCfg(context: android.content.Context) =
-            java.io.File(context.filesDir, "master.cfg")
-        fun archiveCfg(context: android.content.Context, nodeId: String, label: String): java.io.File {
-            val dir = java.io.File(context.filesDir, "convoy_backups/$nodeId")
-            dir.mkdirs()
-            val ts = java.time.LocalDateTime.now()
-                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-            return java.io.File(dir, "${label}_${ts}.cfg")
-        }
-        fun rideCfg(context: android.content.Context, rideName: String, rideDate: String): java.io.File {
-            val dir = java.io.File(context.filesDir, "convoy_rides")
-            dir.mkdirs()
-            val safeName = rideName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
-            return java.io.File(dir, "${safeName}_${rideDate}.cfg")
-        }
-        fun assetsMasterCfg(context: android.content.Context): java.io.File =
-            java.io.File(context.filesDir, "master.cfg")
-    }
+    // COMMSAVES-2026-10-14: ConvoyProfilePaths removed (unused; the save folder belongs to the comm side)
 
 
     var persistentWebView: android.webkit.WebView? = null

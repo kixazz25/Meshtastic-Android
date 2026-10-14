@@ -41,17 +41,7 @@ object RadioSetupState {
     fun answer(ctx: Context): String = prefs(ctx).getString(KEY, "") ?: ""
 
     /** A save made by the 2.7 configurator: a .cfg in convoy_backups/<radio>/ with its .json companion. */
-    fun hasSavedConfig(ctx: Context): Boolean = try {
-        val root = java.io.File(ctx.filesDir, "convoy_backups")
-        (root.listFiles() ?: emptyArray()).filter { it.isDirectory }.any { dir ->
-            (dir.listFiles() ?: emptyArray()).any { f ->
-                f.isFile && f.extension == "cfg" && java.io.File(dir, f.nameWithoutExtension + ".json").isFile
-            }
-        }
-    } catch (e: Exception) {
-        log("saved-config check failed: " + e.message + " -- treated as none")
-        false
-    }
+    fun hasSavedConfig(ctx: Context): Boolean = com.geeksville.mesh.comm.CommAccess.config(ctx).hasAnySavedSetup()   // COMMSAVES-2026-10-14
 
     fun needsAsking(ctx: Context): Boolean {
         if (answeredThisSession) return false

@@ -29,3 +29,13 @@ abstract class GroupTrackCommBindings {
     @Binds
     abstract fun config(impl: MeshCommConfig): com.grouptrack.comm.CommConfig   // COMMCONFIG-2026-10-12
 }
+
+/** COMMSAVES-2026-10-14 (P5.4b): the contract for GroupTrack code that has no view model (the startup gate, the check-in panel).
+ *  Returns the CONTRACT type -- callers never see the mesh implementation. */
+@dagger.hilt.EntryPoint
+@InstallIn(SingletonComponent::class)
+interface GroupTrackCommEntryPoint { fun config(): com.grouptrack.comm.CommConfig }
+object CommAccess {
+    fun config(ctx: android.content.Context): com.grouptrack.comm.CommConfig =
+        dagger.hilt.android.EntryPointAccessors.fromApplication(ctx.applicationContext, GroupTrackCommEntryPoint::class.java).config()
+}
