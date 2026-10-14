@@ -605,6 +605,7 @@ class ConvoyViewModel @Inject constructor(
         viewModelScope.launch { commLink.setActive(on) }
         if (!on && _hudMode.value == HudMode.GROUP) _hudMode.value = HudMode.MY_CART
         if (!on) { roleReportJob?.cancel(); GrpAwarenessLauncher.close(); enterAndroidMode() }   // ANDROIDMODE1-2026-10-14
+        if (on) GrpAwarenessLauncher.open()   // GRPCONNECT-2026-10-14 (Fred): on -> the connect panel; the rider picks the radio (no automatic reconnect)
     }
 
     /**

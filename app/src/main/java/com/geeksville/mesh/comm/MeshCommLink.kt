@@ -97,7 +97,8 @@ class MeshCommLink @Inject constructor(
         return CommResult.Ok
     }
     /** GRPMODE-2026-10-13: group awareness off -> the radio in use is remembered and dropped ("n" = no radio: the keep-alive below has no
-     *  saved radio, so it makes no reconnects and counts no tries). On -> the remembered radio is used again. */
+     *  saved radio, so it makes no reconnects and counts no tries). On -> nothing is reconnected (GRPCONNECT-2026-10-14: the rider
+     *  picks the radio in the connect panel). */
     override suspend fun setActive(active: Boolean): CommResult {
         val p = context.getSharedPreferences("grouptrack_comm_link", android.content.Context.MODE_PRIVATE)
         val current = radioInterfaceService.currentDeviceAddressFlow.value
@@ -107,9 +108,10 @@ class MeshCommLink @Inject constructor(
             android.util.Log.i("COMMHEALTH", "GRPMODE-2026-10-13: group awareness off -- radio dropped (remembered: ${p.getString("radio_before_off", null)})")
         } else {
             val back = p.getString("radio_before_off", null)
-            if ((current.isNullOrBlank() || current == "n") && !back.isNullOrBlank()) radioController.setDeviceAddress(back)
+            // GRPCONNECT-2026-10-14 (Fred 10-14): NO automatic reconnect -- it came up "talking" with my radio not identified (a phantom
+            // reconnect: no my cart, no GPS). GroupTrack opens the connect panel instead and the rider picks the radio.
             p.edit().remove("radio_before_off").apply()
-            android.util.Log.i("COMMHEALTH", "GRPMODE-2026-10-13: group awareness on -- radio ${if (back.isNullOrBlank()) "unchanged" else back}")
+            android.util.Log.i("COMMHEALTH", "GRPCONNECT-2026-10-14: group awareness on -- no automatic reconnect (last radio: ${back ?: "none"})")
         }
         return CommResult.Ok
     }
