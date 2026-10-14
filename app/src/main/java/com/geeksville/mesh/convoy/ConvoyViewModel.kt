@@ -201,7 +201,7 @@ class ConvoyViewModel @Inject constructor(
             val take = held == null ||
                 (System.currentTimeMillis() - held.time) > staleMs ||
                 loc.accuracy <= held.accuracy
-            if (take) livePhoneLocation = loc
+            if (take) { livePhoneLocation = loc; onMyTabletFix(loc.latitude, loc.longitude, loc) }   // MYFIX-2026-10-14
         }
         phoneLocationListener = listener
 
@@ -736,6 +736,7 @@ class ConvoyViewModel @Inject constructor(
                     lastGpsLat = lat
                     lastGpsLon = lon
                     _distanceMiles.value = svc.totalDistanceMiles
+                    onMyTabletFix(lat, lon, null)   // MYFIX-2026-10-14
                 }
                 onBound(svc)
             }
@@ -850,6 +851,34 @@ class ConvoyViewModel @Inject constructor(
     private fun convoyLog(msg: String) {
         try { convoyLogFile.appendText("${System.currentTimeMillis() % 100000} $msg\n") }
         catch (e: Exception) { /* ignore */ }
+    }
+
+    /**
+     * MYFIX-2026-10-14 (tick replacement T2): my cart follows EACH tablet GPS fix while the tablet is its source -- Android mode
+     * (group awareness off) or Android data (radio not talking). With the radio talking, my cart stays on the radio (the tick).
+     * CODE RULE 1: loc null = the recording service's fix (position only) -- speed and heading keep the tick's last values.
+     */
+    private fun onMyTabletFix(lat: Double, lon: Double, loc: android.location.Location?) {
+        if (GroupMode.on.value && radioTalkingNow) return
+        if (lat == 0.0 && lon == 0.0) return
+        val st = _convoyState.value
+        val mine = st.nodes.firstOrNull { it.isMyCart } ?: return   // not placed yet -- the tick places it
+        val now = System.currentTimeMillis()
+        val moved = mine.copy(
+            latitude = lat, longitude = lon, lastSeenMs = now,
+            speed_mph = loc?.let { if (it.hasSpeed()) it.speed * 2.23694f else null } ?: mine.speed_mph,
+            heading_deg = loc?.let { if (it.hasBearing()) it.bearing else null } ?: mine.heading_deg,
+            tabletLat = lat, tabletLon = lon, tabletFixMs = loc?.let { if (it.time > 0L) it.time else now } ?: now,
+        )
+        val nodes = st.nodes.map { if (it.nodeId == mine.nodeId) moved else it }
+        _convoyState.value = ConvoyEngine.compute(
+            nodes = nodes,
+            myCartId = resolveMyCartId(),
+            nowMs = now,
+            leadLocked = _leadLockedFlag,
+            lockedLeadNodeId = lockedLeadNodeId,
+            tailNodeId = nodes.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId
+        )
     }
 
     // ── Tick loop ─────────────────────────────────────────────────────────
