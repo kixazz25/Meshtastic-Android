@@ -3367,7 +3367,7 @@ fun NodeDetailHud(
             HudStat("POS", "#${node.convoyPosition}")
             HudStat("HDG", "%.0f°".format(node.heading_deg))
             HudStat("ALT", "${node.altitude_m} ft")   // DISPLAYFIX-2026-10-15: the value is feet (altitude_m is misnamed); the label said m
-            HudStat("SEEN", node.lastSeenAgo)
+            HudStat("GAP", node.reportGap)   // PANELGAP-2026-10-15 (Fred 14:36): time between the last two reports (was SEEN, drawn-time age)
         }
         Spacer(Modifier.height(8.dp))
         // CARTACTIVE-2026-09-30 (Fred): SET AS LEAD and REMOVE FROM RIDE removed -- the lead comes from the roles, and a
