@@ -967,6 +967,14 @@ class ConvoyViewModel @Inject constructor(
             android.util.Log.i("TICKSHADOW", "board: group awareness off -- my cart only (${boardCarts.size})")
         }
         val nodes = boardCarts.values.toList()
+        // LEADBOARD-2026-10-15 (T5.4b, ROLETICK moved): a cart reporting Leader is the lead -- set through setLeadCart only when it differs.
+        // No Leader reported -> the lead keeps its value (as before). The tail comes from roles below (tail_gunner), as before.
+        nodes.firstOrNull { it.rideRole == "leader" }?.nodeId?.let { lid ->
+            if (lid != lockedLeadNodeId) {
+                setLeadCart(lid)
+                android.util.Log.i("ROLEREPORT", "LEADBOARD-2026-10-15 applied at ${System.currentTimeMillis()}: lead = " + lid)
+            }
+        }
         boardState = if (nodes.isEmpty()) ConvoyEngine.ConvoyState.empty() else ConvoyEngine.compute(
             nodes = nodes, myCartId = mine, nowMs = now,
             leadLocked = _leadLockedFlag, lockedLeadNodeId = lockedLeadNodeId,
@@ -1065,7 +1073,8 @@ class ConvoyViewModel @Inject constructor(
         //  - A node reporting Leader is the lead: set through setLeadCart (the existing path -- all three lead flags, and the
         //    lead track's reset) ONLY when it differs from the current lead. No Leader reported -> the lead keeps its value.
         //  - A node reporting Tail gunner is the tail. None -> null: the engine's own (the last active cart), as before.
-        nodes.firstOrNull { it.rideRole == "leader" }?.nodeId?.let { lid ->
+        // LEADBOARD-2026-10-15: the board sets the lead from Leader reports now; the tick only when it drives the screen (boardShows false)
+        if (!boardShows) nodes.firstOrNull { it.rideRole == "leader" }?.nodeId?.let { lid ->
             if (lid != lockedLeadNodeId) {
                 setLeadCart(lid)
                 convoyLog("ROLETICK: lead = " + (nodes.firstOrNull { it.nodeId == lid }?.callsign ?: lid) + " (reports Leader)")
