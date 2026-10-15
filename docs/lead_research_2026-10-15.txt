@@ -1,0 +1,622 @@
+== VM 270-340 (REC assign, reset)
+        leadActualLat = null
+        leadActualLon = null
+        leadStaleTicks = 0
+        proxySnapped = false
+        _leadTrackSegments.value = emptyList()
+        _gpsTrailSegments.value = emptyList()
+        rideStartTimeMs = System.currentTimeMillis()
+        lastKnownPosition.clear()
+        lastNodePositions.clear()
+        lastLeadLat = null
+        lastLeadLon = null
+        nodeSpeedWindowStart.clear()
+        nodeLastComputedSpeed.clear()
+
+        // IDENTITY: Set _myCartId ONCE — my radio node from Meshtastic, or !phone if no radio
+        val myNum = myRadioNum()   // COMMIDENT-2026-10-09
+        _myCartId.value = if (myNum != null) "!%08x".format(myNum) else "!phone"
+        val nodes = readLiveNodes(System.currentTimeMillis())
+
+        // LEADCLEAN-2026-09-29 (Fred): the lead comes from a Leader report (the tick) or the rider's pick at REC -- nothing
+        // else. Only a solo ride leads itself: one cart -> it, none -> my cart. Several carts and no lead -> it stays
+        // EMPTY (REC asks -- RECLEAD). The old automatic "several carts -> my cart" pick is removed.
+        if (lockedLeadNodeId == null) {
+            when {
+                nodes.size == 1 -> setLeadCart(nodes[0].nodeId)
+                nodes.isEmpty() -> setLeadCart(_myCartId.value)
+                else -> convoyLog("TRACK START: several carts and no lead -- left empty (REC asks)")
+            }
+        }
+
+        // TRACK: Activate AFTER identity and lead are locked
+        _trackActive.value = true
+        _autoPan.value = true   // autoPan ON during recording
+        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
+    }
+
+    /** COMMMENUS-2026-10-08: open one of the comm side's menus by id (e.g. "mesh-menu"). GroupTrack never names a
+     *  Meshtastic screen; the comm side answers NotSupported for an id it does not offer. */
+    fun openCommMenu(id: String): com.grouptrack.comm.CommResult {
+        val r = commMenus.open(id)
+        android.util.Log.i("CommMenus", "COMMMENUS open '$id' -> $r")
+        return r
+    }
+    /** COMMSETTINGS-2026-10-12: the comm-side screen open now (CODE RULE 1: null = none); closing it; the menus the comm side offers. */
+    val openMenu: StateFlow<String?> = commMenus.openMenu
+    fun closeCommMenu(id: String): com.grouptrack.comm.CommResult {
+        val r = commMenus.close(id)
+        android.util.Log.i("CommMenus", "COMMSETTINGS-2026-10-12 close '$id' -> $r")
+        return r
+    }
+    val commMenuIds: Set<String> = commMenus.items().map { it.id }.toSet()
+
+    fun stopGroupTrack() {
+        _trackActive.value = false
+        _autoPan.value = false   // autoPan OFF when recording stops
+        _leadLockedFlag = false
+        lockedLeadNodeId = null
+        if (GroupMode.on.value) commMessaging.clearRoles()   // GRPMODE-2026-10-13 · COMMRECV-2026-10-08 (via the Comm API) · LEADCLEAN-2026-09-29 (Fred): END -- the ride's roles end with the ride (the lead is cleared above)
+        nodeLastLat.clear()
+        nodeLastLon.clear()
+        _leadLocked.value = false
+        lastKnownPosition.clear()
+        lastNodePositions.clear()
+        lastLeadLat = null
+        lastLeadLon = null
+        nodeSpeedWindowStart.clear()
+        nodeLastComputedSpeed.clear()
+        rideStartTimeMs = 0L
+        roleReportJob?.cancel()   // ROLECHANGE-2026-09-29 (Fred): END -- the role reports stop with the ride
+    }
+
+== VM 405-430 (setLeadCart)
+                // THE SCHEDULE (Fred): until 3 minutes after REC; a change made DURING the ride: 3 minutes from the change.
+                // No REC yet: keep going (capped at 4 hours). END cancels this job (stopGroupTrack).
+                val recAt = rideStartTimeMs
+                val endAt = if (recAt == 0L) startedAt + 4 * 3_600_000L else maxOf(recAt, startedAt) + 180_000L
+                if (System.currentTimeMillis() >= endAt) break
+            }
+            android.util.Log.i("ROLEREPORT", "ROLEREPORT: run complete ($n reports, $role)")
+        }
+    }
+
+    fun setLeadCart(nodeId: String?) {
+        if (nodeId != null) {
+            lockedLeadNodeId = nodeId
+            _leadLockedFlag = true
+            _leadLocked.value = true
+            val name = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }?.callsign ?: nodeId
+            convoyLog("LEAD SET: $name manually assigned as lead cart")
+        } else {
+            lockedLeadNodeId = null
+            _leadLockedFlag = false
+            _leadLocked.value = false
+            convoyLog("LEAD CLEARED: no lead assigned")
+        }
+    }
+
+    private val _radioInactive = MutableStateFlow(false)
+== VM 630-660 (Android mode)
+    fun setHudMode(mode: HudMode) {   // GRPMODE-2026-10-13: GROUP while group awareness is off -> the popup, MY CART stays
+        if (mode == HudMode.GROUP && !GroupMode.on.value) { GroupMode.askToActivate(); _hudMode.value = HudMode.MY_CART; return }
+        _hudMode.value = mode
+    }
+    /** GRPMODE-2026-10-13 (Fred): group awareness on/off, from Settings -- any time. The comm side is told once (setActive). */
+    fun setGroupMode(on: Boolean) {
+        GroupMode.set(appContext, on)
+        viewModelScope.launch { commLink.setActive(on) }
+        if (!on && _hudMode.value == HudMode.GROUP) _hudMode.value = HudMode.MY_CART
+        if (!on) { roleReportJob?.cancel(); GrpAwarenessLauncher.close(); enterAndroidMode() }   // ANDROIDMODE1-2026-10-14
+    }
+
+    /**
+     * ANDROIDMODE1-2026-10-14 (tick replacement task 1, Fred 10-14): ANDROID MODE starts EMPTY -- everything the tick keeps about other carts
+     * is cleared, so nothing from before can come back. Android mode = group awareness off (Settings; later also 3 failed automatic
+     * reconnects). NOT called on a plain radio disconnect: Android DATA keeps the held carts until the radio reconnects.
+     */
+    private fun enterAndroidMode() {
+        val mine = resolveMyCartId()
+        val myNodes = _convoyState.value.nodes.filter { it.isMyCart || it.nodeId == mine }
+        setLeadCart(null)                                   // no group, no lead (Fred 10-14)
+        currentLeadNodeId = null
+        _routeTrailSegments.value = emptyList()             // the drawn lead track
+        lastLeadLat = null; lastLeadLon = null
+        lastKnownPosition.keys.retainAll { it == mine }
+        lastNodePositions.keys.retainAll { it == mine }
+        nodeLastLat.keys.retainAll { it == mine }
+        nodeLastLon.keys.retainAll { it == mine }
+        nodeSpeedWindowStart.keys.retainAll { it == mine }
+        nodeLastComputedSpeed.keys.retainAll { it == mine }
+        _convoyState.value = if (myNodes.isEmpty()) ConvoyEngine.ConvoyState.empty()
+== VM 955-990 (board)
+        boardCarts[cart.nodeId] = cart
+        boardMyFixes++
+        boardRecompute(now)
+    }
+
+    /** EVERY message: status for every cart from the time since it was last heard, order, lead / tail, distances. No timer. */
+    private fun boardRecompute(now: Long) {
+        val mine = resolveMyCartId()
+        if (mine != "!phone") boardCarts.remove("!phone")                // my radio identified: the tablet-only id is gone
+        // Group awareness OFF = Android mode = my cart only -- a board rule, applied on EVERY payload (Fred 13:09).
+        if (!GroupMode.on.value && boardCarts.keys.any { it != mine }) {
+            boardCarts.keys.retainAll { it == mine }; boardSpeedStart.keys.retainAll { it == mine }; boardSpeedLast.keys.retainAll { it == mine }
+            android.util.Log.i("TICKSHADOW", "board: group awareness off -- my cart only (${boardCarts.size})")
+        }
+        val nodes = boardCarts.values.toList()
+        // LEADBOARD-2026-10-15 (T5.4b, ROLETICK moved): a cart reporting Leader is the lead -- set through setLeadCart only when it differs.
+        // No Leader reported -> the lead keeps its value (as before). The tail comes from roles below (tail_gunner), as before.
+        nodes.firstOrNull { it.rideRole == "leader" }?.nodeId?.let { lid ->
+            if (lid != lockedLeadNodeId) {
+                setLeadCart(lid)
+                android.util.Log.i("ROLEREPORT", "LEADBOARD-2026-10-15 applied at ${System.currentTimeMillis()}: lead = " + lid)
+            }
+        }
+        boardState = if (nodes.isEmpty()) ConvoyEngine.ConvoyState.empty() else ConvoyEngine.compute(
+            nodes = nodes, myCartId = mine, nowMs = now,
+            leadLocked = _leadLockedFlag, lockedLeadNodeId = lockedLeadNodeId,
+            tailNodeId = nodes.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId)
+        if (boardShows) {   // BOARDSHOW2-2026-10-15: the screen draws from the board -- updated only when something VISIBLE changed
+            val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
+            if (sig != boardShownSig) { boardShownSig = sig; _convoyState.value = boardState; boardPublished++ }
+        }
+    }
+
+    /** After each tick: the board against the tick. Logs only a CHANGE of the difference (and every 5 min the counts). */
+    private fun boardCompare(tickState: ConvoyEngine.ConvoyState) {
+        val bs = boardState
+== VM 1060-1100 (tick)
+        // The power-cycle banner only while riding with a group (other carts in the tick array) -- GroupTrack's fact.
+        val othersInTick = _convoyState.value.nodes.any { !it.isMyCart }
+        GrpAwarenessLauncher.ridingGroup.value = othersInTick
+        val nodes: List<ConvoyNode> = if (_simulationMode.value) {
+            ConvoySimulation.tick(nowMs)
+        } else {
+            readLiveNodes(nowMs)
+        }
+
+        // V2.4: Lead assigned manually via dialog before ride start -- no auto-lock
+        // Lead assignment REMOVED from tick — only through setLeadCart()
+        // Lead assigned at RECORD time in startGroupTrack() or via cart HUD
+        // ROLETICK-2026-09-28 (Fred): LEAD AND TAIL FROM THE RIDE ROLES, every tick -- nothing else in the tick changes.
+        //  - A node reporting Leader is the lead: set through setLeadCart (the existing path -- all three lead flags, and the
+        //    lead track's reset) ONLY when it differs from the current lead. No Leader reported -> the lead keeps its value.
+        //  - A node reporting Tail gunner is the tail. None -> null: the engine's own (the last active cart), as before.
+        // LEADBOARD-2026-10-15: the board sets the lead from Leader reports now; the tick only when it drives the screen (boardShows false)
+        if (!boardShows) nodes.firstOrNull { it.rideRole == "leader" }?.nodeId?.let { lid ->
+            if (lid != lockedLeadNodeId) {
+                setLeadCart(lid)
+                convoyLog("ROLETICK: lead = " + (nodes.firstOrNull { it.nodeId == lid }?.callsign ?: lid) + " (reports Leader)")
+                android.util.Log.i("ROLEREPORT", "ROLETICK applied at ${System.currentTimeMillis()}: lead = " + lid)   // ROLECHANGE-2026-09-29
+            }
+        }
+        val tailNodeId: String? = nodes.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId
+
+        val state = ConvoyEngine.compute(
+            nodes = nodes,
+            myCartId = resolveMyCartId(),
+            nowMs = nowMs,
+            leadLocked = _leadLockedFlag,
+            lockedLeadNodeId = lockedLeadNodeId,
+            tailNodeId = tailNodeId
+        )
+        if (!boardShows) _convoyState.value = state   // BOARDSHOW2-2026-10-15: the tick no longer drives the screen (its state still feeds its other duties)
+        boardCompare(state)   // HEARDBOARD-2026-10-14
+
+        // ── Feed radio position to GPS service if no hardware GPS ────────────
+        if (gpsService?.useRadioGps == true && _routeRecording.value) {
+            val myCart = state.nodes.firstOrNull { it.isMyCart }
+            if (myCart != null && myCart.latitude != 0.0 && myCart.longitude != 0.0) {
+== SCREEN 1500-1640 (REC picker)
+                    color = androidx.compose.ui.graphics.Color.White) },
+                text = { androidx.compose.material3.Text(
+                    "GPS track recording requires \"Allow all the time\" location access.\n\nTap SETTINGS then Location > Allow all the time.",
+                    color = androidx.compose.ui.graphics.Color(0xFFAABBCC)) },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        showLocationPermissionDialog = false
+                        bgLocationLauncher.launch(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                    }) { androidx.compose.material3.Text("SETTINGS", color = androidx.compose.ui.graphics.Color(0xFF4AB8E8)) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { showLocationPermissionDialog = false }) {
+                        androidx.compose.material3.Text("CANCEL", color = androidx.compose.ui.graphics.Color(0xFFFFFFFF))
+                    }
+                },
+                containerColor = androidx.compose.ui.graphics.Color(0xFF0F2035)
+            )
+        }
+        // -- Lead Selection Dialog --
+        if (showLeadDialog) {
+            val dialogNodes = convoyState.nodes
+            AlertDialog(
+                onDismissRequest = { showLeadDialog = false },
+                title = {
+                    androidx.compose.material3.Text(
+                        "Select Lead Cart",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        androidx.compose.material3.Text(
+                            "Tap the lead cart to start the ride:",
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        dialogNodes.forEach { node ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.setLeadCart(node.nodeId)
+                                        showLeadDialog = false
+                                        recordingState = RecordingState.RECORDING
+                                        viewModel.startRecording(context)
+                                        viewModel.startGroupTrack()
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            node.callsign + " set as Lead Cart",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF2A3040),
+                                shadowElevation = 2.dp
+                            ) {
+                                Text(
+                                    node.callsign,
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showLeadDialog = false }) {
+                        Text("CANCEL")
+                    }
+                },
+                containerColor = Color(0xFF1E252F)
+            )
+        }
+
+        Box(modifier = Modifier.statusBarsPadding().padding(8.dp)) {
+            if (!showRecMenu) {
+                // Main REC button
+                Surface(
+                    modifier = Modifier.clickable {
+                        when (recordingState) {
+                            RecordingState.CHECK_IN -> {   // CHECKIN-2026-09-27: no recording before check-in
+                                // SOLOREC-2026-09-28 (Fred): THE BUTTON FOLLOWS THE RADIO. A radio -> the check-in. No radio -> a
+                                // solo ride: a silent "No scheduled ride" check-in (no survey, no sharing), then REC's own solo path.
+                                if (GrpAwarenessLauncher.connected.value) showCheckIn = true
+                                else {
+                                    ConvoyRideStore.checkIn(null, "", "rider")?.let { viewModel.checkIn.value = it }
+                                    recordingState = RecordingState.IDLE
+                                    val soloBg = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q ||
+                                        androidx.core.content.ContextCompat.checkSelfPermission(
+                                            context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                                        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                    if (soloBg) {   // as REC does for one cart or none: auto-assign the lead and record
+                                        viewModel.setLeadCart(viewModel.convoyState.value.nodes.firstOrNull()?.nodeId ?: "!phone")
+                                        recordingState = RecordingState.RECORDING
+                                        viewModel.startRecording(context)
+                                        viewModel.startGroupTrack()
+                                    }   // else it stays at REC: that tap asks for the permission, as always
+                                    android.util.Log.i("ConvoyScreen", "SOLOREC: no radio -> solo ride (no check-in), recording=$soloBg")
+                                }
+                            }
+                            RecordingState.IDLE -> {
+                                val bgGranted = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q ||
+                                    androidx.core.content.ContextCompat.checkSelfPermission(
+                                        context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                if (bgGranted) {
+                                    if (viewModel.leadLocked.value) {
+                                        // Lead already set via SET AS LEAD
+                                        recordingState = RecordingState.RECORDING
+                                        viewModel.startRecording(context)
+                                        viewModel.startGroupTrack()
+                                    } else {
+                                        val meshNodes = viewModel.convoyState.value.nodes
+                                        if (meshNodes.size <= 1) {
+                                            // Solo/standalone -- auto-assign and go
+                                            val soloNode = meshNodes.firstOrNull()
+                                            viewModel.setLeadCart(soloNode?.nodeId ?: "!phone")
+                                            recordingState = RecordingState.RECORDING
+                                            viewModel.startRecording(context)
+                                            viewModel.startGroupTrack()
+                                        } else {
+                                            // Multiple carts -- show lead selection dialog
+                                            showLeadDialog = true
+                                        }
+                                    }
+                                } else {
+                                    showLocationPermissionDialog = true
+                                }
+                            }
+                            RecordingState.RECORDING -> { showRecMenu = true }
+                            RecordingState.PAUSED -> showRecMenu = true
+                            RecordingState.SLEEPING -> { /* overlay handles wake */ }
+                        }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    color = when (recordingState) {
+== SCREEN 2990-3125 (roles list)
+        ConvoyButtonBar(
+            hudMode = hudMode,
+            onModeChange = { viewModel.setHudMode(it); viewModel.setAutoPan(true) },
+            onNavigateToSettings = onNavigateToSettings,
+            onSelectCart = { showCartPicker = true },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+        // ROLECHANGE-2026-09-29 (Fred): CHANGE MY ROLE from the group panel -- MY OWN cart only; nobody changes anyone else's.
+        // A special role someone holds is refused (released first); Rider releases mine. The Leader is the last assignment.
+        var showRoleChange by remember { mutableStateOf(false) }
+        if (showRoleChange) viewModel.checkIn.value?.let { rci ->
+            RoleChangeDialog(
+                currentRole = rci.role,
+                heldBy = convoyState.nodes
+                    .filter { !it.isMyCart && it.rideRole in setOf("leader", "middle", "tail_gunner") }
+                    .associate { it.rideRole to it.callsign.ifBlank { it.nodeId } },
+                onApply = { newRole ->
+                    viewModel.checkIn.value = rci.copy(role = newRole)
+                    viewModel.startRoleReports(newRole)   // ROLEANYRIDE-2026-09-29 (Fred): broadcast on ANY ride, scheduled or not
+                    showRoleChange = false
+                    CartPickerLauncher.open()   // ROLERETURN-2026-10-06 (Fred): back to VIEW CART ROLES, showing the new role
+                },
+                onDismiss = { showRoleChange = false; CartPickerLauncher.open() }   // ROLERETURN-2026-10-06: Cancel returns there too
+            )
+        }
+        // ── Cart Picker Panel (Phase 0 stub) ──────────────────────────────
+        if (showCartPicker) {
+            // CARTPICKER-2026-09-28: the ride and this tablet's role, from the check-in.
+            val pickCi = viewModel.checkIn.value
+            val pickRide = remember(pickCi?.rideId) { pickCi?.rideId?.let { ConvoyRideStore.rideForEdit(it) } }
+            CartPickerPanel(
+                removed = viewModel.removedCarts.collectAsStateWithLifecycle().value,   // CARTACTIVE-2026-09-30
+                onToggleActive = { id, cs ->
+                    val removing = !viewModel.removedCarts.value.containsKey(id)
+                    viewModel.toggleCartActive(id, cs)
+                    if (removing) webViewRef.value?.evaluateJavascript("removeMarker('$id')", null)   // as the old REMOVE did
+                },
+                nodes = convoyState.nodes,
+                rideTitle = pickRide?.name ?: (if (pickCi != null) "No scheduled ride" else ""),
+                rideSub = pickRide?.let { r -> listOf(r.date, if (r.startTime.isNotBlank()) "rollout " + r.startTime else "")
+                    .filter { it.isNotBlank() }.joinToString(" \u00b7 ") } ?: "",
+                myRole = pickCi?.role ?: "",
+                onSelect = { selectedNode ->
+                    // CARTROLESTAP-2026-10-06 (Fred): only MY OWN role can be changed here. Another cart -> say so and stay
+                    // open (it used to open that cart's information and close the panel, which looked like it vanished).
+                    when {
+                        selectedNode.isMyCart && viewModel.checkIn.value != null -> { showRoleChange = true; showCartPicker = false }
+                        selectedNode.isMyCart -> android.widget.Toast.makeText(context,
+                            "Check in first \u2014 tap CHECK IN at the top left.", android.widget.Toast.LENGTH_LONG).show()
+                        else -> {
+                            // ROLEMSG-2026-10-06 (Fred): name the radio this tablet is connected to (a guest radio later on)
+                            val mine = convoyState.nodes.firstOrNull { it.isMyCart }?.callsign?.takeIf { it.isNotBlank() }
+                            android.widget.Toast.makeText(context,
+                                if (mine != null) "You can only change the role of \"" + mine + "\"."
+                                else "You can only change the role of the radio connected to this tablet.",
+                                android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }
+                },
+                onDismiss = { showCartPicker = false },
+                onChangeMyRole = { showRoleChange = true; showCartPicker = false }   // ROLEBTN-2026-09-29
+            )
+        }
+
+        val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
+        val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
+        // GPSPANEL-2026-09-29 (Fred): the GPS button's panel -- "Sent every XX seconds" (3-10), applied to the radio ONCE.
+        // REPORTNOW-2026-10-13 (P5.2): from the comm side (was read from ChannelViewModel's radio config). 0 = not read yet, as before.
+        val gpsNowSecs = viewModel.reportingNowSecs.collectAsStateWithLifecycle().value ?: 0
+        val gpsStatus by viewModel.gpsApply.collectAsStateWithLifecycle()
+        val gpsBusy by viewModel.gpsApplyBusy.collectAsStateWithLifecycle()
+        var showGpsPanel by remember { mutableStateOf(false) }
+        if (showGpsPanel) GpsIntervalDialog(
+            currentSecs = gpsNowSecs, channelUtil = avgChannelUtil, carts = convoyState.nodes.size,
+            status = gpsStatus, busy = gpsBusy,
+            onApply = { secs -> viewModel.applyLocationInterval(secs) },
+            onDismiss = { showGpsPanel = false; viewModel.clearGpsApplyStatus() }
+        )
+        // HUDSCHEME-2026-09-29 (Fred): the HUD's colour scheme follows the map -- SAT (or a hybrid) is dark imagery.
+        val hudMapKey = mapTypeLabel.uppercase()
+        val hudDefaultWhite = hudMapKey.let { it.startsWith("SAT") || it.contains("HYB") }
+        // COSMETICS-2026-10-06 (Fred): the toggle's choice for this map type (session), else the map's default.
+        val hudOnDark = viewModel.hudTextWhiteByMap[hudMapKey] ?: hudDefaultWhite
+        // ── HUD strip ─────────────────────────────────────────────────────
+        Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 48.dp)) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalHudOnDark provides hudOnDark) {   // HUDSCHEME-2026-09-29
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { // GPSPANEL-2026-09-29
+                if (hudMode != HudMode.COLLAPSED) GpsLocationRow(intervalSecs = gpsNowSecs, channelUtil = avgChannelUtil,
+                    onOpen = { if (!GroupMode.on.value) GroupMode.askToActivate() else { viewModel.clearGpsApplyStatus(); showGpsPanel = true } },   // GRPMODE-2026-10-13
+                    textWhite = hudOnDark,   // COSMETICS-2026-10-06: the HUD text toggle, beside the interval and meter
+                    onToggleText = { viewModel.hudTextWhiteByMap[hudMapKey] = !hudOnDark })
+            when (hudMode) {
+                HudMode.GROUP -> GroupHud(
+                    state = convoyState,
+                    onModeChange = { viewModel.setHudMode(it) },
+                    onNavigateToSettings = onNavigateToSettings,
+                    trackActive = trackActive,
+                    trackLeadOnly = trackLeadOnly,
+                    onStartTrack = { viewModel.startGroupTrack() },
+                    onStopTrack = { viewModel.stopGroupTrack() },
+                    onToggleLeadOnly = { viewModel.toggleLeadOnly() },
+                        avgChannelUtil = avgChannelUtil,
+                        currentIntervalSecs = currentIntervalSecs,
+                )
+                HudMode.MY_CART -> MyCartHud(
+                    state = convoyState,
+                    myCartId = viewModel.myCartId.collectAsStateWithLifecycle().value,
+                    onModeChange = { viewModel.setHudMode(it) },
+                    onNavigateToSettings = onNavigateToSettings
+                )
+                HudMode.NODE -> selectedNode?.let { node ->
+                    NodeDetailHud(
+                        node = node,
+                        onDismiss = { viewModel.dismissNodeHud() },
+                        onRemove = { n ->
+                            viewModel.removeNode(n.nodeId)
+                            webViewRef.value?.evaluateJavascript("removeMarker('${n.nodeId}')", null)
+                        },
+                        onSetLead = { n ->
+                            viewModel.setLeadCart(n.nodeId)
+                            android.widget.Toast.makeText(
+                                context,
+                                n.callsign + " set as Lead Cart",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    )
+                }
+                HudMode.COLLAPSED -> CollapsedPill(
+                    totalNodes = convoyState.nodes.size,
+                    lostCount = convoyState.lostCount,
+                    hasLost = convoyState.hasLost,
+                    onExpand = { viewModel.setHudMode(if (GroupMode.on.value) HudMode.GROUP else HudMode.MY_CART) }   // GRPMODE-2026-10-13
+                )
+            }
+            } // GPSPANEL-2026-09-29: end of the column (GPS row on top of the HUD)
+== ENGINE lead/tail
+     * Assign lead and tail roles.
+     * LEADCLEAN-2026-09-29 (Fred): the engine never picks a lead.
+     * Lead: the lead field (lockedLeadNodeId) -- from a Leader report, or the rider's pick at REC. Null = no lead.
+     * Tail: the Tail gunner (tailNodeId, from the roles); none -> the last cart by position (the fallback).
+     */
+    fun assignLeadTail(
+        nodes: List<ConvoyNode>,
+        lockedLeadNodeId: String? = null,
+        tailNodeId: String? = null
+    ): List<ConvoyNode> {
+        val active = nodes.filter { it.status == ConvoyStatus.ACTIVE }
+        if (active.isEmpty()) return nodes
+        // Lead — the lead field: from a Leader report or the rider's pick at REC. Null = no lead.
+        val leadNode = if (lockedLeadNodeId != null)
+            nodes.firstOrNull { it.nodeId == lockedLeadNodeId }
+        else
+            null
+        // Tail — the Tail gunner (from the roles); none -> the last cart by position.
+        val tailNode = if (tailNodeId != null)
+            nodes.firstOrNull { it.nodeId == tailNodeId }
+        else
+            active.maxByOrNull { it.convoyPosition }
+        return nodes.map { node ->
+            node.copy(
+                isLead = node.nodeId == leadNode?.nodeId,
+                isTail = node.nodeId == tailNode?.nodeId,
+                role = when {
+                    node.nodeId == leadNode?.nodeId -> "Lead"
+                    node.nodeId == tailNode?.nodeId -> "Tail"
+                    node.isMyCart -> "My Cart"
+                    else -> "Convoy"
+                }
+            )
+        }
+    }
+
+    fun computeSpan(lead: ConvoyNode?, tail: ConvoyNode?): Float {
+        if (lead == null || tail == null) return 0f
+        return haversineMiles(lead.latitude, lead.longitude, tail.latitude, tail.longitude)
+    }
+
+    fun computeProximity(nodes: List<ConvoyNode>, myCartId: String): List<ConvoyNode> {
+        return nodes.map { node ->
+            val idx = nodes.indexOf(node)
+            val ahead = if (idx > 0) nodes[idx - 1] else null
+            val behind = if (idx < nodes.size - 1) nodes[idx + 1] else null
+            val lead = nodes.firstOrNull { it.isLead }
+            val tail = nodes.firstOrNull { it.isTail }
+            node.copy(
+                isMyCart = node.nodeId == myCartId,
+                feetToNodeAhead = if (ahead != null)
+                    haversineMiles(node.latitude, node.longitude, ahead.latitude, ahead.longitude) * 5280f else 0f,
+                feetToNodeBehind = if (behind != null)
+                    haversineMiles(node.latitude, node.longitude, behind.latitude, behind.longitude) * 5280f else 0f,
+                milesToLead = if (lead != null)
+                    haversineMiles(node.latitude, node.longitude, lead.latitude, lead.longitude) else 0f,
+                milesToTail = if (tail != null)
+                    haversineMiles(node.latitude, node.longitude, tail.latitude, tail.longitude) else 0f
+            )
+        }
+    }
+== ALL READERS
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyCheckIn.kt:58:    val roles = listOf("leader" to "Leader", "rider" to "Rider", "middle" to "Middle", "tail_gunner" to "Tail gunner")
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyCheckIn.kt:60:        if (r != null && me != null && r.organizerId == me.userId) return "leader"
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:116:    private var _leadLockedFlag: Boolean = false
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:141:    private var lockedLeadNodeId: String? = null
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:142:    private val _leadLocked = MutableStateFlow(false)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:143:    val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:145:    private val _trackLeadOnly = MutableStateFlow(true)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:146:    val trackLeadOnly: StateFlow<Boolean> = _trackLeadOnly.asStateFlow()
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:292:        if (lockedLeadNodeId == null) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:303:        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:325:        _leadLockedFlag = false
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:326:        lockedLeadNodeId = null
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:330:        _leadLocked.value = false
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:356:            "leader" -> com.grouptrack.comm.Role.LEADER
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:417:            lockedLeadNodeId = nodeId
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:418:            _leadLockedFlag = true
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:419:            _leadLocked.value = true
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:423:            lockedLeadNodeId = null
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:424:            _leadLockedFlag = false
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:425:            _leadLocked.value = false
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:440:        _trackLeadOnly.value = !_trackLeadOnly.value
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:456:        com.grouptrack.comm.Role.LEADER -> "leader"
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:913:            leadLocked = _leadLockedFlag,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:914:            lockedLeadNodeId = lockedLeadNodeId,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:972:        nodes.firstOrNull { it.rideRole == "leader" }?.nodeId?.let { lid ->
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:973:            if (lid != lockedLeadNodeId) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:980:            leadLocked = _leadLockedFlag, lockedLeadNodeId = lockedLeadNodeId,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:983:            val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1001:            if (x.isLead != y.isLead) { key += "lead $id"; text += "lead ${x.callsign}: tick ${x.isLead}, board ${y.isLead}" }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1077:        if (!boardShows) nodes.firstOrNull { it.rideRole == "leader" }?.nodeId?.let { lid ->
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1078:            if (lid != lockedLeadNodeId) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1090:            leadLocked = _leadLockedFlag,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1091:            lockedLeadNodeId = lockedLeadNodeId,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1106:            val leadOut = state.lead?.callsign ?: "NONE"
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1108:            convoyLog("tick | lead=$leadOut | trackFrom=$trackFrom | locked=$_leadLockedFlag")   // LEADCLEAN-2026-09-29
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1172:        if (_trackLeadOnly.value) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1174:            val leadNode = state.nodes.firstOrNull { it.nodeId == lockedLeadNodeId }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1181:            if (lockedLeadNodeId != currentLeadNodeId) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1182:                currentLeadNodeId = lockedLeadNodeId
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1212:                        if (n.nodeId == lockedLeadNodeId) continue
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1264:                        nodeId = lockedLeadNodeId ?: ""
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:1293:        _leadTrackSegments.value = if (_trackLeadOnly.value) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:150:    val trackLeadOnly by viewModel.trackLeadOnly.collectAsStateWithLifecycle()
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:431:                        "leader" -> "Leader"; "middle" -> "Middle"; "tail_gunner" -> "Tail gunner"; else -> "Rider" })
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:642:                .filter { !it.isMyCart && it.rideRole in setOf("leader", "middle", "tail_gunner") }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:1611:                                    if (viewModel.leadLocked.value) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3004:                    .filter { !it.isMyCart && it.rideRole in setOf("leader", "middle", "tail_gunner") }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3087:                    trackLeadOnly = trackLeadOnly,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3140:    trackLeadOnly: Boolean = true,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3235:                HudStat("▲ Lead", state.lead?.callsign ?: "--", Color(0xFF1CF0A0))
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3520:    myRole: String,      // this tablet's check-in role ("leader"...), or "" when not checked in
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3527:    fun roleLabel(r: String) = when (r) { "leader" -> "Leader"; "middle" -> "Middle"; "tail_gunner" -> "Tail gunner"; else -> "Rider" }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3579:                        return when (if (ci) r else "rider") { "leader" -> 0; "middle" -> 1; "tail_gunner" -> 2; else -> if (ci) 3 else 4 }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3993:    val roles = listOf("leader" to "Leader", "rider" to "Rider", "middle" to "Middle", "tail_gunner" to "Tail gunner")
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyRiderProfileScreen.kt:56:private val ROLES = listOf("leader" to "Leader", "rider" to "Rider", "middle" to "Middle", "tail_gunner" to "Tail gunner")
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyNode.kt:14:    val isLead: Boolean = false,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyNode.kt:42:        if (isLead) return "#1CF0A0"
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyNode.kt:55:        isLead -> "triangle"
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyNode.kt:62:        if (isLead || isTail || isMyCart) "large" else "medium"
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyEngine.kt:35:        leadLocked: Boolean = false,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyEngine.kt:36:        lockedLeadNodeId: String? = null,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyEngine.kt:43:        val withRoles = assignLeadTail(sorted, lockedLeadNodeId, tailNodeId)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyEngine.kt:44:        val lead = withRoles.firstOrNull { it.isLead }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyEngine.kt:52:            lead = withProximity.firstOrNull { it.isLead },
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyEngine.kt:96:     * Lead: the lead field (lockedLeadNodeId) -- from a Leader report, or the rider's pick at REC. Null = no lead.
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyEngine.kt:101:        lockedLeadNodeId: String? = null,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyEngine.kt:107:        val leadNode = if (lockedLeadNodeId != null)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyEngine.kt:108:            nodes.firstOrNull { it.nodeId == lockedLeadNodeId }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyEngine.kt:118:                isLead = node.nodeId == leadNode?.nodeId,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyEngine.kt:140:            val lead = nodes.firstOrNull { it.isLead }

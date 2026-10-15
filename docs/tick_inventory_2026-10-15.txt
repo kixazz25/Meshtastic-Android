@@ -1,0 +1,297 @@
+== startTick at 1061 .. getPhoneLocation at 1356
+    private fun startTick() {
+        tickJob?.cancel()
+        tickJob = viewModelScope.launch {
+            while (true) { tick(); delay(ConvoySimulation.TICK_MS) }
+        }
+    }
+
+    private fun pointToSegmentDistanceMiles(
+        pLat: Double, pLon: Double, aLat: Double, aLon: Double, bLat: Double, bLon: Double
+    ): Float {
+        val dx = bLon - aLon; val dy = bLat - aLat
+        if (dx == 0.0 && dy == 0.0) {
+            val dlat = pLat - aLat; val dlon = pLon - aLon
+            return (Math.sqrt(dlat * dlat + dlon * dlon) * 69.0).toFloat()
+        }
+        val t = ((pLon - aLon) * dx + (pLat - aLat) * dy) / (dx * dx + dy * dy)
+        val clampedT = t.coerceIn(0.0, 1.0)
+        val nearLat = aLat + clampedT * dy; val nearLon = aLon + clampedT * dx
+        val dlat = pLat - nearLat; val dlon = pLon - nearLon
+        return (Math.sqrt(dlat * dlat + dlon * dlon) * 69.0).toFloat()
+    }
+
+    private fun haversineMiles(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
+        val R = 3958.8
+        val dLat = Math.toRadians(lat2 - lat1); val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon/2) * Math.sin(dLon/2)
+        return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFloat()
+    }
+
+    private fun tick() { try {
+        // Guard: skip tick until location permission is granted
+        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                appContext, android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return
+        }
+        val nowMs = System.currentTimeMillis()
+        // LINKFIX-2026-10-03: is the radio talking? (see the fields at livePhoneLocation)
+        // COMMNAMES-2026-10-11: the at-connect names moved to the comm side (MeshCommLink).
+        // COMMHEALTH2-2026-10-11 (Fred 10-11): keeping the link is the comm side's job; GroupTrack reports it. talking = the comm side's
+        // health (the 45 s hand-off heartbeat, the 120 s traffic rule and the recovery run there, unchanged).
+        radioTalkingNow = GroupMode.on.value && commLink.health.value.talking   // GRPMODE-2026-10-13: off = this tablet only
+        GrpAwarenessLauncher.talking.value = radioTalkingNow
+        // The power-cycle banner only while riding with a group (other carts in the tick array) -- GroupTrack's fact.
+        val othersInTick = _convoyState.value.nodes.any { !it.isMyCart }
+        GrpAwarenessLauncher.ridingGroup.value = othersInTick
+        val nodes: List<ConvoyNode> = if (_simulationMode.value) {
+            ConvoySimulation.tick(nowMs)
+        } else {
+            readLiveNodes(nowMs)
+        }
+
+        // V2.4: Lead assigned manually via dialog before ride start -- no auto-lock
+        // Lead assignment REMOVED from tick — only through setLeadCart()
+        // Lead assigned at RECORD time in startGroupTrack() or via cart HUD
+        // ROLETICK-2026-09-28 (Fred): LEAD AND TAIL FROM THE RIDE ROLES, every tick -- nothing else in the tick changes.
+        //  - A node reporting Leader is the lead: set through setLeadCart (the existing path -- all three lead flags, and the
+        //    lead track's reset) ONLY when it differs from the current lead. No Leader reported -> the lead keeps its value.
+        //  - A node reporting Tail gunner is the tail. None -> null: the engine's own (the last active cart), as before.
+        // LEADBOARD-2026-10-15: the board sets the lead from Leader reports now; the tick only when it drives the screen (boardShows false)
+        if (!boardShows) nodes.firstOrNull { it.rideRole == "leader" }?.nodeId?.let { lid ->
+            if (lid != lockedLeadNodeId) {
+                setLeadCart(lid)
+                convoyLog("ROLETICK: lead = " + (nodes.firstOrNull { it.nodeId == lid }?.callsign ?: lid) + " (reports Leader)")
+                android.util.Log.i("ROLEREPORT", "ROLETICK applied at ${System.currentTimeMillis()}: lead = " + lid)   // ROLECHANGE-2026-09-29
+            }
+        }
+        val tailNodeId: String? = nodes.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId
+
+        val state = ConvoyEngine.compute(
+            nodes = nodes,
+            myCartId = resolveMyCartId(),
+            nowMs = nowMs,
+            leadLocked = _leadLockedFlag,
+            lockedLeadNodeId = lockedLeadNodeId,
+            tailNodeId = tailNodeId
+        )
+        if (!boardShows) _convoyState.value = state   // BOARDSHOW2-2026-10-15: the tick no longer drives the screen (its state still feeds its other duties)
+        boardCompare(state)   // HEARDBOARD-2026-10-14
+
+        // ── Feed radio position to GPS service if no hardware GPS ────────────
+        // RADIOTRACK-2026-10-15: my radio's message feeds the recorder now; the tick only when it drives the screen (boardShows false)
+        if (!boardShows && gpsService?.useRadioGps == true && _routeRecording.value) {
+            val myCart = state.nodes.firstOrNull { it.isMyCart }
+            if (myCart != null && myCart.latitude != 0.0 && myCart.longitude != 0.0) {
+                gpsService?.onRadioPosition(myCart.latitude, myCart.longitude, myCart.altitude_m.toDouble())
+            }
+        }
+        // ── Debug log every tick ──────────────────────────────────────────────
+        if (_trackActive.value) {
+            val leadOut = state.lead?.callsign ?: "NONE"
+            val trackFrom = currentLeadNodeId ?: "NONE"
+            convoyLog("tick | lead=$leadOut | trackFrom=$trackFrom | locked=$_leadLockedFlag")   // LEADCLEAN-2026-09-29
+        }
+
+        // Accumulate route trail — lead only or all carts
+
+        // ── Resolve cart positions: tail to lead ──────────────────────────
+        // For each cart: if reporting, use actual position. If silent, use
+        // whichever is further along: own last known OR furthest trailing cart.
+        // Process tail→lead so each resolution feeds the next cart forward.
+        val resolvedPositions = mutableMapOf<String, Pair<Double, Double>>()
+        val headingRad = Math.toRadians(state.convoyHeading.toDouble())
+        val hdx = kotlin.math.sin(headingRad)
+        val hdy = kotlin.math.cos(headingRad)
+        var furthestProjection = Double.MIN_VALUE
+        var furthestLat = 0.0
+        var furthestLon = 0.0
+
+        // Sort by convoyPosition descending = tail first
+        val tailToLead = state.nodes.sortedByDescending { it.convoyPosition }
+        for (node in tailToLead) {
+            val isReporting = node.latitude != 0.0 && node.longitude != 0.0
+                    && node.status != ConvoyStatus.LOST
+            val ownLat = if (isReporting) node.latitude
+                         else (lastNodePositions[node.nodeId]?.first ?: 0.0)
+            val ownLon = if (isReporting) node.longitude
+                         else (lastNodePositions[node.nodeId]?.second ?: 0.0)
+            val ownProj = ownLat * hdy + ownLon * hdx
+
+            // Use whichever is further along: own position or furthest trailing cart
+            // OFF-TRACK carts keep their own last known position — never substitute
+            val isOffTrack = _offTrackIds.value.contains(node.nodeId)
+            val resolvedLat: Double
+            val resolvedLon: Double
+            if (isOffTrack) {
+                // Off-track cart: keep own position so operator can find it
+                resolvedLat = ownLat
+                resolvedLon = ownLon
+            } else if (ownLat != 0.0 && ownProj >= furthestProjection) {
+                resolvedLat = ownLat
+                resolvedLon = ownLon
+            } else if (furthestLat != 0.0 && furthestProjection > ownProj) {
+                resolvedLat = furthestLat
+                resolvedLon = furthestLon
+                if (_trackActive.value) {
+                    convoyLog("CART SUB: ${node.callsign} silent — using trailing cart pos (${String.format("%.5f",resolvedLat)},${String.format("%.5f",resolvedLon)})")
+                }
+            } else {
+                resolvedLat = ownLat
+                resolvedLon = ownLon
+            }
+
+            if (resolvedLat != 0.0 && resolvedLon != 0.0) {
+                resolvedPositions[node.nodeId] = Pair(resolvedLat, resolvedLon)
+                lastNodePositions[node.nodeId] = Pair(resolvedLat, resolvedLon)
+                val resolvedProj = resolvedLat * hdy + resolvedLon * hdx
+                if (resolvedProj > furthestProjection) {
+                    furthestProjection = resolvedProj
+                    furthestLat = resolvedLat
+                    furthestLon = resolvedLon
+                }
+            }
+        }
+
+        // ── Build trail segments — lead actual GPS + proxy snap ──────────
+        if (_trackLeadOnly.value) {
+            // Get lead's ACTUAL position from node (never use resolved/substituted)
+            val leadNode = state.nodes.firstOrNull { it.nodeId == lockedLeadNodeId }
+            val leadIsReporting = leadNode != null && leadNode.latitude != 0.0
+                && leadNode.longitude != 0.0 && leadNode.status != ConvoyStatus.LOST
+            val leadHasNewPos = leadIsReporting
+                && (leadNode!!.latitude != leadActualLat || leadNode.longitude != leadActualLon)
+
+            // Handle lead node change
+            if (lockedLeadNodeId != currentLeadNodeId) {
+                currentLeadNodeId = lockedLeadNodeId
+                lastLeadLat = null
+                lastLeadLon = null
+                leadStaleTicks = 0
+                proxySnapped = false
+                leadActualLat = null
+                leadActualLon = null
+            }
+
+            val trackLat: Double?
+            val trackLon: Double?
+
+            if (leadHasNewPos) {
+                // ── Lead reported new actual position — always use it ──
+                leadStaleTicks = 0
+                proxySnapped = false
+                leadActualLat = leadNode!!.latitude
+                leadActualLon = leadNode.longitude
+                trackLat = leadNode.latitude
+                trackLon = leadNode.longitude
+            } else {
+                // ── Lead position unchanged — check for proxy ──
+                leadStaleTicks++
+                if (leadStaleTicks > 1 && leadActualLat != null && leadActualLon != null) {
+                    // Lead missed 1+ cycles — find cart that reached lead's actual position
+                    // Uses haversine distance (actual GPS), not projection
+                    var proxyLat: Double? = null
+                    var proxyLon: Double? = null
+                    var closestDist = Double.MAX_VALUE
+                    for (n in state.nodes) {
+                        if (n.nodeId == lockedLeadNodeId) continue
+                        if (n.latitude == 0.0 || n.longitude == 0.0) continue
+                        if (n.status == ConvoyStatus.LOST) continue
+                        if (_offTrackIds.value.contains(n.nodeId)) continue
+                        // Haversine from cart to lead's ACTUAL last reported position
+                        val dist = ConvoyEngine.haversineMiles(
+                            leadActualLat!!, leadActualLon!!,
+                            n.latitude, n.longitude)
+                        // Cart has reached lead's position (within ~250 feet)
+                        if (dist < 0.05 && dist < closestDist) {
+                            closestDist = dist.toDouble()
+                            proxyLat = n.latitude
+                            proxyLon = n.longitude
+                        }
+                    }
+                    if (proxyLat != null && proxyLon != null) {
+                        if (!proxySnapped) {
+                            // SNAP: first proxy segment connects from lead's last actual pos
+                            // lastLeadLat/Lon is already lead's actual — segment starts there
+                            proxySnapped = true
+                            if (_trackActive.value) {
+                                convoyLog("PROXY SNAP: lead stale $leadStaleTicks ticks")
+                            }
+                        }
+                        trackLat = proxyLat
+                        trackLon = proxyLon
+                    } else {
+                        // No cart has reached lead's position yet — wait
+                        trackLat = null
+                        trackLon = null
+                    }
+                } else {
+                    // Within grace period or no lead position recorded yet
+                    trackLat = null
+                    trackLon = null
+                }
+            }
+
+            // Build segment if we have a valid track position
+            if (trackLat != null && trackLon != null) {
+                val prevLat = lastLeadLat
+                val prevLon = lastLeadLon
+                if (prevLat != null && prevLon != null &&
+                    (prevLat != trackLat || prevLon != trackLon)) {
+                    val segDist = ConvoyEngine.haversineMiles(prevLat, prevLon, trackLat, trackLon)
+                    if (segDist > 0.25f) {
+                        convoyLog("LEAD SEGMENT: dist=${String.format("%.3f",segDist)}mi${if (proxySnapped) " (PROXY)" else ""}")
+                    }
+                    val seg = ConvoyEngine.LeadTrackSegment(
+                        startLat = prevLat, startLon = prevLon,
+                        endLat = trackLat, endLon = trackLon,
+                        color = "#000000",
+                        nodeId = lockedLeadNodeId ?: ""
+                    )
+                    if (_trackActive.value) {
+                        _routeTrailSegments.value = _routeTrailSegments.value + seg
+                    }
+                }
+                lastLeadLat = trackLat
+                lastLeadLon = trackLon
+            }
+        }
+        // Branch 2 (multi-cart segments) removed
+
+if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
+            val threshold = ConvoyConfig.OFF_TRACK_MILES
+            val offTrack = state.nodes.filter { node ->
+                if (node.latitude == 0.0 && node.longitude == 0.0) return@filter false
+                val minDist = _routeTrailSegments.value.minOf { seg ->
+                    pointToSegmentDistanceMiles(node.latitude, node.longitude,
+                        seg.startLat, seg.startLon, seg.endLat, seg.endLon)
+                }
+                minDist > threshold
+            }.map { it.nodeId }.toSet()
+            _offTrackIds.value = offTrack
+        } else {
+            _offTrackIds.value = emptySet()
+        }
+
+        // LEAD ONLY: single black line from locked lead node
+        // MULTI TRACK: each node draws its own trail in its own markerColor
+        _leadTrackSegments.value = if (_trackLeadOnly.value) {
+            _routeTrailSegments.value.map { it.copy(color = "#000000") }
+        } else {
+            ConvoyEngine.colorSegmentsByNode(
+                segments = _routeTrailSegments.value,
+                nodes = state.nodes
+            )
+        }
+
+        if (!boardShows && _hudMode.value == HudMode.NODE && _selectedNode.value != null) {   // PANELBOARD-2026-10-15: the board refreshes it now
+            val refreshed = state.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
+            _selectedNode.value = refreshed
+        }
+    } catch (e: Exception) { /* suppress tick errors */ } }
+
+    // Phone GPS helper -- used when radio has no GPS fix or no radio connected
+    private fun getPhoneLocation(): android.location.Location? {
