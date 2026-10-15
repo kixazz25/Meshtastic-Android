@@ -264,10 +264,10 @@ fun GrpAwarenessPanel(
                             Text("⚠ experienced mesh operators only", color = Color(0xFFC9A659), fontSize = 9.sp)
                         }
                     }
-                    if ("mesh-menu" in menus) Surface(modifier = Modifier.weight(1f).clickable { onMeshtastic() }, shape = RoundedCornerShape(8.dp), color = Color(0xFF16263E)) {   // COMMSETTINGS-2026-10-12
+                    if ("nodes" in menus) Surface(modifier = Modifier.weight(1f).clickable { message = ""; onMeshtastic() }, shape = RoundedCornerShape(8.dp), color = Color(0xFF16263E)) {   // COMMSETTINGS-2026-10-12
                         Column(modifier = Modifier.padding(8.dp)) {
-                            Text("MESHTASTIC SIDE MENU", color = Color(0xFF9CC7F5), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            Text("temporary", color = Color(0xFF6F8196), fontSize = 9.sp)
+                            Text("NODES", color = Color(0xFF9CC7F5), fontSize = 10.sp, fontWeight = FontWeight.Bold)   // NODESMENU-2026-10-15 (Fred): replaces the side menu
+                            Text("radios heard", color = Color(0xFF6F8196), fontSize = 9.sp)
                         }
                     }
                 }

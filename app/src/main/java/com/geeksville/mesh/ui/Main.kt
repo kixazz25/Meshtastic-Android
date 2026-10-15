@@ -303,7 +303,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
     MeshNavFold.isFolded(ctx)          // loads the saved choice once
     val meshFolded = MeshNavFold.folded
     val navSuiteType =
-        if (meshFolded) NavigationSuiteType.None else computedSuiteType
+        NavigationSuiteType.None   // NODESMENU-2026-10-15 (Fred): Meshtastic's side rail removed -- Settings and Nodes open from GRP Awareness
     val currentDestination = navController.currentBackStackEntryAsState().value?.destination
     val topLevelDestination = TopLevelDestination.fromNavDestination(currentDestination)
 
@@ -652,18 +652,33 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 when (req) {
                     com.geeksville.mesh.comm.MeshScreens.OPEN_SETTINGS -> navController.navigate(SettingsRoutes.Settings())
                     com.geeksville.mesh.comm.MeshScreens.CLOSE -> navController.popBackStack()
+                    // NODESMENU-2026-10-15 (Fred): Nodes the way Settings works -- pushed ON TOP of the screen showing (remembered), closed by
+                    // popping back to that screen (so BACK TO MAP also returns from a node's detail page).
+                    com.geeksville.mesh.comm.MeshScreens.OPEN_NODES -> {
+                        com.geeksville.mesh.comm.MeshScreens.baseId = navController.currentBackStackEntry?.destination?.id
+                        navController.navigate(TopLevelDestination.Nodes.route)
+                    }
+                    com.geeksville.mesh.comm.MeshScreens.CLOSE_NODES -> {
+                        val base = com.geeksville.mesh.comm.MeshScreens.baseId
+                        if (base == null || !navController.popBackStack(base, inclusive = false)) navController.popBackStack()
+                    }
                     else -> {}
                 }
             }
         }
         val meshOnSettingsPage = currentDestination?.hierarchy?.any { it.hasRoute(SettingsRoutes.Settings::class) } == true
         androidx.compose.runtime.LaunchedEffect(meshOnSettingsPage) { com.geeksville.mesh.comm.MeshScreens.onSettingsPage(meshOnSettingsPage) }
+        // NODESMENU-2026-10-15: the Nodes page (or a node's detail) is open while the screen showing is not the one it was opened from.
+        val meshNodesBase = com.geeksville.mesh.comm.MeshScreens.baseId
+        val meshOnNodesPage = meshNodesBase != null && currentDestination != null && currentDestination.id != meshNodesBase
+        androidx.compose.runtime.LaunchedEffect(meshOnNodesPage) { com.geeksville.mesh.comm.MeshScreens.onNodesPage(meshOnNodesPage) }
         // COMMSETTINGS-2026-10-12 · GROUPTRACK: BACK TO MAP (SETTINGSBACK-2026-09-29, Fred) -- GroupTrack's words, shown while the comm side reports
         // its radio settings screen open; the tap asks the comm side to close it. Android's back button works as before.
         val grpOpenMenu by convoyViewModel.openMenu.collectAsStateWithLifecycle()
-        if (grpOpenMenu == "radio-settings") {
+        val grpOpenNow = grpOpenMenu   // NODESMENU-2026-10-15: one BACK TO MAP for Settings and Nodes
+        if (grpOpenNow == "radio-settings" || grpOpenNow == "nodes") {
             androidx.compose.material3.Button(
-                onClick = { convoyViewModel.closeCommMenu("radio-settings") },
+                onClick = { convoyViewModel.closeCommMenu(grpOpenNow ?: "") },   // CODE RULE 1: never null here (checked above)
                 modifier = Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(top = 40.dp, start = 12.dp),
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF2E75B6)),
             ) { Text("\u25C0 BACK TO MAP", color = Color.White, fontWeight = FontWeight.Bold) }
@@ -731,7 +746,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 },
                 onMeshtastic = {   // COMMMENUS-2026-10-08: the Meshtastic menu is REQUESTED through the Comm API
                     com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()
-                    convoyViewModel.openCommMenu("mesh-menu")
+                    convoyViewModel.openCommMenu("nodes")   // NODESMENU-2026-10-15: the side menu is gone; this button opens Nodes
                 },
                 onClose = { com.geeksville.mesh.convoy.GrpAwarenessLauncher.close() },
             )
