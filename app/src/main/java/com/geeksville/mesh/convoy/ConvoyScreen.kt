@@ -1369,7 +1369,10 @@ fun ConvoyScreen(
         // Not persisted. The hard error returns every app start while it holds.
         var noPosDismissed by remember { mutableStateOf(false) }
 
-        if (!showSplash && noPositionError && !noPosDismissed) {
+        // DISPLAYFIX-2026-10-15 (Fred 10-15 11:25): the "No location available" dialog is OFF -- since the board starts empty until the first fix
+        // (T5.3) it showed on every launch. noPositionError is left as it is.
+        val noPosDialogOn = false
+        if (noPosDialogOn && !showSplash && noPositionError && !noPosDismissed) {
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { noPosDismissed = true },
                 title = { androidx.compose.material3.Text("No location available") },
@@ -3326,7 +3329,7 @@ fun NodeDetailHud(
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             HudStat("POS", "#${node.convoyPosition}")
             HudStat("HDG", "%.0f°".format(node.heading_deg))
-            HudStat("ALT", "${node.altitude_m}m")
+            HudStat("ALT", "${node.altitude_m} ft")   // DISPLAYFIX-2026-10-15: the value is feet (altitude_m is misnamed); the label said m
             HudStat("SEEN", node.lastSeenAgo)
         }
         Spacer(Modifier.height(8.dp))
