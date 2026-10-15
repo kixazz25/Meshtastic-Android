@@ -133,6 +133,10 @@ class ConvoyViewModel @Inject constructor(
     @Volatile private var radioTrackLastFixMs = 0L   // RADIOTRACK-2026-10-15: the last radio fix fed to the recorder (new fixes only)
     // TICKSMALL-2026-10-15: channel use per radio (node number as text), from each received heard record. CODE RULE 1: null = not reported.
     private val boardUtil = java.util.concurrent.ConcurrentHashMap<String, Float?>()
+    // MYCARTMSG-2026-10-15: the tablet's GPS drives my cart. myTabletFixMs 0 = no tablet fix yet; myFixLat/Lon = the last position sent.
+    @Volatile private var myTabletFixMs = 0L
+    @Volatile private var myFixLat = 0.0
+    @Volatile private var myFixLon = 0.0
     private val boardCarts = java.util.concurrent.ConcurrentHashMap<String, ConvoyNode>()
     private val boardSpeedStart = java.util.concurrent.ConcurrentHashMap<String, Triple<Long, Double, Double>>()
     private val boardSpeedLast = java.util.concurrent.ConcurrentHashMap<String, Float>()
@@ -992,7 +996,7 @@ class ConvoyViewModel @Inject constructor(
 
     /** A tablet GPS fix (T2's hook). CODE RULE 1: loc null = the recording service's fix (position only). */
     private fun onBoardMyFix(lat: Double, lon: Double, loc: android.location.Location?) {
-        if (GroupMode.on.value && commLink.health.value.talking) return  // radio talking: my cart is the radio's (as the tick)
+        // MYCARTMSG-2026-10-15: my cart ALWAYS uses the tablet's GPS (was: radio talking -> my cart is the radio's record, which never moved)
         if (lat == 0.0 && lon == 0.0) return
         val now = System.currentTimeMillis()
         // BOARDSHOW2-2026-10-15 (Fred 09:49): an Android fix is the tablet's sensor, not a received message -- my cart gets ONE board report
@@ -1000,8 +1004,34 @@ class ConvoyViewModel @Inject constructor(
         // TICKSMALL-2026-10-15: the network-position warning follows each tablet fix (network = will not work on the trail)
         if (boardShows && loc != null) _networkPositionWarning.value = loc.provider == android.location.LocationManager.NETWORK_PROVIDER
         val everyMs = (reportingNowSecs.value ?: 6) * 1000L
-        if (now - boardMyLastMs < everyMs) return
-        boardMyLastMs = now
+        myTabletFixMs = now
+        // MYCARTMSG-2026-10-15 (Fred 17:46): a message only when the GPS position CHANGED -- else one keep-alive per reporting interval
+        val moved = lat != myFixLat || lon != myFixLon
+        if (!moved && now - boardMyLastMs < everyMs) return
+        boardMyLastMs = now; myFixLat = lat; myFixLon = lon
+        val myNumNow = myRadioNum()
+        if (myNumNow != null && GroupMode.on.value) {
+            // my cart as a CoT message, through the SAME path as every other cart (Fred 17:16)
+            val myId = "!%08x".format(myNumNow)
+            val prevMine = boardCarts[myId]
+            val fixMs = loc?.time?.takeIf { it > 0L } ?: now
+            val msg = com.grouptrack.comm.CommMessage(
+                uid = "MESHTASTIC-" + myId, type = "a-f-G-U-C", how = "m-g",
+                timeMs = fixMs, startMs = fixMs, staleAtMs = now + everyMs,
+                point = com.grouptrack.comm.CotPoint(lat, lon, haeM = loc?.takeIf { it.hasAltitude() }?.altitude, ceM = null, leM = null),
+                // CODE RULE 1 (callsign): the board's name for my cart, else the radio name table, else the id
+                callsign = prevMine?.callsign ?: (commMessaging.memberName(myNumNow.toString()) ?: myId),
+                role = com.grouptrack.comm.Role.RIDER,   // display role comes from the role store / check-in (cartFromMessage)
+                team = "Cyan",
+                track = loc?.takeIf { it.hasSpeed() && it.hasBearing() }?.let { com.grouptrack.comm.CotTrack(it.speed.toDouble(), it.bearing.toDouble()) },
+                batteryPct = prevMine?.battery_pct,   // the radio's battery, as last shown
+                groupTrack = null,
+            )
+            onBoardMessage(msg, fromTablet = true)
+            boardMyFixes++
+            return
+        }
+        // no radio known, or Android only (group awareness off): the existing tablet cart below
         val alt = ((loc?.altitude ?: 0.0) * 3.28084).toInt()
         val spd = (loc?.speed ?: 0f) * 2.23694f
         val hdg = loc?.bearing ?: 0f
@@ -1529,12 +1559,14 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
     }
 
     /** COTBOARD-2026-10-15 (T5.4a-2): a CoT message was received -- the board's input (the twin of onBoardHeard, which T5.5 removes). */
-    private fun onBoardMessage(msg: com.grouptrack.comm.CommMessage) {
+    private fun onBoardMessage(msg: com.grouptrack.comm.CommMessage, fromTablet: Boolean = false) {   // MYCARTMSG-2026-10-15: fromTablet = my cart from the tablet's GPS
         if (!GroupMode.on.value) return                                  // Android only: no radios
         // the radio number from the uid (MESHTASTIC-!<node id>, the comm side's rule). CODE RULE 1: null = not a radio we know how to read
         val num = msg.uid.removePrefix("MESHTASTIC-!").toLongOrNull(16)?.toInt() ?: return
         val myNum = myRadioNum()
-        if (num == myNum && !commLink.health.value.talking) return       // radio not talking: my cart is the tablet's (as before)
+        // MYCARTMSG-2026-10-15: my cart is the tablet's while it has GPS (a fix in the last 15 s) -- my radio's own record does not drive it.
+        // A tablet without GPS keeps my radio's record (radio talking) -- the no-GPS row, to verify later.
+        if (!fromTablet && num == myNum && (System.currentTimeMillis() - myTabletFixMs < 15_000L || !commLink.health.value.talking)) return
         val id = "!%08x".format(num)
         val now = System.currentTimeMillis()
         val cart = cartFromMessage(msg, num, now, myNum, getPhoneLocation(), { boardCarts[it] }, boardSpeedStart, boardSpeedLast)
