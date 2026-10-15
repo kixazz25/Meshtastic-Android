@@ -574,6 +574,16 @@ class ConvoyViewModel @Inject constructor(
         viewModelScope.launch {
             commMessaging.events.collect { e -> if (e is com.grouptrack.comm.CommEvent.MemberHeard) onBoardHeard(e.member, recompute = true) }
         }
+        // GROUPOFF-2026-10-15 (Fred 10-15 11:30): ANDROID ONLY (group awareness OFF) clears the other carts on EVERY copy's board at once --
+        // the board's own group-off rule runs the moment the switch goes off (no radio message will come to trigger it).
+        viewModelScope.launch {
+            androidx.compose.runtime.snapshotFlow { GroupMode.on.value }.collect { on ->
+                if (!on) {
+                    boardRecompute(System.currentTimeMillis())
+                    android.util.Log.i("TICKSHADOW", "GROUPOFF-2026-10-15: group awareness off -- board now ${boardCarts.size} cart(s)")
+                }
+            }
+        }
         // COMMNAMES-2026-10-11: the name table (load, the node-list names) moved to the comm side (MeshCommLink).
         startTick()
         viewModelScope.launch(Dispatchers.IO) { scanImportDirectory() }
