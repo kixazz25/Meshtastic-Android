@@ -585,6 +585,20 @@ class ConvoyViewModel @Inject constructor(
                 }
             }
         }
+        // ROLESHOW-2026-10-15: the moment this tablet checks in or ENDs, re-set every board cart's role (the same rule as cartFromMessage)
+        // and republish -- otherwise a cart keeps its old role until its next message.
+        viewModelScope.launch {
+            androidx.compose.runtime.snapshotFlow { checkIn.value != null }.collect { checkedIn ->
+                val myNum = myRadioNum()
+                for ((id, c) in boardCarts) {
+                    val num = id.removePrefix("!").toLongOrNull(16)?.toInt() ?: continue   // "!phone" (no radio): no role to set
+                    val role = if (!checkedIn) "" else takRideRole(num).ifBlank { if (num == myNum) (checkIn.value?.role ?: "") else "" }
+                    if (role != c.rideRole) boardCarts[id] = c.copy(rideRole = role)
+                }
+                boardRecompute(System.currentTimeMillis())
+                android.util.Log.i("TICKSHADOW", "ROLESHOW-2026-10-15: checked in = $checkedIn -- roles " + (if (checkedIn) "shown" else "hidden"))
+            }
+        }
         // COMMNAMES-2026-10-11: the name table (load, the node-list names) moved to the comm side (MeshCommLink).
         startTick()
         viewModelScope.launch(Dispatchers.IO) { scanImportDirectory() }
@@ -1514,7 +1528,8 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         return ConvoyNode(
             nodeId = nodeId,
             callsign = msg.callsign,
-            rideRole = takRideRole(num).ifBlank { if (mine) (checkIn.value?.role ?: "") else "" },   // OWNROLE (as cartFromMember)
+            // ROLESHOW-2026-10-15 (Fred 13:07): roles only while THIS tablet is checked in -- otherwise the cart shows without a role
+            rideRole = if (checkIn.value == null) "" else takRideRole(num).ifBlank { if (mine) (checkIn.value?.role ?: "") else "" },   // OWNROLE (as cartFromMember)
             latitude = latLon.first,
             longitude = latLon.second,
             altitude_m = ((p?.haeM ?: 0.0) * 3.28084).toInt(),          // feet (the field is misnamed); radios send sea level (COTMSG log)
