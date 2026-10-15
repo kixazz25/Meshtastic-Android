@@ -11,6 +11,7 @@ import com.grouptrack.comm.Role
 import org.meshtastic.core.data.manager.TakRoleStore
 import org.meshtastic.core.data.manager.TakSeenStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.shareIn   // HEARDBOARDIMPORT-2026-10-14
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first   // COMMREPORT-2026-10-12
 import kotlinx.coroutines.flow.map   // REPORTNOW-2026-10-13
@@ -112,7 +113,24 @@ class MeshCommMessaging @Inject constructor(
             CommResult.Failed(e.message ?: e.javaClass.simpleName)
         }
     }
-    override val events: Flow<CommEvent> = emptyFlow()                                        // cycle 3 (tick removal)
+    // HEARDBOARD-2026-10-14 (Fred 10-14): a MemberHeard event is a RECEIVED MESSAGE -- raised only when a radio's last-heard time moves to a
+    // moment inside this app session and within the last 2 minutes (a packet arrived now). The stored node list Meshtastic loads at
+    // start-up and the radio's node dump at connect (old heard times) raise nothing. Runs only while someone listens. Reads only.
+    private val eventScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+    private val eventSessionStartMs = System.currentTimeMillis()
+    override val events: Flow<CommEvent> = kotlinx.coroutines.flow.flow {
+        val lastHeard = HashMap<Int, Int>()
+        nodeRepository.nodeDBbyNum.collect { db ->
+            val now = System.currentTimeMillis()
+            for ((num, n) in db) {
+                val heardMs = n.lastHeard.toLong() * 1000L
+                if (n.lastHeard != lastHeard[num] && heardMs >= eventSessionStartMs && heardMs >= now - 120_000L) {
+                    lastHeard[num] = n.lastHeard
+                    emit(CommEvent.MemberHeard(memberOf(n)))
+                }
+            }
+        }
+    }.shareIn(eventScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(), 0)
     // REPORTNOW-2026-10-13 (P5.2): the value ChannelViewModel showed (position.broadcast_smart_minimum_interval_secs). Passive -- no radio call.
     // CODE RULE 1: the proto field is optional; 0 / missing = not read yet -> null.
     override val currentReportingSecs: Flow<Int?> = radioConfigRepository.localConfigFlow
