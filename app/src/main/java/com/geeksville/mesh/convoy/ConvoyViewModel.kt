@@ -1006,6 +1006,10 @@ class ConvoyViewModel @Inject constructor(
         if (boardShows) {   // BOARDSHOW2-2026-10-15: the screen draws from the board -- updated only when something VISIBLE changed
             val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
             if (sig != boardShownSig) { boardShownSig = sig; _convoyState.value = boardState; boardPublished++ }
+            // PANELBOARD-2026-10-15 (T5.4d, the tick's refresh moved): an open cart panel shows that cart's latest values on every payload
+            if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
+                _selectedNode.value = boardState.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
+            }
         }
     }
 
@@ -1324,7 +1328,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             )
         }
 
-        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
+        if (!boardShows && _hudMode.value == HudMode.NODE && _selectedNode.value != null) {   // PANELBOARD-2026-10-15: the board refreshes it now
             val refreshed = state.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
             _selectedNode.value = refreshed
         }
@@ -1558,6 +1562,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             tabletLat = if (mine) myTablet?.latitude else null, tabletLon = if (mine) myTablet?.longitude else null,
             tabletFixMs = if (mine) myTablet?.let { if (it.time > 0L) it.time else nowMs } else null,
             lastSeenMs = nowMs,
+            prevSeenMs = prev(nodeId)?.lastSeenMs ?: 0L,   // PANELGAP-2026-10-15: the previous report's time (0 = first report)
             cotType = msg.type,
             timestampUtc = java.time.Instant.ofEpochMilli(nowMs).toString()
         )

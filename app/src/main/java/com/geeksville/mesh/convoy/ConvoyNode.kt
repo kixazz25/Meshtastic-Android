@@ -12,6 +12,7 @@ data class ConvoyNode(
     val role: String = "Convoy",
     val status: ConvoyStatus = ConvoyStatus.ACTIVE,
     val isLead: Boolean = false,
+    val prevSeenMs: Long = 0L,   // PANELGAP-2026-10-15: the previous report's time (CODE RULE 1 n/a -- 0 = no previous report yet)
     val isTail: Boolean = false,
     val isMyCart: Boolean = false,
     val latitude: Double = 0.0,
@@ -60,6 +61,13 @@ data class ConvoyNode(
 
     val markerSize: String get() =
         if (isLead || isTail || isMyCart) "large" else "medium"
+
+    /** PANELGAP-2026-10-15 (Fred 14:36): the time BETWEEN this report and the previous one -- fixed at each report, no timer. */
+    val reportGap: String get() {
+        if (prevSeenMs <= 0L || lastSeenMs <= prevSeenMs) return "--"
+        val secs = ((lastSeenMs - prevSeenMs) / 1000).toInt()
+        return if (secs < 60) "${secs}s" else "${secs / 60}m ${secs % 60}s"
+    }
 
     val lastSeenAgo: String get() {
         val nowMs = System.currentTimeMillis()
