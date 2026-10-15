@@ -20,7 +20,7 @@ class MeshCommMenus @Inject constructor(
 ) : CommMenus {
 
     override fun items(): List<CommMenuItem> = listOf(
-        CommMenuItem(id = MESH_MENU, label = "Meshtastic menu", group = "mesh"),
+        CommMenuItem(id = NODES, label = "Nodes", group = "mesh"),   // NODESMENU-2026-10-15 (Fred): replaces the Meshtastic side menu
         CommMenuItem(id = RADIO_SETTINGS, label = "Radio settings", group = "mesh"),   // COMMSETTINGS-2026-10-12
     )
 
@@ -28,6 +28,7 @@ class MeshCommMenus @Inject constructor(
 
     override fun close(id: String): CommResult =   // COMMSETTINGS-2026-10-12
         if (id == RADIO_SETTINGS && MeshScreens.open.value == RADIO_SETTINGS) { MeshScreens.request(MeshScreens.CLOSE); CommResult.Ok }
+        else if (id == NODES && MeshScreens.open.value == NODES) { MeshScreens.request(MeshScreens.CLOSE_NODES); CommResult.Ok }   // NODESMENU-2026-10-15
         else CommResult.NotSupported
 
     override fun open(id: String): CommResult = when (id) {
@@ -42,10 +43,15 @@ class MeshCommMenus @Inject constructor(
             MeshScreens.request(MeshScreens.OPEN_SETTINGS)
             CommResult.Ok
         }
+        NODES -> {   // NODESMENU-2026-10-15: Meshtastic's node list, as it is -- opened by the shell, the way RADIO_SETTINGS is
+            MeshScreens.open.value = NODES
+            MeshScreens.request(MeshScreens.OPEN_NODES)
+            CommResult.Ok
+        }
         else -> CommResult.NotSupported
     }
 
-    companion object { const val MESH_MENU = "mesh-menu"; const val RADIO_SETTINGS = "radio-settings" }
+    companion object { const val MESH_MENU = "mesh-menu"; const val RADIO_SETTINGS = "radio-settings"; const val NODES = "nodes" }
 }
 
 /**
@@ -56,6 +62,10 @@ class MeshCommMenus @Inject constructor(
 object MeshScreens {
     const val OPEN_SETTINGS = "open-settings"
     const val CLOSE = "close"
+    const val OPEN_NODES = "open-nodes"     // NODESMENU-2026-10-15
+    const val CLOSE_NODES = "close-nodes"   // NODESMENU-2026-10-15
+    /** NODESMENU-2026-10-15: the screen Nodes was opened from -- BACK TO MAP pops back to it. CODE RULE 1: null = Nodes not open. */
+    @Volatile var baseId: Int? = null
     private val _requests = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 4)
     val requests: kotlinx.coroutines.flow.SharedFlow<String> = _requests
     /** The comm-side screen open now. CODE RULE 1: null = none. */
@@ -67,5 +77,12 @@ object MeshScreens {
         if (open.value != MeshCommMenus.RADIO_SETTINGS) { reached = false; return }
         if (showing) reached = true
         else if (reached) { reached = false; open.value = null; android.util.Log.i("CommMenus", "COMMSETTINGS-2026-10-12 radio settings left") }
+    }
+    /** NODESMENU-2026-10-15: the twin of onSettingsPage for Nodes -- leaving it (BACK TO MAP or Android's back) clears [open]. */
+    @Volatile private var reachedNodes = false
+    fun onNodesPage(showing: Boolean) {
+        if (open.value != MeshCommMenus.NODES) { reachedNodes = false; return }
+        if (showing) reachedNodes = true
+        else if (reachedNodes) { reachedNodes = false; open.value = null; baseId = null; android.util.Log.i("CommMenus", "NODESMENU-2026-10-15 nodes left") }
     }
 }
