@@ -131,6 +131,8 @@ class ConvoyViewModel @Inject constructor(
     // LEADCLEAR-2026-10-15: the lead the board took FROM A LEADER REPORT. CODE RULE 1: null = the lead (if any) did not come from a report.
     @Volatile private var reportedLeadId: String? = null
     @Volatile private var radioTrackLastFixMs = 0L   // RADIOTRACK-2026-10-15: the last radio fix fed to the recorder (new fixes only)
+    // TICKSMALL-2026-10-15: channel use per radio (node number as text), from each received heard record. CODE RULE 1: null = not reported.
+    private val boardUtil = java.util.concurrent.ConcurrentHashMap<String, Float?>()
     private val boardCarts = java.util.concurrent.ConcurrentHashMap<String, ConvoyNode>()
     private val boardSpeedStart = java.util.concurrent.ConcurrentHashMap<String, Triple<Long, Double, Double>>()
     private val boardSpeedLast = java.util.concurrent.ConcurrentHashMap<String, Float>()
@@ -576,7 +578,15 @@ class ConvoyViewModel @Inject constructor(
         // HEARDBOARD-2026-10-14: the cart board's ONLY radio input -- a message received from a radio (MemberHeard). Nothing at start-up.
         viewModelScope.launch {
             // COTBOARD-2026-10-15 (T5.4a-2): the board reads the CoT message (Received); MemberHeard no longer feeds it
-            commMessaging.events.collect { e -> if (e is com.grouptrack.comm.CommEvent.Received) onBoardMessage(e.message) }
+            commMessaging.events.collect { e ->
+                if (e is com.grouptrack.comm.CommEvent.Received) onBoardMessage(e.message)
+                else if (e is com.grouptrack.comm.CommEvent.MemberHeard && boardShows) {
+                    // TICKSMALL-2026-10-15: channel use (not CoT -- link quality) -> the average over the board's carts, as the tick did
+                    boardUtil[e.member.id] = e.member.channelUtilPct
+                    val utils = boardCarts.keys.mapNotNull { id -> id.removePrefix("!").toLongOrNull(16)?.toInt()?.toString()?.let { boardUtil[it] } }
+                    _avgChannelUtil.value = if (utils.isEmpty()) 0f else utils.average().toFloat().takeIf { !it.isNaN() } ?: 0f
+                }
+            }
         }
         // GROUPOFF-2026-10-15 (Fred 10-15 11:30): ANDROID ONLY (group awareness OFF) clears the other carts on EVERY copy's board at once --
         // the board's own group-off rule runs the moment the switch goes off (no radio message will come to trigger it).
@@ -617,6 +627,18 @@ class ConvoyViewModel @Inject constructor(
                     boardCarts.keys.retainAll { it == mine }; boardSpeedStart.keys.retainAll { it == mine }; boardSpeedLast.keys.retainAll { it == mine }
                     boardRecompute(System.currentTimeMillis())
                     android.util.Log.i("ANDROIDMODE", "FAILCLEAR-2026-10-15: 3 failed reconnects -- Android only (other carts cleared, group awareness stays on; board ${boardCarts.size} cart(s))")
+                }
+            }
+        }
+        // TICKSMALL-2026-10-15: radio talking / the GRP Awareness light / the tablet's GPS -- on the radio's health event (was every tick)
+        viewModelScope.launch {
+            commLink.health.collect { h ->
+                if (!boardShows) return@collect
+                radioTalkingNow = GroupMode.on.value && h.talking
+                GrpAwarenessLauncher.talking.value = radioTalkingNow
+                if (!radioTalkingNow && androidx.core.content.ContextCompat.checkSelfPermission(
+                        appContext, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    startPhoneGps()   // Android mode / Android data: my cart is the tablet's
                 }
             }
         }
@@ -975,6 +997,8 @@ class ConvoyViewModel @Inject constructor(
         val now = System.currentTimeMillis()
         // BOARDSHOW2-2026-10-15 (Fred 09:49): an Android fix is the tablet's sensor, not a received message -- my cart gets ONE board report
         // per reporting interval, from the latest fix, like every other cart. CODE RULE 1: interval null = not read from the radio yet -> 6 s.
+        // TICKSMALL-2026-10-15: the network-position warning follows each tablet fix (network = will not work on the trail)
+        if (boardShows && loc != null) _networkPositionWarning.value = loc.provider == android.location.LocationManager.NETWORK_PROVIDER
         val everyMs = (reportingNowSecs.value ?: 6) * 1000L
         if (now - boardMyLastMs < everyMs) return
         boardMyLastMs = now
@@ -1024,6 +1048,7 @@ class ConvoyViewModel @Inject constructor(
         if (boardShows) {   // BOARDSHOW2-2026-10-15: the screen draws from the board -- updated only when something VISIBLE changed
             val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
             if (sig != boardShownSig) { boardShownSig = sig; _convoyState.value = boardState; boardPublished++ }
+            GrpAwarenessLauncher.ridingGroup.value = boardState.nodes.any { !it.isMyCart }   // TICKSMALL-2026-10-15: the power-cycle banner's condition
             // PANELBOARD-2026-10-15 (T5.4d, the tick's refresh moved): an open cart panel shows that cart's latest values on every payload
             if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
                 _selectedNode.value = boardState.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
@@ -1101,11 +1126,13 @@ class ConvoyViewModel @Inject constructor(
         // COMMNAMES-2026-10-11: the at-connect names moved to the comm side (MeshCommLink).
         // COMMHEALTH2-2026-10-11 (Fred 10-11): keeping the link is the comm side's job; GroupTrack reports it. talking = the comm side's
         // health (the 45 s hand-off heartbeat, the 120 s traffic rule and the recovery run there, unchanged).
-        radioTalkingNow = GroupMode.on.value && commLink.health.value.talking   // GRPMODE-2026-10-13: off = this tablet only
-        GrpAwarenessLauncher.talking.value = radioTalkingNow
+        if (!boardShows) {   // TICKSMALL-2026-10-15: the health event sets these now
+            radioTalkingNow = GroupMode.on.value && commLink.health.value.talking   // GRPMODE-2026-10-13: off = this tablet only
+            GrpAwarenessLauncher.talking.value = radioTalkingNow
+        }
         // The power-cycle banner only while riding with a group (other carts in the tick array) -- GroupTrack's fact.
         val othersInTick = _convoyState.value.nodes.any { !it.isMyCart }
-        GrpAwarenessLauncher.ridingGroup.value = othersInTick
+        if (!boardShows) GrpAwarenessLauncher.ridingGroup.value = othersInTick   // TICKSMALL-2026-10-15: the board's publish sets it now
         val nodes: List<ConvoyNode> = if (_simulationMode.value) {
             ConvoySimulation.tick(nowMs)
         } else {
@@ -1613,7 +1640,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         // A radio supplies position through a different route entirely; neither
         // message applies once nodes are present.
         _noPositionError.value = false
-        _networkPositionWarning.value = false
+        if (!boardShows) _networkPositionWarning.value = false   // TICKSMALL-2026-10-15: each tablet fix sets it now
         // No radio — device IS a node. Phone GPS only after permission granted.
         // LINKFIX-2026-10-03: Android-only mode whenever the radio is not talking (was: only when the node list was empty,
         // so a connected-but-silent radio never let the tablet's GPS take over and my cart was dropped every tick).
@@ -1621,7 +1648,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             if (androidx.core.content.ContextCompat.checkSelfPermission(
                     appContext, android.Manifest.permission.ACCESS_FINE_LOCATION
                 ) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                startPhoneGps()
+                if (!boardShows) startPhoneGps()   // TICKSMALL-2026-10-15: the health event starts it now
             }
             // _myCartId no longer set here — set ONCE in startGroupTrack()
             val loc = getPhoneLocation()
@@ -1646,7 +1673,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                     android.util.Log.w("ConvoyVM",
                         "NOGPSMSG-2026-09-15: position is NETWORK-derived -- will not work on the trail")
                 }
-                _networkPositionWarning.value = true
+                if (!boardShows) _networkPositionWarning.value = true   // TICKSMALL-2026-10-15
             }
 
             val lat = loc?.latitude ?: prevMe?.latitude ?: 0.0   // LINKFIX2-2026-10-03
@@ -1670,7 +1697,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             allNodes.mapNotNull { node ->
                 node.nodeId.removePrefix("!").toLongOrNull(16)?.toInt()?.toString()?.let { utilById[it] }
             }.average().toFloat().takeIf { !it.isNaN() } ?: 0f
-        _avgChannelUtil.value = avgUtil
+        if (!boardShows) _avgChannelUtil.value = avgUtil   // TICKSMALL-2026-10-15: heard records set it now
         // ONEFILTER-2026-09-25 (Fred): staleness is decided ONCE, at the read (STALEREAD: not heard for 3 hours = no
         // cart). ConvoyNodeFilter's time rules -- "heard today" (after local midnight) and the admission window --
         // disagreed with it (a rider heard at 23:50 vanished at midnight; "once admitted, visible all day" kept
