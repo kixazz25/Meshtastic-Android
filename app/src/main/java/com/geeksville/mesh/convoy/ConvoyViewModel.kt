@@ -130,6 +130,7 @@ class ConvoyViewModel @Inject constructor(
     private var boardPublished = 0                     // BOARDSHOW2-2026-10-15: screen updates since the last tick (TICKSHADOW)
     // LEADCLEAR-2026-10-15: the lead the board took FROM A LEADER REPORT. CODE RULE 1: null = the lead (if any) did not come from a report.
     @Volatile private var reportedLeadId: String? = null
+    @Volatile private var radioTrackLastFixMs = 0L   // RADIOTRACK-2026-10-15: the last radio fix fed to the recorder (new fixes only)
     private val boardCarts = java.util.concurrent.ConcurrentHashMap<String, ConvoyNode>()
     private val boardSpeedStart = java.util.concurrent.ConcurrentHashMap<String, Triple<Long, Double, Double>>()
     private val boardSpeedLast = java.util.concurrent.ConcurrentHashMap<String, Float>()
@@ -1118,7 +1119,8 @@ class ConvoyViewModel @Inject constructor(
         boardCompare(state)   // HEARDBOARD-2026-10-14
 
         // ── Feed radio position to GPS service if no hardware GPS ────────────
-        if (gpsService?.useRadioGps == true && _routeRecording.value) {
+        // RADIOTRACK-2026-10-15: my radio's message feeds the recorder now; the tick only when it drives the screen (boardShows false)
+        if (!boardShows && gpsService?.useRadioGps == true && _routeRecording.value) {
             val myCart = state.nodes.firstOrNull { it.isMyCart }
             if (myCart != null && myCart.latitude != 0.0 && myCart.longitude != 0.0) {
                 gpsService?.onRadioPosition(myCart.latitude, myCart.longitude, myCart.altitude_m.toDouble())
@@ -1488,6 +1490,12 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         val now = System.currentTimeMillis()
         val cart = cartFromMessage(msg, num, now, myNum, getPhoneLocation(), { boardCarts[it] }, boardSpeedStart, boardSpeedLast)
         if (cart == null) boardCarts.remove(id) else boardCarts[id] = cart
+        // RADIOTRACK-2026-10-15 (T5.4c, the tick's feed moved): my radio's NEW fix -> the track recorder (tablet without GPS, REC on), altitude in METRES
+        val rp = msg.point
+        if (num == myNum && rp != null && msg.timeMs != radioTrackLastFixMs && gpsService?.useRadioGps == true && _routeRecording.value) {
+            radioTrackLastFixMs = msg.timeMs
+            gpsService?.onRadioPosition(rp.latitude, rp.longitude, rp.haeM ?: 0.0)   // CODE RULE 1: haeM null = no altitude sent -> 0
+        }
         boardHeard++
         boardRecompute(now)
     }
