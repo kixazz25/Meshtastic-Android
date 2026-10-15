@@ -128,6 +128,8 @@ class ConvoyViewModel @Inject constructor(
     @Volatile private var boardMyLastMs = 0L          // BOARDSHOW2-2026-10-15: when my cart last got a board report (one per reporting interval)
     private var boardShownSig: List<List<Any?>>? = null  // BOARDSHOW2-2026-10-15: what the screen shows now. CODE RULE 1: null = nothing shown yet
     private var boardPublished = 0                     // BOARDSHOW2-2026-10-15: screen updates since the last tick (TICKSHADOW)
+    // LEADCLEAR-2026-10-15: the lead the board took FROM A LEADER REPORT. CODE RULE 1: null = the lead (if any) did not come from a report.
+    @Volatile private var reportedLeadId: String? = null
     private val boardCarts = java.util.concurrent.ConcurrentHashMap<String, ConvoyNode>()
     private val boardSpeedStart = java.util.concurrent.ConcurrentHashMap<String, Triple<Long, Double, Double>>()
     private val boardSpeedLast = java.util.concurrent.ConcurrentHashMap<String, Float>()
@@ -983,11 +985,18 @@ class ConvoyViewModel @Inject constructor(
         val nodes = boardCarts.values.toList()
         // LEADBOARD-2026-10-15 (T5.4b, ROLETICK moved): a cart reporting Leader is the lead -- set through setLeadCart only when it differs.
         // No Leader reported -> the lead keeps its value (as before). The tail comes from roles below (tail_gunner), as before.
-        nodes.firstOrNull { it.rideRole == "leader" }?.nodeId?.let { lid ->
-            if (lid != lockedLeadNodeId) {
-                setLeadCart(lid)
-                android.util.Log.i("ROLEREPORT", "LEADBOARD-2026-10-15 applied at ${System.currentTimeMillis()}: lead = " + lid)
+        val reportedLeader = nodes.firstOrNull { it.rideRole == "leader" }?.nodeId
+        if (reportedLeader != null) {
+            if (reportedLeader != lockedLeadNodeId) {
+                setLeadCart(reportedLeader)
+                android.util.Log.i("ROLEREPORT", "LEADBOARD-2026-10-15 applied at ${System.currentTimeMillis()}: lead = " + reportedLeader)
             }
+            reportedLeadId = reportedLeader   // LEADCLEAR-2026-10-15
+        } else if (reportedLeadId != null && lockedLeadNodeId == reportedLeadId) {
+            // LEADCLEAR-2026-10-15 (Fred 13:19): the Leader dropped the role and nobody claims it -> NO lead (a REC pick is never cleared here)
+            setLeadCart(null)
+            android.util.Log.i("ROLEREPORT", "LEADCLEAR-2026-10-15: no Leader reported any more -- lead " + reportedLeadId + " cleared")
+            reportedLeadId = null
         }
         boardState = if (nodes.isEmpty()) ConvoyEngine.ConvoyState.empty() else ConvoyEngine.compute(
             nodes = nodes, myCartId = mine, nowMs = now,
