@@ -123,6 +123,11 @@ class ConvoyViewModel @Inject constructor(
     // HEARDBOARD-2026-10-14: THE CART BOARD's fields -- HERE, before init, because init starts the board's listener and on the main thread
     // it runs at once (10-14: a board used before its fields existed crashed the app at start-up).
     // Thread-safe maps: messages arrive on the main thread, tablet fixes possibly from the recording service.
+    // BOARDSHOW2-2026-10-15 (T5.3): the SCREEN draws from the board. false = the tick drives the screen again (one-line rollback).
+    private val boardShows = true
+    @Volatile private var boardMyLastMs = 0L          // BOARDSHOW2-2026-10-15: when my cart last got a board report (one per reporting interval)
+    private var boardShownSig: List<List<Any?>>? = null  // BOARDSHOW2-2026-10-15: what the screen shows now. CODE RULE 1: null = nothing shown yet
+    private var boardPublished = 0                     // BOARDSHOW2-2026-10-15: screen updates since the last tick (TICKSHADOW)
     private val boardCarts = java.util.concurrent.ConcurrentHashMap<String, ConvoyNode>()
     private val boardSpeedStart = java.util.concurrent.ConcurrentHashMap<String, Triple<Long, Double, Double>>()
     private val boardSpeedLast = java.util.concurrent.ConcurrentHashMap<String, Float>()
@@ -711,6 +716,7 @@ class ConvoyViewModel @Inject constructor(
         _selectedNode.value = null
         _hudMode.value = HudMode.GROUP
         val current = _convoyState.value
+        boardCarts.remove(nodeId)   // BOARDSHOW2-2026-10-15: off the board too, or the next payload redraws it
         _convoyState.value = current.copy(nodes = current.nodes.filter { it.nodeId != nodeId })
     }
 
@@ -876,6 +882,7 @@ class ConvoyViewModel @Inject constructor(
      */
     private fun onMyTabletFix(lat: Double, lon: Double, loc: android.location.Location?) {
         onBoardMyFix(lat, lon, loc)   // HEARDBOARD-2026-10-14
+        if (boardShows) return   // BOARDSHOW2-2026-10-15: the board owns my cart (one report per interval); the old per-fix screen write is skipped
         if (GroupMode.on.value && radioTalkingNow) return
         if (lat == 0.0 && lon == 0.0) return
         val st = _convoyState.value
@@ -920,6 +927,11 @@ class ConvoyViewModel @Inject constructor(
         if (GroupMode.on.value && commLink.health.value.talking) return  // radio talking: my cart is the radio's (as the tick)
         if (lat == 0.0 && lon == 0.0) return
         val now = System.currentTimeMillis()
+        // BOARDSHOW2-2026-10-15 (Fred 09:49): an Android fix is the tablet's sensor, not a received message -- my cart gets ONE board report
+        // per reporting interval, from the latest fix, like every other cart. CODE RULE 1: interval null = not read from the radio yet -> 6 s.
+        val everyMs = (reportingNowSecs.value ?: 6) * 1000L
+        if (now - boardMyLastMs < everyMs) return
+        boardMyLastMs = now
         val alt = ((loc?.altitude ?: 0.0) * 3.28084).toInt()
         val spd = (loc?.speed ?: 0f) * 2.23694f
         val hdg = loc?.bearing ?: 0f
@@ -948,6 +960,10 @@ class ConvoyViewModel @Inject constructor(
             nodes = nodes, myCartId = mine, nowMs = now,
             leadLocked = _leadLockedFlag, lockedLeadNodeId = lockedLeadNodeId,
             tailNodeId = nodes.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId)
+        if (boardShows) {   // BOARDSHOW2-2026-10-15: the screen draws from the board -- updated only when something VISIBLE changed
+            val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
+            if (sig != boardShownSig) { boardShownSig = sig; _convoyState.value = boardState; boardPublished++ }
+        }
     }
 
     /** After each tick: the board against the tick. Logs only a CHANGE of the difference (and every 5 min the counts). */
@@ -969,10 +985,10 @@ class ConvoyViewModel @Inject constructor(
         shadowTicks++
         if (k != shadowLastKey || shadowTicks % 60 == 0) {
             android.util.Log.i("TICKSHADOW", "board: " + (if (text.isEmpty()) "MATCH" else text.joinToString("; ")) +
-                " (carts: tick ${tb.size}, board ${bb.size}; since the last tick: $boardHeard heard, $boardMyFixes my fixes)")
+                " (carts: tick ${tb.size}, board ${bb.size}; since the last tick: $boardHeard heard, $boardMyFixes my fixes, $boardPublished screen updates)")
             shadowLastKey = k
         }
-        boardHeard = 0; boardMyFixes = 0
+        boardHeard = 0; boardMyFixes = 0; boardPublished = 0
     }
 
     // ── Tick loop ─────────────────────────────────────────────────────────
@@ -1055,7 +1071,7 @@ class ConvoyViewModel @Inject constructor(
             lockedLeadNodeId = lockedLeadNodeId,
             tailNodeId = tailNodeId
         )
-        _convoyState.value = state
+        if (!boardShows) _convoyState.value = state   // BOARDSHOW2-2026-10-15: the tick no longer drives the screen (its state still feeds its other duties)
         boardCompare(state)   // HEARDBOARD-2026-10-14
 
         // ── Feed radio position to GPS service if no hardware GPS ────────────
