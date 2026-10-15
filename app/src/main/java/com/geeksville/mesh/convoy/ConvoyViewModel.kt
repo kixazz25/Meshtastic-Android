@@ -602,6 +602,24 @@ class ConvoyViewModel @Inject constructor(
                 android.util.Log.i("TICKSHADOW", "ROLESHOW-2026-10-15: checked in = $checkedIn -- roles " + (if (checkedIn) "shown" else "hidden"))
             }
         }
+        // FAILCLEAR-2026-10-15 (T5.4e, Fred 10-14 22:21 / 10-15 14:24): the 3rd failed reconnect (not talking, attempts >= 3 -- the power-cycle
+        // banner's condition) = ANDROID ONLY: the other carts and the lead are cleared; group awareness stays ON so the recovery keeps
+        // trying, and the carts come back as they are heard. Once per failure -- re-armed when the radio talks again.
+        viewModelScope.launch {
+            var clearedForThisFailure = false
+            commLink.health.collect { h ->
+                if (h.talking) { clearedForThisFailure = false; return@collect }
+                if (!clearedForThisFailure && h.attempts >= 3 && GroupMode.on.value) {
+                    clearedForThisFailure = true
+                    enterAndroidMode()   // ANDROIDMODE1: the tick's stores, the lead, the lead track; the screen keeps my cart only
+                    reportedLeadId = null
+                    val mine = resolveMyCartId()
+                    boardCarts.keys.retainAll { it == mine }; boardSpeedStart.keys.retainAll { it == mine }; boardSpeedLast.keys.retainAll { it == mine }
+                    boardRecompute(System.currentTimeMillis())
+                    android.util.Log.i("ANDROIDMODE", "FAILCLEAR-2026-10-15: 3 failed reconnects -- Android only (other carts cleared, group awareness stays on; board ${boardCarts.size} cart(s))")
+                }
+            }
+        }
         // COMMNAMES-2026-10-11: the name table (load, the node-list names) moved to the comm side (MeshCommLink).
         startTick()
         viewModelScope.launch(Dispatchers.IO) { scanImportDirectory() }
