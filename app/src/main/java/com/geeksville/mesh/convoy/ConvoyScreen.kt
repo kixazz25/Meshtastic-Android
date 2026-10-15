@@ -3012,6 +3012,43 @@ fun ConvoyScreen(
                 onDismiss = { showRoleChange = false; CartPickerLauncher.open() }   // ROLERETURN-2026-10-06: Cancel returns there too
             )
         }
+        // ROLECONFLICT-2026-10-15 (Fred 13:53): two carts claiming the same role -> BOTH back to Rider (the normal release, as RoleChangeDialog's
+        // onApply), a red flashing conflict screen on each of the two devices, View Cart Roles opened behind it.
+        val rcRoleNames = mapOf("leader" to "Leader", "middle" to "Middle", "tail_gunner" to "Tail gunner")
+        val rcMyRole = viewModel.checkIn.value?.role ?: ""
+        val rcOther = if (rcMyRole in rcRoleNames.keys) convoyState.nodes.firstOrNull { !it.isMyCart && it.rideRole == rcMyRole } else null
+        var roleConflict by remember { mutableStateOf<Pair<String, String>?>(null) }   // CODE RULE 1: null = no conflict screen showing
+        androidx.compose.runtime.LaunchedEffect(rcOther?.nodeId, rcMyRole) {
+            val other = rcOther ?: return@LaunchedEffect
+            val ci = viewModel.checkIn.value ?: return@LaunchedEffect
+            val otherName = other.callsign.ifBlank { other.nodeId }
+            roleConflict = Pair(rcRoleNames[rcMyRole] ?: rcMyRole, otherName)
+            viewModel.checkIn.value = ci.copy(role = "rider")   // the normal release (as View Cart Roles' change to Rider)
+            viewModel.startRoleReports("rider")
+            android.util.Log.i("ROLEREPORT", "ROLECONFLICT-2026-10-15: " + rcMyRole + " also claimed by " + otherName + " -- this cart set back to Rider")
+            CartPickerLauncher.open()
+        }
+        roleConflict?.let { (rcRole, rcName) ->
+            val rcBlink = androidx.compose.animation.core.rememberInfiniteTransition(label = "roleconflict")
+            val rcAlpha = rcBlink.animateFloat(
+                initialValue = 1f, targetValue = 0.25f,
+                animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                    androidx.compose.animation.core.tween(500), androidx.compose.animation.core.RepeatMode.Reverse),
+                label = "roleconflict").value
+            AlertDialog(
+                onDismissRequest = { },   // stays until OK
+                title = { Text("ROLE CONFLICT — " + rcRole, color = Color(0xFFFF3B30).copy(alpha = rcAlpha), fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+                text = {
+                    Text("You and " + rcName + " both claimed " + rcRole + ".\n\n" +
+                        "Only one rider can hold " + rcRole + ", so BOTH of you have been set back to Rider.\n\n" +
+                        "Agree who takes " + rcRole + ", then that rider claims it again in View Cart Roles (open behind this message). " +
+                        "A role can be claimed once nobody else holds it.",
+                        color = Color.White, fontSize = 15.sp)
+                },
+                confirmButton = { TextButton(onClick = { roleConflict = null }) { Text("OK", color = Color(0xFF4AB8E8), fontWeight = FontWeight.Bold) } },
+                containerColor = Color(0xFF3A0D0D)
+            )
+        }
         // ── Cart Picker Panel (Phase 0 stub) ──────────────────────────────
         if (showCartPicker) {
             // CARTPICKER-2026-09-28: the ride and this tablet's role, from the check-in.
