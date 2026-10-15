@@ -572,7 +572,8 @@ class ConvoyViewModel @Inject constructor(
         }
         // HEARDBOARD-2026-10-14: the cart board's ONLY radio input -- a message received from a radio (MemberHeard). Nothing at start-up.
         viewModelScope.launch {
-            commMessaging.events.collect { e -> if (e is com.grouptrack.comm.CommEvent.MemberHeard) onBoardHeard(e.member, recompute = true) }
+            // COTBOARD-2026-10-15 (T5.4a-2): the board reads the CoT message (Received); MemberHeard no longer feeds it
+            commMessaging.events.collect { e -> if (e is com.grouptrack.comm.CommEvent.Received) onBoardMessage(e.message) }
         }
         // GROUPOFF-2026-10-15 (Fred 10-15 11:30): ANDROID ONLY (group awareness OFF) clears the other carts on EVERY copy's board at once --
         // the board's own group-off rule runs the moment the switch goes off (no radio message will come to trigger it).
@@ -1441,6 +1442,83 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             lastSeenMs = lastSeenMs,
             cotType = "a-f-G-U-C",
             timestampUtc = java.time.Instant.ofEpochMilli(lastSeenMs).toString()
+        )
+    }
+
+    /** COTBOARD-2026-10-15 (T5.4a-2): a CoT message was received -- the board's input (the twin of onBoardHeard, which T5.5 removes). */
+    private fun onBoardMessage(msg: com.grouptrack.comm.CommMessage) {
+        if (!GroupMode.on.value) return                                  // Android only: no radios
+        // the radio number from the uid (MESHTASTIC-!<node id>, the comm side's rule). CODE RULE 1: null = not a radio we know how to read
+        val num = msg.uid.removePrefix("MESHTASTIC-!").toLongOrNull(16)?.toInt() ?: return
+        val myNum = myRadioNum()
+        if (num == myNum && !commLink.health.value.talking) return       // radio not talking: my cart is the tablet's (as before)
+        val id = "!%08x".format(num)
+        val now = System.currentTimeMillis()
+        val cart = cartFromMessage(msg, num, now, myNum, getPhoneLocation(), { boardCarts[it] }, boardSpeedStart, boardSpeedLast)
+        if (cart == null) boardCarts.remove(id) else boardCarts[id] = cart
+        boardHeard++
+        boardRecompute(now)
+    }
+
+    /**
+     * COTBOARD-2026-10-15 (T5.4a-2, Plan v3 4a/4d): the board's display rules READING CoT -- the same rules as cartFromMember (which the tick
+     * keeps until T5.5 removes both), CoT fields in. Board only: no tick logs, no last-known map, no GPS start.
+     * Speed: the radio's ground_speed when sent, else the 60-s window as before. Heard = the moment the message arrived.
+     * CODE RULE 1 (return): null = not shown (removed on this tablet, or no position and nothing to fall back on).
+     */
+    private fun cartFromMessage(
+        msg: com.grouptrack.comm.CommMessage, num: Int, nowMs: Long, myNum: Int?, myTablet: android.location.Location?,
+        prev: (String) -> ConvoyNode?,
+        speedStart: MutableMap<String, Triple<Long, Double, Double>>, speedLast: MutableMap<String, Float>,
+    ): ConvoyNode? {
+        val nodeId = "!%08x".format(num)
+        if (nodeId in _removedCarts.value && num != myNum) return null   // CARTACTIVE-2026-09-30: removed on this tablet
+        val p = msg.point
+        val prevPos = prev(nodeId)?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }?.let { Pair(it.latitude, it.longitude) }
+        val latLon: Pair<Double, Double> = if (p != null) {
+            // stale rebroadcast (fix older than the ride start): keep the previous position, else the reported one (RECSTALE3)
+            val isStale = rideStartTimeMs > 0L && msg.timeMs > 0L && msg.timeMs < rideStartTimeMs
+            if (isStale) prevPos ?: Pair(p.latitude, p.longitude) else Pair(p.latitude, p.longitude)
+        } else if (num != myNum) {
+            prevPos ?: return null                                       // LINKFIX: others -- the previous position, else not shown
+        } else {
+            val phone = myTablet ?: return null                          // MY radio without a position: the tablet's GPS
+            if (phone.latitude == 0.0 && phone.longitude == 0.0) return null
+            Pair(phone.latitude, phone.longitude)
+        }
+        val windowMph = run {   // the 60-second window, as cartFromMember
+            val windowStart = speedStart[nodeId]
+            if (windowStart == null) {
+                speedStart[nodeId] = Triple(nowMs, latLon.first, latLon.second); 0f
+            } else {
+                val (startMs, startLat, startLon) = windowStart
+                if (nowMs - startMs >= 60_000L) {
+                    val speed = ConvoyEngine.haversineMiles(startLat, startLon, latLon.first, latLon.second) * 60f
+                    speedLast[nodeId] = speed
+                    speedStart[nodeId] = Triple(nowMs, latLon.first, latLon.second)
+                    speed
+                } else speedLast[nodeId] ?: 0f
+            }
+        }
+        val radioMph = msg.track?.speedMps?.let { (it * 2.23694).toFloat() }   // CODE RULE 1: null = the radio sent no ground_speed
+        val mine = num == myNum
+        return ConvoyNode(
+            nodeId = nodeId,
+            callsign = msg.callsign,
+            rideRole = takRideRole(num).ifBlank { if (mine) (checkIn.value?.role ?: "") else "" },   // OWNROLE (as cartFromMember)
+            latitude = latLon.first,
+            longitude = latLon.second,
+            altitude_m = ((p?.haeM ?: 0.0) * 3.28084).toInt(),          // feet (the field is misnamed); radios send sea level (COTMSG log)
+            speed_mph = radioMph ?: windowMph,
+            heading_deg = msg.track?.courseDeg?.toFloat() ?: 0f,
+            battery_pct = msg.batteryPct ?: 0,
+            radioLat = if (mine) p?.latitude else null, radioLon = if (mine) p?.longitude else null,
+            radioFixMs = if (mine) msg.timeMs else null,
+            tabletLat = if (mine) myTablet?.latitude else null, tabletLon = if (mine) myTablet?.longitude else null,
+            tabletFixMs = if (mine) myTablet?.let { if (it.time > 0L) it.time else nowMs } else null,
+            lastSeenMs = nowMs,
+            cotType = msg.type,
+            timestampUtc = java.time.Instant.ofEpochMilli(nowMs).toString()
         )
     }
 
