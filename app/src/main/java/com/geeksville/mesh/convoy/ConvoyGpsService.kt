@@ -86,7 +86,7 @@ class ConvoyGpsService : Service() {
     private var lastMoveLon: Double = 0.0
     private var isSleeping: Boolean = false
     var onSleepTriggered: (() -> Unit)? = null
-    private val SLEEP_THRESHOLD_MS = 600_000L  // 10 minutes
+    private val SLEEP_THRESHOLD_MS = 1_500_000L  // 25 minutes -- ZZZ25-2026-10-16 (was 10; Fred 10-15: auto-reconnection now exists)
     private val MOVE_THRESHOLD_FEET = 50.0
     var lastLon: Double? = null
 
@@ -286,7 +286,7 @@ class ConvoyGpsService : Service() {
     }
 
     private fun onGpsUpdate(lat: Double, lon: Double, alt: Double) {
-        // ── Sleep detection: no movement for 10 min → trigger sleep ────
+        // ── Sleep detection: no movement for 25 min → trigger sleep ────   ZZZ25-2026-10-16
         if (isSleeping) return
         val distFeet = if (lastMoveLat != 0.0) haversineFeet(lastMoveLat, lastMoveLon, lat, lon) else 999.0
         if (distFeet > MOVE_THRESHOLD_FEET) {
@@ -296,7 +296,7 @@ class ConvoyGpsService : Service() {
         } else if (System.currentTimeMillis() - lastMovementMs > SLEEP_THRESHOLD_MS) {
             isSleeping = true
             pauseTrack()
-            android.util.Log.i(TAG, "SLEEP: no movement for 10 min — pausing track")
+            android.util.Log.i(TAG, "SLEEP: no movement for 25 min — pausing track")   // ZZZ25-2026-10-16
             onSleepTriggered?.invoke()
             return
         }

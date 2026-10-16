@@ -1773,11 +1773,11 @@ fun ConvoyScreen(
                       horizontalAlignment = Alignment.CenterHorizontally,
                       modifier = Modifier.padding(horizontal = 32.dp, vertical = 24.dp)
                   ) {
-                      Text("Track Recording Asleep",
+                      Text("Sleeping",   // ZZZ25-2026-10-16: was "Track Recording Asleep"
                           color = Color.White, fontSize = 18.sp,
                           fontWeight = FontWeight.Bold)
                       Spacer(modifier = Modifier.height(8.dp))
-                      Text("Press to Resume",
+                      Text("Recording paused, radio disconnected. Tap to wake.",   // ZZZ25-2026-10-16: was "Press to Resume"
                           color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
                   }
               }
