@@ -372,9 +372,11 @@ constructor(
         // TAKDUP-2026-09-26: every TAK report reaches the tablet twice -- the over-the-air original (is_compressed=true,
         // callsign unishox-compressed, unreadable) and a copy the RECEIVING radio decompresses for the phone. Use only that one.
         TakSeenStore.saw(packet.from)   // LINKHB-2026-10-05: every TAK report -- our own radio's is the hand-off heartbeat
-        if (tak.is_compressed) return
+        // OWNTAKPOS-2026-10-16 (Fred 10-16): MY OWN radio's report reaches me ONLY compressed (no readable copy) -- dropping it meant my radio's
+        // position was never read. Only the callsign is compressed; the PLI numbers are the same in both copies -> read my own.
+        if (tak.is_compressed && packet.from != myNodeNum) return
         // RADIONAMES-2026-10-03 (Fred): the callsign in a TAK payload is that radio's long name last used (only on change).
-        tak.contact?.callsign?.let { RadioNameStore.put(packet.from, it, "TAK payload") }
+        if (!tak.is_compressed) tak.contact?.callsign?.let { RadioNameStore.put(packet.from, it, "TAK payload") }   // OWNTAKPOS-2026-10-16: compressed = unreadable
         // TAKROLE-2026-09-28 (GroupTrack, Fred): keep the report's ROLE per sending node, for the ride map -- display only.
         // ROLEREPORT-2026-09-29 (Fred): lift ONLY GroupTrack's three roles -- TeamMember (the radios' own reports) and every
         // other role are ignored, so a radio's own report can never erase a role. Position reports only (no PLI -> returned above).
