@@ -848,7 +848,8 @@ class ConvoyViewModel @Inject constructor(
     fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
     // SLEEPCOMM-2026-10-14 (P5.3): sleep / wake through the comm side (was ConvoyScreen -> UIViewModel.setDeviceAddress). Same calls
     // underneath: the radio dropped ("n") on sleep, the same radio put back on wake. Fred 10-14: the app's sleep drops
-    // Bluetooth at 10 / 20 min on purpose, before the T1000-E's own sleep. Held in memory only, as before.
+    // Bluetooth after 25 min without movement (ZZZ25-2026-10-16; was 10 -- one timer, ConvoyGpsService) on purpose, before the
+    // T1000-E's own sleep. Held in memory only, as before.
     private var radioBeforeSleep = ""
     fun sleepRadio() {
         radioBeforeSleep = commLink.selectedRadioId.value ?: ""
