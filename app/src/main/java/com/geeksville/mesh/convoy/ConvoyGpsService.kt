@@ -243,10 +243,13 @@ class ConvoyGpsService : Service() {
      * Feeds radio node position into the track recorder.
      */
     fun onRadioPosition(lat: Double, lon: Double, alt: Double) {
+        Log.i("GPXFIELD", "GPXFIELD-2026-10-18 radio point " + lat + "," + lon + " state=" + state + " useRadioGps=" + useRadioGps + " -> " + (if (state == State.RECORDING && useRadioGps) "TAKEN" else "IGNORED"))
         if (state == State.RECORDING && useRadioGps) {
+            gpxSource = "radio"   // GPXFIELD-2026-10-18
             onGpsUpdate(lat, lon, alt)
         }
     }
+    private var gpxSource = "android"   // GPXFIELD-2026-10-18: which source sent the point now being written (log only)
 
     private fun startLocationUpdates() {
         try {
@@ -260,6 +263,8 @@ class ConvoyGpsService : Service() {
             }
             useRadioGps = false
             val listener = LocationListener { loc ->
+                Log.i("GPXFIELD", "GPXFIELD-2026-10-18 android fix " + loc.latitude + "," + loc.longitude + " acc=" + loc.accuracy + "m provider=" + loc.provider + " state=" + state)
+                gpxSource = "android"   // GPXFIELD-2026-10-18
                 onGpsUpdate(loc.latitude, loc.longitude, loc.altitude)
             }
             locationListener = listener
@@ -287,7 +292,7 @@ class ConvoyGpsService : Service() {
 
     private fun onGpsUpdate(lat: Double, lon: Double, alt: Double) {
         // ── Sleep detection: no movement for 25 min → trigger sleep ────   ZZZ25-2026-10-16
-        if (isSleeping) return
+        if (isSleeping) { Log.i("GPXFIELD", "GPXFIELD-2026-10-18 dropped (sleeping): " + lat + "," + lon); return }
         val distFeet = if (lastMoveLat != 0.0) haversineFeet(lastMoveLat, lastMoveLon, lat, lon) else 999.0
         if (distFeet > MOVE_THRESHOLD_FEET) {
             lastMovementMs = System.currentTimeMillis()
@@ -387,6 +392,7 @@ class ConvoyGpsService : Service() {
     }
 
     private fun writeGpxPoint(lat: Double, lon: Double, alt: Double) {
+        Log.i("GPXFIELD", "GPXFIELD-2026-10-18 GPX write " + lat + "," + lon + " from " + gpxSource + " writer=" + (if (gpxWriter == null) "NONE" else "open"))
         try {
             val ts = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
             gpxWriter?.write("<trkpt lat=\"$lat\" lon=\"$lon\"><ele>$alt</ele><time>$ts</time></trkpt>\n")

@@ -663,9 +663,11 @@ class ConvoyViewModel @Inject constructor(
                 if (!boardShows) return@collect
                 radioTalkingNow = GroupMode.on.value && h.talking
                 GrpAwarenessLauncher.talking.value = radioTalkingNow
-                if (!radioTalkingNow && androidx.core.content.ContextCompat.checkSelfPermission(
+                // CHIPALWAYS-2026-10-18 (Fred 10-18 17:11): the tablet's GPS chip runs ALL THE TIME, both modes -- was only while the radio was not
+                // talking, so in group mode REC started a cold chip (no fix for minutes without internet). startPhoneGps() is once-only.
+                if (androidx.core.content.ContextCompat.checkSelfPermission(
                         appContext, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                    startPhoneGps()   // Android mode / Android data: my cart is the tablet's
+                    startPhoneGps()   // the chip always on (was: Android mode / Android data only)
                 }
             }
         }
