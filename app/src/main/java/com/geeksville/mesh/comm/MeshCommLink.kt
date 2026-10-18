@@ -235,8 +235,10 @@ class MeshCommLink @Inject constructor(
         hWasConnected = connected
         val myNum = nodeRepository.myNodeInfo.value?.myNodeNum
         val ownTakMs = myNum?.let { org.meshtastic.core.data.manager.TakSeenStore.lastFrom(it) }
-        val talking = connected && (if (ownTakMs != null) now - maxOf(ownTakMs, hConnectedAtMs) < 45_000L
-                                    else now - hTrafficMs < 120_000L)
+        // HEALTHTRAFFIC-2026-10-16 (Fred 10-16): a radio with NO GPS fix sends no TAK report of its own -- that is not a dead link. Talking =
+        // my own report within 45 s OR any radio traffic within 120 s (was: own report only, once one had been seen).
+        val ownFresh = ownTakMs != null && now - maxOf(ownTakMs, hConnectedAtMs) < 45_000L
+        val talking = connected && (ownFresh || now - hTrafficMs < 120_000L)
         val needsRecovery = !talking && hConnectedThisSession
         val saved = radioInterfaceService.currentDeviceAddressFlow.value
 
