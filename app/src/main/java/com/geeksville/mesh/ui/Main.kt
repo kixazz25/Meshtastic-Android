@@ -640,10 +640,15 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         // there, numbers unchanged. GroupTrack REPORTS it: the power-cycle banner shows once the comm side has made 3 tries
         // (health.attempts >= 3) while riding with a group, unless dismissed; talking again clears it -- the same rule as before.
         val grpHealth by convoyViewModel.health.collectAsStateWithLifecycle()
+        var powerMsgStage3 by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }   // POWERMSG-2026-10-18
         androidx.compose.runtime.LaunchedEffect(grpHealth, com.geeksville.mesh.convoy.GrpAwarenessLauncher.ridingGroup.value) {
             val link = com.geeksville.mesh.convoy.GrpAwarenessLauncher
-            if (grpHealth.talking) { link.powerCycle.value = false; link.powerCycleDismissed = false }
-            else if (grpHealth.attempts >= 3 && !link.powerCycleDismissed && link.ridingGroup.value) link.powerCycle.value = true
+            // POWERMSG-2026-10-18 (Fred 10-18 14:21 / 15:05): the check-power message FIRST -- radio silent (30 s), before any reconnect.
+            if (grpHealth.talking) { link.powerCycle.value = false; link.powerCycleDismissed = false; powerMsgStage3 = false }
+            else {
+                if (grpHealth.attempts >= 3 && !powerMsgStage3) { powerMsgStage3 = true; link.powerCycleDismissed = false }   // the advice changes -> shown once more
+                if ((grpHealth.attempts >= 1 || grpHealth.reason == "RADIO_SILENT") && !link.powerCycleDismissed && link.ridingGroup.value) link.powerCycle.value = true
+            }
         }
         // COMMSETTINGS-2026-10-12 · MESHTASTIC SHELL (comm side -- moves out with the shell at step 6): carries out the comm side's screen
         // requests on Meshtastic's own navigation, and reports when the requested Settings page has been left.
@@ -696,7 +701,10 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 ) {
-                    Text(/* BANNER-2026-10-04 (Fred): forget + re-pair is what fixed the stuck radio */ "Your radio isn't answering. Open GRP Awareness, FORGET the radio, then PAIR it again. Not in the list? Turn it off and on.", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(/* BANNER-2026-10-04 (Fred): forget + re-pair is what fixed the stuck radio. POWERMSG-2026-10-18: before the 3rd try = check power */
+                        if (grpHealth.attempts < 3) "Your radio isn't answering. Check it is powered on."
+                        else "Your radio isn't answering. Open GRP Awareness, FORGET the radio, then PAIR it again. Not in the list? Turn it off and on.",
+                        color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     androidx.compose.material3.TextButton(onClick = {
                         com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false
                         com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycleDismissed = true

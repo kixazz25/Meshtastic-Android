@@ -238,8 +238,17 @@ class MeshCommLink @Inject constructor(
         // HEALTHTRAFFIC-2026-10-16 (Fred 10-16): a radio with NO GPS fix sends no TAK report of its own -- that is not a dead link. Talking =
         // my own report within 45 s OR any radio traffic within 120 s (was: own report only, once one had been seen).
         val ownFresh = ownTakMs != null && now - maxOf(ownTakMs, hConnectedAtMs) < 45_000L
-        val talking = connected && (ownFresh || now - hTrafficMs < 120_000L)
-        val needsRecovery = !talking && hConnectedThisSession
+        // SILENCE30S-2026-10-18 (Fred 10-18): NO ACTIVITY AT ALL for 30 s on a connected link (no own report, no traffic, since the connect) = SILENT.
+        val silentMs = now - maxOf(hTrafficMs, ownTakMs ?: 0L, hConnectedAtMs)   // CODE RULE 1: ownTakMs null = no own report yet -> 0 (traffic decides)
+        val silent = connected && silentMs >= 30_000L
+        val talking = connected && !silent && (ownFresh || now - hTrafficMs < 120_000L)
+        // GPSNOTFATAL-2026-10-18 (Fred 10-18): NO GPS FIX IS NOT FATAL -- reconnect only when the Bluetooth LINK is down (or stuck connecting),
+        // never for a silent radio on a live link (a T1000-E with no fix sends nothing). Was: !talking && hConnectedThisSession.
+        // SILENCE3MIN-2026-10-18 (Fred 10-18 13:48): ...or a connected link with NO ACTIVITY AT ALL for 3 min (no own report, no traffic from any
+        // radio) -- a radio powered off on a phantom link. -> reconnect; 3 failed tries = the 'check your radio is powered on' banner.
+        // SILENCE30S-2026-10-18 v2: the message first (silent, 30 s), the disconnect+reconnect at 45 s.
+        val silentLong = connected && silentMs >= 45_000L
+        val needsRecovery = hConnectedThisSession && (!connected || silentLong)   // SILENCE30S-2026-10-18: was silentMs >= 180_000L (3 min)
         val saved = radioInterfaceService.currentDeviceAddressFlow.value
 
         // ghost sync (Main.kt GRPAWARE-SYNC): the saved Bluetooth radio is no longer paired in Android
@@ -282,7 +291,7 @@ class MeshCommLink @Inject constructor(
             if (!waitConnecting) {
                 if (hNotTalkingSinceMs == 0L) hNotTalkingSinceMs = now
                 val act = !btOff && !applying && needsRecovery && !saved.isNullOrBlank() && saved != "n" &&   // COMMBTOFF-2026-10-11 + COMMRADIOOPS-2026-10-12
-                    (stuck || now - hNotTalkingSinceMs >= 20_000L) && now - hLastAttemptMs >= 45_000L
+                    (stuck || silentLong || now - hNotTalkingSinceMs >= 20_000L) && now - hLastAttemptMs >= 45_000L   /* SILENCE30S-2026-10-18 */
                 if (act) {
                     if (stuck) { android.util.Log.i("COMMHEALTH", "connecting for ${(now - hConnectingSinceMs) / 1000} s -- stuck"); hConnectingSinceMs = 0L }
                     if (hAttempts < 3 || now - hLastAttemptMs >= 120_000L) {
