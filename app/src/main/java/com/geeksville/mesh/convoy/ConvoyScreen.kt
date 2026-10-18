@@ -533,7 +533,8 @@ fun ConvoyScreen(
     // MYTRACK-2026-10-18 (LEADTRACKBOARD-2026-10-18): my track drawn live behind my cart while REC is on -- the recorder's own points (gpsTrailSegments:
     // 3 s / 5 m; on a tablet without GPS, my radio's fixes). Sent incrementally to ONE polyline in the page; a page reload starts again.
     // MYTRACKMSG-2026-10-18: my track = my cart's own reports (viewModel.myTrackSegments), not the recorder's points -- same for every tablet.
-    val myTrackSegs by viewModel.myTrackSegments.collectAsStateWithLifecycle()
+    // MYTRACKGPS-2026-10-18 (Fred 10-18 12:34): my track = the recorder's points (the saved GPX: Android GPS 2-3 s, radio when no Android GPS).
+    val myTrackSegs = gpsTrail
     // MYTRACKDRAW-2026-10-18: no mapReady wait (a reused map page never raises it) -- the page is asked; the count advances only when it drew.
     val myTrackSent = remember(mapReady) { intArrayOf(0) }
     LaunchedEffect(myTrackSegs, trackActive, mapReady) {
