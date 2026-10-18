@@ -527,7 +527,30 @@ fun ConvoyScreen(
             }
         }
         val json = "[" + parts.joinToString(",") + "]"
+        android.util.Log.i("TRACKDELAY", "TRACKDELAY-2026-10-18 lead track drawn: " + parts.size + " segs at " + System.currentTimeMillis())
         wv.evaluateJavascript("drawTrack(" + json + ")", null)
+    }
+    // MYTRACK-2026-10-18 (LEADTRACKBOARD-2026-10-18): my track drawn live behind my cart while REC is on -- the recorder's own points (gpsTrailSegments:
+    // 3 s / 5 m; on a tablet without GPS, my radio's fixes). Sent incrementally to ONE polyline in the page; a page reload starts again.
+    // MYTRACKMSG-2026-10-18: my track = my cart's own reports (viewModel.myTrackSegments), not the recorder's points -- same for every tablet.
+    val myTrackSegs by viewModel.myTrackSegments.collectAsStateWithLifecycle()
+    // MYTRACKDRAW-2026-10-18: no mapReady wait (a reused map page never raises it) -- the page is asked; the count advances only when it drew.
+    val myTrackSent = remember(mapReady) { intArrayOf(0) }
+    LaunchedEffect(myTrackSegs, trackActive, mapReady) {
+        val wv = webViewRef.value ?: return@LaunchedEffect
+        if (!trackActive || myTrackSegs.isEmpty()) {
+            wv.evaluateJavascript("if (typeof myTrackClear === 'function') myTrackClear()", null); myTrackSent[0] = 0; return@LaunchedEffect
+        }
+        val total = myTrackSegs.size
+        val from = if (myTrackSent[0] > total) 0 else myTrackSent[0]
+        if (from == total) return@LaunchedEffect
+        val pts = ArrayList<String>()
+        if (from == 0) pts.add("[" + myTrackSegs[0].startLat + "," + myTrackSegs[0].startLon + "]")
+        for (i in from until total) pts.add("[" + myTrackSegs[i].endLat + "," + myTrackSegs[i].endLon + "]")
+        val js = "(function(){ if (typeof myTrackAdd !== 'function') return false; " + (if (from == 0) "myTrackClear(); " else "") +
+            "myTrackAdd([" + pts.joinToString(",") + "]); return true; })()"
+        android.util.Log.i("TRACKDELAY", "TRACKDELAY-2026-10-18 my track drawn: segs " + from + ".." + total + " at " + System.currentTimeMillis())
+        wv.evaluateJavascript(js) { r -> if (r == "true") myTrackSent[0] = total }
     }
 
     // ── All-files storage permission dialog ─────────────────────────────

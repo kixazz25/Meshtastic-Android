@@ -32,7 +32,7 @@
     // page loads and shown in the settings panel. A tester can read it off the
     // screen, so stale bundled HTML is visible without logcat.
     // ⚠ BUMP THIS WHENEVER THIS FILE CHANGES, or the display starts lying.
-    window.__htmlVersion = "2026-09-14a";
+    window.__htmlVersion = "2026-10-18a";   // LEADTRACKBOARD-2026-10-18 (MYTRACK)
     var currentMaxNative = 18;
     // -- Trail color by CartoCode --
 
@@ -335,23 +335,54 @@
     }
 
     var trackLines = [];
+    var leadTrackArrows = null;   // LEADTRACKBOARD-2026-10-18 (Fred 08:59): the lead track DOTTED with ARROWS, like my track, in black
     function drawTrack(segments) {
       trackLines.forEach(function(l){ map.removeLayer(l); });
       trackLines = [];
+      if (leadTrackArrows) { map.removeLayer(leadTrackArrows); leadTrackArrows = null; }
+      // consecutive segments (one ends where the next starts) are joined into ONE line, so the dots and arrows run continuously
+      var run = null, runColor = null;
       segments.forEach(function(seg) {
-        var line = L.polyline(
-          [[seg.startLat, seg.startLon], [seg.endLat, seg.endLon]],
-          {color: seg.color, weight: 7, opacity: 0.85}
-        ).addTo(map);
-        trackLines.push(line);
+        if (run && runColor === seg.color && run[run.length - 1][0] === seg.startLat && run[run.length - 1][1] === seg.startLon) {
+          run.push([seg.endLat, seg.endLon]);
+        } else {
+          if (run) trackLines.push(L.polyline(run, {color: runColor, weight: 5, opacity: 0.9, dashArray: '2, 11', lineCap: 'round'}).addTo(map));
+          run = [[seg.startLat, seg.startLon], [seg.endLat, seg.endLon]]; runColor = seg.color;
+        }
       });
+      if (run) trackLines.push(L.polyline(run, {color: runColor, weight: 5, opacity: 0.9, dashArray: '2, 11', lineCap: 'round'}).addTo(map));
+      if (trackLines.length && typeof L.polylineDecorator === 'function' && L.Symbol && L.Symbol.arrowHead) {
+        leadTrackArrows = L.polylineDecorator(trackLines, { patterns: [
+          { offset: 30, repeat: 90, symbol: L.Symbol.arrowHead({ pixelSize: 11, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#000000', weight: 3, opacity: 1 } }) }
+        ] }).addTo(map);
+      }
       tracksVisible = true;
     }
 
     function clearTrack() {
       trackLines.forEach(function(l){ map.removeLayer(l); });
       trackLines = [];
+      if (leadTrackArrows) { map.removeLayer(leadTrackArrows); leadTrackArrows = null; }   // LEADTRACKBOARD-2026-10-18
       tracksVisible = false;
+    }
+
+    // MYTRACK-2026-10-18 (LEADTRACKBOARD-2026-10-18): my track behind my cart -- ONE polyline, points appended as the recorder makes them.
+    // Fred 10-18 08:56: a DOTTED line with ARROW decorations (direction of travel) -- the vendored polylineDecorator, pixel repeat
+    // (a percent repeat leaves long tracks without arrows at riding zoom, 06-12 finding).
+    var myTrackLine = null, myTrackArrows = null;
+    function myTrackClear() {
+      if (myTrackArrows) { map.removeLayer(myTrackArrows); myTrackArrows = null; }
+      if (myTrackLine) { map.removeLayer(myTrackLine); myTrackLine = null; }
+    }
+    function myTrackAdd(pts) {
+      if (!myTrackLine) myTrackLine = L.polyline([], {color: '#2E75B6', weight: 4, opacity: 0.9, dashArray: '2, 9', lineCap: 'round'}).addTo(map);
+      pts.forEach(function(p) { myTrackLine.addLatLng(p); });
+      if (typeof L.polylineDecorator === 'function' && L.Symbol && L.Symbol.arrowHead) {
+        if (!myTrackArrows) myTrackArrows = L.polylineDecorator(myTrackLine, { patterns: [
+          { offset: 30, repeat: 90, symbol: L.Symbol.arrowHead({ pixelSize: 10, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#2E75B6', weight: 3, opacity: 1 } }) }
+        ] }).addTo(map);
+        else myTrackArrows.setPaths(myTrackLine);
+      }
     }
 
 
