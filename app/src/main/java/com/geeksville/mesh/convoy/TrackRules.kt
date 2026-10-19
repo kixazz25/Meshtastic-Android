@@ -10,8 +10,10 @@ package com.geeksville.mesh.convoy
  *
  * R1 every real point is posted -- no location test (the 10-18 hold and the 50 m trim are gone).
  * R2 a GAP = more than 4 s AND more than 5 m since the last written point -> filled; otherwise a straight join (the chip's 3 s points).
- * R3 fill order: the ONE displayed route (forward only, along its arrows) -> if NO route is displayed, a saved route both points lie on
- *    (forward) -> the known trails underneath, displayed or not (no direction; nearest the previous point) -> a straight line
+ * R3 fill order: the ONE displayed route -> if NO route is displayed, a saved route both points lie on -> the known trails underneath,
+ *    displayed or not (no direction; nearest the previous point) -> a straight line.
+ *    ROUTEBOTH-2026-10-19 (Fred 10-19 15:48): a route is followed in EITHER direction -- along its arrows first when that fits, else the
+ *    shortest way (was: forward only -- a route driven against its arrows was refused).
  *    (the straight line is replaced later by the lead's polyline -- stage 2).
  * R4 snap 50 m; the line is drawn ON the route / trail. A fill longer than 3 x straight + 60 m is not believed (never round a whole loop).
  * R5 WAIT: the track goes through an intersection only when the next point, on the far side, is known. A held point is written
@@ -155,7 +157,7 @@ class TrackPath {
     /** points = from a's place to b's place (a STRAIGHT fill is just a, b). alts = b's other places on a different line (R5). */
     data class Fill(val points: List<TrackPoint>, val rule: String, val alts: List<Cand>)
 
-    private val routeS = HashMap<String, Double>()      // how far along each route he has come (a route only goes forward)
+    private val routeS = HashMap<String, Double>()      // where along each route he was last (ROUTEBOTH-2026-10-19: either direction)
     private var lastRoute: String? = null                // CODE RULE 1: null = not on a saved route yet
     private var trailPrev: Pair<String, Double>? = null  // CODE RULE 1: null = not on a trail yet (the first trail place is the nearest)
 
@@ -174,17 +176,26 @@ class TrackPath {
         }
         val straight = TrackGeo.metres(a, b)
         for (r in order) {
-            val from = routeS[r.id] ?: -1e9
-            val ca = r.places(a).filter { it.s >= from - 10 && it.off <= SNAP_M }
+            // ROUTEBOTH-2026-10-19: EITHER direction. Every near-equal place of a paired with every near-equal place of b (a route that uses the
+            // same road twice -- out and back -- has two places for one point); pairs past the detour limit dropped; then ALONG the
+            // arrows first when one fits, then the shortest way, then a's place nearest the previous one.
+            val prev = routeS[r.id]   // CODE RULE 1: null = not on this route yet (no previous place to prefer)
+            val ca = r.places(a).filter { it.off <= SNAP_M }
             if (ca.isEmpty()) continue
             val bestA = ca.minOf { it.off }
-            val pa = ca.filter { it.off <= bestA + NEAR_M }.minByOrNull { it.s }!!          // the nearest place AHEAD
-            val cb = r.places(b).filter { it.s >= pa.s - 5 && it.off <= SNAP_M }
+            val nearA = ca.filter { it.off <= bestA + NEAR_M }
+            val cb = r.places(b).filter { it.off <= SNAP_M }
             if (cb.isEmpty()) continue
             val bestB = cb.minOf { it.off }
-            val pb = cb.filter { it.off <= bestB + NEAR_M }.minByOrNull { it.s }!!
-            if (pb.s - pa.s > DETOUR * straight + DETOUR_M) continue
-            return Triple(r, pa, pb)
+            val nearB = cb.filter { it.off <= bestB + NEAR_M }
+            val lim = DETOUR * straight + DETOUR_M
+            val pairs = nearA.flatMap { qa -> nearB.map { qb -> Pair(qa, qb) } }.filter { Math.abs(it.second.s - it.first.s) <= lim }
+            val best = pairs.minWithOrNull(compareBy<Pair<Line.Place, Line.Place>>(
+                { it.second.s < it.first.s },                                  // against the arrows only when nothing along them fits
+                { Math.abs(it.second.s - it.first.s) },                        // then the shortest way
+                { if (prev != null) Math.abs(it.first.s - prev) else 0.0 }))   // then a's place nearest the previous one
+                ?: continue
+            return Triple(r, best.first, best.second)
         }
         return null
     }
