@@ -137,6 +137,9 @@ class ConvoyViewModel @Inject constructor(
     @Volatile private var myTabletFixMs = 0L
     // MYCARTRADIO-2026-10-18: when my radio last gave a FRESH position (its own time within 60 s). 0 = none yet -> the tablet is the fallback.
     @Volatile private var myRadioFixMs = 0L
+    // ROLEPOS-2026-10-19: my radio's own last fresh position (valid when myRadioFixMs != 0). The role report sends THIS -- everybody else sees the radio.
+    @Volatile private var myRadioLat = 0.0
+    @Volatile private var myRadioLon = 0.0
     @Volatile private var myFixLat = 0.0
     @Volatile private var myFixLon = 0.0
     // LEADTRACKBOARD-2026-10-18 (build 1): the RECEIVING QUEUE -- every real report the board takes goes in, stamped with its received time; ONE
@@ -382,11 +385,11 @@ class ConvoyViewModel @Inject constructor(
             while (true) {
                 n++
                 runCatching {
-                    val me = _convoyState.value.nodes.firstOrNull { it.isMyCart }
-                    val loc = getPhoneLocation()
-                    val lat = me?.latitude?.takeIf { it != 0.0 } ?: loc?.latitude
-                    val lon = me?.longitude?.takeIf { it != 0.0 } ?: loc?.longitude
-                    if (lat == null || lon == null) { android.util.Log.w("ROLEREPORT", "ROLEREPORT #$n: no position -- skipped"); return@runCatching }
+                    // ROLEPOS-2026-10-19 (Fred 10-19 13:07 "everybody else sees the radio"): the report carries MY RADIO'S own last position, never the
+                    // tablet's (since ONEFEED my cart = the tablet -> it gave every other tablet a second, different position for my cart).
+                    if (myRadioFixMs == 0L) { android.util.Log.w("ROLEREPORT", "ROLEPOS-2026-10-19 ROLEREPORT #$n: no radio position yet -- skipped"); return@runCatching }
+                    val lat = myRadioLat
+                    val lon = myRadioLon
                     val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
                     // COMMSEND-2026-10-08 (2.7b cycle 1 step 2a): the report is a CoT message handed to the Comm API; the mesh
                     // translator (app module) turns it into the same TAK V1 report on port 72 as before -- same bytes on the air.
@@ -1606,7 +1609,8 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         val nowMine = System.currentTimeMillis()
         if (!fromTablet && num == myNum) {
             // a stored position replayed at connect is OLD (A3) -> not a fix; the report still counts as heard on the board below
-            if (msg.point != null && msg.timeMs > nowMine - 60_000L) myRadioFixMs = nowMine
+            val rp = msg.point   // ROLEPOS-2026-10-19: keep the position with the time
+            if (rp != null && msg.timeMs > nowMine - 60_000L) { myRadioFixMs = nowMine; myRadioLat = rp.latitude; myRadioLon = rp.longitude }
         }
         if (fromTablet && myNum != null && !tabletHasGps && commLink.health.value.talking && nowMine - myRadioFixMs < 45_000L) return   // the radio is driving my cart (ONEFEED-2026-10-19: only on a tablet without GPS)
         val id = "!%08x".format(num)
