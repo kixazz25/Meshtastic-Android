@@ -140,20 +140,17 @@ class ConvoyViewModel @Inject constructor(
     @Volatile private var myFixLat = 0.0
     @Volatile private var myFixLon = 0.0
     // LEADTRACKBOARD-2026-10-18 (build 1): the RECEIVING QUEUE -- every real report the board takes goes in, stamped with its received time; ONE
-    // consumer (in init) builds the lead track + off-track, marks the ride-JSON hook, and hands CartMotion's steps to the map.
+    // consumer (in init) runs the LEAD CART routine (TRACKRULES-2026-10-19, TrackRules.kt) + off-track and marks the ride-JSON hook.
     // Declared ABOVE init. CODE RULE 1: no nullable fields here.
     private sealed class TrackEntry {
         data class Real(val cartId: String, val p: TrackPoint, val rxMs: Long, val msgMs: Long, val isLead: Boolean, val isMine: Boolean) : TrackEntry()
         object Reset : TrackEntry()
     }
     private val trackQueue = kotlinx.coroutines.channels.Channel<TrackEntry>(kotlinx.coroutines.channels.Channel.UNLIMITED)
-    private val leadTrack = LeadTrack()
+    private val leadCart = LeadCartProcess(updateFrequency = 1)   // TRACKRULES-2026-10-19: the LEAD CART routine (TrackRules.kt) -- was LeadTrack (hold + trim)
     // TRACKORDER-2026-10-18: the newest report time taken into the queue per cart -- an older position never draws a track backwards. Above init.
     private val trackLastMsgT = java.util.concurrent.ConcurrentHashMap<String, Long>()
-    // MYTRACKMSG-2026-10-18: my track from my cart's own reports (the queue's consumer builds it; the screen draws it). Declared ABOVE init.
-    private val myTrack = MyTrack()
-    private val _myTrackSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
-    val myTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _myTrackSegments.asStateFlow()
+    // TRACKRULES-2026-10-19: MyTrack (my cart's reports -> a track nobody drew) removed -- my track is the recorder's WRITTEN points (MyCartProcess).
     private val boardCarts = java.util.concurrent.ConcurrentHashMap<String, ConvoyNode>()
     private val boardSpeedStart = java.util.concurrent.ConcurrentHashMap<String, Triple<Long, Double, Double>>()
     private val boardSpeedLast = java.util.concurrent.ConcurrentHashMap<String, Float>()
@@ -193,7 +190,9 @@ class ConvoyViewModel @Inject constructor(
     // other carts held at their last tick position, GRP Awareness red. Nothing is stored.
     // COMMHEALTH2-2026-10-11: "talking" and the recovery now come from the COMM side (CommLink.health) -- the heartbeat fields moved there.
     private var radioTalkingNow = false
-    private var phoneLocationListener: android.location.LocationListener? = null
+    private var phoneLocationListener: TabletPosition.Listener? = null   // ONEFEED-2026-10-19: my cart listens to the ONE feed
+    /** ONEFEED-2026-10-19 (Fred 10-19 12:05): this tablet has GPS -> Android, never the radio, gives my cart's position. */
+    private val tabletHasGps: Boolean by lazy { TabletPosition.hasGps(appContext) }
 
     /**
      * NOGPSMSG-2026-09-15: the two position states the ride panel reports to the rider.
@@ -232,59 +231,28 @@ class ConvoyViewModel @Inject constructor(
      */
     private fun startPhoneGps() {
         if (phoneLocationListener != null) return
-        val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager ?: return
 
         // NETLOC-2026-09-15: keep the BETTER fix, not the latest one. Registering several
         // providers against one listener means fixes of very different quality
         // arrive interleaved; last-write-wins would let a 30 m network fix
         // overwrite a 3 m GPS fix two seconds later.
-        val listener = android.location.LocationListener { loc ->
-            val held = livePhoneLocation
-            val staleMs = 15000L
-            val take = held == null ||
-                (System.currentTimeMillis() - held.time) > staleMs ||
-                loc.accuracy <= held.accuracy
-            if (take) { livePhoneLocation = loc; onMyTabletFix(loc.latitude, loc.longitude, loc) }   // MYFIX-2026-10-14
+        // ONEFEED-2026-10-19 (Fred 10-19 12:21): ONE source now -- every feed position is my cart's CoT message (onMyTabletFix -> the board),
+        // RECORD on or off. (The NETLOC keep-the-better-fix filter was for mixed GPS + network listeners; with one feed it would hold my
+        // cart still for up to 15 s whenever accuracy dips -- removed.)
+        val listener = TabletPosition.Listener { loc ->
+            livePhoneLocation = loc; onMyTabletFix(loc.latitude, loc.longitude, loc)   // MYFIX-2026-10-14
         }
         phoneLocationListener = listener
 
-        val providers = listOf(
-            android.location.LocationManager.GPS_PROVIDER,
-            android.location.LocationManager.NETWORK_PROVIDER
-        )
 
-        var registered = 0
-        for (p in providers) {
-            try {
-                lm.requestLocationUpdates(
-                    p,
-                    2000L,  // 2 second interval
-                    1f,     // 1 meter minimum distance
-                    listener,
-                    android.os.Looper.getMainLooper()
-                )
-                registered++
-                android.util.Log.i("ConvoyVM", "NETLOC-2026-09-15: subscribed to $p")
-            } catch (e: SecurityException) {
-                android.util.Log.e("ConvoyVM", "NETLOC-2026-09-15: permission denied for $p: ${e.message}")
-            } catch (e: Exception) {
-                // Provider absent on this device. Expected, not an error.
-                android.util.Log.w("ConvoyVM", "NETLOC-2026-09-15: no provider $p (${e.javaClass.simpleName})")
-            }
-        }
-        if (registered == 0) {
-            android.util.Log.e("ConvoyVM", "NETLOC-2026-09-15: NO LOCATION PROVIDER AVAILABLE -- " +
-                "this device cannot determine its position without a mesh radio " +
-                "or a Bluetooth-paired phone.")
-            phoneLocationListener = null
-        }
+        if (TabletPosition.add(appContext, listener)) android.util.Log.i("ConvoyVM", "ONEFEED-2026-10-19: my cart listens to the position feed")
+        else { android.util.Log.e("ConvoyVM", "ONEFEED-2026-10-19: the position feed did not start (permission?)"); phoneLocationListener = null }
     }
 
     private fun stopPhoneGps() {
         phoneLocationListener?.let { listener ->
             try {
-                val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
-                lm?.removeUpdates(listener)
+                TabletPosition.remove(appContext, listener)   // ONEFEED-2026-10-19
             } catch (_: Exception) {}
         }
         phoneLocationListener = null
@@ -834,8 +802,8 @@ class ConvoyViewModel @Inject constructor(
     val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
     private var gpsService: ConvoyGpsService? = null
     private var pendingTempFile: java.io.File? = null
-    private var lastGpsLat: Double? = null
-    private var lastGpsLon: Double? = null
+    @Volatile private var lastGpsLat: Double? = null   // TRACKRULES-2026-10-19: the last WRITTEN point of my track (set on the recorder's worker)
+    @Volatile private var lastGpsLon: Double? = null
 
     private fun bindGpsService(context: android.content.Context, onBound: (ConvoyGpsService) -> Unit) {
         val conn = object : android.content.ServiceConnection {
@@ -843,19 +811,18 @@ class ConvoyViewModel @Inject constructor(
                 val svc = (service as ConvoyGpsService.LocalBinder).getService()
                 gpsService = svc
                 svc.onSleepTriggered = { recordingState.value = RecordingState.SLEEPING }
-                svc.onLocationUpdate = { lat, lon, _ ->
-                    val prevLat = lastGpsLat
-                    val prevLon = lastGpsLon
-                    if (prevLat != null && prevLon != null) {
-                        val seg = ConvoyEngine.LeadTrackSegment(
-                            startLat = prevLat, startLon = prevLon,
-                            endLat = lat, endLon = lon, color = "#2E75B6"
-                        )
-                        _gpsTrailSegments.value = _gpsTrailSegments.value + seg
-                        android.util.Log.i("TRACKDELAY", "TRACKDELAY-2026-10-18 recorder point -> my track: seg " + _gpsTrailSegments.value.size + " at " + System.currentTimeMillis())
+                // TRACKRULES-2026-10-19 (Fred 10-19): my track = the points the recorder WROTE (MyCartProcess) -- the GPX and the screen are the same points.
+                svc.onTrackWritten = { written ->
+                    val add = ArrayList<ConvoyEngine.LeadTrackSegment>()
+                    for (w in written) {
+                        val pLat = lastGpsLat; val pLon = lastGpsLon
+                        if (pLat != null && pLon != null) add.add(ConvoyEngine.LeadTrackSegment(startLat = pLat, startLon = pLon, endLat = w.lat, endLon = w.lon, color = "#2E75B6"))
+                        lastGpsLat = w.lat; lastGpsLon = w.lon
                     }
-                    lastGpsLat = lat
-                    lastGpsLon = lon
+                    if (add.isNotEmpty()) _gpsTrailSegments.value = _gpsTrailSegments.value + add
+                    android.util.Log.i("TRACKDELAY", "TRACKDELAY-2026-10-18 recorder wrote " + written.size + " -> my track: seg " + _gpsTrailSegments.value.size + " at " + System.currentTimeMillis())
+                }
+                svc.onLocationUpdate = { lat, lon, _ ->
                     _distanceMiles.value = svc.totalDistanceMiles
                     onMyTabletFix(lat, lon, null)   // MYFIX-2026-10-14
                 }
@@ -1030,7 +997,8 @@ class ConvoyViewModel @Inject constructor(
         // BOARDSHOW2-2026-10-15 (Fred 09:49): an Android fix is the tablet's sensor, not a received message -- my cart gets ONE board report
         // per reporting interval, from the latest fix, like every other cart. CODE RULE 1: interval null = not read from the radio yet -> 6 s.
         // TICKSMALL-2026-10-15: the network-position warning follows each tablet fix (network = will not work on the trail)
-        if (boardShows && loc != null) _networkPositionWarning.value = loc.provider == android.location.LocationManager.NETWORK_PROVIDER
+        if (boardShows && loc != null) _networkPositionWarning.value = loc.provider == android.location.LocationManager.NETWORK_PROVIDER ||
+            (loc.hasAccuracy() && loc.accuracy > 30f)   // ONEFEED-2026-10-19: fused has no "network" label -- worse than 30 m = a Wi-Fi/cell guess
         val everyMs = (reportingNowSecs.value ?: 6) * 1000L
         myTabletFixMs = now
         // MYCARTMSG-2026-10-15 (Fred 17:46): a message only when the GPS position CHANGED -- else one keep-alive per reporting interval
@@ -1591,36 +1559,31 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         )
     }
 
-    /** LEADTRACKBOARD-2026-10-18: the receiving queue's consumer -- 3 Recorder (hook), 4 LeadTrack, 6 CartMotion, 7 Map. One coroutine: no locking. */
+    /** TRACKRULES-2026-10-19: the receiving queue's consumer -- the LEAD CART routine (TrackRules.kt) and off-track. One coroutine: no locking.
+     *  My track is the recorder's (MyCartProcess in ConvoyGpsService); my cart's reports move my cart icon only. */
     private fun trackConsume(e: TrackEntry) {
         when (e) {
-            is TrackEntry.Reset -> { leadTrack.reset(); myTrack.reset(); _myTrackSegments.value = emptyList(); _offTrackIds.value = emptySet(); trackPublish() }   // MYTRACKMSG-2026-10-18
+            is TrackEntry.Reset -> { leadCart.reset(); _offTrackIds.value = emptySet(); trackPublish() }
             is TrackEntry.Real -> {
                 // 3 RECORDER: the ride detail JSON is written HERE (RIDEDETAIL, after the tick) -- the real report only, never my tablet's own GPS.
                 if (e.isLead && !e.isMine) {
-                    if (leadTrack.onLeadReport(e.cartId, e.p)) android.util.Log.d("LEADTRACK", "LEADTRACKBOARD-2026-10-18: lead " + e.cartId + " point added")
+                    if (leadCart.onLeadReport(e.cartId, e.p, e.rxMs)) { trackPublish(); android.util.Log.d("LEADTRACK", "TRACKRULES-2026-10-19: lead " + e.cartId + " written") }
                 } else if (!e.isMine) {
                     // off-track: THAT cart against the lead track, when its own report arrives (Settings -> OFF_TRACK_MILES)
-                    val d = leadTrack.metresFromTrack(e.p)
+                    val d = leadCart.metresFromTrack(e.p)
                     val off = d != null && d > ConvoyConfig.OFF_TRACK_MILES.toDouble() * 1609.344
                     val cur = _offTrackIds.value
                     if (off != (e.cartId in cur)) _offTrackIds.value = if (off) cur + e.cartId else cur - e.cartId
                 }
-                // MYTRACKMSG-2026-10-18: my cart's real report draws my track -- whatever moved my cart (my radio, or the tablet as fallback)
-                if (e.isMine && myTrack.onReport(e.p)) _myTrackSegments.value = myTrack.segments()
-                for (step in CartMotion.steps(e.cartId, e.p, e.rxMs)) trackMapStep(step)
                 if (e.isLead && !e.isMine) android.util.Log.i("TRACKDELAY", "TRACKDELAY-2026-10-18 lead published: msgT=" + e.msgMs + " rx=" + e.rxMs + " +" + (System.currentTimeMillis() - e.rxMs) + " ms after receipt")
             }
         }
     }
-    /** LEADTRACKBOARD-2026-10-18 7 MAP (build 1, N = 1): the cart icon is placed by the board's publish (= one step); the drawn lead track is
-     *  re-published with THIS tablet's 50 m trim on every step -- my own steps move the trim too. */
-    private fun trackMapStep(@Suppress("UNUSED_PARAMETER") step: CartMotion.Step) { trackPublish() }
+    /** TRACKRULES-2026-10-19: the map gets the WHOLE written lead track (R1: no location test, no trim). The cart icon is the board's. */
     private fun trackPublish() {
-        // CODE RULE 1 (my): null = my cart has no position yet -> the whole lead track is shown
-        val my = boardCarts[resolveMyCartId()]?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }?.let { TrackPoint(it.latitude, it.longitude) }
-        _routeTrailSegments.value = leadTrack.allSegments()
-        _leadTrackSegments.value = leadTrack.shownSegments(my)
+        val segs = leadCart.segments()
+        _routeTrailSegments.value = segs
+        _leadTrackSegments.value = segs
     }
 
     /** COTBOARD-2026-10-15 (T5.4a-2): a CoT message was received -- the board's input (the twin of onBoardHeard, which T5.5 removes). */
@@ -1636,11 +1599,14 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             // a stored position replayed at connect is OLD (A3) -> not a fix; the report still counts as heard on the board below
             if (msg.point != null && msg.timeMs > nowMine - 60_000L) myRadioFixMs = nowMine
         }
-        if (fromTablet && myNum != null && commLink.health.value.talking && nowMine - myRadioFixMs < 45_000L) return   // the radio is driving my cart
+        if (fromTablet && myNum != null && !tabletHasGps && commLink.health.value.talking && nowMine - myRadioFixMs < 45_000L) return   // the radio is driving my cart (ONEFEED-2026-10-19: only on a tablet without GPS)
         val id = "!%08x".format(num)
         val now = System.currentTimeMillis()
-        val cart = cartFromMessage(msg, num, now, myNum, getPhoneLocation(), { boardCarts[it] }, boardSpeedStart, boardSpeedLast)
-        if (cart == null) boardCarts.remove(id) else boardCarts[id] = cart
+        // ONEFEED-2026-10-19 (Fred 10-19 12:05/12:21): on a tablet WITH GPS my radio's own CoT does not move my cart (it is still heard; on a tablet
+        // without GPS it still feeds the recorder below). My cart is the Android feed's CoT message (fromTablet).
+        val skipMine = !fromTablet && num == myNum && tabletHasGps
+        val cart = if (skipMine) null else cartFromMessage(msg, num, now, myNum, getPhoneLocation(), { boardCarts[it] }, boardSpeedStart, boardSpeedLast)
+        if (!skipMine) { if (cart == null) boardCarts.remove(id) else boardCarts[id] = cart }
         // LEADTRACKBOARD-2026-10-18: the REAL report into the receiving queue (REC on -- as the tick's lead track). A report without a point is not a move.
         val qp = msg.point
         if (cart != null && qp != null && _trackActive.value && msg.timeMs > (trackLastMsgT[id] ?: 0L)) {   // TRACKORDER-2026-10-18: newer only
@@ -1770,7 +1736,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             // build Location("gps") explicitly, so only the live listener can
             // report "network".
             val fromNetwork = loc != null &&
-                loc.provider == android.location.LocationManager.NETWORK_PROVIDER
+                (loc.provider == android.location.LocationManager.NETWORK_PROVIDER || (loc.hasAccuracy() && loc.accuracy > 30f))   // ONEFEED-2026-10-19
             if (loc == null && prevMe == null) {   // LINKFIX2-2026-10-03: the hard message only with no position at all
                 if (!_noPositionError.value) {
                     android.util.Log.e("ConvoyVM",

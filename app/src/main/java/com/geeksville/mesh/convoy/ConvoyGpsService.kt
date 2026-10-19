@@ -59,6 +59,15 @@ class ConvoyGpsService : Service() {
 
     // Callback to ViewModel for location updates (trail rendering on map)
     var onLocationUpdate: ((lat: Double, lon: Double, alt: Double) -> Unit)? = null
+    // TRACKRULES-2026-10-19 (Fred 10-19): MY CART routine (TrackRules.kt) -- every point goes through the track rules; the points it WRITES are the
+    // GPX and my track (onTrackWritten). One worker thread, in order: the rules read the trail database, never on the main thread.
+    private val myCart = MyCartProcess(updateFrequency = 1)   // the update frequency: 1 = the whole written segment, one update
+    var onTrackWritten: ((List<WPoint>) -> Unit)? = null
+    private val trackExec = java.util.concurrent.Executors.newSingleThreadExecutor()
+    /** On the track worker, in order. After the service is destroyed nothing is queued (a late radio position is dropped, logged). */
+    private fun onTrackThread(block: () -> Unit) {
+        try { trackExec.execute(block) } catch (e: java.util.concurrent.RejectedExecutionException) { Log.w(TAG, "TRACKRULES-2026-10-19 dropped: the recorder has stopped") }
+    }
 
     var totalDistanceMiles: Double = 0.0
         private set
@@ -77,7 +86,9 @@ class ConvoyGpsService : Service() {
     // ── Internal ─────────────────────────────────────────────────────────────
     private var wakeLock: PowerManager.WakeLock? = null
     private var locationManager: LocationManager? = null
-    private var locationListener: LocationListener? = null
+    private var feedListener: TabletPosition.Listener? = null   // ONEFEED-2026-10-19: the recorder listens to the ONE feed (no request of its own)
+    private var recLat = 0.0   // ONEFEED-2026-10-19: the last recorded feed position (0 = none) -- the 5 m rule
+    private var recLon = 0.0
     private var kmlWriter: BufferedWriter? = null
     var lastLat: Double? = null
     // ── Sleep detection ──────────────────────────────────────────────────
@@ -132,7 +143,9 @@ class ConvoyGpsService : Service() {
         super.onDestroy()
         releaseWakeLock()
         stopLocationUpdates()
-        if (ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX") closeGpx() else closeKml()
+        val isGpxEnd = ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX"
+        onTrackThread { if (isGpxEnd) closeGpx() else closeKml() }   // TRACKRULES-2026-10-19: in order, after any queued point
+        trackExec.shutdown()
         Log.i(TAG, "ConvoyGpsService destroyed")
     }
 
@@ -148,6 +161,7 @@ class ConvoyGpsService : Service() {
         val tempFile = if (isGpx) createTempGpxFile() else createTempKmlFile()
         currentTempFile = tempFile
         if (isGpx) openGpxWriter(tempFile) else openKmlWriter(tempFile)
+        onTrackThread { myCart.reset() }   // TRACKRULES-2026-10-19: a new recording, a new track
         acquireWakeLock()
         startLocationUpdates()
         state = State.RECORDING
@@ -195,7 +209,14 @@ class ConvoyGpsService : Service() {
         if (state == State.IDLE) return null
         stopLocationUpdates()
         releaseWakeLock()
-        if (ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX") closeGpx() else closeKml()
+        // TRACKRULES-2026-10-19: after every queued point -- a point held at an intersection is written (its nearest place), then the file closes
+        val isGpxStop = ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX"
+        try {
+            trackExec.submit { writeTrackPoints(myCart.stop(System.currentTimeMillis())); if (isGpxStop) closeGpx() else closeKml() }
+                .get(5, java.util.concurrent.TimeUnit.SECONDS)
+        } catch (e: Exception) {
+            Log.e(TAG, "TRACKRULES-2026-10-19 stop: " + e.message); if (isGpxStop) closeGpx() else closeKml()
+        }
         val file = currentTempFile
         currentTempFile = null
         lastLat = null
@@ -262,18 +283,19 @@ class ConvoyGpsService : Service() {
                 return
             }
             useRadioGps = false
-            val listener = LocationListener { loc ->
+            // ONEFEED-2026-10-19 (Fred 10-19): the app's ONE position feed (TabletPosition: Google fused, 3 s). Recorded: accuracy within 30 m (a
+            // worse one is a Wi-Fi/cell guess) and at least 5 m from the last recorded point (a parked cart adds nothing to the GPX).
+            val listener = TabletPosition.Listener { loc ->
+                if (state != State.RECORDING) return@Listener
+                if (loc.hasAccuracy() && loc.accuracy > 30f) { Log.i("GPXFIELD", "ONEFEED-2026-10-19 not recorded: accuracy " + loc.accuracy + " m > 30 m"); return@Listener }
+                if (recLat != 0.0 && haversineFeet(recLat, recLon, loc.latitude, loc.longitude) < 16.4) return@Listener   // under 5 m
+                recLat = loc.latitude; recLon = loc.longitude
                 Log.i("GPXFIELD", "GPXFIELD-2026-10-18 android fix " + loc.latitude + "," + loc.longitude + " acc=" + loc.accuracy + "m provider=" + loc.provider + " state=" + state)
                 gpxSource = "android"   // GPXFIELD-2026-10-18
                 onGpsUpdate(loc.latitude, loc.longitude, loc.altitude)
             }
-            locationListener = listener
-            lm.requestLocationUpdates(
-                LocationManager.GPS_PROVIDER,
-                3000L,  // 3 second minimum interval
-                5f,     // 5 metre minimum distance
-                listener
-            )
+            feedListener = listener
+            if (!TabletPosition.add(this, listener)) Log.e(TAG, "ONEFEED-2026-10-19 the position feed did not start (permission?)")
             Log.i(TAG, "GPS updates started")
         } catch (e: SecurityException) {
             Log.e(TAG, "GPS permission not granted: ${e.message}")
@@ -282,11 +304,11 @@ class ConvoyGpsService : Service() {
 
     private fun stopLocationUpdates() {
         try {
-            locationListener?.let { locationManager?.removeUpdates(it) }
+            feedListener?.let { TabletPosition.remove(this, it) }   // ONEFEED-2026-10-19
         } catch (e: Exception) {
             Log.e(TAG, "stopLocationUpdates error: ${e.message}")
         }
-        locationListener = null
+        feedListener = null; recLat = 0.0; recLon = 0.0   // ONEFEED-2026-10-19
         locationManager = null
     }
 
@@ -314,12 +336,19 @@ class ConvoyGpsService : Service() {
             totalDistanceMiles += haversineMiles(prevLat, prevLon, lat, lon)
         }
 
-        if (ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX") {
-            writeGpxPoint(lat, lon, alt)
-        } else {
-            writeKmlPoint(lat, lon, alt)
-        }
+        // TRACKRULES-2026-10-19: the point goes through the track rules; what they WRITE (a gap filled along the route / trail) goes to the file
+        val tMs = System.currentTimeMillis()
+        onTrackThread { writeTrackPoints(myCart.onPosition(TrackPoint(lat, lon), tMs, alt)) }
         onLocationUpdate?.invoke(lat, lon, alt)
+    }
+
+    /** TRACKRULES-2026-10-19: the written points -> the file (each with its own time) -> my track on the screen. On trackExec only. */
+    private fun writeTrackPoints(written: List<WPoint>) {
+        if (written.isEmpty()) return
+        val gpx = ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX"
+        for (w in written) if (gpx) writeGpxPoint(w.lat, w.lon, w.alt, w.tMs) else writeKmlPoint(w.lat, w.lon, w.alt)
+        if (written.size > 1 || written[0].rule != "DIRECT") Log.i("GPXFIELD", "TRACKRULES-2026-10-19 wrote " + written.size + " point(s), rule " + written.last().rule)
+        onTrackWritten?.invoke(written)
     }
 
     // ── KML ───────────────────────────────────────────────────────────────────
@@ -391,10 +420,10 @@ class ConvoyGpsService : Service() {
         }
     }
 
-    private fun writeGpxPoint(lat: Double, lon: Double, alt: Double) {
+    private fun writeGpxPoint(lat: Double, lon: Double, alt: Double, tMs: Long) {   // TRACKRULES-2026-10-19: the point's own time (a road point's is interpolated)
         Log.i("GPXFIELD", "GPXFIELD-2026-10-18 GPX write " + lat + "," + lon + " from " + gpxSource + " writer=" + (if (gpxWriter == null) "NONE" else "open"))
         try {
-            val ts = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
+            val ts = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date(tMs))
             gpxWriter?.write("<trkpt lat=\"$lat\" lon=\"$lon\"><ele>$alt</ele><time>$ts</time></trkpt>\n")
             gpxWriter?.flush()
         } catch (e: Exception) {

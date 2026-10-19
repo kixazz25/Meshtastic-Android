@@ -302,6 +302,11 @@ fun ConvoyScreen(
         var trackCheckedIds by viewModel.rideMapState("trackCheckedIds") { MapStateStore.checkedIdsFor(cmSeed, "Tracks") }   // RIDEMAPSTATE-2026-10-05
         var waypointCheckedIds by viewModel.rideMapState("waypointCheckedIds") { MapStateStore.checkedIdsFor(cmSeed, "Waypoints") }   // RIDEMAPSTATE-2026-10-05
         var routeCheckedIds by viewModel.rideMapState("routeCheckedIds") { MapStateStore.checkedIdsFor(cmSeed, "Routes") }   // RIDEMAPSTATE-2026-10-05
+        // TRACKRULES-2026-10-19 (Fred 10-19 08:39): the ONE displayed route the tracks are laid on = exactly one SELECTED route. Routes off, all on,
+        // or several selected -> null: the rules use any saved route both points lie on (then trails, then straight).
+        LaunchedEffect(routeState, routeCheckedIds) {
+            TrackGrounds.displayedRouteId = if (routeState == DS_SELECTED) routeCheckedIds?.singleOrNull() else null
+        }
         // [convoy-routemode-reset 2026-08-01] One-shot log flag. The route-mode reset fires on
         // every viewport event; this keeps the trace to one line per entry. remember{} scope
         // means it clears on re-entry, so each convoy entry logs exactly once.
