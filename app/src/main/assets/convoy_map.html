@@ -220,8 +220,19 @@
       reportViewport();
     }
       function panTo(lat, lon) { map.panTo([lat, lon]); }
-    function fitBounds(lats, lons) {
+    function fitBounds(lats, lons, tries) {
       if (!lats.length) return;
+      // FITSIZE-2026-10-19: Leaflet works the zoom out from the map's size -- before the map has a size (0 x 0) it comes out as ZOOM 0
+      // (the tester's z0 / white screen offline). Refresh the size first; still none -> try again shortly, never zoom to 0.
+      var sz = null;
+      if (map) { map.invalidateSize(); sz = map.getSize(); }   // map not created yet -> wait too
+      if (!sz || !sz.x || !sz.y) {
+        tries = tries || 0;
+        if (tries < 20) { setTimeout(function() { fitBounds(lats, lons, tries + 1); }, 150); }
+        else { console.log('FITSIZE-2026-10-19: map still has no size after 3 s -- fitBounds dropped'); }
+        if (tries === 0) { console.log('FITSIZE-2026-10-19: map has no size yet -- fitBounds waits'); }
+        return;
+      }
       if (lats.length === 1) { map.setView([lats[0], lons[0]], 16); return; }
       var b = L.latLngBounds();
       for (var i=0; i<lats.length; i++) b.extend([lats[i], lons[i]]);

@@ -341,7 +341,11 @@ fun ConvoyScreen(
             )
             // [Fix1] Save the current frame (lastViewport* = the frame at save time, during
             // active use) so drawPersistedState can restore it on re-entry.
-            MapStateStore.saveMap("convoy", MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes(), MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast), null))
+            // MAPSTARTUP-2026-10-19: never save a frame the map has not reported yet (0,0,0,0 -> the tester's z0) or a world-size one.
+            // CODE RULE 1: bbox null = no usable frame -> the next entry centres on my cart (RIDEENTRY). The layer states are still saved.
+            val bbOk = mapFrameOk(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+            if (!bbOk) android.util.Log.w("ConvoyMap", "MAPSTARTUP-2026-10-19: frame not saved (not usable): $lastViewportSouth,$lastViewportWest,$lastViewportNorth,$lastViewportEast")
+            MapStateStore.saveMap("convoy", MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes(), if (bbOk) MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast) else null, null))
         }
     // [viewport-save 2026-08-13] debounced viewport-settle save (mirror planning MVS:260-261/540) —
     // convoy previously never persisted the frame on pan/zoom; this writes the current bbox on settle.
@@ -414,6 +418,17 @@ fun ConvoyScreen(
     // ── Renderer (stable across recompositions) ───────────────────────────
     val renderer = remember { ConvoyMarkerRenderer(context, onNodeTapped = viewModel::onMarkerTapped) }
     val webViewRef = remember { androidx.compose.runtime.mutableStateOf<android.webkit.WebView?>(null) }
+    // MAPSTARTUP-2026-10-19 (Fred 10-19 14:35): the network drops while on the ride map -> local tiles + offline mode (the page-load check only
+    // runs once). Coming back online does NOT switch back -- the rider's source button does that.
+    androidx.compose.runtime.LaunchedEffect(hasInternet) {
+        if (!hasInternet && !viewModel.isOfflineMode.value) {
+            viewModel.setLocalTiles(true)
+            viewModel.setOfflineMode(true)
+            val localUrl = ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
+            webViewRef.value?.evaluateJavascript("setTileUrl('$localUrl', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
+            android.util.Log.i("ConvoyMap", "MAPSTARTUP-2026-10-19: network lost -- switched to local tiles")
+        }
+    }
     // RIDERIDS-2026-10-09 (Fred): rider trails were added or removed -> reload the trails on this map, once, and only then.
     androidx.compose.runtime.LaunchedEffect(webViewRef.value) {
         val wv = webViewRef.value ?: return@LaunchedEffect
@@ -968,7 +983,11 @@ fun ConvoyScreen(
                                     // re-entry -> restore saved frame; absent = cold launch -> GPS.
                                     val rsEntry = MapStateStore.readMap("convoy")
                                     val bbEntry = rsEntry.bbox
-                                    if (bbEntry != null) {
+                                    // MAPSTARTUP-2026-10-19 (Fred 10-19 14:35): the saved frame is restored ONLY when online and usable; otherwise RIDEENTRY
+                                    // below centres on my cart at z15 (the live viewport draw then fills the displayed layers for that view).
+                                    val frameUse = bbEntry != null && hasInternet && mapFrameOk(bbEntry.south, bbEntry.west, bbEntry.north, bbEntry.east)
+                                    if (bbEntry != null && !frameUse) android.util.Log.i("ConvoyMap", "MAPSTARTUP-2026-10-19: saved frame NOT restored (" + (if (!hasInternet) "offline" else "not usable: ${bbEntry.south},${bbEntry.west},${bbEntry.north},${bbEntry.east}") + ") -- centring on my cart")
+                                    if (bbEntry != null && frameUse) {
                                         // SEED lastViewport* BEFORE draw — closes the stale window for
                                         // other readers (route-snap, save) until onViewportChanged fires.
                                         lastViewportSouth = bbEntry.south; lastViewportWest = bbEntry.west
@@ -4156,3 +4175,8 @@ fun HiVisText(
             lineHeight = lineHeight, overflow = overflow, softWrap = softWrap, maxLines = maxLines)
     }
 }
+
+/** MAPSTARTUP-2026-10-19: a saved ride-map frame worth restoring -- not 0,0,0,0, north > south, east > west, no more than 2 degrees
+ *  tall or wide (a ride area, not a world view). */
+private fun mapFrameOk(s: Double, w: Double, n: Double, e: Double): Boolean =
+    !(s == 0.0 && w == 0.0 && n == 0.0 && e == 0.0) && n > s && e > w && (n - s) <= 2.0 && (e - w) <= 2.0
