@@ -99,6 +99,14 @@ class ConvoyGpsService : Service() {
     var onSleepTriggered: (() -> Unit)? = null
     private val SLEEP_THRESHOLD_MS = 1_500_000L  // 25 minutes -- ZZZ25-2026-10-16 (was 10; Fred 10-15: auto-reconnection now exists)
     private val MOVE_THRESHOLD_FEET = 50.0
+    /** RECSLEEP-2026-10-19: REC and RESUME start the sleep clock fresh (it was only set when the service was created). */
+    private fun restartSleepClock(why: String) {
+        isSleeping = false
+        lastMovementMs = System.currentTimeMillis()
+        lastMoveLat = 0.0
+        lastMoveLon = 0.0
+        Log.i(TAG, "RECSLEEP-2026-10-19: sleep clock restarted at " + why)
+    }
     var lastLon: Double? = null
 
     companion object {
@@ -162,6 +170,7 @@ class ConvoyGpsService : Service() {
         currentTempFile = tempFile
         if (isGpx) openGpxWriter(tempFile) else openKmlWriter(tempFile)
         onTrackThread { myCart.reset() }   // TRACKRULES-2026-10-19: a new recording, a new track
+        restartSleepClock("REC")   // RECSLEEP-2026-10-19
         acquireWakeLock()
         startLocationUpdates()
         state = State.RECORDING
@@ -186,6 +195,7 @@ class ConvoyGpsService : Service() {
      */
     fun resumeTrack() {
         if (state != State.PAUSED) return
+        restartSleepClock("RESUME")   // RECSLEEP-2026-10-19
         acquireWakeLock()
         startLocationUpdates()
         state = State.RECORDING
