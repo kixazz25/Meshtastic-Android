@@ -1605,7 +1605,15 @@ fun ConvoyScreen(
             )
         }
 
-        Box(modifier = Modifier.statusBarsPadding().padding(8.dp)) {
+        Column(modifier = Modifier.statusBarsPadding().padding(8.dp)) {   // GPSLAMP-2026-10-19 (Fred 10-19 13:50): the GPS light ABOVE the REC button
+            var gpsLamp by remember { mutableStateOf(viewModel.gpsLamp()) }
+            LaunchedEffect(Unit) { while (true) { gpsLamp = viewModel.gpsLamp(); kotlinx.coroutines.delay(1000L) } }
+            Surface(shape = RoundedCornerShape(8.dp), color = if (gpsLamp.first) Color(0xFF1B7F2A) else Color(0xFFB00020),
+                shadowElevation = 4.dp, modifier = Modifier.padding(bottom = 4.dp)) {
+                Text("\u25CF " + gpsLamp.second, color = Color.White, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+            }
+        Box {
             if (!showRecMenu) {
                 // Main REC button
                 Surface(
@@ -1732,6 +1740,7 @@ fun ConvoyScreen(
                 }
             }
         }
+        }   // GPSLAMP-2026-10-19: the Column (light + REC)
 
         // ── CONTACT LOST banner ───────────────────────────────────────────
         if (convoyState.hasLost && hudMode != HudMode.COLLAPSED) {

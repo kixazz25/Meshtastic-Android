@@ -1007,13 +1007,35 @@ function loadRoutes(geojsonData) {
       }
     }
   });
+  buildRouteArrows();   // ROUTEARROWS-2026-10-19
+}
+
+// ROUTEARROWS-2026-10-19 (Fred 10-19): arrow heads along each route in its OWN point order (its direction) -- magenta like the route, built with
+// the vendored polylineDecorator exactly as the lead / my track arrows (offset 30 px, repeat 90 px). Shown and hidden with the route.
+var routeArrows = null;
+function buildRouteArrows() {
+  if (routeArrows) { map.removeLayer(routeArrows); routeArrows = null; }
+  if (!routeLayer || typeof L.polylineDecorator !== 'function' || !L.Symbol || !L.Symbol.arrowHead) return;
+  var paths = [];
+  routeLayer.eachLayer(function(l) {
+    var ll = l.getLatLngs ? l.getLatLngs() : null;
+    if (!ll || !ll.length) return;
+    if (Array.isArray(ll[0])) ll.forEach(function(p) { if (p.length > 1) paths.push(p); }); else if (ll.length > 1) paths.push(ll);
+  });
+  if (!paths.length) return;
+  routeArrows = L.polylineDecorator(paths, { patterns: [
+    { offset: 30, repeat: 90, symbol: L.Symbol.arrowHead({ pixelSize: 11, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#FF00FF', weight: 3, opacity: 1 } }) }
+  ] });
+  if (routesVisible) routeArrows.addTo(map);
 }
 
 function showRoutes() {
   if (routeLayer && !routesVisible) { routeLayer.addTo(map); routesVisible = true; }
+  if (routeArrows && routesVisible) routeArrows.addTo(map);   // ROUTEARROWS-2026-10-19
 }
 function hideRoutes() {
   if (routeLayer && routesVisible) { map.removeLayer(routeLayer); routesVisible = false; }
+  if (routeArrows) map.removeLayer(routeArrows);   // ROUTEARROWS-2026-10-19
 }
 function toggleRoutes() {
   if (routesVisible) hideRoutes(); else showRoutes();
@@ -1029,6 +1051,7 @@ function updateRoutes(geojsonData) {
 }
 function clearRoutes() {
   if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+  if (routeArrows) { map.removeLayer(routeArrows); routeArrows = null; }   // ROUTEARROWS-2026-10-19
   routesVisible = false;
 }
 

@@ -193,6 +193,15 @@ class ConvoyViewModel @Inject constructor(
     private var phoneLocationListener: TabletPosition.Listener? = null   // ONEFEED-2026-10-19: my cart listens to the ONE feed
     /** ONEFEED-2026-10-19 (Fred 10-19 12:05): this tablet has GPS -> Android, never the radio, gives my cart's position. */
     private val tabletHasGps: Boolean by lazy { TabletPosition.hasGps(appContext) }
+    /** GPSLAMP-2026-10-19 (Fred 10-19 13:50): the light ABOVE REC. Tablet with GPS: green when the chip uses 4+ satellites in its fix.
+     *  Tablet without GPS (my cart from the radio): green when my radio sent a fresh fix in the last 45 s. first = green, second = label. */
+    fun gpsLamp(): Pair<Boolean, String> = if (tabletHasGps) {
+        val n = TabletPosition.satsInFix()
+        Pair(n >= 4, if (n >= 4) "GPS LOCK " + n else "NO GPS LOCK")
+    } else {
+        val ok = System.currentTimeMillis() - myRadioFixMs < 45_000L
+        Pair(ok, if (ok) "RADIO GPS" else "NO RADIO GPS")
+    }
 
     /**
      * NOGPSMSG-2026-09-15: the two position states the ride panel reports to the rider.
