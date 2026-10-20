@@ -3146,13 +3146,14 @@ fun ConvoyScreen(
         // GPSPANEL-2026-09-29 (Fred): the GPS button's panel -- "Sent every XX seconds" (3-10), applied to the radio ONCE.
         // REPORTNOW-2026-10-13 (P5.2): from the comm side (was read from ChannelViewModel's radio config). 0 = not read yet, as before.
         val gpsNowSecs = viewModel.reportingNowSecs.collectAsStateWithLifecycle().value ?: 0
+        val gpsNowPreset = viewModel.reportingPreset.collectAsStateWithLifecycle().value   // PRESETPANEL-2026-10-20 (null = not read yet)
         val gpsStatus by viewModel.gpsApply.collectAsStateWithLifecycle()
         val gpsBusy by viewModel.gpsApplyBusy.collectAsStateWithLifecycle()
         var showGpsPanel by remember { mutableStateOf(false) }
         if (showGpsPanel) GpsIntervalDialog(
-            currentSecs = gpsNowSecs, channelUtil = avgChannelUtil, carts = convoyState.nodes.size,
+            currentSecs = gpsNowSecs, currentPreset = gpsNowPreset, channelUtil = avgChannelUtil, carts = convoyState.nodes.size,
             status = gpsStatus, busy = gpsBusy,
-            onApply = { secs -> viewModel.applyLocationInterval(secs) },
+            onApply = { secs, preset -> viewModel.applyLocationInterval(secs, preset) },   // PRESETPANEL-2026-10-20
             onDismiss = { showGpsPanel = false; viewModel.clearGpsApplyStatus() }
         )
         // HUDSCHEME-2026-09-29 (Fred): the HUD's colour scheme follows the map -- SAT (or a hybrid) is dark imagery.
@@ -3977,9 +3978,11 @@ fun GpsLocationRow(intervalSecs: Int, channelUtil: Float, onOpen: () -> Unit,
 }
 
 @Composable
-fun GpsIntervalDialog(currentSecs: Int, channelUtil: Float, carts: Int, status: String?, busy: Boolean,
-                      onApply: (Int) -> Unit, onDismiss: () -> Unit) {
+fun GpsIntervalDialog(currentSecs: Int, currentPreset: String?, channelUtil: Float, carts: Int, status: String?, busy: Boolean,
+                      onApply: (Int, String) -> Unit, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf(if (currentSecs in 3..10) currentSecs.toString() else "") }
+    // PRESETPANEL-2026-10-20: the preset choice. CODE RULE 1: null = nothing chosen yet (the radio's preset not read, or custom settings).
+    var preset by remember { mutableStateOf(currentPreset?.takeIf { p -> GpsPresets.choices.any { it.first == p } }) }
     // GPSTIMING-2026-09-30 (Fred): the second reconnect's timing -- 20 s / 4 s from the bench (Nathan's default too),
     // kept under a twistie so it can be raised on the trail if a cart ever fails to reappear. Defaults are in the code.
     var timingOpen by remember { mutableStateOf(false) }
@@ -3991,10 +3994,10 @@ fun GpsIntervalDialog(currentSecs: Int, channelUtil: Float, carts: Int, status: 
     val c = gpsChColor(channelUtil)
     androidx.compose.material3.AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Sent every " + (if (currentSecs > 0) "$currentSecs" else "--") + " seconds", fontWeight = FontWeight.Bold) },   // GPSMETER-LABEL-2026-09-29
+        title = { Text("Sent every " + (if (currentSecs > 0) "$currentSecs" else "--") + " seconds \u00b7 " + GpsPresets.label(currentPreset), fontWeight = FontWeight.Bold) },   // GPSMETER-LABEL-2026-09-29 / PRESETPANEL-2026-10-20
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Now: every " + (if (currentSecs > 0) "$currentSecs s" else "--") + " while moving")
+                Text("Now: every " + (if (currentSecs > 0) "$currentSecs s" else "--") + " while moving \u00b7 " + GpsPresets.label(currentPreset))   // PRESETPANEL-2026-10-20
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Channel use ")
                     Text("%.0f%%".format(channelUtil), color = c, fontWeight = FontWeight.Black)
@@ -4011,6 +4014,23 @@ fun GpsIntervalDialog(currentSecs: Int, channelUtil: Float, carts: Int, status: 
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                 )
                 if (text.isNotEmpty() && !valid) Text("Enter a number from 3 to 10.", color = Color(0xFFFF6B6B))
+                // PRESETPANEL-2026-10-20 (Fred 10-20): the channel preset -- Long Fast reaches further, each message is on air ~3-4x longer.
+                Text("Preset", fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GpsPresets.choices.forEach { (key, words) ->
+                        val on = preset == key
+                        Box(modifier = Modifier
+                                .background(if (on) Color(0xFF2E75B6) else Color(0xFF2A2F36), RoundedCornerShape(8.dp))
+                                .border(1.5.dp, if (on) Color.White else Color(0xFF666666), RoundedCornerShape(8.dp))
+                                .clickable(enabled = !busy) { preset = key }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)) {
+                            Text(words + (if (key == currentPreset) "  (now)" else ""), color = Color.White,
+                                fontWeight = if (on) FontWeight.Black else FontWeight.Normal)
+                        }
+                    }
+                }
+                Text("Every radio in the group must be on the same preset -- a radio on another preset hears nobody. " +
+                    "This changes YOUR radio only, until your next check-in. The radio restarts and is checked.", fontSize = 12.sp, color = Color(0xFFFFAA00))
                 // GPSTIMING-2026-09-30: the twistie -- collapsed, it shows the values in use.
                 Text((if (timingOpen) "\u25BE" else "\u25B8") + "  Reconnect timing  \u00b7  wait ${GpsReconnectTiming.waitSecs} s  \u00b7  gap ${GpsReconnectTiming.gapSecs} s",
                     fontSize = 12.sp, modifier = Modifier.fillMaxWidth().clickable { timingOpen = !timingOpen }.padding(vertical = 4.dp))
@@ -4041,8 +4061,8 @@ fun GpsIntervalDialog(currentSecs: Int, channelUtil: Float, carts: Int, status: 
             }
         },
         confirmButton = {
-            androidx.compose.material3.TextButton(onClick = { secs?.let(onApply) },
-                enabled = valid && !busy && !done && secs != currentSecs) { Text("APPLY") }
+            androidx.compose.material3.TextButton(onClick = { val p = preset; if (secs != null && p != null) onApply(secs, p) },   // PRESETPANEL-2026-10-20
+                enabled = valid && preset != null && !busy && !done && (secs != currentSecs || preset != currentPreset)) { Text("APPLY") }
         },
         dismissButton = {
             androidx.compose.material3.TextButton(onClick = onDismiss, enabled = !busy) { Text(if (done) "CLOSE" else "CANCEL") }
@@ -4053,6 +4073,13 @@ fun GpsIntervalDialog(currentSecs: Int, channelUtil: Float, carts: Int, status: 
 // GPSTIMING-2026-09-30 (Fred): the GPS apply's second reconnect -- the wait after the first reconnect is Connected,
 // and the gap between its disconnect and reconnect. Bench 09-30: 10 s failed, 15 s failed 1 of 2, 20 s worked 3 of 3
 // (Nathan's default too). The defaults live here; the GPS panel's twistie can raise them for the session.
+// PRESETPANEL-2026-10-20 (Fred 10-20): the presets the GPS panel offers, by Meshtastic name, and their words.
+object GpsPresets {
+    val choices = listOf("MEDIUM_FAST" to "Medium Fast", "LONG_FAST" to "Long Fast")
+    // CODE RULE 1: null = not read yet (or custom settings) -> "preset --"; a preset not offered here shows its own name.
+    fun label(p: String?): String = if (p == null) "preset --" else choices.firstOrNull { it.first == p }?.second ?: p
+}
+
 object GpsReconnectTiming {
     const val DEFAULT_WAIT_SECS = 20
     const val DEFAULT_GAP_SECS = 4

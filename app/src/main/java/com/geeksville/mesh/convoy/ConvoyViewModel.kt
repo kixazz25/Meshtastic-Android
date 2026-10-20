@@ -112,6 +112,8 @@ class ConvoyViewModel @Inject constructor(
     val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
     /** REPORTNOW-2026-10-13 (P5.2): the radio's reporting interval now, from the comm side. CODE RULE 1: null = not read yet. */
     val reportingNowSecs: StateFlow<Int?> by lazy { commMessaging.currentReportingSecs.stateIn(viewModelScope, SharingStarted.Eagerly, null) }
+    /** PRESETPANEL-2026-10-20: the radio's preset now, by name. CODE RULE 1: null = not read yet (or custom settings). */
+    val reportingPreset: StateFlow<String?> by lazy { commMessaging.currentPreset.stateIn(viewModelScope, SharingStarted.Eagerly, null) }
 
     // ── Lead lock state ──────────────────────────────────────────────────
     private var _leadLockedFlag: Boolean = false
@@ -696,39 +698,36 @@ class ConvoyViewModel @Inject constructor(
     val gpsApplyBusy: StateFlow<Boolean> = _gpsApplyBusy.asStateFlow()
     fun clearGpsApplyStatus() { if (!_gpsApplyBusy.value) _gpsApply.value = null }
 
-    fun applyLocationInterval(secs: Int) {   // SLEEPCOMM-2026-10-14: the unused UIViewModel parameter removed
+    fun applyLocationInterval(secs: Int, preset: String) {   // PRESETPANEL-2026-10-20 (Fred 10-20): + the preset, through the radio SETUP (one process)
         if (_gpsApplyBusy.value) return
         if (secs !in 3..10) { _gpsApply.value = "Enter a number from 3 to 10."; return }
+        if (GpsPresets.choices.none { it.first == preset }) { _gpsApply.value = "Choose Medium Fast or Long Fast."; return }
         if (link.value != com.grouptrack.comm.Link.CONNECTED) { _gpsApply.value = "Connect your radio first (GRP Awareness)."; return }
-        // COMMREPORT-2026-10-12 (P4.4): WHAT -- moving every `secs` s, the ride's stationary floor (the GroupTrack default's standalone
-        // positionBroadcastSecs, STATIONARY30), the field-tuned reconnect timing. The comm side does HOW and tells the steps;
-        // the words below are the ones this panel always showed. Runs on viewModelScope so closing the panel cannot cut it off.
-        val stationary = runCatching {
-            org.json.JSONObject(appContext.assets.open("grouptrack_default.json").bufferedReader().use { it.readText() })
-                .getJSONObject("network").getJSONObject("standalone").getInt("positionBroadcastSecs")
-        }.getOrNull() ?: run { _gpsApply.value = "The GroupTrack default settings could not be read -- nothing written."; return }
+        val pw = GpsPresets.label(preset)
         _gpsApplyBusy.value = true
+        _gpsApply.value = "Writing every $secs s on $pw to the radio..."
+        // Runs on viewModelScope so closing the panel cannot cut it off in the middle of the radio's restart.
         viewModelScope.launch {
+            // the setup's own progress lines while it runs (write, restart, wait for the radio, read every value back)
+            val progress = launch {
+                commConfig.applyReport.collect { r -> if (r != null && r.running) r.log.lastOrNull()?.let { _gpsApply.value = it } }
+            }
             try {
-                val request = com.grouptrack.comm.ReportingRequest(secs, null, stationary,
-                    com.grouptrack.comm.ReportingRequest.Method.BROADCAST_TO_RIDE_GROUP,
-                    settleWaitSecs = GpsReconnectTiming.waitSecs, reconnectGapSecs = GpsReconnectTiming.gapSecs)
-                val r = commMessaging.setReporting(request) { step ->
-                    _gpsApply.value = when (step) {
-                        com.grouptrack.comm.ReportingStep.WRITING -> "Writing every $secs s to the radio..."
-                        com.grouptrack.comm.ReportingStep.WRITTEN -> { _currentIntervalSecs.value = secs; "Written. Disconnecting in 3 s..." }
-                        com.grouptrack.comm.ReportingStep.RESTARTING -> "Radio restarting. Reconnecting in 20 s..."
-                        com.grouptrack.comm.ReportingStep.RECONNECTING_AGAIN -> "Reconnected. Reconnecting once more..."
-                        com.grouptrack.comm.ReportingStep.UNCHANGED -> "Already every $secs s with the ride's settings -- nothing to change."
-                        com.grouptrack.comm.ReportingStep.DONE -> "Done -- location sent every $secs s while moving."
+                val r = commConfig.applyRadioChange(preset, secs)
+                _gpsApply.value = when {
+                    r is com.grouptrack.comm.CommResult.Applied && r.verified -> {
+                        _currentIntervalSecs.value = secs
+                        "Done -- every $secs s while moving, on $pw. Checked on the radio."
                     }
-                }
-                if (r is com.grouptrack.comm.CommResult.Failed) _gpsApply.value = when (r.reason) {
-                    "NO_RADIO" -> "Connect your radio first (GRP Awareness)."
-                    "NO_DEFAULT" -> "The GroupTrack default settings could not be read -- nothing written."
-                    else -> "Could not apply: ${r.reason}"
+                    r is com.grouptrack.comm.CommResult.Applied -> "Written, but the check found a difference: " + r.failedChecks.joinToString(", ")
+                    r is com.grouptrack.comm.CommResult.Failed && r.reason == "NO_RADIO" -> "Connect your radio first (GRP Awareness)."
+                    r is com.grouptrack.comm.CommResult.Failed && r.reason == "STOPPED" ->
+                        commConfig.applyReport.value?.let { "Stopped at ${it.stoppedAt}: ${it.stopReason}" } ?: "Stopped -- the radio did not come back."
+                    r is com.grouptrack.comm.CommResult.Failed -> "Could not apply: ${r.reason}"
+                    else -> "Could not apply."
                 }
             } finally {
+                progress.cancel()
                 _gpsApplyBusy.value = false
             }
         }

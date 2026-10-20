@@ -94,6 +94,20 @@ class MeshCommConfig @Inject constructor(
         return run(v, request.title, request.saveTitle, request.rideId)
     }
 
+    // PRESETPANEL-2026-10-20 (Fred 10-20): the GPS panel's preset + interval, through the SETUP (no second writing path). Starts from the radio's
+    // CURRENT settings so nothing else can change (owner, ride channel, key, region...); the writer skips unchanged groups.
+    override suspend fun applyRadioChange(preset: String, movingIntervalSecs: Int): CommResult {
+        _report.value = null   // a new apply: the last one's report is not shown for it
+        val v = try {
+            val now = RadioConfigurator.fromProfile(current())
+            now.copy(preset = org.meshtastic.proto.Config.LoRaConfig.ModemPreset.valueOf(preset),
+                reporting = now.reporting.copy(smartMinIntervalSecs = movingIntervalSecs))
+        } catch (e: Exception) { android.util.Log.e("RadioConfig", "APPLYTRACE: GPS panel cannot use the radio's settings", e)
+            return CommResult.Failed(e.message ?: e.javaClass.simpleName) }
+        android.util.Log.i("RadioConfig", "PRESETPANEL-2026-10-20 GPS panel: preset $preset, moving every ${movingIntervalSecs}s")
+        return run(v, "GPS panel", "GPS panel -- $preset every ${movingIntervalSecs} s", null)
+    }
+
     override suspend fun applySaved(id: String, saveTitle: String): CommResult {
         _report.value = null   // a new apply: the last one's report is not shown for it
         val f = java.io.File(id)

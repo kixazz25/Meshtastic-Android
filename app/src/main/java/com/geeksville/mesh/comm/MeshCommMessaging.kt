@@ -146,6 +146,9 @@ class MeshCommMessaging @Inject constructor(
     // CODE RULE 1: the proto field is optional; 0 / missing = not read yet -> null.
     override val currentReportingSecs: Flow<Int?> = radioConfigRepository.localConfigFlow
         .map { cfg -> cfg.position?.broadcast_smart_minimum_interval_secs?.takeIf { it > 0 } }
+    // PRESETPANEL-2026-10-20: the preset the radio holds. CODE RULE 1: null = lora not read yet, or the radio uses custom (non-preset) settings.
+    override val currentPreset: Flow<String?> = radioConfigRepository.localConfigFlow
+        .map { cfg -> cfg.lora?.takeIf { it.use_preset }?.let { it.modem_preset.name } }
     /**
      * HEARDSHADOW-2026-10-13 (P5.1a) -- what the radio has heard, RAW: one Member per node in Meshtastic's node database. No filtering:
      * the admission window, stale fixes, removed carts, the previous-tick hold and speed are GroupTrack's display rules (Fred

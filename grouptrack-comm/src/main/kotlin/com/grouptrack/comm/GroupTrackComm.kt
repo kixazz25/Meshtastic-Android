@@ -228,6 +228,10 @@ interface CommConfig {
     /** CODE RULE 1: null = no apply since the app started. */
     val applyReport: StateFlow<ApplyReport?>
     suspend fun applyRide(request: ApplyRequest): CommResult
+    /** PRESETPANEL-2026-10-20 (additive): the radio's CURRENT settings with only the channel preset (by name, e.g. MEDIUM_FAST, LONG_FAST)
+     *  and the moving reporting interval replaced -- through the same apply as applyRide (plan, write, wait, verify, save),
+     *  reported on applyReport. Every radio in a group must share the preset. Default: not supported. */
+    suspend fun applyRadioChange(preset: String, movingIntervalSecs: Int): CommResult = CommResult.NotSupported
     suspend fun previewSaved(id: String): Pair<List<ConfigChange>, CommResult>
     suspend fun applySaved(id: String, saveTitle: String): CommResult
     suspend fun driftSinceLastSave(): List<ConfigChange>
@@ -285,6 +289,9 @@ interface CommMessaging {
     /** REPORTNOW-2026-10-13 (P5.2, additive): the moving reporting interval the radio holds NOW, in seconds (read only).
      *  CODE RULE 1: null = not read yet, or the transport cannot tell. Default: null. */
     val currentReportingSecs: Flow<Int?> get() = kotlinx.coroutines.flow.flowOf(null)
+    /** PRESETPANEL-2026-10-20 (additive): the channel preset the radio holds NOW, by name (read only).
+     *  CODE RULE 1: null = not read yet, or the transport has no preset. Default: null. */
+    val currentPreset: Flow<String?> get() = kotlinx.coroutines.flow.flowOf(null)
     /* COMMRECV-2026-10-08 (v0.3, additive; 2.7b step 2b): READ-WHAT-WAS-HEARD calls for GroupTrack's tick, which still runs
      * until cycle 3 replaces it with the events above. memberId = the member's id as the transport knows it (mesh: the
      * radio's node number as text). */
