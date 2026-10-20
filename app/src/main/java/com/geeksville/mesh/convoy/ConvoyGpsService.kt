@@ -274,13 +274,10 @@ class ConvoyGpsService : Service() {
      * Feeds radio node position into the track recorder.
      */
     fun onRadioPosition(lat: Double, lon: Double, alt: Double) {
-        Log.i("GPXFIELD", "GPXFIELD-2026-10-18 radio point " + lat + "," + lon + " state=" + state + " useRadioGps=" + useRadioGps + " -> " + (if (state == State.RECORDING && useRadioGps) "TAKEN" else "IGNORED"))
         if (state == State.RECORDING && useRadioGps) {
-            gpxSource = "radio"   // GPXFIELD-2026-10-18
             onGpsUpdate(lat, lon, alt)
         }
     }
-    private var gpxSource = "android"   // GPXFIELD-2026-10-18: which source sent the point now being written (log only)
 
     private fun startLocationUpdates() {
         try {
@@ -297,11 +294,9 @@ class ConvoyGpsService : Service() {
             // worse one is a Wi-Fi/cell guess) and at least 5 m from the last recorded point (a parked cart adds nothing to the GPX).
             val listener = TabletPosition.Listener { loc ->
                 if (state != State.RECORDING) return@Listener
-                if (loc.hasAccuracy() && loc.accuracy > 30f) { Log.i("GPXFIELD", "ONEFEED-2026-10-19 not recorded: accuracy " + loc.accuracy + " m > 30 m"); return@Listener }
+                if (loc.hasAccuracy() && loc.accuracy > 30f) return@Listener   // ONEFEED-2026-10-19: worse than 30 m = a Wi-Fi/cell guess, not recorded
                 if (recLat != 0.0 && haversineFeet(recLat, recLon, loc.latitude, loc.longitude) < 16.4) return@Listener   // under 5 m
                 recLat = loc.latitude; recLon = loc.longitude
-                Log.i("GPXFIELD", "GPXFIELD-2026-10-18 android fix " + loc.latitude + "," + loc.longitude + " acc=" + loc.accuracy + "m provider=" + loc.provider + " state=" + state)
-                gpxSource = "android"   // GPXFIELD-2026-10-18
                 onGpsUpdate(loc.latitude, loc.longitude, loc.altitude)
             }
             feedListener = listener
@@ -324,7 +319,7 @@ class ConvoyGpsService : Service() {
 
     private fun onGpsUpdate(lat: Double, lon: Double, alt: Double) {
         // ── Sleep detection: no movement for 25 min → trigger sleep ────   ZZZ25-2026-10-16
-        if (isSleeping) { Log.i("GPXFIELD", "GPXFIELD-2026-10-18 dropped (sleeping): " + lat + "," + lon); return }
+        if (isSleeping) return
         val distFeet = if (lastMoveLat != 0.0) haversineFeet(lastMoveLat, lastMoveLon, lat, lon) else 999.0
         if (distFeet > MOVE_THRESHOLD_FEET) {
             lastMovementMs = System.currentTimeMillis()
@@ -357,7 +352,6 @@ class ConvoyGpsService : Service() {
         if (written.isEmpty()) return
         val gpx = ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX"
         for (w in written) if (gpx) writeGpxPoint(w.lat, w.lon, w.alt, w.tMs) else writeKmlPoint(w.lat, w.lon, w.alt)
-        if (written.size > 1 || written[0].rule != "DIRECT") Log.i("GPXFIELD", "TRACKRULES-2026-10-19 wrote " + written.size + " point(s), rule " + written.last().rule)
         onTrackWritten?.invoke(written)
     }
 
@@ -431,7 +425,6 @@ class ConvoyGpsService : Service() {
     }
 
     private fun writeGpxPoint(lat: Double, lon: Double, alt: Double, tMs: Long) {   // TRACKRULES-2026-10-19: the point's own time (a road point's is interpolated)
-        Log.i("GPXFIELD", "GPXFIELD-2026-10-18 GPX write " + lat + "," + lon + " from " + gpxSource + " writer=" + (if (gpxWriter == null) "NONE" else "open"))
         try {
             val ts = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date(tMs))
             gpxWriter?.write("<trkpt lat=\"$lat\" lon=\"$lon\"><ele>$alt</ele><time>$ts</time></trkpt>\n")

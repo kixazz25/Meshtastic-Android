@@ -147,7 +147,6 @@ fun ConvoyScreen(
     val hudMode by viewModel.hudMode.collectAsStateWithLifecycle()
     val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
     val trackActive by viewModel.trackActive.collectAsStateWithLifecycle()
-    val trackLeadOnly by viewModel.trackLeadOnly.collectAsStateWithLifecycle()
     val offTrackIds by viewModel.offTrackIds.collectAsStateWithLifecycle()
     val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
     var recordingState by viewModel.recordingState
@@ -546,7 +545,6 @@ fun ConvoyScreen(
             }
         }
         val json = "[" + parts.joinToString(",") + "]"
-        android.util.Log.i("TRACKDELAY", "TRACKDELAY-2026-10-18 lead track drawn: " + parts.size + " segs at " + System.currentTimeMillis())
         wv.evaluateJavascript("drawTrack(" + json + ")", null)
     }
     // MYTRACK-2026-10-18 (LEADTRACKBOARD-2026-10-18): my track drawn live behind my cart while REC is on -- the recorder's own points (gpsTrailSegments:
@@ -569,7 +567,6 @@ fun ConvoyScreen(
         for (i in from until total) pts.add("[" + myTrackSegs[i].endLat + "," + myTrackSegs[i].endLon + "]")
         val js = "(function(){ if (typeof myTrackAdd !== 'function') return false; " + (if (from == 0) "myTrackClear(); " else "") +
             "myTrackAdd([" + pts.joinToString(",") + "]); return true; })()"
-        android.util.Log.i("TRACKDELAY", "TRACKDELAY-2026-10-18 my track drawn: segs " + from + ".." + total + " at " + System.currentTimeMillis())
         wv.evaluateJavascript(js) { r -> if (r == "true") myTrackSent[0] = total }
     }
 
@@ -3177,10 +3174,8 @@ fun ConvoyScreen(
                     onModeChange = { viewModel.setHudMode(it) },
                     onNavigateToSettings = onNavigateToSettings,
                     trackActive = trackActive,
-                    trackLeadOnly = trackLeadOnly,
                     onStartTrack = { viewModel.startGroupTrack() },
                     onStopTrack = { viewModel.stopGroupTrack() },
-                    onToggleLeadOnly = { viewModel.toggleLeadOnly() },
                         avgChannelUtil = avgChannelUtil,
                         currentIntervalSecs = currentIntervalSecs,
                 )
@@ -3230,10 +3225,8 @@ fun GroupHud(
     onModeChange: (HudMode) -> Unit,
     onNavigateToSettings: () -> Unit = {},
     trackActive: Boolean = false,
-    trackLeadOnly: Boolean = true,
     onStartTrack: () -> Unit = {},
     onStopTrack: () -> Unit = {},
-    onToggleLeadOnly: () -> Unit = {},
     avgChannelUtil: Float = 0f,
     currentIntervalSecs: Int = 5,
     onIntervalChange: (Int) -> Unit = {}

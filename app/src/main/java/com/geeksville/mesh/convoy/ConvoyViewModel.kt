@@ -39,7 +39,7 @@ enum class RideState {
 }
 
 @HiltViewModel
-// TICKREMOVE-2026-10-20 (T5.5): the 5-second tick is gone -- every display duty runs on the message that brings it (the board).
+// T6A-2026-10-20: T6a clean-up (diagnostic logs, lead-only plumbing, TICK_MS) done. TICKREMOVE-2026-10-20 (T5.5): the 5-second tick is gone -- every display duty runs on the message that brings it (the board).
 class ConvoyViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val settingsRepository: ConvoySettingsRepository,
@@ -157,8 +157,6 @@ class ConvoyViewModel @Inject constructor(
     private val _leadLocked = MutableStateFlow(false)
     val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
 
-    private val _trackLeadOnly = MutableStateFlow(true)
-    val trackLeadOnly: StateFlow<Boolean> = _trackLeadOnly.asStateFlow()
 
     private val _isOfflineMode = MutableStateFlow(false)
     val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
@@ -415,9 +413,6 @@ class ConvoyViewModel @Inject constructor(
         lastMovementMs = System.currentTimeMillis()
     }
 
-    fun toggleLeadOnly() {
-        _trackLeadOnly.value = !_trackLeadOnly.value
-    }
 
     // CHECKIN-2026-09-27 (Fred): the recording sequence starts at CHECK_IN -- you cannot record until you have checked in.
     var recordingState = androidx.compose.runtime.mutableStateOf(com.geeksville.mesh.convoy.RecordingState.CHECK_IN)
@@ -777,7 +772,6 @@ class ConvoyViewModel @Inject constructor(
                         lastGpsLat = w.lat; lastGpsLon = w.lon
                     }
                     if (add.isNotEmpty()) _gpsTrailSegments.value = _gpsTrailSegments.value + add
-                    android.util.Log.i("TRACKDELAY", "TRACKDELAY-2026-10-18 recorder wrote " + written.size + " -> my track: seg " + _gpsTrailSegments.value.size + " at " + System.currentTimeMillis())
                 }
                 svc.onLocationUpdate = { lat, lon, _ ->
                     _distanceMiles.value = svc.totalDistanceMiles
@@ -1006,7 +1000,6 @@ class ConvoyViewModel @Inject constructor(
     }
 
 
-    // ── Tick loop ─────────────────────────────────────────────────────────
 
 
 
@@ -1035,8 +1028,6 @@ class ConvoyViewModel @Inject constructor(
         } catch (e: SecurityException) { null }
     }
 
-    // LINKFIX-2026-10-03 (Fred): in Android-only mode the other carts stay where the tick array last had them (only if they
-    // were in it) and move again when the radio comes back. Nothing is invented or stored.
 
 
     /** TRACKRULES-2026-10-19: the receiving queue's consumer -- the LEAD CART routine (TrackRules.kt) and off-track. One coroutine: no locking.
@@ -1055,7 +1046,6 @@ class ConvoyViewModel @Inject constructor(
                     val cur = _offTrackIds.value
                     if (off != (e.cartId in cur)) _offTrackIds.value = if (off) cur + e.cartId else cur - e.cartId
                 }
-                if (e.isLead && !e.isMine) android.util.Log.i("TRACKDELAY", "TRACKDELAY-2026-10-18 lead published: msgT=" + e.msgMs + " rx=" + e.rxMs + " +" + (System.currentTimeMillis() - e.rxMs) + " ms after receipt")
             }
         }
     }
@@ -1099,7 +1089,6 @@ class ConvoyViewModel @Inject constructor(
         if (num == myNum && rp != null && msg.timeMs != radioTrackLastFixMs && gpsService?.useRadioGps == true && _routeRecording.value) {
             radioTrackLastFixMs = msg.timeMs
             gpsService?.onRadioPosition(rp.latitude, rp.longitude, rp.haeM ?: 0.0)   // CODE RULE 1: haeM null = no altitude sent -> 0
-            android.util.Log.i("TRACKDELAY", "TRACKDELAY-2026-10-18 radio fix -> recorder: msgT=" + msg.timeMs + " rx=" + now + " (radio time -> received " + (now - msg.timeMs) + " ms)")
         }
         boardRecompute(now)
     }

@@ -70,7 +70,6 @@ object ConvoyConfig {
     const val BLINK_DROP_MS = 150L
     const val MARKER_SIZE_LARGE_DP = 24
     const val MARKER_SIZE_MEDIUM_DP = 16
-    const val TICK_MS = 5000L
     var SIGNAL_DROP_MINUTES = 2f
     var LOST_MINUTES = 10f
     var OFF_TRACK_MILES = 0.028f  // 150 feet

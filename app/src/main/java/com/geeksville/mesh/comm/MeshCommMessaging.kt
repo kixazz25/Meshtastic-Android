@@ -125,7 +125,6 @@ class MeshCommMessaging @Inject constructor(
     private fun watchReportSecs() {
         if (reportSecsJob == null) reportSecsJob = eventScope.launch { currentReportingSecs.collect { reportSecsCache = it } }
     }
-    private val cotLogged = HashMap<Int, Long>()   // COTMSG-2026-10-15: last COTMSG log per radio (once a minute)
     override val events: Flow<CommEvent> = kotlinx.coroutines.flow.flow {
         val lastHeard = HashMap<Int, Int>()
         watchReportSecs()   // COTMSG-2026-10-15
@@ -138,7 +137,7 @@ class MeshCommMessaging @Inject constructor(
                     emit(CommEvent.MemberHeard(memberOf(n)))
                     // COTMSG-2026-10-15 (T5.4a-1): the same received report as a CoT message -- nobody listens yet (T5.4a-2 switches the board)
                     val msg = messageOf(n, reportSecsCache ?: 6)
-                    if (msg != null) { emit(CommEvent.Received(msg, setOf(com.grouptrack.comm.Transport.LORA))); cotLog(num, msg, n) }
+                    if (msg != null) emit(CommEvent.Received(msg, setOf(com.grouptrack.comm.Transport.LORA)))
                 }
             }
         }
@@ -206,16 +205,6 @@ class MeshCommMessaging @Inject constructor(
         )
     }
 
-    /** COTMSG-2026-10-15: once a minute per radio -- the CoT values and whether the radio SENT altitude_hae / ground_speed (Plan v3 open point). */
-    private fun cotLog(num: Int, msg: CommMessage, node: org.meshtastic.core.model.Node) {
-        val now = System.currentTimeMillis()
-        if (now - (cotLogged[num] ?: 0L) < 60_000L) return
-        cotLogged[num] = now
-        android.util.Log.i("COTMSG", "COTMSG-2026-10-15 " + msg.uid + " " + msg.callsign + " role=" + msg.role +
-            " hae=" + msg.point?.haeM + " (altitude_hae " + (if (node.position.altitude_hae != null) "sent" else "NOT sent") + ")" +
-            " speed=" + msg.track?.speedMps + " (ground_speed " + (if (node.position.ground_speed != null) "sent" else "NOT sent") + ")" +
-            " course=" + msg.track?.courseDeg + " stale+" + ((msg.staleAtMs - node.lastHeard.toLong() * 1000L) / 1000L) + "s battery=" + msg.batteryPct)
-    }
 
     // COMMRECV-2026-10-08 (step 2b): what Meshtastic's receive path recorded (MeshDataHandlerImpl -> TakRoleStore /
     // TakSeenStore, unchanged), read through the translator's role table. memberId = node number as text.
