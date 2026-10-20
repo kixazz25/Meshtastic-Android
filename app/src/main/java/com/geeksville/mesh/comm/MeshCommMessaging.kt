@@ -4,6 +4,7 @@ import com.grouptrack.comm.CommEvent
 import com.grouptrack.comm.CommMessage
 import com.grouptrack.comm.CommMessaging
 import com.grouptrack.comm.CommResult
+import com.grouptrack.comm.GapPolyline   // POLYTESTIMPORT-2026-10-20
 import com.grouptrack.comm.Member
 import com.grouptrack.comm.ReportingRequest
 import com.grouptrack.comm.ReportingStep   // COMMREPORT-2026-10-12
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch   // COTMSG-2026-10-15
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first   // COMMREPORT-2026-10-12
 import kotlinx.coroutines.flow.map   // REPORTNOW-2026-10-13
+import kotlinx.coroutines.flow.mapNotNull   // POLYLINE-2026-10-20
 import javax.inject.Inject
 
 /**
@@ -44,6 +46,39 @@ class MeshCommMessaging @Inject constructor(
     }
 
     override suspend fun deliverText(text: String): CommResult = CommResult.NotSupported      // step 2b
+    /** POLYTEST-2026-10-20: the gap polyline as a STANDARD TAK message -- CoT u-d-f (user-drawn polyline) in a TAK V2 packet: anchor = the first
+     *  point (latitude_i / longitude_i), every point a 1e-7 degree delta from it (DrawnShape packed columns, max 32), uncompressed
+     *  (flag 0xFF), port 78, no ack. Step in remarks ("GT gap step=.."; t0 = the uid). CommResult.Failed("TOO_BIG") over 230 bytes. */
+    override suspend fun deliverPolyline(p: GapPolyline): CommResult = try {
+        val n = minOf(p.lats.size, p.lons.size, 32)
+        if (n < 2) CommResult.Failed("TOO_FEW_POINTS") else {
+            val aLat = Math.round(p.lats[0] * 1e7).toInt(); val aLon = Math.round(p.lons[0] * 1e7).toInt()
+            val tak = org.meshtastic.proto.TAKPacketV2(
+                cot_type_id = org.meshtastic.proto.CotType.CotType_u_d_f,
+                callsign = p.callsign, uid = "GT-gap-" + p.senderUid + "-" + p.t0Ms / 1000,
+                latitude_i = aLat, longitude_i = aLon, stale_seconds = 600,
+                remarks = "GT gap step=" + p.stepMs,
+                shape = org.meshtastic.proto.DrawnShape(
+                    kind = org.meshtastic.proto.DrawnShape.Kind.Kind_Freeform,
+                    vertex_lat_deltas = (0 until n).map { (Math.round(p.lats[it] * 1e7) - aLat).toInt() },
+                    vertex_lon_deltas = (0 until n).map { (Math.round(p.lons[it] * 1e7) - aLon).toInt() },
+                    truncated = p.lats.size > 32),
+            )
+            val body = org.meshtastic.proto.TAKPacketV2.ADAPTER.encode(tak)
+            val wire = ByteArray(body.size + 1); wire[0] = 0xFF.toByte(); body.copyInto(wire, 1)
+            android.util.Log.i("POLYLINE", "POLYTEST-2026-10-20 send u-d-f " + n + " points, " + wire.size + " bytes, uid " + tak.uid)
+            if (wire.size > 230) CommResult.Failed("TOO_BIG " + wire.size + " bytes") else {
+                radioController.sendMessage(org.meshtastic.core.model.DataPacket(bytes = okio.ByteString.of(*wire),
+                    dataType = org.meshtastic.proto.PortNum.ATAK_PLUGIN_V2.value, wantAck = false))
+                CommResult.Ok
+            }
+        }
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        android.util.Log.w("POLYLINE", "POLYTEST-2026-10-20 send failed: " + e.message)
+        CommResult.Failed(e.message ?: e.javaClass.simpleName)
+    }
     override suspend fun setReporting(request: ReportingRequest): CommResult = setReporting(request) {}
 
     /**
@@ -125,7 +160,7 @@ class MeshCommMessaging @Inject constructor(
     private fun watchReportSecs() {
         if (reportSecsJob == null) reportSecsJob = eventScope.launch { currentReportingSecs.collect { reportSecsCache = it } }
     }
-    override val events: Flow<CommEvent> = kotlinx.coroutines.flow.flow {
+    private val heardEvents: Flow<CommEvent> = kotlinx.coroutines.flow.flow {   // POLYLINE-2026-10-20: was events (now merged below)
         val lastHeard = HashMap<Int, Int>()
         watchReportSecs()   // COTMSG-2026-10-15
         nodeRepository.nodeDBbyNum.collect { db ->
@@ -143,7 +178,23 @@ class MeshCommMessaging @Inject constructor(
                 }
             }
         }
-    }.shareIn(eventScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(), 0)
+    }
+    // POLYLINE-2026-10-20 (Fred 10-20 14:27): the comm layer turns a received TAK drawn shape into GroupTrack's event -- a CoT u-d-f with uid
+    // "GT-gap-<radio>-<t0 s>" and remarks "GT gap step=<ms>" is a GAP POLYLINE. Anything else is not ours (ignored).
+    private val polylineEvents: Flow<CommEvent> = org.meshtastic.core.data.manager.TakShapeInbox.shapes.mapNotNull { s ->
+        polylineOf(s)?.let { CommEvent.PolylineReceived(it, setOf(com.grouptrack.comm.Transport.LORA)) }
+    }
+    private fun polylineOf(s: org.meshtastic.core.data.manager.TakShapeInbox.Shape): GapPolyline? {
+        if (s.cotType != "CotType_u_d_f" || !s.uid.startsWith("GT-gap-")) return null
+        val t0s = s.uid.substringAfterLast('-').toLongOrNull() ?: return null
+        val step = Regex("step=(\\d+)").find(s.remarks)?.groupValues?.get(1)?.toLongOrNull() ?: return null
+        val n = minOf(s.lats.size, s.lons.size)
+        if (n < 2) return null
+        android.util.Log.i("POLYLINE", "POLYLINE-2026-10-20 comm: gap polyline from " + s.from + " uid " + s.uid + " " + n + " points, step " + step + " ms")
+        return GapPolyline(s.from.toString(), s.callsign, t0s * 1000L, step, s.lats.take(n), s.lons.take(n))
+    }
+    override val events: Flow<CommEvent> = kotlinx.coroutines.flow.merge(heardEvents, polylineEvents)
+        .shareIn(eventScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(), 0)
     // REPORTNOW-2026-10-13 (P5.2): the value ChannelViewModel showed (position.broadcast_smart_minimum_interval_secs). Passive -- no radio call.
     // CODE RULE 1: the proto field is optional; 0 / missing = not read yet -> null.
     override val currentReportingSecs: Flow<Int?> = radioConfigRepository.localConfigFlow

@@ -286,6 +286,15 @@
       lastHeardMarker.bindTooltip('last heard', {permanent: true, direction: 'bottom', offset: [0, 6]});
     }
     function clearLastHeard() { if (lastHeardMarker) { map.removeLayer(lastHeardMarker); lastHeardMarker = null; } }
+    // POLYLINE-2026-10-20: the lead's gap-polyline points that fit no line -- dots, never joined
+    var leadDotLayer = null;
+    function setLeadDots(arr) {
+      if (leadDotLayer) { map.removeLayer(leadDotLayer); leadDotLayer = null; }
+      if (!arr || !arr.length) return;
+      leadDotLayer = L.layerGroup(arr.map(function(p) {
+        return L.circleMarker(p, {radius: 5, color: '#000000', weight: 2, fillColor: '#FF8C00', fillOpacity: 1, interactive: false});
+      })).addTo(map);
+    }
     function initDeviceLocation() {
       if (!navigator.geolocation) return;
       navigator.geolocation.getCurrentPosition(function(pos) {

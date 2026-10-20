@@ -179,8 +179,9 @@ object RadioConfigurator {
         note("hop limit", lora.hop_limit, t.hopLimit); note("tx power", lora.tx_power, if (t.txPower == 0 && lora.tx_power > 0) lora.tx_power else t.txPower /* TXMAX-2026-09-26 */)
         note("tx enabled", lora.tx_enabled, t.reporting.txEnabled)
 
-        val newDevice = device.copy(role = t.role)
+        val newDevice = device.copy(role = t.role, rebroadcast_mode = Config.DeviceConfig.RebroadcastMode.ALL)   // POLYLINE-2026-10-20: relays every packet (TAK included)
         note("role", device.role, t.role)
+        note("rebroadcast mode", device.rebroadcast_mode, Config.DeviceConfig.RebroadcastMode.ALL)   // POLYLINE-2026-10-20
 
         val r = t.reporting
         val curPrecision = primary.module_settings?.position_precision ?: 0
@@ -248,6 +249,7 @@ object RadioConfigurator {
             c("use preset", true, lora?.use_preset), c("frequency slot", t.frequencySlot, lora?.channel_num),
             c("hop limit", t.hopLimit, lora?.hop_limit), c("tx power", if (t.txPower == 0 && (lora?.tx_power ?: 0) > 0) (lora?.tx_power ?: 0) else t.txPower /* TXMAX-2026-09-26 */, lora?.tx_power),
             c("tx enabled", r.txEnabled, lora?.tx_enabled), c("role", t.role, device?.role),
+            c("rebroadcast mode", Config.DeviceConfig.RebroadcastMode.ALL, device?.rebroadcast_mode),   // POLYLINE-2026-10-20
             c("channel name", t.channelName, primary?.name),
             c("channel key", t.key.sha256().hex().take(12), primary?.psk?.sha256()?.hex()?.take(12)),
             c("broadcast interval", r.broadcastSecs, pos?.position_broadcast_secs),

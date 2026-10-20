@@ -143,7 +143,17 @@ class ConvoyViewModel @Inject constructor(
     private sealed class TrackEntry {
         data class Real(val cartId: String, val p: TrackPoint, val rxMs: Long, val msgMs: Long, val isLead: Boolean, val isMine: Boolean) : TrackEntry()
         object Reset : TrackEntry()
+        data class Poly(val cartId: String, val poly: List<Pair<TrackPoint, Long>>, val key: String) : TrackEntry()   // POLYLINE-2026-10-20
     }
+    // POLYLINE-2026-10-20 THE LEAD'S SIDE: its own radio fixes (last 30 min) and when it last heard ANOTHER cart; the repeat still owed.
+    private val polyOwnFixes = java.util.ArrayDeque<Triple<Long, Double, Double>>()
+    @Volatile private var polyLastHeardMs = 0L
+    private var polyRepeat: com.grouptrack.comm.GapPolyline? = null   // CODE RULE 1: null = no repeat owed
+    private var polyRepeatAfterMs = 0L
+    private var trimLogMs = 0L   // TRIM-2026-10-20: the trim's log line at most every 30 s
+    private val polyApplied = java.util.Collections.synchronizedSet(HashSet<String>())   // receiver: polylines already applied (the repeat)
+    private val _leadDots = MutableStateFlow<List<TrackPoint>>(emptyList())   // receiver: gap-polyline points that fit no line
+    val leadDots: StateFlow<List<TrackPoint>> = _leadDots.asStateFlow()
     private val trackQueue = kotlinx.coroutines.channels.Channel<TrackEntry>(kotlinx.coroutines.channels.Channel.UNLIMITED)
     // LEADEST-2026-10-20: the silent lead's estimated position (LeadEstimate.kt) -- the screen draws it; Ride statistics keep its error
     private val leadEst = LeadEstimate()
@@ -549,6 +559,7 @@ class ConvoyViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Default) {
             for (e in trackQueue) try { trackConsume(e) } catch (ex: Exception) { android.util.Log.w("LEADTRACK", "LEADTRACKBOARD-2026-10-18: entry failed: " + ex.message) }
         }
+        // POLYLINE-2026-10-20: the POLYTEST pop-up listener is gone -- a gap polyline now arrives as a comm event (onGapPolylineReceived)
         // LEADEST-2026-10-20: every second -- the silent lead's estimate (only while group awareness is on)
         viewModelScope.launch(Dispatchers.Default) {
             while (true) {
@@ -566,6 +577,7 @@ class ConvoyViewModel @Inject constructor(
         viewModelScope.launch {
             // COTBOARD-2026-10-15 (T5.4a-2): the board reads the CoT message (Received); MemberHeard no longer feeds it
             commMessaging.events.collect { e ->
+                if (e is com.grouptrack.comm.CommEvent.PolylineReceived) { onGapPolylineReceived(e.polyline); return@collect }   // POLYLINE-2026-10-20
                 if (e is com.grouptrack.comm.CommEvent.Received) onBoardMessage(e.message)
                 else if (e is com.grouptrack.comm.CommEvent.MemberHeard) {
                     // TICKSMALL-2026-10-15: channel use (not CoT -- link quality) -> the average over the board's carts, as the tick did
@@ -727,6 +739,25 @@ class ConvoyViewModel @Inject constructor(
     val gpsApplyBusy: StateFlow<Boolean> = _gpsApplyBusy.asStateFlow()
     fun clearGpsApplyStatus() { if (!_gpsApplyBusy.value) _gpsApply.value = null }
     // STATSPANEL-2026-10-20: Settings -> Group awareness -> Ride statistics
+    /** POLYTEST-2026-10-20 (Fred 14:13): ONE fixed polyline to prove TAK V2 delivery -- 20 points on a ~400 m square around my radio, 30 s apart,
+     *  starting 10 min ago. The receiver logs it whole (TAKDUMP V2). Returns what happened, for the Settings line. */
+    fun sendTestPolyline(done: (String) -> Unit) {
+        // the REAL Long Fast gap 1 (Droid 1 11:12:46-11:20:26, 460 s) -- gt_gap_polyline_model_2026-10-20.py, the test target
+        val lats = listOf(42.7954083, 42.7923040, 42.7897953, 42.7875197, 42.7857813, 42.7842233, 42.7843220, 42.7862126, 42.7886974, 42.7907664,
+            42.7927863, 42.7936231, 42.7968046, 42.8000065, 42.8012579, 42.8039844, 42.8055270, 42.8060717, 42.8071402, 42.8086935)
+        val lons = listOf(-71.2772086, -71.2792966, -71.2827386, -71.2865197, -71.2906323, -71.2948318, -71.2986707, -71.2987069, -71.2984514, -71.3012102,
+            -71.3041991, -71.3047036, -71.3039747, -71.3036906, -71.3035923, -71.3002903, -71.2957910, -71.2908897, -71.2864581, -71.2814826)
+        val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
+        val p = com.grouptrack.comm.GapPolyline((myRadioNum() ?: 0).toString(), cs, System.currentTimeMillis() - 460_000L, 24_234L, lats, lons)
+        viewModelScope.launch {
+            val r = commMessaging.deliverPolyline(p)
+            done(when (r) {
+                is com.grouptrack.comm.CommResult.Ok -> "Sent: 20 points as a TAK u-d-f polyline at " + java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date()) + ". Watch the other tablet for the pop-up."
+                is com.grouptrack.comm.CommResult.Failed -> "Not sent: " + r.reason
+                else -> "Not sent: " + r
+            })
+        }
+    }
     fun rideStatsReport(): String = RideStats.report(System.currentTimeMillis(), reportingPreset.value, reportingNowSecs.value, _avgChannelUtil.value)
     fun resetRideStats() = RideStats.reset()
 
@@ -1066,6 +1097,12 @@ class ConvoyViewModel @Inject constructor(
     private fun trackConsume(e: TrackEntry) {
         when (e) {
             is TrackEntry.Reset -> { leadCart.reset(); _offTrackIds.value = emptySet(); trackPublish(); leadEst.reset(); _leadEstimate.value = null }   // LEADEST-2026-10-20
+            is TrackEntry.Poly -> {   // POLYLINE-2026-10-20: the lead's gap polyline -> the lead track is pinned to it
+                val ok = leadCart.onGapPolyline(e.cartId, e.poly)
+                android.util.Log.i("POLYLINE", "POLYLINE-2026-10-20 lead " + e.cartId + " polyline " + e.key + " (" + e.poly.size + " points): " +
+                    (if (ok) "lead track pinned, " + leadCart.dots().size + " dot(s)" else "NOT applied -- not this lead's track, or no track yet"))
+                if (ok) trackPublish()
+            }
             is TrackEntry.Real -> {
                 // 3 RECORDER: the ride detail JSON is written HERE (RIDEDETAIL, after the tick) -- the real report only, never my tablet's own GPS.
                 if (e.isLead && !e.isMine) {
@@ -1076,7 +1113,13 @@ class ConvoyViewModel @Inject constructor(
                         if (GroupMode.on.value) RideStats.onEstimate(o)
                     }
                     _leadEstimate.value = null
-                } else if (!e.isMine) {
+                } else if (e.isMine) {
+                    // TRIM-2026-10-20 (Fred 10-20 14:49-14:56): my cart replaces the lead track behind me -- the shown lead track is cut by time
+                    if (leadCart.trimTo(e.p)) {
+                        trackPublish()
+                        if (e.rxMs - trimLogMs >= 30_000L) { trimLogMs = e.rxMs; android.util.Log.i("LEADTRACK", "TRIM-2026-10-20 lead track shown from " + leadCart.trimmedAtMs() + " (UTC ms), " + leadCart.segments().size + " segs") }
+                    }
+                } else {
                     // off-track: THAT cart against the lead track, when its own report arrives (Settings -> OFF_TRACK_MILES)
                     val d = leadCart.metresFromTrack(e.p)
                     val off = d != null && d > ConvoyConfig.OFF_TRACK_MILES.toDouble() * 1609.344
@@ -1091,6 +1134,84 @@ class ConvoyViewModel @Inject constructor(
         val segs = leadCart.segments()
         _routeTrailSegments.value = segs
         _leadTrackSegments.value = segs
+        _leadDots.value = leadCart.dots()   // POLYLINE-2026-10-20
+    }
+
+    /** POLYLINE-2026-10-20 (Fred 10-20 13:46-14:45) THE LEAD'S SIDE. Dead air = the time the lead hears NO other cart (one cart heard = the hops
+     *  relay to the rest). After at least 60 s of it, the first report heard from another cart sends ONE gap polyline: 20 points at EQUAL
+     *  TIME steps across [last heard .. heard again], from the lead's own radio fixes; one repeat at the next report heard >= 10 s later.
+     *  Not the lead: nothing sent. A stored report replayed at connect is not "heard". */
+    private fun polyOnMessage(num: Int, myNum: Int?, msg: com.grouptrack.comm.CommMessage, now: Long) {
+        if (myNum == null || msg.timeMs < now - 60_000L) return
+        if (num == myNum) {
+            val p = msg.point ?: return
+            polyOwnFixes.addLast(Triple(now, p.latitude, p.longitude))
+            while ((polyOwnFixes.peekFirst()?.first ?: now) < now - 1_800_000L) polyOwnFixes.pollFirst()
+            return
+        }
+        val last = polyLastHeardMs
+        polyLastHeardMs = now
+        val iLead = (checkIn.value?.role ?: "") == "leader" || "!%08x".format(myNum) == lockedLeadNodeId
+        if (!iLead) { polyRepeat = null; return }
+        if (last > 0L && now - last >= POLY_DEAD_AIR_MS) {
+            val p = polyBuild(myNum, last, now) ?: return
+            polyRepeat = p; polyRepeatAfterMs = now + 10_000L
+            polySend(p, "sent")
+        } else {
+            val r = polyRepeat
+            if (r != null && now >= polyRepeatAfterMs) { polyRepeat = null; polySend(r, "repeat") }
+        }
+    }
+    private val POLY_DEAD_AIR_MS = 60_000L   // POLYLINE-2026-10-20 (Fred 14:45 "60 seconds is a good even number"): a real loss
+    /** POLYLINE-2026-10-20: 20 equal-time points across [t0, t1] from my own radio fixes (linear between fixes). CODE RULE 1: null = fewer than 2
+     *  of my own fixes inside the window (my radio was not reporting) -- nothing honest to send. */
+    private fun polyBuild(myNum: Int, t0: Long, t1: Long): com.grouptrack.comm.GapPolyline? {
+        val fx = polyOwnFixes.toList()
+        val inside = fx.count { it.first in t0..t1 }
+        if (inside < 2) {
+            android.util.Log.w("POLYLINE", "POLYLINE-2026-10-20 lead: dead air " + (t1 - t0) / 1000 + " s but only " + inside + " own fix(es) in it -- nothing sent")
+            return null
+        }
+        val step = (t1 - t0) / 19
+        fun at(t: Long): Pair<Double, Double> {
+            if (t <= fx.first().first) return Pair(fx.first().second, fx.first().third)
+            if (t >= fx.last().first) return Pair(fx.last().second, fx.last().third)
+            val i = fx.indexOfFirst { it.first >= t }
+            val a = fx[i - 1]; val b = fx[i]
+            val f = if (b.first == a.first) 0.0 else (t - a.first).toDouble() / (b.first - a.first)
+            return Pair(a.second + (b.second - a.second) * f, a.third + (b.third - a.third) * f)
+        }
+        val pts = (0 until 20).map { at(t0 + it * step) }
+        val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
+        return com.grouptrack.comm.GapPolyline(myNum.toString(), cs, t0, step, pts.map { it.first }, pts.map { it.second })
+    }
+    private fun polySend(p: com.grouptrack.comm.GapPolyline, what: String) {
+        val secs = p.stepMs * 19 / 1000
+        viewModelScope.launch {
+            val r = commMessaging.deliverPolyline(p)
+            android.util.Log.i("POLYLINE", "POLYLINE-2026-10-20 lead " + what + ": dead air " + secs + " s, " + p.lats.size + " points -> " + r)
+            if (what == "sent" && r is com.grouptrack.comm.CommResult.Ok)
+                android.widget.Toast.makeText(appContext, "Gap polyline sent: " + (secs / 60) + ":" + "%02d".format(secs % 60) + " of dead air", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+    /** POLYLINE-2026-10-20 THE RECEIVER: another cart's gap polyline. Shown as a pop-up (the field test); when it is the LEAD's and REC is on, the
+     *  lead track is pinned to it (TrackRules pin). The repeat is recognised (same sender + start) and not applied twice. */
+    private fun onGapPolylineReceived(p: com.grouptrack.comm.GapPolyline) {
+        val num = p.senderUid.toIntOrNull() ?: return
+        if (num == myRadioNum()) return
+        val id = "!%08x".format(num)
+        val key = p.senderUid + "-" + p.t0Ms / 1000
+        val first = polyApplied.add(key)
+        val n = minOf(p.lats.size, p.lons.size)
+        val secs = p.stepMs * (n - 1) / 1000
+        val isLead = id == lockedLeadNodeId
+        android.util.Log.i("POLYLINE", "POLYLINE-2026-10-20 received from " + id + " (" + p.callsign + "): " + n + " points over " + secs + " s" +
+            (if (first) "" else " -- the repeat, already have it") + " lead=" + isLead + " rec=" + _trackActive.value + " group=" + GroupMode.on.value +
+            " | lead's last point " + (System.currentTimeMillis() - (p.t0Ms + (n - 1) * p.stepMs)) + " ms before my clock (UTC ms: delivery + clock difference) " + "TRIM-2026-10-20")
+        if (!first) return
+        android.widget.Toast.makeText(appContext, "Gap polyline from " + p.callsign.ifBlank { id } + ": " + n + " points, " + (secs / 60) + ":" + "%02d".format(secs % 60), android.widget.Toast.LENGTH_LONG).show()
+        if (!GroupMode.on.value || !_trackActive.value || !isLead || n < 2) return
+        trackQueue.trySend(TrackEntry.Poly(id, (0 until n).map { Pair(TrackPoint(p.lats[it], p.lons[it]), p.t0Ms + it * p.stepMs) }, key))
     }
 
     /** COTBOARD-2026-10-15 (T5.4a-2): a CoT message was received -- the board's input (the twin of onBoardHeard, which T5.5 removes). */
@@ -1108,6 +1229,7 @@ class ConvoyViewModel @Inject constructor(
             if (rp != null && msg.timeMs > nowMine - 60_000L) { myRadioFixMs = nowMine; myRadioLat = rp.latitude; myRadioLon = rp.longitude
                 if (GroupMode.on.value) RideStats.onMine(nowMine, rp.latitude, rp.longitude) }   // STATSPANEL-2026-10-20
         }
+        if (!fromTablet) polyOnMessage(num, myNum, msg, nowMine)   // POLYLINE-2026-10-20: the lead's dead air + its own fixes
         if (fromTablet && myNum != null && !tabletHasGps && commLink.health.value.talking && nowMine - myRadioFixMs < 45_000L) return   // the radio is driving my cart (ONEFEED-2026-10-19: only on a tablet without GPS)
         val id = "!%08x".format(num)
         val now = System.currentTimeMillis()

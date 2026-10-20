@@ -418,6 +418,14 @@ constructor(
             return
         }
         android.util.Log.i("TAKDUMP", "TAKDUMP-2026-09-25 V2 (bridged=$bridged) from ${packet.from}: ${org.meshtastic.proto.TAKPacketV2.ADAPTER.toOneLiner(tak)}") // CLEANUP-2026-09-25
+        // POLYLINE-2026-10-20: ANY drawn shape -> TakShapeInbox (generic; the comm layer decides what it is -- no GroupTrack knowledge here)
+        tak.shape?.let { s ->
+            val n = minOf(s.vertex_lat_deltas.size, s.vertex_lon_deltas.size)
+            TakShapeInbox.shapes.tryEmit(TakShapeInbox.Shape(packet.from, tak.uid, tak.callsign, tak.remarks, tak.cot_type_id.name,
+                (0 until n).map { (tak.latitude_i.toLong() + s.vertex_lat_deltas[it]) / 1e7 },
+                (0 until n).map { (tak.longitude_i.toLong() + s.vertex_lon_deltas[it]) / 1e7 }, System.currentTimeMillis()))
+            android.util.Log.i("TAKSHAPE", "POLYLINE-2026-10-20 shape " + tak.cot_type_id.name + " " + n + " points from " + packet.from + " uid " + tak.uid)
+        }
         if (!TakV2Decoder.isPosition(tak)) {
             Logger.d { "TAKV2-2026-09-25: non-position TAK V2 from ${packet.from} (uid=${tak.uid}) -- ignored" }
             return

@@ -387,6 +387,42 @@ class TrackWriter(private val name: String, private val fill: Boolean) {   // MY
         return listOf(Update.Append(write(placed(f, h.p), h.tMs, h.alt, f.rule)))
     }
 
+    /** POLYLINE-2026-10-20 (Fred 10-20 14:02-14:04): the lead's GAP POLYLINE -- its real positions across its dead air (oldest -> newest, with times).
+     *  The written track is PINNED to them: the inferred points inside the window are taken out (the trailing inferred points before it
+     *  and the leading inferred points after it too), each pin is joined to the previous one by the fill rules (displayed route ->
+     *  known tracks -> saved routes -> trails -> straight; drivable in its time), and the first real point after the window is joined
+     *  to the newest pin the same way; everything after it stays as it was. A pin [onLine] rejects (more than 50 m off the displayed
+     *  route, or off every known line near it) is NOT joined -- returned as a DOT. CODE RULE 1: null = nothing written yet (no track). */
+    fun pin(poly: List<Pair<TrackPoint, Long>>, onLine: (TrackPoint) -> Boolean): List<TrackPoint>? {
+        if (poly.size < 2 || pts.isEmpty()) return null
+        val t0 = poly.first().second; val t1 = poly.last().second
+        val before = ArrayList(pts.filter { it.tMs < t0 }); while (before.size > 1 && !before.last().real) before.removeAt(before.size - 1)
+        val after = pts.filter { it.tMs > t1 }.dropWhile { !it.real }
+        held = null
+        pts.clear()
+        val dots = ArrayList<TrackPoint>()
+        val saveMin = path.minFillM; path.minFillM = 0.0   // pins are close in time: no moving-lead preference between them
+        try {
+            if (before.isEmpty()) {
+                val first = poly.firstOrNull { onLine(it.first) } ?: poly.first()
+                pts.add(WPoint(first.first.lat, first.first.lon, first.second, 0.0, true, "PIN"))
+            } else pts.addAll(before)
+            for ((p, t) in poly) {
+                if (t <= pts.last().tMs) continue
+                if (!onLine(p)) { dots.add(p); continue }
+                joinTo(p, t)
+            }
+            if (after.isNotEmpty()) { joinTo(TrackPoint(after[0].lat, after[0].lon), after[0].tMs); pts.addAll(after.drop(1)) }
+        } finally { path.minFillM = saveMin }
+        return dots
+    }
+    /** POLYLINE-2026-10-20: one pin -> written, joined to the last written point by the fill rules (the path's memory is not changed). */
+    private fun joinTo(p: TrackPoint, t: Long) {
+        val last = pts.last(); val a = TrackPoint(last.lat, last.lon)
+        if (TrackGeo.metres(a, p) < 0.05) return
+        val f = path.trial { path.fill(a, p, (t - last.tMs).coerceAtLeast(1_000L)) }
+        write(placed(f, p), t, last.alt, "PIN:" + f.rule)
+    }
     /** Stage 2 (the lead's polyline): its points replace the written points inside [t0, t1]. */
     fun replaceWindow(t0: Long, t1: Long, polyline: List<WPoint>): List<Update> {
         val keep = pts.filter { it.tMs < t0 } + polyline + pts.filter { it.tMs > t1 }
@@ -414,6 +450,8 @@ class ScreenWriter(val updateFrequency: Int = 1) {
     data class Step(val dueMs: Long, val cart: WPoint?, val points: List<WPoint>)
     val line = ArrayList<WPoint>()
     fun reset() { line.clear() }
+    /** POLYLINE-2026-10-20: the screen line = the written track again (after a pin rewrote it). */
+    fun resetTo(w: List<WPoint>) { line.clear(); for (x in w) if (line.isEmpty() || line.last().lat != x.lat || line.last().lon != x.lon) line.add(x) }
 
     /** A written update -> the screen steps it becomes. updateFrequency 1: one step, the whole segment, due now.
      *  (Above 1 is not built -- see the note above; until it is, every value gives the one step.) */
@@ -437,10 +475,73 @@ class ScreenWriter(val updateFrequency: Int = 1) {
 
 /** THE LEAD CART: his radio reports (any lead -- a lead change continues the ONE track). Correction: his polyline (stage 2). */
 class LeadCartProcess(val updateFrequency: Int = 1) {
+    companion object { const val TRIM_M = 50.0; const val TRIM_SLACK_M = 150.0 }   // TRIM-2026-10-20: level = within 50 m; the cut runs at most 150 m past what I drove
     private val track = TrackWriter("lead", fill = true)    // MYCARTRAW-2026-10-19: the lead track keeps the route / trail rules
     private val screen = ScreenWriter(updateFrequency)
     private var lead = ""
-    fun reset() { track.reset(); screen.reset(); lead = "" }
+    fun reset() { track.reset(); screen.reset(); lead = ""; dotPts.clear(); trimMs = 0L; myLast = null; myTravelM = 0.0 }   // POLYLINE-2026-10-20: + the dots; TRIM-2026-10-20: + the trim
+    /** TRIM-2026-10-20 (Fred 10-20 14:49-14:56): the lead track is SHOWN from this time on -- everything the lead wrote before the point my cart has
+     *  reached is behind me (my own track shows there). 0 = nothing trimmed. Only the DISPLAY is trimmed: the written track stays whole
+     *  (fills, polyline pins and other carts' off-track still use all of it). All times UTC epoch ms -- never local time. */
+    private var trimMs = 0L
+    /** TRIM-2026-10-20: one MY-CART position. Searching FORWARD ONLY from the last cut, in the lead's time order: the first lead-track SEGMENT
+     *  within 50 m of my cart (segments, not points -- the lead's fixes are ~160 m apart at speed, so my cart can sit ON his line yet
+     *  > 50 m from both ends; the desk test then jumped 10 km to the return leg of an out-and-back), then on while the next segments are
+     *  still within 50 m AND my cart is level with the joint (within 50 m of it -- at a twist the next segment can pass near me while its
+     *  start is 350-500 m on; the desk test cut that far ahead). The display is cut at that segment's START, BY TIME.
+     *  DRIVING ORDER: the cut moves ahead along the lead's line no further than MY CART HAS DRIVEN since the last cut (+150 m) -- a
+     *  parked cart cannot pass a loop that came back to it (desk test: lead parked at home, 10 km loop, home again while I was still
+     *  parked -> the cut jumped to his return). My movement counts in steps of 5 m or more (GPS jitter is not driving).
+     *  No segment within reach (my cart off the lead's path) = nothing trimmed. Returns true when the shown track changed. */
+    fun trimTo(my: TrackPoint): Boolean {
+        val ml = myLast
+        if (ml == null) myLast = my else { val d = TrackGeo.metres(ml, my); if (d >= 5.0) { myTravelM += d; myLast = my } }
+        val l = screen.line
+        if (l.size < 2) return false
+        val j = l.indexOfFirst { it.tMs >= trimMs }
+        if (j < 0) return false
+        fun pt(k: Int) = TrackPoint(l[k].lat, l[k].lon)
+        fun near(k: Int) = TrackGeo.metresToSegment(my, pt(k - 1), pt(k)) <= TRIM_M
+        var i = maxOf(1, j + 1)   // segment i = l[i-1] -> l[i], starting at or after the last cut
+        var along = 0.0           // the lead's line skipped so far (metres)
+        while (i < l.size && !near(i)) {
+            if (trimMs > 0L && along > myTravelM + TRIM_SLACK_M) return false   // further than I have driven: not reached yet
+            along += TrackGeo.metres(pt(i - 1), pt(i)); i++
+        }
+        if (i >= l.size) return false
+        if (trimMs > 0L && along > myTravelM + TRIM_SLACK_M) return false
+        while (i + 1 < l.size && near(i + 1) && TrackGeo.metres(my, pt(i)) <= TRIM_M) i++   // on only when level with the JOINT (twists)
+        if (l[i - 1].tMs <= trimMs) return false
+        trimMs = l[i - 1].tMs
+        myTravelM = 0.0
+        return true
+    }
+    private var myLast: TrackPoint? = null   // TRIM-2026-10-20. CODE RULE 1: null = no my-cart position yet (nothing driven to count)
+    private var myTravelM = 0.0              // TRIM-2026-10-20: metres my cart has driven since the last cut (steps >= 5 m)
+    fun trimmedAtMs(): Long = trimMs   // TRIM-2026-10-20: diagnostics
+    private val dotPts = ArrayList<TrackPoint>()   // POLYLINE-2026-10-20: gap-polyline pins that fit no line -- shown as dots, never joined
+    fun dots(): List<TrackPoint> = ArrayList(dotPts)
+    /** POLYLINE-2026-10-20: the lead's gap polyline (oldest -> newest). Returns true when the track changed. */
+    fun onGapPolyline(leadId: String, poly: List<Pair<TrackPoint, Long>>): Boolean {
+        if (lead.isNotEmpty() && leadId != lead) return false
+        val d = track.pin(poly) { p -> onLine(p) } ?: return false
+        dotPts.removeAll { q -> poly.any { TrackGeo.metres(it.first, q) < 0.05 } }; dotPts.addAll(d)
+        screen.resetTo(track.pts)
+        return true
+    }
+    /** POLYLINE-2026-10-20 (Fred 13:46): a pin is joined only when it is ON a line -- within 50 m of the DISPLAYED route (the only guide when there
+     *  is one); with none displayed, within 50 m of a known track, saved route or trail. No line near it at all = joined (a real
+     *  position where nothing is mapped -- straight between pins, as the fill would). */
+    private fun onLine(p: TrackPoint): Boolean {
+        val src = TrackGrounds.source; val shown = TrackGrounds.displayedRouteId
+        val pad = 0.0006
+        val lines = if (shown != null) listOfNotNull(src.route(shown)) else
+            src.tracksNear(p.lat - pad, p.lon - pad * 1.4, p.lat + pad, p.lon + pad * 1.4) +
+            src.routesNear(p.lat - pad, p.lon - pad * 1.4, p.lat + pad, p.lon + pad * 1.4) +
+            src.trailsNear(p.lat - pad, p.lon - pad * 1.4, p.lat + pad, p.lon + pad * 1.4)
+        if (lines.isEmpty()) return true
+        return lines.any { l -> l.places(p).any { it.off <= 50.0 } }
+    }
     fun onLeadReport(leadId: String, p: TrackPoint, rxMs: Long): Boolean {
         lead = leadId
         val ups = track.onPoint(p, rxMs, 0.0)
@@ -457,9 +558,9 @@ class LeadCartProcess(val updateFrequency: Int = 1) {
         for (i in 1 until l.size) best = minOf(best, TrackGeo.metresToSegment(p, TrackPoint(l[i - 1].lat, l[i - 1].lon), TrackPoint(l[i].lat, l[i].lon)))
         return best
     }
-    /** The whole lead track (no trim -- R1). */
+    /** The lead track from the point my cart has reached on (TRIM-2026-10-20 -- was: the whole track, R1). */
     fun segments(): List<ConvoyEngine.LeadTrackSegment> {
-        val l = screen.line; val out = ArrayList<ConvoyEngine.LeadTrackSegment>()
+        val l = screen.line.filter { it.tMs >= trimMs }; val out = ArrayList<ConvoyEngine.LeadTrackSegment>()
         for (i in 1 until l.size) out.add(ConvoyEngine.LeadTrackSegment(startLat = l[i - 1].lat, startLon = l[i - 1].lon, endLat = l[i].lat, endLon = l[i].lon, color = "#FF8C00", nodeId = lead))   // LEADVIS-2026-10-20: orange (was black -- invisible on satellite)
         return out
     }

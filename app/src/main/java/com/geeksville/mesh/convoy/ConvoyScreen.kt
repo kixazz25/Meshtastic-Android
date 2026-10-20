@@ -571,6 +571,13 @@ fun ConvoyScreen(
         android.util.Log.i("LEADDRAW", "LEADVIS-2026-10-20 lead track sent: " + parts.size + " segs to page " + System.identityHashCode(wv))   // diagnostic (T6 removes)
         wv.evaluateJavascript("drawTrack(" + json + ")", null)
     }
+    // POLYLINE-2026-10-20: gap-polyline points that fit no line -- orange dots with a black edge, never joined (hidden with the lead track)
+    val leadDots by viewModel.leadDots.collectAsStateWithLifecycle()
+    LaunchedEffect(leadDots, mapReady, showLeadTrack) {
+        val wv = webViewRef.value ?: return@LaunchedEffect
+        val js = if (showLeadTrack) leadDots.joinToString(",", "[", "]") { "[" + it.lat + "," + it.lon + "]" } else "[]"
+        wv.evaluateJavascript("if (typeof setLeadDots === 'function') setLeadDots(" + js + ")", null)
+    }
     // MYTRACK-2026-10-18 (LEADTRACKBOARD-2026-10-18): my track drawn live behind my cart while REC is on -- the recorder's own points (gpsTrailSegments:
     // 3 s / 5 m; on a tablet without GPS, my radio's fixes). Sent incrementally to ONE polyline in the page; a page reload starts again.
     // MYTRACKMSG-2026-10-18: my track = my cart's own reports (viewModel.myTrackSegments), not the recorder's points -- same for every tablet.

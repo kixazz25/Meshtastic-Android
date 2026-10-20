@@ -134,6 +134,8 @@ sealed class CommEvent {
     data class TextReceived(val fromUid: String, val text: String, val timeMs: Long, val via: Set<Transport>) : CommEvent()
     data class MemberHeard(val member: Member) : CommEvent()        // radio-level presence/position (no TAK)
     data class LinkChanged(val link: Link) : CommEvent()
+    /** POLYLINE-2026-10-20 (additive): another cart's GAP POLYLINE received (its real positions across its dead air, equally spaced in time). */
+    data class PolylineReceived(val polyline: GapPolyline, val via: Set<Transport>) : CommEvent()
 }
 
 sealed class CommResult {
@@ -169,6 +171,10 @@ data class ReportingRequest(
     val settleWaitSecs: Int = 20,
     val reconnectGapSecs: Int = 4,
 ) { enum class Method { BROADCAST_TO_RIDE_GROUP } }
+
+/** POLYTEST-2026-10-20 (Fred 10-20): a GAP POLYLINE -- [lats]/[lons] equally spaced in time from [t0Ms], [stepMs] apart (20 points).
+ *  senderUid = the sender's radio id; callsign = its rider. */
+data class GapPolyline(val senderUid: String, val callsign: String, val t0Ms: Long, val stepMs: Long, val lats: List<Double>, val lons: List<Double>)
 
 /** COMMREPORT-2026-10-12: the steps of a reporting change, for GroupTrack's words. UNCHANGED = already so, nothing written. */
 enum class ReportingStep { WRITING, WRITTEN, RESTARTING, RECONNECTING_AGAIN, UNCHANGED, DONE }
@@ -283,6 +289,9 @@ data class ApplyReport(
 interface CommMessaging {
     suspend fun deliver(message: CommMessage): CommResult             // D12 — Layer 1 builds the content, passes it in
     suspend fun deliverText(text: String): CommResult                 // v0.3 — plain text on port 1
+    /** POLYTEST-2026-10-20 (additive): the lead's GAP POLYLINE -- its real positions across its dead air, equally spaced in time -- as the
+     *  standard CoT user-drawn polyline (u-d-f). Default: not supported. */
+    suspend fun deliverPolyline(p: GapPolyline): CommResult = CommResult.NotSupported
     suspend fun setReporting(request: ReportingRequest): CommResult   // D13 — ONE implementation (inventory: was 2)
     /** COMMREPORT-2026-10-12 (additive): the same, telling each step as it happens. Default: no steps told. */
     suspend fun setReporting(request: ReportingRequest, onStep: (ReportingStep) -> Unit): CommResult = setReporting(request)
