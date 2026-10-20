@@ -1,0 +1,109 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>COMPLETED TASK — 2026-10-20 — tick removed, preset panel, lead track (visible, gap fill, estimate), gap polyline, trim, blue tracks</title>
+<style>:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff}body{background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1100px;margin:24px auto;padding:0 16px}h1,h2,h3,h4{color:var(--accent)}table{border-collapse:collapse;width:100%}td,th{border:1px solid var(--line);padding:4px 8px;vertical-align:top}code{color:#ffa657}.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:12px 0}</style></head><body>
+<h1>COMPLETED TASK — 2026-10-20 — 2.7b: the tick removed, the preset panel, the lead track (visible, gap fill, silent-lead estimate), the gap polyline, the trim, blue tracks</h1>
+<p>Release 2.7b (not released; tablet-tested). Commits <code>1e2bba8c0</code>, <code>4c8a88d8a</code>, <code>73b81140e</code>, <code>1221bfa2a</code>, <code>8bedb5b9c</code> + ESTREC/BLUETRACKS (committed after this doc was written -- see the ledger). The design and the evidence in full, as built.</p>
+<div class="card">
+<p><b>End of 10-20:</b> 2.7b = <code>8bedb5b9c</code> (POLYTEST + POLYLINE + TRIM) + <b>ESTREC + BLUETRACKS bench-tested and to be committed</b> (one commit, message given at 16:18).
+Pushed through <code>4c8a88d8a</code> (the morning force-push); <code>73b81140e</code>, <code>1221bfa2a</code>, <code>8bedb5b9c</code> (+ the ESTREC/BLUETRACKS commit) go up with tonight's recommit.
+Both Droids on <code>2026-10-20_1615_mac_8bedb5b9c_UNCOMMITTED</code> (= the code of that commit). <b>THE TICK IS GONE</b> (T5.5, 08:08).</p>
+<table><tr><th>Commit</th><th>What</th><th>Tested</th></tr>
+<tr><td><code>1e2bba8c0</code> 08:08</td><td><b>TICKREMOVE T5.5</b> &mdash; the 5-second tick removed: tick / startTick / boardCompare / readLiveNodes / heldCarts / cartFromMember / onBoardHeard / simulation, the boardShows flag and its rollback branches, the tick-only state (-609 lines in ConvoyViewModel; -740 in all). REC counts the board's carts to pick the lead. Safety tag <code>pre-tick-removal-c-2026-10-20</code>.</td><td>desk, both tablets</td></tr>
+<tr><td><code>4c8a88d8a</code> 08:52</td><td><b>T6A</b> &mdash; diagnostic logs, lead-only plumbing, TICK_MS removed (no behaviour change).</td><td>build</td></tr>
+<tr><td><code>73b81140e</code> 09:23</td><td><b>PRESETPANEL</b> &mdash; the GPS panel chooses the preset (Medium Fast / Long Fast) beside the interval; APPLY runs the radio setup from the radio's current settings with only those two values replaced (one save, the radio's own restart, verify, backup); lasts until the next check-in.</td><td>bench Droid 1+2: MF &rarr; LF &rarr; check-in MF, verify 24/24 each</td></tr>
+<tr><td><code>1221bfa2a</code> 13:38</td><td><b>LEADVIS</b> (lead track drawn visibly, auto-pan frames it; LEADDRAW + RXSTATS logs) + <b>STATSPANEL</b> (Settings &rsaquo; Group awareness &rsaquo; Ride statistics: REFRESH / RESET / CLOSE; RideStats.kt) + <b>DUPECHECK</b> (the track save's duplicate check = one indexed hash lookup, no bulk session) + <b>GAPFILL v2</b> (the displayed route is the ONLY guide; without one: known tracks &rarr; saved routes &rarr; trails &rarr; straight; a fill must be drivable in the silent time, 50 mph &times; dt + 60 m -- replaces the 3&times; rule) + <b>MOVINGFILL</b> (a lead moving over its last 30 s and silent &ge; 60 s prefers fills of &ge; 3 mph &times; the silent time) + <b>LEADEST</b> (the silent lead blinks at an estimate projected along the displayed route after 2 missed broadcasts, at the ride's average speed over moving segments; grey "last heard" dot; "est. m:ss"; error at reconnect to Ride statistics; LeadEstimate.kt) + <b>ESTVIEW</b> (GROUP auto-pan frames the estimate).</td><td>field MF / LF loops; MOVINGFILL + ESTVIEW desk-tested on the 10-20 replays</td></tr>
+<tr><td><code>8bedb5b9c</code> 15:22</td><td><b>POLYTEST</b> (the gap polyline as a STANDARD TAK message: TAK V2, CoT u-d-f user-drawn polyline, anchor + 1e-7 deg deltas, uncompressed 0xFF, port 78, no ack, uid <code>GT-gap-&lt;radio&gt;-&lt;t0 s&gt;</code>, remarks <code>GT gap step=&lt;ms&gt;</code>, ~205 bytes, refused over 230; CommMessaging.deliverPolyline; Settings test button) + <b>POLYLINE</b> (see below) + <b>TRIM</b> (see below).</td><td>bench both ways 14:38-14:40 (points exact, ~1 s); road 15:30-15:47</td></tr>
+<tr><td><i>to commit</i></td><td><b>ESTREC</b> (the estimate runs only while REC is on; REC off clears the blinking and the grey dot -- it blinked forever after REC stopped) + <b>BLUETRACKS</b> (lead track SOLID bright blue #1E88FF, my track DASHED bright blue, both black-edged, black+blue arrows; polyline dots blue).</td><td>bench 16:01 (ESTREC); colours deployed 16:15</td></tr></table>
+
+<h4>The gap polyline (POLYLINE-2026-10-20) -- the design as built</h4>
+<ul>
+<li><b>Lead side (GroupTrack):</b> dead air = the time the LEAD hears NO other cart (one cart heard = the hops relay to the rest). After &ge; <b>60 s</b> of it (Fred 14:45: "a good even number" = six broadcasts), the first report heard from another cart sends ONE polyline: <b>20 points at equal time steps</b> across [last heard .. heard again] from the lead's own radio fixes (option 1), plus <b>one repeat</b> at the next report heard &ge; 10 s later. Fewer than 2 own fixes in the window = nothing sent (logged). The lead = checked in as Leader, or the cart locked as lead at REC. Pop-up "Gap polyline sent: m:ss of dead air".</li>
+<li><b>Receive, three layers (Fred 14:27 -- keep GroupTrack's message out of the mesh layer):</b> core/data <code>TakShapeInbox</code> (NEW, generic: ANY TAK drawn shape, no GroupTrack knowledge; POLYTEST's <code>GtPolylineInbox</code> retired -- renamed <code>*.removed_POLYLINE-2026-10-20</code>, uncommitted, delete at clean-up) &rarr; comm layer <code>MeshCommMessaging</code> recognises u-d-f + uid <code>GT-gap-</code> &rarr; <code>CommEvent.PolylineReceived</code> (NEW, additive) &rarr; GroupTrack <code>onGapPolylineReceived</code>: pop-up; the LEAD's polyline with REC on &rarr; <code>TrackEntry.Poly</code> &rarr; <code>LeadCartProcess.onGapPolyline</code> &rarr; <code>TrackWriter.pin</code>. The repeat is recognised (sender + start) and not applied twice.</li>
+<li><b>Pin (Fred 14:02-14:04, 14:47):</b> the polyline REPLACES -- never a second line. Kept: the lead track up to the LAST REAL point heard before the window; removed: everything inferred after it; the 20 points joined in order by the fill rules (displayed route &rarr; known tracks &rarr; saved routes &rarr; trails &rarr; straight); the reconnect point joined to the first real point after the window; everything after stays. A point more than <b>50 m off the displayed route</b> (or off every known line near it) is a <b>DOT</b>, never joined ("one point off turns the path into angles").</li>
+<li><b>Radio setup:</b> rebroadcast mode = ALL is now managed at check-in (written + verified: <b>25 checks</b>); NONE / CORE_PORTNUMS_ONLY would stop relaying or drop TAK.</li>
+<li><b>Desk test:</b> LF loop 10,845 m pinned vs 10,768 m real (4 dots); afternoon 10,954 vs 11,115 (2 dots).</li>
+<li><b>Road test 15:30-15:47 (Droid 1 leading the loop, Droid 2 parked):</b> Droid 2 last heard the lead 15:29:01; the lead's own dead air 15:30:19 &rarr; 15:36:18 = <b>359 s</b>; sent 15:36:18 (20 points, 202 bytes), received <b>2.1 s</b> later (the clock difference within that), <b>pinned with 10 of 20 as dots</b>; repeat 15:36:38 recognised. All 20 points lie on the road Droid 1 drove (19 within 0-2 m, 1 at 22 m between fixes). The 10 dots = where this afternoon's loop left this morning's saved tracks (7 points 66-168 m from them; no route displayed) -- the rule worked as written; proposal (Fred to decide): with NO route displayed, a polyline point joins straight (it is the lead's real position).</li>
+</ul>
+
+<h4>The trim (TRIM-2026-10-20) -- my cart replaces the lead track behind me</h4>
+<ul>
+<li>Fred 14:49-14:56: "rather than overlay it replaces"; "any lead cart point behind my cart ... trimmed at the next my-track write"; <b>BY TIME, not geometry</b> ("we had problems with these rules in twists"); all times <b>UTC epoch ms</b> (Arizona &rarr; Utah is a time-zone change -- local time would wreak havoc).</li>
+<li>Each MY-CART position (the feed that moves my icon -- tablet GPS, or my radio without a chip): the first lead-track <b>SEGMENT</b> within 50 m of my cart, searching <b>FORWARD ONLY</b> from the last cut; on to the next segment only while my cart is level with the joint (twists); <b>DRIVING ORDER</b> -- the cut moves no further along the lead's line than my cart has driven since the last cut (+150 m; steps &ge; 5 m, jitter is not driving). The DISPLAY is cut at that segment's start, by time; the written lead track stays whole (fills, pins, other carts' off-track). Polyline pins are trimmed the same way.</li>
+<li><b>Desk test</b> (TrimSim, Droid 1's real fixes lf / est / range, follower 30 s .. 20 min behind, my-cart updates every 3 / 6 / 10 s -- 45 runs): never skipped ground; the cut at most ~60 m ahead of my cart (where the lead was parked); at most one lead segment behind (&le; 435 m on these fixes; shorter with route fill). <b>Two failures found and fixed on the way:</b> point matching jumped 10 km to an out-and-back's return leg (fixes ~160 m apart at speed) &rarr; segments; a parked follower was cut to the lead's return home after a 10 km loop &rarr; driving order. A chipless tablet (6 s radio fixes) trims the same (Fred's concern, 16:04).</li>
+<li><b>Road:</b> Fred 15:47 "the trim definitely worked"; the log cut repeatedly from 15:42 (36 &rarr; 33 segments and on).</li>
+</ul>
+
+<h4>Range and the estimate (morning field tests -- Droid 2 parked at home, Droid 1 driving the loop)</h4>
+<ul>
+<li>Fred's worry: the 200-yard range of 10-19. Medium Fast loop, Long Fast loop, the estimate loop. <b>Reliable range ~470-550 yd in dense housing</b> (NH granite ledges); loss and regain symmetric within ~1 min. <b>Long Fast adds only 10-30%</b> &rarr; Medium Fast stays the default. Real Utah rides keep carts at most about 1 mile apart. Two MOVING carts are needed for an adequate test.</li>
+<li>Estimate error at reconnect on highway-speed gaps: ride-average speed 1.9-2.6 km. The source track's time profile measured ~200-450 m but Fred <b>rejected</b> it ("highway speeds, not real trail").</li>
+<li>A 2-minute polyline lifts known coverage of a gap from ~10% to ~50%, a 10-minute one to 100% (analysis that led to sending the TOTAL dead air).</li>
+</ul>
+
+<h4>Found today</h4>
+<ul>
+<li><b>ESTREC bug (15:51):</b> after REC stopped the lead was heard every 20 s yet blinked "silent 165 s" -- the estimate hears the lead only through the REC-gated lead-track queue but ticked whenever group awareness was on. Fixed and bench-tested 16:01.</li>
+<li><b>Duplicate listener:</b> every polyline was handled twice on Droid 2 (a copy with REC off, then the real one) -- the stacked view-model copy seen 10-14. Harmless now; 2.7b navigation clean-up.</li>
+<li><b>COMMHEALTH "startForegroundService() not allowed due to mAllowStartForeground false" (MeshService):</b> seen 10-19 20:01 (Droid 2) and 10-20 12:55 (Droid 1), before today's patches -- Android 12+ refuses a foreground-service start while the app is not on screen; the recovery step restarting Meshtastic's service after a radio restart. Check-in still verified 25/25 when reapplied with the app on screen. Open: the recovery must not restart the service while the app is in the background (or wait until it is in front).</li>
+<li><b>The reconnect panel (BTPANEL v4)</b> is NOT in the tree at 10-20 EOD (Main.kt clean); still open.</li>
+<li><b>History rewrite (Fred 12:4x):</b> no Co-Authored-By / Claude lines in commit messages -- removed from 2.7b, feature/convoy-event-ride and 4 tags since 607a47cb8 (code identical, trees verified), force-pushed. Backup <code>~/Downloads/gt_repo_backup_pre_trailers_2026-10-20.bundle</code>; old &rarr; new IDs in <code>gt_logs/commit_id_map_2026-10-20.txt</code> (e.g. 10-19: 5ec0d1cc7&rarr;68434e833, 61c3e4ff4&rarr;bf67c72a8, fd50c66a8&rarr;d5b1a7f75, e8bb75542&rarr;d54a08e05, d1c1e0ef4&rarr;d19708a6f, a687715b3&rarr;c785a9140). <b>The PC's clone is stale: if the PC is ever used for development, take a FRESH clone.</b></li>
+</ul>
+
+<h4>Decisions (Fred, 10-20)</h4>
+<ul>
+<li>Medium Fast stays the default; Long Fast is a choice in the GPS panel beside the interval; the change goes through the existing radio setup (one save, verify), no new write path; it lasts until the next check-in -- "I have to check in before I apply radio config changes".</li>
+<li>No new development on the PC; a fresh clone if ever used.</li>
+<li>Gap fill: the displayed route is the yardstick and the only guide; without one: known tracks &rarr; saved routes &rarr; known trails; a time check (drivable) replaces the 3&times; rule; chaining tracks/trails ("combo") later; the known route should be displayed whenever a ride is followed.</li>
+<li>Silent lead: blink and project along the route; no track drawn for the projection; corrected when heard; after 2 missed broadcasts; speed = the ride's average over moving segments; the error in the statistics; shown in group mode (auto-pan includes it).</li>
+<li>Polyline: the lead's TOTAL dead air; 60 s minimum; 20 equal-time points; sent when the lead hears normal reports from other carts (not every 30 s) + one repeat; a standard TAK format (CoT u-d-f) -- "cobble together a set message sent on demand and test send/receive before we go crazy"; receivers correct the existing lead track (replace, not a second line); &gt; 50 m off the route = dots; rebroadcast ALL in the check-in settings; GroupTrack's message kept out of the mesh layer (three layers).</li>
+<li>Trim: my cart replaces the lead track behind me; by time; UTC; at each my-cart write; made part of this patch set (14:56).</li>
+<li>Colours (16:06-16:09): blue -- orange is hard to see on the Utah red rock; the LEAD track SOLID (the path ahead), MY track DASHED ("think of the track as picked up"); arrows on both.</li>
+<li>The gap/polyline Python is a reusable MODEL (<code>gt_gap_polyline_model_2026-10-20.py</code>, target <code>gt_logs/gap_polylines_lf_1020.json</code>).</li>
+<li>The full end-to-end polyline test needs a SECOND PERSON (two moving carts).</li>
+<li>Nucleus (16:17-16:23): explore it fresh on 10-21 while the comm layer is fresh, with <b>Droid 1 only</b> (Droid 2 has no GPS chip -- it would complicate things). <b>The test:</b> a T1000-E in the SAME mesh network as the Nucleus, and the Android connects to the <b>Nucleus network (Wi-Fi) instead of Bluetooth</b>.</li>
+</ul>
+
+<h4>Rejected today -- and why</h4>
+<ul>
+<li>The source track's time profile for the estimate -- highway speeds, not real trail riding (Fred).</li>
+<li>Sending the polyline every 30 s -- send when the lead hears other carts again; a polyline sent into dead air reaches nobody.</li>
+<li>Drawing the polyline as a second line -- it must correct the lead track in place.</li>
+<li>A 2-minute polyline -- covers ~50% of a 10-minute gap; the total dead air covers all of it.</li>
+<li>GtPolylineInbox in core/data -- GroupTrack knowledge in the mesh layer (test only; replaced by the generic TakShapeInbox).</li>
+<li>Trim by geometry -- failed in twists before; trim by time. Point matching -- jumped to an out-and-back's return leg (segments instead). Unlimited forward search -- a parked follower skipped a whole loop (driving order).</li>
+<li>Orange lead track -- invisible on red rock; a dashed lead track -- the path ahead must be the strong line.</li>
+</ul>
+
+<h4>Nucleus -- what Nathan sent (16:18) and what the code says (V3_OS 0.16.0, 10-18)</h4>
+<ul>
+<li>Fred has <b>nodes 46 and 47</b>: each raises its own Wi-Fi AP when powered (the name carries 0046 / 0047); join with <b>Nathan's default credentials</b> (never written in docs or chat); web UI at <code>0046-nucleus.local</code> / <code>0047-nucleus.local</code> (Wi-Fi or Ethernet on the home network); V3-OS; the LoRa bridge is ON by default, listening on the ATAK default multicast ports; the radios are on <b>Short Fast</b> (changeable in the Meshtastic web UI, Radio configuration); either USB port for the Wi-Fi radio. Nathan is building mounts and a Reticulum/HaLow module.</li>
+<li><b>From the code (cot_bridge.py):</b> the bridge carries ONLY <b>port 257</b> (compressed TAKPacketV2) between LoRa and multicast 239.2.3.1:6969 (+ text port 1, voice, heartbeat) -- <code>if portnum != "ATAK_FORWARDER": return</code>. Our T1000-E positions (<b>port 72</b>) and today's polyline (<b>port 78</b>) are NOT carried to Wi-Fi. Asked of Nathan 09-25 for 72; not in. Decide: Nathan carries 72 + 78, or GroupTrack sends on 257 when a Nucleus rides.</li>
+<li>Its radio: Short Fast, channel "Natak" -- ours: Medium Fast, channel GroupTrack -- they will not hear each other until matched. API <code>/api/v1/meshtastic/config/apply</code> sets owner, region, preset, role, hop limit, TX power, frequency slot, channel name, PSK (async: read &rarr; apply changes &rarr; poll op-status &rarr; read) -- the same shape as our check-in. <b>No login on the API</b> (access = being on the network) -- the 09-24 security-layer question stands. meshtasticd on localhost:4403; TX_MIN_INTERVAL default 30 s (a setting).</li>
+<li><b>The test Fred set (16:23):</b> a T1000-E on the same mesh network as the Nucleus; Droid 1 joins the Nucleus Wi-Fi instead of Bluetooth. What has to be true: the T1000-E and the Nucleus radio share preset + channel + key + frequency slot; the bridge carries the T1000-E's position (port 72 today is NOT carried); GroupTrack reads CoT from the Wi-Fi (UDP multicast 239.2.3.1:6969) -- or connects to the Nucleus's meshtasticd over TCP (localhost:4403 on the box; whether it is reachable from the Wi-Fi is to check) -- the comm layer's IP implementation.</li>
+<li><b>Step 1 for 10-21 (read-only):</b> power node 46, join its AP, open the web UI, then <code>for p in version status meshtastic/status meshtastic/config meshtastic/nodes; do echo "== $p"; curl -s -m 5 http://0046-nucleus.local/api/v1/$p; echo; done</code>.</li>
+</ul>
+
+<h4>Open -- 10-21, in this order</h4>
+<ol>
+<li>Commit ESTREC + BLUETRACKS (if not done 10-20); recommit (pushes everything).</li>
+<li><b>Nucleus</b> with Droid 1: step 1 read-only; then how a GroupTrack radio and the Nucleus share a channel; the port question for Nathan (257 vs 72/78); the comm layer's IP implementation (CoT on UDP multicast) beside the mesh one.</li>
+<li>Two-cart end-to-end test of polyline + trim + estimate (needs a second person); a third radio for relaying if possible.</li>
+<li>Polyline dots with NO route displayed: join straight? (Fred's call; one line.)</li>
+<li>The COMMHEALTH foreground-service start while the app is in the background.</li>
+<li>The duplicate view-model listener (navigation clean-up).</li>
+<li>Ride statistics: polylines sent / received / applied with dead-air length and clock difference; real SNR/RSSI from DataPacket (T6b); T6c JSON / GPX / email.</li>
+<li>Release clean-up: the Send-test-polyline button (remove or hide), the retired GtPolylineInbox file, LEADEST/LEADDRAW/RXSTATS diagnostics.</li>
+<li>Still open from 10-19: reconnect panel v4; C2; lead-point rule logging; the "radio linked but silent" message; the status backstop; check-in auto-displays the ride's route; background save with a "Saving track..." spinner; chaining tracks/trails (combo); distance labels on last-heard / estimate; then the 2.7b clean-up list and the long test ride.</li>
+</ol>
+
+<h4>Lessons (keep)</h4>
+<ul>
+<li>A desk replay on real fixes found both trim failures before a tablet saw them -- the model first, every time.</li>
+<li>Measure the right thing: the "200-525 m ahead" was the measurement counting the whole segment, not the trim.</li>
+<li>Check a reported problem against older logs first: the foreground-service error predates today's work.</li>
+<li>A test message on demand proved the radio path (both ways, points exact) before the feature was built on it.</li>
+<li>Quotes inside generated patch text broke a patch file once today (14:56) -- syntax-check every patch file before it reaches Downloads.</li>
+</ul>
+
+<h4>Patch scripts and tools of the day (all dated, marker-guarded, ABORT with no write)</h4>
+<p>patch_tickremove · patch_t6a_cleanup · patch_presetpanel_v3 · patch_leadvis · patch_statspanel (+ RideStats_2026-10-20.kt) · patch_dupecheck · patch_gapfill_v2 · patch_movingfill · patch_leadest (+ LeadEstimate_2026-10-20.kt) · patch_estview · patch_polytest_v3 (+ patch_polytest_import) · patch_polyline · patch_trim · patch_estrec · patch_bluetracks_v2 (v1 superseded, not applied). Tools: gt_gap_polyline_model_2026-10-20.py, TrimSim_2026-10-20.kt + trim_trackrules_part_2026-10-20.py, webview_probe_2026-10-20.py. Logs: gt_logs/droid*_{preset,range,lf,est,polytest,polyride}_1020.log.</p>
+</div></body></html>
