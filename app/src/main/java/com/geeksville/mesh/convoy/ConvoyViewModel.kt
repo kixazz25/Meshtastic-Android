@@ -39,6 +39,7 @@ enum class RideState {
 }
 
 @HiltViewModel
+// TICKREMOVE-2026-10-20 (T5.5): the 5-second tick is gone -- every display duty runs on the message that brings it (the board).
 class ConvoyViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val settingsRepository: ConvoySettingsRepository,
@@ -114,20 +115,12 @@ class ConvoyViewModel @Inject constructor(
 
     // ── Lead lock state ──────────────────────────────────────────────────
     private var _leadLockedFlag: Boolean = false
-    // LEADCLEAN-2026-09-29: the per-node distance accumulator (the old quarter-mile lead finder) is removed -- it was never filled.
-    private var nodeLastLat: MutableMap<String, Double> = mutableMapOf()
-    private var nodeLastLon: MutableMap<String, Double> = mutableMapOf()
-    // 60-second fixed window speed computation per node
-    private val nodeSpeedWindowStart: MutableMap<String, Triple<Long, Double, Double>> = mutableMapOf()
-    private val nodeLastComputedSpeed: MutableMap<String, Float> = mutableMapOf()
+    // TICKREMOVE-2026-10-20 (T5.5): the tick's per-node maps (distance, 60-s speed window) went with the tick -- the board keeps boardSpeedStart/Last.
     // HEARDBOARD-2026-10-14: THE CART BOARD's fields -- HERE, before init, because init starts the board's listener and on the main thread
     // it runs at once (10-14: a board used before its fields existed crashed the app at start-up).
     // Thread-safe maps: messages arrive on the main thread, tablet fixes possibly from the recording service.
-    // BOARDSHOW2-2026-10-15 (T5.3): the SCREEN draws from the board. false = the tick drives the screen again (one-line rollback).
-    private val boardShows = true
     @Volatile private var boardMyLastMs = 0L          // BOARDSHOW2-2026-10-15: when my cart last got a board report (one per reporting interval)
     private var boardShownSig: List<List<Any?>>? = null  // BOARDSHOW2-2026-10-15: what the screen shows now. CODE RULE 1: null = nothing shown yet
-    private var boardPublished = 0                     // BOARDSHOW2-2026-10-15: screen updates since the last tick (TICKSHADOW)
     // LEADCLEAR-2026-10-15: the lead the board took FROM A LEADER REPORT. CODE RULE 1: null = the lead (if any) did not come from a report.
     @Volatile private var reportedLeadId: String? = null
     @Volatile private var radioTrackLastFixMs = 0L   // RADIOTRACK-2026-10-15: the last radio fix fed to the recorder (new fixes only)
@@ -158,10 +151,6 @@ class ConvoyViewModel @Inject constructor(
     private val boardSpeedStart = java.util.concurrent.ConcurrentHashMap<String, Triple<Long, Double, Double>>()
     private val boardSpeedLast = java.util.concurrent.ConcurrentHashMap<String, Float>()
     @Volatile private var boardState = ConvoyEngine.ConvoyState.empty()
-    @Volatile private var boardHeard = 0
-    @Volatile private var boardMyFixes = 0
-    private var shadowLastKey = ""
-    private var shadowTicks = 0
 
     // The locked lead node ID — set by user via lead selection dialog before ride start
     private var lockedLeadNodeId: String? = null
@@ -216,8 +205,8 @@ class ConvoyViewModel @Inject constructor(
      * Dismissible permanently (the flag itself lives in ConvoyScreen; this is
      * only the condition).
      *
-     * Both are set in readLiveNodes()'s no-radio branch and cleared at the top
-     * of that function, so the radio path resets them with no edit of its own.
+     * TICKREMOVE-2026-10-20: the HARD state was set only by the tick's readLiveNodes(), removed at T5.5 -- it stays false; its dialog has been off since
+     * DISPLAYFIX-2026-10-15. The SOFT state follows each tablet fix (onBoardMyFix).
      */
     private val _noPositionError = kotlinx.coroutines.flow.MutableStateFlow(false)
     val noPositionError: kotlinx.coroutines.flow.StateFlow<Boolean> = _noPositionError
@@ -273,26 +262,16 @@ class ConvoyViewModel @Inject constructor(
     fun startGroupTrack() {
         // COMMNAMES-2026-10-11: the name table is kept (and written on every real change) by the comm side -- no save at RECORD.
         _routeTrailSegments.value = emptyList()
-        leadActualLat = null
-        leadActualLon = null
-        leadStaleTicks = 0
-        proxySnapped = false
         _leadTrackSegments.value = emptyList()
         _gpsTrailSegments.value = emptyList()
         trackLastMsgT.clear()   // TRACKORDER-2026-10-18
         trackQueue.trySend(TrackEntry.Reset)   // LEADTRACKBOARD-2026-10-18: a new ride starts a new lead track
         rideStartTimeMs = System.currentTimeMillis()
-        lastKnownPosition.clear()
-        lastNodePositions.clear()
-        lastLeadLat = null
-        lastLeadLon = null
-        nodeSpeedWindowStart.clear()
-        nodeLastComputedSpeed.clear()
 
         // IDENTITY: Set _myCartId ONCE — my radio node from Meshtastic, or !phone if no radio
         val myNum = myRadioNum()   // COMMIDENT-2026-10-09
         _myCartId.value = if (myNum != null) "!%08x".format(myNum) else "!phone"
-        val nodes = readLiveNodes(System.currentTimeMillis())
+        val nodes = boardCarts.values.toList()   // TICKREMOVE-2026-10-20: the board's carts (the carts the screen shows) -- was the tick's readLiveNodes()
 
         // LEADCLEAN-2026-09-29 (Fred): the lead comes from a Leader report (the tick) or the rider's pick at REC -- nothing
         // else. Only a solo ride leads itself: one cart -> it, none -> my cart. Several carts and no lead -> it stays
@@ -333,15 +312,7 @@ class ConvoyViewModel @Inject constructor(
         _leadLockedFlag = false
         lockedLeadNodeId = null
         if (GroupMode.on.value) commMessaging.clearRoles()   // GRPMODE-2026-10-13 · COMMRECV-2026-10-08 (via the Comm API) · LEADCLEAN-2026-09-29 (Fred): END -- the ride's roles end with the ride (the lead is cleared above)
-        nodeLastLat.clear()
-        nodeLastLon.clear()
         _leadLocked.value = false
-        lastKnownPosition.clear()
-        lastNodePositions.clear()
-        lastLeadLat = null
-        lastLeadLon = null
-        nodeSpeedWindowStart.clear()
-        nodeLastComputedSpeed.clear()
         rideStartTimeMs = 0L
         roleReportJob?.cancel()   // ROLECHANGE-2026-09-29 (Fred): END -- the role reports stop with the ride
     }
@@ -502,8 +473,6 @@ class ConvoyViewModel @Inject constructor(
      *  shared by every visit -- it must live as long as persistentWebView, whose JavaScript keeps calling the first bridge. */
     val convoyRideMapStates = HashMap<String, androidx.compose.runtime.MutableState<*>>()
 
-    private val _simulationMode = MutableStateFlow(false)
-    val simulationMode: StateFlow<Boolean> = _simulationMode.asStateFlow()
 
     private val _myCartId = MutableStateFlow("!phone")   // [2026-07-01] device-default (was ConvoySimulation.MY_CART_ID / HOTEL-10 sim ghost); radio overrides on connect via observer
     private fun resolveMyCartId(): String {
@@ -521,22 +490,12 @@ class ConvoyViewModel @Inject constructor(
     val gpsTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _gpsTrailSegments.asStateFlow()
     private val _routeTrailSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
     val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
-    private var lastLeadLat: Double? = null
-    private var lastLeadLon: Double? = null
     private var rideStartTimeMs: Long = 0L  // Unix ms when startGroupTrack() was called
-    private var currentLeadNodeId: String? = null
-    private var leadActualLat: Double? = null    // Lead's real GPS (never substituted)
-    private var leadActualLon: Double? = null
-    private var leadStaleTicks: Int = 0          // Ticks without new lead position
-    private var proxySnapped: Boolean = false    // True after first proxy snap
-    private val lastNodePositions = mutableMapOf<String, Pair<Double, Double>>()
 
     private val _routeRecording = MutableStateFlow(false)
     val routeRecording: StateFlow<Boolean> = _routeRecording.asStateFlow()
     private val _offTrackNodes = MutableStateFlow<List<ConvoyNode>>(emptyList())
     val offTrackNodes: StateFlow<List<ConvoyNode>> = _offTrackNodes.asStateFlow()
-    private val lastKnownPosition = mutableMapOf<String, Pair<Double, Double>>()
-    private var tickJob: Job? = null
     private var admissionWindowHours: Int = 1
 
     // CARTACTIVE-2026-09-30 (Fred): nodeId -> callsign of carts removed on this tablet today (the settings store,
@@ -587,7 +546,7 @@ class ConvoyViewModel @Inject constructor(
             // COTBOARD-2026-10-15 (T5.4a-2): the board reads the CoT message (Received); MemberHeard no longer feeds it
             commMessaging.events.collect { e ->
                 if (e is com.grouptrack.comm.CommEvent.Received) onBoardMessage(e.message)
-                else if (e is com.grouptrack.comm.CommEvent.MemberHeard && boardShows) {
+                else if (e is com.grouptrack.comm.CommEvent.MemberHeard) {
                     // TICKSMALL-2026-10-15: channel use (not CoT -- link quality) -> the average over the board's carts, as the tick did
                     boardUtil[e.member.id] = e.member.channelUtilPct
                     val utils = boardCarts.keys.mapNotNull { id -> id.removePrefix("!").toLongOrNull(16)?.toInt()?.toString()?.let { boardUtil[it] } }
@@ -640,7 +599,6 @@ class ConvoyViewModel @Inject constructor(
         // TICKSMALL-2026-10-15: radio talking / the GRP Awareness light / the tablet's GPS -- on the radio's health event (was every tick)
         viewModelScope.launch {
             commLink.health.collect { h ->
-                if (!boardShows) return@collect
                 radioTalkingNow = GroupMode.on.value && h.talking
                 GrpAwarenessLauncher.talking.value = radioTalkingNow
                 // CHIPALWAYS-2026-10-18 (Fred 10-18 17:11): the tablet's GPS chip runs ALL THE TIME, both modes -- was only while the radio was not
@@ -652,7 +610,6 @@ class ConvoyViewModel @Inject constructor(
             }
         }
         // COMMNAMES-2026-10-11: the name table (load, the node-list names) moved to the comm side (MeshCommLink).
-        startTick()
         viewModelScope.launch(Dispatchers.IO) { scanImportDirectory() }
     }
 
@@ -714,16 +671,8 @@ class ConvoyViewModel @Inject constructor(
         val mine = resolveMyCartId()
         val myNodes = _convoyState.value.nodes.filter { it.isMyCart || it.nodeId == mine }
         setLeadCart(null)                                   // no group, no lead (Fred 10-14)
-        currentLeadNodeId = null
         _routeTrailSegments.value = emptyList()             // the drawn lead track
         trackQueue.trySend(TrackEntry.Reset)                 // LEADTRACKBOARD-2026-10-18: Android mode -- the board's lead track too
-        lastLeadLat = null; lastLeadLon = null
-        lastKnownPosition.keys.retainAll { it == mine }
-        lastNodePositions.keys.retainAll { it == mine }
-        nodeLastLat.keys.retainAll { it == mine }
-        nodeLastLon.keys.retainAll { it == mine }
-        nodeSpeedWindowStart.keys.retainAll { it == mine }
-        nodeLastComputedSpeed.keys.retainAll { it == mine }
         _convoyState.value = if (myNodes.isEmpty()) ConvoyEngine.ConvoyState.empty()
             else ConvoyEngine.compute(nodes = myNodes, myCartId = mine, nowMs = System.currentTimeMillis())
         android.util.Log.i("ANDROIDMODE", "ANDROIDMODE1-2026-10-14: Android mode -- other carts cleared (kept my cart: ${myNodes.size})")
@@ -798,10 +747,6 @@ class ConvoyViewModel @Inject constructor(
         _convoyState.value = current.copy(nodes = current.nodes.filter { it.nodeId != nodeId })
     }
 
-    fun setSimulationMode(enabled: Boolean) {
-        _simulationMode.value = enabled
-        if (enabled) ConvoySimulation.start()
-    }
 
     fun setMyCartId(nodeId: String) { _myCartId.value = nodeId }
     fun toggleLeadTrack() { _showLeadTrack.value = !_showLeadTrack.value }
@@ -960,46 +905,12 @@ class ConvoyViewModel @Inject constructor(
      * CODE RULE 1: loc null = the recording service's fix (position only) -- speed and heading keep the tick's last values.
      */
     private fun onMyTabletFix(lat: Double, lon: Double, loc: android.location.Location?) {
-        onBoardMyFix(lat, lon, loc)   // HEARDBOARD-2026-10-14
-        if (boardShows) return   // BOARDSHOW2-2026-10-15: the board owns my cart (one report per interval); the old per-fix screen write is skipped
-        if (GroupMode.on.value && radioTalkingNow) return
-        if (lat == 0.0 && lon == 0.0) return
-        val st = _convoyState.value
-        val mine = st.nodes.firstOrNull { it.isMyCart } ?: return   // not placed yet -- the tick places it
-        val now = System.currentTimeMillis()
-        val moved = mine.copy(
-            latitude = lat, longitude = lon, lastSeenMs = now,
-            speed_mph = loc?.let { if (it.hasSpeed()) it.speed * 2.23694f else null } ?: mine.speed_mph,
-            heading_deg = loc?.let { if (it.hasBearing()) it.bearing else null } ?: mine.heading_deg,
-            tabletLat = lat, tabletLon = lon, tabletFixMs = loc?.let { if (it.time > 0L) it.time else now } ?: now,
-        )
-        val nodes = st.nodes.map { if (it.nodeId == mine.nodeId) moved else it }
-        _convoyState.value = ConvoyEngine.compute(
-            nodes = nodes,
-            myCartId = resolveMyCartId(),
-            nowMs = now,
-            leadLocked = _leadLockedFlag,
-            lockedLeadNodeId = lockedLeadNodeId,
-            tailNodeId = nodes.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId
-        )
+        onBoardMyFix(lat, lon, loc)   // HEARDBOARD-2026-10-14 -- TICKREMOVE-2026-10-20: the only duty left (the board owns my cart; the per-fix screen write is gone)
     }
 
     // === HEARDBOARD-2026-10-14 (tick replacement T3+T4): THE CART BOARD -- fed by RECEIVED PAYLOADS only, compared with the tick, shown nowhere yet ===
     // The board's fields are declared before init (beside the tick's maps) -- see there.
 
-    /** A message was received from a radio (MemberHeard). recompute false = part of a batch (the caller recomputes once). */
-    private fun onBoardHeard(m: com.grouptrack.comm.Member, recompute: Boolean) {
-        if (!GroupMode.on.value) return                                  // Android mode: no radios (as the tick)
-        val num = m.id.toIntOrNull() ?: return                           // mesh member ids are node numbers (as the tick)
-        val myNum = myRadioNum()
-        if (num == myNum && !commLink.health.value.talking) return       // radio not talking: my cart is the tablet's (as the tick)
-        val id = "!%08x".format(num)
-        val now = System.currentTimeMillis()
-        val cart = cartFromMember(m, now, myNum, getPhoneLocation(), { boardCarts[it] }, boardSpeedStart, boardSpeedLast, shadow = true)
-        if (cart == null) boardCarts.remove(id) else boardCarts[id] = cart
-        boardHeard++
-        if (recompute) boardRecompute(now)
-    }
 
     /** A tablet GPS fix (T2's hook). CODE RULE 1: loc null = the recording service's fix (position only). */
     private fun onBoardMyFix(lat: Double, lon: Double, loc: android.location.Location?) {
@@ -1009,7 +920,7 @@ class ConvoyViewModel @Inject constructor(
         // BOARDSHOW2-2026-10-15 (Fred 09:49): an Android fix is the tablet's sensor, not a received message -- my cart gets ONE board report
         // per reporting interval, from the latest fix, like every other cart. CODE RULE 1: interval null = not read from the radio yet -> 6 s.
         // TICKSMALL-2026-10-15: the network-position warning follows each tablet fix (network = will not work on the trail)
-        if (boardShows && loc != null) _networkPositionWarning.value = loc.provider == android.location.LocationManager.NETWORK_PROVIDER ||
+        if (loc != null) _networkPositionWarning.value = loc.provider == android.location.LocationManager.NETWORK_PROVIDER ||
             (loc.hasAccuracy() && loc.accuracy > 30f)   // ONEFEED-2026-10-19: fused has no "network" label -- worse than 30 m = a Wi-Fi/cell guess
         val everyMs = (reportingNowSecs.value ?: 6) * 1000L
         myTabletFixMs = now
@@ -1036,7 +947,6 @@ class ConvoyViewModel @Inject constructor(
                 groupTrack = null,
             )
             onBoardMessage(msg, fromTablet = true)
-            boardMyFixes++
             return
         }
         // no radio known, or Android only (group awareness off): the existing tablet cart below
@@ -1052,7 +962,6 @@ class ConvoyViewModel @Inject constructor(
         boardCarts[cart.nodeId] = cart
         // MYTRACKMSG-2026-10-18: the tablet-only path (no radio known / group awareness off) feeds the queue too -- a rider without a radio sees his track
         if (_trackActive.value) trackQueue.trySend(TrackEntry.Real(cart.nodeId, TrackPoint(lat, lon), now, now, cart.nodeId == lockedLeadNodeId, true))
-        boardMyFixes++
         boardRecompute(now)
     }
 
@@ -1085,9 +994,9 @@ class ConvoyViewModel @Inject constructor(
             nodes = nodes, myCartId = mine, nowMs = now,
             leadLocked = _leadLockedFlag, lockedLeadNodeId = lockedLeadNodeId,
             tailNodeId = nodes.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId)
-        if (boardShows) {   // BOARDSHOW2-2026-10-15: the screen draws from the board -- updated only when something VISIBLE changed
+        run {   // BOARDSHOW2-2026-10-15: the screen draws from the board -- updated only when something VISIBLE changed (TICKREMOVE-2026-10-20: no flag)
             val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
-            if (sig != boardShownSig) { boardShownSig = sig; _convoyState.value = boardState; boardPublished++ }
+            if (sig != boardShownSig) { boardShownSig = sig; _convoyState.value = boardState }
             GrpAwarenessLauncher.ridingGroup.value = boardState.nodes.any { !it.isMyCart }   // TICKSMALL-2026-10-15: the power-cycle banner's condition
             // PANELBOARD-2026-10-15 (T5.4d, the tick's refresh moved): an open cart panel shows that cart's latest values on every payload
             if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
@@ -1096,331 +1005,12 @@ class ConvoyViewModel @Inject constructor(
         }
     }
 
-    /** After each tick: the board against the tick. Logs only a CHANGE of the difference (and every 5 min the counts). */
-    private fun boardCompare(tickState: ConvoyEngine.ConvoyState) {
-        val bs = boardState
-        val tb = tickState.nodes.associateBy { it.nodeId }
-        val bb = bs.nodes.associateBy { it.nodeId }
-        val key = mutableListOf<String>(); val text = mutableListOf<String>()
-        for (id in tb.keys - bb.keys) { key += "only-tick $id"; text += "only on the tick: ${tb[id]?.callsign} ($id)" }
-        for (id in bb.keys - tb.keys) { key += "only-board $id"; text += "only on the board: ${bb[id]?.callsign} ($id)" }
-        for (id in tb.keys intersect bb.keys) {
-            val x = tb.getValue(id); val y = bb.getValue(id)
-            if (x.status != y.status) { key += "status $id ${x.status} ${y.status}"; text += "status ${x.callsign}: tick ${x.status}, board ${y.status}" }
-            val meters = ConvoyEngine.haversineMiles(x.latitude, x.longitude, y.latitude, y.longitude) * 1609.34f
-            if (meters > 15f) { key += "pos $id"; text += "position ${x.callsign}: ${meters.toInt()} m apart" }
-            if (x.isLead != y.isLead) { key += "lead $id"; text += "lead ${x.callsign}: tick ${x.isLead}, board ${y.isLead}" }
-        }
-        val k = if (key.isEmpty()) "MATCH" else key.sorted().joinToString("|")
-        shadowTicks++
-        if (k != shadowLastKey || shadowTicks % 60 == 0) {
-            android.util.Log.i("TICKSHADOW", "board: " + (if (text.isEmpty()) "MATCH" else text.joinToString("; ")) +
-                " (carts: tick ${tb.size}, board ${bb.size}; since the last tick: $boardHeard heard, $boardMyFixes my fixes, $boardPublished screen updates)")
-            shadowLastKey = k
-        }
-        boardHeard = 0; boardMyFixes = 0; boardPublished = 0
-    }
 
     // ── Tick loop ─────────────────────────────────────────────────────────
 
-    private fun startTick() {
-        tickJob?.cancel()
-        tickJob = viewModelScope.launch {
-            while (true) { tick(); delay(ConvoySimulation.TICK_MS) }
-        }
-    }
 
-    private fun pointToSegmentDistanceMiles(
-        pLat: Double, pLon: Double, aLat: Double, aLon: Double, bLat: Double, bLon: Double
-    ): Float {
-        val dx = bLon - aLon; val dy = bLat - aLat
-        if (dx == 0.0 && dy == 0.0) {
-            val dlat = pLat - aLat; val dlon = pLon - aLon
-            return (Math.sqrt(dlat * dlat + dlon * dlon) * 69.0).toFloat()
-        }
-        val t = ((pLon - aLon) * dx + (pLat - aLat) * dy) / (dx * dx + dy * dy)
-        val clampedT = t.coerceIn(0.0, 1.0)
-        val nearLat = aLat + clampedT * dy; val nearLon = aLon + clampedT * dx
-        val dlat = pLat - nearLat; val dlon = pLon - nearLon
-        return (Math.sqrt(dlat * dlat + dlon * dlon) * 69.0).toFloat()
-    }
 
-    private fun haversineMiles(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
-        val R = 3958.8
-        val dLat = Math.toRadians(lat2 - lat1); val dLon = Math.toRadians(lon2 - lon1)
-        val a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
-                Math.sin(dLon/2) * Math.sin(dLon/2)
-        return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFloat()
-    }
 
-    private fun tick() { try {
-        // Guard: skip tick until location permission is granted
-        if (androidx.core.content.ContextCompat.checkSelfPermission(
-                appContext, android.Manifest.permission.ACCESS_FINE_LOCATION
-            ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            return
-        }
-        val nowMs = System.currentTimeMillis()
-        // LINKFIX-2026-10-03: is the radio talking? (see the fields at livePhoneLocation)
-        // COMMNAMES-2026-10-11: the at-connect names moved to the comm side (MeshCommLink).
-        // COMMHEALTH2-2026-10-11 (Fred 10-11): keeping the link is the comm side's job; GroupTrack reports it. talking = the comm side's
-        // health (the 45 s hand-off heartbeat, the 120 s traffic rule and the recovery run there, unchanged).
-        if (!boardShows) {   // TICKSMALL-2026-10-15: the health event sets these now
-            radioTalkingNow = GroupMode.on.value && commLink.health.value.talking   // GRPMODE-2026-10-13: off = this tablet only
-            GrpAwarenessLauncher.talking.value = radioTalkingNow
-        }
-        // The power-cycle banner only while riding with a group (other carts in the tick array) -- GroupTrack's fact.
-        val othersInTick = _convoyState.value.nodes.any { !it.isMyCart }
-        if (!boardShows) GrpAwarenessLauncher.ridingGroup.value = othersInTick   // TICKSMALL-2026-10-15: the board's publish sets it now
-        val nodes: List<ConvoyNode> = if (_simulationMode.value) {
-            ConvoySimulation.tick(nowMs)
-        } else {
-            readLiveNodes(nowMs)
-        }
-
-        // V2.4: Lead assigned manually via dialog before ride start -- no auto-lock
-        // Lead assignment REMOVED from tick — only through setLeadCart()
-        // Lead assigned at RECORD time in startGroupTrack() or via cart HUD
-        // ROLETICK-2026-09-28 (Fred): LEAD AND TAIL FROM THE RIDE ROLES, every tick -- nothing else in the tick changes.
-        //  - A node reporting Leader is the lead: set through setLeadCart (the existing path -- all three lead flags, and the
-        //    lead track's reset) ONLY when it differs from the current lead. No Leader reported -> the lead keeps its value.
-        //  - A node reporting Tail gunner is the tail. None -> null: the engine's own (the last active cart), as before.
-        // LEADBOARD-2026-10-15: the board sets the lead from Leader reports now; the tick only when it drives the screen (boardShows false)
-        if (!boardShows) nodes.firstOrNull { it.rideRole == "leader" }?.nodeId?.let { lid ->
-            if (lid != lockedLeadNodeId) {
-                setLeadCart(lid)
-                convoyLog("ROLETICK: lead = " + (nodes.firstOrNull { it.nodeId == lid }?.callsign ?: lid) + " (reports Leader)")
-                android.util.Log.i("ROLEREPORT", "ROLETICK applied at ${System.currentTimeMillis()}: lead = " + lid)   // ROLECHANGE-2026-09-29
-            }
-        }
-        val tailNodeId: String? = nodes.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId
-
-        val state = ConvoyEngine.compute(
-            nodes = nodes,
-            myCartId = resolveMyCartId(),
-            nowMs = nowMs,
-            leadLocked = _leadLockedFlag,
-            lockedLeadNodeId = lockedLeadNodeId,
-            tailNodeId = tailNodeId
-        )
-        if (!boardShows) _convoyState.value = state   // BOARDSHOW2-2026-10-15: the tick no longer drives the screen (its state still feeds its other duties)
-        boardCompare(state)   // HEARDBOARD-2026-10-14
-
-        // ── Feed radio position to GPS service if no hardware GPS ────────────
-        // RADIOTRACK-2026-10-15: my radio's message feeds the recorder now; the tick only when it drives the screen (boardShows false)
-        if (!boardShows && gpsService?.useRadioGps == true && _routeRecording.value) {
-            val myCart = state.nodes.firstOrNull { it.isMyCart }
-            if (myCart != null && myCart.latitude != 0.0 && myCart.longitude != 0.0) {
-                gpsService?.onRadioPosition(myCart.latitude, myCart.longitude, myCart.altitude_m.toDouble())
-            }
-        }
-        // ── Debug log every tick ──────────────────────────────────────────────
-        if (_trackActive.value) {
-            val leadOut = state.lead?.callsign ?: "NONE"
-            val trackFrom = currentLeadNodeId ?: "NONE"
-            convoyLog("tick | lead=$leadOut | trackFrom=$trackFrom | locked=$_leadLockedFlag")   // LEADCLEAN-2026-09-29
-        }
-
-        // Accumulate route trail — lead only or all carts
-
-        // ── Resolve cart positions: tail to lead ──────────────────────────
-        // For each cart: if reporting, use actual position. If silent, use
-        // whichever is further along: own last known OR furthest trailing cart.
-        // Process tail→lead so each resolution feeds the next cart forward.
-        val resolvedPositions = mutableMapOf<String, Pair<Double, Double>>()
-        val headingRad = Math.toRadians(state.convoyHeading.toDouble())
-        val hdx = kotlin.math.sin(headingRad)
-        val hdy = kotlin.math.cos(headingRad)
-        var furthestProjection = Double.MIN_VALUE
-        var furthestLat = 0.0
-        var furthestLon = 0.0
-
-        // Sort by convoyPosition descending = tail first
-        val tailToLead = state.nodes.sortedByDescending { it.convoyPosition }
-        for (node in tailToLead) {
-            val isReporting = node.latitude != 0.0 && node.longitude != 0.0
-                    && node.status != ConvoyStatus.LOST
-            val ownLat = if (isReporting) node.latitude
-                         else (lastNodePositions[node.nodeId]?.first ?: 0.0)
-            val ownLon = if (isReporting) node.longitude
-                         else (lastNodePositions[node.nodeId]?.second ?: 0.0)
-            val ownProj = ownLat * hdy + ownLon * hdx
-
-            // Use whichever is further along: own position or furthest trailing cart
-            // OFF-TRACK carts keep their own last known position — never substitute
-            val isOffTrack = _offTrackIds.value.contains(node.nodeId)
-            val resolvedLat: Double
-            val resolvedLon: Double
-            if (isOffTrack) {
-                // Off-track cart: keep own position so operator can find it
-                resolvedLat = ownLat
-                resolvedLon = ownLon
-            } else if (ownLat != 0.0 && ownProj >= furthestProjection) {
-                resolvedLat = ownLat
-                resolvedLon = ownLon
-            } else if (furthestLat != 0.0 && furthestProjection > ownProj) {
-                resolvedLat = furthestLat
-                resolvedLon = furthestLon
-                if (_trackActive.value) {
-                    convoyLog("CART SUB: ${node.callsign} silent — using trailing cart pos (${String.format("%.5f",resolvedLat)},${String.format("%.5f",resolvedLon)})")
-                }
-            } else {
-                resolvedLat = ownLat
-                resolvedLon = ownLon
-            }
-
-            if (resolvedLat != 0.0 && resolvedLon != 0.0) {
-                resolvedPositions[node.nodeId] = Pair(resolvedLat, resolvedLon)
-                lastNodePositions[node.nodeId] = Pair(resolvedLat, resolvedLon)
-                val resolvedProj = resolvedLat * hdy + resolvedLon * hdx
-                if (resolvedProj > furthestProjection) {
-                    furthestProjection = resolvedProj
-                    furthestLat = resolvedLat
-                    furthestLon = resolvedLon
-                }
-            }
-        }
-
-        // LEADTRACKBOARD-2026-10-18: the lead track, its off-track and the drawn segments are built on the board now (trackConsume) -- the tick
-        // only does it on rollback (boardShows false). Removed with the tick at T5.5.
-        if (boardShows) return
-        // ── Build trail segments — lead actual GPS + proxy snap ──────────
-        if (_trackLeadOnly.value) {
-            // Get lead's ACTUAL position from node (never use resolved/substituted)
-            val leadNode = state.nodes.firstOrNull { it.nodeId == lockedLeadNodeId }
-            val leadIsReporting = leadNode != null && leadNode.latitude != 0.0
-                && leadNode.longitude != 0.0 && leadNode.status != ConvoyStatus.LOST
-            val leadHasNewPos = leadIsReporting
-                && (leadNode!!.latitude != leadActualLat || leadNode.longitude != leadActualLon)
-
-            // Handle lead node change
-            if (lockedLeadNodeId != currentLeadNodeId) {
-                currentLeadNodeId = lockedLeadNodeId
-                lastLeadLat = null
-                lastLeadLon = null
-                leadStaleTicks = 0
-                proxySnapped = false
-                leadActualLat = null
-                leadActualLon = null
-            }
-
-            val trackLat: Double?
-            val trackLon: Double?
-
-            if (leadHasNewPos) {
-                // ── Lead reported new actual position — always use it ──
-                leadStaleTicks = 0
-                proxySnapped = false
-                leadActualLat = leadNode!!.latitude
-                leadActualLon = leadNode.longitude
-                trackLat = leadNode.latitude
-                trackLon = leadNode.longitude
-            } else {
-                // ── Lead position unchanged — check for proxy ──
-                leadStaleTicks++
-                if (leadStaleTicks > 1 && leadActualLat != null && leadActualLon != null) {
-                    // Lead missed 1+ cycles — find cart that reached lead's actual position
-                    // Uses haversine distance (actual GPS), not projection
-                    var proxyLat: Double? = null
-                    var proxyLon: Double? = null
-                    var closestDist = Double.MAX_VALUE
-                    for (n in state.nodes) {
-                        if (n.nodeId == lockedLeadNodeId) continue
-                        if (n.latitude == 0.0 || n.longitude == 0.0) continue
-                        if (n.status == ConvoyStatus.LOST) continue
-                        if (_offTrackIds.value.contains(n.nodeId)) continue
-                        // Haversine from cart to lead's ACTUAL last reported position
-                        val dist = ConvoyEngine.haversineMiles(
-                            leadActualLat!!, leadActualLon!!,
-                            n.latitude, n.longitude)
-                        // Cart has reached lead's position (within ~250 feet)
-                        if (dist < 0.05 && dist < closestDist) {
-                            closestDist = dist.toDouble()
-                            proxyLat = n.latitude
-                            proxyLon = n.longitude
-                        }
-                    }
-                    if (proxyLat != null && proxyLon != null) {
-                        if (!proxySnapped) {
-                            // SNAP: first proxy segment connects from lead's last actual pos
-                            // lastLeadLat/Lon is already lead's actual — segment starts there
-                            proxySnapped = true
-                            if (_trackActive.value) {
-                                convoyLog("PROXY SNAP: lead stale $leadStaleTicks ticks")
-                            }
-                        }
-                        trackLat = proxyLat
-                        trackLon = proxyLon
-                    } else {
-                        // No cart has reached lead's position yet — wait
-                        trackLat = null
-                        trackLon = null
-                    }
-                } else {
-                    // Within grace period or no lead position recorded yet
-                    trackLat = null
-                    trackLon = null
-                }
-            }
-
-            // Build segment if we have a valid track position
-            if (trackLat != null && trackLon != null) {
-                val prevLat = lastLeadLat
-                val prevLon = lastLeadLon
-                if (prevLat != null && prevLon != null &&
-                    (prevLat != trackLat || prevLon != trackLon)) {
-                    val segDist = ConvoyEngine.haversineMiles(prevLat, prevLon, trackLat, trackLon)
-                    if (segDist > 0.25f) {
-                        convoyLog("LEAD SEGMENT: dist=${String.format("%.3f",segDist)}mi${if (proxySnapped) " (PROXY)" else ""}")
-                    }
-                    val seg = ConvoyEngine.LeadTrackSegment(
-                        startLat = prevLat, startLon = prevLon,
-                        endLat = trackLat, endLon = trackLon,
-                        color = "#000000",
-                        nodeId = lockedLeadNodeId ?: ""
-                    )
-                    if (_trackActive.value) {
-                        _routeTrailSegments.value = _routeTrailSegments.value + seg
-                    }
-                }
-                lastLeadLat = trackLat
-                lastLeadLon = trackLon
-            }
-        }
-        // Branch 2 (multi-cart segments) removed
-
-if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
-            val threshold = ConvoyConfig.OFF_TRACK_MILES
-            val offTrack = state.nodes.filter { node ->
-                if (node.latitude == 0.0 && node.longitude == 0.0) return@filter false
-                val minDist = _routeTrailSegments.value.minOf { seg ->
-                    pointToSegmentDistanceMiles(node.latitude, node.longitude,
-                        seg.startLat, seg.startLon, seg.endLat, seg.endLon)
-                }
-                minDist > threshold
-            }.map { it.nodeId }.toSet()
-            _offTrackIds.value = offTrack
-        } else {
-            _offTrackIds.value = emptySet()
-        }
-
-        // LEAD ONLY: single black line from locked lead node
-        // MULTI TRACK: each node draws its own trail in its own markerColor
-        _leadTrackSegments.value = if (_trackLeadOnly.value) {
-            _routeTrailSegments.value.map { it.copy(color = "#000000") }
-        } else {
-            ConvoyEngine.colorSegmentsByNode(
-                segments = _routeTrailSegments.value,
-                nodes = state.nodes
-            )
-        }
-
-        if (!boardShows && _hudMode.value == HudMode.NODE && _selectedNode.value != null) {   // PANELBOARD-2026-10-15: the board refreshes it now
-            val refreshed = state.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
-            _selectedNode.value = refreshed
-        }
-    } catch (e: Exception) { /* suppress tick errors */ } }
 
     // Phone GPS helper -- used when radio has no GPS fix or no radio connected
     private fun getPhoneLocation(): android.location.Location? {
@@ -1447,129 +1037,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
 
     // LINKFIX-2026-10-03 (Fred): in Android-only mode the other carts stay where the tick array last had them (only if they
     // were in it) and move again when the radio comes back. Nothing is invented or stored.
-    private fun heldCarts(radioKnown: Boolean): List<ConvoyNode> {
-        if (!radioKnown) return emptyList()
-        val mine = resolveMyCartId()
-        return _convoyState.value.nodes.filter { !it.isMyCart && it.nodeId != mine && (it.latitude != 0.0 || it.longitude != 0.0) }
-    }
 
-    /**
-     * HEARDBOARD-2026-10-14 (tick replacement T4, Fred 10-14 option A): the tick's per-radio display rules, MOVED here unchanged from
-     * readLiveNodes so the tick and the cart board apply the SAME rules. Returns the cart to show, or null = not shown.
-     * prev = the caller's previous cart for an id (the tick: its last tick; the board: the board). speedStart / speedLast = the
-     * caller's own 60-s speed windows. shadow = true (the board while the tick still runs): no side effects -- the tick's
-     * last-known map, the tablet GPS start and the debug file stay the tick's.
-     * CODE RULE 1: myNum null = no radio identified yet; myTablet null = the tablet has no fix.
-     */
-    private fun cartFromMember(
-        m: com.grouptrack.comm.Member, nowMs: Long, myNum: Int?, myTablet: android.location.Location?,
-        prev: (String) -> ConvoyNode?,
-        speedStart: MutableMap<String, Triple<Long, Double, Double>>, speedLast: MutableMap<String, Float>,
-        shadow: Boolean,
-    ): ConvoyNode? {
-        val num = m.id.toIntOrNull() ?: return null   // HEARDSWITCH-2026-10-13: mesh member ids are node numbers
-        // SLIDERREAD-2026-09-25 (Fred): the hours come from the Settings slider (admissionWindowHours).
-        if (num != myNum && nowMs - m.lastHeardMs > admissionWindowHours * 3_600_000L) {
-            return null
-        }
-        // RADIONAMES-2026-10-03 (Fred): the long name LAST USED from the radio name table; the node database's first-heard name
-        // only for a radio not yet in the table.
-        val callsign = m.callsign   // HEARDSWITCH-2026-10-13: the same rule (name table, else long, short, !num) -- applied on the comm side
-        val nodeId = "!%08x".format(num)
-        if (nodeId in _removedCarts.value && num != myNum) return null   // CARTACTIVE-2026-09-30: removed on this tablet
-        val hasPos = m.latitude != null && m.longitude != null   // HEARDSWITCH-2026-10-13: null = no position (was 0/0)
-        val latLon = if (hasPos) {
-            val lat = m.latitude ?: 0.0
-            val lon = m.longitude ?: 0.0
-            // Reject stale rebroadcast packets: pos.time is the GPS fix timestamp
-            // (Unix seconds). If it predates ride start it is a relay-rebroadcast
-            // of a packet the node sent from a prior location — use lastKnownPosition.
-            val fixTimeMs = m.fixTimeMs ?: 0L
-            val isStale = rideStartTimeMs > 0L && fixTimeMs > 0L && fixTimeMs < rideStartTimeMs
-            if (isStale) {
-                if (!shadow) convoyLog("STALE POS REJECTED: node=$callsign fixTime=$fixTimeMs rideStart=$rideStartTimeMs age=${(rideStartTimeMs - fixTimeMs)/1000}s lat=$lat lon=$lon → using lastKnown")
-                // RECSTALE3-2026-09-29 (Fred): checked in = here. The cart keeps its position from the PREVIOUS TICK (the
-                // group as shown a moment ago); not in it -> its own reported position. Never the last-known map, never dropped.
-                prev(nodeId)
-                    ?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }
-                    ?.let { Pair(it.latitude, it.longitude) }
-                    ?: Pair(lat, lon)
-            } else {
-                if (!shadow) lastKnownPosition[nodeId] = Pair(lat, lon)
-                if (_trackActive.value) {
-                    if (!shadow) convoyLog("POS ACCEPTED: node=$callsign fixTime=$fixTimeMs lat=$lat lon=$lon")
-                }
-                Pair(lat, lon)
-            }
-        } else {
-            // LINKFIX-2026-10-03 (Fred): no position from this radio. Others: their PREVIOUS TICK position (the tick array,
-            // never a stored map), else not shown this tick. MY radio: the tablet's GPS (switched on here).
-            val prevTick = prev(nodeId)
-                ?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }?.let { Pair(it.latitude, it.longitude) }
-            if (num != myNum && prevTick != null) {
-                prevTick
-            } else if (num != myNum) {
-                return null
-            } else {
-                if (!shadow) startPhoneGps()
-                val phoneLoc = getPhoneLocation()
-                if (phoneLoc != null && phoneLoc.latitude != 0.0 && phoneLoc.longitude != 0.0) {
-                    if (!shadow) convoyLog("ZERO POS: node=$callsign — using phone GPS lat=${phoneLoc.latitude} lon=${phoneLoc.longitude}")
-                    Pair(phoneLoc.latitude, phoneLoc.longitude)
-                } else {
-                    if (!shadow) convoyLog("ZERO POS: node=$callsign — no lastKnown, no phone GPS, dropping node this tick")
-                    return null
-                }
-            }
-        }
-        val lastSeenMs = m.lastHeardMs
-        return ConvoyNode(
-            nodeId = nodeId,
-            callsign = callsign,
-            // TICKDATA-2026-09-28: this tablet's own radio carries the check-in's role; other radios' roles arrive from their
-            // reports in the next step ("" until then = bare radio). Display only.
-            // OWNROLE-2026-09-28 (Fred): EVERY radio node -- mine included -- takes its role from the store first; the check-in
-            // is only the fallback for my own node (a Rider, who sends no report).
-            rideRole = takRideRole(num).ifBlank { if (num == myNum) (checkIn.value?.role ?: "") else "" },
-            latitude = latLon.first,
-            longitude = latLon.second,
-            altitude_m = ((m.altitudeM ?: 0) * 3.28084f).toInt(),
-            speed_mph = run {
-                // 60-second fixed window: distance from window start to now * 60 = mph
-                val nowMs = System.currentTimeMillis()
-                val windowStart = speedStart[nodeId]
-                if (windowStart == null) {
-                    // Open first window
-                    speedStart[nodeId] = Triple(nowMs, latLon.first, latLon.second)
-                    0f
-                } else {
-                    val (startMs, startLat, startLon) = windowStart
-                    val elapsedMs = nowMs - startMs
-                    if (elapsedMs >= 60_000L) {
-                        // Window complete — compute speed and reset
-                        val distMiles = ConvoyEngine.haversineMiles(startLat, startLon, latLon.first, latLon.second)
-                        val speed = distMiles * 60f  // miles per minute * 60 = mph
-                        speedLast[nodeId] = speed
-                        speedStart[nodeId] = Triple(nowMs, latLon.first, latLon.second)
-                        speed
-                    } else {
-                        // Hold last computed speed until window completes
-                        speedLast[nodeId] ?: 0f
-                    }
-                }
-            },
-            heading_deg = m.headingDeg ?: 0f,
-            battery_pct = m.batteryPct ?: 0,
-            // HEARDSWITCH-2026-10-13 (Fred 10-12): MY cart records both fixes (shown as before; the display rule comes with the tick replacement).
-            radioLat = if (num == myNum) m.latitude else null, radioLon = if (num == myNum) m.longitude else null,
-            radioFixMs = if (num == myNum) m.fixTimeMs else null,
-            tabletLat = if (num == myNum) myTablet?.latitude else null, tabletLon = if (num == myNum) myTablet?.longitude else null,
-            tabletFixMs = if (num == myNum) myTablet?.let { if (it.time > 0L) it.time else nowMs } else null,
-            lastSeenMs = lastSeenMs,
-            cotType = "a-f-G-U-C",
-            timestampUtc = java.time.Instant.ofEpochMilli(lastSeenMs).toString()
-        )
-    }
 
     /** TRACKRULES-2026-10-19: the receiving queue's consumer -- the LEAD CART routine (TrackRules.kt) and off-track. One coroutine: no locking.
      *  My track is the recorder's (MyCartProcess in ConvoyGpsService); my cart's reports move my cart icon only. */
@@ -1633,7 +1101,6 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             gpsService?.onRadioPosition(rp.latitude, rp.longitude, rp.haeM ?: 0.0)   // CODE RULE 1: haeM null = no altitude sent -> 0
             android.util.Log.i("TRACKDELAY", "TRACKDELAY-2026-10-18 radio fix -> recorder: msgT=" + msg.timeMs + " rx=" + now + " (radio time -> received " + (now - msg.timeMs) + " ms)")
         }
-        boardHeard++
         boardRecompute(now)
     }
 
@@ -1720,78 +1187,6 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         tabletFixMs = loc?.let { if (it.time > 0L) it.time else nowMs }
     )
 
-    private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
-        // GRPMODE-2026-10-13: group awareness off -> no radio node list (this tablet only, no other carts held).
-        // HEARDSWITCH-2026-10-13 (P5.1b): what the radio has heard, from the comm side (raw; the display rules below are GroupTrack's).
-        val heard = if (!GroupMode.on.value) emptyList() else try { commMessaging.members() } catch (e: Exception) { emptyList() }
-        // NOGPSMSG-2026-09-15: clear both here so the RADIO path resets them without its own edit.
-        // A radio supplies position through a different route entirely; neither
-        // message applies once nodes are present.
-        _noPositionError.value = false
-        if (!boardShows) _networkPositionWarning.value = false   // TICKSMALL-2026-10-15: each tablet fix sets it now
-        // No radio — device IS a node. Phone GPS only after permission granted.
-        // LINKFIX-2026-10-03: Android-only mode whenever the radio is not talking (was: only when the node list was empty,
-        // so a connected-but-silent radio never let the tablet's GPS take over and my cart was dropped every tick).
-        if (heard.isEmpty() || !radioTalkingNow) {
-            if (androidx.core.content.ContextCompat.checkSelfPermission(
-                    appContext, android.Manifest.permission.ACCESS_FINE_LOCATION
-                ) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                if (!boardShows) startPhoneGps()   // TICKSMALL-2026-10-15: the health event starts it now
-            }
-            // _myCartId no longer set here — set ONCE in startGroupTrack()
-            val loc = getPhoneLocation()
-            // LINKFIX2-2026-10-03 (Fred): no tablet fix -> my cart stays at its PREVIOUS TICK position (the tick array, never a
-            // stored one) until a real position returns.
-            val prevMe = if (loc == null) _convoyState.value.nodes.firstOrNull { it.isMyCart && (it.latitude != 0.0 || it.longitude != 0.0) } else null
-
-            // NOGPSMSG-2026-09-15: report WHICH state we are in. See the declarations above.
-            // provider is reliable for this: sources 1 and 3 of getPhoneLocation
-            // build Location("gps") explicitly, so only the live listener can
-            // report "network".
-            val fromNetwork = loc != null &&
-                (loc.provider == android.location.LocationManager.NETWORK_PROVIDER || (loc.hasAccuracy() && loc.accuracy > 30f))   // ONEFEED-2026-10-19
-            if (loc == null && prevMe == null) {   // LINKFIX2-2026-10-03: the hard message only with no position at all
-                if (!_noPositionError.value) {
-                    android.util.Log.e("ConvoyVM",
-                        "NOGPSMSG-2026-09-15: NO POSITION from any source -- device cannot function")
-                }
-                _noPositionError.value = true
-            } else if (fromNetwork) {
-                if (!_networkPositionWarning.value) {
-                    android.util.Log.w("ConvoyVM",
-                        "NOGPSMSG-2026-09-15: position is NETWORK-derived -- will not work on the trail")
-                }
-                if (!boardShows) _networkPositionWarning.value = true   // TICKSMALL-2026-10-15
-            }
-
-            val lat = loc?.latitude ?: prevMe?.latitude ?: 0.0   // LINKFIX2-2026-10-03
-            val lon = loc?.longitude ?: prevMe?.longitude ?: 0.0
-            val alt = ((loc?.altitude ?: 0.0) * 3.28084).toInt()
-            val spd = (loc?.speed ?: 0f) * 2.23694f
-            val hdg = loc?.bearing ?: 0f
-            // HEARDBOARD-2026-10-14: the phone-path cart moved to myTabletCart (unchanged)
-            return listOf(myTabletCart(lat, lon, alt, spd, hdg, loc, nowMs)) + heldCarts(GroupMode.on.value)   // GRPMODE-2026-10-13 · LINKFIX-2026-10-03 / LINKFIX2-2026-10-03: held whenever not talking (a disconnect empties the node list)
-        }
-        // STALEREAD-2026-09-25 (Fred): drop stale nodes AT THE READ -- never build a cart only to eliminate it later.
-        // A node not heard for 3 hours is not on the ride (phantoms from earlier / other channels); my own radio is
-        // always kept.
-        val myNum = myRadioNum()
-        val myTablet = getPhoneLocation()   // HEARDSWITCH-2026-10-13: what the tablet already has -- no GPS is started for it
-        // HEARDBOARD-2026-10-14: the per-radio rules moved to cartFromMember (unchanged) -- the cart board applies the same rules.
-        val allNodes = heard.mapNotNull { m -> cartFromMember(m, nowMs, myNum, myTablet, { id -> _convoyState.value.nodes.firstOrNull { it.nodeId == id } }, nodeSpeedWindowStart, nodeLastComputedSpeed, shadow = false) }
-        // HEARDSWITCH-2026-10-13: channel use from the comm side (Member.channelUtilPct; null = not reported) -- same average as before.
-        val utilById = heard.associate { it.id to it.channelUtilPct }
-        val avgUtil = if (allNodes.isEmpty()) 0f else
-            allNodes.mapNotNull { node ->
-                node.nodeId.removePrefix("!").toLongOrNull(16)?.toInt()?.toString()?.let { utilById[it] }
-            }.average().toFloat().takeIf { !it.isNaN() } ?: 0f
-        if (!boardShows) _avgChannelUtil.value = avgUtil   // TICKSMALL-2026-10-15: heard records set it now
-        // ONEFILTER-2026-09-25 (Fred): staleness is decided ONCE, at the read (STALEREAD: not heard for 3 hours = no
-        // cart). ConvoyNodeFilter's time rules -- "heard today" (after local midnight) and the admission window --
-        // disagreed with it (a rider heard at 23:50 vanished at midnight; "once admitted, visible all day" kept
-        // phantoms) and are no longer applied. Its manual-removal rule was never wired (removedCartIds = emptySet()).
-        return allNodes
-    }
 
     sealed class DownloadState {
         object Idle : DownloadState()
@@ -1865,6 +1260,5 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
 
     override fun onCleared() {
         super.onCleared()
-        tickJob?.cancel()
     }
 }

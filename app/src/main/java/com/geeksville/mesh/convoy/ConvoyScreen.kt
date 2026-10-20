@@ -149,7 +149,6 @@ fun ConvoyScreen(
     val trackActive by viewModel.trackActive.collectAsStateWithLifecycle()
     val trackLeadOnly by viewModel.trackLeadOnly.collectAsStateWithLifecycle()
     val offTrackIds by viewModel.offTrackIds.collectAsStateWithLifecycle()
-    val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
     val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
     var recordingState by viewModel.recordingState
     var showLocationPermissionDialog by remember { mutableStateOf(false) }
