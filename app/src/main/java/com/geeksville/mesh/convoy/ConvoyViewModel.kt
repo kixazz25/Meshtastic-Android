@@ -565,7 +565,11 @@ class ConvoyViewModel @Inject constructor(
             while (true) {
                 kotlinx.coroutines.delay(1_000L)
                 try {
-                    val est = if (GroupMode.on.value) leadEst.tick(System.currentTimeMillis(), estRouteNow()) else null
+                    // ESTREC-2026-10-20 (Fred 15:51): only while REC is on -- the lead's reports reach the estimate only through the lead-track queue
+                    // (fed while REC is on); REC off = cleared at once and its memory reset (was: blinked forever after REC stopped)
+                    val recOn = GroupMode.on.value && _trackActive.value
+                    if (!recOn && _leadEstimate.value != null) { leadEst.reset(); android.util.Log.i("LEADEST", "ESTREC-2026-10-20 REC off -- estimate cleared") }
+                    val est = if (recOn) leadEst.tick(System.currentTimeMillis(), estRouteNow()) else null
                     if (est != null && _leadEstimate.value == null) android.util.Log.i("LEADEST", "LEADEST-2026-10-20 lead " + est.leadId + " silent " + est.silentMs / 1000 + " s -- " + (if (est.onRoute && est.moving) "moving along the route" else "blinking in place"))
                     if (est != null && (est.silentMs / 1000) % 15 == 0L) android.util.Log.i("LEADEST", "ESTVIEW-2026-10-20 vm: " + est.leadId + " est " + est.lat + "," + est.lon +
                         " last " + est.lastLat + "," + est.lastLon + " silent " + est.silentMs / 1000 + " s " + (if (est.onRoute) "on route" else "no route") + " " + (est.speedMps * 2.237).toInt() + " mph")   // diagnostic

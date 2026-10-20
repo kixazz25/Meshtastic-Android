@@ -561,7 +561,7 @@ class LeadCartProcess(val updateFrequency: Int = 1) {
     /** The lead track from the point my cart has reached on (TRIM-2026-10-20 -- was: the whole track, R1). */
     fun segments(): List<ConvoyEngine.LeadTrackSegment> {
         val l = screen.line.filter { it.tMs >= trimMs }; val out = ArrayList<ConvoyEngine.LeadTrackSegment>()
-        for (i in 1 until l.size) out.add(ConvoyEngine.LeadTrackSegment(startLat = l[i - 1].lat, startLon = l[i - 1].lon, endLat = l[i].lat, endLon = l[i].lon, color = "#FF8C00", nodeId = lead))   // LEADVIS-2026-10-20: orange (was black -- invisible on satellite)
+        for (i in 1 until l.size) out.add(ConvoyEngine.LeadTrackSegment(startLat = l[i - 1].lat, startLon = l[i - 1].lon, endLat = l[i].lat, endLon = l[i].lon, color = "#1E88FF", nodeId = lead))   // BLUETRACKS-2026-10-20: bright blue, solid (was orange -- hard to see on red rock)
         return out
     }
 }

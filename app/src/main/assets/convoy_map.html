@@ -292,7 +292,7 @@
       if (leadDotLayer) { map.removeLayer(leadDotLayer); leadDotLayer = null; }
       if (!arr || !arr.length) return;
       leadDotLayer = L.layerGroup(arr.map(function(p) {
-        return L.circleMarker(p, {radius: 5, color: '#000000', weight: 2, fillColor: '#FF8C00', fillOpacity: 1, interactive: false});
+        return L.circleMarker(p, {radius: 5, color: '#000000', weight: 2, fillColor: '#1E88FF', fillOpacity: 1, interactive: false});   // BLUETRACKS-2026-10-20
       })).addTo(map);
     }
     function initDeviceLocation() {
@@ -390,14 +390,15 @@
       if (run) runs.push([run, runColor]);
       var faces = [];
       runs.forEach(function(r) {
-        trackLines.push(L.polyline(r[0], {color: '#000000', weight: 9, opacity: 0.9, dashArray: '2, 11', lineCap: 'round', interactive: false}).addTo(map));
-        var face = L.polyline(r[0], {color: r[1], weight: 5, opacity: 1, dashArray: '2, 11', lineCap: 'round'}).addTo(map);
+        // BLUETRACKS-2026-10-20 (Fred 16:09): the lead track = SOLID, the path ahead (my track is dashed) -- black edge under a blue face
+        trackLines.push(L.polyline(r[0], {color: '#000000', weight: 9, opacity: 0.9, lineCap: 'round', lineJoin: 'round', interactive: false}).addTo(map));
+        var face = L.polyline(r[0], {color: r[1], weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round'}).addTo(map);
         trackLines.push(face); faces.push(face);
       });
       if (faces.length && typeof L.polylineDecorator === 'function' && L.Symbol && L.Symbol.arrowHead) {
         leadTrackArrows = L.polylineDecorator(faces, { patterns: [
           { offset: 30, repeat: 90, symbol: L.Symbol.arrowHead({ pixelSize: 11, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#000000', weight: 6, opacity: 1 } }) },
-          { offset: 30, repeat: 90, symbol: L.Symbol.arrowHead({ pixelSize: 11, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#FF8C00', weight: 2.5, opacity: 1 } }) }
+          { offset: 30, repeat: 90, symbol: L.Symbol.arrowHead({ pixelSize: 11, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#1E88FF', weight: 2.5, opacity: 1 } }) }   // BLUETRACKS-2026-10-20
         ] }).addTo(map);
       }
       tracksVisible = true;
@@ -415,17 +416,21 @@
     // MYTRACK-2026-10-18 (LEADTRACKBOARD-2026-10-18): my track behind my cart -- ONE polyline, points appended as the recorder makes them.
     // Fred 10-18 08:56: a DOTTED line with ARROW decorations (direction of travel) -- the vendored polylineDecorator, pixel repeat
     // (a percent repeat leaves long tracks without arrows at riding zoom, 06-12 finding).
-    var myTrackLine = null, myTrackArrows = null;
+    // BLUETRACKS-2026-10-20 (Fred 16:09): my track DASHED bright blue on a thin dashed black edge -- ground picked up (the lead track is solid)
+    var myTrackLine = null, myTrackArrows = null, myTrackEdge = null;
     function myTrackClear() {
       if (myTrackArrows) { map.removeLayer(myTrackArrows); myTrackArrows = null; }
       if (myTrackLine) { map.removeLayer(myTrackLine); myTrackLine = null; }
+      if (myTrackEdge) { map.removeLayer(myTrackEdge); myTrackEdge = null; }
     }
     function myTrackAdd(pts) {
-      if (!myTrackLine) myTrackLine = L.polyline([], {color: '#2E75B6', weight: 4, opacity: 0.9, dashArray: '2, 9', lineCap: 'round'}).addTo(map);
-      pts.forEach(function(p) { myTrackLine.addLatLng(p); });
+      if (!myTrackEdge) myTrackEdge = L.polyline([], {color: '#000000', weight: 7, opacity: 0.85, dashArray: '12, 9', lineCap: 'butt', interactive: false}).addTo(map);
+      if (!myTrackLine) myTrackLine = L.polyline([], {color: '#1E88FF', weight: 4, opacity: 1, dashArray: '12, 9', lineCap: 'butt'}).addTo(map);
+      pts.forEach(function(p) { myTrackEdge.addLatLng(p); myTrackLine.addLatLng(p); });
       if (typeof L.polylineDecorator === 'function' && L.Symbol && L.Symbol.arrowHead) {
         if (!myTrackArrows) myTrackArrows = L.polylineDecorator(myTrackLine, { patterns: [
-          { offset: 30, repeat: 90, symbol: L.Symbol.arrowHead({ pixelSize: 10, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#2E75B6', weight: 3, opacity: 1 } }) }
+          { offset: 30, repeat: 90, symbol: L.Symbol.arrowHead({ pixelSize: 10, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#000000', weight: 6, opacity: 1 } }) },   // BLUETRACKS-2026-10-20
+          { offset: 30, repeat: 90, symbol: L.Symbol.arrowHead({ pixelSize: 10, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#1E88FF', weight: 2.5, opacity: 1 } }) }
         ] }).addTo(map);
         else myTrackArrows.setPaths(myTrackLine);
       }
