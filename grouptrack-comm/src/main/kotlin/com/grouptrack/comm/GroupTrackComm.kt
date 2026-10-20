@@ -89,6 +89,9 @@ data class Member(
     // HEARDSHADOW-2026-10-13 (P5.1a, D1, additive). CODE RULE 1 (both): null = not reported by the transport (IP may not carry them).
     val headingDeg: Float?,                          // course over ground, 0-360
     val batteryPct: Int?,
+    // STATSPANEL-2026-10-20 (additive): the radio link of the last report. CODE RULE 1 (all four): null = not reported by the transport
+    // (an IP transport carries no radio link quality).
+    val snr: Float?, val rssi: Int?, val hopsAway: Int?, val airUtilPct: Float?,
 )
 
 /** CoT IS THE DATA STANDARD (Fred 10-03). Messages are CoT-shaped: uid, type, time/start/stale, point with accuracy,

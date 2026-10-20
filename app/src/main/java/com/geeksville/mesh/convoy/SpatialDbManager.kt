@@ -1895,9 +1895,24 @@ object SpatialDbManager {
     /** The dupe/alias decision for trail/route/waypoint (geometry-name rule).
      *  Tracks use their own three-layer rule (see insertTrackToDb). */
     fun resolveByGeom(type: String, name: String, geomHash: String): AddDecision {
-        val m = dedupHashToName[type] ?: return AddDecision.INSERT
-        val existingName = m[geomHash] ?: return AddDecision.INSERT  // new geometry
+        // DUPECHECK-2026-10-20 (Fred 10-20): identity = (artifact type, geom_hash). A bulk session open -> its preloaded map (imports).
+        // NO session (one artifact) -> ONE indexed lookup in that type's table. Was: no session = everything looked new, so the
+        // single-track rider scan opened a session and loaded every hash (147,820 trails, 3.8 s on the screen's thread) per save.
+        val m = if (dedupSessionActive) dedupHashToName[type] else null
+        val existingName = (if (m != null) m[geomHash] else nameByHash(type, geomHash)) ?: return AddDecision.INSERT  // new geometry
         return if (existingName == name) AddDecision.DROP else AddDecision.ALIAS
+    }
+
+    /** DUPECHECK-2026-10-20: the name stored for this (type, geom_hash) -- one indexed lookup (UNIQUE(geom_hash) per type table).
+     *  CODE RULE 1: null = no such geometry of this type (new), or the database is not open / the type is unknown. */
+    private fun nameByHash(type: String, geomHash: String): String? {
+        val db = spatialDb ?: return null
+        val table = spatialTableFor(type)?.first ?: return null
+        return try {
+            db.rawQuery("SELECT name FROM $table WHERE geom_hash=? LIMIT 1", arrayOf(geomHash)).use { c ->
+                if (c.moveToFirst()) (if (c.isNull(0)) "Not Named" else c.getString(0)) else null
+            }
+        } catch (ex: Exception) { android.util.Log.w("SpatialDb", "DUPECHECK-2026-10-20 nameByHash($table): ${ex.message}"); null }
     }
 
     /** Record a freshly-inserted artifact in the in-memory lookup. */

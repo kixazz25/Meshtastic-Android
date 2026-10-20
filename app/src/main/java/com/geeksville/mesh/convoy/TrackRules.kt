@@ -16,6 +16,13 @@ package com.geeksville.mesh.convoy
  *    shortest way (was: forward only -- a route driven against its arrows was refused).
  *    (the straight line is replaced later by the lead's polyline -- stage 2).
  * R4 snap 50 m; the line is drawn ON the route / trail. A fill longer than 3 x straight + 60 m is not believed (never round a whole loop).
+ * GAPFILL-2026-10-20 (Fred 10-20 11:35-11:40) -- SUPERSEDES R3's order and R4's limit where they differ:
+ *    R3 a DISPLAYED ROUTE (the ride's route) is the ONLY guide: along it when drivable, else a straight line -- no tracks, no other
+ *       routes, no trails are weighed (Fred 11:57). NO route displayed: KNOWN TRACKS (followed like a route: ROUTEBOTH pairing, recorded
+ *       direction first) -> saved routes -> known trails -> a straight line. In each tier the best pair of all its lines wins.
+ *    R4 a fill is believed when it can be DRIVEN in the silent time: length <= 50 mph x the gap's seconds + 60 m (replaces 3 x straight).
+ *    MOVINGFILL-2026-10-20: a lead MOVING over its last 30 s (>= 3 mph) did not crawl -- fills >= 3 mph x the silent time are preferred.
+ *    Next: chaining several tracks / trails where they meet (Fred: 'combo').
  * R5 WAIT: the track goes through an intersection only when the next point, on the far side, is known. A held point is written
  *    when that point arrives, or at STOP / reset on its nearest line.
  * MYCARTRAW-2026-10-19 (Fred 10-19 12:06): the route / trail rules apply to the LEAD CART'S TRACK ONLY for now -- my cart is written raw
@@ -103,6 +110,8 @@ interface LineSource {
     fun routesNear(s: Double, w: Double, n: Double, e: Double): List<Line>
     /** The known trails, displayed or not -- NOT the Map Keys filter (Fred 10-19 08:39). */
     fun trailsNear(s: Double, w: Double, n: Double, e: Double): List<Line>
+    /** GAPFILL-2026-10-20: the known TRACKS (recorded / imported, type TRACK), displayed or not. Default: none (a test source may omit it). */
+    fun tracksNear(s: Double, w: Double, n: Double, e: Double): List<Line> = emptyList()
 }
 
 /** What the tracks are laid on -- shared by both routines (the lead's in the ViewModel, mine in the recorder service). */
@@ -142,6 +151,8 @@ object TrackGrounds {
         override fun route(id: String): Line? = query("SELECT route_id, geometry FROM routes WHERE route_id = ?", arrayOf(id)).firstOrNull()
         override fun routesNear(s: Double, w: Double, n: Double, e: Double) =
             query("SELECT route_id, geometry FROM routes WHERE min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT 50", box(s, w, n, e))
+        override fun tracksNear(s: Double, w: Double, n: Double, e: Double) =   // GAPFILL-2026-10-20
+            query("SELECT track_id, geometry FROM tracks WHERE (type='TRACK' OR type IS NULL) AND min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT 50", box(s, w, n, e))
         override fun trailsNear(s: Double, w: Double, n: Double, e: Double) =
             query("SELECT trail_id, geometry FROM trails WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT 200", box(s, w, n, e))
     }
@@ -151,7 +162,12 @@ object TrackGrounds {
 class TrackPath {
     companion object {
         const val SNAP_M = 50.0; const val NEAR_M = 15.0; const val AMBIG_M = 12.0; const val DETOUR = 3.0; const val DETOUR_M = 60.0
+        const val VMAX_MPS = 22.4   // GAPFILL-2026-10-20: 50 mph -- a fill longer than this x the silent time (+ DETOUR_M) is not believed
     }
+    /** GAPFILL-2026-10-20 R4: could the lead have driven [len] metres in [dtMs]? */
+    private fun drivable(len: Double, dtMs: Long): Boolean = len <= VMAX_MPS * (dtMs.coerceAtLeast(1000L) / 1000.0) + DETOUR_M
+    /** MOVINGFILL-2026-10-20: the preferred shortest fill -- set by the writer for each gap (0 = the lead was stopped: no preference). */
+    var minFillM = 0.0
     /** A place b could be: on which line, where. */
     data class Cand(val line: Line, val place: Line.Place)
     /** points = from a's place to b's place (a STRAIGHT fill is just a, b). alts = b's other places on a different line (R5). */
@@ -161,44 +177,44 @@ class TrackPath {
     private var lastRoute: String? = null                // CODE RULE 1: null = not on a saved route yet
     private var trailPrev: Pair<String, Double>? = null  // CODE RULE 1: null = not on a trail yet (the first trail place is the nearest)
 
-    fun reset() { routeS.clear(); lastRoute = null; trailPrev = null }
+    fun reset() { routeS.clear(); lastRoute = null; trailPrev = null; lastLine.clear() }   // GAPFILL-2026-10-20: + lastLine
 
     private fun bbox(a: TrackPoint, b: TrackPoint): DoubleArray {
         val pad = 0.0006   // ~60 m
         return doubleArrayOf(minOf(a.lat, b.lat) - pad, minOf(a.lon, b.lon) - pad * 1.4, maxOf(a.lat, b.lat) + pad, maxOf(a.lon, b.lon) + pad * 1.4)
     }
 
-    private fun route(a: TrackPoint, b: TrackPoint): Triple<Line, Line.Place, Line.Place>? {
-        val src = TrackGrounds.source; val shown = TrackGrounds.displayedRouteId
-        val order: List<Line> = if (shown != null) listOfNotNull(src.route(shown)) else {
-            val bb = bbox(a, b); val near = src.routesNear(bb[0], bb[1], bb[2], bb[3])
-            near.sortedBy { it.id != lastRoute }                  // a saved route he is already on goes first
-        }
-        val straight = TrackGeo.metres(a, b)
-        for (r in order) {
-            // ROUTEBOTH-2026-10-19: EITHER direction. Every near-equal place of a paired with every near-equal place of b (a route that uses the
-            // same road twice -- out and back -- has two places for one point); pairs past the detour limit dropped; then ALONG the
-            // arrows first when one fits, then the shortest way, then a's place nearest the previous one.
-            val prev = routeS[r.id]   // CODE RULE 1: null = not on this route yet (no previous place to prefer)
-            val ca = r.places(a).filter { it.off <= SNAP_M }
-            if (ca.isEmpty()) continue
-            val bestA = ca.minOf { it.off }
-            val nearA = ca.filter { it.off <= bestA + NEAR_M }
-            val cb = r.places(b).filter { it.off <= SNAP_M }
-            if (cb.isEmpty()) continue
-            val bestB = cb.minOf { it.off }
-            val nearB = cb.filter { it.off <= bestB + NEAR_M }
-            val lim = DETOUR * straight + DETOUR_M
-            val pairs = nearA.flatMap { qa -> nearB.map { qb -> Pair(qa, qb) } }.filter { Math.abs(it.second.s - it.first.s) <= lim }
-            val best = pairs.minWithOrNull(compareBy<Pair<Line.Place, Line.Place>>(
-                { it.second.s < it.first.s },                                  // against the arrows only when nothing along them fits
-                { Math.abs(it.second.s - it.first.s) },                        // then the shortest way
-                { if (prev != null) Math.abs(it.first.s - prev) else 0.0 }))   // then a's place nearest the previous one
-                ?: continue
-            return Triple(r, best.first, best.second)
+    /** GAPFILL-2026-10-20 R3: the best way along ANY of [lines] from a to b -- ROUTEBOTH pairing (every near place of each end; an out-and-back road
+     *  has two), drivable in the silent time; then along the line's direction first, then the shortest, then the line he was last on,
+     *  then a's place nearest the previous one. Was route(): the FIRST line that fitted, and the 3 x straight limit. */
+    private fun along(kind: String, lines: List<Line>, a: TrackPoint, b: TrackPoint, dtMs: Long): Triple<Line, Line.Place, Line.Place>? {
+        val cmp = compareBy<List<Any>>({ it[0] as Boolean }, { it[1] as Double }, { it[2] as Boolean }, { it[3] as Double })
+        // pass 1: each end's places within NEAR_M of its nearest (ROUTEBOTH). Pass 2, only when nothing drivable came of pass 1: EVERY place
+        // within SNAP_M -- an out-and-back road whose nearer pass would mean driving the whole loop backwards (Droid 2, 10-20 gap 2).
+        for (useMin in listOf(true, false)) for (wide in listOf(false, true)) {   // MOVINGFILL-2026-10-20: fills that fit a moving lead first
+            var best: Pair<List<Any>, Triple<Line, Line.Place, Line.Place>>? = null
+            for (r in lines) {
+                val prev = routeS[kind + ":" + r.id]   // CODE RULE 1: null = not on this line yet (no previous place to prefer)
+                val ca = r.places(a).filter { it.off <= SNAP_M }
+                if (ca.isEmpty()) continue
+                val bestA = ca.minOf { it.off }
+                val nearA = if (wide) ca else ca.filter { it.off <= bestA + NEAR_M }
+                val cb = r.places(b).filter { it.off <= SNAP_M }
+                if (cb.isEmpty()) continue
+                val bestB = cb.minOf { it.off }
+                val nearB = if (wide) cb else cb.filter { it.off <= bestB + NEAR_M }
+                for (qa in nearA) for (qb in nearB) {
+                    val len = Math.abs(qb.s - qa.s)
+                    if (!drivable(len, dtMs) || (useMin && len < minFillM)) continue   // MOVINGFILL-2026-10-20
+                    val key = listOf<Any>(qb.s < qa.s, len, r.id != lastLine[kind], if (prev != null) Math.abs(qa.s - prev) else 0.0)
+                    if (best == null || cmp.compare(key, best.first) < 0) best = Pair(key, Triple(r, qa, qb))
+                }
+            }
+            if (best != null) return best.second
         }
         return null
     }
+    private val lastLine = HashMap<String, String>()   // GAPFILL-2026-10-20: the line of each kind he was last on
 
     private fun trailPlaces(trails: List<Line>, p: TrackPoint): List<Pair<Double, Cand>> =
         trails.flatMap { t -> t.places(p).filter { it.off <= SNAP_M }.map { Pair(it.off, Cand(t, it)) } }.sortedBy { it.first }
@@ -217,7 +233,7 @@ class TrackPath {
         return best?.let { Pair(it.second, it.third) }
     }
 
-    private fun trail(a: TrackPoint, b: TrackPoint, bChoice: Cand?): Fill? {
+    private fun trail(a: TrackPoint, b: TrackPoint, bChoice: Cand?, dtMs: Long): Fill? {   // GAPFILL-2026-10-20: + the silent time
         val bb = bbox(a, b); val trails = TrackGrounds.source.trailsNear(bb[0], bb[1], bb[2], bb[3])
         if (trails.isEmpty()) return null
         val paAll = trailPlaces(trails, a); val pbAll = trailPlaces(trails, b)
@@ -232,14 +248,16 @@ class TrackPath {
             else pbAll.filter { it.first <= pbAll[0].first + NEAR_M }
         val straight = TrackGeo.metres(a, b)
         var best: Triple<Double, Cand, List<TrackPoint>>? = null
+        for (useMin in listOf(true, false)) { if (best != null) break   // MOVINGFILL-2026-10-20: fills that fit a moving lead first
         for ((_, cb) in nearB) {
             val path: List<TrackPoint> = if (cb.line === ca.line) ca.line.along(ca.place, cb.place) else {
                 val j = junction(ca.line, cb.line) ?: continue
                 ca.line.along(ca.place, j.first) + cb.line.along(j.second, cb.place).drop(1)
             }
             val len = TrackGeo.length(path)
-            if (len > DETOUR * straight + DETOUR_M) continue
+            if (!drivable(len, dtMs) || (useMin && len < minFillM)) continue   // GAPFILL-2026-10-20 R4 (was: len > DETOUR * straight + DETOUR_M); MOVINGFILL-2026-10-20
             if (best == null || len < best.first) best = Triple(len, cb, path)
+        }
         }
         if (best == null) return null
         val chosen = best.second; val at = chosen.line.pointAt(chosen.place)
@@ -250,12 +268,20 @@ class TrackPath {
     private var lastTrailChoice: Cand? = null
 
     /** commit = this fill is being written (the place on the trail is kept for the next gap). */
-    fun fill(a: TrackPoint, b: TrackPoint, bChoice: Cand? = null, commit: Boolean = false): Fill {
-        route(a, b)?.let { (r, pa, pb) ->
-            routeS[r.id] = pb.s; lastRoute = r.id
-            return Fill(r.along(pa, pb), "ROUTE:" + r.id, emptyList())
+    fun fill(a: TrackPoint, b: TrackPoint, dtMs: Long, bChoice: Cand? = null, commit: Boolean = false): Fill {   // GAPFILL-2026-10-20: + dtMs
+        // GAPFILL-2026-10-20 R3: displayed route -> known tracks -> saved routes (no route displayed) -> trails -> straight
+        val src = TrackGrounds.source; val shown = TrackGrounds.displayedRouteId; val bb = bbox(a, b)
+        val tiers = ArrayList<Pair<String, () -> List<Line>>>()
+        if (shown != null) tiers.add(Pair("ROUTE") { listOfNotNull(src.route(shown)) })   // the ride's route: the ONLY guide (Fred 11:57)
+        else { tiers.add(Pair("TRACK") { src.tracksNear(bb[0], bb[1], bb[2], bb[3]) }); tiers.add(Pair("ROUTE") { src.routesNear(bb[0], bb[1], bb[2], bb[3]) }) }
+        for ((kind, lines) in tiers) {
+            along(kind, lines(), a, b, dtMs)?.let { (r, pa, pb) ->
+                routeS[kind + ":" + r.id] = pb.s; lastLine[kind] = r.id; if (kind == "ROUTE") lastRoute = r.id
+                return Fill(r.along(pa, pb), kind + ":" + r.id, emptyList())
+            }
         }
-        trail(a, b, bChoice)?.let { f ->
+        if (shown != null) return Fill(listOf(a, b), "STRAIGHT", emptyList())   // GAPFILL-2026-10-20: off the displayed route = straight (no trails)
+        trail(a, b, bChoice, dtMs)?.let { f ->
             if (f.alts.isEmpty() || bChoice != null || commit) lastTrailChoice?.let { trailPrev = Pair(it.line.id, it.place.s) }
             return f
         }
@@ -264,8 +290,8 @@ class TrackPath {
 
     /** Try a fill without keeping anything it learned (used to compare the branches of a held point). */
     fun <T> trial(block: () -> T): T {
-        val s = HashMap(routeS); val lr = lastRoute; val tp = trailPrev; val lc = lastTrailChoice
-        try { return block() } finally { routeS.clear(); routeS.putAll(s); lastRoute = lr; trailPrev = tp; lastTrailChoice = lc }
+        val s = HashMap(routeS); val lr = lastRoute; val tp = trailPrev; val lc = lastTrailChoice; val ll = HashMap(lastLine)   // GAPFILL-2026-10-20
+        try { return block() } finally { routeS.clear(); routeS.putAll(s); lastRoute = lr; trailPrev = tp; lastTrailChoice = lc; lastLine.clear(); lastLine.putAll(ll) }
     }
 }
 
@@ -303,14 +329,15 @@ class TrackWriter(private val name: String, private val fill: Boolean) {   // MY
     fun onPoint(p: TrackPoint, tMs: Long, alt: Double): List<Update> {
         val ups = ArrayList<Update>()
         if (pts.isEmpty()) { val w = WPoint(p.lat, p.lon, tMs, alt, true, "FIRST"); pts.add(w); ups.add(Update.Append(listOf(w))); return ups }
-        held?.let { h -> held = null; ups.addAll(settleHeld(h, p)) }
+        held?.let { h -> held = null; ups.addAll(settleHeld(h, p, tMs)) }   // GAPFILL-2026-10-20: + the next point's time
         val last = pts.last(); val a = TrackPoint(last.lat, last.lon)
         val d = TrackGeo.metres(a, p)
         if (!fill || tMs - last.tMs <= GAP_MS || d <= GAP_M) {             // R2: no gap -> straight join (MYCARTRAW-2026-10-19: always, when fill is off)
             if (d < 0.05) return ups
             ups.add(Update.Append(write(listOf(p), tMs, alt, "DIRECT"))); return ups
         }
-        val f = path.fill(a, p)
+        path.minFillM = minFill(tMs - last.tMs)   // MOVINGFILL-2026-10-20
+        val f = path.fill(a, p, tMs - last.tMs)   // GAPFILL-2026-10-20: the silent time
         if (f.alts.isNotEmpty()) {                                          // R5: at an intersection -> hold, write nothing yet
             held = Held(p, tMs, alt, f.alts)
             android.util.Log.d("TRACKRULES", "TRACKRULES-2026-10-19 $name WAIT at an intersection (" + f.rule + ")")
@@ -323,17 +350,31 @@ class TrackWriter(private val name: String, private val fill: Boolean) {   // MY
     }
 
     /** The point on the far side is known: the held point goes on the branch that makes last -> held -> next shortest. */
-    private fun settleHeld(h: Held, next: TrackPoint): List<Update> {
+    /** MOVINGFILL-2026-10-20: moving over the last 30 s of REAL points (>= 3 mph) -> the fill must be >= 3 mph x the silent time; else 0. */
+    private fun minFill(dtMs: Long): Double {
+        if (pts.isEmpty() || dtMs < 60_000L) return 0.0   // a real LOSS only (>= 60 s, as Ride statistics) -- shorter = a missed packet or two
+        val now = pts.last().tMs
+        val win = pts.filter { it.real && it.tMs >= now - 30_000L }
+        if (win.size < 2) return 0.0
+        val span = (win.last().tMs - win.first().tMs) / 1000.0
+        if (span < 5.0) return 0.0
+        var d = 0.0; for (i in 1 until win.size) d += TrackGeo.metres(TrackPoint(win[i - 1].lat, win[i - 1].lon), TrackPoint(win[i].lat, win[i].lon))
+        return if (d / span >= 1.34) 1.34 * (dtMs / 1000.0) else 0.0
+    }
+
+    private fun settleHeld(h: Held, next: TrackPoint, nextMs: Long): List<Update> {   // GAPFILL-2026-10-20: + nextMs
         val last = pts.last(); val a = TrackPoint(last.lat, last.lon)
         var best: Pair<Double, TrackPath.Cand?>? = null
         for (choice in listOf<TrackPath.Cand?>(null) + h.alts) {
+            path.minFillM = minFill(h.tMs - last.tMs)   // MOVINGFILL-2026-10-20
             val len = path.trial {
-                val s1 = path.fill(a, h.p, choice); val s2 = path.fill(s1.points.last(), next)
+                val s1 = path.fill(a, h.p, h.tMs - last.tMs, choice); val s2 = path.fill(s1.points.last(), next, nextMs - h.tMs)
                 TrackGeo.length(s1.points) + TrackGeo.length(s2.points)
             }
             if (best == null || len < best.first) best = Pair(len, choice)
         }
-        val f = path.fill(a, h.p, best!!.second, commit = true)
+        path.minFillM = minFill(h.tMs - last.tMs)   // MOVINGFILL-2026-10-20
+        val f = path.fill(a, h.p, h.tMs - last.tMs, best!!.second, commit = true)
         return listOf(Update.Append(write(placed(f, h.p), h.tMs, h.alt, f.rule)))
     }
 
@@ -341,7 +382,8 @@ class TrackWriter(private val name: String, private val fill: Boolean) {   // MY
     fun settle(): List<Update> {
         val h = held ?: return emptyList(); held = null
         val last = pts.last(); val a = TrackPoint(last.lat, last.lon)
-        val f = path.fill(a, h.p, null, commit = true)
+        path.minFillM = minFill(h.tMs - last.tMs)   // MOVINGFILL-2026-10-20
+        val f = path.fill(a, h.p, h.tMs - last.tMs, null, commit = true)
         return listOf(Update.Append(write(placed(f, h.p), h.tMs, h.alt, f.rule)))
     }
 
@@ -418,7 +460,7 @@ class LeadCartProcess(val updateFrequency: Int = 1) {
     /** The whole lead track (no trim -- R1). */
     fun segments(): List<ConvoyEngine.LeadTrackSegment> {
         val l = screen.line; val out = ArrayList<ConvoyEngine.LeadTrackSegment>()
-        for (i in 1 until l.size) out.add(ConvoyEngine.LeadTrackSegment(startLat = l[i - 1].lat, startLon = l[i - 1].lon, endLat = l[i].lat, endLon = l[i].lon, color = "#000000", nodeId = lead))
+        for (i in 1 until l.size) out.add(ConvoyEngine.LeadTrackSegment(startLat = l[i - 1].lat, startLon = l[i - 1].lon, endLat = l[i].lat, endLon = l[i].lon, color = "#FF8C00", nodeId = lead))   // LEADVIS-2026-10-20: orange (was black -- invisible on satellite)
         return out
     }
 }

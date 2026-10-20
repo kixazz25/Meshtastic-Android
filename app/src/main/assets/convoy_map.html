@@ -256,12 +256,13 @@
       for (var id in markers) map.removeLayer(markers[id]);
       markers = {};
     }
-    function addMarker(id, lat, lon, color, label, isMine, offTrack) {
+    function addMarker(id, lat, lon, color, label, isMine, offTrack, blink) {   // LEADEST-2026-10-20: + blink (the silent lead's estimate)
       if (markers[id]) map.removeLayer(markers[id]);
       var sz = isMine ? 28 : 14;
       var html = isMine
         ? "<div style='width:"+sz+"px;height:"+sz+"px;background:white;border-radius:50%;border:2px solid "+color+";box-shadow:0 0 6px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;'><span style='font-size:18px;line-height:1;color:"+color+";'>&#9733;</span></div>"
         : "<div style='width:"+sz+"px;height:"+sz+"px;background:"+color+";border:2px solid white;border-radius:3px;box-shadow:0 0 4px rgba(0,0,0,0.5)'></div>";
+      if (blink) { gtBlinkCss(); html = "<div class='gt-blink'>" + html + "</div>"; }   // LEADEST-2026-10-20
       var icon = L.divIcon({className:"", html:html, iconSize:[sz,sz], iconAnchor:[sz/2,sz/2]});
       var m = L.marker([lat,lon],{icon:icon}).addTo(map);
       var labelColor = offTrack ? "color:red;font-weight:bold;" : "";
@@ -270,6 +271,21 @@
         var tapId = id;
         m.on('touchend', function(e) { L.DomEvent.stopPropagation(e); if (window.Android) window.Android.onMarkerTapped(tapId); });
     }
+    // LEADEST-2026-10-20 (Fred 10-20): the silent lead blinks at its estimated position; a grey dot where it was last heard
+    function gtBlinkCss() {
+      if (document.getElementById('gtBlinkCss')) return;
+      var st = document.createElement('style'); st.id = 'gtBlinkCss';
+      st.textContent = '@keyframes gtBlink{0%,100%{opacity:1}50%{opacity:0.15}} .gt-blink{animation:gtBlink 1s infinite}';
+      document.head.appendChild(st);
+    }
+    var lastHeardMarker = null;
+    function setLastHeard(lat, lon) {
+      if (lastHeardMarker) { lastHeardMarker.setLatLng([lat, lon]); return; }
+      var icon = L.divIcon({className:"", html:"<div style='width:10px;height:10px;background:#888;border:2px solid white;border-radius:50%;box-shadow:0 0 3px rgba(0,0,0,0.6)'></div>", iconSize:[10,10], iconAnchor:[5,5]});
+      lastHeardMarker = L.marker([lat, lon], {icon: icon, interactive: false}).addTo(map);
+      lastHeardMarker.bindTooltip('last heard', {permanent: true, direction: 'bottom', offset: [0, 6]});
+    }
+    function clearLastHeard() { if (lastHeardMarker) { map.removeLayer(lastHeardMarker); lastHeardMarker = null; } }
     function initDeviceLocation() {
       if (!navigator.geolocation) return;
       navigator.geolocation.getCurrentPosition(function(pos) {
@@ -345,29 +361,39 @@
       if (layers.length > 0) map.fitBounds(L.featureGroup(layers).getBounds(), {padding: [40,40]});
     }
 
-    var trackLines = [];
-    var leadTrackArrows = null;   // LEADTRACKBOARD-2026-10-18 (Fred 08:59): the lead track DOTTED with ARROWS, like my track, in black
+    var trackLines = [];          // the lead track's lines: for each run, the black EDGE line then the orange line (both removed together)
+    var leadTrackArrows = null;   // LEADTRACKBOARD-2026-10-18 (Fred 08:59): the lead track DOTTED with ARROWS
+    // LEADVIS-2026-10-20 (Fred 10-20): ORANGE dots ringed in BLACK, arrows black-edged with an orange middle -- black alone vanished on satellite.
     function drawTrack(segments) {
       trackLines.forEach(function(l){ map.removeLayer(l); });
       trackLines = [];
       if (leadTrackArrows) { map.removeLayer(leadTrackArrows); leadTrackArrows = null; }
       // consecutive segments (one ends where the next starts) are joined into ONE line, so the dots and arrows run continuously
-      var run = null, runColor = null;
+      var runs = [], run = null, runColor = null;
       segments.forEach(function(seg) {
         if (run && runColor === seg.color && run[run.length - 1][0] === seg.startLat && run[run.length - 1][1] === seg.startLon) {
           run.push([seg.endLat, seg.endLon]);
         } else {
-          if (run) trackLines.push(L.polyline(run, {color: runColor, weight: 5, opacity: 0.9, dashArray: '2, 11', lineCap: 'round'}).addTo(map));
+          if (run) runs.push([run, runColor]);
           run = [[seg.startLat, seg.startLon], [seg.endLat, seg.endLon]]; runColor = seg.color;
         }
       });
-      if (run) trackLines.push(L.polyline(run, {color: runColor, weight: 5, opacity: 0.9, dashArray: '2, 11', lineCap: 'round'}).addTo(map));
-      if (trackLines.length && typeof L.polylineDecorator === 'function' && L.Symbol && L.Symbol.arrowHead) {
-        leadTrackArrows = L.polylineDecorator(trackLines, { patterns: [
-          { offset: 30, repeat: 90, symbol: L.Symbol.arrowHead({ pixelSize: 11, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#000000', weight: 3, opacity: 1 } }) }
+      if (run) runs.push([run, runColor]);
+      var faces = [];
+      runs.forEach(function(r) {
+        trackLines.push(L.polyline(r[0], {color: '#000000', weight: 9, opacity: 0.9, dashArray: '2, 11', lineCap: 'round', interactive: false}).addTo(map));
+        var face = L.polyline(r[0], {color: r[1], weight: 5, opacity: 1, dashArray: '2, 11', lineCap: 'round'}).addTo(map);
+        trackLines.push(face); faces.push(face);
+      });
+      if (faces.length && typeof L.polylineDecorator === 'function' && L.Symbol && L.Symbol.arrowHead) {
+        leadTrackArrows = L.polylineDecorator(faces, { patterns: [
+          { offset: 30, repeat: 90, symbol: L.Symbol.arrowHead({ pixelSize: 11, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#000000', weight: 6, opacity: 1 } }) },
+          { offset: 30, repeat: 90, symbol: L.Symbol.arrowHead({ pixelSize: 11, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#FF8C00', weight: 2.5, opacity: 1 } }) }
         ] }).addTo(map);
       }
       tracksVisible = true;
+      var n = 0; runs.forEach(function(r) { n += r[0].length; });
+      console.log('LEADVIS-2026-10-20 drawTrack: ' + segments.length + ' segs, ' + runs.length + ' lines, ' + n + ' points, zoom ' + map.getZoom());
     }
 
     function clearTrack() {

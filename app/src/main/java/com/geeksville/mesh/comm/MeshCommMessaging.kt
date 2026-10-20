@@ -135,6 +135,8 @@ class MeshCommMessaging @Inject constructor(
                 if (n.lastHeard != lastHeard[num] && heardMs >= eventSessionStartMs && heardMs >= now - 120_000L) {
                     lastHeard[num] = n.lastHeard
                     emit(CommEvent.MemberHeard(memberOf(n)))
+                    android.util.Log.i("RXSTATS", "LEADVIS-2026-10-20 from " + num + " snr " + n.snr + " rssi " + n.rssi + " hops " + n.hopsAway +
+                        " ch " + n.deviceMetrics.channel_utilization + " air " + n.deviceMetrics.air_util_tx + " at " + n.latitude + "," + n.longitude)   // diagnostic (T6b records it)
                     // COTMSG-2026-10-15 (T5.4a-1): the same received report as a CoT message -- nobody listens yet (T5.4a-2 switches the board)
                     val msg = messageOf(n, reportSecsCache ?: 6)
                     if (msg != null) emit(CommEvent.Received(msg, setOf(com.grouptrack.comm.Transport.LORA)))
@@ -181,6 +183,11 @@ class MeshCommMessaging @Inject constructor(
             channelUtilPct = node.deviceMetrics.channel_utilization,
             headingDeg = pos.ground_track?.let { ((it.toFloat() / 100000f) % 360f + 360f) % 360f },
             batteryPct = node.deviceMetrics.battery_level,
+            // STATSPANEL-2026-10-20: Meshtastic's 'not set' values -> null
+            snr = node.snr.takeIf { it != Float.MAX_VALUE },
+            rssi = node.rssi.takeIf { it != Int.MAX_VALUE },
+            hopsAway = node.hopsAway.takeIf { it >= 0 },
+            airUtilPct = node.deviceMetrics.air_util_tx,
         )
     }
 

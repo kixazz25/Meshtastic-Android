@@ -267,7 +267,8 @@ object RiderTrailWriter {
             Log.i(TAG, "no geometry for ${geomHash.take(12)} -- nothing to scan")
             return Pair(0, 0.0)
         }
-        SpatialDbManager.beginDedupSession()
+        // DUPECHECK-2026-10-20 (Fred 10-20): NO bulk session for one track -- resolveByGeom does one indexed lookup per derived trail
+        // (was beginDedupSession(): every hash in the database loaded for a handful of trails -- 3.8 s per save).
         val r = scanTrack(foundName, geom)
         if (r.first > 0) trailsChanged.value = System.currentTimeMillis()   // RIDERIDS-2026-10-09: the maps reload
         return r

@@ -145,6 +145,17 @@ class ConvoyViewModel @Inject constructor(
         object Reset : TrackEntry()
     }
     private val trackQueue = kotlinx.coroutines.channels.Channel<TrackEntry>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+    // LEADEST-2026-10-20: the silent lead's estimated position (LeadEstimate.kt) -- the screen draws it; Ride statistics keep its error
+    private val leadEst = LeadEstimate()
+    private val _leadEstimate = MutableStateFlow<LeadEstimate.Est?>(null)   // CODE RULE 1: null = the lead is not silent
+    val leadEstimate: StateFlow<LeadEstimate.Est?> = _leadEstimate.asStateFlow()
+    @Volatile private var estRoute: Pair<String, Line?>? = null   // CODE RULE 1: null = not looked up yet
+    /** The DISPLAYED route as a Line (cached per id). CODE RULE 1: null = no route displayed, or it is gone from the database. */
+    private fun estRouteNow(): Line? {
+        val id = TrackGrounds.displayedRouteId ?: return null
+        estRoute?.let { if (it.first == id) return it.second }
+        val l = TrackGrounds.source.route(id); estRoute = Pair(id, l); return l
+    }
     private val leadCart = LeadCartProcess(updateFrequency = 1)   // TRACKRULES-2026-10-19: the LEAD CART routine (TrackRules.kt) -- was LeadTrack (hold + trim)
     // TRACKORDER-2026-10-18: the newest report time taken into the queue per cart -- an older position never draws a track backwards. Above init.
     private val trackLastMsgT = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -538,6 +549,19 @@ class ConvoyViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Default) {
             for (e in trackQueue) try { trackConsume(e) } catch (ex: Exception) { android.util.Log.w("LEADTRACK", "LEADTRACKBOARD-2026-10-18: entry failed: " + ex.message) }
         }
+        // LEADEST-2026-10-20: every second -- the silent lead's estimate (only while group awareness is on)
+        viewModelScope.launch(Dispatchers.Default) {
+            while (true) {
+                kotlinx.coroutines.delay(1_000L)
+                try {
+                    val est = if (GroupMode.on.value) leadEst.tick(System.currentTimeMillis(), estRouteNow()) else null
+                    if (est != null && _leadEstimate.value == null) android.util.Log.i("LEADEST", "LEADEST-2026-10-20 lead " + est.leadId + " silent " + est.silentMs / 1000 + " s -- " + (if (est.onRoute && est.moving) "moving along the route" else "blinking in place"))
+                    if (est != null && (est.silentMs / 1000) % 15 == 0L) android.util.Log.i("LEADEST", "ESTVIEW-2026-10-20 vm: " + est.leadId + " est " + est.lat + "," + est.lon +
+                        " last " + est.lastLat + "," + est.lastLon + " silent " + est.silentMs / 1000 + " s " + (if (est.onRoute) "on route" else "no route") + " " + (est.speedMps * 2.237).toInt() + " mph")   // diagnostic
+                    _leadEstimate.value = est
+                } catch (ex: Exception) { android.util.Log.w("LEADEST", "LEADEST-2026-10-20 tick failed: " + ex.message) }
+            }
+        }
         // HEARDBOARD-2026-10-14: the cart board's ONLY radio input -- a message received from a radio (MemberHeard). Nothing at start-up.
         viewModelScope.launch {
             // COTBOARD-2026-10-15 (T5.4a-2): the board reads the CoT message (Received); MemberHeard no longer feeds it
@@ -548,6 +572,11 @@ class ConvoyViewModel @Inject constructor(
                     boardUtil[e.member.id] = e.member.channelUtilPct
                     val utils = boardCarts.keys.mapNotNull { id -> id.removePrefix("!").toLongOrNull(16)?.toInt()?.toString()?.let { boardUtil[it] } }
                     _avgChannelUtil.value = if (utils.isEmpty()) 0f else utils.average().toFloat().takeIf { !it.isNaN() } ?: 0f
+                    // STATSPANEL-2026-10-20: the ride statistics keep every report -- only while group awareness is on (Fred 10-20)
+                    if (GroupMode.on.value) {
+                        val fresh = System.currentTimeMillis() - myRadioFixMs < 120_000L
+                        RideStats.onHeard(e.member, myRadioNum()?.toString(), if (fresh) myRadioLat else null, if (fresh) myRadioLon else null)
+                    }
                 }
             }
         }
@@ -697,6 +726,9 @@ class ConvoyViewModel @Inject constructor(
     private val _gpsApplyBusy = MutableStateFlow(false)
     val gpsApplyBusy: StateFlow<Boolean> = _gpsApplyBusy.asStateFlow()
     fun clearGpsApplyStatus() { if (!_gpsApplyBusy.value) _gpsApply.value = null }
+    // STATSPANEL-2026-10-20: Settings -> Group awareness -> Ride statistics
+    fun rideStatsReport(): String = RideStats.report(System.currentTimeMillis(), reportingPreset.value, reportingNowSecs.value, _avgChannelUtil.value)
+    fun resetRideStats() = RideStats.reset()
 
     fun applyLocationInterval(secs: Int, preset: String) {   // PRESETPANEL-2026-10-20 (Fred 10-20): + the preset, through the radio SETUP (one process)
         if (_gpsApplyBusy.value) return
@@ -1033,11 +1065,17 @@ class ConvoyViewModel @Inject constructor(
      *  My track is the recorder's (MyCartProcess in ConvoyGpsService); my cart's reports move my cart icon only. */
     private fun trackConsume(e: TrackEntry) {
         when (e) {
-            is TrackEntry.Reset -> { leadCart.reset(); _offTrackIds.value = emptySet(); trackPublish() }
+            is TrackEntry.Reset -> { leadCart.reset(); _offTrackIds.value = emptySet(); trackPublish(); leadEst.reset(); _leadEstimate.value = null }   // LEADEST-2026-10-20
             is TrackEntry.Real -> {
                 // 3 RECORDER: the ride detail JSON is written HERE (RIDEDETAIL, after the tick) -- the real report only, never my tablet's own GPS.
                 if (e.isLead && !e.isMine) {
                     if (leadCart.onLeadReport(e.cartId, e.p, e.rxMs)) { trackPublish(); android.util.Log.d("LEADTRACK", "TRACKRULES-2026-10-19: lead " + e.cartId + " written") }
+                    // LEADEST-2026-10-20: heard -> the estimate (if one was showing) ends; its error to the ride statistics
+                    leadEst.onReport(e.cartId, e.p, e.rxMs, estRouteNow())?.let { o ->
+                        android.util.Log.i("LEADEST", "LEADEST-2026-10-20 heard after " + o.silentMs / 1000 + " s: estimate off by " + o.errorM.toInt() + " m (" + (if (o.onRoute) "on route" else "in place") + ", " + (o.speedMps * 2.237).toInt() + " mph)")
+                        if (GroupMode.on.value) RideStats.onEstimate(o)
+                    }
+                    _leadEstimate.value = null
                 } else if (!e.isMine) {
                     // off-track: THAT cart against the lead track, when its own report arrives (Settings -> OFF_TRACK_MILES)
                     val d = leadCart.metresFromTrack(e.p)
@@ -1067,7 +1105,8 @@ class ConvoyViewModel @Inject constructor(
         if (!fromTablet && num == myNum) {
             // a stored position replayed at connect is OLD (A3) -> not a fix; the report still counts as heard on the board below
             val rp = msg.point   // ROLEPOS-2026-10-19: keep the position with the time
-            if (rp != null && msg.timeMs > nowMine - 60_000L) { myRadioFixMs = nowMine; myRadioLat = rp.latitude; myRadioLon = rp.longitude }
+            if (rp != null && msg.timeMs > nowMine - 60_000L) { myRadioFixMs = nowMine; myRadioLat = rp.latitude; myRadioLon = rp.longitude
+                if (GroupMode.on.value) RideStats.onMine(nowMine, rp.latitude, rp.longitude) }   // STATSPANEL-2026-10-20
         }
         if (fromTablet && myNum != null && !tabletHasGps && commLink.health.value.talking && nowMine - myRadioFixMs < 45_000L) return   // the radio is driving my cart (ONEFEED-2026-10-19: only on a tablet without GPS)
         val id = "!%08x".format(num)

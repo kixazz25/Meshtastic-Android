@@ -365,6 +365,31 @@ fun ConvoySettingsScreen(
                 Switch(checked = showLeadTrack, onCheckedChange = { convoyViewModel.setShowLeadTrack(it) })
             }
             HorizontalDivider()
+            // STATSPANEL-2026-10-20 (Fred 10-20): ride statistics -- range, losses, signal and channel use for each cart heard
+            var statsOpen by remember { mutableStateOf(false) }
+            var statsText by remember { mutableStateOf("") }
+            ListItem(
+                headlineContent = { Text("Ride statistics", style = MaterialTheme.typography.bodyLarge) },
+                supportingContent = { Text("Range, losses, signal and channel use for each cart heard while group awareness is on", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                modifier = Modifier.clickable { statsText = convoyViewModel.rideStatsReport(); statsOpen = true }
+            )
+            HorizontalDivider()
+            if (statsOpen) androidx.compose.material3.AlertDialog(
+                onDismissRequest = { statsOpen = false },
+                title = { Text("Ride statistics") },
+                text = {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        Text(statsText, style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace))
+                    }
+                },
+                confirmButton = { TextButton(onClick = { statsText = convoyViewModel.rideStatsReport() }) { Text("REFRESH") } },
+                dismissButton = {
+                    Row {
+                        TextButton(onClick = { convoyViewModel.resetRideStats(); statsText = convoyViewModel.rideStatsReport() }) { Text("RESET") }
+                        TextButton(onClick = { statsOpen = false }) { Text("CLOSE") }
+                    }
+                }
+            )
             }   // GRPMODE2-2026-10-13: end of the group settings
             Spacer(Modifier.height(8.dp))
             // ── Build stamp ──────────────────────────────────────────

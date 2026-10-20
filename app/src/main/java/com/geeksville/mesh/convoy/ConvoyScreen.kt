@@ -148,6 +148,7 @@ fun ConvoyScreen(
     val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
     val trackActive by viewModel.trackActive.collectAsStateWithLifecycle()
     val offTrackIds by viewModel.offTrackIds.collectAsStateWithLifecycle()
+    val leadEstimate by viewModel.leadEstimate.collectAsStateWithLifecycle()   // LEADEST-2026-10-20 (null = the lead is not silent)
     val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
     var recordingState by viewModel.recordingState
     var showLocationPermissionDialog by remember { mutableStateOf(false) }
@@ -437,7 +438,7 @@ fun ConvoyScreen(
     var mapReady by remember { mutableStateOf(0) } // increments each time map page finishes loading
 
     // ── Push node markers to Leaflet map ────────────────────────────────────
-    LaunchedEffect(convoyState) {
+    LaunchedEffect(convoyState, leadEstimate) {   // LEADEST-2026-10-20: + the silent lead's estimate
         val wv = webViewRef.value ?: return@LaunchedEffect
         val validNodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
         wv.post {
@@ -449,8 +450,17 @@ fun ConvoyScreen(
                         "leader" -> "Leader"; "middle" -> "Middle"; "tail_gunner" -> "Tail gunner"; else -> "Rider" })
                 val isMine = node.isMyCart
                 val isOffTrack = offTrackIds.contains(node.nodeId)
-                wv.evaluateJavascript("addMarker('${node.nodeId}', ${node.latitude}, ${node.longitude}, '$color', '$label', $isMine, $isOffTrack)", null)
+                // LEADEST-2026-10-20: the SILENT lead -> drawn at its estimate, blinking, "est. m:ss"; a grey dot where it was last heard
+                val est = leadEstimate?.takeIf { it.leadId == node.nodeId }
+                if (est != null) {
+                    val ss = est.silentMs / 1000
+                    val estLabel = label + " \u00b7 est. " + (ss / 60) + ":" + "%02d".format(ss % 60)
+                    wv.evaluateJavascript("addMarker('${node.nodeId}', ${est.lat}, ${est.lon}, '$color', '$estLabel', $isMine, $isOffTrack, true)", null)
+                    if (ss % 15 == 0L) android.util.Log.i("LEADEST", "ESTVIEW-2026-10-20 screen: drew " + node.nodeId + " at " + est.lat + "," + est.lon + " (est. " + ss + " s)")   // diagnostic
+                    wv.evaluateJavascript("setLastHeard(${est.lastLat}, ${est.lastLon})", null)
+                } else wv.evaluateJavascript("addMarker('${node.nodeId}', ${node.latitude}, ${node.longitude}, '$color', '$label', $isMine, $isOffTrack)", null)
             }
+            if (leadEstimate == null) wv.evaluateJavascript("if (typeof clearLastHeard === 'function') clearLastHeard()", null)
         }
     }
 
@@ -483,7 +493,10 @@ fun ConvoyScreen(
         }
     }
 
-    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
+    // LEADVIS-2026-10-20 (Fred 10-20): the GROUP view frames the lead track too -- refit as it grows (only while auto-pan is on).
+    val leadForPan by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
+    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null, if (autoPan && showLeadTrack) leadForPan else null,
+            if (autoPan) leadEstimate else null) {   // ESTVIEW-2026-10-20: + the silent lead's estimate
         val wv = webViewRef.value ?: return@LaunchedEffect
         if (!autoPan) return@LaunchedEffect
         val nodes = convoyState.nodes
@@ -502,9 +515,19 @@ fun ConvoyScreen(
             else -> {
                 // GROUP / COLLAPSED — fit all nodes with valid GPS only
                 val validNodes = nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
-                if (validNodes.isNotEmpty()) {
-                    val lats = validNodes.joinToString(",") { it.latitude.toString() }
-                    val lons = validNodes.joinToString(",") { it.longitude.toString() }
+                // LEADVIS-2026-10-20: + the lead track's corners (its bounding box), so the whole route stays in view
+                val lead = if (showLeadTrack) leadForPan else emptyList()
+                val latL = ArrayList<Double>(); val lonL = ArrayList<Double>()
+                validNodes.forEach { latL.add(it.latitude); lonL.add(it.longitude) }
+                if (lead.isNotEmpty()) {
+                    val la = lead.flatMap { listOf(it.startLat, it.endLat) }; val lo = lead.flatMap { listOf(it.startLon, it.endLon) }
+                    latL.add(la.min()); lonL.add(lo.min()); latL.add(la.max()); lonL.add(lo.max())
+                }
+                // ESTVIEW-2026-10-20 (Fred 13:20): the silent lead's ESTIMATE is in the frame too -- it moves along the route off the last known spot
+                leadEstimate?.let { latL.add(it.lat); lonL.add(it.lon) }
+                if (latL.isNotEmpty()) {
+                    val lats = latL.joinToString(",")
+                    val lons = lonL.joinToString(",")
                     wv.evaluateJavascript("fitBounds([$lats], [$lons])", null)
                 }
             }
@@ -545,6 +568,7 @@ fun ConvoyScreen(
             }
         }
         val json = "[" + parts.joinToString(",") + "]"
+        android.util.Log.i("LEADDRAW", "LEADVIS-2026-10-20 lead track sent: " + parts.size + " segs to page " + System.identityHashCode(wv))   // diagnostic (T6 removes)
         wv.evaluateJavascript("drawTrack(" + json + ")", null)
     }
     // MYTRACK-2026-10-18 (LEADTRACKBOARD-2026-10-18): my track drawn live behind my cart while REC is on -- the recorder's own points (gpsTrailSegments:
@@ -921,6 +945,7 @@ fun ConvoyScreen(
                             }
                         }
                     }, "Android")
+                    android.util.Log.i("LEADDRAW", "LEADVIS-2026-10-20 map page REUSED " + System.identityHashCode(existing) + " vm " + System.identityHashCode(viewModel))   // diagnostic
                     webViewRef.value = existing
                     existing
                 } else {
@@ -1299,6 +1324,7 @@ fun ConvoyScreen(
                             }
                         }, "Android")
                     }.also {
+                        android.util.Log.i("LEADDRAW", "LEADVIS-2026-10-20 map page CREATED " + System.identityHashCode(it) + " vm " + System.identityHashCode(viewModel))   // diagnostic
                         viewModel.persistentWebView = it
                         webViewRef.value = it
                     }
