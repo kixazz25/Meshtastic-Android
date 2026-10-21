@@ -956,7 +956,7 @@ fun ConvoyScreen(
                     webViewRef.value = existing
                     existing
                 } else {
-                    android.webkit.WebView.setWebContentsDebuggingEnabled(true)   // WEBDEBUG-2026-10-09: chrome://inspect -- 2.7b TEST builds only
+                    // NOWEBDEBUG-2026-10-21: WEBDEBUG-2026-10-09 (chrome://inspect) removed for the 2.7b release
                     android.webkit.WebView(ctx).apply {
                         settings.javaScriptEnabled = true
                                     // HTMLVER-2026-08-13B: never serve a cached copy of a
