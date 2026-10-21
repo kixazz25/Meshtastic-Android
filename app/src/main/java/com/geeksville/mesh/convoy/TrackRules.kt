@@ -23,6 +23,9 @@ package com.geeksville.mesh.convoy
  *    R4 a fill is believed when it can be DRIVEN in the silent time: length <= 50 mph x the gap's seconds + 60 m (replaces 3 x straight).
  *    MOVINGFILL-2026-10-20: a lead MOVING over its last 30 s (>= 3 mph) did not crawl -- fills >= 3 mph x the silent time are preferred.
  *    Next: chaining several tracks / trails where they meet (Fred: 'combo').
+ * ESTGUIDE-2026-10-21 (Fred 10-20 17:15-17:18) -- SUPERSEDES the GAPFILL order where they differ: the displayed route ONLY when it is the only route
+ *    on the map (displayedRouteId); otherwise the track or trail the lead was on -- known tracks, then trails (R5: wait at a junction) --
+ *    then a straight line. SAVED ROUTES ARE NO LONGER A GUIDE. The silent-lead estimate follows the same rule (LeadEstimate).
  * R5 WAIT: the track goes through an intersection only when the next point, on the far side, is known. A held point is written
  *    when that point arrives, or at STOP / reset on its nearest line.
  * MYCARTRAW-2026-10-19 (Fred 10-19 12:06): the route / trail rules apply to the LEAD CART'S TRACK ONLY for now -- my cart is written raw
@@ -273,7 +276,7 @@ class TrackPath {
         val src = TrackGrounds.source; val shown = TrackGrounds.displayedRouteId; val bb = bbox(a, b)
         val tiers = ArrayList<Pair<String, () -> List<Line>>>()
         if (shown != null) tiers.add(Pair("ROUTE") { listOfNotNull(src.route(shown)) })   // the ride's route: the ONLY guide (Fred 11:57)
-        else { tiers.add(Pair("TRACK") { src.tracksNear(bb[0], bb[1], bb[2], bb[3]) }); tiers.add(Pair("ROUTE") { src.routesNear(bb[0], bb[1], bb[2], bb[3]) }) }
+        else tiers.add(Pair("TRACK") { src.tracksNear(bb[0], bb[1], bb[2], bb[3]) })   // ESTGUIDE-2026-10-21 (Fred 10-20 17:18): saved routes are no longer a guide
         for ((kind, lines) in tiers) {
             along(kind, lines(), a, b, dtMs)?.let { (r, pa, pb) ->
                 routeS[kind + ":" + r.id] = pb.s; lastLine[kind] = r.id; if (kind == "ROUTE") lastRoute = r.id

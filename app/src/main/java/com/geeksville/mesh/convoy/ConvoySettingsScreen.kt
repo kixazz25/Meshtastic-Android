@@ -365,15 +365,7 @@ fun ConvoySettingsScreen(
                 Switch(checked = showLeadTrack, onCheckedChange = { convoyViewModel.setShowLeadTrack(it) })
             }
             HorizontalDivider()
-            // POLYTEST-2026-10-20 (Fred 14:13): one fixed TAK polyline -- proves the radios deliver it before the gap polyline is built
-            var polyTest by remember { mutableStateOf("") }
-            ListItem(
-                headlineContent = { Text("Send test polyline", style = MaterialTheme.typography.bodyLarge) },
-                supportingContent = { Text(if (polyTest.isEmpty()) "Sends one 20-point TAK polyline (u-d-f) to the group -- a delivery test. Not during a ride: a cart recording behind this lead would draw it" else polyTest,
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                modifier = Modifier.clickable { polyTest = "Sending..."; convoyViewModel.sendTestPolyline { polyTest = it } }
-            )
-            HorizontalDivider()
+            // NOTESTBUTTON-2026-10-21: the POLYTEST "Send test polyline" item is removed for release (bench test only)
             // STATSPANEL-2026-10-20 (Fred 10-20): ride statistics -- range, losses, signal and channel use for each cart heard
             var statsOpen by remember { mutableStateOf(false) }
             var statsText by remember { mutableStateOf("") }

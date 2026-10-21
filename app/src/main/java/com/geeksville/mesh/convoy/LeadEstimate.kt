@@ -10,6 +10,9 @@ package com.geeksville.mesh.convoy
  *              faster than 3 mph), along the route from where its last reports place it: the reading of its last 5 reports that moves
  *              steadily FORWARD (an out-and-back road gives each report two places), else steadily backward, else in place.
  *              Without a route: in place.
+ *   ESTGUIDE-2026-10-21 (Fred 10-20 17:15-17:18): the route ONLY when it is the only route on the map (TrackGrounds.displayedRouteId is exactly
+ *              that). Otherwise the estimate follows the TRACK OR TRAIL THE LEAD WAS ON (its last reports lie steadily along it) and STOPS
+ *              AT THE NEXT JUNCTION (where another known track or trail branches off) -- it never guesses a branch. None steady: in place.
  *   STOPS    = the lead was slower than 3 mph over its last 90 s when it went silent (a stop / breakdown is never shown driving away); the route's end;
  *              10 minutes of silence (it holds there, still blinking).
  *   HEARD    = the estimate ends; its ERROR (estimate vs the real report, metres) goes to the ride statistics (Fred 11:45).
@@ -33,8 +36,15 @@ class LeadEstimate {
     private val recent = ArrayList<R>()
     private var leadId = ""
     private var current: Est? = null   // CODE RULE 1: null = the lead is not silent (no estimate showing)
+    /** ESTGUIDE-2026-10-21: the known tracks and trails near a point (set by the ViewModel from TrackGrounds.source; a test passes its own). */
+    @Volatile var linesNear: (TrackPoint) -> List<Line> = { emptyList() }
+    private class Guide(val line: Line, val s0: Double, val dir: Double, val stopS: Double)
+    private var guide: Guide? = null        // CODE RULE 1: null = no track / trail steady under the lead for this silence (in place)
+    private var guideTried = false          // looked up once per silence (a database lookup, not every second)
+    /** ESTGUIDE-2026-10-21: what the estimate follows now, for the log. CODE RULE 1: null = no track / trail (route or in place). */
+    @Synchronized fun guideInfo(): String? = guide?.let { it.line.id + " from " + it.s0.toInt() + " m to the junction at " + it.stopS.toInt() + " m" }
 
-    @Synchronized fun reset() { recent.clear(); rideLog.clear(); current = null; leadId = "" }
+    @Synchronized fun reset() { recent.clear(); rideLog.clear(); current = null; leadId = ""; guide = null; guideTried = false }   // ESTGUIDE-2026-10-21: + guide
 
     /** Fred 12:13: SILENT after 2 missed broadcasts -- 2.5 x its usual report gap (median of its last 5; the half is slack), at least
      *  MIN_SILENT_MS. Before two reports: 2 x MIN_SILENT_MS. */
@@ -51,7 +61,7 @@ class LeadEstimate {
             val at = estimateAt(tMs, route)   // where the estimate had the lead at the moment it was heard
             Outcome(tMs, tMs - est.lastHeardMs, if (at != null) TrackGeo.metres(TrackPoint(at.lat, at.lon), p) else 0.0, est.speedMps, est.onRoute, est.moving)
         }
-        current = null
+        current = null; guide = null; guideTried = false   // ESTGUIDE-2026-10-21: heard again -- the next silence looks again
         if (recent.isNotEmpty() && TrackGeo.metres(recent.last().p, p) < 0.05 && tMs - recent.last().t < 2_000L) return ended
         val pl = route?.places(p)?.filter { it.off <= SNAP_M }?.map { it.s } ?: emptyList()
         recent.add(R(tMs, p, route?.id, pl)); while (recent.size > 30) recent.removeAt(0)
@@ -113,6 +123,59 @@ class LeadEstimate {
         return TrackPoint(a.lat + (b.lat - a.lat) * f, a.lon + (b.lon - a.lon) * f)
     }
 
+    /** ESTGUIDE-2026-10-21: the track or trail the lead was on -- of the known lines near its last report (within SNAP_M), the nearest one its last
+     *  (up to) 5 reports lie steadily along -- and the next JUNCTION ahead on it. CODE RULE 1: null = none steady (the estimate stays put). */
+    private fun guideFor(): Guide? {
+        val last = recent.lastOrNull() ?: return null
+        val lines = try { linesNear(last.p) } catch (e: Exception) { emptyList() }
+        var best: Pair<Double, Guide>? = null
+        for (l in lines) {
+            val off = l.places(last.p).minOfOrNull { it.off } ?: continue
+            if (off > SNAP_M || (best != null && off >= best.first)) continue
+            val fix = fixOn(l) ?: continue
+            best = Pair(off, Guide(l, fix.first, fix.second, nextJunction(l, fix.first, fix.second, lines)))
+        }
+        return best?.second
+    }
+    /** ESTGUIDE-2026-10-21: along [l] from s in direction dir, the first JUNCTION: where another line comes within 10 m of [l] and leaves it again
+     *  (a vertex within 10 m whose neighbour is not). A line running beside [l] the whole way (a track on this trail) is not a junction;
+     *  one 15 m or less ahead is the one just passed. None: the line's end. */
+    private fun nextJunction(l: Line, s: Double, dir: Double, lines: List<Line>): Double {
+        var stop = if (dir > 0) l.cum.last() else 0.0
+        for (o in lines) {
+            if (o === l || o.pts.size < 2) continue
+            val off = DoubleArray(o.pts.size) { i -> l.places(o.pts[i]).minOf { it.off } }
+            if (off.none { it > 25.0 }) continue
+            for (i in o.pts.indices) {
+                if (off[i] > 10.0) continue
+                val leaves = (i > 0 && off[i - 1] > 10.0) || (i < o.pts.size - 1 && off[i + 1] > 10.0)
+                if (!leaves) continue
+                val pl = l.places(o.pts[i]).minByOrNull { it.off } ?: continue
+                val ahead = (pl.s - s) * dir
+                if (ahead > 15.0 && ahead < (stop - s) * dir) stop = pl.s
+            }
+        }
+        return stop
+    }
+    /** ESTGUIDE-2026-10-21: routeFix on any line -- the reading of the last (up to) 5 reports that moves steadily forward, else backward.
+     *  CODE RULE 1: null = not steadily along it. */
+    private fun fixOn(l: Line): Pair<Double, Double>? {
+        val rs = recent.takeLast(5).map { Pair(it.t, l.places(it.p).filter { q -> q.off <= SNAP_M }.map { q -> q.s }) }.filter { it.second.isNotEmpty() }
+        if (rs.size < 2) return null
+        for (dir in listOf(1.0, -1.0)) {
+            var ends: List<Double> = rs[0].second
+            var ok = true
+            for (k in 1 until rs.size) {
+                val reach = 22.4 * ((rs[k].first - rs[k - 1].first) / 1000.0) + 60.0   // 50 mph
+                val next = rs[k].second.filter { s -> ends.any { e -> val step = (s - e) * dir; step >= -5.0 && step <= reach } }
+                if (next.isEmpty()) { ok = false; break }
+                ends = next
+            }
+            if (ok) return Pair(if (dir > 0) ends.minOrNull()!! else ends.maxOrNull()!!, dir)
+        }
+        return null
+    }
+
     /** CODE RULE 1: null = no report yet (nothing to estimate from). */
     private fun estimateAt(nowMs: Long, route: Line?): Est? {
         val last = recent.lastOrNull() ?: return null
@@ -121,8 +184,13 @@ class LeadEstimate {
         val v = if (moving) rideSpeed() else 0.0   // how fast to move the estimate: the ride's moving average (Fred 12:12)
         val fix = if (route != null) routeFix(route) else null   // CODE RULE 1: null = not steadily on the displayed route
         val onRoute = fix != null
+        val g = if (fix == null && moving) guide else null   // ESTGUIDE-2026-10-21 (CODE RULE 1: null = no track / trail steady -> in place)
         val p = if (moving && fix != null && route != null)
-            pointAtS(route, fix.first + fix.second * v * (minOf(silent, MAX_MS) / 1000.0)) else last.p
+            pointAtS(route, fix.first + fix.second * v * (minOf(silent, MAX_MS) / 1000.0))
+        else if (g != null) {
+            val want = g.s0 + g.dir * v * (minOf(silent, MAX_MS) / 1000.0)
+            pointAtS(g.line, if (g.dir > 0) minOf(want, g.stopS) else maxOf(want, g.stopS))   // never past the next junction
+        } else last.p
         return Est(leadId, p.lat, p.lon, last.p.lat, last.p.lon, last.t, silent, moving, v, onRoute)
     }
 
@@ -130,6 +198,7 @@ class LeadEstimate {
     @Synchronized fun tick(nowMs: Long, route: Line?): Est? {
         val last = recent.lastOrNull() ?: return null.also { current = null }
         if (nowMs - last.t < silentAfterMs()) { current = null; return null }
+        if (!guideTried) { guideTried = true; if (route == null || routeFix(route) == null) guide = guideFor() }   // ESTGUIDE-2026-10-21: once per silence
         current = estimateAt(nowMs, route); return current
     }
 }

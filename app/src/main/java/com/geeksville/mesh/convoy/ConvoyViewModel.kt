@@ -156,7 +156,10 @@ class ConvoyViewModel @Inject constructor(
     val leadDots: StateFlow<List<TrackPoint>> = _leadDots.asStateFlow()
     private val trackQueue = kotlinx.coroutines.channels.Channel<TrackEntry>(kotlinx.coroutines.channels.Channel.UNLIMITED)
     // LEADEST-2026-10-20: the silent lead's estimated position (LeadEstimate.kt) -- the screen draws it; Ride statistics keep its error
-    private val leadEst = LeadEstimate()
+    private val leadEst = LeadEstimate().also { e ->   // ESTGUIDE-2026-10-21: the known tracks and trails near the lead (~1.3 km around it)
+        e.linesNear = { p -> val d = 0.012; val src = TrackGrounds.source
+            src.tracksNear(p.lat - d, p.lon - d * 1.4, p.lat + d, p.lon + d * 1.4) + src.trailsNear(p.lat - d, p.lon - d * 1.4, p.lat + d, p.lon + d * 1.4) }
+    }
     private val _leadEstimate = MutableStateFlow<LeadEstimate.Est?>(null)   // CODE RULE 1: null = the lead is not silent
     val leadEstimate: StateFlow<LeadEstimate.Est?> = _leadEstimate.asStateFlow()
     @Volatile private var estRoute: Pair<String, Line?>? = null   // CODE RULE 1: null = not looked up yet
