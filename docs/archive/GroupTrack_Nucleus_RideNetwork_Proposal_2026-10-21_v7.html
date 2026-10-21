@@ -1,0 +1,262 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>GroupTrack Ride Network</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column (~760px) with full-width figure and tables that scroll inside themselves; field-manual feel. */
+:root{
+  --bg:#F4F6F5; --surface:#FFFFFF; --ink:#1B2421; --muted:#5B6863; --line:#D3DBD8;
+  --pine:#1F5A47;          /* accent: GroupTrack */
+  --lora:#B8571A;          /* LoRa links */
+  --wifi:#2C66A8;          /* Wi-Fi / IP */
+  --usb:#6B4AA0;           /* Bluetooth to a tablet */
+  --ask:#FFF3E3; --askline:#E7B98A;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121816; --surface:#1A2220; --ink:#E4ECE8; --muted:#9AA9A3; --line:#2E3A36;
+  --pine:#5FBF9C; --lora:#E8894A; --wifi:#6AA6EA; --usb:#A98BDB; --ask:#2A2119; --askline:#7A5533; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121816; --surface:#1A2220; --ink:#E4ECE8; --muted:#9AA9A3; --line:#2E3A36;
+  --pine:#5FBF9C; --lora:#E8894A; --wifi:#6AA6EA; --usb:#A98BDB; --ask:#2A2119; --askline:#7A5533; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--body)}
+.wrap{max-width:820px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+header .kicker{font:600 12px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--pine)}
+h1{font:700 44px/1.02 var(--display);letter-spacing:.01em;margin:.35em 0 .3em;text-wrap:balance}
+h2{font:700 28px/1.1 var(--display);margin:2.2em 0 .5em;padding-top:.6em;border-top:2px solid var(--line);text-wrap:balance}
+h3{font:600 18px/1.3 var(--body);margin:1.6em 0 .4em}
+p,li{max-width:68ch}
+.lede{font-size:17px;color:var(--ink)}
+.meta{color:var(--muted);font-size:13px}
+code,.mono{font-family:var(--mono);font-size:13px}
+.figure{margin:24px 0 8px;background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow-x:auto}
+.figure svg{display:block;min-width:760px;width:100%;height:auto}
+.caption{color:var(--muted);font-size:13px;margin:6px 0 0}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--muted);margin:10px 0 0}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.sw{display:inline-block;width:26px;height:0;border-top:3px solid}
+.tbl{overflow-x:auto;margin:12px 0}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;background:var(--surface)}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{font:600 12px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+td:first-child{font-weight:600}
+.ask{background:var(--ask);border:1px solid var(--askline);border-radius:6px;padding:14px 18px;margin:14px 0}
+.ask h3{margin-top:0}
+.ask ol,.ask ul{margin:.4em 0 0;padding-left:1.3em}
+.tag{display:inline-block;font:600 11px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;padding:4px 7px;border-radius:3px;border:1px solid currentColor;margin-right:6px}
+.t-lora{color:var(--lora)} .t-wifi{color:var(--wifi)} .t-usb{color:var(--usb)} .t-pine{color:var(--pine)}
+.done{color:var(--pine);font-weight:600}
+.svg-ink{fill:var(--ink)} .svg-muted{fill:var(--muted)} .svg-surface{fill:var(--surface)} .svg-bg{fill:var(--bg)}
+.svg-trail{fill:none;stroke:var(--line);stroke-width:14;stroke-linecap:round}
+.svg-lora{fill:none;stroke:var(--lora);stroke-width:2.5;stroke-dasharray:7 5}
+.svg-wifi{fill:var(--wifi);fill-opacity:.07;stroke:var(--wifi);stroke-width:1.5;stroke-dasharray:3 4}
+.svg-wifiline{fill:none;stroke:var(--wifi);stroke-width:2.5}
+.svg-usb{fill:none;stroke:var(--usb);stroke-width:2.5}
+.svg-nuc{fill:var(--pine)} .svg-nuctext{fill:var(--surface);font:700 13px var(--display);letter-spacing:.03em}
+.svg-cart{fill:var(--surface);stroke:var(--ink);stroke-width:1.5}
+.svg-radio{fill:var(--lora)}
+.svg-tab{fill:var(--surface);stroke:var(--wifi);stroke-width:2}
+.svg-tab2{fill:var(--surface);stroke:var(--usb);stroke-width:2}
+.svg-label{fill:var(--ink);font:500 12px var(--body)}
+.svg-small{fill:var(--muted);font:400 11px var(--body)}
+.svg-head{fill:var(--ink);font:700 15px var(--display);letter-spacing:.05em}
+@media (max-width:520px){h1{font-size:34px}h2{font-size:24px}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="kicker">GroupTrack × Natak Mesh · proposal v7 · 21 October 2026</div>
+  <h1>The GroupTrack ride network: Nucleus backbone, cart radios, one message format</h1>
+  <p class="lede">How a GroupTrack ride should work end to end with Natak hardware, and the two things we are asking Natak for: <b>bridge support for bare mesh radios (no Android)</b>, and <b>a bare radio to replace our Seeed T1000-E trackers</b>.</p>
+  <p class="meta">From Fred Kix (GroupTrack) to Nathan Boyette (Natak Mesh). Based on bench and road tests 20–21 October 2026 with Nucleus node 46 (V3-OS 0.11.0), two T1000-E radios and two Android tablets.</p>
+</header>
+
+<h2>1. The end state</h2>
+<p>Every ride runs on <b>at least three Nucleus units</b> &mdash; one each in the <b>Leader</b>, <b>Middle</b> and <b>Tail gunner</b> carts &mdash; and <b>one bare radio in every other cart</b>, replacing today's T1000-E. Everything a tablet or a Nucleus sends is in the <b>ATAK format</b> (compressed TAKPacketV2 on Meshtastic port 257, the format the Nucleus bridge already speaks). A bare radio with no tablet runs standard Meshtastic firmware and can only send its own position on <b>port 72</b> (TAKPacket V1); the Nucleus translates that for its Wi-Fi riders, for backward compatibility. Updates from Wi-Fi riders reach GroupTrack on LoRa as port 257. A rider's tablet connects either to the cart's bare radio by <b>Bluetooth</b> (the tablet's USB port is already used to power the tablet) or, in a Nucleus cart, to that Nucleus over its Wi-Fi. A <b>cart-mounted Starlink on the Leader's cart</b>, plugged into its Nucleus's Ethernet WAN port, is used for one thing only: sending the group's ATAK position updates out to the internet. The group itself is joined by LoRa; a Nucleus's Wi-Fi serves only the tablet in its own cart (its range does not cover the group).</p>
+
+<div class="ask" style="background:var(--surface);border-color:var(--lora)">
+<h3 style="margin-top:0"><span class="tag t-lora">Requirement</span>Everything depends on LoRa: at least 1 mile between carts on MEDIUM_FAST</h3>
+<p>The whole design rides on the LoRa network. The Nucleus Wi-Fi covers only its own cart, so every cart reaches every other cart by LoRa or not at all. <b>The radios must hold a reliable link of at least 1 mile (1.6 km) between moving carts on MEDIUM_FAST</b>, the preset GroupTrack uses (it carries our 6-second reporting; SHORT_FAST cannot reach trail distances, and LONG_FAST measured only 10&ndash;30% further for much more airtime).</p>
+<p><b>Where we are:</b> T1000-E to T1000-E gives about <b>200 yd in populated settings</b> (19 October: lost at 100&ndash;175 m); our best measured loop on 20 October (New Hampshire, granite) held <b>~470&ndash;550 yd</b>. Utah rides keep carts within about a mile. The gap between those two numbers is what the mounted antennas, cart power and radio choice in requests B and C have to close &mdash; within the licence-free transmit limit.</p>
+<p><b>Acceptance test for both units:</b> two carts on MEDIUM_FAST, our standard settings, units mounted as they will be sold, driven apart on a mapped loop; the distance at which reports stop arriving, compared side by side with a T1000-E pair on the same loop.</p>
+</div>
+<div class="figure" role="img" aria-label="Diagram of a GroupTrack ride, joined by LoRa: a Tail gunner Nucleus, carts with bare radios, a Middle Nucleus, more carts, and a Leader Nucleus carrying a cart-mounted Starlink that sends the group's position updates out; a tablet in a Nucleus cart connects by Wi-Fi and to bare radios by Bluetooth.">
+<svg viewBox="0 0 1000 470" xmlns="http://www.w3.org/2000/svg">
+  <rect class="svg-surface" x="0" y="0" width="1000" height="470"/>
+  <!-- trail -->
+  <path class="svg-trail" d="M190 330 C 300 330, 330 250, 450 250 S 640 330, 760 300 S 900 200, 950 190"/>
+  <text class="svg-small" x="760" y="345">the trail · direction of travel →</text>
+
+  <!-- LoRa links (ATAK, port 257) -->
+  <path class="svg-lora" d="M290 290 Q 300 262 318 282"/>
+  <path class="svg-lora" d="M318 282 Q 345 225 380 262"/>
+  <path class="svg-lora" d="M380 262 Q 420 200 470 228"/>
+  <path class="svg-lora" d="M470 228 Q 530 200 560 262"/>
+  <path class="svg-lora" d="M560 262 Q 610 230 650 292"/>
+  <path class="svg-lora" d="M650 292 Q 700 240 740 282"/>
+  <path class="svg-lora" d="M740 282 Q 820 200 900 182"/>
+    <text class="svg-small" x="430" y="440" fill="currentColor"><tspan class="t-lora" style="fill:var(--lora)">LoRa · 257 ATAK (tablets, Nucleus) · 72 (bare radios) · every radio relays</tspan></text>
+
+  <!-- Tail gunner Nucleus -->
+  <circle class="svg-wifi" cx="235" cy="300" r="44"/>
+  <rect class="svg-nuc" x="165" y="286" width="140" height="30" rx="4"/>
+  <text class="svg-nuctext" x="235" y="306" text-anchor="middle">NUCLEUS · TAIL</text>
+  <rect class="svg-tab" x="218" y="324" width="22" height="30" rx="3"/>
+  <text class="svg-small" x="20" y="372">tablet in the Nucleus cart, on its Wi-Fi</text>
+
+  <!-- Cart with bare radio + tablet (USB/BT) -->
+  <circle class="svg-cart" cx="318" cy="282" r="16"/>
+  <circle class="svg-radio" cx="318" cy="282" r="6"/>
+  <rect class="svg-tab2" x="296" y="352" width="22" height="32" rx="3"/>
+  <path class="svg-usb" d="M307 352 L 316 298"/>
+  <text class="svg-small" x="270" y="400">Bluetooth</text>
+
+  <!-- Cart with bare radio, NO tablet -->
+  <circle class="svg-cart" cx="380" cy="262" r="16"/>
+  <circle class="svg-radio" cx="380" cy="262" r="6"/>
+  <text class="svg-small" x="336" y="300">bare radio,</text>
+  <text class="svg-small" x="336" y="313">no Android</text>
+
+  <!-- Middle Nucleus -->
+  <circle class="svg-wifi" cx="470" cy="228" r="44"/>
+  <rect class="svg-nuc" x="392" y="214" width="156" height="30" rx="4"/>
+  <text class="svg-nuctext" x="470" y="234" text-anchor="middle">NUCLEUS · MIDDLE</text>
+  <rect class="svg-tab" x="459" y="246" width="22" height="30" rx="3"/>
+
+  <!-- more carts -->
+  <circle class="svg-cart" cx="560" cy="262" r="16"/><circle class="svg-radio" cx="560" cy="262" r="6"/>
+  <rect class="svg-tab2" x="574" y="300" width="22" height="32" rx="3"/><path class="svg-usb" d="M584 300 L 568 276"/>
+  <circle class="svg-cart" cx="650" cy="292" r="16"/><circle class="svg-radio" cx="650" cy="292" r="6"/>
+  <rect class="svg-tab2" x="664" y="330" width="22" height="32" rx="3"/><path class="svg-usb" d="M674 330 L 658 306"/>
+  <circle class="svg-cart" cx="740" cy="282" r="16"/><circle class="svg-radio" cx="740" cy="282" r="6"/>
+
+  <!-- Leader Nucleus -->
+  <circle class="svg-wifi" cx="900" cy="182" r="44"/>
+  <rect class="svg-nuc" x="826" y="168" width="156" height="30" rx="4"/>
+  <text class="svg-nuctext" x="904" y="188" text-anchor="middle">NUCLEUS · LEADER</text>
+  <rect class="svg-tab" x="889" y="200" width="22" height="30" rx="3"/>
+  <!-- Cart-mounted Starlink on the LEAD cart: position updates out only -->
+  <path d="M870 86 a30 15 0 0 1 60 0 z" class="svg-surface" stroke="var(--wifi)" stroke-width="2"/>
+  <line x1="900" y1="86" x2="900" y2="168" stroke="var(--wifi)" stroke-width="2.5"/>
+  <path class="svg-wifiline" d="M900 70 L 900 40"/>
+  <text class="svg-small" x="640" y="36" style="fill:var(--wifi)">Starlink on the lead cart → Ethernet WAN:</text>
+  <text class="svg-small" x="640" y="51" style="fill:var(--wifi)">the group's ATAK position updates out, nothing else</text>
+
+  
+  
+  
+</svg>
+</div>
+<div class="legend">
+  <span><i class="sw" style="border-color:var(--lora);border-top-style:dashed"></i>LoRa: 257 ATAK, 72 from bare radios</span>
+  <span><i class="sw" style="border-color:var(--wifi)"></i>Wi-Fi / IP</span>
+  <span><i class="sw" style="border-color:var(--usb)"></i>Bluetooth to a tablet</span>
+  <span><i style="display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--lora)"></i>bare radio (replaces T1000-E)</span>
+  <span><i style="display:inline-block;width:16px;height:12px;border-radius:2px;background:var(--pine)"></i>Nucleus</span>
+</div>
+<p class="caption">Three Nucleus units ride in the key positions; every other cart carries a bare radio. A cart with a tablet connects to its bare radio by Bluetooth; a cart without one still reports its position. In a Nucleus cart the tablet uses that Nucleus's Wi-Fi. The Starlink on the lead cart sends the group's position updates out; it is not shared internet.</p>
+
+<h2>2. The devices and their jobs</h2>
+<div class="tbl"><table>
+<tr><th>Device</th><th>Where</th><th>Job on the ride</th><th>Talks to a tablet by</th></tr>
+<tr><td>Nucleus · Leader / Middle / Tail gunner</td><td>The three key carts (minimum three per ride)</td><td>LoRa radio on the ride network; LoRa &harr; Wi-Fi bridge (CoT); Wi-Fi access point for the tablet in its own cart (the Wi-Fi does not reach the group); translates bare-radio reports for that tablet</td><td>Wi-Fi (its AP), CoT on 239.2.3.1:6969</td></tr>
+<tr><td>Leader Nucleus + cart-mounted Starlink</td><td>The Leader's cart</td><td>All of the above, plus the group's link out: every ATAK position update it hears on LoRa (257, and translated 72) is sent through the Starlink on its Ethernet WAN port &mdash; position updates only, no shared internet</td><td>Wi-Fi</td></tr>
+<tr><td>Bare radio (new &mdash; replaces the T1000-E)</td><td>Every other cart, mounted</td><td>LoRa radio on the ride network with its own GPS; with no tablet attached it reports its cart's position itself on port 72 (standard Meshtastic firmware); relays everyone else's messages</td><td><b>Bluetooth</b> (the tablet's USB port powers the tablet); the radio's USB is power from the cart, plus configuration / service</td></tr>
+<tr><td>Android tablet + GroupTrack</td><td>Any cart (optional per cart)</td><td>Map, ride, roles, tracks; originates the cart's messages in ATAK format when attached</td><td>&mdash;</td></tr>
+</table></div>
+
+<h2>3. Messages: one format on the air</h2>
+<p>All traffic GroupTrack and the Nucleus originate is in <b>Natak's format</b>: compressed TAKPacketV2 on port 257 over LoRa, CoT on the Wi-Fi. GroupTrack already decodes port 257 (TAKPacket-SDK 0.9.1; all 47 SDK golden frames pass), so this is a change to what we <i>send</i>. Today's bridge test compressed a full CoT position to <b>52 bytes</b> &mdash; less airtime than anything we send now.</p>
+<div class="tbl"><table>
+<tr><th>Source</th><th>On LoRa</th><th>On Nucleus Wi-Fi</th><th>Who translates</th></tr>
+<tr><td>Cart with a tablet (bare radio attached)</td><td><span class="tag t-lora">257</span>the tablet's own ATAK message; the radio sends no position of its own</td><td>CoT, from any Nucleus that hears it (bridge as built)</td><td>Nobody &mdash; it starts in ATAK format</td></tr>
+<tr><td>Rider on a Nucleus Wi-Fi</td><td><span class="tag t-lora">257</span>from the Nucleus bridge (as built, rate-limited per rider)</td><td>CoT, multicast</td><td>Nobody &mdash; CoT in, ATAK out</td></tr>
+<tr><td>Bare radio, no tablet (the new radio and today's T1000-E)</td><td><span class="tag t-lora">72</span>TAKPacket V1 from its Meshtastic firmware &mdash; it cannot send 257 without an Android</td><td>CoT, translated by the Nucleus</td><td>The Nucleus, Wi-Fi side only, for backward compatibility &mdash; request A1. GroupTrack tablets read 72 directly.</td></tr>
+<tr><td>Lead's gap polyline (GroupTrack)</td><td><span class="tag t-lora">257</span>TAKPacketV2, CoT u-d-f drawn shape</td><td>CoT u-d-f (a drawing in ATAK too)</td><td>Nobody</td></tr>
+</table></div>
+<p><b>Why translate at the source, not at the first receiver:</b> every radio in range hears a packet at the same instant, so "first receiver" means several devices re-sending the same report. Translating where the message starts keeps one transmission per report. A Nucleus translating a bare radio's report puts it on its <b>Wi-Fi only</b>: the LoRa riders already heard the original.</p>
+
+<h3>The lead's gap polyline, end to end</h3>
+<p>When the lead has heard no other cart for at least 60 s, then hears one again, his tablet sends the path he really drove during that dead air: 20 points at equal time steps, from his own radio's fixes, once plus one repeat. Every receiving device processes it; nobody just forwards it blindly.</p>
+<div class="tbl"><table>
+<tr><th>Hop</th><th>What it receives</th><th>What it does</th><th>What it passes on</th></tr>
+<tr><td>Lead's tablet</td><td>&mdash;</td><td>Builds the polyline from its own fixes over the dead air</td><td><span class="tag t-lora">257</span>TAKPacketV2, CoT <code>u-d-f</code>, DrawnShape Freeform, uid <code>GT-gap-&lt;node&gt;-&lt;t0&gt;</code>, remarks <code>GT gap step=&lt;ms&gt;</code></td></tr>
+<tr><td>GroupTrack tablet on a bare radio</td><td>The 257 packet over Bluetooth</td><td>Decodes it and <b>corrects the lead track</b> on its map: the inferred track through the gap is replaced by the 20 points, joined along the displayed route or known trails; points far off the route show as dots; the repeat is recognised and ignored</td><td>Nothing (its radio relays the packet as-is)</td></tr>
+<tr><td>Nucleus</td><td>The 257 packet over LoRa</td><td>Decodes it and <b>hands the full polyline to the Wi-Fi</b>: one CoT <code>u-d-f</code> event with every vertex as a <code>&lt;link point="lat,lon"/&gt;</code> (anchor + deltas), the same uid, callsign, remarks and stale. Not sent back to LoRa.</td><td><span class="tag t-wifi">CoT</span>the complete drawing, multicast on its Wi-Fi</td></tr>
+<tr><td>ATAK user on Nucleus Wi-Fi</td><td>The CoT drawing</td><td>Shows the lead's real path as a drawing on the map, replaced when a newer one with the same uid arrives</td><td>&mdash;</td></tr>
+<tr><td>GroupTrack tablet on Nucleus Wi-Fi</td><td>The same CoT drawing</td><td>Corrects the lead track exactly as the tablet on a bare radio does</td><td>&mdash;</td></tr>
+</table></div>
+<p>On the Wi-Fi there is no LoRa size limit, so the Nucleus should pass every vertex and the timing (<code>t0</code> in the uid, the step in remarks) intact &mdash; that is what lets each device place the points in time. If a Wi-Fi rider is ever the lead, the same polyline goes the other way through your existing CoT &rarr; 257 path.</p>
+
+<h2>4. What we are asking Natak for</h2>
+<div class="ask">
+<h3><span class="tag t-pine">A</span>Code: support bare mesh radios (no Android) in the Nucleus</h3>
+<ol>
+<li><b>Translate LoRa port 72 (TAKPacket V1) to CoT on the Wi-Fi</b> &mdash; the position reports every bare radio sends by itself (today's T1000-E and the new bare radio alike), so a Wi-Fi rider sees bare-radio carts. This is the backward-compatible path: a bare radio cannot send 257 without an Android. Today <code>cot_bridge</code> handles only ATAK_FORWARDER (257), text, voice and heartbeat; our standalone T1000-E was heard by node 46 (SNR 11) but nothing reached the Wi-Fi. Mapping in the appendix.</li>
+<li><b>Loop guard:</b> a CoT the Nucleus put on the Wi-Fi from LoRa must not go back out on LoRa as 257. (Your TX source filter takes multicast from 10.20.46.0/24, and the box itself is in that range.)</li>
+<li><b>One rider, one id:</b> keep our uid <code>MESHTASTIC-!&lt;8-hex node id&gt;</code> for a bare radio, so a cart heard directly and through a bridge is one cart everywhere.</li>
+<li><b>The lead's gap polyline:</b> decode a 257 CoT <code>u-d-f</code> drawn shape and hand the <b>full</b> polyline to the Wi-Fi as one CoT drawing (every vertex as a link point, uid and remarks intact), not back to LoRa &mdash; see "The lead's gap polyline, end to end" above. And confirm the reverse (CoT u-d-f &rarr; 257) carries every vertex up to the 32-point limit.</li>
+<li><b>Our encoder:</b> the TAKPacket-SDK version and dictionary to compress with, and your size limit per LoRa packet.</li>
+<li><b>Box items found on the bench:</b> bridge health stays "error" after a clean radio reconnect; the box clock read 7 October with no internet (CoT time stamps would look stale); which V3-OS version to test against (46 is on 0.11.0 &mdash; can 46/47 self-update to 0.16.0 over the Ethernet WAN?); API security before a tablet writes to a box.</li>
+<li><b>TX rate limit:</b> we will set your <code>tx_min_interval_secs</code> to 5 s for GroupTrack rides (our carts report every 6 s). Any airtime concern at MEDIUM_FAST?</li>
+</ol>
+</div>
+<div class="ask">
+<h3><span class="tag t-pine">B</span>Hardware: a bare radio to replace the T1000-E</h3>
+<p>A rip-and-replace for our T1000-E trackers, one per cart, with the same mounting and antenna requirements as the Nucleus:</p>
+<ul>
+<li><b>Meshtastic-compatible LoRa radio</b> on the GroupTrack ride network (preset, channel, key set by GroupTrack at check-in).</li>
+<li><b>GPS chip</b> &mdash; required. With no tablet attached it reports its own cart's position.</li>
+<li><b>Bluetooth to the tablet</b> &mdash; required, as on the T1000-E today: GroupTrack connects to it exactly as it does now. The tablet's USB port is already used to power the tablet, so a cable link is not an option for riders. The radio's own USB is for power from the cart and for configuration / service.</li>
+<li><b>Power</b> from the cart's USB (5 V), surviving the ignition being switched off &mdash; a radio board rather than a Pi, so no boot wait and no corrupted card.</li>
+<li><b>Mounting and antenna, as the Nucleus:</b> cart mount (roof or roll-bar), weather-resistant, external antenna connector, a cart-mount whip, and a spare antenna in the kit.</li>
+<li><b>Message format:</b> standard Meshtastic firmware, role TAK_TRACKER: with no tablet it sends its position on port 72, which the Nucleus translates (request A1). With a GroupTrack tablet attached, the tablet sends for the cart in ATAK format (257) and the radio's own reports are switched off. No custom firmware needed.</li>
+<li><b>Transmit power</b> within the licence-free limit; GroupTrack never raises it.</li>
+<li><b>Range:</b> at least 1 mile cart to cart on MEDIUM_FAST, mounted &mdash; the acceptance test above.</li>
+<li><b>Price</b> that lets a club equip ten carts &mdash; no Wi-Fi mesh or extras on this unit.</li>
+</ul>
+</div>
+<div class="ask">
+<h3><span class="tag t-pine">C</span>The Nucleus in the three key roles</h3>
+<ul>
+<li>Range: the same 1-mile MEDIUM_FAST requirement as the bare radio &mdash; the Nucleus carts hold the group together. Minimum three per ride: Leader, Middle, Tail gunner &mdash; same cart mount, external antenna and spare antenna as the bare radio; USB power from the cart (our 10-11 plan: cart USB charges a 20,000 mAh jump-starter pack that powers the unit).</li>
+<li>Position updates out: a cart-mounted Starlink on the Leader's cart, into its Nucleus's Ethernet WAN port. The Nucleus sends the group's ATAK position updates (everything it hears on LoRa, 257 and translated 72) to an internet TAK endpoint &mdash; your tailnet or a TAK server we agree &mdash; and <b>nothing else</b> goes out: no shared internet for riders. Questions: the upstream endpoint you recommend, how to restrict the WAN to position updates, the update rate, and the Starlink's power draw against the cart power plan.</li>
+<li>Questions: rough prices for both units; earliest test units; can units ship pre-set to the GroupTrack default network?</li>
+</ul>
+</div>
+
+<h2>5. What GroupTrack does on its side</h2>
+<ul>
+<li><b>Send in your format:</b> positions, role reports and the gap polyline as compressed TAKPacketV2 on 257 (we already decode it).</li>
+<li><b>A tablet-attached radio stops reporting itself:</b> at check-in its role becomes TAK (as on the Nucleus), so each cart sends one report.</li>
+<li><b>A Nucleus path in our comm layer</b> beside Bluetooth: a tablet on Nucleus Wi-Fi sends and receives CoT on 239.2.3.1:6969, and at check-in applies the ride's radio settings to the box through <code>/api/v1/meshtastic/config/apply</code>, verified by <code>psk_fingerprint</code> (first 8 hex of SHA-256 of the key &mdash; checked today).</li>
+<li><b>Bridged riders on the map:</b> 257 riders are decoded today but only logged; they join the map.</li>
+<li><b>Side-by-side range test</b> of the new bare radio against a T1000-E on our measured loop.</li>
+</ul>
+
+<h2>6. What we proved on 20–21 October</h2>
+<ul>
+<li><span class="done">Done</span> Node 46's LoRa radio put on the GroupTrack network through your API only (<code>config/apply</code>: preset, channel name, key); factory config saved first; your node-only values untouched; one 10 s poll; read-back and key fingerprint matched.</li>
+<li><span class="done">Done</span> LoRa both ways: 46 heard our standalone T1000-E (SNR 11); a text from 46 reached our rider.</li>
+<li><span class="done">Done</span> Wi-Fi to LoRa: a CoT position from a tablet on 46's Wi-Fi left as a 52-byte ATAK packet (<code>TX → LoRa | GT-wifi-test-1 | a-f-G-U-C | 52B</code>).</li>
+<li><b>Gap:</b> LoRa to Wi-Fi for the T1000-E (port 72) &mdash; request A1.</li>
+<li><b>Range today</b> (T1000-E to T1000-E): about 200 yd in populated settings; ~470&ndash;550 yd on our best measured loop (New Hampshire granite); Long Fast only +10&ndash;30%. Utah rides keep carts within about a mile &mdash; the reason for request B.</li>
+<li><b>Lead path through a dead spot:</b> GroupTrack's gap polyline (20 points, ~205 bytes uncompressed) crossed the mesh both ways and corrected the lead's track on the road (6-minute gap, received 2 s after reconnect).</li>
+</ul>
+
+<h2>Appendix &mdash; formats on the air today</h2>
+<h3>Our ride network</h3>
+<p>Channel <code>GroupTrack</code>, region US, MEDIUM_FAST, frequency slot 0 (derived from the channel name), hop limit 2 on our radios, rebroadcast ALL. Standard Meshtastic channel encryption: AES-256 with a 32-byte key on the primary channel (sent to you separately, not in this document).</p>
+<h3>Port 72 &mdash; ATAK_PLUGIN &mdash; TAKPacket (V1), meshtastic/atak.proto</h3>
+<p>Sent by the T1000-E firmware (2.6.11, TAK_TRACKER) every 6 s moving / 30 s stopped, <code>is_compressed = true</code>; and by GroupTrack role reports, <code>is_compressed = false</code>.</p>
+<p class="mono">is_compressed (1) · contact (2) {callsign (1), device_callsign (2)} · group (3) {role (1), team (2)} · status (4) {battery (1)} · pli (5) {latitude_i (1) sfixed32 ×1e-7°, longitude_i (2) sfixed32 ×1e-7°, altitude (3) int32 m, speed (4), course (5) as the firmware fills them}</p>
+<p>Roles: TeamLead = Leader · RTO = Middle · ForwardObserver = Tail gunner · HQ = Rider · TeamMember = no ride role. Team: Cyan.<br>
+CoT we would like on the Wi-Fi: uid <code>MESHTASTIC-!&lt;node&gt;</code>, type <code>a-f-G-U-C</code>, how <code>m-g</code>, point from pli, hae = altitude, time = start = receive time, stale = time + 2× reporting interval, <code>&lt;contact callsign&gt;</code> (decompressed), <code>&lt;__group name role&gt;</code>, <code>&lt;status battery&gt;</code>, <code>&lt;track speed course&gt;</code>.</p>
+<h3>Port 78 &mdash; ATAK_PLUGIN_V2 &mdash; the gap polyline (moving to 257)</h3>
+<p class="mono">flag 0xFF + TAKPacketV2: cot_type_id (1) = CotType_u_d_f · callsign (3) · uid (14) = "GT-gap-&lt;node&gt;-&lt;t0 epoch s&gt;" · latitude_i (6) / longitude_i (7) = anchor (first vertex) · stale_seconds (16) = 600 · remarks (24) = "GT gap step=&lt;ms&gt;" · shape (34) DrawnShape {kind (1) = Kind_Freeform, vertex_lat_deltas (18) / vertex_lon_deltas (19) packed sint32 1e-7° from the anchor, ≤32 (we send 20)}</p>
+<p class="meta">GroupTrack 2.7b · repo commit 894c7b0bb · node 46 factory config saved 21 Oct 2026 (secrets removed in shared copies).</p>
+</div>
+</body></html>

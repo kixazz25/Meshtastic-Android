@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2.7b — the TICK REPLACEMENT — plan v10 (10-21 morning) — the estimate / gap-fill rule; Nucleus paused</title>
+<style>
+body{font:14px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1100px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
+h1{font-size:20px;border-bottom:2px solid #2e75b6;padding-bottom:6px}
+h2{font-size:16px;color:#1f4e79;margin:24px 0 6px;border-bottom:1px solid #ddd;padding-bottom:3px}
+table{border-collapse:collapse;width:100%;margin:8px 0 14px}td,th{border:1px solid #ccd;padding:5px 8px;vertical-align:top;text-align:left;font-size:13px}
+th{background:#eef2f7}code{background:#f1f3f6;padding:0 3px;border-radius:3px;font-size:12px}
+.q{background:#fff8e6;border-left:4px solid #e0a800;padding:8px 12px;margin:8px 0}
+.ok{background:#eef8ee;border-left:4px solid #3a9a3a;padding:8px 12px;margin:8px 0}
+@media (max-width:600px){body{padding:0 12px}table{display:block;overflow-x:auto}}
+</style></head><body>
+<h1>2.7b — the TICK REPLACEMENT — plan v10 (10-21 morning) — the estimate / gap-fill rule; Nucleus paused</h1>
+<div class="ok"><b>Since v5 (16:00–18:32):</b> ride 16:00–17:07 on both tablets (radio on): other carts moved on both; <b>MY cart did not move on its own tablet while the radio was talking</b>, and the lead's own tablet drew no lead track (same cause: both were built from my own radio's node record). Fix = <code>3583eda96</code> <b>MYCARTMSG</b> — my cart is a CoT message built from the tablet's GPS and passed through the same <code>onBoardMessage</code> path as every other cart; car-tested ~18:00 with the radio on: my cart moved. Pushed; head of 2.7b. Both safety tags confirmed on GitHub: <b>pre-tick-removal-a-2026-10-15</b> (<code>8be636d8a</code>) and <b>-b</b> (<code>cc5cbbba9</code>). PANELBOARD + PANELGAP = <code>1bc87d114</code>. <b>Lead track not reached today</b> — Fred (EOD 10-15): the trail behind EVERY cart, of which the lead's trail is one. Order for 10-16 in section 17.</div>
+<div class="q"><b>v2 corrects v1.</b> v1 put "Phase C (CoT names) separately" after certification and T7 as a sender-side checkbox. That contradicted the living master (10-06, carried to v154): <b>2.7b = comm separation → CoT field names → ONE CUTOVER: tick removal + CoT messaging + the lead-track method, switched together</b> so every display has exactly one source before and after. v2 restores it (Fred 10-14 22:41–22:51, 10-15 08:04).</div>
+<div class="ok"><b>Goal:</b> the 5-second tick that rebuilds the cart list goes; every message updates the map when it arrives. Display rules stay GroupTrack's (D3) and run per message. Timed processes kept to a minimum (Fred: frowned upon on the Mac). Phase 1 = the cutover (carts, my track, CoT messages, ROUTETRACK, cart movement) + ONE certification pass. Phase 2 = polyline segment display with an on/off toggle.</div>
+<h2>22. 10-21 morning — READ FIRST: the estimate / gap-fill rule (route only if the ONLY route; else the track or trail to the next junction; saved routes out) · the Nucleus outcome (supersedes 21 where they differ)</h2>
+<div class="card">
+<p class="hi"><b>10-21 morning (11:58). Code is unchanged since 10-20 (2.7b = c176d4026, docs 894c7b0bb, pushed, in sync).</b> This card records two sets of decisions. The first set is <b>the estimate and gap-fill rule Fred set at 10-20 17:15&ndash;17:18</b>, after the 10-20 EOD docs were made. The second is <b>the 10-21 Nucleus and CoT outcome</b>. The Nucleus work is <b>paused</b> until Nathan replies.</p>
+
+<div class="card warn"><h3>A. THE ESTIMATE AND GAP-FILL RULE (Fred 10-20 17:15&ndash;17:18). It supersedes the earlier route &rarr; saved route &rarr; trails &rarr; straight line chain.</h3>
+<p><b>What was seen (Fred 10-20 last test):</b> the lead was not heard. The radio marker did not move after the last-heard marker was dropped, even though the lead was on a track that ran on to a trail.</p>
+<p><b>Fred's words:</b> "there is a track and a trail. should we not move at least until&hellip; intersection junction?" and "our rule was use the route only if it is the only route on the current map. in lieu of the route it should be tracks and or trails." He confirmed the same rule applies to the gap fill.</p>
+<table><tr><th>Case</th><th>The silent-lead ESTIMATE follows</th><th>The GAP FILL (between two heard points) follows</th></tr>
+<tr><td>Exactly ONE route on the current map</td><td>That route, in its direction (as built)</td><td>That route</td></tr>
+<tr><td>No route, or more than one route</td><td>The <b>track or trail the lead was on</b>. It moves along it and <b>stops at the next junction</b>, never guessing a branch</td><td>The track or trail the lead was on, joined through a junction only when the next heard point is past it</td></tr>
+<tr><td>Not on any track or trail</td><td>Holds at the last-heard point (as now)</td><td>A straight line (a polyline replaces it when one arrives)</td></tr>
+<tr><td>Saved routes (not displayed)</td><td colspan="2"><b>REMOVED</b> from both. A saved route the lead's points happen to lie on is no longer used.</td></tr></table>
+<p><b>Status:</b> agreed and not built. <b>Method:</b> desk test first, as with the trim. Replay the 10-20 Long Fast logs through the rule, then patch. The work is in TrackRules / LeadEstimate (the estimate route source, <code>estRouteNow()</code>) and in the gap-fill chain in TrackWriter. Callers are untouched.</p>
+<p><b>Still Fred's call:</b> whether polyline points show as dots when no route is displayed.</p></div>
+
+<div class="card done"><h3>B. 10-21: WHAT WAS DONE ON THE NUCLEUS (node 46, V3-OS 0.11.0), through Droid 1 on its Wi-Fi, using only Nathan's tools</h3>
+<ul>
+<li><b>Factory config saved first</b>, in <code>~/Downloads/natak46/</code> (factory_*.json, openapi_0.11.0.json, bridge logs). The keyed originals are private and never go on Drive or git. Scrubbed copies are on Drive <code>GroupTrack/natak46/</code>.</li>
+<li><b>Radio put on GroupTrack through HIS API</b> with <code>nucleus_radio_grouptrack_2026-10-21.py</code>. It does a preview, then <code>--apply</code> or <code>--restore</code>, via adb push and nc on Droid 1. It changed MEDIUM_FAST, channel GroupTrack, slot 0 and the key, through <code>POST /api/v1/meshtastic/config/apply</code>. The read-back matched, and the key fingerprint (<code>psk_fingerprint</code> = first 8 hex of SHA-256 of the key) was verified. <code>--restore</code> puts back his factory Natak link and SHORT_FAST.</li>
+<li><b>Proven:</b>
+  <ul>
+  <li>LoRa works both ways between node 46 and a T1000-E: 46 heard ours at SNR 11, and a text from 46 reached our rider.</li>
+  <li>Wi-Fi &rarr; LoRa works: a CoT from Droid 1 went out as a 52-byte ATAK packet ("TX &rarr; LoRa | GT-wifi-test-1").</li>
+  <li><b>Port 72 is NOT bridged to Wi-Fi.</b> cot_bridge keeps only 257, text, voice and heartbeat.</li>
+  </ul></li>
+<li><b>His API:</b>
+  <ul>
+  <li>Base address <code>http://10.20.46.1/api/v1/&hellip;</code>, no authentication.</li>
+  <li>0.11.0 has no heartbeat endpoint.</li>
+  <li>The <code>tx_min_interval_secs</code> rate limit was added by Nathan on 09-24.</li>
+  <li>The full spec is at <code>/openapi.json</code>.</li>
+  </ul></li>
+<li><b>Email 1 (sent by Fred):</b> <code>email_to_nathan_2026-10-21_v2.eml</code> with the proposal <code>GroupTrack_Nucleus_RideNetwork_Proposal_2026-10-21_v9.html</code> (artifact BTjow3KNbkrsZ7SNeaQ9Vg). It contained:
+  <ul>
+  <li>Request A: code (72 &rarr; CoT, uid, polyline to Wi-Fi);</li>
+  <li>Request B: a ~$100 bare radio;</li>
+  <li>Request C: S00104, the $430 scaled-down Nucleus, as Leader/Middle/Tail.</li>
+  </ul></li>
+<li><b>Security, unchanged:</b> Nathan's default credentials, the Nucleus Wi-Fi password and the channel key never go in docs, email, memory or Drive. The channel link goes to Nathan separately.</li>
+</ul></div>
+
+<div class="card warn"><h3>C. 10-21: WHAT WAS DECIDED AFTERWARDS. It supersedes the proposal v9 and email 1 where they differ.</h3>
+<table><tr><th>Topic</th><th>Decision (Fred 10-21)</th><th>Why</th></tr>
+<tr><td>Message standard</td><td><b>Stay on the Meshtastic V1 standard: positions and role reports as TAKPacket on port 72</b>, as the T1000-Es and GroupTrack already send. GroupTrack does <b>NOT</b> move to 257. Email 1 said it would, and that is corrected in email v3.</td><td>Stock ATAK/iTAK users on any Meshtastic radio, with the plugin, read V1 on 72 directly. Port 78 (V2) exists only in 2.8, which is alpha. 257 carrying TAKPacketV2 is Nathan's own choice, and only his bridge reads it. <b>Format and port go together</b>: 72 = V1, 78 = V2. V1 on 78 would be discarded.</td></tr>
+<tr><td>Gap polyline</td><td><b>Stays V2 on port 78, uncompressed (0xFF), GroupTrack to GroupTrack only.</b> No polyline in ATAK/iTAK ("we do not need polylines in ATAK"). The ask to Nathan for polyline &rarr; CoT is dropped.</td><td>Both ends are GroupTrack, and the radios relay any port without reading it. That is why it works today on 2.6.11. Nathan's bridge ignores 78, so ATAK never sees it.</td></tr>
+<tr><td>Port 257</td><td>Nathan's only. It is how his Wi-Fi riders reach LoRa (CoT &rarr; 257, as built). GroupTrack only READS 257. Nothing of ours goes on 257.</td><td>Fred's "256" in an earlier message meant 257. Port 256 is Nathan's voice port.</td></tr>
+<tr><td>Radio firmware</td><td><b>No firmware update. The fleet stays on 2.6.11</b> (TAK_TRACKER &rarr; port 72).</td><td>2.8.x is Alpha/Revoked only; 2.7.26 is the latest Beta. The first 2.8.0 build was revoked for T1000-E LR1110 start-up failures. #11607: TAK_TRACKER position reports stop after 10&ndash;15 min on 2.8.0, fix unconfirmed. Discussion #8724: T1000-E send/receive breaks after 2.7.15. 2.8 also defaults to LongTurbo, takes node IDs from the public key (our uid basis), turns position and telemetry off by default, and changes nRF52 storage (full erase). A bench test on Billy beans waits for a 2.8 Beta.</td></tr>
+<tr><td>The Nucleus</td><td><b>Paused.</b> Starlink and the internet link are <b>removed</b> (off grid). Ten bare radios do everything ten Nucleus units do for GroupTrack, and for ATAK/iTAK users with a radio. The Pi adds only Wi-Fi for radio-less ATAK users near its cart, the internet link, and voice. S00104 at $430 is not justified per cart; the bare radio at ~$100 (+$50 optional power) is the ask.</td><td>All cart-to-cart work is LoRa. Nucleus Wi-Fi range does not cover a spread-out group. His default SHORT_FAST is shorter range than our MEDIUM_FAST. Range comes from the radio (the 1 W module plus external antenna), not the Pi.</td></tr>
+<tr><td>Wi-Fi (IP) instead of Bluetooth</td><td><b>Bluetooth stays.</b> Wi-Fi is not shown to be more reliable. ESP32-class bare radio requested only as an option.</td><td>Meshtastic documentation:
+<ul>
+<li>"Enabling Wi-Fi will disable Bluetooth" (one or the other);</li>
+<li>"SoftAP mode is not supported" (the radio cannot be the hotspot);</li>
+<li>reports of ESP32 Wi-Fi drops after 1&ndash;2 h, about 20% loss (old 1.3 firmware);</li>
+<li>TCP is the secondary transport on Android.</li>
+</ul>
+An Android hotspot without a SIM or internet varies by device (missing on Wi-Fi-only tablets). A local-only hotspot gets a random name and password each start, which a radio cannot store. Check: Droid 1 and Droid 2 in airplane mode with Wi-Fi on &rarr; does Hotspot switch on? If a fixed network is ever needed, a USB travel router costs far less than a Pi.</td></tr>
+<tr><td>Starlink later?</td><td>If an off-ride view is ever wanted, <b>the lead's GroupTrack tablet is the gateway</b>: the mesh by radio plus the internet by Starlink Wi-Fi, forwarding to a TAK server or AWS. No Pi.</td><td>Every cart's position reaches the lead over LoRa.</td></tr>
+</table>
+<p><b>Email v3 to Nathan</b> (<code>email_to_nathan_draft_2026-10-21_v3.applescript</code> / <code>email_to_nathan_2026-10-21_v3.eml</code>, drafted 10:34; Fred reviews and sends). It contains:</p>
+<ul>
+<li>our findings, which he is asked to correct;</li>
+<li>a correction (we stay on 72; the polyline is GroupTrack-only; drop polyline &rarr; CoT);</li>
+<li>five questions:
+  <ol>
+  <li>Wi-Fi / IP range, and any longer-range IP link (mesh, HaLow);</li>
+  <li>why SHORT_FAST, and the range trade-off;</li>
+  <li>voice airtime on LoRa;</li>
+  <li>what a Nucleus adds when every cart has a radio;</li>
+  <li>whether IP at LoRa range is on his roadmap, at what cost;</li>
+  </ol></li>
+<li>the bare-radio ask: 1 W LoRa, external antenna, GPS, Bluetooth, USB power, strap or fixed mount, proven at 1 mile on MEDIUM_FAST against a T1000-E, ~$100 + $50 power option, ESP32-class optional;</li>
+<li>S00104 not justified unless his answers change the picture.</li>
+</ul>
+<p><b>Off the GroupTrack list (10-21):</b></p>
+<ul>
+<li>the Nucleus path in the comm layer (CoT on Wi-Fi + config apply at check-in);</li>
+<li>"send everything on 257";</li>
+<li>switching positions to 78.</li>
+</ul>
+<p><b>Still useful, low priority:</b> put 257 (Wi-Fi ATAK) riders on the map. They are decoded today but only logged.</p></div>
+
+<div class="card next"><h3>D. NEXT (order agreed 10-21 11:57)</h3><ol>
+<li>&#9989; This doc update: handoff v65, living master v159, Tick Plan v10. Then <code>recommit</code>.</li>
+<li><b>The estimate and gap-fill rule (A):</b> desk test on the 10-20 logs, then patch.</li>
+<li>Quick cleanups in one patch:
+  <ul>
+  <li>remove the POLYTEST Settings test button;</li>
+  <li>the duplicate VM listener;</li>
+  <li>COMMHEALTH foreground-service start while the app is in the background ("startForegroundService not allowed").</li>
+  </ul></li>
+<li>Later or waiting:
+  <ul>
+  <li>reconnect panel v4;</li>
+  <li>polyline statistics;</li>
+  <li>polyline dots with no route displayed (Fred);</li>
+  <li>two-person end-to-end test;</li>
+  <li>Nathan's reply;</li>
+  <li>roll-bar diameter.</li>
+  </ul></li>
+<li>Untracked file left from 10-20: <code>GtPolylineInbox.kt.removed_POLYLINE-2026-10-20</code> (keep untracked).</li>
+</ol></div>
+</div>
+<h2>21. 10-20 EOD — THE TICK IS REMOVED (T5.5, 1e2bba8c0) · what came after it the same day (history; superseded by 22 where they differ)</h2>
+<div class="card">
+<p><b>End of 10-20:</b> 2.7b = <code>8bedb5b9c</code> (POLYTEST + POLYLINE + TRIM) + <b>ESTREC + BLUETRACKS bench-tested and to be committed</b> (one commit, message given at 16:18).
+Pushed through <code>4c8a88d8a</code> (the morning force-push); <code>73b81140e</code>, <code>1221bfa2a</code>, <code>8bedb5b9c</code> (+ the ESTREC/BLUETRACKS commit) go up with tonight's recommit.
+Both Droids on <code>2026-10-20_1615_mac_8bedb5b9c_UNCOMMITTED</code> (= the code of that commit). <b>THE TICK IS GONE</b> (T5.5, 08:08).</p>
+<table><tr><th>Commit</th><th>What</th><th>Tested</th></tr>
+<tr><td><code>1e2bba8c0</code> 08:08</td><td><b>TICKREMOVE T5.5</b> &mdash; the 5-second tick removed: tick / startTick / boardCompare / readLiveNodes / heldCarts / cartFromMember / onBoardHeard / simulation, the boardShows flag and its rollback branches, the tick-only state (-609 lines in ConvoyViewModel; -740 in all). REC counts the board's carts to pick the lead. Safety tag <code>pre-tick-removal-c-2026-10-20</code>.</td><td>desk, both tablets</td></tr>
+<tr><td><code>4c8a88d8a</code> 08:52</td><td><b>T6A</b> &mdash; diagnostic logs, lead-only plumbing, TICK_MS removed (no behaviour change).</td><td>build</td></tr>
+<tr><td><code>73b81140e</code> 09:23</td><td><b>PRESETPANEL</b> &mdash; the GPS panel chooses the preset (Medium Fast / Long Fast) beside the interval; APPLY runs the radio setup from the radio's current settings with only those two values replaced (one save, the radio's own restart, verify, backup); lasts until the next check-in.</td><td>bench Droid 1+2: MF &rarr; LF &rarr; check-in MF, verify 24/24 each</td></tr>
+<tr><td><code>1221bfa2a</code> 13:38</td><td><b>LEADVIS</b> (lead track drawn visibly, auto-pan frames it; LEADDRAW + RXSTATS logs) + <b>STATSPANEL</b> (Settings &rsaquo; Group awareness &rsaquo; Ride statistics: REFRESH / RESET / CLOSE; RideStats.kt) + <b>DUPECHECK</b> (the track save's duplicate check = one indexed hash lookup, no bulk session) + <b>GAPFILL v2</b> (the displayed route is the ONLY guide; without one: known tracks &rarr; saved routes &rarr; trails &rarr; straight; a fill must be drivable in the silent time, 50 mph &times; dt + 60 m -- replaces the 3&times; rule) + <b>MOVINGFILL</b> (a lead moving over its last 30 s and silent &ge; 60 s prefers fills of &ge; 3 mph &times; the silent time) + <b>LEADEST</b> (the silent lead blinks at an estimate projected along the displayed route after 2 missed broadcasts, at the ride's average speed over moving segments; grey "last heard" dot; "est. m:ss"; error at reconnect to Ride statistics; LeadEstimate.kt) + <b>ESTVIEW</b> (GROUP auto-pan frames the estimate).</td><td>field MF / LF loops; MOVINGFILL + ESTVIEW desk-tested on the 10-20 replays</td></tr>
+<tr><td><code>8bedb5b9c</code> 15:22</td><td><b>POLYTEST</b> (the gap polyline as a STANDARD TAK message: TAK V2, CoT u-d-f user-drawn polyline, anchor + 1e-7 deg deltas, uncompressed 0xFF, port 78, no ack, uid <code>GT-gap-&lt;radio&gt;-&lt;t0 s&gt;</code>, remarks <code>GT gap step=&lt;ms&gt;</code>, ~205 bytes, refused over 230; CommMessaging.deliverPolyline; Settings test button) + <b>POLYLINE</b> (see below) + <b>TRIM</b> (see below).</td><td>bench both ways 14:38-14:40 (points exact, ~1 s); road 15:30-15:47</td></tr>
+<tr><td><i>to commit</i></td><td><b>ESTREC</b> (the estimate runs only while REC is on; REC off clears the blinking and the grey dot -- it blinked forever after REC stopped) + <b>BLUETRACKS</b> (lead track SOLID bright blue #1E88FF, my track DASHED bright blue, both black-edged, black+blue arrows; polyline dots blue).</td><td>bench 16:01 (ESTREC); colours deployed 16:15</td></tr></table>
+
+<h4>The gap polyline (POLYLINE-2026-10-20) -- the design as built</h4>
+<ul>
+<li><b>Lead side (GroupTrack):</b> dead air = the time the LEAD hears NO other cart (one cart heard = the hops relay to the rest). After &ge; <b>60 s</b> of it (Fred 14:45: "a good even number" = six broadcasts), the first report heard from another cart sends ONE polyline: <b>20 points at equal time steps</b> across [last heard .. heard again] from the lead's own radio fixes (option 1), plus <b>one repeat</b> at the next report heard &ge; 10 s later. Fewer than 2 own fixes in the window = nothing sent (logged). The lead = checked in as Leader, or the cart locked as lead at REC. Pop-up "Gap polyline sent: m:ss of dead air".</li>
+<li><b>Receive, three layers (Fred 14:27 -- keep GroupTrack's message out of the mesh layer):</b> core/data <code>TakShapeInbox</code> (NEW, generic: ANY TAK drawn shape, no GroupTrack knowledge; POLYTEST's <code>GtPolylineInbox</code> retired -- renamed <code>*.removed_POLYLINE-2026-10-20</code>, uncommitted, delete at clean-up) &rarr; comm layer <code>MeshCommMessaging</code> recognises u-d-f + uid <code>GT-gap-</code> &rarr; <code>CommEvent.PolylineReceived</code> (NEW, additive) &rarr; GroupTrack <code>onGapPolylineReceived</code>: pop-up; the LEAD's polyline with REC on &rarr; <code>TrackEntry.Poly</code> &rarr; <code>LeadCartProcess.onGapPolyline</code> &rarr; <code>TrackWriter.pin</code>. The repeat is recognised (sender + start) and not applied twice.</li>
+<li><b>Pin (Fred 14:02-14:04, 14:47):</b> the polyline REPLACES -- never a second line. Kept: the lead track up to the LAST REAL point heard before the window; removed: everything inferred after it; the 20 points joined in order by the fill rules (displayed route &rarr; known tracks &rarr; saved routes &rarr; trails &rarr; straight); the reconnect point joined to the first real point after the window; everything after stays. A point more than <b>50 m off the displayed route</b> (or off every known line near it) is a <b>DOT</b>, never joined ("one point off turns the path into angles").</li>
+<li><b>Radio setup:</b> rebroadcast mode = ALL is now managed at check-in (written + verified: <b>25 checks</b>); NONE / CORE_PORTNUMS_ONLY would stop relaying or drop TAK.</li>
+<li><b>Desk test:</b> LF loop 10,845 m pinned vs 10,768 m real (4 dots); afternoon 10,954 vs 11,115 (2 dots).</li>
+<li><b>Road test 15:30-15:47 (Droid 1 leading the loop, Droid 2 parked):</b> Droid 2 last heard the lead 15:29:01; the lead's own dead air 15:30:19 &rarr; 15:36:18 = <b>359 s</b>; sent 15:36:18 (20 points, 202 bytes), received <b>2.1 s</b> later (the clock difference within that), <b>pinned with 10 of 20 as dots</b>; repeat 15:36:38 recognised. All 20 points lie on the road Droid 1 drove (19 within 0-2 m, 1 at 22 m between fixes). The 10 dots = where this afternoon's loop left this morning's saved tracks (7 points 66-168 m from them; no route displayed) -- the rule worked as written; proposal (Fred to decide): with NO route displayed, a polyline point joins straight (it is the lead's real position).</li>
+</ul>
+
+<h4>The trim (TRIM-2026-10-20) -- my cart replaces the lead track behind me</h4>
+<ul>
+<li>Fred 14:49-14:56: "rather than overlay it replaces"; "any lead cart point behind my cart ... trimmed at the next my-track write"; <b>BY TIME, not geometry</b> ("we had problems with these rules in twists"); all times <b>UTC epoch ms</b> (Arizona &rarr; Utah is a time-zone change -- local time would wreak havoc).</li>
+<li>Each MY-CART position (the feed that moves my icon -- tablet GPS, or my radio without a chip): the first lead-track <b>SEGMENT</b> within 50 m of my cart, searching <b>FORWARD ONLY</b> from the last cut; on to the next segment only while my cart is level with the joint (twists); <b>DRIVING ORDER</b> -- the cut moves no further along the lead's line than my cart has driven since the last cut (+150 m; steps &ge; 5 m, jitter is not driving). The DISPLAY is cut at that segment's start, by time; the written lead track stays whole (fills, pins, other carts' off-track). Polyline pins are trimmed the same way.</li>
+<li><b>Desk test</b> (TrimSim, Droid 1's real fixes lf / est / range, follower 30 s .. 20 min behind, my-cart updates every 3 / 6 / 10 s -- 45 runs): never skipped ground; the cut at most ~60 m ahead of my cart (where the lead was parked); at most one lead segment behind (&le; 435 m on these fixes; shorter with route fill). <b>Two failures found and fixed on the way:</b> point matching jumped 10 km to an out-and-back's return leg (fixes ~160 m apart at speed) &rarr; segments; a parked follower was cut to the lead's return home after a 10 km loop &rarr; driving order. A chipless tablet (6 s radio fixes) trims the same (Fred's concern, 16:04).</li>
+<li><b>Road:</b> Fred 15:47 "the trim definitely worked"; the log cut repeatedly from 15:42 (36 &rarr; 33 segments and on).</li>
+</ul>
+
+<h4>Range and the estimate (morning field tests -- Droid 2 parked at home, Droid 1 driving the loop)</h4>
+<ul>
+<li>Fred's worry: the 200-yard range of 10-19. Medium Fast loop, Long Fast loop, the estimate loop. <b>Reliable range ~470-550 yd in dense housing</b> (NH granite ledges); loss and regain symmetric within ~1 min. <b>Long Fast adds only 10-30%</b> &rarr; Medium Fast stays the default. Real Utah rides keep carts at most about 1 mile apart. Two MOVING carts are needed for an adequate test.</li>
+<li>Estimate error at reconnect on highway-speed gaps: ride-average speed 1.9-2.6 km. The source track's time profile measured ~200-450 m but Fred <b>rejected</b> it ("highway speeds, not real trail").</li>
+<li>A 2-minute polyline lifts known coverage of a gap from ~10% to ~50%, a 10-minute one to 100% (analysis that led to sending the TOTAL dead air).</li>
+</ul>
+
+<h4>Found today</h4>
+<ul>
+<li><b>ESTREC bug (15:51):</b> after REC stopped the lead was heard every 20 s yet blinked "silent 165 s" -- the estimate hears the lead only through the REC-gated lead-track queue but ticked whenever group awareness was on. Fixed and bench-tested 16:01.</li>
+<li><b>Duplicate listener:</b> every polyline was handled twice on Droid 2 (a copy with REC off, then the real one) -- the stacked view-model copy seen 10-14. Harmless now; 2.7b navigation clean-up.</li>
+<li><b>COMMHEALTH "startForegroundService() not allowed due to mAllowStartForeground false" (MeshService):</b> seen 10-19 20:01 (Droid 2) and 10-20 12:55 (Droid 1), before today's patches -- Android 12+ refuses a foreground-service start while the app is not on screen; the recovery step restarting Meshtastic's service after a radio restart. Check-in still verified 25/25 when reapplied with the app on screen. Open: the recovery must not restart the service while the app is in the background (or wait until it is in front).</li>
+<li><b>The reconnect panel (BTPANEL v4)</b> is NOT in the tree at 10-20 EOD (Main.kt clean); still open.</li>
+<li><b>History rewrite (Fred 12:4x):</b> no Co-Authored-By / Claude lines in commit messages -- removed from 2.7b, feature/convoy-event-ride and 4 tags since 607a47cb8 (code identical, trees verified), force-pushed. Backup <code>~/Downloads/gt_repo_backup_pre_trailers_2026-10-20.bundle</code>; old &rarr; new IDs in <code>gt_logs/commit_id_map_2026-10-20.txt</code> (e.g. 10-19: 5ec0d1cc7&rarr;68434e833, 61c3e4ff4&rarr;bf67c72a8, fd50c66a8&rarr;d5b1a7f75, e8bb75542&rarr;d54a08e05, d1c1e0ef4&rarr;d19708a6f, a687715b3&rarr;c785a9140). <b>The PC's clone is stale: if the PC is ever used for development, take a FRESH clone.</b></li>
+</ul>
+
+<h4>Decisions (Fred, 10-20)</h4>
+<ul>
+<li>Medium Fast stays the default; Long Fast is a choice in the GPS panel beside the interval; the change goes through the existing radio setup (one save, verify), no new write path; it lasts until the next check-in -- "I have to check in before I apply radio config changes".</li>
+<li>No new development on the PC; a fresh clone if ever used.</li>
+<li>Gap fill: the displayed route is the yardstick and the only guide; without one: known tracks &rarr; saved routes &rarr; known trails; a time check (drivable) replaces the 3&times; rule; chaining tracks/trails ("combo") later; the known route should be displayed whenever a ride is followed.</li>
+<li>Silent lead: blink and project along the route; no track drawn for the projection; corrected when heard; after 2 missed broadcasts; speed = the ride's average over moving segments; the error in the statistics; shown in group mode (auto-pan includes it).</li>
+<li>Polyline: the lead's TOTAL dead air; 60 s minimum; 20 equal-time points; sent when the lead hears normal reports from other carts (not every 30 s) + one repeat; a standard TAK format (CoT u-d-f) -- "cobble together a set message sent on demand and test send/receive before we go crazy"; receivers correct the existing lead track (replace, not a second line); &gt; 50 m off the route = dots; rebroadcast ALL in the check-in settings; GroupTrack's message kept out of the mesh layer (three layers).</li>
+<li>Trim: my cart replaces the lead track behind me; by time; UTC; at each my-cart write; made part of this patch set (14:56).</li>
+<li>Colours (16:06-16:09): blue -- orange is hard to see on the Utah red rock; the LEAD track SOLID (the path ahead), MY track DASHED ("think of the track as picked up"); arrows on both.</li>
+<li>The gap/polyline Python is a reusable MODEL (<code>gt_gap_polyline_model_2026-10-20.py</code>, target <code>gt_logs/gap_polylines_lf_1020.json</code>).</li>
+<li>The full end-to-end polyline test needs a SECOND PERSON (two moving carts).</li>
+<li>Nucleus (16:17-16:23): explore it fresh on 10-21 while the comm layer is fresh, with <b>Droid 1 only</b> (Droid 2 has no GPS chip -- it would complicate things). <b>The test:</b> a T1000-E in the SAME mesh network as the Nucleus, and the Android connects to the <b>Nucleus network (Wi-Fi) instead of Bluetooth</b>.</li>
+</ul>
+
+<h4>Rejected today -- and why</h4>
+<ul>
+<li>The source track's time profile for the estimate -- highway speeds, not real trail riding (Fred).</li>
+<li>Sending the polyline every 30 s -- send when the lead hears other carts again; a polyline sent into dead air reaches nobody.</li>
+<li>Drawing the polyline as a second line -- it must correct the lead track in place.</li>
+<li>A 2-minute polyline -- covers ~50% of a 10-minute gap; the total dead air covers all of it.</li>
+<li>GtPolylineInbox in core/data -- GroupTrack knowledge in the mesh layer (test only; replaced by the generic TakShapeInbox).</li>
+<li>Trim by geometry -- failed in twists before; trim by time. Point matching -- jumped to an out-and-back's return leg (segments instead). Unlimited forward search -- a parked follower skipped a whole loop (driving order).</li>
+<li>Orange lead track -- invisible on red rock; a dashed lead track -- the path ahead must be the strong line.</li>
+</ul>
+
+<h4>Nucleus -- what Nathan sent (16:18) and what the code says (V3_OS 0.16.0, 10-18)</h4>
+<ul>
+<li>Fred has <b>nodes 46 and 47</b>: each raises its own Wi-Fi AP when powered (the name carries 0046 / 0047); join with <b>Nathan's default credentials</b> (never written in docs or chat); web UI at <code>0046-nucleus.local</code> / <code>0047-nucleus.local</code> (Wi-Fi or Ethernet on the home network); V3-OS; the LoRa bridge is ON by default, listening on the ATAK default multicast ports; the radios are on <b>Short Fast</b> (changeable in the Meshtastic web UI, Radio configuration); either USB port for the Wi-Fi radio. Nathan is building mounts and a Reticulum/HaLow module.</li>
+<li><b>From the code (cot_bridge.py):</b> the bridge carries ONLY <b>port 257</b> (compressed TAKPacketV2) between LoRa and multicast 239.2.3.1:6969 (+ text port 1, voice, heartbeat) -- <code>if portnum != "ATAK_FORWARDER": return</code>. Our T1000-E positions (<b>port 72</b>) and today's polyline (<b>port 78</b>) are NOT carried to Wi-Fi. Asked of Nathan 09-25 for 72; not in. Decide: Nathan carries 72 + 78, or GroupTrack sends on 257 when a Nucleus rides.</li>
+<li>Its radio: Short Fast, channel "Natak" -- ours: Medium Fast, channel GroupTrack -- they will not hear each other until matched. API <code>/api/v1/meshtastic/config/apply</code> sets owner, region, preset, role, hop limit, TX power, frequency slot, channel name, PSK (async: read &rarr; apply changes &rarr; poll op-status &rarr; read) -- the same shape as our check-in. <b>No login on the API</b> (access = being on the network) -- the 09-24 security-layer question stands. meshtasticd on localhost:4403; TX_MIN_INTERVAL default 30 s (a setting).</li>
+<li><b>The test Fred set (16:23):</b> a T1000-E on the same mesh network as the Nucleus; Droid 1 joins the Nucleus Wi-Fi instead of Bluetooth. What has to be true: the T1000-E and the Nucleus radio share preset + channel + key + frequency slot; the bridge carries the T1000-E's position (port 72 today is NOT carried); GroupTrack reads CoT from the Wi-Fi (UDP multicast 239.2.3.1:6969) -- or connects to the Nucleus's meshtasticd over TCP (localhost:4403 on the box; whether it is reachable from the Wi-Fi is to check) -- the comm layer's IP implementation.</li>
+<li><b>Step 1 for 10-21 (read-only):</b> power node 46, join its AP, open the web UI, then <code>for p in version status meshtastic/status meshtastic/config meshtastic/nodes; do echo "== $p"; curl -s -m 5 http://0046-nucleus.local/api/v1/$p; echo; done</code>.</li>
+</ul>
+
+<h4>Open -- 10-21, in this order</h4>
+<ol>
+<li>Commit ESTREC + BLUETRACKS (if not done 10-20); recommit (pushes everything).</li>
+<li><b>Nucleus</b> with Droid 1: step 1 read-only; then how a GroupTrack radio and the Nucleus share a channel; the port question for Nathan (257 vs 72/78); the comm layer's IP implementation (CoT on UDP multicast) beside the mesh one.</li>
+<li>Two-cart end-to-end test of polyline + trim + estimate (needs a second person); a third radio for relaying if possible.</li>
+<li>Polyline dots with NO route displayed: join straight? (Fred's call; one line.)</li>
+<li>The COMMHEALTH foreground-service start while the app is in the background.</li>
+<li>The duplicate view-model listener (navigation clean-up).</li>
+<li>Ride statistics: polylines sent / received / applied with dead-air length and clock difference; real SNR/RSSI from DataPacket (T6b); T6c JSON / GPX / email.</li>
+<li>Release clean-up: the Send-test-polyline button (remove or hide), the retired GtPolylineInbox file, LEADEST/LEADDRAW/RXSTATS diagnostics.</li>
+<li>Still open from 10-19: reconnect panel v4; C2; lead-point rule logging; the "radio linked but silent" message; the status backstop; check-in auto-displays the ride's route; background save with a "Saving track..." spinner; chaining tracks/trails (combo); distance labels on last-heard / estimate; then the 2.7b clean-up list and the long test ride.</li>
+</ol>
+
+<h4>Lessons (keep)</h4>
+<ul>
+<li>A desk replay on real fixes found both trim failures before a tablet saw them -- the model first, every time.</li>
+<li>Measure the right thing: the "200-525 m ahead" was the measurement counting the whole segment, not the trim.</li>
+<li>Check a reported problem against older logs first: the foreground-service error predates today's work.</li>
+<li>A test message on demand proved the radio path (both ways, points exact) before the feature was built on it.</li>
+<li>Quotes inside generated patch text broke a patch file once today (14:56) -- syntax-check every patch file before it reaches Downloads.</li>
+</ul>
+
+<h4>Patch scripts and tools of the day (all dated, marker-guarded, ABORT with no write)</h4>
+<p>patch_tickremove · patch_t6a_cleanup · patch_presetpanel_v3 · patch_leadvis · patch_statspanel (+ RideStats_2026-10-20.kt) · patch_dupecheck · patch_gapfill_v2 · patch_movingfill · patch_leadest (+ LeadEstimate_2026-10-20.kt) · patch_estview · patch_polytest_v3 (+ patch_polytest_import) · patch_polyline · patch_trim · patch_estrec · patch_bluetracks_v2 (v1 superseded, not applied). Tools: gt_gap_polyline_model_2026-10-20.py, TrimSim_2026-10-20.kt + trim_trackrules_part_2026-10-20.py, webview_probe_2026-10-20.py. Logs: gt_logs/droid*_{preset,range,lf,est,polytest,polyride}_1020.log.</p>
+</div>
+<h2>20. 10-19 EOD — history (superseded by 21 where they differ)</h2>
+<div class="ok"><p><b>End of 10-19:</b> 2.7b = <code>a687715b3</code> (ROUTEBOTH). Six commits today, all on 2.7b; <b>push not confirmed</b> (first job 10-20).
+Working tree NOT clean: <code>Main.kt</code> carries the reconnect panel <b>v3</b> (applied 16:55, built <code>2026-10-19_1657_mac_a687715b3_UNCOMMITTED</code>, the panel never opened on Droid 1 -- see findings);
+<code>ConvoyViewModel.kt</code> carries <code>panelReconnect()</code> (BTPANEL v1, kept by v2-v4). Both Droids are on the 1657 build.</p>
+<table><tr><th>Commit</th><th>What</th><th>Tested</th></tr>
+<tr><td><code>5ec0d1cc7</code></td><td><b>TRACKRULES + MYCARTRAW + ONEFEED.</b> TrackRules.kt replaces TrackPipeline.kt: every real point posted (no location test, no trim); a gap (&gt; 4 s and &gt; 5 m) filled along the ONE displayed route &rarr; a saved route that both points lie on &rarr; the trails underneath &rarr; a straight line; WAIT at a junction until the next point is past it; ScreenWriter (update frequency 1). My cart RAW on every tablet (the rules apply to the lead track only). TabletPosition.kt = the ONE Android position feed (Google fused, high accuracy, 3 s) for my cart's icon and the recorder; with GPS the radio never moves my cart.</td><td>13:20 run after the chip locked: 52 points, 9-15 m; Kotlin = model (18 checks)</td></tr>
+<tr><td><code>61c3e4ff4</code></td><td><b>GPSLAMP + ROUTEARROWS.</b> A red/green light above REC: GPS LOCK n at 4+ satellites in the fix; RADIO GPS on a tablet without GPS (the radio's fix under 45 s old). Direction arrows on displayed routes.</td><td>both Droids 14:45 ("both perfect")</td></tr>
+<tr><td><code>fd50c66a8</code></td><td><b>FITSIZE + MAPSTARTUP.</b> The tester's z0 / white screen: fitBounds waits until the map has a size (it zoomed to 0 before); the saved frame is restored only online and only when usable, else the map centres on my cart at z15; an unusable frame is not saved; the network lost on the ride map &rarr; local tiles.</td><td>Droid 1 15:09-15:10, online and offline restarts</td></tr>
+<tr><td><code>e8bb75542</code></td><td><b>ROLEPOS.</b> The role report carries my RADIO's own last position, not the tablet's -- everybody else sees the radio; the second position stream for my cart on other tablets is gone. No radio position yet &rarr; the report is skipped.</td><td>Droid 1 15:27-15:28 (5 reports, none skipped)</td></tr>
+<tr><td><code>d1c1e0ef4</code></td><td><b>RECSLEEP.</b> REC and RESUME restart the sleep clock (it was set only when the service started). The 25-minute rule is unchanged.</td><td>Droid 2 15:43</td></tr>
+<tr><td><code>a687715b3</code></td><td><b>ROUTEBOTH.</b> The lead track follows a route in EITHER direction: along the arrows first when that fits, else the shortest way; out-and-back sections handled (every near-equal place of both points paired).</td><td>model v2 all checks incl. a backwards drive; Kotlin simulation of the 13:20 drive: max off the road 11 m &rarr; 4 m; desk-checked both Droids. <b>Field check owed</b> (long test ride)</td></tr>
+</table></div>
+<h3>What the logs and the code proved today (evidence, not theory)</h3><ul>
+<li><b>The tablet GPS chip needs about 5 minutes of open sky for its first lock</b> (Unisoc chip; no SIM, no Wi-Fi assist). Log: <code>fixStatus=A/V</code>, <code>num_svs</code>. Recording works once it has locked (13:20 run). Not a defective chip (my wrong claim this morning, withdrawn).</li>
+<li><b>The second stream of my cart on other tablets was our own role report</b> (every 30 s, it carried my cart's position = the tablet's since ONEFEED). Fred: "check the logs" -- they showed it. Fixed by ROLEPOS.</li>
+<li><b>Sleep 84 s after REC</b> (Droid 2): REC at 11:11:50 in the same app process as the 10:48 recording &rarr; the sleep clock still held the earlier time &rarr; "no movement for 25 min" at the first points (11:13:14). A recording that ended asleep also left every new point dropped. Fixed by RECSLEEP.</li>
+<li><b>The z0 / white screen</b>: every restart that restored the saved frame was followed ~2.5 s later by a zero-size view at <code>43.06888777, -71.71875</code> -- exactly my cart rounded to one pixel at ZOOM 0 -- then the whole world. Leaflet's fitBounds works the zoom out from the map's size; called before the map has a size it picks zoom 0. setView (given its zoom) never did this. Offline there are no z0 tiles = white. The saved frames themselves were good (my first theory, a 0,0,0,0 saved frame, was wrong). Only ONE place restores the ride map from the saved file (start-up, ConvoyScreen ~964 + drawPersistedState); FIT uses the database's own bounds. Fixed by FITSIZE + MAPSTARTUP.</li>
+<li><b>The lead track did not follow home6 on the 13:20 drive</b> because Fred drove it against its arrows and the forward-only rule refused the route (simulation <code>lead_sim_track13_2026-10-19_v2.png</code>). Fixed by ROUTEBOTH.</li>
+<li><b>This morning's Droid 1 Bluetooth stack was stuck</b>: <code>registerApp</code> got no <code>onClientRegistered</code>, scans failed with <code>ApplicationRegistrationFailed</code>; only Bluetooth off/on cleared it. FORGET does remove the radio from Android when it is really connected (Fred).</li>
+<li><b>Droid 1's radio GPS mode was found DISABLED</b> (Fred 17:14) -- its position had been frozen at 42.80064,-71.27742 since 09:55. GroupTrack's default writes <code>gpsMode: ENABLED</code> and the setup checks it, so it was not our setup. Likely (not certain): the Meshtastic firmware toggles GPS on a triple press of the user button -- the T1000-E's only button, pressed all day for power cycles. After both radios were powered down and reconnected both tablets saw each other (17:28); that radio still had a weak GPS signal. "1 radio, 0 active" in GRP Awareness = radio linked but sending nothing.</li>
+<li><b>The reconnect panel v3 never opened</b> (Droid 1, ~17:00): it was gated on "riding with a group" = this tablet sees at least one other cart -- false, because Droid 1 heard no other cart. The log was lost to a reboot; the cause is from the code and what Fred saw. v4 gates on group awareness ON.</li>
+<li><b>A reboot wipes the log buffer AND resets <code>logcat -G 16M</code></b> (twice today). Pull logs before any reboot; set -G again after one.</li>
+<li><b>Android 13+ will not let an app switch Bluetooth</b> (we target 36): the panel uses Android's own dialogs. The turn-OFF dialog (<code>android.bluetooth.adapter.action.REQUEST_DISABLE</code>) is not a published Android call -- whether these tablets show it is a tablet test (fallback: Android's Bluetooth screen after 8 s).</li>
+<li><b>Recovery timing is inherited, not measured</b>: tries 45 s apart and "stuck connecting" 45 s came from LINKHB (10-05). A normal reconnect took ~20-25 s in the setup logs; once 98 s after an install.</li>
+<li>Range this morning: Droid 2 lost between about 100 and 175 m out. Droid 2's clock is Utah time (2 h behind).</li>
+</ul><h3>Decisions (Fred, 10-19)</h3><ul>
+<li><b>Track rules (08:39-09:12):</b> every real point posted; gaps filled by the ONE displayed route (direction, arrows) &rarr; a saved route that intersects &rarr; the trails underneath, displayed or not &rarr; a straight line (a polyline replaces it later, stage 2); at a junction wait for the next point on the far side; the screen writer turns written points into screen updates, update frequency default 1; a future GRP Awareness switch "Smooth cart movement yes/no"; two routines (lead cart processing, my cart processing), the rules written once; "no recording no track"; the model first, then Kotlin once ("lets write this once and be done with it").</li>
+<li><b>My cart (12:06-13:07):</b> route/trail adjustments OFF for my cart for now -- "Raw on all tablets"; Android data for my cart's position and tracks; "android is the one I should see on my tablet. every body else see the radio"; one always-on feed (3 s) passed into the recorder, no second GPS request. Google Play only -- no fdroid flavour ("lets not add the fdroid complexity").</li>
+<li><b>Stability before tick removal (13:52-13:54):</b> clear the open stability issues, then an acceptance round on the lead and my-cart tracks, then the tick removal.</li>
+<li><b>Wanted (13:50):</b> arrows on routes; a GPS red/green light above REC. Done.</li>
+<li><b>Map start-up (14:35-14:36):</b> the saved frame is not loaded on the init page when offline; local tiles when no network is attached; "write them now while it is fresh".</li>
+<li><b>Sleep (15:48):</b> stays as it is in group awareness -- "if it is lunch every cart will be sleeping".</li>
+<li><b>Route direction (15:48-15:51):</b> either direction -- "some routes have sections that are ridden in both directions".</li>
+<li><b>Radio recovery (16:21-16:52):</b> no activity = the radio's link to the tablet is interrupted &rarr; straight to a panel, no quiet reconnects; restart Bluetooth as ONE step -- OFF for 10 s, then ON; reconnect automatically to the radio that was attached; if that fails it is a GATT error on the radio &rarr; "power off and restart the radio"; 30 s end to end; the word in the step is the button; no hunting in Settings; the reconnect is automatic (no CONNECT button). Sleep is the deliberate disconnect -- it must not open the panel.</li>
+<li><b>Shared monitoring (16:00):</b> the open radio-configuration write (the setup's reconnect after a write) uses the same panel = C2.</li>
+<li><b>Open list item "a trail behind every cart" is DONE</b> (17:34): the my-cart track work covers all carts.</li>
+<li><b>Tomorrow (17:32):</b> tick removal, then on to the other 2.7b issues; the long test ride is owed when we are finished.</li>
+</ul><h3>Rejected today -- and why</h3><ul>
+<li><b>FUSEDLOC</b> (fused location for the recorder only, 11:2x) -- rolled back (backups <code>.bak_20261019_113637</code>): two GPS requests; replaced by ONEFEED (one feed for icon and recorder).</li>
+<li><b>MYCARTREC</b> (my cart = the GPX record, CoT from the recorder every 3 s) -- superseded before it was run: Fred 12:21 "why not set the always-on to 3 s, pass the value into record and eliminate the second gps request".</li>
+<li><b>MYCARTRAW v2</b> (fill my cart only on tablets without GPS) -- not used; v1 "raw on all tablets for now" chosen (12:10).</li>
+<li><b>An fdroid / non-Google position source</b> -- Fred: no fdroid complexity.</li>
+<li><b>Forward-only routes</b> -- refused a route driven against its arrows (13:20 drive). Replaced by ROUTEBOTH; the pairing prefers the arrows only when both directions fit.</li>
+<li><b>C1 "BTRESTART"</b> (3 quiet tries over ~2 min, then "Is your radio powered on?", then a guided restart) -- built 16:14, never deployed. Fred: over 2 minutes with no message or progress; "no activity means the radio's ability to connect and update the android has been interrupted" -- no quiet reconnect.</li>
+<li><b>Panel v1</b> (BLUETOOTH button at the bottom, CONNECT button) -- "very confusing"; <b>v2</b> (two Bluetooth steps, ON asked the instant OFF was seen) -- "why is bluetooth two steps"; <b>v3</b> (gated on other carts seen) -- never opened when no other cart was heard.</li>
+<li><b>An explicit "disconnect the radio" step</b> -- Bluetooth OFF is the disconnect; a panel that disconnects by itself would strand the radio when nobody is looking (screen off, REC running).</li>
+<li><b>A 15 s wait after Bluetooth ON</b> (09:41 number) -- Fred 16:5x: by the time the rider closes the dialog the service is updated; the panel reconnects at once.</li>
+</ul><h3>Open -- 10-20, in this order</h3><ol>
+<li><b>git push</b> (5ec0d1cc7 .. a687715b3 not confirmed pushed); recommit the 10-19 docs.</li>
+<li><code>logcat -G 16M</code> on both tablets (check with <code>-g</code>); both radios outside for a GPS fix; Droid 1's radio GPS mode reads Enabled.</li>
+<li><b>Reconnect panel v4</b>: <code>git checkout -- app/src/main/java/com/geeksville/mesh/ui/Main.kt</code>, apply <code>patch_btpanel_2026-10-19_v4.py</code> (ConvoyViewModel keeps v1's panelReconnect), build, radio-off test on Droid 1 (does RESTART BLUETOOTH show Android's Allow dialog or the Bluetooth screen?), pull the log BEFORE any reboot, commit.</li>
+<li><b>T5.5 remove the tick</b> -- first the line-by-line inventory of the tick body; then the loop, readLiveNodes, cartFromMember, TICKSHADOW, simulation, CART SUB, proxy snap.</li>
+<li><b>T6 clean-up</b>: TRACKDELAY, GPXFIELD, COTMSG diagnostics; the unused VM MyTrack; the old red-banner logic in Main.kt (powerCycle / powerMsgStage3) left by the panel.</li>
+<li><b>C2</b>: the radio setup write uses the same panel when a radio does not come back (covers the Wio Tracker's slow reboot), then resumes from the group that stopped.</li>
+<li><b>Lead-point rule logging</b>: one line per lead point saying which rule placed it (route, saved route, trail, straight, wait).</li>
+<li><b>Decision (Fred)</b>: "radio linked but silent / GPS off" message -- compare with the 10-18 Own-position monitor design (60 s &rarr; one reconnect; 60 s more &rarr; yellow "Your radio is connected but not sending its position").</li>
+<li><b>Decision still open from 10-15</b>: the status backstop (the board ages statuses only when a message arrives) -- options (a) a light check per interval only while nothing arrives, (b) on my own fixes, (c) on a radio disconnect mark every other cart Signal Drop.</li>
+<li><b>The long test ride</b> (acceptance): my cart raw + the GPX matches the screen + the GPS light; the lead track on a route in both directions + arrows; other tablets see the radio's position with no second stream; REC does not sleep early; the map opens offline on my cart; the reconnect panel when the radio drops.</li>
+</ol>
+<p><b>Closed from the 10-18 open list:</b> lead-track trim on loops (TRACKRULES R1: no location test, no trim); MYCARTCHIP (ONEFEED: the tablet's GPS is my cart where there is a chip, the radio where there is none); ROUTE/TRAIL fill-ins (TRACKRULES); the lead track rebuilt to section 12's rules (TRACKRULES + ROUTEBOTH); a trail behind every cart (Fred 17:34: done).</p><h3>2.7b open issues after the tick removal (reconciled 10-19 EOD with plan v7 sections 8 and 19)</h3>
+<p><b>Tracks and messaging</b> (frozen until the tick is gone): lead polylines -- a lead with a tablet sends its last 2 minutes, overlaying and straightening the track; a lead assigned by hand (bare radio) sends TAK only (T7) · Phase 2 polyline segment display with an on/off toggle · on-route carts move along the route at the last speed until heard, off-route carts hold (4c) · my cart on tablets WITHOUT GPS: fill gaps over 6 s (raw everywhere today) · the GRP Awareness switch "Smooth cart movement yes/no" · CartMotion stepping · node data capture and metrics, the ride summary, ride detail JSON, replay · CoT value conversions (scoping document) · reporting interval by cart count (&le;4 8 s, 5-6 11 s, 7-8 15 s, 9-10 20 s) · the route GPX as a second file in the ride invite · convoy order when everyone is slow (by distance along the route).</p>
+<p><b>Connection and radio</b>: one connection owner (Meshtastic's auto-connect off; CONN-1/CONN-2) · the recovery not while Meshtastic is attaching, or before the radio has given a GPS position (patch_recoverygps written) · Meshtastic's uncancelled connect request after its 15 s timeout (one-line fix found) · BLEHEARTBEAT (the empty Bluetooth keep-alive; patch written) · stacked reconnects (8 configureMTU at once) · RADIOLINK diagnostic · C2 (setup uses the panel; Wio) · the "radio linked but silent" message / Own-position monitor · why a stationary T1000-E reports at ~20 s · Nathan's config before the 2.7b cleanup · setup defaults: print the channel key in the manual or not, setup writes gps attempt time, stale comments in grouptrack_default.json.</p>
+<p><b>Clean-up and screens</b> ("taming the app", after the tick): the 2.7b cleanup list · CFGHOME (compare/apply saved configs into GRP Awareness) · Settings inventory (remove unused: track all carts, lead cart off) · navigation simplification (flatten screens, nav-line readability, a side menu, onX / Gaia) · Hide Mesh (MESHOVERLAY) · ONETICK / the app-wide board · H/I/J/K items · the planning map's frame restore has the same z0 risk (guard it in a later build).</p>
+<p><b>Release</b>: the 2.7b release notes and manual organised around what 2.7b is; certification pass; the long test ride.</p><h3>Lessons (keep)</h3><ul>
+<li><b>Check the logs before theorising</b> -- today's sleep, z0, second stream and GPS-mode problems each looked deep and were one small thing found from evidence. Where I guessed first (defective chip, Wi-Fi, upstream location sharing, a 0,0,0,0 saved frame) I was wrong.</li>
+<li><b>Kotlin builds a class top to bottom, and a local function must be declared before it is used</b> -- two of my patch errors today (the C1 listener above <code>init</code>; v2's ON effect above its fallback). Check declaration order in every patch.</li>
+<li><b>Pull the log before a reboot</b>; a reboot also resets <code>logcat -G</code>.</li>
+<li><b>Never a patch on a patch</b> -- each panel version undid the last (<code>git checkout</code>) and was written whole.</li>
+<li>zsh: quote <code>--include='*.kt'</code>; Droid 2 shows Utah time.</li>
+</ul><h3>Patch scripts of the day (all dated, marker-guarded, ABORT with no write)</h3><ul>
+<li>Applied and committed: <code>patch_trackrules_2026-10-19.py</code>, <code>patch_mycartraw_2026-10-19.py</code> (v1), <code>patch_onefeed_2026-10-19.py</code>, <code>patch_gpslamp_2026-10-19.py</code>, <code>patch_routearrows_2026-10-19.py</code>, <code>patch_mapstartup_2026-10-19.py</code>, <code>patch_fitsize_2026-10-19.py</code>, <code>patch_rolepos_2026-10-19.py</code>, <code>patch_recsleep_2026-10-19.py</code>, <code>patch_routeboth_2026-10-19.py</code>.</li>
+<li>Rolled back / not used: <code>patch_fusedloc_2026-10-19.py</code> (rolled back), <code>patch_mycartraw_2026-10-19_v2.py</code>, <code>patch_mycartrec_2026-10-19.py</code> (+ _v2), <code>patch_btrestart_2026-10-19.py</code> + <code>_order</code> + <code>_endmsg</code> (C1, undone by git checkout), <code>patch_btpanel_2026-10-19.py</code> / <code>_v2</code> / <code>_v3</code> (Main.kt part superseded; v1's ConvoyViewModel part kept).</li>
+<li><b>Next to run:</b> <code>patch_btpanel_2026-10-19_v4.py</code> (after <code>git checkout</code> of Main.kt).</li>
+<li>Model / simulation: <code>track_model_full_2026-10-19.py</code> (18 checks) and <code>_v2</code> (ROUTEBOTH, + J backwards: all pass); <code>lead_sim_track13_2026-10-19_v2.png</code>.</li></ul>
+<h2>19. 10-18 EOD — history (superseded by 20 where they differ)</h2>
+<div class="ok"><p><b>End of 10-18:</b> 2.7b = <code>94524303f</code> (CHIPALWAYS). Both Droids on build <code>2026-10-18_1716_mac_9f987faa2_UNCOMMITTED</code> = the committed code. Droid 1 in group mode records a GPX and draws the blue my-cart trail; Droid 2 takes the check-in lead and builds the lead track; the radio link survives no-GPS gaps; a powered-off radio is caught in 30 s.</p>
+<table><tr><th>Commit (2.7b)</th><th>What</th><th>Tested</th></tr>
+<tr><td><code>8aed6e286</code></td><td>Lead track and my track off the tick: LEADTRACKBOARD (receiving queue, TrackPipeline: TrackPath STRAIGHT with ROUTE/TRAIL placeholders, CartMotion N=1, LeadTrack hold + 50 m trim, MyTrack), black dotted lead track with arrows, blue dotted my track with arrows; TRACKDELAY diagnostic; MYTRACKMSG; MYTRACKDRAW (no mapReady wait); TRACKORDER (newer reports only); MYCARTRADIO (my radio's fix wins, tablet is the fallback)</td><td>builds 1118 / 1139 / 1149, both Droids</td></tr>
+<tr><td><code>82c000015</code></td><td>HEALTHTRAFFIC: radio talking = own report within 45 s OR any traffic within 120 s</td><td>build 1222, 5 min stationary</td></tr>
+<tr><td><code>befcd2049</code></td><td>MYTRACKGPS: the blue line = the recorder's points (the saved GPX)</td><td>build 1241, Droid 1</td></tr>
+<tr><td><code>9f987faa2</code></td><td>GPSNOTFATAL + SILENCE3MIN + SILENCE30S v2 + POWERMSG v2: no GPS fix is not a dead radio; a connected link with NO activity at all for 30 s = banner "Your radio isn't answering. Check it is powered on.", 45 s = disconnect + reconnect, 3rd failed try = the FORGET/PAIR words</td><td>build 1514, Droid 2: Billy beans off &rarr; message 33 s, reconnect 48 s, back by itself in 12 s</td></tr>
+<tr><td><code>94524303f</code></td><td>CHIPALWAYS: the tablet GPS chip runs all the time the app runs, both modes (regression from 10-15) + GPXFIELD diagnostic log on every value reaching the GPX write</td><td>build 1716, Droid 1 group mode: 39 GPX points (was 0), blue trail drawn</td></tr></table>
+<p><b>Push:</b> <code>94524303f</code> was committed at 17:30 and needs <code>git push</code> (not confirmed at EOD). Tick NOT removed today &mdash; the target was missed because testing turned up the radio-link and recorder faults below, each fixed from evidence.</p></div>
+<h4>What the logs proved today (evidence, not theory)</h4><ol>
+<li><b>No GPS fix was treated as a dead radio.</b> LINKHB (10-05) made "talking" = my radio's own TAK report; a T1000-E sends that only with a fix. The REAL healthStep code run in a simulation (scratchpad hs18): a 5-min fix gap = 4 forced reconnects (before), 2 (HEALTHTRAFFIC, alone on the road), 0 (GPSNOTFATAL). Each forced reconnect is a Bluetooth teardown &mdash; the wedge of 10-16 / 10-18 morning.</li>
+<li><b>The phantom link is a Meshtastic fault.</b> 14:04:32 Android reported the radio ending the connection (<code>BluetoothGatt status=19</code>); the app kept <code>link=CONNECTED</code> until our silence rule forced a reconnect. SILENCE30S now catches it: 30 s message, 45 s reconnect.</li>
+<li><b>Meshtastic's Bluetooth keep-alive is empty.</b> <code>AndroidRadioInterfaceService.keepAlive()</code> sends a heartbeat every 30 s only over USB; <code>NordicBleInterface.keepAlive()</code> only logs. Nothing checks a Bluetooth radio. BLEHEARTBEAT patch written (not applied).</li>
+<li><b>Reconnect attempts stack up.</b> When Billy beans came back (14:20:15) there were 8 <code>configureMTU</code> calls at once &mdash; one per earlier try. No harm proven; no fix yet.</li>
+<li><b>Billy beans sent no position 14:02&ndash;14:26</b> &mdash; neither tablet heard it; it was relaying fred&amp;June to Droid 2 the whole time. Its first broadcast came 2 s after Fred's second manual reconnect (14:26:06 &rarr; 14:26:08): cause or coincidence UNKNOWN. A first manual reconnect at 14:24 was NOT followed by broadcasts.</li>
+<li><b>COTMSG is rate-limited by design</b> (one log line per radio per minute, <code>MeshCommMessaging.kt</code> line 128); every received report becomes a CoT message on the board.</li>
+<li><b>The check-in lead works:</b> Droid 2 received fred&amp;June's TeamLead (15:32:05, 16:38:26) &rarr; LEADBOARD lead = <code>!23dec46a</code>.</li>
+<li><b>The lead track trim fails on a loop.</b> LeadTrack.shownSegments cuts at the LAST lead point within 50 m of my cart; when the lead comes back to where I am, his newest point is beside me and the whole loop is hidden (Droid 2: 1&rarr;7 segments, then 0 at 15:35:14 / 16:41:05; Fred saw ~100 ft). OPEN.</li>
+<li><b>No GPX / blue line on Droid 1 in group mode was a 2.7b regression (10-15).</b> 2.7a started the tablet chip every tick (<code>cartFromMember</code> &rarr; <code>if (!shadow) startPhoneGps()</code>). When the board took over (shadow tick) the only start left was TICKSMALL, gated on <code>!radioTalkingNow</code> &mdash; with the radio connected nothing ran the chip until REC; REC started a cold chip; with no internet its first fix took 4 min 46 s (16:37:51 &rarr; 16:42:37), after the 3-min loop. CHIPALWAYS: chip fixes from the moment of REC (17:20:53, 2.5 m), 39 GPX points.</li>
+<li><b>Logs:</b> the Mac's capture runs over USB and stops at unplug; Droid 1's own log memory drops the app's lines first. Before every drive: <code>adb -s &lt;serial&gt; logcat -G 16M</code>; after: <code>adb -s &lt;serial&gt; logcat -d -v threadtime &gt; file</code>. LEAD SET / TRACK START go to the app's <code>convoy_debug.log</code>, never to logcat.</li>
+<li>Smart broadcast: a stationary radio reports about every 20 s.</li></ol><h4>Open &mdash; tomorrow, in this order</h4><ol>
+<li><code>git push</code> (94524303f) if not done; recommit.</li>
+<li><b>Lead track trim in driving order</b> &mdash; Fred to choose: no trim at all for now, or 50 m "passed" strictly in the order the lead drove (a loop never hides itself).</li>
+<li><b>MYCARTCHIP</b> (Fred 17:11 "if there is a chip it should be started, if not we use radio for GPX and my cart"): on a tablet with a chip my cart = the chip; no chip = the radio. Today MYCARTRADIO makes the radio win on every tablet &mdash; this reverses it on chip tablets. The 10-15 release note "your cart follows this tablet's GPS" matches the new rule.</li>
+<li>Board clock (status ageing), then <b>T5.5 remove the tick</b>, T6 clean-up (remove TRACKDELAY, GPXFIELD, COTMSG, the unused VM MyTrack), certification, drive test with the 16M log steps.</li></ol>
+<h4>After the tick (recorded, not started)</h4><ul>
+<li><b>BLEHEARTBEAT</b> (patch written): the heartbeat over Bluetooth &mdash; tells "radio off" from "no fix"; then the 3-min / 30-s silence rules can be reviewed. Known cost until then: a radio ALONE with NO fix is silent too &rarr; SILENCE30S reconnects it (45 s apart &times;3, then every 2 min).</li>
+<li><b>Own-position monitor</b> (Fred 15:00): my radio connected but sending no position of its own while other radios are heard (the 14:20&ndash;14:26 case) &mdash; 60 s &rarr; one reconnect, my cart to the tablet; 60 s more &rarr; yellow "Your radio is connected but not sending its position", no more reconnects; logged.</li>
+<li><b>RADIOLINK</b> diagnostic (one tag: Bluetooth state + status code, app link state, health decisions, heartbeat result, reconnect setups, own/other TAK) &mdash; then the stacked-reconnect fix from its evidence.</li>
+<li>Radio settings: why a stationary T1000-E reports at ~20 s (Fred expected 6 s moving).</li>
+<li>Everything already parked: ROUTE/TRAIL fill-ins, CartMotion stepping, T7 polyline, ride detail JSON + metrics, replay, 2 s recorder, 15 s default, Drop&lt;Lost guard, preset test, one connection owner, item J, seed, blinking labels, Wio channel wait, online check, double own-message source, TAIL_GUNNER oddity.</li></ul><h4>Working rules confirmed today (Fred)</h4><ul>
+<li><b>Evidence first:</b> "check the logs before we keep ginning fixes" &mdash; for the radio link, a fix only for what a log shows; the base Meshtastic code is not error-free.</li>
+<li><b>Look at the code we just changed first</b> before blaming radios, GPS or the environment ("why do you always grasp at anything besides the software we just changed?").</li>
+<li>No GPS is not fatal. A connected radio with no activity at all for 30 s gets the check-power message FIRST, then the reconnect.</li>
+<li>The GPX is written from the tablet chip; the radio only on a tablet without a chip. The chip runs whenever the app runs.</li>
+<li>No route/trail track adjustments until the tick is removed.</li></ul>
+<h2>18. 10-18 morning update (10-16 / 10-17 / 10-18) — history</h2>
+<div class="ok"><p><b>State 10-18 07:30:</b> <code>2.7b</code> = <code>f06a03186</code> (LEAFLETLOCAL) on <code>43d53d8cd</code> (OWNTAKPOS), both pushed.
+<code>feature/convoy-event-ride</code> = <code>a53da1173</code> = <b>2.7a release m</b> (tag <code>v2.7a-internal-2026-10-17-m</code>), uploaded to Play internal testing 10-17 ~22:27.
+Baseline retest on both Droids (f06a03186) done 10-17 night — no new issues reported. Patches written, NOT applied: HEALTHTRAFFIC, SEEDMYCART, COTLOGALL.</p><p><b>FREEZE RULE (Fred, restated 10-18 07:34):</b> no additions, changes or complications to the new processes until the tick replacement is complete.
+Deferred until the tick is removed: node data capture and metric reporting (COTLOGALL, ride summary), polylines (T7 and the Phase 2 segment display),
+non-check-in / bare-radio lead assignment, and everything else not needed to remove the tick. Docs are brought up to date in the current living documents first.</p></div>
+<p><b>The track rewrite — written once, with the route/trail hierarchy designed in (Fred 10-18 07:36–08:06).</b> Cart positions (other carts and my cart) are already off the tick
+(board, received CoT messages; OWNTAKPOS makes my radio's own position readable). The tick's drawing of the lead track goes with the tick, and my track has never been drawn
+live — so both tracks are written new, as isolated callable modules, with placeholders for the parts that come in later builds.</p>
+<table><tr><th>Module</th><th>What it does</th><th>Build 1</th><th>Later</th></tr>
+<tr><td><b>TrackPath</b> (plain Kotlin, no Android — testable alone)</td><td>previous point + new point + map context (loaded route, nearby trails) → the points to draw between them, the snapped location of the new point, and the rule used: <code>ROUTE</code> · <code>TRAIL</code> · <code>STRAIGHT</code> · <code>WAIT</code>.<br>
+Order: <b>ROUTE</b> (both points within 50 m of the loaded route → path along the route) → <b>TRAIL</b> (nearest trail within the snap distance → path along it; at a junction <b>WAIT</b> until the next point BEYOND the junction is received — never guess a branch) → <b>STRAIGHT</b>.</td>
+<td>STRAIGHT works; ROUTE and TRAIL are placeholders that answer "not applicable" and log it</td><td>build 3 ROUTE filled · build 4 TRAIL + junction wait — inside the module only, callers untouched</td></tr>
+<tr><td><b>CartMotion</b></td><td>a received message → the path from TrackPath split into N one-second steps; the cart icon (and the drawn track) advance each second so carts move steadily. Goal (Fred 07:58): the mapping progress COMPLETES BEFORE THE NEXT UPDATE arrives; after a long silence (e.g. 2 min) there will be a jump — accepted.</td>
+<td>placeholder = the full gap in ONE step (Fred 08:06: today's behaviour)</td><td>build 5 stepping</td></tr></table>
+<p><b>CartMotion rules (proposed 07:56, taken as agreed 07:58):</b> the steps are display-only — not stored as track points, never sent, no last-heard or status change, not used for off-track or the 50 m passed rule (only real reports count);
+catch-up from the last real point to the new one, never projected ahead (consistent with "wait for real fixes"); N = the cart's NORMAL report interval so the steps finish before the next expected report (observed radios ~20 s, configured 6 s / 30 s);
+a report that arrives early continues from wherever the icon is. The stepping is a short job per received message, not a standing timer. Separate NON-software task: maximise cart broadcast distance to shrink the dead spots (preset MEDIUM_FAST vs LONG_FAST, antenna placement).</p>
+<p><b>The lead track (Fred 10-17 22:27–10-18 07:44):</b></p><ul>
+<li><b>Built — the same on every tablet:</b> from the LEAD CART's own positions only; when he is quiet it ends at his last known position — no stand-ins (the proxy snap stays killed). ONE lead track whoever leads: old points stay as assigned, new points come only from the current leader, a lead change CONTINUES the track (replaces "a lead change starts a new line"). Every real point kept.</li>
+<li><b>Lead new position</b> = the route/trail location of the point (TrackPath's snapped location) + the track line to it (Fred 08:06).</li>
+<li><b>Signal Drop:</b> the track WAITS for a real fix (no projected points); then the gap last-known → current is drawn over the route if loaded, else over the trail(s), else straight (TrackPath).</li>
+<li><b>Shown — per tablet:</b> the purpose is the lead's path AHEAD of me, to his last point. Lead-track points my cart has PASSED are removed from the display on my tablet (kept in the data): PASSED = my cart within <b>50 m</b> of the point; that point and every earlier one hidden. My cart is always drawn over the track.</li>
+<li><b>Off-track:</b> unchanged — <code>OFF_TRACK_MILES</code> from Settings, measured when THAT cart's own position arrives.</li>
+<li><b>T7</b> (after the tick): the lead cart's position = the LAST POINT of the lead's polyline; the 2-minute polyline replaces the tail broadcast.</li></ul>
+<p><b>My cart and my track:</b></p><ul>
+<li><b>My cart (#16 closed, Fred 08:00–08:02):</b> no special case. The tablet's GPS fix already enters the board as a message (MYCARTMSG), so it follows the same TrackPath + CartMotion rules as every cart. When my radio drops, the tablet's messages keep coming — no break; with no tablet GPS, my radio's messages take over.</li>
+<li><b>My track:</b> drawn live behind my cart from the recorder's points (<code>ConvoyGpsService</code> 3000 ms / 5 m — dense, so STRAIGHT, no snap, no junction wait); the points stay on the tablet, never broadcast. On a tablet with NO GPS, my track is fed by my radio's fixes (~20 s) through TrackPath like the lead track. A 2-second recorder interval goes after the tick (Claude's call 07:47: the recorder writes every saved track — file size, battery, rider-trail matching).</li></ul>
+<p><b>Board clock (must precede T5.5):</b> today the board ages statuses (Active → Signal Drop → Lost) only when a message arrives — proved (B3: Droid 1 10-16 08:22 tick DROP vs board ACTIVE). The tick is what still ages them on rollback; removing it without a replacement leaves a silent cart Active for ever. A minimal clock — ageing only — keeps a behaviour the tick provides; it is not an addition.</p>
+<p><b>Today's sequence (10-18, Fred: "tick should be gone by EOD") — one build each, both Droids:</b></p>
+<table><tr><th>#</th><th>Build</th><th>Replaces in the tick (10-16 source, ConvoyViewModel tick() from 1148)</th></tr>
+<tr><td>1</td><td>TrackPath (STRAIGHT; ROUTE + TRAIL placeholders) + CartMotion (one step) + MYTRACK + LEADTRACK (+ off-track per cart message, + the 50 m display trim)</td><td>lead track 1276–1378 · off-track 1381–1405 · proxy snap 1308–1350 (dropped)</td></tr>
+<tr><td>2</td><td>Board clock — status ageing only</td><td>the ageing the tick's own compute still does</td></tr>
+<tr><td>3</td><td>T5.5 remove the tick — loop, readLiveNodes, cartFromMember, ConvoyEngine.compute call + TICKSHADOW (1167–1215), "resolved positions" (1218–1275), simulation, debug log</td><td>everything left</td></tr>
+<tr><td>4</td><td>T6 clean-up · certification</td><td>—</td></tr></table>
+<p><b>After the tick:</b> ROUTE (build 3) · TRAIL + junction wait (build 4) · CartMotion stepping (build 5) · T7 polyline + Phase 2 segment display · COTLOGALL + ride summary (node data capture, metrics) · bare-radio / non-check-in lead · HEALTHTRAFFIC (unless a loop shows first — then it is a fix) · seed · ping · one connection owner · one view model (item J) · blinking Drop/Lost labels · 15 s default broadcast · Drop &lt; Lost guard · preset test · convoy order along the route · 2 s recorder · Wio channel-reboot wait (back of 2.7b).</p>
+<p><b>Time (Fred 10-18 08:08 → 08:09):</b> times are a DURATION from ride initiation (REC pressed) — elapsed time is meaningful and consistent across tablets and time zones. Underneath, every message carries its UTC epoch time; elapsed = message epoch − ride-start epoch. TrackPath / CartMotion / the board never use a tablet's local clock time (Droid 2 runs on Utah time, so its logs read 2 h behind; its epoch time is the same). Ride start = <b>each tablet's own REC press</b> (Fred 08:11). <b>RECEIVED-ACTIVITY RECORD (Fred 08:14 → 08:16):</b> each tablet writes a detail file of the activity it RECEIVES — for every received report of every cart: the cart, the time received, the elapsed time since this tablet's REC, the message's own time, the location (and speed / course when sent). It is the source for the metrics later and for CartMotion's steady segments (each cart's normal report interval). Right now it only RECORDS the data — no broadcast change, no calculations (distance, metrics) yet. <b>Format (Fred 08:17–08:20):</b> a separate <b>ride detail JSON</b> beside the track file (<code>&lt;track&gt;_ride_detail.json</code>), held in memory by cart, written at END and when the app goes to the background (event, not timer). It holds RECEIVED reports only — my tablet's own GPS points are already in the track file and are not doubled. <b>Lead (Fred 08:22):</b> the lead is identified in the JSON — each report carries <code>lead: true</code> when that cart was the lead at that moment, and a <code>leadChanges</code> list records every change (elapsed, from, to) — so a replay can draw the lead track, then my cart's track. <b>Per-cart device data (Fred 08:24):</b> each cart's entry also records its radio's hardware model (e.g. T1000-E — from the radio's node record), team and role, and for each received report the distance from this tablet's position to the sender and the signal (SNR / RSSI) — so weak devices can be found and routed out, and real broadcast/receive distances worked out per radio type. <b>Placement:</b> the ride detail recording, the replay and the metrics are part of RIDE METRIC REPORTING — after the tick (Fred 08:22). <b>After the tick:</b> a ride REPLAY at selectable speeds showing every cart's movement over the trail from each cart's perspective (each tablet's file = its view).</p>
+<h3>Ride detail JSON — the target definition (v1, Fred 10-18 08:14–08:26)</h3>
+<p><b>What it is:</b> each tablet's record of the messaging payload it RECEIVED during one recording (REC → END) — the full received-message data captured for later analytics
+(ride metrics, replay at selectable speeds, CartMotion's per-cart report interval, weak-device and range analysis). Built AFTER the tick, as part of ride metric reporting; this definition is the target.
+<b>File:</b> <code>&lt;track name&gt;_ride_detail.json</code> beside the recording's track file (separate — the track file keeps my tablet's own GPS points; they are not doubled here).
+<b>Writes:</b> held in memory, grouped by cart; written at END and when the app goes to the background (an event, not a timer).
+<b>Time:</b> every time is UTC epoch ms; <code>e</code> = elapsed seconds since THIS tablet's REC (ride start = each tablet's own REC press).</p>
+<table><tr><th>Field</th><th>Type</th><th>Meaning</th><th>Null when (CODE RULE 1)</th></tr>
+<tr><td><code>schema</code></td><td>string</td><td><code>"grouptrack.rideDetail/1"</code></td><td>never</td></tr>
+<tr><td><code>rideStartUtc</code> / <code>rideEndUtc</code></td><td>number</td><td>this tablet's REC press / END</td><td>rideEndUtc null only in a background write before END</td></tr>
+<tr><td><code>tablet</code></td><td>object</td><td><code>deviceName</code>, <code>myCartId</code> ("!xxxxxxxx" or "!phone"), <code>appVersion</code></td><td>never</td></tr>
+<tr><td><code>trackFile</code></td><td>string</td><td>the recording's track file name — the link between the two files</td><td>never</td></tr>
+<tr><td><code>leadChanges[]</code></td><td>array</td><td><code>{e, from, to, how}</code> — every lead change on this tablet; <code>how</code> = "report" (a Leader report) / "assign" (picked on this tablet)</td><td><code>from</code> null at the first lead</td></tr>
+<tr><td><code>carts{id}</code></td><td>object</td><td>one entry per cart heard, keyed by its id</td><td>—</td></tr>
+<tr><td>&nbsp;&nbsp;<code>callsign</code>, <code>hwModel</code>, <code>team</code>, <code>role</code></td><td>string</td><td>name; radio hardware model (e.g. T1000-E, from the radio's node record); TAK team; ride role at last report</td><td>hwModel / team / role null = not reported by that radio</td></tr>
+<tr><td>&nbsp;&nbsp;<code>reports[]</code></td><td>array</td><td>every received report of that cart, in arrival order</td><td>—</td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<code>e</code>, <code>rx</code>, <code>t</code></td><td>number</td><td>elapsed since this tablet's REC (s) · received (UTC ms) · the message's own time (UTC ms)</td><td>never</td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<code>lat</code>, <code>lon</code></td><td>number</td><td>reported position</td><td>never (a report without a position is not recorded)</td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<code>alt</code>, <code>spd</code>, <code>crs</code>, <code>bat</code></td><td>number</td><td>altitude m · speed m/s · course ° · battery %</td><td>null = not sent in that report</td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<code>src</code></td><td>string</td><td>"radio" (a radio report) / "tablet" (my cart from my tablet's GPS when the radio is not driving it)</td><td>never</td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<code>lead</code></td><td>boolean</td><td>that cart was the lead at that moment</td><td>never</td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<code>distM</code></td><td>number</td><td>distance from this tablet's position to the sender at receipt — real range per radio type</td><td>null = this tablet had no position yet</td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<code>snr</code>, <code>rssi</code>, <code>hops</code></td><td>number</td><td>signal of the received packet; hops taken (relay)</td><td>null = not available for that packet (e.g. my own radio's report, IP transport)</td></tr></table>
+<pre><code>{ "schema": "grouptrack.rideDetail/1", "rideStartUtc": 1790000000000, "rideEndUtc": 1790003600000,
+  "tablet": { "deviceName": "EP103B", "myCartId": "!0ba3deda", "appVersion": "2.7b" },
+  "trackFile": "2026-10-18_ride.gpx",
+  "leadChanges": [ { "e": 0.0, "from": null, "to": "!23dec46a", "how": "report" } ],
+  "carts": { "!23dec46a": { "callsign": "fred&amp;June", "hwModel": "T1000-E", "team": "Cyan", "role": "leader",
+      "reports": [ { "e": 12.4, "rx": 1790000012400, "t": 1790000012000, "lat": 42.80108, "lon": -71.27835,
+                     "alt": 40, "spd": 0.0, "crs": 214.9, "bat": 101, "src": "radio", "lead": true,
+                     "distM": 38.0, "snr": 9.5, "rssi": -61, "hops": 0 } ] } } }</code></pre>
+<p><b>Pipeline (Fred 08:30–08:31):</b> 1) <b>receive</b> — the comm side makes the CoT message; the board updates the cart's TRUTH at once (last heard, status, lead) and the ride detail JSON records the report (when built — on RECEIVE, never on process); lead-track points and off-track come from the real report here. 2) <b>CartMotion</b> black box → 3) <b>map position function</b> → one or more queue entries (cart, position, due time, real / in-between) → 4) <b>map queue</b>: every radio receipt goes through it; an entry is processed when due — cart icon moves, the drawn track extends through TrackPath, the 50 m trim applies. In-between steps are display-only and never recorded. <b>One queue, one process (Fred 08:33–08:34):</b> every received message goes into the RECEIVING QUEUE (stamped with its received time); one consumer takes them in order, updates the board truth, writes the ride JSON (placeholder until the metric reporting), and CartMotion puts N entries back on the SAME queue — N = 1 now, N = the cart's steps later; same queue, same process, only N changes. Each entry is flagged real or in-between: only the REAL one updates the truth and the JSON; in-between entries only move the display. <b>First pass (build 1):</b> the FULL message only — ONE entry per received message, due now; no per-second entries driven by the report frequency (later, build 5).</p>
+<p><b>Lead change (Fred 08:39–08:41):</b> the new lead is picked up from where he is; NO line is drawn for him until he passes the last known lead position — he comes within 50 m of it, and the track continues from his NEXT report (ahead) — no backwards lines. Lead silent = no lead movement until heard again; heard again = the track is laid from his last point to the new one (over route/trail) on every map, shown back to each tablet's own cart. My track trails my cart.</p>
+<p><b>Queue placement (08:37):</b> the receiving queue + its consumer run in the BACKGROUND, ONCE for the app (an app-wide owner — not one per view-model copy, item J, or every message would be processed and written twice); the map drawing runs in the FOREGROUND, only while the map shows (hidden: keep each cart's latest position, catch up on return).</p>
+<p><b>Model run (tracksim_2026-10-18.py, 10-18 08:36–08:45):</b> 15 min, reports every 20 s, lead silent 140 s, a lead change at 10:00 to a cart 200 m behind — at N = 1 and at N = steps: no lead points during the silence (status Drop) · JSON = real messages only · lead changes logged · only points ahead of my cart shown · NO backward lines. Rules the model forced (now part of the design): (1) a new real report CANCELS that cart's pending steps; (2) N = the NORMAL interval (median of the last 5 gaps), never the last gap — a 160 s gap had produced 160 overlapping steps; (3) the lead LINE grows from its own end toward the real point, not from the cart icon; (4) the JSON leaves out my tablet's own GPS points; (5) the 50 m trim uses the real lead points.</p>
+<p><b>THE PROCESS — seven boxes, one queue (Fred 08:45; model <code>process_model_2026-10-18.py</code>):</b> 1 <b>Receiver</b> (every report → the receiving queue, stamped; background, once for the app) → 2 <b>Truth</b> (last heard, position, lead + the CLOCK, ageing only) → 3 <b>Recorder</b> (ride JSON on receive; not my tablet's GPS) → 4 <b>LeadTrack</b> (real lead points, one track, lead-change hold, waits through silence, off-track per report) → 5 <b>TrackPath</b> (ROUTE / TRAIL placeholders, STRAIGHT) → 6 <b>Segmenter</b> (CartMotion: N entries on the same queue; N = 1 now; a new report cancels pending entries) → 7 <b>Map</b> (foreground: icon moves, lead line grows from its end, 50 m trim, my track behind my cart).<br><b>Tests 10-18 08:50</b> — one message: processed, queue empty, line started, 1 JSON report. Three carts with connects/disconnects for each (L silent 140 s, B gone 350 s, my radio off 60 s) and a lead change at 10:00, at N = 1 and at N = steps: my cart from the tablet during my radio drop, Active, my track without gaps · L Drop while silent, NO lead points added · B Lost while gone, Active on its first report back · 0 backward lines · JSON 92 real reports, none of my tablet's GPS · lead changes logged · shown line only ahead of my cart · queue drains. The gap after L's silence = one 1,280 m straight segment at N = 1 (≤ 64 m steps at N = steps) — ROUTE fills it along the route later.</p>
+<p><b>MY CART SOURCE — corrected (Fred 10-18 09:34): "radio fix should always win, the droid is a fall back for no radio".</b> Found on the 10-18 walk: Droid 2 (no GPS chip) gets rough NETWORK fixes at home; MYCARTMSG's rule (any tablet fix in 15 s overrides the radio) threw its radio's real GPS away, and the RADIOTRACK recorder feed sits after that return — no blue track on a no-GPS tablet. Fix MYCARTRADIO-2026-10-18 (written): my radio's report with a FRESH position (own time within 60 s — the stored position replayed at connect is old, A3) always drives my cart and feeds the recorder; a tablet message drives my cart only when no radio is known, the radio is not talking, or no fresh radio fix for 45 s. This replaces the 08:00 reading of #16 (tablet first).</p>
+<p><b>NO GPS IS NOT A FATAL ERROR (Fred 10-18 11:50–11:51):</b> "treating it as one hoses the Bluetooth connection because of our recovery". Found today: a radio with no fix (trailhead, restart indoors) broadcasts nothing in TAK_TRACKER; the health check read "no own report" as "radio dead", forced reconnects on a working link (10:06–10:32: Droid 1 heard throughout), gave up, cleared the other carts and wedged Android Bluetooth (resets on both Droids). Agreed design: (1) health = the LINK, not GPS — HEALTHTRAFFIC now, a ping later; (2) messages that say what is wrong — yellow "Radio connected: waiting for a GPS fix — other carts can't see you yet" vs red "Radio not answering — reconnecting…"; "forget and re-pair" only when Android says unpaired; (3) recovery NEVER gives up while riding — reconnect to the LAST radio, fast then every 1–2 min, never store "n", never clear the other carts for a GPS gap; (4) my cart stays on my map from the tablet's GPS meanwhile; (5) to verify on a radio: can the tablet hand its GPS position to the radio while the radio has no fix (others then see you).</p>
+<p><b>Bisect 10-18 11:05–11:50:</b> morning changes stashed; clean f06a03186 (1107) connected; change 1 (LEADTRACKBOARD, 1118) clean; change 2 (TRACKDELAY + MYTRACKMSG, 1139) solid 5 min — the code is cleared; the morning drops were radios without a fix + the health check + Android Bluetooth state.</p>
+<p><b>Open for the TRAIL build (not build 1):</b> trail snap distance (50 m like the route?); when the lead leaves the trail, STRAIGHT at once?</p><p><b>10-16 findings (problem definition; full text in COMPLETED_TASK_2026-10-17_owntakpos_offlinemaps_releasem):</b></p><ul>
+<li><b>A0 — my radio's own position was never read (PROVED, FIXED OWNTAKPOS <code>43d53d8cd</code>).</b> My radio's own TAK report reaches my tablet ONLY compressed (85/85 Droid 2 10-16, 35/35 Droid 1 10-05); <code>handleTakPosition</code> dropped every compressed copy, so my node position came only from the stored record at connect and froze (10-15 14:28: 42 positions sent, every my-cart message hae 66). Only the callsign is compressed; PLI identical in both copies.</li>
+<li><b>A1 — the health check ties "radio alive" to GPS (PROVED, patch written).</b> Once one own report is seen, talking = own report within 45 s; a radio with no fix sends none → RADIO_SILENT → forced reconnects → recovery exhausted → FAILCLEAR, although traffic flowed (Droid 2 0919 log: 20 reconnects, 8 exhausted). HEALTHTRAFFIC (any traffic within 120 s counts). Limit: a lone radio with no fix sends nothing — needs a ping.</li>
+<li>A2 our reconnect leaves "n" stored → no start-up connect · A3 the radio replays an old stored position at connect (likely the cart jump) · A4 phantom states = app state vs link (each forced reconnect was a clean teardown/rebuild in ~70 ms) · B2 my-cart id flips to !phone · B3 silent carts do not age · B4 FAILCLEAR fires per view-model copy (pairs in the same ms) · B5 cleared carts come back (suspected) · C1 radios report every ~20 s (config 30 s / smart 6 s — unexplained) · C2 the COTMSG log is limited to once a minute.</li>
+<li><b>Simulation</b> (<code>msgsim_2026-10-16.py</code>, validated against the Droid 2 0919 log: silent 95 s vs 94, reconnects 115/160/205/325 vs 114/160/207/328): best = health traffic + own position read + tablet-while-it-has-a-fix-else-radio. Droid 2 driving with no tablet GPS: my cart median error 3,680 m (frozen) → 72 m.</li></ul><p><b>Offline maps — emergency 2.7a release m (10-16/10-17):</b> a tester reported no maps offline; Fred: offline maps only worked if the app STARTED ONLINE.
+Cause (code + reproduced in a browser with the network cut, then on Droid 2 with Wi-Fi off): both map pages loaded Leaflet 1.9.4 (unpkg) and Leaflet.draw 1.0.4 (cdnjs) from the internet, and both map WebViews run <code>LOAD_NO_CACHE</code> (HTMLVER-2026-08-13B).
+History: raised 08-02 in the living master ("THE FINDING THAT OUTRANKS THE REST — BOTH MAPS LOAD LEAFLET FROM THE INTERNET"), not treated as live because maps rendered offline from the WebView cache; 08-13 LOAD_NO_CACHE removed that cache; the item was carried to v37 (08-28) and DROPPED at v38 (08-29) — never fixed.
+Fix LEAFLETLOCAL-2026-10-17: both libraries shipped in <code>assets/leaflet/</code> and <code>assets/leaflet-draw/</code>, four tags per page pointed at them. 2.7a <code>a53da1173</code> (release m, Play internal 10-17) · 2.7b <code>f06a03186</code> (tested both Droids: cold start, Wi-Fi off → offline maps).
+Trap: <code>.gitignore</code> line 70 <code>*.png</code> silently dropped the 12 images from the first commit — <code>git add -f</code>. Withdrawn: "map source mismatch" (tiles are stored by slot — sat / topo / topo+ — Fred) and the airplane-mode workaround (a restart offline is exactly what failed).
+Later, not in the emergency: the online check uses <code>NET_CAPABILITY_INTERNET</code>, not <code>VALIDATED</code>, and is read once at page load.</p>
+<div class="q"><b>Supersedes:</b> section 12's open questions (a)(b)(c) are answered above; section 17's order is replaced by today's sequence; section 6/16's "no-GPS my-cart source (DIAGPOS)" is closed by OWNTAKPOS + #16. History below is kept as it was.</div>
+<h2>0. Phases (agreed 10-14 22:49–22:51, 10-15 08:04)</h2>
+<table><tr><th>Phase</th><th>Contents</th></tr>
+<tr><td><b>Phase 1</b><br>the cutover</td><td><ul><li>Cart locations displayed from received messages; my track follows my cart.</li><li>The lead's polyline IS transmitted, but receivers mine ONLY its last point as the lead's position.</li><li>CoT messaging: the comm side converts every received report into a CoT <code>CommMessage</code> (section 4a) — done in T5.4 while received messages are processed.</li><li>T5b ROUTETRACK: lead path projected over the route when within 50 m, else drawn as received (Fred: "not a stretch").</li><li>Cart movement (glide), section 4c (Fred 08:04: "do movement right once in Phase 1").</li><li>One certification pass.</li></ul></td></tr>
+<tr><td><b>Phase 2</b></td><td>Polyline segment display with an on/off toggle (receiver display only — the sender always sends the same message).</td></tr>
+<tr><td>After</td><td>App-wide board (Fred 13:08), the one-owner recovery/connection design, comm step 6, improvements A–F and H–K.</td></tr>
+</table>
+<div class="ok"><b>Baseline (10-15 07:34–08:03):</b> build 2026-10-14_2207 (0ebb7cc23) — overnight soak on both tablets with no issue (droid1 1,149,928 lines, droid2 331,020); radio powered off this morning and it recovered by itself. Every later build must still do both.</div>
+<h2>1. Rules (Fred)</h2>
+<ul>
+<li><b>Rules run on RECEIVED PAYLOADS only</b> — never on stored data, never during Meshtastic's start-up (21:53).</li>
+<li>One change per build; every new install recorded on each tablet from before the install (<code>deploy_v2.sh</code>); the same connect test each time; compare the startup log with the known-good one (10-14 20:3x) before anything else.</li>
+<li>When something breaks: roll back to a known-good point and re-apply one change at a time (20:25). One new patch with the end state in mind — never a patch on a patch (21:55).</li>
+<li>No changes to errors, error processing, recovery or connecting until the end-to-end design (10-13 12:02). Do not fix what is being replaced (13:04).</li>
+<li>Android data = disconnect with group awareness on: carts held. Android mode = Settings off (and, in T5.4, 3 failed reconnects): nodes cleared, group greyed.</li>
+</ul>
+<h2>2. The connect test (every build)</h2>
+<ol><li>After the install, open GroupTrack: the radio auto-connects and turns green within ~30 s, untouched.</li><li>Both carts on both tablets.</li><li>Group awareness off, then on: reconnects by itself and turns green.</li></ol>
+<h2>3. Steps</h2>
+<table><tr><th>Step</th><th>What</th><th>State</th></tr>
+<tr><td>Task 1 ANDROIDMODE1</td><td>Android mode starts empty</td><td>✅ <code>a2814811b</code> (tag pre-tick-replacement)</td></tr>
+<tr><td>T2 MYFIX</td><td>my cart follows each tablet fix (tablet = source)</td><td>✅ <code>f6f96f7ca</code></td></tr>
+<tr><td>T3 + T4 + T5.1 HEARDBOARD</td><td>comm events = received messages; cart board in shadow (starts empty, payload-fed, shared rules, group off = my cart only per payload); TICKSHADOW log</td><td>✅ <code>0ebb7cc23</code> — overnight soak running</td></tr>
+<tr><td colspan="3"><p class="ptr"><b>COMPLETED 10-15 → <code>COMPLETED_TASK_2026-10-15_board_cot_roles_mycart.html</code></b> (in AllDocs): NODESMENU · BOARDSHOW2 (T5.3) · COTMSG + COTBOARD (T5.4a) · GROUPOFF · DISPLAYFIX · LEADBOARD (T5.4b) · ROLESHOW · LEADCLEAR + ROLECONFLICT · RADIOTRACK (T5.4c) · PANELBOARD + PANELGAP (T5.4d) · FAILCLEAR (T5.4e) · TICKSMALL · MYCARTMSG — the day, the commits, the step records, the decisions that govern them, the CoT scope, the findings behind them, the patch scripts and what was rejected. Only open work stays here.</p></td></tr>
+<tr><td><b>ZZZ25</b></td><td>idle sleep during REC back from 10 to <b>25 minutes</b> (Fred 10-15 18:2x: "now that we have an automated reconnection strategy"); still pauses REC AND disconnects the radio; tap wakes and reconnects. Screen wording: <i>Sleeping: recording paused, radio disconnected. Tap to wake.</i> Manual 5.1 carries a PENDING ZZZ25 marker.</td><td><b>10-16 first build</b></td></tr>
+<tr><td><b>STATUS BACKSTOP</b></td><td>the board ages statuses only when a message arrives — with my radio disconnected nothing arrives and every cart stays ACTIVE (section 5). Decision needed.</td><td><b>10-16 — Fred's decision</b></td></tr>
+<tr><td><b>LEAD TRACK → TRAILS</b></td><td>the drawn lead track + proxy snap are built IN THE TICK (VM ~1172–1293) — must move (or be replaced) BEFORE T5.5. <b>Fred 10-15 EOD: a trail behind EVERY cart; the lead's trail is one of them.</b> Built on the board from each cart's new fix (no tick) + off-track measured per cart message. Rules: sections 11–12.</td><td><b>10-16 after ZZZ25 + the status decision</b> (not reached 10-15)</td></tr>
+<tr><td>Before T5.5</td><td>full line-by-line inventory of the tick body, so nothing is lost when it is deleted</td><td></td></tr>
+<tr><td>T5.5</td><td>remove the tick loop</td><td></td></tr>
+<tr><td>T5b ROUTETRACK</td><td>lead position within 50 m of the displayed route is PLACED ON THE ROUTE and the track built over the route; else as received</td><td></td></tr>
+<tr><td>T5c MOVEMENT</td><td>cart movement (section 4c) + my cart icon = head of my track while REC is active</td><td>Phase 1</td></tr>
+<tr><td>T6</td><td>clean-up</td><td></td></tr>
+<tr><td>T7</td><td>the lead sends his polyline (last 2 minutes); receivers take its LAST POINT as the lead's position. No sender checkbox (v2 change).</td><td>Phase 1 — first check whether the polyline message exists yet</td></tr>
+<tr><td>Certification</td><td>one pass over Phase 1</td><td></td></tr>
+<tr><td>Phase 2</td><td>polyline segment display, on/off toggle on the receiver</td><td>after certification</td></tr>
+<tr><td>App-wide board</td><td>one board for the app, watching the switch (Fred 13:08: after the tick)</td><td>after</td></tr>
+</table>
+<h2>4. T5 checklist — every tick duty gets a message home</h2><table><tr><th>#</th><th>What the tick does today</th><th>Home after the tick</th></tr>
+<tr><td>1</td><td>Radio talking? + GRP Awareness flags</td><td>link-health change (event) — plus: 3 failed reconnects → Android mode, nodes cleared, until the radio is back (Fred 22:21)</td></tr>
+<tr><td>2</td><td>Read radios + display rules</td><td>cartFromMember per received message (DONE in HEARDBOARD)</td></tr>
+<tr><td>3</td><td>Lead from a Leader report, tail from roles</td><td>on each role report</td></tr>
+<tr><td>4</td><td>ConvoyEngine.compute</td><td>the board per payload (DONE in HEARDBOARD)</td></tr>
+<tr><td>5</td><td>My radio's position to the track recorder (no-GPS tablet)</td><td>on my radio's position message</td></tr>
+<tr><td>6</td><td>Hold silent carts at the furthest trailing position</td><td><b>On the route: keep moving along the route at the last speed until heard (4c, Fred 10-15 09:34–09:39). Off the route: HOLD at the last report.</b> (replaces 10-14 22:21 "hold in place" for on-route carts)</td></tr>
+<tr><td>7</td><td>Lead track + proxy snap (counts missed ticks)</td><td>replaced by T5b ROUTETRACK and T7 (polyline last point); segment display in Phase 2</td></tr>
+<tr><td>8</td><td>Off-track detection</td><td>on each position message</td></tr>
+<tr><td>9</td><td>Refresh the open cart panel</td><td>on that cart's message</td></tr>
+</table>
+<p class="ptr">4a (CoT scope) and 4b (field references) — DONE in T5.4a, moved to <code>COMPLETED_TASK_2026-10-15_board_cot_roles_mycart.html</code>.</p>
+<h2>4c. Cart movement (Fred 10-15 07:55–09:39 — replaces v2's glide)</h2>
+<table><tr><th>Cart</th><th>Between broadcasts</th><th>On a broadcast</th></tr>
+<tr><td><b>On the route</b> (report within 50 m — snapped onto the route, absorbs GPS jitter)</td><td>keeps moving <b>along the route at the last reported speed</b>, posting progress <b>until that radio is heard from again</b> (no cut-off)</td><td><b>one move to the reported position</b> (forward, or back if it got ahead), then carries on</td></tr>
+<tr><td><b>Off the route</b> (more than 50 m — no snap)</td><td>stays at the last reported position</td><td>moves to exactly the reported position — <b>this is how the group sees someone getting lost</b></td></tr>
+</table>
+<ul>
+<li><b>Why projection, not glide</b> (Fred 09:34): radio drops are the common interruption, not stops. Gliding would make up minutes of missed track in one burst; projecting keeps the cart moving, and a returning report costs one correction. A stop only ever means less distance.</li>
+<li>Status still changes as today (Signal Drop 2 min, Lost 10 min) — a projected cart shows its radio has gone quiet.</li>
+<li><b>Move only on a NEW FIX</b> (<code>fixTimeMs</code> changed). The node record is updated piece by piece (position at the reporting interval, telemetry ~30 min, names ~3 h by default) and <code>lastHeard</code> changes on any packet — a packet without a new fix only keeps the cart live.</li>
+<li><b>My cart:</b> before REC it moves on its 6-s reports like every cart (Android fixes are the tablet's sensor, not messages — one report per reporting interval, from the latest fix; when my radio has not been heard for 12 s the tablet's report stands in for it). <b>REC active: my cart icon = the head of my track</b> (every fix) (Fred 09:49–09:55).</li>
+<li>Display only — never changes the data or the board.</li>
+</ul>
+<h2>4d. Identity, names, speed (Fred 10-15 09:20–09:22, 08:20–08:27)</h2>
+<ul>
+<li><b>The radio is the cart.</b> A bare radio (no tablet, no GroupTrack) broadcasting its position is a cart on every tablet that hears it: name = the radio's long name (the configurator writes the callsign there), role = Rider until a role report. Check-in only reinforces callsign and role. Carts appear as radios are heard — not at REC or check-in.</li>
+<li><b>uid = the radio id</b> (<code>MESHTASTIC-!&lt;node id&gt;</code>) — settles 4a's open question. A rider id may travel alongside when check-in supplies it.</li>
+<li><b>Name:</b> applying a ride config can rename a radio; the node record updates when the radio broadcasts its new name. <b>Every TAK report received updates the name table</b> (keyed by radio id) — the latest of the radio's own broadcast and a TAK report is shown (T5.4a).</li>
+<li><b>Speed:</b> the big speed on the record panel (ConvoyScreen 3278) = my cart = the tablet's GPS (unchanged). Other carts' SPD (3322) and ConvoyEngine's "moving" filter take <code>ground_speed</code> from the message when sent, else computed. Certification compares other carts' SPD and the engine's moving count with today.</li>
+<li><b>Altitude:</b> metres (HAE) on the wire; displayed in feet from sea level as today.</li>
+</ul>
+<h2>5. Status rule (Fred 10-14)</h2><p>On every message (any kind, including my GPS fixes and my radio's heartbeat), measure the time since each cart was last heard → Signal Drop (Settings, 2 min) and Lost (10 min). No backstop timer.</p>
+<div class="q"><b>GAP FOUND 10-15 (Droid 2 log, its clock 2 h behind):</b> 16:05:30 my radio disconnected (NOT_CONNECTED) → no messages arrive → the board never re-measured: TICKSHADOW 16:06:23–16:07:18 <i>status fred&amp;June: tick SIGNAL_DROP, board ACTIVE</i>. A rule that runs only on arrival cannot age a cart when nothing arrives. <b>Options for Fred (10-16):</b> (a) re-check statuses once per reporting interval ONLY while nothing has arrived (one light check, stops when messages flow); (b) re-check on my own tablet fixes too (MYCARTMSG now sends one at least every interval while REC/GPS runs — but not when the GPS is off); (c) on a radio disconnect, mark every other cart Signal Drop at once. Not decided.</div>
+<h2>6. My cart (decisions)</h2><ul><li><b>MYCARTMSG (Fred 10-15 17:16–17:46) — supersedes D2 and 4c's "one report per 6 s":</b> "my cart message must be transferred in the same output as every other CoT — we moved where my cart positions come from but not its message updates." My cart ALWAYS uses the Android GPS; a message only when the position changed (≈1 s while moving), keep-alive once per interval. For a tablet with no GPS: a message at the radio's frequency from the radio's fix (open — DIAGPOS).</li><li>D2 (after T5.2): radio fix if ≤ 12 s old, else tablet fix if moved.</li><li>Start: replicate today (Fred 22:21–22:30) — Android's cached position may show for a moment (it can be a week old); the first real fix moves the map. Read in 5 places (tick fallback, ride-map entry, planning-entry check, planning map, home-state) — no change.</li></ul>
+<h2>7. Today's findings that shape the steps</h2><ul>
+<li><b>Two owners reconnect the same radio:</b> Meshtastic's own connect (Android background connect, <code>auto:true</code>) and GroupTrack's recovery (MeshCommLink keep-alive: 20 s not talking / 45 s stuck / 120 s no traffic for a Rider → forced drop + reconnect; 3 tries → banner). Droid 1 13:31–13:35: 7 connects in 4 minutes, then a stuck link.</li>
+<li><b>Meshtastic's connect timeout (15 s) does not cancel its pending request</b> (<code>NordicBleInterface.connect()</code> catch: no <code>bleConnection.disconnect()</code>) — requests can stack on the same device. One-line fix found, NOT applied.</li>
+<li><b>Meshtastic starts a connect by itself in three places</b> (<code>AndroidRadioInterfaceService</code>): MeshService start, every Bluetooth-state change (including each pairing change — our pairing listener refreshes it), network available.</li>
+<li><b>After an install the background connect took 98 s</b> (Droid 2 14:01); a direct connect came up within a second.</li>
+<li><b>Recovery only acts after a first connection this session</b> (<code>hConnectedThisSession</code>) — it did not run before the first connect; after a drop it can act while Meshtastic is attaching.</li>
+<li><b>Hide Mesh stacks copies of the convoy logic:</b> mesh rail screens remove the ride map from the stack (<code>popUpTo(start){saveState=true}</code>) and Hide Mesh re-runs the gate → a new ride map + view model + tick each time. HIDEMESHBACK v1 failed for that reason; MESHOVERLAY (mesh opens on top of the ride map) written, not applied.</li>
+<li><b>Processes 1183 / 1679</b> seen connecting alongside ours = Android's own Bluetooth service, not another app.</li>
+<li><b>Android's last-known position</b> is read in 5 places (my cart fallback in the tick, ride-map entry centring, planning-entry check, planning map, home-state detection). Fred 22:30: it can be a week old, but the first radio / tablet fix moves the map — <b>no change</b>.</li>
+</ul>
+<h2>8. Parked</h2><table><tr><th>Item</th><th>State</th></tr>
+<tr><td>GRPCONNECT (group on → connect panel)</td><td>left out; <code>patch_grpconnect_2026-10-14.py</code> / commit 27714cf4a</td></tr>
+<tr><td>Recovery GPS gate (no GPS from my radio → no recovery)</td><td><code>patch_recoverygps_2026-10-14.py</code> written, scratch-tested, NOT applied</td></tr>
+<tr><td>Meshtastic's uncancelled connect request after its 15-s timeout</td><td>found; one-line fix, not written</td></tr>
+<tr><td>Single-owner connection (CONN-1 Meshtastic auto-connect off · CONN-2 GroupTrack connects from the last radio, one attempt, Connecting… state, fail → panel)</td><td>plan recorded</td></tr>
+<tr><td>Hide Mesh (MESHOVERLAY)</td><td>written, not applied — next job; re-check against 0ebb7cc23 under a new file name</td></tr>
+<tr><td>ONETICK (one shared view model)</td><td>written, not sent (Fred: app-wide board after the tick)</td></tr>
+<tr><td>H clear the node list at startup · I config apply renames the radio to the profile callsign · J duplicate view-model copies · K map-page JS errors at start · Droid 1 first-run map freeze · Rider with no radio GPS is invisible to the group</td><td>on the improvements list</td></tr>
+<tr><td>Improvements list A–F (08:57)</td><td>unchanged — after the tick replacement (Fred 09:02)</td></tr>
+<tr><td><b>Convoy order when everyone is slow</b> (ConvoyEngine: heading = median of carts over 3 mph; none moving → heading 0 = north → order scrambles while rock crawling)</td><td>Fred 08:27: order carts by distance along the route; lead and tail stay role-based. Next to ROUTETRACK.</td></tr>
+<tr><td>Mesh Settings screen planned for removal</td><td>its BACK TO MAP must keep working (NODESMENU uses the same mechanism)</td></tr>
+<tr><td>Droid 1 Wi-Fi re-joining every ~1 min (10-15 09:53–09:56 wpa_supplicant)</td><td>check its saved networks (a second network in range, e.g. the Nucleus AP?) — slow maps on Droid 1 only</td></tr>
+<tr><td>Droid 2 clock 2 h behind (Utah time?)</td><td>remember when comparing logs by time</td></tr>
+</table>
+<h2>11. Lead rules — first pass (Fred 10-15 12:21–13:20)</h2>
+<p><b>Where the lead is written today</b> (one field, <code>lockedLeadNodeId</code>, per tablet): W1 REC button (lead set → just records; 0–1 carts → that cart / mine; 2+ → "Select Lead Cart" dialog) · W2 solo check-in (no radio) · W3 startGroupTrack (none: 1 cart → it, 0 → mine, several → empty) · W4 "Set as Lead" in the cart detail HUD — <b>removed from the screen</b> (the onSetLead hook remains) · W5 Leader report (LEADBOARD, every payload) · W6 END clears lead + roles · W7 Android only clears the lead. Readers: engine (▲ marker, Lead label), HUD ▲ Lead, distance to lead, lead track (resets when the lead changes), proxy snap, REC button.</p>
+<ul>
+<li><b>First pass = controlled (check-in) assignment only.</b> A check-in Leader report sets the lead on every tablet. <b>First claim holds — never two Leaders</b> (View Cart Roles refuses a held role). Roles only ever come from the sender's own TAK report (TakRoleStore keyed by packet.from).</li>
+<li><b>A Leader who drops the role leaves NO leader</b> → a checked-in rider claims Leader in View Cart Roles, or REC prompts "Select Lead Cart" on every cart. Lead changes hands only at a stop, so the blinking <b>NO LEAD ASSIGNED</b> is enough (LEADCLEAR).</li>
+<li><b>END</b> on a tablet clears its check-in (VM 815) and role table; <b>roles show only while checked in</b> (ROLESHOW). Another rider's END is not heard here — their last role stays only on tablets still checked in (parked, case B).</li>
+<li><b>The radio is the cart; a bare radio cannot be the group's lead</b> (no tablet, no check-in, no role report). The REC picker stays — its use case is a bare-radio lead.</li>
+</ul>
+<p><b>PARKED — manual assignment (later pass):</b> manual lead only when no check-in lead exists (prompted at REC) or a manual lead was already assigned; an "Assign as Lead" button on the selected cart's and My Cart's details, active only while no check-in lead; manual leads are LOCAL — each cart picks its own (no-multiples applies only to networked check-in Leaders); a manual pick writes Leader into that tablet's role table for that radio; a TAK Leader report cannot override a hand-picked bare-radio lead. Also parked: a radio sending its own TAK role (Meshtastic TAK team/role settings — test on a T1000-E).</p>
+<h2>14. Tick inventory (10-15 15:04) — what is left on the tick</h2>
+<table><tr><th>Duty</th><th>State</th></tr>
+<tr><td>Lead from reports, screen state, radio GPS to the recorder, panel refresh, GRP light, tablet GPS start, riding flag, channel use, network warning</td><td>moved — tick copies run only on rollback (<code>boardShows = false</code>)</td></tr>
+<tr><td>readLiveNodes (the tick's own carts), ConvoyEngine.compute + TICKSHADOW compare, "tick | lead=" log</td><td>removed at T5.5</td></tr>
+<tr><td><b>Simulation mode</b> (ConvoySimulation.tick)</td><td><b>KILLED</b> (Fred 15:15) — removed at T5.5</td></tr>
+<tr><td><b>Silent-cart resolution</b> ("CART SUB": a silent cart borrows the trailing cart's position; lastNodePositions)</td><td><b>KILLED</b> (Fred 15:16) — replaced by the movement rules (4c)</td></tr>
+<tr><td><b>Proxy snap</b> (a cart within ~250 ft of the quiet lead's last position stands in for the lead)</td><td><b>KILLED</b> (Fred 15:15)</td></tr>
+<tr><td><b>Lead track</b> (_routeTrailSegments: a segment from the lead's last position to its new one, while REC) + <b>_leadTrackSegments</b> (lead only = black line / per-cart colours) + <b>off-track</b> (each cart vs the lead track, OFF_TRACK_MILES)</td><td><b>NEXT — rebuilt to the rules in section 12</b>, then T5.5</td></tr>
+</table>
+<h2>15. Ride summary — after the tick replacement (Fred 15:19–15:20)</h2>
+<p>Replace the old diagnostic logging with what matters, collected at status changes on the board (no timer): per cart — <b>% of the ride it stayed visible</b>; the <b>distance to the nearest cart when contact was lost</b> and <b>when it was regained</b>; where those happened; plus distance / time / speeds. Per ride — carts, lead changes, time out of contact. <b>Attached to the ride, viewable at END, exportable</b> (CSV numbers; GPX/KML for the lost/regained points).</p>
+<h2>12. Lead track rules — to settle before moving it (Fred 10-15 13:25–13:29)</h2>
+<ul>
+<li><b>Source order:</b> 1) <b>the route</b> if loaded — lead position within 50 m snapped onto the route, track along the route (ROUTETRACK); 2) <b>no route → the trails</b> — snap to the nearest trail, track along it; 3) <b>neither nearby → the raw reported positions</b>, two points joined.</li>
+<li><b>At a trail junction:</b> place only the lead's cart pointer and <b>wait for the next position</b> before connecting the track — the next point shows the branch taken; never guess a branch.</li>
+<li><b>Difficulty:</b> route easy · trails touchy (junctions, parallel trails) · two points easy. Build order: route, then the two-point fallback, trails last once the junction rule is proven.</li>
+<li><b>Polylines</b> (the lead's own recorded segments) follow in Phase 2.</li>
+<li>Open: snap distance to a trail; what happens when the lead leaves the trail.</li>
+<li><b>Today's code (for the session):</b> while REC is on, each NEW lead position (the lead's own report, never a substitute) adds one straight segment from the previous lead position; a lead change starts a new line; the track draws black (lead only) or per-cart colours; off-track = a cart farther than OFF_TRACK_MILES from any segment. Proxy snap killed (15:15).</li>
+<li><b>Off-track rule (Fred 14:12):</b> the lead track is a PATH each cart is measured against when THAT cart's position arrives — not a sweep of every cart on a timer.</li>
+<li><b>Proposed build order:</b> (1) LEADTRACK-1 = today's straight two-point track rebuilt on the board, on the lead's new fix (no tick) + off-track per cart message → T5.5 can remove the tick; (2) route snap within 50 m (ROUTETRACK); (3) trails with the junction wait. Each its own build.</li>
+<li><b>Questions for the session:</b> a) a lead change mid-ride — new line (today) or join to the new lead's position? b) should the track keep drawing while the lead is in Signal Drop (the movement rules project the CART; does the TRACK follow the projection or wait for real fixes)? c) off-track threshold — keep OFF_TRACK_MILES (Settings) as is?</li>
+</ul>
+<p class="ptr">13 (findings 10-15 afternoon) — moved to <code>COMPLETED_TASK_2026-10-15_board_cot_roles_mycart.html</code>.</p>
+<h2>16. Findings 10-15 evening (ride 16:00–17:07, car test ~18:00)</h2>
+<ul>
+<li><b>My cart froze on its own tablet with the radio on.</b> Cause: with the radio talking my cart was built from my own radio's node record (onBoardMessage, num == myNum), which did not move on my own tablet; the old tick's lead track on the lead's own tablet froze the same way (Droid 1 = lead had no lead track). Fixed by MYCARTMSG.</li>
+<li>Traced 17:34–17:40: my own position packets DO reach NodeManagerImpl.handleReceivedPosition (writes my record, ignores 0/0); my node's lastHeard = now on EVERY packet from any radio (MeshMessageProcessorImpl 199), the sender's = rx_time (226). DIAGPOS (POSFIX log) written to confirm, superseded by MYCARTMSG — not applied.</li>
+<li><b>Range:</b> the ride config preset is <b>MEDIUM_FAST</b> (grouptrack_default.json line 28) — the two carts lost each other at ~0.1 mile in the driveway/road test; LONG_FAST covered Fred's whole loop before. Preset test MEDIUM_FAST vs LONG_FAST on the list.</li>
+<li><b>Droid 2's disconnect at 16:05:25 (its clock: 18:05)</b> = the ZZZ 10-minute idle sleep during REC (cancelOpen, "SLEEP: BLE disconnected") — not a radio fault. Fred woke it 16:07:18, END 16:07:19. Fred: an adequate explanation, caused by the testing circumstances; he thought ZZZ only paused the GPS recording → the manual now says the radio disconnects too, and ZZZ goes back to 25 min (ZZZ25).</li>
+<li><b>Status aging gap</b> — section 5.</li>
+<li>Unplugging the USB cable stops the deploy_v2 logcat recordings — re-start the recording after a ride, or pull <code>logcat -d</code> before unplugging.</li>
+<li>zsh: <code>(</code> in an unquoted grep pattern with a glob fails (<i>parse error near ')'</i>) — quote patterns in single quotes.</li>
+</ul>
+<h2>17. Next (10-16, agreed 10-15 18:2x)</h2><ol>
+<li><b>ZZZ25</b> — idle timeout 10 → 25 min + the sleep wording (quick build).</li>
+<li><b>Status backstop</b> — Fred picks (a)/(b)/(c) in section 5.</li>
+<li><b>Trails behind every cart</b> (the lead's trail is one) + off-track per cart message — LEADTRACK-1 two-point first, then ROUTETRACK.</li>
+<li><b>T5.5</b> remove the tick: loop, readLiveNodes, cartFromMember, ConvoyEngine.compute call in the tick, TICKSHADOW, simulation, CART SUB, proxy snap.</li>
+<li>T5c movement rules (4c), ROUTETRACK, then trails along trails (junction rule).</li>
+</ol><p><b>On the list:</b> preset test MEDIUM_FAST vs LONG_FAST · no-GPS my-cart source (DIAGPOS) · bare-radio / manual lead (parked) · case B (END not heard by others) · ride summary (15) · ride link diagnostics · recovery timing / one-owner design (10) · the panel's last-heard display · convoy order by distance along the route · RADIOTRACK altitude on a no-GPS tablet (release notes hold it until verified).</p>
+<h2>10. Recovery timing — for the connection design (Fred 10-15 10:43–10:54)</h2>
+<div class="q"><b>Issue (Droid 2 log 10-15):</b> a 10-second radio power-off caused about <b>2 minutes with no reports</b>. The Bluetooth link never reported a drop (stayed CONNECTED), so Meshtastic did nothing and recovery acted on silence only: last packet 08:40:19 → RADIO_SILENT at 48 s (45-s threshold) → reconnect 1 at 68 s → reconnect 2 at 115 s → talking at ~2:07. A link that DID report a drop (08:38) was reconnected by Meshtastic in 10 s.</div>
+<ul><li><b>Fix (after the tick replacement, with the one-owner design):</b> my radio silent for 2 reporting intervals (~12 s) → immediate disconnect + reconnect; following attempts at short fixed gaps; the power-cycle banner after the 3rd failure. A reported link drop: leave Meshtastic's quick reconnect. With Meshtastic's auto-connect off and a direct connect (BleConnection.kt:83), target 15–30 s.</li>
+<li>Today's sequence (MeshCommLink health check every 5 s): acts only after a first connection this session; 20 s not talking / 45 s stuck connecting / 120 s no traffic for a Rider → disconnect (<code>setDeviceAddress("n")</code>), 1.5 s, reconnect; 3 tries → banner. Exact gaps between attempts to confirm from <code>healthStep</code>.</li>
+<li>A quick power-off (under ~20 s) tests Meshtastic's own reconnect, not ours — keep the radio off 30 s+ to test recovery.</li></ul>
+<h2>9. Lessons</h2><ul>
+<li><b>Don't guess route names — copy what works</b> (10-15): four Hide Mesh patches named destinations that were not on the back stack; the log line saying which way it went found it each time. The fix was the existing Settings mechanism.</li>
+<li><b>Read the counts before naming a cause</b> (10-15 09:59): the slow-map theory (GPS flooding the screen) was wrong — the TICKSHADOW counts showed 0–2 updates per 5 s; wpa_supplicant showed the Wi-Fi re-joining.</li>
+<li><b>A new doc must carry the living master's decisions</b> (10-14 22:41): plan v1 dropped the 10-06 "one cutover" decision and pushed CoT to later. Check the living master before writing a plan.</li>
+<li><b>Compare a good startup log with a bad one FIRST</b> (Fred 20:43): we had a recording of every install and still chased radios and configs. Tonight's 20:3x install is the recorded known-good startup.</li>
+<li><b>A collector started in init runs at once on the main thread</b> — everything it touches must be declared above init (the 12:14 crash).</li>
+<li><b>A crash loop during Meshtastic's connect leaves half-open Bluetooth links</b> — a plausible cause of the afternoon's Bluetooth trouble.</li>
+<li><b>Never reason past evidence:</b> every theory today that was not checked against the log was wrong at least in part (second app = Android's own service; "recovery ran before the first connect" — it did not).</li>
+<li><b>Our own red message caused damage:</b> it told the rider to Forget while the radio had just started talking.</li>
+<li>Read the right tablet: with two plugged in every adb command uses <code>-s &lt;serial&gt;</code>.</li>
+</ul>
+</body></html>
