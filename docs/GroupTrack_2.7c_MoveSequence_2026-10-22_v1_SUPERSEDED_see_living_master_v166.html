@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2.7c Move Sequence</title>
+<style>
+:root{--bg:#fbfaf7;--ink:#1d2328;--dim:#5a6570;--line:#d9d6cf;--head:#eef1f4;--auto:#fff3e0;--menu:#e8f3ec;--hold:#f3eef8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15181b;--ink:#e6e9ec;--dim:#9aa5ae;--line:#2c3237;--head:#1f252a;--auto:#3a2c17;--menu:#17301f;--hold:#2b2236}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:19px;margin:32px 0 8px}p,li{max-width:900px}
+.sub{color:var(--dim);margin:0 0 20px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;min-width:900px;font-size:13.5px}
+th,td{border-bottom:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+th{background:var(--head);position:sticky;top:0}
+td.auto{background:var(--auto)}td.menu{background:var(--menu)}td.hold{background:var(--hold)}
+.k{display:inline-block;padding:1px 7px;border-radius:10px;font-size:12px;border:1px solid var(--line)}
+ol li{margin:6px 0}
+</style></head><body><main>
+<h1>2.7c Move Sequence</h1>
+<p class="sub">GroupTrack 2.7c · drafted 2026-10-22 after the attach session · for Fred's review before the 10-23 work begins</p>
+
+<h2>Why this document</h2>
+<p>Fred, 15:10: "we need a sequence to work with, specifying function and the order they are moved … maps killed us. We have a lot of map options that run only in automated functions — those do not belong on a menu … import maps by corridor is only an automated process … I would identify the functions we are moving and where they were located before, to help us with grouping. Map selection and source belong together."</p>
+<ul>
+<li><b>Bring over as it exists, then restructure.</b> Nothing is redesigned while it is moved (Fred 14:35).</li>
+<li><b>Automated is not a menu item.</b> A function that only runs inside another process (a corridor download after an import, a source refresh) is moved WITH its process and never gets a button.</li>
+<li><b>Prune, then group.</b> Once the complex processes are pulled out of the screens, what is left that a rider actually starts is what gets grouped on the menus.</li>
+<li><b>Map selection and map sources belong together</b> (one group).</li>
+<li><b>Trace before attaching</b> (10-22 lesson): any function that crosses into another screen is traced start → work → complete → cancel → back before it is handed over.</li>
+</ul>
+
+<h2>The order</h2>
+<ol>
+<li><b>Phase 1 — Persistence in ONE MAP.</b> ONE MAP gets its own state ("grouptrack"); every read/write uses the current map's key; every map's state is captured (view, layers + selections, map type, offline mode, stay-panels). The cold-launch delete goes. Start-up path mapped at the same time.</li>
+<li><b>Phase 2 — Route+ into ONE MAP.</b> The planner's whole route process (row R1–R8 below) hosted on ONE MAP; Add Route launches on the map it is invoked from. Add Route testing here, before anything else moves.</li>
+<li><b>Phase 3 — the planner's rider-started map functions into ONE MAP</b> (rows P1–P10), with the automated pieces they call (rows A1–A6) moving inside them.</li>
+<li><b>Phase 4 — the rest of the ride map into modules</b> (rows M1–M10), so ConvoyScreen holds nothing ONE MAP needs; ConvoyScreen and the planner screen are retired.</li>
+<li><b>Phase 5 — start-up from ONE MAP's persistence.</b> GroupTrack.kt becomes the start screen.</li>
+<li><b>Phase 6 — prune and realign.</b> Remove Map Features and anything now duplicated; regroup the menus from what is left (Map type + Sources together).</li>
+</ol>
+
+<h2>Inventory — every function being moved, where it was before</h2>
+<p><span class="k" style="background:var(--menu)">rider starts it</span> <span class="k" style="background:var(--auto)">automated only — no menu item</span> <span class="k" style="background:var(--hold)">decision needed</span></p>
+<div class="wrap"><table>
+<thead><tr><th>#</th><th>Function</th><th>Where it is today</th><th>How it runs</th><th>Menu?</th><th>Proposed group (Phase 6)</th><th>Phase</th></tr></thead>
+<tbody>
+<tr><td>R1</td><td>Route+ start-up checks (compare set, leftover AI routes, unnamed draft, in-progress)</td><td>Planner · Map Features +ROUTE</td><td>inside Route+</td><td class="auto">no</td><td>Add Route</td><td>2</td></tr>
+<tr><td>R2</td><td>In-progress picker (resume / new)</td><td>Planner (ride map has an older copy)</td><td>inside Route+</td><td class="auto">no</td><td>Add Route</td><td>2</td></tr>
+<tr><td>R3</td><td>Route toolbar — build it myself (drop points, undo, map-taps switch)</td><td>Planner (ride map copy half-wired)</td><td>rider</td><td class="menu">Add Route › Build it myself</td><td>Add Route</td><td>2</td></tr>
+<tr><td>R4</td><td>AI route design (guided steps, compare table)</td><td>Planner only</td><td>rider</td><td class="menu">Add Route › AI route design</td><td>Add Route</td><td>2</td></tr>
+<tr><td>R5</td><td>Save (completed / in progress, name at save) · Discard (roll back / delete)</td><td>Planner (ride map: name-first copy)</td><td>inside Route+</td><td class="auto">no</td><td>Add Route</td><td>2</td></tr>
+<tr><td>R6</td><td>Autosave (unnamed draft from the first point) · crash recovery</td><td>Planner</td><td>automated</td><td class="auto">no</td><td>—</td><td>2</td></tr>
+<tr><td>R7</td><td>Route notes / WIP notes</td><td>Planner</td><td>rider, from a route</td><td class="hold">from the route's card?</td><td>Add Route / detail card</td><td>2</td></tr>
+<tr><td>R8</td><td>Clear leftover routes</td><td>Code only (Settings screen removed 10-07) → ONE MAP Add Route today</td><td>rider</td><td class="menu">Add Route</td><td>Add Route (or a testing menu)</td><td>done</td></tr>
+<tr><td>P1</td><td>Download maps — draw a box (area)</td><td>Planner · download panel</td><td>rider</td><td class="menu">yes</td><td>Offline maps</td><td>3</td></tr>
+<tr><td>P2</td><td>Flyover Z14–18 (+ mileage, zoom)</td><td>Planner · download panel (Fred sees it on the ride map too — where?)</td><td>rider</td><td class="menu">yes</td><td>Offline maps</td><td>3</td></tr>
+<tr><td>P3</td><td>Show downloads · downloaded-maps area · archived GTMaps · refresh downloads</td><td>Planner · download panel</td><td>rider</td><td class="menu">yes</td><td>Offline maps</td><td>3</td></tr>
+<tr><td>P4</td><td>Remove tiles by area · by track</td><td>Planner · download panel</td><td>rider</td><td class="menu">yes (destructive, last)</td><td>Offline maps</td><td>3</td></tr>
+<tr><td>P5</td><td>Recreate tiles by source · map recovery</td><td>Planner · download panel</td><td>rider (repair)</td><td class="hold">repair menu or automated?</td><td>Offline maps / Sources</td><td>3</td></tr>
+<tr><td>P6</td><td>Import trails — by state · by area (OSM; sources found automatically)</td><td>Planner · Map Features + trail-source screen + state picker</td><td>rider</td><td class="menu">yes</td><td>Trail &amp; route data</td><td>3</td></tr>
+<tr><td>P7</td><td>Import GPX (tracks, waypoints, routes)</td><td>Planner · Map Features; also email / "open with" (automatic)</td><td>rider + automatic on open-with</td><td class="menu">yes</td><td>Trail &amp; route data</td><td>3</td></tr>
+<tr><td>P8</td><td>Create trails from tracks (rider-trail scan, all tracks)</td><td>Code only (no caller); per-track scan runs automatically on GPX import</td><td>rider (all) / automated (per track)</td><td class="menu">yes (Fred 14:35)</td><td>Trail &amp; route data</td><td>3</td></tr>
+<tr><td>P9</td><td>Mileage / distance</td><td>Planner · download panel</td><td>rider</td><td class="hold">tool or readout?</td><td>Tools</td><td>3</td></tr>
+<tr><td>P10</td><td>Draw-a-box tool (shared by download area, import by area)</td><td>Planner</td><td>inside P1 / P6</td><td class="auto">no</td><td>—</td><td>3</td></tr>
+<tr><td>A1</td><td>Corridor download (along a route / track)</td><td>Track import, ride import, track card "Download maps", Map Sources refresh</td><td>automated inside those</td><td class="auto">no (Fred 15:10)</td><td>moves with its callers</td><td>3</td></tr>
+<tr><td>A2</td><td>Download queue manager (submit, slots, retries)</td><td>Shared engine</td><td>automated</td><td class="auto">no — Queues is its window</td><td>—</td><td>3</td></tr>
+<tr><td>A3</td><td>Download confirm / estimate</td><td>Planner, track import, ride-map track card</td><td>inside a download</td><td class="auto">no</td><td>—</td><td>3</td></tr>
+<tr><td>A4</td><td>Source change: clear or keep tiles, migration record</td><td>Map Sources screen</td><td>inside a source change</td><td class="auto">no</td><td>Map type + Sources</td><td>3</td></tr>
+<tr><td>A5</td><td>OSM extract / import stages, ledger, archive</td><td>Import trails (state / area)</td><td>automated inside P6</td><td class="auto">no</td><td>—</td><td>3</td></tr>
+<tr><td>A6</td><td>Rider-trail reload on change</td><td>Both maps</td><td>automated</td><td class="auto">no</td><td>—</td><td>3</td></tr>
+<tr><td>M1</td><td>Map type (SAT / TOPO / TOPO+)</td><td>Ride map · map bar → ONE MAP Map (attached 10-22)</td><td>rider</td><td class="menu">yes</td><td>Map type + Sources</td><td>done</td></tr>
+<tr><td>M2</td><td>Map sources, API keys</td><td>Settings → ONE MAP Map (attached)</td><td>rider</td><td class="menu">yes</td><td>Map type + Sources</td><td>done</td></tr>
+<tr><td>M3</td><td>Download queues</td><td>Both maps → ONE MAP Map (attached)</td><td>rider (window)</td><td class="menu">yes</td><td>Offline maps</td><td>done</td></tr>
+<tr><td>M4</td><td>Map Features panel</td><td>Both maps → ONE MAP Map (attached)</td><td>rider</td><td class="auto">REMOVE in Phase 6 (Fred 14:55)</td><td>—</td><td>6</td></tr>
+<tr><td>M5</td><td>Readout / HUD, GPS line, MY CART / GROUP</td><td>Ride map (ConvoyScreen)</td><td>rider</td><td class="menu">readout</td><td>Readout</td><td>4</td></tr>
+<tr><td>M6</td><td>RECORD / CHK IN / pause / end ride, lead-cart select, zzz sleep</td><td>Ride map</td><td>rider</td><td class="menu">RECORD</td><td>RECORD</td><td>4</td></tr>
+<tr><td>M7</td><td>Check-in sheet, cart list, change my role</td><td>Ride map (+ Main overlays)</td><td>rider</td><td class="menu">RECORD / Rides</td><td>Rides</td><td>4</td></tr>
+<tr><td>M8</td><td>Map taps → detail card, SELECT lists, fit</td><td>Both maps</td><td>rider</td><td class="auto">map taps</td><td>—</td><td>4</td></tr>
+<tr><td>M9</td><td>Follow / auto-pan, lead track drawing, lead estimate</td><td>Ride map</td><td>automated (+ Centre on Me)</td><td class="auto">no</td><td>—</td><td>4</td></tr>
+<tr><td>M10</td><td>Docs launch (Quick Start / release notes), group-mode popup, contact-lost banners</td><td>Ride map / Main</td><td>automated</td><td class="auto">no</td><td>—</td><td>4–5</td></tr>
+</tbody></table></div>
+
+<h2>Open questions for Fred</h2>
+<ul>
+<li>FLYOVER on the ride map — where is it reached from? (The code shows it only in the planner's download panel.)</li>
+<li>Recreate tiles / map recovery (P5): a repair item on a menu, or automated after a source change?</li>
+<li>Mileage (P9): a tool on a menu, or part of the readout?</li>
+<li>Route notes (R7): from the route's detail card?</li>
+<li>Clear leftover routes (R8): stays on Add Route, or moves to a testing / maintenance menu?</li>
+</ul>
+</main></body></html>

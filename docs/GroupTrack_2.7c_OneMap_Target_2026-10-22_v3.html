@@ -1,0 +1,1075 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GroupTrack 2.7c — ONE MAP — the target (v3, as built 2026-10-22)</title><style>body{font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1200px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:24px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}h2{font-size:19px;color:#58a6ff;margin-top:34px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:16px;color:#e3b341;margin:20px 0 6px}h4{font-size:14px;color:#b8c2cc;margin:14px 0 4px}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}.lock{border-left:4px solid #3fb950}.warn{border-left:4px solid #d29922}
+table{border-collapse:collapse;width:100%;margin:8px 0;font-size:13.5px}th,td{border:1px solid #2a3038;padding:6px 8px;text-align:left;vertical-align:top}th{background:#1a2027;color:#8FD0FF}
+td.s{white-space:nowrap;font-weight:600}.MERGED{color:#8FD0FF}.MOVED{color:#e3b341}.KEPT{color:#7ee787}.UNCHANGED{color:#9aa4af}.RETIRED{color:#ff9b9b}.SPLIT{color:#d2a8ff}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}details{margin:6px 0}summary{cursor:pointer;color:#c9d1d9}li{margin:4px 0}.small{font-size:13px;color:#9aa4af}</style></head><body>
+<h1 id="t27c">GroupTrack 2.7c — ONE MAP — THE TARGET (locked 2026-10-21 13:24, Fred)</h1>
+<p class="small">v2 · 2026-10-21 19:10 (v1 13:29) · v2 = rechecked against the xref of the FROZEN 2.7b (e2f001aed, 19:03): 509 functions — the only change is Send test polyline, removed from Settings (NOTESTBUTTON); still 0 without a home. · Built from the design canvas "GroupTrack One Map — launch layer prototype" (claude.ai artifact 8SH4mp7qiLLuUuFFHQDutx, worked through with Fred 12:15–13:19) and checked against <code>docs/navigation_xref.txt</code> (generated 2026-10-21 19:03, branch 2.7b @ e2f001aed, the frozen 2.7b: 143 panels, 509 clickable functions). <b>Every one of the 509 functions has a home in this target (section 6).</b></p>
+<div class="card" style="border-left:4px solid #58a6ff"><h2>0. As built — 2026-10-22 (v3)</h2>
+<p>The target below is unchanged; this section records where the build now differs from it, decided on the bench on 10-22 (Fred), and the order for what is left.</p>
+<ul>
+<li><b>Bottom bar:</b> Map · [Add Route ⇄ View] · Rides · Search · Radio Setup (Group only). Add Route is its OWN button (Fred 11:07: "getting to it quickly is key; we do not want to hide a key function between navigation layers") — it left the Rides list. Add Route and View share one slot: Add Route before the ride; View: Group / View: My Cart once checked in or recording (11:19).</li>
+<li><b>Right column</b> centred vertically (11:12): GRP Awareness (its own green / red / grey pulsing box — the in-ride issue indicator, Fred 11:38) · Mode: Group / Android only · Status: Online / Offline · MAP KEY (key icon) · FILTER (funnel) · CENTRE ON ME (bullseye; reads FOLLOWING ME / FOLLOWING GROUP while following; re-centres on its own 15 s after the last touch while recording).</li>
+<li><b>Radio Setup</b> (Group only): Configure radio for rides · Archived radio setups. <b>Rides:</b> View checked-in carts / change roles (first) · Create a ride · Import a ride · My rides.</li>
+<li><b>Readout</b> = today's HUD bottom left (GPS line + MY CART / GROUP).</li>
+<li><b>MAP KEY</b> = styles only (what you are looking at); <b>FILTER</b> = everything on / off, the trail-type definitions live in FILTER (12:25), Hide everything restores what was on, Include private land (public always shows — 09-02).</li>
+<li><b>Search</b> = one box, everything searched, filter after (types as chips), scope In &lt;state ▾&gt; / Everywhere, places online only, opens at the top.</li>
+<li><b>Map</b> = Map type (top) · Map Features (original, to be removed) · Download queues · Map sources · Open the planning map · planner placeholders.</li>
+<li><b>Standard:</b> HELP ✕ top right everywhere; one help viewer.</li>
+<li><b>Order for what is left (Fred 15:02, 15:13):</b> 1 persistence in ONE MAP (third key "grouptrack") · 2 the planner's map functions into ONE MAP (automated pieces move inside their processes, never onto menus) · 3 the rest of the ride map into modules · 4 Route+ LAST (the most intertwined) · 5 start-up from ONE MAP's persistence · 6 prune and realign (Map Features removed; Map type + Sources together). The full move sequence (every function, where it was before, how it runs, phase) is in living master v166 / handoff v72.</li>
+</ul></div>
+<h2>1. The decision: freeze 2.7b, and One Map becomes 2.7c</h2><div class="card lock">
+<p><b>2.7b is frozen in scope (Fred 13:23).</b> It ships once three things are done:</p>
+<ol><li>the estimate / gap-fill rule (desk test, then patch);</li><li>the cleanup patch: remove the POLYTEST test button, fix the duplicate VM listener, fix the COMMHEALTH foreground-service start while the app is in the background;</li><li>2.7b release notes, manual and Quick Start.</li></ol>
+<p>Moved to 2.7c: polyline statistics, reconnect panel v4, and the polyline-dots question. The two-person field test waits for Utah in January (Fred decides whether 2.7b goes to internal testers before it).</p>
+<p><b>Why separate releases:</b></p>
+<ul><li>2.7b changed how positions flow (the tick removed, lead track, gap polyline, trim, estimate); 2.7c changes how riders move around the app. Each needs its own testing and release notes, or a trail problem cannot be traced to one change.</li><li>2.7c rewrites every lettered control in manual sections 4 and 5.</li></ul>
+<table><tr><th>2.7c phase</th><th>What</th><th>Estimate (not a commitment)</th></tr>
+<tr><td class="s">S1</td><td>Inventory: confirm each launch point and the chain it opens today (this document is the starting list)</td><td>1 day</td></tr>
+<tr><td class="s">1 · Shell</td><td>The new layout on both maps (control placement, two layouts, panels, KEY, FILTER, INTERNET, readout, distance, queue badge, landscape). Panel items first open TODAY&#x27;S screens. Test: every row of section 6 is reachable.</td><td>1–2 weeks</td></tr>
+<tr><td class="s">2 · Quick wins</td><td>Map type as one choice; INTERNET switch; GPS rate inline; roles in the list; CHECK IN + REC as one step; END RIDE screen; Search opens directly; flyover in Map</td><td>≈ 1 week</td></tr>
+<tr><td class="s">3 · Big simplifications</td><td>KEY styles-only and FILTER OFF/ALL/SELECT (map drawing code); Create a ride; Download for offline; Import trail data; Create a route (planner questions); My rides; Import a ride; Import GPX</td><td>2–3 weeks</td></tr>
+<tr><td class="s">4 · One map</td><td>Fold the planning map in as panels, then retire the planning page (route state, draft resolver, frame restore — the riskiest step, last)</td><td>1–2 weeks</td></tr>
+<tr><td class="s">Docs</td><td>Manual sections 4 and 5 rewritten to this layout</td><td>2–3 days</td></tr>
+</table><p>Total ≈ 6–9 weeks at the current pace; phase 4 is the least certain.</p></div>
+<h2>2. Principles (Fred, 10-18 to 10-21)</h2><div class="card"><ul>
+<li><b>One map.</b> The planning map is folded in; the Ride Planning / Back to Ride switches are retired.</li>
+<li><b>A launch layer over the existing features.</b> Each process gets ONE first screen that takes every value it needs (defaults from the ride and settings), then runs to the end with no further screen prompts. The only stop kept is the confirm before something that cannot be undone.</li>
+<li><b>Two layouts.</b> Group adds a lot of complexity and is used by some. <b>Android only</b> is the default; <b>Group</b> adds the Group button, CHECK IN, the GROUP readout, other carts and the lead track. One switch decides which.</li>
+<li><b>Riders ride in landscape and pan in portrait.</b> In landscape, panels open as a side panel so the map stays in view.</li>
+<li><b>Every control shows an icon and its text</b> on an opaque background, readable on any map. No hover, no long-press meanings.</li>
+<li><b>North up only.</b> Leaflet cannot rotate, and Hybrid labels are baked into the imagery (heading-up needs a rotating map engine: not 2.7c).</li>
+<li><b>Show/hide is FILTER, how lines look is KEY</b>: as onX and Gaia do, the filter is on every view.</li>
+</ul></div>
+<h2>3. The screen: where every control sits</h2><div class="card lock">
+<table><tr><th>Place</th><th>Control (top to bottom / left to right)</th><th>What it does</th></tr>
+<tr><td class="s">Top centre</td><td><b>GPS light · zoom level</b></td><td>Information only. GPS: green "GPS LOCK n" = a fix from n satellites; red = still looking; the no-chip wording is open (section 8).</td></tr>
+<tr><td class="s">Top centre, under it</td><td><b>RECORD button</b></td><td>CHECK IN (Group: ride, role, radio on one screen, then records) · REC (Android only: records at once) · END RIDE while recording.</td></tr>
+<tr><td class="s">Left column</td><td><b>MENU</b></td><td>Settings (incl. Group riding, Storage &amp; data, Diagnostics) · Help (the three documents) · Account.</td></tr>
+<tr><td class="s">Left column</td><td><b>Zoom + / −</b></td><td></td></tr>
+<tr><td class="s">Right column 1</td><td><b>ANDROID ONLY / GROUP</b></td><td>Flips the whole layout. The same value as MENU › Settings › Group riding. Blocked while recording ("End the ride first").</td></tr>
+<tr><td class="s">Right column 2</td><td><b>INTERNET ON / OFF</b></td><td>Shows the state; tap to go LOCAL (only what is on the tablet).</td></tr>
+<tr><td class="s">Right column 3</td><td><b>KEY</b></td><td>The legend, styles only.</td></tr>
+<tr><td class="s">Right column 4</td><td><b>FILTER</b></td><td>What shows: OFF / ALL / SELECT per feature type, and Hide.</td></tr>
+<tr><td class="s">Right column 5</td><td><b>CENTRE ON ME</b></td><td>Centres on your cart, north up.</td></tr>
+<tr><td class="s">Bottom left</td><td><b>Readout (heads-up)</b></td><td>Group: MY CART | GROUP tabs; a tapped cart replaces the tabs (✕ returns); plus "GPS every 6 s · Medium Fast / Long Fast". Android only: MY CART.</td></tr>
+<tr><td class="s">Bottom right</td><td><b>DISTANCE TRAVELED</b></td><td>This ride while recording, else the last ride.</td></tr>
+<tr><td class="s">Bottom bar</td><td><b>Map · Rides · Search · (Group)</b></td><td>Map carries an amber ↓n badge while downloads run or wait. Search opens search only. Group shows only in the Group layout.</td></tr>
+<tr><td class="s">On the map</td><td><b>Tap a feature · long press · tap a cart</b></td><td>Feature details · New waypoint · (Group) that cart's readout.</td></tr>
+</table><p>The same placement holds in portrait and landscape (tablet 1280 × 800). In landscape the panels and first screens open from the right edge.</p></div>
+<h2>4. Navigation to every point on the map</h2><p>Each launch point, what it opens, and the first screen of each process with the values it asks for. "Replaces" names today's screens that go.</p>
+<h3>RECORD button (top centre)</h3><table><tr><th style="width:20%">Item</th><th>First screen — what it asks, then what runs</th><th style="width:28%">Replaces today</th></tr>
+<tr><td class="s">CHECK IN (Group)</td><td>Ride (today's by default) · my role (Rider / Leader / Middle / Tail gunner) · radio shown → CHECK IN &amp; RECORD</td><td>CheckInSheet; the lead-cart question (the Leader role is the lead); the second press on REC</td></tr>
+<tr><td class="s">REC (Android only)</td><td>No screen: records at once</td><td>—</td></tr>
+<tr><td class="s">END RIDE</td><td>Ride name (prefilled; the date is kept) · rating and share on a public ride → SAVE · DELETE (one confirm, no undo)</td><td>The name window (EndOfRideForm); the delete confirm is kept</td></tr>
+<tr><td class="s">Pause banner</td><td>CONTINUE after an automatic pause (unchanged)</td><td>—</td></tr>
+</table>
+<h3>MENU (left)</h3><table><tr><th style="width:20%">Item</th><th>First screen — what it asks, then what runs</th><th style="width:28%">Replaces today</th></tr>
+<tr><td class="s">Settings</td><td>Group riding (ANDROID ONLY / GROUP) · release level · message time · <b>Storage &amp; data</b>: Remove all trail data, Resync tracks, Add trails from tracks · <b>Diagnostics</b>: Check a trail, Ride statistics, Conversion record</td><td>Map sources moved to Map; the POLYTEST test button is removed</td></tr>
+<tr><td class="s">Help</td><td>User manual · Quick Start · Release notes (context help is MANUAL on every panel)</td><td>The docs chooser for context help</td></tr>
+<tr><td class="s">Account</td><td>Profile · Subscription · My organizers · Completed rides · Terms and privacy · Dashboard (V3) — unchanged in 2.7c</td><td>—</td></tr>
+</table>
+<h3>KEY (right column)</h3><table><tr><th style="width:20%">Item</th><th>First screen — what it asks, then what runs</th><th style="width:28%">Replaces today</th></tr>
+<tr><td class="s">FEATURES</td><td>Trails (STYLE › opens the trail types: motorized OHV, Track, Forestry / access, Shape only, Rider trails, Unofficial; non-motorized Hiking &amp; biking, Hiking, Biking, Equestrian, Steps / bridge) · My tracks · My routes</td><td>—</td></tr>
+<tr><td class="s">WHILE YOU WORK</td><td>Route in progress · Download area (drawing) · Downloaded · Downloading</td><td>—</td></tr>
+<tr><td class="s">GROUP RIDING (Group layout)</td><td>Lead track · My track while recording</td><td>—</td></tr>
+<tr><td class="s">STYLE on any row</td><td>One click: colour · pattern · thickness, now/new preview → APPLY</td><td>MapKeysPanel › category › key row › TrailStylePanel; the ticks in Map Keys</td></tr>
+</table>
+<h3>FILTER (right column)</h3><table><tr><th style="width:20%">Item</th><th>First screen — what it asks, then what runs</th><th style="width:28%">Replaces today</th></tr>
+<tr><td class="s">Hide</td><td>Unclutter: carts and tracks only</td><td>HIDE on the bottom bar / HUD row</td></tr>
+<tr><td class="s">Trails · My tracks · My routes · Waypoints</td><td>Each OFF / ALL / SELECT. SELECT on Trails: MOTORIZED and NON-MOTORIZED, each with an ALL tick and a tick per type, plus public / private land. SELECT on the others: the items in view.</td><td>Map Features OFF/ALL/SELECT rows; ConvoyDisplayPanel; TrailFilterPanel; LandCheck in Map Keys</td></tr>
+</table>
+<h3>Map (bottom bar)</h3><table><tr><th style="width:20%">Item</th><th>First screen — what it asks, then what runs</th><th style="width:28%">Replaces today</th></tr>
+<tr><td class="s">Map type</td><td>SAT / TOPO / TOPO+ (one button, three types)</td><td>Three separate buttons on each map</td></tr>
+<tr><td class="s">Flyover</td><td>The zoom a search flies to, Z14–Z18 (SEARCH_FLY_ZOOM); mileage slider open (section 8)</td><td>FLYOVER section of the download panel</td></tr>
+<tr><td class="s">Download maps for offline</td><td>Where (along a route / current view / draw a box / by state) · map types · trails yes/no · estimate shown → DOWNLOAD; also shows what you hold (blue) and what is coming (red), and removes tiles from an area</td><td>Ride Planning switch; planning map › MAPS; the download panel's four sub-panels; the download confirm (kept only for a large download); the corridor picker</td></tr>
+<tr><td class="s">Queues</td><td>Running (with %) · waiting · done; the ↓n badge on Map</td><td>—</td></tr>
+<tr><td class="s">Import trail data</td><td>By state or area · sources (all by default) · private land → IMPORT TRAILS; one recap</td><td>Map Features › IMPORT TRAILS; the stepped sources screen (FIND SOURCES › VALIDATE › IMPORT); state picker › state list › completion; OsmImportPanel</td></tr>
+<tr><td class="s">Import GPX</td><td>Everything in the file / tracks / routes / waypoints · delete originals after copying → file picker → short message</td><td>Map Features › IMPORT TRACKS…; import screen; source pop-up; recap window</td></tr>
+<tr><td class="s">Map sources</td><td>Source per slot · API key when needed · change a source (clear or keep tiles) · rebuild a source (map recovery)</td><td>Settings › Change Map Sources; MAP RECOVERY in the download panel</td></tr>
+<tr><td class="s">Distance</td><td>From my cart or a tapped point</td><td>Distance button</td></tr>
+</table>
+<h3>Rides (bottom bar)</h3><table><tr><th style="width:20%">Item</th><th>First screen — what it asks, then what runs</th><th style="width:28%">Replaces today</th></tr>
+<tr><td class="s">Create a route</td><td>Draw it myself (pins snap to trails) or let the planner build it (day length · park · points · finish on one screen); resume or delete a draft in progress → the route toolbar on the map (ROUTE DETAILS, save, save in progress, roll back, CREATE TRAILHEAD at save, planner Review / Compare)</td><td>Ride Planning switch › Map Features › + ROUTE / Route+; three of the planner's four question screens</td></tr>
+<tr><td class="s">Create a ride</td><td>Made from a route or a track · name · date and rollout time · private · radio network (default / mine / new private) · Leader's notes → SAVE RIDE</td><td>Feature detail › CREATE ROUTE &amp; RIDE; the ride form screen; the date pop-up; the old ride-config menu</td></tr>
+<tr><td class="s">Import a ride</td><td>The ride file saved from the email → the route, trailhead and radio network come with it</td><td>Work with Rides › Import a ride notice; the transfer / download-ride-config screens</td></tr>
+<tr><td class="s">My rides</td><td>Pick the ride, then Send / Edit / Apply to radio / Delete (a rider joins by Send + Apply to radio with their callsign)</td><td>Work with Rides four-entry menu; Rides list; the apply-to-radio screen; invite / email-gate screens</td></tr>
+</table>
+<h3>Search (bottom bar)</h3><table><tr><th style="width:20%">Item</th><th>First screen — what it asks, then what runs</th><th style="width:28%">Replaces today</th></tr>
+<tr><td class="s">Search</td><td>Places, or my routes / tracks / waypoints · name → the map flies there at the flyover zoom</td><td>Find panel; search-by-area screen</td></tr>
+</table>
+<h3>Group (bottom bar, Group layout only)</h3><table><tr><th style="width:20%">Item</th><th>First screen — what it asks, then what runs</th><th style="width:28%">Replaces today</th></tr>
+<tr><td class="s">View checked-in carts / change roles</td><td>Every cart, its role and ✔ / ●; REMOVE / ACTIVATE; my role chosen in the list</td><td>VIEW CART ROLES › cart picker; the role-change window</td></tr>
+<tr><td class="s">GRP Awareness — your radio</td><td>Connected radio, network, last applied; preset Medium Fast / Long Fast; available radios; NODES</td><td>The group-mode activate pop-up (the layout switch now decides)</td></tr>
+<tr><td class="s">GPS — how often you are sent</td><td>Interval 3–10 s · channel use → APPLY TO RADIO</td><td>The GPS interval pop-up</td></tr>
+<tr><td class="s">Radio setups (archive)</td><td>Radio now / As found / one per ride → Apply or Compare</td><td>Work with Rides › Compare / Apply Archive Configs</td></tr>
+<tr><td class="s">Readout text</td><td>Light / Dark</td><td>The light/dark switch on the GPS row</td></tr>
+</table>
+<h3>On the map</h3><table><tr><th style="width:20%">Item</th><th>First screen — what it asks, then what runs</th><th style="width:28%">Replaces today</th></tr>
+<tr><td class="s">Tap a feature</td><td>Its details: rename, change type, delete, fit, aliases; Create a ride from it; Download along it; a track also has SHARE (export GPX)</td><td>The track export sheet</td></tr>
+<tr><td class="s">Long press</td><td>New waypoint (type, name)</td><td>—</td></tr>
+<tr><td class="s">Tap a cart (Group)</td><td>That cart's readout: callsign, SPD, ALT, GAP; ✕ returns</td><td>—</td></tr>
+</table>
+<h2>5. Found by the cross-reference: functions the prototype did not show, and their homes</h2><div class="card warn"><ul>
+<li><b>MENU › Settings › Storage &amp; data</b>: Remove all trail data · Resync tracks · Add trails from tracks (from Settings, the track import screen and the RiderTrails dialog).</li>
+<li><b>MENU › Settings › Diagnostics</b>: Check a trail · Ride statistics · Conversion record (from Settings and the old ride-config menu).</li>
+<li><b>Map › Map sources</b>: change a source (clear or keep tiles: the migrate gate) and rebuild a source (MAP RECOVERY / recreate slot).</li>
+<li><b>Map › Download for offline</b>: show what you hold / what is coming, and remove tiles from an area.</li>
+<li><b>Rides › Create a route</b>: drafts in progress (resume, rename, roll back, delete, the unnamed-draft resolver), ROUTE DETAILS notes, CREATE TRAILHEAD at save, the planner's Review / Compare and saving the compare set.</li>
+<li><b>Tap a feature</b>: rename, change type, delete, fit, aliases, Create a ride; tracks add SHARE (the track export sheet).</li>
+<li><b>Record button</b>: the automatic-pause banner (CONTINUE), the ROLE CONFLICT banner, the lead question when no Leader is known (decide in phase 2).</li>
+<li><b>Unchanged in 2.7c</b>: Android permission prompts, the startup online/offline chooser, sign-in, terms and privacy gates, the V3 account and organizer screens, the developer menu.</li>
+</ul></div>
+<h2>6. Every function in today's panels → its new home</h2>
+<div class="card lock"><p><b>Coverage check:</b> 143 panels and 509 clickable functions in <code>navigation_xref.txt</code> (2026-10-21 19:03, e2f001aed). <b>Functions without a home: 0.</b> Status counts: <span class="MERGED">MERGED 155</span>, <span class="KEPT">KEPT 154</span>, <span class="MOVED">MOVED 107</span>, <span class="UNCHANGED">UNCHANGED 79</span>, <span class="RETIRED">RETIRED 12</span>, <span class="SPLIT">SPLIT 2</span>.</p>
+<p class="small">KEPT = same function, reached from its new place · MOVED = same function, new place · MERGED = folded into a first screen · RETIRED = goes away · UNCHANGED = not part of 2.7c · SPLIT = its functions go to different homes (see 6.2). Labels are as the cross-reference records them; a few sit one line off their button.</p></div>
+<h3>6.1 By panel / screen</h3><table><tr><th>Panel or screen</th><th>File</th><th>Fns</th><th>New home</th><th>Status</th></tr>
+<tr><td class="s">SubMenuItem</td><td class="small">ConvoySubMenu.kt:393</td><td>1</td><td>(see ConvoySubMenu)<br><span class="small">→ (a row of the retired ride-config menu — its target is listed on that row)</span></td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="s">ConvoyButtonBar</td><td class="small">ConvoyScreen.kt:3758</td><td>4</td><td>(see each function)<br><span class="small">→ FILTER › Hide<br>→ Group › View checked-in carts / change roles<br>→ MENU › Settings</span></td><td class="SPLIT">SPLIT</td></tr>
+<tr><td class="s">ConvoyMapBar</td><td class="small">ConvoyMapBar.kt:29</td><td>2</td><td>(see each function)<br><span class="small">→ Retired: one map (no Ride Planning / Back to Ride switch)<br>→ Right column › INTERNET ON / OFF</span></td><td class="SPLIT">SPLIT</td></tr>
+<tr><td class="s">ConvoySettingsScreen</td><td class="small">ConvoySettingsScreen.kt:51</td><td>17</td><td>(see each function)<br><span class="small">→ MENU › Account › Profile<br>→ MENU › Settings › Diagnostics (conversion record, share)<br>→ MENU › Settings › Diagnostics › Check a trail<br>→ MENU › Settings › Diagnostics › Ride statistics<br>→ MENU › Settings › Storage &amp; data › Remove all trail data<br>→ Map › Map sources</span></td><td class="SPLIT">SPLIT</td></tr>
+<tr><td class="s">ConvoyTrackImportScreen</td><td class="small">ConvoyTrackImportScreen.kt:64</td><td>9</td><td>(see each function)<br><span class="small">→ MENU › Settings › Storage &amp; data › Add trails from tracks<br>→ MENU › Settings › Storage &amp; data › Resync tracks<br>→ Map › Import GPX (pick files; delete-originals is an option on the first screen)</span></td><td class="SPLIT">SPLIT</td></tr>
+<tr><td class="s">GpsLocationRow</td><td class="small">ConvoyScreen.kt:3967</td><td>2</td><td>(see each function)<br><span class="small">→ Group › GPS (and the readout line &quot;GPS every 6 s · preset&quot;)<br>→ Group › Readout text (Light / Dark)</span></td><td class="SPLIT">SPLIT</td></tr>
+<tr><td class="s">HudModeRow</td><td class="small">ConvoyScreen.kt:3558</td><td>4</td><td>(see each function)<br><span class="small">→ FILTER › Hide<br>→ MENU › Settings<br>→ Readout › GROUP tab<br>→ Readout › MY CART tab</span></td><td class="SPLIT">SPLIT</td></tr>
+<tr><td class="s">MainScreen</td><td class="small">Main.kt:173</td><td>4</td><td>(see each function)<br><span class="small">→ Any panel’s BACK / ✕ returns to the map<br>→ Group › GRP Awareness (radio restart notice)<br>→ Retired in 2.7b (Meshtastic tabs)<br>→ Retired in 2.7b (the Meshtastic menu is gone; GRP Awareness › NODES)</span></td><td class="SPLIT">SPLIT</td></tr>
+<tr><td class="s">ConvoyArtifactsPanel</td><td class="small">ConvoyArtifactsPanel.kt:61</td><td>4</td><td>(the Map Features hub is retired; each function below has its own home)<br><span class="small">→ (closes the panel — retired with it)<br>→ Map › Import GPX<br>→ Map › Import trail data<br>→ Rides › Create a route</span></td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="s">ConvoySubMenu</td><td class="small">ConvoySubMenu.kt:47</td><td>13</td><td>(the old ride-config menu is retired; each function below has its own home)<br><span class="small">→ (closes the menu — retired with it)<br>→ Group › Radio setups (archive)<br>→ MENU › Settings › Diagnostics (conversion record)<br>→ Rides › Create a ride › Radio network: New private network<br>→ Rides › Import a ride<br>→ Rides › My rides › Apply to radio<br>→ Rides › My rides › Send</span></td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="s">ConvoyMapViewerScreen</td><td class="small">ConvoyMapViewerScreen.kt:245</td><td>53</td><td>(the planning map is folded into the one map; each function below has its own home)<br><span class="small">→ Group › GRP Awareness<br>→ KEY<br>→ MENU › Help, and MANUAL on every panel<br>→ MENU › Settings › Storage &amp; data › Resync tracks<br>→ Map › Download maps for offline<br>→ Map › Download maps for offline › Remove tiles from an area<br>→ Map › Import GPX<br>→ Map › Import trail data › Where: By state / By area<br>→ Map › Map sources › Rebuild a source (map recovery)<br>→ Map › Map sources › change a source (clear or keep tiles)<br>→ Map › Map type (SAT / TOPO / TOPO+)<br>→ Map › Queues<br>→ Map: long press › New waypoint<br>→ Rides (bottom bar)<br>→ Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)<br>→ Rides › Create a route (guard: finish or discard the route in progress)<br>→ Rides › Create a route › planner results: save or delete the compare set<br>→ Rides › Create a route › save: the first point becomes the trailhead (CREATE TRAILHEAD)<br>→ Route toolbar › ROUTE DETAILS (while building)<br>→ Split: FILTER (what shows) · Rides › Create a route · Map › Import trail data / Import GPX</span></td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="s">ConvoyScreen</td><td class="small">ConvoyScreen.kt:133</td><td>44</td><td>(the ride map becomes the one map; each function below has its own home)<br><span class="small">→ Android permission prompt (unchanged)<br>→ GPS light (top centre): first no-fix message (unchanged)<br>→ Group › GRP Awareness<br>→ KEY (right column)<br>→ MENU › Help, and MANUAL on every panel<br>→ Map › Download maps for offline (from a route’s popup) → Map › Queues<br>→ Map › Queues (↓n badge on Map)<br>→ Map: long press › New waypoint<br>→ ROLE CONFLICT banner (unchanged)<br>→ Record button (CHECK IN / REC / END RIDE) and the pause banner (CONTINUE)<br>→ Record button › CHECK IN: the Leader role is the lead (the lead question stays only when no Leader is known — confirm in phase 2)<br>→ Record button › END RIDE › DELETE confirm (the one confirm kept)<br>→ Rides (bottom bar)<br>→ Rides › Create a route (first screen: new, or resume a draft in progress) → route toolbar (save, save in progress, roll back, delete)<br>→ Split: FILTER (what shows) · Rides › Create a route · Map › Import trail data / Import GPX</span></td><td class="SPLIT">SPLIT</td></tr>
+<tr><td class="s">GroupModeActivatePopup</td><td class="small">GroupMode.kt:50</td><td>1</td><td>ANDROID ONLY / GROUP button and MENU › Settings › Group riding</td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="s">DevMenuButton</td><td class="small">GroupTrackTheme.kt:180</td><td>1</td><td>Developer only (unchanged, hidden from riders)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">DevScenarioButton</td><td class="small">ConvoyDevLaunchScreen.kt:140</td><td>1</td><td>Developer only (unchanged, hidden from riders)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">GroupTrackHeader</td><td class="small">GroupTrackTheme.kt:85</td><td>4</td><td>Developer only (unchanged, hidden from riders) (logo opens the dev menu)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ArtifactListItem</td><td class="small">ArtifactListPanel.kt:154</td><td>1</td><td>FILTER › each type › SELECT (items in view)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ArtifactListPanel</td><td class="small">ArtifactListPanel.kt:38</td><td>4</td><td>FILTER › each type › SELECT (items in view)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ArtifactRow</td><td class="small">ConvoyArtifactsPanel.kt:421</td><td>3</td><td>FILTER › OFF / ALL / SELECT per type</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyDisplayPanel</td><td class="small">ConvoyDisplayPanel.kt:44</td><td>1</td><td>FILTER</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyTracksScreen</td><td class="small">ConvoyTracksScreen.kt:14</td><td>1</td><td>FILTER › My tracks › SELECT (list) and tap a track › details</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">DisplayToggleRow</td><td class="small">ConvoyDisplayPanel.kt:156</td><td>1</td><td>FILTER</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">FilterColumn</td><td class="small">TrailFilterPanel.kt:130</td><td>1</td><td>FILTER › Trails › SELECT</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">FilterRow</td><td class="small">TrailFilterPanel.kt:165</td><td>1</td><td>FILTER › Trails › SELECT</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">LandCheck</td><td class="small">MapKeysPanel.kt:309</td><td>1</td><td>FILTER › Trails › SELECT › public / private land</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">TrailFilterPanel</td><td class="small">TrailFilterPanel.kt:57</td><td>2</td><td>FILTER › Trails › SELECT (motorized / non-motorized, types)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">CartPickerPanel</td><td class="small">ConvoyScreen.kt:3635</td><td>6</td><td>Group › View checked-in carts / change roles</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">ConfigReviewScreen</td><td class="small">ConfigReviewScreen.kt:66</td><td>7</td><td>Group › Radio setups (archive)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">ConvoyFieldRadioScreen</td><td class="small">ConvoyFieldRadioScreen.kt:39</td><td>2</td><td>Group › GRP Awareness (offline radio start)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">FieldRadioButton</td><td class="small">ConvoyFieldRadioScreen.kt:121</td><td>1</td><td>Group › GRP Awareness</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">GpsIntervalDialog</td><td class="small">ConvoyScreen.kt:4013</td><td>3</td><td>Group › GPS (interval chosen on the screen, no pop-up)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">GrpAwarenessPanel</td><td class="small">GrpAwareness.kt:151</td><td>10</td><td>Group › GRP Awareness — your radio (Group layout only)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">RoleChangeDialog</td><td class="small">ConvoyScreen.kt:4137</td><td>3</td><td>Group › View checked-in carts / change roles (my role in the list)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">rememberPickerNotice</td><td class="small">FilePickerNotice.kt:54</td><td>2</td><td>Import a ride / Import GPX: the note on the first screen</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">Chip</td><td class="small">TrailStylePanel.kt:201</td><td>1</td><td>KEY › STYLE</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">KeyRow</td><td class="small">MapKeysPanel.kt:252</td><td>1</td><td>KEY › a line › STYLE</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">TrailStylePanel</td><td class="small">TrailStylePanel.kt:56</td><td>2</td><td>KEY › STYLE (one click from the legend)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">MapKeysPanel</td><td class="small">MapKeysPanel.kt:65</td><td>3</td><td>KEY (styles only)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">AccordionHeader</td><td class="small">ConvoyDashboardScreen.kt:828</td><td>1</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">BcastNavBtn</td><td class="small">ConvoyBroadcastScreen.kt:89</td><td>1</td><td>MENU › Account (unchanged in 2.7c)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">CompletedRideCard</td><td class="small">ConvoyCompletedRidesScreen.kt:399</td><td>1</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoyBroadcastScreen</td><td class="small">ConvoyBroadcastScreen.kt:24</td><td>1</td><td>MENU › Account (unchanged in 2.7c)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoyCompletedRideDetailScreen</td><td class="small">ConvoyCompletedRideDetailScreen.kt:31</td><td>7</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoyCompletedRidesScreen</td><td class="small">ConvoyCompletedRidesScreen.kt:46</td><td>7</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoyDashboardScreen</td><td class="small">ConvoyDashboardScreen.kt:25</td><td>14</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoyDocsChooser</td><td class="small">ConvoyDocs.kt:65</td><td>1</td><td>MENU › Help (the three documents); context help = MANUAL on every panel and first screen</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">ConvoyEnrollmentScreen</td><td class="small">ConvoyEnrollment.kt:53</td><td>2</td><td>MENU › Account (unchanged in 2.7c) › Enrollment</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoyExploreScreen</td><td class="small">ConvoyExploreScreen.kt:14</td><td>1</td><td>MENU › Account (unchanged in 2.7c) › Explore</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoyMyOrganizersScreen</td><td class="small">ConvoyMyOrganizersScreen.kt:31</td><td>3</td><td>MENU › Account (unchanged in 2.7c) › My organizers</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoyOrganizerPendingRides</td><td class="small">ConvoyPendingRidesScreen.kt:30</td><td>1</td><td>MENU › Account (unchanged in 2.7c) › Organizer rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoyPrivacyScreen</td><td class="small">ConvoyPrivacyScreen.kt:17</td><td>1</td><td>MENU › Account (unchanged in 2.7c) › Terms and privacy (first-run gate unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoyProfileScreen</td><td class="small">ConvoyProfileScreen.kt:31</td><td>3</td><td>MENU › Account (unchanged in 2.7c) › Profile</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoyRiderProfileScreen</td><td class="small">ConvoyRiderProfileScreen.kt:62</td><td>4</td><td>MENU › Account (unchanged in 2.7c) › Profile</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoySubscriptionScreen</td><td class="small">ConvoySubscriptionScreen.kt:128</td><td>5</td><td>MENU › Account (unchanged in 2.7c) › Subscription</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoyTermsScreen</td><td class="small">ConvoyTermsScreen.kt:17</td><td>1</td><td>MENU › Account (unchanged in 2.7c) › Terms and privacy (first-run gate unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">FilterBar</td><td class="small">ConvoyCompletedRidesScreen.kt:290</td><td>2</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">GtMenuItem</td><td class="small">GroupTrackTheme.kt:409</td><td>1</td><td>MENU › Account (unchanged in 2.7c)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">GtMenuLabel</td><td class="small">GroupTrackTheme.kt:382</td><td>1</td><td>MENU › Account (unchanged in 2.7c)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">GtNavBtn</td><td class="small">GroupTrackTheme.kt:363</td><td>1</td><td>MENU › Account (unchanged in 2.7c) (account-screen bottom nav)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">NotifAccordion</td><td class="small">ConvoyDashboardScreen.kt:816</td><td>1</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">RideActionButton</td><td class="small">ConvoyDashboardScreen.kt:756</td><td>1</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">RideDisplayPanel</td><td class="small">ConvoyDashboardScreen.kt:584</td><td>2</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">RiderTrailsDialog</td><td class="small">RiderTrailsDialog.kt:36</td><td>1</td><td>MENU › Settings › Storage &amp; data › Add trails from tracks</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">SearchButton</td><td class="small">ConvoyCompletedRidesScreen.kt:366</td><td>1</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ActionButton</td><td class="small">ConvoyDownloadQueuePanel.kt:750</td><td>1</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ActiveSlotBar</td><td class="small">ConvoyDownloadQueuePanel.kt:580</td><td>1</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ApiKeyDialog</td><td class="small">ConvoyMapSourceScreen.kt:1015</td><td>1</td><td>Map › Map sources</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">ApiKeyRow</td><td class="small">ConvoyMapSourceScreen.kt:978</td><td>1</td><td>Map › Map sources</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">CompletedItemRow</td><td class="small">ConvoyDownloadQueuePanel.kt:680</td><td>1</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">CompletionPanel</td><td class="small">HomeStatePickerScreen.kt:530</td><td>1</td><td>Map › Import trail data (one recap)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConfirmDialog</td><td class="small">ConvoyDownloadQueuePanel.kt:534</td><td>1</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ConvoyCorridorPicker</td><td class="small">ConvoyCorridorPicker.kt:93</td><td>6</td><td>Map › Download maps for offline › Where: Along a route</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyDownloadConfirm</td><td class="small">ConvoyDownloadConfirm.kt:40</td><td>3</td><td>Map › Download maps for offline (the estimate is on the first screen; the confirm shows only for a large download)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyDownloadPanel</td><td class="small">ConvoyDownloadPanel.kt:46</td><td>6</td><td>Map › Download maps for offline</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyMapSourceScreen</td><td class="small">ConvoyMapSourceScreen.kt:74</td><td>7</td><td>Map › Map sources (moved from Settings)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">ConvoyQueuesPanel</td><td class="small">ConvoyQueuesPanel.kt:23</td><td>1</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ConvoyTrailSourceScreen</td><td class="small">ConvoyTrailSourceScreen.kt:63</td><td>17</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">DownloadQueuePanel</td><td class="small">ConvoyDownloadQueuePanel.kt:53</td><td>4</td><td>Map › Queues (Map button carries ↓n while active)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">FilterChip</td><td class="small">ConvoyDownloadQueuePanel.kt:556</td><td>1</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ImportRecapDialog</td><td class="small">ConvoyTrackImportScreen.kt:872</td><td>1</td><td>Map › Import GPX (a short message instead of the recap window)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">MethodCard</td><td class="small">ConvoyTrailSourceScreen.kt:552</td><td>1</td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">MigrationOption</td><td class="small">ConvoyMapSourceScreen.kt:1062</td><td>1</td><td>Map › Map sources › change a source (clear or keep tiles)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">OsmImportPanel</td><td class="small">OsmImportPanel.kt:111</td><td>10</td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">PanelActionButton</td><td class="small">ConvoyDownloadPanel.kt:575</td><td>1</td><td>Map › Download maps for offline › Where: Draw a box</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">QueueSummaryBar</td><td class="small">ConvoyDownloadQueuePanel.kt:468</td><td>1</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">QueuedItemRow</td><td class="small">ConvoyDownloadQueuePanel.kt:619</td><td>2</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">SlotCard</td><td class="small">ConvoyMapSourceScreen.kt:858</td><td>1</td><td>Map › Map sources</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">SourceRow</td><td class="small">ConvoyMapSourceScreen.kt:915</td><td>1</td><td>Map › Map sources</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">SourceSelectCard</td><td class="small">ConvoyTrailSourceScreen.kt:568</td><td>1</td><td>Map › Import trail data › Sources</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">StateListPanel</td><td class="small">HomeStatePickerScreen.kt:300</td><td>1</td><td>Map › Import trail data › Where: By state</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ArtifactDetailPanel</td><td class="small">ArtifactDetailPanel.kt:35</td><td>14</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ActionRow</td><td class="small">ConvoyTrackDialogs.kt:51</td><td>1</td><td>Map: tap a track › its details (rename, share, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ConvoyTrackExportSheet</td><td class="small">ConvoyTrackExportSheet.kt:38</td><td>4</td><td>Map: tap a track › its details › SHARE (export GPX)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">FilterTab</td><td class="small">ConvoyTrackExportSheet.kt:284</td><td>1</td><td>Map: tap a track › SHARE</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">RenameTrackDialog</td><td class="small">ConvoyTrackDialogs.kt:64</td><td>1</td><td>Map: tap a track › its details › Rename</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">TrackRow</td><td class="small">ConvoyTrackExportSheet.kt:300</td><td>1</td><td>Map: tap a track › SHARE</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="s">CollapsedPill</td><td class="small">ConvoyScreen.kt:3463</td><td>1</td><td>Readout, collapsed (FILTER › Hide)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">CheckInSheet</td><td class="small">ConvoyCheckIn.kt:51</td><td>8</td><td>Record button › CHECK IN (ride, role, radio on one screen, then records)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">EndOfRideForm</td><td class="small">ConvoyEndOfRideForm.kt:40</td><td>7</td><td>Record button › END RIDE (name, survey/share; DELETE keeps its one confirm)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">AiButton</td><td class="small">ConvoyAiDesignPanel.kt:470</td><td>1</td><td>Rides › Create a route › Let the planner build it</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">AiOption</td><td class="small">ConvoyAiDesignPanel.kt:391</td><td>1</td><td>Rides › Create a route › Let the planner build it</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">AiTwisty</td><td class="small">ConvoyAiDesignPanel.kt:430</td><td>1</td><td>Rides › Create a route › Let the planner build it</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">BottomNavBtn</td><td class="small">ConvoyMyRidesScreen.kt:141</td><td>1</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyAiDesignPanel</td><td class="small">ConvoyAiDesignPanel.kt:114</td><td>2</td><td>Rides › Create a route › Let the planner build it (its questions on the first screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyAiStepPanel</td><td class="small">ConvoyAiStepPanel.kt:59</td><td>1</td><td>Rides › Create a route › Let the planner build it</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyBatchGridPanel</td><td class="small">ConvoyBatchGridPanel.kt:68</td><td>3</td><td>Rides › Create a route › planner results: Review and Compare (on the map)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ConvoyCreateEventScreen</td><td class="small">ConvoyCreateEventScreen.kt:57</td><td>3</td><td>Rides › Create a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyCreateRideScreen</td><td class="small">ConvoyCreateRideScreen.kt:36</td><td>3</td><td>Rides › Create a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyDownloadRideConfigScreen</td><td class="small">ConvoyDownloadRideConfigScreen.kt:44</td><td>4</td><td>Rides › Import a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyEmailGateScreen</td><td class="small">ConvoyEmailGateScreen.kt:65</td><td>4</td><td>Rides › My rides › Send</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyInviteSendScreen</td><td class="small">ConvoyInviteSendScreen.kt:25</td><td>1</td><td>Rides › My rides › Send</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyMyRidesScreen</td><td class="small">ConvoyMyRidesScreen.kt:29</td><td>5</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyNotesPanel</td><td class="small">ConvoyNotesPanel.kt:99</td><td>3</td><td>Rides › Create a route › ROUTE DETAILS (route toolbar while building)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ConvoyPinMileageHud</td><td class="small">ConvoyGuidedPinPanel.kt:217</td><td>2</td><td>Rides › Create a route › planner: points to cover (on the map while building)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ConvoyRideCreateScreen</td><td class="small">ConvoyRideCreateScreen.kt:61</td><td>8</td><td>Rides › Create a ride (one screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyRideDetailScreen</td><td class="small">ConvoyRideDetailScreen.kt:33</td><td>8</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ConvoyRidesScreen</td><td class="small">ConvoyRidesScreen.kt:27</td><td>5</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">ConvoyRouteToolbar</td><td class="small">ConvoyRouteToolbar.kt:69</td><td>4</td><td>Rides › Create a route → the route toolbar on the map while building</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ConvoyTransferRideScreen</td><td class="small">ConvoyTransferRideScreen.kt:29</td><td>4</td><td>Rides › Import a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">DetailActionButton</td><td class="small">ConvoyRideDetailScreen.kt:488</td><td>1</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">EnrolleeRow</td><td class="small">ConvoyRideDetailScreen.kt:462</td><td>1</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">EnrollmentTwistie</td><td class="small">ConvoyRideDetailScreen.kt:421</td><td>1</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">GpButton</td><td class="small">ConvoyGuidedPinPanel.kt:331</td><td>1</td><td>Rides › Create a route › planner: points to cover</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">NavBtn3</td><td class="small">ConvoyInviteSendScreen.kt:83</td><td>1</td><td>Rides › My rides › Send</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">RadioConfigScreen</td><td class="small">RadioConfigScreen.kt:85</td><td>4</td><td>Rides › My rides › Apply to radio</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">RideDatePickerDialog</td><td class="small">ConvoyRideCreateScreen.kt:466</td><td>1</td><td>Rides › Create a ride (date on the form)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">RidesMenuItem</td><td class="small">ConvoyRidesScreen.kt:138</td><td>1</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">RidesScreen</td><td class="small">RidesScreen.kt:100</td><td>8</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">SegHalf</td><td class="small">ConvoyRouteToolbar.kt:366</td><td>1</td><td>Rides › Create a route › How (first screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">StepButton</td><td class="small">ConvoyAiStepPanel.kt:245</td><td>1</td><td>Rides › Create a route › Let the planner build it</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">TableButton</td><td class="small">ConvoyBatchGridPanel.kt:411</td><td>1</td><td>Rides › Create a route › planner results: Compare table</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">WwrEntry</td><td class="small">WorkWithRidesMenu.kt:151</td><td>1</td><td>Rides panel</td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="s">WorkWithRidesMenu</td><td class="small">WorkWithRidesMenu.kt:50</td><td>4</td><td>Rides panel (the four-entry menu is retired)</td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="s">BuildBtn</td><td class="small">ConvoyRouteToolbar.kt:388</td><td>1</td><td>Route toolbar while building</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ConvoySearchByAreaScreen</td><td class="small">ConvoySearchByAreaScreen.kt:38</td><td>1</td><td>Search</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">Fab</td><td class="small">UnifiedSearch.kt:336</td><td>1</td><td>Search</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ResultsBox</td><td class="small">UnifiedSearch.kt:262</td><td>2</td><td>Search</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ResultsList</td><td class="small">ConvoyArtifactsPanel.kt:376</td><td>1</td><td>Search › My routes, tracks, waypoints</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">SearchBar</td><td class="small">UnifiedSearch.kt:172</td><td>2</td><td>Search</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">SearchBlock</td><td class="small">ConvoyArtifactsPanel.kt:286</td><td>2</td><td>Search › My routes, tracks, waypoints</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="s">UnifiedSearch</td><td class="small">UnifiedSearch.kt:64</td><td>5</td><td>Search (bottom bar) — opens search only</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="s">ConvoyServicesChooser</td><td class="small">ConvoyServicesChooser.kt:30</td><td>3</td><td>Startup: online / offline choice (unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="s">ConvoySignInScreen</td><td class="small">ConvoySignInScreen.kt:108</td><td>3</td><td>Startup: sign-in (unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table>
+<h3>6.2 Function by function (all 509)</h3>
+<details><summary><b>AccordionHeader</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:835</td><td>▼</td><td class="small">onClick()</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ActionButton</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDownloadQueuePanel.kt:753</td><td>?</td><td class="small">onClick()</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ActionRow</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTrackDialogs.kt:59</td><td>?</td><td class="small"></td><td>Map: tap a track › its details (rename, share, delete)</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ActiveSlotBar</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDownloadQueuePanel.kt:606</td><td>X</td><td class="small">DownloadQueueManager.cancel(entry.id)</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>AiButton</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyAiDesignPanel.kt:474</td><td>?</td><td class="small">onClick()</td><td>Rides › Create a route › Let the planner build it</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>AiOption</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyAiDesignPanel.kt:398</td><td>?</td><td class="small">onClick()</td><td>Rides › Create a route › Let the planner build it</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>AiTwisty</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyAiDesignPanel.kt:444</td><td>▾</td><td class="small">onToggle()</td><td>Rides › Create a route › Let the planner build it</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ApiKeyDialog</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyMapSourceScreen.kt:1047</td><td>Save</td><td class="small">if (keyText.isNotBlank()) onSave(keyText.trim())</td><td>Map › Map sources</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>ApiKeyRow</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyMapSourceScreen.kt:988</td><td>Key configured</td><td class="small">Row( modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically ) { Icon( if (hasKey) </td><td>Map › Map sources</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>ArtifactDetailPanel</b> — 14 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:169</td><td>CONTINUE</td><td class="small">val f = first!! runCatching { SpatialDbManager.insertWaypoint(thNewName.trim(), f.second, f.first, &quot;trailhead&quot;</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:177</td><td>Cancel</td><td class="small">showThPopup = false</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:201</td><td>CREATE ROUTE &amp; RIDE</td><td class="small">val th = chosenTh!! // FIRSTPOINT-2026-09-27 showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteNa</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:206</td><td>Cancel</td><td class="small">showRideNameDialog = false</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:271</td><td>×</td><td class="small">android.util.Log.i(&quot;ArtifactDetail&quot;, &quot;Preferred name-swap not yet built&quot;)</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:282</td><td>DETAILS</td><td class="small">onDeleteAlias(aId); reloadAliases()</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:338</td><td>CLOSE</td><td class="small">showTech = !showTech</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:361</td><td>CLOSE</td><td class="small">onDismiss(null, null)</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:374</td><td>RENAME</td><td class="small">onRename?.invoke(id, renameText); showRenameDialog = false; onDismiss(null, null)</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:379</td><td>CANCEL</td><td class="small">showRenameDialog = false</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:391</td><td>DELETE</td><td class="small">onDelete?.invoke(id); showDeleteConfirm = false; onDismiss(null, null)</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:396</td><td>CANCEL</td><td class="small">showDeleteConfirm = false</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:411</td><td>CANCEL</td><td class="small">onChangeType?.invoke(id, wType); showTypeChooser = false; onDismiss(null, null)</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ArtifactDetailPanel.kt:419</td><td>CANCEL</td><td class="small">showTypeChooser = false</td><td>Map: tap a feature › its details</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ArtifactListItem</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ArtifactListPanel.kt:189</td><td>Waypoints</td><td class="small">onNameClick()</td><td>FILTER › each type › SELECT (items in view)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ArtifactListPanel</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ArtifactListPanel.kt:88</td><td>SELECT ALL</td><td class="small">onDismiss()</td><td>FILTER › each type › SELECT (items in view)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ArtifactListPanel.kt:102</td><td>DESELECT ALL</td><td class="small">onSelectAll()</td><td>FILTER › each type › SELECT (items in view)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ArtifactListPanel.kt:107</td><td>FIT</td><td class="small">onDeselectAll()</td><td>FILTER › each type › SELECT (items in view)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ArtifactListPanel.kt:113</td><td>No $artifactType in current map view</td><td class="small">onFitToSelected()</td><td>FILTER › each type › SELECT (items in view)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ArtifactRow</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyArtifactsPanel.kt:463</td><td>OFF</td><td class="small">onSetState(typeName, 0)</td><td>FILTER › OFF / ALL / SELECT per type</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyArtifactsPanel.kt:472</td><td>ALL</td><td class="small">onSetState(typeName, 1)</td><td>FILTER › OFF / ALL / SELECT per type</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyArtifactsPanel.kt:490</td><td>SELECT</td><td class="small">onEditDisplay(typeName)</td><td>FILTER › OFF / ALL / SELECT per type</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>BcastNavBtn</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyBroadcastScreen.kt:92</td><td>?</td><td class="small">onClick()</td><td>MENU › Account (unchanged in 2.7c)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>BottomNavBtn</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyMyRidesScreen.kt:144</td><td>?</td><td class="small">onClick()</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>BuildBtn</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyRouteToolbar.kt:391</td><td>?</td><td class="small">onClick()</td><td>Route toolbar while building</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>CartPickerPanel</b> — 6 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyScreen.kt:3674</td><td>CHANGE MY ROLE · now </td><td class="small">onChangeMyRole()</td><td>Group › View checked-in carts / change roles</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3682</td><td>CART ROLES · ${nodes.size} radio</td><td class="small">listOpen = !listOpen</td><td>Group › View checked-in carts / change roles</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3686</td><td>CLOSE</td><td class="small">onDismiss()</td><td>Group › View checked-in carts / change roles</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3710</td><td>REMOVE</td><td class="small">onSelect(node)</td><td>Group › View checked-in carts / change roles</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3726</td><td>○</td><td class="small">onToggleActive(node.nodeId, node.callsign)</td><td>Group › View checked-in carts / change roles</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3743</td><td>✔ checked in    ● not checked in — a bare radio, or a rider </td><td class="small">onToggleActive(rid, rcall)</td><td>Group › View checked-in carts / change roles</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>CheckInSheet</b> — 8 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyCheckIn.kt:113</td><td>All</td><td class="small">rideFilter = &quot;&quot;</td><td>Record button › CHECK IN (ride, role, radio on one screen, then records)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCheckIn.kt:114</td><td>No rides on this tablet.</td><td class="small">rideFilter = o</td><td>Record button › CHECK IN (ride, role, radio on one screen, then records)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCheckIn.kt:127</td><td>No scheduled ride</td><td class="small">chosen = r; picked = true; role = defaultRole(r)</td><td>Record button › CHECK IN (ride, role, radio on one screen, then records)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCheckIn.kt:133</td><td>No scheduled ride</td><td class="small">chosen = null; picked = true</td><td>Record button › CHECK IN (ride, role, radio on one screen, then records)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCheckIn.kt:154</td><td>⛔ </td><td class="small">role = v</td><td>Record button › CHECK IN (ride, role, radio on one screen, then records)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCheckIn.kt:174</td><td>CHOOSE ANOTHER ROLE</td><td class="small">heldWarn = null</td><td>Record button › CHECK IN (ride, role, radio on one screen, then records)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCheckIn.kt:185</td><td>OPEN GRP AWARENESS</td><td class="small">onCancel(); GrpAwarenessLauncher.open()</td><td>Record button › CHECK IN (ride, role, radio on one screen, then records)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCheckIn.kt:199</td><td></td><td class="small">// CHECKINRADIO: a radio is required if (noRideNeedsDefault) { // NORIDEDEFAULT-2026-10-10: the radio back to </td><td>Record button › CHECK IN (ride, role, radio on one screen, then records)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>Chip</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">TrailStylePanel.kt:209</td><td>?</td><td class="small">onClick()</td><td>KEY › STYLE</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>CollapsedPill</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyScreen.kt:3479</td><td>$totalNodes UNITS</td><td class="small">onExpand()</td><td>Readout, collapsed (FILTER › Hide)</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>CompletedItemRow</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDownloadQueuePanel.kt:699</td><td>${entry.label.ifEmpty { </td><td class="small">qdOpen = !qdOpen</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>CompletedRideCard</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyCompletedRidesScreen.kt:402</td><td>COMPLETED</td><td class="small">onClick()</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>CompletionPanel</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">HomeStatePickerScreen.kt:554</td><td>▾  </td><td class="small">showDetail = !showDetail</td><td>Map › Import trail data (one recap)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConfigReviewScreen</b> — 7 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConfigReviewScreen.kt:125</td><td>Saved configs</td><td class="small"></td><td>Group › Radio setups (archive)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConfigReviewScreen.kt:144</td><td>Back to the list</td><td class="small">compared = null; selected = null</td><td>Group › Radio setups (archive)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConfigReviewScreen.kt:149</td><td>Cancel compare</td><td class="small">comparing = false</td><td>Group › Radio setups (archive)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConfigReviewScreen.kt:153</td><td>Apply</td><td class="small">apply(sel)</td><td>Group › Radio setups (archive)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConfigReviewScreen.kt:154</td><td>Compare with…</td><td class="small">comparing = true</td><td>Group › Radio setups (archive)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConfigReviewScreen.kt:155</td><td>Cancel</td><td class="small">selected = null</td><td>Group › Radio setups (archive)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConfigReviewScreen.kt:173</td><td>Identical.</td><td class="small">tap(k)</td><td>Group › Radio setups (archive)</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>ConfirmDialog</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDownloadQueuePanel.kt:542</td><td>PROCEED</td><td class="small">onConfirm(); onDismiss()</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ConvoyAiDesignPanel</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyAiDesignPanel.kt:321</td><td>Saved as work in progress under “$label”. Open one to see it</td><td class="small">onClose()</td><td>Rides › Create a route › Let the planner build it (its questions on the first screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyAiDesignPanel.kt:383</td><td>Close</td><td class="small">onClose()</td><td>Rides › Create a route › Let the planner build it (its questions on the first screen)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyAiStepPanel</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyAiStepPanel.kt:177</td><td>I understand this process — do not show the overview </td><td class="small">onDontShowAgain(!dontShowAgain)</td><td>Rides › Create a route › Let the planner build it</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyArtifactsPanel</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyArtifactsPanel.kt:111</td><td>?</td><td class="small">onDismiss()</td><td>(closes the panel — retired with it)</td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="small">ConvoyArtifactsPanel.kt:159</td><td>+ ROUTE</td><td class="small">onDismiss(); onCreateRoute()</td><td>Rides › Create a route</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyArtifactsPanel.kt:235</td><td>IMPORT TRAILS BY\nSTATE OR AREA</td><td class="small">onImport(&quot;Trails&quot;)</td><td>Map › Import trail data</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyArtifactsPanel.kt:254</td><td>IMPORT TRACKS,\nWAYPOINTS &amp; ROUTES</td><td class="small">onImport(&quot;Artifacts&quot;)</td><td>Map › Import GPX</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>ConvoyBatchGridPanel</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyBatchGridPanel.kt:214</td><td>✕</td><td class="small">onExit()</td><td>Rides › Create a route › planner results: Review and Compare (on the map)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyBatchGridPanel.kt:235</td><td>▾ Hide</td><td class="small">onToggleShown(r.name)</td><td>Rides › Create a route › planner results: Review and Compare (on the map)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyBatchGridPanel.kt:265</td><td>Miles</td><td class="small">tableOpen = !tableOpen</td><td>Rides › Create a route › planner results: Review and Compare (on the map)</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ConvoyBroadcastScreen</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyBroadcastScreen.kt:68</td><td>SEND BROADCAST</td><td class="small">broadcastSent = true android.widget.Toast.makeText(context, &quot;Broadcast queued — Phase C&quot;, android.widget.Toast</td><td>MENU › Account (unchanged in 2.7c)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyButtonBar</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyScreen.kt:3791</td><td>VIEW\nCART\nROLES</td><td class="small">action()</td><td>Group › View checked-in carts / change roles</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3818</td><td>VIEW\nCART\nROLES</td><td class="small">onSelectCart()</td><td>Group › View checked-in carts / change roles</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3837</td><td>HIDE</td><td class="small">onModeChange(HudMode.COLLAPSED)</td><td>FILTER › Hide</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3855</td><td>⚙</td><td class="small">onNavigateToSettings()</td><td>MENU › Settings</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>ConvoyCompletedRideDetailScreen</b> — 7 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyCompletedRideDetailScreen.kt:70</td><td>← BACK</td><td class="small">onBack()</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRideDetailScreen.kt:121</td><td>POST-RIDE ACTIONS</td><td class="small">launchEmail(ride[&quot;email&quot;] ?: &quot;&quot;)</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRideDetailScreen.kt:136</td><td>VIEW ON MAP</td><td class="small">onNavigateToMap()</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRideDetailScreen.kt:151</td><td>DOWNLOAD TRACKS</td><td class="small">/* Phase C: download GPX/KML to my_tracks */</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRideDetailScreen.kt:166</td><td>SURVEY + COMMENTS</td><td class="small">surveyExpanded = !surveyExpanded</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRideDetailScreen.kt:189</td><td>TRAIL COMMENTS</td><td class="small">surveyRating = star</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRideDetailScreen.kt:216</td><td>SAVE SURVEY</td><td class="small">surveySaved = true // Phase C: POST /rides/{rideId}/survey</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyCompletedRidesScreen</b> — 7 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyCompletedRidesScreen.kt:96</td><td>← BACK</td><td class="small">onBack()</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRidesScreen.kt:114</td><td>HISTORY</td><td class="small">activeTab = tab</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRidesScreen.kt:136</td><td>Search ride name</td><td class="small">onNavigateToDetail(ride.id)</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRidesScreen.kt:172</td><td>Enter a ride name to search</td><td class="small">onNavigateToDetail(ride.id)</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRidesScreen.kt:194</td><td>${orgRides.size} RIDE${if (orgRides.size != 1) </td><td class="small">orgExpanded[id] = !expanded</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRidesScreen.kt:221</td><td>From MM/DD/YYYY</td><td class="small">onNavigateToDetail(ride.id)</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRidesScreen.kt:278</td><td>Enter a date range to search</td><td class="small">onNavigateToDetail(ride.id)</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyCorridorPicker</b> — 6 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyCorridorPicker.kt:165</td><td>ALL</td><td class="small">if (allChecked) selected.clear() else { selected.clear() selected.addAll(tracks.map { it.geomHash }) }</td><td>Map › Download maps for offline › Where: Along a route</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCorridorPicker.kt:202</td><td>(unnamed)</td><td class="small">if (checked) selected.remove(t.geomHash) else selected.add(t.geomHash)</td><td>Map › Download maps for offline › Where: Along a route</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCorridorPicker.kt:240</td><td>?</td><td class="small">if (on) selectedSlots.remove(slot.slotName) else selectedSlots.add(slot.slotName)</td><td>Map › Download maps for offline › Where: Along a route</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCorridorPicker.kt:277</td><td>Replace existing tiles</td><td class="small">replaceExisting = !replaceExisting</td><td>Map › Download maps for offline › Where: Along a route</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCorridorPicker.kt:306</td><td>CANCEL</td><td class="small">onCancel()</td><td>Map › Download maps for offline › Where: Along a route</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCorridorPicker.kt:318</td><td>CONTINUE</td><td class="small">onProceed(selected.toList(), selectedSlots.toList(), replaceExisting)</td><td>Map › Download maps for offline › Where: Along a route</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyCreateEventScreen</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyCreateEventScreen.kt:107</td><td>CREATE EVENT / RIDE</td><td class="small">onBack()</td><td>Rides › Create a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCreateEventScreen.kt:254</td><td>PROCEED →</td><td class="small">onBack()</td><td>Rides › Create a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCreateEventScreen.kt:277</td><td>Complete enrollment before creating an event.</td><td class="small">if (!canCreate) { statusMsg = when { organizer == null -&gt; &quot;Complete enrollment before creating an event.&quot; mast</td><td>Rides › Create a ride</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyCreateRideScreen</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyCreateRideScreen.kt:96</td><td>← BACK</td><td class="small">onBack()</td><td>Rides › Create a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCreateRideScreen.kt:243</td><td>PROCEED →</td><td class="small">onRideCreated()</td><td>Rides › Create a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyCreateRideScreen.kt:268</td><td></td><td class="small">scope.launch { isProcessing = true statusMsg = &quot;&quot; try { step = 1 val hwId = viewModel?.rideHardwareId() ?: &quot;un</td><td>Rides › Create a ride</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyDashboardScreen</b> — 14 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:129</td><td>RIDER</td><td class="small">onNavigateToProfile()</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:150</td><td>RIDER</td><td class="small">activeRole = &quot;RIDER&quot;</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:160</td><td>ORGANIZER</td><td class="small">activeRole = &quot;ORGANIZER&quot;</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:178</td><td>DEV</td><td class="small">onNavigateToCreateRide(null)</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:188</td><td>SUBSCRIBE $3/mo</td><td class="small">showDevMenu = true</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:198</td><td>PROFILE →</td><td class="small">onShowSubscription()</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:204</td><td>DEV MENU</td><td class="small">onNavigateToProfile()</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:227</td><td>ORGANIZER OPEN RIDES</td><td class="small">action(); showDevMenu = false</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:260</td><td>ORGANIZER</td><td class="small">notifExpanded = !notifExpanded</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:287</td><td> · $trailhead</td><td class="small">onNavigateToRides()</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:354</td><td>ride</td><td class="small">inviteExpanded = !inviteExpanded</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:403</td><td>SEE ALL</td><td class="small">ridesExpanded = !ridesExpanded</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:409</td><td>time</td><td class="small">onNavigateToRides()</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:463</td><td>PUBLIC RIDES NEAR ME</td><td class="small">nearMeExpanded = !nearMeExpanded</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyDisplayPanel</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDisplayPanel.kt:78</td><td>DISPLAY</td><td class="small">expanded = !expanded</td><td>FILTER</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyDocsChooser</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDocs.kt:85</td><td>Cancel</td><td class="small">onPick(key)</td><td>MENU › Help (the three documents); context help = MANUAL on every panel and first screen</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>ConvoyDownloadConfirm</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDownloadConfirm.kt:85</td><td> → </td><td class="small">selectedSlots = if (checked) selectedSlots - slot.slotName else selectedSlots + slot.slotName</td><td>Map › Download maps for offline (the estimate is on the first screen; the confirm shows only for a large download)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyDownloadConfirm.kt:145</td><td>CANCEL</td><td class="small">showDetail = !showDetail</td><td>Map › Download maps for offline (the estimate is on the first screen; the confirm shows only for a large download)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyDownloadConfirm.kt:154</td><td>PROCEED</td><td class="small">onProceed(bbox, selectedSlots.toList(), replaceExisting)</td><td>Map › Download maps for offline (the estimate is on the first screen; the confirm shows only for a large download)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyDownloadPanel</b> — 6 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDownloadPanel.kt:165</td><td>MAP CONTROLS</td><td class="small">expandMapControls = !expandMapControls</td><td>Map › Download maps for offline</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyDownloadPanel.kt:225</td><td>SELECT TILES / ARTIFACTS</td><td class="small">expandSelectTypes = !expandSelectTypes</td><td>Map › Download maps for offline</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyDownloadPanel.kt:314</td><td>DRAW AREA</td><td class="small">expandDrawArea = !expandDrawArea</td><td>Map › Download maps for offline</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyDownloadPanel.kt:425</td><td>MAP RECOVERY</td><td class="small">expandRecovery = !expandRecovery</td><td>Map › Map sources › Rebuild a source (map recovery)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyDownloadPanel.kt:468</td><td>SHOW DOWNLOADS</td><td class="small">expandShowDownloads = !expandShowDownloads</td><td>Map › Download maps for offline › show what you hold (blue) and what is coming (red)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyDownloadPanel.kt:490</td><td>REFRESH DOWNLOADS</td><td class="small">onShowDownloadedMaps(true) onShowMapsInQueue(true)</td><td>Map › Download maps for offline › show what you hold (blue) and what is coming (red)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyDownloadRideConfigScreen</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDownloadRideConfigScreen.kt:85</td><td>← BACK</td><td class="small">onBack()</td><td>Rides › Import a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyDownloadRideConfigScreen.kt:140</td><td>${ride[</td><td class="small">selectedId = rid; downloadStatus = &quot;idle&quot;</td><td>Rides › Import a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyDownloadRideConfigScreen.kt:221</td><td>✕  CANCEL — SELECT A DIFFERENT RIDE</td><td class="small">selectedId = null; downloadStatus = &quot;idle&quot;</td><td>Rides › Import a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyDownloadRideConfigScreen.kt:238</td><td>id</td><td class="small">val ride = eligibleRides.firstOrNull { it[&quot;id&quot;] == selectedId } if (ride == null || organizer == null || maste</td><td>Rides › Import a ride</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyEmailGateScreen</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyEmailGateScreen.kt:159</td><td>CONTINUE</td><td class="small">validate()</td><td>Rides › My rides › Send</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyEmailGateScreen.kt:219</td><td>RETRY</td><td class="small">state = GateState.Idle</td><td>Rides › My rides › Send</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyEmailGateScreen.kt:228</td><td>CREATE NEW USER</td><td class="small">onCreateNewUser(email.trim())</td><td>Rides › My rides › Send</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyEmailGateScreen.kt:291</td><td>UPGRADE &amp; CONTINUE</td><td class="small">// Upgrade user to ORGANIZER in local store val upgraded = s.user.copy(userType = ConvoyUserType.ORGANIZER) Co</td><td>Rides › My rides › Send</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyEnrollmentScreen</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyEnrollment.kt:134</td><td>🎯</td><td class="small">userType = type</td><td>MENU › Account (unchanged in 2.7c) › Enrollment</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyEnrollment.kt:241</td><td>CREATE PROFILE</td><td class="small">if (!allFilled) { errorMsg = &quot;All fields are required.&quot; } else { val user = ConvoyUser.create( userType = user</td><td>MENU › Account (unchanged in 2.7c) › Enrollment</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyExploreScreen</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyExploreScreen.kt:21</td><td>← BACK</td><td class="small">onBack()</td><td>MENU › Account (unchanged in 2.7c) › Explore</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyFieldRadioScreen</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyFieldRadioScreen.kt:89</td><td>← BACK</td><td class="small">/* PB-07 — requires active ride download */</td><td>Group › GRP Awareness (offline radio start)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyFieldRadioScreen.kt:107</td><td>← BACK</td><td class="small">onBack()</td><td>Group › GRP Awareness (offline radio start)</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>ConvoyInviteSendScreen</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyInviteSendScreen.kt:62</td><td>COPY &amp; SHARE LINK</td><td class="small">android.widget.Toast.makeText(context, &quot;Share sheet — Phase C&quot;, android.widget.Toast.LENGTH_SHORT).show()</td><td>Rides › My rides › Send</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyMapBar</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyMapBar.kt:56</td><td>&lt;  $navLabel</td><td class="small">onNavigate()</td><td>Retired: one map (no Ride Planning / Back to Ride switch)</td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="small">ConvoyMapBar.kt:87</td><td>LOCAL</td><td class="small">onSourceChange(label)</td><td>Right column › INTERNET ON / OFF</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>ConvoyMapSourceScreen</b> — 7 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyMapSourceScreen.kt:183</td><td>Sources requiring API keys. Enter key to unlock.</td><td class="small">selectedSlot = slotKey</td><td>Map › Map sources (moved from Settings)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapSourceScreen.kt:206</td><td>&lt; Back to slots</td><td class="small">showApiKeyDialog = source.id</td><td>Map › Map sources (moved from Settings)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapSourceScreen.kt:219</td><td>&lt; Back to slots</td><td class="small">selectedSlot = null</td><td>Map › Map sources (moved from Settings)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapSourceScreen.kt:250</td><td></td><td class="small">if (isAvailable) { applySource(slotKey, source.id) } else { showApiKeyDialog = source.id }</td><td>Map › Map sources (moved from Settings)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapSourceScreen.kt:313</td><td>NEXT STEP</td><td class="small">showPanel = true</td><td>Map › Map sources (moved from Settings)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapSourceScreen.kt:465</td><td>slot</td><td class="small">val record = ConvoySourceMigration.inProgress().firstOrNull { f -&gt; ConvoySourceMigration.read(f)?.optString(&quot;s</td><td>Map › Map sources (moved from Settings)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapSourceScreen.kt:762</td><td>OK</td><td class="small">showPanel = false clearResult = null refreshSlot = null</td><td>Map › Map sources (moved from Settings)</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>ConvoyMapViewerScreen</b> — 53 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:983</td><td>Reading the store...</td><td class="small">recreateSlot = key</td><td>Map › Map sources › Rebuild a source (map recovery)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:1043</td><td>PROCEED TO COPY</td><td class="small">showRecreateResults = false recreateSourceChecked = false // RECREATE-2026-08-11G: submit. Off the main thread</td><td>Map › Map sources › Rebuild a source (map recovery)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:1061</td><td>CANCEL</td><td class="small">showRecreateResults = false recreateSourceChecked = false</td><td>Map › Map sources › Rebuild a source (map recovery)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:1160</td><td>Save or discard your in-progress route first</td><td class="small">if (routeMode) { android.widget.Toast.makeText(context, &quot;Save or discard your in-progress route first&quot;, androi</td><td>Rides › Create a route (guard: finish or discard the route in progress)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:1173</td><td>QUEUES</td><td class="small">pmActiveSource = label; ConvoyConfig.ACTIVE_TILE_SOURCE = label val url = MapSourceManager.getSlotSources().fi</td><td>Map › Map type (SAT / TOPO / TOPO+)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:1194</td><td>New Waypoint</td><td class="small">pmQueuesOpen = !pmQueuesOpen</td><td>Map › Queues</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:1217</td><td>Name (optional)</td><td class="small">newWaypointType = key otherConfirm = false if (newWaypointName.isBlank() || WAYPOINT_TYPES.any { it.second.sub</td><td>Map: long press › New waypoint</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:1238</td><td>other</td><td class="small">if (newWaypointType == &quot;other&quot; &amp;&amp; !otherConfirm) { otherConfirm = true; return@TextButton } // WPTTAP-2026-09-</td><td>Map: long press › New waypoint</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:1287</td><td>Cancel</td><td class="small">pendingWaypoint = null newWaypointName = &quot;&quot; newWaypointType = &quot;trailhead&quot;; otherConfirm = false</td><td>Map: long press › New waypoint</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:2019</td><td>Map Keys</td><td class="small">legendExpanded = true</td><td>KEY</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:2041</td><td>Work with Rides</td><td class="small">com.geeksville.mesh.convoy.WorkWithRidesLauncher.open()</td><td>Rides (bottom bar)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:2064</td><td>GRP Awareness</td><td class="small">com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() // GRPAWARE: the panel (MESHTASTIC in it = the old unfo</td><td>Group › GRP Awareness</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:2090</td><td>Help</td><td class="small">showDocsChooser = true</td><td>MENU › Help, and MANUAL on every panel</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:2111</td><td>Map Features</td><td class="small">showArtifactsPanel = true</td><td>Split: FILTER (what shows) · Rides › Create a route · Map › Import trail data / Import GPX</td><td class="SPLIT">SPLIT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:2156</td><td>Release Notes</td><td class="small">showDocsChooser = false; docsView = &quot;notes&quot;</td><td>MENU › Help, and MANUAL on every panel</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:2161</td><td>Full Manual</td><td class="small">showDocsChooser = false; docsView = &quot;manual&quot;</td><td>MENU › Help, and MANUAL on every panel</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:2179</td><td>Close</td><td class="small">docsView = null</td><td>MENU › Help, and MANUAL on every panel</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:2223</td><td>No downloads in queue</td><td class="small">pmQueuesOpen = false</td><td>Map › Queues</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:2535</td><td>ROUTE DETAILS</td><td class="small">showWipNotes = true</td><td>Route toolbar › ROUTE DETAILS (while building)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:2567</td><td>CREATE TRAILHEAD</td><td class="small">val f = RouteManager.routeVertices().firstOrNull() routeThPrompt = false if (f != null) scope.launch { val ok </td><td>Rides › Create a route › save: the first point becomes the trailhead (CREATE TRAILHEAD)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:2583</td><td>Cancel</td><td class="small">routeThPrompt = false</td><td>Rides › Create a route › save: the first point becomes the trailhead (CREATE TRAILHEAD)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:3281</td><td>BY STATE</td><td class="small">showTrailImportSelector = false showAnyStatePicker = true</td><td>Map › Import trail data › Where: By state / By area</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:3298</td><td>BY AREA</td><td class="small">showTrailImportSelector = false panelTrailsChecked = true showDownloadPanel = true</td><td>Map › Import trail data › Where: By state / By area</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:3315</td><td>Cancel</td><td class="small">showTrailImportSelector = false</td><td>Map › Import trail data › Where: By state / By area</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:3596</td><td>Save</td><td class="small">batchAreaPrompt = false runBatchSave(batchAreaName)</td><td>Rides › Create a route › planner results: save or delete the compare set</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:3603</td><td>Cancel</td><td class="small">batchAreaPrompt = false</td><td>Rides › Create a route › planner results: save or delete the compare set</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:3619</td><td>Delete</td><td class="small">batchDeleteConfirm = false runBatchSave(&quot;&quot;)</td><td>Rides › Create a route › planner results: save or delete the compare set</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:3626</td><td>Cancel</td><td class="small">batchDeleteConfirm = false</td><td>Rides › Create a route › planner results: save or delete the compare set</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:3743</td><td>A route is already in progress -- resolve it first</td><td class="small">showEntryChoice = false // [routeplus-resolver 2026-08-01] Guard: New Route writes to the // UNNAMED filename.</td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:3767</td><td>In Progress</td><td class="small">showEntryChoice = false android.util.Log.i(&quot;PanelTrace&quot;, &quot;PICKER &lt;- true&quot;); showInProgressPicker = true</td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:3880</td><td>Start</td><td class="small">// name is REQUIRED -- blank is rejected (no auto-fill). if (routeName.isBlank()) { routeNameTaken = true // r</td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:3899</td><td>Cancel</td><td class="small">showNameDialog = false</td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4149</td><td>Save as completed route</td><td class="small">val nm = routeName.trim() if (nm.isBlank() || nm == &quot;Auto Saved In Progress&quot;) { android.widget.Toast.makeText(</td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4170</td><td>Auto Saved In Progress</td><td class="small">val nm = routeName.trim() if (nm.isBlank() || nm == &quot;Auto Saved In Progress&quot;) { android.widget.Toast.makeText(</td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4209</td><td>trail_id</td><td class="small">showDiscardChoice = false // true roll-back: reload the saved draft, drop this session&#x27;s edits, KEEP building </td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4229</td><td>Roll back</td><td class="small">showDiscardChoice = false // DISCARDWINS-2026-08-13C: ORDER MATTERS, AND SO DOES THE NAME. // // Autosave is a</td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4294</td><td>Keep</td><td class="small">val nm = draftResolveName.trim() if (nm.isBlank()) { draftResolveErr = &quot;Enter a name&quot; } else if (RouteDraftSto</td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4310</td><td>Discard</td><td class="small">RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED) // LISTTICK-2026-08-13G: the In-Progress list is keyed on</td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4344</td><td>OK</td><td class="small">recoveryPending = false</td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4394</td><td>draw</td><td class="small">val od = RouteDraftStore.loadIntoRouteManager(d) routeName = d routeMethod = when (od?.method) { &quot;draw&quot; -&gt; ROU</td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4436</td><td>Delete</td><td class="small">// BATCHGUARD-2026-10-07 (Fred): never delete one route of an open compare set if (RouteDraftStore.isInOpenBat</td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4453</td><td>+ Plan a New Route</td><td class="small">if (RouteDraftStore.draftExists(RouteDraftStore.UNNAMED)) { android.widget.Toast.makeText(context, &quot;Rename or </td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4471</td><td>Cancel</td><td class="small">android.util.Log.i(&quot;PanelTrace&quot;, &quot;PICKER &lt;- false&quot;); showInProgressPicker = false; routeMode = rmTrace(false, </td><td>Rides › Create a route (first screen: new, or resume a draft) → route toolbar (save, in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4756</td><td>RESYNC TRACKS TO SPATIAL DB</td><td class="small">showImportList = false</td><td>Map › Import GPX</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4761</td><td>RESYNC TRACKS TO SPATIAL DB</td><td class="small">scope.launch { val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SpatialDbManager.in</td><td>MENU › Settings › Storage &amp; data › Resync tracks</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:4797</td><td>Tap file to import. Tracks, waypoints, and routes are extrac</td><td class="small">runImport(name)</td><td>Map › Import GPX</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:5010</td><td>DONE</td><td class="small">showMigrateGate = false removeTrackChecked = false migrateDone = false migrateSteps = listOf() migratePreview </td><td>Map › Map sources › change a source (clear or keep tiles)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:5022</td><td>SAT</td><td class="small">// PAST THIS POINT THERE ARE NO MORE GATES. // Stopping after the delete would strand the user // with removed</td><td>Map › Map sources › change a source (clear or keep tiles)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:5083</td><td>CANCEL</td><td class="small">// Nothing has been destroyed. Release the queue so // backing out does not leave it held. scope.launch { with</td><td>Map › Map sources › change a source (clear or keep tiles)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:5184</td><td>DownloadPanel</td><td class="small">if (panelTrailsChecked &amp;&amp; downloadBbox.isValid) { // TRAILSELECT-2026-08-21D: THE EXIT THAT ACTUALLY FIRES. //</td><td>Map › Download maps for offline</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:5243</td><td>CANCEL</td><td class="small">showRemoveTilesConfirm = false panelRemoveTilesChecked = false val bb = downloadBbox Thread { DownloadQueueMan</td><td>Map › Download maps for offline › Remove tiles from an area</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:5257</td><td>:1136</td><td class="small">showRemoveTilesConfirm = false</td><td>Map › Download maps for offline › Remove tiles from an area</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyMapViewerScreen.kt:5503</td><td>MAPS</td><td class="small">showDownloadPanel = !showDownloadPanel</td><td>Map › Download maps for offline</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>ConvoyMyOrganizersScreen</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyMyOrganizersScreen.kt:78</td><td>← BACK</td><td class="small">onBack()</td><td>MENU › Account (unchanged in 2.7c) › My organizers</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyMyOrganizersScreen.kt:96</td><td>FOLLOWING</td><td class="small">activeTab = tab</td><td>MENU › Account (unchanged in 2.7c) › My organizers</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyMyOrganizersScreen.kt:146</td><td>Phase C: list populated from GET /users?is_organizer=1 filte</td><td class="small">scope.launch { val userId = ConvoySessionManager.getUserId(context) ?: return@launch if (isFollowing) { Convoy</td><td>MENU › Account (unchanged in 2.7c) › My organizers</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyMyRidesScreen</b> — 5 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyMyRidesScreen.kt:66</td><td>No rides in this category</td><td class="small">selectedTab = i</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyMyRidesScreen.kt:86</td><td>${ride[</td><td class="small">onNavigateToRideDetail()</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyMyRidesScreen.kt:118</td><td>Following organizer</td><td class="small"></td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyMyRidesScreen.kt:118</td><td>Following organizer</td><td class="small"></td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyMyRidesScreen.kt:122</td><td>Following organizer</td><td class="small">isFollowing = !isFollowing</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyNotesPanel</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyNotesPanel.kt:141</td><td>CLOSE</td><td class="small">onClose()</td><td>Rides › Create a route › ROUTE DETAILS (route toolbar while building)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyNotesPanel.kt:173</td><td>${s.lines.size}</td><td class="small">open = !open</td><td>Rides › Create a route › ROUTE DETAILS (route toolbar while building)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyNotesPanel.kt:258</td><td>?</td><td class="small">action()</td><td>Rides › Create a route › ROUTE DETAILS (route toolbar while building)</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ConvoyOrganizerPendingRides</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyPendingRidesScreen.kt:113</td><td>PENDING</td><td class="small">onNavigateToCreateRide(ride.first)</td><td>MENU › Account (unchanged in 2.7c) › Organizer rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyPinMileageHud</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyGuidedPinPanel.kt:300</td><td>up to </td><td class="small">onCeilingChange(-5)</td><td>Rides › Create a route › planner: points to cover (on the map while building)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyGuidedPinPanel.kt:307</td><td>+</td><td class="small">onCeilingChange(5)</td><td>Rides › Create a route › planner: points to cover (on the map while building)</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ConvoyPrivacyScreen</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyPrivacyScreen.kt:37</td><td>You must accept the Privacy Policy to use GroupTrack platfor</td><td class="small">ConvoySessionManager.acceptPrivacy(context); onAccept()</td><td>MENU › Account (unchanged in 2.7c) › Terms and privacy (first-run gate unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyProfileScreen</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyProfileScreen.kt:162</td><td>SAVE PROFILE</td><td class="small">/* Phase C: PUT /users/profile */</td><td>MENU › Account (unchanged in 2.7c) › Profile</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyProfileScreen.kt:195</td><td>Ride History</td><td class="small">/* Phase C: navigate to s07 */</td><td>MENU › Account (unchanged in 2.7c) › Profile</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyProfileScreen.kt:209</td><td>Following</td><td class="small">/* Phase C: navigate to s08 */</td><td>MENU › Account (unchanged in 2.7c) › Profile</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyQueuesPanel</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyQueuesPanel.kt:31</td><td>QUEUES</td><td class="small">expanded = !expanded</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ConvoyRideCreateScreen</b> — 8 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyRideCreateScreen.kt:197</td><td>← BACK</td><td class="small">onBack()</td><td>Rides › Create a ride (one screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyRideCreateScreen.kt:253</td><td>Network assigned: </td><td class="small">// EDITRIDE: a ride&#x27;s network is not changed here useDefaultNetwork = opt == 0 newNetworkForRide = opt == 2 if</td><td>Rides › Create a ride (one screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyRideCreateScreen.kt:284</td><td>No trailhead waypoint near this route&#x27;s start. Describe wher</td><td class="small">showDatePicker = true</td><td>Rides › Create a ride (one screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyRideCreateScreen.kt:314</td><td>No routes yet — build one in the planner, or convert a track</td><td class="small">trailhead = c</td><td>Rides › Create a ride (one screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyRideCreateScreen.kt:333</td><td>›</td><td class="small">routeId = r.routeId; routeName = r.name; pickerOpen = false</td><td>Rides › Create a ride (one screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyRideCreateScreen.kt:356</td><td>CHANGE ROUTE</td><td class="small">android.widget.Toast.makeText(context, &quot;A ride&#x27;s route can&#x27;t be changed. To use a &quot; + &quot;different route, delete</td><td>Rides › Create a ride (one screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyRideCreateScreen.kt:380</td><td>✗ Cannot save yet — a ride needs a name.</td><td class="small">// SAVEWHY-2026-09-23: the high-visibility palette hides a disabled button, so Save // is always tappable and </td><td>Rides › Create a ride (one screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyRideCreateScreen.kt:447</td><td>CANCEL</td><td class="small">rideNetwork?.let { ConvoyNetworkStore.deleteUnused(it.configId) } // FORMLAYOUT-2026-09-27: no ghost network o</td><td>Rides › Create a ride (one screen)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyRideDetailScreen</b> — 8 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyRideDetailScreen.kt:144</td><td>← BACK</td><td class="small">onBack()</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyRideDetailScreen.kt:180</td><td>CHANGE</td><td class="small">showChangeForm = !showChangeForm</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyRideDetailScreen.kt:206</td><td>FOLLOW</td><td class="small">launchEmail(orgEmail)</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyRideDetailScreen.kt:225</td><td>✓</td><td class="small">toggleFollow()</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyRideDetailScreen.kt:278</td><td>SAVE — NOTIFY ALL RIDERS</td><td class="small">rideDate = editDate arriveTime = editArrive rolloutTime = editRollout description = editDesc showChangeForm = </td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyRideDetailScreen.kt:292</td><td>CLOSE RIDE</td><td class="small">rideStatus = &quot;closed&quot;; showChangeForm = false</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyRideDetailScreen.kt:300</td><td>CANCEL RIDE</td><td class="small">rideStatus = &quot;cancelled&quot;; showChangeForm = false</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyRideDetailScreen.kt:314</td><td>RIDE AREA MAP</td><td class="small">showMap = !showMap</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ConvoyRiderProfileScreen</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyRiderProfileScreen.kt:128</td><td>Team colour on the map</td><td class="small">role = key</td><td>MENU › Account (unchanged in 2.7c) › Profile</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyRiderProfileScreen.kt:147</td><td>This stays on your tablet. GroupTrack uses it only to identi</td><td class="small">team = name</td><td>MENU › Account (unchanged in 2.7c) › Profile</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyRiderProfileScreen.kt:179</td><td>Cancel</td><td class="small">onCancel?.invoke()</td><td>MENU › Account (unchanged in 2.7c) › Profile</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyRiderProfileScreen.kt:188</td><td>Could not save -- check the callsign and email.</td><td class="small">val id = ConvoyProfileStore.save( RiderProfile( firstName = firstName.trim(), lastName = lastName.trim(), call</td><td>MENU › Account (unchanged in 2.7c) › Profile</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyRidesScreen</b> — 5 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyRidesScreen.kt:78</td><td>SEARCH RIDES BY AREA</td><td class="small">onNavigateToCompletedRides(&quot;HISTORY&quot;)</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyRidesScreen.kt:90</td><td>SEARCH BY ORGANIZER</td><td class="small"></td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyRidesScreen.kt:102</td><td>SEARCH BY NAME</td><td class="small">onNavigateToCompletedRides(&quot;BY ORGANIZER&quot;)</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyRidesScreen.kt:113</td><td>SEARCH BY DATE RANGE</td><td class="small">onNavigateToCompletedRides(&quot;BY NAME&quot;)</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyRidesScreen.kt:119</td><td>BY DATE</td><td class="small">onNavigateToCompletedRides(&quot;BY DATE&quot;)</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyRouteToolbar</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyRouteToolbar.kt:179</td><td>✕</td><td class="small">minimized = !minimized</td><td>Rides › Create a route → the route toolbar on the map while building</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyRouteToolbar.kt:183</td><td>✕</td><td class="small">minimized = !minimized</td><td>Rides › Create a route → the route toolbar on the map while building</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyRouteToolbar.kt:196</td><td>✕</td><td class="small">onClose()</td><td>Rides › Create a route → the route toolbar on the map while building</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyRouteToolbar.kt:209</td><td>METHOD</td><td class="small">if (!methodOpen) { if (vertexCount &gt; 0) onMethodLockedTap() else methodOpen = true }</td><td>Rides › Create a route → the route toolbar on the map while building</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ConvoyScreen</b> — 44 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyScreen.kt:611</td><td>Grant</td><td class="small">showStoragePermissionDialog = false try { val intent = android.content.Intent( android.provider.Settings.ACTIO</td><td>Android permission prompt (unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:628</td><td>Later</td><td class="small">showStoragePermissionDialog = false</td><td>Android permission prompt (unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:646</td><td>OK</td><td class="small">viewModel.clearPendingDownload()</td><td>Map › Download maps for offline (from a route’s popup) → Map › Queues</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:678</td><td>DOWNLOAD</td><td class="small">viewModel.startDownload(context, pending) coroutineScope.launch { convoyMenuSheetState.hide() } android.widget</td><td>Map › Download maps for offline (from a route’s popup) → Map › Queues</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:687</td><td>CANCEL</td><td class="small">viewModel.clearPendingDownload()</td><td>Map › Download maps for offline (from a route’s popup) → Map › Queues</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:701</td><td>OK</td><td class="small">viewModel.cancelDownload()</td><td>Map › Download maps for offline (from a route’s popup) → Map › Queues</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:774</td><td>YES, DELETE</td><td class="small">showConfirmDelete = false showNameDialog = false viewModel.deleteTempTrack()</td><td>Record button › END RIDE › DELETE confirm (the one confirm kept)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:781</td><td>NO, GO BACK</td><td class="small">// Back to naming — track is NOT deleted. showConfirmDelete = false</td><td>Record button › END RIDE › DELETE confirm (the one confirm kept)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1467</td><td>OK</td><td class="small">noPosDismissed = true</td><td>GPS light (top centre): first no-fix message (unchanged)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1489</td><td>OK</td><td class="small">netPosAck = true</td><td>GPS light (top centre): first no-fix message (unchanged)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1494</td><td>Don&#x27;t show again</td><td class="small">nogpsContext.getSharedPreferences( &quot;grouptrack_device&quot;, android.content.Context.MODE_PRIVATE ).edit().putBoole</td><td>GPS light (top centre): first no-fix message (unchanged)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1522</td><td>Name (optional)</td><td class="small">newWaypointType = key otherConfirm = false if (newWaypointName.isBlank() || WAYPOINT_TYPES.any { it.second.sub</td><td>Map: long press › New waypoint</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1543</td><td>other</td><td class="small">if (newWaypointType == &quot;other&quot; &amp;&amp; !otherConfirm) { otherConfirm = true; return@TextButton } // WPTTAP-2026-09-</td><td>Map: long press › New waypoint</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1564</td><td>Cancel</td><td class="small">pendingWaypoint = null newWaypointName = &quot;&quot; newWaypointType = &quot;trailhead&quot;; otherConfirm = false</td><td>Map: long press › New waypoint</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1582</td><td>SETTINGS</td><td class="small">showLocationPermissionDialog = false bgLocationLauncher.launch(android.Manifest.permission.ACCESS_BACKGROUND_L</td><td>Android permission prompt (unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1588</td><td>CANCEL</td><td class="small">showLocationPermissionDialog = false</td><td>Android permission prompt (unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1618</td><td> set as Lead Cart</td><td class="small">viewModel.setLeadCart(node.nodeId) showLeadDialog = false recordingState = RecordingState.RECORDING viewModel.</td><td>Record button › CHECK IN: the Leader role is the lead (the lead question stays only when no Leader is known — confirm in phase 2)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1648</td><td>CANCEL</td><td class="small">showLeadDialog = false</td><td>Record button › CHECK IN: the Leader role is the lead (the lead question stays only when no Leader is known — confirm in phase 2)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1668</td><td>No scheduled ride</td><td class="small">when (recordingState) { RecordingState.CHECK_IN -&gt; { // CHECKIN-2026-09-27: no recording before check-in // SO</td><td>Record button (CHECK IN / REC / END RIDE) and the pause banner (CONTINUE)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1753</td><td>▶  CONTINUE</td><td class="small">if (recordingState == RecordingState.PAUSED) { recordingState = RecordingState.RECORDING viewModel.resumeRecor</td><td>Record button (CHECK IN / REC / END RIDE) and the pause banner (CONTINUE)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1772</td><td>⏹  END</td><td class="small">recordingState = RecordingState.CHECK_IN // CHECKIN-2026-09-27: each recording starts with its own check-in sh</td><td>Record button (CHECK IN / REC / END RIDE) and the pause banner (CONTINUE)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1847</td><td>Sleeping</td><td class="small">coroutineScope.launch { viewModel.wakeRadio() // SLEEPCOMM-2026-10-14 viewModel.wakeFromSleep(context) recordi</td><td>Record button (CHECK IN / REC / END RIDE) and the pause banner (CONTINUE)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:1955</td><td>Map Keys</td><td class="small">mapKeysOpen = true</td><td>KEY (right column)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2007</td><td>Work with Rides</td><td class="small">com.geeksville.mesh.convoy.WorkWithRidesLauncher.open()</td><td>Rides (bottom bar)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2029</td><td>GRP Awareness</td><td class="small">com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() // GRPAWARE: the panel (MESHTASTIC in it = the old unfo</td><td>Group › GRP Awareness</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2054</td><td>Help</td><td class="small">showDocsChooser = true</td><td>MENU › Help, and MANUAL on every panel</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2079</td><td>Map Features</td><td class="small">showArtifactsPanel = true</td><td>Split: FILTER (what shows) · Rides › Create a route · Map › Import trail data / Import GPX</td><td class="SPLIT">SPLIT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2137</td><td>Cancel</td><td class="small">showDocsChooser = false; docsOpen(key)</td><td>MENU › Help, and MANUAL on every panel</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2158</td><td>Cancel</td><td class="small">showDocsChooser = false</td><td>MENU › Help, and MANUAL on every panel</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2190</td><td>Close</td><td class="small">docsBack()</td><td>MENU › Help, and MANUAL on every panel</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2248</td><td>QUEUES</td><td class="small">queuesOpen = !queuesOpen</td><td>Map › Queues (↓n badge on Map)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2285</td><td>No downloads in queue</td><td class="small">queuesOpen = false</td><td>Map › Queues (↓n badge on Map)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2402</td><td>New Route</td><td class="small">showEntryChoice = false routeLifecycleState = ROUTE_LS_NEW routeMethod = ROUTE_METHOD_P2P routeName = &quot;&quot; route</td><td>Rides › Create a route (first screen: new, or resume a draft in progress) → route toolbar (save, save in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2412</td><td>In Progress</td><td class="small">showEntryChoice = false showInProgressPicker = true</td><td>Rides › Create a route (first screen: new, or resume a draft in progress) → route toolbar (save, save in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2473</td><td>Start</td><td class="small">// name is REQUIRED -- blank is rejected (no auto-fill). if (routeName.isBlank()) { routeNameTaken = true // r</td><td>Rides › Create a route (first screen: new, or resume a draft in progress) → route toolbar (save, save in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2489</td><td>Cancel</td><td class="small">showRouteNameDialog = false</td><td>Rides › Create a route (first screen: new, or resume a draft in progress) → route toolbar (save, save in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2540</td><td>Save as completed route</td><td class="small">showSaveChoice = false if (pts &gt;= 2) saveCompleted() else android.widget.Toast.makeText(context, &quot;Need at leas</td><td>Rides › Create a route (first screen: new, or resume a draft in progress) → route toolbar (save, save in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2547</td><td>Save as in progress</td><td class="small">showSaveChoice = false val methodStr = when (routeMethod) { ROUTE_METHOD_DRAW -&gt; &quot;draw&quot;; ROUTE_METHOD_SUGGEST </td><td>Rides › Create a route (first screen: new, or resume a draft in progress) → route toolbar (save, save in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2567</td><td>Roll back</td><td class="small">showDiscardChoice = false // true roll-back: reload the saved draft, drop this session&#x27;s edits, KEEP building </td><td>Rides › Create a route (first screen: new, or resume a draft in progress) → route toolbar (save, save in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2576</td><td>Delete in-progress</td><td class="small">showDiscardChoice = false RouteDraftStore.deleteDraft(routeName) draftListTick++ RouteManager.clearRoute() web</td><td>Rides › Create a route (first screen: new, or resume a draft in progress) → route toolbar (save, save in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2605</td><td>Delete</td><td class="small">val od = RouteDraftStore.loadIntoRouteManager(d) routeName = d routeMethod = when (od?.method) { &quot;draw&quot; -&gt; ROU</td><td>Rides › Create a route (first screen: new, or resume a draft in progress) → route toolbar (save, save in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2615</td><td>Delete</td><td class="small">RouteDraftStore.deleteDraft(d) draftListTick++ // refresh the picker list</td><td>Rides › Create a route (first screen: new, or resume a draft in progress) → route toolbar (save, save in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:2628</td><td>Cancel</td><td class="small">showInProgressPicker = false</td><td>Rides › Create a route (first screen: new, or resume a draft in progress) → route toolbar (save, save in progress, roll back, delete)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3134</td><td>OK</td><td class="small">roleConflict = null</td><td>ROLE CONFLICT banner (unchanged)</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ConvoySearchByAreaScreen</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoySearchByAreaScreen.kt:49</td><td>← BACK</td><td class="small">onBack()</td><td>Search</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyServicesChooser</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyServicesChooser.kt:78</td><td>🌐</td><td class="small">onOnline()</td><td>Startup: online / offline choice (unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyServicesChooser.kt:127</td><td>📡</td><td class="small">onOffline()</td><td>Startup: online / offline choice (unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyServicesChooser.kt:184</td><td>✕  CLOSE</td><td class="small">onDismiss()</td><td>Startup: online / offline choice (unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoySettingsScreen</b> — 17 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:104</td><td>CLOSE</td><td class="small">showConversionRecord = true</td><td>MENU › Settings › Diagnostics (conversion record, share)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:113</td><td>CLOSE</td><td class="small">showConversionRecord = false</td><td>MENU › Settings › Diagnostics (conversion record, share)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:117</td><td>SHARE</td><td class="small">val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply { type = &quot;text/plain&quot; putExtra(and</td><td>MENU › Settings › Diagnostics (conversion record, share)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:145</td><td>Remove all trail data?</td><td class="small">trailClearAsk = true</td><td>MENU › Settings › Storage &amp; data › Remove all trail data</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:161</td><td>REMOVE</td><td class="small">trailClearAsk = false trailClearBusy = true trailClearScope.launch { val r = kotlinx.coroutines.withContext(ko</td><td>MENU › Settings › Storage &amp; data › Remove all trail data</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:180</td><td>CANCEL</td><td class="small">trailClearAsk = false</td><td>MENU › Settings › Storage &amp; data › Remove all trail data</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:194</td><td>OK</td><td class="small">trailClearDone = null</td><td>MENU › Settings › Storage &amp; data › Remove all trail data</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:211</td><td>Check a trail</td><td class="small">tcOpen = true; tcResult = null</td><td>MENU › Settings › Diagnostics › Check a trail</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:238</td><td>CHECK</td><td class="small">tcBusy = true tcScope.launch { tcResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { </td><td>MENU › Settings › Diagnostics › Check a trail</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:249</td><td>SEND</td><td class="small">val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply { type = &quot;text/plain&quot; putExtra(and</td><td>MENU › Settings › Diagnostics (conversion record, share)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:260</td><td>CLOSE</td><td class="small">tcOpen = false; tcResult = null</td><td>MENU › Settings › Diagnostics › Check a trail</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:269</td><td>Change Map Sources</td><td class="small">onNavigateToProfile()</td><td>MENU › Account › Profile</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:278</td><td>Group awareness with a Meshtastic radio</td><td class="small">onNavigateToMapSources()</td><td>Map › Map sources</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:375</td><td>Ride statistics</td><td class="small">statsText = convoyViewModel.rideStatsReport(); statsOpen = true</td><td>MENU › Settings › Diagnostics › Ride statistics</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:386</td><td>REFRESH</td><td class="small">statsText = convoyViewModel.rideStatsReport()</td><td>MENU › Settings › Diagnostics › Ride statistics</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:389</td><td>RESET</td><td class="small">convoyViewModel.resetRideStats(); statsText = convoyViewModel.rideStatsReport()</td><td>MENU › Settings › Diagnostics › Ride statistics</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoySettingsScreen.kt:390</td><td>CLOSE</td><td class="small">statsOpen = false</td><td>MENU › Settings › Diagnostics › Ride statistics</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ConvoySignInScreen</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoySignInScreen.kt:258</td><td>DEV SIGN IN (BYPASS GOOGLE)</td><td class="small">val uid = &quot;dev-user-&quot; + devEmail.hashCode().toString().takeLast(6) saveUserToPrefs(context, uid, &quot;google-dev-$</td><td>Startup: sign-in (unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoySignInScreen.kt:282</td><td>Skip for now — ride tracking works without an account</td><td class="small">errorMessage = &quot;&quot; signInLauncher.launch(googleSignInClient.signInIntent)</td><td>Startup: sign-in (unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoySignInScreen.kt:350</td><td>🌱 SEEDED</td><td class="small">if (seeded) { ConvoyDevSeeder.clear(context); seeded = false } else { ConvoyDevSeeder.seed(context); seeded = </td><td>Startup: sign-in (unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoySubMenu</b> — 13 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoySubMenu.kt:151</td><td>Conversion result</td><td class="small">convSummary = null</td><td>MENU › Settings › Diagnostics (conversion record)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySubMenu.kt:169</td><td>SHARE</td><td class="small">showRecord = false</td><td>MENU › Settings › Diagnostics (conversion record)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySubMenu.kt:175</td><td>Conversion record</td><td class="small">val send = android.content.Intent( android.content.Intent.ACTION_SEND).apply { type = &quot;text/plain&quot; putExtra(an</td><td>MENU › Settings › Diagnostics (conversion record)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySubMenu.kt:219</td><td>Create Rides Unique Radio Config</td><td class="small"></td><td>Rides › Create a ride › Radio network: New private network</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySubMenu.kt:220</td><td>Create Rides Unique Radio Config</td><td class="small"></td><td>Rides › Create a ride › Radio network: New private network</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySubMenu.kt:221</td><td>Create Rides Unique Radio Config</td><td class="small">onDismiss() onNavigateToSettingsPanel()</td><td>Rides › Create a ride › Radio network: New private network</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySubMenu.kt:249</td><td>Send Meshtastic Ride Config via email</td><td class="small">expanded = null onCreateEventRide() onDismiss() onNavigateToCreateEvent()</td><td>Rides › My rides › Send</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySubMenu.kt:260</td><td>Import Meshtastic Ride Config from Email</td><td class="small">expanded = null onTransferConfig()</td><td>Rides › Import a ride</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySubMenu.kt:269</td><td>Apply Meshtastic Config to your Radio</td><td class="small">expanded = null onDismiss() onImportFromDownloads()</td><td>Rides › My rides › Apply to radio</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySubMenu.kt:279</td><td>Restore Saved config to your Radio</td><td class="small">expanded = null onDismiss() onNavigateToApplyList()</td><td>Group › Radio setups (archive)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySubMenu.kt:289</td><td>View conversion record</td><td class="small">onDismiss(); onNavigateToArchiveRestore()</td><td>Group › Radio setups (archive)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySubMenu.kt:308</td><td>✕  CLOSE</td><td class="small">showRecord = true</td><td>MENU › Settings › Diagnostics (conversion record)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoySubMenu.kt:327</td><td>✕  CLOSE</td><td class="small">onDismiss()</td><td>(closes the menu — retired with it)</td><td class="RETIRED">RETIRED</td></tr>
+</table></details>
+<details><summary><b>ConvoySubscriptionScreen</b> — 5 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoySubscriptionScreen.kt:204</td><td>SUBSCRIBE</td><td class="small">scope.launch { pagerState.animateScrollToPage(index) }</td><td>MENU › Account (unchanged in 2.7c) › Subscription</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoySubscriptionScreen.kt:231</td><td>SUBSCRIBE</td><td class="small">onSubscribe()</td><td>MENU › Account (unchanged in 2.7c) › Subscription</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoySubscriptionScreen.kt:258</td><td>NEXT  →</td><td class="small">onDismiss()</td><td>MENU › Account (unchanged in 2.7c) › Subscription</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoySubscriptionScreen.kt:269</td><td>NEXT  →</td><td class="small">scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }</td><td>MENU › Account (unchanged in 2.7c) › Subscription</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoySubscriptionScreen.kt:292</td><td>Convoy map, radio config, and offline tiles are always free.</td><td class="small">onDismiss()</td><td>MENU › Account (unchanged in 2.7c) › Subscription</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyTermsScreen</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTermsScreen.kt:34</td><td>You must accept the Rider Terms to use GroupTrack platform f</td><td class="small">ConvoySessionManager.acceptTerms(context); onAccept()</td><td>MENU › Account (unchanged in 2.7c) › Terms and privacy (first-run gate unchanged)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyTrackExportSheet</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTrackExportSheet.kt:93</td><td>Import</td><td class="small">onNavigateToTrackImport()</td><td>Map: tap a track › its details › SHARE (export GPX)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyTrackExportSheet.kt:105</td><td>Fix Dates</td><td class="small">if (visibleTracks.isNotEmpty()) { scope.launch { statusMsg = &quot;Fixing dates...&quot; val result = ConvoyTrackOps.fix</td><td>Map: tap a track › its details › SHARE (export GPX)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyTrackExportSheet.kt:150</td><td>Date ↓</td><td class="small">sortMode = when (sortMode) { SortMode.DATE_DESC -&gt; SortMode.DATE_ASC SortMode.DATE_ASC -&gt; SortMode.NAME_ASC So</td><td>Map: tap a track › its details › SHARE (export GPX)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyTrackExportSheet.kt:195</td><td>Copied to Downloads</td><td class="small">actionTarget = f</td><td>Map: tap a track › its details › SHARE (export GPX)</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>ConvoyTrackImportScreen</b> — 9 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTrackImportScreen.kt:382</td><td>Import Tracks from Downloads</td><td class="small">onDismiss()</td><td>Map › Import GPX (pick files; delete-originals is an option on the first screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrackImportScreen.kt:408</td><td>RESYNC TRACKS</td><td class="small">// Open the visible sync control dialog (no silent inline run). syncLines = emptyList(); syncResult = null; sh</td><td>MENU › Settings › Storage &amp; data › Resync tracks</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyTrackImportScreen.kt:441</td><td>ADD TRAILS FROM TRACKS</td><td class="small">riderStatus = &quot;&quot;; riderResult = null; showRiderDialog = true</td><td>MENU › Settings › Storage &amp; data › Add trails from tracks</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyTrackImportScreen.kt:556</td><td>Delete the originals after copying</td><td class="small">deleteOriginals = !deleteOriginals</td><td>Map › Import GPX (pick files; delete-originals is an option on the first screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrackImportScreen.kt:569</td><td>  SELECT FILES  </td><td class="small">// \u26a0 GPX and KML are frequently reported as // octet-stream, so the wildcard has to be there or // the ri</td><td>Map › Import GPX (pick files; delete-originals is an option on the first screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrackImportScreen.kt:588</td><td>  Back to Map  </td><td class="small">onDismiss()</td><td>Map › Import GPX (pick files; delete-originals is an option on the first screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrackImportScreen.kt:634</td><td>?</td><td class="small">selected = if (checked) selected - file.name else selected + file.name</td><td>Map › Import GPX (pick files; delete-originals is an option on the first screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrackImportScreen.kt:734</td><td>Select All  (${selected.size} of ${files.size})</td><td class="small">selected = if (selected.size == files.size) emptySet() else files.map { it.name }.toSet()</td><td>Map › Import GPX (pick files; delete-originals is an option on the first screen)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrackImportScreen.kt:768</td><td>Select files to import</td><td class="small">if (selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport()</td><td>Map › Import GPX (pick files; delete-originals is an option on the first screen)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyTracksScreen</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTracksScreen.kt:21</td><td>← BACK</td><td class="small">onBack()</td><td>FILTER › My tracks › SELECT (list) and tap a track › details</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyTrailSourceScreen</b> — 17 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:120</td><td>IMPORT FULL SOURCE</td><td class="small">when (step) { ImportStep.METHOD_SELECT -&gt; onNavigateBack() ImportStep.A1_SOURCE_SELECT -&gt; onNavigateBack() Imp</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:155</td><td>BACK</td><td class="small">step = ImportStep.A1_SOURCE_SELECT</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:161</td><td>BACK</td><td class="small">step = ImportStep.B1_DRAW_AREA</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:175</td><td>BACK</td><td class="small">selectedSourceId = src.id</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:180</td><td>BACK</td><td class="small">step = ImportStep.METHOD_SELECT</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:184</td><td>VALIDATE</td><td class="small">if (selectedSourceId != null) { validationStatus = &quot;&quot; step = ImportStep.A2_VALIDATE }</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:245</td><td>BACK</td><td class="small">step = ImportStep.A1_SOURCE_SELECT</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:249</td><td>IMPORT TRAILS</td><td class="small">importResult = null step = ImportStep.A3_PROCESSING importRunning = true scope.launch { // Import trails val r</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:320</td><td>DONE</td><td class="small">onNavigateBack()</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:344</td><td>CANCEL</td><td class="small">step = ImportStep.METHOD_SELECT</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:348</td><td>FIND SOURCES</td><td class="small">step = ImportStep.B2_SUGGESTED</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:386</td><td>processed</td><td class="small">selectedSourceIds = if (checked) selectedSourceIds - src.id else selectedSourceIds + src.id</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:421</td><td>CANCEL</td><td class="small">onNavigateBack()</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:425</td><td>VALIDATE ${selectedSourceIds.size} SOURCES</td><td class="small">step = ImportStep.B3_VALIDATE</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:458</td><td>BACK</td><td class="small">step = ImportStep.B2_SUGGESTED</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:462</td><td>south</td><td class="small">importResult = null step = ImportStep.B4_PROCESSING importRunning = true scope.launch { val bbox = pendingBbox</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:533</td><td>DONE</td><td class="small">onNavigateBack()</td><td>Map › Import trail data (sources found and checked automatically)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>ConvoyTransferRideScreen</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTransferRideScreen.kt:100</td><td>TRANSFER RIDE</td><td class="small">onBack()</td><td>Rides › Import a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTransferRideScreen.kt:147</td><td>✓</td><td class="small">selectedRide = if (isSelected) null else ride</td><td>Rides › Import a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTransferRideScreen.kt:216</td><td>CANCEL</td><td class="small">selectedRide?.let { sendRideEmail(it) }</td><td>Rides › Import a ride</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyTransferRideScreen.kt:234</td><td>CANCEL</td><td class="small">onBack()</td><td>Rides › Import a ride</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>DetailActionButton</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyRideDetailScreen.kt:505</td><td>?</td><td class="small">onClick()</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>DevMenuButton</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">GroupTrackTheme.kt:185</td><td>?</td><td class="small">onClick()</td><td>Developer only (unchanged, hidden from riders)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>DevScenarioButton</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDevLaunchScreen.kt:149</td><td>▶</td><td class="small">onClick()</td><td>Developer only (unchanged, hidden from riders)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>DisplayToggleRow</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDisplayPanel.kt:169</td><td>?</td><td class="small">onToggle()</td><td>FILTER</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>DownloadQueuePanel</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDownloadQueuePanel.kt:185</td><td>$qeSlots</td><td class="small">qeSlots -= 1 DownloadQueueManager.setMaxConcurrent(qeCtx, qeSlots)</td><td>Map › Queues (Map button carries ↓n while active)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyDownloadQueuePanel.kt:202</td><td>ALL</td><td class="small">qeSlots += 1 DownloadQueueManager.setMaxConcurrent(qeCtx, qeSlots)</td><td>Map › Queues (Map button carries ↓n while active)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyDownloadQueuePanel.kt:335</td><td>q</td><td class="small">qtQueuedOpen = !qtQueuedOpen</td><td>Map › Queues (Map button carries ↓n while active)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyDownloadQueuePanel.kt:356</td><td>c</td><td class="small">qtDoneOpen = !qtDoneOpen</td><td>Map › Queues (Map button carries ↓n while active)</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>EndOfRideForm</b> — 7 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyEndOfRideForm.kt:75</td><td>Difficulty</td><td class="small">rating = n</td><td>Record button › END RIDE (name, survey/share; DELETE keeps its one confirm)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyEndOfRideForm.kt:84</td><td>Would you recommend it?</td><td class="small">difficulty = v</td><td>Record button › END RIDE (name, survey/share; DELETE keeps its one confirm)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyEndOfRideForm.kt:89</td><td>Yes</td><td class="small">recommend = true</td><td>Record button › END RIDE (name, survey/share; DELETE keeps its one confirm)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyEndOfRideForm.kt:90</td><td>No</td><td class="small">recommend = false</td><td>Record button › END RIDE (name, survey/share; DELETE keeps its one confirm)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyEndOfRideForm.kt:98</td><td>Yes, share it</td><td class="small">share = true</td><td>Record button › END RIDE (name, survey/share; DELETE keeps its one confirm)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyEndOfRideForm.kt:99</td><td>No, keep it</td><td class="small">share = false</td><td>Record button › END RIDE (name, survey/share; DELETE keeps its one confirm)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyEndOfRideForm.kt:119</td><td>SAVE</td><td class="small">onSave(if (survey &amp;&amp; rideId != null) ConvoyRideStore.RideSurveyInput( rideId = rideId, rating = rating, diffic</td><td>Record button › END RIDE (name, survey/share; DELETE keeps its one confirm)</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>EnrolleeRow</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyRideDetailScreen.kt:480</td><td>?</td><td class="small">onEmailTap()</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>EnrollmentTwistie</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyRideDetailScreen.kt:432</td><td>▼</td><td class="small">onToggle()</td><td>Rides › My rides › a ride’s details</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>Fab</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">UnifiedSearch.kt:339</td><td>Search</td><td class="small">barOpen = !barOpen if (barOpen) showResults = false</td><td>Search</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>FieldRadioButton</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyFieldRadioScreen.kt:140</td><td>→</td><td class="small">onClick()</td><td>Group › GRP Awareness</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>FilterBar</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyCompletedRidesScreen.kt:311</td><td>ALL RIDES</td><td class="small">onAllRidesChange(!allRides)</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyCompletedRidesScreen.kt:317</td><td>✓</td><td class="small">onAllRidesChange(!allRides)</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>FilterChip</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDownloadQueuePanel.kt:561</td><td>?</td><td class="small">onClick()</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>FilterColumn</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">TrailFilterPanel.kt:146</td><td>UNUSED_EXPRESSION</td><td class="small">TrailFilterState.setGroup(names, !allOn); onChanged()</td><td>FILTER › Trails › SELECT</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>FilterRow</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">TrailFilterPanel.kt:171</td><td>UNUSED_EXPRESSION</td><td class="small">TrailFilterState.toggleCategory(r.name); onChanged()</td><td>FILTER › Trails › SELECT</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>FilterTab</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTrackExportSheet.kt:287</td><td>?</td><td class="small">Text(label, color = if (selected) Color.White else Color(0xFF7A8DA0), fontSize = 11.sp, fontFamily = FontFamil</td><td>Map: tap a track › SHARE</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>GpButton</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyGuidedPinPanel.kt:336</td><td>?</td><td class="small">onClick()</td><td>Rides › Create a route › planner: points to cover</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>GpsIntervalDialog</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyScreen.kt:4058</td><td>Every radio in the group must be on the same preset -- a rad</td><td class="small">preset = key</td><td>Group › GPS (interval chosen on the screen, no pop-up)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:4069</td><td>Raise the wait if your cart does not reappear after APPLY.</td><td class="small">timingOpen = !timingOpen</td><td>Group › GPS (interval chosen on the screen, no pop-up)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:4097</td><td>APPLY</td><td class="small">val p = preset; if (secs != null &amp;&amp; p != null) onApply(secs, p)</td><td>Group › GPS (interval chosen on the screen, no pop-up)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>GpsLocationRow</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyScreen.kt:3977</td><td>??</td><td class="small">onOpen()</td><td>Group › GPS (and the readout line &quot;GPS every 6 s · preset&quot;)</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3999</td><td>switch the text light/dark</td><td class="small">onToggleText()</td><td>Group › Readout text (Light / Dark)</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>GroupModeActivatePopup</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">GroupMode.kt:58</td><td>OK</td><td class="small">GroupMode.askActivate.value = false</td><td>ANDROID ONLY / GROUP button and MENU › Settings › Group riding</td><td class="RETIRED">RETIRED</td></tr>
+</table></details>
+<details><summary><b>GroupTrackHeader</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">GroupTrackTheme.kt:98</td><td>grouptrack_logo</td><td class="small">androidx.compose.foundation.interaction.MutableInteractionSource()</td><td>Developer only (unchanged, hidden from riders) (logo opens the dev menu)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">GroupTrackTheme.kt:101</td><td>grouptrack_logo</td><td class="small"></td><td>Developer only (unchanged, hidden from riders) (logo opens the dev menu)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">GroupTrackTheme.kt:102</td><td>grouptrack_logo</td><td class="small">if (ConvoyConfig.V3_FEATURES_ENABLED) showDevMenu = true</td><td>Developer only (unchanged, hidden from riders) (logo opens the dev menu)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">GroupTrackTheme.kt:114</td><td>DEV MENU</td><td class="small"></td><td>Developer only (unchanged, hidden from riders) (logo opens the dev menu)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>GrpAwarenessPanel</b> — 10 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">GrpAwareness.kt:215</td><td>DISCONNECT</td><td class="small">onDisconnect(); message = &quot;&quot;</td><td>Group › GRP Awareness — your radio (Group layout only)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">GrpAwareness.kt:225</td><td>BLUETOOTH</td><td class="small">openBluetoothSettings(ctx)</td><td>Group › GRP Awareness — your radio (Group layout only)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">GrpAwareness.kt:229</td><td>ALLOW</td><td class="small">openAppSettings(ctx)</td><td>Group › GRP Awareness — your radio (Group layout only)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">GrpAwareness.kt:243</td><td>FORGET</td><td class="small">message = if (radio.paired) &quot;&quot; else &quot;Pairing &quot; + radio.name + &quot; — enter the radio&#x27;s PIN when Android asks.&quot; on</td><td>Group › GRP Awareness — your radio (Group layout only)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">GrpAwareness.kt:247</td><td>FORGET</td><td class="small">forgetting = radio</td><td>Group › GRP Awareness — your radio (Group layout only)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">GrpAwareness.kt:254</td><td>SELECT A RIDE AND APPLY SETTINGS TO THE RADIO</td><td class="small">onApplyRide()</td><td>Rides › My rides › Apply to radio (also linked from GRP Awareness)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">GrpAwareness.kt:260</td><td>RADIO SETTINGS</td><td class="small">message = &quot;&quot;; onLocalSettings()</td><td>Group › GRP Awareness — your radio (Group layout only)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">GrpAwareness.kt:267</td><td>NODES</td><td class="small">message = &quot;&quot;; onMeshtastic()</td><td>Group › GRP Awareness — your radio (Group layout only)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">GrpAwareness.kt:284</td><td>FORGET</td><td class="small">if (r.id == selectedAddress) onDisconnect() val rName = r.name onForget(r.id) { ok -&gt; // COMMLINKREQ-2026-10-1</td><td>Group › GRP Awareness — your radio (Group layout only)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">GrpAwareness.kt:293</td><td>CANCEL</td><td class="small">forgetting = null</td><td>Group › GRP Awareness — your radio (Group layout only)</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>GtMenuItem</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">GroupTrackTheme.kt:451</td><td>SOON</td><td class="small">if (active) onClick()</td><td>MENU › Account (unchanged in 2.7c)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>GtMenuLabel</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">GroupTrackTheme.kt:395</td><td>?</td><td class="small"></td><td>MENU › Account (unchanged in 2.7c)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>GtNavBtn</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">GroupTrackTheme.kt:366</td><td>?</td><td class="small">onClick()</td><td>MENU › Account (unchanged in 2.7c) (account-screen bottom nav)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>HudModeRow</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyScreen.kt:3567</td><td>GROUP</td><td class="small">onModeChange(HudMode.GROUP)</td><td>Readout › GROUP tab</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3583</td><td>MY CART</td><td class="small">onModeChange(HudMode.MY_CART)</td><td>Readout › MY CART tab</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3599</td><td>HIDE</td><td class="small">onModeChange(HudMode.COLLAPSED)</td><td>FILTER › Hide</td><td class="MOVED">MOVED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:3614</td><td>⚙</td><td class="small">onNavigateToSettings()</td><td>MENU › Settings</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>ImportRecapDialog</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTrackImportScreen.kt:892</td><td>DELETE FILES &amp; CLOSE</td><td class="small">onFilesDelete(); onDismiss()</td><td>Map › Import GPX (a short message instead of the recap window)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>KeyRow</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">MapKeysPanel.kt:270</td><td>?</td><td class="small">onStyle(r)</td><td>KEY › a line › STYLE</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>LandCheck</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">MapKeysPanel.kt:314</td><td>UNUSED_EXPRESSION</td><td class="small">onClick()</td><td>FILTER › Trails › SELECT › public / private land</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>MainScreen</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">Main.kt:467</td><td>?</td><td class="small">val isRepress = destination == topLevelDestination if (isRepress) { when (destination) { TopLevelDestination.N</td><td>Retired in 2.7b (Meshtastic tabs)</td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="small">Main.kt:545</td><td>Hide Mesh</td><td class="small">MeshNavFold.setFolded(ctx, true) // HIDEMESH-2026-09-28 (Fred): Hide Mesh also RETURNS TO THE RIDE MAP -- the </td><td>Retired in 2.7b (the Meshtastic menu is gone; GRP Awareness › NODES)</td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="small">Main.kt:686</td><td>◀ BACK TO MAP</td><td class="small">convoyViewModel.closeCommMenu(grpOpenNow ?: &quot;&quot;)</td><td>Any panel’s BACK / ✕ returns to the map</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">Main.kt:708</td><td>OK</td><td class="small">com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false com.geeksville.mesh.convoy.GrpAwarene</td><td>Group › GRP Awareness (radio restart notice)</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>MapKeysPanel</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">MapKeysPanel.kt:116</td><td>✕</td><td class="small">onDismiss()</td><td>KEY (styles only)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">MapKeysPanel.kt:143</td><td></td><td class="small">showCategoryHelp = false</td><td>KEY (styles only)</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">MapKeysPanel.kt:206</td><td>Tap a name to change its colour, pattern or thickness.\n</td><td class="small">showCategoryHelp = true</td><td>KEY (styles only)</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>MethodCard</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:555</td><td>?</td><td class="small">onClick()</td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>MigrationOption</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyMapSourceScreen.kt:1073</td><td>?</td><td class="small">onSelect()</td><td>Map › Map sources › change a source (clear or keep tiles)</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>NavBtn3</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyInviteSendScreen.kt:86</td><td>?</td><td class="small">onClick()</td><td>Rides › My rides › Send</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>NotifAccordion</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:819</td><td>▼ $label</td><td class="small">onClick()</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>OsmImportPanel</b> — 10 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">OsmImportPanel.kt:305</td><td>OK</td><td class="small">// OSM-C4-CLOSE-2026-07-29: acknowledging cleanup ends the // four-step process, so the panel closes itself. /</td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">OsmImportPanel.kt:335</td><td>OK</td><td class="small">// No refreshTick++ -- the latch above decides whether this // ever shows again, and re-deriving here only res</td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">OsmImportPanel.kt:354</td><td>CANCEL</td><td class="small">gateRecap = null</td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">OsmImportPanel.kt:850</td><td>Looking for a downloaded file</td><td class="small">importScope = if (importScope == opt) null else opt</td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">OsmImportPanel.kt:876</td><td>Looking for a downloaded file</td><td class="small">scope.launch { busy = true busyLabel = &quot;Looking for a downloaded file&quot; val probe = withContext(Dispatchers.IO)</td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">OsmImportPanel.kt:944</td><td>REFRESH</td><td class="small">refreshTick++</td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">OsmImportPanel.kt:962</td><td>Delete</td><td class="small">val s = slug!! val name = OsmImportStage.displayName(s) // The confirm names the CONSEQUENCE, not just the act</td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">OsmImportPanel.kt:1033</td><td>OK</td><td class="small">message = null</td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">OsmImportPanel.kt:1063</td><td>CONTINUE</td><td class="small">Log.i(PANEL_TAG, &quot;CONFIRM -&gt; CONTINUE pressed&quot;) confirm = null action() Log.i(PANEL_TAG, &quot;CONFIRM -&gt; action() </td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">OsmImportPanel.kt:1071</td><td>CANCEL</td><td class="small">Log.i(PANEL_TAG, &quot;CONFIRM -&gt; CANCEL pressed&quot;) confirm = null</td><td>Map › Import trail data</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>PanelActionButton</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDownloadPanel.kt:587</td><td>?</td><td class="small">onClick()</td><td>Map › Download maps for offline › Where: Draw a box</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>QueueSummaryBar</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDownloadQueuePanel.kt:477</td><td>${queued.size} in queue  ${fmtTiles(queuedTiles)} tiles</td><td class="small">onClick()</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>QueuedItemRow</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDownloadQueuePanel.kt:656</td><td>X</td><td class="small">DownloadQueueManager.promote(entry.id)</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">ConvoyDownloadQueuePanel.kt:662</td><td>X</td><td class="small">DownloadQueueManager.cancel(entry.id)</td><td>Map › Queues</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>RadioConfigScreen</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">RadioConfigScreen.kt:209</td><td>Apply ride to radio</td><td class="small"></td><td>Rides › My rides › Apply to radio</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">RadioConfigScreen.kt:233</td><td>${chosen?.name}</td><td class="small">choose(t)</td><td>Rides › My rides › Apply to radio</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">RadioConfigScreen.kt:252</td><td>Back</td><td class="small">apply()</td><td>Rides › My rides › Apply to radio</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">RadioConfigScreen.kt:253</td><td>Back</td><td class="small">phase = &quot;PICK&quot;</td><td>Rides › My rides › Apply to radio</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>RenameTrackDialog</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTrackDialogs.kt:96</td><td>Rename</td><td class="small">val newName = text.trim() if (newName.isNotEmpty()) onConfirm(newName)</td><td>Map: tap a track › its details › Rename</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ResultsBox</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">UnifiedSearch.kt:283</td><td>no matches</td><td class="small">showResults = false</td><td>Search</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">UnifiedSearch.kt:298</td><td>fitBounds([$s,$n],[$w,$e])</td><td class="small">showResults = false // SEARCHFIT-2026-09-02: ⭐ FRAME IT, THEN // open the card. Fred, 09-02: &quot;we select the //</td><td>Search</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>ResultsList</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyArtifactsPanel.kt:404</td><td>#${r.seq}</td><td class="small">onResultClick(r.type, r.id, r.geomHash, r.name)</td><td>Search › My routes, tracks, waypoints</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>RideActionButton</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:776</td><td>?</td><td class="small">onClick()</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>RideDatePickerDialog</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyRideCreateScreen.kt:475</td><td>OK</td><td class="small">val ms = state.selectedDateMillis if (ms != null) { onPick(java.time.Instant.ofEpochMilli(ms).atZone(java.time</td><td>Rides › Create a ride (date on the form)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>RideDisplayPanel</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:669</td><td>✓</td><td class="small">onToggleFollow()</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+<tr><td class="small">ConvoyDashboardScreen.kt:746</td><td>SHOW RIDE DETAILS</td><td class="small">onDetail()</td><td>MENU › Account (unchanged in 2.7c) › Dashboard (V3)</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>RiderTrailsDialog</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">RiderTrailsDialog.kt:115</td><td>CLOSE</td><td class="small">if (!running) onClose()</td><td>MENU › Settings › Storage &amp; data › Add trails from tracks</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>RidesMenuItem</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyRidesScreen.kt:149</td><td>ACTIVE</td><td class="small">onClick()</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>RidesScreen</b> — 8 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">RidesScreen.kt:126</td><td>Rides</td><td class="small"></td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">RidesScreen.kt:135</td><td>${r.date.ifBlank { </td><td class="small">filter = f; selected = null; message = &quot;&quot;</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">RidesScreen.kt:148</td><td>${r.date.ifBlank { </td><td class="small">selected = if (on) null else r.id; message = &quot;&quot;</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">RidesScreen.kt:157</td><td>Share</td><td class="small">message = if (r.mine) { (ConvoyRideSend.send(context, r.id) ?: &quot;&quot;).also { rides = loadRideLines(context) } } e</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">RidesScreen.kt:164</td><td>Edit</td><td class="small">editing = selected</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">RidesScreen.kt:165</td><td>Delete</td><td class="small">confirmDelete = r</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">RidesScreen.kt:182</td><td>Delete</td><td class="small">val ok = ConvoyRideStore.deleteRide(context, r.id, &quot;deleted by the rider&quot;) message = if (ok) &quot;Deleted \u201c${</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">RidesScreen.kt:188</td><td>Cancel</td><td class="small">confirmDelete = null</td><td>Rides › My rides</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>RoleChangeDialog</b> — 3 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyScreen.kt:4152</td><td>To give up a role, choose Rider. A role someone holds must b</td><td class="small">if (heldBy[v] != null) heldWarn = v else role = v</td><td>Group › View checked-in carts / change roles (my role in the list)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:4160</td><td>APPLY</td><td class="small">onApply(role)</td><td>Group › View checked-in carts / change roles (my role in the list)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyScreen.kt:4174</td><td>OK</td><td class="small">heldWarn = null</td><td>Group › View checked-in carts / change roles (my role in the list)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>SearchBar</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">UnifiedSearch.kt:196</td><td>✕</td><td class="small">barOpen = false; showResults = false</td><td>Search</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">UnifiedSearch.kt:215</td><td>?</td><td class="small">selMode = mode</td><td>Search</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>SearchBlock</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyArtifactsPanel.kt:310</td><td>v</td><td class="small">menuOpen = true</td><td>Search › My routes, tracks, waypoints</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">ConvoyArtifactsPanel.kt:336</td><td>pick a type first</td><td class="small">selType = table; menuOpen = false</td><td>Search › My routes, tracks, waypoints</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>SearchButton</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyCompletedRidesScreen.kt:370</td><td>SEARCH</td><td class="small">onSearch()</td><td>MENU › Account (unchanged in 2.7c) › Completed rides</td><td class="UNCHANGED">UNCHANGED</td></tr>
+</table></details>
+<details><summary><b>SegHalf</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyRouteToolbar.kt:378</td><td>?</td><td class="small">onClick()</td><td>Rides › Create a route › How (first screen)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>SlotCard</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyMapSourceScreen.kt:870</td><td>$producer</td><td class="small">$mapType” | Row( modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically ) { // Slo</td><td>Map › Map sources</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>SourceRow</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyMapSourceScreen.kt:929</td><td>API Key Required</td><td class="small">Row( modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically ) { // Radio indicator</td><td>Map › Map sources</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>SourceSelectCard</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTrailSourceScreen.kt:571</td><td>✅</td><td class="small">onClick()</td><td>Map › Import trail data › Sources</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>StateListPanel</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">HomeStatePickerScreen.kt:335</td><td>${item.entries.size} region${if (item.entries.size &gt; 1) </td><td class="small">onSelect(item)</td><td>Map › Import trail data › Where: By state</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>StepButton</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyAiStepPanel.kt:252</td><td>?</td><td class="small">onClick()</td><td>Rides › Create a route › Let the planner build it</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>SubMenuItem</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoySubMenu.kt:403</td><td>▶</td><td class="small">onClick()</td><td>(a row of the retired ride-config menu — its target is listed on that row)</td><td class="RETIRED">RETIRED</td></tr>
+</table></details>
+<details><summary><b>TableButton</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyBatchGridPanel.kt:422</td><td>?</td><td class="small">onClick()</td><td>Rides › Create a route › planner results: Compare table</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>TrackRow</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">ConvoyTrackExportSheet.kt:308</td><td>${dateFmt.format(Date(file.lastModified()))}    ${ConvoyTrac</td><td class="small">Surface( modifier = Modifier.size(8.dp), shape = RoundedCornerShape(4.dp), color = if (isInProgress) Color(0xF</td><td>Map: tap a track › SHARE</td><td class="MOVED">MOVED</td></tr>
+</table></details>
+<details><summary><b>TrailFilterPanel</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">TrailFilterPanel.kt:85</td><td>✕</td><td class="small">onDismiss()</td><td>FILTER › Trails › SELECT (motorized / non-motorized, types)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">TrailFilterPanel.kt:98</td><td>Include private land</td><td class="small">TrailFilterState.setLand( if (includePrivate) &quot;PUBLIC&quot; else &quot;ALL&quot;) changed()</td><td>FILTER › Trails › SELECT (motorized / non-motorized, types)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>TrailStylePanel</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">TrailStylePanel.kt:92</td><td>✕</td><td class="small">onCancel()</td><td>KEY › STYLE (one click from the legend)</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">TrailStylePanel.kt:123</td><td>PATTERN</td><td class="small">c = hex</td><td>KEY › STYLE (one click from the legend)</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<details><summary><b>UnifiedSearch</b> — 5 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">UnifiedSearch.kt:196</td><td>✕</td><td class="small">barOpen = false; showResults = false</td><td>Search (bottom bar) — opens search only</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">UnifiedSearch.kt:215</td><td>?</td><td class="small">selMode = mode</td><td>Search (bottom bar) — opens search only</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">UnifiedSearch.kt:283</td><td>no matches</td><td class="small">showResults = false</td><td>Search (bottom bar) — opens search only</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">UnifiedSearch.kt:298</td><td>fitBounds([$s,$n],[$w,$e])</td><td class="small">showResults = false // SEARCHFIT-2026-09-02: ⭐ FRAME IT, THEN // open the card. Fred, 09-02: &quot;we select the //</td><td>Search (bottom bar) — opens search only</td><td class="KEPT">KEPT</td></tr>
+<tr><td class="small">UnifiedSearch.kt:339</td><td>Search</td><td class="small">barOpen = !barOpen if (barOpen) showResults = false</td><td>Search (bottom bar) — opens search only</td><td class="KEPT">KEPT</td></tr>
+</table></details>
+<details><summary><b>WorkWithRidesMenu</b> — 4 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">WorkWithRidesMenu.kt:96</td><td>Choose the ride to send</td><td class="small"></td><td>Rides panel (the four-entry menu is retired)</td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="small">WorkWithRidesMenu.kt:96</td><td>Choose the ride to send</td><td class="small"></td><td>Rides panel (the four-entry menu is retired)</td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="small">WorkWithRidesMenu.kt:96</td><td>Choose the ride to send</td><td class="small">onDismiss(); onDeveloperSettings()</td><td>Rides panel (the four-entry menu is retired)</td><td class="RETIRED">RETIRED</td></tr>
+<tr><td class="small">WorkWithRidesMenu.kt:111</td><td>No rides on this tablet yet. Create one from a route on the </td><td class="small">includeRecent = !includeRecent</td><td>Rides panel (the four-entry menu is retired)</td><td class="RETIRED">RETIRED</td></tr>
+</table></details>
+<details><summary><b>WwrEntry</b> — 1 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">WorkWithRidesMenu.kt:157</td><td>$label  (coming in 2.7)</td><td class="small">onClick()</td><td>Rides panel</td><td class="RETIRED">RETIRED</td></tr>
+</table></details>
+<details><summary><b>rememberPickerNotice</b> — 2 functions</summary><table><tr><th>Where</th><th>Label</th><th>What it does today</th><th>New home</th><th>Status</th></tr>
+<tr><td class="small">FilePickerNotice.kt:69</td><td>CONTINUE</td><td class="small">notice.pending = null; open()</td><td>Import a ride / Import GPX: the note on the first screen</td><td class="MERGED">MERGED</td></tr>
+<tr><td class="small">FilePickerNotice.kt:70</td><td>CANCEL</td><td class="small">notice.pending = null</td><td>Import a ride / Import GPX: the note on the first screen</td><td class="MERGED">MERGED</td></tr>
+</table></details>
+<h2>7. Not changing in 2.7c</h2><div class="card"><ul><li>The convoy logic, the comm layer, radios and firmware (fleet stays on 2.6.11; V1 on port 72).</li><li>Map rendering engine (Leaflet), map sources and tiles.</li><li>Account / V3 screens.</li></ul></div>
+<h2>8. Open questions (Fred)</h2><div class="card warn"><ol>
+<li>GPS light wording on a tablet with no GPS chip (manual 5.1 is cut off at "RAD…").</li>
+<li>The FLYOVER mileage slider: what it does, and whether it goes beside the flyover zoom.</li>
+<li>The lead question at REC when no Leader is known: keep as a fallback, or retire.</li>
+<li>Polyline dots when no route is displayed (carried from 2.7b).</li>
+</ol></div></body></html>
