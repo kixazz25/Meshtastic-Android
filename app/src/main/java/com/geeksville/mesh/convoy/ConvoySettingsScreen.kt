@@ -280,6 +280,30 @@ fun ConvoySettingsScreen(
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
 
+            // SHELL-2026-10-22 (2.7c ONE MAP): the new launch layer, in development. Off = today's ride map (the default).
+            SectionLabel("Layout")
+            val gtCtx = androidx.compose.ui.platform.LocalContext.current
+            com.geeksville.mesh.grouptrack.GtLayout.load(gtCtx)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("One Map layout (2.7c, in development)", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value) "On \u2014 the new launch layer. MENU \u203a Classic layout switches back."
+                               else "Off \u2014 today's ride map",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = com.geeksville.mesh.grouptrack.GtLayout.oneMap.value,
+                    onCheckedChange = { com.geeksville.mesh.grouptrack.GtLayout.set(gtCtx, it) })
+            }
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+
             // GRPMODE-2026-10-13 (Fred): group awareness -- any time. Off = this tablet only, no radio calls.
             SectionLabel("Group awareness")
             Row(

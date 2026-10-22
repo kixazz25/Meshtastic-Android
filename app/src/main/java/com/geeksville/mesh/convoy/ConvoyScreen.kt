@@ -1653,14 +1653,32 @@ fun ConvoyScreen(
             )
         }
 
-        Column(modifier = Modifier.statusBarsPadding().padding(8.dp)) {   // GPSLAMP-2026-10-19 (Fred 10-19 13:50): the GPS light ABOVE the REC button
+        // SHELL-2026-10-22 / SHELL2-2026-10-22 (2.7c ONE MAP): the layout switch, read once for this screen.
+        com.geeksville.mesh.grouptrack.GtLayout.load(context)
+        val gtOneMap = com.geeksville.mesh.grouptrack.GtLayout.oneMap.value
+        // SHELL2-2026-10-22 (Fred 10:08): ONE MAP re-points RECORD -- this same REC control moves to the TOP CENTRE (one RECORD, no
+        // duplicate), larger, red with white letters; the GPS light sits beside N \u00b7 Z<zoom> (the map page's own N/Z label is hidden).
+        var gtZoom by remember { mutableStateOf(0) }
+        Column(modifier = (if (gtOneMap) Modifier.align(Alignment.TopCenter) else Modifier).statusBarsPadding().padding(8.dp),
+               horizontalAlignment = if (gtOneMap) Alignment.CenterHorizontally else Alignment.Start) {   // GPSLAMP-2026-10-19 (Fred 10-19 13:50): the GPS light ABOVE the REC button
             var gpsLamp by remember { mutableStateOf(viewModel.gpsLamp()) }
-            LaunchedEffect(Unit) { while (true) { gpsLamp = viewModel.gpsLamp(); kotlinx.coroutines.delay(1000L) } }
+            LaunchedEffect(Unit) { while (true) { gpsLamp = viewModel.gpsLamp()
+                val one = com.geeksville.mesh.grouptrack.GtLayout.oneMap.value   // SHELL2: live, not the value captured at launch
+                webViewRef.value?.evaluateJavascript("try{var n=document.getElementById('north'); if(n) n.style.display='" + (if (one) "none" else "") + "'}catch(e){}", null)
+                webViewRef.value?.evaluateJavascript("try{var zc=document.querySelector('.leaflet-control-zoom'); if(zc) zc.style.display='" + (if (one) "none" else "") + "'}catch(e){}", null)   // SHELL6: Leaflet's own +/- hidden in ONE MAP
+                if (one) webViewRef.value?.evaluateJavascript("map.getZoom()") { z -> gtZoom = z.toDoubleOrNull()?.toInt() ?: gtZoom }
+                kotlinx.coroutines.delay(1000L) } }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {   // SHELL2-2026-10-22: the GPS light beside N \u00b7 Z
             Surface(shape = RoundedCornerShape(8.dp), color = if (gpsLamp.first) Color(0xFF1B7F2A) else Color(0xFFB00020),
                 shadowElevation = 4.dp, modifier = Modifier.padding(bottom = 4.dp)) {
                 Text("\u25CF " + gpsLamp.second, color = Color.White, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
             }
+            if (gtOneMap) Surface(shape = RoundedCornerShape(8.dp), color = Color(0x99000000), modifier = Modifier.padding(bottom = 4.dp)) {
+                Text("N \u00b7 Z$gtZoom", color = Color(0xFF4DA6FF), fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+            }
+            }   // SHELL2-2026-10-22: the Row (GPS light + N \u00b7 Z)
         Box {
             if (!showRecMenu) {
                 // Main REC button
@@ -1723,8 +1741,8 @@ fun ConvoyScreen(
                     },
                     shape = RoundedCornerShape(10.dp),
                     color = when (recordingState) {
-                        RecordingState.CHECK_IN -> Color(0xFF8B0000)   // ORDERFIX-2026-09-27 (Fred): red, like REC
-                        RecordingState.IDLE -> Color(0xFF8B0000)
+                        RecordingState.CHECK_IN -> if (gtOneMap) Color(0xFFD32F2F) else Color(0xFF8B0000)   // SHELL2 red // ORDERFIX-2026-09-27 (Fred): red, like REC
+                        RecordingState.IDLE -> if (gtOneMap) Color(0xFFD32F2F) else Color(0xFF8B0000)   // SHELL2
                         RecordingState.RECORDING -> Color(0xFFCC0000)
                         RecordingState.PAUSED -> Color(0xFF994400)
                         RecordingState.SLEEPING -> Color(0xFFCC8800)
@@ -1733,17 +1751,18 @@ fun ConvoyScreen(
                 ) {
                     Text(
                         text = when (recordingState) {
-                            RecordingState.CHECK_IN -> if (GrpAwarenessLauncher.connected.value) "✔  CHK IN › REC" else "⏺  REC"   // SOLOREC-2026-09-28
+                            RecordingState.CHECK_IN -> if (gtOneMap && GroupMode.on.value) "✔  CHK IN"   // SHELL5-2026-10-22 (Fred 10:40): CHK IN in Group
+                                else if (GrpAwarenessLauncher.connected.value) "✔  CHK IN › REC" else "⏺  REC"   // SOLOREC-2026-09-28
                             RecordingState.IDLE -> "⏺  REC"
                             RecordingState.RECORDING -> "⏸  PAUSE"
                             RecordingState.PAUSED -> "⏺  RESUME"
                             RecordingState.SLEEPING -> "ZZZ  ASLEEP"
                         },
                         color = Color.White,
-                        fontSize = if (recordingState == RecordingState.CHECK_IN && GrpAwarenessLauncher.connected.value) 12.sp else 15.sp,   // SOLOREC   // ORDERFIX-2026-09-27: the longer label fits
+                        fontSize = if (gtOneMap) 22.sp else if (recordingState == RecordingState.CHECK_IN && GrpAwarenessLauncher.connected.value) 12.sp else 15.sp,   // SHELL2: larger in ONE MAP   // SOLOREC   // ORDERFIX-2026-09-27: the longer label fits
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        modifier = if (gtOneMap) Modifier.padding(horizontal = 32.dp, vertical = 18.dp) else Modifier.padding(horizontal = 16.dp, vertical = 12.dp)   // SHELL2
                     )
                 }
             } else {
@@ -1880,7 +1899,10 @@ fun ConvoyScreen(
                         .any { p -> runCatching { lm.getLastKnownLocation(p) }.getOrNull() != null }
                 }.getOrDefault(false)
         }
-        ConvoyMapBar(
+        // SHELL-2026-10-22 (2.7c ONE MAP): with Settings > Layout = ONE MAP this screen's own controls are hidden and
+        // GroupTrack.kt's launch layer is drawn over the same map (end of this Box). Map, recording, radio and dialogs keep running here.
+        // SHELL2-2026-10-22: gtOneMap is now read above the REC column (it uses it).
+        if (!gtOneMap) ConvoyMapBar(
             // PLAINCTRL-2026-08-17: plain language for the planning entry point.
             navLabel = "Ride Planning",
             // PLANGATE-2026-08-12C: green with a connection, yellow without. NOT red - the
@@ -1931,7 +1953,7 @@ fun ConvoyScreen(
         // Self-contained search beacon: Area/Track/Route/Trail/Waypoint. Routes artifact
         // results to the existing detail path (pendingDetailType/Id -> ArtifactDetailPanel).
         // Old ConvoyArtifactsPanel search remains in place this step (removed later).
-        UnifiedSearch(
+        if (!gtOneMap) UnifiedSearch(   // SHELL6-2026-10-22: the old controls are hidden in ONE MAP (Search module re-points later)
             mapContext = "convoy",
             webView = webViewRef.value,
             context = context,
@@ -1951,7 +1973,7 @@ fun ConvoyScreen(
         // MAPKEYS-2026-09-01: Map Keys goes BETWEEN Map Features (152) and Help,
         // so Help moves 184 -> 216. The column is absolute top padding, not a
         // stack, so inserting a control means moving the ones below it.
-        androidx.compose.material3.Surface(
+        if (!gtOneMap) androidx.compose.material3.Surface(   // SHELL6
             onClick = { mapKeysOpen = true },
             shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
             color = androidx.compose.ui.graphics.Color.Transparent,
@@ -2003,7 +2025,7 @@ fun ConvoyScreen(
         }
 
         // FROZENEXCEPTION-WWR-2026-09-24: (Fred approved) the ONLY change to the frozen screen -- WORK WITH RIDES below Mesh, always shown.
-        androidx.compose.material3.Surface(
+        if (!gtOneMap) androidx.compose.material3.Surface(   // SHELL6
             onClick = { com.geeksville.mesh.convoy.WorkWithRidesLauncher.open() },
             shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
             color = Color.Transparent,
@@ -2024,7 +2046,7 @@ fun ConvoyScreen(
         // "how do I bring it back... looked good with it missing."
         // ⭐ Here it cannot be covered, and it sits where a rider already looks.
         // ⚠ ONLY WHILE FOLDED (Fred): no dead control when the rail is showing.
-        if (true) {   // GRPAWARE-2026-09-28 (Fred): GRP Awareness is ALWAYS shown (was: Mesh, only while the rail was folded)
+        if (!gtOneMap) {   // SHELL6 (was: if (true)) // GRPAWARE-2026-09-28 (Fred): GRP Awareness is ALWAYS shown (was: Mesh, only while the rail was folded)
             androidx.compose.material3.Surface(
                 onClick = {
                     com.geeksville.mesh.convoy.GrpAwarenessLauncher.open()   // GRPAWARE: the panel (MESHTASTIC in it = the old unfold)
@@ -2050,7 +2072,7 @@ fun ConvoyScreen(
             }
         }
 
-        androidx.compose.material3.Surface(
+        if (!gtOneMap) androidx.compose.material3.Surface(   // SHELL6
             onClick = { showDocsChooser = true },
             // PLAINCTRL3-2026-08-18B: circle + fixed size dropped so the word renders in full;
             // top padding tightened from 252 to 184 to close the gap in the text column.
@@ -2071,7 +2093,7 @@ fun ConvoyScreen(
             }
         }
         // -- ARTIFACTS FAB (opens WORK WITH ARTIFACTS expanded; hidden while panel open) --
-        if (!showArtifactsPanel) {
+        if (!showArtifactsPanel && !gtOneMap) {   // SHELL6
             // PLAINCTRL-2026-08-17: surface dropped (option A) -- bare clickable words over the
             // map instead of a 40dp filled circle. Colour is carried by contentColor on a
             // transparent surface so the control still reports as clickable to a11y.
@@ -2241,7 +2263,7 @@ fun ConvoyScreen(
             }
         }
         // -- QUEUES button (LOCKED top-right, like planning map; drag removed 2026-06-03) --
-        Surface(
+        if (!gtOneMap) Surface(   // SHELL6
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = 8.dp, end = 8.dp)
@@ -3073,7 +3095,7 @@ fun ConvoyScreen(
         }
         // ── Button bar ────────────────────────────────────────────────────
         var showCartPicker by CartPickerLauncher.showing   // CARTLIST2-2026-09-28: shared -- CartPickerLauncher.open()/close() from anywhere
-        ConvoyButtonBar(
+        if (!gtOneMap) ConvoyButtonBar(   // SHELL-2026-10-22
             hudMode = hudMode,
             onModeChange = { viewModel.setHudMode(it); viewModel.setAutoPan(true) },
             onNavigateToSettings = onNavigateToSettings,
@@ -3195,7 +3217,7 @@ fun ConvoyScreen(
         // COSMETICS-2026-10-06 (Fred): the toggle's choice for this map type (session), else the map's default.
         val hudOnDark = viewModel.hudTextWhiteByMap[hudMapKey] ?: hudDefaultWhite
         // ── HUD strip ─────────────────────────────────────────────────────
-        Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 48.dp)) {
+        Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = if (gtOneMap) 72.dp else 48.dp)) {   // SHELL7-2026-10-22: the HUD (GPS line + MY CART / GROUP) shows in ONE MAP too, above the bottom bar
             androidx.compose.runtime.CompositionLocalProvider(LocalHudOnDark provides hudOnDark) {   // HUDSCHEME-2026-09-29
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { // GPSPANEL-2026-09-29
                 if (hudMode != HudMode.COLLAPSED) GpsLocationRow(intervalSecs = gpsNowSecs, channelUtil = avgChannelUtil,
@@ -3247,6 +3269,16 @@ fun ConvoyScreen(
             } // GPSPANEL-2026-09-29: end of the column (GPS row on top of the HUD)
             } // HUDSCHEME-2026-09-29: end of the HUD's colour scheme
         }
+        // SHELL-2026-10-22 (2.7c ONE MAP): the launch layer, over the same map. Not drawn while a document is open (the docs viewer
+        // is drawn earlier in this Box, so the layer would sit on top of it).
+        if (gtOneMap && docsView == null) com.geeksville.mesh.grouptrack.GroupTrackLaunchLayer(
+            onHelp = { name -> docsOpen(name) },
+            mapType = mapTypeLabel,   // SHELL2-2026-10-22: buttons and panels follow the map type
+            online = hasInternet,   // SHELL4-2026-10-22: INTERNET reads Status: Online / Offline
+            showingGroup = hudMode == HudMode.GROUP,   // SHELL8-2026-10-22: the View: Group / View: My Cart button
+            onToggleView = { viewModel.setHudMode(if (hudMode == HudMode.GROUP) HudMode.MY_CART else HudMode.GROUP) },
+            onZoom = { d -> webViewRef.value?.evaluateJavascript(if (d > 0) "map.zoomIn()" else "map.zoomOut()", null) }
+        )
     }
     }
 }
