@@ -95,6 +95,11 @@ fun ConvoyRiderProfileScreen(
                 .imePadding().navigationBarsPadding().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // TOUCHSTD-2026-10-22: the standard top bar -- HELP, and Close (= Cancel) in edit mode. First launch has no way out (by design).
+            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                com.geeksville.mesh.grouptrack.GtHelpButton("menu.account")
+                if (editMode) com.geeksville.mesh.grouptrack.GtCloseButton({ onCancel?.invoke() })   // CLOSEX-2026-10-22
+            }
             Text(
                 if (editMode) "YOUR RIDER PROFILE" else "SET UP YOUR RIDER PROFILE",
                 color = GREEN, fontSize = 16.sp, fontWeight = FontWeight.Bold,

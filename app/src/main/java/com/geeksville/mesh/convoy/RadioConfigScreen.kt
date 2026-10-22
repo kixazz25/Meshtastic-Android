@@ -208,7 +208,12 @@ fun RadioConfigScreen(
 
     Box(Modifier.fillMaxSize().background(BG).clickable(enabled = false) {}) {
         Column(Modifier.fillMaxSize().padding(18.dp).verticalScroll(rememberScrollState())) {
-            Text("Apply ride to radio", color = INK, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            // TOUCHSTD-2026-10-22 (Fred 12:05): HELP and Close at the TOP, beside the title (Close was only at the bottom, off screen).
+            Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Apply ride to radio", color = INK, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                com.geeksville.mesh.grouptrack.GtHelpButton("group.configure")
+                if (phase != "APPLYING") com.geeksville.mesh.grouptrack.GtCloseButton(onClose)   // CLOSEX-2026-10-22
+            }
             Text("Radio ${nodeId ?: "(none)"} • callsign ${callsign.ifEmpty { "(no profile)" }}", color = DIM, fontSize = 13.sp)
             Spacer(Modifier.height(10.dp))
 
@@ -278,7 +283,7 @@ fun RadioConfigScreen(
             }
             if (message.isNotEmpty()) Text(message, color = BAD, fontSize = 13.sp)
             Spacer(Modifier.height(14.dp))
-            if (phase != "APPLYING") OutlinedButton(onClick = onClose) { Text("Close") }
+            // TOUCHSTD-2026-10-22: the bottom Close moved to the top.
         }
     }
 }

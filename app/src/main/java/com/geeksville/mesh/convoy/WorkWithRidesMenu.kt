@@ -60,29 +60,8 @@ fun WorkWithRidesMenu(
     var picking by remember { mutableStateOf(false) }
     // RIDEIMPORT3-2026-09-25: Import a ride -- Android's file picker, opening in Downloads. The picked file is
     // checked inside (a GroupTrack ride) and imported through the SAME path as an emailed ride (RideImport).
-    val importPicker = androidx.activity.compose.rememberLauncherForActivityResult(
-        object : androidx.activity.result.contract.ActivityResultContracts.OpenDocument() {
-            override fun createIntent(context: android.content.Context, input: Array<String>): android.content.Intent =
-                super.createIntent(context, input).putExtra(
-                    android.provider.DocumentsContract.EXTRA_INITIAL_URI,
-                    android.provider.DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Download"),
-                )
-        }
-    ) { uri ->
-        if (uri != null) {
-            val msg = try {
-                val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
-                    ?: throw IllegalStateException("could not read the file")
-                RideImport.importRide(context, text, bringForward = false)
-            } catch (e: Exception) {
-                "Could not read the file: ${e.message}"
-            }
-            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
-            onDismiss()
-        }
-    }
-    // FILEPICKNOTICE-2026-10-10: the panel before the picker.
-    val importNotice = rememberPickerNotice("to choose the ride file you want to import", "file")
+    // GTRIDES-2026-10-22: the import is ONE shared action now (RideImportAction.kt) -- ONE MAP's Rides › Import uses it too.
+    val importRide = rememberRideImport(onDone = onDismiss)
     var includeRecent by remember { mutableStateOf(false) }   // DATEFILTER-2026-09-24
 
     Dialog(onDismissRequest = onDismiss) {
@@ -97,7 +76,7 @@ fun WorkWithRidesMenu(
 
                 if (!picking) {
                     WwrEntry("Rides \u2014 share, edit, delete", built = true) { onDismiss(); RidesLauncher.open() } // RIDESLIST-2026-09-26
-                    WwrEntry("Import a ride", built = true) { importNotice.ask { importPicker.launch(arrayOf("*/*")) } } // RIDEIMPORT3-2026-09-25
+                    WwrEntry("Import a ride", built = true) { importRide() } // RIDEIMPORT3-2026-09-25
                     WwrEntry("Apply ride to radio / Nucleus", built = true) { onDismiss(); onApplyToRadio() } // RADIOCFG4-2026-09-25
                     // WWRMENU-2026-09-30 (Fred): removed the email-send entry (sharing is Rides -> Share) and the
                     // discontinued standalone T1000-E line; renamed the saved-configs entry. Labels only.

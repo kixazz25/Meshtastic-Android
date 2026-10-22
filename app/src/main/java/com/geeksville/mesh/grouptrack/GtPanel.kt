@@ -112,7 +112,8 @@ fun GtIconButton(label: String, icon: ImageVector, onClick: () -> Unit, modifier
 /**
  * SHELL-2026-10-22: the ONE container every launch module and every first screen draws in (2.7c standards 1, 4, 5 -- Fred 10-22):
  *   1. it always SCROLLS (landscape broke 19 long panels that could not);
- *   4. a panel that STAYS on screen has MOVE (drag) and HIDE/SHOW (collapse); every panel has DONE (complete);
+ *   4. a panel that STAYS on screen has MOVE (drag) and HIDE/SHOW (collapse); every panel has HELP ✕ top right
+ *      (PANELX-2026-10-22: ✕ = leave; the COMPLETE is the panel's own action button -- one standard on panels and screens);
  *   5. every panel has HELP, opening the manual page for its function (GtHelp, from the link table).
  * The title bar is the same on every panel, so riders learn it once.
  *
@@ -161,9 +162,8 @@ fun GtPanel(
                     modifier = Modifier.clickable { collapsed = !collapsed }.padding(6.dp))
             }
             Text("HELP", color = GtColors.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { onHelp(GtHelp.linkFor(helpId)) }.padding(6.dp))
-            Text("DONE", color = GtColors.Good, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { onDone() }.padding(6.dp))
+                modifier = Modifier.clickable { GtHelpView.open(helpId) }.padding(6.dp))   // PANELX-2026-10-22: the one help viewer
+            GtCloseButton(onDone)   // PANELX-2026-10-22: DONE -> ✕, as every screen
         }
         if (!collapsed) {
             Column(

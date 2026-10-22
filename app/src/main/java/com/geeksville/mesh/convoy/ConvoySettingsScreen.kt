@@ -72,13 +72,9 @@ fun ConvoySettingsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Convoy Settings") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
+                actions = {   // CLOSEX-2026-10-22 (Fred 12:18): HELP ✕ top right, as every screen; the back arrow is gone
+                    com.geeksville.mesh.grouptrack.GtHelpButton("menu.settings")
+                    com.geeksville.mesh.grouptrack.GtCloseButton(onNavigateBack)
                 }
             )
         },

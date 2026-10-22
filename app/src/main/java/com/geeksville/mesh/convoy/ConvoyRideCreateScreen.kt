@@ -193,13 +193,11 @@ fun ConvoyRideCreateScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF1A3050))
-                .clickable { onBack() }.padding(horizontal = 10.dp, vertical = 5.dp)) {
-                Text("\u2190 BACK", color = GroupTrackColors.SkyBlue, fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-            }
+            // GTRIDES-2026-10-22: the standard top bar -- title, HELP ✕ (the ← BACK is gone; ✕ goes back)
             Text("CREATE A RIDE", color = Color.White, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 2.sp, modifier = Modifier.weight(1f))
+            com.geeksville.mesh.grouptrack.GtHelpButton("rides.ride")
+            com.geeksville.mesh.grouptrack.GtCloseButton(onBack)
         }
         HorizontalDivider(thickness = 2.dp, color = GroupTrackColors.SkyBlue)
 

@@ -17,6 +17,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.input.pointer.pointerInput   // LISTSIZE-2026-10-22
+import androidx.compose.foundation.gestures.detectDragGestures   // LISTDRAGFIX-2026-10-22
 
 /**
  * ArtifactListPanel — universal select/edit panel for all artifact types.
@@ -64,8 +66,13 @@ fun ArtifactListPanel(
     val ctx = LocalContext.current
 
 
+    // LISTSIZE-2026-10-22 (Fred 12:44): smaller (300 dp, was the full column) and DRAGGABLE by ☰ MOVE; HIDE folds it to its header.
+    var gtDrag by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    var gtFolded by remember { mutableStateOf(false) }
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+        modifier = Modifier
+            .offset { androidx.compose.ui.unit.IntOffset(gtDrag.x.toInt(), gtDrag.y.toInt()) }
+            .width(300.dp).padding(horizontal = 8.dp),
         shape = RoundedCornerShape(12.dp),
         color = aBg,
         shadowElevation = 8.dp
@@ -77,18 +84,22 @@ fun ArtifactListPanel(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Text("☰", color = aDim, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.pointerInputDrag { d -> gtDrag += d }.padding(end = 6.dp))
                 Text(
                     "$artifactType (${artifacts.size})",
                     color = aBlue, fontSize = 13.sp, fontFamily = aMono,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)
                 )
-                Text(
-                    "CLOSE", color = aDim, fontSize = 11.sp, fontFamily = aMono,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { onDismiss() }.padding(4.dp)
-                )
+                Text(if (gtFolded) "SHOW" else "HIDE", color = aBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { gtFolded = !gtFolded }.padding(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {   // GTFILTER-2026-10-22: the standard HELP ✕ (was CLOSE); ✕ applies the ticks, as CLOSE did
+                    com.geeksville.mesh.grouptrack.GtHelpButton("filter.select")
+                    com.geeksville.mesh.grouptrack.GtCloseButton(onDismiss)
+                }
             }
 
+            if (!gtFolded) {   // LISTSIZE-2026-10-22: HIDE folds everything below the header
             Spacer(Modifier.height(6.dp))
 
             // ── Select All / Deselect All / Fit ──
@@ -126,7 +137,7 @@ fun ArtifactListPanel(
                 )
             } else {
                 LazyColumn(
-                    modifier = Modifier.heightIn(max = 300.dp)
+                    modifier = Modifier.heightIn(max = 260.dp)   // LISTSIZE-2026-10-22: was 300
                 ) {
                     items(artifacts, key = { it["id"] ?: "" }) { artifact ->
                         val id = artifact["id"] ?: return@items
@@ -145,6 +156,7 @@ fun ArtifactListPanel(
                     }
                 }
             }
+            }   // LISTSIZE-2026-10-22: end of the foldable part
 
 
         }
@@ -200,3 +212,10 @@ private fun ArtifactListItem(
 }
 
 
+
+
+/** LISTSIZE-2026-10-22: drag by this element (the ☰ handle). */
+private fun Modifier.pointerInputDrag(onDrag: (androidx.compose.ui.geometry.Offset) -> Unit): Modifier =
+    this.pointerInput(Unit) {
+        detectDragGestures { change, d -> change.consume(); onDrag(d) }   // LISTDRAGFIX-2026-10-22
+    }

@@ -132,26 +132,15 @@ fun ConvoyArtifactsPanel(
                 // panels have now had this shape.
                 // ⚠ The whole Row is still clickable, so this is about making
                 // the affordance visible, not about adding behaviour.
-                androidx.compose.foundation.layout.Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.width(26.dp).height(22.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF1B2027))
-                        .border(1.dp, Color(0xFF47505A), RoundedCornerShape(4.dp))
-                ) {
-                    Text(
-                        "\u2715",
-                        color = Color(0xFFE6EDF3), fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
+                // GTMAP-2026-10-22: the ✕ box on the LEFT is gone -- HELP ✕ sit at the right of the title (the standard).
                 Text(
                     // PLAINCTRL2-2026-08-17: matches the FAB that opens this panel.
                     "WORK WITH MAP FEATURES",
                     color = aBlue, fontSize = 11.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
+                com.geeksville.mesh.grouptrack.GtHelpButton("map.features")   // GTMAP-2026-10-22
+                com.geeksville.mesh.grouptrack.GtCloseButton({ onDismiss() })
                 if (!isConvoyMap) {
                 Surface(
                     // CLEANUP-2026-08-24H: dismiss, not collapse. Leaving a stub

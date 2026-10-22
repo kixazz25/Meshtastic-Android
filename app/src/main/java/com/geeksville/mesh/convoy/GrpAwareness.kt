@@ -182,10 +182,11 @@ fun GrpAwarenessPanel(
     }
     Box(modifier = Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
         Surface(modifier = Modifier.fillMaxWidth().padding(16.dp), shape = RoundedCornerShape(14.dp), color = Color(0xFF12213A)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {   // TOUCHSTD-2026-10-22: scrolls
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("GRP Awareness", color = if (connected) green else red, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f))
+                    com.geeksville.mesh.grouptrack.GtHelpButton("grp")   // TOUCHSTD-2026-10-22
                     TextButton(onClick = onClose) { Text("✕", color = Color(0xFF7FB2E5), fontSize = 18.sp) }
                 }
                 // CHECKINCONNECT-2026-09-28: opened by CHK IN with no radio

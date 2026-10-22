@@ -115,6 +115,10 @@ fun ConvoyRouteToolbar(
      */
     onClose: () -> Unit = {},
     routeEntryNonce: Int = 0,
+    /** ROUTESTART-2026-10-22: a METHOD chosen before the panel opened (ONE MAP's Add Route); -1 = none (the rider picks). */
+    presetMethod: Int = -1,
+    /** ROUTESTART-2026-10-22: true = the METHOD row is not shown -- no change allowed (Fred 13:49). */
+    methodLocked: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     var offsetX by remember { mutableFloatStateOf(0f) }
@@ -131,6 +135,11 @@ fun ConvoyRouteToolbar(
     }
     // A new route session re-opens it -- routeEntryNonce already signals that.
     androidx.compose.runtime.LaunchedEffect(routeEntryNonce) { methodOpen = true }
+    // ROUTESTART-2026-10-22: a preset method is SELECTED as the panel opens -- the same call a chip tap makes, so the AI start
+    // (its clean pipeline) and the manual arm run exactly as if the rider had tapped it.
+    androidx.compose.runtime.LaunchedEffect(routeEntryNonce, presetMethod) {
+        if (presetMethod >= 0 && vertexCount == 0) { onSelectMethod(presetMethod); if (presetMethod == ROUTE_METHOD_P2P) onAddModeChanged(true) }
+    }
     // Add button armed-state (pact): GREEN = ON (taps place points),
     // RED = OFF (taps pan/reposition). ON on entry for Point; selecting
     // Draw/Suggest sets it OFF (those methods don't tap-to-place).
@@ -186,18 +195,9 @@ fun ConvoyRouteToolbar(
                 // and Map Features both had one at 10sp, unboxed, the same
                 // colour as the text beside it. A close nobody can see is the
                 // same as no close.
-                androidx.compose.foundation.layout.Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.padding(start = 8.dp)
-                        .width(26.dp).height(22.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF2A1B22))
-                        .border(1.dp, Color(0xFF6B4A55), RoundedCornerShape(4.dp))
-                        .clickable { onClose() }
-                ) {
-                    Text("\u2715", color = Color(0xFFE6EDF3), fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold)
-                }
+                // ROUTESTART-2026-10-22: the standard HELP ✕ (✕ still only CLOSES -- ROUTECLOSE-2026-09-02, nothing torn down)
+                com.geeksville.mesh.grouptrack.GtHelpButton("route")
+                com.geeksville.mesh.grouptrack.GtCloseButton({ onClose() })
             }
 
             // Entry buttons removed: New-vs-In-Progress is chosen at +ROUTE (entry prompt)
@@ -205,7 +205,10 @@ fun ConvoyRouteToolbar(
             if (!minimized) {
             // ROUTEMETHOD-2026-08-23R: collapsed once a point is down. The header still
             // says WHICH method is active -- a fold should not lose information.
-            Row(
+            // ROUTESTART-2026-10-22: LOCKED -> one line naming the method; no chips, no way to change it.
+            if (methodLocked) Text(if (selectedMethod == ROUTE_METHOD_SUGGEST) "AI ROUTE DESIGN" else "BUILD IT MYSELF",
+                color = rtGreen, fontSize = 10.sp, fontFamily = rtMono, fontWeight = FontWeight.Bold)
+            if (!methodLocked) Row(
                 modifier = Modifier.fillMaxWidth().clickable {
                     if (!methodOpen) {
                         if (vertexCount > 0) onMethodLockedTap() else methodOpen = true
@@ -223,7 +226,7 @@ fun ConvoyRouteToolbar(
                     Text("\u25b8", color = rtTxtD, fontSize = 10.sp, fontFamily = rtMono)
                 }
             }
-            if (methodOpen) {
+            if (methodOpen && !methodLocked) {   // ROUTESTART: locked -> never shown
             // ROUTEPANEL-2026-08-23O: two methods, not three. DRAW is gone from this
             // panel -- Fred 08-23. ⚠ The TOOL is not gone: Import Trails -> BY AREA
             // on the download panel still needs box drawing. Only this entry to it.

@@ -824,6 +824,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             // ⭐ The "Mesh" launcher in each map's right-hand column replaces
             // it, beside Map Features and Help, where nothing can cover it.
         }
+        com.geeksville.mesh.grouptrack.GtHelpViewer()   // TOUCHSTD-2026-10-22: LAST, so HELP opens on top of every screen
         }
     }
 }

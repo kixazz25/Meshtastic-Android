@@ -109,16 +109,20 @@ fun ArtifactDetailPanel(
     AlertDialog(
         onDismissRequest = { onDismiss(null, null) },
         title = {
-            Column {
+            Row(verticalAlignment = Alignment.Top) {   // GTRIDES-2026-10-22: HELP ✕ top right
+            Column(Modifier.weight(1f)) {
                 Text(dName, color = Color.White, fontSize = 14.sp,
                     fontFamily = aMono, fontWeight = FontWeight.Bold,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text("Type: ${singular.uppercase()}", color = aDim, fontSize = 10.sp,
                     fontFamily = aMono)
             }
+            com.geeksville.mesh.grouptrack.GtHelpButton("detail." + singular)
+            com.geeksville.mesh.grouptrack.GtCloseButton({ onDismiss(null, null) })
+            }
         },
         text = {
-            Row(modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {   // STDSCROLL-2026-10-22: the card scrolls
                 // -- LEFT RAIL: function list --
                 Column(modifier = Modifier.width(118.dp)) {
                     if (artifactType != "Trails" && onRename != null) {
@@ -357,9 +361,7 @@ fun ArtifactDetailPanel(
             }
         },
         confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = { onDismiss(null, null) }) { Text("CLOSE") }
-        }
+        // GTRIDES-2026-10-22: the bottom CLOSE moved to the top (✕)
     )
 
     // -- Rename Dialog --

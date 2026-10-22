@@ -130,7 +130,8 @@ fun ConfigReviewScreen(
                     Text("Saved configs", color = RINK, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text("Radio ${nodeId ?: "(none)"} \u2022 ${saves.size} saved", color = RDIM, fontSize = 13.sp)
                 }
-                OutlinedButton(onClick = onClose) { Text("Close") }
+                com.geeksville.mesh.grouptrack.GtHelpButton("group.archive")   // TOUCHSTD-2026-10-22
+                com.geeksville.mesh.grouptrack.GtCloseButton(onClose)   // CLOSEX-2026-10-22
             }
             Spacer(Modifier.height(10.dp))
             val c = compared

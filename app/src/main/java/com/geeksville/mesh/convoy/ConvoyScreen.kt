@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn   // STDSCROLL-2026-10-22
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -141,6 +142,12 @@ fun ConvoyScreen(
     // TRACKRIDE-CONVOY-2026-10-05 (Fred): opens the ride form for a route id. REQUIRED (CODE RULE 1) -- no default, so the compiler
     // checks every caller wires it; the ride map's detail panel uses it for ADD A RIDE and CREATE RIDE.
     onAddRide: (String, String) -> Unit,
+    // ATTACH1-2026-10-22: ONE MAP › MENU › Account opens the rider profile. REQUIRED (CODE RULE 1) -- one caller, ConvoyNavigation.
+    onNavigateToProfile: () -> Unit,
+    // GTRIDES-2026-10-22: ONE MAP › Rides › Create a ride opens the ride form (no route chosen yet). REQUIRED (CODE RULE 1).
+    onNavigateToCreateRide: () -> Unit,
+    // GTMAP-2026-10-22: ONE MAP › Map › Map sources. REQUIRED (CODE RULE 1).
+    onNavigateToMapSources: () -> Unit,
     viewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val convoyState by viewModel.convoyState.collectAsStateWithLifecycle()
@@ -368,6 +375,13 @@ fun ConvoyScreen(
     var tracksLoaded by remember { mutableStateOf(false) }
     var scanningDownloaded by remember { mutableStateOf(false) }
     val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
+    // ATTACH4-2026-10-22 (Fred 12:55): CENTRE ON ME re-centres on its own while recording -- 15 s after the last touch of the map.
+    var gtLastTouch by remember { mutableStateOf(0L) }
+    LaunchedEffect(autoPan, gtLastTouch, recordingState) {
+        if (autoPan || recordingState != RecordingState.RECORDING) return@LaunchedEffect
+        kotlinx.coroutines.delay(15_000)
+        viewModel.setAutoPan(true)
+    }
     // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
     var docsView by remember { mutableStateOf<String?>(null) }
     var showDocsChooser by remember { mutableStateOf(false) }
@@ -1387,7 +1401,7 @@ fun ConvoyScreen(
                     }
                     if (event.action == android.view.MotionEvent.ACTION_MOVE ||
                         event.action == android.view.MotionEvent.ACTION_POINTER_DOWN ||
-                        event.action == android.view.MotionEvent.ACTION_UP) { viewModel.setAutoPan(false) }
+                        event.action == android.view.MotionEvent.ACTION_UP) { viewModel.setAutoPan(false); gtLastTouch = System.currentTimeMillis() }   // ATTACH4: the idle clock restarts
                     if (event.action == android.view.MotionEvent.ACTION_UP) {
                         val x = event.x.toInt()
                         val y = event.y.toInt()
@@ -1688,7 +1702,7 @@ fun ConvoyScreen(
                             RecordingState.CHECK_IN -> {   // CHECKIN-2026-09-27: no recording before check-in
                                 // SOLOREC-2026-09-28 (Fred): THE BUTTON FOLLOWS THE RADIO. A radio -> the check-in. No radio -> a
                                 // solo ride: a silent "No scheduled ride" check-in (no survey, no sharing), then REC's own solo path.
-                                if (GrpAwarenessLauncher.connected.value) showCheckIn = true
+                                if (GrpAwarenessLauncher.connected.value || (gtOneMap && GroupMode.on.value)) showCheckIn = true   // CHKIN1MAP-2026-10-22: ONE MAP follows GROUP mode, as its label does
                                 else {
                                     ConvoyRideStore.checkIn(null, "", "rider")?.let { viewModel.checkIn.value = it }
                                     recordingState = RecordingState.IDLE
@@ -1902,6 +1916,28 @@ fun ConvoyScreen(
         // SHELL-2026-10-22 (2.7c ONE MAP): with Settings > Layout = ONE MAP this screen's own controls are hidden and
         // GroupTrack.kt's launch layer is drawn over the same map (end of this Box). Map, recording, radio and dialogs keep running here.
         // SHELL2-2026-10-22: gtOneMap is now read above the REC column (it uses it).
+        // ATTACH3-2026-10-22: the LOCAL / NET toggle as ONE shared val -- the classic map bar and ONE MAP's STATUS both call it.
+        val offlineToggle: (Boolean) -> Unit = { goOffline ->
+            viewModel.setOfflineMode(goOffline)
+            val url = if (goOffline)
+                ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
+            else
+                ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
+            webViewRef.value?.evaluateJavascript("setTileUrl('$url', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
+        }
+        // GTMAP-2026-10-22: the map bar's map-type change as ONE shared val -- the classic map bar and ONE MAP's Map › MAP TYPE.
+        val gtSetMapType: (String) -> Unit = { label ->
+            viewModel.setMapTypeLabel(label)
+            ConvoyConfig.ACTIVE_TILE_SOURCE = label
+            val url = if (isLocalTiles)
+                ConvoyConfig.LOCAL_TILE_BASE + label + "/{z}/{x}/{y}.png"
+            else
+                MapSourceManager.getSlotSources().find { it.first == label }?.third ?: ""
+            viewModel.setLocalTiles(isLocalTiles)
+            webViewRef.value?.evaluateJavascript("setTileUrl('$url', '$label')", null)
+            val overlayJsonSc = MapSourceManager.getOverlayJson(label)
+            if (overlayJsonSc != "[]") { webViewRef.value?.evaluateJavascript("setOverlayLayers('${overlayJsonSc.replace("'", "\\'")}')", null) }
+        }
         if (!gtOneMap) ConvoyMapBar(
             // PLAINCTRL-2026-08-17: plain language for the planning entry point.
             navLabel = "Ride Planning",
@@ -1922,26 +1958,8 @@ fun ConvoyScreen(
             },
             activeSource = mapTypeLabel,
             isOffline = isOfflineMode,
-            onSourceChange = { label ->
-                viewModel.setMapTypeLabel(label)
-                ConvoyConfig.ACTIVE_TILE_SOURCE = label
-                val url = if (isLocalTiles)
-                    ConvoyConfig.LOCAL_TILE_BASE + label + "/{z}/{x}/{y}.png"
-                else
-                    MapSourceManager.getSlotSources().find { it.first == label }?.third ?: ""
-                viewModel.setLocalTiles(isLocalTiles)
-                webViewRef.value?.evaluateJavascript("setTileUrl('$url', '$label')", null)
-                val overlayJsonSc = MapSourceManager.getOverlayJson(label)
-                if (overlayJsonSc != "[]") { webViewRef.value?.evaluateJavascript("setOverlayLayers('${overlayJsonSc.replace("'", "\\'")}')", null) }
-            },
-            onOfflineToggle = { goOffline ->
-                viewModel.setOfflineMode(goOffline)
-                val url = if (goOffline)
-                    ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
-                else
-                    ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
-                webViewRef.value?.evaluateJavascript("setTileUrl('$url', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
-            },
+            onSourceChange = gtSetMapType,   // GTMAP-2026-10-22: the shared val above
+            onOfflineToggle = offlineToggle,   // ATTACH3-2026-10-22: the shared val above
             modifier = Modifier
                 .statusBarsPadding()
                 .padding(start = 110.dp, end = 8.dp, top = 8.dp)
@@ -2287,7 +2305,7 @@ fun ConvoyScreen(
                 // squeezed the shared DownloadQueuePanel content).
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(16.dp)
+                    .padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = if (gtOneMap) 210.dp else 16.dp)   // QUEUESPOS-2026-10-22: ONE MAP -- left of the buttons
                     .fillMaxWidth(0.90f),
                 shape = RoundedCornerShape(10.dp),
                 color = Color(0xEE131820),
@@ -2301,10 +2319,10 @@ fun ConvoyScreen(
                             fontSize = 13.sp, fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(start = 8.dp, top = 4.dp))
-                        Text("CLOSE", color = Color(0xFF7A8DA0),
-                            fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable { queuesOpen = false }.padding(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {   // GTMAP-2026-10-22: the standard HELP ✕ (was CLOSE)
+                            com.geeksville.mesh.grouptrack.GtHelpButton("map.queues")
+                            com.geeksville.mesh.grouptrack.GtCloseButton({ queuesOpen = false })
+                        }
                     }
                     DownloadQueuePanel(
                         expanded = true,
@@ -2320,11 +2338,72 @@ fun ConvoyScreen(
                 }
             }
         }
+        // GTFILTER-2026-10-22: HIDE EVERYTHING -- what was on before the hide; empty = not hidden (CODE RULE 1: no null).
+        var gtHideSaved by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+        // GTFILTER-2026-10-22: was the inline onSetState lambda of ConvoyArtifactsPanel -- ONE copy, shared with ONE MAP's FILTER.
+        val gtSetDisplay: (String, Int) -> Unit = gtSetDisplay@{ typeName, newState ->
+                        when(typeName) {
+                            "Trails" -> { trailState = newState }
+                            "Tracks" -> { trackState = newState }
+                            "Waypoints" -> { waypointState = newState }
+                            "Routes" -> { routeState = newState }
+                        }
+                        saveConvoyState()
+                        val wv = webViewRef.value ?: return@gtSetDisplay
+                        if (newState == DS_OFF) {
+                            wv.evaluateJavascript("hide" + typeName + "()", null)
+                        } else {
+                            wv.evaluateJavascript("show" + typeName + "()", null)
+                            wv.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                        }
+        }
+        // GTFILTER-2026-10-22: was the inline onEditDisplay lambda of ConvoyArtifactsPanel -- ONE copy, shared with ONE MAP's FILTER.
+        val gtEditDisplay: (String) -> Unit = gtEditDisplay@{ typeName ->
+                        // TRAILSELECT-2026-09-02: SELECT on Trails opens the
+                        // CATEGORY filter, as on the planner. Fred, 09-02: all
+                        // the selects in one place.
+                        if (typeName == "Trails") {
+                            showTrailFilter = true
+                            return@gtEditDisplay
+                        }
+                        val table = when(typeName) { "Tracks"->"tracks"; "Trails"->"trails"; "Waypoints"->"waypoints"; "Routes"->"routes"; else->return@gtEditDisplay }
+                        // [viewport fix] Query the SELECT list against the LIVE map bounds (the displayed
+                        // frame) -- not stale lastViewport* (cache can lag/hold GPS point -> empty list).
+                        val wvb = webViewRef.value ?: return@gtEditDisplay
+                        wvb.evaluateJavascript(
+                            "(function(){try{var b=map.getBounds();return b.getSouth()+','+b.getWest()+','+b.getNorth()+','+b.getEast();}catch(e){return '';}})()"
+                        ) { raw ->
+                            val parts = (raw?.trim('"') ?: "").split(",")
+                            if (parts.size != 4) { android.widget.Toast.makeText(context, "Map not ready", android.widget.Toast.LENGTH_SHORT).show(); return@evaluateJavascript }
+                            val s = parts[0].toDoubleOrNull(); val w = parts[1].toDoubleOrNull(); val n = parts[2].toDoubleOrNull(); val e = parts[3].toDoubleOrNull()
+                            if (s == null || w == null || n == null || e == null) { android.widget.Toast.makeText(context, "Map not ready", android.widget.Toast.LENGTH_SHORT).show(); return@evaluateJavascript }
+                            kotlinx.coroutines.MainScope().launch {
+                                val list = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    SpatialDbManager.init(context)
+                                    SpatialDbManager.queryArtifactList(table, s, w, n, e)
+                                }
+                                if (list.isNotEmpty()) {
+                                    artifactList = list
+                                    // mirror planning: restore saved checked ids for SELECTED; all for ALL; none otherwise
+                                    val curState = when(typeName) { "Trails"->trailState; "Tracks"->trackState; "Waypoints"->waypointState; "Routes"->routeState; else->DS_OFF }
+                                    val curChecked = when(typeName) { "Trails"->trailCheckedIds; "Tracks"->trackCheckedIds; "Waypoints"->waypointCheckedIds; "Routes"->routeCheckedIds; else->null }
+                                    selectedArtifactIds = when {
+                                        curState == DS_SELECTED && curChecked != null -> curChecked
+                                        curState == DS_ON -> list.mapNotNull { it["id"] }.toSet()
+                                        else -> emptySet()
+                                    }
+                                    activeListType = typeName
+                                } else {
+                                    android.widget.Toast.makeText(context, "No $typeName in current view", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+        }
         Column(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
-                .padding(top = 52.dp, end = 8.dp),
+                .padding(top = 52.dp, end = if (gtOneMap) 210.dp else 8.dp),   // SELPOS-2026-10-22 (Fred 12:42): in ONE MAP the SELECT list sits LEFT of the right-column buttons, not under them
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
 
@@ -2356,69 +2435,20 @@ fun ConvoyScreen(
                     },
                     searchResults = searchResults,
                     displayStates = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState),
-                    onSetState = { typeName, newState ->
-                        when(typeName) {
-                            "Trails" -> { trailState = newState }
-                            "Tracks" -> { trackState = newState }
-                            "Waypoints" -> { waypointState = newState }
-                            "Routes" -> { routeState = newState }
-                        }
-                        saveConvoyState()
-                        val wv = webViewRef.value ?: return@ConvoyArtifactsPanel
-                        if (newState == DS_OFF) {
-                            wv.evaluateJavascript("hide" + typeName + "()", null)
-                        } else {
-                            wv.evaluateJavascript("show" + typeName + "()", null)
-                            wv.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
-                        }
-                    },
-                    onEditDisplay = { typeName ->
-                        // TRAILSELECT-2026-09-02: SELECT on Trails opens the
-                        // CATEGORY filter, as on the planner. Fred, 09-02: all
-                        // the selects in one place.
-                        if (typeName == "Trails") {
-                            showTrailFilter = true
-                            return@ConvoyArtifactsPanel
-                        }
-                        val table = when(typeName) { "Tracks"->"tracks"; "Trails"->"trails"; "Waypoints"->"waypoints"; "Routes"->"routes"; else->return@ConvoyArtifactsPanel }
-                        // [viewport fix] Query the SELECT list against the LIVE map bounds (the displayed
-                        // frame) -- not stale lastViewport* (cache can lag/hold GPS point -> empty list).
-                        val wvb = webViewRef.value ?: return@ConvoyArtifactsPanel
-                        wvb.evaluateJavascript(
-                            "(function(){try{var b=map.getBounds();return b.getSouth()+','+b.getWest()+','+b.getNorth()+','+b.getEast();}catch(e){return '';}})()"
-                        ) { raw ->
-                            val parts = (raw?.trim('"') ?: "").split(",")
-                            if (parts.size != 4) { android.widget.Toast.makeText(context, "Map not ready", android.widget.Toast.LENGTH_SHORT).show(); return@evaluateJavascript }
-                            val s = parts[0].toDoubleOrNull(); val w = parts[1].toDoubleOrNull(); val n = parts[2].toDoubleOrNull(); val e = parts[3].toDoubleOrNull()
-                            if (s == null || w == null || n == null || e == null) { android.widget.Toast.makeText(context, "Map not ready", android.widget.Toast.LENGTH_SHORT).show(); return@evaluateJavascript }
-                            kotlinx.coroutines.MainScope().launch {
-                                val list = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                    SpatialDbManager.init(context)
-                                    SpatialDbManager.queryArtifactList(table, s, w, n, e)
-                                }
-                                if (list.isNotEmpty()) {
-                                    artifactList = list
-                                    // mirror planning: restore saved checked ids for SELECTED; all for ALL; none otherwise
-                                    val curState = when(typeName) { "Trails"->trailState; "Tracks"->trackState; "Waypoints"->waypointState; "Routes"->routeState; else->DS_OFF }
-                                    val curChecked = when(typeName) { "Trails"->trailCheckedIds; "Tracks"->trackCheckedIds; "Waypoints"->waypointCheckedIds; "Routes"->routeCheckedIds; else->null }
-                                    selectedArtifactIds = when {
-                                        curState == DS_SELECTED && curChecked != null -> curChecked
-                                        curState == DS_ON -> list.mapNotNull { it["id"] }.toSet()
-                                        else -> emptySet()
-                                    }
-                                    activeListType = typeName
-                                } else {
-                                    android.widget.Toast.makeText(context, "No $typeName in current view", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                    }
+                    onSetState = gtSetDisplay,   // GTFILTER-2026-10-22: the shared val above the column
+                    onEditDisplay = gtEditDisplay   // GTFILTER-2026-10-22: the shared val above the column
                 )
                 }
                 if (showEntryChoice) {
                     androidx.compose.material3.AlertDialog(
                         onDismissRequest = { showEntryChoice = false },
-                        title = { androidx.compose.material3.Text("Start a route") },
+                        title = {   // GTRIDES-2026-10-22: HELP ✕ top right
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                androidx.compose.material3.Text("Start a route", modifier = Modifier.weight(1f))
+                                com.geeksville.mesh.grouptrack.GtHelpButton("route")
+                                com.geeksville.mesh.grouptrack.GtCloseButton({ showEntryChoice = false })
+                            }
+                        },
                         text = { androidx.compose.material3.Text("Begin a new route, or resume one in progress?") },
                         confirmButton = {
                             androidx.compose.material3.TextButton(onClick = {
@@ -2654,27 +2684,32 @@ fun ConvoyScreen(
                     )
                 }
                 if (activeListType != null) {
+                    // LIVESEL-2026-10-22 (Fred 12:44): every tick shows on the map AT ONCE (it applied only on close). One function for
+                    // tick, SELECT ALL, DESELECT ALL and close: the same state rule as before, saved, the type shown/hidden, the map re-read.
+                    fun gtApplyList(checked: Set<String>) {
+                        selectedArtifactIds = checked
+                        val allIds = artifactList.mapNotNull { it["id"] }.toSet()
+                        val newState = when { checked.isEmpty() -> DS_OFF; checked.containsAll(allIds) && allIds.size == checked.size -> DS_ON; else -> DS_SELECTED }
+                        val typeName = activeListType ?: return
+                        when (typeName) {
+                            "Trails" -> { trailState = newState; trailCheckedIds = if (newState == DS_SELECTED) checked else null }
+                            "Tracks" -> { trackState = newState; trackCheckedIds = if (newState == DS_SELECTED) checked else null }
+                            "Waypoints" -> { waypointState = newState; waypointCheckedIds = if (newState == DS_SELECTED) checked else null }
+                            "Routes" -> { routeState = newState; routeCheckedIds = if (newState == DS_SELECTED) checked else null }
+                        }
+                        saveConvoyState()
+                        val wv = webViewRef.value ?: return
+                        wv.evaluateJavascript((if (newState == DS_OFF) "hide" else "show") + typeName + "()", null)
+                        wv.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                    }
                     ArtifactListPanel(
                         artifactType = activeListType!!,
                         artifacts = artifactList,
                         selectedIds = selectedArtifactIds,
-                        onDismiss = {
-                            val allIds = artifactList.mapNotNull { it["id"] }.toSet()
-                            val checked = selectedArtifactIds
-                            val newState = when { checked.isEmpty() -> DS_OFF; checked.containsAll(allIds) && allIds.size == checked.size -> DS_ON; else -> DS_SELECTED }
-                            when (activeListType) {
-                                "Trails" -> { trailState = newState; trailCheckedIds = if (newState == DS_SELECTED) checked else null }
-                                "Tracks" -> { trackState = newState; trackCheckedIds = if (newState == DS_SELECTED) checked else null }
-                                "Waypoints" -> { waypointState = newState; waypointCheckedIds = if (newState == DS_SELECTED) checked else null }
-                                "Routes" -> { routeState = newState; routeCheckedIds = if (newState == DS_SELECTED) checked else null }
-                            }
-                            saveConvoyState()
-                            activeListType = null
-                            webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
-                        },
-                        onToggleItem = { id, checked -> selectedArtifactIds = if (checked) selectedArtifactIds + id else selectedArtifactIds - id },
-                        onSelectAll = { selectedArtifactIds = artifactList.mapNotNull { it["id"] }.toSet() },
-                        onDeselectAll = { selectedArtifactIds = emptySet() },
+                        onDismiss = { gtApplyList(selectedArtifactIds); activeListType = null },   // LIVESEL-2026-10-22
+                        onToggleItem = { id, checked -> gtApplyList(if (checked) selectedArtifactIds + id else selectedArtifactIds - id) },   // LIVESEL
+                        onSelectAll = { gtApplyList(artifactList.mapNotNull { it["id"] }.toSet()) },   // LIVESEL
+                        onDeselectAll = { gtApplyList(emptySet()) },   // LIVESEL
                         mapKey = "convoy",
                         fitWebView = webViewRef.value,
                         onOpenDetail = { t, id -> activeListType = null; pendingDetailType = t; pendingDetailId = id }
@@ -3271,11 +3306,131 @@ fun ConvoyScreen(
         }
         // SHELL-2026-10-22 (2.7c ONE MAP): the launch layer, over the same map. Not drawn while a document is open (the docs viewer
         // is drawn earlier in this Box, so the layer would sit on top of it).
+        // CLEARROUTES-2026-10-22 (Fred 13:58): Add Route › "Clear leftover routes" -- the Settings route-files cleanup
+        // (RouteDraftStore.deleteAllRouteFiles: the compare set first, then every in-progress route file). ASKS FIRST, listing them.
+        var gtClearAsk by remember { mutableStateOf(false) }
+        if (gtClearAsk) {
+            val names = remember { RouteDraftStore.listDrafts().map { it.name } }
+            val batch = remember { RouteDraftStore.hasOpenBatch() }
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { gtClearAsk = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Clear leftover routes", modifier = Modifier.weight(1f))
+                        com.geeksville.mesh.grouptrack.GtHelpButton("route.clear")
+                        com.geeksville.mesh.grouptrack.GtCloseButton({ gtClearAsk = false })
+                    }
+                },
+                text = {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        if (names.isEmpty() && !batch) Text("Nothing to clear -- no routes in progress and no compare set.")
+                        else {
+                            Text("These are deleted. Finished, saved routes are NOT touched.")
+                            if (batch) Text("\u2022 the open AI compare set", fontWeight = FontWeight.Bold)
+                            names.forEach { Text("\u2022 " + it) }
+                        }
+                    }
+                },
+                confirmButton = {
+                    if (names.isNotEmpty() || batch) androidx.compose.material3.TextButton(onClick = {
+                        val n = RouteDraftStore.deleteAllRouteFiles()
+                        draftListTick++
+                        gtClearAsk = false
+                        android.widget.Toast.makeText(context, "Cleared $n route file(s).", android.widget.Toast.LENGTH_LONG).show()
+                    }) { Text("DELETE THEM", color = Color(0xFFE0453A)) }
+                }
+            )
+        }
+        fun gtStartRoute(method: Int) {   // ROUTESTART-2026-10-22
+            if (!planPosKnown) android.widget.Toast.makeText(context, "Waiting for your position \u2014 route building opens once GPS or Wi-Fi location is available.", android.widget.Toast.LENGTH_LONG).show()
+            else if (!hasInternet) android.widget.Toast.makeText(context, "Route building needs internet access", android.widget.Toast.LENGTH_LONG).show()
+            else { com.geeksville.mesh.grouptrack.RouteStart.method = method; onNavigateToMapViewer() }
+        }
+        val gtRideImport = rememberRideImport(onDone = {})   // GTRIDES-2026-10-22: Rides › Import a ride (ONE MAP has no menu to close)
         if (gtOneMap && docsView == null) com.geeksville.mesh.grouptrack.GroupTrackLaunchLayer(
             onHelp = { name -> docsOpen(name) },
             mapType = mapTypeLabel,   // SHELL2-2026-10-22: buttons and panels follow the map type
-            online = hasInternet,   // SHELL4-2026-10-22: INTERNET reads Status: Online / Offline
+            mapTypes = MapSourceManager.getSlotSources().map { it.first },   // GTMAP-2026-10-22: Map › MAP TYPE, the map bar's slots
+            onMapType = gtSetMapType,
+            online = hasInternet && !isOfflineMode,   // ATTACH3-2026-10-22: Offline = no internet OR offline mode on
             showingGroup = hudMode == HudMode.GROUP,   // SHELL8-2026-10-22: the View: Group / View: My Cart button
+            actions = mapOf<String, () -> Unit>(   // ATTACH1-2026-10-22 THE BRIDGE -- process id -> today's function (RE-POINT)
+                "menu.settings" to { onNavigateToSettings() },
+                "menu.help" to { showDocsChooser = true },
+                "menu.account" to { onNavigateToProfile() },
+                "group.configure" to { com.geeksville.mesh.convoy.RadioConfigLauncher.open() },   // RADIOSETUP-2026-10-22: the radio configurator
+                "group.archive" to { com.geeksville.mesh.convoy.ConfigReviewLauncher.open() },   // RADIOSETUP-2026-10-22: Saved configs
+                "mode.switch" to {   // ATTACH3-2026-10-22: the Settings switch's call; blocked while recording
+                    if (recordingState == RecordingState.CHECK_IN || recordingState == RecordingState.IDLE) viewModel.setGroupMode(!GroupMode.on.value)
+                    else android.widget.Toast.makeText(context, "End the ride before changing mode.", android.widget.Toast.LENGTH_LONG).show()
+                },
+                "rides.carts" to { CartPickerLauncher.open() },   // GTRIDES-2026-10-22: View checked-in carts / change roles
+                "rides.ride" to { onNavigateToCreateRide() },   // GTRIDES: Create a ride
+                "rides.import" to { gtRideImport() },   // GTRIDES: Import a ride (the shared action)
+                "rides.mine" to { RidesLauncher.open() },   // GTRIDES: My rides -- Send / Edit / Delete
+                // ROUTESTART-2026-10-22: ADD ROUTE -> the planning map's Route+ (all its start-up checks), method set and locked.
+                // Same gates as the old Ride Planning button: a known position, and internet.
+                // ROUTEPARK-2026-10-22 (Fred 14:31): route.manual / route.ai PARKED -- they opened the planning map and stranded
+                // the rider there. They return when Route+ is hosted in ONE MAP. (gtStartRoute is kept for that.)
+                "route.clear" to { gtClearAsk = true },   // CLEARROUTES-2026-10-22   // GTRIDES (Fred 13:22): ADD ROUTE -- New route or In progress, as +ROUTE
+                "map.features" to { showArtifactsPanel = true },   // GTMAP-2026-10-22: the original Map Features panel, as is
+                "map.queues" to { queuesOpen = true },   // GTMAP: the download queues panel, as is
+                "map.sources" to { onNavigateToMapSources() },   // GTMAP: the Map Sources screen, as is
+                "map.planner" to {   // GTMAP: the planning map, exactly as today (the old Ride Planning button and its gates)
+                    if (!planPosKnown) android.widget.Toast.makeText(context, "Waiting for your position \u2014 Ride Planning opens once GPS or Wi-Fi location is available.", android.widget.Toast.LENGTH_LONG).show()
+                    else if (hasInternet) onNavigateToMapViewer()
+                    else android.widget.Toast.makeText(context, "Planning Map requires internet access", android.widget.Toast.LENGTH_LONG).show()
+                },
+                "centre.me" to { viewModel.setAutoPan(true) },   // ATTACH4-2026-10-22: follow again (the readout's view)
+                "internet.switch" to {   // ATTACH3-2026-10-22: the old LOCAL / NET toggle
+                    if (isOfflineMode) offlineToggle(false)
+                    else if (hasInternet) offlineToggle(true)
+                    else android.widget.Toast.makeText(context, "No internet \u2014 the map is using downloaded maps.", android.widget.Toast.LENGTH_LONG).show()
+                },
+                "grp.open" to { com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() },   // GRPONEMAP-2026-10-22: same as the old button
+            ),
+            search = com.geeksville.mesh.grouptrack.GtSearchBridge(   // GTSEARCH-2026-10-22: the one-box search -- same engines as the old search
+                mapCenter = { doubleArrayOf((lastViewportSouth + lastViewportNorth) / 2.0, (lastViewportWest + lastViewportEast) / 2.0) },
+                online = hasInternet && !isOfflineMode,
+                openArtifact = { r ->
+                    val s0 = r.minLat; val n0 = r.maxLat; val w0 = r.minLon; val e0 = r.maxLon
+                    if (s0 != null && n0 != null && w0 != null && e0 != null) {
+                        viewModel.setAutoPan(false)
+                        webViewRef.value?.evaluateJavascript("fitBounds([$s0,$n0],[$w0,$e0])", null)
+                    }
+                    pendingDetailType = r.type.replaceFirstChar { it.uppercase() }
+                    pendingDetailId = r.id
+                },
+                goToPlace = { la, lo ->
+                    viewModel.setAutoPan(false)   // SEARCHPAN-2026-09-15: a search moved the map -- stop following first
+                    val wv = webViewRef.value
+                    wv?.evaluateJavascript("setView($la, $lo, 13)", null)
+                    wv?.evaluateJavascript("try{showSearchCenter($la, $lo)}catch(e){}", null)
+                    wv?.postDelayed({ wv.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }, 550)
+                },
+            ),
+            centreLabel = if (!autoPan) "CENTRE ON ME" else if (hudMode == HudMode.GROUP) "FOLLOWING GROUP" else "FOLLOWING ME",   // ATTACH4-2026-10-22
+            keyStyleChanged = { webViewRef.value?.evaluateJavascript("setTrailStyles(" + TrailFilterState.styleJson() + ")", null) },   // GTKEY-2026-10-22: as Map Keys does
+            filter = com.geeksville.mesh.grouptrack.GtFilterBridge(   // GTFILTER-2026-10-22: FILTER -- the same functions Map Features used
+                state = { t -> when (t) { "Trails" -> trailState; "Tracks" -> trackState; "Waypoints" -> waypointState; else -> routeState } },
+                setState = { t, v -> gtHideSaved = emptyMap(); gtSetDisplay(t, v) },
+                openSelect = { t -> gtHideSaved = emptyMap(); gtEditDisplay(t) },
+                hidden = gtHideSaved.isNotEmpty(),
+                toggleHide = {
+                    if (gtHideSaved.isEmpty()) {
+                        val was = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState)
+                        gtHideSaved = was
+                        was.keys.forEach { gtSetDisplay(it, DS_OFF) }
+                    } else {
+                        val was = gtHideSaved
+                        gtHideSaved = emptyMap()
+                        was.forEach { (t, v) -> gtSetDisplay(t, v) }
+                    }
+                },
+                trailsChanged = { webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) },
+            ),
+            grpColor = com.geeksville.mesh.convoy.grpAwarenessColor(),   // GRPONEMAP-2026-10-22: the live green / red / grey
+            onRide = recordingState != RecordingState.CHECK_IN,   // SHELL11-2026-10-22: checked in or recording -> View replaces Add Route
             onToggleView = { viewModel.setHudMode(if (hudMode == HudMode.GROUP) HudMode.MY_CART else HudMode.GROUP) },
             onZoom = { d -> webViewRef.value?.evaluateJavascript(if (d > 0) "map.zoomIn()" else "map.zoomOut()", null) }
         )
@@ -3695,7 +3850,7 @@ fun CartPickerPanel(
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
             color = Color.Black   // CARTROLES-2026-10-06 (Fred): SOLID black -- was ~55% see-through and unreadable over the map
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()).padding(16.dp)) {   // STDSCROLL-2026-10-22: the cart list scrolls
                 // The ride, on top.
                 if (rideTitle.isNotBlank()) {
                     Text(rideTitle, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -3715,9 +3870,8 @@ fun CartPickerPanel(
                     Text("CART ROLES \u00b7 ${nodes.size} radio" + (if (nodes.size == 1) "" else "s") + " on this network",   // CARTROLES
                         color = Color(0xFF67EA94), fontSize = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f))
-                    androidx.compose.material3.TextButton(onClick = { onDismiss() }) {
-                        Text("CLOSE", color = Color(0xFFCAC4D0), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                    }
+                    com.geeksville.mesh.grouptrack.GtHelpButton("rides.carts")   // GTRIDES-2026-10-22: the standard HELP ✕ (was CLOSE)
+                    com.geeksville.mesh.grouptrack.GtCloseButton({ onDismiss() })
                 }
                 if (listOpen) {   // CARTPICKER3: the radios and the legend fold away
                 if (nodes.isEmpty()) {
@@ -4174,9 +4328,15 @@ fun RoleChangeDialog(currentRole: String, heldBy: Map<String, String>, onApply: 
     var heldWarn by remember { mutableStateOf<String?>(null) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Change my role", fontWeight = FontWeight.Bold) },
+        title = {   // GTRIDES-2026-10-22: HELP ✕ top right
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Change my role", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                com.geeksville.mesh.grouptrack.GtHelpButton("rides.carts")
+                com.geeksville.mesh.grouptrack.GtCloseButton(onDismiss)
+            }
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {   // STDSCROLL-2026-10-22
                 Text("Now: " + (roles.firstOrNull { it.first == now }?.second ?: "Rider"))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     roles.forEach { (v, l) ->
@@ -4191,7 +4351,7 @@ fun RoleChangeDialog(currentRole: String, heldBy: Map<String, String>, onApply: 
         confirmButton = {
             androidx.compose.material3.TextButton(enabled = role != now, onClick = { onApply(role) }) { Text("APPLY") }
         },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("CANCEL") } }
+        // GTRIDES-2026-10-22: the bottom CANCEL is gone -- ✕ at the top
     )
     heldWarn?.let { w ->
         val label = roles.firstOrNull { it.first == w }?.second ?: w

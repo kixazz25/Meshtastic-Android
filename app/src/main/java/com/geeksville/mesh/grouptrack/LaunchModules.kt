@@ -46,6 +46,9 @@ object LaunchModules {
             "settings" to "Settings",
             "help" to "Help — Quick Start, Release Notes, Manual",
             "account" to "Account — profile, terms, completed rides")),
+        // GRPONEMAP-2026-10-22 (Fred 11:38): GRP AWARENESS stays -- the in-ride issue indicator, one tap to its panel. Always shown.
+        LaunchModule("grp", "GRP Awareness", LaunchSlot.RIGHT, 0, groupOnly = false, stays = false, processes = p("grp",
+            "open" to "GRP Awareness \u2014 radio link status, connect, apply the ride's settings")),
         LaunchModule("mode", "MODE", LaunchSlot.RIGHT, 1, groupOnly = false, stays = false, processes = p("mode",
             "switch" to "ANDROID ONLY ⇄ GROUP (blocked while recording)")),
         LaunchModule("internet", "INTERNET", LaunchSlot.RIGHT, 2, groupOnly = false, stays = false, processes = p("internet",
@@ -67,18 +70,29 @@ object LaunchModules {
             "cart" to "Tap a cart for its readout",
             "gps" to "GPS every n s · Medium Fast / Long Fast",
             "distance" to "Distance traveled")),
+        // GTMAP-2026-10-22 (Fred 14:35-14:38): EXACTLY as they exist -- the ride map's own map functions attached; the planning
+        // map's functions listed as PLANNER placeholders (they come into ONE MAP with Route+, then everything is realigned).
+        // MAP TYPE is drawn at the top of the panel (GtMapTypeRow).
         LaunchModule("map", "Map", LaunchSlot.BOTTOM_BAR, 1, groupOnly = false, stays = false, processes = p("map",
-            "type" to "Map type",
-            "flyover" to "Flyover Z14–18",
-            "download" to "Download for offline",
-            "queues" to "Queues",
-            "trails" to "Import trail data",
-            "gpx" to "Import GPX",
+            "features" to "Map Features (the original panel)",
+            "queues" to "Download queues",
             "sources" to "Map sources",
-            "distance" to "Distance")),
+            "planner" to "Open the planning map",
+            "download" to "Planner: download maps \u2014 by area, corridor, draw a box",
+            "flyover" to "Planner: flyover Z14\u201318",
+            "downloads" to "Planner: show downloads \u00b7 archived maps",
+            "remove" to "Planner: remove tiles \u2014 by area or track",
+            "repair" to "Planner: recreate tiles \u00b7 map recovery",
+            "trails" to "Planner: import trails \u2014 by state or area",
+            "gpx" to "Planner: import GPX \u2014 tracks, waypoints, routes",
+            "ridertrails" to "Planner: create trails from tracks",
+            "distance" to "Planner: mileage")),
         // SHELL9-2026-10-22 (Fred 11:07): ROUTE is its own bottom button -- a key function is never hidden between navigation layers.
         LaunchModule("route", "Route", LaunchSlot.BOTTOM_BAR, 2, groupOnly = false, stays = true, processes = p("route",
-            "create" to "Create a route \u2014 draw it on the map")),
+            // ROUTESTART-2026-10-22 (Fred 13:49): TWO choices, each runs the existing Route+ with the method set and locked.
+            "manual" to "Build it myself \u2014 tap points, the route follows the trails",
+            "ai" to "AI route design \u2014 with your guidance",
+            "clear" to "Clear leftover routes \u2014 in progress and AI compare (asks first)")),   // CLEARROUTES-2026-10-22
         LaunchModule("rides", "Rides", LaunchSlot.BOTTOM_BAR, 3, groupOnly = false, stays = false, processes = p("rides",
             "carts" to "View checked-in carts / change roles",   // SHELL5-2026-10-22 (Fred 10:40): first in Rides
             "ride" to "Create a ride",
@@ -89,7 +103,9 @@ object LaunchModules {
         // SHELL4-2026-10-22 (Fred 10:23): the last bottom button is RADIO SETUP, with that as its only option. The other group
         // items moved: checked-in carts / roles to RIDES (first option, SHELL5); the GPS rate stays in the HUD; archived setups inside Radio setup.
         LaunchModule("group", "RADIO SETUP", LaunchSlot.BOTTOM_BAR, 5, groupOnly = true, stays = false, processes = p("group",
-            "radio" to "Radio setup \u2014 connect the radio, apply the ride's settings, archived setups")),
+            // RADIOSETUP-2026-10-22 (Fred 11:47): two rows; GRP Awareness (connect) has its own button.
+            "configure" to "Configure radio for rides",
+            "archive" to "Archived radio setups \u2014 review / apply")),
     )
 
     fun bySlot(slot: LaunchSlot, group: Boolean): List<LaunchModule> =

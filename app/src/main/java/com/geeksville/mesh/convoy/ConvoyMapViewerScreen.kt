@@ -286,6 +286,8 @@ fun ConvoyMapViewerScreen(
     var activeSource by remember { mutableStateOf("SAT") }
     var trailsOn by remember { mutableStateOf(false) }
     var trailsLoaded by remember { mutableStateOf(false) }
+    var gtPageReady by remember { mutableStateOf(false) }   // ROUTESTART-2026-10-22: the map page has loaded (ONE MAP's Add Route waits for it)
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { com.geeksville.mesh.grouptrack.RouteStart.method = com.geeksville.mesh.grouptrack.RouteStart.NONE } }   // ROUTESTART: one request, one visit
     var showTrackPanel by remember { mutableStateOf(false) }
     var showTrackMenu by remember { mutableStateOf(false) }
     var trackFileList by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -1860,6 +1862,7 @@ fun ConvoyMapViewerScreen(
                                 return super.shouldInterceptRequest(view, request)
                             }
                             override fun onPageFinished(view: WebView?, url: String?) {
+                            gtPageReady = true   // ROUTESTART-2026-10-22
                             // HTMLVER-2026-08-13B: read the HTML's own version back so settings
                             // can show it. Cheap, once per page load.
                             view?.evaluateJavascript("window.__htmlVersion || ''") { v ->
@@ -2291,13 +2294,10 @@ fun ConvoyMapViewerScreen(
                         .padding(8.dp)   // RELEASEF-2026-10-08 COMPARENARROW: the table sizes itself to its rides
                 )
             }
-            // -- WORK WITH ARTIFACTS (V2.5 scaffold) -- FAB-gated, opens expanded --
-            if (showArtifactsPanel) {
-            ConvoyArtifactsPanel(
-                startExpanded = true,
-                onDismiss = { showArtifactsPanel = false },
-                isConvoyMap = false,
-                onCreateRoute = {
+            // ROUTESTART-2026-10-22: Map Features' +ROUTE as ONE named action -- the panel's button AND ONE MAP's Add Route
+            // (Build it myself / AI route design) both run it, so every start-up check (compare sets, leftover AI routes,
+            // the unnamed draft, in-progress routes) runs the same way.
+            val gtRoutePlus: () -> Unit = gtRoutePlus@{
                     /* BATCHFORK-2026-08-27: AN OPEN BATCH TAKES PRECEDENCE.
                      *
                      * ⛔ Nothing below runs while a batch is unresolved -- not
@@ -2379,7 +2379,7 @@ fun ConvoyMapViewerScreen(
                         // ⚠ Route+ lives inside this panel; leaving it open
                         // would put the grid behind it.
                         showArtifactsPanel = false
-                        return@ConvoyArtifactsPanel
+                        return@gtRoutePlus
                     }
                     RouteDraftStore.traceCompare("Route+", "NO compare set -> new route / In-Progress")   // COMPARETRACE-2026-10-07
                     // +ROUTE -> choose New vs In-Progress BEFORE the toolbar opens.
@@ -2401,7 +2401,18 @@ fun ConvoyMapViewerScreen(
                     routeMode = rmTrace(true, "RM@ConvoyMapViewerScreen:2338")   // route-add selected: panel has no cancel, both picks build a route
                     showArtifactsPanel = false   // FEATURESCLOSE-2026-10-06 (Fred): Route+ chosen -> Map Features closes (the toolbar does not live in it)
                     android.util.Log.i("PanelTrace", "PICKER <- true"); showInProgressPicker = true
-                },
+            }
+            // ROUTESTART: ONE MAP asked for a route (RouteStart.method) -> start it once the map has loaded.
+            LaunchedEffect(gtPageReady) {
+                if (gtPageReady && com.geeksville.mesh.grouptrack.RouteStart.method >= 0) { kotlinx.coroutines.delay(600); gtRoutePlus() }
+            }
+            // -- WORK WITH ARTIFACTS (V2.5 scaffold) -- FAB-gated, opens expanded --
+            if (showArtifactsPanel) {
+            ConvoyArtifactsPanel(
+                startExpanded = true,
+                onDismiss = { showArtifactsPanel = false },
+                isConvoyMap = false,
+                onCreateRoute = gtRoutePlus,   // ROUTESTART-2026-10-22: the named action above
                 onSearch = { type, term ->
                     coroutineScope.launch {
                         val raw = withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -3926,6 +3937,8 @@ fun ConvoyMapViewerScreen(
                     isConvoyMap = false,
                     vertexCount = RouteManager.routeVertexCount(),
                     routeEntryNonce = routeEntryNonce,
+                    presetMethod = com.geeksville.mesh.grouptrack.RouteStart.method,   // ROUTESTART-2026-10-22: ONE MAP's choice, locked
+                    methodLocked = com.geeksville.mesh.grouptrack.RouteStart.method >= 0,
                     selectedMethod = routeMethod,
                     onSelectMethod = {
                         routeMethod = it

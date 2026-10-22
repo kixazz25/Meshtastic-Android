@@ -147,10 +147,9 @@ fun ConvoyMapSourceScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Map Sources") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
+                actions = {   // GTMAP-2026-10-22: HELP ✕ top right, as every screen (the back arrow is gone; ✕ goes back)
+                    com.geeksville.mesh.grouptrack.GtHelpButton("map.sources")
+                    com.geeksville.mesh.grouptrack.GtCloseButton(onNavigateBack)
                 }
             )
         }

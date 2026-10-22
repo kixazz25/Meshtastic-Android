@@ -99,7 +99,13 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
         titleContentColor = Color.White,
         textContentColor = Color.White,
         tonalElevation = 0.dp,
-        title = { Text("Check in") },
+        title = {   // CHKINSTD-2026-10-22 (Fred 12:19): the standard top bar -- HELP ✕ top right
+            androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Check in", modifier = Modifier.weight(1f))
+                com.geeksville.mesh.grouptrack.GtHelpButton("record.checkin")
+                com.geeksville.mesh.grouptrack.GtCloseButton(onCancel)
+            }
+        },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text("Which ride?", fontWeight = FontWeight.Bold)
@@ -235,6 +241,6 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
                 } else ConvoyRideStore.checkIn(chosen, callsign, role)?.let { onDone(it, chosen != null && showOnMap) }
             }) { Text("CHECK IN") }
         },
-        dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },
+        // CHKINSTD-2026-10-22: the bottom Cancel is gone -- ✕ at the top replaces it.
     )
 }

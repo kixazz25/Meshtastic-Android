@@ -77,6 +77,9 @@ fun NavGraphBuilder.convoyGraph(
         ConvoyScreen(
             // TRACKRIDE-CONVOY-2026-10-05: ADD A RIDE / CREATE RIDE on the ride map's detail panel -> the ride form (as the planner).
             onAddRide = { _, routeId -> navController?.navigate(ConvoyRoutes.ConvoyRideCreate(routeId)) },
+            onNavigateToProfile = { navController?.navigate(ConvoyRoutes.ConvoyRiderProfile) },   // ATTACH1-2026-10-22: MENU › Account
+            onNavigateToCreateRide = { navController?.navigate(ConvoyRoutes.ConvoyRideCreate()) },   // GTRIDES-2026-10-22: Rides › Create a ride
+            onNavigateToMapSources = { navController?.navigate(ConvoyRoutes.ConvoyMapSources) },   // GTMAP-2026-10-22: Map › Map sources
             onNavigateToMapViewer = { navController?.navigate(ConvoyRoutes.ConvoyMapViewer) },
             onNavigateToTrackExport = { navController?.navigate(ConvoyRoutes.ConvoyTracks) },
             onNavigateToTrackImport = { navController?.navigate(ConvoyRoutes.ConvoyTrackImport) },

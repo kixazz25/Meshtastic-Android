@@ -1,5 +1,7 @@
 package com.geeksville.mesh.grouptrack
 
+import androidx.compose.foundation.background   // GRPONEMAP-2026-10-22
+import androidx.compose.foundation.clickable   // GRPONEMAP-2026-10-22
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -52,9 +54,26 @@ fun GroupTrackLaunchLayer(
     onHelp: (String) -> Unit,
     onZoom: (Int) -> Unit,
     mapType: String,
+    /** GTMAP-2026-10-22: the map bar's map-type slots, and the change it makes. Required. */
+    mapTypes: List<String>,
+    onMapType: (String) -> Unit,
     online: Boolean,
     /** SHELL8-2026-10-22: true = the HUD shows GROUP. Required -- the only caller is ConvoyScreen (CODE RULE 1). */
     showingGroup: Boolean,
+    /** SHELL11-2026-10-22: true once checked in (Group) or recording (Android only). Required (CODE RULE 1). */
+    onRide: Boolean,
+    /** ATTACH1-2026-10-22 THE BRIDGE: process id -> today's function. A row with no entry stays "not attached yet". Required. */
+    actions: Map<String, () -> Unit>,
+    /** GRPONEMAP-2026-10-22: GRP Awareness's live status colour (green talking / red / grey off, pulsing). Required. */
+    grpColor: androidx.compose.ui.graphics.Color,
+    /** GTFILTER-2026-10-22: FILTER's link to the map's display state. Required. */
+    filter: GtFilterBridge,
+    /** GTKEY-2026-10-22: the map redraws its lines after a STYLE change in MAP KEY. Required. */
+    keyStyleChanged: () -> Unit,
+    /** ATTACH4-2026-10-22: CENTRE ON ME's label -- says whether the map is following. Required. */
+    centreLabel: String,
+    /** GTSEARCH-2026-10-22: the one-box search's link to the map. Required. */
+    search: GtSearchBridge,
     onToggleView: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -64,6 +83,11 @@ fun GroupTrackLaunchLayer(
     val group = GroupMode.on.value
     var open by rememberSaveable { mutableStateOf("") }   // the open module's id; "" = none (CODE RULE 1: no null)
     val openModule = LaunchModules.all.firstOrNull { it.id == open }
+    // ATTACH1-2026-10-22 ONE-OPTION RULE (Fred 11:09): one process, attached -> the button runs it; otherwise it opens the panel.
+    fun tap(m: LaunchModule) {
+        val act = m.processes.singleOrNull()?.let { actions[it.id] }
+        if (act != null) { open = ""; act() } else open = m.id
+    }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val landscape = maxWidth > maxHeight
@@ -77,7 +101,7 @@ fun GroupTrackLaunchLayer(
             modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            LaunchModules.bySlot(LaunchSlot.LEFT, group).forEach { m -> GtButton(m.label, { open = m.id }) }
+            LaunchModules.bySlot(LaunchSlot.LEFT, group).forEach { m -> GtButton(m.label, { tap(m) }) }
             GtButton("+", { onZoom(1) })
             GtButton("−", { onZoom(-1) })
         }
@@ -91,12 +115,19 @@ fun GroupTrackLaunchLayer(
             LaunchModules.bySlot(LaunchSlot.RIGHT, group).forEach { m ->
                 // SHELL3-2026-10-22 (Fred 10:12): KEY with a key, FILTER with a funnel, CENTRE ON ME with a bullseye -- icon AND label.
                 when (m.id) {
-                    "mode" -> GtButton(if (group) "Mode: Group" else "Mode: Android only", { open = m.id })   // SHELL4 (Fred 10:21)
-                    "internet" -> GtButton(if (online) "Status: Online" else "Status: Offline", { open = m.id })   // SHELL4 (Fred 10:21)
-                    "key" -> GtIconButton(m.label, Icons.Filled.Key, { open = m.id })
-                    "filter" -> GtIconButton(m.label, Icons.Filled.FilterAlt, { open = m.id })
-                    "centre" -> GtIconButton(m.label, Icons.Filled.Adjust, { open = m.id })
-                    else -> GtButton(m.label, { open = m.id })
+                    "grp" -> Box(   // GRPONEMAP-2026-10-22: its own status box, NOT the map scheme -- the colour IS the message
+                        modifier = Modifier
+                            .background(grpColor, androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                            .clickable { tap(m) }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) { Text(m.label, color = androidx.compose.ui.graphics.Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+                    "mode" -> GtButton(if (group) "Mode: Group" else "Mode: Android only", { tap(m) })   // SHELL4 (Fred 10:21)
+                    "internet" -> GtButton(if (online) "Status: Online" else "Status: Offline", { tap(m) })   // SHELL4 (Fred 10:21)
+                    "key" -> GtIconButton(m.label, Icons.Filled.Key, { tap(m) })
+                    "filter" -> GtIconButton(m.label, Icons.Filled.FilterAlt, { tap(m) })
+                    "centre" -> GtIconButton(centreLabel, Icons.Filled.Adjust, { tap(m) })   // ATTACH4-2026-10-22
+                    else -> GtButton(m.label, { tap(m) })
                 }
             }
         }
@@ -108,17 +139,25 @@ fun GroupTrackLaunchLayer(
         ) {
             // SHELL7-2026-10-22: no READOUT placeholder -- ConvoyScreen's HUD (GPS line + MY CART / GROUP) is the readout, bottom left.
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                if (group) GtButton(if (showingGroup) "View: Group" else "View: My Cart", onToggleView)   // SHELL8-2026-10-22: left of Map, Group only
-                LaunchModules.bySlot(LaunchSlot.BOTTOM_BAR, group).forEach { m -> GtButton(m.label, { open = m.id }) }
+                // SHELL11-2026-10-22 (Fred 11:19): Add Route and View SHARE one slot -- Add Route before the ride, View once on it.
+                LaunchModules.bySlot(LaunchSlot.BOTTOM_BAR, group).forEach { m ->
+                    if (m.id == "route") {
+                        if (!onRide) GtButton("Add Route", { tap(m) })
+                        else if (group) GtButton(if (showingGroup) "View: Group" else "View: My Cart", onToggleView)
+                    } else GtButton(m.label, { tap(m) })
+                }
             }
         }
 
         // ── the open module's panel ──────────────────────────────────────────
         if (openModule != null) {
             val panelWidth = if (landscape) 380.dp else maxWidth - 16.dp
-            val panelMax = if (landscape) maxHeight - 96.dp else maxHeight * 0.55f
+            val panelMax = if (openModule.id == "search") maxHeight - 130.dp   // SEARCHTOP: from under RECORD down
+                           else if (landscape) maxHeight - 96.dp else maxHeight * 0.55f
             Box(
-                modifier = if (landscape) Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
+                // SEARCHTOP-2026-10-22 (Fred 13:36): SEARCH opens at the TOP (under RECORD) so the keyboard never covers it.
+                modifier = if (openModule.id == "search") Modifier.align(Alignment.TopCenter).padding(top = 110.dp)
+                           else if (landscape) Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
                            else Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp)
             ) {
                 GtPanel(
@@ -130,13 +169,18 @@ fun GroupTrackLaunchLayer(
                     width = panelWidth,
                     maxHeight = panelMax,
                 ) {
-                    openModule.processes.forEach { pr ->
+                    if (openModule.id == "map") GtMapTypeRow(mapTypes, mapType, onMapType)   // GTMAP-2026-10-22: MAP TYPE first
+                    // GTFILTER-2026-10-22: FILTER draws its own body; SELECT steps the panel aside for the list.
+                    if (openModule.id == "filter") GtFilterBody(filter, onSelect = { t -> open = ""; filter.openSelect(t) })
+                    else if (openModule.id == "key") GtKeyBody(keyStyleChanged)   // GTKEY-2026-10-22
+                    else if (openModule.id == "search") GtSearchBody(search, close = { open = "" })   // GTSEARCH-2026-10-22
+                    else openModule.processes.forEach { pr ->
                         GtButton(
-                            if (pr.attached) pr.label else "${pr.label}  ·  not attached yet",
-                            pr.run,
+                            if (actions[pr.id] != null) pr.label else "${pr.label}  ·  not attached yet",   // ATTACH1-2026-10-22: the bridge decides
+                            { actions[pr.id]?.let { act -> if (!openModule.stays) open = ""; act() } },
                             modifier = Modifier.fillMaxWidth(),
-                            emphasis = if (pr.attached) androidx.compose.ui.graphics.Color.Unspecified else GtColors.Dim,
-                            enabled = pr.attached
+                            emphasis = if (actions[pr.id] != null) androidx.compose.ui.graphics.Color.Unspecified else GtColors.Dim,
+                            enabled = actions[pr.id] != null
                         )
                     }
                     if (openModule.id == "menu") {
@@ -144,7 +188,7 @@ fun GroupTrackLaunchLayer(
                         GtButton("Classic layout (today's ride map)", { GtLayout.set(ctx, false); open = "" },
                             modifier = Modifier.fillMaxWidth(), emphasis = GtColors.Warn)
                     }
-                    Text("Placeholder — 2.7c shell (SHELL-2026-10-22). Rows are attached one module at a time.",
+                    if (openModule.processes.any { actions[it.id] == null } && openModule.id !in setOf("filter", "key", "search")) Text("Placeholder — 2.7c shell (SHELL-2026-10-22). Rows are attached one module at a time.",   // GTFILTER: only while rows are unattached
                         color = GtScheme.current.value.panelDim, fontSize = 12.sp, fontWeight = FontWeight.Normal)
                 }
             }

@@ -125,7 +125,11 @@ fun RidesScreen(onClose: () -> Unit) {
 
     Box(Modifier.fillMaxSize().background(RLBG).clickable(enabled = false) {}) {
         Column(Modifier.fillMaxSize().padding(18.dp).verticalScroll(rememberScrollState())) {
-            Text("Rides", color = RLINK, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {   // GTRIDES-2026-10-22: HELP ✕ top right
+                Text("Rides", color = RLINK, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                com.geeksville.mesh.grouptrack.GtHelpButton("rides.mine")
+                com.geeksville.mesh.grouptrack.GtCloseButton(onClose)
+            }
             Text("${rides.size} on this tablet \u2022 tap a ride, then Send, Edit or Delete", color = RLDIM, fontSize = 13.sp)
             Spacer(Modifier.height(8.dp))
             Row(Modifier.horizontalScroll(rememberScrollState())) {
@@ -169,7 +173,7 @@ fun RidesScreen(onClose: () -> Unit) {
             }
             if (message.isNotEmpty()) { Spacer(Modifier.height(8.dp)); Text(message, color = RLINK, fontSize = 13.sp) }
             Spacer(Modifier.height(14.dp))
-            OutlinedButton(onClick = onClose) { Text("Close") }
+            // GTRIDES-2026-10-22: the bottom Close moved to the top (✕)
         }
     }
 

@@ -58,7 +58,13 @@ fun rememberPickerNotice(purpose: String, item: String): PickerNotice {
     if (open != null) {
         AlertDialog(
             onDismissRequest = { notice.pending = null },
-            title = { Text("Opening the Android file picker") },
+            title = {   // GTRIDES-2026-10-22: HELP ✕ top right
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text("Opening the Android file picker", modifier = Modifier.weight(1f))
+                    com.geeksville.mesh.grouptrack.GtHelpButton("files")
+                    com.geeksville.mesh.grouptrack.GtCloseButton({ notice.pending = null })
+                }
+            },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(pickerNoticeText(purpose, item), style = MaterialTheme.typography.bodyMedium)
@@ -67,7 +73,7 @@ fun rememberPickerNotice(purpose: String, item: String): PickerNotice {
                 }
             },
             confirmButton = { TextButton(onClick = { notice.pending = null; open() }) { Text("CONTINUE") } },
-            dismissButton = { TextButton(onClick = { notice.pending = null }) { Text("CANCEL") } }
+            // GTRIDES-2026-10-22: the bottom CANCEL moved to the top (✕); CONTINUE stays
         )
     }
     return notice
