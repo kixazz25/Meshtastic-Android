@@ -100,6 +100,8 @@ fun GroupTrackLaunchLayer(
     var open by rememberSaveable { mutableStateOf("") }   // the open module's id; "" = none (CODE RULE 1: no null)
     var sub by rememberSaveable { mutableStateOf("") }   // MAPTARGET-2026-10-23: the open submenu's id; "" = the module's top level
     val openModule = LaunchModules.all.firstOrNull { it.id == open }
+    // GTROUTE1-2026-10-23: the in-progress picker's "+ Plan a new route" -> the Route panel's choices.
+    androidx.compose.runtime.LaunchedEffect(GtRoute.wantChooser.value) { if (GtRoute.wantChooser.value) { GtRoute.wantChooser.value = false; open = "route" } }
     // MAPTARGET4-2026-10-23 (Fred 09:54): maps downloading -> the Map button is GREEN with a dot; the menu's summary says so.
     val mapsDownloading = com.geeksville.mesh.convoy.DownloadQueueManager.queue.collectAsState().value.any {
         it.status == com.geeksville.mesh.convoy.QueueStatus.DOWNLOADING || it.status == com.geeksville.mesh.convoy.QueueStatus.QUEUED }
@@ -164,7 +166,7 @@ fun GroupTrackLaunchLayer(
                 // SHELL11-2026-10-22 (Fred 11:19): Add Route and View SHARE one slot -- Add Route before the ride, View once on it.
                 LaunchModules.bySlot(LaunchSlot.BOTTOM_BAR, group).forEach { m ->
                     if (m.id == "route") {
-                        if (!onRide) GtButton("Add Route", { tap(m) })
+                        if (!onRide) GtButton("Add Route", { if (!GtRoute.precheck()) tap(m) })   // GTROUTE1-2026-10-23: checks BEFORE the choices
                         else if (group) GtButton(if (showingGroup) "View: Group" else "View: My Cart", onToggleView)
                     } else if (m.id == "map" && mapsDownloading) GtButton(m.label + "  \u25cf", { tap(m) }, emphasis = androidx.compose.ui.graphics.Color(0xFF35C46A))   // MAPTARGET4
                     else GtButton(m.label, { tap(m) })

@@ -109,7 +109,7 @@ object LaunchModules {
                 "planner" to "Open the planning map",   // goes with the ride map
                 "flyover" to "Area Search Radius \u2014 how much a search shows"))),   // AREARADIUS + GTRADIUS-2026-10-23
         // SHELL9-2026-10-22 (Fred 11:07): ROUTE is its own bottom button -- a key function is never hidden between navigation layers.
-        LaunchModule("route", "Route", LaunchSlot.BOTTOM_BAR, 2, groupOnly = false, stays = true, processes = p("route",
+        LaunchModule("route", "Route", LaunchSlot.BOTTOM_BAR, 2, groupOnly = false, stays = false,   /* GTROUTE1-2026-10-23: a choice closes it */ processes = p("route",
             // ROUTESTART-2026-10-22 (Fred 13:49): TWO choices, each runs the existing Route+ with the method set and locked.
             "manual" to "Build it myself \u2014 tap points, the route follows the trails",
             "ai" to "AI route design \u2014 with your guidance",

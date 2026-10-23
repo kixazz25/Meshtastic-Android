@@ -352,7 +352,8 @@ fun ConvoyScreen(
             // CODE RULE 1: bbox null = no usable frame -> the next entry centres on my cart (RIDEENTRY). The layer states are still saved.
             val bbOk = mapFrameOk(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
             if (!bbOk) android.util.Log.w("ConvoyMap", "MAPSTARTUP-2026-10-19: frame not saved (not usable): $lastViewportSouth,$lastViewportWest,$lastViewportNorth,$lastViewportEast")
-            MapStateStore.saveMap(MapStateStore.rideKey(), MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes(), if (bbOk) MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast) else null, null))
+            MapStateStore.saveMap(MapStateStore.rideKey(), MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes(), if (bbOk) MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast) else null, null,
+                if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value) com.geeksville.mesh.grouptrack.GtRoute.routeState() else null))   // GTROUTE1-2026-10-23: ONE MAP's RouteState (was null)
         }
     // [viewport-save 2026-08-13] debounced viewport-settle save (mirror planning MVS:260-261/540) —
     // convoy previously never persisted the frame on pan/zoom; this writes the current bbox on settle.
@@ -820,6 +821,7 @@ fun ConvoyScreen(
                     existing.addJavascriptInterface(object : Any() {
                         @android.webkit.JavascriptInterface
                         fun onMapTap(lat: Double, lon: Double) {
+                            if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) { com.geeksville.mesh.grouptrack.GtRoute.onTap(context, lat, lon); return }   // GTROUTE1-2026-10-23
                             android.util.Log.d("RouteBridge", "onMapTap lat=$lat lon=$lon")
                             kotlinx.coroutines.MainScope().launch {
                                 val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -855,6 +857,7 @@ fun ConvoyScreen(
                         }
                         @android.webkit.JavascriptInterface
                         fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
+                            com.geeksville.mesh.grouptrack.GtRoute.vp = doubleArrayOf(south, west, north, east, zoom)   // GTROUTE1-2026-10-23
                             lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
                             viewportSaveHandler.removeCallbacks(viewportSaveRunnable); viewportSaveHandler.postDelayed(viewportSaveRunnable, 400)
                             val wv = webViewRef.value
@@ -1000,6 +1003,8 @@ fun ConvoyScreen(
                                 view?.evaluateJavascript("setRouteMode(false)", null)
                                 // NOJUMP-2026-10-23: ONE MAP -- the page's own late "centre on my location" may not move the map.
                                 view?.evaluateJavascript("window.gtNoAutoView = " + com.geeksville.mesh.grouptrack.GtLayout.oneMap.value + ";", null)
+                                // GTROUTE1-2026-10-23: ONE MAP's Route+ -- the page lets route taps through.
+                                view?.evaluateJavascript("window.gtOneMapRoute = " + com.geeksville.mesh.grouptrack.GtLayout.oneMap.value + ";", null)
                                 // Auto-sense connectivity: use local tiles if no internet
                                 val ctx = view?.context ?: return
                                 val cm = ctx?.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
@@ -1162,6 +1167,7 @@ fun ConvoyScreen(
                         addJavascriptInterface(object : Any() {
                             @android.webkit.JavascriptInterface
                             fun onMapTap(lat: Double, lon: Double) {
+                                if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) { com.geeksville.mesh.grouptrack.GtRoute.onTap(context, lat, lon); return }   // GTROUTE1-2026-10-23
                                 android.util.Log.d("RouteBridge", "onMapTap lat=$lat lon=$lon")
                                 kotlinx.coroutines.MainScope().launch {
                                     val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -1203,6 +1209,7 @@ fun ConvoyScreen(
 
                             @android.webkit.JavascriptInterface
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
+                                com.geeksville.mesh.grouptrack.GtRoute.vp = doubleArrayOf(south, west, north, east, zoom)   // GTROUTE1-2026-10-23
                                 lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
                                 viewportSaveHandler.removeCallbacks(viewportSaveRunnable); viewportSaveHandler.postDelayed(viewportSaveRunnable, 400)
                                 // GATE: reseed convoy state from JSON only if active map changed since last refresh.
@@ -2307,6 +2314,12 @@ fun ConvoyScreen(
             modifier = Modifier.align(Alignment.TopStart).padding(start = 110.dp, top = 8.dp).width(300.dp)
         )
         // GTAREA2-2026-10-23: draw bar + the area module for the box (grouptrack/AreaDraw.kt, MapScreens.kt).
+        // GTROUTE1-2026-10-23: ONE MAP's Route+ -- the page, the state save, and everything Route+ shows.
+        if (gtOneMap) {
+            com.geeksville.mesh.grouptrack.GtRoute.js = { c -> webViewRef.value?.evaluateJavascript(c, null) }
+            com.geeksville.mesh.grouptrack.GtRoute.persist = { saveConvoyState() }
+            // GTROUTE1D-2026-10-23: GtRouteHost is drawn AFTER the launch layer (below) -- here its toolbar sat under MENU / zoom.
+        }
         if (gtOneMap) com.geeksville.mesh.grouptrack.GtAreaHost(
             js = { c -> webViewRef.value?.evaluateJavascript(c, null) },
             barModifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 84.dp)
@@ -3402,6 +3415,7 @@ fun ConvoyScreen(
                 // Same gates as the old Ride Planning button: a known position, and internet.
                 // ROUTEPARK-2026-10-22 (Fred 14:31): route.manual / route.ai PARKED -- they opened the planning map and stranded
                 // the rider there. They return when Route+ is hosted in ONE MAP. (gtStartRoute is kept for that.)
+                "route.manual" to { com.geeksville.mesh.grouptrack.GtRoute.startNew(ROUTE_METHOD_P2P) },   // GTROUTE1-2026-10-23: Build it myself, LOCKED (one mode)
                 "route.clear" to { gtClearAsk = true },   // CLEARROUTES-2026-10-22   // GTRIDES (Fred 13:22): ADD ROUTE -- New route or In progress, as +ROUTE
                 "map.features" to { showArtifactsPanel = true },   // GTMAP-2026-10-22: the original Map Features panel, as is
                 "map.queues" to { queuesOpen = true },   // GTMAP: the download queues panel, as is
@@ -3476,6 +3490,10 @@ fun ConvoyScreen(
             onRide = recordingState != RecordingState.CHECK_IN,   // SHELL11-2026-10-22: checked in or recording -> View replaces Add Route
             onToggleView = { viewModel.setHudMode(if (hudMode == HudMode.GROUP) HudMode.MY_CART else HudMode.GROUP) },
             onZoom = { d -> webViewRef.value?.evaluateJavascript(if (d > 0) "map.zoomIn()" else "map.zoomOut()", null) }
+        )
+        // GTROUTE1D-2026-10-23 (Fred 14:17): Route+ on TOP of the launch buttons; the toolbar opens top centre below RECORD.
+        if (gtOneMap) com.geeksville.mesh.grouptrack.GtRouteHost(
+            toolbarModifier = Modifier.align(Alignment.TopCenter).padding(top = 110.dp)
         )
     }
     }
