@@ -44,10 +44,14 @@ fun RiderTrailsDialog(
     AlertDialog(
         onDismissRequest = { if (!running) onClose() },
         containerColor = Color(0xFF0A1628),
-        title = {
-            Text("ADD TRAILS FROM TRACKS", color = Color(0xFF8FD0FF),
-                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                fontSize = 14.sp)
+        title = {   // GTSTD-2026-10-23: the standard HELP and X (X off while the scan runs)
+            androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("ADD TRAILS FROM TRACKS", color = Color(0xFF8FD0FF),
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp, modifier = Modifier.weight(1f))
+                com.geeksville.mesh.grouptrack.GtHelpButton("map.ridertrails")
+                com.geeksville.mesh.grouptrack.GtCloseButton(onClose, enabled = !running)
+            }
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {

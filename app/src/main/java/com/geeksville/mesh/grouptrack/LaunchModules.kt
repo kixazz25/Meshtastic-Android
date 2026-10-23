@@ -92,20 +92,22 @@ object LaunchModules {
                 "dl_tracks" to "Download maps along tracks"),   // all tracks, or pick
             g("map", "rm", "REMOVE MAPS",
                 "rm_area" to "Remove maps by area",
-                "rm_track" to "Remove maps by track"),   // stays (Fred 10:14)
+                "rm_track" to "Remove maps for all tracks"),   // stays (Fred 10:14); RMALLTRACKS-2026-10-23: it is ALL tracks
             g("map", "repair", "MAP RECOVERY",   // MAPRECOVERY2-2026-10-23 (Fred 10:26-10:28)
+                "recipes" to "Show saved map recipes (60 days)",   // GTRECIPES-2026-10-23 (Fred 11:43)
                 "restore" to "Restore maps as of a date",   // NEW: replays a daily map recipe (ConvoyMapRecipe) -- restore not built yet
-                "repair" to "Refresh maps by source",   // planner Recreate Tiles by Source
-                "imported" to "Imported trails / features by state"),
+                "repair" to "Refresh maps by source"),   // planner Recreate Tiles by Source
             g("map", "import", "IMPORT MAP FEATURES",
                 "trails_state" to "Import trails by state",
                 "trails_area" to "Import trails by area",
                 "gpx" to "Import GPX \u2014 tracks, waypoints, routes",
-                "ridertrails" to "Create trails from tracks"),
+                "ridertrails" to "Create trails from tracks",
+                "synctracks" to "Resync tracks with their files",   // GTSYNC-2026-10-23 (Fred 12:42): from the Import GPX screen
+                "imported" to "Imported trails / features by state"),   // IMPORTEDMOVE-2026-10-23 (Fred 11:58): from MAP RECOVERY
             g("map", "move", "UNTIL THE MOVE IS DONE",
                 "features" to "Map Features (the original panel)",   // goes after Route+
                 "planner" to "Open the planning map",   // goes with the ride map
-                "flyover" to "Area Search Radius (Z14\u201318) \u2014 moves to Search"))),   // AREARADIUS-2026-10-23
+                "flyover" to "Area Search Radius \u2014 how much a search shows"))),   // AREARADIUS + GTRADIUS-2026-10-23
         // SHELL9-2026-10-22 (Fred 11:07): ROUTE is its own bottom button -- a key function is never hidden between navigation layers.
         LaunchModule("route", "Route", LaunchSlot.BOTTOM_BAR, 2, groupOnly = false, stays = true, processes = p("route",
             // ROUTESTART-2026-10-22 (Fred 13:49): TWO choices, each runs the existing Route+ with the method set and locked.

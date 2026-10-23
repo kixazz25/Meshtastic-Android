@@ -483,6 +483,7 @@ fun ConvoyScreen(
     val initialViewSet = remember { androidx.compose.runtime.mutableStateOf(false) }
     LaunchedEffect(convoyState) {
         if (initialViewSet.value) return@LaunchedEffect
+        if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value) return@LaunchedEffect   // NOJUMP-2026-10-23: ONE MAP positions itself
         val wv = webViewRef.value ?: return@LaunchedEffect
         val validNodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
         if (validNodes.isNotEmpty()) {
@@ -997,6 +998,8 @@ fun ConvoyScreen(
                             }
 
                                 view?.evaluateJavascript("setRouteMode(false)", null)
+                                // NOJUMP-2026-10-23: ONE MAP -- the page's own late "centre on my location" may not move the map.
+                                view?.evaluateJavascript("window.gtNoAutoView = " + com.geeksville.mesh.grouptrack.GtLayout.oneMap.value + ";", null)
                                 // Auto-sense connectivity: use local tiles if no internet
                                 val ctx = view?.context ?: return
                                 val cm = ctx?.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
@@ -2296,8 +2299,11 @@ fun ConvoyScreen(
         // -- QUEUES button (LOCKED top-right, like planning map; drag removed 2026-06-03) --
         // MAPTARGET4-2026-10-23 (Fred 09:54): ONE MAP -- the existing queue summary pill where the classic SAT/TOPO/TOPO+ bar sat.
         // It hides itself when nothing is downloading; tap -> MAP DOWNLOADS IN PROGRESS.
-        if (gtOneMap) com.geeksville.mesh.grouptrack.GtQueueSummary(   // GTQSUM-2026-10-23 (Fred 11:04): ALWAYS shown
-            onOpen = { queuesOpen = true },
+        // QSUMIDLE-2026-10-23 (Fred 13:23): on the MAP only while maps download (the existing pill hides itself when idle);
+        // the Map menu keeps the always-shown summary (GTQSUM) so DETAILS is always one tap away.
+        if (gtOneMap) DownloadQueuePanel(
+            expanded = false,
+            onToggle = { queuesOpen = true },
             modifier = Modifier.align(Alignment.TopStart).padding(start = 110.dp, top = 8.dp).width(300.dp)
         )
         // GTAREA2-2026-10-23: draw bar + the area module for the box (grouptrack/AreaDraw.kt, MapScreens.kt).
@@ -3403,7 +3409,15 @@ fun ConvoyScreen(
                 "map.dl_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "download"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
                 "map.rm_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "remove"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
                 "map.trails_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "import"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
-                "map.dl_tracks" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "tracks" },   // GTTRACKS-2026-10-23
+                "map.dl_tracks" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "tracks" },
+                "map.recipes" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "recipes" },   // GTRECIPES-2026-10-23
+                "map.trails_state" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "state" },   // GTIMPORTS-2026-10-23
+                "map.gpx" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "gpx" },   // GTIMPORTS-2026-10-23
+                "map.ridertrails" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "rider" },   // GTIMPORTS-2026-10-23
+                "map.synctracks" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "sync" },   // GTSYNC-2026-10-23
+                "map.flyover" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "radius" },   // GTRADIUS-2026-10-23
+                "map.rm_track" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "rmtrack" },   // GTHEAVY-2026-10-23
+                "map.repair" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "refresh" },   // GTHEAVY-2026-10-23   // GTTRACKS-2026-10-23
                 "map.sources" to { onNavigateToMapSources() },   // GTMAP: the Map Sources screen, as is
                 "map.planner" to {   // GTMAP: the planning map, exactly as today (the old Ride Planning button and its gates)
                     if (!planPosKnown) android.widget.Toast.makeText(context, "Waiting for your position \u2014 Ride Planning opens once GPS or Wi-Fi location is available.", android.widget.Toast.LENGTH_LONG).show()
@@ -3433,7 +3447,7 @@ fun ConvoyScreen(
                 goToPlace = { la, lo ->
                     viewModel.setAutoPan(false)   // SEARCHPAN-2026-09-15: a search moved the map -- stop following first
                     val wv = webViewRef.value
-                    wv?.evaluateJavascript("setView($la, $lo, 13)", null)
+                    wv?.evaluateJavascript("setView($la, $lo, " + com.geeksville.mesh.grouptrack.GtSearchZoom.get(context) + ")", null)   // GTRADIUS-2026-10-23: the saved Area Search Radius (was 13)
                     wv?.evaluateJavascript("try{showSearchCenter($la, $lo)}catch(e){}", null)
                     wv?.postDelayed({ wv.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }, 550)
                 },
@@ -4242,9 +4256,16 @@ fun GpsIntervalDialog(currentSecs: Int, currentPreset: String?, channelUtil: Flo
     val c = gpsChColor(channelUtil)
     androidx.compose.material3.AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Sent every " + (if (currentSecs > 0) "$currentSecs" else "--") + " seconds \u00b7 " + GpsPresets.label(currentPreset), fontWeight = FontWeight.Bold) },   // GPSMETER-LABEL-2026-09-29 / PRESETPANEL-2026-10-20
+        title = {   // GPSSTD-2026-10-23 (Fred 12:49): HELP and X (X off while applying, as CANCEL is)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Sent every " + (if (currentSecs > 0) "$currentSecs" else "--") + " seconds \u00b7 " + GpsPresets.label(currentPreset),
+                    fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                com.geeksville.mesh.grouptrack.GtHelpButton("readout.gps")
+                com.geeksville.mesh.grouptrack.GtCloseButton(onDismiss, enabled = !busy)
+            }
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {   // GPSSTD: scrolls
                 Text("Now: every " + (if (currentSecs > 0) "$currentSecs s" else "--") + " while moving \u00b7 " + GpsPresets.label(currentPreset))   // PRESETPANEL-2026-10-20
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Channel use ")

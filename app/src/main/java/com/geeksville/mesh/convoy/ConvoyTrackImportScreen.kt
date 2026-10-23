@@ -400,60 +400,8 @@ fun ConvoyTrackImportScreen(
             }
         }
 
-        // -- RESYNC TRACKS (rebuild spatial DB from my_tracks files) --
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-                .clickable {
-                    // Open the visible sync control dialog (no silent inline run).
-                    syncLines = emptyList(); syncResult = null; showSyncDialog = true
-                },
-            shape = RoundedCornerShape(6.dp),
-            color = Color(0xFF15512C)
-        ) {
-            Text(
-                "RESYNC TRACKS",
-                color = Color(0xFF97D5A5),
-                fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)
-            )
-        }
-
-        // ====================================================================
-        // RIDERTRAILS-2026-09-07 -- ADD TRAILS FROM TRACKS
-        //
-        // ⭐ A TRACK-BASED FUNCTION, which is why it sits with RESYNC TRACKS
-        // rather than with the file importers. It reads tracks already in the
-        // database and derives trails; nothing is imported and no file is read.
-        //
-        // ⚠ BLUE, NOT GREEN. RESYNC reconciles tracks against their files;
-        // this WRITES TRAILS. Two different outcomes should not wear the same
-        // colour on the same panel.
-        // ====================================================================
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-                .clickable {
-                    riderStatus = ""; riderResult = null; showRiderDialog = true
-                },
-            shape = RoundedCornerShape(6.dp),
-            color = Color(0xFF14405E)
-        ) {
-            Text(
-                "ADD TRAILS FROM TRACKS",
-                color = Color(0xFF8FD0FF),
-                fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)
-            )
-        }
+        // GTSYNC-2026-10-23 (Fred 12:42): RESYNC TRACKS and ADD TRAILS FROM TRACKS moved to their own Map menu rows
+        // (IMPORT MAP FEATURES > Resync tracks with their files / Create trails from tracks). Buttons removed here.
         if (showRiderDialog) {
             RiderTrailsDialog(
                 status = riderStatus,

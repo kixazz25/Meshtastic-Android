@@ -44,9 +44,13 @@ fun SyncTracksDialog(
     AlertDialog(
         onDismissRequest = { if (!syncRunning) onClose() },
         containerColor = Color(0xFF0A1628),
-        title = {
-            Text("SYNC TRACKS", color = Color(0xFF4DA6FF),
-                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        title = {   // GTSYNC-2026-10-23: the standard HELP and X (X off while running)
+            androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("SYNC TRACKS", color = Color(0xFF4DA6FF),
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                com.geeksville.mesh.grouptrack.GtHelpButton("map.synctracks")
+                com.geeksville.mesh.grouptrack.GtCloseButton(onClose, enabled = !syncRunning)
+            }
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {

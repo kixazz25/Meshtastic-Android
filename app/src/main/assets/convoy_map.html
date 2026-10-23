@@ -327,7 +327,8 @@
           iconSize:[16,16],iconAnchor:[8,8]});
         deviceMarker = L.marker([lat,lon],{icon:icon}).addTo(map);
         deviceMarker.bindTooltip("ME",{permanent:true,direction:"top"});
-        setView(lat,lon,16);
+        // NOJUMP-2026-10-23: ONE MAP positions itself -- a late location answer must not move the map.
+        if (!window.gtNoAutoView) setView(lat,lon,16);
       }, function(err) {
       }, {enableHighAccuracy:true,timeout:10000});
     }

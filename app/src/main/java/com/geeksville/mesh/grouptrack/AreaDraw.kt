@@ -75,6 +75,14 @@ fun GtAreaHost(js: (String) -> Unit, barModifier: Modifier) {
         "download" -> GtDownloadAreaScreen(GtArea.box.value, done)
         "remove" -> GtRemoveAreaScreen(GtArea.box.value, done)
         "import" -> GtImportAreaScreen(GtArea.box.value, done)
+        "recipes" -> GtRecipesScreen(done)   // GTRECIPES-2026-10-23
+        "state" -> GtImportStateScreen(done)   // GTIMPORTS-2026-10-23
+        "gpx" -> GtImportGpxScreen(done)   // GTIMPORTS-2026-10-23
+        "rider" -> GtRiderTrailsScreen(done)   // GTIMPORTS-2026-10-23
+        "sync" -> GtSyncTracksScreen(done)   // GTSYNC-2026-10-23
+        "radius" -> GtAreaRadiusScreen(done)   // GTRADIUS-2026-10-23
+        "rmtrack" -> GtRemoveTrackScreen(done)   // GTHEAVY-2026-10-23
+        "refresh" -> GtRefreshSourceScreen(done)   // GTHEAVY-2026-10-23
         "tracks" -> GtDownloadTracksScreen(done)   // GTTRACKS-2026-10-23: no box -- opened straight from the menu
     }
     // The drawn box goes when no module is using it and no box is awaited.

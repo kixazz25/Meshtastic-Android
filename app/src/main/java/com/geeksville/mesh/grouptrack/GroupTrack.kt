@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding   // RIGHTTOP-2026-10-23
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.FilterAlt
@@ -50,6 +51,20 @@ import com.geeksville.mesh.convoy.GroupMode
  * @param mapType     the map type showing (SAT, TOPO, ...) -- sets the colours (SHELL2-2026-10-22).
  * @param online      the ride map's internet check -- the INTERNET button reads Status: Online / Offline (SHELL4-2026-10-22).
  */
+/** MAPTEXT-2026-10-23 (Fred 11:42): one line of the Map menu -- plain text, left-aligned, no box; a full-width tap target.
+ *  Not attached = grey with "not attached yet". */
+@Composable
+private fun GtMenuLine(label: String, live: Boolean, indent: Boolean, onTap: () -> Unit) {
+    val s = GtScheme.current.value
+    Text(
+        if (live) label else "$label  \u00b7  not attached yet",
+        color = if (live) s.panelText else GtColors.Dim,
+        fontSize = 16.sp, fontWeight = if (live) FontWeight.SemiBold else FontWeight.Normal,
+        modifier = Modifier.fillMaxWidth().clickable(enabled = live, onClick = onTap)
+            .padding(start = if (indent) 20.dp else 2.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)
+    )
+}
+
 @Composable
 fun GroupTrackLaunchLayer(
     onHelp: (String) -> Unit,
@@ -113,7 +128,8 @@ fun GroupTrackLaunchLayer(
 
         // ── right: MODE, INTERNET, KEY, FILTER, CENTRE ON ME ─────────────────
         Column(
-            modifier = Modifier.align(Alignment.CenterEnd).padding(8.dp),   // SHELL10-2026-10-22 (Fred 11:12): centred vertically for balance
+            // RIGHTTOP-2026-10-23 (Fred 11:15): level with RECORD (status bar + 8 dp + the GPS / N·Z row) -- was centred (SHELL10).
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 38.dp, end = 8.dp, bottom = 8.dp),
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -193,15 +209,15 @@ fun GroupTrackLaunchLayer(
                         if (pr.children.isNotEmpty()) {   // MAPOPEN-2026-10-23 (Fred 11:08): a section TITLE in plain text, its options always open below
                             Text(pr.label, color = GtScheme.current.value.panelDim, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(top = 6.dp))
-                            pr.children.forEach { ch ->
-                                GtButton(
-                                    if (actions[ch.id] != null) ch.label else "${ch.label}  \u00b7  not attached yet",
-                                    { actions[ch.id]?.let { act -> if (!openModule.stays) open = ""; act() } },
-                                    modifier = Modifier.fillMaxWidth().padding(start = 18.dp),
-                                    emphasis = if (actions[ch.id] != null) androidx.compose.ui.graphics.Color.Unspecified else GtColors.Dim,
-                                    enabled = actions[ch.id] != null
-                                )
+                            pr.children.forEach { ch ->   // MAPTEXT-2026-10-23 (Fred 11:42): a plain text line, left, indented -- no box
+                                GtMenuLine(ch.label, actions[ch.id] != null, indent = true) {
+                                    actions[ch.id]?.let { act -> if (!openModule.stays) open = ""; act() } }
                             }
+                            return@forEach
+                        }
+                        if (openModule.id == "map") {   // MAPTEXT-2026-10-23: the Map menu is plain text -- Map source too, not indented
+                            GtMenuLine(pr.label, actions[pr.id] != null, indent = false) {
+                                actions[pr.id]?.let { act -> if (!openModule.stays) open = ""; act() } }
                             return@forEach
                         }
                         GtButton(

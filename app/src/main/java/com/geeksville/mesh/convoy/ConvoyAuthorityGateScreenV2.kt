@@ -211,8 +211,9 @@ private fun evaluateState(context: android.content.Context, attempt: Int): Autho
 
     val needsTrails = if (storage && background) {
         try {
-            HomeStateImportController.needsTrailData(context) ||
-                HomeStateImportController.killedImportArea != null   // KILLEDIMPORT-2026-10-02: never strand the rider
+            // GATEZERO-2026-10-23 (Fred 12:31): ZERO TRAILS ONLY. An unfinished import (killedImportArea) no longer takes over
+            // start-up; the picker's banner still tells the rider when they open Import trails from the Map menu.
+            HomeStateImportController.needsTrailData(context)
         } catch (e: Exception) {
             // Never strand the rider at the gate over a failed check.
             android.util.Log.e("ConvoyGate", "trail check failed: " + e.message)
@@ -908,6 +909,12 @@ fun ConvoyAuthorityGateScreenV2(
                     )
                 }
                 is AuthorityState.NeedTrailData -> {
+                    // GTSTD-2026-10-23 (Fred 12:27): the gate's import had no exit and no cancel -- the standard frame
+                    // (X = back out, exactly as the picker's own done does; CANCEL IMPORT while one runs).
+                    com.geeksville.mesh.grouptrack.GtImportFrame(onClose = {
+                        state = evaluateState(context)
+                        if (state is AuthorityState.NeedTrailData) onProceed()
+                    }) {
                     HomeStatePickerScreen(
                         onNavigateBack = {
                             // Re-evaluate rather than proceed: if the rider imported,
@@ -918,6 +925,7 @@ fun ConvoyAuthorityGateScreenV2(
                             if (state is AuthorityState.NeedTrailData) onProceed()
                         }
                     )
+                    }   // GTSTD-2026-10-23: GtImportFrame
                 }
                 is AuthorityState.Granted -> {
                     GateBody(
