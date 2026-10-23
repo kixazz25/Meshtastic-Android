@@ -203,7 +203,7 @@ fun GroupTrackLaunchLayer(
                     // GTFILTER-2026-10-22: FILTER draws its own body; SELECT steps the panel aside for the list.
                     if (openModule.id == "filter") GtFilterBody(filter, onSelect = { t -> open = ""; filter.openSelect(t) })
                     else if (openModule.id == "key") GtKeyBody(keyStyleChanged)   // GTKEY-2026-10-22
-                    else if (openModule.id == "search") GtSearchBody(search, close = { open = "" })   // GTSEARCH-2026-10-22
+                    else if (openModule.id == "search") GtSearchBody(search, close = { open = "" }, autoFocus = true)   // GTSEARCH-2026-10-22
                     else if (openModule.id == "maptype") mapTypes.forEach { t ->   // MAPCHIP-2026-10-23: pick -> switch -> close
                         GtButton(if (t == mapType) "\u25cf  " + t else "     " + t, { onMapType(t); open = "" }, modifier = Modifier.fillMaxWidth())   // the current one carries the dot
                     }

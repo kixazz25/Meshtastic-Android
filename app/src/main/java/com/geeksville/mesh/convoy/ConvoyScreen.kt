@@ -846,6 +846,11 @@ fun ConvoyScreen(
                                 webViewRef.value?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
                             }
                         }
+                        // GTAI3-2026-10-23: AI pins -- the page sends a tap here only while __pinSelect (ONE MAP's AI route design).
+                        @android.webkit.JavascriptInterface
+                        fun onProximityTap(lat: Double, lon: Double) {
+                            if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value) com.geeksville.mesh.grouptrack.GtRoute.onPinTap(context, lat, lon)
+                        }
                         @android.webkit.JavascriptInterface
                         fun onMapLongPress(lat: Double, lon: Double) {
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -1191,6 +1196,11 @@ fun ConvoyScreen(
                                     val vs = RouteManager.routeVertices()
                                     webViewRef.value?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
                                 }
+                            }
+                            // GTAI3-2026-10-23: AI pins -- the page sends a tap here only while __pinSelect (ONE MAP's AI route design).
+                            @android.webkit.JavascriptInterface
+                            fun onProximityTap(lat: Double, lon: Double) {
+                                if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value) com.geeksville.mesh.grouptrack.GtRoute.onPinTap(context, lat, lon)
                             }
                             @android.webkit.JavascriptInterface
                             fun onMapLongPress(lat: Double, lon: Double) {
@@ -2321,6 +2331,7 @@ fun ConvoyScreen(
             // GTAI2-2026-10-23: the compare table draws on this page and puts these four layers back as they were.
             com.geeksville.mesh.grouptrack.GtRoute.wv = { webViewRef.value }
             com.geeksville.mesh.grouptrack.GtRoute.layersNow = { listOf(trailState, trackState, waypointState, routeState) }
+            // GTAI4B-2026-10-23: GtRoute.layersOnForAi / hideAll / restoreAll are set after gtSetDisplay (below) -- the FILTER's own functions.
             // GTROUTE1D-2026-10-23: GtRouteHost is drawn AFTER the launch layer (below) -- here its toolbar sat under MENU / zoom.
         }
         if (gtOneMap) com.geeksville.mesh.grouptrack.GtAreaHost(
@@ -2402,6 +2413,43 @@ fun ConvoyScreen(
                             wv.evaluateJavascript("show" + typeName + "()", null)
                             wv.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
                         }
+        }
+        // GTAI4B-2026-10-23 (Fred 15:39 / 15:43 / 15:44): Route+ sets the FILTER through the filter's own functions.
+        //   AI route design  -> Trails ALL, Waypoints ALL (again at the trailhead step -- they stay on through the build).
+        //   the compare table -> the filter's HIDE EVERYTHING (gtHideSaved -- the filter shows SHOW AGAIN) and the off-grid map
+        //   areas off; on exit both come back exactly. If the rider had already hidden everything, it stays hidden.
+        com.geeksville.mesh.grouptrack.GtRoute.layersOnForAi = {
+            gtHideSaved = emptyMap()
+            gtSetDisplay("Trails", DS_ON)
+            gtSetDisplay("Waypoints", DS_ON)
+        }
+        com.geeksville.mesh.grouptrack.GtRoute.hideAll = {
+            val g = com.geeksville.mesh.grouptrack.GtRoute
+            g.compareHid = gtHideSaved.isEmpty()
+            if (g.compareHid) {
+                val was = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState)
+                gtHideSaved = was
+                was.keys.forEach { gtSetDisplay(it, DS_OFF) }
+            }
+            val og = com.geeksville.mesh.grouptrack.GtOffGrid
+            g.compareOffGrid = booleanArrayOf(og.available.value, og.downloading.value)
+            if (g.compareOffGrid[0]) og.setAvailable(false)
+            if (g.compareOffGrid[1]) og.setDownloading(false)
+        }
+        com.geeksville.mesh.grouptrack.GtRoute.restoreAll = {
+            val g = com.geeksville.mesh.grouptrack.GtRoute
+            if (g.compareHid && gtHideSaved.isNotEmpty()) {
+                val was = gtHideSaved
+                gtHideSaved = emptyMap()
+                was.forEach { (t, v) -> gtSetDisplay(t, v) }
+            }
+            g.compareHid = false
+            val og = com.geeksville.mesh.grouptrack.GtOffGrid
+            if (g.compareOffGrid.size == 2) {
+                if (g.compareOffGrid[0]) og.setAvailable(true)
+                if (g.compareOffGrid[1]) og.setDownloading(true)
+            }
+            g.compareOffGrid = BooleanArray(0)
         }
         // GTFILTER-2026-10-22: was the inline onEditDisplay lambda of ConvoyArtifactsPanel -- ONE copy, shared with ONE MAP's FILTER.
         val gtEditDisplay: (String) -> Unit = gtEditDisplay@{ typeName ->
@@ -3392,6 +3440,27 @@ fun ConvoyScreen(
             else if (!hasInternet) android.widget.Toast.makeText(context, "Route building needs internet access", android.widget.Toast.LENGTH_LONG).show()
             else { com.geeksville.mesh.grouptrack.RouteStart.method = method; onNavigateToMapViewer() }
         }
+        // GTAI5-2026-10-23: ONE MAP's search bridge, hoisted from the launch layer call so Route+ (the AI trailhead step) shares it.
+        val gtSearch = com.geeksville.mesh.grouptrack.GtSearchBridge(   // GTSEARCH-2026-10-22: the one-box search -- same engines as the old search
+                mapCenter = { doubleArrayOf((lastViewportSouth + lastViewportNorth) / 2.0, (lastViewportWest + lastViewportEast) / 2.0) },
+                online = hasInternet && !isOfflineMode,
+                openArtifact = { r ->
+                    val s0 = r.minLat; val n0 = r.maxLat; val w0 = r.minLon; val e0 = r.maxLon
+                    if (s0 != null && n0 != null && w0 != null && e0 != null) {
+                        viewModel.setAutoPan(false)
+                        webViewRef.value?.evaluateJavascript("fitBounds([$s0,$n0],[$w0,$e0])", null)
+                    }
+                    pendingDetailType = r.type.replaceFirstChar { it.uppercase() }
+                    pendingDetailId = r.id
+                },
+                goToPlace = { la, lo ->
+                    viewModel.setAutoPan(false)   // SEARCHPAN-2026-09-15: a search moved the map -- stop following first
+                    val wv = webViewRef.value
+                    wv?.evaluateJavascript("setView($la, $lo, " + com.geeksville.mesh.grouptrack.GtSearchZoom.get(context) + ")", null)   // GTRADIUS-2026-10-23: the saved Area Search Radius (was 13)
+                    wv?.evaluateJavascript("try{showSearchCenter($la, $lo)}catch(e){}", null)
+                    wv?.postDelayed({ wv.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }, 550)
+                },
+            )
         val gtRideImport = rememberRideImport(onDone = {})   // GTRIDES-2026-10-22: Rides › Import a ride (ONE MAP has no menu to close)
         if (gtOneMap && docsView == null) com.geeksville.mesh.grouptrack.GroupTrackLaunchLayer(
             onHelp = { name -> docsOpen(name) },
@@ -3418,6 +3487,7 @@ fun ConvoyScreen(
                 // Same gates as the old Ride Planning button: a known position, and internet.
                 // ROUTEPARK-2026-10-22 (Fred 14:31): route.manual / route.ai PARKED -- they opened the planning map and stranded
                 // the rider there. They return when Route+ is hosted in ONE MAP. (gtStartRoute is kept for that.)
+                "route.ai" to { com.geeksville.mesh.grouptrack.GtRoute.startAi() },   // GTAI3-2026-10-23: AI route design -- compare table or a new build
                 "route.manual" to { com.geeksville.mesh.grouptrack.GtRoute.startNew(ROUTE_METHOD_P2P) },   // GTROUTE1-2026-10-23: Build it myself, LOCKED (one mode)
                 "route.clear" to { gtClearAsk = true },   // CLEARROUTES-2026-10-22   // GTRIDES (Fred 13:22): ADD ROUTE -- New route or In progress, as +ROUTE
                 "map.features" to { showArtifactsPanel = true },   // GTMAP-2026-10-22: the original Map Features panel, as is
@@ -3449,26 +3519,7 @@ fun ConvoyScreen(
                 },
                 "grp.open" to { com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() },   // GRPONEMAP-2026-10-22: same as the old button
             ),
-            search = com.geeksville.mesh.grouptrack.GtSearchBridge(   // GTSEARCH-2026-10-22: the one-box search -- same engines as the old search
-                mapCenter = { doubleArrayOf((lastViewportSouth + lastViewportNorth) / 2.0, (lastViewportWest + lastViewportEast) / 2.0) },
-                online = hasInternet && !isOfflineMode,
-                openArtifact = { r ->
-                    val s0 = r.minLat; val n0 = r.maxLat; val w0 = r.minLon; val e0 = r.maxLon
-                    if (s0 != null && n0 != null && w0 != null && e0 != null) {
-                        viewModel.setAutoPan(false)
-                        webViewRef.value?.evaluateJavascript("fitBounds([$s0,$n0],[$w0,$e0])", null)
-                    }
-                    pendingDetailType = r.type.replaceFirstChar { it.uppercase() }
-                    pendingDetailId = r.id
-                },
-                goToPlace = { la, lo ->
-                    viewModel.setAutoPan(false)   // SEARCHPAN-2026-09-15: a search moved the map -- stop following first
-                    val wv = webViewRef.value
-                    wv?.evaluateJavascript("setView($la, $lo, " + com.geeksville.mesh.grouptrack.GtSearchZoom.get(context) + ")", null)   // GTRADIUS-2026-10-23: the saved Area Search Radius (was 13)
-                    wv?.evaluateJavascript("try{showSearchCenter($la, $lo)}catch(e){}", null)
-                    wv?.postDelayed({ wv.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }, 550)
-                },
-            ),
+            search = gtSearch,   // GTAI5-2026-10-23: hoisted (below the same engines) -- the AI trailhead step uses the same search
             centreLabel = if (!autoPan) "CENTRE ON ME" else if (hudMode == HudMode.GROUP) "FOLLOWING GROUP" else "FOLLOWING ME",   // ATTACH4-2026-10-22
             keyStyleChanged = { webViewRef.value?.evaluateJavascript("setTrailStyles(" + TrailFilterState.styleJson() + ")", null) },   // GTKEY-2026-10-22: as Map Keys does
             filter = com.geeksville.mesh.grouptrack.GtFilterBridge(   // GTFILTER-2026-10-22: FILTER -- the same functions Map Features used
@@ -3496,6 +3547,7 @@ fun ConvoyScreen(
         )
         // GTROUTE1D-2026-10-23 (Fred 14:17): Route+ on TOP of the launch buttons; the toolbar opens top centre below RECORD.
         if (gtOneMap) com.geeksville.mesh.grouptrack.GtRouteHost(
+            search = gtSearch,   // GTAI5-2026-10-23
             toolbarModifier = Modifier.align(Alignment.TopCenter).padding(top = 110.dp)
         )
     }

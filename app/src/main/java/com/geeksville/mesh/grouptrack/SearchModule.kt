@@ -66,7 +66,7 @@ class GtSearchBridge(
 private class GtPlace(val name: String, val lat: Double, val lon: Double)
 
 @Composable
-fun GtSearchBody(b: GtSearchBridge, close: () -> Unit) {
+fun GtSearchBody(b: GtSearchBridge, close: () -> Unit, autoFocus: Boolean) {   // GTAI5C-2026-10-23: autoFocus -- the caller decides
     val s = GtScheme.current.value
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -88,7 +88,7 @@ fun GtSearchBody(b: GtSearchBridge, close: () -> Unit) {
     val focus = remember { FocusRequester() }
     val kb = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current   // SEARCHKB-2026-10-22
     val fm = androidx.compose.ui.platform.LocalFocusManager.current
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    LaunchedEffect(Unit) { if (autoFocus) runCatching { focus.requestFocus() } }   // GTAI5C: no keyboard unless the search was asked for
 
     fun run() {
         val t = term.trim()

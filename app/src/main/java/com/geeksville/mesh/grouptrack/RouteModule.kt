@@ -1,11 +1,18 @@
 package com.geeksville.mesh.grouptrack
 
+import androidx.compose.foundation.clickable   // GTAI5E-2026-10-23
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding   // GTAI2-2026-10-23
+import androidx.compose.foundation.layout.fillMaxSize   // GTAI3-2026-10-23
+import androidx.compose.foundation.layout.fillMaxHeight   // GTAI5-2026-10-23
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -100,7 +107,7 @@ object GtRoute {
 
     /** RouteState for the host map's save: open while Route+ runs (crash recovery reads it). */
     fun routeState(): MapStateStore.RouteState? =
-        if (routeMode.value) MapStateStore.RouteState(open = true, status = "draft", draftName = routeName.value) else null
+        if (routeMode.value && !aiActive()) MapStateStore.RouteState(open = true, status = "draft", draftName = routeName.value) else null   // GTAI3: a hand-built route only
 
     /**
      * The Route button, BEFORE its choices (Fred 13:18). true = something pending was shown -- do not open the choices.
@@ -128,8 +135,7 @@ object GtRoute {
             return
         }
         js("setRouteMode(false)")
-        batchPrevLayers.value = layersNow()
-        LAYERS.forEach { js("hide" + it + "()") }
+        hideAll()   // GTAI4B-2026-10-23 (Fred 15:43): the compare table closes EVERYTHING in the filter (its own Hide everything) + off-grid areas
         // GTAI2B-2026-10-23 (Fred 15:10): show the routes -- fit AFTER the draws (drawBatch POSTS them, so this is posted too).
         batchPrevView.value = vp.copyOf()
         wv()?.let { v -> v.post { runCatching { v.evaluateJavascript("fitBatchRoutes()", null) } } }
@@ -144,10 +150,7 @@ object GtRoute {
         batchHidden.value = emptySet()
         js("clearBatchRoutes()")
         val prev = batchPrevLayers.value
-        if (prev.size == LAYERS.size) {
-            LAYERS.forEachIndexed { i, ly -> if (prev[i] != 0) js("show" + ly + "()") }   // 0 = DS_OFF
-            js("triggerViewportUpdate()")
-        }
+        restoreAll()   // GTAI4B-2026-10-23: the filter and the off-grid areas back exactly as they were
         batchPrevLayers.value = emptyList()
         // GTAI2B-2026-10-23: the view goes back where it was (zeros = the page never reported a view -- leave it).
         val pv = batchPrevView.value
@@ -155,6 +158,278 @@ object GtRoute {
             js("map.setView([" + ((pv[0] + pv[2]) / 2) + "," + ((pv[1] + pv[3]) / 2) + "], " + pv[4].toInt() + ")")
         }
         batchPrevView.value = DoubleArray(0)
+    }
+
+    // ── GTAI3-2026-10-23: AI ROUTE DESIGN -- the planner's guided flow (ConvoyMapViewerScreen pinStep / pin* / gpRunAssess /
+    //    onProximityTap / FIND MY RIDES), COPIED into one place. AI either opens the compare table or starts a new build (Fred 14:43).
+    val aiStep = mutableIntStateOf(PIN_STEP_NONE)
+    val aiBusy = mutableStateOf(false)
+    val aiProgress = mutableStateOf("")
+    val aiSkipOverview = mutableStateOf(false)
+    val pinNotice = mutableStateOf("")
+    val pinTrailName = mutableStateOf("")
+    val pinTrailLat = mutableStateOf(0.0)
+    val pinTrailLon = mutableStateOf(0.0)
+    val pinRideName = mutableStateOf("")
+    val pinMiLow = mutableIntStateOf(55)
+    val pinMiHigh = mutableIntStateOf(80)
+    val pinMphLow = mutableIntStateOf(12)
+    val pinMphHigh = mutableIntStateOf(18)
+    // null = not answered yet -- the planner's three states (loop / point-to-point / unasked), which the steps read (CODE RULE 1).
+    val pinIsLoop = mutableStateOf<Boolean?>(null)
+    val pinEndLat = mutableStateOf(0.0)
+    val pinEndLon = mutableStateOf(0.0)
+    val pinPoints = mutableStateOf(listOf<Pair<Double, Double>>())
+    // null = not assessed yet -- the mileage HUD shows "working" until the first answer (the planner's, CODE RULE 1).
+    val pinFeas = mutableStateOf<com.geeksville.mesh.convoy.RouteExplorer.PinFeasibility?>(null)
+    private var pinFeasSeq = 0
+    private var pinAssessSeq = 0
+    var aiMapReady = false
+    // set by the host map: turn Trails, Tracks and Waypoints on for the trailhead step (the planner's AISTEPS layer defaults).
+    var layersOnForAi: () -> Unit = {}
+    // GTAI4B-2026-10-23 (Fred 15:43): set by the host map -- the compare table closes EVERYTHING in the filter and puts it back.
+    var hideAll: () -> Unit = {}
+    var restoreAll: () -> Unit = {}
+    var compareHid = false                 // the table (not the rider) hid everything -- only then does exit restore it
+    var compareOffGrid = BooleanArray(0)   // off-grid areas (Available, Downloading) before the table; empty = none
+
+    fun aiActive(): Boolean = aiStep.intValue != PIN_STEP_NONE
+
+    /** GTAI3: Route panel › AI route design, or the selector's "+ AI route design". NOTHING IS DELETED (Fred 13:35, 14:34) --
+     *  the planner cleared leftover AI routes and the unnamed draft here; the AI search does not use them. */
+    fun startAi() {
+        if (routeMode.value) return
+        if (RouteDraftStore.hasOpenBatch()) { openCompare(); return }   // an open compare set first, always
+        aiProgress.value = ""
+        aiBusy.value = false
+        clearPins()
+        routeMethod.intValue = ROUTE_METHOD_SUGGEST
+        addPointMode.value = false        // taps are pins, never vertices
+        routeEntryNonce.intValue++
+        routeMode.value = true            // the planner's outer gate: route mode on keeps popups off and taps coming to the app
+        js("window.__routeMode=true;setRouteMode(true)")
+        layersOnForAi()   // GTAI4-2026-10-23 (Fred 15:36): trails on for the AI build -- from the start, not at the trailhead step
+        aiMapReady = true
+        aiStep.intValue = PIN_STEP_WELCOME
+    }
+
+    private fun clearPins() {
+        pinTrailName.value = ""; pinTrailLat.value = 0.0; pinTrailLon.value = 0.0
+        pinNotice.value = ""; pinIsLoop.value = null; pinEndLat.value = 0.0; pinEndLon.value = 0.0
+        pinPoints.value = emptyList(); pinFeas.value = null
+    }
+
+    /** the planner's pinReset (Start over): back to the trailhead step. */
+    fun pinReset() {
+        clearPins()
+        aiStep.intValue = PIN_STEP_TRAILHEAD
+    }
+
+    /** the planner's aiCancelBuild: leave the AI flow completely. Nothing on disk is touched. */
+    fun aiCancel() {
+        clearPins()
+        aiStep.intValue = PIN_STEP_NONE
+        aiBusy.value = false
+        routeMode.value = false
+        addPointMode.value = false
+        routeMethod.intValue = ROUTE_METHOD_P2P
+        js("window.__pinSelect=false;showAimRing(false);clearPins();window.__routeMode=false;setRouteMode(false)")
+    }
+
+    /** the planner's gpRunAssess, copied: is every pin reachable, and what does the ride come to? */
+    fun runAssess(ctx: android.content.Context) {
+        val aLat = pinTrailLat.value
+        val aLon = pinTrailLon.value
+        if (aLat == 0.0 && aLon == 0.0) { pinFeas.value = null; return }
+        val loop = pinIsLoop.value
+        val eLat = pinEndLat.value
+        val eLon = pinEndLon.value
+        val pts = pinPoints.value
+        val nm = pinRideName.value
+        val mLo = pinMiLow.intValue.toDouble()
+        val mHi = pinMiHigh.intValue.toDouble()
+        val sLo = pinMphLow.intValue.toDouble()
+        val sHi = pinMphHigh.intValue.toDouble()
+        pinAssessSeq += 1
+        val seq = pinAssessSeq
+        Thread {
+            var out: com.geeksville.mesh.convoy.RouteExplorer.PinFeasibility? = null
+            try {
+                SpatialDbManager.init(ctx)
+                val db = SpatialDbManager.getSpatialDb()
+                if (db != null) {
+                    val shape = if (loop == false) com.geeksville.mesh.convoy.RouteExplorer.RouteShape.PointToPoint(eLat, eLon)
+                                else com.geeksville.mesh.convoy.RouteExplorer.RouteShape.Loop
+                    out = com.geeksville.mesh.convoy.RouteExplorer.assess(db,
+                        com.geeksville.mesh.convoy.RouteExplorer.Request(anchorLat = aLat, anchorLon = aLon, name = nm,
+                            milesLow = mLo, milesHigh = mHi, mphLow = sLo, mphHigh = sHi), pts, shape)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("GuidedPin", "assess failed: " + e.message)
+            }
+            val res = out
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                if (res != null && seq >= pinFeasSeq) {
+                    pinFeasSeq = seq
+                    pinFeas.value = res
+                    if (pinPoints.value.isNotEmpty()) {
+                        val last = pinPoints.value.size - 1
+                        val noRoute = res.unreachable.contains(last) || res.onFragment.contains(last)
+                        if (noRoute) {
+                            pinPoints.value = pinPoints.value.dropLast(1)
+                            pinNotice.value = "No route to this pin."
+                        } else if (res.overMiles > 0.0) {
+                            pinPoints.value = pinPoints.value.dropLast(1)
+                            pinNotice.value = "That pin puts the ride past your distance."
+                        }
+                    }
+                }
+            }
+        }.start()
+    }
+
+    /** the planner's onProximityTap, copied: a tap while the flow asks for a place (the page sends it only while __pinSelect). */
+    fun onPinTap(ctx: android.content.Context, lat: Double, lon: Double) {
+        val step = aiStep.intValue
+        if (step == PIN_STEP_ENDPOINT) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                pinEndLat.value = lat
+                pinEndLon.value = lon
+                pinNotice.value = ""
+                runAssess(ctx)
+            }
+            return
+        }
+        if (step == PIN_STEP_INCLUDE) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                val cosLat = Math.cos(Math.toRadians(lat))
+                val hit = pinPoints.value.indexOfFirst { p ->
+                    val dy = (p.first - lat) * 69.0
+                    val dx = (p.second - lon) * 69.0 * cosLat
+                    Math.hypot(dy, dx) < PIN_REMOVE_MI
+                }
+                if (hit >= 0) {
+                    pinPoints.value = pinPoints.value.filterIndexed { i, _ -> i != hit }
+                    pinNotice.value = ""
+                } else if (pinPoints.value.size >= PIN_MAX) {
+                    pinNotice.value = "Five places is the most a ride can be planned around. Tap one of your pins to remove it first."
+                } else {
+                    pinPoints.value = pinPoints.value + (lat to lon)
+                    pinNotice.value = ""
+                }
+                android.widget.Toast.makeText(ctx, pinPoints.value.size.toString() + " of " + PIN_MAX + " places",
+                    android.widget.Toast.LENGTH_SHORT).show()
+                runAssess(ctx)
+            }
+            return
+        }
+        if (step == PIN_STEP_TRAILHEAD) {
+            Thread {
+                var nm: String? = null
+                var la = 0.0
+                var lo = 0.0
+                try {
+                    SpatialDbManager.init(ctx)
+                    val hit = gpNearestTrailhead(lat, lon, TRAILHEAD_SELECT_MI)
+                    if (hit != null) {
+                        nm = hit["name"] ?: "Trailhead"
+                        gpParsePointWkt(hit["geometry"])?.let { la = it[0]; lo = it[1] }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("GuidedPin", "select failed: " + e.message)
+                }
+                val fnm = nm
+                val trailsOff = layersNow().getOrElse(0) { 0 } == 0   // 0 = DS_OFF (the planner's trailState == DS_OFF)
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    if (fnm == null) {
+                        pinNotice.value = "No trailhead there. Tap the trailhead marker itself, or add one with a long press."
+                    } else if (trailsOff || SpatialDbManager.getSpatialDb()?.let {
+                            com.geeksville.mesh.convoy.RouteExplorer.nearestShownTrailMeters(it, la, lo) } == null) {
+                        pinNotice.value = "No trail shown on the map within the half-mile circle of this trailhead. Turn trail types " +
+                            "on in the map key, or choose a trailhead closer to a trail."
+                    } else {
+                        pinTrailName.value = fnm
+                        pinTrailLat.value = la
+                        pinTrailLon.value = lo
+                        pinNotice.value = ""
+                        aiStep.intValue = PIN_STEP_RETURN
+                    }
+                }
+            }.start()
+        }
+    }
+
+    /** the planner's FIND MY RIDES, copied: the search builds the routes and records the compare set; then the COMPARE TABLE
+     *  opens on them (ONE MAP goes straight there -- the planner's results panel in between is not copied). */
+    fun findRides(ctx: android.content.Context) {
+        pinNotice.value = ""
+        aiStep.intValue = PIN_STEP_SEARCH
+        aiBusy.value = true
+        aiProgress.value = "Starting"
+        val aLat = pinTrailLat.value
+        val aLon = pinTrailLon.value
+        val rn = pinRideName.value
+        val mLo = pinMiLow.intValue; val mHi = pinMiHigh.intValue
+        val sLo = pinMphLow.intValue; val sHi = pinMphHigh.intValue
+        val pins = pinPoints.value
+        val loop = pinIsLoop.value
+        val eLat = pinEndLat.value; val eLon = pinEndLon.value
+        Thread {
+            var made = 0
+            var err = ""
+            try {
+                SpatialDbManager.init(ctx)
+                val db = SpatialDbManager.getSpatialDb()
+                if (db == null) {
+                    err = "No trail data on this device yet"
+                } else {
+                    val out = com.geeksville.mesh.convoy.RouteExplorer.explore(db,
+                        com.geeksville.mesh.convoy.RouteExplorer.Request(anchorLat = aLat, anchorLon = aLon, name = rn,
+                            milesLow = mLo.toDouble(), milesHigh = mHi.toDouble(), mphLow = sLo.toDouble(), mphHigh = sHi.toDouble(),
+                            includePoints = pins)
+                    ) { p -> aiProgress.value = p.step + (if (p.detail.isNotBlank()) " — " + p.detail else "") }
+                    RouteDraftStore.writeBatch(
+                        batchName = rn,
+                        draftNames = out.map { it.draftName },
+                        miles = out.map { it.miles },
+                        hoursLow = out.map { it.hoursLow },
+                        hoursHigh = out.map { it.hoursHigh },
+                        anchorLat = aLat, anchorLon = aLon,
+                        anchorName = null,
+                        milesLow = mLo.toDouble(), milesHigh = mHi.toDouble(),
+                        mphLow = sLo.toDouble(), mphHigh = sHi.toDouble(),
+                        pins = pins,
+                        finish = if (loop == false) eLat to eLon else null,
+                    )
+                    RouteDraftStore.recordSearchOutcome(out.size, RouteDraftStore.readBatch()?.optString("batchName") == rn, null)
+                    RouteDraftStore.traceCompare("AI search end (ONE MAP)", "made " + out.size + " route(s) for '" + rn + "'")
+                    made = out.size
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("RouteExplorer", "explore failed", e)
+                RouteDraftStore.recordSearchOutcome(-1, false, e.message ?: e.toString())
+                err = "Could not build rides: " + (e.message ?: "error")
+            }
+            val fMade = made
+            val fErr = err
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                aiBusy.value = false
+                if (fMade > 0 && RouteDraftStore.hasOpenBatch()) {
+                    // the flow ends; the compare table takes over (it turns route mode off and fits the routes)
+                    aiStep.intValue = PIN_STEP_NONE
+                    routeMode.value = false
+                    routeMethod.intValue = ROUTE_METHOD_P2P
+                    js("window.__pinSelect=false;showAimRing(false);clearPins()")
+                    clearPins()
+                    openCompare()
+                } else {
+                    // VISIBLE: back to the summary with the reason -- Start over or Cancel build from there.
+                    aiStep.intValue = PIN_STEP_SUMMARY
+                    notice.value = if (fErr.isNotEmpty()) fErr else "No rides could be built from that trailhead and distance. " +
+                        "Try Start over with another trailhead or a different distance."
+                }
+            }
+        }.start()
     }
 
     /** GTROUTE1B-2026-10-23: the manual checks after the AI check. true = something pending was shown. */
@@ -268,7 +543,7 @@ object GtRoute {
  * the unnamed-draft resolver, the missing-trailhead prompt, the notice. HELP and X on each (10-22 standard).
  */
 @Composable
-fun GtRouteHost(toolbarModifier: Modifier) {   // GTROUTE1D-2026-10-23: where the toolbar opens -- the caller's map decides
+fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-2026-10-23: + the map's search (the AI trailhead step)   // GTROUTE1D-2026-10-23: where the toolbar opens -- the caller's map decides
     val ctx = LocalContext.current
     val R = GtRoute
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -349,8 +624,33 @@ fun GtRouteHost(toolbarModifier: Modifier) {   // GTROUTE1D-2026-10-23: where th
         }
     }
 
+    // ── GTAI3-2026-10-23: the AI flow's map effects (the planner's LaunchedEffect(pinStep) / LaunchedEffect(pinPoints), copied) ──
+    androidx.compose.runtime.LaunchedEffect(R.aiStep.intValue) {
+        val step = R.aiStep.intValue
+        val on = step == PIN_STEP_TRAILHEAD || step == PIN_STEP_ENDPOINT || step == PIN_STEP_INCLUDE
+        R.js("window.__pinSelect=" + on + ";")
+        if (step == PIN_STEP_WELCOME) {
+            (ctx as? android.app.Activity)?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+        R.js("showAimRing(" + (step == PIN_STEP_TRAILHEAD) + ")")
+        // GTAI4B-2026-10-23 (Fred 15:44): Trails and Waypoints STAY ON through the build -- set again at every trailhead step.
+        if (step == PIN_STEP_TRAILHEAD) {
+            R.aiMapReady = true
+            R.layersOnForAi()
+        }
+        if (step == PIN_STEP_NONE) {
+            R.aiMapReady = false
+            // the lock cannot outlive the flow (the planner's DisposableEffect)
+            (ctx as? android.app.Activity)?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(R.pinPoints.value) {
+        val json = R.pinPoints.value.joinToString(",", "[", "]") { "[%.6f,%.6f]".format(it.first, it.second) }
+        R.js("renderPins('" + json + "')")
+    }
+
     // ── the toolbar: LOCKED to the launched method (one mode; the other is not shown) ──
-    if (R.routeMode.value) {
+    if (R.routeMode.value && !R.aiActive()) {   // GTAI3-2026-10-23: the AI flow has its own screens
         // The back button does not drop a route being built; the toolbar X always leaves (the 10-22 stranding fix).
         androidx.activity.compose.BackHandler(enabled = true) {
             android.widget.Toast.makeText(ctx, "Use X on the route panel to leave route building.", android.widget.Toast.LENGTH_SHORT).show()
@@ -390,6 +690,184 @@ fun GtRouteHost(toolbarModifier: Modifier) {   // GTROUTE1D-2026-10-23: where th
                 R.endBuild()
             }
         )
+    }
+
+    // ── GTAI3-2026-10-23: the AI flow's screens (the planner's, copied): overview + distance, the guided steps with the
+    //    mileage HUD, then the summary and the search. Cancel build leaves completely; Back does not drop it.
+    if (R.aiActive()) {
+        androidx.activity.compose.BackHandler(enabled = true) {
+            android.widget.Toast.makeText(ctx, "Use Cancel build to leave AI route design.", android.widget.Toast.LENGTH_SHORT).show()
+        }
+        val step = R.aiStep.intValue
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+            if (step == PIN_STEP_WELCOME || step == PIN_STEP_DISTANCE) {
+                GtAiStepPanel(   /* GTAI4-2026-10-23: ONE MAP's copy, HELP X */
+                    isOverview = step == PIN_STEP_WELCOME,
+                    stepLabel = if (step == PIN_STEP_WELCOME) "1 / 6" else "2 / 6",
+                    dontShowAgain = R.aiSkipOverview.value,
+                    onDontShowAgain = { R.aiSkipOverview.value = it },
+                    miLow = R.pinMiLow.intValue, miHigh = R.pinMiHigh.intValue,
+                    mphLow = R.pinMphLow.intValue, mphHigh = R.pinMphHigh.intValue,
+                    onMiles = { lo, hi -> R.pinMiLow.intValue = lo; R.pinMiHigh.intValue = hi },
+                    onSpeed = { lo, hi -> R.pinMphLow.intValue = lo; R.pinMphHigh.intValue = hi },
+                    hoursText = run {
+                        val lo = Math.round(R.pinMiLow.intValue.toDouble() / R.pinMphHigh.intValue.toDouble().coerceAtLeast(1.0))
+                        val hi = Math.round(R.pinMiHigh.intValue.toDouble() / R.pinMphLow.intValue.toDouble().coerceAtLeast(1.0))
+                        "$lo to $hi hours"
+                    },
+                    onCancel = { R.aiCancel() },
+                    onContinue = {
+                        if (step == PIN_STEP_WELCOME) R.aiStep.intValue = PIN_STEP_DISTANCE
+                        else { R.pinRideName.value = ""; R.aiProgress.value = ""; R.pinReset() }
+                    },
+                    // GTAI5-2026-10-23 (Fred 15:57): a centred panel half the screen high -- full screen ran the text off the edges.
+                    modifier = Modifier.align(Alignment.Center).fillMaxWidth(0.94f).fillMaxHeight(0.55f)
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                )
+            } else {
+                val miLo = R.pinMiLow.intValue; val miHi = R.pinMiHigh.intValue
+                val mphLo = R.pinMphLow.intValue; val mphHi = R.pinMphHigh.intValue
+                val thName = R.pinTrailName.value
+                val isLoop = R.pinIsLoop.value
+                val pts = R.pinPoints.value
+                val hrLo = miLo.toDouble() / mphHi.toDouble()
+                val hrHi = miHi.toDouble() / mphLo.toDouble()
+                val summary =
+                    "I am about to design a route beginning at " + thName.ifBlank { "your trailhead" } +
+                        ", extending for between " + miLo + " and " + miHi +
+                        (if (isLoop == false) " miles and finishing where you marked the end. The ride duration "
+                         else " miles and returning to where it started. The ride duration ") +
+                        "is estimated at " + Math.round(hrLo) + " to " + Math.round(hrHi) +
+                        " hours at " + mphLo + " to " + mphHi + " mph, which already includes stops and break pauses.\n\n" +
+                        "Results depend on the trails available on this device.\n\n" +
+                        "I will favour rides that pass named features and that avoid riding the same trail twice, and will " +
+                        "bring back up to four alternatives for you to compare."
+                val GS = com.geeksville.mesh.convoy.GP_STATE_TODO
+                val GC = com.geeksville.mesh.convoy.GP_STATE_CURRENT
+                val GD = com.geeksville.mesh.convoy.GP_STATE_DONE
+                val steps = listOf(
+                    com.geeksville.mesh.convoy.GuidedStep(
+                        title = "Select your trailhead / long press to add the trailhead",
+                        instruction = "Use search to navigate to your area — follow the area name with the two-character " +
+                            "state, since names repeat across states.\n\nThe blue circle shows the trails that can start your " +
+                            "route. Move the map if the trail you want to launch from is not inside it.\n\nTap the trailhead " +
+                            "you are starting from, or press and hold for a second to add one.",
+                        answer = thName,
+                        state = if (step == PIN_STEP_TRAILHEAD) GC else GD),
+                    com.geeksville.mesh.convoy.GuidedStep(
+                        title = "Add one if none exists",
+                        instruction = "Long press at the start of the trail, choose Trailhead, and give it a name. Then tap it to select it.",
+                        answer = if (thName.isBlank()) "" else "Not needed",
+                        state = if (step == PIN_STEP_TRAILHEAD) GC else GD),
+                    com.geeksville.mesh.convoy.GuidedStep(
+                        title = "Does the ride return there?",
+                        instruction = "Answer yes for a loop back to your trailhead.",
+                        answer = if (thName.isBlank()) "" else "Returns to " + thName,
+                        state = when { step < PIN_STEP_RETURN -> GS; step == PIN_STEP_RETURN -> GC; else -> GD }),
+                    com.geeksville.mesh.convoy.GuidedStep(
+                        title = "Where does the ride finish?",
+                        instruction = "Tap the place you want the ride to end.",
+                        answer = if (isLoop == false && R.pinEndLat.value != 0.0) "Finish point set" else "",
+                        state = when { isLoop != false -> GS; step == PIN_STEP_ENDPOINT -> GC; step > PIN_STEP_ENDPOINT -> GD; else -> GS }),
+                    com.geeksville.mesh.convoy.GuidedStep(
+                        title = "Add your own places?",
+                        instruction = "Answer yes to drop pins on places the ride should reach. Answer no and the ride is designed for you.",
+                        answer = when { step <= PIN_STEP_ASK -> ""; pts.isEmpty() -> "Designed for you"; else -> "Adding your own places" },
+                        state = when { step < PIN_STEP_ASK -> GS; step == PIN_STEP_ASK -> GC; else -> GD }),
+                    com.geeksville.mesh.convoy.GuidedStep(
+                        title = "Places to pass through",
+                        instruction = "Tap the closest trail to each place you want the ride to reach — up to " + PIN_MAX +
+                            ". Tap a pin again to remove it. I will favour rides that pass named points of interest.",
+                        answer = if (pts.isEmpty()) "" else pts.size.toString() + " place" + (if (pts.size == 1) "" else "s") + " included",
+                        state = when { step < PIN_STEP_INCLUDE -> GS; step == PIN_STEP_INCLUDE -> GC; else -> GD }),
+                    com.geeksville.mesh.convoy.GuidedStep(
+                        title = "Review and search",
+                        instruction = if (step == PIN_STEP_SEARCH) R.aiProgress.value.ifBlank { "Working…" } else summary,
+                        answer = "",
+                        state = if (step < PIN_STEP_SUMMARY) GS else GC)
+                )
+                val actions: List<Pair<String, () -> Unit>> = when (step) {
+                    PIN_STEP_RETURN -> listOf(
+                        "YES — LOOP" to { R.pinNotice.value = ""; R.pinIsLoop.value = true; R.aiStep.intValue = PIN_STEP_ASK },
+                        "DROP ENDPOINT PIN NOW" to { R.pinNotice.value = ""; R.pinIsLoop.value = false; R.aiStep.intValue = PIN_STEP_ENDPOINT })
+                    PIN_STEP_ENDPOINT -> listOf(
+                        "CONTINUE" to { R.pinNotice.value = ""; R.aiStep.intValue = PIN_STEP_ASK })
+                    PIN_STEP_ASK -> listOf(
+                        "YES — I'LL DROP PINS" to { R.pinNotice.value = ""; R.aiStep.intValue = PIN_STEP_INCLUDE },
+                        "NO — DESIGN IT FOR ME" to { R.pinNotice.value = ""; R.pinPoints.value = emptyList(); R.aiStep.intValue = PIN_STEP_SUMMARY })
+                    PIN_STEP_INCLUDE -> listOf(
+                        "DONE" to { R.pinNotice.value = ""; R.aiStep.intValue = PIN_STEP_SUMMARY })
+                    PIN_STEP_SUMMARY -> listOf(
+                        "FIND MY RIDES" to { R.findRides(ctx) })
+                    else -> emptyList()
+                }
+                if (step == PIN_STEP_ENDPOINT || step == PIN_STEP_INCLUDE) {
+                    val f = R.pinFeas.value
+                    val problem = when {
+                        f == null -> ""
+                        f.onFragment.any { it in 1..pts.size } -> "One place sits on a trail that does not join the rest of the network."
+                        f.unreachable.any { it in 1..pts.size } -> "One place is too far from any trail to reach."
+                        else -> ""
+                    }
+                    com.geeksville.mesh.convoy.ConvoyPinMileageHud(
+                        floorMiles = f?.totalMiles ?: 0.0,
+                        overMiles = f?.overMiles ?: 0.0,
+                        underMiles = f?.underMiles ?: 0.0,
+                        floorBand = miLo,
+                        ceiling = miHi,
+                        problem = problem,
+                        busy = f == null,
+                        onCeilingChange = { d ->
+                            R.pinMiHigh.intValue = (R.pinMiHigh.intValue + d).coerceIn(R.pinMiLow.intValue + 5, 200)
+                            R.runAssess(ctx)
+                        },
+                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 110.dp)
+                    )
+                }
+                // GTAI5B-2026-10-23 (Fred 16:07): the trailhead SEARCH lives IN the step panel (below) -- it opens and closes with it.
+                if (step < PIN_STEP_SUMMARY) {
+                    GtAiStepScreen(   /* GTAI4 */
+                        steps = steps,
+                        onStartOver = { R.pinReset() },
+                        onCancelBuild = { R.aiCancel() },
+                        actions = actions,
+                        notice = R.pinNotice.value,
+                        // GTAI5B-2026-10-23 (Fred 16:07): SEARCH inside "Select your trailhead" -- a place found moves the map, the ring follows.
+                        // GTAI5D-2026-10-23 (Fred 16:26): a picked result RESETS the search -- results gone, the panel shrinks back.
+                        header = {
+                            if (step == PIN_STEP_TRAILHEAD) {
+                                // GTAI5E-2026-10-23 (Fred 16:34): a TWISTIE -- collapsed by default; picking a result folds it again.
+                                val searchOpen = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                                val sc = GtScheme.current.value
+                                androidx.compose.foundation.layout.Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                        .clickable { searchOpen.value = !searchOpen.value }
+                                        .padding(vertical = 8.dp)
+                                ) {
+                                    Text(if (searchOpen.value) "\u25be" else "\u25b8", color = sc.panelText, fontSize = 16.sp,
+                                        modifier = Modifier.padding(end = 8.dp))
+                                    Text("SEARCH \u2014 find your area", color = sc.panelText, fontSize = 14.sp,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                }
+                                if (searchOpen.value) GtSearchBody(search, close = { searchOpen.value = false }, autoFocus = false)
+                            }
+                        },
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                } else {
+                    GtGuidedSummaryPanel(   /* GTAI4 */
+                        title = R.pinRideName.value,
+                        body = summary,
+                        working = step == PIN_STEP_SEARCH,
+                        progress = R.aiProgress.value,
+                        onProceed = { if (!R.aiBusy.value) actions.firstOrNull()?.second?.invoke() },
+                        onStartOver = { if (!R.aiBusy.value) R.pinReset() },
+                        onCancelBuild = { if (!R.aiBusy.value) R.aiCancel() }
+                    )
+                }
+            }
+        }
     }
 
     // ── save choice (the planner's, with rename) ──
@@ -544,8 +1022,9 @@ fun GtRouteHost(toolbarModifier: Modifier) {   // GTROUTE1D-2026-10-23: where th
                     if (RouteDraftStore.draftExists(RouteDraftStore.UNNAMED)) {
                         android.widget.Toast.makeText(ctx, "Rename or delete \"" + RouteDraftStore.UNNAMED + "\" before starting a new route.", android.widget.Toast.LENGTH_LONG).show()
                     } else { R.showPicker.value = false; R.startNew(ROUTE_METHOD_P2P) }   // GTROUTE1C-2026-10-23: straight into Build it myself
-                }) { Text("+ Plan a new route") }
-            }
+                }) { Text("+ Build it myself") }   // GTAI3-2026-10-23: the selector offers both ways to start a new route
+            },
+            dismissButton = { TextButton(onClick = { R.showPicker.value = false; R.startAi() }) { Text("+ AI route design") } }
         )
     }
 
@@ -592,7 +1071,7 @@ fun GtRouteHost(toolbarModifier: Modifier) {   // GTROUTE1D-2026-10-23: where th
 
     // ── GTAI2-2026-10-23: the compare table -- the planner's BATCHFORK grid, copied. EXIT leaves everything: the set stays open. ──
     if (R.batchOpen.value && R.batchRows.value.isNotEmpty()) {
-        com.geeksville.mesh.convoy.ConvoyBatchGridPanel(
+        GtCompareTable(   /* GTAI4 */
             batchName = R.batchName.value,
             rows = R.batchRows.value,
             hidden = R.batchHidden.value,
@@ -692,4 +1171,50 @@ fun GtRouteHost(toolbarModifier: Modifier) {   // GTROUTE1D-2026-10-23: where th
             dismissButton = { TextButton(onClick = { R.batchDeleteConfirm.value = false }) { Text("Cancel") } }
         )
     }
+}
+
+// ── GTAI3-2026-10-23: the planner's guided-flow constants and trailhead helpers (ConvoyMapViewerScreen, private there), copied ──
+private const val PIN_STEP_WELCOME   = -2
+private const val PIN_STEP_DISTANCE  = -1
+private const val PIN_STEP_NONE      = 0
+private const val PIN_STEP_TRAILHEAD = 1
+private const val PIN_STEP_RETURN    = 2
+private const val PIN_STEP_ENDPOINT  = 3
+private const val PIN_STEP_ASK       = 4
+private const val PIN_STEP_INCLUDE   = 5
+private const val PIN_STEP_SUMMARY   = 6
+private const val PIN_STEP_SEARCH    = 7
+private const val PIN_MAX = 5
+private const val PIN_REMOVE_MI = 0.15
+private const val TRAILHEAD_SELECT_MI = 0.062
+
+private fun gpMilesBetween(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val dLat = (lat2 - lat1) * 69.0
+    val dLon = (lon2 - lon1) * 69.0 * kotlin.math.cos(Math.toRadians((lat1 + lat2) / 2.0))
+    return kotlin.math.sqrt(dLat * dLat + dLon * dLon)
+}
+
+private fun gpParsePointWkt(wkt: String?): DoubleArray? {
+    if (wkt.isNullOrBlank()) return null
+    val m = Regex("-?\\d+\\.?\\d*").findAll(wkt).map { it.value }.toList()
+    if (m.size < 2) return null
+    val lon = m[0].toDoubleOrNull() ?: return null
+    val lat = m[1].toDoubleOrNull() ?: return null
+    return doubleArrayOf(lat, lon)
+}
+
+/** null = no trailhead within [withinMi] (the planner's; its default radius is dropped -- the one caller passes it). */
+private fun gpNearestTrailhead(lat: Double, lon: Double, withinMi: Double): Map<String, String?>? {
+    val dLat = withinMi / 69.0
+    val dLon = withinMi / (69.0 * kotlin.math.max(0.2, kotlin.math.cos(Math.toRadians(lat))))
+    val found = SpatialDbManager.queryWaypointsByViewport(lat - dLat, lon - dLon, lat + dLat, lon + dLon, 200)
+    var best: Map<String, String?>? = null
+    var bestMi = withinMi
+    for (w in found) {
+        if ((w["type"] ?: "") != "trailhead") continue
+        val p = gpParsePointWkt(w["geometry"]) ?: continue
+        val mi = gpMilesBetween(lat, lon, p[0], p[1])
+        if (mi <= bestMi) { bestMi = mi; best = w }
+    }
+    return best
 }
