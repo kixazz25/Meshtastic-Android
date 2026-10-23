@@ -73,6 +73,10 @@ object MapStateStore {
         val routeState: RouteState? = null
     )
 
+    // mapKey is "convoy" (classic ride map), "planning" or "grouptrack" (ONE MAP)   // PERSISTKEY-2026-10-23
+    // PERSISTKEY-2026-10-23 (Fred 10-22 15:02): the ride map's key follows the layout -- every ride-map read/write uses this.
+    fun rideKey(): String = if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value) "grouptrack" else "convoy"
+
     // mapKey is "convoy" or "planning"
     private fun fileFor(mapKey: String): File {
         val dir = dir()
@@ -192,6 +196,20 @@ object MapStateStore {
             defaults()
         }
     }
+
+    // PERSISTVIEW-2026-10-23: a map's own map type and offline choice, in <mapKey>_view.json. Separate from the panel file
+    // because saveMap rewrites that file whole (FIT included). mapType "" = nothing saved yet (CODE RULE 1: no null).
+    data class ViewState(val mapType: String, val offline: Boolean)
+    private fun viewFile(mapKey: String): File { val d = dir(); if (!d.exists()) d.mkdirs(); return File(d, mapKey + "_view.json") }
+    fun saveView(mapKey: String, mapType: String, offline: Boolean) {
+        try { viewFile(mapKey).writeText(JSONObject().put("mapType", mapType).put("offline", offline).toString()) }
+        catch (e: Exception) { /* persistence must never crash the UI */ }
+    }
+    fun readView(mapKey: String): ViewState = try {
+        val f = viewFile(mapKey)
+        if (!f.exists()) ViewState("", false)
+        else JSONObject(f.readText()).let { ViewState(it.optString("mapType", ""), it.optBoolean("offline", false)) }
+    } catch (e: Exception) { ViewState("", false) }
 
     // Convenience: the checked-id set for a type, for the SELECTED filter.
     fun checkedIdsFor(snap: MapSnapshot, type: String): Set<String>? {

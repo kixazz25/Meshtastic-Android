@@ -256,7 +256,8 @@ fun ConvoyScreen(
     remember { TrailFilterState.load(); true }
         var showMapSettings by remember { mutableStateOf(false) }
         // Spatial DB display states — per-map state from MapStateStore (independent of planning map)
-        val cmSeed = remember { MapStateStore.readMap("convoy") }
+        com.geeksville.mesh.grouptrack.GtLayout.load(context)   // PERSISTKEY-2026-10-23: before the first read, so rideKey() is right on first compose
+        val cmSeed = remember { MapStateStore.readMap(MapStateStore.rideKey()) }
         var trailState by viewModel.rideMapState("trailState") { cmSeed.types["Trails"]?.state ?: DS_OFF }   // RIDEMAPSTATE-2026-10-05
         var trackState by viewModel.rideMapState("trackState") { cmSeed.types["Tracks"]?.state ?: DS_OFF }   // RIDEMAPSTATE-2026-10-05
         var waypointState by viewModel.rideMapState("waypointState") { cmSeed.types["Waypoints"]?.state ?: DS_OFF }   // RIDEMAPSTATE-2026-10-05
@@ -351,7 +352,7 @@ fun ConvoyScreen(
             // CODE RULE 1: bbox null = no usable frame -> the next entry centres on my cart (RIDEENTRY). The layer states are still saved.
             val bbOk = mapFrameOk(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
             if (!bbOk) android.util.Log.w("ConvoyMap", "MAPSTARTUP-2026-10-19: frame not saved (not usable): $lastViewportSouth,$lastViewportWest,$lastViewportNorth,$lastViewportEast")
-            MapStateStore.saveMap("convoy", MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes(), if (bbOk) MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast) else null, null))
+            MapStateStore.saveMap(MapStateStore.rideKey(), MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes(), if (bbOk) MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast) else null, null))
         }
     // [viewport-save 2026-08-13] debounced viewport-settle save (mirror planning MVS:260-261/540) —
     // convoy previously never persisted the frame on pan/zoom; this writes the current bbox on settle.
@@ -857,7 +858,7 @@ fun ConvoyScreen(
                             viewportSaveHandler.removeCallbacks(viewportSaveRunnable); viewportSaveHandler.postDelayed(viewportSaveRunnable, 400)
                             val wv = webViewRef.value
                             Thread {
-                                val rs = MapStateStore.readMap("convoy")
+                                val rs = MapStateStore.readMap(MapStateStore.rideKey())
                                 val states = mapOf(
                                     "Trails" to (rs.types["Trails"]?.state ?: DS_OFF),
                                     "Tracks" to (rs.types["Tracks"]?.state ?: DS_OFF),
@@ -1001,13 +1002,20 @@ fun ConvoyScreen(
                                 val hasInternet = cm?.activeNetwork?.let { net ->
                                     cm.getNetworkCapabilities(net)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
                                 } ?: false
-                                val tileUrl = if (hasInternet) {
+                                // PERSISTVIEW-2026-10-23: this map's saved type (if still a slot) and its saved offline choice.
+                                val savedView = MapStateStore.readView(MapStateStore.rideKey())
+                                if (savedView.mapType.isNotEmpty() && MapSourceManager.getSlotSources().any { it.first == savedView.mapType })
+                                    ConvoyConfig.ACTIVE_TILE_SOURCE = savedView.mapType
+                                val goLocal = !hasInternet || savedView.offline
+                                val shownType = ConvoyConfig.ACTIVE_TILE_SOURCE
+                                android.os.Handler(android.os.Looper.getMainLooper()).post { viewModel.setMapTypeLabel(shownType) }   // label = tiles
+                                val tileUrl = if (!goLocal) {
                                     ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
                                 } else {
-                                    android.util.Log.d("ConvoyMap", "No internet — auto-switching to local tiles")
+                                    android.util.Log.d("ConvoyMap", if (!hasInternet) "No internet — auto-switching to local tiles" else "PERSISTVIEW: saved choice is LOCAL")
                                     ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
                                 }
-                                if (!hasInternet) {
+                                if (goLocal) {
                                     // Auto-set offline mode so source button taps also use local tiles
                                     android.os.Handler(android.os.Looper.getMainLooper()).post {
                                         viewModel.setLocalTiles(true)
@@ -1023,7 +1031,7 @@ fun ConvoyScreen(
                                     // [Fix2] Entry restore vs GPS. Re-read FRESH (cmSeed remembered
                                     // from first compose; stale on re-entry). bbox present = in-session
                                     // re-entry -> restore saved frame; absent = cold launch -> GPS.
-                                    val rsEntry = MapStateStore.readMap("convoy")
+                                    val rsEntry = MapStateStore.readMap(MapStateStore.rideKey())
                                     val bbEntry = rsEntry.bbox
                                     // MAPSTARTUP-2026-10-19 (Fred 10-19 14:35): the saved frame is restored ONLY when online and usable; otherwise RIDEENTRY
                                     // below centres on my cart at z15 (the live viewport draw then fills the displayed layers for that view).
@@ -1036,7 +1044,7 @@ fun ConvoyScreen(
                                         lastViewportNorth = bbEntry.north; lastViewportEast = bbEntry.east
                                         view.evaluateJavascript("fitBounds([${bbEntry.south},${bbEntry.north}],[${bbEntry.west},${bbEntry.east}])", null)
                                         android.util.Log.d("ConvoyMap", "Restored persisted frame")
-                                        SpatialDisplayManager.drawPersistedState("convoy", view, context)
+                                        SpatialDisplayManager.drawPersistedState(MapStateStore.rideKey(), view, context)
                                     } else {
                                         // Trails loaded on demand via TRAILS button
                                         // Center map on device last known location
@@ -1195,7 +1203,7 @@ fun ConvoyScreen(
                                 viewportSaveHandler.removeCallbacks(viewportSaveRunnable); viewportSaveHandler.postDelayed(viewportSaveRunnable, 400)
                                 // GATE: reseed convoy state from JSON only if active map changed since last refresh.
                                 run {   // [refresh-restore 2026-07-01] gate removed: reseed convoy state EVERY viewport event (automatic refresh). Reads convoy JSON only -> map-independence preserved.
-                                    val rs = MapStateStore.readMap("convoy")
+                                    val rs = MapStateStore.readMap(MapStateStore.rideKey())
                                     android.util.Log.e("JSONDIAG", "READ(gate fired) Tr=${rs.types["Trails"]?.state} Tk=${rs.types["Tracks"]?.state} bbox=${rs.bbox} TrChecked=${MapStateStore.checkedIdsFor(rs, "Trails")?.size}")
                                     trailState = rs.types["Trails"]?.state ?: DS_OFF
                                     trackState = rs.types["Tracks"]?.state ?: DS_OFF
@@ -1225,7 +1233,7 @@ fun ConvoyScreen(
                                     "Waypoints" to waypointCheckedIds,
                                     "Routes" to routeCheckedIds
                                 )
-                                MapStateStore.lastMapProcessed = "convoy"
+                                MapStateStore.lastMapProcessed = MapStateStore.rideKey()
                                 Thread {
                                     SpatialDisplayManager.processViewport(south, west, north, east, z, states, selectLists, webViewRef.value, context)
                                 }.start()
@@ -1919,6 +1927,8 @@ fun ConvoyScreen(
         // ATTACH3-2026-10-22: the LOCAL / NET toggle as ONE shared val -- the classic map bar and ONE MAP's STATUS both call it.
         val offlineToggle: (Boolean) -> Unit = { goOffline ->
             viewModel.setOfflineMode(goOffline)
+            viewModel.setLocalTiles(goOffline)   // PERSISTVIEW-2026-10-23 BUG FIX: the type change reads isLocalTiles -- keep the two together
+            MapStateStore.saveView(MapStateStore.rideKey(), ConvoyConfig.ACTIVE_TILE_SOURCE, goOffline)   // PERSISTVIEW: the rider's choice
             val url = if (goOffline)
                 ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
             else
@@ -1929,6 +1939,7 @@ fun ConvoyScreen(
         val gtSetMapType: (String) -> Unit = { label ->
             viewModel.setMapTypeLabel(label)
             ConvoyConfig.ACTIVE_TILE_SOURCE = label
+            MapStateStore.saveView(MapStateStore.rideKey(), label, isLocalTiles)   // PERSISTVIEW-2026-10-23: this map's type
             val url = if (isLocalTiles)
                 ConvoyConfig.LOCAL_TILE_BASE + label + "/{z}/{x}/{y}.png"
             else
@@ -2710,7 +2721,7 @@ fun ConvoyScreen(
                         onToggleItem = { id, checked -> gtApplyList(if (checked) selectedArtifactIds + id else selectedArtifactIds - id) },   // LIVESEL
                         onSelectAll = { gtApplyList(artifactList.mapNotNull { it["id"] }.toSet()) },   // LIVESEL
                         onDeselectAll = { gtApplyList(emptySet()) },   // LIVESEL
-                        mapKey = "convoy",
+                        mapKey = MapStateStore.rideKey(),   // PERSISTKEY-2026-10-23
                         fitWebView = webViewRef.value,
                         onOpenDetail = { t, id -> activeListType = null; pendingDetailType = t; pendingDetailId = id }
                     )
@@ -2956,7 +2967,7 @@ fun ConvoyScreen(
                     },
                     artifactType = pendingDetailType!!,
                     id = pendingDetailId!!,
-                    mapKey = "convoy",
+                    mapKey = MapStateStore.rideKey(),   // PERSISTKEY-2026-10-23
                     fitWebView = webViewRef.value,
                     onLoadDetail = { t, did -> SpatialDbManager.getArtifactDetail(t, did) },
                     onLoadAliases = { t, did -> SpatialDbManager.getAliasesFor(t, did) },
@@ -3059,7 +3070,7 @@ fun ConvoyScreen(
                             webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
                         } else {
                             // Non-FIT dismiss (CLOSE/rename/etc.): reflect persisted state.
-                            val rs = MapStateStore.readMap("convoy")
+                            val rs = MapStateStore.readMap(MapStateStore.rideKey())
                             trailState = rs.types["Trails"]?.state ?: DS_OFF
                             trackState = rs.types["Tracks"]?.state ?: DS_OFF
                             waypointState = rs.types["Waypoints"]?.state ?: DS_OFF

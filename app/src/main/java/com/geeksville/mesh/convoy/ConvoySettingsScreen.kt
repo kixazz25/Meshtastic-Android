@@ -193,6 +193,51 @@ fun ConvoySettingsScreen(
                 )
             }
 
+            // STEP8PAGED-2026-10-23 (Fred 09:30): step 8 alone -- category, use and land for every trail -- without a re-import.
+            var rcOpen by remember { mutableStateOf(false) }
+            var rcBusy by remember { mutableStateOf(false) }
+            var rcMsg by remember { mutableStateOf("") }
+            val rcScope = rememberCoroutineScope()
+            ListItem(
+                headlineContent = { Text("Classify trails again", style = MaterialTheme.typography.bodyLarge) },
+                supportingContent = { Text("Type, use and public / private land for every trail — the import's last step, on its own", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                modifier = Modifier.clickable { if (!rcBusy) { rcOpen = true; rcMsg = "" } }
+            )
+            HorizontalDivider()
+            if (rcOpen) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { if (!rcBusy) rcOpen = false },
+                    title = { Text("Classify trails again") },
+                    text = { Text(if (rcBusy) "Classifying… this can take a few minutes. Keep the app open."
+                                  else if (rcMsg.isNotEmpty()) rcMsg
+                                  else "Gives every trail its type, use and public / private land again, from the land ownership data on this phone. Nothing is downloaded or deleted.",
+                                  style = MaterialTheme.typography.bodySmall) },
+                    confirmButton = {
+                        if (rcMsg.isEmpty()) TextButton(enabled = !rcBusy, onClick = {
+                            rcBusy = true
+                            rcScope.launch {
+                                rcMsg = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    val s = SpatialDbManager.getSpatialDb()
+                                    val e = SpatialDbManager.getExtensionDb()
+                                    if (s == null || e == null) "FAILED: the trail databases are not open."
+                                    else try {
+                                        val noFile = OwnershipReclass.ownershipFile().let { !it.exists() || it.length() < 1024L }
+                                        val n = OwnershipReclass.run(s, e)
+                                        if (n < 0) "FAILED: " + OwnershipReclass.lastError
+                                        else "$n trails classified, ${OwnershipReclass.lastPrivate} on private land." +
+                                            (if (noFile) "\n\nNo land ownership data on this phone -- every trail is public." else "")
+                                    } catch (t: OutOfMemoryError) { "FAILED: out of memory." }
+                                    catch (t: Exception) { "FAILED: " + t.message }
+                                }
+                                rcBusy = false
+                            }
+                        }) { Text("CLASSIFY") }
+                        else TextButton(onClick = { rcOpen = false }) { Text("OK") }
+                    },
+                    dismissButton = { if (rcMsg.isEmpty() && !rcBusy) TextButton(onClick = { rcOpen = false }) { Text("CANCEL") } }
+                )
+            }
+
             // TRAILCHECK-2026-10-10 (Fred): why a trail does or does not show -- its rows in both databases walked through
             // the map's own steps (zoom, view, Map Keys, cap, ALL/SELECT), as one JSON the rider emails. READ ONLY.
             var tcOpen by remember { mutableStateOf(false) }

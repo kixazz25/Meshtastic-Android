@@ -613,9 +613,9 @@ object HomeStateImportController {
                             }
                         }
                     } catch (e: OutOfMemoryError) {
-                        Log.e(TAG, "OOMGUARD-2026-09-15: step 8 ran out of memory -- " +
-                            "treating as skipped. The map still works; only " +
-                            "land-ownership classification is missing.", e)
+                        // STEP8PAGED-2026-10-23: a FAILURE, said as one (it was logged as "skipped (no ownership data)").
+                        OwnershipReclass.lastError = "out of memory"
+                        Log.e(TAG, "STEP8PAGED: step 8 FAILED -- out of memory. Trails keep no category/use/land from this run.", e)
                         -1
                     }
                     downloadDetailFlow.value = null
@@ -625,8 +625,10 @@ object HomeStateImportController {
                     // predicate keeps the map working. Reporting it as failed
                     // would send a rider chasing a problem they do not have.
                     // The count tells the two apart: 0 rows means it skipped.
+                    if (changed < 0) allOk = false   // STEP8PAGED-2026-10-23: the run is COMPLETED WITH ERRORS
                     findStage(sources, CLASSIFY_STAGE_ID)?.apply {
-                        put("status", "completed")
+                        put("status", if (changed < 0) "failed" else "completed")   // STEP8PAGED-2026-10-23: a failure is a failure
+                        if (changed < 0) put("step_detail", "FAILED: " + OwnershipReclass.lastError)
                         put("completed_at", iso8601Now())
                         // CLASSIFYCOUNT-2026-09-07: ⛔ imported MUST STAY 0.
                         // "imported" means rows this stage BROUGHT INTO the
@@ -644,7 +646,7 @@ object HomeStateImportController {
                     writeManifest(mFile, manifest)
                     publishProgress(areaLabel, totalSources, sources, "running", startMs)
                     when {
-                        changed < 0 -> Log.i(TAG, "step 8 skipped (no ownership data)")
+                        changed < 0 -> Log.e(TAG, "step 8 FAILED: " + OwnershipReclass.lastError)   // STEP8PAGED-2026-10-23
                         changed == 0 -> Log.i(TAG, "step 8: nothing reclassified")
                         // ⚠ CORRECTED 09-07: this said "-> residential". Nothing
                         // has become residential since 08-31 -- land_status is

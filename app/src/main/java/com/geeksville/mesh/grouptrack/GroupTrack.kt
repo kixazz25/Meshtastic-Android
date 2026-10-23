@@ -82,10 +82,12 @@ fun GroupTrackLaunchLayer(
     GtScheme.current.value = GtScheme.forMap(mapType)   // SHELL2-2026-10-22: buttons and panels follow the map type
     val group = GroupMode.on.value
     var open by rememberSaveable { mutableStateOf("") }   // the open module's id; "" = none (CODE RULE 1: no null)
+    var sub by rememberSaveable { mutableStateOf("") }   // MAPTARGET-2026-10-23: the open submenu's id; "" = the module's top level
     val openModule = LaunchModules.all.firstOrNull { it.id == open }
     // ATTACH1-2026-10-22 ONE-OPTION RULE (Fred 11:09): one process, attached -> the button runs it; otherwise it opens the panel.
     fun tap(m: LaunchModule) {
         val act = m.processes.singleOrNull()?.let { actions[it.id] }
+        sub = ""   // MAPTARGET-2026-10-23: a module always opens at its top level
         if (act != null) { open = ""; act() } else open = m.id
     }
 
@@ -124,6 +126,7 @@ fun GroupTrackLaunchLayer(
                     ) { Text(m.label, color = androidx.compose.ui.graphics.Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
                     "mode" -> GtButton(if (group) "Mode: Group" else "Mode: Android only", { tap(m) })   // SHELL4 (Fred 10:21)
                     "internet" -> GtButton(if (online) "Status: Online" else "Status: Offline", { tap(m) })   // SHELL4 (Fred 10:21)
+                    "maptype" -> GtButton("Map: " + mapType + " \u25be", { tap(m) })   // MAPCHIP-2026-10-23
                     "key" -> GtIconButton(m.label, Icons.Filled.Key, { tap(m) })
                     "filter" -> GtIconButton(m.label, Icons.Filled.FilterAlt, { tap(m) })
                     "centre" -> GtIconButton(centreLabel, Icons.Filled.Adjust, { tap(m) })   // ATTACH4-2026-10-22
@@ -160,21 +163,32 @@ fun GroupTrackLaunchLayer(
                            else if (landscape) Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
                            else Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp)
             ) {
+                val subGroup = openModule.processes.firstOrNull { it.id == sub && it.children.isNotEmpty() }   // MAPTARGET-2026-10-23
+                val rows = subGroup?.children ?: openModule.processes
                 GtPanel(
-                    title = openModule.label,
+                    title = if (subGroup != null) openModule.label + " \u203a " + subGroup.label.removeSuffix(" \u203a") else openModule.label,
                     helpId = openModule.id,
                     onHelp = onHelp,
-                    onDone = { open = "" },
+                    onDone = { open = ""; sub = "" },
                     stays = openModule.stays,
                     width = panelWidth,
                     maxHeight = panelMax,
                 ) {
-                    if (openModule.id == "map") GtMapTypeRow(mapTypes, mapType, onMapType)   // GTMAP-2026-10-22: MAP TYPE first
+                    if (openModule.id == "map" && subGroup == null) GtMapTypeRow(mapTypes, mapType, onMapType)   // GTMAP-2026-10-22: MAP TYPE first (MAPTARGET: top level only)
+                    if (subGroup != null) GtButton("\u2039 " + openModule.label, { sub = "" }, modifier = Modifier.fillMaxWidth())   // MAPTARGET-2026-10-23: back
                     // GTFILTER-2026-10-22: FILTER draws its own body; SELECT steps the panel aside for the list.
                     if (openModule.id == "filter") GtFilterBody(filter, onSelect = { t -> open = ""; filter.openSelect(t) })
                     else if (openModule.id == "key") GtKeyBody(keyStyleChanged)   // GTKEY-2026-10-22
                     else if (openModule.id == "search") GtSearchBody(search, close = { open = "" })   // GTSEARCH-2026-10-22
-                    else openModule.processes.forEach { pr ->
+                    else if (openModule.id == "maptype") mapTypes.forEach { t ->   // MAPCHIP-2026-10-23: pick -> switch -> close
+                        GtButton(if (t == mapType) "\u25cf  " + t else "     " + t, { onMapType(t); open = "" }, modifier = Modifier.fillMaxWidth())   // the current one carries the dot
+                    }
+                    else rows.forEach { pr ->
+                        if (pr.children.isNotEmpty()) {   // MAPTARGET-2026-10-23: a submenu row -- always live, shows how much is attached
+                            GtButton(pr.label + "   " + pr.children.count { actions[it.id] != null } + "/" + pr.children.size + " attached",
+                                { sub = pr.id }, modifier = Modifier.fillMaxWidth())
+                            return@forEach
+                        }
                         GtButton(
                             if (actions[pr.id] != null) pr.label else "${pr.label}  ·  not attached yet",   // ATTACH1-2026-10-22: the bridge decides
                             { actions[pr.id]?.let { act -> if (!openModule.stays) open = ""; act() } },
@@ -188,7 +202,7 @@ fun GroupTrackLaunchLayer(
                         GtButton("Classic layout (today's ride map)", { GtLayout.set(ctx, false); open = "" },
                             modifier = Modifier.fillMaxWidth(), emphasis = GtColors.Warn)
                     }
-                    if (openModule.processes.any { actions[it.id] == null } && openModule.id !in setOf("filter", "key", "search")) Text("Placeholder — 2.7c shell (SHELL-2026-10-22). Rows are attached one module at a time.",   // GTFILTER: only while rows are unattached
+                    if (rows.any { it.children.isEmpty() && actions[it.id] == null } && openModule.id !in setOf("filter", "key", "search")) Text("Placeholder — 2.7c shell (SHELL-2026-10-22). Rows are attached one module at a time.",   // GTFILTER: only while rows are unattached
                         color = GtScheme.current.value.panelDim, fontSize = 12.sp, fontWeight = FontWeight.Normal)
                 }
             }

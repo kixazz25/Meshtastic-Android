@@ -57,6 +57,13 @@ object OwnershipReclass {
 
     private const val TAG = "OwnershipReclass"
 
+    // STEP8PAGED-2026-10-23: rows per page in run() (also the IN-list size -- under SQLite's 999 bound parameters).
+    private const val PAGE = 500
+    /** STEP8PAGED-2026-10-23: why the last run() failed ("" = it did not). Read by the import and Settings. */
+    @Volatile var lastError: String = ""
+    /** STEP8PAGED-2026-10-23: PRIVATE trails written by the last successful run(). */
+    @Volatile var lastPrivate: Int = 0
+
     const val RESIDENTIAL = "R - Residential Roads"
 
     /**
@@ -156,106 +163,81 @@ object OwnershipReclass {
         // ⚠ AND IT COSTS TIME. ~146,000 point-in-polygon tests instead of
         // ~28,000. It is already inside a progress-reporting step, which is
         // why this is tolerable here and would not be anywhere else.
-        val ids = ArrayList<String>()
-        val wkts = ArrayList<String>()
-        val srcs = ArrayList<String>()
-        val uses = ArrayList<String>()
-        // ⚠ carto_code_source may be null on a database that predates it; fall
-        // back to carto_code, which IS the source value except where the old
-        // step 8 overwrote it. Same fallback classify4 used.
-        sDb.rawQuery(
-            "SELECT trail_id, COALESCE(NULLIF(TRIM(carto_code_source),''), carto_code), " +
-                "geometry FROM trails", null
-        ).use { c ->
-            while (c.moveToNext()) {
-                val g = c.getString(2)
-                if (!g.isNullOrEmpty()) {
-                    ids.add(c.getString(0))
-                    srcs.add(c.getString(1) ?: "")
-                    wkts.add(g)
-                }
-            }
-        }
-        // designated_uses lives in the OTHER database, so it cannot be joined
-        // in the query above -- read it into a map and look it up per row.
-        val useOf = HashMap<String, String>(ids.size)
-        try {
-            eDb.rawQuery(
-                "SELECT trail_id, designated_uses FROM trail_properties " +
-                    "WHERE designated_uses IS NOT NULL AND TRIM(designated_uses) <> ''",
-                null
-            ).use { c ->
-                while (c.moveToNext()) useOf[c.getString(0)] = c.getString(1)
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "designated_uses read failed: ${e.message}")
-        }
-        for (id in ids) uses.add(useOf[id] ?: "")
-
-        Log.i(TAG, "step 8: classifying ${ids.size} rows (${useOf.size} with uses)")
-        if (ids.isEmpty()) return 0
-
-        // ⭐ THE FOUR FIELDS. carto_code_source keeps what the source said;
-        // carto_code is OUR category and carries nothing about ownership or
-        // motorisation; land_status and use_type each answer one question.
-        val cats = ArrayList<String>(ids.size)
-        val lands = ArrayList<String>(ids.size)
-        val usets = ArrayList<String>(ids.size)
-        for (i in ids.indices) {
-            if (i % 2000 == 0) onProgress?.invoke(i, ids.size)
-            val cat = TrailClassifier.categoryOf(srcs[i], uses[i])
-            cats.add(cat)
-            usets.add(TrailClassifier.useOf(cat))
-            // ⭐ ANY PUBLIC SEGMENT WINS (Fred, 08-31): a feature with any
-            // sampled point on public land is PUBLIC. allPrivate() already
-            // samples every half mile plus both ends.
-            lands.add(if (allPrivate(wkts[i], rings, grid)) "PRIVATE" else "PUBLIC")
-        }
-        onProgress?.invoke(ids.size, ids.size)
-
-        // ⚠ BOTH STORES. SpatialDbManager:1689 arbitrates between them
-        // ("spatial wins only if it has a real value"), so leaving one behind
-        // means the same trail disagrees with itself.
+        // STEP8PAGED-2026-10-23: \u2b50 PAGED. This read held EVERY trail's geometry at once (146k+ WKT strings) on top of the
+        // rings -> OutOfMemoryError on a 256 MB heap (Droid 1, 10-23 09:15); step 8 wrote nothing and the launch job then made
+        // every trail PUBLIC. Now PAGE rows at a time by rowid, each page classified and written in its own transaction (both
+        // stores), so memory is one page whatever the state's size.
+        // \u26a0 No longer ONE transaction: a failure part-way leaves earlier pages written. run() rewrites EVERY row, so the
+        // next run (an import, or Settings > Classify trails again) repairs it -- and the failure is REPORTED (lastError).
+        lastError = ""; lastPrivate = 0
+        val total = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE geometry IS NOT NULL AND geometry <> ''", null)
+            .use { if (it.moveToFirst()) it.getInt(0) else 0 }
+        Log.i(TAG, "step 8: classifying $total rows in pages of $PAGE")
+        if (total == 0) return 0
+        // \u2b50 THE FOUR FIELDS (unchanged): carto_code_source keeps what the source said; carto_code is OUR category;
+        // land_status and use_type each answer one question. \u26a0 BOTH STORES -- SpatialDbManager arbitrates between them.
+        val s1 = sDb.compileStatement(
+            "UPDATE trails SET carto_code_source=?, carto_code=?, land_status=?, use_type=? WHERE trail_id=?")
+        val s2 = eDb.compileStatement("UPDATE trail_properties SET carto_code=? WHERE trail_id=?")
         var n = 0
         var priv = 0
-        sDb.beginTransaction()
-        eDb.beginTransaction()
-        try {
-            // ⛔ NO MORE `R - Residential Roads`. Fred, 08-31: "ownership is a
-            // SEPARATE FIELD, not folded into the category" -- folding it in is
-            // what made the old step 8 destroy identity, and 201 rows still
-            // cannot say what they used to be. A private road now KEEPS its
-            // category and answers PRIVATE on land_status.
-            val s1 = sDb.compileStatement(
-                "UPDATE trails SET carto_code_source=?, carto_code=?, " +
-                    "land_status=?, use_type=? WHERE trail_id=?")
-            // ⚠ BOTH STORES. SpatialDbManager:1689 arbitrates between them
-            // ("spatial wins only if it has a real value"), so leaving one
-            // behind means the same trail disagrees with itself.
-            val s2 = eDb.compileStatement(
-                "UPDATE trail_properties SET carto_code=? WHERE trail_id=?")
-            for (i in ids.indices) {
-                s1.clearBindings()
-                s1.bindString(1, srcs[i]); s1.bindString(2, cats[i])
-                s1.bindString(3, lands[i]); s1.bindString(4, usets[i])
-                s1.bindString(5, ids[i])
-                s1.executeUpdateDelete()
-                s2.clearBindings()
-                s2.bindString(1, cats[i]); s2.bindString(2, ids[i])
-                s2.executeUpdateDelete()
-                if (lands[i] == "PRIVATE") priv++
-                n++
+        var lastRow = -1L
+        while (true) {
+            val ids = ArrayList<String>(PAGE)
+            val srcs = ArrayList<String>(PAGE)
+            val wkts = ArrayList<String>(PAGE)
+            sDb.rawQuery(
+                "SELECT rowid, trail_id, COALESCE(NULLIF(TRIM(carto_code_source),''), carto_code), geometry FROM trails " +
+                    "WHERE rowid > ? AND geometry IS NOT NULL AND geometry <> '' ORDER BY rowid LIMIT $PAGE",
+                arrayOf(lastRow.toString())
+            ).use { c ->
+                while (c.moveToNext()) {
+                    lastRow = c.getLong(0)
+                    ids.add(c.getString(1)); srcs.add(c.getString(2) ?: ""); wkts.add(c.getString(3))
+                }
             }
-            sDb.setTransactionSuccessful()
-            eDb.setTransactionSuccessful()
-        } catch (e: Exception) {
-            Log.e(TAG, "step 8 write failed: ${e.message}")
-            return -1
-        } finally {
-            eDb.endTransaction()
-            sDb.endTransaction()
+            if (ids.isEmpty()) break
+            // designated_uses lives in the OTHER database -- this page's only.
+            val useOf = HashMap<String, String>()
+            try {
+                val qs = ids.joinToString(",") { "?" }
+                eDb.rawQuery("SELECT trail_id, designated_uses FROM trail_properties WHERE trail_id IN ($qs) " +
+                    "AND designated_uses IS NOT NULL AND TRIM(designated_uses) <> ''", ids.toTypedArray()).use { c ->
+                    while (c.moveToNext()) useOf[c.getString(0)] = c.getString(1)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "designated_uses read failed: ${e.message}")
+            }
+            sDb.beginTransaction()
+            eDb.beginTransaction()
+            try {
+                for (i in ids.indices) {
+                    val cat = TrailClassifier.categoryOf(srcs[i], useOf[ids[i]] ?: "")
+                    // \u2b50 ANY PUBLIC SEGMENT WINS (Fred, 08-31): allPrivate() samples every half mile plus both ends.
+                    val land = if (allPrivate(wkts[i], rings, grid)) "PRIVATE" else "PUBLIC"
+                    s1.clearBindings()
+                    s1.bindString(1, srcs[i]); s1.bindString(2, cat); s1.bindString(3, land)
+                    s1.bindString(4, TrailClassifier.useOf(cat)); s1.bindString(5, ids[i])
+                    s1.executeUpdateDelete()
+                    s2.clearBindings()
+                    s2.bindString(1, cat); s2.bindString(2, ids[i])
+                    s2.executeUpdateDelete()
+                    if (land == "PRIVATE") priv++
+                    n++
+                }
+                sDb.setTransactionSuccessful()
+                eDb.setTransactionSuccessful()
+            } catch (e: Exception) {
+                lastError = "write failed after $n of $total trails: ${e.message}"
+                Log.e(TAG, "step 8 FAILED: $lastError")
+                return -1
+            } finally {
+                eDb.endTransaction()
+                sDb.endTransaction()
+            }
+            onProgress?.invoke(n, total)
         }
-
+        lastPrivate = priv
         Log.i(TAG, "step 8 complete: $n classified, $priv private, " +
             "in ${(System.currentTimeMillis() - started) / 1000}s")
         return n

@@ -113,7 +113,7 @@ object TrailCheck {
 
         // ── the saved view of each map
         val maps = JSONObject()
-        val snaps = listOf("planning", "convoy").associateWith { MapStateStore.readMap(it) }
+        val snaps = listOf("planning", "convoy", "grouptrack")   /* PERSISTKEY-2026-10-23 */.associateWith { MapStateStore.readMap(it) }
         for ((k, s) in snaps) {
             val ts = s.types["Trails"]
             val sel = MapStateStore.checkedIdsFor(s, "Trails")

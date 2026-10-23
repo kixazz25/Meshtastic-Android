@@ -20,6 +20,9 @@ class GtProcess(
     /** RE-POINT / SIMPLIFY: what the row does. Placeholder = does nothing (attached = false). */
     val run: () -> Unit = {},
     val attached: Boolean = false,
+    /** MAPTARGET-2026-10-23: a SUBMENU row -- tapping it lists these. Empty = an ordinary row. Not nullable (CODE RULE 1):
+     *  only the group rows carry children, every other row legitimately has none, and "none" is the empty list. */
+    val children: List<GtProcess> = emptyList(),
 )
 
 class LaunchModule(
@@ -36,6 +39,9 @@ class LaunchModule(
 
 object LaunchModules {
     private fun p(module: String, vararg rows: Pair<String, String>) = rows.map { (id, label) -> GtProcess("$module.$id", label) }
+    // MAPTARGET-2026-10-23: a submenu row; its rows are ordinary processes with ids "$module.$id" (so attached ids survive a move).
+    private fun g(module: String, id: String, label: String, vararg rows: Pair<String, String>) =
+        GtProcess("$module.$id", label, children = p(module, *rows))
 
     val all: List<LaunchModule> = listOf(
         LaunchModule("record", "RECORD", LaunchSlot.TOP_CENTRE, 1, groupOnly = false, stays = false, processes = p("record",
@@ -53,17 +59,19 @@ object LaunchModules {
             "switch" to "ANDROID ONLY ⇄ GROUP (blocked while recording)")),
         LaunchModule("internet", "INTERNET", LaunchSlot.RIGHT, 2, groupOnly = false, stays = false, processes = p("internet",
             "switch" to "Internet ON / OFF — shows the current state, allows OFF")),
-        LaunchModule("key", "MAP KEY", LaunchSlot.RIGHT, 3, groupOnly = false, stays = true, processes = p("key",
+        // MAPCHIP-2026-10-23 (Fred 08:54): the map type ON the map, under STATUS. Its panel is the list of types (drawn by GroupTrack).
+        LaunchModule("maptype", "MAP TYPE", LaunchSlot.RIGHT, 3, groupOnly = false, stays = false, processes = emptyList()),
+        LaunchModule("key", "MAP KEY", LaunchSlot.RIGHT, 4, groupOnly = false, stays = true, processes = p("key",
             "trails" to "Trails — STYLE ›",
             "tracks" to "My tracks",
             "routes" to "My routes",
             "work" to "While you work (route being built, lead track, my track)",
             "group" to "Group riding (carts, lead, tail)")),
-        LaunchModule("filter", "FILTER", LaunchSlot.RIGHT, 4, groupOnly = false, stays = true, processes = p("filter",
+        LaunchModule("filter", "FILTER", LaunchSlot.RIGHT, 5, groupOnly = false, stays = true, processes = p("filter",
             "hide" to "Hide everything",
             "types" to "Each type — OFF / ALL / SELECT",
             "trails" to "Trails — motorized / non-motorized, public / private")),
-        LaunchModule("centre", "CENTRE ON ME", LaunchSlot.RIGHT, 5, groupOnly = false, stays = false, processes = p("centre",
+        LaunchModule("centre", "CENTRE ON ME", LaunchSlot.RIGHT, 6, groupOnly = false, stays = false, processes = p("centre",
             "me" to "Centre the map on my cart and follow")),
         LaunchModule("readout", "READOUT", LaunchSlot.READOUT, 1, groupOnly = false, stays = true, processes = p("readout",
             "tabs" to "MY CART | GROUP",
@@ -73,20 +81,28 @@ object LaunchModules {
         // GTMAP-2026-10-22 (Fred 14:35-14:38): EXACTLY as they exist -- the ride map's own map functions attached; the planning
         // map's functions listed as PLANNER placeholders (they come into ONE MAP with Route+, then everything is realigned).
         // MAP TYPE is drawn at the top of the panel (GtMapTypeRow).
-        LaunchModule("map", "Map", LaunchSlot.BOTTOM_BAR, 1, groupOnly = false, stays = false, processes = p("map",
-            "features" to "Map Features (the original panel)",
-            "queues" to "Download queues",
-            "sources" to "Map sources",
-            "planner" to "Open the planning map",
-            "download" to "Planner: download maps \u2014 by area, corridor, draw a box",
-            "flyover" to "Planner: flyover Z14\u201318",
-            "downloads" to "Planner: show downloads \u00b7 archived maps",
-            "remove" to "Planner: remove tiles \u2014 by area or track",
-            "repair" to "Planner: recreate tiles \u00b7 map recovery",
-            "trails" to "Planner: import trails \u2014 by state or area",
-            "gpx" to "Planner: import GPX \u2014 tracks, waypoints, routes",
-            "ridertrails" to "Planner: create trails from tracks",
-            "distance" to "Planner: mileage")),
+        // MAPTARGET-2026-10-23 (Fred 08:46-09:09): THE TARGET, placeholders backfilled one at a time (copies -- the planner is untouched).
+        // Ids of attached rows are kept: map.sources, map.queues, map.features, map.planner.
+        LaunchModule("map", "Map", LaunchSlot.BOTTOM_BAR, 1, groupOnly = false, stays = false, processes = listOf(
+            g("map", "maps", "Maps \u203a",
+                "sources" to "Choose map type and source",
+                "dl_area" to "Download maps by area",
+                "dl_box" to "Download maps by drawn box",
+                "queues" to "Download queues",
+                "rm_area" to "Remove maps by area",
+                "rm_track" to "Remove maps along a track",
+                "repair" to "Rebuild maps \u00b7 recovery"),
+            g("map", "import", "Import Map Features \u203a",
+                "trails_state" to "Import trails by state",
+                "trails_area" to "Import trails by area",
+                "gpx" to "Import GPX \u2014 tracks, waypoints, routes",
+                "ridertrails" to "Create trails from tracks"),
+            g("map", "offgrid", "What\u2019s Available Off Grid \u203a",
+                "offgrid_maps" to "Downloaded maps \u00b7 archived maps",
+                "offgrid_trails" to "Imported trails / features by state")) + p("map",
+            "features" to "Map Features (the original panel)",   // goes after Route+
+            "planner" to "Open the planning map",   // goes with the ride map
+            "flyover" to "Area Search Radius (Z14\u201318) \u2014 moves to Search")),   // AREARADIUS-2026-10-23
         // SHELL9-2026-10-22 (Fred 11:07): ROUTE is its own bottom button -- a key function is never hidden between navigation layers.
         LaunchModule("route", "Route", LaunchSlot.BOTTOM_BAR, 2, groupOnly = false, stays = true, processes = p("route",
             // ROUTESTART-2026-10-22 (Fred 13:49): TWO choices, each runs the existing Route+ with the method set and locked.
