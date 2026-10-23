@@ -32,7 +32,7 @@
     // page loads and shown in the settings panel. A tester can read it off the
     // screen, so stale bundled HTML is visible without logcat.
     // ⚠ BUMP THIS WHENEVER THIS FILE CHANGES, or the display starts lying.
-    window.__htmlVersion = "2026-10-18a";   // LEADTRACKBOARD-2026-10-18 (MYTRACK)
+    window.__htmlVersion = "2026-10-23a";   // HTMLVER1023-2026-10-23: GTROUTE1 + GTAI1 (Route+ on ONE MAP) -- was 2026-10-18a LEADTRACKBOARD (MYTRACK)
     var currentMaxNative = 18;
     // -- Trail color by CartoCode --
 
@@ -510,8 +510,14 @@
       map.on('click', function(e) {
         try {
           if (!window.gtOneMapRoute) window.__routeMode = false; // TAPRESET-2026-08-01 convoy never in route mode -- GTROUTE1-2026-10-23: except ONE MAP's Route+
-          if (window.__routeMode && window.Android && Android.onMapTap) {
-            Android.onMapTap(e.latlng.lat, e.latlng.lng);
+          // GTAI1-2026-10-23: the planner's PINTAP-2026-08-25B3a -- route mode is the OUTER gate, __pinSelect (AI pins) decides.
+          if (window.__routeMode && window.Android) {
+            if (window.__pinSelect && Android.onProximityTap) {
+              console.log('PINTAP -> onProximityTap ' + e.latlng.lat + ',' + e.latlng.lng);
+              Android.onProximityTap(e.latlng.lat, e.latlng.lng);
+            } else if (Android.onMapTap) {
+              Android.onMapTap(e.latlng.lat, e.latlng.lng);
+            }
           }
         } catch (err) {}
       });
@@ -594,6 +600,176 @@
     };
     window.clearBuildLine = function() {
       if (window.__buildLayer) { map.removeLayer(window.__buildLayer); window.__buildLayer = null; }
+    };
+
+    // GTAI1-2026-10-23: Route+ AI design on ONE MAP -- COPIED unchanged from grouptrack_map.html (the planner's page):
+    // the aim ring, the AI batch (six routes: draw / show / clear / fit), the guidance pins, and the pin-tap pop-up.
+    window.__aimRing = null;
+    window.showAimRing = function(on) {
+      try {
+        if (!on) {
+          if (window.__aimRing) { map.removeLayer(window.__aimRing); window.__aimRing = null; }
+          if (window.__aimMove) { map.off('move', window.__aimMove); window.__aimMove = null; }
+          return;
+        }
+        if (window.__aimRing) return;
+        var draw = function() {
+          var c = map.getCenter();
+          if (window.__aimRing) { window.__aimRing.setLatLng(c); return; }
+          window.__aimRing = L.circle(c, {
+            radius: 402,                 // a quarter mile
+            color: '#7FC8FF', weight: 2, opacity: 0.9,
+            fillColor: '#7FC8FF', fillOpacity: 0.08,
+            interactive: false
+          }).addTo(map);
+        };
+        draw();
+        window.__aimMove = draw;
+        map.on('move', window.__aimMove);
+      } catch (e) { console.log('aim ring: ' + e); }
+    };
+    /* BATCHDRAW-2026-08-27: the AI batch, six routes at once.
+     *
+     * drawBuildLine above draws ONE work-in-progress route into one named
+     * global, in hard-coded magenta, replaced on every call. Compare needs all
+     * six on the map together, each in its own colour, and then two or three
+     * left visible.
+     *
+     * This mirrors drawBuildLine's shape on purpose -- same try/catch, same
+     * string-or-object handling, same single-point circleMarker case. A route
+     * drawn from one point should not behave differently because it is in a
+     * batch.
+     *
+     * KEYED BY DRAFT NAME, because that is a route's identity everywhere else
+     * in GroupTrack (RouteDraftStore: "identity in the in-progress world = the
+     * typed NAME").
+     */
+    window.__batchLayers = {};
+
+    window.drawBatchRoute = function(name, jsonPts, color) {
+      try {
+        var pts = (typeof jsonPts === 'string') ? JSON.parse(jsonPts) : jsonPts;
+        if (window.__batchLayers[name]) {
+          map.removeLayer(window.__batchLayers[name]);
+          delete window.__batchLayers[name];
+        }
+        if (!pts || pts.length === 0) return;
+        var c = color || '#FF00FF';
+        var lyr;
+        if (pts.length === 1) {
+          lyr = L.circleMarker(pts[0], {radius:5, color:c, fillColor:c, fillOpacity:1});
+        } else {
+          /* ⚠ WEIGHT 3, not drawBuildLine's 4. That draws one line; six at
+           * weight 4 over the same ground is soup. */
+          lyr = L.polyline(pts, {color:c, weight:4, opacity:0.95});
+        }
+        lyr.addTo(map);
+        window.__batchLayers[name] = lyr;
+        console.log('BATCHDRAW ' + name + ' ' + c + ' ' + pts.length + ' pts');
+      } catch (err) {
+        /* ⚠ VISIBLE ON PURPOSE. A route that silently fails to draw leaves the
+         * rider comparing five lines against a legend showing six. */
+        console.log('BATCHDRAW FAILED ' + name + ' ' + err);
+      }
+    };
+
+    /* Show or hide one route WITHOUT redrawing it.
+     *
+     * ⭐ Compare narrows from six to three and back constantly. Rebuilding the
+     * geometry each time would be wasteful and would throw away the map's own
+     * render caching -- toggling an existing layer is what this is for.
+     */
+    window.showBatchRoute = function(name, on, weight) {
+      var lyr = window.__batchLayers[name];
+      if (!lyr) { console.log('SHOWBATCH no layer ' + name); return false; }
+      /* GRIDFIX-2026-08-27: lift the survivors.
+       * ⚠ Weight cannot fix routes that SHARE TRAIL -- they merge whatever it
+       * is, which is exactly why toggling inside compare matters. This only
+       * makes the two or three left unmistakable against the ground. */
+      if (weight && lyr.setStyle) { try { lyr.setStyle({weight: weight}); } catch (e) {} }
+      if (on) { if (!map.hasLayer(lyr)) lyr.addTo(map); }
+      else    { if (map.hasLayer(lyr)) map.removeLayer(lyr); }
+      console.log('SHOWBATCH ' + name + ' ' + on);
+      return true;
+    };
+
+    window.clearBatchRoutes = function() {
+      for (var k in window.__batchLayers) {
+        if (window.__batchLayers[k]) map.removeLayer(window.__batchLayers[k]);
+      }
+      window.__batchLayers = {};
+    };
+
+    /* Fit the map to the routes currently shown.
+     *
+     * ⚠ Compare must not open with the rider zoomed somewhere the compared
+     * routes barely appear. Called on entry; the previous view is restored on
+     * exit by the caller.
+     */
+    window.fitBatchRoutes = function() {
+      try {
+        var b = null;
+        for (var k in window.__batchLayers) {
+          var lyr = window.__batchLayers[k];
+          if (!lyr || !map.hasLayer(lyr)) continue;
+          var lb = lyr.getBounds ? lyr.getBounds() : null;
+          if (!lb) continue;
+          b = b ? b.extend(lb) : lb;
+        }
+        if (b && b.isValid()) map.fitBounds(b, {padding:[30,30]});
+      } catch (err) {}
+    };
+
+    /* PINDRAW-2026-08-25P1: the rider's dropped points, drawn.
+     *
+     * Without these a drop is invisible -- the only feedback is the mileage
+     * moving, and a point that adds little does not move it perceptibly.
+     *
+     * renderPins() CLEARS AND REDRAWS THE WHOLE SET. The Kotlin side sends the
+     * complete list on every change, so add, remove and Start Over are one
+     * path. An incremental addPin() would need every mutation site kept in
+     * step, and the next one added would silently not draw.
+     *
+     * The label is DROP ORDER. Tour order changes as points are added, so a
+     * tour-numbered marker would renumber under the rider's finger.
+     */
+    window.__pinLayers = [];
+    window.clearPins = function() {
+      try {
+        for (var i = 0; i < window.__pinLayers.length; i++) {
+          map.removeLayer(window.__pinLayers[i]);
+        }
+      } catch (err) {}
+      window.__pinLayers = [];
+    };
+    window.renderPins = function(json) {
+      window.clearPins();
+      try {
+        var pts = JSON.parse(json);
+        for (var i = 0; i < pts.length; i++) {
+          var icon = L.divIcon({
+            className: "",
+            html: '<div style="background:#FF0000;color:#fff;border:2px solid #fff;'
+                + 'border-radius:50%;width:26px;height:26px;line-height:22px;'
+                + 'text-align:center;font-weight:900;font-size:13px;'
+                + 'box-shadow:0 1px 4px rgba(0,0,0,0.5)">' + (i + 1) + '</div>',
+            iconSize: [26, 26],
+            iconAnchor: [13, 13]
+          });
+          var m = L.marker([pts[i][0], pts[i][1]], { icon: icon }).addTo(map);
+          window.__pinLayers.push(m);
+        }
+        console.log('PINDRAW rendered ' + pts.length + ' pin(s)');
+      } catch (err) {
+        console.log('PINDRAW failed: ' + err);
+      }
+    };
+    window.showProximityPopup = function(lat, lon, html) {
+      var popup = L.popup({autoClose: true, closeOnClick: true})
+        .setLatLng([lat, lon])
+        .setContent('<div style="font-size:11px;line-height:1.6;">' + html + '</div>')
+        .openOn(map);
+      setTimeout(function() { map.closePopup(popup); }, 5000);
     };
 
 
@@ -1014,6 +1190,14 @@ function loadWaypoints(geojsonData) {
       // close it -- the same order as the trail block. Waypoints open the detail panel on the ride map too.
       layer.on('click', function(e){
         console.log('ARTIFACTTAP waypoint name=' + name + ' routeMode=' + window.__routeMode);
+        // GTAI1-2026-10-23: the planner's PINSELECT-2026-08-24G -- while AI pins are being placed, a waypoint tap is a pin and
+        // nothing else (no popup, no detail panel).
+        if (window.__pinSelect) {
+          L.DomEvent.stopPropagation(e);
+          try { layer.closePopup(); } catch (err) {}
+          if (window.Android && Android.onProximityTap) { Android.onProximityTap(e.latlng.lat, e.latlng.lng); }
+          return;
+        }
         var __wid = (feature.properties && feature.properties.waypoint_id) || '';
         if (__wid && window.Android && window.Android.onWaypointTap) {
           try { layer.closePopup(); } catch (err) {}
