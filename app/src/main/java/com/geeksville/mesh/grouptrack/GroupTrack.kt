@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState   // MAPTARGET4-2026-10-23
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -84,10 +85,12 @@ fun GroupTrackLaunchLayer(
     var open by rememberSaveable { mutableStateOf("") }   // the open module's id; "" = none (CODE RULE 1: no null)
     var sub by rememberSaveable { mutableStateOf("") }   // MAPTARGET-2026-10-23: the open submenu's id; "" = the module's top level
     val openModule = LaunchModules.all.firstOrNull { it.id == open }
+    // MAPTARGET4-2026-10-23 (Fred 09:54): maps downloading -> the Map button is GREEN with a dot; the menu's summary says so.
+    val mapsDownloading = com.geeksville.mesh.convoy.DownloadQueueManager.queue.collectAsState().value.any {
+        it.status == com.geeksville.mesh.convoy.QueueStatus.DOWNLOADING || it.status == com.geeksville.mesh.convoy.QueueStatus.QUEUED }
     // ATTACH1-2026-10-22 ONE-OPTION RULE (Fred 11:09): one process, attached -> the button runs it; otherwise it opens the panel.
     fun tap(m: LaunchModule) {
         val act = m.processes.singleOrNull()?.let { actions[it.id] }
-        sub = ""   // MAPTARGET-2026-10-23: a module always opens at its top level
         if (act != null) { open = ""; act() } else open = m.id
     }
 
@@ -147,7 +150,8 @@ fun GroupTrackLaunchLayer(
                     if (m.id == "route") {
                         if (!onRide) GtButton("Add Route", { tap(m) })
                         else if (group) GtButton(if (showingGroup) "View: Group" else "View: My Cart", onToggleView)
-                    } else GtButton(m.label, { tap(m) })
+                    } else if (m.id == "map" && mapsDownloading) GtButton(m.label + "  \u25cf", { tap(m) }, emphasis = androidx.compose.ui.graphics.Color(0xFF35C46A))   // MAPTARGET4
+                    else GtButton(m.label, { tap(m) })
                 }
             }
         }
@@ -163,19 +167,21 @@ fun GroupTrackLaunchLayer(
                            else if (landscape) Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
                            else Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp)
             ) {
-                val subGroup = openModule.processes.firstOrNull { it.id == sub && it.children.isNotEmpty() }   // MAPTARGET-2026-10-23
-                val rows = subGroup?.children ?: openModule.processes
+                val rows = openModule.processes   // MAPTARGET4-2026-10-23: sections open in place (twisties), no submenu level
                 GtPanel(
-                    title = if (subGroup != null) openModule.label + " \u203a " + subGroup.label.removeSuffix(" \u203a") else openModule.label,
+                    title = openModule.label,
                     helpId = openModule.id,
                     onHelp = onHelp,
-                    onDone = { open = ""; sub = "" },
+                    onDone = { open = "" },   // MAPTARGET4: the menu reopens on the last section used
                     stays = openModule.stays,
                     width = panelWidth,
                     maxHeight = panelMax,
                 ) {
-                    if (openModule.id == "map" && subGroup == null) GtMapTypeRow(mapTypes, mapType, onMapType)   // GTMAP-2026-10-22: MAP TYPE first (MAPTARGET: top level only)
-                    if (subGroup != null) GtButton("\u2039 " + openModule.label, { sub = "" }, modifier = Modifier.fillMaxWidth())   // MAPTARGET-2026-10-23: back
+                    // MAPTARGET4-2026-10-23 (Fred 10:04): the queue summary FIRST -- DETAILS opens the downloads panel. MAP TYPE left the
+                    // menu (Fred 10:09): it is the Map: TYPE button on the map.
+                    if (openModule.id == "map") {
+                        GtQueueSummary(onOpen = { open = ""; actions["map.queues"]?.invoke() }, modifier = Modifier.fillMaxWidth())   // GTQSUM-2026-10-23: always
+                    }
                     // GTFILTER-2026-10-22: FILTER draws its own body; SELECT steps the panel aside for the list.
                     if (openModule.id == "filter") GtFilterBody(filter, onSelect = { t -> open = ""; filter.openSelect(t) })
                     else if (openModule.id == "key") GtKeyBody(keyStyleChanged)   // GTKEY-2026-10-22
@@ -184,9 +190,18 @@ fun GroupTrackLaunchLayer(
                         GtButton(if (t == mapType) "\u25cf  " + t else "     " + t, { onMapType(t); open = "" }, modifier = Modifier.fillMaxWidth())   // the current one carries the dot
                     }
                     else rows.forEach { pr ->
-                        if (pr.children.isNotEmpty()) {   // MAPTARGET-2026-10-23: a submenu row -- always live, shows how much is attached
-                            GtButton(pr.label + "   " + pr.children.count { actions[it.id] != null } + "/" + pr.children.size + " attached",
-                                { sub = pr.id }, modifier = Modifier.fillMaxWidth())
+                        if (pr.children.isNotEmpty()) {   // MAPOPEN-2026-10-23 (Fred 11:08): a section TITLE in plain text, its options always open below
+                            Text(pr.label, color = GtScheme.current.value.panelDim, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 6.dp))
+                            pr.children.forEach { ch ->
+                                GtButton(
+                                    if (actions[ch.id] != null) ch.label else "${ch.label}  \u00b7  not attached yet",
+                                    { actions[ch.id]?.let { act -> if (!openModule.stays) open = ""; act() } },
+                                    modifier = Modifier.fillMaxWidth().padding(start = 18.dp),
+                                    emphasis = if (actions[ch.id] != null) androidx.compose.ui.graphics.Color.Unspecified else GtColors.Dim,
+                                    enabled = actions[ch.id] != null
+                                )
+                            }
                             return@forEach
                         }
                         GtButton(

@@ -83,26 +83,29 @@ object LaunchModules {
         // MAP TYPE is drawn at the top of the panel (GtMapTypeRow).
         // MAPTARGET-2026-10-23 (Fred 08:46-09:09): THE TARGET, placeholders backfilled one at a time (copies -- the planner is untouched).
         // Ids of attached rows are kept: map.sources, map.queues, map.features, map.planner.
-        LaunchModule("map", "Map", LaunchSlot.BOTTOM_BAR, 1, groupOnly = false, stays = false, processes = listOf(
-            g("map", "maps", "Maps \u203a",
-                "sources" to "Choose map type and source",
-                "dl_area" to "Download maps by area",
-                "dl_box" to "Download maps by drawn box",
-                "queues" to "Download queues",
+        // MAPTARGET4-2026-10-23 (Fred 10:04-10:18, option B): queue summary on top (drawn by GroupTrack), Map source, then
+        // sections as TWISTIES, one open at a time. MAP TYPE is the Map: TYPE button on the map, not here. Ids of attached rows kept.
+        LaunchModule("map", "Map", LaunchSlot.BOTTOM_BAR, 1, groupOnly = false, stays = false, processes = p("map",
+            "sources" to "Map source") + listOf(
+            g("map", "dl", "DOWNLOAD MAPS FOR OFFLINE USE",
+                "dl_area" to "Download maps by area",   // draw a box (by area and by box are ONE function -- Fred 10:09)
+                "dl_tracks" to "Download maps along tracks"),   // all tracks, or pick
+            g("map", "rm", "REMOVE MAPS",
                 "rm_area" to "Remove maps by area",
-                "rm_track" to "Remove maps along a track",
-                "repair" to "Rebuild maps \u00b7 recovery"),
-            g("map", "import", "Import Map Features \u203a",
+                "rm_track" to "Remove maps by track"),   // stays (Fred 10:14)
+            g("map", "repair", "MAP RECOVERY",   // MAPRECOVERY2-2026-10-23 (Fred 10:26-10:28)
+                "restore" to "Restore maps as of a date",   // NEW: replays a daily map recipe (ConvoyMapRecipe) -- restore not built yet
+                "repair" to "Refresh maps by source",   // planner Recreate Tiles by Source
+                "imported" to "Imported trails / features by state"),
+            g("map", "import", "IMPORT MAP FEATURES",
                 "trails_state" to "Import trails by state",
                 "trails_area" to "Import trails by area",
                 "gpx" to "Import GPX \u2014 tracks, waypoints, routes",
                 "ridertrails" to "Create trails from tracks"),
-            g("map", "offgrid", "What\u2019s Available Off Grid \u203a",
-                "offgrid_maps" to "Downloaded maps \u00b7 archived maps",
-                "offgrid_trails" to "Imported trails / features by state")) + p("map",
-            "features" to "Map Features (the original panel)",   // goes after Route+
-            "planner" to "Open the planning map",   // goes with the ride map
-            "flyover" to "Area Search Radius (Z14\u201318) \u2014 moves to Search")),   // AREARADIUS-2026-10-23
+            g("map", "move", "UNTIL THE MOVE IS DONE",
+                "features" to "Map Features (the original panel)",   // goes after Route+
+                "planner" to "Open the planning map",   // goes with the ride map
+                "flyover" to "Area Search Radius (Z14\u201318) \u2014 moves to Search"))),   // AREARADIUS-2026-10-23
         // SHELL9-2026-10-22 (Fred 11:07): ROUTE is its own bottom button -- a key function is never hidden between navigation layers.
         LaunchModule("route", "Route", LaunchSlot.BOTTOM_BAR, 2, groupOnly = false, stays = true, processes = p("route",
             // ROUTESTART-2026-10-22 (Fred 13:49): TWO choices, each runs the existing Route+ with the method set and locked.

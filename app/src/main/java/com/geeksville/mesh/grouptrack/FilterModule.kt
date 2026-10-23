@@ -84,6 +84,22 @@ fun GtFilterBody(f: GtFilterBridge, onSelect: (String) -> Unit) {
             Text("SELECT opens the list for the map view — tick the ones to show.", color = s.panelDim, fontSize = 12.sp)
         }
 
+        // FILTERAREAS2-2026-10-23 (Fred 10:22): off-grid map areas, before Include private land. Placeholders until the
+        // planner's area drawing (showDownloadedAreas / showQueuedAreas) is copied to ONE MAP's page.
+        // Fred 10:23: ONE line (real estate). Greyed = not attached yet.
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text("OFF-GRID MAPS", color = s.panelDim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            // GTOFFGRID-2026-10-23: WIRED -- tick to show on the map at once, untick to clear.
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { GtOffGrid.setAvailable(!GtOffGrid.available.value) }) {
+                Checkbox(checked = GtOffGrid.available.value, onCheckedChange = null, colors = boxColors())
+                Text("Available", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { GtOffGrid.setDownloading(!GtOffGrid.downloading.value) }) {
+                Checkbox(checked = GtOffGrid.downloading.value, onCheckedChange = null, colors = boxColors())
+                Text("Downloading", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()
             .clickable { TrailFilterState.setLand(if (TrailFilterState.land == "ALL") "PUBLIC" else "ALL"); tick++; f.trailsChanged() }) {
             Checkbox(checked = TrailFilterState.land == "ALL", onCheckedChange = null, colors = boxColors())

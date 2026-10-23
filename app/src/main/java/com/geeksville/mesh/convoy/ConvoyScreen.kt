@@ -882,6 +882,7 @@ fun ConvoyScreen(
 
                         @android.webkit.JavascriptInterface
                         fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
+                            if (com.geeksville.mesh.grouptrack.GtArea.take(north, south, east, west)) return   // GTAREA2-2026-10-23: a function was waiting
                             android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
                             val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
                             android.util.Log.i("ConvoyDownload", "estimate tiles=${estimate.tileCount} mb=${estimate.estimatedMB}")
@@ -1241,6 +1242,7 @@ fun ConvoyScreen(
 
                             @android.webkit.JavascriptInterface
                             fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
+                                if (com.geeksville.mesh.grouptrack.GtArea.take(north, south, east, west)) return   // GTAREA2-2026-10-23: a function was waiting
                                 android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
                             val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
                             android.util.Log.i("ConvoyDownload", "estimate tiles=${estimate.tileCount} mb=${estimate.estimatedMB}")
@@ -2292,6 +2294,17 @@ fun ConvoyScreen(
             }
         }
         // -- QUEUES button (LOCKED top-right, like planning map; drag removed 2026-06-03) --
+        // MAPTARGET4-2026-10-23 (Fred 09:54): ONE MAP -- the existing queue summary pill where the classic SAT/TOPO/TOPO+ bar sat.
+        // It hides itself when nothing is downloading; tap -> MAP DOWNLOADS IN PROGRESS.
+        if (gtOneMap) com.geeksville.mesh.grouptrack.GtQueueSummary(   // GTQSUM-2026-10-23 (Fred 11:04): ALWAYS shown
+            onOpen = { queuesOpen = true },
+            modifier = Modifier.align(Alignment.TopStart).padding(start = 110.dp, top = 8.dp).width(300.dp)
+        )
+        // GTAREA2-2026-10-23: draw bar + the area module for the box (grouptrack/AreaDraw.kt, MapScreens.kt).
+        if (gtOneMap) com.geeksville.mesh.grouptrack.GtAreaHost(
+            js = { c -> webViewRef.value?.evaluateJavascript(c, null) },
+            barModifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 84.dp)
+        )
         if (!gtOneMap) Surface(   // SHELL6
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -2326,7 +2339,7 @@ fun ConvoyScreen(
                     Row(modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically) {
-                        Text("DOWNLOAD QUEUES", color = Color(0xFF1CF0A0),
+                        Text("MAP DOWNLOADS IN PROGRESS", color = Color(0xFF1CF0A0),   // MAPTARGET4-2026-10-23: a monitor, not a queue
                             fontSize = 13.sp, fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(start = 8.dp, top = 4.dp))
@@ -2341,7 +2354,7 @@ fun ConvoyScreen(
                     )
                     val queueState = DownloadQueueManager.queue.collectAsState()
                     if (queueState.value.isEmpty()) {
-                        Text("No downloads in queue",
+                        Text("No maps downloading",   // MAPTARGET4-2026-10-23
                             color = Color(0xFFFFFFFF), fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace,
                             modifier = Modifier.padding(8.dp))
@@ -3386,6 +3399,11 @@ fun ConvoyScreen(
                 "route.clear" to { gtClearAsk = true },   // CLEARROUTES-2026-10-22   // GTRIDES (Fred 13:22): ADD ROUTE -- New route or In progress, as +ROUTE
                 "map.features" to { showArtifactsPanel = true },   // GTMAP-2026-10-22: the original Map Features panel, as is
                 "map.queues" to { queuesOpen = true },   // GTMAP: the download queues panel, as is
+                // GTAREA2-2026-10-23: the three area functions -- start a box for the one picked.
+                "map.dl_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "download"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
+                "map.rm_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "remove"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
+                "map.trails_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "import"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
+                "map.dl_tracks" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "tracks" },   // GTTRACKS-2026-10-23
                 "map.sources" to { onNavigateToMapSources() },   // GTMAP: the Map Sources screen, as is
                 "map.planner" to {   // GTMAP: the planning map, exactly as today (the old Ride Planning button and its gates)
                     if (!planPosKnown) android.widget.Toast.makeText(context, "Waiting for your position \u2014 Ride Planning opens once GPS or Wi-Fi location is available.", android.widget.Toast.LENGTH_LONG).show()

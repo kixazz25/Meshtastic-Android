@@ -145,6 +145,28 @@
     function clearDownloadedAreas() {
       if (downloadedAreaLayer) { map.removeLayer(downloadedAreaLayer); downloadedAreaLayer = null; }
     }
+    // GTOFFGRID-2026-10-23: copied from grouptrack_map.html, unchanged -- FILTER > OFF-GRID MAPS > Downloading.
+    var queuedLayers = [];
+    function showQueuedAreas(boundsJson) {
+      clearQueuedAreas();
+      try {
+        var bounds = typeof boundsJson === 'string' ? JSON.parse(boundsJson) : boundsJson;
+        for (var i = 0; i < bounds.length; i++) {
+          var b = bounds[i];
+          var rect = L.rectangle([[b.s, b.w], [b.n, b.e]], {
+            color: '#FF3333', weight: b.corridor ? 2 : 1, fillColor: '#FF3333',
+            fillOpacity: b.corridor ? 0.0 : 0.15,
+            dashArray: b.corridor ? '12,8' : '6,3'
+          }).addTo(map);
+          if (b.label) rect.bindTooltip(b.label, {permanent: false, direction: 'center'});
+          queuedLayers.push(rect);
+        }
+      } catch(e) { console.error('showQueuedAreas:', e); }
+    }
+    function clearQueuedAreas() {
+      for (var i = 0; i < queuedLayers.length; i++) map.removeLayer(queuedLayers[i]);
+      queuedLayers = [];
+    }
     function getMapBounds() {
       console.log("GETMAPBOUNDS called");
       var b = map.getBounds();
