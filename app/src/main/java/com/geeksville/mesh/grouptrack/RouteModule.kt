@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding   // GTAI2-2026-10-23
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -58,6 +59,24 @@ object GtRoute {
     @Volatile var vp: DoubleArray = doubleArrayOf(0.0, 0.0, 0.0, 0.0, 15.0)
     /** The host map's state save (writes RouteState under the map's own key). */
     var persist: () -> Unit = {}
+    // GTAI2-2026-10-23: set by the map that hosts Route+. wv -- the map's WebView: null until the page exists (CODE RULE 1: the
+    // planner's drawBatch takes WebView?, and before the page loads there is nothing to draw on). layersNow -- the map's four layer
+    // switches (Trails, Tracks, Waypoints, Routes), so the compare table can put them back exactly as they were.
+    var wv: () -> android.webkit.WebView? = { null }
+    var layersNow: () -> List<Int> = { emptyList() }
+    // GTAI2-2026-10-23: the compare table -- the planner's batch grid state, in one place.
+    val batchOpen = mutableStateOf(false)
+    val batchName = mutableStateOf("")
+    val batchRows = mutableStateOf<List<com.geeksville.mesh.convoy.BatchRow>>(emptyList())
+    val batchHidden = mutableStateOf<Set<String>>(emptySet())
+    val batchSave = mutableStateOf<Set<String>>(emptySet())
+    val batchPrevLayers = mutableStateOf<List<Int>>(emptyList())   // empty = nothing hidden ("" / empty = none, CODE RULE 1)
+    val batchAreaPrompt = mutableStateOf(false)
+    val batchAreaName = mutableStateOf("")
+    val batchDeleteConfirm = mutableStateOf(false)
+    val batchSaving = mutableStateOf(false)
+    val batchPrevView = mutableStateOf(DoubleArray(0))   // GTAI2B-2026-10-23: the view before the table (S, W, N, E, zoom); empty = none
+    private val LAYERS = listOf("Trails", "Tracks", "Waypoints", "Routes")
 
     val routeMode = mutableStateOf(false)
     val addPointMode = mutableStateOf(false)
@@ -88,12 +107,54 @@ object GtRoute {
      */
     fun precheck(): Boolean {
         if (routeMode.value) return true   // already building -- the toolbar is up
-        if (RouteDraftStore.hasOpenBatch()) {
-            notice.value = "An AI compare set is waiting for a decision. It stays as it is -- open it on the planning map " +
-                "(Map › Open the planning map › Route+) to keep or discard those routes. OK continues to Build it myself."
-            return true
-        }
+        if (RouteDraftStore.hasOpenBatch()) { openCompare(); return true }   // GTAI2-2026-10-23: an open AI compare set -> the compare table
         return manualChecks()
+    }
+
+    /** GTAI2-2026-10-23: the planner's BATCHFORK branch, copied. Route mode stays OFF (a tap on a drawn route must not become a
+     *  vertex); the layers are hidden and REMEMBERED -- the table is a detour, anything changed to show it is undone. Nothing is
+     *  deleted here: leftover AI routes are only ever removed from the compare table (Fred 13:35). */
+    fun openCompare() {
+        runCatching {
+            batchRows.value = RouteDraftStore.drawBatch(wv())
+            batchName.value = RouteDraftStore.readBatch()?.optString("batchName") ?: ""
+        }.onFailure { android.util.Log.e("BatchGrid", "batch draw failed: " + it.message, it) }
+        batchHidden.value = emptySet()
+        batchSave.value = emptySet()
+        RouteDraftStore.traceCompare("Route+", "ONE MAP compare table OPENED with " + batchRows.value.size + " row(s)")
+        if (batchRows.value.isEmpty()) {
+            // VISIBLE: an empty table with no explanation is worse than none. The set is left as it is.
+            notice.value = "The AI compare set could not be drawn -- its routes are missing. It is left as it is."
+            return
+        }
+        js("setRouteMode(false)")
+        batchPrevLayers.value = layersNow()
+        LAYERS.forEach { js("hide" + it + "()") }
+        // GTAI2B-2026-10-23 (Fred 15:10): show the routes -- fit AFTER the draws (drawBatch POSTS them, so this is posted too).
+        batchPrevView.value = vp.copyOf()
+        wv()?.let { v -> v.post { runCatching { v.evaluateJavascript("fitBatchRoutes()", null) } } }
+        batchOpen.value = true
+    }
+
+    /** GTAI2-2026-10-23: leave the table -- the routes come off the map and the layers go back EXACTLY as they were. */
+    fun closeCompare() {
+        batchOpen.value = false
+        batchRows.value = emptyList()
+        batchSave.value = emptySet()
+        batchHidden.value = emptySet()
+        js("clearBatchRoutes()")
+        val prev = batchPrevLayers.value
+        if (prev.size == LAYERS.size) {
+            LAYERS.forEachIndexed { i, ly -> if (prev[i] != 0) js("show" + ly + "()") }   // 0 = DS_OFF
+            js("triggerViewportUpdate()")
+        }
+        batchPrevLayers.value = emptyList()
+        // GTAI2B-2026-10-23: the view goes back where it was (zeros = the page never reported a view -- leave it).
+        val pv = batchPrevView.value
+        if (pv.size == 5 && !(pv[0] == 0.0 && pv[2] == 0.0)) {
+            js("map.setView([" + ((pv[0] + pv[2]) / 2) + "," + ((pv[1] + pv[3]) / 2) + "], " + pv[4].toInt() + ")")
+        }
+        batchPrevView.value = DoubleArray(0)
     }
 
     /** GTROUTE1B-2026-10-23: the manual checks after the AI check. true = something pending was shown. */
@@ -519,14 +580,116 @@ fun GtRouteHost(toolbarModifier: Modifier) {   // GTROUTE1D-2026-10-23: where th
         )
     }
 
-    // ── notice (an open AI compare set) ──
+    // ── notice ──
     if (R.notice.value.isNotEmpty()) {
         AlertDialog(
             onDismissRequest = { R.notice.value = "" },
             title = { GtDialogTitle("Route", "route", { R.notice.value = "" }) },
             text = { Text(R.notice.value) },
-            // GTROUTE1B-2026-10-23 (Fred 13:58): OK takes the no-compare-set path until stage 2; the set is left alone.
-            confirmButton = { TextButton(onClick = { R.notice.value = ""; if (!R.manualChecks()) R.startNew(ROUTE_METHOD_P2P) }   /* GTROUTE1C-2026-10-23 */) { Text("OK") } }
+            confirmButton = { TextButton(onClick = { R.notice.value = "" }) { Text("OK") } }   // GTAI2-2026-10-23: the stage-1 OK path is gone
+        )
+    }
+
+    // ── GTAI2-2026-10-23: the compare table -- the planner's BATCHFORK grid, copied. EXIT leaves everything: the set stays open. ──
+    if (R.batchOpen.value && R.batchRows.value.isNotEmpty()) {
+        com.geeksville.mesh.convoy.ConvoyBatchGridPanel(
+            batchName = R.batchName.value,
+            rows = R.batchRows.value,
+            hidden = R.batchHidden.value,
+            saveTicks = R.batchSave.value,
+            onToggleShown = { n ->
+                val nowHidden = n !in R.batchHidden.value
+                R.batchHidden.value = if (nowHidden) R.batchHidden.value + n else R.batchHidden.value - n
+                val safe = n.replace("\\", "\\\\").replace("'", "\\'")
+                R.js("showBatchRoute('" + safe + "', " + (!nowHidden) + ", 5)")
+            },
+            onSaveTick = { n, on -> R.batchSave.value = if (on) R.batchSave.value + n else R.batchSave.value - n },
+            onSaveSelected = {
+                // TICKING NONE IS A LEGITIMATE ANSWER -- but it deletes everything, so it asks first.
+                if (R.batchSave.value.isEmpty()) R.batchDeleteConfirm.value = true
+                else { R.batchAreaName.value = ""; R.batchAreaPrompt.value = true }
+            },
+            onExit = { R.closeCompare() },
+            modifier = toolbarModifier
+        )
+    }
+    // the planner's runBatchSave, copied: kept routes become saved routes (BY ID, not by viewport), the rest are deleted.
+    val runBatchSave: (String) -> Unit = { area ->
+        R.batchSaving.value = true
+        val keep = R.batchRows.value.filter { it.name in R.batchSave.value }
+        val drop = R.batchRows.value.filter { it.name !in R.batchSave.value }
+        kotlinx.coroutines.MainScope().launch {
+            val saved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                SpatialDbManager.init(ctx)
+                var ok = 0
+                // BATCHDELETE-2026-10-07 (Fred): the batch header goes FIRST -- after this its routes are ordinary drafts.
+                RouteDraftStore.clearBatch()
+                for (r in keep) {
+                    if (RouteDraftStore.loadIntoRouteManager(r.name) == null) {
+                        android.util.Log.e("BatchGrid", "load failed: " + r.name)
+                        continue
+                    }
+                    val verts = RouteManager.routeVertices()
+                    val byId = HashMap<String, String>()
+                    byId.putAll(SpatialDbManager.queryGeomByIds(
+                        verts.filter { it.snapped && it.lineType == "trail" }.mapNotNull { it.lineId }, "trail"))
+                    byId.putAll(SpatialDbManager.queryGeomByIds(
+                        verts.filter { it.snapped && it.lineType == "track" }.mapNotNull { it.lineId }, "track"))
+                    val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+                    if (built == null) {
+                        android.util.Log.e("BatchGrid", "build failed: " + r.name)
+                        continue
+                    }
+                    val (wkt, bbox) = built
+                    // ROUTESEQ-2026-09-04: name plus a sequence number (count of EXISTING saved routes with that name).
+                    val base = area.trim()
+                    val nm = base + " " + (SpatialDbManager.routeNameCount(base) + 1)
+                    val id = SpatialDbManager.insertRoute(nm, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
+                    // notes BEFORE the delete -- the narrative and the recipe both live in them
+                    RouteDraftStore.readNotes(r.name)?.let { nts -> SpatialDbManager.writeRouteNotes(id, nts) }
+                    RouteDraftStore.deleteDraft(r.name)
+                    ok++
+                }
+                for (r in drop) RouteDraftStore.deleteDraft(r.name)
+                ok
+            }
+            // NOT copied: the planner's deleteDraft(UNNAMED) here -- on ONE MAP the unnamed draft is a crash pick-up (Fred 14:34).
+            RouteManager.clearRoute()
+            R.draftTick.intValue++
+            R.batchSaving.value = false
+            R.closeCompare()
+            android.widget.Toast.makeText(ctx, if (saved > 0) "Saved " + saved + " route(s)" else "Compare set cleared",
+                android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+    if (R.batchAreaPrompt.value) {
+        AlertDialog(
+            onDismissRequest = { R.batchAreaPrompt.value = false },
+            title = { GtDialogTitle("Name the area", "route.compare", { R.batchAreaPrompt.value = false }) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    OutlinedTextField(value = R.batchAreaName.value, onValueChange = { R.batchAreaName.value = it },
+                        singleLine = true, label = { Text("Area") })
+                    Text("Saved as \"" + R.batchAreaName.value.trim().ifBlank { "Area" } + " 1\", \"… 2\" for each route kept",
+                        fontSize = 11.sp, color = Color(0xFF9AA4B2), modifier = Modifier.padding(top = 8.dp))
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = R.batchAreaName.value.isNotBlank() && !R.batchSaving.value, onClick = {
+                    R.batchAreaPrompt.value = false
+                    runBatchSave(R.batchAreaName.value)
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { R.batchAreaPrompt.value = false }) { Text("Cancel") } }
+        )
+    }
+    if (R.batchDeleteConfirm.value) {
+        AlertDialog(
+            onDismissRequest = { R.batchDeleteConfirm.value = false },
+            title = { GtDialogTitle("Delete all routes?", "route.compare", { R.batchDeleteConfirm.value = false }) },
+            text = { Text("No routes selected. All " + R.batchRows.value.size + " will be deleted. If you proceed you must start over.") },
+            confirmButton = { TextButton(onClick = { R.batchDeleteConfirm.value = false; runBatchSave("") }) { Text("Delete", color = Color(0xFFE86B6B)) } },
+            dismissButton = { TextButton(onClick = { R.batchDeleteConfirm.value = false }) { Text("Cancel") } }
         )
     }
 }

@@ -2318,6 +2318,9 @@ fun ConvoyScreen(
         if (gtOneMap) {
             com.geeksville.mesh.grouptrack.GtRoute.js = { c -> webViewRef.value?.evaluateJavascript(c, null) }
             com.geeksville.mesh.grouptrack.GtRoute.persist = { saveConvoyState() }
+            // GTAI2-2026-10-23: the compare table draws on this page and puts these four layers back as they were.
+            com.geeksville.mesh.grouptrack.GtRoute.wv = { webViewRef.value }
+            com.geeksville.mesh.grouptrack.GtRoute.layersNow = { listOf(trailState, trackState, waypointState, routeState) }
             // GTROUTE1D-2026-10-23: GtRouteHost is drawn AFTER the launch layer (below) -- here its toolbar sat under MENU / zoom.
         }
         if (gtOneMap) com.geeksville.mesh.grouptrack.GtAreaHost(
