@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,7 +42,7 @@ fun ConvoyServicesChooser(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color(0xFF0A1628),
+        containerColor = Gt.panel,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     ) {
         Column(
@@ -54,7 +55,7 @@ fun ConvoyServicesChooser(
             // Header
             Text(
                 text = "Event / Ride Services",
-                color = Color(0xFF4AB8E8),
+                color = Gt.accent,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp,
@@ -72,7 +73,7 @@ fun ConvoyServicesChooser(
                     .clip(RoundedCornerShape(10.dp))
                     .background(
                         Brush.horizontalGradient(
-                            colors = listOf(Color(0xFF1A3050), Color(0xFF0F2035))
+                            colors = listOf(Gt.panel, Gt.panel)
                         )
                     )
                     .clickable { onOnline() }
@@ -90,7 +91,7 @@ fun ConvoyServicesChooser(
                         Column {
                             Text(
                                 text = "ONLINE SERVICES",
-                                color = Color.White,
+                                color = Gt.text,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
@@ -101,14 +102,14 @@ fun ConvoyServicesChooser(
                                     signedIn -> "Sign in complete — subscription required"
                                     else -> "Sign in with Google to access"
                                 },
-                                color = Color(0xFF4AB8E8),
-                                fontSize = 11.sp
+                                color = Gt.accent,
+                                fontSize = 12.sp
                             )
                         }
                     }
                     Text(
                         text = if (signedIn && subscribed) "→" else "🔑",
-                        color = Color(0xFF4AB8E8),
+                        color = Gt.accent,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -123,7 +124,7 @@ fun ConvoyServicesChooser(
                     .fillMaxWidth()
                     .height(80.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF0A2010))
+                    .background(Gt.panel)
                     .clickable { onOffline() }
                     .padding(horizontal = 20.dp),
                 contentAlignment = Alignment.CenterStart
@@ -139,21 +140,21 @@ fun ConvoyServicesChooser(
                         Column {
                             Text(
                                 text = "OFFLINE SERVICES",
-                                color = Color.White,
+                                color = Gt.text,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
                             )
                             Text(
                                 text = "Field radio, map manager, GPX import/export",
-                                color = Color(0xFF1CF0A0),
-                                fontSize = 11.sp
+                                color = Gt.accent,
+                                fontSize = 12.sp
                             )
                         }
                     }
                     Text(
                         text = "→",
-                        color = Color(0xFF1CF0A0),
+                        color = Gt.accent,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -165,8 +166,8 @@ fun ConvoyServicesChooser(
             // Always active note
             Text(
                 text = "Offline services always active — no internet or subscription required",
-                color = Color(0xFFFFFFFF),
-                fontSize = 10.sp,
+                color = Gt.text,
+                fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -176,7 +177,7 @@ fun ConvoyServicesChooser(
             // Dismiss
             Text(
                 text = "✕  CLOSE",
-                color = Color(0xFFFFFFFF),
+                color = Gt.text,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,

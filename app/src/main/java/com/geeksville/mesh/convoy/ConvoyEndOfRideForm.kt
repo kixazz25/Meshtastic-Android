@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -56,7 +57,7 @@ fun EndOfRideForm(
     var share by remember { mutableStateOf<Boolean?>(null) }       // CODE RULE 1: null = not answered yet (required)
     val surveyDone = !survey || (rating in 1..5 && difficulty.isNotEmpty() && recommend != null && share != null)
     val canSave = surveyDone && name.isNotBlank()
-    val dim = Color(0xFF8899AA)
+    val dim = Gt.dim
 
     AlertDialog(
         onDismissRequest = { },
@@ -74,7 +75,7 @@ fun EndOfRideForm(
                         (1..5).forEach { n ->
                             TextButton(onClick = { rating = n }) {
                                 Text(if (n <= rating) "\u2605" else "\u2606", fontSize = 26.sp,
-                                    color = if (n <= rating) Color(0xFFFFC107) else dim)
+                                    color = if (n <= rating) Gt.warn else dim)
                             }
                         }
                     }

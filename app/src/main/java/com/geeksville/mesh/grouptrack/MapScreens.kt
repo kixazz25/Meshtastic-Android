@@ -52,9 +52,9 @@ fun GtDownloadAreaScreen(bbox: DownloadBbox, onDone: () -> Unit) {
     val slots = remember { MapSourceManager.getSlotSources().map { (legacyKey, shortLabel, _) ->
         SlotDisplayInfo(slotName = legacyKey, sourceName = shortLabel, directory = legacyKey, preSelected = true) } }
     Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-      Column(modifier = Modifier.padding(16.dp).background(Color(0xEE131820)).verticalScroll(rememberScrollState())) {   // GTSTD
+      Column(modifier = Modifier.padding(16.dp).background(Gt.panel).verticalScroll(rememberScrollState())) {   // GTSTD
         Row(modifier = Modifier.padding(start = 12.dp, top = 8.dp, end = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Text("Download maps by area", color = Color(0xFFE6EDF3), fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("Download maps by area", color = Gt.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             GtHelpButton("map.dl_area")
             GtCloseButton(onDone)
         }
@@ -93,7 +93,7 @@ fun GtRemoveAreaScreen(bbox: DownloadBbox, onDone: () -> Unit) {
                 fontFamily = FontFamily.Monospace, fontSize = 12.sp)
         },
         confirmButton = {
-            Text("REMOVE TILES", color = Color(0xFFf85149), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+            Text("REMOVE TILES", color = Gt.bad, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable {
                     onDone()
                     Thread { DownloadQueueManager.submitDelete(ctx, bbox.north, bbox.south, bbox.east, bbox.west) }.start()
@@ -102,10 +102,10 @@ fun GtRemoveAreaScreen(bbox: DownloadBbox, onDone: () -> Unit) {
                 }.padding(12.dp))
         },
         dismissButton = {
-            Text("CANCEL", color = Color(0xFF8B949E), fontFamily = FontFamily.Monospace,
+            Text("CANCEL", color = Gt.dim, fontFamily = FontFamily.Monospace,
                 modifier = Modifier.clickable { onDone() }.padding(12.dp))
         },
-        containerColor = Color(0xFF131820)
+        containerColor = Gt.panel
     )
 }
 
@@ -127,13 +127,13 @@ fun GtQueueSummary(onOpen: () -> Unit, modifier: Modifier) {
     val busy = q.any { it.status == com.geeksville.mesh.convoy.QueueStatus.DOWNLOADING || it.status == com.geeksville.mesh.convoy.QueueStatus.QUEUED }
     if (busy) com.geeksville.mesh.convoy.DownloadQueuePanel(expanded = false, onToggle = onOpen, modifier = modifier)
     else androidx.compose.foundation.layout.Row(
-        modifier = modifier.background(Color(0xE6131820), androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+        modifier = modifier.background(Gt.panel, androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
             .clickable { onOpen() }.padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
     ) {
-        Text("No maps downloading", color = Color(0xFFCCDDEE), fontSize = 13.sp, fontWeight = FontWeight.Bold,
+        Text("No maps downloading", color = Gt.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f))
-        Text("DETAILS \u203a", color = Color(0xFF1CF0A0), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text("DETAILS \u203a", color = Gt.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -155,11 +155,11 @@ fun GtDownloadTracksScreen(onDone: () -> Unit) {
     val find = remember { androidx.compose.runtime.mutableStateOf("") }
     val list = if (find.value.isBlank()) all else all.filter { (it.name ?: "").contains(find.value.trim(), ignoreCase = true) }
     Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-      androidx.compose.foundation.layout.Column(modifier = Modifier.padding(16.dp).background(Color(0xEE131820))) {
+      androidx.compose.foundation.layout.Column(modifier = Modifier.padding(16.dp).background(Gt.panel)) {
         // GTFIX3-2026-10-23 (Fred 11:53): the standard header -- HELP and X are always reachable, keyboard or not.
         androidx.compose.foundation.layout.Row(modifier = Modifier.padding(start = 12.dp, top = 8.dp, end = 8.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Text("Download maps along tracks", color = Color(0xFFE6EDF3), fontSize = 16.sp, fontWeight = FontWeight.Bold,
+            Text("Download maps along tracks", color = Gt.text, fontSize = 16.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f))
             GtHelpButton("map.dl_tracks")
             GtCloseButton(onDone)
@@ -278,24 +278,24 @@ fun GtRecipesScreen(onDone: () -> Unit) {
         text = {
             androidx.compose.foundation.layout.Column(modifier = Modifier.verticalScrollSafe()) {
                 Text("A daily record of what your maps cover, kept 60 days -- what Restore will use.",
-                    color = Color(0xFF8B949E), fontSize = 12.sp)
+                    color = Gt.dim, fontSize = 12.sp)
                 val r = rows.value
                 if (r == null) Text("Reading\u2026", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 else {
-                    Text("SAVED ON THIS PHONE", color = Color(0xFF4DA6FF), fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                    Text("SAVED ON THIS PHONE", color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 10.dp))
-                    if (r.first.isEmpty()) Text("none yet \u2014 written once a day at startup", fontSize = 12.sp, color = Color(0xFF8B949E))
+                    if (r.first.isEmpty()) Text("none yet \u2014 written once a day at startup", fontSize = 12.sp, color = Gt.dim)
                     r.first.forEach { Text(it, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
-                    Text("RECEIVED (Downloads)", color = Color(0xFF4DA6FF), fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                    Text("RECEIVED (Downloads)", color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 10.dp))
-                    if (r.second.isEmpty()) Text("none \u2014 recipes sent to you arrive here", fontSize = 12.sp, color = Color(0xFF8B949E))
+                    if (r.second.isEmpty()) Text("none \u2014 recipes sent to you arrive here", fontSize = 12.sp, color = Gt.dim)
                     r.second.forEach { Text(it, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
                 }
             }
         },
         confirmButton = { Text("CLOSE", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
             modifier = Modifier.clickable { onDone() }.padding(12.dp)) },
-        containerColor = Color(0xFF131820)
+        containerColor = Gt.panel
     )
 }
 
@@ -379,7 +379,7 @@ fun GtRemoveTrackScreen(onDone: () -> Unit) {
     val p = preview.value
     AlertDialog(
         onDismissRequest = { },
-        containerColor = Color(0xEE131820),
+        containerColor = Gt.panel,
         title = {   // GTSTD: "Remove maps by track" (was the planner's "Refresh map tiles"); X = CANCEL, off while working
             GtDialogTitle(if (done.value) "Removal started" else "Remove maps for all tracks", "map.rm_track",   /* RMALLTRACKS-2026-10-23 */
                 onClose = { if (done.value) onDone() else scope.launch {
@@ -390,41 +390,41 @@ fun GtRemoveTrackScreen(onDone: () -> Unit) {
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 steps.value.forEach { s ->
-                    Text("✓ " + s, color = Color(0xFF3fb950), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    Text("✓ " + s, color = Gt.accent, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(3.dp))
                 }
                 if (busy.value) {
                     Spacer(Modifier.height(4.dp))
-                    Text(if (progress.value.isBlank()) "Working..." else progress.value, color = Color(0xFFd29922), fontSize = 10.sp,
+                    Text(if (progress.value.isBlank()) "Working..." else progress.value, color = Gt.warn, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace)
                     if (fraction.floatValue >= 0f) {
                         Spacer(Modifier.height(4.dp))
                         androidx.compose.material3.LinearProgressIndicator(progress = { fraction.floatValue },
-                            modifier = Modifier.fillMaxWidth(), color = Color(0xFF3fb950), trackColor = Color(0xFF30363d))
+                            modifier = Modifier.fillMaxWidth(), color = Gt.accent, trackColor = Gt.panel)
                     }
                 }
                 if (!done.value && !busy.value && p != null) {
                     Spacer(Modifier.height(8.dp))
-                    Text("Remove ${p.onDiskTotal} track tiles and rebuild from the new source?", color = Color(0xFFf85149),
-                        fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    Text("Remove ${p.onDiskTotal} track tiles and rebuild from the new source?", color = Gt.bad,
+                        fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
                     Text("Track coverage is removed and re-downloaded. Tracks reappear one at a time as each finishes - " +
                         "track coverage is queued first.\n\nYour area maps stay visible the whole time. Old tiles are replaced " +
                         "as new ones arrive.\n\nDownloads continue in the background and resume if the app or device restarts.",
-                        color = Color(0xFFE6EDF3), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        color = Gt.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
                 if (done.value) {
                     Spacer(Modifier.height(8.dp))
                     Text("Downloads continue in the background and resume if the app or device restarts. Your area maps stay " +
                         "visible while tiles are replaced. Track coverage returns first.",
-                        color = Color(0xFFE6EDF3), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        color = Gt.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             }
         },
         confirmButton = {
             if (done.value) {
                 TextButton(onClick = onDone) {
-                    Text("DONE", color = Color(0xFF3fb950), fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    Text("DONE", color = Gt.accent, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                 }
             } else if (!busy.value && p != null) {
                 TextButton(onClick = {
@@ -461,7 +461,7 @@ fun GtRemoveTrackScreen(onDone: () -> Unit) {
                         done.value = true
                     }
                 }) {
-                    Text("PROCEED", color = Color(0xFFf85149), fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    Text("PROCEED", color = Gt.bad, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                 }
             }
         },
@@ -474,7 +474,7 @@ fun GtRemoveTrackScreen(onDone: () -> Unit) {
                         onDone()
                     }
                 }) {
-                    Text("CANCEL", color = Color(0xFFFFFFFF), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    Text("CANCEL", color = Gt.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             }
         }
@@ -584,12 +584,12 @@ fun GtRefreshSourceScreen(onDone: () -> Unit) {
 @Composable
 fun GtScreenFrame(title: String, helpId: String, onClose: () -> Unit, note: String = "",
                   extra: @Composable () -> Unit = {}, content: @Composable () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF0F1216))) {
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF131820)).padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+    Column(modifier = Modifier.fillMaxSize().background(Gt.panel)) {
+        Row(modifier = Modifier.fillMaxWidth().background(Gt.panel).padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, color = Color(0xFFE6EDF3), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                if (note.isNotEmpty()) Text(note, color = Color(0xFF8B949E), fontSize = 12.sp)
+                Text(title, color = Gt.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                if (note.isNotEmpty()) Text(note, color = Gt.dim, fontSize = 12.sp)
             }
             extra()
             GtHelpButton(helpId)
@@ -607,7 +607,7 @@ fun GtImportFrame(onClose: () -> Unit, content: @Composable () -> Unit) {
     GtScreenFrame("Import trails", "map.trails_state", onClose,
         note = if (importing) "Importing \u2014 X closes this view, the import keeps running" else "",
         extra = { if (importing) TextButton(onClick = { com.geeksville.mesh.convoy.HomeStateImportController.cancelImport() }) {
-            Text("CANCEL IMPORT", color = Color(0xFFf85149), fontWeight = FontWeight.Bold) } },
+            Text("CANCEL IMPORT", color = Gt.bad, fontWeight = FontWeight.Bold) } },
         content = content)
 }
 
@@ -685,6 +685,6 @@ fun GtAreaRadiusScreen(onDone: () -> Unit) {
         },
         confirmButton = { TextButton(onClick = { GtSearchZoom.set(ctx, z.floatValue.toInt()); onDone() }) { Text("SAVE") } },
         dismissButton = { TextButton(onClick = onDone) { Text("CANCEL") } },
-        containerColor = Color(0xFF131820)
+        containerColor = Gt.panel
     )
 }

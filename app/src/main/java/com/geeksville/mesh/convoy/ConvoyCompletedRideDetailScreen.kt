@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -62,25 +63,25 @@ fun ConvoyCompletedRideDetailScreen(
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
 
         // ── Top bar ───────────────────────────────────────────────────────────
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628))
+        Row(modifier = Modifier.fillMaxWidth().background(Gt.panel)
             .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF1A3050)).clickable { onBack() }
+                .background(Gt.panel).clickable { onBack() }
                 .padding(horizontal = 10.dp, vertical = 5.dp)) {
-                Text("← BACK", color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                Text("← BACK", color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
-            Text("RIDE DETAIL", color = Color.White, fontSize = 11.sp,
+            Text("RIDE DETAIL", color = Gt.text, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.weight(1f))
             Box(modifier = Modifier.clip(RoundedCornerShape(3.dp))
-                .background(Color(0xFF0D2010)).padding(horizontal = 8.dp, vertical = 4.dp)) {
-                Text("COMPLETED", color = Color(0xFF22C55E), fontSize = 9.sp,
+                .background(Gt.panel).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                Text("COMPLETED", color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
         }
-        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Color(0xFF4AB8E8))
+        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Gt.accent)
 
         Column(modifier = Modifier.fillMaxWidth().weight(1f)
             .verticalScroll(scrollState).padding(14.dp),
@@ -88,131 +89,131 @@ fun ConvoyCompletedRideDetailScreen(
 
             // ── Ride header ───────────────────────────────────────────────────
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035)).padding(14.dp),
+                .background(Gt.panel).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(ride["name"] ?: "", color = Color.White, fontSize = 15.sp,
+                Text(ride["name"] ?: "", color = Gt.text, fontSize = 15.sp,
                     fontWeight = FontWeight.Bold)
-                Text("${ride["city"]}  —  ${ride["trailhead"]}", color = Color(0xFFFFFFFF),
-                    fontSize = 11.sp)
+                Text("${ride["city"]}  —  ${ride["trailhead"]}", color = Gt.text,
+                    fontSize = 12.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     DetailField("DATE",     ride["date"] ?: "")
                     DetailField("ARRIVE",   ride["arrive"] ?: "")
                     DetailField("ROLLOUT",  ride["rollout"] ?: "")
                     DetailField("DISTANCE", ride["distance"] ?: "")
                 }
-                Text(ride["desc"] ?: "", color = Color(0xFFFFFFFF), fontSize = 11.sp,
+                Text(ride["desc"] ?: "", color = Gt.text, fontSize = 12.sp,
                     lineHeight = 16.sp)
             }
 
             // ── Organizer ─────────────────────────────────────────────────────
             Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035)).padding(12.dp),
+                .background(Gt.panel).padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("ORGANIZER", color = Color(0xFF4AB8E8), fontSize = 9.sp,
+                    Text("ORGANIZER", color = Gt.accent, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
                         letterSpacing = 1.sp)
-                    Text(ride["org"] ?: "", color = Color.White, fontSize = 13.sp,
+                    Text(ride["org"] ?: "", color = Gt.text, fontSize = 13.sp,
                         fontWeight = FontWeight.Bold)
                 }
                 Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFF1A3050))
+                    .background(Gt.panel)
                     .clickable { launchEmail(ride["email"] ?: "") }
                     .padding(horizontal = 12.dp, vertical = 6.dp)) {
-                    Text(ride["email"] ?: "", color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                    Text(ride["email"] ?: "", color = Gt.accent, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace)
                 }
             }
 
             // ── Post-ride action buttons ──────────────────────────────────────
-            Text("POST-RIDE ACTIONS", color = Color(0xFF4AB8E8), fontSize = 9.sp,
+            Text("POST-RIDE ACTIONS", color = Gt.accent, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
                 letterSpacing = 2.sp)
 
             // MAP button
             Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035))
+                .background(Gt.panel)
                 .clickable { onNavigateToMap() }
                 .padding(14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("VIEW ON MAP", color = Color.White, fontSize = 12.sp,
+                    Text("VIEW ON MAP", color = Gt.text, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold)
-                    Text("Show ride track on convoy map", color = Color(0xFFFFFFFF), fontSize = 10.sp)
+                    Text("Show ride track on convoy map", color = Gt.text, fontSize = 12.sp)
                 }
-                Text("→", color = Color(0xFF4AB8E8), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("→", color = Gt.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
             // DOWNLOAD TRACKS button
             Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035))
+                .background(Gt.panel)
                 .clickable { /* Phase C: download GPX/KML to my_tracks */ }
                 .padding(14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("DOWNLOAD TRACKS", color = Color.White, fontSize = 12.sp,
+                    Text("DOWNLOAD TRACKS", color = Gt.text, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold)
-                    Text("Save GPX/KML to My Tracks  •  Phase C", color = Color(0xFFFFFFFF), fontSize = 10.sp)
+                    Text("Save GPX/KML to My Tracks  •  Phase C", color = Gt.text, fontSize = 12.sp)
                 }
-                Text("↓", color = Color(0xFF4AB8E8), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("↓", color = Gt.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
             // SURVEY + COMMENTS expandable
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035))) {
+                .background(Gt.panel)) {
                 Row(modifier = Modifier.fillMaxWidth().clickable { surveyExpanded = !surveyExpanded }
                     .padding(14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("SURVEY + COMMENTS", color = Color.White, fontSize = 12.sp,
+                        Text("SURVEY + COMMENTS", color = Gt.text, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold)
-                        Text("Rate this ride and leave trail comments", color = Color(0xFFFFFFFF),
-                            fontSize = 10.sp)
+                        Text("Rate this ride and leave trail comments", color = Gt.text,
+                            fontSize = 12.sp)
                     }
-                    Text(if (surveyExpanded) "▲" else "▼", color = Color(0xFF4AB8E8),
+                    Text(if (surveyExpanded) "▲" else "▼", color = Gt.accent,
                         fontSize = 12.sp)
                 }
                 if (surveyExpanded) {
                     Column(modifier = Modifier.padding(horizontal = 14.dp).padding(bottom = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         // Star rating
-                        Text("RIDE RATING", color = Color(0xFF4AB8E8), fontSize = 9.sp,
+                        Text("RIDE RATING", color = Gt.accent, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             (1..5).forEach { star ->
                                 Text(if (star <= surveyRating) "★" else "☆",
-                                    color = if (star <= surveyRating) Color(0xFFF59E0B) else Color(0xFF2A4060),
+                                    color = if (star <= surveyRating) Gt.warn else Gt.text,
                                     fontSize = 28.sp, modifier = Modifier.clickable { surveyRating = star })
                             }
                         }
                         // Comments
-                        Text("TRAIL COMMENTS", color = Color(0xFF4AB8E8), fontSize = 9.sp,
+                        Text("TRAIL COMMENTS", color = Gt.accent, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                         androidx.compose.material3.OutlinedTextField(
                             value = surveyComment,
                             onValueChange = { surveyComment = it },
                             placeholder = { Text("Trail conditions, notes for other riders...",
-                                color = Color(0xFF2A4060), fontSize = 11.sp) },
+                                color = Gt.text, fontSize = 12.sp) },
                             modifier = Modifier.fillMaxWidth().height(100.dp),
                             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF4AB8E8),
-                                unfocusedBorderColor = Color(0xFF1A3050),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                cursorColor = Color(0xFF4AB8E8)
+                                focusedBorderColor = Gt.accent,
+                                unfocusedBorderColor = Gt.line,
+                                focusedTextColor = Gt.text,
+                                unfocusedTextColor = Gt.text,
+                                cursorColor = Gt.accent
                             )
                         )
                         if (surveySaved) {
                             Text("✓ SURVEY SAVED  —  Phase C: POST /rides/{id}/survey",
-                                color = Color(0xFF22C55E), fontSize = 10.sp,
+                                color = Gt.accent, fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace)
                         } else {
                             Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
-                                .background(if (surveyRating > 0) Color(0xFF1A3050) else Color(0xFF0A1628))
+                                .background(if (surveyRating > 0) Gt.panel else Gt.panel)
                                 .then(if (surveyRating > 0) Modifier.clickable {
                                     surveySaved = true
                                     // Phase C: POST /rides/{rideId}/survey
@@ -220,8 +221,8 @@ fun ConvoyCompletedRideDetailScreen(
                                 .padding(vertical = 12.dp),
                                 contentAlignment = Alignment.Center) {
                                 Text(if (surveyRating > 0) "SAVE SURVEY" else "SELECT A RATING FIRST",
-                                    color = if (surveyRating > 0) Color(0xFF4AB8E8) else Color(0xFF2A4060),
-                                    fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                    color = if (surveyRating > 0) Gt.accent else Gt.text,
+                                    fontSize = 12.sp, fontWeight = FontWeight.Bold,
                                     fontFamily = FontFamily.Monospace)
                             }
                         }
@@ -236,8 +237,8 @@ fun ConvoyCompletedRideDetailScreen(
 @Composable
 private fun DetailField(label: String, value: String) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, color = Color(0xFF4AB8E8), fontSize = 8.sp,
+        Text(label, color = Gt.accent, fontSize = 12.sp,
             fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
-        Text(value, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = Gt.text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }

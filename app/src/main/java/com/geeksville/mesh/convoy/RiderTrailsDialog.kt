@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,10 +44,10 @@ fun RiderTrailsDialog(
 ) {
     AlertDialog(
         onDismissRequest = { if (!running) onClose() },
-        containerColor = Color(0xFF0A1628),
+        containerColor = Gt.panel,
         title = {   // GTSTD-2026-10-23: the standard HELP and X (X off while the scan runs)
             androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text("ADD TRAILS FROM TRACKS", color = Color(0xFF8FD0FF),
+                Text("ADD TRAILS FROM TRACKS", color = Gt.accent,
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                     fontSize = 14.sp, modifier = Modifier.weight(1f))
                 com.geeksville.mesh.grouptrack.GtHelpButton("map.ridertrails")
@@ -58,28 +59,28 @@ fun RiderTrailsDialog(
                 val r = result
                 when {
                     running -> {
-                        CircularProgressIndicator(color = Color(0xFF8FD0FF))
+                        CircularProgressIndicator(color = Gt.accent)
                         Spacer(modifier = Modifier.height(10.dp))
-                        Text(status, color = Color(0xFF4DA6FF),
+                        Text(status, color = Gt.accent,
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     }
                     r != null -> {
                         // The number that matters, first and largest.
                         // RIDERIDS-2026-10-09: the TRUE adds first -- unchanged trails keep their IDs and dates.
                         Text("${r.trailsAdded} rider trail(s) added",
-                            color = if (r.trailsAdded > 0) Color(0xFF39FF14)
-                                    else Color(0xFF97D5A5),
+                            color = if (r.trailsAdded > 0) Gt.good
+                                    else Gt.accent,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("%.2f miles added".format(r.miles), color = Color(0xFF8FD0FF),
+                        Text("%.2f miles added".format(r.miles), color = Gt.accent,
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         Text("${r.trailsUnchanged} unchanged \u00b7 ${r.trailsRemoved} removed \u00b7 " +
                             "${r.trailsTotal} in all (%.2f mi)".format(r.milesTotal),
-                            color = Color(0xFF8FD0FF),
+                            color = Gt.accent,
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         Text("from ${r.tracksScanned} track(s)",
-                            color = Color(0xFFFFFFFF),
+                            color = Gt.text,
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         if (r.trailsTotal == 0) {
                             Spacer(modifier = Modifier.height(10.dp))
@@ -87,19 +88,19 @@ fun RiderTrailsDialog(
                             // rider should not have to wonder.
                             Text("Every track stays on known trails. " +
                                 "No rider trails needed.",
-                                color = Color(0xFFFFFFFF),
-                                fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                                color = Gt.text,
+                                fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         }
                     }
                     else -> {
                         Text("Adds rider trails from every recorded track: " +
                             "the ground you rode where no trail is published.",
-                            color = Color(0xFF8FD0FF),
+                            color = Gt.accent,
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         Spacer(modifier = Modifier.height(10.dp))
                         Text("Safe to run more than once.",
-                            color = Color(0xFFFFFFFF),
-                            fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                            color = Gt.text,
+                            fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     }
                 }
             }
@@ -110,7 +111,7 @@ fun RiderTrailsDialog(
                 enabled = !running && result == null
             ) {
                 Text("START", color = if (running || result != null)
-                    Color(0xFFFFFFFF) else Color(0xFF39FF14),
+                    Gt.text else Gt.accent,
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                     fontSize = 13.sp)
             }
@@ -118,7 +119,7 @@ fun RiderTrailsDialog(
         dismissButton = {
             TextButton(onClick = { if (!running) onClose() }) {
                 Text("CLOSE",
-                    color = if (running) Color(0xFFFFFFFF) else Color(0xFF8FD0FF),
+                    color = if (running) Gt.text else Gt.accent,
                     fontFamily = FontFamily.Monospace, fontSize = 13.sp)
             }
         }

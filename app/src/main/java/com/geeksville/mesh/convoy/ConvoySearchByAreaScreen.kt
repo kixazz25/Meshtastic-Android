@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -41,25 +42,25 @@ fun ConvoySearchByAreaScreen(
 ) {
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
 
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628))
+        Row(modifier = Modifier.fillMaxWidth().background(Gt.panel)
             .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF1A3050)).clickable { onBack() }
+                .background(Gt.panel).clickable { onBack() }
                 .padding(horizontal = 10.dp, vertical = 5.dp)) {
-                Text("← BACK", color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                Text("← BACK", color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
-            Text("SEARCH BY AREA", color = Color.White, fontSize = 11.sp,
+            Text("SEARCH BY AREA", color = Gt.text, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.weight(1f))
             Box(modifier = Modifier.clip(RoundedCornerShape(3.dp))
-                .background(Color(0xFF1A3050)).padding(horizontal = 8.dp, vertical = 4.dp)) {
-                Text("V2.5", color = Color(0xFFF59E0B), fontSize = 9.sp,
+                .background(Gt.panel).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                Text("V2.5", color = Gt.warn, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
         }
-        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Color(0xFF4AB8E8))
+        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Gt.accent)
 
         Column(modifier = Modifier.fillMaxWidth().weight(1f).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -67,15 +68,15 @@ fun ConvoySearchByAreaScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            Text("SEARCH BY MAP AREA", color = Color.White, fontSize = 14.sp,
+            Text("SEARCH BY MAP AREA", color = Gt.text, fontSize = 14.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-            Text("Coming in V2.5", color = Color(0xFFF59E0B), fontSize = 11.sp,
+            Text("Coming in V2.5", color = Gt.warn, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
 
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035)).padding(16.dp),
+                .background(Gt.panel).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("WHAT THIS WILL DO:", color = Color(0xFF4AB8E8), fontSize = 9.sp,
+                Text("WHAT THIS WILL DO:", color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
                     letterSpacing = 1.sp)
                 listOf(
@@ -87,23 +88,23 @@ fun ConvoySearchByAreaScreen(
                     "Tap any track on map to open ride detail"
                 ).forEach { item ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("•", color = Color(0xFF4AB8E8), fontSize = 11.sp)
-                        Text(item, color = Color(0xFFFFFFFF), fontSize = 11.sp, lineHeight = 16.sp)
+                        Text("•", color = Gt.accent, fontSize = 12.sp)
+                        Text(item, color = Gt.text, fontSize = 12.sp, lineHeight = 16.sp)
                     }
                 }
             }
 
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0A1628)).padding(14.dp),
+                .background(Gt.panel).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("REQUIRES V2.5 MAP FUNCTIONS", color = Color(0xFF2A4060), fontSize = 9.sp,
+                Text("REQUIRES V2.5 MAP FUNCTIONS", color = Gt.text, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                Text("MAP-03  KML/GPX overlay layer", color = Color(0xFF1A3050), fontSize = 10.sp,
+                Text("MAP-03  KML/GPX overlay layer", color = Gt.text, fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace)
-                Text("API     GET /ride_tracks?bounds=N,S,E,W", color = Color(0xFF1A3050),
-                    fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                Text("BRIDGE  Leaflet bounds change listener", color = Color(0xFF1A3050),
-                    fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                Text("API     GET /ride_tracks?bounds=N,S,E,W", color = Gt.text,
+                    fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                Text("BRIDGE  Leaflet bounds change listener", color = Gt.text,
+                    fontSize = 12.sp, fontFamily = FontFamily.Monospace)
             }
         }
     }

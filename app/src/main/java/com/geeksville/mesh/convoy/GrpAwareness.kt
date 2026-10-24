@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
@@ -84,8 +85,8 @@ object GrpAwarenessLauncher {
 @Composable
 fun grpAwarenessColor(): Color {
     // LINKFIX-2026-10-03 (Fred): green only while the radio is TALKING; a connected-but-silent radio is red.
-    val base = if (!GroupMode.on.value) Color(0xFF5A6470)   // GRPMODE-2026-10-13: greyed while group awareness is off
-        else if (GrpAwarenessLauncher.connected.value && GrpAwarenessLauncher.talking.value) Color(0xFF35C46A) else Color(0xFFE0453A)
+    val base = if (!GroupMode.on.value) Gt.dim   // GRPMODE-2026-10-13: greyed while group awareness is off
+        else if (GrpAwarenessLauncher.connected.value && GrpAwarenessLauncher.talking.value) Gt.good else Gt.bad
     var lit by remember { mutableStateOf(false) }
     val at = GrpAwarenessLauncher.pulseAt.value
     LaunchedEffect(at) { if (at > 0L) { lit = true; delay(400); lit = false } }
@@ -172,7 +173,7 @@ fun GrpAwarenessPanel(
     val busy = connected || (selectedAddress.isNotBlank() && selectedAddress != "n")   // one radio at a time
     val btOff = scanProblem == "BLUETOOTH_OFF"   // COMMBTOFF-2026-10-11 (Fred 10-11): Bluetooth off -> NO radio status, only the message
     val current = radios.firstOrNull { it.id == selectedAddress }
-    val green = Color(0xFF35C46A); val red = Color(0xFFE0453A); val dim = Color(0xFF8899AA)
+    val green = Gt.accent; val red = Gt.bad; val dim = Gt.dim
     fun failWords(reason: String): String = when (reason) {
         "PERMISSION_MISSING" -> "GroupTrack needs the Nearby devices permission to pair a radio."
         "BLUETOOTH_OFF" -> "Bluetooth is off — turn it on to connect your radio."   // COMMBTOFF-2026-10-11
@@ -180,53 +181,53 @@ fun GrpAwarenessPanel(
         "PAIR_FAILED" -> "Pairing did not finish — try PAIR again and enter the radio's PIN (123456, or the code on its screen)."
         else -> "The radio could not be connected ($reason)."
     }
-    Box(modifier = Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
-        Surface(modifier = Modifier.fillMaxWidth().padding(16.dp), shape = RoundedCornerShape(14.dp), color = Color(0xFF12213A)) {
+    Box(modifier = Modifier.fillMaxSize().background(Gt.panel), contentAlignment = Alignment.Center) {
+        Surface(modifier = Modifier.fillMaxWidth().padding(16.dp), shape = RoundedCornerShape(14.dp), color = Gt.panel) {
             Column(modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {   // TOUCHSTD-2026-10-22: scrolls
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("GRP Awareness", color = if (connected) green else red, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f))
                     com.geeksville.mesh.grouptrack.GtHelpButton("grp")   // TOUCHSTD-2026-10-22
-                    TextButton(onClick = onClose) { Text("✕", color = Color(0xFF7FB2E5), fontSize = 18.sp) }
+                    TextButton(onClick = onClose) { Text("✕", color = Gt.accent, fontSize = 18.sp) }
                 }
                 // CHECKINCONNECT-2026-09-28: opened by CHK IN with no radio
-                if (GrpAwarenessLauncher.thenCheckIn) Text("Connect your radio to check in.", color = Color(0xFFE8C27A), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                if (unpairedNote) Text("Your radio was forgotten by Android — PAIR it again.", color = Color(0xFFE8A33D), fontSize = 13.sp, fontWeight = FontWeight.Bold)   // COMMHEALTH2-2026-10-11
+                if (GrpAwarenessLauncher.thenCheckIn) Text("Connect your radio to check in.", color = Gt.warn, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                if (unpairedNote) Text("Your radio was forgotten by Android — PAIR it again.", color = Gt.warn, fontSize = 13.sp, fontWeight = FontWeight.Bold)   // COMMHEALTH2-2026-10-11
                 // CONNECTED TO -- empty when nothing is connected; not shown at all while Bluetooth is off (COMMBTOFF-2026-10-11)
-                if (!btOff) Surface(shape = RoundedCornerShape(10.dp), color = if (busy) Color(0xFF0E2A1A) else Color(0xFF0D1A2C)) {
+                if (!btOff) Surface(shape = RoundedCornerShape(10.dp), color = if (busy) Gt.text.copy(alpha = 0.18f) else Gt.text.copy(alpha = 0.18f)) {
                     Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(if (connected) "● CONNECTED TO" else if (busy) "◌ CONNECTING TO" else "CONNECTED TO",
-                                color = if (busy) Color(0xFF6EE0A5) else Color(0xFF5E7288), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                color = if (busy) Gt.good else Gt.dim, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             if (busy) {
-                                Text(current?.name ?: "your radio", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text(current?.name ?: "your radio", color = Gt.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                 // RADIONET-2026-10-12 (Fred 10-12): set up for GroupTrack = the RADIO is on a "Group..." network; this
                                 // tablet's record (by radio id) is the second line. Amber only for a radio on another network.
                                 if (connected && network != null) {
                                     val shown = network.ifBlank { "the radio's default" }
                                     if (network.startsWith(com.grouptrack.core.NetworkGenerator.CHANNEL_PREFIX))
-                                        Text("GroupTrack network " + shown, color = Color(0xFF6EE0A5), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    else Text("Not set up for GroupTrack (network " + shown + ")", color = Color(0xFFE8A33D), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("GroupTrack network " + shown, color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    else Text("Not set up for GroupTrack (network " + shown + ")", color = Gt.warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                                 if (connected && lastApplied.isNotBlank()) Text(
                                     if (lastApplied == "none") "Not applied from this tablet before" else "Last applied here: " + lastApplied,
-                                    color = Color(0xFFB8C8D8), fontSize = 12.sp)
+                                    color = Gt.accent, fontSize = 12.sp)
                             }
                         }
-                        if (busy) TextButton(onClick = { onDisconnect(); message = "" }) { Text("DISCONNECT", color = Color(0xFFF08C84), fontWeight = FontWeight.Bold) }
+                        if (busy) TextButton(onClick = { onDisconnect(); message = "" }) { Text("DISCONNECT", color = Gt.bad, fontWeight = FontWeight.Bold) }
                     }
                 }
-                if (!btOff) Text("AVAILABLE RADIOS", color = Color(0xFF8FA3B8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                if (btOff) Unit else if (!busy) Text("Select a radio from the list to connect.", color = Color(0xFFE8C27A), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                else Text("One radio at a time — DISCONNECT the one above to connect or pair another.", color = dim, fontSize = 11.sp)
+                if (!btOff) Text("AVAILABLE RADIOS", color = Gt.dim, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                if (btOff) Unit else if (!busy) Text("Select a radio from the list to connect.", color = Gt.warn, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                else Text("One radio at a time — DISCONNECT the one above to connect or pair another.", color = dim, fontSize = 12.sp)
                 // COMMRADIOS-2026-10-11: why no radios can be found, in GroupTrack's words, with the way to fix it
                 when (scanProblem) {
                     "BLUETOOTH_OFF" -> Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Bluetooth is off — turn it on to find your radio.", color = Color(0xFFE8A33D), fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Text("Bluetooth is off — turn it on to find your radio.", color = Gt.warn, fontSize = 13.sp, modifier = Modifier.weight(1f))
                         TextButton(onClick = { openBluetoothSettings(ctx) }) { Text("BLUETOOTH") }
                     }
                     "PERMISSION_MISSING" -> Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("GroupTrack needs the Nearby devices permission to find radios.", color = Color(0xFFE8A33D), fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Text("GroupTrack needs the Nearby devices permission to find radios.", color = Gt.warn, fontSize = 13.sp, modifier = Modifier.weight(1f))
                         TextButton(onClick = { openAppSettings(ctx) }) { Text("ALLOW") }
                     }
                     else -> {}
@@ -237,38 +238,38 @@ fun GrpAwarenessPanel(
                     rows.forEach { radio ->
                         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(radio.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(radio.name, color = Gt.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 Text(if (radio.paired) radio.id.drop(1) else "NEW TO THIS ANDROID · " + radio.id.drop(1),
-                                    color = if (radio.paired) dim else Color(0xFFF2C14E), fontSize = 11.sp)
+                                    color = if (radio.paired) dim else Gt.warn, fontSize = 12.sp)
                             }
                             TextButton(enabled = !busy, onClick = {
                                 message = if (radio.paired) "" else "Pairing " + radio.name + " — enter the radio's PIN when Android asks."
                                 onConnect(radio.id) { reason -> message = failWords(reason) }
                             }) { Text(if (radio.paired) "CONNECT" else "PAIR") }
-                            if (radio.paired) TextButton(onClick = { forgetting = radio }) { Text("FORGET", color = Color(0xFFF08C84)) }
+                            if (radio.paired) TextButton(onClick = { forgetting = radio }) { Text("FORGET", color = Gt.bad) }
                         }
                     }
                 }
-                if (message.isNotBlank()) Text(message, color = Color(0xFFE8A33D), fontSize = 13.sp)
+                if (message.isNotBlank()) Text(message, color = Gt.warn, fontSize = 13.sp)
                 // Three actions, side by side
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Surface(modifier = Modifier.weight(1f).clickable { onApplyRide() }, shape = RoundedCornerShape(8.dp), color = Color(0xFF12304F)) {
-                        Text("SELECT A RIDE AND APPLY SETTINGS TO THE RADIO", color = Color(0xFF7FC4FF), fontSize = 10.sp,
+                    Surface(modifier = Modifier.weight(1f).clickable { onApplyRide() }, shape = RoundedCornerShape(8.dp), color = Gt.panel) {
+                        Text("SELECT A RIDE AND APPLY SETTINGS TO THE RADIO", color = Gt.accent, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
                     }
                     // NOWEBCLIENT-2026-09-29 (Fred): RADIO SETTINGS always opens the Meshtastic app's own radio settings -- the web
                     // client left the radio disconnected, and the internet check was unreliable (said online with it off).
                     if ("radio-settings" in menus) Surface(modifier = Modifier.weight(1f).clickable { message = ""; onLocalSettings() },   // COMMSETTINGS-2026-10-12
-                        shape = RoundedCornerShape(8.dp), color = Color(0xFF2A2210)) {
+                        shape = RoundedCornerShape(8.dp), color = Gt.panel) {
                         Column(modifier = Modifier.padding(8.dp)) {
-                            Text("RADIO SETTINGS", color = Color(0xFFF2C14E), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            Text("⚠ experienced mesh operators only", color = Color(0xFFC9A659), fontSize = 9.sp)
+                            Text("RADIO SETTINGS", color = Gt.warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("⚠ experienced mesh operators only", color = Gt.warn, fontSize = 12.sp)
                         }
                     }
-                    if ("nodes" in menus) Surface(modifier = Modifier.weight(1f).clickable { message = ""; onMeshtastic() }, shape = RoundedCornerShape(8.dp), color = Color(0xFF16263E)) {   // COMMSETTINGS-2026-10-12
+                    if ("nodes" in menus) Surface(modifier = Modifier.weight(1f).clickable { message = ""; onMeshtastic() }, shape = RoundedCornerShape(8.dp), color = Gt.panel) {   // COMMSETTINGS-2026-10-12
                         Column(modifier = Modifier.padding(8.dp)) {
-                            Text("NODES", color = Color(0xFF9CC7F5), fontSize = 10.sp, fontWeight = FontWeight.Bold)   // NODESMENU-2026-10-15 (Fred): replaces the side menu
-                            Text("radios heard", color = Color(0xFF6F8196), fontSize = 9.sp)
+                            Text("NODES", color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)   // NODESMENU-2026-10-15 (Fred): replaces the side menu
+                            Text("radios heard", color = Gt.dim, fontSize = 12.sp)
                         }
                     }
                 }

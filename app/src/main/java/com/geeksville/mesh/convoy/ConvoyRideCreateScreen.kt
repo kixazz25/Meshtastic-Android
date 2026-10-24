@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -115,8 +116,11 @@ fun ConvoyRideCreateScreen(
 
     val me = remember { ConvoyProfileStore.load() }
 
+    // RIDESEARCH-2026-10-24: the map area from Create a ride (south, north, west, east); empty = opened another way -- every route.
+    val area = remember { com.geeksville.mesh.grouptrack.GtRideStart.takeArea() }
+    var showAll by remember { mutableStateOf(area.isEmpty()) }
     LaunchedEffect(Unit) {
-        routes = ConvoyRideStore.listRoutes()
+        routes = ConvoyRideStore.listRoutes(if (area.isEmpty()) 200 else 5000)   // RIDESEARCH-2026-10-24: an area may hold older routes
         zipCode = ConvoySessionManager.getZipCode(context)
     }
     LaunchedEffect(routeId) {
@@ -188,13 +192,13 @@ fun ConvoyRideCreateScreen(
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
 
         Row(
-            modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628))
+            modifier = Modifier.fillMaxWidth().background(Gt.panel)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // GTRIDES-2026-10-22: the standard top bar -- title, HELP ✕ (the ← BACK is gone; ✕ goes back)
-            Text("CREATE A RIDE", color = Color.White, fontSize = 12.sp,
+            Text("CREATE A RIDE", color = Gt.text, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 2.sp, modifier = Modifier.weight(1f))
             com.geeksville.mesh.grouptrack.GtHelpButton("rides.ride")
             com.geeksville.mesh.grouptrack.GtCloseButton(onBack)
@@ -215,28 +219,28 @@ fun ConvoyRideCreateScreen(
             // FORMTOP-2026-09-27 (Fred): public/private and the radio network are the form's FIRST decision.
             // RIDENET-2026-09-27 (Fred): PUBLIC by default, PRIVATE the override -- and the screen says what each means.
             Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035)).padding(horizontal = 14.dp, vertical = 10.dp),
+                .background(Gt.panel).padding(horizontal = 14.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
-                    Text("PRIVATE RIDE", color = Color(0xFFAABBCC), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("PRIVATE RIDE", color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Text(if (isPrivate)
                             "Private \u2014 for the riders you invite; please don't forward. At the end of the ride there is no survey and no sharing: every rider's track stays on their own tablet, and no public trails are added."
                         else
                             "Public \u2014 riders may forward the invitation to friends. At the end of the ride, each rider rates it and decides whether to share their track with the community.",
-                        color = Color(0xFF8899AA), fontSize = 11.sp)
+                        color = Gt.dim, fontSize = 12.sp)
                 }
                 Switch(checked = isPrivate, onCheckedChange = { isPrivate = it },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = GroupTrackColors.SkyBlue,
-                        checkedTrackColor = Color(0xFF1A3050),
-                        uncheckedThumbColor = Color(0xFFFFFFFF),
-                        uncheckedTrackColor = Color(0xFF0A1628)))
+                        checkedTrackColor = Gt.panel,
+                        uncheckedThumbColor = Gt.text,
+                        uncheckedTrackColor = Gt.panel))
             }
 
             // FORMLAYOUT-2026-09-27 (Fred): the radio network is a CHOICE; "Network assigned" shows the one in use.
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF1A0A00)).padding(horizontal = 14.dp, vertical = 10.dp)) {
+                .background(Gt.panel).padding(horizontal = 14.dp, vertical = 10.dp)) {
                 Text("RADIO NETWORK", color = GroupTrackColors.Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 // DEFAULTNET-2026-10-10 / THREENET-2026-10-10 (Fred): three choices, the default first and selected --
                 // 0 = the GroupTrack default network (the channel every radio already has from install: no radio setup),
@@ -247,7 +251,7 @@ fun ConvoyRideCreateScreen(
                     1 to (myNetworkName ?: "My network \u2014 not available, check your rider profile"),   // THREENET-2026-10-10
                     2 to "Create a private network for this ride").forEach { (opt, label) ->
                     Text((if (netChoice == opt) "\u25C9  " else "\u25CB  ") + label,
-                        color = if (netChoice == opt) GroupTrackColors.SkyBlue else Color(0xFFAABBCC), fontSize = 13.sp,
+                        color = if (netChoice == opt) GroupTrackColors.SkyBlue else Gt.accent, fontSize = 13.sp,
                         modifier = Modifier.fillMaxWidth().clickable(enabled = editRideId == null) {   // EDITRIDE: a ride's network is not changed here
                             useDefaultNetwork = opt == 0
                             newNetworkForRide = opt == 2
@@ -259,13 +263,13 @@ fun ConvoyRideCreateScreen(
                         2 -> rideNetwork?.let { "Private \u2013 " + it.configId } ?: "\u26a0 not created \u2014 check your rider profile"
                         else -> myNetworkName ?: "\u26a0 not available \u2014 check your rider profile"
                     },
-                    color = Color(0xFFE8C27A), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+                    color = Gt.warn, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
                 Text(when (netChoice) {
                         0 -> "The channel every GroupTrack radio already has \u2014 riders need no radio setup. Anyone running GroupTrack within radio range shares it."
                         2 -> "Used only by this ride. Every rider sets up their radio for it, even if they have ridden with you before."
                         else -> "Used for all your rides \u2014 riders who joined any of your rides are already on it."
                     },
-                    color = Color(0xFFCCBB99), fontSize = 11.sp)
+                    color = Gt.warn, fontSize = 12.sp)
             }
 
             // FORMTRIM-2026-09-27 (Fred): the organizer's name and email are not shown (still recorded from the profile);
@@ -278,7 +282,7 @@ fun ConvoyRideCreateScreen(
                 Column(modifier = Modifier.weight(1f)) {
                     RideLabel("Date *")
                     Text(rideDate.ifBlank { "Tap to choose" },
-                        color = if (rideDate.isBlank()) Color(0xFF8B938A) else Color(0xFFE8EEF5), fontSize = 14.sp,
+                        color = if (rideDate.isBlank()) Gt.dim else Gt.text, fontSize = 14.sp,
                         modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true }.padding(vertical = 10.dp))
                 }
                 Box(modifier = Modifier.weight(1f)) { RideField("Rollout time", startTime, "8:00 AM") { startTime = it } }
@@ -297,17 +301,17 @@ fun ConvoyRideCreateScreen(
                     thChoices.isEmpty() -> Column {
                         // THTEXT-2026-09-27 (Fred): no trailhead waypoint within 1/2 mile -- describe where to meet instead.
                         Text("No trailhead waypoint near this route's start. Describe where to meet \u2014 it goes at the top of the ride's description.",
-                            color = Color(0xFFE8A33D), fontSize = 12.sp)
+                            color = Gt.warn, fontSize = 12.sp)
                         RideField("Trailhead *", thText, "e.g. Casto Canyon parking area, off Hwy 12") { thText = it }
                     }
                     thChoices.size == 1 -> Text("Trailhead: ${thChoices[0].name}",
                         color = GroupTrackColors.Green, fontSize = 12.sp)
                     else -> Column {
-                        Text("Choose the trailhead:", color = Color(0xFFE8EEF5), fontSize = 12.sp)
+                        Text("Choose the trailhead:", color = Gt.text, fontSize = 12.sp)
                         thChoices.forEach { c ->
                             Text((if (trailhead == c) "\u25C9  " else "\u25CB  ") + c.name +
                                     "  \u00b7  " + "%.2f".format(c.miles) + " mi",
-                                color = if (trailhead == c) GroupTrackColors.SkyBlue else Color(0xFFB8C2CC),
+                                color = if (trailhead == c) GroupTrackColors.SkyBlue else Gt.text,
                                 fontSize = 12.sp,
                                 modifier = Modifier.clickable { trailhead = c }.padding(vertical = 6.dp))
                         }
@@ -319,18 +323,28 @@ fun ConvoyRideCreateScreen(
             RideLabel("ROUTE")
             if (pickerOpen) {
                 Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0A1628)).padding(10.dp),
+                    .background(Gt.panel).padding(10.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (routes.isEmpty()) {
-                        Text("No routes yet \u2014 build one in the planner, or convert a track.",
-                            color = Color(0xFFFFFFFF), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    // RIDESEARCH-2026-10-24: only the routes whose box overlaps the map area, unless SHOW ALL.
+                    val shown = if (showAll || area.size != 4) routes else routes.filter { r ->
+                        r.maxLat >= area[0] && r.minLat <= area[1] && r.maxLon >= area[2] && r.minLon <= area[3] }
+                    if (area.size == 4) Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(if (showAll) "All routes: ${routes.size}" else "Routes in the map area: ${shown.size}",
+                            color = Gt.text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(if (showAll) "MAP AREA ONLY" else "SHOW ALL", color = Gt.text, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { showAll = !showAll })
                     }
-                    routes.forEach { r ->
+                    if (shown.isEmpty()) {
+                        Text(if (routes.isEmpty()) "No routes yet \u2014 tap Add Route on the map, or make a route from a track."
+                             else "No routes in this map area \u2014 move the map, or SHOW ALL.",
+                            color = Gt.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    shown.forEach { r ->
                         Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFF0F2035))
+                            .background(Gt.panel)
                             .clickable { routeId = r.routeId; routeName = r.name; pickerOpen = false }
                             .padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(r.name, color = Color.White, fontSize = 12.sp,
+                            Text(r.name, color = Gt.text, fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
                             Text("\u203a", color = GroupTrackColors.SkyBlue, fontSize = 14.sp)
                         }
@@ -339,7 +353,7 @@ fun ConvoyRideCreateScreen(
             } else {
                 // PROTECTROUTE-2026-09-24 (Fred): the route's name belongs to the route -- display only.
                 // FORMLAYOUT-2026-09-27: the route's name directly over its picture.
-                Text(routeName.ifBlank { "\u2014" }, color = Color(0xFFE8EEF5), fontSize = 14.sp,
+                Text(routeName.ifBlank { "\u2014" }, color = Gt.text, fontSize = 14.sp,
                     fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
                 // RIDEPREVIEW-2026-09-24: the planner map, fitted and captured at ADD A RIDE -- square.
                 val routePreview = remember(routeId) { RidePreview.load(context, routeId) }
@@ -349,7 +363,7 @@ fun ConvoyRideCreateScreen(
                         modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(8.dp)))
                 } else RouteVignette(routePts)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFF1A3050))
+                    Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Gt.panel)
                         // ROUTELOCK-2026-09-24 (Fred): a ride's route is fixed -- say why, don't open a picker.
                         .clickable {
                             android.widget.Toast.makeText(context, "A ride's route can't be changed. To use a " +
@@ -357,10 +371,10 @@ fun ConvoyRideCreateScreen(
                                 "planning map.", android.widget.Toast.LENGTH_LONG).show()
                         }
                         .padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        Text("CHANGE ROUTE", color = GroupTrackColors.SkyBlue, fontSize = 10.sp,
+                        Text("CHANGE ROUTE", color = GroupTrackColors.SkyBlue, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     }
-                    Text("${routePts.size} points", color = Color(0xFFFFFFFF), fontSize = 10.sp,
+                    Text("${routePts.size} points", color = Gt.text, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace, modifier = Modifier.align(Alignment.CenterVertically))
                 }
             }
@@ -368,13 +382,13 @@ fun ConvoyRideCreateScreen(
             // CALDATE-2026-09-24 (Fred): the date of the ride comes from a calendar -- always yyyy-MM-dd.
             if (status.isNotBlank()) {
                 Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0D2010)).padding(12.dp)) {
-                    Text(status, color = GroupTrackColors.Green, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    .background(Gt.panel).padding(12.dp)) {
+                    Text(status, color = GroupTrackColors.Green, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             }
 
             Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(if (canSave) Color(0xFF1A3050) else Color(0xFF0A1628))
+                .background(if (canSave) Gt.panel else Gt.panel)
                 .clickable {
                     // SAVEWHY-2026-09-23: the high-visibility palette hides a disabled button, so Save
                     // is always tappable and SAYS what is missing instead of silently doing nothing.
@@ -436,7 +450,7 @@ fun ConvoyRideCreateScreen(
                 }
                 .padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
                 Text("SAVE RIDE",
-                    color = if (canSave) GroupTrackColors.SkyBlue else Color(0xFFFFFFFF),
+                    color = if (canSave) GroupTrackColors.SkyBlue else Gt.text,
                     fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
             // RIDECANCEL-2026-09-26 (Fred): leave the form. NOTHING is written -- a ride is saved only by SAVE RIDE
@@ -447,7 +461,7 @@ fun ConvoyRideCreateScreen(
                     onBack()
                 }.padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center) {
-                Text("CANCEL", color = Color(0xFF8B949E), fontSize = 13.sp,
+                Text("CANCEL", color = Gt.dim, fontSize = 13.sp,
                     fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
             Spacer(Modifier.height(12.dp))
@@ -487,9 +501,9 @@ private fun RideDatePickerDialog(initial: String, onPick: (String) -> Unit, onDi
 @Composable
 private fun RouteVignette(pts: List<Pair<Double, Double>>) {
     Box(modifier = Modifier.fillMaxWidth().height(150.dp)
-        .clip(RoundedCornerShape(8.dp)).background(Color(0xFF0A1628))) {
+        .clip(RoundedCornerShape(8.dp)).background(Gt.panel)) {
         if (pts.size < 2) {
-            Text("no geometry", color = Color(0xFF334455), fontSize = 11.sp,
+            Text("no geometry", color = Gt.text, fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace, modifier = Modifier.align(Alignment.Center))
         } else {
             Canvas(modifier = Modifier.fillMaxSize().padding(12.dp)) {
@@ -505,11 +519,11 @@ private fun RouteVignette(pts: List<Pair<Double, Double>>) {
                     (offY + (maxY - p.second) * scale).toFloat()
                 )
                 for (i in 0 until pts.size - 1) {
-                    drawLine(color = Color(0xFF4AB8E8), start = at(pts[i]), end = at(pts[i + 1]),
+                    drawLine(color = Gt.accent, start = at(pts[i]), end = at(pts[i + 1]),
                         strokeWidth = 3f, cap = StrokeCap.Round)
                 }
-                drawCircle(color = Color(0xFF00AA44), radius = 6f, center = at(pts.first()))
-                drawCircle(color = Color(0xFFF5A623), radius = 6f, center = at(pts.last()))
+                drawCircle(color = Gt.accent, radius = 6f, center = at(pts.first()))
+                drawCircle(color = Gt.warn, radius = 6f, center = at(pts.last()))
             }
         }
     }
@@ -517,7 +531,7 @@ private fun RouteVignette(pts: List<Pair<Double, Double>>) {
 
 @Composable
 private fun RideLabel(label: String) {
-    Text(label, color = GroupTrackColors.SkyBlue, fontSize = 10.sp,
+    Text(label, color = GroupTrackColors.SkyBlue, fontSize = 12.sp,
         fontWeight = FontWeight.Bold, letterSpacing = 2.sp, modifier = Modifier.padding(top = 4.dp))
 }
 
@@ -525,15 +539,15 @@ private fun RideLabel(label: String) {
 private fun RideField(label: String, value: String, placeholder: String, onChange: (String) -> Unit) {
     OutlinedTextField(
         value = value, onValueChange = onChange,
-        label = { Text(label, fontSize = 11.sp) },
-        placeholder = { Text(placeholder, color = Color(0xFF334455), fontSize = 12.sp) },
+        label = { Text(label, fontSize = 12.sp) },
+        placeholder = { Text(placeholder, color = Gt.text, fontSize = 12.sp) },
         modifier = Modifier.fillMaxWidth(), singleLine = true,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = GroupTrackColors.SkyBlue,
-            unfocusedBorderColor = Color(0xFF1A3050),
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
+            unfocusedBorderColor = Gt.line,
+            focusedTextColor = Gt.text,
+            unfocusedTextColor = Gt.text,
             focusedLabelColor = GroupTrackColors.SkyBlue,
-            unfocusedLabelColor = Color(0xFFFFFFFF),
+            unfocusedLabelColor = Gt.text,
             cursorColor = GroupTrackColors.SkyBlue))
 }

@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -86,9 +87,9 @@ fun pickerNoticeText(purpose: String, item: String): String =
         "the bottom of the screen, or a swipe in from the right-hand edge. You may need to go back more than once.\n\n" +
         "If you chose this by mistake, tap CANCEL. Otherwise tap CONTINUE."
 
-private val PicFrame = Color(0xFF8B938A)
-private val PicScreen = Color(0xFF1B2229)
-private val PicMark = Color(0xFFFFB74D)
+private val PicFrame: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF8B938A 
+private val PicScreen: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF1B2229 
+private val PicMark: Color get() = Gt.warn  // STD1-2026-10-24 was 0xFFFFB74D 
 
 /** Two tablets: the BACK arrow on the bottom bar, and the swipe in from the right edge. */
 @Composable
@@ -110,7 +111,7 @@ private fun PickerBackPicture() {
                 drawRect(PicFrame, topLeft = Offset(w * 0.75f - 4.dp.toPx(), cy - 4.dp.toPx()),
                     size = androidx.compose.ui.geometry.Size(8.dp.toPx(), 8.dp.toPx()), style = Stroke(1.5.dp.toPx()))
             }
-            Text("tap the back arrow", fontSize = 11.sp, textAlign = TextAlign.Center,
+            Text("tap the back arrow", fontSize = 12.sp, textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -123,7 +124,7 @@ private fun PickerBackPicture() {
                 drawLine(PicMark, to, Offset(to.x + 9.dp.toPx(), y - 8.dp.toPx()), 3.dp.toPx(), cap = StrokeCap.Round)
                 drawLine(PicMark, to, Offset(to.x + 9.dp.toPx(), y + 8.dp.toPx()), 3.dp.toPx(), cap = StrokeCap.Round)
             }
-            Text("or swipe in from\nthe right edge", fontSize = 11.sp, textAlign = TextAlign.Center,
+            Text("or swipe in from\nthe right edge", fontSize = 12.sp, textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

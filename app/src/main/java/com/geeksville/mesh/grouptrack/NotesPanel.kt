@@ -27,12 +27,12 @@ import com.geeksville.mesh.convoy.NoteStyle   // HOME1B-2026-10-23
 /* HOME1-2026-10-23: ConvoyNotesPanel (route narratives: a saved route's, and a work-in-progress draft's), COPIED for ONE MAP with
  * the HELP X standard (was CLOSE). NoteSection / notesFromDraft / notesFromRouteId stay the planner's shared data. The planner keeps its copy. */
 
-private val npBg    = Color(0xFF0F1419)
-private val npCard  = Color(0xFF131A24)
-private val npGreen = Color(0xFF7BB661)
-private val npTxt   = Color(0xFFE6EDF3)
-private val npDim   = Color(0xFF8899AA)
-private val npFaint = Color(0xFF667788)
+private val npBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0F1419 
+private val npCard: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF131A24 
+private val npGreen: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF7BB661 
+private val npTxt: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFE6EDF3 
+private val npDim: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF8899AA 
+private val npFaint: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF667788 
 private val npMono  = FontFamily.Monospace
 
 @Composable
@@ -110,16 +110,16 @@ fun GtNotesPanel(
                         ) {
                             if (canFold) {
                                 Text(if (open) "\u25BE" else "\u25B8", color = npDim,
-                                    fontSize = 11.sp)
+                                    fontSize = 12.sp)
                                 Spacer(Modifier.width(5.dp))
                             }
-                            Text(it, color = npFaint, fontSize = 9.5.sp,
+                            Text(it, color = npFaint, fontSize = 12.sp,
                                 fontFamily = npMono, fontWeight = FontWeight.Bold,
                                 modifier = Modifier.weight(1f))
                             // ⭐ The COUNT on a folded section. Without it a
                             // rider has no reason to open one.
                             if (canFold && !open && s.lines.isNotEmpty()) {
-                                Text("${s.lines.size}", color = npDim, fontSize = 10.sp,
+                                Text("${s.lines.size}", color = npDim, fontSize = 12.sp,
                                     fontFamily = npMono)
                             }
                         }
@@ -148,16 +148,16 @@ fun GtNotesPanel(
                         NoteStyle.WARN ->
                             s.lines.forEach {
                                 Surface(shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFF241D0E),
+                                    color = Gt.panel,
                                     modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp)) {
-                                    Text(it, color = Color(0xFFD8CBA8), fontSize = 12.sp,
+                                    Text(it, color = Gt.warn, fontSize = 12.sp,
                                         lineHeight = 18.sp,
                                         modifier = Modifier.padding(11.dp, 10.dp))
                                 }
                             }
                         NoteStyle.QUIET ->
                             s.lines.forEach {
-                                Text(it, color = npFaint, fontSize = 11.5.sp,
+                                Text(it, color = npFaint, fontSize = 12.sp,
                                     lineHeight = 17.sp,
                                     modifier = Modifier.padding(bottom = 4.dp))
                             }
@@ -187,12 +187,12 @@ fun GtNotesPanel(
                         acts.forEach { (label, action) ->
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = Color(0xFF12203A),
+                                color = Gt.panel,
                                 modifier = Modifier.fillMaxWidth()
                                     .padding(bottom = 7.dp)
                                     .clickable { action() }
                             ) {
-                                Text(label, color = Color(0xFF58A6FF), fontSize = 12.sp,
+                                Text(label, color = Gt.accent, fontSize = 12.sp,
                                     fontFamily = npMono, fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(13.dp, 11.dp))
                             }
@@ -203,7 +203,7 @@ fun GtNotesPanel(
                 footer?.takeIf { it.isNotBlank() }?.let {
                     Surface(shape = RoundedCornerShape(7.dp), color = npCard,
                         modifier = Modifier.fillMaxWidth()) {
-                        Text(it, color = npFaint, fontSize = 11.5.sp, lineHeight = 17.sp,
+                        Text(it, color = npFaint, fontSize = 12.sp, lineHeight = 17.sp,
                             modifier = Modifier.padding(12.dp, 11.dp))
                     }
                 }

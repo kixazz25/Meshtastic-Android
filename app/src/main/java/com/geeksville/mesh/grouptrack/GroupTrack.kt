@@ -1,5 +1,6 @@
 package com.geeksville.mesh.grouptrack
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background   // GRPONEMAP-2026-10-22
 import androidx.compose.foundation.clickable   // GRPONEMAP-2026-10-22
 import androidx.compose.foundation.layout.Arrangement
@@ -58,7 +59,7 @@ private fun GtMenuLine(label: String, live: Boolean, indent: Boolean, onTap: () 
     val s = GtScheme.current.value
     Text(
         if (live) label else "$label  \u00b7  not attached yet",
-        color = if (live) s.panelText else GtColors.Dim,
+        color = if (live) s.panelText else Gt.dim,
         fontSize = 16.sp, fontWeight = if (live) FontWeight.SemiBold else FontWeight.Normal,
         modifier = Modifier.fillMaxWidth().clickable(enabled = live, onClick = onTap)
             .padding(start = if (indent) 20.dp else 2.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)
@@ -102,6 +103,10 @@ fun GroupTrackLaunchLayer(
     val openModule = LaunchModules.all.firstOrNull { it.id == open }
     // GTROUTE1-2026-10-23: the in-progress picker's "+ Plan a new route" -> the Route panel's choices.
     androidx.compose.runtime.LaunchedEffect(GtRoute.wantChooser.value) { if (GtRoute.wantChooser.value) { GtRoute.wantChooser.value = false; open = "route" } }
+    // RIDESEARCH-2026-10-24: Rides > Create a ride opens Search first.
+    androidx.compose.runtime.LaunchedEffect(GtRideStart.wantSearch.value) { if (GtRideStart.wantSearch.value) { GtRideStart.wantSearch.value = false; open = "search" } }
+    // RIDESEARCH3-2026-10-24: Search's PROCEED TO RIDE CREATION.
+    androidx.compose.runtime.LaunchedEffect(GtRideStart.wantProceed.value) { if (GtRideStart.wantProceed.value) { GtRideStart.wantProceed.value = false; open = ""; actions["rides.ride.form"]?.invoke() } }
     // MAPTARGET4-2026-10-23 (Fred 09:54): maps downloading -> the Map button is GREEN with a dot; the menu's summary says so.
     val mapsDownloading = com.geeksville.mesh.convoy.DownloadQueueManager.queue.collectAsState().value.any {
         it.status == com.geeksville.mesh.convoy.QueueStatus.DOWNLOADING || it.status == com.geeksville.mesh.convoy.QueueStatus.QUEUED }
@@ -144,7 +149,7 @@ fun GroupTrackLaunchLayer(
                             .clickable { tap(m) }
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
-                    ) { Text(m.label, color = androidx.compose.ui.graphics.Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+                    ) { Text(m.label, color = Gt.text, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
                     "mode" -> GtButton(if (group) "Mode: Group" else "Mode: Android only", { tap(m) })   // SHELL4 (Fred 10:21)
                     "internet" -> GtButton(if (online) "Status: Online" else "Status: Offline", { tap(m) })   // SHELL4 (Fred 10:21)
                     "maptype" -> GtButton("Map: " + mapType + " \u25be", { tap(m) })   // MAPCHIP-2026-10-23
@@ -168,8 +173,26 @@ fun GroupTrackLaunchLayer(
                     if (m.id == "route") {
                         if (!onRide) GtButton("Add Route", { if (!GtRoute.precheck()) tap(m) })   // GTROUTE1-2026-10-23: checks BEFORE the choices
                         else if (group) GtButton(if (showingGroup) "View: Group" else "View: My Cart", onToggleView)
-                    } else if (m.id == "map" && mapsDownloading) GtButton(m.label + "  \u25cf", { tap(m) }, emphasis = androidx.compose.ui.graphics.Color(0xFF35C46A))   // MAPTARGET4
+                    } else if (m.id == "map" && mapsDownloading) GtButton(m.label + "  \u25cf", { tap(m) }, emphasis = Gt.good)   // MAPTARGET4
                     else GtButton(m.label, { tap(m) })
+                }
+            }
+        }
+
+        // RIDESEARCH-2026-10-24: step 2 of Create a ride -- Search has closed and the map shows the area; the form lists its routes.
+        if (GtRideStart.pending.value && open != "search") {
+            val rs = GtScheme.current.value
+            androidx.compose.foundation.layout.Column(Modifier.align(Alignment.BottomCenter).padding(start = 8.dp, end = 8.dp, bottom = 76.dp)
+                    .background(rs.panel, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                    .border(1.dp, rs.edge, androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.Text("Create a ride: move the map to where you will ride", color = rs.panelText,
+                    fontSize = 15.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                    GtButton("SEARCH", { open = "search" })
+                    GtButton("PROCEED TO RIDE CREATION", { actions["rides.ride.form"]?.invoke() })   // RIDESEARCH3-2026-10-24
+                    GtButton("CANCEL", { GtRideStart.cancel() })
                 }
             }
         }
@@ -230,7 +253,7 @@ fun GroupTrackLaunchLayer(
                             if (actions[pr.id] != null) pr.label else "${pr.label}  ·  not attached yet",   // ATTACH1-2026-10-22: the bridge decides
                             { actions[pr.id]?.let { act -> if (!openModule.stays) open = ""; act() } },
                             modifier = Modifier.fillMaxWidth(),
-                            emphasis = if (actions[pr.id] != null) androidx.compose.ui.graphics.Color.Unspecified else GtColors.Dim,
+                            emphasis = if (actions[pr.id] != null) androidx.compose.ui.graphics.Color.Unspecified else Gt.dim,
                             enabled = actions[pr.id] != null
                         )
                     }

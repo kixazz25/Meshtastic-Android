@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -55,13 +56,13 @@ object ConfigReviewLauncher {
 }
 
 private const val NOW = CommConfig.RADIO_NOW   // SAVEDCFG-2026-10-12
-private val RBG = Color(0xF20F1216)
-private val RCARD = Color(0xFF161B22)
-private val RSEL = Color(0xFF1F4E79)
-private val RINK = Color(0xFFE8EEF5)
-private val RDIM = Color(0xFF8B949E)
-private val RACC = Color(0xFF58A6FF)
-private val RWARN = Color(0xFFE3B341)
+private val RBG: Color get() = Gt.panel  // STD1-2026-10-24 was 0xF20F1216 
+private val RCARD: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF161B22 
+private val RSEL: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF1F4E79 
+private val RINK: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFE8EEF5 
+private val RDIM: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF8B949E 
+private val RACC: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF58A6FF 
+private val RWARN: Color get() = Gt.warn  // STD1-2026-10-24 was 0xFFE3B341 
 
 @Composable
 fun ConfigReviewScreen(
@@ -159,7 +160,7 @@ fun ConfigReviewScreen(
                 }
                 else -> Text("Tap a config, then Apply or Compare.", color = RINK)
             }
-            if (message.isNotEmpty()) Text(message, color = Color(0xFFF85149), fontSize = 13.sp)
+            if (message.isNotEmpty()) Text(message, color = Gt.bad, fontSize = 13.sp)
             Spacer(Modifier.height(10.dp))
             // the list, or the comparison -- scrolls under the actions
             Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
@@ -173,7 +174,7 @@ fun ConfigReviewScreen(
                                 .background(if (on) RSEL else RCARD, RoundedCornerShape(8.dp))
                                 .clickable { tap(k) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         ) {
-                            Text(titleOf(k), color = if (on) Color.White else RINK, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(titleOf(k), color = if (on) Gt.text else RINK, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             Text(detailOf(k), color = RDIM, fontSize = 12.sp)
                         }
                     }

@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -43,15 +44,15 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 
 // Meshtastic palette (matches ConvoyEmailGateScreen)
-private val MshBg        = Color(0xFF101510)
-private val MshSurface   = Color(0xFF1C211C)
-private val MshSurfaceHi = Color(0xFF262B26)
-private val MshPrimary   = Color(0xFF97D5A5)
-private val MshPrimCont  = Color(0xFF15512C)
-private val MshOnSurf    = Color(0xFFDFE4DC)
-private val MshVariant   = Color(0xFFC1C9BF)
-private val MshOutline   = Color(0xFF8B938A)
-private val MshError     = Color(0xFFFFB4AB)
+private val MshBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF101510 
+private val MshSurface: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF1C211C 
+private val MshSurfaceHi: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF262B26 
+private val MshPrimary: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF97D5A5 
+private val MshPrimCont: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF15512C 
+private val MshOnSurf: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFDFE4DC 
+private val MshVariant: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFC1C9BF 
+private val MshOutline: Color get() = Gt.line  // STD1-2026-10-24 was 0xFF8B938A 
+private val MshError: Color get() = Gt.bad  // STD1-2026-10-24 was 0xFFFFB4AB 
 
 /**
  * ConvoyAuthorityGateScreenV2
@@ -768,7 +769,7 @@ fun ConvoyAuthorityGateScreenV2(
                         // Solid red. A blink cost two compiles and buys nothing.
                         Text(
                             "SYSTEM HOUSEKEEPING",
-                            color = Color(0xFFFF4444),
+                            color = Gt.bad,
                             fontSize = 20.sp,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -777,7 +778,7 @@ fun ConvoyAuthorityGateScreenV2(
                         Text(
                             "Updating trail data for this release.\n" +
                                 "DO NOT INTERRUPT \u2014 this takes a moment.",
-                            color = Color(0xFFE6EDF3), fontSize = 14.sp,
+                            color = Gt.text, fontSize = 14.sp,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
@@ -948,7 +949,7 @@ fun ConvoyAuthorityGateScreenV2(
                         Spacer(Modifier.height(18.dp))
                         Text(
                             "SYSTEM HOUSEKEEPING",
-                            color = Color(0xFFFF4444),
+                            color = Gt.bad,
                             fontSize = 18.sp,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -957,7 +958,7 @@ fun ConvoyAuthorityGateScreenV2(
                         Text(
                             "Updating trail data for this release.\n" +
                                 "Please wait \u2014 do not interrupt.",
-                            color = Color(0xFFE6EDF3), fontSize = 13.sp,
+                            color = Gt.text, fontSize = 13.sp,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }

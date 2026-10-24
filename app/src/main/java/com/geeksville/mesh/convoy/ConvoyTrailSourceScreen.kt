@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.clickable
@@ -33,13 +34,13 @@ import org.json.JSONObject
 // ----------------------------------------------------------------
 
 private val mono = FontFamily.Monospace
-private val txtB = Color(0xFFCCDDEE)
-private val txtD = Color(0xFFFFFFFF)
-private val blue = Color(0xFF4DA6FF)
-private val green = Color(0xFF1CF0A0)
-private val orange = Color(0xFFD29922)
-private val bg = Color(0xFF0E1117)
-private val cardBg = Color(0xFF1A2233)
+private val txtB: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFFCCDDEE 
+private val txtD: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFFFFFFF 
+private val blue: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4DA6FF 
+private val green: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF1CF0A0 
+private val orange: Color get() = Gt.warn  // STD1-2026-10-24 was 0xFFD29922 
+private val bg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0E1117 
+private val cardBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF1A2233 
 
 private enum class ImportStep {
     METHOD_SELECT,
@@ -178,7 +179,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { step = ImportStep.METHOD_SELECT }) {
-                            Text("BACK", fontFamily = mono, fontSize = 10.sp)
+                            Text("BACK", fontFamily = mono, fontSize = 12.sp)
                         }
                         Button(
                             onClick = {
@@ -188,9 +189,9 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                                 }
                             },
                             enabled = selectedSourceId != null,
-                            colors = ButtonDefaults.buttonColors(containerColor = blue)
+                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f))
                         ) {
-                            Text("VALIDATE", fontFamily = mono, fontSize = 10.sp)
+                            Text("VALIDATE", fontFamily = mono, fontSize = 12.sp)
                         }
                     }
 
@@ -215,11 +216,11 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFF0D3320)
+                            color = Gt.panel
                         ) {
                             Text(
                                 "\u2713 Source format valid \u00b7 \u2713 No active import",
-                                color = green, fontSize = 9.sp, fontFamily = mono,
+                                color = green, fontSize = 12.sp, fontFamily = mono,
                                 modifier = Modifier.padding(8.dp)
                             )
                         }
@@ -230,11 +231,11 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(4.dp),
-                                color = Color(0xFFFF8C42).copy(alpha = 0.1f)
+                                color = Gt.warn.copy(alpha = 0.1f)
                             ) {
                                 Text(
                                     "Trailhead waypoint data available — will import automatically",
-                                    color = Color(0xFFFF8C42), fontSize = 9.sp, fontFamily = mono,
+                                    color = Gt.warn, fontSize = 12.sp, fontFamily = mono,
                                     modifier = Modifier.padding(8.dp)
                                 )
                             }
@@ -243,7 +244,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { step = ImportStep.A1_SOURCE_SELECT }) {
-                                Text("BACK", fontFamily = mono, fontSize = 10.sp)
+                                Text("BACK", fontFamily = mono, fontSize = 12.sp)
                             }
                             Button(
                                 onClick = {
@@ -263,9 +264,9 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                                         importRunning = false
                                     }
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = green)
+                                colors = ButtonDefaults.buttonColors(containerColor = green.copy(alpha = 0.18f))
                             ) {
-                                Text("IMPORT TRAILS", fontFamily = mono, fontSize = 10.sp,
+                                Text("IMPORT TRAILS", fontFamily = mono, fontSize = 12.sp,
                                     color = Color.Black)
                             }
                         }
@@ -281,14 +282,14 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                         val total = importProgress.inserted + importProgress.skipped
                         Text(
                             "$total trails processed",
-                            color = Color.White, fontSize = 18.sp, fontFamily = mono,
+                            color = Gt.text, fontSize = 18.sp, fontFamily = mono,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.align(Alignment.CenterHorizontally)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             "${importProgress.fetched} read  \u00b7  ${importProgress.rejected} outside area  \u00b7  ${importProgress.inserted} imported  \u00b7  ${importProgress.skipped} dupes",
-                            color = txtD, fontSize = 9.sp, fontFamily = mono,
+                            color = txtD, fontSize = 12.sp, fontFamily = mono,
                             modifier = Modifier.align(Alignment.CenterHorizontally)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -296,12 +297,12 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                         LinearProgressIndicator(
                             modifier = Modifier.fillMaxWidth().height(6.dp),
                             color = green,
-                            trackColor = Color(0xFF1A2A3A)
+                            trackColor = Gt.panel
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             "Page ${(importProgress.offset / 2000) + 1}  \u00b7  offset ${importProgress.offset}",
-                            color = txtD, fontSize = 8.sp, fontFamily = mono,
+                            color = txtD, fontSize = 12.sp, fontFamily = mono,
                             modifier = Modifier.align(Alignment.CenterHorizontally)
                         )
                     }
@@ -310,17 +311,17 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFF0D3320)
+                            color = Gt.panel
                         ) {
-                            Text(importResult!!, color = green, fontSize = 10.sp,
+                            Text(importResult!!, color = green, fontSize = 12.sp,
                                 fontFamily = mono, modifier = Modifier.padding(10.dp))
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = { onNavigateBack() },
-                            colors = ButtonDefaults.buttonColors(containerColor = blue)
+                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f))
                         ) {
-                            Text("DONE", fontFamily = mono, fontSize = 10.sp)
+                            Text("DONE", fontFamily = mono, fontSize = 12.sp)
                         }
                     }
                 }
@@ -334,21 +335,21 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text("[ Area selector — requires map JS bridge ]\nDraw rectangle on map to define import boundary",
-                                color = txtD, fontSize = 10.sp, fontFamily = mono,
+                                color = txtD, fontSize = 12.sp, fontFamily = mono,
                                 modifier = Modifier.padding(16.dp))
                         }
                     }
                     Text("Bounding area is transient — not saved.",
-                        color = txtD, fontSize = 8.sp, fontFamily = mono)
+                        color = txtD, fontSize = 12.sp, fontFamily = mono)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { step = ImportStep.METHOD_SELECT }) {
-                            Text("CANCEL", fontFamily = mono, fontSize = 10.sp)
+                            Text("CANCEL", fontFamily = mono, fontSize = 12.sp)
                         }
                         Button(
                             onClick = { step = ImportStep.B2_SUGGESTED },
-                            colors = ButtonDefaults.buttonColors(containerColor = blue)
+                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f))
                         ) {
-                            Text("FIND SOURCES", fontFamily = mono, fontSize = 10.sp)
+                            Text("FIND SOURCES", fontFamily = mono, fontSize = 12.sp)
                         }
                     }
                 }
@@ -363,7 +364,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                     SectionLabel("SOURCES IN AREA")
                     Text(String.format("%.2f\u00b0N to %.2f\u00b0N  \u00b7  %.2f\u00b0W to %.2f\u00b0W",
                         aS, aN, Math.abs(aW), Math.abs(aE)),
-                        color = txtD, fontSize = 8.sp, fontFamily = mono)
+                        color = txtD, fontSize = 12.sp, fontFamily = mono)
                     Spacer(modifier = Modifier.height(6.dp))
                     // Filter sources by boundary overlap with drawn area
                     val overlapping = sources.filter { src ->
@@ -373,7 +374,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                     }
                     if (overlapping.isEmpty()) {
                         Text("No sources found with trails in this area.",
-                            color = txtD, fontSize = 10.sp, fontFamily = mono)
+                            color = txtD, fontSize = 12.sp, fontFamily = mono)
                     }
                     overlapping.forEach { src ->
                         val imported = TrailImporter.isSourceFullyImported(src.id)
@@ -388,7 +389,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                                     else selectedSourceIds + src.id
                             },
                             shape = RoundedCornerShape(6.dp),
-                            color = if (imported) Color(0xFF0D3320) else if (checked) Color(0xFF1A3050) else cardBg,
+                            color = if (imported) Gt.text.copy(alpha = 0.18f) else cardBg,
                             border = if (checked) androidx.compose.foundation.BorderStroke(1.dp, green) else null
                         ) {
                             Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -403,13 +404,13 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                                 )
                                 Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                                     Text(src.name, color = if (imported) green else txtB,
-                                        fontSize = 11.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
+                                        fontSize = 12.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
                                     if (imported) {
                                         Text("IMPORTED \u00b7 tap to re-import", color = green,
-                                            fontSize = 9.sp, fontFamily = mono)
+                                            fontSize = 12.sp, fontFamily = mono)
                                     } else {
                                         Text("${src.trailCount} trails | ${src.scope}",
-                                            color = txtD, fontSize = 9.sp, fontFamily = mono)
+                                            color = txtD, fontSize = 12.sp, fontFamily = mono)
                                     }
                                 }
                             }
@@ -419,14 +420,14 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { onNavigateBack() }) {
-                            Text("CANCEL", fontFamily = mono, fontSize = 10.sp)
+                            Text("CANCEL", fontFamily = mono, fontSize = 12.sp)
                         }
                         Button(
                             onClick = { step = ImportStep.B3_VALIDATE },
                             enabled = selectedSourceIds.isNotEmpty(),
-                            colors = ButtonDefaults.buttonColors(containerColor = blue)
+                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f))
                         ) {
-                            Text("VALIDATE ${selectedSourceIds.size} SOURCES", fontFamily = mono, fontSize = 10.sp)
+                            Text("VALIDATE ${selectedSourceIds.size} SOURCES", fontFamily = mono, fontSize = 12.sp)
                         }
                     }
                 }
@@ -437,12 +438,12 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                     val selectedSources = sources.filter { it.id in selectedSourceIds }
                     selectedSources.forEach { src ->
                         Surface(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                            shape = RoundedCornerShape(4.dp), color = Color(0xFF0D3320)) {
+                            shape = RoundedCornerShape(4.dp), color = Gt.panel) {
                             Column(modifier = Modifier.padding(8.dp)) {
-                                Text("\u2713 ${src.name}", color = green, fontSize = 10.sp,
+                                Text("\u2713 ${src.name}", color = green, fontSize = 12.sp,
                                     fontFamily = mono, fontWeight = FontWeight.Bold)
                                 Text("${src.agency} | ${src.format} | ${src.trailCount} trails",
-                                    color = txtD, fontSize = 8.sp, fontFamily = mono)
+                                    color = txtD, fontSize = 12.sp, fontFamily = mono)
                             }
                         }
                     }
@@ -451,12 +452,12 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                     if (bbox != null) {
                         Text(String.format("Area: %.2f\u00b0N to %.2f\u00b0N",
                             bbox.optDouble("south", 0.0), bbox.optDouble("north", 0.0)),
-                            color = txtD, fontSize = 8.sp, fontFamily = mono)
+                            color = txtD, fontSize = 12.sp, fontFamily = mono)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { step = ImportStep.B2_SUGGESTED }) {
-                            Text("BACK", fontFamily = mono, fontSize = 10.sp)
+                            Text("BACK", fontFamily = mono, fontSize = 12.sp)
                         }
                         Button(
                             onClick = {
@@ -491,9 +492,9 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                                     importRunning = false
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = green)
+                            colors = ButtonDefaults.buttonColors(containerColor = green.copy(alpha = 0.18f))
                         ) {
-                            Text("IMPORT AREA TRAILS", fontFamily = mono, fontSize = 10.sp, color = Color.Black)
+                            Text("IMPORT AREA TRAILS", fontFamily = mono, fontSize = 12.sp, color = Color.Black)
                         }
                     }
                 }
@@ -506,34 +507,34 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                         val total = importProgress.inserted + importProgress.skipped
                         Spacer(modifier = Modifier.height(12.dp))
                         Text("$total trails processed",
-                            color = Color.White, fontSize = 18.sp, fontFamily = mono,
+                            color = Gt.text, fontSize = 18.sp, fontFamily = mono,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.align(Alignment.CenterHorizontally))
                         Spacer(modifier = Modifier.height(4.dp))
                         Text("${importProgress.fetched} read  \u00b7  ${importProgress.rejected} outside area  \u00b7  ${importProgress.inserted} imported  \u00b7  ${importProgress.skipped} dupes",
-                            color = txtD, fontSize = 9.sp, fontFamily = mono,
+                            color = txtD, fontSize = 12.sp, fontFamily = mono,
                             modifier = Modifier.align(Alignment.CenterHorizontally))
                         Spacer(modifier = Modifier.height(4.dp))
                         Text("Source: ${importProgress.sourceName}",
-                            color = blue, fontSize = 9.sp, fontFamily = mono,
+                            color = blue, fontSize = 12.sp, fontFamily = mono,
                             modifier = Modifier.align(Alignment.CenterHorizontally))
                         Spacer(modifier = Modifier.height(8.dp))
                         LinearProgressIndicator(
                             modifier = Modifier.fillMaxWidth().height(6.dp),
-                            color = green, trackColor = Color(0xFF1A2A3A))
+                            color = green, trackColor = Gt.panel)
                     }
                     if (importResult != null) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(4.dp), color = Color(0xFF0D3320)) {
-                            Text(importResult!!, color = green, fontSize = 10.sp,
+                        Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(4.dp), color = Gt.panel) {
+                            Text(importResult!!, color = green, fontSize = 12.sp,
                                 fontFamily = mono, modifier = Modifier.padding(10.dp))
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = { onNavigateBack() },
-                            colors = ButtonDefaults.buttonColors(containerColor = blue)
+                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f))
                         ) {
-                            Text("DONE", fontFamily = mono, fontSize = 10.sp)
+                            Text("DONE", fontFamily = mono, fontSize = 12.sp)
                         }
                     }
                 }
@@ -546,7 +547,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
 
 @Composable
 private fun SectionLabel(text: String) {
-    Text(text, color = txtD, fontSize = 10.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
+    Text(text, color = txtD, fontSize = 12.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
 }
 
 @Composable
@@ -554,13 +555,13 @@ private fun MethodCard(title: String, desc: String, selected: Boolean, onClick: 
     Surface(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(8.dp),
-        color = if (selected) Color(0xFF1A3050) else cardBg,
+        color = cardBg,
         border = if (selected) androidx.compose.foundation.BorderStroke(1.dp, blue) else null
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            Text(title, color = txtB, fontSize = 12.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
+            Text((if (selected) "\u2713 " else "") + title, color = txtB, fontSize = 12.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(desc, color = txtD, fontSize = 10.sp, fontFamily = mono)
+            Text(desc, color = txtD, fontSize = 12.sp, fontFamily = mono)
         }
     }
 }
@@ -570,7 +571,7 @@ private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, isImpor
     Surface(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(6.dp),
-        color = if (isImported) Color(0xFF0D3320) else if (isSelected) Color(0xFF1A3050) else cardBg,
+        color = if (isImported) Gt.text.copy(alpha = 0.18f) else cardBg,
         border = if (isImported) androidx.compose.foundation.BorderStroke(1.dp, green.copy(alpha = 0.5f))
                  else if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, green) else null
     ) {
@@ -587,17 +588,17 @@ private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, isImpor
                 Text("\u2705", fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
             }
             Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                Text(source.name, color = if (isImported) Color(0xFFFFFFFF) else txtB,
-                    fontSize = 11.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
+                Text(source.name, color = if (isImported) Gt.text else txtB,
+                    fontSize = 12.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
                 if (isImported) {
-                    Text("IMPORTED", color = green, fontSize = 9.sp, fontFamily = mono)
+                    Text("IMPORTED", color = green, fontSize = 12.sp, fontFamily = mono)
                     if (source.trailheadAsset != null) {
-                        Text("+ trailhead data available", color = Color(0xFFFF8C42),
-                            fontSize = 8.sp, fontFamily = mono)
+                        Text("+ trailhead data available", color = Gt.warn,
+                            fontSize = 12.sp, fontFamily = mono)
                     }
                 } else {
                     Text("${source.format} | ${source.scope} | ${source.trailCount} trails",
-                        color = txtD, fontSize = 9.sp, fontFamily = mono)
+                        color = txtD, fontSize = 12.sp, fontFamily = mono)
                 }
             }
         }
@@ -607,9 +608,9 @@ private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, isImpor
 @Composable
 private fun ValidationRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Text(label, color = txtD, fontSize = 10.sp, fontFamily = mono,
+        Text(label, color = txtD, fontSize = 12.sp, fontFamily = mono,
             modifier = Modifier.width(100.dp))
-        Text(value, color = txtB, fontSize = 10.sp, fontFamily = mono)
+        Text(value, color = txtB, fontSize = 12.sp, fontFamily = mono)
     }
 }
 

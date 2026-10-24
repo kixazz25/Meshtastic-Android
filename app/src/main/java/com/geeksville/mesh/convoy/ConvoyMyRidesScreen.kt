@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -60,21 +61,21 @@ fun ConvoyMyRidesScreen(
         GroupTrackHeader(subtitle = "My Rides")
 
         TabRow(selectedTabIndex = selectedTab,
-            containerColor = Color(0xFF0A1628),
-            contentColor = Color(0xFF4AB8E8)) {
+            containerColor = Gt.panel,
+            contentColor = Gt.accent) {
             tabs.forEachIndexed { i, title ->
                 Tab(selected = selectedTab == i, onClick = { selectedTab = i },
                     text = {
-                        Text(text = title, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                        Text(text = title, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp,
-                            color = if (selectedTab == i) Color(0xFF4AB8E8) else Color(0xFFFFFFFF))
+                            color = if (selectedTab == i) Gt.accent else Gt.text)
                     })
             }
         }
 
         if (filteredRides.isEmpty()) {
             Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Text(text = "No rides in this category", color = Color(0xFFFFFFFF), fontSize = 12.sp)
+                Text(text = "No rides in this category", color = Gt.text, fontSize = 12.sp)
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f),
@@ -83,33 +84,33 @@ fun ConvoyMyRidesScreen(
                 items(filteredRides) { ride ->
                     var isFollowing by remember { mutableStateOf(false) }
                     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF0F2035)).clickable { onNavigateToRideDetail() }
+                        .background(Gt.panel).clickable { onNavigateToRideDetail() }
                         .padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = ride["name"] ?: "", color = Color.White, fontSize = 13.sp,
+                            Text(text = ride["name"] ?: "", color = Gt.text, fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                             val status = ride["status"] ?: ""
                             val color = when (status) {
-                                "ORGANIZED" -> Color(0xFF4AB8E8)
-                                "ENROLLED" -> Color(0xFF22C55E)
-                                "COMPLETED" -> Color(0xFFFFFFFF)
-                                else -> Color(0xFFFFFFFF)
+                                "ORGANIZED" -> Gt.accent
+                                "ENROLLED" -> Gt.good
+                                "COMPLETED" -> Gt.text
+                                else -> Gt.text
                             }
-                            Text(text = status, color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text(text = status, color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                         Text(text = "${ride["date"]}  ·  ${ride["time"]}",
-                            color = Color(0xFFFFFFFF), fontSize = 11.sp)
+                            color = Gt.text, fontSize = 12.sp)
                         Text(text = "Organizer: ${ride["organizer"]}  ·  ${ride["email"]}",
-                            color = Color(0xFFFFFFFF), fontSize = 11.sp)
+                            color = Gt.text, fontSize = 12.sp)
 
                         // Device readiness icons
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.padding(top = 4.dp)) {
-                            Text(text = "🗺 ⏳", fontSize = 11.sp)
-                            Text(text = "📡 ⚠️", fontSize = 11.sp)
-                            Text(text = "📋 ✅", fontSize = 11.sp)
+                            Text(text = "🗺 ⏳", fontSize = 12.sp)
+                            Text(text = "📡 ⚠️", fontSize = 12.sp)
+                            Text(text = "📋 ✅", fontSize = 12.sp)
                         }
 
                         // Follow checkbox
@@ -118,18 +119,18 @@ fun ConvoyMyRidesScreen(
                             modifier = Modifier.padding(top = 2.dp).clickable(onClick = {})
                         ) {
                             Box(modifier = Modifier.size(14.dp).clip(RoundedCornerShape(3.dp))
-                                .background(if (isFollowing) Color(0xFF4AB8E8) else Color(0xFF1A3050))
+                                .background(if (isFollowing) Gt.accent.copy(alpha = 0.22f) else Gt.panel)
                                 .clickable { isFollowing = !isFollowing })
                             Text(text = if (isFollowing) "Following organizer" else "Follow organizer",
-                                color = if (isFollowing) Color(0xFF4AB8E8) else Color(0xFFFFFFFF),
-                                fontSize = 10.sp)
+                                color = if (isFollowing) Gt.accent else Gt.text,
+                                fontSize = 12.sp)
                         }
                     }
                 }
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628)).padding(vertical = 8.dp),
+        Row(modifier = Modifier.fillMaxWidth().background(Gt.panel).padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly) {
             BottomNavBtn("🗺", "MAP") { onBack() }
             BottomNavBtn("＋", "+RIDE") { onNavigateToCreateRide() }
@@ -143,7 +144,7 @@ private fun BottomNavBtn(icon: String, label: String, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable { onClick() }.padding(horizontal = 16.dp, vertical = 4.dp)) {
         Text(text = icon, fontSize = 18.sp)
-        Text(text = label, color = Color(0xFF4AB8E8), fontSize = 8.sp,
+        Text(text = label, color = Gt.accent, fontSize = 12.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }

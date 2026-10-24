@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -69,7 +70,7 @@ fun WorkWithRidesMenu(
             Column(modifier = Modifier.padding(18.dp).verticalScroll(rememberScrollState())) {
 
                 // Title — long press opens the developer panel (moved from the old menu title).
-                Text("WORK WITH RIDES", color = Color(0xFF97D5A5), fontSize = 15.sp,
+                Text("WORK WITH RIDES", color = Gt.accent, fontSize = 15.sp,
                     fontWeight = FontWeight.Bold, letterSpacing = 3.sp,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
                         .combinedClickable(onClick = {}, onLongClick = { onDismiss(); onDeveloperSettings() }))
@@ -82,18 +83,18 @@ fun WorkWithRidesMenu(
                     // discontinued standalone T1000-E line; renamed the saved-configs entry. Labels only.
                     WwrEntry("Compare / Apply Archive Configs", built = true) { onDismiss(); onReviewSavedConfigs() }
                 } else {
-                    Text("Choose the ride to send", color = Color(0xFFE8EEF5), fontSize = 13.sp,
+                    Text("Choose the ride to send", color = Gt.text, fontSize = 13.sp,
                         modifier = Modifier.padding(bottom = 8.dp))
                     // DATEFILTER-2026-09-24: today or later; tick to include the last 30 days.
                     Text((if (includeRecent) "\u2611" else "\u2610") + "  Include rides from the last 30 days",
-                        color = Color(0xFFE8EEF5), fontSize = 13.sp,
+                        color = Gt.text, fontSize = 13.sp,
                         modifier = Modifier.fillMaxWidth().clickable { includeRecent = !includeRecent }.padding(vertical = 8.dp))
                     val rides = remember(includeRecent) {
                         loadRideChoices(context).filter { RideApplySource.isCurrent(it.date, includeRecent) }
                     }
                     if (rides.isEmpty()) {
                         Text("No rides on this tablet yet. Create one from a route on the planning map.",
-                            color = Color(0xFFE8A33D), fontSize = 13.sp)
+                            color = Gt.warn, fontSize = 13.sp)
                     }
                     rides.forEach { r ->
                         WwrEntry(r.name + "  \u00b7  " + r.date + "  \u00b7  " + stateLabel(r), built = true) {
@@ -106,7 +107,7 @@ fun WorkWithRidesMenu(
 
                 if (status.isNotBlank()) {
                     Spacer(Modifier.height(10.dp))
-                    Text(status, color = Color(0xFFE8A33D), fontSize = 13.sp)
+                    Text(status, color = Gt.warn, fontSize = 13.sp)
                 }
             }
         }
@@ -131,7 +132,7 @@ object WorkWithRidesLauncher {
 private fun WwrEntry(label: String, built: Boolean, onClick: () -> Unit) {
     Text(
         text = if (built) label else "$label  (coming in 2.7)",
-        color = if (built) Color(0xFFE8EEF5) else Color(0xFF8B938A),
+        color = if (built) Gt.text else Gt.dim,
         fontSize = 14.sp,
         modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 11.dp)
     )

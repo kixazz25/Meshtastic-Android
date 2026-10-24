@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -48,14 +49,14 @@ import androidx.compose.ui.draw.clip
 // Grid: Type | Display | Edit/Display | Import
 // ----------------------------------------------------------------
 
-private val aPanelBg  = Color(0xEE131820)
+private val aPanelBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xEE131820 
 // DEADCODE2-2026-10-23: aRowBg (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyArtifactsPanel.pieces.txt
 // DEADCODE2-2026-10-23: aTxtB (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyArtifactsPanel.pieces.txt
-private val aTxtD     = Color(0xFF7A8DA0)
-private val aBlue     = Color(0xFF4DA6FF)
-private val aGreen    = Color(0xFF1CF0A0)
-private val aOrange   = Color(0xFFD29922)
-private val aPurple   = Color(0xFFBC8CFF)
+private val aTxtD: Color get() = Gt.text  // STD1-2026-10-24 was 0xFF7A8DA0 
+private val aBlue: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4DA6FF 
+private val aGreen: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF1CF0A0 
+private val aOrange: Color get() = Gt.warn  // STD1-2026-10-24 was 0xFFD29922 
+private val aPurple: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFFBC8CFF 
 private val aMono     = FontFamily.Monospace
 
 @Composable
@@ -99,7 +100,7 @@ fun ConvoyArtifactsPanel(
                 Surface(
                     modifier = Modifier.width(40.dp).height(4.dp),
                     shape = RoundedCornerShape(2.dp),
-                    color = aTxtD.copy(alpha = 0.5f)
+                    color = aTxtD.copy(alpha = 0.18f)
                 ) {}
             }
             Spacer(modifier = Modifier.height(6.dp))
@@ -136,7 +137,7 @@ fun ConvoyArtifactsPanel(
                 Text(
                     // PLAINCTRL2-2026-08-17: matches the FAB that opens this panel.
                     "WORK WITH MAP FEATURES",
-                    color = aBlue, fontSize = 11.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
+                    color = aBlue, fontSize = 12.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
                 com.geeksville.mesh.grouptrack.GtHelpButton("map.features")   // GTMAP-2026-10-22
@@ -147,10 +148,10 @@ fun ConvoyArtifactsPanel(
                     // behind was what made the panel unfindable afterwards.
                     modifier = Modifier.clickable { onDismiss(); onCreateRoute() },
                     shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFF1A2A3A)
+                    color = Gt.panel
                 ) {
                     Text(
-                        "+ ROUTE", color = aPurple, fontSize = 9.sp,
+                        "+ ROUTE", color = aPurple, fontSize = 12.sp,
                         fontFamily = aMono, fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
@@ -178,13 +179,13 @@ fun ConvoyArtifactsPanel(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // PLAINLABELS-2026-08-17D: plain language. "Type" told a new rider nothing.
-                        Text("Map Feature", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
+                        Text("Map Feature", color = aTxtD, fontSize = 12.sp, fontFamily = aMono,
                             fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.2f))
                         // PLAINLABELS-2026-08-17D: labels the three display buttons to the right. The
                         // colour convention is otherwise unguessable -- the ACTIVE state draws a
                         // blue surface (0xFF2266CC), the others green (0xFF2D8B2D). Unconditional:
                         // the buttons appear on BOTH maps, so the header does too.
-                        Text("Display Action", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
+                        Text("Display Action", color = aTxtD, fontSize = 12.sp, fontFamily = aMono,
                             fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         if (!isConvoyMap) {
 
@@ -198,13 +199,13 @@ fun ConvoyArtifactsPanel(
                         modifier = Modifier.padding(start = 4.dp, bottom = 3.dp)
                     ) {
                         Box(modifier = Modifier.size(8.dp).background(
-                            Color(0xFF2266CC),
+                            Gt.accent.copy(alpha = 0.18f),
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp)))
-                        Text(" blue = on   ", color = aTxtD, fontSize = 8.sp, fontFamily = aMono)
+                        Text(" blue = on   ", color = aTxtD, fontSize = 12.sp, fontFamily = aMono)
                         Box(modifier = Modifier.size(8.dp).background(
-                            Color(0xFF2D8B2D),
+                            Gt.accent.copy(alpha = 0.18f),
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp)))
-                        Text(" green = available", color = aTxtD, fontSize = 8.sp, fontFamily = aMono)
+                        Text(" green = available", color = aTxtD, fontSize = 12.sp, fontFamily = aMono)
                     }
 
                     // Artifact rows
@@ -222,14 +223,14 @@ fun ConvoyArtifactsPanel(
                             // the row evenly rather than a new style beside two old ones.
                             Surface(
                                 modifier = Modifier.weight(1f).clickable { onImport("Trails") },
-                                shape = RoundedCornerShape(4.dp), color = Color(0xFF0D1520)
+                                shape = RoundedCornerShape(4.dp), color = Gt.panel
                             ) {
                                 // PANELBTN-2026-08-21E: LABEL ONLY. The clickable above
                                 // passes a dispatch key matched by string in
                                 // ConvoyMapViewerScreen -- it must not change with this
                                 // label. Two lines written explicitly so the break lands
                                 // where we chose it, not where the renderer wraps.
-                                Text("IMPORT TRAILS BY\nSTATE OR AREA", color = aGreen, fontSize = 8.sp,
+                                Text("IMPORT TRAILS BY\nSTATE OR AREA", color = aGreen, fontSize = 12.sp,
                                     fontFamily = aMono, fontWeight = FontWeight.Bold,
                                     // BTNLINE-2026-08-21J: the default lineHeight comes from the type
                                     // scale and does not shrink with fontSize, so two 8sp lines got
@@ -241,7 +242,7 @@ fun ConvoyArtifactsPanel(
                             }
                             Surface(
                                 modifier = Modifier.weight(1f).clickable { onImport("Artifacts") },
-                                shape = RoundedCornerShape(4.dp), color = Color(0xFF0D1520)
+                                shape = RoundedCornerShape(4.dp), color = Gt.panel
                             ) {
                                 // PLAINLABELS-2026-08-17D: label ONLY. The onImport argument on the
                                 // clickable above is a dispatch key matched in
@@ -249,7 +250,7 @@ fun ConvoyArtifactsPanel(
                                 // PANELBTN-2026-08-21E: names what it imports instead of the
                                 // category word. "Features" and "Trails" read as the same
                                 // thing to a rider; tracks/waypoints/routes do not.
-                                Text("IMPORT TRACKS,\nWAYPOINTS & ROUTES", color = aBlue, fontSize = 8.sp,
+                                Text("IMPORT TRACKS,\nWAYPOINTS & ROUTES", color = aBlue, fontSize = 12.sp,
                                     fontFamily = aMono, fontWeight = FontWeight.Bold,
                                     // BTNLINE-2026-08-21J: same tight leading as the button beside it --
                                     // both must shrink together or the row goes lopsided.
@@ -307,29 +308,29 @@ private fun ArtifactRow(
     Surface(
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         shape = RoundedCornerShape(4.dp),
-        color = Color(0xFF1A2233)
+        color = Gt.panel
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(typeName, color = typeColor, fontSize = 11.sp, fontFamily = aMono,
+            Text(typeName, color = typeColor, fontSize = 12.sp, fontFamily = aMono,
                 fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             // OFF button
             Surface(shape = RoundedCornerShape(3.dp),
-                color = if (state == 0) Color(0xFF2266CC) else Color(0xFF2D8B2D),
+                color = Gt.good.copy(alpha = 0.18f),
                 modifier = Modifier.clickable { onSetState(typeName, 0) }.padding(2.dp)) {
-                Text("OFF", color = if (state == 0) Color.White else Color(0xFF39FF14),
-                    fontSize = 10.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
+                Text((if (state == 0) "\u2713 " else "") + "OFF", color = if (state == 0) Gt.text else Gt.good,
+                    fontSize = 12.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
             }
             Spacer(Modifier.width(4.dp))
             // ALL button
             Surface(shape = RoundedCornerShape(3.dp),
-                color = if (state == 1) Color(0xFF2266CC) else Color(0xFF2D8B2D),
+                color = Gt.good.copy(alpha = 0.18f),
                 modifier = Modifier.clickable { onSetState(typeName, 1) }.padding(2.dp)) {
-                Text("ALL", color = if (state == 1) Color.White else Color(0xFF39FF14),
-                    fontSize = 10.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
+                Text((if (state == 1) "\u2713 " else "") + "ALL", color = if (state == 1) Gt.text else Gt.good,
+                    fontSize = 12.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
             }
             Spacer(Modifier.width(4.dp))
@@ -340,21 +341,20 @@ private fun ArtifactRow(
             // two choices are on and off."
             Surface(shape = RoundedCornerShape(3.dp),
                 color = when {
-                    noSelect -> Color(0xFF2A3038)
-                    state == 2 -> Color(0xFF2266CC)
-                    else -> Color(0xFF2D8B2D)
+                    noSelect -> Gt.panel
+                    else -> Gt.good.copy(alpha = 0.18f)
                 },
                 modifier = (if (noSelect) Modifier
                             else Modifier.clickable { onEditDisplay(typeName) })
                     .padding(2.dp)) {
                 // PLAINLABELS-2026-08-17D: plain-language label for the third toggle.
                 // These three are ACTIONS you tap, not states you read.
-                Text("SELECT", color = when {
-                        noSelect -> Color(0xFF5B646E)
-                        state == 2 -> Color.White
-                        else -> Color(0xFF39FF14)
+                Text((if (!noSelect && state == 2) "\u2713 " else "") + "SELECT", color = when {
+                        noSelect -> Gt.dim
+                        state == 2 -> Gt.text
+                        else -> Gt.good
                     },
-                    fontSize = 10.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
             }
         }

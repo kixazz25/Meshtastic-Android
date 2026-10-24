@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -72,7 +73,7 @@ fun TrailStylePanel(
 
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xF2000000),
+        color = Gt.panel,
         shadowElevation = 8.dp,
         modifier = modifier.width(330.dp),
     ) {
@@ -80,17 +81,17 @@ fun TrailStylePanel(
 
             Row(verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 9.dp)) {
-                Text(row.label.uppercase(), color = Color(0xFF8FD0FF),
+                Text(row.label.uppercase(), color = Gt.accent,
                     fontSize = 13.sp, fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.weight(1f))
                 Box(contentAlignment = Alignment.Center,
                     modifier = Modifier.width(26.dp).height(22.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF1B2027))
-                        .border(1.dp, Color(0xFF47505A), RoundedCornerShape(4.dp))
+                        .background(Gt.panel)
+                        .border(1.dp, Gt.line, RoundedCornerShape(4.dp))
                         .clickable { onCancel() }) {
-                    Text("\u2715", color = Color(0xFFE6EDF3), fontSize = 13.sp,
+                    Text("\u2715", color = Gt.text, fontSize = 13.sp,
                         fontWeight = FontWeight.Bold)
                 }
             }
@@ -118,7 +119,7 @@ fun TrailStylePanel(
                             .clip(RoundedCornerShape(5.dp))
                             .background(parseHex(hex))
                             .border(2.dp,
-                                if (hex.equals(c, true)) Color.White else Color.Transparent,
+                                if (hex.equals(c, true)) Gt.text else Color.Transparent,
                                 RoundedCornerShape(5.dp))
                             .clickable { c = hex })
                     }
@@ -168,7 +169,7 @@ val PATTERNS: List<Pair<String, String?>> = listOf(
 
 @Composable
 private fun Label(t: String) {
-    Text(t, color = Color(0xFF8B949E), fontSize = 10.sp,
+    Text(t, color = Gt.dim, fontSize = 12.sp,
         fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
 }
 
@@ -203,13 +204,13 @@ private fun Chip(text: String, on: Boolean, modifier: Modifier = Modifier,
                  onClick: () -> Unit) {
     Box(contentAlignment = Alignment.Center,
         modifier = modifier.clip(RoundedCornerShape(5.dp))
-            .background(if (on) Color(0xFF12203A) else Color(0xFF0C1015))
-            .border(1.dp, if (on) Color(0xFF58A6FF) else Color(0xFF30363D),
+            .background(if (on) Gt.panel else Gt.panel)
+            .border(1.dp, if (on) Gt.accent else Gt.line,
                 RoundedCornerShape(5.dp))
             .clickable { onClick() }
             .padding(vertical = 8.dp)) {
-        Text(text, color = if (on) Color(0xFF58A6FF) else Color(0xFF8B949E),
-            fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = if (on) Gt.accent else Gt.dim,
+            fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -218,7 +219,7 @@ private fun Chip(text: String, on: Boolean, modifier: Modifier = Modifier,
 fun parseHex(hex: String): Color = try {
     Color(android.graphics.Color.parseColor(hex))
 } catch (e: Exception) {
-    Color(0xFF00FFFF)
+    Gt.accent
 }
 
 /** Color -> "#RRGGBB", for seeding the picker from a row's shipped default. */

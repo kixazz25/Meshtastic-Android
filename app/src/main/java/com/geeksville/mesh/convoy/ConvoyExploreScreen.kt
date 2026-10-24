@@ -1,4 +1,5 @@
 package com.geeksville.mesh.convoy
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,10 +17,10 @@ fun ConvoyExploreScreen(onBack: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
         GroupTrackHeader(subtitle = "Explore")
         Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-            Text(text = "Explore — Phase C", color = Color(0xFFFFFFFF), fontSize = 13.sp)
+            Text(text = "Explore — Phase C", color = Gt.text, fontSize = 13.sp)
         }
-        Box(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628)).padding(16.dp).clickable { onBack() }, contentAlignment = Alignment.Center) {
-            Text(text = "← BACK", color = Color(0xFFFFFFFF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Box(modifier = Modifier.fillMaxWidth().background(Gt.panel).padding(16.dp).clickable { onBack() }, contentAlignment = Alignment.Center) {
+            Text(text = "← BACK", color = Gt.text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

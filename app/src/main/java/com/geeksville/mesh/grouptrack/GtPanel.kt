@@ -22,6 +22,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -58,13 +62,76 @@ object GtColors {
 
 /** SHELL2-2026-10-22 (Fred 10:08-10:09): buttons AND panels follow the map type -- on satellite (SAT, hybrid) WHITE with BLUE letters,
  *  on topo BLUE with WHITE letters (the default for each map type). One place decides it; every GtButton reads it. */
-class GtButtonScheme(val bg: Color, val text: Color, val edge: Color, val panel: Color, val panelText: Color, val panelDim: Color)
+// STD1-2026-10-24 (Fred 10-23 22:57 "the standard is applied to every screen"): accent, good, warn and bad are PER
+//  SCHEME -- one set cannot read on both a white (satellite) and a blue (topo) panel; amber on white was unreadable.
+class GtButtonScheme(val bg: Color, val text: Color, val edge: Color, val panel: Color, val panelText: Color, val panelDim: Color,
+                     val accent: Color, val good: Color, val warn: Color, val bad: Color)
+
+/**
+ * STD1-2026-10-24: the colours a SCREEN uses, by ROLE, read from the current scheme so they follow the map type.
+ * Screens write Gt.<role>, never a colour of their own. DATA colours (trail categories, map keys, route and cart
+ * colours, channel use) are not roles and stay where they are.
+ */
+// STD1H-2026-10-24 (Fred 10:14): a SELECTION shows a check mark, never a coloured box; panels are solid everywhere.
+// STD1I-2026-10-24: six screens brought to the standard (AI steps, check in, GroupTrack buttons, field radio, ride-map dialogs, GPS presets).
+object Gt {
+    val panel: Color get() = GtScheme.current.value.panel
+    val text: Color get() = GtScheme.current.value.panelText
+    // STD1C-2026-10-24 (Fred 09:45): ALL TEXT is the scheme's text colour -- blue on white, white on blue. dim / accent / good / warn / bad
+    //  read it too until a use is given its own colour for a reason (the scheme values below stay defined for that).
+    val dim: Color get() = GtScheme.current.value.panelText
+    val line: Color get() = GtScheme.current.value.panelText.copy(alpha = 0.45f)
+    val accent: Color get() = GtScheme.current.value.panelText
+    val good: Color get() = GtScheme.current.value.panelText
+    val warn: Color get() = GtScheme.current.value.panelText
+    val bad: Color get() = GtScheme.current.value.panelText
+    val button: Color get() = GtScheme.current.value.bg
+    val buttonText: Color get() = GtScheme.current.value.text
+}
+
+/**
+ * STD1D-2026-10-24 (Fred 10-24 09:46): every GroupTrack screen is drawn inside this. Material's own parts (buttons, dialogs, fields,
+ * text with no colour written) take the SCHEME, so a blue box always has white letters and a white box blue letters:
+ * satellite = white panel, blue text, blue buttons with white letters; topo = blue panel, white text, white buttons with blue letters.
+ */
+@Composable
+fun GtTheme(content: @Composable () -> Unit) {
+    val s = GtScheme.current.value
+    val panel = s.panel.copy(alpha = 1f)
+    val text = s.panelText
+    val line = s.panelText.copy(alpha = 0.45f)
+    val soft = s.panelText.copy(alpha = 0.14f)
+    val cs = MaterialTheme.colorScheme.copy(
+        primary = text, onPrimary = panel, primaryContainer = soft, onPrimaryContainer = text, inversePrimary = panel,
+        secondary = text, onSecondary = panel, secondaryContainer = soft, onSecondaryContainer = text,
+        tertiary = text, onTertiary = panel, tertiaryContainer = soft, onTertiaryContainer = text,
+        background = panel, onBackground = text, surface = panel, onSurface = text,
+        surfaceVariant = panel, onSurfaceVariant = text, surfaceTint = panel,
+        inverseSurface = text, inverseOnSurface = panel,
+        error = text, onError = panel, errorContainer = soft, onErrorContainer = text,
+        outline = line, outlineVariant = line, scrim = Color(0x99000000),
+        surfaceBright = panel, surfaceDim = panel, surfaceContainer = panel, surfaceContainerHigh = panel,
+        surfaceContainerHighest = panel, surfaceContainerLow = panel, surfaceContainerLowest = panel,
+    )
+    // STD1G-2026-10-24 (Fred 10:01): no text under 12 sp -- the theme's small styles too.
+    val ty = MaterialTheme.typography
+    fun floor(t: androidx.compose.ui.text.TextStyle) = if (t.fontSize.value < 12f) t.copy(fontSize = 12.sp) else t
+    val typo = ty.copy(labelSmall = floor(ty.labelSmall), labelMedium = floor(ty.labelMedium), bodySmall = floor(ty.bodySmall))
+    MaterialTheme(colorScheme = cs, typography = typo, shapes = MaterialTheme.shapes) {
+        // STD1E-2026-10-24: content text is MEDIUM weight unless it sets its own -- it no longer reads paler than the bold titles.
+        CompositionLocalProvider(LocalContentColor provides text,
+            LocalTextStyle provides LocalTextStyle.current.copy(fontWeight = FontWeight.Medium)) { content(); GtIssueHost() }   // ISSUE-2026-10-24
+    }
+}
 
 object GtScheme {
-    private val Blue = Color(0xFF1565C0)
+    private val Blue = Color(0xFF0D47A1)   // STD1E-2026-10-24 (Fred 09:54): was 1565C0 (5.7:1 on white, washed out); 0D47A1 is 8.6:1
     // Fred 10:09: satellite imagery labels every feature in WHITE, so a dark panel with white letters is lost on it.
-    private val OnSatellite = GtButtonScheme(Color.White, Blue, Blue, panel = Color(0xF7FFFFFF), panelText = Color(0xFF0D2A4F), panelDim = Color(0xFF5B6B7D))
-    private val OnTopo = GtButtonScheme(Blue, Color.White, Color.White, panel = Color(0xF70D3B73), panelText = Color.White, panelDim = Color(0xFFB8C7D9))
+    // STD1C-2026-10-24 (Fred 09:45): text on the white panel is BLUE, like the buttons.
+    private val OnSatellite = GtButtonScheme(Color.White, Blue, Blue, panel = Color(0xFFFFFFFF), panelText = Blue, panelDim = Color(0xFF5B6B7D),
+        accent = Blue, good = Color(0xFF1A7F37), warn = Color(0xFF9A6700), bad = Color(0xFFCF222E))
+    private val OnTopo = GtButtonScheme(Blue, Color.White, Color.White, panel = Color(0xFF0D3B73), panelText = Color.White, panelDim = Color(0xFFB8C7D9),
+        accent = Color(0xFF9CD3FF), good = Color(0xFF7EE787), warn = Color(0xFFF2CC60), bad = Color(0xFFFFA198))
     val current = mutableStateOf(OnSatellite)
     fun forMap(mapType: String): GtButtonScheme {
         val k = mapType.uppercase()
@@ -156,13 +223,14 @@ fun GtPanel(
                         .padding(6.dp)
                 )
             }
-            Text(title, color = s.panelText, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(title, color = s.panelText, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))   // STD1E-2026-10-24: was 16
             if (stays) {
-                Text(if (collapsed) "SHOW" else "HIDE", color = GtColors.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                Text(if (collapsed) "SHOW" else "HIDE", color = Gt.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.clickable { collapsed = !collapsed }.padding(6.dp))
             }
-            Text("HELP", color = GtColors.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            Text("HELP", color = Gt.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable { GtHelpView.open(helpId) }.padding(6.dp))   // PANELX-2026-10-22: the one help viewer
+            GtIssueButton(helpId)   // ISSUE-2026-10-24: HELP - ISSUE - close, on every panel
             GtCloseButton(onDone)   // PANELX-2026-10-22: DONE -> ✕, as every screen
         }
         if (!collapsed) {

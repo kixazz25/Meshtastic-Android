@@ -1,6 +1,7 @@
 package com.geeksville.mesh.convoy
 // [V2.6a-WEBP] read intercepts serve image/webp
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1I-2026-10-24
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -1633,19 +1634,19 @@ fun ConvoyScreen(
                     color = androidx.compose.ui.graphics.Color.White) },
                 text = { androidx.compose.material3.Text(
                     "GPS track recording requires \"Allow all the time\" location access.\n\nTap SETTINGS then Location > Allow all the time.",
-                    color = androidx.compose.ui.graphics.Color(0xFFAABBCC)) },
+                    color = Gt.accent) },
                 confirmButton = {
                     androidx.compose.material3.TextButton(onClick = {
                         showLocationPermissionDialog = false
                         bgLocationLauncher.launch(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-                    }) { androidx.compose.material3.Text("SETTINGS", color = androidx.compose.ui.graphics.Color(0xFF4AB8E8)) }
+                    }) { androidx.compose.material3.Text("SETTINGS", color = Gt.accent) }
                 },
                 dismissButton = {
                     androidx.compose.material3.TextButton(onClick = { showLocationPermissionDialog = false }) {
-                        androidx.compose.material3.Text("CANCEL", color = androidx.compose.ui.graphics.Color(0xFFFFFFFF))
+                        androidx.compose.material3.Text("CANCEL", color = Gt.text)
                     }
                 },
-                containerColor = androidx.compose.ui.graphics.Color(0xFF0F2035)
+                containerColor = Gt.panel
             )
         }
         // -- Lead Selection Dialog --
@@ -1684,12 +1685,12 @@ fun ConvoyScreen(
                                         ).show()
                                     },
                                 shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFF2A3040),
+                                color = Gt.text,
                                 shadowElevation = 2.dp
                             ) {
                                 Text(
                                     node.callsign,
-                                    color = Color.White,
+                                    color = Gt.text,
                                     fontSize = 15.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
@@ -1705,7 +1706,7 @@ fun ConvoyScreen(
                         Text("CANCEL")
                     }
                 },
-                containerColor = Color(0xFF1E252F)
+                containerColor = Gt.text.copy(alpha = 0.10f)
             )
         }
 
@@ -1889,7 +1890,7 @@ fun ConvoyScreen(
                       .padding(end = 16.dp, bottom = 64.dp),
                   horizontalAlignment = androidx.compose.ui.Alignment.End
               ) {
-                  Text("Distance", color = Color(0xFFFF0000).copy(alpha = 0.75f), fontSize = 11.sp,
+                  Text("Distance", color = Color(0xFFFF0000).copy(alpha = 0.75f), fontSize = 12.sp,
                       fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
                       letterSpacing = 1.sp)
                   Row(verticalAlignment = Alignment.Bottom) {
@@ -2090,7 +2091,7 @@ fun ConvoyScreen(
                                     color = androidx.compose.ui.graphics.Color(0xFF58A6FF)
                                 )
                                 androidx.compose.material3.Text(
-                                    sub, fontSize = 11.sp,
+                                    sub, fontSize = 12.sp,
                                     color = androidx.compose.ui.graphics.Color(0xFF8B949E)
                                 )
                             }
@@ -2122,7 +2123,7 @@ fun ConvoyScreen(
             } + (if (docFrag.isNotEmpty()) "#$docFrag" else "")
             androidx.compose.material3.Surface(
                 modifier = Modifier.fillMaxSize(),
-                color = androidx.compose.ui.graphics.Color(0xFF10130F)
+                color = Gt.panel
             ) {
                 androidx.compose.foundation.layout.Column(modifier = Modifier.fillMaxSize()) {
                     androidx.compose.foundation.layout.Row(
@@ -2225,7 +2226,7 @@ fun ConvoyScreen(
                     .padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = if (gtOneMap) 210.dp else 16.dp)   // QUEUESPOS-2026-10-22: ONE MAP -- left of the buttons
                     .fillMaxWidth(0.90f),
                 shape = RoundedCornerShape(10.dp),
-                color = Color(0xEE131820),
+                color = Gt.panel,
                 shadowElevation = 8.dp
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
@@ -2248,7 +2249,7 @@ fun ConvoyScreen(
                     val queueState = DownloadQueueManager.queue.collectAsState()
                     if (queueState.value.isEmpty()) {
                         Text("No maps downloading",   // MAPTARGET4-2026-10-23
-                            color = Color(0xFFFFFFFF), fontSize = 10.sp,
+                            color = Gt.text, fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             modifier = Modifier.padding(8.dp))
                     }
@@ -2471,7 +2472,7 @@ fun ConvoyScreen(
                             if (routeNameTaken) androidx.compose.material3.Text(
                                 "Enter a unique route name",
                                 color = androidx.compose.ui.graphics.Color(0xFFE86B6B),
-                                fontSize = 11.sp
+                                fontSize = 12.sp
                             )
                             }
                         },
@@ -3051,7 +3052,7 @@ fun ConvoyScreen(
             }) {
                 androidx.compose.material3.Surface(
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                    color = androidx.compose.ui.graphics.Color(0xFF0D2010)
+                    color = Gt.panel
                 ) {
                     androidx.compose.foundation.layout.Column(
                         modifier = androidx.compose.ui.Modifier.padding(32.dp),
@@ -3342,7 +3343,10 @@ fun ConvoyScreen(
                     else android.widget.Toast.makeText(context, "End the ride before changing mode.", android.widget.Toast.LENGTH_LONG).show()
                 },
                 "rides.carts" to { CartPickerLauncher.open() },   // GTRIDES-2026-10-22: View checked-in carts / change roles
-                "rides.ride" to { onNavigateToCreateRide() },   // GTRIDES: Create a ride
+                // RIDESEARCH-2026-10-24 (Fred 10:30): Create a ride = Search positions the map, then the form lists the routes in the map area.
+                "rides.ride" to { com.geeksville.mesh.grouptrack.GtRideStart.begin() },
+                "rides.ride.form" to { com.geeksville.mesh.grouptrack.GtRideStart.handOff(lastViewportSouth, lastViewportNorth,
+                    lastViewportWest, lastViewportEast); onNavigateToCreateRide() },
                 "rides.import" to { gtRideImport() },   // GTRIDES: Import a ride (the shared action)
                 "rides.mine" to { RidesLauncher.open() },   // GTRIDES: My rides -- Send / Edit / Delete
                 // ROUTESTART-2026-10-22: ADD ROUTE -> the planning map's Route+ (all its start-up checks), method set and locked.
@@ -3450,7 +3454,7 @@ fun GroupHud(
             modifier = Modifier.padding(0.dp).offset(x = (-12).dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("${currentIntervalSecs}s", color = Color(0xFF111111), fontSize = 10.sp,
+            Text("${currentIntervalSecs}s", color = Color(0xFF111111), fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 6f)))
             androidx.compose.material3.Slider(
@@ -3468,7 +3472,7 @@ fun GroupHud(
                     .graphicsLayer { rotationZ = -90f }
                     .width(80.dp)
             )
-            Text("INT", color = Color(0xFF111111), fontSize = 9.sp,
+            Text("INT", color = Color(0xFF111111), fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 6f)))
         }
@@ -3481,7 +3485,7 @@ fun GroupHud(
             Row(verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    HiVisText("SPAN", color = Color.White, fontSize = 11.sp,
+                    HiVisText("SPAN", color = Color.White, fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
                         modifier = Modifier.padding(end = 4.dp, bottom = 6.dp))
                     HiVisText("%.1f".format(state.span_miles),
@@ -3493,7 +3497,7 @@ fun GroupHud(
                 }
                 if (false) /* GPSPANEL-2026-09-29: CH% moved to the GPS row on top of the HUD */ Column(horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(bottom = 6.dp)) {
-                    Text("CH%", color = Color(0xFF111111), fontSize = 11.sp,
+                    Text("CH%", color = Color(0xFF111111), fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
                         style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
                     Row(verticalAlignment = Alignment.CenterVertically,
@@ -3556,7 +3560,7 @@ fun MyCartHud(
                 modifier = Modifier.padding(top = 4.dp)
             ) {
                 Column {
-                    HiVisText("Speed", color = Color.White, fontSize = 11.sp,
+                    HiVisText("Speed", color = Color.White, fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
                     Row(verticalAlignment = Alignment.Bottom) {
                         HiVisText("%.0f".format(myCart.speed_mph), color = Color.White,
@@ -3686,7 +3690,7 @@ fun ContactLostBanner(lostCount: Int, lostNames: List<String> = emptyList(), mod
                 Text(
                     text = nameStr,
                     color = Color.White,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace
                 )
             }
@@ -3709,7 +3713,7 @@ fun HudCard(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 fun HudStat(label: String, value: String, valueColor: Color = Color.White) {   // HUDTEXT-2026-09-29: default white
     Column(horizontalAlignment = Alignment.Start) {
-        HiVisText(label, color = Color.White, fontSize = 11.sp,
+        HiVisText(label, color = Color.White, fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
         HiVisText(value, color = valueColor, fontSize = 16.sp,
             fontWeight = FontWeight.Black)
@@ -3752,12 +3756,12 @@ fun CartPickerPanel(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            color = Color.Black   // CARTROLES-2026-10-06 (Fred): SOLID black -- was ~55% see-through and unreadable over the map
+            color = Gt.panel   // CARTROLES-2026-10-06 (Fred): SOLID black -- was ~55% see-through and unreadable over the map
         ) {
             Column(modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()).padding(16.dp)) {   // STDSCROLL-2026-10-22: the cart list scrolls
                 // The ride, on top.
                 if (rideTitle.isNotBlank()) {
-                    Text(rideTitle, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(rideTitle, color = Gt.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     if (rideSub.isNotBlank()) Text(rideSub, color = dim, fontSize = 12.sp)
                 } else Text("Not checked in yet \u2014 tap CHECK IN at the top left to choose your ride.",   // CARTROLES-2026-10-06
                     color = Color(0xFFFFD166), fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -3779,7 +3783,7 @@ fun CartPickerPanel(
                 }
                 if (listOpen) {   // CARTPICKER3: the radios and the legend fold away
                 if (nodes.isEmpty()) {
-                    Text("No radios heard yet", color = Color(0xFF7A8DA0), fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                    Text("No radios heard yet", color = Gt.dim, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 } else {
                     // CARTPICKER5-2026-09-28 (Fred): Leader, Middle, Tail gunner first, then Riders -- checked-in Riders before bare
                     // radios; alphabetical within each. (Until the roles piece only this cart can show a special role.)
@@ -3799,19 +3803,19 @@ fun CartPickerPanel(
                                 .padding(vertical = 3.dp)
                                 .clickable { onSelect(node) },
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF1E2630)   // CARTROLES-2026-10-06: solid (was ~50%)
+                            color = Gt.text   // CARTROLES-2026-10-06: solid (was ~50%)
                         ) {
                             Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(if (checkedIn) "\u2714" else "\u25CF", color = if (checkedIn) green else red, fontSize = 16.sp,   // CARTROLES: check / dot
                                     fontWeight = FontWeight.Black, modifier = Modifier.padding(end = 10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(node.callsign, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text(node.callsign, color = Gt.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     Text((if (checkedIn) "checked in" else if (node.isMyCart) "not checked in" else "bare radio") + (if (node.isMyCart) " \u00b7 you" else ""),
-                                        color = dim, fontSize = 11.sp)
+                                        color = dim, fontSize = 12.sp)
                                 }
-                                Text(role.uppercase(), color = Color(0xFF9CC7F5), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(role.uppercase(), color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 if (!node.isMyCart) {   // CARTACTIVE-2026-09-30 (Fred): one tap -- Active -> Removed (my own cart: never)
-                                    Text("REMOVE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,   // CARTBTN-2026-09-30: the action
+                                    Text("REMOVE", color = Gt.text, fontSize = 12.sp, fontWeight = FontWeight.Bold,   // CARTBTN-2026-09-30: the action
                                         modifier = Modifier.padding(start = 10.dp).background(red, RoundedCornerShape(6.dp))
                                             .clickable { onToggleActive(node.nodeId, node.callsign) }.padding(horizontal = 10.dp, vertical = 5.dp))
                                 }
@@ -3821,21 +3825,21 @@ fun CartPickerPanel(
                 }
                 // CARTACTIVE-2026-09-30 (Fred): carts removed on this tablet -- off the map and out of the group; one tap reactivates.
                 removed.filterKeys { k -> nodes.none { it.nodeId == k } }.toList().sortedBy { it.second.lowercase() }.forEach { (rid, rcall) ->
-                    Surface(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), shape = RoundedCornerShape(8.dp), color = Color(0xFF1E2630)) {   // CARTROLES: solid
+                    Surface(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), shape = RoundedCornerShape(8.dp), color = Gt.text) {   // CARTROLES: solid
                         Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("\u25CB", color = dim, fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(rcall, color = dim, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text("removed \u00b7 off the map", color = dim, fontSize = 11.sp)
+                                Text("removed \u00b7 off the map", color = dim, fontSize = 12.sp)
                             }
-                            Text("ACTIVATE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,   // CARTBTN-2026-09-30: the action
+                            Text("ACTIVATE", color = Gt.text, fontSize = 12.sp, fontWeight = FontWeight.Bold,   // CARTBTN-2026-09-30: the action
                                 modifier = Modifier.padding(start = 10.dp).background(green, RoundedCornerShape(6.dp))
                                     .clickable { onToggleActive(rid, rcall) }.padding(horizontal = 10.dp, vertical = 5.dp))
                         }
                     }
                 }
                 Text("\u2714 checked in    \u25CF not checked in \u2014 a bare radio, or a rider who has not checked in yet: " +   // CARTROLES
-                    "counted as Rider.", color = dim, fontSize = 10.sp,
+                    "counted as Rider.", color = dim, fontSize = 12.sp,
                     modifier = Modifier.padding(top = 8.dp))
                 }   // CARTPICKER3: end of the folding list
             }
@@ -3988,11 +3992,11 @@ fun GpsIntervalDialog(currentSecs: Int, currentPreset: String?, channelUtil: Flo
                     GpsPresets.choices.forEach { (key, words) ->
                         val on = preset == key
                         Box(modifier = Modifier
-                                .background(if (on) Color(0xFF2E75B6) else Color(0xFF2A2F36), RoundedCornerShape(8.dp))
-                                .border(1.5.dp, if (on) Color.White else Color(0xFF666666), RoundedCornerShape(8.dp))
+                                .background(Gt.text.copy(alpha = 0.10f), RoundedCornerShape(8.dp))
+                                .border(1.5.dp, Gt.line, RoundedCornerShape(8.dp))
                                 .clickable(enabled = !busy) { preset = key }
                                 .padding(horizontal = 14.dp, vertical = 8.dp)) {
-                            Text(words + (if (key == currentPreset) "  (now)" else ""), color = Color.White,
+                            Text((if (on) "\u2713 " else "") + words + (if (key == currentPreset) "  (now)" else ""), color = Gt.text,
                                 fontWeight = if (on) FontWeight.Black else FontWeight.Normal)
                         }
                     }
@@ -4003,13 +4007,13 @@ fun GpsIntervalDialog(currentSecs: Int, currentPreset: String?, channelUtil: Flo
                 Text((if (timingOpen) "\u25BE" else "\u25B8") + "  Reconnect timing  \u00b7  wait ${GpsReconnectTiming.waitSecs} s  \u00b7  gap ${GpsReconnectTiming.gapSecs} s",
                     fontSize = 12.sp, modifier = Modifier.fillMaxWidth().clickable { timingOpen = !timingOpen }.padding(vertical = 4.dp))
                 if (timingOpen) {
-                    Text("Raise the wait if your cart does not reappear after APPLY.", fontSize = 11.sp)
+                    Text("Raise the wait if your cart does not reappear after APPLY.", fontSize = 12.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         androidx.compose.material3.OutlinedTextField(
                             value = waitText,
                             onValueChange = { v -> waitText = v.filter { it.isDigit() }.take(2)
                                 waitText.toIntOrNull()?.takeIf { it in 1..60 }?.let { GpsReconnectTiming.waitSecs = it } },
-                            label = { Text("Wait after connected (s)", fontSize = 11.sp) },
+                            label = { Text("Wait after connected (s)", fontSize = 12.sp) },
                             singleLine = true, enabled = !busy, modifier = Modifier.weight(1f),
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                                 keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
@@ -4018,7 +4022,7 @@ fun GpsIntervalDialog(currentSecs: Int, currentPreset: String?, channelUtil: Flo
                             value = gapText,
                             onValueChange = { v -> gapText = v.filter { it.isDigit() }.take(2)
                                 gapText.toIntOrNull()?.takeIf { it in 1..60 }?.let { GpsReconnectTiming.gapSecs = it } },
-                            label = { Text("Gap (s)", fontSize = 11.sp) },
+                            label = { Text("Gap (s)", fontSize = 12.sp) },
                             singleLine = true, enabled = !busy, modifier = Modifier.weight(1f),
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                                 keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)

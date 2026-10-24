@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -77,10 +78,10 @@ fun ArtifactDetailPanel(
     onDismiss: (String?, String?) -> Unit
 ) {
     val aMono = FontFamily.Monospace
-    val aGreen = Color(0xFF39FF14)
-    val aBlue = Color(0xFF4DA6FF)
-    val aOrange = Color(0xFFFF8C42)
-    val aDim = Color(0xFF7A8DA0)
+    val aGreen = Gt.accent
+    val aBlue = Gt.accent
+    val aOrange = Gt.warn
+    val aDim = Gt.dim
     val ctx = LocalContext.current
 
     val singular = artifactType.lowercase().removeSuffix("s")
@@ -111,10 +112,10 @@ fun ArtifactDetailPanel(
         title = {
             Row(verticalAlignment = Alignment.Top) {   // GTRIDES-2026-10-22: HELP ✕ top right
             Column(Modifier.weight(1f)) {
-                Text(dName, color = Color.White, fontSize = 14.sp,
+                Text(dName, color = Gt.text, fontSize = 14.sp,
                     fontFamily = aMono, fontWeight = FontWeight.Bold,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text("Type: ${singular.uppercase()}", color = aDim, fontSize = 10.sp,
+                Text("Type: ${singular.uppercase()}", color = aDim, fontSize = 12.sp,
                     fontFamily = aMono)
             }
             com.geeksville.mesh.grouptrack.GtHelpButton("detail." + singular)
@@ -140,7 +141,7 @@ fun ArtifactDetailPanel(
                     // on the spatial row AND trail_properties and merges them.
                     val riderMade = detailFields["source_id"] == "rides"
                     if ((artifactType != "Trails" || riderMade) && onDelete != null) {
-                        DetailActionButton("DELETE", Color(0xFFFF6B6B)) { showDeleteConfirm = true }
+                        DetailActionButton("DELETE", Gt.bad) { showDeleteConfirm = true }
                     }
                     if (onShare != null) { DetailActionButton("SHARE", aGreen) { onShare(id) } }
                     if (onExport != null) { DetailActionButton("EXPORT", aGreen) { onExport(id) } }
@@ -166,7 +167,7 @@ fun ArtifactDetailPanel(
                                         "The trail's first point is being created as a trailhead. Please name it:", fontSize = 13.sp)
                                     androidx.compose.material3.OutlinedTextField(value = thNewName, onValueChange = { thNewName = it },
                                         singleLine = true, label = { androidx.compose.material3.Text("Trailhead name") })
-                                    if (first == null) androidx.compose.material3.Text("This track has no start point.", color = Color(0xFFFF6B6B))
+                                    if (first == null) androidx.compose.material3.Text("This track has no start point.", color = Gt.bad)
                                 }
                             },
                             confirmButton = {
@@ -193,12 +194,12 @@ fun ArtifactDetailPanel(
                                     androidx.compose.material3.OutlinedTextField(value = rideRouteName, onValueChange = { rideRouteName = it }, singleLine = true,
                                         label = { androidx.compose.material3.Text("Route name") })
                                     // TRACKDESC-2026-09-26 (Fred): the first line is automatic; the rider's description follows it.
-                                    androidx.compose.material3.Text("First line (automatic): Created from track $dName \u2014 its length in miles", color = aDim, fontSize = 11.sp)
+                                    androidx.compose.material3.Text("First line (automatic): Created from track $dName \u2014 its length in miles", color = aDim, fontSize = 12.sp)
                                     androidx.compose.material3.OutlinedTextField(value = rideRouteDesc, onValueChange = { rideRouteDesc = it }, minLines = 3,
                                         label = { androidx.compose.material3.Text("Route description") },
                                         placeholder = { androidx.compose.material3.Text("Describe the route: skill level, terrain, highlights, cautions\u2026") })
                                     androidx.compose.material3.Text("Trailhead: " + (chosenTh?.name ?: "\u2014"), fontSize = 13.sp)   // FIRSTPOINT-2026-09-27
-                                    if (taken) androidx.compose.material3.Text("A route with this name already exists \u2014 choose another.", color = Color(0xFFFF6B6B))
+                                    if (taken) androidx.compose.material3.Text("A route with this name already exists \u2014 choose another.", color = Gt.bad)
                                 }
                             },
                             confirmButton = {
@@ -256,14 +257,14 @@ fun ArtifactDetailPanel(
 
                 // -- RIGHT COLUMN: badge + aliases + full-data --
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(singular.uppercase(), color = aDim, fontSize = 8.sp,
+                    Text(singular.uppercase(), color = aDim, fontSize = 12.sp,
                         fontFamily = aMono, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
 
-                    Text("ALIASES", color = aOrange, fontSize = 9.sp,
+                    Text("ALIASES", color = aOrange, fontSize = 12.sp,
                         fontFamily = aMono, fontWeight = FontWeight.Bold)
                     if (aliasRows.isEmpty()) {
-                        Text("none", color = aDim, fontSize = 9.sp, fontFamily = aMono)
+                        Text("none", color = aDim, fontSize = 12.sp, fontFamily = aMono)
                     } else {
                         aliasRows.forEach { a ->
                             val aId = a["alias_id"] ?: ""
@@ -271,18 +272,18 @@ fun ArtifactDetailPanel(
                             Row(verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth()) {
                                 Text(if (pref) "\u2605" else "\u2606",
-                                    color = if (pref) aGreen else aDim, fontSize = 11.sp,
+                                    color = if (pref) aGreen else aDim, fontSize = 12.sp,
                                     modifier = Modifier.clickable {
                                         android.util.Log.i("ArtifactDetail", "Preferred name-swap not yet built")
                                     }.padding(end = 4.dp))
-                                Text(a["alias"] ?: "", color = aBlue, fontSize = 9.sp,
+                                Text(a["alias"] ?: "", color = aBlue, fontSize = 12.sp,
                                     fontFamily = aMono, maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f))
-                                Text(a["source"] ?: "", color = aDim, fontSize = 7.sp,
+                                Text(a["source"] ?: "", color = aDim, fontSize = 12.sp,
                                     fontFamily = aMono, modifier = Modifier.padding(horizontal = 3.dp))
                                 if (onDeleteAlias != null && aliasRows.size > 1) {
-                                    Text("\u00d7", color = Color(0xFFFF6B6B), fontSize = 12.sp,
+                                    Text("\u00d7", color = Gt.bad, fontSize = 12.sp,
                                         modifier = Modifier.clickable { onDeleteAlias(aId); reloadAliases() }
                                             .padding(start = 2.dp))
                                 }
@@ -291,7 +292,7 @@ fun ArtifactDetailPanel(
                     }
                     Spacer(Modifier.height(6.dp))
 
-                    Text("DETAILS", color = aOrange, fontSize = 9.sp,
+                    Text("DETAILS", color = aOrange, fontSize = 12.sp,
                         fontFamily = aMono, fontWeight = FontWeight.Bold)
                     // -- CARTO TYPE (2026-06-19): translated text, colored; never the code --
                     run {
@@ -301,14 +302,14 @@ fun ArtifactDetailPanel(
                         Row(modifier = Modifier.fillMaxWidth()
                             .background(ctColor, RoundedCornerShape(3.dp))
                             .padding(horizontal = 6.dp, vertical = 3.dp)) {
-                            Text("Carto Type", color = Color(0xCC000000), fontSize = 8.sp, fontFamily = aMono,
+                            Text("Carto Type", color = Gt.text.copy(alpha = 0.80f), fontSize = 12.sp, fontFamily = aMono,
                                 modifier = Modifier.width(96.dp))
-                            Text(ctLabel, color = Color(0xFF111111), fontSize = 9.sp, fontFamily = aMono,
+                            Text(ctLabel, color = Gt.text, fontSize = 12.sp, fontFamily = aMono,
                                 fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         }
                     }
                     if (detailFields.isEmpty()) {
-                        Text("no additional details", color = aDim, fontSize = 9.sp, fontFamily = aMono)
+                        Text("no additional details", color = aDim, fontSize = 12.sp, fontFamily = aMono)
                     } else {
                         val techKeys = setOf("min_lat", "max_lat", "min_lon", "max_lon", "created_at", "updated_at", "geom_hash")
                         // [2026-07-01] Two-column formatted metrics grid: friendly labels + units,
@@ -322,10 +323,10 @@ fun ArtifactDetailPanel(
                                 pair.forEach { k ->
                                     val vShow = formatDetailValue(k, detailFields[k] ?: "")
                                     Row(modifier = Modifier.weight(1f).padding(end = 4.dp, top = 1.dp, bottom = 1.dp)) {
-                                        Text(prettyLabel(k), color = aDim, fontSize = 8.sp, fontFamily = aMono,
+                                        Text(prettyLabel(k), color = aDim, fontSize = 12.sp, fontFamily = aMono,
                                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                                             modifier = Modifier.width(66.dp))
-                                        Text(vShow, color = Color(0xFFB8C4D4), fontSize = 8.sp,
+                                        Text(vShow, color = Gt.text, fontSize = 12.sp,
                                             fontFamily = aMono, fontWeight = FontWeight.Bold, maxLines = 1,
                                             overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                     }
@@ -337,7 +338,7 @@ fun ArtifactDetailPanel(
                         if (hasTech) {
                             Text(
                                 (if (showTech) "\u25be technical" else "\u25b8 technical"),
-                                color = aOrange, fontSize = 8.sp, fontFamily = aMono,
+                                color = aOrange, fontSize = 12.sp, fontFamily = aMono,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.clickable { showTech = !showTech }.padding(top = 2.dp)
                             )
@@ -346,9 +347,9 @@ fun ArtifactDetailPanel(
                                     if (v.isNullOrBlank() || k !in techKeys) return@forEach
                                     val show = if (k == "geom_hash" && v.length > 12) v.take(12) + "\u2026" else v
                                     Row(modifier = Modifier.fillMaxWidth()) {
-                                        Text(k, color = aDim, fontSize = 8.sp, fontFamily = aMono,
+                                        Text(k, color = aDim, fontSize = 12.sp, fontFamily = aMono,
                                             modifier = Modifier.width(96.dp))
-                                        Text(show, color = Color(0xFFB8C4D4), fontSize = 8.sp,
+                                        Text(show, color = Gt.text, fontSize = 12.sp,
                                             fontFamily = aMono, maxLines = 2,
                                             overflow = TextOverflow.Ellipsis,
                                             modifier = Modifier.weight(1f))
@@ -392,7 +393,7 @@ fun ArtifactDetailPanel(
             confirmButton = {
                 TextButton(onClick = {
                     onDelete?.invoke(id); showDeleteConfirm = false; onDismiss(null, null)
-                }) { Text("DELETE", color = Color(0xFFFF6B6B)) }
+                }) { Text("DELETE", color = Gt.bad) }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) { Text("CANCEL") }
@@ -427,7 +428,7 @@ fun ArtifactDetailPanel(
 @Composable
 private fun DetailActionButton(label: String, color: Color, onClick: () -> Unit) {
     Text(
-        label, color = color, fontSize = 10.sp,
+        label, color = color, fontSize = 12.sp,
         fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
         modifier = Modifier
             .fillMaxWidth()

@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -133,25 +134,25 @@ fun ConvoyRideDetailScreen(
 
         // ── Top bar ───────────────────────────────────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628))
+            modifier = Modifier.fillMaxWidth().background(Gt.panel)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(
                 modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFF1A3050))
+                    .background(Gt.panel)
                     .clickable { onBack() }
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             ) {
-                Text("\u2190 BACK", color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                Text("\u2190 BACK", color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
-            Text("RIDE DETAIL", color = Color.White, fontSize = 12.sp,
+            Text("RIDE DETAIL", color = Gt.text, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
                 modifier = Modifier.weight(1f))
         }
-        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Color(0xFF4AB8E8))
+        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Gt.accent)
 
         Column(
             modifier = Modifier.fillMaxWidth().weight(1f)
@@ -162,14 +163,14 @@ fun ConvoyRideDetailScreen(
             // ── HEADER PANEL ──────────────────────────────────────────────────
             Column(
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0F2035)).padding(12.dp),
+                    .background(Gt.panel).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 // Line 1: Name + badges + CHANGE
                 Row(modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(text = rideName, color = Color.White, fontSize = 13.sp,
+                    Text(text = rideName, color = Gt.text, fontSize = 13.sp,
                         fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                     DetailVisibilityBadge(visibility)
                     DetailRideStatusBadge(rideStatus)
@@ -181,34 +182,34 @@ fun ConvoyRideDetailScreen(
                                 .padding(horizontal = 8.dp, vertical = 3.dp)
                                 .then(Modifier.clip(RoundedCornerShape(3.dp)))
                         ) {
-                            Text("CHANGE", color = Color(0xFFF59E0B), fontSize = 9.sp,
+                            Text("CHANGE", color = Gt.warn, fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.clip(RoundedCornerShape(3.dp))
-                                    .background(Color(0xFF1A3050))
+                                    .background(Gt.panel)
                                     .padding(horizontal = 8.dp, vertical = 3.dp))
                         }
                     }
                 }
                 // Line 2: Location
                 Text(text = "$city \u2014 $trailhead",
-                    color = Color(0xFFAABBCC), fontSize = 11.sp)
+                    color = Gt.accent, fontSize = 12.sp)
                 // Line 3: Date/time
                 Text(text = "$rideDate \u00b7 Arrive $arriveTime \u00b7 Rollout $rolloutTime",
-                    color = Color(0xFF4AB8E8), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    color = Gt.accent, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 // Line 4: Organizer + email
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(text = orgName, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    Text("\u00b7", color = Color(0xFFFFFFFF), fontSize = 9.sp)
+                    Text(text = orgName, color = Gt.text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("\u00b7", color = Gt.text, fontSize = 12.sp)
                     Text(
-                        text = orgEmail, color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                        text = orgEmail, color = Gt.accent, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.clickable { launchEmail(orgEmail) }
                     )
                 }
                 // Line 5: Description
                 if (description.isNotEmpty()) {
-                    Text(text = description, color = Color(0xFFAABBCC), fontSize = 10.sp,
+                    Text(text = description, color = Gt.accent, fontSize = 12.sp,
                         lineHeight = 15.sp)
                 }
                 // Line 6: Follow
@@ -216,19 +217,19 @@ fun ConvoyRideDetailScreen(
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
                         modifier = Modifier.padding(top = 2.dp)) {
-                        Text("FOLLOW", color = Color(0xFF4AB8E8), fontSize = 9.sp,
+                        Text("FOLLOW", color = Gt.accent, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
                             letterSpacing = 1.sp)
                         Box(
                             modifier = Modifier.size(14.dp).clip(RoundedCornerShape(3.dp))
-                                .background(if (isFollowing) Color(0xFF4AB8E8) else Color(0xFF1A3050))
+                                .background(if (isFollowing) Gt.accent.copy(alpha = 0.22f) else Gt.panel)
                                 .clickable { toggleFollow() },
                             contentAlignment = Alignment.Center
                         ) {
-                            if (isFollowing) Text("\u2713", color = Color(0xFF0A1628),
-                                fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            if (isFollowing) Text("\u2713", color = Gt.text,
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
-                        Text(text = orgName, color = Color.White, fontSize = 11.sp,
+                        Text(text = orgName, color = Gt.text, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold)
                     }
                 }
@@ -237,7 +238,7 @@ fun ConvoyRideDetailScreen(
                 if (showChangeForm) {
                     Spacer(Modifier.height(4.dp))
                     androidx.compose.material3.HorizontalDivider(
-                        thickness = 1.dp, color = Color(0xFF1A2840))
+                        thickness = 1.dp, color = Gt.text)
                     Spacer(Modifier.height(6.dp))
 
                     listOf(
@@ -249,7 +250,7 @@ fun ConvoyRideDetailScreen(
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()) {
-                            Text(label, color = Color(0xFFFFFFFF), fontSize = 9.sp,
+                            Text(label, color = Gt.text, fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace,
                                 modifier = Modifier.width(76.dp))
                             OutlinedTextField(
@@ -258,14 +259,14 @@ fun ConvoyRideDetailScreen(
                                 modifier = Modifier.fillMaxWidth().height(44.dp),
                                 singleLine = true,
                                 textStyle = androidx.compose.ui.text.TextStyle(
-                                    color = Color.White, fontSize = 10.sp,
+                                    color = Gt.text, fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF4AB8E8),
-                                    unfocusedBorderColor = Color(0xFF2A4060),
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    cursorColor = Color(0xFF4AB8E8)
+                                    focusedBorderColor = Gt.accent,
+                                    unfocusedBorderColor = Gt.line,
+                                    focusedTextColor = Gt.text,
+                                    unfocusedTextColor = Gt.text,
+                                    cursorColor = Gt.accent
                                 )
                             )
                         }
@@ -274,7 +275,7 @@ fun ConvoyRideDetailScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         // SAVE
                         Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFF22C55E).copy(alpha = 0.2f))
+                            .background(Gt.accent.copy(alpha = 0.2f))
                             .clickable {
                                 rideDate    = editDate
                                 arriveTime  = editArrive
@@ -283,24 +284,24 @@ fun ConvoyRideDetailScreen(
                                 showChangeForm = false
                             }
                             .padding(horizontal = 10.dp, vertical = 6.dp)) {
-                            Text("SAVE — NOTIFY ALL RIDERS", color = Color(0xFF22C55E),
-                                fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text("SAVE — NOTIFY ALL RIDERS", color = Gt.accent,
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                         // CLOSE RIDE
                         Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFF445566).copy(alpha = 0.2f))
+                            .background(Gt.panel.copy(alpha = 0.2f))
                             .clickable { rideStatus = "closed"; showChangeForm = false }
                             .padding(horizontal = 10.dp, vertical = 6.dp)) {
-                            Text("CLOSE RIDE", color = Color(0xFF8899AA),
-                                fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text("CLOSE RIDE", color = Gt.dim,
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                         // CANCEL RIDE
                         Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFFEF4444).copy(alpha = 0.15f))
+                            .background(Gt.bad.copy(alpha = 0.15f))
                             .clickable { rideStatus = "cancelled"; showChangeForm = false }
                             .padding(horizontal = 10.dp, vertical = 6.dp)) {
-                            Text("CANCEL RIDE", color = Color(0xFFEF4444),
-                                fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text("CANCEL RIDE", color = Gt.bad,
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -308,7 +309,7 @@ fun ConvoyRideDetailScreen(
 
             // ── RIDE AREA MAP — twistie, collapsed by default ─────────────────
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035))) {
+                .background(Gt.panel)) {
                 Row(
                     modifier = Modifier.fillMaxWidth()
                         .clickable { showMap = !showMap }
@@ -319,17 +320,17 @@ fun ConvoyRideDetailScreen(
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(if (showMap) "\u25bc" else "\u25b6",
-                            color = Color(0xFF4AB8E8), fontSize = 10.sp)
-                        Text("RIDE AREA MAP", color = Color.White, fontSize = 11.sp,
+                            color = Gt.accent, fontSize = 12.sp)
+                        Text("RIDE AREA MAP", color = Gt.text, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                     }
-                    Text("PHASE C", color = Color(0xFF2A4060), fontSize = 8.sp,
+                    Text("PHASE C", color = Gt.text, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace)
                 }
                 if (showMap) {
                     Box(
                         modifier = Modifier.fillMaxWidth().height(180.dp)
-                            .background(Color(0xFF060E1A)),
+                            .background(Gt.panel),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally,
@@ -339,15 +340,15 @@ fun ConvoyRideDetailScreen(
                                 .then(Modifier.clip(RoundedCornerShape(18.dp))),
                                 contentAlignment = Alignment.Center) {
                                 Box(modifier = Modifier.size(36.dp).clip(RoundedCornerShape(18.dp))
-                                    .background(Color(0xFF4AB8E8).copy(alpha = 0.1f)))
+                                    .background(Gt.accent.copy(alpha = 0.1f)))
                                 Box(modifier = Modifier.size(12.dp).clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFF4AB8E8)))
+                                    .background(Gt.accent.copy(alpha = 0.22f)))
                             }
-                            Text("COMING SOON", color = Color(0xFF4AB8E8), fontSize = 13.sp,
+                            Text("COMING SOON", color = Gt.accent, fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
                                 letterSpacing = 3.sp)
-                            Text("PHASE C — MAP INTEGRATION", color = Color(0xFFFFFFFF),
-                                fontSize = 8.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
+                            Text("PHASE C — MAP INTEGRATION", color = Gt.text,
+                                fontSize = 12.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
                         }
                     }
                 }
@@ -356,41 +357,41 @@ fun ConvoyRideDetailScreen(
             // ── YOUR RESPONSE — rider only ────────────────────────────────────
             if (!isOrganizer) {
                 Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0F2035)).padding(12.dp),
+                    .background(Gt.panel).padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("YOUR RESPONSE", color = Color(0xFF4AB8E8), fontSize = 9.sp,
+                    Text("YOUR RESPONSE", color = Gt.accent, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
                         fontFamily = FontFamily.Monospace)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        DetailActionButton("ACCEPT",  myStatus == "accepted", canRespond, Color(0xFF22C55E)) { myStatus = "accepted" }
-                        DetailActionButton("MAYBE",   myStatus == "maybe",    canRespond, Color(0xFFF59E0B)) { myStatus = "maybe" }
-                        DetailActionButton("DECLINE", myStatus == "declined", canRespond, Color(0xFFEF4444)) { myStatus = "declined" }
+                        DetailActionButton("ACCEPT",  myStatus == "accepted", canRespond, Gt.accent) { myStatus = "accepted" }
+                        DetailActionButton("MAYBE",   myStatus == "maybe",    canRespond, Gt.warn) { myStatus = "maybe" }
+                        DetailActionButton("DECLINE", myStatus == "declined", canRespond, Gt.bad) { myStatus = "declined" }
                     }
                 }
             }
 
             // ── ENROLLMENT TWISTIES ───────────────────────────────────────────
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035)).padding(10.dp),
+                .background(Gt.panel).padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("ENROLLMENT", color = Color(0xFF4AB8E8), fontSize = 9.sp,
+                Text("ENROLLMENT", color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(bottom = 2.dp))
 
-                EnrollmentTwistie("ACCEPTED", accepted.size, Color(0xFF22C55E), accExpanded,
+                EnrollmentTwistie("ACCEPTED", accepted.size, Gt.accent, accExpanded,
                     { accExpanded = !accExpanded }) {
                     accepted.forEach { EnrolleeRow(it) { launchEmail(it.email) } }
                 }
-                EnrollmentTwistie("MAYBE", maybe.size, Color(0xFFF59E0B), maybeExpanded,
+                EnrollmentTwistie("MAYBE", maybe.size, Gt.warn, maybeExpanded,
                     { maybeExpanded = !maybeExpanded }) {
                     maybe.forEach { EnrolleeRow(it) { launchEmail(it.email) } }
                 }
-                EnrollmentTwistie("DECLINED", declined.size, Color(0xFFEF4444), declExpanded,
+                EnrollmentTwistie("DECLINED", declined.size, Gt.bad, declExpanded,
                     { declExpanded = !declExpanded }) {
                     declined.forEach { EnrolleeRow(it) { launchEmail(it.email) } }
                 }
-                EnrollmentTwistie("INVITED — PENDING", invited.size, Color(0xFFFFFFFF), invExpanded,
+                EnrollmentTwistie("INVITED — PENDING", invited.size, Gt.text, invExpanded,
                     { invExpanded = !invExpanded }) {
                     invited.forEach { EnrolleeRow(it) { launchEmail(it.email) } }
                 }
@@ -437,14 +438,14 @@ private fun EnrollmentTwistie(
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(if (expanded) "\u25bc" else "\u25b6",
-                    color = color, fontSize = 9.sp)
-                Text(label, color = color, fontSize = 10.sp,
+                    color = color, fontSize = 12.sp)
+                Text(label, color = color, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
             Box(modifier = Modifier.clip(RoundedCornerShape(10.dp))
                 .background(color.copy(alpha = 0.2f))
                 .padding(horizontal = 7.dp, vertical = 2.dp)) {
-                Text(count.toString(), color = color, fontSize = 9.sp,
+                Text(count.toString(), color = color, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold)
             }
         }
@@ -474,12 +475,12 @@ private fun EnrolleeRow(
         verticalAlignment = Alignment.Top
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(name, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            Text(email, color = Color(0xFF4AB8E8), fontSize = 9.sp,
+            Text(name, color = Gt.text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(email, color = Gt.accent, fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
                 modifier = Modifier.clickable { onEmailTap() })
         }
-        Text(date, color = Color(0xFFFFFFFF), fontSize = 8.sp,
+        Text(date, color = Gt.text, fontSize = 12.sp,
             fontFamily = FontFamily.Monospace)
     }
 }
@@ -491,21 +492,21 @@ private fun DetailActionButton(
     activeColor: Color, onClick: () -> Unit
 ) {
     val textColor = when {
-        !enabled -> Color(0xFF7D8A99)
+        !enabled -> Gt.dim
         active   -> activeColor
         else     -> activeColor.copy(alpha = 0.6f)
     }
     val bgColor = when {
-        !enabled -> Color(0xFF1A3050).copy(alpha = 0.3f)
+        !enabled -> Gt.panel.copy(alpha = 0.3f)
         active   -> activeColor.copy(alpha = 0.2f)
-        else     -> Color(0xFF1A3050)
+        else     -> Gt.panel
     }
     Box(
         modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(bgColor)
             .then(if (enabled) Modifier.clickable { onClick() } else Modifier)
             .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
-        Text(label, color = textColor, fontSize = 10.sp,
+        Text(label, color = textColor, fontSize = 12.sp,
             fontWeight = if (active) FontWeight.ExtraBold else FontWeight.Bold,
             letterSpacing = 1.sp)
     }
@@ -514,11 +515,11 @@ private fun DetailActionButton(
 // ── Badge composables ─────────────────────────────────────────────────────────
 @Composable
 private fun DetailVisibilityBadge(visibility: String) {
-    val color = if (visibility.uppercase() == "PUBLIC") Color(0xFF4AB8E8) else Color(0xFFF59E0B)
+    val color = if (visibility.uppercase() == "PUBLIC") Gt.accent else Gt.warn
     Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
         .background(color.copy(alpha = 0.15f))
         .padding(horizontal = 6.dp, vertical = 2.dp)) {
-        Text(visibility.uppercase(), color = color, fontSize = 9.sp,
+        Text(visibility.uppercase(), color = color, fontSize = 12.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }
@@ -526,17 +527,17 @@ private fun DetailVisibilityBadge(visibility: String) {
 @Composable
 private fun DetailRideStatusBadge(status: String) {
     val (color, label) = when (status.lowercase()) {
-        "open"      -> Color(0xFF22C55E) to "OPEN"
-        "closed"    -> Color(0xFFFFFFFF) to "CLOSED"
-        "cancelled" -> Color(0xFFEF4444) to "CANCELLED"
-        "pending"   -> Color(0xFFFFFFFF) to "PENDING"
-        "completed" -> Color(0xFFFFFFFF) to "COMPLETED"
-        else        -> Color(0xFF22C55E) to "OPEN"
+        "open"      -> Gt.good to "OPEN"
+        "closed"    -> Gt.text to "CLOSED"
+        "cancelled" -> Gt.bad to "CANCELLED"
+        "pending"   -> Gt.text to "PENDING"
+        "completed" -> Gt.text to "COMPLETED"
+        else        -> Gt.good to "OPEN"
     }
     Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
         .background(color.copy(alpha = 0.15f))
         .padding(horizontal = 6.dp, vertical = 2.dp)) {
-        Text(label, color = color, fontSize = 9.sp,
+        Text(label, color = color, fontSize = 12.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }

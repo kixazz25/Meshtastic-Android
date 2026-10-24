@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -33,12 +34,12 @@ import kotlin.math.roundToInt
 // Same component on both convoy map and planning map.
 // ----------------------------------------------------------------
 
-private val panelBg = Color(0xEE131820)
-private val itemBg = Color(0xFF1A2233)
-private val textBright = Color(0xFFCCDDEE)
-private val textDim = Color(0xFFFFFFFF)
-private val accentBlue = Color(0xFF4DA6FF)
-private val accentGreen = Color(0xFF1CF0A0)
+private val panelBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xEE131820 
+private val itemBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF1A2233 
+private val textBright: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFFCCDDEE 
+private val textDim: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFFFFFFFF 
+private val accentBlue: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4DA6FF 
+private val accentGreen: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF1CF0A0 
 private val mono = FontFamily.Monospace
 
 @Composable
@@ -83,14 +84,14 @@ fun ConvoyDisplayPanel(
                 Text(
                     if (expanded) "v" else ">",
                     color = accentBlue,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontFamily = mono,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     "DISPLAY",
                     color = accentBlue,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontFamily = mono,
                     fontWeight = FontWeight.Bold
                 )
@@ -185,7 +186,7 @@ private fun DisplayToggleRow(
                 Text(
                     label,
                     color = if (enabled) textBright else textDim,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontFamily = mono,
                     modifier = Modifier.alpha(alpha)
                 )
@@ -193,7 +194,7 @@ private fun DisplayToggleRow(
                     Text(
                         versionTag,
                         color = textDim,
-                        fontSize = 8.sp,
+                        fontSize = 12.sp,
                         fontFamily = mono,
                         modifier = Modifier.alpha(alpha)
                     )
@@ -205,10 +206,10 @@ private fun DisplayToggleRow(
                 enabled = enabled,
                 modifier = Modifier.height(16.dp).width(28.dp),
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFF2E75B6),
+                    checkedThumbColor = Gt.text,
+                    checkedTrackColor = Gt.accent,
                     uncheckedThumbColor = textDim,
-                    uncheckedTrackColor = Color(0xFF1A2A3A)
+                    uncheckedTrackColor = Gt.panel
                 )
             )
         }

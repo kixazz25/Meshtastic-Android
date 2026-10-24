@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -41,14 +42,14 @@ import kotlin.math.roundToInt
  * nothing more.
  */
 
-private val stPanel = Color(0xFF0F1216)
-private val stCard  = Color(0xFF131820)
-private val stInk   = Color(0xFFE6EDF3)
-private val stDim   = Color(0xFF9AA4B2)
-private val stBlue  = Color(0xFF4DA6FF)
-private val stGreen = Color(0xFF4ADE80)
-private val stTrack = Color(0xFF2A3038)
-private val stMuted = Color(0xFF5A6472)
+private val stPanel: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0F1216 
+private val stCard: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF131820 
+private val stInk: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFE6EDF3 
+private val stDim: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF9AA4B2 
+private val stBlue: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4DA6FF 
+private val stGreen: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4ADE80 
+private val stTrack: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF2A3038 
+private val stMuted: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF5A6472 
 private val stMono  = FontFamily.Monospace
 
 // DEADCODE2-2026-10-23: ConvoyAiStepPanel (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyAiStepPanel.pieces.txt
@@ -72,7 +73,7 @@ private fun SliderRow(
 ) {
     if (label.isNotEmpty()) {
         Row(modifier = Modifier.fillMaxWidth().padding(bottom = 3.dp)) {
-            Text(label, color = stDim, fontSize = 11.sp, fontFamily = stMono,
+            Text(label, color = stDim, fontSize = 12.sp, fontFamily = stMono,
                 modifier = Modifier.weight(1f))
             Text(value, color = tint, fontSize = 13.sp, fontFamily = stMono)
         }

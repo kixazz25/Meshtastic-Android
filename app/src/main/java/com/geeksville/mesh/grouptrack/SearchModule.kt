@@ -128,6 +128,12 @@ fun GtSearchBody(b: GtSearchBridge, close: () -> Unit, autoFocus: Boolean) {   /
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // RIDESEARCH2-2026-10-24 (Fred 10:34): Create a ride, step 1 -- say what this panel is for.
+        if (GtRideStart.pending.value) Text("This panel positions you by area, track, route or waypoint. The next step displays all " +
+            "routes in that area for you to select the route to build a ride from. You can turn tracks on to create a route from a track.",
+            color = s.panelText, fontSize = 14.sp)
+        // RIDESEARCH3-2026-10-24 (Fred 10:35): proceed when the map is where you will ride.
+        if (GtRideStart.pending.value) GtButton("PROCEED TO RIDE CREATION", { GtRideStart.wantProceed.value = true }, modifier = Modifier.fillMaxWidth())
         // SEARCHTOP-2026-10-22 (Fred 13:36): the box FIRST, the state choice under it.
         OutlinedTextField(
             value = term, onValueChange = { term = it }, singleLine = true,
@@ -135,7 +141,7 @@ fun GtSearchBody(b: GtSearchBridge, close: () -> Unit, autoFocus: Boolean) {   /
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { run() }),
             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = s.panelText, unfocusedTextColor = s.panelText,
-                focusedBorderColor = GtColors.Accent, unfocusedBorderColor = s.edge, cursorColor = GtColors.Accent),
+                focusedBorderColor = Gt.accent, unfocusedBorderColor = s.edge, cursorColor = Gt.accent),
             modifier = Modifier.fillMaxWidth().focusRequester(focus)
         )
         GtButton(if (busy) "Searching…" else "SEARCH", { run() }, modifier = Modifier.fillMaxWidth())
@@ -146,7 +152,7 @@ fun GtSearchBody(b: GtSearchBridge, close: () -> Unit, autoFocus: Boolean) {   /
         if (choosing) Column(Modifier.fillMaxWidth().heightIn(max = 240.dp).border(1.dp, s.edge, RoundedCornerShape(8.dp))
                 .verticalScroll(rememberScrollState())) {
             allStates.forEach { g ->
-                Text(g.name, color = if (g == pick) GtColors.Accent else s.panelText, fontSize = 15.sp,
+                Text(g.name, color = if (g == pick) Gt.accent else s.panelText, fontSize = 15.sp,
                     fontWeight = if (g == pick) FontWeight.Bold else FontWeight.Normal,
                     modifier = Modifier.fillMaxWidth().clickable { pick = g; inState = true; choosing = false; if (searched.isNotEmpty()) run() }
                         .padding(horizontal = 12.dp, vertical = 10.dp))
@@ -191,16 +197,16 @@ private fun Header(t: String) {
 private fun ResultRow(label: String, onClick: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp)) {
         Text(label, color = GtScheme.current.value.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text("›", color = GtColors.Accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text("›", color = Gt.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun ScopeSeg(label: String, on: Boolean, onClick: () -> Unit) {
     val s = GtScheme.current.value
-    androidx.compose.foundation.layout.Box(Modifier.background(if (on) Color(0xFF1565C0) else Color.Transparent).clickable(onClick = onClick)
+    androidx.compose.foundation.layout.Box(Modifier.background(Color.Transparent).clickable(onClick = onClick)
         .padding(horizontal = 12.dp, vertical = 12.dp)) {
-        Text(label, color = if (on) Color.White else s.panelText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -208,9 +214,9 @@ private fun ScopeSeg(label: String, on: Boolean, onClick: () -> Unit) {
 @Composable
 private fun TypeChip(label: String, on: Boolean, onClick: () -> Unit) {
     val s = GtScheme.current.value
-    androidx.compose.foundation.layout.Box(Modifier.border(1.dp, if (on) Color(0xFF1565C0) else s.edge, RoundedCornerShape(16.dp))
-        .background(if (on) Color(0xFF1565C0) else Color.Transparent, RoundedCornerShape(16.dp))
+    androidx.compose.foundation.layout.Box(Modifier.border(1.dp, if (on) Gt.accent else s.edge, RoundedCornerShape(16.dp))
+        .background(Color.Transparent, RoundedCornerShape(16.dp))
         .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 10.dp)) {
-        Text(label, color = if (on) Color.White else s.panelDim, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelDim, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }

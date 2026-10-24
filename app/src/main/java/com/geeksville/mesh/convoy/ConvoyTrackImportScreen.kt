@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.os.Environment
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -363,19 +364,19 @@ fun ConvoyTrackImportScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF101510))
+            .background(Gt.panel)
     ) {
         // -- Top bar --
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF1A2A1A))
+                .background(Gt.panel)
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 "\u2190",
-                color = Color(0xFF97D5A5),
+                color = Gt.accent,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
@@ -385,7 +386,7 @@ fun ConvoyTrackImportScreen(
             Column {
                 Text(
                     "Import Tracks from Downloads",
-                    color = Color(0xFF97D5A5),
+                    color = Gt.accent,
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
@@ -393,8 +394,8 @@ fun ConvoyTrackImportScreen(
                 Text(
                     if (scanning) "Scanning Downloads folder..."
                     else "${files.size} GPX/KML files found",
-                    color = Color(0xFFC1C9BF),
-                    fontSize = 10.sp,
+                    color = Gt.text,
+                    fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace
                 )
             }
@@ -461,12 +462,12 @@ fun ConvoyTrackImportScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = Color(0xFF39FF14))
+                    CircularProgressIndicator(color = Gt.accent)
                     Spacer(Modifier.height(12.dp))
                     Text(
                         "Scanning Downloads...",
-                        color = Color(0xFF8B938A),
-                        fontSize = 11.sp,
+                        color = Gt.dim,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
@@ -475,10 +476,10 @@ fun ConvoyTrackImportScreen(
             // IMPORTPICKER-2026-09-13: copying the picked files in.
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = Color(0xFF39FF14))
+                    CircularProgressIndicator(color = Gt.accent)
                     Spacer(Modifier.height(12.dp))
                     Text(stageNote.ifBlank { "Copying files..." },
-                        color = Color(0xFF8B938A), fontSize = 11.sp,
+                        color = Gt.dim, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace)
                 }
             }
@@ -493,7 +494,7 @@ fun ConvoyTrackImportScreen(
                     // the scan could not see them.
                     Text(
                         "Select the GPX or KML files\nyou want to import.",
-                        color = Color(0xFF8B938A),
+                        color = Gt.dim,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         textAlign = TextAlign.Center
@@ -505,11 +506,11 @@ fun ConvoyTrackImportScreen(
                             deleteOriginals = !deleteOriginals
                         }) {
                         Text(if (deleteOriginals) "[x]" else "[ ]",
-                            color = Color(0xFF39FF14), fontSize = 13.sp,
+                            color = Gt.accent, fontSize = 13.sp,
                             fontFamily = FontFamily.Monospace)
                         Spacer(Modifier.width(8.dp))
                         Text("Delete the originals after copying",
-                            color = Color(0xFF8B938A), fontSize = 11.sp,
+                            color = Gt.dim, fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace)
                     }
                     Spacer(Modifier.height(16.dp))
@@ -523,10 +524,10 @@ fun ConvoyTrackImportScreen(
                                 "application/octet-stream", "text/xml", "*/*")) }
                         },
                         shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF1A3A1A)
+                        color = Gt.panel
                     ) {
                         Text("  SELECT FILES  ",
-                            color = Color(0xFF39FF14),
+                            color = Gt.accent,
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             modifier = Modifier.padding(vertical = 10.dp))
@@ -535,12 +536,12 @@ fun ConvoyTrackImportScreen(
                     Surface(
                         modifier = Modifier.clickable { onDismiss() },
                         shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF262B26)
+                        color = Gt.panel
                     ) {
                         Text(
                             "  Back to Map  ",
-                            color = Color(0xFF97D5A5),
-                            fontSize = 11.sp,
+                            color = Gt.accent,
+                            fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
@@ -555,15 +556,15 @@ fun ConvoyTrackImportScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("IMPORT", color = Color(0xFF39FF14), fontSize = 8.sp,
+                Text("IMPORT", color = Gt.accent, fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.width(52.dp))
-                Text("MAPS", color = Color(0xFF4DA6FF), fontSize = 8.sp,
+                Text("MAPS", color = Gt.accent, fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.width(44.dp))
-                Text("FILE", color = Color(0xFF8B938A), fontSize = 8.sp,
+                Text("FILE", color = Gt.dim, fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f).padding(start = 6.dp))
             }
@@ -584,7 +585,7 @@ fun ConvoyTrackImportScreen(
                                 else selected + file.name
                             },
                         shape = RoundedCornerShape(8.dp),
-                        color = if (checked) Color(0xFF15512C) else Color(0xFF262B26)
+                        color = if (checked) Gt.text.copy(alpha = 0.18f) else Gt.text.copy(alpha = 0.18f)
                     ) {
                         Row(
                             modifier = Modifier
@@ -600,9 +601,9 @@ fun ConvoyTrackImportScreen(
                                         else selected - file.name
                                     },
                                     colors = CheckboxDefaults.colors(
-                                        checkedColor = Color(0xFF39FF14),
-                                        uncheckedColor = Color(0xFFFFFFFF),
-                                        checkmarkColor = Color(0xFF101510)
+                                        checkedColor = Gt.accent,
+                                        uncheckedColor = Gt.text,
+                                        checkmarkColor = Gt.panel
                                     )
                                 )
                             }
@@ -620,9 +621,9 @@ fun ConvoyTrackImportScreen(
                                         else mapsSkip + file.name
                                     },
                                     colors = CheckboxDefaults.colors(
-                                        checkedColor = Color(0xFF4DA6FF),
-                                        uncheckedColor = Color(0xFF8FA8C0),
-                                        checkmarkColor = Color(0xFF101510)
+                                        checkedColor = Gt.accent,
+                                        uncheckedColor = Gt.accent,
+                                        checkmarkColor = Gt.panel
                                     )
                                 )
                             }
@@ -633,8 +634,8 @@ fun ConvoyTrackImportScreen(
                             ) {
                                 Text(
                                     file.name,
-                                    color = Color(0xFFDFE4DC),
-                                    fontSize = 11.sp,
+                                    color = Gt.text,
+                                    fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 2
@@ -644,20 +645,20 @@ fun ConvoyTrackImportScreen(
                                 ) {
                                     Text(
                                         formatFileSize(file.length()),
-                                        color = Color(0xFF8B938A),
-                                        fontSize = 9.sp,
+                                        color = Gt.dim,
+                                        fontSize = 12.sp,
                                         fontFamily = FontFamily.Monospace
                                     )
                                     Text(
                                         formatFileDate(file.lastModified()),
-                                        color = Color(0xFF8B938A),
-                                        fontSize = 9.sp,
+                                        color = Gt.dim,
+                                        fontSize = 12.sp,
                                         fontFamily = FontFamily.Monospace
                                     )
                                     Text(
                                         file.extension.uppercase(),
-                                        color = Color(0xFF6B8F71),
-                                        fontSize = 9.sp,
+                                        color = Gt.dim,
+                                        fontSize = 12.sp,
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -671,7 +672,7 @@ fun ConvoyTrackImportScreen(
             // -- Bottom bar -- Select All + Import button --
             Surface(
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                color = Color(0xFF1A2A1A)
+                color = Gt.panel
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     // Select All row
@@ -691,15 +692,15 @@ fun ConvoyTrackImportScreen(
                                 else emptySet()
                             },
                             colors = CheckboxDefaults.colors(
-                                checkedColor = Color(0xFF39FF14),
-                                uncheckedColor = Color(0xFFFFFFFF),
-                                checkmarkColor = Color(0xFF101510)
+                                checkedColor = Gt.accent,
+                                uncheckedColor = Gt.text,
+                                checkmarkColor = Gt.panel
                             )
                         )
                         Text(
                             "Select All  (${selected.size} of ${files.size})",
-                            color = Color(0xFFC1C9BF),
-                            fontSize = 11.sp,
+                            color = Gt.text,
+                            fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace
                         )
                     }
@@ -715,14 +716,14 @@ fun ConvoyTrackImportScreen(
                             // unreachable.
                             .clickable(enabled = selected.isNotEmpty()) { if (selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport() },
                         shape = RoundedCornerShape(10.dp),
-                        color = if (selected.isNotEmpty()) Color(0xFF15512C)
-                        else Color(0xFF1C211C)
+                        color = if (selected.isNotEmpty()) Gt.text.copy(alpha = 0.18f)
+                        else Gt.panel
                     ) {
                         Text(
                             text = if (selected.isEmpty()) "Select files to import"
                             else "Import ${selected.size} Selected",
-                            color = if (selected.isNotEmpty()) Color(0xFF97D5A5)
-                            else Color(0xFF8B938A),
+                            color = if (selected.isNotEmpty()) Gt.good
+                            else Gt.dim,
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
@@ -754,7 +755,7 @@ private fun ImportProgressDialog(
         title = {
             Text(
                 "Importing Tracks",
-                color = Color(0xFF97D5A5),
+                color = Gt.accent,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
@@ -765,11 +766,11 @@ private fun ImportProgressDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                CircularProgressIndicator(color = Color(0xFF39FF14))
+                CircularProgressIndicator(color = Gt.accent)
                 Spacer(Modifier.height(16.dp))
                 Text(
                     "Processing $current of $total",
-                    color = Color(0xFFDFE4DC),
+                    color = Gt.text,
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
@@ -777,8 +778,8 @@ private fun ImportProgressDialog(
                 Spacer(Modifier.height(6.dp))
                 Text(
                     currentName,
-                    color = Color(0xFFC1C9BF),
-                    fontSize = 10.sp,
+                    color = Gt.text,
+                    fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     maxLines = 1
                 )
@@ -794,23 +795,23 @@ private fun ImportProgressDialog(
                         items(feedLines.size) { idx ->
                             val line = feedLines[idx]
                             val col = when {
-                                line.startsWith("INSERT") -> Color(0xFF39FF14)
-                                line.startsWith("ALIAS") -> Color(0xFF6FB6FF)
-                                line.startsWith("DUPLICATE") -> Color(0xFF7A8DA0)
-                                line.startsWith("SKIP") -> Color(0xFFFFB74D)
-                                line.startsWith("ERROR") -> Color(0xFFFF6B6B)
-                                line.startsWith("—") -> Color(0xFF97D5A5)
-                                else -> Color(0xFFC1C9BF)
+                                line.startsWith("INSERT") -> Gt.good
+                                line.startsWith("ALIAS") -> Gt.accent
+                                line.startsWith("DUPLICATE") -> Gt.dim
+                                line.startsWith("SKIP") -> Gt.warn
+                                line.startsWith("ERROR") -> Gt.bad
+                                line.startsWith("—") -> Gt.good
+                                else -> Gt.text
                             }
                             Text(line, color = col, fontFamily = FontFamily.Monospace,
-                                fontSize = 9.sp, maxLines = 1,
+                                fontSize = 12.sp, maxLines = 1,
                                 modifier = Modifier.padding(vertical = 1.dp))
                         }
                     }
                 }
             }
         },
-        containerColor = Color(0xFF1C211C),
+        containerColor = Gt.panel,
         shape = RoundedCornerShape(16.dp)
     )
 }
@@ -840,20 +841,20 @@ private fun ImportRecapDialog(
                     TextButton(onClick = { onFilesDelete(); onDismiss() }) {
                         Text(
                             "DELETE FILES & CLOSE",
-                            color = Color(0xFFFF6B6B),
+                            color = Gt.bad,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
+                            fontSize = 12.sp
                         )
                     }
                 }
                 TextButton(onClick = onDismiss) {
                     Text(
                         "KEEP FILES & CLOSE",
-                        color = Color(0xFF97D5A5),
+                        color = Gt.accent,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp
+                        fontSize = 12.sp
                     )
                 }
             }
@@ -861,7 +862,7 @@ private fun ImportRecapDialog(
         title = {
             Text(
                 "Import Complete",
-                color = Color(0xFF97D5A5),
+                color = Gt.accent,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
@@ -873,7 +874,7 @@ private fun ImportRecapDialog(
                 if (imported.isNotEmpty()) {
                     Text(
                         "${imported.size} tracks imported",
-                        color = Color(0xFF39FF14),
+                        color = Gt.accent,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
@@ -882,44 +883,44 @@ private fun ImportRecapDialog(
                 // 4-way breakdown (2026-06-30): new / aliased / duplicate / skipped
                 Text(
                     "$newCount new   ·   $aliasedCount aliased",
-                    color = Color(0xFFC1C9BF),
-                    fontSize = 11.sp,
+                    color = Gt.text,
+                    fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
                     "$dupeCount duplicate   ·   $skippedTrkCount skipped",
-                    color = Color(0xFFC1C9BF),
-                    fontSize = 11.sp,
+                    color = Gt.text,
+                    fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace
                 )
                 if (skipped.isNotEmpty()) {
                     Text(
                         "${skipped.size} skipped (already exist)",
-                        color = Color(0xFFFFB74D),
-                        fontSize = 11.sp,
+                        color = Gt.warn,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
                 if (failed.isNotEmpty()) {
                     Text(
                         "${failed.size} failed",
-                        color = Color(0xFFFFB4AB),
-                        fontSize = 11.sp,
+                        color = Gt.bad,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
                 if (datesCorrected > 0) {
                     Text(
                         "Dates corrected: $datesCorrected of ${imported.size}",
-                        color = Color(0xFFC1C9BF),
-                        fontSize = 10.sp,
+                        color = Gt.text,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
                 if (waypoints > 0) {
                     Text(
                         "$waypoints waypoints imported",
-                        color = Color(0xFF4DA6FF),
+                        color = Gt.accent,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
@@ -928,7 +929,7 @@ private fun ImportRecapDialog(
                 if (routes > 0) {
                     Text(
                         "$routes routes imported",
-                        color = Color(0xFFFF8C42),
+                        color = Gt.warn,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
@@ -940,8 +941,8 @@ private fun ImportRecapDialog(
                     Spacer(Modifier.height(12.dp))
                     Text(
                         "Imported:",
-                        color = Color(0xFFC1C9BF),
-                        fontSize = 10.sp,
+                        color = Gt.text,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
                     )
@@ -950,16 +951,16 @@ private fun ImportRecapDialog(
                     for (name in shown) {
                         Text(
                             "\u2022 $name",
-                            color = Color(0xFF8B938A),
-                            fontSize = 9.sp,
+                            color = Gt.dim,
+                            fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace
                         )
                     }
                     if (imported.size > 20) {
                         Text(
                             "  ...and ${imported.size - 20} more",
-                            color = Color(0xFF8B938A),
-                            fontSize = 9.sp,
+                            color = Gt.dim,
+                            fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace
                         )
                     }
@@ -970,8 +971,8 @@ private fun ImportRecapDialog(
                     Spacer(Modifier.height(12.dp))
                     Text(
                         "Failed:",
-                        color = Color(0xFFFFB4AB),
-                        fontSize = 10.sp,
+                        color = Gt.bad,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
                     )
@@ -979,15 +980,15 @@ private fun ImportRecapDialog(
                     for (msg in failed.take(10)) {
                         Text(
                             "\u2022 $msg",
-                            color = Color(0xFFFFB4AB),
-                            fontSize = 9.sp,
+                            color = Gt.bad,
+                            fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace
                         )
                     }
                 }
             }
         },
-        containerColor = Color(0xFF1C211C),
+        containerColor = Gt.panel,
         shape = RoundedCornerShape(16.dp)
     )
 }

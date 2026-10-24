@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -90,12 +91,12 @@ private fun loadRideLines(context: android.content.Context): List<RideLine> {
     }
 }
 
-private val RLBG = Color(0xF20F1216)
-private val RLCARD = Color(0xFF161B22)
-private val RLSEL = Color(0xFF1F4E79)
-private val RLINK = Color(0xFFE8EEF5)
-private val RLDIM = Color(0xFF8B949E)
-private val RLACC = Color(0xFF58A6FF)
+private val RLBG: Color get() = Gt.panel  // STD1-2026-10-24 was 0xF20F1216 
+private val RLCARD: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF161B22 
+private val RLSEL: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF1F4E79 
+private val RLINK: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFE8EEF5 
+private val RLDIM: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF8B949E 
+private val RLACC: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF58A6FF 
 
 @Composable
 fun RidesScreen(onClose: () -> Unit) {
@@ -152,7 +153,7 @@ fun RidesScreen(onClose: () -> Unit) {
                         .clickable { selected = if (on) null else r.id; message = "" }
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                 ) {
-                    Text(r.name, color = if (on) Color.White else RLINK, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(r.name, color = if (on) Gt.text else RLINK, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Text("${r.date.ifBlank { "no date" }} \u2022 ${r.state}", color = RLDIM, fontSize = 12.sp)
                 }
                 if (on) {

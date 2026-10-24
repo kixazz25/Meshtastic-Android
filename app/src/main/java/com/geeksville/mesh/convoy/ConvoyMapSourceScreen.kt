@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -887,7 +888,7 @@ private fun SlotCard(
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                     Text(
                         text = slotName,
-                        color = Color.White,
+                        color = Gt.text,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -946,7 +947,7 @@ private fun SourceRow(
                         modifier = Modifier
                             .size(12.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
                     )
                 }
             }
@@ -995,7 +996,7 @@ private fun ApiKeyRow(
             Icon(
                 if (hasKey) Icons.Default.Check else Icons.Default.Lock,
                 contentDescription = null,
-                tint = if (hasKey) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                tint = if (hasKey) Gt.good else MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(Modifier.width(12.dp))
@@ -1004,7 +1005,7 @@ private fun ApiKeyRow(
                 Text(
                     if (hasKey) "Key configured" else "Key required — tap to enter",
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (hasKey) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+                    color = if (hasKey) Gt.good else MaterialTheme.colorScheme.error
                 )
             }
         }

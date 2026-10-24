@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,13 +37,13 @@ import kotlinx.coroutines.withContext
 
 private const val TAG = "HomeStatePicker"
 private val mono = FontFamily.Monospace
-private val bg = Color(0xFF0F1216)
-private val cardBg = Color(0xFF1A2233)
-private val border = Color(0xFF2A3444)
-private val green = Color(0xFF7BB661)
-private val blue = Color(0xFF4DA6FF)
-private val txtDim = Color(0xFF8899AA)
-private val txtLight = Color(0xFFE6EDF3)
+private val bg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0F1216 
+private val cardBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF1A2233 
+private val border: Color get() = Gt.line  // STD1-2026-10-24 was 0xFF2A3444 
+private val green: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF7BB661 
+private val blue: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4DA6FF 
+private val txtDim: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF8899AA 
+private val txtLight: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFE6EDF3 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -192,11 +193,11 @@ fun HomeStatePickerScreen(
         if (killedArea != null && (phase == "detecting" || phase == "confirm" || phase == "list")) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                color = Color(0xFF4A3410), shape = RoundedCornerShape(6.dp)
+                color = Gt.warn.copy(alpha = 0.18f), shape = RoundedCornerShape(6.dp)
             ) {
                 Text(
                     "The $killedArea state import did not finish and was removed. Select a state and process again.",
-                    color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                    color = Gt.text, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(12.dp)
                 )
             }
@@ -255,7 +256,7 @@ private fun ConfirmPanel(
         Text(state.name, color = green, fontSize = 32.sp, fontWeight = FontWeight.Bold)
         state.description?.let {
             Spacer(Modifier.height(4.dp))
-            Text(it, color = txtDim, fontSize = 11.sp)
+            Text(it, color = txtDim, fontSize = 12.sp)
         }
 
         Spacer(Modifier.height(24.dp))
@@ -263,7 +264,7 @@ private fun ConfirmPanel(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
                 onClick = onLoad,
-                colors = ButtonDefaults.buttonColors(containerColor = green),
+                colors = ButtonDefaults.buttonColors(containerColor = green.copy(alpha = 0.18f)),
                 shape = RoundedCornerShape(8.dp),
                 // PICKERFIX-2026-08-21K: was height(52.dp) -- a FIXED box, so the second
                 // line ("Downloads all available sources") was sliced mid-glyph.
@@ -272,9 +273,9 @@ private fun ConfirmPanel(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("LOAD ${state.name.uppercase()} TRAIL DATA",
-                        color = Color(0xFF0D1117), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        color = Gt.text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Text("Downloads all available sources",
-                        color = Color(0xFF0D1117).copy(alpha = 0.7f), fontSize = 10.sp)
+                        color = Gt.text.copy(alpha = 0.7f), fontSize = 12.sp)
                 }
             }
 
@@ -291,7 +292,7 @@ private fun ConfirmPanel(
 
         Spacer(Modifier.height(16.dp))
         Text("Internet required · Est. 7 minutes per source",
-            color = txtDim, fontSize = 10.sp)
+            color = txtDim, fontSize = 12.sp)
     }
 }
 
@@ -333,7 +334,7 @@ private fun StateListPanel(
                     val isSelected = item.displayName == selectedItem?.displayName
                     Surface(
                         modifier = Modifier.fillMaxWidth().clickable { onSelect(item) },
-                        color = if (isSelected) Color(0xFF1A3A2A) else Color.Transparent,
+                        color = Color.Transparent,
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Row(
@@ -341,9 +342,9 @@ private fun StateListPanel(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(item.displayName, color = txtLight, fontSize = 13.sp)
+                            Text((if (isSelected) "\u2713 " else "") + item.displayName, color = txtLight, fontSize = 13.sp)
                             Text("${item.entries.size} region${if (item.entries.size > 1) "s" else ""}",
-                                color = txtDim, fontSize = 10.sp)
+                                color = txtDim, fontSize = 12.sp)
                         }
                     }
                 }
@@ -373,7 +374,7 @@ private fun StateListPanel(
                             fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         selectedItem.description?.let {
                             Spacer(Modifier.height(4.dp))
-                            Text(it, color = txtDim, fontSize = 11.sp)
+                            Text(it, color = txtDim, fontSize = 12.sp)
                         }
                         Spacer(Modifier.height(8.dp))
                         Text("${selectedItem.entries.size} region${if (selectedItem.entries.size > 1) "s" else ""} to process",
@@ -391,14 +392,14 @@ private fun StateListPanel(
                 onClick = onLoad,
                 enabled = selectedItem != null,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = green,
-                    disabledContainerColor = Color(0xFF334433)
+                    containerColor = green.copy(alpha = 0.18f),
+                    disabledContainerColor = Gt.panel
                 ),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
                 Text("LOAD TRAIL DATA", fontWeight = FontWeight.Bold,
-                    color = if (selectedItem != null) Color(0xFF0D1117) else Color(0xFF556655))
+                    color = if (selectedItem != null) Gt.text else Gt.dim)
             }
 
             // Back to detected
@@ -442,13 +443,13 @@ private fun ProgressPanel(progress: ImportProgress?) {
         // Blinking "Do not close" banner — TOP of panel, unmissable
         val blink = (clockTick / 800) % 2 == 0L
         Surface(
-            color = if (blink) Color(0xFF1A3A1A) else Color(0xFF2A1A1A),
+            color = if (blink) Gt.text.copy(alpha = 0.18f) else Gt.text.copy(alpha = 0.18f),
             shape = RoundedCornerShape(6.dp),
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
         ) {
             Text(
                 "Do not close GroupTrack while importing",
-                color = if (blink) green else Color(0xFFFF8844),
+                color = if (blink) green else Gt.warn,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -460,7 +461,7 @@ private fun ProgressPanel(progress: ImportProgress?) {
         Text("Processing ${progress.totalSources} sources for ${progress.stateName}",
             color = blue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         Text("Est. ~${progress.estimatedMinutesRemaining} minutes remaining",
-            color = txtDim, fontSize = 11.sp)
+            color = txtDim, fontSize = 12.sp)
         Spacer(Modifier.height(12.dp))
 
         LazyColumn(modifier = Modifier.weight(1f)) {
@@ -476,7 +477,7 @@ private fun ProgressPanel(progress: ImportProgress?) {
                         "Source ${i + 1} of ${progress.totalSources} — ${src.name}",
                         color = if (isCurrent) blue
                             else if (isDone) green
-                            else if (isFailed) Color(0xFFCC4444)
+                            else if (isFailed) Gt.bad
                             else txtDim,
                         fontSize = 13.sp,
                         fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
@@ -485,16 +486,16 @@ private fun ProgressPanel(progress: ImportProgress?) {
                     // Steps (simplified — real steps from the controller's currentStep)
                     if (isDone) {
                         Text("  ✅ Complete — ${src.imported} records",
-                            color = green, fontSize = 11.sp)
+                            color = green, fontSize = 12.sp)
                     } else if (isCurrent) {
                         val liveDetail = dlLive ?: src.stepDetail
                         Text("  ► ${src.currentStep ?: "Processing"}${
                             liveDetail?.let { " — $it" } ?: ""
-                        }", color = blue, fontSize = 11.sp)
+                        }", color = blue, fontSize = 12.sp)
                     } else if (isFailed) {
-                        Text("  ✗ Failed", color = Color(0xFFCC4444), fontSize = 11.sp)
+                        Text("  ✗ Failed", color = Gt.bad, fontSize = 12.sp)
                     } else {
-                        Text("  ○ Waiting", color = txtDim, fontSize = 11.sp)
+                        Text("  ○ Waiting", color = txtDim, fontSize = 12.sp)
                     }
                 }
             }
@@ -503,7 +504,7 @@ private fun ProgressPanel(progress: ImportProgress?) {
         // Elapsed time (calculated from clock, not progress snapshot)
         val elSec = (System.currentTimeMillis() - startTimeMs) / 1000
         Text("Elapsed: ${elSec / 60}m ${elSec % 60}s",
-            color = txtDim, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(),
+            color = txtDim, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center)
     }
 }
@@ -518,11 +519,11 @@ private fun RecapLine(label: String, value: Int) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, color = txtLight, fontSize = 11.sp)
+        Text(label, color = txtLight, fontSize = 12.sp)
         Text(
             if (value < 0) "not reported" else "$value",
-            color = if (value < 0) Color(0xFF888888) else txtLight,
-            fontSize = 11.sp
+            color = if (value < 0) Gt.dim else txtLight,
+            fontSize = 12.sp
         )
     }
 }
@@ -567,7 +568,7 @@ private fun CompletionPanel(progress: ImportProgress?, onDone: () -> Unit) {
                                 if (src.status != "completed") "failed"
                                 else if (src.dupes > 0) "${src.imported} \u00B7 ${src.dupes} already had"
                                 else "${src.imported}",
-                                color = if (src.status == "completed") green else Color(0xFFCC4444),
+                                color = if (src.status == "completed") green else Gt.bad,
                                 fontSize = 13.sp, fontWeight = FontWeight.Bold
                             )
                         }
@@ -608,17 +609,17 @@ private fun CompletionPanel(progress: ImportProgress?, onDone: () -> Unit) {
 
         val elapsed = (progress?.elapsedMs ?: 0) / 1000
         Text("Completed in ${elapsed / 60}m ${elapsed % 60}s",
-            color = txtDim, fontSize = 11.sp)
+            color = txtDim, fontSize = 12.sp)
 
         Spacer(Modifier.height(16.dp))
 
         Button(
             onClick = onDone,
-            colors = ButtonDefaults.buttonColors(containerColor = green),
+            colors = ButtonDefaults.buttonColors(containerColor = green.copy(alpha = 0.18f)),
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier.height(48.dp)
         ) {
-            Text("OPEN RIDE MAP", color = Color(0xFF0D1117),
+            Text("OPEN RIDE MAP", color = Gt.text,
                 fontWeight = FontWeight.Bold, fontSize = 15.sp)
         }
     }

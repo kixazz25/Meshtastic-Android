@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.content.Intent
 import android.util.Log
 import androidx.compose.foundation.background
@@ -91,14 +92,14 @@ fun ConvoyTransferRideScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF101510))) {
+    Box(modifier = Modifier.fillMaxSize().background(Gt.panel)) {
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
 
             // Header
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("\u2190", color = Color(0xFF97D5A5), fontSize = 20.sp,
+                Text("\u2190", color = Gt.accent, fontSize = 20.sp,
                     modifier = Modifier.clickable { onBack() }.padding(end = 12.dp))
-                Text("TRANSFER RIDE", color = Color(0xFF97D5A5), fontSize = 13.sp,
+                Text("TRANSFER RIDE", color = Gt.accent, fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp)
             }
@@ -108,8 +109,8 @@ fun ConvoyTransferRideScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it; selectedRide = null },
-                placeholder = { Text("Search by organizer name...", fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace, color = Color(0xFF8B938A)) },
+                placeholder = { Text("Search by organizer name...", fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace, color = Gt.dim) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -117,20 +118,20 @@ fun ConvoyTransferRideScreen(
 
             if (allRides.isEmpty()) {
                 Text("No rides found. Create a ride first.",
-                    color = Color(0xFF8B938A), fontSize = 10.sp,
+                    color = Gt.dim, fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(8.dp))
             } else {
                 // Column headers
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)) {
                     Text("", modifier = Modifier.width(20.dp))
-                    Text("RIDE NAME", color = Color(0xFFFFFFFF), fontSize = 8.sp,
+                    Text("RIDE NAME", color = Gt.text, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
-                    Text("DATE", color = Color(0xFFFFFFFF), fontSize = 8.sp,
+                    Text("DATE", color = Gt.text, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
-                    Text("ORGANIZER", color = Color(0xFFFFFFFF), fontSize = 8.sp,
+                    Text("ORGANIZER", color = Gt.text, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1.5f))
-                    Text("CH", color = Color(0xFFFFFFFF), fontSize = 8.sp,
+                    Text("CH", color = Gt.text, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
                 }
 
@@ -147,9 +148,9 @@ fun ConvoyTransferRideScreen(
                                 .clickable { selectedRide = if (isSelected) null else ride },
                             shape = RoundedCornerShape(6.dp),
                             color = when {
-                                isSelected -> Color(0xFF1F4E79)
-                                isFuture   -> Color(0xFF1C211C)
-                                else       -> Color(0xFF161A16)
+                                isSelected -> Gt.panel
+                                isFuture   -> Gt.panel
+                                else       -> Gt.panel
                             }
                         ) {
                             Row(
@@ -160,32 +161,32 @@ fun ConvoyTransferRideScreen(
                                 // Selector
                                 Text(
                                     if (isSelected) "\u2713" else if (isFuture) "\u25cf" else "\u25cb",
-                                    color = if (isSelected) Color(0xFF4DA6FF)
-                                            else if (isFuture) Color(0xFF97D5A5)
-                                            else Color(0xFFFFFFFF),
-                                    fontSize = 10.sp, modifier = Modifier.width(20.dp)
+                                    color = if (isSelected) Gt.accent
+                                            else if (isFuture) Gt.good
+                                            else Gt.text,
+                                    fontSize = 12.sp, modifier = Modifier.width(20.dp)
                                 )
                                 // Ride name
                                 Text(ride.eventName,
-                                    color = if (isSelected) Color.White
-                                            else if (isFuture) Color(0xFFDFE4DC)
-                                            else Color(0xFF8B938A),
-                                    fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                                    color = if (isSelected) Gt.text
+                                            else if (isFuture) Gt.text
+                                            else Gt.dim,
+                                    fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.weight(2f))
                                 // Date
                                 Text(ride.eventDate,
-                                    color = if (isFuture) Color(0xFF97D5A5) else Color(0xFFFFFFFF),
-                                    fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                                    color = if (isFuture) Gt.good else Gt.text,
+                                    fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.weight(1f))
                                 // Organizer
                                 Text(organizer,
-                                    color = Color(0xFF8B938A), fontSize = 9.sp,
+                                    color = Gt.dim, fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.weight(1.5f))
                                 // Channel
                                 Text(ride.channelName,
-                                    color = Color(0xFFFFFFFF), fontSize = 9.sp,
+                                    color = Gt.text, fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.weight(1f))
                             }
@@ -197,12 +198,12 @@ fun ConvoyTransferRideScreen(
                 if (statusMsg.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
                     Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(6.dp),
-                        color = if (statusMsg.startsWith("\u2713")) Color(0xFF0D2010)
-                                else Color(0xFF2A1A1A)) {
+                        color = if (statusMsg.startsWith("\u2713")) Gt.text.copy(alpha = 0.18f)
+                                else Gt.panel) {
                         Text(statusMsg,
-                            color = if (statusMsg.startsWith("\u2713")) Color(0xFF97D5A5)
-                                    else Color(0xFFFFB4AB),
-                            fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                            color = if (statusMsg.startsWith("\u2713")) Gt.good
+                                    else Gt.bad,
+                            fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(8.dp))
                     }
@@ -217,13 +218,13 @@ fun ConvoyTransferRideScreen(
                             selectedRide?.let { sendRideEmail(it) }
                         },
                     shape = RoundedCornerShape(10.dp),
-                    color = if (selectedRide != null) Color(0xFF1F4E79) else Color(0xFF1C211C)
+                    color = if (selectedRide != null) Gt.text.copy(alpha = 0.18f) else Gt.text.copy(alpha = 0.18f)
                 ) {
                     Text(
                         text = if (selectedRide != null)
                             "\u2709 SEND ${selectedRide!!.eventName.uppercase()} VIA EMAIL"
                             else "SELECT A RIDE TO SEND",
-                        color = if (selectedRide != null) Color.White else Color(0xFF8B938A),
+                        color = if (selectedRide != null) Gt.text else Gt.dim,
                         fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                         modifier = Modifier.padding(vertical = 14.dp)
@@ -232,9 +233,9 @@ fun ConvoyTransferRideScreen(
                 Spacer(Modifier.height(6.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth().clickable { onBack() },
-                    shape = RoundedCornerShape(10.dp), color = Color(0xFF2A1A1A)
+                    shape = RoundedCornerShape(10.dp), color = Gt.panel
                 ) {
-                    Text("CANCEL", color = Color(0xFFFFB4AB), fontSize = 12.sp,
+                    Text("CANCEL", color = Gt.bad, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(vertical = 14.dp))

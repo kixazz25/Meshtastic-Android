@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,17 +44,17 @@ const val ROUTE_METHOD_SUGGEST = 2  // suggest from points (placeholder)
 const val ROUTE_LS_NEW = 0      // building a brand-new route
 const val ROUTE_LS_RESUMED = 1  // resumed an in-progress draft
 
-private val rtPanelBg = Color(0xEE131820)
-private val rtRowBg   = Color(0xFF1A2233)
-private val rtSelBg   = Color(0xFF0F6E56)
-private val rtPurple  = Color(0xFFBC8CFF)
-private val rtGreen   = Color(0xFF1CF0A0)
-private val rtBlue    = Color(0xFF4DA6FF)
-private val rtTxtD    = Color(0xFF7A8DA0)
+private val rtPanelBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xEE131820 
+private val rtRowBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF1A2233 
+private val rtSelBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0F6E56 
+private val rtPurple: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFFBC8CFF 
+private val rtGreen: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF1CF0A0 
+private val rtBlue: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4DA6FF 
+private val rtTxtD: Color get() = Gt.text  // STD1-2026-10-24 was 0xFF7A8DA0 
 // DEADCODE2-2026-10-23: rtAmber (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyRouteToolbar.pieces.txt
-private val rtRed     = Color(0xFFE86B6B)
+private val rtRed: Color get() = Gt.bad  // STD1-2026-10-24 was 0xFFE86B6B 
 private val rtMono    = FontFamily.Monospace
-private val rtDis     = Color(0xFF44505C)  // disabled/greyed
+private val rtDis: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF44505C disabled/greyed
 
 // DEADCODE2-2026-10-23: EntryBtnDisabled (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyRouteToolbar.pieces.txt
 
@@ -174,7 +175,7 @@ fun ConvoyRouteToolbar(
                 // corner (Fred, 09-02), beside the grip. ⭐ It leaves the right
                 // corner free for the X -- and the right corner is where a
                 // close belongs, so the two controls stop competing for it.
-                Text(if (minimized) "v" else "^", color = rtTxtD, fontSize = 11.sp,
+                Text(if (minimized) "v" else "^", color = rtTxtD, fontSize = 12.sp,
                     fontFamily = rtMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.clickable { minimized = !minimized }.padding(end = 6.dp))
                 Text(if (minimized) "ROUTE + ($vertexCount pts)" else "ROUTE +",
@@ -198,7 +199,7 @@ fun ConvoyRouteToolbar(
             // says WHICH method is active -- a fold should not lose information.
             // ROUTESTART-2026-10-22: LOCKED -> one line naming the method; no chips, no way to change it.
             if (methodLocked) Text(if (selectedMethod == ROUTE_METHOD_SUGGEST) "AI ROUTE DESIGN" else "BUILD IT MYSELF",
-                color = rtGreen, fontSize = 10.sp, fontFamily = rtMono, fontWeight = FontWeight.Bold)
+                color = rtGreen, fontSize = 12.sp, fontFamily = rtMono, fontWeight = FontWeight.Bold)
             if (!methodLocked) Row(
                 modifier = Modifier.fillMaxWidth().clickable {
                     if (!methodOpen) {
@@ -208,13 +209,13 @@ fun ConvoyRouteToolbar(
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
                 Text("METHOD", color = if (building) rtTxtD else rtDis,
-                    fontSize = 9.sp, fontFamily = rtMono)
+                    fontSize = 12.sp, fontFamily = rtMono)
                 if (!methodOpen) {
                     Text("  \u00b7  " + (if (selectedMethod == ROUTE_METHOD_SUGGEST)
                             "AI design" else "Drop points"),
-                        color = rtGreen, fontSize = 9.sp, fontFamily = rtMono,
+                        color = rtGreen, fontSize = 12.sp, fontFamily = rtMono,
                         modifier = Modifier.weight(1f))
-                    Text("\u25b8", color = rtTxtD, fontSize = 10.sp, fontFamily = rtMono)
+                    Text("\u25b8", color = rtTxtD, fontSize = 12.sp, fontFamily = rtMono)
                 }
             }
             if (methodOpen && !methodLocked) {   // ROUTESTART: locked -> never shown
@@ -276,7 +277,7 @@ fun ConvoyRouteToolbar(
             // preferred home. When it is built it REPLACES this row. "IT CANNOT BE
             // BOTH" -- two controls on one flag is exactly how they come to
             // disagree.
-            Text("BUILD  ($vertexCount pts)", color = if (building) rtTxtD else rtDis, fontSize = 9.sp, fontFamily = rtMono)
+            Text("BUILD  ($vertexCount pts)", color = if (building) rtTxtD else rtDis, fontSize = 12.sp, fontFamily = rtMono)
             // Segmented switch: BOTH halves visible, ACTIVE half reverse-video
             // (filled block + knockout text) so it reads on a B/W device.
             // ROUTEPANEL-2026-08-23O: labels now say what a TAP DOES rather than naming a
@@ -352,7 +353,7 @@ private fun MethodChip(label: String, selected: Boolean, enabled: Boolean,
         Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
             horizontalAlignment = Alignment.CenterHorizontally) {
             Text(label, color = if (selected) rtGreen else rtTxtD,
-                fontSize = 10.sp, fontFamily = rtMono, fontWeight = FontWeight.Bold)
+                fontSize = 12.sp, fontFamily = rtMono, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -374,7 +375,7 @@ private fun SegHalf(
         shape = RoundedCornerShape(4.dp)
     ) {
         Box(modifier = Modifier.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
-            Text(label, color = fg, fontSize = 11.sp, fontFamily = rtMono, fontWeight = FontWeight.Bold)
+            Text(label, color = fg, fontSize = 12.sp, fontFamily = rtMono, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -386,7 +387,7 @@ private fun BuildBtn(label: String, tint: Color, modifier: Modifier = Modifier, 
         shape = RoundedCornerShape(5.dp),
         color = rtRowBg
     ) {
-        Text(label, color = tint, fontSize = 10.sp, fontFamily = rtMono,
+        Text(label, color = tint, fontSize = 12.sp, fontFamily = rtMono,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp))
     }

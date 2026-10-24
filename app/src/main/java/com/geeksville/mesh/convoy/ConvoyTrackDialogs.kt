@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -52,7 +53,7 @@ fun TrackActionDialog(
 private fun ActionRow(label: String, onClick: () -> Unit) {
     Text(
         label,
-        color = Color(0xFF39FF14),
+        color = Gt.accent,
         fontSize = 14.sp,
         modifier = Modifier
             .fillMaxWidth()
@@ -79,16 +80,16 @@ fun RenameTrackDialog(
                 BasicTextField(
                     value = text,
                     onValueChange = { text = it },
-                    textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
-                    cursorBrush = SolidColor(Color(0xFF39FF14)),
+                    textStyle = TextStyle(color = Gt.text, fontSize = 14.sp),
+                    cursorBrush = SolidColor(Gt.accent),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
-                        .background(Color(0xFF1A2233), RoundedCornerShape(4.dp))
+                        .background(Gt.panel, RoundedCornerShape(4.dp))
                         .padding(8.dp)
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(".$ext will be preserved",
-                    color = Color(0xFF7A8DA0), fontSize = 11.sp)
+                    color = Gt.dim, fontSize = 12.sp)
             }
         },
         confirmButton = {
@@ -118,7 +119,7 @@ fun DeleteTrackDialog(
         text = { Text("Permanently delete ${file.name}?") },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("Delete", color = Color(0xFFFF4444))
+                Text("Delete", color = Gt.bad)
             }
         },
         dismissButton = {

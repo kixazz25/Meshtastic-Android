@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,15 +38,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // Meshtastic palette
-private val MshBg        = Color(0xFF101510)
-private val MshSurface   = Color(0xFF1C211C)
-private val MshSurfaceHi = Color(0xFF262B26)
-private val MshPrimary   = Color(0xFF97D5A5)
-private val MshPrimCont  = Color(0xFF15512C)
-private val MshOnSurf    = Color(0xFFDFE4DC)
-private val MshVariant   = Color(0xFFC1C9BF)
-private val MshOutline   = Color(0xFF8B938A)
-private val MshError     = Color(0xFFFFB4AB)
+private val MshBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF101510 
+private val MshSurface: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF1C211C 
+private val MshSurfaceHi: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF262B26 
+private val MshPrimary: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF97D5A5 
+private val MshPrimCont: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF15512C 
+private val MshOnSurf: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFDFE4DC 
+private val MshVariant: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFC1C9BF 
+private val MshOutline: Color get() = Gt.line  // STD1-2026-10-24 was 0xFF8B938A 
+private val MshError: Color get() = Gt.bad  // STD1-2026-10-24 was 0xFFFFB4AB 
 
 private sealed class GateState {
     object Idle          : GateState()
@@ -136,7 +137,7 @@ fun ConvoyEmailGateScreen(
                     OutlinedTextField(
                         value         = email,
                         onValueChange = { email = it; state = GateState.Idle },
-                        label         = { Text("Email Address", fontFamily = FontFamily.Monospace, fontSize = 11.sp) },
+                        label         = { Text("Email Address", fontFamily = FontFamily.Monospace, fontSize = 12.sp) },
                         singleLine    = true,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Email,
@@ -176,7 +177,7 @@ fun ConvoyEmailGateScreen(
                         colors   = ButtonDefaults.outlinedButtonColors(contentColor = MshVariant),
                         modifier = Modifier.fillMaxWidth().height(44.dp)
                     ) {
-                        Text("CANCEL", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                        Text("CANCEL", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     }
                 }
 
@@ -202,13 +203,13 @@ fun ConvoyEmailGateScreen(
                             Text(
                                 text       = email.trim(),
                                 color      = MshVariant,
-                                fontSize   = 11.sp,
+                                fontSize   = 12.sp,
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
                                 text       = "This email is not registered in the Convoy system.",
                                 color      = MshOutline,
-                                fontSize   = 10.sp,
+                                fontSize   = 12.sp,
                                 fontFamily = FontFamily.Monospace,
                                 textAlign  = TextAlign.Center
                             )
@@ -239,7 +240,7 @@ fun ConvoyEmailGateScreen(
                         colors   = ButtonDefaults.outlinedButtonColors(contentColor = MshVariant),
                         modifier = Modifier.fillMaxWidth().height(44.dp)
                     ) {
-                        Text("EXIT", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                        Text("EXIT", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     }
                 }
 
@@ -272,7 +273,7 @@ fun ConvoyEmailGateScreen(
                             Text(
                                 text       = "Your account is registered as a RIDER. Creating rides requires ORGANIZER access.",
                                 color      = MshVariant,
-                                fontSize   = 10.sp,
+                                fontSize   = 12.sp,
                                 fontFamily = FontFamily.Monospace,
                                 textAlign  = TextAlign.Center
                             )
@@ -280,7 +281,7 @@ fun ConvoyEmailGateScreen(
                             Text(
                                 text       = "Upgrade is free during the current beta period.",
                                 color      = MshOutline,
-                                fontSize   = 9.sp,
+                                fontSize   = 12.sp,
                                 fontFamily = FontFamily.Monospace,
                                 textAlign  = TextAlign.Center
                             )
@@ -307,7 +308,7 @@ fun ConvoyEmailGateScreen(
                         colors   = ButtonDefaults.outlinedButtonColors(contentColor = MshVariant),
                         modifier = Modifier.fillMaxWidth().height(44.dp)
                     ) {
-                        Text("CANCEL", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                        Text("CANCEL", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     }
                 }
             }

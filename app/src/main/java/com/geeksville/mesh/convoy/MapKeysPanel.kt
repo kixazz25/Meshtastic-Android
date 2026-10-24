@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
@@ -96,7 +97,7 @@ fun MapKeysPanel(
 
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xF2000000),
+        color = Gt.panel,
         shadowElevation = 8.dp,
         modifier = modifier.width(360.dp),
     ) {
@@ -104,17 +105,17 @@ fun MapKeysPanel(
 
             Row(verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                Text("MAP KEY / FILTERS", color = Color(0xFF8FD0FF),
+                Text("MAP KEY / FILTERS", color = Gt.accent,
                     fontSize = 13.sp, fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.weight(1f))
                 Box(contentAlignment = Alignment.Center,
                     modifier = Modifier.width(28.dp).height(24.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF1B2027))
-                        .border(1.dp, Color(0xFF47505A), RoundedCornerShape(4.dp))
+                        .background(Gt.panel)
+                        .border(1.dp, Gt.line, RoundedCornerShape(4.dp))
                         .clickable { onDismiss() }) {
-                    Text("\u2715", color = Color(0xFFE6EDF3), fontSize = 14.sp,
+                    Text("\u2715", color = Gt.text, fontSize = 14.sp,
                         fontWeight = FontWeight.Bold)
                 }
             }
@@ -130,15 +131,15 @@ fun MapKeysPanel(
             if (showCategoryHelp) {
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { showCategoryHelp = false },
-                    containerColor = Color(0xFF161B22),
+                    containerColor = Gt.panel,
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()) {
-                            Text("What these mean", color = Color(0xFF58A6FF),
+                            Text("What these mean", color = Gt.accent,
                                 fontSize = 15.sp, fontWeight = FontWeight.Bold,
                                 modifier = Modifier.weight(1f))
                             // \u2b50 X to close (Fred, 09-10), not a button.
-                            Text("\u2715", color = Color(0xFF8B949E), fontSize = 16.sp,
+                            Text("\u2715", color = Gt.dim, fontSize = 16.sp,
                                 modifier = Modifier
                                     .clickable { showCategoryHelp = false }
                                     .padding(start = 12.dp, end = 4.dp))
@@ -154,16 +155,16 @@ fun MapKeysPanel(
                                 val grp = groupOf(nm)
                                 if (grp != lastGroup) {
                                     if (lastGroup.isNotEmpty()) Spacer(Modifier.height(12.dp))
-                                    Text(grp, color = Color(0xFF8B949E),
-                                        fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text(grp, color = Gt.dim,
+                                        fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     Spacer(Modifier.fillMaxWidth().height(1.dp)
-                                        .background(Color(0xFF30363D)))
+                                        .background(Gt.panel))
                                     lastGroup = grp
                                 }
-                                Text(nm, color = Color(0xFFDDE3E9),
+                                Text(nm, color = Gt.text,
                                     fontSize = 12.sp, fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(top = 7.dp))
-                                Text(meaning, color = Color(0xFF8B949E), fontSize = 11.sp)
+                                Text(meaning, color = Gt.dim, fontSize = 12.sp)
                             }
                         }
                     },
@@ -175,13 +176,13 @@ fun MapKeysPanel(
                 Category("MOTORIZED", MOTORIZED_ROWS, tick, ::changed,
                     { styling = it }, Modifier.weight(1f))
                 Spacer(Modifier.width(1.dp).height(150.dp)
-                    .background(Color(0xFF30363D)))
+                    .background(Gt.panel))
                 Category("NON-MOTORIZED", NON_MOTORIZED_ROWS, tick, ::changed,
                     { styling = it }, Modifier.weight(1f))
             }
 
             Spacer(Modifier.height(8.dp))
-            Spacer(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF30363D)))
+            Spacer(Modifier.fillMaxWidth().height(1.dp).background(Gt.panel))
             Spacer(Modifier.height(6.dp))
 
             // ⚠ The rider's own tracks and routes. No checkbox -- they are not
@@ -192,7 +193,7 @@ fun MapKeysPanel(
                     Spacer(Modifier.width(18.dp))
                     LineSwatch(r, true)
                     Spacer(Modifier.width(8.dp))
-                    Text(r.label, color = Color(0xFFDDE3E9), fontSize = 12.sp)
+                    Text(r.label, color = Gt.text, fontSize = 12.sp)
                 }
             }
 
@@ -200,7 +201,7 @@ fun MapKeysPanel(
             // CATEGORYHELP-2026-09-10: "at the bottom next to my tracks and my
             // routes" (Fred, 09-10).
             Text("CATEGORIES EXPLAINED",
-                color = Color(0xFF58A6FF), fontSize = 11.sp,
+                color = Gt.accent, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.fillMaxWidth()
                     .clickable { showCategoryHelp = true }
@@ -209,7 +210,7 @@ fun MapKeysPanel(
             Spacer(Modifier.height(6.dp))
             Text("Tap a name to change its colour, pattern or thickness.\n" +
                 "Choose which trails show in Map Features \u2192 Trails \u2192 SELECT.",
-                color = Color(0xFF8B949E), fontSize = 10.sp)
+                color = Gt.dim, fontSize = 12.sp)
         }
     }
 }
@@ -236,10 +237,10 @@ private fun Category(
         // KEYONLY-2026-09-02: a heading, not a control.
         Row(verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-            Text(title, color = Color(0xFFE6EDF3),
+            Text(title, color = Gt.text,
                 fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
-        Spacer(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF30363D)))
+        Spacer(Modifier.fillMaxWidth().height(1.dp).background(Gt.panel))
         Spacer(Modifier.height(3.dp))
         rows.forEach { r -> KeyRow(r, tick, onChanged, onStyle) }
     }
@@ -265,7 +266,7 @@ private fun KeyRow(
         LineSwatch(r, on)
         Spacer(Modifier.width(6.dp))
         Text(r.label,
-            color = if (on) Color(0xFFDDE3E9) else Color(0xFF5B646E),
+            color = if (on) Gt.text else Gt.dim,
             fontSize = 12.sp,
             modifier = Modifier.clickable { onStyle(r) })
     }
@@ -276,7 +277,7 @@ private fun KeyRow(
 private fun Tick(on: Boolean) {
     Box(contentAlignment = Alignment.Center,
         modifier = Modifier.width(20.dp).height(20.dp)) {
-        if (on) Text("\u2713", color = Color(0xFF58A6FF), fontSize = 17.sp,
+        if (on) Text("\u2713", color = Gt.accent, fontSize = 17.sp,
             fontWeight = FontWeight.Bold)
     }
 }

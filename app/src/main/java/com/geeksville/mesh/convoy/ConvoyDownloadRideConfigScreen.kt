@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -77,20 +78,20 @@ fun ConvoyDownloadRideConfigScreen(
 
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
 
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628))
+        Row(modifier = Modifier.fillMaxWidth().background(Gt.panel)
             .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF1A3050)).clickable { onBack() }
+                .background(Gt.panel).clickable { onBack() }
                 .padding(horizontal = 10.dp, vertical = 5.dp)) {
-                Text("\u2190 BACK", color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                Text("\u2190 BACK", color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
-            Text("DOWNLOAD RIDE DETAILS", color = Color.White, fontSize = 11.sp,
+            Text("DOWNLOAD RIDE DETAILS", color = Gt.text, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.weight(1f))
         }
-        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Color(0xFF4AB8E8))
+        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Gt.accent)
 
         Column(modifier = Modifier.fillMaxWidth().weight(1f)
             .verticalScroll(scrollState).padding(14.dp),
@@ -98,35 +99,35 @@ fun ConvoyDownloadRideConfigScreen(
 
             // Info
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0A1628)).padding(12.dp),
+                .background(Gt.panel).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("DOWNLOAD RIDE CONFIG TO DEVICE", color = Color(0xFF4AB8E8),
-                    fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                Text("DOWNLOAD RIDE CONFIG TO DEVICE", color = Gt.accent,
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
                 Text("Internet required  \u2022  No radio needed at this step.",
-                    color = Color(0xFFFFFFFF), fontSize = 10.sp)
+                    color = Gt.text, fontSize = 12.sp)
                 Text("Connect radio separately to apply config.",
-                    color = Color(0xFFFFFFFF), fontSize = 10.sp)
+                    color = Gt.text, fontSize = 12.sp)
             }
 
             if (masterConfig == null) {
                 Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF2A1A1A)).padding(12.dp)) {
+                    .background(Gt.panel).padding(12.dp)) {
                     Text("\u26a0 Master config not found. Apply master config first.",
-                        color = Color(0xFFF44336), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        color = Gt.bad, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             }
 
             // Ride list
-            Text("SELECT A RIDE", color = Color(0xFF4AB8E8), fontSize = 9.sp,
+            Text("SELECT A RIDE", color = Gt.accent, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 2.sp, fontFamily = FontFamily.Monospace)
 
             if (eligibleRides.isEmpty()) {
                 Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0F2035)).padding(20.dp),
+                    .background(Gt.panel).padding(20.dp),
                     contentAlignment = Alignment.Center) {
                     Text("NO ELIGIBLE RIDES\nAccept or maybe a ride invite first.",
-                        color = Color(0xFF2A4060), fontSize = 10.sp,
+                        color = Gt.text, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace)
                 }
             } else {
@@ -134,31 +135,31 @@ fun ConvoyDownloadRideConfigScreen(
                     val rid        = ride["id"] ?: ""
                     val isSelected = selectedId == rid
                     val statusColor = if ((ride["status"] ?: "").lowercase() == "accepted")
-                        Color(0xFF22C55E) else Color(0xFFF59E0B)
+                        Gt.accent else Gt.warn
                     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) Color(0xFF0F2840) else Color(0xFF0F2035))
+                        .background(if (isSelected) Gt.panel else Gt.panel)
                         .clickable { selectedId = rid; downloadStatus = "idle" }
                         .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically) {
-                            Text(ride["name"] ?: "", color = Color.White, fontSize = 12.sp,
+                            Text(ride["name"] ?: "", color = Gt.text, fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                             Box(modifier = Modifier.clip(RoundedCornerShape(3.dp))
                                 .background(statusColor.copy(alpha = 0.15f))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)) {
                                 Text((ride["status"] ?: "").uppercase(), color = statusColor,
-                                    fontSize = 8.sp, fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp, fontWeight = FontWeight.Bold,
                                     fontFamily = FontFamily.Monospace)
                             }
                         }
-                        Text(ride["date"] ?: "", color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                        Text(ride["date"] ?: "", color = Gt.accent, fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace)
                         Text("${ride["location"] ?: ""}  \u2022  ${ride["organizer"] ?: ""}",
-                            color = Color(0xFFFFFFFF), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                            color = Gt.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                         if (isSelected) {
-                            Text("\u2713 SELECTED", color = Color(0xFF4AB8E8), fontSize = 9.sp,
+                            Text("\u2713 SELECTED", color = Gt.accent, fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                         }
                     }
@@ -167,37 +168,37 @@ fun ConvoyDownloadRideConfigScreen(
 
             // Map area stub
             Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0A1628)).padding(12.dp),
+                .background(Gt.panel).padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("MAP AREA DOWNLOAD", color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                    Text("MAP AREA DOWNLOAD", color = Gt.accent, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     Text("Download offline tiles for this ride area",
-                        color = Color(0xFF2A4060), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        color = Gt.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     Text("Phase C — ConvoyMapAreaDownload.kt",
-                        color = Color(0xFF1A3050), fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                        color = Gt.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
-                Text("STUB", color = Color(0xFF2A4060), fontSize = 8.sp,
+                Text("STUB", color = Gt.text, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
 
             // Result
             when (downloadStatus) {
                 "success" -> Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0D2010)).padding(14.dp),
+                    .background(Gt.panel).padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("\u2713 RIDE CONFIG DOWNLOADED", color = Color(0xFF22C55E),
+                    Text("\u2713 RIDE CONFIG DOWNLOADED", color = Gt.accent,
                         fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                    Text("Config saved to device.", color = Color(0xFFFFFFFF), fontSize = 10.sp)
+                    Text("Config saved to device.", color = Gt.text, fontSize = 12.sp)
                     Text("Go to Radio \u2192 Apply Master / Ride Config when radio is connected.",
-                        color = Color(0xFFFFFFFF), fontSize = 10.sp)
+                        color = Gt.text, fontSize = 12.sp)
                 }
                 "error" -> Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF2A1A1A)).padding(12.dp)) {
-                    Text("\u2717 DOWNLOAD FAILED", color = Color(0xFFF44336),
-                        fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                    Text(errorMsg, color = Color(0xFFFFFFFF), fontSize = 10.sp)
+                    .background(Gt.panel).padding(12.dp)) {
+                    Text("\u2717 DOWNLOAD FAILED", color = Gt.bad,
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    Text(errorMsg, color = Gt.text, fontSize = 12.sp)
                 }
                 else -> {}
             }
@@ -207,22 +208,22 @@ fun ConvoyDownloadRideConfigScreen(
                 val selectedRide = eligibleRides.firstOrNull { it["id"] == selectedId }
                 if (selectedRide != null) {
                     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF0F2840)).padding(14.dp),
+                        .background(Gt.panel).padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("DOWNLOADING CONFIG FOR:", color = Color(0xFF4AB8E8),
-                            fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                        Text("DOWNLOADING CONFIG FOR:", color = Gt.accent,
+                            fontSize = 12.sp, fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
-                        Text(selectedRide["name"] ?: "", color = Color.White,
+                        Text(selectedRide["name"] ?: "", color = Gt.text,
                             fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Text("${selectedRide["date"] ?: ""}  •  ${selectedRide["organizer"] ?: ""}",
-                            color = Color(0xFFFFFFFF), fontSize = 9.sp,
+                            color = Gt.text, fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace)
                         Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFF2A1A1A)).clickable {
+                            .background(Gt.panel).clickable {
                                 selectedId = null; downloadStatus = "idle"
                             }.padding(horizontal = 14.dp, vertical = 7.dp)) {
                             Text("✕  CANCEL — SELECT A DIFFERENT RIDE",
-                                color = Color(0xFFF44336), fontSize = 9.sp,
+                                color = Gt.bad, fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                         }
                     }
@@ -234,7 +235,7 @@ fun ConvoyDownloadRideConfigScreen(
                               downloadStatus != "success" && downloadStatus != "downloading"
 
             Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(if (canDownload) Color(0xFF1A3050) else Color(0xFF0A1628))
+                .background(if (canDownload) Gt.panel else Gt.panel)
                 .then(if (canDownload) Modifier.clickable {
                     val ride = eligibleRides.firstOrNull { it["id"] == selectedId }
                     if (ride == null || organizer == null || masterConfig == null) {
@@ -273,8 +274,8 @@ fun ConvoyDownloadRideConfigScreen(
                         "success"     -> "\u2713 DOWNLOADED"
                         else -> if (canDownload) "DOWNLOAD RIDE CONFIG" else "SELECT A RIDE FIRST"
                     },
-                    color = if (canDownload || downloadStatus == "success") Color(0xFF4AB8E8)
-                            else Color(0xFF2A4060),
+                    color = if (canDownload || downloadStatus == "success") Gt.accent
+                            else Gt.panel,
                     fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp
                 )
             }

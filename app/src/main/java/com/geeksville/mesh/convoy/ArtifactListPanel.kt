@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -57,12 +58,12 @@ fun ArtifactListPanel(
     // PROBESOUT-2026-09-03: stage 5 removed with the rest. The trail it was
     // hunting was two roads sharing a name; there was never a display bug.
     val aMono = FontFamily.Monospace
-    val aGreen = Color(0xFF39FF14)
-    val aBlue = Color(0xFF4DA6FF)
-    val aOrange = Color(0xFFFF8C42)
-    val aDim = Color(0xFF7A8DA0)
-    val aBg = Color(0xEE131820)
-    val aItem = Color(0xFF1A2233)
+    val aGreen = Gt.accent
+    val aBlue = Gt.accent
+    val aOrange = Gt.warn
+    val aDim = Gt.dim
+    val aBg = Gt.panel
+    val aItem = Gt.panel
     val ctx = LocalContext.current
 
 
@@ -108,18 +109,18 @@ fun ArtifactListPanel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    "SELECT ALL", color = aGreen, fontSize = 9.sp, fontFamily = aMono,
+                    "SELECT ALL", color = aGreen, fontSize = 12.sp, fontFamily = aMono,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.clickable { onSelectAll() }.padding(4.dp)
                 )
                 Text(
-                    "DESELECT ALL", color = aOrange, fontSize = 9.sp, fontFamily = aMono,
+                    "DESELECT ALL", color = aOrange, fontSize = 12.sp, fontFamily = aMono,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.clickable { onDeselectAll() }.padding(4.dp)
                 )
                 if (onFitToSelected != null) {
                     Text(
-                        "FIT", color = aBlue, fontSize = 9.sp, fontFamily = aMono,
+                        "FIT", color = aBlue, fontSize = 12.sp, fontFamily = aMono,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.clickable { onFitToSelected() }.padding(4.dp)
                     )
@@ -132,7 +133,7 @@ fun ArtifactListPanel(
             if (artifacts.isEmpty()) {
                 Text(
                     "No $artifactType in current map view",
-                    color = aDim, fontSize = 10.sp, fontFamily = aMono,
+                    color = aDim, fontSize = 12.sp, fontFamily = aMono,
                     modifier = Modifier.padding(vertical = 16.dp)
                 )
             } else {
@@ -175,7 +176,7 @@ private fun ArtifactListItem(
     Surface(
         modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
         shape = RoundedCornerShape(4.dp),
-        color = if (isSelected) Color(0xFF1A2E4A) else Color(0xFF1A2233)
+        color = if (isSelected) Gt.text.copy(alpha = 0.18f) else Gt.text.copy(alpha = 0.18f)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
@@ -186,15 +187,15 @@ private fun ArtifactListItem(
                 onCheckedChange = { onToggle() },
                 modifier = Modifier.size(20.dp),
                 colors = CheckboxDefaults.colors(
-                    checkedColor = Color(0xFF4DA6FF),
-                    uncheckedColor = Color(0xFFFFFFFF)
+                    checkedColor = Gt.accent,
+                    uncheckedColor = Gt.text
                 )
             )
             Spacer(Modifier.width(8.dp))
             Text(
                 name,
-                color = Color(0xFF4DA6FF),
-                fontSize = 11.sp,
+                color = Gt.accent,
+                fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -202,7 +203,7 @@ private fun ArtifactListItem(
             )
             if (type.isNotEmpty() && artifactType == "Waypoints") {
                 Text(
-                    type, color = Color(0xFF7A8DA0), fontSize = 8.sp,
+                    type, color = Gt.dim, fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(start = 4.dp)
                 )

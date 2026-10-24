@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -34,31 +35,31 @@ fun ConvoyInviteSendScreen(
         Column(modifier = Modifier.fillMaxWidth().weight(1f).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
-            Text(text = "SUNDAY DESERT RUN", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text(text = "April 13, 2026  ·  9:00 AM", color = Color(0xFFFFFFFF), fontSize = 12.sp)
+            Text(text = "SUNDAY DESERT RUN", color = Gt.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(text = "April 13, 2026  ·  9:00 AM", color = Gt.text, fontSize = 12.sp)
 
             // QR Code placeholder
             Box(modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF0F2035)), contentAlignment = Alignment.Center) {
+                .background(Gt.panel), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "▦", color = Color(0xFF4AB8E8), fontSize = 80.sp)
-                    Text(text = "QR CODE — Phase C", color = Color(0xFFFFFFFF),
-                        fontSize = 10.sp, letterSpacing = 2.sp)
+                    Text(text = "▦", color = Gt.accent, fontSize = 80.sp)
+                    Text(text = "QR CODE — Phase C", color = Gt.text,
+                        fontSize = 12.sp, letterSpacing = 2.sp)
                 }
             }
 
             // Invite link
             Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035)).padding(14.dp)) {
+                .background(Gt.panel).padding(14.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(text = "INVITE LINK", color = Color(0xFFFFFFFF), fontSize = 9.sp, letterSpacing = 2.sp)
+                    Text(text = "INVITE LINK", color = Gt.text, fontSize = 12.sp, letterSpacing = 2.sp)
                     Text(text = "grouptrack.org/invite/dev-token-001",
-                        color = Color(0xFF4AB8E8), fontSize = 11.sp)
+                        color = Gt.accent, fontSize = 12.sp)
                 }
             }
 
             Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(GroupTrackColors.SkyBlue)
+                .background(GroupTrackColors.SkyBlue.copy(alpha = 0.18f))
                 .clickable {
                     android.widget.Toast.makeText(context, "Share sheet — Phase C", android.widget.Toast.LENGTH_SHORT).show()
                 }.padding(14.dp), contentAlignment = Alignment.Center) {
@@ -67,11 +68,11 @@ fun ConvoyInviteSendScreen(
             }
 
             Text(text = "Riders tap the link to download ride data, maps, and radio config automatically.",
-                color = Color(0xFFFFFFFF), fontSize = 11.sp, textAlign = TextAlign.Center,
+                color = Gt.text, fontSize = 12.sp, textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth())
         }
 
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628)).padding(vertical = 8.dp),
+        Row(modifier = Modifier.fillMaxWidth().background(Gt.panel).padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly) {
             NavBtn3("🗺", "MAP") { onBack() }
             NavBtn3("＋", "+RIDE") { onNavigateToCreateRide() }
@@ -85,7 +86,7 @@ private fun NavBtn3(icon: String, label: String, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable { onClick() }.padding(horizontal = 16.dp, vertical = 4.dp)) {
         Text(text = icon, fontSize = 18.sp)
-        Text(text = label, color = Color(0xFF4AB8E8), fontSize = 8.sp,
+        Text(text = label, color = Gt.accent, fontSize = 12.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }

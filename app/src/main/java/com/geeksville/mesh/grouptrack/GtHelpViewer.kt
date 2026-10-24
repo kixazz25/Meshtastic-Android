@@ -33,14 +33,18 @@ object GtHelpView {
 
 /** The standard HELP control for a screen's top bar. */
 @Composable
-fun GtHelpButton(id: String, color: Color = Color(0xFF7FB2E5)) {
+fun GtHelpButton(id: String, color: Color = Gt.accent) {
     GtHelp.load(LocalContext.current)
-    TextButton(onClick = { GtHelpView.open(id) }) { Text("HELP", color = color, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+    // ISSUE-2026-10-24: ISSUE beside HELP -- wherever HELP is, ISSUE is.
+    androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        TextButton(onClick = { GtHelpView.open(id) }) { Text("HELP", color = color, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+        GtIssueButton(id, color)
+    }
 }
 
 /** CLOSEX-2026-10-22 (Fred 12:18): the standard close control -- ✕, top right, beside HELP, on every screen. */
 @Composable
-fun GtCloseButton(onClose: () -> Unit, enabled: Boolean = true, color: Color = Color(0xFF7FB2E5)) {
+fun GtCloseButton(onClose: () -> Unit, enabled: Boolean = true, color: Color = Gt.accent) {
     TextButton(onClick = onClose, enabled = enabled) { Text("\u2715", color = color, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
 }
 
@@ -56,7 +60,7 @@ fun GtHelpViewer() {
         "quickstart" -> "grouptrack_quickstart.html"
         else -> "grouptrack_manual.html"
     } + (if (frag.isNotEmpty()) "#$frag" else "")
-    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF10130F)) {
+    Surface(modifier = Modifier.fillMaxSize(), color = Gt.panel) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(modifier = Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {   // CLOSEX-2026-10-22: ✕ top right
                 GtCloseButton({ GtHelpView.close() })

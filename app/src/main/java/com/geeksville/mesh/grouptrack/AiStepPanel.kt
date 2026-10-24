@@ -1,5 +1,6 @@
 package com.geeksville.mesh.grouptrack
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -25,14 +26,14 @@ import kotlin.math.roundToInt
  *  Every font on the panel is at least 14 (Fred 15:41) -- the duration figure stays large.
  *  The planner keeps its own copy, untouched, until it is removed. */
 
-private val stPanel = Color(0xFF0F1216)
-private val stCard  = Color(0xFF131820)
-private val stInk   = Color(0xFFE6EDF3)
-private val stDim   = Color(0xFF9AA4B2)
-private val stBlue  = Color(0xFF4DA6FF)
-private val stGreen = Color(0xFF4ADE80)
-private val stTrack = Color(0xFF2A3038)
-private val stMuted = Color(0xFF5A6472)
+private val stPanel: Color get() = Gt.panel   // STD1I-2026-10-24 was 0xFF0F1216
+private val stCard: Color get() = Gt.text.copy(alpha = 0.10f)   // was 0xFF131820
+private val stInk: Color get() = Gt.text   // was 0xFFE6EDF3
+private val stDim: Color get() = Gt.dim   // was 0xFF9AA4B2
+private val stBlue: Color get() = Gt.accent   // was 0xFF4DA6FF
+private val stGreen: Color get() = Gt.good   // was 0xFF4ADE80
+private val stTrack: Color get() = Gt.line   // was 0xFF2A3038
+private val stMuted: Color get() = Gt.dim   // was 0xFF5A6472
 private val stMono  = FontFamily.Monospace
 
 @androidx.compose.runtime.Composable
@@ -160,21 +161,15 @@ fun GtAiStepPanel(
                             .clickable { onDontShowAgain(!dontShowAgain) }
                             .padding(12.dp, 11.dp)
                     ) {
-                        Box(
-                            Modifier.size(16.dp).clip(RoundedCornerShape(3.dp))
-                                .background(if (dontShowAgain) stGreen else stCard),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (!dontShowAgain) {
-                                Box(Modifier.size(16.dp).clip(RoundedCornerShape(3.dp))
-                                    .background(stMuted))
-                                Box(Modifier.size(13.dp).clip(RoundedCornerShape(2.dp))
-                                    .background(stCard))
-                            }
+                        // AICHECK-2026-10-24 (Fred 10:49): the standard checkbox -- ticked shows a tick, empty shows an empty box.
+                        // AICHECK2-2026-10-24 (Fred 11:42): a check mark in a bordered box, blank when not ticked -- readable on both maps.
+                        Box(Modifier.size(26.dp).border(2.dp, Gt.text, RoundedCornerShape(4.dp)).background(Gt.panel, RoundedCornerShape(4.dp)),
+                            contentAlignment = Alignment.Center) {
+                            if (dontShowAgain) Text("\u2713", color = Gt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.width(9.dp))
                         Text("I understand this process \u2014 do not show the overview " +
-                            "panel again.", color = stDim, fontSize = 14.sp,
+                            "panel again." + (if (dontShowAgain) "  \u2014 ON" else ""), color = stDim, fontSize = 14.sp,
                             lineHeight = 17.sp)
                     }
                 }
@@ -182,10 +177,10 @@ fun GtAiStepPanel(
 
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                StepButton("CANCEL", stDim, Color(0xFF1D2430), Modifier.weight(1f),
+                StepButton("CANCEL", stDim, Gt.text.copy(alpha = 0.10f), Modifier.weight(1f),
                     onCancel)
                 StepButton(if (isOverview) "PROCEED" else "CONTINUE",
-                    stGreen, Color(0xFF14532D), Modifier.weight(2f), onContinue)
+                    stGreen, Gt.text.copy(alpha = 0.18f), Modifier.weight(2f), onContinue)
             }
         }
     }

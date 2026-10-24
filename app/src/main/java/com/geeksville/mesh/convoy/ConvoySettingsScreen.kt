@@ -323,6 +323,29 @@ fun ConvoySettingsScreen(
 
             // CLASSICOFF-2026-10-23: Settings > Layout removed -- ONE MAP is the only layout.
 
+            // ISSUE-2026-10-24 (Fred 11:03): where ISSUE reports go -- email to support@grouptrack.org, or saved on this tablet.
+            val issueCtx = androidx.compose.ui.platform.LocalContext.current
+            LaunchedEffect(Unit) { com.geeksville.mesh.grouptrack.GtIssue.sendsEmailState.value = com.geeksville.mesh.grouptrack.GtIssue.sendsEmail(issueCtx) }
+            val issueEmail = com.geeksville.mesh.grouptrack.GtIssue.sendsEmailState.value
+            SectionLabel("Issue reports")
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Send issue reports by email", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = if (issueEmail) "On \u2014 ISSUE opens your email app to " + com.geeksville.mesh.grouptrack.GtIssue.TO
+                               else "Off \u2014 ISSUE saves the report on this tablet",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = issueEmail, onCheckedChange = { com.geeksville.mesh.grouptrack.GtIssue.setSendsEmail(issueCtx, it) })
+            }
+            HorizontalDivider()
+
             // GRPMODE-2026-10-13 (Fred): group awareness -- any time. Off = this tablet only, no radio calls.
             SectionLabel("Group awareness")
             Row(

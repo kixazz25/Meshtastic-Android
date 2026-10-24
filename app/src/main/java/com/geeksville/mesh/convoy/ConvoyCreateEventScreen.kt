@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.util.Base64
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -102,13 +103,13 @@ fun ConvoyCreateEventScreen(
             ) {
                 Text(
                     text     = "←",
-                    color    = Color(0xFF97D5A5),
+                    color    = Gt.accent,
                     fontSize = 20.sp,
                     modifier = Modifier.clickable { onBack() }.padding(end = 12.dp)
                 )
                 Text(
                     text       = "CREATE EVENT / RIDE",
-                    color      = Color(0xFF97D5A5),
+                    color      = Gt.accent,
                     fontSize   = 14.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -116,7 +117,7 @@ fun ConvoyCreateEventScreen(
                 )
             }
             Spacer(Modifier.height(6.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF15512C)))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Gt.panel))
             Spacer(Modifier.height(20.dp))
 
             // ── Master config warning ─────────────────────────────────────────
@@ -133,19 +134,19 @@ fun ConvoyCreateEventScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape    = RoundedCornerShape(10.dp),
-                    color    = Color(0xFF1C211C)
+                    color    = Gt.panel
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         CellLabel("ORGANIZER")
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "${organizer.firstName} ${organizer.lastName}",
-                            color = Color(0xFFDFE4DC), fontSize = 13.sp,
+                            color = Gt.text, fontSize = 13.sp,
                             fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold
                         )
-                        Text(organizer.email,       color = Color(0xFF8B938A), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text(organizer.cellPhone,   color = Color(0xFF8B938A), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text(organizer.vehicleType, color = Color(0xFF97D5A5), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        Text(organizer.email,       color = Gt.dim, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Text(organizer.cellPhone,   color = Gt.dim, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Text(organizer.vehicleType, color = Gt.accent, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -159,15 +160,15 @@ fun ConvoyCreateEventScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape    = RoundedCornerShape(10.dp),
-                    color    = Color(0xFF0D1A2E)
+                    color    = Gt.panel
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         CellLabel("RADIO CONFIG  (master)")
                         Spacer(Modifier.height(4.dp))
                         Text("${masterConfig.hardwareModel}  •  fw ${masterConfig.firmwareVersion}",
-                            color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            color = Gt.dim, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                         Text("Region: ${masterConfig.loraRegion}  •  ${masterConfig.loraModemPreset}  •  ${masterConfig.loraTxPower} dBm",
-                            color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            color = Gt.dim, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -190,7 +191,7 @@ fun ConvoyCreateEventScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape    = RoundedCornerShape(10.dp),
-                color    = Color(0xFF1C211C)
+                color    = Gt.panel
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -198,11 +199,11 @@ fun ConvoyCreateEventScreen(
                 ) {
                     Text("🗺", fontSize = 32.sp, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(6.dp))
-                    Text("MAP AREA SELECTOR", color = Color(0xFF262B26),
-                        fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                    Text("MAP AREA SELECTOR", color = Gt.text,
+                        fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                     Text("Offline tile package — coming in V3",
-                        color = Color(0xFF262B26), fontSize = 9.sp,
+                        color = Gt.text, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace, textAlign = TextAlign.Center)
                 }
             }
@@ -214,7 +215,7 @@ fun ConvoyCreateEventScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape    = RoundedCornerShape(10.dp),
-                    color    = Color(0xFF0D1A2E)
+                    color    = Gt.panel
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         CellLabel("RADIO PROCESSING")
@@ -232,30 +233,30 @@ fun ConvoyCreateEventScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape    = RoundedCornerShape(12.dp),
-                    color    = Color(0xFF0D2010)
+                    color    = Gt.panel
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("\u2713 EVENT CREATED", color = Color(0xFF97D5A5), fontSize = 13.sp,
+                        Text("\u2713 EVENT CREATED", color = Gt.accent, fontSize = 13.sp,
                             fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(10.dp))
-                        Text("Channel Name", color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        Text(channelName, color = Color(0xFFE8EEF5), fontSize = 12.sp,
+                        Text("Channel Name", color = Gt.dim, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Text(channelName, color = Gt.text, fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(8.dp))
-                        Text("Encryption Key (PSK)", color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        Text(savedPsk, color = Color(0xFFE8EEF5), fontSize = 10.sp,
+                        Text("Encryption Key (PSK)", color = Gt.dim, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Text(savedPsk, color = Gt.text, fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(8.dp))
-                        Text("Saved To", color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        Text("Internal storage / convoy_events /", color = Color(0xFFE8EEF5),
-                            fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Text("Saved To", color = Gt.dim, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Text("Internal storage / convoy_events /", color = Gt.text,
+                            fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                         Spacer(Modifier.height(16.dp))
                         Surface(
                             modifier = Modifier.fillMaxWidth().clickable { onBack() },
                             shape    = RoundedCornerShape(10.dp),
-                            color    = Color(0xFF2E75B6)
+                            color    = Gt.accent.copy(alpha = 0.18f)
                         ) {
-                            Text("PROCEED \u2192", color = Color.White, fontSize = 13.sp,
+                            Text("PROCEED \u2192", color = Gt.text, fontSize = 13.sp,
                                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                                 textAlign  = androidx.compose.ui.text.style.TextAlign.Center,
                                 modifier   = Modifier.padding(vertical = 14.dp))
@@ -341,11 +342,11 @@ fun ConvoyCreateEventScreen(
                         }
                     },
                 shape = RoundedCornerShape(12.dp),
-                color = if (canCreate) Color(0xFF15512C) else Color(0xFF101510)
+                color = if (canCreate) Gt.text.copy(alpha = 0.18f) else Gt.text.copy(alpha = 0.18f)
             ) {
                 Text(
                     text       = if (isProcessing) "PROCESSING..." else "CREATE EVENT + WRITE RADIO",
-                    color      = if (canCreate) Color(0xFF97D5A5) else Color(0xFF262B26),
+                    color      = if (canCreate) Gt.good else Gt.panel,
                     fontSize   = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -363,8 +364,8 @@ fun ConvoyCreateEventScreen(
 private fun CellLabel(text: String) {
     Text(
         text          = text,
-        color         = Color(0xFF8B938A),
-        fontSize      = 10.sp,
+        color         = Gt.dim,
+        fontSize      = 12.sp,
         fontFamily    = FontFamily.Monospace,
         fontWeight    = FontWeight.Bold,
         letterSpacing = 2.sp,
@@ -375,9 +376,9 @@ private fun CellLabel(text: String) {
 @Composable
 private fun RadioStep(label: String, active: Boolean, done: Boolean) {
     val color = when {
-        done   -> Color(0xFF97D5A5)
-        active -> Color(0xFF97D5A5)
-        else   -> Color(0xFF262B26)
+        done   -> Gt.good
+        active -> Gt.good
+        else   -> Gt.panel
     }
     val prefix = when {
         done   -> "✓ "
@@ -387,7 +388,7 @@ private fun RadioStep(label: String, active: Boolean, done: Boolean) {
     Text(
         text       = "$prefix$label",
         color      = color,
-        fontSize   = 10.sp,
+        fontSize   = 12.sp,
         fontFamily = FontFamily.Monospace,
         modifier   = Modifier.padding(vertical = 2.dp)
     )
@@ -398,12 +399,12 @@ private fun StatusBanner(msg: String, ok: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape    = RoundedCornerShape(8.dp),
-        color    = if (ok) Color(0xFF0D2010) else Color(0xFF2A1A1A)
+        color    = if (ok) Gt.panel else Gt.panel
     ) {
         Text(
             text       = msg,
-            color      = if (ok) Color(0xFF97D5A5) else Color(0xFFF44336),
-            fontSize   = 11.sp,
+            color      = if (ok) Gt.good else Gt.bad,
+            fontSize   = 12.sp,
             fontFamily = FontFamily.Monospace,
             modifier   = Modifier.padding(12.dp)
         )

@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -78,7 +79,7 @@ fun RadioSetupPrompt(
                 Text("Confirm you have the radio and it is now powered on. Then connect, select the GroupTrack " +
                     "default, and apply.")
                 Text("If your tablet asks for a pairing code: 123456 is the default. If your radio has a screen and " +
-                    "shows a different code, use that one.", fontSize = 12.sp, color = Color(0xFF8FA3B8))
+                    "shows a different code, use that one.", fontSize = 12.sp, color = Gt.dim)
                 Text("Your user-profile callsign becomes the radio's name.")
                 Text("More than one radio? Repeat this for each one: connect it in GRP Awareness and apply the " +
                     "GroupTrack default to it. Change the callsign for each additional radio so it does not inherit yours.",

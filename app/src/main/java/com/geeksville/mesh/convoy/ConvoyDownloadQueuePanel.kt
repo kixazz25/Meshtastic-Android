@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -41,12 +42,12 @@ import androidx.compose.ui.platform.LocalContext
 // Detail: two slot progress bars + item list + actions
 // ----------------------------------------------------------------
 
-private val panelBg = Color(0xE6131820)
-private val accentGreen = Color(0xFF1CF0A0)
-private val accentBlue = Color(0xFF4DA6FF)
-private val dimText = Color(0xFFFFFFFF)
-private val brightText = Color(0xFFCCDDEE)
-private val dangerRed = Color(0xFFFF5555)
+private val panelBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xE6131820 
+private val accentGreen: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF1CF0A0 
+private val accentBlue: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4DA6FF 
+private val dimText: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFFFFFFFF 
+private val brightText: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFFCCDDEE 
+private val dangerRed: Color get() = Gt.bad  // STD1-2026-10-24 was 0xFFFF5555 
 private val mono = FontFamily.Monospace
 private val dateFmt = SimpleDateFormat("MMM d h:mm a", Locale.US)
 
@@ -110,7 +111,7 @@ fun DownloadQueuePanel(
                 ) {
                     Text(
                         "QUEUE HELD - nothing will start",
-                        color = dangerRed, fontSize = 9.sp,
+                        color = dangerRed, fontSize = 12.sp,
                         fontFamily = mono, fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f)
                     )
@@ -171,10 +172,10 @@ fun DownloadQueuePanel(
                     Text(
                         String.format("%.1f tiles/sec across %d running",
                             qeLive, qeRunning.size),
-                        color = accentBlue, fontSize = 9.sp, fontFamily = mono
+                        color = accentBlue, fontSize = 12.sp, fontFamily = mono
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("slots", color = dimText, fontSize = 9.sp, fontFamily = mono)
+                        Text("slots", color = dimText, fontSize = 12.sp, fontFamily = mono)
                         Spacer(Modifier.width(6.dp))
                         Text(
                             "-",
@@ -190,7 +191,7 @@ fun DownloadQueuePanel(
                         )
                         Text(
                             "$qeSlots",
-                            color = brightText, fontSize = 11.sp,
+                            color = brightText, fontSize = 12.sp,
                             fontFamily = mono, fontWeight = FontWeight.Bold
                         )
                         Text(
@@ -330,7 +331,7 @@ fun DownloadQueuePanel(
                             Text(
                                 (if (qtQueuedOpen) "\u25BC " else "\u25B6 ") +
                                     "QUEUED (${queued.size})",
-                                color = dimText, fontSize = 9.sp,
+                                color = dimText, fontSize = 12.sp,
                                 fontFamily = mono, fontWeight = FontWeight.Bold,
                                 modifier = Modifier.clickable { qtQueuedOpen = !qtQueuedOpen }
                             )
@@ -351,7 +352,7 @@ fun DownloadQueuePanel(
                             Text(
                                 (if (qtDoneOpen) "\u25BC " else "\u25B6 ") +
                                     "COMPLETED (${completed.size})",
-                                color = dimText, fontSize = 9.sp,
+                                color = dimText, fontSize = 12.sp,
                                 fontFamily = mono, fontWeight = FontWeight.Bold,
                                 modifier = Modifier.clickable { qtDoneOpen = !qtDoneOpen }
                             )
@@ -499,13 +500,13 @@ private fun QueueSummaryBar(
             Text(
                 if (active.isEmpty()) "idle"
                 else "${active.size} active  ${fmtTiles(activeTiles)} tiles",
-                color = accentGreen, fontSize = 11.sp,
+                color = accentGreen, fontSize = 12.sp,
                 fontFamily = mono, fontWeight = FontWeight.Bold
             )
             if (queued.isNotEmpty()) {
                 Text(
                     "${queued.size} in queue  ${fmtTiles(queuedTiles)} tiles",
-                    color = dimText, fontSize = 9.sp, fontFamily = mono
+                    color = dimText, fontSize = 12.sp, fontFamily = mono
                 )
             }
             // line 3 - total duration AND completion stamp; renders only once
@@ -516,14 +517,14 @@ private fun QueueSummaryBar(
             if (eta != null) {
                 Text(
                     "~${eta.first}  ·  done ${eta.second}",
-                    color = dimText, fontSize = 9.sp, fontFamily = mono
+                    color = dimText, fontSize = 12.sp, fontFamily = mono
                 )
             }
         }
         // Expand/collapse indicator
         Text(
             "TAP",
-            color = dimText, fontSize = 8.sp, fontFamily = mono
+            color = dimText, fontSize = 12.sp, fontFamily = mono
         )
     }
 }
@@ -537,16 +538,16 @@ private fun ConfirmDialog(message: String, onConfirm: () -> Unit, onDismiss: () 
         onDismissRequest = onDismiss,
         containerColor = panelBg,
         title = { Text("Confirm", color = brightText, fontSize = 12.sp, fontFamily = mono) },
-        text = { Text(message, color = brightText, fontSize = 11.sp, fontFamily = mono) },
+        text = { Text(message, color = brightText, fontSize = 12.sp, fontFamily = mono) },
         confirmButton = {
             TextButton(onClick = { onConfirm(); onDismiss() }) {
-                Text("PROCEED", color = dangerRed, fontSize = 11.sp,
+                Text("PROCEED", color = dangerRed, fontSize = 12.sp,
                     fontFamily = mono, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("CANCEL", color = dimText, fontSize = 11.sp, fontFamily = mono)
+                Text("CANCEL", color = dimText, fontSize = 12.sp, fontFamily = mono)
             }
         }
     )
@@ -557,13 +558,13 @@ private fun ConfirmDialog(message: String, onConfirm: () -> Unit, onDismiss: () 
 private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(4.dp),
-        color = if (selected) accentGreen else Color(0xFF1A2030),
+        color = Gt.text.copy(alpha = 0.18f),
         modifier = Modifier.clickable { onClick() }
     ) {
         Text(
-            label,
-            color = if (selected) Color(0xFF0B0F14) else dimText,
-            fontSize = 8.sp, fontFamily = mono, fontWeight = FontWeight.Bold,
+            (if (selected) "\u2713 " else "") + label,
+            color = if (selected) Gt.text else dimText,
+            fontSize = 12.sp, fontFamily = mono, fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
         )
     }
@@ -590,18 +591,18 @@ private fun ActiveSlotBar(entry: QueueEntry) {
         ) {
             Text(
                 entry.label.ifEmpty { "Download" },
-                color = brightText, fontSize = 10.sp,
+                color = brightText, fontSize = 12.sp,
                 fontFamily = mono, fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
             Text(
                 "${entry.downloadedTiles}/${entry.totalTiles} ($pctInt%)",
-                color = accentBlue, fontSize = 9.sp, fontFamily = mono
+                color = accentBlue, fontSize = 12.sp, fontFamily = mono
             )
             Spacer(Modifier.width(8.dp))
             Text(
                 "X",
-                color = dangerRed, fontSize = 10.sp,
+                color = dangerRed, fontSize = 12.sp,
                 fontFamily = mono, fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable { DownloadQueueManager.cancel(entry.id) }
             )
@@ -611,7 +612,7 @@ private fun ActiveSlotBar(entry: QueueEntry) {
             progress = { pct },
             modifier = Modifier.fillMaxWidth().height(4.dp),
             color = accentBlue,
-            trackColor = Color(0xFF1A2030)
+            trackColor = Gt.panel
         )
     }
 }
@@ -633,16 +634,16 @@ private fun QueuedItemRow(entry: QueueEntry, position: Int) {
         // priority follows it as a bare number.
         Text(
             "#$position  ${scopeLabel(entry.downloadType)} ${entry.priority}  ${entry.label.ifEmpty { "Download" }}",
-            color = brightText, fontSize = 9.sp, fontFamily = mono
+            color = brightText, fontSize = 12.sp, fontFamily = mono
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 "${entry.totalTiles} tiles",
-                color = dimText, fontSize = 9.sp, fontFamily = mono
+                color = dimText, fontSize = 12.sp, fontFamily = mono
             )
             Text(
                 dateFmt.format(Date(entry.createdAt)),
-                color = dimText, fontSize = 8.sp, fontFamily = mono
+                color = dimText, fontSize = 12.sp, fontFamily = mono
             )
             // QUEUE-PANEL-B-2026-07-24: PROMOTE to priority 1 (runs next). Deliberately
             // NOT "X" - X already means CANCEL on this row and on ActiveSlotBar,
@@ -651,14 +652,14 @@ private fun QueuedItemRow(entry: QueueEntry, position: Int) {
             if (entry.priority != 1) {
                 Text(
                     "\u25B2",
-                    color = accentGreen, fontSize = 11.sp,
+                    color = accentGreen, fontSize = 12.sp,
                     fontFamily = mono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.clickable { DownloadQueueManager.promote(entry.id) }
                 )
             }
             Text(
                 "X",
-                color = dangerRed, fontSize = 9.sp, fontFamily = mono,
+                color = dangerRed, fontSize = 12.sp, fontFamily = mono,
                 modifier = Modifier.clickable { DownloadQueueManager.cancel(entry.id) }
             )
         }
@@ -706,11 +707,11 @@ private fun CompletedItemRow(entry: QueueEntry) {
     ) {
         Text(
             "${entry.label.ifEmpty { "Download" }}  $statusText",
-            color = statusColor, fontSize = 9.sp, fontFamily = mono
+            color = statusColor, fontSize = 12.sp, fontFamily = mono
         )
         Text(
             "${entry.downloadedTiles} tiles",
-            color = dimText, fontSize = 9.sp, fontFamily = mono
+            color = dimText, fontSize = 12.sp, fontFamily = mono
         )
     }
     // ── QEVAL-2026-08-08I: the detail. All of this was already recorded on
@@ -729,18 +730,18 @@ private fun CompletedItemRow(entry: QueueEntry) {
             Text(
                 "started  ${if (began > 0L) dateFmt.format(Date(began)) else "-"}" +
                     "    took  ${qdElapsed(dur)}",
-                color = dimText, fontSize = 8.sp, fontFamily = mono
+                color = dimText, fontSize = 12.sp, fontFamily = mono
             )
             Text(
                 (if (approx) "~" else "") + String.format("%.1f tiles/sec", rate),
-                color = accentBlue, fontSize = 8.sp, fontFamily = mono
+                color = accentBlue, fontSize = 12.sp, fontFamily = mono
             )
             // Submitted vs actual. A ~3x gap means an enqueue path is still
             // inflating its estimate (see the 08-08 layer-count fix).
             Text(
                 "downloaded ${entry.downloadedTiles}  of ${entry.totalTiles} submitted" +
                     (if (entry.failedTiles > 0) "   ${entry.failedTiles} failed" else ""),
-                color = dimText, fontSize = 8.sp, fontFamily = mono
+                color = dimText, fontSize = 12.sp, fontFamily = mono
             )
         }
     }
@@ -752,10 +753,10 @@ private fun ActionButton(text: String, color: Color, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.clickable { onClick() },
         shape = RoundedCornerShape(6.dp),
-        color = Color(0xFF2A3545)
+        color = Gt.panel
     ) {
         Text(
-            text, color = color, fontSize = 9.sp,
+            text, color = color, fontSize = 12.sp,
             fontFamily = mono, fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)

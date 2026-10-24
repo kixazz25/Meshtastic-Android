@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -82,24 +83,24 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit, onNavigateToTrackImport: () ->
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A1020))
+            .background(Gt.panel)
             .navigationBarsPadding()
             .padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Work With Tracks",
-                color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                color = Gt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
             TextButton(onClick = { onNavigateToTrackImport() }) {
-                Text("Import", color = Color(0xFF81D4FA), fontSize = 14.sp)
+                Text("Import", color = Gt.accent, fontSize = 14.sp)
             }
             TextButton(onClick = onDismiss) {
-                Text("Done", color = Color(0xFF39FF14), fontSize = 14.sp)
+                Text("Done", color = Gt.accent, fontSize = 14.sp)
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("${visibleTracks.size} of ${allTracks.size} tracks",
-                color = Color(0xFF7A8DA0), fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                color = Gt.dim, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                 modifier = Modifier.weight(1f))
             Surface(
                 modifier = Modifier.clickable {
@@ -116,10 +117,10 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit, onNavigateToTrackImport: () ->
                     }
                 },
                 shape = RoundedCornerShape(4.dp),
-                color = Color(0xFF1A2233)
+                color = Gt.panel
             ) {
                 Text("Fix Dates",
-                    color = Color(0xFF39FF14), fontSize = 10.sp,
+                    color = Gt.accent, fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
             }
@@ -129,16 +130,16 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit, onNavigateToTrackImport: () ->
         BasicTextField(
             value = searchText,
             onValueChange = { searchText = it },
-            textStyle = TextStyle(color = Color.White, fontSize = 13.sp,
+            textStyle = TextStyle(color = Gt.text, fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace),
-            cursorBrush = SolidColor(Color(0xFF39FF14)),
+            cursorBrush = SolidColor(Gt.accent),
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
-                .background(Color(0xFF1A2233), RoundedCornerShape(4.dp))
+                .background(Gt.panel, RoundedCornerShape(4.dp))
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             decorationBox = { inner ->
                 if (searchText.isEmpty())
-                    Text("Search tracks...", color = Color(0xFFFFFFFF), fontSize = 13.sp,
+                    Text("Search tracks...", color = Gt.text, fontSize = 13.sp,
                         fontFamily = FontFamily.Monospace)
                 inner()
             }
@@ -156,7 +157,7 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit, onNavigateToTrackImport: () ->
                     }
                 },
                 shape = RoundedCornerShape(4.dp),
-                color = Color(0xFF1A2233)
+                color = Gt.panel
             ) {
                 Text(
                     when (sortMode) {
@@ -165,8 +166,8 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit, onNavigateToTrackImport: () ->
                         SortMode.NAME_ASC -> "Name ↑"
                         SortMode.NAME_DESC -> "Name ↓"
                     },
-                    color = Color(0xFF39FF14),
-                    fontSize = 11.sp,
+                    color = Gt.accent,
+                    fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
@@ -184,7 +185,7 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit, onNavigateToTrackImport: () ->
         if (visibleTracks.isEmpty()) {
             Box(modifier = Modifier.fillMaxWidth().padding(32.dp),
                 contentAlignment = Alignment.Center) {
-                Text("No tracks", color = Color(0xFF7A8DA0), fontSize = 14.sp)
+                Text("No tracks", color = Gt.dim, fontSize = 14.sp)
             }
         } else {
             LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
@@ -194,7 +195,7 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit, onNavigateToTrackImport: () ->
                         dateFmt = dateFmt,
                         onClick = { actionTarget = f }
                     )
-                    Divider(color = Color(0xFF1A2233), thickness = 1.dp)
+                    Divider(color = Gt.text, thickness = 1.dp)
                 }
             }
         }
@@ -206,10 +207,10 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit, onNavigateToTrackImport: () ->
             }
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                color = Color(0xFF1A2233),
+                color = Gt.panel,
                 shape = RoundedCornerShape(4.dp)
             ) {
-                Text(msg, color = Color(0xFF39FF14), fontSize = 12.sp,
+                Text(msg, color = Gt.accent, fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(8.dp))
             }
@@ -286,11 +287,11 @@ private fun FilterTab(label: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(4.dp),
-        color = if (selected) Color(0xFF2E75B6) else Color(0xFF1A2233)
+        color = Gt.text.copy(alpha = 0.18f)
     ) {
-        Text(label,
-            color = if (selected) Color.White else Color(0xFF7A8DA0),
-            fontSize = 11.sp,
+        Text((if (selected) "\u2713 " else "") + label,
+            color = if (selected) Gt.text else Gt.dim,
+            fontSize = 12.sp,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
@@ -311,19 +312,19 @@ private fun TrackRow(
         Surface(
             modifier = Modifier.size(8.dp),
             shape = RoundedCornerShape(4.dp),
-            color = if (isInProgress) Color(0xFFCC8800) else Color(0xFF39FF14)
+            color = if (isInProgress) Gt.warn.copy(alpha = 0.18f) else Gt.good.copy(alpha = 0.18f)
         ) {}
         Spacer(Modifier.width(8.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(file.name, color = Color.White, fontSize = 13.sp,
+            Text(file.name, color = Gt.text, fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace, maxLines = 1)
             Text(
                 "${dateFmt.format(Date(file.lastModified()))}    ${ConvoyTrackOps.formatSize(file.length())}",
-                color = Color(0xFF7A8DA0), fontSize = 10.sp,
+                color = Gt.dim, fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace
             )
         }
-        Text("⋮", color = Color(0xFF7A8DA0), fontSize = 16.sp,
+        Text("⋮", color = Gt.dim, fontSize = 16.sp,
             modifier = Modifier.padding(horizontal = 8.dp))
     }
 }

@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -43,10 +44,10 @@ fun SyncTracksDialog(
     val syncListState = rememberLazyListState()
     AlertDialog(
         onDismissRequest = { if (!syncRunning) onClose() },
-        containerColor = Color(0xFF0A1628),
+        containerColor = Gt.panel,
         title = {   // GTSYNC-2026-10-23: the standard HELP and X (X off while running)
             androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text("SYNC TRACKS", color = Color(0xFF4DA6FF),
+                Text("SYNC TRACKS", color = Gt.accent,
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1f))
                 com.geeksville.mesh.grouptrack.GtHelpButton("map.synctracks")
                 com.geeksville.mesh.grouptrack.GtCloseButton(onClose, enabled = !syncRunning)
@@ -58,29 +59,29 @@ fun SyncTracksDialog(
                 if (res != null && !syncRunning) {
                     // ---- RECAP: failures first ----
                     if (res.failures.isEmpty()) {
-                        Text("\u2713 no failures", color = Color(0xFF39FF14),
+                        Text("\u2713 no failures", color = Gt.accent,
                             fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     } else {
                         Text("\u26A0 ${res.failures.size} FAILED \u2014 research these:",
-                            color = Color(0xFFFFB020),
+                            color = Gt.warn,
                             fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         Spacer(Modifier.height(4.dp))
                         LazyColumn(modifier = Modifier.fillMaxWidth().height(120.dp)) {
                             items(res.failures) { f ->
-                                Text(f, color = Color(0xFFFFB020),
-                                    fontFamily = FontFamily.Monospace, fontSize = 11.sp,
+                                Text(f, color = Gt.warn,
+                                    fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                                     modifier = Modifier.padding(vertical = 1.dp))
                             }
                         }
                     }
                     Spacer(Modifier.height(8.dp))
                     Text("processed ${res.processed} \u00B7 renamed ${res.renamed}",
-                        color = Color(0xFF97D5A5), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        color = Gt.accent, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     Text("properties ${res.propsWritten}/${res.propsTotal} written",
-                        color = Color(0xFF97D5A5), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        color = Gt.accent, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     Spacer(Modifier.height(8.dp))
-                    Text("\u2014 full detail below \u2014", color = Color(0xFFFFFFFF),
-                        fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+                    Text("\u2014 full detail below \u2014", color = Gt.text,
+                        fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 }
                 // Auto-scroll the live feed to the newest line.
                 LaunchedEffect(syncLines.size) {
@@ -95,22 +96,22 @@ fun SyncTracksDialog(
                 ) {
                     items(syncLines) { line ->
                         val col = when {
-                            line.startsWith("FAIL:") || line.startsWith("\u26A0") -> Color(0xFFFFB020)
-                            line.startsWith("props:") -> Color(0xFF6FB6FF)
-                            line.startsWith("ADDED") || line.startsWith("===") -> Color(0xFF39FF14)
-                            else -> Color(0xFF7A8DA0)
+                            line.startsWith("FAIL:") || line.startsWith("\u26A0") -> Gt.warn
+                            line.startsWith("props:") -> Gt.accent
+                            line.startsWith("ADDED") || line.startsWith("===") -> Gt.good
+                            else -> Gt.dim
                         }
-                        Text(line, color = col, fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                        Text(line, color = col, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                             modifier = Modifier.padding(vertical = 1.dp))
                     }
                 }
                 if (syncRunning) {
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.height(16.dp), color = Color(0xFF4DA6FF))
+                        CircularProgressIndicator(modifier = Modifier.height(16.dp), color = Gt.accent)
                         Spacer(Modifier.fillMaxWidth(0.05f).height(1.dp))
-                        Text("  running\u2026", color = Color(0xFF4DA6FF),
-                            fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                        Text("  running\u2026", color = Gt.accent,
+                            fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     }
                 }
             }
@@ -121,7 +122,7 @@ fun SyncTracksDialog(
                 onClick = onStart
             ) {
                 Text(if (syncResult == null) "START" else "RE-RUN",
-                    color = if (syncRunning) Color(0xFFFFFFFF) else Color(0xFF39FF14),
+                    color = if (syncRunning) Gt.text else Gt.good,
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
             }
         },
@@ -131,7 +132,7 @@ fun SyncTracksDialog(
                 onClick = onClose
             ) {
                 Text("CLOSE",
-                    color = if (syncRunning) Color(0xFFFFFFFF) else Color(0xFF7A8DA0),
+                    color = if (syncRunning) Gt.text else Gt.dim,
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
             }
         }

@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -63,7 +64,7 @@ fun ConvoySubMenu(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState       = sheetState,
-        containerColor   = Color(0xFF101510),
+        containerColor   = Gt.panel,
         shape            = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     ) {
         // Track which top-level item is expanded (null = none)
@@ -136,10 +137,10 @@ fun ConvoySubMenu(
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { },   // \u26d4 not dismissable -- do not interrupt a copy
                 confirmButton = { },
-                title = { Text("Converting storage", color = Color.White) },
+                title = { Text("Converting storage", color = Gt.text) },
                 text = { Text("Do not leave this screen.\n\n$convProgress",
-                    color = Color(0xFF97D5A5), fontSize = 12.sp) },
-                containerColor = Color(0xFF0A1628)
+                    color = Gt.accent, fontSize = 12.sp) },
+                containerColor = Gt.panel
             )
         }
 
@@ -147,16 +148,16 @@ fun ConvoySubMenu(
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { convSummary = null },
                 confirmButton = {
-                    Text("CLOSE", color = Color(0xFF97D5A5), fontSize = 13.sp,
+                    Text("CLOSE", color = Gt.accent, fontSize = 13.sp,
                         modifier = Modifier.clickable { convSummary = null }.padding(12.dp))
                 },
-                title = { Text("Conversion result", color = Color.White) },
+                title = { Text("Conversion result", color = Gt.text) },
                 text = {
-                    Text(s, color = Color(0xFF97D5A5), fontSize = 11.sp,
+                    Text(s, color = Gt.accent, fontSize = 12.sp,
                         modifier = Modifier.verticalScroll(
                             androidx.compose.foundation.rememberScrollState()))
                 },
-                containerColor = Color(0xFF0A1628)
+                containerColor = Gt.panel
             )
         }
 
@@ -165,13 +166,13 @@ fun ConvoySubMenu(
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { showRecord = false },
                 confirmButton = {
-                    Text("CLOSE", color = Color(0xFF97D5A5), fontSize = 13.sp,
+                    Text("CLOSE", color = Gt.accent, fontSize = 13.sp,
                         modifier = Modifier.clickable { showRecord = false }.padding(12.dp))
                 },
                 dismissButton = {
                     // \u2b50 SHARE, NOT JUST DISPLAY. On a rider's device this is the
                     // only way the record reaches anyone who can read it.
-                    Text("SHARE", color = Color(0xFF97D5A5), fontSize = 13.sp,
+                    Text("SHARE", color = Gt.accent, fontSize = 13.sp,
                         modifier = Modifier.clickable {
                             val send = android.content.Intent(
                                 android.content.Intent.ACTION_SEND).apply {
@@ -184,14 +185,14 @@ fun ConvoySubMenu(
                                 android.content.Intent.createChooser(send, "Send record"))
                         }.padding(12.dp))
                 },
-                title = { Text("Conversion record", color = Color.White) },
+                title = { Text("Conversion record", color = Gt.text) },
                 text = {
                     Text(json ?: "No record yet \u2014 the conversion has not run.",
-                        color = Color(0xFF97D5A5), fontSize = 10.sp,
+                        color = Gt.accent, fontSize = 12.sp,
                         modifier = Modifier.verticalScroll(
                             androidx.compose.foundation.rememberScrollState()))
                 },
-                containerColor = Color(0xFF0A1628)
+                containerColor = Gt.panel
             )
         }
 
@@ -207,7 +208,7 @@ fun ConvoySubMenu(
             // only way in.
             Text(
                 text          = "Meshtastic Radio Setup",
-                color         = Color(0xFF97D5A5),
+                color         = Gt.accent,
                 fontSize      = 13.sp,
                 fontFamily    = FontFamily.Monospace,
                 fontWeight    = FontWeight.Bold,
@@ -326,12 +327,12 @@ fun ConvoySubMenu(
                     .fillMaxWidth()
                     .clickable { onDismiss() },
                 shape = RoundedCornerShape(10.dp),
-                color = Color(0xFF1C211C)
+                color = Gt.panel
             ) {
                 Text(
                     text       = "✕  CLOSE",
-                    color      = Color(0xFFFFB4AB),
-                    fontSize   = 11.sp,
+                    color      = Gt.bad,
+                    fontSize   = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
                     textAlign  = TextAlign.Center,
@@ -360,7 +361,7 @@ private fun AccordionHeader(
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(10.dp),
-        color = if (expanded) Color(0xFF15512C) else Color(0xFF262B26)
+        color = if (expanded) Gt.text.copy(alpha = 0.18f) else Gt.text.copy(alpha = 0.18f)
     ) {
         Row(
             modifier = Modifier
@@ -373,7 +374,7 @@ private fun AccordionHeader(
                 Text(icon, fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
                 Text(
                     text       = label,
-                    color      = if (expanded) Color(0xFF97D5A5) else Color(0xFFDFE4DC),
+                    color      = if (expanded) Gt.good else Gt.text,
                     fontSize   = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
@@ -381,8 +382,8 @@ private fun AccordionHeader(
             }
             Text(
                 text     = if (expanded) "▲" else "▼",
-                color    = Color(0xFF97D5A5),
-                fontSize = 10.sp
+                color    = Gt.accent,
+                fontSize = 12.sp
             )
         }
     }
@@ -402,7 +403,7 @@ private fun SubMenuItem(
             .fillMaxWidth()
             .clickable(enabled = enabled) { onClick() },
         shape = RoundedCornerShape(8.dp),
-        color = if (enabled) Color(0xFF313631) else Color(0xFF1C211C)
+        color = if (enabled) Gt.text.copy(alpha = 0.18f) else Gt.text.copy(alpha = 0.18f)
     ) {
         Row(
             modifier = Modifier
@@ -414,8 +415,8 @@ private fun SubMenuItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text       = label,
-                    color      = if (enabled) Color(0xFFDFE4DC) else Color(0xFF8B938A),
-                    fontSize   = 11.sp,
+                    color      = if (enabled) Gt.text else Gt.dim,
+                    fontSize   = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
                 )
@@ -423,8 +424,8 @@ private fun SubMenuItem(
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text       = sub,
-                        color      = if (enabled) Color(0xFFC1C9BF) else Color(0xFF8B938A),
-                        fontSize   = 9.sp,
+                        color      = if (enabled) Gt.text else Gt.dim,
+                        fontSize   = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
@@ -432,8 +433,8 @@ private fun SubMenuItem(
             Spacer(Modifier.width(8.dp))
             Text(
                 text     = if (enabled) "▶" else "🔒",
-                color    = if (enabled) Color(0xFF97D5A5) else Color(0xFF8B938A),
-                fontSize = if (enabled) 12.sp else 10.sp
+                color    = if (enabled) Gt.good else Gt.dim,
+                fontSize = if (enabled) 12.sp else 12.sp
             )
         }
     }

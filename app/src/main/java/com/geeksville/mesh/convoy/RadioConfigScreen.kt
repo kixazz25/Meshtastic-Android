@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -72,12 +73,12 @@ object RadioConfigLauncher {
 
 private class RadioTarget(val name: String, val detail: String, val json: JSONObject?, val savedId: String?, val rideId: String? = null)
 
-private val BG = Color(0xF20F1216)
-private val INK = Color(0xFFE8EEF5)
-private val DIM = Color(0xFF8B949E)
-private val GOOD = Color(0xFF3FB950)
-private val BAD = Color(0xFFF85149)
-private val ACCENT = Color(0xFF58A6FF)
+private val BG: Color get() = Gt.panel  // STD1-2026-10-24 was 0xF20F1216 
+private val INK: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFE8EEF5 
+private val DIM: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF8B949E 
+private val GOOD: Color get() = Gt.good  // STD1-2026-10-24 was 0xFF3FB950 
+private val BAD: Color get() = Gt.bad  // STD1-2026-10-24 was 0xFFF85149 
+private val ACCENT: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF58A6FF 
 
 /** COMMCONFIG-2026-10-12: a change line as the configurator wrote it ("field: old -> new", or a whole line such as "channel key: changed"). */
 private fun ConfigChange.line(): String = if (from.isEmpty() && to.isEmpty()) field else "$field: $from -> $to"
@@ -229,7 +230,7 @@ fun RadioConfigScreen(
                         label = { Text("Callsign for this radio") }, modifier = Modifier.fillMaxWidth())
                     // CALLSIGNHINT-2026-09-27 (Fred): what the field is for, on the screen itself.
                     Text("Mainly for setting up someone else's radio at the trailhead: type their callsign, and their radio joins the ride under their name. For your own radio, leave it as it is.",
-                        color = Color(0xFF8899AA), fontSize = 12.sp)
+                        color = Gt.dim, fontSize = 12.sp)
                     if (radioCallsign.trim().isNotEmpty() && radioCallsign.trim() != callsign)
                         Text("Setting up a radio for ${radioCallsign.trim()} — your own profile is not changed.", color = ACCENT, fontSize = 12.sp)
                     Spacer(Modifier.height(8.dp))

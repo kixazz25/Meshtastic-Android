@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -38,15 +39,15 @@ import kotlinx.coroutines.launch
 // Wired in:    Phase B nav graph
 // ============================================================
 
-private val NavyDark   = Color(0xFF0A1628)
-private val Navy       = Color(0xFF0F2035)
-private val NavyLight  = Color(0xFF1A3050)
-private val SkyBlue    = Color(0xFF4AB8E8)
+private val NavyDark: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0A1628 
+private val Navy: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0F2035 
+private val NavyLight: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF1A3050 
+private val SkyBlue: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4AB8E8 
 // DEADCODE2-2026-10-23: SkyDim (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoySubscriptionScreen.pieces.txt
-private val White      = Color(0xFFFFFFFF)
-private val WhiteDim   = Color(0xFFAABBCC)
-private val WhiteFaint = Color(0xFFFFFFFF)
-private val Gold       = Color(0xFFFFCC44)
+private val White: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFFFFFFF 
+private val WhiteDim: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFFAABBCC 
+private val WhiteFaint: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFFFFFFFF 
+private val Gold: Color get() = Gt.warn  // STD1-2026-10-24 was 0xFFFFCC44 
 // DEADCODE2-2026-10-23: GoldDim (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoySubscriptionScreen.pieces.txt
 
 // ── Value proposition slide data ──────────────────────────────────────────────
@@ -82,7 +83,7 @@ private val slides = listOf(
             "No scrambling for signal at the trailhead",
             "Works in full dead zones — no cell needed"
         ),
-        accentColor = Color(0xFF44CC88)
+        accentColor = Gt.accent
     ),
     ValueSlide(
         icon = "📍",
@@ -94,7 +95,7 @@ private val slides = listOf(
             "Download a track — tiles auto-download with it",
             "Donate your own tracks after the ride"
         ),
-        accentColor = Color(0xFFFF8844)
+        accentColor = Gt.warn
     ),
     ValueSlide(
         icon = "📡",
@@ -106,7 +107,7 @@ private val slides = listOf(
             "Verify your config before the group leaves",
             "Master config always available free — ride config is premium"
         ),
-        accentColor = Color(0xFFCC88FF)
+        accentColor = Gt.accent
     ),
     ValueSlide(
         icon = "⭐",
@@ -165,7 +166,7 @@ fun ConvoySubscriptionScreen(
                 Text(
                     text = "PREMIUM",
                     color = Gold,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 4.sp
                 )
@@ -212,7 +213,7 @@ fun ConvoySubscriptionScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF0A1628))
+                    .background(Gt.panel)
                     .padding(horizontal = 24.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -225,7 +226,7 @@ fun ConvoySubscriptionScreen(
                             .clip(RoundedCornerShape(8.dp))
                             .background(
                                 Brush.horizontalGradient(
-                                    colors = listOf(SkyBlue, Color(0xFF2288CC))
+                                    colors = listOf(SkyBlue.copy(alpha = 0.18f), Gt.accent.copy(alpha = 0.18f))
                                 )
                             )
                             .clickable { onSubscribe() },
@@ -241,8 +242,8 @@ fun ConvoySubscriptionScreen(
                             )
                             Text(
                                 text = "\$3.00 / month — cancel anytime",
-                                color = Color(0xFFCCEEFF),
-                                fontSize = 10.sp,
+                                color = Gt.text,
+                                fontSize = 12.sp,
                                 letterSpacing = 0.5.sp
                             )
                         }
@@ -298,7 +299,7 @@ fun ConvoySubscriptionScreen(
                 Text(
                     text = "Convoy map, radio config, and offline tiles are always free.",
                     color = WhiteFaint,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     textAlign = TextAlign.Center,
                     lineHeight = 14.sp
                 )

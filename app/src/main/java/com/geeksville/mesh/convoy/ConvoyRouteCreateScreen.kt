@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,10 +19,10 @@ import androidx.compose.ui.unit.sp
 fun ConvoyRouteCreateScreen(onNavigateBack: () -> Unit = {}) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("ROUTE CREATION", color = Color(0xFFBC8CFF), fontSize = 14.sp,
+            Text("ROUTE CREATION", color = Gt.accent, fontSize = 14.sp,
                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-            Text("Draw / Snap / Convert", color = Color(0xFFFFFFFF), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-            Text("[ Pass 1 scaffold ]", color = Color(0xFFFFFFFF), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+            Text("Draw / Snap / Convert", color = Gt.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+            Text("[ Pass 1 scaffold ]", color = Gt.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
         }
     }
 }

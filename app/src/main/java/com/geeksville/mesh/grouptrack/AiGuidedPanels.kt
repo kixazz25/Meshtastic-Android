@@ -23,16 +23,16 @@ import com.geeksville.mesh.convoy.GP_STATE_CURRENT
 /** GTAI4-2026-10-23: ConvoyAiStepScreen (the guided step banner) and ConvoyGuidedSummaryPanel (the plan and the search), COPIED
  *  for ONE MAP with the HELP X standard. GuidedStep and GP_STATE_* stay the planner's (shared data). The planner keeps its copy. */
 
-private val gpBg    = Color(0xFF0F1419)
-private val gpPanel = Color(0xFF131A24)
-private val gpCard  = Color(0xFF0F1720)
-private val gpLine  = Color(0xFF24313F)
-private val gpGreen = Color(0xFF7BB661)
-private val gpBlue  = Color(0xFF4DA6FF)
-private val gpAmber = Color(0xFFE3B341)
-private val gpTxt   = Color(0xFFE6EDF3)
-private val gpDim   = Color(0xFF8899AA)
-private val gpFaint = Color(0xFF667788)
+private val gpBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0F1419 
+private val gpPanel: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF131A24 
+private val gpCard: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0F1720 
+private val gpLine: Color get() = Gt.line  // STD1-2026-10-24 was 0xFF24313F 
+private val gpGreen: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF7BB661 
+private val gpBlue: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4DA6FF 
+private val gpAmber: Color get() = Gt.warn  // STD1-2026-10-24 was 0xFFE3B341 
+private val gpTxt: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFE6EDF3 
+private val gpDim: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF8899AA 
+private val gpFaint: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF667788 
 private val gpMono  = FontFamily.Monospace
 
 @Composable
@@ -50,7 +50,7 @@ fun GtGuidedSummaryPanel(
     Box(
         modifier
             .fillMaxSize()
-            .background(Color(0xCC090C10)),
+            .background(Gt.panel),
         contentAlignment = Alignment.Center
     ) {
         Surface(
@@ -64,7 +64,7 @@ fun GtGuidedSummaryPanel(
                     Text(
                         if (working) "BUILDING YOUR RIDES" else "HERE IS THE PLAN",
                         color = if (working) gpBlue else gpGreen,
-                        fontSize = 11.sp, fontFamily = gpMono,
+                        fontSize = 12.sp, fontFamily = gpMono,
                         fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp,
                         modifier = Modifier.weight(1f)
                     )
@@ -73,7 +73,7 @@ fun GtGuidedSummaryPanel(
                 }
                 if (title.isNotBlank()) {
                     Spacer(Modifier.height(3.dp))
-                    Text(title, color = gpDim, fontSize = 11.5.sp)
+                    Text(title, color = gpDim, fontSize = 12.sp)
                 }
                 Spacer(Modifier.height(12.dp))
 
@@ -104,7 +104,7 @@ fun GtGuidedSummaryPanel(
                     Spacer(Modifier.height(6.dp))
                     Text(
                         "This can take a minute on ground the app has not seen before.",
-                        color = gpFaint, fontSize = 11.sp, lineHeight = 15.sp
+                        color = gpFaint, fontSize = 12.sp, lineHeight = 15.sp
                     )
                 } else {
                     Spacer(Modifier.height(18.dp))
@@ -240,7 +240,7 @@ private fun GtStepButton(label: String, primary: Boolean, onClick: () -> Unit) {
 @Composable
 private fun NoticeBlock(text: String) {
     Surface(
-        color = Color(0xFF241D0E),
+        color = Gt.panel,
         shape = RoundedCornerShape(6.dp),
         modifier = Modifier.fillMaxWidth().padding(13.dp, 2.dp, 13.dp, 0.dp)
     ) {
@@ -250,7 +250,7 @@ private fun NoticeBlock(text: String) {
                 fontWeight = FontWeight.Bold, fontFamily = gpMono,
                 modifier = Modifier.padding(end = 9.dp)
             )
-            Text(text, color = gpAmber, fontSize = 11.8.sp, lineHeight = 16.5.sp)
+            Text(text, color = gpAmber, fontSize = 12.sp, lineHeight = 16.5.sp)
         }
     }
 }
@@ -258,7 +258,7 @@ private fun NoticeBlock(text: String) {
 @Composable
 private fun GpButton(label: String, primary: Boolean, onClick: () -> Unit) {
     Surface(
-        color = if (primary) Color(0xFF16301C) else gpCard,
+        color = if (primary) Gt.text.copy(alpha = 0.18f) else gpCard,
         shape = RoundedCornerShape(6.dp),
         modifier = Modifier.fillMaxWidth().clickable { onClick() }
     ) {

@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -55,22 +56,22 @@ fun ConvoyOrganizerPendingRides(
 
         // ── Section header ────────────────────────────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp)).background(Color(0xFF0F2035)).padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp)).background(Gt.panel).padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "WORK WITH PENDING RIDES",
-                color = Color(0xFF4AB8E8),
-                fontSize = 10.sp,
+                color = Gt.accent,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
                 fontFamily = FontFamily.Monospace
             )
             Text(
                 text = "${pendingRides.size} PENDING",
-                color = Color(0xFFF59E0B),
-                fontSize = 9.sp,
+                color = Gt.warn,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace
             )
@@ -82,7 +83,7 @@ fun ConvoyOrganizerPendingRides(
         if (pendingRides.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0F2035)).padding(16.dp),
+                    .background(Gt.panel).padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -91,16 +92,16 @@ fun ConvoyOrganizerPendingRides(
                 ) {
                     Text(
                         "NO PENDING RIDES",
-                        color = Color(0xFF2A4060),
-                        fontSize = 10.sp,
+                        color = Gt.text,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
                         letterSpacing = 1.sp
                     )
                     Text(
                         "Tap Create to start a new ride",
-                        color = Color(0xFF1A3050),
-                        fontSize = 9.sp,
+                        color = Gt.text,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
@@ -109,7 +110,7 @@ fun ConvoyOrganizerPendingRides(
             pendingRides.forEach { ride ->
                 Column(
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF0F2035))
+                        .background(Gt.panel)
                         .clickable { onNavigateToCreateRide(ride.first) }
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -121,20 +122,20 @@ fun ConvoyOrganizerPendingRides(
                     ) {
                         Text(
                             ride.second,
-                            color = Color.White,
+                            color = Gt.text,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f)
                         )
                         Box(
                             modifier = Modifier.clip(RoundedCornerShape(3.dp))
-                                .background(Color(0xFFF59E0B).copy(alpha = 0.15f))
+                                .background(Gt.warn.copy(alpha = 0.15f))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 "PENDING",
-                                color = Color(0xFFF59E0B),
-                                fontSize = 8.sp,
+                                color = Gt.warn,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             )
@@ -142,14 +143,14 @@ fun ConvoyOrganizerPendingRides(
                     }
                     Text(
                         ride.third,
-                        color = Color(0xFF4AB8E8),
-                        fontSize = 10.sp,
+                        color = Gt.accent,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                     Text(
                         "Tap to edit · OPEN RIDE to launch",
-                        color = Color(0xFF2A4060),
-                        fontSize = 9.sp,
+                        color = Gt.text,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }

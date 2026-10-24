@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -74,10 +75,10 @@ fun ConvoyProfileScreen(
             ) {
                 StatusBadge(
                     label = if (isSubscribed) "SUBSCRIBED" else "FREE",
-                    color = if (isSubscribed) Color(0xFF22C55E) else Color(0xFFFFFFFF)
+                    color = if (isSubscribed) Gt.good else Gt.text
                 )
                 if (isOrganizer) {
-                    StatusBadge(label = "ORGANIZER", color = Color(0xFF4AB8E8))
+                    StatusBadge(label = "ORGANIZER", color = Gt.accent)
                 }
             }
 
@@ -104,7 +105,7 @@ fun ConvoyProfileScreen(
             }
             Text(
                 text = "Rides within this radius of your zip code appear on your Dashboard",
-                color = Color(0xFFFFFFFF), fontSize = 10.sp,
+                color = Gt.text, fontSize = 12.sp,
                 modifier = Modifier.padding(top = 2.dp)
             )
             ProfileSectionLabel("ADDRESS")
@@ -125,7 +126,7 @@ fun ConvoyProfileScreen(
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0F2035))
+                    .background(Gt.panel)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -133,22 +134,22 @@ fun ConvoyProfileScreen(
                 Column {
                     Text(
                         text = "EMAIL OPT-IN",
-                        color = Color(0xFFAABBCC), fontSize = 12.sp,
+                        color = Gt.accent, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold, letterSpacing = 1.sp
                     )
                     Text(
                         text = "Receive ride announcements from organizers you follow",
-                        color = Color(0xFFFFFFFF), fontSize = 10.sp
+                        color = Gt.text, fontSize = 12.sp
                     )
                 }
                 Switch(
                     checked = emailOptIn,
                     onCheckedChange = { emailOptIn = it },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color(0xFF4AB8E8),
-                        checkedTrackColor = Color(0xFF1A3050),
-                        uncheckedThumbColor = Color(0xFFFFFFFF),
-                        uncheckedTrackColor = Color(0xFF0A1628)
+                        checkedThumbColor = Gt.accent,
+                        checkedTrackColor = Gt.panel,
+                        uncheckedThumbColor = Gt.text,
+                        uncheckedTrackColor = Gt.panel
                     )
                 )
             }
@@ -158,7 +159,7 @@ fun ConvoyProfileScreen(
             Box(
                 modifier = Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(GroupTrackColors.SkyBlue)
+                    .background(GroupTrackColors.SkyBlue.copy(alpha = 0.18f))
                     .clickable { /* Phase C: PUT /users/profile */ }
                     .padding(16.dp),
                 contentAlignment = Alignment.Center
@@ -175,13 +176,13 @@ fun ConvoyProfileScreen(
                 Box(
                     modifier = Modifier.fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF1A0A00))
+                        .background(Gt.panel)
                         .padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "SUBSCRIBE — $3.00/month",
-                        color = Color(0xFFFFCC44), fontSize = 13.sp,
+                        color = Gt.warn, fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -191,28 +192,28 @@ fun ConvoyProfileScreen(
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0F2035))
+                    .background(Gt.panel)
                     .clickable { /* Phase C: navigate to s07 */ }
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "Ride History", color = Color(0xFFAABBCC), fontSize = 13.sp)
-                Text(text = "→", color = Color(0xFF4AB8E8), fontSize = 16.sp)
+                Text(text = "Ride History", color = Gt.accent, fontSize = 13.sp)
+                Text(text = "→", color = Gt.accent, fontSize = 16.sp)
             }
 
             // Following link
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0F2035))
+                    .background(Gt.panel)
                     .clickable { /* Phase C: navigate to s08 */ }
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "Following", color = Color(0xFFAABBCC), fontSize = 13.sp)
-                Text(text = "→", color = Color(0xFF4AB8E8), fontSize = 16.sp)
+                Text(text = "Following", color = Gt.accent, fontSize = 13.sp)
+                Text(text = "→", color = Gt.accent, fontSize = 16.sp)
             }
 
             Spacer(Modifier.height(8.dp))
@@ -238,7 +239,7 @@ fun ConvoyProfileScreen(
 private fun ProfileSectionLabel(label: String) {
     Text(
         text = label,
-        color = Color(0xFF4AB8E8), fontSize = 10.sp,
+        color = Gt.accent, fontSize = 12.sp,
         fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
         modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
     )
@@ -254,7 +255,7 @@ private fun StatusBadge(label: String, color: Color) {
     ) {
         Text(
             text = label, color = color,
-            fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp
+            fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp
         )
     }
 }
@@ -270,22 +271,22 @@ private fun ProfileField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label, fontSize = 11.sp) },
-        placeholder = if (placeholder.isNotEmpty()) {{ Text(placeholder, color = Color(0xFF334455), fontSize = 13.sp) }} else null,
+        label = { Text(label, fontSize = 12.sp) },
+        placeholder = if (placeholder.isNotEmpty()) {{ Text(placeholder, color = Gt.text, fontSize = 13.sp) }} else null,
         modifier = Modifier.fillMaxWidth(),
         enabled = enabled,
         singleLine = true,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color(0xFF4AB8E8),
-            unfocusedBorderColor = Color(0xFF1A3050),
-            disabledBorderColor = Color(0xFF0F1E2E),
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
-            disabledTextColor = Color(0xFF7D8A99),
-            focusedLabelColor = Color(0xFF4AB8E8),
-            unfocusedLabelColor = Color(0xFFFFFFFF),
-            disabledLabelColor = Color(0xFF334455),
-            cursorColor = Color(0xFF4AB8E8)
+            focusedBorderColor = Gt.accent,
+            unfocusedBorderColor = Gt.line,
+            disabledBorderColor = Gt.line,
+            focusedTextColor = Gt.text,
+            unfocusedTextColor = Gt.text,
+            disabledTextColor = Gt.dim,
+            focusedLabelColor = Gt.accent,
+            unfocusedLabelColor = Gt.text,
+            disabledLabelColor = Gt.panel,
+            cursorColor = Gt.accent
         )
     )
 }

@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -88,38 +89,38 @@ fun ConvoyCompletedRidesScreen(
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
 
         // ── Top bar ───────────────────────────────────────────────────────────
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628))
+        Row(modifier = Modifier.fillMaxWidth().background(Gt.panel)
             .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF1A3050)).clickable { onBack() }
+                .background(Gt.panel).clickable { onBack() }
                 .padding(horizontal = 10.dp, vertical = 5.dp)) {
-                Text("← BACK", color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                Text("← BACK", color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
-            Text("COMPLETED RIDES", color = Color.White, fontSize = 11.sp,
+            Text("COMPLETED RIDES", color = Gt.text, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.weight(1f))
         }
-        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Color(0xFF4AB8E8))
+        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Gt.accent)
 
         // ── Tab bar ───────────────────────────────────────────────────────────
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628))
+        Row(modifier = Modifier.fillMaxWidth().background(Gt.panel)
             .padding(horizontal = 10.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             tabs.forEach { tab ->
                 val isActive = tab == activeTab
                 Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                    .background(if (isActive) Color(0xFF1A3050) else Color(0xFF050E1A))
+                    .background(if (isActive) Gt.panel else Gt.panel)
                     .clickable { activeTab = tab }
                     .padding(horizontal = 8.dp, vertical = 5.dp)) {
-                    Text(tab, color = if (isActive) Color(0xFF4AB8E8) else Color(0xFF2A4060),
-                        fontSize = 8.sp, fontWeight = FontWeight.Bold,
+                    Text(tab, color = if (isActive) Gt.accent else Gt.text,
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace)
                 }
             }
         }
-        androidx.compose.material3.HorizontalDivider(thickness = 1.dp, color = Color(0xFF1A2840))
+        androidx.compose.material3.HorizontalDivider(thickness = 1.dp, color = Gt.text)
 
         Column(modifier = Modifier.fillMaxWidth().weight(1f)
             .verticalScroll(scrollState).padding(14.dp),
@@ -152,16 +153,16 @@ fun ConvoyCompletedRidesScreen(
                     OutlinedTextField(
                         value = nameQuery,
                         onValueChange = { nameQuery = it; nameSearched = false },
-                        label = { Text("Search ride name", fontSize = 11.sp) },
+                        label = { Text("Search ride name", fontSize = 12.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF4AB8E8),
-                            unfocusedBorderColor = Color(0xFF1A3050),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedLabelColor = Color(0xFF4AB8E8),
-                            unfocusedLabelColor = Color(0xFFFFFFFF),
-                            cursorColor = Color(0xFF4AB8E8)
+                            focusedBorderColor = Gt.accent,
+                            unfocusedBorderColor = Gt.line,
+                            focusedTextColor = Gt.text,
+                            unfocusedTextColor = Gt.text,
+                            focusedLabelColor = Gt.accent,
+                            unfocusedLabelColor = Gt.text,
+                            cursorColor = Gt.accent
                         )
                     )
                     SearchButton(enabled = nameQuery.length >= 2) { nameSearched = true }
@@ -189,7 +190,7 @@ fun ConvoyCompletedRidesScreen(
                         val orgRides = allRides.filter { it.organizerId == id }
                         val expanded = orgExpanded.getOrDefault(id, false)
                         Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF0F2035))) {
+                            .background(Gt.panel)) {
                             Row(modifier = Modifier.fillMaxWidth()
                                 .clickable { orgExpanded[id] = !expanded }
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -197,23 +198,23 @@ fun ConvoyCompletedRidesScreen(
                                 verticalAlignment = Alignment.CenterVertically) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
                                     verticalAlignment = Alignment.CenterVertically) {
-                                    Text(name, color = Color.White, fontSize = 13.sp,
+                                    Text(name, color = Gt.text, fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold)
                                     Box(modifier = Modifier.clip(RoundedCornerShape(10.dp))
-                                        .background(Color(0xFF1A3050))
+                                        .background(Gt.panel)
                                         .padding(horizontal = 8.dp, vertical = 3.dp)) {
                                         Text("${orgRides.size} RIDE${if (orgRides.size != 1) "S" else ""}",
-                                            color = Color(0xFF4AB8E8), fontSize = 9.sp,
+                                            color = Gt.accent, fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
                                             fontFamily = FontFamily.Monospace)
                                     }
                                 }
                                 Text(if (expanded) "▲" else "▼",
-                                    color = Color(0xFF4AB8E8), fontSize = 11.sp)
+                                    color = Gt.accent, fontSize = 12.sp)
                             }
                             if (expanded) {
                                 androidx.compose.material3.HorizontalDivider(
-                                    thickness = 1.dp, color = Color(0xFF1A2840))
+                                    thickness = 1.dp, color = Gt.text)
                                 Column(modifier = Modifier.padding(8.dp),
                                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     orgRides.forEach { ride ->
@@ -239,31 +240,31 @@ fun ConvoyCompletedRidesScreen(
                         OutlinedTextField(
                             value = dateFrom,
                             onValueChange = { dateFrom = it; dateSearched = false },
-                            label = { Text("From MM/DD/YYYY", fontSize = 10.sp) },
+                            label = { Text("From MM/DD/YYYY", fontSize = 12.sp) },
                             modifier = Modifier.weight(1f),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF4AB8E8),
-                                unfocusedBorderColor = Color(0xFF1A3050),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedLabelColor = Color(0xFF4AB8E8),
-                                unfocusedLabelColor = Color(0xFFFFFFFF),
-                                cursorColor = Color(0xFF4AB8E8)
+                                focusedBorderColor = Gt.accent,
+                                unfocusedBorderColor = Gt.line,
+                                focusedTextColor = Gt.text,
+                                unfocusedTextColor = Gt.text,
+                                focusedLabelColor = Gt.accent,
+                                unfocusedLabelColor = Gt.text,
+                                cursorColor = Gt.accent
                             )
                         )
                         OutlinedTextField(
                             value = dateTo,
                             onValueChange = { dateTo = it; dateSearched = false },
-                            label = { Text("To MM/DD/YYYY", fontSize = 10.sp) },
+                            label = { Text("To MM/DD/YYYY", fontSize = 12.sp) },
                             modifier = Modifier.weight(1f),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF4AB8E8),
-                                unfocusedBorderColor = Color(0xFF1A3050),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedLabelColor = Color(0xFF4AB8E8),
-                                unfocusedLabelColor = Color(0xFFFFFFFF),
-                                cursorColor = Color(0xFF4AB8E8)
+                                focusedBorderColor = Gt.accent,
+                                unfocusedBorderColor = Gt.line,
+                                focusedTextColor = Gt.text,
+                                unfocusedTextColor = Gt.text,
+                                focusedLabelColor = Gt.accent,
+                                unfocusedLabelColor = Gt.text,
+                                cursorColor = Gt.accent
                             )
                         )
                     }
@@ -298,30 +299,30 @@ private fun FilterBar(
     onAllRidesChange: (Boolean) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-        .background(Color(0xFF0A1628)).padding(12.dp),
+        .background(Gt.panel).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
-            Text("SEARCH AREA", color = Color(0xFF4AB8E8), fontSize = 9.sp,
+            Text("SEARCH AREA", color = Gt.accent, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
             // ALL RIDES toggle
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.clickable { onAllRidesChange(!allRides) }) {
-                Text("ALL RIDES", color = if (allRides) Color.White else Color(0xFF2A4060),
-                    fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                Text("ALL RIDES", color = if (allRides) Gt.text else Gt.text,
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace)
                 Box(modifier = Modifier.size(14.dp).clip(RoundedCornerShape(3.dp))
-                    .background(if (allRides) Color(0xFF4AB8E8) else Color.Transparent)
+                    .background(Color.Transparent)
                     .then(Modifier.clickable { onAllRidesChange(!allRides) }),
                     contentAlignment = Alignment.Center) {
                     if (!allRides) Box(modifier = Modifier.fillMaxSize()
                         .clip(RoundedCornerShape(3.dp))
                         .background(Color.Transparent)
                         .then(Modifier.padding(1.dp)
-                            .background(Color(0xFF2A4060), RoundedCornerShape(2.dp))))
-                    else Text("✓", color = Color.White, fontSize = 10.sp,
+                            .background(Gt.panel, RoundedCornerShape(2.dp))))
+                    else Text("✓", color = Gt.text, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold)
                 }
             }
@@ -330,7 +331,7 @@ private fun FilterBar(
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("RADIUS", color = Color(0xFFFFFFFF), fontSize = 9.sp,
+                Text("RADIUS", color = Gt.text, fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace)
                 Text(
                     buildString {
@@ -344,7 +345,7 @@ private fun FilterBar(
                         if (zipCode.isNotEmpty()) append("  $zipCode")
                         if (location.isEmpty() && zipCode.isEmpty()) append("  •  complete profile to set location")
                     },
-                    color = Color(0xFF4AB8E8), fontSize = 11.sp,
+                    color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace
                 )
             }
@@ -354,9 +355,9 @@ private fun FilterBar(
                 valueRange = 10f..500f,
                 modifier = Modifier.fillMaxWidth(),
                 colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFF4AB8E8),
-                    activeTrackColor = Color(0xFF4AB8E8),
-                    inactiveTrackColor = Color(0xFF1A3050)
+                    thumbColor = Gt.accent,
+                    activeTrackColor = Gt.accent,
+                    inactiveTrackColor = Gt.panel
                 )
             )
         }
@@ -366,11 +367,11 @@ private fun FilterBar(
 @Composable
 private fun SearchButton(enabled: Boolean, onSearch: () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-        .background(if (enabled) Color(0xFF1A3050) else Color(0xFF080E18))
+        .background(if (enabled) Gt.panel else Gt.panel)
         .then(if (enabled) Modifier.clickable { onSearch() } else Modifier)
         .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center) {
-        Text("SEARCH", color = if (enabled) Color(0xFF4AB8E8) else Color(0xFF1A3050),
+        Text("SEARCH", color = if (enabled) Gt.accent else Gt.text,
             fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
             fontFamily = FontFamily.Monospace)
     }
@@ -379,9 +380,9 @@ private fun SearchButton(enabled: Boolean, onSearch: () -> Unit) {
 @Composable
 private fun SearchPrompt(message: String) {
     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-        .background(Color(0xFF080E18)).padding(24.dp),
+        .background(Gt.panel).padding(24.dp),
         contentAlignment = Alignment.Center) {
-        Text(message, color = Color(0xFF2A4060), fontSize = 10.sp,
+        Text(message, color = Gt.text, fontSize = 12.sp,
             fontFamily = FontFamily.Monospace)
     }
 }
@@ -389,9 +390,9 @@ private fun SearchPrompt(message: String) {
 @Composable
 private fun EmptyState(message: String) {
     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-        .background(Color(0xFF0F2035)).padding(24.dp),
+        .background(Gt.panel).padding(24.dp),
         contentAlignment = Alignment.Center) {
-        Text(message, color = Color(0xFF2A4060), fontSize = 10.sp,
+        Text(message, color = Gt.text, fontSize = 12.sp,
             fontFamily = FontFamily.Monospace)
     }
 }
@@ -399,29 +400,29 @@ private fun EmptyState(message: String) {
 @Composable
 fun CompletedRideCard(ride: CompletedRide, onClick: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-        .background(Color(0xFF0F2035)).clickable { onClick() }.padding(14.dp),
+        .background(Gt.panel).clickable { onClick() }.padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Row(modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
-            Text(ride.name, color = Color.White, fontSize = 13.sp,
+            Text(ride.name, color = Gt.text, fontSize = 13.sp,
                 fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Box(modifier = Modifier.clip(RoundedCornerShape(3.dp))
-                .background(Color(0xFF0D2010)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                Text("COMPLETED", color = Color(0xFF22C55E), fontSize = 8.sp,
+                .background(Gt.panel).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                Text("COMPLETED", color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
         }
-        Text("${ride.city}  —  ${ride.trailhead}", color = Color(0xFFFFFFFF), fontSize = 11.sp)
+        Text("${ride.city}  —  ${ride.trailhead}", color = Gt.text, fontSize = 12.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(ride.date, color = Color(0xFF4AB8E8), fontSize = 10.sp,
+            Text(ride.date, color = Gt.accent, fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace)
-            Text(ride.organizer, color = Color(0xFFFFFFFF), fontSize = 10.sp,
+            Text(ride.organizer, color = Gt.text, fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace)
-            Text(ride.distance, color = Color(0xFFFFFFFF), fontSize = 10.sp,
+            Text(ride.distance, color = Gt.text, fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace)
         }
-        Text("→ TAP FOR DETAILS", color = Color(0xFF2A4060), fontSize = 8.sp,
+        Text("→ TAP FOR DETAILS", color = Gt.text, fontSize = 12.sp,
             fontFamily = FontFamily.Monospace)
     }
 }

@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -28,13 +29,13 @@ import androidx.compose.ui.unit.sp
 // Fully built in Phase B PB-23
 // ============================================================
 
-private val Navy     = Color(0xFF0F2035)
-private val NavyDark = Color(0xFF0A1628)
-private val SkyBlue  = Color(0xFF4AB8E8)
-private val White    = Color(0xFFFFFFFF)
-private val WhiteDim = Color(0xFFAABBCC)
-private val Grey     = Color(0xFFFFFFFF)
-private val Green    = Color(0xFF1CF0A0)
+private val Navy: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0F2035 
+private val NavyDark: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0A1628 
+private val SkyBlue: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4AB8E8 
+private val White: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFFFFFFF 
+private val WhiteDim: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFFAABBCC 
+private val Grey: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFFFFFFFF 
+private val Green: Color get() = Gt.good  // STD1-2026-10-24 was 0xFF1CF0A0 
 
 @Composable
 fun ConvoyFieldRadioScreen(
@@ -55,7 +56,7 @@ fun ConvoyFieldRadioScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF0A2010))
+                .background(Gt.panel)
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -102,7 +103,7 @@ fun ConvoyFieldRadioScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF0A1628))
+                .background(Gt.panel)
                 .padding(16.dp)
                 .clickable { onBack() },
             contentAlignment = Alignment.Center
@@ -127,9 +128,9 @@ fun FieldRadioButton(
     enabled: Boolean = true,
     lockedReason: String = ""
 ) {
-    val bgColor = if (enabled) Color(0xFF1A3050) else Color(0xFF0F1E2E)
-    val textColor = if (enabled) Color.White else Color(0xFF334455)
-    val subColor = if (enabled) Color(0xFFAABBCC) else Color(0xFF223344)
+    val bgColor = if (enabled) Gt.panel else Gt.panel
+    val textColor = if (enabled) Gt.text else Gt.text.copy(alpha = 0.4f)   // STD1I-2026-10-24: disabled was invisible
+    val subColor = if (enabled) Gt.accent else Gt.text.copy(alpha = 0.4f)
 
     Row(
         modifier = Modifier
@@ -156,7 +157,7 @@ fun FieldRadioButton(
                 Text(
                     text = if (!enabled && lockedReason.isNotEmpty()) lockedReason else subLabel,
                     color = subColor,
-                    fontSize = 11.sp
+                    fontSize = 12.sp
                 )
             }
         }

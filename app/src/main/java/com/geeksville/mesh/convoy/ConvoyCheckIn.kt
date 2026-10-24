@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.layout.heightIn   // CHECKINTIGHT-2026-09-29
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -89,15 +90,15 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
         (last.first == null && last.second == "GroupTrack default")
     var keepRadioAsIs by remember { mutableStateOf(false) }
     val noRideNeedsDefault = picked && chosen == null && radioOn && !radioOnDefault && !keepRadioAsIs
-    val dim = Color(0xFF8899AA)
+    val dim = Gt.dim
 
     AlertDialog(
         onDismissRequest = onCancel,
         // COSMETICS-2026-10-06 (Fred): narrower, and SOLID black -- the map must never show through text you have to read.
         // CHECKINWIDTH-2026-10-06 (Fred): original width -- 340 dp made the role buttons wrap (Tail gunner vertical).
-        containerColor = Color.Black,
-        titleContentColor = Color.White,
-        textContentColor = Color.White,
+        containerColor = Gt.panel,   // STD1I-2026-10-24: was solid black (10-06); panels are solid now
+        titleContentColor = Gt.text,
+        textContentColor = Gt.text,
         tonalElevation = 0.dp,
         title = {   // CHKINSTD-2026-10-22 (Fred 12:19): the standard top bar -- HELP ✕ top right
             androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -142,7 +143,7 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
                     Text("A normal recording: no survey and no sharing \u2014 you name the track at the end.", color = dim, fontSize = 12.sp)
                 if (picked && chosen == null && radioOn && !radioOnDefault) {   // NORIDEDEFAULT-2026-10-10
                     if (!keepRadioAsIs) Text("\u26A0 Your radio is set up for " + (last?.second ?: "another network") +
-                        " \u2014 it will be set back to the GroupTrack default when you check in.", color = Color(0xFFE8A33D), fontSize = 13.sp)
+                        " \u2014 it will be set back to the GroupTrack default when you check in.", color = Gt.warn, fontSize = 13.sp)
                     Row {
                         androidx.compose.material3.Checkbox(checked = keepRadioAsIs, onCheckedChange = { keepRadioAsIs = it })
                         Text("Keep my radio as it is", modifier = Modifier.padding(top = 12.dp), fontSize = 13.sp)
@@ -171,14 +172,14 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
                     val label = roles.firstOrNull { it.first == w }?.second ?: w
                     androidx.compose.material3.AlertDialog(
                         onDismissRequest = { heldWarn = null },
-                        containerColor = Color(0xFFB3261E),
-                        titleContentColor = Color.White,
-                        textContentColor = Color.White,
+                        containerColor = Gt.bad.copy(alpha = 0.22f),
+                        titleContentColor = Gt.text,
+                        textContentColor = Gt.text,
                         title = { Text("\u26D4 " + label + " is taken", fontWeight = FontWeight.Black, fontSize = 22.sp) },
                         text = { Text(label + " is already held by " + (heldBy[w] ?: "another cart") + ".\n\n" +
                             "A Leader, Middle or Tail gunner can reassign it.\n\nChoose another role to check in.", fontSize = 17.sp) },
                         confirmButton = { TextButton(onClick = { heldWarn = null }) {
-                            Text("CHOOSE ANOTHER ROLE", color = Color.White, fontWeight = FontWeight.Black) } }
+                            Text("CHOOSE ANOTHER ROLE", color = Gt.text, fontWeight = FontWeight.Black) } }
                     )
                 }
                 if (chosen != null) Row {   // CHECKINMAP-2026-09-28
@@ -187,18 +188,18 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
                 }
                 // CHECKINRADIO-2026-09-28 (Fred): NO RADIO, NO CHECK-IN -- every check-in, No scheduled ride included.
                 if (!radioOn) {
-                    Text("\u26D4 You can't check in without a radio. Connect it in GRP Awareness.", color = Color(0xFFF08C84), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("\u26D4 You can't check in without a radio. Connect it in GRP Awareness.", color = Gt.bad, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     TextButton(onClick = { onCancel(); GrpAwarenessLauncher.open() }) { Text("OPEN GRP AWARENESS") }
                 }
                 // CHECKINAPPLY-2026-09-28 (Fred): the radio against this ride -- CHECK IN sets it up when needed.
                 if (radioOn) chosen?.let { c ->
                     when {
-                        needsSetup && last == null -> Text("\u26A0 Your radio has no GroupTrack configuration \u2014 it will be set up for " + c.name + " when you check in.", color = Color(0xFFE8A33D), fontSize = 13.sp)
-                        needsSetup -> Text("\u26A0 Your radio is set up for " + last!!.second + " \u2014 it will be set up for " + c.name + " when you check in.", color = Color(0xFFE8A33D), fontSize = 13.sp)
-                        else -> Text("\u2713 Radio ready for this ride", color = Color(0xFF35C46A), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        needsSetup && last == null -> Text("\u26A0 Your radio has no GroupTrack configuration \u2014 it will be set up for " + c.name + " when you check in.", color = Gt.warn, fontSize = 13.sp)
+                        needsSetup -> Text("\u26A0 Your radio is set up for " + last!!.second + " \u2014 it will be set up for " + c.name + " when you check in.", color = Gt.warn, fontSize = 13.sp)
+                        else -> Text("\u2713 Radio ready for this ride", color = Gt.good, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-                kept?.error?.takeIf { it.isNotBlank() }?.let { Text(it, color = Color(0xFFF08C84), fontSize = 13.sp) }
+                kept?.error?.takeIf { it.isNotBlank() }?.let { Text(it, color = Gt.bad, fontSize = 13.sp) }
             }
         },
         confirmButton = {

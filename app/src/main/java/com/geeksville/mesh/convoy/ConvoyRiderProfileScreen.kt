@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -46,12 +47,12 @@ import androidx.compose.ui.unit.sp
  *
  * Required: callsign and email. Everything else seeds each ride's enrollment.
  */
-private val BG = Color(0xFF101510)
+private val BG: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF101510 
 // DEADCODE2-2026-10-23: CARD (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyRiderProfileScreen.pieces.txt
-private val LINE = Color(0xFF2E3A45)
-private val GREEN = Color(0xFF97D5A5)
-private val MUTED = Color(0xFF8B938A)
-private val AMBER = Color(0xFFFFB74D)
+private val LINE: Color get() = Gt.line  // STD1-2026-10-24 was 0xFF2E3A45 
+private val GREEN: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF97D5A5 
+private val MUTED: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF8B938A 
+private val AMBER: Color get() = Gt.warn  // STD1-2026-10-24 was 0xFFFFB74D 
 
 private val ROLES = listOf("leader" to "Leader", "rider" to "Rider", "middle" to "Middle", "tail_gunner" to "Tail gunner")
 private val TEAMS = listOf(
@@ -132,11 +133,11 @@ fun ConvoyRiderProfileScreen(
                     Surface(
                         modifier = Modifier.weight(1f).height(46.dp).clickable { role = key },
                         shape = RoundedCornerShape(8.dp),
-                        color = if (on) Color(0xFF1C2A22) else Color(0xFF0E1317),
+                        color = if (on) Gt.text.copy(alpha = 0.18f) else Gt.text.copy(alpha = 0.18f),
                         border = androidx.compose.foundation.BorderStroke(if (on) 2.dp else 1.dp, if (on) GREEN else LINE)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text(label, color = if (on) Color.White else MUTED, fontSize = 14.sp)
+                            Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else MUTED, fontSize = 14.sp)
                         }
                     }
                 }
@@ -166,13 +167,13 @@ fun ConvoyRiderProfileScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
-                color = Color(0xFF0E1317),
+                color = Gt.panel,
                 border = androidx.compose.foundation.BorderStroke(1.dp, LINE)
             ) {
                 Text(
                     "This stays on your tablet. GroupTrack uses it only to identify you to your " +
                         "group and to share rides you send.",
-                    color = Color(0xFFC9D4DD), fontSize = 13.sp, modifier = Modifier.padding(14.dp)
+                    color = Gt.text, fontSize = 13.sp, modifier = Modifier.padding(14.dp)
                 )
             }
 
@@ -183,7 +184,7 @@ fun ConvoyRiderProfileScreen(
                     Surface(
                         modifier = Modifier.weight(1f).height(52.dp).clickable { onCancel?.invoke() },
                         shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF0E1317),
+                        color = Gt.panel,
                         border = androidx.compose.foundation.BorderStroke(1.dp, LINE)
                     ) {
                         Box(contentAlignment = Alignment.Center) { Text("Cancel", color = MUTED, fontSize = 16.sp) }
@@ -201,12 +202,12 @@ fun ConvoyRiderProfileScreen(
                         if (id != null) onSaved() else status = "Could not save -- check the callsign and email."
                     },
                     shape = RoundedCornerShape(10.dp),
-                    color = if (canSave) GREEN else Color(0xFF2B3A31)
+                    color = if (canSave) GREEN.copy(alpha = 0.18f) else Gt.text.copy(alpha = 0.18f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             if (editMode) "Save" else "Save & open the map",
-                            color = if (canSave) Color(0xFF0E1317) else MUTED,
+                            color = if (canSave) Gt.text else MUTED,
                             fontSize = 16.sp, fontWeight = FontWeight.Bold
                         )
                     }
@@ -234,12 +235,12 @@ private fun Field(
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             textStyle = androidx.compose.ui.text.TextStyle(
-                color = Color.White, fontSize = 16.sp,
+                color = Gt.text, fontSize = 16.sp,
                 fontFamily = if (mono) FontFamily.Monospace else FontFamily.Default
             ),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0xFF0E1317),
-                unfocusedContainerColor = Color(0xFF0E1317),
+                focusedContainerColor = Gt.panel,
+                unfocusedContainerColor = Gt.panel,
                 focusedIndicatorColor = GREEN,
                 unfocusedIndicatorColor = LINE,
                 cursorColor = GREEN

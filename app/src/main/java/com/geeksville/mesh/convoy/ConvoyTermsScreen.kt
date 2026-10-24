@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -21,7 +22,7 @@ fun ConvoyTermsScreen(onAccept: () -> Unit, onDecline: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
         GroupTrackHeader(subtitle = "Rider Terms of Service")
         Column(modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(scrollState).padding(horizontal = 24.dp, vertical = 16.dp)) {
-            Text(text = "RIDER TERMS V$TERMS_VERSION", color = GroupTrackColors.SkyBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 16.dp))
+            Text(text = "RIDER TERMS V$TERMS_VERSION", color = GroupTrackColors.SkyBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 16.dp))
             TermsSection("1. Beta Program", "GroupTrack is currently in beta. Features may change, be added, or removed. You agree to provide feedback and report issues to help improve the product.")
             TermsSection("2. Acceptable Use", "GroupTrack is designed for legitimate group coordination activities including motorcycle riding, hiking, overlanding, and similar outdoor pursuits. You agree not to use the platform for any unlawful purpose.")
             TermsSection("3. Subscription", "Access to GroupTrack platform features requires an active subscription at $3.00/month. The convoy map, radio configuration, and offline features are free and always available.")
@@ -30,16 +31,16 @@ fun ConvoyTermsScreen(onAccept: () -> Unit, onDecline: () -> Unit) {
             TermsSection("6. Changes", "These terms may be updated. You will be notified and asked to re-accept if material changes are made.")
             Spacer(Modifier.height(24.dp))
         }
-        Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().background(Gt.panel).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             GroupTrackButton(text = "I ACCEPT THE RIDER TERMS", onClick = { ConvoySessionManager.acceptTerms(context); onAccept() })
-            GroupTrackButton(text = "DECLINE", onClick = onDecline, color = Color(0xFF2A3545))
-            Text(text = "You must accept the Rider Terms to use GroupTrack platform features.", color = Color(0xFFFFFFFF), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            GroupTrackButton(text = "DECLINE", onClick = onDecline, color = Gt.text)
+            Text(text = "You must accept the Rider Terms to use GroupTrack platform features.", color = Gt.text, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
     }
 }
 
 @Composable
 private fun TermsSection(title: String, body: String) {
-    Text(text = title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
-    Text(text = body, color = Color(0xFFAABBCC), fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 20.dp))
+    Text(text = title, color = Gt.text, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
+    Text(text = body, color = Gt.accent, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 20.dp))
 }

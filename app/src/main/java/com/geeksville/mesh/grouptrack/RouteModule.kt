@@ -1043,7 +1043,7 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(value = nm.value, onValueChange = { nm.value = it; err.value = "" }, singleLine = true,
                         isError = err.value.isNotEmpty(), label = { Text("Route name") })
-                    if (err.value.isNotEmpty()) Text(err.value, color = Color(0xFFE86B6B))
+                    if (err.value.isNotEmpty()) Text(err.value, color = Gt.bad)
                 }
             },
             confirmButton = {
@@ -1075,18 +1075,18 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                 "route.inprogress", { R.showPicker.value = false }) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    if (R.recoveryDetected.value) Text("A route was left open from your last session.", fontSize = 13.sp, color = Color(0xFFE3B341))
+                    if (R.recoveryDetected.value) Text("A route was left open from your last session.", fontSize = 13.sp, color = Gt.warn)
                     if (drafts.isEmpty()) Text("No routes in progress.")
                     drafts.forEach { di ->
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             TextButton(modifier = Modifier.weight(1f), onClick = {
                                 R.showPicker.value = false; R.resumeReq.value = di.name   // GTROUTE1F-2026-10-23: the one resume path
-                            }) { Column { Text(di.name); Text("${di.pointCount} points", fontSize = 11.sp, color = Color(0xFF8B949E)) } }
+                            }) { Column { Text(di.name); Text("${di.pointCount} points", fontSize = 12.sp, color = Gt.dim) } }
                             TextButton(onClick = {
                                 if (RouteDraftStore.isInOpenBatch(di.name)) {
                                     android.widget.Toast.makeText(ctx, "This route is part of an open compare set -- keep or discard it from the compare table.", android.widget.Toast.LENGTH_LONG).show()
                                 } else { RouteDraftStore.deleteDraft(di.name); R.draftTick.intValue++ }
-                            }) { Text("Delete", color = Color(0xFFE86B6B)) }
+                            }) { Text("Delete", color = Gt.bad) }
                         }
                     }
                 }
@@ -1224,7 +1224,7 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                     OutlinedTextField(value = R.batchAreaName.value, onValueChange = { R.batchAreaName.value = it },
                         singleLine = true, label = { Text("Area") })
                     Text("Saved as \"" + R.batchAreaName.value.trim().ifBlank { "Area" } + " 1\", \"… 2\" for each route kept",
-                        fontSize = 11.sp, color = Color(0xFF9AA4B2), modifier = Modifier.padding(top = 8.dp))
+                        fontSize = 12.sp, color = Gt.dim, modifier = Modifier.padding(top = 8.dp))
                 }
             },
             confirmButton = {
@@ -1241,7 +1241,7 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
             onDismissRequest = { R.batchDeleteConfirm.value = false },
             title = { GtDialogTitle("Delete all routes?", "route.compare", { R.batchDeleteConfirm.value = false }) },
             text = { Text("No routes selected. All " + R.batchRows.value.size + " will be deleted. If you proceed you must start over.") },
-            confirmButton = { TextButton(onClick = { R.batchDeleteConfirm.value = false; runBatchSave("") }) { Text("Delete", color = Color(0xFFE86B6B)) } },
+            confirmButton = { TextButton(onClick = { R.batchDeleteConfirm.value = false; runBatchSave("") }) { Text("Delete", color = Gt.bad) } },
             dismissButton = { TextButton(onClick = { R.batchDeleteConfirm.value = false }) { Text("Cancel") } }
         )
     }

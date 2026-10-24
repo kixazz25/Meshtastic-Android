@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -35,49 +36,49 @@ fun ConvoyBroadcastScreen(
         Column(modifier = Modifier.fillMaxWidth().weight(1f).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
-            Text(text = "SUNDAY DESERT RUN", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text(text = "April 13, 2026  ·  9:00 AM", color = Color(0xFFFFFFFF), fontSize = 12.sp)
+            Text(text = "SUNDAY DESERT RUN", color = Gt.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(text = "April 13, 2026  ·  9:00 AM", color = Gt.text, fontSize = 12.sp)
 
             // Audience stats
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035)).padding(14.dp),
+                .background(Gt.panel).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = "BROADCAST AUDIENCE", color = Color(0xFFFFFFFF), fontSize = 9.sp, letterSpacing = 2.sp)
+                Text(text = "BROADCAST AUDIENCE", color = Gt.text, fontSize = 12.sp, letterSpacing = 2.sp)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(text = "Followers", color = Color(0xFFAABBCC), fontSize = 12.sp)
-                    Text(text = "12", color = Color(0xFF4AB8E8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Followers", color = Gt.accent, fontSize = 12.sp)
+                    Text(text = "12", color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(text = "Email opt-ins", color = Color(0xFFAABBCC), fontSize = 12.sp)
-                    Text(text = "9", color = Color(0xFF4AB8E8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Email opt-ins", color = Gt.accent, fontSize = 12.sp)
+                    Text(text = "9", color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
             if (broadcastSent) {
                 Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF22C55E).copy(alpha = 0.15f))
+                    .background(Gt.accent.copy(alpha = 0.15f))
                     .padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text(text = "✅ BROADCAST SENT", color = Color(0xFF22C55E),
+                    Text(text = "✅ BROADCAST SENT", color = Gt.accent,
                         fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(text = "This ride has already been broadcast. One-time only.",
-                    color = Color(0xFFFFFFFF), fontSize = 11.sp)
+                    color = Gt.text, fontSize = 12.sp)
             } else {
                 Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFF59E0B).copy(alpha = 0.15f))
+                    .background(Gt.warn.copy(alpha = 0.15f))
                     .clickable {
                         broadcastSent = true
                         android.widget.Toast.makeText(context, "Broadcast queued — Phase C", android.widget.Toast.LENGTH_SHORT).show()
                     }.padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text(text = "SEND BROADCAST", color = Color(0xFFF59E0B),
+                    Text(text = "SEND BROADCAST", color = Gt.warn,
                         fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(text = "Sends email to all followers who have opted in. One-time only per ride.",
-                    color = Color(0xFFFFFFFF), fontSize = 11.sp)
+                    color = Gt.text, fontSize = 12.sp)
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628)).padding(vertical = 8.dp),
+        Row(modifier = Modifier.fillMaxWidth().background(Gt.panel).padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly) {
             BcastNavBtn("🗺", "MAP") { onBack() }
             BcastNavBtn("＋", "+RIDE") { onNavigateToCreateRide() }
@@ -91,7 +92,7 @@ private fun BcastNavBtn(icon: String, label: String, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable { onClick() }.padding(horizontal = 16.dp, vertical = 4.dp)) {
         Text(text = icon, fontSize = 18.sp)
-        Text(text = label, color = Color(0xFF4AB8E8), fontSize = 8.sp,
+        Text(text = label, color = Gt.accent, fontSize = 12.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }

@@ -66,7 +66,7 @@ fun GtFilterBody(f: GtFilterBridge, onSelect: (String) -> Unit) {
     val help = remember { CATEGORY_HELP.toMap() }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         GtButton(if (f.hidden) "SHOW AGAIN — restore what was on" else "HIDE EVERYTHING", f.toggleHide,
-            modifier = Modifier.fillMaxWidth(), emphasis = if (f.hidden) GtColors.Bad else Color.Unspecified)
+            modifier = Modifier.fillMaxWidth(), emphasis = if (f.hidden) Gt.bad else Color.Unspecified)
 
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("ON THE MAP", color = s.panelDim, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -146,11 +146,11 @@ private fun TrailGroup(title: String, rows: List<MapKeyRow>, help: Map<String, S
 @Composable
 private fun Seg(label: String, on: Boolean, onClick: () -> Unit) {
     val s = GtScheme.current.value
-    Box(Modifier.background(if (on) Color(0xFF1565C0) else Color.Transparent).clickable(onClick = onClick)
+    Box(Modifier.background(Color.Transparent).clickable(onClick = onClick)
         .padding(horizontal = 10.dp, vertical = 12.dp)) {
-        Text(label, color = if (on) Color.White else s.panelText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
-private fun boxColors() = CheckboxDefaults.colors(checkedColor = Color(0xFF35C46A), uncheckedColor = GtColors.Dim)
+private fun boxColors() = CheckboxDefaults.colors(checkedColor = Gt.accent, uncheckedColor = Gt.dim)

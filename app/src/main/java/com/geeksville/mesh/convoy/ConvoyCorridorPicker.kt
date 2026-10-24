@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,11 +23,11 @@ import androidx.compose.ui.unit.sp
 // there. Seven lines against a cross-file coupling that would surprise someone
 // later; ConvoyDownloadConfirm is the MODEL for this file and stays untouched.
 private val mono = FontFamily.Monospace
-private val bg = Color(0xFF0D1117)
-private val cardBg = Color(0xFF161B22)
-private val green = Color(0xFF1CF0A0)
-private val txtB = Color(0xFFE8EEF5)
-private val txtD = Color(0xFF7A8DA0)
+private val bg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0D1117 
+private val cardBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF161B22 
+private val green: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF1CF0A0 
+private val txtB: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFE8EEF5 
+private val txtD: Color get() = Gt.text  // STD1-2026-10-24 was 0xFF7A8DA0 
 
 /**
  * One selectable track. geomHash is the key enqueueCorridor works from -- the id is
@@ -147,16 +148,16 @@ fun ConvoyCorridorPicker(
                 fontFamily = mono, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
             Text("corridor download \u00b7 ${tracks.size} available", color = txtD,
-                fontSize = 9.sp, fontFamily = mono)
+                fontSize = 12.sp, fontFamily = mono)
             Spacer(Modifier.height(10.dp))
 
             if (tracks.isEmpty()) {
                 // An empty list is a real state, not an error: a rider with no
                 // recorded or imported tracks has nothing to build a corridor from.
-                Text("No tracks available.", color = txtD, fontSize = 10.sp, fontFamily = mono)
+                Text("No tracks available.", color = txtD, fontSize = 12.sp, fontFamily = mono)
                 Spacer(Modifier.height(4.dp))
                 Text("Record or import a track first \u2014 a corridor is derived from track geometry.",
-                    color = txtD, fontSize = 8.sp, fontFamily = mono)
+                    color = txtD, fontSize = 12.sp, fontFamily = mono)
                 Spacer(Modifier.height(12.dp))
             } else {
                 // ALL -- an ordinary checkbox that ticks every box.
@@ -170,7 +171,7 @@ fun ConvoyCorridorPicker(
                             }
                         },
                     shape = RoundedCornerShape(6.dp),
-                    color = if (allChecked) Color(0xFF1A3050) else cardBg
+                    color = cardBg
                 ) {
                     Row(modifier = Modifier.padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
@@ -185,7 +186,7 @@ fun ConvoyCorridorPicker(
                                 checkedColor = green, checkmarkColor = Color.Black)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("ALL", color = txtB, fontSize = 11.sp,
+                        Text("ALL", color = txtB, fontSize = 12.sp,
                             fontFamily = mono, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -204,7 +205,7 @@ fun ConvoyCorridorPicker(
                                     else selected.add(t.geomHash)
                                 },
                             shape = RoundedCornerShape(6.dp),
-                            color = if (checked) Color(0xFF1A3050) else cardBg
+                            color = cardBg
                         ) {
                             Row(modifier = Modifier.padding(8.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
@@ -220,7 +221,7 @@ fun ConvoyCorridorPicker(
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text(labels[t.geomHash] ?: "(unnamed)", color = txtB,
-                                    fontSize = 11.sp, fontFamily = mono)
+                                    fontSize = 12.sp, fontFamily = mono)
                             }
                         }
                     }
@@ -230,7 +231,7 @@ fun ConvoyCorridorPicker(
 
                 // PICKERSOURCES-2026-08-05: MAP SOURCES, same idiom as the track rows
                 // above and as ConvoyDownloadConfirm's slot list.
-                Text("MAP SOURCES", color = txtD, fontSize = 9.sp,
+                Text("MAP SOURCES", color = txtD, fontSize = 12.sp,
                     fontFamily = mono, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 slots.forEach { slot ->
@@ -242,7 +243,7 @@ fun ConvoyCorridorPicker(
                                 else selectedSlots.add(slot.slotName)
                             },
                         shape = RoundedCornerShape(6.dp),
-                        color = if (on) Color(0xFF1A3050) else cardBg
+                        color = cardBg
                     ) {
                         Row(modifier = Modifier.padding(8.dp),
                             verticalAlignment = Alignment.CenterVertically) {
@@ -258,9 +259,9 @@ fun ConvoyCorridorPicker(
                             )
                             Spacer(Modifier.width(8.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(slot.slotName, color = txtB, fontSize = 11.sp,
+                                Text(slot.slotName, color = txtB, fontSize = 12.sp,
                                     fontFamily = mono, fontWeight = FontWeight.Bold)
-                                Text(slot.sourceName, color = txtD, fontSize = 9.sp,
+                                Text(slot.sourceName, color = txtD, fontSize = 12.sp,
                                     fontFamily = mono)
                             }
                         }
@@ -283,7 +284,7 @@ fun ConvoyCorridorPicker(
                             checkedColor = green, checkmarkColor = Color.Black)
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text("Replace existing tiles", color = txtD, fontSize = 10.sp,
+                    Text("Replace existing tiles", color = txtD, fontSize = 12.sp,
                         fontFamily = mono)
                 }
 
@@ -295,7 +296,7 @@ fun ConvoyCorridorPicker(
                     if (!canProceed) "select at least one track and one source"
                     else "${selected.size} track(s) \u00d7 ${selectedSlots.size} source(s) = $jobs job(s)",
                     color = if (!canProceed) txtD else green,
-                    fontSize = 10.sp, fontFamily = mono, fontWeight = FontWeight.Bold
+                    fontSize = 12.sp, fontFamily = mono, fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.height(10.dp))
             }
@@ -306,7 +307,7 @@ fun ConvoyCorridorPicker(
                     modifier = Modifier.weight(1f).padding(end = 4.dp).clickable { onCancel() },
                     shape = RoundedCornerShape(6.dp), color = cardBg
                 ) {
-                    Text("CANCEL", color = txtD, fontSize = 11.sp, fontFamily = mono,
+                    Text("CANCEL", color = txtD, fontSize = 12.sp, fontFamily = mono,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 10.dp),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -319,10 +320,10 @@ fun ConvoyCorridorPicker(
                             onProceed(selected.toList(), selectedSlots.toList(), replaceExisting)
                         },
                     shape = RoundedCornerShape(6.dp),
-                    color = if (!canProceed) cardBg else Color(0xFF1A3050)
+                    color = if (!canProceed) cardBg else Gt.text.copy(alpha = 0.18f)
                 ) {
                     Text("CONTINUE", color = if (!canProceed) txtD else green,
-                        fontSize = 11.sp, fontFamily = mono, fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp, fontFamily = mono, fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 10.dp),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }

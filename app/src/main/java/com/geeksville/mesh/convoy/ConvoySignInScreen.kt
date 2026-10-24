@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.app.Activity
 import android.content.Context
 import android.util.Log
@@ -198,7 +199,7 @@ fun ConvoySignInScreen(
         ) {
             Text(
                 text = "Welcome to GroupTrack",
-                color = Color.White,
+                color = Gt.text,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -206,7 +207,7 @@ fun ConvoySignInScreen(
             Spacer(Modifier.height(12.dp))
             Text(
                 text = "Sign in with Google to create your account and start organizing rides.",
-                color = Color(0xFFAACCDD),
+                color = Gt.accent,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
                 lineHeight = 20.sp
@@ -234,17 +235,17 @@ fun ConvoySignInScreen(
                     androidx.compose.material3.OutlinedTextField(
                         value = devEmail,
                         onValueChange = { devEmail = it },
-                        label = { androidx.compose.material3.Text("DEV: Email", fontSize = 11.sp) },
+                        label = { androidx.compose.material3.Text("DEV: Email", fontSize = 12.sp) },
                         modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
                         singleLine = true,
                         colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFFFF8C00),
-                            unfocusedBorderColor = Color(0xFF443322),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedLabelColor = Color(0xFFFF8C00),
-                            unfocusedLabelColor = Color(0xFF443322),
-                            cursorColor = Color(0xFFFF8C00)
+                            focusedBorderColor = Gt.line,
+                            unfocusedBorderColor = Gt.line,
+                            focusedTextColor = Gt.text,
+                            unfocusedTextColor = Gt.text,
+                            focusedLabelColor = Gt.warn,
+                            unfocusedLabelColor = Gt.panel,
+                            cursorColor = Gt.warn
                         )
                     )
                     androidx.compose.foundation.layout.Spacer(
@@ -254,7 +255,7 @@ fun ConvoySignInScreen(
                         modifier = androidx.compose.ui.Modifier
                             .fillMaxWidth()
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                            .background(Color(0xFF331A00))
+                            .background(Gt.panel)
                             .clickable {
                                 val uid = "dev-user-" + devEmail.hashCode().toString().takeLast(6)
                                 saveUserToPrefs(context, uid, "google-dev-$uid",
@@ -267,7 +268,7 @@ fun ConvoySignInScreen(
                     ) {
                         androidx.compose.material3.Text(
                             text = "DEV SIGN IN (BYPASS GOOGLE)",
-                            color = Color(0xFFFF8C00),
+                            color = Gt.warn,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
@@ -290,12 +291,12 @@ fun ConvoySignInScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF2A1A1A))
+                            .background(Gt.panel)
                             .padding(12.dp)
                     ) {
                         Text(
                             text = errorMessage,
-                            color = Color(0xFFFF6B6B),
+                            color = Gt.bad,
                             fontSize = 12.sp,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth()
@@ -308,8 +309,8 @@ fun ConvoySignInScreen(
                     Spacer(Modifier.height(24.dp))
                     Text(
                         text = "Skip for now — ride tracking works without an account",
-                        color = Color(0xFF557799),
-                        fontSize = 11.sp,
+                        color = Gt.accent,
+                        fontSize = 12.sp,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -321,7 +322,7 @@ fun ConvoySignInScreen(
                     GroupTrackButton(
                         text = "CONTINUE WITHOUT ACCOUNT",
                         onClick = it,
-                        color = Color(0xFF2A3545)
+                        color = Gt.text
                     )
                 }
             }
@@ -334,15 +335,15 @@ fun ConvoySignInScreen(
         androidx.compose.foundation.layout.Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF1A0A00))
+                .background(Gt.panel)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             androidx.compose.material3.Text(
                 text = "DEV: Simulate subscription",
-                color = Color(0xFF886633),
-                fontSize = 10.sp,
+                color = Gt.warn,
+                fontSize = 12.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
             )
             androidx.compose.foundation.layout.Row(
@@ -356,8 +357,8 @@ fun ConvoySignInScreen(
             ) {
                 androidx.compose.material3.Text(
                     text = if (seeded) "🌱 SEEDED" else "SEED DATA",
-                    color = if (seeded) Color(0xFF22C55E) else Color(0xFF886633),
-                    fontSize = 10.sp,
+                    color = if (seeded) Gt.good else Gt.warn,
+                    fontSize = 12.sp,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 )
             }
@@ -368,10 +369,10 @@ fun ConvoySignInScreen(
                     setDevSubscribed(context, checked)
                 },
                 colors = androidx.compose.material3.SwitchDefaults.colors(
-                    checkedThumbColor = Color(0xFFFFCC44),
-                    checkedTrackColor = Color(0xFF886633),
-                    uncheckedThumbColor = Color(0xFFFFFFFF),
-                    uncheckedTrackColor = Color(0xFF223344)
+                    checkedThumbColor = Gt.warn,
+                    checkedTrackColor = Gt.warn,
+                    uncheckedThumbColor = Gt.text,
+                    uncheckedTrackColor = Gt.panel
                 )
             )
         }
@@ -380,14 +381,14 @@ fun ConvoySignInScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF0F1E2E))
+                .background(Gt.panel)
                 .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "By signing in you agree to the GroupTrack\nRider Terms and Privacy Policy",
-                color = Color(0xFFFFFFFF),
-                fontSize = 10.sp,
+                color = Gt.text,
+                fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 lineHeight = 15.sp
             )

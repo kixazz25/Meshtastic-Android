@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,15 +47,15 @@ import androidx.compose.ui.unit.sp
 
 // ── GroupTrack Brand Colors ────────────────────────────────────────────────────
 object GroupTrackColors {
-    val Navy      = Color(0xFF1A2E4A)   // dark background, headers
-    val SkyBlue   = Color(0xFF4AB8E8)   // primary brand, buttons
-    val Orange    = Color(0xFFF5A623)   // "Group" in logo
-    val White     = Color(0xFFFFFFFF)
-    val LightGrey = Color(0xFFEEF4FB)   // alternating row background
-    val DarkGrey  = Color(0xFF555555)   // secondary text
-    val Green     = Color(0xFF00AA44)   // success / locked status
-    val Amber     = Color(0xFFF0A500)   // warning
-    val Red       = Color(0xFF8B0000)   // danger / remove actions
+    val Navy: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF1A2E4A dark background, headers
+    val SkyBlue: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4AB8E8 primary brand, buttons
+    val Orange: Color get() = Gt.warn  // STD1-2026-10-24 was 0xFFF5A623 "Group" in logo
+    val White: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFFFFFFF 
+    val LightGrey: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFFEEF4FB alternating row background
+    val DarkGrey: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF555555 secondary text
+    val Green: Color get() = Gt.good  // STD1-2026-10-24 was 0xFF00AA44 success / locked status
+    val Amber: Color get() = Gt.warn  // STD1-2026-10-24 was 0xFFF0A500 warning
+    val Red: Color get() = Gt.bad  // STD1-2026-10-24 was 0xFF8B0000 danger / remove actions
 }
 
 // DEADCODE2-2026-10-23: GroupTrackLogoText (unused) moved to retired/2.7c_dead/pieces/convoy/GroupTrackTheme.pieces.txt
@@ -98,7 +99,7 @@ fun GroupTrackHeader(
                     Text(
                         text = subtitle.uppercase(),
                         color = GroupTrackColors.SkyBlue,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 3.sp
@@ -114,11 +115,11 @@ fun GroupTrackHeader(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(androidx.compose.ui.graphics.Color(0xFF0A1628))
+                    .background(Gt.panel)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(text = "DEV MENU", color = GroupTrackColors.SkyBlue, fontSize = 11.sp,
+                Text(text = "DEV MENU", color = GroupTrackColors.SkyBlue, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
                     modifier = Modifier.padding(bottom = 4.dp))
                 DevMenuButton("SEED DATA") {
@@ -149,7 +150,7 @@ fun GroupTrackHeader(
                         android.widget.Toast.LENGTH_LONG).show()
                     showDevMenu = false
                 }
-                DevMenuButton("CANCEL", color = androidx.compose.ui.graphics.Color(0xFF2A3545)) {
+                DevMenuButton("CANCEL", color = Gt.text) {
                     showDevMenu = false
                 }
             }
@@ -190,7 +191,7 @@ fun GroupTrackButton(
     ) {
         Text(
             text = text,
-            color = GroupTrackColors.White,
+            color = Gt.panel,   // STD1I-2026-10-24: the box is the text colour -- its letters are the panel colour
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
             fontSize = 13.sp,
@@ -205,7 +206,7 @@ fun GroupTrackTagline(modifier: Modifier = Modifier) {
     Text(
         text = "OFF-GRID  |  MESH RADIO  |  NO CELL REQUIRED",
         color = GroupTrackColors.DarkGrey,
-        fontSize = 9.sp,
+        fontSize = 12.sp,
         fontFamily = FontFamily.Monospace,
         letterSpacing = 1.sp,
         modifier = modifier
@@ -245,7 +246,7 @@ fun GroupTrackBottomNav(
         androidx.compose.foundation.layout.Row(
             modifier = androidx.compose.ui.Modifier
                 .fillMaxWidth()
-                .background(androidx.compose.ui.graphics.Color(0xFF0A1628))
+                .background(Gt.panel)
                 .navigationBarsPadding()
                 .padding(vertical = 8.dp),
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly
@@ -263,7 +264,7 @@ fun GroupTrackBottomNav(
                     expanded = showRidesMenu,
                     onDismissRequest = { showRidesMenu = false },
                     modifier = androidx.compose.ui.Modifier
-                        .background(androidx.compose.ui.graphics.Color(0xFF1E2A3A))
+                        .background(Gt.panel)
                 ) {
                     GtMenuLabel("RIDES")
                     GtMenuItem("Create / Open a Ride",  true)  { closeAll(); onCreateRide() }
@@ -285,7 +286,7 @@ fun GroupTrackBottomNav(
                     expanded = showMapMenu,
                     onDismissRequest = { showMapMenu = false },
                     modifier = androidx.compose.ui.Modifier
-                        .background(androidx.compose.ui.graphics.Color(0xFF1E2A3A))
+                        .background(Gt.panel)
                 ) {
                     GtMenuLabel("NEW MAP — COMING SOON")
                     GtMenuItem("Convoy Map (current)",     true)  { showMapMenu = false; onMap() }
@@ -310,7 +311,7 @@ fun GroupTrackBottomNav(
                     expanded = showProfileMenu,
                     onDismissRequest = { showProfileMenu = false },
                     modifier = androidx.compose.ui.Modifier
-                        .background(androidx.compose.ui.graphics.Color(0xFF1E2A3A))
+                        .background(Gt.panel)
                 ) {
                     GtMenuLabel("PROFILE")
                     GtMenuItem("My Profile",    true) { closeAll(); onMyProfile() }
@@ -328,7 +329,7 @@ fun GroupTrackBottomNav(
                     expanded = showRadioMenu,
                     onDismissRequest = { showRadioMenu = false },
                     modifier = androidx.compose.ui.Modifier
-                        .background(androidx.compose.ui.graphics.Color(0xFF1E2A3A))
+                        .background(Gt.panel)
                 ) {
                     GtMenuLabel("RADIO")
                     GtMenuItem("Download Ride Details to Device",     true) { closeAll(); onDownloadRideConfig() }
@@ -351,8 +352,8 @@ private fun GtNavBtn(icon: String, label: String, isActive: Boolean, onClick: ()
         androidx.compose.material3.Text(
             text = label,
             color = if (isActive) GroupTrackColors.SkyBlue
-                    else androidx.compose.ui.graphics.Color(0xFFFFFFFF),
-            fontSize = 9.sp,
+                    else Gt.text,
+            fontSize = 12.sp,
             fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
             letterSpacing = 1.sp
         )
@@ -365,8 +366,8 @@ private fun GtMenuLabel(title: String) {
         text = {
             androidx.compose.material3.Text(
                 text = title,
-                color = androidx.compose.ui.graphics.Color(0xFF4AB8E8),
-                fontSize = 9.sp,
+                color = Gt.accent,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
@@ -375,14 +376,14 @@ private fun GtMenuLabel(title: String) {
         onClick = {},
         enabled = false,
         colors = androidx.compose.material3.MenuDefaults.itemColors(
-            disabledTextColor = androidx.compose.ui.graphics.Color(0xFF4AB8E8)
+            disabledTextColor = Gt.accent
         ),
         modifier = androidx.compose.ui.Modifier
-            .background(androidx.compose.ui.graphics.Color(0xFF2C3E50))
+            .background(Gt.panel)
     )
     androidx.compose.material3.HorizontalDivider(
         thickness = 0.5.dp,
-        color = androidx.compose.ui.graphics.Color(0xFFFFFFFF)
+        color = Gt.text
     )
 }
 
@@ -390,10 +391,10 @@ private fun GtMenuLabel(title: String) {
 private fun GtMenuItem(label: String, active: Boolean, onClick: () -> Unit) {
     androidx.compose.material3.DropdownMenuItem(
         modifier = androidx.compose.ui.Modifier
-            .background(androidx.compose.ui.graphics.Color(0xFF2C3E50)),
+            .background(Gt.panel),
         colors = androidx.compose.material3.MenuDefaults.itemColors(
-            textColor = androidx.compose.ui.graphics.Color(0xFFE8EEF5),
-            disabledTextColor = androidx.compose.ui.graphics.Color(0xFF7D8A99)
+            textColor = Gt.text,
+            disabledTextColor = Gt.dim
         ),
         text = {
             androidx.compose.foundation.layout.Row(
@@ -403,9 +404,9 @@ private fun GtMenuItem(label: String, active: Boolean, onClick: () -> Unit) {
             ) {
                 androidx.compose.material3.Text(
                     text = label,
-                    color = if (active) androidx.compose.ui.graphics.Color(0xFFE8EEF5)
-                            else androidx.compose.ui.graphics.Color(0xFFFFFFFF),
-                    fontSize = 11.sp,
+                    color = if (active) Gt.text
+                            else Gt.text,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 )
@@ -413,14 +414,14 @@ private fun GtMenuItem(label: String, active: Boolean, onClick: () -> Unit) {
                     androidx.compose.foundation.layout.Box(
                         modifier = androidx.compose.ui.Modifier
                             .background(
-                                androidx.compose.ui.graphics.Color(0xFF1A3050),
+                                Gt.panel,
                                 androidx.compose.foundation.shape.RoundedCornerShape(3.dp))
                             .padding(horizontal = 5.dp, vertical = 2.dp)
                     ) {
                         androidx.compose.material3.Text(
                             "SOON",
-                            color = androidx.compose.ui.graphics.Color(0xFF2A4060),
-                            fontSize = 7.sp,
+                            color = Gt.text,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                         )

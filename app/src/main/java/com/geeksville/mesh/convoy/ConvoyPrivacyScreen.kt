@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -24,7 +25,7 @@ fun ConvoyPrivacyScreen(
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
         GroupTrackHeader(subtitle = "Privacy Policy")
         Column(modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(scrollState).padding(horizontal = 24.dp, vertical = 16.dp)) {
-            Text(text = "PRIVACY POLICY V$PRIVACY_VERSION", color = GroupTrackColors.SkyBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 16.dp))
+            Text(text = "PRIVACY POLICY V$PRIVACY_VERSION", color = GroupTrackColors.SkyBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 16.dp))
             PrivacySection("1. What We Collect", "We collect your Google account name and email address when you sign in. We collect GPS track data, ride participation records, and app usage during active rides.")
             PrivacySection("2. How We Use Your Data", "Your name and email are used to identify you to ride organizers you enroll with. GPS tracks are stored to build ride history and the community track library. We do not sell your personal data to third parties.")
             PrivacySection("3. Data Shared With Organizers", "When you enroll in a ride, the organizer can see your name, email address, and GPS track for that ride. You consent to this sharing by accepting an invite.")
@@ -33,16 +34,16 @@ fun ConvoyPrivacyScreen(
             PrivacySection("6. Changes", "This policy may be updated. You will be notified and asked to re-accept if material changes are made.")
             Spacer(Modifier.height(24.dp))
         }
-        Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().background(Gt.panel).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             GroupTrackButton(text = "I ACCEPT THE PRIVACY POLICY", onClick = { ConvoySessionManager.acceptPrivacy(context); onAccept() })
-            GroupTrackButton(text = "DECLINE", onClick = onDecline, color = Color(0xFF2A3545))
-            Text(text = "You must accept the Privacy Policy to use GroupTrack platform features.", color = Color(0xFFFFFFFF), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            GroupTrackButton(text = "DECLINE", onClick = onDecline, color = Gt.text)
+            Text(text = "You must accept the Privacy Policy to use GroupTrack platform features.", color = Gt.text, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
     }
 }
 
 @Composable
 private fun PrivacySection(title: String, body: String) {
-    Text(text = title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
-    Text(text = body, color = Color(0xFFAABBCC), fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 20.dp))
+    Text(text = title, color = Gt.text, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
+    Text(text = body, color = Gt.accent, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 20.dp))
 }

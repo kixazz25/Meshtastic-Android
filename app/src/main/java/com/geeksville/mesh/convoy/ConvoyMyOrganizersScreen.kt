@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -70,38 +71,38 @@ fun ConvoyMyOrganizersScreen(
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
 
         // ── Top bar ───────────────────────────────────────────────────────────
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628))
+        Row(modifier = Modifier.fillMaxWidth().background(Gt.panel)
             .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF1A3050)).clickable { onBack() }
+                .background(Gt.panel).clickable { onBack() }
                 .padding(horizontal = 10.dp, vertical = 5.dp)) {
-                Text("← BACK", color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                Text("← BACK", color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
-            Text("MY ORGANIZERS", color = Color.White, fontSize = 11.sp,
+            Text("MY ORGANIZERS", color = Gt.text, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.weight(1f))
         }
-        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Color(0xFF4AB8E8))
+        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Gt.accent)
 
         // ── Tab bar ───────────────────────────────────────────────────────────
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628))
+        Row(modifier = Modifier.fillMaxWidth().background(Gt.panel)
             .padding(horizontal = 14.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             tabs.forEach { tab ->
                 val isActive = tab == activeTab
                 Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                    .background(if (isActive) Color(0xFF1A3050) else Color(0xFF050E1A))
+                    .background(if (isActive) Gt.panel else Gt.panel)
                     .clickable { activeTab = tab }
                     .padding(horizontal = 10.dp, vertical = 6.dp)) {
-                    Text(tab, color = if (isActive) Color(0xFF4AB8E8) else Color(0xFF2A4060),
-                        fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                    Text(tab, color = if (isActive) Gt.accent else Gt.text,
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace)
                 }
             }
         }
-        androidx.compose.material3.HorizontalDivider(thickness = 1.dp, color = Color(0xFF1A2840))
+        androidx.compose.material3.HorizontalDivider(thickness = 1.dp, color = Gt.text)
 
         // ── Organizer list ────────────────────────────────────────────────────
         Column(modifier = Modifier.fillMaxWidth().weight(1f)
@@ -110,7 +111,7 @@ fun ConvoyMyOrganizersScreen(
 
             if (displayList.isEmpty()) {
                 Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0F2035)).padding(24.dp),
+                    .background(Gt.panel).padding(24.dp),
                     contentAlignment = Alignment.Center) {
                     Text(
                         when (activeTab) {
@@ -118,7 +119,7 @@ fun ConvoyMyOrganizersScreen(
                             "NOT FOLLOWING" -> "YOU FOLLOW ALL ORGANIZERS IN YOUR AREA"
                             else            -> "NO ORGANIZERS FOUND IN YOUR AREA"
                         },
-                        color = Color(0xFF2A4060), fontSize = 10.sp,
+                        color = Gt.text, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
@@ -126,22 +127,22 @@ fun ConvoyMyOrganizersScreen(
                 displayList.forEach { org ->
                     val isFollowing = org.id in followedIds.value
                     Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF0F2035)).padding(12.dp),
+                        .background(Gt.panel).padding(12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically) {
 
                         Column(modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(org.name, color = Color.White, fontSize = 13.sp,
+                            Text(org.name, color = Gt.text, fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold)
-                            Text(org.location, color = Color(0xFFFFFFFF), fontSize = 10.sp,
+                            Text(org.location, color = Gt.text, fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace)
                         }
 
                         // Follow/unfollow toggle
                         Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
                             .background(
-                                if (isFollowing) Color(0xFF0D2010) else Color(0xFF1A3050)
+                                if (isFollowing) Gt.panel else Gt.panel
                             )
                             .clickable {
                                 scope.launch {
@@ -158,8 +159,8 @@ fun ConvoyMyOrganizersScreen(
                             .padding(horizontal = 12.dp, vertical = 6.dp)) {
                             Text(
                                 if (isFollowing) "✓ FOLLOWING" else "+ FOLLOW",
-                                color = if (isFollowing) Color(0xFF22C55E) else Color(0xFF4AB8E8),
-                                fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                                color = if (isFollowing) Gt.good else Gt.accent,
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             )
                         }
@@ -170,7 +171,7 @@ fun ConvoyMyOrganizersScreen(
             // Phase C note
             Spacer(Modifier.height(4.dp))
             Text("Phase C: list populated from GET /users?is_organizer=1 filtered by your zip + radius",
-                color = Color(0xFF1A2840), fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                color = Gt.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
             Spacer(Modifier.height(60.dp))
         }
     }

@@ -58,8 +58,8 @@ fun GtKeyBody(onStyleChanged: () -> Unit) {
         Section("TRAILS — NON-MOTORIZED") { NON_MOTORIZED_ROWS.forEach { r -> StyleRow(r) { styling = r } } }
         Section("YOURS") { ARTIFACT_ROWS.forEach { r -> StyleRow(r) { styling = r } } }
         Section("WHILE YOU RIDE") {
-            FixedRow("My track", "Your ride as you record it — arrows show direction", Color(0xFF1E88FF), 4, dashed = true)
-            FixedRow("Lead track", "The leader's path — arrows show direction", Color(0xFF1E88FF), 5, dashed = false)
+            FixedRow("My track", "Your ride as you record it — arrows show direction", Gt.accent, 4, dashed = true)
+            FixedRow("Lead track", "The leader's path — arrows show direction", Gt.accent, 5, dashed = false)
         }
         Section("GROUP RIDING") {
             Text("Carts, lead and tail — their symbols are added here when the cart markers are reviewed.", color = s.panelDim, fontSize = 12.sp)
@@ -88,7 +88,7 @@ private fun StyleRow(r: MapKeyRow, onStyle: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable(onClick = onStyle).padding(vertical = 8.dp)) {
         Sample(color, weight, dashed)
         Text(r.label, color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f).padding(start = 10.dp))
-        Text("STYLE ›", color = GtColors.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text("STYLE ›", color = Gt.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 

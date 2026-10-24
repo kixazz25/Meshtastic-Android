@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.util.Base64
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -86,23 +87,23 @@ fun ConvoyCreateRideScreen(
 
         // ── Top bar ───────────────────────────────────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628))
+            modifier = Modifier.fillMaxWidth().background(Gt.panel)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF1A3050))
+                .background(Gt.panel)
                 .clickable { onBack() }
                 .padding(horizontal = 10.dp, vertical = 5.dp)) {
-                Text("\u2190 BACK", color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                Text("\u2190 BACK", color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
-            Text("CREATE RIDE", color = Color.White, fontSize = 12.sp,
+            Text("CREATE RIDE", color = Gt.text, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
                 modifier = Modifier.weight(1f))
         }
-        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Color(0xFF4AB8E8))
+        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = Gt.accent)
 
         Column(
             modifier = Modifier.fillMaxWidth().weight(1f)
@@ -114,19 +115,19 @@ fun ConvoyCreateRideScreen(
             if (organizer != null) {
                 CreateSectionLabel("ORGANIZER")
                 Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0F2035)).padding(12.dp),
+                    .background(Gt.panel).padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("${organizer.firstName} ${organizer.lastName}",
-                        color = Color.White, fontSize = 13.sp,
+                        color = Gt.text, fontSize = 13.sp,
                         fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                    Text(organizer.email, color = Color(0xFF4AB8E8), fontSize = 11.sp,
+                    Text(organizer.email, color = Gt.accent, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace)
                 }
             } else {
                 Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF2A1A1A)).padding(12.dp)) {
+                    .background(Gt.panel).padding(12.dp)) {
                     Text("\u26a0 Complete enrollment before creating a ride.",
-                        color = Color(0xFFF44336), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        color = Gt.bad, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             }
 
@@ -134,23 +135,23 @@ fun ConvoyCreateRideScreen(
             if (masterConfig != null) {
                 CreateSectionLabel("RADIO CONFIG — MASTER")
                 Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0A1628)).padding(12.dp),
+                    .background(Gt.panel).padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("${masterConfig.hardwareModel}  •  fw ${masterConfig.firmwareVersion}",
-                        color = Color(0xFFFFFFFF), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        color = Gt.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     Text("${masterConfig.loraRegion}  •  ${masterConfig.loraModemPreset}  •  ${masterConfig.loraTxPower} dBm",
-                        color = Color(0xFFFFFFFF), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        color = Gt.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     Text("Channel: $channelName",
-                        color = Color(0xFF4AB8E8), fontSize = 11.sp,
+                        color = Gt.accent, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     Text("Encryption: AES-256 auto-generated",
-                        color = Color(0xFF22C55E), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        color = Gt.accent, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             } else {
                 Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF2A1A1A)).padding(12.dp)) {
+                    .background(Gt.panel).padding(12.dp)) {
                     Text("\u26a0 Master radio config not found.",
-                        color = Color(0xFFF44336), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        color = Gt.bad, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             }
 
@@ -186,39 +187,39 @@ fun ConvoyCreateRideScreen(
 
             // ── PUBLIC / PRIVATE ──────────────────────────────────────────────
             Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035)).padding(horizontal = 14.dp, vertical = 10.dp),
+                .background(Gt.panel).padding(horizontal = 14.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Column {
-                    Text("PUBLIC RIDE", color = Color(0xFFAABBCC), fontSize = 12.sp,
+                    Text("PUBLIC RIDE", color = Gt.accent, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold)
                     Text("Visible in Public Rides Near Me",
-                        color = Color(0xFFFFFFFF), fontSize = 10.sp)
+                        color = Gt.text, fontSize = 12.sp)
                 }
                 Switch(checked = isPublic, onCheckedChange = { isPublic = it },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor   = Color(0xFF4AB8E8),
-                        checkedTrackColor   = Color(0xFF1A3050),
-                        uncheckedThumbColor = Color(0xFFFFFFFF),
-                        uncheckedTrackColor = Color(0xFF0A1628)))
+                        checkedThumbColor   = Gt.accent,
+                        checkedTrackColor   = Gt.panel,
+                        uncheckedThumbColor = Gt.text,
+                        uncheckedTrackColor = Gt.panel))
             }
 
             // ── MAP AREA — Phase C ────────────────────────────────────────────
             CreateSectionLabel("MAP AREA — PHASE C")
             Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF1A0A00)).padding(14.dp),
+                .background(Gt.panel).padding(14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("SET MAP AREA", color = Color(0xFFF97316), fontSize = 12.sp,
+                Text("SET MAP AREA", color = Gt.warn, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold)
-                Text("\u26a0 PENDING — Phase C", color = Color(0xFFF97316), fontSize = 10.sp)
+                Text("\u26a0 PENDING — Phase C", color = Gt.warn, fontSize = 12.sp)
             }
 
             // ── RADIO PROCESSING STEPS ────────────────────────────────────────
             if (step > 0) {
                 CreateSectionLabel("RADIO PROCESSING")
                 Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0A1628)).padding(14.dp),
+                    .background(Gt.panel).padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     RadioStep("Reading device info",         step >= 1, step > 1)
                     RadioStep("Generating channel and PSK",  step >= 2, step > 2)
@@ -229,21 +230,21 @@ fun ConvoyCreateRideScreen(
             // ── SUCCESS ───────────────────────────────────────────────────────
             if (step == 4) {
                 Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0D2010)).padding(16.dp),
+                    .background(Gt.panel).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("\u2713 RIDE SAVED", color = Color(0xFF22C55E), fontSize = 13.sp,
+                    Text("\u2713 RIDE SAVED", color = Gt.accent, fontSize = 13.sp,
                         fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                    Text("Channel: $channelName", color = Color(0xFF4AB8E8), fontSize = 11.sp,
+                    Text("Channel: $channelName", color = Gt.accent, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace)
-                    Text("PSK: AES-256 secured", color = Color(0xFF22C55E), fontSize = 10.sp,
+                    Text("PSK: AES-256 secured", color = Gt.accent, fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(4.dp))
                     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF2E75B6))
+                        .background(Gt.accent.copy(alpha = 0.22f))
                         .clickable { onRideCreated() }
                         .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center) {
-                        Text("PROCEED \u2192", color = Color.White, fontSize = 13.sp,
+                        Text("PROCEED \u2192", color = Gt.text, fontSize = 13.sp,
                             fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     }
                 }
@@ -252,11 +253,11 @@ fun ConvoyCreateRideScreen(
             // ── STATUS MESSAGE ────────────────────────────────────────────────
             if (statusMsg.isNotBlank() && step != 4) {
                 Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(if (statusOk) Color(0xFF0D2010) else Color(0xFF2A1A1A))
+                    .background(if (statusOk) Gt.panel else Gt.panel)
                     .padding(12.dp)) {
                     Text(statusMsg,
-                        color = if (statusOk) Color(0xFF22C55E) else Color(0xFFF44336),
-                        fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        color = if (statusOk) Gt.good else Gt.bad,
+                        fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             }
 
@@ -264,7 +265,7 @@ fun ConvoyCreateRideScreen(
             if (step != 4) {
                 // SAVE AS PENDING
                 Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(if (canSave) Color(0xFF1A3050) else Color(0xFF0A1628))
+                    .background(if (canSave) Gt.panel else Gt.panel)
                     .clickable(enabled = canSave && !isProcessing) {
                         scope.launch {
                             isProcessing = true
@@ -311,17 +312,17 @@ fun ConvoyCreateRideScreen(
                     contentAlignment = Alignment.Center) {
                     Text(
                         if (isProcessing) "SAVING..." else "SAVE AS PENDING",
-                        color = if (canSave) Color(0xFF4AB8E8) else Color(0xFFFFFFFF),
+                        color = if (canSave) Gt.accent else Gt.text,
                         fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 }
 
                 // OPEN RIDE — enabled only after save (step == 4 handled above, this is pre-save hint)
                 Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0A1628))
+                    .background(Gt.panel)
                     .padding(vertical = 14.dp),
                     contentAlignment = Alignment.Center) {
                     Text("OPEN RIDE — Save first",
-                        color = Color(0xFF2A4060), fontSize = 12.sp,
+                        color = Gt.text, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 }
 
@@ -333,22 +334,22 @@ fun ConvoyCreateRideScreen(
                 // Phase B: POST /rides triggers server-side follower enrollment.
                 // STUB — wired when OPEN RIDE button is implemented.
                 Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0A1628)).padding(14.dp),
+                    .background(Gt.panel).padding(14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("PUBLIC RIDE ENROLLMENT",
-                            color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                            color = Gt.accent, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         Text("Auto-invites all followers on OPEN RIDE",
-                            color = Color(0xFF2A4060), fontSize = 9.sp,
+                            color = Gt.text, fontSize = 12.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         Text("Email sent to all followers simultaneously",
-                            color = Color(0xFF2A4060), fontSize = 9.sp,
+                            color = Gt.text, fontSize = 12.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                     }
-                    Text("PHASE B", color = Color(0xFF2A4060), fontSize = 8.sp,
+                    Text("PHASE B", color = Gt.text, fontSize = 12.sp,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         fontWeight = FontWeight.Bold)
                 }
@@ -357,17 +358,17 @@ fun ConvoyCreateRideScreen(
                 // ConvoyPrivateInviteScreen.kt — Phase B
                 // Three sub-processes below — all stubbed.
                 Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0A1628)).padding(14.dp),
+                    .background(Gt.panel).padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
 
                     Row(modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically) {
                         Text("PRIVATE RIDE ENROLLMENT",
-                            color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                            color = Gt.accent, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
-                        Text("STUB", color = Color(0xFF2A4060), fontSize = 8.sp,
+                        Text("STUB", color = Gt.text, fontSize = 12.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                             fontWeight = FontWeight.Bold)
                     }
@@ -378,22 +379,22 @@ fun ConvoyCreateRideScreen(
                     // Manual email entry for riders not in follower list.
                     // Selected riders shown in scrollable chip list.
                     Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF060E1A)).padding(10.dp),
+                        .background(Gt.panel).padding(10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically) {
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text("1. RIDER SELECTION",
-                                color = Color(0xFF4AB8E8), fontSize = 9.sp,
+                                color = Gt.accent, fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                             Text("Name search from follower list",
-                                color = Color(0xFF2A4060), fontSize = 8.sp,
+                                color = Gt.text, fontSize = 12.sp,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                             Text("Manual email entry for non-followers",
-                                color = Color(0xFF2A4060), fontSize = 8.sp,
+                                color = Gt.text, fontSize = 12.sp,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         }
-                        Text("STUB", color = Color(0xFF2A4060), fontSize = 8.sp,
+                        Text("STUB", color = Gt.text, fontSize = 12.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                     }
 
@@ -402,22 +403,22 @@ fun ConvoyCreateRideScreen(
                     // Sets invite_date to current date.
                     // POST /invites per rider — Phase B API endpoint.
                     Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF060E1A)).padding(10.dp),
+                        .background(Gt.panel).padding(10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically) {
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text("2. INVITE GENERATION",
-                                color = Color(0xFF4AB8E8), fontSize = 9.sp,
+                                color = Gt.accent, fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                             Text("Creates enrollment record per rider",
-                                color = Color(0xFF2A4060), fontSize = 8.sp,
+                                color = Gt.text, fontSize = 12.sp,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                             Text("Status = invited  |  POST /invites",
-                                color = Color(0xFF2A4060), fontSize = 8.sp,
+                                color = Gt.text, fontSize = 12.sp,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         }
-                        Text("STUB", color = Color(0xFF2A4060), fontSize = 8.sp,
+                        Text("STUB", color = Gt.text, fontSize = 12.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                     }
 
@@ -427,22 +428,22 @@ fun ConvoyCreateRideScreen(
                     // trailhead, organizer name + email (tappable).
                     // Server-side send — triggered by POST /invites response.
                     Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF060E1A)).padding(10.dp),
+                        .background(Gt.panel).padding(10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically) {
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text("3. INVITE EMAIL",
-                                color = Color(0xFF4AB8E8), fontSize = 9.sp,
+                                color = Gt.accent, fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                             Text("Individual email per selected rider",
-                                color = Color(0xFF2A4060), fontSize = 8.sp,
+                                color = Gt.text, fontSize = 12.sp,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                             Text("Server-side send on POST /invites",
-                                color = Color(0xFF2A4060), fontSize = 8.sp,
+                                color = Gt.text, fontSize = 12.sp,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         }
-                        Text("STUB", color = Color(0xFF2A4060), fontSize = 8.sp,
+                        Text("STUB", color = Gt.text, fontSize = 12.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                     }
                 }
@@ -455,22 +456,22 @@ fun ConvoyCreateRideScreen(
                 // Phase B: POST /rides triggers server-side follower enrollment.
                 // STUB — wired when OPEN RIDE button is implemented.
                 Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0A1628)).padding(14.dp),
+                    .background(Gt.panel).padding(14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("PUBLIC RIDE ENROLLMENT",
-                            color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                            color = Gt.accent, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         Text("Auto-invites all followers on OPEN RIDE",
-                            color = Color(0xFF2A4060), fontSize = 9.sp,
+                            color = Gt.text, fontSize = 12.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         Text("Email sent to all followers simultaneously",
-                            color = Color(0xFF2A4060), fontSize = 9.sp,
+                            color = Gt.text, fontSize = 12.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                     }
-                    Text("PHASE B", color = Color(0xFF2A4060), fontSize = 8.sp,
+                    Text("PHASE B", color = Gt.text, fontSize = 12.sp,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         fontWeight = FontWeight.Bold)
                 }
@@ -483,22 +484,22 @@ fun ConvoyCreateRideScreen(
                 // Screen: ConvoyPrivateInviteScreen.kt — to be built Phase B.
                 // STUB — navigates to invite screen when implemented.
                 Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0A1628)).padding(14.dp),
+                    .background(Gt.panel).padding(14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("PRIVATE RIDE ENROLLMENT",
-                            color = Color(0xFF4AB8E8), fontSize = 10.sp,
+                            color = Gt.accent, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         Text("Manual invite — follower search + email entry",
-                            color = Color(0xFF2A4060), fontSize = 9.sp,
+                            color = Gt.text, fontSize = 12.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         Text("ConvoyPrivateInviteScreen.kt — Phase B",
-                            color = Color(0xFF2A4060), fontSize = 9.sp,
+                            color = Gt.text, fontSize = 12.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                     }
-                    Text("STUB", color = Color(0xFF2A4060), fontSize = 8.sp,
+                    Text("STUB", color = Gt.text, fontSize = 12.sp,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         fontWeight = FontWeight.Bold)
                 }
@@ -528,23 +529,23 @@ fun ConvoyCreateRideScreen(
 @Composable
 private fun RadioStep(label: String, active: Boolean, done: Boolean) {
     val color = when {
-        done   -> Color(0xFF22C55E)
-        active -> Color(0xFF4AB8E8)
-        else   -> Color(0xFF2A4060)
+        done   -> Gt.good
+        active -> Gt.accent
+        else   -> Gt.panel
     }
     val prefix = when {
         done   -> "\u2713 "
         active -> "\u25b6 "
         else   -> "\u25cb "
     }
-    Text("$prefix$label", color = color, fontSize = 10.sp,
+    Text("$prefix$label", color = color, fontSize = 12.sp,
         fontFamily = FontFamily.Monospace,
         modifier = Modifier.padding(vertical = 2.dp))
 }
 
 @Composable
 private fun CreateSectionLabel(label: String) {
-    Text(label, color = Color(0xFF4AB8E8), fontSize = 10.sp,
+    Text(label, color = Gt.accent, fontSize = 12.sp,
         fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
         modifier = Modifier.padding(top = 4.dp))
 }
@@ -556,15 +557,15 @@ private fun CreateField(
 ) {
     OutlinedTextField(
         value = value, onValueChange = onValueChange,
-        label = { Text(label, fontSize = 11.sp) },
-        placeholder = { Text(placeholder, color = Color(0xFF334455), fontSize = 12.sp) },
+        label = { Text(label, fontSize = 12.sp) },
+        placeholder = { Text(placeholder, color = Gt.text, fontSize = 12.sp) },
         modifier = Modifier.fillMaxWidth(), singleLine = true,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor   = Color(0xFF4AB8E8),
-            unfocusedBorderColor = Color(0xFF1A3050),
-            focusedTextColor     = Color.White,
-            unfocusedTextColor   = Color.White,
-            focusedLabelColor    = Color(0xFF4AB8E8),
-            unfocusedLabelColor  = Color(0xFFFFFFFF),
-            cursorColor          = Color(0xFF4AB8E8)))
+            focusedBorderColor   = Gt.accent,
+            unfocusedBorderColor = Gt.line,
+            focusedTextColor     = Gt.text,
+            unfocusedTextColor   = Gt.text,
+            focusedLabelColor    = Gt.accent,
+            unfocusedLabelColor  = Gt.text,
+            cursorColor          = Gt.accent))
 }

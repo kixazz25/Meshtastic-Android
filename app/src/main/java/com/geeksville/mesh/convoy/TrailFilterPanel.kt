@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -65,7 +66,7 @@ fun TrailFilterPanel(
 
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xF2000000),
+        color = Gt.panel,
         shadowElevation = 8.dp,
         modifier = modifier.width(360.dp),
     ) {
@@ -73,17 +74,17 @@ fun TrailFilterPanel(
 
             Row(verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                Text("WHICH TRAILS SHOW", color = Color(0xFF8FD0FF),
+                Text("WHICH TRAILS SHOW", color = Gt.accent,
                     fontSize = 13.sp, fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.weight(1f))
                 Box(contentAlignment = Alignment.Center,
                     modifier = Modifier.width(28.dp).height(24.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF1B2027))
-                        .border(1.dp, Color(0xFF47505A), RoundedCornerShape(4.dp))
+                        .background(Gt.panel)
+                        .border(1.dp, Gt.line, RoundedCornerShape(4.dp))
                         .clickable { onDismiss() }) {
-                    Text("\u2715", color = Color(0xFFE6EDF3), fontSize = 14.sp,
+                    Text("\u2715", color = Gt.text, fontSize = 14.sp,
                         fontWeight = FontWeight.Bold)
                 }
             }
@@ -104,8 +105,8 @@ fun TrailFilterPanel(
                     FilterTick(includePrivate)
                     Spacer(Modifier.width(4.dp))
                     Text("Include private land",
-                        color = if (includePrivate) Color(0xFFE6EDF3)
-                                else Color(0xFF5B646E),
+                        color = if (includePrivate) Gt.text
+                                else Gt.dim,
                         fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -114,14 +115,14 @@ fun TrailFilterPanel(
                 FilterColumn("MOTORIZED", MOTORIZED_ROWS, tick, ::changed,
                     Modifier.weight(1f))
                 Spacer(Modifier.width(1.dp).height(150.dp)
-                    .background(Color(0xFF30363D)))
+                    .background(Gt.panel))
                 FilterColumn("NON-MOTORIZED", NON_MOTORIZED_ROWS, tick, ::changed,
                     Modifier.weight(1f))
             }
 
             Spacer(Modifier.height(8.dp))
             Text("Tap a row to show or hide it. Tap a heading for the whole group.",
-                color = Color(0xFF8B949E), fontSize = 10.sp)
+                color = Gt.dim, fontSize = 12.sp)
         }
     }
 }
@@ -147,10 +148,10 @@ private fun FilterColumn(
                 .padding(vertical = 6.dp)) {
             FilterTick(anyOn)
             Spacer(Modifier.width(4.dp))
-            Text(title, color = if (anyOn) Color(0xFFE6EDF3) else Color(0xFF5B646E),
+            Text(title, color = if (anyOn) Gt.text else Gt.dim,
                 fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
-        Spacer(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF30363D)))
+        Spacer(Modifier.fillMaxWidth().height(1.dp).background(Gt.panel))
         Spacer(Modifier.height(3.dp))
         rows.forEach { r -> FilterRow(r, tick, onChanged) }
     }
@@ -175,7 +176,7 @@ private fun FilterRow(r: MapKeyRow, tick: Int, onChanged: () -> Unit) {
         FilterSwatch(r, on)
         Spacer(Modifier.width(6.dp))
         // ⚠ NOT clickable. Changing appearance is the legend's job.
-        Text(r.label, color = if (on) Color(0xFFDDE3E9) else Color(0xFF5B646E),
+        Text(r.label, color = if (on) Gt.text else Gt.dim,
             fontSize = 12.sp)
     }
 }
@@ -184,7 +185,7 @@ private fun FilterRow(r: MapKeyRow, tick: Int, onChanged: () -> Unit) {
 private fun FilterTick(on: Boolean) {
     Box(contentAlignment = Alignment.Center,
         modifier = Modifier.width(20.dp).height(20.dp)) {
-        if (on) Text("\u2713", color = Color(0xFF58A6FF), fontSize = 17.sp,
+        if (on) Text("\u2713", color = Gt.accent, fontSize = 17.sp,
             fontWeight = FontWeight.Bold)
     }
 }

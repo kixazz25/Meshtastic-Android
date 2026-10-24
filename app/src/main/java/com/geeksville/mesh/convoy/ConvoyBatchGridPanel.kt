@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,10 +49,10 @@ import androidx.compose.ui.unit.sp
  * it back" — the tap target has to survive its own action.
  */
 
-private val panelBg = Color(0xEE131820)
-private val accentBlue = Color(0xFF4DA6FF)
-private val dimText = Color(0xFF9AA4B2)
-private val faint = Color(0xFF6B7481)
+private val panelBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xEE131820 
+private val accentBlue: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF4DA6FF 
+private val dimText: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF9AA4B2 
+private val faint: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF6B7481 
 private val mono = FontFamily.Monospace
 
 /** One route's column. [features] and [trails] are name -> mileage (0 = present, no mileage). */
@@ -72,7 +73,7 @@ private val COL_W = 52.dp
 
 @Composable
 private fun SectionRow(label: String) {
-    Text(label, color = faint, fontSize = 8.sp, fontFamily = mono,
+    Text(label, color = faint, fontSize = 12.sp, fontFamily = mono,
         fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(top = 7.dp, bottom = 2.dp))
 }
@@ -84,7 +85,7 @@ private fun DataRow(
 ) {
     Row(verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(vertical = 1.dp)) {
-        Text(label, color = dimText, fontSize = 9.5.sp, fontFamily = mono,
+        Text(label, color = dimText, fontSize = 12.sp, fontFamily = mono,
             maxLines = 1, modifier = Modifier.width(LABEL_W))
         rows.forEach { r ->
             val v = cell(r)
@@ -92,8 +93,8 @@ private fun DataRow(
                 v,
                 // ⭐ a check is green and unmistakable; everything else takes the
                 // route's own colour so the column stays tied to its line
-                color = if (v == "\u2713") Color(0xFF4ADE80) else parseColour(r.colour),
-                fontSize = if (v == "\u2713") 13.sp else 9.5.sp,
+                color = if (v == "\u2713") Gt.good else parseColour(r.colour),
+                fontSize = if (v == "\u2713") 13.sp else 12.sp,
                 fontFamily = mono,
                 fontWeight = if (bold || v == "\u2713") FontWeight.Bold else FontWeight.Normal,
                 textAlign = TextAlign.Center,
@@ -118,13 +119,13 @@ private fun TableButton(
     Surface(
         modifier = modifier.height(30.dp),
         shape = RoundedCornerShape(6.dp),
-        color = Color(0xFF1D2430)
+        color = Gt.panel
     ) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier.fillMaxSize().clickable { onClick() }
         ) {
-            Text(label, color = tint, fontSize = 9.sp, fontFamily = mono,
+            Text(label, color = tint, fontSize = 12.sp, fontFamily = mono,
                 fontWeight = FontWeight.Bold)
         }
     }
