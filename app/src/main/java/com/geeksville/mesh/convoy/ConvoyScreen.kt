@@ -1983,79 +1983,19 @@ fun ConvoyScreen(
             val overlayJsonSc = MapSourceManager.getOverlayJson(label)
             if (overlayJsonSc != "[]") { webViewRef.value?.evaluateJavascript("setOverlayLayers('${overlayJsonSc.replace("'", "\\'")}')", null) }
         }
-        if (!gtOneMap) ConvoyMapBar(
-            // PLAINCTRL-2026-08-17: plain language for the planning entry point.
-            navLabel = "Ride Planning",
-            // PLANGATE-2026-08-12C: green with a connection, yellow without. NOT red - the
-            // record button beside this one is red, and a second red control
-            // reads as a second recording state.
-            navTint = if (!planPosKnown) Color(0xFF5A6370)   // RELEASEF-2026-10-08 PLANPOS: grey until a position is known
-                else if (hasInternet) Color(0xFF2E7D32) else Color(0xFFB8860B),
-            onNavigate = {
-                if (!planPosKnown) android.widget.Toast.makeText(context,   // RELEASEF-2026-10-08 PLANPOS
-                    "Waiting for your position \u2014 Ride Planning opens once GPS or Wi-Fi location is available.",
-                    android.widget.Toast.LENGTH_LONG).show()
-                else if (hasInternet) onNavigateToMapViewer()
-                else android.widget.Toast.makeText(
-                    context, "Planning Map requires internet access",
-                    android.widget.Toast.LENGTH_LONG
-                ).show()
-            },
-            activeSource = mapTypeLabel,
-            isOffline = isOfflineMode,
-            onSourceChange = gtSetMapType,   // GTMAP-2026-10-22: the shared val above
-            onOfflineToggle = offlineToggle,   // ATTACH3-2026-10-22: the shared val above
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(start = 110.dp, end = 8.dp, top = 8.dp)
-                .fillMaxWidth()
-                
-        )
+        // CLASSICGONE-2026-10-23: the classic map bar (Ride Planning, SAT/TOPO/TOPO+, LOCAL/NET) -- removed (ONE MAP is the only layout).
 
         // -- UNIFIED SEARCH FAB (2026-06-19) -- stacked above "?" to start the icon column --
         // Self-contained search beacon: Area/Track/Route/Trail/Waypoint. Routes artifact
         // results to the existing detail path (pendingDetailType/Id -> ArtifactDetailPanel).
         // Old ConvoyArtifactsPanel search remains in place this step (removed later).
-        if (!gtOneMap) UnifiedSearch(   // SHELL6-2026-10-22: the old controls are hidden in ONE MAP (Search module re-points later)
-            mapContext = "convoy",
-            webView = webViewRef.value,
-            context = context,
-            onOpenDetail = { type, id ->
-                pendingDetailType = type
-                pendingDetailId = id
-            },
-            // SEARCHPAN-2026-09-15: a search moved the map -- stop following the cart, or the next
-            // convoyState tick drags the rider back off the place they searched
-            // for. Tapping MY CART re-arms it (:2764 sets autoPan true) and snaps
-            // back deliberately.
-            onMapRepositioned = { viewModel.setAutoPan(false) },
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = 120.dp, end = 12.dp)
-        )
+        // CLASSICGONE-2026-10-23: the classic old search -- removed (ONE MAP is the only layout).
 
         // -- "?" HELP BUTTON (ported from planning 2026-06-18; TopStart to clear QUEUES) --
         // MAPKEYS-2026-09-01: Map Keys goes BETWEEN Map Features (152) and Help,
         // so Help moves 184 -> 216. The column is absolute top padding, not a
         // stack, so inserting a control means moving the ones below it.
-        if (!gtOneMap) androidx.compose.material3.Surface(   // SHELL6
-            onClick = { mapKeysOpen = true },
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
-            color = androidx.compose.ui.graphics.Color.Transparent,
-            contentColor = androidx.compose.ui.graphics.Color(0xFFFF00FF),
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = 184.dp, end = 12.dp)
-        ) {
-            androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                // PLAINCTRL-2026-08-17: words, not a glyph -- riders are 65-75
-                // and icon literacy cannot be assumed. The white blur shadow is
-                // what keeps it readable over bright satellite.
-                // NAVPLAIN-2026-09-29 (Fred): the navigation words are PLAIN coloured text -- no glow, no outline.
-                androidx.compose.material3.Text(
-                    "Map Keys",
-                    fontSize = 13.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
-                )
-            }
-        }
+        // CLASSICGONE-2026-10-23: the classic "Map Keys" button -- removed (ONE MAP is the only layout).
         // MAPKEYS-2026-09-01: the panel itself. Same composable as the planner
         // -- ⛔ the convoy map has had NO key at all until now, and a second
         // copy is how the three trailColor functions drifted apart.
@@ -2088,20 +2028,7 @@ fun ConvoyScreen(
         }
 
         // FROZENEXCEPTION-WWR-2026-09-24: (Fred approved) the ONLY change to the frozen screen -- WORK WITH RIDES below Mesh, always shown.
-        if (!gtOneMap) androidx.compose.material3.Surface(   // SHELL6
-            onClick = { com.geeksville.mesh.convoy.WorkWithRidesLauncher.open() },
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
-            color = Color.Transparent,
-            contentColor = Color(0xFFFF00FF),
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = 280.dp, end = 12.dp)
-        ) {
-            androidx.compose.material3.Text(
-                "Work with Rides",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
-            )
-        }
+        // CLASSICGONE-2026-10-23: the classic "Work with Rides" button -- removed (ONE MAP is the only layout).
         // MESHBTN-2026-09-04: ⭐ BRING THE RADIO NAVIGATION BACK, from the column
         // where every other GroupTrack control already lives.
         // ⛔ The folded strip on the left edge could not be seen -- it rendered
@@ -2109,78 +2036,11 @@ fun ConvoyScreen(
         // "how do I bring it back... looked good with it missing."
         // ⭐ Here it cannot be covered, and it sits where a rider already looks.
         // ⚠ ONLY WHILE FOLDED (Fred): no dead control when the rail is showing.
-        if (!gtOneMap) {   // SHELL6 (was: if (true)) // GRPAWARE-2026-09-28 (Fred): GRP Awareness is ALWAYS shown (was: Mesh, only while the rail was folded)
-            androidx.compose.material3.Surface(
-                onClick = {
-                    com.geeksville.mesh.convoy.GrpAwarenessLauncher.open()   // GRPAWARE: the panel (MESHTASTIC in it = the old unfold)
-                },
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
-                color = Color.Transparent,
-                contentColor = Color(0xFFFF00FF),
-                modifier = Modifier.align(Alignment.TopEnd)
-                    .padding(top = 248.dp, end = 12.dp)
-            ) {
-                androidx.compose.foundation.layout.Box(
-                    contentAlignment = Alignment.Center
-                ) {
-                    androidx.compose.material3.Text(
-                        "GRP Awareness",
-                        color = Color.White,   // GRPBOX2-2026-09-29 (Fred): white text -- the status is the green/red box behind it
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.background(com.geeksville.mesh.convoy.grpAwarenessColor(),   // GRPBOX2-2026-09-29: green/red box, pulsing
-                            androidx.compose.foundation.shape.RoundedCornerShape(4.dp)).padding(horizontal = 10.dp, vertical = 10.dp)
-                    )
-                }
-            }
-        }
+        // CLASSICGONE-2026-10-23: the classic "GRP Awareness" button -- removed (ONE MAP is the only layout).
 
-        if (!gtOneMap) androidx.compose.material3.Surface(   // SHELL6
-            onClick = { showDocsChooser = true },
-            // PLAINCTRL3-2026-08-18B: circle + fixed size dropped so the word renders in full;
-            // top padding tightened from 252 to 184 to close the gap in the text column.
-            // MAPKEYS-2026-09-01: 184 -> 216, Map Keys took 184.
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
-            color = androidx.compose.ui.graphics.Color.Transparent,
-            contentColor = androidx.compose.ui.graphics.Color(0xFFFF00FF),
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = 216.dp, end = 12.dp)
-        ) {
-            androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                // PLAINCTRL2-2026-08-17: the word, for the same reason as the others.
-                androidx.compose.material3.Text(
-                    "Help",
-                    fontSize = 13.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
-                )
-            }
-        }
+        // CLASSICGONE-2026-10-23: the classic "Help" button (the docs chooser -- ONE MAP: MENU > Help) -- removed (ONE MAP is the only layout).
         // -- ARTIFACTS FAB (opens WORK WITH ARTIFACTS expanded; hidden while panel open) --
-        if (!showArtifactsPanel && !gtOneMap) {   // SHELL6
-            // PLAINCTRL-2026-08-17: surface dropped (option A) -- bare clickable words over the
-            // map instead of a 40dp filled circle. Colour is carried by contentColor on a
-            // transparent surface so the control still reports as clickable to a11y.
-            androidx.compose.material3.Surface(
-                onClick = { showArtifactsPanel = true },
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
-                color = androidx.compose.ui.graphics.Color.Transparent,
-                contentColor = androidx.compose.ui.graphics.Color(0xFFFF00FF),
-                // PLAINCTRL3-2026-08-18B: top padding tightened from 200 to 152 to even the column.
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 152.dp, end = 12.dp)
-            ) {
-                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                    // PLAINCTRL-2026-08-17: words, not a glyph. Riders are 65-75 and icon
-                    // literacy cannot be assumed. White blur shadow matches GroupHud so the
-                    // text survives bright satellite imagery now that the dark fill is gone.
-                    androidx.compose.material3.Text(
-                        "Map Features",
-                        fontSize = 13.sp,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
-                    )
-                }
-            }
-        }
+        // CLASSICGONE-2026-10-23: the classic "Map Features" button -- removed (ONE MAP is the only layout).
         if (showDocsChooser) {
             // DOCSCHOOSER-2026-09-02: ⛔ THIS DIALOG HAD NO WAY OUT. Material3's
             // AlertDialog gives exactly two slots, and both were spent on the
@@ -2351,20 +2211,7 @@ fun ConvoyScreen(
             js = { c -> webViewRef.value?.evaluateJavascript(c, null) },
             barModifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 84.dp)
         )
-        if (!gtOneMap) Surface(   // SHELL6
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 8.dp, end = 8.dp)
-                .clickable { queuesOpen = !queuesOpen },
-            shape = RoundedCornerShape(6.dp),
-            color = Color(0xFF2A3545)
-        ) {
-            Text("QUEUES",
-                color = Color(0xFF1CF0A0),
-                fontSize = 10.sp, fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp))
-        }
+        // CLASSICGONE-2026-10-23: the classic QUEUES button -- removed (ONE MAP is the only layout).
         if (queuesOpen) {
             // Real download-queue monitor (matches planning "DOWNLOAD QUEUES").
             // Locked under the fixed top-right QUEUES button. 2.6: add
@@ -3245,13 +3092,7 @@ fun ConvoyScreen(
         }
         // ── Button bar ────────────────────────────────────────────────────
         var showCartPicker by CartPickerLauncher.showing   // CARTLIST2-2026-09-28: shared -- CartPickerLauncher.open()/close() from anywhere
-        if (!gtOneMap) ConvoyButtonBar(   // SHELL-2026-10-22
-            hudMode = hudMode,
-            onModeChange = { viewModel.setHudMode(it); viewModel.setAutoPan(true) },
-            onNavigateToSettings = onNavigateToSettings,
-            onSelectCart = { showCartPicker = true },
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
+        // CLASSICGONE-2026-10-23: the classic bottom button bar -- removed (ONE MAP is the only layout).
         // ROLECHANGE-2026-09-29 (Fred): CHANGE MY ROLE from the group panel -- MY OWN cart only; nobody changes anyone else's.
         // A special role someone holds is refused (released first); Rider releases mine. The Leader is the last assignment.
         var showRoleChange by remember { mutableStateOf(false) }
