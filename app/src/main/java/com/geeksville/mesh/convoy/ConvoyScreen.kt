@@ -928,8 +928,14 @@ fun ConvoyScreen(
                         fun onRouteTap(id: String) {
                             android.util.Log.d("RouteTap", "CONVOY bridge id=$id")
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                pendingDetailType = "Routes"
-                                pendingDetailId = id
+                                // HOME1C-2026-10-23 (Fred 21:32): ONE MAP -- a route WITH a narrative opens it first (description, BUILD FROM RECIPE,
+                                // ROUTE DETAILS -> the card), the planner's rule (MVS 1730); a route without one opens the card, as before.
+                                if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && SpatialDbManager.readRouteNotes(id) != null) {
+                                    com.geeksville.mesh.grouptrack.GtRoute.savedNotesRouteId.value = id
+                                } else {
+                                    pendingDetailType = "Routes"
+                                    pendingDetailId = id
+                                }
                             }
                         }
                         // STYLEONREADY-2026-09-11: the rider's palette, at the
@@ -1329,8 +1335,14 @@ fun ConvoyScreen(
                             fun onRouteTap(id: String) {
                                 android.util.Log.d("RouteTap", "CONVOY bridge id=$id")
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    pendingDetailType = "Routes"
-                                    pendingDetailId = id
+                                    // HOME1C-2026-10-23 (Fred 21:32): ONE MAP -- a route WITH a narrative opens it first (description, BUILD FROM RECIPE,
+                                    // ROUTE DETAILS -> the card), the planner's rule (MVS 1730); a route without one opens the card, as before.
+                                    if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && SpatialDbManager.readRouteNotes(id) != null) {
+                                        com.geeksville.mesh.grouptrack.GtRoute.savedNotesRouteId.value = id
+                                    } else {
+                                        pendingDetailType = "Routes"
+                                        pendingDetailId = id
+                                    }
                                 }
                             }
                             // STYLEONREADY-2026-09-11: the second interface object.
@@ -2330,6 +2342,7 @@ fun ConvoyScreen(
             com.geeksville.mesh.grouptrack.GtRoute.persist = { saveConvoyState() }
             // GTAI2-2026-10-23: the compare table draws on this page and puts these four layers back as they were.
             com.geeksville.mesh.grouptrack.GtRoute.wv = { webViewRef.value }
+            com.geeksville.mesh.grouptrack.GtRoute.openDetail = { t, id -> pendingDetailType = t; pendingDetailId = id }   // HOME1-2026-10-23
             com.geeksville.mesh.grouptrack.GtRoute.layersNow = { listOf(trailState, trackState, waypointState, routeState) }
             // GTAI4B-2026-10-23: GtRoute.layersOnForAi / hideAll / restoreAll are set after gtSetDisplay (below) -- the FILTER's own functions.
             // GTROUTE1D-2026-10-23: GtRouteHost is drawn AFTER the launch layer (below) -- here its toolbar sat under MENU / zoom.
@@ -3052,6 +3065,14 @@ fun ConvoyScreen(
                     id = pendingDetailId!!,
                     mapKey = MapStateStore.rideKey(),   // PERSISTKEY-2026-10-23
                     fitWebView = webViewRef.value,
+                    // HOME1-2026-10-23: the planner's OVERVIEW (a saved route's narrative) and BUILD FROM RECIPE, on ONE MAP's detail card.
+                    onShowNotes = if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && pendingDetailType == "Routes") {
+                        { rid -> pendingDetailId = null; pendingDetailType = null; com.geeksville.mesh.grouptrack.GtRoute.savedNotesRouteId.value = rid }
+                    } else null,
+                    onBuildFromRecipe = if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && pendingDetailType == "Routes" &&
+                        pendingDetailId?.let { SpatialDbManager.routeRecipe(it) != null } == true) {
+                        { rid -> pendingDetailId = null; pendingDetailType = null; com.geeksville.mesh.grouptrack.GtRoute.buildFromRecipe(context, rid) }
+                    } else null,
                     onLoadDetail = { t, did -> SpatialDbManager.getArtifactDetail(t, did) },
                     onLoadAliases = { t, did -> SpatialDbManager.getAliasesFor(t, did) },
                     // [2026-06-20] Full action parity on convoy. Handlers mirror planning

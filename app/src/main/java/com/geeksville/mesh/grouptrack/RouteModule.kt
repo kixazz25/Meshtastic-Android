@@ -359,6 +359,49 @@ object GtRoute {
         }
     }
 
+    // HOME1-2026-10-23 (Fred 21:21 -- the planner-only functions get their home before the planner goes):
+    //   a saved route's narrative ("" = none open), the work-in-progress narrative, and the host map's detail card opener.
+    val savedNotesRouteId = mutableStateOf("")
+    val showWipNotes = mutableStateOf(false)
+    var openDetail: (String, String) -> Unit = { _, _ -> }
+
+    /** HOME1-2026-10-23: the planner's onBuildFromRecipe, copied -- a saved route's recipe (trailhead, distance, speed, finish,
+     *  pins) loads into the AI flow and opens at the SUMMARY, so the rider reads back what is about to be built. An open AI
+     *  compare set comes first, as always. Nothing is deleted. */
+    fun buildFromRecipe(ctx: android.content.Context, rid: String) {
+        if (routeMode.value) return
+        val r = SpatialDbManager.routeRecipe(rid) ?: return
+        if (RouteDraftStore.hasOpenBatch()) { openCompare(); return }
+        clearPins()
+        val aLat = r.optDouble("anchorLat", 0.0)
+        val aLon = r.optDouble("anchorLon", 0.0)
+        pinTrailLat.value = aLat
+        pinTrailLon.value = aLon
+        pinTrailName.value = SpatialDbManager.waypointNameAt(aLat, aLon) ?: ""
+        pinMiLow.intValue = r.optInt("milesLow", pinMiLow.intValue)
+        pinMiHigh.intValue = r.optInt("milesHigh", pinMiHigh.intValue)
+        pinMphLow.intValue = r.optInt("mphLow", pinMphLow.intValue)
+        pinMphHigh.intValue = r.optInt("mphHigh", pinMphHigh.intValue)
+        val fin = r.optJSONObject("finish")
+        pinIsLoop.value = fin == null
+        if (fin != null) { pinEndLat.value = fin.optDouble("lat", 0.0); pinEndLon.value = fin.optDouble("lon", 0.0) }
+        val ps = r.optJSONArray("pins")
+        pinPoints.value = if (ps == null) emptyList() else
+            (0 until ps.length()).mapNotNull { i -> ps.optJSONObject(i)?.let { p -> Pair(p.optDouble("lat", 0.0), p.optDouble("lon", 0.0)) } }
+        aiProgress.value = ""
+        aiBusy.value = false
+        routeMethod.intValue = ROUTE_METHOD_SUGGEST
+        addPointMode.value = false
+        routeEntryNonce.intValue++
+        routeMode.value = true
+        js("window.__routeMode=true;setRouteMode(true)")
+        layersOnForAi()   // Trails and Waypoints ON for the AI build (GTAI4B)
+        aiMapReady = true
+        // CLOSEPLANNER-2026-08-29: a recipe's pins were never validated on THIS device -- qualify them first
+        if (pinPoints.value.isNotEmpty()) runAssess(ctx)
+        aiStep.intValue = PIN_STEP_SUMMARY
+    }
+
     /** the planner's FIND MY RIDES, copied: the search builds the routes and records the compare set; then the COMPARE TABLE
      *  opens on them (ONE MAP goes straight there -- the planner's results panel in between is not copied). */
     fun findRides(ctx: android.content.Context) {
@@ -868,6 +911,37 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                 }
             }
         }
+    }
+
+    // HOME1-2026-10-23: a saved route's narrative (the planner's savedNotesRouteId panel) -- Build from recipe and the detail card from it.
+    if (R.savedNotesRouteId.value.isNotEmpty()) {
+        val rid = R.savedNotesRouteId.value
+        androidx.activity.compose.BackHandler(enabled = true) { R.savedNotesRouteId.value = "" }
+        val hasRecipe = androidx.compose.runtime.remember(rid) { SpatialDbManager.routeRecipe(rid) != null }
+        GtNotesPanel(
+            title = "Route details",
+            sections = com.geeksville.mesh.convoy.notesFromRouteId(rid),
+            onClose = { R.savedNotesRouteId.value = "" },
+            onBuildFromRecipe = if (hasRecipe) ({ R.savedNotesRouteId.value = ""; R.buildFromRecipe(ctx, rid) }) else null,
+            onRouteDetails = { R.savedNotesRouteId.value = ""; R.openDetail("Routes", rid) }
+        )
+    }
+    // HOME1-2026-10-23: the work-in-progress narrative (the planner's WIPNOTES ROUTE DETAILS button) -- only when the open draft HAS notes.
+    if (R.routeMode.value && !R.aiActive() && !R.showWipNotes.value && R.routeName.value.isNotBlank() &&
+        RouteDraftStore.hasNotes(R.routeName.value)) {
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+            GtButton("ROUTE DETAILS", { R.showWipNotes.value = true },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 140.dp))
+        }
+    }
+    if (R.showWipNotes.value) {
+        androidx.activity.compose.BackHandler(enabled = true) { R.showWipNotes.value = false }
+        GtNotesPanel(
+            title = R.routeName.value,
+            subtitle = "Work in progress \u2014 not saved yet",
+            sections = com.geeksville.mesh.convoy.notesFromDraft(RouteDraftStore.readNotes(R.routeName.value)),
+            onClose = { R.showWipNotes.value = false }
+        )
     }
 
     // ── save choice (the planner's, with rename) ──
