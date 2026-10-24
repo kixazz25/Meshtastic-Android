@@ -1,0 +1,24 @@
+// DEADCODE2-2026-10-23 -- unused pieces cut from app/src/main/java/com/geeksville/mesh/convoy/OsmImportStage.kt (not compiled)
+
+// ---- ImportScope (was convoy/OsmImportStage.kt line 25) ----
+/**
+ * What a C3 import covers.
+ *
+ * A sealed type rather than a nullable Bbox, deliberately: with `Bbox? = null`
+ * every call site is ambiguous between "the user chose whole state" and "the
+ * caller forgot to set it". Here whole-state is a value, the `when` is
+ * exhaustive, and CODE RULE 1 does not apply because there is no null to
+ * justify.
+ */
+sealed interface ImportScope {
+    object WholeState : ImportScope
+    data class Area(
+        val south: Double,
+        val west: Double,
+        val north: Double,
+        val east: Double
+    ) : ImportScope {
+        /** "west,south,east,north" -- the form the ledger records. */
+        fun asLedgerString(): String = "$west,$south,$east,$north"
+    }
+}

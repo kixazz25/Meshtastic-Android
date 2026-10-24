@@ -21,12 +21,7 @@ private val blue = Color(0xFF4DA6FF)
 private val txtB = Color(0xFFE8EEF5)
 private val txtD = Color(0xFF7A8DA0)
 
-/** Passed by every caller — same structure always */
-data class TileDownloadRequest(
-    val bbox: DownloadBbox,
-    val slotSelections: Map<String, Boolean>,  // SAT->true, TOPO->true, TOPO+->false
-    val replaceExisting: Boolean
-)
+// DEADCODE2-2026-10-23: TileDownloadRequest (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyDownloadConfirm.pieces.txt
 
 data class SlotDisplayInfo(
     val slotName: String,

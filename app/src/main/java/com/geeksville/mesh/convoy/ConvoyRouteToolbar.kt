@@ -50,21 +50,12 @@ private val rtPurple  = Color(0xFFBC8CFF)
 private val rtGreen   = Color(0xFF1CF0A0)
 private val rtBlue    = Color(0xFF4DA6FF)
 private val rtTxtD    = Color(0xFF7A8DA0)
-private val rtAmber   = Color(0xFFD29922)
+// DEADCODE2-2026-10-23: rtAmber (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyRouteToolbar.pieces.txt
 private val rtRed     = Color(0xFFE86B6B)
 private val rtMono    = FontFamily.Monospace
 private val rtDis     = Color(0xFF44505C)  // disabled/greyed
 
-@Composable
-private fun EntryBtnDisabled(label: String, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, shape = RoundedCornerShape(5.dp), color = rtRowBg) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)) {
-            Text(label, color = rtDis, fontSize = 10.sp, fontFamily = rtMono, fontWeight = FontWeight.Bold)
-            Text("soon", color = rtAmber, fontSize = 8.sp, fontFamily = rtMono)
-        }
-    }
-}
+// DEADCODE2-2026-10-23: EntryBtnDisabled (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyRouteToolbar.pieces.txt
 
 @Composable
 fun ConvoyRouteToolbar(

@@ -524,33 +524,4 @@ private fun AlertSlider(
     }
 }
 
-@Composable
-private fun RemovedCartRow(
-    callsign:    String,
-    nodeId:      String,
-    onReinstate: () -> Unit
-) {
-    ListItem(
-        headlineContent   = { Text(callsign, style = MaterialTheme.typography.bodyLarge) },
-        supportingContent = {
-            Text(
-                text  = nodeId,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        leadingContent  = {
-            Icon(
-                imageVector        = Icons.Default.Warning,
-                contentDescription = null,
-                tint               = MaterialTheme.colorScheme.error
-            )
-        },
-        trailingContent = {
-            TextButton(onClick = onReinstate) {
-                Icon(Icons.Default.AddCircle, contentDescription = null)
-                Text("Reinstate", modifier = Modifier.padding(start = 4.dp))
-            }
-        }
-    )
-}
+// DEADCODE2-2026-10-23: RemovedCartRow (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoySettingsScreen.pieces.txt

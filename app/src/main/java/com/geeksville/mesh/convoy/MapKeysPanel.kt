@@ -305,19 +305,7 @@ private fun LineSwatch(r: MapKeyRow, on: Boolean) {
     }
 }
 
-/** ⚠ Same tick as the rows, so it reads as the same kind of control. */
-@Composable
-private fun LandCheck(label: String, on: Boolean, tick: Int,
-                      modifier: Modifier = Modifier, onClick: () -> Unit) {
-    @Suppress("UNUSED_EXPRESSION") tick
-    Row(verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.clickable { onClick() }.padding(vertical = 6.dp)) {
-        Tick(on)
-        Spacer(Modifier.width(4.dp))
-        Text(label, color = if (on) Color(0xFFE6EDF3) else Color(0xFF5B646E),
-            fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    }
-}
+// DEADCODE2-2026-10-23: LandCheck (unused) moved to retired/2.7c_dead/pieces/convoy/MapKeysPanel.pieces.txt
 
 // ── the rows ────────────────────────────────────────────────────────────
 // ⚠ These names are the literal carto_code values classify4 writes. A typo

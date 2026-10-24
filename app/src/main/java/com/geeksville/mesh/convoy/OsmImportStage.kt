@@ -22,27 +22,7 @@ import java.util.zip.ZipFile
 // IMPORT        the skinny exists
 enum class OsmStage { ACQUIRE, ACQUIRE_GPKG, PREPARE_TAGS, REDUCE, IMPORT }
 
-/**
- * What a C3 import covers.
- *
- * A sealed type rather than a nullable Bbox, deliberately: with `Bbox? = null`
- * every call site is ambiguous between "the user chose whole state" and "the
- * caller forgot to set it". Here whole-state is a value, the `when` is
- * exhaustive, and CODE RULE 1 does not apply because there is no null to
- * justify.
- */
-sealed interface ImportScope {
-    object WholeState : ImportScope
-    data class Area(
-        val south: Double,
-        val west: Double,
-        val north: Double,
-        val east: Double
-    ) : ImportScope {
-        /** "west,south,east,north" -- the form the ledger records. */
-        fun asLedgerString(): String = "$west,$south,$east,$north"
-    }
-}
+// DEADCODE2-2026-10-23: ImportScope (unused) moved to retired/2.7c_dead/pieces/convoy/OsmImportStage.pieces.txt
 
 /**
  * OsmImportStage -- the rules engine.

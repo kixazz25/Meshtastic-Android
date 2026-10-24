@@ -930,7 +930,7 @@ fun ConvoyScreen(
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
                                 // HOME1C-2026-10-23 (Fred 21:32): ONE MAP -- a route WITH a narrative opens it first (description, BUILD FROM RECIPE,
                                 // ROUTE DETAILS -> the card), the planner's rule (MVS 1730); a route without one opens the card, as before.
-                                if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && SpatialDbManager.readRouteNotes(id) != null) {
+                                if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && routeHasDescription(id)) {  // ROUTEDESC-2026-10-23: something to READ, not only stats
                                     com.geeksville.mesh.grouptrack.GtRoute.savedNotesRouteId.value = id
                                 } else {
                                     pendingDetailType = "Routes"
@@ -1337,7 +1337,7 @@ fun ConvoyScreen(
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     // HOME1C-2026-10-23 (Fred 21:32): ONE MAP -- a route WITH a narrative opens it first (description, BUILD FROM RECIPE,
                                     // ROUTE DETAILS -> the card), the planner's rule (MVS 1730); a route without one opens the card, as before.
-                                    if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && SpatialDbManager.readRouteNotes(id) != null) {
+                                    if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && routeHasDescription(id)) {  // ROUTEDESC-2026-10-23: something to READ, not only stats
                                         com.geeksville.mesh.grouptrack.GtRoute.savedNotesRouteId.value = id
                                     } else {
                                         pendingDetailType = "Routes"
@@ -3716,77 +3716,7 @@ fun HudStat(label: String, value: String, valueColor: Color = Color.White) {   /
     }
 }
 
-@Composable
-fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSettings: () -> Unit = {}) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // GROUP button
-        Surface(
-            modifier = Modifier.weight(1f).clickable { onModeChange(HudMode.GROUP) },
-            shape = RoundedCornerShape(10.dp),
-            color = if (current == HudMode.GROUP) Color(0xFF2E75B6) else Color(0xFF2A3545)
-        ) {
-            Text(
-                text = "GROUP",
-                color = if (!GroupMode.on.value) Color(0xFF4A5560) else if (current == HudMode.GROUP) Color.White else Color(0xFF7A8DA0),   // GRPMODE-2026-10-13
-                fontSize = 13.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.padding(vertical = 10.dp)
-            )
-        }
-        // MY CART button
-        Surface(
-            modifier = Modifier.weight(1f).clickable { onModeChange(HudMode.MY_CART) },
-            shape = RoundedCornerShape(10.dp),
-            color = if (current == HudMode.MY_CART) Color(0xFF2E75B6) else Color(0xFF2A3545)
-        ) {
-            Text(
-                text = "MY CART",
-                color = if (current == HudMode.MY_CART) Color.White else Color(0xFF7A8DA0),
-                fontSize = 13.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.padding(vertical = 10.dp)
-            )
-        }
-        // HIDE button
-        Surface(
-            modifier = Modifier.weight(1f).clickable { onModeChange(HudMode.COLLAPSED) },
-            shape = RoundedCornerShape(10.dp),
-            color = Color(0xFF2A3545)
-        ) {
-            Text(
-                text = "HIDE",
-                color = Color(0xFF7A8DA0),
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-            )
-        }
-        // SETTINGS gear button
-        Surface(
-            modifier = Modifier.weight(1f).clickable { onNavigateToSettings() },
-            shape = RoundedCornerShape(10.dp),
-            color = Color(0xFF2A3545)
-        ) {
-            Text(
-                text = "⚙",
-                color = Color(0xFF7A8DA0),
-                fontSize = 14.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-            )
-        }
-    }
-}
+// DEADCODE2-2026-10-23: HudModeRow (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyScreen.pieces.txt
 
 
 // ── CART PICKER PANEL ─────────────────────────────────────────────────────────
@@ -3915,175 +3845,13 @@ fun CartPickerPanel(
 
 // ── CONVOY BUTTON BAR ─────────────────────────────────────────────────────────
 
-@Composable
-fun ConvoyButtonBar(
-    hudMode: HudMode,
-    onModeChange: (HudMode) -> Unit,
-    onNavigateToSettings: () -> Unit,
-    onSelectCart: () -> Unit = {},
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .background(Color(0xFF2B2930))
-            .drawBehind {
-                drawLine(
-                    color = Color(0xFF67EA94),
-                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                    end = androidx.compose.ui.geometry.Offset(size.width, 0f),
-                    strokeWidth = 2f
-                )
-            },
-        horizontalArrangement = Arrangement.spacedBy(0.dp)
-    ) {
-        listOf(
-            Triple("GROUP", HudMode.GROUP, { onModeChange(HudMode.GROUP) }),
-            Triple("MY CART", HudMode.MY_CART, { onModeChange(HudMode.MY_CART) }),
-        ).forEach { (label, mode, action) ->
-            val isActive = hudMode == mode
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .background(if (isActive) Color(0x1A67EA94) else Color.Transparent)
-                    .clickable { action() }
-                    .drawBehind {
-                        drawLine(
-                            color = Color(0xFF49454F),
-                            start = androidx.compose.ui.geometry.Offset(size.width, 0f),
-                            end = androidx.compose.ui.geometry.Offset(size.width, size.height),
-                            strokeWidth = 1f
-                        )
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    color = if (label == "GROUP" && !GroupMode.on.value) Color(0xFF5A5560) else if (isActive) Color(0xFF67EA94) else Color(0xFFCAC4D0),   // GRPMODE-2026-10-13
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
-                    letterSpacing = 0.5.sp
-                )
-            }
-        }
-        // SELECT CART button — Phase 0 scaffolding
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .background(Color.Transparent)
-                .clickable { onSelectCart() },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "VIEW\nCART\nROLES",   // CARTROLES-2026-10-06 (Fred): was "CHECKIN / SELECT CART"
-                color = Color(0xFFCAC4D0),
-                fontSize = 8.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                lineHeight = 9.sp   // CARTBTN: three lines in the same button
-            )
-        }
-        // HIDE button
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .background(Color.Transparent)
-                .clickable { onModeChange(HudMode.COLLAPSED) },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "HIDE",
-                color = Color(0xFFCAC4D0),
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.5.sp
-            )
-        }
-        // GEAR button
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .background(Color.Transparent)
-                .clickable { onNavigateToSettings() },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "⚙",
-                color = Color(0xFFCAC4D0),
-                fontSize = 14.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
+// DEADCODE2-2026-10-23: ConvoyButtonBar (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyScreen.pieces.txt
 
+// DEADCODE2-2026-10-23: convoyListTracks (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyScreen.pieces.txt
 
+// DEADCODE2-2026-10-23: convoyLoadTrackData (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyScreen.pieces.txt
 
-
-}
-
-// ── Convoy track file helpers ─────────────────────────────────────
-fun convoyListTracks(context: android.content.Context): List<String> {
-    val dir = ConvoyTrackOps.tracksDir()   // MYTRACKSUI-2026-09-12
-    if (!dir.exists()) return emptyList()
-    return dir.listFiles()
-        ?.filter { f ->
-            val ext = f.extension.lowercase()
-            (ext == "kml" || ext == "gpx") &&
-            !f.name.startsWith(".") &&
-            !f.name.startsWith("convoy_track_temp")
-        }
-        ?.sortedByDescending { it.lastModified() }
-        ?.map { it.name }
-        ?: emptyList()
-}
-
-/** IO-safe: reads file and parses coords, returns JSON string or null. No WebView call. */
-fun convoyLoadTrackData(
-    context: android.content.Context,
-    fileName: String
-): String? {
-    return try {
-        val dir = ConvoyTrackOps.tracksDir()   // MYTRACKSUI-2026-09-12
-        val file = java.io.File(dir, fileName)
-        if (!file.exists()) return null
-        val text = file.readText()
-        val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
-        if (coords.isEmpty()) return null
-        coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
-    } catch (e: Exception) {
-        null
-    }
-}
-
-fun convoyLoadTrack(
-    context: android.content.Context,
-    fileName: String,
-    color: String,
-    webView: android.webkit.WebView?
-) {
-    try {
-        val dir = ConvoyTrackOps.tracksDir()   // MYTRACKSUI-2026-09-12
-        val file = java.io.File(dir, fileName)
-        if (!file.exists()) return
-        val text = file.readText()
-        val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
-        if (coords.isEmpty()) return
-        val json = coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
-        val safe = fileName.replace("'", "\\'")
-        webView?.evaluateJavascript("loadTrackFile('$safe', '$json', '$color')", null)
-    } catch (e: Exception) {
-        android.util.Log.e("ConvoyTracks", "Load error $fileName: ${e.message}")
-    }
-}
+// DEADCODE2-2026-10-23: convoyLoadTrack (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyScreen.pieces.txt
 
 fun convoyParseKml(text: String): List<Pair<Double, Double>> {
     val coords = mutableListOf<Pair<Double, Double>>()

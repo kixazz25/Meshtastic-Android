@@ -47,7 +47,7 @@ import androidx.compose.ui.unit.sp
  * Required: callsign and email. Everything else seeds each ride's enrollment.
  */
 private val BG = Color(0xFF101510)
-private val CARD = Color(0xFF151C22)
+// DEADCODE2-2026-10-23: CARD (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyRiderProfileScreen.pieces.txt
 private val LINE = Color(0xFF2E3A45)
 private val GREEN = Color(0xFF97D5A5)
 private val MUTED = Color(0xFF8B938A)

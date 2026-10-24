@@ -124,7 +124,7 @@ object WorkWithRidesLauncher {
     fun close() { showing = false }
 }
 
-private fun notBuilt(what: String) = "$what is not built yet \u2014 coming in 2.7."
+// DEADCODE2-2026-10-23: notBuilt (unused) moved to retired/2.7c_dead/pieces/convoy/WorkWithRidesMenu.pieces.txt
 
 /** One menu row. An unbuilt entry says so in its own text, not only by colour. */
 @Composable

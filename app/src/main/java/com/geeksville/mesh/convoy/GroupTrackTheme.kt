@@ -57,27 +57,7 @@ object GroupTrackColors {
     val Red       = Color(0xFF8B0000)   // danger / remove actions
 }
 
-// ── GroupTrack Logo Text ───────────────────────────────────────────────────────
-// Renders "Group" in orange and "Track" in sky blue
-@Composable
-fun GroupTrackLogoText(
-    fontSize: Int = 28,
-    modifier: Modifier = Modifier
-) {
-    Text(
-        text = buildAnnotatedString {
-            withStyle(SpanStyle(color = GroupTrackColors.Orange, fontWeight = FontWeight.ExtraBold)) {
-                append("Group")
-            }
-            withStyle(SpanStyle(color = GroupTrackColors.SkyBlue, fontWeight = FontWeight.ExtraBold)) {
-                append("Track")
-            }
-        },
-        fontSize = fontSize.sp,
-        fontFamily = FontFamily.Default,
-        modifier = modifier
-    )
-}
+// DEADCODE2-2026-10-23: GroupTrackLogoText (unused) moved to retired/2.7c_dead/pieces/convoy/GroupTrackTheme.pieces.txt
 
 // ── GroupTrack Screen Header ───────────────────────────────────────────────────
 // Navy header bar with GroupTrack logo + optional subtitle

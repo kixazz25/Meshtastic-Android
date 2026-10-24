@@ -860,23 +860,6 @@ private fun AccordionHeader(
     }
 }
 
-@Composable
-private fun DashBadge(label: String, color: Color) {
-    Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
-        .background(color.copy(alpha = 0.15f)).padding(horizontal = 8.dp, vertical = 3.dp)) {
-        Text(label, color = color, fontSize = 10.sp,
-            fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-    }
-}
+// DEADCODE2-2026-10-23: DashBadge (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyDashboardScreen.pieces.txt
 
-private fun dashStatusColor(status: String) = when (status.lowercase()) {
-    "organized" -> Color(0xFF4AB8E8)
-    "accepted"  -> Color(0xFF22C55E)
-    "enrolled"  -> Color(0xFF22C55E)
-    "maybe"     -> Color(0xFFF59E0B)
-    "declined"  -> Color(0xFFEF4444)
-    "invited"   -> Color(0xFFF59E0B)
-    "completed" -> Color(0xFFFFFFFF)
-    "pending"   -> Color(0xFFFFFFFF)
-    else        -> Color(0xFFFFFFFF)
-}
+// DEADCODE2-2026-10-23: dashStatusColor (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyDashboardScreen.pieces.txt

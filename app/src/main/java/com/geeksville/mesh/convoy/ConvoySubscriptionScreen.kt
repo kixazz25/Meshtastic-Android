@@ -42,12 +42,12 @@ private val NavyDark   = Color(0xFF0A1628)
 private val Navy       = Color(0xFF0F2035)
 private val NavyLight  = Color(0xFF1A3050)
 private val SkyBlue    = Color(0xFF4AB8E8)
-private val SkyDim     = Color(0xFF2A6888)
+// DEADCODE2-2026-10-23: SkyDim (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoySubscriptionScreen.pieces.txt
 private val White      = Color(0xFFFFFFFF)
 private val WhiteDim   = Color(0xFFAABBCC)
 private val WhiteFaint = Color(0xFFFFFFFF)
 private val Gold       = Color(0xFFFFCC44)
-private val GoldDim    = Color(0xFF886633)
+// DEADCODE2-2026-10-23: GoldDim (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoySubscriptionScreen.pieces.txt
 
 // ── Value proposition slide data ──────────────────────────────────────────────
 
@@ -388,13 +388,4 @@ fun isSubscribed(context: android.content.Context): Boolean {
     return expiresAt > System.currentTimeMillis()
 }
 
-/**
- * Cache subscription expiry from API response.
- * Called after successful Google Play purchase verification.
- */
-fun cacheSubscription(context: android.content.Context, expiresAtMs: Long) {
-    context.getSharedPreferences("grouptrack_user", android.content.Context.MODE_PRIVATE)
-        .edit()
-        .putLong("subscription_expires_at", expiresAtMs)
-        .apply()
-}
+// DEADCODE2-2026-10-23: cacheSubscription (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoySubscriptionScreen.pieces.txt
