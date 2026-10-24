@@ -946,6 +946,16 @@ object HomeStateImportController {
      * a constant tonight because one URL closes the loop and the catalogue
      * change is a bigger edit.
      */
+    /** UTAHPRIV-2026-10-24: Map > Assign Utah private property -- the import's own download, into a .part file renamed only when whole. */
+    fun fetchUtahOwnership(dest: File): Boolean {
+        val part = File(dest.path + ".part")
+        part.delete()
+        val ok = downloadFile(OWNERSHIP_URL, part) && part.length() > 1_000_000L
+        if (!ok) { part.delete(); return false }
+        dest.delete()
+        return part.renameTo(dest)
+    }
+
     private const val OWNERSHIP_URL =
         "https://hub.arcgis.com/api/v3/datasets/" +
             "2f59731608274691922d2d16bde2404f_0/downloads/data" +

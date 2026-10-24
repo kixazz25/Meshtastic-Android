@@ -65,7 +65,9 @@ fun GtAreaHost(js: (String) -> Unit, barModifier: Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("Draw the area \u2014 " + GtArea.label(p), color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("Draw the area \u2014 " + GtArea.label(p) + (if (p == "import") "\nPart of a state, or across state borders \u2014 " +
+                "every state the box touches is used; only the trails inside the box are loaded." else ""),   // AREAIMPORT-2026-10-24
+                color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false))
             GtButton("CLEAR", { js("activateDrawMode()") })
             GtButton("CANCEL", { GtArea.purpose.value = ""; js("cancelDrawMode()") })
         }

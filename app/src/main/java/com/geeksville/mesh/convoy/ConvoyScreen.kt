@@ -3358,9 +3358,11 @@ fun ConvoyScreen(
                 "route.clear" to { gtClearAsk = true },   // CLEARROUTES-2026-10-22   // GTRIDES (Fred 13:22): ADD ROUTE -- New route or In progress, as +ROUTE
                 // MAPMOVE-2026-10-23: "map.features" (the original Map Features panel) came off the Map menu.
                 "map.queues" to { queuesOpen = true },   // GTMAP: the download queues panel, as is
+                "map.dl_settings" to { com.geeksville.mesh.grouptrack.GtDownloadDefaults.open.value = true },   // DLDEFAULTS-2026-10-24
                 // GTAREA2-2026-10-23: the three area functions -- start a box for the one picked.
                 "map.dl_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "download"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
                 "map.rm_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "remove"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
+                "map.utahprivate" to { com.geeksville.mesh.grouptrack.GtUtahPrivate.open.value = true },   // UTAHPRIV-2026-10-24
                 "map.trails_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "import"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
                 "map.dl_tracks" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "tracks" },
                 "map.recipes" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "recipes" },   // GTRECIPES-2026-10-23

@@ -89,7 +89,8 @@ object LaunchModules {
             "sources" to "Map source") + listOf(
             g("map", "dl", "DOWNLOAD MAPS FOR OFFLINE USE",
                 "dl_area" to "Download maps by area",   // draw a box (by area and by box are ONE function -- Fred 10:09)
-                "dl_tracks" to "Download maps along tracks"),   // all tracks, or pick
+                "dl_tracks" to "Download maps along tracks",   // all tracks, or pick
+                "dl_settings" to "Download settings \u2014 map sources, replace existing tiles"),   // DLDEFAULTS-2026-10-24
             g("map", "rm", "REMOVE MAPS",
                 "rm_area" to "Remove maps by area",
                 "rm_track" to "Remove maps for all tracks"),   // stays (Fred 10:14); RMALLTRACKS-2026-10-23: it is ALL tracks
@@ -99,7 +100,8 @@ object LaunchModules {
                 "repair" to "Refresh maps by source"),   // planner Recreate Tiles by Source
             g("map", "import", "IMPORT MAP FEATURES",
                 "trails_state" to "Import trails by state",
-                "trails_area" to "Import trails by area",
+                "trails_area" to "Import trails by area \u2014 part of a state, or across state borders",   // AREAIMPORT-2026-10-24
+                "utahprivate" to "Assign Utah private property \u2014 which trails are on private land",   // UTAHPRIV-2026-10-24
                 "gpx" to "Import GPX \u2014 tracks, waypoints, routes",
                 "ridertrails" to "Create trails from tracks",
                 "synctracks" to "Resync tracks with their files",   // GTSYNC-2026-10-23 (Fred 12:42): from the Import GPX screen

@@ -45,10 +45,14 @@ fun ConvoyDownloadConfirm(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // DLDEFAULTS-2026-10-24: start from the saved download settings; CHANGE alters THIS download only.
+    val dlCtx = androidx.compose.ui.platform.LocalContext.current
     var selectedSlots by remember {
-        mutableStateOf(slots.filter { it.preSelected }.map { it.slotName }.toSet())
+        mutableStateOf(com.geeksville.mesh.grouptrack.GtDownloadDefaults.initialSlots(dlCtx, slots.map { it.slotName },
+            slots.filter { it.preSelected }.map { it.slotName }.toSet()))
     }
-    var replaceExisting by remember { mutableStateOf(initialReplaceExisting) }
+    var replaceExisting by remember { mutableStateOf(com.geeksville.mesh.grouptrack.GtDownloadDefaults.initialReplace(dlCtx, initialReplaceExisting)) }
+    var changeOpen by remember { mutableStateOf(false) }
     var showDetail by remember { mutableStateOf(false) }
 
     Surface(
@@ -70,6 +74,8 @@ fun ConvoyDownloadConfirm(
             }
             Spacer(Modifier.height(10.dp))
 
+            com.geeksville.mesh.grouptrack.GtDownloadSummary(selectedSlots, replaceExisting, changeOpen) { changeOpen = !changeOpen }   // DLDEFAULTS-2026-10-24
+            if (changeOpen) {
             Text("MAP SOURCES", color = txtD, fontSize = 12.sp,
                 fontFamily = mono, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
@@ -90,17 +96,7 @@ fun ConvoyDownloadConfirm(
                         modifier = Modifier.padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Checkbox(
-                            checked = checked,
-                            onCheckedChange = {
-                                selectedSlots = if (it)
-                                    selectedSlots + slot.slotName
-                                else selectedSlots - slot.slotName
-                            },
-                            modifier = Modifier.size(18.dp),
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = green, checkmarkColor = Color.Black)
-                        )
+                        com.geeksville.mesh.grouptrack.GtCheck(checked)
                         Spacer(Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Row {
@@ -122,17 +118,12 @@ fun ConvoyDownloadConfirm(
 
             Spacer(Modifier.height(8.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = replaceExisting,
-                    onCheckedChange = { replaceExisting = it },
-                    modifier = Modifier.size(18.dp),
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = blue, checkmarkColor = Color.Black)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { replaceExisting = !replaceExisting }) {
+                com.geeksville.mesh.grouptrack.GtCheck(replaceExisting)
                 Spacer(Modifier.width(8.dp))
                 Text("Replace existing tiles", color = txtB, fontSize = 12.sp, fontFamily = mono)
             }
+            }   // DLDEFAULTS-2026-10-24: changeOpen
 
             Spacer(Modifier.height(4.dp))
             Text(

@@ -123,12 +123,16 @@ fun ConvoyCorridorPicker(
     ) { mutableStateListOf<String>() }
     // Preselect once from SlotDisplayInfo, matching how ConvoyDownloadConfirm seeds
     // its own selection. Keyed on the slot list so a changed catalogue reseeds.
+    // DLDEFAULTS-2026-10-24: start from the saved download settings; CHANGE alters THIS download only.
+    val dlCtx = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(slots) {
         if (selectedSlots.isEmpty()) {
-            selectedSlots.addAll(slots.filter { it.preSelected }.map { it.slotName })
+            selectedSlots.addAll(com.geeksville.mesh.grouptrack.GtDownloadDefaults.initialSlots(dlCtx, slots.map { it.slotName },
+                slots.filter { it.preSelected }.map { it.slotName }.toSet()))
         }
     }
-    var replaceExisting by rememberSaveable { mutableStateOf(false) }
+    var replaceExisting by rememberSaveable { mutableStateOf(com.geeksville.mesh.grouptrack.GtDownloadDefaults.initialReplace(dlCtx, false)) }
+    var changeOpen by rememberSaveable { mutableStateOf(false) }
 
     val labels = remember(tracks) { trackPickLabels(tracks) }
     val allChecked = tracks.isNotEmpty() && selected.size == tracks.size
@@ -175,16 +179,7 @@ fun ConvoyCorridorPicker(
                 ) {
                     Row(modifier = Modifier.padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = allChecked,
-                            onCheckedChange = { on ->
-                                selected.clear()
-                                if (on) selected.addAll(tracks.map { it.geomHash })
-                            },
-                            modifier = Modifier.size(18.dp),
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = green, checkmarkColor = Color.Black)
-                        )
+                        com.geeksville.mesh.grouptrack.GtCheck(allChecked)   // DLDEFAULTS-2026-10-24: the row is the tap target
                         Spacer(Modifier.width(8.dp))
                         Text("ALL", color = txtB, fontSize = 12.sp,
                             fontFamily = mono, fontWeight = FontWeight.Bold)
@@ -209,16 +204,7 @@ fun ConvoyCorridorPicker(
                         ) {
                             Row(modifier = Modifier.padding(8.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(
-                                    checked = checked,
-                                    onCheckedChange = { on ->
-                                        if (on) selected.add(t.geomHash)
-                                        else selected.remove(t.geomHash)
-                                    },
-                                    modifier = Modifier.size(18.dp),
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = green, checkmarkColor = Color.Black)
-                                )
+                                com.geeksville.mesh.grouptrack.GtCheck(checked)
                                 Spacer(Modifier.width(8.dp))
                                 Text(labels[t.geomHash] ?: "(unnamed)", color = txtB,
                                     fontSize = 12.sp, fontFamily = mono)
@@ -231,6 +217,8 @@ fun ConvoyCorridorPicker(
 
                 // PICKERSOURCES-2026-08-05: MAP SOURCES, same idiom as the track rows
                 // above and as ConvoyDownloadConfirm's slot list.
+                com.geeksville.mesh.grouptrack.GtDownloadSummary(selectedSlots, replaceExisting, changeOpen) { changeOpen = !changeOpen }   // DLDEFAULTS-2026-10-24
+                if (changeOpen) {
                 Text("MAP SOURCES", color = txtD, fontSize = 12.sp,
                     fontFamily = mono, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
@@ -247,16 +235,7 @@ fun ConvoyCorridorPicker(
                     ) {
                         Row(modifier = Modifier.padding(8.dp),
                             verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = on,
-                                onCheckedChange = { c ->
-                                    if (c) selectedSlots.add(slot.slotName)
-                                    else selectedSlots.remove(slot.slotName)
-                                },
-                                modifier = Modifier.size(18.dp),
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = green, checkmarkColor = Color.Black)
-                            )
+                            com.geeksville.mesh.grouptrack.GtCheck(on)
                             Spacer(Modifier.width(8.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(slot.slotName, color = txtB, fontSize = 12.sp,
@@ -276,17 +255,12 @@ fun ConvoyCorridorPicker(
                 // with Clear Tile Source (stubbed V2.7).
                 Row(verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.clickable { replaceExisting = !replaceExisting }) {
-                    Checkbox(
-                        checked = replaceExisting,
-                        onCheckedChange = { replaceExisting = it },
-                        modifier = Modifier.size(18.dp),
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = green, checkmarkColor = Color.Black)
-                    )
+                    com.geeksville.mesh.grouptrack.GtCheck(replaceExisting)
                     Spacer(Modifier.width(8.dp))
                     Text("Replace existing tiles", color = txtD, fontSize = 12.sp,
                         fontFamily = mono)
                 }
+                }   // DLDEFAULTS-2026-10-24: changeOpen
 
                 Spacer(Modifier.height(8.dp))
 

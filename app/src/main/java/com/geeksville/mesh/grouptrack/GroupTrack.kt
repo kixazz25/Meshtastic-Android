@@ -149,7 +149,7 @@ fun GroupTrackLaunchLayer(
                             .clickable { tap(m) }
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
-                    ) { Text(m.label, color = Gt.text, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+                    ) { Text(m.label, color = androidx.compose.ui.graphics.Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold) }   // GRPSTATUS-2026-10-24: white on the status colour
                     "mode" -> GtButton(if (group) "Mode: Group" else "Mode: Android only", { tap(m) })   // SHELL4 (Fred 10:21)
                     "internet" -> GtButton(if (online) "Status: Online" else "Status: Offline", { tap(m) })   // SHELL4 (Fred 10:21)
                     "maptype" -> GtButton("Map: " + mapType + " \u25be", { tap(m) })   // MAPCHIP-2026-10-23
@@ -173,12 +173,14 @@ fun GroupTrackLaunchLayer(
                     if (m.id == "route") {
                         if (!onRide) GtButton("Add Route", { if (!GtRoute.precheck()) tap(m) })   // GTROUTE1-2026-10-23: checks BEFORE the choices
                         else if (group) GtButton(if (showingGroup) "View: Group" else "View: My Cart", onToggleView)
-                    } else if (m.id == "map" && mapsDownloading) GtButton(m.label + "  \u25cf", { tap(m) }, emphasis = Gt.good)   // MAPTARGET4
+                    } else if (m.id == "map" && mapsDownloading) GtButton(m.label + "  \u25cf", { tap(m) }, emphasis = androidx.compose.ui.graphics.Color(0xFF35C46A))   /* GRPSTATUS-2026-10-24: downloading = green */   // MAPTARGET4
                     else GtButton(m.label, { tap(m) })
                 }
             }
         }
 
+        GtDownloadSettingsPanel()   // DLDEFAULTS-2026-10-24: Map > Download settings
+        GtUtahPrivatePanel()   // UTAHPRIV-2026-10-24: Map > Assign Utah private property
         // RIDESEARCH-2026-10-24: step 2 of Create a ride -- Search has closed and the map shows the area; the form lists its routes.
         if (GtRideStart.pending.value && open != "search") {
             val rs = GtScheme.current.value

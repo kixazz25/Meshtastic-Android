@@ -85,8 +85,9 @@ object GrpAwarenessLauncher {
 @Composable
 fun grpAwarenessColor(): Color {
     // LINKFIX-2026-10-03 (Fred): green only while the radio is TALKING; a connected-but-silent radio is red.
-    val base = if (!GroupMode.on.value) Gt.dim   // GRPMODE-2026-10-13: greyed while group awareness is off
-        else if (GrpAwarenessLauncher.connected.value && GrpAwarenessLauncher.talking.value) Gt.good else Gt.bad
+    // GRPSTATUS-2026-10-24 (Fred 12:08): a STATUS light keeps its own colours -- green / red / grey, never the scheme's text colour.
+    val base = if (!GroupMode.on.value) Color(0xFF5A6470)   // GRPMODE-2026-10-13: greyed while group awareness is off
+        else if (GrpAwarenessLauncher.connected.value && GrpAwarenessLauncher.talking.value) Color(0xFF35C46A) else Color(0xFFE0453A)
     var lit by remember { mutableStateOf(false) }
     val at = GrpAwarenessLauncher.pulseAt.value
     LaunchedEffect(at) { if (at > 0L) { lit = true; delay(400); lit = false } }
