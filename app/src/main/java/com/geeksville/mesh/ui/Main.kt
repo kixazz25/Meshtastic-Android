@@ -781,9 +781,9 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                     // CLOSEFIX-2026-09-26: the same Saved configs OVERLAY as Work with Rides (the route's Close had no way out)
                     com.geeksville.mesh.convoy.ConfigReviewLauncher.open()
                 },
-                onNavigateToMapViewer = {
+                onNavigateToMapViewer = {   // PLANNEROUT-2026-10-23: the planning map is removed
                     showConvoyMenu = false
-                    navController.navigate(ConvoyRoutes.ConvoyMapViewer)
+                    android.widget.Toast.makeText(navController.context, "The planning map is now part of One Map \u2014 Settings \u203a Layout \u203a One Map.", android.widget.Toast.LENGTH_LONG).show()
                 },
                 onNavigateToTrackExport = {
                     navController.navigate(ConvoyRoutes.ConvoyTracks)

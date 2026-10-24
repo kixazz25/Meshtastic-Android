@@ -80,7 +80,8 @@ fun NavGraphBuilder.convoyGraph(
             onNavigateToProfile = { navController?.navigate(ConvoyRoutes.ConvoyRiderProfile) },   // ATTACH1-2026-10-22: MENU › Account
             onNavigateToCreateRide = { navController?.navigate(ConvoyRoutes.ConvoyRideCreate()) },   // GTRIDES-2026-10-22: Rides › Create a ride
             onNavigateToMapSources = { navController?.navigate(ConvoyRoutes.ConvoyMapSources) },   // GTMAP-2026-10-22: Map › Map sources
-            onNavigateToMapViewer = { navController?.navigate(ConvoyRoutes.ConvoyMapViewer) },
+            // PLANNEROUT-2026-10-23: the planning map is removed -- the classic layout's Ride Planning button says where it went.
+            onNavigateToMapViewer = { navController?.context?.let { android.widget.Toast.makeText(it, "The planning map is now part of One Map \u2014 Settings \u203a Layout \u203a One Map.", android.widget.Toast.LENGTH_LONG).show() } },
             onNavigateToTrackExport = { navController?.navigate(ConvoyRoutes.ConvoyTracks) },
             onNavigateToTrackImport = { navController?.navigate(ConvoyRoutes.ConvoyTrackImport) },
             onNavigateToSettings = {
@@ -203,17 +204,8 @@ fun NavGraphBuilder.convoyGraph(
             onNavigateToTrackImport = { navController?.navigate(ConvoyRoutes.ConvoyTrackImport) }
         )
     }
-    // ── Map Viewer with trail overlay ────────────────────────────────
-    composable<ConvoyRoutes.ConvoyMapViewer> {
-        com.geeksville.mesh.convoy.ConvoyMapViewerScreen(
-            // RIDECREATE-2026-09-22: ADD A RIDE on a route's detail panel.
-            onAddRide = { _, routeId -> navController?.navigate(ConvoyRoutes.ConvoyRideCreate(routeId)) },
-            onBack = { navController?.popBackStack() },
-            onNavigateToTrackExport = { navController?.navigate(ConvoyRoutes.ConvoyTracks) },
-            onNavigateToTrackImport = { navController?.navigate(ConvoyRoutes.ConvoyTrackImport) },
-            onNavigateToTrailSources = { navController?.navigate(ConvoyRoutes.ConvoyTrailSources) }
-        )
-    }
+    // PLANNEROUT-2026-10-23: the planning map (ConvoyMapViewerScreen, its page grouptrack_map.html) is REMOVED -- every function it
+    // held is on ONE MAP. Its files are in retired/2.7c_planner/ (not compiled; nothing deleted).
     // -- Track Import -- in-app file browser --
     composable<ConvoyRoutes.ConvoyTrackImport> {
         ConvoyTrackImportScreen(
