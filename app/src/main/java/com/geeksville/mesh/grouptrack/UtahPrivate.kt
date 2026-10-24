@@ -88,7 +88,8 @@ object GtUtahPrivate {
         val e = SpatialDbManager.getExtensionDb()
         if (s == null || e == null) return "FAILED: the trail databases are not open."
         step.value = "Assigning private property\u2026 this can take a few minutes."
-        val n = OwnershipReclass.run(s, e) { done, total -> if (total > 0) progress.value = done.toFloat() / total }
+        // STEP8EMPTY-2026-10-24: the full pass -- every trail (STEP8EMPTYFIX-2026-10-24: comment moved off the code line)
+        val n = OwnershipReclass.run(s, e, onlyUnassigned = false) { done, total -> if (total > 0) progress.value = done.toFloat() / total }
         if (n < 0) return "FAILED: " + OwnershipReclass.lastError
         return "$n trails classified, ${OwnershipReclass.lastPrivate} on private land." + note
     }

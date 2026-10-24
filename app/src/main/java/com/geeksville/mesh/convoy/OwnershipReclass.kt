@@ -108,8 +108,18 @@ object OwnershipReclass {
     fun run(
         sDb: SQLiteDatabase,
         eDb: SQLiteDatabase,
+        // STEP8EMPTY-2026-10-24 (Fred 15:48): true = ONLY trails whose land field is empty (never processed) -- the import's step 8;
+        // false = EVERY trail -- Assign Utah private property and the release-cut classify. No default: each caller says which.
+        onlyUnassigned: Boolean,
         onProgress: ((Int, Int) -> Unit)? = null,
     ): Int {
+        val only = if (onlyUnassigned) " AND land_status IS NULL" else ""
+        if (onlyUnassigned) {
+            // nothing empty -> nothing to do; the land data is not even read
+            val todo = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE geometry IS NOT NULL AND geometry <> ''$only", null)
+                .use { if (it.moveToFirst()) it.getInt(0) else 0 }
+            if (todo == 0) { lastError = ""; lastPrivate = 0; Log.i(TAG, "step 8: every trail already has its land -- nothing to do"); return 0 }
+        }
         // CATEGORYALWAYS-2026-10-10 (Fred): "our categories are meaningless unless they are applied. Land ownership
         // just happened to be in the same process." This step used to RETURN -1 right here when the ownership file
         // was missing, small or unreadable -- and with it skipped the CATEGORY and USE of every trail, not just its
@@ -170,7 +180,7 @@ object OwnershipReclass {
         // \u26a0 No longer ONE transaction: a failure part-way leaves earlier pages written. run() rewrites EVERY row, so the
         // next run (an import, or Settings > Classify trails again) repairs it -- and the failure is REPORTED (lastError).
         lastError = ""; lastPrivate = 0
-        val total = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE geometry IS NOT NULL AND geometry <> ''", null)
+        val total = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE geometry IS NOT NULL AND geometry <> ''$only", null)   // STEP8EMPTY-2026-10-24
             .use { if (it.moveToFirst()) it.getInt(0) else 0 }
         Log.i(TAG, "step 8: classifying $total rows in pages of $PAGE")
         if (total == 0) return 0
@@ -188,7 +198,7 @@ object OwnershipReclass {
             val wkts = ArrayList<String>(PAGE)
             sDb.rawQuery(
                 "SELECT rowid, trail_id, COALESCE(NULLIF(TRIM(carto_code_source),''), carto_code), geometry FROM trails " +
-                    "WHERE rowid > ? AND geometry IS NOT NULL AND geometry <> '' ORDER BY rowid LIMIT $PAGE",
+                    "WHERE rowid > ? AND geometry IS NOT NULL AND geometry <> ''$only ORDER BY rowid LIMIT $PAGE",   // STEP8EMPTY-2026-10-24
                 arrayOf(lastRow.toString())
             ).use { c ->
                 while (c.moveToNext()) {
@@ -214,7 +224,8 @@ object OwnershipReclass {
                 for (i in ids.indices) {
                     val cat = TrailClassifier.categoryOf(srcs[i], useOf[ids[i]] ?: "")
                     // \u2b50 ANY PUBLIC SEGMENT WINS (Fred, 08-31): allPrivate() samples every half mile plus both ends.
-                    val land = if (allPrivate(wkts[i], rings, grid)) "PRIVATE" else "PUBLIC"
+                    // RIDEROUT-2026-10-24 (Fred 15:19): a trail from tracks is never land-tested -- it is PUBLIC.
+                    val land = if (cat == "rider") "PUBLIC" else if (allPrivate(wkts[i], rings, grid)) "PRIVATE" else "PUBLIC"
                     s1.clearBindings()
                     s1.bindString(1, srcs[i]); s1.bindString(2, cat); s1.bindString(3, land)
                     s1.bindString(4, TrailClassifier.useOf(cat)); s1.bindString(5, ids[i])

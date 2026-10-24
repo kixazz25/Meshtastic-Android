@@ -373,21 +373,7 @@ object HomeStateImportController {
             // sees it without changing -- and 2.7's resume can restart at it,
             // which it could never do for a stage the manifest did not know
             // about.
-            // RIDERTRAILS-2026-09-07: the same shape, and for the same reason
-            // the classify stage needed one -- a stage with no entry of its own
-            // writes into the last source's record, and its failure reads as a
-            // complete import. Added BEFORE classify because that is the order
-            // they run in, and the summary panel walks this array.
-            manifest.getJSONArray("sources").put(JSONObject().apply {
-                put("id", RIDER_STAGE_ID)
-                put("name", "Trails from tracks")
-                put("process", "derive_rider_trails")
-                put("status", "pending")
-                put("imported", 0)
-                put("processed", 0)
-                put("selected", 0)
-                put("dupes", 0)
-            })
+            // RIDEROUT-2026-10-24 (Fred 15:08): no "Trails from tracks" row -- an import does not read tracks (Map > Create trails from tracks).
             manifest.getJSONArray("sources").put(JSONObject().apply {
                 put("id", CLASSIFY_STAGE_ID)
                 put("name", "Classify trails")
@@ -466,76 +452,9 @@ object HomeStateImportController {
             }
 
             // ── STEP8-2026-08-31 ──────────────────────────────────
-            // RIDERTRAILS-2026-09-07 -- TRAILS FROM TRACKS.
-            // Every recorded track is walked; wherever the ride left the
-            // published network and later rejoined it, that whole run becomes
-            // one unnamed trail, source "rides".
-            //
-            // ⭐ HERE, NOT AFTER STEP 8. Step 8 classifies BY VALUE across every
-            // row, so these have to exist before it sweeps or they carry no
-            // land_status and no use_type.
-            //
-            // ⭐ AND AFTER THE SOURCES, NEVER AT THE CLEAR. The scan compares
-            // tracks against the trails table; run against an emptied one, every
-            // track reads as entirely off-network and all 3,651 miles are
-            // promoted whole.
-            //
-            // ⛔ ONE PASS (RIDERRULES-2026-10-09). The 09-07 "two passes" (1,537, then 70, then 0) settled the OLD
-            // matcher. Since RIDERLINE every scanAll CLEARS all rider trails and rebuilds, so a second pass undid and
-            // redid the first -- and its miles were ADDED to the first, reporting double. Settling happens inside one
-            // pass: each track's candidates are read from the DB, so it sees the pieces written for the tracks before it.
-            //
-            // ⚠ NEVER FAILS THE IMPORT, same stance as step 8 below.
-            try {
-                // STAGELIFECYCLE-2026-09-07: a stage must look like a SOURCE to
-                // the panel. in_progress + publish here, completed + publish at
-                // the end. ⚠ currentSourceIndex looks for exactly
-                // "in_progress" -- without it the panel cannot tell which row
-                // is live, and the step counter stalls on the last source.
-                findStage(sources, RIDER_STAGE_ID)?.apply {
-                    put("status", "in_progress")
-                    put("started_at", iso8601Now())
-                }
-                updateSourceStep(
-                    findStage(sources, RIDER_STAGE_ID),
-                    "Trails from tracks", "reading tracks")
-                writeManifest(mFile, manifest)
-                publishProgress(areaLabel, totalSources, sources, "running", startMs)
-                val rider = withContext(Dispatchers.IO) {
-                    SpatialDbManager.init(context)
-                    RiderTrailWriter.scanAll { done, total ->
-                        downloadDetailFlow.value =
-                            "Trails from tracks - $done of $total"
-                    }
-                }
-                downloadDetailFlow.value = null
-                findStage(sources, RIDER_STAGE_ID)?.apply {
-                    // ⛔ "completed", NOT "done". Every other completion in this
-                    // file writes "completed" and the panel tests for it. "done"
-                    // was a string invented here and understood nowhere.
-                    put("status", "completed")
-                    put("completed_at", iso8601Now())
-                    put("imported", rider.trailsAdded)
-                    put("processed", rider.tracksScanned)
-                }
-                writeManifest(mFile, manifest)
-                publishProgress(areaLabel, totalSources, sources, "running", startMs)
-                Log.i(TAG, "rider trails: ${rider.trailsAdded} from " +
-                    "${rider.tracksScanned} track(s), ${rider.miles} mi")
-            } catch (e: Exception) {
-                // ⚠ A LINE THAT SAYS FAILED, not an absent line. A missing
-                // rider-trails row on the summary panel is indistinguishable
-                // from "nothing to add", which is a real and common outcome.
-                Log.e(TAG, "rider trails failed, import stands: ${e.message}")
-                downloadDetailFlow.value = null
-                try {
-                    findStage(sources, RIDER_STAGE_ID)?.put("status", "failed")
-                    writeManifest(mFile, manifest)
-                    // A failure nobody can see is the same as a stage that
-                    // never ran.
-                    publishProgress(areaLabel, totalSources, sources, "running", startMs)
-                } catch (_: Exception) { }
-            }
+            // RIDEROUT-2026-10-24 (Fred 15:08): the "Trails from tracks" step is gone from the import -- trails from tracks are made per
+            // track when the track is added, written complete (rider, MOTORIZED, PUBLIC); Map > Create trails from tracks is the
+            // full pass for tracks loaded before that.
 
             // STEP 8: land-ownership reclass. Utah only, and LAST -- it is BY
             // VALUE, not by source, so it must see every source's rows.
@@ -631,7 +550,7 @@ object HomeStateImportController {
                     // backstop, not the fix -- streaming the read is the fix.
                     val changed = try {
                         withContext(Dispatchers.IO) {
-                            OwnershipReclass.run(sDb, eDb) { done, total ->
+                            OwnershipReclass.run(sDb, eDb, onlyUnassigned = true) { done, total ->   // STEP8EMPTY-2026-10-24: only what this import added
                                 downloadDetailFlow.value =
                                     "Classifying roads - $done of $total"
                             }

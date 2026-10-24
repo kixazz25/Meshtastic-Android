@@ -65,12 +65,6 @@ object RiderTrailWriter {
      */
     private const val BBOX_MARGIN_DEG = 0.001
 
-    /**
-     * The prototype's output, which reached the tracks table through the GPX
-     * import -- the wrong door. Fred, 09-07: the app does not produce unnamed
-     * tracks, so this can only be that.
-     */
-    private val UNNAMED = Regex("^\\s*Unnamed\\s+\\d+\\s*$", RegexOption.IGNORE_CASE)
 
     /** RIDERIDS-2026-10-09: a run RECONCILES -- [trailsAdded]/[miles] are the GENUINELY NEW pieces (true adds for the
      *  day); [trailsUnchanged] kept their IDs; [trailsRemoved] are no longer produced; [trailsTotal]/[milesTotal] = what
@@ -138,41 +132,6 @@ object RiderTrailWriter {
     private fun buildGeometry(pts: List<RiderTrailScanner.Pt>): String =
         "LINESTRING(" + pts.joinToString(",") { "${it.lon} ${it.lat}" } + ")"
 
-    // -- the prototype cleanup -------------------------------------------
-
-    /**
-     * Removes tracks left behind by the Python prototype's GPX import.
-     *
-     * Goes through the app's own delete, which takes the spatial row, the
-     * track_properties row, the aliases AND the canonical .gpx file in
-     * my_tracks. A hand-written SQL delete would orphan the file and the
-     * extension row -- the same defect the trail clear had before 08-24L.
-     *
-     * @return how many tracks were removed.
-     */
-    fun removeUnnamedTracks(): Int {
-        val db = SpatialDbManager.getSpatialDb() ?: return 0
-        val doomed = ArrayList<String>()
-        try {
-            db.rawQuery("SELECT track_id, name FROM tracks", null).use { c ->
-                while (c.moveToNext()) {
-                    val id = c.getString(0) ?: continue
-                    val name = if (c.isNull(1)) "" else c.getString(1)
-                    if (UNNAMED.matches(name)) doomed.add(id)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "unnamed sweep read failed: ${e.message}")
-            return 0
-        }
-        var n = 0
-        for (id in doomed) {
-            try { SpatialDbManager.deleteTrackFromDb(id); n++ }
-            catch (e: Exception) { Log.w(TAG, "delete $id: ${e.message}") }
-        }
-        Log.i(TAG, "removed $n unnamed track(s)")
-        return n
-    }
 
     // -- the scan --------------------------------------------------------
 
@@ -338,8 +297,10 @@ object RiderTrailWriter {
 
         try {
             sDb.execSQL(
-                "UPDATE trails SET carto_code=?, carto_code_source=? WHERE trail_id=?",
-                arrayOf<Any?>(CATEGORY, CATEGORY, trailId)
+                // RIDEROUT-2026-10-24 (Fred 15:19): written COMPLETE -- motorized (a UTV drove it), and with no land classification
+                // a trail from tracks is PUBLIC. Nothing waits for step 8 or the launch catch-up job.
+                "UPDATE trails SET carto_code=?, carto_code_source=?, use_type=?, land_status=? WHERE trail_id=?",
+                arrayOf<Any?>(CATEGORY, CATEGORY, TrailClassifier.useOf(CATEGORY), "PUBLIC", trailId)
             )
         } catch (e: Exception) { Log.w(TAG, "spatial carto write: ${e.message}") }
 
@@ -373,7 +334,7 @@ object RiderTrailWriter {
      * @param onProgress optional; null where there is no UI to report to (the import stage has a manifest instead).
      */
     fun scanAll(onProgress: ((Int, Int) -> Unit)? = null): Result {
-        val tracksRemoved = removeUnnamedTracks()
+        val tracksRemoved = 0   // RIDEROUT-2026-10-24: the 09-07 "Unnamed n" prototype cleanup is gone (job done; it could delete a real GPX track)
         val db = SpatialDbManager.getSpatialDb()
             ?: return Result(0, 0, 0.0, tracksRemoved, 0, 0, 0, 0.0)
 
