@@ -234,11 +234,7 @@ fun GroupTrackLaunchLayer(
                             enabled = actions[pr.id] != null
                         )
                     }
-                    if (openModule.id == "menu") {
-                        // The way back while 2.7c is in progress: always attached.
-                        GtButton("Classic layout (today's ride map)", { GtLayout.set(ctx, false); open = "" },
-                            modifier = Modifier.fillMaxWidth(), emphasis = GtColors.Warn)
-                    }
+                    // CLASSICOFF-2026-10-23: MENU > Classic layout removed -- ONE MAP is the only layout.
                     if (rows.any { it.children.isEmpty() && actions[it.id] == null } && openModule.id !in setOf("filter", "key", "search")) Text("Placeholder — 2.7c shell (SHELL-2026-10-22). Rows are attached one module at a time.",   // GTFILTER: only while rows are unattached
                         color = GtScheme.current.value.panelDim, fontSize = 12.sp, fontWeight = FontWeight.Normal)
                 }

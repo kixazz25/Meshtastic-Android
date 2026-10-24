@@ -17,19 +17,14 @@ object GtLayout {
     private const val PREFS = "grouptrack_layout"
     private const val KEY = "one_map"
 
-    val oneMap = mutableStateOf(false)
+    // CLASSICOFF-2026-10-23 (removal step 4a, Fred 22:00): ONE MAP IS THE ONLY LAYOUT. The classic layout and its switch are gone
+    // (Settings > Layout, MENU > Classic layout); the saved choice is no longer read. The classic-only code is deleted in step 4b.
+    val oneMap = mutableStateOf(true)
     @Volatile private var loaded = false
 
-    fun load(ctx: Context) {
+    fun load(@Suppress("UNUSED_PARAMETER") ctx: Context) {
         if (loaded) return
-        oneMap.value = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY, false)
+        oneMap.value = true
         loaded = true
-    }
-
-    fun set(ctx: Context, value: Boolean) {
-        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY, value).apply()
-        oneMap.value = value
-        loaded = true
-        android.util.Log.i("GtLayout", "SHELL-2026-10-22: layout " + (if (value) "ONE MAP" else "CLASSIC"))
     }
 }
