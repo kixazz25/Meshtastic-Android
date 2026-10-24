@@ -3511,7 +3511,7 @@ fun ConvoyScreen(
                 "route.ai" to { com.geeksville.mesh.grouptrack.GtRoute.startAi() },   // GTAI3-2026-10-23: AI route design -- compare table or a new build
                 "route.manual" to { com.geeksville.mesh.grouptrack.GtRoute.startNew(ROUTE_METHOD_P2P) },   // GTROUTE1-2026-10-23: Build it myself, LOCKED (one mode)
                 "route.clear" to { gtClearAsk = true },   // CLEARROUTES-2026-10-22   // GTRIDES (Fred 13:22): ADD ROUTE -- New route or In progress, as +ROUTE
-                "map.features" to { showArtifactsPanel = true },   // GTMAP-2026-10-22: the original Map Features panel, as is
+                // MAPMOVE-2026-10-23: "map.features" (the original Map Features panel) came off the Map menu.
                 "map.queues" to { queuesOpen = true },   // GTMAP: the download queues panel, as is
                 // GTAREA2-2026-10-23: the three area functions -- start a box for the one picked.
                 "map.dl_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "download"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
@@ -3527,11 +3527,7 @@ fun ConvoyScreen(
                 "map.rm_track" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "rmtrack" },   // GTHEAVY-2026-10-23
                 "map.repair" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "refresh" },   // GTHEAVY-2026-10-23   // GTTRACKS-2026-10-23
                 "map.sources" to { onNavigateToMapSources() },   // GTMAP: the Map Sources screen, as is
-                "map.planner" to {   // GTMAP: the planning map, exactly as today (the old Ride Planning button and its gates)
-                    if (!planPosKnown) android.widget.Toast.makeText(context, "Waiting for your position \u2014 Ride Planning opens once GPS or Wi-Fi location is available.", android.widget.Toast.LENGTH_LONG).show()
-                    else if (hasInternet) onNavigateToMapViewer()
-                    else android.widget.Toast.makeText(context, "Planning Map requires internet access", android.widget.Toast.LENGTH_LONG).show()
-                },
+                // MAPMOVE-2026-10-23: "map.planner" (Open the planning map) came off the Map menu -- the planner is removed next.
                 "centre.me" to { viewModel.setAutoPan(true) },   // ATTACH4-2026-10-22: follow again (the readout's view)
                 "internet.switch" to {   // ATTACH3-2026-10-22: the old LOCAL / NET toggle
                     if (isOfflineMode) offlineToggle(false)

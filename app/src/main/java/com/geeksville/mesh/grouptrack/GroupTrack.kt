@@ -176,12 +176,16 @@ fun GroupTrackLaunchLayer(
 
         // ── the open module's panel ──────────────────────────────────────────
         if (openModule != null) {
-            val panelWidth = if (landscape) 380.dp else maxWidth - 16.dp
-            val panelMax = if (openModule.id == "search") maxHeight - 130.dp   // SEARCHTOP: from under RECORD down
+            // MAPFULL-2026-10-23 (Fred 21:50): the MAP menu opens FULL SCREEN (both orientations); every other panel as before.
+            val mapFull = openModule.id == "map"
+            val panelWidth = if (mapFull) maxWidth - 16.dp else if (landscape) 380.dp else maxWidth - 16.dp
+            val panelMax = if (mapFull) maxHeight - 16.dp
+                           else if (openModule.id == "search") maxHeight - 130.dp   // SEARCHTOP: from under RECORD down
                            else if (landscape) maxHeight - 96.dp else maxHeight * 0.55f
             Box(
                 // SEARCHTOP-2026-10-22 (Fred 13:36): SEARCH opens at the TOP (under RECORD) so the keyboard never covers it.
-                modifier = if (openModule.id == "search") Modifier.align(Alignment.TopCenter).padding(top = 110.dp)
+                modifier = if (mapFull) Modifier.align(Alignment.Center)
+                           else if (openModule.id == "search") Modifier.align(Alignment.TopCenter).padding(top = 110.dp)
                            else if (landscape) Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
                            else Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp)
             ) {

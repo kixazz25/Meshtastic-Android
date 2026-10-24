@@ -104,9 +104,9 @@ object LaunchModules {
                 "ridertrails" to "Create trails from tracks",
                 "synctracks" to "Resync tracks with their files",   // GTSYNC-2026-10-23 (Fred 12:42): from the Import GPX screen
                 "imported" to "Imported trails / features by state"),   // IMPORTEDMOVE-2026-10-23 (Fred 11:58): from MAP RECOVERY
-            g("map", "move", "UNTIL THE MOVE IS DONE",
-                "features" to "Map Features (the original panel)",   // goes after Route+
-                "planner" to "Open the planning map",   // goes with the ride map
+            // MAPMOVE-2026-10-23 (Fred 21:45): UNTIL THE MOVE IS DONE is gone -- Map Features (original) and Open the planning map
+            // came off (every function they held is on ONE MAP); Area Search Radius keeps its own row, in its own section.
+            g("map", "search", "SEARCH",
                 "flyover" to "Area Search Radius \u2014 how much a search shows"))),   // AREARADIUS + GTRADIUS-2026-10-23
         // SHELL9-2026-10-22 (Fred 11:07): ROUTE is its own bottom button -- a key function is never hidden between navigation layers.
         LaunchModule("route", "Route", LaunchSlot.BOTTOM_BAR, 2, groupOnly = false, stays = false,   /* GTROUTE1-2026-10-23: a choice closes it */ processes = p("route",
