@@ -105,7 +105,7 @@ object LaunchModules {
                 "gpx" to "Import GPX \u2014 tracks, waypoints, routes",
                 "ridertrails" to "Create trails from tracks",
                 "synctracks" to "Resync tracks with their files",   // GTSYNC-2026-10-23 (Fred 12:42): from the Import GPX screen
-                "imported" to "Imported trails / features by state"),   // IMPORTEDMOVE-2026-10-23 (Fred 11:58): from MAP RECOVERY
+                "imported" to "Display trail, waypoint counts by state"),   // AREASKIP-2026-10-24 (Fred 12:39)   // IMPORTEDMOVE-2026-10-23 (Fred 11:58): from MAP RECOVERY
             // MAPMOVE-2026-10-23 (Fred 21:45): UNTIL THE MOVE IS DONE is gone -- Map Features (original) and Open the planning map
             // came off (every function they held is on ONE MAP); Area Search Radius keeps its own row, in its own section.
             g("map", "search", "SEARCH",

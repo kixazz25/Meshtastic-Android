@@ -66,7 +66,7 @@ fun GtAreaHost(js: (String) -> Unit, barModifier: Modifier) {
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text("Draw the area \u2014 " + GtArea.label(p) + (if (p == "import") "\nPart of a state, or across state borders \u2014 " +
-                "every state the box touches is used; only the trails inside the box are loaded." else ""),   // AREAIMPORT-2026-10-24
+                "next you see every state and source it touches and untick any; only the trails inside the box are loaded." else ""),   // AREAIMPORT-2026-10-24
                 color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false))
             GtButton("CLEAR", { js("activateDrawMode()") })
             GtButton("CANCEL", { GtArea.purpose.value = ""; js("cancelDrawMode()") })
@@ -85,6 +85,7 @@ fun GtAreaHost(js: (String) -> Unit, barModifier: Modifier) {
         "radius" -> GtAreaRadiusScreen(done)   // GTRADIUS-2026-10-23
         "rmtrack" -> GtRemoveTrackScreen(done)   // GTHEAVY-2026-10-23
         "refresh" -> GtRefreshSourceScreen(done)   // GTHEAVY-2026-10-23
+        "bystate" -> GtStateCountsScreen(done)   // AREASKIP-2026-10-24
         "tracks" -> GtDownloadTracksScreen(done)   // GTTRACKS-2026-10-23: no box -- opened straight from the menu
     }
     // The drawn box goes when no module is using it and no box is awaited.

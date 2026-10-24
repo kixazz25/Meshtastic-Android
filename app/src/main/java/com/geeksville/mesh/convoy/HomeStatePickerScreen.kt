@@ -4,6 +4,8 @@ import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -69,6 +71,12 @@ fun HomeStatePickerScreen(
     var detectedState by remember { mutableStateOf<GeofabrikState?>(null) }
     var selectedItem by remember { mutableStateOf<StatePickerItem?>(null) }
     var searchText by remember { mutableStateOf("") }
+    // AREAPICK-2026-10-24: the list of everything an area run will process -- states (slugs ticked) and agency sources (ids ticked).
+    var areaHits by remember { mutableStateOf(emptyList<GeofabrikState>()) }
+    var areaWhole by remember { mutableStateOf(emptyMap<String, String>()) }
+    var areaPicked by remember { mutableStateOf(emptySet<String>()) }
+    var areaCat by remember { mutableStateOf(emptyList<CatalogSource>()) }
+    var areaCatPicked by remember { mutableStateOf(emptySet<String>()) }
     val progress by HomeStateImportController.progress.collectAsState()
     // KILLEDIMPORT-2026-10-02: a running import this screen did not start still ends in "done".
     LaunchedEffect(progress?.phase) {
@@ -91,13 +99,16 @@ fun HomeStatePickerScreen(
             Log.i(TAG, "AREA import: bbox S=${areaBbox[0]} W=${areaBbox[1]} " +
                 "N=${areaBbox[2]} E=${areaBbox[3]} -> ${hits.size} state(s): " +
                 hits.joinToString(", ") { it.slug })
-            phase = "running"
-            // An empty state list is NOT an error -- catalog sources may still
-            // intersect the box. The manifest records exactly what was resolved.
-            HomeStateImportController.executeArea(
-                context, areaBbox[0], areaBbox[1], areaBbox[2], areaBbox[3], hits
-            )
-            phase = "done"
+            // AREAPICK-2026-10-24 (Fred 12:53-12:56): THE LIST FIRST -- a rectangle can touch a state with no ground in the box.
+            // Whole-imported states open unticked; everything else ticked. An empty state list is NOT an error.
+            areaWhole = withContext(Dispatchers.IO) { HomeStateImportController.wholeImportedDates(context) }
+            areaCat = withContext(Dispatchers.IO) {
+                HomeStateImportController.areaCatalogSources(context, areaBbox[0], areaBbox[1], areaBbox[2], areaBbox[3])
+            }
+            areaHits = hits
+            areaPicked = hits.map { it.slug }.filter { it !in areaWhole }.toSet()
+            areaCatPicked = areaCat.map { it.id }.toSet()
+            phase = "areapick"
             return@LaunchedEffect
         }
         val states = withContext(Dispatchers.IO) { GeofabrikCatalog.load(context) }
@@ -117,6 +128,22 @@ fun HomeStatePickerScreen(
             phase = "list"
         }
         Log.i(TAG, "Detected: ${detected?.name ?: "none"}, ${allStates.size} states loaded")
+    }
+
+    // AREAPICK-2026-10-24: START -- exactly what is ticked, as THE import (outlives the screen, one at a time), as startImport below.
+    fun startArea(bb: DoubleArray) {
+        if (!HomeStateImportController.beginImport()) { phase = "running"; return }
+        phase = "running"
+        val run = areaHits.filter { it.slug in areaPicked }
+        val left = areaHits.filter { it.slug !in areaPicked }.map { st ->
+            st.name + " Open Source Maps" + (areaWhole[st.slug]?.let { " (already imported whole $it)" } ?: " (left out by you)")
+        } + areaCat.filter { it.id !in areaCatPicked }.map { it.name + " (left out by you)" }
+        val cats = areaCatPicked
+        Log.i(TAG, "AREAPICK-2026-10-24: run ${run.joinToString(", ") { it.slug }} + ${cats.size} source(s); skipped ${left.joinToString("; ")}")
+        HomeStateImportController.launchImport {
+            HomeStateImportController.executeArea(context, bb[0], bb[1], bb[2], bb[3], run, cats, left)
+            phase = "done"
+        }
     }
 
     // ── Launch import ────────────────────────────────────────────
@@ -168,7 +195,8 @@ fun HomeStatePickerScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    if (phase == "running") "Importing Trail Data"
+                    if (phase == "areapick") "Import trails by area"   // AREAPICK-2026-10-24
+                    else if (phase == "running") "Importing Trail Data"
                     else if (phase == "done") "Trail Data Loaded"
                     else "Welcome to GroupTrack",
                     color = green, fontSize = 20.sp, fontWeight = FontWeight.Bold
@@ -179,6 +207,7 @@ fun HomeStatePickerScreen(
                         "detecting" -> "Detecting your location..."
                         "confirm" -> "Let's load trail data so your first map has everything"
                         "list" -> "Pick your Home state to load trail data"
+                        "areapick" -> "What will be processed for your box"   // AREAPICK-2026-10-24
                         "running" -> "Processing sources for ${selectedItem?.displayName ?: ""}..."
                         "done" -> "Your maps are ready"
                         else -> ""
@@ -225,12 +254,73 @@ fun HomeStatePickerScreen(
                 onBack = if (detectedState != null) {{ phase = "confirm" }} else null
             )
 
+            "areapick" -> AreaSourcePanel(areaHits, areaWhole, areaPicked, areaCat, areaCatPicked,   // AREAPICK-2026-10-24
+                onToggle = { slug -> areaPicked = if (slug in areaPicked) areaPicked - slug else areaPicked + slug },
+                onToggleCat = { id -> areaCatPicked = if (id in areaCatPicked) areaCatPicked - id else areaCatPicked + id },
+                onStart = { areaBbox?.let { startArea(it) } },
+                onCancel = onNavigateBack)
+
             "running" -> ProgressPanel(progress = progress)
 
             "done" -> CompletionPanel(
                 progress = progress,
                 onDone = onNavigateBack
             )
+        }
+    }
+}
+
+// AREAPICK-2026-10-24: the list of everything an area run will process. STATES (Open Source Maps) with each state's own agency
+// sources under it; OTHER SOURCES (national). A check box per item; unticked = left off the run.
+private fun stateBase(st: GeofabrikState): String = st.name.removeSuffix(" North").removeSuffix(" South")
+
+private fun scopeLabel(c: CatalogSource): String = when (c.scope) {
+    "national_parks" -> "national parks"
+    "national_motorized" -> "national, motorized"
+    "state" -> "state"
+    else -> "national"
+}
+
+@Composable
+private fun AreaItemRow(checked: Boolean, label: String, indent: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(start = if (indent) 34.dp else 0.dp, top = 5.dp, bottom = 5.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        com.geeksville.mesh.grouptrack.GtCheck(checked)
+        Text(label, color = Gt.text, fontSize = if (indent) 14.sp else 15.sp, fontWeight = if (indent) FontWeight.Normal else FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun AreaSourcePanel(hits: List<GeofabrikState>, whole: Map<String, String>, picked: Set<String>,
+                            cat: List<CatalogSource>, catPicked: Set<String>,
+                            onToggle: (String) -> Unit, onToggleCat: (String) -> Unit, onStart: () -> Unit, onCancel: () -> Unit) {
+    // a state-scope source goes under the listed state its name or agency names; anything else is an OTHER source
+    val home = cat.associate { c ->
+        c.id to (if (c.scope == "state") hits.firstOrNull { st -> c.name.contains(stateBase(st)) || c.agency.contains(stateBase(st)) }?.slug ?: "" else "")
+    }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Everything ticked is processed for your box. Untick anything to leave it out.", color = Gt.text, fontSize = 14.sp)
+        Text("STATES \u2014 Open Source Maps: the whole state is downloaded (several hundred MB), only your box is kept",
+            color = Gt.text, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+        Text("A state is listed when the rectangle around it touches your box, so one can be listed with no ground in it " +
+            "(California North on the Nevada line) \u2014 untick it. A state already imported whole starts unticked.",
+            color = Gt.text, fontSize = 13.sp)
+        if (hits.isEmpty()) Text("No state touches this box.", color = Gt.text, fontSize = 14.sp)
+        hits.forEach { st ->
+            AreaItemRow(st.slug in picked, st.name + " Open Source Maps" + (whole[st.slug]?.let { " \u2014 already imported whole ($it)" } ?: ""), false) { onToggle(st.slug) }
+            cat.filter { home[it.id] == st.slug }.forEach { c -> AreaItemRow(c.id in catPicked, c.name, true) { onToggleCat(c.id) } }
+        }
+        val others = cat.filter { home[it.id].isNullOrEmpty() }
+        if (others.isNotEmpty()) {
+            Text("OTHER SOURCES \u2014 only your box is loaded", color = Gt.text, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 10.dp))
+            others.forEach { c -> AreaItemRow(c.id in catPicked, c.name + "  \u00b7  " + scopeLabel(c), false) { onToggleCat(c.id) } }
+        }
+        val any = picked.isNotEmpty() || catPicked.isNotEmpty()
+        if (!any) Text("Nothing is ticked \u2014 there is nothing to process.", color = Gt.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
+            com.geeksville.mesh.grouptrack.GtButton("START", onStart, enabled = any)
+            com.geeksville.mesh.grouptrack.GtButton("CANCEL", onCancel)
         }
     }
 }
@@ -429,16 +519,20 @@ private fun ProgressPanel(progress: ImportProgress?) {
 
     val dlLive by HomeStateImportController.downloadDetailFlow.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        // Remember when we started for the running clock
-        val startTimeMs = remember { System.currentTimeMillis() }
-        var clockTick by remember { mutableStateOf(System.currentTimeMillis()) }
-        LaunchedEffect(Unit) {
-            while (true) {
-                kotlinx.coroutines.delay(1000)
-                clockTick = System.currentTimeMillis()
-            }
+    // Remember when we started for the running clock
+    // IMPORTSCROLL-2026-10-24: held ABOVE the list -- state inside a list item restarts when the item scrolls away.
+    val startTimeMs = remember { System.currentTimeMillis() }
+    var clockTick by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            clockTick = System.currentTimeMillis()
         }
+    }
+
+    // IMPORTSCROLL-2026-10-24 (Fred 13:28): ONE list -- banner, counts, every source, elapsed -- so the whole tracker scrolls.
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        item {
 
         // Blinking "Do not close" banner — TOP of panel, unmissable
         val blink = (clockTick / 800) % 2 == 0L
@@ -460,11 +554,13 @@ private fun ProgressPanel(progress: ImportProgress?) {
         // Source count + time estimate
         Text("Processing ${progress.totalSources} sources for ${progress.stateName}",
             color = blue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        if (HomeStateImportController.lastSkipped.isNotEmpty())   // AREASKIP-2026-10-24
+            Text("Already imported whole \u2014 skipped: " + HomeStateImportController.lastSkipped.joinToString("; "),
+                color = Gt.text, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 4.dp))
         Text("Est. ~${progress.estimatedMinutesRemaining} minutes remaining",
             color = txtDim, fontSize = 12.sp)
         Spacer(Modifier.height(12.dp))
-
-        LazyColumn(modifier = Modifier.weight(1f)) {
+        }
             items(progress.sources.size) { i ->
                 val src = progress.sources[i]
                 val isCurrent = src.status == "in_progress"
@@ -499,13 +595,13 @@ private fun ProgressPanel(progress: ImportProgress?) {
                     }
                 }
             }
-        }
-
+        item {
         // Elapsed time (calculated from clock, not progress snapshot)
-        val elSec = (System.currentTimeMillis() - startTimeMs) / 1000
+        val elSec = (clockTick - startTimeMs) / 1000   // IMPORTSCROLL-2026-10-24: reads the clock, so this item redraws every second
         Text("Elapsed: ${elSec / 60}m ${elSec % 60}s",
             color = txtDim, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center)
+        }
     }
 }
 
@@ -531,7 +627,7 @@ private fun RecapLine(label: String, value: Int) {
 @Composable
 private fun CompletionPanel(progress: ImportProgress?, onDone: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),   // IMPORTSCROLL-2026-10-24
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -540,6 +636,9 @@ private fun CompletionPanel(progress: ImportProgress?, onDone: () -> Unit) {
         Text("${progress?.stateName ?: ""} — Import Complete",
             color = green, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
+        if (HomeStateImportController.lastSkipped.isNotEmpty())   // AREASKIP-2026-10-24
+            Text("Already imported whole \u2014 skipped: " + HomeStateImportController.lastSkipped.joinToString("; "),
+                color = Gt.text, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 4.dp))
 
         // Results table
         Surface(color = cardBg, shape = RoundedCornerShape(8.dp)) {

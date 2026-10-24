@@ -87,6 +87,9 @@ object HomeStateImportController {
      * source can never collide with this.
      */
     internal const val RIDER_STAGE_ID = "_ridertrails"
+    private const val MARK = "AREASKIP-2026-10-24"
+    /** AREASKIP-2026-10-24: what the last area run skipped because it was already imported whole ("" entries never). Read by the import screen. */
+    @Volatile var lastSkipped: List<String> = emptyList()
 
     private val _progress = MutableStateFlow<ImportProgress?>(null)
     internal val downloadDetailFlow = MutableStateFlow<String?>(null)
@@ -279,7 +282,9 @@ object HomeStateImportController {
             bboxSouth = state.bboxSouth, bboxWest = state.bboxWest,
             bboxNorth = state.bboxNorth, bboxEast = state.bboxEast,
             states = listOf(state),
-            geofabrikProcess = "geofabrik_full_state"
+            geofabrikProcess = "geofabrik_full_state",
+            pickedCatalog = emptySet(),   // AREAPICK-2026-10-24: read only by an AREA run -- a state run takes every source
+            leftOut = emptyList()
         )
 
     /**
@@ -294,7 +299,11 @@ object HomeStateImportController {
     suspend fun executeArea(
         context: Context,
         bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double,
-        states: List<GeofabrikState>
+        states: List<GeofabrikState>,
+        // AREAPICK-2026-10-24: the rider's list decides. [catalogIds] = the agency sources TICKED; [leftOut] = everything unticked,
+        // named with why, for the run's "skipped" line. Not nullable: the one caller always has the list.
+        catalogIds: Set<String>,
+        leftOut: List<String>
     ): Boolean {
         // Slug-safe: this label becomes the manifest filename AND the manifest_id.
         val label = if (states.size == 1) "area-${states[0].slug}"
@@ -306,7 +315,9 @@ object HomeStateImportController {
             bboxSouth = bboxSouth, bboxWest = bboxWest,
             bboxNorth = bboxNorth, bboxEast = bboxEast,
             states = states,
-            geofabrikProcess = "geofabrik_area"
+            geofabrikProcess = "geofabrik_area",
+            pickedCatalog = catalogIds,
+            leftOut = leftOut
         )
     }
 
@@ -316,24 +327,37 @@ object HomeStateImportController {
         areaLabel: String,
         bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double,
         states: List<GeofabrikState>,
-        geofabrikProcess: String
+        geofabrikProcess: String,
+        pickedCatalog: Set<String>,
+        leftOut: List<String>
     ): Boolean =
         withContext(Dispatchers.IO) {
             val startMs = System.currentTimeMillis()
             Log.i(TAG, "Starting import: $areaLabel type=$areaType " +
                 "states=${states.size} bbox S=$bboxSouth W=$bboxWest N=$bboxNorth E=$bboxEast")
             // 1. Catalog sources intersecting the RUN's bbox
-            val catalogSources = findCatalogSourcesInBbox(
+            var catalogSources = findCatalogSourcesInBbox(
                 context, bboxSouth, bboxWest, bboxNorth, bboxEast
             )
+            // AREASKIP-2026-10-24 (Fred 12:44): an AREA run skips a state already imported WHOLE -- all its trails exist already --
+            // and a catalog source a whole-state import already loaded whole. A state run is never skipped (it is the re-import).
+            // \u26a0 `states` itself is unchanged: step 8's Utah land check below still sees every state the box touches.
+            // AREAPICK-2026-10-24: THE RIDER'S LIST DECIDES (it opens with whole-imported states unticked -- the AREASKIP rule as a
+            // default). The states passed in are the ticked ones; the agency sources run only if ticked.
+            val skipped = leftOut.toMutableList()
+            val runStates = states
+            if (areaType == "bbox") catalogSources = catalogSources.filter { it.first in pickedCatalog }
+            if (skipped.isNotEmpty()) Log.i(TAG, "$MARK: skipped ${skipped.joinToString("; ")}")
+            lastSkipped = skipped.toList()
             val catalogIds = catalogSources.map { it.first }
             val catalogNames = catalogSources.associate { it.first to it.second }
             // 2. Build and write the manifest -- the whole plan, before any of it runs
             val manifest = buildManifest(
                 areaType, areaLabel,
                 bboxSouth, bboxWest, bboxNorth, bboxEast,
-                states, geofabrikProcess, catalogIds, catalogNames
+                runStates, geofabrikProcess, catalogIds, catalogNames
             )
+            manifest.put("skipped", JSONArray(skipped))
             val mFile = manifestFile(context, areaLabel)
             writeManifest(mFile, manifest)
 
@@ -857,6 +881,7 @@ object HomeStateImportController {
             src.put("dupes", gDupes)
             src.put("adds", gAdds)
             src.put("errors", gErrors)
+            src.put("points", last.optInt("points_inserted", -1))   // AREASKIP-2026-10-24: points added, for the counts by state
         }
 
         // Step 5: Cleanup
@@ -907,6 +932,47 @@ object HomeStateImportController {
     }
 
     // ── Find catalog sources that intersect the state bbox ───────
+
+    /** AREASKIP-2026-10-24: every import JSON on the tablet -- imports/ and imports/history/ -- that has a sources list. */
+    fun importRecords(ctx: Context): List<JSONObject> {
+        val dir = importsDir(ctx)
+        val files = (dir.listFiles { f -> f.isFile && f.extension == "json" } ?: emptyArray()).toList() +
+            (File(dir, "history").listFiles { f -> f.isFile && f.extension == "json" } ?: emptyArray()).toList()
+        return files.mapNotNull { f ->
+            try { JSONObject(f.readText()).takeIf { it.optJSONArray("sources") != null } } catch (e: Exception) { null }
+        }
+    }
+
+    /** AREASKIP-2026-10-24: the date an import finished (or started), yyyy-mm-dd. */
+    fun manifestDate(m: JSONObject): String {
+        val c = m.optString("completed_at", "")
+        return (if (c.isEmpty() || c == "null") m.optString("started_at", "") else c).take(10)
+    }
+
+    /** AREASKIP-2026-10-24: slug -> the newest WHOLE-STATE import whose Open Source Maps row for that slug completed. */
+    /** AREAPICK-2026-10-24: slug -> the date its whole-state import finished -- the list opens with these unticked. */
+    fun wholeImportedDates(ctx: Context): Map<String, String> = wholeStateImports(ctx).mapValues { manifestDate(it.value) }
+
+    private fun wholeStateImports(ctx: Context): Map<String, JSONObject> {
+        val out = HashMap<String, JSONObject>()
+        for (m in importRecords(ctx).sortedBy { it.optString("started_at", "") }) {
+            if (m.optJSONObject("area")?.optString("type") != "state") continue
+            val srcs = m.optJSONArray("sources") ?: continue
+            for (i in 0 until srcs.length()) {
+                val o = srcs.optJSONObject(i) ?: continue
+                if (o.has("slug") && o.optString("status") == "completed") out[o.optString("slug")] = m
+            }
+        }
+        return out
+    }
+
+    /** AREAPICK-2026-10-24: the agency sources an area's list shows -- the same catalog and overlap test the run uses. */
+    fun areaCatalogSources(ctx: Context, s: Double, w: Double, n: Double, e: Double): List<CatalogSource> = try {
+        loadSourceCatalog(ctx).filter { src ->
+            src.status != "display_only_not_queryable" &&
+                src.boundaryN >= s && src.boundaryS <= n && src.boundaryE >= w && src.boundaryW <= e
+        }
+    } catch (ex: Exception) { Log.e(TAG, "area catalog failed", ex); emptyList() }
 
     private fun findCatalogSourcesInBbox(
         context: Context,
