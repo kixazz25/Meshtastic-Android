@@ -84,7 +84,7 @@ Add Route testing runs as 2 lands. Open from 14:59: where Fred sees FLYOVER on t
 download panel).
 
 
-=== GroupTrack_2.7c_DayNotes_2026-10-23_v2.md ===
+=== GroupTrack_2.7c_DayNotes_2026-10-23_v4.md ===
 # GroupTrack 2.7c — day notes 2026-10-23 (fold into living master v167 / handoff v73 at EOD)
 
 ## 2.7c items added (Fred 08:04-08:07)
@@ -295,6 +295,322 @@ Fix (2.7c, before the jobCategories removal):
 - Then: remove the planner (ConvoyMapViewerScreen + its page grouptrack_map.html + its nav route + "Open the planning map"), the "UNTIL THE MOVE IS DONE" rows (Map Features original, Open the planning map), the classic ride layout (37 GtLayout.oneMap / gtOneMap branches in ConvoyScreen; MENU > Classic layout; Settings > Layout), and the planner-only panels (ConvoyDownloadPanel, OsmImportPanel, ConvoyDocsChooser if covered, the Convoy AI / batch panels once nothing calls them). Re-run the dead-composable inventory after each removal patch. Then start-up from ONE MAP (GroupTrack.kt the start screen).
 
 ## 16:46 Stage 2 COMMITTED: 9eba2db05 "2.7c: Route+ stage 2 -- AI route design on ONE MAP" (7 files). Next: push, in-app docs (manual v65, notes v44, Quick Start v89) committed on their own, recommit_v24.
+
+## 21:13-22:23 EVENING -- THE OLD MAPS REMOVED (Fred 21:21 "Let's start tonight"; 22:00 "ok step 4")
+- Fred 21:19: the lead track, my track and all cart position reporting live in the RIDE MAP (ConvoyScreen + convoy_map.html) under BOTH
+  layouts -- removing the classic layout removes only its 9 button/bar blocks; ConvoyScreen's retirement (GroupTrack.kt as start screen)
+  is a later step that first moves those functions into modules (phase 3, M5-M10).
+- Step 1 HOME1 (ac0535e05): Build from recipe (detail card + route panel -> GtRoute.buildFromRecipe -> AI SUMMARY; open compare set first;
+  nothing deleted) · saved route notes (GtNotesPanel = ConvoyNotesPanel copied with HELP X) · work-in-progress notes (ROUTE DETAILS button
+  while a draft with notes is open). HOME1B: NoteStyle import (build error). HOME1C (Fred 21:32): on ONE MAP a route WITH a narrative
+  opens the route panel first (description, BUILD FROM RECIPE, ROUTE DETAILS -> card); without one, the card. HOME1D (21:40): every
+  section opens OPEN. Fred 21:40: the detail CARD goes to the new colour scheme -- first screen of the look-and-feel pass, AFTER the
+  planner (it was shared with the planner until b3e4a44b6).
+- Step 2 MAPMOVE + MAPFULL (9b8bed0a2): UNTIL THE MOVE IS DONE removed (Map Features original, Open the planning map); Area Search
+  Radius in its OWN SEARCH section on the Map menu (Fred's choice, 21:46); the MAP menu opens FULL SCREEN (Fred 21:50).
+- Step 3 PLANNEROUT (b3e4a44b6): the planning map REMOVED -- ConvoyMapViewerScreen.kt (5,767 lines) + grouptrack_map.html moved to
+  retired/2.7c_planner/ (git: 100% renames); its nav destination gone; old entry points showed a notice. Trace first: its one public
+  symbol was the screen; one real caller.
+- Step 4a CLASSICOFF (927130ba6): ONE MAP is the ONLY layout -- GtLayout.oneMap always true (saved choice no longer read; set()
+  removed), MENU > Classic layout and Settings > Layout removed. Upgrading classic-layout testers: their saved view was under "convoy";
+  ONE MAP reads "grouptrack" -> first launch opens on the cart with default layers (once).
+- Step 4b CLASSICGONE v2 (2cf35cf35): the 9 classic-only blocks deleted from ConvoyScreen (map bar, old UnifiedSearch, Map Keys, Work
+  with Rides, GRP Awareness, Help, Map Features, QUEUES, ConvoyButtonBar) -- 159 lines; no !gtOneMap test left. The ride map's older
+  Route+ copy (ConvoyScreen routeMode / ConvoyRouteToolbar) left for the dead-code step.
+- DEAD CODE inventory (read-only, 22:12, convoy/ + grouptrack/, transitive, comments and strings ignored): 101 unused top-level
+  declarations (~5,300 lines) of 821. False positives excluded: ConvoyFileReceiver, ConvoyInviteHandler (manifest Activities).
+  Patch 1 DEADFILES v2 (5b2eb8e07): 19 WHOLE files moved to retired/2.7c_dead/ (AliasManager, AuditLogger, TrackManager,
+  WaypointManager, AutoResyncHost, ConvoyAiDesignPanel, ConvoyDocs, ConvoyMapBar, ConvoyNodeFilter, ConvoyQueuesPanel,
+  ConvoyRidesScreen, ConvoySharePromptDialog, ConvoyTrackSaveOps, ConvoyTracksScreen, ConvoyWaypointCreateDialog, GroupTrackMigration,
+  GroupTrackMigrationScreen, UnifiedSearch, grouptrack/MapModule). v1 stopped on a same-named object in feature/convoy (nothing moved).
+  Build passed without them.
+- NEXT (10-24): dead-code patch 2 -- ~80 unused pieces inside live files (~2,500 lines: OsmImportPanel's dead part, the planner copies
+  ConvoyDownloadPanel / ConvoyBatchGridPanel / ConvoyAiStepPanel / ConvoyGuidedPinPanel screens / ConvoyNotesPanel, ConvoyScreen's
+  HudModeRow / ConvoyButtonBar / old track loaders, [v4: NOT ConvoyTrackImportScreen's dialogs -- live, a false positive], ~20 rows / badges / colours) -> then the
+  ride map's older Route+ copy -> the deeper pass (unused members inside objects / classes) -> start-up from ONE MAP -> look and feel
+  (the detail card first). The 10-24 docs carry tonight's work (living master v168 etc.).
+  [v4: patch 2 and the inventories were done the same night -- see the 22:25-23:01 section below; NEXT is replaced there.]
+
+## 22:25-23:01 LATE EVENING -- DEAD CODE PATCH 2, ROUTE TAP FIX, SCREEN AND COLOUR INVENTORIES
+- Size (22:24): GroupTrack's own code (convoy/ + grouptrack/) ~63,000 lines after tonight (~71,100 before); app module ~79,000;
+  whole repo ~166,000. Tonight's removals: ~11,200 lines out of the build (planner 5,767 + 19 files + 42 pieces) = ~16% of GroupTrack's code.
+- DEEPER PASS (read-only, ~/members.py on the VM): 210 unused MEMBERS inside objects/classes (~2,000 lines, mostly logic files:
+  ConvoyTrackOps old GPX import 557, OsmImportStage 318, SpatialDbManager 214, ConvoyApiClient 194 -- createRide / createInvite /
+  submitSurvey are V3 server calls, unused != unwanted, OsmImportLedger 116). DEFERRED: remove under CODE RULE 2 when a file is touched;
+  the one worth doing on its own is ConvoyTrackOps' old import path. Five small types stay with it (RideState, OsmStage, TrackDonation,
+  RideRow, PendingMapDownload -- still used by dead members).
+- Scanner lessons (so they are not repeated): (1) local variables must not count as declarations (a local val swallowed the calls after
+  it); (2) a top-level declaration ends at the next one at the same indent; (3) comments and strings need a real Kotlin lexer -- stripping
+  // before strings read "//" inside a URL as a comment and hid real callers. v1 of patch 2 wrongly listed ImportProgressDialog,
+  ImportRecapDialog, fmtTiles, qdElapsed (all LIVE). v1 and v2 superseded, never run.
+- DEADCODE2 v3 + ROUTEDESC -- COMMITTED 8912d3c98 (pushed): 42 unused top-level pieces, 3,108 lines, cut from 18 screen files; each
+  piece's text kept in retired/2.7c_dead/pieces/convoy/<File>.pieces.txt (not compiled); one marker comment where each was. Biggest:
+  OsmImportPanel old panel 1,160 (the live OSM import runs through HomeStateImportController), ConvoyDownloadPanel 591,
+  ConvoyBatchGridPanel 298, ConvoyScreen 237 (HudModeRow, ConvoyButtonBar, convoyListTracks / convoyLoadTrackData / convoyLoadTrack),
+  ConvoyGuidedPinPanel 216, ConvoyNotesPanel 180, ConvoyAiStepPanel 156, ConvoyArtifactsPanel 135. Build passed first time; Fred
+  bench-tested ok (22:46).
+- ROUTEDESC (Fred 22:44 "route detail description panel loads for routes without descriptions"): HOME1C opened the narrative panel for
+  ANY route_notes row, but many rows hold only summary numbers. New routeHasDescription(routeId) (ConvoyNotesPanel.kt): true only for a
+  headline, description, ground_covered, or a non-empty what_you_will_see / stops_in_order / before_you_go. Stats-only routes open the
+  detail card. Both ConvoyScreen onRouteTap bridges use it. Fred 22:51: correct.
+- NEW REQUIREMENT (Fred 22:41): ride create (ConvoyRideCreateScreen) needs a SEARCH to find the route -- in an area, by tracks, or by
+  route name -- showing the list of routes matching. Today: a flat list of the newest 200 by name, no filter (and its empty text still
+  says "build one in the planner"). RouteSummary already carries each route's box (min/max lat/lon) -> an area filter is a query.
+  OPEN QUESTIONS for Fred: (1) "in area" = the map view on ONE MAP, a place typed (the Select-your-trailhead search), or both?
+  (2) "by tracks" = routes converted from recorded tracks, or routes along a named trail/track?
+- SCREEN INVENTORY (Fred 22:57 corrections): the SCREENS HAVE NOT CHANGED -- only WHERE THEY ARE LAUNCHED FROM; manual screenshots stay
+  valid, only the "how you get there" text is stale. Screens are named by their FUNCTION name. NOT screen-by-screen: the standard is
+  APPLIED ONCE to every screen and the build rebuilt. ~33 manual screens: 10 already meet the standard (this week's grouptrack/ modules);
+  15 have HELP X but old colours (~5,300 lines); 15 have neither (~5,300 lines); plus the ride map's panels inside ConvoyScreen.
+  Check reachability before restyling: MapKeysPanel, TrailFilterPanel, ConvoyRouteToolbar (ONE MAP has its own) and the TWO ride-create
+  screens (ConvoyRideCreateScreen in the manual, the older ConvoyCreateRideScreen from ConvoyNavigation).
+- COLOUR INVENTORY (~/colors.py): 1,880 colour uses in 73 files, 224 distinct values. Three kinds:
+  DATA colours (the colour IS the information -- never change, ~25 uses / 10 files): MapKeysPanel LineSwatch, TrailFilterPanel
+  FilterSwatch, KeyModule, TrailStylePanel PALETTE, ArtifactDetailPanel category swatch, AiCompareTable + ConvoyBatchGridPanel route
+  colours, ConvoyRiderProfileScreen cart colours, ConvoyScreen gpsChColor (channel use).
+  STATUS colours (~280 uses chosen by a condition, written as 82 different reds/greens/ambers) -> the standard's Good / Warn / Bad. The
+  scheme follows the map (white panel on SAT, blue on topo), so each scheme needs ITS OWN Good/Warn/Bad (amber on white is unreadable) --
+  a three-line addition to GtButtonScheme.
+  DECORATIVE (~1,575 -- backgrounds, text, borders, accents; many look like status but are not: Meshtastic green MshPrimary 64, neon
+  green SHARE/EXPORT 57+36, navy cards) -> the scheme by role: background -> panel, text -> panelText, grey -> panelDim, border -> edge,
+  accent -> button.
+  THE MODEL: one script applies it to every screen (data colours listed by name and skipped; screens without HELP X get the GtPanel
+  frame where they have a top bar); its dry run lists every replacement by file and line; one build; all screens benched together.
+- NEXT (10-24): the 10-24 docs from these notes (living master v168, handoff, WHERE WE ARE, ledger, notes, manual "how you get there"
+  text, Quick Start) -> the colour/standard script (per-scheme Good/Warn/Bad first) -> one build, bench -> ride-create route search
+  (after Fred's two answers) -> the ride map's older Route+ copy -> start-up from ONE MAP.
+
+
+=== GroupTrack_2.7c_DayNotes_2026-10-24_v12.md ===
+# GroupTrack 2.7c — day notes 2026-10-24 (v12)
+Branch 2.7c. Start of day run (Fred 08:51). Previous day: GroupTrack_2.7c_DayNotes_2026-10-23_v4.md (last commit 8912d3c98).
+
+## 08:28-08:38 THE ORDER OF WORK (Fred)
+1. SCREEN STANDARDIZATION -- the standard applied to every screen at once and the model rebuilt (not screen by screen).
+2. PROCESS SIMPLIFICATION (step 2 of screen simplification, Fred 08:36): every piece of data a process needs is captured on its FIRST
+   screen and passed into the processes that follow -- no follow-on screen launched just to fetch a value.
+3. ALL FUNCTION REVISIONS, including the pending 2.7c fixes (Fred 08:38: they may change screen designs).
+4. THE MANUAL -- LAST. Built on the existing manual's text and description decorations (keep as much of that work as possible).
+   A screen that appears in several processes is captured in EACH process it appears in (replaces the 10-01 "capture once" rule).
+
+## THE MANUAL METHOD (Fred 08:28-08:31; prior round 09-27..10-01 documented in GroupTrack_ScreenCapture_Plan_2026-09-27_v4.html,
+## GroupTrack_CaptureFolders_2026-09-27_v2.sh, GroupTrack_CaptureManifest_2026-09-30_v4.json, GroupTrack_LabelMap_2026-09-30_v4.html,
+## GroupTrack_Captures_2.7a_2026-10-01_v4.tar)
+- Count every list / information point on the map screen and label them A-Z (then AA, AB ...). EVERYTHING on the map is lettered --
+  controls, information displays (GPS status, N - Z18, readout fields), map content (carts, routes, labels) and gestures (Fred 08:54).
+- Claude builds an HTML model of the screen from Fred's Droid image with each letter and a functional description; Fred drags the
+  letters to their launch points; that is the starting point for the manual.
+- Function references then trace each next-level call (screen to screen). A DECISION FORK (e.g. drop pins yes/no on the AI route
+  planner) splits the screen sequence; in the documentation only ONE path is open at a time, everything else collapsed.
+- Capture tree: Claude sends a tar/folder structure named with PROCESS and FUNCTION names that mimics the call structure, fork paths
+  included; Fred copies screen images into it and posts it back; Claude replaces the images in the manual.
+- How the current manual keeps one path open (read 08:33, manual v65): nested <details> levels l1-l5; opening one closes its SIBLINGS
+  (never an ancestor); an ancestor with an open child hides its own text, pictures, tables and letter list (class haschild) so only the
+  trail of headings shows; links open the target and every ancestor; lettered map pictures are <div class="lm"> with <a class="lmk">
+  letters at left/top % plus an <ol class="letters"> list. GAP: inside a process all steps are open together (e.g. 4.5.9.2 shows six
+  steps and ~12 pictures at once). FIX: each process step becomes the next <details> level (one step open at a time); a fork becomes
+  sibling <details> inside its step; a fork that changes later steps carries those steps inside itself. Same shape as the capture
+  folders: chapter / letter / function / step-or-fork.
+- 2.7c: manual chapters 4 (Ride Planning Map) and 5 (Ride Map) are flagged "replaced by One Map" -> ONE chapter, ONE lettered picture.
+- Screen captures are taken AFTER the colour pass (positions do not move, so lettering can go first).
+
+## ONE MAP DOCUMENTATION FOLDER (Fred 08:51-09:17)
+- Fred's folder "One map documentation" now lives in My Drive/GroupTrack/One map documentation (moved 09:13; the Desktop item is a
+  shortcut to it). Holds: "one map Grouptrack launch points" (Group, not checked in), "Android only", "no checked in with route add",
+  GroupTrack_LabelMap_2026-10-24_v5.html (superseded) and GroupTrack_LabelMap_2026-10-24_v6.html.
+- LABEL MAP v6: tabs ONE MAP - Group (35 letters A-AI), ONE MAP - Android only (36), ONE MAP - recording (empty: load screenshot, Copy
+  letters from ONE MAP), MENU (empty). Each letter: kind (control / display / map / gesture), What it does, While recording, Android only.
+  Group letters: A MENU, B/C zoom, D GPS status (red NO GPS LOCK, green GPS LOCK n at 4+ satellites), E N - Z18 (north up, zoom),
+  F CHK IN/RECORD, G GRP Awareness, H Mode, I Status (internet), J Map: SAT, K MAP KEY, L FILTER, M CENTRE ON ME, N map labels,
+  O a route (magenta, arrows = direction), P another cart, Q my cart, R GPS, S send interval, T channel use, U text light/dark,
+  V GROUP readout, W SPAN, X Carts/Active/Lost, Y Lead/Tail, Z Map, AA Add Route, AB Rides, AC Search, AD RADIO SETUP, AE Leaflet,
+  AF long press -> waypoint, AG tap a feature, AH drag/pinch, AI Distance traveled (recording only).
+  Android only differs: F REC (no check-in), G grey (no radio), H Mode: Android only, R GPS greyed (S, T still shown), no P, no W-Y,
+  no AD (bottom bar re-spaces); MY CART readout AJ Heading, AK Battery (to confirm: radio or tablet), AL Altitude, AM Speed,
+  AN To Lead - To Tail, AO Gap Ahead - Gap Behind (also in Group with View: My Cart).
+  On a ride: AA Add Route becomes View: My Cart / View: Group (Group; nothing in Android only); H blocked while recording.
+  TO CONFIRM: cart marker colours (P square, Q star) changed between Fred's screens -- role or the rider's team colour.
+- Still to capture: ONE MAP while recording; MENU open.
+
+## STD1 -- THE COLOUR PASS (applied 09:32, built 09:36 first time: 2026-10-24_0936_mac_8912d3c98_UNCOMMITTED)
+- patch_std1_colours_2026-10-24.py. The standard (grouptrack/GtPanel.kt): each scheme gains its own accent / good / warn / bad
+  (satellite white panel: accent 1565C0, good 1A7F37, warn 9A6700, bad CF222E; topo blue panel: accent 9CD3FF, good 7EE787,
+  warn F2CC60, bad FFA198) and one accessor Gt.panel / text / dim / line / accent / good / warn / bad / button / buttonText.
+- 1,394 colour uses changed in 72 files (text 438, accent 334, panel 288, dim 110, warn 78, bad 60, good 52, line 25, GtColors 9);
+  23 data colours kept (MapKeysPanel LineSwatch + MapKeyRow tables, TrailFilterPanel FilterSwatch, ArtifactDetailPanel cartoStyle,
+  ConvoyRiderProfileScreen TEAMS, TrailStylePanel PALETTE, ConvoyMapSourceScreen SAT/TOPO badges). Colour properties became getters
+  (follow a map-type change); coloured backgrounds became tints (alpha 0.22). Every replacement: ~/Downloads/STD1_report_2026-10-24_v1.txt.
+- NOT in STD1: ConvoyScreen (the ride map draws readouts straight on the map -- STD1B, with the phase-3 module moves); MaterialTheme
+  colours (41 uses) and Color.Black / Transparent -- STD2.
+- Test-run lessons: the patch was proved on a copy first; a fully qualified androidx.compose.ui.graphics.Color(0x..) first came out as
+  androidx.compose.ui.graphics.Gt.text -- fixed before release.
+- BENCH (Fred 09:40-09:41): Settings screen did not change (it uses MaterialTheme.colorScheme -- 12 onSurfaceVariant, 2 primary);
+  Help / info panel did not change (GtHelpViewer shows the manual / notes / Quick Start HTML, whose look is set in those documents).
+  Both -> STD2 list.
+
+## STD2 LIST (screens that draw colour another way -- one rule each, not screen by screen)
+- MaterialTheme colours: ConvoySettingsScreen and the other 41 uses.
+- The in-app documents (Help viewer): the manual / release notes / Quick Start HTML styles.
+- HELP X framing (GtPanel frame) for screens without it.
+- ConvoyScreen ride-map panels (STD1B).
+
+## NEW TASK (Fred 09:40): UTAH PRIVATE-PROPERTY CLEANUP -- its own task under MAP
+- "In case anybody in the field has the same issue I had": the town street grids (e.g. Beryl Junction) arrive in OSM as
+  highway=unclassified, indistinguishable from backcountry roads; OwnershipReclass (OWNERSHIP-2026-08-31, step 8 of the state import)
+  classifies them against the land-ownership polygons (any public segment wins) into the R - Residential Roads category -- a
+  CATEGORY, not a deletion; the rider turns it off and the town grid goes.
+- Today it is reachable only from Settings ("Classify trails again" -- ConvoySettingsScreen ~line 210-235, OwnershipReclass.run(s, e));
+  also run by HomeStateImportController (state import) and StartupHousekeeping (applyMissingCategories).
+- TO DO: give it its own row on the Map menu (under IMPORT MAP FEATURES or MAP RECOVERY -- Fred to choose), named for what the rider
+  sees, e.g. "Clean up private / residential roads (Utah)"; same function, no logic change; Settings row removed once it has its home
+  (nothing removed without a home). Part of step 3 (function revisions).
+
+## 09:45-10:49 THE STANDARD, CONTINUED (all applied; last build 2026-10-24_1047_mac_8912d3c98_UNCOMMITTED has STD1-STD1I + RIDESEARCH 1-3)
+- STD1C (Fred 09:45 "all text blue on white, or white on blue; change all text, then pick the ones that need another colour for a
+  reason"): satellite text navy -> blue; Gt.dim / accent / good / warn / bad / line all read the TEXT colour for now (the per-scheme
+  values stay defined for the exceptions; every use is in STD1_report).
+- STD1D (09:46 "blue boxes with black letters"; "if a box is blue the letters must be white"): GtTheme -- every GroupTrack screen route
+  (33, ONE MAP included) is drawn inside a Material theme built from the scheme: SAT = white panel, blue text, blue buttons with white
+  letters; TOPO = blue panel, white text, white buttons with blue letters. Uncoloured text = the text colour (LocalContentColor).
+- STD1E (09:54-09:55 "washed out"; "titles darker, content paler -- titles larger, same colour"): blue 1565C0 -> 0D47A1 (8.6:1);
+  content text Medium weight; panel titles 18 sp.
+- STD1F SUPERSEDED (never run) -> STD1G (10:01-10:06 "same colour background and text"; "no fonts smaller than 12 pt"; "turn
+  semi-transparent off"): ROOT CAUSE -- STD1 read Surface(color = X) as a TEXT colour; 107 boxes drew in the text colour. Each restored
+  from what it WAS (STD1_report): grey / dark / white card -> Gt.panel (33); a STATE or a colour -> a tint (74). 571 font sizes under 12 sp
+  -> 12 sp (every file, ride map included) + the theme's small styles floored. Panels solid (FFFFFF / 0D3B73, were 97%).
+- STD1H (10:14 "selections of all boxed items -> a check mark, blank if empty -- we colour the box today"; 10:15 "download maps by
+  corridor still transparent"): 19 more see-through panels solid; 21 selections: 8 with a checkbox stop changing colour, 13 that showed
+  the choice only by colour read "✓ label" (Map Features OFF/ALL/SELECT, FILTER segments, Search scope/type chips, state list,
+  queue chips, track-export tabs, trail-source method cards, enrollment type, rider-profile role, ALL RIDES).
+- STD1I (10:27 "proceed with the six screen fixes", from Fred's 10:24 method "search for backgrounds not equal to the standard": 58 in 20
+  files, 24 data/status): AI route design steps (the file STD1 skipped -- its @Composable is written in full), Check in (black -> panel),
+  GroupTrack buttons (panel-colour letters on the blue box), Field radio (disabled text was invisible), ride-map dialogs (Location
+  permission, Select lead cart, Help viewer, MAP DOWNLOADS IN PROGRESS, ride-import splash, View cart roles -- neutrals only; status
+  red/green kept), GPS interval presets (a check mark). KEPT: REC / PAUSE / END, ROLE CONFLICT, role-held warning, contact-lost banner,
+  the HUD (GPS row, readouts, pill, GPS light, N - Z).
+- AICHECK (10:49 "AI acceptance panel shows a blue block, no checkbox"): the hand-drawn opt-out box -> the standard Checkbox. Patch
+  ready (patch_ai_optout_check_2026-10-24.py), dry run passed.
+- RIDESEARCH 1-3 (Fred 10-23 22:41; 10-24 10:22, 10:30, 10:34, 10:35): Rides > Create a ride opens SEARCH (its text: "This panel positions
+  you by area, track, route or waypoint. The next step displays all routes in that area for you to select the route to build a ride
+  from. You can turn tracks on to create a route from a track." + PROCEED TO RIDE CREATION); after Search a bar "Create a ride: move the
+  map to where you will ride" -- SEARCH / PROCEED TO RIDE CREATION / CANCEL (stays while a track's card is open, so a track can be made a
+  route first); the ride form as it exists lists only the routes in the map area ("Routes in the map area: n", SHOW ALL). Opening the
+  form any other way is unchanged. New: grouptrack/RideStart.kt (GtRideStart).
+- Method lessons: a patch is proved on a COPY of the current code before it reaches Fred (STD1 fully-qualified Color, STD1G call-span
+  search, the selected-row state, the 11 sp after a multi-line string, a duplicate import -- all caught that way).
+
+## 10:51-10:55 OPEN 2.7c FUNCTION ITEMS -- Fred's dispositions (living master v167 list)
+- OPEN: Restore maps as of a date (MAP RECOVERY row exists; the replay of a daily map recipe is not built).
+- OPEN: Draw bar with sources and Replace, saved defaults (also covers download Y/N per map source).
+- OPEN, WIDENED (Fred 10:55): GroupTrack's own Downloads picker is for ALL IMPORT TYPES, each SPECIFIC TO ITS FUNCTION -- e.g. a ride
+  picker (Import a ride), a GPX picker (Import GPX), and so on -- not one generic picker.
+- DONE: Area Search Radius -- its home (Map menu > SEARCH section, 10-23 MAPMOVE).
+- OPEN: Utah private-property cleanup as its own Map row (IMPORT MAP FEATURES or MAP RECOVERY -- Fred to choose).
+- OPEN: Process simplification (step 2) -- data captured on the first screen and passed on, no follow-on screens.
+- Also open from the list (no change today): ride map's older Route+ copy; start-up from ONE MAP; imported trails / features by state
+  list; bench checks (odometer, compare SAVE / DELETE-ALL, AI opt-out not remembered, keyboard over the step panel, cart marker colours);
+  Fred's open decisions (private-trails default, GPS light wording, flyover mileage slider, lead question at REC, polyline dots, waypoint
+  symbols in MAP KEY, row-level HELP, HIDE, the 19 non-selection boxes that change colour, the GPS dialog's amber warning); the
+  release-build checklist (NOJOBCAT, one-time classify, rule-3 cut); carried from 2.7b.
+
+## 10:57 Fred, refining two of them
+- Restore maps as of a date: ON HOLD until the last item (services).
+- Draw bar with sources and Replace -> REDEFINED: Maps shows the download-map values (which map sources, Replace existing tiles) and lets
+  a DEFAULT be set there. Once a default is set, the prompt NO LONGER APPEARS AT ALL -- every download uses it. This moves into the
+  LAUNCHING screen's process (step 2, process simplification: the values are known up front, not asked by a follow-on prompt).
+- 10:59 Fred, the design: the ONLY field on a download's launching screen is one Y/N about the download defaults.
+  YES -> the download screen opens with the defaults filled in (map sources, Replace existing tiles); the values can be changed and SAVED
+         as the new defaults; then the download runs.
+  NO  -> the download runs with the defaults, no further screen.
+  (Label wording to confirm with Fred: "Use download defaults Y/N" reads the other way round -- proposed "Change download settings? YES / NO".)
+- 10:59 Fred: "you can move the defaults to the first panel and let them be changed there -- I have no preference." DECIDED (supersedes
+  the Y/N field above): the download's launching panel SHOWS the defaults in one line -- "Download with: <sources> - Replace existing
+  tiles: <Yes/No> -- CHANGE". Run as is = no prompt, no other screen. CHANGE opens the values IN PLACE on the same panel (tick sources,
+  Replace) with SAVE AS DEFAULT. Nothing opens on top. Step 2 (process simplification); applies to every download launch (by area,
+  along tracks, a route's DOWNLOAD MAPS, the AI compare set's tiles).
+- 11:00 Fred: "I would not change the defaults, only change this run." FINAL: CHANGE on a launching panel changes THIS RUN ONLY (no
+  SAVE AS DEFAULT there). The DEFAULTS are set in ONE place -- the Map menu (download settings: map sources, Replace existing tiles).
+
+## 11:04-12:07 ISSUE + COMMIT
+- ISSUE (Fred 11:04-11:11): HELP - ISSUE - X on every screen (GtHelpButton draws HELP and ISSUE; the GtPanel title bar too; GtTheme draws the
+  report panel). ISSUE captures the screen (a dialog's own window when it is a dialog), + NEXT SCREEN > CAPTURE adds the next screens,
+  "What is wrong?", SEND = the email app to support@grouptrack.org (ImprovMX -> Fred's Gmail; Fred's Gmail filter: subject "GroupTrack issue"
+  -> label GROUPTRACK ISSUES REPORTS, important -> pop-up) with the screenshots; subject "GroupTrack issue - <function> - <version>"; body:
+  function (the screen's help id), app version, mode, device, time, note. Settings > Issue reports > "Send issue reports by email" (on by
+  default; off = saved on the tablet, app files issues/). Every report also written to issues/<stamp>.txt. grouptrack/GtIssue.kt.
+- Ticket desk (Fred 11:09): free options reviewed; Zoho Desk Free (3 agents, email ticketing; sign-up starts a 15-day trial of a paid plan --
+  switch to Free in Setup > Subscription before it ends). Desktop folder "GroupTrack Support": Zoho sign-up / desk / ImprovMX links + README.
+  Fred moved the support docs into their own Google folder.
+- AICHECK / AICHECK2 (Fred 10:49, 11:42 "you cannot tell if you requested it"): the AI overview opt-out = a bordered box with a check mark,
+  blank when not ticked, and the line says "-- ON". (Not a "not remembered" issue -- a visibility issue.)
+- Bench: Fred 12:07 "perfect". COMMITTED 41d48b6c1 (pushed): 79 files -- the whole screen standard (STD1-STD1I), RIDESEARCH 1-3, AICHECK 1-2,
+  ISSUE. Build tested: 2026-10-24_1203_mac_8912d3c98_UNCOMMITTED (versionName 2.7.14 (29321435)).
+- NEXT: the 2.7c items -- 1 download defaults (Map menu sets them; each launching panel shows them, CHANGE = this run only), 2 an import
+  picker per import type, 3 the Utah cleanup row, 4 process simplification, 5 imported trails by state, 6 the ride map's older Route+ copy,
+  7 start-up from ONE MAP.
+
+
+## 12:10-12:21 GRPSTATUS / DLDEFAULTS / AREAIMPORT applied (Fred); UTAH PRIVATE PROPERTY
+- GRPSTATUS-2026-10-24, DLDEFAULTS-2026-10-24, AREAIMPORT-2026-10-24: applied on the Mac (uncommitted), build pending.
+- 12:17-12:19 Fred: "WE ALSO NEED TO ADD UTAH STATE PRIVATE PROPERTY ASSIGNMENT" -- in the trails and tracks import section of Maps.
+  UTAHPRIV-2026-10-24 (~/Downloads/patch_utah_private_2026-10-24.py, proved on copy f10): Map > IMPORT MAP FEATURES >
+  "Assign Utah private property -- which trails are on private land". Panel (grouptrack/UtahPrivate.kt): shows the land data on the
+  tablet (size, date) or that it is missing; option "Download the latest land ownership data first"; ASSIGN runs the Utah land download
+  if needed (HomeStateImportController.fetchUtahOwnership, .part then rename) and then step 8 (OwnershipReclass.run) with progress;
+  the work carries on if the panel is closed. Settings > "Classify trails again" removed (its home is the Map row).
+- 12:20 Fred: the private-property class reset in HOUSEKEEPING when Utah trails were imported in a SUCCESSFUL import JSON -> added to
+  release prep on the living checklist (living master v168, release-build checklist item 2, the one-time housekeeping classify).
+  ONE checklist: the living master (Fred 12:21).
+
+## 12:24-13:33 COMMIT e38945584, THEN THE IMPORT FUNCTIONS
+- 12:24 Fred: back to open fixes; get a TESTER version out while documentation updates proceed. 12:30 bench all perfect -> e38945584.
+- ROUTECOPY-2026-10-24: the older Route+ copy cut from ConvoyScreen (its only door, +ROUTE on ConvoyArtifactsPanel, could not open:
+  showArtifactsPanel never set true). 274 lines + 15 state lines + badge flag; ConvoyArtifactsPanel.kt -> retired/2.7c_dead/convoy;
+  pieces in retired/2.7c_dead/pieces/convoy/ConvoyScreen.routecopy.pieces.txt. ConvoyRouteToolbar stays (RouteModule uses it).
+- 12:39 Fred: the "Imported trails / features by state" row reads "Display trail, waypoint counts by state". Trails / points carry no
+  state on the tablet -> counts from the import JSONs (imports/ + history/); points recorded into the JSON from now on.
+- 12:40-12:45 Fred: an AREA import skips a state already imported WHOLE ("all trails exist already"; "if OSM includes the state we
+  omit it from OSM processing"). Measured: the area OSM step downloads the WHOLE state PBF (~167 MB) + GeoPackage (~332 MB, Utah),
+  parses it, keeps the box. AREASKIP-2026-10-24.
+- 12:49 simulation, S-Utah / NV / AZ box (S36.8 W-114.5 N37.6 E-113.3): rectangles pick Arizona, CALIFORNIA NORTH (its box reaches
+  -114.13 for the Needles corner), Nevada, Utah; 6 catalog sources (UGRC, AZ State Parks, BLM, USFS, USGS, NPS).
+- 12:53-12:57 Fred: the list of sources to be processed -- states (OSM) with whole-imported ones unticked, untick bbox errors; the
+  other sources listed too, untick to remove; it is the list the import already shows, informational until now. 12:54: UGRC is small,
+  reprocess it. AREAPICK-2026-10-24 v2 (v1 SUPERSEDED, never run). START now runs as THE import (was the screen's LaunchedEffect).
+- 13:06-13:17 the per-type import picker: Android has no one-time Downloads grant (All Files Access refused 09-11); a folder grant
+  cannot be Download itself; Gmail saves to Download and cannot redirect by type (Fred 13:17); the picker filters by MIME only;
+  onX uses the Android chooser. Fred 13:11: no share beyond Downloads; 13:16: "too complicated, leave the whole thing as is."
+  CLOSED, not built (patch_gt_file_picker_2026-10-24_DECIDED_NOT_TO_BUILD_DO_NOT_RUN.py).
+- 13:04 Fred: kill items while working around them, so discovery is not repeated next week.
+- 13:27 bench (13:20 build): area run -- 4 states listed, Utah + California North left out, 2 states, 9 sources (6 catalog + 2 OSM +
+  step 8). The import tracker did not scroll (landscape fixed it) -> IMPORTSCROLL-2026-10-24: the tracker is one LazyColumn, the
+  clock held above it; the result panel scrolls. Build 2026-10-24_1332_mac_e38945584_UNCOMMITTED; commit at 13:33; deploy after the
+  running AZ / NV import finishes.
+- 13:19 Fred: one hour left -- break point = commit after the build, EOD docs (handoff v74, living master v173, release notes v45, day
+  notes v9; the manual waits -- screens still changing).
+- 13:39 committed and pushed: f2397971b (ROUTECOPY + AREASKIP + AREAPICK v2 + IMPORTSCROLL). Build 2026-10-24_1332 is that code.
+
+## 15:08-17:18 TRAILS FROM TRACKS OUT OF THE IMPORT; STEP 8 ON EMPTY FIELDS ONLY
+- 15:08 Fred: take trails from tracks out of the import -- it has its own menu option. 15:12-15:13: trails are made per track when a
+  track is added (the RIDERTRAILS-2026-09-07 trigger); the full pass mattered for tracks loaded before that -> the menu row.
+- 15:19 Fred: trails from tracks are written as motorized; with no public / private classification they are public.
+- RIDEROUT-2026-10-24: the import's Trails from tracks row + run removed; writeOne writes rider / MOTORIZED / PUBLIC; step 8 never
+  land-tests rider; the 09-07 "Unnamed n" prototype cleanup removed (could delete a real GPX track named "Unnamed 1").
+- 15:44-15:48 Fred: step 8 should only populate empty fields -- "we only need to process records that are not assigned in the public
+  or private field." STEP8EMPTY-2026-10-24: OwnershipReclass.run(onlyUnassigned) -- import = true, Assign Utah private property = false.
+  First build failed: the marker comment sat inside a one-line lambda in UtahPrivate.kt (rest of line commented out) ->
+  STEP8EMPTYFIX-2026-10-24. Rule from now on: a marker comment never goes on a code line that continues.
+- Build 2026-10-24_1648 deployed (Droid 1 + 2). First Create trails from tracks run: 3 removed, 2 added (the AZ / NV import's new
+  trails). Second run (expect 0 / 0) and step 8's time on the running import still to report.
+- 17:00-17:02 Fred: deleted trails from tracks come back on every rebuild -> re-mark instead of delete, category "unofficial/uncertain"
+  (open: per piece, per track, or both).
+- 17:06-17:10 Fred: the area import's whole-state download is the killer (~4 GB even for a small area); the PBF is pulled for its
+  features; features are part of how routes are created and rated. Open item: Overpass for area imports (box only, same tags), the
+  state's reduced extract kept as the fallback.
+- 17:14 Fred: feature allow-list -- viewpoint, picnic site, shelter, drinking water, toilets, gas (osm_layers.json filters; RouteExplorer
+  VIEW += viewpoint). Small, before the tester version.
+- 17:18 committed + pushed ed505bed3 (RIDEROUT + STEP8EMPTY + FIX).
+- 17:21 bench: the import's Classify trails (STEP8EMPTY, empty land fields only) took 11 SECONDS (was minutes for the full pass). Second Create trails from tracks run still to report.
 
 
 === GroupTrack_2.7c_MoveSequence_2026-10-22_v1_SUPERSEDED_see_living_master_v166.html ===
@@ -23050,8 +23366,8 @@ Earlier, kept: Branch: feature/convoy-event-ride · seven commits 09-23 (ride JS
 Release: 2.7 · Next: finish the JSON test → IMPORT → a Send screen → Thursday Natak call.
 
 
-=== grouptrack_handoff_2026-10-23_v73.html ===
-GroupTrack Handoff v73body{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1200px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+=== grouptrack_handoff_2026-10-24_v76.html ===
+GroupTrack Handoff v76body{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1200px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
 h1{font-size:23px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
 h2{font-size:18px;color:#58a6ff;margin-top:34px;border-bottom:1px solid #2a3038;padding-bottom:5px}
 h3{font-size:15px;color:#b8c2cc;margin:18px 0 6px}
@@ -23064,10 +23380,22 @@ th{background:#1a2027;color:#8FD0FF}
 td:first-child{font-weight:600;color:#e3b341;white-space:nowrap}
 .hi{color:#e3b341} .fig{overflow-x:auto;background:#161b22;border-radius:6px;padding:8px 0}
 .fig svg{max-width:100%;height:auto;display:block;margin:0 auto}
-li{margin:5px 0}GroupTrack handoff — 2026-10-23 EOD (v73) — 2.7c every Map function and Route+ on ONE MAP
+li{margin:5px 0}GroupTrack handoff — 2026-10-24 EOD (v76) — 2.7c screen standard on every screen, ISSUE, the import functions
 FRESH START FOR 2.7c (Fred 10-21 19:20): "we are on 2.7c, everything before that should be gone." This handoff holds only 2.7c work and the items still open from 2.7b. Everything removed &mdash; all 191 sections of living master v164 and all of handoff v70, word for word, with the 13 that were still marked open listed first &mdash; is in GroupTrack_REMOVED_through_2.7b_2026-10-21_v1.html (in docs/ and in GroupTrack_AllDocs_2.txt), and every earlier dated version is in GroupTrack_AllDocs_1_through_2.7b_2026-10-21.txt (frozen).
 The rule from now on (Fred 10-21 19:19): remove items as they are completed. When an item is done, its section moves out of this document into that day's COMPLETED_TASK document, leaving a one-line pointer. This document should stay small; if it grows day after day, items are not being removed.
-⭐⭐⭐ 10-24 — START HERE (10-23 EOD): every existing Map function and BOTH ways of building a route are on ONE MAP · next = home the last planner-only functions, then REMOVE THE OLD MAPS
+⭐⭐⭐ 10-25 — START HERE (10-24 EOD): the screen standard on every screen, ISSUE on every screen, the import functions finished · next = deploy + check the 13:32 build, then START-UP FROM ONE MAP, then the tester version
+State at EOD 10-24: branch 2.7c. Commits today (pushed): 41d48b6c1 the screen standard on every screen (STD1–STD1I: colour roles, blue on white / white on blue, GtTheme on every screen, no font under 12 sp, solid panels, same-colour boxes fixed, selections show ✓, six dark screens), Create a ride: Search first then the routes in the map area (RIDESEARCH 1–3), AI opt-out check mark, ISSUE beside HELP on every screen · e38945584 GRPSTATUS (GRP Awareness green / red / grey again), DLDEFAULTS (Map › Download settings), AREAIMPORT (by-area wording), UTAHPRIV (Map › IMPORT MAP FEATURES › Assign Utah private property; Settings › Classify trails again removed) · f2397971b ROUTECOPY + AREASKIP + AREAPICK v2 + IMPORTSCROLL.
+Evening (15:08–17:18): ed505bed3 RIDEROUT (Trails from tracks out of the trail import; written rider / MOTORIZED / PUBLIC at creation, never land-tested; the Unnamed-n cleanup removed) + STEP8EMPTY (an import's step 8 fills empty land fields only). Build 2026-10-24_1648_mac_f2397971b_UNCOMMITTED = ed505bed3, deployed to Droid 1 + 2. Bench open: the second Create trails from tracks run (expect 0 / 0) and step 8's time on the running import. New open items on the living master: deleted trails from tracks come back (category unofficial/uncertain), the area import downloads the whole state (Overpass), feature points allow-list (viewpoint, picnic site, shelter, drinking water, toilets, gas).
+Last build: 2026-10-24_1332_mac_e38945584_UNCOMMITTED (the same code as f2397971b, built just before the commit). NOT YET DEPLOYED — Fred's first real AREAPICK run (S-Utah / NV / AZ box: Utah unticked as imported whole, California North unticked → Arizona + Nevada, 9 sources) was still loading Arizona at 13:33 on the 13:20 build. A deploy reinstalls and stops an import, so deploy after it finishes.
+10-25 — the order:
+Deploy the 13:32 build and check: the import tracker scrolls in portrait (IMPORTSCROLL); Display trail, waypoint counts by state shows the AZ / NV import with POINTS (recorded from this build on); Add Route on ONE MAP unchanged (ROUTECOPY).
+Start-up from ONE MAP — retire the ConvoyScreen start (ONE MAP still runs inside ConvoyScreen; GtLayout.oneMap is fixed true).
+Process simplification (step 2) for the remaining processes — data captured on the first screen and passed on.
+The tester version (Fred 12:24: "get a tester version out while we work on documentation updates"): the release-build checklist (NOJOBCAT, the one-time housekeeping classify with Fred's Utah trigger, the rule-3 cut) + the bench checks, then the Play upload.
+The manual LAST (Fred 10-24 08:28–08:31): label map on ONE MAP (A–Z, AA…), the HTML model Fred drags letters on, capture tree by process / function — only once screens stop changing. Docs keep their style.
+Closed today (so they are not rediscovered): Utah private-property assignment (its own Map row) · imported trails / features by state (Display trail, waypoint counts by state) · the ride map's older Route+ copy · whole-state sources rerun by area imports · the area import's state choice (California North by rectangle) · GroupTrack's own Downloads picker — DECIDED NOT TO BUILD (see the "after the replacement" list for why).
+Fred's way of working, 10-24 13:04: "kill items when we are working around them, so we do not perform discovery again next week" — while code is open, close the open items that sit in it.
+⭐⭐⭐ 10-24 — was START HERE (10-23 EOD): every existing Map function and BOTH ways of building a route are on ONE MAP · next = home the last planner-only functions, then REMOVE THE OLD MAPS
 State at EOD 10-23: branch 2.7c. Commits today (all pushed): 237c27c5b ONE MAP persistence, map target menu, map type on the map, step 8 paged · 9682184eb Map menu built out, area functions and downloads as callable modules · 1c4e3f86f every existing Map function attached to ONE MAP; screens to standard; launch persistence accepted · 048669818 Route+ stage 1 — Build it myself on ONE MAP · c848d1606 Route+ stage 2 patch 1 — AI page code on ONE MAP's page; Map HTML 2026-10-23a · b591b6083 Route+ stage 2 patch 2 — the compare table. Last build of the day: 2026-10-23_1638_mac_b591b6083_UNCOMMITTED (GTAI3 → GTAI5E: AI route design, HELP ✕ screens, filter rules, search in the trailhead step behind a twistie). Stage 2 committed 16:46: 9eba2db05 "2.7c: Route+ stage 2 -- AI route design on ONE MAP" (7 files: ConvoyScreen, GroupTrack, RouteModule, SearchModule + the new AiStepPanel, AiGuidedPanels, AiCompareTable).
 What ONE MAP is now. MAP menu (plain text, sections, scrolls; launching a function closes it): downloads summary on top (DETAILS → the queue panel) · Map source · DOWNLOAD MAPS FOR OFFLINE USE (by area — draw a box; along tracks — all or picked, with track-name search) · REMOVE MAPS (by area; for all tracks) · MAP RECOVERY (saved map recipes, 60 days; Restore as of a date = not built; refresh by source) · IMPORT MAP FEATURES (trails by state, by area, GPX, create trails from tracks, resync tracks with their files) · UNTIL THE MOVE IS DONE (Map Features, Open the planning map, Area Search Radius). The map type is the Map: SAT ▾ button. FILTER has OFF-GRID MAPS ☐ Available ☐ Downloading. Launch: online = last view, offline = my cart, recording = follows the cart (PERSISTKEY, PERSISTVIEW, NOJUMP). Add Route: the checks run first (open AI compare set → the compare table; an unnamed route = a crash → loads and carries on; named routes in progress → the selector: open one, + Build it myself, + AI route design), otherwise the Route panel: Build it myself or AI route design — one mode launched, locked. Everything is in grouptrack/RouteModule.kt plus the copied AI screens (AiStepPanel.kt, AiGuidedPanels.kt, AiCompareTable.kt).
 10-24 — the order:
@@ -24147,8 +24475,8 @@ The lead question at REC when no Leader is known: keep as a fallback, or retire.
 Polyline dots when no route is displayed (carried from 2.7b).
 
 
-=== grouptrack_living_master_2026-10-23_v167.html ===
-GroupTrack Living Master v167
+=== grouptrack_living_master_2026-10-24_v182.html ===
+GroupTrack Living Master v182
 :root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
 header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
@@ -24173,10 +24501,60 @@ th{background:#12203a;color:var(--accent)}
 /* ROUTENOTES-2026-08-23 */
 .ascii{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:14px;
   font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#8b949e;overflow-x:auto;margin:12px 0}
-GroupTrack — Living Master — v167 (2026-10-23 EOD) — 2.7c
+GroupTrack — Living Master — v174 (2026-10-24 EOD) — 2.7c
 FRESH START FOR 2.7c (Fred 10-21 19:20): "we are on 2.7c, everything before that should be gone." This living master holds only 2.7c work and the items still open from 2.7b. Everything removed &mdash; all 191 sections of living master v164 and all of handoff v70, word for word, with the 13 that were still marked open listed first &mdash; is in GroupTrack_REMOVED_through_2.7b_2026-10-21_v1.html (in docs/ and in GroupTrack_AllDocs_2.txt), and every earlier dated version is in GroupTrack_AllDocs_1_through_2.7b_2026-10-21.txt (frozen).
 The rule from now on (Fred 10-21 19:19): remove items as they are completed. When an item is done, its section moves out of this document into that day's COMPLETED_TASK document, leaving a one-line pointer. This document should stay small; if it grows day after day, items are not being removed.
-⭐⭐⭐ 10-24 — START HERE (10-23 EOD): every existing Map function and BOTH ways of building a route are on ONE MAP · next = home the last planner-only functions, then REMOVE THE OLD MAPS
+⭐⭐⭐ 10-25 — START HERE (10-24 EOD): the screen standard on every screen, ISSUE on every screen, the import functions finished · next = deploy + check the 13:32 build, then START-UP FROM ONE MAP, then the tester version
+State at EOD 10-24: branch 2.7c. Commits today (pushed): 41d48b6c1 the screen standard on every screen (STD1–STD1I: colour roles, blue on white / white on blue, GtTheme on every screen, no font under 12 sp, solid panels, same-colour boxes fixed, selections show ✓, six dark screens), Create a ride: Search first then the routes in the map area (RIDESEARCH 1–3), AI opt-out check mark, ISSUE beside HELP on every screen · e38945584 GRPSTATUS (GRP Awareness green / red / grey again), DLDEFAULTS (Map › Download settings), AREAIMPORT (by-area wording), UTAHPRIV (Map › IMPORT MAP FEATURES › Assign Utah private property; Settings › Classify trails again removed) · f2397971b ROUTECOPY + AREASKIP + AREAPICK v2 + IMPORTSCROLL.
+Last build: 2026-10-24_1332_mac_e38945584_UNCOMMITTED (the same code as f2397971b, built just before the commit). NOT YET DEPLOYED — Fred's first real AREAPICK run (S-Utah / NV / AZ box: Utah unticked as imported whole, California North unticked → Arizona + Nevada, 9 sources) was still loading Arizona at 13:33 on the 13:20 build. A deploy reinstalls and stops an import, so deploy after it finishes.
+10-25 — the order:
+Deploy the 13:32 build and check: the import tracker scrolls in portrait (IMPORTSCROLL); Display trail, waypoint counts by state shows the AZ / NV import with POINTS (recorded from this build on); Add Route on ONE MAP unchanged (ROUTECOPY).
+Start-up from ONE MAP — retire the ConvoyScreen start (ONE MAP still runs inside ConvoyScreen; GtLayout.oneMap is fixed true).
+Process simplification (step 2) for the remaining processes — data captured on the first screen and passed on.
+The tester version (Fred 12:24: "get a tester version out while we work on documentation updates"): the release-build checklist (NOJOBCAT, the one-time housekeeping classify with Fred's Utah trigger, the rule-3 cut) + the bench checks, then the Play upload.
+The manual LAST (Fred 10-24 08:28–08:31): label map on ONE MAP (A–Z, AA…), the HTML model Fred drags letters on, capture tree by process / function — only once screens stop changing. Docs keep their style.
+Closed today (so they are not rediscovered): Utah private-property assignment (its own Map row) · imported trails / features by state (Display trail, waypoint counts by state) · the ride map's older Route+ copy · whole-state sources rerun by area imports · the area import's state choice (California North by rectangle) · GroupTrack's own Downloads picker — DECIDED NOT TO BUILD (see the "after the replacement" list for why).
+Fred's way of working, 10-24 13:04: "kill items when we are working around them, so we do not perform discovery again next week" — while code is open, close the open items that sit in it.
+🛠 TO BUILD (small, before the tester version) — feature points for routes: the allow-list (Fred 10-24 17:07–17:14)
+Fred 17:07: features are part of how routes are created and rated (RouteExplorer reads reference_points: views 3, water 2, others 1;
+"what you will see"). Today's point layers: places, natural (peaks, springs, water); points of interest is OFF (≈150 town categories — stores,
+banks, offices). Fred 17:10: "we pull the PBF now — it is just a matter of extracting specific categories." Allow-list (Fred 17:14): viewpoint,
+picnic site, shelter, drinking water, toilets, gas. Build: osm_layers.json — pois ON with filter fclass IN (viewpoint, picnic_site, shelter,
+drinking_water, toilet); a traffic layer (gis_osm_traffic_free) filtered to fuel; RouteExplorer VIEW gains viewpoint. Every enabled point layer
+already flows into reference_points (no import code change). Existing states get the points on their next import. Check on the tablet how the
+new points are drawn (symbol, label). Camp site / caravan site were offered and NOT chosen.
+🛠 OPEN — an area import downloads the WHOLE state (Fred 10-24 17:06: "the killer is the 4 gig download … even for a small area")
+Geofabrik ships whole states only: the area import pulls the state's PBF (read for the access tags — Fred: "we get features
+from the protobuf, there is a lot of data": every road, building and node of the state) and its GeoPackage, parses all of it, keeps the box.
+AREASKIP / AREAPICK stop it for states already imported whole, not for a new one. Options (Claude 17:06): (1) for an AREA import fetch only the
+box from OpenStreetMap's query service (Overpass) — the box's trails WITH the same access tags the PBF supplies, MB not GB; whole-state imports
+stay on Geofabrik; public Overpass has fair-use limits and refuses very large boxes → fall back to (2); (2) keep the state's reduced extract
+after a first download so later area imports in that state read it locally; (3) warn with the size before downloading. Recommended 1 + 2.
+To decide: an open 2.7c item, or after the tester version.
+🛠 OPEN — trails from tracks that Fred deletes keep coming back (Fred 10-24 17:00–17:02)
+Every Create trails from tracks lays again the pieces Fred deleted (roads, test recordings): delete removes the row, the
+rebuild finds the ground off-network again. Fred: re-mark instead of delete, so they are not shown or used and not recreated — category
+"unofficial/uncertain". Design (Claude 17:01): a deleted trail from tracks is re-marked unofficial/uncertain, keeps its exact shape;
+the rebuild's shape match then finds it and does not lay it again; the rebuild's stale clean-up removes only rows still marked rider, so it
+stays; unofficial/uncertain is never drawn, searched, routed or counted. Limit: new trail data near it can change the piece's shape — then
+it reappears once. Also offered: a TRACK-level mark ("don't make trails from this track") for test recordings. Open: per piece, per track,
+or both. Its own patch, after RIDEROUT + STEP8EMPTY are committed.
+COMMITTED 17:18 as ed505bed3 (build 2026-10-24_1648 = that code): RIDEROUT (Trails from tracks out of the import; written rider / MOTORIZED /
+PUBLIC; Unnamed-n cleanup removed) · STEP8EMPTY + FIX (an import's step 8 fills empty land fields only). Bench: first Create trails from
+tracks run 3 removed, 2 added (the AZ / NV import's new trails) — the second run (expect 0 / 0) to report.
+✅ Fred's decisions 10-24 13:48 (the open-decisions list)
+Private trails default → PUBLIC ONLY (riders with a saved filter keep theirs). TO BUILD (small).
+GPS light wording without a GPS radio → "DROID GPS". TO BUILD (small).
+Flyover slider → CLOSED: it is Area Search Radius, already in Map › SEARCH.
+Lead question at REC → keep as is: with no leader assigned each cart makes the selection; the question still comes up and a bare radio can be selected. CLOSED.
+Polyline dots with no route → CLOSED (Fred: polyline is done).
+Waypoint symbols in MAP KEY → NO (Fred 13:51). CLOSED.
+Row-level HELP → NO (Fred 13:51) — HELP stays one per screen / panel. CLOSED.
+HIDE → CLOSED, no longer needed.
+The 19 non-selection colour boxes — to be listed with screenshots for Fred.
+Meshtastic screens' theme — Fred thought Meshtastic was removed; Claude to confirm which Meshtastic screens remain (if any) before asking.
+Route notes (R7) — Fred 13:51: OK to a NOTES button on the route's detail card; "I also thought it was being populated from ride creation". Checked in code 13:53: route notes are WRITTEN when the route is made (Route+ save — RouteModule promotes the draft's notes; Create a route from a track — headline "Created from track … — n miles" + the rider's description; GPX import — the &lt;desc&gt;). Ride creation READS them: the ride's description IS the route's headline + description; only a route with no description shows the required "Leader's Notes *" field, saved on the RIDE, not the route. On ONE MAP the saved notes already show (a route with a description opens the route panel, ROUTEDESC) and work-in-progress notes show inside Route+ (NotesPanel). CLOSED (Fred 13:53): no NOTES button. If ever wanted, editing the notes can be added to the route panel (a later option, not on the 2.7c list).
+⭐⭐⭐ 10-24 — was START HERE (10-23 EOD): every existing Map function and BOTH ways of building a route are on ONE MAP · next = home the last planner-only functions, then REMOVE THE OLD MAPS
 State at EOD 10-23: branch 2.7c. Commits today (all pushed): 237c27c5b ONE MAP persistence, map target menu, map type on the map, step 8 paged · 9682184eb Map menu built out, area functions and downloads as callable modules · 1c4e3f86f every existing Map function attached to ONE MAP; screens to standard; launch persistence accepted · 048669818 Route+ stage 1 — Build it myself on ONE MAP · c848d1606 Route+ stage 2 patch 1 — AI page code on ONE MAP's page; Map HTML 2026-10-23a · b591b6083 Route+ stage 2 patch 2 — the compare table. Last build of the day: 2026-10-23_1638_mac_b591b6083_UNCOMMITTED (GTAI3 → GTAI5E: AI route design, HELP ✕ screens, filter rules, search in the trailhead step behind a twistie). Stage 2 committed 16:46: 9eba2db05 "2.7c: Route+ stage 2 -- AI route design on ONE MAP" (7 files: ConvoyScreen, GroupTrack, RouteModule, SearchModule + the new AiStepPanel, AiGuidedPanels, AiCompareTable).
 What ONE MAP is now. MAP menu (plain text, sections, scrolls; launching a function closes it): downloads summary on top (DETAILS → the queue panel) · Map source · DOWNLOAD MAPS FOR OFFLINE USE (by area — draw a box; along tracks — all or picked, with track-name search) · REMOVE MAPS (by area; for all tracks) · MAP RECOVERY (saved map recipes, 60 days; Restore as of a date = not built; refresh by source) · IMPORT MAP FEATURES (trails by state, by area, GPX, create trails from tracks, resync tracks with their files) · UNTIL THE MOVE IS DONE (Map Features, Open the planning map, Area Search Radius). The map type is the Map: SAT ▾ button. FILTER has OFF-GRID MAPS ☐ Available ☐ Downloading. Launch: online = last view, offline = my cart, recording = follows the cart (PERSISTKEY, PERSISTVIEW, NOJUMP). Add Route: the checks run first (open AI compare set → the compare table; an unnamed route = a crash → loads and carries on; named routes in progress → the selector: open one, + Build it myself, + AI route design), otherwise the Route panel: Build it myself or AI route design — one mode launched, locked. Everything is in grouptrack/RouteModule.kt plus the copied AI screens (AiStepPanel.kt, AiGuidedPanels.kt, AiCompareTable.kt).
 10-24 — the order:
@@ -24220,13 +24598,15 @@ Fred: every screen in the default (map-based) scheme — white with blue, or blu
 Approach: screen by screen, with "bring to standard" (HELP ✕, scroll, the scheme together), AFTER the old maps are removed and the dead code isolated (Fred 13:48). Only the chrome follows the map type (panels, text, borders, buttons); meaning colours (red / green / amber → GtColors Bad / Good / Warn) and map-drawing colours (route lines, build line, trail colours, cart dots) stay. Decided 16:08 for the AI step panel: ONE MAP's scheme, "look and behave cohesively".
 🕐 After the replacement of the old maps — to be written (Fred 12:20)
 Restore maps as of a date (the replay must be AREA jobs at REFRESH priority) — "Archived maps" is its date picker.
-Imported trails / features by state — a list: state, date, trails, sources, private count.
+Imported trails / features by state — a list: state, date, trails, sources, private count. Fred 10-24 12:39: the row reads "Display trail, waypoint counts by state". DONE — f2397971b (AREASKIP-2026-10-24): counts come from the import JSONs (manifests in imports/ and imports/history/) — trails and points are not stamped with a state on the tablet.
+DONE — f2397971b — AREASKIP-2026-10-24 (Fred 10-24 12:40-12:45): the AREA import that crosses state lines skips downloading and reprocessing a state that has already been imported WHOLE. The area import picks its states by lat / long (GeofabrikCatalog.findByBbox); a state with a completed whole-state import JSON (area.type "state", its Open Source Maps source completed) is bypassed, and so is a catalog source that state import already loaded whole. Fred 12:45: "if OSM includes the state we omit it from OSM processing" — the area OSM step downloads the WHOLE state's PBF (~167 MB) and GeoPackage (~332 MB), parses it, then keeps only the box's trails; a skipped state gets none of that. The run shows "Already imported whole — skipped: …"; the manifest records "skipped". AREAPICK-2026-10-24 (Fred 12:53): picking states by rectangle pulls states with no ground in the box (California North on the Nevada line, measured on a S-Utah / NV / AZ box) — so the area import now shows the STATE LIST first: imported-whole states shown and skipped, every other state ticked, untick to leave it out, then START (run as THE import). Fred 12:54: Utah Trails and Pathways is small and is simply processed again. OPEN: whole-state sources in an area run — another issue (Fred 12:54).
 Draw bar with sources and Replace, saved defaults — also covers Download Y/N per source (map_slots.json; default tick in the confirm builders).
-GroupTrack's own Downloads picker (Android: a standing grant to a SUBFOLDER such as Download/GroupTrack — the root cannot be granted; All Files Access is not an option).
+CLOSED 10-24 13:16 — DECIDED, NOT BUILT: GroupTrack's own Downloads picker. Fred: "too complicated, leave the whole thing as is." Import a ride and Import GPX keep the Android file picker. Why (so it is not rediscovered): Android 11+ has NO one-time grant to Download like GPS / radio — All Files Access is the only one (refused by Google, appeal rejected 09-11); READ storage no longer reaches other apps' files; a folder grant cannot be the Download folder itself, only a folder inside it (Download/GroupTrack) — and Gmail saves attachments to Download itself, so riders would have to move files. Filtering the Android picker narrows by MIME type only, not extension (email apps label .gpx / .convoy as octet-stream). onX does the same: My Content › Import › choose your file (Android file chooser); KML on the web map. "Open with GroupTrack" from the email already works (release g, .convoy filter). Fred 13:11: no share function beyond Downloads (no Drive, no mapped drives). The tested patch is ~/Downloads/patch_gt_file_picker_2026-10-24_DECIDED_NOT_TO_BUILD_DO_NOT_RUN.py.
+CLOSED 10-24 13:06: whole-state sources being rerun in area functions — AREASKIP + AREAPICK v2 (the list of everything the area run processes, whole-imported states unticked).
 Area Search Radius — its final home (with Search).
 📦 2.7c release-build checklist (Fred 10:37–10:39 — done together, at release time)
 Remove jobCategories + OwnershipReclass.applyMissingCategories — patch READY: ~/Downloads/patch_remove_jobcategories_2026-10-23.py (NOJOBCAT; dry run passed 10:37). Do not run before then.
-A ONE-TIME housekeeping classify for upgrading phones (2.7a / 2.7b + a Utah import = every trail PUBLIC): run step 8 when trails exist AND the ownership file is usable AND not one trail is PRIVATE — a derived condition, no marker; a COUNT afterwards; out when 2.7d is cut. Needs Fred's OK on the condition and the timing (Classify trails again on Droid 1: launch-time vs after the map is up).
+A ONE-TIME housekeeping classify for upgrading phones (2.7a / 2.7b + a Utah import = every trail PUBLIC): run step 8 when trails exist AND the ownership file is usable AND not one trail is PRIVATE — a derived condition, no marker; a COUNT afterwards; out when 2.7d is cut. Needs Fred's OK on the condition and the timing (Classify trails again on Droid 1: launch-time vs after the map is up).Fred 10-24 12:20 — the trigger: the private-property class is reset in housekeeping when Utah trails were imported in a SUCCESSFUL import JSON (an import manifest that lists Utah with process_state completed) and its land assignment did not happen (no usable land file, or not one trail PRIVATE). It runs the same work as Map › IMPORT MAP FEATURES › Assign Utah private property (UTAHPRIV-2026-10-24: fetches the Utah land data when missing, then step 8), in the background after the map is up, never blocking start-up. Added to release prep, built at release time.
 Release-cut check: list every "rule 3 / NO MARKER / every launch" job before tagging, and remove them.
 📻 BTECH Relay — a transport candidate for 2.8+ (Nathan via Fred, 10-23 16:04)
 github.com/darksteal/BTECH-Relay — an ATAK plugin that links BTECH UV-PRO / GMRS-PRO / UV-50X radios to ATAK over Bluetooth SPP + the radio's KISS TNC; AX.25 frames, a compact binary format with fragmentation, optional AES-256; position, chat, CoT markers / routes, contact age-out and Bluetooth auto-reconnect working, voice PTT a scaffold; 2 commits. Nathan: he has run a different networking stack over the UV-Pro, "the solution is pretty sound".
@@ -27108,6 +27488,907 @@ Bug Fixes
 FIX Geofabrik -latest- URL 302 redirect now followed automatically.
 FIX GPS state detection at border areas (NH/MA) now uses Android Geocoder instead of bbox matching.
 FIX OSM import ledger creation before pending bbox set (prevented silent import failure).
+Resolved since the 20 August notes
+Home State setup now runs on first launch — it no longer has to be found on the Map
+Features panel.
+Import Trails by Area is built — draw a box, and every source covering it is processed,
+across state lines.
+The completion screen shows the full picture — records read, records in your area,
+duplicates, added, and anything that could not be processed.
+
+
+=== grouptrack_release_notes_2026-10-24_v46.html ===
+GroupTrack Release Notes v46
+body{font:14px/1.6 system-ui,sans-serif;max-width:900px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
+h1{font-size:20px;border-bottom:2px solid #7bb661;padding-bottom:6px;margin-bottom:4px}
+.rel{color:#555;font-size:13px;margin:0 0 18px}
+h2{font-size:16px;color:#2a6e1a;margin:22px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px}
+h3{font-size:14px;margin:14px 0 4px;color:#333}
+code{background:#eef;padding:1px 4px;border-radius:3px;font-size:12px}
+.tag{display:inline-block;background:#7bb661;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;margin-right:4px}
+.new{background:#4da6ff} .fix{background:#cc6600} .change{background:#8855aa}
+.known{background:#b3261e}
+.muted{color:#666;font-size:13px}
+.feat{border-left:3px solid #7bb661;padding:2px 0 2px 14px;margin:18px 0}
+.feat h3{margin-top:6px}
+.means{background:#f4f9f2;border-radius:5px;padding:9px 12px;margin:8px 0}
+.how{margin:8px 0}
+.todo{display:inline-block;background:#fff3cd;border:1px solid #e0c97a;border-radius:3px;
+  padding:1px 6px;font-size:11.5px;color:#7a5c00;margin-left:4px}
+.issues{background:#fff8f0;border:1px solid #f0d0b0;border-left:4px solid #cc6600;
+  border-radius:5px;padding:12px 15px;margin:16px 0}
+.issues h3{margin-top:0;color:#8a3b00}
+details{border:1px solid #ddd;border-radius:6px;margin:10px 0;background:#fafafa}
+details>summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:14px;
+  list-style:none;color:#2a6e1a}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"\25B8 ";color:#7bb661;font-weight:bold}
+details[open]>summary::before{content:"\25BE "}
+details details{margin:8px 12px;background:#fff}
+details details>summary{font-weight:500;color:#333;font-size:13.5px}
+.inner{padding:2px 16px 12px}
+DOCUMENT ID: RELNOTES-2026-09-30 · Rel 2.7b (internal testing) · 2.7c in development · v44 2026-10-23
+<!-- RELNOTES-2026-10-21 v42: 2.7b goes to internal testing on Google Play 22 October (commit 5fa92e31f + docs). Fred 10-21: "a lot of changes but not much user-facing" --
+     2.7b is mostly internal (GroupTrack separated from the mesh behind one API, the 5-second tick removed, the map drawn from messages received). Only what a
+     rider sees is listed; the dated sections below were already filtered to rider-facing items day by day (internal work named in each section's comment). -->
+ Layout while it is finished; the old maps go next. Screens changed: every One Map screen -- the manual is rebuilt in 2.7c. -->
+GroupTrack 2.7c — in development
+Not yet released · One Map: one map, every tool, a cleaner screen
+2.7c replaces the ride map and the planning map with one map. While it is being finished it is switched on in Settings › Layout (One Map). Everything you could do on either map is on it, reached from a few buttons around the edge.
+In development · Rel 2.7c
+CHANGED Trail imports no longer rebuild your trails from tracksTrails from your tracks are made the moment a track is saved or imported, ridden ground counted as motorized and public. Map › Import map features › Create trails from tracks is there for tracks you had before this was automatic. 24 OctWhat it means for you: trail imports finish sooner, and your trails from tracks are always complete.
+CHANGED Trail imports classify only what they addedAfter an import, only the new trails are given their type, use and public / private land — seconds instead of minutes. Assign Utah private property still reassigns every trail when you ask it to. 24 OctWhat it means for you: an import ends quickly, and nothing you already have is changed by it.
+CHANGED Every screen in one lookOver the satellite map every panel is white with blue writing; over the topo map it is blue with white writing. No writing smaller than 12 point, panels are solid (the map no longer shows through), and a chosen item shows a check mark ✓ in a box. 24 OctWhat it means for you: every screen reads the same way, and you can always tell what is selected.
+NEW ISSUE — report a problem from any screenISSUE sits beside HELP on every screen. It captures the screen as it is, lets you add the next screens of the same job, and write what is wrong; SEND opens your email to support@grouptrack.org with the pictures attached, or Settings › Issue reports keeps them on the tablet. 24 OctWhat it means for you: a problem reaches us with the exact screens and the version, in two taps.
+CHANGED Create a ride starts with SearchSearch first positions the map by area, track, route or waypoint; PROCEED TO RIDE CREATION then lists the routes in that part of the map to build the ride from. Turn a track into a route before you go on. 24 OctWhat it means for you: you find the route you want by where it is, not by scrolling a long list.
+NEW Download settingsMap › Download settings sets which map sources a download uses and whether it replaces tiles you already have. Every download starts from them and shows them in one line; CHANGE alters that download only. 24 OctWhat it means for you: set it once — no more choosing sources on every download.
+NEW Assign Utah private propertyMap › Import map features › Assign Utah private property marks which trails are on private land from Utah's land ownership data, downloading the data first if it is not on the tablet (it was Settings › Classify trails again). 24 OctWhat it means for you: town streets on private land are shown as residential, and the step has one place.
+NEW Import trails by area — you see the list firstAfter you draw the box, every state and trail source it touches is listed before anything downloads. A state you already imported whole starts unticked; untick a state the box only clips (a state is chosen by the rectangle around it). The progress screen now scrolls. 24 OctWhat it means for you: no half-gigabyte downloads for a state you already have, or one your box does not reach.
+NEW Display trail, waypoint counts by stateMap › Import map features lists your trails (and how many are on private land), your waypoints and map points, and, state by state, what each import added. 24 OctWhat it means for you: you can see what is on the tablet, and where it came from.
+FIXED GRP Awareness shows its colour againThe GRP Awareness light is green, red or grey again (it had turned blue), and the Map button's downloading dot is green. 24 OctWhat it means for you: you can read the group's state at a glance.
+NEW One Map — one set of buttons around one mapRECORD at the top; MENU and zoom on the left; GRP Awareness, Mode, Status, Map Key, Filter and Centre on Me on the right; your readout bottom left; Map, Add Route, Rides, Search and Radio Setup along the bottom. Every screen closes the same way — HELP and ✕ in the top right corner. 22–23 OctWhat it means for you: one map to learn instead of two, and nothing hidden behind a second map.
+NEW The Map menu — every map tool in one placeWhat is downloading (tap DETAILS for the queue) · the map source · download maps for offline use by area (draw a box) or along your tracks (all, or pick them, with a search by name) · remove maps · map recovery (your saved map recipes, refresh by source) · import trails by state or by area, import GPX, create trails from your tracks, resync tracks with their files. Choosing a tool closes the menu. 23 OctWhat it means for you: the download and import tools that lived on the planning map are on the map you ride with.
+NEW The map type is a button on the mapMap: SAT ▾ shows the map you are looking at; tap it to pick another. 23 OctWhat it means for you: switching satellite and topo is one tap, and the button always says which you are on.
+CHANGED The map opens where you left itWith internet, One Map opens on the view you last had; offline it opens on your cart; while recording it follows your cart. 23 OctWhat it means for you: planning picks up where you stopped, and on the trail you start on yourself.
+FIXED Private land shows as private againImporting a large state could run out of memory at the step that decides public and private land, and the import still said it had completed — every trail then counted as public. The step now works through the trails in small pieces and says if it fails. If your trails all show as public, use Settings › Classify trails again. 23 OctWhat it means for you: the "Include private land" filter works again, and you can repair an earlier import without importing again.
+NEW Filter: off-grid maps on the mapFILTER › OFF-GRID MAPS ☐ Available ☐ Downloading draws the areas you have downloaded, and the ones still downloading, on the map. 23 OctWhat it means for you: you can see where your offline maps reach before you lose signal.
+NEW Area Search Radius worksChoose how far in a place search zooms (Z12 to Z18); One Map's search uses it. It was saved before but never used. 23 OctWhat it means for you: a place search lands at the zoom you want.
+NEW Add Route on One Map — Build it myselfAdd Route checks first for anything unfinished: a route left open when the app closed is loaded straight back in, and routes you were building are offered to continue. Then Build it myself: tap along the trails, each point snaps and saves as you go; Save, Discard, or ✕ to leave. 23 OctWhat it means for you: you can plan a route on the map you ride with, and a crash never costs you the points you dropped.
+NEW Add Route on One Map — AI route designThe guided steps: how far and how fast, your trailhead (with a search to find your area), a loop or a finish point, places you want to pass through, then FIND MY RIDES — and the comparison of the rides it builds, side by side in their own colours, fitted on the map. AI turns Trails and Waypoints on and keeps them on while it works; the comparison hides everything else and puts it all back when you leave. Nothing you left unfinished is deleted when you start. 23 OctWhat it means for you: the AI planner works on One Map, and an earlier comparison waits for your decision instead of being cleared.
+NEW One Search, Filter and Map KeySearch: one box searches trails, routes, tracks, waypoints and (online) places, scoped to a state you choose, with the result types as a filter. Filter: everything you show or hide, each trail type explained. Map Key: only what you are looking at, and the colour styles. 22 OctWhat it means for you: one place to find something, one place to choose what shows, one place to read the map.
+GroupTrack 2.7b — internal testing
+22 October 2026 · one week with internal testers before release
+Most of 2.7b is under the hood. GroupTrack and the radio side now talk through one connection, and the ride map is drawn only from the messages your tablet actually receives, instead of a 5-second polling loop. You should see a steadier map and a quicker response; what you do on the trail is the same. The changes you will notice:
+Group awareness, or this tablet only &mdash; ride without a radio and GroupTrack hides everything that needs one. 13 Oct
+The lead's track &mdash; solid bright blue ahead of you, your own track dashed blue; behind you the lead's track gives way to yours. 20 Oct
+When the lead goes quiet &mdash; his cart keeps moving at an estimate, and his real path is filled in when he is heard again. 20 Oct and below
+The radio link &mdash; "Your radio isn't answering" tells you what to do; losing satellites no longer disconnects the radio. 18 Oct
+Roles &mdash; strict: no Leader, no lead; two riders on one role both go back to Rider. 15 Oct
+Smaller things &mdash; recording pauses after 25 idle minutes instead of 10, a GPS light above REC, arrows on your route, Medium Fast or Long Fast in the GPS panel, Ride statistics in Settings, NODES instead of the Meshtastic side menu, and fixes to a white map at start and to a recording that paused itself.
+Rel 2.7b · 21 October 2026
+CHANGED With no route displayed, the quiet lead follows the trail he was on &mdash; to the next junctionWhen the lead goes quiet and you are not displaying a route, his estimated position now moves along the track or trail he was on, at the ride's average speed, and stops at the next junction, where another track or trail branches off. GroupTrack never guesses which way he turned. If he was not steadily on any track or trail, the estimate stays where he was last heard. With a route displayed, nothing changes: the estimate follows the route.What it means for you: on a ride without a route loaded, the blinking lead still shows a sensible place &mdash; and at a junction it waits there, which is where you need to decide.Manual: The lead cart
+CHANGED Saved routes no longer guide the lead's track through a gapThrough a lost signal, the lead's track is drawn along the route you are displaying, or a track you rode before, or the trails. A saved route that is not on the map is no longer used: it was often a different ride over the same ground.What it means for you: the lead's track only follows lines you can see or have ridden.
+Known in this test (please report what you see)
+Not yet tried with two riders in the field: the estimate, the lead's path after a lost signal and the trim behind you have been tested on our tablets and on recorded rides, not yet on a group ride. Tell us where they look wrong.
+Radio reconnect while GroupTrack is in the background: if your radio drops while another app is in front, GroupTrack may not reconnect until you bring it back on screen.
+A quiet cart can stay "Active" (seen 15 October) &mdash; being checked this week.
+Rel 2.7b · 20 October 2026
+<!-- RELNOTES-2026-10-20 (2.7b, commits 1e2bba8c0..8bedb5b9c + ESTREC/BLUETRACKS -- NOT RELEASED; tablet-tested only). Not listed: fixes of unreleased 2.7b code
+     (ESTREC, the dupe-check of the 2.7b save path is listed because riders saw it). PENDING: the two-cart field test of the polyline and the trim. -->
+NEW Medium Fast or Long Fast, chosen beside the intervalThe GPS panel on the Ride Map now lets you choose the radio's preset &mdash; Medium Fast (the standard) or Long Fast &mdash; beside how often it sends. APPLY sets your radio once and checks every value. The choice lasts until your next check-in, which sets the ride's standard again.What it means for you: on a ride where carts spread out you can trade a little speed for a little more range. Measured: Long Fast reaches only 10-30% further, so Medium Fast stays the default.Manual: GPS
+NEW Ride statisticsSettings &rsaquo; Group awareness &rsaquo; Ride statistics shows, for every cart heard on this ride: how far away it was, how often it was lost and for how long, and how busy the channel was. REFRESH updates it, RESET starts again.What it means for you: after a ride you can see how far your radios really reached on that ground.Manual: Settings
+NEW When the lead goes quiet, his cart keeps moving along the routeIf the lead's reports stop arriving, his cart blinks at where he probably is &mdash; moving along the displayed route at the ride's average speed &mdash; with est. m:ss beside it and a grey dot where he was last heard. (21 October: with no route displayed it follows the track or trail he was on, as far as the next junction &mdash; see above.) GROUP keeps him in view. When he is heard again he jumps to his real position. Only while you are recording.What it means for you: out of range of the lead you still have a good idea where he is.Manual: The lead cart
+NEW The lead's path is filled in after a lost signalWhile the lead is out of range his track is drawn along the route you are displaying (or a track you rode before, or the trails), never faster than a cart could drive. When he comes back into range his tablet sends the path he really drove while nobody could hear him, and your tablet corrects his track to it &mdash; a short pop-up says so. Points far from the route show as dots.What it means for you: after a dead spot the lead's track shows where he actually went, so you can follow it.Manual: The lead cart
+NEW Behind you, the lead's track gives way to yoursAs you ride over the lead's track, the part behind you is removed and your own track shows there. Loops and out-and-backs are handled in the order you ride them, so the way back is never removed early.What it means for you: the lead track on your map is the way ahead &mdash; one line to follow.Manual: The lead cart
+CHANGED Blue tracks you can see on red rockThe lead's track is a solid bright blue line and your own track a dashed bright blue line, both edged in black with arrows showing the direction of travel.What it means for you: both tracks stand out on satellite and on red rock; solid is the way ahead, dashed is ground you have covered.Manual: The lead cart
+FIXED Saving a track no longer hangs on the hourglassSaving a recorded track could sit on the hourglass for a long time while it checked for a duplicate. The check now looks the track up directly.What it means for you: SAVE comes back quickly.Manual: CHK IN › REC
+CHANGED Check-in also makes sure your radio passes every message onChecking in now also sets your radio to pass on every message it hears (its relay setting), and checks it with the rest: 25 checks instead of 24.What it means for you: carts out of each other's reach still hear each other through the carts in between.Manual: Roles on the trail
+Rel 2.7b · 19 October 2026
+<!-- RELNOTES-2026-10-19 (2.7b, commits 5ec0d1cc7..a687715b3 -- NOT RELEASED; tablet-tested only). Not listed: fixes of unreleased 2.7b code (ROLEPOS's second stream,
+     the 2.7b track pipeline). PENDING: the lead track laid on the route in either direction (field check owed -- the long test ride); the reconnect panel (v4, not verified). -->
+NEW A GPS light above RECA small light above the record button shows whether this tablet has a GPS lock: green &mdash; GPS LOCK with the number of satellites in use, red while it is still looking. On a tablet without GPS it shows whether your radio is supplying the position (RADIO GPS). The first lock after the tablet has been off can take about five minutes under open sky.What it means for you: wait for green before you press REC, and your track starts where you start.Manual: CHK IN › REC
+NEW Arrows on your routeA route shown on the Ride Map now carries arrows along it in the direction it was built to be ridden.What it means for you: at a fork or on a loop you can see at a glance which way the ride goes.Manual: Map Features
+FIXED The Ride Map no longer opens white or showing the whole worldSome riders opened the Ride Map to a blank white screen, or a view of the whole world, until they pressed MY CART. The map was being fitted to its last view before it had a size on the screen. It now waits until it is ready. With no internet it opens on your cart, on your downloaded maps.What it means for you: the map opens where you are, ready to ride &mdash; no more tapping MY CART to bring the maps back.Manual: The Ride Map
+CHANGED Losing the internet on the trail switches you to your downloaded mapsIf the tablet loses its network while the Ride Map is open, the map switches to the maps you downloaded, by itself. Coming back into coverage does not switch back; use the map source button when you want online maps again.What it means for you: the map keeps showing the ground under you when the signal drops.Manual: SAT, TOPO and TOPO+
+FIXED Recording no longer pauses itself straight after RECStarting a new recording near where an earlier one ended could put it to sleep within a couple of minutes, as if you had been parked for 25 minutes. REC and RESUME now start the idle timer from zero.What it means for you: the recording only pauses after a real 25 minutes without moving.Manual: CHK IN › REC
+CHANGED You see yourself from this tablet; the group sees your radioYour own cart and your track follow this tablet's GPS. Every other rider sees your cart where your radio reports it.What it means for you: your own cart moves smoothly on your screen, and the group sees one position for you, not two.Manual: GRP Awareness
+Rel 2.7b · 18 October 2026
+<!-- RELNOTES-2026-10-18 (2.7b, commits 8aed6e286..94524303f -- NOT RELEASED; tablet-tested only). Internal fixes found while testing unreleased 2.7b code are NOT listed
+     (Fred 10-15): the health-check reconnect loop, the phantom link, the GPS chip start (CHIPALWAYS), the loop trim. OPEN: MYCARTCHIP may restate the 10-15 "Your cart moves" note. -->
+NEW "Your radio isn't answering. Check it is powered on."If your radio goes completely quiet while you ride with a group &mdash; nothing from it and nothing through it for 30 seconds &mdash; this message shows at once. 15 seconds later GroupTrack reconnects to the radio by itself, and keeps trying. If three tries fail, the message changes to the FORGET and PAIR advice. When the radio is heard again the message clears.What it means for you: a radio that was switched off or ran flat is spotted in about half a minute, and you are told what to check first.Manual: GRP Awareness
+CHANGED Losing satellites no longer disconnects your radioUnder trees or in a canyon your radio can lose its GPS fix and stop sending its position. GroupTrack no longer treats that as a dead radio: the connection stays up, your cart carries on from this tablet's GPS, and your radio's position comes back by itself when it sees the sky again.What it means for you: no more reconnect loops on the trail when the radio loses its fix.Manual: GRP Awareness
+NEW Your track and the lead's track on the ride mapWhile recording, a blue dotted line with arrows follows behind your cart, and a black dotted line with arrows shows the path the lead cart has driven ahead of you. The lead's line is drawn from the positions his radio sends; the part you have already driven is removed as you go.What it means for you: you can see where you have been and where the lead has gone.Manual: MY CART
+Rel 2.7b · 16 October 2026
+CHANGED Recording pauses after 25 minutes parked, not 10When you have not moved for 25 minutes (it was 10), GroupTrack pauses the recording and disconnects the radio, as before. The banner now says what happened: Sleeping &mdash; Recording paused, radio disconnected. Tap to wake.What it means for you: a lunch stop or a long wait at a junction no longer puts your tablet to sleep, and when it does sleep you know the group can't hear you until you tap.Manual: CHK IN › REC
+Rel 2.7b · 15 October 2026
+<!-- RELNOTES-2026-10-15 (2.7b, commits 3b8ae7355..3583eda96 -- NOT RELEASED; tablet-tested only. The cart board, CoT messages and the tick work are internal -- not listed.
+     HELD until verified: RADIOTRACK 751a0a230 (radio-GPS tracks recorded 3.3x too high in altitude -- fixed; only a tablet WITHOUT GPS uses that path, not yet tried on one). -->
+FIXED Your cart moves with your radio connectedOn a ride with the radio connected, your own cart could stay where it was on your own tablet while everyone else's moved. Your cart on your map now always follows this tablet's GPS, every time it moves, radio connected or not. The other riders still see you from your radio.What it means for you: MY CART keeps up with you on every ride.Manual: MY CART
+CHANGED The Meshtastic side menu is gone — NODES insteadThe Meshtastic menu down the left-hand side no longer appears. The one thing riders used it for — the list of radios heard — is now NODES in GRP Awareness. It opens on top of the map, and BACK TO MAP takes you straight back, the same way Radio settings does.What it means for you: no more leaving the ride map by mistake, and no menu of radio screens you don't need.Manual: GRP Awareness
+NEW Two riders, one role — both go back to RiderIf two riders claim the same role — Leader, Middle or Tail gunner — at the same moment, both are set back to Rider. Each tablet shows a flashing red ROLE CONFLICT message naming the other rider, with VIEW CART ROLES open behind it. Agree who takes the role, and that rider claims it again.What it means for you: a ride never has two Leaders. If you see the red message, talk to the rider it names, then one of you claims the role.Manual: Roles on the trail
+CHANGED The lead follows the Leader — on every tabletWhen a rider checks in as Leader, every tablet makes that cart the lead. When the Leader changes to Rider, the lead is cleared everywhere — nobody is left following a cart that no longer leads. The new Leader claims the role in VIEW CART ROLES, or REC asks which cart leads.What it means for you: the lead on your map is the rider who holds Leader — nobody else.Manual: Roles on the trail
+FIXED Roles show only while you are checked inAfter END, a rider's old role could stay beside a cart. Roles now show only while your tablet is checked in to a ride; the carts themselves always show.What it means for you: no leftover roles from the last ride.Manual: Roles on the trail
+CHANGED Radio gone for good? Your tablet carries on aloneWhen three reconnect attempts fail while you ride with a group (the red banner), GroupTrack switches to this tablet only: the other carts, the lead and the lead's track are cleared, and your cart follows the tablet's GPS. Group awareness stays on and keeps trying — when your radio comes back, the carts return as they are heard.What it means for you: you never ride on carts frozen where they were minutes ago.Manual: Group Awareness
+CHANGED Tapping a cart: GAP, and live updatesThe details of a cart you tap now update with each report from that cart. SEEN is replaced by GAP: the time between that cart's last two reports — a quick check of how well you are hearing it. ALT shows its unit (ft).What it means for you: a GAP that grows means that rider's radio is getting hard to hear.Manual: GROUP, and the readout
+CHANGED No "No location available" message at startThe message no longer interrupts the start while the first GPS fix arrives; the map moves to you as soon as it does.What it means for you: one less thing to dismiss.
+Known in this test build (15 October)A cart whose radio goes quiet can stay "Active". Signal Drop and Signal Lost are worked out as reports arrive; when nothing arrives at all, a quiet cart's status may not change. Still to be confirmed in the 2.7b test week &mdash; see the list above.
+Rel 2.7b · 14 October 2026
+CHANGED Group awareness off starts cleanTurning group awareness off now leaves only your cart on the map and in Select Cart — the other carts, the lead and the lead's track are cleared. Turn it back on and the group returns as their radios are heard. A radio that just drops out while group awareness is on still keeps the other carts where they were last seen.What it means for you: riding alone means a clean map — nothing left over from the last group ride.Manual: group awareness
+CHANGED Your cart keeps up with your tablet's GPSWhen your tablet is the source of your position (no radio, or the radio is quiet), your cart now moves with every GPS fix instead of every five seconds.What it means for you: a smoother, more accurate pin while you ride.
+Rel 2.7b · 13 October 2026
+NEW Group awareness — or this tablet onlyAt first start GroupTrack asks: Will you use a Meshtastic radio to see your group on the map? Answer YES, I HAVE A RADIO, or NO, THIS TABLET ONLY to ride with your own cart from the tablet's GPS. Change it any time in Settings → Group awareness. With it off, GRP Awareness, the HUD's GROUP and the GPS button are greyed and tell you how to switch it on.What it means for you: no radio yet? GroupTrack works cleanly on its own — and switching your group on later is one switch.Manual: the radio question
+CHANGED Settings: only what appliesThe group settings — Signal Drop, Signal Lost, Off Track, Admission Window and the new Show lead track — appear only with group awareness on. Multicolor track, Lead Cart Only, the KML / GPX switch (tracks are always GPX) and Removed Carts (now in Select Carts) are gone.What it means for you: a shorter Settings screen with nothing that does nothing.Manual: Settings
+FIXED Your alert settings stay setSignal Drop, Signal Lost and Off Track were saved but went back to the built-in values after a restart. They now stay as you set them.What it means for you: set them once.
+FIXED Call signs straight away in GRP AwarenessThe radio list sometimes showed a radio's own name (Meshtastic_c46a) until a scan finished. It now shows your call signs at once.What it means for you: you always know which radio is which.Manual: GRP Awareness
+Rel 2.7b · 12 October 2026
+<!-- RELNOTES-2026-10-12 (2.7b cycle 1, commits 05ce8849d..167cc1c45 -- NOT RELEASED; tablet-tested only. Most of 2.7b is internal:
+     radio settings, setup, saved configs and the GPS interval now go through GroupTrack's comm layer, with no change in what riders do.
+     Only the items below are visible.) -->
+CHANGED GRP Awareness shows the network your radio is onUnder your radio's name, GRP Awareness now asks the radio which network it is on: GroupTrack network … in green, or Not set up for GroupTrack in amber. The line under it says when this tablet last set the radio up — or that it never has.What it means for you: a guest's radio that was set up on another tablet no longer looks "never set up" — what you see is what the radio really holds.Manual: GRP Awareness
+CHANGED Saved configs keeps its buttons in viewApply, Compare with… and Close stay at the top of Saved configs; the list — or a comparison — scrolls underneath them.What it means for you: long comparisons no longer push the buttons off the screen.Manual: Setting up your radio
+CHANGED Radio settings has a BACK TO MAP buttonWhen you open Radio settings from GRP Awareness, a BACK TO MAP button takes you straight back.What it means for you: no hunting for the way out of the radio's own settings.Manual: GRP Awareness
+GroupTrack 2.7a — the Community release
+Group communication and ride sharing · 30 September 2026
+GroupTrack is complete as installed, and 2.7a adds your community. It is two products in one: a complete personal navigation product that lets you share rides and maps with other GroupTrack users, and a true situational awareness product for your group on the trail.
+On your own — the whole job
+Trails and maps on your device, working with no signal; a planner that builds routes for you to compare; waypoints, map downloads and your own track recordings. Manual: The Ride Planning Map
+New: ★ Create a RideOne ride holds the route, the trailhead, the date and time, the maps to download and the mesh radio configuration. Send it in one click; your friends open it in one click — and ride anywhere off grid in total confidence. Manual: ★ Create a Ride
+Your identity
+Your rider profile — callsign and email — is who you are in GroupTrack. It is private: it stays on your tablet, nothing is sent to GroupTrack, and it goes only to the riders you ride with. Manual: Your rider profile
+Add a radio to experience full group awareness while riding
+Add a Meshtastic radio — any Meshtastic radio, not only the T1000-E — and you see your group on the map with no cell service. GroupTrack sets the radio up for you. Manual: Group Awareness
+A private network for organizers and clubs — your rides use your own radio network; riders who have ridden with you are already on it next time, and nobody outside the ride hears it.
+One standard language — radios report in TAK, the team-awareness format: your position with your callsign, even with the tablet in your pocket.
+Roles and presence — Leader, Middle and Tail gunner are broadcast to every member; riders check in to claim a role and announce that they are there.
+The ride carries the radio settings — checking in at the trailhead sets your radio up for the ride's network by itself.
+So a ride goes like this
+Tap the Ride invite. GroupTrack creates the route, its trailhead and the ride's description, stores the ride's radio settings, and imports the maps along the route.
+With a radio, check in at the trailhead. Your radio is set up for the ride, and your role is announced.
+REC. You are riding — with your group on the map if you carry a radio.
+For the organizer it is one step: build the ride and send it.
+2.7a update · 17 October 2026 (release m)Offline maps now open with no signal. Before this update, downloaded maps only showed if GroupTrack was started with an internet connection; started with no signal, the map stayed blank. The map library is now inside the app, so the map opens anywhere.
+Updating from 2.6 — what to do first
+NEW Three one-time steps. (1) Your rider profile — GroupTrack asks for it the first time it opens. (2) Update your radio, if you ride with one: 2.7a moves GroupTrack to TAK messaging, so each radio needs the GroupTrack default once. GroupTrack asks at first start — Do you have a mesh radio to use with GroupTrack? — and YES takes you to GRP Awareness to connect it and apply the default. Said NO? Do it before your first ride: GRP Awareness → connect → Select a ride and apply settings to the radio → GroupTrack default. (3) Ride files — the first time you tap one, choose GroupTrack, then Always. New to GroupTrack? The Quick Start walks you through it. Manual: First start
+IMPORTANT Before every ride: send the ride invite to every riderEveryone on the ride needs the same ride. Send the ride invite to every GroupTrack rider joining you — and make sure each one opens it and imports it before the ride. The ride brings the route, the trailhead and the maps. Without it, a rider sees carts as dots on an empty map and has nothing to follow. It matters even with no radio: a rider who has imported the ride can follow the route on their own tablet, and stays on course far more easily.What it means for you: when you create a ride, send it to everyone who is coming — and ask them to open it before you meet. At the trailhead, check that every rider has it.Manual: Sending a ride
+Updated · Rel 2.7a · 10 October 2026
+<!-- RELNOTES-2026-10-11 (releases j, k, l -- tags v2.7a-internal-2026-10-10-j / -k / -l; l = 607a47cb8, on Play internal + testers 10-11, public by EOD 10-11).
+     DOC REVIEW FOR THE NEXT RELEASE: every feature below is user facing -- the manual, its screens and the Quick Start are to be reviewed against
+     this section (list kept in the living master, 10-11 entry). -->
+FIXED Checking in sets your radio up without an errorWhen CHECK IN set your radio up for a ride, the screen could show Cannot use this target after the radio restarted — even though the radio was set up correctly. The setup now runs once, start to finish, with no false error.What it means for you: check in, and the radio is ready for the ride — no message to wonder about.Manual: Checking in and recording your track
+CHANGED New rides use the GroupTrack network by defaultThe ride form now offers three radio networks: GroupTrack default network (chosen for you), your own network (shown as your name and network id), or a private network for this ride.What it means for you: any rider with a GroupTrack radio can join your ride with nothing to change. Choose your own or a private network when you want the ride heard only by the riders on it.Manual: The ride form
+CHANGED Checking in with no ride puts your radio back on GroupTrackCHECK IN with No scheduled ride sets your radio to the GroupTrack default first. Tick Keep my radio as it is to leave it alone.What it means for you: after a ride on a private network, your radio returns to the network every GroupTrack rider shares.Manual: Checking in and recording your track
+FIXED Trails missing from the map now showOn some tablets the last step of a state import — Classify trails — was skipped, so whole groups of trails never appeared, whatever Map Keys said. That step now always runs, and trails on public land show by default. Tablets that already imported trails are repaired the first time this version opens; nothing needs importing again.What it means for you: update, open GroupTrack once, and trails you knew were there are back.Manual: Map Keys
+NEW Settings → Remove all trail dataRemoves every trail and its details, so trails can be imported again from a clean start. Your tracks, routes, waypoints and downloaded maps stay. Then: Import Trails by State, and ADD TRAILS FROM TRACKS.What it means for you: a clean way to start your trails over if support asks you to.Manual: Settings
+NEW Settings → Check a trailType a trail's id: GroupTrack shows what it holds for that trail and whether — and why — the map draws it, and SEND emails the result.What it means for you: if a trail you expect is not on your map, send the check to support and we can see exactly why.Manual: Settings
+NEW A notice before the file pickerBefore GroupTrack opens the Android file picker — importing tracks, importing a ride, or choosing the Documents folder — a short panel says where you are going and how to come back: select your file, or use the system BACK (the arrow on the bottom bar, or a swipe in from the right-hand edge). CANCEL if you tapped it by mistake.What it means for you: you never get lost in the file picker.Manual: Import a ride
+Google Play — What's new (463 characters; Play limit 500)• Check-in sets your radio up for the ride with no error messages
+• New rides use the GroupTrack network by default; choose your own or a private one instead
+• Checking in without a ride puts your radio back on GroupTrack (or tick "Keep my radio as it is")
+• Trails missing from the map now show
+• Settings: remove all trail data for a clean re-import; check a trail and email the result to support
+• A short notice before the file picker explains how to get back
+Updated · Rel 2.7a · 9 October 2026
+FIXED GPX files from email open the import screenOpen a .gpx or .kml attachment from Gmail (or any app) and GroupTrack now takes you to the GPX import screen, where you choose maps and tap IMPORT. Before, some emailed files were silently ignored.What it means for you: share a track by email and it arrives — routes, tracks and waypoints, through the same screen as every other GPX import.
+IMPROVED Trails from your rides fill the gapsADD TRAILS FROM TRACKS now lays each recorded ride over the trails you have and adds every stretch where the ride left them and came back — joined to the trail at both ends, including the short connectors it used to skip. GPS wobble beside a trail is ignored.What it means for you: the ground you rode becomes trail you can route on, without gaps between the trails it connects.
+IMPROVED Your rider trails keep their identityRunning ADD TRAILS FROM TRACKS again no longer rebuilds everything: trails that have not changed stay exactly as they were, new ground is added, and the result tells you what was added, unchanged and removed. The map refreshes on its own after trails are added.What it means for you: "added" means really new, routes built on your rider trails stay connected, and you never need to restart to see new trails.
+FIXED Trails no longer vanish from whole areas of the mapA single trail whose name contained quotation marks (for example Rush "Fly By Night") stopped every trail on that part of the map from drawing. Fixed.What it means for you: if trails were missing from an area you know has them, update and look again. Still missing? Check Map Keys: with Land = Public, roads classified as private are hidden by design.
+Updated · Rel 2.7a · 8 October 2026
+IMPROVED The compare table stays out of the wayThe table of routes the planner built is narrow — up to six routes — so the map underneath stays visible. ▾ Hide folds it to its header, ▸ Expand brings it back, and Tap a ride name to show or hide its route.What it means for you: you can see every route on the map while you compare them.Manual: Letting the planner build it
+NEW CANCEL AI BUILD on every stepEvery step of the planner before the build has CANCEL AI BUILD: it leaves the planner completely, removes the unfinished route and takes you back to the map.What it means for you: changed your mind? One tap, and nothing is left behind.Manual: Letting the planner build it
+CHANGED A trailhead must reach a trail you can seeThe planner refuses a trailhead with no trail shown on the map within the half-mile circle, and says why. Trail types switched off in Map Keys are not used for planning. Map Features no longer opens by itself at the trailhead step.What it means for you: no more empty searches that send you back to the start — check Map Keys if the planner says there is no trail.Manual: Letting the planner build it · Manual: Map Keys
+FIXED FORGET shows PAIR straight awayAfter FORGET in GRP Awareness, the radio shows PAIR at once instead of after reopening the panel.What it means for you: forget and re-pair a radio in one go.Manual: GRP Awareness
+Updated · Rel 2.7a · 3–6 October 2026
+CHANGED VIEW CART ROLESThe bottom-bar button CHECKIN / SELECT CART is now VIEW CART ROLES. Its panel, CART ROLES, lists every cart with a green ✔ (checked in) or a red ● (not yet). Tap your own cart to change your role; you come back to the list showing your new role. Check in from CHK IN at the top left.What it means for you: who is checked in, and who holds which role, at a glance.Manual: VIEW CART ROLES
+NEW The HUD text switchA circle, half white and half black, beside GPS and the channel meter switches the readouts' text between white and dark — one setting for GROUP, MY CART and the selected cart.What it means for you: readable readouts on any map — white on SAT, dark on TOPO.Manual: GPS
+CHANGED TOPO+ uses OpenTopoMapOut of the box, the TOPO+ slot holds OpenTopoMap. You can still choose any source for any slot in Settings.What it means for you: a detailed topographic map one tap away.Manual: SAT, TOPO and TOPO+
+IMPROVED A quieter radio channelGroupTrack's radio setup now reports every 30 seconds standing still and, moving, every 100 metres — at most every 6 seconds. Checking in applies it.What it means for you: more riders fit on one channel.Manual: GPS · Manual: Setting up your radio
+IMPROVED When the radio stops talking, the ride carries onGRP Awareness is green only while your radio is talking. When it stops, GroupTrack keeps your cart on the map with the tablet's GPS, holds the group where it was last seen, and reconnects by itself. If three tries fail while you ride with a group, a red banner tells you what to do: FORGET the radio in GRP Awareness, then PAIR it again.What it means for you: a radio problem never takes the map away from you.Manual: GRP Awareness
+IMPROVED The ride inviteThe invite is a formatted email; its attachment is named after the ride, with a line on how to download GroupTrack.What it means for you: riders new to GroupTrack know what to do with it.Manual: Sending a ride, and getting one
+New in this release · Rel 2.7a · 2 October 2026
+Riding together starts with a rideRiding together starts with a ride. GroupTrack's community begins with the ride package — a route, starting at its defined trailhead, on a set date and time, with the maps it needs and its radio configuration. Send it to friends and riders who want to ride with you.One click, and everyone has the same preparation: the trailhead marked on their map, the route outlined to follow, the required maps downloaded along it. At the trailhead, check-in applies the ride's radio configuration for them. The fastest way to create one is a map touch: tap a route or a track on the Ride Planning Map, then CREATE RIDE — Manual: Map touches, the fastest way to Create a Ride.No more night before the ride spent downloading an area and hoping the trail goes where you think it does. No one asks where to meet, and no one waits at the trailhead while someone else catches up. Everyone's time goes to riding.
+★ Create a Ride
+NEW ★ Create a Ride — from a route, or from a track you recordedFrom a route: tap it on the map — CREATE RIDE on the description of a route the planner built, or ADD A RIDE on the detail panel of a route you drew. From a track: CREATE RIDE turns the track into a route (every turn kept) and opens the ride form.What it means for you: Any route you planned, or track you recorded, becomes a ride package in a minute — ready to send to the riders coming with you. Rides are created on the Ride Planning Map only.Manual: ★ Create a Ride · Manual: Creating a ride from a route · Manual: Creating a ride from a track
+You and your group
+NEW Your rider profileYour callsign and email, asked for once when you first open 2.7a. Change them any time: Settings → Your Profile.What it means for you: The group knows you by your callsign on the map and in every report; rides reach you by email. It stays on your tablet.Manual: First start
+NEW Your own private radio networkCreated the first time you open the ride form, named after you, and used by every ride you organize. A one-off event can have its own. Changed 10 October: new rides use the GroupTrack default network unless you choose yours — see above.What it means for you: Riders who have ridden with you are already on your network next time; nobody outside the ride hears it.Manual: The ride form
+NEW Radios speak the standard awareness formatEvery radio GroupTrack sets up reports your position with your callsign in the TAK format — on its own, even with your tablet off.What it means for you: Other tablets — and TAK apps — see you by name, and the group can share roles and presence, not only positions.Manual: Setting up your radio
+Rides — create, send, open
+NEW One ride, everything includedA ride carries its route, trailhead, waypoints, map imagery and radio settings. Send it from Work with Rides → Rides → Share.What it means for you: Organize once; every rider gets everything needed to take part in one Ride invite.Manual: Sending a ride, and getting one
+NEW Tap a Ride invite, and the ride is on your tabletReceive a Ride invite and tap it (the first time, choose GroupTrack, then Always). GroupTrack creates the route, its trailhead and the ride's description, stores the radio settings, and imports the map imagery along the route.What it means for you: You are ready to ride off grid with one tap.Manual: Sending a ride, and getting one
+NEW Every route has its trailheadA route is saved with its trailhead — its first point. A Trailhead already there is used; otherwise GroupTrack asks you to name one.What it means for you: Every ride built on the route starts where riders meet and unload.Manual: Creating a route
+NEW A simpler ride formThe ride's name, Private ride (off = public), the radio network, the date and rollout time, and the Leader's Notes — the route and its picture last.What it means for you: What you type comes first; the trailhead, your name and email are filled in for you.Manual: The ride form
+NEW Work with Rides — on both mapsOne menu for rides: Rides — share, edit, delete · Import a ride · Apply ride to radio / Nucleus · Compare / Apply Archive Configs. Edit a ride before you send it; after sending, change its date and send it again.What it means for you: Everything to do with rides in one place, from either map.Manual: Work with Rides
+CHANGED Past rides are keptA ride leaves the lists 30 days after its date, but it is kept on your tablet, with its record and its survey.What it means for you: Nothing you rode disappears; the lists stay short.Manual: Work with Rides
+At the trailhead
+NEW Check in, then recordThe red ✔ CHK IN › REC button: pick your ride, your callsign and your role; if your radio is not on the ride's network yet, CHECK IN sets it up first. No radio connected? The button reads ⏺ REC and records a solo ride. The check-in is for group awareness only — riding solo, you never see it.What it means for you: Checking in is what puts your radio on the ride and tells the group you are there.Manual: CHK IN › REC · Manual: Checking in and recording your track
+NEW Roles: Leader, Middle, Tail gunnerOne of each per ride, claimed at check-in and broadcast to every member. A role someone holds is refused (a red window says who). Change your own at a stop: CHECKIN / SELECT CART → CHANGE MY ROLE.What it means for you: Everybody sees who leads and who sweeps, and the lead and tail markers follow them.Manual: Roles on the trail
+NEW One form at the endEND names the track after the ride. On a public ride, rate it, say how hard it was and whether you would recommend it, and choose whether to share your track.What it means for you: Your ride is filed, and your rating helps the next group choose.Manual: Checking in and recording your track
+On the Ride Map
+NEW GRP Awareness — your radio in one placeReplaces Mesh on both maps: green when your radio is connected, red when not, pulsing as the group is heard. Tap it to connect, pair or forget a radio, see the ride last applied, and apply a ride to a radio.What it means for you: Your radio and your group at a glance, without the Meshtastic panels.Manual: GRP Awareness
+NEW CHECKIN / SELECT CART — the carts on your rideThe carts on the ride's network, Leader, Middle and Tail gunner first. REMOVE takes a cart off your map and out of your group; ACTIVATE brings it back; END brings every cart back.What it means for you: Keep the map to the people you are riding with.Manual: CHECKIN / SELECT CART
+NEW The GPS button — how often your location is sentShows your radio's interval while moving (for example 4 s) and how busy the channel is: green, yellow or red. Tap to set 3–10 seconds; the radio is set once and reconnects by itself.What it means for you: Fit more riders on a busy channel, or report more often on a small ride.Manual: GPS
+CHANGED Easier to read outdoorsThe HUD text follows the map — white over satellite, dark over topo — with a crisp outline instead of a blurred glow; the right-hand menu words are plain colour.What it means for you: Readable in sunlight, without Android's high-contrast mode.Manual: The Ride Map
+Radios
+NEW GroupTrack asks about your radio at first start2.7a moves GroupTrack to TAK messaging, so every radio used with it needs the GroupTrack default. GroupTrack cannot tell whether you own a radio, so it asks once, before loading your trails: YES opens GRP Awareness to connect, select the GroupTrack default and apply; NO leaves it for later. Pairing code: 123456 by default, or the code a radio with a screen shows. Your callsign becomes the radio's name — set up more radios the same way, each with its own callsign.What it means for you: one question, and your radio is ready for 2.7a. It asks once — not again after NO, after a radio is set up, or on a tablet that already holds a GroupTrack radio configuration.Manual: The radio question at first start
+NEW Any Meshtastic radioGroupTrack connects to, sets up and tracks any radio running Meshtastic — handheld trackers, radios with a screen, base stations, and the Nucleus IP-mesh box — not only the SenseCAP T1000-E. Connect it in GRP Awareness; checking in to a ride, or Work with Rides → Apply ride to radio / Nucleus, sets it up.What it means for you: ride with the radio you already have, and mix radios on one ride — every one is set up the same way and reports in the same standard format.Manual: Setting up your radio · Manual: GRP Awareness
+NEW GroupTrack sets up your radioEvery setting GroupTrack manages is written in steps, read back and ticked. To set up another rider's radio, type their callsign. Radios report every 15 s standing and as often as every 4 s moving.What it means for you: No settings screens, and every radio on a ride set up the same way.Manual: Setting up your radio
+NEW A quieter channel, so more riders fitRadios use MEDIUM_FAST with a 4-second smart interval: the share of airtime each radio uses fell from about 22% to 4–5%.What it means for you: Many more riders on one ride before the channel crowds; the trade-off is range.Manual: Radio range and group size
+Maps and waypoints
+NEW Waypoints open their detailsTap a waypoint on either map: its detail panel opens, with CHANGE TYPE and delete. A waypoint that is a route's trailhead stays a Trailhead — remove the route first.What it means for you: Fix a waypoint where you see it.Manual: Tapping a feature on the map
+NEW New waypoints start as a TrailheadLong press on the map: New Waypoint opens with Trailhead chosen; choosing Other asks once.What it means for you: The trailhead your route and ride need is one long press away.Manual: Long press — add a waypoint
+Fixes
+FIXED Share and Export work whatever the name. A / in a name — a date such as 9/30 — made the file fail with "Share failed". The file name now uses safe characters; the real name still shows in the email subject. Applies to tracks, routes, waypoints and trails.
+CHANGED Shape only is now explained as "Shape and route of reported trails that are otherwise unclassified" — check the satellite imagery before planning on one. Manual: Map Keys
+FIXED Your cart comes back after changing the GPS interval. The radio restarts to take the setting; GroupTrack now reconnects twice, and your cart returns to the map. Manual: GPS
+FIXED Every cart stays on the map when you press REC.
+FIXED Removing a cart sticks. Before, a removed cart came straight back.
+FIXED Android offers one GroupTrack when you open a ride — before, it could show two, and one imported nothing.
+FIXED Waypoint icons after a type change — every type you can choose now draws its own icon.
+Gone in this release
+The Meshtastic panel and its GroupTrack Mesh Radio Setup menu. GRP Awareness and Work with Rides replace them.
+Send a ride via email and Apply ride to standalone T1000-E in Work with Rides — sharing is Rides → Share, and Apply ride to radio / Nucleus sets up every radio.
+SET AS LEAD and REMOVE FROM RIDE in a cart's detail — the lead comes from the Leader's role, and carts are removed in CHECKIN / SELECT CART.
+Earlier releases
+DOCUMENT ID: RELNOTES-2026-08-29-B
+Plan a ride
+This release is about one thing: the route planner is finished. Tell it where you are
+starting, how far you want to go and how fast you ride, and it brings back up to six routes for you
+to compare.
+How it works now
+The planner asks one thing at a time. An overview explains what you will get. A second screen
+sets your distance and pace, and shows the ride duration as you move the sliders — set the mileage
+until the hours match the day you have.
+After that each step puts a short prompt at the bottom of the screen and leaves the map clear
+to work on. Pick where you will park. Drop pins on places the ride should reach, if you have any
+in mind. Say whether you are looping back or finishing somewhere else. Then read back what is
+about to be built, and press Continue to Compare.
+Comparing the six
+The routes are drawn on the map, each in its own colour, next to a table showing what each one
+covers. Tap a route's name to hide or unhide its line, so you can see one at a time. Tick
+the ones you want and press Save Selected / Delete Unselected — the ones you do not tick
+are removed.
+Build the same rides again
+Every route the planner builds records the settings that produced it. Open a saved route and
+press Build Routes From Recipe: it reads those settings back, shows you a summary, and
+rebuilds. This is how you get back the alternatives you did not keep the first time.
+The button only appears on routes the planner built — a route drawn by hand or imported from
+another app has no settings to rebuild from.
+Sharing a route
+A shared route now carries its description with it. Export one and the summary the
+planner wrote travels in the file, along with the settings that built it — so whoever you send it
+to can build their own six routes from your parameters. Routes imported from Gaia or onX bring
+their descriptions in the same way.
+Fixes worth knowing about
+Searching the same area twice. If you ran a search, then ran another in the same area
+without closing the app, the second set could be worse than the first — points you asked the ride
+to cover were more likely to be left out. Fixed.
+Adding a trailhead now selects it. Previously you had to create one and then tap it
+again.
+The trailhead step opens with search ready, and a blue circle shows which trails are
+close enough to start a route. Move the map until the trail you want is inside it.
+Search tip: follow an area name with its two-character state. The same name exists in
+many states and landing in the wrong one is not obvious — the map moves, trails draw, and
+everything looks right.
+What is coming next
+Better trail data. The trails on your device today are selected by shape alone, which
+means some paved neighbourhood roads come in as trails and some dirt roads you ride do not come in
+at all. The next release fixes that, and adds trail types you can filter — so you can turn hiking
+trails off, or see at a glance which parts of a route are on ground built for vehicles.
+⚠ One thing to expect when it arrives: your saved routes are safe and will still draw
+and navigate. But rebuilding one from its recipe may return different alternatives than it does
+today, because the ground the planner can see will have changed. That is the improvement working,
+not a fault.
+— carried forward —
+DOCUMENT ID: RELNOTES-2026-08-29
+2026-09-17 — importing a state outside Utah now finishes
+Imports outside Utah stopped at the last step
+If you imported the trails for a state other than Utah and GroupTrack closed near the end, this
+was the reason. The last step checks which trails cross private land, using a land-ownership map —
+and that map only covers Utah. GroupTrack was downloading it and working through all of it for every
+state, including ones it could never apply to. On most tablets that ran out of memory right at the end.
+It now only does that work for Utah, where the data applies, and it reads Utah's map far more
+efficiently. If an import of your state stopped before, run it again.
+⚠ If the import screen won't start after an import was interrupted — you pick your state and
+nothing happens — close GroupTrack completely (swipe it away from your recent apps, or use Force stop in
+Android's app settings) and open it again. A fix for that is coming.
+Maps are ticked for you when you import
+The option to download the maps along with the trails is now switched on when the import screen
+opens, and easier to read. Untick it if you only want the trails.
+2026-09-15 — your location, and a map that stays where you put it
+Tablets and phones without their own GPS
+If your device has no GPS chip, GroupTrack could not find you at all. Your cart showed
+its name but no position, and the map opened on a view of the whole country instead of where you
+were. The app now also asks your network connection for a location, which is how a device without
+GPS knows where it is.
+And it now tells you when that is what is happening. A network location works at home
+and in the car park. It does not work on the trail, because there is no network out there. If
+GroupTrack is locating you that way you will see a message saying so once, with the option not to
+be told again.
+⚠ A device with no GPS of its own needs a mesh radio to work off-grid. The radio carries
+its own GPS, so it answers both problems at once — it knows where you are and it shares that with
+your group. We recommend the Seeed SenseCAP Card Tracker T1000-E.
+If the app cannot find you by any means at all, it now says that too, rather than quietly
+showing you an empty map.
+My Cart stopped fighting the zoom
+On topo maps the view jumped in and out every couple of seconds. My Cart was asking to
+zoom closer than the map has detail for, the map pushed back, and round it went. My Cart now asks
+for the closest zoom the map you are on actually has — so it settles and stays.
+You can still pinch in past that. The picture is enlarged rather than sharper, which is the
+point: your tracks and waypoints stay crisp so you can place one precisely.
+Searching for a place now leaves you there
+Search an area from the ride map and it used to snap back to your own cart a second or two
+later. Following your cart is now switched off when a search moves the map, exactly as it is
+when you drag the map with your finger. Look around as long as you like; tap MY CART when you
+want to come back, and following starts again.
+Searching for a track, route, trail or waypoint by name is unchanged — that opens its details
+without moving the map, so you stay followed.
+Smaller topo downloads
+Topo maps were downloading two zoom levels the app never draws. Those levels are roughly
+four times the size of the one below, each, so a topo download was several times larger than it
+needed to be with nothing to show for it. They are no longer fetched. Satellite is unchanged —
+it has real detail at every level it offers.
+⚠ The estimate shown before a download still counts those levels, so it will read higher than
+what actually arrives.
+Maps failing to appear
+In some situations the app could lose track of which map sources it had and fall back to
+a built-in list that did not include the one you had chosen — which showed up as a blank map on
+every source. It now reads your actual map settings instead of guessing.
+2026-09-13 — start here
+Two paths below. Open the one that applies to you.
+First time installing GroupTrack
+1 &middot; Grant location
+GroupTrack needs your location all the time — it is how the app keeps
+your position on the map and how the convoy sees where you are while you ride.
+Follow the prompts.
+2 &middot; Choose your home state
+Let it download the trails. It takes around 25 minutes and it only happens
+once. After that the trails work with no signal, which is most of where you
+ride.
+3 &middot; Import your track history
+Do this before you start building routes. Every track you bring in adds
+its trails to the trail database — so the more of your riding history you
+import, the more complete your map becomes.
+Put your GPX files in Downloads on your Android: save them from an email
+attachment, or download them straight from your navigation app.
+Then tap Import Trails on the Map Features screen from the
+planning map. You will be asked to pick the files.
+To select several files at once, press and hold the first file, then tap the others.
+4 &middot; Ride
+When the app has your location, you are ready to go.
+Updating from an earlier version
+Your data moves once, on the first launch
+GroupTrack used to keep your trails, tracks, routes and maps in your phone's
+Documents folder. It now keeps them in its own storage instead.
+The first time you open this version it asks you to choose a folder. Choose
+Documents and allow access. Everything moves across on its own.
+Your data takes a couple of minutes. Your maps are handled separately and take
+longer — a large map store can run up to 15 minutes. Leave the screen open while
+it works.
+If there is not enough room for your maps
+Maps need space to move. If there is not enough, GroupTrack tells you, and
+those maps are deleted — you will need to download them again when you
+have room. Everything else still moves across.
+Importing tracks has changed
+GroupTrack no longer searches your Downloads folder by itself. Tap
+Import Trails on the Map Features screen and you will be asked to
+pick the files you want.
+To select several files at once, press and hold the first file, then tap the others.
+And this is worth doing with your whole track history. Every track you
+import adds its trails to the trail database, so bringing in years of old tracks
+fills out your map in a way nothing else does. Put the GPX files in
+Downloads first — from an email attachment or straight from your
+navigation app.
+Why the change
+Google restricts which apps may keep files in shared folders like Documents.
+Rather than ask for an exception, GroupTrack now stores its own data in its own
+place — which is what the rules are for.
+One thing worth knowing: data kept this way is removed if you uninstall the
+app. Use the share options to keep a copy of any route or track you would not
+want to lose.
+2026-09-12 — where GroupTrack keeps your data
+A one-time move, and one tap from you
+GroupTrack used to keep your trails, tracks, routes and downloaded maps
+in your phone's Documents folder. It now keeps them in its own storage
+instead.
+The first time you open this version it will ask you to select your
+Documents folder. Tap it, and everything moves across on its own — trails,
+tracks, routes, waypoints, your saved colours, and your downloaded maps if
+there is room for them. If you are new to GroupTrack there is nothing to
+move and it simply carries on.
+Your maps are the slow part. Everything else takes under a minute; a large
+map store can take several. Leave the screen open while it works.
+Why the change
+Google restricts which apps may keep files in shared folders like
+Documents. Rather than ask for an exception, GroupTrack now stores its own
+data in its own place — which is what the rules are for.
+One thing worth knowing: data kept this way is removed if you uninstall
+the app. Use the share options to keep a copy of any route or track you would
+not want to lose.
+2026-09-11 — your colours stay yours
+The map keys now work the way you would expect
+Set a trail type to the colour, line pattern or thickness you want, and
+the map draws it that way from the moment it opens — on the ride map and
+the planning map both. Previously your choices only reached the map after you
+opened the key panel and changed something, so a setting could appear to
+revert every time you restarted the app. It was never lost; the map simply
+was not being told.
+Routes draw solid
+Saved routes were drawn with a long dashed line that was almost
+indistinguishable from a solid one, even zoomed right in. They are solid now,
+like every other line you can ride, and the key panel matches. Your recorded
+tracks are still dashed — that pattern is visible and it tells the two
+apart.
+2026-09-10 — the map answers when you tap it
+Tapping things on the ride map
+Tapping a trail, track or route on the ride map now opens its detail
+panel. Tracks in particular were hard to hit — the line is thin and dashed,
+and zoomed in there was very little to aim at. There is now a wider invisible
+target along every track, so a tap near the line works. Nothing looks
+different.
+What the categories mean
+The map key panel has a new CATEGORIES EXPLAINED button at the
+foot, beside My tracks and My routes. It says in plain words what each trail
+type is.
+Two are worth knowing before you plan on them. Rider trails are
+ground you have actually ridden, so a machine has been there — a stronger
+claim than any survey. Forestry / access roads are open unless posted
+otherwise, so look for a sign at the gate.
+Map sources
+If the app was opened while it was busy — during a state import, or the
+first launch after an update — it could come up showing three map sources
+instead of the full list, and ignore the ones you had chosen. Restarting was
+the only cure. It now recovers on its own.
+2026-09-08 — the ground you have ridden becomes trails
+NEW Share a route and its narrative goes with it
+Send a route to another rider and they get the whole thing — the summary, what
+they will see along the way, the cautions, and the settings it was built from.
+They can press BUILD FROM RECIPE and search again on their own device.
+They may get different routes than you did, because the recipe is a set of
+instructions rather than a copy of your answer — and their trail data is not
+yours.
+Opened in Gaia or onX the route still reads normally; those apps see the name,
+description and points and ignore the rest.
+NEW Remove a trail you added
+Tap one of your own rider trails and there is now a DELETE button.
+Surveyed trails do not have one.
+Mostly useful when a recorder was left running on the drive to the trailhead —
+highways are not in the trail data, so the whole drive comes in as new ground.
+FIXED Tapping a route on the ride map
+It opened a small bubble, or nothing at all. It now opens the full detail
+panel, the same as the planning map.
+Trails, tracks and routes also draw in proper order now — trails widest and
+underneath, then tracks, then routes — so where all three share ground you can
+see each of them and tap the one you meant.
+⭐⭐ DO THIS FIRST — import your track history before you plan a route
+If you skip this, the route planner will send you the long way around
+ground you have already ridden. It cannot use a trail it does not have, and
+published maps are missing a great deal of what riders actually use.
+The order that gets you the best routes:
+Load every state you ride in — including ones you only cross into. A
+ride that leaves your loaded states has no trail data underneath it.
+Import your recorded TRACKS — your saved rides from onX, Gaia or
+anywhere else. ⚠ Tracks, not routes: a route is a plan, a track is where you
+actually went, and only a track proves the ground is rideable.
+Then build your routes.
+Already built routes before importing? Rebuild them. They will come
+back different, and that is the point — the planner can finally see the ground
+you know.
+NEW Your tracks fill in what the maps miss
+Published trail data leaves a lot out. Roads and tracks that get ridden every
+weekend are simply not in it, and until now that ground did not exist as far as
+the app was concerned.
+Now, where one of your recorded tracks crosses ground with no trail underneath
+it, GroupTrack adds that stretch as a trail. It is unnamed, drawn in its own
+colour, and behaves like any other trail — you can filter it, tap it, and the
+route planner can use it.
+Tested on one rider's collection: 88 tracks produced 1,872 new trails
+covering about 2,400 miles of ground that no published source had.
+NEW Import your old tracks — all of them
+Export every track you have from onX, Gaia or wherever else you have
+kept them, and import the lot. ⚠ Tracks, not routes. A route is a plan
+somebody drew; a track is where a rider actually went. Only a track is evidence
+that the ground goes through.
+This is the single most useful thing you can do before using the route
+planner. Every track you bring in is ground the planner can then route you
+over. Without them it is working from published trails alone — and it will route
+you around trails you have ridden a dozen times, with no way for you to know why.
+Load your states first. A ride crossing into a state you have not
+imported has no trails underneath it, so the whole stretch is treated as new
+ground even where trails already exist. After that the order does not matter —
+each track is checked as it arrives.
+NEW Add trails from tracks, on demand
+There is a new ADD TRAILS FROM TRACKS button under RESYNC TRACKS on the
+import panel. It reads every track you already have and adds whatever ground is
+missing. Safe to press more than once — a second run finds nothing, because the
+first one already covered it.
+CHANGED The trail import says what it is doing
+The long stretch in the middle of a state import used to sit on
+Processing for ten minutes without moving. It now shows what is being
+worked on and how far through it is.
+The import also has a new step of its own — Trails from tracks — which
+runs after your trail data has loaded and reports how many it added.
+⚠ Worth knowing
+Routes you built before will come back different. With more network to
+work with, the planner finds rides it could not find before. That is the
+improvement working.
+A trail from your ride is honest, not authoritative. It says you rode
+that ground — not that it is maintained, public, or open to anyone else. Check
+ownership and access the way you would anywhere else.
+2026-09-04 — hide the radio panels if you do not use them
+The Meshtastic column folds away
+The list down the left side of the app belongs to Meshtastic, the radio
+software GroupTrack is built on. If you ride with a tablet alone, none of it is
+for you.
+Hide Mesh at the bottom of that column folds the whole thing away.
+A Mesh button then appears with Map Features and Help on the right of
+either map — tap it to bring the column back. GroupTrack remembers which you
+chose.
+The radio menu says what it is for
+The GroupTrack tab is now GroupTrack Mesh Radio Setup, and the menu
+behind it is titled the same. Everything in it is radio work and nothing else,
+so it is clear at a glance whether it concerns you.
+Its five entries now name what they do — creating a ride's radio
+configuration, sending it, importing one, applying it to your radio, and
+restoring a saved one. The Map Settings section has gone; everything live in it
+is reachable elsewhere.
+Saved routes are named more sensibly
+Saving several routes from one search used to give them all the same name.
+They now carry a number — Broken Ridge Route 1, 2, and so on.
+The mileage and point count have come out of the name, since tapping a route
+shows the distance and riding time anyway.
+Routes you saved before this keep the names they have.
+2026-09-03 — tap a route and see what the ride is
+One tap from the map to the ride
+Tap any route you have saved and it opens with the description of the ride —
+how far, how long, what you will see, and the stops in the order you reach them.
+Previously that was three screens away.
+The long lists start folded so the distance, the riding time and the warnings
+are what you see first. Tap a heading to open one.
+Two things you can do from there without leaving: Download maps for the
+route's area, and Route details for the full record.
+Routes built before the app started writing descriptions open the details
+panel as they always did.
+The import tells you the truth about itself
+Classifying the trails — working out which are motorized and which sit on
+private ground — is now listed as its own step when a state loads, with its own
+count. Before, it ran silently at the end and a failure could look like a
+finished import.
+And the summary at the end of an import now waits for you. If you put the
+phone down while a state loads and come back later, it is still there.
+Smaller things
+Only one state import runs at a time, and cancelling one actually
+stops it.
+Riding time shows as a range in the comparison table, not just the
+faster number.
+Each trail in a comparison shows its surface beside the mileage.
+Tapping a trail on the ride map opens its record, as it already did on
+the planning map.
+Search sits where the other buttons do on both maps.
+Field names read as English — Roughness rather than smoothness, Land rather
+than land_status.
+⚠ This update reloads your trails
+The first launch after installing clears the trail data and asks you to import
+your state again — about twenty minutes for a large state. A red
+SYSTEM HOUSEKEEPING message appears while it prepares, and Continue turns
+on by itself when it is safe.
+Your maps, tracks, routes and waypoints are not affected.
+2026-09-02 — choose which trails you see, and pick your own colours
+Choosing what shows moved to Map Features
+Yesterday's Map Keys panel did two jobs. It now does one. Which trails appear is chosen from
+Map Features › Trails › SELECT — the same place you have always chosen what shows for tracks,
+waypoints and routes. Everything is in one place instead of trails being the exception.
+That panel has the two groups, Motorized and Non-motorized, with a tick beside each type, and a
+single Include private land option. Untick a type and it goes; tap a heading and the whole
+group goes. And OFF on the Trails row still hides every trail in one tap when you want the map
+clear.
+Map Keys is now the key — and where you set the colours
+It shows what each line means. Tap the name of any type and you can change its colour, its
+pattern and how thick it draws. The panel shows the line as it is now beside the line as it would be,
+so you can compare before you commit. Apply, and the map changes.
+What you choose is yours and it stays. The colours the app ships with are simply a starting point.
+The lines tell you what you can ride
+Solid lines are motorized. Dotted lines are not. That is the first thing to read on the map,
+and it does not depend on telling colours apart in bright sun.
+The app now also ships knowing, for every trail, whether it sits on public or private ground and
+whether it is a motorized route — worked out during the import from the state's land-ownership records
+and from what each source published. That is what the filter acts on.
+Tap a trail and see what is actually known about it
+Trails used to show a small bubble with a name. They now open the same detail card that tracks and
+routes do, showing everything the sources published and nothing they did not — the surface, who
+manages it, any posted restrictions, and where the record came from.
+Where a trail carries a roughness rating it is written plainly: "Severe — ATV or tractor"
+rather than a code. It is only recorded on a minority of trails, but where it exists it is the one
+thing that tells you whether a machine will get through.
+Smaller things
+Search now moves the map to what you pick. Choosing a result frames it — no second step.
+Search has a close button. So do Map Features, the route toolbar and the comparison table.
+Route+ has an X that closes it without discarding your work. Closing and discarding are
+different things and now look different.
+Help offers three documents — Quick Start, Release Notes and the Full Manual — and a Cancel
+if you opened it by accident.
+The comparison table can be dragged out of the way.
+Route planning builds on the trails you have chosen to see. If you hide a type, the planner
+stops using it. What is on the map is what gets routed.
+⚠ This update reloads your trails
+The first launch after installing clears the trail data and asks you to import your state again.
+It takes about twenty minutes for a large state. This is necessary — the new information about land
+ownership and trail type is worked out during the import, and it cannot be added to data that is
+already loaded.
+Your maps, tracks, routes and waypoints are not affected. Only trail data reloads.
+⚠ Worth knowing on first run
+The app starts by showing motorized trails on public land. Hiking, biking and equestrian
+trails are hidden, and so is private ground. That is deliberate for an off-road app — but if you are
+looking for a trail you know exists and cannot see it, that is why. Map Features › Trails › SELECT
+turns them back on.
+2026-09-01 — the map key becomes a filter, and the town roads can be turned off
+A new Map Keys panel, on both maps
+The key that explains the colours has become something you can use. It is on the convoy map now
+as well as the planning map — the convoy map never had one before. On the convoy map it opens from
+the new Map Keys button, between Map Features and Help.
+Inside it, the trail types are grouped into Motorized and Non-motorized, side by
+side. Every type starts switched on. Unchecking a row hides that type; tapping a column heading
+hides the whole group.
+Public and private land
+The panel has one filter at the top: Both, Public, or Private. Choosing
+Public hides everything that sits on private land — which, near a town, is most of the street grid.
+If you have been zooming past a mess of residential streets to find the trail you actually want,
+this is the switch for that.
+Choosing Private does the opposite, which is useful when a private road is how you get from one
+piece of public ground to the next.
+Whatever you choose is remembered and applied the next time you open the map.
+The colours changed
+Anything you can ride is now a shade of blue, and the shade tells you how confident the app is:
+Brightest blue — an OHV route, stated as such by the people who manage it
+Blue — a track
+Darker blue — a forestry or access road
+Faint dashed blue — the app knows a line is there and nothing more
+Green, yellow, purple and brown are walking, biking and horse trails. Deep pink is a residential
+road on private land. A red dashed line means the trail is recorded as unofficial or uncertain —
+worth knowing before you commit to it.
+More detail behind each trail
+The app now keeps a great deal more of what each source publishes — surface, trail class, which
+system it belongs to, which agency manages it, and any posted restrictions. None of it is on screen
+yet; it is being kept so it can be shown, and used for route building, in a coming release.
+Known issue
+Some trails that are in the app's records are not drawing on the map. We have confirmed the trail
+data itself is correct and are tracing where they are being lost on the way to the screen. If you
+know a trail exists and cannot see it, that is this problem and not your data.
+2026-08-31 — better trail information
+Trail data now carries what the source published about each piece of ground —
+its type, who manages it, and whether it sits on public or private land. It is
+what makes the trail filter and the land setting work.
+Much of this is groundwork you will not see directly. What you will notice is
+that tapping a trail tells you more than it used to.
+2026-08-30 — the app stops freezing when trail data is cleared
+Clearing trail data could lock the app up on startup. It no longer does.
+The rest of this release was work on how trail data is brought in and sorted —
+nothing visible, but it is what the classification and filtering are built on.
+2026-08-29 — build the same rides again, and a fix worth knowing about
+Build six more routes from a route you kept
+Open any route the planner built for you and you will find Build Routes From Recipe under
+its overview. One press and it rebuilds from the same settings — the same starting point, the same
+distance, the same points you asked it to cover — and shows you what it is about to do before it
+runs.
+The button only appears on routes the planner built. A route you drew by hand, or imported from
+somewhere else, has no settings to rebuild from.
+A fix: searching the same area twice
+If you searched an area, then searched it again without closing the app, the second set of
+rides could be worse than the first. Points you asked the ride to cover were more likely to be
+left out. This is fixed — the second search now starts from the same clean slate as the first.
+Also in this release
+The trailhead step opens with search ready, and a blue circle shows which trails are
+close enough to start a route. Move the map until the trail you want is inside it.
+Adding a trailhead now selects it. Previously you had to create one and then tap it
+again.
+Search tip: follow an area name with its two-character state — the same name often
+exists in several states, and landing in the wrong one is not obvious.
+The route toolbar no longer appears over the planning screens.
+Route details shows Overview rather than Narrative.
+— carried forward from 2026-08-28 —
+DOCUMENT ID: RELNOTES-2026-08-28
+2026-08-28 — the route planner walks you through it
+Planning a route is now a set of screens that ask one thing at a time. Instead of a
+checklist you read all at once, each step tells you what it needs, you do it on the map, and the
+next step appears.
+What you will see
+An overview first, explaining what you will get and what happens to the routes you do
+not keep. Tick the box and you will not see it again.
+Distance and pace on their own screen, with the ride duration updating as you move the
+sliders. Set the mileage until the hours match the day you have.
+One prompt per step after that, sitting at the bottom of the screen so the map and the
+search box stay clear.
+A pin the planner cannot reach is removed, and it tells you why rather than quietly
+building a route that misses it.
+Save Selected / Delete Unselected spells out both halves, and the comparison now says
+that tapping a route name hides its line.
+Planning stays in portrait throughout, and the map layers are cleared before the comparison so
+the routes are readable.
+— carried forward from 2026-08-27 —
+DOCUMENT ID: RELNOTES-2026-08-27
+2026-08-27 — comparing the routes the app suggests
+When the planner finds you rides, you can now see them side by side. Ask for routes and
+the app draws every one it found, each in its own colour, with a table underneath that lines them
+up against each other.
+What you will see
+Every route on the map at once, in its own colour.
+A table where the rows are places and trails and each column is one route. A green
+check means that route reaches that feature; a number means how many miles of that trail it
+uses.
+The most-used trails at the top. The trails near the top are what these rides are made
+of; the ones lower down are what makes them different. Two routes with big numbers on the same few
+trails are variations on the same ride.
+Tap a route's name to take its line off the map so you can see the others. Tap again to
+bring it back.
+Tick the ones you want to keep, type a name for the area, and they are saved —
+Panguitch Mi. 79 Pts. 7. The ones you did not tick are discarded.
+While you are comparing
+Trails, tracks and waypoints are hidden so the routes are readable, and put back exactly as
+you had them when you leave. The map does not switch to route-drawing mode, so tapping a route
+to look at it will not add points to it.
+Leaving without saving keeps everything — the routes are still there next time you tap Route+.
+Only Save Selected finishes the job. If you tick nothing, the app asks first: all the routes
+go, and you would have to start the search over.
+Also fixed
+The In-Progress list no longer opens empty — with nothing to continue, Route+ simply starts a
+new route.
+Renaming an in-progress route has been removed. The name you give a route when you save it is
+the one that matters.
+Saved routes follow the trail correctly even when part of the route is off the edge of the
+screen.
+— carried forward from 2026-08-26 —
+DOCUMENT ID RELNOTES-2026-08-26-r2 &middot; issued 26 August 2026
+GroupTrack Release Notes
+V2.6h &middot; in development &middot; RELNOTES-2026-08-26
+These notes ship inside the app, so they always describe the build you
+are running.
+Document revision RELNOTES-2.6h-r2 &middot; 26 August 2026
+What changed in this release
+Which document you want
+QuickStart is for a new rider on a first install &mdash; getting the app on
+the phone, permissions, radio pairing, and getting trails onto the map. It is a summary of how
+things work right now, not a history. It opens by itself the first time you install.
+These release notes are for riders who already have GroupTrack. They cover
+what is new in this release and how to use it, and they open after an update. Earlier releases
+are kept below under Release history.
+The user manual is the walkthrough. Where something new needs more than a paragraph,
+these notes point at the manual page for it.
+Route planning is being rebuilt &mdash; not ready to use yet
+What this means to you. Nothing in this build, and that is deliberate.
+The part of GroupTrack that suggests rides was taken apart and rebuilt this week. It now works
+properly on the bench &mdash; it will offer you several genuinely different rides from where
+you park, rather than one &mdash; but the screens you would use it through are still being
+finished.
+How to use it. You cannot yet. It is listed here so you know it is
+coming and that the quiet in this area is work, not neglect.
+Manual: Planning a route &mdash; link pending anchors
+Files other riders send you now import completely
+What this means to you. When someone emails you a GPX file and you tap
+it, everything in it comes across &mdash; the tracks, the waypoints and the routes. Before, only
+the tracks arrived and the rest were dropped without saying so, which is why a file could look
+like it imported nothing. If you learned to save files to Downloads first as a workaround, you
+no longer need to.
+How to use it. Tap the attachment in your email and choose GroupTrack.
+Importing from Map Features &rarr; IMPORT TRACKS, WAYPOINTS &amp; ROUTES still works and
+gives the same result.
+Manual: Importing files &mdash; link pending anchors
+Your trails stay put
+What this means to you. If you loaded your state and found the trails
+gone again a day or two later, that is fixed. It was a one-time cleanup that kept running every
+time the app opened instead of once. You should not have to load a state twice.
+How to use it. Nothing to do. If your trails are missing right now, import
+your state one more time and it will stay.
+Manual: Loading trails for your state &mdash; link pending anchors
+Route planning &mdash; not ready yet
+What this means to you. Nothing yet. Work is going on behind the scenes
+to let GroupTrack suggest rides from your trail data, and to let you mark places a ride has to
+reach. It is not finished and is not something to rely on in this build. It is listed here so
+you know it is coming, not so you can try it.
+Known issues as of 26 August 2026
+KNOWN A state import can stop partway. Some sources
+finish and the rest never start. Your trail count still looks reasonable, so nothing appears
+wrong &mdash; but the largest source, Open Source Maps, is usually the one that did not
+run, and it carries most of the trail network.
+What it looks like: route building offers one route where you would
+expect several, or comes back well short of the distance you asked for. The map still shows
+plenty of trails, which is what makes it confusing.
+What to do: run the state import again. Trails already on your device are skipped, so
+only what is missing is fetched and nothing is duplicated.
+KNOWN Route planning near a town suggests roads.
+The trail data GroupTrack imports contains roads as well as trails, and it cannot yet tell them
+apart. Planning from a staging point inside a town will offer you rides that follow streets.
+What to do: plan from where the trails actually start &mdash; a
+trailhead or a parking area out of town. Work to separate roads from trails in the imported
+data is underway.
+KNOWN An import record can be opened by the wrong import
+routine. The record left behind by a run is picked up by an older code path than the one
+that wrote it, so a run can be misread afterwards &mdash; and a stopped import may be reported
+inaccurately. Being fixed by pointing the existing routine at the current one rather than
+leaving two.
+KNOWN Some trail sources report errors on every record in
+some areas. Affected in some areas and not others; under investigation. The per-source
+counts on the completion screen are what make it visible.
+KNOWN A state may be listed for your area without having
+trails in it. States are matched using a rectangle around each state and those rectangles
+overlap. It costs download time; it does not affect your data.
+KNOWN Re-importing the same state on the same day
+replaces that day's earlier import record.
+Release history
+Earlier releases, newest first. Each one shows what changed at the time.
+V2.6g &mdash; 23 August 2026 &mdash; Home State Import Pipeline
+Release date: In development · Branch: feature/convoy-event-ride
+Importing routes and waypoints from a GPX file
+FIXED GPX files containing routes or waypoints now import.
+Previously only the tracks in a file were read — routes and waypoints were skipped without any
+message, so a file that contained them appeared to import nothing.
+This affects files shared between riders, and exports from other apps.
+HOW TO IMPORT
+Save the file to your Downloads folder first, then open Map Features on the Ride
+Planning Map and choose IMPORT TRACKS, WAYPOINTS &amp; ROUTES.
+Tapping a GPX attachment directly in your email will not import routes yet — it still
+reads tracks only. Save it to Downloads and import it from Map Features instead. This is being
+worked on.
+Note: the file is removed from Downloads once it has been imported.
+Trail sources
+FIXED US Geological Survey National Trails now imports. Every
+record from this source was failing, in every state, and the source appeared simply to have no
+data for your area. It was reading the wrong field names from the service. In New Hampshire it
+now brings in 390 trails where it previously brought none.
+Import Trails — by State or by Area (New)
+NEW Import Trails now asks how you want to choose your ground.
+One button on the Map Features panel, two ways in:
+By State — pick any state from the list. Every available source for that state is
+processed. Use this when you're planning a trip somewhere new.
+By Area — draw a box on the map. GroupTrack works out which states your box reaches and
+processes every source that covers it. Your box can cross state lines — a ride that runs from
+Utah into Arizona brings in both.
+Either way there is no source checklist. Every source that covers your ground runs, because that
+is what lets one source fill in what another is missing.
+Import Progress Detail
+NEW Every import now records what happened to each record, not just
+how many were added. Per source: how many were read, how many fell inside your state or area, how
+many you already had, how many were added, and how many could not be processed.
+The summary still shows one number — records added. The detail sits behind the source name if you
+want it, and it is written into the import record on your device either way, so it can be looked up
+later.
+CHANGED Each import run now carries an identifier, so a run can be
+identified exactly when something needs looking into.
+Known Issues
+Some sources report errors on every record in some areas. US Geological Survey
+National Trails is fixed (see above). Other sources are still affected in some areas and not
+others — under investigation. These sources previously reported zero records with no indication
+anything had gone wrong; the new counts are what made it visible.
+A state may be listed for your area without having trails in it. States are matched using
+a rectangle around each state and those rectangles overlap, so a neighbouring state can be included
+and then contribute nothing. It costs download time; it does not affect your data. A way to skip
+those states is coming.
+Re-importing the same state on the same day replaces that day's earlier import record.
+Home State Setup (New)
+NEW One-tap trail data setup on first launch. When GroupTrack detects no trail data, it offers to load your home state's trails automatically:
+GPS auto-detection suggests your state (uses Android Geocoder for accuracy at state borders)
+Searchable state picker with all 50 US states + DC + PR + USVI
+California split into North (San Luis Obispo area and north) and South (Santa Barbara/Bakersfield area and south)
+All available data sources processed automatically — US Forest Service, US Geological Survey, National Park Service, state agencies, and Open Source Maps (Geofabrik OSM)
+Progress display: per-source step indicators (✅/►/○), download progress in MB, running elapsed clock
+Blinking "Do not close GroupTrack" banner during processing
+Completion summary with per-source record counts and grand total
+New Hampshire verified: 42,338 OSM trails + 1,010 catalog trails imported in ~4 minutes
+Geofabrik State Asset
+NEW Shipped geofabrik_states.json — 54 entries with download URLs for every US state and territory. Supports the automatic Geofabrik GPKG download (302 redirect handling included). Refreshable via update_geofabrik_states.py.
+Release-Assets Folder
+NEW release-assets/ folder in the repo. Holds dated docs (manual, release notes, quickstart) and two Python scripts. One command (python release-assets/prepare_release_assets.py) refreshes Geofabrik URLs, copies newest dated docs to app assets, and verifies markers.
+Source Name Improvements
+CHANGED Plain-language source names throughout — no unexplained acronyms:
+UGRC Utah Trails → Utah Trails and Pathways
+BLM Ground Transportation → Bureau of Land Management Trails
+USFS National Forest System Trails → US Forest Service Trails
+USGS National Trails → US Geological Survey National Trails
+NPS Public Trails → National Park Service Trails
+USFS Motor Vehicle Use Maps → US Forest Service Motor Vehicle Use Maps
+OSM Trails → Open Source Maps
+Bug Fixes
+FIXED Geofabrik -latest- URL 302 redirect now followed automatically.
+FIXED GPS state detection at border areas (NH/MA) now uses Android Geocoder instead of bbox matching.
+FIXED OSM import ledger creation before pending bbox set (prevented silent import failure).
 Resolved since the 20 August notes
 Home State setup now runs on first launch — it no longer has to be found on the Map
 Features panel.
