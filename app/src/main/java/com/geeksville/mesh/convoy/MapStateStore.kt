@@ -75,7 +75,7 @@ object MapStateStore {
 
     // mapKey is "convoy" (classic ride map), "planning" or "grouptrack" (ONE MAP)   // PERSISTKEY-2026-10-23
     // PERSISTKEY-2026-10-23 (Fred 10-22 15:02): the ride map's key follows the layout -- every ride-map read/write uses this.
-    fun rideKey(): String = if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value) "grouptrack" else "convoy"
+    fun rideKey(): String = "grouptrack"   // CLASSIC4B-2026-10-25: ONE MAP is the only layout (its key, unchanged)
 
     // mapKey is "convoy" or "planning"
     private fun fileFor(mapKey: String): File {

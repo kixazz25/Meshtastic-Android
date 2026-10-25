@@ -257,7 +257,6 @@ fun ConvoyScreen(
     remember { TrailFilterState.load(); true }
         var showMapSettings by remember { mutableStateOf(false) }
         // Spatial DB display states — per-map state from MapStateStore (independent of planning map)
-        com.geeksville.mesh.grouptrack.GtLayout.load(context)   // PERSISTKEY-2026-10-23: before the first read, so rideKey() is right on first compose
         val cmSeed = remember { MapStateStore.readMap(MapStateStore.rideKey()) }
         var trailState by viewModel.rideMapState("trailState") { cmSeed.types["Trails"]?.state ?: DS_OFF }   // RIDEMAPSTATE-2026-10-05
         var trackState by viewModel.rideMapState("trackState") { cmSeed.types["Tracks"]?.state ?: DS_OFF }   // RIDEMAPSTATE-2026-10-05
@@ -340,7 +339,7 @@ fun ConvoyScreen(
             val bbOk = mapFrameOk(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
             if (!bbOk) android.util.Log.w("ConvoyMap", "MAPSTARTUP-2026-10-19: frame not saved (not usable): $lastViewportSouth,$lastViewportWest,$lastViewportNorth,$lastViewportEast")
             MapStateStore.saveMap(MapStateStore.rideKey(), MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes(), if (bbOk) MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast) else null, null,
-                if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value) com.geeksville.mesh.grouptrack.GtRoute.routeState() else null))   // GTROUTE1-2026-10-23: ONE MAP's RouteState (was null)
+                com.geeksville.mesh.grouptrack.GtRoute.routeState()))   // GTROUTE1-2026-10-23: ONE MAP's RouteState (was null)
         }
     // [viewport-save 2026-08-13] debounced viewport-settle save (mirror planning MVS:260-261/540) —
     // convoy previously never persisted the frame on pan/zoom; this writes the current bbox on settle.
@@ -467,19 +466,7 @@ fun ConvoyScreen(
     }
 
     // ── Map zoom/center based on HUD mode ─────────────────────────────────
-    val initialViewSet = remember { androidx.compose.runtime.mutableStateOf(false) }
-    LaunchedEffect(convoyState) {
-        if (initialViewSet.value) return@LaunchedEffect
-        if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value) return@LaunchedEffect   // NOJUMP-2026-10-23: ONE MAP positions itself
-        val wv = webViewRef.value ?: return@LaunchedEffect
-        val validNodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
-        if (validNodes.isNotEmpty()) {
-            val lats = validNodes.joinToString(",") { it.latitude.toString() }
-            val lons = validNodes.joinToString(",") { it.longitude.toString() }
-            wv.evaluateJavascript("fitBounds([$lats], [$lons])", null)
-            initialViewSet.value = true
-        }
-    }
+    // CLASSIC4B-2026-10-25: the classic first-fit of the map on the carts removed -- ONE MAP positions itself (NOJUMP).
     // FT-03 BOUNCE FIX: when recording starts, immediately center on user's cart
     // Eliminates the 1-3 second gap between RECORD press and next tick painting the cart
     LaunchedEffect(recordingState) {
@@ -807,7 +794,7 @@ fun ConvoyScreen(
                     existing.addJavascriptInterface(object : Any() {
                         @android.webkit.JavascriptInterface
                         fun onMapTap(lat: Double, lon: Double) {
-                            if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) { com.geeksville.mesh.grouptrack.GtRoute.onTap(context, lat, lon); return }   // GTROUTE1-2026-10-23
+                            if (com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) { com.geeksville.mesh.grouptrack.GtRoute.onTap(context, lat, lon); return }   // GTROUTE1-2026-10-23
                             android.util.Log.d("RouteBridge", "onMapTap lat=$lat lon=$lon")
                             kotlinx.coroutines.MainScope().launch {
                                 val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -835,7 +822,7 @@ fun ConvoyScreen(
                         // GTAI3-2026-10-23: AI pins -- the page sends a tap here only while __pinSelect (ONE MAP's AI route design).
                         @android.webkit.JavascriptInterface
                         fun onProximityTap(lat: Double, lon: Double) {
-                            if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value) com.geeksville.mesh.grouptrack.GtRoute.onPinTap(context, lat, lon)
+                            com.geeksville.mesh.grouptrack.GtRoute.onPinTap(context, lat, lon)
                         }
                         @android.webkit.JavascriptInterface
                         fun onMapLongPress(lat: Double, lon: Double) {
@@ -915,7 +902,7 @@ fun ConvoyScreen(
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
                                 // HOME1C-2026-10-23 (Fred 21:32): ONE MAP -- a route WITH a narrative opens it first (description, BUILD FROM RECIPE,
                                 // ROUTE DETAILS -> the card), the planner's rule (MVS 1730); a route without one opens the card, as before.
-                                if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && routeHasDescription(id)) {  // ROUTEDESC-2026-10-23: something to READ, not only stats
+                                if (routeHasDescription(id)) {  // ROUTEDESC-2026-10-23: something to READ, not only stats
                                     com.geeksville.mesh.grouptrack.GtRoute.savedNotesRouteId.value = id
                                 } else {
                                     pendingDetailType = "Routes"
@@ -998,9 +985,9 @@ fun ConvoyScreen(
 
                                 view?.evaluateJavascript("setRouteMode(false)", null)
                                 // NOJUMP-2026-10-23: ONE MAP -- the page's own late "centre on my location" may not move the map.
-                                view?.evaluateJavascript("window.gtNoAutoView = " + com.geeksville.mesh.grouptrack.GtLayout.oneMap.value + ";", null)
+                                view?.evaluateJavascript("window.gtNoAutoView = true;", null)
                                 // GTROUTE1-2026-10-23: ONE MAP's Route+ -- the page lets route taps through.
-                                view?.evaluateJavascript("window.gtOneMapRoute = " + com.geeksville.mesh.grouptrack.GtLayout.oneMap.value + ";", null)
+                                view?.evaluateJavascript("window.gtOneMapRoute = true;", null)
                                 // Auto-sense connectivity: use local tiles if no internet
                                 val ctx = view?.context ?: return
                                 val cm = ctx?.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
@@ -1163,7 +1150,7 @@ fun ConvoyScreen(
                         addJavascriptInterface(object : Any() {
                             @android.webkit.JavascriptInterface
                             fun onMapTap(lat: Double, lon: Double) {
-                                if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) { com.geeksville.mesh.grouptrack.GtRoute.onTap(context, lat, lon); return }   // GTROUTE1-2026-10-23
+                                if (com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) { com.geeksville.mesh.grouptrack.GtRoute.onTap(context, lat, lon); return }   // GTROUTE1-2026-10-23
                                 android.util.Log.d("RouteBridge", "onMapTap lat=$lat lon=$lon")
                                 kotlinx.coroutines.MainScope().launch {
                                     val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -1191,7 +1178,7 @@ fun ConvoyScreen(
                             // GTAI3-2026-10-23: AI pins -- the page sends a tap here only while __pinSelect (ONE MAP's AI route design).
                             @android.webkit.JavascriptInterface
                             fun onProximityTap(lat: Double, lon: Double) {
-                                if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value) com.geeksville.mesh.grouptrack.GtRoute.onPinTap(context, lat, lon)
+                                com.geeksville.mesh.grouptrack.GtRoute.onPinTap(context, lat, lon)
                             }
                             @android.webkit.JavascriptInterface
                             fun onMapLongPress(lat: Double, lon: Double) {
@@ -1321,7 +1308,7 @@ fun ConvoyScreen(
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     // HOME1C-2026-10-23 (Fred 21:32): ONE MAP -- a route WITH a narrative opens it first (description, BUILD FROM RECIPE,
                                     // ROUTE DETAILS -> the card), the planner's rule (MVS 1730); a route without one opens the card, as before.
-                                    if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && routeHasDescription(id)) {  // ROUTEDESC-2026-10-23: something to READ, not only stats
+                                    if (routeHasDescription(id)) {  // ROUTEDESC-2026-10-23: something to READ, not only stats
                                         com.geeksville.mesh.grouptrack.GtRoute.savedNotesRouteId.value = id
                                     } else {
                                         pendingDetailType = "Routes"
@@ -1694,19 +1681,16 @@ fun ConvoyScreen(
         }
 
         // SHELL-2026-10-22 / SHELL2-2026-10-22 (2.7c ONE MAP): the layout switch, read once for this screen.
-        com.geeksville.mesh.grouptrack.GtLayout.load(context)
-        val gtOneMap = com.geeksville.mesh.grouptrack.GtLayout.oneMap.value
         // SHELL2-2026-10-22 (Fred 10:08): ONE MAP re-points RECORD -- this same REC control moves to the TOP CENTRE (one RECORD, no
         // duplicate), larger, red with white letters; the GPS light sits beside N \u00b7 Z<zoom> (the map page's own N/Z label is hidden).
         var gtZoom by remember { mutableStateOf(0) }
-        Column(modifier = (if (gtOneMap) Modifier.align(Alignment.TopCenter) else Modifier).statusBarsPadding().padding(8.dp),
-               horizontalAlignment = if (gtOneMap) Alignment.CenterHorizontally else Alignment.Start) {   // GPSLAMP-2026-10-19 (Fred 10-19 13:50): the GPS light ABOVE the REC button
+        Column(modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(8.dp),
+               horizontalAlignment = Alignment.CenterHorizontally) {   // GPSLAMP-2026-10-19 (Fred 10-19 13:50): the GPS light ABOVE the REC button
             var gpsLamp by remember { mutableStateOf(viewModel.gpsLamp()) }
             LaunchedEffect(Unit) { while (true) { gpsLamp = viewModel.gpsLamp()
-                val one = com.geeksville.mesh.grouptrack.GtLayout.oneMap.value   // SHELL2: live, not the value captured at launch
-                webViewRef.value?.evaluateJavascript("try{var n=document.getElementById('north'); if(n) n.style.display='" + (if (one) "none" else "") + "'}catch(e){}", null)
-                webViewRef.value?.evaluateJavascript("try{var zc=document.querySelector('.leaflet-control-zoom'); if(zc) zc.style.display='" + (if (one) "none" else "") + "'}catch(e){}", null)   // SHELL6: Leaflet's own +/- hidden in ONE MAP
-                if (one) webViewRef.value?.evaluateJavascript("map.getZoom()") { z -> gtZoom = z.toDoubleOrNull()?.toInt() ?: gtZoom }
+                webViewRef.value?.evaluateJavascript("try{var n=document.getElementById('north'); if(n) n.style.display='" + "none" + "'}catch(e){}", null)
+                webViewRef.value?.evaluateJavascript("try{var zc=document.querySelector('.leaflet-control-zoom'); if(zc) zc.style.display='" + "none" + "'}catch(e){}", null)   // SHELL6: Leaflet's own +/- hidden in ONE MAP
+                webViewRef.value?.evaluateJavascript("map.getZoom()") { z -> gtZoom = z.toDoubleOrNull()?.toInt() ?: gtZoom }
                 kotlinx.coroutines.delay(1000L) } }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {   // SHELL2-2026-10-22: the GPS light beside N \u00b7 Z
             Surface(shape = RoundedCornerShape(8.dp), color = if (gpsLamp.first) Color(0xFF1B7F2A) else Color(0xFFB00020),
@@ -1714,7 +1698,7 @@ fun ConvoyScreen(
                 Text("\u25CF " + gpsLamp.second, color = Color.White, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
             }
-            if (gtOneMap) Surface(shape = RoundedCornerShape(8.dp), color = Color(0x99000000), modifier = Modifier.padding(bottom = 4.dp)) {
+            Surface(shape = RoundedCornerShape(8.dp), color = Color(0x99000000), modifier = Modifier.padding(bottom = 4.dp)) {
                 Text("N \u00b7 Z$gtZoom", color = Color(0xFF4DA6FF), fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
             }
@@ -1728,7 +1712,7 @@ fun ConvoyScreen(
                             RecordingState.CHECK_IN -> {   // CHECKIN-2026-09-27: no recording before check-in
                                 // SOLOREC-2026-09-28 (Fred): THE BUTTON FOLLOWS THE RADIO. A radio -> the check-in. No radio -> a
                                 // solo ride: a silent "No scheduled ride" check-in (no survey, no sharing), then REC's own solo path.
-                                if (GrpAwarenessLauncher.connected.value || (gtOneMap && GroupMode.on.value)) showCheckIn = true   // CHKIN1MAP-2026-10-22: ONE MAP follows GROUP mode, as its label does
+                                if (GrpAwarenessLauncher.connected.value || GroupMode.on.value) showCheckIn = true   // CHKIN1MAP-2026-10-22: ONE MAP follows GROUP mode, as its label does
                                 else {
                                     ConvoyRideStore.checkIn(null, "", "rider")?.let { viewModel.checkIn.value = it }
                                     recordingState = RecordingState.IDLE
@@ -1781,8 +1765,8 @@ fun ConvoyScreen(
                     },
                     shape = RoundedCornerShape(10.dp),
                     color = when (recordingState) {
-                        RecordingState.CHECK_IN -> if (gtOneMap) Color(0xFFD32F2F) else Color(0xFF8B0000)   // SHELL2 red // ORDERFIX-2026-09-27 (Fred): red, like REC
-                        RecordingState.IDLE -> if (gtOneMap) Color(0xFFD32F2F) else Color(0xFF8B0000)   // SHELL2
+                        RecordingState.CHECK_IN -> Color(0xFFD32F2F)   // SHELL2 red // ORDERFIX-2026-09-27 (Fred): red, like REC
+                        RecordingState.IDLE -> Color(0xFFD32F2F)   // SHELL2
                         RecordingState.RECORDING -> Color(0xFFCC0000)
                         RecordingState.PAUSED -> Color(0xFF994400)
                         RecordingState.SLEEPING -> Color(0xFFCC8800)
@@ -1791,7 +1775,7 @@ fun ConvoyScreen(
                 ) {
                     Text(
                         text = when (recordingState) {
-                            RecordingState.CHECK_IN -> if (gtOneMap && GroupMode.on.value) "✔  CHK IN"   // SHELL5-2026-10-22 (Fred 10:40): CHK IN in Group
+                            RecordingState.CHECK_IN -> if (GroupMode.on.value) "✔  CHK IN"   // SHELL5-2026-10-22 (Fred 10:40): CHK IN in Group
                                 else if (GrpAwarenessLauncher.connected.value) "✔  CHK IN › REC" else "⏺  REC"   // SOLOREC-2026-09-28
                             RecordingState.IDLE -> "⏺  REC"
                             RecordingState.RECORDING -> "⏸  PAUSE"
@@ -1799,10 +1783,10 @@ fun ConvoyScreen(
                             RecordingState.SLEEPING -> "ZZZ  ASLEEP"
                         },
                         color = Color.White,
-                        fontSize = if (gtOneMap) 22.sp else if (recordingState == RecordingState.CHECK_IN && GrpAwarenessLauncher.connected.value) 12.sp else 15.sp,   // SHELL2: larger in ONE MAP   // SOLOREC   // ORDERFIX-2026-09-27: the longer label fits
+                        fontSize = 22.sp,   // SHELL2: larger in ONE MAP   // SOLOREC   // ORDERFIX-2026-09-27: the longer label fits
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        modifier = if (gtOneMap) Modifier.padding(horizontal = 32.dp, vertical = 18.dp) else Modifier.padding(horizontal = 16.dp, vertical = 12.dp)   // SHELL2
+                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 18.dp)   // SHELL2
                     )
                 }
             } else {
@@ -2174,14 +2158,14 @@ fun ConvoyScreen(
         // It hides itself when nothing is downloading; tap -> MAP DOWNLOADS IN PROGRESS.
         // QSUMIDLE-2026-10-23 (Fred 13:23): on the MAP only while maps download (the existing pill hides itself when idle);
         // the Map menu keeps the always-shown summary (GTQSUM) so DETAILS is always one tap away.
-        if (gtOneMap) DownloadQueuePanel(
+        DownloadQueuePanel(
             expanded = false,
             onToggle = { queuesOpen = true },
             modifier = Modifier.align(Alignment.TopStart).padding(start = 110.dp, top = 8.dp).width(300.dp)
         )
         // GTAREA2-2026-10-23: draw bar + the area module for the box (grouptrack/AreaDraw.kt, MapScreens.kt).
         // GTROUTE1-2026-10-23: ONE MAP's Route+ -- the page, the state save, and everything Route+ shows.
-        if (gtOneMap) {
+        run {   // CLASSIC4B-2026-10-25: was if (gtOneMap)
             com.geeksville.mesh.grouptrack.GtRoute.js = { c -> webViewRef.value?.evaluateJavascript(c, null) }
             com.geeksville.mesh.grouptrack.GtRoute.persist = { saveConvoyState() }
             // GTAI2-2026-10-23: the compare table draws on this page and puts these four layers back as they were.
@@ -2191,7 +2175,7 @@ fun ConvoyScreen(
             // GTAI4B-2026-10-23: GtRoute.layersOnForAi / hideAll / restoreAll are set after gtSetDisplay (below) -- the FILTER's own functions.
             // GTROUTE1D-2026-10-23: GtRouteHost is drawn AFTER the launch layer (below) -- here its toolbar sat under MENU / zoom.
         }
-        if (gtOneMap) com.geeksville.mesh.grouptrack.GtAreaHost(
+        com.geeksville.mesh.grouptrack.GtAreaHost(
             js = { c -> webViewRef.value?.evaluateJavascript(c, null) },
             barModifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 84.dp)
         )
@@ -2206,7 +2190,7 @@ fun ConvoyScreen(
                 // squeezed the shared DownloadQueuePanel content).
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = if (gtOneMap) 210.dp else 16.dp)   // QUEUESPOS-2026-10-22: ONE MAP -- left of the buttons
+                    .padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = 210.dp)   // QUEUESPOS-2026-10-22: ONE MAP -- left of the buttons
                     .fillMaxWidth(0.90f),
                 shape = RoundedCornerShape(10.dp),
                 color = Gt.panel,
@@ -2341,7 +2325,7 @@ fun ConvoyScreen(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
-                .padding(top = 52.dp, end = if (gtOneMap) 210.dp else 8.dp),   // SELPOS-2026-10-22 (Fred 12:42): in ONE MAP the SELECT list sits LEFT of the right-column buttons, not under them
+                .padding(top = 52.dp, end = 210.dp),   // SELPOS-2026-10-22 (Fred 12:42): in ONE MAP the SELECT list sits LEFT of the right-column buttons, not under them
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
 
@@ -2625,10 +2609,10 @@ fun ConvoyScreen(
                     mapKey = MapStateStore.rideKey(),   // PERSISTKEY-2026-10-23
                     fitWebView = webViewRef.value,
                     // HOME1-2026-10-23: the planner's OVERVIEW (a saved route's narrative) and BUILD FROM RECIPE, on ONE MAP's detail card.
-                    onShowNotes = if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && pendingDetailType == "Routes") {
+                    onShowNotes = if (pendingDetailType == "Routes") {
                         { rid -> pendingDetailId = null; pendingDetailType = null; com.geeksville.mesh.grouptrack.GtRoute.savedNotesRouteId.value = rid }
                     } else null,
-                    onBuildFromRecipe = if (com.geeksville.mesh.grouptrack.GtLayout.oneMap.value && pendingDetailType == "Routes" &&
+                    onBuildFromRecipe = if (pendingDetailType == "Routes" &&
                         pendingDetailId?.let { SpatialDbManager.routeRecipe(it) != null } == true) {
                         { rid -> pendingDetailId = null; pendingDetailType = null; com.geeksville.mesh.grouptrack.GtRoute.buildFromRecipe(context, rid) }
                     } else null,
@@ -2920,7 +2904,7 @@ fun ConvoyScreen(
         // COSMETICS-2026-10-06 (Fred): the toggle's choice for this map type (session), else the map's default.
         val hudOnDark = viewModel.hudTextWhiteByMap[hudMapKey] ?: hudDefaultWhite
         // ── HUD strip ─────────────────────────────────────────────────────
-        Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = if (gtOneMap) 72.dp else 48.dp)) {   // SHELL7-2026-10-22: the HUD (GPS line + MY CART / GROUP) shows in ONE MAP too, above the bottom bar
+        Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 72.dp)) {   // SHELL7-2026-10-22: the HUD (GPS line + MY CART / GROUP) shows in ONE MAP too, above the bottom bar
             androidx.compose.runtime.CompositionLocalProvider(LocalHudOnDark provides hudOnDark) {   // HUDSCHEME-2026-09-29
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { // GPSPANEL-2026-09-29
                 if (hudMode != HudMode.COLLAPSED) GpsLocationRow(intervalSecs = gpsNowSecs, channelUtil = avgChannelUtil,
@@ -3035,7 +3019,7 @@ fun ConvoyScreen(
                 },
             )
         val gtRideImport = rememberRideImport(onDone = {})   // GTRIDES-2026-10-22: Rides › Import a ride (ONE MAP has no menu to close)
-        if (gtOneMap && docsView == null) com.geeksville.mesh.grouptrack.GroupTrackLaunchLayer(
+        if (docsView == null) com.geeksville.mesh.grouptrack.GroupTrackLaunchLayer(
             onHelp = { name -> docsOpen(name) },
             mapType = mapTypeLabel,   // SHELL2-2026-10-22: buttons and panels follow the map type
             mapTypes = MapSourceManager.getSlotSources().map { it.first },   // GTMAP-2026-10-22: Map › MAP TYPE, the map bar's slots
@@ -3121,7 +3105,7 @@ fun ConvoyScreen(
             onZoom = { d -> webViewRef.value?.evaluateJavascript(if (d > 0) "map.zoomIn()" else "map.zoomOut()", null) }
         )
         // GTROUTE1D-2026-10-23 (Fred 14:17): Route+ on TOP of the launch buttons; the toolbar opens top centre below RECORD.
-        if (gtOneMap) com.geeksville.mesh.grouptrack.GtRouteHost(
+        com.geeksville.mesh.grouptrack.GtRouteHost(
             search = gtSearch,   // GTAI5-2026-10-23
             toolbarModifier = Modifier.align(Alignment.TopCenter).padding(top = 110.dp)
         )
