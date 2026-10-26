@@ -120,7 +120,8 @@ object LaunchModules {
             "carts" to "View checked-in carts / change roles",   // SHELL5-2026-10-22 (Fred 10:40): first in Rides
             "ride" to "Create a ride",   // RIDESORDER-2026-10-26 (Fred 10:27): carts (only when checked in), Create, My rides, Import
             "mine" to "My rides — Send / Edit / Apply to radio / Delete",
-            "import" to "Import a ride")),
+            "import" to "Import a ride",
+            "email" to "Email last ride statistics to GroupTrack")),   // RIDESTATSSEND-2026-10-26 (Fred 13:26): last in Rides
         LaunchModule("search", "Search", LaunchSlot.BOTTOM_BAR, 4, groupOnly = false, stays = false, processes = p("search",
             "search" to "Search")),
         // SHELL4-2026-10-22 (Fred 10:23): the last bottom button is RADIO SETUP, with that as its only option. The other group

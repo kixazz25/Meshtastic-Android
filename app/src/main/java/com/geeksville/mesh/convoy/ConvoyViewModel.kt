@@ -765,6 +765,8 @@ class ConvoyViewModel @Inject constructor(
             })
         }
     }
+    fun rideStatsJson(): String = RideStats.json(System.currentTimeMillis())   // RIDESTATSSEND-2026-10-26
+    fun leadTrackWritten(): List<WPoint> = leadCart.writtenPoints()             // RIDESTATSSEND-2026-10-26
     fun rideStatsReport(): String = RideStats.report(System.currentTimeMillis(), reportingPreset.value, reportingNowSecs.value, _avgChannelUtil.value)
     fun resetRideStats() = RideStats.reset()
 

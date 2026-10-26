@@ -40,6 +40,21 @@ object RideStats {
     }
 
     @Synchronized fun reset() { rx.clear(); mine.clear(); estimates.clear(); startMs = 0L }
+    /** RIDESTATSSEND-2026-10-26: everything recorded, for the Rides email -- every report heard, my radio's positions, the lead estimates. */
+    @Synchronized fun json(nowMs: Long): String {
+        fun org.json.JSONObject.p(k: String, v: Any?): org.json.JSONObject {
+            if (v != null && !(v is Double && (v.isNaN() || v.isInfinite())) && !(v is Float && (v.isNaN() || v.isInfinite()))) put(k, v)
+            return this
+        }
+        val o = org.json.JSONObject().p("format", "grouptrack-ride-stats-1").p("madeMs", nowMs).p("startMs", startMs)
+        o.put("heard", org.json.JSONArray().also { a -> rx.forEach { x -> a.put(org.json.JSONObject().p("t", x.t).p("id", x.id).p("name", x.name)
+            .p("lat", x.lat).p("lon", x.lon).p("myLat", x.myLat).p("myLon", x.myLon).p("snr", x.snr).p("rssi", x.rssi).p("hops", x.hops)
+            .p("ch", x.ch).p("air", x.air)) } })
+        o.put("mine", org.json.JSONArray().also { a -> mine.forEach { m -> a.put(org.json.JSONObject().p("t", m.t).p("lat", m.lat).p("lon", m.lon)) } })
+        o.put("leadEstimates", org.json.JSONArray().also { a -> estimates.forEach { e -> a.put(org.json.JSONObject().p("t", e.tMs).p("silentMs", e.silentMs)
+            .p("errorM", e.errorM).p("speedMps", e.speedMps).p("onRoute", e.onRoute).p("moving", e.moving)) } })
+        return o.toString()
+    }
     // LEADEST-2026-10-20: what each estimate of the silent lead was worth when it was heard again (Fred 11:45)
     private val estimates = ArrayList<LeadEstimate.Outcome>()
     @Synchronized fun onEstimate(o: LeadEstimate.Outcome) { if (startMs == 0L) startMs = o.tMs; if (estimates.size < 5_000) estimates.add(o) }

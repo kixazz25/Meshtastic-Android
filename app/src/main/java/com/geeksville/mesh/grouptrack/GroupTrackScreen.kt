@@ -2925,7 +2925,13 @@ fun GroupTrackScreen(
                 "rides.ride.form" to { com.geeksville.mesh.grouptrack.GtRideStart.handOff(lastViewportSouth, lastViewportNorth,
                     lastViewportWest, lastViewportEast); onNavigateToCreateRide() },
                 "rides.import" to { gtRideImport() },   // GTRIDES: Import a ride (the shared action)
-                "rides.mine" to { RidesLauncher.open() },   // GTRIDES: My rides -- Send / Edit / Delete
+                "rides.mine" to { RidesLauncher.open() },
+                "rides.email" to {   // RIDESTATSSEND-2026-10-26 (Fred 13:26): the email app opens with the ride's map, statistics and tracks
+                    com.geeksville.mesh.grouptrack.GtRideStatsSend.send(context, viewModel.rideStatsReport(), viewModel.rideStatsJson(),
+                        viewModel.leadTrackWritten(),
+                        com.geeksville.mesh.convoy.ConvoyTrackOps.tracksDir().listFiles { f -> f.name.endsWith(".gpx", ignoreCase = true) }
+                            ?.maxByOrNull { it.lastModified() })
+                },   // GTRIDES: My rides -- Send / Edit / Delete
                 // ROUTESTART-2026-10-22: ADD ROUTE -> the planning map's Route+ (all its start-up checks), method set and locked.
                 // Same gates as the old Ride Planning button: a known position, and internet.
                 // ROUTEPARK-2026-10-22 (Fred 14:31): route.manual / route.ai PARKED -- they opened the planning map and stranded

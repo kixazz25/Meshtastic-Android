@@ -482,7 +482,10 @@ class LeadCartProcess(val updateFrequency: Int = 1) {
     private val track = TrackWriter("lead", fill = true)    // MYCARTRAW-2026-10-19: the lead track keeps the route / trail rules
     private val screen = ScreenWriter(updateFrequency)
     private var lead = ""
-    fun reset() { track.reset(); screen.reset(); lead = ""; dotPts.clear(); trimMs = 0L; myLast = null; myTravelM = 0.0 }   // POLYLINE-2026-10-20: + the dots; TRIM-2026-10-20: + the trim
+    private var lastRidePts: List<WPoint> = emptyList()   // RIDESTATSSEND-2026-10-26: the drawn lead track of the ride before the last reset
+    /** RIDESTATSSEND-2026-10-26: the lead track as drawn, with each point's rule -- this ride's, or the last ride's when it has been reset. */
+    fun writtenPoints(): List<WPoint> = if (track.pts.isNotEmpty()) ArrayList(track.pts) else lastRidePts
+    fun reset() { if (track.pts.isNotEmpty()) lastRidePts = ArrayList(track.pts); track.reset(); screen.reset(); lead = ""; dotPts.clear(); trimMs = 0L; myLast = null; myTravelM = 0.0 }   // POLYLINE-2026-10-20: + the dots; TRIM-2026-10-20: + the trim
     /** TRIM-2026-10-20 (Fred 10-20 14:49-14:56): the lead track is SHOWN from this time on -- everything the lead wrote before the point my cart has
      *  reached is behind me (my own track shows there). 0 = nothing trimmed. Only the DISPLAY is trimmed: the written track stays whole
      *  (fills, polyline pins and other carts' off-track still use all of it). All times UTC epoch ms -- never local time. */
