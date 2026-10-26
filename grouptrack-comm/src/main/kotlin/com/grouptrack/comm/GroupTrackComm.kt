@@ -254,6 +254,9 @@ interface CommConfig {
     /** Compare two configs by id -- a save's id, or [RADIO_NOW] for the radio as it is. Each row says if it is a managed setting
      *  (what an apply would change). The comparison never applies anything. */
     suspend fun compareConfigs(a: String, b: String): Pair<List<ConfigDifference>, CommResult>
+    /** CONFIGPDF-2026-10-26 (additive): the values GroupTrack sets on a radio, for a config by id (a save, or [RADIO_NOW]), labelled
+     *  by section in the order to set them by hand -- the Archived setups PDF. Default: not supported. */
+    suspend fun managedSettings(id: String): Pair<List<ConfigSetting>, CommResult> = emptyList<ConfigSetting>() to CommResult.NotSupported
     /** COMMSAVES-2026-10-14 (P5.4b, additive): what THIS tablet applied to a radio, newest first, from the comm side's own records.
      *  memberId = the radio's id (mesh: node number as text). Empty = nothing recorded. Default: empty. */
     fun appliedHistory(memberId: String): List<AppliedRecord> = emptyList()
@@ -270,6 +273,8 @@ data class SavedSetup(val id: String, val title: String, val detail: String, val
 data class AppliedRecord(val title: String, val rideId: String?, val appliedAt: String)
 /** SAVEDCFG-2026-10-12: one difference between two configs; managed = a setting GroupTrack's apply sets. */
 data class ConfigDifference(val field: String, val a: String, val b: String, val managed: Boolean)
+/** CONFIGPDF-2026-10-26: one value GroupTrack sets -- section ("LoRa"), name as a rider reads it, value as text. */
+data class ConfigSetting(val section: String, val name: String, val value: String)
 
 /** COMMCONFIG-2026-10-12: what to apply -- the config doc (the ride file, JSON), the name the radio gets, the title of the config
  *  ("GroupTrack default" or the ride's name), the title its save is filed under, and the ride id (CODE RULE 1: null = the

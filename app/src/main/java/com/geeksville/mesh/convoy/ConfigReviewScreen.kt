@@ -117,6 +117,17 @@ fun ConfigReviewScreen(
         }
     }
 
+    // CONFIGPDF-2026-10-26 (Fred 10:34-10:40): the tapped config as a PDF of the 25 values -- VIEW opens it, EMAIL attaches it.
+    fun pdf(k: String, email: Boolean) {
+        scope.launch {
+            val (rows, r) = config.managedSettings(k)
+            if (r != CommResult.Ok || rows.isEmpty()) { message = "Cannot make the PDF: " + ((r as? CommResult.Failed)?.reason ?: "no settings"); return@launch }
+            val f = runCatching { com.geeksville.mesh.grouptrack.GtConfigPdf.build(context, titleOf(k), detailOf(k), nodeId ?: "", rows) }
+                .getOrElse { message = "Cannot make the PDF: ${it.message}"; return@launch }
+            if (email) com.geeksville.mesh.grouptrack.GtConfigPdf.email(context, f, titleOf(k)) else com.geeksville.mesh.grouptrack.GtConfigPdf.view(context, f)
+        }
+    }
+
     fun apply(k: String) {
         RadioConfigLauncher.preselect = k   // SAVEDCFG-2026-10-12: the save's id
         onClose()
@@ -154,6 +165,8 @@ fun ConfigReviewScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Button(onClick = { apply(sel) }, enabled = sel != NOW && connected) { Text("Apply") }
                         Button(onClick = { comparing = true }) { Text("Compare with\u2026") }
+                        Button(onClick = { pdf(sel, email = false) }) { Text("View PDF") }   // CONFIGPDF-2026-10-26
+                        Button(onClick = { pdf(sel, email = true) }) { Text("Email PDF") }
                         OutlinedButton(onClick = { selected = null }) { Text("Cancel") }
                     }
                     if (sel == NOW) Text("Radio now is the radio itself \u2014 it can be compared, not applied.", color = RDIM, fontSize = 12.sp)

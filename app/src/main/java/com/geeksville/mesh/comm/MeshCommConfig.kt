@@ -185,6 +185,46 @@ class MeshCommConfig @Inject constructor(
         emptyList<ConfigDifference>() to CommResult.Failed(e.message ?: e.javaClass.simpleName)
     }
 
+    // CONFIGPDF-2026-10-26 (Fred 10:34-10:40): the 25 managed values of a config, by section -- the Archived setups PDF. Same 25 as
+    // ConfigCompare.MANAGED and RadioConfigurator.verify. The channel key is given in full (base64): it is needed to set a radio by hand.
+    private val pdfRows = listOf(
+        Triple("Owner", "Long name", "owner.long_name"),
+        Triple("LoRa", "Region", "config.lora.region"),
+        Triple("LoRa", "Use preset", "config.lora.use_preset"),
+        Triple("LoRa", "Modem preset", "config.lora.modem_preset"),
+        Triple("LoRa", "Frequency slot", "config.lora.channel_num"),
+        Triple("LoRa", "Hop limit", "config.lora.hop_limit"),
+        Triple("LoRa", "TX power (dBm, 0 = radio's maximum)", "config.lora.tx_power"),
+        Triple("LoRa", "Transmit enabled", "config.lora.tx_enabled"),
+        Triple("Device", "Role", "config.device.role"),
+        Triple("Device", "Rebroadcast mode", "config.device.rebroadcast_mode"),
+        Triple("Channel (primary)", "Name", "channel[0].name"),
+        Triple("Channel (primary)", "Key (PSK, base64)", "channel[0].psk"),
+        Triple("Channel (primary)", "Position precision (32 = full)", "channel[0].module_settings.position_precision"),
+        Triple("Position", "Broadcast interval (seconds)", "config.position.position_broadcast_secs"),
+        Triple("Position", "Smart position", "config.position.position_broadcast_smart_enabled"),
+        Triple("Position", "Smart minimum interval (seconds)", "config.position.broadcast_smart_minimum_interval_secs"),
+        Triple("Position", "Smart minimum distance (metres)", "config.position.broadcast_smart_minimum_distance"),
+        Triple("Position", "GPS mode", "config.position.gps_mode"),
+        Triple("Position", "GPS update interval (seconds)", "config.position.gps_update_interval"),
+        Triple("Position", "Fixed position", "config.position.fixed_position"),
+        Triple("Position", "Position flags", "config.position.position_flags"),
+        Triple("Position", "GPS enable pin (0 = none)", "config.position.gps_en_gpio"),
+        Triple("Bluetooth", "Pairing mode", "config.bluetooth.mode"),
+        Triple("Bluetooth", "Enabled", "config.bluetooth.enabled"),
+        Triple("Serial", "Serial module enabled", "module_config.serial.enabled"),
+    )
+
+    override suspend fun managedSettings(id: String): Pair<List<com.grouptrack.comm.ConfigSetting>, CommResult> = try {
+        val p = profileOf(id)
+        val flat = ConfigCompare.flatten(p)
+        val key = runCatching { RadioConfigurator.primaryChannel(p).psk.base64() }.getOrDefault("(not readable)")
+        pdfRows.map { (s, n, path) -> com.grouptrack.comm.ConfigSetting(s, n, if (path == "channel[0].psk") key else flat[path] ?: "(not set)") } to CommResult.Ok
+    } catch (e: Exception) {
+        android.util.Log.w("RadioConfig", "CONFIGPDF-2026-10-26: cannot read the config: ${e.message}")
+        emptyList<com.grouptrack.comm.ConfigSetting>() to CommResult.Failed(e.message ?: e.javaClass.simpleName)
+    }
+
     // COMMSAVES-2026-10-14 (P5.4b): moved unchanged from GroupTrack (GrpAwareness.lastAppliedLine / lastAppliedRide, RadioSetupState.hasSavedConfig).
     private fun radioFolder(memberId: String): java.io.File? {
         val num = memberId.toIntOrNull() ?: return null

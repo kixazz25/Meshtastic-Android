@@ -53,9 +53,9 @@ object LaunchModules {
             "help" to "Help — Quick Start, Release Notes, Manual",
             "account" to "Account — profile, terms, completed rides")),
         // GRPONEMAP-2026-10-22 (Fred 11:38): GRP AWARENESS stays -- the in-ride issue indicator, one tap to its panel. Always shown.
-        LaunchModule("grp", "GRP Awareness", LaunchSlot.RIGHT, 0, groupOnly = false, stays = false, processes = p("grp",
+        LaunchModule("grp", "GRP Awareness", LaunchSlot.RIGHT, 1, /* MODEFIRST-2026-10-26 (Fred 11:51): after MODE */ groupOnly = false, stays = false, processes = p("grp",
             "open" to "GRP Awareness \u2014 radio link status, connect, apply the ride's settings")),
-        LaunchModule("mode", "MODE", LaunchSlot.RIGHT, 1, groupOnly = false, stays = false, processes = p("mode",
+        LaunchModule("mode", "MODE", LaunchSlot.RIGHT, 0, /* MODEFIRST-2026-10-26: first on the right */ groupOnly = false, stays = false, processes = p("mode",
             "switch" to "ANDROID ONLY ⇄ GROUP (blocked while recording)")),
         LaunchModule("internet", "INTERNET", LaunchSlot.RIGHT, 2, groupOnly = false, stays = false, processes = p("internet",
             "switch" to "Internet ON / OFF — shows the current state, allows OFF")),
