@@ -254,67 +254,6 @@ object OwnershipReclass {
         return n
     }
 
-    /**
-     * CATEGORYALWAYS-2026-10-10: the launch pass (StartupHousekeeping.jobCategories). Converts ONLY the rows that do
-     * not yet carry one of our categories, a use or a land answer -- the same category and use rules as run(), land
-     * kept where it exists and PUBLIC where it does not. A converted database costs one COUNT. Returns rows written,
-     * 0 when there was nothing to do, -1 on failure (nothing half-written: one transaction per store).
-     */
-    fun applyMissingCategories(sDb: SQLiteDatabase, eDb: SQLiteDatabase): Int {
-        val ours = TrailClassifier.CATEGORIES.joinToString(",") { "'" + it.replace("'", "") + "'" }
-        val pending = "carto_code IS NULL OR use_type IS NULL OR land_status IS NULL OR carto_code NOT IN ($ours)"
-        val todo = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE $pending", null)
-            .use { if (it.moveToFirst()) it.getInt(0) else 0 }
-        if (todo == 0) return 0
-        val started = System.currentTimeMillis()
-        val ids = ArrayList<String>(todo); val srcs = ArrayList<String>(todo); val lands = ArrayList<String?>(todo)
-        sDb.rawQuery("SELECT trail_id, COALESCE(NULLIF(TRIM(carto_code_source),''), carto_code), land_status " +
-            "FROM trails WHERE $pending", null).use { c ->
-            while (c.moveToNext()) {
-                ids.add(c.getString(0)); srcs.add(c.getString(1) ?: ""); lands.add(c.getString(2))
-            }
-        }
-        val useOf = HashMap<String, String>()
-        try {
-            eDb.rawQuery("SELECT trail_id, designated_uses FROM trail_properties " +
-                "WHERE designated_uses IS NOT NULL AND TRIM(designated_uses) <> ''", null).use { c ->
-                while (c.moveToNext()) useOf[c.getString(0)] = c.getString(1)
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "CATEGORYALWAYS: designated_uses read failed: ${e.message}")
-        }
-        var n = 0
-        sDb.beginTransaction()
-        eDb.beginTransaction()
-        try {
-            val s1 = sDb.compileStatement(
-                "UPDATE trails SET carto_code_source=?, carto_code=?, land_status=?, use_type=? WHERE trail_id=?")
-            val s2 = eDb.compileStatement("UPDATE trail_properties SET carto_code=? WHERE trail_id=?")
-            for (i in ids.indices) {
-                val cat = TrailClassifier.categoryOf(srcs[i], useOf[ids[i]] ?: "")
-                s1.clearBindings()
-                s1.bindString(1, srcs[i]); s1.bindString(2, cat)
-                s1.bindString(3, lands[i]?.takeIf { it.isNotBlank() } ?: "PUBLIC")
-                s1.bindString(4, TrailClassifier.useOf(cat)); s1.bindString(5, ids[i])
-                s1.executeUpdateDelete()
-                s2.clearBindings(); s2.bindString(1, cat); s2.bindString(2, ids[i])
-                s2.executeUpdateDelete()
-                n++
-            }
-            sDb.setTransactionSuccessful()
-            eDb.setTransactionSuccessful()
-        } catch (e: Exception) {
-            Log.e(TAG, "CATEGORYALWAYS: launch pass failed: ${e.message}")
-            return -1
-        } finally {
-            eDb.endTransaction()
-            sDb.endTransaction()
-        }
-        Log.i(TAG, "CATEGORYALWAYS: launch pass converted $n of $todo trail(s) in " +
-            "${(System.currentTimeMillis() - started) / 1000}s")
-        return n
-    }
-
     private fun key(gx: Int, gy: Int): Long = (gx.toLong() shl 32) xor (gy.toLong() and 0xffffffffL)
 
     // ── the rule ────────────────────────────────────────────────────────
