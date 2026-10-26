@@ -107,7 +107,11 @@ private fun hasInternet(ctx: Context): Boolean = try {
 // COMMHEALTH2-2026-10-11: the ghost check (isGhostSelection) moved to the comm side (MeshCommLink).
 
 private fun openBluetoothSettings(ctx: Context) {
-    runCatching { ctx.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    // BTPROMPT-2026-10-26 (Fred 18:25): Android's simple "Turn on Bluetooth? Allow / Deny" first; the settings page only if that cannot be shown.
+    val asked = runCatching {
+        ctx.startActivity(Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }.isSuccess
+    if (!asked) runCatching { ctx.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
 // COMMRADIOS-2026-10-11: radioLongName removed -- each radio's name arrives in the comm side's list (RadioEntry.name, the name table).
