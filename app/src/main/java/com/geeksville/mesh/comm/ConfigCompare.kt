@@ -13,7 +13,7 @@ import org.meshtastic.proto.DeviceProfile
  *
  * "Every other difference between two configs": flattens a whole DeviceProfile into path -> value lines -- every
  * config section, the module configs, the owner, the fixed position, and EVERY CHANNEL decoded from the channel URL
- * (that is where channel differences hide) -- and lists what differs. The 19 MANAGED fields are left out (the
+ * (that is where channel differences hide) -- and lists what differs. The 25 MANAGED fields are left out (the
  * verify reports those); everything else is information only, never written.
  * Uses: the preview (radio now vs target), the result (radio now vs its last backup), drift (backup vs backup),
  * box vs box. Any two configs.
@@ -37,6 +37,9 @@ object ConfigCompare {
         "config.position.broadcast_smart_minimum_interval_secs", "config.position.broadcast_smart_minimum_distance",
         "config.position.gps_mode", "config.position.gps_update_interval", "config.position.fixed_position",
         "channel[0].name", "channel[0].psk", "channel[0].module_settings.position_precision",
+        // COMPARE25-2026-10-26 (Fred 10:37): the six the configurator verifies since 09-25 -- 25 in all, = RadioConfigurator.verify.
+        "config.device.rebroadcast_mode", "config.bluetooth.mode", "config.bluetooth.enabled",
+        "config.position.position_flags", "config.position.gps_en_gpio", "module_config.serial.enabled",
     )
 
     /** Every other field that differs between [a] and [b] (managed fields excluded unless asked). */

@@ -3320,7 +3320,7 @@ fun CartPickerPanel(
     onChangeMyRole: () -> Unit   // ROLEBTN-2026-09-29 (Fred): opens "Change my role" -- my own cart only
 ) {
     fun roleLabel(r: String) = when (r) { "leader" -> "Leader"; "middle" -> "Middle"; "tail_gunner" -> "Tail gunner"; else -> "Rider" }
-    val green = Color(0xFF35C46A); val red = Color(0xFFE0453A); val dim = Color(0xFF8FA3B8)
+    val dim = Gt.text   // CARTSCOLOUR2-2026-10-26 (Fred 10:58): no fixed colours -- panel text outside boxes; inside a box, the panel colour
     var listOpen by remember { mutableStateOf(true) }   // CARTPICKER3-2026-09-28 (Fred): the twistie -- opens unfolded
     // CARTPICKER2-2026-09-28 (Fred): shown OVER the map -- no dark curtain, a semi-transparent panel, and the map stays
     // usable (taps outside the panel reach the map); the list closes with CLOSE or REC.
@@ -3344,19 +3344,21 @@ fun CartPickerPanel(
                     Text(rideTitle, color = Gt.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     if (rideSub.isNotBlank()) Text(rideSub, color = dim, fontSize = 12.sp)
                 } else Text("Not checked in yet \u2014 tap CHECK IN at the top left to choose your ride.",   // CARTROLES-2026-10-06
-                    color = Color(0xFFFFD166), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    color = Gt.text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 // ROLEBTN-2026-09-29 (Fred): change MY role from here -- whether or not my own cart is in the list.
-                if (rideTitle.isNotBlank()) androidx.compose.material3.TextButton(onClick = { onChangeMyRole() }) {
-                    Text("CHANGE MY ROLE \u00b7 now " + roleLabel(myRole), color = Color(0xFFFFD166),
-                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                // CARTSCOLOUR2-2026-10-26 (Fred 10:54): CHANGE MY ROLE in a box -- yellow text with no box was unreadable on white.
+                if (rideTitle.isNotBlank()) Surface(modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clickable { onChangeMyRole() },
+                    shape = RoundedCornerShape(10.dp), color = Gt.text) {
+                    Text("CHANGE MY ROLE \u00b7 now " + roleLabel(myRole), color = Gt.panel, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
                 }
                 // The title and the list's own CLOSE (tapping outside still closes it too).
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (listOpen) "\u25BE" else "\u25B8", color = Color(0xFF67EA94), fontSize = 18.sp,   // CARTPICKER3
+                    Text(if (listOpen) "\u25BE" else "\u25B8", color = Gt.text, fontSize = 18.sp,   // CARTPICKER3
                         modifier = Modifier.clickable { listOpen = !listOpen }.padding(end = 8.dp))
                     Text("CART ROLES \u00b7 ${nodes.size} radio" + (if (nodes.size == 1) "" else "s") + " on this network",   // CARTROLES
-                        color = Color(0xFF67EA94), fontSize = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                        color = Gt.text, fontSize = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f))
                     com.geeksville.mesh.grouptrack.GtHelpButton("rides.carts")   // GTRIDES-2026-10-22: the standard HELP ✕ (was CLOSE)
                     com.geeksville.mesh.grouptrack.GtCloseButton({ onDismiss() })
@@ -3383,20 +3385,20 @@ fun CartPickerPanel(
                                 .padding(vertical = 3.dp)
                                 .clickable { onSelect(node) },
                             shape = RoundedCornerShape(8.dp),
-                            color = Gt.text   // CARTROLES-2026-10-06: solid (was ~50%)
+                            color = Gt.text   // CARTROLES-2026-10-06: solid. CARTSCOLOUR2-2026-10-26: the box; its text is the panel colour
                         ) {
                             Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(if (checkedIn) "\u2714" else "\u25CF", color = if (checkedIn) green else red, fontSize = 16.sp,   // CARTROLES: check / dot
+                                Text(if (checkedIn) "\u2714" else "\u25CF", color = Gt.panel, fontSize = 16.sp,   // CARTROLES: check / dot
                                     fontWeight = FontWeight.Black, modifier = Modifier.padding(end = 10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(node.callsign, color = Gt.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text(node.callsign, color = Gt.panel, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     Text((if (checkedIn) "checked in" else if (node.isMyCart) "not checked in" else "bare radio") + (if (node.isMyCart) " \u00b7 you" else ""),
-                                        color = dim, fontSize = 12.sp)
+                                        color = Gt.panel, fontSize = 12.sp)
                                 }
-                                Text(role.uppercase(), color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(role.uppercase(), color = Gt.panel, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 if (!node.isMyCart) {   // CARTACTIVE-2026-09-30 (Fred): one tap -- Active -> Removed (my own cart: never)
-                                    Text("REMOVE", color = Gt.text, fontSize = 12.sp, fontWeight = FontWeight.Bold,   // CARTBTN-2026-09-30: the action
-                                        modifier = Modifier.padding(start = 10.dp).background(red, RoundedCornerShape(6.dp))
+                                    Text("REMOVE", color = Gt.panel, fontSize = 12.sp, fontWeight = FontWeight.Bold,   // CARTBTN-2026-09-30: the action
+                                        modifier = Modifier.padding(start = 10.dp).border(1.dp, Gt.panel, RoundedCornerShape(6.dp))
                                             .clickable { onToggleActive(node.nodeId, node.callsign) }.padding(horizontal = 10.dp, vertical = 5.dp))
                                 }
                             }
@@ -3407,13 +3409,13 @@ fun CartPickerPanel(
                 removed.filterKeys { k -> nodes.none { it.nodeId == k } }.toList().sortedBy { it.second.lowercase() }.forEach { (rid, rcall) ->
                     Surface(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), shape = RoundedCornerShape(8.dp), color = Gt.text) {   // CARTROLES: solid
                         Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("\u25CB", color = dim, fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
+                            Text("\u25CB", color = Gt.panel, fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(rcall, color = dim, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text("removed \u00b7 off the map", color = dim, fontSize = 12.sp)
+                                Text(rcall, color = Gt.panel, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("removed \u00b7 off the map", color = Gt.panel, fontSize = 12.sp)
                             }
-                            Text("ACTIVATE", color = Gt.text, fontSize = 12.sp, fontWeight = FontWeight.Bold,   // CARTBTN-2026-09-30: the action
-                                modifier = Modifier.padding(start = 10.dp).background(green, RoundedCornerShape(6.dp))
+                            Text("ACTIVATE", color = Gt.panel, fontSize = 12.sp, fontWeight = FontWeight.Bold,   // CARTBTN-2026-09-30: the action
+                                modifier = Modifier.padding(start = 10.dp).border(1.dp, Gt.panel, RoundedCornerShape(6.dp))
                                     .clickable { onToggleActive(rid, rcall) }.padding(horizontal = 10.dp, vertical = 5.dp))
                         }
                     }

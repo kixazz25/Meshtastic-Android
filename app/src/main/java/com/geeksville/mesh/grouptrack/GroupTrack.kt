@@ -215,6 +215,8 @@ fun GroupTrackLaunchLayer(
                            else Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp)
             ) {
                 val rows = openModule.processes   // MAPTARGET4-2026-10-23: sections open in place (twisties), no submenu level
+                    // RIDESORDER-2026-10-26 (Fred 10:27): Rides' checked-in carts row shows only once checked in (Group, on a ride).
+                    .filter { !(it.id == "rides.carts" && !(group && onRide)) }
                 GtPanel(
                     title = openModule.label,
                     helpId = openModule.id,
