@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><title>GroupTrack COMPLETED TASK 2026-10-25</title><style>body{font:15px/1.5 system-ui;max-width:900px;margin:20px auto;padding:0 16px}h2,h3{color:#1f6feb}</style></head><body><h1>GroupTrack — completed 2026-10-25</h1><p>Completed the evening of 10-25 and moved here word for word from living master v185 / handoff v78. Commits: 8353932df CLASSIC4B · 9126c0ae7 DEADCODE3 · 8c6f8a325 ONEMAPHOST + GREYBARS · fb53fc200 NOJOBCAT · df8dfdd09 UTAHONCE · f273e59bf UTAHONCESHOW · tag v2.7c-internal-2026-10-26-a (the release-build checklist done).</p><h3>🧹 Map removal — the home check and the sequence (10-23, read-only check)</h3>
+<div class="card warn">
+<p><b>Rule (10-22 11:47): nothing is removed without a home.</b> The 12:16 audit put every existing planner / ride-map MAP function on ONE MAP; Route+ moved this afternoon. The 16:40 check of what the planner still passes to shared panels that ONE MAP does not:</p>
+<table><tr><th>Planner-only function</th><th>Where (planner)</th><th>Home on ONE MAP</th></tr>
+<tr><td>Build from recipe (a saved route → six more rides from the same answers)</td><td>ArtifactDetailPanel <code>onBuildFromRecipe</code>, MVS 4590–4649</td><td><b>TO DO</b>: the route's detail card on ONE MAP → GtRoute loads the recipe → the AI summary step</td></tr>
+<tr><td>Saved route notes (the ride narrative)</td><td>ArtifactDetailPanel <code>onShowNotes</code> → ConvoyNotesPanel</td><td><b>TO DO</b>: the route's detail card on ONE MAP</td></tr>
+<tr><td>Work-in-progress route notes</td><td><code>showWipNotes</code> → ConvoyNotesPanel (MVS 2536, 2650)</td><td><b>TO DO</b>: from the Route+ toolbar / the selector</td></tr>
+<tr><td>Docs chooser (manual / notes / Quick Start)</td><td>planner "?" → ConvoyDocsChooser</td><td>MENU › Help (the three documents) — confirm and close</td></tr>
+<tr><td>Map Features › import</td><td>ConvoyArtifactsPanel <code>onImport</code></td><td>Map › IMPORT MAP FEATURES — covered</td></tr>
+<tr><td>Import OSM by area</td><td>OsmImportPanel — <code>showOsmPanel</code> is never set true</td><td>DEAD (retired 08-21) — goes with the planner</td></tr>
+</table>
+<p><b>The removal sequence</b> (each a patch, a build, a bench test, a commit; the dead-code inventory re-run after each):</p>
+<ol>
+<li>Home the three TO DO functions above.</li>
+<li>Remove the "UNTIL THE MOVE IS DONE" rows: Map Features (original) and Open the planning map. Area Search Radius gets its final home (with Search).</li>
+<li>Remove the planner: ConvoyMapViewerScreen, its page <code>grouptrack_map.html</code>, its nav route, and the panels only it opens (ConvoyDownloadPanel, OsmImportPanel, ConvoyDocsChooser once confirmed, the Convoy AI / batch / guided panels once nothing calls them).</li>
+<li>Remove the classic ride layout: the 37 <code>GtLayout.oneMap</code> / <code>gtOneMap</code> branches in ConvoyScreen, MENU › Classic layout, Settings › Layout, the ride map's older Route+ copy (CS 2445–2705).</li>
+<li>Start-up from ONE MAP (GroupTrack.kt the start screen).</li>
+</ol>
+</div>
+
+<h3>🪦 Dead code — the inventory (Fred 13:48: purge and isolate BEFORE changing screens)</h3>
+<div class="card">
+<p>Read-only call graph over <code>convoy/</code> + <code>grouptrack/</code> (fully-qualified calls counted): 269 composables; <b>19 have no caller, 6 more are called only by those = 25 dead</b>: ConvoyRidesScreen (+RidesMenuItem), ConvoyTracksScreen, ConvoyQueuesPanel (+QRow), ConvoySharePromptDialog, ConvoyWaypointCreateDialog, GroupTrackMigrationScreen (+MigButton), AutoResyncHost, UnifiedSearch Fab (+SearchBar, ResultsBox), AiOption, DashBadge, EntryBtnDisabled, GroupTrackLogoText, GtMapTypeRow, HudModeRow, LandCheck (+Tick), LegendItem, RemovedCartRow, ResultsList, SearchBlock.</p>
+<p>After them: 244 composables, <b>98 screens / dialogs / panels</b> (about 37 full screens through ConvoyNavigation / Main, 22 ONE MAP modules, about 39 dialogs and panels). The planner purge takes about 10 more → <b>about 88–92 to restyle</b>. Still to check: which of the ~37 registered navigation destinations anything actually navigates to.</p>
+<p><b>Method:</b> dead files move out of the source tree into a holding folder the build does not compile; dead pieces inside live files are cut with a backup. A passing build proves nothing needed them; nothing is deleted.</p>
+</div>
+
+<h3>📦 2.7c release-build checklist (Fred 10:37–10:39 — done together, at release time)</h3>
+<div class="card warn">
+<ol>
+<li>Remove jobCategories + OwnershipReclass.applyMissingCategories — patch READY: <code>~/Downloads/patch_remove_jobcategories_2026-10-23.py</code> (NOJOBCAT; dry run passed 10:37). Do not run before then.</li>
+<li>A ONE-TIME housekeeping classify for upgrading phones (2.7a / 2.7b + a Utah import = every trail PUBLIC): run step 8 when trails exist AND the ownership file is usable AND not one trail is PRIVATE — a derived condition, no marker; a COUNT afterwards; out when 2.7d is cut. Needs Fred's OK on the condition and the timing (Classify trails again on Droid 1: launch-time vs after the map is up).<br><b>Fred 10-24 12:20 — the trigger:</b> the private-property class is reset in housekeeping <b>when Utah trails were imported in a SUCCESSFUL import JSON</b> (an import manifest that lists Utah with process_state completed) and its land assignment did not happen (no usable land file, or not one trail PRIVATE). It runs the same work as Map › IMPORT MAP FEATURES › Assign Utah private property (UTAHPRIV-2026-10-24: fetches the Utah land data when missing, then step 8), in the background after the map is up, never blocking start-up. Added to release prep, built at release time.</li>
+<li>Release-cut check: list every "rule 3 / NO MARKER / every launch" job before tagging, and remove them.</li>
+</ol>
+</div>
+
+</body></html>

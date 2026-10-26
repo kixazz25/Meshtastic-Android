@@ -1,8 +1,8 @@
 ==============================================================================
 GROUPTRACK -- NAVIGATION CROSS-REFERENCE v2 (the click tree, for the user manual)
 ==============================================================================
-Generated: 2026-10-24 22:01   branch 2.7c @ ed505bed3   files scanned: 154   composables: 188
-Clickables: 366   state-opened panels: 53   routes: 0
+Generated: 2026-10-25 22:43   branch 2.7c @ 78ced5cd9   files scanned: 150   composables: 162
+Clickables: 297   state-opened panels: 36   routes: 0
 Each panel shows [file last commit date]: a screenshot whose build date is OLDER than that date needs a recapture.
 
 === 1. THE CLICK TREE (from each screen downward) ===
@@ -38,8 +38,8 @@ ApiKeyRow  [ConvoyMapSourceScreen.kt:978 · 2026-10-24]
    ▸ “Key configured”  (line 988)
       → does: Row( modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically ) { Icon( if (hasKey)…
 
-AreaItemRow  [HomeStatePickerScreen.kt:284 · 2026-10-24]
-   ▸ “?”  (line 286)
+AreaItemRow  [HomeStatePickerScreen.kt:286 · 2026-10-25]
+   ▸ “?”  (line 288)
       → does: onClick()
 
 ArtifactDetailPanel  [ArtifactDetailPanel.kt:36 · 2026-10-24]
@@ -48,39 +48,39 @@ ArtifactDetailPanel  [ArtifactDetailPanel.kt:36 · 2026-10-24]
    ▸ “Cancel”  (line 182)
       → does: showThPopup = false
    ▸ “CREATE ROUTE & RIDE”  (line 206)
-      → calls back ConvoyScreen  (onCreateRideFromTrack → tid: String, name: String, desc: String, th: ConvoyArtifactOps.RouteTrailhead -…)
+      → does: val th = chosenTh!! // FIRSTPOINT-2026-09-27 showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteN…
    ▸ “Cancel”  (line 211)
       → does: showRideNameDialog = false
    ▸ “×”  (line 276)
       → does: android.util.Log.i("ArtifactDetail", "Preferred name-swap not yet built")
    ▸ “DETAILS”  (line 287)
-      → calls back ConvoyScreen  (onDeleteAlias → aliasId -> coroutineScope.launch { ConvoyArtifactOps.deleteAlias(context, alias…)
+      → does: onDeleteAlias(aId); reloadAliases()
    ▸ “Rename $artifactType”  (line 343)
       → does: showTech = !showTech
    ▸ “RENAME”  (line 377)
-      → calls back ConvoyScreen  (onRename → id, newName -> val capType = pendingDetailType if (capType != null) coroutineSc…)
+      → does: onRename?.invoke(id, renameText); showRenameDialog = false; onDismiss(null, null)
    ▸ “CANCEL”  (line 382)
       → does: showRenameDialog = false
    ▸ “DELETE”  (line 394)
-      → calls back ConvoyScreen  (onDelete → id -> val capType = pendingDetailType if (capType != null) coroutineScope.launc…)
+      → does: onDelete?.invoke(id); showDeleteConfirm = false; onDismiss(null, null)
    ▸ “CANCEL”  (line 399)
       → does: showDeleteConfirm = false
    ▸ “CANCEL”  (line 414)
-      → calls back ConvoyScreen  (onChangeType → id, newType -> coroutineScope.launch { ConvoyArtifactOps.changeType(context, id…)
+      → does: onChangeType?.invoke(id, wType); showTypeChooser = false; onDismiss(null, null)
    ▸ “CANCEL”  (line 422)
       → does: showTypeChooser = false
 
 ArtifactListItem  [ArtifactListPanel.kt:167 · 2026-10-24]
    ▸ “Waypoints”  (line 202)
-      → calls back ConvoyScreen  (via ArtifactListPanel.onNameClick)
+      → calls back ArtifactListPanel  (onNameClick → onOpenDetail(artifactType, id))
 
 ArtifactListPanel  [ArtifactListPanel.kt:41 · 2026-10-24]
    ▸ “SELECT ALL”  (line 96)
       ArtifactListItem  [ArtifactListPanel.kt:167 · 2026-10-24]  ← opens (gtFolded)  (expanded above)
    ▸ “DESELECT ALL”  (line 114)
-      → calls back ConvoyScreen  (onSelectAll → gtApplyList(artifactList.mapNotNull { it["id"] }.toSet()))
+      → does: onSelectAll()
    ▸ “FIT”  (line 119)
-      → calls back ConvoyScreen  (onDeselectAll → gtApplyList(emptySet()))
+      → does: onDeselectAll()
    ▸ “No $artifactType in current map view”  (line 125)
       → does: onFitToSelected()
 
@@ -96,18 +96,6 @@ BuildBtn  [ConvoyRouteToolbar.kt:383 · 2026-10-24]
    ▸ “?”  (line 386)
       → does: onClick()
 
-CartPickerPanel  [ConvoyScreen.kt:3443 · 2026-10-24]
-   ▸ “CHANGE MY ROLE · now ”  (line 3482)
-      → calls back ConvoyScreen  (onChangeMyRole → showRoleChange = true; showCartPicker = false)
-   ▸ “CART ROLES · ${nodes.size} radio”  (line 3490)
-      → does: listOpen = !listOpen
-   ▸ “REMOVE”  (line 3517)
-      → calls back ConvoyScreen  (onSelect → selectedNode -> // CARTROLESTAP-2026-10-06 (Fred): only MY OWN role can be chan…)
-   ▸ “○”  (line 3533)
-      → calls back ConvoyScreen  (onToggleActive → id, cs -> val removing = !viewModel.removedCarts.value.containsKey(id) viewMode…)
-   ▸ “✔ checked in    ● not checked in — a bare radio, or a rider who has not checked in yet: ”  (line 3550)
-      → calls back ConvoyScreen  (onToggleActive → id, cs -> val removing = !viewModel.removedCarts.value.containsKey(id) viewMode…)
-
 CheckInSheet  [ConvoyCheckIn.kt:52 · 2026-10-24]
    ▸ “All”  (line 120)
       → does: rideFilter = ""
@@ -122,23 +110,13 @@ CheckInSheet  [ConvoyCheckIn.kt:52 · 2026-10-24]
    ▸ “CHOOSE ANOTHER ROLE”  (line 181)
       → does: heldWarn = null
    ▸ “OPEN GRP AWARENESS”  (line 192)
-      → calls back ConvoyScreen  (onCancel → showCheckIn = false)
+      → does: onCancel(); GrpAwarenessLauncher.open()
    ▸ “”  (line 206)
-      TrailStylePanel  [TrailStylePanel.kt:57 · 2026-10-24]  ← opens (via ConvoyScreen.onDone)
-         ▸ “✕”  (line 93)
-            → calls back MapKeysPanel  (onCancel → styling = null)
-         ▸ “PATTERN”  (line 124)
-            → does: c = hex
-         Chip  [TrailStylePanel.kt:202 · 2026-10-24]  ← part of this screen
-            ▸ “?”  (line 210)
-               → does: onClick()
-      → calls back ConvoyScreen  (onCancel → showCheckIn = false)
+      → does: // CHECKINRADIO: a radio is required if (noRideNeedsDefault) { // NORIDEDEFAULT-2026-10-10: the radio back to…
 
-Chip  [TrailStylePanel.kt:202 · 2026-10-24]  (expanded above)
-
-CollapsedPill  [ConvoyScreen.kt:3341 · 2026-10-24]
-   ▸ “$totalNodes UNITS”  (line 3357)
-      → calls back ConvoyScreen  (onExpand → viewModel.setHudMode(if (GroupMode.on.value) HudMode.GROUP else HudMode.MY_CART))
+Chip  [TrailStylePanel.kt:202 · 2026-10-24]
+   ▸ “?”  (line 210)
+      → does: onClick()
 
 CompletedItemRow  [ConvoyDownloadQueuePanel.kt:681 · 2026-10-24]
    ▸ “${entry.label.ifEmpty { ”  (line 700)
@@ -148,9 +126,9 @@ CompletedRideCard  [ConvoyCompletedRidesScreen.kt:400 · 2026-10-24]
    ▸ “COMPLETED”  (line 403)
       → calls back ConvoyCompletedRidesScreen  (onClick → onNavigateToDetail(ride.id))
 
-CompletionPanel  [HomeStatePickerScreen.kt:627 · 2026-10-24]
-   ▸ “▾  ”  (line 654)
-      RecapLine  [HomeStatePickerScreen.kt:610 · 2026-10-24]  ← opens (showDetail)
+CompletionPanel  [HomeStatePickerScreen.kt:629 · 2026-10-25]
+   ▸ “▾  ”  (line 656)
+      RecapLine  [HomeStatePickerScreen.kt:612 · 2026-10-25]  ← opens (showDetail)
 
 ConfigReviewScreen  [ConfigReviewScreen.kt:67 · 2026-10-24]
    ▸ “Saved configs”  (line 126)
@@ -299,25 +277,14 @@ ConvoyDashboardScreen  [ConvoyDashboardScreen.kt:26 · 2026-10-24]
       RideDisplayPanel  [ConvoyDashboardScreen.kt:585 · 2026-10-24]  ← opens (nearMeExpanded)  (expanded above)
    GroupTrackBottomNav  [GroupTrackTheme.kt:220 · 2026-10-24]  ← part of this screen  (expanded above)
 
-ConvoyDisplayPanel  [ConvoyDisplayPanel.kt:45 · 2026-10-24]
-   ▸ “DISPLAY”  (line 79)
-      CompletedRideCard  [ConvoyCompletedRidesScreen.kt:400 · 2026-10-24]  ← opens (expanded)  (expanded above)
-      DisplayToggleRow  [ConvoyDisplayPanel.kt:157 · 2026-10-24]  ← opens (expanded)
-         ▸ “?”  (line 170)
-            → calls back ConvoyDisplayPanel  (onToggle → )
-      FilterChip  [ConvoyDownloadQueuePanel.kt:557 · 2026-10-24]  ← opens (expanded)
-         ▸ “✓ ”  (line 562)
-            → calls back CheckInSheet  (onClick → rideFilter = "")
-
 ConvoyDownloadConfirm  [ConvoyDownloadConfirm.kt:36 · 2026-10-24]
    ▸ “ → ”  (line 87)
       → does: selectedSlots = if (checked) selectedSlots - slot.slotName else selectedSlots + slot.slotName
    ▸ “Replace existing tiles”  (line 121)
       → does: replaceExisting = !replaceExisting
    ▸ “CANCEL”  (line 132)
-      RecapLine  [HomeStatePickerScreen.kt:610 · 2026-10-24]  ← opens (showDetail)  (expanded above)
+      RecapLine  [HomeStatePickerScreen.kt:612 · 2026-10-25]  ← opens (showDetail)  (expanded above)
    ▸ “PROCEED”  (line 141)
-      → calls back ConvoyScreen  (onProceed → bbox, selectedSlots, replace -> showDownloadConfirm = false // CORRIDOR-WIRING-…)
       → calls back ConvoyTrackImportScreen  (onProceed → _, sel, replace -> selectedSlots = sel replaceExisting = replace showSourcePopu…)
 
 ConvoyDownloadRideConfigScreen  [ConvoyDownloadRideConfigScreen.kt:45 · 2026-10-24]
@@ -511,110 +478,9 @@ ConvoyRouteToolbar  [ConvoyRouteToolbar.kt:61 · 2026-10-24]
          → does: onClick()
    BuildBtn  [ConvoyRouteToolbar.kt:383 · 2026-10-24]  ← part of this screen  (expanded above)
 
-ConvoyScreen  [ConvoyScreen.kt:135 · 2026-10-24]
-   ▸ “Grant”  (line 614)
-      → does: showStoragePermissionDialog = false try { val intent = android.content.Intent( android.provider.Settings.ACTI…
-   ▸ “Later”  (line 631)
-      → does: showStoragePermissionDialog = false
-   ▸ “OK”  (line 649)
-      → does: viewModel.clearPendingDownload()
-   ▸ “DOWNLOAD”  (line 681)
-      → does: viewModel.startDownload(context, pending) coroutineScope.launch { convoyMenuSheetState.hide() } android.widge…
-   ▸ “CANCEL”  (line 690)
-      → does: viewModel.clearPendingDownload()
-   ▸ “OK”  (line 704)
-      → does: viewModel.cancelDownload()
-   ▸ “YES, DELETE”  (line 777)
-      → does: showConfirmDelete = false showNameDialog = false viewModel.deleteTempTrack()
-   ▸ “NO, GO BACK”  (line 784)
-      → does: // Back to naming — track is NOT deleted. showConfirmDelete = false
-   ▸ “OK”  (line 1507)
-      → does: noPosDismissed = true
-   ▸ “OK”  (line 1529)
-      → does: netPosAck = true
-   ▸ “Don't show again”  (line 1534)
-      → does: nogpsContext.getSharedPreferences( "grouptrack_device", android.content.Context.MODE_PRIVATE ).edit().putBool…
-   ▸ “Name (optional)”  (line 1562)
-      → does: newWaypointType = key otherConfirm = false if (newWaypointName.isBlank() || WAYPOINT_TYPES.any { it.second.su…
-   ▸ “other”  (line 1583)
-      → does: if (newWaypointType == "other" && !otherConfirm) { otherConfirm = true; return@TextButton } // WPTTAP-2026-09…
-   ▸ “Cancel”  (line 1604)
-      → does: pendingWaypoint = null newWaypointName = "" newWaypointType = "trailhead"; otherConfirm = false
-   ▸ “SETTINGS”  (line 1622)
-      → does: showLocationPermissionDialog = false bgLocationLauncher.launch(android.Manifest.permission.ACCESS_BACKGROUND_…
-   ▸ “CANCEL”  (line 1628)
-      → does: showLocationPermissionDialog = false
-   ▸ “ set as Lead Cart”  (line 1658)
-      → does: viewModel.setLeadCart(node.nodeId) showLeadDialog = false recordingState = RecordingState.RECORDING viewModel…
-   ▸ “CANCEL”  (line 1688)
-      → does: showLeadDialog = false
-   ▸ “No scheduled ride”  (line 1726)
-      CheckInSheet  [ConvoyCheckIn.kt:52 · 2026-10-24]  ← opens (showCheckIn)  (expanded above)
-   ▸ “▶  CONTINUE”  (line 1812)
-      → does: if (recordingState == RecordingState.PAUSED) { recordingState = RecordingState.RECORDING viewModel.resumeReco…
-   ▸ “⏹  END”  (line 1831)
-      EndOfRideForm  [ConvoyEndOfRideForm.kt:41 · 2026-10-24]  ← opens (showNameDialog)
-         ▸ “Difficulty”  (line 76)
-            → does: rating = n
-         ▸ “Would you recommend it?”  (line 85)
-            → does: difficulty = v
-         ▸ “Yes”  (line 90)
-            → does: recommend = true
-         ▸ “No”  (line 91)
-            → does: recommend = false
-         ▸ “Yes, share it”  (line 99)
-            → does: share = true
-         ▸ “No, keep it”  (line 100)
-            → does: share = false
-         ▸ “SAVE”  (line 120)
-            → calls back ConvoyScreen  (onSave → survey -> showNameDialog = false viewModel.pendingSurvey = survey viewModel.fin…)
-   ▸ “Sleeping”  (line 1906)
-      → does: coroutineScope.launch { viewModel.wakeRadio() // SLEEPCOMM-2026-10-14 viewModel.wakeFromSleep(context) record…
-   ▸ “Cancel”  (line 2066)
-      → does: showDocsChooser = false; docsOpen(key)
-   ▸ “Cancel”  (line 2087)
-      → does: showDocsChooser = false
-   ▸ “Close”  (line 2119)
-      → does: docsBack()
-   ▸ “OK”  (line 2859)
-      → does: roleConflict = null
-   ▸ “DELETE THEM”  (line 3003)
-      → does: val n = RouteDraftStore.deleteAllRouteFiles() gtClearAsk = false android.widget.Toast.makeText(context, "Clea…
-   RoleChangeDialog  [ConvoyScreen.kt:3789 · 2026-10-24]  ← part of this screen
-      ▸ “To give up a role, choose Rider. A role someone holds must be released first. The Leader is changed last.”  (line 3810)
-         → does: if (heldBy[v] != null) heldWarn = v else role = v
-      ▸ “APPLY”  (line 3818)
-         → calls back ConvoyScreen  (onApply → newRole -> viewModel.checkIn.value = rci.copy(role = newRole) viewModel.startRo…)
-      ▸ “OK”  (line 3832)
-         → does: heldWarn = null
-   GpsIntervalDialog  [ConvoyScreen.kt:3658 · 2026-10-24]  ← part of this screen
-      ▸ “Every radio in the group must be on the same preset -- a radio on another preset hears nobody. ”  (line 3710)
-         → does: preset = key
-      ▸ “Raise the wait if your cart does not reappear after APPLY.”  (line 3721)
-         → does: timingOpen = !timingOpen
-      ▸ “APPLY”  (line 3749)
-         → calls back ConvoyScreen  (onApply → secs, preset -> viewModel.applyLocationInterval(secs, preset))
-   GpsLocationRow  [ConvoyScreen.kt:3612 · 2026-10-24]  ← part of this screen
-      ▸ “??”  (line 3622)
-         → calls back ConvoyScreen  (onOpen → if (!GroupMode.on.value) GroupMode.askToActivate() else { viewModel.clearGpsApp…)
-      ▸ “switch the text light/dark”  (line 3644)
-         → calls back ConvoyScreen  (onToggleText → viewModel.hudTextWhiteByMap[hudMapKey] = !hudOnDark)
-   GroupHud  [ConvoyScreen.kt:3134 · 2026-10-24]  ← part of this screen
-   MyCartHud  [ConvoyScreen.kt:3245 · 2026-10-24]  ← part of this screen
-   NodeDetailHud  [ConvoyScreen.kt:3303 · 2026-10-24]  ← part of this screen
-   CollapsedPill  [ConvoyScreen.kt:3341 · 2026-10-24]  ← part of this screen  (expanded above)
-
 ConvoySearchByAreaScreen  [ConvoySearchByAreaScreen.kt:39 · 2026-10-24]
    ▸ “← BACK”  (line 50)
       → does: onBack()
-
-ConvoyServicesChooser  [ConvoyServicesChooser.kt:31 · 2026-10-24]
-   ▸ “🌐”  (line 79)
-      → goes to dest  (via MainScreen.onOnline)
-   ▸ “📡”  (line 128)
-      → goes to ConvoyFieldRadio  (via MainScreen.onOffline)
-   ▸ “✕  CLOSE”  (line 185)
-      → calls back MainScreen  (onDismiss → showServicesChooser = false)
 
 ConvoySettingsScreen  [ConvoySettingsScreen.kt:51 · 2026-10-24]
    ▸ “CLOSE”  (line 100)
@@ -660,48 +526,6 @@ ConvoySignInScreen  [ConvoySignInScreen.kt:109 · 2026-10-24]
    ▸ “🌱 SEEDED”  (line 351)
       → does: if (seeded) { ConvoyDevSeeder.clear(context); seeded = false } else { ConvoyDevSeeder.seed(context); seeded =…
    GroupTrackHeader  [GroupTrackTheme.kt:66 · 2026-10-24]  ← part of this screen  (expanded above)
-
-ConvoySubMenu  [ConvoySubMenu.kt:48 · 2026-10-24]
-   ▸ “Conversion result”  (line 152)
-      → does: convSummary = null
-   ▸ “SHARE”  (line 170)
-      → does: showRecord = false
-   ▸ “Conversion record”  (line 176)
-      → does: val send = android.content.Intent( android.content.Intent.ACTION_SEND).apply { type = "text/plain" putExtra(a…
-   ▸ “Create Rides Unique Radio Config”  (line 220)
-      → ⚠ no action found
-   ▸ “Create Rides Unique Radio Config”  (line 221)
-      → ⚠ no action found
-   ▸ “Create Rides Unique Radio Config”  (line 222)
-      → calls back ConvoyScreen  (onDismiss → showConvoyMenu = false)
-      → calls back MainScreen  (onDismiss → showConvoyMenu = false)
-   ▸ “Send Meshtastic Ride Config via email”  (line 250)
-      → calls back ConvoyScreen  (onCreateEventRide → showConvoyMenu = false)
-      → calls back MainScreen  (onCreateEventRide → showConvoyMenu = false)
-      → goes to ConvoyEmailGate  (via MainScreen.onNavigateToCreateEvent)
-   ▸ “Import Meshtastic Ride Config from Email”  (line 261)
-      → calls back ConvoyScreen  (onTransferConfig → showConvoyMenu = false)
-      → goes to ConvoyTransferRide  (via MainScreen.onTransferConfig)
-   ▸ “Apply Meshtastic Config to your Radio”  (line 270)
-      → calls back ConvoyScreen  (onDismiss → showConvoyMenu = false)
-      → calls back MainScreen  (onDismiss → showConvoyMenu = false)
-   ▸ “Restore Saved config to your Radio”  (line 280)
-      → calls back ConvoyScreen  (onDismiss → showConvoyMenu = false)
-      → calls back MainScreen  (onDismiss → showConvoyMenu = false)
-   ▸ “View conversion record”  (line 290)
-      → calls back ConvoyScreen  (onDismiss → showConvoyMenu = false)
-      → calls back MainScreen  (onDismiss → showConvoyMenu = false)
-   ▸ “✕  CLOSE”  (line 309)
-      → does: showRecord = true
-   ▸ “✕  CLOSE”  (line 328)
-      → calls back ConvoyScreen  (onDismiss → showConvoyMenu = false)
-      → calls back MainScreen  (onDismiss → showConvoyMenu = false)
-   SubMenuItem  [ConvoySubMenu.kt:394 · 2026-10-24]  ← part of this screen
-      ▸ “▶”  (line 404)
-         → calls back ConvoyScreen  (via ConvoySubMenu.onClick)
-         → calls back MainScreen  (via ConvoySubMenu.onClick)
-         → goes to ConvoyEmailGate  (via ConvoySubMenu.onClick)
-         → goes to ConvoyTransferRide  (via ConvoySubMenu.onClick)
 
 ConvoySubscriptionScreen  [ConvoySubscriptionScreen.kt:129 · 2026-10-24]
    ▸ “SUBSCRIBE”  (line 205)
@@ -832,8 +656,6 @@ DevScenarioButton  [ConvoyDevLaunchScreen.kt:141 · 2026-10-24]
    ▸ “▶”  (line 150)
       → does: onClick()
 
-DisplayToggleRow  [ConvoyDisplayPanel.kt:157 · 2026-10-24]  (expanded above)
-
 DownloadQueuePanel  [ConvoyDownloadQueuePanel.kt:54 · 2026-10-24]
    ▸ “$qeSlots”  (line 186)
       → does: qeSlots -= 1 DownloadQueueManager.setMaxConcurrent(qeCtx, qeSlots)
@@ -853,7 +675,21 @@ DownloadQueuePanel  [ConvoyDownloadQueuePanel.kt:54 · 2026-10-24]
          → does: onClick()
    ActiveSlotBar  [ConvoyDownloadQueuePanel.kt:581 · 2026-10-24]  ← part of this screen  (expanded above)
 
-EndOfRideForm  [ConvoyEndOfRideForm.kt:41 · 2026-10-24]  (expanded above)
+EndOfRideForm  [ConvoyEndOfRideForm.kt:41 · 2026-10-24]
+   ▸ “Difficulty”  (line 76)
+      → does: rating = n
+   ▸ “Would you recommend it?”  (line 85)
+      → does: difficulty = v
+   ▸ “Yes”  (line 90)
+      → does: recommend = true
+   ▸ “No”  (line 91)
+      → does: recommend = false
+   ▸ “Yes, share it”  (line 99)
+      → does: share = true
+   ▸ “No, keep it”  (line 100)
+      → does: share = false
+   ▸ “SAVE”  (line 120)
+      → does: onSave(if (survey && rideId != null) ConvoyRideStore.RideSurveyInput( rideId = rideId, rating = rating, diffi…
 
 EnrolleeRow  [ConvoyRideDetailScreen.kt:463 · 2026-10-24]  (expanded above)
 
@@ -863,7 +699,9 @@ FieldRadioButton  [ConvoyFieldRadioScreen.kt:122 · 2026-10-24]  (expanded above
 
 FilterBar  [ConvoyCompletedRidesScreen.kt:291 · 2026-10-24]  (expanded above)
 
-FilterChip  [ConvoyDownloadQueuePanel.kt:557 · 2026-10-24]  (expanded above)
+FilterChip  [ConvoyDownloadQueuePanel.kt:557 · 2026-10-24]
+   ▸ “✓ ”  (line 562)
+      → calls back CheckInSheet  (onClick → rideFilter = "")
 
 FilterColumn  [TrailFilterPanel.kt:131 · 2026-10-24]
    ▸ “UNUSED_EXPRESSION”  (line 147)
@@ -879,10 +717,6 @@ FilterTab  [ConvoyTrackExportSheet.kt:285 · 2026-10-24]  (expanded above)
 GpButton  [ConvoyGuidedPinPanel.kt:234 · 2026-10-24]
    ▸ “?”  (line 239)
       → does: onClick()
-
-GpsIntervalDialog  [ConvoyScreen.kt:3658 · 2026-10-24]  (expanded above)
-
-GpsLocationRow  [ConvoyScreen.kt:3612 · 2026-10-24]  (expanded above)
 
 GroupModeActivatePopup  [GroupMode.kt:50 · 2026-10-13]
    ▸ “OK”  (line 58)
@@ -923,34 +757,18 @@ ImportRecapDialog  [ConvoyTrackImportScreen.kt:821 · 2026-10-24]
       → calls back ConvoyTrackImportScreen  (onFilesDelete → scope.launch { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO…)
       → calls back MainScreen  (via ConvoyTrackImportScreen.onDismiss)
 
-KeyRow  [MapKeysPanel.kt:253 · 2026-10-24]
-   ▸ “?”  (line 271)
-      → does: onStyle(r)
-
-MainScreen  [Main.kt:173 · 2026-10-23]
-   ▸ “?”  (line 467)
-      ConvoySubMenu  [ConvoySubMenu.kt:48 · 2026-10-24]  ← opens (showConvoyMenu)  (expanded above)
-      ConvoyServicesChooser  [ConvoyServicesChooser.kt:31 · 2026-10-24]  ← opens (showServicesChooser)  (expanded above)
+MainScreen  [Main.kt:172 · 2026-10-25]
+   ▸ “?”  (line 466)
       → goes to route  (route route)
       → goes to ConvoyAuthorityGate  (route ConvoyAuthorityGate)
-   ▸ “Hide Mesh”  (line 545)
+   ▸ “Hide Mesh”  (line 544)
       → goes to ConvoyAuthorityGate  (route ConvoyAuthorityGate)
-   ▸ “◀ BACK TO MAP”  (line 686)
+   ▸ “◀ BACK TO MAP”  (line 677)
       → does: convoyViewModel.closeCommMenu(grpOpenNow ?: "")
-   ▸ “OK”  (line 708)
+   ▸ “OK”  (line 699)
       → does: com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false com.geeksville.mesh.convoy.GrpAwaren…
    ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:65 · 2026-10-24]  ← part of this screen  (expanded above)
    GroupModeActivatePopup  [GroupMode.kt:50 · 2026-10-13]  ← part of this screen  (expanded above)
-
-MapKeysPanel  [MapKeysPanel.kt:66 · 2026-10-24]
-   ▸ “✕”  (line 117)
-      → calls back ConvoyScreen  (onDismiss → mapKeysOpen = false)
-   ▸ “”  (line 144)
-      → does: showCategoryHelp = false
-   ▸ “Tap a name to change its colour, pattern or thickness.\n”  (line 207)
-      → does: showCategoryHelp = true
-   Category  [MapKeysPanel.kt:222 · 2026-10-24]  ← part of this screen
-      KeyRow  [MapKeysPanel.kt:253 · 2026-10-24]  ← part of this screen  (expanded above)
 
 MethodCard  [ConvoyTrailSourceScreen.kt:553 · 2026-10-24]  (expanded above)
 
@@ -1009,8 +827,6 @@ RidesScreen  [RidesScreen.kt:101 · 2026-10-24]
       → does: confirmDelete = null
    ConvoyRideCreateScreen  [ConvoyRideCreateScreen.kt:62 · 2026-10-24]  ← part of this screen  (expanded above)
 
-RoleChangeDialog  [ConvoyScreen.kt:3789 · 2026-10-24]  (expanded above)
-
 SearchButton  [ConvoyCompletedRidesScreen.kt:367 · 2026-10-24]  (expanded above)
 
 SegHalf  [ConvoyRouteToolbar.kt:361 · 2026-10-24]  (expanded above)
@@ -1021,15 +837,13 @@ SourceRow  [ConvoyMapSourceScreen.kt:915 · 2026-10-24]  (expanded above)
 
 SourceSelectCard  [ConvoyTrailSourceScreen.kt:569 · 2026-10-24]  (expanded above)
 
-StateListPanel  [HomeStatePickerScreen.kt:391 · 2026-10-24]
-   ▸ “${item.entries.size} region${if (item.entries.size > 1) ”  (line 426)
+StateListPanel  [HomeStatePickerScreen.kt:393 · 2026-10-25]
+   ▸ “${item.entries.size} region${if (item.entries.size > 1) ”  (line 428)
       → calls back HomeStatePickerScreen  (onSelect → selectedItem = it)
 
 StepButton  [ConvoyAiStepPanel.kt:91 · 2026-10-24]
    ▸ “?”  (line 98)
       → does: onClick()
-
-SubMenuItem  [ConvoySubMenu.kt:394 · 2026-10-24]  (expanded above)
 
 TableButton  [ConvoyBatchGridPanel.kt:115 · 2026-10-24]
    ▸ “?”  (line 126)
@@ -1039,26 +853,17 @@ TrackRow  [ConvoyTrackExportSheet.kt:301 · 2026-10-24]  (expanded above)
 
 TrailFilterPanel  [TrailFilterPanel.kt:58 · 2026-10-24]
    ▸ “✕”  (line 86)
-      → calls back ConvoyScreen  (onDismiss → showTrailFilter = false)
+      → does: onDismiss()
    ▸ “Include private land”  (line 99)
       → does: TrailFilterState.setLand( if (includePrivate) "PUBLIC" else "ALL") changed()
    FilterColumn  [TrailFilterPanel.kt:131 · 2026-10-24]  ← part of this screen  (expanded above)
 
-TrailStylePanel  [TrailStylePanel.kt:57 · 2026-10-24]  (expanded above)
-
-WorkWithRidesMenu  [WorkWithRidesMenu.kt:51 · 2026-10-24]
-   ▸ “Choose the ride to send”  (line 76)
-      → ⚠ no action found
-   ▸ “Choose the ride to send”  (line 76)
-      → ⚠ no action found
-   ▸ “Choose the ride to send”  (line 76)
-      → calls back MainScreen  (onDismiss → com.geeksville.mesh.convoy.WorkWithRidesLauncher.close())
-   ▸ “No rides on this tablet yet. Create one from a route on the planning map.”  (line 91)
-      → does: includeRecent = !includeRecent
-
-WwrEntry  [WorkWithRidesMenu.kt:131 · 2026-10-24]
-   ▸ “$label  (coming in 2.7)”  (line 137)
-      → does: onClick()
+TrailStylePanel  [TrailStylePanel.kt:57 · 2026-10-24]
+   ▸ “✕”  (line 93)
+      → does: onCancel()
+   ▸ “PATTERN”  (line 124)
+      → does: c = hex
+   Chip  [TrailStylePanel.kt:202 · 2026-10-24]  ← part of this screen  (expanded above)
 
 rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
    ▸ “CONTINUE”  (line 76)
@@ -1088,8 +893,6 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-24  NotifAccordion                               app/src/main/java/com/geeksville/mesh/convoy/ConvoyDashboardScreen.kt:817  (1 clickables)
 2026-10-24  AccordionHeader                              app/src/main/java/com/geeksville/mesh/convoy/ConvoyDashboardScreen.kt:829  (1 clickables)
 2026-10-24  DevScenarioButton                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyDevLaunchScreen.kt:141  (1 clickables)
-2026-10-24  ConvoyDisplayPanel                           app/src/main/java/com/geeksville/mesh/convoy/ConvoyDisplayPanel.kt:45  (1 clickables)
-2026-10-24  DisplayToggleRow                             app/src/main/java/com/geeksville/mesh/convoy/ConvoyDisplayPanel.kt:157  (1 clickables)
 2026-10-24  ConvoyDownloadConfirm                        app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadConfirm.kt:36  (4 clickables)
 2026-10-24  DownloadQueuePanel                           app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadQueuePanel.kt:54  (4 clickables)
 2026-10-24  QueueSummaryBar                              app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadQueuePanel.kt:469  (1 clickables)
@@ -1132,18 +935,9 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-24  ConvoyRouteToolbar                           app/src/main/java/com/geeksville/mesh/convoy/ConvoyRouteToolbar.kt:61  (3 clickables)
 2026-10-24  SegHalf                                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyRouteToolbar.kt:361  (1 clickables)
 2026-10-24  BuildBtn                                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyRouteToolbar.kt:383  (1 clickables)
-2026-10-24  ConvoyScreen                                 app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:135  (27 clickables)
-2026-10-24  CollapsedPill                                app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3341  (1 clickables)
-2026-10-24  CartPickerPanel                              app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3443  (5 clickables)
-2026-10-24  GpsLocationRow                               app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3612  (2 clickables)
-2026-10-24  GpsIntervalDialog                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3658  (3 clickables)
-2026-10-24  RoleChangeDialog                             app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:3789  (3 clickables)
 2026-10-24  ConvoySearchByAreaScreen                     app/src/main/java/com/geeksville/mesh/convoy/ConvoySearchByAreaScreen.kt:39  (1 clickables)
-2026-10-24  ConvoyServicesChooser                        app/src/main/java/com/geeksville/mesh/convoy/ConvoyServicesChooser.kt:31  (3 clickables)
 2026-10-24  ConvoySettingsScreen                         app/src/main/java/com/geeksville/mesh/convoy/ConvoySettingsScreen.kt:51  (17 clickables)
 2026-10-24  ConvoySignInScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConvoySignInScreen.kt:109  (3 clickables)
-2026-10-24  ConvoySubMenu                                app/src/main/java/com/geeksville/mesh/convoy/ConvoySubMenu.kt:48  (13 clickables)
-2026-10-24  SubMenuItem                                  app/src/main/java/com/geeksville/mesh/convoy/ConvoySubMenu.kt:394  (1 clickables)
 2026-10-24  ConvoySubscriptionScreen                     app/src/main/java/com/geeksville/mesh/convoy/ConvoySubscriptionScreen.kt:129  (5 clickables)
 2026-10-24  ConvoyTermsScreen                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyTermsScreen.kt:18  (1 clickables)
 2026-10-24  ActionRow                                    app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackDialogs.kt:52  (1 clickables)
@@ -1165,11 +959,9 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-24  GtMenuLabel                                  app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:363  (1 clickables)
 2026-10-24  GtMenuItem                                   app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:390  (1 clickables)
 2026-10-24  GrpAwarenessPanel                            app/src/main/java/com/geeksville/mesh/convoy/GrpAwareness.kt:153  (10 clickables)
-2026-10-24  AreaItemRow                                  app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:284  (1 clickables)
-2026-10-24  StateListPanel                               app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:391  (1 clickables)
-2026-10-24  CompletionPanel                              app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:627  (1 clickables)
-2026-10-24  MapKeysPanel                                 app/src/main/java/com/geeksville/mesh/convoy/MapKeysPanel.kt:66  (3 clickables)
-2026-10-24  KeyRow                                       app/src/main/java/com/geeksville/mesh/convoy/MapKeysPanel.kt:253  (1 clickables)
+2026-10-25  AreaItemRow                                  app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:286  (1 clickables)
+2026-10-25  StateListPanel                               app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:393  (1 clickables)
+2026-10-25  CompletionPanel                              app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:629  (1 clickables)
 2026-10-24  RadioConfigScreen                            app/src/main/java/com/geeksville/mesh/convoy/RadioConfigScreen.kt:86  (4 clickables)
 2026-10-24  RiderTrailsDialog                            app/src/main/java/com/geeksville/mesh/convoy/RiderTrailsDialog.kt:37  (1 clickables)
 2026-10-24  RidesScreen                                  app/src/main/java/com/geeksville/mesh/convoy/RidesScreen.kt:101  (8 clickables)
@@ -1178,31 +970,24 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-24  FilterRow                                    app/src/main/java/com/geeksville/mesh/convoy/TrailFilterPanel.kt:166  (1 clickables)
 2026-10-24  TrailStylePanel                              app/src/main/java/com/geeksville/mesh/convoy/TrailStylePanel.kt:57  (2 clickables)
 2026-10-24  Chip                                         app/src/main/java/com/geeksville/mesh/convoy/TrailStylePanel.kt:202  (1 clickables)
-2026-10-24  WorkWithRidesMenu                            app/src/main/java/com/geeksville/mesh/convoy/WorkWithRidesMenu.kt:51  (4 clickables)
-2026-10-24  WwrEntry                                     app/src/main/java/com/geeksville/mesh/convoy/WorkWithRidesMenu.kt:131  (1 clickables)
-2026-10-23  MainScreen                                   app/src/main/java/com/geeksville/mesh/ui/Main.kt:173  (4 clickables)
+2026-10-25  MainScreen                                   app/src/main/java/com/geeksville/mesh/ui/Main.kt:172  (4 clickables)
 
 === 3. STATE FLAGS → PANELS THEY SHOW ===
 GroupMode                          → SectionLabel
-activeListType                     → ArtifactListPanel
 activeRole                         → AccordionHeader
 artifactType                       → DetailActionButton
-com                                → ConfigReviewScreen, GrpAwarenessPanel, RadioConfigScreen, RidesScreen, WorkWithRidesMenu
+com                                → ConfigReviewScreen, GrpAwarenessPanel, RadioConfigScreen, RidesScreen
 convDone                           → GateBody
-convoyState                        → ContactLostBanner
 dateSearched                       → EmptyState
-expanded                           → CompletedRideCard, DisplayToggleRow, FilterChip
-false                              → ConvoyDisplayPanel
+expanded                           → CompletedRideCard, FilterChip
 gtFolded                           → ArtifactListItem
 inviteCount                        → AccordionHeader
 inviteExpanded                     → RideDisplayPanel
 invited                            → NotifAccordion
 isOrganizer                        → AccordionHeader, ConvoyOrganizerPendingRides, DetailActionButton, StatusBadge, VisibilityBadge
 m                                  → GateButton
-mapKeysOpen                        → MapKeysPanel
 masterConfig                       → CellLabel, CreateSectionLabel, StatusBanner
 migRunning                         → MigrationSteps
-myCart                             → HiVisText
 nameSearched                       → EmptyState
 nearMeExpanded                     → RideDisplayPanel
 onAddRide                          → DetailActionButton
@@ -1213,32 +998,22 @@ onShare                            → DetailActionButton
 onShowNotes                        → DetailActionButton
 open                               → PickerBackPicture
 organizer                          → CellLabel, CreateSectionLabel
-pendingDetailId                    → ArtifactDetailPanel
-picking                            → WwrEntry
 qoHeld                             → ActionButton
 qtDoneOpen                         → CompletedItemRow
 qtQueuedOpen                       → QueuedItemRow
-queuesOpen                         → DownloadQueuePanel
 refreshEnqueued                    → MigrationOption
 repliesOpen                        → NotifAccordion
 ridesExpanded                      → RideDisplayPanel
-s                                  → TrailStylePanel
 selectedSlot                       → SectionHeader
 selectedSource                     → SectionLabel
-showCartPicker                     → CartPickerPanel
-showCheckIn                        → CheckInSheet
-showConvoyMenu                     → ConvoySubMenu
 showDecline                        → RideActionButton
 showDetail                         → RecapLine
 showDevMenu                        → DevMenuButton
-showNameDialog                     → EndOfRideForm
 showProgress                       → ImportProgressDialog
 showRecap                          → ImportRecapDialog
 showRiderDialog                    → RiderTrailsDialog
-showServicesChooser                → ConvoyServicesChooser
 showSourcePopup                    → ConvoyDownloadConfirm
 showSyncDialog                     → SyncTracksDialog
-showTrailFilter                    → TrailFilterPanel
 step                               → CellLabel, CreateSectionLabel
 survey                             → FilterChip
 
@@ -1330,8 +1105,6 @@ ConvoyDashboardScreen.kt:777 | RideActionButton | “?” | onClick()
 ConvoyDashboardScreen.kt:820 | NotifAccordion | “▼ $label” | onClick()
 ConvoyDashboardScreen.kt:836 | AccordionHeader | “▼” | onClick()
 ConvoyDevLaunchScreen.kt:150 | DevScenarioButton | “▶” | onClick()
-ConvoyDisplayPanel.kt:79 | ConvoyDisplayPanel | “DISPLAY” | expanded = !expanded
-ConvoyDisplayPanel.kt:170 | DisplayToggleRow | “?” | onToggle()
 ConvoyDownloadConfirm.kt:87 | ConvoyDownloadConfirm | “ → ” | selectedSlots = if (checked) selectedSlots - slot.slotName else selectedSlots + slot.slotName
 ConvoyDownloadConfirm.kt:121 | ConvoyDownloadConfirm | “Replace existing tiles” | replaceExisting = !replaceExisting
 ConvoyDownloadConfirm.kt:132 | ConvoyDownloadConfirm | “CANCEL” | showDetail = !showDetail
@@ -1429,51 +1202,7 @@ ConvoyRouteToolbar.kt:184 | ConvoyRouteToolbar | “route” | minimized = !mini
 ConvoyRouteToolbar.kt:204 | ConvoyRouteToolbar | “METHOD” | if (!methodOpen) { if (vertexCount > 0) onMethodLockedTap() else methodOpen = true }
 ConvoyRouteToolbar.kt:373 | SegHalf | “?” | onClick()
 ConvoyRouteToolbar.kt:386 | BuildBtn | “?” | onClick()
-ConvoyScreen.kt:614 | ConvoyScreen | “Grant” | showStoragePermissionDialog = false try { val intent = android.content.Intent( android.provider.Settings.ACTION_MANAGE_…
-ConvoyScreen.kt:631 | ConvoyScreen | “Later” | showStoragePermissionDialog = false
-ConvoyScreen.kt:649 | ConvoyScreen | “OK” | viewModel.clearPendingDownload()
-ConvoyScreen.kt:681 | ConvoyScreen | “DOWNLOAD” | viewModel.startDownload(context, pending) coroutineScope.launch { convoyMenuSheetState.hide() } android.widget.Toast.ma…
-ConvoyScreen.kt:690 | ConvoyScreen | “CANCEL” | viewModel.clearPendingDownload()
-ConvoyScreen.kt:704 | ConvoyScreen | “OK” | viewModel.cancelDownload()
-ConvoyScreen.kt:777 | ConvoyScreen | “YES, DELETE” | showConfirmDelete = false showNameDialog = false viewModel.deleteTempTrack()
-ConvoyScreen.kt:784 | ConvoyScreen | “NO, GO BACK” | // Back to naming — track is NOT deleted. showConfirmDelete = false
-ConvoyScreen.kt:1507 | ConvoyScreen | “OK” | noPosDismissed = true
-ConvoyScreen.kt:1529 | ConvoyScreen | “OK” | netPosAck = true
-ConvoyScreen.kt:1534 | ConvoyScreen | “Don't show again” | nogpsContext.getSharedPreferences( "grouptrack_device", android.content.Context.MODE_PRIVATE ).edit().putBoolean("net_p…
-ConvoyScreen.kt:1562 | ConvoyScreen | “Name (optional)” | newWaypointType = key otherConfirm = false if (newWaypointName.isBlank() || WAYPOINT_TYPES.any { it.second.substringAft…
-ConvoyScreen.kt:1583 | ConvoyScreen | “other” | if (newWaypointType == "other" && !otherConfirm) { otherConfirm = true; return@TextButton } // WPTTAP-2026-09-30 val nm…
-ConvoyScreen.kt:1604 | ConvoyScreen | “Cancel” | pendingWaypoint = null newWaypointName = "" newWaypointType = "trailhead"; otherConfirm = false
-ConvoyScreen.kt:1622 | ConvoyScreen | “SETTINGS” | showLocationPermissionDialog = false bgLocationLauncher.launch(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-ConvoyScreen.kt:1628 | ConvoyScreen | “CANCEL” | showLocationPermissionDialog = false
-ConvoyScreen.kt:1658 | ConvoyScreen | “ set as Lead Cart” | viewModel.setLeadCart(node.nodeId) showLeadDialog = false recordingState = RecordingState.RECORDING viewModel.startReco…
-ConvoyScreen.kt:1688 | ConvoyScreen | “CANCEL” | showLeadDialog = false
-ConvoyScreen.kt:1726 | ConvoyScreen | “No scheduled ride” | when (recordingState) { RecordingState.CHECK_IN -> { // CHECKIN-2026-09-27: no recording before check-in // SOLOREC-202…
-ConvoyScreen.kt:1812 | ConvoyScreen | “▶  CONTINUE” | if (recordingState == RecordingState.PAUSED) { recordingState = RecordingState.RECORDING viewModel.resumeRecording(cont…
-ConvoyScreen.kt:1831 | ConvoyScreen | “⏹  END” | recordingState = RecordingState.CHECK_IN // CHECKIN-2026-09-27: each recording starts with its own check-in showRecMenu…
-ConvoyScreen.kt:1906 | ConvoyScreen | “Sleeping” | coroutineScope.launch { viewModel.wakeRadio() // SLEEPCOMM-2026-10-14 viewModel.wakeFromSleep(context) recordingState =…
-ConvoyScreen.kt:2066 | ConvoyScreen | “Cancel” | showDocsChooser = false; docsOpen(key)
-ConvoyScreen.kt:2087 | ConvoyScreen | “Cancel” | showDocsChooser = false
-ConvoyScreen.kt:2119 | ConvoyScreen | “Close” | docsBack()
-ConvoyScreen.kt:2859 | ConvoyScreen | “OK” | roleConflict = null
-ConvoyScreen.kt:3003 | ConvoyScreen | “DELETE THEM” | val n = RouteDraftStore.deleteAllRouteFiles() gtClearAsk = false android.widget.Toast.makeText(context, "Cleared $n rou…
-ConvoyScreen.kt:3357 | CollapsedPill | “$totalNodes UNITS” | onExpand()
-ConvoyScreen.kt:3482 | CartPickerPanel | “CHANGE MY ROLE · now ” | onChangeMyRole()
-ConvoyScreen.kt:3490 | CartPickerPanel | “CART ROLES · ${nodes.size} radio” | listOpen = !listOpen
-ConvoyScreen.kt:3517 | CartPickerPanel | “REMOVE” | onSelect(node)
-ConvoyScreen.kt:3533 | CartPickerPanel | “○” | onToggleActive(node.nodeId, node.callsign)
-ConvoyScreen.kt:3550 | CartPickerPanel | “✔ checked in    ● not checked in — a bare radio, or a rider who has not checked in yet: ” | onToggleActive(rid, rcall)
-ConvoyScreen.kt:3622 | GpsLocationRow | “??” | onOpen()
-ConvoyScreen.kt:3644 | GpsLocationRow | “switch the text light/dark” | onToggleText()
-ConvoyScreen.kt:3710 | GpsIntervalDialog | “Every radio in the group must be on the same preset -- a radio on another preset hears nobody. ” | preset = key
-ConvoyScreen.kt:3721 | GpsIntervalDialog | “Raise the wait if your cart does not reappear after APPLY.” | timingOpen = !timingOpen
-ConvoyScreen.kt:3749 | GpsIntervalDialog | “APPLY” | val p = preset; if (secs != null && p != null) onApply(secs, p)
-ConvoyScreen.kt:3810 | RoleChangeDialog | “To give up a role, choose Rider. A role someone holds must be released first. The Leader is changed last.” | if (heldBy[v] != null) heldWarn = v else role = v
-ConvoyScreen.kt:3818 | RoleChangeDialog | “APPLY” | onApply(role)
-ConvoyScreen.kt:3832 | RoleChangeDialog | “OK” | heldWarn = null
 ConvoySearchByAreaScreen.kt:50 | ConvoySearchByAreaScreen | “← BACK” | onBack()
-ConvoyServicesChooser.kt:79 | ConvoyServicesChooser | “🌐” | onOnline()
-ConvoyServicesChooser.kt:128 | ConvoyServicesChooser | “📡” | onOffline()
-ConvoyServicesChooser.kt:185 | ConvoyServicesChooser | “✕  CLOSE” | onDismiss()
 ConvoySettingsScreen.kt:100 | ConvoySettingsScreen | “CLOSE” | showConversionRecord = true
 ConvoySettingsScreen.kt:109 | ConvoySettingsScreen | “CLOSE” | showConversionRecord = false
 ConvoySettingsScreen.kt:113 | ConvoySettingsScreen | “SHARE” | val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply { type = "text/plain" putExtra(android.cont…
@@ -1494,20 +1223,6 @@ ConvoySettingsScreen.kt:413 | ConvoySettingsScreen | “CLOSE” | statsOpen = f
 ConvoySignInScreen.kt:259 | ConvoySignInScreen | “DEV SIGN IN (BYPASS GOOGLE)” | val uid = "dev-user-" + devEmail.hashCode().toString().takeLast(6) saveUserToPrefs(context, uid, "google-dev-$uid", dev…
 ConvoySignInScreen.kt:283 | ConvoySignInScreen | “Skip for now — ride tracking works without an account” | errorMessage = "" signInLauncher.launch(googleSignInClient.signInIntent)
 ConvoySignInScreen.kt:351 | ConvoySignInScreen | “🌱 SEEDED” | if (seeded) { ConvoyDevSeeder.clear(context); seeded = false } else { ConvoyDevSeeder.seed(context); seeded = true }
-ConvoySubMenu.kt:152 | ConvoySubMenu | “Conversion result” | convSummary = null
-ConvoySubMenu.kt:170 | ConvoySubMenu | “SHARE” | showRecord = false
-ConvoySubMenu.kt:176 | ConvoySubMenu | “Conversion record” | val send = android.content.Intent( android.content.Intent.ACTION_SEND).apply { type = "text/plain" putExtra(android.con…
-ConvoySubMenu.kt:220 | ConvoySubMenu | “Create Rides Unique Radio Config” | 
-ConvoySubMenu.kt:221 | ConvoySubMenu | “Create Rides Unique Radio Config” | 
-ConvoySubMenu.kt:222 | ConvoySubMenu | “Create Rides Unique Radio Config” | onDismiss() onNavigateToSettingsPanel()
-ConvoySubMenu.kt:250 | ConvoySubMenu | “Send Meshtastic Ride Config via email” | expanded = null onCreateEventRide() onDismiss() onNavigateToCreateEvent()
-ConvoySubMenu.kt:261 | ConvoySubMenu | “Import Meshtastic Ride Config from Email” | expanded = null onTransferConfig()
-ConvoySubMenu.kt:270 | ConvoySubMenu | “Apply Meshtastic Config to your Radio” | expanded = null onDismiss() onImportFromDownloads()
-ConvoySubMenu.kt:280 | ConvoySubMenu | “Restore Saved config to your Radio” | expanded = null onDismiss() onNavigateToApplyList()
-ConvoySubMenu.kt:290 | ConvoySubMenu | “View conversion record” | onDismiss(); onNavigateToArchiveRestore()
-ConvoySubMenu.kt:309 | ConvoySubMenu | “✕  CLOSE” | showRecord = true
-ConvoySubMenu.kt:328 | ConvoySubMenu | “✕  CLOSE” | onDismiss()
-ConvoySubMenu.kt:404 | SubMenuItem | “▶” | onClick()
 ConvoySubscriptionScreen.kt:205 | ConvoySubscriptionScreen | “SUBSCRIBE” | scope.launch { pagerState.animateScrollToPage(index) }
 ConvoySubscriptionScreen.kt:232 | ConvoySubscriptionScreen | “SUBSCRIBE” | onSubscribe()
 ConvoySubscriptionScreen.kt:259 | ConvoySubscriptionScreen | “NEXT  →” | onDismiss()
@@ -1573,13 +1288,9 @@ GrpAwareness.kt:263 | GrpAwarenessPanel | “RADIO SETTINGS” | message = ""; o
 GrpAwareness.kt:270 | GrpAwarenessPanel | “NODES” | message = ""; onMeshtastic()
 GrpAwareness.kt:287 | GrpAwarenessPanel | “FORGET” | if (r.id == selectedAddress) onDisconnect() val rName = r.name onForget(r.id) { ok -> // COMMLINKREQ-2026-10-11: the co…
 GrpAwareness.kt:296 | GrpAwarenessPanel | “CANCEL” | forgetting = null
-HomeStatePickerScreen.kt:286 | AreaItemRow | “?” | onClick()
-HomeStatePickerScreen.kt:426 | StateListPanel | “${item.entries.size} region${if (item.entries.size > 1) ” | onSelect(item)
-HomeStatePickerScreen.kt:654 | CompletionPanel | “▾  ” | showDetail = !showDetail
-MapKeysPanel.kt:117 | MapKeysPanel | “✕” | onDismiss()
-MapKeysPanel.kt:144 | MapKeysPanel | “” | showCategoryHelp = false
-MapKeysPanel.kt:207 | MapKeysPanel | “Tap a name to change its colour, pattern or thickness.\n” | showCategoryHelp = true
-MapKeysPanel.kt:271 | KeyRow | “?” | onStyle(r)
+HomeStatePickerScreen.kt:288 | AreaItemRow | “?” | onClick()
+HomeStatePickerScreen.kt:428 | StateListPanel | “${item.entries.size} region${if (item.entries.size > 1) ” | onSelect(item)
+HomeStatePickerScreen.kt:656 | CompletionPanel | “▾  ” | showDetail = !showDetail
 RadioConfigScreen.kt:210 | RadioConfigScreen | “Apply ride to radio” | 
 RadioConfigScreen.kt:239 | RadioConfigScreen | “${chosen?.name}” | choose(t)
 RadioConfigScreen.kt:258 | RadioConfigScreen | “Back” | apply()
@@ -1600,28 +1311,19 @@ TrailFilterPanel.kt:172 | FilterRow | “UNUSED_EXPRESSION” | TrailFilterState
 TrailStylePanel.kt:93 | TrailStylePanel | “✕” | onCancel()
 TrailStylePanel.kt:124 | TrailStylePanel | “PATTERN” | c = hex
 TrailStylePanel.kt:210 | Chip | “?” | onClick()
-WorkWithRidesMenu.kt:76 | WorkWithRidesMenu | “Choose the ride to send” | 
-WorkWithRidesMenu.kt:76 | WorkWithRidesMenu | “Choose the ride to send” | 
-WorkWithRidesMenu.kt:76 | WorkWithRidesMenu | “Choose the ride to send” | onDismiss(); onDeveloperSettings()
-WorkWithRidesMenu.kt:91 | WorkWithRidesMenu | “No rides on this tablet yet. Create one from a route on the planning map.” | includeRecent = !includeRecent
-WorkWithRidesMenu.kt:137 | WwrEntry | “$label  (coming in 2.7)” | onClick()
-Main.kt:467 | MainScreen | “?” | val isRepress = destination == topLevelDestination if (isRepress) { when (destination) { TopLevelDestination.Nodes -> {…
-Main.kt:545 | MainScreen | “Hide Mesh” | MeshNavFold.setFolded(ctx, true) // HIDEMESH-2026-09-28 (Fred): Hide Mesh also RETURNS TO THE RIDE MAP -- the map tab's…
-Main.kt:686 | MainScreen | “◀ BACK TO MAP” | convoyViewModel.closeCommMenu(grpOpenNow ?: "")
-Main.kt:708 | MainScreen | “OK” | com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false com.geeksville.mesh.convoy.GrpAwarenessLaunche…
+Main.kt:466 | MainScreen | “?” | val isRepress = destination == topLevelDestination if (isRepress) { when (destination) { TopLevelDestination.Nodes -> {…
+Main.kt:544 | MainScreen | “Hide Mesh” | MeshNavFold.setFolded(ctx, true) // HIDEMESH-2026-09-28 (Fred): Hide Mesh also RETURNS TO THE RIDE MAP -- the map tab's…
+Main.kt:677 | MainScreen | “◀ BACK TO MAP” | convoyViewModel.closeCommMenu(grpOpenNow ?: "")
+Main.kt:699 | MainScreen | “OK” | com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false com.geeksville.mesh.convoy.GrpAwarenessLaunche…
 
 === 5. UNRESOLVED — clickables with no action found (check each by hand) ===
 ConvoyTrackDialogs.kt:60 | ActionRow | “?” | 
 ConfigReviewScreen.kt:126 | ConfigReviewScreen | “Saved configs” | 
 ConvoyMyRidesScreen.kt:119 | ConvoyMyRidesScreen | “Following organizer” | 
 ConvoyMyRidesScreen.kt:119 | ConvoyMyRidesScreen | “Following organizer” | 
-ConvoySubMenu.kt:220 | ConvoySubMenu | “Create Rides Unique Radio Config” | 
-ConvoySubMenu.kt:221 | ConvoySubMenu | “Create Rides Unique Radio Config” | 
 GroupTrackTheme.kt:82 | GroupTrackHeader | “grouptrack_logo” | 
 GroupTrackTheme.kt:95 | GroupTrackHeader | “DEV MENU” | 
 GroupTrackTheme.kt:376 | GtMenuLabel | “?” | 
 RadioConfigScreen.kt:210 | RadioConfigScreen | “Apply ride to radio” | 
 RidesScreen.kt:127 | RidesScreen | “Rides” | 
-WorkWithRidesMenu.kt:76 | WorkWithRidesMenu | “Choose the ride to send” | 
-WorkWithRidesMenu.kt:76 | WorkWithRidesMenu | “Choose the ride to send” | 
-(13 unresolved)
+(9 unresolved)
