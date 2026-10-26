@@ -522,7 +522,7 @@ fun GroupTrackScreen(
                 if (latL.isNotEmpty()) {
                     val lats = latL.joinToString(",")
                     val lons = lonL.joinToString(",")
-                    wv.evaluateJavascript("fitBounds([$lats], [$lons])", null)
+                    wv.evaluateJavascript("fitBounds([$lats], [$lons], 0, 0.1)", null)   // GROUPFIT-2026-10-26: the middle 80%
                 }
             }
         }

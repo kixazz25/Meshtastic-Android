@@ -25,6 +25,9 @@ object RideStats {
         if (m.id == myId) return
         val now = System.currentTimeMillis()
         if (startMs == 0L) startMs = now
+        // STATSDUP-2026-10-26 (Fred 12:39): a cart sends several packets at once (position, telemetry, node info) -- count it once:
+        // the same cart, within 2 s of its last counted report, at the same position = the same report.
+        rx.lastOrNull { it.id == m.id }?.let { p -> if (now - p.t < 2_000L && p.lat == m.latitude && p.lon == m.longitude) return }
         if (rx.size >= MAX) rx.removeAt(0)
         rx.add(Rx(now, m.id, m.callsign, m.latitude, m.longitude, myLat, myLon, m.snr, m.rssi, m.hopsAway, m.channelUtilPct, m.airUtilPct))
     }

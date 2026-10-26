@@ -87,11 +87,7 @@ fun ArtifactListPanel(
             ) {
                 Text("☰", color = aDim, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.pointerInputDrag { d -> gtDrag += d }.padding(end = 6.dp))
-                Text(
-                    "$artifactType (${artifacts.size})",
-                    color = aBlue, fontSize = 13.sp, fontFamily = aMono,
-                    fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)
-                )
+                Spacer(Modifier.weight(1f))   // SELECTHEAD-2026-10-26: the heading has its own line, below
                 Text(if (gtFolded) "SHOW" else "HIDE", color = aBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.clickable { gtFolded = !gtFolded }.padding(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {   // GTFILTER-2026-10-22: the standard HELP ✕ (was CLOSE); ✕ applies the ticks, as CLOSE did
@@ -99,6 +95,12 @@ fun ArtifactListPanel(
                     com.geeksville.mesh.grouptrack.GtCloseButton(onDismiss)
                 }
             }
+            // SELECTHEAD-2026-10-26 (Fred 13:16): the type and its count, full width on one line (it ran down the panel letter by letter)
+            Text(
+                "$artifactType (${artifacts.size})",
+                color = aBlue, fontSize = 15.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
+                maxLines = 1, softWrap = false, modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+            )
 
             if (!gtFolded) {   // LISTSIZE-2026-10-22: HIDE folds everything below the header
             Spacer(Modifier.height(6.dp))

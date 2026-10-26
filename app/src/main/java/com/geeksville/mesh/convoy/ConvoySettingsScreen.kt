@@ -71,7 +71,7 @@ fun ConvoySettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Convoy Settings") },
+                title = { Text("GroupTrack Settings") },   // SETTINGSNAME-2026-10-26 (Fred 12:39)
                 actions = {   // CLOSEX-2026-10-22 (Fred 12:18): HELP ✕ top right, as every screen; the back arrow is gone
                     com.geeksville.mesh.grouptrack.GtHelpButton("menu.settings")
                     com.geeksville.mesh.grouptrack.GtCloseButton(onNavigateBack)
@@ -420,7 +420,7 @@ fun ConvoySettingsScreen(
             Spacer(Modifier.height(8.dp))
             Text(
                 // HTMLVER-2026-08-13B: the release string here was one letter behind.
-                text     = "GroupTrack Rel 2.7a — Build ${BuildConfig.BUILD_STAMP}",   // RELLABEL-2026-09-30
+                text     = "GroupTrack Rel 2.7c — Build ${BuildConfig.BUILD_STAMP}",   // RELLABEL-2026-09-30; SETTINGSNAME-2026-10-26: 2.7c
                 style    = MaterialTheme.typography.labelSmall,
                 color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier
