@@ -225,6 +225,10 @@ object StartupHousekeeping {
         // NOJOBCAT-2026-10-23: jobCategories (CATEGORYALWAYS-2026-10-10) REMOVED under rule 3 -- it hid step 8's failures by
         // filling every blank land with PUBLIC. Step 8 is paged and honest now (STEP8PAGED); Settings > Classify trails again repairs.
 
+        // UTAHONCE-2026-10-25: the one-time Utah private-property assignment (a completed Utah state import, not yet run here).
+        // It starts its own background work 30 s later and returns at once. OUT when 2.7d is cut.
+        com.geeksville.mesh.grouptrack.GtUtahPrivate.startOnce(ctx)
+
         val ms = System.currentTimeMillis() - started
         Log.i(TAG, "=== HOUSEKEEPING DONE in ${ms}ms ===")
         return result

@@ -75,6 +75,28 @@ object GtUtahPrivate {
         }
     }
 
+    // UTAHONCE-2026-10-25: the one-time run for upgrading tablets (see StartupHousekeeping). A marker on purpose (Fred 10-25 21:05).
+    private const val ONCE_MARKER = "utah_private_once_2.7c.done"
+    fun startOnce(ctx: android.content.Context) {
+        try {
+            val marker = java.io.File(com.geeksville.mesh.convoy.SpatialDbManager.dbDir(), ONCE_MARKER)
+            if (marker.exists()) { android.util.Log.i("UtahOnce", "already run on this tablet -- nothing to do"); return }
+            val utah = com.geeksville.mesh.convoy.HomeStateImportController.wholeImportedDates(ctx)["utah"]
+            if (utah == null) { android.util.Log.i("UtahOnce", "no completed Utah state import -- nothing to do"); return }
+            android.util.Log.i("UtahOnce", "Utah state import completed $utah -- assigning private property in 30 s (background)")
+            scope.launch {
+                kotlinx.coroutines.delay(30_000L)   // after the map is up -- never holds the start gate
+                if (busy.value) return@launch
+                busy.value = true; result.value = ""; progress.value = -1f
+                val r = try { work(false) } catch (t: OutOfMemoryError) { "FAILED: out of memory." } catch (t: Exception) { "FAILED: " + t.message }
+                result.value = r; step.value = ""; busy.value = false
+                val ok = !r.startsWith("FAILED") && haveData()
+                android.util.Log.i("UtahOnce", (if (ok) "DONE -- " else "NOT DONE (tries again next launch) -- ") + r.replace('\n', ' '))
+                if (ok) try { marker.writeText(System.currentTimeMillis().toString() + " " + r.replace('\n', ' ')) } catch (_: Exception) { }
+            }
+        } catch (t: Throwable) { android.util.Log.w("UtahOnce", "skipped: ${t.javaClass.simpleName} ${t.message}") }
+    }
+
     private fun work(download: Boolean): String {
         val f = OwnershipReclass.ownershipFile()
         var note = ""
