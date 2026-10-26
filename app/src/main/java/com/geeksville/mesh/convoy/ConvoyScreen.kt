@@ -1979,21 +1979,7 @@ fun ConvoyScreen(
                 )
             }
         }
-        if (mapKeysOpen) {
-            androidx.compose.ui.window.Popup(
-                onDismissRequest = { mapKeysOpen = false }
-            ) {
-                MapKeysPanel(
-                    onDismiss = { mapKeysOpen = false },
-                    onStyleChanged = {
-                        webViewRef.value?.evaluateJavascript("setTrailStyles(" + TrailFilterState.styleJson() + ")", null)
-                    },
-                    onFilterChanged = {
-                        webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
-                    }
-                )
-            }
-        }
+        // DEADCODE3-2026-10-25: the old Map Keys popup removed (mapKeysOpen was never set true; MAP KEY is GtKeyBody).
 
         // FROZENEXCEPTION-WWR-2026-09-24: (Fred approved) the ONLY change to the frozen screen -- WORK WITH RIDES below Mesh, always shown.
         // CLASSICGONE-2026-10-23: the classic "Work with Rides" button -- removed (ONE MAP is the only layout).
@@ -2469,101 +2455,7 @@ fun ConvoyScreen(
                 }
 
                 // -- OLD DISPLAY PANEL (disabled for spatial DB) --
-                if (false) { ConvoyDisplayPanel(
-                    tracksOn = tracksVisible,
-                    onTracksToggle = {
-                        tracksVisible = !tracksVisible
-                        if (tracksVisible) {
-                            if (tracksLoaded) {
-                                webViewRef.value?.evaluateJavascript("showTracks()", null)
-                            } else {
-                                tracksLoaded = true
-                                val wv = webViewRef.value
-                                kotlinx.coroutines.MainScope().launch {
-                                    val trackColor = "#39FF14"
-                                    val dir = ConvoyTrackOps.tracksDir()   // MYTRACKSUI-2026-09-12
-                                    val files = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                        dir.listFiles()?.map { it.name }?.sorted() ?: emptyList()
-                                    }
-                                    files.forEach { name ->
-                                        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                            try {
-                                                val file = java.io.File(dir, name)
-                                                if (!file.exists()) return@withContext null
-                                                val text = file.readText()
-                                                val coords = if (name.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
-                                                if (coords.isEmpty()) return@withContext null
-                                                coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
-                                            } catch (e: Exception) { null }
-                                        }
-                                        if (result != null) {
-                                            val safe = name.replace("'", "\\'")
-                                            wv?.evaluateJavascript("loadTrackFile('" + safe + "', '" + result + "', '" + trackColor + "')", null)
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            webViewRef.value?.evaluateJavascript("hideTracks()", null)
-                        }
-                    },
-                    trailsOn = trailsOn,
-                    onTrailsToggle = {
-                        trailsOn = !trailsOn
-                        if (trailsOn && !trailsLoaded) {
-                            trailsLoaded = true
-                            Thread {
-                                try {
-                                    val json = context.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
-                                    webViewRef.value?.post {
-                                        webViewRef.value?.evaluateJavascript("loadTrails($json); showTrails();", null)
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("ConvoyMap", "Trail load error: ${e.message}")
-                                }
-                            }.start()
-                        } else {
-                            android.util.Log.i("ConvoyDisplay", "toggleTrails called, webViewRef=" + (webViewRef.value != null))
-                        webViewRef.value?.evaluateJavascript("toggleTrails()", null)
-                        }
-                    },
-                    downloadedOn = showDownloaded,
-                    onDownloadedToggle = {
-                        if (showDownloaded) {
-                            showDownloaded = false
-                            webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
-                        } else {
-                            if (scanningDownloaded) { /* already scanning */ } else {
-                            scanningDownloaded = true
-                            val wv = webViewRef.value
-                            if (wv != null) {
-                            val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
-                            Thread {
-                                val bounds = mutableListOf<String>()
-                                run {
-                                    // [V2.6-PASS1-S4] DB-backed coverage (raw z/x/y at z14)
-                                    val z = 14; val n = 1 shl z
-                                    for ((x, y) in MBTilesStore.xyAtZoom("SAT", z)) {
-                                        val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
-                                        val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
-                                        val tW = x.toDouble() / n * 360.0 - 180.0
-                                        val tE = (x + 1).toDouble() / n * 360.0 - 180.0
-                                        bounds.add("{\"n\":$tN,\"s\":$tS,\"e\":$tE,\"w\":$tW}")
-                                    }
-                                }
-                                val json = "[" + bounds.joinToString(",") + "]"
-                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    wv.evaluateJavascript("showDownloadedAreas($json)", null)
-                                    showDownloaded = true
-                                    scanningDownloaded = false
-                                }
-                            }.start()
-                            } // wv != null
-                        } // not scanning
-                        }
-                    },
-                    scanningDownloaded = scanningDownloaded
-                ) }
+                // DEADCODE3-2026-10-25: the old display panel (under if (false)) removed.
 
 
             // REC button placeholder — large button added as map overlay below
@@ -2768,20 +2660,7 @@ fun ConvoyScreen(
                 }
             }
         }
-                if (showConvoyMenu) {
-            ConvoySubMenu(
-                sheetState                = convoyMenuSheetState,
-                onDismiss                 = { showConvoyMenu = false },
-                onCreateEventRide         = { showConvoyMenu = false },
-                onTransferConfig          = { showConvoyMenu = false },
-                onNavigateToCreateEvent   = onNavigateToCreateEvent,
-                onNavigateToSettingsPanel = onNavigateToSettingsPanel,
-                onNavigateToTrackExport   = onNavigateToTrackExport,
-                onNavigateToTrackImport   = { showConvoyMenu = false; pendingImportNav = true },
-                onNavigateToMapViewer     = onNavigateToMapViewer,
-
-            )
-        }
+        // DEADCODE3-2026-10-25: the old convoy submenu removed (showConvoyMenu is never set true here).
 
         androidx.compose.runtime.LaunchedEffect(pendingImportNav) {
             if (pendingImportNav) { pendingImportNav = false; onNavigateToTrackImport() }

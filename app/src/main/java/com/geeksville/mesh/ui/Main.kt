@@ -89,7 +89,6 @@ import com.geeksville.mesh.navigation.contactsGraph
 import com.geeksville.mesh.navigation.firmwareGraph
 import com.geeksville.mesh.convoy.ConvoyViewModel
 import androidx.compose.material3.rememberModalBottomSheetState
-import com.geeksville.mesh.convoy.ConvoySubMenu
 import com.geeksville.mesh.navigation.convoyGraph
 import org.meshtastic.core.navigation.ConvoyRoutes
 
@@ -583,15 +582,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         }
 
         // WWRLAUNCH-2026-09-24: the WORK WITH RIDES menu, opened from either map's label.
-        if (com.geeksville.mesh.convoy.WorkWithRidesLauncher.showing) {
-            com.geeksville.mesh.convoy.WorkWithRidesMenu(
-                onDismiss            = { com.geeksville.mesh.convoy.WorkWithRidesLauncher.close() },
-                onApplyToT1000       = { com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() },   // RETIRE26-2026-10-08: the 2.6 apply chain is retired
-                onApplyToRadio       = { com.geeksville.mesh.convoy.RadioConfigLauncher.open() }, // RADIOCFG4-2026-09-25
-                onReviewSavedConfigs = { com.geeksville.mesh.convoy.ConfigReviewLauncher.open() }, // CONFIGREVIEW-2026-09-25
-                onDeveloperSettings  = { }   // RETIRE26-2026-10-08: developer panel retired (it drove only the 2.6 apply chain)
-            )
-        }
+        // DEADCODE3-2026-10-25: the WORK WITH RIDES menu removed -- nothing opens it (its rows are Rides and RADIO SETUP on ONE MAP).
 
         // RADIOCFG4-2026-09-25: the new radio configurator (Work with Rides -> Apply ride to radio / Nucleus).
         if (com.geeksville.mesh.convoy.RadioConfigLauncher.showing) {
@@ -760,70 +751,9 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             )
         }
 
-        if (showConvoyMenu) {
-            ConvoySubMenu(
-                sheetState                = convoyMenuSheetState,
-                onDismiss                 = { showConvoyMenu = false },
-                onCreateEventRide         = { showConvoyMenu = false },
-                onTransferConfig          = { showConvoyMenu = false; navController.navigate(ConvoyRoutes.ConvoyTransferRide) },
-                onNavigateToCreateEvent   = {
-                    navController.navigate(ConvoyRoutes.ConvoyEmailGate)
-                },
-                onNavigateToSettingsPanel = {
-                    showConvoyMenu = false   // RETIRE26-2026-10-08: developer panel retired
-                },
-                onNavigateToApplyList = {
-                    showConvoyMenu = false
-                    com.geeksville.mesh.convoy.GrpAwarenessLauncher.open()   // RETIRE26-2026-10-08: was the retired 2.6 apply chain
-                },
-                onNavigateToArchiveRestore = {
-                    showConvoyMenu = false
-                    // CLOSEFIX-2026-09-26: the same Saved configs OVERLAY as Work with Rides (the route's Close had no way out)
-                    com.geeksville.mesh.convoy.ConfigReviewLauncher.open()
-                },
-                onNavigateToMapViewer = {   // PLANNEROUT-2026-10-23: the planning map is removed
-                    showConvoyMenu = false
-                    android.widget.Toast.makeText(navController.context, "The planning map is now part of One Map \u2014 Settings \u203a Layout \u203a One Map.", android.widget.Toast.LENGTH_LONG).show()
-                },
-                onNavigateToTrackExport = {
-                    navController.navigate(ConvoyRoutes.ConvoyTracks)
-                }
-            )
-        }
+        // DEADCODE3-2026-10-25: the convoy submenu removed -- only the Meshtastic rail opened it, and the rail is gone (NODESMENU-2026-10-15).
         // ── Event/Ride Services Chooser ───────────────────────────────────
-        if (showServicesChooser) {
-            val servicesContext = androidx.compose.ui.platform.LocalContext.current
-            com.geeksville.mesh.convoy.ConvoyServicesChooser(
-                context = servicesContext,
-                onDismiss = { showServicesChooser = false },
-                onOnline = {
-                    showServicesChooser = false
-                    val route = com.geeksville.mesh.convoy.ConvoySessionManager.resolveLaunchRoute(servicesContext, true)
-                    val dest = when (route) {
-                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.TERMS        -> ConvoyRoutes.ConvoyTerms
-                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.PRIVACY      -> ConvoyRoutes.ConvoyPrivacy
-                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.SUBSCRIPTION -> ConvoyRoutes.ConvoySubscription
-                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.DASHBOARD    -> ConvoyRoutes.ConvoyDashboard
-                        else                                                                      -> ConvoyRoutes.ConvoySignIn
-                    }
-                    navController.navigate(dest)
-                },
-                onOffline = {
-                    showServicesChooser = false
-                    navController.navigate(ConvoyRoutes.ConvoyFieldRadio)
-                }
-            )
-
-            // MESHFOLD-2026-09-04: the fold control. ⭐ The composable lives in
-            // the convoy package, so this file's diff stays four lines -- it is
-            // UPSTREAM Meshtastic code and every line changed here is a rebase
-            // conflict later.
-            // MESHBTN-2026-09-04: ⛔ THE STRIP IS GONE. It rendered here, inside
-            // the scaffold's content, and the map WebView drew over it -- so a
-            // rider who folded the rail had no visible way back.
-            // ⭐ The "Mesh" launcher in each map's right-hand column replaces
-            // it, beside Map Features and Help, where nothing can cover it.
-        }
+        // DEADCODE3-2026-10-25: the Event / Ride Services chooser removed -- only the Meshtastic rail opened it (NODESMENU-2026-10-15).
         com.geeksville.mesh.grouptrack.GtHelpViewer()   // TOUCHSTD-2026-10-22: LAST, so HELP opens on top of every screen
         }
     }
