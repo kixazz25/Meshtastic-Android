@@ -12,7 +12,7 @@ import com.geeksville.mesh.convoy.ConvoyEmailGateScreen
 import com.geeksville.mesh.convoy.ConvoyCreateEventScreen
 import com.geeksville.mesh.convoy.ConvoyEnrollmentScreen
 import androidx.navigation.toRoute
-import com.geeksville.mesh.convoy.ConvoyScreen
+import com.geeksville.mesh.grouptrack.GroupTrackScreen   // ONEMAPHOST-2026-10-25
 import com.geeksville.mesh.convoy.ConvoyDownloadRideConfigScreen
 import com.geeksville.mesh.convoy.ConvoyMyOrganizersScreen
 import com.geeksville.mesh.convoy.ConvoyCompletedRidesScreen
@@ -81,7 +81,7 @@ fun NavGraphBuilder.convoyGraph(
         )
     }
     gtComposable<ConvoyRoutes.Convoy> {
-        ConvoyScreen(
+        GroupTrackScreen(
             // TRACKRIDE-CONVOY-2026-10-05: ADD A RIDE / CREATE RIDE on the ride map's detail panel -> the ride form (as the planner).
             onAddRide = { _, routeId -> navController?.navigate(ConvoyRoutes.ConvoyRideCreate(routeId)) },
             onNavigateToProfile = { navController?.navigate(ConvoyRoutes.ConvoyRiderProfile) },   // ATTACH1-2026-10-22: MENU › Account
