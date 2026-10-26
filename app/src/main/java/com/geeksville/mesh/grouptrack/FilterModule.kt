@@ -40,7 +40,7 @@ import com.geeksville.mesh.convoy.TrailFilterState
  *   HIDE EVERYTHING   one toggle: clears the map; again = restores EXACTLY what was on (filter settings survive).
  *   ON THE MAP        Tracks, Routes, Waypoints: OFF / ALL / SELECT › (SELECT opens today's list for the map view).
  *                     Trails: OFF / ALL -- WHICH trails is the category list below (Trails' old SELECT opened that same filter).
- *   PRIVATE LAND      "Include private land" (Fred 09-02: public always shows; there is no private-only case).
+ *   LAND              [x] Public  [x] Private (FILTERLAND-2026-10-25: was "Include private land"; Fred 21:25 -- private only is a case now).
  *   MOTORIZED / NON-MOTORIZED  every trail type with its line, its checkbox and its MEANING (Fred 12:25: the type definitions
  *                     live in the filter). Category box = rule 3 of 09-02: on if any row is on; tap = all on, or all off when all on.
  * The panel never owns the map's state: ConvoyScreen hands it a [GtFilterBridge] (the same functions the old Map Features used).
@@ -100,12 +100,22 @@ fun GtFilterBody(f: GtFilterBridge, onSelect: (String) -> Unit) {
             }
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()
-            .clickable { TrailFilterState.setLand(if (TrailFilterState.land == "ALL") "PUBLIC" else "ALL"); tick++; f.trailsChanged() }) {
-            Checkbox(checked = TrailFilterState.land == "ALL", onCheckedChange = null, colors = boxColors())
-            Column {
-                Text("Include private land", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                Text("Public trails always show.", color = s.panelDim, fontSize = 12.sp)
+        // FILTERLAND-2026-10-25 (Fred 21:25): two ticks -- Public off shows only the private trails. At least one stays ticked.
+        val pubOn = TrailFilterState.land != "PRIVATE"
+        val privOn = TrailFilterState.land != "PUBLIC"
+        fun setLandTicks(p: Boolean, q: Boolean) {
+            if (!p && !q) return   // at least one -- Trails OFF hides every trail
+            TrailFilterState.setLand(if (p && q) "ALL" else if (p) "PUBLIC" else "PRIVATE"); tick++; f.trailsChanged()
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text("LAND", color = s.panelDim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { setLandTicks(!pubOn, privOn) }) {
+                Checkbox(checked = pubOn, onCheckedChange = null, colors = boxColors())
+                Text("Public", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { setLandTicks(pubOn, !privOn) }) {
+                Checkbox(checked = privOn, onCheckedChange = null, colors = boxColors())
+                Text("Private", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 

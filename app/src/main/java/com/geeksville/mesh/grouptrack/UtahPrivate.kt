@@ -54,6 +54,8 @@ object GtUtahPrivate {
     val progress = mutableStateOf(-1f)
     /** the result of the last run ("" before one). */
     val result = mutableStateOf("")
+    /** UTAHONCESHOW-2026-10-25: true while the panel shows the one-time 2.7c run. */
+    val once = mutableStateOf(false)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** the land data on this tablet: a non-Utah import places an EMPTY file on purpose, so under 1 MB = not there. */
@@ -87,7 +89,10 @@ object GtUtahPrivate {
             scope.launch {
                 kotlinx.coroutines.delay(30_000L)   // after the map is up -- never holds the start gate
                 if (busy.value) return@launch
+                if (com.geeksville.mesh.convoy.HomeStateImportController.isImporting) {   // UTAHONCESHOW-2026-10-25: never beside an import
+                    android.util.Log.i("UtahOnce", "an import is running -- not now; the next launch tries again"); return@launch }
                 busy.value = true; result.value = ""; progress.value = -1f
+                once.value = true; open.value = true   // UTAHONCESHOW-2026-10-25: the rider sees it
                 val r = try { work(false) } catch (t: OutOfMemoryError) { "FAILED: out of memory." } catch (t: Exception) { "FAILED: " + t.message }
                 result.value = r; step.value = ""; busy.value = false
                 val ok = !r.startsWith("FAILED") && haveData()
@@ -125,7 +130,7 @@ fun GtUtahPrivatePanel() {
     val have = remember(busy, result) { GtUtahPrivate.haveData() }
     val line = remember(busy, result) { GtUtahPrivate.dataLine() }
     var latest by remember { mutableStateOf(false) }
-    val close = { GtUtahPrivate.open.value = false }
+    val close = { GtUtahPrivate.open.value = false; GtUtahPrivate.once.value = false }
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.padding(16.dp).width(380.dp).background(Gt.panel, RoundedCornerShape(14.dp))
                 .border(1.dp, Gt.line, RoundedCornerShape(14.dp)).padding(14.dp).verticalScroll(rememberScrollState()),
@@ -135,6 +140,8 @@ fun GtUtahPrivatePanel() {
                 GtHelpButton("map.utahprivate")
                 GtCloseButton(close)
             }
+            if (GtUtahPrivate.once.value) Text("One-time update for 2.7c: your Utah trails are being marked public or private from " +   // UTAHONCESHOW-2026-10-25
+                "Utah's land ownership data. This runs once and takes about 10 minutes for the whole state \u2014 keep GroupTrack open.", color = Gt.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Text("Marks which trails are on private land, from Utah's land ownership data. Town street grids on private land " +
                 "become Residential Roads. Every trail also gets its type and use again. Nothing is deleted.",
                 color = Gt.text, fontSize = 14.sp)

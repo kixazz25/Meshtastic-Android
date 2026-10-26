@@ -132,6 +132,7 @@ fun HomeStatePickerScreen(
 
     // AREAPICK-2026-10-24: START -- exactly what is ticked, as THE import (outlives the screen, one at a time), as startImport below.
     fun startArea(bb: DoubleArray) {
+        if (com.geeksville.mesh.grouptrack.GtUtahPrivate.busy.value) { android.widget.Toast.makeText(context, "Assigning Utah private property is running \u2014 start the import when it finishes.", android.widget.Toast.LENGTH_LONG).show(); return }   // UTAHONCESHOW-2026-10-25
         if (!HomeStateImportController.beginImport()) { phase = "running"; return }
         phase = "running"
         val run = areaHits.filter { it.slug in areaPicked }
@@ -148,6 +149,7 @@ fun HomeStatePickerScreen(
 
     // ── Launch import ────────────────────────────────────────────
     fun startImport(item: StatePickerItem) {
+        if (com.geeksville.mesh.grouptrack.GtUtahPrivate.busy.value) { android.widget.Toast.makeText(context, "Assigning Utah private property is running \u2014 start the import when it finishes.", android.widget.Toast.LENGTH_LONG).show(); return }   // UTAHONCESHOW-2026-10-25
         // ⛔⛔ IMPORTOWNER-2026-09-03: TWO DEFECTS LIVED IN THE THREE LINES THIS
         // REPLACES, and the 09-03 log shows both firing at once.
         //

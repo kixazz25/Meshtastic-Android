@@ -96,7 +96,7 @@ object LaunchModules {
                 "rm_track" to "Remove maps for all tracks"),   // stays (Fred 10:14); RMALLTRACKS-2026-10-23: it is ALL tracks
             g("map", "repair", "MAP RECOVERY",   // MAPRECOVERY2-2026-10-23 (Fred 10:26-10:28)
                 "recipes" to "Show saved map recipes (60 days)",   // GTRECIPES-2026-10-23 (Fred 11:43)
-                "restore" to "Restore maps as of a date",   // NEW: replays a daily map recipe (ConvoyMapRecipe) -- restore not built yet
+                "restore" to "Restore maps as of a date \u2014 coming soon",   // RESTORESOON-2026-10-25 (Fred 21:03)   // NEW: replays a daily map recipe (ConvoyMapRecipe) -- restore not built yet
                 "repair" to "Refresh maps by source"),   // planner Recreate Tiles by Source
             g("map", "import", "IMPORT MAP FEATURES",
                 "trails_state" to "Import trails by state",
