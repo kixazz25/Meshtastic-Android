@@ -70,6 +70,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex   // DOCSTOP-2026-10-25
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.border   // COSMETICS2-2026-10-06
@@ -2078,7 +2079,7 @@ fun GroupTrackScreen(
                 else -> "grouptrack_manual.html"
             } + (if (docFrag.isNotEmpty()) "#$docFrag" else "")
             androidx.compose.material3.Surface(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().zIndex(10f),   // DOCSTOP-2026-10-25 (Fred 20:48): the document is the top layer -- nothing on the map covers it
                 color = Gt.panel
             ) {
                 androidx.compose.foundation.layout.Column(modifier = Modifier.fillMaxSize()) {
