@@ -213,7 +213,7 @@ class ConvoyViewModel @Inject constructor(
      *  Tablet without GPS (my cart from the radio): green when my radio sent a fresh fix in the last 45 s. first = green, second = label. */
     fun gpsLamp(): Pair<Boolean, String> = if (tabletHasGps) {
         val n = TabletPosition.satsInFix()
-        Pair(n >= 4, if (n >= 4) "GPS LOCK " + n else "NO GPS LOCK")
+        Pair(n >= 4, if (n >= 4) "DROID GPS " + n else "NO DROID GPS")   // DROIDGPS-2026-10-25 (Fred 10-24 13:48): the tablet's own GPS
     } else {
         val ok = System.currentTimeMillis() - myRadioFixMs < 45_000L
         Pair(ok, if (ok) "RADIO GPS" else "NO RADIO GPS")

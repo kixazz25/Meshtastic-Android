@@ -59,7 +59,7 @@ object TrailFilterState {
 
     // ── the state ───────────────────────────────────────────────────────
     /** PUBLIC | PRIVATE | ALL */
-    var land: String = "ALL"; private set
+    var land: String = "PUBLIC"; private set   // PUBLICDEFAULT-2026-10-25 (Fred 10-24 13:48): private land hidden by default
     /** MOTORIZED | NON-MOTORIZED | ALL */
     var use: String = "ALL"; private set
     /** Categories the rider has switched OFF. Empty = everything shown. */
@@ -155,7 +155,7 @@ object TrailFilterState {
                     Log.w(TAG, "map_keys.json version $v != $VERSION -- defaults")
                     reset()
                 } else {
-                    land = o.optString("land", "ALL").uppercase()
+                    land = o.optString("land", "PUBLIC").uppercase()   // PUBLICDEFAULT-2026-10-25: a saved choice is kept
                     use = o.optString("use", "ALL").uppercase()
                     off = HashSet()
                     val a = o.optJSONArray("off") ?: JSONArray()
@@ -187,7 +187,7 @@ object TrailFilterState {
     }
 
     private fun reset() {
-        land = "ALL"; use = "ALL"; off = HashSet(); style = HashMap()
+        land = "PUBLIC"; use = "ALL"; off = HashSet(); style = HashMap()   // PUBLICDEFAULT-2026-10-25
     }
 
     // ── the predicate ───────────────────────────────────────────────────
