@@ -1,8 +1,8 @@
 ==============================================================================
 GROUPTRACK -- NAVIGATION CROSS-REFERENCE v2 (the click tree, for the user manual)
 ==============================================================================
-Generated: 2026-10-25 22:43   branch 2.7c @ 78ced5cd9   files scanned: 150   composables: 162
-Clickables: 297   state-opened panels: 36   routes: 0
+Generated: 2026-10-26 19:29   branch 2.7c @ 6bedbd3db   files scanned: 150   composables: 162
+Clickables: 299   state-opened panels: 36   routes: 0
 Each panel shows [file last commit date]: a screenshot whose build date is OLDER than that date needs a recapture.
 
 === 1. THE CLICK TREE (from each screen downward) ===
@@ -70,18 +70,18 @@ ArtifactDetailPanel  [ArtifactDetailPanel.kt:36 · 2026-10-24]
    ▸ “CANCEL”  (line 422)
       → does: showTypeChooser = false
 
-ArtifactListItem  [ArtifactListPanel.kt:167 · 2026-10-24]
-   ▸ “Waypoints”  (line 202)
+ArtifactListItem  [ArtifactListPanel.kt:169 · 2026-10-26]
+   ▸ “Waypoints”  (line 204)
       → calls back ArtifactListPanel  (onNameClick → onOpenDetail(artifactType, id))
 
-ArtifactListPanel  [ArtifactListPanel.kt:41 · 2026-10-24]
-   ▸ “SELECT ALL”  (line 96)
-      ArtifactListItem  [ArtifactListPanel.kt:167 · 2026-10-24]  ← opens (gtFolded)  (expanded above)
-   ▸ “DESELECT ALL”  (line 114)
+ArtifactListPanel  [ArtifactListPanel.kt:41 · 2026-10-26]
+   ▸ “$artifactType (${artifacts.size})”  (line 92)
+      ArtifactListItem  [ArtifactListPanel.kt:169 · 2026-10-26]  ← opens (gtFolded)  (expanded above)
+   ▸ “DESELECT ALL”  (line 116)
       → does: onSelectAll()
-   ▸ “FIT”  (line 119)
+   ▸ “FIT”  (line 121)
       → does: onDeselectAll()
-   ▸ “No $artifactType in current map view”  (line 125)
+   ▸ “No $artifactType in current map view”  (line 127)
       → does: onFitToSelected()
 
 BcastNavBtn  [ConvoyBroadcastScreen.kt:90 · 2026-10-24]
@@ -130,20 +130,24 @@ CompletionPanel  [HomeStatePickerScreen.kt:629 · 2026-10-25]
    ▸ “▾  ”  (line 656)
       RecapLine  [HomeStatePickerScreen.kt:612 · 2026-10-25]  ← opens (showDetail)
 
-ConfigReviewScreen  [ConfigReviewScreen.kt:67 · 2026-10-24]
-   ▸ “Saved configs”  (line 126)
+ConfigReviewScreen  [ConfigReviewScreen.kt:67 · 2026-10-26]
+   ▸ “Saved configs”  (line 137)
       → ⚠ no action found
-   ▸ “Back to the list”  (line 146)
+   ▸ “Back to the list”  (line 157)
       → does: compared = null; selected = null
-   ▸ “Cancel compare”  (line 151)
+   ▸ “Cancel compare”  (line 162)
       → does: comparing = false
-   ▸ “Apply”  (line 155)
+   ▸ “Apply”  (line 166)
       → does: apply(sel)
-   ▸ “Compare with…”  (line 156)
+   ▸ “Compare with…”  (line 167)
       → does: comparing = true
-   ▸ “Cancel”  (line 157)
+   ▸ “View PDF”  (line 168)
+      → does: pdf(sel, email = false)
+   ▸ “Email PDF”  (line 169)
+      → does: pdf(sel, email = true)
+   ▸ “Cancel”  (line 170)
       → does: selected = null
-   ▸ “Identical.”  (line 175)
+   ▸ “Identical.”  (line 188)
       → does: tap(k)
 
 ConfirmDialog  [ConvoyDownloadQueuePanel.kt:535 · 2026-10-24]
@@ -482,7 +486,7 @@ ConvoySearchByAreaScreen  [ConvoySearchByAreaScreen.kt:39 · 2026-10-24]
    ▸ “← BACK”  (line 50)
       → does: onBack()
 
-ConvoySettingsScreen  [ConvoySettingsScreen.kt:51 · 2026-10-24]
+ConvoySettingsScreen  [ConvoySettingsScreen.kt:51 · 2026-10-26]
    ▸ “CLOSE”  (line 100)
       → does: showConversionRecord = true
    ▸ “CLOSE”  (line 109)
@@ -724,26 +728,26 @@ GroupModeActivatePopup  [GroupMode.kt:50 · 2026-10-13]
 
 GroupTrackHeader  [GroupTrackTheme.kt:66 · 2026-10-24]  (expanded above)
 
-GrpAwarenessPanel  [GrpAwareness.kt:153 · 2026-10-24]
-   ▸ “DISCONNECT”  (line 218)
+GrpAwarenessPanel  [GrpAwareness.kt:157 · 2026-10-26]
+   ▸ “DISCONNECT”  (line 222)
       → calls back MainScreen  (onDisconnect → convoyViewModel.disconnectRadio())
-   ▸ “BLUETOOTH”  (line 228)
+   ▸ “BLUETOOTH”  (line 232)
       → does: openBluetoothSettings(ctx)
-   ▸ “ALLOW”  (line 232)
+   ▸ “ALLOW”  (line 236)
       → does: openAppSettings(ctx)
-   ▸ “FORGET”  (line 246)
-      → calls back MainScreen  (onConnect → id, fail -> convoyViewModel.connectRadio(id, fail))
    ▸ “FORGET”  (line 250)
+      → calls back MainScreen  (onConnect → id, fail -> convoyViewModel.connectRadio(id, fail))
+   ▸ “FORGET”  (line 254)
       → does: forgetting = radio
-   ▸ “SELECT A RIDE AND APPLY SETTINGS TO THE RADIO”  (line 257)
+   ▸ “SELECT A RIDE AND APPLY SETTINGS TO THE RADIO”  (line 261)
       → calls back MainScreen  (onApplyRide → com.geeksville.mesh.convoy.GrpAwarenessLauncher.close() com.geeksville.mesh.con…)
-   ▸ “RADIO SETTINGS”  (line 263)
+   ▸ “RADIO SETTINGS”  (line 267)
       → calls back MainScreen  (onLocalSettings → // COMMSETTINGS-2026-10-12: asked through the comm side (CommMenus) com.geeksvi…)
-   ▸ “NODES”  (line 270)
+   ▸ “NODES”  (line 274)
       → calls back MainScreen  (onMeshtastic → // COMMMENUS-2026-10-08: the Meshtastic menu is REQUESTED through the Comm API …)
-   ▸ “FORGET”  (line 287)
+   ▸ “FORGET”  (line 291)
       → calls back MainScreen  (onDisconnect → convoyViewModel.disconnectRadio())
-   ▸ “CANCEL”  (line 296)
+   ▸ “CANCEL”  (line 300)
       → does: forgetting = null
 
 GtMenuItem  [GroupTrackTheme.kt:390 · 2026-10-24]  (expanded above)
@@ -871,9 +875,9 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 
 === 2. PANELS AND SCREENS — source file and its last commit date ===
 2026-10-24  ArtifactDetailPanel                          app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:36  (13 clickables)
-2026-10-24  ArtifactListPanel                            app/src/main/java/com/geeksville/mesh/convoy/ArtifactListPanel.kt:41  (4 clickables)
-2026-10-24  ArtifactListItem                             app/src/main/java/com/geeksville/mesh/convoy/ArtifactListPanel.kt:167  (1 clickables)
-2026-10-24  ConfigReviewScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConfigReviewScreen.kt:67  (7 clickables)
+2026-10-26  ArtifactListPanel                            app/src/main/java/com/geeksville/mesh/convoy/ArtifactListPanel.kt:41  (4 clickables)
+2026-10-26  ArtifactListItem                             app/src/main/java/com/geeksville/mesh/convoy/ArtifactListPanel.kt:169  (1 clickables)
+2026-10-26  ConfigReviewScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConfigReviewScreen.kt:67  (9 clickables)
 2026-10-24  StepButton                                   app/src/main/java/com/geeksville/mesh/convoy/ConvoyAiStepPanel.kt:91  (1 clickables)
 2026-10-24  TableButton                                  app/src/main/java/com/geeksville/mesh/convoy/ConvoyBatchGridPanel.kt:115  (1 clickables)
 2026-10-24  ConvoyBroadcastScreen                        app/src/main/java/com/geeksville/mesh/convoy/ConvoyBroadcastScreen.kt:25  (1 clickables)
@@ -936,7 +940,7 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-24  SegHalf                                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyRouteToolbar.kt:361  (1 clickables)
 2026-10-24  BuildBtn                                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyRouteToolbar.kt:383  (1 clickables)
 2026-10-24  ConvoySearchByAreaScreen                     app/src/main/java/com/geeksville/mesh/convoy/ConvoySearchByAreaScreen.kt:39  (1 clickables)
-2026-10-24  ConvoySettingsScreen                         app/src/main/java/com/geeksville/mesh/convoy/ConvoySettingsScreen.kt:51  (17 clickables)
+2026-10-26  ConvoySettingsScreen                         app/src/main/java/com/geeksville/mesh/convoy/ConvoySettingsScreen.kt:51  (17 clickables)
 2026-10-24  ConvoySignInScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConvoySignInScreen.kt:109  (3 clickables)
 2026-10-24  ConvoySubscriptionScreen                     app/src/main/java/com/geeksville/mesh/convoy/ConvoySubscriptionScreen.kt:129  (5 clickables)
 2026-10-24  ConvoyTermsScreen                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyTermsScreen.kt:18  (1 clickables)
@@ -958,7 +962,7 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-24  GtNavBtn                                     app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:344  (1 clickables)
 2026-10-24  GtMenuLabel                                  app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:363  (1 clickables)
 2026-10-24  GtMenuItem                                   app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:390  (1 clickables)
-2026-10-24  GrpAwarenessPanel                            app/src/main/java/com/geeksville/mesh/convoy/GrpAwareness.kt:153  (10 clickables)
+2026-10-26  GrpAwarenessPanel                            app/src/main/java/com/geeksville/mesh/convoy/GrpAwareness.kt:157  (10 clickables)
 2026-10-25  AreaItemRow                                  app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:286  (1 clickables)
 2026-10-25  StateListPanel                               app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:393  (1 clickables)
 2026-10-25  CompletionPanel                              app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:629  (1 clickables)
@@ -1031,18 +1035,20 @@ ArtifactDetailPanel.kt:394 | ArtifactDetailPanel | “DELETE” | onDelete?.invo
 ArtifactDetailPanel.kt:399 | ArtifactDetailPanel | “CANCEL” | showDeleteConfirm = false
 ArtifactDetailPanel.kt:414 | ArtifactDetailPanel | “CANCEL” | onChangeType?.invoke(id, wType); showTypeChooser = false; onDismiss(null, null)
 ArtifactDetailPanel.kt:422 | ArtifactDetailPanel | “CANCEL” | showTypeChooser = false
-ArtifactListPanel.kt:96 | ArtifactListPanel | “SELECT ALL” | gtFolded = !gtFolded
-ArtifactListPanel.kt:114 | ArtifactListPanel | “DESELECT ALL” | onSelectAll()
-ArtifactListPanel.kt:119 | ArtifactListPanel | “FIT” | onDeselectAll()
-ArtifactListPanel.kt:125 | ArtifactListPanel | “No $artifactType in current map view” | onFitToSelected()
-ArtifactListPanel.kt:202 | ArtifactListItem | “Waypoints” | onNameClick()
-ConfigReviewScreen.kt:126 | ConfigReviewScreen | “Saved configs” | 
-ConfigReviewScreen.kt:146 | ConfigReviewScreen | “Back to the list” | compared = null; selected = null
-ConfigReviewScreen.kt:151 | ConfigReviewScreen | “Cancel compare” | comparing = false
-ConfigReviewScreen.kt:155 | ConfigReviewScreen | “Apply” | apply(sel)
-ConfigReviewScreen.kt:156 | ConfigReviewScreen | “Compare with…” | comparing = true
-ConfigReviewScreen.kt:157 | ConfigReviewScreen | “Cancel” | selected = null
-ConfigReviewScreen.kt:175 | ConfigReviewScreen | “Identical.” | tap(k)
+ArtifactListPanel.kt:92 | ArtifactListPanel | “$artifactType (${artifacts.size})” | gtFolded = !gtFolded
+ArtifactListPanel.kt:116 | ArtifactListPanel | “DESELECT ALL” | onSelectAll()
+ArtifactListPanel.kt:121 | ArtifactListPanel | “FIT” | onDeselectAll()
+ArtifactListPanel.kt:127 | ArtifactListPanel | “No $artifactType in current map view” | onFitToSelected()
+ArtifactListPanel.kt:204 | ArtifactListItem | “Waypoints” | onNameClick()
+ConfigReviewScreen.kt:137 | ConfigReviewScreen | “Saved configs” | 
+ConfigReviewScreen.kt:157 | ConfigReviewScreen | “Back to the list” | compared = null; selected = null
+ConfigReviewScreen.kt:162 | ConfigReviewScreen | “Cancel compare” | comparing = false
+ConfigReviewScreen.kt:166 | ConfigReviewScreen | “Apply” | apply(sel)
+ConfigReviewScreen.kt:167 | ConfigReviewScreen | “Compare with…” | comparing = true
+ConfigReviewScreen.kt:168 | ConfigReviewScreen | “View PDF” | pdf(sel, email = false)
+ConfigReviewScreen.kt:169 | ConfigReviewScreen | “Email PDF” | pdf(sel, email = true)
+ConfigReviewScreen.kt:170 | ConfigReviewScreen | “Cancel” | selected = null
+ConfigReviewScreen.kt:188 | ConfigReviewScreen | “Identical.” | tap(k)
 ConvoyAiStepPanel.kt:98 | StepButton | “?” | onClick()
 ConvoyBatchGridPanel.kt:126 | TableButton | “?” | onClick()
 ConvoyBroadcastScreen.kt:69 | ConvoyBroadcastScreen | “SEND BROADCAST” | broadcastSent = true android.widget.Toast.makeText(context, "Broadcast queued — Phase C", android.widget.Toast.LENGTH_S…
@@ -1278,16 +1284,16 @@ GroupTrackTheme.kt:166 | DevMenuButton | “?” | onClick()
 GroupTrackTheme.kt:347 | GtNavBtn | “?” | onClick()
 GroupTrackTheme.kt:376 | GtMenuLabel | “?” | 
 GroupTrackTheme.kt:432 | GtMenuItem | “SOON” | if (active) onClick()
-GrpAwareness.kt:218 | GrpAwarenessPanel | “DISCONNECT” | onDisconnect(); message = ""
-GrpAwareness.kt:228 | GrpAwarenessPanel | “BLUETOOTH” | openBluetoothSettings(ctx)
-GrpAwareness.kt:232 | GrpAwarenessPanel | “ALLOW” | openAppSettings(ctx)
-GrpAwareness.kt:246 | GrpAwarenessPanel | “FORGET” | message = if (radio.paired) "" else "Pairing " + radio.name + " — enter the radio's PIN when Android asks." onConnect(r…
-GrpAwareness.kt:250 | GrpAwarenessPanel | “FORGET” | forgetting = radio
-GrpAwareness.kt:257 | GrpAwarenessPanel | “SELECT A RIDE AND APPLY SETTINGS TO THE RADIO” | onApplyRide()
-GrpAwareness.kt:263 | GrpAwarenessPanel | “RADIO SETTINGS” | message = ""; onLocalSettings()
-GrpAwareness.kt:270 | GrpAwarenessPanel | “NODES” | message = ""; onMeshtastic()
-GrpAwareness.kt:287 | GrpAwarenessPanel | “FORGET” | if (r.id == selectedAddress) onDisconnect() val rName = r.name onForget(r.id) { ok -> // COMMLINKREQ-2026-10-11: the co…
-GrpAwareness.kt:296 | GrpAwarenessPanel | “CANCEL” | forgetting = null
+GrpAwareness.kt:222 | GrpAwarenessPanel | “DISCONNECT” | onDisconnect(); message = ""
+GrpAwareness.kt:232 | GrpAwarenessPanel | “BLUETOOTH” | openBluetoothSettings(ctx)
+GrpAwareness.kt:236 | GrpAwarenessPanel | “ALLOW” | openAppSettings(ctx)
+GrpAwareness.kt:250 | GrpAwarenessPanel | “FORGET” | message = if (radio.paired) "" else "Pairing " + radio.name + " — enter the radio's PIN when Android asks." onConnect(r…
+GrpAwareness.kt:254 | GrpAwarenessPanel | “FORGET” | forgetting = radio
+GrpAwareness.kt:261 | GrpAwarenessPanel | “SELECT A RIDE AND APPLY SETTINGS TO THE RADIO” | onApplyRide()
+GrpAwareness.kt:267 | GrpAwarenessPanel | “RADIO SETTINGS” | message = ""; onLocalSettings()
+GrpAwareness.kt:274 | GrpAwarenessPanel | “NODES” | message = ""; onMeshtastic()
+GrpAwareness.kt:291 | GrpAwarenessPanel | “FORGET” | if (r.id == selectedAddress) onDisconnect() val rName = r.name onForget(r.id) { ok -> // COMMLINKREQ-2026-10-11: the co…
+GrpAwareness.kt:300 | GrpAwarenessPanel | “CANCEL” | forgetting = null
 HomeStatePickerScreen.kt:288 | AreaItemRow | “?” | onClick()
 HomeStatePickerScreen.kt:428 | StateListPanel | “${item.entries.size} region${if (item.entries.size > 1) ” | onSelect(item)
 HomeStatePickerScreen.kt:656 | CompletionPanel | “▾  ” | showDetail = !showDetail
@@ -1318,7 +1324,7 @@ Main.kt:699 | MainScreen | “OK” | com.geeksville.mesh.convoy.GrpAwarenessLau
 
 === 5. UNRESOLVED — clickables with no action found (check each by hand) ===
 ConvoyTrackDialogs.kt:60 | ActionRow | “?” | 
-ConfigReviewScreen.kt:126 | ConfigReviewScreen | “Saved configs” | 
+ConfigReviewScreen.kt:137 | ConfigReviewScreen | “Saved configs” | 
 ConvoyMyRidesScreen.kt:119 | ConvoyMyRidesScreen | “Following organizer” | 
 ConvoyMyRidesScreen.kt:119 | ConvoyMyRidesScreen | “Following organizer” | 
 GroupTrackTheme.kt:82 | GroupTrackHeader | “grouptrack_logo” | 
