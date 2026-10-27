@@ -255,6 +255,15 @@ fun GrpAwarenessPanel(
                         }
                     }
                 }
+                // BTOFF-2026-10-27 (Fred 10:30): a way to turn Bluetooth OFF, under the radio list -- only while no radio is connected or
+                // connecting (DISCONNECT first). No app may switch Bluetooth off (API 33+), so it opens Android's Bluetooth page: switch at the top.
+                if (!btOff && !busy) Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Bluetooth is on.", color = dim, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = {
+                        message = "Turn Bluetooth off with the switch at the top, then come back."
+                        runCatching { ctx.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    }) { Text("TURN BLUETOOTH OFF", color = Gt.bad, fontWeight = FontWeight.Bold) }
+                }
                 if (message.isNotBlank()) Text(message, color = Gt.warn, fontSize = 13.sp)
                 // Three actions, side by side
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

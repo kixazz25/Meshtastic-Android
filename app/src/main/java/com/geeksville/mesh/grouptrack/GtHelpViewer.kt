@@ -60,6 +60,11 @@ fun GtHelpViewer() {
         "quickstart" -> "grouptrack_quickstart.html"
         else -> "grouptrack_manual.html"
     } + (if (frag.isNotEmpty()) "#$frag" else "")
+    // HELPTOP-2026-10-27 (Fred 12:18): its own full-screen window, so HELP is above every dialog (check-in and the rest), not under it.
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = { GtHelpView.close() },
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
     Surface(modifier = Modifier.fillMaxSize(), color = Gt.panel) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(modifier = Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {   // CLOSEX-2026-10-22: ✕ top right
@@ -80,4 +85,5 @@ fun GtHelpViewer() {
             )
         }
     }
+    }   // HELPTOP-2026-10-27: end of the help window
 }
