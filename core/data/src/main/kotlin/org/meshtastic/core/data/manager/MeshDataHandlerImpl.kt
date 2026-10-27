@@ -386,6 +386,13 @@ constructor(
             TakRoleStore.put(packet.from, it)
             android.util.Log.i("ROLEREPORT", "ROLEREPORT received at ${System.currentTimeMillis()} from ${packet.from}: $it")
         }
+        // ROLEPOSDROP-2026-10-27 (drive 10-27): a GroupTrack ROLE report -- a special role and no battery status -- carries the sender radio's
+        // LAST position (up to 60 s old, no fix time). Read as a new fix it put a 470 m spike in the lead track and stalled the trim 7.5 min.
+        // The role is kept above; the position is not used. The radio's own reports (TeamMember, with battery, every 6 s) place the cart.
+        if (tak.group?.role?.name in setOf("TeamLead", "RTO", "ForwardObserver", "HQ") && tak.status == null) {
+            android.util.Log.i("ROLEREPORT", "ROLEPOSDROP-2026-10-27 role report from ${packet.from}: role kept, its position not used")
+            return
+        }
         val pli = tak.pli ?: return
         val p = Position(
             latitude_i = pli.latitude_i,

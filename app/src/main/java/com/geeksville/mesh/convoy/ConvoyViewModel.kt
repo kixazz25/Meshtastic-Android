@@ -408,7 +408,8 @@ class ConvoyViewModel @Inject constructor(
                 // THE SCHEDULE (Fred): until 3 minutes after REC; a change made DURING the ride: 3 minutes from the change.
                 // No REC yet: keep going (capped at 4 hours). END cancels this job (stopGroupTrack).
                 val recAt = rideStartTimeMs
-                val endAt = if (recAt == 0L) startedAt + 4 * 3_600_000L else maxOf(recAt, startedAt) + 180_000L
+                // ROLEWINDOW2-2026-10-27 (Fred 14:21): until 2 minutes after REC (was 3), or 2 minutes after a change made during the ride.
+                val endAt = if (recAt == 0L) startedAt + 4 * 3_600_000L else maxOf(recAt, startedAt) + 120_000L
                 if (System.currentTimeMillis() >= endAt) break
             }
             android.util.Log.i("ROLEREPORT", "ROLEREPORT: run complete ($n reports, $role)")
