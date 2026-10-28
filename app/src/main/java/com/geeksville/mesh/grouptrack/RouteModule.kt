@@ -273,7 +273,9 @@ object GtRoute {
                     pinFeasSeq = seq
                     pinFeas.value = res
                     if (pinPoints.value.isNotEmpty()) {
-                        val last = pinPoints.value.size - 1
+                        // PININDEX-2026-10-28: assess numbers the trailhead 0 and the pins 1..n -- the newest pin is pinPoints.size.
+                        // Was size - 1: the first pin was never checked and each later drop checked the PREVIOUS pin.
+                        val last = pinPoints.value.size
                         val noRoute = res.unreachable.contains(last) || res.onFragment.contains(last)
                         if (noRoute) {
                             pinPoints.value = pinPoints.value.dropLast(1)
