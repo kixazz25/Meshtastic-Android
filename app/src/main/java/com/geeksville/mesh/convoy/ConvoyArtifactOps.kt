@@ -94,7 +94,7 @@ object ConvoyArtifactOps {
             SpatialDbManager.init(context)
             when (artifactType) {
                 "Waypoints" -> SpatialDbManager.deleteWaypoint(artifactId)
-                "Routes" -> SpatialDbManager.deleteRoute(artifactId)
+                "Routes" -> { SpatialDbManager.deleteRoute(artifactId); SpatialDbManager.deleteRouteNotes(artifactId); SpatialDbManager.deleteRouteAliases(artifactId) }   // ROUTEDEL-2026-10-28 (D21)
                 "Tracks" -> SpatialDbManager.deleteTrackFromDb(artifactId)
                 // RIDERTRAILDELETE-2026-09-08: ⛔ THIS BRANCH DID NOT EXIST, so a
                 // delete on a trail fell through the when(), logged success and

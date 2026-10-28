@@ -919,7 +919,12 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
         androidx.activity.compose.BackHandler(enabled = true) { R.savedNotesRouteId.value = "" }
         val hasRecipe = androidx.compose.runtime.remember(rid) { SpatialDbManager.routeRecipe(rid) != null }
         GtNotesPanel(
-            title = "Route details",
+            // ROUTENAME-2026-10-28 (D11, Fred 14:16 + 14:20): the panel names the route and shows its other names (aliases).
+            title = androidx.compose.runtime.remember(rid) {
+                val nm = SpatialDbManager.routeNameById(rid)
+                val also = SpatialDbManager.getAliasesFor("route", rid).mapNotNull { it["alias"] }.filter { it != nm }
+                if (nm == null) "Route details" else nm + (if (also.isEmpty()) "" else " (also: " + also.joinToString(", ") + ")") + " \u2014 route details"
+            },
             sections = com.geeksville.mesh.convoy.notesFromRouteId(rid),
             onClose = { R.savedNotesRouteId.value = "" },
             onBuildFromRecipe = if (hasRecipe) ({ R.savedNotesRouteId.value = ""; R.buildFromRecipe(ctx, rid) }) else null,
@@ -1171,6 +1176,7 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
         R.batchSaving.value = true
         val keep = R.batchRows.value.filter { it.name in R.batchSave.value }
         val drop = R.batchRows.value.filter { it.name !in R.batchSave.value }
+        val dupes = java.util.ArrayList<String>()   // ROUTEDUPE-2026-10-28 (D12): routes already saved under another name
         kotlinx.coroutines.MainScope().launch {
             val saved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 SpatialDbManager.init(ctx)
@@ -1196,7 +1202,19 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                     val (wkt, bbox) = built
                     // ROUTESEQ-2026-09-04: name plus a sequence number (count of EXISTING saved routes with that name).
                     val base = area.trim()
-                    val nm = base + " " + (SpatialDbManager.routeNameCount(base) + 1)
+                    val nm = base + " " + SpatialDbManager.nextRouteNumber(base)   // ROUTENUM-2026-10-28 (D20)
+                    // ROUTEDUPE-2026-10-28 (D12): the same path is already saved -> the new name joins it as another name (as tracks do).
+                    // insertRoute is INSERT OR IGNORE on UNIQUE(geom_hash): it would drop this route silently and report success.
+                    val gh = SpatialDbManager.computeGeomHash(wkt)
+                    val existing = SpatialDbManager.findRouteIdByHash(gh)
+                    if (existing != null) {
+                        val first = SpatialDbManager.routeNameById(existing) ?: "a saved route"
+                        SpatialDbManager.addAlias("route", existing, nm, gh, null)
+                        android.util.Log.i("BatchGrid", "ROUTEDUPE-2026-10-28: '" + nm + "' is the same route as '" + first + "' -- added as another name")
+                        dupes.add("\"" + nm + "\" is the same route as \"" + first + "\"")
+                        RouteDraftStore.deleteDraft(r.name)
+                        continue
+                    }
                     val id = SpatialDbManager.insertRoute(nm, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
                     // notes BEFORE the delete -- the narrative and the recipe both live in them
                     RouteDraftStore.readNotes(r.name)?.let { nts -> SpatialDbManager.writeRouteNotes(id, nts) }
@@ -1211,6 +1229,10 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
             R.draftTick.intValue++
             R.batchSaving.value = false
             R.closeCompare()
+            if (dupes.isNotEmpty()) {   // ROUTEDUPE-2026-10-28 (D12): said plainly, with OK -- not a toast that reads like success
+                R.notice.value = (if (saved > 0) "Saved " + saved + " new route(s).\n\n" else "") +
+                    "Already saved: " + dupes.joinToString("; ") + ". The new name was added to it as another name."
+            } else
             android.widget.Toast.makeText(ctx, if (saved > 0) "Saved " + saved + " route(s)" else "Compare set cleared",
                 android.widget.Toast.LENGTH_SHORT).show()
         }

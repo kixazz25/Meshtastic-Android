@@ -1834,6 +1834,40 @@ object SpatialDbManager {
      *  duplicate rows in real data are byte-identical WKT, so a raw hash catches
      *  them. Identity = (artifact_type, geom_hash); per-type tables make
      *  UNIQUE(geom_hash) express that. */
+    /** ROUTENUM-2026-10-28 (D20): the next number for "<base> N" -- the highest N among routes AND route aliases named exactly
+     *  "<base> <digits>" (case-insensitive), plus 1. Was a count of names STARTING WITH base ("broken ridge" counted
+     *  "Broken Ridge 2024 Jamboree"), and a count repeats numbers after a delete. */
+    fun nextRouteNumber(base: String): Int {
+        val b = base.trim().lowercase()
+        if (b.isEmpty()) return 1
+        var max = 0
+        fun take(name: String?) {
+            val n = name?.trim()?.lowercase() ?: return
+            if (!n.startsWith("$b ")) return
+            val rest = n.substring(b.length + 1)
+            if (rest.isNotEmpty() && rest.all { it.isDigit() } && rest.length < 7) max = maxOf(max, rest.toInt())
+        }
+        try { spatialDb?.rawQuery("SELECT name FROM routes WHERE name IS NOT NULL", null)?.use { c -> while (c.moveToNext()) take(c.getString(0)) } }
+        catch (e: Exception) { android.util.Log.w("SpatialDb", "nextRouteNumber routes: ${e.message}") }
+        try { extensionDb?.rawQuery("SELECT alias FROM artifact_aliases WHERE artifact_type='route'", null)?.use { c -> while (c.moveToNext()) take(c.getString(0)) } }
+        catch (e: Exception) { android.util.Log.w("SpatialDb", "nextRouteNumber aliases: ${e.message}") }
+        return max + 1
+    }
+
+    /** ROUTENAME-2026-10-28 (D11): a route's name by id. CODE RULE 1: null = no such route (deleted). */
+    fun routeNameById(routeId: String): String? {
+        val db = spatialDb ?: return null
+        return try {
+            db.rawQuery("SELECT name FROM routes WHERE route_id=? LIMIT 1", arrayOf(routeId)).use { c -> if (c.moveToNext()) c.getString(0) else null }
+        } catch (e: Exception) { null }
+    }
+
+    /** ROUTEDEL-2026-10-28 (D21): a deleted route's other names go with it. */
+    fun deleteRouteAliases(routeId: String) {
+        try { extensionDb?.execSQL("DELETE FROM artifact_aliases WHERE artifact_type='route' AND artifact_id=?", arrayOf<Any>(routeId)) }
+        catch (e: Exception) { android.util.Log.w("SpatialDb", "deleteRouteAliases: ${e.message}") }
+    }
+
     fun computeGeomHash(wkt: String): String {
         val md = java.security.MessageDigest.getInstance("SHA-256")
         val bytes = md.digest(wkt.toByteArray(Charsets.UTF_8))
