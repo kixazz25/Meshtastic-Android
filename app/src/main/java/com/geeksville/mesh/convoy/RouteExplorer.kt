@@ -988,20 +988,67 @@ object RouteExplorer {
         // network. It still gets a terminal so every index keeps meaning
         // the same thing to the panel, but it is excluded from the tour.
         val tooFar = ArrayList<Int>()
+        // ASSESSNEAR-2026-10-28 (Fred 16:19): measure to the TRAIL, not to the nearest junction, and route on the TRAILHEAD's
+        // network, not the largest one -- the same two rules the build has used since NEWENGINE-2026-08-26. Was: nearestMainNode
+        // (junctions of the largest network only), so a pin ON a long remote road, or on the trailhead's smaller network, was "too far".
+        fun nearestSeg(lat: Double, lon: Double, inNet: Set<Long>?): Triple<Int, DoubleArray?, Double> {
+            var bd = Double.MAX_VALUE; var bei = -1; var bp: DoubleArray? = null
+            for (ei in g.edges.indices) {
+                val e = g.edges[ei]
+                if (inNet != null && e.u !in inNet && e.v !in inNet) continue
+                val pts = e.pts
+                for (j in 0 until pts.size - 1) {
+                    val pr = projectOnSeg(lat, lon, pts[j], pts[j + 1])
+                    if (pr.second < bd) { bd = pr.second; bei = ei; bp = pr.first }
+                }
+            }
+            return Triple(bei, bp, bd)
+        }
+        val net = HashSet<Long>()
+        // ASSESSNEAR2-2026-10-28: the trailhead's network = every network with a trail within 1/2 mile of it -- the build's own start
+        // rule (explore: "candidate starts: every trail within startYds"). The ONE nearest trail can be an isolated scrap (Broken Ridge,
+        // 10-28: "origin trail #17: 1 of 29 features usable"), and then every pin read as "on a fragment".
+        var anchorNet: HashSet<Long>? = null
+        run {
+            val (alat, alon) = all[0]
+            val startMi = 0.5
+            val comps = ArrayList<HashSet<Long>>()
+            for (ei in g.edges.indices) {
+                val pts = g.edges[ei].pts
+                var bd = Double.MAX_VALUE
+                for (j in 0 until pts.size - 1) bd = minOf(bd, projectOnSeg(alat, alon, pts[j], pts[j + 1]).second)
+                if (bd > startMi) continue
+                val u = g.edges[ei].u
+                if (comps.any { u in it }) continue
+                val c = HashSet<Long>(); c.add(u)
+                val q = ArrayDeque<Long>().apply { add(u) }
+                while (q.isNotEmpty()) { val x = q.removeFirst(); for (y in g.lAdj[x] ?: emptyList()) if (c.add(y[0])) q.add(y[0]) }
+                comps.add(c)
+            }
+            for (c in comps) net.addAll(c)
+            anchorNet = comps.maxByOrNull { it.size }
+            Log.i(TAG, "assess: ASSESSNEAR2 trailhead networks within 1/2 mile: " + comps.size + " (sizes " + comps.map { it.size } + ")")
+        }
         for (i in all.indices) {
             val (lat, lon) = all[i]
-            val (nMain, dMain) = nearestMainNode(lat, lon, g)
-            val (_, dAny) = nearestAnyNode(lat, lon, g)
-            terms.add(nMain)
-            snapFt.add(dMain * 5280.0)
             val cap = if (i == 0) SNAP_ANCHOR_MI else SNAP_POINT_MI
-            if (dMain > cap) {
+            val (ei, bp, d) = nearestSeg(lat, lon, if (i == 0) anchorNet else net)   // ASSESSNEAR2: trailhead on its largest nearby network
+            val dAny = if (i == 0) d else nearestSeg(lat, lon, null).third
+            if (ei < 0 || bp == null || d > cap) {
+                terms.add(Long.MIN_VALUE)          // a placeholder terminal: index i keeps its meaning; never routed (tooFar)
+                snapFt.add((if (ei < 0) Double.MAX_VALUE else d) * 5280.0)
                 tooFar.add(i)
-                // Inside the cap for SOME node but not a routable one: the
-                // rider is on a fragment. Moving the pin will not fix it,
-                // so it must not be reported as distance.
-                if (dAny <= cap) onFrag.add(i)
+                // near SOME trail but not one joined to the trailhead: a fragment -- moving the pin will not fix it
+                if (i > 0 && dAny <= cap) onFrag.add(i)
+                continue
             }
+            val node = splitEdgeAt(g, ei, bp)
+            terms.add(node)
+            snapFt.add(d * 5280.0)
+            if (i == 0 && net.isEmpty()) {   // ASSESSNEAR2: no trail within 1/2 mile -- the network of the nearest trail (within 2 mi)
+                val q = ArrayDeque<Long>().apply { add(node) }; net.add(node)
+                while (q.isNotEmpty()) { val x = q.removeFirst(); for (y in g.lAdj[x] ?: emptyList()) if (net.add(y[0])) q.add(y[0]) }
+            } else net.add(node)
         }
 
         // ⚠ NOTHING TO ROUTE FROM. A different answer from "your pins cost
@@ -1021,7 +1068,7 @@ object RouteExplorer {
         // each run fills a whole matrix row. Two pins snapping to the same node
         // cost one run, not two.
         val dij = HashMap<Long, Dij>()
-        for (t in terms.distinct()) dij[t] = dijkstra(t, g, emptyMap())
+        for (t in terms.distinct()) if (t != Long.MIN_VALUE) dij[t] = dijkstra(t, g, emptyMap())   // ASSESSNEAR: not the placeholder
 
         val n = terms.size
         val full = Array(n) { i ->
@@ -1390,7 +1437,7 @@ object RouteExplorer {
          * with identical results. Every constant below was measured, not
          * chosen; the reasoning is in GroupTrack_algorithm_annotated_2026-08-26.
          */
-        val startYds = 600.0
+        val startYds = 880.0   // ASSESSNEAR2-2026-10-28 (Fred 16:31): any trail within 1/2 mile of the trailhead (was 600 yds)
         val wantRides = 6
         val minApart = 5.0
         // ⚠ 24 measured: at 14 this ground gave rides of 3 features, at
