@@ -158,6 +158,9 @@ object RouteExplorer {
         val gapFt: HashMap<Long, Double>,              // junction spread, for cautions
         val jCentre: HashMap<Long, DoubleArray>,       // the junction's true middle
         val mainComponent: HashSet<Long>,
+        // GRAPHADJ-2026-10-28: the adjacency the SEARCH walks (node -> [neighbour, edgeIdx]), one per graph. Was the module-level
+        // gAdj, shared by every run while each run had its own edge list -- split entries piled up and pointed past the list.
+        val lAdj: HashMap<Long, ArrayList<LongArray>>,
     )
 
     private var cached: Graph? = null
@@ -191,6 +194,9 @@ object RouteExplorer {
         gapFt = HashMap(g.gapFt),
         jCentre = HashMap(g.jCentre),
         mainComponent = HashSet(g.mainComponent),
+        lAdj = HashMap<Long, ArrayList<LongArray>>(g.lAdj.size).also { m ->   // GRAPHADJ-2026-10-28: inner lists too -- splitEdgeAt appends
+            for ((k, v) in g.lAdj) m[k] = ArrayList(v)
+        },
     )
 
     private val NONAMES = setOf("", "not named", "unnamed", "none", "null", "n/a", "-")
@@ -485,15 +491,10 @@ object RouteExplorer {
             Progress("Network ready", "${edges.size} sections, ${best.size} junctions")
         )
 
-        val g = Graph(key, nodes, edges, adjFinal, gapFt, jCentre, best)
-        // adjacency the search actually uses
-        gAdj = adj2
+        val g = Graph(key, nodes, edges, adjFinal, gapFt, jCentre, best, adj2)   // GRAPHADJ-2026-10-28: adjacency inside the graph
         cached = g
-        return g
+        return copyOf(g)   // GRAPHADJ-2026-10-28: the cache keeps a clean graph; this run's splits go into its own copy
     }
-
-    /** Neighbour lists keyed properly. Held beside the graph. */
-    private var gAdj: HashMap<Long, ArrayList<LongArray>> = HashMap()
 
     // ══════════════════════════════════════════════════════════════════
     // POIs
@@ -568,7 +569,7 @@ object RouteExplorer {
         while (pq.isNotEmpty()) {
             val (d, x) = pq.poll()
             if (d > (dist[x] ?: Double.MAX_VALUE)) continue
-            for (nb in gAdj[x] ?: emptyList()) {
+            for (nb in g.lAdj[x] ?: emptyList()) {
                 val ei = nb[1].toInt()
                 val w = g.edges[ei].miles * (pen[ei] ?: 1.0)
                 val nd = d + w
@@ -1219,10 +1220,10 @@ object RouteExplorer {
         g.edges.add(Edge(e.u, k, e.miles * du / tot, e.name, e.trailId, headPts))
         val ib = g.edges.size
         g.edges.add(Edge(k, e.v, e.miles * dv / tot, e.name, e.trailId, tailPts))
-        gAdj.getOrPut(e.u) { ArrayList() }.add(longArrayOf(k, ia.toLong()))
-        gAdj.getOrPut(k) { ArrayList() }.add(longArrayOf(e.u, ia.toLong()))
-        gAdj.getOrPut(k) { ArrayList() }.add(longArrayOf(e.v, ib.toLong()))
-        gAdj.getOrPut(e.v) { ArrayList() }.add(longArrayOf(k, ib.toLong()))
+        g.lAdj.getOrPut(e.u) { ArrayList() }.add(longArrayOf(k, ia.toLong()))   // GRAPHADJ-2026-10-28: into THIS graph's adjacency
+        g.lAdj.getOrPut(k) { ArrayList() }.add(longArrayOf(e.u, ia.toLong()))
+        g.lAdj.getOrPut(k) { ArrayList() }.add(longArrayOf(e.v, ib.toLong()))
+        g.lAdj.getOrPut(e.v) { ArrayList() }.add(longArrayOf(k, ib.toLong()))
         if (e.u in g.mainComponent || e.v in g.mainComponent) g.mainComponent.add(k)
         return k
     }
@@ -1426,13 +1427,13 @@ object RouteExplorer {
         val compOf = HashMap<Long, Int>()
         run {
             var ci = 0
-            for (s in gAdj.keys) {
+            for (s in g.lAdj.keys) {
                 if (s in compOf) continue
                 val q = ArrayDeque<Long>().apply { add(s) }
                 compOf[s] = ci
                 while (q.isNotEmpty()) {
                     val x = q.removeFirst()
-                    for (y in gAdj[x] ?: emptyList()) {
+                    for (y in g.lAdj[x] ?: emptyList()) {
                         if (y[0] !in compOf) { compOf[y[0]] = ci; q.add(y[0]) }
                     }
                 }
