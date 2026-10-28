@@ -127,7 +127,7 @@ class ConvoyViewModel @Inject constructor(
     @Volatile private var reportedLeadId: String? = null
     @Volatile private var radioTrackLastFixMs = 0L   // RADIOTRACK-2026-10-15: the last radio fix fed to the recorder (new fixes only)
     // TICKSMALL-2026-10-15: channel use per radio (node number as text), from each received heard record. CODE RULE 1: null = not reported.
-    private val boardUtil = java.util.concurrent.ConcurrentHashMap<String, Float?>()
+    private val boardUtil = java.util.concurrent.ConcurrentHashMap<String, Float>()   // HOTUTIL-2026-10-28: reported values only (a ConcurrentHashMap refuses null)
     // MYCARTMSG-2026-10-15: the tablet's GPS drives my cart. myTabletFixMs 0 = no tablet fix yet; myFixLat/Lon = the last position sent.
     @Volatile private var myTabletFixMs = 0L
     // MYCARTRADIO-2026-10-18: when my radio last gave a FRESH position (its own time within 60 s). 0 = none yet -> the tablet is the fallback.
@@ -589,7 +589,9 @@ class ConvoyViewModel @Inject constructor(
                 if (e is com.grouptrack.comm.CommEvent.Received) onBoardMessage(e.message)
                 else if (e is com.grouptrack.comm.CommEvent.MemberHeard) {
                     // TICKSMALL-2026-10-15: channel use (not CoT -- link quality) -> the average over the board's carts, as the tick did
-                    boardUtil[e.member.id] = e.member.channelUtilPct
+                    // HOTUTIL-2026-10-28: a null put crashed every start (10-28). CODE RULE 1: null = no device report from that radio yet -> not in the average.
+                    val util = e.member.channelUtilPct
+                    if (util != null) boardUtil[e.member.id] = util else boardUtil.remove(e.member.id)
                     val utils = boardCarts.keys.mapNotNull { id -> id.removePrefix("!").toLongOrNull(16)?.toInt()?.toString()?.let { boardUtil[it] } }
                     _avgChannelUtil.value = if (utils.isEmpty()) 0f else utils.average().toFloat().takeIf { !it.isNaN() } ?: 0f
                     // STATSPANEL-2026-10-20: the ride statistics keep every report -- only while group awareness is on (Fred 10-20)
