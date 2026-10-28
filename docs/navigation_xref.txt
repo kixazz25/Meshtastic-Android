@@ -1,8 +1,8 @@
 ==============================================================================
 GROUPTRACK -- NAVIGATION CROSS-REFERENCE v2 (the click tree, for the user manual)
 ==============================================================================
-Generated: 2026-10-26 19:29   branch 2.7c @ 6bedbd3db   files scanned: 150   composables: 162
-Clickables: 299   state-opened panels: 36   routes: 0
+Generated: 2026-10-27 19:21   branch 2.7c @ 1b63af4e0   files scanned: 150   composables: 162
+Clickables: 300   state-opened panels: 36   routes: 0
 Each panel shows [file last commit date]: a screenshot whose build date is OLDER than that date needs a recapture.
 
 === 1. THE CLICK TREE (from each screen downward) ===
@@ -728,7 +728,7 @@ GroupModeActivatePopup  [GroupMode.kt:50 · 2026-10-13]
 
 GroupTrackHeader  [GroupTrackTheme.kt:66 · 2026-10-24]  (expanded above)
 
-GrpAwarenessPanel  [GrpAwareness.kt:157 · 2026-10-26]
+GrpAwarenessPanel  [GrpAwareness.kt:157 · 2026-10-27]
    ▸ “DISCONNECT”  (line 222)
       → calls back MainScreen  (onDisconnect → convoyViewModel.disconnectRadio())
    ▸ “BLUETOOTH”  (line 232)
@@ -739,15 +739,17 @@ GrpAwarenessPanel  [GrpAwareness.kt:157 · 2026-10-26]
       → calls back MainScreen  (onConnect → id, fail -> convoyViewModel.connectRadio(id, fail))
    ▸ “FORGET”  (line 254)
       → does: forgetting = radio
-   ▸ “SELECT A RIDE AND APPLY SETTINGS TO THE RADIO”  (line 261)
+   ▸ “TURN BLUETOOTH OFF”  (line 262)
+      → does: message = "Turn Bluetooth off with the switch at the top, then come back." runCatching { ctx.startActivity(In…
+   ▸ “SELECT A RIDE AND APPLY SETTINGS TO THE RADIO”  (line 270)
       → calls back MainScreen  (onApplyRide → com.geeksville.mesh.convoy.GrpAwarenessLauncher.close() com.geeksville.mesh.con…)
-   ▸ “RADIO SETTINGS”  (line 267)
+   ▸ “RADIO SETTINGS”  (line 276)
       → calls back MainScreen  (onLocalSettings → // COMMSETTINGS-2026-10-12: asked through the comm side (CommMenus) com.geeksvi…)
-   ▸ “NODES”  (line 274)
+   ▸ “NODES”  (line 283)
       → calls back MainScreen  (onMeshtastic → // COMMMENUS-2026-10-08: the Meshtastic menu is REQUESTED through the Comm API …)
-   ▸ “FORGET”  (line 291)
+   ▸ “FORGET”  (line 300)
       → calls back MainScreen  (onDisconnect → convoyViewModel.disconnectRadio())
-   ▸ “CANCEL”  (line 300)
+   ▸ “CANCEL”  (line 309)
       → does: forgetting = null
 
 GtMenuItem  [GroupTrackTheme.kt:390 · 2026-10-24]  (expanded above)
@@ -962,7 +964,7 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-24  GtNavBtn                                     app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:344  (1 clickables)
 2026-10-24  GtMenuLabel                                  app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:363  (1 clickables)
 2026-10-24  GtMenuItem                                   app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:390  (1 clickables)
-2026-10-26  GrpAwarenessPanel                            app/src/main/java/com/geeksville/mesh/convoy/GrpAwareness.kt:157  (10 clickables)
+2026-10-27  GrpAwarenessPanel                            app/src/main/java/com/geeksville/mesh/convoy/GrpAwareness.kt:157  (11 clickables)
 2026-10-25  AreaItemRow                                  app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:286  (1 clickables)
 2026-10-25  StateListPanel                               app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:393  (1 clickables)
 2026-10-25  CompletionPanel                              app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:629  (1 clickables)
@@ -1289,11 +1291,12 @@ GrpAwareness.kt:232 | GrpAwarenessPanel | “BLUETOOTH” | openBluetoothSetting
 GrpAwareness.kt:236 | GrpAwarenessPanel | “ALLOW” | openAppSettings(ctx)
 GrpAwareness.kt:250 | GrpAwarenessPanel | “FORGET” | message = if (radio.paired) "" else "Pairing " + radio.name + " — enter the radio's PIN when Android asks." onConnect(r…
 GrpAwareness.kt:254 | GrpAwarenessPanel | “FORGET” | forgetting = radio
-GrpAwareness.kt:261 | GrpAwarenessPanel | “SELECT A RIDE AND APPLY SETTINGS TO THE RADIO” | onApplyRide()
-GrpAwareness.kt:267 | GrpAwarenessPanel | “RADIO SETTINGS” | message = ""; onLocalSettings()
-GrpAwareness.kt:274 | GrpAwarenessPanel | “NODES” | message = ""; onMeshtastic()
-GrpAwareness.kt:291 | GrpAwarenessPanel | “FORGET” | if (r.id == selectedAddress) onDisconnect() val rName = r.name onForget(r.id) { ok -> // COMMLINKREQ-2026-10-11: the co…
-GrpAwareness.kt:300 | GrpAwarenessPanel | “CANCEL” | forgetting = null
+GrpAwareness.kt:262 | GrpAwarenessPanel | “TURN BLUETOOTH OFF” | message = "Turn Bluetooth off with the switch at the top, then come back." runCatching { ctx.startActivity(Intent(Setti…
+GrpAwareness.kt:270 | GrpAwarenessPanel | “SELECT A RIDE AND APPLY SETTINGS TO THE RADIO” | onApplyRide()
+GrpAwareness.kt:276 | GrpAwarenessPanel | “RADIO SETTINGS” | message = ""; onLocalSettings()
+GrpAwareness.kt:283 | GrpAwarenessPanel | “NODES” | message = ""; onMeshtastic()
+GrpAwareness.kt:300 | GrpAwarenessPanel | “FORGET” | if (r.id == selectedAddress) onDisconnect() val rName = r.name onForget(r.id) { ok -> // COMMLINKREQ-2026-10-11: the co…
+GrpAwareness.kt:309 | GrpAwarenessPanel | “CANCEL” | forgetting = null
 HomeStatePickerScreen.kt:288 | AreaItemRow | “?” | onClick()
 HomeStatePickerScreen.kt:428 | StateListPanel | “${item.entries.size} region${if (item.entries.size > 1) ” | onSelect(item)
 HomeStatePickerScreen.kt:656 | CompletionPanel | “▾  ” | showDetail = !showDetail

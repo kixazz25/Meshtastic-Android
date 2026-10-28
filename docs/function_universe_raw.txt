@@ -1319,239 +1319,239 @@ ConvoyViewModel.kt:388:                    val cs = checkIn.value?.callsign?.tri
 ConvoyViewModel.kt:391:                    val nowMs = System.currentTimeMillis()
 ConvoyViewModel.kt:392:                    val res = commMessaging.deliver(com.grouptrack.comm.CommMessage(
 ConvoyViewModel.kt:410:                val recAt = rideStartTimeMs
-ConvoyViewModel.kt:411:                val endAt = if (recAt == 0L) startedAt + 4 * 3_600_000L else maxOf(recAt, startedAt) + 180_000L
-ConvoyViewModel.kt:418:    fun setLeadCart(nodeId: String?) {
-ConvoyViewModel.kt:423:            val name = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }?.callsign ?: nodeId
-ConvoyViewModel.kt:433:    private val _radioInactive = MutableStateFlow(false)
-ConvoyViewModel.kt:434:    val radioInactive: StateFlow<Boolean> = _radioInactive.asStateFlow()
-ConvoyViewModel.kt:435:    private var lastMovementMs: Long = 0L
-ConvoyViewModel.kt:436:    private val RADIO_INACTIVE_TIMEOUT_MS = 5 * 60 * 1000L
-ConvoyViewModel.kt:437:    fun reconnectRadio() {
-ConvoyViewModel.kt:444:    var recordingState = androidx.compose.runtime.mutableStateOf(com.geeksville.mesh.convoy.RecordingState.CHECK_IN)
-ConvoyViewModel.kt:446:    val checkIn = androidx.compose.runtime.mutableStateOf<ConvoyRideStore.CheckIn?>(null)
-ConvoyViewModel.kt:449:    private val profileCallsign: String by lazy { runCatching { ConvoyProfileStore.load()?.callsign }.getOrNull()?.trim().orEmpty() }
-ConvoyViewModel.kt:450:    private fun tickCallsign(): String =
-ConvoyViewModel.kt:463:    var endingCheckIn: ConvoyRideStore.CheckIn? = null
-ConvoyViewModel.kt:464:    var pendingTrackName = androidx.compose.runtime.mutableStateOf("")
-ConvoyViewModel.kt:465:    var showRecMenu = androidx.compose.runtime.mutableStateOf(false)
-ConvoyViewModel.kt:466:    var pendingEnrollmentEmail = androidx.compose.runtime.mutableStateOf("")
-ConvoyViewModel.kt:467:    var hasSeenNodes = androidx.compose.runtime.mutableStateOf(false)
-ConvoyViewModel.kt:476:    fun radioNodeNum(): Int? = myRadioNum()
-ConvoyViewModel.kt:482:    val radioConfig: com.grouptrack.comm.CommConfig get() = commConfig
-ConvoyViewModel.kt:489:    var persistentWebView: android.webkit.WebView? = null
-ConvoyViewModel.kt:492:    val hudTextWhiteByMap = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
-ConvoyViewModel.kt:495:    val convoyRideMapStates = HashMap<String, androidx.compose.runtime.MutableState<*>>()
-ConvoyViewModel.kt:499:    private fun resolveMyCartId(): String {
-ConvoyViewModel.kt:500:        val num = myRadioNum()
-ConvoyViewModel.kt:503:    val myCartId: StateFlow<String> = _myCartId.asStateFlow()
-ConvoyViewModel.kt:505:    private val _showLeadTrack = MutableStateFlow(true)
-ConvoyViewModel.kt:506:    val showLeadTrack: StateFlow<Boolean> = _showLeadTrack.asStateFlow()
-ConvoyViewModel.kt:508:    private val _leadTrackSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
-ConvoyViewModel.kt:509:    val leadTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _leadTrackSegments.asStateFlow()
-ConvoyViewModel.kt:510:    private val _gpsTrailSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
-ConvoyViewModel.kt:511:    val gpsTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _gpsTrailSegments.asStateFlow()
-ConvoyViewModel.kt:512:    private val _routeTrailSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
-ConvoyViewModel.kt:513:    val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
-ConvoyViewModel.kt:516:    private val _routeRecording = MutableStateFlow(false)
-ConvoyViewModel.kt:517:    val routeRecording: StateFlow<Boolean> = _routeRecording.asStateFlow()
-ConvoyViewModel.kt:518:    private val _offTrackNodes = MutableStateFlow<List<ConvoyNode>>(emptyList())
-ConvoyViewModel.kt:519:    val offTrackNodes: StateFlow<List<ConvoyNode>> = _offTrackNodes.asStateFlow()
-ConvoyViewModel.kt:520:    private var admissionWindowHours: Int = 1
-ConvoyViewModel.kt:524:    private val _removedCarts = MutableStateFlow<Map<String, String>>(emptyMap())
-ConvoyViewModel.kt:525:    val removedCarts: StateFlow<Map<String, String>> = _removedCarts.asStateFlow()
-ConvoyViewModel.kt:526:    fun toggleCartActive(nodeId: String, callsign: String) {
-ConvoyViewModel.kt:553:                val num = d?.id?.toIntOrNull()
-ConvoyViewModel.kt:573:                    val recOn = GroupMode.on.value && _trackActive.value
-ConvoyViewModel.kt:575:                    val est = if (recOn) leadEst.tick(System.currentTimeMillis(), estRouteNow()) else null
-ConvoyViewModel.kt:592:                    val utils = boardCarts.keys.mapNotNull { id -> id.removePrefix("!").toLongOrNull(16)?.toInt()?.toString()?.let { boardUtil[it] } }
-ConvoyViewModel.kt:596:                        val fresh = System.currentTimeMillis() - myRadioFixMs < 120_000L
-ConvoyViewModel.kt:616:                val myNum = myRadioNum()
-ConvoyViewModel.kt:619:                    val role = if (!checkedIn) "" else takRideRole(num).ifBlank { if (num == myNum) (checkIn.value?.role ?: "") else "" }
-ConvoyViewModel.kt:630:            var clearedForThisFailure = false
-ConvoyViewModel.kt:637:                    val mine = resolveMyCartId()
-ConvoyViewModel.kt:661:    suspend fun scanImportDirectory() {
-ConvoyViewModel.kt:663:            val importDir = java.io.File(appContext.filesDir, "convoy_import").also { it.mkdirs() }
-ConvoyViewModel.kt:667:            val files = importDir.listFiles { f -> f.extension == "convoy" || f.extension == "json" } ?: return
-ConvoyViewModel.kt:668:            var importCount = 0
-ConvoyViewModel.kt:669:            var lastImportedName = ""
-ConvoyViewModel.kt:672:                    val json = org.json.JSONObject(file.readText())
-ConvoyViewModel.kt:673:                    val docType = json.optString("convoyDocType", "convoy_ride")
-ConvoyViewModel.kt:676:                            val event = ConvoyEventConfig.fromJson(json)
-ConvoyViewModel.kt:690:                val msg = if (importCount == 1) "NEW RIDE IMPORTED: $lastImportedName" else "$importCount NEW RIDES IMPORTED"
-ConvoyViewModel.kt:703:    fun setGroupMode(on: Boolean) {
-ConvoyViewModel.kt:715:    private fun enterAndroidMode() {
-ConvoyViewModel.kt:716:        val mine = resolveMyCartId()
-ConvoyViewModel.kt:717:        val myNodes = _convoyState.value.nodes.filter { it.isMyCart || it.nodeId == mine }
-ConvoyViewModel.kt:725:    fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
-ConvoyViewModel.kt:728:    private val _currentIntervalSecs = MutableStateFlow(5)
-ConvoyViewModel.kt:729:    val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
-ConvoyViewModel.kt:744:    val gpsApply: StateFlow<String?> = _gpsApply.asStateFlow()
-ConvoyViewModel.kt:745:    private val _gpsApplyBusy = MutableStateFlow(false)
-ConvoyViewModel.kt:746:    val gpsApplyBusy: StateFlow<Boolean> = _gpsApplyBusy.asStateFlow()
-ConvoyViewModel.kt:747:    fun clearGpsApplyStatus() { if (!_gpsApplyBusy.value) _gpsApply.value = null }
-ConvoyViewModel.kt:751:    fun sendTestPolyline(done: (String) -> Unit) {
-ConvoyViewModel.kt:753:        val lats = listOf(42.7954083, 42.7923040, 42.7897953, 42.7875197, 42.7857813, 42.7842233, 42.7843220, 42.7862126, 42.7886974, 42.7907664,
-ConvoyViewModel.kt:755:        val lons = listOf(-71.2772086, -71.2792966, -71.2827386, -71.2865197, -71.2906323, -71.2948318, -71.2986707, -71.2987069, -71.2984514, -71.3012102,
-ConvoyViewModel.kt:757:        val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
-ConvoyViewModel.kt:758:        val p = com.grouptrack.comm.GapPolyline((myRadioNum() ?: 0).toString(), cs, System.currentTimeMillis() - 460_000L, 24_234L, lats, lons)
-ConvoyViewModel.kt:760:            val r = commMessaging.deliverPolyline(p)
-ConvoyViewModel.kt:770:    fun rideStatsReport(): String = RideStats.report(System.currentTimeMillis(), reportingPreset.value, reportingNowSecs.value, _avgChannelUtil.value)
-ConvoyViewModel.kt:771:    fun resetRideStats() = RideStats.reset()
-ConvoyViewModel.kt:778:        val pw = GpsPresets.label(preset)
-ConvoyViewModel.kt:784:            val progress = launch {
-ConvoyViewModel.kt:788:                val r = commConfig.applyRadioChange(preset, secs)
-ConvoyViewModel.kt:808:    fun removeNode(nodeId: String) {
-ConvoyViewModel.kt:811:        val current = _convoyState.value
-ConvoyViewModel.kt:817:    fun setMyCartId(nodeId: String) { _myCartId.value = nodeId }
-ConvoyViewModel.kt:818:    fun toggleLeadTrack() { _showLeadTrack.value = !_showLeadTrack.value }
-ConvoyViewModel.kt:819:    fun setShowLeadTrack(visible: Boolean) { _showLeadTrack.value = visible }
-ConvoyViewModel.kt:821:    private var gpsServiceConn: android.content.ServiceConnection? = null
-ConvoyViewModel.kt:822:    private val _distanceMiles = MutableStateFlow(0.0)
-ConvoyViewModel.kt:823:    val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
-ConvoyViewModel.kt:824:    private val _avgChannelUtil = MutableStateFlow(0f)
-ConvoyViewModel.kt:825:    val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
-ConvoyViewModel.kt:826:    private var gpsService: ConvoyGpsService? = null
-ConvoyViewModel.kt:827:    private var pendingTempFile: java.io.File? = null
-ConvoyViewModel.kt:829:    @Volatile private var lastGpsLon: Double? = null
-ConvoyViewModel.kt:831:    private fun bindGpsService(context: android.content.Context, onBound: (ConvoyGpsService) -> Unit) {
-ConvoyViewModel.kt:832:        val conn = object : android.content.ServiceConnection {
-ConvoyViewModel.kt:833:            override fun onServiceConnected(name: android.content.ComponentName, service: android.os.IBinder) {
-ConvoyViewModel.kt:834:                val svc = (service as ConvoyGpsService.LocalBinder).getService()
-ConvoyViewModel.kt:839:                    val add = ArrayList<ConvoyEngine.LeadTrackSegment>()
-ConvoyViewModel.kt:841:                        val pLat = lastGpsLat; val pLon = lastGpsLon
-ConvoyViewModel.kt:853:            override fun onServiceDisconnected(name: android.content.ComponentName) { gpsService = null }
-ConvoyViewModel.kt:856:        val intent = android.content.Intent(context, ConvoyGpsService::class.java)
-ConvoyViewModel.kt:860:    fun startRecording(context: android.content.Context) {
-ConvoyViewModel.kt:864:    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
-ConvoyViewModel.kt:869:    private var radioBeforeSleep = ""
-ConvoyViewModel.kt:870:    fun sleepRadio() {
-ConvoyViewModel.kt:875:    fun wakeRadio() {
-ConvoyViewModel.kt:876:        val r = radioBeforeSleep
-ConvoyViewModel.kt:880:    fun wakeFromSleep(context: android.content.Context) {
-ConvoyViewModel.kt:884:    fun resumeRecording(context: android.content.Context) {
-ConvoyViewModel.kt:889:    fun stopRecording() {
-ConvoyViewModel.kt:897:    fun deleteTempTrack() {
-ConvoyViewModel.kt:899:        val temp = pendingTempFile ?: return
-ConvoyViewModel.kt:909:    var pendingSurvey: ConvoyRideStore.RideSurveyInput? = null
-ConvoyViewModel.kt:911:    fun finalizeTrack(name: String, context: android.content.Context) {
-ConvoyViewModel.kt:912:        val temp = pendingTempFile ?: return
-ConvoyViewModel.kt:914:        val finalized = gpsService?.finalizeTrack(temp, name)
-ConvoyViewModel.kt:921:            val f = finalized ?: return
-ConvoyViewModel.kt:922:            var text = f.readText()
-ConvoyViewModel.kt:924:            val esc = name.trim()
-ConvoyViewModel.kt:928:            val coords = com.geeksville.mesh.convoy.SpatialDbManager.parseGpxTrackPoints(text)
-ConvoyViewModel.kt:930:            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-ConvoyViewModel.kt:931:            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-ConvoyViewModel.kt:939:            val outcome = com.geeksville.mesh.convoy.SpatialDbManager.resolveTrackAdd(name.trim(), f)
-ConvoyViewModel.kt:945:                    val tid = com.geeksville.mesh.convoy.SpatialDbManager.trackIdForGpxText(text)
-ConvoyViewModel.kt:957:    private val convoyLogFile: java.io.File by lazy {
-ConvoyViewModel.kt:962:    private fun convoyLog(msg: String) {
-ConvoyViewModel.kt:972:    private fun onMyTabletFix(lat: Double, lon: Double, loc: android.location.Location?) {
-ConvoyViewModel.kt:981:    private fun onBoardMyFix(lat: Double, lon: Double, loc: android.location.Location?) {
-ConvoyViewModel.kt:984:        val now = System.currentTimeMillis()
-ConvoyViewModel.kt:990:        val everyMs = (reportingNowSecs.value ?: 6) * 1000L
-ConvoyViewModel.kt:993:        val moved = lat != myFixLat || lon != myFixLon
-ConvoyViewModel.kt:996:        val myNumNow = myRadioNum()
-ConvoyViewModel.kt:999:            val myId = "!%08x".format(myNumNow)
-ConvoyViewModel.kt:1000:            val prevMine = boardCarts[myId]
-ConvoyViewModel.kt:1001:            val fixMs = loc?.time?.takeIf { it > 0L } ?: now
-ConvoyViewModel.kt:1002:            val msg = com.grouptrack.comm.CommMessage(
-ConvoyViewModel.kt:1018:        val alt = ((loc?.altitude ?: 0.0) * 3.28084).toInt()
-ConvoyViewModel.kt:1019:        val spd = (loc?.speed ?: 0f) * 2.23694f
-ConvoyViewModel.kt:1020:        val hdg = loc?.bearing ?: 0f
-ConvoyViewModel.kt:1021:        var cart = myTabletCart(lat, lon, alt, spd, hdg, loc, now)
-ConvoyViewModel.kt:1023:            val prevMe = boardCarts[cart.nodeId]
-ConvoyViewModel.kt:1034:    private fun boardRecompute(now: Long) {
-ConvoyViewModel.kt:1035:        val mine = resolveMyCartId()
-ConvoyViewModel.kt:1042:        val nodes = boardCarts.values.toList()
-ConvoyViewModel.kt:1045:        val reportedLeader = nodes.firstOrNull { it.rideRole == "leader" }?.nodeId
-ConvoyViewModel.kt:1063:            val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
-ConvoyViewModel.kt:1080:    private fun getPhoneLocation(): android.location.Location? {
-ConvoyViewModel.kt:1082:        val svcLat = gpsService?.lastLat
-ConvoyViewModel.kt:1083:        val svcLon = gpsService?.lastLon
-ConvoyViewModel.kt:1085:            val loc = android.location.Location("gps")
-ConvoyViewModel.kt:1091:        val live = livePhoneLocation
-ConvoyViewModel.kt:1097:            val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
-ConvoyViewModel.kt:1106:    private fun trackConsume(e: TrackEntry) {
-ConvoyViewModel.kt:1110:                val ok = leadCart.onGapPolyline(e.cartId, e.poly)
-ConvoyViewModel.kt:1133:                    val d = leadCart.metresFromTrack(e.p)
-ConvoyViewModel.kt:1134:                    val off = d != null && d > ConvoyConfig.OFF_TRACK_MILES.toDouble() * 1609.344
-ConvoyViewModel.kt:1135:                    val cur = _offTrackIds.value
-ConvoyViewModel.kt:1142:    private fun trackPublish() {
-ConvoyViewModel.kt:1143:        val segs = leadCart.segments()
-ConvoyViewModel.kt:1153:    private fun polyOnMessage(num: Int, myNum: Int?, msg: com.grouptrack.comm.CommMessage, now: Long) {
-ConvoyViewModel.kt:1156:            val p = msg.point ?: return
-ConvoyViewModel.kt:1161:        val last = polyLastHeardMs
-ConvoyViewModel.kt:1163:        val iLead = (checkIn.value?.role ?: "") == "leader" || "!%08x".format(myNum) == lockedLeadNodeId
-ConvoyViewModel.kt:1166:            val p = polyBuild(myNum, last, now) ?: return
-ConvoyViewModel.kt:1170:            val r = polyRepeat
-ConvoyViewModel.kt:1177:    private fun polyBuild(myNum: Int, t0: Long, t1: Long): com.grouptrack.comm.GapPolyline? {
-ConvoyViewModel.kt:1178:        val fx = polyOwnFixes.toList()
-ConvoyViewModel.kt:1179:        val inside = fx.count { it.first in t0..t1 }
-ConvoyViewModel.kt:1184:        val step = (t1 - t0) / 19
-ConvoyViewModel.kt:1185:        fun at(t: Long): Pair<Double, Double> {
-ConvoyViewModel.kt:1188:            val i = fx.indexOfFirst { it.first >= t }
-ConvoyViewModel.kt:1189:            val a = fx[i - 1]; val b = fx[i]
-ConvoyViewModel.kt:1190:            val f = if (b.first == a.first) 0.0 else (t - a.first).toDouble() / (b.first - a.first)
-ConvoyViewModel.kt:1193:        val pts = (0 until 20).map { at(t0 + it * step) }
-ConvoyViewModel.kt:1194:        val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
-ConvoyViewModel.kt:1197:    private fun polySend(p: com.grouptrack.comm.GapPolyline, what: String) {
-ConvoyViewModel.kt:1198:        val secs = p.stepMs * 19 / 1000
-ConvoyViewModel.kt:1200:            val r = commMessaging.deliverPolyline(p)
-ConvoyViewModel.kt:1208:    private fun onGapPolylineReceived(p: com.grouptrack.comm.GapPolyline) {
-ConvoyViewModel.kt:1209:        val num = p.senderUid.toIntOrNull() ?: return
-ConvoyViewModel.kt:1211:        val id = "!%08x".format(num)
-ConvoyViewModel.kt:1212:        val key = p.senderUid + "-" + p.t0Ms / 1000
-ConvoyViewModel.kt:1213:        val first = polyApplied.add(key)
-ConvoyViewModel.kt:1214:        val n = minOf(p.lats.size, p.lons.size)
-ConvoyViewModel.kt:1215:        val secs = p.stepMs * (n - 1) / 1000
-ConvoyViewModel.kt:1216:        val isLead = id == lockedLeadNodeId
-ConvoyViewModel.kt:1230:        val num = msg.uid.removePrefix("MESHTASTIC-!").toLongOrNull(16)?.toInt() ?: return
-ConvoyViewModel.kt:1231:        val myNum = myRadioNum()
-ConvoyViewModel.kt:1234:        val nowMine = System.currentTimeMillis()
-ConvoyViewModel.kt:1243:        val id = "!%08x".format(num)
-ConvoyViewModel.kt:1244:        val now = System.currentTimeMillis()
-ConvoyViewModel.kt:1247:        val skipMine = !fromTablet && num == myNum && tabletHasGps
-ConvoyViewModel.kt:1248:        val cart = if (skipMine) null else cartFromMessage(msg, num, now, myNum, getPhoneLocation(), { boardCarts[it] }, boardSpeedStart, boardSpeedLast)
-ConvoyViewModel.kt:1251:        val qp = msg.point
-ConvoyViewModel.kt:1257:        val rp = msg.point
-ConvoyViewModel.kt:1271:    private fun cartFromMessage(
-ConvoyViewModel.kt:1276:        val nodeId = "!%08x".format(num)
-ConvoyViewModel.kt:1278:        val p = msg.point
-ConvoyViewModel.kt:1279:        val prevPos = prev(nodeId)?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }?.let { Pair(it.latitude, it.longitude) }
-ConvoyViewModel.kt:1280:        val latLon: Pair<Double, Double> = if (p != null) {
-ConvoyViewModel.kt:1282:            val isStale = rideStartTimeMs > 0L && msg.timeMs > 0L && msg.timeMs < rideStartTimeMs
-ConvoyViewModel.kt:1292:            val windowStart = speedStart[nodeId]
-ConvoyViewModel.kt:1296:                val (startMs, startLat, startLon) = windowStart
-ConvoyViewModel.kt:1298:                    val speed = ConvoyEngine.haversineMiles(startLat, startLon, latLon.first, latLon.second) * 60f
-ConvoyViewModel.kt:1306:        val mine = num == myNum
-ConvoyViewModel.kt:1331:    private fun myTabletCart(lat: Double, lon: Double, alt: Int, spd: Float, hdg: Float, loc: android.location.Location?, nowMs: Long): ConvoyNode = ConvoyNode(
-ConvoyViewModel.kt:1349:    sealed class DownloadState {
-ConvoyViewModel.kt:1350:        object Idle : DownloadState()
-ConvoyViewModel.kt:1351:        data class Downloading(val downloaded: Int, val total: Int, val failCount: Int) : DownloadState()
-ConvoyViewModel.kt:1352:        data class Complete(val summary: DownloadSummary) : DownloadState()
-ConvoyViewModel.kt:1353:        object Cancelled : DownloadState()
-ConvoyViewModel.kt:1354:        data class Error(val message: String) : DownloadState()
-ConvoyViewModel.kt:1357:    data class PendingDownload(
-ConvoyViewModel.kt:1358:        val tileCount: Int, val sizeMB: Float, val withinCeiling: Boolean,
-ConvoyViewModel.kt:1359:        val north: Double, val south: Double, val east: Double, val west: Double,
-ConvoyViewModel.kt:1360:        val sourceName: String, val sourceUrl: String
-ConvoyViewModel.kt:1363:    private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
-ConvoyViewModel.kt:1364:    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
-ConvoyViewModel.kt:1365:    private val _pendingDownload = MutableStateFlow<PendingDownload?>(null)
-ConvoyViewModel.kt:1366:    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
-ConvoyViewModel.kt:1367:    private var activeEntryId: String? = null
-ConvoyViewModel.kt:1368:    var downloadStartTime: Long = 0L
-ConvoyViewModel.kt:1370:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
-ConvoyViewModel.kt:1371:    fun clearPendingDownload() { _pendingDownload.value = null }
-ConvoyViewModel.kt:1373:    fun startDownload(context: android.content.Context, pending: PendingDownload) {
-ConvoyViewModel.kt:1377:        val entry = DownloadQueueManager.enqueue(
-ConvoyViewModel.kt:1386:    private fun observeQueueEntry(entryId: String) {
-ConvoyViewModel.kt:1389:                val entry = entries.find { it.id == entryId } ?: return@collect
-ConvoyViewModel.kt:1396:                        val avgBytes = 15_360L
-ConvoyViewModel.kt:1397:                        val mb = (entry.downloadedTiles * avgBytes) / (1024f * 1024f)
-ConvoyViewModel.kt:1410:    fun cancelDownload() {
-ConvoyViewModel.kt:1419:    override fun onCleared() {
+ConvoyViewModel.kt:412:                val endAt = if (recAt == 0L) startedAt + 4 * 3_600_000L else maxOf(recAt, startedAt) + 120_000L
+ConvoyViewModel.kt:419:    fun setLeadCart(nodeId: String?) {
+ConvoyViewModel.kt:424:            val name = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }?.callsign ?: nodeId
+ConvoyViewModel.kt:434:    private val _radioInactive = MutableStateFlow(false)
+ConvoyViewModel.kt:435:    val radioInactive: StateFlow<Boolean> = _radioInactive.asStateFlow()
+ConvoyViewModel.kt:436:    private var lastMovementMs: Long = 0L
+ConvoyViewModel.kt:437:    private val RADIO_INACTIVE_TIMEOUT_MS = 5 * 60 * 1000L
+ConvoyViewModel.kt:438:    fun reconnectRadio() {
+ConvoyViewModel.kt:445:    var recordingState = androidx.compose.runtime.mutableStateOf(com.geeksville.mesh.convoy.RecordingState.CHECK_IN)
+ConvoyViewModel.kt:447:    val checkIn = androidx.compose.runtime.mutableStateOf<ConvoyRideStore.CheckIn?>(null)
+ConvoyViewModel.kt:450:    private val profileCallsign: String by lazy { runCatching { ConvoyProfileStore.load()?.callsign }.getOrNull()?.trim().orEmpty() }
+ConvoyViewModel.kt:451:    private fun tickCallsign(): String =
+ConvoyViewModel.kt:464:    var endingCheckIn: ConvoyRideStore.CheckIn? = null
+ConvoyViewModel.kt:465:    var pendingTrackName = androidx.compose.runtime.mutableStateOf("")
+ConvoyViewModel.kt:466:    var showRecMenu = androidx.compose.runtime.mutableStateOf(false)
+ConvoyViewModel.kt:467:    var pendingEnrollmentEmail = androidx.compose.runtime.mutableStateOf("")
+ConvoyViewModel.kt:468:    var hasSeenNodes = androidx.compose.runtime.mutableStateOf(false)
+ConvoyViewModel.kt:477:    fun radioNodeNum(): Int? = myRadioNum()
+ConvoyViewModel.kt:483:    val radioConfig: com.grouptrack.comm.CommConfig get() = commConfig
+ConvoyViewModel.kt:490:    var persistentWebView: android.webkit.WebView? = null
+ConvoyViewModel.kt:493:    val hudTextWhiteByMap = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
+ConvoyViewModel.kt:496:    val convoyRideMapStates = HashMap<String, androidx.compose.runtime.MutableState<*>>()
+ConvoyViewModel.kt:500:    private fun resolveMyCartId(): String {
+ConvoyViewModel.kt:501:        val num = myRadioNum()
+ConvoyViewModel.kt:504:    val myCartId: StateFlow<String> = _myCartId.asStateFlow()
+ConvoyViewModel.kt:506:    private val _showLeadTrack = MutableStateFlow(true)
+ConvoyViewModel.kt:507:    val showLeadTrack: StateFlow<Boolean> = _showLeadTrack.asStateFlow()
+ConvoyViewModel.kt:509:    private val _leadTrackSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
+ConvoyViewModel.kt:510:    val leadTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _leadTrackSegments.asStateFlow()
+ConvoyViewModel.kt:511:    private val _gpsTrailSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
+ConvoyViewModel.kt:512:    val gpsTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _gpsTrailSegments.asStateFlow()
+ConvoyViewModel.kt:513:    private val _routeTrailSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
+ConvoyViewModel.kt:514:    val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
+ConvoyViewModel.kt:517:    private val _routeRecording = MutableStateFlow(false)
+ConvoyViewModel.kt:518:    val routeRecording: StateFlow<Boolean> = _routeRecording.asStateFlow()
+ConvoyViewModel.kt:519:    private val _offTrackNodes = MutableStateFlow<List<ConvoyNode>>(emptyList())
+ConvoyViewModel.kt:520:    val offTrackNodes: StateFlow<List<ConvoyNode>> = _offTrackNodes.asStateFlow()
+ConvoyViewModel.kt:521:    private var admissionWindowHours: Int = 1
+ConvoyViewModel.kt:525:    private val _removedCarts = MutableStateFlow<Map<String, String>>(emptyMap())
+ConvoyViewModel.kt:526:    val removedCarts: StateFlow<Map<String, String>> = _removedCarts.asStateFlow()
+ConvoyViewModel.kt:527:    fun toggleCartActive(nodeId: String, callsign: String) {
+ConvoyViewModel.kt:554:                val num = d?.id?.toIntOrNull()
+ConvoyViewModel.kt:574:                    val recOn = GroupMode.on.value && _trackActive.value
+ConvoyViewModel.kt:576:                    val est = if (recOn) leadEst.tick(System.currentTimeMillis(), estRouteNow()) else null
+ConvoyViewModel.kt:593:                    val utils = boardCarts.keys.mapNotNull { id -> id.removePrefix("!").toLongOrNull(16)?.toInt()?.toString()?.let { boardUtil[it] } }
+ConvoyViewModel.kt:597:                        val fresh = System.currentTimeMillis() - myRadioFixMs < 120_000L
+ConvoyViewModel.kt:617:                val myNum = myRadioNum()
+ConvoyViewModel.kt:620:                    val role = if (!checkedIn) "" else takRideRole(num).ifBlank { if (num == myNum) (checkIn.value?.role ?: "") else "" }
+ConvoyViewModel.kt:631:            var clearedForThisFailure = false
+ConvoyViewModel.kt:638:                    val mine = resolveMyCartId()
+ConvoyViewModel.kt:662:    suspend fun scanImportDirectory() {
+ConvoyViewModel.kt:664:            val importDir = java.io.File(appContext.filesDir, "convoy_import").also { it.mkdirs() }
+ConvoyViewModel.kt:668:            val files = importDir.listFiles { f -> f.extension == "convoy" || f.extension == "json" } ?: return
+ConvoyViewModel.kt:669:            var importCount = 0
+ConvoyViewModel.kt:670:            var lastImportedName = ""
+ConvoyViewModel.kt:673:                    val json = org.json.JSONObject(file.readText())
+ConvoyViewModel.kt:674:                    val docType = json.optString("convoyDocType", "convoy_ride")
+ConvoyViewModel.kt:677:                            val event = ConvoyEventConfig.fromJson(json)
+ConvoyViewModel.kt:691:                val msg = if (importCount == 1) "NEW RIDE IMPORTED: $lastImportedName" else "$importCount NEW RIDES IMPORTED"
+ConvoyViewModel.kt:704:    fun setGroupMode(on: Boolean) {
+ConvoyViewModel.kt:716:    private fun enterAndroidMode() {
+ConvoyViewModel.kt:717:        val mine = resolveMyCartId()
+ConvoyViewModel.kt:718:        val myNodes = _convoyState.value.nodes.filter { it.isMyCart || it.nodeId == mine }
+ConvoyViewModel.kt:726:    fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
+ConvoyViewModel.kt:729:    private val _currentIntervalSecs = MutableStateFlow(5)
+ConvoyViewModel.kt:730:    val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
+ConvoyViewModel.kt:745:    val gpsApply: StateFlow<String?> = _gpsApply.asStateFlow()
+ConvoyViewModel.kt:746:    private val _gpsApplyBusy = MutableStateFlow(false)
+ConvoyViewModel.kt:747:    val gpsApplyBusy: StateFlow<Boolean> = _gpsApplyBusy.asStateFlow()
+ConvoyViewModel.kt:748:    fun clearGpsApplyStatus() { if (!_gpsApplyBusy.value) _gpsApply.value = null }
+ConvoyViewModel.kt:752:    fun sendTestPolyline(done: (String) -> Unit) {
+ConvoyViewModel.kt:754:        val lats = listOf(42.7954083, 42.7923040, 42.7897953, 42.7875197, 42.7857813, 42.7842233, 42.7843220, 42.7862126, 42.7886974, 42.7907664,
+ConvoyViewModel.kt:756:        val lons = listOf(-71.2772086, -71.2792966, -71.2827386, -71.2865197, -71.2906323, -71.2948318, -71.2986707, -71.2987069, -71.2984514, -71.3012102,
+ConvoyViewModel.kt:758:        val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
+ConvoyViewModel.kt:759:        val p = com.grouptrack.comm.GapPolyline((myRadioNum() ?: 0).toString(), cs, System.currentTimeMillis() - 460_000L, 24_234L, lats, lons)
+ConvoyViewModel.kt:761:            val r = commMessaging.deliverPolyline(p)
+ConvoyViewModel.kt:771:    fun rideStatsReport(): String = RideStats.report(System.currentTimeMillis(), reportingPreset.value, reportingNowSecs.value, _avgChannelUtil.value)
+ConvoyViewModel.kt:772:    fun resetRideStats() = RideStats.reset()
+ConvoyViewModel.kt:779:        val pw = GpsPresets.label(preset)
+ConvoyViewModel.kt:785:            val progress = launch {
+ConvoyViewModel.kt:789:                val r = commConfig.applyRadioChange(preset, secs)
+ConvoyViewModel.kt:809:    fun removeNode(nodeId: String) {
+ConvoyViewModel.kt:812:        val current = _convoyState.value
+ConvoyViewModel.kt:818:    fun setMyCartId(nodeId: String) { _myCartId.value = nodeId }
+ConvoyViewModel.kt:819:    fun toggleLeadTrack() { _showLeadTrack.value = !_showLeadTrack.value }
+ConvoyViewModel.kt:820:    fun setShowLeadTrack(visible: Boolean) { _showLeadTrack.value = visible }
+ConvoyViewModel.kt:822:    private var gpsServiceConn: android.content.ServiceConnection? = null
+ConvoyViewModel.kt:823:    private val _distanceMiles = MutableStateFlow(0.0)
+ConvoyViewModel.kt:824:    val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
+ConvoyViewModel.kt:825:    private val _avgChannelUtil = MutableStateFlow(0f)
+ConvoyViewModel.kt:826:    val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
+ConvoyViewModel.kt:827:    private var gpsService: ConvoyGpsService? = null
+ConvoyViewModel.kt:828:    private var pendingTempFile: java.io.File? = null
+ConvoyViewModel.kt:830:    @Volatile private var lastGpsLon: Double? = null
+ConvoyViewModel.kt:832:    private fun bindGpsService(context: android.content.Context, onBound: (ConvoyGpsService) -> Unit) {
+ConvoyViewModel.kt:833:        val conn = object : android.content.ServiceConnection {
+ConvoyViewModel.kt:834:            override fun onServiceConnected(name: android.content.ComponentName, service: android.os.IBinder) {
+ConvoyViewModel.kt:835:                val svc = (service as ConvoyGpsService.LocalBinder).getService()
+ConvoyViewModel.kt:840:                    val add = ArrayList<ConvoyEngine.LeadTrackSegment>()
+ConvoyViewModel.kt:842:                        val pLat = lastGpsLat; val pLon = lastGpsLon
+ConvoyViewModel.kt:854:            override fun onServiceDisconnected(name: android.content.ComponentName) { gpsService = null }
+ConvoyViewModel.kt:857:        val intent = android.content.Intent(context, ConvoyGpsService::class.java)
+ConvoyViewModel.kt:861:    fun startRecording(context: android.content.Context) {
+ConvoyViewModel.kt:865:    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
+ConvoyViewModel.kt:870:    private var radioBeforeSleep = ""
+ConvoyViewModel.kt:871:    fun sleepRadio() {
+ConvoyViewModel.kt:876:    fun wakeRadio() {
+ConvoyViewModel.kt:877:        val r = radioBeforeSleep
+ConvoyViewModel.kt:881:    fun wakeFromSleep(context: android.content.Context) {
+ConvoyViewModel.kt:885:    fun resumeRecording(context: android.content.Context) {
+ConvoyViewModel.kt:890:    fun stopRecording() {
+ConvoyViewModel.kt:898:    fun deleteTempTrack() {
+ConvoyViewModel.kt:900:        val temp = pendingTempFile ?: return
+ConvoyViewModel.kt:910:    var pendingSurvey: ConvoyRideStore.RideSurveyInput? = null
+ConvoyViewModel.kt:912:    fun finalizeTrack(name: String, context: android.content.Context) {
+ConvoyViewModel.kt:913:        val temp = pendingTempFile ?: return
+ConvoyViewModel.kt:915:        val finalized = gpsService?.finalizeTrack(temp, name)
+ConvoyViewModel.kt:922:            val f = finalized ?: return
+ConvoyViewModel.kt:923:            var text = f.readText()
+ConvoyViewModel.kt:925:            val esc = name.trim()
+ConvoyViewModel.kt:929:            val coords = com.geeksville.mesh.convoy.SpatialDbManager.parseGpxTrackPoints(text)
+ConvoyViewModel.kt:931:            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+ConvoyViewModel.kt:932:            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+ConvoyViewModel.kt:940:            val outcome = com.geeksville.mesh.convoy.SpatialDbManager.resolveTrackAdd(name.trim(), f)
+ConvoyViewModel.kt:946:                    val tid = com.geeksville.mesh.convoy.SpatialDbManager.trackIdForGpxText(text)
+ConvoyViewModel.kt:958:    private val convoyLogFile: java.io.File by lazy {
+ConvoyViewModel.kt:963:    private fun convoyLog(msg: String) {
+ConvoyViewModel.kt:973:    private fun onMyTabletFix(lat: Double, lon: Double, loc: android.location.Location?) {
+ConvoyViewModel.kt:982:    private fun onBoardMyFix(lat: Double, lon: Double, loc: android.location.Location?) {
+ConvoyViewModel.kt:985:        val now = System.currentTimeMillis()
+ConvoyViewModel.kt:991:        val everyMs = (reportingNowSecs.value ?: 6) * 1000L
+ConvoyViewModel.kt:994:        val moved = lat != myFixLat || lon != myFixLon
+ConvoyViewModel.kt:997:        val myNumNow = myRadioNum()
+ConvoyViewModel.kt:1000:            val myId = "!%08x".format(myNumNow)
+ConvoyViewModel.kt:1001:            val prevMine = boardCarts[myId]
+ConvoyViewModel.kt:1002:            val fixMs = loc?.time?.takeIf { it > 0L } ?: now
+ConvoyViewModel.kt:1003:            val msg = com.grouptrack.comm.CommMessage(
+ConvoyViewModel.kt:1019:        val alt = ((loc?.altitude ?: 0.0) * 3.28084).toInt()
+ConvoyViewModel.kt:1020:        val spd = (loc?.speed ?: 0f) * 2.23694f
+ConvoyViewModel.kt:1021:        val hdg = loc?.bearing ?: 0f
+ConvoyViewModel.kt:1022:        var cart = myTabletCart(lat, lon, alt, spd, hdg, loc, now)
+ConvoyViewModel.kt:1024:            val prevMe = boardCarts[cart.nodeId]
+ConvoyViewModel.kt:1035:    private fun boardRecompute(now: Long) {
+ConvoyViewModel.kt:1036:        val mine = resolveMyCartId()
+ConvoyViewModel.kt:1043:        val nodes = boardCarts.values.toList()
+ConvoyViewModel.kt:1046:        val reportedLeader = nodes.firstOrNull { it.rideRole == "leader" }?.nodeId
+ConvoyViewModel.kt:1064:            val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
+ConvoyViewModel.kt:1081:    private fun getPhoneLocation(): android.location.Location? {
+ConvoyViewModel.kt:1083:        val svcLat = gpsService?.lastLat
+ConvoyViewModel.kt:1084:        val svcLon = gpsService?.lastLon
+ConvoyViewModel.kt:1086:            val loc = android.location.Location("gps")
+ConvoyViewModel.kt:1092:        val live = livePhoneLocation
+ConvoyViewModel.kt:1098:            val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
+ConvoyViewModel.kt:1107:    private fun trackConsume(e: TrackEntry) {
+ConvoyViewModel.kt:1111:                val ok = leadCart.onGapPolyline(e.cartId, e.poly)
+ConvoyViewModel.kt:1134:                    val d = leadCart.metresFromTrack(e.p)
+ConvoyViewModel.kt:1135:                    val off = d != null && d > ConvoyConfig.OFF_TRACK_MILES.toDouble() * 1609.344
+ConvoyViewModel.kt:1136:                    val cur = _offTrackIds.value
+ConvoyViewModel.kt:1143:    private fun trackPublish() {
+ConvoyViewModel.kt:1144:        val segs = leadCart.segments()
+ConvoyViewModel.kt:1154:    private fun polyOnMessage(num: Int, myNum: Int?, msg: com.grouptrack.comm.CommMessage, now: Long) {
+ConvoyViewModel.kt:1157:            val p = msg.point ?: return
+ConvoyViewModel.kt:1162:        val last = polyLastHeardMs
+ConvoyViewModel.kt:1164:        val iLead = (checkIn.value?.role ?: "") == "leader" || "!%08x".format(myNum) == lockedLeadNodeId
+ConvoyViewModel.kt:1167:            val p = polyBuild(myNum, last, now) ?: return
+ConvoyViewModel.kt:1171:            val r = polyRepeat
+ConvoyViewModel.kt:1178:    private fun polyBuild(myNum: Int, t0: Long, t1: Long): com.grouptrack.comm.GapPolyline? {
+ConvoyViewModel.kt:1179:        val fx = polyOwnFixes.toList()
+ConvoyViewModel.kt:1180:        val inside = fx.count { it.first in t0..t1 }
+ConvoyViewModel.kt:1185:        val step = (t1 - t0) / 19
+ConvoyViewModel.kt:1186:        fun at(t: Long): Pair<Double, Double> {
+ConvoyViewModel.kt:1189:            val i = fx.indexOfFirst { it.first >= t }
+ConvoyViewModel.kt:1190:            val a = fx[i - 1]; val b = fx[i]
+ConvoyViewModel.kt:1191:            val f = if (b.first == a.first) 0.0 else (t - a.first).toDouble() / (b.first - a.first)
+ConvoyViewModel.kt:1194:        val pts = (0 until 20).map { at(t0 + it * step) }
+ConvoyViewModel.kt:1195:        val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
+ConvoyViewModel.kt:1198:    private fun polySend(p: com.grouptrack.comm.GapPolyline, what: String) {
+ConvoyViewModel.kt:1199:        val secs = p.stepMs * 19 / 1000
+ConvoyViewModel.kt:1201:            val r = commMessaging.deliverPolyline(p)
+ConvoyViewModel.kt:1209:    private fun onGapPolylineReceived(p: com.grouptrack.comm.GapPolyline) {
+ConvoyViewModel.kt:1210:        val num = p.senderUid.toIntOrNull() ?: return
+ConvoyViewModel.kt:1212:        val id = "!%08x".format(num)
+ConvoyViewModel.kt:1213:        val key = p.senderUid + "-" + p.t0Ms / 1000
+ConvoyViewModel.kt:1214:        val first = polyApplied.add(key)
+ConvoyViewModel.kt:1215:        val n = minOf(p.lats.size, p.lons.size)
+ConvoyViewModel.kt:1216:        val secs = p.stepMs * (n - 1) / 1000
+ConvoyViewModel.kt:1217:        val isLead = id == lockedLeadNodeId
+ConvoyViewModel.kt:1231:        val num = msg.uid.removePrefix("MESHTASTIC-!").toLongOrNull(16)?.toInt() ?: return
+ConvoyViewModel.kt:1232:        val myNum = myRadioNum()
+ConvoyViewModel.kt:1235:        val nowMine = System.currentTimeMillis()
+ConvoyViewModel.kt:1244:        val id = "!%08x".format(num)
+ConvoyViewModel.kt:1245:        val now = System.currentTimeMillis()
+ConvoyViewModel.kt:1248:        val skipMine = !fromTablet && num == myNum && tabletHasGps
+ConvoyViewModel.kt:1249:        val cart = if (skipMine) null else cartFromMessage(msg, num, now, myNum, getPhoneLocation(), { boardCarts[it] }, boardSpeedStart, boardSpeedLast)
+ConvoyViewModel.kt:1252:        val qp = msg.point
+ConvoyViewModel.kt:1258:        val rp = msg.point
+ConvoyViewModel.kt:1272:    private fun cartFromMessage(
+ConvoyViewModel.kt:1277:        val nodeId = "!%08x".format(num)
+ConvoyViewModel.kt:1279:        val p = msg.point
+ConvoyViewModel.kt:1280:        val prevPos = prev(nodeId)?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }?.let { Pair(it.latitude, it.longitude) }
+ConvoyViewModel.kt:1281:        val latLon: Pair<Double, Double> = if (p != null) {
+ConvoyViewModel.kt:1283:            val isStale = rideStartTimeMs > 0L && msg.timeMs > 0L && msg.timeMs < rideStartTimeMs
+ConvoyViewModel.kt:1293:            val windowStart = speedStart[nodeId]
+ConvoyViewModel.kt:1297:                val (startMs, startLat, startLon) = windowStart
+ConvoyViewModel.kt:1299:                    val speed = ConvoyEngine.haversineMiles(startLat, startLon, latLon.first, latLon.second) * 60f
+ConvoyViewModel.kt:1307:        val mine = num == myNum
+ConvoyViewModel.kt:1332:    private fun myTabletCart(lat: Double, lon: Double, alt: Int, spd: Float, hdg: Float, loc: android.location.Location?, nowMs: Long): ConvoyNode = ConvoyNode(
+ConvoyViewModel.kt:1350:    sealed class DownloadState {
+ConvoyViewModel.kt:1351:        object Idle : DownloadState()
+ConvoyViewModel.kt:1352:        data class Downloading(val downloaded: Int, val total: Int, val failCount: Int) : DownloadState()
+ConvoyViewModel.kt:1353:        data class Complete(val summary: DownloadSummary) : DownloadState()
+ConvoyViewModel.kt:1354:        object Cancelled : DownloadState()
+ConvoyViewModel.kt:1355:        data class Error(val message: String) : DownloadState()
+ConvoyViewModel.kt:1358:    data class PendingDownload(
+ConvoyViewModel.kt:1359:        val tileCount: Int, val sizeMB: Float, val withinCeiling: Boolean,
+ConvoyViewModel.kt:1360:        val north: Double, val south: Double, val east: Double, val west: Double,
+ConvoyViewModel.kt:1361:        val sourceName: String, val sourceUrl: String
+ConvoyViewModel.kt:1364:    private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
+ConvoyViewModel.kt:1365:    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
+ConvoyViewModel.kt:1366:    private val _pendingDownload = MutableStateFlow<PendingDownload?>(null)
+ConvoyViewModel.kt:1367:    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
+ConvoyViewModel.kt:1368:    private var activeEntryId: String? = null
+ConvoyViewModel.kt:1369:    var downloadStartTime: Long = 0L
+ConvoyViewModel.kt:1371:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
+ConvoyViewModel.kt:1372:    fun clearPendingDownload() { _pendingDownload.value = null }
+ConvoyViewModel.kt:1374:    fun startDownload(context: android.content.Context, pending: PendingDownload) {
+ConvoyViewModel.kt:1378:        val entry = DownloadQueueManager.enqueue(
+ConvoyViewModel.kt:1387:    private fun observeQueueEntry(entryId: String) {
+ConvoyViewModel.kt:1390:                val entry = entries.find { it.id == entryId } ?: return@collect
+ConvoyViewModel.kt:1397:                        val avgBytes = 15_360L
+ConvoyViewModel.kt:1398:                        val mb = (entry.downloadedTiles * avgBytes) / (1024f * 1024f)
+ConvoyViewModel.kt:1411:    fun cancelDownload() {
+ConvoyViewModel.kt:1420:    override fun onCleared() {
 ConvoyGpsService.kt:43:class ConvoyGpsService : Service() {
 ConvoyGpsService.kt:46:    inner class LocalBinder : Binder() {
 ConvoyGpsService.kt:47:        fun getService(): ConvoyGpsService = this@ConvoyGpsService
@@ -6449,7 +6449,7 @@ GrpAwareness.kt:180:    val current = radios.firstOrNull { it.id == selectedAddr
 GrpAwareness.kt:181:    val green = Gt.accent; val red = Gt.bad; val dim = Gt.dim
 GrpAwareness.kt:182:    fun failWords(reason: String): String = when (reason) {
 GrpAwareness.kt:212:                                    val shown = network.ifBlank { "the radio's default" }
-GrpAwareness.kt:293:                val rName = r.name
+GrpAwareness.kt:302:                val rName = r.name
 ConvoyMapSourceScreen.kt:76:fun ConvoyMapSourceScreen(
 ConvoyMapSourceScreen.kt:79:    val allSources = remember { MapSourceManager.getAllSources() }
 ConvoyMapSourceScreen.kt:80:    val context = LocalContext.current
