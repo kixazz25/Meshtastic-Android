@@ -1,0 +1,85 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack 2.7c Campaign — Wednesday 10-28 (v1)</title>
+<style>body{background:#0d1117;color:#e6edf3;font:16px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;max-width:900px;margin:0 auto;padding:16px}
+h1{font-size:24px}h2{font-size:19px;color:#8FD0FF;margin-top:28px}.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px 16px;margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:14.5px}td,th{border:1px solid #30363d;padding:6px 8px;vertical-align:top;text-align:left}th{background:#1c2330}
+code{background:#1c2330;padding:1px 5px;border-radius:4px}.post{white-space:pre-wrap;background:#0f1a2a;border-left:3px solid #58a6ff;padding:10px 14px}</style></head><body>
+<h1>GroupTrack 2.7c Campaign — Wednesday 10-28 (v1)</h1>
+<p>Written 10-27 20:40 (Fred 20:37: "rotate those three items as featured ad and coordinate a Wed. social media post campaign that blankets our group sites with those focused ads. Maybe a video session … simple walkthrough from AI create an assisted route through the compare function and saving your preferred route.")</p>
+
+<h2>Why these three ads</h2>
+<div class="card"><p>Site report 10-03 → 10-27 (<code>site_traffic_report_2026-10-27_2029.txt</code>): about 110–150 people a day on the home page; 24 Google Play taps. Of the 20 taps tied to the featured ad, <b>17 came on ride days</b>: <b>Open a ride in one tap 5</b>, Turn a route into a ride 3, Turn a track into a ride 2, One ride package 2, Create a ride 2, Five routes… 2, Riding together 1 — against 1, 1, 1 and 0 for the planner, maps, check-in and partners ads (the last three ran 3 days each). Most taps go to the <b>Play button in the top menu</b> straight after the featured ad; almost nobody browses the other ads. Small numbers — a direction, not proof. The three best are <b>ad 02 Open a ride in one tap · ad 05 Turn a route into a ride · ad 06 Turn a track into a ride</b>.</p></div>
+
+<h2>Status 10-28 10:35</h2>
+<div class="card"><ul>
+<li>2.7c <b>published and available</b> on Google Play (09:39).</li>
+<li>Site v12 (FEATURED3 + SECOND2) live since 10-27 20:43. 10-27 ended at 135 visitors (7 from Facebook, the most of any day); 2 Play taps by 09:39 on 10-28, both on "Open a ride in one tap".</li>
+<li><b>Ads 02, 05, 06 rebuilt from the 10-28 captures with the NOW IN 2.7c star — live 10:34</b> (<code>inbox/site_panels_2.7c_2026-10-28/site_panels_2026-10-28b.sh</code>; backup <code>/var/www/html_backup_2026-10-28a</code>; check: all 200). Builder: container scratchpad <code>panels28/build.py</code> (from PANELS-2026-10-27). Kept out of public images: the Gmail inbox screen and the New Hampshire screens.</li>
+<li>Captures: <code>L - Rides/Import a ride</code> (email → import → complete → maps), <code>L - Rides/Create a ride</code> (+ <i>Create a ride by clicking on route.</i>, + <i>Turn a track into a ride</i>, moved there from K).</li>
+<li>Found for 2.7d: ride form from a route's ADD A RIDE shows <b>"Trailhead: null"</b>; the route panel says ADD A RIDE, the form says CREATE A RIDE, the manual CREATE RIDE — one name; opening a ride from email shows "Import Tracks from Downloads … GPX/KML files found".</li>
+<li>Next: the video (section 3), then posts with UTM-tagged Play links.</li></ul></div>
+<h2>Measuring — Facebook to Play (done 10-28 13:17)</h2>
+<div class="card"><ul>
+<li><b>Site v13 + go.php v2 live</b> (FBSRC-2026-10-28; <code>inbox/site_fbsrc_2026-10-28/</code>; backup <code>/var/www/html_backup_2026-10-28b</code>; check passed): a visitor who arrived from Facebook (referrer or <code>fbclid</code>) reaches Play tagged <code>utm_source=website_fb</code>; others <code>utm_source=website</code>; both keep medium = button (nav / hero / close), campaign = the ad, content = the day's featured ad.</li>
+<li><b>Post links</b> go straight to Play tagged <code>utm_source=facebook</code> — page: <code>…&amp;referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3D27c_video</code>; groups: <code>utm_medium%3Dgroup</code> + <code>%26utm_content%3D&lt;group&gt;</code>.</li>
+<li><b>Play Console › Grow users › Store performance › Traffic sources</b>: <i>facebook</i> = posts straight to Play · <i>website_fb</i> = Facebook → site → Play · <i>website</i> = the rest of the site. Data takes a day or two.</li>
+<li><b>Site report</b> <code>bash "$GT_CMDS/site_traffic_mac_2026-10-28b.sh"</code>: per day people / Play taps / from Facebook / their Play taps, and section 4 = Facebook visitors' paths.</li>
+<li>2.7d idea: tag the ride-invite email's Play link (<code>utm_source=ride_invite</code>).</li></ul></div>
+<h2>1 · Website (ready to install from the Mac)</h2>
+<div class="card"><p><b>grouptrack.org v12</b> (<code>GroupTrack_docs/grouptrack_site_index_2026-10-27_v12.html</code>; package <code>GroupTrack/inbox/site_featured3_2026-10-27/</code>):</p><ul>
+<li><b>FEATURED3</b> — the featured ad rotates 02 → 05 → 06, one per day (10-28 Open a ride in one tap, 10-29 Turn a route, 10-30 Turn a track, …). All 11 stay as thumbnails. Auto-advance moves between the three, at most 2 moves.</li>
+<li><b>SECOND2</b> — fault found 10-27: the bottom "second chance" ad never showed (the page's script ran before the bottom section existed and stopped there) — that is why "bottom" was 0 for every ad, and why the bottom Play button was never credited. Fixed; tested for 4 days in a browser, no errors.</li>
+<li>Report from 10-28: <code>bash "$GT_CMDS/site_traffic_mac_2026-10-27b.sh"</code> (knows the new rotation). Rerun on <b>11-10</b> to compare Play taps a day with 10-03 → 10-27 (≈ 1 a day).</li></ul>
+<p><b>Known gap:</b> ads 02, 05, 06 still show 2.7b screens and have no NOW IN 2.7c star. Refreshed in step 2.</p></div>
+
+<h2>2 · Wednesday — the order</h2>
+<table><tr><th>When (Eastern)</th><th>Who</th><th>What</th></tr>
+<tr><td>Morning</td><td>Fred</td><td>Check the Play listing shows 2.7c (the production release). <b>Nothing is posted until it does.</b> Install the site change (<code>upload</code> → <code>install</code> → <code>check</code>).</td></tr>
+<tr><td>Morning, 15 min</td><td>Fred</td><td>Capture on the tablet (Utah area, as for Play): <b>a</b> the email with the ride attached → Open with GroupTrack → the ride arrives; <b>b</b> tap a route → its panel → CREATE RIDE → the ride form; <b>c</b> tap a track → its panel → CREATE RIDE → the ride form. Into <i>Open a ride file</i>, <i>P - Map touches/Route</i>, <i>P - Map touches/Track</i>. These also fill 5 of the manual's 24 gaps.</td></tr>
+<tr><td>Late morning</td><td>Claude</td><td>Rebuild ads 02, 05, 06 from those captures with the NOW IN 2.7c star; site panels install script.</td></tr>
+<tr><td>Midday, 20 min</td><td>Fred</td><td>Record the video (section 3) — one take is fine; send the file.</td></tr>
+<tr><td>Afternoon</td><td>Claude</td><td>Captions, opening and end card on the video; a vertical 1080×1920 (Reels, Stories, groups) and a square 1080×1080 (feed). Post texts final.</td></tr>
+<tr><td><b>Evening 8–10 pm Eastern</b> (6–8 pm in Utah, when riders read Facebook)</td><td>Fred</td><td>Post on the GroupTrack page; share to the groups (section 4).</td></tr>
+<tr><td>Thu → Sun</td><td>Fred</td><td>Answer every comment the same evening. No second post to the same group this week.</td></tr></table>
+
+<h2>3 · The video — "From an idea to a ride" (about 75 s, no voice)</h2>
+<div class="card"><p>Record with Android's screen recorder (Quick Settings › Screen record, no audio, Do Not Disturb on), tablet portrait, a Utah area with good trails. Go slowly: hold each screen 2–3 s before tapping. Captions are added afterwards.</p>
+<table><tr><th>#</th><th>On screen (Fred does)</th><th>Caption (added after)</th></tr>
+<tr><td>1</td><td>The map. Long press where you will start → name the waypoint (the trailhead).</td><td>Start where you'll unload.</td></tr>
+<tr><td>2</td><td>Add Route › AI route design → the intro → PROCEED.</td><td>Tell it where to go.</td></tr>
+<tr><td>3</td><td>Choose the start waypoint, the length, what you want to see, where to finish → build.</td><td>How long, what to see, where to finish.</td></tr>
+<tr><td>4</td><td>The routes it suggests appear (up to six).</td><td>Routes built from real trails.</td></tr>
+<tr><td>5</td><td>CONTINUE TO COMPARE → scroll the differences.</td><td>Compare them side by side.</td></tr>
+<tr><td>6</td><td>Keep the one you like → name it.</td><td>Keep your favourite.</td></tr>
+<tr><td>7</td><td>Tap the kept route → its panel → CREATE RIDE → date and rollout time → save.</td><td>One tap makes it a ride.</td></tr>
+<tr><td>8</td><td>(End card, added) GroupTrack logo · "Plan it. Share it. Ride it together." · Get it on Google Play · grouptrack.org</td><td></td></tr></table>
+<p>If a shot goes wrong, keep recording and redo it — the cut is done afterwards.</p></div>
+
+<h2>4 · The posts</h2>
+<div class="card"><p><b>Page post</b> (the video, then the 2.7c teaser image <code>GroupTrack_2.7c_teaser_2026-10-27_v4.png</code> as a second photo):</p>
+<div class="post">GroupTrack 2.7c is out on Google Play.
+
+The whole app is on one map now — and the part riders use most got simpler: plan a route, make it a ride, send it to the group.
+
+The video shows it start to finish: tell GroupTrack where you want to go, compare the routes it builds from real trails, keep the one you like, and turn it into a ride in one tap.
+
+Your group opens the ride from the email in one tap — route, trailhead, maps and radio settings come with it.
+
+Free on Android. grouptrack.org
+
+— Fred</div>
+<p><b>Group share</b> (one per group: the video shared from the page, plus ads 02, 05, 06 as an album):</p>
+<div class="post">I build GroupTrack for the way we ride here — and 2.7c just came out.
+
+Plan a route, turn it into a ride, and send it: everyone opens it in one tap and has the route, the trailhead and the offline maps before rollout. Turn any old track into a ride the same way.
+
+Short video below. Free on Android, no account. If you try it on your next ride, I'd like to hear how it goes.
+
+— Fred</div>
+<p><b>The groups:</b> one post per group, on the same evening. Groups that limit promotion: a short note to the admin first ("I built a free app for riding together — OK to share the new version?"). Keep a list of where it went and the admin answers.</p></div>
+
+<h2>5 · After</h2>
+<div class="card"><ul><li><b>Thu 10-29</b>: Play Console › Statistics — installs 10-28 / 10-29 against the week before.</li>
+<li><b>11-10</b>: site report b; if Play taps a day are up, keep the three; if not, return to the 11-ad rotation.</li>
+<li>Website follow-up: lead the home page with the ride message (a small hero change) once the numbers say so.</li></ul></div>
+</body></html>
