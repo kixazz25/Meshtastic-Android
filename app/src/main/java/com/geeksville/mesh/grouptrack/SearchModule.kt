@@ -176,13 +176,13 @@ fun GtSearchBody(b: GtSearchBridge, close: () -> Unit, autoFocus: Boolean) {   /
             groups.filter { it.second.isNotEmpty() && it.first !in hiddenTypes }.forEach { (label, rows) ->
                 Header("$label (${rows.size})")
                 rows.take(50).forEach { r ->
-                    ResultRow(r.name + if (rows.count { it.name == r.name } > 1) "  #${r.seq}" else "") { close(); b.openArtifact(r) }
+                    ResultRow(r.name + if (rows.count { it.name == r.name } > 1) "  #${r.seq}" else "", r.foundAs ?: "") { close(); b.openArtifact(r) }   // FOUNDAS-2026-10-29 (D22)
                 }
                 if (rows.size > 50) Text("First 50 shown — add more of the name.", color = s.panelDim, fontSize = 12.sp)
             }
             if (places.isNotEmpty() && "Places" !in hiddenTypes) {
                 Header("Places (${places.size})")
-                places.forEach { p -> ResultRow(p.name) { close(); b.goToPlace(p.lat, p.lon) } }
+                places.forEach { p -> ResultRow(p.name, "") { close(); b.goToPlace(p.lat, p.lon) } }
             }
         }
     }
@@ -194,9 +194,14 @@ private fun Header(t: String) {
 }
 
 @Composable
-private fun ResultRow(label: String, onClick: () -> Unit) {
+// FOUNDAS-2026-10-29 (D22): [foundAs] = the other name the search matched; "" = matched on the main name, no second line.
+// Required at every call (not a default) so each caller states it.
+private fun ResultRow(label: String, foundAs: String, onClick: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp)) {
-        Text(label, color = GtScheme.current.value.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
+            Text(label, color = GtScheme.current.value.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            if (foundAs.isNotEmpty()) Text("found as: " + foundAs, color = GtScheme.current.value.panelDim, fontSize = 12.sp)
+        }
         Text("›", color = Gt.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
     }
 }

@@ -179,7 +179,7 @@ fun GtNotesPanel(
                 val acts = listOfNotNull(
                     onBuildFromRecipe?.let { "BUILD FROM RECIPE" to it },
                     onRouteDetails?.let { "ROUTE DETAILS" to it },
-                    onCreateRide?.let { "CREATE RIDE" to it },   // RIDEFROMNOTES-2026-09-26
+                    onCreateRide?.let { "CREATE A RIDE" to it },   // RIDEFROMNOTES-2026-09-26; RIDENAME-2026-10-29 (D16)
                     onDownloadMaps?.let { "DOWNLOAD MAPS" to it },
                 )
                 if (acts.isNotEmpty()) {

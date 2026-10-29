@@ -776,7 +776,8 @@ object SpatialDbManager {
                 for ((aid, matchedAlias) in aliasMatches) {
                     if (results.size >= limit) break
                     val rc = db.rawQuery(
-                        "SELECT name, geom_hash FROM $table WHERE $idCol = ? LIMIT 1",
+                        // FOUNDAS-2026-10-29 (D22): bounds too -- an alias hit had none, so choosing it never moved the map.
+                        "SELECT name, geom_hash, min_lat, max_lat, min_lon, max_lon FROM $table WHERE $idCol = ? LIMIT 1",
                         arrayOf(aid)
                     )
                     rc.use {
@@ -788,7 +789,11 @@ object SpatialDbManager {
                                 "geom_hash" to it.getString(1),
                                 "type" to type,
                                 "matched_via_alias" to "true",
-                                "matched_alias" to matchedAlias
+                                "matched_alias" to matchedAlias,
+                                "min_lat" to it.getString(2),   // FOUNDAS-2026-10-29 (D22)
+                                "max_lat" to it.getString(3),
+                                "min_lon" to it.getString(4),
+                                "max_lon" to it.getString(5)
                             ))
                         }
                     }

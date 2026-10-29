@@ -99,7 +99,7 @@ fun ConvoyCreateRideScreen(
                 Text("\u2190 BACK", color = Gt.accent, fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
-            Text("CREATE RIDE", color = Gt.text, fontSize = 12.sp,
+            Text("CREATE A RIDE", color = Gt.text, fontSize = 12.sp,   // RIDENAME-2026-10-29 (D16)
                 fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
                 modifier = Modifier.weight(1f))
         }

@@ -83,7 +83,11 @@ data class ArtifactResult(
     val minLat: Double? = null,
     val maxLat: Double? = null,
     val minLon: Double? = null,
-    val maxLon: Double? = null
+    val maxLon: Double? = null,
+    // FOUNDAS-2026-10-29 (D22, Fred 13:15): the OTHER NAME (alias) the search matched, shown under the main name.
+    // CODE RULE 1: null has a meaning -- the hit was on the main name, so there is no second line. Only search sets it;
+    // the one other construction path (assignNameSequence) reads it from the search row.
+    val foundAs: String? = null
 )
 
 /**
@@ -106,7 +110,8 @@ fun assignNameSequence(rows: List<Map<String, String?>>): List<ArtifactResult> {
                 minLat = row["min_lat"]?.toDoubleOrNull(),
                 maxLat = row["max_lat"]?.toDoubleOrNull(),
                 minLon = row["min_lon"]?.toDoubleOrNull(),
-                maxLon = row["max_lon"]?.toDoubleOrNull()
+                maxLon = row["max_lon"]?.toDoubleOrNull(),
+                foundAs = if (row["matched_via_alias"] == "true") row["matched_alias"] else null   // FOUNDAS-2026-10-29 (D22)
             )
         }
         .sortedWith(compareBy({ it.name.lowercase() }, { it.geomHash })) // R2, R3

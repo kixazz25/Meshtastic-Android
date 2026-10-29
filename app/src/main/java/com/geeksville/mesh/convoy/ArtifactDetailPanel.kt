@@ -151,7 +151,7 @@ fun ArtifactDetailPanel(
                     if (onShowNotes != null) { DetailActionButton("OVERVIEW", aOrange) { onShowNotes(id) } }
                     // TRACKRIDE-2026-09-26 (Fred): a track -> a route (named, editable) -> the ride form.
                     if (onCreateRideFromTrack != null && singular == "track") {
-                        DetailActionButton("CREATE RIDE", aGreen) { rideRouteName = dName; thPick = -1; thNewName = dName + " trailhead"; chosenTh = ConvoyArtifactOps.trackStart(id)?.let { f -> SpatialDbManager.trailheadsNear(f.second, f.first, 0.1).firstOrNull()?.let { t -> ConvoyArtifactOps.RouteTrailhead(t.name, t.lat, t.lon, false) } }; if (chosenTh != null) showRideNameDialog = true else showThPopup = true }
+                        DetailActionButton("CREATE A RIDE", aGreen) {   /* RIDENAME-2026-10-29 (D16) */ rideRouteName = dName; thPick = -1; thNewName = dName + " trailhead"; chosenTh = ConvoyArtifactOps.trackStart(id)?.let { f -> SpatialDbManager.trailheadsNear(f.second, f.first, 0.1).firstOrNull()?.let { t -> ConvoyArtifactOps.RouteTrailhead(t.name, t.lat, t.lon, false) } }; if (chosenTh != null) showRideNameDialog = true else showThPopup = true }
                     }
                     // FIRSTPOINT-2026-09-27 (Fred): the trail's FIRST POINT is its trailhead -- an existing Trailhead within 0.1 mile is
                     // reused (no popup); otherwise this popup only asks for the new trailhead's NAME, creates it at the first point
@@ -212,7 +212,7 @@ fun ArtifactDetailPanel(
                         )
                     }
                     if (onAddRide != null && singular == "route") {
-                        DetailActionButton("ADD A RIDE", aGreen) { onAddRide(singular, id) }
+                        DetailActionButton("CREATE A RIDE", aGreen) {   /* RIDENAME-2026-10-29 (D16) */ onAddRide(singular, id) }
                     }
                     /* ⭐ Shown only when this route carries a recipe. Absent for
                      * hand-drawn and imported routes, and for drafts, which are

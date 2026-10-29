@@ -168,7 +168,7 @@ fun ConvoyDashboardScreen(
             }
             // ADD A RIDE button — always visible
             Text(
-                text = "+ ADD RIDE",
+                text = "+ CREATE A RIDE",   // RIDENAME-2026-10-29 (D16)
                 color = Gt.text,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
