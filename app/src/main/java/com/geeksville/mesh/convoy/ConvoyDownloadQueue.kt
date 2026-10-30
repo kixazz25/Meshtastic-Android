@@ -290,14 +290,15 @@ object DownloadQueueManager {
     ): Int {
         init(context)
         // VECSOURCE-2026-10-30: VEC is not in getDownloadSources (not a map-bar slot) -- it is one layer.
-        val slotLayers = if (slotName == VectorTiles.SLOT) 1
+        val slotLayers = if (slotName == VectorTiles.SLOT || slotName == ElevationTiles.SLOT) 1   // DEMSOURCE-2026-10-30: DEM is one layer too
             else MapSourceManager.getDownloadSources().filter { it.first == slotName }.sumOf { it.second.size }
         // SEGMENTATION (2026-07-11): size off REAL job volume = 1-layer estimate * slotLayers.
         //   SAT = 3 layers over same geography, so slotLayers=3 -> ~24.7K*3 = ~74K -> 2 segments.
         //   (Bug history: sizing off the bare 1-layer estimate under-segmented; caught by dry-run JSON.)
         // VECENQUEUE-2026-10-30: VEC is counted z0-z14 and sized on its OWN volume (a recipe box on the SAT z18 grid OOMed).
-        val isVec = slotName == VectorTiles.SLOT
-        val oneLayerTiles = if (isVec) ConvoyTileCalculator.quickEstimate(north, south, east, west, zMin = 0, zMax = VectorTiles.Z_MAX).tileCount
+        val isVec = slotName == VectorTiles.SLOT || slotName == ElevationTiles.SLOT   // DEMSOURCE-2026-10-30: elevation rides the vector path
+        val vecZ = if (slotName == ElevationTiles.SLOT) ElevationTiles.Z_MAX else VectorTiles.Z_MAX   // DEMSOURCE-2026-10-30: DEM z0-12, VEC z0-14
+        val oneLayerTiles = if (isVec) ConvoyTileCalculator.quickEstimate(north, south, east, west, zMin = 0, zMax = vecZ).tileCount
             else ConvoyTileCalculator.quickEstimate(north, south, east, west).tileCount
         // ALL SOURCES RIDE THE SAT-SIZED GRID (design: "SAT sizes the grid, all ride it").
         // enqueueArea is called once per slot from submitDownload's loop; without this,
@@ -349,7 +350,7 @@ object DownloadQueueManager {
         cells.forEachIndexed { i, cell ->
             val entry = QueueEntry(
                 north = cell[0], south = cell[1], east = cell[2], west = cell[3],
-                totalTiles = (if (isVec) ConvoyTileCalculator.quickEstimate(cell[0], cell[1], cell[2], cell[3], zMin = 0, zMax = VectorTiles.Z_MAX).tileCount   // VECENQUEUE-2026-10-30
+                totalTiles = (if (isVec) ConvoyTileCalculator.quickEstimate(cell[0], cell[1], cell[2], cell[3], zMin = 0, zMax = vecZ).tileCount   // VECENQUEUE-2026-10-30
                     else ConvoyTileCalculator.calculateTiles(cell[0], cell[1], cell[2], cell[3]).size) * slotLayers,
                 label = "DL $slotName ${i + 1}/${cells.size}",
                 refreshMode = replaceExisting,

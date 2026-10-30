@@ -58,6 +58,11 @@ object VectorTiles {
         return Pair(f.name, out)
     }
 
+    /** DEMSOURCE-2026-10-30 (Fred 14:12-14:13): THE BINDING. Every vector box is queued WITH its elevation -- same box, same step.
+     *  Separate jobs (own rows, counts, failures), never separate decisions. The one door for a vector download. */
+    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double): Int =
+        DownloadQueueManager.enqueueArea(context, SLOT, n, s, e, w) + DownloadQueueManager.enqueueArea(context, ElevationTiles.SLOT, n, s, e, w)
+
     /** Queue the first [count] recipe boxes as VEC AREA downloads. Returns one line for the screen. */
     fun queueFromRecipe(context: Context, count: Int): String {
         val r = try { recipeBoxes() } catch (e: Exception) { return "Could not read the recipe: ${e.message}" }
@@ -65,8 +70,8 @@ object VectorTiles {
         val take = r.second.take(count)
         if (take.isEmpty()) return "${r.first}: no boxes in it."
         var jobs = 0
-        for (b in take) jobs += DownloadQueueManager.enqueueArea(context, SLOT, b[0], b[1], b[2], b[3])
+        for (b in take) jobs += enqueueWithElevation(context, b[0], b[1], b[2], b[3])   // DEMSOURCE-2026-10-30: the binding
         return "${r.first.removePrefix("grouptrack_maps_").removeSuffix(".gtmaps")}: queued ${take.size} of ${r.second.size} boxes " +
-            "as $jobs vector job(s) (DL VEC). Watch them in Download queues."
+            "as $jobs job(s) -- vector and elevation together (DL VEC, DL DEM). Watch them in Download queues."
     }
 }

@@ -157,15 +157,17 @@ class ConvoyDownloadWorker(
         // ── Normal mode: all slots from bounding box ──
         // Calculate tile keys for the bounding box
         // VECSOURCE-2026-10-30: a VEC job runs z0-z14 (Fred: z0-14, exact boxes); maxZoomForSlot caps the top at 14.
-        val tiles = if (refreshSlot == VectorTiles.SLOT) ConvoyTileCalculator.calculateTiles(north, south, east, west, zMin = 0, zMax = VectorTiles.Z_MAX)   // VECENQUEUE-2026-10-30: never list z15-z18
+        val tiles = if (refreshSlot == VectorTiles.SLOT || refreshSlot == ElevationTiles.SLOT)   // DEMSOURCE-2026-10-30: DEM z0-12
+            ConvoyTileCalculator.calculateTiles(north, south, east, west, zMin = 0, zMax = if (refreshSlot == ElevationTiles.SLOT) ElevationTiles.Z_MAX else VectorTiles.Z_MAX)   // VECENQUEUE-2026-10-30: never list z15-z18
             else ConvoyTileCalculator.calculateTiles(north, south, east, west)
 
         // Get all layers to download from MapSourceManager
         val allSources = MapSourceManager.getDownloadSources()
         // VECSOURCE-2026-10-30: VEC takes its layer from VectorTiles (not a map-bar slot).
         val downloadSources = if (refreshSlot == VectorTiles.SLOT) VectorTiles.downloadSources(appContext)
+            else if (refreshSlot == ElevationTiles.SLOT) ElevationTiles.downloadSources(appContext)   // DEMSOURCE-2026-10-30
             else if (refreshSlot.isNotEmpty()) allSources.filter { it.first == refreshSlot } else allSources
-        if (refreshSlot == VectorTiles.SLOT && downloadSources.isEmpty()) {
+        if ((refreshSlot == VectorTiles.SLOT || refreshSlot == ElevationTiles.SLOT) && downloadSources.isEmpty()) {   // DEMSOURCE-2026-10-30
             // ⛔ never a zero-tile "success": every tile is counted FAILED so the queue shows it.
             android.util.Log.e(TAG, "VECSOURCE-2026-10-30: vector TileJSON not reachable -- $label failed, nothing downloaded")
             DownloadQueueManager.markComplete(entryId, 0, tiles.size)
