@@ -839,6 +839,8 @@ fun GroupTrackScreen(
                                 pendingWaypoint = Pair(lat, lon)
                             }
                         }
+                        @android.webkit.JavascriptInterface   // VECCOMPASS-2026-10-30: the map's bearing for the compass
+                        fun onBearing(b: Double) { GtMapView.bearing.value = b.toFloat() }
                         @android.webkit.JavascriptInterface
                         fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
                             com.geeksville.mesh.grouptrack.GtRoute.vp = doubleArrayOf(south, west, north, east, zoom)   // GTROUTE1-2026-10-23
@@ -1205,6 +1207,8 @@ fun GroupTrackScreen(
                                 if (node != null) viewModel.onMarkerTapped(node)
                             }
 
+                            @android.webkit.JavascriptInterface   // VECCOMPASS-2026-10-30: the map's bearing for the compass
+                            fun onBearing(b: Double) { GtMapView.bearing.value = b.toFloat() }
                             @android.webkit.JavascriptInterface
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
                                 com.geeksville.mesh.grouptrack.GtRoute.vp = doubleArrayOf(south, west, north, east, zoom)   // GTROUTE1-2026-10-23
@@ -1709,7 +1713,7 @@ fun GroupTrackScreen(
                     fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
             }
             Surface(shape = RoundedCornerShape(8.dp), color = Color(0x99000000), modifier = Modifier.padding(bottom = 4.dp)) {
-                Text("N \u00b7 Z$gtZoom", color = Color(0xFF4DA6FF), fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                Text("Z$gtZoom" /* VECCOMPASS-2026-10-30: the compass beside MENU replaces the fixed N */, color = Color(0xFF4DA6FF), fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
             }
             }   // SHELL2-2026-10-22: the Row (GPS light + N \u00b7 Z)
@@ -2972,6 +2976,10 @@ fun GroupTrackScreen(
                 // VIEWHOUSE-2026-10-30: the two buttons where "Map: SAT" was -- PLACEHOLDERS, the page does the work when it is built
                 "view.3d" to { GtMapView.tilt.value = !GtMapView.tilt.value
                     webViewRef.value?.evaluateJavascript("try{if(window.gtSet3D)gtSet3D(${GtMapView.tilt.value})}catch(e){}", null) },
+                // VECCOMPASS-2026-10-30: the compass tap -- north up (My dir off if it was on)
+                "view.north" to { if (GtMapView.headingUp.value) { GtMapView.headingUp.value = false
+                        webViewRef.value?.evaluateJavascript("try{if(window.gtSetHeadingUp)gtSetHeadingUp(false)}catch(e){}", null) }
+                    else webViewRef.value?.evaluateJavascript("try{if(window.gtNorthUp)gtNorthUp()}catch(e){}", null) },
                 "view.heading" to { GtMapView.headingUp.value = !GtMapView.headingUp.value
                     webViewRef.value?.evaluateJavascript("try{if(window.gtSetHeadingUp)gtSetHeadingUp(${GtMapView.headingUp.value})}catch(e){}", null) },
                 // MAPMOVE-2026-10-23: "map.planner" (Open the planning map) came off the Map menu -- the planner is removed next.

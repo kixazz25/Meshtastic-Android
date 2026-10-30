@@ -42,4 +42,5 @@ object GtMapEngine {
 object GtMapView {
     val tilt = androidx.compose.runtime.mutableStateOf(false)
     val headingUp = androidx.compose.runtime.mutableStateOf(false)
+    val bearing = androidx.compose.runtime.mutableStateOf(0f)   // VECCOMPASS-2026-10-30: the map's bearing (degrees, from the page)
 }

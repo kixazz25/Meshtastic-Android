@@ -16,6 +16,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Navigation   // VECCOMPASS-2026-10-30
+import androidx.compose.ui.draw.rotate   // VECCOMPASS-2026-10-30
+import androidx.compose.foundation.layout.size   // VECCOMPASS-2026-10-30
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState   // MAPTARGET4-2026-10-23
@@ -128,7 +131,11 @@ fun GroupTrackLaunchLayer(
             modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            LaunchModules.bySlot(LaunchSlot.LEFT, group).forEach { m -> GtButton(m.label, { tap(m) }) }
+            // VECCOMPASS-2026-10-30 (Fred 17:36): the compass to the right of MENU (replaces the fixed "N" in front of the zoom)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                LaunchModules.bySlot(LaunchSlot.LEFT, group).forEach { m -> GtButton(m.label, { tap(m) }) }
+                GtCompass(GtMapView.bearing.value, { actions["view.north"]?.invoke() })
+            }
             GtButton("+", { onZoom(1) })
             GtButton("−", { onZoom(-1) })
         }
@@ -267,6 +274,30 @@ fun GroupTrackLaunchLayer(
                         color = GtScheme.current.value.panelDim, fontSize = 12.sp, fontWeight = FontWeight.Normal)
                 }
             }
+        }
+    }
+}
+
+/** VECCOMPASS-2026-10-30 (Fred 17:36): the compass beside MENU -- a red needle with "N", turned by the map's bearing
+ *  (it points where north is on the screen). Tap = north up. */
+@Composable
+private fun GtCompass(bearing: Float, onClick: () -> Unit) {
+    val s = GtScheme.current.value
+    val red = androidx.compose.ui.graphics.Color(0xFFD32F2F)
+    Box(
+        modifier = Modifier
+            .background(s.bg, androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .border(androidx.compose.foundation.BorderStroke(1.dp, s.edge), androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 3.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.rotate(-bearing)) {
+            Text("N", color = red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            androidx.compose.material3.Icon(Icons.Filled.Navigation,
+                contentDescription = "Compass -- tap for north up", tint = red,
+                modifier = Modifier.size(18.dp))
         }
     }
 }
