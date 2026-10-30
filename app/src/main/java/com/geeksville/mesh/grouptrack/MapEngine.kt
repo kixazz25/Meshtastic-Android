@@ -36,3 +36,10 @@ object GtMapEngine {
         Runtime.getRuntime().exit(0)
     }
 }
+
+/** VIEWHOUSE-2026-10-30 (Fred 14:02): the two view buttons -- 3D (tilt, terrain once the elevation source exists) and map orientation
+ *  (north up / my direction of travel). Session state; the page does the drawing. */
+object GtMapView {
+    val tilt = androidx.compose.runtime.mutableStateOf(false)
+    val headingUp = androidx.compose.runtime.mutableStateOf(false)
+}

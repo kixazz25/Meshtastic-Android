@@ -152,7 +152,11 @@ fun GroupTrackLaunchLayer(
                     ) { Text(m.label, color = androidx.compose.ui.graphics.Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold) }   // GRPSTATUS-2026-10-24: white on the status colour
                     "mode" -> GtButton(if (group) "Mode: Group" else "Mode: Android only", { tap(m) })   // SHELL4 (Fred 10:21)
                     "internet" -> GtButton(if (online) "Status: Online" else "Status: Offline", { tap(m) })   // SHELL4 (Fred 10:21)
-                    "maptype" -> GtButton("Map: " + mapType + " \u25be", { tap(m) })   // MAPCHIP-2026-10-23
+                    // VIEWHOUSE-2026-10-30 (Fred 14:02/14:16): one source, nothing to pick -- the map button becomes 3D and orientation
+                    "maptype" -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        GtButton(if (GtMapView.tilt.value) "3D" else "2D", { actions["view.3d"]?.invoke() })
+                        GtButton(if (GtMapView.headingUp.value) "My dir" else "N up", { actions["view.heading"]?.invoke() })
+                    }
                     "key" -> GtIconButton(m.label, Icons.Filled.Key, { tap(m) })
                     "filter" -> GtIconButton(m.label, Icons.Filled.FilterAlt, { tap(m) })
                     "centre" -> GtIconButton(centreLabel, Icons.Filled.Adjust, { tap(m) })   // ATTACH4-2026-10-22
@@ -235,9 +239,6 @@ fun GroupTrackLaunchLayer(
                     if (openModule.id == "filter") GtFilterBody(filter, onSelect = { t -> open = ""; filter.openSelect(t) })
                     else if (openModule.id == "key") GtKeyBody(keyStyleChanged)   // GTKEY-2026-10-22
                     else if (openModule.id == "search") GtSearchBody(search, close = { open = "" }, autoFocus = true)   // GTSEARCH-2026-10-22
-                    else if (openModule.id == "maptype") mapTypes.forEach { t ->   // MAPCHIP-2026-10-23: pick -> switch -> close
-                        GtButton(if (t == mapType) "\u25cf  " + t else "     " + t, { onMapType(t); open = "" }, modifier = Modifier.fillMaxWidth())   // the current one carries the dot
-                    }
                     else rows.forEach { pr ->
                         if (pr.children.isNotEmpty()) {   // MAPOPEN-2026-10-23 (Fred 11:08): a section TITLE in plain text, its options always open below
                             Text(pr.label, color = GtScheme.current.value.panelDim, fontSize = 13.sp, fontWeight = FontWeight.Bold,

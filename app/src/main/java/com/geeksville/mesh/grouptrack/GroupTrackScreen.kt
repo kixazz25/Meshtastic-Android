@@ -2786,7 +2786,8 @@ fun GroupTrackScreen(
             onDismiss = { showGpsPanel = false; viewModel.clearGpsApplyStatus() }
         )
         // HUDSCHEME-2026-09-29 (Fred): the HUD's colour scheme follows the map -- SAT (or a hybrid) is dark imagery.
-        val hudMapKey = mapTypeLabel.uppercase()
+        // VIEWHOUSE-2026-10-30 (Fred 14:16): the vector map is a LIGHT map -- its key is VEC, so the HUD and the app default to the light-map set
+        val hudMapKey = if (GtMapEngine.isVector(context)) "VEC" else mapTypeLabel.uppercase()
         val hudDefaultWhite = hudMapKey.let { it.startsWith("SAT") || it.contains("HYB") }
         // COSMETICS-2026-10-06 (Fred): the toggle's choice for this map type (session), else the map's default.
         val hudOnDark = viewModel.hudTextWhiteByMap[hudMapKey] ?: hudDefaultWhite
@@ -2908,7 +2909,9 @@ fun GroupTrackScreen(
         val gtRideImport = rememberRideImport(onDone = {})   // GTRIDES-2026-10-22: Rides › Import a ride (ONE MAP has no menu to close)
         if (docsView == null) com.geeksville.mesh.grouptrack.GroupTrackLaunchLayer(
             onHelp = { name -> docsOpen(name) },
-            mapType = mapTypeLabel,   // SHELL2-2026-10-22: buttons and panels follow the map type
+            // VIEWHOUSE-2026-10-30 (Fred 14:16): the black-and-white HUD icon switches the WHOLE APP -- white HUD text = the satellite
+            // colour set (white panels), dark HUD text = the topo set (blue panels). Defaults per map key as before (SAT dark, VEC light).
+            mapType = if (hudOnDark) "SAT" else "VEC",
             mapTypes = MapSourceManager.getSlotSources().map { it.first },   // GTMAP-2026-10-22: Map › MAP TYPE, the map bar's slots
             onMapType = gtSetMapType,
             online = hasInternet && !isOfflineMode,   // ATTACH3-2026-10-22: Offline = no internet OR offline mode on
@@ -2964,6 +2967,11 @@ fun GroupTrackScreen(
                 "map.rm_track" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "rmtrack" },   // GTHEAVY-2026-10-23
                 "map.repair" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "refresh" },   // GTHEAVY-2026-10-23   // GTTRACKS-2026-10-23
                 "map.sources" to { onNavigateToMapSources() },   // GTMAP: the Map Sources screen, as is
+                // VIEWHOUSE-2026-10-30: the two buttons where "Map: SAT" was -- PLACEHOLDERS, the page does the work when it is built
+                "view.3d" to { GtMapView.tilt.value = !GtMapView.tilt.value
+                    webViewRef.value?.evaluateJavascript("try{if(window.gtSet3D)gtSet3D(${GtMapView.tilt.value})}catch(e){}", null) },
+                "view.heading" to { GtMapView.headingUp.value = !GtMapView.headingUp.value
+                    webViewRef.value?.evaluateJavascript("try{if(window.gtSetHeadingUp)gtSetHeadingUp(${GtMapView.headingUp.value})}catch(e){}", null) },
                 // MAPMOVE-2026-10-23: "map.planner" (Open the planning map) came off the Map menu -- the planner is removed next.
                 "centre.me" to { viewModel.setAutoPan(true) },   // ATTACH4-2026-10-22: follow again (the readout's view)
                 "internet.switch" to {   // ATTACH3-2026-10-22: the old LOCAL / NET toggle
