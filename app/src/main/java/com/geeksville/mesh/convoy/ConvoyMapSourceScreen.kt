@@ -153,9 +153,29 @@ fun ConvoyMapSourceScreen(
         ) {
             if (selectedSlot == null) {
                 // ── SLOT OVERVIEW ──────────────────────────────────────────
+                // VECSWITCH-2026-10-30 (Fred 11:36): the map -- Satellite (Leaflet) or Vector (MapLibre). A change restarts GroupTrack.
+                SectionHeader("Map")
+                val engCtx = LocalContext.current
+                val engVec = remember { com.geeksville.mesh.grouptrack.GtMapEngine.isVector(engCtx) }
+                var engAsk by remember { mutableStateOf<Boolean?>(null) }
+                listOf(false to "Satellite \u2014 Google imagery", true to "Vector \u2014 OpenFreeMap, offline (2.7e)").forEach { (v, label) ->
+                    Row(modifier = Modifier.fillMaxWidth().clickable { if (v != engVec) engAsk = v }.padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = v == engVec, onClick = { if (v != engVec) engAsk = v })
+                        Text(label, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+                engAsk?.let { want ->
+                    AlertDialog(onDismissRequest = { engAsk = null },
+                        title = { Text(if (want) "Switch to the vector map" else "Switch to the satellite map") },
+                        text = { Text("GroupTrack closes and opens again on the chosen map. Use it when you are not on a ride.") },
+                        confirmButton = { TextButton(onClick = { com.geeksville.mesh.grouptrack.GtMapEngine.switchTo(engCtx, want) }) { Text("RESTART") } },
+                        dismissButton = { TextButton(onClick = { engAsk = null }) { Text("CANCEL") } })
+                }
+                Spacer(Modifier.height(12.dp))
                 SectionHeader("Current Assignments")
                 Text(
-                    "Three fixed map slots. Tap to change source.",
+                    "The satellite source. Tap to change it.",   /* VECSWITCH-2026-10-30 */
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)

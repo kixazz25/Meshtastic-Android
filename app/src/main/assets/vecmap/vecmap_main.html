@@ -1,0 +1,56 @@
+<!doctype html>
+<!-- VECSWITCH-2026-10-30 (2.7e step 4.2): THE ONE MAP PAGE FOR THE VECTOR ENGINE. Loaded instead of convoy_map.html when Map Sources is set
+     to Vector. The app calls this page by the SAME function names it calls on convoy_map.html; each is ported in step 4.3 -- until then
+     each is a stub that logs "VECPORT todo <name>" once. A name the app calls that is not here shows as a ReferenceError in ConvoyJS:
+     that list is the port list. Served by the app at https://gtvec.local/a/ (VecMapServer); tiles from the VEC store; nothing online. -->
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="stylesheet" href="maplibre-gl.css"><script src="maplibre-gl.js"></script>
+<style>html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden}
+#map{position:fixed;top:0;right:0;bottom:0;left:0}  /* VECMAINFIXED-2026-10-30: as convoy_map.html:13 (absolute measured 0 high) */</style>
+</head><body><div id="map"></div>
+<script>
+window.__htmlVersion = 'VECMAIN-2026-10-30';
+// tiles through the page (VECMAPPROTO-2026-10-30): gt://t/z/x/y.pbf -> https://gtvec.local/t/z/x/y.pbf
+maplibregl.addProtocol('gt', function (params, abortController) {
+  var u = params.url.replace('gt://', 'https://gtvec.local/');
+  return fetch(u, { signal: abortController.signal }).then(function (r) {
+    if (!r.ok) throw new Error('tile HTTP ' + r.status + ' ' + u);
+    return r.arrayBuffer();
+  }).then(function (b) { return { data: b }; });
+});
+var map = new maplibregl.Map({ container: 'map', style: 'liberty_style.json', center: [-98.5, 39.5], zoom: 4,
+  maxZoom: 20, maxPitch: 70, attributionControl: { compact: true } });
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-left');
+map.on('load', function () { console.log('VECMAIN loaded ' + map.getContainer().clientWidth + 'x' + map.getContainer().clientHeight); });
+map.on('error', function (e) { console.log('VECMAIN error ' + (e && e.error ? e.error.message : e)); });
+window.addEventListener('resize', function () { map.resize(); });
+setTimeout(function () { map.resize(); }, 500);
+// VECMAINSIZE-2026-10-30: the ONE MAP web view is laid out after the page starts (13:44: loaded 0x0) -- watch the size, re-measure
+var gtLastSize = '';
+setInterval(function () {
+  var c = map.getContainer(), s = c.clientWidth + 'x' + c.clientHeight + ' window ' + window.innerWidth + 'x' + window.innerHeight;
+  // VECMAINFIXED-2026-10-30: never a zero-high map while the window has height
+  if (c.clientHeight === 0 && window.innerHeight > 0) {
+    c.style.width = window.innerWidth + 'px'; c.style.height = window.innerHeight + 'px';
+    console.log('VECMAINFIXED forced ' + window.innerWidth + 'x' + window.innerHeight);
+    s = c.clientWidth + 'x' + c.clientHeight + ' window ' + window.innerWidth + 'x' + window.innerHeight;
+  }
+  if (s !== gtLastSize) { gtLastSize = s; map.resize(); console.log('VECMAIN size ' + s); }
+}, 1000);
+
+// ---- PORTED (4.2) ----------------------------------------------------------------------------------------------------
+function setView(lat, lon, z) { map.resize(); /* VECMAINSIZE-2026-10-30 */ map.jumpTo({ center: [lon, lat], zoom: (z == null ? map.getZoom() : z) }); }
+
+// ---- NOT YET PORTED: stubs, logged once each (4.3 replaces them one by one) ------------------------------------------
+var gtTodoSeen = {};
+function gtTodo(name) {
+  return function () {
+    if (!gtTodoSeen[name]) { gtTodoSeen[name] = 1; console.log('VECPORT todo ' + name + ' (' + arguments.length + ' args)'); }
+    return null;
+  };
+}
+['fitBounds', 'setTileUrl', 'activateDrawMode', 'triggerViewportUpdate', 'setOverlayLayers', 'removeMarker', 'drawBuildLine',
+ 'addMarker', 'showDownloadedAreas', 'setTrailStyles', 'setRouteMode', 'setLastHeard', 'longPressAt', 'fitBatchRoutes',
+ 'findNearestMarker', 'drawTrack', 'clearMarkers'].forEach(function (n) { window[n] = gtTodo(n); });
+</script></body></html>

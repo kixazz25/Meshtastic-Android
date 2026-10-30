@@ -1083,6 +1083,8 @@ fun GroupTrackScreen(
                             }
                             override fun shouldInterceptRequest(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
                                 val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+                                // VECSWITCH-2026-10-30: the vector page, its style, fonts, icons and tiles are answered here (nothing online)
+                                if (view != null && GtMapEngine.isVector(view.context)) VecMapServer.serve(view.context.applicationContext, request!!)?.let { return it }
                                 // OFFTRACE-2026-08-11M: log EVERY request the WebView makes. If no
                                 // convoy:// line ever appears, the map is still asking
                                 // for https and the interceptor is irrelevant.
@@ -1150,7 +1152,9 @@ fun GroupTrackScreen(
                         // exactly backwards from where storage is now going. Once
                         // tileRoot() resolves internal, its source and destination
                         // would be the SAME directory. Deleted, not disabled.
-                        loadUrl("file:///android_asset/convoy_map.html")
+                        // VECSWITCH-2026-10-30: the engine chosen in Map Sources decides the page, at startup
+                        loadUrl(if (GtMapEngine.isVector(ctx)) "https://${VecMapServer.HOST}/a/vecmap_main.html"
+                                else "file:///android_asset/convoy_map.html")
                         addJavascriptInterface(object : Any() {
                             @android.webkit.JavascriptInterface
                             fun onMapTap(lat: Double, lon: Double) {
