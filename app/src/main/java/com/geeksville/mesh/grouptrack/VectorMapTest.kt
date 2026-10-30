@@ -53,6 +53,13 @@ object VecMapServer {
                         ok("application/x-protobuf", raw?.let { gunzipIfNeeded(it) } ?: ByteArray(0))
                     }
                 }
+                // VEC3D-2026-10-30: elevation for 3D / hillshade from the DEM store, as received; not stored -> 404 (flat there)
+                path.startsWith("/d/") -> {
+                    val seg = path.removePrefix("/d/").removeSuffix(".png").split("/")
+                    val z = seg.getOrNull(0)?.toIntOrNull(); val x = seg.getOrNull(1)?.toIntOrNull(); val y = seg.getOrNull(2)?.toIntOrNull()
+                    val b = if (z == null || x == null || y == null) null else MBTilesStore.readTile(com.geeksville.mesh.convoy.ElevationTiles.SLOT, z, x, y)
+                    if (b == null) notFound() else ok("image/png", b)
+                }
                 path.startsWith("/a/") -> {
                     val rel = path.removePrefix("/a/")
                     if (rel.contains("..")) notFound()
