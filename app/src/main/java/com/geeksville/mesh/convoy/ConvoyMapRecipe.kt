@@ -87,7 +87,7 @@ object ConvoyMapRecipe {
         val slots = JSONArray()
         var grand = 0L
         for (slot in MapSourceManager.getSlotSources().map { it.first }) {
-            val r = DownloadQueueManager.deriveRecipe(context, slot) ?: continue
+            val r = DownloadQueueManager.deriveRecipe(context, slot, tight = true) ?: continue   // RECIPETIGHT-2026-10-30: boxes follow your maps
             val boxes = JSONArray()
             val n = 1L shl r.refZ
             fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0

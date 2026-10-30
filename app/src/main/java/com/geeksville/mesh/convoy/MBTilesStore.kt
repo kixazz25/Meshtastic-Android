@@ -383,6 +383,22 @@ object MBTilesStore {
      *  layer that was never downloaded -- db() opens-or-creates. */
     fun storeExists(type: String): Boolean = dbFileFor(type).exists()
 
+    /** RECIPESCAN-2026-10-30: one zoom level's stored tiles grouped by their ancestor `shift` levels up -- (ax, ay, count).
+     *  ONE indexed pass per level; the daily recipe reads every level this way instead of counting box by box. */
+    fun countByParent(type: String, z: Int, shift: Int): List<LongArray> {
+        val d = db(type) ?: return emptyList()
+        val out = ArrayList<LongArray>()
+        try {
+            d.rawQuery(
+                "SELECT tile_column >> $shift, tile_row >> $shift, COUNT(*) FROM tiles WHERE zoom_level=? GROUP BY 1, 2",
+                arrayOf(z.toString())
+            ).use { c -> while (c.moveToNext()) out.add(longArrayOf(c.getLong(0), c.getLong(1), c.getLong(2))) }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "countByParent $type z$z: ${e.message}")
+        }
+        return out
+    }
+
     /** DELETE-AREA-2026-07-25: how many tiles sit inside this z/x/y rectangle.
      *  Indexed count via tile_index. Used to report what a delete actually
      *  removed, and available for an exact pre-count off the main thread. */

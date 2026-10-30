@@ -90,6 +90,7 @@ object ConvoyTileCalculator {
     fun maxZoomForSlot(slotName: String): Int = when (slotName.uppercase()) {
         "" -> ConvoyConfig.DOWNLOAD_ZOOM
         "SAT" -> minOf(18, ConvoyConfig.DOWNLOAD_ZOOM)
+        "VEC" -> minOf(14, ConvoyConfig.DOWNLOAD_ZOOM)   // VECSOURCE-2026-10-30: vector tiles end at z14; MapLibre over-zooms
         else -> minOf(16, ConvoyConfig.DOWNLOAD_ZOOM)
     }
 

@@ -247,6 +247,11 @@ object GtOffGrid {
  *  Read only: SAVED ON THIS PHONE (60 days, newest first) and RECEIVED in Downloads. */
 @Composable
 fun GtRecipesScreen(onDone: () -> Unit) {
+    // VECSOURCE-2026-10-30 (2.7e step 1): the vector download button
+    val vecCtx = LocalContext.current
+    val vecScope = androidx.compose.runtime.rememberCoroutineScope()
+    val vecMsg = remember { androidx.compose.runtime.mutableStateOf("") }
+    val vecBusy = remember { androidx.compose.runtime.mutableStateOf(false) }
     val rows = remember { androidx.compose.runtime.mutableStateOf<Pair<List<String>, List<String>>?>(null) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         rows.value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -290,6 +295,34 @@ fun GtRecipesScreen(onDone: () -> Unit) {
                         modifier = Modifier.padding(top = 10.dp))
                     if (r.second.isEmpty()) Text("none \u2014 recipes sent to you arrive here", fontSize = 12.sp, color = Gt.dim)
                     r.second.forEach { Text(it, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
+                    // VECSOURCE-2026-10-30 (Fred 10:12): the fourth group, from the newest recipe, through the download queues.
+                    Text("VECTOR MAPS (2.7e, testing)", color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 10.dp))
+                    Text(vecMsg.value.ifEmpty { "Downloads the vector map (OpenFreeMap, zoom 0\u201314) for the first 5 boxes of the newest recipe, through the download queues." },
+                        fontSize = 12.sp, color = Gt.dim)
+                    Text(if (vecBusy.value) "QUEUEING\u2026" else "DOWNLOAD VECTOR \u2014 FIRST 5 BOXES", color = Gt.accent,
+                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable(enabled = !vecBusy.value) {
+                            vecBusy.value = true
+                            vecScope.launch {
+                                vecMsg.value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    com.geeksville.mesh.convoy.VectorTiles.queueFromRecipe(vecCtx.applicationContext, 5)
+                                }
+                                vecBusy.value = false
+                            }
+                        }.padding(vertical = 10.dp))
+                    // VECALL-2026-10-30 (Fred 11:11): every box of the newest recipe
+                    Text(if (vecBusy.value) "" else "DOWNLOAD VECTOR \u2014 WHOLE RECIPE", color = Gt.accent,
+                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable(enabled = !vecBusy.value) {
+                            vecBusy.value = true
+                            vecScope.launch {
+                                vecMsg.value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    com.geeksville.mesh.convoy.VectorTiles.queueFromRecipe(vecCtx.applicationContext, Int.MAX_VALUE)
+                                }
+                                vecBusy.value = false
+                            }
+                        }.padding(vertical = 10.dp))
                 }
             }
         },

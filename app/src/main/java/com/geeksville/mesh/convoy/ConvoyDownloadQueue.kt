@@ -289,23 +289,28 @@ object DownloadQueueManager {
         replaceExisting: Boolean = false
     ): Int {
         init(context)
-        val slotLayers = MapSourceManager.getDownloadSources().filter { it.first == slotName }.sumOf { it.second.size }
+        // VECSOURCE-2026-10-30: VEC is not in getDownloadSources (not a map-bar slot) -- it is one layer.
+        val slotLayers = if (slotName == VectorTiles.SLOT) 1
+            else MapSourceManager.getDownloadSources().filter { it.first == slotName }.sumOf { it.second.size }
         // SEGMENTATION (2026-07-11): size off REAL job volume = 1-layer estimate * slotLayers.
         //   SAT = 3 layers over same geography, so slotLayers=3 -> ~24.7K*3 = ~74K -> 2 segments.
         //   (Bug history: sizing off the bare 1-layer estimate under-segmented; caught by dry-run JSON.)
-        val oneLayerTiles = ConvoyTileCalculator.quickEstimate(north, south, east, west).tileCount
+        // VECENQUEUE-2026-10-30: VEC is counted z0-z14 and sized on its OWN volume (a recipe box on the SAT z18 grid OOMed).
+        val isVec = slotName == VectorTiles.SLOT
+        val oneLayerTiles = if (isVec) ConvoyTileCalculator.quickEstimate(north, south, east, west, zMin = 0, zMax = VectorTiles.Z_MAX).tileCount
+            else ConvoyTileCalculator.quickEstimate(north, south, east, west).tileCount
         // ALL SOURCES RIDE THE SAT-SIZED GRID (design: "SAT sizes the grid, all ride it").
         // enqueueArea is called once per slot from submitDownload's loop; without this,
         // SAT (3 layers ~74K) split into 2 but TOPO/TOPO+ (~24K) stayed 1 -> mismatched grids.
         // So size off the SAT slot's layer count REGARDLESS of which slot is enqueuing:
         val satLayers = MapSourceManager.getDownloadSources()
             .find { it.first == "SAT" }?.second?.size ?: slotLayers
-        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
+        val sizeTiles = if (isVec) oneLayerTiles else oneLayerTiles * Math.max(1, satLayers)
         val cells = ConvoyTileDownloader.segmentCells(north, south, east, west, sizeTiles)
         // SIZECALC-LOG-2026-07-23: every term of the sizing decision on one line.
         run {
-            val entryTilesWhole =
-                ConvoyTileCalculator.calculateTiles(north, south, east, west).size * slotLayers
+            val entryTilesWhole =   // VECENQUEUE-2026-10-30: VEC never lists the box
+                (if (isVec) oneLayerTiles else ConvoyTileCalculator.calculateTiles(north, south, east, west).size) * slotLayers
             android.util.Log.i(
                 "SIZECALC",
                 "src=enqueueArea label='DL $slotName' slot=$slotName " +
@@ -322,7 +327,7 @@ object DownloadQueueManager {
             // Small area — single job
             val entry = QueueEntry(
                 north = north, south = south, east = east, west = west,
-                totalTiles = ConvoyTileCalculator.calculateTiles(north, south, east, west).size * slotLayers,
+                totalTiles = (if (isVec) oneLayerTiles else ConvoyTileCalculator.calculateTiles(north, south, east, west).size) * slotLayers,
                 label = "DL $slotName",
                 refreshMode = replaceExisting,
                 refreshSlot = slotName,
@@ -330,8 +335,8 @@ object DownloadQueueManager {
                 // floors at Math.max(1,..) so cells is never empty. Typed
                 // anyway so it cannot become a silent AREA-default if the
                 // floor ever changes.
-                downloadType = DownloadType.AREA,
-                priority = DownloadPriority.AREA
+                downloadType = if (isVec) DownloadType.MAP_SOURCE_REFRESH else DownloadType.AREA,   // VECRFSH-2026-10-30: a recipe rebuild
+                priority = if (isVec) DownloadPriority.REFRESH else DownloadPriority.AREA
             )
             val current = _queue.value.toMutableList()
             current.add(entry)
@@ -344,13 +349,14 @@ object DownloadQueueManager {
         cells.forEachIndexed { i, cell ->
             val entry = QueueEntry(
                 north = cell[0], south = cell[1], east = cell[2], west = cell[3],
-                totalTiles = ConvoyTileCalculator.calculateTiles(cell[0], cell[1], cell[2], cell[3]).size * slotLayers,
+                totalTiles = (if (isVec) ConvoyTileCalculator.quickEstimate(cell[0], cell[1], cell[2], cell[3], zMin = 0, zMax = VectorTiles.Z_MAX).tileCount   // VECENQUEUE-2026-10-30
+                    else ConvoyTileCalculator.calculateTiles(cell[0], cell[1], cell[2], cell[3]).size) * slotLayers,
                 label = "DL $slotName ${i + 1}/${cells.size}",
                 refreshMode = replaceExisting,
                 refreshSlot = slotName,
                 // QUEUE-SCHEMA-2026-07-24
-                downloadType = DownloadType.AREA,
-                priority = DownloadPriority.AREA
+                downloadType = if (isVec) DownloadType.MAP_SOURCE_REFRESH else DownloadType.AREA,   // VECRFSH-2026-10-30: a recipe rebuild
+                priority = if (isVec) DownloadPriority.REFRESH else DownloadPriority.AREA
             )
             // SIZECALC-LOG-2026-07-23: per-cell entry as queued.
             android.util.Log.i(
@@ -776,7 +782,11 @@ object DownloadQueueManager {
     )
 
     fun deriveRecipe(
-        context: Context, slotName: String, maxTilesPerJob: Int = 50000
+        context: Context, slotName: String, maxTilesPerJob: Int = 50000,
+        // RECIPETIGHT-2026-10-30 / RECIPESCAN-2026-10-30: true = boxes follow the downloaded areas (deriveScan; the daily recipe);
+        // false = the quadtree below, unchanged
+        // (Refresh maps by source, which fetches only held tiles). CODE RULE 1: required, both callers state it.
+        tight: Boolean
     ): RecipeResult? {
         init(context)
         MapSourceManager.init(context)
@@ -785,6 +795,7 @@ object DownloadQueueManager {
             android.util.Log.i(TAG, "RECIPE-2026-08-12L $slotName: nothing stored")
             return null
         }
+        if (tight) return deriveScan(slotName, levels)   // RECIPESCAN-2026-10-30
         val refZ = levels.max()
         val ext = MBTilesStore.tileExtentAtZoom(slotName, refZ) ?: return null
 
@@ -828,6 +839,57 @@ object DownloadQueueManager {
         return RecipeResult(slotName, refZ, levels, boxes, dropped, total)
     }
 
+    /**
+     * RECIPESCAN-2026-10-30 (Fred 10:43: "we have map areas downloaded in boxed segments"): the daily recipe's boxes.
+     * Each zoom level of the store is read ONCE, grouped by the ~10 km square (z12 tile) its tiles fall in. Occupied squares are joined
+     * into rectangles: a run of neighbouring squares along a row; the same run on the next row extends the same rectangle.
+     * Replaces the RECIPETIGHT quadtree (one COUNT per level per box: 17+ min of CPU on Droid 1, never finished).
+     * Levels below z12 do not place boxes -- one z4 tile spans ~2,500 km and would rebuild the Utah-to-Iowa box.
+     */
+    private fun deriveScan(slotName: String, levels: List<Int>): RecipeResult? {
+        val cellZ = minOf(12, levels.max())
+        val cells = HashMap<Long, Long>()   // (x shl 32) or y  ->  stored tiles in that square
+        for (z in levels) {
+            if (z < cellZ) continue
+            for (r in MBTilesStore.countByParent(slotName, z, z - cellZ)) {
+                val k = (r[0] shl 32) or r[1]
+                cells[k] = (cells[k] ?: 0L) + r[2]
+            }
+        }
+        if (cells.isEmpty()) {
+            android.util.Log.i(TAG, "RECIPESCAN-2026-10-30 $slotName: nothing stored at z$cellZ or above")
+            return null
+        }
+        val byRow = cells.keys.groupBy({ it and 0xffffffffL }, { it ushr 32 }).toSortedMap()
+        val boxes = ArrayList<LongArray>()            // x0, x1, y0, y1, stored tiles  (z = cellZ)
+        var open = HashMap<Pair<Long, Long>, LongArray>()
+        var prevY = Long.MIN_VALUE
+        for ((y, xs) in byRow) {
+            val runs = ArrayList<Pair<Long, Long>>()
+            var s = -1L; var p = -2L
+            for (x in xs.sorted()) {
+                if (x != p + 1) { if (s >= 0) runs.add(Pair(s, p)); s = x }
+                p = x
+            }
+            runs.add(Pair(s, p))
+            val next = HashMap<Pair<Long, Long>, LongArray>()
+            for (r in runs) {
+                var n = 0L
+                for (x in r.first..r.second) n += cells[(x shl 32) or y] ?: 0L
+                val b = if (y == prevY + 1) open.remove(r) else null
+                if (b != null) { b[3] = y; b[4] += n; next[r] = b }
+                else next[r] = longArrayOf(r.first, r.second, y, y, n)
+            }
+            boxes.addAll(open.values)      // runs not repeated on this row are finished
+            open = next
+            prevY = y
+        }
+        boxes.addAll(open.values)
+        val total = boxes.sumOf { it[4] }
+        android.util.Log.i(TAG, "RECIPESCAN-2026-10-30 $slotName: ${cells.size} occupied z$cellZ squares -> ${boxes.size} box(es), $total stored tile(s)")
+        return RecipeResult(slotName, cellZ, levels, boxes, 0, total)
+    }
+
     fun enqueueRecreateSource(
         context: Context,
         slotName: String,
@@ -836,7 +898,7 @@ object DownloadQueueManager {
         init(context)
         MapSourceManager.init(context)
 
-        val r = deriveRecipe(context, slotName, maxTilesPerJob) ?: return 0
+        val r = deriveRecipe(context, slotName, maxTilesPerJob, tight = false) ?: return 0   // RECIPETIGHT-2026-10-30: unchanged
         val boxes = r.boxes
         val dropped = r.dropped
         if (boxes.isEmpty()) return 0
