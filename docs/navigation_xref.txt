@@ -1,8 +1,8 @@
 ==============================================================================
 GROUPTRACK -- NAVIGATION CROSS-REFERENCE v2 (the click tree, for the user manual)
 ==============================================================================
-Generated: 2026-10-29 22:01   branch 2.7d @ 925931a04   files scanned: 150   composables: 162
-Clickables: 300   state-opened panels: 36   routes: 0
+Generated: 2026-10-30 16:44   branch 2.7e @ 772e44009   files scanned: 154   composables: 163
+Clickables: 306   state-opened panels: 36   routes: 0
 Each panel shows [file last commit date]: a screenshot whose build date is OLDER than that date needs a recapture.
 
 === 1. THE CLICK TREE (from each screen downward) ===
@@ -30,12 +30,12 @@ ActiveSlotBar  [ConvoyDownloadQueuePanel.kt:581 · 2026-10-24]
    ▸ “X”  (line 607)
       → does: DownloadQueueManager.cancel(entry.id)
 
-ApiKeyDialog  [ConvoyMapSourceScreen.kt:1015 · 2026-10-24]
-   ▸ “Save”  (line 1047)
+ApiKeyDialog  [ConvoyMapSourceScreen.kt:1025 · 2026-10-30]
+   ▸ “Save”  (line 1057)
       → calls back ConvoyMapSourceScreen  (onSave → key -> MapSourceManager.saveApiKey(sourceId, key) showApiKeyDialog = null)
 
-ApiKeyRow  [ConvoyMapSourceScreen.kt:978 · 2026-10-24]
-   ▸ “Key configured”  (line 988)
+ApiKeyRow  [ConvoyMapSourceScreen.kt:988 · 2026-10-30]
+   ▸ “Key configured”  (line 998)
       → does: Row( modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically ) { Icon( if (hasKey)…
 
 AreaItemRow  [HomeStatePickerScreen.kt:286 · 2026-10-25]
@@ -153,6 +153,10 @@ ConfigReviewScreen  [ConfigReviewScreen.kt:67 · 2026-10-26]
 ConfirmDialog  [ConvoyDownloadQueuePanel.kt:535 · 2026-10-24]
    ▸ “PROCEED”  (line 543)
       → calls back DownloadQueuePanel  (onDismiss → confirmAction = null)
+
+ConvertToGpxScreen  [ConvertToGpxScreen.kt:32 · 2026-10-30]
+   ▸ “  DONE  ”  (line 71)
+      → does: if (finished) onDone() else open()
 
 ConvoyBroadcastScreen  [ConvoyBroadcastScreen.kt:25 · 2026-10-24]
    ▸ “SEND BROADCAST”  (line 69)
@@ -281,14 +285,14 @@ ConvoyDashboardScreen  [ConvoyDashboardScreen.kt:26 · 2026-10-29]
       RideDisplayPanel  [ConvoyDashboardScreen.kt:585 · 2026-10-29]  ← opens (nearMeExpanded)  (expanded above)
    GroupTrackBottomNav  [GroupTrackTheme.kt:220 · 2026-10-24]  ← part of this screen  (expanded above)
 
-ConvoyDownloadConfirm  [ConvoyDownloadConfirm.kt:36 · 2026-10-24]
-   ▸ “ → ”  (line 87)
+ConvoyDownloadConfirm  [ConvoyDownloadConfirm.kt:36 · 2026-10-30]
+   ▸ “ → ”  (line 90)
       → does: selectedSlots = if (checked) selectedSlots - slot.slotName else selectedSlots + slot.slotName
-   ▸ “Replace existing tiles”  (line 121)
+   ▸ “Replace existing tiles”  (line 125)
       → does: replaceExisting = !replaceExisting
-   ▸ “CANCEL”  (line 132)
+   ▸ “CANCEL”  (line 136)
       RecapLine  [HomeStatePickerScreen.kt:612 · 2026-10-25]  ← opens (showDetail)  (expanded above)
-   ▸ “PROCEED”  (line 141)
+   ▸ “PROCEED”  (line 145)
       → calls back ConvoyTrackImportScreen  (onProceed → _, sel, replace -> selectedSlots = sel replaceExisting = replace showSourcePopu…)
 
 ConvoyDownloadRideConfigScreen  [ConvoyDownloadRideConfigScreen.kt:45 · 2026-10-24]
@@ -340,32 +344,40 @@ ConvoyInviteSendScreen  [ConvoyInviteSendScreen.kt:26 · 2026-10-24]
       ▸ “?”  (line 87)
          → does: onClick()
 
-ConvoyMapSourceScreen  [ConvoyMapSourceScreen.kt:75 · 2026-10-24]
-   ▸ “Sources requiring API keys. Enter key to unlock.”  (line 183)
+ConvoyMapSourceScreen  [ConvoyMapSourceScreen.kt:75 · 2026-10-30]
+   ▸ “GroupTrack closes and opens again on the chosen map. Use it when you are not on a ride.”  (line 162)
+      → does: if (v != engVec) engAsk = v
+   ▸ “GroupTrack closes and opens again on the chosen map. Use it when you are not on a ride.”  (line 164)
+      → does: if (v != engVec) engAsk = v
+   ▸ “RESTART”  (line 172)
+      → does: com.geeksville.mesh.grouptrack.GtMapEngine.switchTo(engCtx, want)
+   ▸ “CANCEL”  (line 173)
+      → does: engAsk = null
+   ▸ “Sources requiring API keys. Enter key to unlock.”  (line 193)
       → does: selectedSlot = slotKey
-   ▸ “< Back to slots”  (line 206)
+   ▸ “< Back to slots”  (line 216)
       → does: showApiKeyDialog = source.id
-   ▸ “< Back to slots”  (line 219)
+   ▸ “< Back to slots”  (line 229)
       → does: selectedSlot = null
-   ▸ “”  (line 250)
+   ▸ “”  (line 260)
       → does: if (isAvailable) { applySource(slotKey, source.id) } else { showApiKeyDialog = source.id }
-   ▸ “NEXT STEP”  (line 313)
+   ▸ “NEXT STEP”  (line 323)
       → does: showPanel = true
-   ▸ “slot”  (line 465)
-      MigrationOption  [ConvoyMapSourceScreen.kt:1062 · 2026-10-24]  ← opens (refreshEnqueued)
-         ▸ “?”  (line 1073)
+   ▸ “slot”  (line 475)
+      MigrationOption  [ConvoyMapSourceScreen.kt:1072 · 2026-10-30]  ← opens (refreshEnqueued)
+         ▸ “?”  (line 1083)
             → calls back ConvoyMapSourceScreen  (onSelect → migChoice = "delete")
-      MigrationSteps  [ConvoyMapSourceScreen.kt:793 · 2026-10-24]  ← opens (migRunning)
-   ▸ “OK”  (line 762)
+      MigrationSteps  [ConvoyMapSourceScreen.kt:803 · 2026-10-30]  ← opens (migRunning)
+   ▸ “OK”  (line 772)
       → does: showPanel = false clearResult = null refreshSlot = null
-   SlotCard  [ConvoyMapSourceScreen.kt:858 · 2026-10-24]  ← part of this screen
-      ▸ “$producer | $mapType”  (line 870)
+   SlotCard  [ConvoyMapSourceScreen.kt:868 · 2026-10-30]  ← part of this screen
+      ▸ “$producer | $mapType”  (line 880)
          → does: Row( modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically ) { // Slot badge Sur…
-   ApiKeyRow  [ConvoyMapSourceScreen.kt:978 · 2026-10-24]  ← part of this screen  (expanded above)
-   SourceRow  [ConvoyMapSourceScreen.kt:915 · 2026-10-24]  ← part of this screen
-      ▸ “API Key Required”  (line 929)
+   ApiKeyRow  [ConvoyMapSourceScreen.kt:988 · 2026-10-30]  ← part of this screen  (expanded above)
+   SourceRow  [ConvoyMapSourceScreen.kt:925 · 2026-10-30]  ← part of this screen
+      ▸ “API Key Required”  (line 939)
          → does: Row( modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically ) { // Radio indicato…
-   ApiKeyDialog  [ConvoyMapSourceScreen.kt:1015 · 2026-10-24]  ← part of this screen  (expanded above)
+   ApiKeyDialog  [ConvoyMapSourceScreen.kt:1025 · 2026-10-30]  ← part of this screen  (expanded above)
 
 ConvoyMyOrganizersScreen  [ConvoyMyOrganizersScreen.kt:32 · 2026-10-24]
    ▸ “← BACK”  (line 79)
@@ -486,7 +498,7 @@ ConvoySearchByAreaScreen  [ConvoySearchByAreaScreen.kt:39 · 2026-10-24]
    ▸ “← BACK”  (line 50)
       → does: onBack()
 
-ConvoySettingsScreen  [ConvoySettingsScreen.kt:51 · 2026-10-26]
+ConvoySettingsScreen  [ConvoySettingsScreen.kt:51 · 2026-10-30]
    ▸ “CLOSE”  (line 100)
       → does: showConversionRecord = true
    ▸ “CLOSE”  (line 109)
@@ -569,21 +581,23 @@ ConvoyTrackExportSheet  [ConvoyTrackExportSheet.kt:39 · 2026-10-24]
       ▸ “Rename”  (line 97)
          → calls back ConvoyTrackExportSheet  (onConfirm → newName -> val f = renameTarget; renameTarget = null f?.let { scope.launch { va…)
 
-ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:65 · 2026-10-24]
-   ▸ “Import Tracks from Downloads”  (line 383)
+ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:65 · 2026-10-30]
+   ▸ “Import Trails from GPX Files”  (line 387)
       → calls back MainScreen  (onDismiss → com.geeksville.mesh.convoy.RideImportLauncher.clear())
-   ▸ “Delete the originals after copying”  (line 505)
+   ▸ “Delete the originals after copying”  (line 509)
       → does: deleteOriginals = !deleteOriginals
-   ▸ “  SELECT FILES  ”  (line 518)
+   ▸ “  SELECT FILES  ”  (line 522)
       → does: // \u26a0 GPX and KML are frequently reported as // octet-stream, so the wildcard has to be there or // the r…
-   ▸ “  Back to Map  ”  (line 537)
+   ▸ “  Back to Map  ”  (line 541)
       → calls back MainScreen  (onDismiss → com.geeksville.mesh.convoy.RideImportLauncher.clear())
-   ▸ “?”  (line 583)
+   ▸ “?”  (line 587)
       → does: selected = if (checked) selected - file.name else selected + file.name
-   ▸ “Select All  (${selected.size} of ${files.size})”  (line 683)
+   ▸ “Select All  (${selected.size} of ${files.size})”  (line 687)
       → does: selected = if (selected.size == files.size) emptySet() else files.map { it.name }.toSet()
-   ▸ “Select files to import”  (line 717)
-      ConvoyDownloadConfirm  [ConvoyDownloadConfirm.kt:36 · 2026-10-24]  ← opens (showSourcePopup)  (expanded above)
+   ▸ “Import tracks as trails  (a trail map: every line becomes a trail)”  (line 714)
+      → does: asTrails = !asTrails
+   ▸ “Select files to import”  (line 742)
+      ConvoyDownloadConfirm  [ConvoyDownloadConfirm.kt:36 · 2026-10-30]  ← opens (showSourcePopup)  (expanded above)
 
 ConvoyTrailSourceScreen  [ConvoyTrailSourceScreen.kt:64 · 2026-10-24]
    ▸ “IMPORT FULL SOURCE”  (line 121)
@@ -758,27 +772,27 @@ GtMenuLabel  [GroupTrackTheme.kt:363 · 2026-10-24]  (expanded above)
 
 GtNavBtn  [GroupTrackTheme.kt:344 · 2026-10-24]  (expanded above)
 
-ImportRecapDialog  [ConvoyTrackImportScreen.kt:821 · 2026-10-24]
-   ▸ “DELETE FILES & CLOSE”  (line 841)
+ImportRecapDialog  [ConvoyTrackImportScreen.kt:846 · 2026-10-30]
+   ▸ “DELETE FILES & CLOSE”  (line 866)
       → calls back ConvoyTrackImportScreen  (onFilesDelete → scope.launch { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO…)
       → calls back MainScreen  (via ConvoyTrackImportScreen.onDismiss)
 
-MainScreen  [Main.kt:172 · 2026-10-25]
+MainScreen  [Main.kt:172 · 2026-10-30]
    ▸ “?”  (line 466)
       → goes to route  (route route)
       → goes to ConvoyAuthorityGate  (route ConvoyAuthorityGate)
    ▸ “Hide Mesh”  (line 544)
       → goes to ConvoyAuthorityGate  (route ConvoyAuthorityGate)
-   ▸ “◀ BACK TO MAP”  (line 677)
+   ▸ “◀ BACK TO MAP”  (line 678)
       → does: convoyViewModel.closeCommMenu(grpOpenNow ?: "")
-   ▸ “OK”  (line 699)
+   ▸ “OK”  (line 700)
       → does: com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false com.geeksville.mesh.convoy.GrpAwaren…
-   ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:65 · 2026-10-24]  ← part of this screen  (expanded above)
+   ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:65 · 2026-10-30]  ← part of this screen  (expanded above)
    GroupModeActivatePopup  [GroupMode.kt:50 · 2026-10-13]  ← part of this screen  (expanded above)
 
 MethodCard  [ConvoyTrailSourceScreen.kt:553 · 2026-10-24]  (expanded above)
 
-MigrationOption  [ConvoyMapSourceScreen.kt:1062 · 2026-10-24]  (expanded above)
+MigrationOption  [ConvoyMapSourceScreen.kt:1072 · 2026-10-30]  (expanded above)
 
 NavBtn3  [ConvoyInviteSendScreen.kt:84 · 2026-10-24]  (expanded above)
 
@@ -837,9 +851,9 @@ SearchButton  [ConvoyCompletedRidesScreen.kt:367 · 2026-10-24]  (expanded above
 
 SegHalf  [ConvoyRouteToolbar.kt:361 · 2026-10-24]  (expanded above)
 
-SlotCard  [ConvoyMapSourceScreen.kt:858 · 2026-10-24]  (expanded above)
+SlotCard  [ConvoyMapSourceScreen.kt:868 · 2026-10-30]  (expanded above)
 
-SourceRow  [ConvoyMapSourceScreen.kt:915 · 2026-10-24]  (expanded above)
+SourceRow  [ConvoyMapSourceScreen.kt:925 · 2026-10-30]  (expanded above)
 
 SourceSelectCard  [ConvoyTrailSourceScreen.kt:569 · 2026-10-24]  (expanded above)
 
@@ -880,6 +894,7 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-26  ArtifactListPanel                            app/src/main/java/com/geeksville/mesh/convoy/ArtifactListPanel.kt:41  (4 clickables)
 2026-10-26  ArtifactListItem                             app/src/main/java/com/geeksville/mesh/convoy/ArtifactListPanel.kt:169  (1 clickables)
 2026-10-26  ConfigReviewScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConfigReviewScreen.kt:67  (9 clickables)
+2026-10-30  ConvertToGpxScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConvertToGpxScreen.kt:32  (1 clickables)
 2026-10-24  StepButton                                   app/src/main/java/com/geeksville/mesh/convoy/ConvoyAiStepPanel.kt:91  (1 clickables)
 2026-10-24  TableButton                                  app/src/main/java/com/geeksville/mesh/convoy/ConvoyBatchGridPanel.kt:115  (1 clickables)
 2026-10-24  ConvoyBroadcastScreen                        app/src/main/java/com/geeksville/mesh/convoy/ConvoyBroadcastScreen.kt:25  (1 clickables)
@@ -899,7 +914,7 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-29  NotifAccordion                               app/src/main/java/com/geeksville/mesh/convoy/ConvoyDashboardScreen.kt:817  (1 clickables)
 2026-10-29  AccordionHeader                              app/src/main/java/com/geeksville/mesh/convoy/ConvoyDashboardScreen.kt:829  (1 clickables)
 2026-10-24  DevScenarioButton                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyDevLaunchScreen.kt:141  (1 clickables)
-2026-10-24  ConvoyDownloadConfirm                        app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadConfirm.kt:36  (4 clickables)
+2026-10-30  ConvoyDownloadConfirm                        app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadConfirm.kt:36  (4 clickables)
 2026-10-24  DownloadQueuePanel                           app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadQueuePanel.kt:54  (4 clickables)
 2026-10-24  QueueSummaryBar                              app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadQueuePanel.kt:469  (1 clickables)
 2026-10-24  ConfirmDialog                                app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadQueuePanel.kt:535  (1 clickables)
@@ -919,12 +934,12 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-24  GpButton                                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyGuidedPinPanel.kt:234  (1 clickables)
 2026-10-24  ConvoyInviteSendScreen                       app/src/main/java/com/geeksville/mesh/convoy/ConvoyInviteSendScreen.kt:26  (1 clickables)
 2026-10-24  NavBtn3                                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyInviteSendScreen.kt:84  (1 clickables)
-2026-10-24  ConvoyMapSourceScreen                        app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapSourceScreen.kt:75  (7 clickables)
-2026-10-24  SlotCard                                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapSourceScreen.kt:858  (1 clickables)
-2026-10-24  SourceRow                                    app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapSourceScreen.kt:915  (1 clickables)
-2026-10-24  ApiKeyRow                                    app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapSourceScreen.kt:978  (1 clickables)
-2026-10-24  ApiKeyDialog                                 app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapSourceScreen.kt:1015  (1 clickables)
-2026-10-24  MigrationOption                              app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapSourceScreen.kt:1062  (1 clickables)
+2026-10-30  ConvoyMapSourceScreen                        app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapSourceScreen.kt:75  (11 clickables)
+2026-10-30  SlotCard                                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapSourceScreen.kt:868  (1 clickables)
+2026-10-30  SourceRow                                    app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapSourceScreen.kt:925  (1 clickables)
+2026-10-30  ApiKeyRow                                    app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapSourceScreen.kt:988  (1 clickables)
+2026-10-30  ApiKeyDialog                                 app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapSourceScreen.kt:1025  (1 clickables)
+2026-10-30  MigrationOption                              app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapSourceScreen.kt:1072  (1 clickables)
 2026-10-24  ConvoyMyOrganizersScreen                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyMyOrganizersScreen.kt:32  (3 clickables)
 2026-10-24  ConvoyMyRidesScreen                          app/src/main/java/com/geeksville/mesh/convoy/ConvoyMyRidesScreen.kt:30  (5 clickables)
 2026-10-24  BottomNavBtn                                 app/src/main/java/com/geeksville/mesh/convoy/ConvoyMyRidesScreen.kt:142  (1 clickables)
@@ -942,7 +957,7 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-24  SegHalf                                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyRouteToolbar.kt:361  (1 clickables)
 2026-10-24  BuildBtn                                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyRouteToolbar.kt:383  (1 clickables)
 2026-10-24  ConvoySearchByAreaScreen                     app/src/main/java/com/geeksville/mesh/convoy/ConvoySearchByAreaScreen.kt:39  (1 clickables)
-2026-10-26  ConvoySettingsScreen                         app/src/main/java/com/geeksville/mesh/convoy/ConvoySettingsScreen.kt:51  (17 clickables)
+2026-10-30  ConvoySettingsScreen                         app/src/main/java/com/geeksville/mesh/convoy/ConvoySettingsScreen.kt:51  (17 clickables)
 2026-10-24  ConvoySignInScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConvoySignInScreen.kt:109  (3 clickables)
 2026-10-24  ConvoySubscriptionScreen                     app/src/main/java/com/geeksville/mesh/convoy/ConvoySubscriptionScreen.kt:129  (5 clickables)
 2026-10-24  ConvoyTermsScreen                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyTermsScreen.kt:18  (1 clickables)
@@ -951,8 +966,8 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-24  ConvoyTrackExportSheet                       app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackExportSheet.kt:39  (4 clickables)
 2026-10-24  FilterTab                                    app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackExportSheet.kt:285  (1 clickables)
 2026-10-24  TrackRow                                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackExportSheet.kt:301  (1 clickables)
-2026-10-24  ConvoyTrackImportScreen                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt:65  (7 clickables)
-2026-10-24  ImportRecapDialog                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt:821  (1 clickables)
+2026-10-30  ConvoyTrackImportScreen                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt:65  (8 clickables)
+2026-10-30  ImportRecapDialog                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt:846  (1 clickables)
 2026-10-24  ConvoyTrailSourceScreen                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrailSourceScreen.kt:64  (17 clickables)
 2026-10-24  MethodCard                                   app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrailSourceScreen.kt:553  (1 clickables)
 2026-10-24  SourceSelectCard                             app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrailSourceScreen.kt:569  (1 clickables)
@@ -976,7 +991,7 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-24  FilterRow                                    app/src/main/java/com/geeksville/mesh/convoy/TrailFilterPanel.kt:166  (1 clickables)
 2026-10-24  TrailStylePanel                              app/src/main/java/com/geeksville/mesh/convoy/TrailStylePanel.kt:57  (2 clickables)
 2026-10-24  Chip                                         app/src/main/java/com/geeksville/mesh/convoy/TrailStylePanel.kt:202  (1 clickables)
-2026-10-25  MainScreen                                   app/src/main/java/com/geeksville/mesh/ui/Main.kt:172  (4 clickables)
+2026-10-30  MainScreen                                   app/src/main/java/com/geeksville/mesh/ui/Main.kt:172  (4 clickables)
 
 === 3. STATE FLAGS → PANELS THEY SHOW ===
 GroupMode                          → SectionLabel
@@ -1051,6 +1066,7 @@ ConfigReviewScreen.kt:168 | ConfigReviewScreen | “View PDF” | pdf(sel, email
 ConfigReviewScreen.kt:169 | ConfigReviewScreen | “Email PDF” | pdf(sel, email = true)
 ConfigReviewScreen.kt:170 | ConfigReviewScreen | “Cancel” | selected = null
 ConfigReviewScreen.kt:188 | ConfigReviewScreen | “Identical.” | tap(k)
+ConvertToGpxScreen.kt:71 | ConvertToGpxScreen | “  DONE  ” | if (finished) onDone() else open()
 ConvoyAiStepPanel.kt:98 | StepButton | “?” | onClick()
 ConvoyBatchGridPanel.kt:126 | TableButton | “?” | onClick()
 ConvoyBroadcastScreen.kt:69 | ConvoyBroadcastScreen | “SEND BROADCAST” | broadcastSent = true android.widget.Toast.makeText(context, "Broadcast queued — Phase C", android.widget.Toast.LENGTH_S…
@@ -1113,10 +1129,10 @@ ConvoyDashboardScreen.kt:777 | RideActionButton | “?” | onClick()
 ConvoyDashboardScreen.kt:820 | NotifAccordion | “▼ $label” | onClick()
 ConvoyDashboardScreen.kt:836 | AccordionHeader | “▼” | onClick()
 ConvoyDevLaunchScreen.kt:150 | DevScenarioButton | “▶” | onClick()
-ConvoyDownloadConfirm.kt:87 | ConvoyDownloadConfirm | “ → ” | selectedSlots = if (checked) selectedSlots - slot.slotName else selectedSlots + slot.slotName
-ConvoyDownloadConfirm.kt:121 | ConvoyDownloadConfirm | “Replace existing tiles” | replaceExisting = !replaceExisting
-ConvoyDownloadConfirm.kt:132 | ConvoyDownloadConfirm | “CANCEL” | showDetail = !showDetail
-ConvoyDownloadConfirm.kt:141 | ConvoyDownloadConfirm | “PROCEED” | onProceed(bbox, selectedSlots.toList(), replaceExisting)
+ConvoyDownloadConfirm.kt:90 | ConvoyDownloadConfirm | “ → ” | selectedSlots = if (checked) selectedSlots - slot.slotName else selectedSlots + slot.slotName
+ConvoyDownloadConfirm.kt:125 | ConvoyDownloadConfirm | “Replace existing tiles” | replaceExisting = !replaceExisting
+ConvoyDownloadConfirm.kt:136 | ConvoyDownloadConfirm | “CANCEL” | showDetail = !showDetail
+ConvoyDownloadConfirm.kt:145 | ConvoyDownloadConfirm | “PROCEED” | onProceed(bbox, selectedSlots.toList(), replaceExisting)
 ConvoyDownloadQueuePanel.kt:186 | DownloadQueuePanel | “$qeSlots” | qeSlots -= 1 DownloadQueueManager.setMaxConcurrent(qeCtx, qeSlots)
 ConvoyDownloadQueuePanel.kt:203 | DownloadQueuePanel | “ALL” | qeSlots += 1 DownloadQueueManager.setMaxConcurrent(qeCtx, qeSlots)
 ConvoyDownloadQueuePanel.kt:336 | DownloadQueuePanel | “q” | qtQueuedOpen = !qtQueuedOpen
@@ -1155,18 +1171,22 @@ ConvoyGuidedPinPanel.kt:210 | ConvoyPinMileageHud | “+” | onCeilingChange(5)
 ConvoyGuidedPinPanel.kt:239 | GpButton | “?” | onClick()
 ConvoyInviteSendScreen.kt:63 | ConvoyInviteSendScreen | “COPY & SHARE LINK” | android.widget.Toast.makeText(context, "Share sheet — Phase C", android.widget.Toast.LENGTH_SHORT).show()
 ConvoyInviteSendScreen.kt:87 | NavBtn3 | “?” | onClick()
-ConvoyMapSourceScreen.kt:183 | ConvoyMapSourceScreen | “Sources requiring API keys. Enter key to unlock.” | selectedSlot = slotKey
-ConvoyMapSourceScreen.kt:206 | ConvoyMapSourceScreen | “< Back to slots” | showApiKeyDialog = source.id
-ConvoyMapSourceScreen.kt:219 | ConvoyMapSourceScreen | “< Back to slots” | selectedSlot = null
-ConvoyMapSourceScreen.kt:250 | ConvoyMapSourceScreen | “” | if (isAvailable) { applySource(slotKey, source.id) } else { showApiKeyDialog = source.id }
-ConvoyMapSourceScreen.kt:313 | ConvoyMapSourceScreen | “NEXT STEP” | showPanel = true
-ConvoyMapSourceScreen.kt:465 | ConvoyMapSourceScreen | “slot” | val record = ConvoySourceMigration.inProgress().firstOrNull { f -> ConvoySourceMigration.read(f)?.optString("slot") == …
-ConvoyMapSourceScreen.kt:762 | ConvoyMapSourceScreen | “OK” | showPanel = false clearResult = null refreshSlot = null
-ConvoyMapSourceScreen.kt:870 | SlotCard | “$producer | $mapType” | Row( modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically ) { // Slot badge Surface( shap…
-ConvoyMapSourceScreen.kt:929 | SourceRow | “API Key Required” | Row( modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically ) { // Radio indicator Box( mod…
-ConvoyMapSourceScreen.kt:988 | ApiKeyRow | “Key configured” | Row( modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically ) { Icon( if (hasKey) Icons.Def…
-ConvoyMapSourceScreen.kt:1047 | ApiKeyDialog | “Save” | if (keyText.isNotBlank()) onSave(keyText.trim())
-ConvoyMapSourceScreen.kt:1073 | MigrationOption | “?” | onSelect()
+ConvoyMapSourceScreen.kt:162 | ConvoyMapSourceScreen | “GroupTrack closes and opens again on the chosen map. Use it when you are not on a ride.” | if (v != engVec) engAsk = v
+ConvoyMapSourceScreen.kt:164 | ConvoyMapSourceScreen | “GroupTrack closes and opens again on the chosen map. Use it when you are not on a ride.” | if (v != engVec) engAsk = v
+ConvoyMapSourceScreen.kt:172 | ConvoyMapSourceScreen | “RESTART” | com.geeksville.mesh.grouptrack.GtMapEngine.switchTo(engCtx, want)
+ConvoyMapSourceScreen.kt:173 | ConvoyMapSourceScreen | “CANCEL” | engAsk = null
+ConvoyMapSourceScreen.kt:193 | ConvoyMapSourceScreen | “Sources requiring API keys. Enter key to unlock.” | selectedSlot = slotKey
+ConvoyMapSourceScreen.kt:216 | ConvoyMapSourceScreen | “< Back to slots” | showApiKeyDialog = source.id
+ConvoyMapSourceScreen.kt:229 | ConvoyMapSourceScreen | “< Back to slots” | selectedSlot = null
+ConvoyMapSourceScreen.kt:260 | ConvoyMapSourceScreen | “” | if (isAvailable) { applySource(slotKey, source.id) } else { showApiKeyDialog = source.id }
+ConvoyMapSourceScreen.kt:323 | ConvoyMapSourceScreen | “NEXT STEP” | showPanel = true
+ConvoyMapSourceScreen.kt:475 | ConvoyMapSourceScreen | “slot” | val record = ConvoySourceMigration.inProgress().firstOrNull { f -> ConvoySourceMigration.read(f)?.optString("slot") == …
+ConvoyMapSourceScreen.kt:772 | ConvoyMapSourceScreen | “OK” | showPanel = false clearResult = null refreshSlot = null
+ConvoyMapSourceScreen.kt:880 | SlotCard | “$producer | $mapType” | Row( modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically ) { // Slot badge Surface( shap…
+ConvoyMapSourceScreen.kt:939 | SourceRow | “API Key Required” | Row( modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically ) { // Radio indicator Box( mod…
+ConvoyMapSourceScreen.kt:998 | ApiKeyRow | “Key configured” | Row( modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically ) { Icon( if (hasKey) Icons.Def…
+ConvoyMapSourceScreen.kt:1057 | ApiKeyDialog | “Save” | if (keyText.isNotBlank()) onSave(keyText.trim())
+ConvoyMapSourceScreen.kt:1083 | MigrationOption | “?” | onSelect()
 ConvoyMyOrganizersScreen.kt:79 | ConvoyMyOrganizersScreen | “← BACK” | onBack()
 ConvoyMyOrganizersScreen.kt:97 | ConvoyMyOrganizersScreen | “FOLLOWING” | activeTab = tab
 ConvoyMyOrganizersScreen.kt:147 | ConvoyMyOrganizersScreen | “Phase C: list populated from GET /users?is_organizer=1 filtered by your zip + radius” | scope.launch { val userId = ConvoySessionManager.getUserId(context) ?: return@launch if (isFollowing) { ConvoyApiClient…
@@ -1245,14 +1265,15 @@ ConvoyTrackExportSheet.kt:151 | ConvoyTrackExportSheet | “Date ↓” | sortMo
 ConvoyTrackExportSheet.kt:196 | ConvoyTrackExportSheet | “Copied to Downloads” | actionTarget = f
 ConvoyTrackExportSheet.kt:288 | FilterTab | “✓ ” | Text((if (selected) "\u2713 " else "") + label, color = if (selected) Gt.text else Gt.dim, fontSize = 12.sp, fontFamily…
 ConvoyTrackExportSheet.kt:309 | TrackRow | “${dateFmt.format(Date(file.lastModified()))}    ${ConvoyTrackOps.formatSize(file.length())}” | Surface( modifier = Modifier.size(8.dp), shape = RoundedCornerShape(4.dp), color = if (isInProgress) Gt.warn.copy(alpha…
-ConvoyTrackImportScreen.kt:383 | ConvoyTrackImportScreen | “Import Tracks from Downloads” | onDismiss()
-ConvoyTrackImportScreen.kt:505 | ConvoyTrackImportScreen | “Delete the originals after copying” | deleteOriginals = !deleteOriginals
-ConvoyTrackImportScreen.kt:518 | ConvoyTrackImportScreen | “  SELECT FILES  ” | // \u26a0 GPX and KML are frequently reported as // octet-stream, so the wildcard has to be there or // the rider sees …
-ConvoyTrackImportScreen.kt:537 | ConvoyTrackImportScreen | “  Back to Map  ” | onDismiss()
-ConvoyTrackImportScreen.kt:583 | ConvoyTrackImportScreen | “?” | selected = if (checked) selected - file.name else selected + file.name
-ConvoyTrackImportScreen.kt:683 | ConvoyTrackImportScreen | “Select All  (${selected.size} of ${files.size})” | selected = if (selected.size == files.size) emptySet() else files.map { it.name }.toSet()
-ConvoyTrackImportScreen.kt:717 | ConvoyTrackImportScreen | “Select files to import” | if (selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport()
-ConvoyTrackImportScreen.kt:841 | ImportRecapDialog | “DELETE FILES & CLOSE” | onFilesDelete(); onDismiss()
+ConvoyTrackImportScreen.kt:387 | ConvoyTrackImportScreen | “Import Trails from GPX Files” | onDismiss()
+ConvoyTrackImportScreen.kt:509 | ConvoyTrackImportScreen | “Delete the originals after copying” | deleteOriginals = !deleteOriginals
+ConvoyTrackImportScreen.kt:522 | ConvoyTrackImportScreen | “  SELECT FILES  ” | // \u26a0 GPX and KML are frequently reported as // octet-stream, so the wildcard has to be there or // the rider sees …
+ConvoyTrackImportScreen.kt:541 | ConvoyTrackImportScreen | “  Back to Map  ” | onDismiss()
+ConvoyTrackImportScreen.kt:587 | ConvoyTrackImportScreen | “?” | selected = if (checked) selected - file.name else selected + file.name
+ConvoyTrackImportScreen.kt:687 | ConvoyTrackImportScreen | “Select All  (${selected.size} of ${files.size})” | selected = if (selected.size == files.size) emptySet() else files.map { it.name }.toSet()
+ConvoyTrackImportScreen.kt:714 | ConvoyTrackImportScreen | “Import tracks as trails  (a trail map: every line becomes a trail)” | asTrails = !asTrails
+ConvoyTrackImportScreen.kt:742 | ConvoyTrackImportScreen | “Select files to import” | if (!asTrails && selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport()
+ConvoyTrackImportScreen.kt:866 | ImportRecapDialog | “DELETE FILES & CLOSE” | onFilesDelete(); onDismiss()
 ConvoyTrailSourceScreen.kt:121 | ConvoyTrailSourceScreen | “IMPORT FULL SOURCE” | when (step) { ImportStep.METHOD_SELECT -> onNavigateBack() ImportStep.A1_SOURCE_SELECT -> onNavigateBack() ImportStep.A…
 ConvoyTrailSourceScreen.kt:156 | ConvoyTrailSourceScreen | “BACK” | step = ImportStep.A1_SOURCE_SELECT
 ConvoyTrailSourceScreen.kt:162 | ConvoyTrailSourceScreen | “BACK” | step = ImportStep.B1_DRAW_AREA
@@ -1322,8 +1343,8 @@ TrailStylePanel.kt:124 | TrailStylePanel | “PATTERN” | c = hex
 TrailStylePanel.kt:210 | Chip | “?” | onClick()
 Main.kt:466 | MainScreen | “?” | val isRepress = destination == topLevelDestination if (isRepress) { when (destination) { TopLevelDestination.Nodes -> {…
 Main.kt:544 | MainScreen | “Hide Mesh” | MeshNavFold.setFolded(ctx, true) // HIDEMESH-2026-09-28 (Fred): Hide Mesh also RETURNS TO THE RIDE MAP -- the map tab's…
-Main.kt:677 | MainScreen | “◀ BACK TO MAP” | convoyViewModel.closeCommMenu(grpOpenNow ?: "")
-Main.kt:699 | MainScreen | “OK” | com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false com.geeksville.mesh.convoy.GrpAwarenessLaunche…
+Main.kt:678 | MainScreen | “◀ BACK TO MAP” | convoyViewModel.closeCommMenu(grpOpenNow ?: "")
+Main.kt:700 | MainScreen | “OK” | com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false com.geeksville.mesh.convoy.GrpAwarenessLaunche…
 
 === 5. UNRESOLVED — clickables with no action found (check each by hand) ===
 ConvoyTrackDialogs.kt:60 | ActionRow | “?” | 
