@@ -102,7 +102,9 @@ object LaunchModules {
                 "trails_state" to "Import trails by state",
                 "trails_area" to "Import trails by area \u2014 part of a state, or across state borders",   // AREAIMPORT-2026-10-24
                 "utahprivate" to "Assign Utah private property \u2014 which trails are on private land",   // UTAHPRIV-2026-10-24
+                "convert" to "Convert files to GPX \u2014 KML, KMZ, GeoJSON",   // MAPIMPORTS-2026-10-30 (Fred 08:33): above the two imports
                 "gpx" to "Import GPX \u2014 tracks, waypoints, routes",
+                "gpxtrails" to "Import trails from GPX files",   // MAPIMPORTS-2026-10-30 (Fred 08:30); TRAILSNAME-2026-10-30 (Fred 08:49)
                 "ridertrails" to "Create trails from tracks",
                 "synctracks" to "Resync tracks with their files",   // GTSYNC-2026-10-23 (Fred 12:42): from the Import GPX screen
                 "imported" to "Display trail, waypoint counts by state"),   // AREASKIP-2026-10-24 (Fred 12:39)   // IMPORTEDMOVE-2026-10-23 (Fred 11:58): from MAP RECOVERY

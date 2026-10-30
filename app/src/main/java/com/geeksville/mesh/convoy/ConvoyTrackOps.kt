@@ -548,6 +548,7 @@ object ConvoyTrackOps {
         context: android.content.Context,
         downloadMapSlots: List<String> = emptyList(),
         replaceExisting: Boolean = false,
+        asTrails: Boolean,   // IMPORTTRAILS-2026-10-30: true = every <trk> line goes into trails, not tracks (CODE RULE 1: required)
         onProgress: ((String) -> Unit)? = null
     ): ImportArtifactsSummary = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val sourceName = sourceFile.name
@@ -625,6 +626,38 @@ object ConvoyTrackOps {
                                 if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
                             }
                             val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+                            // IMPORTTRAILS-2026-10-30 (D31-min, Fred 10-30): the rider ticked "Import tracks as trails" -- this
+                            // batch is a trail map. Each line becomes a TRAIL; nothing below (track file, track row, corridor) runs.
+                            if (asTrails) {
+                                val trailName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()?.ifEmpty { null }
+                                val now = java.time.Instant.now().toString()
+                                val res = SpatialDbManager.insertTrail(java.util.UUID.randomUUID().toString(), trailName, wkt,
+                                    minLat, maxLat, minLon, maxLon, now)
+                                when (res.second) {
+                                    SpatialDbManager.AddDecision.INSERT -> {
+                                        insertedCount++
+                                        try {
+                                            SpatialDbManager.getSpatialDb()?.execSQL(
+                                                "UPDATE trails SET carto_code=?, carto_code_source=?, use_type=?, land_status=? WHERE trail_id=?",
+                                                arrayOf<Any?>("OHV", "import", TrailClassifier.useOf("OHV"), "PUBLIC", res.first))
+                                        } catch (e: Exception) { android.util.Log.w("Import", "trail carto write: ${e.message}") }
+                                        try {
+                                            SpatialDbManager.getExtensionDb()?.execSQL(
+                                                "INSERT OR IGNORE INTO trail_properties " +
+                                                    "(trail_id,source_id,source_unique_id,carto_code,motorized_allowed,ingested_at) VALUES (?,?,?,?,?,?)",
+                                                arrayOf<Any?>(res.first, "import", SpatialDbManager.computeGeomHash(wkt), "OHV", "yes", now))
+                                        } catch (e: Exception) { android.util.Log.w("Import", "trail_properties write: ${e.message}") }
+                                        onProgress?.invoke("TRAIL: ${trailName ?: "(no name)"}")
+                                    }
+                                    SpatialDbManager.AddDecision.ALIAS -> {
+                                        aliasedCount++; onProgress?.invoke("TRAIL ALIAS: ${trailName ?: "(no name)"}")
+                                    }
+                                    SpatialDbManager.AddDecision.DROP -> {
+                                        duplicateCount++; onProgress?.invoke("TRAIL DUPLICATE: ${trailName ?: "(no name)"}")
+                                    }
+                                }
+                                continue
+                            }
                             // FULLY UNIFORM: write the split track under its HUMAN name (the
                             // same value used for the spatial name). NO hash is computed here --
                             // the resolver owns computeGeomHash, the rename to <hash>.gpx, dedup
@@ -829,6 +862,7 @@ object ConvoyTrackOps {
             }
 
             android.util.Log.i("Import", "Import complete: ${trackFiles.size} tracks, $waypointCount waypoints, $routeCount routes from $sourceName")
+            if (asTrails && insertedCount > 0) RiderTrailWriter.trailsChanged.value = System.currentTimeMillis()   // IMPORTTRAILS-2026-10-30: maps reload
             ImportArtifactsSummary(sourceName, trackFiles.size, waypointCount, routeCount, trackFiles, errors, insertedCount, duplicateCount, aliasedCount, skippedCount)
 
         } catch (e: Exception) {

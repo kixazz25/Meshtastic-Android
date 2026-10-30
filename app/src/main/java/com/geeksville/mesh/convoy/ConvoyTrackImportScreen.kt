@@ -65,6 +65,9 @@ import java.util.Locale
 @Composable
 fun ConvoyTrackImportScreen(
     onDismiss: () -> Unit,
+    // MAPIMPORTS-2026-10-30: true = opened as "Create trails from GPX files" -- the trails switch starts ON.
+    // CODE RULE 1: required -- every caller says which screen it opens.
+    startAsTrails: Boolean,
     // RIDEIMPORT2-2026-09-24: files already staged (an imported ride's GPX). Empty by default -- normal use unchanged.
     preloaded: List<File> = emptyList()
 ) {
@@ -81,6 +84,7 @@ fun ConvoyTrackImportScreen(
     var showSourcePopup by remember { mutableStateOf(false) }
     var selectedSlots by remember { mutableStateOf<List<String>>(emptyList()) }
     var replaceExisting by remember { mutableStateOf(false) }
+    var asTrails by remember { mutableStateOf(startAsTrails) }   /* MAPIMPORTS-2026-10-30 */   // IMPORTTRAILS-2026-10-30: "Import tracks as trails" -- off = the original import
     // IMPORTPICKER-2026-09-13: nothing is scanned now; this covers STAGING.
     var scanning by remember { mutableStateOf(false) }
 
@@ -261,7 +265,7 @@ fun ConvoyTrackImportScreen(
                 importLines = importLines + "— ${f.name} —"
                 try {
                     // MAPSDEFAULT-2026-09-16: maps unless this file was explicitly excluded.
-                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, if (!mapsSkip.contains(f.name)) selectedSlots else emptyList(), replaceExisting) { line ->
+                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, if (!mapsSkip.contains(f.name)) selectedSlots else emptyList(), replaceExisting, asTrails) { line ->
                         importLines = importLines + line
                     }
                     imported.addAll(summary.trackFiles)
@@ -385,7 +389,7 @@ fun ConvoyTrackImportScreen(
             )
             Column {
                 Text(
-                    "Import Tracks from Downloads",
+                    if (startAsTrails) "Import Trails from GPX Files" /* TRAILSNAME-2026-10-30 */ else "Import Tracks from Downloads",   // MAPIMPORTS-2026-10-30
                     color = Gt.accent,
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
@@ -704,6 +708,27 @@ fun ConvoyTrackImportScreen(
                             fontFamily = FontFamily.Monospace
                         )
                     }
+                    // IMPORTTRAILS-2026-10-30 (D31-min): the rider says this batch is a trail map.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().clickable { asTrails = !asTrails }
+                    ) {
+                        Checkbox(
+                            checked = asTrails,
+                            onCheckedChange = { asTrails = it },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Gt.accent,
+                                uncheckedColor = Gt.text,
+                                checkmarkColor = Gt.panel
+                            )
+                        )
+                        Text(
+                            "Import tracks as trails  (a trail map: every line becomes a trail)",
+                            color = Gt.text,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                     Spacer(Modifier.height(8.dp))
 
                     // Import button
@@ -714,7 +739,7 @@ fun ConvoyTrackImportScreen(
                             // wants maps. The previous test asked whether the INCLUDED
                             // set was non-empty -- false by default, so the popup was
                             // unreachable.
-                            .clickable(enabled = selected.isNotEmpty()) { if (selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport() },
+                            .clickable(enabled = selected.isNotEmpty()) { if (!asTrails && selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport() },   // IMPORTTRAILS-2026-10-30: trails need no map sources
                         shape = RoundedCornerShape(10.dp),
                         color = if (selected.isNotEmpty()) Gt.text.copy(alpha = 0.18f)
                         else Gt.panel

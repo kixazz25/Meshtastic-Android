@@ -577,6 +577,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         com.geeksville.mesh.convoy.RideImportLauncher.pending?.let { rideGpx ->
             com.geeksville.mesh.convoy.ConvoyTrackImportScreen(
                 onDismiss = { com.geeksville.mesh.convoy.RideImportLauncher.clear() },
+                startAsTrails = false,   // MAPIMPORTS-2026-10-30: a ride's GPX is tracks
                 preloaded = listOf(rideGpx)
             )
         }

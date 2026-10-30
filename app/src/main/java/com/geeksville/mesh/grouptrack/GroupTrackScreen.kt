@@ -2953,6 +2953,8 @@ fun GroupTrackScreen(
                 "map.trails_state" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "state" },   // GTIMPORTS-2026-10-23
                 "map.gpx" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "gpx" },   // GTIMPORTS-2026-10-23
                 "map.ridertrails" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "rider" },   // GTIMPORTS-2026-10-23
+                "map.gpxtrails" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "gpxtrails" },   // MAPIMPORTS-2026-10-30
+                "map.convert" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "convert" },   // MAPIMPORTS-2026-10-30
                 "map.synctracks" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "sync" },   // GTSYNC-2026-10-23
                 "map.flyover" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "radius" },   // GTRADIUS-2026-10-23
                 "map.rm_track" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "rmtrack" },   // GTHEAVY-2026-10-23

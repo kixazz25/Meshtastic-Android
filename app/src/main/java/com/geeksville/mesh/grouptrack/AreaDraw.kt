@@ -81,6 +81,8 @@ fun GtAreaHost(js: (String) -> Unit, barModifier: Modifier) {
         "state" -> GtImportStateScreen(done)   // GTIMPORTS-2026-10-23
         "gpx" -> GtImportGpxScreen(done)   // GTIMPORTS-2026-10-23
         "rider" -> GtRiderTrailsScreen(done)   // GTIMPORTS-2026-10-23
+        "gpxtrails" -> GtImportGpxTrailsScreen(done)   // MAPIMPORTS-2026-10-30
+        "convert" -> GtConvertGpxScreen(done)   // MAPIMPORTS-2026-10-30
         "sync" -> GtSyncTracksScreen(done)   // GTSYNC-2026-10-23
         "radius" -> GtAreaRadiusScreen(done)   // GTRADIUS-2026-10-23
         "rmtrack" -> GtRemoveTrackScreen(done)   // GTHEAVY-2026-10-23

@@ -216,7 +216,8 @@ fun NavGraphBuilder.convoyGraph(
     // -- Track Import -- in-app file browser --
     gtComposable<ConvoyRoutes.ConvoyTrackImport> {
         ConvoyTrackImportScreen(
-            onDismiss = { navController?.popBackStack() }
+            onDismiss = { navController?.popBackStack() },
+            startAsTrails = false   // MAPIMPORTS-2026-10-30
         )
     }
     // ── Sign-In — V3 Phase B ──────────────────────────────────────────────

@@ -315,7 +315,23 @@ fun GtImportStateScreen(onDone: () -> Unit) {
 @Composable
 fun GtImportGpxScreen(onDone: () -> Unit) {
     Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        GtScreenFrame("Import GPX", "map.gpx", onDone) { com.geeksville.mesh.convoy.ConvoyTrackImportScreen(onDismiss = onDone) }   // GTSTD
+        GtScreenFrame("Import GPX", "map.gpx", onDone) { com.geeksville.mesh.convoy.ConvoyTrackImportScreen(onDismiss = onDone, startAsTrails = false) }   // GTSTD
+    }
+}
+
+/** MAPIMPORTS-2026-10-30 (Fred 08:30): Create trails from GPX files -- the same import screen, the trails switch ON. */
+@Composable
+fun GtImportGpxTrailsScreen(onDone: () -> Unit) {
+    Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        GtScreenFrame("Import trails from GPX files", "map.gpxtrails", onDone)   /* TRAILSNAME-2026-10-30 */ { com.geeksville.mesh.convoy.ConvoyTrackImportScreen(onDismiss = onDone, startAsTrails = true) }   // GTSTD
+    }
+}
+
+/** MAPIMPORTS-2026-10-30 (Fred 08:33): Convert files to GPX -- KML / KMZ / GeoJSON to a GPX in Download; imports nothing. */
+@Composable
+fun GtConvertGpxScreen(onDone: () -> Unit) {
+    Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        GtScreenFrame("Convert files to GPX", "map.convert", onDone) { com.geeksville.mesh.convoy.ConvertToGpxScreen(onDone) }   // GTSTD
     }
 }
 
