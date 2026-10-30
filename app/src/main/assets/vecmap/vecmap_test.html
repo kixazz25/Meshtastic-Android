@@ -1,0 +1,82 @@
+<!doctype html>
+<!-- VECMAP-2026-10-30 (2.7e step 4.1): the vector proof page. Served by the app at https://gtvec.local/a/ (VectorMapTest.kt),
+     tiles from the VEC store at https://gtvec.local/t/z/x/y.pbf. Nothing goes to the internet. -->
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="stylesheet" href="maplibre-gl.css"><script src="maplibre-gl.js"></script>
+<style>html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden}
+#map{position:absolute;top:0;right:0;bottom:0;left:0}  /* VECMAPSIZE2-2026-10-30: pinned to the page window, not a % of body */
+#hud{position:absolute;left:8px;bottom:28px;background:rgba(0,0,0,.6);color:#fff;font:12px monospace;padding:4px 6px;border-radius:4px;z-index:2}</style>
+</head><body><div id="map"></div><div id="hud">VECTOR TEST</div>
+<script>
+// VECMAPWORK-2026-10-30: (1) can this page run a worker?  (3) walk a tile's bytes without MapLibre
+try {
+  var gw = new Worker(URL.createObjectURL(new Blob(['onmessage=function(e){postMessage(e.data*2)}'], { type: 'text/javascript' })));
+  gw.onmessage = function (e) { console.log('VECMAPWORK worker ok (' + e.data + ')'); };
+  gw.onerror = function (e) { console.log('VECMAPWORK worker FAILED onerror ' + (e.message || e)); };
+  gw.postMessage(21);
+} catch (e) { console.log('VECMAPWORK worker FAILED to start ' + e); }
+function gtWalk(buf) {
+  try {
+    var u = new Uint8Array(buf), p = 0, out = [];
+    function vint(end) { var r = 0, s = 0, b; do { b = u[p++]; r += (b & 0x7f) * Math.pow(2, s); s += 7; } while (b & 0x80); return r; }
+    while (p < u.length) {
+      var key = vint(), f = key >> 3, w = key & 7;
+      if (w !== 2) { out.push('?wire' + w); break; }
+      var len = vint(), end = p + len;
+      if (f === 3) {                       // a layer
+        var name = '?', feats = 0;
+        while (p < end) {
+          var k = vint(), lf = k >> 3, lw = k & 7;
+          if (lw === 2) { var l = vint(); if (lf === 1) name = new TextDecoder().decode(u.subarray(p, p + l)); if (lf === 2) feats++; p += l; }
+          else if (lw === 0) { vint(); } else if (lw === 5) { p += 4; } else if (lw === 1) { p += 8; } else { break; }
+        }
+        out.push(name + '=' + feats);
+      }
+      p = end;
+    }
+    console.log('VECMAPWORK bytes: ' + out.join(' '));
+  } catch (e) { console.log('VECMAPWORK bytes walk failed ' + e); }
+}
+// VECMAPPROTO-2026-10-30: tiles through the PAGE, not MapLibre's worker -- gt://t/z/x/y.pbf -> https://gtvec.local/t/z/x/y.pbf
+maplibregl.addProtocol('gt', function (params, abortController) {
+  var u = params.url.replace('gt://', 'https://gtvec.local/');
+  return fetch(u, { signal: abortController.signal }).then(function (r) {
+    if (!r.ok) throw new Error('tile HTTP ' + r.status + ' ' + u);
+    return r.arrayBuffer();
+  }).then(function (b) { return { data: b }; });
+});
+fetch('https://gtvec.local/t/12/1238/1489.pbf').then(function (r) { return r.arrayBuffer(); })
+  .then(function (b) { console.log('VECMAPPROTO probe z12/1238/1489 ' + b.byteLength + ' bytes'); gtWalk(b); })
+  .catch(function (e) { console.log('VECMAPPROTO probe failed ' + e); });
+// VECMAPONLINE-2026-10-30: ?online=1 -> OpenFreeMap's own published style over the internet (A/B against ours)
+var GT_ONLINE = location.search.indexOf('online=1') >= 0;
+var GT_SRC = GT_ONLINE ? 'openmaptiles' : 'openmaptiles';
+console.log('VECMAPONLINE mode ' + (GT_ONLINE ? 'ONLINE (OpenFreeMap liberty)' : 'OFFLINE (our style, VEC store)'));
+var map = new maplibregl.Map({ container: 'map', style: GT_ONLINE ? 'https://tiles.openfreemap.org/styles/liberty' : 'liberty_style.json',   /* VECLIB-2026-10-30: OpenFreeMap Liberty, bundled (was our own vecmap_style.json) */ hash: true, maxZoom: 20, maxPitch: 70,
+  attributionControl: { compact: true } });
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-left');
+var hud = document.getElementById('hud');
+function show() { hud.textContent = 'VECTOR z' + map.getZoom().toFixed(1) + '  rot ' + map.getBearing().toFixed(0) + '°  tilt ' + map.getPitch().toFixed(0) + '°'; }
+map.on('move', show);
+map.on('load', function () { var ss = Object.keys(map.getStyle().sources); if (ss.length) GT_SRC = ss[0];
+  console.log('VECMAPONLINE sources ' + ss.join(','));
+  console.log('VECMAP loaded ' + map.getContainer().clientWidth + 'x' + map.getContainer().clientHeight +
+  '  window ' + window.innerWidth + 'x' + window.innerHeight); show(); });   // VECMAPSIZE2-2026-10-30
+// VECMAPSIZE-2026-10-30: the view gets its size after the page starts -- re-measure when it does
+window.addEventListener('resize', function () { map.resize(); console.log('VECMAP resize ' + map.getContainer().clientWidth + 'x' + map.getContainer().clientHeight); });
+setTimeout(function () { map.resize(); }, 500);
+// VECMAPCOUNT-2026-10-30: what MapLibre decoded vs drew, per OpenMapTiles layer, each time the map settles
+var GTL = ['water','waterway','landcover','landuse','park','transportation','transportation_name','building','boundary','place','water_name','mountain_peak','aeroway','poi'];
+map.on('idle', function () {
+  var dec = GTL.map(function (l) { return l + '=' + map.querySourceFeatures(GT_SRC, { sourceLayer: l }).length; }).join(' ');
+  var drawn = map.queryRenderedFeatures().length;
+  // VECMAPWORK-2026-10-30: (2) MapLibre's own state for each tile
+  try { var sc = map.style.sourceCaches[GT_SRC]; var ts = Object.values(sc._tiles || {});
+    console.log('VECMAPWORK tiles ' + ts.length + ': ' + ts.slice(0, 9).map(function (t) { var c = t.tileID.canonical;
+      return c.z + '/' + c.x + '/' + c.y + ':' + t.state + (t.hasData && t.hasData() ? ':data' : ':nodata'); }).join(' ')); }
+  catch (e) { console.log('VECMAPWORK tiles state failed ' + e); }
+  console.log('VECMAPCOUNT z' + map.getZoom().toFixed(1) + ' sourceLoaded=' + map.isSourceLoaded(GT_SRC) + ' drawn=' + drawn + ' decoded: ' + dec);
+});
+map.on('error', function (e) { console.log('VECMAP error ' + (e && e.error ? e.error.message : e)); });
+</script></body></html>

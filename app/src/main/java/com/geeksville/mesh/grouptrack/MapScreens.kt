@@ -252,6 +252,10 @@ fun GtRecipesScreen(onDone: () -> Unit) {
     val vecScope = androidx.compose.runtime.rememberCoroutineScope()
     val vecMsg = remember { androidx.compose.runtime.mutableStateOf("") }
     val vecBusy = remember { androidx.compose.runtime.mutableStateOf(false) }
+    // VECMAP-2026-10-30 (2.7e step 4.1): the vector proof map
+    val vecMapOpen = remember { androidx.compose.runtime.mutableStateOf(false) }
+    val vecMapOnline = remember { androidx.compose.runtime.mutableStateOf(false) }   // VECMAPONLINE-2026-10-30
+    if (vecMapOpen.value) GtVectorMapTestScreen(vecMapOnline.value) { vecMapOpen.value = false }
     val rows = remember { androidx.compose.runtime.mutableStateOf<Pair<List<String>, List<String>>?>(null) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         rows.value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -323,6 +327,10 @@ fun GtRecipesScreen(onDone: () -> Unit) {
                                 vecBusy.value = false
                             }
                         }.padding(vertical = 10.dp))
+                    Text("OPEN VECTOR MAP (test)", color = Gt.accent, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,   // VECMAP-2026-10-30
+                        modifier = Modifier.clickable { vecMapOnline.value = false; vecMapOpen.value = true }.padding(vertical = 10.dp))
+                    Text("OPEN VECTOR MAP \u2014 ONLINE (test)", color = Gt.accent, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,   // VECMAPONLINE-2026-10-30
+                        modifier = Modifier.clickable { vecMapOnline.value = true; vecMapOpen.value = true }.padding(vertical = 10.dp))
                 }
             }
         },
