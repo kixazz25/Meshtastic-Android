@@ -103,8 +103,8 @@ fun GtDownloadSettingsPanel() {
             }
             Text("Every map download uses these. Each download shows them, and CHANGE there alters that download only.",
                 color = Gt.text, fontSize = 13.sp)
-            Text("MAP SOURCES", color = Gt.text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            all.forEach { (slot, label, _) ->
+            if (all.size > 1) Text("MAP SOURCES", color = Gt.text, fontSize = 13.sp, fontWeight = FontWeight.Bold)   // ONESOURCEUI-2026-10-30
+            if (all.size > 1) all.forEach { (slot, label, _) ->
                 val on = slot in sel
                 Row(Modifier.fillMaxWidth().clickable { sel = if (on) sel - slot else sel + slot }.padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

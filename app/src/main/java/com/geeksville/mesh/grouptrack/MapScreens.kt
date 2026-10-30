@@ -573,11 +573,11 @@ fun GtRefreshSourceScreen(onDone: () -> Unit) {
     val jobs = if (total.value <= 0L) 0 else ((total.value + 50000 - 1) / 50000).toInt()
     AlertDialog(
         onDismissRequest = onDone,
-        title = { GtDialogTitle("Refresh maps by source \u2014 ${slot.value}", "map.repair", onDone) },   // GTSTD
+        title = { GtDialogTitle("Refresh maps", "map.repair", onDone) /* ONESOURCEUI-2026-10-30 */ },   // GTSTD
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    MapSourceManager.getSlotSources().forEach { src ->
+                    MapSourceManager.getSlotSources().takeIf { it.size > 1 }?.forEach { src ->   // ONESOURCEUI-2026-10-30: no picker for one
                         val key = src.first
                         TextButton(enabled = !scanning.value && key != slot.value, onClick = { slot.value = key }) {
                             Text(if (key == slot.value) "[$key]" else key, style = MaterialTheme.typography.bodySmall)

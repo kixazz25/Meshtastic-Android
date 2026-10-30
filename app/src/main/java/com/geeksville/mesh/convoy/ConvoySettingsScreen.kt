@@ -272,7 +272,7 @@ fun ConvoySettingsScreen(
             SectionLabel("Map Sources")
             androidx.compose.material3.ListItem(
                 headlineContent = { Text("Change Map Sources", style = MaterialTheme.typography.bodyLarge) },
-                supportingContent = { Text("Assign tile sources to SAT / TOPO / TOPO+ slots", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                supportingContent = { Text("The map source",   /* ONESOURCEUI-2026-10-30 */ style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 modifier = Modifier.clickable { onNavigateToMapSources() }
             )
             HorizontalDivider()

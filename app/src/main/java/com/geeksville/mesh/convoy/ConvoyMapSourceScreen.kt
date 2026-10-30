@@ -92,17 +92,9 @@ fun ConvoyMapSourceScreen(
     var satSourceId by remember {
         mutableStateOf(slots.find { it.legacyKey == "SAT" }?.sourceId ?: "")
     }
-    var topoSourceId by remember {
-        mutableStateOf(slots.find { it.legacyKey == "TOPO" }?.sourceId ?: "")
-    }
-    var topoPlusSourceId by remember {
-        mutableStateOf(slots.find { it.legacyKey == "TOPO+" }?.sourceId ?: "")
-    }
 
     fun currentSourceId(slot: String): String = when (slot) {
-        "SAT" -> satSourceId
-        "TOPO" -> topoSourceId
-        "TOPO+" -> topoPlusSourceId
+        "SAT" -> satSourceId   // ONESOURCEUI-2026-10-30: TOPO, TOPO+ removed
         else -> ""
     }
 
@@ -125,9 +117,7 @@ fun ConvoyMapSourceScreen(
         }
         MapSourceManager.updateSlotSource(slot, sourceId)
         when (slot) {
-            "SAT" -> satSourceId = sourceId
-            "TOPO" -> topoSourceId = sourceId
-            "TOPO+" -> topoPlusSourceId = sourceId
+            "SAT" -> satSourceId = sourceId   // ONESOURCEUI-2026-10-30: TOPO, TOPO+ removed
         }
         selectedSlot = null
         // Check for existing tiles to offer refresh (async to avoid ANR)
@@ -172,7 +162,7 @@ fun ConvoyMapSourceScreen(
                 )
                 Spacer(Modifier.height(8.dp))
 
-                listOf("SAT", "TOPO", "TOPO+").forEach { slotKey ->
+                listOf("SAT").forEach { slotKey ->   // ONESOURCE-2026-10-30: one source (was SAT, TOPO, TOPO+)
                     val sourceId = currentSourceId(slotKey)
                     val source = allSources.find { it.id == sourceId }
                     SlotCard(

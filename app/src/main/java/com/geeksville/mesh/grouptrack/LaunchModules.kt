@@ -90,14 +90,14 @@ object LaunchModules {
             g("map", "dl", "DOWNLOAD MAPS FOR OFFLINE USE",
                 "dl_area" to "Download maps by area",   // draw a box (by area and by box are ONE function -- Fred 10:09)
                 "dl_tracks" to "Download maps along tracks",   // all tracks, or pick
-                "dl_settings" to "Download settings \u2014 map sources, replace existing tiles"),   // DLDEFAULTS-2026-10-24
+                "dl_settings" to "Download settings \u2014 replace existing tiles"),   // ONESOURCEUI-2026-10-30: one source   // DLDEFAULTS-2026-10-24
             g("map", "rm", "REMOVE MAPS",
                 "rm_area" to "Remove maps by area",
                 "rm_track" to "Remove maps for all tracks"),   // stays (Fred 10:14); RMALLTRACKS-2026-10-23: it is ALL tracks
             g("map", "repair", "MAP RECOVERY",   // MAPRECOVERY2-2026-10-23 (Fred 10:26-10:28)
                 "recipes" to "Show saved map recipes (60 days)",   // GTRECIPES-2026-10-23 (Fred 11:43)
                 "restore" to "Restore maps as of a date \u2014 coming soon",   // RESTORESOON-2026-10-25 (Fred 21:03)   // NEW: replays a daily map recipe (ConvoyMapRecipe) -- restore not built yet
-                "repair" to "Refresh maps by source"),   // planner Recreate Tiles by Source
+                "repair" to "Refresh maps"),   // ONESOURCEUI-2026-10-30: one source   // planner Recreate Tiles by Source
             g("map", "import", "IMPORT MAP FEATURES",
                 "trails_state" to "Import trails by state",
                 "trails_area" to "Import trails by area \u2014 part of a state, or across state borders",   // AREAIMPORT-2026-10-24

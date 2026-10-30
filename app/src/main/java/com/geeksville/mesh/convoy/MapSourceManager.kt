@@ -246,7 +246,9 @@ object MapSourceManager {
             val cols = org.json.JSONArray()
             defaultSlots.forEach { slot ->
                 // user assignment wins over the catalogue default
-                val sourceId = priorById[slot.legacyKey] ?: slot.sourceId
+                // ONESOURCE-2026-10-30: the user's choice wins only while it is still in the catalogue. With one source left a
+                // retired choice would leave the map blank, so it falls back to the slot default (changes the 08-03 rule).
+                val sourceId = priorById[slot.legacyKey]?.takeIf { id -> sources.any { it.id == id } } ?: slot.sourceId
                 val src = sources.find { it.id == sourceId }
                 val terminated = (src == null)
                 if (terminated) columnsTerminated.add(slot.legacyKey)
@@ -366,22 +368,13 @@ object MapSourceManager {
             "COLUMNFILE-2026-08-03: FALLBACK REQUESTED - hardcoded sources in use. "
             + "Column file will NOT be written. Caller: "
             + android.util.Log.getStackTraceString(Throwable()))
+        // ONESOURCE-2026-10-30: the fallback matches the catalogue -- one source, SAT (was Esri x3: SAT, TOPO, TOPO+).
         sources = listOf(
-            TileSource("esri-imagery-overlays", "Esri", "HYB", "Esri Imagery + Roads + Labels", "SAT",
-                listOf(
-                    TileLayer("base", "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", "jpg", "SAT", 0),
-                    TileLayer("overlay", "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", "png", "SAT_LABELS_TRANSPORT", 1),
-                    TileLayer("overlay", "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", "png", "SAT_LABELS_PLACES", 2)
-                )),
-            TileSource("esri-topo", "Esri", "TOPO", "Esri World Topo", "TOPO",
-                listOf(TileLayer("base", "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", "png", "TOPO"))),
-            TileSource("esri-usa-topo", "Esri", "TOPO", "Esri USA Topo Maps", "TOPO+",
-                listOf(TileLayer("base", "https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}", "png", "TOPO+")))
+            TileSource("google-hybrid", "Google", "HYB", "Google Hybrid", "HYB",
+                listOf(TileLayer("base", "https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", "png", "google_hybrid", 0)))
         )
         defaultSlots = listOf(
-            SlotConfig(1, "esri-imagery-overlays", "SAT"),
-            SlotConfig(2, "esri-topo", "TOPO"),
-            SlotConfig(3, "esri-usa-topo", "TOPO+")
+            SlotConfig(1, "google-hybrid", "SAT")
         )
         // FALLBACKLOCK-2026-09-10: \u26d4 `initialized = true` WAS HERE, AND IT WAS
         // THE BUG. The fallback claimed to have initialised, so init()'s

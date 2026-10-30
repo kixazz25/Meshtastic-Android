@@ -48,7 +48,9 @@ fun ConvoyDownloadConfirm(
     // DLDEFAULTS-2026-10-24: start from the saved download settings; CHANGE alters THIS download only.
     val dlCtx = androidx.compose.ui.platform.LocalContext.current
     var selectedSlots by remember {
-        mutableStateOf(com.geeksville.mesh.grouptrack.GtDownloadDefaults.initialSlots(dlCtx, slots.map { it.slotName },
+        // ONESOURCEUI-2026-10-30: one source = always that source (a saved selection naming TOPO cannot leave it empty)
+        mutableStateOf(if (slots.size == 1) setOf(slots[0].slotName)
+            else com.geeksville.mesh.grouptrack.GtDownloadDefaults.initialSlots(dlCtx, slots.map { it.slotName },
             slots.filter { it.preSelected }.map { it.slotName }.toSet()))
     }
     var replaceExisting by remember { mutableStateOf(com.geeksville.mesh.grouptrack.GtDownloadDefaults.initialReplace(dlCtx, initialReplaceExisting)) }
@@ -66,7 +68,7 @@ fun ConvoyDownloadConfirm(
                 fontFamily = mono, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
             if (estimatedTiles > 0) {
-                Text("$estimatedTiles tiles per source", color = txtD,
+                Text(if (slots.size > 1) "$estimatedTiles tiles per source" else "$estimatedTiles tiles", color = txtD,   // ONESOURCEUI-2026-10-30
                     fontSize = 12.sp, fontFamily = mono)
             }
             if (areaDesc.isNotEmpty()) {
@@ -76,6 +78,7 @@ fun ConvoyDownloadConfirm(
 
             com.geeksville.mesh.grouptrack.GtDownloadSummary(selectedSlots, replaceExisting, changeOpen) { changeOpen = !changeOpen }   // DLDEFAULTS-2026-10-24
             if (changeOpen) {
+            if (slots.size > 1) {   // ONESOURCEUI-2026-10-30: nothing to choose with one source
             Text("MAP SOURCES", color = txtD, fontSize = 12.sp,
                 fontFamily = mono, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
@@ -115,6 +118,7 @@ fun ConvoyDownloadConfirm(
                     }
                 }
             }
+            }   // ONESOURCEUI-2026-10-30: slots.size > 1
 
             Spacer(Modifier.height(8.dp))
 
