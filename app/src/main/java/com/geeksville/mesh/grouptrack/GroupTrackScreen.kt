@@ -464,6 +464,8 @@ fun GroupTrackScreen(
                     if (ss % 15 == 0L) android.util.Log.i("LEADEST", "ESTVIEW-2026-10-20 screen: drew " + node.nodeId + " at " + est.lat + "," + est.lon + " (est. " + ss + " s)")   // diagnostic
                     wv.evaluateJavascript("setLastHeard(${est.lastLat}, ${est.lastLon})", null)
                 } else wv.evaluateJavascript("addMarker('${node.nodeId}', ${node.latitude}, ${node.longitude}, '$color', '$label', $isMine, $isOffTrack)", null)
+                // VECHEADING-2026-10-30: my course + speed to the page every tick (heading-up on the vector map; the satellite page ignores it)
+                if (isMine) wv.evaluateJavascript("if(window.gtMyHeading)gtMyHeading(${node.heading_deg}, ${node.speed_mph})", null)
             }
             if (leadEstimate == null) wv.evaluateJavascript("if (typeof clearLastHeard === 'function') clearLastHeard()", null)
         }
