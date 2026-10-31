@@ -24,7 +24,7 @@ object VectorTiles {
         resolved?.let { return it }
         val tj = spec(context)?.optString("tilejson")?.takeIf { it.isNotBlank() } ?: return null
         return try {
-            okhttp3.OkHttpClient().newCall(okhttp3.Request.Builder().url(tj).build()).execute().use { r ->
+            okhttp3.OkHttpClient.Builder().callTimeout(6, java.util.concurrent.TimeUnit.SECONDS).build().newCall(   /* VECONLINE2-2026-10-31 */ okhttp3.Request.Builder().url(tj).build()).execute().use { r ->
                 if (!r.isSuccessful) { android.util.Log.e(TAG, "TileJSON HTTP ${r.code}"); return null }
                 val t = JSONObject(r.body?.string() ?: "{}").optJSONArray("tiles")?.optString(0)
                 if (t.isNullOrBlank()) { android.util.Log.e(TAG, "TileJSON has no tiles"); null }

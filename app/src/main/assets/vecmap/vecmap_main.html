@@ -31,6 +31,16 @@ var map = new maplibregl.Map({ container: 'map', style: 'liberty_style.json', ce
   maxZoom: 20, maxPitch: 70, attributionControl: { compact: true } });
 // VECCOMPASS-2026-10-30 (Fred 17:39): no MapLibre control -- the app has + / - under MENU and the compass beside it
 map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-left');
+// VECELEV-2026-10-31 (Fred 14:51): in 3D every animated move unfreezes the ground height when it ends (freezeElevation: true) --
+// without it MapLibre kept the ground at sea level after our tilt / turns / zoom-backs and the raised terrain filled the view.
+['easeTo', 'flyTo'].forEach(function (fn) {
+  var orig = map[fn].bind(map);
+  map[fn] = function (opts, ev) {
+    if (map.terrain && opts && opts.freezeElevation === undefined) opts = Object.assign({}, opts, { freezeElevation: true });
+    return orig(opts, ev);
+  };
+});
+console.log('VECELEV 3D moves unfreeze the ground height');
 map.on('load', function () { console.log('VECMAIN loaded ' + map.getContainer().clientWidth + 'x' + map.getContainer().clientHeight); });
 map.on('error', function (e) { console.log('VECMAIN error ' + (e && e.error ? e.error.message : e)); });
 window.addEventListener('resize', function () { map.resize(); });

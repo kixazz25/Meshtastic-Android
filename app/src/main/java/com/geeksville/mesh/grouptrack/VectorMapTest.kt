@@ -177,6 +177,7 @@ object VecOnline {
         okhttp3.OkHttpClient.Builder()
             .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+            .callTimeout(6, java.util.concurrent.TimeUnit.SECONDS)   // VECONLINE2-2026-10-31: a hard total limit, name lookup included
             .build()
     }
     @Volatile private var downUntil = 0L
@@ -192,7 +193,17 @@ object VecOnline {
             caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
-    private fun get(url: String, kind: String): ByteArray? = try {
+    /** VECONLINE2-2026-10-31: at most two internet fetches at once -- stored tiles always get a web-view thread. */
+    private val slots = java.util.concurrent.Semaphore(2)
+
+    private fun get(url: String, kind: String): ByteArray? {
+        if (!slots.tryAcquire(1, java.util.concurrent.TimeUnit.SECONDS)) {
+            android.util.Log.w(TAG, "VECONLINE $kind busy -- two fetches already running, drawn empty: $url"); return null
+        }
+        try { return getNow(url, kind) } finally { slots.release() }
+    }
+
+    private fun getNow(url: String, kind: String): ByteArray? = try {
         http.newCall(okhttp3.Request.Builder().url(url).build()).execute().use { r ->
             if (r.isSuccessful) {
                 val b = r.body?.bytes()

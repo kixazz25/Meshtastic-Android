@@ -2907,8 +2907,7 @@ fun GroupTrackScreen(
                         viewModel.setAutoPan(false)
                         webViewRef.value?.evaluateJavascript("fitBounds([$s0,$n0],[$w0,$e0])", null)
                     }
-                    pendingDetailType = r.type.replaceFirstChar { it.uppercase() }
-                    pendingDetailId = r.id
+                    // SEARCHFIT-2026-10-31 (Fred 15:38): the map fits to the result; its detail panel is NOT opened on top (D27)
                 },
                 goToPlace = { la, lo ->
                     viewModel.setAutoPan(false)   // SEARCHPAN-2026-09-15: a search moved the map -- stop following first
