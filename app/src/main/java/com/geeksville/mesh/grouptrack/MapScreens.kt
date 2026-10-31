@@ -206,9 +206,12 @@ object GtOffGrid {
         if (!on) { js("clearDownloadedAreas()"); return }
         Thread {
             val bounds = mutableListOf<String>()
-            val z = 16; val n = 1 shl z
+            // VECPORTS-2026-10-31: on vector the held maps are the VEC store (max z14); SAT z16 had nothing to show
+            val vec = GtMapEngine.isVectorCached()
+            val type = if (vec) com.geeksville.mesh.convoy.VectorTiles.SLOT else "SAT"
+            val z = if (vec) 14 else 16; val n = 1 shl z
             val byRow = HashMap<Long, MutableList<Long>>()
-            for ((x, y) in com.geeksville.mesh.convoy.MBTilesStore.xyAtZoom("SAT", z)) byRow.getOrPut(y) { ArrayList() }.add(x)
+            for ((x, y) in com.geeksville.mesh.convoy.MBTilesStore.xyAtZoom(type, z)) byRow.getOrPut(y) { ArrayList() }.add(x)
             for ((ry, xs) in byRow) {
                 xs.sort()
                 var i = 0
@@ -223,7 +226,7 @@ object GtOffGrid {
                     i = j + 1
                 }
             }
-            android.util.Log.i("Overlay", "GTOFFGRID available: ${bounds.size} rect(s)")
+            android.util.Log.i("Overlay", "GTOFFGRID available: ${bounds.size} rect(s) from $type z$z")
             val json = "[" + bounds.joinToString(",") + "]"
             android.os.Handler(android.os.Looper.getMainLooper()).post { if (available.value) js("showDownloadedAreas($json)") }
         }.start()

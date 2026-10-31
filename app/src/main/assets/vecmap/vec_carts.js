@@ -34,6 +34,8 @@ window.addMarker = function (id, lat, lon, color, label, isMine, offTrack, blink
   gtCarts[id] = new maplibregl.Marker({ element: el, anchor: 'center', opacityWhenCovered: '1' /* VECMARKER3D-2026-10-31: visible in 3D */ }).setLngLat([lon, lat]).addTo(map);
 };
 window.findNearestMarker = function (x, y) {
+  if (window.gtDrawOn) return '';   // VECPORTS-2026-10-31: drawing a box
+  x = x / (window.devicePixelRatio || 1); y = y / (window.devicePixelRatio || 1);   // VECPORTS-2026-10-31: screen pixels -> CSS pixels
   var best = '', bd = Infinity;
   for (var id in gtCarts) {
     var p = map.project(gtCarts[id].getLngLat()), dx = p.x - x, dy = p.y - y, d = Math.sqrt(dx * dx + dy * dy);

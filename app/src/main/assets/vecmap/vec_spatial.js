@@ -201,6 +201,7 @@ window.__routeMode = false;
 
 // ---- TAPS: route mode first (Route+ / AI pins), then the nearest overlay -- routes, then tracks, then trails ---------------
 map.on('click', function (e) {
+  if (window.gtDrawOn) return;   // VECPORTS-2026-10-31: drawing a box
   if (Date.now() - gtMarkerTapAt < 400) return;
   try {
     if (!window.gtOneMapRoute) window.__routeMode = false;
@@ -235,10 +236,10 @@ map.on('touchstart', function (e) {
   gtLpCancel();
   if (!e.points || e.points.length !== 1) return;
   var ll = e.lngLat;
-  gtLpTimer = setTimeout(function () { gtLpTimer = null; try { if (window.Android && Android.onMapLongPress) Android.onMapLongPress(ll.lat, ll.lng); } catch (x) {} }, 600);
+  gtLpTimer = setTimeout(function () { gtLpTimer = null; try { if (window.gtLongPress) gtLongPress(ll.lat, ll.lng, 'page'); else if (window.Android && Android.onMapLongPress) Android.onMapLongPress(ll.lat, ll.lng); } catch (x) {}   /* VECPORTS-2026-10-31 */ }, 600);
 });
 map.on('touchmove', gtLpCancel); map.on('touchend', gtLpCancel); map.on('touchcancel', gtLpCancel);
-map.on('contextmenu', function (e) { try { if (window.Android && Android.onMapLongPress) Android.onMapLongPress(e.lngLat.lat, e.lngLat.lng); } catch (x) {} });
+map.on('contextmenu', function (e) { try { if (window.gtLongPress) gtLongPress(e.lngLat.lat, e.lngLat.lng, 'menu'); else if (window.Android && Android.onMapLongPress) Android.onMapLongPress(e.lngLat.lat, e.lngLat.lng); } catch (x) {}   /* VECPORTS-2026-10-31 */ });
 
 // ---- MAP READY: the app pushes the rider's trail styles, then the first viewport draws the overlays ------------------------
 map.on('load', function () {

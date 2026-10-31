@@ -26,6 +26,9 @@ object GtMapEngine {
         android.util.Log.e(TAG, "VECSWITCH-2026-10-30 read: ${e.message}"); false
     }).also { cached = it; android.util.Log.i(TAG, "VECSWITCH-2026-10-30 engine this run: " + if (it) "VEC (MapLibre)" else "SAT (Leaflet)") }
 
+    /** VECPORTS-2026-10-31: the engine this run without a context (read once when the map page loads); false before that. */
+    fun isVectorCached(): Boolean = cached == true
+
     /** Save the choice, then END and RESTART GroupTrack so the map is built fresh in the chosen engine. */
     fun switchTo(ctx: Context, vector: Boolean) {
         try { file(ctx).writeText(if (vector) "VEC" else "SAT") }
