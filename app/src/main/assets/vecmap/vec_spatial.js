@@ -166,7 +166,7 @@ function gtDrawWpts() {
       if (window.__pinSelect && window.Android && Android.onProximityTap) { Android.onProximityTap(c[1], c[0]); return; }
       if (p.waypoint_id && window.Android && Android.onWaypointTap) Android.onWaypointTap(p.waypoint_id);
     });
-    gtWptMarkers.push(new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat(c).addTo(map));
+    gtWptMarkers.push(new maplibregl.Marker({ element: el, anchor: 'bottom', opacityWhenCovered: '1' /* VECMARKER3D-2026-10-31: visible in 3D */ }).setLngLat(c).addTo(map));
   });
 }
 window.updateWaypoints = function (fc) { if (typeof fc === 'string') fc = JSON.parse(fc); gtData.wpts = fc || GT_EMPTY; gtDrawWpts(); };

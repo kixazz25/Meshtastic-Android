@@ -22,15 +22,19 @@ window.gtSet3D = function (on) {
     gtWhenReady(function () {
       gtDemReady();
       if (on) {
+        // VEC3DCAP-2026-10-31 (Fred 09:13): 3D stops at Z14 -- over-zoomed tiles (Z15+) on terrain locked the map's drawing
+        map.setMaxZoom(14.95);
+        if (map.getZoom() > 14.95) map.easeTo({ zoom: 14.95, duration: 300 });
         map.setTerrain({ source: 'gt-dem', exaggeration: 1.4 });
         map.setLayoutProperty('gt-hillshade', 'visibility', 'visible');
         map.easeTo({ pitch: 60, duration: 600 });
       } else {
         map.setTerrain(null);
+        map.setMaxZoom(20);   // VEC3DCAP-2026-10-31: 2D zooms in all the way again
         map.setLayoutProperty('gt-hillshade', 'visibility', 'none');
         map.easeTo({ pitch: 0, duration: 600 });
       }
-      console.log('VEC3D 3D ' + (on ? 'ON' : 'OFF'));
+      console.log('VEC3D 3D ' + (on ? 'ON (closest Z14)' : 'OFF'));
     });
   } catch (e) { console.log('VEC3D failed ' + e); }
 };

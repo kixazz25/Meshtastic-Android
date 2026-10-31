@@ -31,7 +31,7 @@ window.addMarker = function (id, lat, lon, color, label, isMine, offTrack, blink
     ev.stopPropagation(); gtMarkerTapAt = Date.now();
     if (window.Android && Android.onMarkerTapped) Android.onMarkerTapped(id);
   });
-  gtCarts[id] = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lon, lat]).addTo(map);
+  gtCarts[id] = new maplibregl.Marker({ element: el, anchor: 'center', opacityWhenCovered: '1' /* VECMARKER3D-2026-10-31: visible in 3D */ }).setLngLat([lon, lat]).addTo(map);
 };
 window.findNearestMarker = function (x, y) {
   var best = '', bd = Infinity;
@@ -48,7 +48,7 @@ window.setLastHeard = function (lat, lon) {
   el.innerHTML = "<div style='position:relative;width:10px;height:10px;'><div style='width:10px;height:10px;background:#888;border:2px solid white;border-radius:50%;box-shadow:0 0 3px rgba(0,0,0,0.6);box-sizing:border-box;'></div>" +
     "<div style='position:absolute;left:50%;top:14px;transform:translateX(-50%);white-space:nowrap;background:#fff;border-radius:3px;padding:1px 5px;font:11px sans-serif;color:#222;box-shadow:0 1px 3px rgba(0,0,0,0.4);'>last heard</div></div>";
   el.style.pointerEvents = 'none';
-  gtLastHeard = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lon, lat]).addTo(map);
+  gtLastHeard = new maplibregl.Marker({ element: el, anchor: 'center', opacityWhenCovered: '1' /* VECMARKER3D-2026-10-31: visible in 3D */ }).setLngLat([lon, lat]).addTo(map);
 };
 window.clearLastHeard = function () { if (gtLastHeard) { gtLastHeard.remove(); gtLastHeard = null; } };
 window.setLeadDots = function (arr) {   // [[lat, lon], ...] -- dots, never joined

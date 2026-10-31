@@ -10,12 +10,21 @@
 </head><body><div id="map"></div>
 <script>
 window.__htmlVersion = 'VECMAIN-2026-10-30';
+// VECMARKER3D-2026-10-31 (Fred 09:00): in 3D MapLibre tests every marker ~10x a second for terrain cover with a GPU depth read-back
+// (Marker._updateOpacity -> terrain.depthAtPoint) and fades covered ones to 20 % -- hundreds of GPU stalls a second with many pins.
+// Markers skip it: always fully visible, no read-backs. (No terrain in 2D, so nothing changes there.)
+try {
+  maplibregl.Marker.prototype._updateOpacity = function () { if (this._element && this._element.style.opacity !== '1') this._element.style.opacity = '1'; };
+  console.log('VECMARKER3D marker terrain test off');
+} catch (e) { console.log('VECMARKER3D failed ' + e); }
 // tiles through the page (VECMAPPROTO-2026-10-30): gt://t/z/x/y.pbf -> https://gtvec.local/t/z/x/y.pbf
 maplibregl.addProtocol('gt', function (params, abortController) {
   var u = params.url.replace('gt://', 'https://gtvec.local/');
+  var gtH = window.gtReqStart ? gtReqStart(params.url) : null;   // VECWATCH-2026-10-31
   return fetch(u, { signal: abortController.signal }).then(function (r) {
-    if (!r.ok) throw new Error('tile HTTP ' + r.status + ' ' + u);
-    return r.arrayBuffer();
+    if (!r.ok) { if (window.gtReqEnd) gtReqEnd(gtH, false); throw new Error('tile HTTP ' + r.status + ' ' + u); }
+    var held = r.headers.get('X-GT-Held');   // VECNODATA-2026-10-31
+    return r.arrayBuffer().then(function (b) { if (window.gtTileSeen) gtTileSeen(params.url, held); if (window.gtReqEnd) gtReqEnd(gtH, true); return b; });
   }).then(function (b) { return { data: b }; });
 });
 var map = new maplibregl.Map({ container: 'map', style: 'liberty_style.json', center: [-98.5, 39.5], zoom: 4,
@@ -68,4 +77,10 @@ function gtTodo(name) {
 <!-- VECARTSTYLE-2026-10-30: MAP KEY "My tracks" / "My routes" style the map -->
 <script src="vec_artstyle.js"></script>
 <!-- VECTRACKS-2026-10-30: my track + the lead track -->
-<script src="vec_tracks.js"></script></body></html>
+<script src="vec_tracks.js"></script>
+<!-- VECLAND-2026-10-31: ground-type fills (rock, scrub, farmland; trees and grass stronger) -->
+<script src="vec_land.js"></script>
+<!-- VECNODATA-2026-10-31: past the downloaded maps -> back + note -->
+<script src="vec_nodata.js"></script>
+<!-- VECWATCH-2026-10-31: the heartbeat -->
+<script src="vec_watch.js"></script></body></html>

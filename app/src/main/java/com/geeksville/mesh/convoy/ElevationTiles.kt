@@ -17,6 +17,9 @@ object ElevationTiles {
             .optJSONArray("elevation_sources")?.optJSONObject(0)
     } catch (e: Exception) { android.util.Log.e(TAG, "map_sources.json: ${e.message}"); null }
 
+    /** VECONLINE-2026-10-31: the {z}/{x}/{y} URL, for the map's online fill (a tile not stored, shown while online). */
+    fun urlTemplate(context: Context): String? = spec(context)?.optString("url_template")?.takeIf { it.isNotBlank() }
+
     /** What the worker downloads for a DEM job. ⛔ Role "overlay" = stored AS RECEIVED: the pixel colours are the heights, and
      *  re-encoding (as satellite base images are, to WebP) would change them -- spikes and pits in 3D. */
     fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> {

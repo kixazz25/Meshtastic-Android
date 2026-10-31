@@ -388,6 +388,12 @@ object DownloadQueueManager {
         selectedSlots: List<String>,
         replaceExisting: Boolean = false
     ) {
+        // VECDL-2026-10-31: on the vector map an area download is vector + elevation (one box; enqueueArea segments it)
+        if (com.geeksville.mesh.grouptrack.GtMapEngine.isVector(context)) {
+            if (selectedSlots.isNotEmpty()) VectorTiles.enqueueWithElevation(context, north, south, east, west, replaceExisting)
+            android.util.Log.i(TAG, "VECDL-2026-10-31 area N=$north S=$south E=$east W=$west -> vector + elevation, replace=$replaceExisting")
+            return
+        }
         for (slotName in selectedSlots) {
             enqueueArea(context, slotName, north, south, east, west, replaceExisting)
         }
@@ -636,6 +642,17 @@ object DownloadQueueManager {
                 "(tracks=${geomHashes.size} slots=${slotNames.size})")
             return CorridorBatchResult()
         }
+        // VECDL-2026-10-31: on the vector map the corridors are the FULL AREA -- all tracks' squares joined, shared ground queued once
+        if (com.geeksville.mesh.grouptrack.GtMapEngine.isVector(context)) {
+            init(context)
+            val sq = HashSet<Long>(); var skipped = 0
+            for (hash in geomHashes) {
+                val segs = SpatialDbManager.getCorridorGeometry(context, hash)
+                if (segs.isNullOrEmpty()) skipped++ else VectorTiles.squaresFor(segs, sq)
+            }
+            val r = VectorTiles.queueSquares(context, sq, replaceExisting, "corridors x${geomHashes.size}")
+            return CorridorBatchResult(jobs = r.first, tiles = r.second, skipped = skipped)
+        }
         var jobs = 0
         var tiles = 0
         val skippedHashes = mutableListOf<String>()
@@ -679,6 +696,11 @@ object DownloadQueueManager {
         if (segments.isNullOrEmpty()) {
             android.util.Log.w(TAG, "enqueueCorridor: no geometry for $geomHash")
             return 0
+        }
+        // VECDL-2026-10-31: on the vector map a corridor is the FULL AREA of the track, vector + elevation
+        if (com.geeksville.mesh.grouptrack.GtMapEngine.isVector(context)) {
+            val sq = HashSet<Long>(); VectorTiles.squaresFor(segments, sq)
+            return VectorTiles.queueSquares(context, sq, replaceExisting, "corridor " + (SpatialDbManager.nameForGeomHash(geomHash) ?: geomHash.take(8))).second
         }
         // ZOOMSLOT-2026-08-10D: pass the slot so the zoom rule applies. The delete
         // path deliberately does not - see corridorTiles.

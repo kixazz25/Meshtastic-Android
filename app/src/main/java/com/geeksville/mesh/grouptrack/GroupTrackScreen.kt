@@ -422,6 +422,12 @@ fun GroupTrackScreen(
     // ── Renderer (stable across recompositions) ───────────────────────────
     val renderer = remember { ConvoyMarkerRenderer(context, onNodeTapped = viewModel::onMarkerTapped) }
     val webViewRef = remember { androidx.compose.runtime.mutableStateOf<android.webkit.WebView?>(null) }
+    // VECONLINE-2026-10-31 (Fred 08:04): OFFLINE MODE = stored maps only on the vector map; redraw its tiles when it flips
+    LaunchedEffect(isOfflineMode) {
+        VecOnline.localOnly = isOfflineMode
+        android.util.Log.i("VecOnline", "VECONLINE " + (if (isOfflineMode) "OFFLINE MODE -- stored maps only" else "online fill allowed"))
+        webViewRef.value?.evaluateJavascript("try{['openmaptiles','gt-dem','gt-dem-shade'].forEach(function(s){var x=map.getSource(s); if(x&&x.reload) x.reload();})}catch(e){}", null)
+    }
     // MAPSTARTUP-2026-10-19 (Fred 10-19 14:35): the network drops while on the ride map -> local tiles + offline mode (the page-load check only
     // runs once). Coming back online does NOT switch back -- the rider's source button does that.
     androidx.compose.runtime.LaunchedEffect(hasInternet) {

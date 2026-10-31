@@ -50,7 +50,10 @@ object VecMapServer {
                         // VECMAPDIAG-2026-10-30: what the map is actually given
                         android.util.Log.i(TAG, "VECMAPDIAG tile z$z/$x/$y " + (if (raw == null) "NOT HELD" else
                             "held ${raw.size} B head=" + raw.take(8).joinToString("") { "%02x".format(it) }))
-                        ok("application/x-protobuf", raw?.let { gunzipIfNeeded(it) } ?: ByteArray(0))
+                        val bytes = raw ?: VecOnline.vector(context, z, x, y)   // VECONLINE-2026-10-31: stored first, then the internet
+                        // VECNODATA-2026-10-31: tell the page whether this tile is held (the zoom-back and its note)
+                        WebResourceResponse("application/x-protobuf", null, 200, "OK", CORS + mapOf("X-GT-Held" to (if (bytes != null) "1" else "0")),
+                            java.io.ByteArrayInputStream(bytes?.let { gunzipIfNeeded(it) } ?: ByteArray(0)))
                     }
                 }
                 // VEC3D-2026-10-30: elevation for 3D / hillshade from the DEM store, as received; not stored -> 404 (flat there)
@@ -58,7 +61,9 @@ object VecMapServer {
                     val seg = path.removePrefix("/d/").removeSuffix(".png").split("/")
                     val z = seg.getOrNull(0)?.toIntOrNull(); val x = seg.getOrNull(1)?.toIntOrNull(); val y = seg.getOrNull(2)?.toIntOrNull()
                     val b = if (z == null || x == null || y == null) null else MBTilesStore.readTile(com.geeksville.mesh.convoy.ElevationTiles.SLOT, z, x, y)
-                    if (b == null) notFound() else ok("image/png", b)
+                    val d = b ?: (if (z == null || x == null || y == null) null else VecOnline.elevation(context, z, x, y))   // VECONLINE-2026-10-31
+                    android.util.Log.i(TAG, "VECMAPDIAG dem z$z/$x/$y " + (if (b != null) "held ${b.size} B" else if (d != null) "online ${d.size} B" else "NOT HELD"))   // VECWATCH-2026-10-31
+                    if (d == null) notFound() else ok("image/png", d)
                 }
                 path.startsWith("/a/") -> {
                     val rel = path.removePrefix("/a/")
@@ -159,5 +164,63 @@ fun GtVectorMapTestScreen(online: Boolean, onDone: () -> Unit) {   // VECMAPONLI
             })
         }
       }   // VECMAPSIZE-2026-10-30
+    }
+}
+
+/** VECONLINE-2026-10-31 (Fred 08:03): the satellite map's rule for the vector map -- a tile NOT STORED comes from the internet when
+ *  online (OpenFreeMap for the map, AWS Terrain Tiles for elevation), so planning works anywhere. Shown, never stored: the stores stay
+ *  what the rider downloaded. Offline = nothing tried (connection checked first; 30 s back-off after a failure). Called on the web
+ *  view's request thread (blocking is fine there). */
+object VecOnline {
+    private const val TAG = "VecOnline"
+    private val http by lazy {
+        okhttp3.OkHttpClient.Builder()
+            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+    @Volatile private var downUntil = 0L
+    @Volatile private var served = 0
+    /** Fred 08:04: OFFLINE MODE (the STATUS toggle) -- stored maps only, even with internet. Set by GroupTrackScreen. */
+    @Volatile var localOnly = false
+
+    private fun online(ctx: android.content.Context): Boolean {
+        if (localOnly || System.currentTimeMillis() < downUntil) return false
+        val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java) ?: return false
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    private fun get(url: String, kind: String): ByteArray? = try {
+        http.newCall(okhttp3.Request.Builder().url(url).build()).execute().use { r ->
+            if (r.isSuccessful) {
+                val b = r.body?.bytes()
+                val n = ++served
+                if (n == 1 || n % 200 == 0) android.util.Log.i(TAG, "VECONLINE $kind tile from the internet ($n so far): $url")
+                b
+            } else {
+                if (r.code >= 500) downUntil = System.currentTimeMillis() + 30_000
+                null   // 404 = no tile there (open sea, outside the source) -- drawn empty / flat
+            }
+        }
+    } catch (e: Exception) {
+        downUntil = System.currentTimeMillis() + 30_000
+        android.util.Log.w(TAG, "VECONLINE $kind fetch failed (${e.message}) -- stored tiles only for 30 s")
+        null
+    }
+
+    private fun fill(t: String, z: Int, x: Int, y: Int) = t.replace("{z}", "$z").replace("{x}", "$x").replace("{y}", "$y")
+
+    fun vector(ctx: android.content.Context, z: Int, x: Int, y: Int): ByteArray? {
+        if (z > VectorTiles.Z_MAX || !online(ctx)) return null
+        val t = VectorTiles.tileTemplate(ctx) ?: run { downUntil = System.currentTimeMillis() + 30_000; return null }
+        return get(fill(t, z, x, y), "map")
+    }
+
+    fun elevation(ctx: android.content.Context, z: Int, x: Int, y: Int): ByteArray? {
+        if (z > com.geeksville.mesh.convoy.ElevationTiles.Z_MAX || !online(ctx)) return null
+        val t = com.geeksville.mesh.convoy.ElevationTiles.urlTemplate(ctx) ?: return null
+        return get(fill(t, z, x, y), "elevation")
     }
 }
