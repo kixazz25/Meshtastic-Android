@@ -593,6 +593,7 @@ private fun ActiveSlotBar(entry: QueueEntry) {
                 entry.label.ifEmpty { "Download" },
                 color = brightText, fontSize = 12.sp,
                 fontFamily = mono, fontWeight = FontWeight.Bold,
+                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,   // VECQUEUELINE-2026-10-31: one line
                 modifier = Modifier.weight(1f)
             )
             Text(
@@ -634,7 +635,8 @@ private fun QueuedItemRow(entry: QueueEntry, position: Int) {
         // priority follows it as a bare number.
         Text(
             "#$position  ${scopeLabel(entry.downloadType)} ${entry.priority}  ${entry.label.ifEmpty { "Download" }}",
-            color = brightText, fontSize = 12.sp, fontFamily = mono
+            color = brightText, fontSize = 12.sp, fontFamily = mono,
+            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis   // VECQUEUELINE-2026-10-31: one line
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -706,8 +708,9 @@ private fun CompletedItemRow(entry: QueueEntry) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
-            "${entry.label.ifEmpty { "Download" }}  $statusText",
-            color = statusColor, fontSize = 12.sp, fontFamily = mono
+            "$statusText  ${entry.label.ifEmpty { "Download" }}",   // VECQUEUELINE-2026-10-31: status first, so the cut never hides it
+            color = statusColor, fontSize = 12.sp, fontFamily = mono,
+            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)   // VECQUEUELINE-2026-10-31: one line
         )
         Text(
             "${entry.downloadedTiles} tiles",

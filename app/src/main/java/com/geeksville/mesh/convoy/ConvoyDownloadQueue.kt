@@ -287,8 +287,19 @@ object DownloadQueueManager {
         slotName: String,
         north: Double, south: Double, east: Double, west: Double,
         replaceExisting: Boolean = false
+    ): Int = enqueueArea(context, slotName, north, south, east, west, replaceExisting, what = "")   // VECTRACKNAMES-2026-10-31: no label suffix
+
+    /** VECTRACKNAMES-2026-10-31: [what] is added to each job's label ("DL VEC 1/2 \u00b7 Bar 10"); "" = none. CODE RULE 1: required here,
+     *  the form above states "" for every caller that has nothing to add. */
+    fun enqueueArea(
+        context: Context,
+        slotName: String,
+        north: Double, south: Double, east: Double, west: Double,
+        replaceExisting: Boolean,
+        what: String
     ): Int {
         init(context)
+        val sfx = if (what.isBlank()) "" else " \u00b7 $what"   // VECTRACKNAMES-2026-10-31
         // VECSOURCE-2026-10-30: VEC is not in getDownloadSources (not a map-bar slot) -- it is one layer.
         val slotLayers = if (slotName == VectorTiles.SLOT || slotName == ElevationTiles.SLOT) 1   // DEMSOURCE-2026-10-30: DEM is one layer too
             else MapSourceManager.getDownloadSources().filter { it.first == slotName }.sumOf { it.second.size }
@@ -329,7 +340,7 @@ object DownloadQueueManager {
             val entry = QueueEntry(
                 north = north, south = south, east = east, west = west,
                 totalTiles = (if (isVec) oneLayerTiles else ConvoyTileCalculator.calculateTiles(north, south, east, west).size) * slotLayers,
-                label = "DL $slotName",
+                label = "DL $slotName" + sfx,   // VECTRACKNAMES-2026-10-31
                 refreshMode = replaceExisting,
                 refreshSlot = slotName,
                 // QUEUE-SCHEMA-2026-07-24: this branch is UNREACHABLE - segmentCells
@@ -352,7 +363,7 @@ object DownloadQueueManager {
                 north = cell[0], south = cell[1], east = cell[2], west = cell[3],
                 totalTiles = (if (isVec) ConvoyTileCalculator.quickEstimate(cell[0], cell[1], cell[2], cell[3], zMin = 0, zMax = vecZ).tileCount   // VECENQUEUE-2026-10-30
                     else ConvoyTileCalculator.calculateTiles(cell[0], cell[1], cell[2], cell[3]).size) * slotLayers,
-                label = "DL $slotName ${i + 1}/${cells.size}",
+                label = "DL $slotName ${i + 1}/${cells.size}" + sfx,   // VECTRACKNAMES-2026-10-31
                 refreshMode = replaceExisting,
                 refreshSlot = slotName,
                 // QUEUE-SCHEMA-2026-07-24
@@ -646,11 +657,16 @@ object DownloadQueueManager {
         if (com.geeksville.mesh.grouptrack.GtMapEngine.isVector(context)) {
             init(context)
             val sq = HashSet<Long>(); var skipped = 0
+            val names = HashMap<Long, MutableSet<String>>()   // VECTRACKNAMES-2026-10-31: which tracks each square is for
             for (hash in geomHashes) {
                 val segs = SpatialDbManager.getCorridorGeometry(context, hash)
-                if (segs.isNullOrEmpty()) skipped++ else VectorTiles.squaresFor(segs, sq)
+                if (segs.isNullOrEmpty()) { skipped++; continue }
+                val mine = HashSet<Long>(); VectorTiles.squaresFor(segs, mine)
+                val nm = SpatialDbManager.nameForGeomHash(hash) ?: hash.take(8)
+                for (k in mine) names.getOrPut(k) { HashSet() }.add(nm)
+                sq.addAll(mine)
             }
-            val r = VectorTiles.queueSquares(context, sq, replaceExisting, "corridors x${geomHashes.size}")
+            val r = VectorTiles.queueSquaresNamed(context, sq, names, replaceExisting, "corridors x${geomHashes.size}")
             return CorridorBatchResult(jobs = r.first, tiles = r.second, skipped = skipped)
         }
         var jobs = 0
@@ -700,7 +716,8 @@ object DownloadQueueManager {
         // VECDL-2026-10-31: on the vector map a corridor is the FULL AREA of the track, vector + elevation
         if (com.geeksville.mesh.grouptrack.GtMapEngine.isVector(context)) {
             val sq = HashSet<Long>(); VectorTiles.squaresFor(segments, sq)
-            return VectorTiles.queueSquares(context, sq, replaceExisting, "corridor " + (SpatialDbManager.nameForGeomHash(geomHash) ?: geomHash.take(8))).second
+            val nm = SpatialDbManager.nameForGeomHash(geomHash) ?: geomHash.take(8)   // VECTRACKNAMES-2026-10-31
+            return VectorTiles.queueSquaresNamed(context, sq, sq.associateWith { setOf(nm) }, replaceExisting, "corridor $nm").second
         }
         // ZOOMSLOT-2026-08-10D: pass the slot so the zoom rule applies. The delete
         // path deliberately does not - see corridorTiles.

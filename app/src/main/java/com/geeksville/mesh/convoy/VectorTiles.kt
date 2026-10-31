@@ -61,7 +61,11 @@ object VectorTiles {
     /** DEMSOURCE-2026-10-30 (Fred 14:12-14:13): THE BINDING. Every vector box is queued WITH its elevation -- same box, same step.
      *  Separate jobs (own rows, counts, failures), never separate decisions. The one door for a vector download. */
     fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean): Int =   // VECDL-2026-10-31: replace REQUIRED
-        DownloadQueueManager.enqueueArea(context, SLOT, n, s, e, w, replaceExisting) + DownloadQueueManager.enqueueArea(context, ElevationTiles.SLOT, n, s, e, w, replaceExisting)
+        enqueueWithElevation(context, n, s, e, w, replaceExisting, what = "")   // VECTRACKNAMES-2026-10-31: no label suffix
+
+    /** VECTRACKNAMES-2026-10-31: the same, both jobs labelled with [what] (a track name; "" = none). */
+    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean, what: String): Int =
+        DownloadQueueManager.enqueueArea(context, SLOT, n, s, e, w, replaceExisting, what) + DownloadQueueManager.enqueueArea(context, ElevationTiles.SLOT, n, s, e, w, replaceExisting, what)
 
     // ---- VECDL-2026-10-31 (Fred 10-30 15:57: "yes just pull the full area"): a corridor on the vector map = the FULL AREA of the track --
     // every z12 square the line passes through plus RING squares all round, joined into tight boxes (rows of squares, then equal rows
@@ -100,7 +104,11 @@ object VectorTiles {
     }
 
     /** Joins [squares] into tight boxes and queues each vector + elevation. Returns (jobs, estimated tiles). */
-    fun queueSquares(context: Context, squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int> {
+    fun queueSquares(context: Context, squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
+        queueSquaresNamed(context, squares, emptyMap(), replaceExisting, why)   // VECTRACKNAMES-2026-10-31: labelled with why
+
+    /** VECTRACKNAMES-2026-10-31: [names] = the tracks each square is for; a box is labelled with the tracks in it (empty -> [why]). */
+    fun queueSquaresNamed(context: Context, squares: Set<Long>, names: Map<Long, Set<String>>, replaceExisting: Boolean, why: String): Pair<Int, Int> {
         if (squares.isEmpty()) return Pair(0, 0)
         val n = (1 shl SQ_Z).toLong()
         class Box(val x0: Int, val x1: Int, val y0: Int, var y1: Int)
@@ -123,7 +131,10 @@ object VectorTiles {
         var jobs = 0; var tiles = 0
         for (bx in done) {
             val nn = latOf(bx.y0); val ss = latOf(bx.y1 + 1); val ww = lonOf(bx.x0); val ee = lonOf(bx.x1 + 1)
-            jobs += enqueueWithElevation(context, nn, ss, ee, ww, replaceExisting)
+            val inBox = sortedSetOf<String>()   // VECTRACKNAMES-2026-10-31
+            if (names.isNotEmpty()) for (x in bx.x0..bx.x1) for (y in bx.y0..bx.y1) names[x.toLong() * n + y]?.let { inBox.addAll(it) }
+            val what = when { inBox.isEmpty() -> why; inBox.size <= 2 -> inBox.joinToString(", "); else -> inBox.take(2).joinToString(", ") + " +${inBox.size - 2}" }
+            jobs += enqueueWithElevation(context, nn, ss, ee, ww, replaceExisting, what)
             tiles += ConvoyTileCalculator.quickEstimate(nn, ss, ee, ww, zMin = 0, zMax = Z_MAX).tileCount +
                 ConvoyTileCalculator.quickEstimate(nn, ss, ee, ww, zMin = 0, zMax = ElevationTiles.Z_MAX).tileCount
         }
