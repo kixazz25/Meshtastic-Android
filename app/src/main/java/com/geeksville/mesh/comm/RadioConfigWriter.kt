@@ -17,7 +17,10 @@ import org.meshtastic.proto.DeviceProfile
  * Writes a ConfigPlan (part 1) in Nathan's order, each group followed by the proven wait:
  *   group 1a  owner (the rider's callsign)
  *   group 1b  BEGIN settings -> lora -> device -> position -> COMMIT   (one save, at most one restart)
- *   group 2   channel 0: name, key, position precision
+ *   group 3   serial module on          (RADIODEFAULTS-2026-10-06)
+ *   group 4   Bluetooth pairing No PIN  (NOPIN-2026-10-04)
+ *   group 2   channel 0: name, key, position precision -- LAST, as in Nathan's order (RADIOORDER-2026-10-31: 3 and 4
+ *             moved ahead of it -- a radio still pairing by PIN hung on the reconnect after the channel write)
  *   then      retrieve ALL values (fresh after the last reconnect) -> verify the managed fields
  * A group with nothing to change is skipped. Every call is awaited, in order (the view model's fire-and-forget
  * wrappers do not guarantee order -- the writer does not use them).
@@ -106,13 +109,8 @@ class RadioConfigWriter(
             if (!waitBack("1b settings")) return WriteResult.Stopped("1b settings", "radio did not come back", written)
         }
 
-        plan.channel?.let { ch ->
-            log("RADIOWRITER: group 2 -- channel '${ch.settings?.name}' (key, precision)")
-            ops.writeChannel(ch)
-            written += "2 channel"
-            if (!waitBack("2 channel")) return WriteResult.Stopped("2 channel", "radio did not come back", written)
-        }
-
+        // RADIOORDER-2026-10-31 (Fred 15:48): serial (3) and Bluetooth No PIN (4) now come BEFORE the channel (2), which is last as in
+        // Nathan's order -- a fresh radio that still pairs by PIN hung on the reconnect after the channel write (Wio 10-31).
         // RADIODEFAULTS-2026-10-06 (Fred): GROUP 3 -- the serial module (a module setting), before Bluetooth (which stays last).
         plan.serial?.let { s ->
             log("RADIOWRITER: group 3 -- serial enabled=${s.enabled}")
@@ -127,13 +125,20 @@ class RadioConfigWriter(
         // stored pairing once (10-04: link up, no data, only forget + re-pair helped), so it goes after everything else, and if
         // the radio does not come back the rider is told exactly what to do. The next check-in finds NO_PIN and skips this.
         plan.bluetooth?.let { bt ->
-            log("RADIOWRITER: group 4 -- bluetooth enabled=${bt.enabled} pairing=${bt.mode} (last)")
+            log("RADIOWRITER: group 4 -- bluetooth enabled=${bt.enabled} pairing=${bt.mode} (before the channel)")
             ops.beginEdit()
             ops.writeConfig(Config(bluetooth = bt))
             ops.commitEdit()
             written += "4 bluetooth"
             if (!waitBack("4 bluetooth")) return WriteResult.Stopped("4 bluetooth",
                 "the radio's Bluetooth pairing changed to No PIN -- forget the radio in Bluetooth settings, pair it again, then check in again", written)
+        }
+
+        plan.channel?.let { ch ->
+            log("RADIOWRITER: group 2 -- channel '${ch.settings?.name}' (key, precision)")
+            ops.writeChannel(ch)
+            written += "2 channel"
+            if (!waitBack("2 channel")) return WriteResult.Stopped("2 channel", "radio did not come back", written)
         }
 
         if (ops.connection.value != ConnectionState.Connected) {

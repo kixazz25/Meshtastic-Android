@@ -105,7 +105,12 @@ fun RadioConfigScreen(
     val callsign = remember { ConvoyProfileStore.load()?.callsign?.trim().orEmpty() }
     // CALLSIGNOVR-2026-09-26 (Fred): the callsign THIS radio gets -- defaults to the profile's; type another rider's to
     // set up their radio. The profile never changes. Written to the radio's owner name and verified like the rest.
-    var radioCallsign by remember { mutableStateOf(callsign) }
+    var radioCallsign by remember { mutableStateOf("") }   // RADIONAME-2026-10-31 (Fred 16:03): blank = the radio keeps its own name
+    // RADIONAME-2026-10-31b (Fred 16:15): the field starts as the RADIO'S CURRENT NAME; left as it is, nothing is renamed
+    val myDev by convoyViewModel.myDevice.collectAsState()
+    val radioName = myDev?.name?.trim().orEmpty()
+    var nameTouched by remember { mutableStateOf(false) }
+    LaunchedEffect(radioName) { if (!nameTouched && radioName.isNotEmpty()) radioCallsign = radioName }
     val defaultJson = remember {
         runCatching { JSONObject(context.assets.open("grouptrack_default.json").bufferedReader().use { it.readText() }) }.getOrNull()
     }
@@ -134,7 +139,8 @@ fun RadioConfigScreen(
         targets = list
     }
 
-    fun forThisRadio() = radioCallsign.trim().ifEmpty { callsign }
+    // RADIONAME-2026-10-31: CHECK IN (automatic, the rider's own radio) names it with the rider's callsign; by hand, only a typed name renames
+    fun forThisRadio() = radioCallsign.trim()   // RADIONAME-2026-10-31b: CHECK IN too -- it only runs on by itself when the names match
     fun saveTitle(t: RadioTarget) =
         t.name + (if (radioCallsign.trim().isNotEmpty() && radioCallsign.trim() != callsign) " — for ${radioCallsign.trim()}" else "")
 
@@ -175,12 +181,17 @@ fun RadioConfigScreen(
     }
 
     // CHECKINAPPLY-2026-09-28 (Fred): opened by CHECK IN -- that ride, no picking, no preview: apply, then report back.
-    LaunchedEffect(targets) {
+    LaunchedEffect(targets, radioName) {   // RADIONAME-2026-10-31b: + the radio's name
         val rid = RadioConfigLauncher.autoRideId ?: return@LaunchedEffect
         if (targets.isEmpty()) return@LaunchedEffect
         // APPLYGUARD-2026-10-10: only the FIRST target list may start the automatic apply. The list is rebuilt when
         // the radio reconnects (its node id goes null and back during the apply's restart after group 1b).
         if (phase != "PICK") return@LaunchedEffect
+        // RADIONAME-2026-10-31b (Fred 16:16): CHECK IN never renames silently -- radio name and this device's callsign must match, else it
+        // waits on this screen for the rider (the prompt below)
+        if (radioName.isEmpty() || radioName != callsign) {
+            android.util.Log.i("RadioConfig", "CHECKINAPPLY: radio '$radioName' vs callsign '$callsign' -- held for the rider"); return@LaunchedEffect
+        }
         // NORIDEDEFAULT-2026-10-10: "GroupTrack" asks for the GroupTrack default target (it carries no ride id).
         val t = if (rid == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL)
             targets.firstOrNull { it.rideId == null && it.savedId == null && it.name == "GroupTrack default" }
@@ -222,17 +233,32 @@ fun RadioConfigScreen(
             when {
                 phase == "PICK" && (nodeId == null || !connected) ->
                     Text("No radio connected. Connect your radio first, then open this again.", color = BAD)
-                phase == "PICK" && callsign.isEmpty() ->
+                phase == "PICK" && callsign.isEmpty() && RadioConfigLauncher.autoRideId != null ->   // RADIONAME-2026-10-31: only CHECK IN needs the profile
                     Text("Set your rider profile first (Settings → Your Profile): your callsign becomes the radio's name.", color = BAD)
                 phase == "PICK" -> {
                     // CALLSIGNOVR-2026-09-26: whose radio is this? Your callsign unless you type another rider's.
-                    OutlinedTextField(value = radioCallsign, onValueChange = { radioCallsign = it.take(39) }, singleLine = true,
-                        label = { Text("Callsign for this radio") }, modifier = Modifier.fillMaxWidth())
+                    // RADIONAME-2026-10-31b (Fred 16:15): this device's callsign and the radio's name now, above the field
+                    Text("This device's callsign: ${callsign.ifEmpty { "(no profile)" }}   •   Radio's name now: ${radioName.ifEmpty { "(not known yet)" }}",
+                        color = INK, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    // RADIONAME-2026-10-31 (Fred 16:03): dark blue with white text (was light grey on white); blank = keep the radio's name
+                    OutlinedTextField(value = radioCallsign, onValueChange = { radioCallsign = it.take(39); nameTouched = true }, singleLine = true,
+                        label = { Text("Radio name — as it is, the radio keeps its name") }, modifier = Modifier.fillMaxWidth(),
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF0D47A1), unfocusedContainerColor = Color(0xFF0D47A1),
+                            focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.White,
+                            focusedLabelColor = Color.White, unfocusedLabelColor = Color.White,
+                            focusedBorderColor = Color.White, unfocusedBorderColor = Color(0xFF90CAF9)))
                     // CALLSIGNHINT-2026-09-27 (Fred): what the field is for, on the screen itself.
-                    Text("Mainly for setting up someone else's radio at the trailhead: type their callsign, and their radio joins the ride under their name. For your own radio, leave it as it is.",
-                        color = Gt.dim, fontSize = 12.sp)
-                    if (radioCallsign.trim().isNotEmpty() && radioCallsign.trim() != callsign)
-                        Text("Setting up a radio for ${radioCallsign.trim()} — your own profile is not changed.", color = ACCENT, fontSize = 12.sp)
+                    Text("Left as it is (or blank), the radio keeps its name. Type a name to rename it.",
+                        color = INK, fontSize = 12.sp)   // RADIONAME-2026-10-31: readable (was dim grey)
+                    // RADIONAME-2026-10-31b (Fred 16:15-16:16): name and callsign do not match -> ask; CHECK IN waits here
+                    val typed = radioCallsign.trim().ifEmpty { radioName }
+                    if (callsign.isNotEmpty() && typed != callsign) {
+                        Text("These don't match. Setting this radio up for someone else? Leave the name. Your own radio? Tap USE MY CALLSIGN." +
+                            (if (RadioConfigLauncher.autoRideId != null) " Check-in waits until you choose, then tap the ride below." else ""),
+                            color = ACCENT, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        OutlinedButton(onClick = { radioCallsign = callsign; nameTouched = true }) { Text("USE MY CALLSIGN ($callsign)") }
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text("Choose what to put on the radio:", color = INK)
                     targets.forEach { t ->

@@ -53,7 +53,7 @@ data class ReportingValues(
 
 /** Every value the configurator manages. All required: a target without one of them is not a usable target. */
 data class ManagedValues(
-    val ownerLongName: String,
+    val ownerLongName: String?,   // RADIONAME-2026-10-31 CODE RULE 1: null = KEEP the radio's own name (nothing typed) -- group 1a skipped
     val region: Config.LoRaConfig.RegionCode,
     val preset: Config.LoRaConfig.ModemPreset,
     val frequencySlot: Int,
@@ -100,11 +100,10 @@ object RadioConfigurator {
      * callsign from their profile.
      */
     fun fromRideFile(ride: JSONObject, default: JSONObject, callsign: String): ManagedValues {
-        require(callsign.isNotBlank()) { "no callsign -- the rider profile comes first" }
         val mesh = ride.getJSONObject("network").getJSONObject("mesh")
         val st = default.getJSONObject("network").getJSONObject("standalone")
         return ManagedValues(
-            ownerLongName = callsign.trim(),
+            ownerLongName = callsign.trim().ifEmpty { null },   // RADIONAME-2026-10-31 (Fred 16:03): nothing typed = keep the radio's name
             region = Config.LoRaConfig.RegionCode.valueOf(mesh.getString("region")),
             preset = Config.LoRaConfig.ModemPreset.valueOf(mesh.getString("preset")),
             frequencySlot = mesh.getInt("frequencySlot"),
@@ -167,8 +166,8 @@ object RadioConfigurator {
         val changes = mutableListOf<String>()
         fun <T> note(field: String, old: T, new: T) { if (old != new) changes += "$field: $old -> $new" }
 
-        val owner = if (current.long_name != t.ownerLongName) t.ownerLongName else null
-        note("owner", current.long_name, t.ownerLongName)
+        val owner = if (t.ownerLongName != null && current.long_name != t.ownerLongName) t.ownerLongName else null   // RADIONAME-2026-10-31
+        note("owner", current.long_name, t.ownerLongName ?: current.long_name)
 
         val newLora = lora.copy(
             use_preset = true, modem_preset = t.preset, region = t.region, channel_num = t.frequencySlot,
@@ -244,7 +243,7 @@ object RadioConfigurator {
         val r = t.reporting
         fun c(f: String, e: Any?, a: Any?) = FieldCheck(f, e.toString(), a.toString())
         return listOf(
-            c("owner", t.ownerLongName, after.long_name),
+            c("owner", t.ownerLongName ?: after.long_name, after.long_name),   // RADIONAME-2026-10-31: kept = whatever the radio holds
             c("region", t.region, lora?.region), c("preset", t.preset, lora?.modem_preset),
             c("use preset", true, lora?.use_preset), c("frequency slot", t.frequencySlot, lora?.channel_num),
             c("hop limit", t.hopLimit, lora?.hop_limit), c("tx power", if (t.txPower == 0 && (lora?.tx_power ?: 0) > 0) (lora?.tx_power ?: 0) else t.txPower /* TXMAX-2026-09-26 */, lora?.tx_power),
