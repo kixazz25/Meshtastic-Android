@@ -156,7 +156,8 @@ fun TrailStylePanel(
 /** ⚠ Shared with MapKeysPanel so a colour picked here is one the key can show. */
 val PALETTE = listOf(
     "#00CCFF", "#00AAFF", "#0077DD", "#0044AA", "#00FFFF", "#39FF14", "#66CC66",
-    "#FFCC00", "#FF8800", "#FF2222", "#FF1493", "#AA44FF", "#CC8844", "#888888"
+    "#FFCC00", "#FF8800", "#FF2222", "#FF1493", "#AA44FF", "#CC8844", "#888888",
+    "#FFFF00", "#000000", "#FFFFFF"   // PALETTE3-2026-10-30 (Fred 19:53): yellow, black, white
 )
 
 /** label to dashArray. ⚠ null means solid — Leaflet wants the absence, not "0". */

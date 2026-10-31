@@ -58,8 +58,8 @@ fun GtKeyBody(onStyleChanged: () -> Unit) {
         Section("TRAILS — NON-MOTORIZED") { NON_MOTORIZED_ROWS.forEach { r -> StyleRow(r) { styling = r } } }
         Section("YOURS") { ARTIFACT_ROWS.forEach { r -> StyleRow(r) { styling = r } } }
         Section("WHILE YOU RIDE") {
-            FixedRow("My track", "Your ride as you record it — arrows show direction", Gt.accent, 4, dashed = true)
-            FixedRow("Lead track", "The leader's path — arrows show direction", Gt.accent, 5, dashed = false)
+            // VECRIDESTYLE-2026-10-30 (Fred 19:42): styleable, like My tracks / My routes (were fixed rows in the accent colour -- white)
+            RIDE_ROWS.forEach { r -> StyleRow(r) { styling = r } }
         }
         Section("GROUP RIDING") {
             Text("Carts, lead and tail — their symbols are added here when the cart markers are reviewed.", color = s.panelDim, fontSize = 12.sp)
@@ -67,6 +67,12 @@ fun GtKeyBody(onStyleChanged: () -> Unit) {
         Text("To turn things on or off, use FILTER.", color = s.panelDim, fontSize = 12.sp)
     }
 }
+
+/** VECRIDESTYLE-2026-10-30: the lines drawn while you ride -- styleable; shipped look = the map's (blue, my track dashed). */
+private val RIDE_ROWS = listOf(
+    MapKeyRow("__mytrack", "My track — as you record it", Color(0xFF1E88FF), 4, dashed = true),
+    MapKeyRow("__lead", "Lead track — the leader's path", Color(0xFF1E88FF), 5, dashed = false),
+)
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
