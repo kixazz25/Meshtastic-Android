@@ -168,7 +168,8 @@ fun ConvoyTrackImportScreen(
                 for (uri in uris) {
                     val doc = androidx.documentfile.provider.DocumentFile
                         .fromSingleUri(context, uri)
-                    val name = doc?.name ?: "import_${System.currentTimeMillis()}.gpx"
+                    // GPXDUPNAME-2026-11-01: "x.gpx (1)" as Android names a repeat download -> staged as "x.gpx"
+                    val name = (doc?.name ?: "import_${System.currentTimeMillis()}.gpx").replace(Regex("""\s*\(\d+\)$"""), "")
                     stageNote = name
                     val target = java.io.File(dir, name)
                     try {
@@ -186,7 +187,12 @@ fun ConvoyTrackImportScreen(
                             continue
                         }
                         out.add(target)
-                        if (deleteOriginals) {
+                        // GPXDUPNAME-2026-11-01: never delete an original the import cannot read -- 11-01 three failed tries each
+                        // deleted the file from Download first. Only a staged copy that reads as GPX or KML lets the original go.
+                        val head = try { target.inputStream().use { i -> val b = ByteArray(4096); val n = i.read(b); if (n > 0) String(b, 0, n) else "" } } catch (e: Exception) { "" }
+                        val readable = head.contains("<gpx", ignoreCase = true) || head.contains("<kml", ignoreCase = true)
+                        if (!readable) android.util.Log.w("ImportPicker", "$name not GPX/KML -- original KEPT")
+                        if (deleteOriginals && readable) {
                             // \u26a0 NEEDS THE WRITE FLAG ON THE PICKER INTENT. Without
                             // it this fails silently and the rider thinks the
                             // original went.

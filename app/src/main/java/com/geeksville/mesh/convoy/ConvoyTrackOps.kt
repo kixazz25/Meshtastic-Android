@@ -38,6 +38,10 @@ object ConvoyTrackOps {
     fun downloadsDir(): File =
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
 
+    /** GPXDUPNAME-2026-11-01: the extension with a copy suffix ignored -- "x.gpx (2)" -> "gpx" (Droid 2 11-01: refused as
+     *  "Not a GPX file"). */
+    fun importExt(f: File): String = f.name.replace(Regex("""\s*\(\d+\)$"""), "").substringAfterLast('.', "").lowercase()
+
     /** List GPX/KML files, excluding hidden and Android-trash entries. */
     suspend fun listTracks(): List<File> = withContext(Dispatchers.IO) {
         val dir = tracksDir()
@@ -217,7 +221,7 @@ object ConvoyTrackOps {
             var text = sourceFile.readText()
             // Strip <extensions> — custom namespaces (onXmaps etc) crash XML when tracks are split
             text = text.replace(Regex("""<extensions>[\s\S]*?</extensions>"""), "")
-            val ext = sourceFile.extension.lowercase()
+            val ext = importExt(sourceFile)   // GPXDUPNAME-2026-11-01
             val isGpx = ext == "gpx"
             val isKml = ext == "kml"
             if (!isGpx && !isKml) {
@@ -565,7 +569,7 @@ object ConvoyTrackOps {
             }
 
             // Validate extension before reading (streaming — we never load the whole file)
-            if (!sourceFile.extension.lowercase().let { it == "gpx" }) {
+            if (importExt(sourceFile) != "gpx") {   // GPXDUPNAME-2026-11-01: "x.gpx (2)" is a GPX
                 return@withContext ImportArtifactsSummary(sourceName, 0, 0, 0, emptyList(), listOf("Not a GPX file"))
             }
 
