@@ -409,7 +409,7 @@ fun GroupTrackScreen(
             com.geeksville.mesh.convoy.MeshNavFold.DocToShow.QUICKSTART ->
                 docsView = "quickstart"
             com.geeksville.mesh.convoy.MeshNavFold.DocToShow.RELEASE_NOTES ->
-                docsView = "notes"
+                { if (GtMapConversion.stage.value.isEmpty()) GtMapConversion.stage.value = "info" }   // VECWELCOME-2026-10-31: the 2.7e welcome screen (its WHAT'S NEW opens the notes)
             else -> {}
         }
     }
@@ -1407,6 +1407,7 @@ fun GroupTrackScreen(
                     when (event.action) {
                         android.view.MotionEvent.ACTION_DOWN -> {
                             lpDown[0] = event.x
+                            android.util.Log.i("ConvoyTap", "Touch DOWN at x=${event.x.toInt()} y=${event.y.toInt()}")   // VECWATCH2-2026-10-31
                             lpDown[1] = event.y
                             val lx = event.x.toInt()
                             val ly = event.y.toInt()
@@ -1430,6 +1431,8 @@ fun GroupTrackScreen(
                         android.view.MotionEvent.ACTION_UP,
                         android.view.MotionEvent.ACTION_CANCEL -> {
                             lpRunnable[0]?.let { lpHandler.removeCallbacks(it) }
+                            // VECWATCH2-2026-10-31: a gesture the system took away from the map was invisible in the log
+                            if (event.action == android.view.MotionEvent.ACTION_CANCEL) android.util.Log.i("ConvoyTap", "Touch CANCEL at x=${event.x.toInt()} y=${event.y.toInt()}")
                         }
                     }
                     if (event.action == android.view.MotionEvent.ACTION_MOVE ||
@@ -1639,6 +1642,7 @@ fun GroupTrackScreen(
                 containerColor = Gt.panel
             )
         }
+        GtConversionPanel(onManual = { docsView = "manual" }, onNotes = { docsView = "notes" }, onQuickStart = { docsView = "quickstart" }, onQueue = { queuesOpen = true })   // VECWELCOME-2026-10-31
         // -- Lead Selection Dialog --
         if (showLeadDialog) {
             val dialogNodes = convoyState.nodes
@@ -2967,6 +2971,7 @@ fun GroupTrackScreen(
                 "map.imported" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "bystate" },   // AREASKIP-2026-10-24
                 "map.trails_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "import"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
                 "map.dl_tracks" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "tracks" },
+                "map.restartconv" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "emergency" },   // VECEMERGENCY-2026-10-31: the screen (was a toast)
                 "map.recipes" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "recipes" },   // GTRECIPES-2026-10-23
                 "map.trails_state" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "state" },   // GTIMPORTS-2026-10-23
                 "map.gpx" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "gpx" },   // GTIMPORTS-2026-10-23

@@ -237,7 +237,7 @@ object SpatialDisplayManager {
             // IF THE WIDE VIEW IS STILL SLOW: lower the low-zoom figure
             // first. Do not raise the gate back up - the wide view is what
             // testers asked for (orient wide, zoom for detail).
-            "Trails" -> if (zoom < 10) 2_000 else 5_000
+            "Trails" -> 1_000   // VECWELCOME-2026-10-31 (Fred 19:13): 1,000 at every zoom -- 5,000 was 16.7 MB per pan on Droid 2, memory full
             else -> if (zoom < 14) 500 else 2000
         }
 

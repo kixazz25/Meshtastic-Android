@@ -95,6 +95,7 @@ object LaunchModules {
                 "rm_area" to "Remove maps by area",
                 "rm_track" to "Remove maps for all tracks"),   // stays (Fred 10:14); RMALLTRACKS-2026-10-23: it is ALL tracks
             g("map", "repair", "MAP RECOVERY",   // MAPRECOVERY2-2026-10-23 (Fred 10:26-10:28)
+                "restartconv" to "Emergency download \u2014 maps as of the conversion date (if the conversion was interrupted)",   // VECCONVERT-2026-10-31 (Fred 10-31 18:12)
                 "recipes" to "Show saved map recipes (60 days)",   // GTRECIPES-2026-10-23 (Fred 11:43)
                 "restore" to "Restore maps as of a date \u2014 coming soon",   // RESTORESOON-2026-10-25 (Fred 21:03)   // NEW: replays a daily map recipe (ConvoyMapRecipe) -- restore not built yet
                 "repair" to "Refresh maps"),   // ONESOURCEUI-2026-10-30: one source   // planner Recreate Tiles by Source

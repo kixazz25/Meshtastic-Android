@@ -58,6 +58,39 @@ object VectorTiles {
         return Pair(f.name, out)
     }
 
+    /** VECTILECOUNT-2026-10-31: the recipe's own tile total over the OLD map slots (all but VEC / DEM) -- "your old maps: N tiles". */
+    fun oldTilesOf(f: java.io.File): Long = try {
+        val slots = JSONObject(f.readText()).optJSONArray("slots"); var t = 0L
+        if (slots != null) for (i in 0 until slots.length()) { val o = slots.optJSONObject(i) ?: continue
+            val s = o.optString("slot"); if (s != SLOT && s != ElevationTiles.SLOT) t += o.optLong("tiles") }
+        t
+    } catch (e: Exception) { 0L }
+
+    /** VECCONVERT-2026-10-31: every box of one recipe file (n, s, e, w), exact duplicates once. */
+    fun boxesOf(f: java.io.File): List<DoubleArray> {
+        val slots = JSONObject(f.readText()).optJSONArray("slots") ?: return emptyList()
+        val seen = HashSet<String>(); val out = ArrayList<DoubleArray>()
+        for (i in 0 until slots.length()) {
+            val b = slots.optJSONObject(i)?.optJSONArray("boxes") ?: continue
+            for (j in 0 until b.length()) {
+                val x = b.optJSONObject(j) ?: continue
+                val box = doubleArrayOf(x.optDouble("n"), x.optDouble("s"), x.optDouble("e"), x.optDouble("w"))
+                if (box.any { it.isNaN() }) continue
+                if (seen.add(box.joinToString(","))) out.add(box)
+            }
+        }
+        return out
+    }
+
+    /** VECCONVERT-2026-10-31: the z12 squares a box covers (recipe boxes are on the z12 grid -- RECIPESCAN -- so this is exact;
+     *  an edge a hair inside a square is pulled in by 1e-9 so it does not add the neighbour). */
+    fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) {
+        val nn = 1 shl SQ_Z
+        val x0 = sqX(w + 1e-9).coerceIn(0, nn - 1); val x1 = sqX(e - 1e-9).coerceIn(0, nn - 1)
+        val y0 = sqY(n - 1e-9).coerceIn(0, nn - 1); val y1 = sqY(s + 1e-9).coerceIn(0, nn - 1)
+        for (x in x0..x1) for (y in y0..y1) into.add(x.toLong() * nn + y)
+    }
+
     /** DEMSOURCE-2026-10-30 (Fred 14:12-14:13): THE BINDING. Every vector box is queued WITH its elevation -- same box, same step.
      *  Separate jobs (own rows, counts, failures), never separate decisions. The one door for a vector download. */
     fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean): Int =   // VECDL-2026-10-31: replace REQUIRED

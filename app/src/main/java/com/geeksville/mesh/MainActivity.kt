@@ -80,7 +80,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // RECIPE-2026-08-12L: write today's map recipe if it is not already there.
         // Background, best effort, and it can never block a launch.
-        com.geeksville.mesh.convoy.ConvoyMapRecipe.writeDailyAsync(this)
+        // VECCONVERT-2026-10-31: the conversion to one map decides first; when it is not converting it writes the daily recipe
+        com.geeksville.mesh.grouptrack.GtMapConversion.startup(this)
 
         // [Fix2] Session-only: clear convoy saved frame on cold launch so a fresh app
         // start centers on GPS, not last session frame. Once per process (not rotation).

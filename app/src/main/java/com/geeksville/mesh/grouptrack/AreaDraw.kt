@@ -78,6 +78,7 @@ fun GtAreaHost(js: (String) -> Unit, barModifier: Modifier) {
         "remove" -> GtRemoveAreaScreen(GtArea.box.value, done)
         "import" -> GtImportAreaScreen(GtArea.box.value, done)
         "recipes" -> GtRecipesScreen(done)   // GTRECIPES-2026-10-23
+        "emergency" -> GtEmergencyScreen(done)   // VECEMERGENCY-2026-10-31
         "state" -> GtImportStateScreen(done)   // GTIMPORTS-2026-10-23
         "gpx" -> GtImportGpxScreen(done)   // GTIMPORTS-2026-10-23
         "rider" -> GtRiderTrailsScreen(done)   // GTIMPORTS-2026-10-23

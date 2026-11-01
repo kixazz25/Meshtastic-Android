@@ -29,6 +29,13 @@ object GtMapEngine {
     /** VECPORTS-2026-10-31: the engine this run without a context (read once when the map page loads); false before that. */
     fun isVectorCached(): Boolean = cached == true
 
+    /** VECCONVERT-2026-10-31: the conversion -- the vector map from this start on, NO restart (called before the map page loads). */
+    fun useVector(ctx: Context) {
+        try { file(ctx).writeText("VEC") } catch (e: Exception) { android.util.Log.e(TAG, "VECCONVERT engine write: ${e.message}") }
+        cached = true
+        android.util.Log.i(TAG, "VECCONVERT-2026-10-31 engine set to VEC (MapLibre) by the conversion")
+    }
+
     /** Save the choice, then END and RESTART GroupTrack so the map is built fresh in the chosen engine. */
     fun switchTo(ctx: Context, vector: Boolean) {
         try { file(ctx).writeText(if (vector) "VEC" else "SAT") }

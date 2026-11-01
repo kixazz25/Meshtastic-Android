@@ -54,6 +54,8 @@ object ConvoyMapRecipe {
     private const val EXT = ".gtmaps"
     private const val PREFIX = "grouptrack_maps_"
     private const val KEEP_DAYS = 60
+    /** VECCONVERT-2026-10-31: the record made when the old maps were converted -- Restart map conversion replays it. */
+    const val CONVERSION = "grouptrack_conversion.gtmaps"
 
     /**
      * The app's OWN folder, beside the stores it describes - not Downloads.
@@ -77,8 +79,23 @@ object ConvoyMapRecipe {
         }.start()
     }
 
-    fun writeDaily(context: Context): File? {
+    fun writeDaily(context: Context): File? = write(context, fresh = false)
+
+    /** VECCONVERT-2026-10-31: the conversion's first step -- today's recipe rewritten from the tiles on the phone now. */
+    fun writeFresh(context: Context): File? = write(context, fresh = true)
+
+    // CODE RULE 1: fresh is required -- writeDaily (false: once a day, not mid-conversion) and writeFresh (true) state it.
+    private fun write(context: Context, fresh: Boolean): File? {
         val target = File(dir(), PREFIX + today() + EXT)
+        if (fresh) target.delete()
+        else if (File(dir(), CONVERSION).exists()) {
+            // VECCONVERT-2026-10-31: not while the conversion's downloads run -- yesterday's file stays the newest (a vector
+            // download of the rider's own also holds it off; the next start writes it)
+            DownloadQueueManager.init(context)
+            val busy = DownloadQueueManager.queue.value.count { (it.status == QueueStatus.QUEUED || it.status == QueueStatus.DOWNLOADING ||
+                it.status == QueueStatus.PAUSED) && (it.refreshSlot == VectorTiles.SLOT || it.refreshSlot == ElevationTiles.SLOT) }
+            if (busy > 0) { android.util.Log.i(TAG, "VECCONVERT $busy vector / elevation job(s) pending -- no daily recipe today"); return null }
+        }
         if (target.exists()) {
             android.util.Log.i(TAG, "RECIPE-2026-08-12L today's recipe already written")
             prune()
@@ -86,7 +103,9 @@ object ConvoyMapRecipe {
         }
         val slots = JSONArray()
         var grand = 0L
-        for (slot in MapSourceManager.getSlotSources().map { it.first }) {
+        // VECCONVERT-2026-10-31: the vector map and elevation are recorded too; a slot with no store is skipped (deriveRecipe would create one)
+        for (slot in (MapSourceManager.getSlotSources().map { it.first } + listOf(VectorTiles.SLOT, ElevationTiles.SLOT)).distinct()) {
+            if (!MBTilesStore.storeExists(slot)) continue
             val r = DownloadQueueManager.deriveRecipe(context, slot, tight = true) ?: continue   // RECIPETIGHT-2026-10-30: boxes follow your maps
             val boxes = JSONArray()
             val n = 1L shl r.refZ

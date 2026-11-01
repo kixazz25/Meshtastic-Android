@@ -636,16 +636,17 @@ private fun QueuedItemRow(entry: QueueEntry, position: Int) {
         Text(
             "#$position  ${scopeLabel(entry.downloadType)} ${entry.priority}  ${entry.label.ifEmpty { "Download" }}",
             color = brightText, fontSize = 12.sp, fontFamily = mono,
-            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis   // VECQUEUELINE-2026-10-31: one line
+            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,   // VECQUEUELINE-2026-10-31: one line
+            modifier = Modifier.weight(1f)   // VECQUEUELINE2-2026-10-31: the label takes what is left -- never the right side's room
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(start = 8.dp)) {
             Text(
                 "${entry.totalTiles} tiles",
-                color = dimText, fontSize = 12.sp, fontFamily = mono
+                color = dimText, fontSize = 12.sp, fontFamily = mono, maxLines = 1, softWrap = false   // VECQUEUELINE2
             )
             Text(
                 dateFmt.format(Date(entry.createdAt)),
-                color = dimText, fontSize = 12.sp, fontFamily = mono
+                color = dimText, fontSize = 12.sp, fontFamily = mono, maxLines = 1, softWrap = false   // VECQUEUELINE2
             )
             // QUEUE-PANEL-B-2026-07-24: PROMOTE to priority 1 (runs next). Deliberately
             // NOT "X" - X already means CANCEL on this row and on ActiveSlotBar,
