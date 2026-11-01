@@ -359,7 +359,7 @@ fun GtImportStateScreen(onDone: () -> Unit) {
 @Composable
 fun GtImportGpxScreen(onDone: () -> Unit) {
     Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        GtScreenFrame("Import GPX", "map.gpx", onDone) { com.geeksville.mesh.convoy.ConvoyTrackImportScreen(onDismiss = onDone, startAsTrails = false) }   // GTSTD
+        GtScreenFrame("Import tracks, routes and waypoints from GPX files", "map.gpx", onDone)   /* GPXNAME-2026-11-01 */ { com.geeksville.mesh.convoy.ConvoyTrackImportScreen(onDismiss = onDone, startAsTrails = false) }   // GTSTD
     }
 }
 
