@@ -145,14 +145,14 @@ fun ConvoyDownloadConfirm(
                     onClick = { onProceed(bbox, selectedSlots.toList(), replaceExisting) },
                     enabled = selectedSlots.isNotEmpty(),
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = green.copy(alpha = 0.18f))
+                    colors = ButtonDefaults.buttonColors(containerColor = green)   // DLPANEL-2026-11-01 (Fred 07:43): solid, not ghosted
                 ) {
-                    Text("PROCEED", fontFamily = mono, fontSize = 12.sp, color = Color.Black)
+                    Text("PROCEED", fontFamily = mono, fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
 
             val count = selectedSlots.size
-            Text("$count source${if (count != 1) "s" else ""}" + if (estimatedTiles > 0) " \u00b7 ~${estimatedTiles * count} total tiles" else "",
+            if (estimatedTiles > 0) Text("~${estimatedTiles * count} tiles",   // DLPANEL-2026-11-01: no "1 source"
                 color = txtD, fontSize = 12.sp, fontFamily = mono,
                 modifier = Modifier.padding(top = 4.dp))
         }

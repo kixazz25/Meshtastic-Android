@@ -59,8 +59,9 @@ object GtDownloadDefaults {
     }
     /** a download panel's starting Replace: the saved one, else the panel's own. */
     fun initialReplace(ctx: Context, fallback: Boolean): Boolean = if (isSet(ctx)) replace(ctx) else fallback
+    // DLPANEL-2026-11-01 (Fred 07:42): every download is the vector map + its elevation (VECDL) -- no slot names ("SAT") shown
     fun summary(slots: Collection<String>, replace: Boolean): String =
-        "Download with: " + (if (slots.isEmpty()) "no map source" else slots.sorted().joinToString(", ")) +
+        "Download: the map and its elevation" +
             "  \u00b7  Replace existing tiles: " + (if (replace) "Yes" else "No")
 }
 

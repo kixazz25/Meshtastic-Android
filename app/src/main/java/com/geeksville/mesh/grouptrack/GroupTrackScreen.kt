@@ -406,10 +406,12 @@ fun GroupTrackScreen(
         when (com.geeksville.mesh.convoy.MeshNavFold.docToShow(
             context, com.geeksville.mesh.BuildConfig.VERSION_NAME
         )) {
+            // WELCOMEONCE-2026-11-01 (Fred 07:37): the 2.7e screen once on a NEW install (its QUICK START opens the Quick Start);
+            // an update gets the release notes as before -- the 2.7e screen comes only as the conversion itself, while old maps exist.
             com.geeksville.mesh.convoy.MeshNavFold.DocToShow.QUICKSTART ->
-                docsView = "quickstart"
+                { if (GtMapConversion.stage.value.isEmpty()) GtMapConversion.stage.value = "info" }
             com.geeksville.mesh.convoy.MeshNavFold.DocToShow.RELEASE_NOTES ->
-                { if (GtMapConversion.stage.value.isEmpty()) GtMapConversion.stage.value = "info" }   // VECWELCOME-2026-10-31: the 2.7e welcome screen (its WHAT'S NEW opens the notes)
+                docsView = "notes"
             else -> {}
         }
     }
