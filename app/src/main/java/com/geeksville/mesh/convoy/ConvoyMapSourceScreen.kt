@@ -153,70 +153,20 @@ fun ConvoyMapSourceScreen(
         ) {
             if (selectedSlot == null) {
                 // ── SLOT OVERVIEW ──────────────────────────────────────────
-                // VECSWITCH-2026-10-30 (Fred 11:36): the map -- Satellite (Leaflet) or Vector (MapLibre). A change restarts GroupTrack.
-                SectionHeader("Map")
-                val engCtx = LocalContext.current
-                val engVec = remember { com.geeksville.mesh.grouptrack.GtMapEngine.isVector(engCtx) }
-                var engAsk by remember { mutableStateOf<Boolean?>(null) }
-                listOf(false to "Satellite \u2014 Google imagery", true to "Vector \u2014 OpenFreeMap, offline (2.7e)").forEach { (v, label) ->
-                    Row(modifier = Modifier.fillMaxWidth().clickable { if (v != engVec) engAsk = v }.padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = v == engVec, onClick = { if (v != engVec) engAsk = v })
-                        Text(label, style = MaterialTheme.typography.bodyLarge)
-                    }
-                }
-                engAsk?.let { want ->
-                    AlertDialog(onDismissRequest = { engAsk = null },
-                        title = { Text(if (want) "Switch to the vector map" else "Switch to the satellite map") },
-                        text = { Text("GroupTrack closes and opens again on the chosen map. Use it when you are not on a ride.") },
-                        confirmButton = { TextButton(onClick = { com.geeksville.mesh.grouptrack.GtMapEngine.switchTo(engCtx, want) }) { Text("RESTART") } },
-                        dismissButton = { TextButton(onClick = { engAsk = null }) { Text("CANCEL") } })
-                }
+                // VECONE-2026-11-01: ONE MAP -- the Satellite / Vector choice, the SAT slot, the source picker and the API keys are gone;
+                // the map's sources are fixed and credited here (and at the bottom of the map).
+                SectionHeader("The map")
+                Text("GroupTrack has one map: a vector map drawn on your tablet, with the shape of the ground underneath for 3D. " +
+                    "Downloads store it to zoom 14; it is drawn sharp to zoom 20. Online, areas you have not downloaded come from the internet.",
+                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 Spacer(Modifier.height(12.dp))
-                SectionHeader("Current Assignments")
-                Text(
-                    "The satellite source. Tap to change it.",   /* VECSWITCH-2026-10-30 */
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-
-                listOf("SAT").forEach { slotKey ->   // ONESOURCE-2026-10-30: one source (was SAT, TOPO, TOPO+)
-                    val sourceId = currentSourceId(slotKey)
-                    val source = allSources.find { it.id == sourceId }
-                    SlotCard(
-                        slotName = slotKey,
-                        sourceName = source?.name ?: "Unknown",
-                        producer = source?.producer ?: "",
-                        mapType = source?.mapType ?: "",
-                        onClick = { selectedSlot = slotKey }
-                    )
+                SectionHeader("Sources and credits")
+                listOf("Map: OpenFreeMap \u2014 \u00a9 OpenMapTiles, data \u00a9 OpenStreetMap contributors (open data)",
+                       "Elevation: USGS 3DEP, SRTM, GMTED2010 (AWS Terrain Tiles)").forEach {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 }
-
-                Spacer(Modifier.height(16.dp))
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                Spacer(Modifier.height(16.dp))
-
-                // ── API KEYS ──────────────────────────────────────────────
-                SectionHeader("API Keys")
-                Text(
-                    "Sources requiring API keys. Enter key to unlock.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-
-                allSources.filter { it.requiresKey }.forEach { source ->
-                    val hasKey = MapSourceManager.getApiKey(source.id).isNotEmpty()
-                    ApiKeyRow(
-                        sourceName = source.name,
-                        hasKey = hasKey,
-                        onClick = { showApiKeyDialog = source.id }
-                    )
-                }
-
+                Text("The credits also show at the bottom of the map (tap the i).", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 Spacer(Modifier.height(24.dp))
 
             } else {

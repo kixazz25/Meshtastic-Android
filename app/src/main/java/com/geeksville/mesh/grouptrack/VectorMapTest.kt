@@ -197,8 +197,8 @@ object VecOnline {
     private val slots = java.util.concurrent.Semaphore(2)
 
     private fun get(url: String, kind: String): ByteArray? {
-        if (!slots.tryAcquire(1, java.util.concurrent.TimeUnit.SECONDS)) {
-            android.util.Log.w(TAG, "VECONLINE $kind busy -- two fetches already running, drawn empty: $url"); return null
+        if (!slots.tryAcquire(4, java.util.concurrent.TimeUnit.SECONDS)) {   // VECONE-2026-11-01: was 1 s -- tiles drawn empty while downloads ran
+            android.util.Log.w(TAG, "VECONLINE $kind busy 4 s -- two fetches already running, drawn empty: $url"); return null
         }
         try { return getNow(url, kind) } finally { slots.release() }
     }

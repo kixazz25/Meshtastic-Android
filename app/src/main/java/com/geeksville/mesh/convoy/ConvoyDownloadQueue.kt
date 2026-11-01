@@ -1126,6 +1126,7 @@ object DownloadQueueManager {
     }
 
     // -- Launch next queued entry if under concurrency cap --
+    @Synchronized   // VECONE-2026-11-01: one picker at a time -- 10-31 18:14 14 jobs got 22 worker launches
     private fun startNextIfAvailable() {
         if (!initialized) return
         if (queuePaused) return
@@ -1222,6 +1223,7 @@ object DownloadQueueManager {
     }
 
     // -- Internal: update a single entry -------------------
+    @Synchronized   // VECONE-2026-11-01: read-modify-write of the queue list
     private fun updateEntry(entryId: String, transform: (QueueEntry) -> QueueEntry) {
         val current = _queue.value.toMutableList()
         val idx = current.indexOfFirst { it.id == entryId }

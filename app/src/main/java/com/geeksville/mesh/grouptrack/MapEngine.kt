@@ -20,14 +20,12 @@ object GtMapEngine {
     private fun file(ctx: Context) = File(GroupTrackStorage.rootReady(ctx), FILE)
 
     /** true = the vector engine (MapLibre). */
-    fun isVector(ctx: Context): Boolean = cached ?: (try {
-        file(ctx).takeIf { it.exists() }?.readText()?.trim() == "VEC"
-    } catch (e: Exception) {
-        android.util.Log.e(TAG, "VECSWITCH-2026-10-30 read: ${e.message}"); false
-    }).also { cached = it; android.util.Log.i(TAG, "VECSWITCH-2026-10-30 engine this run: " + if (it) "VEC (MapLibre)" else "SAT (Leaflet)") }
+    // VECONE-2026-11-01: VECTOR IS THE ONLY MAP -- always true (a fresh install with no map_engine.txt fell back to Leaflet).
+    // The Satellite / Leaflet path is unreachable; its code is deleted later (living master: delete dead Satellite/Leaflet code).
+    fun isVector(ctx: Context): Boolean = cached ?: true.also { cached = it; android.util.Log.i(TAG, "VECONE-2026-11-01 engine this run: VEC (MapLibre) -- the only map") }
 
     /** VECPORTS-2026-10-31: the engine this run without a context (read once when the map page loads); false before that. */
-    fun isVectorCached(): Boolean = cached == true
+    fun isVectorCached(): Boolean = true   // VECONE-2026-11-01: the only map
 
     /** VECCONVERT-2026-10-31: the conversion -- the vector map from this start on, NO restart (called before the map page loads). */
     fun useVector(ctx: Context) {

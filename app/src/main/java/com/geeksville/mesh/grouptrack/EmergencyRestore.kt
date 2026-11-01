@@ -147,11 +147,8 @@ fun GtEmergencyScreen(onDone: () -> Unit) {
             if (i != null && i.first > 0 && !msg.value.startsWith("Queued")) {
                 if (clean.value && !sure.value) GtButton("DELETE AND DOWNLOAD AGAIN", { sure.value = true }, emphasis = Color(0xFFC62828))
                 else GtButton(if (busy.value) "QUEUING…" else if (clean.value) "YES — DELETE AND START" else "START", {
-                    busy.value = true
-                    scope.launch {
-                        msg.value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { GtEmergency.run(ctx, clean.value) }
-                        busy.value = false; sure.value = false
-                    }
+                    // VECEMERSCREEN-2026-11-01 (Fred 05:51): the conversion screen itself -- its PROCEED runs the Emergency download
+                    val c = clean.value; onDone(); GtMapConversion.emergencyAsk(ctx, c)
                 }, enabled = !busy.value, emphasis = if (clean.value) Color(0xFFC62828) else Color.Unspecified)
             }
         },

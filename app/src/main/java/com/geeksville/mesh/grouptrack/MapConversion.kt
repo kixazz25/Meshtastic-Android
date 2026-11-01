@@ -49,6 +49,28 @@ object GtMapConversion {
     /** The line for the stage: the estimate (ask) or what was queued (running) or why nothing was (an error). */
     val line = androidx.compose.runtime.mutableStateOf("")
     @Volatile private var pending: List<String> = emptyList()
+    /** VECEMERSCREEN-2026-11-01 (Fred 05:51): the Emergency download opens this same screen -- "" = the conversion; "keep" / "clean"
+     *  = an emergency run (clean = delete the vector maps and elevation first). Reset when the screen closes. */
+    @Volatile var emergency: String = ""
+
+    /** The estimate line for a recipe file -- old vs new tiles and the time (the conversion and the emergency run say the same). */
+    private fun estimateLine(f: File): String {
+        val sq = squaresOf(f)
+        val tiles = tilesFor(sq, VectorTiles.Z_MAX) + tilesFor(sq, ElevationTiles.Z_MAX)
+        val mins = Math.max(1, Math.ceil(tiles / TILES_PER_MIN).toInt())
+        val time = if (mins < 90) "$mins minute${if (mins == 1) "" else "s"}" else "${"%.1f".format(mins / 60.0)} hours"
+        android.util.Log.i(TAG, "VECCONVERT estimate: ${sq.size} z12 squares, $tiles tiles, ~$mins min (${f.name})")
+        val old = VectorTiles.oldTilesOf(f)
+        return (if (old > 0) "Your old maps: ${"%,d".format(old)} tiles. " else "") +
+            "The new map for the same area: ${"%,d".format(tiles)} tiles \u2014 about $time on Wi-Fi."
+    }
+
+    /** Emergency download -> this screen at ASK, from the conversion record. */
+    fun emergencyAsk(context: Context, clean: Boolean) {
+        val f = recipeFile(); if (!f.exists()) return
+        emergency = if (clean) "clean" else "keep"
+        Thread { try { line.value = estimateLine(f); stage.value = "ask" } catch (e: Exception) { android.util.Log.e(TAG, "VECEMERSCREEN ${e.message}"); emergency = "" } }.start()
+    }
 
     private fun recipeFile() = File(GroupTrackStorage.dir("recipes"), ConvoyMapRecipe.CONVERSION)
 
@@ -85,11 +107,15 @@ object GtMapConversion {
         android.util.Log.i(TAG, "VECCONVERT old maps $stores -- the conversion")
         GtMapEngine.useVector(app)   // the new map cannot draw the old ones
         pending = stores
+        // VECONE-2026-11-01 (agreed 10-31 20:35): "Checking your maps..." while the recipe is built -- the question only once it exists
+        val gb = stores.sumOf { File(ConvoyConfig.TILE_DIR, "$it.mbtiles").length() } / 1_073_741_824.0
+        line.value = "${"%.1f".format(gb)} GB of maps found on this tablet. Working out what the new map needs\u2026"
+        stage.value = "checking"
         // VECWELCOME-2026-10-31d (Fred 19:52): the screen is shown ONLY once the recipe is built from the tiles on the phone now --
         // no recipe, no screen, nothing changed (logged); the next start tries again.
         Thread {
             try { prepare(app) }
-            catch (e: Exception) { android.util.Log.e(TAG, "VECCONVERT prepare failed: ${e.message} -- no screen, nothing changed") }
+            catch (e: Exception) { android.util.Log.e(TAG, "VECCONVERT prepare failed: ${e.message} -- no screen, nothing changed"); stage.value = "" }   // VECONE
         }.start()
     }
 
@@ -98,6 +124,7 @@ object GtMapConversion {
         val daily = ConvoyMapRecipe.writeFresh(app)
         if (daily == null) {
             android.util.Log.e(TAG, "VECCONVERT no recipe -- no screen, nothing converted, nothing deleted")
+            stage.value = ""   // VECONE-2026-11-01: the checking screen closes
             return
         }
         val keep = recipeFile()
@@ -117,6 +144,12 @@ object GtMapConversion {
     /** PROCEED NOW: 3 queue, then delete. */
     fun proceed(context: Context) {
         val app = context.applicationContext
+        if (emergency.isNotEmpty()) {   // VECEMERSCREEN-2026-11-01: an emergency run -- the Emergency download, from this screen
+            val clean = emergency == "clean"
+            stage.value = "running"; line.value = "Queuing your maps\u2026"
+            Thread { line.value = try { GtEmergency.run(app, clean) } catch (e: Exception) { "Could not start (${e.message})." } }.start()
+            return
+        }
         stage.value = "running"; line.value = "Queuing your maps…"
         Thread {
             try {
@@ -166,13 +199,19 @@ fun GtConversionPanel(onManual: () -> Unit, onNotes: () -> Unit, onQuickStart: (
     val st = GtMapConversion.stage.value
     if (st.isEmpty()) return
     val ctx = LocalContext.current
-    val close = { GtMapConversion.stage.value = "" }
+    val close = { GtMapConversion.stage.value = ""; GtMapConversion.emergency = "" }   // VECEMERSCREEN-2026-11-01
     val q = com.geeksville.mesh.convoy.DownloadQueueManager.queue.collectAsState().value
-    val conv = q.filter { it.label.endsWith("· conversion") }
+    val conv = q.filter { it.label.endsWith("\u00b7 conversion") || (GtMapConversion.emergency.isNotEmpty() && it.label.endsWith("\u00b7 emergency download")) }   // VECEMERSCREEN
     val done = conv.count { it.status == com.geeksville.mesh.convoy.QueueStatus.COMPLETE }
     fun go(f: () -> Unit) { close(); f() }
     val learning = st == "running" || st == "info"
     val asking = st == "ask"
+    if (st == "checking") {   // VECONE-2026-11-01: the plain wait while the recipe is built -- no buttons, nothing to decide yet
+        AlertDialog(onDismissRequest = {}, title = { Text("Checking your maps\u2026") },
+            text = { Text(GtMapConversion.line.value + "\n\nThis takes a few seconds.", fontSize = 14.sp) },
+            confirmButton = {}, containerColor = Gt.panel)
+        return
+    }
     AlertDialog(
         onDismissRequest = { if (learning) close() },   // the question needs an answer
         title = { GtDialogTitle("GroupTrack 2.7e \u2014 one new map", "update27e", { if (learning) close() }) },
@@ -201,10 +240,11 @@ fun GtConversionPanel(onManual: () -> Unit, onNotes: () -> Unit, onQuickStart: (
                     modifier = Modifier.padding(top = 8.dp))
                 if (asking) Column(modifier = Modifier.padding(top = 12.dp)) {
                     GtButton("PROCEED NOW", { GtMapConversion.proceed(ctx) })
-                    GtButton("CANCEL \u2014 END GROUPTRACK UNTIL I AM READY", {
+                    if (GtMapConversion.emergency.isNotEmpty()) GtButton("CANCEL", close, emphasis = androidx.compose.ui.graphics.Color(0xFFC62828))   // VECEMERSCREEN: closes only
+                    else GtButton("CANCEL \u2014 END GROUPTRACK UNTIL I AM READY", {
                         android.util.Log.i("MapConversion", "VECCONVERT cancelled -- GroupTrack ends; old maps untouched; asks again next start")
                         (ctx as? android.app.Activity)?.finishAffinity() }, emphasis = androidx.compose.ui.graphics.Color(0xFFC62828))
-                    Text("Cancel ends GroupTrack and changes nothing. It asks again the next time GroupTrack starts.", fontSize = 12.sp,
+                    if (GtMapConversion.emergency.isEmpty()) Text("Cancel ends GroupTrack and changes nothing. It asks again the next time GroupTrack starts.", fontSize = 12.sp,
                         color = Gt.dim, modifier = Modifier.padding(top = 4.dp))
                 }
                 if (st == "running") {
