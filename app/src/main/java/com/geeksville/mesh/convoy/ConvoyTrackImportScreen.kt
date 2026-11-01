@@ -715,7 +715,8 @@ fun ConvoyTrackImportScreen(
                         )
                     }
                     // IMPORTTRAILS-2026-10-30 (D31-min): the rider says this batch is a trail map.
-                    Row(
+                    // TRAILSBOXHIDE-2026-11-01 (Fred 07:09): only on Import trails from GPX files -- a separate, precooked job; Import GPX hides it
+                    if (startAsTrails) Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth().clickable { asTrails = !asTrails }
                     ) {
