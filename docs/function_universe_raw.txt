@@ -462,19 +462,19 @@ ConvoyDownloadQueuePanel.kt:574:private fun scopeLabel(t: DownloadType): String 
 ConvoyDownloadQueuePanel.kt:582:private fun ActiveSlotBar(entry: QueueEntry) {
 ConvoyDownloadQueuePanel.kt:583:    val pct = if (entry.totalTiles > 0) entry.downloadedTiles.toFloat() / entry.totalTiles else 0f
 ConvoyDownloadQueuePanel.kt:584:    val pctInt = (pct * 100).toInt()
-ConvoyDownloadQueuePanel.kt:621:private fun QueuedItemRow(entry: QueueEntry, position: Int) {
-ConvoyDownloadQueuePanel.kt:671:private fun qdElapsed(ms: Long): String {
-ConvoyDownloadQueuePanel.kt:673:    val s = ms / 1000
-ConvoyDownloadQueuePanel.kt:682:private fun CompletedItemRow(entry: QueueEntry) {
-ConvoyDownloadQueuePanel.kt:685:    var qdOpen by remember(entry.id) { mutableStateOf(false) }
-ConvoyDownloadQueuePanel.kt:686:    val statusText = when (entry.status) {
-ConvoyDownloadQueuePanel.kt:692:    val statusColor = when (entry.status) {
-ConvoyDownloadQueuePanel.kt:720:        val began = if (entry.startedAt > 0L) entry.startedAt else entry.createdAt
-ConvoyDownloadQueuePanel.kt:721:        val dur = if (entry.completedAt > 0L) entry.completedAt - began else 0L
-ConvoyDownloadQueuePanel.kt:725:        val stored = entry.tilesPerSec
-ConvoyDownloadQueuePanel.kt:726:        val rate = if (stored > 0.0) stored
-ConvoyDownloadQueuePanel.kt:728:        val approx = stored <= 0.0 && entry.startedAt <= 0L
-ConvoyDownloadQueuePanel.kt:752:private fun ActionButton(text: String, color: Color, onClick: () -> Unit) {
+ConvoyDownloadQueuePanel.kt:622:private fun QueuedItemRow(entry: QueueEntry, position: Int) {
+ConvoyDownloadQueuePanel.kt:674:private fun qdElapsed(ms: Long): String {
+ConvoyDownloadQueuePanel.kt:676:    val s = ms / 1000
+ConvoyDownloadQueuePanel.kt:685:private fun CompletedItemRow(entry: QueueEntry) {
+ConvoyDownloadQueuePanel.kt:688:    var qdOpen by remember(entry.id) { mutableStateOf(false) }
+ConvoyDownloadQueuePanel.kt:689:    val statusText = when (entry.status) {
+ConvoyDownloadQueuePanel.kt:695:    val statusColor = when (entry.status) {
+ConvoyDownloadQueuePanel.kt:724:        val began = if (entry.startedAt > 0L) entry.startedAt else entry.createdAt
+ConvoyDownloadQueuePanel.kt:725:        val dur = if (entry.completedAt > 0L) entry.completedAt - began else 0L
+ConvoyDownloadQueuePanel.kt:729:        val stored = entry.tilesPerSec
+ConvoyDownloadQueuePanel.kt:730:        val rate = if (stored > 0.0) stored
+ConvoyDownloadQueuePanel.kt:732:        val approx = stored <= 0.0 && entry.startedAt <= 0L
+ConvoyDownloadQueuePanel.kt:756:private fun ActionButton(text: String, color: Color, onClick: () -> Unit) {
 MapKeysPanel.kt:75:data class MapKeyRow(
 MapKeysPanel.kt:76:    val name: String,
 MapKeysPanel.kt:77:    val label: String,
@@ -565,29 +565,31 @@ RadioConfigScreen.kt:101:    val report by config.applyReport.collectAsState()
 RadioConfigScreen.kt:103:    val nodeNum = convoyViewModel.radioNodeNum()
 RadioConfigScreen.kt:104:    val nodeId = nodeNum?.let { "!%08x".format(it) }
 RadioConfigScreen.kt:105:    val callsign = remember { ConvoyProfileStore.load()?.callsign?.trim().orEmpty() }
-RadioConfigScreen.kt:108:    var radioCallsign by remember { mutableStateOf(callsign) }
-RadioConfigScreen.kt:109:    val defaultJson = remember {
-RadioConfigScreen.kt:116:        val list = mutableListOf<RadioTarget>()
-RadioConfigScreen.kt:118:        val rideFiles = GroupTrackStorage.dir("rides", context).listFiles { f -> f.isFile && f.name.endsWith(".json") } ?: emptyArray()
-RadioConfigScreen.kt:122:                val r = j.optJSONObject("ride")
-RadioConfigScreen.kt:123:                val name = r?.optString("name")?.takeIf { it.isNotBlank() && it != "null" } ?: "Unnamed ride"
-RadioConfigScreen.kt:124:                val rid = r?.optString("rideId")?.takeIf { it.isNotBlank() && it != "null" }
-RadioConfigScreen.kt:137:    fun forThisRadio() = radioCallsign.trim().ifEmpty { callsign }
-RadioConfigScreen.kt:138:    fun saveTitle(t: RadioTarget) =
-RadioConfigScreen.kt:141:    fun choose(t: RadioTarget) {
-RadioConfigScreen.kt:145:            val (c, r) = if (t.json != null) config.previewConfig(t.json.toString(), forThisRadio()) else config.previewSaved(t.savedId!!)
-RadioConfigScreen.kt:155:        val f = RadioConfigLauncher.preselect ?: return@LaunchedEffect
-RadioConfigScreen.kt:161:    fun apply() {
-RadioConfigScreen.kt:162:        val t = chosen ?: return
-RadioConfigScreen.kt:168:            val r = if (t.json != null) config.applyRide(ApplyRequest(t.json.toString(), forThisRadio(), t.name, saveTitle(t), t.rideId))
-RadioConfigScreen.kt:179:        val rid = RadioConfigLauncher.autoRideId ?: return@LaunchedEffect
-RadioConfigScreen.kt:185:        val t = if (rid == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL)
-RadioConfigScreen.kt:190:            val cb = RadioConfigLauncher.onAutoResult
-RadioConfigScreen.kt:197:        val autoDefault = RadioConfigLauncher.autoRideId == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL &&
-RadioConfigScreen.kt:201:            val ok = (applied as? CommResult.Applied)?.verified == true
-RadioConfigScreen.kt:204:            val cb = RadioConfigLauncher.onAutoResult
-RadioConfigScreen.kt:246:                    val c = changes.orEmpty()
-RadioConfigScreen.kt:266:                    val rep = report
+RadioConfigScreen.kt:110:    val myDev by convoyViewModel.myDevice.collectAsState()
+RadioConfigScreen.kt:111:    val radioName = myDev?.name?.trim().orEmpty()
+RadioConfigScreen.kt:112:    var nameTouched by remember { mutableStateOf(false) }
+RadioConfigScreen.kt:114:    val defaultJson = remember {
+RadioConfigScreen.kt:121:        val list = mutableListOf<RadioTarget>()
+RadioConfigScreen.kt:123:        val rideFiles = GroupTrackStorage.dir("rides", context).listFiles { f -> f.isFile && f.name.endsWith(".json") } ?: emptyArray()
+RadioConfigScreen.kt:127:                val r = j.optJSONObject("ride")
+RadioConfigScreen.kt:128:                val name = r?.optString("name")?.takeIf { it.isNotBlank() && it != "null" } ?: "Unnamed ride"
+RadioConfigScreen.kt:129:                val rid = r?.optString("rideId")?.takeIf { it.isNotBlank() && it != "null" }
+RadioConfigScreen.kt:144:    fun saveTitle(t: RadioTarget) =
+RadioConfigScreen.kt:147:    fun choose(t: RadioTarget) {
+RadioConfigScreen.kt:151:            val (c, r) = if (t.json != null) config.previewConfig(t.json.toString(), forThisRadio()) else config.previewSaved(t.savedId!!)
+RadioConfigScreen.kt:161:        val f = RadioConfigLauncher.preselect ?: return@LaunchedEffect
+RadioConfigScreen.kt:167:    fun apply() {
+RadioConfigScreen.kt:168:        val t = chosen ?: return
+RadioConfigScreen.kt:174:            val r = if (t.json != null) config.applyRide(ApplyRequest(t.json.toString(), forThisRadio(), t.name, saveTitle(t), t.rideId))
+RadioConfigScreen.kt:185:        val rid = RadioConfigLauncher.autoRideId ?: return@LaunchedEffect
+RadioConfigScreen.kt:196:        val t = if (rid == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL)
+RadioConfigScreen.kt:201:            val cb = RadioConfigLauncher.onAutoResult
+RadioConfigScreen.kt:208:        val autoDefault = RadioConfigLauncher.autoRideId == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL &&
+RadioConfigScreen.kt:212:            val ok = (applied as? CommResult.Applied)?.verified == true
+RadioConfigScreen.kt:215:            val cb = RadioConfigLauncher.onAutoResult
+RadioConfigScreen.kt:255:                    val typed = radioCallsign.trim().ifEmpty { radioName }
+RadioConfigScreen.kt:272:                    val c = changes.orEmpty()
+RadioConfigScreen.kt:292:                    val rep = report
 CartPickerLauncher.kt:10:object CartPickerLauncher {
 CartPickerLauncher.kt:11:    val showing = mutableStateOf(false)
 CartPickerLauncher.kt:12:    fun open() { showing.value = true }
@@ -2168,21 +2170,25 @@ ConvoyMapRecipe.kt:53:    private const val TAG = "MapRecipe"
 ConvoyMapRecipe.kt:54:    private const val EXT = ".gtmaps"
 ConvoyMapRecipe.kt:55:    private const val PREFIX = "grouptrack_maps_"
 ConvoyMapRecipe.kt:56:    private const val KEEP_DAYS = 60
-ConvoyMapRecipe.kt:64:    private fun dir(): File =
-ConvoyMapRecipe.kt:67:    private fun today(): String =
-ConvoyMapRecipe.kt:71:    fun writeDailyAsync(context: Context) {
-ConvoyMapRecipe.kt:72:        val app = context.applicationContext
-ConvoyMapRecipe.kt:80:    fun writeDaily(context: Context): File? {
-ConvoyMapRecipe.kt:81:        val target = File(dir(), PREFIX + today() + EXT)
-ConvoyMapRecipe.kt:87:        val slots = JSONArray()
-ConvoyMapRecipe.kt:88:        var grand = 0L
-ConvoyMapRecipe.kt:91:            val boxes = JSONArray()
-ConvoyMapRecipe.kt:92:            val n = 1L shl r.refZ
-ConvoyMapRecipe.kt:93:            fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0
-ConvoyMapRecipe.kt:94:            fun latOf(y: Long) = Math.toDegrees(
-ConvoyMapRecipe.kt:118:        val doc = JSONObject().apply {
-ConvoyMapRecipe.kt:138:    private fun prune() {
-ConvoyMapRecipe.kt:140:            val cutoff = System.currentTimeMillis() - KEEP_DAYS * 24L * 60L * 60L * 1000L
+ConvoyMapRecipe.kt:58:    const val CONVERSION = "grouptrack_conversion.gtmaps"
+ConvoyMapRecipe.kt:66:    private fun dir(): File =
+ConvoyMapRecipe.kt:69:    private fun today(): String =
+ConvoyMapRecipe.kt:73:    fun writeDailyAsync(context: Context) {
+ConvoyMapRecipe.kt:74:        val app = context.applicationContext
+ConvoyMapRecipe.kt:82:    fun writeDaily(context: Context): File? = write(context, fresh = false)
+ConvoyMapRecipe.kt:85:    fun writeFresh(context: Context): File? = write(context, fresh = true)
+ConvoyMapRecipe.kt:88:    private fun write(context: Context, fresh: Boolean): File? {
+ConvoyMapRecipe.kt:89:        val target = File(dir(), PREFIX + today() + EXT)
+ConvoyMapRecipe.kt:95:            val busy = DownloadQueueManager.queue.value.count { (it.status == QueueStatus.QUEUED || it.status == QueueStatus.DOWNLOADING ||
+ConvoyMapRecipe.kt:104:        val slots = JSONArray()
+ConvoyMapRecipe.kt:105:        var grand = 0L
+ConvoyMapRecipe.kt:110:            val boxes = JSONArray()
+ConvoyMapRecipe.kt:111:            val n = 1L shl r.refZ
+ConvoyMapRecipe.kt:112:            fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0
+ConvoyMapRecipe.kt:113:            fun latOf(y: Long) = Math.toDegrees(
+ConvoyMapRecipe.kt:137:        val doc = JSONObject().apply {
+ConvoyMapRecipe.kt:157:    private fun prune() {
+ConvoyMapRecipe.kt:159:            val cutoff = System.currentTimeMillis() - KEEP_DAYS * 24L * 60L * 60L * 1000L
 ConvoyNetworkStore.kt:19:object ConvoyNetworkStore {
 ConvoyNetworkStore.kt:21:    private const val TAG = "ConvoyNetworkStore"
 ConvoyNetworkStore.kt:23:    private const val COLS =
@@ -2959,11 +2965,53 @@ VectorTiles.kt:48:        val seen = HashSet<String>(); val out = ArrayList<Doub
 VectorTiles.kt:50:            val b = slots.optJSONObject(i)?.optJSONArray("boxes") ?: continue
 VectorTiles.kt:52:                val x = b.optJSONObject(j) ?: continue
 VectorTiles.kt:53:                val box = doubleArrayOf(x.optDouble("n"), x.optDouble("s"), x.optDouble("e"), x.optDouble("w"))
-VectorTiles.kt:63:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double): Int =
-VectorTiles.kt:67:    fun queueFromRecipe(context: Context, count: Int): String {
-VectorTiles.kt:68:        val r = try { recipeBoxes() } catch (e: Exception) { return "Could not read the recipe: ${e.message}" }
-VectorTiles.kt:70:        val take = r.second.take(count)
-VectorTiles.kt:72:        var jobs = 0
+VectorTiles.kt:62:    fun oldTilesOf(f: java.io.File): Long = try {
+VectorTiles.kt:63:        val slots = JSONObject(f.readText()).optJSONArray("slots"); var t = 0L
+VectorTiles.kt:64:        if (slots != null) for (i in 0 until slots.length()) { val o = slots.optJSONObject(i) ?: continue
+VectorTiles.kt:65:            val s = o.optString("slot"); if (s != SLOT && s != ElevationTiles.SLOT) t += o.optLong("tiles") }
+VectorTiles.kt:70:    fun boxesOf(f: java.io.File): List<DoubleArray> {
+VectorTiles.kt:71:        val slots = JSONObject(f.readText()).optJSONArray("slots") ?: return emptyList()
+VectorTiles.kt:72:        val seen = HashSet<String>(); val out = ArrayList<DoubleArray>()
+VectorTiles.kt:74:            val b = slots.optJSONObject(i)?.optJSONArray("boxes") ?: continue
+VectorTiles.kt:76:                val x = b.optJSONObject(j) ?: continue
+VectorTiles.kt:77:                val box = doubleArrayOf(x.optDouble("n"), x.optDouble("s"), x.optDouble("e"), x.optDouble("w"))
+VectorTiles.kt:87:    fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) {
+VectorTiles.kt:88:        val nn = 1 shl SQ_Z
+VectorTiles.kt:89:        val x0 = sqX(w + 1e-9).coerceIn(0, nn - 1); val x1 = sqX(e - 1e-9).coerceIn(0, nn - 1)
+VectorTiles.kt:90:        val y0 = sqY(n - 1e-9).coerceIn(0, nn - 1); val y1 = sqY(s + 1e-9).coerceIn(0, nn - 1)
+VectorTiles.kt:100:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean, what: String): Int =
+VectorTiles.kt:106:    private const val SQ_Z = 12
+VectorTiles.kt:108:    private fun sqX(lon: Double) = Math.floor((lon + 180.0) / 360.0 * (1 shl SQ_Z)).toInt()
+VectorTiles.kt:109:    private fun sqY(lat: Double): Int {
+VectorTiles.kt:110:        val r = Math.toRadians(lat.coerceIn(-85.0, 85.0))
+VectorTiles.kt:113:    private fun lonOf(x: Int) = x.toDouble() / (1 shl SQ_Z) * 360.0 - 180.0
+VectorTiles.kt:114:    private fun latOf(y: Int): Double { val k = Math.PI - 2.0 * Math.PI * y / (1 shl SQ_Z); return Math.toDegrees(Math.atan(Math.sinh(k))) }
+VectorTiles.kt:117:    fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>) {
+VectorTiles.kt:118:        val n = 1 shl SQ_Z
+VectorTiles.kt:119:        fun add(lat: Double, lon: Double) {
+VectorTiles.kt:120:            val x = sqX(lon); val y = sqY(lat)
+VectorTiles.kt:122:                val xx = x + dx; val yy = y + dy
+VectorTiles.kt:127:            var prev: Pair<Double, Double>? = null
+VectorTiles.kt:129:                val q = prev
+VectorTiles.kt:131:                    val steps = Math.max(1, Math.ceil(Math.max(Math.abs(p.first - q.first), Math.abs(p.second - q.second)) / 0.02).toInt())
+VectorTiles.kt:132:                    for (i in 1 until steps) { val f = i.toDouble() / steps; add(q.first + (p.first - q.first) * f, q.second + (p.second - q.second) * f) }
+VectorTiles.kt:140:    fun queueSquares(context: Context, squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
+VectorTiles.kt:144:    fun queueSquaresNamed(context: Context, squares: Set<Long>, names: Map<Long, Set<String>>, replaceExisting: Boolean, why: String): Pair<Int, Int> {
+VectorTiles.kt:146:        val n = (1 shl SQ_Z).toLong()
+VectorTiles.kt:147:        class Box(val x0: Int, val x1: Int, val y0: Int, var y1: Int)
+VectorTiles.kt:148:        val byRow = squares.groupBy { (it % n).toInt() }
+VectorTiles.kt:149:        var open = HashMap<Long, Box>(); val done = ArrayList<Box>()
+VectorTiles.kt:151:            val xs = byRow.getValue(y).map { (it / n).toInt() }.sorted()
+VectorTiles.kt:152:            val runs = ArrayList<Pair<Int, Int>>(); var a = xs[0]; var b = xs[0]
+VectorTiles.kt:155:            val next = HashMap<Long, Box>()
+VectorTiles.kt:157:                val k = x0.toLong() * n + x1; val o = open[k]
+VectorTiles.kt:164:        var jobs = 0; var tiles = 0
+VectorTiles.kt:166:            val nn = latOf(bx.y0); val ss = latOf(bx.y1 + 1); val ww = lonOf(bx.x0); val ee = lonOf(bx.x1 + 1)
+VectorTiles.kt:169:            val what = when { inBox.isEmpty() -> why; inBox.size <= 2 -> inBox.joinToString(", "); else -> inBox.take(2).joinToString(", ") + " +${inBox.size - 2}" }
+VectorTiles.kt:179:    fun queueFromRecipe(context: Context, count: Int): String {
+VectorTiles.kt:180:        val r = try { recipeBoxes() } catch (e: Exception) { return "Could not read the recipe: ${e.message}" }
+VectorTiles.kt:182:        val take = r.second.take(count)
+VectorTiles.kt:184:        var jobs = 0
 ArtifactSearch.kt:71:data class ArtifactResult(
 ArtifactSearch.kt:72:    val id: String,
 ArtifactSearch.kt:73:    val name: String,
@@ -3071,151 +3119,158 @@ ConvoyDownloadQueue.kt:252:        val totalTiles = tiles.size * Math.max(1, lay
 ConvoyDownloadQueue.kt:254:        val entry = QueueEntry(
 ConvoyDownloadQueue.kt:262:        val current = _queue.value.toMutableList()
 ConvoyDownloadQueue.kt:285:    fun enqueueArea(
-ConvoyDownloadQueue.kt:301:        val oneLayerTiles = if (isVec) ConvoyTileCalculator.quickEstimate(north, south, east, west, zMin = 0, zMax = vecZ).tileCount
-ConvoyDownloadQueue.kt:307:        val satLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:309:        val sizeTiles = if (isVec) oneLayerTiles else oneLayerTiles * Math.max(1, satLayers)
-ConvoyDownloadQueue.kt:310:        val cells = ConvoyTileDownloader.segmentCells(north, south, east, west, sizeTiles)
-ConvoyDownloadQueue.kt:329:            val entry = QueueEntry(
-ConvoyDownloadQueue.kt:342:            val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:349:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:351:            val entry = QueueEntry(
-ConvoyDownloadQueue.kt:385:    fun submitDownload(
-ConvoyDownloadQueue.kt:411:    fun enqueueDelete(
-ConvoyDownloadQueue.kt:418:        val slotLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:428:        val tilesInBox = ConvoyTileCalculator.calculateTiles(north, south, east, west)
-ConvoyDownloadQueue.kt:429:        val storeNames: List<String> = run {
-ConvoyDownloadQueue.kt:430:            val layers = MapSourceManager.getSourceByKey(slotName)?.layers ?: emptyList()
-ConvoyDownloadQueue.kt:434:        var totalTiles = 0
-ConvoyDownloadQueue.kt:445:        val boxTiles = tilesInBox.size
-ConvoyDownloadQueue.kt:447:        val entry = QueueEntry(
-ConvoyDownloadQueue.kt:456:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:475:    fun submitDelete(
-ConvoyDownloadQueue.kt:481:        var total = 0
-ConvoyDownloadQueue.kt:488:        fun enqueueRefresh(
-ConvoyDownloadQueue.kt:494:        val bounds = ConvoyTileDownloader.tileBoundsLatLon(slotName) ?: return 0
-ConvoyDownloadQueue.kt:496:        val slotLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:498:        val oneLayerTiles = ConvoyTileCalculator
-ConvoyDownloadQueue.kt:500:        val satLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:502:        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
-ConvoyDownloadQueue.kt:503:        val cells = ConvoyTileDownloader.segmentCells(
-ConvoyDownloadQueue.kt:508:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:510:            val entry = QueueEntry(
-ConvoyDownloadQueue.kt:554:    data class CorridorBatchResult(
-ConvoyDownloadQueue.kt:555:        val jobs: Int = 0,
-ConvoyDownloadQueue.kt:556:        val tiles: Int = 0,
-ConvoyDownloadQueue.kt:557:        val skipped: Int = 0
-ConvoyDownloadQueue.kt:596:    fun recordCompletedDelete(
-ConvoyDownloadQueue.kt:608:        val now = System.currentTimeMillis()
-ConvoyDownloadQueue.kt:609:        val entry = QueueEntry(
-ConvoyDownloadQueue.kt:620:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:627:    fun enqueueCorridorBatch(
-ConvoyDownloadQueue.kt:639:        var jobs = 0
-ConvoyDownloadQueue.kt:640:        var tiles = 0
-ConvoyDownloadQueue.kt:641:        val skippedHashes = mutableListOf<String>()
-ConvoyDownloadQueue.kt:645:            var queuedForThisTrack = 0
-ConvoyDownloadQueue.kt:647:                val t = enqueueCorridor(context, hash, slot, replaceExisting)
-ConvoyDownloadQueue.kt:655:            val skippedShort = skippedHashes.joinToString(separator = ", ") { it.take(8) }
-ConvoyDownloadQueue.kt:667:    fun enqueueCorridor(
-ConvoyDownloadQueue.kt:678:        val segments = SpatialDbManager.getCorridorGeometry(context, geomHash)
-ConvoyDownloadQueue.kt:687:        val tiles = ConvoyTileCalculator.corridorTiles(
-ConvoyDownloadQueue.kt:693:        val slotLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:695:        val totalTiles = tiles.size * Math.max(1, slotLayers)
-ConvoyDownloadQueue.kt:697:        var n = -90.0
-ConvoyDownloadQueue.kt:698:        var s = 90.0
-ConvoyDownloadQueue.kt:699:        var e = -180.0
-ConvoyDownloadQueue.kt:700:        var w = 180.0
-ConvoyDownloadQueue.kt:709:        val entry = QueueEntry(
-ConvoyDownloadQueue.kt:729:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:780:    class RecipeResult(
-ConvoyDownloadQueue.kt:781:        val slot: String, val refZ: Int, val levels: List<Int>,
-ConvoyDownloadQueue.kt:782:        val boxes: List<LongArray>, val dropped: Int, val totalTiles: Long
-ConvoyDownloadQueue.kt:785:    fun deriveRecipe(
-ConvoyDownloadQueue.kt:794:        val levels = MBTilesStore.zoomLevelsPresent(slotName)
-ConvoyDownloadQueue.kt:800:        val refZ = levels.max()
-ConvoyDownloadQueue.kt:801:        val ext = MBTilesStore.tileExtentAtZoom(slotName, refZ) ?: return null
-ConvoyDownloadQueue.kt:803:        fun storedIn(x0: Long, x1: Long, y0: Long, y1: Long): Int {
-ConvoyDownloadQueue.kt:804:            var n = 0
-ConvoyDownloadQueue.kt:807:                    val s = refZ - z
-ConvoyDownloadQueue.kt:811:                    val s = z - refZ
-ConvoyDownloadQueue.kt:820:        val boxes = ArrayList<LongArray>()
-ConvoyDownloadQueue.kt:821:        var dropped = 0
-ConvoyDownloadQueue.kt:822:        var total = 0L
-ConvoyDownloadQueue.kt:823:        fun split(x0: Long, x1: Long, y0: Long, y1: Long, depth: Int) {
-ConvoyDownloadQueue.kt:824:            val n = storedIn(x0, x1, y0, y1)
-ConvoyDownloadQueue.kt:826:            val single = (x0 == x1 && y0 == y1)
-ConvoyDownloadQueue.kt:832:            val mx = (x0 + x1) / 2
-ConvoyDownloadQueue.kt:833:            val my = (y0 + y1) / 2
-ConvoyDownloadQueue.kt:850:    private fun deriveScan(slotName: String, levels: List<Int>): RecipeResult? {
-ConvoyDownloadQueue.kt:851:        val cellZ = minOf(12, levels.max())
-ConvoyDownloadQueue.kt:856:                val k = (r[0] shl 32) or r[1]
-ConvoyDownloadQueue.kt:864:        val byRow = cells.keys.groupBy({ it and 0xffffffffL }, { it ushr 32 }).toSortedMap()
-ConvoyDownloadQueue.kt:866:        var open = HashMap<Pair<Long, Long>, LongArray>()
-ConvoyDownloadQueue.kt:867:        var prevY = Long.MIN_VALUE
-ConvoyDownloadQueue.kt:869:            val runs = ArrayList<Pair<Long, Long>>()
-ConvoyDownloadQueue.kt:870:            var s = -1L; var p = -2L
-ConvoyDownloadQueue.kt:876:            val next = HashMap<Pair<Long, Long>, LongArray>()
-ConvoyDownloadQueue.kt:878:                var n = 0L
-ConvoyDownloadQueue.kt:880:                val b = if (y == prevY + 1) open.remove(r) else null
-ConvoyDownloadQueue.kt:889:        val total = boxes.sumOf { it[4] }
-ConvoyDownloadQueue.kt:894:    fun enqueueRecreateSource(
-ConvoyDownloadQueue.kt:903:        val boxes = r.boxes
-ConvoyDownloadQueue.kt:904:        val dropped = r.dropped
-ConvoyDownloadQueue.kt:906:        val n = 1L shl r.refZ
-ConvoyDownloadQueue.kt:907:        fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0
-ConvoyDownloadQueue.kt:908:        fun latOf(y: Long) = Math.toDegrees(
-ConvoyDownloadQueue.kt:910:        val slotLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:912:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:913:        var totalTiles = 0L
-ConvoyDownloadQueue.kt:915:            val tiles = b[4].toInt() * Math.max(1, slotLayers)
-ConvoyDownloadQueue.kt:943:    fun promote(entryId: String) {
-ConvoyDownloadQueue.kt:944:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:945:        val idx = current.indexOfFirst { it.id == entryId }
-ConvoyDownloadQueue.kt:956:    fun cancel(entryId: String) {
-ConvoyDownloadQueue.kt:957:        val entry = _queue.value.find { it.id == entryId } ?: return
-ConvoyDownloadQueue.kt:967:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:976:    fun holdQueue() {
-ConvoyDownloadQueue.kt:980:    fun resumeQueue() {
-ConvoyDownloadQueue.kt:985:    fun isQueuePaused(): Boolean = queuePaused
-ConvoyDownloadQueue.kt:986:    fun cancelAll() {
-ConvoyDownloadQueue.kt:987:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:998:        val completed = current.filter { it.status == QueueStatus.COMPLETE }
-ConvoyDownloadQueue.kt:1003:    fun removeEntry(entryId: String) {
-ConvoyDownloadQueue.kt:1004:        val entry = _queue.value.find { it.id == entryId } ?: return
-ConvoyDownloadQueue.kt:1013:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:1021:    fun clearCompleted() {
-ConvoyDownloadQueue.kt:1022:        val terminal = setOf(QueueStatus.COMPLETE, QueueStatus.CANCELLED, QueueStatus.FAILED)
-ConvoyDownloadQueue.kt:1023:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:1030:    fun updateProgress(entryId: String, downloaded: Int, failed: Int) {
-ConvoyDownloadQueue.kt:1031:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:1032:        val idx = current.indexOfFirst { it.id == entryId }
-ConvoyDownloadQueue.kt:1046:    fun markComplete(entryId: String, downloaded: Int, failed: Int) {
-ConvoyDownloadQueue.kt:1070:                    val began = if (it.startedAt > 0L) it.startedAt else it.createdAt
-ConvoyDownloadQueue.kt:1071:                    val sec = (System.currentTimeMillis() - began) / 1000.0
-ConvoyDownloadQueue.kt:1081:    fun markFailed(entryId: String, message: String) {
-ConvoyDownloadQueue.kt:1090:    private fun startNextIfAvailable() {
-ConvoyDownloadQueue.kt:1093:        val current = _queue.value
-ConvoyDownloadQueue.kt:1094:        val running = current.count { it.status == QueueStatus.DOWNLOADING }
-ConvoyDownloadQueue.kt:1097:        val slotsAvailable = MAX_CONCURRENT - running
-ConvoyDownloadQueue.kt:1103:        val queued = current.filter { it.status == QueueStatus.QUEUED }
-ConvoyDownloadQueue.kt:1110:    private fun launchWorker(entry: QueueEntry) {
-ConvoyDownloadQueue.kt:1116:        val inputData = Data.Builder()
-ConvoyDownloadQueue.kt:1137:        val constraints = Constraints.Builder()
-ConvoyDownloadQueue.kt:1151:        val builder = when (entry.downloadType) {
-ConvoyDownloadQueue.kt:1167:        val workRequest = builder
-ConvoyDownloadQueue.kt:1186:    private fun updateEntry(entryId: String, transform: (QueueEntry) -> QueueEntry) {
-ConvoyDownloadQueue.kt:1187:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:1188:        val idx = current.indexOfFirst { it.id == entryId }
-ConvoyDownloadQueue.kt:1197:    private fun saveQueue() {
-ConvoyDownloadQueue.kt:1199:            val dir = File(appCtx.filesDir, "download_queue")
-ConvoyDownloadQueue.kt:1201:            val file = File(dir, QUEUE_FILE)
-ConvoyDownloadQueue.kt:1202:            val arr = JSONArray()
-ConvoyDownloadQueue.kt:1204:            val tmp = File(dir, QUEUE_FILE + ".tmp")
-ConvoyDownloadQueue.kt:1214:    private fun loadQueue() {
-ConvoyDownloadQueue.kt:1216:            val file = File(appCtx.filesDir, "download_queue/$QUEUE_FILE")
-ConvoyDownloadQueue.kt:1218:            val arr = JSONArray(file.readText())
-ConvoyDownloadQueue.kt:1219:            val entries = mutableListOf<QueueEntry>()
-ConvoyDownloadQueue.kt:1228:                val bad = File(appCtx.filesDir, "download_queue/" + QUEUE_FILE)
-ConvoyDownloadQueue.kt:1230:                    val quarantine = File(bad.parentFile, QUEUE_FILE + ".corrupt")
+ConvoyDownloadQueue.kt:294:    fun enqueueArea(
+ConvoyDownloadQueue.kt:312:        val oneLayerTiles = if (isVec) ConvoyTileCalculator.quickEstimate(north, south, east, west, zMin = 0, zMax = vecZ).tileCount
+ConvoyDownloadQueue.kt:318:        val satLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:320:        val sizeTiles = if (isVec) oneLayerTiles else oneLayerTiles * Math.max(1, satLayers)
+ConvoyDownloadQueue.kt:321:        val cells = ConvoyTileDownloader.segmentCells(north, south, east, west, sizeTiles)
+ConvoyDownloadQueue.kt:340:            val entry = QueueEntry(
+ConvoyDownloadQueue.kt:353:            val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:360:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:362:            val entry = QueueEntry(
+ConvoyDownloadQueue.kt:396:    fun submitDownload(
+ConvoyDownloadQueue.kt:428:    fun enqueueDelete(
+ConvoyDownloadQueue.kt:435:        val slotLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:445:        val tilesInBox = ConvoyTileCalculator.calculateTiles(north, south, east, west)
+ConvoyDownloadQueue.kt:446:        val storeNames: List<String> = run {
+ConvoyDownloadQueue.kt:447:            val layers = MapSourceManager.getSourceByKey(slotName)?.layers ?: emptyList()
+ConvoyDownloadQueue.kt:451:        var totalTiles = 0
+ConvoyDownloadQueue.kt:462:        val boxTiles = tilesInBox.size
+ConvoyDownloadQueue.kt:464:        val entry = QueueEntry(
+ConvoyDownloadQueue.kt:473:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:492:    fun submitDelete(
+ConvoyDownloadQueue.kt:498:        var total = 0
+ConvoyDownloadQueue.kt:505:        fun enqueueRefresh(
+ConvoyDownloadQueue.kt:511:        val bounds = ConvoyTileDownloader.tileBoundsLatLon(slotName) ?: return 0
+ConvoyDownloadQueue.kt:513:        val slotLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:515:        val oneLayerTiles = ConvoyTileCalculator
+ConvoyDownloadQueue.kt:517:        val satLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:519:        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
+ConvoyDownloadQueue.kt:520:        val cells = ConvoyTileDownloader.segmentCells(
+ConvoyDownloadQueue.kt:525:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:527:            val entry = QueueEntry(
+ConvoyDownloadQueue.kt:571:    data class CorridorBatchResult(
+ConvoyDownloadQueue.kt:572:        val jobs: Int = 0,
+ConvoyDownloadQueue.kt:573:        val tiles: Int = 0,
+ConvoyDownloadQueue.kt:574:        val skipped: Int = 0
+ConvoyDownloadQueue.kt:613:    fun recordCompletedDelete(
+ConvoyDownloadQueue.kt:625:        val now = System.currentTimeMillis()
+ConvoyDownloadQueue.kt:626:        val entry = QueueEntry(
+ConvoyDownloadQueue.kt:637:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:644:    fun enqueueCorridorBatch(
+ConvoyDownloadQueue.kt:659:            val sq = HashSet<Long>(); var skipped = 0
+ConvoyDownloadQueue.kt:662:                val segs = SpatialDbManager.getCorridorGeometry(context, hash)
+ConvoyDownloadQueue.kt:664:                val mine = HashSet<Long>(); VectorTiles.squaresFor(segs, mine)
+ConvoyDownloadQueue.kt:665:                val nm = SpatialDbManager.nameForGeomHash(hash) ?: hash.take(8)
+ConvoyDownloadQueue.kt:669:            val r = VectorTiles.queueSquaresNamed(context, sq, names, replaceExisting, "corridors x${geomHashes.size}")
+ConvoyDownloadQueue.kt:672:        var jobs = 0
+ConvoyDownloadQueue.kt:673:        var tiles = 0
+ConvoyDownloadQueue.kt:674:        val skippedHashes = mutableListOf<String>()
+ConvoyDownloadQueue.kt:678:            var queuedForThisTrack = 0
+ConvoyDownloadQueue.kt:680:                val t = enqueueCorridor(context, hash, slot, replaceExisting)
+ConvoyDownloadQueue.kt:688:            val skippedShort = skippedHashes.joinToString(separator = ", ") { it.take(8) }
+ConvoyDownloadQueue.kt:700:    fun enqueueCorridor(
+ConvoyDownloadQueue.kt:711:        val segments = SpatialDbManager.getCorridorGeometry(context, geomHash)
+ConvoyDownloadQueue.kt:718:            val sq = HashSet<Long>(); VectorTiles.squaresFor(segments, sq)
+ConvoyDownloadQueue.kt:726:        val tiles = ConvoyTileCalculator.corridorTiles(
+ConvoyDownloadQueue.kt:732:        val slotLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:734:        val totalTiles = tiles.size * Math.max(1, slotLayers)
+ConvoyDownloadQueue.kt:736:        var n = -90.0
+ConvoyDownloadQueue.kt:737:        var s = 90.0
+ConvoyDownloadQueue.kt:738:        var e = -180.0
+ConvoyDownloadQueue.kt:739:        var w = 180.0
+ConvoyDownloadQueue.kt:748:        val entry = QueueEntry(
+ConvoyDownloadQueue.kt:768:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:819:    class RecipeResult(
+ConvoyDownloadQueue.kt:820:        val slot: String, val refZ: Int, val levels: List<Int>,
+ConvoyDownloadQueue.kt:821:        val boxes: List<LongArray>, val dropped: Int, val totalTiles: Long
+ConvoyDownloadQueue.kt:824:    fun deriveRecipe(
+ConvoyDownloadQueue.kt:833:        val levels = MBTilesStore.zoomLevelsPresent(slotName)
+ConvoyDownloadQueue.kt:839:        val refZ = levels.max()
+ConvoyDownloadQueue.kt:840:        val ext = MBTilesStore.tileExtentAtZoom(slotName, refZ) ?: return null
+ConvoyDownloadQueue.kt:842:        fun storedIn(x0: Long, x1: Long, y0: Long, y1: Long): Int {
+ConvoyDownloadQueue.kt:843:            var n = 0
+ConvoyDownloadQueue.kt:846:                    val s = refZ - z
+ConvoyDownloadQueue.kt:850:                    val s = z - refZ
+ConvoyDownloadQueue.kt:859:        val boxes = ArrayList<LongArray>()
+ConvoyDownloadQueue.kt:860:        var dropped = 0
+ConvoyDownloadQueue.kt:861:        var total = 0L
+ConvoyDownloadQueue.kt:862:        fun split(x0: Long, x1: Long, y0: Long, y1: Long, depth: Int) {
+ConvoyDownloadQueue.kt:863:            val n = storedIn(x0, x1, y0, y1)
+ConvoyDownloadQueue.kt:865:            val single = (x0 == x1 && y0 == y1)
+ConvoyDownloadQueue.kt:871:            val mx = (x0 + x1) / 2
+ConvoyDownloadQueue.kt:872:            val my = (y0 + y1) / 2
+ConvoyDownloadQueue.kt:889:    private fun deriveScan(slotName: String, levels: List<Int>): RecipeResult? {
+ConvoyDownloadQueue.kt:890:        val cellZ = minOf(12, levels.max())
+ConvoyDownloadQueue.kt:895:                val k = (r[0] shl 32) or r[1]
+ConvoyDownloadQueue.kt:903:        val byRow = cells.keys.groupBy({ it and 0xffffffffL }, { it ushr 32 }).toSortedMap()
+ConvoyDownloadQueue.kt:905:        var open = HashMap<Pair<Long, Long>, LongArray>()
+ConvoyDownloadQueue.kt:906:        var prevY = Long.MIN_VALUE
+ConvoyDownloadQueue.kt:908:            val runs = ArrayList<Pair<Long, Long>>()
+ConvoyDownloadQueue.kt:909:            var s = -1L; var p = -2L
+ConvoyDownloadQueue.kt:915:            val next = HashMap<Pair<Long, Long>, LongArray>()
+ConvoyDownloadQueue.kt:917:                var n = 0L
+ConvoyDownloadQueue.kt:919:                val b = if (y == prevY + 1) open.remove(r) else null
+ConvoyDownloadQueue.kt:928:        val total = boxes.sumOf { it[4] }
+ConvoyDownloadQueue.kt:933:    fun enqueueRecreateSource(
+ConvoyDownloadQueue.kt:942:        val boxes = r.boxes
+ConvoyDownloadQueue.kt:943:        val dropped = r.dropped
+ConvoyDownloadQueue.kt:945:        val n = 1L shl r.refZ
+ConvoyDownloadQueue.kt:946:        fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0
+ConvoyDownloadQueue.kt:947:        fun latOf(y: Long) = Math.toDegrees(
+ConvoyDownloadQueue.kt:949:        val slotLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:951:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:952:        var totalTiles = 0L
+ConvoyDownloadQueue.kt:954:            val tiles = b[4].toInt() * Math.max(1, slotLayers)
+ConvoyDownloadQueue.kt:982:    fun promote(entryId: String) {
+ConvoyDownloadQueue.kt:983:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:984:        val idx = current.indexOfFirst { it.id == entryId }
+ConvoyDownloadQueue.kt:995:    fun cancel(entryId: String) {
+ConvoyDownloadQueue.kt:996:        val entry = _queue.value.find { it.id == entryId } ?: return
+ConvoyDownloadQueue.kt:1006:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1015:    fun holdQueue() {
+ConvoyDownloadQueue.kt:1019:    fun resumeQueue() {
+ConvoyDownloadQueue.kt:1024:    fun isQueuePaused(): Boolean = queuePaused
+ConvoyDownloadQueue.kt:1025:    fun cancelAll() {
+ConvoyDownloadQueue.kt:1026:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1037:        val completed = current.filter { it.status == QueueStatus.COMPLETE }
+ConvoyDownloadQueue.kt:1042:    fun removeEntry(entryId: String) {
+ConvoyDownloadQueue.kt:1043:        val entry = _queue.value.find { it.id == entryId } ?: return
+ConvoyDownloadQueue.kt:1052:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1060:    fun clearCompleted() {
+ConvoyDownloadQueue.kt:1061:        val terminal = setOf(QueueStatus.COMPLETE, QueueStatus.CANCELLED, QueueStatus.FAILED)
+ConvoyDownloadQueue.kt:1062:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1069:    fun updateProgress(entryId: String, downloaded: Int, failed: Int) {
+ConvoyDownloadQueue.kt:1070:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1071:        val idx = current.indexOfFirst { it.id == entryId }
+ConvoyDownloadQueue.kt:1085:    fun markComplete(entryId: String, downloaded: Int, failed: Int) {
+ConvoyDownloadQueue.kt:1109:                    val began = if (it.startedAt > 0L) it.startedAt else it.createdAt
+ConvoyDownloadQueue.kt:1110:                    val sec = (System.currentTimeMillis() - began) / 1000.0
+ConvoyDownloadQueue.kt:1120:    fun markFailed(entryId: String, message: String) {
+ConvoyDownloadQueue.kt:1129:    private fun startNextIfAvailable() {
+ConvoyDownloadQueue.kt:1132:        val current = _queue.value
+ConvoyDownloadQueue.kt:1133:        val running = current.count { it.status == QueueStatus.DOWNLOADING }
+ConvoyDownloadQueue.kt:1136:        val slotsAvailable = MAX_CONCURRENT - running
+ConvoyDownloadQueue.kt:1142:        val queued = current.filter { it.status == QueueStatus.QUEUED }
+ConvoyDownloadQueue.kt:1149:    private fun launchWorker(entry: QueueEntry) {
+ConvoyDownloadQueue.kt:1155:        val inputData = Data.Builder()
+ConvoyDownloadQueue.kt:1176:        val constraints = Constraints.Builder()
+ConvoyDownloadQueue.kt:1190:        val builder = when (entry.downloadType) {
+ConvoyDownloadQueue.kt:1206:        val workRequest = builder
+ConvoyDownloadQueue.kt:1225:    private fun updateEntry(entryId: String, transform: (QueueEntry) -> QueueEntry) {
+ConvoyDownloadQueue.kt:1226:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1227:        val idx = current.indexOfFirst { it.id == entryId }
+ConvoyDownloadQueue.kt:1236:    private fun saveQueue() {
+ConvoyDownloadQueue.kt:1238:            val dir = File(appCtx.filesDir, "download_queue")
+ConvoyDownloadQueue.kt:1240:            val file = File(dir, QUEUE_FILE)
+ConvoyDownloadQueue.kt:1241:            val arr = JSONArray()
+ConvoyDownloadQueue.kt:1243:            val tmp = File(dir, QUEUE_FILE + ".tmp")
+ConvoyDownloadQueue.kt:1253:    private fun loadQueue() {
+ConvoyDownloadQueue.kt:1255:            val file = File(appCtx.filesDir, "download_queue/$QUEUE_FILE")
+ConvoyDownloadQueue.kt:1257:            val arr = JSONArray(file.readText())
+ConvoyDownloadQueue.kt:1258:            val entries = mutableListOf<QueueEntry>()
+ConvoyDownloadQueue.kt:1267:                val bad = File(appCtx.filesDir, "download_queue/" + QUEUE_FILE)
+ConvoyDownloadQueue.kt:1269:                    val quarantine = File(bad.parentFile, QUEUE_FILE + ".corrupt")
 ConvoyMyRidesScreen.kt:31:fun ConvoyMyRidesScreen(
 ConvoyMyRidesScreen.kt:37:    val context = LocalContext.current
 ConvoyMyRidesScreen.kt:38:    val tabs = listOf("ALL", "ENROLLED", "ORGANIZED", "COMPLETED")
@@ -3320,8 +3375,9 @@ ElevationTiles.kt:11:    const val SLOT = "DEM"
 ElevationTiles.kt:12:    const val Z_MAX = 12
 ElevationTiles.kt:13:    private const val TAG = "ElevationTiles"
 ElevationTiles.kt:15:    private fun spec(context: Context): JSONObject? = try {
-ElevationTiles.kt:22:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> {
-ElevationTiles.kt:23:        val t = spec(context)?.optString("url_template")?.takeIf { it.isNotBlank() } ?: return emptyList()
+ElevationTiles.kt:21:    fun urlTemplate(context: Context): String? = spec(context)?.optString("url_template")?.takeIf { it.isNotBlank() }
+ElevationTiles.kt:25:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> {
+ElevationTiles.kt:26:        val t = spec(context)?.optString("url_template")?.takeIf { it.isNotBlank() } ?: return emptyList()
 ArtifactDetailPanel.kt:37:fun ArtifactDetailPanel(
 ArtifactDetailPanel.kt:80:    val aMono = FontFamily.Monospace
 ArtifactDetailPanel.kt:81:    val aGreen = Gt.accent
@@ -3580,14 +3636,14 @@ TrailStylePanel.kt:70:    var c by remember { mutableStateOf(startC) }
 TrailStylePanel.kt:71:    var d by remember { mutableStateOf(startD) }
 TrailStylePanel.kt:72:    var w by remember { mutableIntStateOf(startW) }
 TrailStylePanel.kt:157:val PALETTE = listOf(
-TrailStylePanel.kt:163:val PATTERNS: List<Pair<String, String?>> = listOf(
-TrailStylePanel.kt:171:private fun Label(t: String) {
-TrailStylePanel.kt:183:private fun LineSample(hex: String, dash: String?, weight: Int) {
-TrailStylePanel.kt:184:    val col = parseHex(hex)
-TrailStylePanel.kt:191:            val seg = if (dash.startsWith("2,")) 3 else if (dash.startsWith("10,")) 11 else 9
-TrailStylePanel.kt:203:private fun Chip(text: String, on: Boolean, modifier: Modifier = Modifier,
-TrailStylePanel.kt:219:fun parseHex(hex: String): Color = try {
-TrailStylePanel.kt:226:fun colorHex(c: Color): String {
+TrailStylePanel.kt:164:val PATTERNS: List<Pair<String, String?>> = listOf(
+TrailStylePanel.kt:172:private fun Label(t: String) {
+TrailStylePanel.kt:184:private fun LineSample(hex: String, dash: String?, weight: Int) {
+TrailStylePanel.kt:185:    val col = parseHex(hex)
+TrailStylePanel.kt:192:            val seg = if (dash.startsWith("2,")) 3 else if (dash.startsWith("10,")) 11 else 9
+TrailStylePanel.kt:204:private fun Chip(text: String, on: Boolean, modifier: Modifier = Modifier,
+TrailStylePanel.kt:220:fun parseHex(hex: String): Color = try {
+TrailStylePanel.kt:227:fun colorHex(c: Color): String {
 ConvoyRouteToolbar.kt:56:private val rtMono    = FontFamily.Monospace
 ConvoyRouteToolbar.kt:62:fun ConvoyRouteToolbar(
 ConvoyRouteToolbar.kt:116:    var offsetX by remember { mutableFloatStateOf(0f) }
