@@ -107,8 +107,8 @@ fun GtFilterBody(f: GtFilterBridge, onSelect: (String) -> Unit) {
             if (!p && !q) return   // at least one -- Trails OFF hides every trail
             TrailFilterState.setLand(if (p && q) "ALL" else if (p) "PUBLIC" else "PRIVATE"); tick++; f.trailsChanged()
         }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text("LAND", color = s.panelDim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text("SHOW TRAILS ON THIS LAND TYPE", color = s.panelDim, fontSize = 12.sp, fontWeight = FontWeight.Bold)   // FILTERLABELS-2026-11-02 (Fred 14:26)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { setLandTicks(!pubOn, privOn) }) {
                 Checkbox(checked = pubOn, onCheckedChange = null, colors = boxColors())
                 Text("Public", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
@@ -116,6 +116,28 @@ fun GtFilterBody(f: GtFilterBridge, onSelect: (String) -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { setLandTicks(pubOn, !privOn) }) {
                 Checkbox(checked = privOn, onCheckedChange = null, colors = boxColors())
                 Text("Private", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
+            // LANDDISPLAY-2026-11-02 (Fred 11-02): restricted -- public land closed to motor vehicles: red trails, red-striped areas
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable {
+                TrailFilterState.setRestricted(!TrailFilterState.restricted); tick++; f.trailsChanged() }) {
+                Checkbox(checked = TrailFilterState.restricted, onCheckedChange = null, colors = boxColors())
+                Text("Restricted", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        // LANDAREAS-2026-11-02 (Fred 14:08): the striped OVERLAYS on their own -- LAND above decides only which trails are drawn.
+        //  Private has no area: it is the plain map.
+        Text("SHOW LAND AREAS", color = s.panelDim, fontSize = 12.sp, fontWeight = FontWeight.Bold)   // FILTERLABELS-2026-11-02 (Fred 14:26)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable {
+                TrailFilterState.setAreaPublic(!TrailFilterState.areaPublic); tick++; f.trailsChanged() }) {
+                Checkbox(checked = TrailFilterState.areaPublic, onCheckedChange = null, colors = boxColors())
+                Text("Public", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable {
+                TrailFilterState.setAreaRestricted(!TrailFilterState.areaRestricted); tick++; f.trailsChanged() }) {
+                Checkbox(checked = TrailFilterState.areaRestricted, onCheckedChange = null, colors = boxColors())
+                Text("Restricted", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 

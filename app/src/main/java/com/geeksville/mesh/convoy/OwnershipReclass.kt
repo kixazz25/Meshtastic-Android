@@ -63,6 +63,8 @@ object OwnershipReclass {
     @Volatile var lastError: String = ""
     /** STEP8PAGED-2026-10-23: PRIVATE trails written by the last successful run(). */
     @Volatile var lastPrivate: Int = 0
+    /** PADUSLAND-2026-11-02: RESTRICTED trails written by the last successful run(). */
+    @Volatile var lastRestricted: Int = 0
 
     const val RESIDENTIAL = "R - Residential Roads"
 
@@ -118,7 +120,8 @@ object OwnershipReclass {
             // nothing empty -> nothing to do; the land data is not even read
             val todo = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE geometry IS NOT NULL AND geometry <> ''$only", null)
                 .use { if (it.moveToFirst()) it.getInt(0) else 0 }
-            if (todo == 0) { lastError = ""; lastPrivate = 0; Log.i(TAG, "step 8: every trail already has its land -- nothing to do"); return 0 }
+            // RSTAREAFIX-2026-11-02: no early return -- the restricted pass after the pages must still run
+            if (todo == 0) Log.i(TAG, "step 8: every trail already has its land -- only the restricted pass runs")
         }
         // CATEGORYALWAYS-2026-10-10 (Fred): "our categories are meaningless unless they are applied. Land ownership
         // just happened to be in the same process." This step used to RETURN -1 right here when the ownership file
@@ -129,36 +132,12 @@ object OwnershipReclass {
         // \u2b50 Now: categories and use ALWAYS. Land from the file when it can be read; otherwise every trail is
         // PUBLIC (Fred's default) -- with no rings, allPrivate() finds no polygon and answers false.
         val started = System.currentTimeMillis()
-        val f = ownershipFile()
-        val rings: List<Ring> = if (!f.exists() || f.length() < 1024L) {
-            Log.i(TAG, "no ownership file at ${f.absolutePath} -- categories and use only, land PUBLIC")
-            emptyList()
-        } else try {
-            loadRings(f)
-        } catch (e: OutOfMemoryError) {
-            Log.e(TAG, "ownership file too large for this heap -- categories and use only, land PUBLIC")
-            emptyList()
-        } catch (e: Exception) {
-            Log.e(TAG, "ownership parse failed: ${e.javaClass.simpleName} ${e.message} -- land PUBLIC")
-            emptyList()
-        }
-        if (rings.isEmpty()) Log.w(TAG, "CATEGORYALWAYS: no usable ownership rings -- every trail's land is PUBLIC this pass")
-
-        val grid = HashMap<Long, MutableList<Int>>()
-        rings.forEachIndexed { i, r ->
-            val x0 = Math.floor(r.minX / CELL).toInt()
-            val x1 = Math.floor(r.maxX / CELL).toInt()
-            val y0 = Math.floor(r.minY / CELL).toInt()
-            val y1 = Math.floor(r.maxY / CELL).toInt()
-            // ⚠ a huge ring would carpet the grid; skip indexing it rather than
-            // spend the memory. It is still tested by the bbox scan fallback.
-            if ((x1 - x0 + 1).toLong() * (y1 - y0 + 1).toLong() > 20000L) return@forEachIndexed
-            for (gx in x0..x1) for (gy in y0..y1) {
-                grid.getOrPut(key(gx, gy)) { ArrayList() }.add(i)
-            }
-        }
-        Log.i(TAG, "ownership: ${rings.size} rings, ${grid.size} cells, " +
-            "${(System.currentTimeMillis() - started) / 1000}s")
+        // PADUSLAND-2026-11-02: land from PAD-US -- land_areas, built per state by the import from its saved PAD-US zip. The Utah UGRC
+        //  file is gone (PRUNEUGRC). No PAD-US data loaded -> the index covers nothing and every trail is PUBLIC (Fred's default).
+        val landIdx: LandAreas.LandIndex = try { LandAreas.loadIndex(sDb) }
+            catch (e: OutOfMemoryError) { Log.e(TAG, "PADUSLAND: land areas too large for this heap -- land PUBLIC"); LandAreas.LandIndex(emptyList(), emptyMap(), IntArray(0), emptyList()) }
+            catch (e: Exception) { Log.e(TAG, "PADUSLAND: land areas unreadable: ${e.message} -- land PUBLIC"); LandAreas.LandIndex(emptyList(), emptyMap(), IntArray(0), emptyList()) }
+        Log.i(TAG, "PADUSLAND: ${landIdx.size} land areas, ${landIdx.states} state(s) with PAD-US data, ${(System.currentTimeMillis() - started) / 1000}s")
 
         // ── the rows: no usable carto, whatever source wrote them ──────────
         // ⭐ BY VALUE, NOT BY SOURCE (Fred 08-31): an unspecified UGRC road
@@ -183,15 +162,18 @@ object OwnershipReclass {
         val total = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE geometry IS NOT NULL AND geometry <> ''$only", null)   // STEP8EMPTY-2026-10-24
             .use { if (it.moveToFirst()) it.getInt(0) else 0 }
         Log.i(TAG, "step 8: classifying $total rows in pages of $PAGE")
-        if (total == 0) return 0
+        // RSTAREAFIX-2026-11-02: no early return here either -- with no rows the page loop ends at once and the restricted pass runs
         // \u2b50 THE FOUR FIELDS (unchanged): carto_code_source keeps what the source said; carto_code is OUR category;
         // land_status and use_type each answer one question. \u26a0 BOTH STORES -- SpatialDbManager arbitrates between them.
         val s1 = sDb.compileStatement(
-            "UPDATE trails SET carto_code_source=?, carto_code=?, land_status=?, use_type=? WHERE trail_id=?")
+            "UPDATE trails SET carto_code_source=?, carto_code=?, land_status=?, use_type=?, restricted_geom=?, open_geom=NULL WHERE trail_id=?")   // RSTOPEN-2026-11-02: + open_geom cleared   // RSTSEG-2026-11-02: + restricted_geom
         val s2 = eDb.compileStatement("UPDATE trail_properties SET carto_code=? WHERE trail_id=?")
         var n = 0
         var priv = 0
+        var restricted = 0   // PADUSLAND-2026-11-02
         var lastRow = -1L
+        // RSTQUICK-2026-11-02: an ordinary import (onlyUnassigned) -- the trails pass 1 classified; only these go to the restricted pass
+        val newIds = HashSet<String>()
         while (true) {
             val ids = ArrayList<String>(PAGE)
             val srcs = ArrayList<String>(PAGE)
@@ -204,6 +186,7 @@ object OwnershipReclass {
                 while (c.moveToNext()) {
                     lastRow = c.getLong(0)
                     ids.add(c.getString(1)); srcs.add(c.getString(2) ?: ""); wkts.add(c.getString(3))
+                    if (onlyUnassigned) newIds.add(c.getString(1))   // RSTQUICK-2026-11-02
                 }
             }
             if (ids.isEmpty()) break
@@ -225,15 +208,26 @@ object OwnershipReclass {
                     val cat = TrailClassifier.categoryOf(srcs[i], useOf[ids[i]] ?: "")
                     // \u2b50 ANY PUBLIC SEGMENT WINS (Fred, 08-31): allPrivate() samples every half mile plus both ends.
                     // RIDEROUT-2026-10-24 (Fred 15:19): a trail from tracks is never land-tested -- it is PUBLIC.
-                    val land = if (cat == "rider") "PUBLIC" else if (allPrivate(wkts[i], rings, grid)) "PRIVATE" else "PUBLIC"
+                    // PADUSLAND-2026-11-02 (Fred 11-02): rider -> PUBLIC; agency route ("0 - Motorized Access", "4 - Road-concurrent" ...) ->
+                    //  PUBLIC; otherwise landOf() -- PAD-US public land under any point wins; a MOTORIZED trail wholly inside a restricted
+                    //  (wilderness) area on federal land is RESTRICTED; no public point is PRIVATE; outside a state with PAD-US data PUBLIC.
+                    val baseLand = if (cat == "rider") "PUBLIC" else if (AGENCY.containsMatchIn(srcs[i])) "PUBLIC"
+                               else landOf(wkts[i], landIdx, TrailClassifier.useOf(cat) == TrailClassifier.MOTORIZED)
+                    // RSTSEG-2026-11-02 (Fred 14:17-14:19): restricted BY SEGMENT -- any motorized trail, agency-coded or not, never a
+                    //  rider trail: the parts more than 15 m inside restricted federal land are stored and drawn red; ~all of it -> RESTRICTED.
+                    // RSTAREA-2026-11-02: restricted is no longer worked out here, per trail -- the area pass after the pages does it
+                    val land = baseLand
                     s1.clearBindings()
                     s1.bindString(1, srcs[i]); s1.bindString(2, cat); s1.bindString(3, land)
-                    s1.bindString(4, TrailClassifier.useOf(cat)); s1.bindString(5, ids[i])
+                    s1.bindString(4, TrailClassifier.useOf(cat))
+                    s1.bindNull(5)   // RSTAREA-2026-11-02: cleared here; the restricted pass writes the segments
+                    s1.bindString(6, ids[i])
                     s1.executeUpdateDelete()
                     s2.clearBindings()
                     s2.bindString(1, cat); s2.bindString(2, ids[i])
                     s2.executeUpdateDelete()
                     if (land == "PRIVATE") priv++
+                    if (land == "RESTRICTED") restricted++   // PADUSLAND-2026-11-02
                     n++
                 }
                 sDb.setTransactionSuccessful()
@@ -247,9 +241,55 @@ object OwnershipReclass {
                 sDb.endTransaction()
             }
             onProgress?.invoke(n, total)
+            if (n / 20_000 != (n - ids.size) / 20_000) Log.i(TAG, "step 8: $n of $total (${(System.currentTimeMillis() - started) / 1000}s)")   // RSTAREA-2026-11-02
+        }
+        // RSTAREA-2026-11-02 (Fred 14:36): THE RESTRICTED PASS -- from the AREAS. For each restricted polygon, only the motorized trails
+        //  whose box meets it (indexed box columns); each trail once; segments written, >= 95% -> RESTRICTED. Streamed, per polygon.
+        kotlin.run {   // (the stdlib run -- this function is itself named run)
+            val t0 = System.currentTimeMillis()
+            val done = HashSet<String>()
+            // RSTOPEN-2026-11-02: both halves -- the red parts and the rest
+            val u = sDb.compileStatement("UPDATE trails SET restricted_geom=?, open_geom=? WHERE trail_id=?")
+            val ur = sDb.compileStatement("UPDATE trails SET restricted_geom=?, open_geom=?, land_status='RESTRICTED' WHERE trail_id=?")
+            var tested = 0; var withSeg = 0; var areas = 0
+            // RSTQUICK-2026-11-02: an ordinary import that added no trails has nothing to test
+            val boxes = if (onlyUnassigned && newIds.isEmpty()) emptyList() else landIdx.restrictedBoxes()
+            for (b in boxes) {
+                areas++
+                sDb.beginTransaction()
+                try {
+                    sDb.rawQuery("SELECT trail_id, geometry FROM trails WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? " +
+                        "AND use_type='MOTORIZED' AND (carto_code IS NULL OR carto_code <> 'rider') AND geometry IS NOT NULL AND geometry <> ''",
+                        arrayOf(b[1].toString(), b[3].toString(), b[0].toString(), b[2].toString())).use { c ->
+                        while (c.moveToNext()) {
+                            val id = c.getString(0) ?: continue
+                            if (!done.add(id)) continue
+                            if (onlyUnassigned && id !in newIds) continue   // RSTQUICK-2026-11-02: only this import's trails
+                            tested++
+                            val seg = restrictedSegments(c.getString(1) ?: "", landIdx)
+                            if (seg.first.isEmpty()) continue
+                            withSeg++
+                            val st = if (seg.second >= 0.95) { restricted++; ur } else u
+                            st.clearBindings(); st.bindString(1, seg.first)
+                            st.bindString(2, seg.third)   // RSTOPEN-2026-11-02: "" = wholly red (NULL = not worked out yet)
+                            st.bindString(3, id); st.executeUpdateDelete()
+                        }
+                    }
+                    sDb.setTransactionSuccessful()
+                } finally {
+                    sDb.endTransaction()
+                }
+            }
+            Log.i(TAG, "RSTAREA: $areas restricted areas, $tested motorized trails tested, $withSeg with restricted segments, " +
+                "$restricted wholly restricted, in ${(System.currentTimeMillis() - t0) / 1000}s")
+            // RSTQUICK-2026-11-02: the totals now on the tablet -- the same after every import unless the land, the rules or the trails change
+            val segTotal = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE restricted_geom IS NOT NULL AND restricted_geom <> ''", null).use { if (it.moveToFirst()) it.getInt(0) else -1 }
+            val rstTotal = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE land_status = 'RESTRICTED'", null).use { if (it.moveToFirst()) it.getInt(0) else -1 }
+            Log.i(TAG, "RSTAREA totals: $segTotal trails with restricted segments, $rstTotal wholly restricted")
         }
         lastPrivate = priv
-        Log.i(TAG, "step 8 complete: $n classified, $priv private, " +
+        lastRestricted = restricted
+        Log.i(TAG, "step 8 complete: $n classified, $priv private, $restricted restricted, " +
             "in ${(System.currentTimeMillis() - started) / 1000}s")
         return n
     }
@@ -299,6 +339,142 @@ object OwnershipReclass {
             j = i
         }
         return hit
+    }
+
+    /** PADUSLAND-2026-11-02: an agency-designated route -- the source's code is numbered ("0 - Motorized Access"). Always PUBLIC. */
+    private val AGENCY = Regex("^\\d - ")
+
+    /** PADUSLAND-2026-11-02: PUBLIC | PRIVATE | RESTRICTED for one trail from the PAD-US land areas (the 11-02 rules). */
+    private fun landOf(wkt: String, idx: LandAreas.LandIndex, motorized: Boolean): String {
+        val pts = samplePoints(wkt)
+        if (pts.isEmpty()) return "PUBLIC"
+        if (!idx.covered(pts[0].first, pts[0].second)) return "PUBLIC"   // no PAD-US data for this state
+        var anyPublic = false
+        var allRestricted = true
+        for ((x, y) in pts) {
+            val k = idx.kindsAt(x, y)
+            if ((k and LandAreas.B_PUBLIC) != 0) anyPublic = true
+            // restricted only where the area is restricted AND the land is federal (state / private land inside a wilderness is not)
+            if ((k and LandAreas.B_RESTRICTED) == 0 || (k and LandAreas.B_NONFEDERAL) != 0) allRestricted = false
+        }
+        // RSTSEG-2026-11-02: restricted is decided by segment (restrictedSegments), not here -- this answers public / private only
+        return if (!anyPublic) "PRIVATE" else "PUBLIC"
+    }
+
+    /** RSTSEG-2026-11-02: no restricted segments. */
+    private val RST_NONE = Triple("", 0.0, "")   // RSTOPEN-2026-11-02: + the open parts
+
+    /**
+     * RSTSEG-2026-11-02: the trail's parts more than LandAreas.DEEP_M inside restricted federal land, as a MULTILINESTRING WKT
+     * ("" = none), and the share of its length they make up. Each line part is filled in to ~20 m and every point tested.
+     */
+    // RSTOPEN-2026-11-02: third = the trail WITHOUT its red parts (MULTILINESTRING), "" when it has no red parts
+    private fun restrictedSegments(wkt: String, idx: LandAreas.LandIndex): Triple<String, Double, String> {
+        val parts = lineParts(wkt)
+        if (parts.isEmpty()) return RST_NONE
+        var mnx = 999.0; var mny = 999.0; var mxx = -999.0; var mxy = -999.0
+        for (p in parts) { var k = 0; while (k < p.size) { val x = p[k]; val y = p[k + 1]
+            if (x < mnx) mnx = x; if (x > mxx) mxx = x; if (y < mny) mny = y; if (y > mxy) mxy = y; k += 2 } }
+        if (!idx.anyRestricted(mnx, mny, mxx, mxy)) return RST_NONE
+        val runs = ArrayList<ArrayList<Double>>()
+        val oruns = ArrayList<ArrayList<Double>>()   // RSTOPEN-2026-11-02: the open stretches
+        var total = 0.0; var deep = 0.0
+        for (p in parts) {
+            // RSTAREA-2026-11-02: a part whose box meets no restricted area is never filled in or tested -- only its length counts
+            var pnx = 999.0; var pny = 999.0; var pxx = -999.0; var pxy = -999.0
+            var bk = 0
+            while (bk < p.size) { val x = p[bk]; val y = p[bk + 1]
+                if (x < pnx) pnx = x; if (x > pxx) pxx = x; if (y < pny) pny = y; if (y > pxy) pxy = y; bk += 2 }
+            if (!idx.anyRestricted(pnx, pny, pxx, pxy)) {
+                var lk = 0; while (lk + 3 < p.size) { total += metres(p[lk], p[lk + 1], p[lk + 2], p[lk + 3]); lk += 2 }
+                oruns.add(ArrayList(p.toList()))   // RSTOPEN-2026-11-02: nowhere near -- open as it is
+                continue
+            }
+            // fill in to ~20 m
+            val pts = ArrayList<Double>()
+            var k = 0
+            while (k + 3 < p.size) {
+                val x1 = p[k]; val y1 = p[k + 1]; val x2 = p[k + 2]; val y2 = p[k + 3]
+                val m = metres(x1, y1, x2, y2)
+                val n = Math.max(1, Math.ceil(m / 20.0).toInt())
+                for (s in 0 until n) { val f = s.toDouble() / n; pts.add(x1 + (x2 - x1) * f); pts.add(y1 + (y2 - y1) * f) }
+                k += 2
+            }
+            if (p.size >= 2) { pts.add(p[p.size - 2]); pts.add(p[p.size - 1]) }
+            var run: ArrayList<Double>? = null   // local: the run being built, null between runs
+            var orun: ArrayList<Double>? = null  // RSTOPEN-2026-11-02: the open stretch being built
+            var prevDeep = false
+            var q = 0
+            while (q < pts.size) {
+                val x = pts[q]; val y = pts[q + 1]
+                val d = idx.deepRestricted(x, y)
+                if (q >= 2) {
+                    val seg = metres(pts[q - 2], pts[q - 1], x, y)
+                    total += seg
+                    if (d && prevDeep) deep += seg
+                }
+                if (d) { if (run == null) { run = ArrayList(); runs.add(run) }; run.add(x); run.add(y) }
+                else run = null
+                // RSTOPEN-2026-11-02: the open stretches -- each joined to the red at the point where they meet, so the line is unbroken
+                if (d) { val o = orun; if (o != null) { o.add(x); o.add(y) }; orun = null }
+                else {
+                    if (orun == null) { val o = ArrayList<Double>(); if (prevDeep && q >= 2) { o.add(pts[q - 2]); o.add(pts[q - 1]) }; oruns.add(o); orun = o }
+                    orun.add(x); orun.add(y)
+                }
+                prevDeep = d
+                q += 2
+            }
+        }
+        val keep = runs.filter { it.size >= 4 }
+        if (keep.isEmpty() || total <= 0.0) return RST_NONE
+        val sb = StringBuilder("MULTILINESTRING(")
+        keep.forEachIndexed { ri, r ->
+            if (ri > 0) sb.append(',')
+            sb.append('(')
+            var k = 0
+            while (k < r.size) { if (k > 0) sb.append(','); sb.append(r[k]).append(' ').append(r[k + 1]); k += 2 }
+            sb.append(')')
+        }
+        sb.append(')')
+        // RSTOPEN-2026-11-02: the open stretches as one MULTILINESTRING ("" when the whole trail is red)
+        val okeep = oruns.filter { it.size >= 4 }
+        val ob = StringBuilder()
+        if (okeep.isNotEmpty()) {
+            ob.append("MULTILINESTRING(")
+            okeep.forEachIndexed { ri, r ->
+                if (ri > 0) ob.append(',')
+                ob.append('(')
+                var k = 0
+                while (k < r.size) { if (k > 0) ob.append(','); ob.append(r[k]).append(' ').append(r[k + 1]); k += 2 }
+                ob.append(')')
+            }
+            ob.append(')')
+        }
+        return Triple(sb.toString(), deep / total, ob.toString())
+    }
+
+    /** RSTSEG-2026-11-02: a LINESTRING / MULTILINESTRING's parts as flat [x,y,...] arrays (parts are NOT joined). */
+    private fun lineParts(wkt: String): List<DoubleArray> {
+        val open = wkt.indexOf('(')
+        if (open < 0) return emptyList()
+        val body = wkt.substring(open).trim().trimStart('(').trimEnd(')')
+        return body.split(Regex("\\)\\s*,\\s*\\(")).mapNotNull { part ->
+            val vals = ArrayList<Double>()
+            for (pt in part.trim().trimStart('(').trimEnd(')').split(',')) {
+                val xy = pt.trim().split(Regex("\\s+"))
+                if (xy.size < 2) continue
+                val x = xy[0].toDoubleOrNull() ?: continue
+                val y = xy[1].toDoubleOrNull() ?: continue
+                vals.add(x); vals.add(y)
+            }
+            if (vals.size >= 4) vals.toDoubleArray() else null
+        }
+    }
+
+    private fun metres(x1: Double, y1: Double, x2: Double, y2: Double): Double {
+        val dy = (y2 - y1) * 110_540.0
+        val dx = (x2 - x1) * 111_320.0 * Math.cos(Math.toRadians((y1 + y2) / 2.0))
+        return Math.sqrt(dx * dx + dy * dy)
     }
 
     /** Points every SAMPLE_MILES along the line, plus both ends. */

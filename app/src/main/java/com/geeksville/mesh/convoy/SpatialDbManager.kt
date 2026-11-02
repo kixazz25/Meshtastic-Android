@@ -276,7 +276,7 @@ object SpatialDbManager {
             // ⚠ Each is probed SEPARATELY. A device that got one and not the
             // others (there is at least one) must converge, and a single probe
             // on the first column would skip the rest.
-            for (col in listOf("land_status", "use_type", "carto_code_source")) {
+            for (col in listOf("land_status", "use_type", "carto_code_source", "restricted_geom", "open_geom")) {   // RSTSEG-2026-11-02: + restricted_geom; RSTOPEN-2026-11-02: + open_geom
                 try {
                     spatialDb!!.rawQuery("SELECT $col FROM trails LIMIT 1", null)
                         .use { it.moveToFirst() }
@@ -540,7 +540,7 @@ object SpatialDbManager {
             // ⭐ status joins the SELECT so CLOSED draws red and PLANNED
             // ghosted -- trailStyleOf() in the assets already handles it and
             // has been waiting for the property to arrive.
-            "SELECT trail_id, name, geometry, carto_code AS CartoCode, status AS Status FROM trails " +
+            "SELECT trail_id, name, geometry, carto_code AS CartoCode, status AS Status, land_status AS Land, restricted_geom AS RstGeom, open_geom AS OpenGeom FROM trails " +   // RSTSEG-2026-11-02: + RstGeom   // LANDDISPLAY-2026-11-02: + Land
                 "WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? " +
                 TrailFilterState.whereOrEmpty() +
                 // ORDERBY-2026-09-01: ⛔ THE NAME CLAUSE IS GONE. It sorted
@@ -572,7 +572,10 @@ object SpatialDbManager {
                     "trail_id" to cursor.getString(0),
                     "name" to cursor.getString(1),
                     "geometry" to wkt,
-                    "CartoCode" to cursor.getString(3)
+                    "CartoCode" to cursor.getString(3),
+                    "Land" to (if (cursor.columnCount > 5) cursor.getString(5) else null),   // LANDDISPLAY-2026-11-02: RESTRICTED draws red
+                    "RstGeom" to (if (cursor.columnCount > 6) cursor.getString(6) else null),   // RSTSEG-2026-11-02: the red segments
+                    "OpenGeom" to (if (cursor.columnCount > 7) cursor.getString(7) else null)   // RSTOPEN-2026-11-02: the trail without them
                 ))
             }
         }
@@ -676,7 +679,19 @@ object SpatialDbManager {
         sb.append("{\"type\":\"FeatureCollection\",\"features\":[")
         var first = true
         for (trail in trails) {
-            val wkt = trail["geometry"] ?: continue
+            // RSTOPEN-2026-11-02: a trail with red parts is drawn from its OPEN parts -- nothing of it lies under the red
+            val wkt = (if (!trail["RstGeom"].isNullOrEmpty()) (trail["OpenGeom"] ?: trail["geometry"]) else trail["geometry"]) ?: ""   // NULL open = not worked out yet -> whole line
+            if (wkt.isEmpty()) {
+                // wholly red: no open part -- its red parts are still sent below (with Restricted ticked)
+                val rg0 = trail["RstGeom"] ?: ""
+                if (rg0.isNotEmpty() && TrailFilterState.restricted) {
+                    val rc0 = wktToGeoJsonCoords(rg0)
+                    if (rc0 != "[]") { if (!first) sb.append(","); first = false
+                        sb.append("{\"type\":\"Feature\",\"properties\":{\"trail_id\":\"" + jsonEsc(trail["trail_id"] ?: "") +
+                            "\",\"PrimaryName\":\"" + jsonEsc(trail["name"] ?: "") + "\",\"_rst\":1},\"geometry\":{\"type\":\"MultiLineString\",\"coordinates\":" + rc0 + "}}") }
+                }
+                continue
+            }
             val coords = wktToGeoJsonCoords(wkt)
             if (coords == "[]") continue
             if (!first) sb.append(",")
@@ -699,7 +714,15 @@ object SpatialDbManager {
             sb.append(",\"BikeDifficulty\":\"" + s("BikeDifficulty") + "\"")
             sb.append(",\"OwnerSteward\":\"" + s("OwnerSteward") + "\"")
             sb.append(",\"County\":\"" + s("County") + "\"")
+            sb.append(",\"Land\":\"" + s("Land") + "\"")   // LANDDISPLAY-2026-11-02
             sb.append("},\"geometry\":{\"type\":\"" + geoType + "\",\"coordinates\":" + coords + "}}")
+            // RSTSEG-2026-11-02: the trail's restricted segments, drawn red OVER it (after it) -- with Filter > LAND > Restricted ticked
+            val rg = trail["RstGeom"] ?: ""
+            if (rg.isNotEmpty() && TrailFilterState.restricted) {
+                val rc = wktToGeoJsonCoords(rg)
+                if (rc != "[]") sb.append(",{\"type\":\"Feature\",\"properties\":{\"trail_id\":\"" + s("trail_id") +
+                    "\",\"PrimaryName\":\"" + s("name") + "\",\"_rst\":1},\"geometry\":{\"type\":\"MultiLineString\",\"coordinates\":" + rc + "}}")
+            }
         }
         sb.append("]}")
         return sb.toString()

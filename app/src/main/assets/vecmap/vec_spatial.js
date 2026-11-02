@@ -16,9 +16,10 @@ function gtWhenReady(f) { if (gtReady) f(); else gtPending.push(f); }
 // ---- trail styles: the rider's map_keys.json, pushed by setTrailStyles (same table, same rules as convoy_map.html) ----------
 var TRAIL_STYLE = {};
 var STATUS_STYLE = { 'CLOSED': { c: '#FF2222', w: 3, d: null }, 'PLANNED': { c: '#556070', w: 2, d: '3,6' } };
-function trailStyleOf(cartoCode, status) {
+function trailStyleOf(cartoCode, status, land) {
   var s = status ? String(status).toUpperCase() : '';
   if (STATUS_STYLE[s]) return STATUS_STYLE[s];
+  if (land === 'RESTRICTED') return { c: '#E53935', w: 3, d: null };   // LANDDISPLAY-2026-11-02: closed to motor vehicles -- red
   var k = cartoCode ? String(cartoCode).trim() : '';
   if (TRAIL_STYLE[k]) return TRAIL_STYLE[k];
   if (k.indexOf('R -') === 0) return { c: '#FF1493', w: 2, d: null };
@@ -33,7 +34,8 @@ function gtDash(d, w) {
 function gtStyleTrails(fc) {
   (fc.features || []).forEach(function (f) {
     var p = f.properties || (f.properties = {});
-    var st = trailStyleOf(p.CartoCode || '', p.Status || '');
+    var st = p._rst ? { c: '#E53935', w: 3, d: null }   // RSTSEG-2026-11-02: a trail's restricted segments -- red, over the trail
+             : trailStyleOf(p.CartoCode || '', p.Status || '', p.Land || '');   // LANDDISPLAY-2026-11-02
     p._c = st.c; p._w = st.w; p._d = st.d ? String(st.d) : '';
   });
   return fc;
@@ -52,9 +54,19 @@ function gtTrailLayerFor(dash) {
     paint: { 'line-color': ['get', '_c'], 'line-width': ['get', '_w'], 'line-opacity': 0.85,
              'line-dasharray': gtDash(dash, 2) || [1, 0] } }, gtFirstLabel());
   gtTrailDashLayers[dash] = id;
+  try { gtRaiseRestricted(); } catch (e) {}   // RSTDRAW-2026-11-02: a new trail layer must stay under the restricted layers
   return id;
 }
-function gtTrailLayers() { return ['gt-trails'].concat(Object.keys(gtTrailDashLayers).map(function (k) { return gtTrailDashLayers[k]; })); }
+function gtTrailLayers() { return ['gt-trails'].concat(Object.keys(gtTrailDashLayers).map(function (k) { return gtTrailDashLayers[k]; }))
+  .concat(map.getLayer('gt-rst-top') ? ['gt-rst-top'] : []); }   // RSTDRAW-2026-11-02: the red segments show / hide with the trails
+// RSTDRAW-2026-11-02 (Fred 15:10): bottom to top -- public stripes, trails, RESTRICTED stripes, the RED SEGMENTS, then labels.
+function gtRaiseRestricted() {
+  if (!map.getLayer('gt-rst-top')) map.addLayer({ id: 'gt-rst-top', type: 'line', source: 'gt-trails', filter: ['==', ['get', '_rst'], 1],
+    layout: { 'line-cap': 'round', 'line-join': 'round', visibility: gtVisib(gtVis.trails) },
+    paint: { 'line-color': '#E53935', 'line-width': 4, 'line-opacity': 0.95 } });
+  var lab = gtFirstLabel();
+  ['gt-land-rst', 'gt-land-rst-edge', 'gt-rst-top'].forEach(function (id) { if (map.getLayer(id)) map.moveLayer(id, lab); });
+}
 function gtSetup() {
   var under = gtFirstLabel();
   ['gt-trails', 'gt-tracks', 'gt-routes'].forEach(function (s) { map.addSource(s, { type: 'geojson', data: GT_EMPTY }); });
@@ -90,6 +102,7 @@ window.updateTrails = function (fc) {
   gtWhenReady(function () {
     (gtData.trails.features || []).forEach(function (f) { gtTrailLayerFor(f.properties._d); });
     map.getSource('gt-trails').setData(gtData.trails);
+    try { gtRaiseRestricted(); } catch (e) { console.log('RSTDRAW ' + e); }
   });
 };
 window.loadTrails = window.updateTrails;
@@ -175,6 +188,45 @@ window.showWaypoints = function () { gtVis.wpts = true; gtDrawWpts(); };
 window.hideWaypoints = function () { gtVis.wpts = false; gtDrawWpts(); };
 window.toggleWaypoints = function () { gtVis.wpts = !gtVis.wpts; gtDrawWpts(); return gtVis.wpts; };
 window.clearWaypoints = function () { gtData.wpts = GT_EMPTY; gtVis.wpts = false; gtDrawWpts(); };
+
+// ---- LANDDISPLAY-2026-11-02: PAD-US land areas (Fred 11-02) -- PUBLIC = green stripes, RESTRICTED (closed to motor vehicles) =
+//      red stripes the other way; thin edges; UNDER the trails. Set up on first use, and again after any style change.
+function gtStripe(rgba, up) {
+  var n = 16, c = document.createElement('canvas'); c.width = n; c.height = n;
+  var g = c.getContext('2d'); g.strokeStyle = rgba; g.lineWidth = 2.5; g.beginPath();
+  for (var k = -1; k <= 1; k++) {
+    if (up) { g.moveTo(k * n, n); g.lineTo(k * n + n, 0); } else { g.moveTo(k * n, 0); g.lineTo(k * n + n, n); }
+  }
+  g.stroke();
+  return g.getImageData(0, 0, n, n);
+}
+function gtLandSetup() {
+  if (map.getSource('gt-land')) return;
+  map.addSource('gt-land', { type: 'geojson', data: GT_EMPTY });
+  if (!map.hasImage('gt-stripe-pub')) map.addImage('gt-stripe-pub', gtStripe('rgba(46,160,67,0.55)', true));
+  if (!map.hasImage('gt-stripe-rst')) map.addImage('gt-stripe-rst', gtStripe('rgba(211,47,47,0.6)', false));
+  var below = map.getLayer('gt-trails') ? 'gt-trails' : gtFirstLabel();
+  map.addLayer({ id: 'gt-land-pub', type: 'fill', source: 'gt-land', filter: ['==', ['get', 'kind'], 'PUBLIC'],
+    paint: { 'fill-pattern': 'gt-stripe-pub' } }, below);
+  map.addLayer({ id: 'gt-land-pub-edge', type: 'line', source: 'gt-land', filter: ['==', ['get', 'kind'], 'PUBLIC'],
+    paint: { 'line-color': '#2E7D32', 'line-width': 0.8, 'line-opacity': 0.6 } }, below);
+  map.addLayer({ id: 'gt-land-rst', type: 'fill', source: 'gt-land', filter: ['==', ['get', 'kind'], 'RESTRICTED'],
+    paint: { 'fill-pattern': 'gt-stripe-rst' } }, below);
+  map.addLayer({ id: 'gt-land-rst-edge', type: 'line', source: 'gt-land', filter: ['==', ['get', 'kind'], 'RESTRICTED'],
+    paint: { 'line-color': '#C62828', 'line-width': 1.2, 'line-opacity': 0.85 } }, below);
+}
+window.updateLandAreas = function (fc, pub, rst) {
+  if (typeof fc === 'string') fc = JSON.parse(fc);
+  gtWhenReady(function () {
+    try {
+      gtLandSetup();
+      gtRaiseRestricted();   // RSTDRAW-2026-11-02
+      map.getSource('gt-land').setData(fc || GT_EMPTY);
+      ['gt-land-pub', 'gt-land-pub-edge'].forEach(function (id) { map.setLayoutProperty(id, 'visibility', gtVisib(!!fc && pub)); });
+      ['gt-land-rst', 'gt-land-rst-edge'].forEach(function (id) { map.setLayoutProperty(id, 'visibility', gtVisib(!!fc && rst)); });
+    } catch (e) { console.log('LANDDISPLAY ' + e); }
+  });
+};
 
 // ---- VIEWPORT: the app asks the database for what is in view (same call, same 400 ms settle, Leaflet zoom) ------------------
 window.triggerViewportUpdate = function () {

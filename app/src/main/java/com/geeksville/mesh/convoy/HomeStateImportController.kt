@@ -527,6 +527,14 @@ object HomeStateImportController {
                     updateSourceStep(
                         findStage(sources, CLASSIFY_STAGE_ID),
                         "Classifying roads", "reading land ownership")
+                    // PADUSLAND-2026-11-02: the run's states' public / restricted land areas from their saved PAD-US zips (built once per
+                    //  zip). New land data -> step 8 classifies EVERY trail; otherwise only the trails this import added (STEP8EMPTY).
+                    val landRebuilt = try {
+                        LandAreas.ensure(context, sDb, runStates) { msg -> downloadDetailFlow.value = msg }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "PADUSLAND: land areas not built -- ${e.javaClass.simpleName} ${e.message}"); false
+                    }
+                    if (landRebuilt) Log.i(TAG, "PADUSLAND: new land data -- step 8 classifies every trail")
                     // OOMGUARD-2026-09-15: BACKSTOP. The heap guard in
                     // OwnershipReclass.loadRings should prevent this, but an
                     // OOM here must never take down the FIRST RUN -- this is the
@@ -540,7 +548,7 @@ object HomeStateImportController {
                     // backstop, not the fix -- streaming the read is the fix.
                     val changed = try {
                         withContext(Dispatchers.IO) {
-                            OwnershipReclass.run(sDb, eDb, onlyUnassigned = true) { done, total ->   // STEP8EMPTY-2026-10-24: only what this import added
+                            OwnershipReclass.run(sDb, eDb, onlyUnassigned = !landRebuilt) { done, total ->   // STEP8EMPTY-2026-10-24 / PADUSLAND-2026-11-02: every trail when the land data is new
                                 downloadDetailFlow.value =
                                     "Classifying roads - $done of $total"
                             }

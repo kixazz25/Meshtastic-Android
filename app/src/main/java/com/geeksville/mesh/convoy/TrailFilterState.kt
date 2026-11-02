@@ -60,6 +60,11 @@ object TrailFilterState {
     // ── the state ───────────────────────────────────────────────────────
     /** PUBLIC | PRIVATE | ALL */
     var land: String = "PUBLIC"; private set   // PUBLICDEFAULT-2026-10-25 (Fred 10-24 13:48): private land hidden by default
+    /** LANDDISPLAY-2026-11-02: the third LAND tick -- RESTRICTED trails (red) and areas (red stripes). On by default. */
+    var restricted: Boolean = true; private set
+    /** LANDAREAS-2026-11-02: the striped OVERLAYS, on their own (not the trail ticks). Both on by default. */
+    var areaPublic: Boolean = true; private set
+    var areaRestricted: Boolean = true; private set
     /** MOTORIZED | NON-MOTORIZED | ALL */
     var use: String = "ALL"; private set
     /** Categories the rider has switched OFF. Empty = everything shown. */
@@ -156,6 +161,8 @@ object TrailFilterState {
                     reset()
                 } else {
                     land = o.optString("land", "PUBLIC").uppercase()   // PUBLICDEFAULT-2026-10-25: a saved choice is kept
+                    restricted = o.optBoolean("restricted", true)   // LANDDISPLAY-2026-11-02
+                    areaPublic = o.optBoolean("area_public", true); areaRestricted = o.optBoolean("area_restricted", true)   // LANDAREAS-2026-11-02
                     use = o.optString("use", "ALL").uppercase()
                     off = HashSet()
                     val a = o.optJSONArray("off") ?: JSONArray()
@@ -188,6 +195,8 @@ object TrailFilterState {
 
     private fun reset() {
         land = "PUBLIC"; use = "ALL"; off = HashSet(); style = HashMap()   // PUBLICDEFAULT-2026-10-25
+        restricted = true   // LANDDISPLAY-2026-11-02
+        areaPublic = true; areaRestricted = true   // LANDAREAS-2026-11-02
     }
 
     // ── the predicate ───────────────────────────────────────────────────
@@ -230,10 +239,14 @@ object TrailFilterState {
         // ⭐ So an unclassified row passes through and the app behaves as it did
         // before any of this existed. Once the import populates them the nulls
         // disappear and this costs nothing -- a floor, not a workaround.
-        if (land == "PUBLIC" || land == "PRIVATE") {
-            sb.append(" AND (land_status IS NULL OR land_status='")
-                .append(land).append("')")
-        }
+        // PADUSLAND-2026-11-02: RESTRICTED (public land closed to motor vehicles) shows with Public until the display step gives it
+        //  its own switch and colour.
+        // LANDDISPLAY-2026-11-02: the three LAND ticks -- Public, Private, Restricted (public land closed to motor vehicles).
+        val lands = ArrayList<String>()
+        if (land != "PRIVATE") lands.add("PUBLIC")
+        if (land != "PUBLIC") lands.add("PRIVATE")
+        if (restricted) lands.add("RESTRICTED")
+        sb.append(" AND (land_status IS NULL OR land_status IN (" + lands.joinToString(",") { "'" + it + "'" } + "))")
         if (use == "MOTORIZED" || use == "NON-MOTORIZED") {
             sb.append(" AND (use_type IS NULL OR use_type='")
                 .append(use).append("')")
@@ -270,6 +283,16 @@ object TrailFilterState {
 
     @Synchronized
     fun setLand(v: String) { land = v.uppercase(); regenerate(); save() }
+
+    /** LANDDISPLAY-2026-11-02 */
+    @Synchronized
+    fun setRestricted(v: Boolean) { restricted = v; regenerate(); save() }
+
+    /** LANDAREAS-2026-11-02: the overlays -- no effect on which trails are drawn, so no regenerate(). */
+    @Synchronized
+    fun setAreaPublic(v: Boolean) { areaPublic = v; save() }
+    @Synchronized
+    fun setAreaRestricted(v: Boolean) { areaRestricted = v; save() }
 
     @Synchronized
     fun setUse(v: String) { use = v.uppercase(); regenerate(); save() }
@@ -358,6 +381,8 @@ object TrailFilterState {
             val o = JSONObject()
             o.put("version", VERSION)
             o.put("land", land)
+            o.put("restricted", restricted)   // LANDDISPLAY-2026-11-02
+            o.put("area_public", areaPublic); o.put("area_restricted", areaRestricted)   // LANDAREAS-2026-11-02
             o.put("use", use)
             o.put("off", JSONArray(off.toList()))
             val s = JSONObject()

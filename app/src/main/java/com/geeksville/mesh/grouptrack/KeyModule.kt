@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.clipRect   // LANDAREAS-2026-11-02
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,6 +57,13 @@ fun GtKeyBody(onStyleChanged: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Section("TRAILS — MOTORIZED") { MOTORIZED_ROWS.forEach { r -> StyleRow(r) { styling = r } } }
         Section("TRAILS — NON-MOTORIZED") { NON_MOTORIZED_ROWS.forEach { r -> StyleRow(r) { styling = r } } }
+        // LANDAREAS-2026-11-02 (Fred 14:09): the land overlays and the restricted trail line, as the map draws them
+        Section("LAND") {
+            FixedRow("Restricted trail", "Motorized, wholly inside an area closed to motor vehicles", Color(0xFFE53935), 3, false)
+            AreaRow("Public land", "Federal, state, local or district land (PAD-US)", Color(0xFF2EA043), Color(0xFF2E7D32), true)
+            AreaRow("Restricted area", "Public land closed to motor vehicles: wilderness, wilderness study area", Color(0xFFD32F2F), Color(0xFFC62828), false)
+            AreaRow("Private land", "No stripes: land that is not public", Color.Transparent, Color(0xFF9E9E9E), true)
+        }
         Section("YOURS") { ARTIFACT_ROWS.forEach { r -> StyleRow(r) { styling = r } } }
         Section("WHILE YOU RIDE") {
             // VECRIDESTYLE-2026-10-30 (Fred 19:42): styleable, like My tracks / My routes (were fixed rows in the accent colour -- white)
@@ -103,6 +111,30 @@ private fun FixedRow(label: String, meaning: String, color: Color, weight: Int, 
     val s = GtScheme.current.value
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Sample(color, weight, dashed)
+        Column(Modifier.padding(start = 10.dp)) {
+            Text(label, color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(meaning, color = s.panelDim, fontSize = 12.sp)
+        }
+    }
+}
+
+/** LANDAREAS-2026-11-02: an area swatch -- stripes (up = public's direction) and an edge, as the map draws them. */
+@Composable
+private fun AreaRow(label: String, meaning: String, stripe: Color, edge: Color, up: Boolean) {
+    val s = GtScheme.current.value
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Canvas(Modifier.width(40.dp).height(22.dp)) {
+            val w = size.width; val h = size.height; val step = 7.dp.toPx()
+            if (stripe != Color.Transparent) clipRect {
+                var x = -h
+                while (x < w) {
+                    if (up) drawLine(stripe.copy(alpha = 0.6f), Offset(x, h), Offset(x + h, 0f), strokeWidth = 1.6.dp.toPx())
+                    else drawLine(stripe.copy(alpha = 0.6f), Offset(x, 0f), Offset(x + h, h), strokeWidth = 1.6.dp.toPx())
+                    x += step
+                }
+            }
+            drawRect(edge, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()))
+        }
         Column(Modifier.padding(start = 10.dp)) {
             Text(label, color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Text(meaning, color = s.panelDim, fontSize = 12.sp)

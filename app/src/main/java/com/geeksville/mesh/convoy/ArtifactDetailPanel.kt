@@ -575,6 +575,7 @@ private fun formatDetailValue(key: String, raw: String): String {
         "land_status" -> when (v) {
             "PUBLIC" -> "Public land"
             "PRIVATE" -> "Private land"
+            "RESTRICTED" -> "Public land \u2014 closed to motor vehicles"   // PADUSLAND-2026-11-02
             else -> v
         }
         "use_type" -> when (v) {

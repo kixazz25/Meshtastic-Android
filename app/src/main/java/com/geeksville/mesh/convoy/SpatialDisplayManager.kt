@@ -372,5 +372,33 @@ object SpatialDisplayManager {
             val ids = selectLists[type]
             processArtifact(type, south, west, north, east, zoom, st, ids, webView, context)
         }
+        processLand(south, west, north, east, zoom, states["Trails"] ?: DS_OFF, webView, context)   // LANDDISPLAY-2026-11-02
+    }
+
+    /** LANDDISPLAY-2026-11-02: app zoom at which the PAD-US areas are drawn (Leaflet zoom, as the trails' gate). */
+    private const val LAND_MIN_ZOOM = 9
+
+    /**
+     * LANDDISPLAY-2026-11-02: the PAD-US land areas in view -- PUBLIC (green stripes) when Public is ticked, RESTRICTED (red stripes)
+     * when Restricted is ticked. Only with Trails on and from [LAND_MIN_ZOOM]. The vector page draws them (updateLandAreas); the old
+     * page has no such function and ignores the call.
+     */
+    private fun processLand(south: Double, west: Double, north: Double, east: Double, zoom: Int, trailsState: Int,
+                            webView: WebView?, context: Context) {
+        val wv = webView ?: return
+        val main = Handler(Looper.getMainLooper())
+        // LANDAREAS-2026-11-02 (Fred 14:08): the overlays have their own ticks (FILTER > LAND AREAS) -- not the trail ticks, and not
+        //  tied to Trails being on.
+        val pub = TrailFilterState.areaPublic
+        val rst = TrailFilterState.areaRestricted
+        if (zoom < LAND_MIN_ZOOM || (!pub && !rst)) {
+            main.post { wv.evaluateJavascript("window.updateLandAreas&&updateLandAreas(null,false,false)", null) }
+            return
+        }
+        SpatialDbManager.init(context)
+        val db = SpatialDbManager.getSpatialDb() ?: return
+        val json = try { LandAreas.viewportGeoJson(db, south, west, north, east, pub, rst, 600) }
+                   catch (e: Exception) { android.util.Log.w("LandAreas", "LANDDISPLAY: ${e.message}"); return }
+        main.post { wv.evaluateJavascript("window.updateLandAreas&&updateLandAreas($json,$pub,$rst)", null) }
     }
 }
