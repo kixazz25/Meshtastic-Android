@@ -189,7 +189,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                                 }
                             },
                             enabled = selectedSourceId != null,
-                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f))
+                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f), contentColor = Gt.text /* CONTRAST1-2026-11-01 */)
                         ) {
                             Text("VALIDATE", fontFamily = mono, fontSize = 12.sp)
                         }
@@ -264,10 +264,10 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                                         importRunning = false
                                     }
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = green.copy(alpha = 0.18f))
+                                colors = ButtonDefaults.buttonColors(containerColor = green.copy(alpha = 0.18f), contentColor = Gt.text /* CONTRAST1-2026-11-01 */)
                             ) {
                                 Text("IMPORT TRAILS", fontFamily = mono, fontSize = 12.sp,
-                                    color = Color.Black)
+                                    color = Gt.text)   // CONTRAST1-2026-11-01: was Black on the blue panel
                             }
                         }
                     }
@@ -319,7 +319,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = { onNavigateBack() },
-                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f))
+                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f), contentColor = Gt.text /* CONTRAST1-2026-11-01 */)
                         ) {
                             Text("DONE", fontFamily = mono, fontSize = 12.sp)
                         }
@@ -347,7 +347,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                         }
                         Button(
                             onClick = { step = ImportStep.B2_SUGGESTED },
-                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f))
+                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f), contentColor = Gt.text /* CONTRAST1-2026-11-01 */)
                         ) {
                             Text("FIND SOURCES", fontFamily = mono, fontSize = 12.sp)
                         }
@@ -425,7 +425,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                         Button(
                             onClick = { step = ImportStep.B3_VALIDATE },
                             enabled = selectedSourceIds.isNotEmpty(),
-                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f))
+                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f), contentColor = Gt.text /* CONTRAST1-2026-11-01 */)
                         ) {
                             Text("VALIDATE ${selectedSourceIds.size} SOURCES", fontFamily = mono, fontSize = 12.sp)
                         }
@@ -492,9 +492,9 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                                     importRunning = false
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = green.copy(alpha = 0.18f))
+                            colors = ButtonDefaults.buttonColors(containerColor = green.copy(alpha = 0.18f), contentColor = Gt.text /* CONTRAST1-2026-11-01 */)
                         ) {
-                            Text("IMPORT AREA TRAILS", fontFamily = mono, fontSize = 12.sp, color = Color.Black)
+                            Text("IMPORT AREA TRAILS", fontFamily = mono, fontSize = 12.sp, color = Gt.text)   // CONTRAST1-2026-11-01: was Black
                         }
                     }
                 }
@@ -532,7 +532,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = { onNavigateBack() },
-                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f))
+                            colors = ButtonDefaults.buttonColors(containerColor = blue.copy(alpha = 0.18f), contentColor = Gt.text /* CONTRAST1-2026-11-01 */)
                         ) {
                             Text("DONE", fontFamily = mono, fontSize = 12.sp)
                         }

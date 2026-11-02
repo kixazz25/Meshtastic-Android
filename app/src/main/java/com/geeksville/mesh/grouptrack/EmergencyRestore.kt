@@ -123,7 +123,7 @@ fun GtEmergencyScreen(onDone: () -> Unit) {
                         Text("Downloads your maps as they were on the conversion date (${i.third.substringBefore("|")}): the new map and its elevation, through " +
                             "the download queues. Use it if the conversion was interrupted or downloads failed.", fontSize = 14.sp)
                         Text("BEFORE YOU START: make sure this device is connected to POWER and to the INTERNET.", fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold, color = Color(0xFFFFB300), modifier = Modifier.padding(top = 8.dp))
+                            fontWeight = FontWeight.Bold, color = GtScheme.current.value.warn /* CONTRAST2-2026-11-01 */, modifier = Modifier.padding(top = 8.dp))
                         val old = i.third.substringAfter("|", "0").toLongOrNull() ?: 0L   // VECTILECOUNT-2026-10-31 (Fred 21:01)
                         Text((if (old > 0) "Your old maps: ${"%,d".format(old)} tiles. " else "") +
                             "The new map for the same area: ${"%,d".format(i.second)} tiles \u2014 about ${GtEmergency.timeText(i.second)} on Wi-Fi. " +
@@ -136,7 +136,7 @@ fun GtEmergencyScreen(onDone: () -> Unit) {
                                 " MB now on the tablet)", fontSize = 14.sp)
                         }
                         if (clean.value) Text("Your maps are gone until the downloads bring them back (online maps meanwhile). Trails, tracks, " +
-                            "routes and waypoints are not touched.", fontSize = 13.sp, color = Color(0xFFFF6B6B), modifier = Modifier.padding(top = 6.dp))
+                            "routes and waypoints are not touched.", fontSize = 13.sp, color = GtScheme.current.value.bad /* CONTRAST2-2026-11-01 */, modifier = Modifier.padding(top = 6.dp))
                     }
                 }
                 if (msg.value.isNotEmpty()) Text(msg.value, fontSize = 14.sp, color = Gt.accent, modifier = Modifier.padding(top = 10.dp))
@@ -145,11 +145,11 @@ fun GtEmergencyScreen(onDone: () -> Unit) {
         confirmButton = {
             val i = info.value
             if (i != null && i.first > 0 && !msg.value.startsWith("Queued")) {
-                if (clean.value && !sure.value) GtButton("DELETE AND DOWNLOAD AGAIN", { sure.value = true }, emphasis = Color(0xFFC62828))
+                if (clean.value && !sure.value) GtButton("DELETE AND DOWNLOAD AGAIN", { sure.value = true }, emphasis = GtScheme.current.value.bad /* CONTRAST2-2026-11-01 */)
                 else GtButton(if (busy.value) "QUEUING…" else if (clean.value) "YES — DELETE AND START" else "START", {
                     // VECEMERSCREEN-2026-11-01 (Fred 05:51): the conversion screen itself -- its PROCEED runs the Emergency download
                     val c = clean.value; onDone(); GtMapConversion.emergencyAsk(ctx, c)
-                }, enabled = !busy.value, emphasis = if (clean.value) Color(0xFFC62828) else Color.Unspecified)
+                }, enabled = !busy.value, emphasis = if (clean.value) GtScheme.current.value.bad /* CONTRAST2-2026-11-01 */ else Color.Unspecified)
             }
         },
         dismissButton = { GtButton("CLOSE", onDone) },

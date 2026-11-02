@@ -145,9 +145,10 @@ fun ConvoyDownloadConfirm(
                     onClick = { onProceed(bbox, selectedSlots.toList(), replaceExisting) },
                     enabled = selectedSlots.isNotEmpty(),
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = green)   // DLPANEL-2026-11-01 (Fred 07:43): solid, not ghosted
+                    // CONTRAST1-2026-11-01: box = the text colour, letters = the panel colour (accent + white was white on white on the vector map)
+                    colors = ButtonDefaults.buttonColors(containerColor = Gt.text, contentColor = Gt.panel)   // DLPANEL-2026-11-01: solid, not ghosted
                 ) {
-                    Text("PROCEED", fontFamily = mono, fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("PROCEED", fontFamily = mono, fontSize = 13.sp, color = Gt.panel, fontWeight = FontWeight.Bold)
                 }
             }
 

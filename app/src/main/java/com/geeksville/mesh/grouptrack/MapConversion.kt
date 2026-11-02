@@ -222,7 +222,7 @@ fun GtConversionPanel(onManual: () -> Unit, onNotes: () -> Unit, onQuickStart: (
                 if (asking) {
                     Text("BEFORE YOU PROCEED: make sure this device is connected to POWER and to the INTERNET. Your maps are rebuilt " +
                         "by downloads that run in the background and can take hours.", fontSize = 15.sp,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFFFFB300))
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = GtScheme.current.value.warn /* CONTRAST2-2026-11-01 */)
                     Text(GtMapConversion.line.value,
                         fontSize = 15.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = Gt.accent,
                         modifier = Modifier.padding(top = 8.dp))
@@ -240,10 +240,10 @@ fun GtConversionPanel(onManual: () -> Unit, onNotes: () -> Unit, onQuickStart: (
                     modifier = Modifier.padding(top = 8.dp))
                 if (asking) Column(modifier = Modifier.padding(top = 12.dp)) {
                     GtButton("PROCEED NOW", { GtMapConversion.proceed(ctx) })
-                    if (GtMapConversion.emergency.isNotEmpty()) GtButton("CANCEL", close, emphasis = androidx.compose.ui.graphics.Color(0xFFC62828))   // VECEMERSCREEN: closes only
+                    if (GtMapConversion.emergency.isNotEmpty()) GtButton("CANCEL", close, emphasis = GtScheme.current.value.bad /* CONTRAST2-2026-11-01 */)   // VECEMERSCREEN: closes only
                     else GtButton("CANCEL \u2014 END GROUPTRACK UNTIL I AM READY", {
                         android.util.Log.i("MapConversion", "VECCONVERT cancelled -- GroupTrack ends; old maps untouched; asks again next start")
-                        (ctx as? android.app.Activity)?.finishAffinity() }, emphasis = androidx.compose.ui.graphics.Color(0xFFC62828))
+                        (ctx as? android.app.Activity)?.finishAffinity() }, emphasis = GtScheme.current.value.bad /* CONTRAST2-2026-11-01 */)
                     if (GtMapConversion.emergency.isEmpty()) Text("Cancel ends GroupTrack and changes nothing. It asks again the next time GroupTrack starts.", fontSize = 12.sp,
                         color = Gt.dim, modifier = Modifier.padding(top = 4.dp))
                 }

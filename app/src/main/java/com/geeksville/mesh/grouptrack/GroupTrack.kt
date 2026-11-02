@@ -78,8 +78,8 @@ fun GroupTrackLaunchLayer(
     mapTypes: List<String>,
     onMapType: (String) -> Unit,
     online: Boolean,
-    /** SHELL8-2026-10-22: true = the HUD shows GROUP. Required -- the only caller is ConvoyScreen (CODE RULE 1). */
-    showingGroup: Boolean,
+    /** HUDHIDE-2026-11-01: the View button's label -- "View: Group" / "View: My Cart" / "View: No HUD". Required -- the only caller is ConvoyScreen (CODE RULE 1). */
+    viewLabel: String,
     /** SHELL11-2026-10-22: true once checked in (Group) or recording (Android only). Required (CODE RULE 1). */
     onRide: Boolean,
     /** ATTACH1-2026-10-22 THE BRIDGE: process id -> today's function. A row with no entry stays "not attached yet". Required. */
@@ -183,7 +183,7 @@ fun GroupTrackLaunchLayer(
                 LaunchModules.bySlot(LaunchSlot.BOTTOM_BAR, group).forEach { m ->
                     if (m.id == "route") {
                         if (!onRide) GtButton("Add Route", { if (!GtRoute.precheck()) tap(m) })   // GTROUTE1-2026-10-23: checks BEFORE the choices
-                        else if (group) GtButton(if (showingGroup) "View: Group" else "View: My Cart", onToggleView)
+                        else if (group) GtButton(viewLabel, onToggleView)   /* HUDHIDE-2026-11-01 */
                     } else if (m.id == "map" && mapsDownloading) GtButton(m.label + "  \u25cf", { tap(m) }, emphasis = androidx.compose.ui.graphics.Color(0xFF35C46A))   /* GRPSTATUS-2026-10-24: downloading = green */   // MAPTARGET4
                     else GtButton(m.label, { tap(m) })
                 }

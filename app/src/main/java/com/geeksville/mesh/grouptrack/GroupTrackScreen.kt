@@ -1626,7 +1626,7 @@ fun GroupTrackScreen(
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { showLocationPermissionDialog = false },
                 title = { androidx.compose.material3.Text("Location Permission Required",
-                    color = androidx.compose.ui.graphics.Color.White) },
+                    color = Gt.text) },   // CONTRAST1-2026-11-01: was White -- white on white on the satellite HUD
                 text = { androidx.compose.material3.Text(
                     "GPS track recording requires \"Allow all the time\" location access.\n\nTap SETTINGS then Location > Allow all the time.",
                     color = Gt.accent) },
@@ -2201,6 +2201,7 @@ fun GroupTrackScreen(
                 // queues panel (was TopEnd + fixed .width(260.dp), which
                 // squeezed the shared DownloadQueuePanel content).
                 modifier = Modifier
+                    .zIndex(5f)   // PANELTOP-2026-11-01 (Fred 19:02): above the HUD -- it was drawn over this panel
                     .align(Alignment.Center)
                     .padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = 210.dp)   // QUEUESPOS-2026-10-22: ONE MAP -- left of the buttons
                     .fillMaxWidth(0.90f),
@@ -2212,7 +2213,7 @@ fun GroupTrackScreen(
                     Row(modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically) {
-                        Text("MAP DOWNLOADS IN PROGRESS", color = Color(0xFF1CF0A0),   // MAPTARGET4-2026-10-23: a monitor, not a queue
+                        Text("MAP DOWNLOADS IN PROGRESS", color = Gt.text /* CONTRAST1-2026-11-01: was mint 1CF0A0, pale on white */,   // MAPTARGET4-2026-10-23: a monitor, not a queue
                             fontSize = 13.sp, fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(start = 8.dp, top = 4.dp))
@@ -2335,6 +2336,7 @@ fun GroupTrackScreen(
         }
         Column(
             modifier = Modifier
+                .zIndex(5f)   // PANELTOP-2026-11-01: above the HUD
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
                 .padding(top = 52.dp, end = 210.dp),   // SELPOS-2026-10-22 (Fred 12:42): in ONE MAP the SELECT list sits LEFT of the right-column buttons, not under them
@@ -2813,7 +2815,8 @@ fun GroupTrackScreen(
         Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 72.dp)) {   // SHELL7-2026-10-22: the HUD (GPS line + MY CART / GROUP) shows in ONE MAP too, above the bottom bar
             androidx.compose.runtime.CompositionLocalProvider(LocalHudOnDark provides hudOnDark) {   // HUDSCHEME-2026-09-29
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { // GPSPANEL-2026-09-29
-                if (hudMode != HudMode.COLLAPSED) GpsLocationRow(intervalSecs = gpsNowSecs, channelUtil = avgChannelUtil,
+                if (hudMode != HudMode.COLLAPSED && hudMode != HudMode.HIDDEN) GpsLocationRow(   // HUDHIDE-2026-11-01: no GPS line when hidden
+                    intervalSecs = gpsNowSecs, channelUtil = avgChannelUtil,
                     onOpen = { if (!GroupMode.on.value) GroupMode.askToActivate() else { viewModel.clearGpsApplyStatus(); showGpsPanel = true } },   // GRPMODE-2026-10-13
                     textWhite = hudOnDark,   // COSMETICS-2026-10-06: the HUD text toggle, beside the interval and meter
                     onToggleText = { viewModel.hudTextWhiteByMap[hudMapKey] = !hudOnDark })
@@ -2858,6 +2861,7 @@ fun GroupTrackScreen(
                     hasLost = convoyState.hasLost,
                     onExpand = { viewModel.setHudMode(if (GroupMode.on.value) HudMode.GROUP else HudMode.MY_CART) }   // GRPMODE-2026-10-13
                 )
+                HudMode.HIDDEN -> {}   // HUDHIDE-2026-11-01 (Fred 18:10): View: No HUD -- nothing drawn
             }
             } // GPSPANEL-2026-09-29: end of the column (GPS row on top of the HUD)
             } // HUDSCHEME-2026-09-29: end of the HUD's colour scheme
@@ -2932,7 +2936,7 @@ fun GroupTrackScreen(
             mapTypes = MapSourceManager.getSlotSources().map { it.first },   // GTMAP-2026-10-22: Map › MAP TYPE, the map bar's slots
             onMapType = gtSetMapType,
             online = hasInternet && !isOfflineMode,   // ATTACH3-2026-10-22: Offline = no internet OR offline mode on
-            showingGroup = hudMode == HudMode.GROUP,   // SHELL8-2026-10-22: the View: Group / View: My Cart button
+            viewLabel = when (hudMode) { HudMode.MY_CART -> "View: My Cart"; HudMode.HIDDEN -> "View: No HUD"; else -> "View: Group" },   // HUDHIDE-2026-11-01
             actions = mapOf<String, () -> Unit>(   // ATTACH1-2026-10-22 THE BRIDGE -- process id -> today's function (RE-POINT)
                 "menu.settings" to { onNavigateToSettings() },
                 "menu.help" to { showDocsChooser = true },
@@ -3026,7 +3030,8 @@ fun GroupTrackScreen(
             ),
             grpColor = com.geeksville.mesh.convoy.grpAwarenessColor(),   // GRPONEMAP-2026-10-22: the live green / red / grey
             onRide = recordingState != RecordingState.CHECK_IN,   // SHELL11-2026-10-22: checked in or recording -> View replaces Add Route
-            onToggleView = { viewModel.setHudMode(if (hudMode == HudMode.GROUP) HudMode.MY_CART else HudMode.GROUP) },
+            // HUDHIDE-2026-11-01 (Fred 18:10): three views -- Group -> My Cart -> No HUD -> Group
+            onToggleView = { viewModel.setHudMode(when (hudMode) { HudMode.GROUP -> HudMode.MY_CART; HudMode.MY_CART -> HudMode.HIDDEN; else -> HudMode.GROUP }) },
             onZoom = { d -> webViewRef.value?.evaluateJavascript(if (d > 0) "map.zoomIn()" else "map.zoomOut()", null) }
         )
         // GTROUTE1D-2026-10-23 (Fred 14:17): Route+ on TOP of the launch buttons; the toolbar opens top centre below RECORD.
@@ -3368,6 +3373,7 @@ fun CartPickerPanel(
     // usable (taps outside the panel reach the map); the list closes with CLOSE or REC.
     Box(
         modifier = Modifier
+            .zIndex(5f)   // PANELTOP-2026-11-01: above the HUD
             .fillMaxSize()   // CARTBTN-2026-09-30: fill the screen so BottomCenter places it above the bar
             .padding(bottom = 96.dp),
         contentAlignment = Alignment.BottomCenter
@@ -3609,7 +3615,7 @@ fun GpsIntervalDialog(currentSecs: Int, currentPreset: String?, channelUtil: Flo
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                 )
-                if (text.isNotEmpty() && !valid) Text("Enter a number from 3 to 10.", color = Color(0xFFFF6B6B))
+                if (text.isNotEmpty() && !valid) Text("Enter a number from 3 to 10.", color = GtScheme.current.value.bad /* CONTRAST2-2026-11-01 */)
                 // PRESETPANEL-2026-10-20 (Fred 10-20): the channel preset -- Long Fast reaches further, each message is on air ~3-4x longer.
                 Text("Preset", fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -26,7 +26,8 @@ enum class HudMode {
     GROUP,      // UNITS · ACTIVE · LOST · SPAN · LEAD · TAIL
     MY_CART,    // Speed · Heading · Battery · Altitude · Proximity
     NODE,       // All 22 properties for tapped marker
-    COLLAPSED   // Pill: node count + LOST count. Map maximized.
+    COLLAPSED,  // Pill: node count + LOST count. Map maximized.
+    HIDDEN      // HUDHIDE-2026-11-01 (Fred 18:10): View: No HUD -- no HUD, no GPS line; the CONTACT LOST banner still shows
 }
 
 /**
