@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async   // OVERLAP-2026-11-02
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -146,10 +147,18 @@ object HomeStateImportController {
      * already in flight finishes its current read. Seconds, not minutes.
      */
     fun cancelImport() {
+        // CANCELFIX-2026-11-02 (Fred 18:51): while files are downloading, cancel through the data queue -- the run ends cleanly
+        //  (record stamped failed, saved data moved back, the panel ends). A job cancel left the run with no ending at all.
+        if (StateDataQueue.active.value) {
+            Log.i(TAG, "CANCELFIX: import cancelled by request while files download -- through the data queue")
+            StateDataQueue.cancelAll()
+            return
+        }
         val j = importJob
         if (j?.isActive == true) {
             Log.i(TAG, "import cancelled by request")
             j.cancel()
+            _progress.value?.let { _progress.value = it.copy(phase = "failed") }   // CANCELFIX-2026-11-02: the panel ends
         }
         importJob = null
     }
@@ -184,8 +193,15 @@ object HomeStateImportController {
             .format(java.util.Date())}_${stateName.lowercase().replace(" ", "-")}_state.json")
 
     private fun writeManifest(file: File, manifest: JSONObject) {
-        file.writeText(manifest.toString(2))
+        // OVERLAP-2026-11-02: download threads change their rows while this writes -- a write that meets a change is done again
+        for (t in 1..5) {
+            val text = try { manifest.toString(2) } catch (e: ConcurrentModificationException) { null }
+            if (text != null) { synchronized(MANIFEST_LOCK) { file.writeText(text) }; return }
+        }
+        Log.w(TAG, "OVERLAP: record not saved this time (rows changing) -- saved at the next change")
     }
+    private val MANIFEST_LOCK = Any()
+    private const val MARK_OVERLAP = "OVERLAP-2026-11-02"
 
     // AREABUILD-2026-08-21B: takes the RUN's bbox and the state LIST. A state import
     // passes one state and its own corners; an area import passes the drawn box
@@ -401,6 +417,37 @@ object HomeStateImportController {
             // 3. Publish initial progress
             publishProgress(areaLabel, totalSources, sources, "running", startMs)
 
+            // DATAQUEUE-2026-11-02 (Fred 11-02, cut 3): every FILE row through the state-data queue first -- N at a time, Stop / Retry
+            //  per row, Cancel -- and processing starts only when every file is here. The saved files go into place first (side by side
+            //  downloads cannot each do it).
+            for (gs in runStates) StateData.restore(context, gs.slug)
+            val fileRowsNow = (0 until totalSources).map { sources.getJSONObject(it) }.filter { it.optString("process") == "fetch_file" }
+            // OVERLAP-2026-11-02 (Fred 17:30): the queue downloads ALONGSIDE the processing below -- an agency source starts as soon as
+            //  its file is here; the OSM rows and step 8 wait for every file (Fred 17:33 "pause step 7 until all downloads are completed").
+            var queueGaveUp = false   // CANCELFIX-2026-11-02: the queue was cancelled -- processing stops at the next row
+            val queue = if (fileRowsNow.isEmpty()) null else {
+                StateDataQueue.load(context)
+                async {
+                    val haveAll = StateDataQueue.run(fileRowsNow, { row -> runFetch(context, row) }) {
+                        // rows change on the download threads: a save or publish that meets a change is simply done again next second
+                        try { writeManifest(mFile, manifest) } catch (_: Exception) { }
+                        try { publishProgress(areaLabel, totalSources, sources, "running", startMs) } catch (_: Exception) { }
+                    }
+                    try { StateData.writeRecords(context, fileRowsNow) } catch (e: Exception) { Log.w(TAG, "DATAQUEUE record: ${e.message}") }
+                    if (!haveAll) queueGaveUp = true   // CANCELFIX-2026-11-02
+                    haveAll
+                }
+            }
+            /** OVERLAP-2026-11-02: wait until the file rows [need] picks are all here. False = the queue ended without them (Cancel). */
+            suspend fun filesHere(need: (JSONObject) -> Boolean): Boolean {
+                while (true) {
+                    if (fileRowsNow.filter(need).all { it.optString("status") == "completed" }) return true
+                    if (queue == null || !queue.isActive) return false
+                    delay(1000L)
+                }
+            }
+            var cancelled = false
+
             // 4. Loop through sources
             var allOk = true
             var dataMissing = ""   // FETCHFIRST-2026-11-02: the file row that failed; "" = all data here
@@ -424,6 +471,19 @@ object HomeStateImportController {
                 // none of them do. A stage added later is skipped by
                 // construction rather than by someone remembering this line.
                 if (src.optString("id").startsWith("_")) continue
+                // OVERLAP-2026-11-02: the queue fetches the file rows; a source waits only for ITS files, the OSM rows for every file
+                if (src.optString("process") == "fetch_file") continue
+                if (queueGaveUp) { cancelled = true; break }   // CANCELFIX-2026-11-02: cancelled -- no further sources
+                val srcId = src.getString("id")
+                val need: (JSONObject) -> Boolean = if (src.getString("process") == "trails_list_area")
+                    { r -> r.optString("fetch_kind") == "agency" && r.optString("source_id") == srcId } else { _ -> true }
+                if (!fileRowsNow.filter(need).all { it.optString("status") == "completed" }) {
+                    updateSourceStep(src, "Waiting for its download", null)
+                    publishProgress(areaLabel, totalSources, sources, "running", startMs)
+                    if (!filesHere(need)) { cancelled = true; break }
+                }
+                val stillDownloading = fileRowsNow.count { it.optString("status") != "completed" }
+                if (stillDownloading > 0) Log.i(TAG, "$MARK_OVERLAP: $srcId starts while $stillDownloading file(s) still downloading")
 
                 // Mark in_progress
                 src.put("status", "in_progress")
@@ -461,6 +521,19 @@ object HomeStateImportController {
                 publishProgress(areaLabel, totalSources, sources, "running", startMs)
                 // FETCHFIRST-2026-11-02 (Fred 11:49 "jobs cannot proceed until all data is here"): a file that could not be had stops the run
                 if (!ok && src.getString("process") == "fetch_file") { dataMissing = src.getString("name"); break }
+            }
+            // OVERLAP-2026-11-02: step 8 only when every file is here; Cancel (or a file that cannot be had) ends the run, as before
+            if (!cancelled && queue != null && !queue.await()) cancelled = true
+            if (cancelled) {
+                Log.e(TAG, "DATAQUEUE: import cancelled before processing finished -- not every file is here")
+                manifest.put("process_state", "failed")
+                manifest.put("completed_at", iso8601Now())
+                writeManifest(mFile, manifest)
+                publishProgress(areaLabel, totalSources, sources, "failed", startMs)
+                for (gs in runStates) StateData.save(context, gs.slug)
+                StateData.endRun()
+                downloadDetailFlow.value = null
+                return@withContext false
             }
             if (dataMissing.isNotEmpty()) {
                 Log.e(TAG, "FETCHFIRST: stopped before processing -- could not get: $dataMissing")
@@ -623,6 +696,7 @@ object HomeStateImportController {
             publishProgress(areaLabel, totalSources, sources,
                 if (allOk) "completed" else "failed", startMs)
 
+            StateData.endRun()   // DATAQUEUE-2026-11-02: the refresh asked for this run is done
             Log.i(TAG, "Home state import ${if (allOk) "COMPLETED" else "COMPLETED WITH ERRORS"} " +
                 "for ${areaLabel} in ${(System.currentTimeMillis() - startMs) / 1000}s")
             allOk
@@ -961,10 +1035,11 @@ object HomeStateImportController {
                 OsmImportStage.pbfFor(context, gs.slug)))
             rows.put(fileRow("${gs.slug}:gpkg", "${gs.name} · OSM map data (GeoPackage zip)", "gpkg", gs.slug, gs.gpkgUrl,
                 OsmImportStage.zipFor(context, gs.slug)))
-            if (gs.landUrl.isNotEmpty() && landDone.add(gs.landCode)) {
+            // PADUSSVC-2026-11-02: PAD-US from the USGS service -- one row per state, by its two-letter code (no per-state link)
+            if (gs.landCode.isNotEmpty() && landDone.add(gs.landCode)) {
                 val folder = gs.parentState?.lowercase()?.replace(' ', '-') ?: gs.slug   // California's halves share states/california
-                rows.put(fileRow("${gs.landCode}:padus", "${gs.parentState ?: gs.name} · PAD-US public lands (USGS zip)", "land",
-                    folder, gs.landUrl, StateData.landFile(folder, gs.landCode)))
+                rows.put(fileRow("${gs.landCode}:padus", "${gs.parentState ?: gs.name} · PAD-US public lands (USGS)", "land",
+                    folder, LandAreas.SERVICE, StateData.landPages(folder, gs.landCode)).apply { put("land_code", gs.landCode) })
             }
         }
         // PRUNEUGRC-2026-11-02: the Utah UGRC land ownership row is gone -- PAD-US (the "land" row above) replaces it
@@ -1003,29 +1078,59 @@ object HomeStateImportController {
         return true
     }
 
+    /** STOPNOW-2026-11-02: each downloading row's open connection (rows are compared by identity -- JSONObject has no equals). */
+    private val liveConns = java.util.concurrent.ConcurrentHashMap<JSONObject, HttpURLConnection>()
+
+    /** STOPNOW-2026-11-02: close [row]'s connection -- a read waiting on a slow or dead network ends at once. */
+    fun abortDownload(row: JSONObject) {
+        val c = liveConns.remove(row) ?: return
+        try { c.disconnect() } catch (_: Exception) { }
+    }
+
+    /** DATAQUEUE-2026-11-02: the file passes the check its kind gets when it is downloaded. */
+    private fun goodFile(kind: String, f: File): Boolean = when (kind) {
+        "pbf" -> OsmImportStage.verifyPbf(f)
+        "gpkg" -> OsmImportStage.verifyZip(f)
+        "land" -> f.length() > 10_000L   // PADUSSVC-2026-11-02: the service pages
+        else -> true
+    }
+
     /** FETCHFIRST-2026-11-02: one file row -- saved on the tablet, or downloaded now. */
     private fun runFetch(context: Context, row: JSONObject): Boolean {
         val kind = row.getString("fetch_kind")
         val slug = row.optString("state_slug")
         val url = row.optString("url")
         val dest = File(row.getString("dest"))
+        // DATAQUEUE-2026-11-02: "Download fresh data" (or REFRESH on the 6-month question) -- download over the saved copy, which is
+        //  replaced only when the new file is complete (the downloader writes .tmp / .part and renames)
+        val force = StateData.isRefresh(slug)
         val ok = try {
             when (kind) {
                 "pbf" -> {
-                    StateData.restore(context, slug)   // saved -> working folder (or a refresh clears the state's folder)
-                    if (dest.exists() && OsmImportStage.verifyPbf(dest)) savedRow(row, dest)
+                    // DATAQUEUE-2026-11-02: StateData.restore ran for every state before the queue started
+                    if (!force && dest.exists() && OsmImportStage.verifyPbf(dest)) savedRow(row, dest)
                     else { updateSourceStep(row, "Downloading", null); downloadFile(url, dest, row) && OsmImportStage.verifyPbf(dest) }
                 }
-                "gpkg" -> if (dest.exists() && OsmImportStage.verifyZip(dest)) savedRow(row, dest)
+                "gpkg" -> if (!force && dest.exists() && OsmImportStage.verifyZip(dest)) savedRow(row, dest)
                     else { updateSourceStep(row, "Downloading", null); downloadFile(url, dest, row) && OsmImportStage.verifyZip(dest) }
-                "land" -> if (dest.exists() && dest.length() > 1_000_000L) savedRow(row, dest)
-                    else { updateSourceStep(row, "Downloading", null); downloadFile(url, dest, row) && dest.length() > 1_000_000L }
-                "agency" -> if (dest.exists()) savedRow(row, dest)   // an empty file is a real answer: nothing in this state
+                "land" -> if (!force && dest.exists() && dest.length() > 10_000L) savedRow(row, dest)   // PADUSSVC-2026-11-02
+                    else {
+                        updateSourceStep(row, "Downloading", null)
+                        val okL = LandAreas.fetchState(row.optString("land_code"), dest, { row.optBoolean("_stop") }) { pages, got, expected ->
+                            row.put("step_detail", "page $pages \u00b7 %,d of %,d areas".format(got, expected))
+                        }
+                        // the old ScienceBase zip is no longer used -- removed once the service file is complete
+                        if (okL) dest.parentFile?.listFiles { f -> f.name.startsWith("padus_state_") && f.name.endsWith(".zip") }
+                            ?.forEach { Log.i(TAG, "PADUSSVC: old zip removed ${it.name}: ${it.delete()}") }
+                        okL
+                    }
+                "agency" -> if (!force && dest.exists()) savedRow(row, dest)   // an empty file is a real answer: nothing in this state
                     else {
                         updateSourceStep(row, "Downloading", null)
                         val b = row.getJSONArray("bbox")
                         TrailImporter.fetchSourceToFile(context, row.getString("source_id"),
                             b.getDouble(1), b.getDouble(0), b.getDouble(3), b.getDouble(2), dest) { pages, feats, expected ->
+                            if (row.optBoolean("_stop")) throw java.io.InterruptedIOException("stopped by the rider")   // DATAQUEUE-2026-11-02
                             val d = "page $pages · " + (if (expected >= 0) "%,d of %,d trails".format(feats, expected) else "%,d trails".format(feats))   // FETCHFIX-2026-11-02
                             row.put("step_detail", d); downloadDetailFlow.value = d
                         }
@@ -1039,7 +1144,8 @@ object HomeStateImportController {
         if (ok && row.optString("current_step") != "Saved on tablet") updateSourceStep(row, "Downloaded", "${dest.length() / 1_048_576} MB")
         if (!ok) updateSourceStep(row, "FAILED", "could not download")
         // FETCHFIX-2026-11-02: a file that failed its check is not left behind to look like data (12:19: a 4 KB HTML page as the PAD-US zip)
-        if (!ok && kind in listOf("pbf", "gpkg", "land") && dest.exists()) dest.delete()
+        // DATAQUEUE-2026-11-02: only a file that FAILS its check is removed -- a failed or stopped REFRESH keeps the good old copy
+        if (!ok && dest.exists() && !goodFile(kind, dest)) dest.delete()
         Log.i(TAG, "FETCHFIRST ${row.optString("name")}: " + if (ok) "ready (${dest.length() / 1_048_576} MB)" else "FAILED")
         return ok
     }
@@ -1056,6 +1162,7 @@ object HomeStateImportController {
         }
         val ok = downloadOnce(urlStr, dest, activeSrc, depth)
         if (ok) return true
+        if (activeSrc != null && activeSrc.optBoolean("_stop")) return false   // DATAQUEUE-2026-11-02: stopped by the rider -- no retry
         // ⭐ 3 attempts, 2s then 8s. Long enough to outlast a dropped handover
         // or a moment of no signal; short enough that a genuinely dead URL does
         // not hold the import for a minute.
@@ -1075,6 +1182,7 @@ object HomeStateImportController {
         return try {
             dest.parentFile?.mkdirs()
             val conn = URL(urlStr).openConnection() as HttpURLConnection
+            if (activeSrc != null) liveConns[activeSrc] = conn   // STOPNOW-2026-11-02: so STOP can close it
             conn.connectTimeout = 30_000
             conn.readTimeout = 60_000
             conn.connect()
@@ -1100,6 +1208,7 @@ object HomeStateImportController {
                     val buf = ByteArray(1 shl 16)
                     var n: Int
                     while (inp.read(buf).also { n = it } > 0) {
+                        if (activeSrc != null && activeSrc.optBoolean("_stop")) throw java.io.InterruptedIOException("stopped by the rider")   // DATAQUEUE-2026-11-02
                         out.write(buf, 0, n)
                         downloaded += n
                         if (activeSrc != null && totalBytes > 0) {
@@ -1113,9 +1222,12 @@ object HomeStateImportController {
                 }
             }
             conn.disconnect()
+            if (activeSrc != null) liveConns.remove(activeSrc)   // STOPNOW-2026-11-02
             tmp.renameTo(dest)
             true
         } catch (e: Exception) {
+            if (activeSrc != null) liveConns.remove(activeSrc)   // STOPNOW-2026-11-02
+            if (activeSrc != null && activeSrc.optBoolean("_stop")) { Log.i(TAG, "Download stopped by the rider: $urlStr"); return false }
             Log.e(TAG, "Download failed: $urlStr", e)
             false
         }
@@ -1216,7 +1328,11 @@ object HomeStateImportController {
         else src.remove("step_detail")
     }
 
-    private fun publishProgress(
+    private fun publishProgress(stateName: String, total: Int, sources: JSONArray, phase: String, startMs: Long) {
+        // OVERLAP-2026-11-02: as writeManifest -- a read that meets a row changing is done again
+        for (t in 1..5) try { publishProgressNow(stateName, total, sources, phase, startMs); return } catch (e: ConcurrentModificationException) { }
+    }
+    private fun publishProgressNow(
         stateName: String, total: Int, sources: JSONArray,
         phase: String, startMs: Long
     ) {

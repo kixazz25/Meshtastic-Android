@@ -4,6 +4,8 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.util.Log
 import org.xmlpull.v1.XmlPullParser
+import org.json.JSONArray   // PADUSSVC-2026-11-02
+import org.json.JSONObject
 import java.io.File
 import java.io.InputStream
 import java.util.zip.ZipFile
@@ -68,14 +70,14 @@ object LandAreas {
         for ((code, rows) in states.filter { it.landCode.isNotEmpty() }.groupBy { it.landCode }) {
             val gs = rows.first()
             val folder = gs.parentState?.lowercase()?.replace(' ', '-') ?: gs.slug
-            val zip = StateData.landFile(folder, code)
-            if (!zip.exists() || zip.length() < 1_000_000L) { Log.w(TAG, "PADUSLAND $code: no PAD-US zip at ${zip.path} -- this state stays all PUBLIC"); continue }
+            val zip = StateData.landPages(folder, code)   // PADUSSVC-2026-11-02: the service pages, not the zip
+            if (!zip.exists() || zip.length() < 10_000L) { Log.w(TAG, "PADUSLAND $code: no PAD-US data at ${zip.path} -- this state stays all PUBLIC"); continue }
             val have = db.rawQuery("SELECT zip_mtime FROM land_sources WHERE state_code=?", arrayOf(code)).use { if (it.moveToFirst()) it.getLong(0) else 0L }
             if (have == zip.lastModified() && !rulesChanged) { Log.i(TAG, "PADUSLAND $code: land areas already built from this zip"); continue }   // INHOLDING-2026-11-02
             // the state's box: every geofabrik row of this code (California's two halves)
             val all = GeofabrikCatalog.load(ctx).filter { it.landCode == code }
             val box = doubleArrayOf(all.minOf { it.bboxSouth }, all.minOf { it.bboxWest }, all.maxOf { it.bboxNorth }, all.maxOf { it.bboxEast })
-            build(db, code, zip, box, onStep)
+            buildFromPages(db, code, zip, box, onStep)   // PADUSSVC-2026-11-02
             rebuilt = true
         }
         // RSTSEG-2026-11-02: a changed land RULE needs every trail classified again, exactly as new land data does
@@ -89,7 +91,7 @@ object LandAreas {
     }
 
     /** RSTSEG-2026-11-02: the land-rules version. Bump when step 8's land rules change. 2 = restricted by segment, 15 m margin. */
-    const val RULES = 4   // INHOLDING-2026-11-02: 3 = inholdings not restricted; RSTOPEN-2026-11-02: 4 = open_geom stored
+    const val RULES = 5   // INHOLDING-2026-11-02: 3 = inholdings not restricted; RSTOPEN-2026-11-02: 4 = open_geom stored; PADUSSVC-2026-11-02: 5 = from the USGS service
     /** RSTSEG-2026-11-02: how far inside a restricted area a point must be (metres) -- the boundary / cherry-stem margin. */
     const val DEEP_M = 15.0
 
@@ -287,6 +289,131 @@ object LandAreas {
         }
         sb.append("]}")
         return sb.toString()
+    }
+
+    // ── PADUSSVC-2026-11-02: PAD-US 4.1 from the USGS web service ──────────────────────────────────────
+
+    /** USGS "PAD-US Protection Mechanism Category" -- the PAD-US 4.1 COMBINED layer (ownership + designations), public. */
+    const val SERVICE = "https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Protection_Mechanism_Category_PADUS/FeatureServer/0/query"
+    private const val FIELDS = "FeatClass,Own_Type,Own_Name,Mang_Name,Des_Tp,Unit_Nm,Pub_Access,GAP_Sts,GIS_Acres"
+    private val DES_NAME = mapOf("WA" to "Wilderness Area", "WSA" to "Wilderness Study Area", "SW" to "State Wilderness")
+
+    /** One state: its ownership areas, and its wilderness / WSA / state wilderness designations -- everything the land build uses. */
+    private fun whereFor(code: String) = "State_Nm='$code' AND (FeatClass='Fee' OR (FeatClass='Designation' AND Des_Tp IN ('WA','WSA','SW')))"
+
+    private fun httpText(url: String): String? = try {
+        val c = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+        c.connectTimeout = 30_000; c.readTimeout = 180_000
+        try { if (c.responseCode == 200) c.inputStream.bufferedReader().use { it.readText() } else { Log.e(TAG, "PADUSSVC HTTP ${c.responseCode}"); null } }
+        finally { c.disconnect() }
+    } catch (e: Exception) { Log.e(TAG, "PADUSSVC: ${e.javaClass.simpleName} ${e.message}"); null }
+
+    /**
+     * Fetch state [code] from the service into [dest] (one JSON page per line, written as .part and renamed only when whole):
+     * counted first, 2,000 areas a page (halved on a failed page), simplified by the server to ~30 m. [stop] is checked between
+     * pages; [onPage] (pages, areas so far, areas expected). False when it cannot get them all.
+     */
+    fun fetchState(code: String, dest: File, stop: () -> Boolean, onPage: (Int, Int, Int) -> Unit): Boolean {
+        fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
+        val base = SERVICE + "?where=" + enc(whereFor(code))
+        val expected = httpText("$base&returnCountOnly=true&f=json")?.let { try { JSONObject(it).optInt("count", -1) } catch (e: Exception) { -1 } } ?: -1
+        if (expected <= 0) { Log.e(TAG, "PADUSSVC $code: the service gave no count ($expected)"); return false }
+        Log.i(TAG, "PADUSSVC $code: $expected areas to fetch")
+        val part = File(dest.path + ".part")
+        part.parentFile?.mkdirs(); part.delete()
+        var offset = 0; var pages = 0; var got = 0; var size = 2000
+        try {
+            part.bufferedWriter().use { w ->
+                while (got < expected) {
+                    if (stop()) throw java.io.InterruptedIOException("stopped by the rider")
+                    val json = httpText(base + "&outFields=" + enc(FIELDS) + "&maxAllowableOffset=0.0003&geometryPrecision=5&outSR=4326" +
+                        "&orderByFields=OBJECTID&resultOffset=$offset&resultRecordCount=$size&f=geojson")
+                    val root = if (json == null) null else try { JSONObject(json) } catch (e: Exception) { null }
+                    val feats = root?.optJSONArray("features")
+                    if (root == null || feats == null || root.has("error")) {
+                        if (size > 100) { size /= 2; Log.w(TAG, "PADUSSVC $code: page at $offset failed -- retrying at $size"); continue }
+                        Log.e(TAG, "PADUSSVC $code: page at $offset failed -- giving up ($got of $expected)"); return false
+                    }
+                    val n = feats.length()
+                    if (n == 0) break
+                    w.write(json!!.replace('\n', ' ').replace('\r', ' ')); w.write("\n")
+                    pages++; got += n; offset += n
+                    onPage(pages, got, expected)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "PADUSSVC $code: ${e.javaClass.simpleName} ${e.message}")
+            part.delete(); return false
+        }
+        if (got < expected) { Log.e(TAG, "PADUSSVC $code: only $got of $expected -- not saved"); part.delete(); return false }
+        dest.delete()
+        val ok = part.renameTo(dest)
+        Log.i(TAG, "PADUSSVC $code: $pages page(s), $got areas saved -> ${dest.path} (${dest.length() / 1_048_576} MB) ok=$ok")
+        return ok
+    }
+
+    /** GeoJSON Polygon / MultiPolygon -> polygons, each a list of rings (flat x,y arrays; first ring outer). */
+    private fun geoPolys(g: JSONObject?): List<List<DoubleArray>> {
+        if (g == null) return emptyList()
+        val c = g.optJSONArray("coordinates") ?: return emptyList()
+        fun ring(a: JSONArray): DoubleArray { val o = DoubleArray(a.length() * 2); for (i in 0 until a.length()) { val p = a.getJSONArray(i); o[2 * i] = p.getDouble(0); o[2 * i + 1] = p.getDouble(1) }; return o }
+        fun poly(a: JSONArray): List<DoubleArray> = (0 until a.length()).map { ring(a.getJSONArray(it)) }.filter { it.size >= 8 }
+        return when (g.optString("type")) {
+            "Polygon" -> listOf(poly(c)).filter { it.isNotEmpty() }
+            "MultiPolygon" -> (0 until c.length()).map { poly(c.getJSONArray(it)) }.filter { it.isNotEmpty() }
+            else -> emptyList()
+        }
+    }
+
+    /** PADUSSVC-2026-11-02: land_areas for [code] from the service pages -- the same rules as the zip build. */
+    fun buildFromPages(db: SQLiteDatabase, code: String, file: File, box: DoubleArray, onStep: (String) -> Unit) {
+        val t0 = System.currentTimeMillis()
+        var pub = 0; var nonfed = 0; var restr = 0; var skipped = 0; var seen = 0
+        onStep("Public lands · building")
+        db.beginTransaction()
+        try {
+            db.execSQL("DELETE FROM land_areas WHERE state_code=?", arrayOf(code))
+            val ins = db.compileStatement("INSERT INTO land_areas (state_code,kind,own_type,own_name,mang_name,des_type,des_name,unit_name," +
+                "pub_access,gap_sts,acres,min_lat,max_lat,min_lon,max_lon,rings) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            file.bufferedReader().useLines { lines ->
+                for (line in lines) {
+                    if (line.isBlank()) continue
+                    val fa = JSONObject(line).optJSONArray("features") ?: continue
+                    for (i in 0 until fa.length()) {
+                        val f = fa.getJSONObject(i)
+                        val p = f.optJSONObject("properties") ?: continue
+                        seen++
+                        if (seen % 1000 == 0) onStep("Public lands · building · $seen")
+                        fun v(k: String) = if (p.isNull(k)) "" else p.opt(k)?.toString() ?: ""
+                        val fc = v("FeatClass"); val own = v("Own_Type"); val des = v("Des_Tp")
+                        val kind = if (fc == "Fee") { if (own in PUBLIC_OWN) "PUBLIC" else "NONFED" }
+                                   else if (fc == "Designation" && des in RESTRICTED_DES && !v("Unit_Nm").contains("Inholding", ignoreCase = true)) "RESTRICTED"
+                                   else ""
+                        if (kind.isEmpty()) { skipped++; continue }
+                        val enc = encode(geoPolys(f.optJSONObject("geometry")))
+                        if (enc == null) { skipped++; continue }
+                        ins.clearBindings()
+                        ins.bindString(1, code); ins.bindString(2, kind)
+                        ins.bindString(3, own); ins.bindString(4, v("Own_Name")); ins.bindString(5, v("Mang_Name"))
+                        ins.bindString(6, des); ins.bindString(7, DES_NAME[des] ?: "")
+                        ins.bindString(8, v("Unit_Nm")); ins.bindString(9, v("Pub_Access")); ins.bindString(10, v("GAP_Sts"))
+                        ins.bindDouble(11, v("GIS_Acres").toDoubleOrNull() ?: 0.0)
+                        ins.bindDouble(12, enc.second[1]); ins.bindDouble(13, enc.second[3]); ins.bindDouble(14, enc.second[0]); ins.bindDouble(15, enc.second[2])
+                        ins.bindString(16, enc.first)
+                        ins.executeInsert()
+                        when (kind) { "PUBLIC" -> pub++; "NONFED" -> nonfed++; else -> restr++ }
+                    }
+                }
+            }
+            db.execSQL("INSERT OR REPLACE INTO land_sources (state_code,zip_path,zip_mtime,built_at,public_n,restricted_n,nonfed_n,s,w,n,e) " +
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)", arrayOf<Any?>(code, file.path, file.lastModified(), java.time.Instant.now().toString(),
+                pub, restr, nonfed, box[0], box[1], box[2], box[3]))
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        Log.i(TAG, "PADUSLAND $code: $pub public, $restr restricted, $nonfed non-federal areas ($skipped skipped) from the USGS service " +
+            "in ${(System.currentTimeMillis() - t0) / 1000}s")
     }
 
     // ── the index step 8 reads ──────────────────────────────────────────

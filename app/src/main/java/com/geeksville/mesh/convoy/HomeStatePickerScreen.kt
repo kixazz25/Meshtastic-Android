@@ -80,6 +80,7 @@ fun HomeStatePickerScreen(
     // STATEDATA-2026-11-02: the refresh question. Empty list = no question showing (CODE RULE 1: no nullable).
     var refreshAsk by remember { mutableStateOf(emptyList<GeofabrikState>()) }
     var refreshThen by remember { mutableStateOf<() -> Unit>({}) }
+    var freshData by remember { mutableStateOf(false) }   // DATAQUEUE-2026-11-02 (Fred 15:59): "Download fresh data"
     val progress by HomeStateImportController.progress.collectAsState()
     // KILLEDIMPORT-2026-10-02: a running import this screen did not start still ends in "done".
     LaunchedEffect(progress?.phase) {
@@ -137,6 +138,7 @@ fun HomeStatePickerScreen(
     fun startArea(bb: DoubleArray) {
         // STATEDATA-2026-11-02: saved state data over 6 months old -> ask first; the answer brings the rider back here
         val sdStates = areaHits.filter { it.slug in areaPicked }
+        if (freshData) StateData.answer(sdStates.map { it.slug }, true)   // DATAQUEUE-2026-11-02: fresh data asked -- no 6-month question
         val sdStale = StateData.staleSlugs(context, sdStates.map { it.slug })
         if (sdStale.isNotEmpty()) { refreshAsk = sdStates.filter { it.slug in sdStale }; refreshThen = { startArea(bb) }; return }
         if (com.geeksville.mesh.grouptrack.GtUtahPrivate.busy.value) { android.widget.Toast.makeText(context, "Assigning Utah private property is running \u2014 start the import when it finishes.", android.widget.Toast.LENGTH_LONG).show(); return }   // UTAHONCESHOW-2026-10-25
@@ -149,8 +151,8 @@ fun HomeStatePickerScreen(
         val cats = areaCatPicked
         Log.i(TAG, "AREAPICK-2026-10-24: run ${run.joinToString(", ") { it.slug }} + ${cats.size} source(s); skipped ${left.joinToString("; ")}")
         HomeStateImportController.launchImport {
-            HomeStateImportController.executeArea(context, bb[0], bb[1], bb[2], bb[3], run, cats, left)
-            phase = "done"
+            // CANCELFIX-2026-11-02: the panel ends however the run ends -- a cancelled run too
+            try { HomeStateImportController.executeArea(context, bb[0], bb[1], bb[2], bb[3], run, cats, left) } finally { phase = "done" }
         }
     }
 
@@ -176,6 +178,7 @@ fun HomeStatePickerScreen(
     // ── Launch import ────────────────────────────────────────────
     fun startImport(item: StatePickerItem) {
         // STATEDATA-2026-11-02: saved state data over 6 months old -> ask first; the answer brings the rider back here
+        if (freshData) StateData.answer(item.entries.map { it.slug }, true)   // DATAQUEUE-2026-11-02: fresh data asked -- no 6-month question
         val sdStale = StateData.staleSlugs(context, item.entries.map { it.slug })
         if (sdStale.isNotEmpty()) { refreshAsk = item.entries.filter { it.slug in sdStale }; refreshThen = { startImport(item) }; return }
         if (com.geeksville.mesh.grouptrack.GtUtahPrivate.busy.value) { android.widget.Toast.makeText(context, "Assigning Utah private property is running \u2014 start the import when it finishes.", android.widget.Toast.LENGTH_LONG).show(); return }   // UTAHONCESHOW-2026-10-25
@@ -204,10 +207,12 @@ fun HomeStatePickerScreen(
         phase = "running"
         HomeStateImportController.launchImport {
             // For California, process both sub-regions sequentially
-            for (entry in item.entries) {
-                HomeStateImportController.execute(context, entry)
-            }
-            phase = "done"
+            // CANCELFIX-2026-11-02: the panel ends however the run ends -- a cancelled run too
+            try {
+                for (entry in item.entries) {
+                    HomeStateImportController.execute(context, entry)
+                }
+            } finally { phase = "done" }
         }
     }
 
@@ -260,6 +265,18 @@ fun HomeStatePickerScreen(
                     color = Gt.text, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(12.dp)
                 )
+            }
+        }
+        // DATAQUEUE-2026-11-02 (Fred 15:59): REFRESH ON THE PANEL -- fresh data whenever it is asked for, replacing the saved copy
+        if (phase == "confirm" || phase == "list" || phase == "areapick") {
+            Row(Modifier.fillMaxWidth().clickable { freshData = !freshData }.padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                com.geeksville.mesh.grouptrack.GtCheck(freshData)
+                Column {
+                    Text("Download fresh data", color = Gt.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Downloads this state's trail and land data again and replaces the copy saved on this tablet. The saved copy is " +
+                        "kept until the new one is complete.", color = txtDim, fontSize = 12.sp)
+                }
             }
         }
         when (phase) {
@@ -592,8 +609,16 @@ private fun ProgressPanel(progress: ImportProgress?) {
             color = txtDim, fontSize = 12.sp)
         Spacer(Modifier.height(12.dp))
         }
-            items(progress.sources.size) { i ->
-                val src = progress.sources[i]
+            // DATAQUEUE-2026-11-02: TOP -- the data queue, one row per file; BELOW -- the processing steps
+            val fileRows = progress.sources.filter { it.processType == "fetch_file" }
+            val procRows = progress.sources.filter { it.processType != "fetch_file" }
+            if (fileRows.isNotEmpty()) {
+                item { DataQueueHeader(fileRows) }
+                items(fileRows.size) { k -> DataQueueRow(fileRows[k]) }
+                item { Text("PROCESSING", color = blue, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)) }
+            }
+            items(procRows.size) { i ->
+                val src = procRows[i]
                 val isCurrent = src.status == "in_progress"
                 val isDone = src.status == "completed"
                 val isFailed = src.status == "failed"
@@ -601,7 +626,7 @@ private fun ProgressPanel(progress: ImportProgress?) {
                 Column(modifier = Modifier.padding(bottom = 12.dp)) {
                     // Source header
                     Text(
-                        "Source ${i + 1} of ${progress.totalSources} — ${src.name}",
+                        "Source ${i + 1} of ${procRows.size} — ${src.name}",   // DATAQUEUE-2026-11-02: processing rows only
                         color = if (isCurrent) blue
                             else if (isDone) green
                             else if (isFailed) Gt.bad
@@ -633,6 +658,54 @@ private fun ProgressPanel(progress: ImportProgress?) {
             color = txtDim, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center)
         }
+    }
+}
+
+// ── DATAQUEUE-2026-11-02: the data queue monitor -- top half of the import panel ─────────────
+
+@Composable
+private fun DataQueueHeader(rows: List<ImportSourceProgress>) {
+    val ctx = LocalContext.current
+    val max by StateDataQueue.maxAtOnce.collectAsState()
+    val waiting by StateDataQueue.waitingOnRider.collectAsState()
+    val here = rows.count { it.status == "completed" }
+    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        Text("DATA — $here of ${rows.size} files here", color = blue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+            Text("At a time:", color = txtDim, fontSize = 13.sp)
+            for (n in 1..4) {
+                val on = n == max
+                Text("$n", color = if (on) Gt.panel else Gt.text, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 8.dp).background(if (on) Gt.text else Color.Transparent, RoundedCornerShape(4.dp))
+                        .clickable { StateDataQueue.setMax(ctx, n) }.padding(horizontal = 10.dp, vertical = 2.dp))
+            }
+        }
+        if (waiting) {
+            Text("A file could not be downloaded. RETRY it below, or cancel the import.", color = Gt.warn, fontSize = 13.sp,
+                fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
+            com.geeksville.mesh.grouptrack.GtButton("CANCEL IMPORT", { StateDataQueue.cancelAll() })
+        }
+    }
+}
+
+@Composable
+private fun DataQueueRow(r: ImportSourceProgress) {
+    val detail = r.stepDetail?.let { " — $it" } ?: ""
+    val line = when (r.status) {
+        "completed" -> "✓ " + (r.currentStep ?: "Done") + detail
+        "in_progress" -> "► " + (r.currentStep ?: "Downloading") + detail
+        "failed" -> "✗ Failed$detail"
+        "stopped" -> "■ Stopped"
+        else -> "○ Waiting"
+    }
+    val c = when (r.status) { "completed" -> green; "in_progress" -> blue; "failed", "stopped" -> Gt.bad; else -> txtDim }
+    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(r.name, color = c, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(line, color = txtDim, fontSize = 12.sp)
+        }
+        // NOSTOP-2026-11-02 (Fred 18:35): no STOP button -- a running file runs; RETRY on a failed one, CANCEL IMPORT for the run
+        if (r.status == "failed" || r.status == "stopped") com.geeksville.mesh.grouptrack.GtButton("RETRY", { StateDataQueue.retry(r.id) })
     }
 }
 

@@ -47,12 +47,58 @@ object StateData {
      * folder name -- California's two halves (california/norcal, california/socal) share one CA file in states/california.
      */
     fun landFile(folder: String, code: String): File = File(dirFor(folder), "padus_state_$code.zip")
+    /** PADUSSVC-2026-11-02: the state's PAD-US areas from the USGS service -- one JSON page per line. Replaces the zip. */
+    fun landPages(folder: String, code: String): File = File(dirFor(folder), "padus_$code.jsonl")
 
     /** FETCHFIRST-2026-11-02: one agency trail source's saved pages for the state (one JSON page per line). */
     fun agencyFile(slug: String, sourceId: String): File = File(File(dirFor(slug), "agency"), "$sourceId.jsonl")
 
     /** True when the state's two files are saved. */
     fun has(ctx: Context, slug: String): Boolean = savedPbf(ctx, slug).exists() && savedZip(ctx, slug).exists()
+
+    /** DATAQUEUE-2026-11-02: the states whose data this run downloads fresh ("Download fresh data", or REFRESH on the 6-month question). */
+    private val refreshing = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
+
+    /** DATAQUEUE-2026-11-02: download this state's files again (California's halves share the "california" land folder). */
+    fun isRefresh(slug: String): Boolean = refreshing.any { it == slug || it.startsWith("$slug/") }
+
+    /** DATAQUEUE-2026-11-02: the run is over -- the next one uses the saved data again. */
+    fun endRun() { refreshing.clear() }
+
+    /** DATAQUEUE-2026-11-02: what each kind of file is USED BY -- the per-state record says so, for pruning later (Fred 12:16). */
+    private val USED_BY = mapOf(
+        "pbf" to "OSM trails import -- trail access tags (Open Source Maps)",
+        "gpkg" to "OSM trails import -- trail lines (Open Source Maps)",
+        "land" to "public / private / restricted land (PAD-US) -- step 8 and the map's land areas",
+        "agency" to "agency trails import",
+        "ownership" to "(retired 11-02 -- PAD-US replaced it)")
+
+    /**
+     * DATAQUEUE-2026-11-02: write states/<slug>/state_data.json for every state in [rows] (the import's file rows) -- each file's kind,
+     * name, where it is kept, MB, date, status and what it is used by. The OSM files are recorded where they are SAVED (states/<slug>/)
+     * -- they move there at the end of the import.
+     */
+    fun writeRecords(ctx: Context, rows: List<org.json.JSONObject>) {
+        for ((slug, list) in rows.groupBy { it.optString("state_slug") }) {
+            if (slug.isEmpty()) continue
+            val files = org.json.JSONArray()
+            for (r in list) {
+                val kind = r.optString("fetch_kind")
+                val dest = File(r.optString("dest"))
+                val kept = if (kind == "pbf" || kind == "gpkg") File(dirFor(slug), dest.name) else dest
+                val f = if (dest.exists()) dest else kept
+                files.put(org.json.JSONObject()
+                    .put("kind", kind).put("name", r.optString("name")).put("path", kept.path)
+                    .put("mb", if (f.exists()) f.length() / 1_048_576L else 0L)
+                    .put("date", if (f.exists()) java.time.Instant.ofEpochMilli(f.lastModified()).toString() else "")
+                    .put("status", r.optString("status")).put("used_by", USED_BY[kind] ?: ""))
+            }
+            val d = dirFor(slug); if (!d.exists()) d.mkdirs()
+            File(d, "state_data.json").writeText(org.json.JSONObject().put("state", slug)
+                .put("written", java.time.Instant.now().toString()).put("files", files).toString(1))
+            Log.i(TAG, "STATEDATA $slug: record written (${files.length()} file(s))")
+        }
+    }
 
     /** When the saved data was downloaded (ms), or 0 when nothing is saved. CODE RULE 1: 0 = none, not null. */
     fun downloadedMs(ctx: Context, slug: String): Long = if (has(ctx, slug)) savedPbf(ctx, slug).lastModified() else 0L
@@ -85,12 +131,10 @@ object StateData {
         val refresh = answers.remove(slug) == true
         val sp = savedPbf(ctx, slug); val sz = savedZip(ctx, slug)
         if (refresh) {
-            val a = sp.exists() && sp.delete(); val b = sz.exists() && sz.delete()
-            // FETCHFIRST-2026-11-02: a refresh is the WHOLE state -- the PAD-US zip and the agency pages come fresh too
-            val ag = File(dirFor(slug), "agency"); val c = ag.exists() && ag.deleteRecursively()
-            val land = dirFor(slug).listFiles { f -> f.isFile && f.name.startsWith("padus_state_") }?.count { it.delete() } ?: 0
-            Log.i(TAG, "STATEDATA $slug: refresh asked -- saved data removed (pbf=$a zip=$b agency=$c padus=$land), downloading")
-            return
+            // DATAQUEUE-2026-11-02 (Fred 15:59): a refresh no longer DELETES the saved copy -- every file of the state downloads over it
+            //  and replaces it only when the new one is complete. A failed or stopped refresh keeps the old data.
+            refreshing.add(slug)
+            Log.i(TAG, "STATEDATA $slug: refresh asked -- every file downloads again; the saved copy is kept until each new one is complete")
         }
         if (!sp.exists() && !sz.exists()) { Log.i(TAG, "STATEDATA $slug: nothing saved -- downloading"); return }
         val age = ageDays(ctx, slug)   // before the move: the age is read from the saved PBF
