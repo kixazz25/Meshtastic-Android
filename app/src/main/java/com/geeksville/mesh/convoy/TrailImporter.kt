@@ -69,7 +69,7 @@ object TrailImporter {
 
     /** Method A: Import all trails from a single source (no bbox filter) */
     suspend fun importFullSource(context: Context, sourceId: String): ImportResult {
-        return importFromSource(context, sourceId, null, null, null, null)
+        return importFromSource(context, sourceId, null, null, null, null, emptyList())   // FETCHFIRST-2026-11-02: from the web
     }
 
     /** Method B: Import trails from multiple sources within a bounding box */
@@ -79,14 +79,95 @@ object TrailImporter {
     ): List<ImportResult> = withContext(Dispatchers.IO) {
         Log.i(TAG, "Area import: ${sourceIds.size} sources, bbox=[$south,$west,$north,$east]")
         sourceIds.map { sid ->
-            importFromSource(context, sid, south, west, north, east)
+            importFromSource(context, sid, south, west, north, east, emptyList())   // FETCHFIRST-2026-11-02: from the web
         }
+    }
+
+    /**
+     * FETCHFIRST-2026-11-02: import one source from its SAVED pages (fetchSourceToFile) instead of the web. The same loop, dedup, insert
+     * and area filter as importByArea -- only where each page comes from changes. [files] = the source's saved file per state.
+     */
+    suspend fun importSavedByArea(
+        context: Context, sourceId: String, files: List<java.io.File>,
+        south: Double, west: Double, north: Double, east: Double
+    ): List<ImportResult> = withContext(Dispatchers.IO) {
+        Log.i(TAG, "FETCHFIRST saved import: $sourceId from ${files.size} file(s), bbox=[$south,$west,$north,$east]")
+        listOf(importFromSource(context, sourceId, south, west, north, east, files))
+    }
+
+    /**
+     * FETCHFIRST-2026-11-02: query one agency source for an area ONCE and save every page, one JSON page per line, into [dest]
+     * (written as .part, renamed only when whole). [onPage] (pages, features, expected -- -1 = the server would not count) for the panel.
+     * FETCHFIX-2026-11-02: counts first, halves the page on a failed page, advances by what it received, and fails short of the count.
+     */
+    fun fetchSourceToFile(
+        context: Context, sourceId: String,
+        south: Double, west: Double, north: Double, east: Double,
+        dest: java.io.File, onPage: (Int, Int, Int) -> Unit
+    ): Boolean {
+        val source = loadCatalog(context)?.firstOrNull { it.id == sourceId }
+        if (source == null) { Log.e(TAG, "FETCHFIRST $sourceId: not in the catalog"); return false }
+        val overpass = source.sourceType == "overpass"
+        val part = java.io.File(dest.path + ".part")
+        part.parentFile?.mkdirs(); part.delete()
+        var offset = 0; var pages = 0; var feats = 0
+        var size = PAGE_SIZE
+        // FETCHFIX-2026-11-02: how many the server holds in the area -- the end test. -1 = it would not say (then a short page ends it).
+        val expected = if (overpass) -1 else countIn(source, south, west, north, east)
+        Log.i(TAG, "FETCHFIX $sourceId: server count in area = $expected")
+        try {
+            part.bufferedWriter().use { w ->
+                while (true) {
+                    val url = buildUrl(source, south, west, north, east, offset, size)
+                    val json = httpGet(url, if (overpass) 180_000 else 60_000)
+                    val root = if (json == null) null else try { JSONObject(json) } catch (e: Exception) { null }
+                    if (root == null || root.has("error")) {
+                        // FETCHFIX-2026-11-02: a failed page is retried smaller (USFS 11-02: 2,000 with shapes -> HTTP 500; 500 answers)
+                        if (!overpass && size > 100) {
+                            size /= 2
+                            Log.w(TAG, "FETCHFIX $sourceId: page at $offset failed -- retrying at $size per page")
+                            continue
+                        }
+                        Log.e(TAG, "FETCHFIRST $sourceId: page at $offset failed at $size per page -- giving up ($feats of $expected)")
+                        return false
+                    }
+                    val n = (if (overpass) root.optJSONArray("elements") else root.optJSONArray("features"))?.length() ?: 0
+                    if (n == 0) break
+                    // A raw newline in valid JSON can only be whitespace, so one page = one line.
+                    w.write(json!!.replace('\n', ' ').replace('\r', ' ')); w.write("\n")
+                    pages++; feats += n; onPage(pages, feats, expected)
+                    if (overpass) break
+                    if (expected >= 0) { if (feats >= expected) break } else if (n < size) break
+                    offset += n   // FETCHFIX: by what was RECEIVED -- a server that caps pages below [size] is not cut short
+                }
+            }
+            if (expected >= 0 && feats < expected) {
+                Log.e(TAG, "FETCHFIX $sourceId: only $feats of $expected -- not saved")
+                part.delete(); return false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "FETCHFIRST $sourceId: fetch failed -- ${e.javaClass.simpleName} ${e.message}")
+            part.delete(); return false
+        }
+        dest.delete()
+        val ok = part.renameTo(dest)
+        Log.i(TAG, "FETCHFIRST $sourceId: $pages page(s), $feats feature(s) saved -> ${dest.path} ok=$ok")
+        return ok
+    }
+
+    /** FETCHFIX-2026-11-02: the server's count of features in the area (ArcGIS returnCountOnly); -1 when it will not say. */
+    private fun countIn(src: Src, s: Double, w: Double, n: Double, e: Double): Int {
+        val url = src.queryUrl + "?f=json&where=1%3D1&geometry=$w,$s,$e,$n" +
+            "&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&inSR=4326&returnCountOnly=true"
+        val j = httpGet(url, 60_000) ?: return -1
+        return try { JSONObject(j).optInt("count", -1) } catch (ex: Exception) { -1 }
     }
 
     /** Core import: query one source with optional bbox, paginate, dedup, insert */
     private suspend fun importFromSource(
         context: Context, sourceId: String,
-        south: Double?, west: Double?, north: Double?, east: Double?
+        south: Double?, west: Double?, north: Double?, east: Double?,
+        saved: List<java.io.File>   // FETCHFIRST-2026-11-02: empty = query the web; otherwise read these saved pages. Required (CODE RULE 1).
     ): ImportResult = withContext(Dispatchers.IO) {
         val catalog = loadCatalog(context)
             ?: return@withContext ImportResult(sourceId, 0, 0, 1, "Catalog load failed")
@@ -119,10 +200,13 @@ object TrailImporter {
 
         SpatialDbManager.beginDedupSession()
         var inserted = 0; var skipped = 0; var errors = 0; var fetched = 0; var rejected = 0; var dropped = 0; var aliased = 0
+        var named = 0   // IMPORTQUIET-2026-11-02: already-imported trails that were unnamed and got the source's name
         var offset = 0; var hasMore = true
+        // FETCHFIRST-2026-11-02: the saved pages, one per line, read in order across the state files
+        val savedPages = sequence { for (f in saved) f.bufferedReader().use { r -> while (true) { val l = r.readLine() ?: break; yield(l) } } }.iterator()
 
         while (hasMore) {
-            val url = buildUrl(source, south, west, north, east, offset)
+            val url = buildUrl(source, south, west, north, east, offset, PAGE_SIZE)
             Log.i(TAG, "Fetch offset=$offset source=${source.id}")
             emitProgress(ImportProgress(
                 sourceId = sourceId, sourceName = source.name,
@@ -132,7 +216,8 @@ object TrailImporter {
             // OVERPASS-TIMEOUT-2026-07-27: match the [timeout:180] in the Overpass
             // query. Client and server were disagreeing -- server allowed 180s,
             // client hung up at 60s. ArcGIS sources keep the 60s default.
-            val json = httpGet(url, if (source.sourceType == "overpass") 180_000 else 60_000)
+            val json = if (saved.isNotEmpty()) (if (savedPages.hasNext()) savedPages.next() else "{\"features\":[],\"elements\":[]}")   // FETCHFIRST-2026-11-02
+                       else httpGet(url, if (source.sourceType == "overpass") 180_000 else 60_000)
             if (json == null) { errors++; break }
 
             val root = try { JSONObject(json) } catch (_: Exception) { errors++; break }
@@ -177,8 +262,12 @@ object TrailImporter {
                     when (insertFeature(sDb, eDb, feat, source)) {
                         "inserted" -> inserted++
                         "dropped" -> dropped++
+                        "named_drop" -> { dropped++; named++ }   // IMPORTQUIET-2026-11-02
+                        "named_alias" -> { aliased++; named++ }
                         "aliased" -> aliased++
                         "skipped" -> skipped++
+                        "unchanged" -> skipped++   // IMPORTQUIET-2026-11-02: was "updated" -> else -> errors++
+                        "updated" -> { skipped++; named++ }
                         else -> errors++
                     }
                 }
@@ -191,14 +280,15 @@ object TrailImporter {
             // response -- it does not page. Without this the loop would re-fetch
             // the same page forever; dedup would skip every row, so it would spin
             // silently rather than erroring.
-            hasMore = if (source.sourceType == "overpass") false
+            hasMore = if (saved.isNotEmpty()) true   // FETCHFIRST-2026-11-02: saved pages run until the files end
+                      else if (source.sourceType == "overpass") false
                       else features.length() >= PAGE_SIZE
             offset += PAGE_SIZE
         }
 
         val processed = inserted + dropped + aliased + skipped + rejected + errors
         logIngestion(eDb, sourceId, inserted, dropped + aliased, south, west, north, east)
-        val msg = "$processed processed: $inserted new, $dropped dupes dropped, $aliased aliased, $skipped already-imported, $rejected out-of-area, $errors errors"
+        val msg = "$processed processed: $inserted new, $dropped dupes dropped, $aliased aliased, $skipped already-imported ($named named), $rejected out-of-area, $errors errors"
         Log.i(TAG, "Done $sourceId: $msg")
         emitProgress(ImportProgress(
             sourceId = sourceId, sourceName = source.name,
@@ -358,7 +448,8 @@ object TrailImporter {
     }
 
 
-    private fun buildUrl(src: Src, s: Double?, w: Double?, n: Double?, e: Double?, offset: Int): String {
+    // FETCHFIX-2026-11-02: [count] = the page size asked for (the import asks PAGE_SIZE; the agency fetch shrinks it on a failed page)
+    private fun buildUrl(src: Src, s: Double?, w: Double?, n: Double?, e: Double?, offset: Int, count: Int): String {
         // OSM-IMPORT-2026-07-27: Overpass is an HTTP query API exactly as ArcGIS
         // REST is -- but the query string is entirely different. Branch here;
         // everything downstream of the response is source-agnostic.
@@ -371,7 +462,7 @@ object TrailImporter {
         } else {
             sb.append("&where=1%3D1")
         }
-        sb.append("&resultOffset=$offset&resultRecordCount=$PAGE_SIZE")
+        sb.append("&resultOffset=$offset&resultRecordCount=$count")
         return sb.toString()
     }
 
@@ -477,66 +568,76 @@ object TrailImporter {
                 extra["other_restrictions"])
         )
         // [2026-06-21] Write carto to SPATIAL trails too on create (both stores populated).
-        if (cartoCode.isNotEmpty()) {
+        // IMPORTQUIET-2026-11-02 (Fred 13:02): a trail we already have is skipped -- its code is NOT written over (it overwrote
+        //  step 8's category, and on a geometry match another source's trail). Only an unnamed trail gets this source's name.
+        val namedNow = decision != SpatialDbManager.AddDecision.INSERT && name != null && fillName(sDb, anchorId, name, src.id, uid)
+        if (cartoCode.isNotEmpty() && decision == SpatialDbManager.AddDecision.INSERT) {
             try { sDb.execSQL("UPDATE trails SET carto_code=? WHERE trail_id=?", arrayOf<Any?>(cartoCode, anchorId)) }
             catch (ex: Exception) { Log.w(TAG, "spatial carto write (create) failed: ${ex.message}") }
         }
         return when (decision) {
             SpatialDbManager.AddDecision.INSERT -> "inserted"
-            SpatialDbManager.AddDecision.DROP -> "dropped"
-            SpatialDbManager.AddDecision.ALIAS -> "aliased"
+            SpatialDbManager.AddDecision.DROP -> if (namedNow) "named_drop" else "dropped"   // IMPORTQUIET-2026-11-02
+            SpatialDbManager.AddDecision.ALIAS -> if (namedNow) "named_alias" else "aliased"
         }
     }
 
+    /** IMPORTQUIET-2026-11-02: give an UNNAMED trail ("Not Named" / empty) the source's real name. True when a name was written. */
+    private fun fillName(sDb: SQLiteDatabase, trailId: String, rawName: String, sourceId: String, uid: String): Boolean {
+        val name = rawName.trim()
+        if (name.isEmpty() || name.equals("Not Named", ignoreCase = true)) return false
+        return try {
+            val st = sDb.compileStatement(
+                "UPDATE trails SET name=? WHERE trail_id=? AND (name IS NULL OR TRIM(name)='' OR name='Not Named')")
+            st.bindString(1, name); st.bindString(2, trailId)
+            val n = st.executeUpdateDelete(); st.close()
+            if (n > 0) Log.i("IMPORTDIFF", "$sourceId $uid [$trailId]: named '$name'")
+            n > 0
+        } catch (ex: Exception) { Log.w("IMPORTDIFF", "name fill failed: ${ex.message}"); false }
+    }
+
     /**
-     * [2026-06-21] Update an already-imported trail in place (called from insertFeature's
-     * dedup branch). Resolves the existing trail_id via trail_properties(source_id,uid).
-     * CARTO_ONLY: carto_code in both stores. ALL: + name(spatial) + the other property
-     * fields(extension). NEVER geometry/bbox/geom_hash. Logs before/after (tag IMPORTDIFF).
+     * IMPORTQUIET-2026-11-02 (Fred 13:02): an already-imported trail (same source + same source id) is SKIPPED -- except an unnamed
+     * one, which gets the source's real name. Settings' explicit UpdateMode.ALL still refreshes name + property fields, writing ONLY
+     * what differs, one log line per changed trail. NEVER geometry/bbox/geom_hash, and never the code over step 8's category.
+     * Returns "unchanged" | "updated" | "skipped" (not found) | "error".
      */
     private fun updateExistingFeature(sDb: SQLiteDatabase, eDb: SQLiteDatabase, props: JSONObject, src: Src, uid: String): String {
-        // resolve existing trail_id
+        val name = props.optString(src.fieldName, "").trim()
+        // the common case -- nothing to give it: no lookup, no write
+        if (updateMode != UpdateMode.ALL && (name.isEmpty() || name.equals("Not Named", ignoreCase = true))) return "unchanged"
         val trailId = try {
             eDb.rawQuery("SELECT trail_id FROM trail_properties WHERE source_id=? AND source_unique_id=? LIMIT 1", arrayOf(src.id, uid)).use {
                 if (it.moveToFirst()) it.getString(0) else null
             }
         } catch (ex: Exception) { Log.w(TAG, "resolve trail_id failed: ${ex.message}"); null } ?: return "skipped"
+        if (updateMode != UpdateMode.ALL) return if (fillName(sDb, trailId, name, src.id, uid)) "updated" else "unchanged"
 
-        // source values
-        val cartoCode = props.optString(src.fieldType, "")
-        val name = props.optString(src.fieldName, "").ifEmpty { null }
+        // UpdateMode.ALL -- the rider asked for it on the trail-source screen
         val motorized = props.optString(src.fieldExtras.getOrDefault("motorized", ""), "")
         val surface = props.optString(src.fieldExtras.getOrDefault("surface", ""), "")
         val county = props.optString(src.fieldExtras.getOrDefault("county", ""), "")
         val steward = props.optString(src.fieldExtras.getOrDefault("manager", src.fieldExtras.getOrDefault("steward", "")), "")
         val uses = props.optString(src.fieldUse, "")
-
-        fun dumpRow(tag: String) {
-            try {
-                eDb.rawQuery("SELECT designated_uses,motorized_allowed,surface_type,carto_code,owner_steward,county FROM trail_properties WHERE trail_id=?", arrayOf(trailId)).use {
-                    if (it.moveToFirst()) Log.i("IMPORTDIFF", "$tag ext[$trailId] uses=${it.getString(0)} motor=${it.getString(1)} surf=${it.getString(2)} carto=${it.getString(3)} steward=${it.getString(4)} county=${it.getString(5)}")
-                }
-                sDb.rawQuery("SELECT name,carto_code,geom_hash FROM trails WHERE trail_id=?", arrayOf(trailId)).use {
-                    if (it.moveToFirst()) Log.i("IMPORTDIFF", "$tag spa[$trailId] name=${it.getString(0)} carto=${it.getString(1)} ghash=${it.getString(2)}")
-                }
-            } catch (ex: Exception) { Log.w("IMPORTDIFF", "$tag dump failed: ${ex.message}") }
-        }
-
-        dumpRow("BEFORE")
-        try {
-            // carto in both stores (always)
-            sDb.execSQL("UPDATE trails SET carto_code=? WHERE trail_id=?", arrayOf<Any?>(cartoCode, trailId))
-            eDb.execSQL("UPDATE trail_properties SET carto_code=? WHERE trail_id=?", arrayOf<Any?>(cartoCode, trailId))
-            if (updateMode == UpdateMode.ALL) {
-                if (name != null) sDb.execSQL("UPDATE trails SET name=? WHERE trail_id=?", arrayOf<Any?>(name, trailId))
-                eDb.execSQL(
-                    "UPDATE trail_properties SET designated_uses=?,motorized_allowed=?,surface_type=?,owner_steward=?,county=? WHERE trail_id=?",
-                    arrayOf<Any?>(uses, motorized, surface, steward, county, trailId)
-                )
+        return try {
+            var oldName = ""
+            sDb.rawQuery("SELECT COALESCE(name,'') FROM trails WHERE trail_id=?", arrayOf(trailId)).use { if (it.moveToFirst()) oldName = it.getString(0) ?: "" }
+            val old = arrayOf("", "", "", "", "")
+            eDb.rawQuery("SELECT COALESCE(designated_uses,''),COALESCE(motorized_allowed,''),COALESCE(surface_type,''),COALESCE(owner_steward,''),COALESCE(county,'') " +
+                "FROM trail_properties WHERE trail_id=?", arrayOf(trailId)).use { if (it.moveToFirst()) for (k in 0..4) old[k] = it.getString(k) ?: "" }
+            val changes = ArrayList<String>()
+            if (name.isNotEmpty() && name != oldName) {
+                sDb.execSQL("UPDATE trails SET name=? WHERE trail_id=?", arrayOf<Any?>(name, trailId)); changes.add("name '$oldName' -> '$name'")
             }
-        } catch (ex: Exception) { Log.w("IMPORTDIFF", "update failed: ${ex.message}"); return "error" }
-        dumpRow("AFTER")
-        return "updated"
+            val now = arrayOf(uses, motorized, surface, steward, county)
+            if (!now.contentEquals(old)) {
+                eDb.execSQL("UPDATE trail_properties SET designated_uses=?,motorized_allowed=?,surface_type=?,owner_steward=?,county=? WHERE trail_id=?",
+                    arrayOf<Any?>(uses, motorized, surface, steward, county, trailId))
+                changes.add("properties")
+            }
+            if (changes.isEmpty()) "unchanged"
+            else { Log.i("IMPORTDIFF", "${src.id} $uid [$trailId]: ${changes.joinToString("; ")}"); "updated" }
+        } catch (ex: Exception) { Log.w("IMPORTDIFF", "update failed: ${ex.message}"); "error" }
     }
 
     // ── Geometry conversion ──────────────────────────────

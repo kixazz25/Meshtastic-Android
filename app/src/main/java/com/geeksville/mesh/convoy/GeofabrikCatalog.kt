@@ -44,6 +44,10 @@ data class GeofabrikState(
     // PBF is should fail at catalogue load, not at download time on a rider's
     // phone in a state nobody tested.
     val pbfUrl: String,
+    // FETCHFIRST-2026-11-02: the state's PAD-US zip (USGS). REQUIRED in the constructor (CODE RULE 1); "" = this row has no
+    //  PAD-US file -- then no land row is fetched for it. landCode is the two-letter code; California's two halves share "CA".
+    val landCode: String,
+    val landUrl: String,
     val description: String? = null,
     val parentState: String? = null,
 ) {
@@ -89,6 +93,8 @@ object GeofabrikCatalog {
                         bboxNorth = bbox.getDouble(3),
                         gpkgUrl = obj.getString("gpkg_url"),
                         pbfUrl = obj.getString("pbf_url"),  // PBFURL-2026-08-30
+                        landCode = obj.optString("land_code", ""),   // FETCHFIRST-2026-11-02: "" = no PAD-US file for this row
+                        landUrl = obj.optString("land_url", ""),
                         description = obj.optString("description", null),
                         parentState = obj.optString("parent_state", null),
                     )

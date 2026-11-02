@@ -225,9 +225,13 @@ object StartupHousekeeping {
         // NOJOBCAT-2026-10-23: jobCategories (CATEGORYALWAYS-2026-10-10) REMOVED under rule 3 -- it hid step 8's failures by
         // filling every blank land with PUBLIC. Step 8 is paged and honest now (STEP8PAGED); Settings > Classify trails again repairs.
 
-        // UTAHONCE-2026-10-25: the one-time Utah private-property assignment (a completed Utah state import, not yet run here).
-        // It starts its own background work 30 s later and returns at once. OUT when 2.7d is cut.
-        com.geeksville.mesh.grouptrack.GtUtahPrivate.startOnce(ctx)
+        // PRUNEUGRC-2026-11-02 (Fred 12:55): the one-time 2.7c Utah job is gone (rule 3), and the Utah UGRC land ownership file it used
+        // is removed from the tablet -- PAD-US replaces it. Every launch, no marker (CODE RULE 3): OUT when 2.7e is cut.
+        try {
+            val own = OwnershipReclass.ownershipFile()
+            for (x in listOf(own, java.io.File(own.path + ".part"), java.io.File(own.path + ".tmp")))
+                if (x.exists()) Log.i(TAG, "PRUNEUGRC: removed ${x.name} (${x.length() / 1_048_576} MB): ${x.delete()}")
+        } catch (e: Exception) { Log.w(TAG, "PRUNEUGRC: ${e.message}") }
 
         val ms = System.currentTimeMillis() - started
         Log.i(TAG, "=== HOUSEKEEPING DONE in ${ms}ms ===")

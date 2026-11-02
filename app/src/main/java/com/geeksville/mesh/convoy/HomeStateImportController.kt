@@ -68,7 +68,7 @@ data class ImportProgress(
     val elapsedMs: Long = 0,
 ) {
     val estimatedMinutesRemaining: Int
-        get() = (totalSources - sources.count { it.status == "completed" }) * MINUTES_PER_SOURCE
+        get() = sources.count { it.processType != "fetch_file" && it.status != "completed" } * MINUTES_PER_SOURCE   // FETCHFIRST-2026-11-02: file rows are not sources
 }
 
 object HomeStateImportController {
@@ -358,6 +358,13 @@ object HomeStateImportController {
                 runStates, geofabrikProcess, catalogIds, catalogNames
             )
             manifest.put("skipped", JSONArray(skipped))
+            // FETCHFIRST-2026-11-02: every file the run needs, one row each, FIRST -- fetched before anything is processed
+            run {
+                val rows = fileRows(context, areaType, bboxSouth, bboxWest, bboxNorth, bboxEast, runStates, catalogIds)
+                val old = manifest.getJSONArray("sources")
+                for (i in 0 until old.length()) rows.put(old.getJSONObject(i))
+                manifest.put("sources", rows)
+            }
             val mFile = manifestFile(context, areaLabel)
             writeManifest(mFile, manifest)
 
@@ -396,6 +403,7 @@ object HomeStateImportController {
 
             // 4. Loop through sources
             var allOk = true
+            var dataMissing = ""   // FETCHFIRST-2026-11-02: the file row that failed; "" = all data here
             for (i in 0 until totalSources) {
                 val src = sources.getJSONObject(i)
                 if (src.getString("status") == "completed") continue
@@ -433,7 +441,9 @@ object HomeStateImportController {
                         bboxSouth, bboxWest, bboxNorth, bboxEast)
                     "trails_list_area" -> runCatalogSource(
                         context, src,
-                        bboxSouth, bboxWest, bboxNorth, bboxEast)
+                        bboxSouth, bboxWest, bboxNorth, bboxEast,
+                        savedAgencyFiles(sources, src.getString("id")))   // FETCHFIRST-2026-11-02
+                    "fetch_file" -> runFetch(context, src)   // FETCHFIRST-2026-11-02
                     else -> {
                         Log.e(TAG, "Unknown process type: ${src.getString("process")}")
                         false
@@ -449,6 +459,19 @@ object HomeStateImportController {
                 }
                 writeManifest(mFile, manifest)
                 publishProgress(areaLabel, totalSources, sources, "running", startMs)
+                // FETCHFIRST-2026-11-02 (Fred 11:49 "jobs cannot proceed until all data is here"): a file that could not be had stops the run
+                if (!ok && src.getString("process") == "fetch_file") { dataMissing = src.getString("name"); break }
+            }
+            if (dataMissing.isNotEmpty()) {
+                Log.e(TAG, "FETCHFIRST: stopped before processing -- could not get: $dataMissing")
+                // FETCHFIX-2026-11-02: the OSM files the PBF row restored go back to states/<slug>/ -- not stranded in the working folder
+                for (gs in runStates) StateData.save(context, gs.slug)
+                manifest.put("process_state", "failed")
+                manifest.put("completed_at", iso8601Now())
+                writeManifest(mFile, manifest)
+                publishProgress(areaLabel, totalSources, sources, "failed", startMs)
+                downloadDetailFlow.value = null
+                return@withContext false
             }
 
             // ── STEP8-2026-08-31 ──────────────────────────────────
@@ -495,41 +518,8 @@ object HomeStateImportController {
                 writeManifest(mFile, manifest)
                 publishProgress(areaLabel, totalSources, sources, "running", startMs)
 
-                val ownFile = OwnershipReclass.ownershipFile()
-                // OWNSKIP-2026-09-17: THE OWNERSHIP DATA IS UTAH SITLA. Other states were
-                // downloading 78 MB of it, parsing it into rings, building the cell
-                // grid and walking the whole trail cursor against Utah polygons --
-                // then dying of OOM on the last stage of the import, leaving no
-                // manifest and no trace.
-                // ⭐ An EMPTY file makes OwnershipReclass.run() return -1 at its
-                // first check, which the caller ALREADY treats as a COMPLETED stage
-                // with zero records. No new path, no new sentinel.
-                // CATEGORYALWAYS-2026-10-10: by the run's STATES, not its label. An area import is labelled
-                // "area-utah" or "area-N-states", so a box drawn over Utah never got Utah's land check.
-                val ownershipApplies = states.any { it.slug.equals("utah", ignoreCase = true) ||
-                    it.name.trim().equals("Utah", ignoreCase = true) }
-                if (!ownershipApplies && !ownFile.exists()) {
-                    try {
-                        ownFile.parentFile?.mkdirs()
-                        ownFile.createNewFile()
-                    } catch (e: Exception) {
-                        Log.w(TAG, "OWNSKIP-2026-09-17: could not place empty ownership file: ${e.message}")
-                    }
-                }
-                if (ownershipApplies && (!ownFile.exists() || ownFile.length() < 1_000_000L)) {
-                    updateSourceStep(
-                        findStage(sources, CLASSIFY_STAGE_ID),
-                        "Land ownership", "downloading")
-                    val got = withContext(Dispatchers.IO) {
-                        downloadFile(OWNERSHIP_URL, ownFile)
-                    }
-                    // ⚠ NOT FATAL. A failed ownership pull leaves trails
-                    // classified by category with land_status null -- degraded,
-                    // not broken, and the null-tolerant predicate keeps the map
-                    // working. Same reasoning as the missing-file case below.
-                    Log.i(TAG, "ownership download: " +
-                        if (got) "ok, ${ownFile.length()} bytes" else "FAILED")
-                }
+                // PRUNEUGRC-2026-11-02: step 8 no longer downloads the Utah UGRC ownership file, nor puts an empty one down for other
+                //  states -- PAD-US replaces it. With no file step 8 still writes category and use, and land PUBLIC (CATEGORYALWAYS).
                 // STEP8-2026-08-31: properties, not functions.
                 val sDb = SpatialDbManager.getSpatialDb()
                 val eDb = SpatialDbManager.getExtensionDb()
@@ -655,6 +645,10 @@ object HomeStateImportController {
         // WHY NOT CONCURRENT: both report through downloadDetailFlow, so two
         // at once interleave into one string and the rider watches two
         // counters fight over the same line.
+        // STATEDATA-2026-11-02: the state's saved downloads (states/<slug>/) move into the working folder first -- the exists()
+        //  checks below then skip both downloads. A refresh the rider asked for deletes them instead and the run downloads.
+        // FETCHFIRST-2026-11-02: StateData.restore now runs in the PBF file row, before this; the files are here already and the
+        //  exists() checks below skip the downloads. They stay as a backstop only.
         updateSourceStep(src, "Downloading tags", pbfUrl)
         val pbfFile = OsmImportStage.pbfFor(context, slug)
         if (!pbfFile.exists()) {
@@ -805,6 +799,7 @@ object HomeStateImportController {
 
         // Step 5: Cleanup
         updateSourceStep(src, "Cleanup", null)
+        StateData.save(context, slug)   // STATEDATA-2026-11-02: keep the verified PBF + zip for the next pull, then clear as before
         OsmImportStage.discardState(context, slug)
 
         return true
@@ -815,13 +810,16 @@ object HomeStateImportController {
     // AREAREFACTOR-2026-08-21A: `state` removed -- this path only ever wanted the bbox.
     private suspend fun runCatalogSource(
         context: Context, src: JSONObject,
-        bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double
+        bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double,
+        saved: List<File>   // FETCHFIRST-2026-11-02: the source's saved pages per state; empty = none fetched -> the web, as before
     ): Boolean {
         val sourceId = src.getString("id")
         updateSourceStep(src, "Importing", null)
 
         return try {
-            val results = TrailImporter.importByArea(
+            val results = if (saved.isNotEmpty()) TrailImporter.importSavedByArea(context, sourceId, saved,   // FETCHFIRST-2026-11-02
+                bboxSouth, bboxWest, bboxNorth, bboxEast)
+            else TrailImporter.importByArea(
                 context, listOf(sourceId),
                 bboxSouth, bboxWest, bboxNorth, bboxEast
             )
@@ -931,20 +929,114 @@ object HomeStateImportController {
      * a constant tonight because one URL closes the loop and the catalogue
      * change is a bigger edit.
      */
-    /** UTAHPRIV-2026-10-24: Map > Assign Utah private property -- the import's own download, into a .part file renamed only when whole. */
-    fun fetchUtahOwnership(dest: File): Boolean {
-        val part = File(dest.path + ".part")
-        part.delete()
-        val ok = downloadFile(OWNERSHIP_URL, part) && part.length() > 1_000_000L
-        if (!ok) { part.delete(); return false }
-        dest.delete()
-        return part.renameTo(dest)
+    // ── FETCHFIRST-2026-11-02: the file rows ─────────────────────────────
+    //
+    // Fred 11-02 12:02-12:03: "move all [downloads] up front ... single threaded ... each pull should existence check its data and pull
+    // if it is not there" / "each file not each step needs to be identified ... when we queue we will queue each item".
+    // One row per FILE, state . source . file, process "fetch_file". Keys: fetch_kind (pbf | gpkg | land | ownership | agency),
+    // state_slug (NOT "slug" -- a row with "slug" counts as a whole-state import), url, dest, and for agency source_id + bbox.
+
+    private fun fileRow(id: String, name: String, kind: String, slug: String, url: String, dest: File): JSONObject = JSONObject().apply {
+        put("id", "file:$id"); put("name", name); put("process", "fetch_file"); put("fetch_kind", kind)
+        put("state_slug", slug); put("url", url); put("dest", dest.path); put("status", "pending")
     }
 
-    private const val OWNERSHIP_URL =
-        "https://hub.arcgis.com/api/v3/datasets/" +
-            "2f59731608274691922d2d16bde2404f_0/downloads/data" +
-            "?format=geojson&spatialRefId=4326&where=1%3D1"
+    private fun fileRows(
+        context: Context, areaType: String,
+        s: Double, w: Double, n: Double, e: Double,
+        states: List<GeofabrikState>, catalogIds: List<String>
+    ): JSONArray {
+        val rows = JSONArray()
+        val landDone = HashSet<String>()
+        for (gs in states) {
+            rows.put(fileRow("${gs.slug}:pbf", "${gs.name} · OSM trails & tags (PBF)", "pbf", gs.slug, gs.pbfUrl,
+                OsmImportStage.pbfFor(context, gs.slug)))
+            rows.put(fileRow("${gs.slug}:gpkg", "${gs.name} · OSM map data (GeoPackage zip)", "gpkg", gs.slug, gs.gpkgUrl,
+                OsmImportStage.zipFor(context, gs.slug)))
+            if (gs.landUrl.isNotEmpty() && landDone.add(gs.landCode)) {
+                val folder = gs.parentState?.lowercase()?.replace(' ', '-') ?: gs.slug   // California's halves share states/california
+                rows.put(fileRow("${gs.landCode}:padus", "${gs.parentState ?: gs.name} · PAD-US public lands (USGS zip)", "land",
+                    folder, gs.landUrl, StateData.landFile(folder, gs.landCode)))
+            }
+        }
+        // PRUNEUGRC-2026-11-02: the Utah UGRC land ownership row is gone -- PAD-US (the "land" row above) replaces it
+        if (catalogIds.isNotEmpty()) {
+            // A whole-state run fetches each agency source for that state; an area run for every state the area touches.
+            // Each (source, state) is fetched ONCE for the whole state and saved; the import then keeps only what is inside the run's area.
+            val agencyStates = if (areaType == "state") states else
+                GeofabrikCatalog.load(context).filter { it.intersectsBbox(s, w, n, e) }
+            val cat = try { loadSourceCatalog(context).associateBy { it.id } } catch (ex: Exception) { emptyMap() }
+            for (sid in catalogIds) {
+                val c = cat[sid] ?: continue
+                for (gs in agencyStates) {
+                    if (c.boundaryN < gs.bboxSouth || c.boundaryS > gs.bboxNorth || c.boundaryE < gs.bboxWest || c.boundaryW > gs.bboxEast) continue
+                    rows.put(fileRow("${gs.slug}:agency:$sid", "${gs.name} · ${c.name} (agency)", "agency", gs.slug, "",
+                        StateData.agencyFile(gs.slug, sid)).apply {
+                        put("source_id", sid)
+                        put("bbox", JSONArray(listOf(gs.bboxWest, gs.bboxSouth, gs.bboxEast, gs.bboxNorth)))
+                    })
+                }
+            }
+        }
+        Log.i(TAG, "FETCHFIRST: ${rows.length()} file row(s)")
+        return rows
+    }
+
+    /** FETCHFIRST-2026-11-02: an agency source's saved page files, from its file rows. */
+    private fun savedAgencyFiles(sources: JSONArray, sourceId: String): List<File> =
+        (0 until sources.length()).map { sources.getJSONObject(it) }
+            .filter { it.optString("fetch_kind") == "agency" && it.optString("source_id") == sourceId && it.optString("status") == "completed" }
+            .map { File(it.getString("dest")) }
+            .filter { it.exists() }
+
+    private fun savedRow(row: JSONObject, f: File): Boolean {
+        updateSourceStep(row, "Saved on tablet", "${f.length() / 1_048_576} MB")
+        Log.i(TAG, "FETCHFIRST ${row.optString("name")}: saved on tablet -- no download")
+        return true
+    }
+
+    /** FETCHFIRST-2026-11-02: one file row -- saved on the tablet, or downloaded now. */
+    private fun runFetch(context: Context, row: JSONObject): Boolean {
+        val kind = row.getString("fetch_kind")
+        val slug = row.optString("state_slug")
+        val url = row.optString("url")
+        val dest = File(row.getString("dest"))
+        val ok = try {
+            when (kind) {
+                "pbf" -> {
+                    StateData.restore(context, slug)   // saved -> working folder (or a refresh clears the state's folder)
+                    if (dest.exists() && OsmImportStage.verifyPbf(dest)) savedRow(row, dest)
+                    else { updateSourceStep(row, "Downloading", null); downloadFile(url, dest, row) && OsmImportStage.verifyPbf(dest) }
+                }
+                "gpkg" -> if (dest.exists() && OsmImportStage.verifyZip(dest)) savedRow(row, dest)
+                    else { updateSourceStep(row, "Downloading", null); downloadFile(url, dest, row) && OsmImportStage.verifyZip(dest) }
+                "land" -> if (dest.exists() && dest.length() > 1_000_000L) savedRow(row, dest)
+                    else { updateSourceStep(row, "Downloading", null); downloadFile(url, dest, row) && dest.length() > 1_000_000L }
+                "agency" -> if (dest.exists()) savedRow(row, dest)   // an empty file is a real answer: nothing in this state
+                    else {
+                        updateSourceStep(row, "Downloading", null)
+                        val b = row.getJSONArray("bbox")
+                        TrailImporter.fetchSourceToFile(context, row.getString("source_id"),
+                            b.getDouble(1), b.getDouble(0), b.getDouble(3), b.getDouble(2), dest) { pages, feats, expected ->
+                            val d = "page $pages · " + (if (expected >= 0) "%,d of %,d trails".format(feats, expected) else "%,d trails".format(feats))   // FETCHFIX-2026-11-02
+                            row.put("step_detail", d); downloadDetailFlow.value = d
+                        }
+                    }
+                else -> { Log.e(TAG, "FETCHFIRST: unknown file kind $kind"); false }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "FETCHFIRST ${row.optString("name")}: ${e.javaClass.simpleName} ${e.message}"); false
+        }
+        downloadDetailFlow.value = null
+        if (ok && row.optString("current_step") != "Saved on tablet") updateSourceStep(row, "Downloaded", "${dest.length() / 1_048_576} MB")
+        if (!ok) updateSourceStep(row, "FAILED", "could not download")
+        // FETCHFIX-2026-11-02: a file that failed its check is not left behind to look like data (12:19: a 4 KB HTML page as the PAD-US zip)
+        if (!ok && kind in listOf("pbf", "gpkg", "land") && dest.exists()) dest.delete()
+        Log.i(TAG, "FETCHFIRST ${row.optString("name")}: " + if (ok) "ready (${dest.length() / 1_048_576} MB)" else "FAILED")
+        return ok
+    }
+
+    // PRUNEUGRC-2026-11-02: fetchUtahOwnership + OWNERSHIP_URL removed -- the UGRC land ownership file is no longer downloaded.
 
     private fun downloadFile(
         urlStr: String, dest: File, activeSrc: JSONObject? = null,

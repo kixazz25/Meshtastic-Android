@@ -59,14 +59,11 @@ object GtUtahPrivate {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** the land data on this tablet: a non-Utah import places an EMPTY file on purpose, so under 1 MB = not there. */
-    fun haveData(): Boolean = OwnershipReclass.ownershipFile().let { it.exists() && it.length() >= 1_000_000L }
+    // PRUNEUGRC-2026-11-02: the UGRC file is gone; land is moving to the public-lands data (PAD-US) that comes with each state import.
+    fun haveData(): Boolean = false
     fun dataLine(): String {
-        val f = OwnershipReclass.ownershipFile()
-        return if (!haveData()) "Utah land ownership data: not on this tablet \u2014 it is downloaded first (about 75 MB, needs internet)."
-        else "Utah land ownership data on this tablet: " + (f.length() / 1_048_576L) + " MB, from " +
-            SimpleDateFormat("MMM d, yyyy", Locale.US).format(Date(f.lastModified())) + "."
+        return "Land assignment is moving to the public-lands data (PAD-US) that comes with each state import \u2014 not available in this build."   // PRUNEUGRC-2026-11-02
     }
-
     fun start(download: Boolean) {
         if (busy.value) return
         busy.value = true; result.value = ""; progress.value = -1f
@@ -77,40 +74,11 @@ object GtUtahPrivate {
         }
     }
 
-    // UTAHONCE-2026-10-25: the one-time run for upgrading tablets (see StartupHousekeeping). A marker on purpose (Fred 10-25 21:05).
-    private const val ONCE_MARKER = "utah_private_once_2.7c.done"
-    fun startOnce(ctx: android.content.Context) {
-        try {
-            val marker = java.io.File(com.geeksville.mesh.convoy.SpatialDbManager.dbDir(), ONCE_MARKER)
-            if (marker.exists()) { android.util.Log.i("UtahOnce", "already run on this tablet -- nothing to do"); return }
-            val utah = com.geeksville.mesh.convoy.HomeStateImportController.wholeImportedDates(ctx)["utah"]
-            if (utah == null) { android.util.Log.i("UtahOnce", "no completed Utah state import -- nothing to do"); return }
-            android.util.Log.i("UtahOnce", "Utah state import completed $utah -- assigning private property in 30 s (background)")
-            scope.launch {
-                kotlinx.coroutines.delay(30_000L)   // after the map is up -- never holds the start gate
-                if (busy.value) return@launch
-                if (com.geeksville.mesh.convoy.HomeStateImportController.isImporting) {   // UTAHONCESHOW-2026-10-25: never beside an import
-                    android.util.Log.i("UtahOnce", "an import is running -- not now; the next launch tries again"); return@launch }
-                busy.value = true; result.value = ""; progress.value = -1f
-                once.value = true; open.value = true   // UTAHONCESHOW-2026-10-25: the rider sees it
-                val r = try { work(false) } catch (t: OutOfMemoryError) { "FAILED: out of memory." } catch (t: Exception) { "FAILED: " + t.message }
-                result.value = r; step.value = ""; busy.value = false
-                val ok = !r.startsWith("FAILED") && haveData()
-                android.util.Log.i("UtahOnce", (if (ok) "DONE -- " else "NOT DONE (tries again next launch) -- ") + r.replace('\n', ' '))
-                if (ok) try { marker.writeText(System.currentTimeMillis().toString() + " " + r.replace('\n', ' ')) } catch (_: Exception) { }
-            }
-        } catch (t: Throwable) { android.util.Log.w("UtahOnce", "skipped: ${t.javaClass.simpleName} ${t.message}") }
-    }
-
+    // PRUNEUGRC-2026-11-02: the one-time 2.7c Utah run (UTAHONCE) removed -- code rule 3, "OUT when 2.7d is cut".
     private fun work(download: Boolean): String {
-        val f = OwnershipReclass.ownershipFile()
-        var note = ""
-        if (download || !haveData()) {
-            step.value = "Downloading the Utah land ownership data\u2026"
-            if (!HomeStateImportController.fetchUtahOwnership(f))
-                note = if (haveData()) "\n\nThe download failed \u2014 the data already on this tablet was used."
-                       else "\n\nThe download failed and there is no land data on this tablet \u2014 every trail is public. Try again with internet."
-        }
+        // PRUNEUGRC-2026-11-02: held until step 8 reads PAD-US -- a full pass now would make every trail PUBLIC
+        if (!download || download) return "Not available in this build: land assignment is moving to the public-lands data (PAD-US)."
+        val note = ""
         val s = SpatialDbManager.getSpatialDb()
         val e = SpatialDbManager.getExtensionDb()
         if (s == null || e == null) return "FAILED: the trail databases are not open."
@@ -160,7 +128,7 @@ fun GtUtahPrivatePanel() {
                     GtButton("RUN AGAIN", { GtUtahPrivate.result.value = "" })
                 }
             } else {
-                if (have) Row(Modifier.fillMaxWidth().clickable { latest = !latest }.padding(vertical = 6.dp),
+                if (have && false) Row(Modifier.fillMaxWidth().clickable { latest = !latest }.padding(vertical = 6.dp),   // PRUNEUGRC-2026-11-02: no download
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     GtCheck(latest)
                     Text("Download the latest land ownership data first", color = Gt.text, fontSize = 14.sp)

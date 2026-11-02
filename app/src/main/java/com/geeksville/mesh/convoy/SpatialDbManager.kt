@@ -383,6 +383,16 @@ object SpatialDbManager {
                     try { tileNoMedia.createNewFile() } catch (_: Exception) {}
                 }
             }
+            // IDXSOURCE-2026-11-02: trail_properties had no index on (source_id, source_unique_id), so the import's "do we already have
+            //  this source's trail" lookup read the table from the top for every trail -- each page slower than the last (Utah 11-02).
+            //  Created once; a no-op every launch after.
+            try {
+                val t0 = System.currentTimeMillis()
+                extensionDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_tp_source ON trail_properties(source_id, source_unique_id)")
+                android.util.Log.i(TAG, "IDXSOURCE: trail_properties(source_id, source_unique_id) index ready in ${System.currentTimeMillis() - t0} ms")
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "IDXSOURCE: ${e.message}")
+            }
             // Migrate: add area_downloads if missing (existing DBs)
             if (!hasTable(extensionDb!!, "area_downloads")) {
                 try {

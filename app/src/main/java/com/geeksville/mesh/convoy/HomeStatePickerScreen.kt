@@ -77,6 +77,9 @@ fun HomeStatePickerScreen(
     var areaPicked by remember { mutableStateOf(emptySet<String>()) }
     var areaCat by remember { mutableStateOf(emptyList<CatalogSource>()) }
     var areaCatPicked by remember { mutableStateOf(emptySet<String>()) }
+    // STATEDATA-2026-11-02: the refresh question. Empty list = no question showing (CODE RULE 1: no nullable).
+    var refreshAsk by remember { mutableStateOf(emptyList<GeofabrikState>()) }
+    var refreshThen by remember { mutableStateOf<() -> Unit>({}) }
     val progress by HomeStateImportController.progress.collectAsState()
     // KILLEDIMPORT-2026-10-02: a running import this screen did not start still ends in "done".
     LaunchedEffect(progress?.phase) {
@@ -132,6 +135,10 @@ fun HomeStatePickerScreen(
 
     // AREAPICK-2026-10-24: START -- exactly what is ticked, as THE import (outlives the screen, one at a time), as startImport below.
     fun startArea(bb: DoubleArray) {
+        // STATEDATA-2026-11-02: saved state data over 6 months old -> ask first; the answer brings the rider back here
+        val sdStates = areaHits.filter { it.slug in areaPicked }
+        val sdStale = StateData.staleSlugs(context, sdStates.map { it.slug })
+        if (sdStale.isNotEmpty()) { refreshAsk = sdStates.filter { it.slug in sdStale }; refreshThen = { startArea(bb) }; return }
         if (com.geeksville.mesh.grouptrack.GtUtahPrivate.busy.value) { android.widget.Toast.makeText(context, "Assigning Utah private property is running \u2014 start the import when it finishes.", android.widget.Toast.LENGTH_LONG).show(); return }   // UTAHONCESHOW-2026-10-25
         if (!HomeStateImportController.beginImport()) { phase = "running"; return }
         phase = "running"
@@ -147,8 +154,30 @@ fun HomeStatePickerScreen(
         }
     }
 
+    // STATEDATA-2026-11-02: the refresh question (Fred 10:34 "if more than six months old we ask if they want to refresh")
+    if (refreshAsk.isNotEmpty()) {
+        val ask = refreshAsk
+        val fmt = java.text.SimpleDateFormat("MM-dd-yyyy", java.util.Locale.US)
+        val lines = ask.joinToString("\n") { st ->
+            "${st.name}: ${StateData.ageDays(context, st.slug) / 30} months old (downloaded " +
+                fmt.format(java.util.Date(StateData.downloadedMs(context, st.slug))) + ", ${StateData.sizeMb(context, st.slug)} MB)"
+        }
+        fun go(refresh: Boolean) { StateData.answer(ask.map { it.slug }, refresh); refreshAsk = emptyList(); val t = refreshThen; refreshThen = {}; t() }
+        AlertDialog(
+            onDismissRequest = { refreshAsk = emptyList(); refreshThen = {} },
+            containerColor = Gt.panel,
+            title = { Text("Refresh saved state data?", color = Gt.text, fontWeight = FontWeight.Bold) },
+            text = { Text(lines + "\n\nREFRESH downloads it again (current trails and roads). USE SAVED starts now from the copy on this tablet.", color = Gt.text) },
+            confirmButton = { TextButton(onClick = { go(true) }) { Text("REFRESH", color = Gt.text, fontWeight = FontWeight.Bold) } },
+            dismissButton = { TextButton(onClick = { go(false) }) { Text("USE SAVED", color = Gt.text) } }
+        )
+    }
+
     // ── Launch import ────────────────────────────────────────────
     fun startImport(item: StatePickerItem) {
+        // STATEDATA-2026-11-02: saved state data over 6 months old -> ask first; the answer brings the rider back here
+        val sdStale = StateData.staleSlugs(context, item.entries.map { it.slug })
+        if (sdStale.isNotEmpty()) { refreshAsk = item.entries.filter { it.slug in sdStale }; refreshThen = { startImport(item) }; return }
         if (com.geeksville.mesh.grouptrack.GtUtahPrivate.busy.value) { android.widget.Toast.makeText(context, "Assigning Utah private property is running \u2014 start the import when it finishes.", android.widget.Toast.LENGTH_LONG).show(); return }   // UTAHONCESHOW-2026-10-25
         // ⛔⛔ IMPORTOWNER-2026-09-03: TWO DEFECTS LIVED IN THE THREE LINES THIS
         // REPLACES, and the 09-03 log shows both firing at once.
