@@ -2815,12 +2815,15 @@ fun GroupTrackScreen(
         Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 72.dp)) {   // SHELL7-2026-10-22: the HUD (GPS line + MY CART / GROUP) shows in ONE MAP too, above the bottom bar
             androidx.compose.runtime.CompositionLocalProvider(LocalHudOnDark provides hudOnDark) {   // HUDSCHEME-2026-09-29
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { // GPSPANEL-2026-09-29
-                if (hudMode != HudMode.COLLAPSED && hudMode != HudMode.HIDDEN) GpsLocationRow(   // HUDHIDE-2026-11-01: no GPS line when hidden
+                // HUDRIDE-2026-11-01 (Fred 18:56-19:31): the HUD is a ride feature only -- checked in (Group) or recording (Android only).
+                //  The light / dark button is not part of it: it stays on this line, after the GPS items, or alone at the left with no HUD.
+                val onRideHud = recordingState != RecordingState.CHECK_IN
+                GpsLocationRow(showGps = onRideHud && hudMode != HudMode.COLLAPSED && hudMode != HudMode.HIDDEN,   // HUDHIDE-2026-11-01: no GPS line when hidden
                     intervalSecs = gpsNowSecs, channelUtil = avgChannelUtil,
                     onOpen = { if (!GroupMode.on.value) GroupMode.askToActivate() else { viewModel.clearGpsApplyStatus(); showGpsPanel = true } },   // GRPMODE-2026-10-13
                     textWhite = hudOnDark,   // COSMETICS-2026-10-06: the HUD text toggle, beside the interval and meter
                     onToggleText = { viewModel.hudTextWhiteByMap[hudMapKey] = !hudOnDark })
-            when (hudMode) {
+            if (onRideHud || hudMode == HudMode.NODE) when (hudMode) {   // HUDRIDE-2026-11-01: no readout before the ride; a tapped cart still shows
                 HudMode.GROUP -> GroupHud(
                     state = convoyState,
                     onModeChange = { viewModel.setHudMode(it) },
@@ -3527,11 +3530,13 @@ private fun gpsChColor(util: Float): Color = when {
 }
 
 @Composable
-fun GpsLocationRow(intervalSecs: Int, channelUtil: Float, onOpen: () -> Unit,
+fun GpsLocationRow(showGps: Boolean,   // HUDRIDE-2026-11-01: false = only the light / dark button, at the left. Required (CODE RULE 1).
+                   intervalSecs: Int, channelUtil: Float, onOpen: () -> Unit,
                    textWhite: Boolean, onToggleText: () -> Unit) {   // COSMETICS-2026-10-06
     val c = gpsChColor(channelUtil)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.padding(start = 4.dp)) {
+        if (showGps) {   // HUDRIDE-2026-11-01: the GPS items -- ride only
         // the satellite with "GPS" across it -- tap to open "Sent every XX seconds"
         Box(modifier = Modifier.size(54.dp)
                 .alpha(if (GroupMode.on.value) 1f else 0.35f)   // GRPMODE-2026-10-13: greyed while group awareness is off
@@ -3554,6 +3559,7 @@ fun GpsLocationRow(intervalSecs: Int, channelUtil: Float, onOpen: () -> Unit,
                 GpsOutlinedText("%.0f%%".format(channelUtil), c, 18, FontWeight.Black)
             }
         }
+        }   // HUDRIDE-2026-11-01: end of the GPS items; the light / dark button below is always drawn
         // COSMETICS-2026-10-06 (Fred): HUD text colour -- shows the CURRENT text colour; tap to flip it (all three HUDs,
         // this map type, this session).
         Box(modifier = Modifier.size(40.dp)
