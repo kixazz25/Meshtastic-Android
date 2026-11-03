@@ -82,6 +82,9 @@ class MainActivity : ComponentActivity() {
         // Background, best effort, and it can never block a launch.
         // VECCONVERT-2026-10-31: the conversion to one map decides first; when it is not converting it writes the daily recipe
         com.geeksville.mesh.grouptrack.GtMapConversion.startup(this)
+        // LANDSYNC-2026-11-02 (Fred 18:41): trails realigned with the public-lands data, after the map conversion. CODE RULE 3:
+        //  no marker -- this line comes out when the next release is cut (the Map menu item stays).
+        com.geeksville.mesh.grouptrack.GtUtahPrivate.startup(this)
 
         // [Fix2] Session-only: clear convoy saved frame on cold launch so a fresh app
         // start centers on GPS, not last session frame. Once per process (not rotation).

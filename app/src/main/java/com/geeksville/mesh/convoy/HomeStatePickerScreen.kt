@@ -141,7 +141,7 @@ fun HomeStatePickerScreen(
         if (freshData) StateData.answer(sdStates.map { it.slug }, true)   // DATAQUEUE-2026-11-02: fresh data asked -- no 6-month question
         val sdStale = StateData.staleSlugs(context, sdStates.map { it.slug })
         if (sdStale.isNotEmpty()) { refreshAsk = sdStates.filter { it.slug in sdStale }; refreshThen = { startArea(bb) }; return }
-        if (com.geeksville.mesh.grouptrack.GtUtahPrivate.busy.value) { android.widget.Toast.makeText(context, "Assigning Utah private property is running \u2014 start the import when it finishes.", android.widget.Toast.LENGTH_LONG).show(); return }   // UTAHONCESHOW-2026-10-25
+        if (com.geeksville.mesh.grouptrack.GtUtahPrivate.busy.value) { android.widget.Toast.makeText(context, "Updating public / private land is running \u2014 start the import when it finishes.", android.widget.Toast.LENGTH_LONG).show(); return }   // UTAHONCESHOW-2026-10-25
         if (!HomeStateImportController.beginImport()) { phase = "running"; return }
         phase = "running"
         val run = areaHits.filter { it.slug in areaPicked }
@@ -181,7 +181,7 @@ fun HomeStatePickerScreen(
         if (freshData) StateData.answer(item.entries.map { it.slug }, true)   // DATAQUEUE-2026-11-02: fresh data asked -- no 6-month question
         val sdStale = StateData.staleSlugs(context, item.entries.map { it.slug })
         if (sdStale.isNotEmpty()) { refreshAsk = item.entries.filter { it.slug in sdStale }; refreshThen = { startImport(item) }; return }
-        if (com.geeksville.mesh.grouptrack.GtUtahPrivate.busy.value) { android.widget.Toast.makeText(context, "Assigning Utah private property is running \u2014 start the import when it finishes.", android.widget.Toast.LENGTH_LONG).show(); return }   // UTAHONCESHOW-2026-10-25
+        if (com.geeksville.mesh.grouptrack.GtUtahPrivate.busy.value) { android.widget.Toast.makeText(context, "Updating public / private land is running \u2014 start the import when it finishes.", android.widget.Toast.LENGTH_LONG).show(); return }   // UTAHONCESHOW-2026-10-25
         // ⛔⛔ IMPORTOWNER-2026-09-03: TWO DEFECTS LIVED IN THE THREE LINES THIS
         // REPLACES, and the 09-03 log shows both firing at once.
         //

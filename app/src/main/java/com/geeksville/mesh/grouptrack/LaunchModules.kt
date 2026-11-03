@@ -102,7 +102,7 @@ object LaunchModules {
             g("map", "import", "IMPORT MAP FEATURES",
                 "trails_state" to "Import trails by state",
                 "trails_area" to "Import trails by area \u2014 part of a state, or across state borders",   // AREAIMPORT-2026-10-24
-                "utahprivate" to "Assign Utah private property \u2014 which trails are on private land",   // UTAHPRIV-2026-10-24
+                "utahprivate" to "Update public / private land \u2014 align trails with the state\'s public-lands data",   // UTAHPRIV-2026-10-24; LANDSYNC-2026-11-02 (Fred 18:43)
                 "convert" to "Convert files to GPX \u2014 KML, KMZ, GeoJSON",   // MAPIMPORTS-2026-10-30 (Fred 08:33): above the two imports
                 "gpx" to "Import tracks, routes and waypoints from GPX files",   // GPXNAME-2026-11-01 (Fred 07:21)
                 "gpxtrails" to "Import trails from GPX files",   // MAPIMPORTS-2026-10-30 (Fred 08:30); TRAILSNAME-2026-10-30 (Fred 08:49)

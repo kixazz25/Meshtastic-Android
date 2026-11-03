@@ -965,6 +965,19 @@ object HomeStateImportController {
         return out
     }
 
+    /** LANDSYNC-2026-11-02: every state slug this tablet imported, whole or by area (its OSM row completed), from the import records. */
+    fun importedSlugs(ctx: Context): Set<String> {
+        val out = HashSet<String>()
+        for (m in importRecords(ctx)) {
+            val srcs = m.optJSONArray("sources") ?: continue
+            for (i in 0 until srcs.length()) {
+                val o = srcs.optJSONObject(i) ?: continue
+                if (o.optString("id").startsWith("geofabrik_") && o.has("slug") && o.optString("status") == "completed") out.add(o.optString("slug"))
+            }
+        }
+        return out
+    }
+
     /** AREAPICK-2026-10-24: the agency sources an area's list shows -- the same catalog and overlap test the run uses. */
     fun areaCatalogSources(ctx: Context, s: Double, w: Double, n: Double, e: Double): List<CatalogSource> = try {
         loadSourceCatalog(ctx).filter { src ->
