@@ -2930,6 +2930,7 @@ fun GroupTrackScreen(
                     wv?.postDelayed({ wv.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }, 550)
                 },
             )
+        val gtRecipeFile = com.geeksville.mesh.grouptrack.rememberRecipeFile()   // AIFAIL-2026-11-03: Route > Build from a recipe file
         val gtRideImport = rememberRideImport(onDone = {})   // GTRIDES-2026-10-22: Rides › Import a ride (ONE MAP has no menu to close)
         if (docsView == null) com.geeksville.mesh.grouptrack.GroupTrackLaunchLayer(
             onHelp = { name -> docsOpen(name) },
@@ -2969,6 +2970,7 @@ fun GroupTrackScreen(
                 // the rider there. They return when Route+ is hosted in ONE MAP. (gtStartRoute is kept for that.)
                 "route.ai" to { com.geeksville.mesh.grouptrack.GtRoute.startAi() },   // GTAI3-2026-10-23: AI route design -- compare table or a new build
                 "route.manual" to { com.geeksville.mesh.grouptrack.GtRoute.startNew(ROUTE_METHOD_P2P) },   // GTROUTE1-2026-10-23: Build it myself, LOCKED (one mode)
+                "route.recipefile" to { gtRecipeFile() },   // AIFAIL-2026-11-03
                 "route.clear" to { gtClearAsk = true },   // CLEARROUTES-2026-10-22   // GTRIDES (Fred 13:22): ADD ROUTE -- New route or In progress, as +ROUTE
                 // MAPMOVE-2026-10-23: "map.features" (the original Map Features panel) came off the Map menu.
                 "map.queues" to { queuesOpen = true },   // GTMAP: the download queues panel, as is

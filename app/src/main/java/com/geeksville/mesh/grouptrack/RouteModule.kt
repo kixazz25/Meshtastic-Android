@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding   // GTAI2-2026-10-23
 import androidx.compose.foundation.layout.fillMaxSize   // GTAI3-2026-10-23
 import androidx.compose.foundation.layout.fillMaxHeight   // GTAI5-2026-10-23
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width   // PLANTABLE-2026-11-03
 import androidx.compose.ui.draw.clip
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -98,6 +99,13 @@ object GtRoute {
     val resumeReq = mutableStateOf("")   // GTROUTE1F-2026-10-23: a draft to resume ("" = none); served by GtRouteHost
     val recoveryDetected = mutableStateOf(false)
     val notice = mutableStateOf("")            // "" = none (CODE RULE 1)
+    val noticeFilter = mutableStateOf(false)   // AIFAIL-2026-11-03: the notice is a failed AI build -- OPEN FILTER beside OK
+    val noticeAllLand = mutableStateOf(false)  // AIFAIL-2026-11-03 v4: the failed build had a land type hidden -- SHOW ALL LAND AND SEARCH AGAIN
+    val selection = mutableStateOf("")        // AIFAIL-2026-11-03 v5: the plan's trails selected / left out ("" = not counted yet)
+    val checks = mutableStateOf("")           // AIFAILCHECK-2026-11-03: the plan's CHECKS BEFORE THE SEARCH ("" = not run)
+    val trailheadOk = mutableStateOf(true)     // AIFAILCHECK-2026-11-03: a shown trail within 1/2 mile -- false = the search may not start
+    val selTable = mutableStateOf(com.geeksville.mesh.convoy.RouteExplorer.SelTable())   // PLANTABLE-2026-11-03: the plan's trail table
+    val filterPeek = mutableStateOf(false)     // AIFAIL-2026-11-03 v3: FILTER open over the AI plan -- the plan waits behind BACK TO THE PLAN
     val saveOrigName = mutableStateOf("")
     val thPrompt = mutableStateOf(false)
     val thName = mutableStateOf("")
@@ -198,6 +206,7 @@ object GtRoute {
     /** GTAI3: Route panel › AI route design, or the selector's "+ AI route design". NOTHING IS DELETED (Fred 13:35, 14:34) --
      *  the planner cleared leftover AI routes and the unnamed draft here; the AI search does not use them. */
     fun startAi() {
+        filterPeek.value = false   // AIFAIL-2026-11-03 v3
         if (routeMode.value) return
         if (RouteDraftStore.hasOpenBatch()) { openCompare(); return }   // an open compare set first, always
         aiProgress.value = ""
@@ -221,12 +230,14 @@ object GtRoute {
 
     /** the planner's pinReset (Start over): back to the trailhead step. */
     fun pinReset() {
+        filterPeek.value = false   // AIFAIL-2026-11-03 v3
         clearPins()
         aiStep.intValue = PIN_STEP_TRAILHEAD
     }
 
     /** the planner's aiCancelBuild: leave the AI flow completely. Nothing on disk is touched. */
     fun aiCancel() {
+        filterPeek.value = false   // AIFAIL-2026-11-03 v3
         clearPins()
         aiStep.intValue = PIN_STEP_NONE
         aiBusy.value = false
@@ -347,8 +358,13 @@ object GtRoute {
                         pinNotice.value = "No trailhead there. Tap the trailhead marker itself, or add one with a long press."
                     } else if (trailsOff || SpatialDbManager.getSpatialDb()?.let {
                             com.geeksville.mesh.convoy.RouteExplorer.nearestShownTrailMeters(it, la, lo) } == null) {
-                        pinNotice.value = "No trail shown on the map within the half-mile circle of this trailhead. Turn trail types " +
-                            "on in the map key, or choose a trailhead closer to a trail."
+                        // AIFAILCHECK-2026-11-03 (Fred 07:16-07:18): 1/2 mile; FILTER, not the map key; a hidden trail inside the ring is named
+                        val hid = SpatialDbManager.getSpatialDb()?.let { com.geeksville.mesh.convoy.RouteExplorer.nearestShownTrailMeters(it, la, lo,
+                            com.geeksville.mesh.convoy.RouteExplorer.TRAILHEAD_CHECK_M, "") }
+                        pinNotice.value = "No trail you are showing is within 1/2 mile of this trailhead (the circle). " +
+                            (if (hid != null) "A trail FILTER is hiding is ${"%.0f".format(hid)} m away: turn its land or trail type on in FILTER, " +
+                                "or choose a trailhead within 1/2 mile of a trail."
+                            else "Choose a trailhead within 1/2 mile of a trail.")
                     } else {
                         pinTrailName.value = fnm
                         pinTrailLat.value = la
@@ -371,8 +387,19 @@ object GtRoute {
      *  pins) loads into the AI flow and opens at the SUMMARY, so the rider reads back what is about to be built. An open AI
      *  compare set comes first, as always. Nothing is deleted. */
     fun buildFromRecipe(ctx: android.content.Context, rid: String) {
-        if (routeMode.value) return
         val r = SpatialDbManager.routeRecipe(rid) ?: return
+        buildFromRecipeJson(ctx, r, false)
+    }
+
+    /**
+     * AIFAIL-2026-11-03: the same from a recipe JSON -- a saved route's (its own FILTER stays: [applyFilter] false), or a recipe file
+     * someone sent with an ISSUE report (Route > Build from a recipe file: [applyFilter] true -- the recipe's FILTER values are set
+     * first, so the search runs on the same trails).
+     */
+    fun buildFromRecipeJson(ctx: android.content.Context, r: org.json.JSONObject, applyFilter: Boolean) {
+        if (routeMode.value) return
+        filterPeek.value = false   // AIFAIL-2026-11-03 v3
+        if (applyFilter) applyRecipeFilter(r)
         if (RouteDraftStore.hasOpenBatch()) { openCompare(); return }
         clearPins()
         val aLat = r.optDouble("anchorLat", 0.0)
@@ -404,6 +431,174 @@ object GtRoute {
         aiStep.intValue = PIN_STEP_SUMMARY
     }
 
+    /** AIFAIL-2026-11-03: the recipe of the search about to run -- every value the rider chose (the batch recipe's keys, so
+     *  Build from recipe reads it), the start's name, and the FILTER panel's values beside the predicate. [finish] null = a loop
+     *  (writeBatch's own convention). */
+    fun currentRecipe(aLat: Double, aLon: Double, aName: String, mLo: Int, mHi: Int, sLo: Int, sHi: Int,
+                      pins: List<Pair<Double, Double>>, finish: Pair<Double, Double>?): org.json.JSONObject {
+        val f = com.geeksville.mesh.convoy.TrailFilterState
+        return org.json.JSONObject()
+            .put("anchorLat", aLat).put("anchorLon", aLon).put("anchorName", aName)
+            .put("milesLow", mLo.toDouble()).put("milesHigh", mHi.toDouble())
+            .put("mphLow", sLo.toDouble()).put("mphHigh", sHi.toDouble())
+            .put("pins", org.json.JSONArray().also { a -> pins.forEach { p -> a.put(org.json.JSONObject().put("lat", p.first).put("lon", p.second)) } })
+            .put("finish", if (finish == null) org.json.JSONObject.NULL else org.json.JSONObject().put("lat", finish.first).put("lon", finish.second))
+            .put("trailFilter", f.whereOrEmpty())
+            .put("filterPanel", org.json.JSONObject().put("land", f.land).put("restricted", f.restricted).put("use", f.use)
+                .put("off", org.json.JSONArray(f.off.toList().sorted())))
+    }
+
+    /** AIFAIL-2026-11-03: a recipe's FILTER panel values set on this tablet (a recipe with none leaves FILTER as it is). */
+    fun applyRecipeFilter(r: org.json.JSONObject) {
+        val fp = r.optJSONObject("filterPanel") ?: return
+        val f = com.geeksville.mesh.convoy.TrailFilterState
+        f.setLand(fp.optString("land", "PUBLIC"))
+        f.setRestricted(fp.optBoolean("restricted", true))
+        f.setUse(fp.optString("use", "ALL"))
+        f.setGroup(f.off.toList(), true)
+        val off = fp.optJSONArray("off")
+        if (off != null) f.setGroup((0 until off.length()).map { off.optString(it) }, false)
+        android.util.Log.i("RouteExplorer", "AIFAIL: recipe FILTER applied -- ${f.whereOrEmpty()}")
+    }
+
+    /** AIFAIL-2026-11-03 (Fred 06:48): every value of a recipe as text -- start (name + GPS), miles, mph, finish, places, trail selection. */
+    fun recipeText(r: org.json.JSONObject): String {
+        val la = r.optDouble("anchorLat", 0.0); val lo = r.optDouble("anchorLon", 0.0)
+        fun ll(a: Double, b: Double) = "%.5f, %.5f".format(a, b)
+        val nm = r.optString("anchorName", "").takeIf { it.isNotEmpty() && it != "null" } ?: (SpatialDbManager.waypointNameAt(la, lo) ?: "unnamed point")
+        val fin = r.optJSONObject("finish")
+        val ps = r.optJSONArray("pins")
+        val pinTxt = if (ps == null || ps.length() == 0) "none" else
+            (0 until ps.length()).joinToString("; ") { i -> ps.optJSONObject(i)?.let { ll(it.optDouble("lat", 0.0), it.optDouble("lon", 0.0)) } ?: "?" }
+        val fp = r.optJSONObject("filterPanel")
+        val sel = if (fp == null) "filter " + r.optString("trailFilter", "not recorded") else selectionText(fp)
+        return "Start: $nm (${ll(la, lo)})\n" +
+            "Distance: ${r.optInt("milesLow")}-${r.optInt("milesHigh")} miles\n" +
+            "Speed: ${r.optInt("mphLow")}-${r.optInt("mphHigh")} mph\n" +
+            "Finish: " + (if (fin == null) "back at the start (loop)" else "at " + ll(fin.optDouble("lat", 0.0), fin.optDouble("lon", 0.0))) + "\n" +
+            "Places to include: $pinTxt\n" +
+            "Trail selection: $sel"
+    }
+
+    /** AIFAIL-2026-11-03 v3: the FILTER panel's values as words (a recipe's, or this tablet's now). */
+    fun selectionText(fp: org.json.JSONObject): String {
+        run {
+            val land = fp.optString("land", "PUBLIC")
+            val shown = listOfNotNull(if (land != "PRIVATE") "Public" else null, if (land != "PUBLIC") "Private" else null,
+                if (fp.optBoolean("restricted", true)) "Restricted" else null)
+            val offA = fp.optJSONArray("off")
+            val hidden = (if (offA == null) emptyList() else (0 until offA.length()).map { offA.optString(it) })
+                .map { if (it == com.geeksville.mesh.convoy.TrailFilterState.ROW_UNOFFICIAL) "unofficial / uncertain" else it }.sorted()
+            return "land shown " + shown.joinToString(", ").ifEmpty { "none" } + "; trail types hidden " + hidden.joinToString(", ").ifEmpty { "none" } +
+                (if (fp.optString("use", "ALL") != "ALL") "; " + fp.optString("use").lowercase() + " only" else "")
+        }
+    }
+
+    /** AIFAIL-2026-11-03 v4 (Fred 06:52): one tap -- Public, Private and Restricted on, the map redrawn, the same search again. */
+    fun showAllLandAndSearch(ctx: android.content.Context) {
+        val f = com.geeksville.mesh.convoy.TrailFilterState
+        f.setLand("ALL"); f.setRestricted(true)
+        GtOpenModule.trailsTick.intValue++
+        notice.value = ""; noticeFilter.value = false; noticeAllLand.value = false
+        android.util.Log.i("RouteExplorer", "AIFAIL: all land on, searching again -- ${f.whereOrEmpty()}")
+        findRides(ctx)
+    }
+
+    /** AIFAIL-2026-11-03 v5 (Fred 06:54): count the plan's trails selected / left out for the current start, distance and FILTER. */
+    fun refreshSelection() {
+        val req = com.geeksville.mesh.convoy.RouteExplorer.Request(anchorLat = pinTrailLat.value, anchorLon = pinTrailLon.value,
+            name = pinRideName.value, milesLow = pinMiLow.intValue.toDouble(), milesHigh = pinMiHigh.intValue.toDouble(),
+            mphLow = pinMphLow.intValue.toDouble(), mphHigh = pinMphHigh.intValue.toDouble(), includePoints = pinPoints.value)
+        checks.value = "CHECKS BEFORE THE SEARCH\nchecking…"; trailheadOk.value = true   // AIFAILCHECK-2026-11-03
+        Thread {
+            val db = SpatialDbManager.getSpatialDb()
+            selection.value = if (db == null) "" else com.geeksville.mesh.convoy.RouteExplorer.selectionBreakdown(db, req)
+            selTable.value = if (db == null) com.geeksville.mesh.convoy.RouteExplorer.SelTable() else com.geeksville.mesh.convoy.RouteExplorer.selectionTable(db, req)   // PLANTABLE-2026-11-03
+            // AIFAILCHECK-2026-11-03 (Fred 07:14-07:18): the two common failures, before the search
+            if (db != null) try {
+                val RX = com.geeksville.mesh.convoy.RouteExplorer
+                val near = RX.nearestShownTrailMeters(db, req.anchorLat, req.anchorLon)
+                val c1 = if (near != null) "✓ Trailhead is ${"%.0f".format(near)} m from a trail you are showing" else {
+                    val hid = RX.nearestShownTrailMeters(db, req.anchorLat, req.anchorLon, RX.TRAILHEAD_CHECK_M, "")
+                    "✗ No trail you are showing is within 1/2 mile of the trailhead -- " +
+                        (if (hid != null) "a trail FILTER is hiding is ${"%.0f".format(hid)} m away (SEE / CHANGE FILTER)" else "START OVER with another trailhead")
+                }
+                val mi = if (near == null) 0.0 else RX.connectedMiles(db, req)
+                val lo = req.milesLow.toInt(); val hi = req.milesHigh.toInt()
+                val c2 = when {
+                    near == null || mi < 0 -> ""
+                    mi >= req.milesLow -> "✓ Connected trails from the trailhead: ${mi.toInt()} mi"
+                    mi >= req.milesLow / 2 -> "⚠ Connected trails from the trailhead: ${mi.toInt()} mi -- short for $lo-$hi mi; rides may repeat trails or none may fit"
+                    else -> "✗ Connected trails from the trailhead: ${mi.toInt()} mi -- not enough for $lo-$hi mi. Lower the distance, or SEE / CHANGE FILTER"
+                }
+                trailheadOk.value = near != null
+                checks.value = "CHECKS BEFORE THE SEARCH\n$c1" + (if (c2.isNotEmpty()) "\n$c2" else "")
+            } catch (e: Exception) { checks.value = ""; trailheadOk.value = true; android.util.Log.w("RouteExplorer", "AIFAILCHECK: ${e.message}") }
+        }.start()
+    }
+
+    /** AIFAILCHECK-2026-11-03: the AI plan ("I am about to design ...") is on screen -- not searching. */
+    fun planShowing(): Boolean = routeMode.value && aiStep.intValue == PIN_STEP_SUMMARY && !aiBusy.value
+
+    /** AIFAILCHECK-2026-11-03: the plan on screen as a recipe -- the same keys as a search's. */
+    fun planRecipe(): org.json.JSONObject = currentRecipe(pinTrailLat.value, pinTrailLon.value, pinTrailName.value,
+        pinMiLow.intValue, pinMiHigh.intValue, pinMphLow.intValue, pinMphHigh.intValue, pinPoints.value,
+        if (pinIsLoop.value == false) pinEndLat.value to pinEndLon.value else null)
+
+    private fun planText(): String = recipeText(planRecipe()) + (if (checks.value.isNotEmpty()) "\n" + checks.value else "") +
+        (if (selection.value.isNotEmpty()) "\n" + selection.value else "")
+
+    /** AIFAILCHECK-2026-11-03 (Fred 06:59): what an ISSUE from the Route screens carries -- the plan on screen, else the last search. */
+    fun issueText(): String = if (planShowing())
+        "AI route plan on screen (not searched yet):\n" + planText() + "\n\n" + RouteDraftStore.lastSearchText()
+        else RouteDraftStore.lastSearchText()
+
+    /** AIFAILCHECK-2026-11-03: the recipe file an ISSUE email attaches -- the plan on screen, else the last search's record. */
+    fun issueRecipeJson(): String = if (planShowing())
+        org.json.JSONObject().put("plan", "on screen, not searched yet").put("at", java.time.Instant.now().toString())
+            .put("searched", planText()).put("recipe", planRecipe()).toString(2)
+        else RouteDraftStore.lastSearchJson()
+
+    /** PLANTABLE-2026-11-03 v2 (Fred 07:43): the plan's table changes FILTER directly -- the map redraws, the table is counted again. */
+    private fun filterChanged() { GtOpenModule.trailsTick.intValue++; refreshSelection() }
+    fun toggleType(t: String) { com.geeksville.mesh.convoy.TrailFilterState.toggleCategory(t); filterChanged() }
+    fun toggleUse(label: String) {
+        val f = com.geeksville.mesh.convoy.TrailFilterState
+        val motor = label == "Motorized"
+        if (!motor && label != "Non-motorized") return
+        val mOn = f.use != "NON-MOTORIZED"; val nOn = f.use != "MOTORIZED"
+        val m2 = if (motor) !mOn else mOn; val n2 = if (motor) nOn else !nOn
+        if (!m2 && !n2) return   // at least one use stays on
+        f.setUse(if (m2 && n2) "ALL" else if (m2) "MOTORIZED" else "NON-MOTORIZED"); filterChanged()
+    }
+    fun toggleLand(pub: Boolean) {
+        val f = com.geeksville.mesh.convoy.TrailFilterState
+        val p = f.land != "PRIVATE"; val q = f.land != "PUBLIC"
+        val p2 = if (pub) !p else p; val q2 = if (pub) q else !q
+        if (!p2 && !q2) return   // at least one land type stays on (as FILTER itself)
+        f.setLand(if (p2 && q2) "ALL" else if (p2) "PUBLIC" else "PRIVATE"); filterChanged()
+    }
+    fun toggleRestricted() { com.geeksville.mesh.convoy.TrailFilterState.setRestricted(!com.geeksville.mesh.convoy.TrailFilterState.restricted); filterChanged() }
+
+    /** AIFAIL-2026-11-03 v3: this tablet's FILTER now, as words. */
+    fun filterNow(): String {
+        val f = com.geeksville.mesh.convoy.TrailFilterState
+        return selectionText(org.json.JSONObject().put("land", f.land).put("restricted", f.restricted).put("use", f.use)
+            .put("off", org.json.JSONArray(f.off.toList())))
+    }
+
+    /** AIFAIL-2026-11-03: what the last search worked on. */
+    fun statsText(): String {
+        val st = com.geeksville.mesh.convoy.RouteExplorer.lastStats
+        fun n(v: Int) = if (v < 0) "not reached" else "%,d".format(v)
+        return "Search area: ${st.areaMi.ifEmpty { "not reached" }}\n" +
+            "Trails read: ${n(st.trails)}\n" +
+            "Trail network from the start: ${n(st.junctions)} junctions in ${n(st.networks)} network(s)\n" +
+            "Features in reach: ${n(st.features)}" +
+            (if (st.omitted.isNotEmpty()) "\nLeft out by FILTER (trails in the search area; a trail can count twice): ${st.omitted}" else "") +
+            (if (st.stop.isNotEmpty()) "\nStopped: ${st.stop}" else "")
+    }
+
     /** the planner's FIND MY RIDES, copied: the search builds the routes and records the compare set; then the COMPARE TABLE
      *  opens on them (ONE MAP goes straight there -- the planner's results panel in between is not copied). */
     fun findRides(ctx: android.content.Context) {
@@ -414,6 +609,7 @@ object GtRoute {
         val aLat = pinTrailLat.value
         val aLon = pinTrailLon.value
         val rn = pinRideName.value
+        val aName = pinTrailName.value   // AIFAIL-2026-11-03
         val mLo = pinMiLow.intValue; val mHi = pinMiHigh.intValue
         val sLo = pinMphLow.intValue; val sHi = pinMphHigh.intValue
         val pins = pinPoints.value
@@ -422,6 +618,7 @@ object GtRoute {
         Thread {
             var made = 0
             var err = ""
+            var summary = ""   // AIFAIL-2026-11-03
             try {
                 SpatialDbManager.init(ctx)
                 val db = SpatialDbManager.getSpatialDb()
@@ -449,14 +646,26 @@ object GtRoute {
                     RouteDraftStore.recordSearchOutcome(out.size, RouteDraftStore.readBatch()?.optString("batchName") == rn, null)
                     RouteDraftStore.traceCompare("AI search end (ONE MAP)", "made " + out.size + " route(s) for '" + rn + "'")
                     made = out.size
+                    // AIFAIL-2026-11-03: the recipe and what the search worked on -- kept and logged, success or not
+                    val recipe = currentRecipe(aLat, aLon, aName, mLo, mHi, sLo, sHi, pins, if (loop == false) eLat to eLon else null)
+                    summary = recipeText(recipe) + "\n" + statsText()
+                    RouteDraftStore.recordSearchDetail(summary, recipe)
+                    android.util.Log.i("RouteExplorer", "AISEARCH: ${out.size} route(s) | " + summary.replace("\n", " | "))
                 }
             } catch (e: Exception) {
                 android.util.Log.e("RouteExplorer", "explore failed", e)
                 RouteDraftStore.recordSearchOutcome(-1, false, e.message ?: e.toString())
+                runCatching {   // AIFAIL-2026-11-03: a failed search keeps its recipe too
+                    val recipe = currentRecipe(aLat, aLon, aName, mLo, mHi, sLo, sHi, pins, if (loop == false) eLat to eLon else null)
+                    summary = recipeText(recipe) + "\n" + statsText()
+                    RouteDraftStore.recordSearchDetail(summary, recipe)
+                    android.util.Log.i("RouteExplorer", "AISEARCH: error | " + summary.replace("\n", " | "))
+                }
                 err = "Could not build rides: " + (e.message ?: "error")
             }
             val fMade = made
             val fErr = err
+            val fSum = summary   // AIFAIL-2026-11-03
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 aiBusy.value = false
                 if (fMade > 0 && RouteDraftStore.hasOpenBatch()) {
@@ -470,8 +679,22 @@ object GtRoute {
                 } else {
                     // VISIBLE: back to the summary with the reason -- Start over or Cancel build from there.
                     aiStep.intValue = PIN_STEP_SUMMARY
-                    notice.value = if (fErr.isNotEmpty()) fErr else "No rides could be built from that trailhead and distance. " +
-                        "Try Start over with another trailhead or a different distance."
+                    // AIFAIL-2026-11-03 (Fred 11-02): the full recipe and what was searched; with any land type hidden, lead with the one
+                    //  change that guarantees results -- Public, Private and Restricted on ("private on guarantees results"); OPEN FILTER.
+                    val tf = com.geeksville.mesh.convoy.TrailFilterState
+                    val allLand = tf.land != "PUBLIC" && tf.land != "PRIVATE" && tf.restricted
+                    noticeFilter.value = true
+                    noticeAllLand.value = !allLand   // AIFAIL-2026-11-03 v4
+                    notice.value = (if (fErr.isNotEmpty()) fErr + "\n\n" else "No rides could be built from that trailhead and distance.\n\n") +
+                        (if (!allLand) "Some land types are hidden. Turn on Public, Private and Restricted in FILTER and search again: " +
+                            "every trail is then searched, and the map shows which parts cross private land and which are closed to " +
+                            "motor vehicles.\n\n"
+                        else "Try Start over with another trailhead or a different distance.\n\n") +
+                        "What was searched:\n" + fSum.ifEmpty { "(not recorded)" } +
+                        (if (selection.value.isNotEmpty()) "\n\nTrails in this search:\n" + selection.value else "") +
+                        (if (!allLand) "\n\nSHOW ALL LAND AND SEARCH AGAIN does that in one tap. " else "\n\n") +
+                        "OPEN FILTER to see or change the trail selection, then BACK TO THE PLAN to search again. " +
+                        "To report it, tap ISSUE: the report carries this search and its recipe."
                 }
             }
         }.start()
@@ -777,16 +1000,14 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                 val pts = R.pinPoints.value
                 val hrLo = miLo.toDouble() / mphHi.toDouble()
                 val hrHi = miHi.toDouble() / mphLo.toDouble()
-                val summary =
-                    "I am about to design a route beginning at " + thName.ifBlank { "your trailhead" } +
-                        ", extending for between " + miLo + " and " + miHi +
-                        (if (isLoop == false) " miles and finishing where you marked the end. The ride duration "
-                         else " miles and returning to where it started. The ride duration ") +
-                        "is estimated at " + Math.round(hrLo) + " to " + Math.round(hrHi) +
-                        " hours at " + mphLo + " to " + mphHi + " mph, which already includes stops and break pauses.\n\n" +
-                        "Results depend on the trails available on this device.\n\n" +
-                        "I will favour rides that pass named features and that avoid riding the same trail twice, and will " +
-                        "bring back up to four alternatives for you to compare."
+                // AIFAIL-2026-11-03 v5 (Fred 06:54): the trails selected / left out, counted again when the start, distance or FILTER changes
+                val selKey = "" + R.pinTrailLat.value + "," + R.pinTrailLon.value + "," + miLo + "," + miHi + "," + com.geeksville.mesh.convoy.TrailFilterState.whereOrEmpty() + R.filterPeek.value
+                androidx.compose.runtime.LaunchedEffect(selKey, step) { if (step >= PIN_STEP_SUMMARY) R.refreshSelection() }
+                // PLANTABLE-2026-11-03 (Fred 07:39-07:41): the plan in one line, then the checks; the trail table is drawn below it
+                val summary = thName.ifBlank { "Your trailhead" } + " · " + miLo + "–" + miHi + " mi · " + mphLo + "–" + mphHi +
+                    " mph · about " + Math.round(hrLo) + "–" + Math.round(hrHi) + " h with stops · " +
+                    (if (isLoop == false) "finishes at your end point" else "loop back to the start") +
+                    (if (R.checks.value.isNotEmpty()) "\n\n" + R.checks.value else "")
                 val GS = com.geeksville.mesh.convoy.GP_STATE_TODO
                 val GC = com.geeksville.mesh.convoy.GP_STATE_CURRENT
                 val GD = com.geeksville.mesh.convoy.GP_STATE_DONE
@@ -900,13 +1121,25 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                         },
                         modifier = Modifier.align(Alignment.BottomCenter)
                     )
+                } else if (R.filterPeek.value) {
+                    // AIFAIL-2026-11-03 v3 (Fred 06:51): FILTER is open over the map -- the plan waits; this brings it back to search again
+                    GtButton("BACK TO THE PLAN", { R.filterPeek.value = false },
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp))
                 } else {
                     GtGuidedSummaryPanel(   /* GTAI4 */
                         title = R.pinRideName.value,
                         body = summary,
+                        onFilter = { R.filterPeek.value = true; GtOpenModule.req.value = "filter" },   // AIFAIL-2026-11-03 v3
+                        details = { GtTrailTable(R.selTable.value) },   // PLANTABLE-2026-11-03
                         working = step == PIN_STEP_SEARCH,
                         progress = R.aiProgress.value,
-                        onProceed = { if (!R.aiBusy.value) actions.firstOrNull()?.second?.invoke() },
+                        // AIFAILCHECK-2026-11-03 (Fred 07:16): no search from a trailhead with no shown trail within 1/2 mile
+                        onProceed = { if (!R.aiBusy.value) {
+                            if (R.trailheadOk.value) actions.firstOrNull()?.second?.invoke()
+                            else { R.noticeFilter.value = true; R.noticeAllLand.value = false
+                                R.notice.value = R.checks.value + "\n\nThe search cannot start: the trailhead must be within 1/2 mile of a trail you " +
+                                    "are showing. OPEN FILTER to show more trails, or START OVER with another trailhead." }
+                        } },
                         onStartOver = { if (!R.aiBusy.value) R.pinReset() },
                         onCancelBuild = { if (!R.aiBusy.value) R.aiCancel() }
                     )
@@ -1143,10 +1376,19 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
     // ── notice ──
     if (R.notice.value.isNotEmpty()) {
         AlertDialog(
-            onDismissRequest = { R.notice.value = "" },
-            title = { GtDialogTitle("Route", "route", { R.notice.value = "" }) },
-            text = { Text(R.notice.value) },
-            confirmButton = { TextButton(onClick = { R.notice.value = "" }) { Text("OK") } }   // GTAI2-2026-10-23: the stage-1 OK path is gone
+            onDismissRequest = { R.notice.value = ""; R.noticeFilter.value = false },
+            title = { GtDialogTitle("Route", "route", { R.notice.value = ""; R.noticeFilter.value = false }) },
+            text = { androidx.compose.foundation.layout.Column(Modifier.verticalScroll(rememberScrollState())) { Text(R.notice.value) } },   // AIFAIL-2026-11-03: long text scrolls
+            confirmButton = {
+                val nctx = androidx.compose.ui.platform.LocalContext.current
+                androidx.compose.foundation.layout.Row {
+                    // AIFAIL-2026-11-03 v4 (Fred 06:52): one tap -- all land on, search again
+                    if (R.noticeAllLand.value) TextButton(onClick = { R.showAllLandAndSearch(nctx) }) { Text("SHOW ALL LAND AND SEARCH AGAIN") }
+                    TextButton(onClick = { R.notice.value = ""; R.noticeFilter.value = false; R.noticeAllLand.value = false }) { Text("OK") }   // GTAI2-2026-10-23: the stage-1 OK path is gone
+                }
+            },
+            // AIFAIL-2026-11-03: a failed AI build -- OPEN FILTER beside OK
+            dismissButton = { if (R.noticeFilter.value) TextButton(onClick = { R.notice.value = ""; R.noticeFilter.value = false; R.noticeAllLand.value = false; R.filterPeek.value = true; GtOpenModule.req.value = "filter" }) { Text("OPEN FILTER") } },
         )
     }
 
@@ -1315,4 +1557,112 @@ private fun gpNearestTrailhead(lat: Double, lon: Double, withinMi: Double): Map<
         if (mi <= bestMi) { bestMi = mi; best = w }
     }
     return best
+}
+
+/**
+ * AIFAIL-2026-11-03 (Fred 06:48): Route > Build from a recipe file -- the recipe an ISSUE report attached (issue_..._ai_recipe.json,
+ * or any JSON holding a route recipe). Its FILTER values are set, the AI build opens at its summary; FIND MY RIDES repeats the search.
+ */
+@androidx.compose.runtime.Composable
+fun rememberRecipeFile(): () -> Unit {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            val msg = try {
+                val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                    ?: throw IllegalStateException("could not read the file")
+                val o = org.json.JSONObject(text)
+                val r = o.optJSONObject("recipe") ?: o
+                if (!r.has("anchorLat") || !r.has("milesHigh")) "That file is not a GroupTrack route recipe."
+                else { GtRoute.buildFromRecipeJson(context, r, true); "" }
+            } catch (e: Exception) {
+                "Could not read the recipe: ${e.message}"
+            }
+            if (msg.isNotEmpty()) android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+    val notice = com.geeksville.mesh.convoy.rememberPickerNotice("to choose the route recipe file (.json) you were sent", "file")
+    return { notice.ask { picker.launch(arrayOf("*/*")) } }
+}
+
+/**
+ * PLANTABLE-2026-11-03 (Fred 07:39-07:41, mockup approved): the plan's trail table -- by use, one line per trail type with yes / no and
+ * its public / private counts in the search area; GREEN = included in the search, RED = left out. SEE / CHANGE FILTER changes it.
+ */
+@androidx.compose.runtime.Composable
+fun GtTrailTable(t: com.geeksville.mesh.convoy.RouteExplorer.SelTable) {
+    // PLANCHECK-2026-11-03 (Fred 08:28): a tick box in front of every line -- ticked = included (green numbers), unticked = left out
+    //  (red); the box or the line changes FILTER, the map redraws, the numbers recolour.
+    val sc = GtScheme.current.value
+    val inc = sc.good; val out = sc.bad; val txt = sc.panelText
+    fun fmt(n: Int) = "%,d".format(n)
+    val bold = androidx.compose.ui.text.font.FontWeight.Bold
+    val end = androidx.compose.ui.text.style.TextAlign.End
+    val gap = Modifier.width(8.dp)
+    // PLANTOAST-2026-11-03 (Fred 08:30): every tap says what changed in FILTER
+    val tctx = androidx.compose.ui.platform.LocalContext.current
+    fun said(msg: String) = android.widget.Toast.makeText(tctx, msg, android.widget.Toast.LENGTH_SHORT).show()
+    val tf = com.geeksville.mesh.convoy.TrailFilterState
+    fun landTap(pub: Boolean) {
+        val before = tf.land
+        GtRoute.toggleLand(pub)
+        if (tf.land == before) said("At least one land type stays on")
+        else said("FILTER changed: " + (if (pub) "Public" else "Private") + " land " +
+            (if ((if (pub) tf.land != "PRIVATE" else tf.land != "PUBLIC")) "included" else "left out"))
+    }
+    fun useTap(u: String) {
+        val before = tf.use
+        GtRoute.toggleUse(u)
+        if (tf.use == before) said("At least one use stays on")
+        else said("FILTER changed: $u " + (if ((if (u == "Motorized") tf.use != "NON-MOTORIZED" else tf.use != "MOTORIZED")) "included" else "left out"))
+    }
+    fun typeTap(ty: String) { GtRoute.toggleType(ty); said("FILTER changed: $ty " + (if (tf.isOn(ty)) "included" else "left out")) }
+    fun rstTap() { GtRoute.toggleRestricted(); said("FILTER changed: Restricted " + (if (tf.restricted) "included" else "left out")) }
+    Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        if (t.total == 0) { Text("Counting the trails…", color = txt, fontSize = 13.sp); return@Column }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("TRAILS IN THE SEARCH AREA (" + t.area + ")", color = txt, fontSize = 12.sp, fontWeight = bold, modifier = Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(96.dp).clickable { landTap(true) }) {
+                GtCheck(t.publicOn); Spacer(gap); Text("Public", color = txt, fontSize = 12.sp, fontWeight = bold) }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(96.dp).clickable { landTap(false) }) {
+                GtCheck(t.privateOn); Spacer(gap); Text("Private", color = txt, fontSize = 12.sp, fontWeight = bold) }
+        }
+        var lastUse = ""
+        for (r in t.rows) {
+            if (r.use != lastUse) {
+                lastUse = r.use
+                val u = r.use
+                val switchable = u == "Motorized" || u == "Non-motorized"
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clickable(enabled = switchable) { useTap(u) }) {
+                    if (switchable) { GtCheck(r.useOn); Spacer(gap) }
+                    Text(if (switchable) u else "$u (always searched)", color = txt, fontSize = 13.sp, fontWeight = bold)
+                }
+            }
+            val ty = r.type
+            val pubIn = r.useOn && r.typeOn && t.publicOn
+            val privIn = r.useOn && r.typeOn && t.privateOn
+            Row(verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(top = 3.dp).clickable { typeTap(ty) }) {
+                Spacer(Modifier.width(24.dp))
+                GtCheck(r.typeOn); Spacer(gap)
+                Text(r.type, color = txt, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text(fmt(r.pub), color = if (pubIn) inc else out, fontSize = 13.sp, fontWeight = bold, textAlign = end, modifier = Modifier.width(96.dp))
+                Text(fmt(r.priv), color = if (privIn) inc else out, fontSize = 13.sp, fontWeight = bold, textAlign = end, modifier = Modifier.width(96.dp))
+            }
+        }
+        if (t.restricted > 0) Row(verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clickable { rstTap() }) {
+            GtCheck(t.restrictedOn); Spacer(gap)
+            Text("Restricted (closed to motor vehicles)", color = txt, fontSize = 13.sp, fontWeight = bold, modifier = Modifier.weight(1f))
+            Text(fmt(t.restricted), color = if (t.restrictedOn) inc else out, fontSize = 13.sp, fontWeight = bold,
+                textAlign = end, modifier = Modifier.width(96.dp))
+        }
+        Text(fmt(t.searched) + " searched · " + fmt(t.total - t.searched) + " left out", color = txt, fontSize = 13.sp, fontWeight = bold,
+            modifier = Modifier.padding(top = 10.dp))
+        Text("Green numbers are included, red are left out. Tick a box to include those trails — SEE / CHANGE FILTER for " +
+            "everything else.", color = txt, fontSize = 11.sp)
+    }
 }

@@ -130,7 +130,9 @@ object GtIssue {
         val ver = runCatching { com.geeksville.mesh.BuildConfig.VERSION_NAME + " (" + com.geeksville.mesh.BuildConfig.VERSION_CODE + ")" }.getOrDefault("?")
         val mode = runCatching { if (com.geeksville.mesh.convoy.GroupMode.on.value) "Group" else "Android only" }.getOrDefault("?")
         return "Function: $function\nApp: $ver\nMode: $mode\nDevice: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE}\n" +
-            "When: ${stamp.replace('_', ' ')}\nScreens: ${shots.size}\n\nWhat is wrong:\n${note.value.trim()}\n"
+            "When: ${stamp.replace('_', ' ')}\nScreens: ${shots.size}\n\nWhat is wrong:\n${note.value.trim()}\n" +
+            // AIFAIL-2026-11-03 (Fred 11-02 19:34): a report from the Route screens carries the last AI search
+            (if (function.startsWith("route")) "\n" + GtRoute.issueText() + "\n" else "")   // AIFAILCHECK-2026-11-03: the plan on screen, else the last search
     }
 
     /** SEND (email) or SAVE (this tablet). */
@@ -140,8 +142,15 @@ object GtIssue {
         open.value = false
         if (sendsEmail(ctx)) {
             val uris = ArrayList<Uri>(shots.map { FileProvider.getUriForFile(ctx, ctx.packageName + ".provider", it) })
+            // AIFAIL-2026-11-03 (Fred 06:48 "recipe is available but only sent if email issue is opened"): from the Route screens, the last
+            //  AI search's recipe goes with the email -- built again with Route > Build from a recipe file
+            val recipe = if (function.startsWith("route")) GtRoute.issueRecipeJson() else ""   // AIFAILCHECK-2026-11-03
+            if (recipe.isNotEmpty()) runCatching {
+                val rf = File(dir(ctx), "issue_${stamp}_ai_recipe.json"); rf.writeText(recipe)
+                uris.add(FileProvider.getUriForFile(ctx, ctx.packageName + ".provider", rf))
+            }
             val send = Intent(if (uris.size > 1) Intent.ACTION_SEND_MULTIPLE else Intent.ACTION_SEND).apply {
-                type = "image/jpeg"
+                type = if (recipe.isNotEmpty()) "*/*" else "image/jpeg"   // AIFAIL-2026-11-03: pictures + the recipe
                 putExtra(Intent.EXTRA_EMAIL, arrayOf(TO))
                 putExtra(Intent.EXTRA_SUBJECT, "GroupTrack issue \u00b7 $function \u00b7 " +
                     runCatching { com.geeksville.mesh.BuildConfig.VERSION_NAME }.getOrDefault("?"))

@@ -103,6 +103,7 @@ window.updateTrails = function (fc) {
     (gtData.trails.features || []).forEach(function (f) { gtTrailLayerFor(f.properties._d); });
     map.getSource('gt-trails').setData(gtData.trails);
     try { gtRaiseRestricted(); } catch (e) { console.log('RSTDRAW ' + e); }
+    try { if (window.gtAimCheck) window.gtAimCheck(); } catch (e) {}   // AIMCOLOUR-2026-11-03: new trails (a FILTER change) -- the ring checks again
   });
 };
 window.loadTrails = window.updateTrails;

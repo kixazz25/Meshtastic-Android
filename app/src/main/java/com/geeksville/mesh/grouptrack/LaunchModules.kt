@@ -118,6 +118,7 @@ object LaunchModules {
             // ROUTESTART-2026-10-22 (Fred 13:49): TWO choices, each runs the existing Route+ with the method set and locked.
             "manual" to "Build it myself \u2014 tap points, the route follows the trails",
             "ai" to "AI route design \u2014 with your guidance",
+            "recipefile" to "Build from a recipe file \u2014 an AI search sent with an issue report",   // AIFAIL-2026-11-03 (Fred 06:48)
             "clear" to "Clear leftover routes \u2014 in progress and AI compare (asks first)")),   // CLEARROUTES-2026-10-22
         LaunchModule("rides", "Rides", LaunchSlot.BOTTOM_BAR, 3, groupOnly = false, stays = false, processes = p("rides",
             "carts" to "View checked-in carts / change roles",   // SHELL5-2026-10-22 (Fred 10:40): first in Rides

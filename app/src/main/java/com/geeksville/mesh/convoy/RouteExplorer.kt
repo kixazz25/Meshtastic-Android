@@ -163,6 +163,116 @@ object RouteExplorer {
         val lAdj: HashMap<Long, ArrayList<LongArray>>,
     )
 
+    /** AIFAIL-2026-11-03: what the last search worked on -- the failed-build notice, its record and the log. -1 / "" = not reached. */
+    class SearchStats {
+        @Volatile var trails = -1
+        @Volatile var networks = -1
+        @Volatile var junctions = -1
+        @Volatile var features = -1
+        @Volatile var areaMi = ""
+        @Volatile var stop = ""
+        @Volatile var omitted = ""   // trails in the search area FILTER left out, by reason
+    }
+    @Volatile var lastStats = SearchStats()
+        private set
+    @Volatile private var lastTrailsRead = -1
+
+    /** PLANTABLE-2026-11-03 (Fred 07:39-07:41): one line of the plan's trail table -- a trail type under a use, its public and private
+     *  counts in the search area, and whether FILTER includes the type and the use. */
+    data class SelRow(val use: String, val type: String, val pub: Int, val priv: Int, val typeOn: Boolean, val useOn: Boolean)
+
+    /** PLANTABLE-2026-11-03: the plan's trail table. An empty one (no rows, total 0) = not counted yet. */
+    data class SelTable(val area: String = "", val rows: List<SelRow> = emptyList(), val restricted: Int = 0,
+                        val restrictedOn: Boolean = true, val publicOn: Boolean = true, val privateOn: Boolean = false,
+                        val searched: Int = 0, val total: Int = 0)
+
+    /** PLANTABLE-2026-11-03: the trails in [req]'s search area by use and trail type, public / private, against FILTER. */
+    fun selectionTable(db: SQLiteDatabase, req: Request): SelTable = try {
+        val box = corridorBox(req)
+        val f = TrailFilterState
+        val args = arrayOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
+        val m = LinkedHashMap<String, IntArray>()   // "use|type" -> [public, private]
+        var rst = 0; var total = 0
+        db.rawQuery("SELECT COALESCE(use_type,''), COALESCE(carto_code,'shape only'), COALESCE(land_status,'PUBLIC'), COUNT(*) " +
+            "FROM trails WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=? GROUP BY 1,2,3", args).use { c ->
+            while (c.moveToNext()) {
+                val n = c.getInt(3); total += n
+                when (c.getString(2)) {
+                    "RESTRICTED" -> rst += n
+                    else -> { val a = m.getOrPut(c.getString(0) + "|" + c.getString(1)) { IntArray(2) }
+                              if (c.getString(2) == "PRIVATE") a[1] += n else a[0] += n }
+                }
+            }
+        }
+        var searched = 0
+        db.rawQuery("SELECT COUNT(*) FROM trails WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=?" + f.whereOrEmpty(), args)
+            .use { if (it.moveToFirst()) searched = it.getInt(0) }
+        fun useLabel(u: String) = when (u) { "MOTORIZED" -> "Motorized"; "NON-MOTORIZED" -> "Non-motorized"; else -> "Use not recorded" }
+        fun useOrder(u: String) = when (u) { "MOTORIZED" -> 0; "NON-MOTORIZED" -> 1; else -> 2 }
+        fun useOn(u: String) = when (u) { "MOTORIZED" -> f.use != "NON-MOTORIZED"; "NON-MOTORIZED" -> f.use != "MOTORIZED"; else -> true }
+        val rows = m.entries.map { e -> val (u, t) = e.key.split("|", limit = 2).let { it[0] to it[1] }; Triple(u, t, e.value) }
+            .sortedWith(compareBy({ useOrder(it.first) }, { -(it.third[0] + it.third[1]) }))
+            .map { (u, t, a) -> SelRow(useLabel(u), t, a[0], a[1], t !in f.off, useOn(u)) }
+        SelTable("%.0f x %.0f mi".format((box[1] - box[0]) * 69.0, (box[3] - box[2]) * 69.0 * Math.cos(Math.toRadians((box[0] + box[1]) / 2))),
+            rows, rst, f.restricted, f.land != "PRIVATE", f.land != "PUBLIC", searched, total)
+    } catch (e: Exception) { Log.w(TAG, "PLANTABLE: ${e.message}"); SelTable() }
+
+    /**
+     * AIFAIL-2026-11-03 v5 (Fred 06:54): the trails in [req]'s search area by class -- land, use, each trail type -- each selected
+     * (its count) or left out (how many), and the totals searched / left out. For the AI plan, shown all the time. "" on a failure.
+     */
+    fun selectionBreakdown(db: SQLiteDatabase, req: Request): String = try {
+        val box = corridorBox(req)
+        val f = TrailFilterState
+        val args = arrayOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
+        val cat = HashMap<String, Int>(); val land = HashMap<String, Int>(); val use = HashMap<String, Int>()
+        var unoff = 0; var total = 0
+        db.rawQuery("SELECT COALESCE(carto_code,'shape only'), COALESCE(land_status,'PUBLIC'), COALESCE(use_type,''), COALESCE(status,''), COUNT(*) " +
+            "FROM trails WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=? GROUP BY 1,2,3,4", args).use { c ->
+            while (c.moveToNext()) {
+                val n = c.getInt(4); total += n
+                cat[c.getString(0)] = (cat[c.getString(0)] ?: 0) + n
+                land[c.getString(1)] = (land[c.getString(1)] ?: 0) + n
+                use[c.getString(2)] = (use[c.getString(2)] ?: 0) + n
+                if (c.getString(3) == "UNOFFICIAL" || c.getString(3) == "UNCERTAIN") unoff += n
+            }
+        }
+        var searched = 0
+        db.rawQuery("SELECT COUNT(*) FROM trails WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=?" + f.whereOrEmpty(), args)
+            .use { if (it.moveToFirst()) searched = it.getInt(0) }
+        fun fmt(n: Int) = "%,d".format(n)
+        fun item(name: String, on: Boolean, n: Int) = if (on) "✓ $name ${fmt(n)}" else "✗ $name ${fmt(n)} left out"
+        val area = "%.0f x %.0f mi".format((box[1] - box[0]) * 69.0, (box[3] - box[2]) * 69.0 * Math.cos(Math.toRadians((box[0] + box[1]) / 2)))
+        val types = cat.entries.sortedByDescending { it.value }.map { item(it.key, it.key !in f.off, it.value) } +
+            (if (unoff > 0) listOf(item("unofficial / uncertain", TrailFilterState.ROW_UNOFFICIAL !in f.off, unoff)) else emptyList())
+        "Trails in the search area ($area): ${fmt(total)} — ${fmt(searched)} searched, ${fmt(total - searched)} left out\n" +
+            "Land: " + listOf(item("Public", f.land != "PRIVATE", land["PUBLIC"] ?: 0), item("Private", f.land != "PUBLIC", land["PRIVATE"] ?: 0),
+                item("Restricted", f.restricted, land["RESTRICTED"] ?: 0)).joinToString(" · ") + "\n" +
+            "Use: " + listOf(item("Motorized", f.use != "NON-MOTORIZED", use["MOTORIZED"] ?: 0),
+                item("Non-motorized", f.use != "MOTORIZED", use["NON-MOTORIZED"] ?: 0)).joinToString(" · ") + "\n" +
+            "Trail types: " + types.joinToString(" · ")
+    } catch (e: Exception) { Log.w(TAG, "AIFAIL breakdown: ${e.message}"); "" }
+
+    /** AIFAIL-2026-11-03 (Fred 06:51): trails in the search area that FILTER left out of the search, by reason ("" = none). */
+    private fun omittedByFilter(db: SQLiteDatabase, box: DoubleArray): String = try {
+        val f = TrailFilterState
+        val args = arrayOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
+        fun n(extra: String, more: Array<String> = emptyArray()): Int = db.rawQuery(
+            "SELECT COUNT(*) FROM trails WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=? AND " + extra, args + more
+        ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+        val parts = ArrayList<String>()
+        fun add(c: Int, what: String) { if (c > 0) parts.add("%,d %s".format(c, what)) }
+        if (f.land == "PUBLIC") add(n("land_status='PRIVATE'"), "on private land")
+        if (f.land == "PRIVATE") add(n("land_status='PUBLIC'"), "on public land")
+        if (!f.restricted) add(n("land_status='RESTRICTED'"), "restricted")
+        if (f.use == "MOTORIZED" || f.use == "NON-MOTORIZED") add(n("use_type IS NOT NULL AND use_type<>?", arrayOf(f.use)), "not " + f.use.lowercase())
+        for (c in f.off.sorted()) {
+            if (c == TrailFilterState.ROW_UNOFFICIAL) add(n("status IN ('UNOFFICIAL','UNCERTAIN')"), "unofficial / uncertain")
+            else add(n("COALESCE(carto_code,'shape only')=?", arrayOf(c)), c)
+        }
+        parts.joinToString(", ")
+    } catch (e: Exception) { Log.w(TAG, "AIFAIL omitted count: ${e.message}"); "" }
+
     private var cached: Graph? = null
 
     /* GRAPHCOPY-2026-08-29: a cache hit hands back a COPY, never the original.
@@ -265,12 +375,18 @@ object RouteExplorer {
     }
 
     /** RELEASEF-2026-10-08 TRAILHEADNEAR2: the aim ring's radius -- MUST equal showAimRing() in grouptrack_map.html
-     *  (L.circle radius 402, "a quarter mile"; the ring is half a mile across). Change both together. */
-    const val AIM_RING_M = 402.0
+     *  (L.circle radius 402, "a quarter mile"; the ring is half a mile across). Change both together.
+     *  AIFAILCHECK-2026-11-03 (Fred 07:18): 1/2 mile from the trailhead, the ring 1 mile across, cross hairs at the centre --
+     *  vec_ports.js gtAim() (805) is the map's ring now. */
+    const val AIM_RING_M = 805.0
+
+    /** AIFAILCHECK-2026-11-03 v2 (Fred 07:21 "allow an extra 200 meters for fat fingers"): every trailhead check accepts a trail
+     *  this close -- the ring drawn stays AIM_RING_M. */
+    const val TRAILHEAD_CHECK_M = AIM_RING_M + 200.0
 
     /** RELEASEF-2026-10-08 TRAILHEADNEAR2 (Fred): metres from (lat, lon) to the nearest trail the MAP KEY shows -- the
      *  same filter the search routes on -- or null if none within [maxM]. Point-to-segment, local flat projection. */
-    fun nearestShownTrailMeters(db: SQLiteDatabase, lat: Double, lon: Double, maxM: Double = AIM_RING_M,
+    fun nearestShownTrailMeters(db: SQLiteDatabase, lat: Double, lon: Double, maxM: Double = TRAILHEAD_CHECK_M,   // AIFAILCHECK-2026-11-03 v2
                                 filter: String = TrailFilterState.whereOrEmpty()): Double? {
         val ky = 111_320.0
         val kx = 111_320.0 * max(0.1, cos(Math.toRadians(lat)))
@@ -296,6 +412,40 @@ object RouteExplorer {
         Log.i(TAG, "TRAILHEADNEAR2: nearest shown trail " + (if (best == Double.MAX_VALUE) "none" else "%.0f m".format(best)))
         return if (best <= maxM) best else null
     }
+
+    /**
+     * AIFAILCHECK-2026-11-03 (Fred 07:14 "no connecting trails to deliver the mileage range"): miles of trail connected to the trail
+     * nearest the start, inside [req]'s search area, on the trails FILTER shows -- the search's own network (cached: the search
+     * that follows reuses it). 0 when no network or no trail near the start.
+     */
+    fun connectedMiles(db: SQLiteDatabase, req: Request): Double = try {
+        val box = corridorBox(req)
+        var trailCount = 0
+        db.rawQuery("SELECT COUNT(*) FROM trails", null).use { if (it.moveToNext()) trailCount = it.getInt(0) }
+        val g = buildGraph(db, box, trailCount, null)
+        var bd = Double.MAX_VALUE; var start = -1L
+        for (e in g.edges) {
+            for (j in 0 until e.pts.size - 1) {
+                val pr = projectOnSeg(req.anchorLat, req.anchorLon, e.pts[j], e.pts[j + 1])
+                if (pr.second < bd) { bd = pr.second; start = e.u }
+            }
+        }
+        if (start < 0 || bd * 1609.344 > TRAILHEAD_CHECK_M) 0.0 else {
+            val seen = HashSet<Long>(); val q = ArrayDeque<Long>(); val used = HashSet<Long>()
+            seen.add(start); q.add(start)
+            var miles = 0.0
+            while (q.isNotEmpty()) {
+                val n = q.removeFirst()
+                for (a in g.lAdj[n] ?: continue) {
+                    val nb = a[0]; val ei = a[1]
+                    if (used.add(ei) && ei >= 0 && ei < g.edges.size) miles += g.edges[ei.toInt()].miles
+                    if (seen.add(nb)) q.add(nb)
+                }
+            }
+            Log.i(TAG, "AIFAILCHECK: ${"%.0f".format(miles)} mi connected to the start (${seen.size} junctions)")
+            miles
+        }
+    } catch (e: Exception) { Log.w(TAG, "AIFAILCHECK connected miles: ${e.message}"); -1.0 }
 
     /** Snapped grid key. Packs the two cell indices into one Long. */
     private fun cellKey(lat: Double, lon: Double): Long {
@@ -397,6 +547,7 @@ object RouteExplorer {
         // ⚠ The count now reflects the FILTER, so a rider who has hidden half
         // the categories sees a smaller number here. That is the point -- it is
         // the network being searched, not the network that exists.
+        lastTrailsRead = geoms.size   // AIFAIL-2026-11-03 (a cached graph has the same key, so the same count)
         onProgress?.invoke(Progress("Building the trail network", "${geoms.size} trails"))
 
         // pass A: which snapped vertices are shared by 2+ trails -> junctions
@@ -1460,9 +1611,14 @@ object RouteExplorer {
         spatialDb.rawQuery("SELECT COUNT(*) FROM trails", null).use {
             if (it.moveToNext()) trailCount = it.getInt(0)
         }
+        val st = SearchStats(); lastStats = st   // AIFAIL-2026-11-03
+        st.areaMi = "%.0f x %.0f mi".format((box[1] - box[0]) * 69.0, (box[3] - box[2]) * 69.0 * Math.cos(Math.toRadians((box[0] + box[1]) / 2)))
         val g = buildGraph(spatialDb, box, trailCount, onProgress)
+        st.trails = lastTrailsRead
+        st.omitted = omittedByFilter(spatialDb, box)   // AIFAIL-2026-11-03 v3
         if (g.mainComponent.isEmpty()) {
             Log.w(TAG, "no connected network in corridor")
+            st.stop = "no connected trail network in the search area"   // AIFAIL-2026-11-03
             return emptyList()
         }
 
@@ -1544,6 +1700,7 @@ object RouteExplorer {
         }
         val origins = byComp.values.sortedBy { it.second }
         Log.i(TAG, "origins: ${originsAll.size} trail(s) -> ${origins.size} network(s)")
+        st.networks = origins.size   // AIFAIL-2026-11-03
 
         /* ── 4/5. POIs, and the rider's pins as high-value POIs ──────────
          * ⭐ ONE MODEL. A pin is a POI with a high value -- no separate path,
@@ -1610,6 +1767,7 @@ object RouteExplorer {
         }
         var poiNodes = poiAt.keys.toList()
         Log.i(TAG, "poiNodes=${poiNodes.size} usableNodes=${usable.size}")
+        st.junctions = usable.size; st.features = poiNodes.size   // AIFAIL-2026-11-03
 
         /* ── 6. distance matrix ──────────────────────────────────────────*/
         onProgress?.invoke(Progress("Measuring distances"))
@@ -1635,6 +1793,7 @@ object RouteExplorer {
         }
         val liveOrigins = origins.filter { (perOrigin[it.first] ?: emptyList()).isNotEmpty() }
         if (liveOrigins.isEmpty()) {
+            st.stop = "no features within ${req.milesHigh.toInt()} miles of the start and back"   // AIFAIL-2026-11-03
             onProgress?.invoke(Progress("No rides found",
                 "Nothing within ${req.milesHigh.toInt()} miles of here and back."))
             return emptyList()
@@ -1771,6 +1930,7 @@ object RouteExplorer {
             "$gen combos, $killed killed by the pair table, $solved solved")
 
         if (found.isEmpty()) {
+            st.stop = "${poiNodes.size} features here, but no ride of ${req.milesLow.toInt()}-${req.milesHigh.toInt()} miles fits them"   // AIFAIL-2026-11-03
             onProgress?.invoke(Progress("No rides found",
                 "There are ${poiNodes.size} features here but none fit that distance. " +
                     "Try a wider range."))
@@ -1908,6 +2068,7 @@ object RouteExplorer {
             picks.add(Triple(c.eids, c.miles, c.combo))
         }
         if (picks.isEmpty()) {
+            st.stop = "no ride fits ${req.milesLow.toInt()}-${req.milesHigh.toInt()} miles"   // AIFAIL-2026-11-03
             onProgress?.invoke(Progress("No rides found", "Try a wider range."))
             return emptyList()
         }

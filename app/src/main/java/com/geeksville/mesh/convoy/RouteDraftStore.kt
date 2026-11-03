@@ -178,6 +178,25 @@ object RouteDraftStore {
         }.onFailure { Log.w(TAG, "ROUTEFILES: could not record the search outcome: ${it.message}") }
     }
 
+    /** AIFAIL-2026-11-03: the search's RECIPE and what it worked on, kept with its outcome -- success or not (after recordSearchOutcome). */
+    fun recordSearchDetail(text: String, recipe: JSONObject) {
+        runCatching {
+            val f = File(batchDir(), LAST_SEARCH_FILE)
+            val o = if (f.exists()) JSONObject(f.readText()) else JSONObject()
+            o.put("searched", text)
+            o.put("recipe", recipe)
+            f.writeText(o.toString(2))
+        }.onFailure { Log.w(TAG, "ROUTEFILES: could not record the search detail: ${it.message}") }
+    }
+
+    /** AIFAIL-2026-11-03: the last AI search as text, for an ISSUE report ("" when none is recorded). */
+    fun lastSearchText(): String = runCatching {
+        File(batchDir(), LAST_SEARCH_FILE).takeIf { it.exists() }?.readText()?.let { JSONObject(it) }
+    }.getOrNull()?.let { "Last AI route search (" + it.optString("at") + "): " + it.optInt("routes") + " route(s)\n" + it.optString("searched") } ?: ""
+
+    /** AIFAIL-2026-11-03: the last AI search's record as JSON (its recipe inside) -- the ISSUE email's attachment ("" when none). */
+    fun lastSearchJson(): String = runCatching { File(batchDir(), LAST_SEARCH_FILE).takeIf { it.exists() }?.readText() }.getOrNull() ?: ""
+
     /** The plain-text report the Settings screen shows (and shares). Read-only. */
     fun routeFilesReport(): String {
         val sb = StringBuilder()
@@ -190,6 +209,7 @@ object RouteDraftStore {
             sb.append("  routes made: ").append(ls.optInt("routes")).append('\n')
             sb.append("  compare header written: ").append(if (ls.optBoolean("headerWritten")) "yes" else "NO").append('\n')
             if (ls.has("error")) sb.append("  error: ").append(ls.optString("error")).append('\n')
+            if (ls.has("searched")) sb.append("  searched:\n").append(ls.optString("searched").prependIndent("    ")).append('\n')   // AIFAIL-2026-11-03
         }
         sb.append("\nCOMPARE SET (header)\n")
         val b = readBatch()

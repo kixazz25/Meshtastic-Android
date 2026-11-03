@@ -45,6 +45,10 @@ fun GtGuidedSummaryPanel(
     onStartOver: () -> Unit,
     /** AICANCEL-2026-10-08: leave the AI flow completely. Required -- one caller, wired. */
     onCancelBuild: () -> Unit,
+    /** AIFAIL-2026-11-03 v3 (Fred 06:51): see / change FILTER before searching. Required -- one caller, wired. */
+    onFilter: () -> Unit,
+    /** PLANTABLE-2026-11-03 (Fred 07:39-07:41): the trail table under the plan. Required -- one caller, wired. */
+    details: @Composable () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -56,9 +60,9 @@ fun GtGuidedSummaryPanel(
         Surface(
             color = gpPanel,
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.widthIn(min = 280.dp, max = 360.dp).padding(18.dp)
+            modifier = Modifier.widthIn(min = 280.dp, max = 600.dp).padding(18.dp)   // PLANTABLE-2026-11-03: wider -- the trail table
         ) {
-            Column(Modifier.padding(18.dp, 16.dp)) {
+            Column(Modifier.padding(18.dp, 16.dp).verticalScroll(rememberScrollState())) {   // PLANTABLE-2026-11-03: scrolls only on a small screen
 
                 Row(verticalAlignment = Alignment.CenterVertically) {   // GTAI4-2026-10-23: the HELP X standard
                     Text(
@@ -77,13 +81,8 @@ fun GtGuidedSummaryPanel(
                 }
                 Spacer(Modifier.height(12.dp))
 
-                Column(
-                    Modifier
-                        .heightIn(max = 260.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    Text(body, color = gpTxt, fontSize = 13.sp, lineHeight = 19.sp)
-                }
+                Text(body, color = gpTxt, fontSize = 13.sp, lineHeight = 19.sp)   // PLANTABLE-2026-11-03: no inner scroll box
+                if (!working) details()   // PLANTABLE-2026-11-03: the trail table
 
                 if (working) {
                     Spacer(Modifier.height(16.dp))
@@ -109,12 +108,16 @@ fun GtGuidedSummaryPanel(
                 } else {
                     Spacer(Modifier.height(18.dp))
                     // ⭐ says where it goes: the compare table, not a vague "proceed"
-                    GpButton("CONTINUE TO COMPARE", primary = true,
-                        onClick = onProceed)
+                    // PLANTABLE-2026-11-03: the buttons in two rows
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Box(Modifier.weight(1f)) { GpButton("CONTINUE TO COMPARE", primary = true, onClick = onProceed) }
+                        Box(Modifier.weight(1f)) { GpButton("SEE / CHANGE FILTER", primary = false, onClick = onFilter) }   // AIFAIL-2026-11-03 v3
+                    }
                     Spacer(Modifier.height(7.dp))
-                    GpButton("START OVER", primary = false, onClick = onStartOver)
-                    Spacer(Modifier.height(7.dp))
-                    GpButton("CANCEL AI BUILD", primary = false, onClick = onCancelBuild)   // AICANCEL-2026-10-08
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Box(Modifier.weight(1f)) { GpButton("START OVER", primary = false, onClick = onStartOver) }
+                        Box(Modifier.weight(1f)) { GpButton("CANCEL AI BUILD", primary = false, onClick = onCancelBuild) }   // AICANCEL-2026-10-08
+                    }
                 }
             }
         }

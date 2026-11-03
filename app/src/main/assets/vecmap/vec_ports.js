@@ -145,13 +145,67 @@ function gtCircle(c, m) {
   }
   return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } }] };
 }
+// AIFAILCHECK-2026-11-03 (Fred 07:18): the ring is 1/2 mile from the trailhead (1 mile across) with cross hairs at the centre --
+// MUST equal RouteExplorer.AIM_RING_M (805).
+function gtAim(c) {
+  var m = 805, fc = gtCircle(c, m), R = 6378137, la = c.lat * Math.PI / 180;
+  var dLat = m / R * 180 / Math.PI, dLng = m / (R * Math.cos(la)) * 180 / Math.PI;
+  if (window.__aimOk === false) return fc;   // AIMCOLOUR-2026-11-03 v2 (Fred 07:27): red = no cross hairs
+  fc.features.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[c.lng - dLng, c.lat], [c.lng + dLng, c.lat]] } });
+  fc.features.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[c.lng, c.lat - dLat], [c.lng, c.lat + dLat]] } });
+  return fc;
+}
 window.__aimMove = null;
+// AIMCOLOUR-2026-11-03 (Fred 07:25-07:26): GREEN = a trail you are showing within 1/2 mile + 200 m of the ring's centre (a trailhead
+// here will be accepted), RED = no trail access; blue until the first check. From the trails the map draws (gtData.trails) -- the
+// trailhead step's own check still decides. 1005 MUST equal RouteExplorer.TRAILHEAD_CHECK_M.
+window.__aimOk = null;
+function gtAimMsg(show) {   // AIMCOLOUR-2026-11-03 v2: "No trail access" at the ring's centre (the ring follows the map's centre)
+  var d = document.getElementById('gt-aim-msg');
+  if (!d && show) {
+    d = document.createElement('div'); d.id = 'gt-aim-msg'; d.textContent = 'No trail access';
+    d.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none;' +
+      'background:rgba(229,57,53,0.92);color:#fff;font:bold 15px sans-serif;padding:6px 12px;border-radius:6px';
+    document.body.appendChild(d);
+  }
+  if (d) d.style.display = show ? 'block' : 'none';
+}
+function gtAimPaint() {
+  gtAimMsg(window.__aimOk === false);
+  try { if (window.__aimMove) window.__aimMove(); } catch (e) {}   // cross hairs on / off with the state
+  var col = window.__aimOk === true ? '#43A047' : (window.__aimOk === false ? '#E53935' : '#7FC8FF');
+  try { if (map.getLayer('gt-aim-line')) map.setPaintProperty('gt-aim-line', 'line-color', col);
+        if (map.getLayer('gt-aim-fill')) map.setPaintProperty('gt-aim-fill', 'fill-color', col); } catch (e) {}
+}
+window.gtAimCheck = function () {
+  try {
+    if (!window.__aimMove) return;
+    var c = map.getCenter(), lim = 1005, kx = 111320 * Math.cos(c.lat * Math.PI / 180), ky = 111320, best = Infinity;
+    var fs = (gtVis.trails && gtData.trails && gtData.trails.features) || [];
+    function seg(a, b) {
+      var ax = (a[0] - c.lng) * kx, ay = (a[1] - c.lat) * ky, bx = (b[0] - c.lng) * kx, by = (b[1] - c.lat) * ky;
+      var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2));
+      var px = ax + t * dx, py = ay + t * dy; return Math.sqrt(px * px + py * py);
+    }
+    function line(cs) { for (var j = 1; j < cs.length && best > lim; j++) best = Math.min(best, seg(cs[j - 1], cs[j]));
+                        if (cs.length === 1) best = Math.min(best, seg(cs[0], cs[0])); }
+    for (var i = 0; i < fs.length && best > lim; i++) {
+      var g = fs[i].geometry; if (!g) continue;
+      if (g.type === 'LineString') line(g.coordinates);
+      else if (g.type === 'MultiLineString') g.coordinates.forEach(line);
+    }
+    window.__aimOk = best <= lim;
+  } catch (e) { window.__aimOk = null; console.log('AIMCOLOUR ' + e); }
+  gtAimPaint();
+};
 window.showAimRing = function (on) {
   try {
-    if (!on) { if (window.__aimMove) { map.off('move', window.__aimMove); window.__aimMove = null; } gtSet('gt-aim', AIM_L, EMPTY); return; }
+    if (!on) { if (window.__aimMove) { map.off('move', window.__aimMove); map.off('moveend', window.gtAimCheck); window.__aimMove = null; }
+               window.__aimOk = null; gtAimMsg(false); gtSet('gt-aim', AIM_L, EMPTY); return; }   // AIMCOLOUR-2026-11-03: moveend too
     if (window.__aimMove) return;
-    window.__aimMove = function () { gtSet('gt-aim', AIM_L, gtCircle(map.getCenter(), 402)); };
+    window.__aimMove = function () { gtSet('gt-aim', AIM_L, gtAim(map.getCenter())); };   // AIFAILCHECK-2026-11-03
     window.__aimMove(); map.on('move', window.__aimMove);
+    map.on('moveend', window.gtAimCheck); setTimeout(window.gtAimCheck, 300);   // AIMCOLOUR-2026-11-03: checked when the map stops
   } catch (e) { console.log('aim ring: ' + e); }
 };
 // the AI batch: up to six routes, each its own colour, keyed by draft name; show / hide without redrawing; fit to those shown

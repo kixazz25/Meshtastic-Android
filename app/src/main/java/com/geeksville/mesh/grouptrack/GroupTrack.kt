@@ -102,6 +102,12 @@ fun GroupTrackLaunchLayer(
     GtScheme.current.value = GtScheme.forMap(mapType)   // SHELL2-2026-10-22: buttons and panels follow the map type
     val group = GroupMode.on.value
     var open by rememberSaveable { mutableStateOf("") }   // the open module's id; "" = none (CODE RULE 1: no null)
+    // AIFAIL-2026-11-03: another screen asks for a module (the failed AI build's OPEN FILTER) -- "" = no request
+    val openReq = GtOpenModule.req.value
+    androidx.compose.runtime.LaunchedEffect(openReq) { if (openReq.isNotEmpty()) { open = openReq; GtOpenModule.req.value = "" } }
+    // AIFAIL-2026-11-03 v4: another screen changed FILTER (SHOW ALL LAND AND SEARCH AGAIN) -- redraw the trails as FILTER itself does
+    val trailsTick = GtOpenModule.trailsTick.intValue
+    androidx.compose.runtime.LaunchedEffect(trailsTick) { if (trailsTick > 0) filter.trailsChanged() }
     var sub by rememberSaveable { mutableStateOf("") }   // MAPTARGET-2026-10-23: the open submenu's id; "" = the module's top level
     val openModule = LaunchModules.all.firstOrNull { it.id == open }
     // GTROUTE1-2026-10-23: the in-progress picker's "+ Plan a new route" -> the Route panel's choices.
@@ -300,4 +306,11 @@ private fun GtCompass(bearing: Float, onClick: () -> Unit) {
                 modifier = Modifier.size(18.dp))
         }
     }
+}
+
+/** AIFAIL-2026-11-03: a module another screen asks the shell to open ("" = none). */
+object GtOpenModule {
+    val req = androidx.compose.runtime.mutableStateOf("")
+    /** AIFAIL-2026-11-03 v4: bumped when another screen changes FILTER -- the shell redraws the trails. 0 = never. */
+    val trailsTick = androidx.compose.runtime.mutableIntStateOf(0)
 }
