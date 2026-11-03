@@ -1,8 +1,8 @@
 ==============================================================================
 GROUPTRACK -- NAVIGATION CROSS-REFERENCE v2 (the click tree, for the user manual)
 ==============================================================================
-Generated: 2026-11-01 19:12   branch 2.7e @ 122bb34ed   files scanned: 154   composables: 163
-Clickables: 301   state-opened panels: 36   routes: 0
+Generated: 2026-11-02 20:05   branch 2.7e @ e9812429c   files scanned: 157   composables: 165
+Clickables: 305   state-opened panels: 36   routes: 0
 Each panel shows [file last commit date]: a screenshot whose build date is OLDER than that date needs a recapture.
 
 === 1. THE CLICK TREE (from each screen downward) ===
@@ -38,11 +38,11 @@ ApiKeyRow  [ConvoyMapSourceScreen.kt:938 · 2026-11-01]
    ▸ “Key configured”  (line 948)
       → does: Row( modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically ) { Icon( if (hasKey)…
 
-AreaItemRow  [HomeStatePickerScreen.kt:286 · 2026-10-25]
-   ▸ “?”  (line 288)
+AreaItemRow  [HomeStatePickerScreen.kt:332 · 2026-11-02]
+   ▸ “?”  (line 334)
       → does: onClick()
 
-ArtifactDetailPanel  [ArtifactDetailPanel.kt:36 · 2026-10-29]
+ArtifactDetailPanel  [ArtifactDetailPanel.kt:36 · 2026-11-02]
    ▸ “CONTINUE”  (line 174)
       → does: val f = first!! runCatching { SpatialDbManager.insertWaypoint(thNewName.trim(), f.second, f.first, "trailhead…
    ▸ “Cancel”  (line 182)
@@ -126,9 +126,9 @@ CompletedRideCard  [ConvoyCompletedRidesScreen.kt:400 · 2026-10-24]
    ▸ “COMPLETED”  (line 403)
       → calls back ConvoyCompletedRidesScreen  (onClick → onNavigateToDetail(ride.id))
 
-CompletionPanel  [HomeStatePickerScreen.kt:629 · 2026-10-25]
-   ▸ “▾  ”  (line 656)
-      RecapLine  [HomeStatePickerScreen.kt:612 · 2026-10-25]  ← opens (showDetail)
+CompletionPanel  [HomeStatePickerScreen.kt:731 · 2026-11-02]
+   ▸ “▾  ”  (line 758)
+      RecapLine  [HomeStatePickerScreen.kt:714 · 2026-11-02]  ← opens (showDetail)
 
 ConfigReviewScreen  [ConfigReviewScreen.kt:67 · 2026-10-26]
    ▸ “Saved configs”  (line 137)
@@ -291,7 +291,7 @@ ConvoyDownloadConfirm  [ConvoyDownloadConfirm.kt:36 · 2026-11-01]
    ▸ “Replace existing tiles”  (line 125)
       → does: replaceExisting = !replaceExisting
    ▸ “CANCEL”  (line 136)
-      RecapLine  [HomeStatePickerScreen.kt:612 · 2026-10-25]  ← opens (showDetail)  (expanded above)
+      RecapLine  [HomeStatePickerScreen.kt:714 · 2026-11-02]  ← opens (showDetail)  (expanded above)
    ▸ “PROCEED”  (line 145)
       → calls back ConvoyTrackImportScreen  (onProceed → _, sel, replace -> selectedSlots = sel replaceExisting = replace showSourcePopu…)
 
@@ -648,6 +648,10 @@ ConvoyTransferRideScreen  [ConvoyTransferRideScreen.kt:30 · 2026-10-24]
    ▸ “CANCEL”  (line 235)
       → does: onBack()
 
+DataQueueHeader  [HomeStatePickerScreen.kt:666 · 2026-11-02]
+   ▸ “A file could not be downloaded. RETRY it below, or cancel the import.”  (line 680)
+      → does: StateDataQueue.setMax(ctx, n)
+
 DetailActionButton  [ConvoyRideDetailScreen.kt:489 · 2026-10-24]
    ▸ “?”  (line 506)
       → does: onClick()
@@ -756,6 +760,22 @@ GtMenuLabel  [GroupTrackTheme.kt:363 · 2026-10-24]  (expanded above)
 
 GtNavBtn  [GroupTrackTheme.kt:344 · 2026-10-24]  (expanded above)
 
+HomeStatePickerScreen  [HomeStatePickerScreen.kt:51 · 2026-11-02]
+   ▸ “REFRESH”  (line 173)
+      → does: go(true)
+   ▸ “USE SAVED”  (line 174)
+      → does: go(false)
+   ▸ “Download fresh data”  (line 272)
+      → does: freshData = !freshData
+   StateListPanel  [HomeStatePickerScreen.kt:439 · 2026-11-02]  ← part of this screen
+      ▸ “${item.entries.size} region${if (item.entries.size > 1) ”  (line 474)
+         → calls back HomeStatePickerScreen  (onSelect → selectedItem = it)
+   AreaSourcePanel  [HomeStatePickerScreen.kt:341 · 2026-11-02]  ← part of this screen
+      AreaItemRow  [HomeStatePickerScreen.kt:332 · 2026-11-02]  ← part of this screen  (expanded above)
+   ProgressPanel  [HomeStatePickerScreen.kt:559 · 2026-11-02]  ← part of this screen
+      DataQueueHeader  [HomeStatePickerScreen.kt:666 · 2026-11-02]  ← part of this screen  (expanded above)
+   CompletionPanel  [HomeStatePickerScreen.kt:731 · 2026-11-02]  ← part of this screen  (expanded above)
+
 ImportRecapDialog  [ConvoyTrackImportScreen.kt:853 · 2026-11-01]
    ▸ “DELETE FILES & CLOSE”  (line 873)
       → calls back ConvoyTrackImportScreen  (onFilesDelete → scope.launch { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO…)
@@ -845,9 +865,7 @@ SourceRow  [ConvoyMapSourceScreen.kt:875 · 2026-11-01]  (expanded above)
 
 SourceSelectCard  [ConvoyTrailSourceScreen.kt:569 · 2026-11-01]  (expanded above)
 
-StateListPanel  [HomeStatePickerScreen.kt:393 · 2026-10-25]
-   ▸ “${item.entries.size} region${if (item.entries.size > 1) ”  (line 428)
-      → calls back HomeStatePickerScreen  (onSelect → selectedItem = it)
+StateListPanel  [HomeStatePickerScreen.kt:439 · 2026-11-02]  (expanded above)
 
 StepButton  [ConvoyAiStepPanel.kt:91 · 2026-10-24]
    ▸ “?”  (line 98)
@@ -878,7 +896,7 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
       → does: notice.pending = null; open()
 
 === 2. PANELS AND SCREENS — source file and its last commit date ===
-2026-10-29  ArtifactDetailPanel                          app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:36  (13 clickables)
+2026-11-02  ArtifactDetailPanel                          app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:36  (13 clickables)
 2026-10-26  ArtifactListPanel                            app/src/main/java/com/geeksville/mesh/convoy/ArtifactListPanel.kt:41  (4 clickables)
 2026-10-26  ArtifactListItem                             app/src/main/java/com/geeksville/mesh/convoy/ArtifactListPanel.kt:169  (1 clickables)
 2026-10-26  ConfigReviewScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConfigReviewScreen.kt:67  (9 clickables)
@@ -968,9 +986,11 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-10-24]
 2026-10-24  GtMenuLabel                                  app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:363  (1 clickables)
 2026-10-24  GtMenuItem                                   app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:390  (1 clickables)
 2026-10-27  GrpAwarenessPanel                            app/src/main/java/com/geeksville/mesh/convoy/GrpAwareness.kt:157  (11 clickables)
-2026-10-25  AreaItemRow                                  app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:286  (1 clickables)
-2026-10-25  StateListPanel                               app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:393  (1 clickables)
-2026-10-25  CompletionPanel                              app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:629  (1 clickables)
+2026-11-02  HomeStatePickerScreen                        app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:51  (3 clickables)
+2026-11-02  AreaItemRow                                  app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:332  (1 clickables)
+2026-11-02  StateListPanel                               app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:439  (1 clickables)
+2026-11-02  DataQueueHeader                              app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:666  (1 clickables)
+2026-11-02  CompletionPanel                              app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:731  (1 clickables)
 2026-10-31  RadioConfigScreen                            app/src/main/java/com/geeksville/mesh/convoy/RadioConfigScreen.kt:86  (5 clickables)
 2026-10-24  RiderTrailsDialog                            app/src/main/java/com/geeksville/mesh/convoy/RiderTrailsDialog.kt:37  (1 clickables)
 2026-10-24  RidesScreen                                  app/src/main/java/com/geeksville/mesh/convoy/RidesScreen.kt:101  (8 clickables)
@@ -1300,9 +1320,13 @@ GrpAwareness.kt:276 | GrpAwarenessPanel | “RADIO SETTINGS” | message = ""; o
 GrpAwareness.kt:283 | GrpAwarenessPanel | “NODES” | message = ""; onMeshtastic()
 GrpAwareness.kt:300 | GrpAwarenessPanel | “FORGET” | if (r.id == selectedAddress) onDisconnect() val rName = r.name onForget(r.id) { ok -> // COMMLINKREQ-2026-10-11: the co…
 GrpAwareness.kt:309 | GrpAwarenessPanel | “CANCEL” | forgetting = null
-HomeStatePickerScreen.kt:288 | AreaItemRow | “?” | onClick()
-HomeStatePickerScreen.kt:428 | StateListPanel | “${item.entries.size} region${if (item.entries.size > 1) ” | onSelect(item)
-HomeStatePickerScreen.kt:656 | CompletionPanel | “▾  ” | showDetail = !showDetail
+HomeStatePickerScreen.kt:173 | HomeStatePickerScreen | “REFRESH” | go(true)
+HomeStatePickerScreen.kt:174 | HomeStatePickerScreen | “USE SAVED” | go(false)
+HomeStatePickerScreen.kt:272 | HomeStatePickerScreen | “Download fresh data” | freshData = !freshData
+HomeStatePickerScreen.kt:334 | AreaItemRow | “?” | onClick()
+HomeStatePickerScreen.kt:474 | StateListPanel | “${item.entries.size} region${if (item.entries.size > 1) ” | onSelect(item)
+HomeStatePickerScreen.kt:680 | DataQueueHeader | “A file could not be downloaded. RETRY it below, or cancel the import.” | StateDataQueue.setMax(ctx, n)
+HomeStatePickerScreen.kt:758 | CompletionPanel | “▾  ” | showDetail = !showDetail
 RadioConfigScreen.kt:221 | RadioConfigScreen | “Apply ride to radio” | 
 RadioConfigScreen.kt:260 | RadioConfigScreen | “USE MY CALLSIGN ($callsign)” | radioCallsign = callsign; nameTouched = true
 RadioConfigScreen.kt:265 | RadioConfigScreen | “${chosen?.name}” | choose(t)
