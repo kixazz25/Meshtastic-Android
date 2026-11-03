@@ -163,7 +163,9 @@ object GtRoute {
         // GTAI2B-2026-10-23: the view goes back where it was (zeros = the page never reported a view -- leave it).
         val pv = batchPrevView.value
         if (pv.size == 5 && !(pv[0] == 0.0 && pv[2] == 0.0)) {
-            js("map.setView([" + ((pv[0] + pv[2]) / 2) + "," + ((pv[1] + pv[3]) / 2) + "], " + pv[4].toInt() + ")")
+            // VIEWBACK-2026-11-03: the page's setView(lat, lon, z) -- map.setView([..]) is Leaflet and threw on the vector map (17:45, 17:46),
+            // so leaving the AI compare table never put the view back
+            js("setView(" + ((pv[0] + pv[2]) / 2) + ", " + ((pv[1] + pv[3]) / 2) + ", " + pv[4].toInt() + ")")
         }
         batchPrevView.value = DoubleArray(0)
     }

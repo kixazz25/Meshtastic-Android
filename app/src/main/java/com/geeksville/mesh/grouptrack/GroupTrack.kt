@@ -112,6 +112,8 @@ fun GroupTrackLaunchLayer(
     // BACKUP-2026-11-03 (Fred 11:41): every start with internet -- a CHANGED backup offers SEND BACKUP / NOT NOW
     androidx.compose.runtime.LaunchedEffect(Unit) { GtDbAudit.repair(ctx.applicationContext); GtBackup.autoCheck(ctx.applicationContext) }   // TRACKSFIX-2026-11-03: repair first
     GtBackupReadyDialog()
+    // RESTOREQUEUE-2026-11-03: a recipe restore was queued -> the download queue
+    androidx.compose.runtime.LaunchedEffect(GtRecipes.openQueue.value) { if (GtRecipes.openQueue.value) { GtRecipes.openQueue.value = false; open = ""; actions["map.queues"]?.invoke() } }
     val rcvRoute = GtRecipes.routeRecipe.value
     androidx.compose.runtime.LaunchedEffect(rcvRoute) { if (rcvRoute.isNotEmpty()) { GtRecipes.routeRecipe.value = ""; open = ""
         try { GtRoute.buildFromRecipeJson(ctx, org.json.JSONObject(rcvRoute), true) }

@@ -21,6 +21,8 @@ object GtRecipes {
     val pick = androidx.compose.runtime.mutableStateOf("")
     /** An AI route recipe just opened from an email / Downloads: its JSON, consumed by the shell. "" = none. */
     val routeRecipe = androidx.compose.runtime.mutableStateOf("")
+    /** RESTOREQUEUE-2026-11-03: a restore was queued -- the shell opens the download queue. */
+    val openQueue = androidx.compose.runtime.mutableStateOf(false)
 
     class Row(val file: File, val label: String, val detail: String)
 

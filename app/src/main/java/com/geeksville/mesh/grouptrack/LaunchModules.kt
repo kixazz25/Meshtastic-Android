@@ -97,11 +97,11 @@ object LaunchModules {
             g("map", "repair", "MAP RECOVERY",   // MAPRECOVERY2-2026-10-23 (Fred 10:26-10:28)
                 "restartconv" to "Emergency download \u2014 maps as of the conversion date (if the conversion was interrupted)",   // VECCONVERT-2026-10-31 (Fred 10-31 18:12)
                 "recipes" to "Saved map recipes \u2014 restore maps or send them by email (60 days)",   // GTRECIPES-2026-10-23 (Fred 11:43); RECIPESROW-2026-11-03 (Fred 11:26)
+                "backup" to "Back up my GroupTrack data \u2014 one email with everything to recover",   // BACKUP-2026-11-03 (Fred 11:38); BACKUPROW-2026-11-03 (Fred 17:41): in MAP RECOVERY
                 // QUICKFIX-2026-11-03 (#5): hidden for the 2.7e release -- not built; bring the row back when it is
                 // "restore" to "Restore maps as of a date \u2014 coming soon",   // RESTORESOON-2026-10-25 (Fred 21:03)   // NEW: replays a daily map recipe (ConvoyMapRecipe) -- restore not built yet
                 "repair" to "Refresh maps"),   // ONESOURCEUI-2026-10-30: one source   // planner Recreate Tiles by Source
             g("map", "import", "IMPORT / EXPORT MAP FEATURES",   // EXPORTALL-2026-11-03 (Fred 11-01, 11-03 10:26)
-                "backup" to "Back up my GroupTrack data \u2014 one email with everything to recover",   // BACKUP-2026-11-03 (Fred 11:38)
                 "export_routes" to "Export all routes \u2014 one GPX file",
                 "export_tracks" to "Export all tracks \u2014 one GPX file",
                 "export_waypoints" to "Export all waypoints \u2014 one GPX file",

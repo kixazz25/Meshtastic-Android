@@ -196,7 +196,12 @@ class ConvoyViewModel @Inject constructor(
     fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
     private val _autoPan = MutableStateFlow(false)
     val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
-    fun setAutoPan(pan: Boolean) { _autoPan.value = pan }
+    fun setAutoPan(pan: Boolean) {
+        // FOLLOWLOG-2026-11-03 (Fred 18:07): who turns following on / off -- the map jumped to NH (my cart, z18) with REC off
+        if (_autoPan.value != pan) android.util.Log.i("ConvoyVM", "FOLLOWLOG following " + (if (pan) "ON" else "OFF") + " by " +
+            Throwable().stackTrace.drop(1).take(3).joinToString(" < ") { it.fileName + ":" + it.lineNumber })
+        _autoPan.value = pan
+    }
 
     // Active phone GPS for standalone (no radio) users
     @Volatile private var livePhoneLocation: android.location.Location? = null
@@ -312,6 +317,8 @@ class ConvoyViewModel @Inject constructor(
         // TRACK: Activate AFTER identity and lead are locked
         _trackActive.value = true
         _autoPan.value = true   // autoPan ON during recording
+        android.util.Log.i("ConvoyVM", "FOLLOWLOG following ON by TRACK START (REC) -- REC started by " +   // FOLLOWLOG-2026-11-03
+            Throwable().stackTrace.drop(1).take(6).joinToString(" < ") { it.fileName + ":" + it.lineNumber })
         convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
     }
 

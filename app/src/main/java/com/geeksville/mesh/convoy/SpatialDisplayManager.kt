@@ -367,6 +367,8 @@ object SpatialDisplayManager {
         selectLists: Map<String, Set<String>?>,
         webView: WebView?, context: Context
     ) {
+        // VPDIAG-2026-11-03 (Fred 17:59 "no tracks display at all"): the area the map asked for, and each layer's state
+        android.util.Log.i("SpatialDisplay", "VIEWPORT S=%.4f W=%.4f N=%.4f E=%.4f zoom=$zoom states=$states".format(south, west, north, east))
         for (type in listOf("Trails", "Tracks", "Waypoints", "Routes")) {
             val st = states[type] ?: DS_OFF
             val ids = selectLists[type]

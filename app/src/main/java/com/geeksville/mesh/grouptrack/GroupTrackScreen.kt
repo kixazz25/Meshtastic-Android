@@ -369,8 +369,16 @@ fun GroupTrackScreen(
     val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
     // ATTACH4-2026-10-22 (Fred 12:55): CENTRE ON ME re-centres on its own while recording -- 15 s after the last touch of the map.
     var gtLastTouch by remember { mutableStateOf(0L) }
-    LaunchedEffect(autoPan, gtLastTouch, recordingState) {
-        if (autoPan || recordingState != RecordingState.RECORDING) return@LaunchedEffect
+    // PLANNOFOLLOW-2026-11-03 (Fred 18:05): planning a route stops following -- every radio position report re-centred the map on my cart
+    //  (NH, z18) while the rider was panning an AI route in Utah
+    LaunchedEffect(com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) { if (com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) viewModel.setAutoPan(false) }
+    // CENTREME-2026-11-03 (Fred 18:13): following belongs to a recording -- when it is not recording, following is off
+    LaunchedEffect(recordingState) { if (recordingState != RecordingState.RECORDING && recordingState != RecordingState.PAUSED) viewModel.setAutoPan(false) }
+    // SEARCHHOLD-2026-11-03 (Fred 18:10 "if we execute a search, centre on me has to be turned off"): a search turns following off AND
+    //  holds it off -- the 15 s re-centre while recording does not bring it back; only CENTRE ON ME does.
+    var gtSearchHold by remember { mutableStateOf(false) }
+    LaunchedEffect(autoPan, gtLastTouch, recordingState, gtSearchHold) {
+        if (autoPan || gtSearchHold || recordingState != RecordingState.RECORDING) return@LaunchedEffect
         kotlinx.coroutines.delay(15_000)
         viewModel.setAutoPan(true)
     }
@@ -504,6 +512,8 @@ fun GroupTrackScreen(
             if (autoPan) leadEstimate else null) {   // ESTVIEW-2026-10-20: + the silent lead's estimate
         val wv = webViewRef.value ?: return@LaunchedEffect
         if (!autoPan) return@LaunchedEffect
+        if (com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) return@LaunchedEffect   // PLANNOFOLLOW-2026-11-03: planning is not following
+        if (recordingState != RecordingState.RECORDING) return@LaunchedEffect   // CENTREME-2026-11-03: only a recording drives the view
         val nodes = convoyState.nodes
         when (hudMode) {
             HudMode.MY_CART -> {
@@ -537,6 +547,23 @@ fun GroupTrackScreen(
                 }
             }
         }
+    }
+
+    // HUDFIT-2026-11-03 (Fred 18:14 "fit fix for each selection"): choosing a view FITS once, recording or not -- MY CART: my cart;
+    //  a tapped cart: that cart; GROUP: every cart with a position. (Following -- refitting as they move -- is the recording's job.)
+    //  Not at start: the first value of the view is not a selection.
+    var gtHudFitArmed by remember { mutableStateOf(false) }
+    LaunchedEffect(hudMode, selectedNode?.nodeId) {
+        if (!gtHudFitArmed) { gtHudFitArmed = true; return@LaunchedEffect }
+        val wv = webViewRef.value ?: return@LaunchedEffect
+        val nodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+        when (hudMode) {
+            HudMode.MY_CART -> nodes.firstOrNull { it.isMyCart }?.let { wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null) }
+            HudMode.NODE -> selectedNode?.let { if (it.latitude != 0.0) wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null) }
+            HudMode.GROUP -> if (nodes.isNotEmpty()) wv.evaluateJavascript("fitBounds([" + nodes.joinToString(",") { "${it.latitude}" } + "], [" + nodes.joinToString(",") { "${it.longitude}" } + "], 0, 0.1)", null)
+            else -> {}
+        }
+        android.util.Log.i("ConvoyMap", "HUDFIT $hudMode -> fitted (${nodes.size} cart(s) with a position)")
     }
 
     // ── Push convoy data to renderer on each state change ─────────────────
@@ -2922,13 +2949,21 @@ fun GroupTrackScreen(
                 openArtifact = { r ->
                     val s0 = r.minLat; val n0 = r.maxLat; val w0 = r.minLon; val e0 = r.maxLon
                     if (s0 != null && n0 != null && w0 != null && e0 != null) {
-                        viewModel.setAutoPan(false)
+                        viewModel.setAutoPan(false); gtSearchHold = true   // SEARCHHOLD-2026-11-03
+                        // SEARCHSHOW-2026-11-03 (Fred 18:09): the found item's type is turned ON in FILTER (ALL), so the fit shows it
+                        // the TABLE the id is in (r.type is not always the table -- a waypoint row carries its waypoint type)
+                        val db = com.geeksville.mesh.convoy.SpatialDbManager.getSpatialDb()
+                        fun inTable(tb: String, col: String) = try { db?.rawQuery("SELECT 1 FROM $tb WHERE $col=? LIMIT 1", arrayOf(r.id))?.use { it.moveToFirst() } == true } catch (e: Exception) { false }
+                        val typeName = when { inTable("tracks", "track_id") -> "Tracks"; inTable("routes", "route_id") -> "Routes"; inTable("waypoints", "waypoint_id") -> "Waypoints"; inTable("trails", "trail_id") -> "Trails"; else -> "" }
+                        val cur = when (typeName) { "Trails" -> trailState; "Tracks" -> trackState; "Waypoints" -> waypointState; "Routes" -> routeState; else -> DS_ON }
+                        if (typeName.isNotEmpty() && cur != DS_ON) { gtHideSaved = emptyMap(); gtSetDisplay(typeName, DS_ON) }
+                        android.util.Log.i("GtSearch", "SEARCHSHOW ${r.type} '${r.name}' -> $typeName was $cur, now ON; fit")
                         webViewRef.value?.evaluateJavascript("fitBounds([$s0,$n0],[$w0,$e0])", null)
                     }
                     // SEARCHFIT-2026-10-31 (Fred 15:38): the map fits to the result; its detail panel is NOT opened on top (D27)
                 },
                 goToPlace = { la, lo ->
-                    viewModel.setAutoPan(false)   // SEARCHPAN-2026-09-15: a search moved the map -- stop following first
+                    viewModel.setAutoPan(false); gtSearchHold = true   // SEARCHPAN-2026-09-15: a search moved the map -- stop following first; SEARCHHOLD-2026-11-03
                     val wv = webViewRef.value
                     wv?.evaluateJavascript("setView($la, $lo, " + com.geeksville.mesh.grouptrack.GtSearchZoom.get(context) + ")", null)   // GTRADIUS-2026-10-23: the saved Area Search Radius (was 13)
                     wv?.evaluateJavascript("try{showSearchCenter($la, $lo)}catch(e){}", null)
@@ -3014,7 +3049,19 @@ fun GroupTrackScreen(
                 "view.heading" to { GtMapView.headingUp.value = !GtMapView.headingUp.value
                     webViewRef.value?.evaluateJavascript("try{if(window.gtSetHeadingUp)gtSetHeadingUp(${GtMapView.headingUp.value})}catch(e){}", null) },
                 // MAPMOVE-2026-10-23: "map.planner" (Open the planning map) came off the Map menu -- the planner is removed next.
-                "centre.me" to { viewModel.setAutoPan(true) },   // ATTACH4-2026-10-22: follow again (the readout's view)
+                "centre.me" to {   // CENTREME-2026-11-03 (Fred 18:13): "centre on me, period" -- back to where I am now
+                    gtSearchHold = false   // SEARCHHOLD-2026-11-03: CENTRE ON ME ends the hold
+                    val me = convoyState.nodes.firstOrNull { it.isMyCart && it.latitude != 0.0 && it.longitude != 0.0 }
+                    val here = if (me != null) Pair(me.latitude, me.longitude) else try {
+                        val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+                        (lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER) ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER))
+                            ?.let { Pair(it.latitude, it.longitude) }
+                    } catch (e: SecurityException) { null }
+                    if (here != null) webViewRef.value?.evaluateJavascript("setView(${here.first}, ${here.second}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+                    else android.widget.Toast.makeText(context, "No position yet", android.widget.Toast.LENGTH_SHORT).show()
+                    // while RECORDING my cart / the group drive the view: the button also resumes that
+                    if (recordingState == RecordingState.RECORDING) viewModel.setAutoPan(true)
+                },   // ATTACH4-2026-10-22: follow again (the readout's view)
                 "internet.switch" to {   // ATTACH3-2026-10-22: the old LOCAL / NET toggle
                     if (isOfflineMode) offlineToggle(false)
                     else if (hasInternet) offlineToggle(true)
@@ -3023,7 +3070,7 @@ fun GroupTrackScreen(
                 "grp.open" to { com.geeksville.mesh.convoy.GrpAwarenessLauncher.open() },   // GRPONEMAP-2026-10-22: same as the old button
             ),
             search = gtSearch,   // GTAI5-2026-10-23: hoisted (below the same engines) -- the AI trailhead step uses the same search
-            centreLabel = if (!autoPan) "CENTRE ON ME" else if (hudMode == HudMode.GROUP) "FOLLOWING GROUP" else "FOLLOWING ME",   // ATTACH4-2026-10-22
+            centreLabel = "CENTRE ON ME",   // CENTREME-2026-11-03 (Fred 18:13): it centres on me, period -- no FOLLOWING labels
             keyStyleChanged = { webViewRef.value?.evaluateJavascript("setTrailStyles(" + TrailFilterState.styleJson() + ")", null) },   // GTKEY-2026-10-22: as Map Keys does
             filter = com.geeksville.mesh.grouptrack.GtFilterBridge(   // GTFILTER-2026-10-22: FILTER -- the same functions Map Features used
                 state = { t -> when (t) { "Trails" -> trailState; "Tracks" -> trackState; "Waypoints" -> waypointState; else -> routeState } },

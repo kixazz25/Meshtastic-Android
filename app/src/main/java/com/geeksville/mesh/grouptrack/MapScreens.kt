@@ -298,6 +298,12 @@ fun GtRecipesScreen(onDone: () -> Unit) {
                                 GtRecipes.restore(ctx.applicationContext, picked.file, picked.label)
                             }
                             busy.value = false
+                            // RESTOREQUEUE-2026-11-03 (Fred 17:41): queued -> close, say so, open the download queue
+                            if (msg.value.startsWith("Queued")) {
+                                android.widget.Toast.makeText(ctx, msg.value, android.widget.Toast.LENGTH_LONG).show()
+                                GtRecipes.openQueue.value = true
+                                onDone()
+                            }
                         }
                     }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp), enabled = !busy.value && est.value.isNotEmpty())
                     Text(GtRecipes.replaceLine(ctx), color = Gt.dim, fontSize = 12.sp)   // REPLACEDEFAULT-2026-11-03
