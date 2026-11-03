@@ -53,7 +53,7 @@ fun ConvoyDownloadConfirm(
             else com.geeksville.mesh.grouptrack.GtDownloadDefaults.initialSlots(dlCtx, slots.map { it.slotName },
             slots.filter { it.preSelected }.map { it.slotName }.toSet()))
     }
-    var replaceExisting by remember { mutableStateOf(com.geeksville.mesh.grouptrack.GtDownloadDefaults.initialReplace(dlCtx, initialReplaceExisting)) }
+    var replaceExisting by remember { mutableStateOf(com.geeksville.mesh.grouptrack.GtDownloadDefaults.initialReplace(dlCtx) || initialReplaceExisting   /* REPLACEDEFAULT-2026-11-03: a refresh still replaces */) }
     var changeOpen by remember { mutableStateOf(false) }
     var showDetail by remember { mutableStateOf(false) }
 

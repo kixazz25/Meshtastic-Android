@@ -930,7 +930,8 @@ class ConvoyViewModel @Inject constructor(
             text = text.replace("<trk><name>Convoy Track</name>", "<trk><name>$esc</name>")
             f.writeText(text)
             val coords = com.geeksville.mesh.convoy.SpatialDbManager.parseGpxTrackPoints(text)
-            if (coords.isEmpty()) { android.util.Log.w("ConvoyVM", "finalizeTrack: no geometry, not a track: ${f.name}"); return }
+            // TRACKSFIX-2026-11-03: no points = not a track -- the file goes too (it was left in my_tracks forever)
+            if (coords.isEmpty()) { android.util.Log.w("ConvoyVM", "finalizeTrack: no geometry, not a track: ${f.name} -- file deleted=${f.delete()}"); return }
             var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
             var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
             for ((lon, lat) in coords) {

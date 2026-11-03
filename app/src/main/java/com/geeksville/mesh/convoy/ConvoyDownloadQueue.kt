@@ -442,7 +442,7 @@ object DownloadQueueManager {
         //
         // These are indexed COUNT(*)s over tile_index, ~18 per store, and this
         // runs on the background thread submitDelete already uses.
-        val tilesInBox = ConvoyTileCalculator.calculateTiles(north, south, east, west)
+        val zr = ConvoyTileCalculator.zoomRanges(north, south, east, west)   // REMOVEAREA-2026-11-03: no tile list
         val storeNames: List<String> = run {
             val layers = MapSourceManager.getSourceByKey(slotName)?.layers ?: emptyList()
             if (layers.isEmpty()) listOf(slotName)
@@ -451,15 +451,9 @@ object DownloadQueueManager {
         var totalTiles = 0
         for (store in storeNames) {
             if (!MBTilesStore.storeExists(store)) continue
-            for ((z, list) in tilesInBox.groupBy { it.z }) {
-                totalTiles += MBTilesStore.countTileRange(
-                    store, z,
-                    list.minOf { it.x }, list.maxOf { it.x },
-                    list.minOf { it.y }, list.maxOf { it.y }
-                )
-            }
+            for (r in zr) totalTiles += MBTilesStore.countTileRange(store, r[0], r[1], r[2], r[3], r[4])
         }
-        val boxTiles = tilesInBox.size
+        val boxTiles = zr.sumOf { (it[2] - it[1] + 1).toLong() * (it[4] - it[3] + 1) }
 
         val entry = QueueEntry(
             north = north, south = south, east = east, west = west,
@@ -496,9 +490,14 @@ object DownloadQueueManager {
         init(context)
         MapSourceManager.init(context)
         var total = 0
-        for ((slotName, _) in MapSourceManager.getDownloadSources()) {
+        // REMOVEAREA-2026-11-03 (#6): THE VECTOR MAP AND ELEVATION -- getDownloadSources() is the old raster list (SAT), so nothing on
+        // 2.7e was ever removed. An old raster store still on the phone is removed too; a slot with no store is not queued.
+        val slots = (listOf(VectorTiles.SLOT, ElevationTiles.SLOT) + MapSourceManager.getDownloadSources().map { it.first }).distinct()
+        for (slotName in slots) {
+            if (slotName != VectorTiles.SLOT && slotName != ElevationTiles.SLOT && !MBTilesStore.storeExists(slotName)) continue
             total += enqueueDelete(context, slotName, north, south, east, west)
         }
+        android.util.Log.i(TAG, "REMOVEAREA-2026-11-03 remove by area: slots=$slots, $total tile(s) on disk in the box")
         return total
     }
 
@@ -1162,6 +1161,7 @@ object DownloadQueueManager {
             .putString("label", entry.label)
             .putBoolean("refresh_mode", entry.refreshMode)
             .putString("refresh_slot", entry.refreshSlot)
+            .putString("download_type", entry.downloadType.name)   // REPLACEFIX-2026-11-03: the worker tells a refresh from a replace
             // CORRIDOR-QUEUE-2026-07-24: the corridor worker re-derives its tiles from
             // this. Empty for every non-corridor entry, which ignores it.
             .putString("geom_hash", entry.geomHash)

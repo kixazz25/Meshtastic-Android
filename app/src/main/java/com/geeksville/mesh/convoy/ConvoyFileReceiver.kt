@@ -79,11 +79,21 @@ class ConvoyFileReceiver : Activity() {
                 return
             }
 
+            // MAPRECIPES-2026-11-03 (Fred 10:2x): a GroupTrack MAP RECIPE (.gtmaps -- "slots") or an AI ROUTE RECIPE (.json -- anchorLat +
+            // milesHigh), one click from the email or Downloads. JSON only: GPX / KML and rides were handled above.
+            if (content.trimStart().startsWith("{")) {
+                val o = try { JSONObject(content) } catch (e: Exception) { null }
+                if (o != null) {
+                    val m = com.geeksville.mesh.grouptrack.GtRecipes.receive(this, GpxOpen.displayName(this, uri), content, o)
+                    if (m.isNotEmpty()) { android.widget.Toast.makeText(this, m, android.widget.Toast.LENGTH_LONG).show(); return }
+                }
+            }
+
             // Validate this is actually a convoy file before processing
             if (!content.contains("convoyDocType")) {
                 Log.w(TAG, "Not a convoy file — ignoring")
                 // GPXOPEN-2026-10-09: never silent -- the rider is told what happened.
-                android.widget.Toast.makeText(this, "This file isn't a GroupTrack ride or a GPX / KML track.",
+                android.widget.Toast.makeText(this, "This file isn't a GroupTrack ride, map recipe, route recipe or a GPX / KML track."   /* MAPRECIPES-2026-11-03 */,
                     android.widget.Toast.LENGTH_LONG).show()
                 return
             }

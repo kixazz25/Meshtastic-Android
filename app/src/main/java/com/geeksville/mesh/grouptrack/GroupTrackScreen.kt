@@ -428,7 +428,8 @@ fun GroupTrackScreen(
     LaunchedEffect(isOfflineMode) {
         VecOnline.localOnly = isOfflineMode
         android.util.Log.i("VecOnline", "VECONLINE " + (if (isOfflineMode) "OFFLINE MODE -- stored maps only" else "online fill allowed"))
-        webViewRef.value?.evaluateJavascript("try{['openmaptiles','gt-dem','gt-dem-shade'].forEach(function(s){var x=map.getSource(s); if(x&&x.reload) x.reload();})}catch(e){}", null)
+        // ONLINEFILL-2026-11-03 (Fred 12:53): reload() kept the empty tiles given while offline -- setTiles (same URL) drops them and asks again
+        webViewRef.value?.evaluateJavascript("try{['openmaptiles','gt-dem','gt-dem-shade'].forEach(function(s){var x=map.getSource(s); if(x){ if(x.setTiles&&x.tiles) x.setTiles(x.tiles.slice()); else if(x.reload) x.reload(); }}); console.log('ONLINEFILL tiles asked again')}catch(e){console.log('ONLINEFILL '+e)}", null)
     }
     // MAPSTARTUP-2026-10-19 (Fred 10-19 14:35): the network drops while on the ride map -> local tiles + offline mode (the page-load check only
     // runs once). Coming back online does NOT switch back -- the rider's source button does that.
@@ -2823,7 +2824,10 @@ fun GroupTrackScreen(
                     onOpen = { if (!GroupMode.on.value) GroupMode.askToActivate() else { viewModel.clearGpsApplyStatus(); showGpsPanel = true } },   // GRPMODE-2026-10-13
                     textWhite = hudOnDark,   // COSMETICS-2026-10-06: the HUD text toggle, beside the interval and meter
                     onToggleText = { viewModel.hudTextWhiteByMap[hudMapKey] = !hudOnDark })
-            if (onRideHud || hudMode == HudMode.NODE) when (hudMode) {   // HUDRIDE-2026-11-01: no readout before the ride; a tapped cart still shows
+            // HUDBACK-2026-11-03 (#2): a ~70 % backing behind the readout, opposite its text colour (flips with the black-and-white button)
+            if ((onRideHud || hudMode == HudMode.NODE) && hudMode != HudMode.HIDDEN) Box(modifier = Modifier
+                .background(if (hudOnDark == hudDefaultWhite) Color(0xB3000000) else Color(0xB3FFFFFF), RoundedCornerShape(10.dp))   // HUDSWITCH-2026-11-03 (Fred 11:15): dark by default, the button = white
+                .padding(horizontal = 8.dp, vertical = 6.dp)) { androidx.compose.runtime.CompositionLocalProvider(LocalHudOnDark provides (hudOnDark == hudDefaultWhite)) { when (hudMode) {   // HUDSWITCH: white text on dark, black on white   // HUDRIDE-2026-11-01: no readout before the ride; a tapped cart still shows
                 HudMode.GROUP -> GroupHud(
                     state = convoyState,
                     onModeChange = { viewModel.setHudMode(it) },
@@ -2866,6 +2870,7 @@ fun GroupTrackScreen(
                 )
                 HudMode.HIDDEN -> {}   // HUDHIDE-2026-11-01 (Fred 18:10): View: No HUD -- nothing drawn
             }
+            } }   // HUDBACK-2026-11-03: end of the backing (HUDB-2026-11-03: and of its white text)
             } // GPSPANEL-2026-09-29: end of the column (GPS row on top of the HUD)
             } // HUDSCHEME-2026-09-29: end of the HUD's colour scheme
         }
@@ -2985,6 +2990,11 @@ fun GroupTrackScreen(
                 "map.restartconv" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "emergency" },   // VECEMERGENCY-2026-10-31: the screen (was a toast)
                 "map.recipes" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "recipes" },   // GTRECIPES-2026-10-23
                 "map.trails_state" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "state" },   // GTIMPORTS-2026-10-23
+                "map.backup" to { com.geeksville.mesh.grouptrack.GtBackup.start(context) },   // BACKUP-2026-11-03
+                "map.export_routes" to { com.geeksville.mesh.grouptrack.GtExportAll.start(context, "routes") },   // EXPORTALL-2026-11-03
+                "map.export_tracks" to { com.geeksville.mesh.grouptrack.GtExportAll.start(context, "tracks") },
+                "map.export_waypoints" to { com.geeksville.mesh.grouptrack.GtExportAll.start(context, "waypoints") },
+                "map.export_trails" to { com.geeksville.mesh.grouptrack.GtExportAll.start(context, "trails") },   // TRAILEXPORT-2026-11-03
                 "map.gpx" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "gpx" },   // GTIMPORTS-2026-10-23
                 "map.ridertrails" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "rider" },   // GTIMPORTS-2026-10-23
                 "map.gpxtrails" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "gpxtrails" },   // MAPIMPORTS-2026-10-30
@@ -3129,7 +3139,7 @@ fun GroupHud(
                 }
                 if (false) /* GPSPANEL-2026-09-29: CH% moved to the GPS row on top of the HUD */ Column(horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(bottom = 6.dp)) {
-                    Text("CH%", color = Color(0xFF111111), fontSize = 12.sp,
+                    Text("CH%", color = if (LocalHudOnDark.current) Color.White else Color(0xFF111111), fontSize = 12.sp,   // HUDSWITCH-2026-11-03
                         fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
                         style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
                     Row(verticalAlignment = Alignment.CenterVertically,
@@ -3551,7 +3561,8 @@ fun GpsLocationRow(showGps: Boolean,   // HUDRIDE-2026-11-01: false = only the l
         }
         // the meter: the interval, and the channel use in its colour
         // GPSMETER-CLEAR-2026-09-29: transparent -- no tile; crisp dark outline instead of a background or a blurred halo
-        Column(modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp)) {
+        // HUDBACK-2026-11-03 (#2): a ~70 % dark backing -- the meter's numbers are always white with a dark outline
+        Column(modifier = Modifier.background(Color(0xB3000000), RoundedCornerShape(8.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
             GpsOutlinedText(if (intervalSecs > 0) "${intervalSecs} s" else "-- s", Color.White, 18, FontWeight.Black)   // GPSMETER-LABEL-2026-09-29
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Box(modifier = Modifier.size(12.dp)

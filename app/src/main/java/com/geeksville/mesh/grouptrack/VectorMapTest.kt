@@ -51,6 +51,7 @@ object VecMapServer {
                         android.util.Log.i(TAG, "VECMAPDIAG tile z$z/$x/$y " + (if (raw == null) "NOT HELD" else
                             "held ${raw.size} B head=" + raw.take(8).joinToString("") { "%02x".format(it) }))
                         val bytes = raw ?: VecOnline.vector(context, z, x, y)   // VECONLINE-2026-10-31: stored first, then the internet
+                        if (raw == null) android.util.Log.i(TAG, "VECMAPDIAG tile z$z/$x/$y online " + (bytes?.let { "${it.size} B" } ?: "NONE (${VecOnline.lastWhy})"))   // ONLINEFILL-2026-11-03
                         // VECNODATA-2026-10-31: tell the page whether this tile is held (the zoom-back and its note)
                         WebResourceResponse("application/x-protobuf", null, 200, "OK", CORS + mapOf("X-GT-Held" to (if (bytes != null) "1" else "0")),
                             java.io.ByteArrayInputStream(bytes?.let { gunzipIfNeeded(it) } ?: ByteArray(0)))
@@ -223,8 +224,17 @@ object VecOnline {
 
     private fun fill(t: String, z: Int, x: Int, y: Int) = t.replace("{z}", "$z").replace("{x}", "$x").replace("{y}", "$y")
 
+    /** ONLINEFILL-2026-11-03: why the last tile was not fetched / not found -- for the log. */
+    @Volatile var lastWhy = ""
+
     fun vector(ctx: android.content.Context, z: Int, x: Int, y: Int): ByteArray? {
-        if (z > VectorTiles.Z_MAX || !online(ctx)) return null
+        if (z > VectorTiles.Z_MAX) { lastWhy = "above z${VectorTiles.Z_MAX}"; return null }
+        if (!online(ctx)) {   // ONLINEFILL-2026-11-03: say which
+            lastWhy = when { localOnly -> "not tried: OFFLINE MODE"; System.currentTimeMillis() < downUntil -> "not tried: 30 s back-off after a failure"
+                else -> "not tried: no validated internet" }
+            return null
+        }
+        lastWhy = "tried: the server had none, busy, or failed (see VECONLINE)"
         val t = VectorTiles.tileTemplate(ctx) ?: run { downUntil = System.currentTimeMillis() + 30_000; return null }
         return get(fill(t, z, x, y), "map")
     }

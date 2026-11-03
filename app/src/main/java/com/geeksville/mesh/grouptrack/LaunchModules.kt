@@ -96,10 +96,16 @@ object LaunchModules {
                 "rm_track" to "Remove maps for all tracks"),   // stays (Fred 10:14); RMALLTRACKS-2026-10-23: it is ALL tracks
             g("map", "repair", "MAP RECOVERY",   // MAPRECOVERY2-2026-10-23 (Fred 10:26-10:28)
                 "restartconv" to "Emergency download \u2014 maps as of the conversion date (if the conversion was interrupted)",   // VECCONVERT-2026-10-31 (Fred 10-31 18:12)
-                "recipes" to "Show saved map recipes (60 days)",   // GTRECIPES-2026-10-23 (Fred 11:43)
-                "restore" to "Restore maps as of a date \u2014 coming soon",   // RESTORESOON-2026-10-25 (Fred 21:03)   // NEW: replays a daily map recipe (ConvoyMapRecipe) -- restore not built yet
+                "recipes" to "Saved map recipes \u2014 restore maps or send them by email (60 days)",   // GTRECIPES-2026-10-23 (Fred 11:43); RECIPESROW-2026-11-03 (Fred 11:26)
+                // QUICKFIX-2026-11-03 (#5): hidden for the 2.7e release -- not built; bring the row back when it is
+                // "restore" to "Restore maps as of a date \u2014 coming soon",   // RESTORESOON-2026-10-25 (Fred 21:03)   // NEW: replays a daily map recipe (ConvoyMapRecipe) -- restore not built yet
                 "repair" to "Refresh maps"),   // ONESOURCEUI-2026-10-30: one source   // planner Recreate Tiles by Source
-            g("map", "import", "IMPORT MAP FEATURES",
+            g("map", "import", "IMPORT / EXPORT MAP FEATURES",   // EXPORTALL-2026-11-03 (Fred 11-01, 11-03 10:26)
+                "backup" to "Back up my GroupTrack data \u2014 one email with everything to recover",   // BACKUP-2026-11-03 (Fred 11:38)
+                "export_routes" to "Export all routes \u2014 one GPX file",
+                "export_tracks" to "Export all tracks \u2014 one GPX file",
+                "export_waypoints" to "Export all waypoints \u2014 one GPX file",
+                "export_trails" to "Export my rider trails \u2014 imported from outside GroupTrack or made from my tracks, one GPX file",   // TRAILEXPORT-2026-11-03 (Fred 11:05); RIDERTRAILSROW-2026-11-03 (Fred 11:28)
                 "trails_state" to "Import trails by state",
                 "trails_area" to "Import trails by area \u2014 part of a state, or across state borders",   // AREAIMPORT-2026-10-24
                 "utahprivate" to "Update public / private land \u2014 align trails with the state\'s public-lands data",   // UTAHPRIV-2026-10-24; LANDSYNC-2026-11-02 (Fred 18:43)

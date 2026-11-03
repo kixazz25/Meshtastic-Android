@@ -82,8 +82,8 @@ class ConvoyDeleteWorker(
         showProgress(entryId, label, 0, 1)
 
         // -- Derive the same tile set the download would have written -------
-        val tiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
-        if (tiles.isEmpty()) {
+        val zr = ConvoyTileCalculator.zoomRanges(north, south, east, west)   // REMOVEAREA-2026-11-03: no tile list (a state ran out of memory)
+        if (zr.isEmpty()) {
             android.util.Log.w(TAG, "No tiles in box for $slotName")
             DownloadQueueManager.markComplete(entryId, 0, 0)
             return Result.success()
@@ -91,10 +91,7 @@ class ConvoyDeleteWorker(
 
         // Contiguous x/y rectangle per zoom -- see the class comment.
         data class ZRange(val z: Int, val xMin: Int, val xMax: Int, val yMin: Int, val yMax: Int)
-        val ranges = tiles.groupBy { it.z }.map { (z, list) ->
-            ZRange(z, list.minOf { it.x }, list.maxOf { it.x },
-                      list.minOf { it.y }, list.maxOf { it.y })
-        }.sortedBy { it.z }
+        val ranges = zr.map { ZRange(it[0], it[1], it[2], it[3], it[4]) }.sortedBy { it.z }
 
         // -- Every store this slot writes to, by the download's own rule ----
         val source = MapSourceManager.getSourceByKey(slotName)

@@ -254,6 +254,12 @@ object ConvoyTileCalculator {
         }
     }
 
+    /** REMOVEAREA-2026-11-03: each zoom's x / y range of a box -- [z, xMin, xMax, yMin, yMax] -- WITHOUT listing its tiles (a state-sized
+     *  box is millions of tiles: listing them ran out of memory). Same zooms and edges as calculateTiles. */
+    fun zoomRanges(north: Double, south: Double, east: Double, west: Double,
+                   zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN, zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM): List<IntArray> =
+        (zMin..zMax).map { z -> intArrayOf(z, lon2tile(west, z), lon2tile(east, z), lat2tile(north, z), lat2tile(south, z)) }
+
     fun calculateTiles(
         north: Double,
         south: Double,

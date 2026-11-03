@@ -58,7 +58,9 @@ object OwnershipReclass {
     private const val TAG = "OwnershipReclass"
 
     // STEP8PAGED-2026-10-23: rows per page in run() (also the IN-list size -- under SQLite's 999 bound parameters).
-    private const val PAGE = 500
+    private const val PAGE = 10_000   // QUICKFIX-2026-11-03 (#4): was 500 -- the reads; the IN-list lookups stay at IN_MAX
+    /** QUICKFIX-2026-11-03: ids per IN (...) lookup -- under SQLite's 999 bound parameters. */
+    private const val IN_MAX = 500
     /** STEP8PAGED-2026-10-23: why the last run() failed ("" = it did not). Read by the import and Settings. */
     @Volatile var lastError: String = ""
     /** STEP8PAGED-2026-10-23: PRIVATE trails written by the last successful run(). */
@@ -193,10 +195,12 @@ object OwnershipReclass {
             // designated_uses lives in the OTHER database -- this page's only.
             val useOf = HashMap<String, String>()
             try {
-                val qs = ids.joinToString(",") { "?" }
-                eDb.rawQuery("SELECT trail_id, designated_uses FROM trail_properties WHERE trail_id IN ($qs) " +
-                    "AND designated_uses IS NOT NULL AND TRIM(designated_uses) <> ''", ids.toTypedArray()).use { c ->
-                    while (c.moveToNext()) useOf[c.getString(0)] = c.getString(1)
+                for (chunk in ids.chunked(IN_MAX)) {   // QUICKFIX-2026-11-03: the page is larger than one IN list may be
+                    val qs = chunk.joinToString(",") { "?" }
+                    eDb.rawQuery("SELECT trail_id, designated_uses FROM trail_properties WHERE trail_id IN ($qs) " +
+                        "AND designated_uses IS NOT NULL AND TRIM(designated_uses) <> ''", chunk.toTypedArray()).use { c ->
+                        while (c.moveToNext()) useOf[c.getString(0)] = c.getString(1)
+                    }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "designated_uses read failed: ${e.message}")

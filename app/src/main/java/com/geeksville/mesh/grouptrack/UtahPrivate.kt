@@ -166,7 +166,12 @@ object GtUtahPrivate {
         val rebuilt = LandAreas.ensure(ctx, s, states) { msg -> step.value = msg }
         val every = all || rebuilt
         step.value = if (every) "Classifying every trail… this takes a few minutes." else "Classifying new trails…"
-        val n = OwnershipReclass.run(s, e, onlyUnassigned = !every) { done, total -> if (total > 0) progress.value = done.toFloat() / total }
+        val n = OwnershipReclass.run(s, e, onlyUnassigned = !every) { done, total ->
+            if (total > 0) {
+                if (done >= total) { progress.value = -1f; step.value = "Finding restricted trail segments\u2026 about 2 minutes." }   // QUICKFIX-2026-11-03
+                else progress.value = done.toFloat() / total
+            }
+        }
         if (n < 0) return "FAILED: " + OwnershipReclass.lastError
         val note = if (missing.isEmpty()) "" else " No public-lands data for ${missing.joinToString()} (no internet) — those trails stay public; run this again when online."
         return (if (every) "$n trails classified" else "$n new trails classified") +

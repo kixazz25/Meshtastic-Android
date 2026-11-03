@@ -43,11 +43,12 @@ object GtDownloadDefaults {
     val open = mutableStateOf(false)
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-    /** true once the rider has saved settings; until then each panel keeps its own starting choice (every source, no replace). */
+    /** true once the rider has saved settings; until then each panel keeps its own starting sources, and Replace starts at YES
+     *  (REPLACEDEFAULT-2026-11-03, Fred 11:10: the vector download is fast enough to take every tile fresh). */
     fun isSet(ctx: Context): Boolean = prefs(ctx).contains("slots")
     /** the saved map sources (slot names). EMPTY = never saved (CODE RULE 1: empty, not null). */
     fun slots(ctx: Context): Set<String> = prefs(ctx).getStringSet("slots", emptySet())?.toSet() ?: emptySet()
-    fun replace(ctx: Context): Boolean = prefs(ctx).getBoolean("replace", false)
+    fun replace(ctx: Context): Boolean = prefs(ctx).getBoolean("replace", true)   // REPLACEDEFAULT-2026-11-03: Yes until saved
     fun save(ctx: Context, slots: Set<String>, replace: Boolean) {
         prefs(ctx).edit().putStringSet("slots", slots).putBoolean("replace", replace).apply()
     }
@@ -58,7 +59,8 @@ object GtDownloadDefaults {
         return if (s.isEmpty()) preSelected else s
     }
     /** a download panel's starting Replace: the saved one, else the panel's own. */
-    fun initialReplace(ctx: Context, fallback: Boolean): Boolean = if (isSet(ctx)) replace(ctx) else fallback
+    // REPLACEDEFAULT-2026-11-03: no per-panel fallback any more -- the saved choice, else YES. A panel that must replace ORs its own.
+    fun initialReplace(ctx: Context): Boolean = replace(ctx)
     // DLPANEL-2026-11-01 (Fred 07:42): every download is the vector map + its elevation (VECDL) -- no slot names ("SAT") shown
     fun summary(slots: Collection<String>, replace: Boolean): String =
         "Download: the map and its elevation" +
@@ -92,7 +94,7 @@ fun GtDownloadSettingsPanel() {
     val ctx = LocalContext.current
     val all = remember { MapSourceManager.getSlotSources() }   // (slot, short label, source id)
     var sel by remember { mutableStateOf(GtDownloadDefaults.initialSlots(ctx, all.map { it.first }, all.map { it.first }.toSet())) }
-    var rep by remember { mutableStateOf(GtDownloadDefaults.initialReplace(ctx, false)) }
+    var rep by remember { mutableStateOf(GtDownloadDefaults.initialReplace(ctx)) }
     Dialog(onDismissRequest = { GtDownloadDefaults.open.value = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.padding(16.dp).width(360.dp).background(Gt.panel, RoundedCornerShape(14.dp))
                 .border(1.dp, Gt.line, RoundedCornerShape(14.dp)).padding(14.dp).verticalScroll(rememberScrollState()),

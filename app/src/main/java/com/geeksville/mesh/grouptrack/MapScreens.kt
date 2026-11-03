@@ -246,94 +246,65 @@ object GtOffGrid {
     }
 }
 
-/** GTRECIPES-2026-10-23 (Fred 11:43): the daily map recovery recipes -- the planner's Map Recovery list, copied as is.
- *  Read only: SAVED ON THIS PHONE (60 days, newest first) and RECEIVED in Downloads. */
+/** GTRECIPES-2026-10-23 (Fred 11:43): the daily map recovery recipes -- SAVED ON THIS PHONE (60 days, newest first) and RECEIVED.
+ *  MAPRECIPES-2026-11-03 (Fred 10:2x): pick a day -> its estimate -> RESTORE AS OF <day> (vector + elevation, fill gaps, nothing deleted)
+ *  or SEND (email). The VECTOR MAPS (testing) group is removed. A recipe opened from an email / Downloads arrives here PICKED. */
 @Composable
 fun GtRecipesScreen(onDone: () -> Unit) {
-    // VECSOURCE-2026-10-30 (2.7e step 1): the vector download button
-    val vecCtx = LocalContext.current
-    val vecScope = androidx.compose.runtime.rememberCoroutineScope()
-    val vecMsg = remember { androidx.compose.runtime.mutableStateOf("") }
-    val vecBusy = remember { androidx.compose.runtime.mutableStateOf(false) }
-    // VECMAP-2026-10-30 (2.7e step 4.1): the vector proof map
-    val vecMapOpen = remember { androidx.compose.runtime.mutableStateOf(false) }
-    val vecMapOnline = remember { androidx.compose.runtime.mutableStateOf(false) }   // VECMAPONLINE-2026-10-30
-    if (vecMapOpen.value) GtVectorMapTestScreen(vecMapOnline.value) { vecMapOpen.value = false }
-    val rows = remember { androidx.compose.runtime.mutableStateOf<Pair<List<String>, List<String>>?>(null) }
+    val ctx = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val rows = remember { androidx.compose.runtime.mutableStateOf<Pair<List<GtRecipes.Row>, List<GtRecipes.Row>>?>(null) }
+    val sentToMe = remember { GtRecipes.pick.value }   // "" = opened from the menu
+    val sel = remember { androidx.compose.runtime.mutableStateOf(sentToMe) }   // the picked recipe's path; "" = none (CODE RULE 1)
+    val est = remember { androidx.compose.runtime.mutableStateOf("") }
+    val msg = remember { androidx.compose.runtime.mutableStateOf("") }
+    val busy = remember { androidx.compose.runtime.mutableStateOf(false) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        rows.value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            fun scan(d: java.io.File): List<String> {
-                val out = ArrayList<String>()
-                try {
-                    val fs = d.listFiles()?.filter { it.name.startsWith("grouptrack_maps_") && it.name.endsWith(".gtmaps") }
-                        ?.sortedByDescending { it.name } ?: emptyList()
-                    for (f in fs) {
-                        val date = f.name.removePrefix("grouptrack_maps_").removeSuffix(".gtmaps")
-                        try {
-                            val o = org.json.JSONObject(f.readText())
-                            val a = o.getJSONArray("slots")
-                            var tiles = 0L
-                            for (i in 0 until a.length()) tiles += a.getJSONObject(i).optLong("tiles")
-                            out.add("$date   ${a.length()} slot(s)   $tiles tiles   ${f.length() / 1024} KB")
-                        } catch (e: Exception) { out.add("$date   unreadable (${f.length()} bytes)") }
-                    }
-                } catch (e: Exception) { out.add("could not read: ${e.message}") }
-                return out
-            }
-            Pair(scan(com.geeksville.mesh.convoy.GroupTrackStorage.dir("recipes")),
-                scan(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)))
-        }
+        GtRecipes.pick.value = ""
+        rows.value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { GtRecipes.rows(ctx.applicationContext) }
     }
+    androidx.compose.runtime.LaunchedEffect(sel.value) {
+        est.value = ""; msg.value = ""
+        val p = sel.value
+        if (p.isNotEmpty()) est.value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { GtRecipes.estimateText(ctx.applicationContext, java.io.File(p)) }
+    }
+    val r = rows.value
+    val picked = r?.let { it.first + it.second }?.firstOrNull { it.file.absolutePath == sel.value }
+    val pick = { p: String -> sel.value = if (sel.value == p) "" else p }
     AlertDialog(
         onDismissRequest = onDone,
         title = { GtDialogTitle("Saved map recipes", "map.recipes", onDone) },   // GTSTD
         text = {
             androidx.compose.foundation.layout.Column(modifier = Modifier.verticalScrollSafe()) {
-                Text("A daily record of what your maps cover, kept 60 days -- what Restore will use.",
+                if (sentToMe.isNotEmpty()) Text("You were sent these maps. Tap RESTORE to download them.",
+                    color = Gt.accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                Text("A daily record of what your maps cover, kept 60 days. Pick a day to restore your maps as of that day, or send it.",
                     color = Gt.dim, fontSize = 12.sp)
-                val r = rows.value
-                if (r == null) Text("Reading\u2026", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                if (r == null) Text("Reading…", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 else {
-                    Text("SAVED ON THIS PHONE", color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 10.dp))
-                    if (r.first.isEmpty()) Text("none yet \u2014 written once a day at startup", fontSize = 12.sp, color = Gt.dim)
-                    r.first.forEach { Text(it, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
-                    Text("RECEIVED (Downloads)", color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 10.dp))
-                    if (r.second.isEmpty()) Text("none \u2014 recipes sent to you arrive here", fontSize = 12.sp, color = Gt.dim)
-                    r.second.forEach { Text(it, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
-                    // VECSOURCE-2026-10-30 (Fred 10:12): the fourth group, from the newest recipe, through the download queues.
-                    Text("VECTOR MAPS (2.7e, testing)", color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 10.dp))
-                    Text(vecMsg.value.ifEmpty { "Downloads the vector map (OpenFreeMap, zoom 0\u201314) for the first 5 boxes of the newest recipe, through the download queues." },
-                        fontSize = 12.sp, color = Gt.dim)
-                    Text(if (vecBusy.value) "QUEUEING\u2026" else "DOWNLOAD VECTOR \u2014 FIRST 5 BOXES", color = Gt.accent,
-                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable(enabled = !vecBusy.value) {
-                            vecBusy.value = true
-                            vecScope.launch {
-                                vecMsg.value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                    com.geeksville.mesh.convoy.VectorTiles.queueFromRecipe(vecCtx.applicationContext, 5)
-                                }
-                                vecBusy.value = false
+                    GtRecipeGroup("SAVED ON THIS PHONE", r.first, "none yet — written once a day at startup", sel.value, pick)
+                    GtRecipeGroup("RECEIVED", r.second, "none — recipes sent to you arrive here", sel.value, pick)
+                }
+                if (picked != null) {
+                    Text("MAPS AS OF ${picked.label}", color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 14.dp))
+                    Text(est.value.ifEmpty { "Counting…" }, fontSize = 12.sp)
+                    if (msg.value.isNotEmpty()) Text(msg.value, color = Gt.accent, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+                    // RECIPEBTN-2026-11-03 (Fred 11:05): two activities, two buttons -- each says what it does
+                    GtButton(if (busy.value) "QUEUEING\u2026" else "RESTORE MY MAPS AS OF ${picked.label}", {
+                        busy.value = true
+                        scope.launch {
+                            msg.value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                GtRecipes.restore(ctx.applicationContext, picked.file, picked.label)
                             }
-                        }.padding(vertical = 10.dp))
-                    // VECALL-2026-10-30 (Fred 11:11): every box of the newest recipe
-                    Text(if (vecBusy.value) "" else "DOWNLOAD VECTOR \u2014 WHOLE RECIPE", color = Gt.accent,
-                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable(enabled = !vecBusy.value) {
-                            vecBusy.value = true
-                            vecScope.launch {
-                                vecMsg.value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                    com.geeksville.mesh.convoy.VectorTiles.queueFromRecipe(vecCtx.applicationContext, Int.MAX_VALUE)
-                                }
-                                vecBusy.value = false
-                            }
-                        }.padding(vertical = 10.dp))
-                    Text("OPEN VECTOR MAP (test)", color = Gt.accent, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,   // VECMAP-2026-10-30
-                        modifier = Modifier.clickable { vecMapOnline.value = false; vecMapOpen.value = true }.padding(vertical = 10.dp))
-                    Text("OPEN VECTOR MAP \u2014 ONLINE (test)", color = Gt.accent, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,   // VECMAPONLINE-2026-10-30
-                        modifier = Modifier.clickable { vecMapOnline.value = true; vecMapOpen.value = true }.padding(vertical = 10.dp))
+                            busy.value = false
+                        }
+                    }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp), enabled = !busy.value && est.value.isNotEmpty())
+                    Text(GtRecipes.replaceLine(ctx), color = Gt.dim, fontSize = 12.sp)   // REPLACEDEFAULT-2026-11-03
+                    GtButton("SEND THIS MAP RECIPE BY EMAIL", {
+                        GtRecipes.send(ctx, picked.file, picked.label).let { if (it.isNotEmpty()) msg.value = it }
+                    }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+                    Text("The person you send it to taps the attachment to get the same maps.", color = Gt.dim, fontSize = 12.sp)
                 }
             }
         },
@@ -341,6 +312,21 @@ fun GtRecipesScreen(onDone: () -> Unit) {
             modifier = Modifier.clickable { onDone() }.padding(12.dp)) },
         containerColor = Gt.panel
     )
+}
+
+/** MAPRECIPES-2026-11-03: one group of the recipes screen -- a tick box per day; the row or the box picks it (again = unpick). */
+@Composable
+private fun GtRecipeGroup(title: String, list: List<GtRecipes.Row>, empty: String, sel: String, onPick: (String) -> Unit) {
+    Text(title, color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
+    if (list.isEmpty()) Text(empty, fontSize = 12.sp, color = Gt.dim)
+    list.forEach { row ->
+        val p = row.file.absolutePath
+        Row(Modifier.fillMaxWidth().clickable { onPick(p) }.padding(vertical = 5.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            GtCheck(sel == p)
+            Text("${row.label}   ${row.detail}", fontSize = 12.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(start = 8.dp))
+        }
+    }
 }
 
 @Composable

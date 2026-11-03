@@ -2330,6 +2330,9 @@ object SpatialDbManager {
     /** Delete a route */
     fun deleteRoute(id: String) {
         spatialDb?.execSQL("DELETE FROM routes WHERE route_id=?", arrayOf<Any>(id))
+        // TRACKSFIX-2026-11-03 (Fred 12:07): a route takes its notes and names with it -- whoever deletes it (60 notes were left behind)
+        deleteRouteNotes(id)
+        deleteRouteAliases(id)
     }
 
     /** Rename a track in spatial DB (file rename handled by ConvoyTrackOps) */

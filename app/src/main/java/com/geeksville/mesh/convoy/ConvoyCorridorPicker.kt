@@ -131,7 +131,7 @@ fun ConvoyCorridorPicker(
                 slots.filter { it.preSelected }.map { it.slotName }.toSet()))
         }
     }
-    var replaceExisting by rememberSaveable { mutableStateOf(com.geeksville.mesh.grouptrack.GtDownloadDefaults.initialReplace(dlCtx, false)) }
+    var replaceExisting by rememberSaveable { mutableStateOf(com.geeksville.mesh.grouptrack.GtDownloadDefaults.initialReplace(dlCtx)   /* REPLACEDEFAULT-2026-11-03 */) }
     var changeOpen by rememberSaveable { mutableStateOf(false) }
 
     val labels = remember(tracks) { trackPickLabels(tracks) }

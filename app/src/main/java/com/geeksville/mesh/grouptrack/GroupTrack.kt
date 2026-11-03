@@ -108,6 +108,14 @@ fun GroupTrackLaunchLayer(
     // AIFAIL-2026-11-03 v4: another screen changed FILTER (SHOW ALL LAND AND SEARCH AGAIN) -- redraw the trails as FILTER itself does
     val trailsTick = GtOpenModule.trailsTick.intValue
     androidx.compose.runtime.LaunchedEffect(trailsTick) { if (trailsTick > 0) filter.trailsChanged() }
+    // MAPRECIPES-2026-11-03: an AI route recipe opened from an email / Downloads -> the AI build at its summary, its FILTER applied
+    // BACKUP-2026-11-03 (Fred 11:41): every start with internet -- a CHANGED backup offers SEND BACKUP / NOT NOW
+    androidx.compose.runtime.LaunchedEffect(Unit) { GtDbAudit.repair(ctx.applicationContext); GtBackup.autoCheck(ctx.applicationContext) }   // TRACKSFIX-2026-11-03: repair first
+    GtBackupReadyDialog()
+    val rcvRoute = GtRecipes.routeRecipe.value
+    androidx.compose.runtime.LaunchedEffect(rcvRoute) { if (rcvRoute.isNotEmpty()) { GtRecipes.routeRecipe.value = ""; open = ""
+        try { GtRoute.buildFromRecipeJson(ctx, org.json.JSONObject(rcvRoute), true) }
+        catch (e: Exception) { android.widget.Toast.makeText(ctx, "Could not open the route recipe: ${e.message}", android.widget.Toast.LENGTH_LONG).show() } } }
     var sub by rememberSaveable { mutableStateOf("") }   // MAPTARGET-2026-10-23: the open submenu's id; "" = the module's top level
     val openModule = LaunchModules.all.firstOrNull { it.id == open }
     // GTROUTE1-2026-10-23: the in-progress picker's "+ Plan a new route" -> the Route panel's choices.
