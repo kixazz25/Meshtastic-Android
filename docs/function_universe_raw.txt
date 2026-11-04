@@ -842,79 +842,89 @@ ConvoyPendingRidesScreen.kt:35:    val context = LocalContext.current
 ConvoyPendingRidesScreen.kt:38:    val pendingRides = remember {
 ConvoyPendingRidesScreen.kt:39:        val count = ConvoyDevSeeder.getRideCount(context)
 ConvoyTrackImportScreen.kt:66:fun ConvoyTrackImportScreen(
-ConvoyTrackImportScreen.kt:76:    var files by remember { mutableStateOf<List<File>>(emptyList()) }
-ConvoyTrackImportScreen.kt:77:    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
-ConvoyTrackImportScreen.kt:84:    var showSourcePopup by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:85:    var selectedSlots by remember { mutableStateOf<List<String>>(emptyList()) }
-ConvoyTrackImportScreen.kt:86:    var replaceExisting by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:89:    var scanning by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:92:    var showProgress by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:93:    var progressCurrent by remember { mutableStateOf(0) }
-ConvoyTrackImportScreen.kt:94:    var progressTotal by remember { mutableStateOf(0) }
-ConvoyTrackImportScreen.kt:95:    var progressName by remember { mutableStateOf("") }
-ConvoyTrackImportScreen.kt:98:    var showRecap by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:99:    var recapImported by remember { mutableStateOf<List<String>>(emptyList()) }
-ConvoyTrackImportScreen.kt:100:    var recapSkipped by remember { mutableStateOf<List<String>>(emptyList()) }
-ConvoyTrackImportScreen.kt:101:    var recapFailed by remember { mutableStateOf<List<String>>(emptyList()) }
-ConvoyTrackImportScreen.kt:102:    var recapDatesCorrected by remember { mutableStateOf(0) }
-ConvoyTrackImportScreen.kt:108:    var importLines by remember { mutableStateOf<List<String>>(emptyList()) }
-ConvoyTrackImportScreen.kt:109:    val importListState = androidx.compose.foundation.lazy.rememberLazyListState()
-ConvoyTrackImportScreen.kt:110:    var recapWaypoints by remember { mutableStateOf(0) }
-ConvoyTrackImportScreen.kt:111:    var recapRoutes by remember { mutableStateOf(0) }
-ConvoyTrackImportScreen.kt:112:    var processedFiles by remember { mutableStateOf<List<File>>(emptyList()) }
-ConvoyTrackImportScreen.kt:119:    var showSyncDialog by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:120:    var syncLines by remember { mutableStateOf<List<String>>(emptyList()) }
-ConvoyTrackImportScreen.kt:121:    var syncRunning by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:122:    var syncResult by remember { mutableStateOf<SpatialDbManager.TrackSyncResult?>(null) }
-ConvoyTrackImportScreen.kt:127:    var showRiderDialog by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:128:    var riderStatus by remember { mutableStateOf("") }
-ConvoyTrackImportScreen.kt:129:    var riderRunning by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:130:    var riderResult by remember { mutableStateOf<RiderTrailWriter.Result?>(null) }
-ConvoyTrackImportScreen.kt:131:    val syncListState = rememberLazyListState()
-ConvoyTrackImportScreen.kt:133:    val context = LocalContext.current
-ConvoyTrackImportScreen.kt:134:    val scope = rememberCoroutineScope()
-ConvoyTrackImportScreen.kt:142:    var deleteOriginals by remember { mutableStateOf(true) }
-ConvoyTrackImportScreen.kt:143:    var staging by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:144:    var stageNote by remember { mutableStateOf("") }
-ConvoyTrackImportScreen.kt:156:    fun stageAndList(uris: List<android.net.Uri>) {
-ConvoyTrackImportScreen.kt:160:            val staged = withContext(Dispatchers.IO) {
-ConvoyTrackImportScreen.kt:161:                val dir = java.io.File(context.filesDir, "gpx_staging")
-ConvoyTrackImportScreen.kt:167:                val out = ArrayList<java.io.File>()
-ConvoyTrackImportScreen.kt:169:                    val doc = androidx.documentfile.provider.DocumentFile
-ConvoyTrackImportScreen.kt:172:                    val name = (doc?.name ?: "import_${System.currentTimeMillis()}.gpx").replace(Regex("""\s*\(\d+\)$"""), "")
-ConvoyTrackImportScreen.kt:174:                    val target = java.io.File(dir, name)
-ConvoyTrackImportScreen.kt:182:                        val srcLen = doc?.length() ?: -1L
-ConvoyTrackImportScreen.kt:192:                        val head = try { target.inputStream().use { i -> val b = ByteArray(4096); val n = i.read(b); if (n > 0) String(b, 0, n) else "" } } catch (e: Exception) { "" }
-ConvoyTrackImportScreen.kt:193:                        val readable = head.contains("<gpx", ignoreCase = true) || head.contains("<kml", ignoreCase = true)
-ConvoyTrackImportScreen.kt:199:                            val gone = try { doc?.delete() ?: false }
-ConvoyTrackImportScreen.kt:221:    val pickFiles = androidx.activity.compose.rememberLauncherForActivityResult(
-ConvoyTrackImportScreen.kt:229:    val pickNotice = rememberPickerNotice("to choose the track files you want to import", "files")
-ConvoyTrackImportScreen.kt:238:    var pickerOpened by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:250:    fun doImport() {
-ConvoyTrackImportScreen.kt:251:        val sel = files.filter { selected.contains(it.name) }
-ConvoyTrackImportScreen.kt:258:            val imported = mutableListOf<String>()
-ConvoyTrackImportScreen.kt:259:            val skipped = mutableListOf<String>()
-ConvoyTrackImportScreen.kt:260:            val failed = mutableListOf<String>()
-ConvoyTrackImportScreen.kt:261:            var datesCorrected = 0
-ConvoyTrackImportScreen.kt:262:            var wptTotal = 0
-ConvoyTrackImportScreen.kt:263:            var rteTotal = 0
-ConvoyTrackImportScreen.kt:264:            var newTotal = 0
-ConvoyTrackImportScreen.kt:265:            var dupeTotal = 0
-ConvoyTrackImportScreen.kt:266:            var aliasedTotal = 0
-ConvoyTrackImportScreen.kt:267:            var skippedTotal = 0
-ConvoyTrackImportScreen.kt:274:                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, if (!mapsSkip.contains(f.name)) selectedSlots else emptyList(), replaceExisting, asTrails) { line ->
-ConvoyTrackImportScreen.kt:312:        val slotSources = remember { MapSourceManager.init(context.applicationContext); MapSourceManager.getSlotSources() }
-ConvoyTrackImportScreen.kt:313:        val popupSlots = remember(slotSources) {
-ConvoyTrackImportScreen.kt:426:                        val r = withContext(Dispatchers.IO) {
-ConvoyTrackImportScreen.kt:454:                        val r = withContext(Dispatchers.IO) {
-ConvoyTrackImportScreen.kt:589:                    val checked = selected.contains(file.name)
-ConvoyTrackImportScreen.kt:777:private fun ImportProgressDialog(
-ConvoyTrackImportScreen.kt:828:                            val line = feedLines[idx]
-ConvoyTrackImportScreen.kt:829:                            val col = when {
-ConvoyTrackImportScreen.kt:854:private fun ImportRecapDialog(
-ConvoyTrackImportScreen.kt:982:                    val shown = imported.take(20)
-ConvoyTrackImportScreen.kt:1030:private fun formatFileSize(bytes: Long): String {
-ConvoyTrackImportScreen.kt:1038:private fun formatFileDate(millis: Long): String {
+ConvoyTrackImportScreen.kt:73:    var files by remember { mutableStateOf<List<File>>(emptyList()) }
+ConvoyTrackImportScreen.kt:74:    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+ConvoyTrackImportScreen.kt:81:    var showSourcePopup by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:82:    var selectedSlots by remember { mutableStateOf<List<String>>(emptyList()) }
+ConvoyTrackImportScreen.kt:83:    var replaceExisting by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:88:    var trailsSource by remember { mutableStateOf("") }
+ConvoyTrackImportScreen.kt:91:    var scanning by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:94:    var showProgress by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:95:    var progressCurrent by remember { mutableStateOf(0) }
+ConvoyTrackImportScreen.kt:96:    var progressTotal by remember { mutableStateOf(0) }
+ConvoyTrackImportScreen.kt:97:    var progressName by remember { mutableStateOf("") }
+ConvoyTrackImportScreen.kt:100:    var showRecap by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:101:    var recapImported by remember { mutableStateOf<List<String>>(emptyList()) }
+ConvoyTrackImportScreen.kt:102:    var recapSkipped by remember { mutableStateOf<List<String>>(emptyList()) }
+ConvoyTrackImportScreen.kt:103:    var recapFailed by remember { mutableStateOf<List<String>>(emptyList()) }
+ConvoyTrackImportScreen.kt:104:    var recapDatesCorrected by remember { mutableStateOf(0) }
+ConvoyTrackImportScreen.kt:110:    var importLines by remember { mutableStateOf<List<String>>(emptyList()) }
+ConvoyTrackImportScreen.kt:111:    val importListState = androidx.compose.foundation.lazy.rememberLazyListState()
+ConvoyTrackImportScreen.kt:112:    var recapWaypoints by remember { mutableStateOf(0) }
+ConvoyTrackImportScreen.kt:113:    var recapRoutes by remember { mutableStateOf(0) }
+ConvoyTrackImportScreen.kt:114:    var processedFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+ConvoyTrackImportScreen.kt:121:    var showSyncDialog by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:122:    var syncLines by remember { mutableStateOf<List<String>>(emptyList()) }
+ConvoyTrackImportScreen.kt:123:    var syncRunning by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:124:    var syncResult by remember { mutableStateOf<SpatialDbManager.TrackSyncResult?>(null) }
+ConvoyTrackImportScreen.kt:129:    var showRiderDialog by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:130:    var riderStatus by remember { mutableStateOf("") }
+ConvoyTrackImportScreen.kt:131:    var riderRunning by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:132:    var riderResult by remember { mutableStateOf<RiderTrailWriter.Result?>(null) }
+ConvoyTrackImportScreen.kt:133:    val syncListState = rememberLazyListState()
+ConvoyTrackImportScreen.kt:135:    val context = LocalContext.current
+ConvoyTrackImportScreen.kt:136:    val scope = rememberCoroutineScope()
+ConvoyTrackImportScreen.kt:144:    var deleteOriginals by remember { mutableStateOf(true) }
+ConvoyTrackImportScreen.kt:145:    var staging by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:146:    var stageNote by remember { mutableStateOf("") }
+ConvoyTrackImportScreen.kt:158:    fun stageAndList(uris: List<android.net.Uri>) {
+ConvoyTrackImportScreen.kt:162:            val staged = withContext(Dispatchers.IO) {
+ConvoyTrackImportScreen.kt:163:                val dir = java.io.File(context.filesDir, "gpx_staging")
+ConvoyTrackImportScreen.kt:169:                val out = ArrayList<java.io.File>()
+ConvoyTrackImportScreen.kt:171:                    val doc = androidx.documentfile.provider.DocumentFile
+ConvoyTrackImportScreen.kt:174:                    val name = (doc?.name ?: "import_${System.currentTimeMillis()}.gpx").replace(Regex("""\s*\(\d+\)$"""), "")
+ConvoyTrackImportScreen.kt:176:                    val target = java.io.File(dir, name)
+ConvoyTrackImportScreen.kt:184:                        val srcLen = doc?.length() ?: -1L
+ConvoyTrackImportScreen.kt:194:                        val head = try { target.inputStream().use { i -> val b = ByteArray(4096); val n = i.read(b); if (n > 0) String(b, 0, n) else "" } } catch (e: Exception) { "" }
+ConvoyTrackImportScreen.kt:195:                        val readable = head.contains("<gpx", ignoreCase = true) || head.contains("<kml", ignoreCase = true)
+ConvoyTrackImportScreen.kt:201:                            val gone = try { doc?.delete() ?: false }
+ConvoyTrackImportScreen.kt:223:    val pickFiles = androidx.activity.compose.rememberLauncherForActivityResult(
+ConvoyTrackImportScreen.kt:231:    val pickNotice = rememberPickerNotice("to choose the track files you want to import", "files")
+ConvoyTrackImportScreen.kt:240:    var pickerOpened by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:252:    fun doImport() {
+ConvoyTrackImportScreen.kt:253:        val sel = files.filter { selected.contains(it.name) }
+ConvoyTrackImportScreen.kt:260:            val imported = mutableListOf<String>()
+ConvoyTrackImportScreen.kt:261:            val skipped = mutableListOf<String>()
+ConvoyTrackImportScreen.kt:262:            val failed = mutableListOf<String>()
+ConvoyTrackImportScreen.kt:263:            var datesCorrected = 0
+ConvoyTrackImportScreen.kt:264:            var wptTotal = 0
+ConvoyTrackImportScreen.kt:265:            var rteTotal = 0
+ConvoyTrackImportScreen.kt:266:            var newTotal = 0
+ConvoyTrackImportScreen.kt:267:            var dupeTotal = 0
+ConvoyTrackImportScreen.kt:268:            var aliasedTotal = 0
+ConvoyTrackImportScreen.kt:269:            var skippedTotal = 0
+ConvoyTrackImportScreen.kt:278:                    val yes = trailsAnswer == "YES"
+ConvoyTrackImportScreen.kt:279:                    val ext = ConvoyTrackOps.importExt(f)
+ConvoyTrackImportScreen.kt:280:                    val conv = if (yes || ext in setOf("kml", "kmz", "geojson", "json")) withContext(Dispatchers.IO) {
+ConvoyTrackImportScreen.kt:281:                        val od = java.io.File(context.cacheDir, "import_convert").apply { mkdirs() }
+ConvoyTrackImportScreen.kt:282:                        val r = ImportConverter.toGpx(f, od, yes)
+ConvoyTrackImportScreen.kt:283:                        val kept = try { "Download/" + ImportConverter.saveToDownloads(context.applicationContext, r.file) } catch (e: Exception) { "not saved: ${e.message}" }
+ConvoyTrackImportScreen.kt:287:                    val src = conv?.first?.file ?: f
+ConvoyTrackImportScreen.kt:290:                    val batch = (if (yes) trailsSource.trim().ifEmpty { f.nameWithoutExtension } else f.nameWithoutExtension) + " \u00b7 " +
+ConvoyTrackImportScreen.kt:292:                    val summary = ConvoyTrackOps.importGpxAllArtifacts(src, context, if (!yes && !mapsSkip.contains(f.name)) selectedSlots else emptyList(), replaceExisting, false, batch) { line ->
+ConvoyTrackImportScreen.kt:330:        val slotSources = remember { MapSourceManager.init(context.applicationContext); MapSourceManager.getSlotSources() }
+ConvoyTrackImportScreen.kt:331:        val popupSlots = remember(slotSources) {
+ConvoyTrackImportScreen.kt:444:                        val r = withContext(Dispatchers.IO) {
+ConvoyTrackImportScreen.kt:472:                        val r = withContext(Dispatchers.IO) {
+ConvoyTrackImportScreen.kt:590:                        val on = trailsAnswer == a
+ConvoyTrackImportScreen.kt:638:                    val checked = selected.contains(file.name)
+ConvoyTrackImportScreen.kt:807:private fun ImportProgressDialog(
+ConvoyTrackImportScreen.kt:858:                            val line = feedLines[idx]
+ConvoyTrackImportScreen.kt:859:                            val col = when {
+ConvoyTrackImportScreen.kt:884:private fun ImportRecapDialog(
+ConvoyTrackImportScreen.kt:1012:                    val shown = imported.take(20)
+ConvoyTrackImportScreen.kt:1060:private fun formatFileSize(bytes: Long): String {
+ConvoyTrackImportScreen.kt:1068:private fun formatFileDate(millis: Long): String {
 ConvoySubscriptionScreen.kt:55:data class ValueSlide(
 ConvoySubscriptionScreen.kt:56:    val icon: String,
 ConvoySubscriptionScreen.kt:57:    val headline: String,
@@ -2409,65 +2419,81 @@ ImportConverter.kt:21:        val out = ArrayList<String>()
 ImportConverter.kt:23:            val name = androidx.documentfile.provider.DocumentFile.fromSingleUri(context, uri)?.name ?: "file_${System.currentTimeMillis()}"
 ImportConverter.kt:25:                val ext = name.substringAfterLast('.', "").lowercase()
 ImportConverter.kt:28:                val src = File(dir, name)
-ImportConverter.kt:33:                val r = toGpx(src, dir)
 ImportConverter.kt:34:                val saved = saveToDownloads(context, r.file)
-ImportConverter.kt:46:    private fun saveToDownloads(context: android.content.Context, f: File): String {
 ImportConverter.kt:48:            val d = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
 ImportConverter.kt:49:            var t = File(d, f.name); var n = 2
 ImportConverter.kt:53:        val cr = context.contentResolver
 ImportConverter.kt:54:        val v = android.content.ContentValues().apply {
 ImportConverter.kt:62:        val uri = cr.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v)
-ImportConverter.kt:74:    fun toGpx(src: File, outDir: File): Converted {
-ImportConverter.kt:75:        val ext = src.extension.lowercase()
-ImportConverter.kt:76:        val text = if (ext == "kmz") readKmz(src) else src.readText()
-ImportConverter.kt:77:        val c = Collector(src.nameWithoutExtension)
-ImportConverter.kt:80:        var out = File(outDir, "${src.nameWithoutExtension}_$ext.gpx")
-ImportConverter.kt:81:        var n = 2
-ImportConverter.kt:95:    private fun readKmz(src: File): String = java.util.zip.ZipFile(src).use { z ->
-ImportConverter.kt:96:        val e = z.entries().asSequence().filter { it.name.lowercase().endsWith(".kml") }
-ImportConverter.kt:103:    private class Collector(var docName: String) {
-ImportConverter.kt:104:        val trk = ArrayList<String>(); val wpt = ArrayList<String>(); val used = HashMap<String, Int>(); var lines = 0
-ImportConverter.kt:108:    private fun clean(s: String): String = s
-ImportConverter.kt:114:    private fun pick(d: Map<String, String>, vararg keys: String): String {
-ImportConverter.kt:119:    private fun nameOf(own: String, d: Map<String, String>, c: Collector): Pair<String, String> {
-ImportConverter.kt:120:        val nm = pick(d, "NAME", "TRAIL_NAME", "TrailName", "TRAILNAME")
-ImportConverter.kt:121:        val num = pick(d, "Number", "Label", "TRAIL_NO", "TrailNo", "NUM")
-ImportConverter.kt:122:        val rating = pick(d, "Rating", "Difficulty", "DIFF", "Class")
-ImportConverter.kt:123:        val base = nm.ifEmpty { if (own.isNotEmpty() && !own.all { it.isDigit() }) own else "" }
-ImportConverter.kt:124:        var name = when {
-ImportConverter.kt:133:        val k = (c.used[name] ?: 0) + 1; c.used[name] = k
-ImportConverter.kt:138:    private fun addLine(name: String, rating: String, parts: List<List<Pair<Double, Double>>>, c: Collector) {
-ImportConverter.kt:139:        val good = parts.filter { it.size >= 2 }
-ImportConverter.kt:142:        val desc = clean(c.docName) + if (rating.isNotEmpty()) " · $rating" else ""
-ImportConverter.kt:144:            val nm = if (i == 0) name else "$name (part ${i + 1})"
-ImportConverter.kt:156:    private fun addPoint(name: String, lon: Double, lat: Double, c: Collector) {
-ImportConverter.kt:162:    private val NAME_RX = Regex("""<name>\s*(?:<!\[CDATA\[)?([\s\S]*?)(?:]]>)?\s*</name>""")
-ImportConverter.kt:164:    private fun coords(s: String): List<Pair<Double, Double>> = s.trim().split(Regex("""\s+""")).mapNotNull { p ->
-ImportConverter.kt:165:        val a = p.split(",")
-ImportConverter.kt:167:            val lon = a[0].toDoubleOrNull(); val lat = a[1].toDoubleOrNull()
-ImportConverter.kt:172:    private fun fromKml(t: String, c: Collector) {
-ImportConverter.kt:175:            val pm = m.groupValues[1]
-ImportConverter.kt:176:            val d = LinkedHashMap<String, String>()
-ImportConverter.kt:179:            val own = NAME_RX.find(pm)?.groupValues?.get(1)?.let { clean(it) } ?: ""
-ImportConverter.kt:180:            val lines = Regex("""<LineString\b[^>]*>[\s\S]*?<coordinates>([^<]*)</coordinates>""").findAll(pm).map { coords(it.groupValues[1]) }.toList()
-ImportConverter.kt:182:                val (name, rating) = nameOf(own, d, c)
-ImportConverter.kt:186:            val p = Regex("""<Point\b[^>]*>[\s\S]*?<coordinates>([^<]*)</coordinates>""").find(pm) ?: continue
-ImportConverter.kt:187:            val pt = coords(p.groupValues[1]).firstOrNull() ?: continue
-ImportConverter.kt:193:    private fun line(a: org.json.JSONArray): List<Pair<Double, Double>> = (0 until a.length()).mapNotNull { i ->
-ImportConverter.kt:194:        val p = a.optJSONArray(i) ?: return@mapNotNull null
-ImportConverter.kt:198:    private fun fromGeoJson(t: String, c: Collector) {
-ImportConverter.kt:199:        val root = org.json.JSONObject(t)
-ImportConverter.kt:201:        val feats = when (root.optString("type")) {
-ImportConverter.kt:207:            val f = feats.optJSONObject(i) ?: continue
-ImportConverter.kt:208:            val g = f.optJSONObject("geometry") ?: continue
-ImportConverter.kt:209:            val props = f.optJSONObject("properties")
-ImportConverter.kt:210:            val d = LinkedHashMap<String, String>()
-ImportConverter.kt:211:            if (props != null) for (k in props.keys()) { val v = props.opt(k); if (v != null && v != org.json.JSONObject.NULL) d[k] = v.toString() }
-ImportConverter.kt:212:            val own = pick(d, "name", "title")
-ImportConverter.kt:213:            val cs = g.optJSONArray("coordinates") ?: continue
-ImportConverter.kt:215:                "LineString" -> { val (n, r) = nameOf(own, d, c); addLine(n, r, listOf(line(cs)), c) }
-ImportConverter.kt:216:                "MultiLineString" -> { val (n, r) = nameOf(own, d, c); addLine(n, r, (0 until cs.length()).mapNotNull { j -> cs.optJSONArray(j)?.let { line(it) } }, c) }
-ImportConverter.kt:218:                "MultiPoint" -> { val n = nameOf(own, d, c).first; line(cs).forEach { (lon, lat) -> addPoint(n, lon, lat, c) } }
+ImportConverter.kt:80:    fun toGpx(src: File, outDir: File, asTrails: Boolean): Converted {
+ImportConverter.kt:81:        val ext = src.extension.lowercase()
+ImportConverter.kt:82:        val text = if (ext == "kmz") readKmz(src) else src.readText()
+ImportConverter.kt:83:        val c = Collector(src.nameWithoutExtension, asTrails)
+ImportConverter.kt:86:        val base = src.nameWithoutExtension + if (asTrails) "-Trails" else "-Converted"
+ImportConverter.kt:87:        var out = File(outDir, "$base.gpx")
+ImportConverter.kt:88:        var n = 2
+ImportConverter.kt:103:    const val TRAIL_MARK = "grouptrack-trail"
+ImportConverter.kt:106:    private val GPX_PT = Regex("""<(?:trkpt|rtept)\b([^>]*)>""")
+ImportConverter.kt:107:    private val LAT_RX = Regex("""\blat\s*=\s*["']([-0-9.eE+]+)["']""")
+ImportConverter.kt:108:    private val LON_RX = Regex("""\blon\s*=\s*["']([-0-9.eE+]+)["']""")
+ImportConverter.kt:109:    private fun gpxPts(block: String): List<Pair<Double, Double>> = GPX_PT.findAll(block).mapNotNull { m ->
+ImportConverter.kt:110:        val lat = LAT_RX.find(m.groupValues[1])?.groupValues?.get(1)?.toDoubleOrNull()
+ImportConverter.kt:111:        val lon = LON_RX.find(m.groupValues[1])?.groupValues?.get(1)?.toDoubleOrNull()
+ImportConverter.kt:115:    private fun gpxLine(b: String, segs: List<List<Pair<Double, Double>>>, c: Collector) {
+ImportConverter.kt:116:        val own = Regex("""<name>\s*(?:<!\[CDATA\[)?([\s\S]*?)(?:]]>)?\s*</name>""").find(b)?.groupValues?.get(1)?.let { clean(it) } ?: ""
+ImportConverter.kt:117:        val ty = Regex("""<type>([\s\S]*?)</type>""").find(b)?.groupValues?.get(1)?.let { clean(it) } ?: ""
+ImportConverter.kt:118:        val d = LinkedHashMap<String, String>()
+ImportConverter.kt:121:        val (nm, r) = nameOf(own, d, c)
+ImportConverter.kt:125:    private fun fromGpx(t: String, c: Collector) {
+ImportConverter.kt:127:        val body = t.replace(Regex("""<extensions>[\s\S]*?</extensions>"""), "")
+ImportConverter.kt:129:            val b = m.groupValues[1]
+ImportConverter.kt:130:            val segs = Regex("""<trkseg\b[^>]*>([\s\S]*?)</trkseg>""").findAll(b).map { gpxPts(it.groupValues[1]) }.toList()
+ImportConverter.kt:135:            val b = m.groupValues[1]
+ImportConverter.kt:142:    private fun readKmz(src: File): String = java.util.zip.ZipFile(src).use { z ->
+ImportConverter.kt:143:        val e = z.entries().asSequence().filter { it.name.lowercase().endsWith(".kml") }
+ImportConverter.kt:151:        val trk = ArrayList<String>(); val wpt = ArrayList<String>(); val used = HashMap<String, Int>(); var lines = 0
+ImportConverter.kt:155:    private fun clean(s: String): String = s
+ImportConverter.kt:161:    private fun pick(d: Map<String, String>, vararg keys: String): String {
+ImportConverter.kt:166:    private fun nameOf(own: String, d: Map<String, String>, c: Collector): Pair<String, String> {
+ImportConverter.kt:167:        val nm = pick(d, "NAME", "TRAIL_NAME", "TrailName", "TRAILNAME")
+ImportConverter.kt:168:        val num = pick(d, "Number", "Label", "TRAIL_NO", "TrailNo", "NUM")
+ImportConverter.kt:169:        val rating = pick(d, "Rating", "Difficulty", "DIFF", "Class")
+ImportConverter.kt:170:        val base = nm.ifEmpty { if (own.isNotEmpty() && !own.all { it.isDigit() }) own else "" }
+ImportConverter.kt:171:        var name = when {
+ImportConverter.kt:180:        val k = (c.used[name] ?: 0) + 1; c.used[name] = k
+ImportConverter.kt:185:    private fun addLine(name: String, rating: String, parts: List<List<Pair<Double, Double>>>, c: Collector) {
+ImportConverter.kt:186:        val good = parts.filter { it.size >= 2 }
+ImportConverter.kt:189:        val desc = clean(c.docName)
+ImportConverter.kt:191:        val full = if (rating.isNotEmpty() && !name.contains(rating, ignoreCase = true)) "$name ($rating)" else name
+ImportConverter.kt:193:            val nm = if (i == 0) full else "$full (part ${i + 1})"
+ImportConverter.kt:205:    private fun addPoint(name: String, lon: Double, lat: Double, c: Collector) {
+ImportConverter.kt:211:    private val NAME_RX = Regex("""<name>\s*(?:<!\[CDATA\[)?([\s\S]*?)(?:]]>)?\s*</name>""")
+ImportConverter.kt:213:    private fun coords(s: String): List<Pair<Double, Double>> = s.trim().split(Regex("""\s+""")).mapNotNull { p ->
+ImportConverter.kt:214:        val a = p.split(",")
+ImportConverter.kt:216:            val lon = a[0].toDoubleOrNull(); val lat = a[1].toDoubleOrNull()
+ImportConverter.kt:221:    private fun fromKml(t: String, c: Collector) {
+ImportConverter.kt:224:            val pm = m.groupValues[1]
+ImportConverter.kt:225:            val d = LinkedHashMap<String, String>()
+ImportConverter.kt:228:            val own = NAME_RX.find(pm)?.groupValues?.get(1)?.let { clean(it) } ?: ""
+ImportConverter.kt:229:            val lines = Regex("""<LineString\b[^>]*>[\s\S]*?<coordinates>([^<]*)</coordinates>""").findAll(pm).map { coords(it.groupValues[1]) }.toList()
+ImportConverter.kt:231:                val (name, rating) = nameOf(own, d, c)
+ImportConverter.kt:235:            val p = Regex("""<Point\b[^>]*>[\s\S]*?<coordinates>([^<]*)</coordinates>""").find(pm) ?: continue
+ImportConverter.kt:236:            val pt = coords(p.groupValues[1]).firstOrNull() ?: continue
+ImportConverter.kt:242:    private fun line(a: org.json.JSONArray): List<Pair<Double, Double>> = (0 until a.length()).mapNotNull { i ->
+ImportConverter.kt:243:        val p = a.optJSONArray(i) ?: return@mapNotNull null
+ImportConverter.kt:247:    private fun fromGeoJson(t: String, c: Collector) {
+ImportConverter.kt:248:        val root = org.json.JSONObject(t)
+ImportConverter.kt:250:        val feats = when (root.optString("type")) {
+ImportConverter.kt:256:            val f = feats.optJSONObject(i) ?: continue
+ImportConverter.kt:257:            val g = f.optJSONObject("geometry") ?: continue
+ImportConverter.kt:258:            val props = f.optJSONObject("properties")
+ImportConverter.kt:259:            val d = LinkedHashMap<String, String>()
+ImportConverter.kt:260:            if (props != null) for (k in props.keys()) { val v = props.opt(k); if (v != null && v != org.json.JSONObject.NULL) d[k] = v.toString() }
+ImportConverter.kt:261:            val own = pick(d, "name", "title")
+ImportConverter.kt:262:            val cs = g.optJSONArray("coordinates") ?: continue
+ImportConverter.kt:264:                "LineString" -> { val (n, r) = nameOf(own, d, c); addLine(n, r, listOf(line(cs)), c) }
+ImportConverter.kt:265:                "MultiLineString" -> { val (n, r) = nameOf(own, d, c); addLine(n, r, (0 until cs.length()).mapNotNull { j -> cs.optJSONArray(j)?.let { line(it) } }, c) }
+ImportConverter.kt:267:                "MultiPoint" -> { val n = nameOf(own, d, c).first; line(cs).forEach { (lon, lat) -> addPoint(n, lon, lat, c) } }
 ConvoyMyOrganizersScreen.kt:33:fun ConvoyMyOrganizersScreen(
 ConvoyMyOrganizersScreen.kt:36:    val context     = LocalContext.current
 ConvoyMyOrganizersScreen.kt:37:    val scope       = rememberCoroutineScope()
@@ -2694,182 +2720,183 @@ ConvoyTrackOps.kt:32:    fun tracksDir(): File {
 ConvoyTrackOps.kt:33:        val dir = GroupTrackStorage.tracksRoot()
 ConvoyTrackOps.kt:38:    fun downloadsDir(): File =
 ConvoyTrackOps.kt:43:    fun importExt(f: File): String = f.name.replace(Regex("""\s*\(\d+\)$"""), "").substringAfterLast('.', "").lowercase()
-ConvoyTrackOps.kt:46:    suspend fun listTracks(): List<File> = withContext(Dispatchers.IO) {
-ConvoyTrackOps.kt:47:        val dir = tracksDir()
-ConvoyTrackOps.kt:50:            val name = f.name
-ConvoyTrackOps.kt:51:            val ext = f.extension.lowercase()
-ConvoyTrackOps.kt:59:    fun isInProgress(file: File): Boolean =
-ConvoyTrackOps.kt:62:    sealed class RenameResult {
-ConvoyTrackOps.kt:63:        object Success : RenameResult()
-ConvoyTrackOps.kt:64:        object NameExists : RenameResult()
-ConvoyTrackOps.kt:65:        object Failed : RenameResult()
-ConvoyTrackOps.kt:69:    suspend fun renameTrack(file: File, newBaseName: String): RenameResult =
-ConvoyTrackOps.kt:71:            val ext = file.extension
-ConvoyTrackOps.kt:72:            val target = File(file.parentFile, "$newBaseName.$ext")
-ConvoyTrackOps.kt:82:    suspend fun deleteTrack(file: File): Boolean = withContext(Dispatchers.IO) {
-ConvoyTrackOps.kt:87:    suspend fun copyToDownloads(file: File): Boolean = withContext(Dispatchers.IO) {
-ConvoyTrackOps.kt:89:            val target = File(downloadsDir(), file.name)
-ConvoyTrackOps.kt:101:    fun shareTrack(context: Context, file: File) {
-ConvoyTrackOps.kt:103:            val uri = FileProvider.getUriForFile(
-ConvoyTrackOps.kt:108:            val intent = Intent(Intent.ACTION_SEND).apply {
-ConvoyTrackOps.kt:113:            val chooser = Intent.createChooser(intent, "Share track").apply {
-ConvoyTrackOps.kt:123:    fun formatSize(bytes: Long): String = when {
-ConvoyTrackOps.kt:134:    sealed class ImportResult {
-ConvoyTrackOps.kt:135:        data class Success(
-ConvoyTrackOps.kt:136:            val sourceName: String,
-ConvoyTrackOps.kt:137:            val createdFiles: List<String>
-ConvoyTrackOps.kt:139:        data class PartialSuccess(
-ConvoyTrackOps.kt:140:            val sourceName: String,
-ConvoyTrackOps.kt:141:            val createdFiles: List<String>,
-ConvoyTrackOps.kt:142:            val skippedFiles: List<String>
-ConvoyTrackOps.kt:144:        data class Failed(
-ConvoyTrackOps.kt:145:            val sourceName: String,
-ConvoyTrackOps.kt:146:            val reason: String
-ConvoyTrackOps.kt:153:    data class FixDatesResult(
-ConvoyTrackOps.kt:154:        val updated: Int,
-ConvoyTrackOps.kt:155:        val unchanged: Int,
-ConvoyTrackOps.kt:156:        val failed: Int
-ConvoyTrackOps.kt:163:    fun extractEarliestTime(content: String): Long? {
-ConvoyTrackOps.kt:164:        val patterns = listOf(
-ConvoyTrackOps.kt:168:        var earliest: Long? = null
-ConvoyTrackOps.kt:172:                    val epochMs = java.time.Instant.parse(match.groupValues[1].trim()).toEpochMilli()
-ConvoyTrackOps.kt:179:                        val odt = java.time.OffsetDateTime.parse(match.groupValues[1].trim())
-ConvoyTrackOps.kt:180:                        val epochMs = odt.toInstant().toEpochMilli()
-ConvoyTrackOps.kt:196:    private fun sanitizeFilename(name: String): String {
-ConvoyTrackOps.kt:211:    suspend fun importTrackFile(
-ConvoyTrackOps.kt:215:        val sourceName = sourceFile.name
-ConvoyTrackOps.kt:221:            var text = sourceFile.readText()
-ConvoyTrackOps.kt:225:            val isGpx = ext == "gpx"
-ConvoyTrackOps.kt:226:            val isKml = ext == "kml"
-ConvoyTrackOps.kt:231:            val dir = tracksDir()
-ConvoyTrackOps.kt:234:            val created = mutableListOf<String>()
-ConvoyTrackOps.kt:235:            val skipped = mutableListOf<String>()
-ConvoyTrackOps.kt:239:                val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
-ConvoyTrackOps.kt:240:                val tracks = trkPattern.findAll(text).toList()
-ConvoyTrackOps.kt:243:                    val namePattern = Regex("<name>([^<]*)</name>")
-ConvoyTrackOps.kt:245:                        val trkContent = trk.groupValues[1]
-ConvoyTrackOps.kt:246:                        val rawName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()
-ConvoyTrackOps.kt:248:                        val baseName = sanitizeFilename(rawName)
-ConvoyTrackOps.kt:249:                        val safeName = "$baseName.gpx"
-ConvoyTrackOps.kt:252:                        val dest = File(dir, safeName)
-ConvoyTrackOps.kt:257:                        val singleGpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-ConvoyTrackOps.kt:280:                val pmPattern = Regex("""<Placemark>([\s\S]*?)</Placemark>""")
-ConvoyTrackOps.kt:281:                val placemarks = pmPattern.findAll(text)
-ConvoyTrackOps.kt:286:                    val namePattern = Regex("<name>([^<]*)</name>")
-ConvoyTrackOps.kt:288:                        val pmFull = pm.groupValues[0]
-ConvoyTrackOps.kt:289:                        val pmInner = pm.groupValues[1]
-ConvoyTrackOps.kt:290:                        val rawName = namePattern.find(pmInner)?.groupValues?.get(1)?.trim()
-ConvoyTrackOps.kt:292:                        val baseName = sanitizeFilename(rawName)
-ConvoyTrackOps.kt:293:                        val safeName = "$baseName.kml"
-ConvoyTrackOps.kt:296:                        val dest = File(dir, safeName)
-ConvoyTrackOps.kt:301:                        val singleKml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-ConvoyTrackOps.kt:321:            val dest = File(dir, sourceName)
-ConvoyTrackOps.kt:340:    suspend fun fixDateFromContent(file: File): Boolean = withContext(Dispatchers.IO) {
-ConvoyTrackOps.kt:343:            val content = file.readText()
-ConvoyTrackOps.kt:344:            val earliest = extractEarliestTime(content) ?: return@withContext false
-ConvoyTrackOps.kt:357:    suspend fun fixDatesForFiles(
-ConvoyTrackOps.kt:361:        var updated = 0
-ConvoyTrackOps.kt:362:        var unchanged = 0
-ConvoyTrackOps.kt:363:        var failed = 0
-ConvoyTrackOps.kt:380:    data class GpxWaypoint(
-ConvoyTrackOps.kt:381:        val name: String,
-ConvoyTrackOps.kt:382:        val lat: Double,
-ConvoyTrackOps.kt:383:        val lon: Double,
-ConvoyTrackOps.kt:384:        val type: String,
-ConvoyTrackOps.kt:385:        val description: String = ""
-ConvoyTrackOps.kt:388:    data class GpxRoute(
-ConvoyTrackOps.kt:389:        val name: String,
-ConvoyTrackOps.kt:394:        val description: String = ""
-ConvoyTrackOps.kt:397:    data class ImportArtifactsSummary(
-ConvoyTrackOps.kt:398:        val sourceName: String,
-ConvoyTrackOps.kt:399:        val trackCount: Int,
-ConvoyTrackOps.kt:400:        val waypointCount: Int,
-ConvoyTrackOps.kt:401:        val routeCount: Int,
-ConvoyTrackOps.kt:402:        val trackFiles: List<String>,
-ConvoyTrackOps.kt:403:        val errors: List<String>,
-ConvoyTrackOps.kt:416:    fun parseGpxWaypoints(gpxText: String): List<GpxWaypoint> {
-ConvoyTrackOps.kt:417:        val results = mutableListOf<GpxWaypoint>()
-ConvoyTrackOps.kt:418:        val wptPattern = Regex("""<wpt\s+lat="([^"]+)"\s+lon="([^"]+)"[^>]*>([\s\S]*?)</wpt>""")
-ConvoyTrackOps.kt:419:        val namePattern = Regex("""<name>([^<]*)</name>""")
-ConvoyTrackOps.kt:420:        val typePattern = Regex("""<type>([^<]*)</type>""")
-ConvoyTrackOps.kt:421:        val descPattern = Regex("""<desc>([^<]*)</desc>""")
-ConvoyTrackOps.kt:424:            val lat = match.groupValues[1].toDoubleOrNull() ?: continue
-ConvoyTrackOps.kt:425:            val lon = match.groupValues[2].toDoubleOrNull() ?: continue
-ConvoyTrackOps.kt:426:            val inner = match.groupValues[3]
-ConvoyTrackOps.kt:428:            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Waypoint"
-ConvoyTrackOps.kt:429:            val rawType = typePattern.find(inner)?.groupValues?.get(1)?.trim()?.lowercase() ?: "other"
-ConvoyTrackOps.kt:430:            val desc = descPattern.find(inner)?.groupValues?.get(1)?.trim() ?: ""
-ConvoyTrackOps.kt:433:            val mappedType = mapWaypointType(rawType)
-ConvoyTrackOps.kt:442:    private fun mapWaypointType(rawType: String): String {
-ConvoyTrackOps.kt:443:        val lower = rawType.lowercase().trim()
-ConvoyTrackOps.kt:482:    private fun xmlUnescape(s: String): String =
-ConvoyTrackOps.kt:490:    fun parseGpxRoutes(gpxText: String): List<GpxRoute> {
-ConvoyTrackOps.kt:491:        val results = mutableListOf<GpxRoute>()
-ConvoyTrackOps.kt:496:        val rtePattern = Regex("""<rte(?:\s[^>]*)?>([\s\S]*?)</rte>""")
-ConvoyTrackOps.kt:497:        val namePattern = Regex("""<name>([^<]*)</name>""")
-ConvoyTrackOps.kt:504:        val descPattern = Regex("""<desc>([^<]*)</desc>""")
-ConvoyTrackOps.kt:505:        val notesPattern = Regex(
-ConvoyTrackOps.kt:507:        val rteptPattern = Regex("""<rtept\s+lat="([^"]+)"\s+lon="([^"]+)"""")
-ConvoyTrackOps.kt:510:            val inner = match.groupValues[1]
-ConvoyTrackOps.kt:511:            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Route"
-ConvoyTrackOps.kt:512:            val points = mutableListOf<Pair<Double, Double>>()
-ConvoyTrackOps.kt:515:                val lat = ptMatch.groupValues[1].toDoubleOrNull() ?: continue
-ConvoyTrackOps.kt:516:                val lon = ptMatch.groupValues[2].toDoubleOrNull() ?: continue
-ConvoyTrackOps.kt:526:                val notes = xmlUnescape(
-ConvoyTrackOps.kt:528:                val desc = xmlUnescape(
-ConvoyTrackOps.kt:550:    suspend fun importGpxAllArtifacts(
-ConvoyTrackOps.kt:558:        val sourceName = sourceFile.name
-ConvoyTrackOps.kt:559:        val errors = mutableListOf<String>()
-ConvoyTrackOps.kt:560:        val trackFiles = mutableListOf<String>()
-ConvoyTrackOps.kt:561:        var waypointCount = 0
-ConvoyTrackOps.kt:562:        var routeCount = 0
-ConvoyTrackOps.kt:563:        fun diag(msg: String) { android.util.Log.i("ImportDiag", msg); onProgress?.invoke(msg) }
-ConvoyTrackOps.kt:578:            val dir = tracksDir()
-ConvoyTrackOps.kt:586:            val namePattern = Regex("""<name>([^<]*)</name>""")
-ConvoyTrackOps.kt:587:            val extPattern = Regex("""<extensions>[\s\S]*?</extensions>""")
-ConvoyTrackOps.kt:588:            var trackIndex = 0
-ConvoyTrackOps.kt:589:            var insertedCount = 0
-ConvoyTrackOps.kt:590:            var aliasedCount = 0
-ConvoyTrackOps.kt:591:            var duplicateCount = 0
-ConvoyTrackOps.kt:592:            var skippedCount = 0
-ConvoyTrackOps.kt:601:            val fullText = sourceFile.readText()
-ConvoyTrackOps.kt:603:                val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
-ConvoyTrackOps.kt:604:                val matchCount = trkPattern.findAll(fullText).count()
-ConvoyTrackOps.kt:607:                        val rawTrk = m.groupValues[1]
-ConvoyTrackOps.kt:608:                        val trkContent = extPattern.replace(rawTrk, "")
-ConvoyTrackOps.kt:612:                            val rawName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()
-ConvoyTrackOps.kt:614:                            val baseName = rawName
-ConvoyTrackOps.kt:620:                            val coords = SpatialDbManager.parseGpxTrackPoints("<trk>${trkContent}</trk>")
-ConvoyTrackOps.kt:625:                            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-ConvoyTrackOps.kt:626:                            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-ConvoyTrackOps.kt:628:                                val lon = pair.first; val lat = pair.second
-ConvoyTrackOps.kt:632:                            val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
-ConvoyTrackOps.kt:636:                                val trailName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()?.ifEmpty { null }
-ConvoyTrackOps.kt:637:                                val now = java.time.Instant.now().toString()
-ConvoyTrackOps.kt:638:                                val res = SpatialDbManager.insertTrail(java.util.UUID.randomUUID().toString(), trailName, wkt,
-ConvoyTrackOps.kt:669:                            val srcName = "$baseName.gpx"
-ConvoyTrackOps.kt:670:                            val dest = File(dir, srcName)
-ConvoyTrackOps.kt:672:                                val singleGpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-ConvoyTrackOps.kt:688:                                            val gh = SpatialDbManager.computeGeomHash(wkt)
-ConvoyTrackOps.kt:696:                                            var queued = 0
-ConvoyTrackOps.kt:745:            val waypoints = parseGpxWaypoints(fullText)
-ConvoyTrackOps.kt:763:            val routes = parseGpxRoutes(fullText)
-ConvoyTrackOps.kt:766:                    val pts = route.points
-ConvoyTrackOps.kt:767:                    var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-ConvoyTrackOps.kt:768:                    var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-ConvoyTrackOps.kt:773:                    val wkt = "LINESTRING(" + pts.joinToString(",") { "${it.first} ${it.second}" } + ")"
-ConvoyTrackOps.kt:793:                            val rgh = SpatialDbManager.computeGeomHash(wkt)
-ConvoyTrackOps.kt:794:                            val rid = SpatialDbManager.findRouteIdByHash(rgh)
-ConvoyTrackOps.kt:808:                                 * accepted and stored as a notes object with no
-ConvoyTrackOps.kt:812:                                val payload = try {
-ConvoyTrackOps.kt:836:                            val gh = SpatialDbManager.computeGeomHash(wkt)
-ConvoyTrackOps.kt:837:                            var queued = 0
-ConvoyTrackOps.kt:858:            val totalImported = trackFiles.size + waypointCount + routeCount
-ConvoyTrackOps.kt:881:    fun shareGpx(context: android.content.Context, name: String, gpxContent: String) {
-ConvoyTrackOps.kt:885:            val uri = androidx.core.content.FileProvider.getUriForFile(
-ConvoyTrackOps.kt:887:            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-ConvoyTrackOps.kt:903:    fun exportGpxToDownloads(name: String, gpxContent: String): Boolean {
-ConvoyTrackOps.kt:905:            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+ConvoyTrackOps.kt:47:    fun trailMarked(trk: String, file: String): Boolean =
+ConvoyTrackOps.kt:52:    suspend fun listTracks(): List<File> = withContext(Dispatchers.IO) {
+ConvoyTrackOps.kt:53:        val dir = tracksDir()
+ConvoyTrackOps.kt:56:            val name = f.name
+ConvoyTrackOps.kt:57:            val ext = f.extension.lowercase()
+ConvoyTrackOps.kt:65:    fun isInProgress(file: File): Boolean =
+ConvoyTrackOps.kt:68:    sealed class RenameResult {
+ConvoyTrackOps.kt:69:        object Success : RenameResult()
+ConvoyTrackOps.kt:70:        object NameExists : RenameResult()
+ConvoyTrackOps.kt:71:        object Failed : RenameResult()
+ConvoyTrackOps.kt:75:    suspend fun renameTrack(file: File, newBaseName: String): RenameResult =
+ConvoyTrackOps.kt:77:            val ext = file.extension
+ConvoyTrackOps.kt:78:            val target = File(file.parentFile, "$newBaseName.$ext")
+ConvoyTrackOps.kt:88:    suspend fun deleteTrack(file: File): Boolean = withContext(Dispatchers.IO) {
+ConvoyTrackOps.kt:93:    suspend fun copyToDownloads(file: File): Boolean = withContext(Dispatchers.IO) {
+ConvoyTrackOps.kt:95:            val target = File(downloadsDir(), file.name)
+ConvoyTrackOps.kt:107:    fun shareTrack(context: Context, file: File) {
+ConvoyTrackOps.kt:109:            val uri = FileProvider.getUriForFile(
+ConvoyTrackOps.kt:114:            val intent = Intent(Intent.ACTION_SEND).apply {
+ConvoyTrackOps.kt:119:            val chooser = Intent.createChooser(intent, "Share track").apply {
+ConvoyTrackOps.kt:129:    fun formatSize(bytes: Long): String = when {
+ConvoyTrackOps.kt:140:    sealed class ImportResult {
+ConvoyTrackOps.kt:141:        data class Success(
+ConvoyTrackOps.kt:142:            val sourceName: String,
+ConvoyTrackOps.kt:143:            val createdFiles: List<String>
+ConvoyTrackOps.kt:145:        data class PartialSuccess(
+ConvoyTrackOps.kt:146:            val sourceName: String,
+ConvoyTrackOps.kt:147:            val createdFiles: List<String>,
+ConvoyTrackOps.kt:148:            val skippedFiles: List<String>
+ConvoyTrackOps.kt:150:        data class Failed(
+ConvoyTrackOps.kt:151:            val sourceName: String,
+ConvoyTrackOps.kt:152:            val reason: String
+ConvoyTrackOps.kt:159:    data class FixDatesResult(
+ConvoyTrackOps.kt:160:        val updated: Int,
+ConvoyTrackOps.kt:161:        val unchanged: Int,
+ConvoyTrackOps.kt:162:        val failed: Int
+ConvoyTrackOps.kt:169:    fun extractEarliestTime(content: String): Long? {
+ConvoyTrackOps.kt:170:        val patterns = listOf(
+ConvoyTrackOps.kt:174:        var earliest: Long? = null
+ConvoyTrackOps.kt:178:                    val epochMs = java.time.Instant.parse(match.groupValues[1].trim()).toEpochMilli()
+ConvoyTrackOps.kt:185:                        val odt = java.time.OffsetDateTime.parse(match.groupValues[1].trim())
+ConvoyTrackOps.kt:186:                        val epochMs = odt.toInstant().toEpochMilli()
+ConvoyTrackOps.kt:202:    private fun sanitizeFilename(name: String): String {
+ConvoyTrackOps.kt:217:    suspend fun importTrackFile(
+ConvoyTrackOps.kt:221:        val sourceName = sourceFile.name
+ConvoyTrackOps.kt:227:            var text = sourceFile.readText()
+ConvoyTrackOps.kt:231:            val isGpx = ext == "gpx"
+ConvoyTrackOps.kt:232:            val isKml = ext == "kml"
+ConvoyTrackOps.kt:237:            val dir = tracksDir()
+ConvoyTrackOps.kt:240:            val created = mutableListOf<String>()
+ConvoyTrackOps.kt:241:            val skipped = mutableListOf<String>()
+ConvoyTrackOps.kt:245:                val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
+ConvoyTrackOps.kt:246:                val tracks = trkPattern.findAll(text).toList()
+ConvoyTrackOps.kt:249:                    val namePattern = Regex("<name>([^<]*)</name>")
+ConvoyTrackOps.kt:251:                        val trkContent = trk.groupValues[1]
+ConvoyTrackOps.kt:252:                        val rawName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()
+ConvoyTrackOps.kt:254:                        val baseName = sanitizeFilename(rawName)
+ConvoyTrackOps.kt:255:                        val safeName = "$baseName.gpx"
+ConvoyTrackOps.kt:258:                        val dest = File(dir, safeName)
+ConvoyTrackOps.kt:263:                        val singleGpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+ConvoyTrackOps.kt:286:                val pmPattern = Regex("""<Placemark>([\s\S]*?)</Placemark>""")
+ConvoyTrackOps.kt:287:                val placemarks = pmPattern.findAll(text)
+ConvoyTrackOps.kt:292:                    val namePattern = Regex("<name>([^<]*)</name>")
+ConvoyTrackOps.kt:294:                        val pmFull = pm.groupValues[0]
+ConvoyTrackOps.kt:295:                        val pmInner = pm.groupValues[1]
+ConvoyTrackOps.kt:296:                        val rawName = namePattern.find(pmInner)?.groupValues?.get(1)?.trim()
+ConvoyTrackOps.kt:298:                        val baseName = sanitizeFilename(rawName)
+ConvoyTrackOps.kt:299:                        val safeName = "$baseName.kml"
+ConvoyTrackOps.kt:302:                        val dest = File(dir, safeName)
+ConvoyTrackOps.kt:307:                        val singleKml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+ConvoyTrackOps.kt:327:            val dest = File(dir, sourceName)
+ConvoyTrackOps.kt:346:    suspend fun fixDateFromContent(file: File): Boolean = withContext(Dispatchers.IO) {
+ConvoyTrackOps.kt:349:            val content = file.readText()
+ConvoyTrackOps.kt:350:            val earliest = extractEarliestTime(content) ?: return@withContext false
+ConvoyTrackOps.kt:363:    suspend fun fixDatesForFiles(
+ConvoyTrackOps.kt:367:        var updated = 0
+ConvoyTrackOps.kt:368:        var unchanged = 0
+ConvoyTrackOps.kt:369:        var failed = 0
+ConvoyTrackOps.kt:386:    data class GpxWaypoint(
+ConvoyTrackOps.kt:387:        val name: String,
+ConvoyTrackOps.kt:388:        val lat: Double,
+ConvoyTrackOps.kt:389:        val lon: Double,
+ConvoyTrackOps.kt:390:        val type: String,
+ConvoyTrackOps.kt:391:        val description: String = ""
+ConvoyTrackOps.kt:394:    data class GpxRoute(
+ConvoyTrackOps.kt:395:        val name: String,
+ConvoyTrackOps.kt:400:        val description: String = ""
+ConvoyTrackOps.kt:403:    data class ImportArtifactsSummary(
+ConvoyTrackOps.kt:404:        val sourceName: String,
+ConvoyTrackOps.kt:405:        val trackCount: Int,
+ConvoyTrackOps.kt:406:        val waypointCount: Int,
+ConvoyTrackOps.kt:407:        val routeCount: Int,
+ConvoyTrackOps.kt:408:        val trackFiles: List<String>,
+ConvoyTrackOps.kt:409:        val errors: List<String>,
+ConvoyTrackOps.kt:422:    fun parseGpxWaypoints(gpxText: String): List<GpxWaypoint> {
+ConvoyTrackOps.kt:423:        val results = mutableListOf<GpxWaypoint>()
+ConvoyTrackOps.kt:424:        val wptPattern = Regex("""<wpt\s+lat="([^"]+)"\s+lon="([^"]+)"[^>]*>([\s\S]*?)</wpt>""")
+ConvoyTrackOps.kt:425:        val namePattern = Regex("""<name>([^<]*)</name>""")
+ConvoyTrackOps.kt:426:        val typePattern = Regex("""<type>([^<]*)</type>""")
+ConvoyTrackOps.kt:427:        val descPattern = Regex("""<desc>([^<]*)</desc>""")
+ConvoyTrackOps.kt:430:            val lat = match.groupValues[1].toDoubleOrNull() ?: continue
+ConvoyTrackOps.kt:431:            val lon = match.groupValues[2].toDoubleOrNull() ?: continue
+ConvoyTrackOps.kt:432:            val inner = match.groupValues[3]
+ConvoyTrackOps.kt:434:            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Waypoint"
+ConvoyTrackOps.kt:435:            val rawType = typePattern.find(inner)?.groupValues?.get(1)?.trim()?.lowercase() ?: "other"
+ConvoyTrackOps.kt:436:            val desc = descPattern.find(inner)?.groupValues?.get(1)?.trim() ?: ""
+ConvoyTrackOps.kt:439:            val mappedType = mapWaypointType(rawType)
+ConvoyTrackOps.kt:448:    private fun mapWaypointType(rawType: String): String {
+ConvoyTrackOps.kt:449:        val lower = rawType.lowercase().trim()
+ConvoyTrackOps.kt:488:    private fun xmlUnescape(s: String): String =
+ConvoyTrackOps.kt:496:    fun parseGpxRoutes(gpxText: String): List<GpxRoute> {
+ConvoyTrackOps.kt:497:        val results = mutableListOf<GpxRoute>()
+ConvoyTrackOps.kt:502:        val rtePattern = Regex("""<rte(?:\s[^>]*)?>([\s\S]*?)</rte>""")
+ConvoyTrackOps.kt:503:        val namePattern = Regex("""<name>([^<]*)</name>""")
+ConvoyTrackOps.kt:510:        val descPattern = Regex("""<desc>([^<]*)</desc>""")
+ConvoyTrackOps.kt:511:        val notesPattern = Regex(
+ConvoyTrackOps.kt:513:        val rteptPattern = Regex("""<rtept\s+lat="([^"]+)"\s+lon="([^"]+)"""")
+ConvoyTrackOps.kt:516:            val inner = match.groupValues[1]
+ConvoyTrackOps.kt:517:            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Route"
+ConvoyTrackOps.kt:518:            val points = mutableListOf<Pair<Double, Double>>()
+ConvoyTrackOps.kt:521:                val lat = ptMatch.groupValues[1].toDoubleOrNull() ?: continue
+ConvoyTrackOps.kt:522:                val lon = ptMatch.groupValues[2].toDoubleOrNull() ?: continue
+ConvoyTrackOps.kt:532:                val notes = xmlUnescape(
+ConvoyTrackOps.kt:534:                val desc = xmlUnescape(
+ConvoyTrackOps.kt:556:    suspend fun importGpxAllArtifacts(
+ConvoyTrackOps.kt:565:        val sourceName = sourceFile.name
+ConvoyTrackOps.kt:566:        val errors = mutableListOf<String>()
+ConvoyTrackOps.kt:567:        val trackFiles = mutableListOf<String>()
+ConvoyTrackOps.kt:568:        var waypointCount = 0
+ConvoyTrackOps.kt:569:        var routeCount = 0
+ConvoyTrackOps.kt:570:        fun diag(msg: String) { android.util.Log.i("ImportDiag", msg); onProgress?.invoke(msg) }
+ConvoyTrackOps.kt:585:            val dir = tracksDir()
+ConvoyTrackOps.kt:593:            val namePattern = Regex("""<name>([^<]*)</name>""")
+ConvoyTrackOps.kt:594:            val extPattern = Regex("""<extensions>[\s\S]*?</extensions>""")
+ConvoyTrackOps.kt:595:            var trackIndex = 0
+ConvoyTrackOps.kt:596:            var insertedCount = 0
+ConvoyTrackOps.kt:597:            var aliasedCount = 0
+ConvoyTrackOps.kt:598:            var duplicateCount = 0
+ConvoyTrackOps.kt:599:            var skippedCount = 0
+ConvoyTrackOps.kt:608:            val fullText = sourceFile.readText()
+ConvoyTrackOps.kt:611:                val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
+ConvoyTrackOps.kt:612:                val matchCount = trkPattern.findAll(fullText).count()
+ConvoyTrackOps.kt:615:                        val rawTrk = m.groupValues[1]
+ConvoyTrackOps.kt:616:                        val trkContent = extPattern.replace(rawTrk, "")
+ConvoyTrackOps.kt:620:                            val rawName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()
+ConvoyTrackOps.kt:622:                            val baseName = rawName
+ConvoyTrackOps.kt:628:                            val coords = SpatialDbManager.parseGpxTrackPoints("<trk>${trkContent}</trk>")
+ConvoyTrackOps.kt:633:                            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+ConvoyTrackOps.kt:634:                            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+ConvoyTrackOps.kt:636:                                val lon = pair.first; val lat = pair.second
+ConvoyTrackOps.kt:640:                            val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+ConvoyTrackOps.kt:644:                                val trailName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()?.ifEmpty { null }
+ConvoyTrackOps.kt:645:                                val now = java.time.Instant.now().toString()
+ConvoyTrackOps.kt:646:                                val res = SpatialDbManager.insertTrail(java.util.UUID.randomUUID().toString(), trailName, wkt,
+ConvoyTrackOps.kt:677:                            val srcName = "$baseName.gpx"
+ConvoyTrackOps.kt:678:                            val dest = File(dir, srcName)
+ConvoyTrackOps.kt:680:                                val singleGpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+ConvoyTrackOps.kt:696:                                            val gh = SpatialDbManager.computeGeomHash(wkt)
+ConvoyTrackOps.kt:704:                                            var queued = 0
+ConvoyTrackOps.kt:753:            val waypoints = parseGpxWaypoints(fullText)
+ConvoyTrackOps.kt:771:            val routes = parseGpxRoutes(fullText)
+ConvoyTrackOps.kt:774:                    val pts = route.points
+ConvoyTrackOps.kt:775:                    var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+ConvoyTrackOps.kt:776:                    var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+ConvoyTrackOps.kt:781:                    val wkt = "LINESTRING(" + pts.joinToString(",") { "${it.first} ${it.second}" } + ")"
+ConvoyTrackOps.kt:801:                            val rgh = SpatialDbManager.computeGeomHash(wkt)
+ConvoyTrackOps.kt:802:                            val rid = SpatialDbManager.findRouteIdByHash(rgh)
+ConvoyTrackOps.kt:816:                                 * accepted and stored as a notes object with no
+ConvoyTrackOps.kt:820:                                val payload = try {
+ConvoyTrackOps.kt:844:                            val gh = SpatialDbManager.computeGeomHash(wkt)
+ConvoyTrackOps.kt:845:                            var queued = 0
+ConvoyTrackOps.kt:866:            val totalImported = trackFiles.size + waypointCount + routeCount
+ConvoyTrackOps.kt:889:    fun shareGpx(context: android.content.Context, name: String, gpxContent: String) {
+ConvoyTrackOps.kt:893:            val uri = androidx.core.content.FileProvider.getUriForFile(
+ConvoyTrackOps.kt:895:            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+ConvoyTrackOps.kt:911:    fun exportGpxToDownloads(name: String, gpxContent: String): Boolean {
+ConvoyTrackOps.kt:913:            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
 ConvoyConfig.kt:3:object ConvoyConfig {
 ConvoyConfig.kt:6:    @Volatile var trackDisplayState: Int = 0
 ConvoyConfig.kt:7:    @Volatile var waypointDisplayState: Int = 0
