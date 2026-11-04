@@ -267,20 +267,20 @@ fun GrpAwarenessPanel(
                 if (message.isNotBlank()) Text(message, color = Gt.warn, fontSize = 13.sp)
                 // Three actions, side by side
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Surface(modifier = Modifier.weight(1f).clickable { onApplyRide() }, shape = RoundedCornerShape(8.dp), color = Gt.panel) {
+                    Surface(modifier = Modifier.weight(1f).clickable { onApplyRide() }, shape = RoundedCornerShape(8.dp), color = Gt.button, border = androidx.compose.foundation.BorderStroke(1.dp, com.geeksville.mesh.grouptrack.GtScheme.current.value.edge))   /* GRPBUTTONS-2026-11-04 */ {
                         Text("SELECT A RIDE AND APPLY SETTINGS TO THE RADIO", color = Gt.accent, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
                     }
                     // NOWEBCLIENT-2026-09-29 (Fred): RADIO SETTINGS always opens the Meshtastic app's own radio settings -- the web
                     // client left the radio disconnected, and the internet check was unreliable (said online with it off).
                     if ("radio-settings" in menus) Surface(modifier = Modifier.weight(1f).clickable { message = ""; onLocalSettings() },   // COMMSETTINGS-2026-10-12
-                        shape = RoundedCornerShape(8.dp), color = Gt.panel) {
+                        shape = RoundedCornerShape(8.dp), color = Gt.button, border = androidx.compose.foundation.BorderStroke(1.dp, com.geeksville.mesh.grouptrack.GtScheme.current.value.edge))   /* GRPBUTTONS-2026-11-04 */ {
                         Column(modifier = Modifier.padding(8.dp)) {
                             Text("RADIO SETTINGS", color = Gt.warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             Text("⚠ experienced mesh operators only", color = Gt.warn, fontSize = 12.sp)
                         }
                     }
-                    if ("nodes" in menus) Surface(modifier = Modifier.weight(1f).clickable { message = ""; onMeshtastic() }, shape = RoundedCornerShape(8.dp), color = Gt.panel) {   // COMMSETTINGS-2026-10-12
+                    if ("nodes" in menus) Surface(modifier = Modifier.weight(1f).clickable { message = ""; onMeshtastic() }, shape = RoundedCornerShape(8.dp), color = Gt.button, border = androidx.compose.foundation.BorderStroke(1.dp, com.geeksville.mesh.grouptrack.GtScheme.current.value.edge))   /* GRPBUTTONS-2026-11-04 */ {   // COMMSETTINGS-2026-10-12
                         Column(modifier = Modifier.padding(8.dp)) {
                             Text("NODES", color = Gt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)   // NODESMENU-2026-10-15 (Fred): replaces the side menu
                             Text("radios heard", color = Gt.dim, fontSize = 12.sp)

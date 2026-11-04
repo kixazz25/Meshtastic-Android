@@ -58,15 +58,23 @@ import com.geeksville.mesh.convoy.GroupMode
 /** MAPTEXT-2026-10-23 (Fred 11:42): one line of the Map menu -- plain text, left-aligned, no box; a full-width tap target.
  *  Not attached = grey with "not attached yet". */
 @Composable
-private fun GtMenuLine(label: String, live: Boolean, indent: Boolean, onTap: () -> Unit) {
+private fun GtMenuLine(label: String, live: Boolean, indent: Boolean, overviewId: String, onTap: () -> Unit) {   // MENUOVERVIEW-2026-11-04: + overviewId (CODE RULE 1: required; the row's id)
     val s = GtScheme.current.value
-    Text(
-        if (live) label else "$label  \u00b7  not attached yet",
-        color = if (live) s.panelText else Gt.dim,
-        fontSize = 16.sp, fontWeight = if (live) FontWeight.SemiBold else FontWeight.Normal,
-        modifier = Modifier.fillMaxWidth().clickable(enabled = live, onClick = onTap)
-            .padding(start = if (indent) 20.dp else 2.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)
-    )
+    GtHelp.load(androidx.compose.ui.platform.LocalContext.current)
+    androidx.compose.foundation.layout.Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            if (live) label else "$label  \u00b7  not attached yet",
+            color = if (live) s.panelText else Gt.dim,
+            fontSize = 16.sp, fontWeight = if (live) FontWeight.SemiBold else FontWeight.Normal,
+            modifier = Modifier.weight(1f).clickable(enabled = live, onClick = onTap)
+                .padding(start = if (indent) 20.dp else 2.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)
+        )
+        // MENUOVERVIEW-2026-11-04 (Fred 09:40): read before running -- opens the manual at this function; does NOT run it.
+        if (GtHelp.has(overviewId)) Text("OVERVIEW", color = s.panelText, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.border(androidx.compose.foundation.BorderStroke(1.dp, s.panelText.copy(alpha = 0.6f)),
+                    androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
+                .clickable { GtHelpView.open(overviewId) }.padding(horizontal = 8.dp, vertical = 5.dp))
+    }
 }
 
 @Composable
@@ -257,6 +265,13 @@ fun GroupTrackLaunchLayer(
                     // menu (Fred 10:09): it is the Map: TYPE button on the map.
                     if (openModule.id == "map") {
                         GtQueueSummary(onOpen = { open = ""; actions["map.queues"]?.invoke() }, modifier = Modifier.fillMaxWidth())   // GTQSUM-2026-10-23: always
+                        // MENUHINT-2026-11-04 (Fred 09:49): how the menu works, where it is used
+                        Text("Tap a function's name to run it.\nTap OVERVIEW first to see what it does and how to use it.",   // MENUHINTFIX-2026-11-04
+                            color = GtScheme.current.value.panelText, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)
+                                .border(androidx.compose.foundation.BorderStroke(2.dp, GtScheme.current.value.panelText),
+                                    androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 8.dp))   // framed (Fred 09:50)
                     }
                     // GTFILTER-2026-10-22: FILTER draws its own body; SELECT steps the panel aside for the list.
                     if (openModule.id == "filter") GtFilterBody(filter, onSelect = { t -> open = ""; filter.openSelect(t) })
@@ -267,13 +282,13 @@ fun GroupTrackLaunchLayer(
                             Text(pr.label, color = GtScheme.current.value.panelDim, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(top = 6.dp))
                             pr.children.forEach { ch ->   // MAPTEXT-2026-10-23 (Fred 11:42): a plain text line, left, indented -- no box
-                                GtMenuLine(ch.label, actions[ch.id] != null, indent = true) {
+                                GtMenuLine(ch.label, actions[ch.id] != null, indent = true, overviewId = ch.id) {   // MENUOVERVIEW-2026-11-04
                                     actions[ch.id]?.let { act -> if (!openModule.stays) open = ""; act() } }
                             }
                             return@forEach
                         }
                         if (openModule.id == "map") {   // MAPTEXT-2026-10-23: the Map menu is plain text -- Map source too, not indented
-                            GtMenuLine(pr.label, actions[pr.id] != null, indent = false) {
+                            GtMenuLine(pr.label, actions[pr.id] != null, indent = false, overviewId = pr.id) {   // MENUOVERVIEW-2026-11-04
                                 actions[pr.id]?.let { act -> if (!openModule.stays) open = ""; act() } }
                             return@forEach
                         }

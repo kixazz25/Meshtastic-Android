@@ -30,6 +30,9 @@ object GtHelp {
         loaded = true
     }
 
+    /** MENUOVERVIEW-2026-11-04: true when the manual has a section of its own for [id] (not the module's or the front page). */
+    fun has(id: String): Boolean = links.containsKey(id)
+
     /** The document key the docs viewer opens for [id] ("map", "map.download", ...). */
     fun linkFor(id: String): String =
         links[id] ?: links[id.substringBefore(".")] ?: "manual".also {

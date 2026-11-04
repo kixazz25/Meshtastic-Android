@@ -47,7 +47,7 @@ object GtExportAll {
                 val wkt = c.getString(1) ?: continue
                 val parts = Regex("\\(([^()]+)\\)").findAll(wkt).map { it.groupValues[1] }.toList()
                 if (parts.isEmpty()) continue
-                sb.append("  <trk>\n    <name>").append(xml(c.getString(0)?.ifBlank { null } ?: "Trail")).append("</name>\n    <type>trail</type>\n")
+                sb.append("  <trk>\n    <name>").append(xml(c.getString(0)?.ifBlank { null } ?: "Trail")).append("</name>\n    <type>grouptrack-trail</type>\n")   // ONEIMPORT-2026-11-04: the mark the import reads
                 for (p in parts) {
                     sb.append("    <trkseg>\n")
                     for (pt in p.split(',')) {
@@ -67,7 +67,7 @@ object GtExportAll {
         if (ok) keepForShare(ctx, file, sb.toString())   // SHAREEXPORT-2026-11-03
         Log.i(TAG, "TRAILEXPORT $n trail(s) -> Downloads/$file.gpx ok=$ok")
         if (!ok) return "Export failed: could not write to Downloads."
-        return "Exported $n rider trails to Downloads: $file.gpx. Bring them back with Import trails from GPX files."
+        return "Exported $n rider trails to Downloads: $file.gpx. Bring them back with Map › Import files — they come back as trails."
     }
 
     /** Off the main thread; the result as a toast. [type] = "routes" | "tracks" | "waypoints". */

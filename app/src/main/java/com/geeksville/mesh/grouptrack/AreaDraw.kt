@@ -31,6 +31,7 @@ object GtArea {
     fun label(p: String): String = when (p) {
         "download" -> "DOWNLOAD MAPS"
         "remove" -> "REMOVE MAPS"
+        "rmfeat" -> "REMOVE TRACKS AND TRAILS"   // TRAILCLEAN-2026-11-04
         "import" -> "IMPORT TRAILS"
         else -> ""
     }
@@ -76,6 +77,8 @@ fun GtAreaHost(js: (String) -> Unit, barModifier: Modifier) {
     when (GtArea.ready.value) {
         "download" -> GtDownloadAreaScreen(GtArea.box.value, done)
         "remove" -> GtRemoveAreaScreen(GtArea.box.value, done)
+        "rmfeat" -> GtRemoveFeaturesScreen(GtArea.box.value, done)   // TRAILCLEAN-2026-11-04
+        "trailsrc" -> GtTrailSourcesScreen(done)   // TRAILCLEAN-2026-11-04
         "import" -> GtImportAreaScreen(GtArea.box.value, done)
         "recipes" -> GtRecipesScreen(done)   // GTRECIPES-2026-10-23
         "emergency" -> GtEmergencyScreen(done)   // VECEMERGENCY-2026-10-31

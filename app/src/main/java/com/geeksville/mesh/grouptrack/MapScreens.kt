@@ -351,7 +351,7 @@ fun GtImportStateScreen(onDone: () -> Unit) {
 @Composable
 fun GtImportGpxScreen(onDone: () -> Unit) {
     Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        GtScreenFrame("Import tracks, routes and waypoints from GPX files", "map.gpx", onDone)   /* GPXNAME-2026-11-01 */ { com.geeksville.mesh.convoy.ConvoyTrackImportScreen(onDismiss = onDone, startAsTrails = false) }   // GTSTD
+        GtScreenFrame("Import files \u2014 GPX, KML, KMZ, GeoJSON", "map.gpx", onDone)   /* ONEIMPORT-2026-11-04 */ { com.geeksville.mesh.convoy.ConvoyTrackImportScreen(onDismiss = onDone) }   // GTSTD
     }
 }
 
@@ -359,7 +359,7 @@ fun GtImportGpxScreen(onDone: () -> Unit) {
 @Composable
 fun GtImportGpxTrailsScreen(onDone: () -> Unit) {
     Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        GtScreenFrame("Import trails from GPX files", "map.gpxtrails", onDone)   /* TRAILSNAME-2026-10-30 */ { com.geeksville.mesh.convoy.ConvoyTrackImportScreen(onDismiss = onDone, startAsTrails = true) }   // GTSTD
+        GtScreenFrame("Import trails from GPX files", "map.gpxtrails", onDone)   /* TRAILSNAME-2026-10-30 */ { com.geeksville.mesh.convoy.ConvoyTrackImportScreen(onDismiss = onDone) }   // ONEIMPORT-2026-11-04: off the menu   // GTSTD
     }
 }
 

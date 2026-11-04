@@ -65,9 +65,6 @@ import java.util.Locale
 @Composable
 fun ConvoyTrackImportScreen(
     onDismiss: () -> Unit,
-    // MAPIMPORTS-2026-10-30: true = opened as "Create trails from GPX files" -- the trails switch starts ON.
-    // CODE RULE 1: required -- every caller says which screen it opens.
-    startAsTrails: Boolean,
     // RIDEIMPORT2-2026-09-24: files already staged (an imported ride's GPX). Empty by default -- normal use unchanged.
     preloaded: List<File> = emptyList()
 ) {
@@ -84,7 +81,12 @@ fun ConvoyTrackImportScreen(
     var showSourcePopup by remember { mutableStateOf(false) }
     var selectedSlots by remember { mutableStateOf<List<String>>(emptyList()) }
     var replaceExisting by remember { mutableStateOf(false) }
-    var asTrails by remember { mutableStateOf(startAsTrails) }   /* MAPIMPORTS-2026-10-30 */   // IMPORTTRAILS-2026-10-30: "Import tracks as trails" -- off = the original import
+    // ONEIMPORT-2026-11-04 (Fred 07:59): "" until the rider answers "Are these files trails?" -- then "YES" or "NO". No IMPORT before.
+    var trailsAnswer by remember { mutableStateOf(if (preloaded.isNotEmpty()) "NO" else "") }   // RIDEINVITENO-2026-11-04: a ride / emailed file starts at NO
+    // TRAILCLEAN-2026-11-04 (Fred 08:51): YES asks for a SOURCE NAME (from the file name) -- source + date is the batch that
+    // Delete trails by source removes. One name for the whole batch.
+    var trailsSource by remember { mutableStateOf("") }
+    // was: var asTrails by remember { mutableStateOf(startAsTrails) }   /* MAPIMPORTS-2026-10-30 */   // IMPORTTRAILS-2026-10-30: "Import tracks as trails" -- off = the original import
     // IMPORTPICKER-2026-09-13: nothing is scanned now; this covers STAGING.
     var scanning by remember { mutableStateOf(false) }
 
@@ -271,7 +273,23 @@ fun ConvoyTrackImportScreen(
                 importLines = importLines + "— ${f.name} —"
                 try {
                     // MAPSDEFAULT-2026-09-16: maps unless this file was explicitly excluded.
-                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, if (!mapsSkip.contains(f.name)) selectedSlots else emptyList(), replaceExisting, asTrails) { line ->
+                    // ONEIMPORT-2026-11-04: YES = every file through the converter (GPX too) -> <name>-Trails.gpx with the trail mark;
+                    // NO = KML / KMZ / GeoJSON converted (lines = tracks), GPX as it is. A converted file is also saved to Download.
+                    val yes = trailsAnswer == "YES"
+                    val ext = ConvoyTrackOps.importExt(f)
+                    val conv = if (yes || ext in setOf("kml", "kmz", "geojson", "json")) withContext(Dispatchers.IO) {
+                        val od = java.io.File(context.cacheDir, "import_convert").apply { mkdirs() }
+                        val r = ImportConverter.toGpx(f, od, yes)
+                        val kept = try { "Download/" + ImportConverter.saveToDownloads(context.applicationContext, r.file) } catch (e: Exception) { "not saved: ${e.message}" }
+                        Pair(r, kept)
+                    } else null
+                    conv?.let { (r, kept) -> importLines = importLines + "CONVERTED ${f.name}: ${r.lines} ${if (yes) "trails" else "tracks"}, ${r.points} waypoints -> $kept" }
+                    val src = conv?.first?.file ?: f
+                    // TRAILCLEAN-2026-11-04: the batch every trail of this file is recorded under (YES: the name given; NO: the file name --
+                    // a GroupTrack trail export answered NO still brings trails)
+                    val batch = (if (yes) trailsSource.trim().ifEmpty { f.nameWithoutExtension } else f.nameWithoutExtension) + " \u00b7 " +
+                        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                    val summary = ConvoyTrackOps.importGpxAllArtifacts(src, context, if (!yes && !mapsSkip.contains(f.name)) selectedSlots else emptyList(), replaceExisting, false, batch) { line ->
                         importLines = importLines + line
                     }
                     imported.addAll(summary.trackFiles)
@@ -395,7 +413,7 @@ fun ConvoyTrackImportScreen(
             )
             Column {
                 Text(
-                    if (startAsTrails) "Import Trails from GPX Files" /* TRAILSNAME-2026-10-30 */ else "Import Tracks from Downloads",   // MAPIMPORTS-2026-10-30
+                    "Import files — GPX, KML, KMZ, GeoJSON",   // ONEIMPORT-2026-11-04: one import   // MAPIMPORTS-2026-10-30
                     color = Gt.accent,
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
@@ -560,6 +578,37 @@ fun ConvoyTrackImportScreen(
                 }
             }
         } else {
+            // ONEIMPORT-2026-11-04 (Fred 07:59): the import starts with one question for the whole batch.
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp)) {
+                Text("Are these files trails?", color = Gt.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text("YES = a trail map (a park's or an area's trails): every line becomes a trail, points stay waypoints. " +
+                    "NO = your tracks, routes and waypoints. A GroupTrack trail export comes back as trails either way.",
+                    color = Gt.dim, fontSize = 12.sp)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    for (a in listOf("YES", "NO")) {
+                        val on = trailsAnswer == a
+                        Surface(modifier = Modifier.weight(1f).clickable {
+                            trailsAnswer = a
+                            // TRAILCLEAN-2026-11-04: the source name starts as the first picked file's name
+                            if (a == "YES" && trailsSource.isBlank()) trailsSource = (files.firstOrNull { selected.contains(it.name) } ?: files.firstOrNull())
+                                ?.nameWithoutExtension?.replace('_', ' ')?.replace('-', ' ')?.trim() ?: ""
+                        }, shape = RoundedCornerShape(8.dp),
+                            color = if (on) Gt.accent else Gt.text.copy(alpha = 0.18f)) {
+                            Text(if (a == "YES") "YES \u2014 trails" else "NO", color = if (on) Gt.panel else Gt.text, fontSize = 13.sp,
+                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp))
+                        }
+                    }
+                }
+            }
+            if (trailsAnswer == "YES") Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 2.dp)) {   // TRAILCLEAN-2026-11-04
+                androidx.compose.material3.OutlinedTextField(value = trailsSource, onValueChange = { trailsSource = it }, singleLine = true,
+                    label = { Text("Source name \u2014 on every trail's details; Delete trails by source removes them together") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(focusedTextColor = Gt.text, unfocusedTextColor = Gt.text,
+                        focusedLabelColor = Gt.accent, unfocusedLabelColor = Gt.dim, focusedBorderColor = Gt.accent, unfocusedBorderColor = Gt.dim))
+            }
             // -- File list --
             // [2026-07-02] column header over the two checkbox columns + file column
             Row(
@@ -714,28 +763,7 @@ fun ConvoyTrackImportScreen(
                             fontFamily = FontFamily.Monospace
                         )
                     }
-                    // IMPORTTRAILS-2026-10-30 (D31-min): the rider says this batch is a trail map.
-                    // TRAILSBOXHIDE-2026-11-01 (Fred 07:09): only on Import trails from GPX files -- a separate, precooked job; Import GPX hides it
-                    if (startAsTrails) Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().clickable { asTrails = !asTrails }
-                    ) {
-                        Checkbox(
-                            checked = asTrails,
-                            onCheckedChange = { asTrails = it },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = Gt.accent,
-                                uncheckedColor = Gt.text,
-                                checkmarkColor = Gt.panel
-                            )
-                        )
-                        Text(
-                            "Import tracks as trails  (a trail map: every line becomes a trail)",
-                            color = Gt.text,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
+                    // ONEIMPORT-2026-11-04: the "Import tracks as trails" check box is gone -- the question at the top decides
                     Spacer(Modifier.height(8.dp))
 
                     // Import button
@@ -746,13 +774,15 @@ fun ConvoyTrackImportScreen(
                             // wants maps. The previous test asked whether the INCLUDED
                             // set was non-empty -- false by default, so the popup was
                             // unreachable.
-                            .clickable(enabled = selected.isNotEmpty()) { if (!asTrails && selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport() },   // IMPORTTRAILS-2026-10-30: trails need no map sources
+                            .clickable(enabled = selected.isNotEmpty() && trailsAnswer.isNotEmpty()) { if (trailsAnswer == "NO" && selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport() },   // ONEIMPORT-2026-11-04: trails need no maps   // IMPORTTRAILS-2026-10-30: trails need no map sources
                         shape = RoundedCornerShape(10.dp),
                         color = if (selected.isNotEmpty()) Gt.text.copy(alpha = 0.18f)
                         else Gt.panel
                     ) {
                         Text(
                             text = if (selected.isEmpty()) "Select files to import"
+                            else if (trailsAnswer.isEmpty()) "Answer above: are these files trails?"   // ONEIMPORT-2026-11-04
+                            else if (trailsAnswer == "YES") "Import ${selected.size} Selected as TRAILS"
                             else "Import ${selected.size} Selected",
                             color = if (selected.isNotEmpty()) Gt.good
                             else Gt.dim,

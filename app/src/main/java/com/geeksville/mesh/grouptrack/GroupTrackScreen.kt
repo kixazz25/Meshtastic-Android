@@ -3026,6 +3026,8 @@ fun GroupTrackScreen(
                 // GTAREA2-2026-10-23: the three area functions -- start a box for the one picked.
                 "map.dl_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "download"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
                 "map.rm_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "remove"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
+                "map.rm_feat" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "rmfeat"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },   // TRAILCLEAN-2026-11-04
+                "map.trailsrc" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "trailsrc" },   // TRAILCLEAN-2026-11-04
                 "map.utahprivate" to { com.geeksville.mesh.grouptrack.GtUtahPrivate.open.value = true },   // UTAHPRIV-2026-10-24
                 "map.imported" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "bystate" },   // AREASKIP-2026-10-24
                 "map.trails_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "import"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },

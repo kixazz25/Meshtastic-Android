@@ -125,8 +125,8 @@ object GtBackup {
             "In this backup:\n" + b.list + "\n" +
             "TO RECOVER, on the phone or tablet, with GroupTrack installed and Wi-Fi on:\n" +
             "1. Tap the maps file (GroupTrack maps <date>.json), choose GroupTrack, tap RESTORE MY MAPS. The maps download while you do the rest.\n" +
-            "2. Tap the ROUTES, TRACKS and WAYPOINTS files one at a time, choose GroupTrack, untick MAPS, tap IMPORT.\n" +
-            "3. Save the RIDER TRAILS file to Downloads and import it with Map › Import trails from GPX files.\n" +
+            "2. Tap the ROUTES, TRACKS and WAYPOINTS files one at a time, choose GroupTrack, answer NO to \"Are these files trails?\", untick MAPS, tap IMPORT.\n" +
+            "3. Tap the RIDER TRAILS file the same way and answer YES -- they come back as trails.\n" +   // ONEIMPORT-2026-11-04
             "Importing something that is already there is safe — it is not added twice.\n\n" +
             "Get GroupTrack on Google Play:\nhttps://play.google.com/store/apps/details?id=com.grouptrack.android&hl=en_US\n"
         val mail = Intent(Intent.ACTION_SEND_MULTIPLE).apply {

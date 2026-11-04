@@ -30,7 +30,7 @@ object ImportConverter {
                     if (i == null) throw IllegalStateException("cannot read the file")
                     src.outputStream().use { o -> i.copyTo(o) }
                 }
-                val r = toGpx(src, dir)
+                val r = toGpx(src, dir, false)   // ONEIMPORT-2026-11-04: this screen is off the menu; lines = tracks
                 val saved = saveToDownloads(context, r.file)
                 out.add("$name -> Download/$saved   ${r.lines} lines (${r.tracks} tracks), ${r.points} points")
             } catch (e: Exception) {
@@ -43,7 +43,7 @@ object ImportConverter {
     }
 
     /** ⚠ No WRITE permission is held below Android 10 (minSdk 26): there the save fails and the line says so. */
-    private fun saveToDownloads(context: android.content.Context, f: File): String {
+    fun saveToDownloads(context: android.content.Context, f: File): String {   // ONEIMPORT-2026-11-04: the import saves the converted file too
         if (android.os.Build.VERSION.SDK_INT < 29) {
             val d = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
             var t = File(d, f.name); var n = 2
@@ -71,25 +71,72 @@ object ImportConverter {
             ?.use { if (it.moveToFirst()) it.getString(0) else null } ?: f.name
     }
 
-    fun toGpx(src: File, outDir: File): Converted {
+    /**
+     * ONEIMPORT-2026-11-04 (Fred 07:59-08:05): asTrails = the rider answered YES to "Are these files trails?". Every line is then
+     * written as a GroupTrack trail (<type>grouptrack-trail</type> -- the mark the import reads) and points stay waypoints in the
+     * same file. NO = lines are tracks. KML / KMZ / GeoJSON cannot say track or trail, nor can a GPX <trk> -- so GPX comes through
+     * here for trails too. CODE RULE 1: asTrails is required -- every caller says which.
+     */
+    fun toGpx(src: File, outDir: File, asTrails: Boolean): Converted {
         val ext = src.extension.lowercase()
         val text = if (ext == "kmz") readKmz(src) else src.readText()
-        val c = Collector(src.nameWithoutExtension)
-        if (ext == "geojson" || ext == "json") fromGeoJson(text, c) else fromKml(text, c)
+        val c = Collector(src.nameWithoutExtension, asTrails)
+        when (ext) { "geojson", "json" -> fromGeoJson(text, c); "gpx" -> fromGpx(text, c); else -> fromKml(text, c) }
         if (c.trk.isEmpty() && c.wpt.isEmpty()) throw IllegalStateException("no lines or points found")
-        var out = File(outDir, "${src.nameWithoutExtension}_$ext.gpx")
+        val base = src.nameWithoutExtension + if (asTrails) "-Trails" else "-Converted"
+        var out = File(outDir, "$base.gpx")
         var n = 2
-        while (out.exists()) { out = File(outDir, "${src.nameWithoutExtension}_${ext}_$n.gpx"); n++ }
+        while (out.exists()) { out = File(outDir, "${base}_$n.gpx"); n++ }
         out.writeText(buildString {
             append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
-            append("<gpx version=\"1.1\" creator=\"GroupTrack MAPIMPORTS-2026-10-30\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n")
+            append("<gpx version=\"1.1\" creator=\"GroupTrack ONEIMPORT-2026-11-04\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n")
             append("<metadata><name>").append(clean(c.docName)).append("</name></metadata>\n")
             c.wpt.forEach { append(it).append('\n') }
             c.trk.forEach { append(it).append('\n') }
             append("</gpx>\n")
         })
-        android.util.Log.i("ImportConvert", "${src.name}: ${c.lines} lines (${c.trk.size} tracks), ${c.wpt.size} points -> ${out.name}")
+        android.util.Log.i("ImportConvert", "ONEIMPORT ${src.name} trails=$asTrails: ${c.lines} lines (${c.trk.size} parts), ${c.wpt.size} points -> ${out.name}")
         return Converted(out, c.lines, c.trk.size, c.wpt.size)
+    }
+
+    /** ONEIMPORT-2026-11-04: the mark the import reads on a <trk>. The rider-trail export (ExportAll) writes it too. */
+    const val TRAIL_MARK = "grouptrack-trail"
+
+    // ---- GPX (through here only when the rider says the file is trails) -----------------------------------------
+    private val GPX_PT = Regex("""<(?:trkpt|rtept)\b([^>]*)>""")
+    private val LAT_RX = Regex("""\blat\s*=\s*["']([-0-9.eE+]+)["']""")
+    private val LON_RX = Regex("""\blon\s*=\s*["']([-0-9.eE+]+)["']""")
+    private fun gpxPts(block: String): List<Pair<Double, Double>> = GPX_PT.findAll(block).mapNotNull { m ->
+        val lat = LAT_RX.find(m.groupValues[1])?.groupValues?.get(1)?.toDoubleOrNull()
+        val lon = LON_RX.find(m.groupValues[1])?.groupValues?.get(1)?.toDoubleOrNull()
+        if (lat == null || lon == null) null else Pair(lon, lat)
+    }.toList()
+
+    private fun gpxLine(b: String, segs: List<List<Pair<Double, Double>>>, c: Collector) {
+        val own = Regex("""<name>\s*(?:<!\[CDATA\[)?([\s\S]*?)(?:]]>)?\s*</name>""").find(b)?.groupValues?.get(1)?.let { clean(it) } ?: ""
+        val ty = Regex("""<type>([\s\S]*?)</type>""").find(b)?.groupValues?.get(1)?.let { clean(it) } ?: ""
+        val d = LinkedHashMap<String, String>()
+        // a <type> that is not the trail mark is the file's difficulty / class (the old converter wrote the rating there)
+        if (ty.isNotEmpty() && !ty.equals(TRAIL_MARK, ignoreCase = true) && !ty.equals("trail", ignoreCase = true)) d["Difficulty"] = ty
+        val (nm, r) = nameOf(own, d, c)
+        addLine(nm, r, segs, c)
+    }
+
+    private fun fromGpx(t: String, c: Collector) {
+        Regex("""<metadata>[\s\S]*?<name>([\s\S]*?)</name>""").find(t)?.let { m -> clean(m.groupValues[1]).takeIf { it.isNotEmpty() }?.let { c.docName = it } }
+        val body = t.replace(Regex("""<extensions>[\s\S]*?</extensions>"""), "")
+        for (m in Regex("""<trk\b[^>]*>([\s\S]*?)</trk>""").findAll(body)) {
+            val b = m.groupValues[1]
+            val segs = Regex("""<trkseg\b[^>]*>([\s\S]*?)</trkseg>""").findAll(b).map { gpxPts(it.groupValues[1]) }.toList()
+            gpxLine(b.substringBefore("<trkseg"), segs.ifEmpty { listOf(gpxPts(b)) }, c)
+        }
+        // a <rte> in a file the rider says is trails is a trail too (Fred 08:04: anything else is a trail by importing trails only)
+        for (m in Regex("""<rte\b[^>]*>([\s\S]*?)</rte>""").findAll(body)) {
+            val b = m.groupValues[1]
+            gpxLine(b.substringBefore("<rtept"), listOf(gpxPts(b)), c)
+        }
+        // single waypoints stay in the same file (Fred 08:04: we know how to encode them)
+        for (m in Regex("""<wpt\b[^>]*/>|<wpt\b[\s\S]*?</wpt>""").findAll(t)) c.wpt.add(m.value)
     }
 
     private fun readKmz(src: File): String = java.util.zip.ZipFile(src).use { z ->
@@ -100,7 +147,7 @@ object ImportConverter {
     }
 
     // ---- shared naming + output -------------------------------------------------------------------------------
-    private class Collector(var docName: String) {
+    private class Collector(var docName: String, val asTrails: Boolean) {   // ONEIMPORT-2026-11-04
         val trk = ArrayList<String>(); val wpt = ArrayList<String>(); val used = HashMap<String, Int>(); var lines = 0
     }
 
@@ -139,12 +186,14 @@ object ImportConverter {
         val good = parts.filter { it.size >= 2 }
         if (good.isEmpty()) return
         c.lines++
-        val desc = clean(c.docName) + if (rating.isNotEmpty()) " · $rating" else ""
+        val desc = clean(c.docName)
+        // ONEIMPORT-2026-11-04 (Fred 07:59): a difficulty in the file goes into the name -- <type> carries only the trail mark
+        val full = if (rating.isNotEmpty() && !name.contains(rating, ignoreCase = true)) "$name ($rating)" else name
         good.forEachIndexed { i, pts ->
-            val nm = if (i == 0) name else "$name (part ${i + 1})"
+            val nm = if (i == 0) full else "$full (part ${i + 1})"
             c.trk.add(buildString {
                 append("<trk><name>").append(nm).append("</name><desc>").append(desc).append("</desc>")
-                if (rating.isNotEmpty()) append("<type>").append(rating).append("</type>")
+                if (c.asTrails) append("<type>").append(TRAIL_MARK).append("</type>")
                 append("<trkseg>")
                 // ⚠ NOT self-closing: parseGpxTrackPointsFull matches <trkpt ...>...</trkpt>
                 for ((lon, lat) in pts) append("<trkpt lat=\"%.7f\" lon=\"%.7f\"></trkpt>".format(java.util.Locale.US, lat, lon))

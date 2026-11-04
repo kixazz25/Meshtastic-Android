@@ -42,6 +42,12 @@ object ConvoyTrackOps {
      *  "Not a GPX file"). */
     fun importExt(f: File): String = f.name.replace(Regex("""\s*\(\d+\)$"""), "").substringAfterLast('.', "").lowercase()
 
+    /** ONEIMPORT-2026-11-04 (Fred 07:59): a <trk> carrying GroupTrack's trail mark is a trail -- written by the converter when the
+     *  rider answers YES, and by the rider-trail export. The 11-03 export wrote <type>trail</type>: accepted only in a GroupTrack file. */
+    fun trailMarked(trk: String, file: String): Boolean =
+        Regex("""<type>\s*grouptrack-trail\s*</type>""").containsMatchIn(trk) ||
+            (file.take(600).contains("GroupTrack") && Regex("""<type>\s*trail\s*</type>""").containsMatchIn(trk))
+
     /** List GPX/KML files, excluding hidden and Android-trash entries. */
     suspend fun listTracks(): List<File> = withContext(Dispatchers.IO) {
         val dir = tracksDir()
@@ -553,6 +559,7 @@ object ConvoyTrackOps {
         downloadMapSlots: List<String> = emptyList(),
         replaceExisting: Boolean = false,
         asTrails: Boolean,   // IMPORTTRAILS-2026-10-30: true = every <trk> line goes into trails, not tracks (CODE RULE 1: required)
+        trailBatch: String,   // TRAILCLEAN-2026-11-04: "<source name> · <date>" written to every trail's agency_id (CODE RULE 1: required)
         onProgress: ((String) -> Unit)? = null
     ): ImportArtifactsSummary = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val sourceName = sourceFile.name
@@ -599,6 +606,7 @@ object ConvoyTrackOps {
             // records that the whole-file approach OOM'd on large onX exports --
             // two reads doubles that. One read, both consumers.
             val fullText = sourceFile.readText()
+            var trailsAdded = 0   // ONEIMPORT-2026-11-04: maps reload when a marked trail went in
             run {
                 val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
                 val matchCount = trkPattern.findAll(fullText).count()
@@ -632,14 +640,14 @@ object ConvoyTrackOps {
                             val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
                             // IMPORTTRAILS-2026-10-30 (D31-min, Fred 10-30): the rider ticked "Import tracks as trails" -- this
                             // batch is a trail map. Each line becomes a TRAIL; nothing below (track file, track row, corridor) runs.
-                            if (asTrails) {
+                            if (asTrails || trailMarked(trkContent, fullText)) {   // ONEIMPORT-2026-11-04: the mark in the file
                                 val trailName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()?.ifEmpty { null }
                                 val now = java.time.Instant.now().toString()
                                 val res = SpatialDbManager.insertTrail(java.util.UUID.randomUUID().toString(), trailName, wkt,
                                     minLat, maxLat, minLon, maxLon, now)
                                 when (res.second) {
                                     SpatialDbManager.AddDecision.INSERT -> {
-                                        insertedCount++
+                                        insertedCount++; trailsAdded++   // ONEIMPORT-2026-11-04
                                         try {
                                             SpatialDbManager.getSpatialDb()?.execSQL(
                                                 "UPDATE trails SET carto_code=?, carto_code_source=?, use_type=?, land_status=? WHERE trail_id=?",
@@ -648,8 +656,8 @@ object ConvoyTrackOps {
                                         try {
                                             SpatialDbManager.getExtensionDb()?.execSQL(
                                                 "INSERT OR IGNORE INTO trail_properties " +
-                                                    "(trail_id,source_id,source_unique_id,carto_code,motorized_allowed,ingested_at) VALUES (?,?,?,?,?,?)",
-                                                arrayOf<Any?>(res.first, "import", SpatialDbManager.computeGeomHash(wkt), "OHV", "yes", now))
+                                                    "(trail_id,source_id,source_unique_id,carto_code,motorized_allowed,agency_id,ingested_at) VALUES (?,?,?,?,?,?,?)",   // TRAILCLEAN-2026-11-04: + the batch
+                                                arrayOf<Any?>(res.first, "import", SpatialDbManager.computeGeomHash(wkt), "OHV", "yes", trailBatch, now))
                                         } catch (e: Exception) { android.util.Log.w("Import", "trail_properties write: ${e.message}") }
                                         onProgress?.invoke("TRAIL: ${trailName ?: "(no name)"}")
                                     }
@@ -866,7 +874,7 @@ object ConvoyTrackOps {
             }
 
             android.util.Log.i("Import", "Import complete: ${trackFiles.size} tracks, $waypointCount waypoints, $routeCount routes from $sourceName")
-            if (asTrails && insertedCount > 0) RiderTrailWriter.trailsChanged.value = System.currentTimeMillis()   // IMPORTTRAILS-2026-10-30: maps reload
+            if (trailsAdded > 0) RiderTrailWriter.trailsChanged.value = System.currentTimeMillis()   // IMPORTTRAILS-2026-10-30: maps reload
             ImportArtifactsSummary(sourceName, trackFiles.size, waypointCount, routeCount, trackFiles, errors, insertedCount, duplicateCount, aliasedCount, skippedCount)
 
         } catch (e: Exception) {
