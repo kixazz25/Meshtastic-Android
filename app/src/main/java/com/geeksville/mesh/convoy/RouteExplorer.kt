@@ -184,7 +184,8 @@ object RouteExplorer {
     /** PLANTABLE-2026-11-03: the plan's trail table. An empty one (no rows, total 0) = not counted yet. */
     data class SelTable(val area: String = "", val rows: List<SelRow> = emptyList(), val restricted: Int = 0,
                         val restrictedOn: Boolean = true, val publicOn: Boolean = true, val privateOn: Boolean = false,
-                        val searched: Int = 0, val total: Int = 0)
+                        val searched: Int = 0, val total: Int = 0,
+                        val pieces: Int = 0)   // RESTRICTEDNEVER-2026-11-03: trails with restricted pieces in the area (0 = none)
 
     /** PLANTABLE-2026-11-03: the trails in [req]'s search area by use and trail type, public / private, against FILTER. */
     fun selectionTable(db: SQLiteDatabase, req: Request): SelTable = try {
@@ -205,8 +206,11 @@ object RouteExplorer {
             }
         }
         var searched = 0
-        db.rawQuery("SELECT COUNT(*) FROM trails WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=?" + f.whereOrEmpty(), args)
-            .use { if (it.moveToFirst()) searched = it.getInt(0) }
+        db.rawQuery("SELECT COUNT(*) FROM trails WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=?" + f.whereOrEmpty() + " AND COALESCE(land_status,'') <> 'RESTRICTED'", args)
+            .use { if (it.moveToFirst()) searched = it.getInt(0) }   // RESTRICTEDNEVER-2026-11-03: restricted never searched
+        var pieces = 0   // RESTRICTEDNEVER-2026-11-03: trails with restricted pieces (routed on their open parts)
+        db.rawQuery("SELECT COUNT(*) FROM trails WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=? AND restricted_geom IS NOT NULL AND COALESCE(land_status,'') <> 'RESTRICTED'", args)
+            .use { if (it.moveToFirst()) pieces = it.getInt(0) }
         fun useLabel(u: String) = when (u) { "MOTORIZED" -> "Motorized"; "NON-MOTORIZED" -> "Non-motorized"; else -> "Use not recorded" }
         fun useOrder(u: String) = when (u) { "MOTORIZED" -> 0; "NON-MOTORIZED" -> 1; else -> 2 }
         fun useOn(u: String) = when (u) { "MOTORIZED" -> f.use != "NON-MOTORIZED"; "NON-MOTORIZED" -> f.use != "MOTORIZED"; else -> true }
@@ -214,7 +218,7 @@ object RouteExplorer {
             .sortedWith(compareBy({ useOrder(it.first) }, { -(it.third[0] + it.third[1]) }))
             .map { (u, t, a) -> SelRow(useLabel(u), t, a[0], a[1], t !in f.off, useOn(u)) }
         SelTable("%.0f x %.0f mi".format((box[1] - box[0]) * 69.0, (box[3] - box[2]) * 69.0 * Math.cos(Math.toRadians((box[0] + box[1]) / 2))),
-            rows, rst, f.restricted, f.land != "PRIVATE", f.land != "PUBLIC", searched, total)
+            rows, rst, f.restricted, f.land != "PRIVATE", f.land != "PUBLIC", searched, total, pieces)
     } catch (e: Exception) { Log.w(TAG, "PLANTABLE: ${e.message}"); SelTable() }
 
     /**
@@ -238,8 +242,8 @@ object RouteExplorer {
             }
         }
         var searched = 0
-        db.rawQuery("SELECT COUNT(*) FROM trails WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=?" + f.whereOrEmpty(), args)
-            .use { if (it.moveToFirst()) searched = it.getInt(0) }
+        db.rawQuery("SELECT COUNT(*) FROM trails WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=?" + f.whereOrEmpty() + " AND COALESCE(land_status,'') <> 'RESTRICTED'", args)
+            .use { if (it.moveToFirst()) searched = it.getInt(0) }   // RESTRICTEDNEVER-2026-11-03: restricted never searched
         fun fmt(n: Int) = "%,d".format(n)
         fun item(name: String, on: Boolean, n: Int) = if (on) "✓ $name ${fmt(n)}" else "✗ $name ${fmt(n)} left out"
         val area = "%.0f x %.0f mi".format((box[1] - box[0]) * 69.0, (box[3] - box[2]) * 69.0 * Math.cos(Math.toRadians((box[0] + box[1]) / 2)))
@@ -534,15 +538,27 @@ object RouteExplorer {
         db.rawQuery(
             // ROUTEFILTER-2026-09-02: the rider's selection, appended. Empty
             // when nothing is filtered, so the statement is what it always was.
-            "SELECT trail_id,name,geometry FROM trails " +
+            // RESTRICTEDNEVER-2026-11-03 (Fred 20:18): restricted land is never ridden -- a trail wholly in it is never read; a trail
+            //  with restricted pieces is read as its OPEN parts (open_geom). Whatever FILTER says: restricted is map key only.
+            "SELECT trail_id,name,geometry,open_geom,restricted_geom IS NOT NULL FROM trails " +
                 "WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=?" +
-                filter,
+                filter + " AND COALESCE(land_status,'') <> 'RESTRICTED'",
             arrayOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
         ).use { c ->
+            var cut = 0
             while (c.moveToNext()) {
+                if (c.getInt(4) == 1) {   // RESTRICTEDNEVER: its restricted pieces are not part of the network -- each open part is
+                    cut++
+                    for (m in Regex("\\(([^()]+)\\)").findAll(c.getString(3) ?: "")) {
+                        val pp = wktPoints(m.groupValues[1])
+                        if (pp.size >= 2) geoms.add(Triple(c.getString(0), c.getString(1), pp))
+                    }
+                    continue
+                }
                 val pts = wktPoints(c.getString(2))
                 if (pts.size >= 2) geoms.add(Triple(c.getString(0), c.getString(1), pts))
             }
+            Log.i(TAG, "RESTRICTEDNEVER: $cut trail(s) routed on their open parts only; restricted trails never read")
         }
         // ⚠ The count now reflects the FILTER, so a rider who has hidden half
         // the categories sees a smaller number here. That is the point -- it is

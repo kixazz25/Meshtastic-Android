@@ -100,21 +100,23 @@ object LaunchModules {
                 "backup" to "Back up my GroupTrack data \u2014 one email with everything to recover",   // BACKUP-2026-11-03 (Fred 11:38); BACKUPROW-2026-11-03 (Fred 17:41): in MAP RECOVERY
                 // QUICKFIX-2026-11-03 (#5): hidden for the 2.7e release -- not built; bring the row back when it is
                 // "restore" to "Restore maps as of a date \u2014 coming soon",   // RESTORESOON-2026-10-25 (Fred 21:03)   // NEW: replays a daily map recipe (ConvoyMapRecipe) -- restore not built yet
-                "repair" to "Refresh maps"),   // ONESOURCEUI-2026-10-30: one source   // planner Recreate Tiles by Source
-            g("map", "import", "IMPORT / EXPORT MAP FEATURES",   // EXPORTALL-2026-11-03 (Fred 11-01, 11-03 10:26)
+                "repair" to "Refresh maps",   // ONESOURCEUI-2026-10-30: one source   // planner Recreate Tiles by Source
+                "imported" to "Display trail, waypoint counts by state"),   // AREASKIP-2026-10-24 (Fred 12:39); COUNTSROW-2026-11-03 (Fred 20:49): back in MAP RECOVERY -- a control function
+            g("map", "import", "IMPORT MAP FEATURES",   // MAPMENU3-2026-11-03 (Fred 20:35)
+                "trails_state" to "Import trails by state",
+                "trails_area" to "Import trails by area \u2014 part of a state, or across state borders",   // AREAIMPORT-2026-10-24
+                "convert" to "Convert files to GPX \u2014 KML, KMZ, GeoJSON",   // MAPIMPORTS-2026-10-30 (Fred 08:33): above the two imports
+                "gpx" to "Import tracks, routes and waypoints from GPX files",   // GPXNAME-2026-11-01 (Fred 07:21)
+                "gpxtrails" to "Import trails from GPX files"),   // MAPIMPORTS-2026-10-30 (Fred 08:30); TRAILSNAME-2026-10-30 (Fred 08:49)
+            g("map", "export", "EXPORT MAP FEATURES",   // MAPMENU3-2026-11-03 (Fred 20:35)
                 "export_routes" to "Export all routes \u2014 one GPX file",
                 "export_tracks" to "Export all tracks \u2014 one GPX file",
                 "export_waypoints" to "Export all waypoints \u2014 one GPX file",
-                "export_trails" to "Export my rider trails \u2014 imported from outside GroupTrack or made from my tracks, one GPX file",   // TRAILEXPORT-2026-11-03 (Fred 11:05); RIDERTRAILSROW-2026-11-03 (Fred 11:28)
-                "trails_state" to "Import trails by state",
-                "trails_area" to "Import trails by area \u2014 part of a state, or across state borders",   // AREAIMPORT-2026-10-24
+                "export_trails" to "Export my rider trails \u2014 imported from outside GroupTrack or made from my tracks, one GPX file"),   // TRAILEXPORT-2026-11-03 (Fred 11:05); RIDERTRAILSROW-2026-11-03 (Fred 11:28)
+            g("map", "fixfeat", "SYNC OR REPAIR MAP FEATURES",   // MAPMENU3-2026-11-03 (Fred 20:35)
                 "utahprivate" to "Update public / private land \u2014 align trails with the state\'s public-lands data",   // UTAHPRIV-2026-10-24; LANDSYNC-2026-11-02 (Fred 18:43)
-                "convert" to "Convert files to GPX \u2014 KML, KMZ, GeoJSON",   // MAPIMPORTS-2026-10-30 (Fred 08:33): above the two imports
-                "gpx" to "Import tracks, routes and waypoints from GPX files",   // GPXNAME-2026-11-01 (Fred 07:21)
-                "gpxtrails" to "Import trails from GPX files",   // MAPIMPORTS-2026-10-30 (Fred 08:30); TRAILSNAME-2026-10-30 (Fred 08:49)
                 "ridertrails" to "Create trails from tracks",
-                "synctracks" to "Resync tracks with their files",   // GTSYNC-2026-10-23 (Fred 12:42): from the Import GPX screen
-                "imported" to "Display trail, waypoint counts by state"),   // AREASKIP-2026-10-24 (Fred 12:39)   // IMPORTEDMOVE-2026-10-23 (Fred 11:58): from MAP RECOVERY
+                "synctracks" to "Resync tracks with their files"),   // GTSYNC-2026-10-23 (Fred 12:42): from the Import GPX screen
             // MAPMOVE-2026-10-23 (Fred 21:45): UNTIL THE MOVE IS DONE is gone -- Map Features (original) and Open the planning map
             // came off (every function they held is on ONE MAP); Area Search Radius keeps its own row, in its own section.
             g("map", "search", "SEARCH",

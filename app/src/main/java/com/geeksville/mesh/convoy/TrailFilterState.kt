@@ -297,6 +297,14 @@ object TrailFilterState {
     @Synchronized
     fun setUse(v: String) { use = v.uppercase(); regenerate(); save() }
 
+    /** ROUTEFILTER-2026-11-03 v2 (Fred 18:31): a route build SHOWS the current selection -- the public-land and restricted-area
+     *  overlays displayed. The filter VALUES (types, land, restricted segments, use) are not touched. */
+    @Synchronized
+    fun forRouteBuild() {
+        areaPublic = true; areaRestricted = true; save()
+        Log.i(TAG, "ROUTEFILTER route build: land-area overlays shown; filter values kept: land=$land use=$use off=${off.size} -> $cachedWhere")
+    }
+
     @Synchronized
     fun toggleCategory(name: String) {
         if (!off.remove(name)) off.add(name)

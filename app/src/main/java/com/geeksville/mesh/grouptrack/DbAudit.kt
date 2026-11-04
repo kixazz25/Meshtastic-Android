@@ -50,6 +50,16 @@ object GtDbAudit {
             if (why.isEmpty()) { kept.add("${f.name} (${pts.size} points -- a real track GroupTrack does not have; Resync tracks brings it in)"); continue }
             if (f.delete()) { deleted++; rlog("deleted track file ${f.name} (${f.length()} bytes): $why") } else kept.add("${f.name} (delete failed)")
         }
+        // RIDERLAND-2026-11-03: rider trails (imported, or made from tracks) are PUBLIC and never segmented -- put back what a land update changed
+        val wImp = "carto_code_source='import' AND (COALESCE(carto_code,'')<>'OHV' OR COALESCE(use_type,'')<>'MOTORIZED' OR COALESCE(land_status,'')<>'PUBLIC' OR restricted_geom IS NOT NULL OR open_geom IS NOT NULL)"
+        val wRid = "carto_code_source='rider' AND (COALESCE(carto_code,'')<>'rider' OR COALESCE(land_status,'')<>'PUBLIC' OR restricted_geom IS NOT NULL OR open_geom IS NOT NULL)"
+        val nImp = count(sp, "SELECT COUNT(*) FROM trails WHERE " + wImp)
+        val nRid = count(sp, "SELECT COUNT(*) FROM trails WHERE " + wRid)
+        try {
+            if (nImp > 0) sp.execSQL("UPDATE trails SET carto_code='OHV', use_type='MOTORIZED', land_status='PUBLIC', restricted_geom=NULL, open_geom=NULL WHERE " + wImp)
+            if (nRid > 0) sp.execSQL("UPDATE trails SET carto_code='rider', use_type='" + com.geeksville.mesh.convoy.TrailClassifier.useOf("rider") + "', land_status='PUBLIC', restricted_geom=NULL, open_geom=NULL WHERE " + wRid)
+        } catch (e: Exception) { rlog("rider trails: put back failed: ${e.message}") }
+        rlog("rider trails put back to PUBLIC / unsegmented: $nImp imported, $nRid made from tracks (changed by a land update)")
         rlog("track files with no row: deleted $deleted, kept ${kept.size}${if (kept.isEmpty()) "" else ": " + kept.take(15).joinToString("; ")}")
         // 2. extension rows that point at nothing
         val ext = SpatialDbManager.getExtensionDb() ?: run { rlog("extension database not open"); return }

@@ -2266,6 +2266,43 @@ fun GroupTrackScreen(
         }
         // GTFILTER-2026-10-22: HIDE EVERYTHING -- what was on before the hide; empty = not hidden (CODE RULE 1: no null).
         var gtHideSaved by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+        // SEARCHFIT2-2026-11-03: THE FIT -- one artifact: every other type OFF, its type SELECTED with only it, the map fitted, saved,
+        //  redrawn. The detail panel's FIT and the search both call this (it was the panel's onDismiss body, moved unchanged).
+        val gtFitOne: (String, String) -> Unit = { fittedType, fittedId ->
+                            gtHideSaved = emptyMap()
+                            // [FIT 2026-06-18] Emulate a manual row-select on the LIVE vars
+                            // (mirror of the ArtifactListPanel select at ~1669): set this type
+                            // SELECTED with exactly the fitted id. saveConvoyState then reads the
+                            // populated live var (no empty-row clobber) and the SEL/EDIT panel
+                            // reflects it. FIT = one artifact by definition.
+                            val sel = setOf(fittedId)
+                            // FIT = one artifact: all other types OFF, fitted type SELECTED.
+                            trailState = DS_OFF; trailCheckedIds = null
+                            trackState = DS_OFF; trackCheckedIds = null
+                            waypointState = DS_OFF; waypointCheckedIds = null
+                            routeState = DS_OFF; routeCheckedIds = null
+                            when (fittedType) {
+                                "Trails"    -> { trailState = DS_SELECTED; trailCheckedIds = sel }
+                                "Tracks"    -> { trackState = DS_SELECTED; trackCheckedIds = sel }
+                                "Waypoints" -> { waypointState = DS_SELECTED; waypointCheckedIds = sel }
+                                "Routes"    -> { routeState = DS_SELECTED; routeCheckedIds = sel }
+                            }
+                            // [FIT recenter 2026-06-20] Restore-to-artifact: bbox+10% pad -> lastViewport -> fitBounds,
+                            // so save + the getBounds() redraw below both use the artifact frame (no stale clobber).
+                            run {
+                                val _bb = SpatialDbManager.bboxForArtifact(fittedType, fittedId)
+                                if (_bb != null) {
+                                    val _s=_bb[0]; val _w=_bb[1]; val _n=_bb[2]; val _e=_bb[3]
+                                    val _latPad=((_n-_s).let{ if(it>0.0) it*0.10 else 0.01 })
+                                    val _lonPad=((_e-_w).let{ if(it>0.0) it*0.10 else 0.01 })
+                                    val _fS=_s-_latPad; val _fN=_n+_latPad; val _fW=_w-_lonPad; val _fE=_e+_lonPad
+                                    lastViewportSouth=_fS; lastViewportWest=_fW; lastViewportNorth=_fN; lastViewportEast=_fE
+                                    webViewRef.value?.evaluateJavascript("fitBounds(["+_fS+","+_fN+"],["+_fW+","+_fE+"])", null)
+                                }
+                            }
+                            saveConvoyState()
+                            webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+        }
         // GTFILTER-2026-10-22: was the inline onSetState lambda of ConvoyArtifactsPanel -- ONE copy, shared with ONE MAP's FILTER.
         val gtSetDisplay: (String, Int) -> Unit = gtSetDisplay@{ typeName, newState ->
                         when(typeName) {
@@ -2288,6 +2325,8 @@ fun GroupTrackScreen(
         //   the compare table -> the filter's HIDE EVERYTHING (gtHideSaved -- the filter shows SHOW AGAIN) and the off-grid map
         //   areas off; on exit both come back exactly. If the rider had already hidden everything, it stays hidden.
         com.geeksville.mesh.grouptrack.GtRoute.layersOnForAi = {
+            com.geeksville.mesh.convoy.TrailFilterState.forRouteBuild()   // ROUTEFILTER-2026-11-03 v2: the current selection made visible first
+            com.geeksville.mesh.grouptrack.GtOpenModule.trailsTick.intValue++   // the map re-reads its trails and land areas
             gtHideSaved = emptyMap()
             gtSetDisplay("Trails", DS_ON)
             gtSetDisplay("Waypoints", DS_ON)
@@ -2631,38 +2670,7 @@ fun GroupTrackScreen(
                     onDeleteAlias = { aliasId -> coroutineScope.launch { ConvoyArtifactOps.deleteAlias(context, aliasId) } },
                     onDismiss = { fittedType, fittedId ->
                         if (fittedType != null && fittedId != null) {
-                            // [FIT 2026-06-18] Emulate a manual row-select on the LIVE vars
-                            // (mirror of the ArtifactListPanel select at ~1669): set this type
-                            // SELECTED with exactly the fitted id. saveConvoyState then reads the
-                            // populated live var (no empty-row clobber) and the SEL/EDIT panel
-                            // reflects it. FIT = one artifact by definition.
-                            val sel = setOf(fittedId)
-                            // FIT = one artifact: all other types OFF, fitted type SELECTED.
-                            trailState = DS_OFF; trailCheckedIds = null
-                            trackState = DS_OFF; trackCheckedIds = null
-                            waypointState = DS_OFF; waypointCheckedIds = null
-                            routeState = DS_OFF; routeCheckedIds = null
-                            when (fittedType) {
-                                "Trails"    -> { trailState = DS_SELECTED; trailCheckedIds = sel }
-                                "Tracks"    -> { trackState = DS_SELECTED; trackCheckedIds = sel }
-                                "Waypoints" -> { waypointState = DS_SELECTED; waypointCheckedIds = sel }
-                                "Routes"    -> { routeState = DS_SELECTED; routeCheckedIds = sel }
-                            }
-                            // [FIT recenter 2026-06-20] Restore-to-artifact: bbox+10% pad -> lastViewport -> fitBounds,
-                            // so save + the getBounds() redraw below both use the artifact frame (no stale clobber).
-                            run {
-                                val _bb = SpatialDbManager.bboxForArtifact(fittedType, fittedId)
-                                if (_bb != null) {
-                                    val _s=_bb[0]; val _w=_bb[1]; val _n=_bb[2]; val _e=_bb[3]
-                                    val _latPad=((_n-_s).let{ if(it>0.0) it*0.10 else 0.01 })
-                                    val _lonPad=((_e-_w).let{ if(it>0.0) it*0.10 else 0.01 })
-                                    val _fS=_s-_latPad; val _fN=_n+_latPad; val _fW=_w-_lonPad; val _fE=_e+_lonPad
-                                    lastViewportSouth=_fS; lastViewportWest=_fW; lastViewportNorth=_fN; lastViewportEast=_fE
-                                    webViewRef.value?.evaluateJavascript("fitBounds(["+_fS+","+_fN+"],["+_fW+","+_fE+"])", null)
-                                }
-                            }
-                            saveConvoyState()
-                            webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                            gtFitOne(fittedType, fittedId)   // SEARCHFIT2-2026-11-03: the one FIT, shared with the search
                         } else {
                             // Non-FIT dismiss (CLOSE/rename/etc.): reflect persisted state.
                             val rs = MapStateStore.readMap(MapStateStore.rideKey())
@@ -2955,10 +2963,10 @@ fun GroupTrackScreen(
                         val db = com.geeksville.mesh.convoy.SpatialDbManager.getSpatialDb()
                         fun inTable(tb: String, col: String) = try { db?.rawQuery("SELECT 1 FROM $tb WHERE $col=? LIMIT 1", arrayOf(r.id))?.use { it.moveToFirst() } == true } catch (e: Exception) { false }
                         val typeName = when { inTable("tracks", "track_id") -> "Tracks"; inTable("routes", "route_id") -> "Routes"; inTable("waypoints", "waypoint_id") -> "Waypoints"; inTable("trails", "trail_id") -> "Trails"; else -> "" }
-                        val cur = when (typeName) { "Trails" -> trailState; "Tracks" -> trackState; "Waypoints" -> waypointState; "Routes" -> routeState; else -> DS_ON }
-                        if (typeName.isNotEmpty() && cur != DS_ON) { gtHideSaved = emptyMap(); gtSetDisplay(typeName, DS_ON) }
-                        android.util.Log.i("GtSearch", "SEARCHSHOW ${r.type} '${r.name}' -> $typeName was $cur, now ON; fit")
-                        webViewRef.value?.evaluateJavascript("fitBounds([$s0,$n0],[$w0,$e0])", null)
+                        // SEARCHFIT2-2026-11-03 (Fred 19:09): the search does the panel's FIT -- others OFF, this one SELECTED, fitted
+                        android.util.Log.i("GtSearch", "SEARCHFIT2 ${r.type} '${r.name}' -> FIT $typeName ${r.id}")
+                        if (typeName.isNotEmpty()) gtFitOne(typeName, r.id)
+                        else webViewRef.value?.evaluateJavascript("fitBounds([$s0,$n0],[$w0,$e0])", null)
                     }
                     // SEARCHFIT-2026-10-31 (Fred 15:38): the map fits to the result; its detail panel is NOT opened on top (D27)
                 },

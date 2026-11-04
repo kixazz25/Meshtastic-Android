@@ -117,12 +117,7 @@ fun GtFilterBody(f: GtFilterBridge, onSelect: (String) -> Unit) {
                 Checkbox(checked = privOn, onCheckedChange = null, colors = boxColors())
                 Text("Private", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
-            // LANDDISPLAY-2026-11-02 (Fred 11-02): restricted -- public land closed to motor vehicles: red trails, red-striped areas
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable {
-                TrailFilterState.setRestricted(!TrailFilterState.restricted); tick++; f.trailsChanged() }) {
-                Checkbox(checked = TrailFilterState.restricted, onCheckedChange = null, colors = boxColors())
-                Text("Restricted", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            }
+            // RESTRICTEDNEVER-2026-11-03 (Fred 20:18): Restricted is not a land you ride -- it moved to the MOTORIZED rows (map key only)
         }
 
         // LANDAREAS-2026-11-02 (Fred 14:08): the striped OVERLAYS on their own -- LAND above decides only which trails are drawn.
@@ -142,6 +137,18 @@ fun GtFilterBody(f: GtFilterBridge, onSelect: (String) -> Unit) {
         }
 
         TrailGroup("MOTORIZED", MOTORIZED_ROWS, help, f) { tick++ }
+        // RESTRICTEDNEVER-2026-11-03 (Fred 20:18-20:20): restricted trails and pieces -- MAP KEY ONLY: shown red or hidden, never in a route
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 18.dp)
+            .clickable { TrailFilterState.setRestricted(!TrailFilterState.restricted); tick++; f.trailsChanged() }) {
+            Checkbox(checked = TrailFilterState.restricted, onCheckedChange = null, colors = boxColors())
+            Canvas(Modifier.width(34.dp).height(14.dp)) {
+                drawLine(Color(0xFFE53935), Offset(2f, size.height / 2), Offset(size.width - 2f, size.height / 2), strokeWidth = 3.dp.toPx() * 0.8f)
+            }
+            Column(Modifier.padding(start = 8.dp)) {
+                Text("Restricted \u2014 closed to motor vehicles", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Map key only: shown red on the map, never in a route", color = s.panelDim, fontSize = 12.sp)
+            }
+        }
         TrailGroup("NON-MOTORIZED", NON_MOTORIZED_ROWS, help, f) { tick++ }
     }
 }

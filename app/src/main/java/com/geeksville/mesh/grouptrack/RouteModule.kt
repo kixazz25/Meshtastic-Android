@@ -390,7 +390,9 @@ object GtRoute {
      *  compare set comes first, as always. Nothing is deleted. */
     fun buildFromRecipe(ctx: android.content.Context, rid: String) {
         val r = SpatialDbManager.routeRecipe(rid) ?: return
-        buildFromRecipeJson(ctx, r, false)
+        // RECIPEFILTER-2026-11-03 (Fred 19:09): the route's own FILTER comes with it -- same ground, same trails, same routes
+        //  (a route saved before the 11-03 AM build recorded none: today's filter, as before)
+        buildFromRecipeJson(ctx, r, true)
     }
 
     /**
@@ -427,6 +429,7 @@ object GtRoute {
         routeMode.value = true
         js("window.__routeMode=true;setRouteMode(true)")
         layersOnForAi()   // Trails and Waypoints ON for the AI build (GTAI4B)
+        if (applyFilter) applyRecipeFilter(r)   // ROUTEFILTER-2026-11-03: a recipe file's own FILTER wins -- the reported search, exactly
         aiMapReady = true
         // CLOSEPLANNER-2026-08-29: a recipe's pins were never validated on THIS device -- qualify them first
         if (pinPoints.value.isNotEmpty()) runAssess(ctx)
@@ -723,6 +726,7 @@ object GtRoute {
         routeEntryNonce.intValue++
         addPointMode.value = true
         routeMode.value = true
+        layersOnForAi()   // ROUTEFILTER-2026-11-03 (Fred 18:27): Build it myself shows the current selection first too
         js("window.__routeMode=true;setRouteMode(true)")
         persist()
     }
@@ -1655,13 +1659,10 @@ fun GtTrailTable(t: com.geeksville.mesh.convoy.RouteExplorer.SelTable) {
                 Text(fmt(r.priv), color = if (privIn) inc else out, fontSize = 13.sp, fontWeight = bold, textAlign = end, modifier = Modifier.width(96.dp))
             }
         }
-        if (t.restricted > 0) Row(verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clickable { rstTap() }) {
-            GtCheck(t.restrictedOn); Spacer(gap)
-            Text("Restricted (closed to motor vehicles)", color = txt, fontSize = 13.sp, fontWeight = bold, modifier = Modifier.weight(1f))
-            Text(fmt(t.restricted), color = if (t.restrictedOn) inc else out, fontSize = 13.sp, fontWeight = bold,
-                textAlign = end, modifier = Modifier.width(96.dp))
-        }
+        // RESTRICTEDNEVER-2026-11-03 (Fred 20:18-20:20): restricted is never in a route -- information only, no tick box
+        if (t.restricted > 0 || t.pieces > 0) Text("Restricted (never in a route): " + fmt(t.restricted) + " trail" + (if (t.restricted == 1) "" else "s") +
+            " \u00b7 " + fmt(t.pieces) + " with restricted pieces (routed on their open parts)", color = out, fontSize = 13.sp, fontWeight = bold,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
         Text(fmt(t.searched) + " searched · " + fmt(t.total - t.searched) + " left out", color = txt, fontSize = 13.sp, fontWeight = bold,
             modifier = Modifier.padding(top = 10.dp))
         Text("Green numbers are included, red are left out. Tick a box to include those trails — SEE / CHANGE FILTER for " +

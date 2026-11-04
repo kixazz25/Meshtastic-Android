@@ -209,13 +209,15 @@ object OwnershipReclass {
             eDb.beginTransaction()
             try {
                 for (i in ids.indices) {
-                    val cat = TrailClassifier.categoryOf(srcs[i], useOf[ids[i]] ?: "")
+                    // RIDERLAND-2026-11-03: a trail IMPORTED from outside GroupTrack is a rider trail too -- OHV, as the import wrote it
+                    val isImport = srcs[i].equals("import", ignoreCase = true)
+                    val cat = if (isImport) "OHV" else TrailClassifier.categoryOf(srcs[i], useOf[ids[i]] ?: "")
                     // \u2b50 ANY PUBLIC SEGMENT WINS (Fred, 08-31): allPrivate() samples every half mile plus both ends.
                     // RIDEROUT-2026-10-24 (Fred 15:19): a trail from tracks is never land-tested -- it is PUBLIC.
                     // PADUSLAND-2026-11-02 (Fred 11-02): rider -> PUBLIC; agency route ("0 - Motorized Access", "4 - Road-concurrent" ...) ->
                     //  PUBLIC; otherwise landOf() -- PAD-US public land under any point wins; a MOTORIZED trail wholly inside a restricted
                     //  (wilderness) area on federal land is RESTRICTED; no public point is PRIVATE; outside a state with PAD-US data PUBLIC.
-                    val baseLand = if (cat == "rider") "PUBLIC" else if (AGENCY.containsMatchIn(srcs[i])) "PUBLIC"
+                    val baseLand = if (cat == "rider" || isImport) "PUBLIC" else if (AGENCY.containsMatchIn(srcs[i])) "PUBLIC"
                                else landOf(wkts[i], landIdx, TrailClassifier.useOf(cat) == TrailClassifier.MOTORIZED)
                     // RSTSEG-2026-11-02 (Fred 14:17-14:19): restricted BY SEGMENT -- any motorized trail, agency-coded or not, never a
                     //  rider trail: the parts more than 15 m inside restricted federal land are stored and drawn red; ~all of it -> RESTRICTED.
@@ -263,7 +265,8 @@ object OwnershipReclass {
                 sDb.beginTransaction()
                 try {
                     sDb.rawQuery("SELECT trail_id, geometry FROM trails WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? " +
-                        "AND use_type='MOTORIZED' AND (carto_code IS NULL OR carto_code <> 'rider') AND geometry IS NOT NULL AND geometry <> ''",
+                        "AND use_type='MOTORIZED' AND (carto_code IS NULL OR carto_code <> 'rider') AND COALESCE(carto_code_source,'') NOT IN ('rider','import') " +   // RIDERLAND-2026-11-03: rider trails are never segmented
+                        "AND geometry IS NOT NULL AND geometry <> ''",
                         arrayOf(b[1].toString(), b[3].toString(), b[0].toString(), b[2].toString())).use { c ->
                         while (c.moveToNext()) {
                             val id = c.getString(0) ?: continue
