@@ -2077,18 +2077,23 @@ fun GroupTrackScreen(
                         // another file is invisible here -- Kotlin's private is
                         // FILE-scoped, not package-scoped. Caught before
                         // shipping; it would have been a compile failure.
+                        val gtUri = androidx.compose.ui.platform.LocalUriHandler.current   // HELPVIDEOS-2026-11-05
                         for ((key, title, sub) in listOf(
                             Triple("quickstart", "Quick Start",
                                 "The short version \u2014 set up and go"),
                             Triple("notes", "Release Notes",
                                 "What changed, newest first"),
                             Triple("manual", "Full Manual",
-                                "Everything, in detail")
+                                "Everything, in detail"),
+                            Triple("videos", "Videos",   // HELPVIDEOS-2026-11-05
+                                "Short demos on grouptrack.org (needs internet)")
                         )) {
                             androidx.compose.foundation.layout.Column(
                                 modifier = Modifier.fillMaxWidth()
                                     .clickable {
-                                        showDocsChooser = false; docsOpen(key)
+                                        showDocsChooser = false
+                                        // HELPVIDEOS-2026-11-05: VIDEOS opens the website; the three documents stay in the app
+                                        if (key == "videos") { try { gtUri.openUri("https://grouptrack.org/videos.html") } catch (e: Exception) { } } else docsOpen(key)
                                     }
                                     .padding(vertical = 10.dp)
                             ) {
@@ -2211,6 +2216,7 @@ fun GroupTrackScreen(
             // GTAI2-2026-10-23: the compare table draws on this page and puts these four layers back as they were.
             com.geeksville.mesh.grouptrack.GtRoute.wv = { webViewRef.value }
             com.geeksville.mesh.grouptrack.GtRoute.openDetail = { t, id -> pendingDetailType = t; pendingDetailId = id }   // HOME1-2026-10-23
+            com.geeksville.mesh.grouptrack.GtRoute.addRide = { rid -> onAddRide("Route", rid) }   // ROUTERIDE-2026-11-05
             com.geeksville.mesh.grouptrack.GtRoute.layersNow = { listOf(trailState, trackState, waypointState, routeState) }
             // GTAI4B-2026-10-23: GtRoute.layersOnForAi / hideAll / restoreAll are set after gtSetDisplay (below) -- the FILTER's own functions.
             // GTROUTE1D-2026-10-23: GtRouteHost is drawn AFTER the launch layer (below) -- here its toolbar sat under MENU / zoom.

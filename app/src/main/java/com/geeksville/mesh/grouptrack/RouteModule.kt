@@ -384,6 +384,7 @@ object GtRoute {
     val savedNotesRouteId = mutableStateOf("")
     val showWipNotes = mutableStateOf(false)
     var openDetail: (String, String) -> Unit = { _, _ -> }
+    var addRide: (String) -> Unit = { _ -> }   // ROUTERIDE-2026-11-05: the host's CREATE A RIDE for a route id
 
     /** HOME1-2026-10-23: the planner's onBuildFromRecipe, copied -- a saved route's recipe (trailhead, distance, speed, finish,
      *  pins) loads into the AI flow and opens at the SUMMARY, so the rider reads back what is about to be built. An open AI
@@ -1169,7 +1170,8 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
             sections = com.geeksville.mesh.convoy.notesFromRouteId(rid),
             onClose = { R.savedNotesRouteId.value = "" },
             onBuildFromRecipe = if (hasRecipe) ({ R.savedNotesRouteId.value = ""; R.buildFromRecipe(ctx, rid) }) else null,
-            onRouteDetails = { R.savedNotesRouteId.value = ""; R.openDetail("Routes", rid) }
+            onRouteDetails = { R.savedNotesRouteId.value = ""; R.openDetail("Routes", rid) },
+            onCreateRide = { R.savedNotesRouteId.value = ""; R.addRide(rid) }   // ROUTERIDE-2026-11-05
         )
     }
     // HOME1-2026-10-23: the work-in-progress narrative (the planner's WIPNOTES ROUTE DETAILS button) -- only when the open draft HAS notes.

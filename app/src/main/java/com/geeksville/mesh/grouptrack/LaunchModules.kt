@@ -50,7 +50,7 @@ object LaunchModules {
             "end" to "END RIDE — name, survey and share on one screen")),
         LaunchModule("menu", "MENU", LaunchSlot.LEFT, 1, groupOnly = false, stays = false, processes = p("menu",
             "settings" to "Settings",
-            "help" to "Help — Quick Start, Release Notes, Manual",
+            "help" to "Help — Quick Start, Release Notes, Manual, Videos",   // HELPVIDEOS-2026-11-05
             "account" to "Account — profile, terms, completed rides")),
         // GRPONEMAP-2026-10-22 (Fred 11:38): GRP AWARENESS stays -- the in-ride issue indicator, one tap to its panel. Always shown.
         LaunchModule("grp", "GRP Awareness", LaunchSlot.RIGHT, 1, /* MODEFIRST-2026-10-26 (Fred 11:51): after MODE */ groupOnly = false, stays = false, processes = p("grp",
