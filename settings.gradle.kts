@@ -44,6 +44,7 @@ include(
     ":feature:settings",
     ":feature:firmware",
     ":grouptrack-comm", // COMMAPI3-2026-10-08: the GroupTrack Comm API (contract)
+    ":grouptrack-shared", // GTSHARED-2026-11-06: GroupTrack model layer, Android + iOS (2.8)
     ":mesh_service_example",
 )
 rootProject.name = "MeshtasticAndroid"
