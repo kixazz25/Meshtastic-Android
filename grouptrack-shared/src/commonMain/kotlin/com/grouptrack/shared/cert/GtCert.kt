@@ -46,7 +46,27 @@ object GtCert {
     }
 
     /** [lo, hi) id ranges of [PAGE] rows, as SQL fragments on [col] (text ids quoted, integer ids bare). */
+    /** GTCERTV3-2026-11-06 (Fred 15:52): the heavy per-trail checks use a FIXED SAMPLE -- every k-th trail id (about 20,000) plus the
+     *  EDGE SET (names with quotes / apostrophes / backslashes / non-ASCII or blank, restricted segments, multi-part lines, the 200 largest)
+     *  -- the same ids on every side. The filter checks stay whole-database. */
+    const val SAMPLE = 20_000
+    private var sampleCache: List<String>? = null
+    fun sampleTrailIds(c: SQLiteConnection): List<String> {
+        sampleCache?.let { return it }
+        val all = ids(c, "SELECT trail_id FROM trails ORDER BY trail_id")
+        val step = maxOf(1, all.size / SAMPLE)
+        val pick = HashSet<String>()
+        for (i in all.indices step step) pick.add(all[i])
+        pick.addAll(ids(c, "SELECT trail_id FROM trails WHERE name IS NULL OR TRIM(name)='' OR name LIKE '%\"%' OR name LIKE '%''%' " +
+            "OR name LIKE '%\\%' OR name GLOB '*[^ -~]*' OR restricted_geom IS NOT NULL OR geometry LIKE 'MULTI%'"))
+        pick.addAll(ids(c, "SELECT trail_id FROM trails ORDER BY ((max_lat-min_lat)*(max_lat-min_lat)+(max_lon-min_lon)*(max_lon-min_lon)) DESC, trail_id LIMIT 200"))
+        return pick.sorted().also { sampleCache = it }
+    }
+    fun trailSamplePages(c: SQLiteConnection): List<Pair<String, String>> = sampleTrailIds(c).chunked(PAGE).mapIndexed { k, ch ->
+        ("s" + k.toString().padStart(4, '0')) to (" AND trail_id IN (" + ch.joinToString(",") { "'" + it.replace("'", "''") + "'" } + ")") }
+
     fun pages(c: SQLiteConnection, table: String, col: String, quoted: Boolean): List<Pair<String, String>> {
+        if (table == "trails") return trailSamplePages(c)   // GTCERTV3-2026-11-06
         val all = ids(c, "SELECT $col FROM $table ORDER BY $col")
         fun lit(v: String) = if (quoted) "'" + v.replace("'", "''") + "'" else v
         val out = ArrayList<Pair<String, String>>()
@@ -79,6 +99,7 @@ object GtCert {
         for (r in listOf(true, false)) {
             val w = TrailFilterState.whereFor("ALL", r, "ALL", emptySet())
             for ((k, frag) in tp) {
+                if (k.endsWith("0")) progress("trails r$r page $k of ${tp.size}")   // GTCERTV3
                 val rows = sp.queryTrails(-90.0, -180.0, 90.0, 180.0, ALL, w + frag)
                 emit(line("TRAILS", k, "r$r", rows.size, fp(GtSpatial.trailGeoJson(rows, r))))
             }

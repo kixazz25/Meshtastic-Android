@@ -43,6 +43,7 @@ class CertMacTest {
         fs.write(out) {
             writeUtf8("# GTCERT mac $stamp spatial=$spatial\n")
             GtCert.runNew(conn, dconn, saved, { id -> notes(dconn, id) }, { l -> writeUtf8("MAC|$l\n"); n++ }, { p -> println("GTCERT mac: $p ($n lines)") })
+            CertRead.run(CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, { l -> writeUtf8("MAC|$l\n"); n++ }, { p -> println("GTCERT mac: $p ($n lines)") })   // GTCERT-2B-2026-11-06
         }
         conn.close(); dconn?.close()
         println("GTCERT mac done: $n lines -> $out")

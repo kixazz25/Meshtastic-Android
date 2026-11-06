@@ -47,9 +47,12 @@ object GtCertRun {
                     w.write("# GTCERT droid ${android.os.Build.MODEL} $stamp spatial=${db.path}\n")
                     var n = 0
                     GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
+                    com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn,
+                        { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })   // GTCERT-2B-2026-11-06
                     Log.i(TAG, "GTCERT new side: $n lines in ${(System.currentTimeMillis() - t0) / 1000} s")
                     val t1 = System.currentTimeMillis(); var o = 0
                     runOld(conn, db, edb, saved, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })
+                    com.grouptrack.shared.cert.CertRead.run(OldRead, conn, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })   // GTCERT-2B-2026-11-06
                     Log.i(TAG, "GTCERT old side: $o lines in ${(System.currentTimeMillis() - t1) / 1000} s")
                 }
                 try { conn.close() } catch (_: Exception) {}; try { dconn?.close() } catch (_: Exception) {}
@@ -59,6 +62,28 @@ object GtCertRun {
                 Log.e(TAG, "GTCERT failed after ${(System.currentTimeMillis() - t0) / 1000} s: $e", e)
             }
         }.start()
+    }
+
+    /** GTCERT-2B-2026-11-06: 2.7e's SpatialDbManager reading functions as the OLD side of the batch-2b cases. */
+    private object OldRead : com.grouptrack.shared.cert.CertRead.Api {
+        override fun search(type: String, term: String) = SpatialDbManager.searchByName(type, term)
+        override fun detail(type: String, id: String): Map<String, String?> = SpatialDbManager.getArtifactDetail(type, id)
+        override fun aliases(type: String, id: String) = SpatialDbManager.getAliasesFor(type, id)
+        override fun list(table: String) = SpatialDbManager.queryArtifactList(table, -90.0, -180.0, 90.0, 180.0)
+        override fun corridor() = SpatialDbManager.queryAllTracksForCorridor()
+        override fun trailheads(lat: Double, lon: Double) = SpatialDbManager.trailheadsNear(lat, lon).map { listOf<Any>(it.waypointId, it.name, it.lat, it.lon, it.miles) }
+        override fun routeUsing(waypointId: String) = SpatialDbManager.routeUsingTrailhead(waypointId)
+        override fun routeName(id: String) = SpatialDbManager.routeNameById(id)
+        override fun routeHash(id: String) = SpatialDbManager.routeGeomHash(id)
+        override fun routeByHash(hash: String) = SpatialDbManager.findRouteIdByHash(hash)
+        override fun nameExists(name: String) = SpatialDbManager.routeNameExists(name)
+        override fun nextNumber(base: String) = SpatialDbManager.nextRouteNumber(base)
+        override fun trackName(id: String) = SpatialDbManager.trackName(id)
+        override fun trackGeom(id: String) = SpatialDbManager.trackGeometry(id)
+        override fun waypointAt(lat: Double, lon: Double) = SpatialDbManager.waypointNameAt(lat, lon)
+        override fun geomHash(wkt: String) = SpatialDbManager.computeGeomHash(wkt)
+        override fun parseGpx(text: String) = SpatialDbManager.parseGpxTrackPoints(text)
+        override fun trackIdForGpx(text: String) = SpatialDbManager.trackIdForGpxText(text)
     }
 
     /** (headline, notes JSON) exactly as 2.7e's buildRouteGpxById makes them. */
