@@ -82,6 +82,7 @@ open class MeshUtilApplication :
         // \u2b50 After this line internalBase() can never return null and the public
         // fallback can never fire.
         com.geeksville.mesh.convoy.GroupTrackStorage.remember(this)
+        com.geeksville.mesh.grouptrack.GtIpadExport.runIfRequested(this)   // IPADEXPORT-2026-11-06 (test-only, remove before 2.8 ships)
         // Initialize OSMDroid for convoy map tile caching
         org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
         org.osmdroid.config.Configuration.getInstance().osmdroidBasePath = getExternalFilesDir(null) ?: filesDir
