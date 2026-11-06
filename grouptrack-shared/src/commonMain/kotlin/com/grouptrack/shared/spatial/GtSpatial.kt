@@ -27,10 +27,10 @@ class GtSpatial(private val conn: SQLiteConnection, private val dataConn: SQLite
 
     // ---- the four types (SpatialDbManager.query*ByViewport) -----------------------------------------------------------------------
     /** queryTrailsByViewport: the filter's WHERE, largest first, LIMIT; rows without geometry dropped; then the detail extras. */
-    fun queryTrails(s: Double, w: Double, n: Double, e: Double, limit: Int): List<Map<String, String?>> {
+    fun queryTrails(s: Double, w: Double, n: Double, e: Double, limit: Int, where: String = TrailFilterState.whereOrEmpty()): List<Map<String, String?>> {   // GTCERT: where can be given
         val rows = query(
             "SELECT trail_id, name, geometry, carto_code, status, land_status, restricted_geom, open_geom FROM trails " +
-                "WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? " + TrailFilterState.whereOrEmpty() +
+                "WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? " + where +
                 " ORDER BY ((max_lat-min_lat)*(max_lat-min_lat)+(max_lon-min_lon)*(max_lon-min_lon)) DESC LIMIT ?",
             listOf("trail_id", "name", "geometry", "CartoCode", "Status", "Land", "RstGeom", "OpenGeom"), listOf(s, n, w, e, limit)
         ).filter { !it["geometry"].isNullOrEmpty() }.map { it.toMutableMap() }
@@ -69,15 +69,23 @@ class GtSpatial(private val conn: SQLiteConnection, private val dataConn: SQLite
 
     /** LandAreas.viewportGeoJson: PUBLIC / RESTRICTED areas in view, largest first. Returns the GeoJSON and how many areas it holds.
      *  ⚠ The table must exist -- the platform creates it (Android: LandAreas.createTables, as 2.7e did before every query). */
-    fun landGeoJson(s: Double, w: Double, n: Double, e: Double, pub: Boolean, rst: Boolean, limit: Int): Pair<String, Int> {
+    fun landGeoJson(s: Double, w: Double, n: Double, e: Double, pub: Boolean, rst: Boolean, limit: Int, extraWhere: String = ""): Pair<String, Int> {   // GTCERT: id ranges
         val kinds = ArrayList<String>(); if (pub) kinds.add("'PUBLIC'"); if (rst) kinds.add("'RESTRICTED'")
         if (kinds.isEmpty()) return EMPTY to 0
-        val rows = query("SELECT area_id, kind, unit_name, own_name, mang_name, des_name, pub_access, acres, rings FROM land_areas " +
-            "WHERE kind IN (" + kinds.joinToString(",") + ") AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? ORDER BY acres DESC LIMIT ?",
-            listOf("area_id", "kind", "unit", "owner", "manager", "designation", "access", "acres", "rings"), listOf(s, n, w, e, limit))
+        // GTLANDACRES-2026-11-06: acres is read as a NUMBER (as 2.7e's getDouble) -- read as text, Android's system SQLite rounds a REAL to
+        // 15 digits and a few areas came out one acre different (found by the whole-database certification). The rest are text.
+        val cols = listOf("area_id", "kind", "unit", "owner", "manager", "designation", "access", "acres", "rings")
+        val rows = ArrayList<Pair<Map<String, String?>, Double>>()
+        val st = conn.prepare("SELECT area_id, kind, unit_name, own_name, mang_name, des_name, pub_access, acres, rings FROM land_areas " +
+            "WHERE kind IN (" + kinds.joinToString(",") + ") AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?" + extraWhere + " ORDER BY acres DESC LIMIT ?")
+        try {
+            st.bindDouble(1, s); st.bindDouble(2, n); st.bindDouble(3, w); st.bindDouble(4, e); st.bindLong(5, limit.toLong())
+            while (st.step()) rows.add(cols.indices.filter { it != 7 }.associate { i -> cols[i] to (if (st.isNull(i)) null else st.getText(i)) } to
+                (if (st.isNull(7)) 0.0 else st.getDouble(7)))
+        } finally { st.close() }
         val sb = StringBuilder(64 * 1024).append("{\"type\":\"FeatureCollection\",\"features\":[")
         var count = 0
-        for (r in rows) {
+        for ((r, acres) in rows) {
             val rings = r["rings"] ?: continue
             if (count > 0) sb.append(',')
             count++
@@ -86,7 +94,7 @@ class GtSpatial(private val conn: SQLiteConnection, private val dataConn: SQLite
                 .append(",\"kind\":\"").append(q("kind")).append("\",\"unit\":\"").append(q("unit"))
                 .append("\",\"owner\":\"").append(q("owner")).append("\",\"manager\":\"").append(q("manager"))
                 .append("\",\"designation\":\"").append(q("designation")).append("\",\"access\":\"").append(q("access"))
-                .append("\",\"acres\":").append((r["acres"]?.toDoubleOrNull() ?: 0.0).roundToLong())
+                .append("\",\"acres\":").append(acres.roundToLong())
                 .append("},\"geometry\":{\"type\":\"MultiPolygon\",\"coordinates\":[")
             rings.split('|').forEachIndexed { pi, poly ->
                 if (pi > 0) sb.append(','); sb.append('[')
@@ -155,10 +163,9 @@ class GtSpatial(private val conn: SQLiteConnection, private val dataConn: SQLite
         const val EMPTY = "{\"type\":\"FeatureCollection\",\"features\":[]}"
 
         // ---- GeoJSON (SpatialDbManager.build*GeoJson) -------------------------------------------------------------------------------
-        fun trailGeoJson(trails: List<Map<String, String?>>): String {
+        fun trailGeoJson(trails: List<Map<String, String?>>, restricted: Boolean = TrailFilterState.restricted): String {   // GTCERT: can be given
             val sb = StringBuilder().append("{\"type\":\"FeatureCollection\",\"features\":[")
             var first = true
-            val restricted = TrailFilterState.restricted
             for (trail in trails) {
                 val wkt = (if (!trail["RstGeom"].isNullOrEmpty()) (trail["OpenGeom"] ?: trail["geometry"]) else trail["geometry"]) ?: ""
                 fun s(k: String): String = jsonEsc(trail[k] ?: "")

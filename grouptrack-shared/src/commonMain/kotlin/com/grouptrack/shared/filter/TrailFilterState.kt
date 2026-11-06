@@ -139,7 +139,11 @@ object TrailFilterState {
 
     /** The 2.7e rules, unchanged: CLOSED never draws; NULL land/use passes (CLASSIFYCOLS-2026-09-02); the three LAND ticks
      *  (LANDDISPLAY-2026-11-02); unofficial; switched-off categories. */
-    private fun regenerate() {
+    private fun regenerate() { cachedWhere = whereFor(land, restricted, use, off) }
+
+    /** GTCERT-2026-11-06: the WHERE for any four settings -- the 2.7e rules, unchanged; pure (no state, no save), so the certification run
+     *  can try every filter element on and off by itself without touching the rider's map_keys.json. */
+    fun whereFor(land: String, restricted: Boolean, use: String, off: Set<String>): String {
         val sb = StringBuilder()
         sb.append(" AND (status IS NULL OR status <> 'CLOSED')")
         val lands = ArrayList<String>()
@@ -155,7 +159,7 @@ object TrailFilterState {
             sb.append(cats.joinToString(",") { "'" + it.replace("'", "") + "'" })
             sb.append(")")
         }
-        cachedWhere = sb.toString()
+        return sb.toString()
     }
 
     // ── the panel's changes ─────────────────────────────────────────────

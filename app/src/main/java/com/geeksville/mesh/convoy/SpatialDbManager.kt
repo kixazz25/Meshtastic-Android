@@ -2616,19 +2616,9 @@ object SpatialDbManager {
                 val type = c.getString(1) ?: ""
                 val geom = c.getString(2) ?: return null
                 val desc = if (c.columnCount > 3) (c.getString(3) ?: "") else ""
-                val coords = geom.removePrefix("POINT(").removeSuffix(")").trim().split(" ")
-                if (coords.size < 2) return null
-                val lon = coords[0]
-                val lat = coords[1]
-                val sb = StringBuilder()
-                sb.append(GPX_HEADER)
-                sb.append("  <wpt lat=\"").append(lat).append("\" lon=\"").append(lon).append("\">\n")
-                sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
-                if (type.isNotEmpty()) sb.append("    <type>").append(xmlEscape(type)).append("</type>\n")
-                if (desc.isNotEmpty()) sb.append("    <desc>").append(xmlEscape(desc)).append("</desc>\n")
-                sb.append("  </wpt>\n")
-                sb.append(GPX_FOOTER)
-                return Pair(name, sb.toString())
+                // GTBATCH2A-2026-11-06: the GPX text is built by the shared GtGpx (2.7e byte for byte)
+                val gpx = com.grouptrack.shared.gpx.GtGpx.waypoint(name, type, geom, desc) ?: return null
+                return Pair(name, gpx)
             }
         } catch (e: Exception) {
             android.util.Log.e("SpatialDb", "buildWaypointGpx error: " + e.message)
@@ -2662,60 +2652,9 @@ object SpatialDbManager {
                  */
                 val notes = readRouteNotes(routeId)
                 val desc = notes?.optJSONObject("narrative")?.optString("headline") ?: ""
-                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-                val points = coordStr.split(",").mapNotNull { pt ->
-                    val parts = pt.trim().split(" ")
-                    if (parts.size >= 2) Pair(parts[1], parts[0]) else null
-                }
-                val sb = StringBuilder()
-                sb.append(GPX_HEADER)
-                sb.append("  <rte>\n")
-                sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
-                if (desc.isNotEmpty()) sb.append("    <desc>").append(xmlEscape(desc)).append("</desc>\n")
-                /* ROUTEEXTENSIONS-2026-09-08: THE STRUCTURED BLOCK, AT LAST.
-                 *
-                 * \u26d4 parseGpxRoutes has looked for <grouptrack:notes> since
-                 * 08-29 and prefers it over <desc> -- "the payload wins where
-                 * present -- it is ours and complete." Nothing ever wrote it,
-                 * so every route we exported carried one sentence and lost its
-                 * narrative detail and its recipe.
-                 *
-                 * \u2b50 THE RECIPE RIDES INSIDE. RECIPEINDRAFT-2026-08-29 put it in
-                 * the notes block so it would make the same journey with no new
-                 * plumbing. This is the step that journey was missing.
-                 *
-                 * \u26a0 ESCAPED. The JSON is full of quotes and the recipe's
-                 * trailFilter clause can carry < and >; unescaped, one filtered
-                 * route produces a file nothing can parse.
-                 */
-                if (notes != null) {
-                    sb.append("    <extensions>\n")
-                    sb.append("      <grouptrack:notes>")
-                    sb.append(xmlEscape(notes.toString()))
-                    sb.append("</grouptrack:notes>\n")
-                    sb.append("    </extensions>\n")
-                }
-                var idx = 1
-                for ((lat, lon) in points) {
-                    sb.append("    <rtept lat=\"").append(lat).append("\" lon=\"").append(lon).append("\">\n")
-                    sb.append("      <name>Pt ").append(idx).append("</name>\n")
-                    sb.append("    </rtept>\n")
-                    idx++
-                }
-                /* THE WHOLE PAYLOAD, so the recipe travels with the route.
-                 * A recipient presses one button and gets six rides from the
-                 * sender's parameters -- the entire point of keeping a recipe.
-                 * Other apps ignore extensions they do not recognise. */
-                if (notes != null) {
-                    sb.append("    <extensions>\n")
-                    sb.append("      <grouptrack:notes>")
-                    sb.append(xmlEscape(notes.toString()))
-                    sb.append("</grouptrack:notes>\n")
-                    sb.append("    </extensions>\n")
-                }
-                sb.append("  </rte>\n")
-                sb.append(GPX_FOOTER)
-                return Pair(name, sb.toString())
+                // GTBATCH2A-2026-11-06: the GPX text is built by the shared GtGpx (2.7e byte for byte, incl. the notes block twice --
+                // a known defect kept so the move certifies identical). The notes are handed over as org.json writes them.
+                return Pair(name, com.grouptrack.shared.gpx.GtGpx.route(name, geom, desc, notes?.toString()))
             }
         } catch (e: Exception) {
             android.util.Log.e("SpatialDb", "buildRouteGpx error: " + e.message)
@@ -2804,23 +2743,8 @@ object SpatialDbManager {
                 if (!c.moveToFirst()) return null
                 val name = c.getString(0) ?: "Unnamed"
                 val geom = c.getString(1) ?: return null
-                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-                val points = coordStr.split(",").mapNotNull { pt ->
-                    val parts = pt.trim().split(" ")
-                    if (parts.size >= 2) Pair(parts[1], parts[0]) else null
-                }
-                val sb = StringBuilder()
-                sb.append(GPX_HEADER)
-                sb.append("  <trk>\n")
-                sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
-                sb.append("    <trkseg>\n")
-                for ((lat, lon) in points) {
-                    sb.append("      <trkpt lat=\"").append(lat).append("\" lon=\"").append(lon).append("\"/>\n")
-                }
-                sb.append("    </trkseg>\n")
-                sb.append("  </trk>\n")
-                sb.append(GPX_FOOTER)
-                return Pair(name, sb.toString())
+                // GTBATCH2A-2026-11-06: the GPX text is built by the shared GtGpx (2.7e byte for byte)
+                return Pair(name, com.grouptrack.shared.gpx.GtGpx.trail(name, geom))
             }
         } catch (e: Exception) {
             android.util.Log.e("SpatialDb", "buildTrailGpx error: " + e.message)

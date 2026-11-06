@@ -28,3 +28,8 @@ kotlin {
         commonTest.dependencies { implementation(kotlin("test")) }
     }
 }
+
+// GTCERT-2026-11-06: the Mac side of the certification runs on the iPad simulator ($GT_IPAD_SIM) -- CertMacTest
+tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest>().configureEach {
+    System.getenv("GT_IPAD_SIM")?.let { device.set(it) }
+}
