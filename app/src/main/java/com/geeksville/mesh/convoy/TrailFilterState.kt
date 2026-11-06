@@ -1,431 +1,59 @@
 package com.geeksville.mesh.convoy
 
-import android.os.Environment
-import android.util.Log
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
+import com.grouptrack.shared.filter.TrailFilterState as Shared
 
 /**
- * TrailFilterState — the Map Keys panel's state, and the SQL predicate derived
- * from it. TRAILFILTER-2026-09-01.
+ * TrailFilterState -- GTBATCH1A-2026-11-06 (2.8): a PASS-THROUGH to the shared one (grouptrack-shared,
+ * com.grouptrack.shared.filter.TrailFilterState), which now holds the state, the rules, the file format and the log lines -- the
+ * Map Keys panel's state, and the SQL predicate derived from it (TRAILFILTER-2026-09-01). The design notes are there and in this
+ * file's 2.7e history.
  *
- * ⭐⭐ ONE STATE, TWO MAPS, EVERY QUERY. Fred, 09-01: "same panel everything."
- * The convoy map, the planning map, the route builder and the route list all
- * read THIS object. ⛔ If the route builder had its own filter the two could
- * disagree, and a rider would see a map showing ground the router would not
- * use — which is the whole point of focusing the trails for route building
- * rather than merely tidying the display.
- *
- * ⭐ WHY A JSON FILE (Fred, 08-31): "json file, can be read at any point in any
- * process without having to scope data fields ... and it is available between
- * map panels." It survives the screen being destroyed and rebuilt — which the
- * map does routinely — it survives a reinstall the way trails do, and it is
- * inspectable with `adb shell cat` when something looks wrong.
- *
- * ⛔⛔ THE PREDICATE IS DERIVED, NEVER STORED. Fred asked why not save the SQL
- * in the JSON. Because a saved WHERE clause goes stale: rename a column or add
- * a category and every device keeps executing the old one — failing at query
- * time on the rider's device while the panel still looks correct. Deriving from
- * state means a schema change fixes itself. The cost is one string build per
- * panel change, not per query.
- *
- * ⛔⛔ AND IT MUST BE LOADED BEFORE THE FIRST DRAW. Fred, 09-01: "not just a
- * frame — everything until something changes that causes the filter to
- * recalc." An unloaded filter is not a brief flicker; it shows EVERYTHING for
- * the whole session, so a rider who set private off, closed the app and
- * reopened it sees their filter apparently ignored. *"I will get bombed with
- * questions if they open, the state is right but the display is wrong."*
- * ⭐ So [load] is called at the FRONT of the map composable — before the WebView
- * exists, while the GPS fix is still being acquired, which is dead time anyway.
- *
- * ⚠ NOT AT SPLASH, deliberately. The file lives in shared storage, and the
- * authority gate exists to stop anything touching shared storage before
- * all-files access is confirmed. By the time the map screen runs, the gate has
- * passed.
+ * Same names as 2.7e, so no caller changed. What stays here: the lock (@Synchronized -- common Kotlin has none; every Android call
+ * comes through here, the same serialisation as before), where map_keys.json lives (GroupTrackStorage.root()), and reading the
+ * shipped defaults from the APK assets.
+ * The state reads are now read-only views (callers only ever read them).
  */
 object TrailFilterState {
 
-    private const val TAG = "TrailFilter"
-    private const val FILE_NAME = "map_keys.json"
+    /** ⭐ A panel row that acts on `status`, not `carto_code`. */
+    const val ROW_UNOFFICIAL = Shared.ROW_UNOFFICIAL
 
-    /** ⭐ A panel row that acts on `status`, not `carto_code`. Prefixed so it
-     *  can never collide with a real category value. */
-    const val ROW_UNOFFICIAL = "__unofficial"
-
-    /** Current schema of the saved file. ⚠ Bump when the SHAPE changes so an
-     *  old file is discarded rather than half-read. */
-    private const val VERSION = 1
-
-    // ── the state ───────────────────────────────────────────────────────
-    /** PUBLIC | PRIVATE | ALL */
-    var land: String = "PUBLIC"; private set   // PUBLICDEFAULT-2026-10-25 (Fred 10-24 13:48): private land hidden by default
-    /** LANDDISPLAY-2026-11-02: the third LAND tick -- RESTRICTED trails (red) and areas (red stripes). On by default. */
-    var restricted: Boolean = true; private set
-    /** LANDAREAS-2026-11-02: the striped OVERLAYS, on their own (not the trail ticks). Both on by default. */
-    var areaPublic: Boolean = true; private set
-    var areaRestricted: Boolean = true; private set
-    /** MOTORIZED | NON-MOTORIZED | ALL */
-    var use: String = "ALL"; private set
-    /** Categories the rider has switched OFF. Empty = everything shown. */
-    var off: MutableSet<String> = HashSet(); private set
-
-    /** Per-category presentation: colour, dash pattern, weight. The panel
-     *  writes these; the maps read them. ⭐ Three attributes per row, so the
-     *  panel can drive every presentation mode without the assets being
-     *  touched again. */
-    var style: MutableMap<String, Triple<String, String?, Int>> = HashMap()
-        private set
-
-    /**
-     * ⚠ NULL MEANS NOT LOADED — it does NOT mean "no filter". A query that
-     * finds null here has run before [load], which is a bug in call ordering,
-     * and it should be visible to us rather than silently showing everything.
-     */
-    private var cachedWhere: String? = null
-
-    private var loaded = false
-
-    // STORAGEROOT2-2026-09-11: map_keys.json, at the root.
-    fun file(): File = File(GroupTrackStorage.root(), FILE_NAME)
-
-    // ── load ────────────────────────────────────────────────────────────
-
-    /**
-     * Read the saved state and derive the predicate. Idempotent: safe to call
-     * from both map screens, and the second call is a no-op so they share one
-     * state rather than loading their own.
-     *
-     * @param force re-read even if already loaded (after an external edit)
-     */
-    /**
-     * DEFAULTS-2026-09-02: the shipped palette, copied out of the APK the first
-     * time the panel is opened.
-     *
-     * ⭐ Fred, 09-02: "I would ship the json in a private directory to the app
-     * and copy over -- that way we can have a reset-to-defaults function."
-     * The asset stays pristine inside the APK, so a reset is just copying it
-     * again and CANNOT fail for want of a source file.
-     *
-     * ⚠ Copied only when the working file is ABSENT. A rider who has changed
-     * something owns their file from then on, and an app update never
-     * overwrites their palette.
-     */
+    /** DEFAULTS-2026-09-02: the shipped palette inside the APK (assets/map_keys_defaults.json). */
     private const val DEFAULTS_ASSET = "map_keys_defaults.json"
 
-    /** Copy the shipped defaults over the working file. Used on first open and
-     *  by a reset. ⚠ Returns false rather than throwing: a missing or malformed
-     *  asset must not stop the panel opening. */
-    @Synchronized
-    fun installDefaults(context: android.content.Context): Boolean = try {
-        val text = context.assets.open(DEFAULTS_ASSET)
-            .bufferedReader().use { it.readText() }
-        val f = file()
-        f.parentFile?.mkdirs()
-        f.writeText(text)
-        Log.i(TAG, "installed defaults from $DEFAULTS_ASSET (${text.length} bytes)")
-        true
-    } catch (e: Exception) {
-        Log.e(TAG, "installDefaults failed: ${e.message}")
-        false
-    }
+    // STORAGEROOT2-2026-09-11: map_keys.json, at the root -- asked fresh each time, as before (the root can change after migration).
+    init { Shared.pathProvider = { file().path } }
 
-    /**
-     * Call before [load] when opening the key panel. ⭐ Copies the shipped
-     * palette out ONLY if the rider has no file of their own -- which is what
-     * makes the defaults a starting point rather than something that keeps
-     * coming back.
-     */
-    @Synchronized
-    fun ensureDefaults(context: android.content.Context) {
-        val f = file()
-        if (!f.exists() || f.length() < 2L) {
-            Log.i(TAG, "no map_keys.json -- installing shipped defaults")
-            if (installDefaults(context)) load(force = true)
-        }
-    }
+    val land: String get() = Shared.land
+    val restricted: Boolean get() = Shared.restricted
+    val areaPublic: Boolean get() = Shared.areaPublic
+    val areaRestricted: Boolean get() = Shared.areaRestricted
+    val use: String get() = Shared.use
+    val off: Set<String> get() = Shared.off
+    val style: Map<String, Triple<String, String?, Int>> get() = Shared.style
 
-    @Synchronized
-    fun load(force: Boolean = false) {
-        if (loaded && !force) return
-        val f = file()
-        try {
-            if (f.exists() && f.length() > 2L) {
-                val o = JSONObject(f.readText())
-                val v = o.optInt("version", 0)
-                if (v != VERSION) {
-                    // ⚠ Shape changed: take the DEFAULTS rather than half-read
-                    // an old file. Losing a preference is recoverable; showing
-                    // a wrong map is a support call.
-                    Log.w(TAG, "map_keys.json version $v != $VERSION -- defaults")
-                    reset()
-                } else {
-                    land = o.optString("land", "PUBLIC").uppercase()   // PUBLICDEFAULT-2026-10-25: a saved choice is kept
-                    restricted = o.optBoolean("restricted", true)   // LANDDISPLAY-2026-11-02
-                    areaPublic = o.optBoolean("area_public", true); areaRestricted = o.optBoolean("area_restricted", true)   // LANDAREAS-2026-11-02
-                    use = o.optString("use", "ALL").uppercase()
-                    off = HashSet()
-                    val a = o.optJSONArray("off") ?: JSONArray()
-                    for (i in 0 until a.length()) off.add(a.getString(i))
-                    style = HashMap()
-                    val s = o.optJSONObject("style")
-                    if (s != null) {
-                        for (k in s.keys()) {
-                            val e = s.optJSONObject(k) ?: continue
-                            style[k] = Triple(
-                                e.optString("c", "#00FFFF"),
-                                if (e.isNull("d")) null else e.optString("d"),
-                                e.optInt("w", 2)
-                            )
-                        }
-                    }
-                }
-            } else {
-                reset()
-            }
-        } catch (e: Exception) {
-            // A corrupt file must not stop the map opening.
-            Log.e(TAG, "load failed, using defaults: ${e.message}")
-            reset()
-        }
-        regenerate()
-        loaded = true
-        Log.i(TAG, "loaded: land=$land use=$use off=${off.size} -> $cachedWhere")
-    }
+    fun file(): File = File(GroupTrackStorage.root(), Shared.FILE_NAME)
 
-    private fun reset() {
-        land = "PUBLIC"; use = "ALL"; off = HashSet(); style = HashMap()   // PUBLICDEFAULT-2026-10-25
-        restricted = true   // LANDDISPLAY-2026-11-02
-        areaPublic = true; areaRestricted = true   // LANDAREAS-2026-11-02
-    }
+    private fun asset(context: android.content.Context): () -> String =
+        { context.assets.open(DEFAULTS_ASSET).bufferedReader().use { it.readText() } }
 
-    // ── the predicate ───────────────────────────────────────────────────
-
-    /**
-     * The WHERE fragment, ready to append. Starts with AND, or is empty when
-     * nothing is filtered.
-     *
-     * ⚠ Throws if [load] has not run. That is deliberate — see cachedWhere.
-     */
-    fun where(): String = cachedWhere
-        ?: throw IllegalStateException(
-            "TrailFilterState.where() before load(). The map composable must " +
-                "call load() before the WebView is constructed.")
-
-    /** Same, but never throws — for paths that legitimately run early. */
-    fun whereOrEmpty(): String = cachedWhere ?: ""
-
-    @Synchronized
-    private fun regenerate() {
-        // ⚠ NO TABLE ALIAS. queryTrailsByViewport selects `FROM trails` with no
-        // alias, so `t.land_status` would not compile as SQL. Bare column names.
-        val sb = StringBuilder()
-
-        // ⛔⛔ CLOSED NEVER DRAWS, AND THIS IS NOT A RIDER TOGGLE (Fred, 09-01):
-        // "closed never display, it is just in db." Kept on import so the row
-        // exists and a future reopening costs nothing, but excluded from every
-        // viewport query unconditionally. ⚠ status is NULL on all 93,166 OSM
-        // rows -- OSM carries no status at all -- so the NULL test is what
-        // stops this hiding the entire OSM contribution.
-        sb.append(" AND (status IS NULL OR status <> 'CLOSED')")
-
-        // CLASSIFYCOLS-2026-09-02: ⛔ NULL PASSES, IT DOES NOT FILTER.
-        // The columns exist now, but NOTHING POPULATES THEM yet -- classify4
-        // was written as the specification for the Kotlin import and never
-        // ported. A plain land_status='PUBLIC' matches nothing when every row
-        // is null, so a rider on the shipped default would get AN EMPTY MAP.
-        // ⚠ An empty map is not better than a crash; it is worse, because it
-        // looks like the data is gone.
-        // ⭐ So an unclassified row passes through and the app behaves as it did
-        // before any of this existed. Once the import populates them the nulls
-        // disappear and this costs nothing -- a floor, not a workaround.
-        // PADUSLAND-2026-11-02: RESTRICTED (public land closed to motor vehicles) shows with Public until the display step gives it
-        //  its own switch and colour.
-        // LANDDISPLAY-2026-11-02: the three LAND ticks -- Public, Private, Restricted (public land closed to motor vehicles).
-        val lands = ArrayList<String>()
-        if (land != "PRIVATE") lands.add("PUBLIC")
-        if (land != "PUBLIC") lands.add("PRIVATE")
-        if (restricted) lands.add("RESTRICTED")
-        sb.append(" AND (land_status IS NULL OR land_status IN (" + lands.joinToString(",") { "'" + it + "'" } + "))")
-        if (use == "MOTORIZED" || use == "NON-MOTORIZED") {
-            sb.append(" AND (use_type IS NULL OR use_type='")
-                .append(use).append("')")
-        }
-
-        // ⭐ UNOFFICIAL / UNCERTAIN is a ROW LIKE ANY OTHER in the panel, but it
-        // acts on `status`, not `carto_code` -- a trail is unofficial AND a
-        // track, not one instead of the other. Fred, 09-01: too few to subset
-        // across nine categories (501 rows on the motorized set), so they are
-        // grouped into one summary row.
-        // ⚠ RED, deliberately, even though "unofficial" is not "forbidden".
-        // Fred: "if they ask the question we have done our job." A question is
-        // a better outcome than a wrong assumption.
-        if (off.contains(ROW_UNOFFICIAL)) {
-            sb.append(" AND (status IS NULL OR status NOT IN ('UNOFFICIAL','UNCERTAIN'))")
-        }
-
-        // the real categories
-        val cats = off.filter { it != ROW_UNOFFICIAL }
-        if (cats.isNotEmpty()) {
-            // ⚠ Categories are our own controlled vocabulary, not rider text,
-            // so they cannot carry a quote. The apostrophe strip is belt and
-            // braces: a category that somehow did would break the statement.
-            // CATEGORYALWAYS-2026-10-10: a NULL category compared with NOT IN is NULL, so the row was dropped under
-            // EVERY selection with anything off. A missing category now counts as "shape only".
-            sb.append(" AND COALESCE(carto_code,'shape only') NOT IN (")
-            sb.append(cats.joinToString(",") { "'" + it.replace("'", "") + "'" })
-            sb.append(")")
-        }
-        cachedWhere = sb.toString()
-    }
-
-    // ── mutation, from the panel ────────────────────────────────────────
-
-    @Synchronized
-    fun setLand(v: String) { land = v.uppercase(); regenerate(); save() }
-
-    /** LANDDISPLAY-2026-11-02 */
-    @Synchronized
-    fun setRestricted(v: Boolean) { restricted = v; regenerate(); save() }
-
-    /** LANDAREAS-2026-11-02: the overlays -- no effect on which trails are drawn, so no regenerate(). */
-    @Synchronized
-    fun setAreaPublic(v: Boolean) { areaPublic = v; save() }
-    @Synchronized
-    fun setAreaRestricted(v: Boolean) { areaRestricted = v; save() }
-
-    @Synchronized
-    fun setUse(v: String) { use = v.uppercase(); regenerate(); save() }
-
-    /** ROUTEFILTER-2026-11-03 v2 (Fred 18:31): a route build SHOWS the current selection -- the public-land and restricted-area
-     *  overlays displayed. The filter VALUES (types, land, restricted segments, use) are not touched. */
-    @Synchronized
-    fun forRouteBuild() {
-        areaPublic = true; areaRestricted = true; save()
-        Log.i(TAG, "ROUTEFILTER route build: land-area overlays shown; filter values kept: land=$land use=$use off=${off.size} -> $cachedWhere")
-    }
-
-    @Synchronized
-    fun toggleCategory(name: String) {
-        if (!off.remove(name)) off.add(name)
-        regenerate(); save()
-    }
-
-    /** Whole column on or off — the header checkbox. */
-    @Synchronized
-    fun setGroup(names: List<String>, on: Boolean) {
-        if (on) off.removeAll(names.toSet()) else off.addAll(names)
-        regenerate(); save()
-    }
-
-    @Synchronized
-    fun setStyle(name: String, colour: String, dash: String?, weight: Int) {
-        style[name] = Triple(colour, dash, weight)
-        save()
-    }
-
-    fun isOn(name: String): Boolean = !off.contains(name)
-
-    // ── save ────────────────────────────────────────────────────────────
-
-    /**
-     * EVERYLAUNCH-2026-09-08: add categories the shipped asset has and the
-     * rider's file does not. Returns the names added, empty if none.
-     *
-     * ⛔ EXISTING ENTRIES ARE NEVER TOUCHED. A rider who recoloured a category
-     * keeps that colour forever -- this only fills gaps. That is the whole
-     * difference between it and installDefaults, which replaces the file.
-     *
-     * ⚠ WHY IT IS NEEDED AT ALL. installDefaults runs only when the working
-     * file is ABSENT, which is right for a palette and wrong for a category
-     * that did not exist when the file was written. `rider` shipped on 09-07
-     * and no existing rider could see it in the legend or filter it.
-     *
-     * ⚠ STYLE ONLY. A new category is deliberately NOT added to `off` -- that
-     * list is what is switched OFF, so an absent name means visible, which is
-     * what a new category should be.
-     *
-     * ⚠ Cheap and idempotent: reads one small asset, and on every launch after
-     * the first it finds nothing and writes nothing.
-     */
-    @Synchronized
-    fun mergeShippedCategories(context: android.content.Context): List<String> {
-        return try {
-            val text = context.assets.open(DEFAULTS_ASSET)
-                .bufferedReader().use { it.readText() }
-            val shipped = JSONObject(text).optJSONObject("style")
-                ?: return emptyList()
-            // ⚠ The file must be read before it can be merged into. load() is
-            // idempotent, so this costs nothing when the caller has already
-            // loaded.
-            load()
-            val added = ArrayList<String>()
-            for (k in shipped.keys()) {
-                if (style.containsKey(k)) continue
-                val e = shipped.optJSONObject(k) ?: continue
-                style[k] = Triple(
-                    e.optString("c", "#00FFFF"),
-                    if (e.isNull("d")) null else e.optString("d"),
-                    e.optInt("w", 2)
-                )
-                added.add(k)
-            }
-            if (added.isNotEmpty()) {
-                Log.i(TAG, "merged ${added.size} new categor(y/ies): $added")
-                regenerate()
-                save()
-            }
-            added
-        } catch (e: Exception) {
-            // A missing or malformed asset must not stop the app starting.
-            Log.e(TAG, "mergeShippedCategories failed: ${e.message}")
-            emptyList()
-        }
-    }
-
-    @Synchronized
-    fun save() {
-        try {
-            val o = JSONObject()
-            o.put("version", VERSION)
-            o.put("land", land)
-            o.put("restricted", restricted)   // LANDDISPLAY-2026-11-02
-            o.put("area_public", areaPublic); o.put("area_restricted", areaRestricted)   // LANDAREAS-2026-11-02
-            o.put("use", use)
-            o.put("off", JSONArray(off.toList()))
-            val s = JSONObject()
-            for ((k, v) in style) {
-                s.put(k, JSONObject()
-                    .put("c", v.first)
-                    .put("d", v.second ?: JSONObject.NULL)
-                    .put("w", v.third))
-            }
-            o.put("style", s)
-            val f = file()
-            f.parentFile?.mkdirs()
-            // ⚠ Write to a temp and rename: a half-written file on a kill would
-            // fail the version check and silently reset the rider's panel.
-            val tmp = File(f.parentFile, "$FILE_NAME.tmp")
-            tmp.writeText(o.toString(2))
-            if (!tmp.renameTo(f)) {
-                f.writeText(o.toString(2))
-                tmp.delete()
-            }
-        } catch (e: Exception) {
-            // A failed save must never stop the rider using the map.
-            Log.e(TAG, "save failed: ${e.message}")
-        }
-    }
-
-    /** The style map as JSON, for handing to the WebView. */
-    fun styleJson(): String {
-        val s = JSONObject()
-        for ((k, v) in style) {
-            s.put(k, JSONObject()
-                .put("c", v.first)
-                .put("d", v.second ?: JSONObject.NULL)
-                .put("w", v.third))
-        }
-        return s.toString()
-    }
+    @Synchronized fun installDefaults(context: android.content.Context): Boolean = Shared.installDefaults(asset(context))
+    @Synchronized fun ensureDefaults(context: android.content.Context) = Shared.ensureDefaults(asset(context))
+    @Synchronized fun load(force: Boolean = false) = Shared.load(force)
+    fun where(): String = Shared.where()
+    fun whereOrEmpty(): String = Shared.whereOrEmpty()
+    @Synchronized fun setLand(v: String) = Shared.setLand(v)
+    @Synchronized fun setRestricted(v: Boolean) = Shared.setRestricted(v)
+    @Synchronized fun setAreaPublic(v: Boolean) = Shared.setAreaPublic(v)
+    @Synchronized fun setAreaRestricted(v: Boolean) = Shared.setAreaRestricted(v)
+    @Synchronized fun setUse(v: String) = Shared.setUse(v)
+    @Synchronized fun forRouteBuild() = Shared.forRouteBuild()
+    @Synchronized fun toggleCategory(name: String) = Shared.toggleCategory(name)
+    @Synchronized fun setGroup(names: List<String>, on: Boolean) = Shared.setGroup(names, on)
+    @Synchronized fun setStyle(name: String, colour: String, dash: String?, weight: Int) = Shared.setStyle(name, colour, dash, weight)
+    fun isOn(name: String): Boolean = Shared.isOn(name)
+    @Synchronized fun mergeShippedCategories(context: android.content.Context): List<String> = Shared.mergeShippedCategories(asset(context))
+    @Synchronized fun save() = Shared.save()
+    fun styleJson(): String = Shared.styleJson()
 }

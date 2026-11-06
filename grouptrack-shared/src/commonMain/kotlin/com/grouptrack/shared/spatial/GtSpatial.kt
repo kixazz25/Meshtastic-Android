@@ -1,8 +1,6 @@
 package com.grouptrack.shared.spatial
 
 import androidx.sqlite.SQLiteConnection
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import androidx.sqlite.driver.bundled.SQLITE_OPEN_READONLY
 import kotlin.math.roundToLong
 
 /**
@@ -16,8 +14,7 @@ import kotlin.math.roundToLong
  * NOT YET (the filter step): TrailFilterState's WHERE (only its unconditional CLOSED rule is here), per-type ON / SELECTED / OFF,
  * and the trail_properties extras from grouptrack_data.db (detail-card fields; they do not change what draws).
  */
-class GtSpatial(path: String) {
-    private val conn: SQLiteConnection = BundledSQLiteDriver().open(path, SQLITE_OPEN_READONLY)
+class GtSpatial(private val conn: SQLiteConnection) {   // GTBATCH1A-2026-11-06: handed its connection by the platform (gtOpenDatabase)
 
     // the filter step replaces these with the real TrailFilterState switches; today = the 2.7e defaults (all true)
     var showTrails = true; var showTracks = true; var showWaypoints = true; var showRoutes = true

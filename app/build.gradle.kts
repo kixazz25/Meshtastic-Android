@@ -226,6 +226,7 @@ dependencies {
     implementation(projects.core.model)
     implementation(projects.core.navigation)
     implementation(projects.grouptrackComm) // COMMAPI3-2026-10-08: the GroupTrack Comm API (contract)
+    implementation(projects.grouptrackShared) // GTBATCH1A-2026-11-06: the GroupTrack model layer, shared with the iPad (2.8)
     implementation(projects.core.network)
     implementation(projects.core.nfc)
     implementation(projects.core.prefs)
