@@ -24,6 +24,31 @@ import android.webkit.WebView
 //
 object SpatialDisplayManager {
 
+    // ═══ GTBATCH1B-2026-11-06 (2.8): THE ONE MAP'S QUERIES COME FROM THE SHARED MODULE ═══════════════════════════════
+    // grouptrack-shared GtSpatial -- the same SQL and GeoJSON as SpatialDbManager's (which the route builder, the artifact list and
+    // the ride map still use until SpatialDbManager moves). Its connections are opened with gtOpenDatabase (Android's own SQLite --
+    // one engine per platform) on the SAME files SpatialDbManager has open, and re-opened if SpatialDbManager re-opens them.
+    // ⚠ A shared connection is not thread-safe: every use goes through [sharedLock] (processArtifact runs on worker threads).
+    private val sharedLock = Any()
+    private var shared: com.grouptrack.shared.spatial.GtSpatial? = null
+    private var sharedFor: android.database.sqlite.SQLiteDatabase? = null
+
+    /** Run [f] on the shared queries; null = no spatial database open (as 2.7e's `spatialDb ?: return emptyList()`). */
+    private fun <T> withShared(f: (com.grouptrack.shared.spatial.GtSpatial) -> T): T? = synchronized(sharedLock) {
+        val db = SpatialDbManager.getSpatialDb() ?: return@synchronized null
+        if (shared == null || sharedFor !== db) {
+            shared?.close()
+            // CODE RULE 1: the data db is optional exactly as in 2.7e (no extras before the first import) -- see GtSpatial's doc
+            val ext = SpatialDbManager.getExtensionDb()
+            shared = com.grouptrack.shared.spatial.GtSpatial(
+                com.grouptrack.shared.db.gtOpenDatabase(db.path, true),
+                ext?.let { com.grouptrack.shared.db.gtOpenDatabase(it.path, true) })
+            sharedFor = db
+            android.util.Log.i("SpatialDisplay", "GTBATCH1B shared queries opened on " + db.path + (if (ext != null) " + " + ext.path else " (no data db)"))
+        }
+        f(shared!!)
+    }
+
     /**
      * TRACE-2026-09-01. Set to a trail name (or part of one) to follow ONE
      * artifact through every stage between the query and the WebView. Empty
@@ -50,8 +75,8 @@ object SpatialDisplayManager {
     private fun bindingFor(type: String): TypeBinding? = when (type) {
         "Trails" -> TypeBinding(
             "trail_id",
-            { s, w, n, e, lim -> SpatialDbManager.queryTrailsByViewport(s, w, n, e, lim) },
-            { SpatialDbManager.buildTrailGeoJson(it) },
+            { s, w, n, e, lim -> withShared { it.queryTrails(s, w, n, e, lim) } ?: emptyList() },   // GTBATCH1B-2026-11-06
+            { com.grouptrack.shared.spatial.GtSpatial.trailGeoJson(it) },
             // TRAILS-GATE-ORDER-2026-07-31: minZoom 8 -> 11.
             //
             // ⭐ THIS IS WHAT MAKES THE CAP SAFE. Below z11 the viewport is a
@@ -130,20 +155,20 @@ object SpatialDisplayManager {
         )
         "Tracks" -> TypeBinding(
             "track_id",
-            { s, w, n, e, lim -> SpatialDbManager.queryTracksByViewport(s, w, n, e, lim) },
-            { SpatialDbManager.buildTrackGeoJson(it) },
+            { s, w, n, e, lim -> withShared { it.queryTracks(s, w, n, e, lim) } ?: emptyList() },   // GTBATCH1B-2026-11-06
+            { com.grouptrack.shared.spatial.GtSpatial.trackGeoJson(it) },
             "updateTracks", "showTracks", "hideTracks", 0
         )
         "Waypoints" -> TypeBinding(
             "waypoint_id",
-            { s, w, n, e, lim -> SpatialDbManager.queryWaypointsByViewport(s, w, n, e, lim) },
-            { SpatialDbManager.buildWaypointGeoJson(it) },
+            { s, w, n, e, lim -> withShared { it.queryWaypoints(s, w, n, e, lim) } ?: emptyList() },   // GTBATCH1B-2026-11-06
+            { com.grouptrack.shared.spatial.GtSpatial.waypointGeoJson(it) },
             "updateWaypoints", "showWaypoints", "hideWaypoints", 0
         )
         "Routes" -> TypeBinding(
             "route_id",
-            { s, w, n, e, lim -> SpatialDbManager.queryRoutesByViewport(s, w, n, e, lim) },
-            { SpatialDbManager.buildRouteGeoJson(it) },
+            { s, w, n, e, lim -> withShared { it.queryRoutes(s, w, n, e, lim) } ?: emptyList() },   // GTBATCH1B-2026-11-06
+            { com.grouptrack.shared.spatial.GtSpatial.routeGeoJson(it) },
             "updateRoutes", "showRoutes", "hideRoutes", 0
         )
         else -> null
@@ -399,8 +424,12 @@ object SpatialDisplayManager {
         }
         SpatialDbManager.init(context)
         val db = SpatialDbManager.getSpatialDb() ?: return
-        val json = try { LandAreas.viewportGeoJson(db, south, west, north, east, pub, rst, 600) }
-                   catch (e: Exception) { android.util.Log.w("LandAreas", "LANDDISPLAY: ${e.message}"); return }
+        val json = try {   // GTBATCH1B-2026-11-06: the shared query; the table is still created here first (as 2.7e did)
+            LandAreas.createTables(db)
+            val r = withShared { it.landGeoJson(south, west, north, east, pub, rst, 600) } ?: return
+            android.util.Log.i("LandAreas", "LANDDRAW ${r.second} areas (public=$pub restricted=$rst) zoom=$zoom")
+            r.first
+        } catch (e: Exception) { android.util.Log.w("LandAreas", "LANDDISPLAY: ${e.message}"); return }
         main.post { wv.evaluateJavascript("window.updateLandAreas&&updateLandAreas($json,$pub,$rst)", null) }
     }
 }
