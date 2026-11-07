@@ -451,6 +451,18 @@ object SpatialDbManager {
             } catch (e: Exception) {
                 android.util.Log.w(TAG, "DEVSCHEMA-2026-09-22: ${e.message}")
             }
+            // STEP12B-2026-11-07: the shared schema (GtSchema) -- the ONE place the schema is brought current, on both platforms.
+            // The pre-2.8 steps above are Android's frozen history and run first; the iPad runs only GtSchema. Every schema change
+            // from 2.8 on goes in GtSchema.UPGRADES (grouptrack-shared), never in this function.
+            try {
+                val sv = com.grouptrack.shared.db.GtSchema.ensure(
+                    com.geeksville.mesh.grouptrack.GtAppDb.wrap(spatialDb!!),
+                    com.geeksville.mesh.grouptrack.GtAppDb.wrap(extensionDb!!)
+                ) { name -> context.assets.open(name).bufferedReader().use { it.readText() } }
+                android.util.Log.i(TAG, "GTSCHEMA-2026-11-07: schema version $sv")
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "GTSCHEMA-2026-11-07: ${e.message}")
+            }
             initialized = true
             val trailCount = countRows(spatialDb!!, "trails")
             val trackCount = countRows(spatialDb!!, "tracks")
@@ -1132,22 +1144,25 @@ object SpatialDbManager {
      * Returns the generated waypoint_id.
      */
     /** Insert waypoint with a specific ID (for deterministic dedup on reimport). */
-    fun insertWaypointWithId(waypointId: String, name: String, lat: Double, lon: Double, type: String): Boolean {
-        val db = spatialDb ?: return false
-        val ts = now()
-        val geometry = pointWkt(lat, lon)
-        val nm = notNamed(name)
-        val gh = computeGeomHash(geometry)
-        try {
-            db.execSQL(
-                "INSERT OR IGNORE INTO waypoints (waypoint_id, name, geometry, type, min_lat, max_lat, min_lon, max_lon, created_at, updated_at, geom_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                arrayOf<Any>(waypointId, nm, geometry, type.lowercase(), lat, lat, lon, lon, ts, ts, gh))
-            return true
-        } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "insertWaypointWithId failed: " + e.message)
-            return false
+    // STEP11-2026-11-07: the WRITES run on the shared GtWrite -- on the app's OWN handles (GtAppDb), so a write inside an import's
+    // transaction stays in that transaction (no second connection, no lock waits). One writer per pair of handles (a new pair -- the
+    // cert run's copies, a reinit -- makes a new one); its dedup session is the running import's memory of what it has added.
+    private val writeLock = Any()
+    private var writerObj: com.grouptrack.shared.spatial.GtWrite? = null
+    private var writerFor: Pair<android.database.sqlite.SQLiteDatabase?, android.database.sqlite.SQLiteDatabase?>? = null
+    private fun writer(): com.grouptrack.shared.spatial.GtWrite? = synchronized(writeLock) {
+        val s = spatialDb ?: return@synchronized null
+        val e = extensionDb
+        if (writerObj == null || writerFor?.first !== s || writerFor?.second !== e) {
+            writerObj = com.grouptrack.shared.spatial.GtWrite(com.geeksville.mesh.grouptrack.GtAppDb.wrap(s), e?.let { com.geeksville.mesh.grouptrack.GtAppDb.wrap(it) }, { newId() }, { now() })
+            writerFor = s to e
+            android.util.Log.i("SpatialDb", "STEP11 shared writer on the app's handles")
         }
+        writerObj
     }
+
+    fun insertWaypointWithId(waypointId: String, name: String, lat: Double, lon: Double, type: String): Boolean =
+        writer()?.insertWaypointWithId(waypointId, name, lat, lon, type) ?: false   // STEP11
 
         fun insertWaypoint(name: String, lat: Double, lon: Double, type: String = "other"): String {
         val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
@@ -1190,23 +1205,8 @@ object SpatialDbManager {
     /** TRACKDESC-2026-09-26: a track's name by id; null when the track is absent. */
     fun trackName(trackId: String): String? = withLookups(null) { it.trackName(trackId) }   // STEP7-2026-11-07: shared GtRead
 
-    fun insertRoute(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String {
-        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
-        val id = newId()
-        val ts = now()
-        val nm = notNamed(name)
-        val gh = computeGeomHash(geometryWkt)
-        try {
-            db.execSQL(
-                "INSERT OR IGNORE INTO routes (route_id, name, geometry, min_lat, max_lat, min_lon, max_lon, created_at, updated_at, geom_hash) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                arrayOf<Any>(id, nm, geometryWkt, minLat, maxLat, minLon, maxLon, ts, ts, gh)
-            )
-            android.util.Log.i("SpatialDb", "Inserted route: $nm")
-        } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "Route insert failed: ${e.message}")
-        }
-        return id
-    }
+    fun insertRoute(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String =
+        (writer() ?: throw IllegalStateException("SpatialDbManager not initialized")).insertRoute(name, geometryWkt, minLat, maxLat, minLon, maxLon)   // STEP11
 
     /**
      * ROUTENOTES-2026-08-23X: move a draft's `notes` block into route_notes.
@@ -1223,56 +1223,9 @@ object SpatialDbManager {
      *
      * Returns rows written, or -1 if the route does not exist.
      */
-    fun writeRouteNotes(routeId: String, notes: org.json.JSONObject): Int {
-        val db = extensionDb ?: return -1
-        // ⛔ insertRoute uses INSERT OR IGNORE -- if the row was ignored the id
-        // points at nothing and these notes would belong to a phantom route.
-        val gh = routeGeomHash(routeId) ?: run {
-            android.util.Log.w("SpatialDb", "writeRouteNotes: no route $routeId")
-            return -1
-        }
-        val ts = now()
-        var n = 0
-        try {
-            db.execSQL("DELETE FROM route_notes WHERE route_id=?", arrayOf<Any>(routeId))
-            val nar = notes.optJSONObject("narrative")
-            db.execSQL(
-                "INSERT INTO route_notes (note_id,route_id,geom_hash,seq,kind,title,body,payload,author,created_at) " +
-                    "VALUES (?,?,?,?,?,?,?,?,?,?)",
-                arrayOf<Any?>(newId(), routeId, gh, 0, "narrative",
-                    null, nar?.optString("headline"), notes.toString(), "generated", ts))
-            n++
-            val feats = notes.optJSONArray("features")
-            if (feats != null) for (i in 0 until feats.length()) {
-                val f = feats.optJSONObject(i) ?: continue
-                db.execSQL(
-                    "INSERT INTO route_notes (note_id,route_id,geom_hash,seq,kind,at_mile,lat,lon,title,body,payload,author,created_at) " +
-                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    arrayOf<Any?>(newId(), routeId, gh, i + 1, "feature",
-                        f.optDouble("at_mi", 0.0), f.optDouble("lat", 0.0),
-                        f.optDouble("lon", 0.0), f.optString("name"),
-                        f.optString("fclass"), f.toString(), "generated", ts))
-                n++
-            }
-            val cauts = notes.optJSONArray("cautions")
-            if (cauts != null) for (i in 0 until cauts.length()) {
-                val c = cauts.optJSONObject(i) ?: continue
-                db.execSQL(
-                    "INSERT INTO route_notes (note_id,route_id,geom_hash,seq,kind,at_mile,lat,lon,body,payload,author,created_at) " +
-                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                    arrayOf<Any?>(newId(), routeId, gh, 1000 + i, "caution",
-                        c.optDouble("at_mi", 0.0), c.optDouble("lat", 0.0),
-                        c.optDouble("lon", 0.0),
-                        "Trails mapped ${c.optDouble("gap_ft", 0.0).toInt()} ft apart",
-                        c.toString(), "generated", ts))
-                n++
-            }
-            android.util.Log.i("SpatialDb", "route_notes: wrote $n rows for $routeId")
-        } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "writeRouteNotes failed: ${e.message}")
-            return -1
-        }
-        return n
+    fun writeRouteNotes(routeId: String, notes: org.json.JSONObject): Int {   // STEP11
+        if (extensionDb == null) return -1
+        return writer()?.writeRouteNotes(routeId, notes.toString()) ?: -1
     }
 
     /* RECIPEBTN-2026-08-29: does this route carry a recipe?
@@ -1315,13 +1268,9 @@ object SpatialDbManager {
      * ⚠ MUST BE CALLED FROM APP CODE. Cross-database triggers do not work on
      * this project -- the spatial DB cannot cascade into the extension DB.
      */
-    fun deleteRouteNotes(routeId: String): Int {
-        val db = extensionDb ?: return 0
-        return try {
-            db.execSQL("DELETE FROM route_notes WHERE route_id=?", arrayOf<Any>(routeId)); 1
-        } catch (e: Exception) {
-            android.util.Log.w("SpatialDb", "deleteRouteNotes: ${e.message}"); 0
-        }
+    fun deleteRouteNotes(routeId: String): Int {   // STEP11
+        if (extensionDb == null) return 0
+        return writer()?.deleteRouteNotes(routeId) ?: 0
     }
 
     /** ROUTENOTES-2026-08-23X: geom_hash for a route, or null if it does not exist. */
@@ -1396,36 +1345,9 @@ object SpatialDbManager {
         val name: String
     )
 
-    fun insertTrackToDb(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): TrackInsertResult {
-        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
-        val id = newId()
-        val ts = now()
-        val bbox = "$minLat,$minLon,$maxLat,$maxLon"
-        val nm = notNamed(name)
-        val gh = computeGeomHash(geometryWkt)
-        var inserted = false
-        var resolvedId = id
-        try {
-            db.execSQL(
-                "INSERT OR IGNORE INTO tracks (track_id, name, geometry, min_lat, max_lat, min_lon, max_lon, bbox, type, created_at, updated_at, geom_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                arrayOf<Any>(id, nm, geometryWkt, minLat, maxLat, minLon, maxLon, bbox, "TRACK", ts, ts, gh)
-            )
-            db.rawQuery("SELECT changes()", null).use { c ->
-                if (c.moveToFirst()) inserted = c.getInt(0) > 0
-            }
-            if (inserted) {
-                android.util.Log.i("SpatialDb", "Inserted track: $nm")
-            } else {
-                // dupe: resolve the EXISTING row's id by the unique geom_hash
-                db.rawQuery("SELECT track_id FROM tracks WHERE geom_hash=? LIMIT 1", arrayOf(gh)).use { c ->
-                    if (c.moveToFirst()) resolvedId = c.getString(0)
-                }
-                android.util.Log.i("SpatialDb", "Skipped dupe track: $nm")
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "Track DB insert failed: ${e.message}")
-        }
-        return TrackInsertResult(inserted, resolvedId, gh, nm)
+    fun insertTrackToDb(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): TrackInsertResult {   // STEP11
+        val r = (writer() ?: throw IllegalStateException("SpatialDbManager not initialized")).insertTrackToDb(name, geometryWkt, minLat, maxLat, minLon, maxLon)
+        return TrackInsertResult(r.wasNew, r.trackId, r.geomHash, r.name)
     }
 
     /** CHECKIN-2026-09-27: the id of the track a GPX text resolves to -- the SAME parse, WKT and computeGeomHash as
@@ -1760,10 +1682,7 @@ object SpatialDbManager {
     fun routeNameById(routeId: String): String? = withLookups(null) { it.routeNameById(routeId) }   // STEP7-2026-11-07: shared GtRead
 
     /** ROUTEDEL-2026-10-28 (D21): a deleted route's other names go with it. */
-    fun deleteRouteAliases(routeId: String) {
-        try { extensionDb?.execSQL("DELETE FROM artifact_aliases WHERE artifact_type='route' AND artifact_id=?", arrayOf<Any>(routeId)) }
-        catch (e: Exception) { android.util.Log.w("SpatialDb", "deleteRouteAliases: ${e.message}") }
-    }
+    fun deleteRouteAliases(routeId: String) { writer()?.deleteRouteAliases(routeId) }   // STEP11
 
     fun computeGeomHash(wkt: String): String = com.grouptrack.shared.spatial.GtRead.computeGeomHash(wkt)   // STEP7-2026-11-07: shared code
 
@@ -1778,28 +1697,9 @@ object SpatialDbManager {
     private var dedupSessionActive = false
 
     /** Load the lookups once. Call at the start of an import; release with endDedupSession(). */
-    fun beginDedupSession() {
-        val db = spatialDb ?: return
-        dedupHashToName.clear(); dedupSourceUids.clear()
-        for (t in listOf("trail", "track", "waypoint", "route")) dedupHashToName[t] = HashMap()
-        loadHashes(db, "trails", "trail_id", "trail")
-        loadHashes(db, "tracks", "track_id", "track")
-        loadHashes(db, "waypoints", "waypoint_id", "waypoint")
-        loadHashes(db, "routes", "route_id", "route")
-        // source-uid set from extension db trail_properties
-        extensionDb?.let { e ->
-            try {
-                val c = e.rawQuery("SELECT source_id, source_unique_id FROM trail_properties WHERE source_id IS NOT NULL", null)
-                c.use { while (it.moveToNext()) dedupSourceUids.add(it.getString(0) + "\u0000" + it.getString(1)) }
-            } catch (ex: Exception) { android.util.Log.w("SpatialDb", "loadSourceUids: ${ex.message}") }
-        }
-        dedupSessionActive = true
-        android.util.Log.i("SpatialDb", "Dedup session: trails=${dedupHashToName["trail"]?.size} tracks=${dedupHashToName["track"]?.size} wpts=${dedupHashToName["waypoint"]?.size} routes=${dedupHashToName["route"]?.size} srcUids=${dedupSourceUids.size}")
-    }
+    fun beginDedupSession() { writer()?.beginDedupSession() }   // STEP11: the import's memory lives in the shared writer
 
-    fun endDedupSession() {
-        dedupHashToName.clear(); dedupSourceUids.clear(); dedupSessionActive = false
-    }
+    fun endDedupSession() { writer()?.endDedupSession() }   // STEP11
 
     private fun loadHashes(db: android.database.sqlite.SQLiteDatabase, table: String, idCol: String, type: String) {
         try {
@@ -1810,23 +1710,16 @@ object SpatialDbManager {
     }
 
     /** Has this (source_id, source_unique_id) already been imported? In-memory. */
-    fun sourceUidSeen(sourceId: String, uid: String): Boolean =
-        dedupSourceUids.contains(sourceId + "\u0000" + uid)
+    fun sourceUidSeen(sourceId: String, uid: String): Boolean = writer()?.sourceUidSeen(sourceId, uid) ?: false   // STEP11
 
-    fun markSourceUid(sourceId: String, uid: String) { dedupSourceUids.add(sourceId + "\u0000" + uid) }
+    fun markSourceUid(sourceId: String, uid: String) { writer()?.markSourceUid(sourceId, uid) }   // STEP11
 
     enum class AddDecision { INSERT, DROP, ALIAS }
 
     /** The dupe/alias decision for trail/route/waypoint (geometry-name rule).
      *  Tracks use their own three-layer rule (see insertTrackToDb). */
-    fun resolveByGeom(type: String, name: String, geomHash: String): AddDecision {
-        // DUPECHECK-2026-10-20 (Fred 10-20): identity = (artifact type, geom_hash). A bulk session open -> its preloaded map (imports).
-        // NO session (one artifact) -> ONE indexed lookup in that type's table. Was: no session = everything looked new, so the
-        // single-track rider scan opened a session and loaded every hash (147,820 trails, 3.8 s on the screen's thread) per save.
-        val m = if (dedupSessionActive) dedupHashToName[type] else null
-        val existingName = (if (m != null) m[geomHash] else nameByHash(type, geomHash)) ?: return AddDecision.INSERT  // new geometry
-        return if (existingName == name) AddDecision.DROP else AddDecision.ALIAS
-    }
+    fun resolveByGeom(type: String, name: String, geomHash: String): AddDecision =   // STEP11
+        AddDecision.valueOf((writer()?.resolveByGeom(type, name, geomHash) ?: com.grouptrack.shared.spatial.GtWrite.Decision.INSERT).name)
 
     /** DUPECHECK-2026-10-20: the name stored for this (type, geom_hash) -- one indexed lookup (UNIQUE(geom_hash) per type table).
      *  CODE RULE 1: null = no such geometry of this type (new), or the database is not open / the type is unknown. */
@@ -1841,9 +1734,7 @@ object SpatialDbManager {
     }
 
     /** Record a freshly-inserted artifact in the in-memory lookup. */
-    fun noteInserted(type: String, geomHash: String, name: String) {
-        dedupHashToName[type]?.put(geomHash, name)
-    }
+    fun noteInserted(type: String, geomHash: String, name: String) { writer()?.noteInserted(type, geomHash, name) }   // STEP11
 
     /** Pointer-model alias write. Hash lives on the artifact; alias carries the name.
      *  INSERT OR IGNORE -> alias-table UNIQUE constraints dedup silently. */
@@ -1881,102 +1772,25 @@ object SpatialDbManager {
      *  GUARDED: trails are externally sourced / not user-maintained -> no swap.
      *  Generic across user types via spatialTableFor(). Two separate DB files,
      *  so ops are ordered + logged (no shared transaction). */
-    fun setPreferredAlias(type: String, artifactId: String, aliasId: String) {
-        val tl = type.lowercase()
-        if (tl == "trail" || tl == "trails") {
-            android.util.Log.i("AliasSwap", "skip: trails are not user-maintained")
-            return
-        }
-        val edb = extensionDb ?: return
-        val (table, idCol) = spatialTableFor(type) ?: return
-        val sdb = spatialDb ?: return
-
-        // read the alias text to promote
-        var aliasText: String? = null
-        try {
-            edb.rawQuery("SELECT alias FROM artifact_aliases WHERE alias_id = ? LIMIT 1", arrayOf(aliasId)).use {
-                if (it.moveToFirst()) aliasText = if (it.isNull(0)) null else it.getString(0)
-            }
-        } catch (e: Exception) { android.util.Log.w("AliasSwap", "read alias: ${e.message}") }
-        if (aliasText == null) { android.util.Log.w("AliasSwap", "alias $aliasId not found"); return }
-
-        // read the current official spatial name to demote
-        var oldName: String? = null
-        try {
-            sdb.rawQuery("SELECT name FROM $table WHERE $idCol = ? LIMIT 1", arrayOf(artifactId)).use {
-                if (it.moveToFirst()) oldName = if (it.isNull(0)) null else it.getString(0)
-            }
-        } catch (e: Exception) { android.util.Log.w("AliasSwap", "read name: ${e.message}") }
-
-        // promote: spatial name <- alias text
-        try {
-            sdb.execSQL("UPDATE $table SET name = ? WHERE $idCol = ?", arrayOf<Any>(aliasText!!, artifactId))
-        } catch (e: Exception) { android.util.Log.w("AliasSwap", "set name: ${e.message}") }
-
-        // demote: alias row text <- old official name (skip if old name was blank)
-        try {
-            if (oldName != null && oldName!!.isNotBlank() && oldName != "Not Named") {
-                edb.execSQL("UPDATE artifact_aliases SET alias = ? WHERE alias_id = ?", arrayOf<Any>(oldName!!, aliasId))
-            } else {
-                // nothing meaningful to demote -> remove the now-redundant alias row
-                edb.execSQL("DELETE FROM artifact_aliases WHERE alias_id = ?", arrayOf<Any>(aliasId))
-            }
-        } catch (e: Exception) { android.util.Log.w("AliasSwap", "demote: ${e.message}") }
-
-        android.util.Log.i("AliasSwap", "swapped $type $artifactId: name<->alias($aliasId)")
-    }
+    fun setPreferredAlias(type: String, artifactId: String, aliasId: String) { writer()?.setPreferredAlias(type, artifactId, aliasId) }   // STEP11
 
     /** Edit one alias row's text. One-at-a-time alias maintenance. */
-    fun renameAlias(aliasId: String, newText: String) {
-        val edb = extensionDb ?: return
-        try {
-            edb.execSQL("UPDATE artifact_aliases SET alias = ? WHERE alias_id = ?", arrayOf<Any>(newText, aliasId))
-            android.util.Log.i("AliasRename", "alias $aliasId -> '$newText'")
-        } catch (e: Exception) { android.util.Log.w("AliasRename", "${e.message}") }
-    }
+    fun renameAlias(aliasId: String, newText: String) { writer()?.renameAlias(aliasId, newText) }   // STEP11
 
     /** Delete one alias row. UI enforces the min-one guard before calling. */
-    fun deleteAlias(aliasId: String) {
-        val db = extensionDb ?: return
-        db.execSQL("DELETE FROM artifact_aliases WHERE alias_id = ?", arrayOf(aliasId))
-    }
+    fun deleteAlias(aliasId: String) { writer()?.deleteAlias(aliasId) }   // STEP11
 
     fun addAlias(type: String, artifactId: String, name: String, geomHash: String, creationDate: String?) {
-        val e = extensionDb ?: return
-        val ts = now()
-        try {
-            e.execSQL(
-                "INSERT OR IGNORE INTO artifact_aliases (alias_id, artifact_type, artifact_id, alias, is_preferred, source, created_at, creation_date, geom_hash) VALUES (?,?,?,?,?,?,?,?,?)",
-                arrayOf<Any?>(newId(), type, artifactId, name, 0, "add", ts, creationDate, geomHash)
-            )
-        } catch (ex: Exception) { android.util.Log.w("SpatialDb", "addAlias: ${ex.message}") }
+        writer()?.addAlias(type, artifactId, name, geomHash, creationDate)   // STEP11
     }
 
     /** Trail insert routed through the core (TrailImporter calls this).
      *  Returns the trail_id used (existing id if aliased/dropped, new id if inserted),
      *  or null on drop with no existing id available. */
     fun insertTrail(trailId: String, rawName: String?, wkt: String, minLat: Double, maxLat: Double,
-                    minLon: Double, maxLon: Double, createdAt: String): Pair<String, AddDecision> {
-        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
-        val name = notNamed(rawName)
-        val geomHash = computeGeomHash(wkt)
-        val decision = resolveByGeom("trail", name, geomHash)
-        when (decision) {
-            AddDecision.DROP -> { return Pair(findTrailIdByHash(geomHash) ?: trailId, decision) }
-            AddDecision.ALIAS -> {
-                val anchorId = findTrailIdByHash(geomHash) ?: trailId
-                addAlias("trail", anchorId, name, geomHash, null)
-                return Pair(anchorId, decision)
-            }
-            AddDecision.INSERT -> {
-                db.execSQL(
-                    "INSERT OR IGNORE INTO trails (trail_id,name,geometry,min_lat,max_lat,min_lon,max_lon,created_at,updated_at,geom_hash) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                    arrayOf<Any?>(trailId, name, wkt, minLat, maxLat, minLon, maxLon, createdAt, createdAt, geomHash)
-                )
-                noteInserted("trail", geomHash, name)
-                return Pair(trailId, decision)
-            }
-        }
+                    minLon: Double, maxLon: Double, createdAt: String): Pair<String, AddDecision> {   // STEP11
+        val (id, d) = (writer() ?: throw IllegalStateException("SpatialDbManager not initialized")).insertTrail(trailId, rawName, wkt, minLat, maxLat, minLon, maxLon, createdAt)
+        return id to AddDecision.valueOf(d.name)
     }
 
     private fun findTrailIdByHash(geomHash: String): String? {
@@ -2037,41 +1851,23 @@ object SpatialDbManager {
     fun queryAllTracksForCorridor(): List<Map<String, String?>> = withLookups(emptyList()) { it.queryAllTracksForCorridor() }   // STEP7-2026-11-07: shared GtRead
 
     /** Rename a waypoint */
-    fun renameWaypoint(id: String, newName: String) {
-        spatialDb?.execSQL("UPDATE waypoints SET name=?, updated_at=? WHERE waypoint_id=?",
-            arrayOf<Any>(newName, now(), id))
-    }
+    fun renameWaypoint(id: String, newName: String) { writer()?.renameWaypoint(id, newName) }   // STEP11
 
     /** Delete a waypoint */
-    fun deleteWaypoint(id: String) {
-        spatialDb?.execSQL("DELETE FROM waypoints WHERE waypoint_id=?", arrayOf<Any>(id))
-    }
+    fun deleteWaypoint(id: String) { writer()?.deleteWaypoint(id) }   // STEP11
 
     /** Change waypoint type */
-    fun changeWaypointType(id: String, newType: String) {
-        spatialDb?.execSQL("UPDATE waypoints SET type=?, updated_at=? WHERE waypoint_id=?",
-            arrayOf<Any>(newType.lowercase(), now(), id))
-    }
+    fun changeWaypointType(id: String, newType: String) { writer()?.changeWaypointType(id, newType) }   // STEP11
 
     /** Rename a route */
-    fun renameRoute(id: String, newName: String) {
-        spatialDb?.execSQL("UPDATE routes SET name=?, updated_at=? WHERE route_id=?",
-            arrayOf<Any>(newName, now(), id))
-    }
+    fun renameRoute(id: String, newName: String) { writer()?.renameRoute(id, newName) }   // STEP11
 
     /** Delete a route */
-    fun deleteRoute(id: String) {
-        spatialDb?.execSQL("DELETE FROM routes WHERE route_id=?", arrayOf<Any>(id))
-        // TRACKSFIX-2026-11-03 (Fred 12:07): a route takes its notes and names with it -- whoever deletes it (60 notes were left behind)
-        deleteRouteNotes(id)
-        deleteRouteAliases(id)
-    }
+    /** TRACKSFIX-2026-11-03: a route takes its notes and names with it (the shared delete does all three). */
+    fun deleteRoute(id: String) { writer()?.deleteRoute(id) }   // STEP11
 
     /** Rename a track in spatial DB (file rename handled by ConvoyTrackOps) */
-    fun renameTrackInDb(id: String, newName: String) {
-        spatialDb?.execSQL("UPDATE tracks SET name=?, updated_at=? WHERE track_id=?",
-            arrayOf<Any>(newName, now(), id))
-    }
+    fun renameTrackInDb(id: String, newName: String) { writer()?.renameTrackInDb(id, newName) }   // STEP11
 
     /** COMPLETE track delete service (detail-panel "delete this track").
      *  Removes ALL of: spatial tracks row, track_properties row, every
@@ -2097,43 +1893,10 @@ object SpatialDbManager {
      * Tracks, routes, waypoints, route_notes and source_ingestions are NOT touched.
      */
     @Synchronized
-    fun clearAllTrailData(): TrailClearResult {
-        if (dedupSessionActive) return TrailClearResult(0, 0, 0, "an import is running -- try again when it has finished")
-        val db = spatialDb ?: return TrailClearResult(0, 0, 0, "the trail database is not open")
-        val ext = extensionDb
-        fun count(d: SQLiteDatabase, sql: String): Int =
-            d.rawQuery(sql, null).use { if (it.moveToFirst()) it.getInt(0) else 0 }
-        var trails = 0; var props = 0; var aliases = 0
-        val errors = ArrayList<String>()
-        try {
-            trails = count(db, "SELECT COUNT(*) FROM trails")
-            db.beginTransaction()
-            try { db.execSQL("DELETE FROM trails"); db.setTransactionSuccessful() } finally { db.endTransaction() }
-        } catch (e: Exception) {
-            android.util.Log.e("TrailClear", "trails: ${e.message}")
-            return TrailClearResult(0, 0, 0, "trails could not be removed: ${e.message}")
-        }
-        if (ext == null) {
-            errors.add("the details database is not open -- trail details were NOT removed")
-        } else {
-            try {
-                props = count(ext, "SELECT COUNT(*) FROM trail_properties")
-                ext.execSQL("DELETE FROM trail_properties")
-            } catch (e: Exception) {
-                android.util.Log.e("TrailClear", "trail_properties: ${e.message}")
-                errors.add("trail details: ${e.message}")
-            }
-            try {
-                aliases = count(ext, "SELECT COUNT(*) FROM artifact_aliases WHERE artifact_type='trail'")
-                ext.execSQL("DELETE FROM artifact_aliases WHERE artifact_type='trail'")
-            } catch (e: Exception) {
-                android.util.Log.e("TrailClear", "artifact_aliases: ${e.message}")
-                errors.add("trail aliases: ${e.message}")
-            }
-        }
-        android.util.Log.i("TrailClear", "clearAllTrailData: removed trails=$trails trail_properties=$props trail_aliases=$aliases" +
-            if (errors.isEmpty()) "" else " ERRORS=" + errors.joinToString("; "))
-        return TrailClearResult(trails, props, aliases, if (errors.isEmpty()) null else errors.joinToString("\n"))
+    fun clearAllTrailData(): TrailClearResult {   // STEP11
+        val w = writer() ?: return TrailClearResult(0, 0, 0, "the trail database is not open")
+        val r = w.clearAllTrailData()
+        return TrailClearResult(r.trails, r.properties, r.aliases, r.error)
     }
 
     /**
@@ -2150,57 +1913,10 @@ object SpatialDbManager {
      * and the scan rederives them on the next clear-and-reload. Deleting the
      * track as well is what makes it stick.
      */
-    fun deleteTrailFromDb(id: String) {
-        try {
-            spatialDb?.execSQL("DELETE FROM trails WHERE trail_id=?", arrayOf<Any>(id))
-        } catch (e: Exception) {
-            android.util.Log.w("TrailDelete", "spatial row: ${e.message}")
-        }
-        try {
-            extensionDb?.execSQL("DELETE FROM trail_properties WHERE trail_id=?",
-                arrayOf<Any>(id))
-        } catch (e: Exception) {
-            android.util.Log.w("TrailDelete", "trail_properties: ${e.message}")
-        }
-        try {
-            extensionDb?.execSQL(
-                "DELETE FROM artifact_aliases WHERE artifact_type=? AND artifact_id=?",
-                arrayOf<Any>("trail", id)
-            )
-        } catch (e: Exception) {
-            android.util.Log.w("TrailDelete", "aliases: ${e.message}")
-        }
-        android.util.Log.i("TrailDelete", "deleteTrailFromDb($id) complete")
-    }
+    fun deleteTrailFromDb(id: String) { writer()?.deleteTrailFromDb(id) }   // STEP11
 
-    fun deleteTrackFromDb(id: String) {
-        // 1. read geom_hash first (needed to locate the file before the row is gone)
-        var geomHash: String? = null
-        try {
-            spatialDb?.rawQuery("SELECT geom_hash FROM tracks WHERE track_id=? LIMIT 1", arrayOf(id))?.use {
-                if (it.moveToFirst()) geomHash = if (it.isNull(0)) null else it.getString(0)
-            }
-        } catch (e: Exception) { android.util.Log.w("TrackDelete", "read hash: ${e.message}") }
-
-        // 2. spatial row
-        try {
-            spatialDb?.execSQL("DELETE FROM tracks WHERE track_id=?", arrayOf<Any>(id))
-        } catch (e: Exception) { android.util.Log.w("TrackDelete", "spatial row: ${e.message}") }
-
-        // 3. extension: track_properties
-        try {
-            extensionDb?.execSQL("DELETE FROM track_properties WHERE track_id=?", arrayOf<Any>(id))
-        } catch (e: Exception) { android.util.Log.w("TrackDelete", "track_properties: ${e.message}") }
-
-        // 4. extension: all aliases for this track (artifact_type stored SINGULAR)
-        try {
-            extensionDb?.execSQL(
-                "DELETE FROM artifact_aliases WHERE artifact_type=? AND artifact_id=?",
-                arrayOf<Any>("track", id)
-            )
-        } catch (e: Exception) { android.util.Log.w("TrackDelete", "aliases: ${e.message}") }
-
-        // 5. canonical <hash>.gpx file in my_tracks
+    fun deleteTrackFromDb(id: String) {   // STEP11: the rows (track, track_properties, aliases) by the shared code; the GPX file here
+        val geomHash = writer()?.deleteTrackFromDb(id)
         val h = geomHash
         if (h != null && h.isNotBlank()) {
             try {
@@ -2256,14 +1972,8 @@ object SpatialDbManager {
      * on. A recipe that already has an anchor (AI routes) is left alone. A route with no notes gets
      * notes holding just the recipe. Returns true when the recipe has an anchor afterwards.
      */
-    fun setRouteAnchor(routeId: String, lat: Double, lon: Double, name: String): Boolean {
-        val notes = readRouteNotes(routeId) ?: org.json.JSONObject()
-        val recipe = notes.optJSONObject("recipe") ?: org.json.JSONObject()
-        if (recipe.has("anchorLat") && recipe.has("anchorLon")) return true
-        recipe.put("anchorLat", lat).put("anchorLon", lon).put("anchorName", name)
-        notes.put("recipe", recipe)
-        return writeRouteNotes(routeId, notes) >= 0
-    }
+    fun setRouteAnchor(routeId: String, lat: Double, lon: Double, name: String): Boolean =
+        writer()?.setRouteAnchor(routeId, lat, lon, name) ?: false   // STEP11
     /**
      * WPTTAP-2026-09-30 (Fred): a waypoint that is a route's trailhead cannot be retyped or deleted while the
      * route exists -- the route must be removed first. A route stores its trailhead as recipe.anchorLat/anchorLon
