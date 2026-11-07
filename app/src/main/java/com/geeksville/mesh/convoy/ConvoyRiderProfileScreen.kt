@@ -171,7 +171,7 @@ fun ConvoyRiderProfileScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, LINE)
             ) {
                 Text(
-                    "This stays on your tablet. GroupTrack uses it only to identify you to your " +
+                    "This stays on your tablet. GroupTrack OG uses it only to identify you to your " +
                         "group and to share rides you send.",
                     color = Gt.text, fontSize = 13.sp, modifier = Modifier.padding(14.dp)
                 )

@@ -156,7 +156,7 @@ fun ConvoyMapSourceScreen(
                 // VECONE-2026-11-01: ONE MAP -- the Satellite / Vector choice, the SAT slot, the source picker and the API keys are gone;
                 // the map's sources are fixed and credited here (and at the bottom of the map).
                 SectionHeader("The map")
-                Text("GroupTrack has one map: a vector map drawn on your tablet, with the shape of the ground underneath for 3D. " +
+                Text("GroupTrack OG has one map: a vector map drawn on your tablet, with the shape of the ground underneath for 3D. " +
                     "Downloads store it to zoom 14; it is drawn sharp to zoom 20. Online, areas you have not downloaded come from the internet.",
                     style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 Spacer(Modifier.height(12.dp))

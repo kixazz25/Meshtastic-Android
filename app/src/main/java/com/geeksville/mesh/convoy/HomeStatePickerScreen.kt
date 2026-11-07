@@ -234,7 +234,7 @@ fun HomeStatePickerScreen(
                     if (phase == "areapick") "Import trails by area"   // AREAPICK-2026-10-24
                     else if (phase == "running") "Importing Trail Data"
                     else if (phase == "done") "Trail Data Loaded"
-                    else "Welcome to GroupTrack",
+                    else "Welcome to GroupTrack OG",
                     color = green, fontSize = 20.sp, fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.height(4.dp))
@@ -590,7 +590,7 @@ private fun ProgressPanel(progress: ImportProgress?) {
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
         ) {
             Text(
-                "Do not close GroupTrack while importing",
+                "Do not close GroupTrack OG while importing",
                 color = if (blink) green else Gt.warn,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,

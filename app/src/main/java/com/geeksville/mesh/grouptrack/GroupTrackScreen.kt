@@ -638,7 +638,7 @@ fun GroupTrackScreen(
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showStoragePermissionDialog = false },
             title = { Text("Storage Access Required") },
-            text = { Text("GroupTrack needs file access to store map tiles and trail data for offline use on the trail. Tap Grant to open Settings and enable access.") },
+            text = { Text("GroupTrack OG needs file access to store map tiles and trail data for offline use on the trail. Tap Grant to open Settings and enable access.") },
             confirmButton = {
                 TextButton(onClick = {
                     showStoragePermissionDialog = false
@@ -1501,7 +1501,7 @@ fun GroupTrackScreen(
                     painter = androidx.compose.ui.res.painterResource(
                         id = com.geeksville.mesh.R.drawable.grouptrack_splash
                     ),
-                    contentDescription = "GroupTrack",
+                    contentDescription = "GroupTrack OG",
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -1535,7 +1535,7 @@ fun GroupTrackScreen(
                 title = { androidx.compose.material3.Text("No location available") },
                 text = {
                     androidx.compose.material3.Text(
-                        "GroupTrack cannot determine your location.\n\n" +
+                        "GroupTrack OG cannot determine your location.\n\n" +
                         "There is no GPS position, no mesh radio supplying one, " +
                         "and no network position available.\n\n" +
                         "Connect a mesh radio, or move somewhere with network " +
@@ -1561,7 +1561,7 @@ fun GroupTrackScreen(
                         "network on the trail.\n\n" +
                         "It requires a mesh radio to function off-grid. We recommend " +
                         "the Seeed SenseCAP Card Tracker T1000-E, which integrates " +
-                        "tightly with GroupTrack."
+                        "tightly with GroupTrack OG."
                     )
                 },
                 confirmButton = {

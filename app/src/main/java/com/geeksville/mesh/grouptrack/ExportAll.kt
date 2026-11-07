@@ -59,7 +59,7 @@ object GtExportAll {
                 sb.append("  </trk>\n"); n++
             }
         }
-        if (n == 0) return "No rider trails to export (trails imported from outside GroupTrack or made from your tracks)."   /* RIDERTRAILSROW-2026-11-03 */
+        if (n == 0) return "No rider trails to export (trails imported from outside GroupTrack OG or made from your tracks)."   /* RIDERTRAILSROW-2026-11-03 */
         sb.append("</gpx>\n")
         val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
         val file = "GroupTrack_RIDER_TRAILS_$day"
@@ -105,9 +105,9 @@ object GtExportAll {
                 type = "application/octet-stream"
                 putExtra(android.content.Intent.EXTRA_STREAM, uri)
                 putExtra(android.content.Intent.EXTRA_SUBJECT, what)
-                putExtra(android.content.Intent.EXTRA_TEXT, "$what, sent from GroupTrack.\n\n" +
-                    "On your Android phone or tablet: tap the attachment and choose GroupTrack — it opens in GroupTrack's GPX import.\n\n" +
-                    "Don't have GroupTrack yet? Get it on Google Play:\nhttps://play.google.com/store/apps/details?id=com.grouptrack.android&hl=en_US\n")
+                putExtra(android.content.Intent.EXTRA_TEXT, "$what, sent from GroupTrack OG.\n\n" +
+                    "On your Android phone or tablet: tap the attachment and choose GroupTrack OG — it opens in GroupTrack OG's GPX import.\n\n" +
+                    "Don't have GroupTrack OG yet? Get it on Google Play:\nhttps://play.google.com/store/apps/details?id=com.grouptrack.android&hl=en_US\n")
                 addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             ctx.startActivity(android.content.Intent.createChooser(send, "Send or save $what")

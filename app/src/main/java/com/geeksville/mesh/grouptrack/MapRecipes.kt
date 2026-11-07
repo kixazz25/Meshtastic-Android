@@ -94,11 +94,11 @@ object GtRecipes {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "application/octet-stream"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "GroupTrack maps as of $label")
-            putExtra(Intent.EXTRA_TEXT, "These are my GroupTrack maps as of $label.\n\n" +
-                "On your Android phone or tablet: tap the attachment and choose GroupTrack (\"Always\"). GroupTrack opens Saved map recipes " +
+            putExtra(Intent.EXTRA_SUBJECT, "GroupTrack OG maps as of $label")
+            putExtra(Intent.EXTRA_TEXT, "These are my GroupTrack OG maps as of $label.\n\n" +
+                "On your Android phone or tablet: tap the attachment and choose GroupTrack OG (\"Always\"). GroupTrack OG opens Saved map recipes " +
                 "with these maps picked — tap RESTORE to download them. Wi-Fi recommended.\n\n" +
-                "Don't have GroupTrack yet? Get it on Google Play:\n$play\n")
+                "Don't have GroupTrack OG yet? Get it on Google Play:\n$play\n")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         ctx.startActivity(Intent.createChooser(send, "Send the map recipe").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

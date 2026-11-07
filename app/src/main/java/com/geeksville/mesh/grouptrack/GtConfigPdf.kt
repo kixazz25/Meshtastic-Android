@@ -48,14 +48,14 @@ object GtConfigPdf {
             if (cur.isNotEmpty()) line(cur, p)
         }
         newPage()
-        line("GroupTrack — mesh radio setup", head, 8f)
+        line("GroupTrack OG — mesh radio setup", head, 8f)
         line(title, sec)
         if (detail.isNotBlank()) line(detail, body)
         if (radio.isNotBlank()) line("From radio $radio", body)
         val ver = runCatching { com.geeksville.mesh.BuildConfig.VERSION_NAME }.getOrDefault("?")
         line("Made " + java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date()) +
-            " · GroupTrack " + ver, small, 10f)
-        wrap("These are the ${rows.size} settings GroupTrack sets on a mesh radio for this config. To put any mesh radio on this " +
+            " · GroupTrack OG " + ver, small, 10f)
+        wrap("These are the ${rows.size} settings GroupTrack OG sets on a mesh radio for this config. To put any mesh radio on this " +
             "ride by hand, set each value below in the Meshtastic app's radio configuration, section by section. Everything else " +
             "on the radio can stay as it is.", body)
         rows.groupBy { it.section }.forEach { (s, list) ->
@@ -75,7 +75,7 @@ object GtConfigPdf {
         page?.let { doc.finishPage(it) }
         val dir = File(ctx.cacheDir, "radio_configs").apply { mkdirs() }
         val safe = title.replace(Regex("[^A-Za-z0-9 ._-]"), "_").trim().ifBlank { "config" }.take(60)
-        val f = File(dir, "GroupTrack radio setup - $safe.pdf")
+        val f = File(dir, "GroupTrack OG radio setup - $safe.pdf")
         f.outputStream().use { doc.writeTo(it) }
         doc.close()
         return f
@@ -96,8 +96,8 @@ object GtConfigPdf {
     fun email(ctx: Context, f: File, title: String) {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "application/pdf"
-            putExtra(Intent.EXTRA_SUBJECT, "GroupTrack radio setup · $title")
-            putExtra(Intent.EXTRA_TEXT, "The mesh radio settings for “$title”, from GroupTrack. Set them by hand in the " +
+            putExtra(Intent.EXTRA_SUBJECT, "GroupTrack OG radio setup · $title")
+            putExtra(Intent.EXTRA_TEXT, "The mesh radio settings for “$title”, from GroupTrack OG. Set them by hand in the " +
                 "Meshtastic app to put a radio on this ride.")
             putExtra(Intent.EXTRA_STREAM, uri(ctx, f))
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

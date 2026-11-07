@@ -71,7 +71,7 @@ fun ConvoySettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("GroupTrack Settings") },   // SETTINGSNAME-2026-10-26 (Fred 12:39)
+                title = { Text("GroupTrack OG Settings") },   // SETTINGSNAME-2026-10-26 (Fred 12:39)
                 actions = {   // CLOSEX-2026-10-22 (Fred 12:18): HELP ✕ top right, as every screen; the back arrow is gone
                     com.geeksville.mesh.grouptrack.GtHelpButton("menu.settings")
                     com.geeksville.mesh.grouptrack.GtCloseButton(onNavigateBack)
@@ -113,7 +113,7 @@ fun ConvoySettingsScreen(
                         TextButton(onClick = {
                             val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(android.content.Intent.EXTRA_SUBJECT, "GroupTrack conversion record")
+                                putExtra(android.content.Intent.EXTRA_SUBJECT, "GroupTrack OG conversion record")
                                 putExtra(android.content.Intent.EXTRA_TEXT, recordJson ?: "no record")
                             }
                             convCtx.startActivity(android.content.Intent.createChooser(send, "Send record"))
@@ -247,7 +247,7 @@ fun ConvoySettingsScreen(
                             TextButton(onClick = {
                                 val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                                     type = "text/plain"
-                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "GroupTrack trail check: " + tcInput.trim())
+                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "GroupTrack OG trail check: " + tcInput.trim())
                                     putExtra(android.content.Intent.EXTRA_TEXT, r.toString(2))
                                 }
                                 tcCtx.startActivity(android.content.Intent.createChooser(send, "Send the trail check"))
@@ -420,7 +420,7 @@ fun ConvoySettingsScreen(
             Spacer(Modifier.height(8.dp))
             Text(
                 // HTMLVER-2026-08-13B: the release string here was one letter behind.
-                text     = "GroupTrack Rel 2.7c — Build ${BuildConfig.BUILD_STAMP}",   // RELLABEL-2026-09-30; SETTINGSNAME-2026-10-26: 2.7c
+                text     = "GroupTrack OG Rel 2.7c — Build ${BuildConfig.BUILD_STAMP}",   // RELLABEL-2026-09-30; SETTINGSNAME-2026-10-26: 2.7c
                 style    = MaterialTheme.typography.labelSmall,
                 color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier

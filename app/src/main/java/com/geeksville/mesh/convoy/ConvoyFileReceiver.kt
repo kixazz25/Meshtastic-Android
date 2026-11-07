@@ -93,7 +93,7 @@ class ConvoyFileReceiver : Activity() {
             if (!content.contains("convoyDocType")) {
                 Log.w(TAG, "Not a convoy file — ignoring")
                 // GPXOPEN-2026-10-09: never silent -- the rider is told what happened.
-                android.widget.Toast.makeText(this, "This file isn't a GroupTrack ride, map recipe, route recipe or a GPX / KML track."   /* MAPRECIPES-2026-11-03 */,
+                android.widget.Toast.makeText(this, "This file isn't a GroupTrack OG ride, map recipe, route recipe or a GPX / KML track."   /* MAPRECIPES-2026-11-03 */,
                     android.widget.Toast.LENGTH_LONG).show()
                 return
             }
@@ -167,7 +167,7 @@ object RideImport {
         val rideName = rideObj?.optString("name", "")?.takeIf { it.isNotBlank() && it != "null" } ?: "Ride"
         return if (rideJson == null || rideJson.optString("kind") != "grouptrack.ride" || rideId == null) {
             Log.w(TAG, "RIDEIMPORT3-2026-09-25: not a readable GroupTrack ride file")
-            "That isn't a GroupTrack ride file."
+            "That isn't a GroupTrack OG ride file."
         } else try {
             val dir = GroupTrackStorage.dir("rides", context)
             dir.mkdirs()   // RIDEMKDIR-2026-09-24: a tablet that never saved a ride has no rides folder yet

@@ -194,7 +194,7 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
                 // CHECKINAPPLY-2026-09-28 (Fred): the radio against this ride -- CHECK IN sets it up when needed.
                 if (radioOn) chosen?.let { c ->
                     when {
-                        needsSetup && last == null -> Text("\u26A0 Your radio has no GroupTrack configuration \u2014 it will be set up for " + c.name + " when you check in.", color = Gt.warn, fontSize = 13.sp)
+                        needsSetup && last == null -> Text("\u26A0 Your radio has no GroupTrack OG configuration \u2014 it will be set up for " + c.name + " when you check in.", color = Gt.warn, fontSize = 13.sp)
                         needsSetup -> Text("\u26A0 Your radio is set up for " + last!!.second + " \u2014 it will be set up for " + c.name + " when you check in.", color = Gt.warn, fontSize = 13.sp)
                         else -> Text("\u2713 Radio ready for this ride", color = Gt.good, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }

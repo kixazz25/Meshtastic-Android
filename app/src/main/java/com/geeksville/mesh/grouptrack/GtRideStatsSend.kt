@@ -59,7 +59,7 @@ object GtRideStatsSend {
             type = "*/*"
             putExtra(Intent.EXTRA_EMAIL, arrayOf(GtIssue.TO))
             putExtra(Intent.EXTRA_SUBJECT, "GroupTrack ride statistics · $stamp · $ver")
-            putExtra(Intent.EXTRA_TEXT, "Ride statistics from GroupTrack, to help improve group tracking. Attached: the map, the statistics, " +
+            putExtra(Intent.EXTRA_TEXT, "Ride statistics from GroupTrack OG, to help improve group tracking. Attached: the map, the statistics, " +
                 "the lead track as this tablet drew it, and my cart's last track.\n\n" + report)
             putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

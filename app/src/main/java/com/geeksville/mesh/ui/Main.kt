@@ -453,7 +453,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                             // MESHFOLD-2026-09-04: ⭐ the tab says what it opens.
                         // Fred, 09-04: "GroupTrack" told a rider nothing -- the
                         // sheet behind it is radio setup and nothing else.
-                        text = when (destination) { TopLevelDestination.Convoy -> "GroupTrack Mesh Radio Setup"; TopLevelDestination.EventRideServices -> "Services"; else -> stringResource(destination.label) },
+                        text = when (destination) { TopLevelDestination.Convoy -> "GroupTrack OG Mesh Radio Setup"; TopLevelDestination.EventRideServices -> "Services"; else -> stringResource(destination.label) },
                             modifier =
                             if (navSuiteType == NavigationSuiteType.ShortNavigationBarCompact) {
                                 Modifier.width(1.dp)

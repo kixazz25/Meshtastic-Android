@@ -157,7 +157,7 @@ fun ConvoySubscriptionScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "GroupTrack",
+                    text = "GroupTrack OG",
                     color = SkyBlue,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,

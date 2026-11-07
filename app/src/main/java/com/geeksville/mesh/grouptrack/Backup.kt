@@ -74,7 +74,7 @@ object GtBackup {
 
     /** Map > Back up my GroupTrack data: build now (GPX also to Downloads) and open the email. */
     fun start(ctx: Context) {
-        android.widget.Toast.makeText(ctx, "Building your GroupTrack backup…", android.widget.Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(ctx, "Building your GroupTrack OG backup…", android.widget.Toast.LENGTH_SHORT).show()
         Thread {
             try { GtDbAudit.run(ctx) } catch (e: Exception) { Log.e(TAG, "DBAUDIT", e) }   // DBAUDIT-2026-11-03
             val b = try { build(ctx, true) } catch (e: Exception) { Log.e(TAG, "BACKUP build", e); Built(emptyList(), "Backup failed: ${e.message}", "") }
@@ -121,26 +121,26 @@ object GtBackup {
         val day = today()
         val me = try { com.geeksville.mesh.convoy.ConvoyProfileStore.load()?.email?.trim() ?: "" } catch (e: Exception) { "" }
         val uris = ArrayList(b.files.map { FileProvider.getUriForFile(ctx, ctx.packageName + ".provider", it) })
-        val body = "My GroupTrack backup, $day. Keep this email — it recreates GroupTrack on a new or reloaded phone.\n\n" +
+        val body = "My GroupTrack OG backup, $day. Keep this email — it recreates GroupTrack OG on a new or reloaded phone.\n\n" +
             "In this backup:\n" + b.list + "\n" +
-            "TO RECOVER, on the phone or tablet, with GroupTrack installed and Wi-Fi on:\n" +
-            "1. Tap the maps file (GroupTrack maps <date>.json), choose GroupTrack, tap RESTORE MY MAPS. The maps download while you do the rest.\n" +
-            "2. Tap the ROUTES, TRACKS and WAYPOINTS files one at a time, choose GroupTrack, answer NO to \"Are these files trails?\", untick MAPS, tap IMPORT.\n" +
+            "TO RECOVER, on the phone or tablet, with GroupTrack OG installed and Wi-Fi on:\n" +
+            "1. Tap the maps file (GroupTrack maps <date>.json), choose GroupTrack OG, tap RESTORE MY MAPS. The maps download while you do the rest.\n" +
+            "2. Tap the ROUTES, TRACKS and WAYPOINTS files one at a time, choose GroupTrack OG, answer NO to \"Are these files trails?\", untick MAPS, tap IMPORT.\n" +
             "3. Tap the RIDER TRAILS file the same way and answer YES -- they come back as trails.\n" +   // ONEIMPORT-2026-11-04
             "Importing something that is already there is safe — it is not added twice.\n\n" +
-            "Get GroupTrack on Google Play:\nhttps://play.google.com/store/apps/details?id=com.grouptrack.android&hl=en_US\n"
+            "Get GroupTrack OG on Google Play:\nhttps://play.google.com/store/apps/details?id=com.grouptrack.android&hl=en_US\n"
         val mail = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
             type = "application/octet-stream"
             putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
             if (me.isNotEmpty()) putExtra(Intent.EXTRA_EMAIL, arrayOf(me))
-            putExtra(Intent.EXTRA_SUBJECT, "GroupTrack backup $day")
+            putExtra(Intent.EXTRA_SUBJECT, "GroupTrack OG backup $day")
             putExtra(Intent.EXTRA_TEXT, body)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         try {
             val gmail = Intent(mail).setPackage("com.google.android.gm")
             if (gmail.resolveActivity(ctx.packageManager) != null) ctx.startActivity(gmail)
-            else ctx.startActivity(Intent.createChooser(mail, "Send or save your GroupTrack backup").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            else ctx.startActivity(Intent.createChooser(mail, "Send or save your GroupTrack OG backup").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             prefs(ctx).edit().putString("sent", b.print).apply()
             Log.i(TAG, "BACKUP email opened: ${b.files.size} attachment(s), to=${if (me.isEmpty()) "(none)" else "profile email"}")
         } catch (e: Exception) {
@@ -158,12 +158,12 @@ fun GtBackupReadyDialog() {
     val ctx = LocalContext.current
     AlertDialog(
         onDismissRequest = { GtBackup.notNow(ctx) },
-        title = { Text("Your GroupTrack data changed", fontWeight = FontWeight.Bold, color = Gt.text) },
+        title = { Text("Your GroupTrack OG data changed", fontWeight = FontWeight.Bold, color = Gt.text) },
         text = {
             androidx.compose.foundation.layout.Column {
                 Text("A new backup is ready:", color = Gt.text, fontSize = 14.sp)
                 Text(list, color = Gt.text, fontSize = 13.sp, modifier = Modifier.padding(vertical = 6.dp))
-                Text("Email it to yourself to keep it safe. It recreates GroupTrack on a new or reloaded phone.", color = Gt.dim, fontSize = 12.sp)
+                Text("Email it to yourself to keep it safe. It recreates GroupTrack OG on a new or reloaded phone.", color = Gt.dim, fontSize = 12.sp)
             }
         },
         confirmButton = { GtButton("SEND BACKUP", { GtBackup.sendReady(ctx) }) },

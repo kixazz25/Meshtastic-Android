@@ -72,7 +72,7 @@ fun RadioSetupPrompt(
         title = { Text("Will you use a Meshtastic radio to see your group on the map?") },   // GRPMODE-2026-10-13 (G1)
         text = {
             Column {
-                Text("GroupTrack uses TAK messaging. Any radio used with GroupTrack must be set up with the new " +
+                Text("GroupTrack OG uses TAK messaging. Any radio used with GroupTrack OG must be set up with the new " +
                     "GroupTrack configuration.")
                 Spacer(Modifier.height(10.dp))
                 Text("YES", fontWeight = FontWeight.Bold)

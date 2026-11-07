@@ -214,7 +214,7 @@ fun GtConversionPanel(onManual: () -> Unit, onNotes: () -> Unit, onQuickStart: (
     }
     AlertDialog(
         onDismissRequest = { if (learning) close() },   // the question needs an answer
-        title = { GtDialogTitle("GroupTrack 2.7e \u2014 one new map", "update27e", { if (learning) close() }) },
+        title = { GtDialogTitle("GroupTrack OG 2.7e \u2014 one new map", "update27e", { if (learning) close() }) },
         text = {
             Column(modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
                 // VECWELCOME-2026-10-31d (Fred 19:51): ONE screen for the recipe and the question -- the warning first, the estimate
@@ -227,13 +227,13 @@ fun GtConversionPanel(onManual: () -> Unit, onNotes: () -> Unit, onQuickStart: (
                         fontSize = 15.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = Gt.accent,
                         modifier = Modifier.padding(top = 8.dp))
                 }
-                Text("GroupTrack's maps are moving to new sources, based on copyright law. The new maps are a digital (vector) format: " +
+                Text("GroupTrack OG's maps are moving to new sources, based on copyright law. The new maps are a digital (vector) format: " +
                     "3D with the shape of the ground, a map you can tilt, and a map that turns with you.", fontSize = 14.sp,
                     modifier = Modifier.padding(top = if (asking) 10.dp else 0.dp))
                 Text("If you have maps stored on this tablet, they are removed and recreated during this installation. They are requested " +
                     "again and downloaded through the download queues, where you can watch them. If you have no stored maps, the " +
-                    "conversion is skipped and GroupTrack is ready to use at once.", fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
-                Text("The new map is fully available online as soon as GroupTrack opens. Your downloaded maps are rebuilt in the background " +
+                    "conversion is skipped and GroupTrack OG is ready to use at once.", fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+                Text("The new map is fully available online as soon as GroupTrack OG opens. Your downloaded maps are rebuilt in the background " +
                     "and become available offline as their downloads complete, one queued job at a time.",
                     fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
                 Text("Your tracks, trails, routes and waypoints are kept and are not affected.", fontSize = 14.sp, color = Gt.accent,
@@ -244,7 +244,7 @@ fun GtConversionPanel(onManual: () -> Unit, onNotes: () -> Unit, onQuickStart: (
                     else GtButton("CANCEL \u2014 END GROUPTRACK UNTIL I AM READY", {
                         android.util.Log.i("MapConversion", "VECCONVERT cancelled -- GroupTrack ends; old maps untouched; asks again next start")
                         (ctx as? android.app.Activity)?.finishAffinity() }, emphasis = GtScheme.current.value.bad /* CONTRAST2-2026-11-01 */)
-                    if (GtMapConversion.emergency.isEmpty()) Text("Cancel ends GroupTrack and changes nothing. It asks again the next time GroupTrack starts.", fontSize = 12.sp,
+                    if (GtMapConversion.emergency.isEmpty()) Text("Cancel ends GroupTrack OG and changes nothing. It asks again the next time GroupTrack OG starts.", fontSize = 12.sp,
                         color = Gt.dim, modifier = Modifier.padding(top = 4.dp))
                 }
                 if (st == "running") {

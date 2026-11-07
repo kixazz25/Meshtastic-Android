@@ -690,7 +690,7 @@ fun ConvoyAuthorityGateScreenV2(
                             // button said SELECT DOCUMENTS and then the system
                             // picker opened showing the CONTENTS of Documents,
                             // which reads as a contradiction.
-                            body = "Your GroupTrack data is moving from the " +
+                            body = "Your GroupTrack OG data is moving from the " +
                                 "public Documents folder to a private " +
                                 "application area. This is to satisfy Google's " +
                                 "All Files Access restrictions.\n\n" +
@@ -729,7 +729,7 @@ fun ConvoyAuthorityGateScreenV2(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "GroupTrack Setup",
+                text = "GroupTrack OG Setup",
                 color = MshPrimary,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
@@ -791,7 +791,7 @@ fun ConvoyAuthorityGateScreenV2(
                 is AuthorityState.NeedStorage -> {
                     GateBody(
                         title = "All-files access required",
-                        body = "GroupTrack stores 50–60 GB of offline maps in shared " +
+                        body = "GroupTrack OG stores 50–60 GB of offline maps in shared " +
                             "storage so they survive updates and reinstalls. Grant " +
                             "\"Allow access to manage all files\" to continue."
                     )
@@ -828,7 +828,7 @@ fun ConvoyAuthorityGateScreenV2(
                     // created, so nothing on the device is changed.
                     GateBody(
                         title = "All-files access not granted",
-                        body = "GroupTrack will not open without this access. Your " +
+                        body = "GroupTrack OG will not open without this access. Your " +
                             "offline maps, trails and tracks are stored in shared " +
                             "storage and cannot be read without it.\n\n" +
                             "Exiting is safe \u2014 nothing on your device is changed or " +
@@ -857,7 +857,7 @@ fun ConvoyAuthorityGateScreenV2(
                 is AuthorityState.NeedBackground -> {
                     GateBody(
                         title = "Background location recommended",
-                        body = "GroupTrack reports your position to your convoy while " +
+                        body = "GroupTrack OG reports your position to your convoy while " +
                             "riding, even when the screen is off. Without \"all the " +
                             "time\" location, track recording stops when the screen " +
                             "sleeps.\n\nYou can continue without it and grant it later."
@@ -932,7 +932,7 @@ fun ConvoyAuthorityGateScreenV2(
                     GateBody(
                         title = "Access granted",
                         body = "All-files and location access confirmed. Tap Continue " +
-                            "to start GroupTrack."
+                            "to start GroupTrack OG."
                     )
                     // BANNERMOVE-2026-09-03: ⭐ HERE, because this is the screen
                     // with the button. A one-shot destructive operation should

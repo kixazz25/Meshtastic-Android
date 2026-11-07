@@ -265,7 +265,7 @@ fun ConvoyRideCreateScreen(
                     },
                     color = Gt.warn, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
                 Text(when (netChoice) {
-                        0 -> "The channel every GroupTrack radio already has \u2014 riders need no radio setup. Anyone running GroupTrack within radio range shares it."
+                        0 -> "The channel every GroupTrack OG radio already has \u2014 riders need no radio setup. Anyone running GroupTrack OG within radio range shares it."
                         2 -> "Used only by this ride. Every rider sets up their radio for it, even if they have ridden with you before."
                         else -> "Used for all your rides \u2014 riders who joined any of your rides are already on it."
                     },

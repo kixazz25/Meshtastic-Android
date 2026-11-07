@@ -38,7 +38,7 @@ object ConvoyRideSend {
             }.getOrDefault(date)
             val label = (name.trim() + (if (dayShort.isNotBlank()) " - $dayShort" else ""))
                 .replace(Regex("[^A-Za-z0-9 ._-]"), "_").replace(Regex("\\s+"), " ").trim().take(60)
-                .ifBlank { "GroupTrack ride" }
+                .ifBlank { "GroupTrack OG ride" }
             context.cacheDir.listFiles { f -> f.name.endsWith(".convoy") }?.forEach { it.delete() }
             val out = File(context.cacheDir, "$label.convoy")
             stored.copyTo(out, overwrite = true)
@@ -56,26 +56,26 @@ object ConvoyRideSend {
             else
                 "This is a private ride for the riders invited. Please don't forward this email."
             val inviteText = "You're invited: $name ($day)\n\n" + forward + "\n\n" +
-                "Don't be left behind! Click the link below to download GroupTrack Off-Road Navigation on your Android, " +
+                "Don't be left behind! Click the link below to download GroupTrack Off Grid on your Android, " +
                 "and reap the benefits beginning with this ride!\n" + play + "\n\n" +
-                "If you're a GroupTrack user, tap the attachment below, choose GroupTrack, then tap \"Always\". " +
+                "If you're a GroupTrack OG user, tap the attachment below, choose GroupTrack OG, then tap \"Always\". " +
                 "This imports the route, and downloads the maps for offline use during this ride.\n\n" +
-                "Riding with a mesh radio? Check in at the trailhead and GroupTrack sets your radio up for this ride.\n\n" +
+                "Riding with a mesh radio? Check in at the trailhead and GroupTrack OG sets your radio up for this ride.\n\n" +
                 "Enjoy the ride!"
             fun esc(s: String): String = android.text.TextUtils.htmlEncode(s)
             val inviteHtml = "<p>You're invited: <b>" + esc(name) + "</b> (" + esc(day) + ")</p>" +
                 "<p>" + esc(forward) + "</p>" +
                 "<p>Don't be left behind! Click the link below to download " +
-                "<a href=\"" + play + "\">GroupTrack Off-Road Navigation</a> on your Android, " +
+                "<a href=\"" + play + "\">GroupTrack Off Grid</a> on your Android, " +
                 "and reap the benefits beginning with this ride!<br>" +
                 "<a href=\"" + play + "\">" + esc(play) + "</a></p>" +
-                "<p>If you're a GroupTrack user, tap the attachment below, choose GroupTrack, then tap &quot;Always&quot;. " +
+                "<p>If you're a GroupTrack OG user, tap the attachment below, choose GroupTrack OG, then tap &quot;Always&quot;. " +
                 "This imports the route, and downloads the maps for offline use during this ride.</p>" +
-                "<p>Riding with a mesh radio? Check in at the trailhead and GroupTrack sets your radio up for this ride.</p>" +
+                "<p>Riding with a mesh radio? Check in at the trailhead and GroupTrack OG sets your radio up for this ride.</p>" +
                 "<p>Enjoy the ride!</p>"
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = MIME
-                putExtra(Intent.EXTRA_SUBJECT, "GroupTrack ride: $name \u2014 $date")
+                putExtra(Intent.EXTRA_SUBJECT, "GroupTrack OG ride: $name \u2014 $date")
                 putExtra(Intent.EXTRA_TEXT, inviteText)
                 putExtra(Intent.EXTRA_HTML_TEXT, inviteHtml)
                 putExtra(Intent.EXTRA_STREAM, uri)

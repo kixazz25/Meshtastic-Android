@@ -1583,7 +1583,7 @@ fun rememberRecipeFile(): () -> Unit {
                     ?: throw IllegalStateException("could not read the file")
                 val o = org.json.JSONObject(text)
                 val r = o.optJSONObject("recipe") ?: o
-                if (!r.has("anchorLat") || !r.has("milesHigh")) "That file is not a GroupTrack route recipe."
+                if (!r.has("anchorLat") || !r.has("milesHigh")) "That file is not a GroupTrack OG route recipe."
                 else { GtRoute.buildFromRecipeJson(context, r, true); "" }
             } catch (e: Exception) {
                 "Could not read the recipe: ${e.message}"

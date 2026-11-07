@@ -198,7 +198,7 @@ fun ConvoySignInScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Welcome to GroupTrack",
+                text = "Welcome to GroupTrack OG",
                 color = Gt.text,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,

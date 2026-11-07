@@ -82,8 +82,8 @@ fun rememberPickerNotice(purpose: String, item: String): PickerNotice {
 
 /** Fred's text (10-10). [purpose] e.g. "to choose the ride file you want to import"; [item] "file" / "files" / "folder". */
 fun pickerNoticeText(purpose: String, item: String): String =
-    "You are leaving GroupTrack for the Android file picker, " + purpose + ".\n\n" +
-        "To return to GroupTrack, select your " + item + ", or use the system BACK: the back arrow on the bar at " +
+    "You are leaving GroupTrack OG for the Android file picker, " + purpose + ".\n\n" +
+        "To return to GroupTrack OG, select your " + item + ", or use the system BACK: the back arrow on the bar at " +
         "the bottom of the screen, or a swipe in from the right-hand edge. You may need to go back more than once.\n\n" +
         "If you chose this by mistake, tap CANCEL. Otherwise tap CONTINUE."
 

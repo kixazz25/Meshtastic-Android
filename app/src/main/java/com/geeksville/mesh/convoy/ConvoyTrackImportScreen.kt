@@ -582,7 +582,7 @@ fun ConvoyTrackImportScreen(
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp)) {
                 Text("Are these files trails?", color = Gt.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 Text("YES = a trail map (a park's or an area's trails): every line becomes a trail, points stay waypoints. " +
-                    "NO = your tracks, routes and waypoints. A GroupTrack trail export comes back as trails either way.",
+                    "NO = your tracks, routes and waypoints. A GroupTrack OG trail export comes back as trails either way.",
                     color = Gt.dim, fontSize = 12.sp)
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

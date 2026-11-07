@@ -513,19 +513,19 @@ class ConvoyGpsService : Service() {
 
         when (state) {
             State.RECORDING -> {
-                builder.setContentTitle("GroupTrack — GPS Recording Active")
+                builder.setContentTitle("GroupTrack OG — GPS Recording Active")
                 builder.setContentText("Track recording in progress")
                 builder.addAction(Notification.Action.Builder(null, "PAUSE", pauseIntent).build())
                 builder.addAction(Notification.Action.Builder(null, "END", endIntent).build())
             }
             State.PAUSED -> {
-                builder.setContentTitle("GroupTrack — GPS Recording Paused")
+                builder.setContentTitle("GroupTrack OG — GPS Recording Paused")
                 builder.setContentText("Tap RESUME to continue recording")
                 builder.addAction(Notification.Action.Builder(null, "RESUME", resumeIntent).build())
                 builder.addAction(Notification.Action.Builder(null, "END", endIntent).build())
             }
             State.IDLE -> {
-                builder.setContentTitle("GroupTrack")
+                builder.setContentTitle("GroupTrack OG")
                 builder.setContentText("GPS recording stopped")
             }
         }

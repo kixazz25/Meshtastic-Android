@@ -42,7 +42,7 @@ fun GtNotesPanel(
     sections: List<NoteSection>,
     /** Shown at the foot of every notes panel. Null to omit. */
     footer: String? =
-        "\u26a0 GroupTrack knows a trail is there. It does not know how wide it is, " +
+        "\u26a0 GroupTrack OG knows a trail is there. It does not know how wide it is, " +
         "what the surface is like, or what is on it. Zoom in on the satellite view " +
         "before you commit.",
     onClose: () -> Unit = {},

@@ -100,7 +100,7 @@ fun ConvoyDashboardScreen(
                                     .takeIf { it != 0 } ?: android.R.drawable.ic_menu_gallery
                             }
                         ),
-                        contentDescription = "GroupTrack",
+                        contentDescription = "GroupTrack OG",
                         modifier = Modifier.height(40.dp)
                     )
                     if (firstName.isNotEmpty()) {

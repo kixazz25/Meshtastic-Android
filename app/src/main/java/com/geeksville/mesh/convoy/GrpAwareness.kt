@@ -180,7 +180,7 @@ fun GrpAwarenessPanel(
     val current = radios.firstOrNull { it.id == selectedAddress }
     val green = Gt.accent; val red = Gt.bad; val dim = Gt.dim
     fun failWords(reason: String): String = when (reason) {
-        "PERMISSION_MISSING" -> "GroupTrack needs the Nearby devices permission to pair a radio."
+        "PERMISSION_MISSING" -> "GroupTrack OG needs the Nearby devices permission to pair a radio."
         "BLUETOOTH_OFF" -> "Bluetooth is off — turn it on to connect your radio."   // COMMBTOFF-2026-10-11
         "RADIO_NOT_FOUND" -> "That radio is no longer nearby — turn it on and try again."
         "PAIR_FAILED" -> "Pairing did not finish — try PAIR again and enter the radio's PIN (123456, or the code on its screen)."
@@ -232,7 +232,7 @@ fun GrpAwarenessPanel(
                         TextButton(onClick = { openBluetoothSettings(ctx) }) { Text("BLUETOOTH") }
                     }
                     "PERMISSION_MISSING" -> Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("GroupTrack needs the Nearby devices permission to find radios.", color = Gt.warn, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Text("GroupTrack OG needs the Nearby devices permission to find radios.", color = Gt.warn, fontSize = 13.sp, modifier = Modifier.weight(1f))
                         TextButton(onClick = { openAppSettings(ctx) }) { Text("ALLOW") }
                     }
                     else -> {}
@@ -295,7 +295,7 @@ fun GrpAwarenessPanel(
         AlertDialog(
             onDismissRequest = { forgetting = null },
             title = { Text("Forget " + r.name + "?") },
-            text = { Text("It will be removed from GroupTrack and from this tablet's Android Bluetooth pairings. To use it again it " +
+            text = { Text("It will be removed from GroupTrack OG and from this tablet's Android Bluetooth pairings. To use it again it " +
                 "reappears as new to this Android while the panel scans — PAIR it with the radio's PIN.") },
             confirmButton = { TextButton(onClick = {
                 if (r.id == selectedAddress) onDisconnect()
