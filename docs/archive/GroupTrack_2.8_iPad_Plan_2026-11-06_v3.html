@@ -1,0 +1,110 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack 2.8 — the native iPad app — plan v3 (2026-11-06)</title>
+<style>:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;padding:0 0 60px}
+main{max-width:1000px;margin:0 auto;padding:0 18px}h1{font-size:26px;margin:26px 0 4px}h2{font-size:20px;margin:30px 0 8px;color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:4px}h3{font-size:16px;margin:18px 0 6px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:12px 0}.good{border-left:4px solid var(--good)}.warn{border-left:4px solid var(--warn)}.dim{color:var(--dim)}
+table{border-collapse:collapse;width:100%;margin:8px 0}td,th{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{background:#1c232c}code{font:13px "SF Mono",Consolas,monospace;background:#1c232c;padding:1px 4px;border-radius:3px}</style></head><body><main>
+<p class="dim" style="font:11px monospace">DOCUMENT ID: PLAN-2.8-IPAD · v3 · 2026-11-06 12:05 (v2 10:30, v1 09:58) · living document — update in place, new version number each change</p>
+<h1>GroupTrack 2.8 — the native iPad app</h1>
+<p class="dim">Started 2026-11-05/06 on the Mac. 2.7e is released and locked; 2.8 is the iPad.</p>
+
+<h2>1. What 2.8 is</h2>
+<div class="card"><ul>
+<li><b>2.8 ends with a deployed native iPad app</b> (roadmap, Fred 10-22). 2.9 = one-way data sync Android → AWS (services layer only, no paygate). 3.0 = AWS services: paygate (e.g. the first 200 users free for a year), Mac/PC planning station against the AWS model, map-licensing review.</li>
+<li><b>Two phases</b> (Fred 10-02): <b>Phase 1</b> — GroupTrack on iPad with group functions off (riding solo: map, search, AI routes, rides, imports, recording, manual/help). <b>Phase 2</b> — the GroupTrack Group Comm plugin (mesh radio, group awareness).</li>
+<li>The goal: an iPad app that looks and feels as much like GroupTrack on Android as technically possible (Fred 10-02).</li></ul></div>
+
+<h2>2. Decided (from the design corpus, 07-04 … 11-05)</h2>
+<table><tr><th>#</th><th>Decision</th><th>Source</th></tr>
+<tr><td>D1</td><td><b>One map page for all platforms.</b> The 2.7e MapLibre GL JS page (<code>assets/vecmap</code>) runs in a WKWebView on iPad/Mac; per platform only the native pieces differ (tile/asset serving, the SQLite database, files, GPS, Bluetooth). Doing 2.7e on Leaflet would have baked Leaflet into the layer iPad waits on.</td><td>2.7e plan 10-29; 07-04</td></tr>
+<tr><td>D2</td><td><b>GroupTrack stays a standalone app; the radio is a plugin.</b> GroupTrack owns all screens; the comm side is headless services behind an API (values in, mesh functions run, results out). Ride radio settings handed over as WHAT; the comm side decides HOW.</td><td>10-02, 10-08, 10-12</td></tr>
+<tr><td>D3</td><td>The iPad radio plugin = <b>our own open-source fork of the Meshtastic-Apple mesh code</b>, headless — no base Meshtastic install, no Meshtastic menus. Bluetooth first (the iTAK model); Wi-Fi radio↔iPad set aside (range).</td><td>10-02, 10-08</td></tr>
+<tr><td>D4</td><td><b>CoT is GroupTrack's data format</b>; the comm layer does the wire encoding per transport (compact TAK packet on mesh, TAK protocol on IP).</td><td>10-03</td></tr>
+<tr><td>D5</td><td><b>Prove iPad radio set-up from the same ride config data before writing plugin code</b> — a blocker found early if it fails.</td><td>10-02</td></tr>
+<tr><td>D6</td><td>The Android app is <b>never rebased</b> on experimental mesh code; 2.7e stays on its proven integration. Emergency 2.7e fixes only on <code>2.7e-support</code>.</td><td>10-02; 11-05</td></tr>
+<tr><td>D7</td><td><b>One unknown at a time</b>: prove the environment with known-good artifacts before adding KMP, then KMP before iPad code.</td><td>07-04</td></tr>
+<tr><td>D8</td><td>GroupTrack needs a <b>Wi-Fi + Cellular iPad</b> (Wi-Fi-only iPads have no GPS chip). No SIM or plan needed; the first fix is slower without data.</td><td>11-05</td></tr>
+<tr><td>D10</td><td><b>Screens: Compose Multiplatform</b> (Fred 11-06: "I prefer compose multiplatform") — the Android panels are already Compose (Material 3) and move largely as they are; same look on Android and iPad; one codebase. <b>Confirmed only after the spike</b> (§6 step 1): the 2.7e map page in a WKWebView inside a Compose iPad screen with a tap back to Kotlin, plus one real GroupTrack panel.</td><td>11-06</td></tr>
+<tr><td>D11</td><td><b>Design rule: planning components shared and portable; riding components native per platform.</b> The PC/web side is planning only (map, search, AI route design, build routes, recipes, create and send rides) — no riding, radio or recording (Fred 07-04, restated 11-06). Build the planning components as shared KMP logic + Compose screens so 3.0 can take them to the web (Compose for Web / Wasm) integrated with the AWS model, instead of writing them a third time. Swift would close the web door (SwiftUI does not run in a browser).</td><td>11-06</td></tr>
+<tr><td>D9</td><td>Google Play only on Android; the App Store for iPad (Apple Developer Program, Fred enrolled 11-05).</td><td>10-19; 11-05</td></tr></table>
+
+<h2>3. Environment — ready (11-05/06)</h2>
+<div class="card good"><table><tr><th>Part</th><th>State</th></tr>
+<tr><td>Mac</td><td>MacBook Air (M), macOS <b>26.7.2</b> (updated from 26.5.1 for Xcode; macOS 27.2 deliberately not installed — dev tools first). 316 GB free.</td></tr>
+<tr><td>Xcode</td><td><b>27.2</b> (27B52) in /Applications; <code>xcode-select</code> set; license accepted; first launch run.</td></tr>
+<tr><td>iOS Simulator</td><td>iOS 27.2 runtime (24B8117) + an extra device-specific iPhone runtime (24B91016s — removable, ~8 GB). Six iPads available; <b>iPad Pro 13-inch (M5)</b> booted and checked: grouptrack.org/videos.html renders correctly in Safari (screenshot <code>Desktop/ipad_sim_videos.png</code>). Open it: <b>Xcode › Open Developer Tool › Simulator</b> (in Xcode 27 the Simulator app is not at the old path). Command-line: <code>xcrun simctl openurl booted &lt;url&gt;</code>, <code>xcrun simctl io booted screenshot &lt;file&gt;</code>.</td></tr>
+<tr><td>Kotlin Multiplatform</td><td>Java: Temurin <b>21</b> (default) + <b>17</b>; Android Studio with the <b>Kotlin Multiplatform</b> plugin (<code>plugins/kmm-plugin</code>); <code>kdoctor</code> 1.1.0 installed — it says "ready", but still reports the plugin missing because it only knows the old "Kotlin Multiplatform Mobile" plugin (outdated tool, not a problem). CocoaPods skipped (optional; link the shared module as an XCFramework / Swift Package).</td></tr>
+<tr><td>Apple Developer Program</td><td>Fred enrolled 11-05 (individual). When active: Xcode › Settings › Accounts › + › Apple ID.</td></tr>
+<tr><td>Already in the code</td><td><b>The Meshtastic base already uses Kotlin Multiplatform and Compose Multiplatform</b> in <code>core/model</code>, <code>core/common</code>, <code>core/repository</code>, <code>core/resources</code>, <code>core/proto</code> (and <code>core/proto/.../packages/kmp</code>); <code>gradle/libs.versions.toml</code> pins <b>compose-multiplatform 1.11.0-alpha03</b> and the <code>com.android.kotlin.multiplatform.library</code> plugin. The radio/mesh data models are already shareable. SDK levels (<code>config.properties</code>): MIN_SDK 26, TARGET_SDK 36, COMPILE_SDK 36.</td></tr>
+<tr><td>Code</td><td>Branch <b><code>2.8</code></b> cut 11-06 from tag <code>2.7e-2026-11-06c</code> (<code>28cef0107</code>), pushed. <code>2.7e-support</code> at the same commit for emergency fixes.</td></tr>
+<tr><td>Test iPad</td><td>iPad Pro 12.9" (1st gen), Wi-Fi + Cellular, iPadOS 16.7, no SIM — has GPS; Fred's throwaway. Probably too old for current Meshtastic-Apple; slow. Use the Simulator for current iPadOS; a newer cellular iPad for phase 2.</td></tr></table></div>
+
+<h2>4. The bridge surface — first inventory (from the 2.8 branch, 11-06)</h2>
+<p>Everything that renders INSIDE the map page ports as is. Every place the page reaches OUT to the device is a bridge call, rebuilt natively on iPad. Its size is the real iPad cost (07-04).</p>
+<table><tr><th>Direction</th><th>What</th><th>Count</th></tr>
+<tr><td>Map page → app</td><td><code>@JavascriptInterface</code> callbacks in <code>GroupTrackScreen.kt</code> (two interfaces): onMapReady, onMapBoundsReady, onViewportChanged, onBearing, onMapTap, onMapLongPress, onProximityTap, onMarkerTapped, onTrackTap, onTrailTap, onRouteTap, onWaypointTap, onAreaSelected, onRouteModeOffRequested</td><td>14 names, 27 annotations</td></tr>
+<tr><td>App → map page</td><td><code>evaluateJavascript</code> calls (draw tracks, trails, routes, carts, land, view, compass…)</td><td>94</td></tr>
+<tr><td>Map page → files</td><td><code>shouldInterceptRequest</code> serving tiles, fonts, sprites, style from the device (<code>VecMapServer</code>) → on iPad a <code>WKURLSchemeHandler</code></td><td>2 places</td></tr>
+<tr><td>Map page assets</td><td><code>assets/vecmap</code>: maplibre-gl.js/.css, liberty_style.json, fonts, sprites, vec_*.js (artstyle, carts, compass, land, nodata, ports, spatial, tracks, view)</td><td>~17 MB of assets in total</td></tr>
+<tr><td>Kotlin side</td><td><code>grouptrack/</code> + <code>convoy/</code>: 181 .kt files, ~64,000 lines; 94 files import <code>android.*</code> directly</td><td>to classify</td></tr></table>
+<p class="dim">Next: classify each Kotlin file — pure logic (moves to a shared KMP module), Android-only (rewrite natively), or screen (Compose → SwiftUI). That is the "entanglement inventory" (07-04 step 2).</p>
+
+<h2>5. Open — for Fred to decide</h2>
+<table><tr><th>#</th><th>Question</th><th>Notes</th></tr>
+<tr><td>O1</td><td><s>Shared logic: Kotlin Multiplatform, or rewrite in Swift?</s> → <b>D12 Kotlin Multiplatform</b> (11-06, section 7)</td><td>Shared module in the MAIN repo on 2.8, used by Android too — never a second copy. SQLite through androidx.sqlite (proved in the spike).</td></tr>
+<tr><td>O2</td><td><s>Screens on iPad: SwiftUI, or Compose Multiplatform?</s> → <b>D10 Compose Multiplatform — CONFIRMED by the spike 11-06</b> (section 7).</td><td>Risks to watch: the map embed (UIKitView/WKWebView) is the one piece everything hangs on; Android-only code inside panels needs iPad versions; text fields, scrolling feel and accessibility are less "iPad" than SwiftUI; a larger app.</td></tr>
+<tr><td>O3</td><td><b>Oldest iPadOS supported</b></td><td>Likely 17+. Check Meshtastic-Apple's minimum.</td></tr>
+<tr><td>O4</td><td><b>Position source on iPad</b> (proposed 11-05)</td><td>iPad GPS when present; else the connected radio's GPS (group riding works, coarser track); both → Fred's 10-12 rule (radio if ≤12 s old, else device); Wi-Fi location = planning only, no REC; none = planning only. The readout shows the source.</td></tr>
+<tr><td>O5</td><td>GPL of the Meshtastic-Apple fork</td><td>Fine at ~40 installs; a separate conversation at ~40,000.</td></tr>
+<tr><td>O6</td><td>Paygate on iPad</td><td>Apple in-app purchase rules differ from Play; belongs with 3.0, but the iPad listing needs a decision on free vs paid.</td></tr></table>
+
+<h2>6. First steps (proposed order)</h2>
+<ol>
+<li>☑ <b>DONE 11-06 — see section 7.</b> THE COMPOSE MULTIPLATFORM SPIKE (started 11-06 10:00) — a separate throwaway project <code>~/Projects/GroupTrackSpike</code> (package <code>com.grouptrack.spike</code>, Android + iOS, Share UI, Kotlin DSL, min SDK 26), created with Android Studio's Kotlin Multiplatform wizard. Use the same Compose Multiplatform version as the main project (1.11.x). Pass = (a) runs on the iPad Pro 13" Simulator, (b) shows the 2.7e map page in a WKWebView inside a Compose screen with a tap reaching Kotlin, (c) one real GroupTrack panel (the Map menu with OVERVIEW rows) moved over.</li>
+<li>☐ <b>Build and run Meshtastic-Apple unchanged</b> in the Simulator (proves Xcode + Swift + the mesh code; shows its minimum iPadOS) — clone into its own folder, never into the GroupTrack repo.</li>
+<li>☑ <b>Done inside the spike (11-06)</b> — <b>A minimal iPad shell</b>: a SwiftUI app with one WKWebView that loads the 2.7e map page from the app bundle (tiles/fonts through a URL scheme handler) — the first GroupTrack map on iPad, in the Simulator.</li>
+<li>☑ <b>DONE 11-06 — section 8.</b> <b>The entanglement inventory</b> of the 181 Kotlin files (pure / Android-only / screen) → decides O1 and the size of the shared module.</li>
+<li>☑ <b>DONE 11-06 (step 3a) — the spatial queries, not RideCalc.</b> <b>KMP spike</b>: one pure-logic piece (e.g. RideCalc or the route-recipe model) built as a shared module and called from the iPad shell.</li>
+<li>☐ <b>Radio set-up proof</b> (D5) on a real iPad with a radio — Bluetooth needs real hardware.</li>
+<li>☐ Then the phase 1 build list — <b>superseded by section 9</b> (Fred's method, 11-06).</li></ol>
+
+<h2>7. The spike — results (11-06, 10:00–12:00)</h2>
+<div class="card good"><b>PASSED. Compose Multiplatform carries GroupTrack on iPad.</b> Project <code>~/AndroidStudioProjects/GroupTrackSpike</code> (<code>$GT_SPIKE</code>), iPad Pro 13" Simulator (<code>$GT_IPAD_SIM</code>), Kotlin 2.4.21 · CMP 1.12.2. Screenshots in <code>_orig/</code>. Environment doc v6 sections 20–22.</div>
+<table><tr><th>Step</th><th>What was proved</th><th>Evidence</th></tr>
+<tr><td>1</td><td>The wizard project builds and runs on the iPad Simulator</td><td>BUILD SUCCEEDED; "Compose: Hello" on screen</td></tr>
+<tr><td>2</td><td>A map web page inside a Compose screen (UIKitView + WKWebView); Kotlin → page (evaluateJavaScript) and page → Kotlin (webkit.messageHandlers)</td><td>spike_step2b.png: "Map tap: 36.94963, -113.79892" in the Compose header. Fix: read the message with <code>body.toString()</code> (a cast gets nothing).</td></tr>
+<tr><td>2c</td><td><b>The REAL 2.7e map page, unchanged</b>, served by the app (WKURLSchemeHandler <code>gtvec://local/a/…</code> = VecMapServer; https://gtvec.local/ rewritten as files are served). A JS shim gives the page a <code>window.Android</code> — every handler arrives by name.</td><td>spike_step2c.png: onMapReady, onViewportChanged, onBearing by name; 21/21 tiles; no page errors</td></tr>
+<tr><td>2d</td><td><b>Fully offline from the Droid's own map store</b> — VEC.mbtiles read in place, same table and raw z/x/y key as MBTilesStore.readTile; Internet ON/OFF switch</td><td>spike_step2d_off.png: internet OFF, 63 tiles from the store, 0 empty, z15 over Desert Color</td></tr>
+<tr><td>3a</td><td><b>The first real GroupTrack logic in SHARED Kotlin</b> — <code>GtSpatial.kt</code> ported from SpatialDbManager / SpatialDisplayManager / LandAreas (same SQL, same GeoJSON, same limits and zoom gates) over androidx.sqlite; trails, tracks, waypoints, routes, public/restricted land drawn by the page's own functions</td><td>spike_step3a.png, z14 St George: Trails 322 · Tracks 2 · Waypoints 4 · Routes 0 · Land 13 — <b>all identical</b> to the 2.7e queries run on the same database on the Mac; query 225 ms; onTrailTap arrives</td></tr></table>
+<p><b>Droid 1's data on the Mac (11-06)</b> — <code>$GT_SPIKE/_data/droid1_2026-11-06/</code>, 2.5 GB: both databases, Land_Ownership, osm, states, recipes, rides, route_drafts, imports, settings; <code>maps/tiles/VEC.mbtiles</code> (57,000 vector tiles, z0–z14, SW Utah → the North-East) and <code>DEM.mbtiles</code>. adb cannot read the app's .mbtiles (<code>-rw-------</code>), so a test-only step <b>IPADEXPORT-2026-11-06</b> (<code>grouptrack/IpadExport.kt</code>, one line in MeshUtilApplication; runs only when <code>GroupTrack/ipad_export.request</code> exists) copied them to Download — test build <code>2026-11-06_1118_mac_28cef0107_UNCOMMITTED</code> on Droid 1 only. ⚠ Uncommitted on 2.8; CODE RULE 3 — remove before 2.8 is released.</p>
+<p><b>Spatial database contents (Droid 1):</b> trails 229,178 (motorized access 88,679 · shape only 77,695 · road-concurrent 19,292 · paved shared use 13,886 · TERRA 9,203 · hiking+biking 7,519 · link 2,906 · hiking only 2,491 · rider 1,562 · biking only 1,235 …) · land areas 18,562 (public 15,420 · non-federal 2,666 · restricted 476) · waypoints 595 (trailheads 590) · tracks 130 · routes 23 · reference points 31,376.</p>
+<p><b>Learned:</b> SQLite is in iOS but not in Kotlin's iOS libraries — use androidx.sqlite (KMP). Map tiles in the store are uncompressed vector tiles (metadata says "webp" — harmless). The Xcode 27.2 "higher than known" warning did not stop any build. Real iPad: iPadOS 16.7 is below the spike's 18.2 target (lower it for device tests).</p>
+
+<h2>8. The entanglement inventory (11-06)</h2>
+<p>185 GroupTrack files, 65,200 lines (heuristic scan, ~10 per bucket hand-checked). Full table: <code>GroupTrack_2.8_KMP_inventory_2026-11-06.csv</code> (GroupTrack_docs).</p>
+<table><tr><th>Bucket</th><th>Files</th><th>Lines</th><th>Fate</th></tr>
+<tr><td>A pure logic</td><td>11</td><td>1,815</td><td>moves as is</td></tr>
+<tr><td>B model, swappable ties</td><td>51</td><td>19,486</td><td>moves with standard swaps: Log 92 files, File 61, org.json 49, java.time/UUID 44, SQLite 17, http → ktor</td></tr>
+<tr><td>C screens</td><td>95</td><td>27,935</td><td>placeholders first, then filled in manual order (section 9)</td></tr>
+<tr><td>D platform</td><td>28</td><td>15,964</td><td>a shared interface ("socket") each; Android wired to today's code, iPad placeholder until its turn</td></tr></table>
+<p>Largest: GroupTrackScreen 3,887 (D — must split: ride state machine vs map hosting/GPS), SpatialDbManager 3,274 (B), RouteExplorer 2,357 (B, no Context — easiest big win), HomeStateImportController 1,798 (D — WorkManager), RouteModule 1,674 (C), ConvoyViewModel 1,435 (D — must split). <b>Context in 124 files</b>, mostly for file paths → one shared "where are my files" helper. Five model-like files talk to the map page directly (SpatialDisplayManager, RouteDraftStore, RiderTrailWriter, ConvoyArtifactOps, RidePreview) → one shared "map page" interface. Only one file touches Bluetooth (GrpAwareness). TileCodec (Bitmap) needs a per-platform image decoder.</p>
+
+<h2>9. THE METHOD — Fred 11-06</h2>
+<div class="card warn"><ol>
+<li><b>Move the whole model, then the screens.</b> The non-screen layer is built first, so every service is waiting when its screen arrives (Fred 11:48, 11:52).</li>
+<li><b>Screens like the documentation.</b> Wire the whole presentation layer as placeholders generated from the manual's screen tree (the same ids as GroupTrack's menu handlers, e.g. <code>map.backup</code>, <code>map.export_routes</code>) — each shows "&lt;id&gt; — not yet on iPad". Then chase them one at a time, walking the manual's layers. Placeholders left = progress (Fred 11:51).</li>
+<li><b>CERTIFICATION = THE SCREEN PROCESS, COMPARED WITH TODAY'S RESULT.</b> A service is proven only when a screen process that calls it gives the same result as the Droid on the same data; certifying the screen process certifies every service it calls. Builds, logs and number checks are fault-finding, not certification (Fred 11:53–11:55).</li>
+<li><b>After each model batch the Droids are re-walked</b> through the same screens — the Android app runs on the shared code, so its certification proves the move.</li>
+<li><b>One shared module in the main repo on 2.8</b>, used by Android and iPad; the spike is a test bench only.</li>
+<li><b>Order of the map pieces (Fred 11:36–11:38):</b> map store (done) → spatial database (done in the spike) → <b>the filter</b> (FilterModule / TrailFilterState) so completeness is judged type by type against the database counts above → map settings (map_keys.json, trail colours) → Map menu → 3D (DEM). The map display includes public and restricted areas.</li></ol></div>
+
+<h2>10. Next steps (11-06 afternoon)</h2>
+<ol>
+<li>☐ <b>Shared module in the main repo</b> (2.8): read how the repo's existing KMP modules are built (core/model, common, …), add a <code>grouptrack-shared</code> module with Android + iOS targets, the "where are my files" helper and a logging helper. Raise Kotlin / Compose Multiplatform to the spike's versions only if iOS needs it — Android certified on a Droid after any version change.</li>
+<li>☐ <b>Batch 1:</b> the 11 pure files + the database layer (SpatialDbManager's read side, TrailFilterState, LandAreas' display side) — Android switched to it, Droids re-walked (trails / filter / land on ONE MAP compared with today).</li>
+<li>☐ <b>The iPad app in the main repo</b>: the spike's map host (scheme handler, shim, store) moved in.</li>
+<li>☐ <b>The placeholder skeleton</b> from the manual's screen tree.</li>
+<li>☐ Then batch by batch, screen by screen, per section 9.</li></ol>
+<p class="dim">Rules carried over: one command at a time; dated Python patch scripts with marker guards; never reuse a filename; code rules 1–3; say so first when a tool or process isn't working; the living docs are the record.</p>
+</main></body></html>
