@@ -41,7 +41,11 @@ class ConvoyDownloadWorker(
         // REFRESH job takes the refresh path (what is stored). "" = an entry queued before this build (treated as a replace).
         val downloadType = inputData.getString("download_type") ?: ""
         val vectorSlot = refreshSlot == VectorTiles.SLOT || refreshSlot == ElevationTiles.SLOT
-        val refreshOnly = refreshMode && refreshSlot.isNotEmpty() && (!vectorSlot || downloadType == DownloadType.MAP_SOURCE_REFRESH.name)
+        // REPLACEONLY-2026-11-07 (Fred 16:44-16:49): Replace = re-fetch and overwrite what is stored. PERIOD. Missing tiles are ALWAYS fetched;
+        // the job's kind is its priority, never which tiles it fetches. Was: refreshMode && slot && (!vectorSlot || MAP_SOURCE_REFRESH) --
+        // every VEC / DEM job is typed MAP_SOURCE_REFRESH, so with Replace = Yes an area / corridor / restore / re-download after Remove area
+        // fetched ONLY the tiles already stored (trace 11-07 16:37). The refresh branch below is now unreachable; removed in a later cleanup.
+        val refreshOnly = false
 
         android.util.Log.i(TAG, "Starting download: $label id=$entryId")
 
