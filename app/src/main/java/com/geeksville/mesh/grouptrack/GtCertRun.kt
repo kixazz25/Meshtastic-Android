@@ -49,18 +49,41 @@ object GtCertRun {
                     w.write("# GTCERT droid ${android.os.Build.MODEL} $stamp spatial=${db.path}\n")
                     // STEP7-2026-11-07: "lookups" = ONLY the app's own lookup functions (SpatialDbManager, now on GtRead) through CertRead, written as
                     // OLD lines -- compared with the SAVED 2.7e lines of run 2026-11-06_1606 (cert_baseline_2026-11-07.py). No NEW side, no Mac.
-                    if (mode == "lookups") { var o = 0
-                        com.grouptrack.shared.cert.CertRead.run(OldRead, conn, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT app: $p ($o lines)") })
-                        Log.i(TAG, "GTCERT app lookups: $o lines in ${(System.currentTimeMillis() - t0) / 1000} s") }
-                    if (mode != "writes" && mode != "lookups") {
+                    // STEP8B-2026-11-07: "freeze" = copy the live databases into gtcert_frozen/ and run the lookups on that copy over EVERY
+                    // trail page (the new baseline); "lookups" = the lookups on the frozen copy (every 4th trail page). Never the live files.
+                    if (mode == "lookups" || mode == "freeze") { var o = 0
+                        val fz = if (mode == "freeze") freeze(app, db, edb, stamp) else frozen(app)
+                        if (fz == null) Log.e(TAG, "GTCERT failed: no frozen copy on this Droid -- run gt_cert with mode freeze first")
+                        else {
+                            w.write("# frozen=${fz.stamp}\n")
+                            // the baseline covers every trail page so any later rotation finds its pages in it
+                            val sample = if (mode == "freeze") com.grouptrack.shared.cert.CertRead.TrailSample.ALL
+                                else com.grouptrack.shared.cert.CertRead.TrailSample(4, java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR) % 4)
+                            Log.i(TAG, "GTCERT app: frozen copy of ${fz.stamp}" + (if (mode == "freeze") " (just made)" else "") + " -- trail pages every ${sample.every} from page ${sample.start}")
+                            val fS = SQLiteDatabase.openDatabase(fz.spatial, null, SQLiteDatabase.OPEN_READONLY)
+                            val fE = fz.data?.let { SQLiteDatabase.openDatabase(it, null, SQLiteDatabase.OPEN_READONLY) }
+                            val prev = SpatialDbManager.certSwapDatabases(fS, fE)
+                            val fconn = gtOpenDatabase(fz.spatial, true)
+                            try {
+                                com.grouptrack.shared.cert.CertRead.run(OldRead, fconn, sample, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT app: $p ($o lines)") })
+                            } finally {
+                                try { fconn.close() } catch (_: Exception) {}
+                                SpatialDbManager.certSwapDatabases(prev.first, prev.second)
+                                try { fS.close() } catch (_: Exception) {}; try { fE?.close() } catch (_: Exception) {}
+                                Log.i(TAG, "GTCERT live handles restored")
+                            }
+                            Log.i(TAG, "GTCERT app lookups: $o lines in ${(System.currentTimeMillis() - t0) / 1000} s")
+                        }
+                    }
+                    if (mode != "writes" && mode != "lookups" && mode != "freeze") {   // STEP8B-2026-11-07
                         var n = 0
                         GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
-                        com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn,
+                        com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, com.grouptrack.shared.cert.CertRead.TrailSample.ALL /* STEP8-2026-11-07 */,
                             { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })   // GTCERT-2B-2026-11-06
                         Log.i(TAG, "GTCERT new side: $n lines in ${(System.currentTimeMillis() - t0) / 1000} s")
                         val t1 = System.currentTimeMillis(); var o = 0
                         runOld(conn, db, edb, saved, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })
-                        com.grouptrack.shared.cert.CertRead.run(OldRead, conn, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })   // GTCERT-2B-2026-11-06
+                        com.grouptrack.shared.cert.CertRead.run(OldRead, conn, com.grouptrack.shared.cert.CertRead.TrailSample.ALL, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })   // GTCERT-2B-2026-11-06
                         Log.i(TAG, "GTCERT old side: $o lines in ${(System.currentTimeMillis() - t1) / 1000} s")
                     }
                     if (mode == "writes" || mode == "all") runWrites(app, db, edb, w)   // GTCERTW-2026-11-06
@@ -141,6 +164,34 @@ object GtCertRun {
             }
         } finally { dir.deleteRecursively() }
         Log.i(TAG, "GTCERTW writes done in ${(System.currentTimeMillis() - t0) / 1000} s")
+    }
+
+    /**
+     * STEP8B-2026-11-07: the FROZEN copy the lookups check reads -- made by mode "freeze" from the live databases, then never changed,
+     * so riding and testing on the Droid cannot move the baseline. Kept in the app's own files, not the cache (the system may clear
+     * the cache). [data] is null exactly when the live data database is absent, as in 2.7e (CODE RULE 1: see GtSpatial).
+     */
+    private class Frozen(val spatial: String, val data: String?, val stamp: String)
+    private fun frozenDir(app: Context) = java.io.File(app.filesDir, "gtcert_frozen")
+    private fun freeze(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, stamp: String): Frozen {
+        val t = System.currentTimeMillis()
+        val dir = frozenDir(app); dir.deleteRecursively(); dir.mkdirs()
+        fun cp(src: String, name: String): String {
+            val d = java.io.File(dir, name); java.io.File(src).copyTo(d, true)
+            val wal = java.io.File("$src-wal"); if (wal.exists() && wal.length() > 0) wal.copyTo(java.io.File(dir, "$name-wal"), true)
+            return d.path
+        }
+        val s = cp(db.path, "spatial.db"); val d = edb?.let { cp(it.path, "data.db") }
+        java.io.File(dir, "stamp.txt").writeText(stamp)
+        Log.i(TAG, "GTCERT frozen copy made in ${(System.currentTimeMillis() - t) / 1000} s: $s" + (d?.let { " + $it" } ?: " (no data database)"))
+        return Frozen(s, d, stamp)
+    }
+    /** The frozen copy, or null when this Droid has none yet (mode "freeze" makes it). */
+    private fun frozen(app: Context): Frozen? {
+        val dir = frozenDir(app); val st = java.io.File(dir, "stamp.txt"); val s = java.io.File(dir, "spatial.db")
+        if (!st.exists() || !s.exists()) return null
+        val d = java.io.File(dir, "data.db")
+        return Frozen(s.path, if (d.exists()) d.path else null, st.readText().trim())
     }
 
     /** GTCERT-2B-2026-11-06: 2.7e's SpatialDbManager reading functions as the OLD side of the batch-2b cases. */

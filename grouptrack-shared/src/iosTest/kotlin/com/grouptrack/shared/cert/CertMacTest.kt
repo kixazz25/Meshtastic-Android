@@ -47,7 +47,7 @@ class CertMacTest {
             writeUtf8("# GTCERT mac $stamp spatial=$spatial\n")
             if (mode != "writes") {
                 GtCert.runNew(conn, dconn, saved, { id -> notes(dconn, id) }, { l -> writeUtf8("MAC|$l\n"); n++ }, { p -> println("GTCERT mac: $p ($n lines)") })
-                CertRead.run(CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, { l -> writeUtf8("MAC|$l\n"); n++ }, { p -> println("GTCERT mac: $p ($n lines)") })   // GTCERT-2B-2026-11-06
+                CertRead.run(CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, CertRead.TrailSample.ALL /* STEP8-2026-11-07 */, { l -> writeUtf8("MAC|$l\n"); n++ }, { p -> println("GTCERT mac: $p ($n lines)") })   // GTCERT-2B-2026-11-06
             }
             // GTCERTW-2026-11-06: the writes, on a COPY of the Mac's copy of Droid 1's databases
             if ((mode == "writes" || mode == "all") && dconn != null) {

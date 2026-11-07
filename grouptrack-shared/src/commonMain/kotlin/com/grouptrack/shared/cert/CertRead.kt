@@ -58,7 +58,15 @@ object CertRead {
     private fun v(x: Any?): String = when (x) { null -> "∅"; is Double -> "d" + x.toRawBits().toString(16); is Float -> "f" + x.toRawBits().toString(16); else -> x.toString() }
     private fun maps(l: List<Map<String, String?>>) = l.joinToString("\u0002") { m -> m.entries.joinToString("\u0001") { it.key + "=" + v(it.value) } }
 
-    fun run(api: Api, conn: SQLiteConnection, emit: (String) -> Unit, progress: (String) -> Unit) {
+    /** STEP8-2026-11-07: which trail pages the per-trail GEOMHASH/PARSEGPX check runs -- page k when k % every == start.
+     *  Not optional (CODE RULE 1): every caller states its sample; ALL = every page. */
+    data class TrailSample(val every: Int, val start: Int) {
+        init { require(every >= 1 && start in 0 until every) }
+        fun takes(k: Int) = k % every == start
+        companion object { val ALL = TrailSample(1, 0) }
+    }
+
+    fun run(api: Api, conn: SQLiteConnection, sample: TrailSample, emit: (String) -> Unit, progress: (String) -> Unit) {
         val types = listOf("trails", "tracks", "waypoints", "routes")
         val ids = types.associateWith { t -> if (t == "trails") GtCert.sampleTrailIds(conn) else { val col = t.removeSuffix("s") + "_id"; GtCert.ids(conn, "SELECT $col FROM $t ORDER BY $col") } }   // GTCERTV3: trails = the sample
         fun pageEach(kind: String, t: String, one: (String) -> String) {
@@ -107,6 +115,7 @@ object CertRead {
         // every trail: the geometry hash, and its GPX points parsed back
         val geoms = HashMap<String, String>()
         ids.getValue("trails").chunked(GtCert.PAGE).forEachIndexed { k, chunk ->
+            if (!sample.takes(k)) return@forEachIndexed   // STEP8-2026-11-07
             geoms.clear()
             if (k % 10 == 0) progress("GEOMHASH/PARSEGPX page $k")   // GTCERTV3
             val s2 = conn.prepare("SELECT trail_id, name, geometry FROM trails WHERE trail_id IN (" + chunk.joinToString(",") { "'" + it.replace("'", "''") + "'" } + ")")
