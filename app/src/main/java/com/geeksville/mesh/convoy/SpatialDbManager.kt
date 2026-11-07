@@ -508,6 +508,44 @@ object SpatialDbManager {
     /** Get extension database reference */
     fun getExtensionDb(): SQLiteDatabase? = extensionDb
 
+    // ── STEP7-2026-11-07 (2.8 step 7): THE LOOKUPS ON SHARED CODE ─────────────────────────────────────────────────────────────────
+    // searchByName, getArtifactDetail, getAliasesFor, queryArtifactList, queryAllTracksForCorridor, trailheadsNear, routeUsingTrailhead,
+    // nextRouteNumber, routeNameById, findRouteIdByHash, routeGeomHash, routeNameExists, trackGeometry, trackName, waypointNameAt,
+    // trackIdForGpxText, computeGeomHash, parseGpxTrackPoints now call :grouptrack-shared GtRead -- certified identical to their 2.7e
+    // bodies 447/447 OLD = NEW = MAC (run 2026-11-06_1606). The 2.7e bodies are gone; commit 40e6efa21 still holds them.
+    // Their own read-only connection pair (not the map display's: a search never waits behind a 20,000-trail map batch), reopened
+    // whenever this manager's handles change (init, close, the certification swap). An androidx SQLiteConnection is single-threaded
+    // (2.7e's SQLiteDatabase pooled), so every lookup goes through [lookupLock]. Nothing here runs inside a write transaction (checked
+    // 11-07), so a separate connection sees exactly what 2.7e's handle saw.
+    private val lookupLock = Any()
+    private var lookupFor: Pair<SQLiteDatabase?, SQLiteDatabase?>? = null
+    private var lookupConns: Pair<androidx.sqlite.SQLiteConnection, androidx.sqlite.SQLiteConnection?>? = null
+    private var lookups: com.grouptrack.shared.spatial.GtRead? = null
+
+    private fun closeLookups() = synchronized(lookupLock) {
+        lookupConns?.let { (c, d) -> try { c.close() } catch (_: Exception) {}; try { d?.close() } catch (_: Exception) {} }
+        lookupConns = null; lookupFor = null; lookups = null
+    }
+
+    /** STEP7-2026-11-07: runs [f] on the shared lookups; [none] when no spatial database is open (what each 2.7e body returned then). */
+    private fun <T> withLookups(none: T, f: (com.grouptrack.shared.spatial.GtRead) -> T): T = synchronized(lookupLock) {
+        val s = spatialDb ?: return@synchronized none
+        val e = extensionDb
+        try {
+            if (lookups == null || lookupFor?.first !== s || lookupFor?.second !== e) {
+                lookupConns?.let { (c, d) -> try { c.close() } catch (_: Exception) {}; try { d?.close() } catch (_: Exception) {} }
+                // CODE RULE 1: the data db is optional exactly as in 2.7e (no extras before the first import) -- see GtRead's doc
+                val c = com.grouptrack.shared.db.gtOpenDatabase(s.path, true)
+                val d = e?.let { com.grouptrack.shared.db.gtOpenDatabase(it.path, true) }
+                lookupConns = c to d; lookupFor = s to e; lookups = com.grouptrack.shared.spatial.GtRead(c, d)
+                android.util.Log.i("SpatialDb", "STEP7 shared lookups opened on " + s.path + (if (e != null) " + " + e.path else " (no data db)"))
+            }
+            f(lookups!!)
+        } catch (ex: Exception) {
+            android.util.Log.w("SpatialDb", "STEP7 lookup failed: " + ex.message); none
+        }
+    }
+
     /**
      * GTCERTW-2026-11-06 ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): points this manager's two handles
      * at other databases and returns the previous pair, so the certification run can drive 2.7e's own write functions against COPIES
@@ -754,105 +792,7 @@ object SpatialDbManager {
      * type in: "tracks" | "trails" | "waypoints" | "routes" (lowercase plural).
      * Each row: {id, name, geom_hash, type}.
      */
-    fun searchByName(type: String, term: String, limit: Int = 200): List<Map<String, String?>> {
-        val db = spatialDb ?: return emptyList()
-        val (table, idCol) = when (type) {
-            "tracks"    -> "tracks"    to "track_id"
-            "trails"    -> "trails"    to "trail_id"
-            "waypoints" -> "waypoints" to "waypoint_id"
-            "routes"    -> "routes"    to "route_id"
-            else -> return emptyList()
-        }
-        val results = mutableListOf<Map<String, String?>>()
-        // ids already matched on the OFFICIAL spatial name -- a name hit always
-        // wins over an alias hit for the same artifact (it is NOT "via alias").
-        val nameHitIds = HashSet<String>()
-        try {
-            val cursor = db.rawQuery(
-                // SEARCHFIT-2026-09-02: bbox columns added so a result can be
-                // framed on selection. ⚠ They are already indexed -- the
-                // viewport queries use them -- so this costs nothing.
-                "SELECT $idCol, name, geom_hash, min_lat, max_lat, min_lon, max_lon FROM $table " +
-                "WHERE name LIKE ? AND name IS NOT NULL AND TRIM(name) <> '' AND name <> 'Not Named' " +
-                "ORDER BY name COLLATE NOCASE, geom_hash LIMIT ?",
-                arrayOf("%" + term + "%", limit.toString())
-            )
-            cursor.use {
-                while (it.moveToNext()) {
-                    val id = it.getString(0)
-                    nameHitIds.add(id)
-                    results.add(mapOf(
-                        "id" to id,
-                        "name" to it.getString(1),
-                        "geom_hash" to it.getString(2),
-                        "type" to type,
-                        "matched_via_alias" to "false",
-                        "matched_alias" to null,
-                        // SEARCHFIT-2026-09-02: bounds ride along so a result
-                        // can be framed on selection. ⚠ The ALIAS pass below
-                        // does NOT set these -- an alias hit gets nulls and the
-                        // fit is skipped, which is correct: it still opens the
-                        // card, it just does not move the map.
-                        "min_lat" to it.getString(3),
-                        "max_lat" to it.getString(4),
-                        "min_lon" to it.getString(5),
-                        "max_lon" to it.getString(6)
-                    ))
-                }
-            }
-            // ---- ALIAS PASS: match the term against artifact_aliases (extension DB) ----
-            // artifact_aliases stores artifact_type SINGULAR (see getAliasesFor()).
-            val edb = extensionDb
-            if (edb != null && results.size < limit) {
-                val singular = type.removeSuffix("s")
-                // Collect distinct artifact ids whose alias matches, with the matched text.
-                val aliasMatches = LinkedHashMap<String, String>()  // id -> matched alias text (first hit kept)
-                val ac = edb.rawQuery(
-                    "SELECT artifact_id, alias FROM artifact_aliases " +
-                    "WHERE artifact_type = ? AND alias LIKE ? " +
-                    "ORDER BY is_preferred DESC, alias COLLATE NOCASE LIMIT ?",
-                    arrayOf(singular, "%" + term + "%", limit.toString())
-                )
-                ac.use {
-                    while (it.moveToNext()) {
-                        val aid = it.getString(0) ?: continue
-                        if (aid in nameHitIds) continue          // name hit already covers it
-                        if (!aliasMatches.containsKey(aid)) aliasMatches[aid] = it.getString(1)
-                    }
-                }
-                // For each alias-only match, look up the OFFICIAL name+hash from the spatial table.
-                for ((aid, matchedAlias) in aliasMatches) {
-                    if (results.size >= limit) break
-                    val rc = db.rawQuery(
-                        // FOUNDAS-2026-10-29 (D22): bounds too -- an alias hit had none, so choosing it never moved the map.
-                        "SELECT name, geom_hash, min_lat, max_lat, min_lon, max_lon FROM $table WHERE $idCol = ? LIMIT 1",
-                        arrayOf(aid)
-                    )
-                    rc.use {
-                        if (it.moveToFirst()) {
-                            val offName = it.getString(0)
-                            results.add(mapOf(
-                                "id" to aid,
-                                "name" to offName,                 // ALWAYS the official name
-                                "geom_hash" to it.getString(1),
-                                "type" to type,
-                                "matched_via_alias" to "true",
-                                "matched_alias" to matchedAlias,
-                                "min_lat" to it.getString(2),   // FOUNDAS-2026-10-29 (D22)
-                                "max_lat" to it.getString(3),
-                                "min_lon" to it.getString(4),
-                                "max_lon" to it.getString(5)
-                            ))
-                        }
-                    }
-                }
-            }
-            android.util.Log.i("ArtifactSearch", "searchByName($type,'$term') -> ${results.size} (alias-join)")
-        } catch (e: Exception) {
-            android.util.Log.e("ArtifactSearch", "searchByName failed: ${e.message}")
-        }
-        return results
-    }
+    fun searchByName(type: String, term: String, limit: Int = 200): List<Map<String, String?>> = withLookups(emptyList()) { it.searchByName(type, term, limit) }   // STEP7-2026-11-07: shared GtRead
 
     fun queryTracksByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
         val db = spatialDb ?: return emptyList()
@@ -1043,21 +983,7 @@ object SpatialDbManager {
 
     /** Parse GPX file for track points, returns list of (lon, lat) pairs */
     /** Parse GPX track points — used by ConvoyTrackOps for import */
-    fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> {
-        val coords = mutableListOf<Pair<Double, Double>>()
-        // 2026-07-11: use the SAME robust trkpt-anchored regex as parseGpxTrackPointsFull
-        // so external files (onX/Gaia) with different attribute order/spacing parse into
-        // the SAME point set as our own recorder's files. The fragile `lat=..\s+lon=..`
-        // regex (here since 2026-05-22) matched external files differently -> different
-        // geometry -> different geom_hash -> duplicate tracks. Returns Pair(lon, lat) as before.
-        val ptRegex = Regex("""<trkpt\b[^>]*\blat="([^"]+)"[^>]*\blon="([^"]+)"""")
-        for (match in ptRegex.findAll(gpxText)) {
-            val lat = match.groupValues[1].toDoubleOrNull() ?: continue
-            val lon = match.groupValues[2].toDoubleOrNull() ?: continue
-            coords.add(Pair(lon, lat))
-        }
-        return coords
-    }
+    fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> = com.grouptrack.shared.spatial.GtRead.parseGpxTrackPoints(gpxText)   // STEP7-2026-11-07: shared code
 
     /** Count rows in a table */
     private fun countRows(db: SQLiteDatabase, table: String): Int {
@@ -1259,20 +1185,10 @@ object SpatialDbManager {
      * Returns the generated route_id.
      */
     /** TRACKROUTE-2026-09-26: a track's recorded line (WKT) by id; null when the track is absent. */
-    fun trackGeometry(trackId: String): String? = try {
-        spatialDb?.rawQuery("SELECT geometry FROM tracks WHERE track_id=? LIMIT 1", arrayOf(trackId))?.use { c ->
-            if (c.moveToFirst()) c.getString(0) else null
-        }
-    } catch (e: Exception) {
-        android.util.Log.w("SpatialDbManager", "TRACKROUTE: trackGeometry failed: ${e.message}"); null
-    }
+    fun trackGeometry(trackId: String): String? = withLookups(null) { it.trackGeometry(trackId) }   // STEP7-2026-11-07: shared GtRead
 
     /** TRACKDESC-2026-09-26: a track's name by id; null when the track is absent. */
-    fun trackName(trackId: String): String? = try {
-        spatialDb?.rawQuery("SELECT name FROM tracks WHERE track_id=? LIMIT 1", arrayOf(trackId))?.use { c ->
-            if (c.moveToFirst()) c.getString(0) else null
-        }
-    } catch (e: Exception) { null }
+    fun trackName(trackId: String): String? = withLookups(null) { it.trackName(trackId) }   // STEP7-2026-11-07: shared GtRead
 
     fun insertRoute(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String {
         val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
@@ -1379,22 +1295,7 @@ object SpatialDbManager {
      * geometry is text, so a hair of tolerance costs nothing and equality
      * would be brittle.
      */
-    fun waypointNameAt(lat: Double, lon: Double): String? {
-        val db = spatialDb ?: return null
-        val d = 0.00002   // ~2 metres
-        return try {
-            db.rawQuery(
-                "SELECT name FROM waypoints WHERE min_lat IS NOT NULL AND " +
-                    "max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT 1",
-                arrayOf((lat - d).toString(), (lat + d).toString(),
-                        (lon - d).toString(), (lon + d).toString())
-            ).use { c -> if (c.moveToFirst()) c.getString(0)?.takeIf { it.isNotBlank() }
-                         else null }
-        } catch (e: Exception) {
-            android.util.Log.w("SpatialDb", "waypointNameAt failed: ${e.message}")
-            null
-        }
-    }
+    fun waypointNameAt(lat: Double, lon: Double): String? = withLookups(null) { it.waypointNameAt(lat, lon) }   // STEP7-2026-11-07: shared GtRead
 
     /** ROUTENOTES-2026-08-23X: the narrative payload for a saved route, or null. */
     fun readRouteNotes(routeId: String): org.json.JSONObject? {
@@ -1433,21 +1334,9 @@ object SpatialDbManager {
      * has to resolve it by hash instead, exactly as findTrailIdByHash does for
      * trails.
      */
-    fun findRouteIdByHash(geomHash: String): String? {
-        val db = spatialDb ?: return null
-        return try {
-            db.rawQuery("SELECT route_id FROM routes WHERE geom_hash=? LIMIT 1",
-                arrayOf(geomHash)).use { c -> if (c.moveToNext()) c.getString(0) else null }
-        } catch (e: Exception) { null }
-    }
+    fun findRouteIdByHash(geomHash: String): String? = withLookups(null) { it.findRouteIdByHash(geomHash) }   // STEP7-2026-11-07: shared GtRead
 
-    fun routeGeomHash(routeId: String): String? {
-        val db = spatialDb ?: return null
-        return try {
-            db.rawQuery("SELECT geom_hash FROM routes WHERE route_id=? LIMIT 1",
-                arrayOf(routeId)).use { c -> if (c.moveToNext()) c.getString(0) else null }
-        } catch (e: Exception) { null }
-    }
+    fun routeGeomHash(routeId: String): String? = withLookups(null) { it.routeGeomHash(routeId) }   // STEP7-2026-11-07: shared GtRead
 
     /**
      * True if a COMPLETED route with this name already exists in the routes table.
@@ -1488,24 +1377,7 @@ object SpatialDbManager {
         }
     }
 
-    fun routeNameExists(name: String): Boolean {
-        val db = spatialDb ?: return false
-        val needle = name.trim()
-        if (needle.isEmpty()) return false
-        return try {
-            val c = db.rawQuery(
-                "SELECT 1 FROM routes WHERE name IS NOT NULL " +
-                    "AND lower(trim(name)) = lower(trim(?)) LIMIT 1",
-                arrayOf(needle)
-            )
-            val exists = c.moveToFirst()
-            c.close()
-            exists
-        } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "routeNameExists failed: " + e.message)
-            false
-        }
-    }
+    fun routeNameExists(name: String): Boolean = withLookups(false) { it.routeNameExists(name) }   // STEP7-2026-11-07: shared GtRead
 
     /**
      * Insert a track into the spatial DB (type='TRACK').
@@ -1559,15 +1431,7 @@ object SpatialDbManager {
     /** CHECKIN-2026-09-27: the id of the track a GPX text resolves to -- the SAME parse, WKT and computeGeomHash as
      *  resolveTrackAdd, then a lookup by geom_hash. Works for INSERT and for DROP/ALIAS (the existing track).
      *  CODE RULE 1: null when there is no geometry or no such track. */
-    fun trackIdForGpxText(text: String): String? = try {
-        val coords = parseGpxTrackPoints(text)
-        if (coords.isEmpty()) null else {
-            val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
-            spatialDb?.rawQuery("SELECT track_id FROM tracks WHERE geom_hash=? LIMIT 1", arrayOf(computeGeomHash(wkt)))?.use { c ->
-                if (c.moveToFirst()) c.getString(0) else null
-            }
-        }
-    } catch (e: Exception) { android.util.Log.w("SpatialDb", "ENDRIDE: trackIdForGpxText failed: ${e.message}"); null }
+    fun trackIdForGpxText(text: String): String? = withLookups(null) { it.trackIdForGpxText(text) }   // STEP7-2026-11-07: shared GtRead
 
     enum class AddOutcome { INSERT, DROP_NAME, DROP_ALIAS, ALIAS, NO_GEOMETRY, ERROR }
 
@@ -1890,30 +1754,10 @@ object SpatialDbManager {
     /** ROUTENUM-2026-10-28 (D20): the next number for "<base> N" -- the highest N among routes AND route aliases named exactly
      *  "<base> <digits>" (case-insensitive), plus 1. Was a count of names STARTING WITH base ("broken ridge" counted
      *  "Broken Ridge 2024 Jamboree"), and a count repeats numbers after a delete. */
-    fun nextRouteNumber(base: String): Int {
-        val b = base.trim().lowercase()
-        if (b.isEmpty()) return 1
-        var max = 0
-        fun take(name: String?) {
-            val n = name?.trim()?.lowercase() ?: return
-            if (!n.startsWith("$b ")) return
-            val rest = n.substring(b.length + 1)
-            if (rest.isNotEmpty() && rest.all { it.isDigit() } && rest.length < 7) max = maxOf(max, rest.toInt())
-        }
-        try { spatialDb?.rawQuery("SELECT name FROM routes WHERE name IS NOT NULL", null)?.use { c -> while (c.moveToNext()) take(c.getString(0)) } }
-        catch (e: Exception) { android.util.Log.w("SpatialDb", "nextRouteNumber routes: ${e.message}") }
-        try { extensionDb?.rawQuery("SELECT alias FROM artifact_aliases WHERE artifact_type='route'", null)?.use { c -> while (c.moveToNext()) take(c.getString(0)) } }
-        catch (e: Exception) { android.util.Log.w("SpatialDb", "nextRouteNumber aliases: ${e.message}") }
-        return max + 1
-    }
+    fun nextRouteNumber(base: String): Int = withLookups(1) { it.nextRouteNumber(base) }   // STEP7-2026-11-07: shared GtRead
 
     /** ROUTENAME-2026-10-28 (D11): a route's name by id. CODE RULE 1: null = no such route (deleted). */
-    fun routeNameById(routeId: String): String? {
-        val db = spatialDb ?: return null
-        return try {
-            db.rawQuery("SELECT name FROM routes WHERE route_id=? LIMIT 1", arrayOf(routeId)).use { c -> if (c.moveToNext()) c.getString(0) else null }
-        } catch (e: Exception) { null }
-    }
+    fun routeNameById(routeId: String): String? = withLookups(null) { it.routeNameById(routeId) }   // STEP7-2026-11-07: shared GtRead
 
     /** ROUTEDEL-2026-10-28 (D21): a deleted route's other names go with it. */
     fun deleteRouteAliases(routeId: String) {
@@ -1921,13 +1765,7 @@ object SpatialDbManager {
         catch (e: Exception) { android.util.Log.w("SpatialDb", "deleteRouteAliases: ${e.message}") }
     }
 
-    fun computeGeomHash(wkt: String): String {
-        val md = java.security.MessageDigest.getInstance("SHA-256")
-        val bytes = md.digest(wkt.toByteArray(Charsets.UTF_8))
-        val sb = StringBuilder(bytes.size * 2)
-        for (b in bytes) { val v = b.toInt() and 0xFF; sb.append("0123456789abcdef"[v ushr 4]); sb.append("0123456789abcdef"[v and 0x0F]) }
-        return sb.toString()
-    }
+    fun computeGeomHash(wkt: String): String = com.grouptrack.shared.spatial.GtRead.computeGeomHash(wkt)   // STEP7-2026-11-07: shared code
 
     /** 'Not Named' fallback, applied for ALL four artifacts. */
     fun notNamed(name: String?): String = if (name.isNullOrBlank()) "Not Named" else name
@@ -2022,45 +1860,7 @@ object SpatialDbManager {
 
     /** Full-data card: the artifact's SPATIAL row (all displayable fields except the geometry blob).
      *  name=="null"/blank is coerced to "Not Named". Ordered map preserves column order for display. */
-    fun getArtifactDetail(type: String, artifactId: String): LinkedHashMap<String, String?> {
-        val out = LinkedHashMap<String, String?>()
-        val (table, idCol) = spatialTableFor(type) ?: return out
-        val db = spatialDb ?: return out
-        val c = db.rawQuery("SELECT * FROM $table WHERE $idCol = ? LIMIT 1", arrayOf(artifactId))
-        c.use {
-            if (it.moveToFirst()) {
-                for (i in 0 until it.columnCount) {
-                    val col = it.getColumnName(i)
-                    if (col == "geometry") continue            // never show the WKT blob
-                    var v: String? = if (it.isNull(i)) null else it.getString(i)
-                    if (col == "name" && (v == null || v.isBlank() || v == "null")) v = "Not Named"
-                    out[col] = v
-                }
-            }
-        }
-        // ── merge per-type *_properties (data DB) into the same map ──
-        val (propTable, propIdCol) = propertiesTableFor(type) ?: return out
-        val edb = extensionDb ?: return out
-        try {
-            val pc = edb.rawQuery("SELECT * FROM $propTable WHERE $propIdCol = ? LIMIT 1", arrayOf(artifactId))
-            pc.use {
-                if (it.moveToFirst()) {
-                    for (i in 0 until it.columnCount) {
-                        val col = it.getColumnName(i)
-                        if (col == propIdCol) continue          // skip the duplicate id column
-                        if (out.containsKey(col) && !out[col].isNullOrBlank()) continue  // spatial wins only if it has a real value (null carto_code must not shadow trail_properties)
-                        if (it.isNull(i)) continue
-                        val v = it.getString(i)
-                        if (v == null || v.isBlank()) continue  // skip blanks
-                        out[col] = v
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            // properties table may not exist for a type / empty — leave spatial-only
-        }
-        return out
-    }
+    fun getArtifactDetail(type: String, artifactId: String): LinkedHashMap<String, String?> = withLookups(LinkedHashMap()) { it.getArtifactDetail(type, artifactId) }   // STEP7-2026-11-07: shared GtRead
 
     private fun propertiesTableFor(type: String): Pair<String, String>? = when (type.lowercase()) {
         "trail", "trails"       -> "trail_properties" to "trail_id"
@@ -2071,28 +1871,7 @@ object SpatialDbManager {
     }
 
     /** Alias accordion: rows from data-DB artifact_aliases, preferred-first. artifact_type is singular. */
-    fun getAliasesFor(type: String, artifactId: String): List<Map<String, String?>> {
-        val res = ArrayList<Map<String, String?>>()
-        val db = extensionDb ?: return res
-        val t = type.lowercase().removeSuffix("s")     // table stores singular
-        val c = db.rawQuery(
-            "SELECT alias_id, alias, is_preferred, source, creation_date FROM artifact_aliases " +
-            "WHERE artifact_type = ? AND artifact_id = ? ORDER BY is_preferred DESC, alias COLLATE NOCASE",
-            arrayOf(t, artifactId)
-        )
-        c.use {
-            while (it.moveToNext()) {
-                res.add(mapOf(
-                    "alias_id" to it.getString(0),
-                    "alias" to it.getString(1),
-                    "is_preferred" to it.getString(2),
-                    "source" to it.getString(3),
-                    "creation_date" to (if (it.isNull(4)) null else it.getString(4))
-                ))
-            }
-        }
-        return res
-    }
+    fun getAliasesFor(type: String, artifactId: String): List<Map<String, String?>> = withLookups(emptyList()) { it.getAliasesFor(type, artifactId) }   // STEP7-2026-11-07: shared GtRead
 
     /** Star an alias: set is_preferred=1 on aliasId and clear all siblings for the same artifact,
      *  in one transaction (no db-level one-preferred constraint — enforced here). */
@@ -2237,48 +2016,7 @@ object SpatialDbManager {
      *  ⚠ TEMPORARY -- remove with the probes once the cause is found. */
     const val LIFECYCLE_NAME = "Spanish George"
 
-    fun queryArtifactList(table: String, south: Double, west: Double, north: Double, east: Double): List<Map<String, String?>> {
-        val db = spatialDb ?: return emptyList()
-        val results = mutableListOf<Map<String, String?>>()
-        try {
-            val idCol = when (table) {
-                "trails" -> "trail_id"
-                "tracks" -> "track_id"
-                "waypoints" -> "waypoint_id"
-                "routes" -> "route_id"
-                else -> return emptyList()
-            }
-            val typeCol = if (table == "waypoints") ", type" else ""
-            val typeFilter = if (table == "tracks") " AND (type='TRACK' OR type IS NULL)" else ""
-            // PROBESOUT-2026-09-03: the LIFECYCLE probes are gone. They were
-            // hunting a trail that turned out to be TWO ROADS SHARING A NAME --
-            // the one in the database drew correctly, ten miles from the one
-            // Fred was looking at, which is not in any source. There was never
-            // a display bug.
-            // ⚠ WHAT THE PROBE'S COMMENT RECORDED IS STILL TRUE and stays on the
-            // list: this query has `ORDER BY name LIMIT 200`, and with ~69% of
-            // rows called "Not Named" and numbered roads sorting before letters,
-            // it will bite at 200+ trails in view.
-            val sql = "SELECT $idCol, name$typeCol FROM $table WHERE min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?$typeFilter ORDER BY name LIMIT 200"
-            val cursor = db.rawQuery(sql, arrayOf(south.toString(), north.toString(), west.toString(), east.toString()))
-            cursor.use {
-                while (it.moveToNext()) {
-                    val map = mutableMapOf<String, String?>()
-                    map["id"] = it.getString(0)
-                    map["name"] = it.getString(1)
-                    if (table == "waypoints" && it.columnCount > 2) {
-                        map["type"] = it.getString(2)
-                    } else {
-                        map["type"] = ""
-                    }
-                    results.add(map)
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "queryArtifactList($table) failed: ${e.message}")
-        }
-        return results
-    }
+    fun queryArtifactList(table: String, south: Double, west: Double, north: Double, east: Double): List<Map<String, String?>> = withLookups(emptyList()) { it.queryArtifactList(table, south, west, north, east) }   // STEP7-2026-11-07: shared GtRead
 
     /**
      * CORRIDORQUERY-2026-08-05: EVERY track, for the corridor picker.
@@ -2296,28 +2034,7 @@ object SpatialDbManager {
      *
      * Each row: {id, name, geom_hash}. name may be null or blank.
      */
-    fun queryAllTracksForCorridor(): List<Map<String, String?>> {
-        val db = spatialDb ?: return emptyList()
-        val results = mutableListOf<Map<String, String?>>()
-        try {
-            val sql = "SELECT track_id, name, geom_hash FROM tracks " +
-                "WHERE (type='TRACK' OR type IS NULL) " +
-                "ORDER BY name COLLATE NOCASE, geom_hash"
-            db.rawQuery(sql, null).use {
-                while (it.moveToNext()) {
-                    results.add(mapOf(
-                        "id" to it.getString(0),
-                        "name" to it.getString(1),
-                        "geom_hash" to it.getString(2)
-                    ))
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "queryAllTracksForCorridor failed: ${e.message}")
-        }
-        android.util.Log.i("SpatialDb", "CORRIDORQUERY-2026-08-05: ${results.size} track(s) for picker")
-        return results
-    }
+    fun queryAllTracksForCorridor(): List<Map<String, String?>> = withLookups(emptyList()) { it.queryAllTracksForCorridor() }   // STEP7-2026-11-07: shared GtRead
 
     /** Rename a waypoint */
     fun renameWaypoint(id: String, newName: String) {
@@ -2532,36 +2249,7 @@ object SpatialDbManager {
      * route's trailhead is within 1/2 mile of its start. One = use it, several = selector, none = the
      * rider adds one on the map. Box query on the stored bounds, then an exact haversine check.
      */
-    fun trailheadsNear(lat: Double, lon: Double, radiusMiles: Double = 0.5): List<TrailheadCandidate> {
-        val db = spatialDb ?: return emptyList()
-        val dLat = radiusMiles / 69.0
-        val dLon = radiusMiles / (69.0 * Math.cos(Math.toRadians(lat))).coerceAtLeast(0.01)
-        val out = mutableListOf<TrailheadCandidate>()
-        try {
-            db.rawQuery(
-                "SELECT waypoint_id, name, geometry FROM waypoints WHERE type='trailhead' AND " +
-                    "(min_lat IS NULL OR (max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?))",
-                arrayOf((lat - dLat).toString(), (lat + dLat).toString(),
-                    (lon - dLon).toString(), (lon + dLon).toString())
-            ).use { c ->
-                while (c.moveToNext()) {
-                    val g = c.getString(2) ?: continue
-                    val p = g.removePrefix("POINT(").removeSuffix(")").trim().split(" ")
-                    if (p.size < 2) continue
-                    val wLon = p[0].toDoubleOrNull() ?: continue
-                    val wLat = p[1].toDoubleOrNull() ?: continue
-                    val mi = ConvoyEngine.haversineMiles(lat, lon, wLat, wLon).toDouble()
-                    val id = c.getString(0) ?: continue
-                    if (mi <= radiusMiles) {
-                        out += TrailheadCandidate(id, c.getString(1) ?: "Trailhead", wLat, wLon, mi)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "trailheadsNear error: " + e.message)
-        }
-        return out.sortedBy { it.miles }
-    }
+    fun trailheadsNear(lat: Double, lon: Double, radiusMiles: Double = 0.5): List<TrailheadCandidate> = withLookups(emptyList()) { it.trailheadsNear(lat, lon, radiusMiles).map { h -> TrailheadCandidate(h.waypointId, h.name, h.lat, h.lon, h.miles) } }   // STEP7-2026-11-07: shared GtRead
 
     /**
      * Writes the route's trailhead into its RECIPE as the anchor, so the route carries it from then
@@ -2582,40 +2270,7 @@ object SpatialDbManager {
      * (setRouteAnchor), copied from the waypoint's own position, so the match is by position (within ~10 m).
      * Returns the name of the first route using it, or null (not a trailhead, or no route uses it).
      */
-    fun routeUsingTrailhead(waypointId: String): String? {
-        val db = spatialDb ?: return null
-        try {
-            var wLat = 0.0
-            var wLon = 0.0
-            var isTrailhead = false
-            db.rawQuery("SELECT type, geometry FROM waypoints WHERE waypoint_id=?", arrayOf(waypointId)).use { c ->
-                if (!c.moveToFirst()) return null
-                isTrailhead = (c.getString(0) ?: "") == "trailhead"
-                val p = (c.getString(1) ?: return null).removePrefix("POINT(").removeSuffix(")").trim().split(" ")
-                if (p.size < 2) return null
-                wLon = p[0].toDoubleOrNull() ?: return null
-                wLat = p[1].toDoubleOrNull() ?: return null
-            }
-            if (!isTrailhead) return null
-            val routes = mutableListOf<Pair<String, String>>()
-            db.rawQuery("SELECT route_id, name FROM routes", null).use { c ->
-                while (c.moveToNext()) {
-                    val rid = c.getString(0)
-                    if (rid != null) routes += Pair(rid, c.getString(1) ?: "a route")
-                }
-            }
-            for ((rid, rname) in routes) {
-                val recipe = readRouteNotes(rid)?.optJSONObject("recipe") ?: continue
-                if (!recipe.has("anchorLat") || !recipe.has("anchorLon")) continue
-                val mi = ConvoyEngine.haversineMiles(wLat, wLon,
-                    recipe.optDouble("anchorLat"), recipe.optDouble("anchorLon")).toDouble()
-                if (mi <= 0.006) return rname   // ~10 m
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "routeUsingTrailhead error: " + e.message)
-        }
-        return null
-    }
+    fun routeUsingTrailhead(waypointId: String): String? = withLookups(null) { it.routeUsingTrailhead(waypointId) }   // STEP7-2026-11-07: shared GtRead
 
     // ---- end TRAILHEAD-2026-09-23 ------------------------------------------------------------
 
@@ -2769,6 +2424,7 @@ object SpatialDbManager {
 
         /** Close both databases. Call on app teardown. */
     fun close() {
+        closeLookups()   // STEP7-2026-11-07
         spatialDb?.close()
         extensionDb?.close()
         spatialDb = null

@@ -26,7 +26,7 @@ object GtCertRun {
     fun runIfRequested(ctx: Context) {
         val request = GroupTrackStorage.dir("cert_run.request", ctx)
         if (!request.exists()) return
-        // GTCERTW-2026-11-06: what the request file says -- "writes" = only the writes (step 10), "all" = reads then writes, empty = reads
+        // GTCERTW-2026-11-06: what the request file says -- "writes" = only the writes (step 10), "all" = reads then writes, empty = reads; "lookups" = only the app's lookups (STEP7)
         val mode = try { request.readText().trim().lowercase() } catch (_: Exception) { "" }
         val deleted = request.delete()
         Log.i(TAG, "GTCERT request found (deleted=$deleted, mode='$mode') -- whole-database run starting")
@@ -47,7 +47,12 @@ object GtCertRun {
                 val out = java.io.File(app.cacheDir, "GroupTrack_CERT_droid_$stamp.txt")
                 out.bufferedWriter().use { w ->
                     w.write("# GTCERT droid ${android.os.Build.MODEL} $stamp spatial=${db.path}\n")
-                    if (mode != "writes") {
+                    // STEP7-2026-11-07: "lookups" = ONLY the app's own lookup functions (SpatialDbManager, now on GtRead) through CertRead, written as
+                    // OLD lines -- compared with the SAVED 2.7e lines of run 2026-11-06_1606 (cert_baseline_2026-11-07.py). No NEW side, no Mac.
+                    if (mode == "lookups") { var o = 0
+                        com.grouptrack.shared.cert.CertRead.run(OldRead, conn, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT app: $p ($o lines)") })
+                        Log.i(TAG, "GTCERT app lookups: $o lines in ${(System.currentTimeMillis() - t0) / 1000} s") }
+                    if (mode != "writes" && mode != "lookups") {
                         var n = 0
                         GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
                         com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn,
