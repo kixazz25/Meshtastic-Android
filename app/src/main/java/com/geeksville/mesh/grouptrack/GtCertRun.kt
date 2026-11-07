@@ -26,8 +26,10 @@ object GtCertRun {
     fun runIfRequested(ctx: Context) {
         val request = GroupTrackStorage.dir("cert_run.request", ctx)
         if (!request.exists()) return
+        // GTCERTW-2026-11-06: what the request file says -- "writes" = only the writes (step 10), "all" = reads then writes, empty = reads
+        val mode = try { request.readText().trim().lowercase() } catch (_: Exception) { "" }
         val deleted = request.delete()
-        Log.i(TAG, "GTCERT request found (deleted=$deleted) -- whole-database run starting")
+        Log.i(TAG, "GTCERT request found (deleted=$deleted, mode='$mode') -- whole-database run starting")
         val app = ctx.applicationContext
         Thread {
             val t0 = System.currentTimeMillis()
@@ -45,15 +47,18 @@ object GtCertRun {
                 val out = java.io.File(app.cacheDir, "GroupTrack_CERT_droid_$stamp.txt")
                 out.bufferedWriter().use { w ->
                     w.write("# GTCERT droid ${android.os.Build.MODEL} $stamp spatial=${db.path}\n")
-                    var n = 0
-                    GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
-                    com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn,
-                        { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })   // GTCERT-2B-2026-11-06
-                    Log.i(TAG, "GTCERT new side: $n lines in ${(System.currentTimeMillis() - t0) / 1000} s")
-                    val t1 = System.currentTimeMillis(); var o = 0
-                    runOld(conn, db, edb, saved, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })
-                    com.grouptrack.shared.cert.CertRead.run(OldRead, conn, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })   // GTCERT-2B-2026-11-06
-                    Log.i(TAG, "GTCERT old side: $o lines in ${(System.currentTimeMillis() - t1) / 1000} s")
+                    if (mode != "writes") {
+                        var n = 0
+                        GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
+                        com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn,
+                            { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })   // GTCERT-2B-2026-11-06
+                        Log.i(TAG, "GTCERT new side: $n lines in ${(System.currentTimeMillis() - t0) / 1000} s")
+                        val t1 = System.currentTimeMillis(); var o = 0
+                        runOld(conn, db, edb, saved, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })
+                        com.grouptrack.shared.cert.CertRead.run(OldRead, conn, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })   // GTCERT-2B-2026-11-06
+                        Log.i(TAG, "GTCERT old side: $o lines in ${(System.currentTimeMillis() - t1) / 1000} s")
+                    }
+                    if (mode == "writes" || mode == "all") runWrites(app, db, edb, w)   // GTCERTW-2026-11-06
                 }
                 try { conn.close() } catch (_: Exception) {}; try { dconn?.close() } catch (_: Exception) {}
                 val name = ImportConverter.saveToDownloads(app, out)
@@ -62,6 +67,75 @@ object GtCertRun {
                 Log.e(TAG, "GTCERT failed after ${(System.currentTimeMillis() - t0) / 1000} s: $e", e)
             }
         }.start()
+    }
+
+    /** GTCERTW-2026-11-06: 2.7e's SpatialDbManager write functions as the OLD side of step 10 -- called while its handles point at a COPY. */
+    private object OldWrite : com.grouptrack.shared.cert.CertWrite.Api {
+        override fun insertWaypointWithId(id: String, name: String, lat: Double, lon: Double, type: String) = SpatialDbManager.insertWaypointWithId(id, name, lat, lon, type)
+        override fun renameWaypoint(id: String, n: String) { SpatialDbManager.renameWaypoint(id, n) }
+        override fun deleteWaypoint(id: String) { SpatialDbManager.deleteWaypoint(id) }
+        override fun changeWaypointType(id: String, t: String) { SpatialDbManager.changeWaypointType(id, t) }
+        override fun insertRoute(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) = SpatialDbManager.insertRoute(name, wkt, a, b, c, d)
+        override fun renameRoute(id: String, n: String) { SpatialDbManager.renameRoute(id, n) }
+        override fun deleteRoute(id: String) { SpatialDbManager.deleteRoute(id) }
+        override fun writeRouteNotes(routeId: String, notesJson: String) = SpatialDbManager.writeRouteNotes(routeId, org.json.JSONObject(notesJson))
+        override fun deleteRouteNotes(routeId: String) = SpatialDbManager.deleteRouteNotes(routeId)
+        override fun setRouteAnchor(routeId: String, lat: Double, lon: Double, name: String) = SpatialDbManager.setRouteAnchor(routeId, lat, lon, name)
+        override fun addAlias(type: String, id: String, name: String, hash: String) { SpatialDbManager.addAlias(type, id, name, hash, null) }
+        override fun renameAlias(aliasId: String, t: String) { SpatialDbManager.renameAlias(aliasId, t) }
+        override fun deleteAlias(aliasId: String) { SpatialDbManager.deleteAlias(aliasId) }
+        override fun setPreferredAlias(type: String, id: String, aliasId: String) { SpatialDbManager.setPreferredAlias(type, id, aliasId) }
+        override fun insertTrack(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) =
+            SpatialDbManager.insertTrackToDb(name, wkt, a, b, c, d).let { "${it.wasNew},${it.trackId},${it.geomHash},${it.name}" }
+        override fun renameTrack(id: String, n: String) { SpatialDbManager.renameTrackInDb(id, n) }
+        override fun deleteTrack(id: String) { SpatialDbManager.deleteTrackFromDb(id) }
+        override fun beginDedup() { SpatialDbManager.beginDedupSession() }
+        override fun endDedup() { SpatialDbManager.endDedupSession() }
+        override fun sourceUidSeen(s: String, u: String) = SpatialDbManager.sourceUidSeen(s, u)
+        override fun markSourceUid(s: String, u: String) { SpatialDbManager.markSourceUid(s, u) }
+        override fun insertTrail(id: String, name: String?, wkt: String, a: Double, b: Double, c: Double, d: Double, created: String) =
+            SpatialDbManager.insertTrail(id, name, wkt, a, b, c, d, created).let { "${it.first},${it.second}" }
+        override fun deleteTrail(id: String) { SpatialDbManager.deleteTrailFromDb(id) }
+        override fun clearAllTrails() = SpatialDbManager.clearAllTrailData().let { "${it.trails},${it.properties},${it.aliases},${it.error}" }
+    }
+
+    /**
+     * GTCERTW-2026-11-06: step 10 -- the WRITES, on two COPIES of the live databases in the app's cache (never the live files):
+     * NEW = the shared GtWrite on copy "new"; OLD = 2.7e's SpatialDbManager with its two handles pointed at copy "old" for the run and
+     * put back afterwards (finally). The copies are deleted at the end. GPX files are never touched (the script only deletes tracks it made).
+     */
+    private fun runWrites(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, w: java.io.Writer) {
+        val e = edb ?: run { Log.e(TAG, "GTCERTW no data database -- writes not run"); return }
+        val dir = java.io.File(app.cacheDir, "gtcertw"); dir.deleteRecursively(); dir.mkdirs()
+        val tracksDir = com.geeksville.mesh.convoy.ConvoyTrackOps.tracksDir()
+        val exists: (String) -> Boolean = { h -> java.io.File(tracksDir, "$h.gpx").exists() }
+        fun copy(tag: String): Pair<String, String> {
+            val s = java.io.File(dir, "$tag-spatial.db"); val x = java.io.File(dir, "$tag-data.db")
+            java.io.File(db.path).copyTo(s, true); java.io.File(e.path).copyTo(x, true); return s.path to x.path
+        }
+        val t0 = System.currentTimeMillis()
+        val (ns, ne) = copy("new"); val (os, oe) = copy("old")
+        Log.i(TAG, "GTCERTW copies made in ${(System.currentTimeMillis() - t0) / 1000} s")
+        try {
+            val c = gtOpenDatabase(ns, false); val d = gtOpenDatabase(ne, false)
+            try {
+                val gw = com.grouptrack.shared.spatial.GtWrite(c, d, { java.util.UUID.randomUUID().toString() }, { java.time.Instant.now().toString() })
+                com.grouptrack.shared.cert.CertWrite.run(com.grouptrack.shared.cert.CertWrite.Shared(gw), c, d, exists, { l -> w.write("NEW|$l\n") }, { p -> Log.i(TAG, "GTCERT new: $p") })
+            } finally { c.close(); d.close() }
+            val oS = SQLiteDatabase.openDatabase(os, null, SQLiteDatabase.OPEN_READWRITE)
+            val oE = SQLiteDatabase.openDatabase(oe, null, SQLiteDatabase.OPEN_READWRITE)
+            val prev = SpatialDbManager.certSwapDatabases(oS, oE)
+            try {
+                val c2 = gtOpenDatabase(os, true); val d2 = gtOpenDatabase(oe, true)
+                try { com.grouptrack.shared.cert.CertWrite.run(OldWrite, c2, d2, exists, { l -> w.write("OLD|$l\n") }, { p -> Log.i(TAG, "GTCERT old: $p") }) }
+                finally { c2.close(); d2.close() }
+            } finally {
+                SpatialDbManager.certSwapDatabases(prev.first, prev.second)
+                try { oS.close() } catch (_: Exception) {}; try { oE.close() } catch (_: Exception) {}
+                Log.i(TAG, "GTCERTW live handles restored")
+            }
+        } finally { dir.deleteRecursively() }
+        Log.i(TAG, "GTCERTW writes done in ${(System.currentTimeMillis() - t0) / 1000} s")
     }
 
     /** GTCERT-2B-2026-11-06: 2.7e's SpatialDbManager reading functions as the OLD side of the batch-2b cases. */

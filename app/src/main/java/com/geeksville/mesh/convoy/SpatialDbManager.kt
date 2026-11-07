@@ -509,6 +509,21 @@ object SpatialDbManager {
     fun getExtensionDb(): SQLiteDatabase? = extensionDb
 
     /**
+     * GTCERTW-2026-11-06 ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): points this manager's two handles
+     * at other databases and returns the previous pair, so the certification run can drive 2.7e's own write functions against COPIES
+     * of the databases and then put the live handles back (GtCertRun.runWrites, in a finally).
+     * CODE RULE 1: both nullable because the pair being put BACK may hold null -- 2.7e runs with no data database open (see init) and
+     * the swap must restore exactly what was there.
+     */
+    @Synchronized
+    fun certSwapDatabases(spatial: SQLiteDatabase?, extension: SQLiteDatabase?): Pair<SQLiteDatabase?, SQLiteDatabase?> {
+        val prev = spatialDb to extensionDb
+        spatialDb = spatial; extensionDb = extension
+        android.util.Log.i("CertRun", "GTCERTW handles now ${spatial?.path} / ${extension?.path}")
+        return prev
+    }
+
+    /**
      * Query trails by viewport bounding box.
      * Returns list of [trail_id, name, geometry_wkt]
      */

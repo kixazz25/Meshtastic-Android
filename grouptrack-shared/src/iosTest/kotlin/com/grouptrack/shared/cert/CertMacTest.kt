@@ -36,17 +36,32 @@ class CertMacTest {
         fun s(k: String, d: String) = (keys[k] as? JsonPrimitive)?.contentOrNull ?: d
         val saved = GtCert.Combo("saved", s("land", "PUBLIC").uppercase(), (keys["restricted"] as? JsonPrimitive)?.booleanOrNull ?: true,
             s("use", "ALL").uppercase(), (keys["off"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }?.toSet() ?: emptySet())
+        // GTCERTW-2026-11-06: cert_mode.txt (written by gt_cert_v4.sh) -- "writes" = only the writes, "all" = reads then writes, none = reads
+        val modeFile = "$outDir/cert_mode.txt".toPath()
+        val mode = if (fs.exists(modeFile)) fs.read(modeFile) { readUtf8() }.trim().lowercase() else ""
         val stamp = NSDateFormatter().apply { dateFormat = "yyyy-MM-dd_HHmm" }.stringFromDate(NSDate())
         fs.createDirectories(outDir.toPath())
         val out = "$outDir/GroupTrack_CERT_mac_$stamp.txt".toPath()
         var n = 0
         fs.write(out) {
             writeUtf8("# GTCERT mac $stamp spatial=$spatial\n")
-            GtCert.runNew(conn, dconn, saved, { id -> notes(dconn, id) }, { l -> writeUtf8("MAC|$l\n"); n++ }, { p -> println("GTCERT mac: $p ($n lines)") })
-            CertRead.run(CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, { l -> writeUtf8("MAC|$l\n"); n++ }, { p -> println("GTCERT mac: $p ($n lines)") })   // GTCERT-2B-2026-11-06
+            if (mode != "writes") {
+                GtCert.runNew(conn, dconn, saved, { id -> notes(dconn, id) }, { l -> writeUtf8("MAC|$l\n"); n++ }, { p -> println("GTCERT mac: $p ($n lines)") })
+                CertRead.run(CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, { l -> writeUtf8("MAC|$l\n"); n++ }, { p -> println("GTCERT mac: $p ($n lines)") })   // GTCERT-2B-2026-11-06
+            }
+            // GTCERTW-2026-11-06: the writes, on a COPY of the Mac's copy of Droid 1's databases
+            if ((mode == "writes" || mode == "all") && dconn != null) {
+                val tmp = "$outDir/w_tmp"; fs.deleteRecursively(tmp.toPath()); fs.createDirectories(tmp.toPath())
+                fs.copy(spatial.toPath(), "$tmp/spatial.db".toPath()); fs.copy(data.toPath(), "$tmp/data.db".toPath())
+                val wc = gtOpenDatabase("$tmp/spatial.db", false); val wd = gtOpenDatabase("$tmp/data.db", false)
+                var k = 0
+                val gw = com.grouptrack.shared.spatial.GtWrite(wc, wd, { platform.Foundation.NSUUID().UUIDString.lowercase() }, { "T" + (k++) })
+                CertWrite.run(CertWrite.Shared(gw), wc, wd, { h -> fs.exists("$dataDir/my_tracks/$h.gpx".toPath()) }, { l -> writeUtf8("MAC|$l\n"); n++ }, { p -> println("GTCERT mac: $p ($n lines)") })
+                wc.close(); wd.close(); fs.deleteRecursively(tmp.toPath())
+            }
         }
         conn.close(); dconn?.close()
-        println("GTCERT mac done: $n lines -> $out")
+        println("GTCERT mac done (mode='$mode'): $n lines -> $out")
     }
 
     /** (headline, notes JSON) for a route: the stored payload as it is, its narrative headline. */
