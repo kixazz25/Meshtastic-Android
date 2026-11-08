@@ -95,7 +95,7 @@ object GtCertRoutes {
 
     /** a draft as org.json reads it (so "2" and "2.0" are the same number), the two clock fields removed. */
     private fun canon(j: String?): String = if (j == null) "MISSING" else try {
-        val o = org.json.JSONObject(j); o.remove("createdAt"); o.remove("updatedAt"); o.toString()
+        val o = org.json.JSONObject(j); o.remove("createdAt"); o.remove("updatedAt"); o.optJSONObject("notes")?.remove("generated"); o.toString()   // STEP13C-E: the third clock field
     } catch (e: Exception) { "BADJSON $e" }
 
     /** every saved route's AI recipe (once each), then the two made-up requests near the first recipe's start. */
