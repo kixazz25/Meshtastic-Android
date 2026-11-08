@@ -23,6 +23,10 @@ import com.grouptrack.shared.db.gtOpenDatabase
 object GtCertRun {
     private const val TAG = "CertRun"
 
+    /** STEP14C-G-2026-11-08: true from the moment a request is taken until the app process ends. DbAudit's startup repair checks it
+     *  and does not run: the cert run swaps SpatialDbManager's handles, and the repair reads them at two different moments. */
+    @Volatile var active = false
+
     fun runIfRequested(ctx: Context) {
         val request = GroupTrackStorage.dir("cert_run.request", ctx)
         if (!request.exists()) return
@@ -30,6 +34,7 @@ object GtCertRun {
         val mode = try { request.readText().trim().lowercase() } catch (_: Exception) { "" }
         val deleted = request.delete()
         Log.i(TAG, "GTCERT request found (deleted=$deleted, mode='$mode') -- whole-database run starting")
+        active = true   // STEP14C-G-2026-11-08: DbAudit's repair stays off for this app run
         val app = ctx.applicationContext
         Thread {
             val t0 = System.currentTimeMillis()
@@ -79,7 +84,11 @@ object GtCertRun {
                     if (mode == "routes") { val fz = frozen(app)
                         if (fz == null) Log.e(TAG, "GTCERT failed: no frozen copy on this Droid -- run gt_cert with mode freeze first")
                         else { w.write("# frozen=${fz.stamp}\n"); GtCertRoutes.run(fz.spatial, fz.data, w) } }
-                    if (mode != "writes" && mode != "lookups" && mode != "freeze" && mode != "routes") {   // STEP8B-2026-11-07, STEP13C
+                    // STEP14C-2026-11-08: "rides" = the ride model, 2.7e ConvoyRideStore & co vs shared GtRides, on copies of the frozen copy
+                    if (mode == "rides") { val fz = frozen(app)
+                        if (fz == null) Log.e(TAG, "GTCERT failed: no frozen copy on this Droid -- run gt_cert with mode freeze first")
+                        else { w.write("# frozen=${fz.stamp}\n"); GtCertRides.run(app, fz.spatial, fz.data, fz.stamp, w) } }
+                    if (mode != "writes" && mode != "lookups" && mode != "freeze" && mode != "routes" && mode != "rides") {   // STEP8B-2026-11-07, STEP13C
                         var n = 0
                         GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
                         com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, com.grouptrack.shared.cert.CertRead.TrailSample.ALL /* STEP8-2026-11-07 */,

@@ -29,6 +29,8 @@ object GtDbAudit {
         try { db.rawQuery(sql, null).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 } } catch (e: Exception) { rlog("count failed: ${e.message}"); 0 }
 
     private fun repairNow(ctx: Context) {
+        // STEP14C-G-2026-11-08 (TEST-ONLY, removed with GtCertRun): never during a certification run (swapped database handles)
+        if (GtCertRun.active) { rlog("skipped: a certification run is using swapped database handles"); return }
         SpatialDbManager.init(ctx)
         val sp = SpatialDbManager.getSpatialDb() ?: run { rlog("spatial database not open"); return }
         val t0 = System.currentTimeMillis()
