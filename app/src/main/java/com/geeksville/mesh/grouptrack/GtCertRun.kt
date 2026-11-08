@@ -75,7 +75,11 @@ object GtCertRun {
                             Log.i(TAG, "GTCERT app lookups: $o lines in ${(System.currentTimeMillis() - t0) / 1000} s")
                         }
                     }
-                    if (mode != "writes" && mode != "lookups" && mode != "freeze") {   // STEP8B-2026-11-07
+                    // STEP13C-2026-11-07: "routes" = the route builder, 2.7e RouteExplorer vs shared GtRoute, on the frozen copy (read-only)
+                    if (mode == "routes") { val fz = frozen(app)
+                        if (fz == null) Log.e(TAG, "GTCERT failed: no frozen copy on this Droid -- run gt_cert with mode freeze first")
+                        else { w.write("# frozen=${fz.stamp}\n"); GtCertRoutes.run(fz.spatial, fz.data, w) } }
+                    if (mode != "writes" && mode != "lookups" && mode != "freeze" && mode != "routes") {   // STEP8B-2026-11-07, STEP13C
                         var n = 0
                         GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
                         com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, com.grouptrack.shared.cert.CertRead.TrailSample.ALL /* STEP8-2026-11-07 */,
