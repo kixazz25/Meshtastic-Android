@@ -1,75 +1,25 @@
 package com.geeksville.mesh.convoy
 
-/**
- * RIDESEAM-2026-09-24 — the ride list for the standalone T1000-E write ("Apply Ride"), read from the
- * STORED ride JSONs (rides/<rideId>.json -- rides created on this tablet, and later imported ones, which are
- * stored in the same folder). The field names match what ConvoyApplyRadioScreen already reads from
- * the old event store (eventId, eventName, eventDate, channelName, channelPsk), so the screen changes
- * only where the list is loaded. The LoRa values come from the ride's network.mesh, so a ride on a
- * different preset writes that preset. "Apply Master Config" is untouched: it still applies the asset.
+import com.grouptrack.shared.ride.GtRideApply as Shared
+
+/*
+ * STEP14-2026-11-08 (2.8): RideApplySource is now the Android face of the SHARED ride list (com.grouptrack.shared.ride.GtRideApply --
+ * a line-for-line port of this file's 2.7e body, RIDESEAM-2026-09-24 / DATEFILTER-2026-09-24). 2.7e's code is in git history.
+ * RideForApply is top-level, so it is a typealias of the shared class (same fields, same constructor): ConvoyApplyRadioScreen and
+ * the other readers compile unchanged.
  */
-data class RideForApply(
-    val eventId: String,
-    val eventName: String,
-    val eventDate: String,
-    val channelName: String,
-    val channelPsk: String,          // base64, as the old store held it and the builder decodes it
-    val loraRegion: String,
-    val loraModemPreset: String,
-    val loraHopLimit: Int,
-    val loraTxPower: Int,
-    val loraChannelNum: Int
-)
+
+typealias RideForApply = com.grouptrack.shared.ride.RideForApply
 
 object RideApplySource {
 
-    /**
-     * DATEFILTER-2026-09-24 (Fred): which rides the Send and Apply lists offer. Today or later by
-     * default; with includeRecent, the last 30 days too (the ride file's own lifetime). A date that
-     * cannot be read is kept -- Send and Apply judge the ride themselves.
-     */
-    fun isCurrent(date: String, includeRecent: Boolean): Boolean {
-        val d = parseDate(date) ?: return true
-        val cutoff = java.time.LocalDate.now().minusDays(if (includeRecent) 30L else 0L)
-        return !d.isBefore(cutoff)
-    }
+    init { GtRidesAndroid.ready() }
 
-    /** Accepts 2026-09-30 and also older typed forms such as 2026-9-3. */
-    private fun parseDate(s: String): java.time.LocalDate? = try {
-        val p = s.trim().split("-").map { it.toInt() }
-        if (p.size == 3) java.time.LocalDate.of(p[0], p[1], p[2]) else null
-    } catch (e: Exception) { null }
+    /** DATEFILTER-2026-09-24 (Fred): today or later by default; with includeRecent, the last 30 days too. Unreadable dates are kept. */
+    fun isCurrent(date: String, includeRecent: Boolean): Boolean = Shared.isCurrent(date, includeRecent)
 
-    /** Every stored ride with a complete network block, earliest date first. Incomplete files are skipped. */
-    fun loadAll(context: android.content.Context, includeRecent: Boolean = false): List<RideForApply> {
-        ConvoyRideStore.healFromFiles(context) // RIDEHEAL-2026-09-26: every ride list sees a reconciled library
-        val dir = GroupTrackStorage.dir("rides", context)
-        val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") } ?: return emptyList()
-        return files.mapNotNull { f ->
-            try {
-                val j = org.json.JSONObject(f.readText())
-                if (j.optString("kind") != "grouptrack.ride") return@mapNotNull null
-                val ride = j.optJSONObject("ride") ?: return@mapNotNull null
-                val mesh = j.optJSONObject("network")?.optJSONObject("mesh") ?: return@mapNotNull null
-                val name = mesh.optString("channelName", "")
-                val key = mesh.optString("key", "")
-                if (name.isBlank() || key.isBlank()) return@mapNotNull null
-                RideForApply(
-                    eventId = ride.optString("rideId", f.nameWithoutExtension),
-                    eventName = ride.optString("name", "Ride"),
-                    eventDate = ride.optString("date", ""),
-                    channelName = name,
-                    channelPsk = key,
-                    loraRegion = mesh.optString("region", "US"),
-                    loraModemPreset = mesh.optString("preset", "LONG_FAST"),
-                    loraHopLimit = mesh.optInt("hopLimit", 3),
-                    loraTxPower = mesh.optInt("txPower", 27),
-                    loraChannelNum = mesh.optInt("frequencySlot", 0)
-                )
-            } catch (e: Exception) {
-                android.util.Log.w("RideApplySource", "skipped ${f.name}: ${e.message}")
-                null
-            }
-        }.filter { isCurrent(it.eventDate, includeRecent) }.sortedBy { it.eventDate }   // DATEFILTER-2026-09-24
-    }
+    /** Every stored ride with a complete network block, earliest date first. Incomplete files are skipped.
+     *  CODE RULE 1 (2.7e's default): includeRecent = false is the Apply list (today or later). */
+    fun loadAll(context: android.content.Context, includeRecent: Boolean = false): List<RideForApply> =
+        Shared.loadAll(GtRidesAndroid.Files(context), includeRecent)
 }

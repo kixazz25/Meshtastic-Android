@@ -1323,6 +1323,24 @@ object GtRideJson {
         if (at <= 0) return routeGpx
         return routeGpx.substring(0, at) + "\n" + wpts + routeGpx.substring(at)
     }
+
+    // STEP14E-2026-11-08 (Fred 12:48): the two GPX attachments for riders WITHOUT GroupTrack, added with the switch so the package's
+    // standard (what a send carries) changes only with a database change. They are cut from the package's OWN gpx -- the same bytes
+    // the package carries -- so they can never disagree with it: the route alone, and the trailhead + ride waypoints alone.
+    /** CODE RULE 1: [waypoints] is null when the ride carries no waypoints, or the GPX has no <gpx> tag to copy -- no file is attached. */
+    class GpxAttachments(val route: String, val waypoints: String?)
+
+    fun splitGpx(gpx: String): GpxAttachments {
+        val w = WPT.findAll(gpx).map { it.value }.toList()
+        if (w.isEmpty()) return GpxAttachments(gpx, null)
+        val route = Regex("<wpt\\b[\\s\\S]*?</wpt>\\n?").replace(gpx, "")
+        // the header up to where mergeWpts puts waypoints: after </metadata>, else after the <gpx ...> tag
+        val meta = route.indexOf("</metadata>")
+        val at = if (meta >= 0) meta + "</metadata>".length
+                 else route.indexOf('>', route.indexOf("<gpx")).let { if (it < 0) -1 else it + 1 }
+        if (at <= 0) return GpxAttachments(route, null)
+        return GpxAttachments(route, route.substring(0, at) + "\n" + w.joinToString("\n") + "\n</gpx>\n")
+    }
 }
 
 // =====================================================================================================================================
