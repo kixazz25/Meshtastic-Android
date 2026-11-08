@@ -186,6 +186,7 @@ object StartupHousekeeping {
      *    fails, init() must NOT go on to open a half-moved store.
      */
     fun run(ctx: Context): Result {
+        if (com.geeksville.mesh.grouptrack.GtCertGuard.skip("StartupHousekeeping.run")) return Result(ran = false, cleared = 0, needsReload = false)   // STEP15A-2026-11-08 cert mode (TEST-ONLY): jobSchemaConverge deletes every trail when its marker is missing
         Log.i(TAG, "=== HOUSEKEEPING START ===")
         val started = System.currentTimeMillis()
         // ══════════════════════════════════════════════════════════

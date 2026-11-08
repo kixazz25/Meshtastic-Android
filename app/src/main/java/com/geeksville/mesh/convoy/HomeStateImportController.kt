@@ -127,6 +127,7 @@ object HomeStateImportController {
 
     @Synchronized
     fun beginImport(): Boolean {
+        if (com.geeksville.mesh.grouptrack.GtCertGuard.skip("home-state import (beginImport)")) return false   // STEP15A-2026-11-08 cert mode (TEST-ONLY)
         if (isImporting) return false
         killedImportArea = null   // KILLEDIMPORT-2026-10-02: a new import answers the banner
         return true
@@ -348,6 +349,7 @@ object HomeStateImportController {
         leftOut: List<String>
     ): Boolean =
         withContext(Dispatchers.IO) {
+            if (com.geeksville.mesh.grouptrack.GtCertGuard.skip("home-state import (executeRun)")) return@withContext false   // STEP15A-2026-11-08 cert mode (TEST-ONLY)
             val startMs = System.currentTimeMillis()
             Log.i(TAG, "Starting import: $areaLabel type=$areaType " +
                 "states=${states.size} bbox S=$bboxSouth W=$bboxWest N=$bboxNorth E=$bboxEast")
@@ -1460,6 +1462,7 @@ object HomeStateImportController {
      * Returns rows removed, or -1 when it did not run.
      */
     fun clearTrailsOnce(ctx: Context): Int {
+        if (com.geeksville.mesh.grouptrack.GtCertGuard.skip("clearTrailsOnce")) return -1   // STEP15A-2026-11-08 cert mode (TEST-ONLY): -1 = did not clear
         // TRAILCLEAR-2026-08-24L: NEW NAME. K's marker already exists on any
         // device that ran the broken clear, and reusing it would leave those
         // devices with orphaned trail_properties forever. A corrected clear
@@ -1612,6 +1615,7 @@ object HomeStateImportController {
     }
 
     fun sweepManifests(ctx: Context): Int {
+        if (com.geeksville.mesh.grouptrack.GtCertGuard.skip("sweepManifests")) return 0   // STEP15A-2026-11-08 cert mode (TEST-ONLY)
         val dir = importsDir(ctx)
         val history = File(dir, "history").apply { if (!exists()) mkdirs() }
         // MARKERFIX-2026-08-25M: A MANIFEST HAS A `sources` ARRAY. Filtering

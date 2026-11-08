@@ -1128,6 +1128,7 @@ object DownloadQueueManager {
     @Synchronized   // VECONE-2026-11-01: one picker at a time -- 10-31 18:14 14 jobs got 22 worker launches
     private fun startNextIfAvailable() {
         if (!initialized) return
+        if (com.geeksville.mesh.grouptrack.GtCertGuard.skip("DownloadQueueManager start")) return   // STEP15A-2026-11-08 cert mode (TEST-ONLY): no tile job starts (they read geometry through the handles)
         if (queuePaused) return
         val current = _queue.value
         val running = current.count { it.status == QueueStatus.DOWNLOADING }

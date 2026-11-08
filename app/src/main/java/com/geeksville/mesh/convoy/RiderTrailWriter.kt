@@ -370,7 +370,8 @@ object RiderTrailWriter {
         }
 
         SpatialDbManager.beginDedupSession()
-
+        try {   // STEP15A-2026-11-08 (owner decision 6): the session is ended on every way out -- 2.7e never ended it, so
+                //   clearAllTrailData refused ("an import is running") for the rest of the session after a scan
         val produced = HashSet<String>()
         val runPieces = ArrayList<List<RiderTrailScanner.Pt>>()   // this run's pieces -- network for the tracks after
         var added = 0; var unchanged = 0
@@ -405,6 +406,9 @@ object RiderTrailWriter {
             .format(addedMi) + "$unchanged unchanged, $removed removed; total %.2f mi; $tracksRemoved unnamed track(s) removed"
             .format(totalMi))
         return Result(ids.size, added, addedMi, tracksRemoved, added + unchanged, removed, unchanged, totalMi)
+        } finally {
+            SpatialDbManager.endDedupSession()   // STEP15A-2026-11-08
+        }
     }
 
     /** RIDERIDS-2026-10-09: this run's pieces whose box touches the track's box (+ the candidate margin). */
