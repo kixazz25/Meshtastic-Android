@@ -1709,12 +1709,12 @@ fun GroupTrackScreen(
                                         ).show()
                                     },
                                 shape = RoundedCornerShape(8.dp),
-                                color = Gt.text,
+                                color = Gt.button,   // LEADCART-2026-11-08 (Fred): was Gt.text -- white text on a white button
                                 shadowElevation = 2.dp
                             ) {
                                 Text(
                                     node.callsign,
-                                    color = Gt.text,
+                                    color = Gt.buttonText,   // LEADCART-2026-11-08
                                     fontSize = 15.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
