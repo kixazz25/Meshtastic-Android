@@ -982,30 +982,10 @@ ConvoyCorridorDelete.kt:210:        val distinctList = distinct.toList()
 ConvoyCorridorDelete.kt:211:        val onDisk = LinkedHashMap<String, Int>()
 ConvoyCorridorDelete.kt:215:        val onDiskTotal = onDisk.values.sum()
 ConvoyCorridorDelete.kt:217:        val result = PreviewResult(
-RideApplySource.kt:11:data class RideForApply(
-RideApplySource.kt:12:    val eventId: String,
-RideApplySource.kt:13:    val eventName: String,
-RideApplySource.kt:14:    val eventDate: String,
-RideApplySource.kt:15:    val channelName: String,
-RideApplySource.kt:17:    val loraRegion: String,
-RideApplySource.kt:18:    val loraModemPreset: String,
-RideApplySource.kt:19:    val loraHopLimit: Int,
-RideApplySource.kt:20:    val loraTxPower: Int,
-RideApplySource.kt:21:    val loraChannelNum: Int
-RideApplySource.kt:24:object RideApplySource {
-RideApplySource.kt:31:    fun isCurrent(date: String, includeRecent: Boolean): Boolean {
-RideApplySource.kt:32:        val d = parseDate(date) ?: return true
-RideApplySource.kt:33:        val cutoff = java.time.LocalDate.now().minusDays(if (includeRecent) 30L else 0L)
-RideApplySource.kt:38:    private fun parseDate(s: String): java.time.LocalDate? = try {
-RideApplySource.kt:39:        val p = s.trim().split("-").map { it.toInt() }
-RideApplySource.kt:44:    fun loadAll(context: android.content.Context, includeRecent: Boolean = false): List<RideForApply> {
-RideApplySource.kt:46:        val dir = GroupTrackStorage.dir("rides", context)
-RideApplySource.kt:47:        val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") } ?: return emptyList()
-RideApplySource.kt:50:                val j = org.json.JSONObject(f.readText())
-RideApplySource.kt:52:                val ride = j.optJSONObject("ride") ?: return@mapNotNull null
-RideApplySource.kt:53:                val mesh = j.optJSONObject("network")?.optJSONObject("mesh") ?: return@mapNotNull null
-RideApplySource.kt:54:                val name = mesh.optString("channelName", "")
-RideApplySource.kt:55:                val key = mesh.optString("key", "")
+RideApplySource.kt:8: * RideForApply is top-level, so it is a typealias of the shared class (same fields, same constructor): ConvoyApplyRadioScreen and
+RideApplySource.kt:14:object RideApplySource {
+RideApplySource.kt:19:    fun isCurrent(date: String, includeRecent: Boolean): Boolean = Shared.isCurrent(date, includeRecent)
+RideApplySource.kt:23:    fun loadAll(context: android.content.Context, includeRecent: Boolean = false): List<RideForApply> =
 ConvoyDownloadQueuePanel.kt:51:private val mono = FontFamily.Monospace
 ConvoyDownloadQueuePanel.kt:52:private val dateFmt = SimpleDateFormat("MMM d h:mm a", Locale.US)
 ConvoyDownloadQueuePanel.kt:55:fun DownloadQueuePanel(
@@ -1068,6 +1048,52 @@ MapKeysPanel.kt:103:val NON_MOTORIZED_ROWS = listOf(
 MapKeysPanel.kt:114:val CATEGORY_HELP: List<Pair<String, String>> = listOf(
 MapKeysPanel.kt:131:private fun groupOf(name: String): String = when (name) {
 MapKeysPanel.kt:138:val ARTIFACT_ROWS = listOf(
+GtRidesAndroid.kt:27:internal object GtRidesAndroid {
+GtRidesAndroid.kt:50:            networks = object : RideNetworks {
+GtRidesAndroid.kt:51:                override fun load(configId: String): RideNet? = ConvoyNetworkStore.load(configId)?.let { Net(it) }
+GtRidesAndroid.kt:52:                override fun create(owner: RideNetOwner, ownerId: String, name: String): RideNet? =
+GtRidesAndroid.kt:57:                override fun deleteUnused(configId: String) { ConvoyNetworkStore.deleteUnused(configId) }
+GtRidesAndroid.kt:60:            spatial = object : RideSpatial {
+GtRidesAndroid.kt:61:                override fun routeGpx(routeId: String): Pair<String?, String?>? =
+GtRidesAndroid.kt:63:                override fun routeGeomHash(routeId: String): String? = SpatialDbManager.routeGeomHash(routeId)
+GtRidesAndroid.kt:64:                override fun routeRecipe(routeId: String): String? = SpatialDbManager.routeRecipe(routeId)?.toString()
+GtRidesAndroid.kt:65:                override fun waypointGpx(waypointId: String): String? = SpatialDbManager.buildWaypointGpxById(waypointId)?.second
+GtRidesAndroid.kt:66:                override fun routeNotes(routeId: String): String? = SpatialDbManager.readRouteNotes(routeId)?.toString()
+GtRidesAndroid.kt:73:    /** Touch to make sure the environment is set (object initialisation runs once, before any other thread sees it). */
+GtRidesAndroid.kt:74:    fun ready() {}
+GtRidesAndroid.kt:77:    class Files(private val context: Context) : RideFiles {
+GtRidesAndroid.kt:78:        override fun ridesDir(): String = GroupTrackStorage.dir("rides", context).path
+GtRidesAndroid.kt:79:        override fun stagingDir(): String = java.io.File(context.filesDir, "gpx_staging").path
+GtRidesAndroid.kt:80:        override fun child(dir: String, name: String): String = java.io.File(dir, name).path
+GtRidesAndroid.kt:81:        override fun sibling(path: String, name: String): String = java.io.File(java.io.File(path).parentFile, name).path
+GtRidesAndroid.kt:82:        override fun name(path: String): String = java.io.File(path).name
+GtRidesAndroid.kt:83:        override fun list(dir: String): List<String>? = java.io.File(dir).listFiles()?.map { it.name }
+GtRidesAndroid.kt:84:        override fun isFile(path: String): Boolean = java.io.File(path).isFile
+GtRidesAndroid.kt:85:        override fun exists(path: String): Boolean = java.io.File(path).exists()
+GtRidesAndroid.kt:86:        override fun delete(path: String): Boolean = java.io.File(path).delete()
+GtRidesAndroid.kt:87:        override fun mkdirs(path: String): Boolean = java.io.File(path).mkdirs()
+GtRidesAndroid.kt:88:        override fun readText(path: String): String = java.io.File(path).readText()
+GtRidesAndroid.kt:89:        override fun writeText(path: String, text: String) { java.io.File(path).writeText(text) }
+GtRidesAndroid.kt:90:        override fun rename(from: String, to: String): Boolean = java.io.File(from).renameTo(java.io.File(to))
+GtRidesAndroid.kt:91:        override fun length(path: String): Long = java.io.File(path).length()
+GtRidesAndroid.kt:92:        override fun readAsset(name: String): String = context.assets.open(name).bufferedReader().use { it.readText() }
+GtRidesAndroid.kt:97:    class Net(val cfg: com.grouptrack.core.NetworkConfig) : RideNet {
+GtRidesAndroid.kt:98:        override val configId: String? get() = cfg.configId
+GtRidesAndroid.kt:99:        override val displayName: String? get() = cfg.displayName
+GtRidesAndroid.kt:100:        override val jConfigId: String? get() = orgText(cfg.configId)
+GtRidesAndroid.kt:101:        override val jBaseVersion: String? get() = orgText(cfg.baseVersion)
+GtRidesAndroid.kt:102:        override val jOwnerType: String? get() = orgText(cfg.ownerType.db)
+GtRidesAndroid.kt:103:        override val jDisplayName: String? get() = orgText(cfg.displayName)
+GtRidesAndroid.kt:104:        override val jRegion: String? get() = orgText(cfg.region)
+GtRidesAndroid.kt:105:        override val jModemPreset: String? get() = orgText(cfg.modemPreset)
+GtRidesAndroid.kt:106:        override val jHopLimit: String? get() = orgText(cfg.hopLimit)
+GtRidesAndroid.kt:107:        override val jTxPower: String? get() = orgText(cfg.txPower)
+GtRidesAndroid.kt:108:        override val jFrequencySlot: String? get() = orgText(cfg.frequencySlot)
+GtRidesAndroid.kt:109:        override val jRole: String? get() = orgText(cfg.role)
+GtRidesAndroid.kt:110:        override val jPsk: String? get() = orgText(cfg.psk)
+GtRidesAndroid.kt:111:        override val jNetworkSsid: String? get() = orgText(cfg.networkSsid)
+GtRidesAndroid.kt:112:        override val jNetworkPassword: String? get() = orgText(cfg.networkPassword)
+GtRidesAndroid.kt:118:    private fun orgText(v: Any?): String? =
 SyncTracksDialog.kt:37:fun SyncTracksDialog(
 SyncTracksDialog.kt:44:    val syncListState = rememberLazyListState()
 SyncTracksDialog.kt:58:                val res = syncResult
@@ -1682,18 +1708,18 @@ StartupHousekeeping.kt:65:    data class Result(
 StartupHousekeeping.kt:69:        val error: String? = null,
 StartupHousekeeping.kt:102:    fun everyLaunch(ctx: Context) {
 StartupHousekeeping.kt:188:    fun run(ctx: Context): Result {
-StartupHousekeeping.kt:190:        val started = System.currentTimeMillis()
-StartupHousekeeping.kt:220:        val result = jobSchemaConverge(ctx)
-StartupHousekeeping.kt:231:            val own = OwnershipReclass.ownershipFile()
-StartupHousekeeping.kt:236:        val ms = System.currentTimeMillis() - started
-StartupHousekeeping.kt:259:    private fun jobPalette(ctx: Context) {
-StartupHousekeeping.kt:266:            val added = TrailFilterState.mergeShippedCategories(ctx)
-StartupHousekeeping.kt:287:    private fun jobSchemaConverge(ctx: Context): Result {
-StartupHousekeeping.kt:288:        val marker = File(SpatialDbManager.dbDir(), SCHEMA_MARKER)
-StartupHousekeeping.kt:294:            val db = SpatialDbManager.getSpatialDb()
-StartupHousekeeping.kt:296:            val ext = SpatialDbManager.getExtensionDb()
-StartupHousekeeping.kt:298:            var cleared = 0
-StartupHousekeeping.kt:341:    private fun jobManifestSweep(ctx: Context) {
+StartupHousekeeping.kt:191:        val started = System.currentTimeMillis()
+StartupHousekeeping.kt:221:        val result = jobSchemaConverge(ctx)
+StartupHousekeeping.kt:232:            val own = OwnershipReclass.ownershipFile()
+StartupHousekeeping.kt:237:        val ms = System.currentTimeMillis() - started
+StartupHousekeeping.kt:260:    private fun jobPalette(ctx: Context) {
+StartupHousekeeping.kt:267:            val added = TrailFilterState.mergeShippedCategories(ctx)
+StartupHousekeeping.kt:288:    private fun jobSchemaConverge(ctx: Context): Result {
+StartupHousekeeping.kt:289:        val marker = File(SpatialDbManager.dbDir(), SCHEMA_MARKER)
+StartupHousekeeping.kt:295:            val db = SpatialDbManager.getSpatialDb()
+StartupHousekeeping.kt:297:            val ext = SpatialDbManager.getExtensionDb()
+StartupHousekeeping.kt:299:            var cleared = 0
+StartupHousekeeping.kt:342:    private fun jobManifestSweep(ctx: Context) {
 RidesScreen.kt:50:object RidesLauncher {
 RidesScreen.kt:51:    var showing by mutableStateOf(false)
 RidesScreen.kt:52:    fun open() { showing = true }
@@ -2852,19 +2878,19 @@ RiderTrailWriter.kt:347:                    val h = if (!c.isNull(1)) c.getStrin
 RiderTrailWriter.kt:357:        val ids = ArrayList<Pair<String, String?>>()
 RiderTrailWriter.kt:362:                        val name = if (c.isNull(0)) null else c.getString(0)
 RiderTrailWriter.kt:363:                        val geom = if (c.isNull(1)) null else c.getString(1)
-RiderTrailWriter.kt:374:        val produced = HashSet<String>()
-RiderTrailWriter.kt:376:        var added = 0; var unchanged = 0
-RiderTrailWriter.kt:377:        var addedMi = 0.0; var totalMi = 0.0
-RiderTrailWriter.kt:380:            val (geom, name) = ids[i]
-RiderTrailWriter.kt:381:            val pts = parseGeometry(geom)
-RiderTrailWriter.kt:383:            val network = candidatesFor(pts, excludeRider = true) + piecesNear(runPieces, pts)
-RiderTrailWriter.kt:384:            var n = 0
-RiderTrailWriter.kt:386:                val hash = SpatialDbManager.computeGeomHash(buildGeometry(t.points))
-RiderTrailWriter.kt:389:                val mi = t.totalM / 1609.34
-RiderTrailWriter.kt:396:        var removed = 0
-RiderTrailWriter.kt:411:    private fun piecesNear(pieces: List<List<RiderTrailScanner.Pt>>, pts: List<RiderTrailScanner.Pt>): List<List<RiderTrailScanner.Pt>> {
-RiderTrailWriter.kt:413:        val la1 = pts.minOf { it.lat } - BBOX_MARGIN_DEG; val la2 = pts.maxOf { it.lat } + BBOX_MARGIN_DEG
-RiderTrailWriter.kt:414:        val lo1 = pts.minOf { it.lon } - BBOX_MARGIN_DEG; val lo2 = pts.maxOf { it.lon } + BBOX_MARGIN_DEG
+RiderTrailWriter.kt:375:        val produced = HashSet<String>()
+RiderTrailWriter.kt:377:        var added = 0; var unchanged = 0
+RiderTrailWriter.kt:378:        var addedMi = 0.0; var totalMi = 0.0
+RiderTrailWriter.kt:381:            val (geom, name) = ids[i]
+RiderTrailWriter.kt:382:            val pts = parseGeometry(geom)
+RiderTrailWriter.kt:384:            val network = candidatesFor(pts, excludeRider = true) + piecesNear(runPieces, pts)
+RiderTrailWriter.kt:385:            var n = 0
+RiderTrailWriter.kt:387:                val hash = SpatialDbManager.computeGeomHash(buildGeometry(t.points))
+RiderTrailWriter.kt:390:                val mi = t.totalM / 1609.34
+RiderTrailWriter.kt:397:        var removed = 0
+RiderTrailWriter.kt:415:    private fun piecesNear(pieces: List<List<RiderTrailScanner.Pt>>, pts: List<RiderTrailScanner.Pt>): List<List<RiderTrailScanner.Pt>> {
+RiderTrailWriter.kt:417:        val la1 = pts.minOf { it.lat } - BBOX_MARGIN_DEG; val la2 = pts.maxOf { it.lat } + BBOX_MARGIN_DEG
+RiderTrailWriter.kt:418:        val lo1 = pts.minOf { it.lon } - BBOX_MARGIN_DEG; val lo2 = pts.maxOf { it.lon } + BBOX_MARGIN_DEG
 RadioSetupPrompt.kt:29:object RadioSetupState {
 RadioSetupPrompt.kt:30:    private const val PREFS = "grouptrack_radio_setup"
 RadioSetupPrompt.kt:31:    private const val KEY = "answer"
@@ -3531,6 +3557,51 @@ ConvoyRiderProfileScreen.kt:132:                    val on = role == key
 ConvoyRiderProfileScreen.kt:151:                    val on = team == name
 ConvoyRiderProfileScreen.kt:195:                        val id = ConvoyProfileStore.save(
 ConvoyRiderProfileScreen.kt:222:private fun Field(
+ConvoyRideJsonWriterCertOld.kt:6: *  - the object is renamed ConvoyRideJsonWriter -> ConvoyRideJsonWriterCertOld; calls into the other ride objects go to their CertOld copies;
+ConvoyRideJsonWriterCertOld.kt:26: * EXISTING provider; this object generates nothing. A value with no provider yet is written as an
+ConvoyRideJsonWriterCertOld.kt:32:object ConvoyRideJsonWriterCertOld {
+ConvoyRideJsonWriterCertOld.kt:34:    private const val TAG = "ConvoyRideJson"
+ConvoyRideJsonWriterCertOld.kt:36:    const val KIND = "grouptrack.ride"
+ConvoyRideJsonWriterCertOld.kt:37:    const val FORMAT_VERSION = 3
+ConvoyRideJsonWriterCertOld.kt:45:    const val INCLUDE_NARRATIVE = false
+ConvoyRideJsonWriterCertOld.kt:47:    data class Result(val json: JSONObject, val missing: List<String>) {
+ConvoyRideJsonWriterCertOld.kt:48:        val complete: Boolean get() = missing.isEmpty()
+ConvoyRideJsonWriterCertOld.kt:51:    private fun nul(v: Any?): Any = v ?: JSONObject.NULL
+ConvoyRideJsonWriterCertOld.kt:53:    fun build(context: Context, rideId: String): Result? {
+ConvoyRideJsonWriterCertOld.kt:55:        val db = SpatialDbManager.getExtensionDb() ?: return null
+ConvoyRideJsonWriterCertOld.kt:56:        val missing = mutableListOf<String>()
+ConvoyRideJsonWriterCertOld.kt:59:        val r: Array<String?> = try {
+ConvoyRideJsonWriterCertOld.kt:72:        val ride = JSONObject()
+ConvoyRideJsonWriterCertOld.kt:86:        val rideDate = r[5]
+ConvoyRideJsonWriterCertOld.kt:91:        val originator = JSONObject()
+ConvoyRideJsonWriterCertOld.kt:102:        val defaultNet: JSONObject? = if (r[9] == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL) try {
+ConvoyRideJsonWriterCertOld.kt:108:        val cfg = if (defaultNet != null) null else r[9]?.let { ConvoyNetworkStore.load(it) }
+ConvoyRideJsonWriterCertOld.kt:109:        val network: Any = if (defaultNet != null) defaultNet else if (cfg == null) {
+ConvoyRideJsonWriterCertOld.kt:129:        val routeId = r[3]
+ConvoyRideJsonWriterCertOld.kt:130:        val rideData = JSONObject()
+ConvoyRideJsonWriterCertOld.kt:136:            val routeGpx = SpatialDbManager.buildRouteGpxById(routeId)
+ConvoyRideJsonWriterCertOld.kt:137:            val geomHash = SpatialDbManager.routeGeomHash(routeId)
+ConvoyRideJsonWriterCertOld.kt:144:            val recipe = SpatialDbManager.routeRecipe(routeId)
+ConvoyRideJsonWriterCertOld.kt:145:            val th = trailheadWpt(recipe)
+ConvoyRideJsonWriterCertOld.kt:149:            val wpts = StringBuilder()
+ConvoyRideJsonWriterCertOld.kt:166:        val json = JSONObject()
+ConvoyRideJsonWriterCertOld.kt:179:    private val WPT = Regex("<wpt\\b[\\s\\S]*?</wpt>")
+ConvoyRideJsonWriterCertOld.kt:181:    private fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+ConvoyRideJsonWriterCertOld.kt:185:    private fun trailheadWpt(recipe: JSONObject?): String? {
+ConvoyRideJsonWriterCertOld.kt:187:        val lat = recipe.optDouble("anchorLat", Double.NaN)
+ConvoyRideJsonWriterCertOld.kt:188:        val lon = recipe.optDouble("anchorLon", Double.NaN)
+ConvoyRideJsonWriterCertOld.kt:190:        val name = recipe.optString("anchorName", "").ifBlank { "Trailhead" }
+ConvoyRideJsonWriterCertOld.kt:194:    private fun rideWaypointIds(rideId: String): List<String> {
+ConvoyRideJsonWriterCertOld.kt:195:        val db = SpatialDbManager.getExtensionDb() ?: return emptyList()
+ConvoyRideJsonWriterCertOld.kt:199:                val out = mutableListOf<String>()
+ConvoyRideJsonWriterCertOld.kt:210:    fun rideFile(context: Context, rideId: String): java.io.File =
+ConvoyRideJsonWriterCertOld.kt:219:    fun save(context: Context, rideId: String): List<String>? {
+ConvoyRideJsonWriterCertOld.kt:220:        val r = build(context, rideId) ?: return null
+ConvoyRideJsonWriterCertOld.kt:222:            val f = rideFile(context, rideId)
+ConvoyRideJsonWriterCertOld.kt:223:            val tmp = java.io.File(f.parentFile, f.name + ".tmp")
+ConvoyRideJsonWriterCertOld.kt:237:    internal fun mergeWpts(routeGpx: String, wpts: String): String {
+ConvoyRideJsonWriterCertOld.kt:239:        val meta = routeGpx.indexOf("</metadata>")
+ConvoyRideJsonWriterCertOld.kt:240:        val at = if (meta >= 0) meta + "</metadata>".length
 ConvoyNotesPanel.kt:56:private val npBg    = Color(0xFF0F1419)
 ConvoyNotesPanel.kt:57:private val npCard  = Color(0xFF131A24)
 ConvoyNotesPanel.kt:58:private val npGreen = Color(0xFF7BB661)
@@ -4023,29 +4094,29 @@ ConvoyDownloadQueue.kt:1108:                    val began = if (it.startedAt > 0
 ConvoyDownloadQueue.kt:1109:                    val sec = (System.currentTimeMillis() - began) / 1000.0
 ConvoyDownloadQueue.kt:1119:    fun markFailed(entryId: String, message: String) {
 ConvoyDownloadQueue.kt:1129:    private fun startNextIfAvailable() {
-ConvoyDownloadQueue.kt:1132:        val current = _queue.value
-ConvoyDownloadQueue.kt:1133:        val running = current.count { it.status == QueueStatus.DOWNLOADING }
-ConvoyDownloadQueue.kt:1136:        val slotsAvailable = MAX_CONCURRENT - running
-ConvoyDownloadQueue.kt:1142:        val queued = current.filter { it.status == QueueStatus.QUEUED }
-ConvoyDownloadQueue.kt:1149:    private fun launchWorker(entry: QueueEntry) {
-ConvoyDownloadQueue.kt:1155:        val inputData = Data.Builder()
-ConvoyDownloadQueue.kt:1177:        val constraints = Constraints.Builder()
-ConvoyDownloadQueue.kt:1191:        val builder = when (entry.downloadType) {
-ConvoyDownloadQueue.kt:1207:        val workRequest = builder
-ConvoyDownloadQueue.kt:1227:    private fun updateEntry(entryId: String, transform: (QueueEntry) -> QueueEntry) {
-ConvoyDownloadQueue.kt:1228:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:1229:        val idx = current.indexOfFirst { it.id == entryId }
-ConvoyDownloadQueue.kt:1238:    private fun saveQueue() {
-ConvoyDownloadQueue.kt:1240:            val dir = File(appCtx.filesDir, "download_queue")
-ConvoyDownloadQueue.kt:1242:            val file = File(dir, QUEUE_FILE)
-ConvoyDownloadQueue.kt:1243:            val arr = JSONArray()
-ConvoyDownloadQueue.kt:1245:            val tmp = File(dir, QUEUE_FILE + ".tmp")
-ConvoyDownloadQueue.kt:1255:    private fun loadQueue() {
-ConvoyDownloadQueue.kt:1257:            val file = File(appCtx.filesDir, "download_queue/$QUEUE_FILE")
-ConvoyDownloadQueue.kt:1259:            val arr = JSONArray(file.readText())
-ConvoyDownloadQueue.kt:1260:            val entries = mutableListOf<QueueEntry>()
-ConvoyDownloadQueue.kt:1269:                val bad = File(appCtx.filesDir, "download_queue/" + QUEUE_FILE)
-ConvoyDownloadQueue.kt:1271:                    val quarantine = File(bad.parentFile, QUEUE_FILE + ".corrupt")
+ConvoyDownloadQueue.kt:1133:        val current = _queue.value
+ConvoyDownloadQueue.kt:1134:        val running = current.count { it.status == QueueStatus.DOWNLOADING }
+ConvoyDownloadQueue.kt:1137:        val slotsAvailable = MAX_CONCURRENT - running
+ConvoyDownloadQueue.kt:1143:        val queued = current.filter { it.status == QueueStatus.QUEUED }
+ConvoyDownloadQueue.kt:1150:    private fun launchWorker(entry: QueueEntry) {
+ConvoyDownloadQueue.kt:1156:        val inputData = Data.Builder()
+ConvoyDownloadQueue.kt:1178:        val constraints = Constraints.Builder()
+ConvoyDownloadQueue.kt:1192:        val builder = when (entry.downloadType) {
+ConvoyDownloadQueue.kt:1208:        val workRequest = builder
+ConvoyDownloadQueue.kt:1228:    private fun updateEntry(entryId: String, transform: (QueueEntry) -> QueueEntry) {
+ConvoyDownloadQueue.kt:1229:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1230:        val idx = current.indexOfFirst { it.id == entryId }
+ConvoyDownloadQueue.kt:1239:    private fun saveQueue() {
+ConvoyDownloadQueue.kt:1241:            val dir = File(appCtx.filesDir, "download_queue")
+ConvoyDownloadQueue.kt:1243:            val file = File(dir, QUEUE_FILE)
+ConvoyDownloadQueue.kt:1244:            val arr = JSONArray()
+ConvoyDownloadQueue.kt:1246:            val tmp = File(dir, QUEUE_FILE + ".tmp")
+ConvoyDownloadQueue.kt:1256:    private fun loadQueue() {
+ConvoyDownloadQueue.kt:1258:            val file = File(appCtx.filesDir, "download_queue/$QUEUE_FILE")
+ConvoyDownloadQueue.kt:1260:            val arr = JSONArray(file.readText())
+ConvoyDownloadQueue.kt:1261:            val entries = mutableListOf<QueueEntry>()
+ConvoyDownloadQueue.kt:1270:                val bad = File(appCtx.filesDir, "download_queue/" + QUEUE_FILE)
+ConvoyDownloadQueue.kt:1272:                    val quarantine = File(bad.parentFile, QUEUE_FILE + ".corrupt")
 ConvoyMyRidesScreen.kt:31:fun ConvoyMyRidesScreen(
 ConvoyMyRidesScreen.kt:37:    val context = LocalContext.current
 ConvoyMyRidesScreen.kt:38:    val tabs = listOf("ALL", "ENROLLED", "ORGANIZED", "COMPLETED")
@@ -4075,6 +4146,134 @@ ArtifactListPanel.kt:149:                        val isSelected = id in selected
 ArtifactListPanel.kt:170:private fun ArtifactListItem(
 ArtifactListPanel.kt:221:private fun Modifier.pointerInputDrag(onDrag: (androidx.compose.ui.geometry.Offset) -> Unit): Modifier =
 ConvoySearchByAreaScreen.kt:40:fun ConvoySearchByAreaScreen(
+ConvoyRideStoreCertOld.kt:6: *  - the object is renamed ConvoyRideStore -> ConvoyRideStoreCertOld; calls into the other ride objects go to their CertOld copies;
+ConvoyRideStoreCertOld.kt:35:object ConvoyRideStoreCertOld {
+ConvoyRideStoreCertOld.kt:37:    private const val TAG = "ConvoyRideStore"
+ConvoyRideStoreCertOld.kt:42:    fun listRoutes(limit: Int = 200): List<RouteSummary> {
+ConvoyRideStoreCertOld.kt:43:        val db = SpatialDbManager.getSpatialDb() ?: return emptyList()
+ConvoyRideStoreCertOld.kt:44:        val out = mutableListOf<RouteSummary>()
+ConvoyRideStoreCertOld.kt:70:    fun routeGeometry(routeId: String): String? {
+ConvoyRideStoreCertOld.kt:71:        val db = SpatialDbManager.getSpatialDb() ?: return null
+ConvoyRideStoreCertOld.kt:81:    fun renameRoute(routeId: String, name: String): Boolean {
+ConvoyRideStoreCertOld.kt:82:        val db = SpatialDbManager.getSpatialDb() ?: return false
+ConvoyRideStoreCertOld.kt:97:    fun saveRide(
+ConvoyRideStoreCertOld.kt:109:        val db = SpatialDbManager.getExtensionDb() ?: return null
+ConvoyRideStoreCertOld.kt:110:        val me = ConvoyProfileStore.load() ?: run {
+ConvoyRideStoreCertOld.kt:113:        val leaderName = listOf(me.firstName, me.lastName).filter { it.isNotBlank() }
+ConvoyRideStoreCertOld.kt:115:        val now = nowUtc()
+ConvoyRideStoreCertOld.kt:116:        val id = RideCertHooks.newId()
+ConvoyRideStoreCertOld.kt:123:        val useDefault = rideNetworkId == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL
+ConvoyRideStoreCertOld.kt:124:        val cfgId: String = if (useDefault) com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL
+ConvoyRideStoreCertOld.kt:129:        val mode = when {
+ConvoyRideStoreCertOld.kt:134:        val expires = expiresFor(rideDate)
+ConvoyRideStoreCertOld.kt:160:    data class RideChoice(val rideId: String, val name: String, val date: String, val startTime: String,
+ConvoyRideStoreCertOld.kt:161:                          val organizerName: String, val organizerId: String, val isPublic: Boolean)
+ConvoyRideStoreCertOld.kt:164:    data class CheckIn(val rideId: String?, val rideName: String?, val isPublic: Boolean, val callsign: String, val role: String)
+ConvoyRideStoreCertOld.kt:173:    fun openRecentRides(): List<RideChoice> = try {
+ConvoyRideStoreCertOld.kt:175:        val today = RideCertHooks.today()
+ConvoyRideStoreCertOld.kt:176:        var rows = 0; var sample = ""
+ConvoyRideStoreCertOld.kt:177:        val out = ArrayList<RideChoice>()
+ConvoyRideStoreCertOld.kt:182:                val exp = c.getString(7)
+ConvoyRideStoreCertOld.kt:184:                val date = c.getString(2) ?: ""
+ConvoyRideStoreCertOld.kt:195:    private fun rideRemovedBy(exp: String?, date: String, today: java.time.LocalDate): Boolean {
+ConvoyRideStoreCertOld.kt:198:                val ms = if (n < 100_000_000_000L) n * 1000 else n
+ConvoyRideStoreCertOld.kt:208:    fun checkIn(ride: RideChoice?, callsign: String, role: String): CheckIn? {
+ConvoyRideStoreCertOld.kt:209:        val me = ConvoyProfileStore.load() ?: return null
+ConvoyRideStoreCertOld.kt:210:        val cs = callsign.trim().ifBlank { me.callsign }
+ConvoyRideStoreCertOld.kt:213:            val db = SpatialDbManager.getExtensionDb() ?: return null
+ConvoyRideStoreCertOld.kt:227:    data class RideSurveyInput(val rideId: String, val rating: Int, val difficulty: String, val recommend: Boolean,
+ConvoyRideStoreCertOld.kt:228:                               val notes: String, val shareTrack: Boolean)
+ConvoyRideStoreCertOld.kt:232:    fun saveSurvey(trackId: String, s: RideSurveyInput): Boolean {
+ConvoyRideStoreCertOld.kt:233:        val me = ConvoyProfileStore.load() ?: return false
+ConvoyRideStoreCertOld.kt:252:    private fun myConfigId(): String? = try {
+ConvoyRideStoreCertOld.kt:260:    fun myNetworkName(): String? =
+ConvoyRideStoreCertOld.kt:265:    fun ensureMyNetworkName(): String? {
+ConvoyRideStoreCertOld.kt:266:        val me = ConvoyProfileStore.load() ?: return null
+ConvoyRideStoreCertOld.kt:267:        val name = listOf(me.firstName, me.lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { me.callsign }
+ConvoyRideStoreCertOld.kt:274:    fun createRideNetwork(): com.grouptrack.core.NetworkConfig? {
+ConvoyRideStoreCertOld.kt:275:        val me = ConvoyProfileStore.load() ?: return null
+ConvoyRideStoreCertOld.kt:276:        val name = listOf(me.firstName, me.lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { me.callsign }
+ConvoyRideStoreCertOld.kt:281:    fun isOrganizer(): Boolean = try {
+ConvoyRideStoreCertOld.kt:290:    private fun organizerNetwork(userId: String, name: String): com.grouptrack.core.NetworkConfig? {
+ConvoyRideStoreCertOld.kt:292:        val cfg = RideCertHooks.networkCreate(OwnerType.LEADER, userId, name) ?: return null
+ConvoyRideStoreCertOld.kt:305:    private fun markOrganizer(userId: String) {
+ConvoyRideStoreCertOld.kt:322:    fun expireRides() {
+ConvoyRideStoreCertOld.kt:324:        val db = SpatialDbManager.getExtensionDb() ?: return
+ConvoyRideStoreCertOld.kt:326:            val today = RideCertHooks.today().toString()
+ConvoyRideStoreCertOld.kt:327:            val expired = mutableListOf<String>()
+ConvoyRideStoreCertOld.kt:330:                    val rid = c.getString(0) ?: continue
+ConvoyRideStoreCertOld.kt:331:                    val exp = c.getString(2)?.takeIf { it.isNotBlank() } ?: expiresFor(padDate(c.getString(1) ?: ""))
+ConvoyRideStoreCertOld.kt:356:    fun healFromFiles(context: android.content.Context) {
+ConvoyRideStoreCertOld.kt:358:        val db = SpatialDbManager.getExtensionDb() ?: return
+ConvoyRideStoreCertOld.kt:359:        val files = RideCertPaths.rides.listFiles { f -> f.isFile && f.name.endsWith(".json") } ?: return
+ConvoyRideStoreCertOld.kt:360:        val rows = mutableSetOf<String>()
+ConvoyRideStoreCertOld.kt:364:        val routes by lazy { listRoutes(500) }
+ConvoyRideStoreCertOld.kt:366:            val j = try { org.json.JSONObject(f.readText()) } catch (e: Exception) { Log.w(TAG, "RIDEHEAL: unreadable ${f.name}"); continue }
+ConvoyRideStoreCertOld.kt:368:            val ride = j.optJSONObject("ride") ?: continue
+ConvoyRideStoreCertOld.kt:369:            val id = ride.optString("rideId").takeIf { it.isNotBlank() && it != "null" } ?: continue
+ConvoyRideStoreCertOld.kt:370:            val s = { k: String -> ride.optString(k).takeIf { it != "null" }.orEmpty() }
+ConvoyRideStoreCertOld.kt:371:            val rawDate = s("date")
+ConvoyRideStoreCertOld.kt:372:            val date = padDate(rawDate)
+ConvoyRideStoreCertOld.kt:383:            val o = j.optJSONObject("originator")
+ConvoyRideStoreCertOld.kt:384:            val creatorId = o?.optString("userId")?.takeIf { it.isNotBlank() && it != "null" }.orEmpty()
+ConvoyRideStoreCertOld.kt:385:            val creatorName = o?.optString("name")?.takeIf { it != "null" }.orEmpty()
+ConvoyRideStoreCertOld.kt:386:            val routeName = j.optJSONObject("rideData")?.optJSONObject("route")?.optString("name")?.takeIf { it.isNotBlank() && it != "null" }
+ConvoyRideStoreCertOld.kt:387:            val routeId = routeName?.let { n -> routes.firstOrNull { it.name == n }?.routeId }
+ConvoyRideStoreCertOld.kt:419:    fun deleteRide(context: android.content.Context, rideId: String, reason: String): Boolean {
+ConvoyRideStoreCertOld.kt:420:        val db = SpatialDbManager.getExtensionDb() ?: return false
+ConvoyRideStoreCertOld.kt:422:            val cfgId = db.rawQuery("SELECT config_id FROM rides WHERE ride_id = ?", arrayOf(rideId)).use { c ->
+ConvoyRideStoreCertOld.kt:428:            val dir = RideCertPaths.rides
+ConvoyRideStoreCertOld.kt:438:    private fun padDate(d: String): String {
+ConvoyRideStoreCertOld.kt:439:        val m = Regex("""^(\d{4})-(\d{1,2})-(\d{1,2})$""").find(d.trim()) ?: return d
+ConvoyRideStoreCertOld.kt:440:        val (y, mo, da) = m.destructured
+ConvoyRideStoreCertOld.kt:447:    private fun expiresFor(rideDate: String): String? =
+ConvoyRideStoreCertOld.kt:450:    @Volatile private var schemaChecked = false
+ConvoyRideStoreCertOld.kt:456:    private fun ensureSchema() {
+ConvoyRideStoreCertOld.kt:458:        val db = SpatialDbManager.getExtensionDb() ?: return
+ConvoyRideStoreCertOld.kt:471:    data class EditRide(val name: String, val date: String, val startTime: String, val description: String,
+ConvoyRideStoreCertOld.kt:472:                        val isPublic: Boolean, val routeId: String, val unique: Boolean, val configId: String?)
+ConvoyRideStoreCertOld.kt:475:    fun rideForEdit(rideId: String): EditRide? = try {
+ConvoyRideStoreCertOld.kt:486:    fun isDistributed(rideId: String): Boolean {
+ConvoyRideStoreCertOld.kt:488:        val db = SpatialDbManager.getExtensionDb() ?: return true
+ConvoyRideStoreCertOld.kt:499:    fun updateRide(
+ConvoyRideStoreCertOld.kt:506:        val db = SpatialDbManager.getExtensionDb() ?: return false
+ConvoyRideStoreCertOld.kt:524:    fun updateRideDate(rideId: String, rideDate: String): Boolean {
+ConvoyRideStoreCertOld.kt:525:        val db = SpatialDbManager.getExtensionDb() ?: return false
+ConvoyRideStoreCertOld.kt:538:    fun markDistributed(rideId: String): Boolean {
+ConvoyRideStoreCertOld.kt:540:        val db = SpatialDbManager.getExtensionDb() ?: return false
+ConvoyRideStoreCertOld.kt:553:    fun setRideWaypoints(rideId: String, waypointIds: List<String>): Boolean {
+ConvoyRideStoreCertOld.kt:557:        val db = SpatialDbManager.getExtensionDb() ?: return false
+ConvoyRideStoreCertOld.kt:573:    fun listRides(limit: Int = 100): List<RideRow> {
+ConvoyRideStoreCertOld.kt:574:        val db = SpatialDbManager.getExtensionDb() ?: return emptyList()
+ConvoyRideStoreCertOld.kt:575:        val out = mutableListOf<RideRow>()
+ConvoyRideStoreCertOld.kt:605:    fun parseWktLine(wkt: String): List<Pair<Double, Double>> {
+ConvoyRideStoreCertOld.kt:606:        val inner = wkt.substringAfter('(', "").substringBeforeLast(')', "")
+ConvoyRideStoreCertOld.kt:609:            val t = p.trim().split(' ').filter { it.isNotBlank() }
+ConvoyRideStoreCertOld.kt:611:                val x = t[0].toDoubleOrNull(); val y = t[1].toDoubleOrNull()
+ConvoyRideStoreCertOld.kt:624:object RideCertPaths {
+ConvoyRideStoreCertOld.kt:625:    @Volatile lateinit var rides: java.io.File
+ConvoyRideStoreCertOld.kt:626:    @Volatile lateinit var staging: java.io.File
+ConvoyRideStoreCertOld.kt:637:object RideCertHooks {
+ConvoyRideStoreCertOld.kt:638:    private val BASE_MS: Long = java.time.Instant.parse("2026-11-08T12:00:00Z").toEpochMilli()
+ConvoyRideStoreCertOld.kt:639:    @Volatile var caseNo: Int = 0
+ConvoyRideStoreCertOld.kt:640:    private var tick = 0L
+ConvoyRideStoreCertOld.kt:641:    private var ids = 0L
+ConvoyRideStoreCertOld.kt:642:    @Volatile var todayDate: java.time.LocalDate = java.time.LocalDate.of(2026, 11, 8)
+ConvoyRideStoreCertOld.kt:643:    @Volatile var zone: java.time.ZoneId = java.time.ZoneId.of("UTC")
+ConvoyRideStoreCertOld.kt:645:    @Volatile var root: String = "\u0000"
+ConvoyRideStoreCertOld.kt:646:    private val events = ArrayList<String>()
+ConvoyRideStoreCertOld.kt:648:    @Synchronized fun reset(case: Int) { caseNo = case; tick = 0L; ids = 0L; events.clear() }
+ConvoyRideStoreCertOld.kt:650:    @Synchronized fun nowUtc(): String {
+ConvoyRideStoreCertOld.kt:651:        val ms = BASE_MS + caseNo * 86_400_000L + (tick++) * 1000L
+ConvoyRideStoreCertOld.kt:657:    @Synchronized fun newId(): String = String.format(java.util.Locale.US, "00000000-0000-4000-8%03d-%012d", caseNo, ++ids)
+ConvoyRideStoreCertOld.kt:659:    fun today(): java.time.LocalDate = todayDate
+ConvoyRideStoreCertOld.kt:661:    fun epochMsToLocalDate(ms: Long): java.time.LocalDate = java.time.Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
+ConvoyRideStoreCertOld.kt:663:    @Synchronized fun event(s: String) { events.add(s.replace(root, "{ROOT}")) }
+ConvoyRideStoreCertOld.kt:666:    @Synchronized fun takeEvents(): String { val s = events.joinToString(" ; "); events.clear(); return s }
+ConvoyRideStoreCertOld.kt:668:    private fun ownerName(owner: com.grouptrack.core.OwnerType): String = when (owner) {
+ConvoyRideStoreCertOld.kt:675:    fun networkCreate(owner: com.grouptrack.core.OwnerType, ownerId: String, name: String): com.grouptrack.core.NetworkConfig? {
+ConvoyRideStoreCertOld.kt:680:    fun networkCreateNew(owner: com.grouptrack.shared.ride.RideNetOwner, ownerId: String, name: String): com.grouptrack.shared.ride.RideNet? {
+ConvoyRideStoreCertOld.kt:685:    fun networkDeleteUnused(configId: String) { event("networkDeleteUnused " + configId) }
 ConvoyTileDownloader.kt:30:data class DownloadSummary(
 ConvoyTileDownloader.kt:31:    val downloaded: Int,
 ConvoyTileDownloader.kt:32:    val failed: Int,
@@ -5360,23 +5559,32 @@ StateData.kt:159:                val t = savedZip(ctx, slug); if (t.exists()) t.
 ConvoyRideSend.kt:18:object ConvoyRideSend {
 ConvoyRideSend.kt:20:    private const val TAG = "ConvoyRideSend"
 ConvoyRideSend.kt:21:    const val MIME = "application/x-convoy-ride"
-ConvoyRideSend.kt:24:    fun send(context: Context, rideId: String): String? {
-ConvoyRideSend.kt:25:        val missing = ConvoyRideJsonWriter.save(context, rideId)
-ConvoyRideSend.kt:28:        val stored = ConvoyRideJsonWriter.rideFile(context, rideId)
-ConvoyRideSend.kt:31:            val ride = org.json.JSONObject(stored.readText()).optJSONObject("ride")
-ConvoyRideSend.kt:32:            val name = ride?.optString("name", "Ride") ?: "Ride"
-ConvoyRideSend.kt:33:            val date = ride?.optString("date", "") ?: ""
-ConvoyRideSend.kt:36:            val dayShort = runCatching {
-ConvoyRideSend.kt:39:            val label = (name.trim() + (if (dayShort.isNotBlank()) " - $dayShort" else ""))
-ConvoyRideSend.kt:43:            val out = File(context.cacheDir, "$label.convoy")
-ConvoyRideSend.kt:45:            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", out)
-ConvoyRideSend.kt:50:            val day = runCatching {
-ConvoyRideSend.kt:54:            val forward = if (ride?.optBoolean("isPublic", false) == true)
-ConvoyRideSend.kt:58:            val inviteText = "You're invited: $name ($day)\n\n" + forward + "\n\n" +
-ConvoyRideSend.kt:65:            fun esc(s: String): String = android.text.TextUtils.htmlEncode(s)
-ConvoyRideSend.kt:66:            val inviteHtml = "<p>You're invited: <b>" + esc(name) + "</b> (" + esc(day) + ")</p>" +
-ConvoyRideSend.kt:76:            val intent = Intent(Intent.ACTION_SEND).apply {
-ConvoyRideSend.kt:84:            val chooser = Intent.createChooser(intent, "Send ride via...")
+ConvoyRideSend.kt:26:    private const val NO_GT_TEXT = "Using another navigation app? Download the two GPX attachments to your Download folder, then " +
+ConvoyRideSend.kt:30:    fun send(context: Context, rideId: String): String? {
+ConvoyRideSend.kt:31:        val missing = ConvoyRideJsonWriter.save(context, rideId)
+ConvoyRideSend.kt:34:        val stored = ConvoyRideJsonWriter.rideFile(context, rideId)
+ConvoyRideSend.kt:37:            val ride = org.json.JSONObject(stored.readText()).optJSONObject("ride")
+ConvoyRideSend.kt:38:            val name = ride?.optString("name", "Ride") ?: "Ride"
+ConvoyRideSend.kt:39:            val date = ride?.optString("date", "") ?: ""
+ConvoyRideSend.kt:42:            val dayShort = runCatching {
+ConvoyRideSend.kt:45:            val label = (name.trim() + (if (dayShort.isNotBlank()) " - $dayShort" else ""))
+ConvoyRideSend.kt:49:            val out = File(context.cacheDir, "$label.convoy")
+ConvoyRideSend.kt:51:            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", out)
+ConvoyRideSend.kt:54:            val sendDir = File(context.cacheDir, "ride_send").also { d -> d.listFiles()?.forEach { it.delete() }; d.mkdirs() }
+ConvoyRideSend.kt:55:            val rideData = org.json.JSONObject(stored.readText()).optJSONObject("rideData")
+ConvoyRideSend.kt:56:            val gpx = if (rideData == null || rideData.isNull("gpx")) "" else rideData.optString("gpx", "")
+ConvoyRideSend.kt:57:            val gpxUris = ArrayList<android.net.Uri>()
+ConvoyRideSend.kt:59:                val parts = com.grouptrack.shared.ride.GtRideJson.splitGpx(gpx)
+ConvoyRideSend.kt:60:                val routeFile = File(sendDir, "$label - route.gpx").also { it.writeText(parts.route) }
+ConvoyRideSend.kt:63:                    val wptFile = File(sendDir, "$label - trailhead and waypoints.gpx").also { it.writeText(w) }
+ConvoyRideSend.kt:71:            val day = runCatching {
+ConvoyRideSend.kt:75:            val forward = if (ride?.optBoolean("isPublic", false) == true)
+ConvoyRideSend.kt:79:            val inviteText = "You're invited: $name ($day)\n\n" + forward + "\n\n" +
+ConvoyRideSend.kt:88:            fun esc(s: String): String = android.text.TextUtils.htmlEncode(s)
+ConvoyRideSend.kt:89:            val inviteHtml = "<p>You're invited: <b>" + esc(name) + "</b> (" + esc(day) + ")</p>" +
+ConvoyRideSend.kt:103:            val intent = if (gpxUris.isEmpty()) Intent(Intent.ACTION_SEND).apply {
+ConvoyRideSend.kt:111:                val all = ArrayList<android.net.Uri>().apply { add(uri); addAll(gpxUris) }
+ConvoyRideSend.kt:120:            val chooser = Intent.createChooser(intent, "Send ride via...")
 ConvoyDashboardScreen.kt:27:fun ConvoyDashboardScreen(
 ConvoyDashboardScreen.kt:43:    val context = LocalContext.current
 ConvoyDashboardScreen.kt:44:    var seedKey by remember { mutableStateOf(0) }
@@ -5466,6 +5674,21 @@ ConvoyDashboardScreen.kt:800:private fun RideStatusBadge(status: String) {
 ConvoyDashboardScreen.kt:801:    val (color, label) = when (status.lowercase()) {
 ConvoyDashboardScreen.kt:818:private fun NotifAccordion(label: String, color: Color, expanded: Boolean, onClick: () -> Unit) {
 ConvoyDashboardScreen.kt:830:private fun AccordionHeader(
+RideImportCertOld.kt:4: * STEP14C-2026-11-08: TEST-ONLY copy of 2.7e's ConvoyFileReceiver.kt (object RideImport only) -- the OLD side of the ride-model certification (GtCertRides).
+RideImportCertOld.kt:6: *  - the object is renamed RideImport -> RideImportCertOld; calls into the other ride objects go to their CertOld copies;
+RideImportCertOld.kt:27:object RideImportCertOld {
+RideImportCertOld.kt:28:    private const val TAG = "RideImport"
+RideImportCertOld.kt:30:    fun importRide(context: android.content.Context, content: String, bringForward: Boolean): String {
+RideImportCertOld.kt:31:        val rideJson = try { JSONObject(content) } catch (e: Exception) { null }
+RideImportCertOld.kt:32:        val rideObj = rideJson?.optJSONObject("ride")
+RideImportCertOld.kt:33:        val rideId = rideObj?.optString("rideId", "")?.takeIf { it.isNotBlank() && it != "null" }
+RideImportCertOld.kt:34:        val rideName = rideObj?.optString("name", "")?.takeIf { it.isNotBlank() && it != "null" } ?: "Ride"
+RideImportCertOld.kt:39:            val dir = RideCertPaths.rides
+RideImportCertOld.kt:41:            val out = java.io.File(dir, rideId.replace(Regex("[^A-Za-z0-9_-]"), "_") + ".json")
+RideImportCertOld.kt:42:            val tmp = java.io.File(dir, out.name + ".tmp")
+RideImportCertOld.kt:47:            val gpx = rideJson.optJSONObject("rideData")?.optString("gpx", "")
+RideImportCertOld.kt:53:                val stage = RideCertPaths.staging
+RideImportCertOld.kt:56:                val g = java.io.File(stage, rideName.replace(Regex("[^A-Za-z0-9 _-]"), "_").trim().ifBlank { "ride" } + ".gpx")
 ConvoyTrackExportSheet.kt:32:private enum class FilterMode { ALL, SAVED, IN_PROGRESS }
 ConvoyTrackExportSheet.kt:33:private enum class SortMode { DATE_DESC, DATE_ASC, NAME_ASC, NAME_DESC }
 ConvoyTrackExportSheet.kt:40:fun ConvoyTrackExportSheet(onDismiss: () -> Unit, onNavigateToTrackImport: () -> Unit = {}) {
@@ -5754,127 +5977,41 @@ GroupTrackConversion.kt:640:            val target = File(dest, cname)
 GroupTrackConversion.kt:645:            val srcBytes = child.length()
 GroupTrackConversion.kt:652:                val dstBytes = target.length()
 GroupTrackConversion.kt:653:                val ok = dstBytes == srcBytes
-ConvoyRideStore.kt:22:data class RouteSummary(
-ConvoyRideStore.kt:23:    val routeId: String,
-ConvoyRideStore.kt:24:    val name: String,
-ConvoyRideStore.kt:25:    val geomHash: String,
-ConvoyRideStore.kt:26:    val minLat: Double,
-ConvoyRideStore.kt:27:    val maxLat: Double,
-ConvoyRideStore.kt:28:    val minLon: Double,
-ConvoyRideStore.kt:29:    val maxLon: Double
-ConvoyRideStore.kt:32:data class RideRow(
-ConvoyRideStore.kt:33:    val rideId: String,
-ConvoyRideStore.kt:34:    val rideName: String,
-ConvoyRideStore.kt:35:    val rideDate: String,
-ConvoyRideStore.kt:36:    val startTime: String,
-ConvoyRideStore.kt:37:    val routeId: String,
-ConvoyRideStore.kt:38:    val routeName: String,
-ConvoyRideStore.kt:39:    val organizerName: String,
-ConvoyRideStore.kt:40:    val createdAt: String
-ConvoyRideStore.kt:43:object ConvoyRideStore {
-ConvoyRideStore.kt:45:    private const val TAG = "ConvoyRideStore"
-ConvoyRideStore.kt:47:    private fun nowUtc(): String =
-ConvoyRideStore.kt:53:    fun listRoutes(limit: Int = 200): List<RouteSummary> {
-ConvoyRideStore.kt:54:        val db = SpatialDbManager.getSpatialDb() ?: return emptyList()
-ConvoyRideStore.kt:55:        val out = mutableListOf<RouteSummary>()
-ConvoyRideStore.kt:81:    fun routeGeometry(routeId: String): String? {
-ConvoyRideStore.kt:82:        val db = SpatialDbManager.getSpatialDb() ?: return null
-ConvoyRideStore.kt:92:    fun renameRoute(routeId: String, name: String): Boolean {
-ConvoyRideStore.kt:93:        val db = SpatialDbManager.getSpatialDb() ?: return false
-ConvoyRideStore.kt:108:    fun saveRide(
-ConvoyRideStore.kt:120:        val db = SpatialDbManager.getExtensionDb() ?: return null
-ConvoyRideStore.kt:121:        val me = ConvoyProfileStore.load() ?: run {
-ConvoyRideStore.kt:124:        val leaderName = listOf(me.firstName, me.lastName).filter { it.isNotBlank() }
-ConvoyRideStore.kt:126:        val now = nowUtc()
-ConvoyRideStore.kt:127:        val id = UUID.randomUUID().toString()
-ConvoyRideStore.kt:134:        val useDefault = rideNetworkId == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL
-ConvoyRideStore.kt:135:        val cfgId: String = if (useDefault) com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL
-ConvoyRideStore.kt:140:        val mode = when {
-ConvoyRideStore.kt:145:        val expires = expiresFor(rideDate)
-ConvoyRideStore.kt:171:    data class RideChoice(val rideId: String, val name: String, val date: String, val startTime: String,
-ConvoyRideStore.kt:172:                          val organizerName: String, val organizerId: String, val isPublic: Boolean)
-ConvoyRideStore.kt:175:    data class CheckIn(val rideId: String?, val rideName: String?, val isPublic: Boolean, val callsign: String, val role: String)
-ConvoyRideStore.kt:184:    fun openRecentRides(): List<RideChoice> = try {
-ConvoyRideStore.kt:186:        val today = java.time.LocalDate.now()
-ConvoyRideStore.kt:187:        var rows = 0; var sample = ""
-ConvoyRideStore.kt:188:        val out = ArrayList<RideChoice>()
-ConvoyRideStore.kt:193:                val exp = c.getString(7)
-ConvoyRideStore.kt:195:                val date = c.getString(2) ?: ""
-ConvoyRideStore.kt:206:    private fun rideRemovedBy(exp: String?, date: String, today: java.time.LocalDate): Boolean {
-ConvoyRideStore.kt:209:                val ms = if (n < 100_000_000_000L) n * 1000 else n
-ConvoyRideStore.kt:219:    fun checkIn(ride: RideChoice?, callsign: String, role: String): CheckIn? {
-ConvoyRideStore.kt:220:        val me = ConvoyProfileStore.load() ?: return null
-ConvoyRideStore.kt:221:        val cs = callsign.trim().ifBlank { me.callsign }
-ConvoyRideStore.kt:224:            val db = SpatialDbManager.getExtensionDb() ?: return null
-ConvoyRideStore.kt:238:    data class RideSurveyInput(val rideId: String, val rating: Int, val difficulty: String, val recommend: Boolean,
-ConvoyRideStore.kt:239:                               val notes: String, val shareTrack: Boolean)
-ConvoyRideStore.kt:243:    fun saveSurvey(trackId: String, s: RideSurveyInput): Boolean {
-ConvoyRideStore.kt:244:        val me = ConvoyProfileStore.load() ?: return false
-ConvoyRideStore.kt:263:    private fun myConfigId(): String? = try {
-ConvoyRideStore.kt:271:    fun myNetworkName(): String? =
-ConvoyRideStore.kt:276:    fun ensureMyNetworkName(): String? {
-ConvoyRideStore.kt:277:        val me = ConvoyProfileStore.load() ?: return null
-ConvoyRideStore.kt:278:        val name = listOf(me.firstName, me.lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { me.callsign }
-ConvoyRideStore.kt:285:    fun createRideNetwork(): com.grouptrack.core.NetworkConfig? {
-ConvoyRideStore.kt:286:        val me = ConvoyProfileStore.load() ?: return null
-ConvoyRideStore.kt:287:        val name = listOf(me.firstName, me.lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { me.callsign }
-ConvoyRideStore.kt:292:    fun isOrganizer(): Boolean = try {
-ConvoyRideStore.kt:301:    private fun organizerNetwork(userId: String, name: String): com.grouptrack.core.NetworkConfig? {
-ConvoyRideStore.kt:303:        val cfg = ConvoyNetworkStore.create(OwnerType.LEADER, userId, name) ?: return null
-ConvoyRideStore.kt:316:    private fun markOrganizer(userId: String) {
-ConvoyRideStore.kt:333:    fun expireRides() {
-ConvoyRideStore.kt:335:        val db = SpatialDbManager.getExtensionDb() ?: return
-ConvoyRideStore.kt:337:            val today = LocalDate.now().toString()
-ConvoyRideStore.kt:338:            val expired = mutableListOf<String>()
-ConvoyRideStore.kt:341:                    val rid = c.getString(0) ?: continue
-ConvoyRideStore.kt:342:                    val exp = c.getString(2)?.takeIf { it.isNotBlank() } ?: expiresFor(padDate(c.getString(1) ?: ""))
-ConvoyRideStore.kt:367:    fun healFromFiles(context: android.content.Context) {
-ConvoyRideStore.kt:369:        val db = SpatialDbManager.getExtensionDb() ?: return
-ConvoyRideStore.kt:370:        val files = GroupTrackStorage.dir("rides", context).listFiles { f -> f.isFile && f.name.endsWith(".json") } ?: return
-ConvoyRideStore.kt:371:        val rows = mutableSetOf<String>()
-ConvoyRideStore.kt:375:        val routes by lazy { listRoutes(500) }
-ConvoyRideStore.kt:377:            val j = try { org.json.JSONObject(f.readText()) } catch (e: Exception) { Log.w(TAG, "RIDEHEAL: unreadable ${f.name}"); continue }
-ConvoyRideStore.kt:379:            val ride = j.optJSONObject("ride") ?: continue
-ConvoyRideStore.kt:380:            val id = ride.optString("rideId").takeIf { it.isNotBlank() && it != "null" } ?: continue
-ConvoyRideStore.kt:381:            val s = { k: String -> ride.optString(k).takeIf { it != "null" }.orEmpty() }
-ConvoyRideStore.kt:382:            val rawDate = s("date")
-ConvoyRideStore.kt:383:            val date = padDate(rawDate)
-ConvoyRideStore.kt:394:            val o = j.optJSONObject("originator")
-ConvoyRideStore.kt:395:            val creatorId = o?.optString("userId")?.takeIf { it.isNotBlank() && it != "null" }.orEmpty()
-ConvoyRideStore.kt:396:            val creatorName = o?.optString("name")?.takeIf { it != "null" }.orEmpty()
-ConvoyRideStore.kt:397:            val routeName = j.optJSONObject("rideData")?.optJSONObject("route")?.optString("name")?.takeIf { it.isNotBlank() && it != "null" }
-ConvoyRideStore.kt:398:            val routeId = routeName?.let { n -> routes.firstOrNull { it.name == n }?.routeId }
-ConvoyRideStore.kt:430:    fun deleteRide(context: android.content.Context, rideId: String, reason: String): Boolean {
-ConvoyRideStore.kt:431:        val db = SpatialDbManager.getExtensionDb() ?: return false
-ConvoyRideStore.kt:433:            val cfgId = db.rawQuery("SELECT config_id FROM rides WHERE ride_id = ?", arrayOf(rideId)).use { c ->
-ConvoyRideStore.kt:439:            val dir = GroupTrackStorage.dir("rides", context)
-ConvoyRideStore.kt:449:    private fun padDate(d: String): String {
-ConvoyRideStore.kt:450:        val m = Regex("""^(\d{4})-(\d{1,2})-(\d{1,2})$""").find(d.trim()) ?: return d
-ConvoyRideStore.kt:451:        val (y, mo, da) = m.destructured
-ConvoyRideStore.kt:458:    private fun expiresFor(rideDate: String): String? =
-ConvoyRideStore.kt:461:    @Volatile private var schemaChecked = false
-ConvoyRideStore.kt:467:    private fun ensureSchema() {
-ConvoyRideStore.kt:469:        val db = SpatialDbManager.getExtensionDb() ?: return
-ConvoyRideStore.kt:482:    data class EditRide(val name: String, val date: String, val startTime: String, val description: String,
-ConvoyRideStore.kt:483:                        val isPublic: Boolean, val routeId: String, val unique: Boolean, val configId: String?)
-ConvoyRideStore.kt:486:    fun rideForEdit(rideId: String): EditRide? = try {
-ConvoyRideStore.kt:497:    fun isDistributed(rideId: String): Boolean {
-ConvoyRideStore.kt:499:        val db = SpatialDbManager.getExtensionDb() ?: return true
-ConvoyRideStore.kt:510:    fun updateRide(
-ConvoyRideStore.kt:517:        val db = SpatialDbManager.getExtensionDb() ?: return false
-ConvoyRideStore.kt:535:    fun updateRideDate(rideId: String, rideDate: String): Boolean {
-ConvoyRideStore.kt:536:        val db = SpatialDbManager.getExtensionDb() ?: return false
-ConvoyRideStore.kt:549:    fun markDistributed(rideId: String): Boolean {
-ConvoyRideStore.kt:551:        val db = SpatialDbManager.getExtensionDb() ?: return false
-ConvoyRideStore.kt:564:    fun setRideWaypoints(rideId: String, waypointIds: List<String>): Boolean {
-ConvoyRideStore.kt:568:        val db = SpatialDbManager.getExtensionDb() ?: return false
-ConvoyRideStore.kt:584:    fun listRides(limit: Int = 100): List<RideRow> {
-ConvoyRideStore.kt:585:        val db = SpatialDbManager.getExtensionDb() ?: return emptyList()
-ConvoyRideStore.kt:586:        val out = mutableListOf<RideRow>()
-ConvoyRideStore.kt:616:    fun parseWktLine(wkt: String): List<Pair<Double, Double>> {
-ConvoyRideStore.kt:617:        val inner = wkt.substringAfter('(', "").substringBeforeLast(')', "")
-ConvoyRideStore.kt:620:            val t = p.trim().split(' ').filter { it.isNotBlank() }
-ConvoyRideStore.kt:622:                val x = t[0].toDoubleOrNull(); val y = t[1].toDoubleOrNull()
+ConvoyRideStore.kt:27: *   same constructor). RideChoice / CheckIn / RideSurveyInput / EditRide are nested in this object and Kotlin has no typealias inside
+ConvoyRideStore.kt:28: *   an object -- so they are declared here, field for field as 2.7e had them, and converted at the door. ⚠ A field added to a shared
+ConvoyRideStore.kt:40:object ConvoyRideStore {
+ConvoyRideStore.kt:44:    private fun files(context: Context) = GtRidesAndroid.Files(context)
+ConvoyRideStore.kt:48:    fun listRoutes(limit: Int = 200): List<RouteSummary> = Shared.listRoutes(limit)
+ConvoyRideStore.kt:51:    fun routeGeometry(routeId: String): String? = Shared.routeGeometry(routeId)
+ConvoyRideStore.kt:54:    fun renameRoute(routeId: String, name: String): Boolean = Shared.renameRoute(routeId, name)
+ConvoyRideStore.kt:57:    fun saveRide(
+ConvoyRideStore.kt:71:    data class RideChoice(val rideId: String, val name: String, val date: String, val startTime: String,
+ConvoyRideStore.kt:72:                          val organizerName: String, val organizerId: String, val isPublic: Boolean) {
+ConvoyRideStore.kt:73:        internal fun shared() = Shared.RideChoice(rideId, name, date, startTime, organizerName, organizerId, isPublic)
+ConvoyRideStore.kt:77:    data class CheckIn(val rideId: String?, val rideName: String?, val isPublic: Boolean, val callsign: String, val role: String)
+ConvoyRideStore.kt:80:    data class RideSurveyInput(val rideId: String, val rating: Int, val difficulty: String, val recommend: Boolean,
+ConvoyRideStore.kt:81:                               val notes: String, val shareTrack: Boolean) {
+ConvoyRideStore.kt:82:        internal fun shared() = Shared.RideSurveyInput(rideId, rating, difficulty, recommend, notes, shareTrack)
+ConvoyRideStore.kt:87:    data class EditRide(val name: String, val date: String, val startTime: String, val description: String,
+ConvoyRideStore.kt:88:                        val isPublic: Boolean, val routeId: String, val unique: Boolean, val configId: String?)
+ConvoyRideStore.kt:91:    fun openRecentRides(): List<RideChoice> = Shared.openRecentRides().map { r ->
+ConvoyRideStore.kt:96:    fun checkIn(ride: RideChoice?, callsign: String, role: String): CheckIn? =
+ConvoyRideStore.kt:100:    fun saveSurvey(trackId: String, s: RideSurveyInput): Boolean = Shared.saveSurvey(trackId, s.shared())
+ConvoyRideStore.kt:103:    fun myNetworkName(): String? = Shared.myNetworkName()
+ConvoyRideStore.kt:106:    fun ensureMyNetworkName(): String? = Shared.ensureMyNetworkName()
+ConvoyRideStore.kt:110:    fun createRideNetwork(): com.grouptrack.core.NetworkConfig? = (Shared.createRideNetwork() as GtRidesAndroid.Net?)?.cfg
+ConvoyRideStore.kt:113:    fun isOrganizer(): Boolean = Shared.isOrganizer()
+ConvoyRideStore.kt:116:    fun expireRides() = Shared.expireRides()
+ConvoyRideStore.kt:119:    fun healFromFiles(context: Context) = Shared.healFromFiles(files(context))
+ConvoyRideStore.kt:122:    fun deleteRide(context: Context, rideId: String, reason: String): Boolean = Shared.deleteRide(files(context), rideId, reason)
+ConvoyRideStore.kt:125:    fun rideForEdit(rideId: String): EditRide? = Shared.rideForEdit(rideId)?.let { e ->
+ConvoyRideStore.kt:130:    fun isDistributed(rideId: String): Boolean = Shared.isDistributed(rideId)
+ConvoyRideStore.kt:133:    fun updateRide(
+ConvoyRideStore.kt:139:    fun updateRideDate(rideId: String, rideDate: String): Boolean = Shared.updateRideDate(rideId, rideDate)
+ConvoyRideStore.kt:142:    fun markDistributed(rideId: String): Boolean = Shared.markDistributed(rideId)
+ConvoyRideStore.kt:145:    fun setRideWaypoints(rideId: String, waypointIds: List<String>): Boolean = Shared.setRideWaypoints(rideId, waypointIds)
+ConvoyRideStore.kt:148:    fun listRides(limit: Int = 100): List<RideRow> = Shared.listRides(limit)
+ConvoyRideStore.kt:151:    fun parseWktLine(wkt: String): List<Pair<Double, Double>> = Shared.parseWktLine(wkt)
 ConvoyCreateEventScreen.kt:59:fun ConvoyCreateEventScreen(
 ConvoyCreateEventScreen.kt:63:    val context = LocalContext.current
 ConvoyCreateEventScreen.kt:64:    val scope   = rememberCoroutineScope()
@@ -6048,35 +6185,28 @@ ConvoyFileReceiver.kt:128:            val fileName = "convoy_${System.currentTim
 ConvoyFileReceiver.kt:129:            val destFile = File(importDir, fileName)
 ConvoyFileReceiver.kt:146:    companion object {
 ConvoyFileReceiver.kt:147:        private const val TAG = "ConvoyFileReceiver"
-ConvoyFileReceiver.kt:160:object RideImport {
-ConvoyFileReceiver.kt:161:    private const val TAG = "RideImport"
-ConvoyFileReceiver.kt:163:    fun importRide(context: android.content.Context, content: String, bringForward: Boolean): String {
-ConvoyFileReceiver.kt:164:        val rideJson = try { JSONObject(content) } catch (e: Exception) { null }
-ConvoyFileReceiver.kt:165:        val rideObj = rideJson?.optJSONObject("ride")
-ConvoyFileReceiver.kt:166:        val rideId = rideObj?.optString("rideId", "")?.takeIf { it.isNotBlank() && it != "null" }
-ConvoyFileReceiver.kt:167:        val rideName = rideObj?.optString("name", "")?.takeIf { it.isNotBlank() && it != "null" } ?: "Ride"
-ConvoyFileReceiver.kt:172:            val dir = GroupTrackStorage.dir("rides", context)
-ConvoyFileReceiver.kt:174:            val out = java.io.File(dir, rideId.replace(Regex("[^A-Za-z0-9_-]"), "_") + ".json")
-ConvoyFileReceiver.kt:175:            val tmp = java.io.File(dir, out.name + ".tmp")
-ConvoyFileReceiver.kt:180:            val gpx = rideJson.optJSONObject("rideData")?.optString("gpx", "")
-ConvoyFileReceiver.kt:186:                val stage = java.io.File(context.filesDir, "gpx_staging")
-ConvoyFileReceiver.kt:189:                val g = java.io.File(stage, rideName.replace(Regex("[^A-Za-z0-9 _-]"), "_").trim().ifBlank { "ride" } + ".gpx")
-ConvoyFileReceiver.kt:218:object GpxOpen {
-ConvoyFileReceiver.kt:219:    private const val TAG = "GpxOpen"
-ConvoyFileReceiver.kt:222:    fun looksLikeGpxOrKml(text: String): Boolean {
-ConvoyFileReceiver.kt:223:        val head = text.take(4000).lowercase()
-ConvoyFileReceiver.kt:228:    fun displayName(context: android.content.Context, uri: android.net.Uri): String? = try {
-ConvoyFileReceiver.kt:230:            val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-ConvoyFileReceiver.kt:236:    fun stageAndOffer(context: android.content.Context, displayName: String?, content: String, bringForward: Boolean): String {
-ConvoyFileReceiver.kt:237:        val ext = if (content.take(4000).lowercase().contains("<kml")) ".kml" else ".gpx"
-ConvoyFileReceiver.kt:238:        val base = (displayName ?: "import_${System.currentTimeMillis()}").substringBeforeLast('.')
-ConvoyFileReceiver.kt:242:            val stage = java.io.File(context.filesDir, "gpx_staging")
-ConvoyFileReceiver.kt:245:            val f = java.io.File(stage, base + ext)
-ConvoyFileReceiver.kt:266:    suspend fun fromUri(context: android.content.Context, uri: android.net.Uri): String {
-ConvoyFileReceiver.kt:267:        val read = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-ConvoyFileReceiver.kt:268:            val name = displayName(context, uri)
-ConvoyFileReceiver.kt:269:            val text = try { context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } }
-ConvoyFileReceiver.kt:273:        val text = read.second
+ConvoyFileReceiver.kt:162:object RideImport {
+ConvoyFileReceiver.kt:163:    fun importRide(context: android.content.Context, content: String, bringForward: Boolean): String =
+ConvoyFileReceiver.kt:165:            object : com.grouptrack.shared.ride.RideImportPlatform {
+ConvoyFileReceiver.kt:166:                override fun initMapSources() {
+ConvoyFileReceiver.kt:169:                override fun offer(gpxPath: String) {
+ConvoyFileReceiver.kt:172:                override fun bringForward() {
+ConvoyFileReceiver.kt:191:object GpxOpen {
+ConvoyFileReceiver.kt:192:    private const val TAG = "GpxOpen"
+ConvoyFileReceiver.kt:195:    fun looksLikeGpxOrKml(text: String): Boolean {
+ConvoyFileReceiver.kt:196:        val head = text.take(4000).lowercase()
+ConvoyFileReceiver.kt:201:    fun displayName(context: android.content.Context, uri: android.net.Uri): String? = try {
+ConvoyFileReceiver.kt:203:            val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+ConvoyFileReceiver.kt:209:    fun stageAndOffer(context: android.content.Context, displayName: String?, content: String, bringForward: Boolean): String {
+ConvoyFileReceiver.kt:210:        val ext = if (content.take(4000).lowercase().contains("<kml")) ".kml" else ".gpx"
+ConvoyFileReceiver.kt:211:        val base = (displayName ?: "import_${System.currentTimeMillis()}").substringBeforeLast('.')
+ConvoyFileReceiver.kt:215:            val stage = java.io.File(context.filesDir, "gpx_staging")
+ConvoyFileReceiver.kt:218:            val f = java.io.File(stage, base + ext)
+ConvoyFileReceiver.kt:239:    suspend fun fromUri(context: android.content.Context, uri: android.net.Uri): String {
+ConvoyFileReceiver.kt:240:        val read = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+ConvoyFileReceiver.kt:241:            val name = displayName(context, uri)
+ConvoyFileReceiver.kt:242:            val text = try { context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } }
+ConvoyFileReceiver.kt:246:        val text = read.second
 OwnershipReclass.kt:9: * OwnershipReclass — STEP 8 of the state import. OWNERSHIP-2026-08-31.
 OwnershipReclass.kt:56:object OwnershipReclass {
 OwnershipReclass.kt:58:    private const val TAG = "OwnershipReclass"
@@ -6310,50 +6440,16 @@ RouteManager.kt:279:        var minLat = Double.MAX_VALUE; var maxLat = -Double.
 RouteManager.kt:280:        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
 RouteManager.kt:282:            val lon = p[0]; val lat = p[1]
 RouteManager.kt:295:    fun stub() { /* retained; replaced by Pass-2 functions above */ }
-ConvoyRideJsonWriter.kt:13: * EXISTING provider; this object generates nothing. A value with no provider yet is written as an
-ConvoyRideJsonWriter.kt:19:object ConvoyRideJsonWriter {
-ConvoyRideJsonWriter.kt:21:    private const val TAG = "ConvoyRideJson"
-ConvoyRideJsonWriter.kt:23:    const val KIND = "grouptrack.ride"
-ConvoyRideJsonWriter.kt:24:    const val FORMAT_VERSION = 3
-ConvoyRideJsonWriter.kt:32:    const val INCLUDE_NARRATIVE = false
-ConvoyRideJsonWriter.kt:34:    data class Result(val json: JSONObject, val missing: List<String>) {
-ConvoyRideJsonWriter.kt:35:        val complete: Boolean get() = missing.isEmpty()
-ConvoyRideJsonWriter.kt:38:    private fun nul(v: Any?): Any = v ?: JSONObject.NULL
-ConvoyRideJsonWriter.kt:40:    fun build(context: Context, rideId: String): Result? {
-ConvoyRideJsonWriter.kt:42:        val db = SpatialDbManager.getExtensionDb() ?: return null
-ConvoyRideJsonWriter.kt:43:        val missing = mutableListOf<String>()
-ConvoyRideJsonWriter.kt:46:        val r: Array<String?> = try {
-ConvoyRideJsonWriter.kt:59:        val ride = JSONObject()
-ConvoyRideJsonWriter.kt:73:        val rideDate = r[5]
-ConvoyRideJsonWriter.kt:78:        val originator = JSONObject()
-ConvoyRideJsonWriter.kt:89:        val defaultNet: JSONObject? = if (r[9] == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL) try {
-ConvoyRideJsonWriter.kt:95:        val cfg = if (defaultNet != null) null else r[9]?.let { ConvoyNetworkStore.load(it) }
-ConvoyRideJsonWriter.kt:96:        val network: Any = if (defaultNet != null) defaultNet else if (cfg == null) {
-ConvoyRideJsonWriter.kt:116:        val routeId = r[3]
-ConvoyRideJsonWriter.kt:117:        val rideData = JSONObject()
-ConvoyRideJsonWriter.kt:123:            val routeGpx = SpatialDbManager.buildRouteGpxById(routeId)
-ConvoyRideJsonWriter.kt:124:            val geomHash = SpatialDbManager.routeGeomHash(routeId)
-ConvoyRideJsonWriter.kt:131:            val recipe = SpatialDbManager.routeRecipe(routeId)
-ConvoyRideJsonWriter.kt:132:            val th = trailheadWpt(recipe)
-ConvoyRideJsonWriter.kt:136:            val wpts = StringBuilder()
-ConvoyRideJsonWriter.kt:153:        val json = JSONObject()
-ConvoyRideJsonWriter.kt:166:    private val WPT = Regex("<wpt\\b[\\s\\S]*?</wpt>")
-ConvoyRideJsonWriter.kt:168:    private fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-ConvoyRideJsonWriter.kt:172:    private fun trailheadWpt(recipe: JSONObject?): String? {
-ConvoyRideJsonWriter.kt:174:        val lat = recipe.optDouble("anchorLat", Double.NaN)
-ConvoyRideJsonWriter.kt:175:        val lon = recipe.optDouble("anchorLon", Double.NaN)
-ConvoyRideJsonWriter.kt:177:        val name = recipe.optString("anchorName", "").ifBlank { "Trailhead" }
-ConvoyRideJsonWriter.kt:181:    private fun rideWaypointIds(rideId: String): List<String> {
-ConvoyRideJsonWriter.kt:182:        val db = SpatialDbManager.getExtensionDb() ?: return emptyList()
-ConvoyRideJsonWriter.kt:186:                val out = mutableListOf<String>()
-ConvoyRideJsonWriter.kt:197:    fun rideFile(context: Context, rideId: String): java.io.File =
-ConvoyRideJsonWriter.kt:206:    fun save(context: Context, rideId: String): List<String>? {
-ConvoyRideJsonWriter.kt:207:        val r = build(context, rideId) ?: return null
-ConvoyRideJsonWriter.kt:209:            val f = rideFile(context, rideId)
-ConvoyRideJsonWriter.kt:210:            val tmp = java.io.File(f.parentFile, f.name + ".tmp")
-ConvoyRideJsonWriter.kt:224:    internal fun mergeWpts(routeGpx: String, wpts: String): String {
-ConvoyRideJsonWriter.kt:226:        val meta = routeGpx.indexOf("</metadata>")
-ConvoyRideJsonWriter.kt:227:        val at = if (meta >= 0) meta + "</metadata>".length
+ConvoyRideJsonWriter.kt:16:object ConvoyRideJsonWriter {
+ConvoyRideJsonWriter.kt:20:    const val KIND = Shared.KIND
+ConvoyRideJsonWriter.kt:21:    const val FORMAT_VERSION = Shared.FORMAT_VERSION
+ConvoyRideJsonWriter.kt:29:    const val INCLUDE_NARRATIVE = Shared.INCLUDE_NARRATIVE
+ConvoyRideJsonWriter.kt:31:    data class Result(val json: JSONObject, val missing: List<String>) {
+ConvoyRideJsonWriter.kt:32:        val complete: Boolean get() = missing.isEmpty()
+ConvoyRideJsonWriter.kt:35:    fun build(context: Context, rideId: String): Result? {
+ConvoyRideJsonWriter.kt:41:    fun rideFile(context: Context, rideId: String): java.io.File =
+ConvoyRideJsonWriter.kt:45:    fun save(context: Context, rideId: String): List<String>? {
+ConvoyRideJsonWriter.kt:51:    internal fun mergeWpts(routeGpx: String, wpts: String): String = Shared.mergeWpts(routeGpx, wpts)
 TabletPosition.kt:13:object TabletPosition {
 TabletPosition.kt:14:    fun interface Listener { fun onPosition(loc: android.location.Location) }
 TabletPosition.kt:16:    private val listeners = java.util.concurrent.CopyOnWriteArrayList<Listener>()
@@ -6375,586 +6471,58 @@ TabletPosition.kt:64:            override fun onLocationResult(result: com.googl
 TabletPosition.kt:72:            val req = com.google.android.gms.location.LocationRequest.Builder(
 TabletPosition.kt:89:    fun remove(ctx: android.content.Context, l: Listener) {
 TabletPosition.kt:92:        val cb = callback ?: return
-RouteExplorer.kt:80:object RouteExplorer {
-RouteExplorer.kt:82:    private const val TAG = "RouteExplorer"
-RouteExplorer.kt:85:    private const val SNAP_FT = 25.0
-RouteExplorer.kt:86:    private const val CAUTION_FT = 10.0
-RouteExplorer.kt:87:    private const val POI_BUF_MI = 0.5
-RouteExplorer.kt:98:    private const val SNAP_ANCHOR_MI = 2.0
-RouteExplorer.kt:99:    private const val SNAP_POINT_MI = 0.5
-RouteExplorer.kt:100:    private const val PENALTY = 2.2
-RouteExplorer.kt:101:    private const val TRIES = 2500
-RouteExplorer.kt:102:    private const val BEAM_TOP = 5
-RouteExplorer.kt:105:    data class Request(
-RouteExplorer.kt:106:        val anchorLat: Double,
-RouteExplorer.kt:107:        val anchorLon: Double,
-RouteExplorer.kt:108:        val name: String,
-RouteExplorer.kt:109:        val milesLow: Double,
-RouteExplorer.kt:110:        val milesHigh: Double,
-RouteExplorer.kt:111:        val mphLow: Double,
-RouteExplorer.kt:112:        val mphHigh: Double,
-RouteExplorer.kt:113:        val maxRoutes: Int = 4,
-RouteExplorer.kt:115:        val includePoints: List<Pair<Double, Double>> = emptyList(),
-RouteExplorer.kt:116:        val seed: Long = 20260823L,
-RouteExplorer.kt:119:    data class Progress(val step: String, val detail: String = "")
-RouteExplorer.kt:121:    data class Suggestion(
-RouteExplorer.kt:122:        val name: String,
-RouteExplorer.kt:123:        val miles: Double,
-RouteExplorer.kt:124:        val hoursLow: Double,
-RouteExplorer.kt:125:        val hoursHigh: Double,
-RouteExplorer.kt:126:        val featureCount: Int,
-RouteExplorer.kt:127:        val featureMix: String,
-RouteExplorer.kt:128:        val draftName: String,
-RouteExplorer.kt:135:    private class Edge(
-RouteExplorer.kt:136:        val u: Long, val v: Long, val miles: Double,
-RouteExplorer.kt:137:        val name: String?, val trailId: String,
-RouteExplorer.kt:138:        val pts: List<DoubleArray>,
-RouteExplorer.kt:153:    private class Graph(
-RouteExplorer.kt:154:        val key: String,
-RouteExplorer.kt:155:        val nodes: HashMap<Long, DoubleArray>,
-RouteExplorer.kt:156:        val edges: ArrayList<Edge>,
-RouteExplorer.kt:160:        val mainComponent: HashSet<Long>,
-RouteExplorer.kt:163:        val lAdj: HashMap<Long, ArrayList<LongArray>>,
-RouteExplorer.kt:167:    class SearchStats {
-RouteExplorer.kt:168:        @Volatile var trails = -1
-RouteExplorer.kt:169:        @Volatile var networks = -1
-RouteExplorer.kt:170:        @Volatile var junctions = -1
-RouteExplorer.kt:171:        @Volatile var features = -1
-RouteExplorer.kt:172:        @Volatile var areaMi = ""
-RouteExplorer.kt:173:        @Volatile var stop = ""
-RouteExplorer.kt:176:    @Volatile var lastStats = SearchStats()
-RouteExplorer.kt:178:    @Volatile private var lastTrailsRead = -1
-RouteExplorer.kt:182:    data class SelRow(val use: String, val type: String, val pub: Int, val priv: Int, val typeOn: Boolean, val useOn: Boolean)
-RouteExplorer.kt:185:    data class SelTable(val area: String = "", val rows: List<SelRow> = emptyList(), val restricted: Int = 0,
-RouteExplorer.kt:186:                        val restrictedOn: Boolean = true, val publicOn: Boolean = true, val privateOn: Boolean = false,
-RouteExplorer.kt:187:                        val searched: Int = 0, val total: Int = 0,
-RouteExplorer.kt:191:    fun selectionTable(db: SQLiteDatabase, req: Request): SelTable = try {
-RouteExplorer.kt:192:        val box = corridorBox(req)
-RouteExplorer.kt:193:        val f = TrailFilterState
-RouteExplorer.kt:194:        val args = arrayOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
-RouteExplorer.kt:196:        var rst = 0; var total = 0
-RouteExplorer.kt:200:                val n = c.getInt(3); total += n
-RouteExplorer.kt:203:                    else -> { val a = m.getOrPut(c.getString(0) + "|" + c.getString(1)) { IntArray(2) }
-RouteExplorer.kt:208:        var searched = 0
-RouteExplorer.kt:214:        fun useLabel(u: String) = when (u) { "MOTORIZED" -> "Motorized"; "NON-MOTORIZED" -> "Non-motorized"; else -> "Use not recorded" }
-RouteExplorer.kt:215:        fun useOrder(u: String) = when (u) { "MOTORIZED" -> 0; "NON-MOTORIZED" -> 1; else -> 2 }
-RouteExplorer.kt:216:        fun useOn(u: String) = when (u) { "MOTORIZED" -> f.use != "NON-MOTORIZED"; "NON-MOTORIZED" -> f.use != "MOTORIZED"; else -> true }
-RouteExplorer.kt:217:        val rows = m.entries.map { e -> val (u, t) = e.key.split("|", limit = 2).let { it[0] to it[1] }; Triple(u, t, e.value) }
-RouteExplorer.kt:225:     * AIFAIL-2026-11-03 v5 (Fred 06:54): the trails in [req]'s search area by class -- land, use, each trail type -- each selected
-RouteExplorer.kt:228:    fun selectionBreakdown(db: SQLiteDatabase, req: Request): String = try {
-RouteExplorer.kt:229:        val box = corridorBox(req)
-RouteExplorer.kt:230:        val f = TrailFilterState
-RouteExplorer.kt:231:        val args = arrayOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
-RouteExplorer.kt:232:        val cat = HashMap<String, Int>(); val land = HashMap<String, Int>(); val use = HashMap<String, Int>()
-RouteExplorer.kt:233:        var unoff = 0; var total = 0
-RouteExplorer.kt:237:                val n = c.getInt(4); total += n
-RouteExplorer.kt:244:        var searched = 0
-RouteExplorer.kt:247:        fun fmt(n: Int) = "%,d".format(n)
-RouteExplorer.kt:248:        fun item(name: String, on: Boolean, n: Int) = if (on) "✓ $name ${fmt(n)}" else "✗ $name ${fmt(n)} left out"
-RouteExplorer.kt:249:        val area = "%.0f x %.0f mi".format((box[1] - box[0]) * 69.0, (box[3] - box[2]) * 69.0 * Math.cos(Math.toRadians((box[0] + box[1]) / 2)))
-RouteExplorer.kt:250:        val types = cat.entries.sortedByDescending { it.value }.map { item(it.key, it.key !in f.off, it.value) } +
-RouteExplorer.kt:261:    private fun omittedByFilter(db: SQLiteDatabase, box: DoubleArray): String = try {
-RouteExplorer.kt:262:        val f = TrailFilterState
-RouteExplorer.kt:263:        val args = arrayOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
-RouteExplorer.kt:264:        fun n(extra: String, more: Array<String> = emptyArray()): Int = db.rawQuery(
-RouteExplorer.kt:267:        val parts = ArrayList<String>()
-RouteExplorer.kt:268:        fun add(c: Int, what: String) { if (c > 0) parts.add("%,d %s".format(c, what)) }
-RouteExplorer.kt:280:    private var cached: Graph? = null
-RouteExplorer.kt:285:     * given, and a cache hit used to return the cached object itself. So the
-RouteExplorer.kt:301:    private fun copyOf(g: Graph): Graph = Graph(
-RouteExplorer.kt:316:    private val NONAMES = setOf("", "not named", "unnamed", "none", "null", "n/a", "-")
-RouteExplorer.kt:317:    private val WATER = setOf("spring")
-RouteExplorer.kt:318:    private val VIEW = setOf("peak", "cliff", "volcano")
-RouteExplorer.kt:322:     * class -- base/(1+0.22*(n-1)) -- so pins sharing a natural class would
-RouteExplorer.kt:331:    private const val USERPIN = "userpin"
-RouteExplorer.kt:332:    private const val USERPIN_BASE = 60.0
-RouteExplorer.kt:335:     * ROUTEREACH-2026-08-23W: NOT EVERY fclass IS A FEATURE. These are administrative
-RouteExplorer.kt:350:     * class currently scores 1.0 and gets ridden to by default. Left as a
-RouteExplorer.kt:353:    private val JUNK = setOf("county", "city", "town", "tree", "village",
-RouteExplorer.kt:356:    private fun realName(n: String?): Boolean =
-RouteExplorer.kt:359:    private fun hav(aLat: Double, aLon: Double, bLat: Double, bLon: Double): Double {
-RouteExplorer.kt:360:        val r = 3958.8
-RouteExplorer.kt:361:        val p1 = Math.toRadians(aLat); val p2 = Math.toRadians(bLat)
-RouteExplorer.kt:362:        val dp = p2 - p1
-RouteExplorer.kt:363:        val dl = Math.toRadians(bLon - aLon)
-RouteExplorer.kt:364:        val h = sin(dp / 2) * sin(dp / 2) + cos(p1) * cos(p2) * sin(dl / 2) * sin(dl / 2)
-RouteExplorer.kt:369:    private fun wktPoints(wkt: String?): List<DoubleArray> {
-RouteExplorer.kt:371:        val out = ArrayList<DoubleArray>()
-RouteExplorer.kt:372:        val m = Regex("(-?\\d+\\.?\\d*)\\s+(-?\\d+\\.?\\d*)").findAll(wkt)
-RouteExplorer.kt:374:            val lon = g.groupValues[1].toDoubleOrNull() ?: continue
-RouteExplorer.kt:375:            val lat = g.groupValues[2].toDoubleOrNull() ?: continue
-RouteExplorer.kt:385:    const val AIM_RING_M = 805.0
-RouteExplorer.kt:389:    const val TRAILHEAD_CHECK_M = AIM_RING_M + 200.0
-RouteExplorer.kt:395:        val ky = 111_320.0
-RouteExplorer.kt:396:        val kx = 111_320.0 * max(0.1, cos(Math.toRadians(lat)))
-RouteExplorer.kt:397:        val dLat = maxM / ky; val dLon = maxM / kx
-RouteExplorer.kt:398:        var best = Double.MAX_VALUE
-RouteExplorer.kt:403:                val pts = wktPoints(c.getString(0))
-RouteExplorer.kt:405:                    val ax = (pts[i][1] - lon) * kx; val ay = (pts[i][0] - lat) * ky
-RouteExplorer.kt:407:                    val bx = (pts[i - 1][1] - lon) * kx; val by = (pts[i - 1][0] - lat) * ky
-RouteExplorer.kt:408:                    val dx = ax - bx; val dy = ay - by; val l2 = dx * dx + dy * dy
-RouteExplorer.kt:409:                    val t = if (l2 == 0.0) 0.0 else ((-bx) * dx + (-by) * dy) / l2
-RouteExplorer.kt:410:                    val tt = t.coerceIn(0.0, 1.0)
-RouteExplorer.kt:411:                    val px = bx + tt * dx; val py = by + tt * dy
-RouteExplorer.kt:425:    fun connectedMiles(db: SQLiteDatabase, req: Request): Double = try {
-RouteExplorer.kt:426:        val box = corridorBox(req)
-RouteExplorer.kt:427:        var trailCount = 0
-RouteExplorer.kt:429:        val g = buildGraph(db, box, trailCount, null)
-RouteExplorer.kt:430:        var bd = Double.MAX_VALUE; var start = -1L
-RouteExplorer.kt:433:                val pr = projectOnSeg(req.anchorLat, req.anchorLon, e.pts[j], e.pts[j + 1])
-RouteExplorer.kt:438:            val seen = HashSet<Long>(); val q = ArrayDeque<Long>(); val used = HashSet<Long>()
-RouteExplorer.kt:440:            var miles = 0.0
-RouteExplorer.kt:442:                val n = q.removeFirst()
-RouteExplorer.kt:444:                    val nb = a[0]; val ei = a[1]
-RouteExplorer.kt:455:    private fun cellKey(lat: Double, lon: Double): Long {
-RouteExplorer.kt:456:        val d = (SNAP_FT / 5280.0) / 69.0
-RouteExplorer.kt:457:        val a = Math.round(lat / d)
-RouteExplorer.kt:458:        val b = Math.round(lon / d)
-RouteExplorer.kt:468:    private fun corridorBox(req: Request): DoubleArray {
-RouteExplorer.kt:487:        val radiusMi = req.milesHigh / 3.0
-RouteExplorer.kt:488:        val dLat = radiusMi / 69.0
-RouteExplorer.kt:489:        val dLon = radiusMi / (69.0 * max(0.2, cos(Math.toRadians(req.anchorLat))))
-RouteExplorer.kt:496:    private fun buildGraph(
-RouteExplorer.kt:524:        val key = "%.3f_%.3f_%.3f_%.3f_%d_%d".format(
-RouteExplorer.kt:537:        val geoms = ArrayList<Triple<String, String?, List<DoubleArray>>>()
-RouteExplorer.kt:548:            var cut = 0
-RouteExplorer.kt:553:                        val pp = wktPoints(m.groupValues[1])
-RouteExplorer.kt:558:                val pts = wktPoints(c.getString(2))
-RouteExplorer.kt:570:        val touch = HashMap<Long, HashSet<String>>()
-RouteExplorer.kt:571:        val spread = HashMap<Long, ArrayList<DoubleArray>>()
-RouteExplorer.kt:574:                val k = cellKey(p[0], p[1])
-RouteExplorer.kt:579:        val shared = HashSet<Long>()
-RouteExplorer.kt:580:        val gapFt = HashMap<Long, Double>()
-RouteExplorer.kt:581:        val jCentre = HashMap<Long, DoubleArray>()
-RouteExplorer.kt:585:            val ps = spread[k]!!
-RouteExplorer.kt:586:            var g = 0.0
-RouteExplorer.kt:588:                var j = i + 1
-RouteExplorer.kt:600:        val nodes = HashMap<Long, DoubleArray>()
-RouteExplorer.kt:601:        val edges = ArrayList<Edge>()
-RouteExplorer.kt:603:            val cuts = sortedSetOf(0, pts.size - 1)
-RouteExplorer.kt:605:            val cl = cuts.toList()
-RouteExplorer.kt:607:                val seg = pts.subList(cl[i], cl[i + 1] + 1)
-RouteExplorer.kt:609:                var L = 0.0
-RouteExplorer.kt:613:                val ka = cellKey(seg[0][0], seg[0][1])
-RouteExplorer.kt:614:                val kb = cellKey(seg[seg.size - 1][0], seg[seg.size - 1][1])
-RouteExplorer.kt:622:        val adj = HashMap<Long, ArrayList<IntArray>>()
-RouteExplorer.kt:629:        val adj2 = HashMap<Long, ArrayList<LongArray>>()
-RouteExplorer.kt:634:        val adjFinal = HashMap<Long, ArrayList<IntArray>>()
-RouteExplorer.kt:636:            val a = ArrayList<IntArray>()
-RouteExplorer.kt:642:        val seen = HashSet<Long>()
-RouteExplorer.kt:643:        var best = HashSet<Long>()
-RouteExplorer.kt:646:            val comp = HashSet<Long>()
-RouteExplorer.kt:647:            val q = ArrayDeque<Long>().apply { add(n) }
-RouteExplorer.kt:650:                val x = q.removeFirst(); comp.add(x)
-RouteExplorer.kt:670:    private class Poi(
-RouteExplorer.kt:671:        val name: String, val fclass: String,
-RouteExplorer.kt:672:        val lat: Double, val lon: Double, val offMi: Double,
-RouteExplorer.kt:675:    private fun loadPois(
-RouteExplorer.kt:678:        val out = HashMap<Long, ArrayList<Poi>>()
-RouteExplorer.kt:685:                val nm = c.getString(0) ?: continue
-RouteExplorer.kt:686:                val fc = c.getString(1) ?: "other"
-RouteExplorer.kt:689:                val la = c.getDouble(2); val lo = c.getDouble(3)
-RouteExplorer.kt:690:                var bestK = 0L; var bestD = Double.MAX_VALUE
-RouteExplorer.kt:692:                    val p = g.nodes[k] ?: continue
-RouteExplorer.kt:693:                    val d = hav(la, lo, p[0], p[1])
-RouteExplorer.kt:705:     * ⭐ VARIETY-WEIGHTED, AND DISTANCE-FREE. A second class of feature beats
-RouteExplorer.kt:709:    private fun scoreSet(ks: List<Long>, poiAt: Map<Long, List<Poi>>): Double {
-RouteExplorer.kt:710:        val seen = HashSet<String>()
-RouteExplorer.kt:711:        val byClass = HashMap<String, Int>()
-RouteExplorer.kt:712:        var v = 0.0
-RouteExplorer.kt:715:            val n = (byClass[p.fclass] ?: 0) + 1
-RouteExplorer.kt:718:            val base = if (p.fclass == USERPIN) USERPIN_BASE
-RouteExplorer.kt:719:                else if (p.fclass in VIEW) 3.0 else if (p.fclass in WATER) 2.0 else 1.0
-RouteExplorer.kt:729:    private class Dij(val dist: HashMap<Long, Double>, val prev: HashMap<Long, LongArray>)
-RouteExplorer.kt:731:    private fun dijkstra(src: Long, g: Graph, pen: Map<Int, Double>): Dij {
-RouteExplorer.kt:732:        val dist = HashMap<Long, Double>(); dist[src] = 0.0
-RouteExplorer.kt:733:        val prev = HashMap<Long, LongArray>()
-RouteExplorer.kt:734:        val pq = java.util.PriorityQueue<Pair<Double, Long>>(compareBy { it.first })
-RouteExplorer.kt:737:            val (d, x) = pq.poll()
-RouteExplorer.kt:740:                val ei = nb[1].toInt()
-RouteExplorer.kt:741:                val w = g.edges[ei].miles * (pen[ei] ?: 1.0)
-RouteExplorer.kt:742:                val nd = d + w
-RouteExplorer.kt:753:    private fun pathEdges(d: Dij, src: Long, dst: Long): List<Int>? {
-RouteExplorer.kt:754:        val out = ArrayList<Int>()
-RouteExplorer.kt:755:        var x = dst
-RouteExplorer.kt:757:            val p = d.prev[x] ?: return null
-RouteExplorer.kt:763:    private fun nearestNode(lat: Double, lon: Double, g: Graph): Long {
-RouteExplorer.kt:764:        var bk = 0L; var bd = Double.MAX_VALUE
-RouteExplorer.kt:766:            val p = g.nodes[k] ?: continue
-RouteExplorer.kt:767:            val d = hav(lat, lon, p[0], p[1])
-RouteExplorer.kt:830:    data class PinFeasibility(
-RouteExplorer.kt:831:        val order: List<Int>,
-RouteExplorer.kt:832:        val totalMiles: Double,
-RouteExplorer.kt:833:        val legMiles: List<Double>,
-RouteExplorer.kt:834:        val snapFeet: List<Double>,
-RouteExplorer.kt:835:        val onFragment: List<Int>,
-RouteExplorer.kt:836:        val unreachable: List<Int>,
-RouteExplorer.kt:837:        val marginalMiles: List<Double>,
-RouteExplorer.kt:838:        val overMiles: Double,
-RouteExplorer.kt:846:        val underMiles: Double
-RouteExplorer.kt:863:        object Loop : RouteShape
-RouteExplorer.kt:864:        data class PointToPoint(val endLat: Double, val endLon: Double) : RouteShape
-RouteExplorer.kt:875:    private fun heldKarpOpen(m: Array<DoubleArray>, endIdx: Int): Pair<List<Int>, Double> {
-RouteExplorer.kt:876:        val n = m.size
-RouteExplorer.kt:878:        val mid = (0 until n).filter { it != 0 && it != endIdx }
-RouteExplorer.kt:879:        val k = mid.size
-RouteExplorer.kt:882:            val d = m[0][endIdx]
-RouteExplorer.kt:887:        val full = 1 shl k
-RouteExplorer.kt:888:        val dp = Array(full) { DoubleArray(k) { Double.MAX_VALUE } }
-RouteExplorer.kt:889:        val par = Array(full) { IntArray(k) { -1 } }
-RouteExplorer.kt:892:            val d = m[0][mid[i]]
-RouteExplorer.kt:899:                val cur = dp[mask][last]
-RouteExplorer.kt:903:                    val step = m[mid[last]][mid[nxt]]
-RouteExplorer.kt:905:                    val nm = mask or (1 shl nxt)
-RouteExplorer.kt:906:                    val cand = cur + step
-RouteExplorer.kt:915:        var bestLast = -1
-RouteExplorer.kt:916:        var best = Double.MAX_VALUE
-RouteExplorer.kt:918:            val t = dp[full - 1][last]
-RouteExplorer.kt:920:            val tail = m[mid[last]][endIdx]
-RouteExplorer.kt:922:            val tot = t + tail
-RouteExplorer.kt:927:        val rev = ArrayList<Int>()
-RouteExplorer.kt:928:        var mask = full - 1
-RouteExplorer.kt:929:        var last = bestLast
-RouteExplorer.kt:932:            val p = par[mask][last]
-RouteExplorer.kt:970:    private fun corridorBoxFor(
-RouteExplorer.kt:977:        val direct = hav(req.anchorLat, req.anchorLon, shape.endLat, shape.endLon)
-RouteExplorer.kt:978:        val slack = (req.milesHigh - direct).coerceAtLeast(0.0)
-RouteExplorer.kt:979:        val bufMi = max(slack / 2.0, 2.0)
-RouteExplorer.kt:981:        var minLat = min(req.anchorLat, shape.endLat)
-RouteExplorer.kt:982:        var maxLat = max(req.anchorLat, shape.endLat)
-RouteExplorer.kt:983:        var minLon = min(req.anchorLon, shape.endLon)
-RouteExplorer.kt:984:        var maxLon = max(req.anchorLon, shape.endLon)
-RouteExplorer.kt:995:        val dLat = bufMi / 69.0
-RouteExplorer.kt:996:        val dLon = bufMi / (69.0 * max(0.2, cos(Math.toRadians(req.anchorLat))))
-RouteExplorer.kt:997:        val box = doubleArrayOf(minLat - dLat, maxLat + dLat, minLon - dLon, maxLon + dLon)
-RouteExplorer.kt:1007:    private fun nearestMainNode(lat: Double, lon: Double, g: Graph): Pair<Long, Double> {
-RouteExplorer.kt:1008:        var best = 0L
-RouteExplorer.kt:1009:        var bestD = Double.MAX_VALUE
-RouteExplorer.kt:1011:            val p = g.nodes[k] ?: continue
-RouteExplorer.kt:1012:            val d = hav(lat, lon, p[0], p[1])
-RouteExplorer.kt:1026:    private fun nearestAnyNode(lat: Double, lon: Double, g: Graph): Pair<Long, Double> {
-RouteExplorer.kt:1027:        var best = 0L
-RouteExplorer.kt:1028:        var bestD = Double.MAX_VALUE
-RouteExplorer.kt:1030:            val d = hav(lat, lon, p[0], p[1])
-RouteExplorer.kt:1045:    private fun heldKarp(m: Array<DoubleArray>): Pair<List<Int>, Double> {
-RouteExplorer.kt:1046:        val n = m.size
-RouteExplorer.kt:1049:            val out = m[0][1]
-RouteExplorer.kt:1050:            val back = m[1][0]
-RouteExplorer.kt:1056:        val k = n - 1
-RouteExplorer.kt:1057:        val full = 1 shl k
-RouteExplorer.kt:1058:        val dp = Array(full) { DoubleArray(k) { Double.MAX_VALUE } }
-RouteExplorer.kt:1059:        val par = Array(full) { IntArray(k) { -1 } }
-RouteExplorer.kt:1062:            val d = m[0][i + 1]
-RouteExplorer.kt:1069:                val cur = dp[mask][last]
-RouteExplorer.kt:1073:                    val step = m[last + 1][nxt + 1]
-RouteExplorer.kt:1075:                    val nm = mask or (1 shl nxt)
-RouteExplorer.kt:1076:                    val cand = cur + step
-RouteExplorer.kt:1085:        var bestEnd = -1
-RouteExplorer.kt:1086:        var best = Double.MAX_VALUE
-RouteExplorer.kt:1088:            val t = dp[full - 1][last]
-RouteExplorer.kt:1090:            val home = m[last + 1][0]
-RouteExplorer.kt:1092:            val tot = t + home
-RouteExplorer.kt:1097:        val rev = ArrayList<Int>()
-RouteExplorer.kt:1098:        var mask = full - 1
-RouteExplorer.kt:1099:        var last = bestEnd
-RouteExplorer.kt:1102:            val p = par[mask][last]
-RouteExplorer.kt:1121:    fun assess(
-RouteExplorer.kt:1127:        var trailCount = 0
-RouteExplorer.kt:1132:        val g = buildGraph(spatialDb, corridorBoxFor(req, shape, points), trailCount, null)
-RouteExplorer.kt:1142:        val all = ArrayList<Pair<Double, Double>>(points.size + 2)
-RouteExplorer.kt:1145:        val endIdx = if (shape is RouteShape.PointToPoint) {
-RouteExplorer.kt:1150:        val terms = ArrayList<Long>(all.size)
-RouteExplorer.kt:1151:        val snapFt = ArrayList<Double>(all.size)
-RouteExplorer.kt:1152:        val onFrag = ArrayList<Int>()
-RouteExplorer.kt:1157:        val tooFar = ArrayList<Int>()
-RouteExplorer.kt:1161:        fun nearestSeg(lat: Double, lon: Double, inNet: Set<Long>?): Triple<Int, DoubleArray?, Double> {
-RouteExplorer.kt:1162:            var bd = Double.MAX_VALUE; var bei = -1; var bp: DoubleArray? = null
-RouteExplorer.kt:1164:                val e = g.edges[ei]
-RouteExplorer.kt:1166:                val pts = e.pts
-RouteExplorer.kt:1168:                    val pr = projectOnSeg(lat, lon, pts[j], pts[j + 1])
-RouteExplorer.kt:1174:        val net = HashSet<Long>()
-RouteExplorer.kt:1178:        var anchorNet: HashSet<Long>? = null
-RouteExplorer.kt:1180:            val (alat, alon) = all[0]
-RouteExplorer.kt:1181:            val startMi = 0.5
-RouteExplorer.kt:1182:            val comps = ArrayList<HashSet<Long>>()
-RouteExplorer.kt:1184:                val pts = g.edges[ei].pts
-RouteExplorer.kt:1185:                var bd = Double.MAX_VALUE
-RouteExplorer.kt:1188:                val u = g.edges[ei].u
-RouteExplorer.kt:1190:                val c = HashSet<Long>(); c.add(u)
-RouteExplorer.kt:1191:                val q = ArrayDeque<Long>().apply { add(u) }
-RouteExplorer.kt:1192:                while (q.isNotEmpty()) { val x = q.removeFirst(); for (y in g.lAdj[x] ?: emptyList()) if (c.add(y[0])) q.add(y[0]) }
-RouteExplorer.kt:1200:            val (lat, lon) = all[i]
-RouteExplorer.kt:1201:            val cap = if (i == 0) SNAP_ANCHOR_MI else SNAP_POINT_MI
-RouteExplorer.kt:1203:            val dAny = if (i == 0) d else nearestSeg(lat, lon, null).third
-RouteExplorer.kt:1212:            val node = splitEdgeAt(g, ei, bp)
-RouteExplorer.kt:1216:                val q = ArrayDeque<Long>().apply { add(node) }; net.add(node)
-RouteExplorer.kt:1217:                while (q.isNotEmpty()) { val x = q.removeFirst(); for (y in g.lAdj[x] ?: emptyList()) if (net.add(y[0])) q.add(y[0]) }
-RouteExplorer.kt:1237:        val dij = HashMap<Long, Dij>()
-RouteExplorer.kt:1240:        val n = terms.size
-RouteExplorer.kt:1241:        val full = Array(n) { i ->
-RouteExplorer.kt:1252:        val unreachable = ArrayList<Int>()
-RouteExplorer.kt:1253:        val keep = ArrayList<Int>()
-RouteExplorer.kt:1281:        val sub = Array(keep.size) { a ->
-RouteExplorer.kt:1284:        val (subOrder, miles) = if (endIdx >= 0) {
-RouteExplorer.kt:1298:        val order = subOrder.map { keep[it] }
-RouteExplorer.kt:1302:        val legs = ArrayList<Double>(order.size)
-RouteExplorer.kt:1303:        val hops = if (endIdx >= 0) order.size - 1 else order.size
-RouteExplorer.kt:1305:            val a = order[i]
-RouteExplorer.kt:1306:            val b = order[(i + 1) % order.size]
-RouteExplorer.kt:1315:        val marginal = DoubleArray(n) { -1.0 }
-RouteExplorer.kt:1319:                val idx = keep.filterIndexed { i, _ -> i != drop }
-RouteExplorer.kt:1320:                val reduced = Array(idx.size) { a ->
-RouteExplorer.kt:1323:                val (o2, m2) = heldKarp(reduced)
-RouteExplorer.kt:1335:        val over = (miles - req.milesHigh).coerceAtLeast(0.0)
-RouteExplorer.kt:1336:        val under = (req.milesLow - miles).coerceAtLeast(0.0)
-RouteExplorer.kt:1357:    private fun projectOnSeg(
-RouteExplorer.kt:1360:        val fy = 69.0
-RouteExplorer.kt:1361:        val fx = 69.0 * cos(Math.toRadians(plat))
-RouteExplorer.kt:1362:        val px = plon * fx; val py = plat * fy
-RouteExplorer.kt:1363:        val ax = a[1] * fx; val ay = a[0] * fy
-RouteExplorer.kt:1364:        val bx = b[1] * fx; val by = b[0] * fy
-RouteExplorer.kt:1365:        val vx = bx - ax; val vy = by - ay
-RouteExplorer.kt:1366:        val l2 = vx * vx + vy * vy
-RouteExplorer.kt:1369:        var t = ((px - ax) * vx + (py - ay) * vy) / l2
-RouteExplorer.kt:1372:        val qx = ax + t * vx; val qy = ay + t * vy
-RouteExplorer.kt:1376:    private var splitSeq = 0
-RouteExplorer.kt:1389:    private fun splitEdgeAt(g: Graph, ei: Int, proj: DoubleArray): Long {
-RouteExplorer.kt:1390:        val e = g.edges[ei]
-RouteExplorer.kt:1391:        val pu = g.nodes[e.u] ?: return e.u
-RouteExplorer.kt:1392:        val pv = g.nodes[e.v] ?: return e.u
-RouteExplorer.kt:1393:        val du = hav(proj[0], proj[1], pu[0], pu[1])
-RouteExplorer.kt:1394:        val dv = hav(proj[0], proj[1], pv[0], pv[1])
-RouteExplorer.kt:1395:        val tot = du + dv
-RouteExplorer.kt:1397:        val k = -1000000L - (splitSeq++).toLong()
-RouteExplorer.kt:1415:        var cut = 0
-RouteExplorer.kt:1416:        var bestD = Double.MAX_VALUE
-RouteExplorer.kt:1418:            val d = hav(proj[0], proj[1], e.pts[j][0], e.pts[j][1]) +
-RouteExplorer.kt:1423:        val headPts = ArrayList<DoubleArray>(e.pts.subList(0, cut + 1))
-RouteExplorer.kt:1425:        val tailPts = ArrayList<DoubleArray>()
-RouteExplorer.kt:1433:        val ia = g.edges.size
-RouteExplorer.kt:1435:        val ib = g.edges.size
-RouteExplorer.kt:1453:    private fun loadPoisGrid(
-RouteExplorer.kt:1456:        val out = HashMap<Long, ArrayList<Poi>>()
-RouteExplorer.kt:1457:        val cell = POI_BUF_MI / 69.0
-RouteExplorer.kt:1458:        val grid = HashMap<Long, ArrayList<Long>>()
-RouteExplorer.kt:1460:            val p = g.nodes[k] ?: continue
-RouteExplorer.kt:1461:            val gi = Math.floor(p[0] / cell).toLong()
-RouteExplorer.kt:1462:            val gj = Math.floor(p[1] / cell).toLong()
-RouteExplorer.kt:1472:                val nm = c.getString(0) ?: continue
-RouteExplorer.kt:1473:                val fc = c.getString(1) ?: "other"
-RouteExplorer.kt:1475:                val la = c.getDouble(2); val lo = c.getDouble(3)
-RouteExplorer.kt:1476:                val gi = Math.floor(la / cell).toLong()
-RouteExplorer.kt:1477:                val gj = Math.floor(lo / cell).toLong()
-RouteExplorer.kt:1478:                var bk = 0L; var bd = Double.MAX_VALUE
-RouteExplorer.kt:1480:                    val key = ((gi + di) shl 32) xor ((gj + dj) and 0xffffffffL)
-RouteExplorer.kt:1482:                        val p = g.nodes[k] ?: continue
-RouteExplorer.kt:1483:                        val d = hav(la, lo, p[0], p[1])
-RouteExplorer.kt:1496:    private inline fun forEachCombo(
-RouteExplorer.kt:1500:        val idx = IntArray(size) { it }
-RouteExplorer.kt:1503:            var i = size - 1
-RouteExplorer.kt:1518:    private fun orderTour(
-RouteExplorer.kt:1523:            var best: Pair<List<Long>, Double>? = null
-RouteExplorer.kt:1524:            val arr = combo.toMutableList()
-RouteExplorer.kt:1525:            fun perm(k: Int) {
-RouteExplorer.kt:1527:                    var t = 0.0; var cur = start
-RouteExplorer.kt:1528:                    for (p in arr) { val x = d(cur, p) ?: return; t += x; cur = p }
-RouteExplorer.kt:1529:                    val back = d(cur, start) ?: return
-RouteExplorer.kt:1535:                    val tmp = arr[k]; arr[k] = arr[i]; arr[i] = tmp
-RouteExplorer.kt:1537:                    val t2 = arr[k]; arr[k] = arr[i]; arr[i] = t2
-RouteExplorer.kt:1543:        var cur = start
-RouteExplorer.kt:1544:        val left = combo.toMutableList()
-RouteExplorer.kt:1545:        val order = ArrayList<Long>()
-RouteExplorer.kt:1546:        var t = 0.0
-RouteExplorer.kt:1548:            var bn: Long? = null; var bd = Double.MAX_VALUE
-RouteExplorer.kt:1549:            for (p in left) { val x = d(cur, p) ?: continue; if (x < bd) { bd = x; bn = p } }
-RouteExplorer.kt:1550:            val n = bn ?: return null
-RouteExplorer.kt:1553:        val back = d(cur, start) ?: return null
-RouteExplorer.kt:1563:    private fun survivorsOf(
-RouteExplorer.kt:1566:        val sorted = cands.sortedWith(
-RouteExplorer.kt:1569:        val kept = ArrayList<Set<Int>>()
-RouteExplorer.kt:1571:            val es = c.third.toSet()
-RouteExplorer.kt:1572:            var dup = false
-RouteExplorer.kt:1574:                val u = (es + k).size
-RouteExplorer.kt:1586:    private fun pathOf(dij: Map<Long, Dij>, seq: List<Long>): List<Int>? {
-RouteExplorer.kt:1587:        val out = ArrayList<Int>()
-RouteExplorer.kt:1589:            val d = dij[seq[i]] ?: return null
-RouteExplorer.kt:1590:            val pe = pathEdges(d, seq[i], seq[i + 1]) ?: return null
-RouteExplorer.kt:1596:    fun explore(
-RouteExplorer.kt:1608:        val wantRides = 6
-RouteExplorer.kt:1609:        val minApart = 5.0
-RouteExplorer.kt:1616:        val workingMax = 40
-RouteExplorer.kt:1619:        val enrichN = 20
-RouteExplorer.kt:1620:        val maxPoi = 24
-RouteExplorer.kt:1623:        val maxOverlap = 0.75
-RouteExplorer.kt:1625:        val box = corridorBox(req)
-RouteExplorer.kt:1626:        var trailCount = 0
-RouteExplorer.kt:1632:        val g = buildGraph(spatialDb, box, trailCount, onProgress)
-RouteExplorer.kt:1646:        val compOf = HashMap<Long, Int>()
-RouteExplorer.kt:1648:            var ci = 0
-RouteExplorer.kt:1651:                val q = ArrayDeque<Long>().apply { add(s) }
-RouteExplorer.kt:1654:                    val x = q.removeFirst()
-RouteExplorer.kt:1670:        val startMi = startYds * 3.0 / 5280.0
-RouteExplorer.kt:1671:        val seenTid = HashSet<String>()
-RouteExplorer.kt:1672:        val originsAll = ArrayList<Triple<Long, Double, String>>()
-RouteExplorer.kt:1674:            val cands = ArrayList<Triple<Double, Int, DoubleArray>>()
-RouteExplorer.kt:1676:                val e = g.edges[i]
-RouteExplorer.kt:1677:                val pts = e.pts
-RouteExplorer.kt:1679:                var bd = Double.MAX_VALUE
-RouteExplorer.kt:1680:                var bp: DoubleArray? = null
-RouteExplorer.kt:1682:                    val pr = projectOnSeg(req.anchorLat, req.anchorLon, pts[j], pts[j + 1])
-RouteExplorer.kt:1689:                val tid = g.edges[ei].trailId
-RouteExplorer.kt:1691:                val k = splitEdgeAt(g, ei, proj)
-RouteExplorer.kt:1709:        val altStarts = HashMap<Int, ArrayList<String>>()
-RouteExplorer.kt:1710:        val byComp = HashMap<Int, Triple<Long, Double, String>>()
-RouteExplorer.kt:1712:            val ci = compOf[o.first] ?: -1
-RouteExplorer.kt:1714:            val cur = byComp[ci]
-RouteExplorer.kt:1717:        val origins = byComp.values.sortedBy { it.second }
-RouteExplorer.kt:1727:        val originComps = origins.map { compOf[it.first] ?: -1 }.toHashSet()
-RouteExplorer.kt:1728:        val usable = HashSet<Long>()
-RouteExplorer.kt:1730:        val poiAt = loadPoisGrid(spatialDb, box, g, usable)
-RouteExplorer.kt:1749:            val top = poiAt.entries
-RouteExplorer.kt:1754:            val dropped = poiAt.size - top.size
-RouteExplorer.kt:1766:                var bd = Double.MAX_VALUE; var bei = -1; var bp: DoubleArray? = null
-RouteExplorer.kt:1768:                    val pts = g.edges[ei].pts
-RouteExplorer.kt:1770:                        val pr = projectOnSeg(plat, plon, pts[j], pts[j + 1])
-RouteExplorer.kt:1775:                    val node = splitEdgeAt(g, bei, bp)
-RouteExplorer.kt:1784:        var poiNodes = poiAt.keys.toList()
-RouteExplorer.kt:1790:        val terms = (origins.map { it.first } + poiNodes).distinct()
-RouteExplorer.kt:1791:        val pen = HashMap<Int, Double>()
-RouteExplorer.kt:1792:        val dij = HashMap<Long, Dij>()
-RouteExplorer.kt:1794:        fun dist(a: Long, b: Long): Double? = dij[a]?.dist?.get(b)
-RouteExplorer.kt:1801:        val perOrigin = HashMap<Long, List<Long>>()
-RouteExplorer.kt:1803:            val keep = poiNodes.filter { p ->
-RouteExplorer.kt:1804:                val a = dist(ok, p); val b = dist(p, ok)
-RouteExplorer.kt:1810:        val liveOrigins = origins.filter { (perOrigin[it.first] ?: emptyList()).isNotEmpty() }
-RouteExplorer.kt:1826:        val badPair = HashMap<Long, HashSet<Long>>()
-RouteExplorer.kt:1827:        var ceilingSize = 0
-RouteExplorer.kt:1829:            val pois = perOrigin[ok] ?: emptyList()
-RouteExplorer.kt:1830:            val bad = HashSet<Long>()
-RouteExplorer.kt:1832:                val a = pois[i]; val b = pois[j]
-RouteExplorer.kt:1833:                val d1 = dist(ok, a); val d2 = dist(a, b); val d3 = dist(b, ok)
-RouteExplorer.kt:1840:            var best = 0
-RouteExplorer.kt:1842:                val grp = ArrayList<Long>(); grp.add(seed)
-RouteExplorer.kt:1859:        data class Cand(val score: Double, val miles: Double, val combo: List<Long>,
-RouteExplorer.kt:1860:                        val origin: String, val eids: List<Int>)
-RouteExplorer.kt:1872:                val pool = perOrigin[ok] ?: continue
-RouteExplorer.kt:1873:                val bad = badPair[ok] ?: HashSet()
-RouteExplorer.kt:1874:                var grp = ArrayList<Long>()
-RouteExplorer.kt:1876:                    val g2 = ArrayList<Long>(); g2.add(seed)
-RouteExplorer.kt:1883:                val cliqueWas = grp.size
-RouteExplorer.kt:1886:                    val t = orderTour(grp, ok) { a, b -> dist(a, b) }
-RouteExplorer.kt:1904:        val ranked = poiNodes.sortedByDescending { scoreSet(listOf(it), poiAt) }
-RouteExplorer.kt:1905:        val working = ArrayList<Long>()
-RouteExplorer.kt:1906:        val found = ArrayList<Cand>()
-RouteExplorer.kt:1907:        var gen = 0L
-RouteExplorer.kt:1908:        var killed = 0L
-RouteExplorer.kt:1909:        var solved = 0L
-RouteExplorer.kt:1917:                val pool = working.filter { it in (perOrigin[ok] ?: emptyList()) }
-RouteExplorer.kt:1919:                val bad = badPair[ok] ?: HashSet()
-RouteExplorer.kt:1920:                var size = minOf(pool.size, ceilingSize)
-RouteExplorer.kt:1924:                        var bad2 = false
-RouteExplorer.kt:1930:                            val ord = orderTour(combo, ok) { a, b -> dist(a, b) }
-RouteExplorer.kt:1933:                                val eids = pathOf(dij, listOf(ok) + ord.first + listOf(ok))
-RouteExplorer.kt:1965:        val pre = found.sortedWith(compareByDescending<Cand> { it.combo.size }
-RouteExplorer.kt:1967:        val enriched = ArrayList<Cand>()
-RouteExplorer.kt:1968:        var added = 0
-RouteExplorer.kt:1969:        var screened = 0L
-RouteExplorer.kt:1970:        var tried = 0L
-RouteExplorer.kt:1972:            var combo = ArrayList(c.combo)
-RouteExplorer.kt:1973:            var miles = c.miles
-RouteExplorer.kt:1974:            var eids = c.eids
-RouteExplorer.kt:1975:            var origin = c.origin
-RouteExplorer.kt:1976:            val ok = liveOrigins.firstOrNull { it.third == origin }?.first
-RouteExplorer.kt:1978:                var improving = true
-RouteExplorer.kt:1981:                    val headroom = req.milesHigh - miles
-RouteExplorer.kt:1990:                    val onRoute = HashSet<Long>()
-RouteExplorer.kt:1992:                    var best: Triple<Double, Long, Pair<List<Long>, Double>>? = null
-RouteExplorer.kt:1996:                        val bad = badPair[ok] ?: HashSet()
-RouteExplorer.kt:1998:                        val dp = dij[p]?.dist
-RouteExplorer.kt:1999:                        var near = Double.MAX_VALUE
-RouteExplorer.kt:2001:                            val d = dp[n] ?: continue
-RouteExplorer.kt:2006:                        val trial = ArrayList(combo); trial.add(p)
-RouteExplorer.kt:2007:                        val ord = orderTour(trial, ok) { a, b -> dist(a, b) } ?: continue
-RouteExplorer.kt:2009:                        val gain = scoreSet(trial, poiAt) - scoreSet(combo, poiAt)
-RouteExplorer.kt:2013:                    val b = best
-RouteExplorer.kt:2016:                        val seq = listOf(ok) + b.third.first + listOf(ok)
-RouteExplorer.kt:2017:                        val pe = pathOf(dij, seq)
-RouteExplorer.kt:2030:        val p1 = HashMap<String, ArrayList<Cand>>()
-RouteExplorer.kt:2033:        val afterP1 = ArrayList<Cand>()
-RouteExplorer.kt:2036:            val keep = ArrayList<Cand>()
-RouteExplorer.kt:2040:        val p2 = HashMap<String, ArrayList<Cand>>()
-RouteExplorer.kt:2042:        val afterP2 = ArrayList<Cand>()
-RouteExplorer.kt:2045:            val keep = ArrayList<Cand>()
-RouteExplorer.kt:2058:        val finalC = ArrayList<Cand>()
-RouteExplorer.kt:2059:        val kept = ArrayList<Set<Int>>()
-RouteExplorer.kt:2061:            val es = c.eids.toSet()
-RouteExplorer.kt:2062:            var dup = false
-RouteExplorer.kt:2064:                val u = (es + k).size
-RouteExplorer.kt:2078:        val picks = ArrayList<Triple<List<Int>, Double, List<Long>>>()
-RouteExplorer.kt:2080:            val pins = c.combo.count { n -> poiAt[n]?.any { it.fclass == USERPIN } == true }
-RouteExplorer.kt:2093:        val label = req.name.ifBlank { "Ride" }
-RouteExplorer.kt:2094:        val out = ArrayList<Suggestion>()
-RouteExplorer.kt:2096:            val draftName = "$label Route ${i + 1}"
-RouteExplorer.kt:2097:            val built = buildDraft(g, poiAt, eids, miles, req, draftName)
-RouteExplorer.kt:2108:    private fun buildDraft(
-RouteExplorer.kt:2112:        val verts = JSONArray()
-RouteExplorer.kt:2114:        val cautions = LinkedHashMap<Long, JSONObject>()
-RouteExplorer.kt:2115:        val seenPoi = LinkedHashSet<String>()
-RouteExplorer.kt:2116:        val poiOrder = ArrayList<Poi>()
-RouteExplorer.kt:2117:        val poiMile = HashMap<String, Double>()
-RouteExplorer.kt:2119:        var cum = 0.0
-RouteExplorer.kt:2120:        var prevName: String? = null
-RouteExplorer.kt:2121:        var legStart = 0.0
-RouteExplorer.kt:2122:        var prevTid: String? = null
-RouteExplorer.kt:2123:        var lastLat = 0.0; var lastLon = 0.0
-RouteExplorer.kt:2124:        var first = true
-RouteExplorer.kt:2127:            val ed = g.edges[e]
-RouteExplorer.kt:2128:            var seg = ed.pts
-RouteExplorer.kt:2130:                val dFirst = hav(lastLat, lastLon, seg[0][0], seg[0][1])
-RouteExplorer.kt:2131:                val dLast = hav(lastLat, lastLon, seg[seg.size - 1][0], seg[seg.size - 1][1])
-RouteExplorer.kt:2145:                val jk = cellKey(seg[0][0], seg[0][1])
-RouteExplorer.kt:2146:                val ctr = g.jCentre[jk] ?: seg[0]
-RouteExplorer.kt:2148:                val out10 = alongPolyline(seg, 10.0 / 5280.0)
-RouteExplorer.kt:2159:            val lbl = ed.name ?: "unnamed track"
-RouteExplorer.kt:2170:                val gp = g.gapFt[k] ?: 0.0
-RouteExplorer.kt:2172:                    val n = g.nodes[k] ?: continue
-RouteExplorer.kt:2182:        val hoursLow = miles / req.mphHigh
-RouteExplorer.kt:2183:        val hoursHigh = miles / req.mphLow
-RouteExplorer.kt:2184:        val mix = poiOrder.groupingBy { it.fclass }.eachCount()
-RouteExplorer.kt:2185:        val mixStr = mix.entries.sortedByDescending { it.value }
-RouteExplorer.kt:2188:        val notes = narrative(poiOrder, poiMile, legs, cautions.values.toList(),
-RouteExplorer.kt:2191:        val draft = JSONObject()
-RouteExplorer.kt:2207:    private fun vertex(lat: Double, lon: Double, trailId: String) = JSONObject()
-RouteExplorer.kt:2217:    private fun alongPolyline(pts: List<DoubleArray>, wantMi: Double): DoubleArray {
-RouteExplorer.kt:2218:        var acc = 0.0
-RouteExplorer.kt:2220:            val d = hav(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1])
-RouteExplorer.kt:2222:                val t = if (d > 0) (wantMi - acc) / d else 0.0
-RouteExplorer.kt:2238:    private fun narrative(
-RouteExplorer.kt:2245:        val plainNames = mapOf(
-RouteExplorer.kt:2249:        val bits = mix.entries.sortedByDescending { it.value }
-RouteExplorer.kt:2251:        val headline = "%.0f miles, roughly %.0f to %.0f hours. %s."
-RouteExplorer.kt:2256:        val seeArr = JSONArray()
-RouteExplorer.kt:2257:        val stopArr = JSONArray()
-RouteExplorer.kt:2258:        var i = 0
-RouteExplorer.kt:2260:            val p = pois[i]
-RouteExplorer.kt:2261:            val m = poiMile[p.name] ?: 0.0
-RouteExplorer.kt:2264:            val same = arrayListOf(p)
-RouteExplorer.kt:2279:        val named = LinkedHashMap<String, Double>()
-RouteExplorer.kt:2280:        var unnamedMi = 0.0
-RouteExplorer.kt:2285:        val namedTxt = joinList(named.entries.sortedByDescending { it.value }.take(5)
-RouteExplorer.kt:2287:        val ground = if (named.isEmpty())
-RouteExplorer.kt:2293:        val warn = JSONArray()
-RouteExplorer.kt:2295:            val worst = cautions.maxOf { it.optDouble("gap_ft", 0.0) }
-RouteExplorer.kt:2304:        val pctUnnamed = 100.0 * unnamedMi / max(miles, 1.0)
-RouteExplorer.kt:2310:        val legsArr = JSONArray()
-RouteExplorer.kt:2317:        val featArr = JSONArray()
-RouteExplorer.kt:2323:        val cautArr = JSONArray(); cautions.forEach { cautArr.put(it) }
-RouteExplorer.kt:2345:    private fun plural(w: String, n: Int) = if (n > 1 && !w.endsWith("s")) "${w}s" else w
-RouteExplorer.kt:2346:    private fun joinList(items: List<String>): String = when (items.size) {
-RouteExplorer.kt:2351:    private fun round1(v: Double) = Math.round(v * 10.0) / 10.0
-RouteExplorer.kt:2352:    private fun round2(v: Double) = Math.round(v * 100.0) / 100.0
-RouteExplorer.kt:2353:    private fun round6(v: Double) = Math.round(v * 1e6) / 1e6
-RouteExplorer.kt:2354:    private fun nowIso(): String =
+RouteExplorer.kt:16: *   typealias inside an object -- so those types are declared here, field for field and default for default as 2.7e had them, and
+RouteExplorer.kt:18: *   lastStats is handed out as the shared object itself: RouteModule only reads its fields.
+RouteExplorer.kt:21: *   shared code (object initialisation is complete before any other thread sees RouteExplorer).
+RouteExplorer.kt:23:object RouteExplorer {
+RouteExplorer.kt:35:    const val AIM_RING_M = Shared.AIM_RING_M
+RouteExplorer.kt:36:    const val TRAILHEAD_CHECK_M = Shared.TRAILHEAD_CHECK_M
+RouteExplorer.kt:41:    data class Request(
+RouteExplorer.kt:42:        val anchorLat: Double,
+RouteExplorer.kt:43:        val anchorLon: Double,
+RouteExplorer.kt:44:        val name: String,
+RouteExplorer.kt:45:        val milesLow: Double,
+RouteExplorer.kt:46:        val milesHigh: Double,
+RouteExplorer.kt:47:        val mphLow: Double,
+RouteExplorer.kt:48:        val mphHigh: Double,
+RouteExplorer.kt:51:        val maxRoutes: Int = 4,
+RouteExplorer.kt:53:        val includePoints: List<Pair<Double, Double>> = emptyList(),
+RouteExplorer.kt:54:        val seed: Long = 20260823L,
+RouteExplorer.kt:56:        internal fun shared() = Shared.Request(anchorLat, anchorLon, name, milesLow, milesHigh, mphLow, mphHigh,
+RouteExplorer.kt:61:    data class Progress(val step: String, val detail: String = "")
+RouteExplorer.kt:63:    data class Suggestion(
+RouteExplorer.kt:64:        val name: String,
+RouteExplorer.kt:65:        val miles: Double,
+RouteExplorer.kt:66:        val hoursLow: Double,
+RouteExplorer.kt:67:        val hoursHigh: Double,
+RouteExplorer.kt:68:        val featureCount: Int,
+RouteExplorer.kt:69:        val featureMix: String,
+RouteExplorer.kt:70:        val draftName: String,
+RouteExplorer.kt:73:    data class SelRow(val use: String, val type: String, val pub: Int, val priv: Int, val typeOn: Boolean, val useOn: Boolean)
+RouteExplorer.kt:77:    data class SelTable(val area: String = "", val rows: List<SelRow> = emptyList(), val restricted: Int = 0,
+RouteExplorer.kt:78:                        val restrictedOn: Boolean = true, val publicOn: Boolean = true, val privateOn: Boolean = false,
+RouteExplorer.kt:79:                        val searched: Int = 0, val total: Int = 0,
+RouteExplorer.kt:82:    data class PinFeasibility(
+RouteExplorer.kt:83:        val order: List<Int>,
+RouteExplorer.kt:84:        val totalMiles: Double,
+RouteExplorer.kt:85:        val legMiles: List<Double>,
+RouteExplorer.kt:86:        val snapFeet: List<Double>,
+RouteExplorer.kt:87:        val onFragment: List<Int>,
+RouteExplorer.kt:88:        val unreachable: List<Int>,
+RouteExplorer.kt:89:        val marginalMiles: List<Double>,
+RouteExplorer.kt:90:        val overMiles: Double,
+RouteExplorer.kt:91:        val underMiles: Double
+RouteExplorer.kt:96:        object Loop : RouteShape
+RouteExplorer.kt:97:        data class PointToPoint(val endLat: Double, val endLon: Double) : RouteShape
+RouteExplorer.kt:100:    private fun RouteShape.shared(): Shared.RouteShape = when (this) {
+RouteExplorer.kt:105:    /** AIFAIL-2026-11-03: what the last search worked on -- the shared object itself (RouteModule reads its fields). */
+RouteExplorer.kt:106:    val lastStats: Shared.SearchStats get() = Shared.lastStats
+RouteExplorer.kt:111:    fun selectionTable(db: SQLiteDatabase, req: Request): SelTable =
+RouteExplorer.kt:118:    fun selectionBreakdown(db: SQLiteDatabase, req: Request): String =
+RouteExplorer.kt:125:    fun nearestShownTrailMeters(db: SQLiteDatabase, lat: Double, lon: Double, maxM: Double = TRAILHEAD_CHECK_M,
+RouteExplorer.kt:130:    fun connectedMiles(db: SQLiteDatabase, req: Request): Double =
+RouteExplorer.kt:134:    fun assess(
+RouteExplorer.kt:147:    fun explore(
 HomeStateImportController.kt:36:private const val TAG = "HomeStateImport"
 HomeStateImportController.kt:42:private const val MINUTES_PER_SOURCE = 3
 HomeStateImportController.kt:46:data class ImportSourceProgress(
@@ -6985,199 +6553,199 @@ HomeStateImportController.kt:112:    private var importJob: kotlinx.coroutines.J
 HomeStateImportController.kt:115:    val isImporting: Boolean
 HomeStateImportController.kt:126:    @Volatile var killedImportArea: String? = null
 HomeStateImportController.kt:129:    fun beginImport(): Boolean {
-HomeStateImportController.kt:137:    fun launchImport(block: suspend () -> Unit) {
-HomeStateImportController.kt:149:    fun cancelImport() {
-HomeStateImportController.kt:157:        val j = importJob
-HomeStateImportController.kt:174:    private fun findStage(sources: JSONArray, id: String): JSONObject {
-HomeStateImportController.kt:176:            val o = sources.optJSONObject(i) ?: continue
-HomeStateImportController.kt:185:    private fun importsDir(ctx: Context): File {
-HomeStateImportController.kt:186:        val d = GroupTrackStorage.dir("imports", ctx)
-HomeStateImportController.kt:191:    private fun manifestFile(ctx: Context, stateName: String): File =
-HomeStateImportController.kt:195:    private fun writeManifest(file: File, manifest: JSONObject) {
-HomeStateImportController.kt:198:            val text = try { manifest.toString(2) } catch (e: ConcurrentModificationException) { null }
-HomeStateImportController.kt:203:    private val MANIFEST_LOCK = Any()
-HomeStateImportController.kt:204:    private const val MARK_OVERLAP = "OVERLAP-2026-11-02"
-HomeStateImportController.kt:209:    private fun buildManifest(
-HomeStateImportController.kt:218:        val area = JSONObject().apply {
-HomeStateImportController.kt:226:        val sources = JSONArray()
-HomeStateImportController.kt:293:    suspend fun execute(context: Context, state: GeofabrikState): Boolean =
-HomeStateImportController.kt:315:    suspend fun executeArea(
-HomeStateImportController.kt:325:        val label = if (states.size == 1) "area-${states[0].slug}"
-HomeStateImportController.kt:340:    private suspend fun executeRun(
-HomeStateImportController.kt:351:            val startMs = System.currentTimeMillis()
-HomeStateImportController.kt:355:            var catalogSources = findCatalogSourcesInBbox(
-HomeStateImportController.kt:363:            val skipped = leftOut.toMutableList()
-HomeStateImportController.kt:364:            val runStates = states
-HomeStateImportController.kt:368:            val catalogIds = catalogSources.map { it.first }
-HomeStateImportController.kt:369:            val catalogNames = catalogSources.associate { it.first to it.second }
-HomeStateImportController.kt:371:            val manifest = buildManifest(
-HomeStateImportController.kt:379:                val rows = fileRows(context, areaType, bboxSouth, bboxWest, bboxNorth, bboxEast, runStates, catalogIds)
-HomeStateImportController.kt:380:                val old = manifest.getJSONArray("sources")
-HomeStateImportController.kt:384:            val mFile = manifestFile(context, areaLabel)
-HomeStateImportController.kt:412:            val sources = manifest.getJSONArray("sources")
-HomeStateImportController.kt:413:            val totalSources = sources.length()
-HomeStateImportController.kt:424:            val fileRowsNow = (0 until totalSources).map { sources.getJSONObject(it) }.filter { it.optString("process") == "fetch_file" }
-HomeStateImportController.kt:428:            val queue = if (fileRowsNow.isEmpty()) null else {
-HomeStateImportController.kt:431:                    val haveAll = StateDataQueue.run(fileRowsNow, { row -> runFetch(context, row) }) {
-HomeStateImportController.kt:442:            suspend fun filesHere(need: (JSONObject) -> Boolean): Boolean {
-HomeStateImportController.kt:449:            var cancelled = false
-HomeStateImportController.kt:452:            var allOk = true
-HomeStateImportController.kt:455:                val src = sources.getJSONObject(i)
-HomeStateImportController.kt:477:                val srcId = src.getString("id")
-HomeStateImportController.kt:478:                val need: (JSONObject) -> Boolean = if (src.getString("process") == "trails_list_area")
-HomeStateImportController.kt:485:                val stillDownloading = fileRowsNow.count { it.optString("status") != "completed" }
-HomeStateImportController.kt:498:                val ok = when (src.getString("process")) {
-HomeStateImportController.kt:597:                val sDb = SpatialDbManager.getSpatialDb()
-HomeStateImportController.kt:598:                val eDb = SpatialDbManager.getExtensionDb()
-HomeStateImportController.kt:605:                    val landRebuilt = try {
-HomeStateImportController.kt:622:                    val changed = try {
-HomeStateImportController.kt:710:    private suspend fun runGeofabrikSource(
-HomeStateImportController.kt:714:        val slug = src.getString("slug")
-HomeStateImportController.kt:715:        val gpkgUrl = src.getString("gpkg_url")
-HomeStateImportController.kt:735:        val pbfFile = OsmImportStage.pbfFor(context, slug)
-HomeStateImportController.kt:737:            val okPbf = downloadFile(pbfUrl, pbfFile, src)
-HomeStateImportController.kt:758:        val zipFile = OsmImportStage.zipFor(context, slug)
-HomeStateImportController.kt:760:            val ok = downloadFile(gpkgUrl, zipFile, src)
-HomeStateImportController.kt:781:        val tagsFile = OsmImportStage.tagsFor(context, slug)
-HomeStateImportController.kt:784:            val builtRows = withContext(Dispatchers.IO) {
-HomeStateImportController.kt:815:        val extractOk = try {
-HomeStateImportController.kt:831:        val bbox = doubleArrayOf(bboxSouth, bboxWest, bboxNorth, bboxEast)
-HomeStateImportController.kt:834:        val scope = if (src.optString("process") == "geofabrik_area") "area" else "state"
-HomeStateImportController.kt:842:        val importOk = try {
-HomeStateImportController.kt:854:        val ledger = OsmImportLedger.read(context, slug)
-HomeStateImportController.kt:855:        val imports = ledger?.optJSONArray("imports")
-HomeStateImportController.kt:857:            val last = imports.getJSONObject(imports.length() - 1)
-HomeStateImportController.kt:858:            val count = last.optInt("inserted", 0) + last.optInt("updated", 0)
-HomeStateImportController.kt:864:            val gAdds    = last.optInt("inserted", -1)
-HomeStateImportController.kt:865:            val gDropped = last.optInt("dropped", -1)
-HomeStateImportController.kt:866:            val gAliased = last.optInt("aliased", -1)
-HomeStateImportController.kt:867:            val gErrors  = last.optInt("errors", -1)
-HomeStateImportController.kt:868:            val gFound   = last.optInt("found", -1)
-HomeStateImportController.kt:869:            val gDupes   = if (gDropped < 0 && gAliased < 0) -1
-HomeStateImportController.kt:893:    private suspend fun runCatalogSource(
-HomeStateImportController.kt:898:        val sourceId = src.getString("id")
-HomeStateImportController.kt:908:            val total = results.sumOf { it.inserted }
-HomeStateImportController.kt:914:            val pDropped  = results.sumOf { it.dropped }
-HomeStateImportController.kt:915:            val pAliased  = results.sumOf { it.aliased }
-HomeStateImportController.kt:916:            val pSkipped  = results.sumOf { it.skipped }
-HomeStateImportController.kt:917:            val pRejected = results.sumOf { it.rejected }
-HomeStateImportController.kt:918:            val pErrors   = results.sumOf { it.errors }
-HomeStateImportController.kt:919:            val pProcessed = total + pDropped + pAliased + pSkipped + pRejected + pErrors
-HomeStateImportController.kt:936:    fun importRecords(ctx: Context): List<JSONObject> {
-HomeStateImportController.kt:937:        val dir = importsDir(ctx)
-HomeStateImportController.kt:938:        val files = (dir.listFiles { f -> f.isFile && f.extension == "json" } ?: emptyArray()).toList() +
-HomeStateImportController.kt:946:    fun manifestDate(m: JSONObject): String {
-HomeStateImportController.kt:947:        val c = m.optString("completed_at", "")
-HomeStateImportController.kt:953:    fun wholeImportedDates(ctx: Context): Map<String, String> = wholeStateImports(ctx).mapValues { manifestDate(it.value) }
-HomeStateImportController.kt:955:    private fun wholeStateImports(ctx: Context): Map<String, JSONObject> {
-HomeStateImportController.kt:956:        val out = HashMap<String, JSONObject>()
-HomeStateImportController.kt:959:            val srcs = m.optJSONArray("sources") ?: continue
-HomeStateImportController.kt:961:                val o = srcs.optJSONObject(i) ?: continue
-HomeStateImportController.kt:969:    fun importedSlugs(ctx: Context): Set<String> {
-HomeStateImportController.kt:970:        val out = HashSet<String>()
-HomeStateImportController.kt:972:            val srcs = m.optJSONArray("sources") ?: continue
-HomeStateImportController.kt:974:                val o = srcs.optJSONObject(i) ?: continue
-HomeStateImportController.kt:982:    fun areaCatalogSources(ctx: Context, s: Double, w: Double, n: Double, e: Double): List<CatalogSource> = try {
-HomeStateImportController.kt:989:    private fun findCatalogSourcesInBbox(
-HomeStateImportController.kt:996:            val all = loadSourceCatalog(context)
-HomeStateImportController.kt:1034:    private fun fileRow(id: String, name: String, kind: String, slug: String, url: String, dest: File): JSONObject = JSONObject().apply {
-HomeStateImportController.kt:1039:    private fun fileRows(
-HomeStateImportController.kt:1044:        val rows = JSONArray()
-HomeStateImportController.kt:1045:        val landDone = HashSet<String>()
-HomeStateImportController.kt:1062:            val agencyStates = if (areaType == "state") states else
-HomeStateImportController.kt:1064:            val cat = try { loadSourceCatalog(context).associateBy { it.id } } catch (ex: Exception) { emptyMap() }
-HomeStateImportController.kt:1066:                val c = cat[sid] ?: continue
-HomeStateImportController.kt:1082:    private fun savedAgencyFiles(sources: JSONArray, sourceId: String): List<File> =
-HomeStateImportController.kt:1088:    private fun savedRow(row: JSONObject, f: File): Boolean {
-HomeStateImportController.kt:1095:    private val liveConns = java.util.concurrent.ConcurrentHashMap<JSONObject, HttpURLConnection>()
-HomeStateImportController.kt:1098:    fun abortDownload(row: JSONObject) {
-HomeStateImportController.kt:1099:        val c = liveConns.remove(row) ?: return
-HomeStateImportController.kt:1104:    private fun goodFile(kind: String, f: File): Boolean = when (kind) {
-HomeStateImportController.kt:1112:    private fun runFetch(context: Context, row: JSONObject): Boolean {
-HomeStateImportController.kt:1113:        val kind = row.getString("fetch_kind")
-HomeStateImportController.kt:1114:        val slug = row.optString("state_slug")
-HomeStateImportController.kt:1115:        val url = row.optString("url")
-HomeStateImportController.kt:1116:        val dest = File(row.getString("dest"))
-HomeStateImportController.kt:1119:        val force = StateData.isRefresh(slug)
-HomeStateImportController.kt:1120:        val ok = try {
-HomeStateImportController.kt:1132:                        val okL = LandAreas.fetchState(row.optString("land_code"), dest, { row.optBoolean("_stop") }) { pages, got, expected ->
-HomeStateImportController.kt:1143:                        val b = row.getJSONArray("bbox")
-HomeStateImportController.kt:1168:    private fun downloadFile(
-HomeStateImportController.kt:1176:        val ok = downloadOnce(urlStr, dest, activeSrc, depth)
-HomeStateImportController.kt:1186:        val wait = if (attempt == 1) 2000L else 8000L
-HomeStateImportController.kt:1192:    private fun downloadOnce(
-HomeStateImportController.kt:1197:            val conn = URL(urlStr).openConnection() as HttpURLConnection
-HomeStateImportController.kt:1204:                val redirect = conn.getHeaderField("Location")
-HomeStateImportController.kt:1216:            val totalBytes = conn.contentLength.toLong()
-HomeStateImportController.kt:1217:            var downloaded = 0L
-HomeStateImportController.kt:1218:            val tmp = File(dest.parent, dest.name + ".tmp")
-HomeStateImportController.kt:1221:                    val buf = ByteArray(1 shl 16)
-HomeStateImportController.kt:1222:                    var n: Int
-HomeStateImportController.kt:1228:                            val dlMB = downloaded / 1_048_576
-HomeStateImportController.kt:1229:                            val totMB = totalBytes / 1_048_576
-HomeStateImportController.kt:1230:                            val detail = "$dlMB MB of $totMB MB"
-HomeStateImportController.kt:1251:    private suspend fun awaitWorker(context: Context, uniqueName: String): Boolean {
-HomeStateImportController.kt:1252:        val wm = WorkManager.getInstance(context)
-HomeStateImportController.kt:1255:                val infos = wm.getWorkInfosForUniqueWork(uniqueName).get()
-HomeStateImportController.kt:1256:                val wi = infos.firstOrNull() ?: break
-HomeStateImportController.kt:1291:    private fun progressDetail(raw: String): String? = try {
-HomeStateImportController.kt:1292:        val arr = org.json.JSONArray(raw)
-HomeStateImportController.kt:1293:        var line: String? = null
-HomeStateImportController.kt:1295:            val o = arr.optJSONObject(i) ?: continue
-HomeStateImportController.kt:1297:            val sb = StringBuilder(o.optString("label", o.optString("id", "Working")))
-HomeStateImportController.kt:1298:            val done = o.optInt("done", 0); val total = o.optInt("total", 0); val eta = o.optInt("eta_sec", -1)
-HomeStateImportController.kt:1307:    private fun workerDetail(wi: WorkInfo): String? {
-HomeStateImportController.kt:1309:            val raw = wi.progress.getString("osm_extract_progress")
-HomeStateImportController.kt:1311:            val arr = org.json.JSONArray(raw)
-HomeStateImportController.kt:1313:                val o = arr.optJSONObject(i) ?: continue
-HomeStateImportController.kt:1315:                val label = o.optString("label", o.optString("id", "Working"))
-HomeStateImportController.kt:1316:                val done = o.optInt("done", 0)
-HomeStateImportController.kt:1317:                val total = o.optInt("total", 0)
-HomeStateImportController.kt:1318:                val eta = o.optInt("eta_sec", -1)
-HomeStateImportController.kt:1319:                val sb = StringBuilder(label)
-HomeStateImportController.kt:1338:    private fun updateSourceStep(src: JSONObject, step: String, detail: String?) {
-HomeStateImportController.kt:1344:    private fun publishProgress(stateName: String, total: Int, sources: JSONArray, phase: String, startMs: Long) {
-HomeStateImportController.kt:1348:    private fun publishProgressNow(
-HomeStateImportController.kt:1352:        val list = (0 until sources.length()).map { i ->
-HomeStateImportController.kt:1353:            val s = sources.getJSONObject(i)
-HomeStateImportController.kt:1387:    fun findIncompleteImport(ctx: Context): Pair<File, JSONObject>? {
-HomeStateImportController.kt:1388:        val dir = importsDir(ctx)
-HomeStateImportController.kt:1394:                    val j = JSONObject(f.readText())
-HomeStateImportController.kt:1462:    fun clearTrailsOnce(ctx: Context): Int {
-HomeStateImportController.kt:1482:        val marker = File(SpatialDbManager.dbDir(), ".trails_cleared_2026-09-02B")
-HomeStateImportController.kt:1489:            val legacy = listOf(
-HomeStateImportController.kt:1494:            val found = try {
-HomeStateImportController.kt:1512:        val alreadyRan = try {
-HomeStateImportController.kt:1522:        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
-HomeStateImportController.kt:1532:        var removed = 0
-HomeStateImportController.kt:1533:        var props = 0
-HomeStateImportController.kt:1535:            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
-HomeStateImportController.kt:1565:            val extFile = File(SpatialDbManager.dbDir(), "grouptrack_data.db")
-HomeStateImportController.kt:1567:                val ext = android.database.sqlite.SQLiteDatabase.openDatabase(
-HomeStateImportController.kt:1600:    private fun writeClearMarker(marker: File, removed: Int, props: Int = 0) {
-HomeStateImportController.kt:1603:            val o = JSONObject()
-HomeStateImportController.kt:1614:    fun sweepManifests(ctx: Context): Int {
-HomeStateImportController.kt:1615:        val dir = importsDir(ctx)
-HomeStateImportController.kt:1616:        val history = File(dir, "history").apply { if (!exists()) mkdirs() }
-HomeStateImportController.kt:1628:        val files = (dir.listFiles { f -> f.isFile && f.extension == "json" } ?: return 0)
-HomeStateImportController.kt:1642:        var swept = 0
-HomeStateImportController.kt:1645:                val json = JSONObject(f.readText())
-HomeStateImportController.kt:1646:                val sources = json.optJSONArray("sources")
-HomeStateImportController.kt:1650:                var allCounted = sources != null && sources.length() > 0
-HomeStateImportController.kt:1653:                        val s = sources.getJSONObject(i)
-HomeStateImportController.kt:1654:                        val counted = s.has("imported") &&
-HomeStateImportController.kt:1673:                val id = json.optString("manifest_id", "")
-HomeStateImportController.kt:1680:                val safeId = id.replace(':', '-')
-HomeStateImportController.kt:1681:                val target = if (safeId.isBlank()) File(history, f.name)
-HomeStateImportController.kt:1687:                val verdict = if (allCounted) "completed" else "KILLED"
-HomeStateImportController.kt:1697:                var moved = false
-HomeStateImportController.kt:1747:    fun needsTrailData(ctx: Context): Boolean {
-HomeStateImportController.kt:1748:        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
-HomeStateImportController.kt:1754:            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
-HomeStateImportController.kt:1758:            val count = db.use { d ->
-HomeStateImportController.kt:1783:    fun hasCompletedImport(ctx: Context): Boolean {
-HomeStateImportController.kt:1784:        val dir = importsDir(ctx)
-HomeStateImportController.kt:1794:    private fun iso8601Now(): String =
+HomeStateImportController.kt:138:    fun launchImport(block: suspend () -> Unit) {
+HomeStateImportController.kt:150:    fun cancelImport() {
+HomeStateImportController.kt:158:        val j = importJob
+HomeStateImportController.kt:175:    private fun findStage(sources: JSONArray, id: String): JSONObject {
+HomeStateImportController.kt:177:            val o = sources.optJSONObject(i) ?: continue
+HomeStateImportController.kt:186:    private fun importsDir(ctx: Context): File {
+HomeStateImportController.kt:187:        val d = GroupTrackStorage.dir("imports", ctx)
+HomeStateImportController.kt:192:    private fun manifestFile(ctx: Context, stateName: String): File =
+HomeStateImportController.kt:196:    private fun writeManifest(file: File, manifest: JSONObject) {
+HomeStateImportController.kt:199:            val text = try { manifest.toString(2) } catch (e: ConcurrentModificationException) { null }
+HomeStateImportController.kt:204:    private val MANIFEST_LOCK = Any()
+HomeStateImportController.kt:205:    private const val MARK_OVERLAP = "OVERLAP-2026-11-02"
+HomeStateImportController.kt:210:    private fun buildManifest(
+HomeStateImportController.kt:219:        val area = JSONObject().apply {
+HomeStateImportController.kt:227:        val sources = JSONArray()
+HomeStateImportController.kt:294:    suspend fun execute(context: Context, state: GeofabrikState): Boolean =
+HomeStateImportController.kt:316:    suspend fun executeArea(
+HomeStateImportController.kt:326:        val label = if (states.size == 1) "area-${states[0].slug}"
+HomeStateImportController.kt:341:    private suspend fun executeRun(
+HomeStateImportController.kt:353:            val startMs = System.currentTimeMillis()
+HomeStateImportController.kt:357:            var catalogSources = findCatalogSourcesInBbox(
+HomeStateImportController.kt:365:            val skipped = leftOut.toMutableList()
+HomeStateImportController.kt:366:            val runStates = states
+HomeStateImportController.kt:370:            val catalogIds = catalogSources.map { it.first }
+HomeStateImportController.kt:371:            val catalogNames = catalogSources.associate { it.first to it.second }
+HomeStateImportController.kt:373:            val manifest = buildManifest(
+HomeStateImportController.kt:381:                val rows = fileRows(context, areaType, bboxSouth, bboxWest, bboxNorth, bboxEast, runStates, catalogIds)
+HomeStateImportController.kt:382:                val old = manifest.getJSONArray("sources")
+HomeStateImportController.kt:386:            val mFile = manifestFile(context, areaLabel)
+HomeStateImportController.kt:414:            val sources = manifest.getJSONArray("sources")
+HomeStateImportController.kt:415:            val totalSources = sources.length()
+HomeStateImportController.kt:426:            val fileRowsNow = (0 until totalSources).map { sources.getJSONObject(it) }.filter { it.optString("process") == "fetch_file" }
+HomeStateImportController.kt:430:            val queue = if (fileRowsNow.isEmpty()) null else {
+HomeStateImportController.kt:433:                    val haveAll = StateDataQueue.run(fileRowsNow, { row -> runFetch(context, row) }) {
+HomeStateImportController.kt:444:            suspend fun filesHere(need: (JSONObject) -> Boolean): Boolean {
+HomeStateImportController.kt:451:            var cancelled = false
+HomeStateImportController.kt:454:            var allOk = true
+HomeStateImportController.kt:457:                val src = sources.getJSONObject(i)
+HomeStateImportController.kt:479:                val srcId = src.getString("id")
+HomeStateImportController.kt:480:                val need: (JSONObject) -> Boolean = if (src.getString("process") == "trails_list_area")
+HomeStateImportController.kt:487:                val stillDownloading = fileRowsNow.count { it.optString("status") != "completed" }
+HomeStateImportController.kt:500:                val ok = when (src.getString("process")) {
+HomeStateImportController.kt:599:                val sDb = SpatialDbManager.getSpatialDb()
+HomeStateImportController.kt:600:                val eDb = SpatialDbManager.getExtensionDb()
+HomeStateImportController.kt:607:                    val landRebuilt = try {
+HomeStateImportController.kt:624:                    val changed = try {
+HomeStateImportController.kt:712:    private suspend fun runGeofabrikSource(
+HomeStateImportController.kt:716:        val slug = src.getString("slug")
+HomeStateImportController.kt:717:        val gpkgUrl = src.getString("gpkg_url")
+HomeStateImportController.kt:737:        val pbfFile = OsmImportStage.pbfFor(context, slug)
+HomeStateImportController.kt:739:            val okPbf = downloadFile(pbfUrl, pbfFile, src)
+HomeStateImportController.kt:760:        val zipFile = OsmImportStage.zipFor(context, slug)
+HomeStateImportController.kt:762:            val ok = downloadFile(gpkgUrl, zipFile, src)
+HomeStateImportController.kt:783:        val tagsFile = OsmImportStage.tagsFor(context, slug)
+HomeStateImportController.kt:786:            val builtRows = withContext(Dispatchers.IO) {
+HomeStateImportController.kt:817:        val extractOk = try {
+HomeStateImportController.kt:833:        val bbox = doubleArrayOf(bboxSouth, bboxWest, bboxNorth, bboxEast)
+HomeStateImportController.kt:836:        val scope = if (src.optString("process") == "geofabrik_area") "area" else "state"
+HomeStateImportController.kt:844:        val importOk = try {
+HomeStateImportController.kt:856:        val ledger = OsmImportLedger.read(context, slug)
+HomeStateImportController.kt:857:        val imports = ledger?.optJSONArray("imports")
+HomeStateImportController.kt:859:            val last = imports.getJSONObject(imports.length() - 1)
+HomeStateImportController.kt:860:            val count = last.optInt("inserted", 0) + last.optInt("updated", 0)
+HomeStateImportController.kt:866:            val gAdds    = last.optInt("inserted", -1)
+HomeStateImportController.kt:867:            val gDropped = last.optInt("dropped", -1)
+HomeStateImportController.kt:868:            val gAliased = last.optInt("aliased", -1)
+HomeStateImportController.kt:869:            val gErrors  = last.optInt("errors", -1)
+HomeStateImportController.kt:870:            val gFound   = last.optInt("found", -1)
+HomeStateImportController.kt:871:            val gDupes   = if (gDropped < 0 && gAliased < 0) -1
+HomeStateImportController.kt:895:    private suspend fun runCatalogSource(
+HomeStateImportController.kt:900:        val sourceId = src.getString("id")
+HomeStateImportController.kt:910:            val total = results.sumOf { it.inserted }
+HomeStateImportController.kt:916:            val pDropped  = results.sumOf { it.dropped }
+HomeStateImportController.kt:917:            val pAliased  = results.sumOf { it.aliased }
+HomeStateImportController.kt:918:            val pSkipped  = results.sumOf { it.skipped }
+HomeStateImportController.kt:919:            val pRejected = results.sumOf { it.rejected }
+HomeStateImportController.kt:920:            val pErrors   = results.sumOf { it.errors }
+HomeStateImportController.kt:921:            val pProcessed = total + pDropped + pAliased + pSkipped + pRejected + pErrors
+HomeStateImportController.kt:938:    fun importRecords(ctx: Context): List<JSONObject> {
+HomeStateImportController.kt:939:        val dir = importsDir(ctx)
+HomeStateImportController.kt:940:        val files = (dir.listFiles { f -> f.isFile && f.extension == "json" } ?: emptyArray()).toList() +
+HomeStateImportController.kt:948:    fun manifestDate(m: JSONObject): String {
+HomeStateImportController.kt:949:        val c = m.optString("completed_at", "")
+HomeStateImportController.kt:955:    fun wholeImportedDates(ctx: Context): Map<String, String> = wholeStateImports(ctx).mapValues { manifestDate(it.value) }
+HomeStateImportController.kt:957:    private fun wholeStateImports(ctx: Context): Map<String, JSONObject> {
+HomeStateImportController.kt:958:        val out = HashMap<String, JSONObject>()
+HomeStateImportController.kt:961:            val srcs = m.optJSONArray("sources") ?: continue
+HomeStateImportController.kt:963:                val o = srcs.optJSONObject(i) ?: continue
+HomeStateImportController.kt:971:    fun importedSlugs(ctx: Context): Set<String> {
+HomeStateImportController.kt:972:        val out = HashSet<String>()
+HomeStateImportController.kt:974:            val srcs = m.optJSONArray("sources") ?: continue
+HomeStateImportController.kt:976:                val o = srcs.optJSONObject(i) ?: continue
+HomeStateImportController.kt:984:    fun areaCatalogSources(ctx: Context, s: Double, w: Double, n: Double, e: Double): List<CatalogSource> = try {
+HomeStateImportController.kt:991:    private fun findCatalogSourcesInBbox(
+HomeStateImportController.kt:998:            val all = loadSourceCatalog(context)
+HomeStateImportController.kt:1036:    private fun fileRow(id: String, name: String, kind: String, slug: String, url: String, dest: File): JSONObject = JSONObject().apply {
+HomeStateImportController.kt:1041:    private fun fileRows(
+HomeStateImportController.kt:1046:        val rows = JSONArray()
+HomeStateImportController.kt:1047:        val landDone = HashSet<String>()
+HomeStateImportController.kt:1064:            val agencyStates = if (areaType == "state") states else
+HomeStateImportController.kt:1066:            val cat = try { loadSourceCatalog(context).associateBy { it.id } } catch (ex: Exception) { emptyMap() }
+HomeStateImportController.kt:1068:                val c = cat[sid] ?: continue
+HomeStateImportController.kt:1084:    private fun savedAgencyFiles(sources: JSONArray, sourceId: String): List<File> =
+HomeStateImportController.kt:1090:    private fun savedRow(row: JSONObject, f: File): Boolean {
+HomeStateImportController.kt:1097:    private val liveConns = java.util.concurrent.ConcurrentHashMap<JSONObject, HttpURLConnection>()
+HomeStateImportController.kt:1100:    fun abortDownload(row: JSONObject) {
+HomeStateImportController.kt:1101:        val c = liveConns.remove(row) ?: return
+HomeStateImportController.kt:1106:    private fun goodFile(kind: String, f: File): Boolean = when (kind) {
+HomeStateImportController.kt:1114:    private fun runFetch(context: Context, row: JSONObject): Boolean {
+HomeStateImportController.kt:1115:        val kind = row.getString("fetch_kind")
+HomeStateImportController.kt:1116:        val slug = row.optString("state_slug")
+HomeStateImportController.kt:1117:        val url = row.optString("url")
+HomeStateImportController.kt:1118:        val dest = File(row.getString("dest"))
+HomeStateImportController.kt:1121:        val force = StateData.isRefresh(slug)
+HomeStateImportController.kt:1122:        val ok = try {
+HomeStateImportController.kt:1134:                        val okL = LandAreas.fetchState(row.optString("land_code"), dest, { row.optBoolean("_stop") }) { pages, got, expected ->
+HomeStateImportController.kt:1145:                        val b = row.getJSONArray("bbox")
+HomeStateImportController.kt:1170:    private fun downloadFile(
+HomeStateImportController.kt:1178:        val ok = downloadOnce(urlStr, dest, activeSrc, depth)
+HomeStateImportController.kt:1188:        val wait = if (attempt == 1) 2000L else 8000L
+HomeStateImportController.kt:1194:    private fun downloadOnce(
+HomeStateImportController.kt:1199:            val conn = URL(urlStr).openConnection() as HttpURLConnection
+HomeStateImportController.kt:1206:                val redirect = conn.getHeaderField("Location")
+HomeStateImportController.kt:1218:            val totalBytes = conn.contentLength.toLong()
+HomeStateImportController.kt:1219:            var downloaded = 0L
+HomeStateImportController.kt:1220:            val tmp = File(dest.parent, dest.name + ".tmp")
+HomeStateImportController.kt:1223:                    val buf = ByteArray(1 shl 16)
+HomeStateImportController.kt:1224:                    var n: Int
+HomeStateImportController.kt:1230:                            val dlMB = downloaded / 1_048_576
+HomeStateImportController.kt:1231:                            val totMB = totalBytes / 1_048_576
+HomeStateImportController.kt:1232:                            val detail = "$dlMB MB of $totMB MB"
+HomeStateImportController.kt:1253:    private suspend fun awaitWorker(context: Context, uniqueName: String): Boolean {
+HomeStateImportController.kt:1254:        val wm = WorkManager.getInstance(context)
+HomeStateImportController.kt:1257:                val infos = wm.getWorkInfosForUniqueWork(uniqueName).get()
+HomeStateImportController.kt:1258:                val wi = infos.firstOrNull() ?: break
+HomeStateImportController.kt:1293:    private fun progressDetail(raw: String): String? = try {
+HomeStateImportController.kt:1294:        val arr = org.json.JSONArray(raw)
+HomeStateImportController.kt:1295:        var line: String? = null
+HomeStateImportController.kt:1297:            val o = arr.optJSONObject(i) ?: continue
+HomeStateImportController.kt:1299:            val sb = StringBuilder(o.optString("label", o.optString("id", "Working")))
+HomeStateImportController.kt:1300:            val done = o.optInt("done", 0); val total = o.optInt("total", 0); val eta = o.optInt("eta_sec", -1)
+HomeStateImportController.kt:1309:    private fun workerDetail(wi: WorkInfo): String? {
+HomeStateImportController.kt:1311:            val raw = wi.progress.getString("osm_extract_progress")
+HomeStateImportController.kt:1313:            val arr = org.json.JSONArray(raw)
+HomeStateImportController.kt:1315:                val o = arr.optJSONObject(i) ?: continue
+HomeStateImportController.kt:1317:                val label = o.optString("label", o.optString("id", "Working"))
+HomeStateImportController.kt:1318:                val done = o.optInt("done", 0)
+HomeStateImportController.kt:1319:                val total = o.optInt("total", 0)
+HomeStateImportController.kt:1320:                val eta = o.optInt("eta_sec", -1)
+HomeStateImportController.kt:1321:                val sb = StringBuilder(label)
+HomeStateImportController.kt:1340:    private fun updateSourceStep(src: JSONObject, step: String, detail: String?) {
+HomeStateImportController.kt:1346:    private fun publishProgress(stateName: String, total: Int, sources: JSONArray, phase: String, startMs: Long) {
+HomeStateImportController.kt:1350:    private fun publishProgressNow(
+HomeStateImportController.kt:1354:        val list = (0 until sources.length()).map { i ->
+HomeStateImportController.kt:1355:            val s = sources.getJSONObject(i)
+HomeStateImportController.kt:1389:    fun findIncompleteImport(ctx: Context): Pair<File, JSONObject>? {
+HomeStateImportController.kt:1390:        val dir = importsDir(ctx)
+HomeStateImportController.kt:1396:                    val j = JSONObject(f.readText())
+HomeStateImportController.kt:1464:    fun clearTrailsOnce(ctx: Context): Int {
+HomeStateImportController.kt:1485:        val marker = File(SpatialDbManager.dbDir(), ".trails_cleared_2026-09-02B")
+HomeStateImportController.kt:1492:            val legacy = listOf(
+HomeStateImportController.kt:1497:            val found = try {
+HomeStateImportController.kt:1515:        val alreadyRan = try {
+HomeStateImportController.kt:1525:        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
+HomeStateImportController.kt:1535:        var removed = 0
+HomeStateImportController.kt:1536:        var props = 0
+HomeStateImportController.kt:1538:            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
+HomeStateImportController.kt:1568:            val extFile = File(SpatialDbManager.dbDir(), "grouptrack_data.db")
+HomeStateImportController.kt:1570:                val ext = android.database.sqlite.SQLiteDatabase.openDatabase(
+HomeStateImportController.kt:1603:    private fun writeClearMarker(marker: File, removed: Int, props: Int = 0) {
+HomeStateImportController.kt:1606:            val o = JSONObject()
+HomeStateImportController.kt:1617:    fun sweepManifests(ctx: Context): Int {
+HomeStateImportController.kt:1619:        val dir = importsDir(ctx)
+HomeStateImportController.kt:1620:        val history = File(dir, "history").apply { if (!exists()) mkdirs() }
+HomeStateImportController.kt:1632:        val files = (dir.listFiles { f -> f.isFile && f.extension == "json" } ?: return 0)
+HomeStateImportController.kt:1646:        var swept = 0
+HomeStateImportController.kt:1649:                val json = JSONObject(f.readText())
+HomeStateImportController.kt:1650:                val sources = json.optJSONArray("sources")
+HomeStateImportController.kt:1654:                var allCounted = sources != null && sources.length() > 0
+HomeStateImportController.kt:1657:                        val s = sources.getJSONObject(i)
+HomeStateImportController.kt:1658:                        val counted = s.has("imported") &&
+HomeStateImportController.kt:1677:                val id = json.optString("manifest_id", "")
+HomeStateImportController.kt:1684:                val safeId = id.replace(':', '-')
+HomeStateImportController.kt:1685:                val target = if (safeId.isBlank()) File(history, f.name)
+HomeStateImportController.kt:1691:                val verdict = if (allCounted) "completed" else "KILLED"
+HomeStateImportController.kt:1701:                var moved = false
+HomeStateImportController.kt:1751:    fun needsTrailData(ctx: Context): Boolean {
+HomeStateImportController.kt:1752:        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
+HomeStateImportController.kt:1758:            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
+HomeStateImportController.kt:1762:            val count = db.use { d ->
+HomeStateImportController.kt:1787:    fun hasCompletedImport(ctx: Context): Boolean {
+HomeStateImportController.kt:1788:        val dir = importsDir(ctx)
+HomeStateImportController.kt:1798:    private fun iso8601Now(): String =
 FilePickerNotice.kt:44: * Use:  val notice = rememberPickerNotice("to choose the ride file you want to import", "file")
 FilePickerNotice.kt:48:class PickerNotice internal constructor() {
 FilePickerNotice.kt:49:    internal var pending by mutableStateOf<(() -> Unit)?>(null)
@@ -7351,6 +6919,21 @@ ConvoySettingsViewModel.kt:65:    fun onOffTrackChanged(value: Float) {
 ConvoySettingsViewModel.kt:70:    fun onAdmissionWindowChanged(value: Int) {
 ConvoySettingsViewModel.kt:74:    fun onReinstateCart(nodeId: String, callsign: String) {
 ConvoySettingsViewModel.kt:81:    fun onUserMessageShown() {
+RideApplySourceCertOld.kt:6: *  - the object is renamed RideApplySource -> RideApplySourceCertOld; calls into the other ride objects go to their CertOld copies;
+RideApplySourceCertOld.kt:24:object RideApplySourceCertOld {
+RideApplySourceCertOld.kt:31:    fun isCurrent(date: String, includeRecent: Boolean): Boolean {
+RideApplySourceCertOld.kt:32:        val d = parseDate(date) ?: return true
+RideApplySourceCertOld.kt:33:        val cutoff = RideCertHooks.today().minusDays(if (includeRecent) 30L else 0L)
+RideApplySourceCertOld.kt:38:    private fun parseDate(s: String): java.time.LocalDate? = try {
+RideApplySourceCertOld.kt:39:        val p = s.trim().split("-").map { it.toInt() }
+RideApplySourceCertOld.kt:44:    fun loadAll(context: android.content.Context, includeRecent: Boolean = false): List<RideForApply> {
+RideApplySourceCertOld.kt:46:        val dir = RideCertPaths.rides
+RideApplySourceCertOld.kt:47:        val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") } ?: return emptyList()
+RideApplySourceCertOld.kt:50:                val j = org.json.JSONObject(f.readText())
+RideApplySourceCertOld.kt:52:                val ride = j.optJSONObject("ride") ?: return@mapNotNull null
+RideApplySourceCertOld.kt:53:                val mesh = j.optJSONObject("network")?.optJSONObject("mesh") ?: return@mapNotNull null
+RideApplySourceCertOld.kt:54:                val name = mesh.optString("channelName", "")
+RideApplySourceCertOld.kt:55:                val key = mesh.optString("key", "")
 ConvoySettingsRepository.kt:18:private val Context.convoyDataStore: DataStore<Preferences>
 ConvoySettingsRepository.kt:22:class ConvoySettingsRepository @Inject constructor(
 ConvoySettingsRepository.kt:23:    @ApplicationContext private val context: Context
