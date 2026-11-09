@@ -263,8 +263,10 @@ class GtRead(private val conn: SQLiteConnection, private val dataConn: SQLiteCon
 
         fun notNamed(name: String?): String = if (name.isNullOrBlank()) "Not Named" else name
 
-        /** Android libcore's Math.toRadians (angdeg / 180.0 * PI) -- so distances match the Droid to the last bit. */
-        fun toRadians(deg: Double) = deg / 180.0 * PI
+        /** STEP7FIX-2026-11-08: Android's Math.toRadians is angdeg * 0.017453292519943295 (proven on Droid 1: probe 100,000/100,000 on
+         *  11-07, golden 2026-11-08_1834). The earlier (angdeg / 180.0 * PI) differed in the last bit on 26.6% of inputs. Same as GtRoute
+         *  and GtJava.toRadians -- so distances match the Droid to the last bit. */
+        fun toRadians(deg: Double) = deg * 0.017453292519943295
 
         /** ConvoyEngine.haversineMiles (2.7e): miles, as a Float. */
         fun haversineMiles(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
