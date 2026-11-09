@@ -46,6 +46,22 @@ object GtCert15b {
     private val OLD_TOO_SLOW = setOf("TrailsAndPathways_7580073023867142241.kmz", "onx-markups-04222026.gpx", "onx-markups-05122026.gpx",
         "onx-markups-2026-04-21.gpx")
 
+    /** STEP15B-SWITCH-2026-11-09: NEW = the APP's own front doors (ConvoyTrackOps / ImportConverter / SpatialDbManager), which now call the shared code --
+     *  the re-run proves 2.7e (the OLD copies) = what the app runs. readText as the shared side (the iPad check compares with it). */
+    private object AppSide : Cert15b.Side {
+        override val name = "NEW"
+        override fun readText(fs: FileSystem, path: Path): String = Cert15b.NewSide.readText(fs, path)
+        override fun importExt(fileName: String) = com.geeksville.mesh.convoy.ConvoyTrackOps.importExt(File(fileName))
+        override fun trailMarked(trk: String, file: String) = com.geeksville.mesh.convoy.ConvoyTrackOps.trailMarked(trk, file)
+        override fun extractEarliestTime(content: String) = com.geeksville.mesh.convoy.ConvoyTrackOps.extractEarliestTime(content)
+        override fun sanitizeFilename(name: String) = com.grouptrack.shared.imports.GtGpxParse.sanitizeFilename(name)   // the app's is private and delegates to this
+        override fun waypoints(text: String) = com.geeksville.mesh.convoy.ConvoyTrackOps.parseGpxWaypoints(text).map { Cert15b.Wpt(it.name, it.lat, it.lon, it.type, it.description) }
+        override fun routes(text: String) = com.geeksville.mesh.convoy.ConvoyTrackOps.parseGpxRoutes(text).map { Cert15b.Rte(it.name, it.points, it.description) }
+        override fun pointsFull(text: String) = com.geeksville.mesh.convoy.SpatialDbManager.parseGpxTrackPointsFull(text).map { Cert15b.Pt(it.lat, it.lon, it.eleM, it.timeMs) }
+        override fun toGpx(fs: FileSystem, src: Path, outDir: Path, asTrails: Boolean): Cert15b.Conv =
+            com.geeksville.mesh.convoy.ImportConverter.toGpx(File(src.toString()), File(outDir.toString()), asTrails).let { Cert15b.Conv(it.file.name, it.lines, it.tracks, it.points) }
+    }
+
     fun run(app: Context, w: java.io.Writer) {
         val t0 = System.currentTimeMillis()
         val inDir = GroupTrackStorage.dir("cert15b", app)
@@ -60,7 +76,7 @@ object GtCert15b {
         val newOnly = File(base, "new_only.txt")   // RXFIX-2026-11-09: NEW's lines for the OLD_TOO_SLOW files
         val noW = newOnly.bufferedWriter()
         try {
-        for (side in listOf<Cert15b.Side>(OldSide, Cert15b.NewSide)) {
+        for (side in listOf<Cert15b.Side>(OldSide, AppSide)) {   // STEP15B-SWITCH-2026-11-09
             val out = File(base, "${side.name.lowercase()}.txt")
             val work = File(base, side.name.lowercase()).toOkioPath()
             fs.createDirectories(work)

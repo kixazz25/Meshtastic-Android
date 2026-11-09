@@ -7,6 +7,7 @@ import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import com.grouptrack.shared.imports.GtGpxParse   // STEP15B-SWITCH-2026-11-09
 
 /**
  * Pure file operations for tracks. No UI, no Compose. Callable from any screen.
@@ -40,13 +41,11 @@ object ConvoyTrackOps {
 
     /** GPXDUPNAME-2026-11-01: the extension with a copy suffix ignored -- "x.gpx (2)" -> "gpx" (Droid 2 11-01: refused as
      *  "Not a GPX file"). */
-    fun importExt(f: File): String = f.name.replace(Regex("""\s*\(\d+\)$"""), "").substringAfterLast('.', "").lowercase()
+    fun importExt(f: File): String = GtGpxParse.importExt(f.name)   // STEP15B-SWITCH-2026-11-09: the certified shared parser (15b)
 
     /** ONEIMPORT-2026-11-04 (Fred 07:59): a <trk> carrying GroupTrack's trail mark is a trail -- written by the converter when the
      *  rider answers YES, and by the rider-trail export. The 11-03 export wrote <type>trail</type>: accepted only in a GroupTrack file. */
-    fun trailMarked(trk: String, file: String): Boolean =
-        Regex("""<type>\s*grouptrack-trail\s*</type>""").containsMatchIn(trk) ||
-            (file.take(600).contains("GroupTrack") && Regex("""<type>\s*trail\s*</type>""").containsMatchIn(trk))
+    fun trailMarked(trk: String, file: String): Boolean = GtGpxParse.trailMarked(trk, file)   // STEP15B-SWITCH-2026-11-09
 
     /** List GPX/KML files, excluding hidden and Android-trash entries. */
     suspend fun listTracks(): List<File> = withContext(Dispatchers.IO) {
@@ -166,47 +165,12 @@ object ConvoyTrackOps {
      * Extract earliest GPX <time> or KML <when> from content as epoch millis.
      * Returns null if no parseable time found.
      */
-    fun extractEarliestTime(content: String): Long? {
-        val patterns = listOf(
-            Regex("""<time>([^<]+)</time>"""),
-            Regex("""<when>([^<]+)</when>""")
-        )
-        var earliest: Long? = null
-        for (pattern in patterns) {
-            for (match in pattern.findAll(content)) {
-                try {
-                    val epochMs = java.time.Instant.parse(match.groupValues[1].trim()).toEpochMilli()
-                    if (earliest == null || epochMs < earliest!!) {
-                        earliest = epochMs
-                    }
-                } catch (e: Exception) {
-                    // Some GPX files use timestamps without 'Z' or with offsets — try alternate parsers
-                    try {
-                        val odt = java.time.OffsetDateTime.parse(match.groupValues[1].trim())
-                        val epochMs = odt.toInstant().toEpochMilli()
-                        if (earliest == null || epochMs < earliest!!) {
-                            earliest = epochMs
-                        }
-                    } catch (e2: Exception) {
-                        // skip unparseable entries
-                    }
-                }
-            }
-        }
-        return earliest
-    }
+    fun extractEarliestTime(content: String): Long? = GtGpxParse.extractEarliestTime(content)   // STEP15B-SWITCH-2026-11-09
 
     /**
      * Sanitize a track name for use as a filename.
      */
-    private fun sanitizeFilename(name: String): String {
-        return name
-            .replace("/", "_")
-            .replace("\\", "_")
-            .replace(Regex("""[^a-zA-Z0-9_\- ]"""), "")
-            .trim()
-            .ifEmpty { "track" }
-    }
+    private fun sanitizeFilename(name: String): String = GtGpxParse.sanitizeFilename(name)   // STEP15B-SWITCH-2026-11-09
 
     /**
      * Import a track file (single or multi-track GPX/KML).
@@ -419,125 +383,13 @@ object ConvoyTrackOps {
      * Parse <wpt> elements from GPX text.
      * GPX format: <wpt lat="37.1" lon="-113.5"><name>...</name><type>...</type><desc>...</desc></wpt>
      */
-    fun parseGpxWaypoints(gpxText: String): List<GpxWaypoint> {
-        val results = mutableListOf<GpxWaypoint>()
-        val wptPattern = Regex("""<wpt\s+lat="([^"]+)"\s+lon="([^"]+)"[^>]*>([\s\S]*?)</wpt>""")
-        val namePattern = Regex("""<name>([^<]*)</name>""")
-        val typePattern = Regex("""<type>([^<]*)</type>""")
-        val descPattern = Regex("""<desc>([^<]*)</desc>""")
+    // STEP15B-SWITCH-2026-11-09: the certified shared parsers (15b); mapped into this file's own data classes, field for field,
+    // so no caller changes. mapWaypointType and xmlUnescape moved with them (GtGpxParse); the 2.7e bodies are in git history.
+    fun parseGpxWaypoints(gpxText: String): List<GpxWaypoint> =
+        GtGpxParse.parseGpxWaypoints(gpxText).map { GpxWaypoint(it.name, it.lat, it.lon, it.type, it.description) }
 
-        for (match in wptPattern.findAll(gpxText)) {
-            val lat = match.groupValues[1].toDoubleOrNull() ?: continue
-            val lon = match.groupValues[2].toDoubleOrNull() ?: continue
-            val inner = match.groupValues[3]
-
-            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Waypoint"
-            val rawType = typePattern.find(inner)?.groupValues?.get(1)?.trim()?.lowercase() ?: "other"
-            val desc = descPattern.find(inner)?.groupValues?.get(1)?.trim() ?: ""
-
-            // Map common GPX types to our 10 types
-            val mappedType = mapWaypointType(rawType)
-            results.add(GpxWaypoint(name, lat, lon, mappedType, desc))
-        }
-        return results
-    }
-
-    /**
-     * Map GPX waypoint type strings to our 10 standard types.
-     */
-    private fun mapWaypointType(rawType: String): String {
-        val lower = rawType.lowercase().trim()
-        return when {
-            lower in listOf("trailhead", "trail head") -> "trailhead"
-            lower in listOf("fuel", "gas", "gas station", "petrol") -> "fuel"
-            lower in listOf("gate", "barrier") -> "gate"
-            lower in listOf("hazard", "danger", "warning", "caution") -> "hazard"
-            lower in listOf("scenic", "viewpoint", "scenic viewpoint", "overlook", "vista") -> "scenic"
-            lower in listOf("water", "water source", "spring", "creek", "river") -> "water"
-            lower in listOf("camp", "campsite", "camping", "campground") -> "camp"
-            lower in listOf("parking", "park", "lot") -> "parking"
-            lower in listOf("rally", "rally point", "meetup", "meeting") -> "rally"
-            lower.length <= 12 && lower in listOf(
-                "trailhead", "fuel", "gate", "hazard", "scenic",
-                "water", "camp", "parking", "rally", "other"
-            ) -> lower
-            else -> "other"
-        }
-    }
-
-    // ── GPX Route Parser ───────────────────────────────────────────
-
-    /**
-     * Parse <rte> elements from GPX text.
-     * GPX format: <rte><name>...</name><rtept lat="37.1" lon="-113.5">...</rtept></rte>
-     */
-    /**
-     * GPXUNESCAPE-2026-09-08: XML entities back to characters.
-     *
-     * \u26d4 WHY IT IS NEEDED. buildRouteGpxById escapes what it writes -- it has
-     * to, the notes payload is full of quotes and its recipe can carry < and >.
-     * The readers here are REGEXES, not an XML parser, so they hand back the
-     * raw escaped text. The payload then fails to parse as JSON and lands in
-     * the narrative headline as gibberish, which is exactly what a real
-     * device-to-device transfer produced today.
-     *
-     * \u26a0 &amp; LAST. Decoding it first turns a literal "&amp;quot;" into
-     * "&quot;" and then into a quote, corrupting any text that legitimately
-     * contained an escaped entity. The order is the correctness.
-     */
-    private fun xmlUnescape(s: String): String =
-        s.replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&quot;", "\"")
-            .replace("&apos;", "'")
-            .replace("&#39;", "'")
-            .replace("&amp;", "&")
-
-    fun parseGpxRoutes(gpxText: String): List<GpxRoute> {
-        val results = mutableListOf<GpxRoute>()
-        // GPXIMPORT-2026-08-22N: was <rte> -- a BARE tag only. A GPX writing
-        // <rte xmlns=...> or even "<rte >" matched nothing and imported silently as
-        // zero routes, which is indistinguishable from a file with no routes in it.
-        // The <wpt> pattern already tolerated attributes; this one did not.
-        val rtePattern = Regex("""<rte(?:\s[^>]*)?>([\s\S]*?)</rte>""")
-        val namePattern = Regex("""<name>([^<]*)</name>""")
-        /* CLOSEPLANNER-2026-08-29: the route parser ignored <desc>, though the
-         * waypoint parser has always read it.
-         *
-         * ⭐ A Gaia or onX route's description IS its narrative — same field,
-         * same purpose — so it should arrive as one rather than be discarded.
-         * And our own <extensions> payload carries the recipe home. */
-        val descPattern = Regex("""<desc>([^<]*)</desc>""")
-        val notesPattern = Regex(
-            """<grouptrack:notes>([\s\S]*?)</grouptrack:notes>""")
-        val rteptPattern = Regex("""<rtept\s+lat="([^"]+)"\s+lon="([^"]+)"""")
-
-        for (match in rtePattern.findAll(gpxText)) {
-            val inner = match.groupValues[1]
-            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Route"
-            val points = mutableListOf<Pair<Double, Double>>()
-
-            for (ptMatch in rteptPattern.findAll(inner)) {
-                val lat = ptMatch.groupValues[1].toDoubleOrNull() ?: continue
-                val lon = ptMatch.groupValues[2].toDoubleOrNull() ?: continue
-                points.add(Pair(lon, lat))  // WKT order: lon, lat
-            }
-
-            if (points.size >= 2) {
-                // ⚠ the payload wins where present — it is ours and complete;
-                // <desc> is one line and may be another app's
-                // GPXUNESCAPE-2026-09-08: decode before either is used. The
-                // payload is unreadable escaped, and a <desc> from another app
-                // can carry &amp; or &apos; just as legitimately.
-                val notes = xmlUnescape(
-                    notesPattern.find(inner)?.groupValues?.get(1)?.trim() ?: "")
-                val desc = xmlUnescape(
-                    descPattern.find(inner)?.groupValues?.get(1)?.trim() ?: "")
-                results.add(GpxRoute(name, points, notes.ifBlank { desc }))
-            }
-        }
-        return results
-    }
+    fun parseGpxRoutes(gpxText: String): List<GpxRoute> =
+        GtGpxParse.parseGpxRoutes(gpxText).map { GpxRoute(it.name, it.points, it.description) }
 
     // ── Full Artifact Import ───────────────────────────────────────
 

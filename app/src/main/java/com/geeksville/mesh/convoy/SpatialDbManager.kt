@@ -1490,42 +1490,8 @@ object SpatialDbManager {
 
     /** Richer GPX parse: lat, lon, <ele> (m), <time> (ISO 8601 'yyyy-MM-dd'T'HH:mm:ss'Z'').
      *  Existing parseGpxTrackPoints (lon,lat only, used for WKT/hash) is untouched. */
-    fun parseGpxTrackPointsFull(gpxText: String): List<TrackPtFull> {
-        val out = mutableListOf<TrackPtFull>()
-        val ptRegex = Regex("""<trkpt\b[^>]*\blat="([^"]+)"[^>]*\blon="([^"]+)"[^>]*?>(.*?)</trkpt>""", RegexOption.DOT_MATCHES_ALL)
-        val latLonOnly = Regex("""<trkpt\b[^>]*\blat="([^"]+)"[^>]*\blon="([^"]+)"[^>]*/>""")
-        val eleRegex = Regex("""<ele>([^<]+)</ele>""")
-        val timeRegex = Regex("""<time>([^<]+)</time>""")
-        val utc = java.util.TimeZone.getTimeZone("UTC")
-        val timeFormats = listOf(
-            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",   // fractional seconds + Z (Gaia/onX exports)
-            "yyyy-MM-dd'T'HH:mm:ss'Z'",       // whole seconds + Z (recorder)
-            "yyyy-MM-dd'T'HH:mm:ssXXX",       // whole seconds + numeric offset (+00:00)
-            "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"    // fractional + numeric offset
-        ).map { java.text.SimpleDateFormat(it, java.util.Locale.US).apply { timeZone = utc; isLenient = false } }
-        fun parseTime(s: String): Long? {
-            val t = s.trim()
-            for (f in timeFormats) {
-                try { return f.parse(t)?.time } catch (e: Exception) { /* try next pattern */ }
-            }
-            return null
-        }
-
-        for (m in ptRegex.findAll(gpxText)) {
-            val lat = m.groupValues[1].toDoubleOrNull() ?: continue
-            val lon = m.groupValues[2].toDoubleOrNull() ?: continue
-            val inner = m.groupValues[3]
-            val ele = eleRegex.find(inner)?.groupValues?.get(1)?.trim()?.toDoubleOrNull()
-            val tMs = timeRegex.find(inner)?.groupValues?.get(1)?.let { parseTime(it) }
-            out.add(TrackPtFull(lat, lon, ele, tMs))
-        }
-        for (m in latLonOnly.findAll(gpxText)) {
-            val lat = m.groupValues[1].toDoubleOrNull() ?: continue
-            val lon = m.groupValues[2].toDoubleOrNull() ?: continue
-            out.add(TrackPtFull(lat, lon, null, null))
-        }
-        return out
-    }
+    fun parseGpxTrackPointsFull(gpxText: String): List<TrackPtFull> =   // STEP15B-SWITCH-2026-11-09: the certified shared parser (15b, RXFIX)
+        com.grouptrack.shared.imports.GtGpxParse.parseGpxTrackPointsFull(gpxText).map { TrackPtFull(it.lat, it.lon, it.eleM, it.timeMs) }
 
     private fun haversineMiles(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val R = 3958.7613
