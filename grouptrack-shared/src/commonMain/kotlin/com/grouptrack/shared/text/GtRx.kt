@@ -19,6 +19,16 @@ package com.grouptrack.shared.text
 class GtRxMatch(val value: String, val groupValues: List<String>, val range: IntRange)
 
 object GtRx {
+    /**
+     * STEP15C-FIXWS-2026-11-09: what a regex "\s" matches ON ANDROID, spelled out, so a pattern means the same on the iPad.
+     * Android's engine (ICU) reads \s as Unicode White_Space: tab, LF, VT, FF, CR, space, NEL, no-break space, Ogham space,
+     * en quad .. hair space, line separator, paragraph separator, narrow no-break space, math space, ideographic space.
+     * Kotlin/Native (the iPad) and a desktop JVM read \s as the ASCII ones only. Found by the 15c cert 2026-11-09_1400
+     * (parse|nbsp: Droid 2 points, iPad 1). RULE: shared code writes GtRx.WS, never \s ("[\s\S]" = any character is not affected).
+     * The cert's parse|ws|U+xxxx cases prove this list = Android's \s, character by character. A character class: GtRx.WS + "+".
+     */
+    const val WS = "[\u0009-\u000D \u0085   -     　]"
+
     /** The matches of [regex] in [input], in order. groupValues as Kotlin gives them: "" for a group that did not take part. */
     fun findAll(regex: Regex, input: CharSequence): Sequence<GtRxMatch> = gtRxFindAll(regex, input)
 }
