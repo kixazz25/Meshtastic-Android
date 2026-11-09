@@ -44,7 +44,7 @@ class GtWrite(private val conn: SQLiteConnection, private val dataConn: SQLiteCo
 
     // ---- waypoints --------------------------------------------------------------------------------------------------------
     fun insertWaypointWithId(waypointId: String, name: String, lat: Double, lon: Double, type: String): Boolean {
-        val ts = now(); val geometry = pointWkt(lat, lon); val nm = GtRead.notNamed(name); val gh = GtRead.computeGeomHash(geometry)
+        val ts = now(); val g = GtGeom.pointLonLat(lon, lat); val geometry = g.wkt; val nm = GtRead.notNamed(name); val gh = g.hash   // GEOMONE-2026-11-09
         return try {
             exec(conn, "INSERT OR IGNORE INTO waypoints (waypoint_id, name, geometry, type, min_lat, max_lat, min_lon, max_lon, created_at, updated_at, geom_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 listOf(waypointId, nm, geometry, type.lowercase(), lat, lat, lon, lon, ts, ts, gh)); true
@@ -234,8 +234,6 @@ class GtWrite(private val conn: SQLiteConnection, private val dataConn: SQLiteCo
     }
 
     companion object {
-        fun pointWkt(lat: Double, lng: Double): String = "POINT($lng $lat)"
-
         // org.json's optString / optDouble as 2.7e uses them
         fun optString(o: JsonObject, k: String): String = when (val v = o[k]) { null -> ""; is JsonPrimitive -> v.content; else -> orgJson(v) }
         fun optDouble(o: JsonObject, k: String): Double = (o[k] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.content?.toDoubleOrNull() ?: 0.0

@@ -10,7 +10,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
-import okio.ByteString.Companion.encodeUtf8
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.asin
@@ -234,7 +233,7 @@ class GtRead(private val conn: SQLiteConnection, private val dataConn: SQLiteCon
     fun trackIdForGpxText(text: String): String? = try {
         val coords = parseGpxTrackPoints(text)
         if (coords.isEmpty()) null else first(conn, "SELECT track_id FROM tracks WHERE geom_hash=? LIMIT 1",
-            listOf(computeGeomHash("LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")")))
+            listOf(GtGeom.lineLonLat(coords).hash))   // GEOMONE-2026-11-09: the one module (coords are (lon, lat)); Java's number text on the iPad too
     } catch (e: Exception) { log.w { "ENDRIDE: trackIdForGpxText failed: ${e.message}" }; null }
 
     companion object {
@@ -259,7 +258,7 @@ class GtRead(private val conn: SQLiteConnection, private val dataConn: SQLiteCon
         }
 
         /** SHA-256 of the WKT, lower-case hex (as 2.7e's MessageDigest). */
-        fun computeGeomHash(wkt: String): String = wkt.encodeUtf8().sha256().hex()
+        fun computeGeomHash(wkt: String): String = GtGeom.hash(wkt)   // GEOMONE-2026-11-09: the one hash (callers move to GtGeom in part B)
 
         fun notNamed(name: String?): String = if (name.isNullOrBlank()) "Not Named" else name
 
