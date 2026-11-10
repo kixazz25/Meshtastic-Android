@@ -48,6 +48,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import okio.Path.Companion.toOkioPath   // STEP15CDE-SWITCH-2026-11-10
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -257,57 +258,23 @@ fun ConvoyTrackImportScreen(
         progressTotal = sel.size
         processedFiles = sel
         scope.launch {
-            val imported = mutableListOf<String>()
-            val skipped = mutableListOf<String>()
-            val failed = mutableListOf<String>()
-            var datesCorrected = 0
-            var wptTotal = 0
-            var rteTotal = 0
-            var newTotal = 0
-            var dupeTotal = 0
-            var aliasedTotal = 0
-            var skippedTotal = 0
-            for ((i, f) in sel.withIndex()) {
-                progressCurrent = i + 1
-                progressName = f.name
-                importLines = importLines + "— ${f.name} —"
-                try {
-                    // MAPSDEFAULT-2026-09-16: maps unless this file was explicitly excluded.
-                    // ONEIMPORT-2026-11-04: YES = every file through the converter (GPX too) -> <name>-Trails.gpx with the trail mark;
-                    // NO = KML / KMZ / GeoJSON converted (lines = tracks), GPX as it is. A converted file is also saved to Download.
-                    val yes = trailsAnswer == "YES"
-                    val ext = ConvoyTrackOps.importExt(f)
-                    val conv = if (yes || ext in setOf("kml", "kmz", "geojson", "json")) withContext(Dispatchers.IO) {
-                        val od = java.io.File(context.cacheDir, "import_convert").apply { mkdirs() }
-                        val r = ImportConverter.toGpx(f, od, yes)
-                        val kept = try { "Download/" + ImportConverter.saveToDownloads(context.applicationContext, r.file) } catch (e: Exception) { "not saved: ${e.message}" }
-                        Pair(r, kept)
-                    } else null
-                    conv?.let { (r, kept) -> importLines = importLines + "CONVERTED ${f.name}: ${r.lines} ${if (yes) "trails" else "tracks"}, ${r.points} waypoints -> $kept" }
-                    val src = conv?.first?.file ?: f
-                    // TRAILCLEAN-2026-11-04: the batch every trail of this file is recorded under (YES: the name given; NO: the file name --
-                    // a GroupTrack trail export answered NO still brings trails)
-                    val batch = (if (yes) trailsSource.trim().ifEmpty { f.nameWithoutExtension } else f.nameWithoutExtension) + " \u00b7 " +
-                        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
-                    val summary = ConvoyTrackOps.importGpxAllArtifacts(src, context, if (!yes && !mapsSkip.contains(f.name)) selectedSlots else emptyList(), replaceExisting, false, batch) { line ->
-                        importLines = importLines + line
-                    }
-                    imported.addAll(summary.trackFiles)
-                    wptTotal += summary.waypointCount
-                    rteTotal += summary.routeCount
-                    datesCorrected += summary.trackFiles.size
-                    newTotal += summary.inserted
-                    dupeTotal += summary.dropped
-                    aliasedTotal += summary.aliased
-                    skippedTotal += summary.skipped
-                    if (summary.errors.isNotEmpty()) {
-                        failed.addAll(summary.errors.map { f.name + ": " + it })
-                    }
-                } catch (e: Exception) {
-                    failed.add(f.name + ": " + (e.message ?: "unknown error"))
-                    importLines = importLines + "ERROR: ${f.name}: ${e.message ?: "unknown"}"
-                }
+            // STEP15CDE-SWITCH-2026-11-10 (15e): the per-file loop on the shared GtGpxImport.importFiles -- the same lines into importLines, the same
+            // progress, the same totals for the recap below. The 2.7e loop is in git history (and the TEST-ONLY GpxImportCertOld).
+            val tot = withContext(Dispatchers.IO) {
+                SpatialDbManager.init(context)
+                SpatialDbManager.sharedGpxImport()?.importFiles(sel.map { it.toOkioPath() }, trailsAnswer, trailsSource, mapsSkip, selectedSlots,
+                    replaceExisting, { line -> importLines = importLines + line }, { n, name -> progressCurrent = n; progressName = name })
             }
+            val imported = tot?.imported ?: emptyList()
+            val skipped = tot?.skipped ?: emptyList()
+            val failed = tot?.failed ?: sel.map { it.name + ": SpatialDbManager not initialized" }   // no database open
+            val datesCorrected = tot?.datesCorrected ?: 0
+            val wptTotal = tot?.waypoints ?: 0
+            val rteTotal = tot?.routes ?: 0
+            val newTotal = tot?.new ?: 0
+            val dupeTotal = tot?.dupe ?: 0
+            val aliasedTotal = tot?.aliased ?: 0
+            val skippedTotal = tot?.skippedCount ?: 0
             recapImported = imported
             recapSkipped = skipped
             recapFailed = failed

@@ -202,52 +202,11 @@ object RiderTrailWriter {
      *
      * @return trails written, and their total miles.
      */
-    fun scanTrackByHash(geomHash: String): Pair<Int, Double> {
-        val db = SpatialDbManager.getSpatialDb() ?: return Pair(0, 0.0)
-        var foundName: String? = null
-        var foundGeom: String? = null
-        try {
-            db.rawQuery(
-                "SELECT name, geometry FROM tracks WHERE geom_hash=? LIMIT 1",
-                arrayOf(geomHash)
-            ).use { c ->
-                if (c.moveToFirst()) {
-                    foundName = if (c.isNull(0)) null else c.getString(0)
-                    foundGeom = if (c.isNull(1)) null else c.getString(1)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "track read failed for ${geomHash.take(12)}: ${e.message}")
-            return Pair(0, 0.0)
-        }
-        val geom = foundGeom
-        if (geom.isNullOrBlank()) {
-            // Not an error. A row can exist before its geometry does.
-            Log.i(TAG, "no geometry for ${geomHash.take(12)} -- nothing to scan")
-            return Pair(0, 0.0)
-        }
-        // DUPECHECK-2026-10-20 (Fred 10-20): NO bulk session for one track -- resolveByGeom does one indexed lookup per derived trail
-        // (was beginDedupSession(): every hash in the database loaded for a handful of trails -- 3.8 s per save).
-        val r = scanTrack(foundName, geom)
-        if (r.first > 0) trailsChanged.value = System.currentTimeMillis()   // RIDERIDS-2026-10-09: the maps reload
-        return r
-    }
+    fun scanTrackByHash(geomHash: String): Pair<Int, Double> =   // STEP15CDE-SWITCH-2026-11-10 (15c): the shared GtRiderTrails; no database: (0, 0.0)
+        SpatialDbManager.sharedRider()?.scanTrackByHash(geomHash) ?: Pair(0, 0.0)   // [trailsChanged] is set through env.platform.onTrailsChanged
 
-    fun scanTrack(trackName: String?, geometry: String?): Pair<Int, Double> {
-        val pts = parseGeometry(geometry)
-        if (pts.size < 2) return Pair(0, 0.0)
-        val network = candidatesFor(pts, excludeRider = false)
-        val found = RiderTrailScanner.scan(pts, network)
-        if (found.isEmpty()) return Pair(0, 0.0)
-
-        var n = 0
-        var miles = 0.0
-        for (t in found) {
-            if (writeOne(t)) { n++; miles += t.totalM / 1609.34 }
-        }
-        if (n > 0) Log.i(TAG, "${trackName ?: "(unnamed)"}: $n trail(s), %.2f mi".format(miles))
-        return Pair(n, miles)
-    }
+    fun scanTrack(trackName: String?, geometry: String?): Pair<Int, Double> =   // STEP15CDE-SWITCH-2026-11-10 (15c); no database: (0, 0.0)
+        SpatialDbManager.sharedRider()?.scanTrack(trackName, geometry) ?: Pair(0, 0.0)
 
     /**
      * One rider trail into both stores.
@@ -333,82 +292,9 @@ object RiderTrailWriter {
      *
      * @param onProgress optional; null where there is no UI to report to (the import stage has a manifest instead).
      */
-    fun scanAll(onProgress: ((Int, Int) -> Unit)? = null): Result {
-        val tracksRemoved = 0   // RIDEROUT-2026-10-24: the 09-07 "Unnamed n" prototype cleanup is gone (job done; it could delete a real GPX track)
-        val db = SpatialDbManager.getSpatialDb()
-            ?: return Result(0, 0, 0.0, tracksRemoved, 0, 0, 0, 0.0)
-
-        // the rider trails stored now: geometry hash -> trail_id (hash from the stored geometry when the column is empty)
-        val stored = HashMap<String, String>()
-        try {
-            db.rawQuery("SELECT trail_id, geom_hash, geometry FROM trails WHERE carto_code=?", arrayOf(CATEGORY)).use { c ->
-                while (c.moveToNext()) {
-                    if (c.isNull(0)) continue
-                    val h = if (!c.isNull(1)) c.getString(1)
-                            else if (!c.isNull(2)) SpatialDbManager.computeGeomHash(c.getString(2)) else continue
-                    stored[h] = c.getString(0)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "RIDERIDS: rider trail read failed: ${e.message}")
-            return Result(0, 0, 0.0, tracksRemoved, 0, 0, 0, 0.0)
-        }
-
-        val ids = ArrayList<Pair<String, String?>>()
-        try {
-            db.rawQuery("SELECT name, geometry FROM tracks WHERE geometry IS NOT NULL", null)
-                .use { c ->
-                    while (c.moveToNext()) {
-                        val name = if (c.isNull(0)) null else c.getString(0)
-                        val geom = if (c.isNull(1)) null else c.getString(1)
-                        if (geom != null) ids.add(Pair(geom, name))
-                    }
-                }
-        } catch (e: Exception) {
-            Log.e(TAG, "track read failed: ${e.message}")
-            return Result(0, 0, 0.0, tracksRemoved, 0, 0, 0, 0.0)
-        }
-
-        SpatialDbManager.beginDedupSession()
-        try {   // STEP15A-2026-11-08 (owner decision 6): the session is ended on every way out -- 2.7e never ended it, so
-                //   clearAllTrailData refused ("an import is running") for the rest of the session after a scan
-        val produced = HashSet<String>()
-        val runPieces = ArrayList<List<RiderTrailScanner.Pt>>()   // this run's pieces -- network for the tracks after
-        var added = 0; var unchanged = 0
-        var addedMi = 0.0; var totalMi = 0.0
-        for (i in ids.indices) {
-            onProgress?.invoke(i, ids.size)
-            val (geom, name) = ids[i]
-            val pts = parseGeometry(geom)
-            if (pts.size < 2) continue
-            val network = candidatesFor(pts, excludeRider = true) + piecesNear(runPieces, pts)
-            var n = 0
-            for (t in RiderTrailScanner.scan(pts, network)) {
-                val hash = SpatialDbManager.computeGeomHash(buildGeometry(t.points))
-                if (!produced.add(hash)) continue          // the same piece twice in one run: once is enough
-                runPieces.add(t.points)
-                val mi = t.totalM / 1609.34
-                if (stored.containsKey(hash)) { unchanged++; totalMi += mi; n++ }
-                else if (writeOne(t)) { added++; addedMi += mi; totalMi += mi; n++ }
-            }
-            if (n > 0) Log.i(TAG, "${name ?: "(unnamed)"}: $n rider trail(s)")
-        }
-
-        var removed = 0
-        for ((hash, id) in stored) {
-            if (hash in produced) continue
-            try { SpatialDbManager.deleteTrailFromDb(id); removed++ } catch (e: Exception) { Log.w(TAG, "delete $id: ${e.message}") }
-        }
-        onProgress?.invoke(ids.size, ids.size)
-        if (added + removed > 0) trailsChanged.value = System.currentTimeMillis()   // the maps reload -- only on a change
-
-        Log.i(TAG, "RIDERIDS scanAll: ${ids.size} track(s) -> ${added + unchanged} rider trail(s): $added added (%.2f mi), "
-            .format(addedMi) + "$unchanged unchanged, $removed removed; total %.2f mi; $tracksRemoved unnamed track(s) removed"
-            .format(totalMi))
-        return Result(ids.size, added, addedMi, tracksRemoved, added + unchanged, removed, unchanged, totalMi)
-        } finally {
-            SpatialDbManager.endDedupSession()   // STEP15A-2026-11-08
-        }
+    fun scanAll(onProgress: ((Int, Int) -> Unit)? = null): Result {   // STEP15CDE-SWITCH-2026-11-10 (15c): the shared GtRiderTrails
+        val r = SpatialDbManager.sharedRider()?.scanAll(onProgress) ?: return Result(0, 0, 0.0, 0, 0, 0, 0, 0.0)   // no database (2.7e)
+        return Result(r.tracksScanned, r.trailsAdded, r.miles, r.tracksRemoved, r.trailsTotal, r.trailsRemoved, r.trailsUnchanged, r.milesTotal)
     }
 
     /** RIDERIDS-2026-10-09: this run's pieces whose box touches the track's box (+ the candidate margin). */
