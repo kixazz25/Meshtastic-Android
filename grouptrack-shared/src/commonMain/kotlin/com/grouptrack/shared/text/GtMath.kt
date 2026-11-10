@@ -19,6 +19,13 @@ object GtMath {
      *  iPad: GtMathPow = Arm's optimized-routines pow as bionic compiles it (GTMATH2B-2026-11-10). NOT x * x: Android's pow is not
      *  correctly rounded and differs from x * x on 1,266 of MATHPOW's 1,500,000 values; the port = the Droid on all 1,500,000. */
     fun pow(x: Double, y: Double): Double = gtMathPow(x, y)
+    /** MATHTILE-2026-11-10 (2.8 step 16a): the save-by-area tile math (lat2tile, the z12 squares, a tile row's edge latitude).
+     *  Android = java.lang.Math; the iPad = GtMathFdlibm (tan / atan / sinh: fdlibm, as the Droid -- MATHTILE 11-10) and GtMathLog
+     *  (ln: Arm's optimized-routines log, as the Droid). Apple's differ (tan on 40% of real inputs). */
+    fun tan(x: Double): Double = gtMathTan(x)
+    fun atan(x: Double): Double = gtMathAtan(x)
+    fun sinh(x: Double): Double = gtMathSinh(x)
+    fun ln(x: Double): Double = gtMathLn(x)
 }
 
 internal expect fun gtMathSin(x: Double): Double
@@ -26,3 +33,7 @@ internal expect fun gtMathCos(x: Double): Double
 internal expect fun gtMathAsin(x: Double): Double
 internal expect fun gtMathHypot(x: Double, y: Double): Double
 internal expect fun gtMathPow(x: Double, y: Double): Double
+internal expect fun gtMathTan(x: Double): Double   // MATHTILE-2026-11-10
+internal expect fun gtMathAtan(x: Double): Double
+internal expect fun gtMathSinh(x: Double): Double
+internal expect fun gtMathLn(x: Double): Double

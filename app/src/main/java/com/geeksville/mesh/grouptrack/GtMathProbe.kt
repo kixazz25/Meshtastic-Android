@@ -129,4 +129,64 @@ object GtMathProbe {
         w.write("# MATHPOW done: $n values in ${(System.currentTimeMillis() - t0) / 1000} s\n")
         Log.i(TAG, "GTCERT mathpow done: $n values")
     }
+
+    /**
+     * MATHTILE-2026-11-10 (TEST-ONLY, 2.8 step 16a): the tile / box math of the save-by-area writes (ConvoyTileCalculator.lat2tile,
+     * VectorTiles.sqY / latOf, DownloadQueueManager's latOf) runs java.lang.Math tan / log / sinh / atan -- functions GtMath does not
+     * have yet. Proven, not assumed: what the Droid returns, on the inputs those writes really see --
+     *   latitudes of every track point and every 7th trail's points (+ seeded random in -85..85): T|rad|tan(rad), C|rad|cos(rad),
+     *   L|s|ln(s) with s = tan + 1/cos, and Y|lat|(1 - ln(tan(rad) + 1/cos(rad)) / PI) / 2 (lat2tile before the exact * 2^z);
+     *   every tile row's edge y at z0-14 (all rows) and seeded rows at z15-18: K = PI - 2 PI y / 2^z -> SH|k|sinh(k), AT|sh|atan(sh),
+     *   O|z,y|toDegrees(atan(sinh(k))) (the stored box edge).
+     * Runs when GtCertRun is given mode "mathtile". ⚠ TEST-ONLY (CODE RULE 3): remove with GtCert before 2.8 is released.
+     */
+    fun runTile(app: Context, w: java.io.Writer) {
+        val t0 = System.currentTimeMillis(); var last = t0
+        fun progress(msg: String) { val now = System.currentTimeMillis(); if (now - last >= 10_000) { last = now; Log.i(TAG, "GTCERT mathtile $msg") } }
+        val f = java.io.File(GroupTrackStorage.dir("cert15c_input", app), "grouptrack_spatial.db")
+        if (!f.isFile) { w.write("# MATHTILE: STOP -- no input at ${f.path} (gt_cert pushes it for rider15c)\n"); return }
+        val lats = LinkedHashSet<Long>(); val cap = 400_000
+        fun addLat(x: Double) { if (lats.size < cap) lats.add(java.lang.Double.doubleToRawLongBits(x)) }
+        val pair = java.util.regex.Pattern.compile("(-?[0-9]+(?:\\.[0-9]+)?(?:[eE][-+]?[0-9]+)?) (-?[0-9]+(?:\\.[0-9]+)?(?:[eE][-+]?[0-9]+)?)")
+        var lines = 0; var points = 0
+        fun line(wkt: String) {
+            if (lats.size >= cap) return
+            lines++
+            val m = pair.matcher(wkt)
+            while (m.find()) { addLat(m.group(2)!!.toDouble()); points++ }
+            progress("lines $lines points $points lats ${lats.size}")
+        }
+        val db = SQLiteDatabase.openDatabase(f.path, null, SQLiteDatabase.OPEN_READONLY)
+        try {
+            db.rawQuery("SELECT geometry FROM tracks WHERE geometry IS NOT NULL", null).use { c -> while (c.moveToNext()) line(c.getString(0)) }
+            db.rawQuery("SELECT geometry FROM trails WHERE geometry IS NOT NULL AND rowid % 7 = 0", null).use { c -> while (c.moveToNext()) line(c.getString(0)) }
+        } finally { db.close() }
+        val real = lats.size
+        val rnd = java.util.Random(20261110L)
+        repeat(100_000) { addLat(rnd.nextDouble() * 170.0 - 85.0) }
+        for (q in listOf(-85.0, -84.99999, -45.0, -1e-9, -0.0, 0.0, 1e-9, 0.5, 30.0, 37.0, 42.0, 45.0, 60.0, 84.99999, 85.0)) addLat(q)
+        w.write("# MATHTILE droid ${android.os.Build.MODEL}: real data $lines lines, $points points -> $real latitudes; + seeded random (20261110); lats ${lats.size}\n")
+        var n = 0
+        for (b in lats) {
+            val lat = java.lang.Double.longBitsToDouble(b)
+            val rad = Math.toRadians(lat); val t = Math.tan(rad); val c = Math.cos(rad); val s = t + 1.0 / c
+            w.write("T|"); w.write(h(rad)); w.write("|"); w.write(h(t)); w.write("\n")
+            w.write("C|"); w.write(h(rad)); w.write("|"); w.write(h(c)); w.write("\n")
+            w.write("L|"); w.write(h(s)); w.write("|"); w.write(h(Math.log(s))); w.write("\n")
+            w.write("Y|"); w.write(h(lat)); w.write("|"); w.write(h((1.0 - Math.log(Math.tan(rad) + 1.0 / Math.cos(rad)) / Math.PI) / 2.0)); w.write("\n")
+            n += 4; if (n % 200_000 < 4) progress("writing $n")
+        }
+        fun row(z: Int, y: Long) {
+            val k = Math.PI - 2.0 * Math.PI * y / (1L shl z).toDouble()
+            val sh = Math.sinh(k); val at = Math.atan(sh)
+            w.write("SH|"); w.write(h(k)); w.write("|"); w.write(h(sh)); w.write("\n")
+            w.write("AT|"); w.write(h(sh)); w.write("|"); w.write(h(at)); w.write("\n")
+            w.write("O|$z,$y|"); w.write(h(Math.toDegrees(Math.atan(Math.sinh(k))))); w.write("\n")
+            n += 3; if (n % 200_000 < 3) progress("writing $n")
+        }
+        for (z in 0..14) for (y in 0L..(1L shl z)) row(z, y)
+        for (z in 15..18) repeat(20_000) { row(z, (rnd.nextDouble() * ((1L shl z) + 1)).toLong()) }
+        w.write("# MATHTILE done: $n values in ${(System.currentTimeMillis() - t0) / 1000} s\n")
+        Log.i(TAG, "GTCERT mathtile done: $n values")
+    }
 }

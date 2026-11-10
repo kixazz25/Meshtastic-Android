@@ -162,7 +162,7 @@ object GtMathPort {
         Double.fromBits(0x3b78cc5160000000L), Double.fromBits(0x39f01b8380000000L), Double.fromBits(0x387a252040000000L),
         Double.fromBits(0x36e3822280000000L), Double.fromBits(0x3569f31d00000000L))
 
-    private fun kernelRemPio2(x: DoubleArray, y: DoubleArray, e0: Int, nx: Int): Int {
+    internal fun kernelRemPio2(x: DoubleArray, y: DoubleArray, e0: Int, nx: Int): Int {   // MATHTILE-2026-11-10: internal (GtMathFdlibm.tan's huge reduction)
         val iq = IntArray(20); val f = DoubleArray(20); val fq = DoubleArray(20); val q = DoubleArray(20)
         val jk = 4; val jp = jk
         val jx = nx - 1
