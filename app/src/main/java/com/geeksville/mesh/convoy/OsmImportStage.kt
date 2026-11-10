@@ -2,641 +2,107 @@ package com.geeksville.mesh.convoy
 
 import android.content.ContentUris
 import android.content.Context
-import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import com.geeksville.mesh.grouptrack.GtImportAndroid
+import com.geeksville.mesh.grouptrack.GtOsmAndroid
+import com.grouptrack.shared.osm.GtOsmStage
+import okio.Path.Companion.toOkioPath
 import java.io.File
-import java.util.zip.ZipFile
 
 /**
  * Which stage a state's OSM import is at. DERIVED FROM DISK, never stored.
  */
-// PBFSTAGE-2026-08-30: two rungs added between ACQUIRE and REDUCE.
-// ACQUIRE       nothing usable on disk
-// ACQUIRE_GPKG  the PBF is down and verified; the GeoPackage is not
-// PREPARE_TAGS  both files down; the PBF tag pass has not produced its table
-// REDUCE        the tag table exists -- the join has both its inputs
-// IMPORT        the skinny exists
+// PBFSTAGE-2026-08-30: ACQUIRE / ACQUIRE_GPKG / PREPARE_TAGS / REDUCE / IMPORT (2.7e's rungs, unchanged).
 enum class OsmStage { ACQUIRE, ACQUIRE_GPKG, PREPARE_TAGS, REDUCE, IMPORT }
 
-// DEADCODE2-2026-10-23: ImportScope (unused) moved to retired/2.7c_dead/pieces/convoy/OsmImportStage.pieces.txt
-
 /**
- * OsmImportStage -- the rules engine.
+ * OsmImportStage -- the rules engine (R1-R7, 2026-07-28).
  *
- * THE RULES (2026-07-28):
- *   R1  Stage is DERIVED FROM DISK, never stored. No stage counter, no status.
- *   R2  Only TWO paths are ever consulted: the zip and the skinny DB. The
- *       .gpkg is never a recovery point -- unzip + skinny is one atomic op.
- *   R3  EXISTENCE MUST MEAN COMPLETE. In-flight work uses .part / .tmp and is
- *       renamed atomically on success. Derivation only looks at final names.
- *   R4  The ledger never gates. Disk wins on disagreement.
- *   R5  Derivation runs at MOMENTS -- panel open, job completion, return from
- *       background. No file watcher; nothing outside the app writes here.
- *   R6  Derivation is PER-SLUG. States are independent.
- *   R7  On ACQUIRE entry, sweep debris only (.part / .tmp / .gpkg). NEVER
- *       blind-delete the directory -- step 1 stays enabled at IMPORT stage,
- *       and a wholesale clear there would destroy an import-ready skinny DB
- *       and the record of what was already imported.
- *
- * Verification exists because existence proves a RENAME happened, not that the
- * bytes are good. A failed verification deletes that one artifact, which drops
- * the stage by exactly one -- automatic, no dialog, and it costs one stage
- * rather than the whole run.
+ * STEP15G-SWITCH-2026-11-10: THE FRONT DOOR. The disk half -- the paths, stageOf, statesInFlight, the four verifiers, trailExtent,
+ * countTrailsInBbox, discardState, sweepDebris, displayName -- runs the certified shared GtOsmStage (2.8 step 15g, 57cd2a8a7: Droid
+ * 687,564 / 0 DIFF, iPad 231,365 / 0 DIFF) on the app's environment (GtImportAndroid: GroupTrackStorage.dir("osm")) and GtOsmAndroid
+ * (2.7e's legacy rescue, once per process, and the legacy sweep in discardState -- moved there word for word). Every result is the
+ * shared one, as File where 2.7e returned File. The Android-only half below (All Files Access, the MediaStore discovery, adoption,
+ * deleteOriginal) is 2.7e's, UNCHANGED -- a browser download found through MediaStore has no iPad equivalent. The 2.7e file is in git
+ * history (57cd2a8a7) and in the TEST-ONLY OsmImportStageCertOld.
  */
 object OsmImportStage {
 
     private const val TAG = "OsmStage"
 
-    /**
-     * OSM-SKINNY-CONSTANT-2026-07-28: ONE name for all fifty states.
-     *
-     * Fred: "we want the import to consistently run over a common name for the
-     * skinnied file ready to be imported, not 50 state names of that file."
-     * Only one state is ever in flight, so the slug in the filename made C3
-     * and C4 carry it purely to open a file -- and the old name said
-     * "osm_trails" while the file also holds places and natural.
-     *
-     * State identity lives in the DIRECTORY. statesInFlight() derives the slug
-     * from dir.name and never from this file, so nothing is lost.
-     *
-     * A CONSTANT rather than a literal because there were two sites written
-     * independently, which is how two become three and then disagree.
-     */
-    const val SKINNY_NAME = "ready_for_import.db"
+    /** OSM-SKINNY-CONSTANT-2026-07-28: ONE name for all fifty states. */
+    const val SKINNY_NAME = GtOsmStage.SKINNY_NAME
 
-    /**
-     * Matches Geofabrik's free-layer GeoPackage archive, and browser duplicates
-     * of it.
-     *
-     * OSM-DATED-FILENAME-2026-07-28: Geofabrik publishes the SAME product under two
-     * spellings and the download page offers both --
-     *
-     *     utah-latest-free.gpkg.zip
-     *     arizona-260728-free.gpkg.zip     <- seen in the field 2026-07-28
-     *
-     * Demanding "latest" made the probe report "extract not found" for a file
-     * sitting right there in Downloads. Accept either.
-     *
-     * Group 1 is the slug, and it is everything before the separator -- NOT
-     * "text before the first hyphen", which would reduce north-carolina-260728
-     * to "north". Greedy matching backtracks to the LAST valid separator,
-     * which is correct here because the date is a suffix.
-     */
+    /** OSM-DATED-FILENAME-2026-07-28: Geofabrik's free-layer GeoPackage archive (either spelling) and browser duplicates of it. */
     private val ZIP_RE = Regex(
         """^([a-z0-9_-]+)-(?:latest|\d{6,8})-free\.gpkg(?:\s*\(\d+\))?\.zip(?:\s*\(\d+\))?$""",
         RegexOption.IGNORE_CASE
     )
 
-    // -- paths --------------------------------------------------------------
-
-    /**
-     * OSM-PUBLIC-STORAGE-2026-07-28: the shared GroupTrack directory.
-     *
-     * A CONSTANT because the planning state file already uses this base path.
-     * Spelling it twice is how two copies of the same path drift apart -- the
-     * same reason SKINNY_NAME became a constant earlier today.
-     */
-    const val GROUPTRACK_DIR = "Documents/GroupTrack"
-
-    /**
-     * OSM working files live in SHARED storage, not app-private storage.
-     *
-     * Fred 2026-07-28: "we have hit roadblocks all day with data in the app
-     * area. there is a reason we moved data to public area."
-     *
-     * ⭐ THE REASON, restated so it is not re-learned a third time: run-as is
-     * BLOCKED on release builds, and Android 11+ blocks adb from another app's
-     * Android/data. Together those leave app-private storage with NO
-     * inspection route at all -- not adb pull, not a file manager, nothing.
-     * Verifying what an extract produced would have required writing an export
-     * feature to work around a directory choice.
-     *
-     * ⭐ IT IS ALSO A USER FIX. Nothing can browse Android/data, so a user who
-     * downloaded the wrong state had no way to delete a 610 MB file from
-     * inside the app or outside it.
-     *
-     * ⚠ Files here SURVIVE UNINSTALL and are NOT removed by Clear Storage.
-     * For a large extract that is arguably correct -- a reinstall should not
-     * cost another download -- but it makes CANCEL the only cleanup path.
-     *
-     * ⚠ ctx is unused now and kept deliberately: removing it would touch every
-     * call site across four files for no behavioural gain, and it is what a
-     * user-chosen directory would be derived from later.
-     */
-    fun rootDir(ctx: Context): File {
-        val d = GroupTrackStorage.dir("osm")   // STORAGEROOT-2026-09-11
-        if (!d.exists()) d.mkdirs()
-        if (!legacyChecked) {
-            legacyChecked = true
-            try {
-                migrateLegacy(ctx, d)
-            } catch (e: Exception) {
-                Log.e(TAG, "legacy migration failed: ${e.javaClass.simpleName} ${e.message}")
-            }
-        }
-        return d
-    }
-
-    /** OSM-LEGACY-MIGRATE-2026-07-28: once per process, not once per install. */
-    @Volatile
-    private var legacyChecked = false
-
-    /** Where OSM files lived before they moved to shared storage. */
-    private fun legacyRootDir(ctx: Context): File =
-        File(ctx.getExternalFilesDir(null), "osm")
-
-    /**
-     * OSM-LEGACY-MIGRATE-2026-07-28: rescue whatever is stranded in the old app-private
-     * directory.
-     *
-     * WHY THIS IS CODE AND NOT A COMMAND. Nothing outside the app can reach
-     * getExternalFilesDir() on a release build -- adb is blocked by Android 11+,
-     * run-as is blocked by the release signing, and no file manager can browse
-     * it. That is precisely why the directory moved. It also means the files
-     * left behind can ONLY be moved by the app itself.
-     *
-     * MIGRATE RATHER THAN DELETE: the zip is ~630 MB and re-downloading it is
-     * pure waste. Anything already at the new path WINS -- so re-extracting
-     * before migrating is safe, and the stale copy is dropped rather than
-     * overwriting fresher output.
-     *
-     * ⚠ RENAME ONLY. rootDir() is called from the main thread on every panel
-     * refresh, and a 630 MB copy there is a guaranteed ANR. Both paths are on
-     * /storage/emulated/0, so renameTo is a metadata operation. A rename that
-     * fails anyway leaves the file ALONE and logs it -- silently destroying a
-     * download the user waited on is worse than leaving an orphan behind.
-     *
-     * Every step is per-file and idempotent, so an interrupted run simply
-     * resumes on the next launch.
-     */
-    private fun migrateLegacy(ctx: Context, newRoot: File) {
-        val old = legacyRootDir(ctx)
-        if (!old.exists() || !old.isDirectory) return
-        Log.i(TAG, "legacy OSM directory found at ${old.absolutePath} -- migrating")
-
-        var moved = 0
-        var dropped = 0
-        var failed = 0
-
-        old.listFiles()?.forEach { entry ->
-            if (!entry.isDirectory) {
-                // Nothing but per-state directories belongs at this level.
-                if (entry.delete()) dropped++
-                return@forEach
-            }
-            val dest = File(newRoot, entry.name)
-            if (!dest.exists()) dest.mkdirs()
-            entry.listFiles()?.forEach { f ->
-                val target = File(dest, f.name)
-                when {
-                    target.exists() -> {
-                        // Newer output already there -- the old copy is stale.
-                        if (f.delete()) dropped++
-                    }
-                    f.renameTo(target) -> moved++
-                    else -> {
-                        failed++
-                        Log.w(TAG, "could not move ${f.name} (${f.length()} bytes) " +
-                            "-- left in place rather than deleted")
-                    }
-                }
-            }
-            if (entry.listFiles()?.isEmpty() == true) entry.delete()
-        }
-
-        if (old.listFiles()?.isEmpty() == true) old.delete()
-        Log.i(TAG, "legacy migration: moved=$moved droppedStale=$dropped failed=$failed")
-    }
-
-    fun dirFor(ctx: Context, slug: String): File {
-        val d = File(rootDir(ctx), slug)
-        if (!d.exists()) d.mkdirs()
-        return d
-    }
-
-    fun zipFor(ctx: Context, slug: String): File =
-        File(dirFor(ctx, slug), "$slug-latest-free.gpkg.zip")
-
-    fun gpkgFor(ctx: Context, slug: String): File =
-        File(dirFor(ctx, slug), "$slug.gpkg")
-
-    fun skinnyFor(ctx: Context, slug: String): File =
-        File(dirFor(ctx, slug), SKINNY_NAME)
-
-    // ── PBFSTAGE-2026-08-30 ────────────────────────────────────────────
+    /** OSM-PUBLIC-STORAGE-2026-07-28. */
+    const val GROUPTRACK_DIR = GtOsmStage.GROUPTRACK_DIR
     /** The interim tag table: osm_id -> the access tags Geofabrik strips. */
-    const val TAGS_NAME = "osm_way_tags.db"
+    const val TAGS_NAME = GtOsmStage.TAGS_NAME
 
-    fun pbfFor(ctx: Context, slug: String): File =
-        File(dirFor(ctx, slug), "$slug-latest.osm.pbf")
+    private fun stage(ctx: Context) = GtOsmStage(GtImportAndroid(ctx), GtOsmAndroid(ctx))
+    private fun f(p: okio.Path) = File(p.toString())
 
-    fun tagsFor(ctx: Context, slug: String): File =
-        File(dirFor(ctx, slug), TAGS_NAME)
+    // -- paths (the shared ones) --------------------------------------------
+    fun rootDir(ctx: Context): File = f(stage(ctx).rootDir())
+    fun dirFor(ctx: Context, slug: String): File = f(stage(ctx).dirFor(slug))
+    fun zipFor(ctx: Context, slug: String): File = f(stage(ctx).zipFor(slug))
+    fun gpkgFor(ctx: Context, slug: String): File = f(stage(ctx).gpkgFor(slug))
+    fun skinnyFor(ctx: Context, slug: String): File = f(stage(ctx).skinnyFor(slug))
+    fun pbfFor(ctx: Context, slug: String): File = f(stage(ctx).pbfFor(slug))
+    fun tagsFor(ctx: Context, slug: String): File = f(stage(ctx).tagsFor(slug))
 
-    // -- derivation ---------------------------------------------------------
-
-    /**
-     * THE STATE MACHINE. Three file checks, and that is the whole of it.
-     *
-     * Verification is part of derivation on purpose: an artifact that exists
-     * but does not verify is treated as absent AND removed, so the next call
-     * derives the stage below it without any separate repair step.
-     */
-    fun stageOf(ctx: Context, slug: String): OsmStage {
-        val skinny = skinnyFor(ctx, slug)
-        if (skinny.exists()) {
-            if (verifySkinny(skinny)) return OsmStage.IMPORT
-            Log.w(TAG, "skinny DB failed verification, removing: ${skinny.name}")
-            skinny.delete()
-        }
-        // PBFSTAGE-2026-08-30: the tag table is the join's second input, and it
-        // stands alone -- the PBF that produced it may already have been cleaned
-        // up, exactly as the .gpkg outlives its zip. Requiring both here would
-        // send a tidied state back to ACQUIRE and re-download 167 MB.
-        val tags = tagsFor(ctx, slug)
-        if (tags.exists()) {
-            if (verifyTags(tags)) return OsmStage.REDUCE
-            Log.w(TAG, "tag table failed verification, removing: ${tags.name}")
-            tags.delete()
-        }
-        val zip = zipFor(ctx, slug)
-        val pbf = pbfFor(ctx, slug)
-        var zipOk = false
-        if (zip.exists()) {
-            zipOk = verifyZip(zip)
-            if (!zipOk) {
-                Log.w(TAG, "zip failed verification, removing: ${zip.name}")
-                zip.delete()
-            }
-        }
-        var pbfOk = false
-        if (pbf.exists()) {
-            pbfOk = verifyPbf(pbf)
-            if (!pbfOk) {
-                Log.w(TAG, "pbf failed verification, removing: ${pbf.name}")
-                pbf.delete()
-            }
-        }
-        // ⛔ THE GATE. The join needs BOTH inputs, so neither file alone
-        // advances past the acquire tier.
-        if (zipOk && pbfOk) return OsmStage.PREPARE_TAGS
-        if (pbfOk) return OsmStage.ACQUIRE_GPKG
-        return OsmStage.ACQUIRE
-    }
-
-    /**
-     * Every state currently in flight.
-     *
-     * OSM-GENERIC-2026-07-28: a directory is NOT enough. dirFor() creates one as a
-     * side effect of resolving a path, so merely deriving a stage used to leave
-     * an empty directory that then reported as a state forever -- including
-     * after cleanup had removed everything real. A state counts only if it
-     * holds one of the two recovery points.
-     */
-    fun statesInFlight(ctx: Context): List<String> =
-        rootDir(ctx).listFiles()
-            ?.filter { dir ->
-                dir.isDirectory && (
-                    File(dir, "${dir.name}-latest-free.gpkg.zip").exists() ||
-                        // PBFSTAGE-2026-08-30: the PBF and the tag table are
-                        // recovery points too. Without these, a state holding
-                        // only a PBF reports as NOT in flight and nothing
-                        // offers to resume it.
-                        File(dir, "${dir.name}-latest.osm.pbf").exists() ||
-                        File(dir, TAGS_NAME).exists() ||
-                        File(dir, SKINNY_NAME).exists()
-                    )
-            }
-            ?.map { it.name }
-            ?.sorted()
-            ?: emptyList()
-
+    // -- derivation / verification / extent / discard (the shared ones) -----
+    fun stageOf(ctx: Context, slug: String): OsmStage = OsmStage.valueOf(stage(ctx).stageOf(slug).name)
+    fun statesInFlight(ctx: Context): List<String> = stage(ctx).statesInFlight()
     /** "north-carolina" -> "North Carolina". Display only. */
-    fun displayName(slug: String): String =
-        slug.split("-", "_")
-            .filter { it.isNotBlank() }
-            .joinToString(" ") { p ->
-                p.replaceFirstChar { it.uppercase() }
-            }
-
-    // -- verification -------------------------------------------------------
-
-    /**
-     * We no longer issue the download ourselves, so there is no Content-Length
-     * to compare against. Opening the central directory is therefore the
-     * PRIMARY check rather than a secondary one -- and it must confirm a .gpkg
-     * is actually inside, so picking the wrong file fails here at the gate
-     * instead of part-way through C2.
-     */
-    /**
-     * PBFSTAGE-2026-08-30. Same reasoning as verifyZip directly below: there is
-     * no Content-Length to compare against, so OPENING the artifact is the
-     * primary check. A .osm.pbf begins with a 4-byte big-endian BlobHeader
-     * length followed by that BlobHeader, whose type field reads "OSMHeader".
-     * A truncated download fails here rather than part-way through the tag pass.
-     */
-    fun verifyPbf(f: File): Boolean {
-        if (!f.exists() || f.length() < 1024L) return false
-        return try {
-            java.io.DataInputStream(java.io.BufferedInputStream(f.inputStream())).use { din ->
-                val hdrLen = din.readInt()
-                if (hdrLen <= 0 || hdrLen > 64 * 1024) {
-                    Log.w(TAG, "pbf header length implausible ($hdrLen): ${f.name}")
-                    return false
-                }
-                val hdr = ByteArray(hdrLen)
-                din.readFully(hdr)
-                val ok = String(hdr, Charsets.ISO_8859_1).contains("OSMHeader")
-                if (!ok) Log.w(TAG, "pbf first blob is not OSMHeader: ${f.name}")
-                ok
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "pbf unreadable ${f.name}: ${e.javaClass.simpleName} ${e.message}")
-            false
-        }
-    }
+    fun displayName(slug: String): String = GtOsmStage.displayName(slug)
+    fun verifyPbf(f: File): Boolean = shared().verifyPbf(f.toOkioPath())
+    fun verifyTags(f: File): Boolean = shared().verifyTags(f.toOkioPath())
+    fun verifyZip(f: File): Boolean = shared().verifyZip(f.toOkioPath())
+    fun verifySkinny(f: File): Boolean = shared().verifySkinny(f.toOkioPath())
+    /** [s, w, n, e] or null -- the order the ledger's pending record uses. */
+    fun trailExtent(ctx: Context, slug: String): DoubleArray? = stage(ctx).trailExtent(slug)
+    fun countTrailsInBbox(ctx: Context, slug: String, s: Double, w: Double, n: Double, e: Double): Int = stage(ctx).countTrailsInBbox(slug, s, w, n, e)
+    fun discardState(ctx: Context, slug: String): Boolean = stage(ctx).discardState(slug)
+    fun sweepDebris(ctx: Context, slug: String): Int = stage(ctx).sweepDebris(slug)
 
     /**
-     * PBFSTAGE-2026-08-30. Modelled on verifySkinny: open it and count, because
-     * an empty table is the failure that matters -- a tag pass that produced
-     * nothing would classify every trail from shape alone and report success.
+     * The verifiers take a File and no context in 2.7e; the shared ones read only the file system (okio's SYSTEM) -- so they run on an
+     * environment that gives exactly that and refuses everything else (a call to anything else is a bug, loudly).
      */
-    fun verifyTags(f: File): Boolean {
-        if (!f.exists() || f.length() < 4096L) return false
-        var db: SQLiteDatabase? = null
-        return try {
-            db = SQLiteDatabase.openDatabase(
-                f.absolutePath, null, SQLiteDatabase.OPEN_READONLY
-            )
-            var rows = -1
-            db.rawQuery("SELECT COUNT(*) FROM osm_way_tags", null).use { c ->
-                if (c.moveToFirst()) rows = c.getInt(0)
-            }
-            if (rows <= 0) Log.w(TAG, "tag table has no rows: ${f.name}")
-            rows > 0
-        } catch (e: Exception) {
-            Log.w(TAG, "tag table unreadable ${f.name}: ${e.javaClass.simpleName} ${e.message}")
-            false
-        } finally {
-            try { db?.close() } catch (_: Exception) {}
+    private object VerifyEnv : com.grouptrack.shared.imports.GtImportEnv {
+        private fun no(): Nothing = throw IllegalStateException("OsmImportStage verifiers use the file system only")
+        override val clock: com.grouptrack.shared.imports.GtClock get() = no()
+        override val ids: com.grouptrack.shared.imports.GtIds get() = no()
+        override val files = object : com.grouptrack.shared.imports.GtFiles {
+            override val fs: okio.FileSystem = okio.FileSystem.SYSTEM
+            override fun setLastModified(path: okio.Path, epochMs: Long): Boolean = no()
+            override fun lastModified(path: okio.Path): Long = no()
+            override fun list(dir: okio.Path): List<okio.Path> = no()
         }
+        override val paths: com.grouptrack.shared.imports.GtImportPaths get() = no()
+        override val http: com.grouptrack.shared.imports.GtHttp get() = no()
+        override val trailClass: com.grouptrack.shared.imports.GtTrailClass get() = no()
+        override val platform: com.grouptrack.shared.imports.GtImportPlatform get() = no()
     }
-
-    fun verifyZip(f: File): Boolean {
-        if (!f.exists() || f.length() < 1024L) return false
-        return try {
-            ZipFile(f).use { zf ->
-                val hasGpkg = zf.entries().asSequence().any {
-                    it.name.endsWith(".gpkg", ignoreCase = true)
-                }
-                if (!hasGpkg) Log.w(TAG, "zip has no .gpkg entry: ${f.name}")
-                hasGpkg
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "zip unreadable ${f.name}: ${e.javaClass.simpleName} ${e.message}")
-            false
-        }
+    private object VerifyPlat : com.grouptrack.shared.osm.GtOsmPlatform {
+        private fun no(): Nothing = throw IllegalStateException("OsmImportStage verifiers use the file system only")
+        override fun onOsmRoot(root: okio.Path) = no()
+        override fun discardLegacy(slug: String) = no()
+        override fun usableSpace(dir: okio.Path): Long = no()
+        override fun sweepDownloadedZips(slug: String) = no()
+        override fun foreground(worker: String, text: String) = no()
     }
-
-    /**
-     * The skinny DB verifies against its own recorded expectation, so a pass
-     * that died part-way (and somehow got renamed) cannot present itself as
-     * complete.
-     */
-    fun verifySkinny(f: File): Boolean {
-        if (!f.exists() || f.length() < 4096L) return false
-        var db: SQLiteDatabase? = null
-        return try {
-            db = SQLiteDatabase.openDatabase(
-                f.absolutePath, null, SQLiteDatabase.OPEN_READONLY
-            )
-            var rows = -1
-            db.rawQuery("SELECT COUNT(*) FROM osm_trails", null).use { c ->
-                if (c.moveToFirst()) rows = c.getInt(0)
-            }
-            if (rows <= 0) {
-                Log.w(TAG, "skinny DB has no rows: ${f.name}")
-                return false
-            }
-            var expected = -1
-            try {
-                db.rawQuery(
-                    "SELECT value FROM subset_meta WHERE key = ?",
-                    arrayOf("feature_count")
-                ).use { c ->
-                    if (c.moveToFirst()) expected = c.getString(0)?.toIntOrNull() ?: -1
-                }
-            } catch (_: Exception) {
-                // subset_meta absent -- tolerated; the row count already passed.
-            }
-            if (expected >= 0 && expected != rows) {
-                Log.w(TAG, "skinny DB count mismatch: rows=$rows expected=$expected")
-                return false
-            }
-            true
-        } catch (e: Exception) {
-            Log.w(TAG, "skinny DB unreadable ${f.name}: ${e.javaClass.simpleName} ${e.message}")
-            false
-        } finally {
-            try { db?.close() } catch (_: Exception) { }
-        }
-    }
-
-    // -- debris -------------------------------------------------------------
-
-    /**
-     * R7. Safe by definition of the stage: reaching ACQUIRE means neither
-     * recovery point exists, so anything else here is from a killed run.
-     */
-    /**
-     * OSM-CANCEL-BUTTON-2026-07-28: throw a state away entirely.
-     *
-     * WHY THIS HAS TO EXIST. Originally: the working directory was under
-     * getExternalFilesDir(), which nothing can browse on Android 11+, so a
-     * wrong download was unremovable. That has since been fixed properly by
-     * moving the directory to shared storage (see rootDir).
-     *
-     * It matters MORE now, not less. Files in shared storage SURVIVE UNINSTALL
-     * and are NOT cleared by Clear Storage, so this is the only thing that
-     * removes a 610 MB extract the user no longer wants.
-     *
-     * NOT the same as CLEANUP (C4). Cleanup is the normal exit after a
-     * successful import and finalizes the ledger into history first. This is
-     * ABANDON: nothing was imported, so there is no history to write, and both
-     * recovery points go with everything else.
-     *
-     * Deliberately NOT recursive. The working directory is flat by design, so
-     * a directory inside it means something is wrong -- and a recursive delete
-     * rooted at a derived path is exactly the shape of mistake that removes
-     * more than it was asked to.
-     */
-    /**
-     * OSM-C3B-EXTENT-2026-07-29: the WHOLE STATE bbox.
-     *
-     * subset_meta does NOT carry an extent -- it holds source_file, classes,
-     * feature_count, built_at, wkt_format, hash_algo, attribution and nothing
-     * else. The extent is therefore derived from the trails themselves, which
-     * is the more correct source anyway: a stored value can drift from the
-     * rows, this cannot. Covered by ix_osm_trails_bbox (min_lat,max_lat,
-     * min_lon,max_lon), so it is an index scan.
-     *
-     * Returns [s, w, n, e] -- the order OsmImportLedger.setPendingImport
-     * writes and OsmImportWorker destructures. NOT the "west,south,east,north"
-     * form documented for the history string.
-     */
-    fun trailExtent(ctx: Context, slug: String): DoubleArray? {
-        val f = skinnyFor(ctx, slug)
-        if (!f.exists()) return null
-        var db: SQLiteDatabase? = null
-        return try {
-            db = SQLiteDatabase.openDatabase(
-                f.absolutePath, null, SQLiteDatabase.OPEN_READONLY
-            )
-            var out: DoubleArray? = null
-            db.rawQuery(
-                "SELECT MIN(min_lat), MAX(max_lat), MIN(min_lon), MAX(max_lon) " +
-                    "FROM osm_trails", null
-            ).use { c ->
-                if (c.moveToFirst() && !c.isNull(0)) {
-                    val minLat = c.getDouble(0)
-                    val maxLat = c.getDouble(1)
-                    val minLon = c.getDouble(2)
-                    val maxLon = c.getDouble(3)
-                    // [s, w, n, e]
-                    out = doubleArrayOf(minLat, minLon, maxLat, maxLon)
-                }
-            }
-            Log.i(TAG, "trailExtent $slug = ${out?.joinToString(",") ?: "(none)"}")
-            out
-        } catch (e: Exception) {
-            Log.w(TAG, "trailExtent failed $slug: ${e.javaClass.simpleName} ${e.message}")
-            null
-        } finally {
-            try { db?.close() } catch (_: Exception) {}
-        }
-    }
-
-    /**
-     * OSM-C3B-EXTENT-2026-07-29: how many trails OVERLAP a bbox.
-     *
-     * Overlap, not containment -- the same test OsmImportWorker applies, so
-     * this number is the one the import will actually move. On a FULL STATE
-     * box it must equal the total row count exactly: every trail overlaps its
-     * own extent by definition. Anything less means the extent or the
-     * coordinate order is wrong, which is the whole point of showing it.
-     */
-    fun countTrailsInBbox(
-        ctx: Context,
-        slug: String,
-        s: Double,
-        w: Double,
-        n: Double,
-        e: Double
-    ): Int {
-        val f = skinnyFor(ctx, slug)
-        if (!f.exists()) return -1
-        var db: SQLiteDatabase? = null
-        return try {
-            db = SQLiteDatabase.openDatabase(
-                f.absolutePath, null, SQLiteDatabase.OPEN_READONLY
-            )
-            var out = -1
-            db.rawQuery(
-                "SELECT COUNT(*) FROM osm_trails " +
-                    "WHERE min_lat <= ? AND max_lat >= ? " +
-                    "AND min_lon <= ? AND max_lon >= ?",
-                arrayOf(n.toString(), s.toString(), e.toString(), w.toString())
-            ).use { c ->
-                if (c.moveToFirst()) out = c.getInt(0)
-            }
-            out
-        } catch (ex: Exception) {
-            Log.w(TAG, "countTrailsInBbox failed $slug: ${ex.javaClass.simpleName}")
-            -1
-        } finally {
-            try { db?.close() } catch (_: Exception) {}
-        }
-    }
-
-    fun discardState(ctx: Context, slug: String): Boolean {
-        val dir = dirFor(ctx, slug)
-        var ok = true
-        var n = 0
-        dir.listFiles()?.forEach { f ->
-            if (f.isDirectory) {
-                Log.w(TAG, "unexpected directory in working dir, left alone: ${f.name}")
-                ok = false
-            } else if (f.delete()) {
-                n++
-            } else {
-                Log.w(TAG, "could not delete ${f.name}")
-                ok = false
-            }
-        }
-        if (ok && !dir.delete()) {
-            // Not fatal: statesInFlight() requires a recovery point INSIDE a
-            // directory, so an empty one left behind does not register as a
-            // state. It just should not happen.
-            Log.w(TAG, "removed $n file(s) but could not remove the directory itself")
-        }
-        // OSM-CANCEL-SWEEPS-LEGACY-2026-07-28: sweep the legacy location too.
-        //
-        // Normally there is nothing here -- migrateLegacy() runs at the first
-        // path resolution of every process and clears it. What survives is the
-        // one case migration refuses to handle: a FAILED rename, where the
-        // file is deliberately left alone rather than deleted because throwing
-        // away a 630 MB download the user waited on is worse than an orphan.
-        //
-        // CANCEL is where that calculation changes: the user has just asked
-        // for this to be deleted.
-        //
-        // ⚠ SAME SLUG ONLY. If the legacy tree also holds another state, it is
-        // left alone -- cancelling one state has never meant discarding
-        // another, and a control that removes more than it names is one people
-        // stop trusting.
-        try {
-            val legacyDir = File(legacyRootDir(ctx), slug)
-            if (legacyDir.exists()) {
-                var ln = 0
-                legacyDir.listFiles()?.forEach { f ->
-                    if (!f.isDirectory && f.delete()) ln++
-                }
-                legacyDir.delete()
-                if (ln > 0) Log.i(TAG, "legacy sweep: removed $ln stranded file(s) for $slug")
-            }
-            val legacyRoot = legacyRootDir(ctx)
-            if (legacyRoot.exists() && legacyRoot.listFiles()?.isEmpty() == true) {
-                legacyRoot.delete()
-            }
-        } catch (e: Exception) {
-            // Never fail a cancel over the legacy path -- the new location is
-            // what the user can actually see, and it is already gone.
-            Log.w(TAG, "legacy sweep skipped: ${e.javaClass.simpleName} ${e.message}")
-        }
-
-        Log.i(TAG, "discarded $slug ($n file(s) removed, ok=$ok)")
-        return ok
-    }
-
-    fun sweepDebris(ctx: Context, slug: String): Int {
-        val dir = dirFor(ctx, slug)
-        var n = 0
-        dir.listFiles()?.forEach { f ->
-            val name = f.name.lowercase()
-            val debris = name.endsWith(".part") ||
-                name.endsWith(".tmp") ||
-                name.endsWith(".gpkg")
-            if (debris && f.delete()) {
-                n++
-                Log.i(TAG, "swept debris: ${f.name}")
-            }
-        }
-        return n
-    }
+    private fun shared() = GtOsmStage(VerifyEnv, VerifyPlat)
 
     // -- C1 support: find what the user downloaded --------------------------
 

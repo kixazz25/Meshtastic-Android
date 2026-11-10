@@ -1102,6 +1102,10 @@ object SpatialDbManager {
      *  ImportProgress it emits (TrailImporter's StateFlow). Null = no database open. */
     internal fun sharedTrailImport(progress: (com.grouptrack.shared.imports.GtTrailImport.ImportProgress) -> Unit): com.grouptrack.shared.imports.GtTrailImport? =
         sharedOn()?.let { com.grouptrack.shared.imports.GtTrailImport(it.s, it.e, it.w, it.env, progress) }
+    /** STEP15G-SWITCH-2026-11-10: the 15g front door -- the shared OSM import (C3) on the same handles / writer / env, with Android's
+     *  GtOsmPlatform; [onProgress] = the progress JSON (OsmImportWorker's). Null = no database open. */
+    internal fun sharedOsmImport(ctx: android.content.Context, slug: String, onProgress: (String) -> Unit): com.grouptrack.shared.osm.GtOsmImport? =
+        sharedOn()?.let { com.grouptrack.shared.osm.GtOsmImport(it.s, it.e, it.w, it.env, com.geeksville.mesh.grouptrack.GtOsmAndroid(ctx), slug, onProgress) }
 
     fun insertWaypointWithId(waypointId: String, name: String, lat: Double, lon: Double, type: String): Boolean =
         writer()?.insertWaypointWithId(waypointId, name, lat, lon, type) ?: false   // STEP11
