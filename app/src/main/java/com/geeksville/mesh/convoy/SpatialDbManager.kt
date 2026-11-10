@@ -1098,6 +1098,10 @@ object SpatialDbManager {
         sharedOn()?.let { com.grouptrack.shared.rider.GtRiderTrails(it.s, it.e, it.w, it.env) }
     internal fun sharedGpxImport(): com.grouptrack.shared.imports.GtGpxImport? =
         sharedOn()?.let { com.grouptrack.shared.imports.GtGpxImport(it.s, it.e, it.w, it.env, trackFlight) }
+    /** STEP15F-SWITCH-2026-11-10: the 15f front door -- the shared agency importer on the same handles / writer / env; [progress] = each
+     *  ImportProgress it emits (TrailImporter's StateFlow). Null = no database open. */
+    internal fun sharedTrailImport(progress: (com.grouptrack.shared.imports.GtTrailImport.ImportProgress) -> Unit): com.grouptrack.shared.imports.GtTrailImport? =
+        sharedOn()?.let { com.grouptrack.shared.imports.GtTrailImport(it.s, it.e, it.w, it.env, progress) }
 
     fun insertWaypointWithId(waypointId: String, name: String, lat: Double, lon: Double, type: String): Boolean =
         writer()?.insertWaypointWithId(waypointId, name, lat, lon, type) ?: false   // STEP11

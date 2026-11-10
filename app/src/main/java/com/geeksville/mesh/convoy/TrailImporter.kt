@@ -1,38 +1,32 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import android.database.sqlite.SQLiteDatabase
-import android.util.Log
+import com.grouptrack.shared.imports.GtTrailImport
+import com.grouptrack.shared.json.GtOrgJson
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import org.json.JSONArray
-import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import okio.Path.Companion.toOkioPath
+import org.json.JSONObject
 
 /**
  * TrailImporter -- V2.5 Trail data import engine.
  *
+ * STEP15F-SWITCH-2026-11-10: THE FRONT DOOR. Every import runs the certified shared GtTrailImport (2.8 step 15f, 6b4400f56: Droid
+ * 572,503 / 0 DIFF, iPad 116,299 / 0 DIFF) on the app's own database handles (SpatialDbManager.sharedTrailImport -- GtAppDb, the one
+ * shared writer) and the app's real environment (GtImportAndroid: the assets, GroupTrackStorage, GtHttpAndroid = 2.7e's httpGet).
+ * The public API is 2.7e's, unchanged for every caller: the same classes, the same progress flow, the same launch mode; each shared
+ * result is mapped back field for field. The 2.7e bodies are in git history (67d395072) and in the TEST-ONLY TrailImporterCertOld.
+ * With NO database open (SpatialDbManager.init could not open the handles) a call answers what that state allows: an import
+ * "DB not available" (2.7e's own message for it), a fetch false, trailheads 0, the area records nothing / null / false.
+ *
  * Two import methods:
  *   Method A: importFullSource() -- imports all trails from one source
  *   Method B: importByArea() -- imports trails from multiple sources within a bounding box
- *
- * Both use the same pipeline: ArcGIS query -> GeoJSON parse -> dedup -> insert.
- * Pagination handles the 2000 record limit per request.
- * Dedup by source_id + source_unique_id prevents duplicate inserts.
  */
 object TrailImporter {
-
-    private const val TAG = "TrailImporter"
-    private const val PAGE_SIZE = 2000
 
     data class ImportResult(
         val sourceId: String, val inserted: Int, val skipped: Int,
@@ -60,16 +54,44 @@ object TrailImporter {
     private val _progress = MutableStateFlow(ImportProgress())
     val progress: StateFlow<ImportProgress> = _progress.asStateFlow()
 
-    private fun emitProgress(p: ImportProgress) { _progress.value = p }
-
     enum class UpdateMode { CARTO_ONLY, ALL }
     /** Set by the import/update panel before an import run. CARTO_ONLY = safe carto refresh;
      *  ALL = refresh all property fields + name on existing records (never geometry). */
     @Volatile var updateMode: UpdateMode = UpdateMode.CARTO_ONLY
 
+    /**
+     * Explicit launch mode for the trail-source screen. Each launch point sets
+     * this before navigating; the screen derives its starting step from it.
+     */
+    enum class LaunchMode { SELECT_SOURCE, BY_AREA }
+
+    @Volatile
+    var launchMode: LaunchMode = LaunchMode.SELECT_SOURCE
+
+    data class Src(
+        val id: String, val name: String, val queryUrl: String, val maxRecords: Int,
+        val fieldId: String, val fieldName: String, val fieldType: String, val fieldUse: String,
+        val fieldExtras: Map<String, String>,
+        val sourceType: String = "arcgis_rest"
+    )
+
+    // ---- the shared code ----
+    private fun map(r: GtTrailImport.ImportResult) = ImportResult(r.sourceId, r.inserted, r.skipped, r.errors, r.message, r.dropped, r.aliased, r.rejected)
+    private fun map(p: GtTrailImport.ImportProgress) = ImportProgress(p.sourceId, p.sourceName, p.totalSources, p.currentSourceIndex, p.fetched,
+        p.inserted, p.skipped, p.dropped, p.aliased, p.rejected, p.errors, p.offset, p.isComplete, p.message)
+    private fun dbFail(sourceId: String) = ImportResult(sourceId, 0, 0, 1, "DB not available")
+
+    /** the shared importer on the app's handles, its progress into [progress], [updateMode] passed on; null = no database open */
+    private fun shared(context: Context?): GtTrailImport? {
+        if (context != null) SpatialDbManager.init(context)
+        return SpatialDbManager.sharedTrailImport { p -> _progress.value = map(p) }?.also {
+            it.updateMode = if (updateMode == UpdateMode.ALL) GtTrailImport.UpdateMode.ALL else GtTrailImport.UpdateMode.CARTO_ONLY
+        }
+    }
+
     /** Method A: Import all trails from a single source (no bbox filter) */
-    suspend fun importFullSource(context: Context, sourceId: String): ImportResult {
-        return importFromSource(context, sourceId, null, null, null, null, emptyList())   // FETCHFIRST-2026-11-02: from the web
+    suspend fun importFullSource(context: Context, sourceId: String): ImportResult = withContext(Dispatchers.IO) {
+        shared(context)?.let { map(it.importFullSource(sourceId)) } ?: dbFail(sourceId)
     }
 
     /** Method B: Import trails from multiple sources within a bounding box */
@@ -77,812 +99,45 @@ object TrailImporter {
         context: Context, sourceIds: List<String>,
         south: Double, west: Double, north: Double, east: Double
     ): List<ImportResult> = withContext(Dispatchers.IO) {
-        Log.i(TAG, "Area import: ${sourceIds.size} sources, bbox=[$south,$west,$north,$east]")
-        sourceIds.map { sid ->
-            importFromSource(context, sid, south, west, north, east, emptyList())   // FETCHFIRST-2026-11-02: from the web
-        }
+        shared(context)?.importByArea(sourceIds, south, west, north, east)?.map { map(it) } ?: sourceIds.map { dbFail(it) }
     }
 
-    /**
-     * FETCHFIRST-2026-11-02: import one source from its SAVED pages (fetchSourceToFile) instead of the web. The same loop, dedup, insert
-     * and area filter as importByArea -- only where each page comes from changes. [files] = the source's saved file per state.
-     */
+    /** FETCHFIRST-2026-11-02: import one source from its SAVED pages instead of the web. [files] = the source's saved file per state. */
     suspend fun importSavedByArea(
         context: Context, sourceId: String, files: List<java.io.File>,
         south: Double, west: Double, north: Double, east: Double
     ): List<ImportResult> = withContext(Dispatchers.IO) {
-        Log.i(TAG, "FETCHFIRST saved import: $sourceId from ${files.size} file(s), bbox=[$south,$west,$north,$east]")
-        listOf(importFromSource(context, sourceId, south, west, north, east, files))
+        shared(context)?.importSavedByArea(sourceId, files.map { it.toOkioPath() }, south, west, north, east)?.map { map(it) } ?: listOf(dbFail(sourceId))
     }
 
-    /**
-     * FETCHFIRST-2026-11-02: query one agency source for an area ONCE and save every page, one JSON page per line, into [dest]
-     * (written as .part, renamed only when whole). [onPage] (pages, features, expected -- -1 = the server would not count) for the panel.
-     * FETCHFIX-2026-11-02: counts first, halves the page on a failed page, advances by what it received, and fails short of the count.
-     */
+    /** FETCHFIRST-2026-11-02 / FETCHFIX-2026-11-02: query one agency source for an area ONCE and save every page into [dest]. */
     fun fetchSourceToFile(
         context: Context, sourceId: String,
         south: Double, west: Double, north: Double, east: Double,
         dest: java.io.File, onPage: (Int, Int, Int) -> Unit
-    ): Boolean {
-        val source = loadCatalog(context)?.firstOrNull { it.id == sourceId }
-        if (source == null) { Log.e(TAG, "FETCHFIRST $sourceId: not in the catalog"); return false }
-        val overpass = source.sourceType == "overpass"
-        val part = java.io.File(dest.path + ".part")
-        part.parentFile?.mkdirs(); part.delete()
-        var offset = 0; var pages = 0; var feats = 0
-        var size = PAGE_SIZE
-        // FETCHFIX-2026-11-02: how many the server holds in the area -- the end test. -1 = it would not say (then a short page ends it).
-        val expected = if (overpass) -1 else countIn(source, south, west, north, east)
-        Log.i(TAG, "FETCHFIX $sourceId: server count in area = $expected")
-        try {
-            part.bufferedWriter().use { w ->
-                while (true) {
-                    val url = buildUrl(source, south, west, north, east, offset, size)
-                    val json = httpGet(url, if (overpass) 180_000 else 60_000)
-                    val root = if (json == null) null else try { JSONObject(json) } catch (e: Exception) { null }
-                    if (root == null || root.has("error")) {
-                        // FETCHFIX-2026-11-02: a failed page is retried smaller (USFS 11-02: 2,000 with shapes -> HTTP 500; 500 answers)
-                        if (!overpass && size > 100) {
-                            size /= 2
-                            Log.w(TAG, "FETCHFIX $sourceId: page at $offset failed -- retrying at $size per page")
-                            continue
-                        }
-                        Log.e(TAG, "FETCHFIRST $sourceId: page at $offset failed at $size per page -- giving up ($feats of $expected)")
-                        return false
-                    }
-                    val n = (if (overpass) root.optJSONArray("elements") else root.optJSONArray("features"))?.length() ?: 0
-                    if (n == 0) break
-                    // A raw newline in valid JSON can only be whitespace, so one page = one line.
-                    w.write(json!!.replace('\n', ' ').replace('\r', ' ')); w.write("\n")
-                    pages++; feats += n; onPage(pages, feats, expected)
-                    if (overpass) break
-                    if (expected >= 0) { if (feats >= expected) break } else if (n < size) break
-                    offset += n   // FETCHFIX: by what was RECEIVED -- a server that caps pages below [size] is not cut short
-                }
-            }
-            if (expected >= 0 && feats < expected) {
-                Log.e(TAG, "FETCHFIX $sourceId: only $feats of $expected -- not saved")
-                part.delete(); return false
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "FETCHFIRST $sourceId: fetch failed -- ${e.javaClass.simpleName} ${e.message}")
-            part.delete(); return false
-        }
-        dest.delete()
-        val ok = part.renameTo(dest)
-        Log.i(TAG, "FETCHFIRST $sourceId: $pages page(s), $feats feature(s) saved -> ${dest.path} ok=$ok")
-        return ok
-    }
+    ): Boolean = shared(context)?.fetchSourceToFile(sourceId, south, west, north, east, dest.toOkioPath(), onPage) ?: false
 
-    /** FETCHFIX-2026-11-02: the server's count of features in the area (ArcGIS returnCountOnly); -1 when it will not say. */
-    private fun countIn(src: Src, s: Double, w: Double, n: Double, e: Double): Int {
-        val url = src.queryUrl + "?f=json&where=1%3D1&geometry=$w,$s,$e,$n" +
-            "&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&inSR=4326&returnCountOnly=true"
-        val j = httpGet(url, 60_000) ?: return -1
-        return try { JSONObject(j).optInt("count", -1) } catch (ex: Exception) { -1 }
-    }
+    fun geojsonGeomToWkt(geom: JSONObject): String =
+        shared(null)?.geojsonGeomToWkt(GtOrgJson.parse(geom.toString()) as kotlinx.serialization.json.JsonObject) ?: ""
 
-    /** Core import: query one source with optional bbox, paginate, dedup, insert */
-    private suspend fun importFromSource(
-        context: Context, sourceId: String,
-        south: Double?, west: Double?, north: Double?, east: Double?,
-        saved: List<java.io.File>   // FETCHFIRST-2026-11-02: empty = query the web; otherwise read these saved pages. Required (CODE RULE 1).
-    ): ImportResult = withContext(Dispatchers.IO) {
-        val catalog = loadCatalog(context)
-            ?: return@withContext ImportResult(sourceId, 0, 0, 1, "Catalog load failed")
-        val source = catalog.firstOrNull { it.id == sourceId }
-            ?: return@withContext ImportResult(sourceId, 0, 0, 1, "Source not found: $sourceId")
-
-        // OVERPASS-REQUIRE-BBOX-2026-07-27: an Overpass source with no bbox is a
-        // user error, not a query to attempt. ArcGIS tolerates a missing bbox
-        // because it PAGES and the server caps records per request; Overpass
-        // assembles the ENTIRE result before sending anything, so an unbounded
-        // query cannot complete. The first attempt asked for every track and
-        // path on Earth and was rejected after 99 seconds.
-        //
-        // ⚠ A DEFAULT MEANING "EVERYTHING" IS ONLY SAFE WHEN THE CONSUMER IS
-        // BOUNDED. Where it is not, absence of a filter must be an ERROR.
-        if (source.sourceType == "overpass" &&
-            (south == null || west == null || north == null || east == null)) {
-            val msg = "OpenStreetMap import needs an area. Draw one on the map, " +
-                      "tick Trails, then select OpenStreetMap from the suggested sources."
-            Log.w(TAG, "Refused unbounded overpass query for ${source.id}: no bbox")
-            return@withContext ImportResult(sourceId, 0, 0, 1, msg)
-        }
-
-        SpatialDbManager.init(context)
-        applyMigrationIfNeeded(context)
-        val sDb = SpatialDbManager.getSpatialDb()
-        val eDb = SpatialDbManager.getExtensionDb()
-        if (sDb == null || eDb == null)
-            return@withContext ImportResult(sourceId, 0, 0, 1, "DB not available")
-
-        SpatialDbManager.beginDedupSession()
-        var inserted = 0; var skipped = 0; var errors = 0; var fetched = 0; var rejected = 0; var dropped = 0; var aliased = 0
-        var named = 0   // IMPORTQUIET-2026-11-02: already-imported trails that were unnamed and got the source's name
-        var offset = 0; var hasMore = true
-        // FETCHFIRST-2026-11-02: the saved pages, one per line, read in order across the state files
-        val savedPages = sequence { for (f in saved) f.bufferedReader().use { r -> while (true) { val l = r.readLine() ?: break; yield(l) } } }.iterator()
-
-        while (hasMore) {
-            val url = buildUrl(source, south, west, north, east, offset, PAGE_SIZE)
-            Log.i(TAG, "Fetch offset=$offset source=${source.id}")
-            emitProgress(ImportProgress(
-                sourceId = sourceId, sourceName = source.name,
-                fetched = fetched, inserted = inserted, skipped = skipped,
-                rejected = rejected, errors = errors, offset = offset
-            ))
-            // OVERPASS-TIMEOUT-2026-07-27: match the [timeout:180] in the Overpass
-            // query. Client and server were disagreeing -- server allowed 180s,
-            // client hung up at 60s. ArcGIS sources keep the 60s default.
-            val json = if (saved.isNotEmpty()) (if (savedPages.hasNext()) savedPages.next() else "{\"features\":[],\"elements\":[]}")   // FETCHFIRST-2026-11-02
-                       else httpGet(url, if (source.sourceType == "overpass") 180_000 else 60_000)
-            if (json == null) { errors++; break }
-
-            val root = try { JSONObject(json) } catch (_: Exception) { errors++; break }
-            if (root.has("error")) {
-                Log.e(TAG, "API: ${root.optJSONObject("error")?.optString("message")}")
-                errors++; break
-            }
-
-            // OSM-IMPORT-2026-07-27: transform Overpass elements[] into the same
-            // features array the ArcGIS path produces. insertFeature is untouched.
-            val features = if (source.sourceType == "overpass") overpassToFeatures(root)
-                           else root.optJSONArray("features") ?: JSONArray()
-            if (features.length() == 0) { hasMore = false; continue }
-
-            val pageCount = features.length()
-            fetched += pageCount
-            sDb.beginTransaction(); eDb.beginTransaction()
-            try {
-                for (i in 0 until features.length()) {
-                    val feat = features.getJSONObject(i)
-                    // Client-side bbox rejection
-                    if (south != null && west != null && north != null && east != null) {
-                        val geom = feat.optJSONObject("geometry")
-                        if (geom != null) {
-                            val coords = geom.optJSONArray("paths") ?: geom.optJSONArray("coordinates")
-                            if (coords != null && coords.length() > 0) {
-                                val firstRing = coords.optJSONArray(0)
-                                if (firstRing != null && firstRing.length() > 0) {
-                                    val firstPt = firstRing.optJSONArray(0)
-                                    if (firstPt != null) {
-                                        val lon = firstPt.optDouble(0, 0.0)
-                                        val lat = firstPt.optDouble(1, 0.0)
-                                        if (lat < south || lat > north || lon < west || lon > east) {
-                                            rejected++
-                                            continue
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    when (insertFeature(sDb, eDb, feat, source)) {
-                        "inserted" -> inserted++
-                        "dropped" -> dropped++
-                        "named_drop" -> { dropped++; named++ }   // IMPORTQUIET-2026-11-02
-                        "named_alias" -> { aliased++; named++ }
-                        "aliased" -> aliased++
-                        "skipped" -> skipped++
-                        "unchanged" -> skipped++   // IMPORTQUIET-2026-11-02: was "updated" -> else -> errors++
-                        "updated" -> { skipped++; named++ }
-                        else -> errors++
-                    }
-                }
-                sDb.setTransactionSuccessful(); eDb.setTransactionSuccessful()
-            } finally {
-                sDb.endTransaction(); eDb.endTransaction()
-            }
-
-            // OSM-IMPORT-2026-07-27: ⚠ Overpass returns the WHOLE bbox in one
-            // response -- it does not page. Without this the loop would re-fetch
-            // the same page forever; dedup would skip every row, so it would spin
-            // silently rather than erroring.
-            hasMore = if (saved.isNotEmpty()) true   // FETCHFIRST-2026-11-02: saved pages run until the files end
-                      else if (source.sourceType == "overpass") false
-                      else features.length() >= PAGE_SIZE
-            offset += PAGE_SIZE
-        }
-
-        val processed = inserted + dropped + aliased + skipped + rejected + errors
-        logIngestion(eDb, sourceId, inserted, dropped + aliased, south, west, north, east)
-        val msg = "$processed processed: $inserted new, $dropped dupes dropped, $aliased aliased, $skipped already-imported ($named named), $rejected out-of-area, $errors errors"
-        Log.i(TAG, "Done $sourceId: $msg")
-        emitProgress(ImportProgress(
-            sourceId = sourceId, sourceName = source.name,
-            inserted = inserted, skipped = skipped, dropped = dropped, aliased = aliased,
-            rejected = rejected, errors = errors,
-            offset = offset, isComplete = true, message = msg
-        ))
-        // Write trail area JSON record
-        writeTrailAreaJson(context, source, inserted, dropped + aliased, south, west, north, east)
-        ImportResult(sourceId, inserted, skipped, errors, msg, dropped, aliased, rejected)
-    }
-
-    // ── HTTP + URL ──────────────────────────────────────
-
-    // =====================================================================
-    // OSM-IMPORT-2026-07-27: Overpass support.
-    //
-    // Overpass returns {"elements":[{type,id,tags,geometry:[{lat,lon}...]}]},
-    // NOT a GeoJSON FeatureCollection. These helpers turn it into the exact
-    // shape insertFeature already consumes, so that function -- and the whole
-    // dedup / ALIAS / trail_properties pipeline below it -- stays untouched.
-    //
-    // The emitted property NAMES must match the catalog entry's `fields` block.
-    // =====================================================================
-
-    /** Overpass accepts a plain GET with ?data=<urlencoded query>, so httpGet
-     *  needs no change. `out geom;` returns way geometry inline, so no separate
-     *  node resolution is required.
-     *
-     *  ⚠ OVERPASS DOES NOT PAGE -- one bbox query returns everything. The
-     *  caller forces hasMore=false for this source type; without that the
-     *  importer re-fetches the same page forever (dedup skips every row, so it
-     *  spins silently rather than erroring).
-     *
-     *  Written with plain concatenation and no regex on purpose: no Kotlin
-     *  string templates, so no '$' to mishandle when this is generated. */
-    private fun buildOverpassUrl(src: Src, s: Double?, w: Double?, n: Double?, e: Double?): String {
-        // OVERPASS-REQUIRE-BBOX-2026-07-27: NEVER default to the whole planet.
-        // The caller guards this, but if some future path bypasses that guard
-        // the failure must stay loud rather than becoming a worldwide request.
-        if (s == null || w == null || n == null || e == null) {
-            Log.e(TAG, "buildOverpassUrl called with no bbox - refusing")
-            return ""
-        }
-        val south = s
-        val west = w
-        val north = n
-        val east = e
-        val bbox = "(" + south + "," + west + "," + north + "," + east + ")"
-        val q = "[out:json][timeout:180];(" +
-                "way[\"highway\"=\"track\"]" + bbox + ";" +
-                "way[\"highway\"=\"path\"]" + bbox + ";" +
-                ");out geom;"
-        return src.queryUrl + "?data=" + java.net.URLEncoder.encode(q, "UTF-8")
-    }
-
-    private fun osmIsYes(v: String): Boolean =
-        v.trim().lowercase() in listOf("yes", "designated", "permissive", "official", "destination", "true", "1")
-
-    private fun osmIsNo(v: String): Boolean =
-        v.trim().lowercase() in listOf("no", "private", "false", "0")
-
-    /** Collapse OSM's several motor-access tags into ONE Yes/No/blank value.
-     *
-     *  ⚠ WHY COLLAPSED: insertFeature reads only four fieldExtras keys
-     *  (motorized, surface, county, manager|steward) and drops the rest
-     *  SILENTLY -- which is why usgs_national_trails declares atv, motorcycle
-     *  and ohv50 and none of the three ever reach the DB. Emitting OSM's four
-     *  access tags separately would send them nowhere.
-     *
-     *  ⚠ highway=track with NO access tag returns BLANK, not a guessed "Yes".
-     *  A track is wide enough for a vehicle by definition, but that is PHYSICAL
-     *  capability, not LEGAL access -- and legal access is the entire purpose of
-     *  this column. A wrong "Yes" is worse than an empty field. */
-    private fun osmMotorized(tags: JSONObject): String {
-        for (t in listOf("motor_vehicle", "atv", "motorcycle", "4wd_only", "motorcar", "ohv")) {
-            val v = tags.optString(t, "")
-            if (v.isBlank()) continue
-            if (osmIsYes(v)) return "Yes"
-            if (osmIsNo(v)) return "No"
-        }
-        return ""
-    }
-
-    /** Synthesize a DesignatedUses string from the access tag set, so the value
-     *  reads like the government sources' equivalent field. */
-    private fun osmUses(tags: JSONObject, motorized: String): String {
-        val parts = ArrayList<String>()
-        if (motorized == "Yes") parts.add("Motorized")
-        val hw = tags.optString("highway", "")
-        if (osmIsYes(tags.optString("bicycle", "")) || hw == "path") parts.add("Bike")
-        if (osmIsYes(tags.optString("foot", "")) || hw == "path") parts.add("Hike")
-        if (osmIsYes(tags.optString("horse", ""))) parts.add("Equestrian")
-        if (parts.isEmpty()) return ""
-        if (parts.size > 2) return "Multiuse"
-        return parts.joinToString("/")
-    }
-
-    /** elements[] -> the features array insertFeature already consumes.
-     *
-     *  Emits LineString (an OSM way IS one line). The caller's client-side bbox
-     *  rejection expects nested coordinates and simply no-ops on a LineString --
-     *  harmless, because Overpass has already filtered by bbox server-side. */
-    private fun overpassToFeatures(root: JSONObject): JSONArray {
-        val out = JSONArray()
-        val els = root.optJSONArray("elements") ?: return out
-        for (i in 0 until els.length()) {
-            val el = els.optJSONObject(i) ?: continue
-            if (el.optString("type") != "way") continue
-            val geom = el.optJSONArray("geometry") ?: continue
-            if (geom.length() < 2) continue
-
-            val coords = JSONArray()
-            for (j in 0 until geom.length()) {
-                val p = geom.optJSONObject(j) ?: continue
-                coords.put(JSONArray().put(p.optDouble("lon")).put(p.optDouble("lat")))
-            }
-            if (coords.length() < 2) continue
-
-            val tags = el.optJSONObject("tags") ?: JSONObject()
-            val motorized = osmMotorized(tags)
-
-            val props = JSONObject()
-            props.put("osm_id", el.optLong("id").toString())   // stable across extracts
-            // OSM-NAME-REVERT-2026-07-27: name, else ref, and NOTHING further.
-            //
-            // ⚠ DO NOT ADD AN ID-BASED FALLBACK HERE. The shared add-core already
-            // applies one: SpatialDbManager.notNamed() (:1297) turns null/blank
-            // into the literal 'Not Named' for ALL FOUR artifact types, and that
-            // string is a SENTINEL that search deliberately EXCLUDES (:422, and
-            // ArtifactSearch.kt:65). A synthesized name like "OSM track 12345678"
-            // looks real, so search would INCLUDE it -- filling results with
-            // meaningless numeric IDs and hiding which ways are genuinely named.
-            //
-            // `ref` is kept because it is REAL OSM data arriving through the same
-            // `name` property the ArcGIS sources use: two of the first nine
-            // imported ways came in as '28G' and '28J', Forest Service route
-            // designations.
-            props.put("name", tags.optString("name", "").ifBlank { tags.optString("ref", "") })
-            props.put("CartoCode", "")                          // blank -> cyan "Unspecified"
-            props.put("DesignatedUses", osmUses(tags, motorized))
-            props.put("MotorizedAllowed", motorized)
-            props.put("SurfaceType", tags.optString("surface", ""))
-            props.put("OwnerSteward", tags.optString("operator", ""))
-
-            val g = JSONObject()
-            g.put("type", "LineString")
-            g.put("coordinates", coords)
-
-            val f = JSONObject()
-            f.put("type", "Feature")
-            f.put("geometry", g)
-            f.put("properties", props)
-            out.put(f)
-        }
-        return out
-    }
-
-
-    // FETCHFIX-2026-11-02: [count] = the page size asked for (the import asks PAGE_SIZE; the agency fetch shrinks it on a failed page)
-    private fun buildUrl(src: Src, s: Double?, w: Double?, n: Double?, e: Double?, offset: Int, count: Int): String {
-        // OSM-IMPORT-2026-07-27: Overpass is an HTTP query API exactly as ArcGIS
-        // REST is -- but the query string is entirely different. Branch here;
-        // everything downstream of the response is source-agnostic.
-        if (src.sourceType == "overpass") return buildOverpassUrl(src, s, w, n, e)
-        val sb = StringBuilder(src.queryUrl)
-        sb.append("?f=geojson&outSR=4326&outFields=*")
-        if (s != null && w != null && n != null && e != null) {
-            sb.append("&geometry=$w,$s,$e,$n")
-            sb.append("&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&inSR=4326")
-        } else {
-            sb.append("&where=1%3D1")
-        }
-        sb.append("&resultOffset=$offset&resultRecordCount=$count")
-        return sb.toString()
-    }
-
-    /** OVERPASS-TIMEOUT-2026-07-27: readTimeoutMs is a parameter now, defaulted
-     *  to the previous hardcoded 60s so all 8 ArcGIS sources are unchanged.
-     *
-     *  ⚠ 60s is the WRONG ceiling for Overpass: the public instance QUEUES under
-     *  load, and Overpass DOES NOT PAGE -- it assembles the entire bbox
-     *  server-side before sending a byte. The first OSM import died at exactly
-     *  60s while the server was still working. */
-    private fun httpGet(urlStr: String, readTimeoutMs: Int = 60_000): String? {
-        // HTTP-ERROR-DETAIL-2026-07-27: this used to log ONLY ex.message, which for
-        // several common exceptions IS THE URL -- so a rate limit, a rejected query,
-        // an OOM during parse, a DNS failure and a TLS failure all produced the same
-        // line. Overpass explains itself in the RESPONSE BODY (errorStream), which
-        // was never read. A whole day was spent inferring what the server had been
-        // stating outright.
-        //
-        // ⚠ catch is Throwable, not Exception, ON PURPOSE: OutOfMemoryError is an
-        // Error, so `catch (ex: Exception)` misses it entirely and a memory failure
-        // on a large response would vanish with no log line at all.
-        return try {
-            val conn = URL(urlStr).openConnection() as HttpURLConnection
-            conn.connectTimeout = 15_000; conn.readTimeout = readTimeoutMs
-            conn.setRequestProperty("User-Agent", "GroupTrack/2.5")
-
-            // Read the CODE before touching any stream: this alone separates
-            // "server said no" from "never got a response".
-            val code = conn.responseCode
-            if (code !in 200..299) {
-                val body = try {
-                    conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "(no error body)"
-                } catch (e2: Throwable) {
-                    "(error body unreadable: " + e2.javaClass.simpleName + ")"
-                }
-                val trimmed = if (body.length > 2000) body.substring(0, 2000) + " ...[truncated]" else body
-                Log.e(TAG, "HTTP " + code + " " + conn.responseMessage + " -- server said: " + trimmed)
-                Log.e(TAG, "HTTP " + code + " for URL: " + urlStr)
-                return null
-            }
-
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
-            Log.i(TAG, "HTTP " + code + " OK, " + text.length + " chars")
-            text
-        } catch (ex: Throwable) {
-            // Class FIRST -- SocketTimeoutException, UnknownHostException,
-            // SSLHandshakeException and OutOfMemoryError are all distinguishable
-            // here, and were indistinguishable before.
-            Log.e(TAG, "HTTP FAILED [" + ex.javaClass.simpleName + "] " + ex.message)
-            Log.e(TAG, "HTTP FAILED for URL: " + urlStr)
-            null
-        }
-    }
-
-    // ── Insert pipeline ──────────────────────────────────
-
-    private fun insertFeature(sDb: SQLiteDatabase, eDb: SQLiteDatabase, feature: JSONObject, src: Src): String {
-        val props = feature.optJSONObject("properties") ?: return "error"
-        val geom = feature.optJSONObject("geometry") ?: return "error"
-        val uid = props.optString(src.fieldId, "").ifEmpty { return "error" }
-
-        // Dedup check (in-memory source-uid set, loaded once at session start)
-        if (SpatialDbManager.sourceUidSeen(src.id, uid)) {
-            // [2026-06-21] Existing record: update in place per updateMode (NOT skip), so a
-            // re-run refreshes carto (and, in ALL mode, the other property fields + name).
-            return updateExistingFeature(sDb, eDb, props, src, uid)
-        }
-
-        val name = props.optString(src.fieldName, "").ifEmpty { null }
-        val wkt = geojsonGeomToWkt(geom)
-        val bbox = computeBbox(geom)
-        val tid = UUID.randomUUID().toString()
-        val now = Instant.now().toString()
-
-        // Route through the shared add core (computes geom_hash, dupe/alias decision).
-        val (anchorId, decision) = SpatialDbManager.insertTrail(tid, name, wkt, bbox[0], bbox[1], bbox[2], bbox[3], now)
-        SpatialDbManager.markSourceUid(src.id, uid)
-
-        val motorized = props.optString(src.fieldExtras.getOrDefault("motorized", ""), "")
-        val surface = props.optString(src.fieldExtras.getOrDefault("surface", ""), "")
-        val county = props.optString(src.fieldExtras.getOrDefault("county", ""), "")
-        val steward = props.optString(src.fieldExtras.getOrDefault("manager", src.fieldExtras.getOrDefault("steward", "")), "")
-        val uses = props.optString(src.fieldUse, "")
-        val cartoCode = props.optString(src.fieldType, "")
-        // CAPTURE-2026-09-01: the attributes the sources supply and we were
-        // discarding. Read through fieldExtras so the mapping stays in
-        // trail_sources.json with every other field mapping -- a new source
-        // adds a catalogue entry, not Kotlin.
-        val extra = captureExtras(src, props)
-
-        eDb.execSQL(
-            "INSERT OR IGNORE INTO trail_properties (trail_id,source_id,source_unique_id,designated_uses,motorized_allowed,surface_type,carto_code,owner_steward,county,agency_id,ingested_at," +
-                "status,trail_class,system_name,recreation_area,trans_network,data_source,comments,horse_allowed,hike_difficulty,bike_difficulty," +
-                "ref_code,operator,width_raw,maxwidth_raw,incline,sac_scale,mtb_scale,trail_visibility,other_restrictions) " +
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            arrayOf<Any?>(anchorId, src.id, uid, uses, motorized, surface, cartoCode, steward, county, uid, now,
-                extra["status"], extra["trail_class"], extra["system_name"],
-                extra["recreation_area"], extra["trans_network"], extra["data_source"],
-                extra["comments"], extra["horse_allowed"], extra["hike_difficulty"],
-                extra["bike_difficulty"], extra["ref_code"], extra["operator"],
-                extra["width_raw"], extra["maxwidth_raw"], extra["incline"],
-                extra["sac_scale"], extra["mtb_scale"], extra["trail_visibility"],
-                extra["other_restrictions"])
-        )
-        // [2026-06-21] Write carto to SPATIAL trails too on create (both stores populated).
-        // IMPORTQUIET-2026-11-02 (Fred 13:02): a trail we already have is skipped -- its code is NOT written over (it overwrote
-        //  step 8's category, and on a geometry match another source's trail). Only an unnamed trail gets this source's name.
-        val namedNow = decision != SpatialDbManager.AddDecision.INSERT && name != null && fillName(sDb, anchorId, name, src.id, uid)
-        if (cartoCode.isNotEmpty() && decision == SpatialDbManager.AddDecision.INSERT) {
-            try { sDb.execSQL("UPDATE trails SET carto_code=? WHERE trail_id=?", arrayOf<Any?>(cartoCode, anchorId)) }
-            catch (ex: Exception) { Log.w(TAG, "spatial carto write (create) failed: ${ex.message}") }
-        }
-        return when (decision) {
-            SpatialDbManager.AddDecision.INSERT -> "inserted"
-            SpatialDbManager.AddDecision.DROP -> if (namedNow) "named_drop" else "dropped"   // IMPORTQUIET-2026-11-02
-            SpatialDbManager.AddDecision.ALIAS -> if (namedNow) "named_alias" else "aliased"
-        }
-    }
-
-    /** IMPORTQUIET-2026-11-02: give an UNNAMED trail ("Not Named" / empty) the source's real name. True when a name was written. */
-    private fun fillName(sDb: SQLiteDatabase, trailId: String, rawName: String, sourceId: String, uid: String): Boolean {
-        val name = rawName.trim()
-        if (name.isEmpty() || name.equals("Not Named", ignoreCase = true)) return false
-        return try {
-            val st = sDb.compileStatement(
-                "UPDATE trails SET name=? WHERE trail_id=? AND (name IS NULL OR TRIM(name)='' OR name='Not Named')")
-            st.bindString(1, name); st.bindString(2, trailId)
-            val n = st.executeUpdateDelete(); st.close()
-            if (n > 0) Log.i("IMPORTDIFF", "$sourceId $uid [$trailId]: named '$name'")
-            n > 0
-        } catch (ex: Exception) { Log.w("IMPORTDIFF", "name fill failed: ${ex.message}"); false }
-    }
-
-    /**
-     * IMPORTQUIET-2026-11-02 (Fred 13:02): an already-imported trail (same source + same source id) is SKIPPED -- except an unnamed
-     * one, which gets the source's real name. Settings' explicit UpdateMode.ALL still refreshes name + property fields, writing ONLY
-     * what differs, one log line per changed trail. NEVER geometry/bbox/geom_hash, and never the code over step 8's category.
-     * Returns "unchanged" | "updated" | "skipped" (not found) | "error".
-     */
-    private fun updateExistingFeature(sDb: SQLiteDatabase, eDb: SQLiteDatabase, props: JSONObject, src: Src, uid: String): String {
-        val name = props.optString(src.fieldName, "").trim()
-        // the common case -- nothing to give it: no lookup, no write
-        if (updateMode != UpdateMode.ALL && (name.isEmpty() || name.equals("Not Named", ignoreCase = true))) return "unchanged"
-        val trailId = try {
-            eDb.rawQuery("SELECT trail_id FROM trail_properties WHERE source_id=? AND source_unique_id=? LIMIT 1", arrayOf(src.id, uid)).use {
-                if (it.moveToFirst()) it.getString(0) else null
-            }
-        } catch (ex: Exception) { Log.w(TAG, "resolve trail_id failed: ${ex.message}"); null } ?: return "skipped"
-        if (updateMode != UpdateMode.ALL) return if (fillName(sDb, trailId, name, src.id, uid)) "updated" else "unchanged"
-
-        // UpdateMode.ALL -- the rider asked for it on the trail-source screen
-        val motorized = props.optString(src.fieldExtras.getOrDefault("motorized", ""), "")
-        val surface = props.optString(src.fieldExtras.getOrDefault("surface", ""), "")
-        val county = props.optString(src.fieldExtras.getOrDefault("county", ""), "")
-        val steward = props.optString(src.fieldExtras.getOrDefault("manager", src.fieldExtras.getOrDefault("steward", "")), "")
-        val uses = props.optString(src.fieldUse, "")
-        return try {
-            var oldName = ""
-            sDb.rawQuery("SELECT COALESCE(name,'') FROM trails WHERE trail_id=?", arrayOf(trailId)).use { if (it.moveToFirst()) oldName = it.getString(0) ?: "" }
-            val old = arrayOf("", "", "", "", "")
-            eDb.rawQuery("SELECT COALESCE(designated_uses,''),COALESCE(motorized_allowed,''),COALESCE(surface_type,''),COALESCE(owner_steward,''),COALESCE(county,'') " +
-                "FROM trail_properties WHERE trail_id=?", arrayOf(trailId)).use { if (it.moveToFirst()) for (k in 0..4) old[k] = it.getString(k) ?: "" }
-            val changes = ArrayList<String>()
-            if (name.isNotEmpty() && name != oldName) {
-                sDb.execSQL("UPDATE trails SET name=? WHERE trail_id=?", arrayOf<Any?>(name, trailId)); changes.add("name '$oldName' -> '$name'")
-            }
-            val now = arrayOf(uses, motorized, surface, steward, county)
-            if (!now.contentEquals(old)) {
-                eDb.execSQL("UPDATE trail_properties SET designated_uses=?,motorized_allowed=?,surface_type=?,owner_steward=?,county=? WHERE trail_id=?",
-                    arrayOf<Any?>(uses, motorized, surface, steward, county, trailId))
-                changes.add("properties")
-            }
-            if (changes.isEmpty()) "unchanged"
-            else { Log.i("IMPORTDIFF", "${src.id} $uid [$trailId]: ${changes.joinToString("; ")}"); "updated" }
-        } catch (ex: Exception) { Log.w("IMPORTDIFF", "update failed: ${ex.message}"); "error" }
-    }
-
-    // ── Geometry conversion ──────────────────────────────
-
-    fun geojsonGeomToWkt(geom: JSONObject): String {
-        val type = geom.optString("type")
-        val coords = geom.optJSONArray("coordinates") ?: return ""
-        return when (type) {
-            "LineString" -> "LINESTRING(" + coordRingToWkt(coords) + ")"
-            "MultiLineString" -> {
-                val lines = (0 until coords.length()).map { i ->
-                    "(" + coordRingToWkt(coords.getJSONArray(i)) + ")"
-                }
-                "MULTILINESTRING(" + lines.joinToString(",") + ")"
-            }
-            "Point" -> "POINT(${coords.getDouble(0)} ${coords.getDouble(1)})"
-            else -> ""
-        }
-    }
-
-    /**
-     * CAPTURE-2026-09-01. Pulls every optional attribute a source supplies,
-     * through fieldExtras so the mapping lives in trail_sources.json.
-     *
-     * ⚠ A source that does not map a key gets "" for it -- NOT null and NOT a
-     * guess. Absence of a mapping is absence of data, and the column stays
-     * empty rather than borrowing a value from somewhere plausible.
-     *
-     * ⭐ RAW, ALWAYS. width "3" and maxwidth "50\"" are stored as the source
-     * wrote them. Units in OSM are a convention rather than a rule, so
-     * normalising at capture would bake in a guess we cannot undo; normalise
-     * at read, where the guess is visible and changeable.
-     */
-    private fun captureExtras(
-        src: Src, props: JSONObject
-    ): Map<String, String> {
-        val keys = listOf(
-            "status", "trail_class", "system_name", "recreation_area",
-            "trans_network", "data_source", "comments", "horse_allowed",
-            "hike_difficulty", "bike_difficulty", "ref_code", "operator",
-            "width_raw", "maxwidth_raw", "incline", "sac_scale", "mtb_scale",
-            "trail_visibility", "other_restrictions"
-        )
-        val out = HashMap<String, String>(keys.size)
-        for (k in keys) {
-            val field = src.fieldExtras[k]
-            out[k] = if (field.isNullOrEmpty()) "" else props.optString(field, "")
-        }
-        return out
-    }
-
-    private fun coordRingToWkt(arr: JSONArray): String {
-        return (0 until arr.length()).joinToString(",") { i ->
-            val c = arr.getJSONArray(i)
-            "${c.getDouble(0)} ${c.getDouble(1)}"
-        }
-    }
-
-    fun computeBbox(geom: JSONObject): DoubleArray {
-        val pts = mutableListOf<Pair<Double, Double>>()
-        extractCoords(geom.optJSONArray("coordinates") ?: JSONArray(), pts)
-        if (pts.isEmpty()) return doubleArrayOf(0.0, 0.0, 0.0, 0.0)
-        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-        for ((lon, lat) in pts) {
-            if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat
-            if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
-        }
-        return doubleArrayOf(minLat, maxLat, minLon, maxLon)
-    }
-
-    private fun extractCoords(arr: JSONArray, out: MutableList<Pair<Double, Double>>) {
-        if (arr.length() == 0) return
-        if (arr.opt(0) is Number) {
-            if (arr.length() >= 2) out.add(Pair(arr.getDouble(0), arr.getDouble(1)))
-        } else {
-            for (i in 0 until arr.length()) {
-                arr.optJSONArray(i)?.let { extractCoords(it, out) }
-            }
-        }
-    }
-
-    // ── Ingestion log ────────────────────────────────────
-
-    /** Write JSON trail area record to Documents/GroupTrack/data/trail_areas/ */
-    private fun writeTrailAreaJson(
-        context: Context, source: Src, inserted: Int, skipped: Int,
-        south: Double?, west: Double?, north: Double?, east: Double?
-    ) {
-        try {
-            val dir = trailAreasDir()   // TRAILAREAS-2026-09-12
-            val isFullSource = (south == null && west == null && north == null && east == null)
-            val json = JSONObject().apply {
-                put("type", if (isFullSource) "full_source" else "area")
-                put("source_id", source.id)
-                put("source_name", source.name)
-                put("status", "processed")
-                put("trail_count", inserted)
-                put("dupes_skipped", skipped)
-                put("processed_at", Instant.now().toString())
-                if (isFullSource) {
-                    val catJson = context.assets.open("trail_sources.json").bufferedReader().use { it.readText() }
-                    val sources = JSONObject(catJson).getJSONArray("sources")
-                    for (j in 0 until sources.length()) {
-                        val s = sources.getJSONObject(j)
-                        if (s.optString("id") == source.id) {
-                            val b = s.optJSONObject("boundary")
-                            if (b != null) {
-                                put("north", b.optDouble("n", 0.0))
-                                put("south", b.optDouble("s", 0.0))
-                                put("east", b.optDouble("e", 0.0))
-                                put("west", b.optDouble("w", 0.0))
-                            }
-                            break
-                        }
-                    }
-                } else if (!isFullSource) {
-                    put("north", north); put("south", south)
-                    put("east", east); put("west", west)
-                }
-            }
-            val filename = if (isFullSource)
-                "source_${source.id}.json"
-            else {
-                val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-                "area_${ts}.json"
-            }
-            File(dir, filename).writeText(json.toString(2))
-            Log.i(TAG, "Trail area record: $filename")
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to write trail area JSON: ${e.message}")
-        }
-    }
-
-    /**
-     * Explicit launch mode for the trail-source screen. Each launch point sets
-     * this before navigating; the screen derives its starting step from it.
-     * A stale pending-area JSON can never hijack SELECT_SOURCE because that mode
-     * does not read the JSON. Extensible: add a value for a future import method.
-     */
-    enum class LaunchMode { SELECT_SOURCE, BY_AREA }
-
-    @Volatile
-    var launchMode: LaunchMode = LaunchMode.SELECT_SOURCE
+    fun computeBbox(geom: JSONObject): DoubleArray =
+        shared(null)?.computeBbox(GtOrgJson.parse(geom.toString()) as kotlinx.serialization.json.JsonObject) ?: doubleArrayOf(0.0, 0.0, 0.0, 0.0)
 
     /** Write pending area JSON (unprocessed) for Method B signal */
-    fun writePendingArea(north: Double, south: Double, east: Double, west: Double) {
-        try {
-            val dir = trailAreasDir()   // TRAILAREAS-2026-09-12
-            val json = JSONObject().apply {
-                put("type", "area")
-                put("status", "unprocessed")
-                put("north", north); put("south", south)
-                put("east", east); put("west", west)
-                put("created_at", Instant.now().toString())
-            }
-            File(dir, "pending_area.json").writeText(json.toString(2))
-            Log.i(TAG, "Pending area written")
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to write pending area: ${e.message}")
-        }
-    }
+    fun writePendingArea(north: Double, south: Double, east: Double, west: Double) { shared(null)?.writePendingArea(north, south, east, west) }
 
-    /** Read pending area JSON, return bbox or null */
-    fun readPendingArea(): JSONObject? {
-        return try {
-            val f = File(trailAreasDir(), "pending_area.json")   // TRAILAREAS-2026-09-12
-            if (f.exists()) JSONObject(f.readText()) else null
-        } catch (_: Exception) { null }
-    }
+    /** Read pending area JSON, return it or null (the same JSON, read back as org.json for the screen) */
+    fun readPendingArea(): JSONObject? = shared(null)?.readPendingArea()?.let { JSONObject(GtOrgJson.compact(it)) }
 
     /** Delete pending area JSON after processing */
-    fun clearPendingArea() {
-        try {
-            File(trailAreasDir(), "pending_area.json")   // TRAILAREAS-2026-09-12
-                .let { if (it.exists()) it.delete() }
-        } catch (_: Exception) {}
-    }
+    fun clearPendingArea() { shared(null)?.clearPendingArea() }
 
     /** Scan all processed trail area JSONs for map overlay */
-    fun scanTrailAreas(): List<JSONObject> {
-        return try {
-            val dir = trailAreasDir()   // TRAILAREAS-2026-09-12
-            if (!dir.exists()) return emptyList()
-            dir.listFiles()
-                ?.filter { it.extension == "json" && it.name != "pending_area.json" }
-                ?.mapNotNull { try { JSONObject(it.readText()) } catch (_: Exception) { null } }
-                ?.filter { it.optString("status") == "processed" }
-                ?: emptyList()
-        } catch (_: Exception) { emptyList() }
-    }
+    fun scanTrailAreas(): List<JSONObject> = shared(null)?.scanTrailAreas()?.map { JSONObject(GtOrgJson.compact(it)) } ?: emptyList()
 
     /** Check if a source has been fully imported */
-    fun isSourceFullyImported(sourceId: String): Boolean {
-        return try {
-            val f = File(trailAreasDir(), "source_${sourceId}.json")   // TRAILAREAS-2026-09-12
-            if (f.exists()) {
-                val j = JSONObject(f.readText())
-                // RESELECT-2026-07-27: writeTrailAreaJson sets status=processed
-                // UNCONDITIONALLY, and type=full_source whenever the bbox is null.
-                // Three FAILED OSM runs (0 inserted) therefore marked it imported.
-                // A run that inserted nothing did not import anything.
-                j.optString("status") == "processed" &&
-                    j.optString("type") == "full_source" &&
-                    j.optInt("trail_count", 0) > 0
-            } else false
-        } catch (_: Exception) { false }
-    }
+    fun isSourceFullyImported(sourceId: String): Boolean = shared(null)?.isSourceFullyImported(sourceId) ?: false
 
-    private fun logIngestion(db: SQLiteDatabase, sid: String, count: Int, dupes: Int,
-                             s: Double?, w: Double?, n: Double?, e: Double?) {
-        val bounds = if (s != null) "{\"s\":$s,\"w\":$w,\"n\":$n,\"e\":$e}" else null
-        db.execSQL(
-            "INSERT INTO source_ingestions (ingestion_id,source_id,ingested_at,trail_count,dupes_skipped,bounds_json) VALUES (?,?,?,?,?,?)",
-            arrayOf<Any?>(UUID.randomUUID().toString(), sid, Instant.now().toString(), count, dupes, bounds)
-        )
-    }
-
-    // ── Schema migration ─────────────────────────────────
-
-    private fun applyMigrationIfNeeded(context: Context) {
-        val db = SpatialDbManager.getSpatialDb() ?: return
-        var ver = 0
-        try {
-            val cur = db.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
-            ver = if (cur.moveToFirst()) cur.getInt(0) else 0; cur.close()
-        } catch (ex: Exception) {
-            Log.w(TAG, "schema_version query failed: ${ex.message}")
-            ver = 0
-        }
-        if (ver >= 2) return
-        Log.i(TAG, "Applying spatial schema v1 -> v2")
-        try {
-            val sql = context.assets.open("schema_spatial_v1_to_v2.sql").bufferedReader().use { it.readText() }
-            sql.split(";").map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("--") }.forEach { stmt ->
-                try { db.execSQL("$stmt;") } catch (ex: Exception) { Log.w(TAG, "Skip: ${ex.message}") }
-            }
-            db.execSQL("DELETE FROM schema_version")
-            db.execSQL("INSERT INTO schema_version VALUES (2, datetime('now'))")
-        } catch (ex: Exception) { Log.e(TAG, "Migration failed: ${ex.message}") }
-    }
-
-    // ── Catalog loader ───────────────────────────────────
-
-    /** Import trailheads from bundled GeoJSON asset into waypoints table. */
     fun importTrailheads(
         context: Context,
         assetFile: String,
@@ -891,117 +146,5 @@ object TrailImporter {
         west: Double? = null,
         north: Double? = null,
         east: Double? = null
-    ): Int {
-        return try {
-            SpatialDbManager.init(context)
-            val json = context.assets.open(assetFile).bufferedReader().use { it.readText() }
-            val root = JSONObject(json)
-            val features = root.getJSONArray("features")
-            val total = features.length()
-            var inserted = 0
-            var skipped = 0
-            var outsideArea = 0
-            for (i in 0 until total) {
-                val feature = features.getJSONObject(i)
-                val props = feature.getJSONObject("properties")
-                val geom = feature.getJSONObject("geometry")
-                val coords = geom.getJSONArray("coordinates")
-                val lon = coords.getDouble(0)
-                val lat = coords.getDouble(1)
-                // Bbox filter — skip trailheads outside drawn area
-                if (south != null && (lat < south || lat > north!! || lon < west!! || lon > east!!)) {
-                    outsideArea++
-                    continue
-                }
-                val name = props.optString("name",
-                    props.optString("PrimaryName", "Unknown Trailhead"))
-                val trailheadId = props.optString("id",
-                    props.optString("TrailheadID", i.toString()))
-                val waypointId = sourceId + "_th_" + trailheadId
-                if (SpatialDbManager.insertWaypointWithId(waypointId, name, lat, lon, "trailhead")) {
-                    inserted++
-                } else {
-                    skipped++
-                }
-                // Emit progress every 50 records
-                if (i % 50 == 0) {
-                    emitProgress(ImportProgress(
-                        sourceId = sourceId,
-                        sourceName = "Trailheads: $assetFile",
-                        fetched = i + 1,
-                        inserted = inserted,
-                        skipped = skipped,
-                        rejected = outsideArea,
-                        offset = i
-                    ))
-                }
-            }
-            // Final progress
-            emitProgress(ImportProgress(
-                sourceId = sourceId,
-                sourceName = "Trailheads: $assetFile",
-                fetched = total,
-                inserted = inserted,
-                skipped = skipped,
-                rejected = outsideArea,
-                offset = total,
-                isComplete = true,
-                message = "$inserted trailheads imported, $skipped existing, $outsideArea outside area"
-            ))
-            Log.i(TAG, "Trailheads from $assetFile: $inserted imported, $skipped existing, $outsideArea outside area")
-            inserted
-        } catch (e: Exception) {
-            Log.e(TAG, "Trailhead import failed: " + e.message)
-            0
-        }
-    }
-
-        data class Src(
-        val id: String, val name: String, val queryUrl: String, val maxRecords: Int,
-        val fieldId: String, val fieldName: String, val fieldType: String, val fieldUse: String,
-        val fieldExtras: Map<String, String>,
-        // OSM-IMPORT-2026-07-27: which API this source speaks. Defaulted, so all
-        // 8 existing ArcGIS entries are unaffected and need no catalog change.
-        val sourceType: String = "arcgis_rest"
-    )
-
-    private fun loadCatalog(context: Context): List<Src>? {
-        return try {
-            val json = context.assets.open("trail_sources.json").bufferedReader().use { it.readText() }
-            val root = JSONObject(json)
-            val sources = root.getJSONArray("sources")
-            (0 until sources.length()).mapNotNull { i ->
-                val s = sources.getJSONObject(i)
-                if (s.optString("status") == "display_only_not_queryable") return@mapNotNull null
-                val f = s.getJSONObject("fields")
-                val extras = mutableMapOf<String, String>()
-                f.keys().forEach { k -> if (k !in listOf("id", "name", "type", "use")) extras[k] = f.getString(k) }
-                Src(s.getString("id"), s.getString("name"), s.getString("query_url"),
-                    s.optInt("max_records", 2000),
-                    f.getString("id"), f.getString("name"), f.optString("type", ""), f.optString("use", ""), extras,
-                    // OSM-IMPORT-2026-07-27
-                    s.optString("source_type", "arcgis_rest"))
-            }
-        } catch (ex: Exception) { Log.e(TAG, "Catalog: ${ex.message}"); null }
-    }
-
-    /**
-     * TRAILAREAS-2026-09-12: \u2b50 the ONE place trail_areas is resolved.
-     *
-     * \u26d4 This path was constructed inline SIX times in this file. Three sites
-     * wanted the directory, three wanted a file inside it with the name glued
-     * onto the path string -- and three called mkdirs() while three did not.
-     *
-     * \u26a0 mkdirs() lives here now, so every caller behaves the same. The read
-     * paths never needed it; creating a directory in order to find it empty is
-     * harmless.
-     *
-     * \u26a0 private -- nothing outside this file uses trail_areas.
-     */
-    private fun trailAreasDir(): File {
-        val dir = GroupTrackStorage.dir("data/trail_areas")
-        if (!dir.exists()) dir.mkdirs()
-        return dir
-    }
-
+    ): Int = shared(context)?.importTrailheads(assetFile, sourceId, south, west, north, east) ?: 0
 }
