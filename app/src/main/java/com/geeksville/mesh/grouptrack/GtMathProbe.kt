@@ -79,4 +79,54 @@ object GtMathProbe {
         w.write("# MATHPROBE done: $n values in ${(System.currentTimeMillis() - t0) / 1000} s\n")
         Log.i(TAG, "GTCERT mathprobe done: $n values")
     }
+
+    /**
+     * MATHPOW-2026-11-10 (TEST-ONLY, phase 2): GtRead's haversine (2.7e ConvoyEngine) squares with x.pow(2) = java.lang.Math.pow(x, 2.0),
+     * a different routine from sin/cos. Proven, not assumed: what the Droid's pow(x, 2.0) returns on the values GtRead really squares --
+     * sin(dLat/2) and sin(dLon/2) of every neighbouring point pair (tracks + every 7th trail, up to 1,200,000) -- plus seeded random
+     * values (uniform, wide exponents, near 1). Lines "P|<x bits>|<pow bits>". The header counts how often pow(x, 2.0) != x * x here.
+     * Runs when GtCertRun is given mode "mathpow". ⚠ TEST-ONLY (CODE RULE 3): remove with GtCert before 2.8 is released.
+     */
+    fun runPow(app: Context, w: java.io.Writer) {
+        val t0 = System.currentTimeMillis(); var last = t0
+        fun progress(msg: String) { val now = System.currentTimeMillis(); if (now - last >= 10_000) { last = now; Log.i(TAG, "GTCERT mathpow $msg") } }
+        val f = java.io.File(GroupTrackStorage.dir("cert15c_input", app), "grouptrack_spatial.db")
+        if (!f.isFile) { w.write("# MATHPOW: STOP -- no input at ${f.path} (gt_cert pushes it for rider15c)\n"); return }
+        val pIn = LinkedHashSet<Long>(); val realCap = 1_200_000
+        fun addP(x: Double, cap: Int) { if (pIn.size < cap) pIn.add(java.lang.Double.doubleToRawLongBits(x)) }
+        val pair = java.util.regex.Pattern.compile("(-?[0-9]+(?:\\.[0-9]+)?(?:[eE][-+]?[0-9]+)?) (-?[0-9]+(?:\\.[0-9]+)?(?:[eE][-+]?[0-9]+)?)")
+        var lines = 0; var points = 0
+        fun line(wkt: String) {
+            if (pIn.size >= realCap) return
+            lines++
+            val m = pair.matcher(wkt)
+            var pLat = Double.NaN; var pLon = Double.NaN
+            while (m.find()) {
+                val lon = m.group(1)!!.toDouble(); val lat = m.group(2)!!.toDouble(); points++
+                if (!pLat.isNaN()) {
+                    val dLat = (lat - pLat) * D2R; val dLon = (lon - pLon) * D2R      // GtRead.toRadians(lat2 - lat1) = (lat2 - lat1) * D2R
+                    addP(Math.sin(dLat / 2), realCap); addP(Math.sin(dLon / 2), realCap)
+                }
+                pLat = lat; pLon = lon
+            }
+            progress("lines $lines points $points pow ${pIn.size}")
+        }
+        val db = SQLiteDatabase.openDatabase(f.path, null, SQLiteDatabase.OPEN_READONLY)
+        try {
+            db.rawQuery("SELECT geometry FROM tracks WHERE geometry IS NOT NULL", null).use { c -> while (c.moveToNext()) line(c.getString(0)) }
+            db.rawQuery("SELECT geometry FROM trails WHERE geometry IS NOT NULL AND rowid % 7 = 0", null).use { c -> while (c.moveToNext()) line(c.getString(0)) }
+        } finally { db.close() }
+        val real = pIn.size
+        val rnd = java.util.Random(20261110L)
+        repeat(150_000) { addP(rnd.nextDouble() * 2.0 - 1.0, CAP) }
+        repeat(150_000) { addP(rnd.nextGaussian() * Math.pow(10.0, rnd.nextInt(60) - 30.0), CAP) }
+        repeat(30_000) { addP(0.99 + rnd.nextDouble() * 0.01, CAP) }
+        var notSq = 0
+        for (b in pIn) { val x = java.lang.Double.longBitsToDouble(b); if (java.lang.Double.doubleToRawLongBits(Math.pow(x, 2.0)) != java.lang.Double.doubleToRawLongBits(x * x)) notSq++ }
+        w.write("# MATHPOW droid ${android.os.Build.MODEL}: real data $lines lines, $points points -> $real values; + seeded random (20261110); pow ${pIn.size}; Math.pow(x, 2.0) != x * x on $notSq\n")
+        var n = 0
+        for (b in pIn) { val x = java.lang.Double.longBitsToDouble(b); w.write("P|"); w.write(java.lang.Long.toHexString(b)); w.write("|"); w.write(h(Math.pow(x, 2.0))); w.write("\n"); if (++n % 200_000 == 0) progress("writing $n") }
+        w.write("# MATHPOW done: $n values in ${(System.currentTimeMillis() - t0) / 1000} s\n")
+        Log.i(TAG, "GTCERT mathpow done: $n values")
+    }
 }

@@ -13,7 +13,7 @@ import kotlin.math.sqrt
  * STEP15C-2026-11-09 (2.8 step 15c): 2.7e's RiderTrailScanner (app/.../convoy/RiderTrailScanner.kt), MOVED AS IT IS into shared code.
  * Same algorithm, same constants, same order of every loop, same arithmetic in the same order. What changed, and only this:
  *  - java.lang.Math.toRadians -> GtJava.toRadians (Android's own constant, certified 15a / step-7 fix);
- *  - Math.sin / cos / asin / sqrt / hypot / min / max -> kotlin.math (on Android these ARE java.lang.Math -- identical by construction;
+ *  - Math.sin / cos / asin / hypot -> GtMath (GTMATH-2026-11-10); sqrt / min / max -> kotlin.math (on Android these ARE java.lang.Math -- identical by construction;
  *    on the iPad they are the platform's libm, which may differ from Android's in the last bit -- INVENTORY Q7, the cert shows it);
  *  - NOT PORTED, dead in 2.7e (callers checked 11-09 with grep over app/ and grouptrack-shared/, none): bearingDeg, angleDiff (the
  *    direction test RIDERRULES-2026-10-09 removed), cellKey (private, never called -- [key] is used), RiderTrail.joinedBothEnds

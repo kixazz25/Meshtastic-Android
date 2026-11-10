@@ -12,10 +12,10 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.asin
-import kotlin.math.cos
-import kotlin.math.pow
-import kotlin.math.sin
+import com.grouptrack.shared.text.GtMath   // GTMATH2-2026-11-10: Android's math on every platform
+import com.grouptrack.shared.text.GtMath.asin
+import com.grouptrack.shared.text.GtMath.cos
+import com.grouptrack.shared.text.GtMath.sin
 import kotlin.math.sqrt
 
 /**
@@ -272,7 +272,7 @@ class GtRead(private val conn: SQLiteConnection, private val dataConn: SQLiteCon
             val r = 3958.8
             val dLat = toRadians(lat2 - lat1)
             val dLon = toRadians(lon2 - lon1)
-            val a = sin(dLat / 2).pow(2) + cos(toRadians(lat1)) * cos(toRadians(lat2)) * sin(dLon / 2).pow(2)
+            val a = GtMath.pow(sin(dLat / 2), 2.0) + cos(toRadians(lat1)) * cos(toRadians(lat2)) * GtMath.pow(sin(dLon / 2), 2.0)   // GTMATH2-2026-11-10: was x.pow(2) = Math.pow(x, 2.0)
             return (2 * r * asin(sqrt(a))).toFloat()
         }
 

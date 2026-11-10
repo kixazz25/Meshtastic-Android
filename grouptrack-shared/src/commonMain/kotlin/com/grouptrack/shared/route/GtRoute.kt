@@ -14,14 +14,14 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.concurrent.Volatile
 import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.asin
-import kotlin.math.cos
+import com.grouptrack.shared.text.GtMath.asin   // GTMATH2-2026-11-10: Android's math on every platform
+import com.grouptrack.shared.text.GtMath.cos
 import kotlin.math.floor
-import kotlin.math.hypot
+import com.grouptrack.shared.text.GtMath.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
-import kotlin.math.sin
+import com.grouptrack.shared.text.GtMath.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 

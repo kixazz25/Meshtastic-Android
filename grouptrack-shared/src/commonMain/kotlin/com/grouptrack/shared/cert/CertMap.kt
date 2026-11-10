@@ -4,7 +4,7 @@ import androidx.sqlite.SQLiteConnection
 import com.grouptrack.shared.spatial.GtSpatial
 import kotlinx.serialization.json.Json
 import kotlin.math.PI
-import kotlin.math.cos
+import com.grouptrack.shared.text.GtMath.cos   // GTMATH2-2026-11-10
 
 /**
  * STEP9BC-2026-11-07: harness checks 9(b) and 9(c) -- PROPERTIES of the shared map code (not OLD vs NEW):

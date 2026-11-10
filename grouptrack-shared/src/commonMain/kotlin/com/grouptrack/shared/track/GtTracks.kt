@@ -48,7 +48,7 @@ import kotlin.math.sqrt
  *    GtJavaParse.toDoubleOrNull (owner rule 2). On Android the same matches and the same numbers (RXFIX proof; Kotlin's JVM toDoubleOrNull
  *    IS Java's grammar). GtRead.parseGpxTrackPoints is NOT changed here (it is certified and still used by trackIdForGpxText) -- NOTES Q3.
  *  - parseGpxTrackPointsFull -> GtGpxParse's (already the app's since STEP15B-SWITCH).
- *  - Math.toRadians -> GtJava.toRadians (Android's constant); Math.sin/cos/asin/sqrt/min -> kotlin.math (on Android = java.lang.Math).
+ *  - Math.toRadians -> GtJava.toRadians (Android's constant); Math.sin/cos/asin -> GtMath (GTMATH-2026-11-10, Android = java.lang.Math); sqrt/min -> kotlin.math.
  *    Math.round(x).toInt() -> GtJava.roundToIntJava (NaN -> 0; +Infinity -> Long.MAX -> -1 as Long.toInt, as Java).
  *  - SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", UTC).format -> GtTime.formatUtcSeconds (15a, certified).
  *  - UUID.randomUUID() / Instant.now() (insertWaypoint) -> env.ids.newId() / env.clock.nowInstant().

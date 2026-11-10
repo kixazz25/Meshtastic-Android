@@ -15,9 +15,14 @@ object GtMath {
     fun cos(x: Double): Double = gtMathCos(x)
     fun asin(x: Double): Double = gtMathAsin(x)
     fun hypot(x: Double, y: Double): Double = gtMathHypot(x, y)
+    /** GTMATH2-2026-11-10: GtRead's haversine (2.7e) squares with x.pow(2) = java.lang.Math.pow(x, 2.0). Android = java.lang.Math.pow.
+     *  iPad: GtMathPow = Arm's optimized-routines pow as bionic compiles it (GTMATH2B-2026-11-10). NOT x * x: Android's pow is not
+     *  correctly rounded and differs from x * x on 1,266 of MATHPOW's 1,500,000 values; the port = the Droid on all 1,500,000. */
+    fun pow(x: Double, y: Double): Double = gtMathPow(x, y)
 }
 
 internal expect fun gtMathSin(x: Double): Double
 internal expect fun gtMathCos(x: Double): Double
 internal expect fun gtMathAsin(x: Double): Double
 internal expect fun gtMathHypot(x: Double, y: Double): Double
+internal expect fun gtMathPow(x: Double, y: Double): Double
