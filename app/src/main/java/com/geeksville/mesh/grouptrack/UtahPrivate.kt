@@ -128,6 +128,7 @@ object GtUtahPrivate {
                 Log.i(TAG, "LANDSYNC startup: waiting (conversion jobs=$conv, screen='$st', importing=${HomeStateImportController.isImporting})")
                 delay(30_000L)
             }
+            if (com.geeksville.mesh.grouptrack.GtCertGuard.skip("LANDSYNC startup (land areas + step 8)")) return@launch   // STEP15F-FIXB-2026-11-10 (TEST-ONLY)
             busy.value = true; progress.value = -1f
             val r = try { work(app, fresh = false, all = false, startup = true) } catch (t: Throwable) { "FAILED: ${t.javaClass.simpleName} ${t.message}" }
             Log.i(TAG, "LANDSYNC startup: $r")

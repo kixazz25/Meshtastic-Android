@@ -112,12 +112,13 @@ object GtCertRun {
                     // (the databases) + cert15d_input/my_tracks/, importing the 15b test set (GroupTrack/cert15b/) three times (NO with maps,
                     // YES, NO again) -- the Mac's files, pushed by gt_cert_v21, the same input the iPad test (GtCertImport15eMacTest) uses.
                     if (mode == "import15e") GtCert15e.run(app, w)
+                    if (mode == "trail15f") GtCert15f.run(app, w)   // STEP15F-2026-11-10: the agency trail import, 2.7e vs shared (TEST-ONLY)
                     if (mode == "mathpow") GtMathProbe.runPow(app, w)   // MATHPOW-2026-11-10: Android's Math.pow(x, 2.0) (TEST-ONLY)
                     if (mode == "mathprobe") GtMathProbe.run(app, w)   // MATHPROBE-2026-11-10: what Android's Math returns (TEST-ONLY)
                     // STEP15A-2026-11-08: "golden15a" = the 15a foundations (Java number / date / org.json text) -- Android's answers and the
                     // shared code's, one line each (GtGolden15a). Reads no database. gt_cert_v12 copies the file to the Mac for GtFoundation15aMacTest.
                     if (mode == "golden15a") { val g = GtGolden15a.write(w); Log.i(TAG, "GTCERT golden15a: ${g.lines} lines, ${g.diffs} DIFF on the Droid") }
-                    if (mode != "mathpow" && mode != "mathprobe" && mode != "import15e" && mode != "track15d" && mode != "writes" && mode != "lookups" && mode != "freeze" && mode != "routes" && mode != "rides" && mode != "golden15a" && mode != "parse15b" && mode != "geom" && mode != "rider15c") {   // STEP8B-2026-11-07, STEP13C, STEP15A-2026-11-08
+                    if (mode != "trail15f" && mode != "mathpow" && mode != "mathprobe" && mode != "import15e" && mode != "track15d" && mode != "writes" && mode != "lookups" && mode != "freeze" && mode != "routes" && mode != "rides" && mode != "golden15a" && mode != "parse15b" && mode != "geom" && mode != "rider15c") {   // STEP8B-2026-11-07, STEP13C, STEP15A-2026-11-08
                         var n = 0
                         GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
                         com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, com.grouptrack.shared.cert.CertRead.TrailSample.ALL /* STEP8-2026-11-07 */,
