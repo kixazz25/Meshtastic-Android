@@ -16,10 +16,10 @@ import com.grouptrack.shared.text.GtRx
 import com.grouptrack.shared.text.GtTime
 import okio.IOException
 import okio.Path
-import kotlin.math.asin
-import kotlin.math.cos
+import com.grouptrack.shared.text.GtMath.asin   // GTMATH-2026-11-10: Android's math on every platform
+import com.grouptrack.shared.text.GtMath.cos
 import kotlin.math.min
-import kotlin.math.sin
+import com.grouptrack.shared.text.GtMath.sin
 import kotlin.math.sqrt
 
 /**

@@ -11,6 +11,8 @@ import androidx.sqlite.SQLiteConnection
  * [insertTrailPropsRider].
  * STEP15D-2026-11-09 -- 15d (track add / sync / properties, from SpatialDbManager): [trackIdNameByHash], [trackOfficialName],
  * [trackAliasExists], [trackHashes], [trackHashNames], [upsertTrackProps], [insertWaypoint], [insertWaypointMinimal], [setWaypointBbox].
+ * STEP15E-2026-11-09 -- 15e (the GPX import, from ConvoyTrackOps.importGpxAllArtifacts): [insertTrailPropsImport] (the spatial UPDATE
+ * before it is 15c's [setTrailClass], the same statement).
  * @param dataConn grouptrack_data.db -- CODE RULE 1: optional exactly as in 2.7e (SpatialDbManager.getExtensionDb() can be null; the
  *        extension writes are then skipped, as 2.7e's `eDb?.execSQL`).
  * Column values handed to callbacks are String? because the columns may hold SQL NULL (2.7e read them with `if (c.isNull(i)) null`).
@@ -171,5 +173,18 @@ class GtImportDb(private val conn: SQLiteConnection, private val dataConn: SQLit
     fun setWaypointBbox(waypointId: String, lat: Double, lon: Double) {
         exec(conn, "UPDATE waypoints SET min_lat=?, max_lat=?, min_lon=?, max_lon=? WHERE waypoint_id=?",
             listOf(lat, lat, lon, lon, waypointId))
+    }
+
+    // ---- the GPX import (ConvoyTrackOps.importGpxAllArtifacts, 2.7e) -- STEP15E-2026-11-09 ---------------------------------
+
+    /** importGpxAllArtifacts' trail_properties row for a trail imported from a GPX (7 columns, INSERT OR IGNORE; TRAILCLEAN-2026-11-04:
+     *  + agency_id = the batch). All seven bound as text, as 2.7e's execSQL bound Strings. Nothing without the data database
+     *  (2.7e `getExtensionDb()?.`). The spatial UPDATE before it is [setTrailClass] (the same statement). */
+    fun insertTrailPropsImport(trailId: String, sourceId: String, sourceUniqueId: String, cartoCode: String, motorizedAllowed: String,
+                               agencyId: String, ingestedAt: String) {
+        val d = dataConn ?: return
+        exec(d, "INSERT OR IGNORE INTO trail_properties " +
+                "(trail_id,source_id,source_unique_id,carto_code,motorized_allowed,agency_id,ingested_at) VALUES (?,?,?,?,?,?,?)",
+            listOf(trailId, sourceId, sourceUniqueId, cartoCode, motorizedAllowed, agencyId, ingestedAt))
     }
 }

@@ -1,12 +1,12 @@
 package com.grouptrack.shared.rider
 
 import com.grouptrack.shared.text.GtJava
-import kotlin.math.asin
-import kotlin.math.cos
-import kotlin.math.hypot
+import com.grouptrack.shared.text.GtMath.asin   // GTMATH-2026-11-10: Android's math on every platform
+import com.grouptrack.shared.text.GtMath.cos
+import com.grouptrack.shared.text.GtMath.hypot
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.sin
+import com.grouptrack.shared.text.GtMath.sin
 import kotlin.math.sqrt
 
 /**
