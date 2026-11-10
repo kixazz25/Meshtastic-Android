@@ -130,7 +130,8 @@ object GtImportConverter {
      * ZipFile reads them). Not a zip -> IOException (the platform's kind of failure, as 2.7e's ZipException). ZIP64 is not read here: a
      * KMZ is small (a ZIP64 archive's 0xFFFFFFFF offset fails as "not a zip").
      */
-    private fun zipEntryNames(fs: FileSystem, zipPath: Path): List<String> {
+    // STEP15G-2026-11-10: internal (was private) -- GtOsmExtract / GtOsmStage read the GeoPackage zip's entries with it too.
+    internal fun zipEntryNames(fs: FileSystem, zipPath: Path): List<String> {
         val size = fs.metadata(zipPath).size ?: throw okio.IOException("zip: no size for $zipPath")
         val tailLen = minOf(size, 22L + 65_535L)
         val tail = fs.openReadOnly(zipPath).use { h ->
