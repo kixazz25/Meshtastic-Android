@@ -226,6 +226,12 @@ object GtRoute {
     //  false = the pin check uses only the largest nearby network (the check before 11-11).
     private const val PIN_ANY_NEARBY_NETWORK = true
     private const val PENALTY = 2.2
+    // AIRETURNFILL-2026-11-11 (Fred 11-11): finish each ride -- come back by another trail (PENALTY on used trails) and fill toward the
+    //  ceiling. false = today's rides exactly (the shortest tour through each combination).
+    private const val RETURN_AND_FILL = true
+    private const val MAX_RETRACE_PCT = 30.0   // AIRETURNFILL-2026-11-11: a fill step that would ride more than this share twice is refused
+    private const val FILL_VIAS = 160          // AIRETURNFILL-2026-11-11: junctions of the start's network tried as fill points (an even sample)
+    private const val FILL_STEPS = 10          // AIRETURNFILL-2026-11-11: fill attempts per ride
     private const val TRIES = 2500
     private const val BEAM_TOP = 5
 
@@ -2110,7 +2116,8 @@ object GtRoute {
                             if (ord != null && ord.second <= req.milesHigh && ord.second > st.longestMiles) {   // AIFAILLONGEST-2026-11-11
                                 st.longestMiles = ord.second; st.longestFeatures = combo.size
                             }
-                            if (ord != null && ord.second >= req.milesLow &&
+                            // AIBANDAFTERFILL-2026-11-11: with the fill on, an under-floor tour is kept -- the floor is applied AFTER the ride is finished
+                            if (ord != null && (ord.second >= req.milesLow || RETURN_AND_FILL) &&
                                 ord.second <= req.milesHigh) {
                                 val eids = pathOf(dij, listOf(ok) + ord.first + listOf(ok))
                                 if (eids != null && found.none { it.combo.toSet() == combo.toSet() }) {
@@ -2208,6 +2215,81 @@ object GtRoute {
         log.i { "enriched ${enriched.size} ride(s), $added feature(s) added; " +
             "$screened screened by detour, $tried solved" }
         found.clear(); found.addAll(enriched)
+
+        /* ── AIRETURNFILL-2026-11-11: FINISH EACH RIDE -- come back by another trail, fill toward the ceiling ───────────────
+         * ⭐ The 08-24 design: "ceiling - tour is the surplus, and the existing engine spends it backfilling features and
+         * avoiding retrace." The 08-26 engine kept the SHORTEST tour per combination as the ride (it was meant as the filter:
+         * "the answer only has to be good enough to FILTER on"), so a far pin came back as a straight line in and out and a
+         * sparse network never reached the floor. Fred 11-11: "the scenic route not the fastest". Scores are untouched.
+         */
+        if (RETURN_AND_FILL) {
+            onProgress?.invoke(Progress("Filling the distance"))
+            fun routeLegs(st: List<Long>): List<Int>? {
+                val pen = HashMap<Int, Double>(); val out = ArrayList<Int>()
+                for (i in 0 until st.size - 1) {
+                    val d = dijkstra(st[i], g, pen)
+                    val pe = pathEdges(d, st[i], st[i + 1]) ?: return null
+                    out.addAll(pe); for (e in pe) pen[e] = PENALTY
+                }
+                return out
+            }
+            fun milesOf(e: List<Int>): Double { var m = 0.0; for (x in e) m += g.edges[x].miles; return m }
+            fun retraceOf(e: List<Int>): Double {
+                val seenE = HashSet<Int>(); var rep = 0.0; var tot = 0.0
+                for (x in e) { val m = g.edges[x].miles; tot += m; if (!seenE.add(x)) rep += m }
+                return if (tot > 0.0) 100.0 * rep / tot else 0.0
+            }
+            val finished = ArrayList<Cand>()
+            var filledN = 0
+            for (c in found) {
+                val ok = liveOrigins.firstOrNull { it.third == c.origin }?.first
+                val ord = if (ok == null) null else orderTour(c.combo, ok) { a, b -> dist(a, b) }
+                if (ok == null || ord == null) { finished.add(c); continue }
+                val stops = ArrayList<Long>(); stops.add(ok); stops.addAll(ord.first); stops.add(ok)
+                val pe0 = routeLegs(stops)
+                var curE: List<Int> = if (pe0 != null && milesOf(pe0) <= req.milesHigh) pe0 else c.eids
+                var curM = milesOf(curE)
+                var cur: List<Long> = stops
+                val dFrom = HashMap<Long, Map<Long, Double>>()
+                for (s in stops) dij[s]?.let { dFrom[s] = it.dist }
+                val comp = dij[ok]?.dist?.keys ?: emptySet<Long>()
+                val junc = comp.filter { (g.lAdj[it]?.size ?: 0) != 2 }.sorted()
+                val vias = if (junc.size <= FILL_VIAS) junc else { val step = junc.size / FILL_VIAS; junc.filterIndexed { i, _ -> i % step == 0 }.take(FILL_VIAS) }
+                val triedV = HashSet<Long>()
+                var steps = 0
+                while (curE !== c.eids && steps < FILL_STEPS) {
+                    steps++
+                    var pickAdd = 0.0; var pickI = -1; var pickV = 0L
+                    for (v in vias) {
+                        if (v in triedV || v in cur) continue
+                        for (i in 0 until cur.size - 1) {
+                            val a = cur[i]; val b = cur[i + 1]
+                            val da = dFrom[a]?.get(v) ?: continue
+                            val db = dFrom[b]?.get(v) ?: continue
+                            val dab = dFrom[a]?.get(b) ?: continue
+                            val add = da + db - dab
+                            if (add < 1.0 || curM + add > req.milesHigh) continue
+                            if (add > pickAdd) { pickAdd = add; pickI = i; pickV = v }
+                        }
+                    }
+                    if (pickI < 0) break
+                    triedV.add(pickV)
+                    val trial = ArrayList(cur); trial.add(pickI + 1, pickV)
+                    val te = routeLegs(trial) ?: continue
+                    val tm = milesOf(te)
+                    if (tm > req.milesHigh || retraceOf(te) > MAX_RETRACE_PCT) continue
+                    if (!dFrom.containsKey(pickV)) dFrom[pickV] = dijkstra(pickV, g, emptyMap()).dist
+                    cur = trial; curE = te; curM = tm
+                }
+                if (curM > c.miles + 0.05) filledN++
+                finished.add(Cand(c.score, curM, c.combo, c.origin, curE))
+            }
+            // AIBANDAFTERFILL-2026-11-11: the floor, on the FINISHED rides
+            val belowFloor = finished.count { it.miles < req.milesLow }
+            found.clear(); found.addAll(finished.filter { it.miles >= req.milesLow })
+            if (belowFloor > 0) log.i { "AIBANDAFTERFILL-2026-11-11: " + belowFloor + " finished ride(s) still under " + req.milesLow.toInt() + " mi -- dropped" }
+            log.i { "AIRETURNFILL-2026-11-11: finished " + finished.size + " ride(s), " + filledN + " lengthened (return by another trail, fill toward " + req.milesHigh.toInt() + " mi)" }
+        }
 
         val p1 = HashMap<String, ArrayList<Cand>>()
         for (c in found) p1.getOrPut(c.origin + "|" + c.combo.sorted().joinToString(",")) {

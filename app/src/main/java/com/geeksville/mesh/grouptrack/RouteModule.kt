@@ -150,7 +150,8 @@ object GtRoute {
         // AICMPCTX-2026-11-11 (Fred 10:07-10:08): the rider's pins and (a loop) the planning perimeter stay on the map with the rides --
         //  from the compare set's own record, so they match the rides shown
         runCatching {
-            val b = RouteDraftStore.readBatch()
+            val bt = RouteDraftStore.readBatch()
+            val b = bt?.optJSONObject("recipe") ?: bt   // AICMPCTXFIX-2026-11-11: the pins, trailhead and ceiling live under "recipe"
             if (b != null) {
                 val pa = b.optJSONArray("pins")
                 val pj = StringBuilder("[")
