@@ -232,6 +232,7 @@ object GtRoute {
     private const val MAX_RETRACE_PCT = 30.0   // AIRETURNFILL-2026-11-11: a fill step that would ride more than this share twice is refused
     private const val FILL_VIAS = 160          // AIRETURNFILL-2026-11-11: junctions of the start's network tried as fill points (an even sample)
     private const val FILL_STEPS = 10          // AIRETURNFILL-2026-11-11: fill attempts per ride
+    private const val VARIATIONS = 2           // AIVARIATIONS-2026-11-11: more versions of each ride, on different trails (0 = none)
     private const val TRIES = 2500
     private const val BEAM_TOP = 5
 
@@ -2224,8 +2225,8 @@ object GtRoute {
          */
         if (RETURN_AND_FILL) {
             onProgress?.invoke(Progress("Filling the distance"))
-            fun routeLegs(st: List<Long>): List<Int>? {
-                val pen = HashMap<Int, Double>(); val out = ArrayList<Int>()
+            fun routeLegs(st: List<Long>, base: Map<Int, Double>): List<Int>? {   // AIVARIATIONS-2026-11-11: base = earlier variations' trails
+                val pen = HashMap<Int, Double>(base); val out = ArrayList<Int>()
                 for (i in 0 until st.size - 1) {
                     val d = dijkstra(st[i], g, pen)
                     val pe = pathEdges(d, st[i], st[i + 1]) ?: return null
@@ -2241,54 +2242,70 @@ object GtRoute {
             }
             val finished = ArrayList<Cand>()
             var filledN = 0
+            var varN = 0   // AIVARIATIONS-2026-11-11
             for (c in found) {
                 val ok = liveOrigins.firstOrNull { it.third == c.origin }?.first
                 val ord = if (ok == null) null else orderTour(c.combo, ok) { a, b -> dist(a, b) }
                 if (ok == null || ord == null) { finished.add(c); continue }
                 val stops = ArrayList<Long>(); stops.add(ok); stops.addAll(ord.first); stops.add(ok)
-                val pe0 = routeLegs(stops)
-                var curE: List<Int> = if (pe0 != null && milesOf(pe0) <= req.milesHigh) pe0 else c.eids
-                var curM = milesOf(curE)
-                var cur: List<Long> = stops
                 val dFrom = HashMap<Long, Map<Long, Double>>()
                 for (s in stops) dij[s]?.let { dFrom[s] = it.dist }
                 val comp = dij[ok]?.dist?.keys ?: emptySet<Long>()
                 val junc = comp.filter { (g.lAdj[it]?.size ?: 0) != 2 }.sorted()
                 val vias = if (junc.size <= FILL_VIAS) junc else { val step = junc.size / FILL_VIAS; junc.filterIndexed { i, _ -> i % step == 0 }.take(FILL_VIAS) }
-                val triedV = HashSet<Long>()
-                var steps = 0
-                while (curE !== c.eids && steps < FILL_STEPS) {
-                    steps++
-                    var pickAdd = 0.0; var pickI = -1; var pickV = 0L
-                    for (v in vias) {
-                        if (v in triedV || v in cur) continue
-                        for (i in 0 until cur.size - 1) {
-                            val a = cur[i]; val b = cur[i + 1]
-                            val da = dFrom[a]?.get(v) ?: continue
-                            val db = dFrom[b]?.get(v) ?: continue
-                            val dab = dFrom[a]?.get(b) ?: continue
-                            val add = da + db - dab
-                            if (add < 1.0 || curM + add > req.milesHigh) continue
-                            if (add > pickAdd) { pickAdd = add; pickI = i; pickV = v }
+                // AIVARIATIONS-2026-11-11: one ride, finished (return by another trail + fill toward the ceiling), with [base] trails penalised too
+                fun finishRide(base: Map<Int, Double>): List<Int>? {
+                    val pe0 = routeLegs(stops, base) ?: return null
+                    if (milesOf(pe0) > req.milesHigh) return null
+                    var curE: List<Int> = pe0
+                    var curM = milesOf(curE)
+                    var cur: List<Long> = stops
+                    val triedV = HashSet<Long>()
+                    var steps = 0
+                    while (steps < FILL_STEPS) {
+                        steps++
+                        var pickAdd = 0.0; var pickI = -1; var pickV = 0L
+                        for (v in vias) {
+                            if (v in triedV || v in cur) continue
+                            for (i in 0 until cur.size - 1) {
+                                val a = cur[i]; val b = cur[i + 1]
+                                val da = dFrom[a]?.get(v) ?: continue
+                                val db = dFrom[b]?.get(v) ?: continue
+                                val dab = dFrom[a]?.get(b) ?: continue
+                                val add = da + db - dab
+                                if (add < 1.0 || curM + add > req.milesHigh) continue
+                                if (add > pickAdd) { pickAdd = add; pickI = i; pickV = v }
+                            }
                         }
+                        if (pickI < 0) break
+                        triedV.add(pickV)
+                        val trial = ArrayList(cur); trial.add(pickI + 1, pickV)
+                        val te = routeLegs(trial, base) ?: continue
+                        val tm = milesOf(te)
+                        if (tm > req.milesHigh || retraceOf(te) > MAX_RETRACE_PCT) continue
+                        if (!dFrom.containsKey(pickV)) dFrom[pickV] = dijkstra(pickV, g, emptyMap()).dist
+                        cur = trial; curE = te; curM = tm
                     }
-                    if (pickI < 0) break
-                    triedV.add(pickV)
-                    val trial = ArrayList(cur); trial.add(pickI + 1, pickV)
-                    val te = routeLegs(trial) ?: continue
-                    val tm = milesOf(te)
-                    if (tm > req.milesHigh || retraceOf(te) > MAX_RETRACE_PCT) continue
-                    if (!dFrom.containsKey(pickV)) dFrom[pickV] = dijkstra(pickV, g, emptyMap()).dist
-                    cur = trial; curE = te; curM = tm
+                    return curE
                 }
-                if (curM > c.miles + 0.05) filledN++
-                finished.add(Cand(c.score, curM, c.combo, c.origin, curE))
+                val first = finishRide(emptyMap()) ?: c.eids
+                val fm = milesOf(first)
+                if (fm > c.miles + 0.05) filledN++
+                finished.add(Cand(c.score, fm, c.combo, c.origin, first))
+                if (first !== c.eids) {
+                    val used = HashMap<Int, Double>(); for (e in first) used[e] = PENALTY
+                    for (vi in 1..VARIATIONS) {
+                        val ve = finishRide(used) ?: break
+                        finished.add(Cand(c.score, milesOf(ve), c.combo, c.origin, ve)); varN++
+                        for (e in ve) used[e] = PENALTY
+                    }
+                }
             }
             // AIBANDAFTERFILL-2026-11-11: the floor, on the FINISHED rides
             val belowFloor = finished.count { it.miles < req.milesLow }
             found.clear(); found.addAll(finished.filter { it.miles >= req.milesLow })
             if (belowFloor > 0) log.i { "AIBANDAFTERFILL-2026-11-11: " + belowFloor + " finished ride(s) still under " + req.milesLow.toInt() + " mi -- dropped" }
-            log.i { "AIRETURNFILL-2026-11-11: finished " + finished.size + " ride(s), " + filledN + " lengthened (return by another trail, fill toward " + req.milesHigh.toInt() + " mi)" }
+            log.i { "AIRETURNFILL-2026-11-11: finished " + finished.size + " ride(s), " + filledN + " lengthened, " + varN + " variation(s) (return by another trail, fill toward " + req.milesHigh.toInt() + " mi)" }
         }
 
         val p1 = HashMap<String, ArrayList<Cand>>()
@@ -2311,6 +2328,8 @@ object GtRoute {
             afterP2.addAll(keep)
         }
 
+        // AIVARIATIONS-2026-11-11: with the fill on, "same features + similar miles" is NOT one ride -- the trails decide (PASS 3)
+        if (RETURN_AND_FILL) { afterP2.clear(); afterP2.addAll(found) }
         /* ── PASS 3: 75%+ SHARED TRAILS IS ONE RIDE ──────────────────────
          * ⛔ Measured: ride 6 was ride 4 with one knoll dropped -- the knoll
          * sat close to the line already taken, so 80% of the trails were the
