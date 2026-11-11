@@ -10707,213 +10707,216 @@ grouptrack/RouteModule.kt:525:                val RX = com.geeksville.mesh.convo
 grouptrack/RouteModule.kt:526:                val near = RX.nearestShownTrailMeters(db, req.anchorLat, req.anchorLon)
 grouptrack/RouteModule.kt:527:                val c1 = if (near != null) "✓ Trailhead is ${"%.0f".format(near)} m from a trail you are showing" else {
 grouptrack/RouteModule.kt:528:                    val hid = RX.nearestShownTrailMeters(db, req.anchorLat, req.anchorLon, RX.TRAILHEAD_CHECK_M, "")
-grouptrack/RouteModule.kt:532:                val mi = if (near == null) 0.0 else RX.connectedMiles(db, req)
-grouptrack/RouteModule.kt:533:                val lo = req.milesLow.toInt(); val hi = req.milesHigh.toInt()
-grouptrack/RouteModule.kt:534:                val c2 = when {
-grouptrack/RouteModule.kt:547:    fun planShowing(): Boolean = routeMode.value && aiStep.intValue == PIN_STEP_SUMMARY && !aiBusy.value
-grouptrack/RouteModule.kt:550:    fun planRecipe(): org.json.JSONObject = currentRecipe(pinTrailLat.value, pinTrailLon.value, pinTrailName.value,
-grouptrack/RouteModule.kt:554:    private fun planText(): String = recipeText(planRecipe()) + (if (checks.value.isNotEmpty()) "\n" + checks.value else "") +
-grouptrack/RouteModule.kt:558:    fun issueText(): String = if (planShowing())
-grouptrack/RouteModule.kt:563:    fun issueRecipeJson(): String = if (planShowing())
-grouptrack/RouteModule.kt:569:    private fun filterChanged() { GtOpenModule.trailsTick.intValue++; refreshSelection() }
-grouptrack/RouteModule.kt:570:    fun toggleType(t: String) { com.geeksville.mesh.convoy.TrailFilterState.toggleCategory(t); filterChanged() }
-grouptrack/RouteModule.kt:571:    fun toggleUse(label: String) {
-grouptrack/RouteModule.kt:572:        val f = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:573:        val motor = label == "Motorized"
-grouptrack/RouteModule.kt:575:        val mOn = f.use != "NON-MOTORIZED"; val nOn = f.use != "MOTORIZED"
-grouptrack/RouteModule.kt:576:        val m2 = if (motor) !mOn else mOn; val n2 = if (motor) nOn else !nOn
-grouptrack/RouteModule.kt:580:    fun toggleLand(pub: Boolean) {
-grouptrack/RouteModule.kt:581:        val f = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:582:        val p = f.land != "PRIVATE"; val q = f.land != "PUBLIC"
-grouptrack/RouteModule.kt:583:        val p2 = if (pub) !p else p; val q2 = if (pub) q else !q
-grouptrack/RouteModule.kt:587:    fun toggleRestricted() { com.geeksville.mesh.convoy.TrailFilterState.setRestricted(!com.geeksville.mesh.convoy.TrailFilterState.restricted); filterChanged() }
-grouptrack/RouteModule.kt:590:    fun filterNow(): String {
-grouptrack/RouteModule.kt:591:        val f = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:597:    fun statsText(): String {
-grouptrack/RouteModule.kt:598:        val st = com.geeksville.mesh.convoy.RouteExplorer.lastStats
-grouptrack/RouteModule.kt:599:        fun n(v: Int) = if (v < 0) "not reached" else "%,d".format(v)
-grouptrack/RouteModule.kt:610:    fun findRides(ctx: android.content.Context) {
-grouptrack/RouteModule.kt:615:        val aLat = pinTrailLat.value
-grouptrack/RouteModule.kt:616:        val aLon = pinTrailLon.value
-grouptrack/RouteModule.kt:617:        val rn = pinRideName.value
-grouptrack/RouteModule.kt:619:        val mLo = pinMiLow.intValue; val mHi = pinMiHigh.intValue
-grouptrack/RouteModule.kt:620:        val sLo = pinMphLow.intValue; val sHi = pinMphHigh.intValue
-grouptrack/RouteModule.kt:621:        val pins = pinPoints.value
-grouptrack/RouteModule.kt:622:        val loop = pinIsLoop.value
-grouptrack/RouteModule.kt:623:        val eLat = pinEndLat.value; val eLon = pinEndLon.value
-grouptrack/RouteModule.kt:625:            var made = 0
-grouptrack/RouteModule.kt:626:            var err = ""
-grouptrack/RouteModule.kt:630:                val db = SpatialDbManager.getSpatialDb()
-grouptrack/RouteModule.kt:634:                    val out = com.geeksville.mesh.convoy.RouteExplorer.explore(db,
-grouptrack/RouteModule.kt:656:                    val recipe = currentRecipe(aLat, aLon, aName, mLo, mHi, sLo, sHi, pins, if (loop == false) eLat to eLon else null)
-grouptrack/RouteModule.kt:665:                    val recipe = currentRecipe(aLat, aLon, aName, mLo, mHi, sLo, sHi, pins, if (loop == false) eLat to eLon else null)
-grouptrack/RouteModule.kt:672:            val fMade = made
-grouptrack/RouteModule.kt:673:            val fErr = err
-grouptrack/RouteModule.kt:690:                    val tf = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:691:                    val allLand = tf.land != "PUBLIC" && tf.land != "PRIVATE" && tf.restricted
-grouptrack/RouteModule.kt:711:    fun manualDrafts() = RouteDraftStore.listDrafts().filter { !RouteDraftStore.isInOpenBatch(it.name) }
-grouptrack/RouteModule.kt:713:    fun manualChecks(): Boolean {
-grouptrack/RouteModule.kt:723:    fun startNew(method: Int) {
-grouptrack/RouteModule.kt:736:    fun close() {
-grouptrack/RouteModule.kt:744:    fun endBuild() {
-grouptrack/RouteModule.kt:751:    private fun methodStr(): String = when (routeMethod.intValue) { ROUTE_METHOD_DRAW -> "draw"; ROUTE_METHOD_SUGGEST -> "suggest"; else -> "point" }
-grouptrack/RouteModule.kt:754:    fun autosave() {
-grouptrack/RouteModule.kt:755:        val nm = routeName.value
-grouptrack/RouteModule.kt:763:    fun buildLine(ctx: android.content.Context): String {
-grouptrack/RouteModule.kt:764:        val v = vp
-grouptrack/RouteModule.kt:766:        val tl = SpatialDbManager.queryTrailsByViewport(v[0], v[1], v[2], v[3])
-grouptrack/RouteModule.kt:767:        val tk = SpatialDbManager.queryTracksByViewport(v[0], v[1], v[2], v[3])
-grouptrack/RouteModule.kt:768:        val byId = HashMap<String, String>()
-grouptrack/RouteModule.kt:769:        for (m in tl) { val id = m["trail_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
-grouptrack/RouteModule.kt:770:        for (m in tk) { val id = m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
-grouptrack/RouteModule.kt:776:    fun buildLineById(ctx: android.content.Context): String {
-grouptrack/RouteModule.kt:778:        val verts = RouteManager.routeVertices()
-grouptrack/RouteModule.kt:779:        val byId = HashMap<String, String>()
-grouptrack/RouteModule.kt:790:    fun onTap(ctx: android.content.Context, lat: Double, lon: Double) {
-grouptrack/RouteModule.kt:793:            val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-grouptrack/RouteModule.kt:795:                val b = vp
-grouptrack/RouteModule.kt:796:                val trails = SpatialDbManager.queryTrailsByViewport(b[0], b[1], b[2], b[3])
-grouptrack/RouteModule.kt:797:                val mPerPx = 156543.03392 * kotlin.math.cos(Math.toRadians(lat)) / Math.pow(2.0, b[4])
-grouptrack/RouteModule.kt:798:                val snapRadiusM = (44.0 * mPerPx).coerceIn(15.0, 150.0)
-grouptrack/RouteModule.kt:799:                val s = RouteManager.snapTrailsOnly(lat, lon, trails, snapRadiusM)
-grouptrack/RouteModule.kt:805:                val nearby = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SpatialDbManager.trailheadsNear(lat, lon) }
-grouptrack/RouteModule.kt:810:            val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { buildLine(ctx) }
-grouptrack/RouteModule.kt:822:    val ctx = LocalContext.current
-grouptrack/RouteModule.kt:823:    val R = GtRoute
-grouptrack/RouteModule.kt:824:    val scope = androidx.compose.runtime.rememberCoroutineScope()
-grouptrack/RouteModule.kt:828:    val saveCompleted: () -> Unit = {
-grouptrack/RouteModule.kt:829:        val b = R.vp
-grouptrack/RouteModule.kt:830:        val name = R.routeName.value
-grouptrack/RouteModule.kt:832:            val thFirst = RouteManager.routeVertices().firstOrNull()
-grouptrack/RouteModule.kt:833:            val thNear = thFirst?.let { f ->
-grouptrack/RouteModule.kt:844:            val res = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-grouptrack/RouteModule.kt:846:                val lines = SpatialDbManager.queryTrailsByViewport(b[0], b[1], b[2], b[3]) +
-grouptrack/RouteModule.kt:848:                val byId = HashMap<String, String>()
-grouptrack/RouteModule.kt:849:                for (m in lines) { val id = m["trail_id"] ?: m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
-grouptrack/RouteModule.kt:850:                val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
-grouptrack/RouteModule.kt:852:                    val (wkt, bbox) = built
-grouptrack/RouteModule.kt:853:                    val newRouteId = SpatialDbManager.insertRoute(name.ifBlank { "Route " + System.currentTimeMillis() },
-grouptrack/RouteModule.kt:858:                            val ok = SpatialDbManager.setRouteAnchor(newRouteId, th.lat, th.lon, th.name)
-grouptrack/RouteModule.kt:871:                R.js("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}")
-grouptrack/RouteModule.kt:881:        val name = R.resumeReq.value
-grouptrack/RouteModule.kt:884:            val od = RouteDraftStore.loadIntoRouteManager(name)
-grouptrack/RouteModule.kt:894:                val p = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLineById(ctx) }
-grouptrack/RouteModule.kt:904:        val step = R.aiStep.intValue
-grouptrack/RouteModule.kt:905:        val on = step == PIN_STEP_TRAILHEAD || step == PIN_STEP_ENDPOINT || step == PIN_STEP_INCLUDE
-grouptrack/RouteModule.kt:923:        val json = R.pinPoints.value.joinToString(",", "[", "]") { "[%.6f,%.6f]".format(it.first, it.second) }
-grouptrack/RouteModule.kt:951:                    val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLine(ctx) }
-grouptrack/RouteModule.kt:976:        val step = R.aiStep.intValue
-grouptrack/RouteModule.kt:989:                        val lo = Math.round(R.pinMiLow.intValue.toDouble() / R.pinMphHigh.intValue.toDouble().coerceAtLeast(1.0))
-grouptrack/RouteModule.kt:990:                        val hi = Math.round(R.pinMiHigh.intValue.toDouble() / R.pinMphLow.intValue.toDouble().coerceAtLeast(1.0))
-grouptrack/RouteModule.kt:1003:                val miLo = R.pinMiLow.intValue; val miHi = R.pinMiHigh.intValue
-grouptrack/RouteModule.kt:1004:                val mphLo = R.pinMphLow.intValue; val mphHi = R.pinMphHigh.intValue
-grouptrack/RouteModule.kt:1005:                val thName = R.pinTrailName.value
-grouptrack/RouteModule.kt:1006:                val isLoop = R.pinIsLoop.value
-grouptrack/RouteModule.kt:1007:                val pts = R.pinPoints.value
-grouptrack/RouteModule.kt:1008:                val hrLo = miLo.toDouble() / mphHi.toDouble()
-grouptrack/RouteModule.kt:1009:                val hrHi = miHi.toDouble() / mphLo.toDouble()
-grouptrack/RouteModule.kt:1011:                val selKey = "" + R.pinTrailLat.value + "," + R.pinTrailLon.value + "," + miLo + "," + miHi + "," + com.geeksville.mesh.convoy.TrailFilterState.whereOrEmpty() + R.filterPeek.value
-grouptrack/RouteModule.kt:1014:                val summary = thName.ifBlank { "Your trailhead" } + " · " + miLo + "–" + miHi + " mi · " + mphLo + "–" + mphHi +
-grouptrack/RouteModule.kt:1018:                val GS = com.geeksville.mesh.convoy.GP_STATE_TODO
-grouptrack/RouteModule.kt:1019:                val GC = com.geeksville.mesh.convoy.GP_STATE_CURRENT
-grouptrack/RouteModule.kt:1020:                val GD = com.geeksville.mesh.convoy.GP_STATE_DONE
-grouptrack/RouteModule.kt:1021:                val steps = listOf(
-grouptrack/RouteModule.kt:1062:                val actions: List<Pair<String, () -> Unit>> = when (step) {
-grouptrack/RouteModule.kt:1078:                    val f = R.pinFeas.value
-grouptrack/RouteModule.kt:1079:                    val problem = when {
-grouptrack/RouteModule.kt:1113:                                val searchOpen = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-grouptrack/RouteModule.kt:1114:                                val sc = GtScheme.current.value
-grouptrack/RouteModule.kt:1160:        val rid = R.savedNotesRouteId.value
-grouptrack/RouteModule.kt:1162:        val hasRecipe = androidx.compose.runtime.remember(rid) { SpatialDbManager.routeRecipe(rid) != null }
-grouptrack/RouteModule.kt:1166:                val nm = SpatialDbManager.routeNameById(rid)
-grouptrack/RouteModule.kt:1167:                val also = SpatialDbManager.getAliasesFor("route", rid).mapNotNull { it["alias"] }.filter { it != nm }
-grouptrack/RouteModule.kt:1197:        val pts = RouteManager.routeVertexCount()
-grouptrack/RouteModule.kt:1214:                    val nm = R.routeName.value.trim()
-grouptrack/RouteModule.kt:1219:                        val oldNm = R.saveOrigName.value
-grouptrack/RouteModule.kt:1231:                    val nm = R.routeName.value.trim()
-grouptrack/RouteModule.kt:1235:                        val oldNm = R.saveOrigName.value
-grouptrack/RouteModule.kt:1260:                        val p = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLine(ctx) }
-grouptrack/RouteModule.kt:1282:        val pts = remember { RouteDraftStore.listDrafts().firstOrNull { it.name == RouteDraftStore.UNNAMED }?.pointCount ?: 0 }
-grouptrack/RouteModule.kt:1283:        val nm = remember { mutableStateOf("") }
-grouptrack/RouteModule.kt:1284:        val err = remember { mutableStateOf("") }
-grouptrack/RouteModule.kt:1299:                    val n = nm.value.trim()
-grouptrack/RouteModule.kt:1368:                    val f = RouteManager.routeVertices().firstOrNull()
-grouptrack/RouteModule.kt:1371:                        val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-grouptrack/RouteModule.kt:1391:                val nctx = androidx.compose.ui.platform.LocalContext.current
-grouptrack/RouteModule.kt:1411:                val nowHidden = n !in R.batchHidden.value
-grouptrack/RouteModule.kt:1413:                val safe = n.replace("\\", "\\\\").replace("'", "\\'")
-grouptrack/RouteModule.kt:1427:    val runBatchSave: (String) -> Unit = { area ->
-grouptrack/RouteModule.kt:1429:        val keep = R.batchRows.value.filter { it.name in R.batchSave.value }
-grouptrack/RouteModule.kt:1430:        val drop = R.batchRows.value.filter { it.name !in R.batchSave.value }
-grouptrack/RouteModule.kt:1433:            val saved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-grouptrack/RouteModule.kt:1435:                var ok = 0
-grouptrack/RouteModule.kt:1443:                    val verts = RouteManager.routeVertices()
-grouptrack/RouteModule.kt:1444:                    val byId = HashMap<String, String>()
-grouptrack/RouteModule.kt:1449:                    val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
-grouptrack/RouteModule.kt:1454:                    val (wkt, bbox) = built
-grouptrack/RouteModule.kt:1456:                    val base = area.trim()
-grouptrack/RouteModule.kt:1460:                    val gh = SpatialDbManager.computeGeomHash(wkt)
-grouptrack/RouteModule.kt:1461:                    val existing = SpatialDbManager.findRouteIdByHash(gh)
-grouptrack/RouteModule.kt:1463:                        val first = SpatialDbManager.routeNameById(existing) ?: "a saved route"
-grouptrack/RouteModule.kt:1470:                    val id = SpatialDbManager.insertRoute(nm, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
-grouptrack/RouteModule.kt:1525:private const val PIN_STEP_WELCOME   = -2
-grouptrack/RouteModule.kt:1526:private const val PIN_STEP_DISTANCE  = -1
-grouptrack/RouteModule.kt:1527:private const val PIN_STEP_NONE      = 0
-grouptrack/RouteModule.kt:1528:private const val PIN_STEP_TRAILHEAD = 1
-grouptrack/RouteModule.kt:1529:private const val PIN_STEP_RETURN    = 2
-grouptrack/RouteModule.kt:1530:private const val PIN_STEP_ENDPOINT  = 3
-grouptrack/RouteModule.kt:1531:private const val PIN_STEP_ASK       = 4
-grouptrack/RouteModule.kt:1532:private const val PIN_STEP_INCLUDE   = 5
-grouptrack/RouteModule.kt:1533:private const val PIN_STEP_SUMMARY   = 6
-grouptrack/RouteModule.kt:1534:private const val PIN_STEP_SEARCH    = 7
-grouptrack/RouteModule.kt:1535:private const val PIN_MAX = 5
-grouptrack/RouteModule.kt:1536:private const val PIN_REMOVE_MI = 0.15
-grouptrack/RouteModule.kt:1537:private const val TRAILHEAD_SELECT_MI = 0.062
-grouptrack/RouteModule.kt:1539:private fun gpMilesBetween(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-grouptrack/RouteModule.kt:1540:    val dLat = (lat2 - lat1) * 69.0
-grouptrack/RouteModule.kt:1541:    val dLon = (lon2 - lon1) * 69.0 * kotlin.math.cos(Math.toRadians((lat1 + lat2) / 2.0))
-grouptrack/RouteModule.kt:1545:private fun gpParsePointWkt(wkt: String?): DoubleArray? {
-grouptrack/RouteModule.kt:1547:    val m = Regex("-?\\d+\\.?\\d*").findAll(wkt).map { it.value }.toList()
-grouptrack/RouteModule.kt:1549:    val lon = m[0].toDoubleOrNull() ?: return null
-grouptrack/RouteModule.kt:1550:    val lat = m[1].toDoubleOrNull() ?: return null
-grouptrack/RouteModule.kt:1555:private fun gpNearestTrailhead(lat: Double, lon: Double, withinMi: Double): Map<String, String?>? {
-grouptrack/RouteModule.kt:1556:    val dLat = withinMi / 69.0
-grouptrack/RouteModule.kt:1557:    val dLon = withinMi / (69.0 * kotlin.math.max(0.2, kotlin.math.cos(Math.toRadians(lat))))
-grouptrack/RouteModule.kt:1558:    val found = SpatialDbManager.queryWaypointsByViewport(lat - dLat, lon - dLon, lat + dLat, lon + dLon, 200)
-grouptrack/RouteModule.kt:1559:    var best: Map<String, String?>? = null
-grouptrack/RouteModule.kt:1560:    var bestMi = withinMi
-grouptrack/RouteModule.kt:1563:        val p = gpParsePointWkt(w["geometry"]) ?: continue
-grouptrack/RouteModule.kt:1564:        val mi = gpMilesBetween(lat, lon, p[0], p[1])
-grouptrack/RouteModule.kt:1575:fun rememberRecipeFile(): () -> Unit {
-grouptrack/RouteModule.kt:1576:    val context = androidx.compose.ui.platform.LocalContext.current
-grouptrack/RouteModule.kt:1577:    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
-grouptrack/RouteModule.kt:1581:            val msg = try {
-grouptrack/RouteModule.kt:1582:                val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
-grouptrack/RouteModule.kt:1584:                val o = org.json.JSONObject(text)
-grouptrack/RouteModule.kt:1585:                val r = o.optJSONObject("recipe") ?: o
-grouptrack/RouteModule.kt:1594:    val notice = com.geeksville.mesh.convoy.rememberPickerNotice("to choose the route recipe file (.json) you were sent", "file")
-grouptrack/RouteModule.kt:1603:fun GtTrailTable(t: com.geeksville.mesh.convoy.RouteExplorer.SelTable) {
-grouptrack/RouteModule.kt:1606:    val sc = GtScheme.current.value
-grouptrack/RouteModule.kt:1607:    val inc = sc.good; val out = sc.bad; val txt = sc.panelText
-grouptrack/RouteModule.kt:1608:    fun fmt(n: Int) = "%,d".format(n)
-grouptrack/RouteModule.kt:1609:    val bold = androidx.compose.ui.text.font.FontWeight.Bold
-grouptrack/RouteModule.kt:1610:    val end = androidx.compose.ui.text.style.TextAlign.End
-grouptrack/RouteModule.kt:1611:    val gap = Modifier.width(8.dp)
-grouptrack/RouteModule.kt:1613:    val tctx = androidx.compose.ui.platform.LocalContext.current
-grouptrack/RouteModule.kt:1614:    fun said(msg: String) = android.widget.Toast.makeText(tctx, msg, android.widget.Toast.LENGTH_SHORT).show()
-grouptrack/RouteModule.kt:1615:    val tf = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:1616:    fun landTap(pub: Boolean) {
-grouptrack/RouteModule.kt:1617:        val before = tf.land
-grouptrack/RouteModule.kt:1623:    fun useTap(u: String) {
-grouptrack/RouteModule.kt:1624:        val before = tf.use
-grouptrack/RouteModule.kt:1629:    fun typeTap(ty: String) { GtRoute.toggleType(ty); said("FILTER changed: $ty " + (if (tf.isOn(ty)) "included" else "left out")) }
-grouptrack/RouteModule.kt:1630:    fun rstTap() { GtRoute.toggleRestricted(); said("FILTER changed: Restricted " + (if (tf.restricted) "included" else "left out")) }
-grouptrack/RouteModule.kt:1640:        var lastUse = ""
-grouptrack/RouteModule.kt:1644:                val u = r.use
-grouptrack/RouteModule.kt:1645:                val switchable = u == "Motorized" || u == "Non-motorized"
-grouptrack/RouteModule.kt:1652:            val ty = r.type
-grouptrack/RouteModule.kt:1653:            val pubIn = r.useOn && r.typeOn && t.publicOn
-grouptrack/RouteModule.kt:1654:            val privIn = r.useOn && r.typeOn && t.privateOn
+grouptrack/RouteModule.kt:536:                val mi = -1.0
+grouptrack/RouteModule.kt:537:                val lo = req.milesLow.toInt(); val hi = req.milesHigh.toInt()
+grouptrack/RouteModule.kt:538:                val c2 = when {
+grouptrack/RouteModule.kt:551:    fun planShowing(): Boolean = routeMode.value && aiStep.intValue == PIN_STEP_SUMMARY && !aiBusy.value
+grouptrack/RouteModule.kt:554:    fun planRecipe(): org.json.JSONObject = currentRecipe(pinTrailLat.value, pinTrailLon.value, pinTrailName.value,
+grouptrack/RouteModule.kt:558:    private fun planText(): String = recipeText(planRecipe()) + (if (checks.value.isNotEmpty()) "\n" + checks.value else "") +
+grouptrack/RouteModule.kt:562:    fun issueText(): String = if (planShowing())
+grouptrack/RouteModule.kt:567:    fun issueRecipeJson(): String = if (planShowing())
+grouptrack/RouteModule.kt:573:    private fun filterChanged() { GtOpenModule.trailsTick.intValue++; refreshSelection() }
+grouptrack/RouteModule.kt:574:    fun toggleType(t: String) { com.geeksville.mesh.convoy.TrailFilterState.toggleCategory(t); filterChanged() }
+grouptrack/RouteModule.kt:575:    fun toggleUse(label: String) {
+grouptrack/RouteModule.kt:576:        val f = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:577:        val motor = label == "Motorized"
+grouptrack/RouteModule.kt:579:        val mOn = f.use != "NON-MOTORIZED"; val nOn = f.use != "MOTORIZED"
+grouptrack/RouteModule.kt:580:        val m2 = if (motor) !mOn else mOn; val n2 = if (motor) nOn else !nOn
+grouptrack/RouteModule.kt:584:    fun toggleLand(pub: Boolean) {
+grouptrack/RouteModule.kt:585:        val f = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:586:        val p = f.land != "PRIVATE"; val q = f.land != "PUBLIC"
+grouptrack/RouteModule.kt:587:        val p2 = if (pub) !p else p; val q2 = if (pub) q else !q
+grouptrack/RouteModule.kt:591:    fun toggleRestricted() { com.geeksville.mesh.convoy.TrailFilterState.setRestricted(!com.geeksville.mesh.convoy.TrailFilterState.restricted); filterChanged() }
+grouptrack/RouteModule.kt:594:    fun filterNow(): String {
+grouptrack/RouteModule.kt:595:        val f = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:601:    fun statsText(): String {
+grouptrack/RouteModule.kt:602:        val st = com.geeksville.mesh.convoy.RouteExplorer.lastStats
+grouptrack/RouteModule.kt:603:        fun n(v: Int) = if (v < 0) "not reached" else "%,d".format(v)
+grouptrack/RouteModule.kt:614:    fun findRides(ctx: android.content.Context) {
+grouptrack/RouteModule.kt:619:        val aLat = pinTrailLat.value
+grouptrack/RouteModule.kt:620:        val aLon = pinTrailLon.value
+grouptrack/RouteModule.kt:621:        val rn = pinRideName.value
+grouptrack/RouteModule.kt:623:        val mLo = pinMiLow.intValue; val mHi = pinMiHigh.intValue
+grouptrack/RouteModule.kt:624:        val sLo = pinMphLow.intValue; val sHi = pinMphHigh.intValue
+grouptrack/RouteModule.kt:625:        val pins = pinPoints.value
+grouptrack/RouteModule.kt:626:        val loop = pinIsLoop.value
+grouptrack/RouteModule.kt:627:        val eLat = pinEndLat.value; val eLon = pinEndLon.value
+grouptrack/RouteModule.kt:629:            var made = 0
+grouptrack/RouteModule.kt:630:            var err = ""
+grouptrack/RouteModule.kt:634:                val db = SpatialDbManager.getSpatialDb()
+grouptrack/RouteModule.kt:638:                    val out = com.geeksville.mesh.convoy.RouteExplorer.explore(db,
+grouptrack/RouteModule.kt:660:                    val recipe = currentRecipe(aLat, aLon, aName, mLo, mHi, sLo, sHi, pins, if (loop == false) eLat to eLon else null)
+grouptrack/RouteModule.kt:669:                    val recipe = currentRecipe(aLat, aLon, aName, mLo, mHi, sLo, sHi, pins, if (loop == false) eLat to eLon else null)
+grouptrack/RouteModule.kt:676:            val fMade = made
+grouptrack/RouteModule.kt:677:            val fErr = err
+grouptrack/RouteModule.kt:694:                    val tf = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:695:                    val allLand = tf.land != "PUBLIC" && tf.land != "PRIVATE" && tf.restricted
+grouptrack/RouteModule.kt:700:                    val fst = com.geeksville.mesh.convoy.RouteExplorer.lastStats
+grouptrack/RouteModule.kt:701:                    val fewFeatures = fErr.isEmpty() && pins.isEmpty() &&
+grouptrack/RouteModule.kt:703:                    val nf = if (fst.features < 0) 0 else fst.features
+grouptrack/RouteModule.kt:725:    fun manualDrafts() = RouteDraftStore.listDrafts().filter { !RouteDraftStore.isInOpenBatch(it.name) }
+grouptrack/RouteModule.kt:727:    fun manualChecks(): Boolean {
+grouptrack/RouteModule.kt:737:    fun startNew(method: Int) {
+grouptrack/RouteModule.kt:750:    fun close() {
+grouptrack/RouteModule.kt:758:    fun endBuild() {
+grouptrack/RouteModule.kt:765:    private fun methodStr(): String = when (routeMethod.intValue) { ROUTE_METHOD_DRAW -> "draw"; ROUTE_METHOD_SUGGEST -> "suggest"; else -> "point" }
+grouptrack/RouteModule.kt:768:    fun autosave() {
+grouptrack/RouteModule.kt:769:        val nm = routeName.value
+grouptrack/RouteModule.kt:777:    fun buildLine(ctx: android.content.Context): String {
+grouptrack/RouteModule.kt:778:        val v = vp
+grouptrack/RouteModule.kt:780:        val tl = SpatialDbManager.queryTrailsByViewport(v[0], v[1], v[2], v[3])
+grouptrack/RouteModule.kt:781:        val tk = SpatialDbManager.queryTracksByViewport(v[0], v[1], v[2], v[3])
+grouptrack/RouteModule.kt:782:        val byId = HashMap<String, String>()
+grouptrack/RouteModule.kt:783:        for (m in tl) { val id = m["trail_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+grouptrack/RouteModule.kt:784:        for (m in tk) { val id = m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+grouptrack/RouteModule.kt:790:    fun buildLineById(ctx: android.content.Context): String {
+grouptrack/RouteModule.kt:792:        val verts = RouteManager.routeVertices()
+grouptrack/RouteModule.kt:793:        val byId = HashMap<String, String>()
+grouptrack/RouteModule.kt:804:    fun onTap(ctx: android.content.Context, lat: Double, lon: Double) {
+grouptrack/RouteModule.kt:807:            val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+grouptrack/RouteModule.kt:809:                val b = vp
+grouptrack/RouteModule.kt:810:                val trails = SpatialDbManager.queryTrailsByViewport(b[0], b[1], b[2], b[3])
+grouptrack/RouteModule.kt:811:                val mPerPx = 156543.03392 * kotlin.math.cos(Math.toRadians(lat)) / Math.pow(2.0, b[4])
+grouptrack/RouteModule.kt:812:                val snapRadiusM = (44.0 * mPerPx).coerceIn(15.0, 150.0)
+grouptrack/RouteModule.kt:813:                val s = RouteManager.snapTrailsOnly(lat, lon, trails, snapRadiusM)
+grouptrack/RouteModule.kt:819:                val nearby = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SpatialDbManager.trailheadsNear(lat, lon) }
+grouptrack/RouteModule.kt:824:            val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { buildLine(ctx) }
+grouptrack/RouteModule.kt:836:    val ctx = LocalContext.current
+grouptrack/RouteModule.kt:837:    val R = GtRoute
+grouptrack/RouteModule.kt:838:    val scope = androidx.compose.runtime.rememberCoroutineScope()
+grouptrack/RouteModule.kt:842:    val saveCompleted: () -> Unit = {
+grouptrack/RouteModule.kt:843:        val b = R.vp
+grouptrack/RouteModule.kt:844:        val name = R.routeName.value
+grouptrack/RouteModule.kt:846:            val thFirst = RouteManager.routeVertices().firstOrNull()
+grouptrack/RouteModule.kt:847:            val thNear = thFirst?.let { f ->
+grouptrack/RouteModule.kt:858:            val res = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+grouptrack/RouteModule.kt:860:                val lines = SpatialDbManager.queryTrailsByViewport(b[0], b[1], b[2], b[3]) +
+grouptrack/RouteModule.kt:862:                val byId = HashMap<String, String>()
+grouptrack/RouteModule.kt:863:                for (m in lines) { val id = m["trail_id"] ?: m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+grouptrack/RouteModule.kt:864:                val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+grouptrack/RouteModule.kt:866:                    val (wkt, bbox) = built
+grouptrack/RouteModule.kt:867:                    val newRouteId = SpatialDbManager.insertRoute(name.ifBlank { "Route " + System.currentTimeMillis() },
+grouptrack/RouteModule.kt:872:                            val ok = SpatialDbManager.setRouteAnchor(newRouteId, th.lat, th.lon, th.name)
+grouptrack/RouteModule.kt:885:                R.js("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}")
+grouptrack/RouteModule.kt:895:        val name = R.resumeReq.value
+grouptrack/RouteModule.kt:898:            val od = RouteDraftStore.loadIntoRouteManager(name)
+grouptrack/RouteModule.kt:908:                val p = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLineById(ctx) }
+grouptrack/RouteModule.kt:918:        val step = R.aiStep.intValue
+grouptrack/RouteModule.kt:919:        val on = step == PIN_STEP_TRAILHEAD || step == PIN_STEP_ENDPOINT || step == PIN_STEP_INCLUDE
+grouptrack/RouteModule.kt:937:        val json = R.pinPoints.value.joinToString(",", "[", "]") { "[%.6f,%.6f]".format(it.first, it.second) }
+grouptrack/RouteModule.kt:965:                    val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLine(ctx) }
+grouptrack/RouteModule.kt:990:        val step = R.aiStep.intValue
+grouptrack/RouteModule.kt:1003:                        val lo = Math.round(R.pinMiLow.intValue.toDouble() / R.pinMphHigh.intValue.toDouble().coerceAtLeast(1.0))
+grouptrack/RouteModule.kt:1004:                        val hi = Math.round(R.pinMiHigh.intValue.toDouble() / R.pinMphLow.intValue.toDouble().coerceAtLeast(1.0))
+grouptrack/RouteModule.kt:1017:                val miLo = R.pinMiLow.intValue; val miHi = R.pinMiHigh.intValue
+grouptrack/RouteModule.kt:1018:                val mphLo = R.pinMphLow.intValue; val mphHi = R.pinMphHigh.intValue
+grouptrack/RouteModule.kt:1019:                val thName = R.pinTrailName.value
+grouptrack/RouteModule.kt:1020:                val isLoop = R.pinIsLoop.value
+grouptrack/RouteModule.kt:1021:                val pts = R.pinPoints.value
+grouptrack/RouteModule.kt:1022:                val hrLo = miLo.toDouble() / mphHi.toDouble()
+grouptrack/RouteModule.kt:1023:                val hrHi = miHi.toDouble() / mphLo.toDouble()
+grouptrack/RouteModule.kt:1025:                val selKey = "" + R.pinTrailLat.value + "," + R.pinTrailLon.value + "," + miLo + "," + miHi + "," + com.geeksville.mesh.convoy.TrailFilterState.whereOrEmpty() + R.filterPeek.value
+grouptrack/RouteModule.kt:1028:                val summary = thName.ifBlank { "Your trailhead" } + " · " + miLo + "–" + miHi + " mi · " + mphLo + "–" + mphHi +
+grouptrack/RouteModule.kt:1032:                val GS = com.geeksville.mesh.convoy.GP_STATE_TODO
+grouptrack/RouteModule.kt:1033:                val GC = com.geeksville.mesh.convoy.GP_STATE_CURRENT
+grouptrack/RouteModule.kt:1034:                val GD = com.geeksville.mesh.convoy.GP_STATE_DONE
+grouptrack/RouteModule.kt:1035:                val steps = listOf(
+grouptrack/RouteModule.kt:1076:                val actions: List<Pair<String, () -> Unit>> = when (step) {
+grouptrack/RouteModule.kt:1092:                    val f = R.pinFeas.value
+grouptrack/RouteModule.kt:1093:                    val problem = when {
+grouptrack/RouteModule.kt:1127:                                val searchOpen = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+grouptrack/RouteModule.kt:1128:                                val sc = GtScheme.current.value
+grouptrack/RouteModule.kt:1174:        val rid = R.savedNotesRouteId.value
+grouptrack/RouteModule.kt:1176:        val hasRecipe = androidx.compose.runtime.remember(rid) { SpatialDbManager.routeRecipe(rid) != null }
+grouptrack/RouteModule.kt:1180:                val nm = SpatialDbManager.routeNameById(rid)
+grouptrack/RouteModule.kt:1181:                val also = SpatialDbManager.getAliasesFor("route", rid).mapNotNull { it["alias"] }.filter { it != nm }
+grouptrack/RouteModule.kt:1211:        val pts = RouteManager.routeVertexCount()
+grouptrack/RouteModule.kt:1228:                    val nm = R.routeName.value.trim()
+grouptrack/RouteModule.kt:1233:                        val oldNm = R.saveOrigName.value
+grouptrack/RouteModule.kt:1245:                    val nm = R.routeName.value.trim()
+grouptrack/RouteModule.kt:1249:                        val oldNm = R.saveOrigName.value
+grouptrack/RouteModule.kt:1274:                        val p = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLine(ctx) }
+grouptrack/RouteModule.kt:1296:        val pts = remember { RouteDraftStore.listDrafts().firstOrNull { it.name == RouteDraftStore.UNNAMED }?.pointCount ?: 0 }
+grouptrack/RouteModule.kt:1297:        val nm = remember { mutableStateOf("") }
+grouptrack/RouteModule.kt:1298:        val err = remember { mutableStateOf("") }
+grouptrack/RouteModule.kt:1313:                    val n = nm.value.trim()
+grouptrack/RouteModule.kt:1382:                    val f = RouteManager.routeVertices().firstOrNull()
+grouptrack/RouteModule.kt:1385:                        val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+grouptrack/RouteModule.kt:1405:                val nctx = androidx.compose.ui.platform.LocalContext.current
+grouptrack/RouteModule.kt:1425:                val nowHidden = n !in R.batchHidden.value
+grouptrack/RouteModule.kt:1427:                val safe = n.replace("\\", "\\\\").replace("'", "\\'")
+grouptrack/RouteModule.kt:1441:    val runBatchSave: (String) -> Unit = { area ->
+grouptrack/RouteModule.kt:1443:        val keep = R.batchRows.value.filter { it.name in R.batchSave.value }
+grouptrack/RouteModule.kt:1444:        val drop = R.batchRows.value.filter { it.name !in R.batchSave.value }
+grouptrack/RouteModule.kt:1447:            val saved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+grouptrack/RouteModule.kt:1449:                var ok = 0
+grouptrack/RouteModule.kt:1457:                    val verts = RouteManager.routeVertices()
+grouptrack/RouteModule.kt:1458:                    val byId = HashMap<String, String>()
+grouptrack/RouteModule.kt:1463:                    val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+grouptrack/RouteModule.kt:1468:                    val (wkt, bbox) = built
+grouptrack/RouteModule.kt:1470:                    val base = area.trim()
+grouptrack/RouteModule.kt:1474:                    val gh = SpatialDbManager.computeGeomHash(wkt)
+grouptrack/RouteModule.kt:1475:                    val existing = SpatialDbManager.findRouteIdByHash(gh)
+grouptrack/RouteModule.kt:1477:                        val first = SpatialDbManager.routeNameById(existing) ?: "a saved route"
+grouptrack/RouteModule.kt:1484:                    val id = SpatialDbManager.insertRoute(nm, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
+grouptrack/RouteModule.kt:1539:private const val PIN_STEP_WELCOME   = -2
+grouptrack/RouteModule.kt:1540:private const val PIN_STEP_DISTANCE  = -1
+grouptrack/RouteModule.kt:1541:private const val PIN_STEP_NONE      = 0
+grouptrack/RouteModule.kt:1542:private const val PIN_STEP_TRAILHEAD = 1
+grouptrack/RouteModule.kt:1543:private const val PIN_STEP_RETURN    = 2
+grouptrack/RouteModule.kt:1544:private const val PIN_STEP_ENDPOINT  = 3
+grouptrack/RouteModule.kt:1545:private const val PIN_STEP_ASK       = 4
+grouptrack/RouteModule.kt:1546:private const val PIN_STEP_INCLUDE   = 5
+grouptrack/RouteModule.kt:1547:private const val PIN_STEP_SUMMARY   = 6
+grouptrack/RouteModule.kt:1548:private const val PIN_STEP_SEARCH    = 7
+grouptrack/RouteModule.kt:1549:private const val PIN_MAX = 5
+grouptrack/RouteModule.kt:1550:private const val PIN_REMOVE_MI = 0.15
+grouptrack/RouteModule.kt:1551:private const val TRAILHEAD_SELECT_MI = 0.062
+grouptrack/RouteModule.kt:1553:private fun gpMilesBetween(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+grouptrack/RouteModule.kt:1554:    val dLat = (lat2 - lat1) * 69.0
+grouptrack/RouteModule.kt:1555:    val dLon = (lon2 - lon1) * 69.0 * kotlin.math.cos(Math.toRadians((lat1 + lat2) / 2.0))
+grouptrack/RouteModule.kt:1559:private fun gpParsePointWkt(wkt: String?): DoubleArray? {
+grouptrack/RouteModule.kt:1561:    val m = Regex("-?\\d+\\.?\\d*").findAll(wkt).map { it.value }.toList()
+grouptrack/RouteModule.kt:1563:    val lon = m[0].toDoubleOrNull() ?: return null
+grouptrack/RouteModule.kt:1564:    val lat = m[1].toDoubleOrNull() ?: return null
+grouptrack/RouteModule.kt:1569:private fun gpNearestTrailhead(lat: Double, lon: Double, withinMi: Double): Map<String, String?>? {
+grouptrack/RouteModule.kt:1570:    val dLat = withinMi / 69.0
+grouptrack/RouteModule.kt:1571:    val dLon = withinMi / (69.0 * kotlin.math.max(0.2, kotlin.math.cos(Math.toRadians(lat))))
+grouptrack/RouteModule.kt:1572:    val found = SpatialDbManager.queryWaypointsByViewport(lat - dLat, lon - dLon, lat + dLat, lon + dLon, 200)
+grouptrack/RouteModule.kt:1573:    var best: Map<String, String?>? = null
+grouptrack/RouteModule.kt:1574:    var bestMi = withinMi
+grouptrack/RouteModule.kt:1577:        val p = gpParsePointWkt(w["geometry"]) ?: continue
+grouptrack/RouteModule.kt:1578:        val mi = gpMilesBetween(lat, lon, p[0], p[1])
+grouptrack/RouteModule.kt:1589:fun rememberRecipeFile(): () -> Unit {
+grouptrack/RouteModule.kt:1590:    val context = androidx.compose.ui.platform.LocalContext.current
+grouptrack/RouteModule.kt:1591:    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+grouptrack/RouteModule.kt:1595:            val msg = try {
+grouptrack/RouteModule.kt:1596:                val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+grouptrack/RouteModule.kt:1598:                val o = org.json.JSONObject(text)
+grouptrack/RouteModule.kt:1599:                val r = o.optJSONObject("recipe") ?: o
+grouptrack/RouteModule.kt:1608:    val notice = com.geeksville.mesh.convoy.rememberPickerNotice("to choose the route recipe file (.json) you were sent", "file")
+grouptrack/RouteModule.kt:1617:fun GtTrailTable(t: com.geeksville.mesh.convoy.RouteExplorer.SelTable) {
+grouptrack/RouteModule.kt:1620:    val sc = GtScheme.current.value
+grouptrack/RouteModule.kt:1621:    val inc = sc.good; val out = sc.bad; val txt = sc.panelText
+grouptrack/RouteModule.kt:1622:    fun fmt(n: Int) = "%,d".format(n)
+grouptrack/RouteModule.kt:1623:    val bold = androidx.compose.ui.text.font.FontWeight.Bold
+grouptrack/RouteModule.kt:1624:    val end = androidx.compose.ui.text.style.TextAlign.End
+grouptrack/RouteModule.kt:1625:    val gap = Modifier.width(8.dp)
+grouptrack/RouteModule.kt:1627:    val tctx = androidx.compose.ui.platform.LocalContext.current
+grouptrack/RouteModule.kt:1628:    fun said(msg: String) = android.widget.Toast.makeText(tctx, msg, android.widget.Toast.LENGTH_SHORT).show()
+grouptrack/RouteModule.kt:1629:    val tf = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:1630:    fun landTap(pub: Boolean) {
+grouptrack/RouteModule.kt:1631:        val before = tf.land
+grouptrack/RouteModule.kt:1637:    fun useTap(u: String) {
+grouptrack/RouteModule.kt:1638:        val before = tf.use
+grouptrack/RouteModule.kt:1643:    fun typeTap(ty: String) { GtRoute.toggleType(ty); said("FILTER changed: $ty " + (if (tf.isOn(ty)) "included" else "left out")) }
+grouptrack/RouteModule.kt:1644:    fun rstTap() { GtRoute.toggleRestricted(); said("FILTER changed: Restricted " + (if (tf.restricted) "included" else "left out")) }
+grouptrack/RouteModule.kt:1654:        var lastUse = ""
+grouptrack/RouteModule.kt:1658:                val u = r.use
+grouptrack/RouteModule.kt:1659:                val switchable = u == "Motorized" || u == "Non-motorized"
+grouptrack/RouteModule.kt:1666:            val ty = r.type
+grouptrack/RouteModule.kt:1667:            val pubIn = r.useOn && r.typeOn && t.publicOn
+grouptrack/RouteModule.kt:1668:            val privIn = r.useOn && r.typeOn && t.privateOn
 grouptrack/GtGolden15a.kt:31:object GtGolden15a {
 grouptrack/GtGolden15a.kt:33:    class Summary(val lines: Int, val diffs: Int, val byKind: Map<String, Pair<Int, Int>>)
 grouptrack/GtGolden15a.kt:35:    private fun hex(s: String): String {
