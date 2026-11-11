@@ -208,6 +208,23 @@ window.showAimRing = function (on) {
     map.on('moveend', window.gtAimCheck); setTimeout(window.gtAimCheck, 300);   // AIMCOLOUR-2026-11-03: checked when the map stops
   } catch (e) { console.log('aim ring: ' + e); }
 };
+// AIPERIMETER-2026-11-11 (Fred 07:48): the planning perimeter -- the box the AI search reads trails from (ceiling / 3 each way), shown
+// while pins are added: on top, bold orange; the map fits the whole box once per box.
+var PERIM_L = [{ id: 'gt-perim-fill', type: 'fill', paint: { 'fill-color': '#FF6D00', 'fill-opacity': 0.12 } },
+               { id: 'gt-perim-line', type: 'line', paint: { 'line-color': '#FF6D00', 'line-width': 5, 'line-opacity': 1.0 } }];
+window.__perimKey = '';
+window.showPerimeter = function (n, s, e, w) {
+  try {
+    gtSet('gt-perim', PERIM_L, { type: 'FeatureCollection', features: [gtBox(+n, +s, +e, +w)] }, false);
+    var k = n + ',' + s + ',' + e + ',' + w;
+    if (k !== window.__perimKey) {
+      window.__perimKey = k;
+      gtWhenReady(function () { try { map.fitBounds([[+w, +s], [+e, +n]], { padding: 24, duration: 0 }); } catch (e2) { console.log('PERIMETER fit ' + e2); } });
+    }
+    console.log('PERIMETER N=' + n + ' S=' + s + ' E=' + e + ' W=' + w);
+  } catch (err) { console.log('PERIMETER ' + err); }
+};
+window.clearPerimeter = function () { window.__perimKey = ''; gtSet('gt-perim', PERIM_L, EMPTY, false); };
 // the AI batch: up to six routes, each its own colour, keyed by draft name; show / hide without redrawing; fit to those shown
 var BATCH_L = [{ id: 'gt-batch-line', type: 'line', filter: ['all', ['==', ['geometry-type'], 'LineString'], ['!=', ['get', 'h'], true]],
                  layout: { 'line-cap': 'round', 'line-join': 'round' },

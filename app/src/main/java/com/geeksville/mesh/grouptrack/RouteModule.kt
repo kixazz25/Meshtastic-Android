@@ -954,6 +954,20 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
         val json = R.pinPoints.value.joinToString(",", "[", "]") { "[%.6f,%.6f]".format(it.first, it.second) }
         R.js("renderPins('" + json + "')")
     }
+    // AIPERIMETER-2026-11-11 (Fred 07:48): the planning perimeter while pins are added -- the SAME box as the search's corridorBox
+    //  (ceiling / 3 each way from the trailhead). Loop rides only; cleared on every other step.
+    androidx.compose.runtime.LaunchedEffect(R.aiStep.intValue, R.pinTrailLat.value, R.pinTrailLon.value, R.pinMiHigh.intValue, R.pinIsLoop.value) {
+        val st = R.aiStep.intValue
+        val la = R.pinTrailLat.value; val lo = R.pinTrailLon.value
+        val show = st == PIN_STEP_INCLUDE && R.pinIsLoop.value != false && !(la == 0.0 && lo == 0.0)
+        if (!show) { R.js("if (window.clearPerimeter) clearPerimeter();") } else {
+            val rMi = R.pinMiHigh.intValue.toDouble() / 3.0
+            val dLat = rMi / 69.0
+            val dLon = rMi / (69.0 * maxOf(0.2, Math.cos(Math.toRadians(la))))
+            R.js("if (window.showPerimeter) showPerimeter(" + "%.6f,%.6f,%.6f,%.6f".format(java.util.Locale.US,
+                la + dLat, la - dLat, lo + dLon, lo - dLon) + ");")
+        }
+    }
 
     // ── the toolbar: LOCKED to the launched method (one mode; the other is not shown) ──
     if (R.routeMode.value && !R.aiActive()) {   // GTAI3-2026-10-23: the AI flow has its own screens
