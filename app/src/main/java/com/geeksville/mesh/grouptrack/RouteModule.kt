@@ -147,6 +147,25 @@ object GtRoute {
         // GTAI2B-2026-10-23 (Fred 15:10): show the routes -- fit AFTER the draws (drawBatch POSTS them, so this is posted too).
         batchPrevView.value = vp.copyOf()
         wv()?.let { v -> v.post { runCatching { v.evaluateJavascript("fitBatchRoutes()", null) } } }
+        // AICMPCTX-2026-11-11 (Fred 10:07-10:08): the rider's pins and (a loop) the planning perimeter stay on the map with the rides --
+        //  from the compare set's own record, so they match the rides shown
+        runCatching {
+            val b = RouteDraftStore.readBatch()
+            if (b != null) {
+                val pa = b.optJSONArray("pins")
+                val pj = StringBuilder("[")
+                if (pa != null) for (i in 0 until pa.length()) { val o = pa.optJSONObject(i) ?: continue
+                    if (pj.length > 1) pj.append(","); pj.append("[%.6f,%.6f]".format(java.util.Locale.US, o.optDouble("lat"), o.optDouble("lon"))) }
+                pj.append("]")
+                val la = b.optDouble("anchorLat", 0.0); val lo = b.optDouble("anchorLon", 0.0); val hi = b.optDouble("milesHigh", 0.0)
+                val loopRide = b.isNull("finish") && !(la == 0.0 && lo == 0.0) && hi > 0.0
+                val box = if (!loopRide) "null,null,null,null" else {
+                    val dLat = hi / 3.0 / 69.0; val dLon = hi / 3.0 / (69.0 * maxOf(0.2, Math.cos(Math.toRadians(la))))
+                    "%.6f,%.6f,%.6f,%.6f".format(java.util.Locale.US, la + dLat, la - dLat, lo + dLon, lo - dLon)
+                }
+                js("if (window.showCompareContext) showCompareContext('" + pj + "'," + box + ")")
+            }
+        }.onFailure { android.util.Log.e("BatchGrid", "AICMPCTX-2026-11-11: " + it.message) }
         batchOpen.value = true
     }
 
@@ -156,7 +175,7 @@ object GtRoute {
         batchRows.value = emptyList()
         batchSave.value = emptySet()
         batchHidden.value = emptySet()
-        js("clearBatchRoutes()")
+        js("clearBatchRoutes(); if (window.clearCompareContext) clearCompareContext();")   // AICMPCTX-2026-11-11
         val prev = batchPrevLayers.value
         restoreAll()   // GTAI4B-2026-10-23: the filter and the off-grid areas back exactly as they were
         batchPrevLayers.value = emptyList()

@@ -264,6 +264,29 @@ window.showBatchRoute = function (name, on, weight) {
   console.log('SHOWBATCH ' + name + ' ' + on); return true;
 };
 window.clearBatchRoutes = function () { window.__batchLayers = {}; gtBatchPush(); };
+// AICMPCTX-2026-11-11 (Fred 10:07-10:08): the compare table shows the search's context -- the rider's pins and the planning perimeter
+var CMPBOX_L = [{ id: 'gt-cmpbox-fill', type: 'fill', paint: { 'fill-color': '#FF6D00', 'fill-opacity': 0.08 } },
+                { id: 'gt-cmpbox-line', type: 'line', paint: { 'line-color': '#FF6D00', 'line-width': 4, 'line-opacity': 1.0 } }];
+window.__cmpPins = [];
+window.clearCompareContext = function () {
+  try { window.__cmpPins.forEach(function (m) { m.remove(); }); } catch (e) {} window.__cmpPins = [];
+  gtSet('gt-cmpbox', CMPBOX_L, EMPTY, false);
+};
+window.showCompareContext = function (pinsJson, n, s, e, w) {
+  window.clearCompareContext();
+  try {
+    if (n != null) gtSet('gt-cmpbox', CMPBOX_L, { type: 'FeatureCollection', features: [gtBox(+n, +s, +e, +w)] }, false);
+    var pts = gtJ(pinsJson) || [];
+    pts.forEach(function (p, i) {
+      var el = document.createElement('div');
+      el.style.cssText = 'background:#FF0000;color:#fff;border:2px solid #fff;border-radius:50%;width:26px;height:26px;line-height:22px;'
+        + 'text-align:center;font-weight:900;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,0.5);box-sizing:border-box;pointer-events:none';
+      el.textContent = String(i + 1);
+      window.__cmpPins.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(gtLL(p)).addTo(map));
+    });
+    console.log('CMPCTX ' + pts.length + ' pin(s)' + (n != null ? ' + perimeter' : ''));
+  } catch (err) { console.log('CMPCTX ' + err); }
+};
 window.fitBatchRoutes = function () {
   try {
     var b = null;
