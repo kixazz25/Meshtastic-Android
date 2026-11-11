@@ -97,7 +97,17 @@ object RouteExplorer {
      */
     private const val SNAP_ANCHOR_MI = 2.0
     private const val SNAP_POINT_MI = 0.5
+    // AIPINNEAR-2026-11-11 (Fred 09:25-09:27): pins may go on ANY trail network within 1/2 mile of the trailhead (as the search's starts do).
+    //  false = the pin check uses only the largest nearby network (the check before 11-11).
+    private const val PIN_ANY_NEARBY_NETWORK = true
     private const val PENALTY = 2.2
+    // AIRETURNFILL-2026-11-11 (Fred 11-11): finish each ride -- come back by another trail (PENALTY on used trails) and fill toward the
+    //  ceiling. false = today's rides exactly (the shortest tour through each combination).
+    private const val RETURN_AND_FILL = true
+    private const val MAX_RETRACE_PCT = 30.0   // AIRETURNFILL-2026-11-11: a fill step that would ride more than this share twice is refused
+    private const val FILL_VIAS = 160          // AIRETURNFILL-2026-11-11: junctions of the start's network tried as fill points (an even sample)
+    private const val FILL_STEPS = 10          // AIRETURNFILL-2026-11-11: fill attempts per ride
+    private const val VARIATIONS = 2           // AIVARIATIONS-2026-11-11: more versions of each ride, on different trails (0 = none)
     private const val TRIES = 2500
     private const val BEAM_TOP = 5
 
@@ -172,6 +182,9 @@ object RouteExplorer {
         @Volatile var areaMi = ""
         @Volatile var stop = ""
         @Volatile var omitted = ""   // trails in the search area FILTER left out, by reason
+        @Volatile var trailMiles = -1.0   // AIFAILNOTICE-2026-11-11: miles of trail in the networks the search starts on; -1 = not reached
+        @Volatile var longestMiles = -1.0   // AIFAILLONGEST-2026-11-11: the longest loop solved that is within the ceiling; -1 = none
+        @Volatile var longestFeatures = 0   // AIFAILLONGEST-2026-11-11
     }
     @Volatile var lastStats = SearchStats()
         private set
@@ -1107,6 +1120,40 @@ object RouteExplorer {
         return (listOf(0) + rev) to best
     }
 
+    /** AICONNECTED-2026-11-11 (Fred 12:41): the trails CONNECTED to the trailhead -- every network within 1/2 mile of it (the search's starts,
+     *  AIPINNEAR's pins), inside the search box, as polylines ([lat, lon] points) for the pin map. The same cached network as
+     *  assess() and explore() (same box, same key). */
+    fun connectedLines(
+        spatialDb: SQLiteDatabase,
+        req: Request,
+        shape: RouteShape
+    ): List<List<DoubleArray>> {
+        val points = emptyList<Pair<Double, Double>>()
+        var trailCount = 0
+        spatialDb.rawQuery("SELECT COUNT(*) FROM trails", null).use {
+            if (it.moveToNext()) trailCount = it.getInt(0)
+        }
+
+        val g = buildGraph(spatialDb, corridorBoxFor(req, shape, points), trailCount, null)
+        if (g.mainComponent.isEmpty()) return emptyList()
+        val alat = req.anchorLat; val alon = req.anchorLon
+        val net = HashSet<Long>()
+        for (ei in g.edges.indices) {
+            val pts = g.edges[ei].pts
+            var bd = Double.MAX_VALUE
+            for (j in 0 until pts.size - 1) bd = minOf(bd, projectOnSeg(alat, alon, pts[j], pts[j + 1]).second)
+            if (bd > 0.5) continue
+            val u = g.edges[ei].u
+            if (u in net) continue
+            val q = ArrayDeque<Long>().apply { add(u) }; net.add(u)
+            while (q.isNotEmpty()) { val x = q.removeFirst(); for (y in g.lAdj[x] ?: emptyList()) if (net.add(y[0])) q.add(y[0]) }
+        }
+        val out = ArrayList<List<DoubleArray>>()
+        for (e in g.edges) if (e.u in net && e.v in net) out.add(e.pts)
+        Log.i(TAG, "AICONNECTED-2026-11-11: " + out.size + " trail section(s) connected to the trailhead (" + net.size + " junctions)")
+        return out
+    }
+
     /**
      * What the rider's pins cost, right now.
      *
@@ -1176,6 +1223,8 @@ object RouteExplorer {
         // rule (explore: "candidate starts: every trail within startYds"). The ONE nearest trail can be an isolated scrap (Broken Ridge,
         // 10-28: "origin trail #17: 1 of 29 features usable"), and then every pin read as "on a fragment".
         var anchorNet: HashSet<Long>? = null
+        val nearAll = HashSet<Long>()          // AIPINNEAR-2026-11-11: every node of every network within 1/2 mile of the trailhead
+        val pinNearNet = HashSet<Int>()        // AIPINNEAR-2026-11-11: pins that snapped onto one of those networks
         run {
             val (alat, alon) = all[0]
             val startMi = 0.5
@@ -1193,13 +1242,31 @@ object RouteExplorer {
                 comps.add(c)
             }
             for (c in comps) net.addAll(c)
+            nearAll.addAll(net)   // AIPINNEAR-2026-11-11
             anchorNet = comps.maxByOrNull { it.size }
+            // AIPINNEAR-2026-11-11 (1): start on the nearby network that reaches the MOST pins (tie -> the larger); none -> the largest.
+            if (PIN_ANY_NEARBY_NETWORK && all.size > 1 && comps.size > 1) {
+                var bestC: HashSet<Long>? = null; var bestN = -1
+                for (c in comps) {
+                    var hits = 0
+                    for (pi in 1 until all.size) {
+                        val (pla, plo) = all[pi]
+                        val (pei, _, pd) = nearestSeg(pla, plo, c)
+                        if (pei >= 0 && pd <= SNAP_POINT_MI) hits++
+                    }
+                    if (hits > bestN || (hits == bestN && c.size > (bestC?.size ?: -1))) { bestN = hits; bestC = c }
+                }
+                if (bestN > 0) anchorNet = bestC
+                Log.i(TAG, "assess: AIPINNEAR-2026-11-11 trailhead starts on the nearby network reaching " + bestN + " of " + (all.size - 1) + " pin(s) (size " + (bestC?.size ?: 0) + ")")
+            }
             Log.i(TAG, "assess: ASSESSNEAR2 trailhead networks within 1/2 mile: " + comps.size + " (sizes " + comps.map { it.size } + ")")
         }
         for (i in all.indices) {
             val (lat, lon) = all[i]
             val cap = if (i == 0) SNAP_ANCHOR_MI else SNAP_POINT_MI
-            val (ei, bp, d) = nearestSeg(lat, lon, if (i == 0) anchorNet else net)   // ASSESSNEAR2: trailhead on its largest nearby network
+            // AIPINNEAR-2026-11-11 (1): a pin snaps on the start's network when that network is within its cap (a pin can be near two)
+            val (ei, bp, d) = run { val onA = if (PIN_ANY_NEARBY_NETWORK && i > 0 && anchorNet != null) nearestSeg(lat, lon, anchorNet) else null
+                if (onA != null && onA.first >= 0 && onA.third <= cap) onA else nearestSeg(lat, lon, if (i == 0) anchorNet else net) }   // ASSESSNEAR2: trailhead on its largest nearby network
             val dAny = if (i == 0) d else nearestSeg(lat, lon, null).third
             if (ei < 0 || bp == null || d > cap) {
                 terms.add(Long.MIN_VALUE)          // a placeholder terminal: index i keeps its meaning; never routed (tooFar)
@@ -1209,6 +1276,7 @@ object RouteExplorer {
                 if (i > 0 && dAny <= cap) onFrag.add(i)
                 continue
             }
+            if (i > 0 && (g.edges[ei].u in nearAll || g.edges[ei].v in nearAll)) pinNearNet.add(i)   // AIPINNEAR-2026-11-11
             val node = splitEdgeAt(g, ei, bp)
             terms.add(node)
             snapFt.add(d * 5280.0)
@@ -1250,6 +1318,7 @@ object RouteExplorer {
         // but unlikely is not checked, and an infinite entry reaching heldKarp
         // returns MAX_VALUE for a reason nobody can see.
         val unreachable = ArrayList<Int>()
+        val offAnchor = ArrayList<Int>()   // AIPINNEAR-2026-11-11 (2): valid -- on another of the trailhead's nearby networks (its own rides)
         val keep = ArrayList<Int>()
         keep.add(0)
         for (i in 1 until n) {
@@ -1272,7 +1341,7 @@ object RouteExplorer {
             // assessment fail, which is the honest answer.
             if (i == endIdx) { keep.add(i); continue }
             if (full[0][i] == Double.MAX_VALUE || full[i][0] == Double.MAX_VALUE) {
-                unreachable.add(i)
+                if (PIN_ANY_NEARBY_NETWORK && i in pinNearNet) offAnchor.add(i) else unreachable.add(i)   // AIPINNEAR-2026-11-11 (2)
             } else {
                 keep.add(i)
             }
@@ -1342,7 +1411,7 @@ object RouteExplorer {
                 "over=${"%.1f".format(over)}, under=${"%.1f".format(under)}, " +
                 "tooFar=$tooFar, order=$order, " +
                 "marginal=${marginal.joinToString(",") { "%.1f".format(it) }}, " +
-                "unreachable=$unreachable, onFragment=$onFrag"
+                "unreachable=$unreachable, onFragment=$onFrag, onOtherNearbyNetwork=$offAnchor"
         )
         return PinFeasibility(
             order, miles, legs, snapFt, onFrag, unreachable,
@@ -1630,6 +1699,7 @@ object RouteExplorer {
         val st = SearchStats(); lastStats = st   // AIFAIL-2026-11-03
         st.areaMi = "%.0f x %.0f mi".format((box[1] - box[0]) * 69.0, (box[3] - box[2]) * 69.0 * Math.cos(Math.toRadians((box[0] + box[1]) / 2)))
         val g = buildGraph(spatialDb, box, trailCount, onProgress)
+        val baseEdges = g.edges.size   // AIFAILNOTICE-2026-11-11: the trail sections as read -- splits (starts, pins) are added after these
         st.trails = lastTrailsRead
         st.omitted = omittedByFilter(spatialDb, box)   // AIFAIL-2026-11-03 v3
         if (g.mainComponent.isEmpty()) {
@@ -1784,6 +1854,11 @@ object RouteExplorer {
         var poiNodes = poiAt.keys.toList()
         Log.i(TAG, "poiNodes=${poiNodes.size} usableNodes=${usable.size}")
         st.junctions = usable.size; st.features = poiNodes.size   // AIFAIL-2026-11-03
+        run {   // AIFAILNOTICE-2026-11-11: connected trail miles, from the network already built (no extra build; each section once)
+            var mi = 0.0
+            for (ei in 0 until baseEdges) { val e = g.edges[ei]; if (e.u in usable) mi += e.miles }
+            st.trailMiles = mi
+        }
 
         /* ── 6. distance matrix ──────────────────────────────────────────*/
         onProgress?.invoke(Progress("Measuring distances"))
@@ -1866,6 +1941,7 @@ object RouteExplorer {
          * ⭐ Solve it; if it busts, drop the weakest and solve again.
          * Measured: clique 25 -> tested ceiling 9 in 17 solves.
          */
+        val testedCeil = HashMap<Long, Int>()   // AIFEATFLOOR-2026-11-10: each start's OWN tested ceiling (was one number: the smallest)
         run {
             var tested = 0
             for ((ok, _, onm) in liveOrigins) {
@@ -1889,6 +1965,7 @@ object RouteExplorer {
                     grp.removeAt(0)
                 }
                 if (grp.size < ceilingSize) ceilingSize = grp.size
+                testedCeil[ok] = grp.size   // AIFEATFLOOR-2026-11-10
                 Log.i(TAG, "$onm: clique $cliqueWas -> tested ceiling ${grp.size}")
             }
             Log.i(TAG, "ceiling tested in $tested solve(s) -> $ceilingSize")
@@ -1912,13 +1989,13 @@ object RouteExplorer {
             if (survivorsOf(found.map { Triple(it.combo.size, it.miles, it.eids) },
                     maxOverlap) >= enrichN) break
             working.add(feat)
-            if (working.size < 2) continue
+            if (working.isEmpty()) continue   // AIFEATFLOOR-2026-11-10: one feature is enough for a ride (was: 2)
             for ((ok, _, onm) in liveOrigins) {
                 val pool = working.filter { it in (perOrigin[ok] ?: emptyList()) }
-                if (pool.size < 2) continue
+                if (pool.isEmpty()) continue   // AIFEATFLOOR-2026-11-10
                 val bad = badPair[ok] ?: HashSet()
-                var size = minOf(pool.size, ceilingSize)
-                while (size >= 2) {
+                var size = minOf(pool.size, testedCeil[ok] ?: ceilingSize)   // AIFEATFLOOR-2026-11-10: this start's own ceiling
+                while (size >= 1) {   // AIFEATFLOOR-2026-11-10: down to ONE feature (start -> feature -> start)
                     forEachCombo(pool, size) { combo ->
                         gen++
                         var bad2 = false
@@ -1928,7 +2005,11 @@ object RouteExplorer {
                         if (bad2) { killed++ } else {
                             solved++
                             val ord = orderTour(combo, ok) { a, b -> dist(a, b) }
-                            if (ord != null && ord.second >= req.milesLow &&
+                            if (ord != null && ord.second <= req.milesHigh && ord.second > st.longestMiles) {   // AIFAILLONGEST-2026-11-11
+                                st.longestMiles = ord.second; st.longestFeatures = combo.size
+                            }
+                            // AIBANDAFTERFILL-2026-11-11: with the fill on, an under-floor tour is kept -- the floor is applied AFTER the ride is finished
+                            if (ord != null && (ord.second >= req.milesLow || RETURN_AND_FILL) &&
                                 ord.second <= req.milesHigh) {
                                 val eids = pathOf(dij, listOf(ok) + ord.first + listOf(ok))
                                 if (eids != null && found.none { it.combo.toSet() == combo.toSet() }) {
@@ -2027,6 +2108,97 @@ object RouteExplorer {
             "$screened screened by detour, $tried solved")
         found.clear(); found.addAll(enriched)
 
+        /* ── AIRETURNFILL-2026-11-11: FINISH EACH RIDE -- come back by another trail, fill toward the ceiling ───────────────
+         * ⭐ The 08-24 design: "ceiling - tour is the surplus, and the existing engine spends it backfilling features and
+         * avoiding retrace." The 08-26 engine kept the SHORTEST tour per combination as the ride (it was meant as the filter:
+         * "the answer only has to be good enough to FILTER on"), so a far pin came back as a straight line in and out and a
+         * sparse network never reached the floor. Fred 11-11: "the scenic route not the fastest". Scores are untouched.
+         */
+        if (RETURN_AND_FILL) {
+            onProgress?.invoke(Progress("Filling the distance"))
+            fun routeLegs(st: List<Long>, base: Map<Int, Double>): List<Int>? {   // AIVARIATIONS-2026-11-11: base = earlier variations' trails
+                val pen = HashMap<Int, Double>(base); val out = ArrayList<Int>()
+                for (i in 0 until st.size - 1) {
+                    val d = dijkstra(st[i], g, pen)
+                    val pe = pathEdges(d, st[i], st[i + 1]) ?: return null
+                    out.addAll(pe); for (e in pe) pen[e] = PENALTY
+                }
+                return out
+            }
+            fun milesOf(e: List<Int>): Double { var m = 0.0; for (x in e) m += g.edges[x].miles; return m }
+            fun retraceOf(e: List<Int>): Double {
+                val seenE = HashSet<Int>(); var rep = 0.0; var tot = 0.0
+                for (x in e) { val m = g.edges[x].miles; tot += m; if (!seenE.add(x)) rep += m }
+                return if (tot > 0.0) 100.0 * rep / tot else 0.0
+            }
+            val finished = ArrayList<Cand>()
+            var filledN = 0
+            var varN = 0   // AIVARIATIONS-2026-11-11
+            for (c in found) {
+                val ok = liveOrigins.firstOrNull { it.third == c.origin }?.first
+                val ord = if (ok == null) null else orderTour(c.combo, ok) { a, b -> dist(a, b) }
+                if (ok == null || ord == null) { finished.add(c); continue }
+                val stops = ArrayList<Long>(); stops.add(ok); stops.addAll(ord.first); stops.add(ok)
+                val dFrom = HashMap<Long, Map<Long, Double>>()
+                for (s in stops) dij[s]?.let { dFrom[s] = it.dist }
+                val comp = dij[ok]?.dist?.keys ?: emptySet<Long>()
+                val junc = comp.filter { (g.lAdj[it]?.size ?: 0) != 2 }.sorted()
+                val vias = if (junc.size <= FILL_VIAS) junc else { val step = junc.size / FILL_VIAS; junc.filterIndexed { i, _ -> i % step == 0 }.take(FILL_VIAS) }
+                // AIVARIATIONS-2026-11-11: one ride, finished (return by another trail + fill toward the ceiling), with [base] trails penalised too
+                fun finishRide(base: Map<Int, Double>): List<Int>? {
+                    val pe0 = routeLegs(stops, base) ?: return null
+                    if (milesOf(pe0) > req.milesHigh) return null
+                    var curE: List<Int> = pe0
+                    var curM = milesOf(curE)
+                    var cur: List<Long> = stops
+                    val triedV = HashSet<Long>()
+                    var steps = 0
+                    while (steps < FILL_STEPS) {
+                        steps++
+                        var pickAdd = 0.0; var pickI = -1; var pickV = 0L
+                        for (v in vias) {
+                            if (v in triedV || v in cur) continue
+                            for (i in 0 until cur.size - 1) {
+                                val a = cur[i]; val b = cur[i + 1]
+                                val da = dFrom[a]?.get(v) ?: continue
+                                val db = dFrom[b]?.get(v) ?: continue
+                                val dab = dFrom[a]?.get(b) ?: continue
+                                val add = da + db - dab
+                                if (add < 1.0 || curM + add > req.milesHigh) continue
+                                if (add > pickAdd) { pickAdd = add; pickI = i; pickV = v }
+                            }
+                        }
+                        if (pickI < 0) break
+                        triedV.add(pickV)
+                        val trial = ArrayList(cur); trial.add(pickI + 1, pickV)
+                        val te = routeLegs(trial, base) ?: continue
+                        val tm = milesOf(te)
+                        if (tm > req.milesHigh || retraceOf(te) > MAX_RETRACE_PCT) continue
+                        if (!dFrom.containsKey(pickV)) dFrom[pickV] = dijkstra(pickV, g, emptyMap()).dist
+                        cur = trial; curE = te; curM = tm
+                    }
+                    return curE
+                }
+                val first = finishRide(emptyMap()) ?: c.eids
+                val fm = milesOf(first)
+                if (fm > c.miles + 0.05) filledN++
+                finished.add(Cand(c.score, fm, c.combo, c.origin, first))
+                if (first !== c.eids) {
+                    val used = HashMap<Int, Double>(); for (e in first) used[e] = PENALTY
+                    for (vi in 1..VARIATIONS) {
+                        val ve = finishRide(used) ?: break
+                        finished.add(Cand(c.score, milesOf(ve), c.combo, c.origin, ve)); varN++
+                        for (e in ve) used[e] = PENALTY
+                    }
+                }
+            }
+            // AIBANDAFTERFILL-2026-11-11: the floor, on the FINISHED rides
+            val belowFloor = finished.count { it.miles < req.milesLow }
+            found.clear(); found.addAll(finished.filter { it.miles >= req.milesLow })
+            if (belowFloor > 0) Log.i(TAG, "AIBANDAFTERFILL-2026-11-11: " + belowFloor + " finished ride(s) still under " + req.milesLow.toInt() + " mi -- dropped")
+            Log.i(TAG, "AIRETURNFILL-2026-11-11: finished " + finished.size + " ride(s), " + filledN + " lengthened, " + varN + " variation(s) (return by another trail, fill toward " + req.milesHigh.toInt() + " mi)")
+        }
+
         val p1 = HashMap<String, ArrayList<Cand>>()
         for (c in found) p1.getOrPut(c.origin + "|" + c.combo.sorted().joinToString(",")) {
             ArrayList() }.add(c)
@@ -2047,6 +2219,8 @@ object RouteExplorer {
             afterP2.addAll(keep)
         }
 
+        // AIVARIATIONS-2026-11-11: with the fill on, "same features + similar miles" is NOT one ride -- the trails decide (PASS 3)
+        if (RETURN_AND_FILL) { afterP2.clear(); afterP2.addAll(found) }
         /* ── PASS 3: 75%+ SHARED TRAILS IS ONE RIDE ──────────────────────
          * ⛔ Measured: ride 6 was ride 4 with one knoll dropped -- the knoll
          * sat close to the line already taken, so 80% of the trails were the

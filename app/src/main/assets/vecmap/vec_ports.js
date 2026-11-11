@@ -208,6 +208,34 @@ window.showAimRing = function (on) {
     map.on('moveend', window.gtAimCheck); setTimeout(window.gtAimCheck, 300);   // AIMCOLOUR-2026-11-03: checked when the map stops
   } catch (e) { console.log('aim ring: ' + e); }
 };
+// AIPERIMETER-2026-11-11 (Fred 07:48): the planning perimeter -- the box the AI search reads trails from (ceiling / 3 each way), shown
+// while pins are added: on top, bold orange; the map fits the whole box once per box.
+var PERIM_L = [{ id: 'gt-perim-fill', type: 'fill', paint: { 'fill-color': '#FF6D00', 'fill-opacity': 0.12 } },
+               { id: 'gt-perim-line', type: 'line', paint: { 'line-color': '#FF6D00', 'line-width': 5, 'line-opacity': 1.0 } }];
+window.__perimKey = '';
+window.__perimLabel = null;   // AIPERIMCOUNT-2026-11-11
+window.showPerimeter = function (n, s, e, w, nf) {
+  try {
+    gtSet('gt-perim', PERIM_L, { type: 'FeatureCollection', features: [gtBox(+n, +s, +e, +w)] }, false);
+    try { if (window.__perimLabel) window.__perimLabel.remove(); } catch (e3) {}   // AIPERIMCOUNT-2026-11-11: the feature count on the top edge
+    window.__perimLabel = null;
+    if (nf != null && nf >= 0) {
+      var el = document.createElement('div');
+      el.style.cssText = 'background:#FF6D00;color:#fff;font:bold 14px sans-serif;padding:4px 10px;border-radius:12px;' +
+        'box-shadow:0 1px 4px rgba(0,0,0,0.5);white-space:nowrap;pointer-events:none';
+      el.textContent = 'Approximately ' + (nf == 1 ? '1 feature' : nf + ' features') + ' scattered through this area';
+      window.__perimLabel = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([(+e + +w) / 2, +n]).addTo(map);
+    }
+    var k = n + ',' + s + ',' + e + ',' + w;
+    if (k !== window.__perimKey) {
+      window.__perimKey = k;
+      gtWhenReady(function () { try { map.fitBounds([[+w, +s], [+e, +n]], { padding: 24, duration: 0 }); } catch (e2) { console.log('PERIMETER fit ' + e2); } });
+    }
+    console.log('PERIMETER N=' + n + ' S=' + s + ' E=' + e + ' W=' + w);
+  } catch (err) { console.log('PERIMETER ' + err); }
+};
+window.clearPerimeter = function () { window.__perimKey = ''; gtSet('gt-perim', PERIM_L, EMPTY, false);
+  try { if (window.__perimLabel) window.__perimLabel.remove(); } catch (e) {} window.__perimLabel = null; };   // AIPERIMCOUNT-2026-11-11
 // the AI batch: up to six routes, each its own colour, keyed by draft name; show / hide without redrawing; fit to those shown
 var BATCH_L = [{ id: 'gt-batch-line', type: 'line', filter: ['all', ['==', ['geometry-type'], 'LineString'], ['!=', ['get', 'h'], true]],
                  layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -236,6 +264,41 @@ window.showBatchRoute = function (name, on, weight) {
   console.log('SHOWBATCH ' + name + ' ' + on); return true;
 };
 window.clearBatchRoutes = function () { window.__batchLayers = {}; gtBatchPush(); };
+// AICONNECTED-2026-11-11 (Fred 12:41): the trails connected to the trailhead, bold green, while pins are dropped
+var CONN_L = [{ id: 'gt-conn-line', type: 'line', layout: { 'line-cap': 'round', 'line-join': 'round' },
+                paint: { 'line-color': '#00C853', 'line-width': 5, 'line-opacity': 0.85 } }];
+window.showConnected = function (json) {
+  try {
+    var ls = gtJ(json) || [];
+    var f = { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: ls.map(function (l) { return l.map(gtLL); }) } };
+    gtSet('gt-conn', CONN_L, { type: 'FeatureCollection', features: ls.length ? [f] : [] }, false);
+    console.log('CONNECTED ' + ls.length + ' section(s)');
+  } catch (err) { console.log('CONNECTED ' + err); }
+};
+window.clearConnected = function () { gtSet('gt-conn', CONN_L, EMPTY, false); };
+// AICMPCTX-2026-11-11 (Fred 10:07-10:08): the compare table shows the search's context -- the rider's pins and the planning perimeter
+var CMPBOX_L = [{ id: 'gt-cmpbox-fill', type: 'fill', paint: { 'fill-color': '#FF6D00', 'fill-opacity': 0.08 } },
+                { id: 'gt-cmpbox-line', type: 'line', paint: { 'line-color': '#FF6D00', 'line-width': 4, 'line-opacity': 1.0 } }];
+window.__cmpPins = [];
+window.clearCompareContext = function () {
+  try { window.__cmpPins.forEach(function (m) { m.remove(); }); } catch (e) {} window.__cmpPins = [];
+  gtSet('gt-cmpbox', CMPBOX_L, EMPTY, false);
+};
+window.showCompareContext = function (pinsJson, n, s, e, w) {
+  window.clearCompareContext();
+  try {
+    if (n != null) gtSet('gt-cmpbox', CMPBOX_L, { type: 'FeatureCollection', features: [gtBox(+n, +s, +e, +w)] }, false);
+    var pts = gtJ(pinsJson) || [];
+    pts.forEach(function (p, i) {
+      var el = document.createElement('div');
+      el.style.cssText = 'background:#FF0000;color:#fff;border:2px solid #fff;border-radius:50%;width:26px;height:26px;line-height:22px;'
+        + 'text-align:center;font-weight:900;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,0.5);box-sizing:border-box;pointer-events:none';
+      el.textContent = String(i + 1);
+      window.__cmpPins.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(gtLL(p)).addTo(map));
+    });
+    console.log('CMPCTX ' + pts.length + ' pin(s)' + (n != null ? ' + perimeter' : ''));
+  } catch (err) { console.log('CMPCTX ' + err); }
+};
 window.fitBatchRoutes = function () {
   try {
     var b = null;

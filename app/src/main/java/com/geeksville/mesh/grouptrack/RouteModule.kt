@@ -147,6 +147,26 @@ object GtRoute {
         // GTAI2B-2026-10-23 (Fred 15:10): show the routes -- fit AFTER the draws (drawBatch POSTS them, so this is posted too).
         batchPrevView.value = vp.copyOf()
         wv()?.let { v -> v.post { runCatching { v.evaluateJavascript("fitBatchRoutes()", null) } } }
+        // AICMPCTX-2026-11-11 (Fred 10:07-10:08): the rider's pins and (a loop) the planning perimeter stay on the map with the rides --
+        //  from the compare set's own record, so they match the rides shown
+        runCatching {
+            val bt = RouteDraftStore.readBatch()
+            val b = bt?.optJSONObject("recipe") ?: bt   // AICMPCTXFIX-2026-11-11: the pins, trailhead and ceiling live under "recipe"
+            if (b != null) {
+                val pa = b.optJSONArray("pins")
+                val pj = StringBuilder("[")
+                if (pa != null) for (i in 0 until pa.length()) { val o = pa.optJSONObject(i) ?: continue
+                    if (pj.length > 1) pj.append(","); pj.append("[%.6f,%.6f]".format(java.util.Locale.US, o.optDouble("lat"), o.optDouble("lon"))) }
+                pj.append("]")
+                val la = b.optDouble("anchorLat", 0.0); val lo = b.optDouble("anchorLon", 0.0); val hi = b.optDouble("milesHigh", 0.0)
+                val loopRide = b.isNull("finish") && !(la == 0.0 && lo == 0.0) && hi > 0.0
+                val box = if (!loopRide) "null,null,null,null" else {
+                    val dLat = hi / 3.0 / 69.0; val dLon = hi / 3.0 / (69.0 * maxOf(0.2, Math.cos(Math.toRadians(la))))
+                    "%.6f,%.6f,%.6f,%.6f".format(java.util.Locale.US, la + dLat, la - dLat, lo + dLon, lo - dLon)
+                }
+                js("if (window.showCompareContext) showCompareContext('" + pj + "'," + box + ")")
+            }
+        }.onFailure { android.util.Log.e("BatchGrid", "AICMPCTX-2026-11-11: " + it.message) }
         batchOpen.value = true
     }
 
@@ -156,7 +176,7 @@ object GtRoute {
         batchRows.value = emptyList()
         batchSave.value = emptySet()
         batchHidden.value = emptySet()
-        js("clearBatchRoutes()")
+        js("clearBatchRoutes(); if (window.clearCompareContext) clearCompareContext();")   // AICMPCTX-2026-11-11
         val prev = batchPrevLayers.value
         restoreAll()   // GTAI4B-2026-10-23: the filter and the off-grid areas back exactly as they were
         batchPrevLayers.value = emptyList()
@@ -177,6 +197,8 @@ object GtRoute {
     val aiProgress = mutableStateOf("")
     val aiSkipOverview = mutableStateOf(false)
     val pinNotice = mutableStateOf("")
+    // AIPERIMCOUNT-2026-11-11 v6 (Fred 09:19): a poor area for AI route planning -> a pop-up the rider must answer (drop pins, or design it anyway)
+    val askWarn = mutableStateOf("")
     val pinTrailName = mutableStateOf("")
     val pinTrailLat = mutableStateOf(0.0)
     val pinTrailLon = mutableStateOf(0.0)
@@ -194,6 +216,9 @@ object GtRoute {
     val pinFeas = mutableStateOf<com.geeksville.mesh.convoy.RouteExplorer.PinFeasibility?>(null)
     private var pinFeasSeq = 0
     private var pinAssessSeq = 0
+    // AIPINWAIT-2026-11-11 (Fred 01:29): ONE pin check at a time -- each builds the whole search-area network (the 00:25 out-of-memory)
+    @Volatile private var pinChecking = false
+    private var pinCheckAgain = false
     var aiMapReady = false
     // set by the host map: turn Trails, Tracks and Waypoints on for the trailhead step (the planner's AISTEPS layer defaults).
     var layersOnForAi: () -> Unit = {}
@@ -263,6 +288,8 @@ object GtRoute {
         val mHi = pinMiHigh.intValue.toDouble()
         val sLo = pinMphLow.intValue.toDouble()
         val sHi = pinMphHigh.intValue.toDouble()
+        if (pinChecking) { pinCheckAgain = true; return }   // AIPINWAIT-2026-11-11: runs when the check in progress finishes
+        pinChecking = true
         pinAssessSeq += 1
         val seq = pinAssessSeq
         Thread {
@@ -282,6 +309,8 @@ object GtRoute {
             }
             val res = out
             android.os.Handler(android.os.Looper.getMainLooper()).post {
+                pinChecking = false   // AIPINWAIT-2026-11-11
+                if (pinCheckAgain) { pinCheckAgain = false; android.os.Handler(android.os.Looper.getMainLooper()).post { runAssess(ctx) } }
                 if (res != null && seq >= pinFeasSeq) {
                     pinFeasSeq = seq
                     pinFeas.value = res
@@ -303,9 +332,55 @@ object GtRoute {
         }.start()
     }
 
+    // AICONNECTED-2026-11-11 (Fred 12:41): draw the trails connected to the trailhead while pins are dropped -- run like a pin check
+    //  (AIPINWAIT), so a tap waits and two network builds never run at once
+    fun showConnected(ctx: android.content.Context) {
+        val aLat = pinTrailLat.value; val aLon = pinTrailLon.value
+        if (aLat == 0.0 && aLon == 0.0) return
+        if (pinChecking) return
+        pinChecking = true
+        val loop = pinIsLoop.value; val eLat = pinEndLat.value; val eLon = pinEndLon.value
+        val mLo = pinMiLow.intValue.toDouble(); val mHi = pinMiHigh.intValue.toDouble()
+        val sLo = pinMphLow.intValue.toDouble(); val sHi = pinMphHigh.intValue.toDouble()
+        Thread {
+            val sb = StringBuilder("[")
+            try {
+                SpatialDbManager.init(ctx)
+                val db = SpatialDbManager.getSpatialDb()
+                if (db != null) {
+                    val shape = if (loop == false) com.geeksville.mesh.convoy.RouteExplorer.RouteShape.PointToPoint(eLat, eLon)
+                                else com.geeksville.mesh.convoy.RouteExplorer.RouteShape.Loop
+                    val lines = com.geeksville.mesh.convoy.RouteExplorer.connectedLines(db,
+                        com.geeksville.mesh.convoy.RouteExplorer.Request(anchorLat = aLat, anchorLon = aLon, name = pinRideName.value,
+                            milesLow = mLo, milesHigh = mHi, mphLow = sLo, mphHigh = sHi), shape)
+                    for (ln in lines) {
+                        if (ln.size < 2) continue
+                        if (sb.length > 1) sb.append(',')
+                        sb.append('[')
+                        for ((pi, p) in ln.withIndex()) { if (pi > 0) sb.append(','); sb.append("[%.5f,%.5f]".format(java.util.Locale.US, p[0], p[1])) }
+                        sb.append(']')
+                    }
+                }
+            } catch (e: Exception) { android.util.Log.e("GuidedPin", "AICONNECTED-2026-11-11: failed: " + e.message) }
+            sb.append(']')
+            val json = sb.toString()
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                pinChecking = false
+                if (pinCheckAgain) { pinCheckAgain = false; android.os.Handler(android.os.Looper.getMainLooper()).post { runAssess(ctx) } }
+                if (aiStep.intValue == PIN_STEP_INCLUDE) js("if (window.showConnected) showConnected('" + json + "')")
+            }
+        }.start()
+    }
+
     /** the planner's onProximityTap, copied: a tap while the flow asks for a place (the page sends it only while __pinSelect). */
     fun onPinTap(ctx: android.content.Context, lat: Double, lon: Double) {
         val step = aiStep.intValue
+        if ((step == PIN_STEP_ENDPOINT || step == PIN_STEP_INCLUDE) && pinChecking) {   // AIPINWAIT-2026-11-11: the last pin is still being checked
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(ctx, "Checking your last pin -- one moment.", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
         if (step == PIN_STEP_ENDPOINT) {
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 pinEndLat.value = lat
@@ -529,7 +604,11 @@ object GtRoute {
                     "✗ No trail you are showing is within 1/2 mile of the trailhead -- " +
                         (if (hid != null) "a trail FILTER is hiding is ${"%.0f".format(hid)} m away (SEE / CHANGE FILTER)" else "START OVER with another trailhead")
                 }
-                val mi = if (near == null) 0.0 else RX.connectedMiles(db, req)
+                // AICHECKNONET-2026-11-10 (Fred 22:48 "why build before the final selection"): no trail network before the search -- the
+                //  connected-miles check built the whole network on every plan / step / FILTER change, beside the search's own build
+                //  (three Moab networks at once = OutOfMemoryError, 11-10 22:12). -1 = not checked here: c2 below stays empty; the
+                //  search builds the network ONCE, on the final selection, and reports a network too short for the distance itself.
+                val mi = -1.0
                 val lo = req.milesLow.toInt(); val hi = req.milesHigh.toInt()
                 val c2 = when {
                     near == null || mi < 0 -> ""
@@ -608,6 +687,10 @@ object GtRoute {
     /** the planner's FIND MY RIDES, copied: the search builds the routes and records the compare set; then the COMPARE TABLE
      *  opens on them (ONE MAP goes straight there -- the planner's results panel in between is not copied). */
     fun findRides(ctx: android.content.Context) {
+        if (pinChecking) {   // AIPINWAIT-2026-11-11: the search builds its own network -- not while a pin check is building one
+            android.widget.Toast.makeText(ctx, "Checking your last pin -- one moment, then press again.", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
         pinNotice.value = ""
         aiStep.intValue = PIN_STEP_SEARCH
         aiBusy.value = true
@@ -625,17 +708,27 @@ object GtRoute {
             var made = 0
             var err = ""
             var summary = ""   // AIFAIL-2026-11-03
+            var lowUsed = mLo   // AIFLOOR10-2026-11-11: the floor the shown rides were found with
             try {
                 SpatialDbManager.init(ctx)
                 val db = SpatialDbManager.getSpatialDb()
                 if (db == null) {
                     err = "No trail data on this device yet"
                 } else {
-                    val out = com.geeksville.mesh.convoy.RouteExplorer.explore(db,
+                    fun search(lo: Int) = com.geeksville.mesh.convoy.RouteExplorer.explore(db,
                         com.geeksville.mesh.convoy.RouteExplorer.Request(anchorLat = aLat, anchorLon = aLon, name = rn,
-                            milesLow = mLo.toDouble(), milesHigh = mHi.toDouble(), mphLow = sLo.toDouble(), mphHigh = sHi.toDouble(),
+                            milesLow = lo.toDouble(), milesHigh = mHi.toDouble(), mphLow = sLo.toDouble(), mphHigh = sHi.toDouble(),
                             includePoints = pins)
                     ) { p -> aiProgress.value = p.step + (if (p.detail.isNotBlank()) " — " + p.detail else "") }
+                    var out = search(mLo)
+                    // AIFLOOR10-2026-11-11 (Fred 08:54 "drop the floor to 10 miles and rerun the compare function. our goal is to get trails"):
+                    //  nothing in the band -> once more from 10 miles (same ceiling; the network is cached). Not after a cancel.
+                    if (out.isEmpty() && mLo > AI_RETRY_FLOOR && aiStep.intValue == PIN_STEP_SEARCH) {
+                        android.util.Log.i("RouteExplorer", "AIFLOOR10-2026-11-11: no $mLo-$mHi mile ride -- searching again from $AI_RETRY_FLOOR miles")
+                        aiProgress.value = "No $mLo-$mHi mile rides here — looking from $AI_RETRY_FLOOR miles"
+                        out = search(AI_RETRY_FLOOR)
+                        lowUsed = AI_RETRY_FLOOR
+                    }
                     RouteDraftStore.writeBatch(
                         batchName = rn,
                         draftNames = out.map { it.draftName },
@@ -644,7 +737,7 @@ object GtRoute {
                         hoursHigh = out.map { it.hoursHigh },
                         anchorLat = aLat, anchorLon = aLon,
                         anchorName = null,
-                        milesLow = mLo.toDouble(), milesHigh = mHi.toDouble(),
+                        milesLow = lowUsed.toDouble(), milesHigh = mHi.toDouble(),   // AIFLOOR10-2026-11-11: the floor the rides were found with
                         mphLow = sLo.toDouble(), mphHigh = sHi.toDouble(),
                         pins = pins,
                         finish = if (loop == false) eLat to eLon else null,
@@ -670,11 +763,14 @@ object GtRoute {
                 err = "Could not build rides: " + (e.message ?: "error")
             }
             val fMade = made
+            val fLow = lowUsed   // AIFLOOR10-2026-11-11
             val fErr = err
             val fSum = summary   // AIFAIL-2026-11-03
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 aiBusy.value = false
                 if (fMade > 0 && RouteDraftStore.hasOpenBatch()) {
+                    if (fLow < mLo) android.widget.Toast.makeText(ctx, "No $mLo-$mHi mile rides from this trailhead — showing rides from $fLow miles.",
+                        android.widget.Toast.LENGTH_LONG).show()   // AIFLOOR10-2026-11-11
                     // the flow ends; the compare table takes over (it turns route mode off and fits the routes)
                     aiStep.intValue = PIN_STEP_NONE
                     routeMode.value = false
@@ -691,11 +787,35 @@ object GtRoute {
                     val allLand = tf.land != "PUBLIC" && tf.land != "PRIVATE" && tf.restricted
                     noticeFilter.value = true
                     noticeAllLand.value = !allLand   // AIFAIL-2026-11-03 v4
-                    notice.value = (if (fErr.isNotEmpty()) fErr + "\n\n" else "No rides could be built from that trailhead and distance.\n\n") +
+                    // AIFEWFEAT-2026-11-10 (Fred 23:27): stopped for lack of features (and no pins dropped) -> say so, with the count, and how to
+                    //  get rides: drop points on the trails -- the planner builds around them (dropped points are features to it).
+                    val fst = com.geeksville.mesh.convoy.RouteExplorer.lastStats
+                    val fewFeatures = fErr.isEmpty() && pins.isEmpty() &&
+                        (fst.stop.startsWith("no features") || fst.stop.contains("features here, but no ride"))
+                    val nf = if (fst.features < 0) 0 else fst.features
+                    // AIFAILNOTICE-2026-11-11 (Fred 08:23): say what this trailhead can reach -- features AND miles of connected trail
+                    val tmi = fst.trailMiles
+                    val reach = "from this trailhead the planner can reach " + (if (nf == 1) "1 feature" else "$nf features") +
+                        (if (tmi >= 0.0) " on " + Math.round(tmi) + " miles of connected trail" else "")
+                    // AIFAILLONGEST-2026-11-11 (Fred 08:24): what IS possible from here -- the longest loop the search solved, when under the floor
+                    val lmi = fst.longestMiles
+                    val best = if (lmi > 0.0 && lmi < mLo) "The longest ride the planner can build here is about " + Math.round(lmi) +
+                        " miles (through " + fst.longestFeatures + " features). Over rough ground a ride that long can be a full day -- " +
+                        "set the distance to about " + Math.round(lmi) + " miles to see it.\n\n" else ""
+                    // AIFAILSHORT-2026-11-11 (Fred 08:29 "the message should be smaller"): one line of what is here, Fred's line, one line of what to do
+                    val here = (if (nf == 1) "1 feature" else "$nf features") +
+                        (if (tmi >= 0.0) " on " + Math.round(tmi) + " miles of connected trail" else "") + " from this trailhead." +
+                        (if (lmi > 0.0 && lmi < mLo) " The longest ride here is about " + Math.round(lmi) + " miles." else "")
+                    notice.value = (if (fErr.isNotEmpty()) fErr + "\n\n"
+                        else if (fewFeatures || fst.features >= 0) "Not a good area for a $mLo-$mHi mile ride: " + here + "\n\n"
+                        else "No rides could be built from that trailhead and distance.\n\n") +
                         (if (!allLand) "Some land types are hidden. Turn on Public, Private and Restricted in FILTER and search again: " +
                             "every trail is then searched, and the map shows which parts cross private land and which are closed to " +
                             "motor vehicles.\n\n"
-                        else "Try Start over with another trailhead or a different distance.\n\n") +
+                        else "") +
+                        // AIFAILNOTICE-2026-11-11 (Fred 08:22): the instruction on every failed search
+                        "With so few features and trail connections, the manual route planner is the better choice here. Or START OVER: " +   // AIFAILSHORT-2026-11-11
+                        "pick a trailhead with more connected trails inside the orange rectangle, or drop pins along connected trails.\n\n" +
                         "What was searched:\n" + fSum.ifEmpty { "(not recorded)" } +
                         (if (selection.value.isNotEmpty()) "\n\nTrails in this search:\n" + selection.value else "") +
                         (if (!allLand) "\n\nSHOW ALL LAND AND SEARCH AGAIN does that in one tap. " else "\n\n") +
@@ -923,6 +1043,69 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
         val json = R.pinPoints.value.joinToString(",", "[", "]") { "[%.6f,%.6f]".format(it.first, it.second) }
         R.js("renderPins('" + json + "')")
     }
+    // AICONNECTED-2026-11-11 (Fred 12:41): the connected trails, in green, while pins are dropped; cleared on every other step
+    androidx.compose.runtime.LaunchedEffect(R.aiStep.intValue, R.pinTrailLat.value, R.pinTrailLon.value, R.pinMiHigh.intValue, R.pinIsLoop.value) {
+        if (R.aiStep.intValue == PIN_STEP_INCLUDE) R.showConnected(ctx) else R.js("if (window.clearConnected) clearConnected();")
+    }
+    // AIPERIMETER-2026-11-11 (Fred 07:48): the planning perimeter while pins are added -- the SAME box as the search's corridorBox
+    //  (ceiling / 3 each way from the trailhead). Loop rides only; cleared on every other step.
+    androidx.compose.runtime.LaunchedEffect(R.aiStep.intValue, R.pinTrailLat.value, R.pinTrailLon.value, R.pinMiHigh.intValue, R.pinIsLoop.value) {
+        val st = R.aiStep.intValue
+        val la = R.pinTrailLat.value; val lo = R.pinTrailLon.value
+        val show = (st == PIN_STEP_ASK || st == PIN_STEP_INCLUDE) && R.pinIsLoop.value != false && !(la == 0.0 && lo == 0.0)   // AIPERIMCOUNT-2026-11-11 v3: from the ASK step
+        if (!show) { R.js("if (window.clearPerimeter) clearPerimeter();") } else {
+            val rMi = R.pinMiHigh.intValue.toDouble() / 3.0
+            val dLat = rMi / 69.0
+            val dLon = rMi / (69.0 * maxOf(0.2, Math.cos(Math.toRadians(la))))
+            // AIPERIMCOUNT-2026-11-11 (Fred 08:36 / 09:09-09:10): the features inside the rectangle and how far out they reach -- one query,
+            //  the search's own feature rule (no network). Reach decides: a ride is a loop through features, so they must reach out.
+            val nb = la + dLat; val sb = la - dLat; val eb = lo + dLon; val wb = lo - dLon
+            val kx = 69.0 * Math.cos(Math.toRadians(la))
+            val fr = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                var c = -1; var far = 0.0
+                try {
+                    SpatialDbManager.init(ctx)
+                    SpatialDbManager.getSpatialDb()?.rawQuery(
+                        "SELECT lat, lon FROM reference_points WHERE name IS NOT NULL AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? " +
+                            "AND COALESCE(fclass, 'other') NOT IN ('county','city','town','tree','village','locality','hamlet','suburb','farm')",
+                        arrayOf(sb.toString(), nb.toString(), wb.toString(), eb.toString()))?.use { cur ->
+                        c = 0
+                        while (cur.moveToNext()) {
+                            c++
+                            val dy = (cur.getDouble(0) - la) * 69.0; val dx = (cur.getDouble(1) - lo) * kx
+                            far = maxOf(far, Math.sqrt(dx * dx + dy * dy))
+                        }
+                    }
+                } catch (e: Exception) { android.util.Log.e("GuidedPin", "AIPERIMCOUNT-2026-11-11: count failed: " + e.message) }
+                c to far
+            }
+            val nf = fr.first; val farMi = fr.second
+            val mLoAsk = R.pinMiLow.intValue
+            android.util.Log.i("GuidedPin", "AIPERIMCOUNT-2026-11-11: " + nf + " feature(s) in the planning perimeter, the farthest " +
+                "%.1f".format(farMi) + " mi from the trailhead (minimum asked " + mLoAsk + " mi)")
+            if (st == PIN_STEP_ASK && nf >= 0) {   // AIPERIMCOUNT-2026-11-11 v5 (Fred 09:10): good candidate, or drop pins -- decided on REACH
+                val nfs = "approximately " + nf + (if (nf == 1) " feature" else " features") +
+                    (if (nf > 0) ", the farthest about " + Math.round(farMi) + " miles from the trailhead" else "")
+                val goodAi = nf > 0 && farMi * AI_REACH_FACTOR >= mLoAsk
+                R.pinNotice.value = if (goodAi) "This area contains " + nfs +
+                        " and is a good candidate for the AI build. Answer NO and the ride is designed for you, or drop pins to steer it."
+                    else "This area is not a good candidate for AI route planning because of the lack of connected trails and features " +
+                        "(" + nfs + ")." + (if (mLoAsk > AI_RETRY_FLOOR) " The minimum ride distance has been lowered from " + mLoAsk + " to " +
+                        AI_RETRY_FLOOR + " miles so the planner builds what this network can carry." else "") +
+                        " We suggest you add pins: each adds a feature and the trails it is on, to extend the ride network. " +
+                        "Pins can only be dropped on trails connected to this trailhead's trail network: a pin with no route to connect it is not accepted."
+                R.askWarn.value = if (goodAi) "" else R.pinNotice.value   // AIPERIMCOUNT-2026-11-11 v6: the pop-up
+                // AIPERIMCOUNT-2026-11-11 v11 (Fred 09:34 "do not require the failure before we lower trail distance"): a poor area lowers the
+                //  request's minimum NOW, so the first search already runs from 10 miles (the review screen shows it)
+                if (!goodAi && mLoAsk > AI_RETRY_FLOOR) {
+                    R.pinMiLow.intValue = AI_RETRY_FLOOR
+                    android.util.Log.i("GuidedPin", "AIPERIMCOUNT-2026-11-11: poor area -- minimum lowered from " + mLoAsk + " to " + AI_RETRY_FLOOR + " mi")
+                }
+            }
+            R.js("if (window.showPerimeter) showPerimeter(" + "%.6f,%.6f,%.6f,%.6f".format(java.util.Locale.US,
+                nb, sb, eb, wb) + "," + nf + ");")
+        }
+    }
 
     // ── the toolbar: LOCKED to the launched method (one mode; the other is not shown) ──
     if (R.routeMode.value && !R.aiActive()) {   // GTAI3-2026-10-23: the AI flow has its own screens
@@ -1049,7 +1232,8 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                         state = when { step < PIN_STEP_ASK -> GS; step == PIN_STEP_ASK -> GC; else -> GD }),
                     com.geeksville.mesh.convoy.GuidedStep(
                         title = "Places to pass through",
-                        instruction = "Tap the closest trail to each place you want the ride to reach — up to " + PIN_MAX +
+                        instruction = "Green trails are connected to your trailhead -- drop pins on them. " +   // AICONNECTED-2026-11-11
+                            "Tap the closest trail to each place you want the ride to reach — up to " + PIN_MAX +
                             ". Tap a pin again to remove it. I will favour rides that pass named points of interest.",
                         answer = if (pts.isEmpty()) "" else pts.size.toString() + " place" + (if (pts.size == 1) "" else "s") + " included",
                         state = when { step < PIN_STEP_INCLUDE -> GS; step == PIN_STEP_INCLUDE -> GC; else -> GD }),
@@ -1189,6 +1373,26 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
             subtitle = "Work in progress \u2014 not saved yet",
             sections = com.geeksville.mesh.convoy.notesFromDraft(RouteDraftStore.readNotes(R.routeName.value)),
             onClose = { R.showWipNotes.value = false }
+        )
+    }
+
+    // AIPERIMCOUNT-2026-11-11 v6 (Fred 09:19 "a pop up warning message that you must respond to: add dropped pins to add features and connected
+    //  trail diversity"): no tap-outside dismiss -- the rider answers with the panel's own two choices.
+    if (R.askWarn.value.isNotEmpty() && R.aiStep.intValue == PIN_STEP_ASK) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Not a good candidate for AI route planning") },
+            text = { Text(R.askWarn.value) },
+            confirmButton = {
+                TextButton(onClick = { R.askWarn.value = ""; R.pinNotice.value = ""; R.aiStep.intValue = PIN_STEP_INCLUDE }) {
+                    Text("YES — I'LL DROP PINS (RECOMMENDED)")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { R.askWarn.value = ""; R.pinNotice.value = ""; R.pinPoints.value = emptyList(); R.aiStep.intValue = PIN_STEP_SUMMARY }) {
+                    Text("NO — DESIGN IT FOR ME")
+                }
+            }
         )
     }
 
@@ -1532,6 +1736,12 @@ private const val PIN_STEP_ASK       = 4
 private const val PIN_STEP_INCLUDE   = 5
 private const val PIN_STEP_SUMMARY   = 6
 private const val PIN_STEP_SEARCH    = 7
+// AIPERIMCOUNT-2026-11-11 v5 (Fred 09:09-09:10): a ride is a loop through features, so they must REACH out -- the area is a good candidate when
+//  the farthest feature (straight line from the trailhead) x this factor reaches the minimum asked (a loop through features spread
+//  around that far is up to ~3x its radius; trail miles are longer than straight-line miles)
+private const val AI_REACH_FACTOR = 3.0
+// AIFLOOR10-2026-11-11 (Fred 08:54): the floor a search with no ride in the rider's band is run again from
+private const val AI_RETRY_FLOOR = 10
 private const val PIN_MAX = 5
 private const val PIN_REMOVE_MI = 0.15
 private const val TRAILHEAD_SELECT_MI = 0.062
