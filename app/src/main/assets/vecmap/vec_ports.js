@@ -213,9 +213,19 @@ window.showAimRing = function (on) {
 var PERIM_L = [{ id: 'gt-perim-fill', type: 'fill', paint: { 'fill-color': '#FF6D00', 'fill-opacity': 0.12 } },
                { id: 'gt-perim-line', type: 'line', paint: { 'line-color': '#FF6D00', 'line-width': 5, 'line-opacity': 1.0 } }];
 window.__perimKey = '';
-window.showPerimeter = function (n, s, e, w) {
+window.__perimLabel = null;   // AIPERIMCOUNT-2026-11-11
+window.showPerimeter = function (n, s, e, w, nf) {
   try {
     gtSet('gt-perim', PERIM_L, { type: 'FeatureCollection', features: [gtBox(+n, +s, +e, +w)] }, false);
+    try { if (window.__perimLabel) window.__perimLabel.remove(); } catch (e3) {}   // AIPERIMCOUNT-2026-11-11: the feature count on the top edge
+    window.__perimLabel = null;
+    if (nf != null && nf >= 0) {
+      var el = document.createElement('div');
+      el.style.cssText = 'background:#FF6D00;color:#fff;font:bold 14px sans-serif;padding:4px 10px;border-radius:12px;' +
+        'box-shadow:0 1px 4px rgba(0,0,0,0.5);white-space:nowrap;pointer-events:none';
+      el.textContent = 'Approximately ' + (nf == 1 ? '1 feature' : nf + ' features') + ' scattered through this area';
+      window.__perimLabel = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([(+e + +w) / 2, +n]).addTo(map);
+    }
     var k = n + ',' + s + ',' + e + ',' + w;
     if (k !== window.__perimKey) {
       window.__perimKey = k;
@@ -224,7 +234,8 @@ window.showPerimeter = function (n, s, e, w) {
     console.log('PERIMETER N=' + n + ' S=' + s + ' E=' + e + ' W=' + w);
   } catch (err) { console.log('PERIMETER ' + err); }
 };
-window.clearPerimeter = function () { window.__perimKey = ''; gtSet('gt-perim', PERIM_L, EMPTY, false); };
+window.clearPerimeter = function () { window.__perimKey = ''; gtSet('gt-perim', PERIM_L, EMPTY, false);
+  try { if (window.__perimLabel) window.__perimLabel.remove(); } catch (e) {} window.__perimLabel = null; };   // AIPERIMCOUNT-2026-11-11
 // the AI batch: up to six routes, each its own colour, keyed by draft name; show / hide without redrawing; fit to those shown
 var BATCH_L = [{ id: 'gt-batch-line', type: 'line', filter: ['all', ['==', ['geometry-type'], 'LineString'], ['!=', ['get', 'h'], true]],
                  layout: { 'line-cap': 'round', 'line-join': 'round' },

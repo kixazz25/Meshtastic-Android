@@ -222,6 +222,9 @@ object GtRoute {
      */
     private const val SNAP_ANCHOR_MI = 2.0
     private const val SNAP_POINT_MI = 0.5
+    // AIPINNEAR-2026-11-11 (Fred 09:25-09:27): pins may go on ANY trail network within 1/2 mile of the trailhead (as the search's starts do).
+    //  false = the pin check uses only the largest nearby network (the check before 11-11).
+    private const val PIN_ANY_NEARBY_NETWORK = true
     private const val PENALTY = 2.2
     private const val TRIES = 2500
     private const val BEAM_TOP = 5
@@ -1322,6 +1325,8 @@ object GtRoute {
         // rule (explore: "candidate starts: every trail within startYds"). The ONE nearest trail can be an isolated scrap (Broken Ridge,
         // 10-28: "origin trail #17: 1 of 29 features usable"), and then every pin read as "on a fragment".
         var anchorNet: HashSet<Long>? = null
+        val nearAll = HashSet<Long>()          // AIPINNEAR-2026-11-11: every node of every network within 1/2 mile of the trailhead
+        val pinNearNet = HashSet<Int>()        // AIPINNEAR-2026-11-11: pins that snapped onto one of those networks
         run {
             val (alat, alon) = all[0]
             val startMi = 0.5
@@ -1339,13 +1344,31 @@ object GtRoute {
                 comps.add(c)
             }
             for (c in comps) net.addAll(c)
+            nearAll.addAll(net)   // AIPINNEAR-2026-11-11
             anchorNet = comps.maxByOrNull { it.size }
+            // AIPINNEAR-2026-11-11 (1): start on the nearby network that reaches the MOST pins (tie -> the larger); none -> the largest.
+            if (PIN_ANY_NEARBY_NETWORK && all.size > 1 && comps.size > 1) {
+                var bestC: HashSet<Long>? = null; var bestN = -1
+                for (c in comps) {
+                    var hits = 0
+                    for (pi in 1 until all.size) {
+                        val (pla, plo) = all[pi]
+                        val (pei, _, pd) = nearestSeg(pla, plo, c)
+                        if (pei >= 0 && pd <= SNAP_POINT_MI) hits++
+                    }
+                    if (hits > bestN || (hits == bestN && c.size > (bestC?.size ?: -1))) { bestN = hits; bestC = c }
+                }
+                if (bestN > 0) anchorNet = bestC
+                log.i { "assess: AIPINNEAR-2026-11-11 trailhead starts on the nearby network reaching " + bestN + " of " + (all.size - 1) + " pin(s) (size " + (bestC?.size ?: 0) + ")" }
+            }
             log.i { "assess: ASSESSNEAR2 trailhead networks within 1/2 mile: " + comps.size + " (sizes " + comps.map { it.size } + ")" }
         }
         for (i in all.indices) {
             val (lat, lon) = all[i]
             val cap = if (i == 0) SNAP_ANCHOR_MI else SNAP_POINT_MI
-            val (ei, bp, d) = nearestSeg(lat, lon, if (i == 0) anchorNet else net)   // ASSESSNEAR2: trailhead on its largest nearby network
+            // AIPINNEAR-2026-11-11 (1): a pin snaps on the start's network when that network is within its cap (a pin can be near two)
+            val (ei, bp, d) = run { val onA = if (PIN_ANY_NEARBY_NETWORK && i > 0 && anchorNet != null) nearestSeg(lat, lon, anchorNet) else null
+                if (onA != null && onA.first >= 0 && onA.third <= cap) onA else nearestSeg(lat, lon, if (i == 0) anchorNet else net) }   // ASSESSNEAR2: trailhead on its largest nearby network
             val dAny = if (i == 0) d else nearestSeg(lat, lon, null).third
             if (ei < 0 || bp == null || d > cap) {
                 terms.add(Long.MIN_VALUE)          // a placeholder terminal: index i keeps its meaning; never routed (tooFar)
@@ -1355,6 +1378,7 @@ object GtRoute {
                 if (i > 0 && dAny <= cap) onFrag.add(i)
                 continue
             }
+            if (i > 0 && (g.edges[ei].u in nearAll || g.edges[ei].v in nearAll)) pinNearNet.add(i)   // AIPINNEAR-2026-11-11
             val node = splitEdgeAt(g, ei, bp)
             terms.add(node)
             snapFt.add(d * 5280.0)
@@ -1395,6 +1419,7 @@ object GtRoute {
         // but unlikely is not checked, and an infinite entry reaching heldKarp
         // returns MAX_VALUE for a reason nobody can see.
         val unreachable = ArrayList<Int>()
+        val offAnchor = ArrayList<Int>()   // AIPINNEAR-2026-11-11 (2): valid -- on another of the trailhead's nearby networks (its own rides)
         val keep = ArrayList<Int>()
         keep.add(0)
         for (i in 1 until n) {
@@ -1417,7 +1442,7 @@ object GtRoute {
             // assessment fail, which is the honest answer.
             if (i == endIdx) { keep.add(i); continue }
             if (full[0][i] == Double.MAX_VALUE || full[i][0] == Double.MAX_VALUE) {
-                unreachable.add(i)
+                if (PIN_ANY_NEARBY_NETWORK && i in pinNearNet) offAnchor.add(i) else unreachable.add(i)   // AIPINNEAR-2026-11-11 (2)
             } else {
                 keep.add(i)
             }
@@ -1486,7 +1511,7 @@ object GtRoute {
                 "over=${GtFmt.f(over, 1)}, under=${GtFmt.f(under, 1)}, " +
                 "tooFar=$tooFar, order=$order, " +
                 "marginal=${marginal.joinToString(",") { GtFmt.f(it, 1) }}, " +
-                "unreachable=$unreachable, onFragment=$onFrag"
+                "unreachable=$unreachable, onFragment=$onFrag, onOtherNearbyNetwork=$offAnchor"
         }
         return PinFeasibility(
             order, miles, legs, snapFt, onFrag, unreachable,
@@ -2018,6 +2043,7 @@ object GtRoute {
          * ⭐ Solve it; if it busts, drop the weakest and solve again.
          * Measured: clique 25 -> tested ceiling 9 in 17 solves.
          */
+        val testedCeil = HashMap<Long, Int>()   // AIFEATFLOOR-2026-11-10: each start's OWN tested ceiling (was one number: the smallest)
         run {
             var tested = 0
             for ((ok, _, onm) in liveOrigins) {
@@ -2041,6 +2067,7 @@ object GtRoute {
                     grp.removeAt(0)
                 }
                 if (grp.size < ceilingSize) ceilingSize = grp.size
+                testedCeil[ok] = grp.size   // AIFEATFLOOR-2026-11-10
                 log.i { "$onm: clique $cliqueWas -> tested ceiling ${grp.size}" }
             }
             log.i { "ceiling tested in $tested solve(s) -> $ceilingSize" }
@@ -2064,13 +2091,13 @@ object GtRoute {
             if (survivorsOf(found.map { Triple(it.combo.size, it.miles, it.eids) },
                     maxOverlap) >= enrichN) break
             working.add(feat)
-            if (working.size < 2) continue
+            if (working.isEmpty()) continue   // AIFEATFLOOR-2026-11-10: one feature is enough for a ride (was: 2)
             for ((ok, _, onm) in liveOrigins) {
                 val pool = working.filter { it in (perOrigin[ok] ?: emptyList()) }
-                if (pool.size < 2) continue
+                if (pool.isEmpty()) continue   // AIFEATFLOOR-2026-11-10
                 val bad = badPair[ok] ?: HashSet()
-                var size = minOf(pool.size, ceilingSize)
-                while (size >= 2) {
+                var size = minOf(pool.size, testedCeil[ok] ?: ceilingSize)   // AIFEATFLOOR-2026-11-10: this start's own ceiling
+                while (size >= 1) {   // AIFEATFLOOR-2026-11-10: down to ONE feature (start -> feature -> start)
                     forEachCombo(pool, size) { combo ->
                         gen++
                         var bad2 = false
