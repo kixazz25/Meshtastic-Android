@@ -6969,8 +6969,9 @@ RouteExplorer.kt:111:    fun selectionTable(db: SQLiteDatabase, req: Request): S
 RouteExplorer.kt:118:    fun selectionBreakdown(db: SQLiteDatabase, req: Request): String =
 RouteExplorer.kt:125:    fun nearestShownTrailMeters(db: SQLiteDatabase, lat: Double, lon: Double, maxM: Double = TRAILHEAD_CHECK_M,
 RouteExplorer.kt:130:    fun connectedMiles(db: SQLiteDatabase, req: Request): Double =
-RouteExplorer.kt:134:    fun assess(
-RouteExplorer.kt:147:    fun explore(
+RouteExplorer.kt:135:    fun connectedLines(spatialDb: SQLiteDatabase, req: Request, shape: RouteShape): List<List<DoubleArray>> =
+RouteExplorer.kt:138:    fun assess(
+RouteExplorer.kt:151:    fun explore(
 HomeStateImportController.kt:36:private const val TAG = "HomeStateImport"
 HomeStateImportController.kt:42:private const val MINUTES_PER_SOURCE = 3
 HomeStateImportController.kt:46:data class ImportSourceProgress(
@@ -10605,318 +10606,361 @@ grouptrack/RouteModule.kt:114:    val wantChooser = mutableStateOf(false)
 grouptrack/RouteModule.kt:117:    fun routeState(): MapStateStore.RouteState? =
 grouptrack/RouteModule.kt:123:    fun precheck(): Boolean {
 grouptrack/RouteModule.kt:132:    fun openCompare() {
-grouptrack/RouteModule.kt:154:    fun closeCompare() {
-grouptrack/RouteModule.kt:160:        val prev = batchPrevLayers.value
-grouptrack/RouteModule.kt:164:        val pv = batchPrevView.value
-grouptrack/RouteModule.kt:175:    val aiStep = mutableIntStateOf(PIN_STEP_NONE)
-grouptrack/RouteModule.kt:176:    val aiBusy = mutableStateOf(false)
-grouptrack/RouteModule.kt:177:    val aiProgress = mutableStateOf("")
-grouptrack/RouteModule.kt:178:    val aiSkipOverview = mutableStateOf(false)
-grouptrack/RouteModule.kt:179:    val pinNotice = mutableStateOf("")
-grouptrack/RouteModule.kt:180:    val pinTrailName = mutableStateOf("")
-grouptrack/RouteModule.kt:181:    val pinTrailLat = mutableStateOf(0.0)
-grouptrack/RouteModule.kt:182:    val pinTrailLon = mutableStateOf(0.0)
-grouptrack/RouteModule.kt:183:    val pinRideName = mutableStateOf("")
-grouptrack/RouteModule.kt:184:    val pinMiLow = mutableIntStateOf(55)
-grouptrack/RouteModule.kt:185:    val pinMiHigh = mutableIntStateOf(80)
-grouptrack/RouteModule.kt:186:    val pinMphLow = mutableIntStateOf(12)
-grouptrack/RouteModule.kt:187:    val pinMphHigh = mutableIntStateOf(18)
-grouptrack/RouteModule.kt:189:    val pinIsLoop = mutableStateOf<Boolean?>(null)
-grouptrack/RouteModule.kt:190:    val pinEndLat = mutableStateOf(0.0)
-grouptrack/RouteModule.kt:191:    val pinEndLon = mutableStateOf(0.0)
-grouptrack/RouteModule.kt:192:    val pinPoints = mutableStateOf(listOf<Pair<Double, Double>>())
-grouptrack/RouteModule.kt:194:    val pinFeas = mutableStateOf<com.geeksville.mesh.convoy.RouteExplorer.PinFeasibility?>(null)
-grouptrack/RouteModule.kt:195:    private var pinFeasSeq = 0
-grouptrack/RouteModule.kt:196:    private var pinAssessSeq = 0
-grouptrack/RouteModule.kt:197:    var aiMapReady = false
-grouptrack/RouteModule.kt:199:    var layersOnForAi: () -> Unit = {}
-grouptrack/RouteModule.kt:201:    var hideAll: () -> Unit = {}
-grouptrack/RouteModule.kt:202:    var restoreAll: () -> Unit = {}
-grouptrack/RouteModule.kt:206:    fun aiActive(): Boolean = aiStep.intValue != PIN_STEP_NONE
-grouptrack/RouteModule.kt:210:    fun startAi() {
-grouptrack/RouteModule.kt:227:    private fun clearPins() {
-grouptrack/RouteModule.kt:234:    fun pinReset() {
-grouptrack/RouteModule.kt:241:    fun aiCancel() {
-grouptrack/RouteModule.kt:253:    fun runAssess(ctx: android.content.Context) {
-grouptrack/RouteModule.kt:254:        val aLat = pinTrailLat.value
-grouptrack/RouteModule.kt:255:        val aLon = pinTrailLon.value
-grouptrack/RouteModule.kt:257:        val loop = pinIsLoop.value
-grouptrack/RouteModule.kt:258:        val eLat = pinEndLat.value
-grouptrack/RouteModule.kt:259:        val eLon = pinEndLon.value
-grouptrack/RouteModule.kt:260:        val pts = pinPoints.value
-grouptrack/RouteModule.kt:261:        val nm = pinRideName.value
-grouptrack/RouteModule.kt:262:        val mLo = pinMiLow.intValue.toDouble()
-grouptrack/RouteModule.kt:263:        val mHi = pinMiHigh.intValue.toDouble()
-grouptrack/RouteModule.kt:264:        val sLo = pinMphLow.intValue.toDouble()
-grouptrack/RouteModule.kt:265:        val sHi = pinMphHigh.intValue.toDouble()
-grouptrack/RouteModule.kt:267:        val seq = pinAssessSeq
-grouptrack/RouteModule.kt:269:            var out: com.geeksville.mesh.convoy.RouteExplorer.PinFeasibility? = null
-grouptrack/RouteModule.kt:272:                val db = SpatialDbManager.getSpatialDb()
-grouptrack/RouteModule.kt:274:                    val shape = if (loop == false) com.geeksville.mesh.convoy.RouteExplorer.RouteShape.PointToPoint(eLat, eLon)
-grouptrack/RouteModule.kt:283:            val res = out
-grouptrack/RouteModule.kt:291:                        val last = pinPoints.value.size
-grouptrack/RouteModule.kt:292:                        val noRoute = res.unreachable.contains(last) || res.onFragment.contains(last)
-grouptrack/RouteModule.kt:307:    fun onPinTap(ctx: android.content.Context, lat: Double, lon: Double) {
-grouptrack/RouteModule.kt:308:        val step = aiStep.intValue
-grouptrack/RouteModule.kt:320:                val cosLat = Math.cos(Math.toRadians(lat))
-grouptrack/RouteModule.kt:321:                val hit = pinPoints.value.indexOfFirst { p ->
-grouptrack/RouteModule.kt:322:                    val dy = (p.first - lat) * 69.0
-grouptrack/RouteModule.kt:323:                    val dx = (p.second - lon) * 69.0 * cosLat
-grouptrack/RouteModule.kt:343:                var nm: String? = null
-grouptrack/RouteModule.kt:344:                var la = 0.0
-grouptrack/RouteModule.kt:345:                var lo = 0.0
-grouptrack/RouteModule.kt:348:                    val hit = gpNearestTrailhead(lat, lon, TRAILHEAD_SELECT_MI)
-grouptrack/RouteModule.kt:356:                val fnm = nm
-grouptrack/RouteModule.kt:364:                        val hid = SpatialDbManager.getSpatialDb()?.let { com.geeksville.mesh.convoy.RouteExplorer.nearestShownTrailMeters(it, la, lo,
-grouptrack/RouteModule.kt:384:    val savedNotesRouteId = mutableStateOf("")
-grouptrack/RouteModule.kt:385:    val showWipNotes = mutableStateOf(false)
-grouptrack/RouteModule.kt:386:    var openDetail: (String, String) -> Unit = { _, _ -> }
-grouptrack/RouteModule.kt:392:    fun buildFromRecipe(ctx: android.content.Context, rid: String) {
-grouptrack/RouteModule.kt:393:        val r = SpatialDbManager.routeRecipe(rid) ?: return
-grouptrack/RouteModule.kt:404:    fun buildFromRecipeJson(ctx: android.content.Context, r: org.json.JSONObject, applyFilter: Boolean) {
-grouptrack/RouteModule.kt:410:        val aLat = r.optDouble("anchorLat", 0.0)
-grouptrack/RouteModule.kt:411:        val aLon = r.optDouble("anchorLon", 0.0)
-grouptrack/RouteModule.kt:419:        val fin = r.optJSONObject("finish")
-grouptrack/RouteModule.kt:422:        val ps = r.optJSONArray("pins")
-grouptrack/RouteModule.kt:443:    fun currentRecipe(aLat: Double, aLon: Double, aName: String, mLo: Int, mHi: Int, sLo: Int, sHi: Int,
-grouptrack/RouteModule.kt:445:        val f = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:458:    fun applyRecipeFilter(r: org.json.JSONObject) {
-grouptrack/RouteModule.kt:459:        val fp = r.optJSONObject("filterPanel") ?: return
-grouptrack/RouteModule.kt:460:        val f = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:465:        val off = fp.optJSONArray("off")
-grouptrack/RouteModule.kt:471:    fun recipeText(r: org.json.JSONObject): String {
-grouptrack/RouteModule.kt:472:        val la = r.optDouble("anchorLat", 0.0); val lo = r.optDouble("anchorLon", 0.0)
-grouptrack/RouteModule.kt:473:        fun ll(a: Double, b: Double) = "%.5f, %.5f".format(a, b)
-grouptrack/RouteModule.kt:474:        val nm = r.optString("anchorName", "").takeIf { it.isNotEmpty() && it != "null" } ?: (SpatialDbManager.waypointNameAt(la, lo) ?: "unnamed point")
-grouptrack/RouteModule.kt:475:        val fin = r.optJSONObject("finish")
-grouptrack/RouteModule.kt:476:        val ps = r.optJSONArray("pins")
-grouptrack/RouteModule.kt:477:        val pinTxt = if (ps == null || ps.length() == 0) "none" else
-grouptrack/RouteModule.kt:479:        val fp = r.optJSONObject("filterPanel")
-grouptrack/RouteModule.kt:480:        val sel = if (fp == null) "filter " + r.optString("trailFilter", "not recorded") else selectionText(fp)
-grouptrack/RouteModule.kt:490:    fun selectionText(fp: org.json.JSONObject): String {
-grouptrack/RouteModule.kt:492:            val land = fp.optString("land", "PUBLIC")
-grouptrack/RouteModule.kt:493:            val shown = listOfNotNull(if (land != "PRIVATE") "Public" else null, if (land != "PUBLIC") "Private" else null,
-grouptrack/RouteModule.kt:495:            val offA = fp.optJSONArray("off")
-grouptrack/RouteModule.kt:496:            val hidden = (if (offA == null) emptyList() else (0 until offA.length()).map { offA.optString(it) })
-grouptrack/RouteModule.kt:504:    fun showAllLandAndSearch(ctx: android.content.Context) {
-grouptrack/RouteModule.kt:505:        val f = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:514:    fun refreshSelection() {
-grouptrack/RouteModule.kt:515:        val req = com.geeksville.mesh.convoy.RouteExplorer.Request(anchorLat = pinTrailLat.value, anchorLon = pinTrailLon.value,
-grouptrack/RouteModule.kt:520:            val db = SpatialDbManager.getSpatialDb()
-grouptrack/RouteModule.kt:525:                val RX = com.geeksville.mesh.convoy.RouteExplorer
-grouptrack/RouteModule.kt:526:                val near = RX.nearestShownTrailMeters(db, req.anchorLat, req.anchorLon)
-grouptrack/RouteModule.kt:527:                val c1 = if (near != null) "✓ Trailhead is ${"%.0f".format(near)} m from a trail you are showing" else {
-grouptrack/RouteModule.kt:528:                    val hid = RX.nearestShownTrailMeters(db, req.anchorLat, req.anchorLon, RX.TRAILHEAD_CHECK_M, "")
-grouptrack/RouteModule.kt:536:                val mi = -1.0
-grouptrack/RouteModule.kt:537:                val lo = req.milesLow.toInt(); val hi = req.milesHigh.toInt()
-grouptrack/RouteModule.kt:538:                val c2 = when {
-grouptrack/RouteModule.kt:551:    fun planShowing(): Boolean = routeMode.value && aiStep.intValue == PIN_STEP_SUMMARY && !aiBusy.value
-grouptrack/RouteModule.kt:554:    fun planRecipe(): org.json.JSONObject = currentRecipe(pinTrailLat.value, pinTrailLon.value, pinTrailName.value,
-grouptrack/RouteModule.kt:558:    private fun planText(): String = recipeText(planRecipe()) + (if (checks.value.isNotEmpty()) "\n" + checks.value else "") +
-grouptrack/RouteModule.kt:562:    fun issueText(): String = if (planShowing())
-grouptrack/RouteModule.kt:567:    fun issueRecipeJson(): String = if (planShowing())
-grouptrack/RouteModule.kt:573:    private fun filterChanged() { GtOpenModule.trailsTick.intValue++; refreshSelection() }
-grouptrack/RouteModule.kt:574:    fun toggleType(t: String) { com.geeksville.mesh.convoy.TrailFilterState.toggleCategory(t); filterChanged() }
-grouptrack/RouteModule.kt:575:    fun toggleUse(label: String) {
-grouptrack/RouteModule.kt:576:        val f = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:577:        val motor = label == "Motorized"
-grouptrack/RouteModule.kt:579:        val mOn = f.use != "NON-MOTORIZED"; val nOn = f.use != "MOTORIZED"
-grouptrack/RouteModule.kt:580:        val m2 = if (motor) !mOn else mOn; val n2 = if (motor) nOn else !nOn
-grouptrack/RouteModule.kt:584:    fun toggleLand(pub: Boolean) {
-grouptrack/RouteModule.kt:585:        val f = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:586:        val p = f.land != "PRIVATE"; val q = f.land != "PUBLIC"
-grouptrack/RouteModule.kt:587:        val p2 = if (pub) !p else p; val q2 = if (pub) q else !q
-grouptrack/RouteModule.kt:591:    fun toggleRestricted() { com.geeksville.mesh.convoy.TrailFilterState.setRestricted(!com.geeksville.mesh.convoy.TrailFilterState.restricted); filterChanged() }
-grouptrack/RouteModule.kt:594:    fun filterNow(): String {
-grouptrack/RouteModule.kt:595:        val f = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:601:    fun statsText(): String {
-grouptrack/RouteModule.kt:602:        val st = com.geeksville.mesh.convoy.RouteExplorer.lastStats
-grouptrack/RouteModule.kt:603:        fun n(v: Int) = if (v < 0) "not reached" else "%,d".format(v)
-grouptrack/RouteModule.kt:614:    fun findRides(ctx: android.content.Context) {
-grouptrack/RouteModule.kt:619:        val aLat = pinTrailLat.value
-grouptrack/RouteModule.kt:620:        val aLon = pinTrailLon.value
-grouptrack/RouteModule.kt:621:        val rn = pinRideName.value
-grouptrack/RouteModule.kt:623:        val mLo = pinMiLow.intValue; val mHi = pinMiHigh.intValue
-grouptrack/RouteModule.kt:624:        val sLo = pinMphLow.intValue; val sHi = pinMphHigh.intValue
-grouptrack/RouteModule.kt:625:        val pins = pinPoints.value
-grouptrack/RouteModule.kt:626:        val loop = pinIsLoop.value
-grouptrack/RouteModule.kt:627:        val eLat = pinEndLat.value; val eLon = pinEndLon.value
-grouptrack/RouteModule.kt:629:            var made = 0
-grouptrack/RouteModule.kt:630:            var err = ""
-grouptrack/RouteModule.kt:634:                val db = SpatialDbManager.getSpatialDb()
-grouptrack/RouteModule.kt:638:                    val out = com.geeksville.mesh.convoy.RouteExplorer.explore(db,
-grouptrack/RouteModule.kt:660:                    val recipe = currentRecipe(aLat, aLon, aName, mLo, mHi, sLo, sHi, pins, if (loop == false) eLat to eLon else null)
-grouptrack/RouteModule.kt:669:                    val recipe = currentRecipe(aLat, aLon, aName, mLo, mHi, sLo, sHi, pins, if (loop == false) eLat to eLon else null)
-grouptrack/RouteModule.kt:676:            val fMade = made
-grouptrack/RouteModule.kt:677:            val fErr = err
-grouptrack/RouteModule.kt:694:                    val tf = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:695:                    val allLand = tf.land != "PUBLIC" && tf.land != "PRIVATE" && tf.restricted
-grouptrack/RouteModule.kt:700:                    val fst = com.geeksville.mesh.convoy.RouteExplorer.lastStats
-grouptrack/RouteModule.kt:701:                    val fewFeatures = fErr.isEmpty() && pins.isEmpty() &&
-grouptrack/RouteModule.kt:703:                    val nf = if (fst.features < 0) 0 else fst.features
-grouptrack/RouteModule.kt:725:    fun manualDrafts() = RouteDraftStore.listDrafts().filter { !RouteDraftStore.isInOpenBatch(it.name) }
-grouptrack/RouteModule.kt:727:    fun manualChecks(): Boolean {
-grouptrack/RouteModule.kt:737:    fun startNew(method: Int) {
-grouptrack/RouteModule.kt:750:    fun close() {
-grouptrack/RouteModule.kt:758:    fun endBuild() {
-grouptrack/RouteModule.kt:765:    private fun methodStr(): String = when (routeMethod.intValue) { ROUTE_METHOD_DRAW -> "draw"; ROUTE_METHOD_SUGGEST -> "suggest"; else -> "point" }
-grouptrack/RouteModule.kt:768:    fun autosave() {
-grouptrack/RouteModule.kt:769:        val nm = routeName.value
-grouptrack/RouteModule.kt:777:    fun buildLine(ctx: android.content.Context): String {
-grouptrack/RouteModule.kt:778:        val v = vp
-grouptrack/RouteModule.kt:780:        val tl = SpatialDbManager.queryTrailsByViewport(v[0], v[1], v[2], v[3])
-grouptrack/RouteModule.kt:781:        val tk = SpatialDbManager.queryTracksByViewport(v[0], v[1], v[2], v[3])
-grouptrack/RouteModule.kt:782:        val byId = HashMap<String, String>()
-grouptrack/RouteModule.kt:783:        for (m in tl) { val id = m["trail_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
-grouptrack/RouteModule.kt:784:        for (m in tk) { val id = m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
-grouptrack/RouteModule.kt:790:    fun buildLineById(ctx: android.content.Context): String {
-grouptrack/RouteModule.kt:792:        val verts = RouteManager.routeVertices()
-grouptrack/RouteModule.kt:793:        val byId = HashMap<String, String>()
-grouptrack/RouteModule.kt:804:    fun onTap(ctx: android.content.Context, lat: Double, lon: Double) {
-grouptrack/RouteModule.kt:807:            val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-grouptrack/RouteModule.kt:809:                val b = vp
-grouptrack/RouteModule.kt:810:                val trails = SpatialDbManager.queryTrailsByViewport(b[0], b[1], b[2], b[3])
-grouptrack/RouteModule.kt:811:                val mPerPx = 156543.03392 * kotlin.math.cos(Math.toRadians(lat)) / Math.pow(2.0, b[4])
-grouptrack/RouteModule.kt:812:                val snapRadiusM = (44.0 * mPerPx).coerceIn(15.0, 150.0)
-grouptrack/RouteModule.kt:813:                val s = RouteManager.snapTrailsOnly(lat, lon, trails, snapRadiusM)
-grouptrack/RouteModule.kt:819:                val nearby = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SpatialDbManager.trailheadsNear(lat, lon) }
-grouptrack/RouteModule.kt:824:            val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { buildLine(ctx) }
-grouptrack/RouteModule.kt:836:    val ctx = LocalContext.current
-grouptrack/RouteModule.kt:837:    val R = GtRoute
-grouptrack/RouteModule.kt:838:    val scope = androidx.compose.runtime.rememberCoroutineScope()
-grouptrack/RouteModule.kt:842:    val saveCompleted: () -> Unit = {
-grouptrack/RouteModule.kt:843:        val b = R.vp
-grouptrack/RouteModule.kt:844:        val name = R.routeName.value
-grouptrack/RouteModule.kt:846:            val thFirst = RouteManager.routeVertices().firstOrNull()
-grouptrack/RouteModule.kt:847:            val thNear = thFirst?.let { f ->
-grouptrack/RouteModule.kt:858:            val res = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-grouptrack/RouteModule.kt:860:                val lines = SpatialDbManager.queryTrailsByViewport(b[0], b[1], b[2], b[3]) +
-grouptrack/RouteModule.kt:862:                val byId = HashMap<String, String>()
-grouptrack/RouteModule.kt:863:                for (m in lines) { val id = m["trail_id"] ?: m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
-grouptrack/RouteModule.kt:864:                val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
-grouptrack/RouteModule.kt:866:                    val (wkt, bbox) = built
-grouptrack/RouteModule.kt:867:                    val newRouteId = SpatialDbManager.insertRoute(name.ifBlank { "Route " + System.currentTimeMillis() },
-grouptrack/RouteModule.kt:872:                            val ok = SpatialDbManager.setRouteAnchor(newRouteId, th.lat, th.lon, th.name)
-grouptrack/RouteModule.kt:885:                R.js("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}")
-grouptrack/RouteModule.kt:895:        val name = R.resumeReq.value
-grouptrack/RouteModule.kt:898:            val od = RouteDraftStore.loadIntoRouteManager(name)
-grouptrack/RouteModule.kt:908:                val p = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLineById(ctx) }
-grouptrack/RouteModule.kt:918:        val step = R.aiStep.intValue
-grouptrack/RouteModule.kt:919:        val on = step == PIN_STEP_TRAILHEAD || step == PIN_STEP_ENDPOINT || step == PIN_STEP_INCLUDE
-grouptrack/RouteModule.kt:937:        val json = R.pinPoints.value.joinToString(",", "[", "]") { "[%.6f,%.6f]".format(it.first, it.second) }
-grouptrack/RouteModule.kt:965:                    val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLine(ctx) }
-grouptrack/RouteModule.kt:990:        val step = R.aiStep.intValue
-grouptrack/RouteModule.kt:1003:                        val lo = Math.round(R.pinMiLow.intValue.toDouble() / R.pinMphHigh.intValue.toDouble().coerceAtLeast(1.0))
-grouptrack/RouteModule.kt:1004:                        val hi = Math.round(R.pinMiHigh.intValue.toDouble() / R.pinMphLow.intValue.toDouble().coerceAtLeast(1.0))
-grouptrack/RouteModule.kt:1017:                val miLo = R.pinMiLow.intValue; val miHi = R.pinMiHigh.intValue
-grouptrack/RouteModule.kt:1018:                val mphLo = R.pinMphLow.intValue; val mphHi = R.pinMphHigh.intValue
-grouptrack/RouteModule.kt:1019:                val thName = R.pinTrailName.value
-grouptrack/RouteModule.kt:1020:                val isLoop = R.pinIsLoop.value
-grouptrack/RouteModule.kt:1021:                val pts = R.pinPoints.value
-grouptrack/RouteModule.kt:1022:                val hrLo = miLo.toDouble() / mphHi.toDouble()
-grouptrack/RouteModule.kt:1023:                val hrHi = miHi.toDouble() / mphLo.toDouble()
-grouptrack/RouteModule.kt:1025:                val selKey = "" + R.pinTrailLat.value + "," + R.pinTrailLon.value + "," + miLo + "," + miHi + "," + com.geeksville.mesh.convoy.TrailFilterState.whereOrEmpty() + R.filterPeek.value
-grouptrack/RouteModule.kt:1028:                val summary = thName.ifBlank { "Your trailhead" } + " · " + miLo + "–" + miHi + " mi · " + mphLo + "–" + mphHi +
-grouptrack/RouteModule.kt:1032:                val GS = com.geeksville.mesh.convoy.GP_STATE_TODO
-grouptrack/RouteModule.kt:1033:                val GC = com.geeksville.mesh.convoy.GP_STATE_CURRENT
-grouptrack/RouteModule.kt:1034:                val GD = com.geeksville.mesh.convoy.GP_STATE_DONE
-grouptrack/RouteModule.kt:1035:                val steps = listOf(
-grouptrack/RouteModule.kt:1076:                val actions: List<Pair<String, () -> Unit>> = when (step) {
-grouptrack/RouteModule.kt:1092:                    val f = R.pinFeas.value
-grouptrack/RouteModule.kt:1093:                    val problem = when {
-grouptrack/RouteModule.kt:1127:                                val searchOpen = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-grouptrack/RouteModule.kt:1128:                                val sc = GtScheme.current.value
-grouptrack/RouteModule.kt:1174:        val rid = R.savedNotesRouteId.value
-grouptrack/RouteModule.kt:1176:        val hasRecipe = androidx.compose.runtime.remember(rid) { SpatialDbManager.routeRecipe(rid) != null }
-grouptrack/RouteModule.kt:1180:                val nm = SpatialDbManager.routeNameById(rid)
-grouptrack/RouteModule.kt:1181:                val also = SpatialDbManager.getAliasesFor("route", rid).mapNotNull { it["alias"] }.filter { it != nm }
-grouptrack/RouteModule.kt:1211:        val pts = RouteManager.routeVertexCount()
-grouptrack/RouteModule.kt:1228:                    val nm = R.routeName.value.trim()
-grouptrack/RouteModule.kt:1233:                        val oldNm = R.saveOrigName.value
-grouptrack/RouteModule.kt:1245:                    val nm = R.routeName.value.trim()
-grouptrack/RouteModule.kt:1249:                        val oldNm = R.saveOrigName.value
-grouptrack/RouteModule.kt:1274:                        val p = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLine(ctx) }
-grouptrack/RouteModule.kt:1296:        val pts = remember { RouteDraftStore.listDrafts().firstOrNull { it.name == RouteDraftStore.UNNAMED }?.pointCount ?: 0 }
-grouptrack/RouteModule.kt:1297:        val nm = remember { mutableStateOf("") }
-grouptrack/RouteModule.kt:1298:        val err = remember { mutableStateOf("") }
-grouptrack/RouteModule.kt:1313:                    val n = nm.value.trim()
-grouptrack/RouteModule.kt:1382:                    val f = RouteManager.routeVertices().firstOrNull()
-grouptrack/RouteModule.kt:1385:                        val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-grouptrack/RouteModule.kt:1405:                val nctx = androidx.compose.ui.platform.LocalContext.current
-grouptrack/RouteModule.kt:1425:                val nowHidden = n !in R.batchHidden.value
-grouptrack/RouteModule.kt:1427:                val safe = n.replace("\\", "\\\\").replace("'", "\\'")
-grouptrack/RouteModule.kt:1441:    val runBatchSave: (String) -> Unit = { area ->
-grouptrack/RouteModule.kt:1443:        val keep = R.batchRows.value.filter { it.name in R.batchSave.value }
-grouptrack/RouteModule.kt:1444:        val drop = R.batchRows.value.filter { it.name !in R.batchSave.value }
-grouptrack/RouteModule.kt:1447:            val saved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-grouptrack/RouteModule.kt:1449:                var ok = 0
-grouptrack/RouteModule.kt:1457:                    val verts = RouteManager.routeVertices()
-grouptrack/RouteModule.kt:1458:                    val byId = HashMap<String, String>()
-grouptrack/RouteModule.kt:1463:                    val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
-grouptrack/RouteModule.kt:1468:                    val (wkt, bbox) = built
-grouptrack/RouteModule.kt:1470:                    val base = area.trim()
-grouptrack/RouteModule.kt:1474:                    val gh = SpatialDbManager.computeGeomHash(wkt)
-grouptrack/RouteModule.kt:1475:                    val existing = SpatialDbManager.findRouteIdByHash(gh)
-grouptrack/RouteModule.kt:1477:                        val first = SpatialDbManager.routeNameById(existing) ?: "a saved route"
-grouptrack/RouteModule.kt:1484:                    val id = SpatialDbManager.insertRoute(nm, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
-grouptrack/RouteModule.kt:1539:private const val PIN_STEP_WELCOME   = -2
-grouptrack/RouteModule.kt:1540:private const val PIN_STEP_DISTANCE  = -1
-grouptrack/RouteModule.kt:1541:private const val PIN_STEP_NONE      = 0
-grouptrack/RouteModule.kt:1542:private const val PIN_STEP_TRAILHEAD = 1
-grouptrack/RouteModule.kt:1543:private const val PIN_STEP_RETURN    = 2
-grouptrack/RouteModule.kt:1544:private const val PIN_STEP_ENDPOINT  = 3
-grouptrack/RouteModule.kt:1545:private const val PIN_STEP_ASK       = 4
-grouptrack/RouteModule.kt:1546:private const val PIN_STEP_INCLUDE   = 5
-grouptrack/RouteModule.kt:1547:private const val PIN_STEP_SUMMARY   = 6
-grouptrack/RouteModule.kt:1548:private const val PIN_STEP_SEARCH    = 7
-grouptrack/RouteModule.kt:1549:private const val PIN_MAX = 5
-grouptrack/RouteModule.kt:1550:private const val PIN_REMOVE_MI = 0.15
-grouptrack/RouteModule.kt:1551:private const val TRAILHEAD_SELECT_MI = 0.062
-grouptrack/RouteModule.kt:1553:private fun gpMilesBetween(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-grouptrack/RouteModule.kt:1554:    val dLat = (lat2 - lat1) * 69.0
-grouptrack/RouteModule.kt:1555:    val dLon = (lon2 - lon1) * 69.0 * kotlin.math.cos(Math.toRadians((lat1 + lat2) / 2.0))
-grouptrack/RouteModule.kt:1559:private fun gpParsePointWkt(wkt: String?): DoubleArray? {
-grouptrack/RouteModule.kt:1561:    val m = Regex("-?\\d+\\.?\\d*").findAll(wkt).map { it.value }.toList()
-grouptrack/RouteModule.kt:1563:    val lon = m[0].toDoubleOrNull() ?: return null
-grouptrack/RouteModule.kt:1564:    val lat = m[1].toDoubleOrNull() ?: return null
-grouptrack/RouteModule.kt:1569:private fun gpNearestTrailhead(lat: Double, lon: Double, withinMi: Double): Map<String, String?>? {
-grouptrack/RouteModule.kt:1570:    val dLat = withinMi / 69.0
-grouptrack/RouteModule.kt:1571:    val dLon = withinMi / (69.0 * kotlin.math.max(0.2, kotlin.math.cos(Math.toRadians(lat))))
-grouptrack/RouteModule.kt:1572:    val found = SpatialDbManager.queryWaypointsByViewport(lat - dLat, lon - dLon, lat + dLat, lon + dLon, 200)
-grouptrack/RouteModule.kt:1573:    var best: Map<String, String?>? = null
-grouptrack/RouteModule.kt:1574:    var bestMi = withinMi
-grouptrack/RouteModule.kt:1577:        val p = gpParsePointWkt(w["geometry"]) ?: continue
-grouptrack/RouteModule.kt:1578:        val mi = gpMilesBetween(lat, lon, p[0], p[1])
-grouptrack/RouteModule.kt:1589:fun rememberRecipeFile(): () -> Unit {
-grouptrack/RouteModule.kt:1590:    val context = androidx.compose.ui.platform.LocalContext.current
-grouptrack/RouteModule.kt:1591:    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
-grouptrack/RouteModule.kt:1595:            val msg = try {
-grouptrack/RouteModule.kt:1596:                val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
-grouptrack/RouteModule.kt:1598:                val o = org.json.JSONObject(text)
-grouptrack/RouteModule.kt:1599:                val r = o.optJSONObject("recipe") ?: o
-grouptrack/RouteModule.kt:1608:    val notice = com.geeksville.mesh.convoy.rememberPickerNotice("to choose the route recipe file (.json) you were sent", "file")
-grouptrack/RouteModule.kt:1617:fun GtTrailTable(t: com.geeksville.mesh.convoy.RouteExplorer.SelTable) {
-grouptrack/RouteModule.kt:1620:    val sc = GtScheme.current.value
-grouptrack/RouteModule.kt:1621:    val inc = sc.good; val out = sc.bad; val txt = sc.panelText
-grouptrack/RouteModule.kt:1622:    fun fmt(n: Int) = "%,d".format(n)
-grouptrack/RouteModule.kt:1623:    val bold = androidx.compose.ui.text.font.FontWeight.Bold
-grouptrack/RouteModule.kt:1624:    val end = androidx.compose.ui.text.style.TextAlign.End
-grouptrack/RouteModule.kt:1625:    val gap = Modifier.width(8.dp)
-grouptrack/RouteModule.kt:1627:    val tctx = androidx.compose.ui.platform.LocalContext.current
-grouptrack/RouteModule.kt:1628:    fun said(msg: String) = android.widget.Toast.makeText(tctx, msg, android.widget.Toast.LENGTH_SHORT).show()
-grouptrack/RouteModule.kt:1629:    val tf = com.geeksville.mesh.convoy.TrailFilterState
-grouptrack/RouteModule.kt:1630:    fun landTap(pub: Boolean) {
-grouptrack/RouteModule.kt:1631:        val before = tf.land
-grouptrack/RouteModule.kt:1637:    fun useTap(u: String) {
-grouptrack/RouteModule.kt:1638:        val before = tf.use
-grouptrack/RouteModule.kt:1643:    fun typeTap(ty: String) { GtRoute.toggleType(ty); said("FILTER changed: $ty " + (if (tf.isOn(ty)) "included" else "left out")) }
-grouptrack/RouteModule.kt:1644:    fun rstTap() { GtRoute.toggleRestricted(); said("FILTER changed: Restricted " + (if (tf.restricted) "included" else "left out")) }
-grouptrack/RouteModule.kt:1654:        var lastUse = ""
-grouptrack/RouteModule.kt:1658:                val u = r.use
-grouptrack/RouteModule.kt:1659:                val switchable = u == "Motorized" || u == "Non-motorized"
-grouptrack/RouteModule.kt:1666:            val ty = r.type
-grouptrack/RouteModule.kt:1667:            val pubIn = r.useOn && r.typeOn && t.publicOn
-grouptrack/RouteModule.kt:1668:            val privIn = r.useOn && r.typeOn && t.privateOn
+grouptrack/RouteModule.kt:153:            val bt = RouteDraftStore.readBatch()
+grouptrack/RouteModule.kt:156:                val pa = b.optJSONArray("pins")
+grouptrack/RouteModule.kt:157:                val pj = StringBuilder("[")
+grouptrack/RouteModule.kt:158:                if (pa != null) for (i in 0 until pa.length()) { val o = pa.optJSONObject(i) ?: continue
+grouptrack/RouteModule.kt:161:                val la = b.optDouble("anchorLat", 0.0); val lo = b.optDouble("anchorLon", 0.0); val hi = b.optDouble("milesHigh", 0.0)
+grouptrack/RouteModule.kt:162:                val loopRide = b.isNull("finish") && !(la == 0.0 && lo == 0.0) && hi > 0.0
+grouptrack/RouteModule.kt:163:                val box = if (!loopRide) "null,null,null,null" else {
+grouptrack/RouteModule.kt:164:                    val dLat = hi / 3.0 / 69.0; val dLon = hi / 3.0 / (69.0 * maxOf(0.2, Math.cos(Math.toRadians(la))))
+grouptrack/RouteModule.kt:174:    fun closeCompare() {
+grouptrack/RouteModule.kt:180:        val prev = batchPrevLayers.value
+grouptrack/RouteModule.kt:184:        val pv = batchPrevView.value
+grouptrack/RouteModule.kt:195:    val aiStep = mutableIntStateOf(PIN_STEP_NONE)
+grouptrack/RouteModule.kt:196:    val aiBusy = mutableStateOf(false)
+grouptrack/RouteModule.kt:197:    val aiProgress = mutableStateOf("")
+grouptrack/RouteModule.kt:198:    val aiSkipOverview = mutableStateOf(false)
+grouptrack/RouteModule.kt:199:    val pinNotice = mutableStateOf("")
+grouptrack/RouteModule.kt:201:    val askWarn = mutableStateOf("")
+grouptrack/RouteModule.kt:202:    val pinTrailName = mutableStateOf("")
+grouptrack/RouteModule.kt:203:    val pinTrailLat = mutableStateOf(0.0)
+grouptrack/RouteModule.kt:204:    val pinTrailLon = mutableStateOf(0.0)
+grouptrack/RouteModule.kt:205:    val pinRideName = mutableStateOf("")
+grouptrack/RouteModule.kt:206:    val pinMiLow = mutableIntStateOf(55)
+grouptrack/RouteModule.kt:207:    val pinMiHigh = mutableIntStateOf(80)
+grouptrack/RouteModule.kt:208:    val pinMphLow = mutableIntStateOf(12)
+grouptrack/RouteModule.kt:209:    val pinMphHigh = mutableIntStateOf(18)
+grouptrack/RouteModule.kt:211:    val pinIsLoop = mutableStateOf<Boolean?>(null)
+grouptrack/RouteModule.kt:212:    val pinEndLat = mutableStateOf(0.0)
+grouptrack/RouteModule.kt:213:    val pinEndLon = mutableStateOf(0.0)
+grouptrack/RouteModule.kt:214:    val pinPoints = mutableStateOf(listOf<Pair<Double, Double>>())
+grouptrack/RouteModule.kt:216:    val pinFeas = mutableStateOf<com.geeksville.mesh.convoy.RouteExplorer.PinFeasibility?>(null)
+grouptrack/RouteModule.kt:217:    private var pinFeasSeq = 0
+grouptrack/RouteModule.kt:218:    private var pinAssessSeq = 0
+grouptrack/RouteModule.kt:220:    @Volatile private var pinChecking = false
+grouptrack/RouteModule.kt:221:    private var pinCheckAgain = false
+grouptrack/RouteModule.kt:222:    var aiMapReady = false
+grouptrack/RouteModule.kt:224:    var layersOnForAi: () -> Unit = {}
+grouptrack/RouteModule.kt:226:    var hideAll: () -> Unit = {}
+grouptrack/RouteModule.kt:227:    var restoreAll: () -> Unit = {}
+grouptrack/RouteModule.kt:231:    fun aiActive(): Boolean = aiStep.intValue != PIN_STEP_NONE
+grouptrack/RouteModule.kt:235:    fun startAi() {
+grouptrack/RouteModule.kt:252:    private fun clearPins() {
+grouptrack/RouteModule.kt:259:    fun pinReset() {
+grouptrack/RouteModule.kt:266:    fun aiCancel() {
+grouptrack/RouteModule.kt:278:    fun runAssess(ctx: android.content.Context) {
+grouptrack/RouteModule.kt:279:        val aLat = pinTrailLat.value
+grouptrack/RouteModule.kt:280:        val aLon = pinTrailLon.value
+grouptrack/RouteModule.kt:282:        val loop = pinIsLoop.value
+grouptrack/RouteModule.kt:283:        val eLat = pinEndLat.value
+grouptrack/RouteModule.kt:284:        val eLon = pinEndLon.value
+grouptrack/RouteModule.kt:285:        val pts = pinPoints.value
+grouptrack/RouteModule.kt:286:        val nm = pinRideName.value
+grouptrack/RouteModule.kt:287:        val mLo = pinMiLow.intValue.toDouble()
+grouptrack/RouteModule.kt:288:        val mHi = pinMiHigh.intValue.toDouble()
+grouptrack/RouteModule.kt:289:        val sLo = pinMphLow.intValue.toDouble()
+grouptrack/RouteModule.kt:290:        val sHi = pinMphHigh.intValue.toDouble()
+grouptrack/RouteModule.kt:294:        val seq = pinAssessSeq
+grouptrack/RouteModule.kt:296:            var out: com.geeksville.mesh.convoy.RouteExplorer.PinFeasibility? = null
+grouptrack/RouteModule.kt:299:                val db = SpatialDbManager.getSpatialDb()
+grouptrack/RouteModule.kt:301:                    val shape = if (loop == false) com.geeksville.mesh.convoy.RouteExplorer.RouteShape.PointToPoint(eLat, eLon)
+grouptrack/RouteModule.kt:310:            val res = out
+grouptrack/RouteModule.kt:320:                        val last = pinPoints.value.size
+grouptrack/RouteModule.kt:321:                        val noRoute = res.unreachable.contains(last) || res.onFragment.contains(last)
+grouptrack/RouteModule.kt:337:    fun showConnected(ctx: android.content.Context) {
+grouptrack/RouteModule.kt:338:        val aLat = pinTrailLat.value; val aLon = pinTrailLon.value
+grouptrack/RouteModule.kt:342:        val loop = pinIsLoop.value; val eLat = pinEndLat.value; val eLon = pinEndLon.value
+grouptrack/RouteModule.kt:343:        val mLo = pinMiLow.intValue.toDouble(); val mHi = pinMiHigh.intValue.toDouble()
+grouptrack/RouteModule.kt:344:        val sLo = pinMphLow.intValue.toDouble(); val sHi = pinMphHigh.intValue.toDouble()
+grouptrack/RouteModule.kt:346:            val sb = StringBuilder("[")
+grouptrack/RouteModule.kt:349:                val db = SpatialDbManager.getSpatialDb()
+grouptrack/RouteModule.kt:351:                    val shape = if (loop == false) com.geeksville.mesh.convoy.RouteExplorer.RouteShape.PointToPoint(eLat, eLon)
+grouptrack/RouteModule.kt:353:                    val lines = com.geeksville.mesh.convoy.RouteExplorer.connectedLines(db,
+grouptrack/RouteModule.kt:366:            val json = sb.toString()
+grouptrack/RouteModule.kt:376:    fun onPinTap(ctx: android.content.Context, lat: Double, lon: Double) {
+grouptrack/RouteModule.kt:377:        val step = aiStep.intValue
+grouptrack/RouteModule.kt:395:                val cosLat = Math.cos(Math.toRadians(lat))
+grouptrack/RouteModule.kt:396:                val hit = pinPoints.value.indexOfFirst { p ->
+grouptrack/RouteModule.kt:397:                    val dy = (p.first - lat) * 69.0
+grouptrack/RouteModule.kt:398:                    val dx = (p.second - lon) * 69.0 * cosLat
+grouptrack/RouteModule.kt:418:                var nm: String? = null
+grouptrack/RouteModule.kt:419:                var la = 0.0
+grouptrack/RouteModule.kt:420:                var lo = 0.0
+grouptrack/RouteModule.kt:423:                    val hit = gpNearestTrailhead(lat, lon, TRAILHEAD_SELECT_MI)
+grouptrack/RouteModule.kt:431:                val fnm = nm
+grouptrack/RouteModule.kt:439:                        val hid = SpatialDbManager.getSpatialDb()?.let { com.geeksville.mesh.convoy.RouteExplorer.nearestShownTrailMeters(it, la, lo,
+grouptrack/RouteModule.kt:459:    val savedNotesRouteId = mutableStateOf("")
+grouptrack/RouteModule.kt:460:    val showWipNotes = mutableStateOf(false)
+grouptrack/RouteModule.kt:461:    var openDetail: (String, String) -> Unit = { _, _ -> }
+grouptrack/RouteModule.kt:467:    fun buildFromRecipe(ctx: android.content.Context, rid: String) {
+grouptrack/RouteModule.kt:468:        val r = SpatialDbManager.routeRecipe(rid) ?: return
+grouptrack/RouteModule.kt:479:    fun buildFromRecipeJson(ctx: android.content.Context, r: org.json.JSONObject, applyFilter: Boolean) {
+grouptrack/RouteModule.kt:485:        val aLat = r.optDouble("anchorLat", 0.0)
+grouptrack/RouteModule.kt:486:        val aLon = r.optDouble("anchorLon", 0.0)
+grouptrack/RouteModule.kt:494:        val fin = r.optJSONObject("finish")
+grouptrack/RouteModule.kt:497:        val ps = r.optJSONArray("pins")
+grouptrack/RouteModule.kt:518:    fun currentRecipe(aLat: Double, aLon: Double, aName: String, mLo: Int, mHi: Int, sLo: Int, sHi: Int,
+grouptrack/RouteModule.kt:520:        val f = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:533:    fun applyRecipeFilter(r: org.json.JSONObject) {
+grouptrack/RouteModule.kt:534:        val fp = r.optJSONObject("filterPanel") ?: return
+grouptrack/RouteModule.kt:535:        val f = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:540:        val off = fp.optJSONArray("off")
+grouptrack/RouteModule.kt:546:    fun recipeText(r: org.json.JSONObject): String {
+grouptrack/RouteModule.kt:547:        val la = r.optDouble("anchorLat", 0.0); val lo = r.optDouble("anchorLon", 0.0)
+grouptrack/RouteModule.kt:548:        fun ll(a: Double, b: Double) = "%.5f, %.5f".format(a, b)
+grouptrack/RouteModule.kt:549:        val nm = r.optString("anchorName", "").takeIf { it.isNotEmpty() && it != "null" } ?: (SpatialDbManager.waypointNameAt(la, lo) ?: "unnamed point")
+grouptrack/RouteModule.kt:550:        val fin = r.optJSONObject("finish")
+grouptrack/RouteModule.kt:551:        val ps = r.optJSONArray("pins")
+grouptrack/RouteModule.kt:552:        val pinTxt = if (ps == null || ps.length() == 0) "none" else
+grouptrack/RouteModule.kt:554:        val fp = r.optJSONObject("filterPanel")
+grouptrack/RouteModule.kt:555:        val sel = if (fp == null) "filter " + r.optString("trailFilter", "not recorded") else selectionText(fp)
+grouptrack/RouteModule.kt:565:    fun selectionText(fp: org.json.JSONObject): String {
+grouptrack/RouteModule.kt:567:            val land = fp.optString("land", "PUBLIC")
+grouptrack/RouteModule.kt:568:            val shown = listOfNotNull(if (land != "PRIVATE") "Public" else null, if (land != "PUBLIC") "Private" else null,
+grouptrack/RouteModule.kt:570:            val offA = fp.optJSONArray("off")
+grouptrack/RouteModule.kt:571:            val hidden = (if (offA == null) emptyList() else (0 until offA.length()).map { offA.optString(it) })
+grouptrack/RouteModule.kt:579:    fun showAllLandAndSearch(ctx: android.content.Context) {
+grouptrack/RouteModule.kt:580:        val f = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:589:    fun refreshSelection() {
+grouptrack/RouteModule.kt:590:        val req = com.geeksville.mesh.convoy.RouteExplorer.Request(anchorLat = pinTrailLat.value, anchorLon = pinTrailLon.value,
+grouptrack/RouteModule.kt:595:            val db = SpatialDbManager.getSpatialDb()
+grouptrack/RouteModule.kt:600:                val RX = com.geeksville.mesh.convoy.RouteExplorer
+grouptrack/RouteModule.kt:601:                val near = RX.nearestShownTrailMeters(db, req.anchorLat, req.anchorLon)
+grouptrack/RouteModule.kt:602:                val c1 = if (near != null) "✓ Trailhead is ${"%.0f".format(near)} m from a trail you are showing" else {
+grouptrack/RouteModule.kt:603:                    val hid = RX.nearestShownTrailMeters(db, req.anchorLat, req.anchorLon, RX.TRAILHEAD_CHECK_M, "")
+grouptrack/RouteModule.kt:611:                val mi = -1.0
+grouptrack/RouteModule.kt:612:                val lo = req.milesLow.toInt(); val hi = req.milesHigh.toInt()
+grouptrack/RouteModule.kt:613:                val c2 = when {
+grouptrack/RouteModule.kt:626:    fun planShowing(): Boolean = routeMode.value && aiStep.intValue == PIN_STEP_SUMMARY && !aiBusy.value
+grouptrack/RouteModule.kt:629:    fun planRecipe(): org.json.JSONObject = currentRecipe(pinTrailLat.value, pinTrailLon.value, pinTrailName.value,
+grouptrack/RouteModule.kt:633:    private fun planText(): String = recipeText(planRecipe()) + (if (checks.value.isNotEmpty()) "\n" + checks.value else "") +
+grouptrack/RouteModule.kt:637:    fun issueText(): String = if (planShowing())
+grouptrack/RouteModule.kt:642:    fun issueRecipeJson(): String = if (planShowing())
+grouptrack/RouteModule.kt:648:    private fun filterChanged() { GtOpenModule.trailsTick.intValue++; refreshSelection() }
+grouptrack/RouteModule.kt:649:    fun toggleType(t: String) { com.geeksville.mesh.convoy.TrailFilterState.toggleCategory(t); filterChanged() }
+grouptrack/RouteModule.kt:650:    fun toggleUse(label: String) {
+grouptrack/RouteModule.kt:651:        val f = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:652:        val motor = label == "Motorized"
+grouptrack/RouteModule.kt:654:        val mOn = f.use != "NON-MOTORIZED"; val nOn = f.use != "MOTORIZED"
+grouptrack/RouteModule.kt:655:        val m2 = if (motor) !mOn else mOn; val n2 = if (motor) nOn else !nOn
+grouptrack/RouteModule.kt:659:    fun toggleLand(pub: Boolean) {
+grouptrack/RouteModule.kt:660:        val f = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:661:        val p = f.land != "PRIVATE"; val q = f.land != "PUBLIC"
+grouptrack/RouteModule.kt:662:        val p2 = if (pub) !p else p; val q2 = if (pub) q else !q
+grouptrack/RouteModule.kt:666:    fun toggleRestricted() { com.geeksville.mesh.convoy.TrailFilterState.setRestricted(!com.geeksville.mesh.convoy.TrailFilterState.restricted); filterChanged() }
+grouptrack/RouteModule.kt:669:    fun filterNow(): String {
+grouptrack/RouteModule.kt:670:        val f = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:676:    fun statsText(): String {
+grouptrack/RouteModule.kt:677:        val st = com.geeksville.mesh.convoy.RouteExplorer.lastStats
+grouptrack/RouteModule.kt:678:        fun n(v: Int) = if (v < 0) "not reached" else "%,d".format(v)
+grouptrack/RouteModule.kt:689:    fun findRides(ctx: android.content.Context) {
+grouptrack/RouteModule.kt:698:        val aLat = pinTrailLat.value
+grouptrack/RouteModule.kt:699:        val aLon = pinTrailLon.value
+grouptrack/RouteModule.kt:700:        val rn = pinRideName.value
+grouptrack/RouteModule.kt:702:        val mLo = pinMiLow.intValue; val mHi = pinMiHigh.intValue
+grouptrack/RouteModule.kt:703:        val sLo = pinMphLow.intValue; val sHi = pinMphHigh.intValue
+grouptrack/RouteModule.kt:704:        val pins = pinPoints.value
+grouptrack/RouteModule.kt:705:        val loop = pinIsLoop.value
+grouptrack/RouteModule.kt:706:        val eLat = pinEndLat.value; val eLon = pinEndLon.value
+grouptrack/RouteModule.kt:708:            var made = 0
+grouptrack/RouteModule.kt:709:            var err = ""
+grouptrack/RouteModule.kt:714:                val db = SpatialDbManager.getSpatialDb()
+grouptrack/RouteModule.kt:718:                    fun search(lo: Int) = com.geeksville.mesh.convoy.RouteExplorer.explore(db,
+grouptrack/RouteModule.kt:723:                    var out = search(mLo)
+grouptrack/RouteModule.kt:749:                    val recipe = currentRecipe(aLat, aLon, aName, mLo, mHi, sLo, sHi, pins, if (loop == false) eLat to eLon else null)
+grouptrack/RouteModule.kt:758:                    val recipe = currentRecipe(aLat, aLon, aName, mLo, mHi, sLo, sHi, pins, if (loop == false) eLat to eLon else null)
+grouptrack/RouteModule.kt:765:            val fMade = made
+grouptrack/RouteModule.kt:767:            val fErr = err
+grouptrack/RouteModule.kt:786:                    val tf = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:787:                    val allLand = tf.land != "PUBLIC" && tf.land != "PRIVATE" && tf.restricted
+grouptrack/RouteModule.kt:792:                    val fst = com.geeksville.mesh.convoy.RouteExplorer.lastStats
+grouptrack/RouteModule.kt:793:                    val fewFeatures = fErr.isEmpty() && pins.isEmpty() &&
+grouptrack/RouteModule.kt:795:                    val nf = if (fst.features < 0) 0 else fst.features
+grouptrack/RouteModule.kt:797:                    val tmi = fst.trailMiles
+grouptrack/RouteModule.kt:798:                    val reach = "from this trailhead the planner can reach " + (if (nf == 1) "1 feature" else "$nf features") +
+grouptrack/RouteModule.kt:801:                    val lmi = fst.longestMiles
+grouptrack/RouteModule.kt:802:                    val best = if (lmi > 0.0 && lmi < mLo) "The longest ride the planner can build here is about " + Math.round(lmi) +
+grouptrack/RouteModule.kt:806:                    val here = (if (nf == 1) "1 feature" else "$nf features") +
+grouptrack/RouteModule.kt:831:    fun manualDrafts() = RouteDraftStore.listDrafts().filter { !RouteDraftStore.isInOpenBatch(it.name) }
+grouptrack/RouteModule.kt:833:    fun manualChecks(): Boolean {
+grouptrack/RouteModule.kt:843:    fun startNew(method: Int) {
+grouptrack/RouteModule.kt:856:    fun close() {
+grouptrack/RouteModule.kt:864:    fun endBuild() {
+grouptrack/RouteModule.kt:871:    private fun methodStr(): String = when (routeMethod.intValue) { ROUTE_METHOD_DRAW -> "draw"; ROUTE_METHOD_SUGGEST -> "suggest"; else -> "point" }
+grouptrack/RouteModule.kt:874:    fun autosave() {
+grouptrack/RouteModule.kt:875:        val nm = routeName.value
+grouptrack/RouteModule.kt:883:    fun buildLine(ctx: android.content.Context): String {
+grouptrack/RouteModule.kt:884:        val v = vp
+grouptrack/RouteModule.kt:886:        val tl = SpatialDbManager.queryTrailsByViewport(v[0], v[1], v[2], v[3])
+grouptrack/RouteModule.kt:887:        val tk = SpatialDbManager.queryTracksByViewport(v[0], v[1], v[2], v[3])
+grouptrack/RouteModule.kt:888:        val byId = HashMap<String, String>()
+grouptrack/RouteModule.kt:889:        for (m in tl) { val id = m["trail_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+grouptrack/RouteModule.kt:890:        for (m in tk) { val id = m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+grouptrack/RouteModule.kt:896:    fun buildLineById(ctx: android.content.Context): String {
+grouptrack/RouteModule.kt:898:        val verts = RouteManager.routeVertices()
+grouptrack/RouteModule.kt:899:        val byId = HashMap<String, String>()
+grouptrack/RouteModule.kt:910:    fun onTap(ctx: android.content.Context, lat: Double, lon: Double) {
+grouptrack/RouteModule.kt:913:            val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+grouptrack/RouteModule.kt:915:                val b = vp
+grouptrack/RouteModule.kt:916:                val trails = SpatialDbManager.queryTrailsByViewport(b[0], b[1], b[2], b[3])
+grouptrack/RouteModule.kt:917:                val mPerPx = 156543.03392 * kotlin.math.cos(Math.toRadians(lat)) / Math.pow(2.0, b[4])
+grouptrack/RouteModule.kt:918:                val snapRadiusM = (44.0 * mPerPx).coerceIn(15.0, 150.0)
+grouptrack/RouteModule.kt:919:                val s = RouteManager.snapTrailsOnly(lat, lon, trails, snapRadiusM)
+grouptrack/RouteModule.kt:925:                val nearby = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SpatialDbManager.trailheadsNear(lat, lon) }
+grouptrack/RouteModule.kt:930:            val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { buildLine(ctx) }
+grouptrack/RouteModule.kt:942:    val ctx = LocalContext.current
+grouptrack/RouteModule.kt:943:    val R = GtRoute
+grouptrack/RouteModule.kt:944:    val scope = androidx.compose.runtime.rememberCoroutineScope()
+grouptrack/RouteModule.kt:948:    val saveCompleted: () -> Unit = {
+grouptrack/RouteModule.kt:949:        val b = R.vp
+grouptrack/RouteModule.kt:950:        val name = R.routeName.value
+grouptrack/RouteModule.kt:952:            val thFirst = RouteManager.routeVertices().firstOrNull()
+grouptrack/RouteModule.kt:953:            val thNear = thFirst?.let { f ->
+grouptrack/RouteModule.kt:964:            val res = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+grouptrack/RouteModule.kt:966:                val lines = SpatialDbManager.queryTrailsByViewport(b[0], b[1], b[2], b[3]) +
+grouptrack/RouteModule.kt:968:                val byId = HashMap<String, String>()
+grouptrack/RouteModule.kt:969:                for (m in lines) { val id = m["trail_id"] ?: m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+grouptrack/RouteModule.kt:970:                val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+grouptrack/RouteModule.kt:972:                    val (wkt, bbox) = built
+grouptrack/RouteModule.kt:973:                    val newRouteId = SpatialDbManager.insertRoute(name.ifBlank { "Route " + System.currentTimeMillis() },
+grouptrack/RouteModule.kt:978:                            val ok = SpatialDbManager.setRouteAnchor(newRouteId, th.lat, th.lon, th.name)
+grouptrack/RouteModule.kt:991:                R.js("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}")
+grouptrack/RouteModule.kt:1001:        val name = R.resumeReq.value
+grouptrack/RouteModule.kt:1004:            val od = RouteDraftStore.loadIntoRouteManager(name)
+grouptrack/RouteModule.kt:1014:                val p = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLineById(ctx) }
+grouptrack/RouteModule.kt:1024:        val step = R.aiStep.intValue
+grouptrack/RouteModule.kt:1025:        val on = step == PIN_STEP_TRAILHEAD || step == PIN_STEP_ENDPOINT || step == PIN_STEP_INCLUDE
+grouptrack/RouteModule.kt:1043:        val json = R.pinPoints.value.joinToString(",", "[", "]") { "[%.6f,%.6f]".format(it.first, it.second) }
+grouptrack/RouteModule.kt:1053:        val st = R.aiStep.intValue
+grouptrack/RouteModule.kt:1054:        val la = R.pinTrailLat.value; val lo = R.pinTrailLon.value
+grouptrack/RouteModule.kt:1057:            val rMi = R.pinMiHigh.intValue.toDouble() / 3.0
+grouptrack/RouteModule.kt:1058:            val dLat = rMi / 69.0
+grouptrack/RouteModule.kt:1059:            val dLon = rMi / (69.0 * maxOf(0.2, Math.cos(Math.toRadians(la))))
+grouptrack/RouteModule.kt:1062:            val nb = la + dLat; val sb = la - dLat; val eb = lo + dLon; val wb = lo - dLon
+grouptrack/RouteModule.kt:1063:            val kx = 69.0 * Math.cos(Math.toRadians(la))
+grouptrack/RouteModule.kt:1064:            val fr = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+grouptrack/RouteModule.kt:1065:                var c = -1; var far = 0.0
+grouptrack/RouteModule.kt:1075:                            val dy = (cur.getDouble(0) - la) * 69.0; val dx = (cur.getDouble(1) - lo) * kx
+grouptrack/RouteModule.kt:1082:            val nf = fr.first; val farMi = fr.second
+grouptrack/RouteModule.kt:1083:            val mLoAsk = R.pinMiLow.intValue
+grouptrack/RouteModule.kt:1087:                val nfs = "approximately " + nf + (if (nf == 1) " feature" else " features") +
+grouptrack/RouteModule.kt:1089:                val goodAi = nf > 0 && farMi * AI_REACH_FACTOR >= mLoAsk
+grouptrack/RouteModule.kt:1134:                    val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLine(ctx) }
+grouptrack/RouteModule.kt:1159:        val step = R.aiStep.intValue
+grouptrack/RouteModule.kt:1172:                        val lo = Math.round(R.pinMiLow.intValue.toDouble() / R.pinMphHigh.intValue.toDouble().coerceAtLeast(1.0))
+grouptrack/RouteModule.kt:1173:                        val hi = Math.round(R.pinMiHigh.intValue.toDouble() / R.pinMphLow.intValue.toDouble().coerceAtLeast(1.0))
+grouptrack/RouteModule.kt:1186:                val miLo = R.pinMiLow.intValue; val miHi = R.pinMiHigh.intValue
+grouptrack/RouteModule.kt:1187:                val mphLo = R.pinMphLow.intValue; val mphHi = R.pinMphHigh.intValue
+grouptrack/RouteModule.kt:1188:                val thName = R.pinTrailName.value
+grouptrack/RouteModule.kt:1189:                val isLoop = R.pinIsLoop.value
+grouptrack/RouteModule.kt:1190:                val pts = R.pinPoints.value
+grouptrack/RouteModule.kt:1191:                val hrLo = miLo.toDouble() / mphHi.toDouble()
+grouptrack/RouteModule.kt:1192:                val hrHi = miHi.toDouble() / mphLo.toDouble()
+grouptrack/RouteModule.kt:1194:                val selKey = "" + R.pinTrailLat.value + "," + R.pinTrailLon.value + "," + miLo + "," + miHi + "," + com.geeksville.mesh.convoy.TrailFilterState.whereOrEmpty() + R.filterPeek.value
+grouptrack/RouteModule.kt:1197:                val summary = thName.ifBlank { "Your trailhead" } + " · " + miLo + "–" + miHi + " mi · " + mphLo + "–" + mphHi +
+grouptrack/RouteModule.kt:1201:                val GS = com.geeksville.mesh.convoy.GP_STATE_TODO
+grouptrack/RouteModule.kt:1202:                val GC = com.geeksville.mesh.convoy.GP_STATE_CURRENT
+grouptrack/RouteModule.kt:1203:                val GD = com.geeksville.mesh.convoy.GP_STATE_DONE
+grouptrack/RouteModule.kt:1204:                val steps = listOf(
+grouptrack/RouteModule.kt:1246:                val actions: List<Pair<String, () -> Unit>> = when (step) {
+grouptrack/RouteModule.kt:1262:                    val f = R.pinFeas.value
+grouptrack/RouteModule.kt:1263:                    val problem = when {
+grouptrack/RouteModule.kt:1297:                                val searchOpen = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+grouptrack/RouteModule.kt:1298:                                val sc = GtScheme.current.value
+grouptrack/RouteModule.kt:1344:        val rid = R.savedNotesRouteId.value
+grouptrack/RouteModule.kt:1346:        val hasRecipe = androidx.compose.runtime.remember(rid) { SpatialDbManager.routeRecipe(rid) != null }
+grouptrack/RouteModule.kt:1350:                val nm = SpatialDbManager.routeNameById(rid)
+grouptrack/RouteModule.kt:1351:                val also = SpatialDbManager.getAliasesFor("route", rid).mapNotNull { it["alias"] }.filter { it != nm }
+grouptrack/RouteModule.kt:1401:        val pts = RouteManager.routeVertexCount()
+grouptrack/RouteModule.kt:1418:                    val nm = R.routeName.value.trim()
+grouptrack/RouteModule.kt:1423:                        val oldNm = R.saveOrigName.value
+grouptrack/RouteModule.kt:1435:                    val nm = R.routeName.value.trim()
+grouptrack/RouteModule.kt:1439:                        val oldNm = R.saveOrigName.value
+grouptrack/RouteModule.kt:1464:                        val p = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLine(ctx) }
+grouptrack/RouteModule.kt:1486:        val pts = remember { RouteDraftStore.listDrafts().firstOrNull { it.name == RouteDraftStore.UNNAMED }?.pointCount ?: 0 }
+grouptrack/RouteModule.kt:1487:        val nm = remember { mutableStateOf("") }
+grouptrack/RouteModule.kt:1488:        val err = remember { mutableStateOf("") }
+grouptrack/RouteModule.kt:1503:                    val n = nm.value.trim()
+grouptrack/RouteModule.kt:1572:                    val f = RouteManager.routeVertices().firstOrNull()
+grouptrack/RouteModule.kt:1575:                        val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+grouptrack/RouteModule.kt:1595:                val nctx = androidx.compose.ui.platform.LocalContext.current
+grouptrack/RouteModule.kt:1615:                val nowHidden = n !in R.batchHidden.value
+grouptrack/RouteModule.kt:1617:                val safe = n.replace("\\", "\\\\").replace("'", "\\'")
+grouptrack/RouteModule.kt:1631:    val runBatchSave: (String) -> Unit = { area ->
+grouptrack/RouteModule.kt:1633:        val keep = R.batchRows.value.filter { it.name in R.batchSave.value }
+grouptrack/RouteModule.kt:1634:        val drop = R.batchRows.value.filter { it.name !in R.batchSave.value }
+grouptrack/RouteModule.kt:1637:            val saved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+grouptrack/RouteModule.kt:1639:                var ok = 0
+grouptrack/RouteModule.kt:1647:                    val verts = RouteManager.routeVertices()
+grouptrack/RouteModule.kt:1648:                    val byId = HashMap<String, String>()
+grouptrack/RouteModule.kt:1653:                    val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+grouptrack/RouteModule.kt:1658:                    val (wkt, bbox) = built
+grouptrack/RouteModule.kt:1660:                    val base = area.trim()
+grouptrack/RouteModule.kt:1664:                    val gh = SpatialDbManager.computeGeomHash(wkt)
+grouptrack/RouteModule.kt:1665:                    val existing = SpatialDbManager.findRouteIdByHash(gh)
+grouptrack/RouteModule.kt:1667:                        val first = SpatialDbManager.routeNameById(existing) ?: "a saved route"
+grouptrack/RouteModule.kt:1674:                    val id = SpatialDbManager.insertRoute(nm, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
+grouptrack/RouteModule.kt:1729:private const val PIN_STEP_WELCOME   = -2
+grouptrack/RouteModule.kt:1730:private const val PIN_STEP_DISTANCE  = -1
+grouptrack/RouteModule.kt:1731:private const val PIN_STEP_NONE      = 0
+grouptrack/RouteModule.kt:1732:private const val PIN_STEP_TRAILHEAD = 1
+grouptrack/RouteModule.kt:1733:private const val PIN_STEP_RETURN    = 2
+grouptrack/RouteModule.kt:1734:private const val PIN_STEP_ENDPOINT  = 3
+grouptrack/RouteModule.kt:1735:private const val PIN_STEP_ASK       = 4
+grouptrack/RouteModule.kt:1736:private const val PIN_STEP_INCLUDE   = 5
+grouptrack/RouteModule.kt:1737:private const val PIN_STEP_SUMMARY   = 6
+grouptrack/RouteModule.kt:1738:private const val PIN_STEP_SEARCH    = 7
+grouptrack/RouteModule.kt:1742:private const val AI_REACH_FACTOR = 3.0
+grouptrack/RouteModule.kt:1744:private const val AI_RETRY_FLOOR = 10
+grouptrack/RouteModule.kt:1745:private const val PIN_MAX = 5
+grouptrack/RouteModule.kt:1746:private const val PIN_REMOVE_MI = 0.15
+grouptrack/RouteModule.kt:1747:private const val TRAILHEAD_SELECT_MI = 0.062
+grouptrack/RouteModule.kt:1749:private fun gpMilesBetween(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+grouptrack/RouteModule.kt:1750:    val dLat = (lat2 - lat1) * 69.0
+grouptrack/RouteModule.kt:1751:    val dLon = (lon2 - lon1) * 69.0 * kotlin.math.cos(Math.toRadians((lat1 + lat2) / 2.0))
+grouptrack/RouteModule.kt:1755:private fun gpParsePointWkt(wkt: String?): DoubleArray? {
+grouptrack/RouteModule.kt:1757:    val m = Regex("-?\\d+\\.?\\d*").findAll(wkt).map { it.value }.toList()
+grouptrack/RouteModule.kt:1759:    val lon = m[0].toDoubleOrNull() ?: return null
+grouptrack/RouteModule.kt:1760:    val lat = m[1].toDoubleOrNull() ?: return null
+grouptrack/RouteModule.kt:1765:private fun gpNearestTrailhead(lat: Double, lon: Double, withinMi: Double): Map<String, String?>? {
+grouptrack/RouteModule.kt:1766:    val dLat = withinMi / 69.0
+grouptrack/RouteModule.kt:1767:    val dLon = withinMi / (69.0 * kotlin.math.max(0.2, kotlin.math.cos(Math.toRadians(lat))))
+grouptrack/RouteModule.kt:1768:    val found = SpatialDbManager.queryWaypointsByViewport(lat - dLat, lon - dLon, lat + dLat, lon + dLon, 200)
+grouptrack/RouteModule.kt:1769:    var best: Map<String, String?>? = null
+grouptrack/RouteModule.kt:1770:    var bestMi = withinMi
+grouptrack/RouteModule.kt:1773:        val p = gpParsePointWkt(w["geometry"]) ?: continue
+grouptrack/RouteModule.kt:1774:        val mi = gpMilesBetween(lat, lon, p[0], p[1])
+grouptrack/RouteModule.kt:1785:fun rememberRecipeFile(): () -> Unit {
+grouptrack/RouteModule.kt:1786:    val context = androidx.compose.ui.platform.LocalContext.current
+grouptrack/RouteModule.kt:1787:    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+grouptrack/RouteModule.kt:1791:            val msg = try {
+grouptrack/RouteModule.kt:1792:                val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+grouptrack/RouteModule.kt:1794:                val o = org.json.JSONObject(text)
+grouptrack/RouteModule.kt:1795:                val r = o.optJSONObject("recipe") ?: o
+grouptrack/RouteModule.kt:1804:    val notice = com.geeksville.mesh.convoy.rememberPickerNotice("to choose the route recipe file (.json) you were sent", "file")
+grouptrack/RouteModule.kt:1813:fun GtTrailTable(t: com.geeksville.mesh.convoy.RouteExplorer.SelTable) {
+grouptrack/RouteModule.kt:1816:    val sc = GtScheme.current.value
+grouptrack/RouteModule.kt:1817:    val inc = sc.good; val out = sc.bad; val txt = sc.panelText
+grouptrack/RouteModule.kt:1818:    fun fmt(n: Int) = "%,d".format(n)
+grouptrack/RouteModule.kt:1819:    val bold = androidx.compose.ui.text.font.FontWeight.Bold
+grouptrack/RouteModule.kt:1820:    val end = androidx.compose.ui.text.style.TextAlign.End
+grouptrack/RouteModule.kt:1821:    val gap = Modifier.width(8.dp)
+grouptrack/RouteModule.kt:1823:    val tctx = androidx.compose.ui.platform.LocalContext.current
+grouptrack/RouteModule.kt:1824:    fun said(msg: String) = android.widget.Toast.makeText(tctx, msg, android.widget.Toast.LENGTH_SHORT).show()
+grouptrack/RouteModule.kt:1825:    val tf = com.geeksville.mesh.convoy.TrailFilterState
+grouptrack/RouteModule.kt:1826:    fun landTap(pub: Boolean) {
+grouptrack/RouteModule.kt:1827:        val before = tf.land
+grouptrack/RouteModule.kt:1833:    fun useTap(u: String) {
+grouptrack/RouteModule.kt:1834:        val before = tf.use
+grouptrack/RouteModule.kt:1839:    fun typeTap(ty: String) { GtRoute.toggleType(ty); said("FILTER changed: $ty " + (if (tf.isOn(ty)) "included" else "left out")) }
+grouptrack/RouteModule.kt:1840:    fun rstTap() { GtRoute.toggleRestricted(); said("FILTER changed: Restricted " + (if (tf.restricted) "included" else "left out")) }
+grouptrack/RouteModule.kt:1850:        var lastUse = ""
+grouptrack/RouteModule.kt:1854:                val u = r.use
+grouptrack/RouteModule.kt:1855:                val switchable = u == "Motorized" || u == "Non-motorized"
+grouptrack/RouteModule.kt:1862:            val ty = r.type
+grouptrack/RouteModule.kt:1863:            val pubIn = r.useOn && r.typeOn && t.publicOn
+grouptrack/RouteModule.kt:1864:            val privIn = r.useOn && r.typeOn && t.privateOn
 grouptrack/GtGolden15a.kt:31:object GtGolden15a {
 grouptrack/GtGolden15a.kt:33:    class Summary(val lines: Int, val diffs: Int, val byKind: Map<String, Pair<Int, Int>>)
 grouptrack/GtGolden15a.kt:35:    private fun hex(s: String): String {
@@ -11532,578 +11576,635 @@ SHARED:route/GtRoute.kt:211:    private const val CAUTION_FT = 10.0
 SHARED:route/GtRoute.kt:212:    private const val POI_BUF_MI = 0.5
 SHARED:route/GtRoute.kt:223:    private const val SNAP_ANCHOR_MI = 2.0
 SHARED:route/GtRoute.kt:224:    private const val SNAP_POINT_MI = 0.5
-SHARED:route/GtRoute.kt:225:    private const val PENALTY = 2.2
-SHARED:route/GtRoute.kt:226:    private const val TRIES = 2500
-SHARED:route/GtRoute.kt:227:    private const val BEAM_TOP = 5
-SHARED:route/GtRoute.kt:230:    data class Request(
-SHARED:route/GtRoute.kt:231:        val anchorLat: Double,
-SHARED:route/GtRoute.kt:232:        val anchorLon: Double,
-SHARED:route/GtRoute.kt:233:        val name: String,
-SHARED:route/GtRoute.kt:234:        val milesLow: Double,
-SHARED:route/GtRoute.kt:235:        val milesHigh: Double,
-SHARED:route/GtRoute.kt:236:        val mphLow: Double,
-SHARED:route/GtRoute.kt:237:        val mphHigh: Double,
-SHARED:route/GtRoute.kt:241:        val maxRoutes: Int = 4,
-SHARED:route/GtRoute.kt:243:        val includePoints: List<Pair<Double, Double>> = emptyList(),
-SHARED:route/GtRoute.kt:244:        val seed: Long = 20260823L,
-SHARED:route/GtRoute.kt:247:    data class Progress(val step: String, val detail: String = "")
-SHARED:route/GtRoute.kt:249:    data class Suggestion(
-SHARED:route/GtRoute.kt:250:        val name: String,
-SHARED:route/GtRoute.kt:251:        val miles: Double,
-SHARED:route/GtRoute.kt:252:        val hoursLow: Double,
-SHARED:route/GtRoute.kt:253:        val hoursHigh: Double,
-SHARED:route/GtRoute.kt:254:        val featureCount: Int,
-SHARED:route/GtRoute.kt:255:        val featureMix: String,
-SHARED:route/GtRoute.kt:256:        val draftName: String,
-SHARED:route/GtRoute.kt:263:    private class Edge(
-SHARED:route/GtRoute.kt:264:        val u: Long, val v: Long, val miles: Double,
-SHARED:route/GtRoute.kt:265:        val name: String?, val trailId: String,
-SHARED:route/GtRoute.kt:266:        val pts: List<DoubleArray>,
-SHARED:route/GtRoute.kt:281:    private class Graph(
-SHARED:route/GtRoute.kt:282:        val key: String,
-SHARED:route/GtRoute.kt:283:        val nodes: HashMap<Long, DoubleArray>,
-SHARED:route/GtRoute.kt:284:        val edges: ArrayList<Edge>,
-SHARED:route/GtRoute.kt:288:        val mainComponent: HashSet<Long>,
-SHARED:route/GtRoute.kt:291:        val lAdj: HashMap<Long, ArrayList<LongArray>>,
-SHARED:route/GtRoute.kt:295:    class SearchStats {
-SHARED:route/GtRoute.kt:296:        @Volatile var trails = -1
-SHARED:route/GtRoute.kt:297:        @Volatile var networks = -1
-SHARED:route/GtRoute.kt:298:        @Volatile var junctions = -1
-SHARED:route/GtRoute.kt:299:        @Volatile var features = -1
-SHARED:route/GtRoute.kt:300:        @Volatile var areaMi = ""
-SHARED:route/GtRoute.kt:301:        @Volatile var stop = ""
-SHARED:route/GtRoute.kt:304:    @Volatile var lastStats = SearchStats()
-SHARED:route/GtRoute.kt:306:    @Volatile private var lastTrailsRead = -1
-SHARED:route/GtRoute.kt:310:    data class SelRow(val use: String, val type: String, val pub: Int, val priv: Int, val typeOn: Boolean, val useOn: Boolean)
-SHARED:route/GtRoute.kt:313:    data class SelTable(val area: String = "", val rows: List<SelRow> = emptyList(), val restricted: Int = 0,
-SHARED:route/GtRoute.kt:314:                        val restrictedOn: Boolean = true, val publicOn: Boolean = true, val privateOn: Boolean = false,
-SHARED:route/GtRoute.kt:315:                        val searched: Int = 0, val total: Int = 0,
-SHARED:route/GtRoute.kt:319:    fun selectionTable(db: SQLiteConnection, req: Request): SelTable = try {
-SHARED:route/GtRoute.kt:320:        val box = corridorBox(req)
-SHARED:route/GtRoute.kt:321:        val f = TrailFilterState
-SHARED:route/GtRoute.kt:322:        val args = listOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
-SHARED:route/GtRoute.kt:324:        var rst = 0; var total = 0
-SHARED:route/GtRoute.kt:328:                val n = int(c, 3); total += n
-SHARED:route/GtRoute.kt:331:                    else -> { val a = m.getOrPut(str(c, 0) + "|" + str(c, 1)) { IntArray(2) }
-SHARED:route/GtRoute.kt:336:        var searched = 0
-SHARED:route/GtRoute.kt:342:        fun useLabel(u: String) = when (u) { "MOTORIZED" -> "Motorized"; "NON-MOTORIZED" -> "Non-motorized"; else -> "Use not recorded" }
-SHARED:route/GtRoute.kt:343:        fun useOrder(u: String) = when (u) { "MOTORIZED" -> 0; "NON-MOTORIZED" -> 1; else -> 2 }
-SHARED:route/GtRoute.kt:344:        fun useOn(u: String) = when (u) { "MOTORIZED" -> f.use != "NON-MOTORIZED"; "NON-MOTORIZED" -> f.use != "MOTORIZED"; else -> true }
-SHARED:route/GtRoute.kt:345:        val rows = m.entries.map { e -> val (u, t) = e.key.split("|", limit = 2).let { it[0] to it[1] }; Triple(u, t, e.value) }
-SHARED:route/GtRoute.kt:353:     * AIFAIL-2026-11-03 v5 (Fred 06:54): the trails in [req]'s search area by class -- land, use, each trail type -- each selected
-SHARED:route/GtRoute.kt:356:    fun selectionBreakdown(db: SQLiteConnection, req: Request): String = try {
-SHARED:route/GtRoute.kt:357:        val box = corridorBox(req)
-SHARED:route/GtRoute.kt:358:        val f = TrailFilterState
-SHARED:route/GtRoute.kt:359:        val args = listOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
-SHARED:route/GtRoute.kt:360:        val cat = HashMap<String, Int>(); val land = HashMap<String, Int>(); val use = HashMap<String, Int>()
-SHARED:route/GtRoute.kt:361:        var unoff = 0; var total = 0
-SHARED:route/GtRoute.kt:365:                val n = int(c, 4); total += n
-SHARED:route/GtRoute.kt:373:        var searched = 0
-SHARED:route/GtRoute.kt:376:        fun fmt(n: Int) = GtFmt.d(n)
-SHARED:route/GtRoute.kt:377:        fun item(name: String, on: Boolean, n: Int) = if (on) "✓ $name ${fmt(n)}" else "✗ $name ${fmt(n)} left out"
-SHARED:route/GtRoute.kt:378:        val area = GtFmt.f((box[1] - box[0]) * 69.0, 0) + " x " + GtFmt.f((box[3] - box[2]) * 69.0 * cos(toRadians((box[0] + box[1]) / 2)), 0) + " mi"
-SHARED:route/GtRoute.kt:379:        val types = cat.entries.sortedByDescending { it.value }.map { item(it.key, it.key !in f.off, it.value) } +
-SHARED:route/GtRoute.kt:390:    private fun omittedByFilter(db: SQLiteConnection, box: DoubleArray): String = try {
-SHARED:route/GtRoute.kt:391:        val f = TrailFilterState
-SHARED:route/GtRoute.kt:392:        val args = listOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
-SHARED:route/GtRoute.kt:394:        fun n(extra: String, more: List<String> = emptyList()): Int = rawQuery(db,
-SHARED:route/GtRoute.kt:397:        val parts = ArrayList<String>()
-SHARED:route/GtRoute.kt:398:        fun add(c: Int, what: String) { if (c > 0) parts.add(GtFmt.d(c) + " " + what) }
-SHARED:route/GtRoute.kt:410:    private var cached: Graph? = null
-SHARED:route/GtRoute.kt:413:    fun clearCache() { cached = null }
-SHARED:route/GtRoute.kt:418:     * given, and a cache hit used to return the cached object itself. So the
-SHARED:route/GtRoute.kt:434:    private fun copyOf(g: Graph): Graph = Graph(
-SHARED:route/GtRoute.kt:449:    private val NONAMES = setOf("", "not named", "unnamed", "none", "null", "n/a", "-")
-SHARED:route/GtRoute.kt:450:    private val WATER = setOf("spring")
-SHARED:route/GtRoute.kt:451:    private val VIEW = setOf("peak", "cliff", "volcano")
-SHARED:route/GtRoute.kt:455:     * class -- base/(1+0.22*(n-1)) -- so pins sharing a natural class would
-SHARED:route/GtRoute.kt:464:    private const val USERPIN = "userpin"
-SHARED:route/GtRoute.kt:465:    private const val USERPIN_BASE = 60.0
-SHARED:route/GtRoute.kt:468:     * ROUTEREACH-2026-08-23W: NOT EVERY fclass IS A FEATURE. These are administrative
-SHARED:route/GtRoute.kt:483:     * class currently scores 1.0 and gets ridden to by default. Left as a
-SHARED:route/GtRoute.kt:486:    private val JUNK = setOf("county", "city", "town", "tree", "village",
-SHARED:route/GtRoute.kt:489:    private fun realName(n: String?): Boolean =
-SHARED:route/GtRoute.kt:492:    private fun hav(aLat: Double, aLon: Double, bLat: Double, bLon: Double): Double {
-SHARED:route/GtRoute.kt:493:        val r = 3958.8
-SHARED:route/GtRoute.kt:494:        val p1 = toRadians(aLat); val p2 = toRadians(bLat)
-SHARED:route/GtRoute.kt:495:        val dp = p2 - p1
-SHARED:route/GtRoute.kt:496:        val dl = toRadians(bLon - aLon)
-SHARED:route/GtRoute.kt:497:        val h = sin(dp / 2) * sin(dp / 2) + cos(p1) * cos(p2) * sin(dl / 2) * sin(dl / 2)
-SHARED:route/GtRoute.kt:502:    private fun wktPoints(wkt: String?): List<DoubleArray> {
-SHARED:route/GtRoute.kt:504:        val out = ArrayList<DoubleArray>()
-SHARED:route/GtRoute.kt:505:        val m = Regex("(-?\\d+\\.?\\d*)\\s+(-?\\d+\\.?\\d*)").findAll(wkt)
-SHARED:route/GtRoute.kt:507:            val lon = g.groupValues[1].toDoubleOrNull() ?: continue
-SHARED:route/GtRoute.kt:508:            val lat = g.groupValues[2].toDoubleOrNull() ?: continue
-SHARED:route/GtRoute.kt:518:    const val AIM_RING_M = 805.0
-SHARED:route/GtRoute.kt:522:    const val TRAILHEAD_CHECK_M = AIM_RING_M + 200.0
-SHARED:route/GtRoute.kt:531:        val ky = 111_320.0
-SHARED:route/GtRoute.kt:532:        val kx = 111_320.0 * max(0.1, cos(toRadians(lat)))
-SHARED:route/GtRoute.kt:533:        val dLat = maxM / ky; val dLon = maxM / kx
-SHARED:route/GtRoute.kt:534:        var best = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:539:                val pts = wktPoints(str(c, 0))
-SHARED:route/GtRoute.kt:541:                    val ax = (pts[i][1] - lon) * kx; val ay = (pts[i][0] - lat) * ky
-SHARED:route/GtRoute.kt:543:                    val bx = (pts[i - 1][1] - lon) * kx; val by = (pts[i - 1][0] - lat) * ky
-SHARED:route/GtRoute.kt:544:                    val dx = ax - bx; val dy = ay - by; val l2 = dx * dx + dy * dy
-SHARED:route/GtRoute.kt:545:                    val t = if (l2 == 0.0) 0.0 else ((-bx) * dx + (-by) * dy) / l2
-SHARED:route/GtRoute.kt:546:                    val tt = t.coerceIn(0.0, 1.0)
-SHARED:route/GtRoute.kt:547:                    val px = bx + tt * dx; val py = by + tt * dy
-SHARED:route/GtRoute.kt:561:    fun connectedMiles(db: SQLiteConnection, req: Request): Double = try {
-SHARED:route/GtRoute.kt:562:        val box = corridorBox(req)
-SHARED:route/GtRoute.kt:563:        var trailCount = 0
-SHARED:route/GtRoute.kt:565:        val g = buildGraph(db, box, trailCount, null)
-SHARED:route/GtRoute.kt:566:        var bd = Double.MAX_VALUE; var start = -1L
-SHARED:route/GtRoute.kt:569:                val pr = projectOnSeg(req.anchorLat, req.anchorLon, e.pts[j], e.pts[j + 1])
-SHARED:route/GtRoute.kt:574:            val seen = HashSet<Long>(); val q = ArrayDeque<Long>(); val used = HashSet<Long>()
-SHARED:route/GtRoute.kt:576:            var miles = 0.0
-SHARED:route/GtRoute.kt:578:                val n = q.removeFirst()
-SHARED:route/GtRoute.kt:580:                    val nb = a[0]; val ei = a[1]
-SHARED:route/GtRoute.kt:591:    private fun cellKey(lat: Double, lon: Double): Long {
-SHARED:route/GtRoute.kt:592:        val d = (SNAP_FT / 5280.0) / 69.0
-SHARED:route/GtRoute.kt:593:        val a = jRound(lat / d)
-SHARED:route/GtRoute.kt:594:        val b = jRound(lon / d)
-SHARED:route/GtRoute.kt:604:    private fun corridorBox(req: Request): DoubleArray {
-SHARED:route/GtRoute.kt:623:        val radiusMi = req.milesHigh / 3.0
-SHARED:route/GtRoute.kt:624:        val dLat = radiusMi / 69.0
-SHARED:route/GtRoute.kt:625:        val dLon = radiusMi / (69.0 * max(0.2, cos(toRadians(req.anchorLat))))
-SHARED:route/GtRoute.kt:632:    private fun buildGraph(
-SHARED:route/GtRoute.kt:665:        val key = GtFmt.f(box[0], 3) + "_" + GtFmt.f(box[1], 3) + "_" + GtFmt.f(box[2], 3) + "_" + GtFmt.f(box[3], 3) + "_" +
-SHARED:route/GtRoute.kt:678:        val geoms = ArrayList<Triple<String, String?, List<DoubleArray>>>()
-SHARED:route/GtRoute.kt:689:            var cut = 0
-SHARED:route/GtRoute.kt:694:                        val pp = wktPoints(m.groupValues[1])
-SHARED:route/GtRoute.kt:699:                val pts = wktPoints(str(c, 2))
-SHARED:route/GtRoute.kt:713:        val touch = HashMap<Long, HashSet<String>>()
-SHARED:route/GtRoute.kt:714:        val spread = HashMap<Long, ArrayList<DoubleArray>>()
-SHARED:route/GtRoute.kt:717:                val k = cellKey(p[0], p[1])
-SHARED:route/GtRoute.kt:722:        val shared = HashSet<Long>()
-SHARED:route/GtRoute.kt:723:        val gapFt = HashMap<Long, Double>()
-SHARED:route/GtRoute.kt:724:        val jCentre = HashMap<Long, DoubleArray>()
-SHARED:route/GtRoute.kt:728:            val ps = spread[k]!!
-SHARED:route/GtRoute.kt:729:            var g = 0.0
-SHARED:route/GtRoute.kt:731:                var j = i + 1
-SHARED:route/GtRoute.kt:743:        val nodes = HashMap<Long, DoubleArray>()
-SHARED:route/GtRoute.kt:744:        val edges = ArrayList<Edge>()
-SHARED:route/GtRoute.kt:747:            val cuts = LinkedHashSet<Int>(); cuts.add(0); cuts.add(pts.size - 1)
-SHARED:route/GtRoute.kt:749:            val cl = cuts.sorted()
-SHARED:route/GtRoute.kt:751:                val seg = pts.subList(cl[i], cl[i + 1] + 1)
-SHARED:route/GtRoute.kt:753:                var L = 0.0
-SHARED:route/GtRoute.kt:757:                val ka = cellKey(seg[0][0], seg[0][1])
-SHARED:route/GtRoute.kt:758:                val kb = cellKey(seg[seg.size - 1][0], seg[seg.size - 1][1])
-SHARED:route/GtRoute.kt:766:        val adj = HashMap<Long, ArrayList<IntArray>>()
-SHARED:route/GtRoute.kt:773:        val adj2 = HashMap<Long, ArrayList<LongArray>>()
-SHARED:route/GtRoute.kt:778:        val adjFinal = HashMap<Long, ArrayList<IntArray>>()
-SHARED:route/GtRoute.kt:780:            val a = ArrayList<IntArray>()
-SHARED:route/GtRoute.kt:786:        val seen = HashSet<Long>()
-SHARED:route/GtRoute.kt:787:        var best = HashSet<Long>()
-SHARED:route/GtRoute.kt:790:            val comp = HashSet<Long>()
-SHARED:route/GtRoute.kt:791:            val q = ArrayDeque<Long>().apply { add(n) }
-SHARED:route/GtRoute.kt:794:                val x = q.removeFirst(); comp.add(x)
-SHARED:route/GtRoute.kt:814:    private class Poi(
-SHARED:route/GtRoute.kt:815:        val name: String, val fclass: String,
-SHARED:route/GtRoute.kt:816:        val lat: Double, val lon: Double, val offMi: Double,
-SHARED:route/GtRoute.kt:819:    private fun loadPois(
-SHARED:route/GtRoute.kt:822:        val out = HashMap<Long, ArrayList<Poi>>()
-SHARED:route/GtRoute.kt:829:                val nm = str(c, 0) ?: continue
-SHARED:route/GtRoute.kt:830:                val fc = str(c, 1) ?: "other"
-SHARED:route/GtRoute.kt:833:                val la = c.getDouble(2); val lo = c.getDouble(3)
-SHARED:route/GtRoute.kt:834:                var bestK = 0L; var bestD = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:836:                    val p = g.nodes[k] ?: continue
-SHARED:route/GtRoute.kt:837:                    val d = hav(la, lo, p[0], p[1])
-SHARED:route/GtRoute.kt:849:     * ⭐ VARIETY-WEIGHTED, AND DISTANCE-FREE. A second class of feature beats
-SHARED:route/GtRoute.kt:853:    private fun scoreSet(ks: List<Long>, poiAt: Map<Long, List<Poi>>): Double {
-SHARED:route/GtRoute.kt:854:        val seen = HashSet<String>()
-SHARED:route/GtRoute.kt:855:        val byClass = HashMap<String, Int>()
-SHARED:route/GtRoute.kt:856:        var v = 0.0
-SHARED:route/GtRoute.kt:859:            val n = (byClass[p.fclass] ?: 0) + 1
-SHARED:route/GtRoute.kt:862:            val base = if (p.fclass == USERPIN) USERPIN_BASE
-SHARED:route/GtRoute.kt:863:                else if (p.fclass in VIEW) 3.0 else if (p.fclass in WATER) 2.0 else 1.0
-SHARED:route/GtRoute.kt:873:    private class Dij(val dist: HashMap<Long, Double>, val prev: HashMap<Long, LongArray>)
-SHARED:route/GtRoute.kt:875:    private fun dijkstra(src: Long, g: Graph, pen: Map<Int, Double>): Dij {
-SHARED:route/GtRoute.kt:876:        val dist = HashMap<Long, Double>(); dist[src] = 0.0
-SHARED:route/GtRoute.kt:877:        val prev = HashMap<Long, LongArray>()
-SHARED:route/GtRoute.kt:881:            val (d, x) = pq.poll()
-SHARED:route/GtRoute.kt:884:                val ei = nb[1].toInt()
-SHARED:route/GtRoute.kt:885:                val w = g.edges[ei].miles * (pen[ei] ?: 1.0)
-SHARED:route/GtRoute.kt:886:                val nd = d + w
-SHARED:route/GtRoute.kt:897:    private fun pathEdges(d: Dij, src: Long, dst: Long): List<Int>? {
-SHARED:route/GtRoute.kt:898:        val out = ArrayList<Int>()
-SHARED:route/GtRoute.kt:899:        var x = dst
-SHARED:route/GtRoute.kt:901:            val p = d.prev[x] ?: return null
-SHARED:route/GtRoute.kt:907:    private fun nearestNode(lat: Double, lon: Double, g: Graph): Long {
-SHARED:route/GtRoute.kt:908:        var bk = 0L; var bd = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:910:            val p = g.nodes[k] ?: continue
-SHARED:route/GtRoute.kt:911:            val d = hav(lat, lon, p[0], p[1])
-SHARED:route/GtRoute.kt:974:    data class PinFeasibility(
-SHARED:route/GtRoute.kt:975:        val order: List<Int>,
-SHARED:route/GtRoute.kt:976:        val totalMiles: Double,
-SHARED:route/GtRoute.kt:977:        val legMiles: List<Double>,
-SHARED:route/GtRoute.kt:978:        val snapFeet: List<Double>,
-SHARED:route/GtRoute.kt:979:        val onFragment: List<Int>,
-SHARED:route/GtRoute.kt:980:        val unreachable: List<Int>,
-SHARED:route/GtRoute.kt:981:        val marginalMiles: List<Double>,
-SHARED:route/GtRoute.kt:982:        val overMiles: Double,
-SHARED:route/GtRoute.kt:990:        val underMiles: Double
-SHARED:route/GtRoute.kt:1007:        object Loop : RouteShape
-SHARED:route/GtRoute.kt:1008:        data class PointToPoint(val endLat: Double, val endLon: Double) : RouteShape
-SHARED:route/GtRoute.kt:1019:    private fun heldKarpOpen(m: Array<DoubleArray>, endIdx: Int): Pair<List<Int>, Double> {
-SHARED:route/GtRoute.kt:1020:        val n = m.size
-SHARED:route/GtRoute.kt:1022:        val mid = (0 until n).filter { it != 0 && it != endIdx }
-SHARED:route/GtRoute.kt:1023:        val k = mid.size
-SHARED:route/GtRoute.kt:1026:            val d = m[0][endIdx]
-SHARED:route/GtRoute.kt:1031:        val full = 1 shl k
-SHARED:route/GtRoute.kt:1032:        val dp = Array(full) { DoubleArray(k) { Double.MAX_VALUE } }
-SHARED:route/GtRoute.kt:1033:        val par = Array(full) { IntArray(k) { -1 } }
-SHARED:route/GtRoute.kt:1036:            val d = m[0][mid[i]]
-SHARED:route/GtRoute.kt:1043:                val cur = dp[mask][last]
-SHARED:route/GtRoute.kt:1047:                    val step = m[mid[last]][mid[nxt]]
-SHARED:route/GtRoute.kt:1049:                    val nm = mask or (1 shl nxt)
-SHARED:route/GtRoute.kt:1050:                    val cand = cur + step
-SHARED:route/GtRoute.kt:1059:        var bestLast = -1
-SHARED:route/GtRoute.kt:1060:        var best = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:1062:            val t = dp[full - 1][last]
-SHARED:route/GtRoute.kt:1064:            val tail = m[mid[last]][endIdx]
-SHARED:route/GtRoute.kt:1066:            val tot = t + tail
-SHARED:route/GtRoute.kt:1071:        val rev = ArrayList<Int>()
-SHARED:route/GtRoute.kt:1072:        var mask = full - 1
-SHARED:route/GtRoute.kt:1073:        var last = bestLast
-SHARED:route/GtRoute.kt:1076:            val p = par[mask][last]
-SHARED:route/GtRoute.kt:1114:    private fun corridorBoxFor(
-SHARED:route/GtRoute.kt:1121:        val direct = hav(req.anchorLat, req.anchorLon, shape.endLat, shape.endLon)
-SHARED:route/GtRoute.kt:1122:        val slack = (req.milesHigh - direct).coerceAtLeast(0.0)
-SHARED:route/GtRoute.kt:1123:        val bufMi = max(slack / 2.0, 2.0)
-SHARED:route/GtRoute.kt:1125:        var minLat = min(req.anchorLat, shape.endLat)
-SHARED:route/GtRoute.kt:1126:        var maxLat = max(req.anchorLat, shape.endLat)
-SHARED:route/GtRoute.kt:1127:        var minLon = min(req.anchorLon, shape.endLon)
-SHARED:route/GtRoute.kt:1128:        var maxLon = max(req.anchorLon, shape.endLon)
-SHARED:route/GtRoute.kt:1139:        val dLat = bufMi / 69.0
-SHARED:route/GtRoute.kt:1140:        val dLon = bufMi / (69.0 * max(0.2, cos(toRadians(req.anchorLat))))
-SHARED:route/GtRoute.kt:1141:        val box = doubleArrayOf(minLat - dLat, maxLat + dLat, minLon - dLon, maxLon + dLon)
-SHARED:route/GtRoute.kt:1150:    private fun nearestMainNode(lat: Double, lon: Double, g: Graph): Pair<Long, Double> {
-SHARED:route/GtRoute.kt:1151:        var best = 0L
-SHARED:route/GtRoute.kt:1152:        var bestD = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:1154:            val p = g.nodes[k] ?: continue
-SHARED:route/GtRoute.kt:1155:            val d = hav(lat, lon, p[0], p[1])
-SHARED:route/GtRoute.kt:1169:    private fun nearestAnyNode(lat: Double, lon: Double, g: Graph): Pair<Long, Double> {
-SHARED:route/GtRoute.kt:1170:        var best = 0L
-SHARED:route/GtRoute.kt:1171:        var bestD = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:1173:            val d = hav(lat, lon, p[0], p[1])
-SHARED:route/GtRoute.kt:1188:    private fun heldKarp(m: Array<DoubleArray>): Pair<List<Int>, Double> {
-SHARED:route/GtRoute.kt:1189:        val n = m.size
-SHARED:route/GtRoute.kt:1192:            val out = m[0][1]
-SHARED:route/GtRoute.kt:1193:            val back = m[1][0]
-SHARED:route/GtRoute.kt:1199:        val k = n - 1
-SHARED:route/GtRoute.kt:1200:        val full = 1 shl k
-SHARED:route/GtRoute.kt:1201:        val dp = Array(full) { DoubleArray(k) { Double.MAX_VALUE } }
-SHARED:route/GtRoute.kt:1202:        val par = Array(full) { IntArray(k) { -1 } }
-SHARED:route/GtRoute.kt:1205:            val d = m[0][i + 1]
-SHARED:route/GtRoute.kt:1212:                val cur = dp[mask][last]
-SHARED:route/GtRoute.kt:1216:                    val step = m[last + 1][nxt + 1]
-SHARED:route/GtRoute.kt:1218:                    val nm = mask or (1 shl nxt)
-SHARED:route/GtRoute.kt:1219:                    val cand = cur + step
-SHARED:route/GtRoute.kt:1228:        var bestEnd = -1
-SHARED:route/GtRoute.kt:1229:        var best = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:1231:            val t = dp[full - 1][last]
-SHARED:route/GtRoute.kt:1233:            val home = m[last + 1][0]
-SHARED:route/GtRoute.kt:1235:            val tot = t + home
-SHARED:route/GtRoute.kt:1240:        val rev = ArrayList<Int>()
-SHARED:route/GtRoute.kt:1241:        var mask = full - 1
-SHARED:route/GtRoute.kt:1242:        var last = bestEnd
-SHARED:route/GtRoute.kt:1245:            val p = par[mask][last]
-SHARED:route/GtRoute.kt:1264:    fun assess(
-SHARED:route/GtRoute.kt:1270:        var trailCount = 0
-SHARED:route/GtRoute.kt:1275:        val g = buildGraph(spatialDb, corridorBoxFor(req, shape, points), trailCount, null)
-SHARED:route/GtRoute.kt:1285:        val all = ArrayList<Pair<Double, Double>>(points.size + 2)
-SHARED:route/GtRoute.kt:1288:        val endIdx = if (shape is RouteShape.PointToPoint) {
-SHARED:route/GtRoute.kt:1293:        val terms = ArrayList<Long>(all.size)
-SHARED:route/GtRoute.kt:1294:        val snapFt = ArrayList<Double>(all.size)
-SHARED:route/GtRoute.kt:1295:        val onFrag = ArrayList<Int>()
-SHARED:route/GtRoute.kt:1300:        val tooFar = ArrayList<Int>()
-SHARED:route/GtRoute.kt:1304:        fun nearestSeg(lat: Double, lon: Double, inNet: Set<Long>?): Triple<Int, DoubleArray?, Double> {
-SHARED:route/GtRoute.kt:1305:            var bd = Double.MAX_VALUE; var bei = -1; var bp: DoubleArray? = null
-SHARED:route/GtRoute.kt:1307:                val e = g.edges[ei]
-SHARED:route/GtRoute.kt:1309:                val pts = e.pts
-SHARED:route/GtRoute.kt:1311:                    val pr = projectOnSeg(lat, lon, pts[j], pts[j + 1])
-SHARED:route/GtRoute.kt:1317:        val net = HashSet<Long>()
-SHARED:route/GtRoute.kt:1321:        var anchorNet: HashSet<Long>? = null
-SHARED:route/GtRoute.kt:1323:            val (alat, alon) = all[0]
-SHARED:route/GtRoute.kt:1324:            val startMi = 0.5
-SHARED:route/GtRoute.kt:1325:            val comps = ArrayList<HashSet<Long>>()
-SHARED:route/GtRoute.kt:1327:                val pts = g.edges[ei].pts
-SHARED:route/GtRoute.kt:1328:                var bd = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:1331:                val u = g.edges[ei].u
-SHARED:route/GtRoute.kt:1333:                val c = HashSet<Long>(); c.add(u)
-SHARED:route/GtRoute.kt:1334:                val q = ArrayDeque<Long>().apply { add(u) }
-SHARED:route/GtRoute.kt:1335:                while (q.isNotEmpty()) { val x = q.removeFirst(); for (y in g.lAdj[x] ?: emptyList()) if (c.add(y[0])) q.add(y[0]) }
-SHARED:route/GtRoute.kt:1343:            val (lat, lon) = all[i]
-SHARED:route/GtRoute.kt:1344:            val cap = if (i == 0) SNAP_ANCHOR_MI else SNAP_POINT_MI
-SHARED:route/GtRoute.kt:1346:            val dAny = if (i == 0) d else nearestSeg(lat, lon, null).third
-SHARED:route/GtRoute.kt:1355:            val node = splitEdgeAt(g, ei, bp)
-SHARED:route/GtRoute.kt:1359:                val q = ArrayDeque<Long>().apply { add(node) }; net.add(node)
-SHARED:route/GtRoute.kt:1360:                while (q.isNotEmpty()) { val x = q.removeFirst(); for (y in g.lAdj[x] ?: emptyList()) if (net.add(y[0])) q.add(y[0]) }
-SHARED:route/GtRoute.kt:1379:        val dij = HashMap<Long, Dij>()
-SHARED:route/GtRoute.kt:1382:        val n = terms.size
-SHARED:route/GtRoute.kt:1383:        val full = Array(n) { i ->
-SHARED:route/GtRoute.kt:1394:        val unreachable = ArrayList<Int>()
-SHARED:route/GtRoute.kt:1395:        val keep = ArrayList<Int>()
-SHARED:route/GtRoute.kt:1423:        val sub = Array(keep.size) { a ->
-SHARED:route/GtRoute.kt:1426:        val (subOrder, miles) = if (endIdx >= 0) {
-SHARED:route/GtRoute.kt:1440:        val order = subOrder.map { keep[it] }
-SHARED:route/GtRoute.kt:1444:        val legs = ArrayList<Double>(order.size)
-SHARED:route/GtRoute.kt:1445:        val hops = if (endIdx >= 0) order.size - 1 else order.size
-SHARED:route/GtRoute.kt:1447:            val a = order[i]
-SHARED:route/GtRoute.kt:1448:            val b = order[(i + 1) % order.size]
-SHARED:route/GtRoute.kt:1457:        val marginal = DoubleArray(n) { -1.0 }
-SHARED:route/GtRoute.kt:1461:                val idx = keep.filterIndexed { i, _ -> i != drop }
-SHARED:route/GtRoute.kt:1462:                val reduced = Array(idx.size) { a ->
-SHARED:route/GtRoute.kt:1465:                val (o2, m2) = heldKarp(reduced)
-SHARED:route/GtRoute.kt:1477:        val over = (miles - req.milesHigh).coerceAtLeast(0.0)
-SHARED:route/GtRoute.kt:1478:        val under = (req.milesLow - miles).coerceAtLeast(0.0)
-SHARED:route/GtRoute.kt:1498:    private fun projectOnSeg(
-SHARED:route/GtRoute.kt:1501:        val fy = 69.0
-SHARED:route/GtRoute.kt:1502:        val fx = 69.0 * cos(toRadians(plat))
-SHARED:route/GtRoute.kt:1503:        val px = plon * fx; val py = plat * fy
-SHARED:route/GtRoute.kt:1504:        val ax = a[1] * fx; val ay = a[0] * fy
-SHARED:route/GtRoute.kt:1505:        val bx = b[1] * fx; val by = b[0] * fy
-SHARED:route/GtRoute.kt:1506:        val vx = bx - ax; val vy = by - ay
-SHARED:route/GtRoute.kt:1507:        val l2 = vx * vx + vy * vy
-SHARED:route/GtRoute.kt:1510:        var t = ((px - ax) * vx + (py - ay) * vy) / l2
-SHARED:route/GtRoute.kt:1513:        val qx = ax + t * vx; val qy = ay + t * vy
-SHARED:route/GtRoute.kt:1517:    private var splitSeq = 0
-SHARED:route/GtRoute.kt:1530:    private fun splitEdgeAt(g: Graph, ei: Int, proj: DoubleArray): Long {
-SHARED:route/GtRoute.kt:1531:        val e = g.edges[ei]
-SHARED:route/GtRoute.kt:1532:        val pu = g.nodes[e.u] ?: return e.u
-SHARED:route/GtRoute.kt:1533:        val pv = g.nodes[e.v] ?: return e.u
-SHARED:route/GtRoute.kt:1534:        val du = hav(proj[0], proj[1], pu[0], pu[1])
-SHARED:route/GtRoute.kt:1535:        val dv = hav(proj[0], proj[1], pv[0], pv[1])
-SHARED:route/GtRoute.kt:1536:        val tot = du + dv
-SHARED:route/GtRoute.kt:1538:        val k = -1000000L - (splitSeq++).toLong()
-SHARED:route/GtRoute.kt:1556:        var cut = 0
-SHARED:route/GtRoute.kt:1557:        var bestD = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:1559:            val d = hav(proj[0], proj[1], e.pts[j][0], e.pts[j][1]) +
-SHARED:route/GtRoute.kt:1564:        val headPts = ArrayList<DoubleArray>(e.pts.subList(0, cut + 1))
-SHARED:route/GtRoute.kt:1566:        val tailPts = ArrayList<DoubleArray>()
-SHARED:route/GtRoute.kt:1574:        val ia = g.edges.size
-SHARED:route/GtRoute.kt:1576:        val ib = g.edges.size
-SHARED:route/GtRoute.kt:1594:    private fun loadPoisGrid(
-SHARED:route/GtRoute.kt:1597:        val out = HashMap<Long, ArrayList<Poi>>()
-SHARED:route/GtRoute.kt:1598:        val cell = POI_BUF_MI / 69.0
-SHARED:route/GtRoute.kt:1599:        val grid = HashMap<Long, ArrayList<Long>>()
-SHARED:route/GtRoute.kt:1601:            val p = g.nodes[k] ?: continue
-SHARED:route/GtRoute.kt:1602:            val gi = floor(p[0] / cell).toLong()
-SHARED:route/GtRoute.kt:1603:            val gj = floor(p[1] / cell).toLong()
-SHARED:route/GtRoute.kt:1613:                val nm = str(c, 0) ?: continue
-SHARED:route/GtRoute.kt:1614:                val fc = str(c, 1) ?: "other"
-SHARED:route/GtRoute.kt:1616:                val la = c.getDouble(2); val lo = c.getDouble(3)
-SHARED:route/GtRoute.kt:1617:                val gi = floor(la / cell).toLong()
-SHARED:route/GtRoute.kt:1618:                val gj = floor(lo / cell).toLong()
-SHARED:route/GtRoute.kt:1619:                var bk = 0L; var bd = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:1621:                    val key = ((gi + di) shl 32) xor ((gj + dj) and 0xffffffffL)
-SHARED:route/GtRoute.kt:1623:                        val p = g.nodes[k] ?: continue
-SHARED:route/GtRoute.kt:1624:                        val d = hav(la, lo, p[0], p[1])
-SHARED:route/GtRoute.kt:1637:    private inline fun forEachCombo(
-SHARED:route/GtRoute.kt:1641:        val idx = IntArray(size) { it }
-SHARED:route/GtRoute.kt:1644:            var i = size - 1
-SHARED:route/GtRoute.kt:1659:    private fun orderTour(
-SHARED:route/GtRoute.kt:1664:            var best: Pair<List<Long>, Double>? = null
-SHARED:route/GtRoute.kt:1665:            val arr = combo.toMutableList()
-SHARED:route/GtRoute.kt:1666:            fun perm(k: Int) {
-SHARED:route/GtRoute.kt:1668:                    var t = 0.0; var cur = start
-SHARED:route/GtRoute.kt:1669:                    for (p in arr) { val x = d(cur, p) ?: return; t += x; cur = p }
-SHARED:route/GtRoute.kt:1670:                    val back = d(cur, start) ?: return
-SHARED:route/GtRoute.kt:1676:                    val tmp = arr[k]; arr[k] = arr[i]; arr[i] = tmp
-SHARED:route/GtRoute.kt:1678:                    val t2 = arr[k]; arr[k] = arr[i]; arr[i] = t2
-SHARED:route/GtRoute.kt:1684:        var cur = start
-SHARED:route/GtRoute.kt:1685:        val left = combo.toMutableList()
-SHARED:route/GtRoute.kt:1686:        val order = ArrayList<Long>()
-SHARED:route/GtRoute.kt:1687:        var t = 0.0
-SHARED:route/GtRoute.kt:1689:            var bn: Long? = null; var bd = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:1690:            for (p in left) { val x = d(cur, p) ?: continue; if (x < bd) { bd = x; bn = p } }
-SHARED:route/GtRoute.kt:1691:            val n = bn ?: return null
-SHARED:route/GtRoute.kt:1694:        val back = d(cur, start) ?: return null
-SHARED:route/GtRoute.kt:1704:    private fun survivorsOf(
-SHARED:route/GtRoute.kt:1707:        val sorted = cands.sortedWith(
-SHARED:route/GtRoute.kt:1710:        val kept = ArrayList<Set<Int>>()
-SHARED:route/GtRoute.kt:1712:            val es = c.third.toSet()
-SHARED:route/GtRoute.kt:1713:            var dup = false
-SHARED:route/GtRoute.kt:1715:                val u = (es + k).size
-SHARED:route/GtRoute.kt:1727:    private fun pathOf(dij: Map<Long, Dij>, seq: List<Long>): List<Int>? {
-SHARED:route/GtRoute.kt:1728:        val out = ArrayList<Int>()
-SHARED:route/GtRoute.kt:1730:            val d = dij[seq[i]] ?: return null
-SHARED:route/GtRoute.kt:1731:            val pe = pathEdges(d, seq[i], seq[i + 1]) ?: return null
-SHARED:route/GtRoute.kt:1737:    fun explore(
-SHARED:route/GtRoute.kt:1751:        val wantRides = 6
-SHARED:route/GtRoute.kt:1752:        val minApart = 5.0
-SHARED:route/GtRoute.kt:1759:        val workingMax = 40
-SHARED:route/GtRoute.kt:1762:        val enrichN = 20
-SHARED:route/GtRoute.kt:1763:        val maxPoi = 24
-SHARED:route/GtRoute.kt:1766:        val maxOverlap = 0.75
-SHARED:route/GtRoute.kt:1768:        val box = corridorBox(req)
-SHARED:route/GtRoute.kt:1769:        var trailCount = 0
-SHARED:route/GtRoute.kt:1775:        val g = buildGraph(spatialDb, box, trailCount, onProgress)
-SHARED:route/GtRoute.kt:1789:        val compOf = HashMap<Long, Int>()
-SHARED:route/GtRoute.kt:1791:            var ci = 0
-SHARED:route/GtRoute.kt:1794:                val q = ArrayDeque<Long>().apply { add(s) }
-SHARED:route/GtRoute.kt:1797:                    val x = q.removeFirst()
-SHARED:route/GtRoute.kt:1813:        val startMi = startYds * 3.0 / 5280.0
-SHARED:route/GtRoute.kt:1814:        val seenTid = HashSet<String>()
-SHARED:route/GtRoute.kt:1815:        val originsAll = ArrayList<Triple<Long, Double, String>>()
-SHARED:route/GtRoute.kt:1817:            val cands = ArrayList<Triple<Double, Int, DoubleArray>>()
-SHARED:route/GtRoute.kt:1819:                val e = g.edges[i]
-SHARED:route/GtRoute.kt:1820:                val pts = e.pts
-SHARED:route/GtRoute.kt:1822:                var bd = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:1823:                var bp: DoubleArray? = null
-SHARED:route/GtRoute.kt:1825:                    val pr = projectOnSeg(req.anchorLat, req.anchorLon, pts[j], pts[j + 1])
-SHARED:route/GtRoute.kt:1832:                val tid = g.edges[ei].trailId
-SHARED:route/GtRoute.kt:1834:                val k = splitEdgeAt(g, ei, proj)
-SHARED:route/GtRoute.kt:1852:        val altStarts = HashMap<Int, ArrayList<String>>()
-SHARED:route/GtRoute.kt:1853:        val byComp = HashMap<Int, Triple<Long, Double, String>>()
-SHARED:route/GtRoute.kt:1855:            val ci = compOf[o.first] ?: -1
-SHARED:route/GtRoute.kt:1857:            val cur = byComp[ci]
-SHARED:route/GtRoute.kt:1860:        val origins = byComp.values.sortedBy { it.second }
-SHARED:route/GtRoute.kt:1870:        val originComps = origins.map { compOf[it.first] ?: -1 }.toHashSet()
-SHARED:route/GtRoute.kt:1871:        val usable = HashSet<Long>()
-SHARED:route/GtRoute.kt:1873:        val poiAt = loadPoisGrid(spatialDb, box, g, usable)
-SHARED:route/GtRoute.kt:1892:            val top = poiAt.entries
-SHARED:route/GtRoute.kt:1897:            val dropped = poiAt.size - top.size
-SHARED:route/GtRoute.kt:1909:                var bd = Double.MAX_VALUE; var bei = -1; var bp: DoubleArray? = null
-SHARED:route/GtRoute.kt:1911:                    val pts = g.edges[ei].pts
-SHARED:route/GtRoute.kt:1913:                        val pr = projectOnSeg(plat, plon, pts[j], pts[j + 1])
-SHARED:route/GtRoute.kt:1918:                    val node = splitEdgeAt(g, bei, bp)
-SHARED:route/GtRoute.kt:1927:        var poiNodes = poiAt.keys.toList()
-SHARED:route/GtRoute.kt:1933:        val terms = (origins.map { it.first } + poiNodes).distinct()
-SHARED:route/GtRoute.kt:1934:        val pen = HashMap<Int, Double>()
-SHARED:route/GtRoute.kt:1935:        val dij = HashMap<Long, Dij>()
-SHARED:route/GtRoute.kt:1937:        fun dist(a: Long, b: Long): Double? = dij[a]?.dist?.get(b)
-SHARED:route/GtRoute.kt:1944:        val perOrigin = HashMap<Long, List<Long>>()
-SHARED:route/GtRoute.kt:1946:            val keep = poiNodes.filter { p ->
-SHARED:route/GtRoute.kt:1947:                val a = dist(ok, p); val b = dist(p, ok)
-SHARED:route/GtRoute.kt:1953:        val liveOrigins = origins.filter { (perOrigin[it.first] ?: emptyList()).isNotEmpty() }
-SHARED:route/GtRoute.kt:1969:        val badPair = HashMap<Long, HashSet<Long>>()
-SHARED:route/GtRoute.kt:1970:        var ceilingSize = 0
-SHARED:route/GtRoute.kt:1972:            val pois = perOrigin[ok] ?: emptyList()
-SHARED:route/GtRoute.kt:1973:            val bad = HashSet<Long>()
-SHARED:route/GtRoute.kt:1975:                val a = pois[i]; val b = pois[j]
-SHARED:route/GtRoute.kt:1976:                val d1 = dist(ok, a); val d2 = dist(a, b); val d3 = dist(b, ok)
-SHARED:route/GtRoute.kt:1983:            var best = 0
-SHARED:route/GtRoute.kt:1985:                val grp = ArrayList<Long>(); grp.add(seed)
-SHARED:route/GtRoute.kt:2002:        data class Cand(val score: Double, val miles: Double, val combo: List<Long>,
-SHARED:route/GtRoute.kt:2003:                        val origin: String, val eids: List<Int>)
-SHARED:route/GtRoute.kt:2015:                val pool = perOrigin[ok] ?: continue
-SHARED:route/GtRoute.kt:2016:                val bad = badPair[ok] ?: HashSet()
-SHARED:route/GtRoute.kt:2017:                var grp = ArrayList<Long>()
-SHARED:route/GtRoute.kt:2019:                    val g2 = ArrayList<Long>(); g2.add(seed)
-SHARED:route/GtRoute.kt:2026:                val cliqueWas = grp.size
-SHARED:route/GtRoute.kt:2029:                    val t = orderTour(grp, ok) { a, b -> dist(a, b) }
-SHARED:route/GtRoute.kt:2047:        val ranked = poiNodes.sortedByDescending { scoreSet(listOf(it), poiAt) }
-SHARED:route/GtRoute.kt:2048:        val working = ArrayList<Long>()
-SHARED:route/GtRoute.kt:2049:        val found = ArrayList<Cand>()
-SHARED:route/GtRoute.kt:2050:        var gen = 0L
-SHARED:route/GtRoute.kt:2051:        var killed = 0L
-SHARED:route/GtRoute.kt:2052:        var solved = 0L
-SHARED:route/GtRoute.kt:2060:                val pool = working.filter { it in (perOrigin[ok] ?: emptyList()) }
-SHARED:route/GtRoute.kt:2062:                val bad = badPair[ok] ?: HashSet()
-SHARED:route/GtRoute.kt:2063:                var size = minOf(pool.size, ceilingSize)
-SHARED:route/GtRoute.kt:2067:                        var bad2 = false
-SHARED:route/GtRoute.kt:2073:                            val ord = orderTour(combo, ok) { a, b -> dist(a, b) }
-SHARED:route/GtRoute.kt:2076:                                val eids = pathOf(dij, listOf(ok) + ord.first + listOf(ok))
-SHARED:route/GtRoute.kt:2108:        val pre = found.sortedWith(compareByDescending<Cand> { it.combo.size }
-SHARED:route/GtRoute.kt:2110:        val enriched = ArrayList<Cand>()
-SHARED:route/GtRoute.kt:2111:        var added = 0
-SHARED:route/GtRoute.kt:2112:        var screened = 0L
-SHARED:route/GtRoute.kt:2113:        var tried = 0L
-SHARED:route/GtRoute.kt:2115:            var combo = ArrayList(c.combo)
-SHARED:route/GtRoute.kt:2116:            var miles = c.miles
-SHARED:route/GtRoute.kt:2117:            var eids = c.eids
-SHARED:route/GtRoute.kt:2118:            var origin = c.origin
-SHARED:route/GtRoute.kt:2119:            val ok = liveOrigins.firstOrNull { it.third == origin }?.first
-SHARED:route/GtRoute.kt:2121:                var improving = true
-SHARED:route/GtRoute.kt:2124:                    val headroom = req.milesHigh - miles
-SHARED:route/GtRoute.kt:2133:                    val onRoute = HashSet<Long>()
-SHARED:route/GtRoute.kt:2135:                    var best: Triple<Double, Long, Pair<List<Long>, Double>>? = null
-SHARED:route/GtRoute.kt:2139:                        val bad = badPair[ok] ?: HashSet()
-SHARED:route/GtRoute.kt:2141:                        val dp = dij[p]?.dist
-SHARED:route/GtRoute.kt:2142:                        var near = Double.MAX_VALUE
-SHARED:route/GtRoute.kt:2144:                            val d = dp[n] ?: continue
-SHARED:route/GtRoute.kt:2149:                        val trial = ArrayList(combo); trial.add(p)
-SHARED:route/GtRoute.kt:2150:                        val ord = orderTour(trial, ok) { a, b -> dist(a, b) } ?: continue
-SHARED:route/GtRoute.kt:2152:                        val gain = scoreSet(trial, poiAt) - scoreSet(combo, poiAt)
-SHARED:route/GtRoute.kt:2156:                    val b = best
-SHARED:route/GtRoute.kt:2159:                        val seq = listOf(ok) + b.third.first + listOf(ok)
-SHARED:route/GtRoute.kt:2160:                        val pe = pathOf(dij, seq)
-SHARED:route/GtRoute.kt:2173:        val p1 = HashMap<String, ArrayList<Cand>>()
-SHARED:route/GtRoute.kt:2176:        val afterP1 = ArrayList<Cand>()
-SHARED:route/GtRoute.kt:2179:            val keep = ArrayList<Cand>()
-SHARED:route/GtRoute.kt:2183:        val p2 = HashMap<String, ArrayList<Cand>>()
-SHARED:route/GtRoute.kt:2185:        val afterP2 = ArrayList<Cand>()
-SHARED:route/GtRoute.kt:2188:            val keep = ArrayList<Cand>()
-SHARED:route/GtRoute.kt:2201:        val finalC = ArrayList<Cand>()
-SHARED:route/GtRoute.kt:2202:        val kept = ArrayList<Set<Int>>()
-SHARED:route/GtRoute.kt:2204:            val es = c.eids.toSet()
-SHARED:route/GtRoute.kt:2205:            var dup = false
-SHARED:route/GtRoute.kt:2207:                val u = (es + k).size
-SHARED:route/GtRoute.kt:2221:        val picks = ArrayList<Triple<List<Int>, Double, List<Long>>>()
-SHARED:route/GtRoute.kt:2223:            val pins = c.combo.count { n -> poiAt[n]?.any { it.fclass == USERPIN } == true }
-SHARED:route/GtRoute.kt:2236:        val label = req.name.ifBlank { "Ride" }
-SHARED:route/GtRoute.kt:2237:        val out = ArrayList<Suggestion>()
-SHARED:route/GtRoute.kt:2239:            val draftName = "$label Route ${i + 1}"
-SHARED:route/GtRoute.kt:2240:            val built = buildDraft(g, poiAt, eids, miles, req, draftName)
-SHARED:route/GtRoute.kt:2251:    private fun buildDraft(
-SHARED:route/GtRoute.kt:2257:        val cautions = LinkedHashMap<Long, JsonObject>()
-SHARED:route/GtRoute.kt:2258:        val seenPoi = LinkedHashSet<String>()
-SHARED:route/GtRoute.kt:2259:        val poiOrder = ArrayList<Poi>()
-SHARED:route/GtRoute.kt:2260:        val poiMile = HashMap<String, Double>()
-SHARED:route/GtRoute.kt:2262:        var cum = 0.0
-SHARED:route/GtRoute.kt:2263:        var prevName: String? = null
-SHARED:route/GtRoute.kt:2264:        var legStart = 0.0
-SHARED:route/GtRoute.kt:2265:        var prevTid: String? = null
-SHARED:route/GtRoute.kt:2266:        var lastLat = 0.0; var lastLon = 0.0
-SHARED:route/GtRoute.kt:2267:        var first = true
-SHARED:route/GtRoute.kt:2270:            val ed = g.edges[e]
-SHARED:route/GtRoute.kt:2271:            var seg = ed.pts
-SHARED:route/GtRoute.kt:2273:                val dFirst = hav(lastLat, lastLon, seg[0][0], seg[0][1])
-SHARED:route/GtRoute.kt:2274:                val dLast = hav(lastLat, lastLon, seg[seg.size - 1][0], seg[seg.size - 1][1])
-SHARED:route/GtRoute.kt:2288:                val jk = cellKey(seg[0][0], seg[0][1])
-SHARED:route/GtRoute.kt:2289:                val ctr = g.jCentre[jk] ?: seg[0]
-SHARED:route/GtRoute.kt:2291:                val out10 = alongPolyline(seg, 10.0 / 5280.0)
-SHARED:route/GtRoute.kt:2302:            val lbl = ed.name ?: "unnamed track"
-SHARED:route/GtRoute.kt:2313:                val gp = g.gapFt[k] ?: 0.0
-SHARED:route/GtRoute.kt:2315:                    val n = g.nodes[k] ?: continue
-SHARED:route/GtRoute.kt:2325:        val hoursLow = miles / req.mphHigh
-SHARED:route/GtRoute.kt:2326:        val hoursHigh = miles / req.mphLow
-SHARED:route/GtRoute.kt:2327:        val mix = poiOrder.groupingBy { it.fclass }.eachCount()
-SHARED:route/GtRoute.kt:2328:        val mixStr = mix.entries.sortedByDescending { it.value }
-SHARED:route/GtRoute.kt:2331:        val notes = narrative(poiOrder, poiMile, legs, cautions.values.toList(),
-SHARED:route/GtRoute.kt:2334:        val draft = buildJsonObject {
-SHARED:route/GtRoute.kt:2351:    private fun vertex(lat: Double, lon: Double, trailId: String) = buildJsonObject {
-SHARED:route/GtRoute.kt:2362:    private fun alongPolyline(pts: List<DoubleArray>, wantMi: Double): DoubleArray {
-SHARED:route/GtRoute.kt:2363:        var acc = 0.0
-SHARED:route/GtRoute.kt:2365:            val d = hav(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1])
-SHARED:route/GtRoute.kt:2367:                val t = if (d > 0) (wantMi - acc) / d else 0.0
-SHARED:route/GtRoute.kt:2383:    private fun narrative(
-SHARED:route/GtRoute.kt:2390:        val plainNames = mapOf(
-SHARED:route/GtRoute.kt:2394:        val bits = mix.entries.sortedByDescending { it.value }
-SHARED:route/GtRoute.kt:2397:        val headline = GtFmt.f(miles, 0) + " miles, roughly " + GtFmt.f(hLow, 0) + " to " + GtFmt.f(hHigh, 0) + " hours. " +
-SHARED:route/GtRoute.kt:2401:        val seeArr = ArrayList<JsonElement>()
-SHARED:route/GtRoute.kt:2402:        val stopArr = ArrayList<JsonElement>()
-SHARED:route/GtRoute.kt:2403:        var i = 0
-SHARED:route/GtRoute.kt:2405:            val p = pois[i]
-SHARED:route/GtRoute.kt:2406:            val m = poiMile[p.name] ?: 0.0
-SHARED:route/GtRoute.kt:2409:            val same = arrayListOf(p)
-SHARED:route/GtRoute.kt:2423:        val named = LinkedHashMap<String, Double>()
-SHARED:route/GtRoute.kt:2424:        var unnamedMi = 0.0
-SHARED:route/GtRoute.kt:2429:        val namedTxt = joinList(named.entries.sortedByDescending { it.value }.take(5)
-SHARED:route/GtRoute.kt:2431:        val ground = if (named.isEmpty())
-SHARED:route/GtRoute.kt:2437:        val warn = ArrayList<JsonElement>()
-SHARED:route/GtRoute.kt:2440:            val worst = cautions.maxOf { (it["gap_ft"] as? JsonPrimitive)?.content?.toDoubleOrNull() ?: 0.0 }
-SHARED:route/GtRoute.kt:2447:        val pctUnnamed = 100.0 * unnamedMi / max(miles, 1.0)
-SHARED:route/GtRoute.kt:2453:        val legsArr = ArrayList<JsonElement>()
-SHARED:route/GtRoute.kt:2460:        val featArr = ArrayList<JsonElement>()
-SHARED:route/GtRoute.kt:2466:        val cautArr = ArrayList<JsonElement>(); cautions.forEach { cautArr.add(it) }
-SHARED:route/GtRoute.kt:2489:    private fun plural(w: String, n: Int) = if (n > 1 && !w.endsWith("s")) "${w}s" else w
-SHARED:route/GtRoute.kt:2490:    private fun joinList(items: List<String>): String = when (items.size) {
-SHARED:route/GtRoute.kt:2495:    private fun round1(v: Double) = jRound(v * 10.0) / 10.0
-SHARED:route/GtRoute.kt:2496:    private fun round2(v: Double) = jRound(v * 100.0) / 100.0
-SHARED:route/GtRoute.kt:2497:    private fun round6(v: Double) = jRound(v * 1e6) / 1e6
-SHARED:route/GtRoute.kt:2498:    private fun nowIso(): String =
+SHARED:route/GtRoute.kt:227:    private const val PIN_ANY_NEARBY_NETWORK = true
+SHARED:route/GtRoute.kt:228:    private const val PENALTY = 2.2
+SHARED:route/GtRoute.kt:231:    private const val RETURN_AND_FILL = true
+SHARED:route/GtRoute.kt:236:    private const val TRIES = 2500
+SHARED:route/GtRoute.kt:237:    private const val BEAM_TOP = 5
+SHARED:route/GtRoute.kt:240:    data class Request(
+SHARED:route/GtRoute.kt:241:        val anchorLat: Double,
+SHARED:route/GtRoute.kt:242:        val anchorLon: Double,
+SHARED:route/GtRoute.kt:243:        val name: String,
+SHARED:route/GtRoute.kt:244:        val milesLow: Double,
+SHARED:route/GtRoute.kt:245:        val milesHigh: Double,
+SHARED:route/GtRoute.kt:246:        val mphLow: Double,
+SHARED:route/GtRoute.kt:247:        val mphHigh: Double,
+SHARED:route/GtRoute.kt:251:        val maxRoutes: Int = 4,
+SHARED:route/GtRoute.kt:253:        val includePoints: List<Pair<Double, Double>> = emptyList(),
+SHARED:route/GtRoute.kt:254:        val seed: Long = 20260823L,
+SHARED:route/GtRoute.kt:257:    data class Progress(val step: String, val detail: String = "")
+SHARED:route/GtRoute.kt:259:    data class Suggestion(
+SHARED:route/GtRoute.kt:260:        val name: String,
+SHARED:route/GtRoute.kt:261:        val miles: Double,
+SHARED:route/GtRoute.kt:262:        val hoursLow: Double,
+SHARED:route/GtRoute.kt:263:        val hoursHigh: Double,
+SHARED:route/GtRoute.kt:264:        val featureCount: Int,
+SHARED:route/GtRoute.kt:265:        val featureMix: String,
+SHARED:route/GtRoute.kt:266:        val draftName: String,
+SHARED:route/GtRoute.kt:273:    private class Edge(
+SHARED:route/GtRoute.kt:274:        val u: Long, val v: Long, val miles: Double,
+SHARED:route/GtRoute.kt:275:        val name: String?, val trailId: String,
+SHARED:route/GtRoute.kt:276:        val pts: List<DoubleArray>,
+SHARED:route/GtRoute.kt:291:    private class Graph(
+SHARED:route/GtRoute.kt:292:        val key: String,
+SHARED:route/GtRoute.kt:293:        val nodes: HashMap<Long, DoubleArray>,
+SHARED:route/GtRoute.kt:294:        val edges: ArrayList<Edge>,
+SHARED:route/GtRoute.kt:298:        val mainComponent: HashSet<Long>,
+SHARED:route/GtRoute.kt:301:        val lAdj: HashMap<Long, ArrayList<LongArray>>,
+SHARED:route/GtRoute.kt:305:    class SearchStats {
+SHARED:route/GtRoute.kt:306:        @Volatile var trails = -1
+SHARED:route/GtRoute.kt:307:        @Volatile var networks = -1
+SHARED:route/GtRoute.kt:308:        @Volatile var junctions = -1
+SHARED:route/GtRoute.kt:309:        @Volatile var features = -1
+SHARED:route/GtRoute.kt:310:        @Volatile var areaMi = ""
+SHARED:route/GtRoute.kt:311:        @Volatile var stop = ""
+SHARED:route/GtRoute.kt:317:    @Volatile var lastStats = SearchStats()
+SHARED:route/GtRoute.kt:319:    @Volatile private var lastTrailsRead = -1
+SHARED:route/GtRoute.kt:323:    data class SelRow(val use: String, val type: String, val pub: Int, val priv: Int, val typeOn: Boolean, val useOn: Boolean)
+SHARED:route/GtRoute.kt:326:    data class SelTable(val area: String = "", val rows: List<SelRow> = emptyList(), val restricted: Int = 0,
+SHARED:route/GtRoute.kt:327:                        val restrictedOn: Boolean = true, val publicOn: Boolean = true, val privateOn: Boolean = false,
+SHARED:route/GtRoute.kt:328:                        val searched: Int = 0, val total: Int = 0,
+SHARED:route/GtRoute.kt:332:    fun selectionTable(db: SQLiteConnection, req: Request): SelTable = try {
+SHARED:route/GtRoute.kt:333:        val box = corridorBox(req)
+SHARED:route/GtRoute.kt:334:        val f = TrailFilterState
+SHARED:route/GtRoute.kt:335:        val args = listOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
+SHARED:route/GtRoute.kt:337:        var rst = 0; var total = 0
+SHARED:route/GtRoute.kt:341:                val n = int(c, 3); total += n
+SHARED:route/GtRoute.kt:344:                    else -> { val a = m.getOrPut(str(c, 0) + "|" + str(c, 1)) { IntArray(2) }
+SHARED:route/GtRoute.kt:349:        var searched = 0
+SHARED:route/GtRoute.kt:355:        fun useLabel(u: String) = when (u) { "MOTORIZED" -> "Motorized"; "NON-MOTORIZED" -> "Non-motorized"; else -> "Use not recorded" }
+SHARED:route/GtRoute.kt:356:        fun useOrder(u: String) = when (u) { "MOTORIZED" -> 0; "NON-MOTORIZED" -> 1; else -> 2 }
+SHARED:route/GtRoute.kt:357:        fun useOn(u: String) = when (u) { "MOTORIZED" -> f.use != "NON-MOTORIZED"; "NON-MOTORIZED" -> f.use != "MOTORIZED"; else -> true }
+SHARED:route/GtRoute.kt:358:        val rows = m.entries.map { e -> val (u, t) = e.key.split("|", limit = 2).let { it[0] to it[1] }; Triple(u, t, e.value) }
+SHARED:route/GtRoute.kt:366:     * AIFAIL-2026-11-03 v5 (Fred 06:54): the trails in [req]'s search area by class -- land, use, each trail type -- each selected
+SHARED:route/GtRoute.kt:369:    fun selectionBreakdown(db: SQLiteConnection, req: Request): String = try {
+SHARED:route/GtRoute.kt:370:        val box = corridorBox(req)
+SHARED:route/GtRoute.kt:371:        val f = TrailFilterState
+SHARED:route/GtRoute.kt:372:        val args = listOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
+SHARED:route/GtRoute.kt:373:        val cat = HashMap<String, Int>(); val land = HashMap<String, Int>(); val use = HashMap<String, Int>()
+SHARED:route/GtRoute.kt:374:        var unoff = 0; var total = 0
+SHARED:route/GtRoute.kt:378:                val n = int(c, 4); total += n
+SHARED:route/GtRoute.kt:386:        var searched = 0
+SHARED:route/GtRoute.kt:389:        fun fmt(n: Int) = GtFmt.d(n)
+SHARED:route/GtRoute.kt:390:        fun item(name: String, on: Boolean, n: Int) = if (on) "✓ $name ${fmt(n)}" else "✗ $name ${fmt(n)} left out"
+SHARED:route/GtRoute.kt:391:        val area = GtFmt.f((box[1] - box[0]) * 69.0, 0) + " x " + GtFmt.f((box[3] - box[2]) * 69.0 * cos(toRadians((box[0] + box[1]) / 2)), 0) + " mi"
+SHARED:route/GtRoute.kt:392:        val types = cat.entries.sortedByDescending { it.value }.map { item(it.key, it.key !in f.off, it.value) } +
+SHARED:route/GtRoute.kt:403:    private fun omittedByFilter(db: SQLiteConnection, box: DoubleArray): String = try {
+SHARED:route/GtRoute.kt:404:        val f = TrailFilterState
+SHARED:route/GtRoute.kt:405:        val args = listOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
+SHARED:route/GtRoute.kt:407:        fun n(extra: String, more: List<String> = emptyList()): Int = rawQuery(db,
+SHARED:route/GtRoute.kt:410:        val parts = ArrayList<String>()
+SHARED:route/GtRoute.kt:411:        fun add(c: Int, what: String) { if (c > 0) parts.add(GtFmt.d(c) + " " + what) }
+SHARED:route/GtRoute.kt:423:    private var cached: Graph? = null
+SHARED:route/GtRoute.kt:426:    fun clearCache() { cached = null }
+SHARED:route/GtRoute.kt:431:     * given, and a cache hit used to return the cached object itself. So the
+SHARED:route/GtRoute.kt:447:    private fun copyOf(g: Graph): Graph = Graph(
+SHARED:route/GtRoute.kt:462:    private val NONAMES = setOf("", "not named", "unnamed", "none", "null", "n/a", "-")
+SHARED:route/GtRoute.kt:463:    private val WATER = setOf("spring")
+SHARED:route/GtRoute.kt:464:    private val VIEW = setOf("peak", "cliff", "volcano")
+SHARED:route/GtRoute.kt:468:     * class -- base/(1+0.22*(n-1)) -- so pins sharing a natural class would
+SHARED:route/GtRoute.kt:477:    private const val USERPIN = "userpin"
+SHARED:route/GtRoute.kt:478:    private const val USERPIN_BASE = 60.0
+SHARED:route/GtRoute.kt:481:     * ROUTEREACH-2026-08-23W: NOT EVERY fclass IS A FEATURE. These are administrative
+SHARED:route/GtRoute.kt:496:     * class currently scores 1.0 and gets ridden to by default. Left as a
+SHARED:route/GtRoute.kt:499:    private val JUNK = setOf("county", "city", "town", "tree", "village",
+SHARED:route/GtRoute.kt:502:    private fun realName(n: String?): Boolean =
+SHARED:route/GtRoute.kt:505:    private fun hav(aLat: Double, aLon: Double, bLat: Double, bLon: Double): Double {
+SHARED:route/GtRoute.kt:506:        val r = 3958.8
+SHARED:route/GtRoute.kt:507:        val p1 = toRadians(aLat); val p2 = toRadians(bLat)
+SHARED:route/GtRoute.kt:508:        val dp = p2 - p1
+SHARED:route/GtRoute.kt:509:        val dl = toRadians(bLon - aLon)
+SHARED:route/GtRoute.kt:510:        val h = sin(dp / 2) * sin(dp / 2) + cos(p1) * cos(p2) * sin(dl / 2) * sin(dl / 2)
+SHARED:route/GtRoute.kt:515:    private fun wktPoints(wkt: String?): List<DoubleArray> {
+SHARED:route/GtRoute.kt:517:        val out = ArrayList<DoubleArray>()
+SHARED:route/GtRoute.kt:518:        val m = Regex("(-?\\d+\\.?\\d*)\\s+(-?\\d+\\.?\\d*)").findAll(wkt)
+SHARED:route/GtRoute.kt:520:            val lon = g.groupValues[1].toDoubleOrNull() ?: continue
+SHARED:route/GtRoute.kt:521:            val lat = g.groupValues[2].toDoubleOrNull() ?: continue
+SHARED:route/GtRoute.kt:531:    const val AIM_RING_M = 805.0
+SHARED:route/GtRoute.kt:535:    const val TRAILHEAD_CHECK_M = AIM_RING_M + 200.0
+SHARED:route/GtRoute.kt:544:        val ky = 111_320.0
+SHARED:route/GtRoute.kt:545:        val kx = 111_320.0 * max(0.1, cos(toRadians(lat)))
+SHARED:route/GtRoute.kt:546:        val dLat = maxM / ky; val dLon = maxM / kx
+SHARED:route/GtRoute.kt:547:        var best = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:552:                val pts = wktPoints(str(c, 0))
+SHARED:route/GtRoute.kt:554:                    val ax = (pts[i][1] - lon) * kx; val ay = (pts[i][0] - lat) * ky
+SHARED:route/GtRoute.kt:556:                    val bx = (pts[i - 1][1] - lon) * kx; val by = (pts[i - 1][0] - lat) * ky
+SHARED:route/GtRoute.kt:557:                    val dx = ax - bx; val dy = ay - by; val l2 = dx * dx + dy * dy
+SHARED:route/GtRoute.kt:558:                    val t = if (l2 == 0.0) 0.0 else ((-bx) * dx + (-by) * dy) / l2
+SHARED:route/GtRoute.kt:559:                    val tt = t.coerceIn(0.0, 1.0)
+SHARED:route/GtRoute.kt:560:                    val px = bx + tt * dx; val py = by + tt * dy
+SHARED:route/GtRoute.kt:574:    fun connectedMiles(db: SQLiteConnection, req: Request): Double = try {
+SHARED:route/GtRoute.kt:575:        val box = corridorBox(req)
+SHARED:route/GtRoute.kt:576:        var trailCount = 0
+SHARED:route/GtRoute.kt:578:        val g = buildGraph(db, box, trailCount, null)
+SHARED:route/GtRoute.kt:579:        var bd = Double.MAX_VALUE; var start = -1L
+SHARED:route/GtRoute.kt:582:                val pr = projectOnSeg(req.anchorLat, req.anchorLon, e.pts[j], e.pts[j + 1])
+SHARED:route/GtRoute.kt:587:            val seen = HashSet<Long>(); val q = ArrayDeque<Long>(); val used = HashSet<Long>()
+SHARED:route/GtRoute.kt:589:            var miles = 0.0
+SHARED:route/GtRoute.kt:591:                val n = q.removeFirst()
+SHARED:route/GtRoute.kt:593:                    val nb = a[0]; val ei = a[1]
+SHARED:route/GtRoute.kt:604:    private fun cellKey(lat: Double, lon: Double): Long {
+SHARED:route/GtRoute.kt:605:        val d = (SNAP_FT / 5280.0) / 69.0
+SHARED:route/GtRoute.kt:606:        val a = jRound(lat / d)
+SHARED:route/GtRoute.kt:607:        val b = jRound(lon / d)
+SHARED:route/GtRoute.kt:617:    private fun corridorBox(req: Request): DoubleArray {
+SHARED:route/GtRoute.kt:636:        val radiusMi = req.milesHigh / 3.0
+SHARED:route/GtRoute.kt:637:        val dLat = radiusMi / 69.0
+SHARED:route/GtRoute.kt:638:        val dLon = radiusMi / (69.0 * max(0.2, cos(toRadians(req.anchorLat))))
+SHARED:route/GtRoute.kt:645:    private fun buildGraph(
+SHARED:route/GtRoute.kt:678:        val key = GtFmt.f(box[0], 3) + "_" + GtFmt.f(box[1], 3) + "_" + GtFmt.f(box[2], 3) + "_" + GtFmt.f(box[3], 3) + "_" +
+SHARED:route/GtRoute.kt:691:        val geoms = ArrayList<Triple<String, String?, List<DoubleArray>>>()
+SHARED:route/GtRoute.kt:702:            var cut = 0
+SHARED:route/GtRoute.kt:707:                        val pp = wktPoints(m.groupValues[1])
+SHARED:route/GtRoute.kt:712:                val pts = wktPoints(str(c, 2))
+SHARED:route/GtRoute.kt:726:        val touch = HashMap<Long, HashSet<String>>()
+SHARED:route/GtRoute.kt:727:        val spread = HashMap<Long, ArrayList<DoubleArray>>()
+SHARED:route/GtRoute.kt:730:                val k = cellKey(p[0], p[1])
+SHARED:route/GtRoute.kt:735:        val shared = HashSet<Long>()
+SHARED:route/GtRoute.kt:736:        val gapFt = HashMap<Long, Double>()
+SHARED:route/GtRoute.kt:737:        val jCentre = HashMap<Long, DoubleArray>()
+SHARED:route/GtRoute.kt:741:            val ps = spread[k]!!
+SHARED:route/GtRoute.kt:742:            var g = 0.0
+SHARED:route/GtRoute.kt:744:                var j = i + 1
+SHARED:route/GtRoute.kt:756:        val nodes = HashMap<Long, DoubleArray>()
+SHARED:route/GtRoute.kt:757:        val edges = ArrayList<Edge>()
+SHARED:route/GtRoute.kt:760:            val cuts = LinkedHashSet<Int>(); cuts.add(0); cuts.add(pts.size - 1)
+SHARED:route/GtRoute.kt:762:            val cl = cuts.sorted()
+SHARED:route/GtRoute.kt:764:                val seg = pts.subList(cl[i], cl[i + 1] + 1)
+SHARED:route/GtRoute.kt:766:                var L = 0.0
+SHARED:route/GtRoute.kt:770:                val ka = cellKey(seg[0][0], seg[0][1])
+SHARED:route/GtRoute.kt:771:                val kb = cellKey(seg[seg.size - 1][0], seg[seg.size - 1][1])
+SHARED:route/GtRoute.kt:779:        val adj = HashMap<Long, ArrayList<IntArray>>()
+SHARED:route/GtRoute.kt:786:        val adj2 = HashMap<Long, ArrayList<LongArray>>()
+SHARED:route/GtRoute.kt:791:        val adjFinal = HashMap<Long, ArrayList<IntArray>>()
+SHARED:route/GtRoute.kt:793:            val a = ArrayList<IntArray>()
+SHARED:route/GtRoute.kt:799:        val seen = HashSet<Long>()
+SHARED:route/GtRoute.kt:800:        var best = HashSet<Long>()
+SHARED:route/GtRoute.kt:803:            val comp = HashSet<Long>()
+SHARED:route/GtRoute.kt:804:            val q = ArrayDeque<Long>().apply { add(n) }
+SHARED:route/GtRoute.kt:807:                val x = q.removeFirst(); comp.add(x)
+SHARED:route/GtRoute.kt:827:    private class Poi(
+SHARED:route/GtRoute.kt:828:        val name: String, val fclass: String,
+SHARED:route/GtRoute.kt:829:        val lat: Double, val lon: Double, val offMi: Double,
+SHARED:route/GtRoute.kt:832:    private fun loadPois(
+SHARED:route/GtRoute.kt:835:        val out = HashMap<Long, ArrayList<Poi>>()
+SHARED:route/GtRoute.kt:842:                val nm = str(c, 0) ?: continue
+SHARED:route/GtRoute.kt:843:                val fc = str(c, 1) ?: "other"
+SHARED:route/GtRoute.kt:846:                val la = c.getDouble(2); val lo = c.getDouble(3)
+SHARED:route/GtRoute.kt:847:                var bestK = 0L; var bestD = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:849:                    val p = g.nodes[k] ?: continue
+SHARED:route/GtRoute.kt:850:                    val d = hav(la, lo, p[0], p[1])
+SHARED:route/GtRoute.kt:862:     * ⭐ VARIETY-WEIGHTED, AND DISTANCE-FREE. A second class of feature beats
+SHARED:route/GtRoute.kt:866:    private fun scoreSet(ks: List<Long>, poiAt: Map<Long, List<Poi>>): Double {
+SHARED:route/GtRoute.kt:867:        val seen = HashSet<String>()
+SHARED:route/GtRoute.kt:868:        val byClass = HashMap<String, Int>()
+SHARED:route/GtRoute.kt:869:        var v = 0.0
+SHARED:route/GtRoute.kt:872:            val n = (byClass[p.fclass] ?: 0) + 1
+SHARED:route/GtRoute.kt:875:            val base = if (p.fclass == USERPIN) USERPIN_BASE
+SHARED:route/GtRoute.kt:876:                else if (p.fclass in VIEW) 3.0 else if (p.fclass in WATER) 2.0 else 1.0
+SHARED:route/GtRoute.kt:886:    private class Dij(val dist: HashMap<Long, Double>, val prev: HashMap<Long, LongArray>)
+SHARED:route/GtRoute.kt:888:    private fun dijkstra(src: Long, g: Graph, pen: Map<Int, Double>): Dij {
+SHARED:route/GtRoute.kt:889:        val dist = HashMap<Long, Double>(); dist[src] = 0.0
+SHARED:route/GtRoute.kt:890:        val prev = HashMap<Long, LongArray>()
+SHARED:route/GtRoute.kt:894:            val (d, x) = pq.poll()
+SHARED:route/GtRoute.kt:897:                val ei = nb[1].toInt()
+SHARED:route/GtRoute.kt:898:                val w = g.edges[ei].miles * (pen[ei] ?: 1.0)
+SHARED:route/GtRoute.kt:899:                val nd = d + w
+SHARED:route/GtRoute.kt:910:    private fun pathEdges(d: Dij, src: Long, dst: Long): List<Int>? {
+SHARED:route/GtRoute.kt:911:        val out = ArrayList<Int>()
+SHARED:route/GtRoute.kt:912:        var x = dst
+SHARED:route/GtRoute.kt:914:            val p = d.prev[x] ?: return null
+SHARED:route/GtRoute.kt:920:    private fun nearestNode(lat: Double, lon: Double, g: Graph): Long {
+SHARED:route/GtRoute.kt:921:        var bk = 0L; var bd = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:923:            val p = g.nodes[k] ?: continue
+SHARED:route/GtRoute.kt:924:            val d = hav(lat, lon, p[0], p[1])
+SHARED:route/GtRoute.kt:987:    data class PinFeasibility(
+SHARED:route/GtRoute.kt:988:        val order: List<Int>,
+SHARED:route/GtRoute.kt:989:        val totalMiles: Double,
+SHARED:route/GtRoute.kt:990:        val legMiles: List<Double>,
+SHARED:route/GtRoute.kt:991:        val snapFeet: List<Double>,
+SHARED:route/GtRoute.kt:992:        val onFragment: List<Int>,
+SHARED:route/GtRoute.kt:993:        val unreachable: List<Int>,
+SHARED:route/GtRoute.kt:994:        val marginalMiles: List<Double>,
+SHARED:route/GtRoute.kt:995:        val overMiles: Double,
+SHARED:route/GtRoute.kt:1003:        val underMiles: Double
+SHARED:route/GtRoute.kt:1020:        object Loop : RouteShape
+SHARED:route/GtRoute.kt:1021:        data class PointToPoint(val endLat: Double, val endLon: Double) : RouteShape
+SHARED:route/GtRoute.kt:1032:    private fun heldKarpOpen(m: Array<DoubleArray>, endIdx: Int): Pair<List<Int>, Double> {
+SHARED:route/GtRoute.kt:1033:        val n = m.size
+SHARED:route/GtRoute.kt:1035:        val mid = (0 until n).filter { it != 0 && it != endIdx }
+SHARED:route/GtRoute.kt:1036:        val k = mid.size
+SHARED:route/GtRoute.kt:1039:            val d = m[0][endIdx]
+SHARED:route/GtRoute.kt:1044:        val full = 1 shl k
+SHARED:route/GtRoute.kt:1045:        val dp = Array(full) { DoubleArray(k) { Double.MAX_VALUE } }
+SHARED:route/GtRoute.kt:1046:        val par = Array(full) { IntArray(k) { -1 } }
+SHARED:route/GtRoute.kt:1049:            val d = m[0][mid[i]]
+SHARED:route/GtRoute.kt:1056:                val cur = dp[mask][last]
+SHARED:route/GtRoute.kt:1060:                    val step = m[mid[last]][mid[nxt]]
+SHARED:route/GtRoute.kt:1062:                    val nm = mask or (1 shl nxt)
+SHARED:route/GtRoute.kt:1063:                    val cand = cur + step
+SHARED:route/GtRoute.kt:1072:        var bestLast = -1
+SHARED:route/GtRoute.kt:1073:        var best = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:1075:            val t = dp[full - 1][last]
+SHARED:route/GtRoute.kt:1077:            val tail = m[mid[last]][endIdx]
+SHARED:route/GtRoute.kt:1079:            val tot = t + tail
+SHARED:route/GtRoute.kt:1084:        val rev = ArrayList<Int>()
+SHARED:route/GtRoute.kt:1085:        var mask = full - 1
+SHARED:route/GtRoute.kt:1086:        var last = bestLast
+SHARED:route/GtRoute.kt:1089:            val p = par[mask][last]
+SHARED:route/GtRoute.kt:1127:    private fun corridorBoxFor(
+SHARED:route/GtRoute.kt:1134:        val direct = hav(req.anchorLat, req.anchorLon, shape.endLat, shape.endLon)
+SHARED:route/GtRoute.kt:1135:        val slack = (req.milesHigh - direct).coerceAtLeast(0.0)
+SHARED:route/GtRoute.kt:1136:        val bufMi = max(slack / 2.0, 2.0)
+SHARED:route/GtRoute.kt:1138:        var minLat = min(req.anchorLat, shape.endLat)
+SHARED:route/GtRoute.kt:1139:        var maxLat = max(req.anchorLat, shape.endLat)
+SHARED:route/GtRoute.kt:1140:        var minLon = min(req.anchorLon, shape.endLon)
+SHARED:route/GtRoute.kt:1141:        var maxLon = max(req.anchorLon, shape.endLon)
+SHARED:route/GtRoute.kt:1152:        val dLat = bufMi / 69.0
+SHARED:route/GtRoute.kt:1153:        val dLon = bufMi / (69.0 * max(0.2, cos(toRadians(req.anchorLat))))
+SHARED:route/GtRoute.kt:1154:        val box = doubleArrayOf(minLat - dLat, maxLat + dLat, minLon - dLon, maxLon + dLon)
+SHARED:route/GtRoute.kt:1163:    private fun nearestMainNode(lat: Double, lon: Double, g: Graph): Pair<Long, Double> {
+SHARED:route/GtRoute.kt:1164:        var best = 0L
+SHARED:route/GtRoute.kt:1165:        var bestD = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:1167:            val p = g.nodes[k] ?: continue
+SHARED:route/GtRoute.kt:1168:            val d = hav(lat, lon, p[0], p[1])
+SHARED:route/GtRoute.kt:1182:    private fun nearestAnyNode(lat: Double, lon: Double, g: Graph): Pair<Long, Double> {
+SHARED:route/GtRoute.kt:1183:        var best = 0L
+SHARED:route/GtRoute.kt:1184:        var bestD = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:1186:            val d = hav(lat, lon, p[0], p[1])
+SHARED:route/GtRoute.kt:1201:    private fun heldKarp(m: Array<DoubleArray>): Pair<List<Int>, Double> {
+SHARED:route/GtRoute.kt:1202:        val n = m.size
+SHARED:route/GtRoute.kt:1205:            val out = m[0][1]
+SHARED:route/GtRoute.kt:1206:            val back = m[1][0]
+SHARED:route/GtRoute.kt:1212:        val k = n - 1
+SHARED:route/GtRoute.kt:1213:        val full = 1 shl k
+SHARED:route/GtRoute.kt:1214:        val dp = Array(full) { DoubleArray(k) { Double.MAX_VALUE } }
+SHARED:route/GtRoute.kt:1215:        val par = Array(full) { IntArray(k) { -1 } }
+SHARED:route/GtRoute.kt:1218:            val d = m[0][i + 1]
+SHARED:route/GtRoute.kt:1225:                val cur = dp[mask][last]
+SHARED:route/GtRoute.kt:1229:                    val step = m[last + 1][nxt + 1]
+SHARED:route/GtRoute.kt:1231:                    val nm = mask or (1 shl nxt)
+SHARED:route/GtRoute.kt:1232:                    val cand = cur + step
+SHARED:route/GtRoute.kt:1241:        var bestEnd = -1
+SHARED:route/GtRoute.kt:1242:        var best = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:1244:            val t = dp[full - 1][last]
+SHARED:route/GtRoute.kt:1246:            val home = m[last + 1][0]
+SHARED:route/GtRoute.kt:1248:            val tot = t + home
+SHARED:route/GtRoute.kt:1253:        val rev = ArrayList<Int>()
+SHARED:route/GtRoute.kt:1254:        var mask = full - 1
+SHARED:route/GtRoute.kt:1255:        var last = bestEnd
+SHARED:route/GtRoute.kt:1258:            val p = par[mask][last]
+SHARED:route/GtRoute.kt:1269:    fun connectedLines(
+SHARED:route/GtRoute.kt:1274:        val points = emptyList<Pair<Double, Double>>()
+SHARED:route/GtRoute.kt:1275:        var trailCount = 0
+SHARED:route/GtRoute.kt:1280:        val g = buildGraph(spatialDb, corridorBoxFor(req, shape, points), trailCount, null)
+SHARED:route/GtRoute.kt:1282:        val alat = req.anchorLat; val alon = req.anchorLon
+SHARED:route/GtRoute.kt:1283:        val net = HashSet<Long>()
+SHARED:route/GtRoute.kt:1285:            val pts = g.edges[ei].pts
+SHARED:route/GtRoute.kt:1286:            var bd = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:1289:            val u = g.edges[ei].u
+SHARED:route/GtRoute.kt:1291:            val q = ArrayDeque<Long>().apply { add(u) }; net.add(u)
+SHARED:route/GtRoute.kt:1292:            while (q.isNotEmpty()) { val x = q.removeFirst(); for (y in g.lAdj[x] ?: emptyList()) if (net.add(y[0])) q.add(y[0]) }
+SHARED:route/GtRoute.kt:1294:        val out = ArrayList<List<DoubleArray>>()
+SHARED:route/GtRoute.kt:1311:    fun assess(
+SHARED:route/GtRoute.kt:1317:        var trailCount = 0
+SHARED:route/GtRoute.kt:1322:        val g = buildGraph(spatialDb, corridorBoxFor(req, shape, points), trailCount, null)
+SHARED:route/GtRoute.kt:1332:        val all = ArrayList<Pair<Double, Double>>(points.size + 2)
+SHARED:route/GtRoute.kt:1335:        val endIdx = if (shape is RouteShape.PointToPoint) {
+SHARED:route/GtRoute.kt:1340:        val terms = ArrayList<Long>(all.size)
+SHARED:route/GtRoute.kt:1341:        val snapFt = ArrayList<Double>(all.size)
+SHARED:route/GtRoute.kt:1342:        val onFrag = ArrayList<Int>()
+SHARED:route/GtRoute.kt:1347:        val tooFar = ArrayList<Int>()
+SHARED:route/GtRoute.kt:1351:        fun nearestSeg(lat: Double, lon: Double, inNet: Set<Long>?): Triple<Int, DoubleArray?, Double> {
+SHARED:route/GtRoute.kt:1352:            var bd = Double.MAX_VALUE; var bei = -1; var bp: DoubleArray? = null
+SHARED:route/GtRoute.kt:1354:                val e = g.edges[ei]
+SHARED:route/GtRoute.kt:1356:                val pts = e.pts
+SHARED:route/GtRoute.kt:1358:                    val pr = projectOnSeg(lat, lon, pts[j], pts[j + 1])
+SHARED:route/GtRoute.kt:1364:        val net = HashSet<Long>()
+SHARED:route/GtRoute.kt:1368:        var anchorNet: HashSet<Long>? = null
+SHARED:route/GtRoute.kt:1372:            val (alat, alon) = all[0]
+SHARED:route/GtRoute.kt:1373:            val startMi = 0.5
+SHARED:route/GtRoute.kt:1374:            val comps = ArrayList<HashSet<Long>>()
+SHARED:route/GtRoute.kt:1376:                val pts = g.edges[ei].pts
+SHARED:route/GtRoute.kt:1377:                var bd = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:1380:                val u = g.edges[ei].u
+SHARED:route/GtRoute.kt:1382:                val c = HashSet<Long>(); c.add(u)
+SHARED:route/GtRoute.kt:1383:                val q = ArrayDeque<Long>().apply { add(u) }
+SHARED:route/GtRoute.kt:1384:                while (q.isNotEmpty()) { val x = q.removeFirst(); for (y in g.lAdj[x] ?: emptyList()) if (c.add(y[0])) q.add(y[0]) }
+SHARED:route/GtRoute.kt:1392:                var bestC: HashSet<Long>? = null; var bestN = -1
+SHARED:route/GtRoute.kt:1394:                    var hits = 0
+SHARED:route/GtRoute.kt:1396:                        val (pla, plo) = all[pi]
+SHARED:route/GtRoute.kt:1397:                        val (pei, _, pd) = nearestSeg(pla, plo, c)
+SHARED:route/GtRoute.kt:1408:            val (lat, lon) = all[i]
+SHARED:route/GtRoute.kt:1409:            val cap = if (i == 0) SNAP_ANCHOR_MI else SNAP_POINT_MI
+SHARED:route/GtRoute.kt:1411:            val (ei, bp, d) = run { val onA = if (PIN_ANY_NEARBY_NETWORK && i > 0 && anchorNet != null) nearestSeg(lat, lon, anchorNet) else null
+SHARED:route/GtRoute.kt:1413:            val dAny = if (i == 0) d else nearestSeg(lat, lon, null).third
+SHARED:route/GtRoute.kt:1423:            val node = splitEdgeAt(g, ei, bp)
+SHARED:route/GtRoute.kt:1427:                val q = ArrayDeque<Long>().apply { add(node) }; net.add(node)
+SHARED:route/GtRoute.kt:1428:                while (q.isNotEmpty()) { val x = q.removeFirst(); for (y in g.lAdj[x] ?: emptyList()) if (net.add(y[0])) q.add(y[0]) }
+SHARED:route/GtRoute.kt:1447:        val dij = HashMap<Long, Dij>()
+SHARED:route/GtRoute.kt:1450:        val n = terms.size
+SHARED:route/GtRoute.kt:1451:        val full = Array(n) { i ->
+SHARED:route/GtRoute.kt:1462:        val unreachable = ArrayList<Int>()
+SHARED:route/GtRoute.kt:1464:        val keep = ArrayList<Int>()
+SHARED:route/GtRoute.kt:1492:        val sub = Array(keep.size) { a ->
+SHARED:route/GtRoute.kt:1495:        val (subOrder, miles) = if (endIdx >= 0) {
+SHARED:route/GtRoute.kt:1509:        val order = subOrder.map { keep[it] }
+SHARED:route/GtRoute.kt:1513:        val legs = ArrayList<Double>(order.size)
+SHARED:route/GtRoute.kt:1514:        val hops = if (endIdx >= 0) order.size - 1 else order.size
+SHARED:route/GtRoute.kt:1516:            val a = order[i]
+SHARED:route/GtRoute.kt:1517:            val b = order[(i + 1) % order.size]
+SHARED:route/GtRoute.kt:1526:        val marginal = DoubleArray(n) { -1.0 }
+SHARED:route/GtRoute.kt:1530:                val idx = keep.filterIndexed { i, _ -> i != drop }
+SHARED:route/GtRoute.kt:1531:                val reduced = Array(idx.size) { a ->
+SHARED:route/GtRoute.kt:1534:                val (o2, m2) = heldKarp(reduced)
+SHARED:route/GtRoute.kt:1546:        val over = (miles - req.milesHigh).coerceAtLeast(0.0)
+SHARED:route/GtRoute.kt:1547:        val under = (req.milesLow - miles).coerceAtLeast(0.0)
+SHARED:route/GtRoute.kt:1567:    private fun projectOnSeg(
+SHARED:route/GtRoute.kt:1570:        val fy = 69.0
+SHARED:route/GtRoute.kt:1571:        val fx = 69.0 * cos(toRadians(plat))
+SHARED:route/GtRoute.kt:1572:        val px = plon * fx; val py = plat * fy
+SHARED:route/GtRoute.kt:1573:        val ax = a[1] * fx; val ay = a[0] * fy
+SHARED:route/GtRoute.kt:1574:        val bx = b[1] * fx; val by = b[0] * fy
+SHARED:route/GtRoute.kt:1575:        val vx = bx - ax; val vy = by - ay
+SHARED:route/GtRoute.kt:1576:        val l2 = vx * vx + vy * vy
+SHARED:route/GtRoute.kt:1579:        var t = ((px - ax) * vx + (py - ay) * vy) / l2
+SHARED:route/GtRoute.kt:1582:        val qx = ax + t * vx; val qy = ay + t * vy
+SHARED:route/GtRoute.kt:1586:    private var splitSeq = 0
+SHARED:route/GtRoute.kt:1599:    private fun splitEdgeAt(g: Graph, ei: Int, proj: DoubleArray): Long {
+SHARED:route/GtRoute.kt:1600:        val e = g.edges[ei]
+SHARED:route/GtRoute.kt:1601:        val pu = g.nodes[e.u] ?: return e.u
+SHARED:route/GtRoute.kt:1602:        val pv = g.nodes[e.v] ?: return e.u
+SHARED:route/GtRoute.kt:1603:        val du = hav(proj[0], proj[1], pu[0], pu[1])
+SHARED:route/GtRoute.kt:1604:        val dv = hav(proj[0], proj[1], pv[0], pv[1])
+SHARED:route/GtRoute.kt:1605:        val tot = du + dv
+SHARED:route/GtRoute.kt:1607:        val k = -1000000L - (splitSeq++).toLong()
+SHARED:route/GtRoute.kt:1625:        var cut = 0
+SHARED:route/GtRoute.kt:1626:        var bestD = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:1628:            val d = hav(proj[0], proj[1], e.pts[j][0], e.pts[j][1]) +
+SHARED:route/GtRoute.kt:1633:        val headPts = ArrayList<DoubleArray>(e.pts.subList(0, cut + 1))
+SHARED:route/GtRoute.kt:1635:        val tailPts = ArrayList<DoubleArray>()
+SHARED:route/GtRoute.kt:1643:        val ia = g.edges.size
+SHARED:route/GtRoute.kt:1645:        val ib = g.edges.size
+SHARED:route/GtRoute.kt:1663:    private fun loadPoisGrid(
+SHARED:route/GtRoute.kt:1666:        val out = HashMap<Long, ArrayList<Poi>>()
+SHARED:route/GtRoute.kt:1667:        val cell = POI_BUF_MI / 69.0
+SHARED:route/GtRoute.kt:1668:        val grid = HashMap<Long, ArrayList<Long>>()
+SHARED:route/GtRoute.kt:1670:            val p = g.nodes[k] ?: continue
+SHARED:route/GtRoute.kt:1671:            val gi = floor(p[0] / cell).toLong()
+SHARED:route/GtRoute.kt:1672:            val gj = floor(p[1] / cell).toLong()
+SHARED:route/GtRoute.kt:1682:                val nm = str(c, 0) ?: continue
+SHARED:route/GtRoute.kt:1683:                val fc = str(c, 1) ?: "other"
+SHARED:route/GtRoute.kt:1685:                val la = c.getDouble(2); val lo = c.getDouble(3)
+SHARED:route/GtRoute.kt:1686:                val gi = floor(la / cell).toLong()
+SHARED:route/GtRoute.kt:1687:                val gj = floor(lo / cell).toLong()
+SHARED:route/GtRoute.kt:1688:                var bk = 0L; var bd = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:1690:                    val key = ((gi + di) shl 32) xor ((gj + dj) and 0xffffffffL)
+SHARED:route/GtRoute.kt:1692:                        val p = g.nodes[k] ?: continue
+SHARED:route/GtRoute.kt:1693:                        val d = hav(la, lo, p[0], p[1])
+SHARED:route/GtRoute.kt:1706:    private inline fun forEachCombo(
+SHARED:route/GtRoute.kt:1710:        val idx = IntArray(size) { it }
+SHARED:route/GtRoute.kt:1713:            var i = size - 1
+SHARED:route/GtRoute.kt:1728:    private fun orderTour(
+SHARED:route/GtRoute.kt:1733:            var best: Pair<List<Long>, Double>? = null
+SHARED:route/GtRoute.kt:1734:            val arr = combo.toMutableList()
+SHARED:route/GtRoute.kt:1735:            fun perm(k: Int) {
+SHARED:route/GtRoute.kt:1737:                    var t = 0.0; var cur = start
+SHARED:route/GtRoute.kt:1738:                    for (p in arr) { val x = d(cur, p) ?: return; t += x; cur = p }
+SHARED:route/GtRoute.kt:1739:                    val back = d(cur, start) ?: return
+SHARED:route/GtRoute.kt:1745:                    val tmp = arr[k]; arr[k] = arr[i]; arr[i] = tmp
+SHARED:route/GtRoute.kt:1747:                    val t2 = arr[k]; arr[k] = arr[i]; arr[i] = t2
+SHARED:route/GtRoute.kt:1753:        var cur = start
+SHARED:route/GtRoute.kt:1754:        val left = combo.toMutableList()
+SHARED:route/GtRoute.kt:1755:        val order = ArrayList<Long>()
+SHARED:route/GtRoute.kt:1756:        var t = 0.0
+SHARED:route/GtRoute.kt:1758:            var bn: Long? = null; var bd = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:1759:            for (p in left) { val x = d(cur, p) ?: continue; if (x < bd) { bd = x; bn = p } }
+SHARED:route/GtRoute.kt:1760:            val n = bn ?: return null
+SHARED:route/GtRoute.kt:1763:        val back = d(cur, start) ?: return null
+SHARED:route/GtRoute.kt:1773:    private fun survivorsOf(
+SHARED:route/GtRoute.kt:1776:        val sorted = cands.sortedWith(
+SHARED:route/GtRoute.kt:1779:        val kept = ArrayList<Set<Int>>()
+SHARED:route/GtRoute.kt:1781:            val es = c.third.toSet()
+SHARED:route/GtRoute.kt:1782:            var dup = false
+SHARED:route/GtRoute.kt:1784:                val u = (es + k).size
+SHARED:route/GtRoute.kt:1796:    private fun pathOf(dij: Map<Long, Dij>, seq: List<Long>): List<Int>? {
+SHARED:route/GtRoute.kt:1797:        val out = ArrayList<Int>()
+SHARED:route/GtRoute.kt:1799:            val d = dij[seq[i]] ?: return null
+SHARED:route/GtRoute.kt:1800:            val pe = pathEdges(d, seq[i], seq[i + 1]) ?: return null
+SHARED:route/GtRoute.kt:1806:    fun explore(
+SHARED:route/GtRoute.kt:1820:        val wantRides = 6
+SHARED:route/GtRoute.kt:1821:        val minApart = 5.0
+SHARED:route/GtRoute.kt:1828:        val workingMax = 40
+SHARED:route/GtRoute.kt:1831:        val enrichN = 20
+SHARED:route/GtRoute.kt:1832:        val maxPoi = 24
+SHARED:route/GtRoute.kt:1835:        val maxOverlap = 0.75
+SHARED:route/GtRoute.kt:1837:        val box = corridorBox(req)
+SHARED:route/GtRoute.kt:1838:        var trailCount = 0
+SHARED:route/GtRoute.kt:1844:        val g = buildGraph(spatialDb, box, trailCount, onProgress)
+SHARED:route/GtRoute.kt:1859:        val compOf = HashMap<Long, Int>()
+SHARED:route/GtRoute.kt:1861:            var ci = 0
+SHARED:route/GtRoute.kt:1864:                val q = ArrayDeque<Long>().apply { add(s) }
+SHARED:route/GtRoute.kt:1867:                    val x = q.removeFirst()
+SHARED:route/GtRoute.kt:1883:        val startMi = startYds * 3.0 / 5280.0
+SHARED:route/GtRoute.kt:1884:        val seenTid = HashSet<String>()
+SHARED:route/GtRoute.kt:1885:        val originsAll = ArrayList<Triple<Long, Double, String>>()
+SHARED:route/GtRoute.kt:1887:            val cands = ArrayList<Triple<Double, Int, DoubleArray>>()
+SHARED:route/GtRoute.kt:1889:                val e = g.edges[i]
+SHARED:route/GtRoute.kt:1890:                val pts = e.pts
+SHARED:route/GtRoute.kt:1892:                var bd = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:1893:                var bp: DoubleArray? = null
+SHARED:route/GtRoute.kt:1895:                    val pr = projectOnSeg(req.anchorLat, req.anchorLon, pts[j], pts[j + 1])
+SHARED:route/GtRoute.kt:1902:                val tid = g.edges[ei].trailId
+SHARED:route/GtRoute.kt:1904:                val k = splitEdgeAt(g, ei, proj)
+SHARED:route/GtRoute.kt:1922:        val altStarts = HashMap<Int, ArrayList<String>>()
+SHARED:route/GtRoute.kt:1923:        val byComp = HashMap<Int, Triple<Long, Double, String>>()
+SHARED:route/GtRoute.kt:1925:            val ci = compOf[o.first] ?: -1
+SHARED:route/GtRoute.kt:1927:            val cur = byComp[ci]
+SHARED:route/GtRoute.kt:1930:        val origins = byComp.values.sortedBy { it.second }
+SHARED:route/GtRoute.kt:1940:        val originComps = origins.map { compOf[it.first] ?: -1 }.toHashSet()
+SHARED:route/GtRoute.kt:1941:        val usable = HashSet<Long>()
+SHARED:route/GtRoute.kt:1943:        val poiAt = loadPoisGrid(spatialDb, box, g, usable)
+SHARED:route/GtRoute.kt:1962:            val top = poiAt.entries
+SHARED:route/GtRoute.kt:1967:            val dropped = poiAt.size - top.size
+SHARED:route/GtRoute.kt:1979:                var bd = Double.MAX_VALUE; var bei = -1; var bp: DoubleArray? = null
+SHARED:route/GtRoute.kt:1981:                    val pts = g.edges[ei].pts
+SHARED:route/GtRoute.kt:1983:                        val pr = projectOnSeg(plat, plon, pts[j], pts[j + 1])
+SHARED:route/GtRoute.kt:1988:                    val node = splitEdgeAt(g, bei, bp)
+SHARED:route/GtRoute.kt:1997:        var poiNodes = poiAt.keys.toList()
+SHARED:route/GtRoute.kt:2001:            var mi = 0.0
+SHARED:route/GtRoute.kt:2002:            for (ei in 0 until baseEdges) { val e = g.edges[ei]; if (e.u in usable) mi += e.miles }
+SHARED:route/GtRoute.kt:2008:        val terms = (origins.map { it.first } + poiNodes).distinct()
+SHARED:route/GtRoute.kt:2009:        val pen = HashMap<Int, Double>()
+SHARED:route/GtRoute.kt:2010:        val dij = HashMap<Long, Dij>()
+SHARED:route/GtRoute.kt:2012:        fun dist(a: Long, b: Long): Double? = dij[a]?.dist?.get(b)
+SHARED:route/GtRoute.kt:2019:        val perOrigin = HashMap<Long, List<Long>>()
+SHARED:route/GtRoute.kt:2021:            val keep = poiNodes.filter { p ->
+SHARED:route/GtRoute.kt:2022:                val a = dist(ok, p); val b = dist(p, ok)
+SHARED:route/GtRoute.kt:2028:        val liveOrigins = origins.filter { (perOrigin[it.first] ?: emptyList()).isNotEmpty() }
+SHARED:route/GtRoute.kt:2044:        val badPair = HashMap<Long, HashSet<Long>>()
+SHARED:route/GtRoute.kt:2045:        var ceilingSize = 0
+SHARED:route/GtRoute.kt:2047:            val pois = perOrigin[ok] ?: emptyList()
+SHARED:route/GtRoute.kt:2048:            val bad = HashSet<Long>()
+SHARED:route/GtRoute.kt:2050:                val a = pois[i]; val b = pois[j]
+SHARED:route/GtRoute.kt:2051:                val d1 = dist(ok, a); val d2 = dist(a, b); val d3 = dist(b, ok)
+SHARED:route/GtRoute.kt:2058:            var best = 0
+SHARED:route/GtRoute.kt:2060:                val grp = ArrayList<Long>(); grp.add(seed)
+SHARED:route/GtRoute.kt:2077:        data class Cand(val score: Double, val miles: Double, val combo: List<Long>,
+SHARED:route/GtRoute.kt:2078:                        val origin: String, val eids: List<Int>)
+SHARED:route/GtRoute.kt:2091:                val pool = perOrigin[ok] ?: continue
+SHARED:route/GtRoute.kt:2092:                val bad = badPair[ok] ?: HashSet()
+SHARED:route/GtRoute.kt:2093:                var grp = ArrayList<Long>()
+SHARED:route/GtRoute.kt:2095:                    val g2 = ArrayList<Long>(); g2.add(seed)
+SHARED:route/GtRoute.kt:2102:                val cliqueWas = grp.size
+SHARED:route/GtRoute.kt:2105:                    val t = orderTour(grp, ok) { a, b -> dist(a, b) }
+SHARED:route/GtRoute.kt:2124:        val ranked = poiNodes.sortedByDescending { scoreSet(listOf(it), poiAt) }
+SHARED:route/GtRoute.kt:2125:        val working = ArrayList<Long>()
+SHARED:route/GtRoute.kt:2126:        val found = ArrayList<Cand>()
+SHARED:route/GtRoute.kt:2127:        var gen = 0L
+SHARED:route/GtRoute.kt:2128:        var killed = 0L
+SHARED:route/GtRoute.kt:2129:        var solved = 0L
+SHARED:route/GtRoute.kt:2137:                val pool = working.filter { it in (perOrigin[ok] ?: emptyList()) }
+SHARED:route/GtRoute.kt:2139:                val bad = badPair[ok] ?: HashSet()
+SHARED:route/GtRoute.kt:2144:                        var bad2 = false
+SHARED:route/GtRoute.kt:2150:                            val ord = orderTour(combo, ok) { a, b -> dist(a, b) }
+SHARED:route/GtRoute.kt:2157:                                val eids = pathOf(dij, listOf(ok) + ord.first + listOf(ok))
+SHARED:route/GtRoute.kt:2189:        val pre = found.sortedWith(compareByDescending<Cand> { it.combo.size }
+SHARED:route/GtRoute.kt:2191:        val enriched = ArrayList<Cand>()
+SHARED:route/GtRoute.kt:2192:        var added = 0
+SHARED:route/GtRoute.kt:2193:        var screened = 0L
+SHARED:route/GtRoute.kt:2194:        var tried = 0L
+SHARED:route/GtRoute.kt:2196:            var combo = ArrayList(c.combo)
+SHARED:route/GtRoute.kt:2197:            var miles = c.miles
+SHARED:route/GtRoute.kt:2198:            var eids = c.eids
+SHARED:route/GtRoute.kt:2199:            var origin = c.origin
+SHARED:route/GtRoute.kt:2200:            val ok = liveOrigins.firstOrNull { it.third == origin }?.first
+SHARED:route/GtRoute.kt:2202:                var improving = true
+SHARED:route/GtRoute.kt:2205:                    val headroom = req.milesHigh - miles
+SHARED:route/GtRoute.kt:2214:                    val onRoute = HashSet<Long>()
+SHARED:route/GtRoute.kt:2216:                    var best: Triple<Double, Long, Pair<List<Long>, Double>>? = null
+SHARED:route/GtRoute.kt:2220:                        val bad = badPair[ok] ?: HashSet()
+SHARED:route/GtRoute.kt:2222:                        val dp = dij[p]?.dist
+SHARED:route/GtRoute.kt:2223:                        var near = Double.MAX_VALUE
+SHARED:route/GtRoute.kt:2225:                            val d = dp[n] ?: continue
+SHARED:route/GtRoute.kt:2230:                        val trial = ArrayList(combo); trial.add(p)
+SHARED:route/GtRoute.kt:2231:                        val ord = orderTour(trial, ok) { a, b -> dist(a, b) } ?: continue
+SHARED:route/GtRoute.kt:2233:                        val gain = scoreSet(trial, poiAt) - scoreSet(combo, poiAt)
+SHARED:route/GtRoute.kt:2237:                    val b = best
+SHARED:route/GtRoute.kt:2240:                        val seq = listOf(ok) + b.third.first + listOf(ok)
+SHARED:route/GtRoute.kt:2241:                        val pe = pathOf(dij, seq)
+SHARED:route/GtRoute.kt:2263:                val pen = HashMap<Int, Double>(base); val out = ArrayList<Int>()
+SHARED:route/GtRoute.kt:2265:                    val d = dijkstra(st[i], g, pen)
+SHARED:route/GtRoute.kt:2266:                    val pe = pathEdges(d, st[i], st[i + 1]) ?: return null
+SHARED:route/GtRoute.kt:2271:            fun milesOf(e: List<Int>): Double { var m = 0.0; for (x in e) m += g.edges[x].miles; return m }
+SHARED:route/GtRoute.kt:2272:            fun retraceOf(e: List<Int>): Double {
+SHARED:route/GtRoute.kt:2273:                val seenE = HashSet<Int>(); var rep = 0.0; var tot = 0.0
+SHARED:route/GtRoute.kt:2274:                for (x in e) { val m = g.edges[x].miles; tot += m; if (!seenE.add(x)) rep += m }
+SHARED:route/GtRoute.kt:2277:            val finished = ArrayList<Cand>()
+SHARED:route/GtRoute.kt:2278:            var filledN = 0
+SHARED:route/GtRoute.kt:2281:                val ok = liveOrigins.firstOrNull { it.third == c.origin }?.first
+SHARED:route/GtRoute.kt:2282:                val ord = if (ok == null) null else orderTour(c.combo, ok) { a, b -> dist(a, b) }
+SHARED:route/GtRoute.kt:2284:                val stops = ArrayList<Long>(); stops.add(ok); stops.addAll(ord.first); stops.add(ok)
+SHARED:route/GtRoute.kt:2285:                val dFrom = HashMap<Long, Map<Long, Double>>()
+SHARED:route/GtRoute.kt:2287:                val comp = dij[ok]?.dist?.keys ?: emptySet<Long>()
+SHARED:route/GtRoute.kt:2288:                val junc = comp.filter { (g.lAdj[it]?.size ?: 0) != 2 }.sorted()
+SHARED:route/GtRoute.kt:2289:                val vias = if (junc.size <= FILL_VIAS) junc else { val step = junc.size / FILL_VIAS; junc.filterIndexed { i, _ -> i % step == 0 }.take(FILL_VIAS) }
+SHARED:route/GtRoute.kt:2291:                fun finishRide(base: Map<Int, Double>): List<Int>? {
+SHARED:route/GtRoute.kt:2292:                    val pe0 = routeLegs(stops, base) ?: return null
+SHARED:route/GtRoute.kt:2294:                    var curE: List<Int> = pe0
+SHARED:route/GtRoute.kt:2295:                    var curM = milesOf(curE)
+SHARED:route/GtRoute.kt:2296:                    var cur: List<Long> = stops
+SHARED:route/GtRoute.kt:2297:                    val triedV = HashSet<Long>()
+SHARED:route/GtRoute.kt:2298:                    var steps = 0
+SHARED:route/GtRoute.kt:2301:                        var pickAdd = 0.0; var pickI = -1; var pickV = 0L
+SHARED:route/GtRoute.kt:2305:                                val a = cur[i]; val b = cur[i + 1]
+SHARED:route/GtRoute.kt:2306:                                val da = dFrom[a]?.get(v) ?: continue
+SHARED:route/GtRoute.kt:2307:                                val db = dFrom[b]?.get(v) ?: continue
+SHARED:route/GtRoute.kt:2308:                                val dab = dFrom[a]?.get(b) ?: continue
+SHARED:route/GtRoute.kt:2309:                                val add = da + db - dab
+SHARED:route/GtRoute.kt:2316:                        val trial = ArrayList(cur); trial.add(pickI + 1, pickV)
+SHARED:route/GtRoute.kt:2317:                        val te = routeLegs(trial, base) ?: continue
+SHARED:route/GtRoute.kt:2318:                        val tm = milesOf(te)
+SHARED:route/GtRoute.kt:2325:                val first = finishRide(emptyMap()) ?: c.eids
+SHARED:route/GtRoute.kt:2326:                val fm = milesOf(first)
+SHARED:route/GtRoute.kt:2330:                    val used = HashMap<Int, Double>(); for (e in first) used[e] = PENALTY
+SHARED:route/GtRoute.kt:2332:                        val ve = finishRide(used) ?: break
+SHARED:route/GtRoute.kt:2339:            val belowFloor = finished.count { it.miles < req.milesLow }
+SHARED:route/GtRoute.kt:2345:        val p1 = HashMap<String, ArrayList<Cand>>()
+SHARED:route/GtRoute.kt:2348:        val afterP1 = ArrayList<Cand>()
+SHARED:route/GtRoute.kt:2351:            val keep = ArrayList<Cand>()
+SHARED:route/GtRoute.kt:2355:        val p2 = HashMap<String, ArrayList<Cand>>()
+SHARED:route/GtRoute.kt:2357:        val afterP2 = ArrayList<Cand>()
+SHARED:route/GtRoute.kt:2360:            val keep = ArrayList<Cand>()
+SHARED:route/GtRoute.kt:2375:        val finalC = ArrayList<Cand>()
+SHARED:route/GtRoute.kt:2376:        val kept = ArrayList<Set<Int>>()
+SHARED:route/GtRoute.kt:2378:            val es = c.eids.toSet()
+SHARED:route/GtRoute.kt:2379:            var dup = false
+SHARED:route/GtRoute.kt:2381:                val u = (es + k).size
+SHARED:route/GtRoute.kt:2395:        val picks = ArrayList<Triple<List<Int>, Double, List<Long>>>()
+SHARED:route/GtRoute.kt:2397:            val pins = c.combo.count { n -> poiAt[n]?.any { it.fclass == USERPIN } == true }
+SHARED:route/GtRoute.kt:2410:        val label = req.name.ifBlank { "Ride" }
+SHARED:route/GtRoute.kt:2411:        val out = ArrayList<Suggestion>()
+SHARED:route/GtRoute.kt:2413:            val draftName = "$label Route ${i + 1}"
+SHARED:route/GtRoute.kt:2414:            val built = buildDraft(g, poiAt, eids, miles, req, draftName)
+SHARED:route/GtRoute.kt:2425:    private fun buildDraft(
+SHARED:route/GtRoute.kt:2431:        val cautions = LinkedHashMap<Long, JsonObject>()
+SHARED:route/GtRoute.kt:2432:        val seenPoi = LinkedHashSet<String>()
+SHARED:route/GtRoute.kt:2433:        val poiOrder = ArrayList<Poi>()
+SHARED:route/GtRoute.kt:2434:        val poiMile = HashMap<String, Double>()
+SHARED:route/GtRoute.kt:2436:        var cum = 0.0
+SHARED:route/GtRoute.kt:2437:        var prevName: String? = null
+SHARED:route/GtRoute.kt:2438:        var legStart = 0.0
+SHARED:route/GtRoute.kt:2439:        var prevTid: String? = null
+SHARED:route/GtRoute.kt:2440:        var lastLat = 0.0; var lastLon = 0.0
+SHARED:route/GtRoute.kt:2441:        var first = true
+SHARED:route/GtRoute.kt:2444:            val ed = g.edges[e]
+SHARED:route/GtRoute.kt:2445:            var seg = ed.pts
+SHARED:route/GtRoute.kt:2447:                val dFirst = hav(lastLat, lastLon, seg[0][0], seg[0][1])
+SHARED:route/GtRoute.kt:2448:                val dLast = hav(lastLat, lastLon, seg[seg.size - 1][0], seg[seg.size - 1][1])
+SHARED:route/GtRoute.kt:2462:                val jk = cellKey(seg[0][0], seg[0][1])
+SHARED:route/GtRoute.kt:2463:                val ctr = g.jCentre[jk] ?: seg[0]
+SHARED:route/GtRoute.kt:2465:                val out10 = alongPolyline(seg, 10.0 / 5280.0)
+SHARED:route/GtRoute.kt:2476:            val lbl = ed.name ?: "unnamed track"
+SHARED:route/GtRoute.kt:2487:                val gp = g.gapFt[k] ?: 0.0
+SHARED:route/GtRoute.kt:2489:                    val n = g.nodes[k] ?: continue
+SHARED:route/GtRoute.kt:2499:        val hoursLow = miles / req.mphHigh
+SHARED:route/GtRoute.kt:2500:        val hoursHigh = miles / req.mphLow
+SHARED:route/GtRoute.kt:2501:        val mix = poiOrder.groupingBy { it.fclass }.eachCount()
+SHARED:route/GtRoute.kt:2502:        val mixStr = mix.entries.sortedByDescending { it.value }
+SHARED:route/GtRoute.kt:2505:        val notes = narrative(poiOrder, poiMile, legs, cautions.values.toList(),
+SHARED:route/GtRoute.kt:2508:        val draft = buildJsonObject {
+SHARED:route/GtRoute.kt:2525:    private fun vertex(lat: Double, lon: Double, trailId: String) = buildJsonObject {
+SHARED:route/GtRoute.kt:2536:    private fun alongPolyline(pts: List<DoubleArray>, wantMi: Double): DoubleArray {
+SHARED:route/GtRoute.kt:2537:        var acc = 0.0
+SHARED:route/GtRoute.kt:2539:            val d = hav(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1])
+SHARED:route/GtRoute.kt:2541:                val t = if (d > 0) (wantMi - acc) / d else 0.0
+SHARED:route/GtRoute.kt:2557:    private fun narrative(
+SHARED:route/GtRoute.kt:2564:        val plainNames = mapOf(
+SHARED:route/GtRoute.kt:2568:        val bits = mix.entries.sortedByDescending { it.value }
+SHARED:route/GtRoute.kt:2571:        val headline = GtFmt.f(miles, 0) + " miles, roughly " + GtFmt.f(hLow, 0) + " to " + GtFmt.f(hHigh, 0) + " hours. " +
+SHARED:route/GtRoute.kt:2575:        val seeArr = ArrayList<JsonElement>()
+SHARED:route/GtRoute.kt:2576:        val stopArr = ArrayList<JsonElement>()
+SHARED:route/GtRoute.kt:2577:        var i = 0
+SHARED:route/GtRoute.kt:2579:            val p = pois[i]
+SHARED:route/GtRoute.kt:2580:            val m = poiMile[p.name] ?: 0.0
+SHARED:route/GtRoute.kt:2583:            val same = arrayListOf(p)
+SHARED:route/GtRoute.kt:2597:        val named = LinkedHashMap<String, Double>()
+SHARED:route/GtRoute.kt:2598:        var unnamedMi = 0.0
+SHARED:route/GtRoute.kt:2603:        val namedTxt = joinList(named.entries.sortedByDescending { it.value }.take(5)
+SHARED:route/GtRoute.kt:2605:        val ground = if (named.isEmpty())
+SHARED:route/GtRoute.kt:2611:        val warn = ArrayList<JsonElement>()
+SHARED:route/GtRoute.kt:2614:            val worst = cautions.maxOf { (it["gap_ft"] as? JsonPrimitive)?.content?.toDoubleOrNull() ?: 0.0 }
+SHARED:route/GtRoute.kt:2621:        val pctUnnamed = 100.0 * unnamedMi / max(miles, 1.0)
+SHARED:route/GtRoute.kt:2627:        val legsArr = ArrayList<JsonElement>()
+SHARED:route/GtRoute.kt:2634:        val featArr = ArrayList<JsonElement>()
+SHARED:route/GtRoute.kt:2640:        val cautArr = ArrayList<JsonElement>(); cautions.forEach { cautArr.add(it) }
+SHARED:route/GtRoute.kt:2663:    private fun plural(w: String, n: Int) = if (n > 1 && !w.endsWith("s")) "${w}s" else w
+SHARED:route/GtRoute.kt:2664:    private fun joinList(items: List<String>): String = when (items.size) {
+SHARED:route/GtRoute.kt:2669:    private fun round1(v: Double) = jRound(v * 10.0) / 10.0
+SHARED:route/GtRoute.kt:2670:    private fun round2(v: Double) = jRound(v * 100.0) / 100.0
+SHARED:route/GtRoute.kt:2671:    private fun round6(v: Double) = jRound(v * 1e6) / 1e6
+SHARED:route/GtRoute.kt:2672:    private fun nowIso(): String =
 SHARED:rider/GtRiderTrails.kt:19: *  - SpatialDbManager.getSpatialDb() / getExtensionDb() -> the connections this object is made with ([conn], [dataConn]); the
 SHARED:rider/GtRiderTrails.kt:20: *    "no spatial database -> return the empty result" checks move to the Android front door, which builds this object only when
 SHARED:rider/GtRiderTrails.kt:91:class GtRiderTrails(private val conn: SQLiteConnection, private val dataConn: SQLiteConnection?,
