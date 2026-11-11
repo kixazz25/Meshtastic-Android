@@ -131,6 +131,10 @@ object RouteExplorer {
         Shared.connectedMiles(GtAppDb.wrap(db), req.shared())
 
     /** ROUTEASSIST-2026-08-25A: what the rider's pins cost, right now. null = no network here to route on. */
+    /** AICONNECTED-2026-11-11: the trails connected to the trailhead, for the pin map (the shared search's connectedLines). */
+    fun connectedLines(spatialDb: SQLiteDatabase, req: Request, shape: RouteShape): List<List<DoubleArray>> =
+        Shared.connectedLines(GtAppDb.wrap(spatialDb), req.shared(), shape.shared())
+
     fun assess(
         spatialDb: SQLiteDatabase,
         req: Request,

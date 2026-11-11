@@ -1263,6 +1263,40 @@ object GtRoute {
         return (listOf(0) + rev) to best
     }
 
+    /** AICONNECTED-2026-11-11 (Fred 12:41): the trails CONNECTED to the trailhead -- every network within 1/2 mile of it (the search's starts,
+     *  AIPINNEAR's pins), inside the search box, as polylines ([lat, lon] points) for the pin map. The same cached network as
+     *  assess() and explore() (same box, same key). */
+    fun connectedLines(
+        spatialDb: SQLiteConnection,
+        req: Request,
+        shape: RouteShape
+    ): List<List<DoubleArray>> {
+        val points = emptyList<Pair<Double, Double>>()
+        var trailCount = 0
+        rawQuery(spatialDb, "SELECT COUNT(*) FROM trails", emptyList()) {
+            if (it.step()) trailCount = int(it, 0)
+        }
+
+        val g = buildGraph(spatialDb, corridorBoxFor(req, shape, points), trailCount, null)
+        if (g.mainComponent.isEmpty()) return emptyList()
+        val alat = req.anchorLat; val alon = req.anchorLon
+        val net = HashSet<Long>()
+        for (ei in g.edges.indices) {
+            val pts = g.edges[ei].pts
+            var bd = Double.MAX_VALUE
+            for (j in 0 until pts.size - 1) bd = minOf(bd, projectOnSeg(alat, alon, pts[j], pts[j + 1]).second)
+            if (bd > 0.5) continue
+            val u = g.edges[ei].u
+            if (u in net) continue
+            val q = ArrayDeque<Long>().apply { add(u) }; net.add(u)
+            while (q.isNotEmpty()) { val x = q.removeFirst(); for (y in g.lAdj[x] ?: emptyList()) if (net.add(y[0])) q.add(y[0]) }
+        }
+        val out = ArrayList<List<DoubleArray>>()
+        for (e in g.edges) if (e.u in net && e.v in net) out.add(e.pts)
+        log.i { "AICONNECTED-2026-11-11: " + out.size + " trail section(s) connected to the trailhead (" + net.size + " junctions)" }
+        return out
+    }
+
     /**
      * What the rider's pins cost, right now.
      *

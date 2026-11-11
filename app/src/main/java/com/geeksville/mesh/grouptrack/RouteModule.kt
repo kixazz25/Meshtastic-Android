@@ -332,6 +332,46 @@ object GtRoute {
         }.start()
     }
 
+    // AICONNECTED-2026-11-11 (Fred 12:41): draw the trails connected to the trailhead while pins are dropped -- run like a pin check
+    //  (AIPINWAIT), so a tap waits and two network builds never run at once
+    fun showConnected(ctx: android.content.Context) {
+        val aLat = pinTrailLat.value; val aLon = pinTrailLon.value
+        if (aLat == 0.0 && aLon == 0.0) return
+        if (pinChecking) return
+        pinChecking = true
+        val loop = pinIsLoop.value; val eLat = pinEndLat.value; val eLon = pinEndLon.value
+        val mLo = pinMiLow.intValue.toDouble(); val mHi = pinMiHigh.intValue.toDouble()
+        val sLo = pinMphLow.intValue.toDouble(); val sHi = pinMphHigh.intValue.toDouble()
+        Thread {
+            val sb = StringBuilder("[")
+            try {
+                SpatialDbManager.init(ctx)
+                val db = SpatialDbManager.getSpatialDb()
+                if (db != null) {
+                    val shape = if (loop == false) com.geeksville.mesh.convoy.RouteExplorer.RouteShape.PointToPoint(eLat, eLon)
+                                else com.geeksville.mesh.convoy.RouteExplorer.RouteShape.Loop
+                    val lines = com.geeksville.mesh.convoy.RouteExplorer.connectedLines(db,
+                        com.geeksville.mesh.convoy.RouteExplorer.Request(anchorLat = aLat, anchorLon = aLon, name = pinRideName.value,
+                            milesLow = mLo, milesHigh = mHi, mphLow = sLo, mphHigh = sHi), shape)
+                    for (ln in lines) {
+                        if (ln.size < 2) continue
+                        if (sb.length > 1) sb.append(',')
+                        sb.append('[')
+                        for ((pi, p) in ln.withIndex()) { if (pi > 0) sb.append(','); sb.append("[%.5f,%.5f]".format(java.util.Locale.US, p[0], p[1])) }
+                        sb.append(']')
+                    }
+                }
+            } catch (e: Exception) { android.util.Log.e("GuidedPin", "AICONNECTED-2026-11-11: failed: " + e.message) }
+            sb.append(']')
+            val json = sb.toString()
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                pinChecking = false
+                if (pinCheckAgain) { pinCheckAgain = false; android.os.Handler(android.os.Looper.getMainLooper()).post { runAssess(ctx) } }
+                if (aiStep.intValue == PIN_STEP_INCLUDE) js("if (window.showConnected) showConnected('" + json + "')")
+            }
+        }.start()
+    }
+
     /** the planner's onProximityTap, copied: a tap while the flow asks for a place (the page sends it only while __pinSelect). */
     fun onPinTap(ctx: android.content.Context, lat: Double, lon: Double) {
         val step = aiStep.intValue
@@ -1003,6 +1043,10 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
         val json = R.pinPoints.value.joinToString(",", "[", "]") { "[%.6f,%.6f]".format(it.first, it.second) }
         R.js("renderPins('" + json + "')")
     }
+    // AICONNECTED-2026-11-11 (Fred 12:41): the connected trails, in green, while pins are dropped; cleared on every other step
+    androidx.compose.runtime.LaunchedEffect(R.aiStep.intValue, R.pinTrailLat.value, R.pinTrailLon.value, R.pinMiHigh.intValue, R.pinIsLoop.value) {
+        if (R.aiStep.intValue == PIN_STEP_INCLUDE) R.showConnected(ctx) else R.js("if (window.clearConnected) clearConnected();")
+    }
     // AIPERIMETER-2026-11-11 (Fred 07:48): the planning perimeter while pins are added -- the SAME box as the search's corridorBox
     //  (ceiling / 3 each way from the trailhead). Loop rides only; cleared on every other step.
     androidx.compose.runtime.LaunchedEffect(R.aiStep.intValue, R.pinTrailLat.value, R.pinTrailLon.value, R.pinMiHigh.intValue, R.pinIsLoop.value) {
@@ -1188,7 +1232,8 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                         state = when { step < PIN_STEP_ASK -> GS; step == PIN_STEP_ASK -> GC; else -> GD }),
                     com.geeksville.mesh.convoy.GuidedStep(
                         title = "Places to pass through",
-                        instruction = "Tap the closest trail to each place you want the ride to reach — up to " + PIN_MAX +
+                        instruction = "Green trails are connected to your trailhead -- drop pins on them. " +   // AICONNECTED-2026-11-11
+                            "Tap the closest trail to each place you want the ride to reach — up to " + PIN_MAX +
                             ". Tap a pin again to remove it. I will favour rides that pass named points of interest.",
                         answer = if (pts.isEmpty()) "" else pts.size.toString() + " place" + (if (pts.size == 1) "" else "s") + " included",
                         state = when { step < PIN_STEP_INCLUDE -> GS; step == PIN_STEP_INCLUDE -> GC; else -> GD }),

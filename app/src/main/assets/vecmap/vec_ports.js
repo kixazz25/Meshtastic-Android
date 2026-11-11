@@ -264,6 +264,18 @@ window.showBatchRoute = function (name, on, weight) {
   console.log('SHOWBATCH ' + name + ' ' + on); return true;
 };
 window.clearBatchRoutes = function () { window.__batchLayers = {}; gtBatchPush(); };
+// AICONNECTED-2026-11-11 (Fred 12:41): the trails connected to the trailhead, bold green, while pins are dropped
+var CONN_L = [{ id: 'gt-conn-line', type: 'line', layout: { 'line-cap': 'round', 'line-join': 'round' },
+                paint: { 'line-color': '#00C853', 'line-width': 5, 'line-opacity': 0.85 } }];
+window.showConnected = function (json) {
+  try {
+    var ls = gtJ(json) || [];
+    var f = { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: ls.map(function (l) { return l.map(gtLL); }) } };
+    gtSet('gt-conn', CONN_L, { type: 'FeatureCollection', features: ls.length ? [f] : [] }, false);
+    console.log('CONNECTED ' + ls.length + ' section(s)');
+  } catch (err) { console.log('CONNECTED ' + err); }
+};
+window.clearConnected = function () { gtSet('gt-conn', CONN_L, EMPTY, false); };
 // AICMPCTX-2026-11-11 (Fred 10:07-10:08): the compare table shows the search's context -- the rider's pins and the planning perimeter
 var CMPBOX_L = [{ id: 'gt-cmpbox-fill', type: 'fill', paint: { 'fill-color': '#FF6D00', 'fill-opacity': 0.08 } },
                 { id: 'gt-cmpbox-line', type: 'line', paint: { 'line-color': '#FF6D00', 'line-width': 4, 'line-opacity': 1.0 } }];
