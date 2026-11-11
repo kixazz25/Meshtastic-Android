@@ -194,6 +194,9 @@ object GtRoute {
     val pinFeas = mutableStateOf<com.geeksville.mesh.convoy.RouteExplorer.PinFeasibility?>(null)
     private var pinFeasSeq = 0
     private var pinAssessSeq = 0
+    // AIPINWAIT-2026-11-11 (Fred 01:29): ONE pin check at a time -- each builds the whole search-area network (the 00:25 out-of-memory)
+    @Volatile private var pinChecking = false
+    private var pinCheckAgain = false
     var aiMapReady = false
     // set by the host map: turn Trails, Tracks and Waypoints on for the trailhead step (the planner's AISTEPS layer defaults).
     var layersOnForAi: () -> Unit = {}
@@ -263,6 +266,8 @@ object GtRoute {
         val mHi = pinMiHigh.intValue.toDouble()
         val sLo = pinMphLow.intValue.toDouble()
         val sHi = pinMphHigh.intValue.toDouble()
+        if (pinChecking) { pinCheckAgain = true; return }   // AIPINWAIT-2026-11-11: runs when the check in progress finishes
+        pinChecking = true
         pinAssessSeq += 1
         val seq = pinAssessSeq
         Thread {
@@ -282,6 +287,8 @@ object GtRoute {
             }
             val res = out
             android.os.Handler(android.os.Looper.getMainLooper()).post {
+                pinChecking = false   // AIPINWAIT-2026-11-11
+                if (pinCheckAgain) { pinCheckAgain = false; android.os.Handler(android.os.Looper.getMainLooper()).post { runAssess(ctx) } }
                 if (res != null && seq >= pinFeasSeq) {
                     pinFeasSeq = seq
                     pinFeas.value = res
@@ -306,6 +313,12 @@ object GtRoute {
     /** the planner's onProximityTap, copied: a tap while the flow asks for a place (the page sends it only while __pinSelect). */
     fun onPinTap(ctx: android.content.Context, lat: Double, lon: Double) {
         val step = aiStep.intValue
+        if ((step == PIN_STEP_ENDPOINT || step == PIN_STEP_INCLUDE) && pinChecking) {   // AIPINWAIT-2026-11-11: the last pin is still being checked
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(ctx, "Checking your last pin -- one moment.", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
         if (step == PIN_STEP_ENDPOINT) {
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 pinEndLat.value = lat
@@ -529,7 +542,11 @@ object GtRoute {
                     "✗ No trail you are showing is within 1/2 mile of the trailhead -- " +
                         (if (hid != null) "a trail FILTER is hiding is ${"%.0f".format(hid)} m away (SEE / CHANGE FILTER)" else "START OVER with another trailhead")
                 }
-                val mi = if (near == null) 0.0 else RX.connectedMiles(db, req)
+                // AICHECKNONET-2026-11-10 (Fred 22:48 "why build before the final selection"): no trail network before the search -- the
+                //  connected-miles check built the whole network on every plan / step / FILTER change, beside the search's own build
+                //  (three Moab networks at once = OutOfMemoryError, 11-10 22:12). -1 = not checked here: c2 below stays empty; the
+                //  search builds the network ONCE, on the final selection, and reports a network too short for the distance itself.
+                val mi = -1.0
                 val lo = req.milesLow.toInt(); val hi = req.milesHigh.toInt()
                 val c2 = when {
                     near == null || mi < 0 -> ""
@@ -608,6 +625,10 @@ object GtRoute {
     /** the planner's FIND MY RIDES, copied: the search builds the routes and records the compare set; then the COMPARE TABLE
      *  opens on them (ONE MAP goes straight there -- the planner's results panel in between is not copied). */
     fun findRides(ctx: android.content.Context) {
+        if (pinChecking) {   // AIPINWAIT-2026-11-11: the search builds its own network -- not while a pin check is building one
+            android.widget.Toast.makeText(ctx, "Checking your last pin -- one moment, then press again.", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
         pinNotice.value = ""
         aiStep.intValue = PIN_STEP_SEARCH
         aiBusy.value = true
@@ -691,7 +712,17 @@ object GtRoute {
                     val allLand = tf.land != "PUBLIC" && tf.land != "PRIVATE" && tf.restricted
                     noticeFilter.value = true
                     noticeAllLand.value = !allLand   // AIFAIL-2026-11-03 v4
-                    notice.value = (if (fErr.isNotEmpty()) fErr + "\n\n" else "No rides could be built from that trailhead and distance.\n\n") +
+                    // AIFEWFEAT-2026-11-10 (Fred 23:27): stopped for lack of features (and no pins dropped) -> say so, with the count, and how to
+                    //  get rides: drop points on the trails -- the planner builds around them (dropped points are features to it).
+                    val fst = com.geeksville.mesh.convoy.RouteExplorer.lastStats
+                    val fewFeatures = fErr.isEmpty() && pins.isEmpty() &&
+                        (fst.stop.startsWith("no features") || fst.stop.contains("features here, but no ride"))
+                    val nf = if (fst.features < 0) 0 else fst.features
+                    notice.value = (if (fewFeatures) "Not enough features here to build rides from features: " +
+                            (if (nf == 1) "1 feature" else "$nf features") + " can be reached from this trailhead, and the planner builds " +
+                            "each ride through features.\n\nDrop your own points on the trails where you want to ride -- START OVER, then " +
+                            "YES — I'LL DROP PINS -- and the route planner plans the ride around your points.\n\n"
+                        else if (fErr.isNotEmpty()) fErr + "\n\n" else "No rides could be built from that trailhead and distance.\n\n") +
                         (if (!allLand) "Some land types are hidden. Turn on Public, Private and Restricted in FILTER and search again: " +
                             "every trail is then searched, and the map shows which parts cross private land and which are closed to " +
                             "motor vehicles.\n\n"
