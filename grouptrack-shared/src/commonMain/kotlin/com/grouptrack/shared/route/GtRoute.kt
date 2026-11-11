@@ -300,6 +300,9 @@ object GtRoute {
         @Volatile var areaMi = ""
         @Volatile var stop = ""
         @Volatile var omitted = ""   // trails in the search area FILTER left out, by reason
+        @Volatile var trailMiles = -1.0   // AIFAILNOTICE-2026-11-11: miles of trail in the networks the search starts on; -1 = not reached
+        @Volatile var longestMiles = -1.0   // AIFAILLONGEST-2026-11-11: the longest loop solved that is within the ceiling; -1 = none
+        @Volatile var longestFeatures = 0   // AIFAILLONGEST-2026-11-11
     }
     @Volatile var lastStats = SearchStats()
         private set
@@ -1773,6 +1776,7 @@ object GtRoute {
         val st = SearchStats(); lastStats = st   // AIFAIL-2026-11-03
         st.areaMi = GtFmt.f((box[1] - box[0]) * 69.0, 0) + " x " + GtFmt.f((box[3] - box[2]) * 69.0 * cos(toRadians((box[0] + box[1]) / 2)), 0) + " mi"
         val g = buildGraph(spatialDb, box, trailCount, onProgress)
+        val baseEdges = g.edges.size   // AIFAILNOTICE-2026-11-11: the trail sections as read -- splits (starts, pins) are added after these
         st.trails = lastTrailsRead
         st.omitted = omittedByFilter(spatialDb, box)   // AIFAIL-2026-11-03 v3
         if (g.mainComponent.isEmpty()) {
@@ -1927,6 +1931,11 @@ object GtRoute {
         var poiNodes = poiAt.keys.toList()
         log.i { "poiNodes=${poiNodes.size} usableNodes=${usable.size}" }
         st.junctions = usable.size; st.features = poiNodes.size   // AIFAIL-2026-11-03
+        run {   // AIFAILNOTICE-2026-11-11: connected trail miles, from the network already built (no extra build; each section once)
+            var mi = 0.0
+            for (ei in 0 until baseEdges) { val e = g.edges[ei]; if (e.u in usable) mi += e.miles }
+            st.trailMiles = mi
+        }
 
         /* ── 6. distance matrix ──────────────────────────────────────────*/
         onProgress?.invoke(Progress("Measuring distances"))
@@ -2071,6 +2080,9 @@ object GtRoute {
                         if (bad2) { killed++ } else {
                             solved++
                             val ord = orderTour(combo, ok) { a, b -> dist(a, b) }
+                            if (ord != null && ord.second <= req.milesHigh && ord.second > st.longestMiles) {   // AIFAILLONGEST-2026-11-11
+                                st.longestMiles = ord.second; st.longestFeatures = combo.size
+                            }
                             if (ord != null && ord.second >= req.milesLow &&
                                 ord.second <= req.milesHigh) {
                                 val eids = pathOf(dij, listOf(ok) + ord.first + listOf(ok))

@@ -718,15 +718,29 @@ object GtRoute {
                     val fewFeatures = fErr.isEmpty() && pins.isEmpty() &&
                         (fst.stop.startsWith("no features") || fst.stop.contains("features here, but no ride"))
                     val nf = if (fst.features < 0) 0 else fst.features
-                    notice.value = (if (fewFeatures) "Not enough features here to build rides from features: " +
-                            (if (nf == 1) "1 feature" else "$nf features") + " can be reached from this trailhead, and the planner builds " +
-                            "each ride through features.\n\nDrop your own points on the trails where you want to ride -- START OVER, then " +
-                            "YES — I'LL DROP PINS -- and the route planner plans the ride around your points.\n\n"
-                        else if (fErr.isNotEmpty()) fErr + "\n\n" else "No rides could be built from that trailhead and distance.\n\n") +
+                    // AIFAILNOTICE-2026-11-11 (Fred 08:23): say what this trailhead can reach -- features AND miles of connected trail
+                    val tmi = fst.trailMiles
+                    val reach = "from this trailhead the planner can reach " + (if (nf == 1) "1 feature" else "$nf features") +
+                        (if (tmi >= 0.0) " on " + Math.round(tmi) + " miles of connected trail" else "")
+                    // AIFAILLONGEST-2026-11-11 (Fred 08:24): what IS possible from here -- the longest loop the search solved, when under the floor
+                    val lmi = fst.longestMiles
+                    val best = if (lmi > 0.0 && lmi < mLo) "The longest ride the planner can build here is about " + Math.round(lmi) +
+                        " miles (through " + fst.longestFeatures + " features). Over rough ground a ride that long can be a full day -- " +
+                        "set the distance to about " + Math.round(lmi) + " miles to see it.\n\n" else ""
+                    // AIFAILSHORT-2026-11-11 (Fred 08:29 "the message should be smaller"): one line of what is here, Fred's line, one line of what to do
+                    val here = (if (nf == 1) "1 feature" else "$nf features") +
+                        (if (tmi >= 0.0) " on " + Math.round(tmi) + " miles of connected trail" else "") + " from this trailhead." +
+                        (if (lmi > 0.0 && lmi < mLo) " The longest ride here is about " + Math.round(lmi) + " miles." else "")
+                    notice.value = (if (fErr.isNotEmpty()) fErr + "\n\n"
+                        else if (fewFeatures || fst.features >= 0) "Not a good area for a $mLo-$mHi mile ride: " + here + "\n\n"
+                        else "No rides could be built from that trailhead and distance.\n\n") +
                         (if (!allLand) "Some land types are hidden. Turn on Public, Private and Restricted in FILTER and search again: " +
                             "every trail is then searched, and the map shows which parts cross private land and which are closed to " +
                             "motor vehicles.\n\n"
-                        else "Try Start over with another trailhead or a different distance.\n\n") +
+                        else "") +
+                        // AIFAILNOTICE-2026-11-11 (Fred 08:22): the instruction on every failed search
+                        "With so few features and trail connections, the manual route planner is the better choice here. Or START OVER: " +   // AIFAILSHORT-2026-11-11
+                        "pick a trailhead with more connected trails inside the orange rectangle, or drop pins along connected trails.\n\n" +
                         "What was searched:\n" + fSum.ifEmpty { "(not recorded)" } +
                         (if (selection.value.isNotEmpty()) "\n\nTrails in this search:\n" + selection.value else "") +
                         (if (!allLand) "\n\nSHOW ALL LAND AND SEARCH AGAIN does that in one tap. " else "\n\n") +
