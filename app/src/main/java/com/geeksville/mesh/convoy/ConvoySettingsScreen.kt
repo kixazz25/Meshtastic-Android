@@ -420,7 +420,7 @@ fun ConvoySettingsScreen(
             Spacer(Modifier.height(8.dp))
             Text(
                 // HTMLVER-2026-08-13B: the release string here was one letter behind.
-                text     = "GroupTrack OG Rel 2.7c — Build ${BuildConfig.BUILD_STAMP}",   // RELLABEL-2026-09-30; SETTINGSNAME-2026-10-26: 2.7c
+                text     = "GroupTrack OG Rel. ${BuildConfig.GROUPTRACK_RELEASE} ${BuildConfig.GROUPTRACK_BUILT} (${BuildConfig.FLAVOR} ${BuildConfig.VERSION_CODE})",   // RELLABEL-2026-09-30; SETTINGSNAME-2026-10-26; RELLABEL2-2026-11-12: made by the build -- branch, date + time, flavor, Play version code
                 style    = MaterialTheme.typography.labelSmall,
                 color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier

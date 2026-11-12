@@ -45,7 +45,15 @@ if (keystorePropertiesFile.exists()) {
     FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
 
-val buildStamp: String = SimpleDateFormat("yyyyMMdd.HHmm").format(Date())
+val buildNow = Date()   // RELLABEL2-2026-11-12: ONE instant for BUILD_STAMP and the Settings label
+val buildStamp: String = SimpleDateFormat("yyyyMMdd.HHmm").format(buildNow)
+// RELLABEL2-2026-11-12: the release in Settings = grouptrack_release.txt (one line, e.g. 2.8a or 2.7e HF1), then the build's date and time.
+// Missing, empty or not like 2.8a / 2.7e HF1 -> the build stops, so the label is never a guess.
+val gtRelease: String = rootProject.file("grouptrack_release.txt").let { f ->
+    if (!f.exists()) error("RELLABEL2-2026-11-12: grouptrack_release.txt is missing at the repository root")
+    f.readText().trim().also { if (!Regex("\\d+\\.\\d+[a-z]?( HF\\d+)?").matches(it)) error("RELLABEL2-2026-11-12: grouptrack_release.txt says \"$it\" -- one line like 2.8a or 2.7e HF1") }
+}
+val gtBuilt: String = SimpleDateFormat("MM/dd/yyyy HH:mm").format(buildNow)
 configure<ApplicationExtension> {
     namespace = "com.geeksville.mesh"
 
@@ -77,6 +85,8 @@ configure<ApplicationExtension> {
         buildConfigField("String", "MIN_FW_VERSION", "\"${configProperties.getProperty("MIN_FW_VERSION")}\"")
         
         buildConfigField("String", "BUILD_STAMP", "\"$buildStamp\"")
+        buildConfigField("String", "GROUPTRACK_RELEASE", "\"$gtRelease\"")   // RELLABEL2-2026-11-12: grouptrack_release.txt
+        buildConfigField("String", "GROUPTRACK_BUILT", "\"$gtBuilt\"")       // RELLABEL2-2026-11-12: the build date and time
         buildConfigField("String", "ABS_MIN_FW_VERSION", "\"${configProperties.getProperty("ABS_MIN_FW_VERSION")}\"")
         // We have to list all translated languages here,
         // because some of our libs have bogus languages that google play
