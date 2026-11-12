@@ -1,0 +1,101 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack 2.8 — Step 17: the remaining model, sequence and process (v1, 2026-11-11)</title>
+<style>body{font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1150px;margin:0 auto;padding:24px;background:#0f1216;color:#e6edf3}
+h1{font-size:22px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}h2{font-size:18px;color:#58a6ff;margin-top:30px;border-bottom:1px solid #2a3038;padding-bottom:4px}
+h3{font-size:15px;color:#e3b341;margin:16px 0 6px}code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+table{border-collapse:collapse;width:100%;margin:8px 0;font-size:13px}th,td{border:1px solid #2a3038;padding:5px 8px;text-align:left;vertical-align:top}th{background:#1a2027;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:12px 16px;margin:10px 0}.next{border-left:4px solid #58a6ff}.warn{border-left:4px solid #d29922}.done{border-left:4px solid #3fb950}li{margin:4px 0}</style></head><body><main>
+<h1>GroupTrack 2.8 — Step 17: the remaining model files, the sequence, and the process (v1 · 2026-11-11 21:20)</h1>
+<div class="card done"><b>Where 2.8 is (11-11 21:10):</b> steps <b>1–16 DONE</b> — every step ported AS IS, certified (Droid OLD = NEW; iPad = Droid, cross-device COMPARED) and switched. Today: 16c <code>eaa913f54</code> (the save-by-area writes: Droid 0 DIFF, iPad 6,399 SAME / 0 DIFF) and 16d <code>64d562813</code> (the switch; area download + track corridor checked on Droid 1). Pushed.
+<br><b>Step 17 (plan §11):</b> "Remaining model files (inventory §8 — incl. the 18 files that use the database handles directly) · bucket by bucket · harness case per file group." Rule: <b>the inventory and bucket list go to Fred BEFORE any port.</b> This document is that list.</div>
+
+<h2>1. What is left (the 11-06 inventory, re-checked against the code tonight)</h2>
+<table><tr><th>Bucket (11-06)</th><th>Files</th><th>Lines now</th><th>Already on shared code (switched)</th></tr>
+<tr><td>A pure logic</td><td>11</td><td>1,617</td><td>2 (OsmTrailClassifier, ConvoyNode)</td></tr>
+<tr><td>B model, swappable ties</td><td>51</td><td>12,946</td><td>13 — SpatialDbManager, RouteExplorer, TrailImporter, ConvoyRideStore, TrailFilterState, the 6 OSM files, VectorTiles, RideApplySource, ConvoyRideJsonWriter (3,082 lines)</td></tr>
+<tr><td>D platform</td><td>28</td><td>13,461</td><td>parts of 8 (the import / download / OSM front doors)</td></tr>
+<tr><td>C screens</td><td>95</td><td>27,937</td><td>— (steps 19–20: placeholders, then filled in manual order)</td></tr></table>
+<p>Steps 1–16 moved the <b>data core</b>: the database (reads, writes, schema), the map filter and display, routes, rides, every import, rider trails, OSM, agency trails and the save-by-area queue. What remains of the model is grouped below by what it does — each group is one harness case (plan §11 step 17).</p>
+
+<h2>2. The groups</h2>
+<h3>G1 — Map store and map sources (what the map draws from)</h3>
+<table><tr><th>File</th><th>Lines</th><th>Ties</th><th>Fate</th></tr>
+<tr><td>MBTilesStore</td><td>605</td><td>SQLite (the tile stores)</td><td>port + cert (tile rows on copies)</td></tr>
+<tr><td>MapSourceManager</td><td>599</td><td>Context, assets, prefs</td><td>port (sources, slots) + a settings socket</td></tr>
+<tr><td>TileCodec</td><td>66</td><td>android Bitmap</td><td>SOCKET: a per-platform image decoder (plan §8)</td></tr>
+<tr><td>VectorTiles (rest: tileTemplate, downloadSources, oldTilesOf), ElevationTiles</td><td>~110</td><td>okhttp, assets</td><td>port; http through the shared client</td></tr>
+<tr><td>ConvoyMapRecipe, MapStateStore</td><td>390</td><td>Context, files</td><td>port (recipe file, saved view)</td></tr>
+<tr><td>ConvoySourceClear, ConvoySourceMigration, ConvoyCorridorDelete, GroupTrackConversion</td><td>1,442</td><td>Context, files</td><td>port + cert (what is deleted / converted, on copies)</td></tr>
+<tr><td>ConvoyTileCalculator (rest), ConvoyTileDownloader (the fetch)</td><td>710</td><td>okhttp, workers</td><td>the math ports (part done in 16b); the FETCH stays platform (plan §11 step 16, Fred 11-09)</td></tr></table>
+<h3>G2 — Storage, settings, profile, startup (what the app opens with)</h3>
+<table><tr><th>File</th><th>Lines</th><th>Ties</th><th>Fate</th></tr>
+<tr><td>GroupTrackStorage</td><td>224</td><td>Context, paths</td><td>SOCKET: the one "where are my files" helper (plan §8: Context in 124 files, mostly for paths)</td></tr>
+<tr><td>ConvoySettingsRepository, ConvoySettingsViewModel, ConvoyConfig, ConvoyMasterConfig, ConvoyEventConfig</td><td>780</td><td>prefs, Context</td><td>port behind a settings socket</td></tr>
+<tr><td>ConvoyUser, ConvoyProfileStore, ConvoyNetworkStore, ConvoySessionManager</td><td>549</td><td>SQLite, prefs</td><td>port + cert (rows on copies)</td></tr>
+<tr><td>StateData, StateDataQueue</td><td>319</td><td>Context</td><td>port</td></tr>
+<tr><td>StartupHousekeeping, DbAudit</td><td>505</td><td>SQLite, Context</td><td>port + cert (each startup job on copies; GtCertGuard stays)</td></tr>
+<tr><td>GtHelp, IpadExport, ConvoyMarkerRenderer</td><td>111</td><td>Context</td><td>small: port / socket</td></tr></table>
+<h3>G3 — Trail rules and land (who may ride where)</h3>
+<table><tr><th>File</th><th>Lines</th><th>Ties</th><th>Fate</th></tr>
+<tr><td>TrackRules</td><td>589</td><td>SQLite</td><td>port + cert</td></tr>
+<tr><td>LandAreas</td><td>550</td><td>SQLite, http (PAD-US)</td><td>port + cert (display side already in step 3)</td></tr>
+<tr><td>OwnershipReclass</td><td>677</td><td>SQLite</td><td>port + cert (the 15f lesson: it runs at startup — on GtCertGuard)</td></tr>
+<tr><td>TrailCheck, UtahPrivate, TrailCleanup</td><td>743</td><td>SQLite</td><td>port + cert</td></tr></table>
+<h3>G4 — The map-page talkers (model code that talks to the map page directly — plan §8)</h3>
+<table><tr><th>File</th><th>Lines</th><th>Fate</th></tr>
+<tr><td>SpatialDisplayManager, RouteDraftStore, ConvoyArtifactOps (+ RidePreview; RiderTrailWriter already switched)</td><td>1,649</td><td>ONE shared "map page" interface, then port; cert = the map batches sent for the same view (step 3's method)</td></tr></table>
+<h3>G5 — Pure ride logic (no Android at all)</h3>
+<table><tr><th>File</th><th>Lines</th><th>Fate</th></tr>
+<tr><td>RouteManager, LeadEstimate, ConvoyEngine, TrailClassifier, RideStats, RecordingState, ConvoyNavArgs</td><td>1,009</td><td>port as is; cert = golden values Droid vs iPad (the 15a method)</td></tr>
+<tr><td>ArtifactSearch</td><td>132</td><td><b>no caller found</b> — remove rather than port? (Fred)</td></tr>
+<tr><td>RiderTrailScanner</td><td>373</td><td>called only from RiderTrailWriter (switched at 15c) — check it is now dead; remove with the cert copies? (Fred)</td></tr>
+<tr><td>LaunchModules</td><td>151</td><td>app wiring — likely stays Android</td></tr></table>
+<h3>G6 — Exports and sharing</h3>
+<table><tr><th>File</th><th>Lines</th><th>Fate</th></tr>
+<tr><td>ExportAll (SQLite), GtBackup, GtConfigPdf, GtRideStatsSend, ConvoyRideSend, ConvoyFileReceiver</td><td>~900</td><td>the content ports + cert (the files made, byte for byte — step 4's method); the share / email / open-with step is a SOCKET</td></tr></table>
+<h3>G7 — Server and catalogs (network)</h3>
+<table><tr><th>File</th><th>Lines</th><th>Fate</th></tr>
+<tr><td>ConvoyApiClient, NetworkGenerator, ConvoyInviteHandler, GeofabrikCatalog</td><td>994</td><td>http → the shared client (ktor, plan §8); cert = the requests made, against a replay server (15f's method)</td></tr></table>
+<h3>G8 — Ride runtime and group awareness (needs a real iPad)</h3>
+<table><tr><th>File</th><th>Lines</th><th>Fate</th></tr>
+<tr><td>GroupTrackScreen (ride state machine part), ConvoyViewModel</td><td>5,320</td><td>MUST SPLIT first (plan §8): ride state machine (shared) vs map hosting / GPS (platform)</td></tr>
+<tr><td>ConvoyGpsService, TabletPosition</td><td>643</td><td>SOCKET: GPS (step 21)</td></tr>
+<tr><td>GrpAwareness, GroupTrackComm</td><td>677</td><td>SOCKET: radio over Bluetooth (step 21; field test in January, Utah)</td></tr></table>
+<h3>G9 — Workers and background (stay platform)</h3>
+<table><tr><th>File</th><th>Lines</th><th>Fate</th></tr>
+<tr><td>ConvoyDownloadWorker, ConvoyCorridorWorker, ConvoyDeleteWorker, ConvoyDownloadNotification, ConvoyDownloadActionReceiver, OsmImportPanel</td><td>909</td><td>stay Android (WorkManager); the iPad gets its own background transfers (step 21). Only the interface they call is shared.</td></tr>
+<tr><td>HomeStateImportController</td><td>1,801</td><td>SPLIT: the state-import model (shared — most of it already behind 15f / 15g) vs WorkManager (platform)</td></tr>
+<tr><td>VectorMapTest, ConvoyDevSeeder</td><td>568</td><td>dev / test screens — remove before release rather than port? (Fred)</td></tr></table>
+
+<h2>3. The proposed sequence (by what step 18 needs first)</h2>
+<div class="card next"><p>Step 18's acceptance (plan §11): <i>the map opens on the iPad simulator as on Droid 1, with Droid 1's data, saved view and filter; then Droid 2's seed email imported on the iPad.</i> So the order follows what the iPad needs to open the map, then what the screens need:</p><ol>
+<li><b>17-1 G2 storage, settings, startup</b> — the iPad can find and open its files, settings and profile (the "where are my files" socket first; it removes most of the 124 Context uses).</li>
+<li><b>17-2 G1 map store and sources</b> — the iPad map draws from the same stores (the image decoder socket).</li>
+<li><b>17-3 G4 the map-page interface</b> — the display and route-draft code talks to either map page.</li>
+<li><b>17-4 G3 trail rules and land</b> — who may ride where, the same on both.</li>
+<li><b>17-5 G5 pure ride logic</b> — small, fast certs (golden values).</li>
+<li><b>17-6 G6 exports and sharing</b> — the seed email the step 18 acceptance imports.</li>
+<li><b>17-7 G7 server and catalogs</b> — sign-in, rides on AWS, the state catalog.</li>
+<li><b>17-8 G9 the worker interfaces</b> (the workers themselves stay Android).</li>
+<li><b>G8 ride runtime and group awareness</b> — AFTER step 18–19, with the screens and a real iPad (Bluetooth + GPS; field test January, Utah). The two big splits (GroupTrackScreen, ConvoyViewModel) are done in this group.</li></ol>
+<p>Then 17b (the Droid 2 rebuild walk — the control), 17c, 18.</p></div>
+
+<h2>4. The process, per group (the method that took steps 10–16 through)</h2>
+<ol>
+<li><b>Inventory the group</b> — every file, every caller, every Android tie — to Fred before any port.</li>
+<li><b>Simulate on the Mac's real data</b> where the group computes something (as tonight's 16c simulation: volumes, edge cases, what the cert will meet) — before any patch is applied (Fred 11-11 18:48).</li>
+<li><b>Port AS IS</b> into <code>grouptrack-shared</code> — the platform rules (plan §18): GtMath, GtJava text, GtOrgJson, GtRx, GtGeom, sorted listings, Java collection order where it reaches a result. No behaviour change.</li>
+<li><b>iPad compile</b> (<code>compileKotlinIosSimulatorArm64</code>) before every build.</li>
+<li><b>Certify</b>: TEST-ONLY generated OLD copies (counted substitutions; any miss writes nothing), ONE shared runner, Droid OLD = NEW (0 DIFF), then the iPad = the Droid's report (0 DIFF, input fingerprints equal: "cross-device COMPARED") — on real data, nothing live touched.</li>
+<li><b>Switch</b>: front doors; the files checked byte for byte against the certified ones before the switch (16d's check).</li>
+<li><b>Walk on Droid 1</b> the screens that use it; commit by explicit paths, no attribution lines; push.</li></ol>
+<p><b>Sockets</b> (paths, settings, image decoding, GPS, Bluetooth, share / email, background work): a shared interface; Android wired to today's code unchanged; the iPad a placeholder until its turn. A socket is checked by a Droid walk, not a cert (there is no new logic in it).</p>
+
+<h2>5. For Fred to decide</h2>
+<ol>
+<li>The sequence in §3 (or another order).</li>
+<li>Remove rather than port: ArtifactSearch (no caller), VectorMapTest and ConvoyDevSeeder (dev screens), and RiderTrailScanner if it proves dead after 15c.</li>
+<li>G8 (ride runtime, Bluetooth, GPS) after step 18–19 with a real iPad — or earlier.</li>
+<li>The first group to inventory in detail: G2 (recommended — it is what the iPad opens with).</li></ol>
+<p class="card warn">Counts are from the 11-06 inventory table (<code>GroupTrack_2.8_KMP_inventory_2026-11-06.csv</code>) re-measured on today's 2.8 code; "switched" was found by the switch markers in each file. Each group's detailed inventory (step 1 of the process) re-checks its files one by one before anything is ported.</p>
+</main></body></html>

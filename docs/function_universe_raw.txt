@@ -3987,70 +3987,29 @@ TrailImporterCertOld.kt:996:                val f = s.getJSONObject("fields")
 TrailImporterCertOld.kt:997:                val extras = mutableMapOf<String, String>()
 TrailImporterCertOld.kt:1021:    private fun trailAreasDir(): File {
 TrailImporterCertOld.kt:1022:        val dir = certTrailAreasDir()
-VectorTiles.kt:11:object VectorTiles {
-VectorTiles.kt:12:    const val SLOT = "VEC"
-VectorTiles.kt:14:    private const val TAG = "VectorTiles"
-VectorTiles.kt:15:    @Volatile private var resolved: String? = null
-VectorTiles.kt:17:    private fun spec(context: Context): JSONObject? = try {
-VectorTiles.kt:23:    fun tileTemplate(context: Context): String? {
-VectorTiles.kt:25:        val tj = spec(context)?.optString("tilejson")?.takeIf { it.isNotBlank() } ?: return null
-VectorTiles.kt:29:                val t = JSONObject(r.body?.string() ?: "{}").optJSONArray("tiles")?.optString(0)
-VectorTiles.kt:37:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> {
-VectorTiles.kt:38:        val t = tileTemplate(context) ?: return emptyList()
-VectorTiles.kt:43:    fun recipeBoxes(): Pair<String, List<DoubleArray>>? {
-VectorTiles.kt:44:        val f = GroupTrackStorage.dir("recipes").listFiles()
-VectorTiles.kt:47:        val slots = JSONObject(f.readText()).optJSONArray("slots") ?: return Pair(f.name, emptyList())
-VectorTiles.kt:48:        val seen = HashSet<String>(); val out = ArrayList<DoubleArray>()
-VectorTiles.kt:50:            val b = slots.optJSONObject(i)?.optJSONArray("boxes") ?: continue
-VectorTiles.kt:52:                val x = b.optJSONObject(j) ?: continue
-VectorTiles.kt:53:                val box = doubleArrayOf(x.optDouble("n"), x.optDouble("s"), x.optDouble("e"), x.optDouble("w"))
-VectorTiles.kt:62:    fun oldTilesOf(f: java.io.File): Long = try {
-VectorTiles.kt:63:        val slots = JSONObject(f.readText()).optJSONArray("slots"); var t = 0L
-VectorTiles.kt:64:        if (slots != null) for (i in 0 until slots.length()) { val o = slots.optJSONObject(i) ?: continue
-VectorTiles.kt:65:            val s = o.optString("slot"); if (s != SLOT && s != ElevationTiles.SLOT) t += o.optLong("tiles") }
-VectorTiles.kt:70:    fun boxesOf(f: java.io.File): List<DoubleArray> {
-VectorTiles.kt:71:        val slots = JSONObject(f.readText()).optJSONArray("slots") ?: return emptyList()
-VectorTiles.kt:72:        val seen = HashSet<String>(); val out = ArrayList<DoubleArray>()
-VectorTiles.kt:74:            val b = slots.optJSONObject(i)?.optJSONArray("boxes") ?: continue
-VectorTiles.kt:76:                val x = b.optJSONObject(j) ?: continue
-VectorTiles.kt:77:                val box = doubleArrayOf(x.optDouble("n"), x.optDouble("s"), x.optDouble("e"), x.optDouble("w"))
-VectorTiles.kt:87:    fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) {
-VectorTiles.kt:88:        val nn = 1 shl SQ_Z
-VectorTiles.kt:89:        val x0 = sqX(w + 1e-9).coerceIn(0, nn - 1); val x1 = sqX(e - 1e-9).coerceIn(0, nn - 1)
-VectorTiles.kt:90:        val y0 = sqY(n - 1e-9).coerceIn(0, nn - 1); val y1 = sqY(s + 1e-9).coerceIn(0, nn - 1)
-VectorTiles.kt:100:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean, what: String): Int =
-VectorTiles.kt:106:    private const val SQ_Z = 12
-VectorTiles.kt:108:    private fun sqX(lon: Double) = Math.floor((lon + 180.0) / 360.0 * (1 shl SQ_Z)).toInt()
-VectorTiles.kt:109:    private fun sqY(lat: Double): Int {
-VectorTiles.kt:110:        val r = Math.toRadians(lat.coerceIn(-85.0, 85.0))
-VectorTiles.kt:113:    private fun lonOf(x: Int) = x.toDouble() / (1 shl SQ_Z) * 360.0 - 180.0
-VectorTiles.kt:114:    private fun latOf(y: Int): Double { val k = Math.PI - 2.0 * Math.PI * y / (1 shl SQ_Z); return Math.toDegrees(Math.atan(Math.sinh(k))) }
-VectorTiles.kt:117:    fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>) {
-VectorTiles.kt:118:        val n = 1 shl SQ_Z
-VectorTiles.kt:119:        fun add(lat: Double, lon: Double) {
-VectorTiles.kt:120:            val x = sqX(lon); val y = sqY(lat)
-VectorTiles.kt:122:                val xx = x + dx; val yy = y + dy
-VectorTiles.kt:127:            var prev: Pair<Double, Double>? = null
-VectorTiles.kt:129:                val q = prev
-VectorTiles.kt:131:                    val steps = Math.max(1, Math.ceil(Math.max(Math.abs(p.first - q.first), Math.abs(p.second - q.second)) / 0.02).toInt())
-VectorTiles.kt:132:                    for (i in 1 until steps) { val f = i.toDouble() / steps; add(q.first + (p.first - q.first) * f, q.second + (p.second - q.second) * f) }
-VectorTiles.kt:140:    fun queueSquares(context: Context, squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
-VectorTiles.kt:144:    fun queueSquaresNamed(context: Context, squares: Set<Long>, names: Map<Long, Set<String>>, replaceExisting: Boolean, why: String): Pair<Int, Int> {
-VectorTiles.kt:146:        val n = (1 shl SQ_Z).toLong()
-VectorTiles.kt:147:        class Box(val x0: Int, val x1: Int, val y0: Int, var y1: Int)
-VectorTiles.kt:148:        val byRow = squares.groupBy { (it % n).toInt() }
-VectorTiles.kt:149:        var open = HashMap<Long, Box>(); val done = ArrayList<Box>()
-VectorTiles.kt:151:            val xs = byRow.getValue(y).map { (it / n).toInt() }.sorted()
-VectorTiles.kt:152:            val runs = ArrayList<Pair<Int, Int>>(); var a = xs[0]; var b = xs[0]
-VectorTiles.kt:155:            val next = HashMap<Long, Box>()
-VectorTiles.kt:157:                val k = x0.toLong() * n + x1; val o = open[k]
-VectorTiles.kt:164:        var jobs = 0; var tiles = 0
-VectorTiles.kt:166:            val nn = latOf(bx.y0); val ss = latOf(bx.y1 + 1); val ww = lonOf(bx.x0); val ee = lonOf(bx.x1 + 1)
-VectorTiles.kt:169:            val what = when { inBox.isEmpty() -> why; inBox.size <= 2 -> inBox.joinToString(", "); else -> inBox.take(2).joinToString(", ") + " +${inBox.size - 2}" }
-VectorTiles.kt:179:    fun queueFromRecipe(context: Context, count: Int): String {
-VectorTiles.kt:180:        val r = try { recipeBoxes() } catch (e: Exception) { return "Could not read the recipe: ${e.message}" }
-VectorTiles.kt:182:        val take = r.second.take(count)
-VectorTiles.kt:184:        var jobs = 0
+VectorTiles.kt:12:object VectorTiles {
+VectorTiles.kt:13:    const val SLOT = "VEC"
+VectorTiles.kt:15:    private const val TAG = "VectorTiles"
+VectorTiles.kt:16:    @Volatile private var resolved: String? = null
+VectorTiles.kt:18:    private fun spec(context: Context): JSONObject? = try {
+VectorTiles.kt:24:    fun tileTemplate(context: Context): String? {
+VectorTiles.kt:26:        val tj = spec(context)?.optString("tilejson")?.takeIf { it.isNotBlank() } ?: return null
+VectorTiles.kt:30:                val t = JSONObject(r.body?.string() ?: "{}").optJSONArray("tiles")?.optString(0)
+VectorTiles.kt:38:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> {
+VectorTiles.kt:39:        val t = tileTemplate(context) ?: return emptyList()
+VectorTiles.kt:46:    fun recipeBoxes(): Pair<String, List<DoubleArray>>? = DownloadQueueManager.vecQueue().recipeBoxes()
+VectorTiles.kt:49:    fun oldTilesOf(f: java.io.File): Long = try {
+VectorTiles.kt:50:        val slots = JSONObject(f.readText()).optJSONArray("slots"); var t = 0L
+VectorTiles.kt:51:        if (slots != null) for (i in 0 until slots.length()) { val o = slots.optJSONObject(i) ?: continue
+VectorTiles.kt:52:            val s = o.optString("slot"); if (s != SLOT && s != ElevationTiles.SLOT) t += o.optLong("tiles") }
+VectorTiles.kt:57:    fun boxesOf(f: java.io.File): List<DoubleArray> = DownloadQueueManager.vecQueue().boxesOf(f.toOkioPath())
+VectorTiles.kt:60:    fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) =
+VectorTiles.kt:64:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean): Int =
+VectorTiles.kt:68:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean, what: String): Int =
+VectorTiles.kt:72:    fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>) =
+VectorTiles.kt:76:    fun queueSquares(context: Context, squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
+VectorTiles.kt:80:    fun queueSquaresNamed(context: Context, squares: Set<Long>, names: Map<Long, Set<String>>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
+VectorTiles.kt:84:    fun queueFromRecipe(context: Context, count: Int): String = DownloadQueueManager.vecQueueFor(context).queueFromRecipe(count)
 ArtifactSearch.kt:71:data class ArtifactResult(
 ArtifactSearch.kt:72:    val id: String,
 ArtifactSearch.kt:73:    val name: String,
@@ -4100,215 +4059,235 @@ ConvoyDeleteWorker.kt:180:        val nm = appContext.getSystemService(Context.N
 ConvoyDeleteWorker.kt:188:    private fun showProgress(entryId: String, label: String, done: Int, total: Int) {
 ConvoyDeleteWorker.kt:190:            val notification = ConvoyDownloadNotification
 ConvoyDeleteWorker.kt:192:            val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-ConvoyDownloadQueue.kt:20:enum class QueueStatus {
-ConvoyDownloadQueue.kt:31:enum class DownloadType { AREA, CORRIDOR, MAP_SOURCE_REFRESH, DELETE_AREA_TILES }
-ConvoyDownloadQueue.kt:36:object DownloadPriority {
-ConvoyDownloadQueue.kt:37:    const val DELETE = 0
-ConvoyDownloadQueue.kt:38:    const val PROMOTED = 1
-ConvoyDownloadQueue.kt:39:    const val CORRIDOR = 2
-ConvoyDownloadQueue.kt:40:    const val AREA = 3
-ConvoyDownloadQueue.kt:41:    const val REFRESH = 4
-ConvoyDownloadQueue.kt:42:    fun forType(t: DownloadType): Int = when (t) {
-ConvoyDownloadQueue.kt:50:data class QueueEntry(
-ConvoyDownloadQueue.kt:51:    val id: String = UUID.randomUUID().toString(),
-ConvoyDownloadQueue.kt:52:    val north: Double = 0.0,
-ConvoyDownloadQueue.kt:53:    val south: Double = 0.0,
-ConvoyDownloadQueue.kt:54:    val east: Double = 0.0,
-ConvoyDownloadQueue.kt:55:    val west: Double = 0.0,
-ConvoyDownloadQueue.kt:56:    val status: QueueStatus = QueueStatus.QUEUED,
-ConvoyDownloadQueue.kt:57:    val totalTiles: Int = 0,
-ConvoyDownloadQueue.kt:58:    val downloadedTiles: Int = 0,
-ConvoyDownloadQueue.kt:59:    val failedTiles: Int = 0,
-ConvoyDownloadQueue.kt:60:    val retryCount: Int = 0,
-ConvoyDownloadQueue.kt:61:    val createdAt: Long = System.currentTimeMillis(),
-ConvoyDownloadQueue.kt:62:    val label: String = "",
-ConvoyDownloadQueue.kt:63:    val workRequestId: String? = null,
-ConvoyDownloadQueue.kt:64:    val refreshMode: Boolean = false,
-ConvoyDownloadQueue.kt:65:    val refreshSlot: String = "",
-ConvoyDownloadQueue.kt:67:    val downloadType: DownloadType = DownloadType.AREA,
-ConvoyDownloadQueue.kt:68:    val priority: Int = DownloadPriority.AREA,
-ConvoyDownloadQueue.kt:72:    val completedAt: Long = 0L,
-ConvoyDownloadQueue.kt:77:    val startedAt: Long = 0L,
-ConvoyDownloadQueue.kt:83:    val tilesPerSec: Double = 0.0,
-ConvoyDownloadQueue.kt:89:    val geomHash: String = ""
-ConvoyDownloadQueue.kt:91:    fun toJson(): JSONObject = JSONObject().apply {
-ConvoyDownloadQueue.kt:117:    companion object {
-ConvoyDownloadQueue.kt:118:        fun fromJson(j: JSONObject): QueueEntry = QueueEntry(
-ConvoyDownloadQueue.kt:155:object DownloadQueueManager {
-ConvoyDownloadQueue.kt:172:    private var maxConcurrent: Int = 4
-ConvoyDownloadQueue.kt:173:    val MAX_CONCURRENT: Int get() = maxConcurrent
-ConvoyDownloadQueue.kt:176:    fun setMaxConcurrent(context: Context, value: Int) {
-ConvoyDownloadQueue.kt:177:        val v = value.coerceIn(1, 4)
-ConvoyDownloadQueue.kt:190:    fun loadMaxConcurrent(context: Context) {
-ConvoyDownloadQueue.kt:196:    private const val QUEUE_FILE = "download_queue.json"
-ConvoyDownloadQueue.kt:197:    private const val TAG = "DownloadQueue"
-ConvoyDownloadQueue.kt:199:    private val _queue = MutableStateFlow<List<QueueEntry>>(emptyList())
-ConvoyDownloadQueue.kt:200:    private var queuePaused = false
-ConvoyDownloadQueue.kt:201:    val queue: StateFlow<List<QueueEntry>> = _queue.asStateFlow()
-ConvoyDownloadQueue.kt:203:    private lateinit var appCtx: Context
-ConvoyDownloadQueue.kt:204:    private var initialized = false
-ConvoyDownloadQueue.kt:207:    fun init(context: Context) {
-ConvoyDownloadQueue.kt:214:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:215:        var changed = false
-ConvoyDownloadQueue.kt:230:    fun enqueue(
-ConvoyDownloadQueue.kt:237:        val tiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
-ConvoyDownloadQueue.kt:250:        val layerCount = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:252:        val totalTiles = tiles.size * Math.max(1, layerCount)
-ConvoyDownloadQueue.kt:254:        val entry = QueueEntry(
-ConvoyDownloadQueue.kt:262:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:285:    fun enqueueArea(
-ConvoyDownloadQueue.kt:294:    fun enqueueArea(
-ConvoyDownloadQueue.kt:312:        val oneLayerTiles = if (isVec) ConvoyTileCalculator.quickEstimate(north, south, east, west, zMin = 0, zMax = vecZ).tileCount
-ConvoyDownloadQueue.kt:318:        val satLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:320:        val sizeTiles = if (isVec) oneLayerTiles else oneLayerTiles * Math.max(1, satLayers)
-ConvoyDownloadQueue.kt:321:        val cells = ConvoyTileDownloader.segmentCells(north, south, east, west, sizeTiles)
-ConvoyDownloadQueue.kt:340:            val entry = QueueEntry(
-ConvoyDownloadQueue.kt:353:            val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:360:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:362:            val entry = QueueEntry(
-ConvoyDownloadQueue.kt:396:    fun submitDownload(
-ConvoyDownloadQueue.kt:428:    fun enqueueDelete(
-ConvoyDownloadQueue.kt:435:        val slotLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:446:        val storeNames: List<String> = run {
-ConvoyDownloadQueue.kt:447:            val layers = MapSourceManager.getSourceByKey(slotName)?.layers ?: emptyList()
-ConvoyDownloadQueue.kt:451:        var totalTiles = 0
-ConvoyDownloadQueue.kt:456:        val boxTiles = zr.sumOf { (it[2] - it[1] + 1).toLong() * (it[4] - it[3] + 1) }
-ConvoyDownloadQueue.kt:458:        val entry = QueueEntry(
-ConvoyDownloadQueue.kt:467:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:486:    fun submitDelete(
-ConvoyDownloadQueue.kt:492:        var total = 0
-ConvoyDownloadQueue.kt:495:        val slots = (listOf(VectorTiles.SLOT, ElevationTiles.SLOT) + MapSourceManager.getDownloadSources().map { it.first }).distinct()
-ConvoyDownloadQueue.kt:504:        fun enqueueRefresh(
-ConvoyDownloadQueue.kt:510:        val bounds = ConvoyTileDownloader.tileBoundsLatLon(slotName) ?: return 0
-ConvoyDownloadQueue.kt:512:        val slotLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:514:        val oneLayerTiles = ConvoyTileCalculator
-ConvoyDownloadQueue.kt:516:        val satLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:518:        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
-ConvoyDownloadQueue.kt:519:        val cells = ConvoyTileDownloader.segmentCells(
-ConvoyDownloadQueue.kt:524:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:526:            val entry = QueueEntry(
-ConvoyDownloadQueue.kt:570:    data class CorridorBatchResult(
-ConvoyDownloadQueue.kt:571:        val jobs: Int = 0,
-ConvoyDownloadQueue.kt:572:        val tiles: Int = 0,
-ConvoyDownloadQueue.kt:573:        val skipped: Int = 0
-ConvoyDownloadQueue.kt:612:    fun recordCompletedDelete(
-ConvoyDownloadQueue.kt:624:        val now = System.currentTimeMillis()
-ConvoyDownloadQueue.kt:625:        val entry = QueueEntry(
-ConvoyDownloadQueue.kt:636:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:643:    fun enqueueCorridorBatch(
-ConvoyDownloadQueue.kt:658:            val sq = HashSet<Long>(); var skipped = 0
-ConvoyDownloadQueue.kt:661:                val segs = SpatialDbManager.getCorridorGeometry(context, hash)
-ConvoyDownloadQueue.kt:663:                val mine = HashSet<Long>(); VectorTiles.squaresFor(segs, mine)
-ConvoyDownloadQueue.kt:664:                val nm = SpatialDbManager.nameForGeomHash(hash) ?: hash.take(8)
-ConvoyDownloadQueue.kt:668:            val r = VectorTiles.queueSquaresNamed(context, sq, names, replaceExisting, "corridors x${geomHashes.size}")
-ConvoyDownloadQueue.kt:671:        var jobs = 0
-ConvoyDownloadQueue.kt:672:        var tiles = 0
-ConvoyDownloadQueue.kt:673:        val skippedHashes = mutableListOf<String>()
-ConvoyDownloadQueue.kt:677:            var queuedForThisTrack = 0
-ConvoyDownloadQueue.kt:679:                val t = enqueueCorridor(context, hash, slot, replaceExisting)
-ConvoyDownloadQueue.kt:687:            val skippedShort = skippedHashes.joinToString(separator = ", ") { it.take(8) }
-ConvoyDownloadQueue.kt:699:    fun enqueueCorridor(
-ConvoyDownloadQueue.kt:710:        val segments = SpatialDbManager.getCorridorGeometry(context, geomHash)
-ConvoyDownloadQueue.kt:717:            val sq = HashSet<Long>(); VectorTiles.squaresFor(segments, sq)
-ConvoyDownloadQueue.kt:725:        val tiles = ConvoyTileCalculator.corridorTiles(
-ConvoyDownloadQueue.kt:731:        val slotLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:733:        val totalTiles = tiles.size * Math.max(1, slotLayers)
-ConvoyDownloadQueue.kt:735:        var n = -90.0
-ConvoyDownloadQueue.kt:736:        var s = 90.0
-ConvoyDownloadQueue.kt:737:        var e = -180.0
-ConvoyDownloadQueue.kt:738:        var w = 180.0
-ConvoyDownloadQueue.kt:747:        val entry = QueueEntry(
-ConvoyDownloadQueue.kt:767:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:818:    class RecipeResult(
-ConvoyDownloadQueue.kt:819:        val slot: String, val refZ: Int, val levels: List<Int>,
-ConvoyDownloadQueue.kt:820:        val boxes: List<LongArray>, val dropped: Int, val totalTiles: Long
-ConvoyDownloadQueue.kt:823:    fun deriveRecipe(
-ConvoyDownloadQueue.kt:832:        val levels = MBTilesStore.zoomLevelsPresent(slotName)
-ConvoyDownloadQueue.kt:838:        val refZ = levels.max()
-ConvoyDownloadQueue.kt:839:        val ext = MBTilesStore.tileExtentAtZoom(slotName, refZ) ?: return null
-ConvoyDownloadQueue.kt:841:        fun storedIn(x0: Long, x1: Long, y0: Long, y1: Long): Int {
-ConvoyDownloadQueue.kt:842:            var n = 0
-ConvoyDownloadQueue.kt:845:                    val s = refZ - z
-ConvoyDownloadQueue.kt:849:                    val s = z - refZ
-ConvoyDownloadQueue.kt:858:        val boxes = ArrayList<LongArray>()
-ConvoyDownloadQueue.kt:859:        var dropped = 0
-ConvoyDownloadQueue.kt:860:        var total = 0L
-ConvoyDownloadQueue.kt:861:        fun split(x0: Long, x1: Long, y0: Long, y1: Long, depth: Int) {
-ConvoyDownloadQueue.kt:862:            val n = storedIn(x0, x1, y0, y1)
-ConvoyDownloadQueue.kt:864:            val single = (x0 == x1 && y0 == y1)
-ConvoyDownloadQueue.kt:870:            val mx = (x0 + x1) / 2
-ConvoyDownloadQueue.kt:871:            val my = (y0 + y1) / 2
-ConvoyDownloadQueue.kt:888:    private fun deriveScan(slotName: String, levels: List<Int>): RecipeResult? {
-ConvoyDownloadQueue.kt:889:        val cellZ = minOf(12, levels.max())
-ConvoyDownloadQueue.kt:894:                val k = (r[0] shl 32) or r[1]
-ConvoyDownloadQueue.kt:902:        val byRow = cells.keys.groupBy({ it and 0xffffffffL }, { it ushr 32 }).toSortedMap()
-ConvoyDownloadQueue.kt:904:        var open = HashMap<Pair<Long, Long>, LongArray>()
-ConvoyDownloadQueue.kt:905:        var prevY = Long.MIN_VALUE
-ConvoyDownloadQueue.kt:907:            val runs = ArrayList<Pair<Long, Long>>()
-ConvoyDownloadQueue.kt:908:            var s = -1L; var p = -2L
-ConvoyDownloadQueue.kt:914:            val next = HashMap<Pair<Long, Long>, LongArray>()
-ConvoyDownloadQueue.kt:916:                var n = 0L
-ConvoyDownloadQueue.kt:918:                val b = if (y == prevY + 1) open.remove(r) else null
-ConvoyDownloadQueue.kt:927:        val total = boxes.sumOf { it[4] }
-ConvoyDownloadQueue.kt:932:    fun enqueueRecreateSource(
-ConvoyDownloadQueue.kt:941:        val boxes = r.boxes
-ConvoyDownloadQueue.kt:942:        val dropped = r.dropped
-ConvoyDownloadQueue.kt:944:        val n = 1L shl r.refZ
-ConvoyDownloadQueue.kt:945:        fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0
-ConvoyDownloadQueue.kt:946:        fun latOf(y: Long) = Math.toDegrees(
-ConvoyDownloadQueue.kt:948:        val slotLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:950:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:951:        var totalTiles = 0L
-ConvoyDownloadQueue.kt:953:            val tiles = b[4].toInt() * Math.max(1, slotLayers)
-ConvoyDownloadQueue.kt:981:    fun promote(entryId: String) {
-ConvoyDownloadQueue.kt:982:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:983:        val idx = current.indexOfFirst { it.id == entryId }
-ConvoyDownloadQueue.kt:994:    fun cancel(entryId: String) {
-ConvoyDownloadQueue.kt:995:        val entry = _queue.value.find { it.id == entryId } ?: return
-ConvoyDownloadQueue.kt:1005:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:1014:    fun holdQueue() {
-ConvoyDownloadQueue.kt:1018:    fun resumeQueue() {
-ConvoyDownloadQueue.kt:1023:    fun isQueuePaused(): Boolean = queuePaused
-ConvoyDownloadQueue.kt:1024:    fun cancelAll() {
-ConvoyDownloadQueue.kt:1025:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:1036:        val completed = current.filter { it.status == QueueStatus.COMPLETE }
-ConvoyDownloadQueue.kt:1041:    fun removeEntry(entryId: String) {
-ConvoyDownloadQueue.kt:1042:        val entry = _queue.value.find { it.id == entryId } ?: return
-ConvoyDownloadQueue.kt:1051:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:1059:    fun clearCompleted() {
-ConvoyDownloadQueue.kt:1060:        val terminal = setOf(QueueStatus.COMPLETE, QueueStatus.CANCELLED, QueueStatus.FAILED)
-ConvoyDownloadQueue.kt:1061:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:1068:    fun updateProgress(entryId: String, downloaded: Int, failed: Int) {
-ConvoyDownloadQueue.kt:1069:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:1070:        val idx = current.indexOfFirst { it.id == entryId }
-ConvoyDownloadQueue.kt:1084:    fun markComplete(entryId: String, downloaded: Int, failed: Int) {
-ConvoyDownloadQueue.kt:1108:                    val began = if (it.startedAt > 0L) it.startedAt else it.createdAt
-ConvoyDownloadQueue.kt:1109:                    val sec = (System.currentTimeMillis() - began) / 1000.0
-ConvoyDownloadQueue.kt:1119:    fun markFailed(entryId: String, message: String) {
-ConvoyDownloadQueue.kt:1129:    private fun startNextIfAvailable() {
-ConvoyDownloadQueue.kt:1133:        val current = _queue.value
-ConvoyDownloadQueue.kt:1134:        val running = current.count { it.status == QueueStatus.DOWNLOADING }
-ConvoyDownloadQueue.kt:1137:        val slotsAvailable = MAX_CONCURRENT - running
-ConvoyDownloadQueue.kt:1143:        val queued = current.filter { it.status == QueueStatus.QUEUED }
-ConvoyDownloadQueue.kt:1150:    private fun launchWorker(entry: QueueEntry) {
-ConvoyDownloadQueue.kt:1156:        val inputData = Data.Builder()
-ConvoyDownloadQueue.kt:1178:        val constraints = Constraints.Builder()
-ConvoyDownloadQueue.kt:1192:        val builder = when (entry.downloadType) {
-ConvoyDownloadQueue.kt:1208:        val workRequest = builder
-ConvoyDownloadQueue.kt:1228:    private fun updateEntry(entryId: String, transform: (QueueEntry) -> QueueEntry) {
-ConvoyDownloadQueue.kt:1229:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:1230:        val idx = current.indexOfFirst { it.id == entryId }
-ConvoyDownloadQueue.kt:1239:    private fun saveQueue() {
-ConvoyDownloadQueue.kt:1241:            val dir = File(appCtx.filesDir, "download_queue")
-ConvoyDownloadQueue.kt:1243:            val file = File(dir, QUEUE_FILE)
-ConvoyDownloadQueue.kt:1244:            val arr = JSONArray()
-ConvoyDownloadQueue.kt:1246:            val tmp = File(dir, QUEUE_FILE + ".tmp")
-ConvoyDownloadQueue.kt:1256:    private fun loadQueue() {
-ConvoyDownloadQueue.kt:1258:            val file = File(appCtx.filesDir, "download_queue/$QUEUE_FILE")
-ConvoyDownloadQueue.kt:1260:            val arr = JSONArray(file.readText())
-ConvoyDownloadQueue.kt:1261:            val entries = mutableListOf<QueueEntry>()
-ConvoyDownloadQueue.kt:1270:                val bad = File(appCtx.filesDir, "download_queue/" + QUEUE_FILE)
-ConvoyDownloadQueue.kt:1272:                    val quarantine = File(bad.parentFile, QUEUE_FILE + ".corrupt")
+ConvoyDownloadQueue.kt:21:enum class QueueStatus {
+ConvoyDownloadQueue.kt:32:enum class DownloadType { AREA, CORRIDOR, MAP_SOURCE_REFRESH, DELETE_AREA_TILES }
+ConvoyDownloadQueue.kt:37:object DownloadPriority {
+ConvoyDownloadQueue.kt:38:    const val DELETE = 0
+ConvoyDownloadQueue.kt:39:    const val PROMOTED = 1
+ConvoyDownloadQueue.kt:40:    const val CORRIDOR = 2
+ConvoyDownloadQueue.kt:41:    const val AREA = 3
+ConvoyDownloadQueue.kt:42:    const val REFRESH = 4
+ConvoyDownloadQueue.kt:43:    fun forType(t: DownloadType): Int = when (t) {
+ConvoyDownloadQueue.kt:51:data class QueueEntry(
+ConvoyDownloadQueue.kt:52:    val id: String = UUID.randomUUID().toString(),
+ConvoyDownloadQueue.kt:53:    val north: Double = 0.0,
+ConvoyDownloadQueue.kt:54:    val south: Double = 0.0,
+ConvoyDownloadQueue.kt:55:    val east: Double = 0.0,
+ConvoyDownloadQueue.kt:56:    val west: Double = 0.0,
+ConvoyDownloadQueue.kt:57:    val status: QueueStatus = QueueStatus.QUEUED,
+ConvoyDownloadQueue.kt:58:    val totalTiles: Int = 0,
+ConvoyDownloadQueue.kt:59:    val downloadedTiles: Int = 0,
+ConvoyDownloadQueue.kt:60:    val failedTiles: Int = 0,
+ConvoyDownloadQueue.kt:61:    val retryCount: Int = 0,
+ConvoyDownloadQueue.kt:62:    val createdAt: Long = System.currentTimeMillis(),
+ConvoyDownloadQueue.kt:63:    val label: String = "",
+ConvoyDownloadQueue.kt:64:    val workRequestId: String? = null,
+ConvoyDownloadQueue.kt:65:    val refreshMode: Boolean = false,
+ConvoyDownloadQueue.kt:66:    val refreshSlot: String = "",
+ConvoyDownloadQueue.kt:68:    val downloadType: DownloadType = DownloadType.AREA,
+ConvoyDownloadQueue.kt:69:    val priority: Int = DownloadPriority.AREA,
+ConvoyDownloadQueue.kt:73:    val completedAt: Long = 0L,
+ConvoyDownloadQueue.kt:78:    val startedAt: Long = 0L,
+ConvoyDownloadQueue.kt:84:    val tilesPerSec: Double = 0.0,
+ConvoyDownloadQueue.kt:90:    val geomHash: String = ""
+ConvoyDownloadQueue.kt:92:    fun toJson(): JSONObject = JSONObject().apply {
+ConvoyDownloadQueue.kt:118:    companion object {
+ConvoyDownloadQueue.kt:119:        fun fromJson(j: JSONObject): QueueEntry = QueueEntry(
+ConvoyDownloadQueue.kt:156:object DownloadQueueManager {
+ConvoyDownloadQueue.kt:173:    private var maxConcurrent: Int = 4
+ConvoyDownloadQueue.kt:174:    val MAX_CONCURRENT: Int get() = maxConcurrent
+ConvoyDownloadQueue.kt:177:    fun setMaxConcurrent(context: Context, value: Int) {
+ConvoyDownloadQueue.kt:178:        val v = value.coerceIn(1, 4)
+ConvoyDownloadQueue.kt:191:    fun loadMaxConcurrent(context: Context) {
+ConvoyDownloadQueue.kt:197:    private const val QUEUE_FILE = "download_queue.json"
+ConvoyDownloadQueue.kt:198:    private const val TAG = "DownloadQueue"
+ConvoyDownloadQueue.kt:200:    private val _queue = MutableStateFlow<List<QueueEntry>>(emptyList())
+ConvoyDownloadQueue.kt:201:    private var queuePaused = false
+ConvoyDownloadQueue.kt:202:    val queue: StateFlow<List<QueueEntry>> = _queue.asStateFlow()
+ConvoyDownloadQueue.kt:204:    private lateinit var appCtx: Context
+ConvoyDownloadQueue.kt:205:    private var initialized = false
+ConvoyDownloadQueue.kt:208:    fun init(context: Context) {
+ConvoyDownloadQueue.kt:215:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:216:        var changed = false
+ConvoyDownloadQueue.kt:231:    fun enqueue(
+ConvoyDownloadQueue.kt:238:        val tiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
+ConvoyDownloadQueue.kt:251:        val layerCount = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:253:        val totalTiles = tiles.size * Math.max(1, layerCount)
+ConvoyDownloadQueue.kt:255:        val entry = QueueEntry(
+ConvoyDownloadQueue.kt:263:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:294:    private val vecPlatform = object : com.grouptrack.shared.queue.GtQueuePlatform {
+ConvoyDownloadQueue.kt:295:        override fun append(entries: List<com.grouptrack.shared.queue.GtQueueEntry>) {
+ConvoyDownloadQueue.kt:296:            val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:302:        override fun downloadZoom(): Int = ConvoyConfig.DOWNLOAD_ZOOM
+ConvoyDownloadQueue.kt:303:        override fun satLayers(): Int? {
+ConvoyDownloadQueue.kt:307:        override fun recipesDir(): okio.Path = GroupTrackStorage.dir("recipes").toOkioPath()
+ConvoyDownloadQueue.kt:309:    private val vecFiles = object : com.grouptrack.shared.imports.GtFiles {
+ConvoyDownloadQueue.kt:310:        override val fs: okio.FileSystem = okio.FileSystem.SYSTEM
+ConvoyDownloadQueue.kt:311:        override fun setLastModified(path: okio.Path, epochMs: Long): Boolean = File(path.toString()).setLastModified(epochMs)
+ConvoyDownloadQueue.kt:312:        override fun lastModified(path: okio.Path): Long = File(path.toString()).lastModified()
+ConvoyDownloadQueue.kt:314:        override fun list(dir: okio.Path): List<okio.Path> = File(dir.toString()).listFiles()?.map { it.toOkioPath() } ?: emptyList()
+ConvoyDownloadQueue.kt:316:    private val vecShared = com.grouptrack.shared.queue.GtVectorQueue(
+ConvoyDownloadQueue.kt:317:        object : com.grouptrack.shared.imports.GtIds { override fun newId(): String = UUID.randomUUID().toString() },
+ConvoyDownloadQueue.kt:318:        object : com.grouptrack.shared.imports.GtClock {
+ConvoyDownloadQueue.kt:319:            override fun nowInstant(): String = java.time.Instant.now().toString()
+ConvoyDownloadQueue.kt:320:            override fun localNow(): com.grouptrack.shared.text.GtLocalTime = throw UnsupportedOperationException("not used by the queue")
+ConvoyDownloadQueue.kt:321:            override fun epochMs(): Long = System.currentTimeMillis()
+ConvoyDownloadQueue.kt:325:    fun vecQueueFor(context: Context): com.grouptrack.shared.queue.GtVectorQueue { vecCtx = context; return vecShared }
+ConvoyDownloadQueue.kt:327:    fun vecQueue(): com.grouptrack.shared.queue.GtVectorQueue = vecShared
+ConvoyDownloadQueue.kt:329:    private fun com.grouptrack.shared.queue.GtQueueEntry.toAppEntry() = QueueEntry(
+ConvoyDownloadQueue.kt:337:    fun enqueueArea(
+ConvoyDownloadQueue.kt:346:    fun enqueueArea(
+ConvoyDownloadQueue.kt:366:        val oneLayerTiles = if (isVec) ConvoyTileCalculator.quickEstimate(north, south, east, west, zMin = 0, zMax = vecZ).tileCount
+ConvoyDownloadQueue.kt:372:        val satLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:374:        val sizeTiles = if (isVec) oneLayerTiles else oneLayerTiles * Math.max(1, satLayers)
+ConvoyDownloadQueue.kt:375:        val cells = ConvoyTileDownloader.segmentCells(north, south, east, west, sizeTiles)
+ConvoyDownloadQueue.kt:394:            val entry = QueueEntry(
+ConvoyDownloadQueue.kt:407:            val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:414:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:416:            val entry = QueueEntry(
+ConvoyDownloadQueue.kt:450:    fun submitDownload(
+ConvoyDownloadQueue.kt:482:    fun enqueueDelete(
+ConvoyDownloadQueue.kt:489:        val slotLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:500:        val storeNames: List<String> = run {
+ConvoyDownloadQueue.kt:501:            val layers = MapSourceManager.getSourceByKey(slotName)?.layers ?: emptyList()
+ConvoyDownloadQueue.kt:505:        var totalTiles = 0
+ConvoyDownloadQueue.kt:510:        val boxTiles = zr.sumOf { (it[2] - it[1] + 1).toLong() * (it[4] - it[3] + 1) }
+ConvoyDownloadQueue.kt:512:        val entry = QueueEntry(
+ConvoyDownloadQueue.kt:521:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:540:    fun submitDelete(
+ConvoyDownloadQueue.kt:546:        var total = 0
+ConvoyDownloadQueue.kt:549:        val slots = (listOf(VectorTiles.SLOT, ElevationTiles.SLOT) + MapSourceManager.getDownloadSources().map { it.first }).distinct()
+ConvoyDownloadQueue.kt:558:        fun enqueueRefresh(
+ConvoyDownloadQueue.kt:564:        val bounds = ConvoyTileDownloader.tileBoundsLatLon(slotName) ?: return 0
+ConvoyDownloadQueue.kt:566:        val slotLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:568:        val oneLayerTiles = ConvoyTileCalculator
+ConvoyDownloadQueue.kt:570:        val satLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:572:        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
+ConvoyDownloadQueue.kt:573:        val cells = ConvoyTileDownloader.segmentCells(
+ConvoyDownloadQueue.kt:578:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:580:            val entry = QueueEntry(
+ConvoyDownloadQueue.kt:624:    data class CorridorBatchResult(
+ConvoyDownloadQueue.kt:625:        val jobs: Int = 0,
+ConvoyDownloadQueue.kt:626:        val tiles: Int = 0,
+ConvoyDownloadQueue.kt:627:        val skipped: Int = 0
+ConvoyDownloadQueue.kt:666:    fun recordCompletedDelete(
+ConvoyDownloadQueue.kt:678:        val now = System.currentTimeMillis()
+ConvoyDownloadQueue.kt:679:        val entry = QueueEntry(
+ConvoyDownloadQueue.kt:690:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:697:    fun enqueueCorridorBatch(
+ConvoyDownloadQueue.kt:712:            val sq = HashSet<Long>(); var skipped = 0
+ConvoyDownloadQueue.kt:715:                val segs = SpatialDbManager.getCorridorGeometry(context, hash)
+ConvoyDownloadQueue.kt:717:                val mine = HashSet<Long>(); VectorTiles.squaresFor(segs, mine)
+ConvoyDownloadQueue.kt:718:                val nm = SpatialDbManager.nameForGeomHash(hash) ?: hash.take(8)
+ConvoyDownloadQueue.kt:722:            val r = VectorTiles.queueSquaresNamed(context, sq, names, replaceExisting, "corridors x${geomHashes.size}")
+ConvoyDownloadQueue.kt:725:        var jobs = 0
+ConvoyDownloadQueue.kt:726:        var tiles = 0
+ConvoyDownloadQueue.kt:727:        val skippedHashes = mutableListOf<String>()
+ConvoyDownloadQueue.kt:731:            var queuedForThisTrack = 0
+ConvoyDownloadQueue.kt:733:                val t = enqueueCorridor(context, hash, slot, replaceExisting)
+ConvoyDownloadQueue.kt:741:            val skippedShort = skippedHashes.joinToString(separator = ", ") { it.take(8) }
+ConvoyDownloadQueue.kt:753:    fun enqueueCorridor(
+ConvoyDownloadQueue.kt:764:        val segments = SpatialDbManager.getCorridorGeometry(context, geomHash)
+ConvoyDownloadQueue.kt:771:            val sq = HashSet<Long>(); VectorTiles.squaresFor(segments, sq)
+ConvoyDownloadQueue.kt:779:        val tiles = ConvoyTileCalculator.corridorTiles(
+ConvoyDownloadQueue.kt:785:        val slotLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:787:        val totalTiles = tiles.size * Math.max(1, slotLayers)
+ConvoyDownloadQueue.kt:789:        var n = -90.0
+ConvoyDownloadQueue.kt:790:        var s = 90.0
+ConvoyDownloadQueue.kt:791:        var e = -180.0
+ConvoyDownloadQueue.kt:792:        var w = 180.0
+ConvoyDownloadQueue.kt:801:        val entry = QueueEntry(
+ConvoyDownloadQueue.kt:821:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:872:    class RecipeResult(
+ConvoyDownloadQueue.kt:873:        val slot: String, val refZ: Int, val levels: List<Int>,
+ConvoyDownloadQueue.kt:874:        val boxes: List<LongArray>, val dropped: Int, val totalTiles: Long
+ConvoyDownloadQueue.kt:877:    fun deriveRecipe(
+ConvoyDownloadQueue.kt:886:        val levels = MBTilesStore.zoomLevelsPresent(slotName)
+ConvoyDownloadQueue.kt:892:        val refZ = levels.max()
+ConvoyDownloadQueue.kt:893:        val ext = MBTilesStore.tileExtentAtZoom(slotName, refZ) ?: return null
+ConvoyDownloadQueue.kt:895:        fun storedIn(x0: Long, x1: Long, y0: Long, y1: Long): Int {
+ConvoyDownloadQueue.kt:896:            var n = 0
+ConvoyDownloadQueue.kt:899:                    val s = refZ - z
+ConvoyDownloadQueue.kt:903:                    val s = z - refZ
+ConvoyDownloadQueue.kt:912:        val boxes = ArrayList<LongArray>()
+ConvoyDownloadQueue.kt:913:        var dropped = 0
+ConvoyDownloadQueue.kt:914:        var total = 0L
+ConvoyDownloadQueue.kt:915:        fun split(x0: Long, x1: Long, y0: Long, y1: Long, depth: Int) {
+ConvoyDownloadQueue.kt:916:            val n = storedIn(x0, x1, y0, y1)
+ConvoyDownloadQueue.kt:918:            val single = (x0 == x1 && y0 == y1)
+ConvoyDownloadQueue.kt:924:            val mx = (x0 + x1) / 2
+ConvoyDownloadQueue.kt:925:            val my = (y0 + y1) / 2
+ConvoyDownloadQueue.kt:942:    private fun deriveScan(slotName: String, levels: List<Int>): RecipeResult? {
+ConvoyDownloadQueue.kt:943:        val cellZ = minOf(12, levels.max())
+ConvoyDownloadQueue.kt:948:                val k = (r[0] shl 32) or r[1]
+ConvoyDownloadQueue.kt:956:        val byRow = cells.keys.groupBy({ it and 0xffffffffL }, { it ushr 32 }).toSortedMap()
+ConvoyDownloadQueue.kt:958:        var open = HashMap<Pair<Long, Long>, LongArray>()
+ConvoyDownloadQueue.kt:959:        var prevY = Long.MIN_VALUE
+ConvoyDownloadQueue.kt:961:            val runs = ArrayList<Pair<Long, Long>>()
+ConvoyDownloadQueue.kt:962:            var s = -1L; var p = -2L
+ConvoyDownloadQueue.kt:968:            val next = HashMap<Pair<Long, Long>, LongArray>()
+ConvoyDownloadQueue.kt:970:                var n = 0L
+ConvoyDownloadQueue.kt:972:                val b = if (y == prevY + 1) open.remove(r) else null
+ConvoyDownloadQueue.kt:981:        val total = boxes.sumOf { it[4] }
+ConvoyDownloadQueue.kt:986:    fun enqueueRecreateSource(
+ConvoyDownloadQueue.kt:995:        val boxes = r.boxes
+ConvoyDownloadQueue.kt:996:        val dropped = r.dropped
+ConvoyDownloadQueue.kt:998:        val n = 1L shl r.refZ
+ConvoyDownloadQueue.kt:999:        fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0
+ConvoyDownloadQueue.kt:1000:        fun latOf(y: Long) = Math.toDegrees(
+ConvoyDownloadQueue.kt:1002:        val slotLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:1004:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1005:        var totalTiles = 0L
+ConvoyDownloadQueue.kt:1007:            val tiles = b[4].toInt() * Math.max(1, slotLayers)
+ConvoyDownloadQueue.kt:1035:    fun promote(entryId: String) {
+ConvoyDownloadQueue.kt:1036:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1037:        val idx = current.indexOfFirst { it.id == entryId }
+ConvoyDownloadQueue.kt:1048:    fun cancel(entryId: String) {
+ConvoyDownloadQueue.kt:1049:        val entry = _queue.value.find { it.id == entryId } ?: return
+ConvoyDownloadQueue.kt:1059:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1068:    fun holdQueue() {
+ConvoyDownloadQueue.kt:1072:    fun resumeQueue() {
+ConvoyDownloadQueue.kt:1077:    fun isQueuePaused(): Boolean = queuePaused
+ConvoyDownloadQueue.kt:1078:    fun cancelAll() {
+ConvoyDownloadQueue.kt:1079:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1090:        val completed = current.filter { it.status == QueueStatus.COMPLETE }
+ConvoyDownloadQueue.kt:1095:    fun removeEntry(entryId: String) {
+ConvoyDownloadQueue.kt:1096:        val entry = _queue.value.find { it.id == entryId } ?: return
+ConvoyDownloadQueue.kt:1105:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1113:    fun clearCompleted() {
+ConvoyDownloadQueue.kt:1114:        val terminal = setOf(QueueStatus.COMPLETE, QueueStatus.CANCELLED, QueueStatus.FAILED)
+ConvoyDownloadQueue.kt:1115:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1122:    fun updateProgress(entryId: String, downloaded: Int, failed: Int) {
+ConvoyDownloadQueue.kt:1123:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1124:        val idx = current.indexOfFirst { it.id == entryId }
+ConvoyDownloadQueue.kt:1138:    fun markComplete(entryId: String, downloaded: Int, failed: Int) {
+ConvoyDownloadQueue.kt:1162:                    val began = if (it.startedAt > 0L) it.startedAt else it.createdAt
+ConvoyDownloadQueue.kt:1163:                    val sec = (System.currentTimeMillis() - began) / 1000.0
+ConvoyDownloadQueue.kt:1173:    fun markFailed(entryId: String, message: String) {
+ConvoyDownloadQueue.kt:1183:    private fun startNextIfAvailable() {
+ConvoyDownloadQueue.kt:1187:        val current = _queue.value
+ConvoyDownloadQueue.kt:1188:        val running = current.count { it.status == QueueStatus.DOWNLOADING }
+ConvoyDownloadQueue.kt:1191:        val slotsAvailable = MAX_CONCURRENT - running
+ConvoyDownloadQueue.kt:1197:        val queued = current.filter { it.status == QueueStatus.QUEUED }
+ConvoyDownloadQueue.kt:1204:    private fun launchWorker(entry: QueueEntry) {
+ConvoyDownloadQueue.kt:1210:        val inputData = Data.Builder()
+ConvoyDownloadQueue.kt:1232:        val constraints = Constraints.Builder()
+ConvoyDownloadQueue.kt:1246:        val builder = when (entry.downloadType) {
+ConvoyDownloadQueue.kt:1262:        val workRequest = builder
+ConvoyDownloadQueue.kt:1282:    private fun updateEntry(entryId: String, transform: (QueueEntry) -> QueueEntry) {
+ConvoyDownloadQueue.kt:1283:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:1284:        val idx = current.indexOfFirst { it.id == entryId }
+ConvoyDownloadQueue.kt:1293:    private fun saveQueue() {
+ConvoyDownloadQueue.kt:1295:            val dir = File(appCtx.filesDir, "download_queue")
+ConvoyDownloadQueue.kt:1297:            val file = File(dir, QUEUE_FILE)
+ConvoyDownloadQueue.kt:1298:            val arr = JSONArray()
+ConvoyDownloadQueue.kt:1300:            val tmp = File(dir, QUEUE_FILE + ".tmp")
+ConvoyDownloadQueue.kt:1310:    private fun loadQueue() {
+ConvoyDownloadQueue.kt:1312:            val file = File(appCtx.filesDir, "download_queue/$QUEUE_FILE")
+ConvoyDownloadQueue.kt:1314:            val arr = JSONArray(file.readText())
+ConvoyDownloadQueue.kt:1315:            val entries = mutableListOf<QueueEntry>()
+ConvoyDownloadQueue.kt:1324:                val bad = File(appCtx.filesDir, "download_queue/" + QUEUE_FILE)
+ConvoyDownloadQueue.kt:1326:                    val quarantine = File(bad.parentFile, QUEUE_FILE + ".corrupt")
 ConvoyMyRidesScreen.kt:31:fun ConvoyMyRidesScreen(
 ConvoyMyRidesScreen.kt:37:    val context = LocalContext.current
 ConvoyMyRidesScreen.kt:38:    val tabs = listOf("ALL", "ENROLLED", "ORGANIZED", "COMPLETED")
@@ -4337,6 +4316,20 @@ ArtifactListPanel.kt:148:                        val type = artifact["type"] ?: 
 ArtifactListPanel.kt:149:                        val isSelected = id in selectedIds
 ArtifactListPanel.kt:170:private fun ArtifactListItem(
 ArtifactListPanel.kt:221:private fun Modifier.pointerInputDrag(onDrag: (androidx.compose.ui.geometry.Offset) -> Unit): Modifier =
+DownloadQueueCertOld.kt:12:object DownloadQueueCertOld {
+DownloadQueueCertOld.kt:13:    private const val TAG = "DownloadQueue"
+DownloadQueueCertOld.kt:15:    val collected = ArrayList<QueueEntry>()
+DownloadQueueCertOld.kt:17:    var recipesDir: File = File("/nonexistent-cert16c")
+DownloadQueueCertOld.kt:20:    fun enqueueArea(
+DownloadQueueCertOld.kt:29:    fun enqueueArea(
+DownloadQueueCertOld.kt:46:        val oneLayerTiles = if (isVec) ConvoyTileCalculator.quickEstimate(north, south, east, west, zMin = 0, zMax = vecZ).tileCount
+DownloadQueueCertOld.kt:52:        val satLayers = MapSourceManager.getDownloadSources()
+DownloadQueueCertOld.kt:54:        val sizeTiles = if (isVec) oneLayerTiles else oneLayerTiles * Math.max(1, satLayers)
+DownloadQueueCertOld.kt:55:        val cells = ConvoyTileDownloader.segmentCells(north, south, east, west, sizeTiles)
+DownloadQueueCertOld.kt:74:            val entry = QueueEntry(
+DownloadQueueCertOld.kt:87:            val current = collected
+DownloadQueueCertOld.kt:91:        val current = collected
+DownloadQueueCertOld.kt:93:            val entry = QueueEntry(
 ConvoySearchByAreaScreen.kt:40:fun ConvoySearchByAreaScreen(
 ConvoyRideStoreCertOld.kt:6: *  - the object is renamed ConvoyRideStore -> ConvoyRideStoreCertOld; calls into the other ride objects go to their CertOld copies;
 ConvoyRideStoreCertOld.kt:35:object ConvoyRideStoreCertOld {
@@ -6898,6 +6891,70 @@ ConvoyRideJsonWriter.kt:35:    fun build(context: Context, rideId: String): Resu
 ConvoyRideJsonWriter.kt:41:    fun rideFile(context: Context, rideId: String): java.io.File =
 ConvoyRideJsonWriter.kt:45:    fun save(context: Context, rideId: String): List<String>? {
 ConvoyRideJsonWriter.kt:51:    internal fun mergeWpts(routeGpx: String, wpts: String): String = Shared.mergeWpts(routeGpx, wpts)
+VectorTilesCertOld.kt:17:object VectorTilesCertOld {
+VectorTilesCertOld.kt:18:    const val SLOT = "VEC"
+VectorTilesCertOld.kt:20:    private const val TAG = "VectorTiles"
+VectorTilesCertOld.kt:21:    @Volatile private var resolved: String? = null
+VectorTilesCertOld.kt:23:    private fun spec(context: Context): JSONObject? = try {
+VectorTilesCertOld.kt:29:    fun tileTemplate(context: Context): String? {
+VectorTilesCertOld.kt:31:        val tj = spec(context)?.optString("tilejson")?.takeIf { it.isNotBlank() } ?: return null
+VectorTilesCertOld.kt:35:                val t = JSONObject(r.body?.string() ?: "{}").optJSONArray("tiles")?.optString(0)
+VectorTilesCertOld.kt:43:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> {
+VectorTilesCertOld.kt:44:        val t = tileTemplate(context) ?: return emptyList()
+VectorTilesCertOld.kt:49:    fun recipeBoxes(): Pair<String, List<DoubleArray>>? {
+VectorTilesCertOld.kt:50:        val f = DownloadQueueCertOld.recipesDir.listFiles()
+VectorTilesCertOld.kt:53:        val slots = JSONObject(f.readText()).optJSONArray("slots") ?: return Pair(f.name, emptyList())
+VectorTilesCertOld.kt:54:        val seen = HashSet<String>(); val out = ArrayList<DoubleArray>()
+VectorTilesCertOld.kt:56:            val b = slots.optJSONObject(i)?.optJSONArray("boxes") ?: continue
+VectorTilesCertOld.kt:58:                val x = b.optJSONObject(j) ?: continue
+VectorTilesCertOld.kt:59:                val box = doubleArrayOf(x.optDouble("n"), x.optDouble("s"), x.optDouble("e"), x.optDouble("w"))
+VectorTilesCertOld.kt:68:    fun oldTilesOf(f: java.io.File): Long = try {
+VectorTilesCertOld.kt:69:        val slots = JSONObject(f.readText()).optJSONArray("slots"); var t = 0L
+VectorTilesCertOld.kt:70:        if (slots != null) for (i in 0 until slots.length()) { val o = slots.optJSONObject(i) ?: continue
+VectorTilesCertOld.kt:71:            val s = o.optString("slot"); if (s != SLOT && s != ElevationTiles.SLOT) t += o.optLong("tiles") }
+VectorTilesCertOld.kt:76:    fun boxesOf(f: java.io.File): List<DoubleArray> {
+VectorTilesCertOld.kt:77:        val slots = JSONObject(f.readText()).optJSONArray("slots") ?: return emptyList()
+VectorTilesCertOld.kt:78:        val seen = HashSet<String>(); val out = ArrayList<DoubleArray>()
+VectorTilesCertOld.kt:80:            val b = slots.optJSONObject(i)?.optJSONArray("boxes") ?: continue
+VectorTilesCertOld.kt:82:                val x = b.optJSONObject(j) ?: continue
+VectorTilesCertOld.kt:83:                val box = doubleArrayOf(x.optDouble("n"), x.optDouble("s"), x.optDouble("e"), x.optDouble("w"))
+VectorTilesCertOld.kt:93:    fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) {
+VectorTilesCertOld.kt:94:        val nn = 1 shl SQ_Z
+VectorTilesCertOld.kt:95:        val x0 = sqX(w + 1e-9).coerceIn(0, nn - 1); val x1 = sqX(e - 1e-9).coerceIn(0, nn - 1)
+VectorTilesCertOld.kt:96:        val y0 = sqY(n - 1e-9).coerceIn(0, nn - 1); val y1 = sqY(s + 1e-9).coerceIn(0, nn - 1)
+VectorTilesCertOld.kt:106:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean, what: String): Int =
+VectorTilesCertOld.kt:112:    private const val SQ_Z = 12
+VectorTilesCertOld.kt:114:    private fun sqX(lon: Double) = Math.floor((lon + 180.0) / 360.0 * (1 shl SQ_Z)).toInt()
+VectorTilesCertOld.kt:115:    private fun sqY(lat: Double): Int {
+VectorTilesCertOld.kt:116:        val r = Math.toRadians(lat.coerceIn(-85.0, 85.0))
+VectorTilesCertOld.kt:119:    private fun lonOf(x: Int) = x.toDouble() / (1 shl SQ_Z) * 360.0 - 180.0
+VectorTilesCertOld.kt:120:    private fun latOf(y: Int): Double { val k = Math.PI - 2.0 * Math.PI * y / (1 shl SQ_Z); return Math.toDegrees(Math.atan(Math.sinh(k))) }
+VectorTilesCertOld.kt:123:    fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>) {
+VectorTilesCertOld.kt:124:        val n = 1 shl SQ_Z
+VectorTilesCertOld.kt:125:        fun add(lat: Double, lon: Double) {
+VectorTilesCertOld.kt:126:            val x = sqX(lon); val y = sqY(lat)
+VectorTilesCertOld.kt:128:                val xx = x + dx; val yy = y + dy
+VectorTilesCertOld.kt:133:            var prev: Pair<Double, Double>? = null
+VectorTilesCertOld.kt:135:                val q = prev
+VectorTilesCertOld.kt:137:                    val steps = Math.max(1, Math.ceil(Math.max(Math.abs(p.first - q.first), Math.abs(p.second - q.second)) / 0.02).toInt())
+VectorTilesCertOld.kt:138:                    for (i in 1 until steps) { val f = i.toDouble() / steps; add(q.first + (p.first - q.first) * f, q.second + (p.second - q.second) * f) }
+VectorTilesCertOld.kt:146:    fun queueSquares(context: Context, squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
+VectorTilesCertOld.kt:150:    fun queueSquaresNamed(context: Context, squares: Set<Long>, names: Map<Long, Set<String>>, replaceExisting: Boolean, why: String): Pair<Int, Int> {
+VectorTilesCertOld.kt:152:        val n = (1 shl SQ_Z).toLong()
+VectorTilesCertOld.kt:153:        class Box(val x0: Int, val x1: Int, val y0: Int, var y1: Int)
+VectorTilesCertOld.kt:154:        val byRow = squares.groupBy { (it % n).toInt() }
+VectorTilesCertOld.kt:155:        var open = HashMap<Long, Box>(); val done = ArrayList<Box>()
+VectorTilesCertOld.kt:157:            val xs = byRow.getValue(y).map { (it / n).toInt() }.sorted()
+VectorTilesCertOld.kt:158:            val runs = ArrayList<Pair<Int, Int>>(); var a = xs[0]; var b = xs[0]
+VectorTilesCertOld.kt:161:            val next = HashMap<Long, Box>()
+VectorTilesCertOld.kt:163:                val k = x0.toLong() * n + x1; val o = open[k]
+VectorTilesCertOld.kt:170:        var jobs = 0; var tiles = 0
+VectorTilesCertOld.kt:172:            val nn = latOf(bx.y0); val ss = latOf(bx.y1 + 1); val ww = lonOf(bx.x0); val ee = lonOf(bx.x1 + 1)
+VectorTilesCertOld.kt:175:            val what = when { inBox.isEmpty() -> why; inBox.size <= 2 -> inBox.joinToString(", "); else -> inBox.take(2).joinToString(", ") + " +${inBox.size - 2}" }
+VectorTilesCertOld.kt:185:    fun queueFromRecipe(context: Context, count: Int): String {
+VectorTilesCertOld.kt:186:        val r = try { recipeBoxes() } catch (e: Exception) { return "Could not read the recipe: ${e.message}" }
+VectorTilesCertOld.kt:188:        val take = r.second.take(count)
+VectorTilesCertOld.kt:190:        var jobs = 0
 TabletPosition.kt:13:object TabletPosition {
 TabletPosition.kt:14:    fun interface Listener { fun onPosition(loc: android.location.Location) }
 TabletPosition.kt:16:    private val listeners = java.util.concurrent.CopyOnWriteArrayList<Listener>()
@@ -8676,6 +8733,63 @@ grouptrack/VectorMapTest.kt:230:    fun vector(ctx: android.content.Context, z: 
 grouptrack/VectorMapTest.kt:238:        val t = VectorTiles.tileTemplate(ctx) ?: run { downUntil = System.currentTimeMillis() + 30_000; return null }
 grouptrack/VectorMapTest.kt:242:    fun elevation(ctx: android.content.Context, z: Int, x: Int, y: Int): ByteArray? {
 grouptrack/VectorMapTest.kt:244:        val t = com.geeksville.mesh.convoy.ElevationTiles.urlTemplate(ctx) ?: return null
+grouptrack/GtCert16c.kt:35:object GtCert16c {
+grouptrack/GtCert16c.kt:36:    private const val TAG = "CertRun"
+grouptrack/GtCert16c.kt:37:    private const val MAX_DIFF_LINES = 2000
+grouptrack/GtCert16c.kt:39:    private var lastLog = 0L
+grouptrack/GtCert16c.kt:40:    private fun progress(msg: String, force: Boolean = false) {
+grouptrack/GtCert16c.kt:41:        val now = System.currentTimeMillis()
+grouptrack/GtCert16c.kt:42:        if (force || now - lastLog >= 15_000) { lastLog = now; val rt = Runtime.getRuntime()
+grouptrack/GtCert16c.kt:47:    private class OldSide(private val app: Context) : Cert16c.Side {
+grouptrack/GtCert16c.kt:48:        override val name = "OLD"
+grouptrack/GtCert16c.kt:49:        private fun file(p: Path) = File(p.toString())
+grouptrack/GtCert16c.kt:50:        override fun setRecipesDir(dir: Path) { DownloadQueueCertOld.recipesDir = file(dir) }
+grouptrack/GtCert16c.kt:51:        override fun boxesOf(f: Path): List<DoubleArray> = VectorTilesCertOld.boxesOf(file(f))
+grouptrack/GtCert16c.kt:52:        override fun recipeBoxes(): Pair<String, List<DoubleArray>>? = VectorTilesCertOld.recipeBoxes()
+grouptrack/GtCert16c.kt:53:        override fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) = VectorTilesCertOld.squaresInBox(n, s, e, w, into)
+grouptrack/GtCert16c.kt:54:        override fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>) = VectorTilesCertOld.squaresFor(segments, into)
+grouptrack/GtCert16c.kt:55:        override fun enqueueWithElevation(n: Double, s: Double, e: Double, w: Double, replace: Boolean, what: String) =
+grouptrack/GtCert16c.kt:57:        override fun queueSquares(sq: Set<Long>, replace: Boolean, why: String) = VectorTilesCertOld.queueSquares(app, sq, replace, why)
+grouptrack/GtCert16c.kt:58:        override fun queueSquaresNamed(sq: Set<Long>, names: Map<Long, Set<String>>, replace: Boolean, why: String) =
+grouptrack/GtCert16c.kt:60:        override fun queueFromRecipe(count: Int) = VectorTilesCertOld.queueFromRecipe(app, count)
+grouptrack/GtCert16c.kt:61:        override fun quickEstimate(n: Double, s: Double, e: Double, w: Double, zMin: Int, zMax: Int): Cert16c.Est =
+grouptrack/GtCert16c.kt:63:        override fun segmentCells(n: Double, s: Double, e: Double, w: Double, sizeTiles: Int, zMax: Int): List<DoubleArray> =
+grouptrack/GtCert16c.kt:66:        override fun takeEntries(): Pair<List<String>, String> {
+grouptrack/GtCert16c.kt:67:            val es = DownloadQueueCertOld.collected.mapIndexed { i, e -> e.copy(id = "q${i + 1}", createdAt = 0L) }
+grouptrack/GtCert16c.kt:74:    private fun sha256(f: File): String {
+grouptrack/GtCert16c.kt:75:        val md = java.security.MessageDigest.getInstance("SHA-256"); var done = 0L; val total = f.length()
+grouptrack/GtCert16c.kt:76:        f.inputStream().use { inp -> val buf = ByteArray(1 shl 20); while (true) { val n = inp.read(buf); if (n < 0) break; md.update(buf, 0, n); done += n
+grouptrack/GtCert16c.kt:81:    fun run(app: Context, w: java.io.Writer) {
+grouptrack/GtCert16c.kt:82:        val t0 = System.currentTimeMillis()
+grouptrack/GtCert16c.kt:83:        val inS = File(GroupTrackStorage.dir("cert15c_input", app), "grouptrack_spatial.db")
+grouptrack/GtCert16c.kt:84:        val recIn = File(GroupTrackStorage.dir("cert16c_input", app), "recipes")
+grouptrack/GtCert16c.kt:85:        val nRec = recIn.listFiles { x -> x.name.endsWith(".gtmaps") }?.size ?: 0
+grouptrack/GtCert16c.kt:95:        var same = 0; var diff = 0; var expected = 0; var diffLines = 0
+grouptrack/GtCert16c.kt:96:        fun put(s: String) { w.write(s) }
+grouptrack/GtCert16c.kt:97:        fun check(key: String, a: String, b: String) {
+grouptrack/GtCert16c.kt:110:            val fs = FileSystem.SYSTEM
+grouptrack/GtCert16c.kt:113:            val h = sha256(inS); check("input|db|${inS.name}", "len=${inS.length()};sha256=$h", "len=${inS.length()};sha256=$h")
+grouptrack/GtCert16c.kt:114:            for (sfx in listOf("-wal", "-journal", "-shm")) { val x = File(inS.path + sfx); if (x.exists()) put("# Q16C: input ${x.name}: len=${x.length()} (beside the database)\n") }
+grouptrack/GtCert16c.kt:116:                val cd = File(app.cacheDir, "gtcert16c_db"); cd.deleteRecursively(); cd.mkdirs()
+grouptrack/GtCert16c.kt:117:                val cp = File(cd, inS.name); progress("copying the input database", true); inS.copyTo(cp, overwrite = true)
+grouptrack/GtCert16c.kt:118:                val c = gtOpenDatabase(cp.path, true)
+grouptrack/GtCert16c.kt:121:            val tt = Cert16c.tracksText(tracks); check("input|tracks", tt, tt)
+grouptrack/GtCert16c.kt:122:            val recFiles = Cert16c.recipeFiles(fs, recIn.toOkioPath())
+grouptrack/GtCert16c.kt:123:            for (p in recFiles) { val b = fs.read(p) { readByteString() }; val v = "size=${b.size};sha256=" + b.sha256().hex(); check("input|recipe|" + p.name, v, v) }
+grouptrack/GtCert16c.kt:125:            val qf = File(app.filesDir, "download_queue/download_queue.json")
+grouptrack/GtCert16c.kt:126:            val qboxes = ArrayList<DoubleArray>()
+grouptrack/GtCert16c.kt:128:                val arr = JSONArray(qf.readText())
+grouptrack/GtCert16c.kt:129:                for (i in 0 until arr.length()) { val o = arr.optJSONObject(i) ?: continue
+grouptrack/GtCert16c.kt:130:                    val b = doubleArrayOf(o.optDouble("north"), o.optDouble("south"), o.optDouble("east"), o.optDouble("west"))
+grouptrack/GtCert16c.kt:135:            qboxes.forEachIndexed { i, b -> val t = Cert16c.boxText(b); check("input|qbox|" + (i + 1).toString().padStart(4, '0'), t, t) }
+grouptrack/GtCert16c.kt:136:            val root = File(app.cacheDir, "gtcert16c"); root.deleteRecursively()
+grouptrack/GtCert16c.kt:137:            val crafted = Cert16c.craft(fs, File(root, "craft").toOkioPath())
+grouptrack/GtCert16c.kt:138:            val inp = Cert16c.Inputs(tracks, recIn.toOkioPath(), recFiles, qboxes, crafted)
+grouptrack/GtCert16c.kt:142:            val tO = System.currentTimeMillis()
+grouptrack/GtCert16c.kt:143:            val old = LinkedHashMap<String, String>()
+grouptrack/GtCert16c.kt:146:            val tN = System.currentTimeMillis()
+grouptrack/GtCert16c.kt:147:            val new = LinkedHashMap<String, String>()
+grouptrack/GtCert16c.kt:151:            for ((k, b) in new) { val a = old[k]; if (a == null) check("$k (only NEW)", "", b) else check(k, a, b) }
 grouptrack/GtCert15g.kt:48:object GtCert15g {
 grouptrack/GtCert15g.kt:49:    private const val TAG = "CertRun"
 grouptrack/GtCert15g.kt:50:    private const val MAX_DIFF_LINES = 2000
@@ -10270,159 +10384,159 @@ grouptrack/GtCertRun.kt:88:                    if (mode == "rides") { val fz = f
 grouptrack/GtCertRun.kt:96:                    if (mode == "geom") { val fz = frozen(app)
 grouptrack/GtCertRun.kt:98:                        else { w.write("# frozen=${fz.stamp}\n"); val gc = gtOpenDatabase(fz.spatial, true)
 grouptrack/GtCertRun.kt:99:                            try { val s = com.grouptrack.shared.cert.CertGeom.run(gc, { l -> w.write(l); w.write("\n") }, { p -> Log.i(TAG, "GTCERT geom: $p") })
-grouptrack/GtCertRun.kt:122:                    if (mode == "golden15a") { val g = GtGolden15a.write(w); Log.i(TAG, "GTCERT golden15a: ${g.lines} lines, ${g.diffs} DIFF on the Droid") }
-grouptrack/GtCertRun.kt:124:                        var n = 0
-grouptrack/GtCertRun.kt:129:                        val t1 = System.currentTimeMillis(); var o = 0
-grouptrack/GtCertRun.kt:137:                val name = ImportConverter.saveToDownloads(app, out)
-grouptrack/GtCertRun.kt:146:    private object OldWrite : com.grouptrack.shared.cert.CertWrite.Api {
-grouptrack/GtCertRun.kt:147:        override fun insertWaypointWithId(id: String, name: String, lat: Double, lon: Double, type: String) = SpatialDbManager.insertWaypointWithId(id, name, lat, lon, type)
-grouptrack/GtCertRun.kt:148:        override fun renameWaypoint(id: String, n: String) { SpatialDbManager.renameWaypoint(id, n) }
-grouptrack/GtCertRun.kt:149:        override fun deleteWaypoint(id: String) { SpatialDbManager.deleteWaypoint(id) }
-grouptrack/GtCertRun.kt:150:        override fun changeWaypointType(id: String, t: String) { SpatialDbManager.changeWaypointType(id, t) }
-grouptrack/GtCertRun.kt:151:        override fun insertRoute(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) = SpatialDbManager.insertRoute(name, wkt, a, b, c, d)
-grouptrack/GtCertRun.kt:152:        override fun renameRoute(id: String, n: String) { SpatialDbManager.renameRoute(id, n) }
-grouptrack/GtCertRun.kt:153:        override fun deleteRoute(id: String) { SpatialDbManager.deleteRoute(id) }
-grouptrack/GtCertRun.kt:154:        override fun writeRouteNotes(routeId: String, notesJson: String) = SpatialDbManager.writeRouteNotes(routeId, org.json.JSONObject(notesJson))
-grouptrack/GtCertRun.kt:155:        override fun deleteRouteNotes(routeId: String) = SpatialDbManager.deleteRouteNotes(routeId)
-grouptrack/GtCertRun.kt:156:        override fun setRouteAnchor(routeId: String, lat: Double, lon: Double, name: String) = SpatialDbManager.setRouteAnchor(routeId, lat, lon, name)
-grouptrack/GtCertRun.kt:157:        override fun addAlias(type: String, id: String, name: String, hash: String) { SpatialDbManager.addAlias(type, id, name, hash, null) }
-grouptrack/GtCertRun.kt:158:        override fun renameAlias(aliasId: String, t: String) { SpatialDbManager.renameAlias(aliasId, t) }
-grouptrack/GtCertRun.kt:159:        override fun deleteAlias(aliasId: String) { SpatialDbManager.deleteAlias(aliasId) }
-grouptrack/GtCertRun.kt:160:        override fun setPreferredAlias(type: String, id: String, aliasId: String) { SpatialDbManager.setPreferredAlias(type, id, aliasId) }
-grouptrack/GtCertRun.kt:161:        override fun insertTrack(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) =
-grouptrack/GtCertRun.kt:163:        override fun renameTrack(id: String, n: String) { SpatialDbManager.renameTrackInDb(id, n) }
-grouptrack/GtCertRun.kt:164:        override fun deleteTrack(id: String) { SpatialDbManager.deleteTrackFromDb(id) }
-grouptrack/GtCertRun.kt:165:        override fun beginDedup() { SpatialDbManager.beginDedupSession() }
-grouptrack/GtCertRun.kt:166:        override fun endDedup() { SpatialDbManager.endDedupSession() }
-grouptrack/GtCertRun.kt:167:        override fun sourceUidSeen(s: String, u: String) = SpatialDbManager.sourceUidSeen(s, u)
-grouptrack/GtCertRun.kt:168:        override fun markSourceUid(s: String, u: String) { SpatialDbManager.markSourceUid(s, u) }
-grouptrack/GtCertRun.kt:169:        override fun insertTrail(id: String, name: String?, wkt: String, a: Double, b: Double, c: Double, d: Double, created: String) =
-grouptrack/GtCertRun.kt:171:        override fun deleteTrail(id: String) { SpatialDbManager.deleteTrailFromDb(id) }
-grouptrack/GtCertRun.kt:172:        override fun clearAllTrails() = SpatialDbManager.clearAllTrailData().let { "${it.trails},${it.properties},${it.aliases},${it.error}" }
-grouptrack/GtCertRun.kt:180:    private fun runWrites(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, w: java.io.Writer) {
-grouptrack/GtCertRun.kt:181:        val e = edb ?: run { Log.e(TAG, "GTCERTW no data database -- writes not run"); return }
-grouptrack/GtCertRun.kt:182:        val dir = java.io.File(app.cacheDir, "gtcertw"); dir.deleteRecursively(); dir.mkdirs()
-grouptrack/GtCertRun.kt:183:        val tracksDir = com.geeksville.mesh.convoy.ConvoyTrackOps.tracksDir()
-grouptrack/GtCertRun.kt:184:        val exists: (String) -> Boolean = { h -> java.io.File(tracksDir, "$h.gpx").exists() }
-grouptrack/GtCertRun.kt:185:        fun copy(tag: String): Pair<String, String> {
-grouptrack/GtCertRun.kt:186:            val s = java.io.File(dir, "$tag-spatial.db"); val x = java.io.File(dir, "$tag-data.db")
-grouptrack/GtCertRun.kt:189:        val t0 = System.currentTimeMillis()
-grouptrack/GtCertRun.kt:190:        val (ns, ne) = copy("new"); val (os, oe) = copy("old")
-grouptrack/GtCertRun.kt:193:            val c = gtOpenDatabase(ns, false); val d = gtOpenDatabase(ne, false)
-grouptrack/GtCertRun.kt:195:                val gw = com.grouptrack.shared.spatial.GtWrite(c, d, { java.util.UUID.randomUUID().toString() }, { java.time.Instant.now().toString() })
-grouptrack/GtCertRun.kt:198:            val oS = SQLiteDatabase.openDatabase(os, null, SQLiteDatabase.OPEN_READWRITE)
-grouptrack/GtCertRun.kt:199:            val oE = SQLiteDatabase.openDatabase(oe, null, SQLiteDatabase.OPEN_READWRITE)
-grouptrack/GtCertRun.kt:200:            val prev = SpatialDbManager.certSwapDatabases(oS, oE)
-grouptrack/GtCertRun.kt:202:                val c2 = gtOpenDatabase(os, true); val d2 = gtOpenDatabase(oe, true)
-grouptrack/GtCertRun.kt:219:    private class Frozen(val spatial: String, val data: String?, val stamp: String)
-grouptrack/GtCertRun.kt:220:    private fun frozenDir(app: Context) = java.io.File(app.filesDir, "gtcert_frozen")
-grouptrack/GtCertRun.kt:221:    private fun freeze(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, stamp: String): Frozen {
-grouptrack/GtCertRun.kt:222:        val t = System.currentTimeMillis()
-grouptrack/GtCertRun.kt:223:        val dir = frozenDir(app); dir.deleteRecursively(); dir.mkdirs()
-grouptrack/GtCertRun.kt:224:        fun cp(src: String, name: String): String {
-grouptrack/GtCertRun.kt:225:            val d = java.io.File(dir, name); java.io.File(src).copyTo(d, true)
-grouptrack/GtCertRun.kt:226:            val wal = java.io.File("$src-wal"); if (wal.exists() && wal.length() > 0) wal.copyTo(java.io.File(dir, "$name-wal"), true)
-grouptrack/GtCertRun.kt:229:        val s = cp(db.path, "spatial.db"); val d = edb?.let { cp(it.path, "data.db") }
-grouptrack/GtCertRun.kt:235:    private fun frozen(app: Context): Frozen? {
-grouptrack/GtCertRun.kt:236:        val dir = frozenDir(app); val st = java.io.File(dir, "stamp.txt"); val s = java.io.File(dir, "spatial.db")
-grouptrack/GtCertRun.kt:238:        val d = java.io.File(dir, "data.db")
-grouptrack/GtCertRun.kt:243:    private object OldRead : com.grouptrack.shared.cert.CertRead.Api {
-grouptrack/GtCertRun.kt:244:        override fun search(type: String, term: String) = SpatialDbManager.searchByName(type, term)
-grouptrack/GtCertRun.kt:245:        override fun detail(type: String, id: String): Map<String, String?> = SpatialDbManager.getArtifactDetail(type, id)
-grouptrack/GtCertRun.kt:246:        override fun aliases(type: String, id: String) = SpatialDbManager.getAliasesFor(type, id)
-grouptrack/GtCertRun.kt:247:        override fun list(table: String) = SpatialDbManager.queryArtifactList(table, -90.0, -180.0, 90.0, 180.0)
-grouptrack/GtCertRun.kt:248:        override fun corridor() = SpatialDbManager.queryAllTracksForCorridor()
-grouptrack/GtCertRun.kt:249:        override fun trailheads(lat: Double, lon: Double) = SpatialDbManager.trailheadsNear(lat, lon).map { listOf<Any>(it.waypointId, it.name, it.lat, it.lon, it.miles) }
-grouptrack/GtCertRun.kt:250:        override fun routeUsing(waypointId: String) = SpatialDbManager.routeUsingTrailhead(waypointId)
-grouptrack/GtCertRun.kt:251:        override fun routeName(id: String) = SpatialDbManager.routeNameById(id)
-grouptrack/GtCertRun.kt:252:        override fun routeHash(id: String) = SpatialDbManager.routeGeomHash(id)
-grouptrack/GtCertRun.kt:253:        override fun routeByHash(hash: String) = SpatialDbManager.findRouteIdByHash(hash)
-grouptrack/GtCertRun.kt:254:        override fun nameExists(name: String) = SpatialDbManager.routeNameExists(name)
-grouptrack/GtCertRun.kt:255:        override fun nextNumber(base: String) = SpatialDbManager.nextRouteNumber(base)
-grouptrack/GtCertRun.kt:256:        override fun trackName(id: String) = SpatialDbManager.trackName(id)
-grouptrack/GtCertRun.kt:257:        override fun trackGeom(id: String) = SpatialDbManager.trackGeometry(id)
-grouptrack/GtCertRun.kt:258:        override fun waypointAt(lat: Double, lon: Double) = SpatialDbManager.waypointNameAt(lat, lon)
-grouptrack/GtCertRun.kt:259:        override fun geomHash(wkt: String) = SpatialDbManager.computeGeomHash(wkt)
-grouptrack/GtCertRun.kt:260:        override fun parseGpx(text: String) = SpatialDbManager.parseGpxTrackPoints(text)
-grouptrack/GtCertRun.kt:261:        override fun trackIdForGpx(text: String) = SpatialDbManager.trackIdForGpxText(text)
-grouptrack/GtCertRun.kt:265:    private fun notesFor(routeId: String): Pair<String, String?> {
-grouptrack/GtCertRun.kt:266:        val notes = SpatialDbManager.readRouteNotes(routeId)
-grouptrack/GtCertRun.kt:270:    fun countFeatures(json: String): Int {
-grouptrack/GtCertRun.kt:271:        var n = 0; var i = json.indexOf("{\"type\":\"Feature\""); while (i >= 0) { n++; i = json.indexOf("{\"type\":\"Feature\"", i + 1) }; return n
-grouptrack/GtCertRun.kt:276:    private fun runOld(conn: androidx.sqlite.SQLiteConnection, db: SQLiteDatabase, edb: SQLiteDatabase?, saved: GtCert.Combo,
-grouptrack/GtCertRun.kt:278:        val cats = GtCert.categories(conn)
-grouptrack/GtCertRun.kt:280:            val w = legacyWhere(cb.land, cb.restricted, cb.use, cb.off)
-grouptrack/GtCertRun.kt:281:            val got = ArrayList<String>()
-grouptrack/GtCertRun.kt:286:        val tp = GtCert.pages(conn, "trails", "trail_id", true)
-grouptrack/GtCertRun.kt:288:            val w = legacyWhere("ALL", r, "ALL", emptySet())
-grouptrack/GtCertRun.kt:290:                val rows = queryTrails(db, edb, -90.0, -180.0, 90.0, 180.0, 1_000_000, w + frag)
-grouptrack/GtCertRun.kt:298:        val lp = GtCert.pages(conn, "land_areas", "area_id", false)
-grouptrack/GtCertRun.kt:300:            val json = landGeoJson(db, -90.0, -180.0, 90.0, 180.0, pub, rst, 1_000_000, frag)
-grouptrack/GtCertRun.kt:304:        fun gpxPages(kind: String, table: String, col: String, one: (String) -> String?) {
-grouptrack/GtCertRun.kt:306:                val sb = StringBuilder(); var n = 0
-grouptrack/GtCertRun.kt:307:                for (id in GtCert.ids(conn, "SELECT $col FROM $table WHERE 1=1$frag ORDER BY $col")) { val g = one(id); if (g != null) { sb.append(g).append('\u0000'); n++ } else sb.append("NULL\u0000") }
-grouptrack/GtCertRun.kt:318:    private const val GPX_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-grouptrack/GtCertRun.kt:322:    private const val GPX_FOOTER = "</gpx>"
-grouptrack/GtCertRun.kt:323:    private fun xmlEscape(s: String): String =
-grouptrack/GtCertRun.kt:327:    private fun legacyWhere(land: String, restricted: Boolean, use: String, off: Set<String>): String {
-grouptrack/GtCertRun.kt:328:        val sb = StringBuilder()
-grouptrack/GtCertRun.kt:330:        val lands = ArrayList<String>()
-grouptrack/GtCertRun.kt:342:        val cats = off.filter { it != "__unofficial" }
-grouptrack/GtCertRun.kt:351:    fun queryTrails(db: SQLiteDatabase, edb: SQLiteDatabase?, south: Double, west: Double, north: Double, east: Double, limit: Int, where: String): List<Map<String, String?>> {
-grouptrack/GtCertRun.kt:352:        val results = mutableListOf<MutableMap<String, String?>>()
-grouptrack/GtCertRun.kt:353:        val cursor = db.rawQuery(
-grouptrack/GtCertRun.kt:401:            val wkt = cursor.getString(2)
-grouptrack/GtCertRun.kt:424:                val ids = results.mapNotNull { it["trail_id"] }
-grouptrack/GtCertRun.kt:426:                    val placeholders = ids.joinToString(",") { "?" }
-grouptrack/GtCertRun.kt:427:                    val pc = edb.rawQuery(
-grouptrack/GtCertRun.kt:433:                    val byId = HashMap<String, Map<String, String?>>()
-grouptrack/GtCertRun.kt:436:                            val tid = it.getString(0) ?: continue
-grouptrack/GtCertRun.kt:450:                        val props = byId[row["trail_id"]] ?: continue
-grouptrack/GtCertRun.kt:453:                            val existing = row[k]
-grouptrack/GtCertRun.kt:467:    fun trailGeoJson(trails: List<Map<String, String?>>, restricted: Boolean): String {
-grouptrack/GtCertRun.kt:468:        val sb = StringBuilder()
-grouptrack/GtCertRun.kt:470:        var first = true
-grouptrack/GtCertRun.kt:476:                val rg0 = trail["RstGeom"] ?: ""
-grouptrack/GtCertRun.kt:478:                    val rc0 = SpatialDbManager.wktToGeoJsonCoords(rg0)
-grouptrack/GtCertRun.kt:485:            val coords = SpatialDbManager.wktToGeoJsonCoords(wkt)
-grouptrack/GtCertRun.kt:489:            val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
-grouptrack/GtCertRun.kt:510:            val rg = trail["RstGeom"] ?: ""
-grouptrack/GtCertRun.kt:512:                val rc = SpatialDbManager.wktToGeoJsonCoords(rg)
-grouptrack/GtCertRun.kt:521:    fun waypointGpx(db: SQLiteDatabase, waypointId: String): Pair<String, String>? {
-grouptrack/GtCertRun.kt:523:            val cursor = db.rawQuery(
-grouptrack/GtCertRun.kt:528:                val name = c.getString(0) ?: "Unnamed"
-grouptrack/GtCertRun.kt:529:                val type = c.getString(1) ?: ""
-grouptrack/GtCertRun.kt:530:                val geom = c.getString(2) ?: return null
-grouptrack/GtCertRun.kt:531:                val desc = if (c.columnCount > 3) (c.getString(3) ?: "") else ""
-grouptrack/GtCertRun.kt:532:                val coords = geom.removePrefix("POINT(").removeSuffix(")").trim().split(" ")
-grouptrack/GtCertRun.kt:534:                val lon = coords[0]
-grouptrack/GtCertRun.kt:535:                val lat = coords[1]
-grouptrack/GtCertRun.kt:536:                val sb = StringBuilder()
-grouptrack/GtCertRun.kt:552:    fun routeGpx(db: SQLiteDatabase, routeId: String): Pair<String, String>? {
-grouptrack/GtCertRun.kt:554:            val cursor = db.rawQuery(
-grouptrack/GtCertRun.kt:559:                val name = c.getString(0) ?: "Unnamed"
-grouptrack/GtCertRun.kt:560:                val geom = c.getString(1) ?: return null
-grouptrack/GtCertRun.kt:574:                val notes = SpatialDbManager.readRouteNotes(routeId)
-grouptrack/GtCertRun.kt:575:                val desc = notes?.optJSONObject("narrative")?.optString("headline") ?: ""
-grouptrack/GtCertRun.kt:576:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-grouptrack/GtCertRun.kt:577:                val points = coordStr.split(",").mapNotNull { pt ->
-grouptrack/GtCertRun.kt:578:                    val parts = pt.trim().split(" ")
-grouptrack/GtCertRun.kt:581:                val sb = StringBuilder()
-grouptrack/GtCertRun.kt:609:                var idx = 1
-grouptrack/GtCertRun.kt:637:    fun trailGpx(db: SQLiteDatabase, trailId: String): Pair<String, String>? {
-grouptrack/GtCertRun.kt:639:            val cursor = db.rawQuery(
-grouptrack/GtCertRun.kt:644:                val name = c.getString(0) ?: "Unnamed"
-grouptrack/GtCertRun.kt:645:                val geom = c.getString(1) ?: return null
-grouptrack/GtCertRun.kt:646:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-grouptrack/GtCertRun.kt:647:                val points = coordStr.split(",").mapNotNull { pt ->
-grouptrack/GtCertRun.kt:648:                    val parts = pt.trim().split(" ")
-grouptrack/GtCertRun.kt:651:                val sb = StringBuilder()
-grouptrack/GtCertRun.kt:670:    fun landGeoJson(db: SQLiteDatabase, s: Double, w: Double, n: Double, e: Double, pub: Boolean, rst: Boolean, limit: Int, extraWhere: String): String {
-grouptrack/GtCertRun.kt:672:        val kinds = ArrayList<String>()
-grouptrack/GtCertRun.kt:676:        val sb = StringBuilder(64 * 1024)
-grouptrack/GtCertRun.kt:678:        var first = true
-grouptrack/GtCertRun.kt:683:                fun q(i: Int) = SpatialDbManager.jsonEsc(c.getString(i) ?: "")
-grouptrack/GtCertRun.kt:700:                            val sp = pt.indexOf(' ')
+grouptrack/GtCertRun.kt:123:                    if (mode == "golden15a") { val g = GtGolden15a.write(w); Log.i(TAG, "GTCERT golden15a: ${g.lines} lines, ${g.diffs} DIFF on the Droid") }
+grouptrack/GtCertRun.kt:125:                        var n = 0
+grouptrack/GtCertRun.kt:130:                        val t1 = System.currentTimeMillis(); var o = 0
+grouptrack/GtCertRun.kt:138:                val name = ImportConverter.saveToDownloads(app, out)
+grouptrack/GtCertRun.kt:147:    private object OldWrite : com.grouptrack.shared.cert.CertWrite.Api {
+grouptrack/GtCertRun.kt:148:        override fun insertWaypointWithId(id: String, name: String, lat: Double, lon: Double, type: String) = SpatialDbManager.insertWaypointWithId(id, name, lat, lon, type)
+grouptrack/GtCertRun.kt:149:        override fun renameWaypoint(id: String, n: String) { SpatialDbManager.renameWaypoint(id, n) }
+grouptrack/GtCertRun.kt:150:        override fun deleteWaypoint(id: String) { SpatialDbManager.deleteWaypoint(id) }
+grouptrack/GtCertRun.kt:151:        override fun changeWaypointType(id: String, t: String) { SpatialDbManager.changeWaypointType(id, t) }
+grouptrack/GtCertRun.kt:152:        override fun insertRoute(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) = SpatialDbManager.insertRoute(name, wkt, a, b, c, d)
+grouptrack/GtCertRun.kt:153:        override fun renameRoute(id: String, n: String) { SpatialDbManager.renameRoute(id, n) }
+grouptrack/GtCertRun.kt:154:        override fun deleteRoute(id: String) { SpatialDbManager.deleteRoute(id) }
+grouptrack/GtCertRun.kt:155:        override fun writeRouteNotes(routeId: String, notesJson: String) = SpatialDbManager.writeRouteNotes(routeId, org.json.JSONObject(notesJson))
+grouptrack/GtCertRun.kt:156:        override fun deleteRouteNotes(routeId: String) = SpatialDbManager.deleteRouteNotes(routeId)
+grouptrack/GtCertRun.kt:157:        override fun setRouteAnchor(routeId: String, lat: Double, lon: Double, name: String) = SpatialDbManager.setRouteAnchor(routeId, lat, lon, name)
+grouptrack/GtCertRun.kt:158:        override fun addAlias(type: String, id: String, name: String, hash: String) { SpatialDbManager.addAlias(type, id, name, hash, null) }
+grouptrack/GtCertRun.kt:159:        override fun renameAlias(aliasId: String, t: String) { SpatialDbManager.renameAlias(aliasId, t) }
+grouptrack/GtCertRun.kt:160:        override fun deleteAlias(aliasId: String) { SpatialDbManager.deleteAlias(aliasId) }
+grouptrack/GtCertRun.kt:161:        override fun setPreferredAlias(type: String, id: String, aliasId: String) { SpatialDbManager.setPreferredAlias(type, id, aliasId) }
+grouptrack/GtCertRun.kt:162:        override fun insertTrack(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) =
+grouptrack/GtCertRun.kt:164:        override fun renameTrack(id: String, n: String) { SpatialDbManager.renameTrackInDb(id, n) }
+grouptrack/GtCertRun.kt:165:        override fun deleteTrack(id: String) { SpatialDbManager.deleteTrackFromDb(id) }
+grouptrack/GtCertRun.kt:166:        override fun beginDedup() { SpatialDbManager.beginDedupSession() }
+grouptrack/GtCertRun.kt:167:        override fun endDedup() { SpatialDbManager.endDedupSession() }
+grouptrack/GtCertRun.kt:168:        override fun sourceUidSeen(s: String, u: String) = SpatialDbManager.sourceUidSeen(s, u)
+grouptrack/GtCertRun.kt:169:        override fun markSourceUid(s: String, u: String) { SpatialDbManager.markSourceUid(s, u) }
+grouptrack/GtCertRun.kt:170:        override fun insertTrail(id: String, name: String?, wkt: String, a: Double, b: Double, c: Double, d: Double, created: String) =
+grouptrack/GtCertRun.kt:172:        override fun deleteTrail(id: String) { SpatialDbManager.deleteTrailFromDb(id) }
+grouptrack/GtCertRun.kt:173:        override fun clearAllTrails() = SpatialDbManager.clearAllTrailData().let { "${it.trails},${it.properties},${it.aliases},${it.error}" }
+grouptrack/GtCertRun.kt:181:    private fun runWrites(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, w: java.io.Writer) {
+grouptrack/GtCertRun.kt:182:        val e = edb ?: run { Log.e(TAG, "GTCERTW no data database -- writes not run"); return }
+grouptrack/GtCertRun.kt:183:        val dir = java.io.File(app.cacheDir, "gtcertw"); dir.deleteRecursively(); dir.mkdirs()
+grouptrack/GtCertRun.kt:184:        val tracksDir = com.geeksville.mesh.convoy.ConvoyTrackOps.tracksDir()
+grouptrack/GtCertRun.kt:185:        val exists: (String) -> Boolean = { h -> java.io.File(tracksDir, "$h.gpx").exists() }
+grouptrack/GtCertRun.kt:186:        fun copy(tag: String): Pair<String, String> {
+grouptrack/GtCertRun.kt:187:            val s = java.io.File(dir, "$tag-spatial.db"); val x = java.io.File(dir, "$tag-data.db")
+grouptrack/GtCertRun.kt:190:        val t0 = System.currentTimeMillis()
+grouptrack/GtCertRun.kt:191:        val (ns, ne) = copy("new"); val (os, oe) = copy("old")
+grouptrack/GtCertRun.kt:194:            val c = gtOpenDatabase(ns, false); val d = gtOpenDatabase(ne, false)
+grouptrack/GtCertRun.kt:196:                val gw = com.grouptrack.shared.spatial.GtWrite(c, d, { java.util.UUID.randomUUID().toString() }, { java.time.Instant.now().toString() })
+grouptrack/GtCertRun.kt:199:            val oS = SQLiteDatabase.openDatabase(os, null, SQLiteDatabase.OPEN_READWRITE)
+grouptrack/GtCertRun.kt:200:            val oE = SQLiteDatabase.openDatabase(oe, null, SQLiteDatabase.OPEN_READWRITE)
+grouptrack/GtCertRun.kt:201:            val prev = SpatialDbManager.certSwapDatabases(oS, oE)
+grouptrack/GtCertRun.kt:203:                val c2 = gtOpenDatabase(os, true); val d2 = gtOpenDatabase(oe, true)
+grouptrack/GtCertRun.kt:220:    private class Frozen(val spatial: String, val data: String?, val stamp: String)
+grouptrack/GtCertRun.kt:221:    private fun frozenDir(app: Context) = java.io.File(app.filesDir, "gtcert_frozen")
+grouptrack/GtCertRun.kt:222:    private fun freeze(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, stamp: String): Frozen {
+grouptrack/GtCertRun.kt:223:        val t = System.currentTimeMillis()
+grouptrack/GtCertRun.kt:224:        val dir = frozenDir(app); dir.deleteRecursively(); dir.mkdirs()
+grouptrack/GtCertRun.kt:225:        fun cp(src: String, name: String): String {
+grouptrack/GtCertRun.kt:226:            val d = java.io.File(dir, name); java.io.File(src).copyTo(d, true)
+grouptrack/GtCertRun.kt:227:            val wal = java.io.File("$src-wal"); if (wal.exists() && wal.length() > 0) wal.copyTo(java.io.File(dir, "$name-wal"), true)
+grouptrack/GtCertRun.kt:230:        val s = cp(db.path, "spatial.db"); val d = edb?.let { cp(it.path, "data.db") }
+grouptrack/GtCertRun.kt:236:    private fun frozen(app: Context): Frozen? {
+grouptrack/GtCertRun.kt:237:        val dir = frozenDir(app); val st = java.io.File(dir, "stamp.txt"); val s = java.io.File(dir, "spatial.db")
+grouptrack/GtCertRun.kt:239:        val d = java.io.File(dir, "data.db")
+grouptrack/GtCertRun.kt:244:    private object OldRead : com.grouptrack.shared.cert.CertRead.Api {
+grouptrack/GtCertRun.kt:245:        override fun search(type: String, term: String) = SpatialDbManager.searchByName(type, term)
+grouptrack/GtCertRun.kt:246:        override fun detail(type: String, id: String): Map<String, String?> = SpatialDbManager.getArtifactDetail(type, id)
+grouptrack/GtCertRun.kt:247:        override fun aliases(type: String, id: String) = SpatialDbManager.getAliasesFor(type, id)
+grouptrack/GtCertRun.kt:248:        override fun list(table: String) = SpatialDbManager.queryArtifactList(table, -90.0, -180.0, 90.0, 180.0)
+grouptrack/GtCertRun.kt:249:        override fun corridor() = SpatialDbManager.queryAllTracksForCorridor()
+grouptrack/GtCertRun.kt:250:        override fun trailheads(lat: Double, lon: Double) = SpatialDbManager.trailheadsNear(lat, lon).map { listOf<Any>(it.waypointId, it.name, it.lat, it.lon, it.miles) }
+grouptrack/GtCertRun.kt:251:        override fun routeUsing(waypointId: String) = SpatialDbManager.routeUsingTrailhead(waypointId)
+grouptrack/GtCertRun.kt:252:        override fun routeName(id: String) = SpatialDbManager.routeNameById(id)
+grouptrack/GtCertRun.kt:253:        override fun routeHash(id: String) = SpatialDbManager.routeGeomHash(id)
+grouptrack/GtCertRun.kt:254:        override fun routeByHash(hash: String) = SpatialDbManager.findRouteIdByHash(hash)
+grouptrack/GtCertRun.kt:255:        override fun nameExists(name: String) = SpatialDbManager.routeNameExists(name)
+grouptrack/GtCertRun.kt:256:        override fun nextNumber(base: String) = SpatialDbManager.nextRouteNumber(base)
+grouptrack/GtCertRun.kt:257:        override fun trackName(id: String) = SpatialDbManager.trackName(id)
+grouptrack/GtCertRun.kt:258:        override fun trackGeom(id: String) = SpatialDbManager.trackGeometry(id)
+grouptrack/GtCertRun.kt:259:        override fun waypointAt(lat: Double, lon: Double) = SpatialDbManager.waypointNameAt(lat, lon)
+grouptrack/GtCertRun.kt:260:        override fun geomHash(wkt: String) = SpatialDbManager.computeGeomHash(wkt)
+grouptrack/GtCertRun.kt:261:        override fun parseGpx(text: String) = SpatialDbManager.parseGpxTrackPoints(text)
+grouptrack/GtCertRun.kt:262:        override fun trackIdForGpx(text: String) = SpatialDbManager.trackIdForGpxText(text)
+grouptrack/GtCertRun.kt:266:    private fun notesFor(routeId: String): Pair<String, String?> {
+grouptrack/GtCertRun.kt:267:        val notes = SpatialDbManager.readRouteNotes(routeId)
+grouptrack/GtCertRun.kt:271:    fun countFeatures(json: String): Int {
+grouptrack/GtCertRun.kt:272:        var n = 0; var i = json.indexOf("{\"type\":\"Feature\""); while (i >= 0) { n++; i = json.indexOf("{\"type\":\"Feature\"", i + 1) }; return n
+grouptrack/GtCertRun.kt:277:    private fun runOld(conn: androidx.sqlite.SQLiteConnection, db: SQLiteDatabase, edb: SQLiteDatabase?, saved: GtCert.Combo,
+grouptrack/GtCertRun.kt:279:        val cats = GtCert.categories(conn)
+grouptrack/GtCertRun.kt:281:            val w = legacyWhere(cb.land, cb.restricted, cb.use, cb.off)
+grouptrack/GtCertRun.kt:282:            val got = ArrayList<String>()
+grouptrack/GtCertRun.kt:287:        val tp = GtCert.pages(conn, "trails", "trail_id", true)
+grouptrack/GtCertRun.kt:289:            val w = legacyWhere("ALL", r, "ALL", emptySet())
+grouptrack/GtCertRun.kt:291:                val rows = queryTrails(db, edb, -90.0, -180.0, 90.0, 180.0, 1_000_000, w + frag)
+grouptrack/GtCertRun.kt:299:        val lp = GtCert.pages(conn, "land_areas", "area_id", false)
+grouptrack/GtCertRun.kt:301:            val json = landGeoJson(db, -90.0, -180.0, 90.0, 180.0, pub, rst, 1_000_000, frag)
+grouptrack/GtCertRun.kt:305:        fun gpxPages(kind: String, table: String, col: String, one: (String) -> String?) {
+grouptrack/GtCertRun.kt:307:                val sb = StringBuilder(); var n = 0
+grouptrack/GtCertRun.kt:308:                for (id in GtCert.ids(conn, "SELECT $col FROM $table WHERE 1=1$frag ORDER BY $col")) { val g = one(id); if (g != null) { sb.append(g).append('\u0000'); n++ } else sb.append("NULL\u0000") }
+grouptrack/GtCertRun.kt:319:    private const val GPX_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+grouptrack/GtCertRun.kt:323:    private const val GPX_FOOTER = "</gpx>"
+grouptrack/GtCertRun.kt:324:    private fun xmlEscape(s: String): String =
+grouptrack/GtCertRun.kt:328:    private fun legacyWhere(land: String, restricted: Boolean, use: String, off: Set<String>): String {
+grouptrack/GtCertRun.kt:329:        val sb = StringBuilder()
+grouptrack/GtCertRun.kt:331:        val lands = ArrayList<String>()
+grouptrack/GtCertRun.kt:343:        val cats = off.filter { it != "__unofficial" }
+grouptrack/GtCertRun.kt:352:    fun queryTrails(db: SQLiteDatabase, edb: SQLiteDatabase?, south: Double, west: Double, north: Double, east: Double, limit: Int, where: String): List<Map<String, String?>> {
+grouptrack/GtCertRun.kt:353:        val results = mutableListOf<MutableMap<String, String?>>()
+grouptrack/GtCertRun.kt:354:        val cursor = db.rawQuery(
+grouptrack/GtCertRun.kt:402:            val wkt = cursor.getString(2)
+grouptrack/GtCertRun.kt:425:                val ids = results.mapNotNull { it["trail_id"] }
+grouptrack/GtCertRun.kt:427:                    val placeholders = ids.joinToString(",") { "?" }
+grouptrack/GtCertRun.kt:428:                    val pc = edb.rawQuery(
+grouptrack/GtCertRun.kt:434:                    val byId = HashMap<String, Map<String, String?>>()
+grouptrack/GtCertRun.kt:437:                            val tid = it.getString(0) ?: continue
+grouptrack/GtCertRun.kt:451:                        val props = byId[row["trail_id"]] ?: continue
+grouptrack/GtCertRun.kt:454:                            val existing = row[k]
+grouptrack/GtCertRun.kt:468:    fun trailGeoJson(trails: List<Map<String, String?>>, restricted: Boolean): String {
+grouptrack/GtCertRun.kt:469:        val sb = StringBuilder()
+grouptrack/GtCertRun.kt:471:        var first = true
+grouptrack/GtCertRun.kt:477:                val rg0 = trail["RstGeom"] ?: ""
+grouptrack/GtCertRun.kt:479:                    val rc0 = SpatialDbManager.wktToGeoJsonCoords(rg0)
+grouptrack/GtCertRun.kt:486:            val coords = SpatialDbManager.wktToGeoJsonCoords(wkt)
+grouptrack/GtCertRun.kt:490:            val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
+grouptrack/GtCertRun.kt:511:            val rg = trail["RstGeom"] ?: ""
+grouptrack/GtCertRun.kt:513:                val rc = SpatialDbManager.wktToGeoJsonCoords(rg)
+grouptrack/GtCertRun.kt:522:    fun waypointGpx(db: SQLiteDatabase, waypointId: String): Pair<String, String>? {
+grouptrack/GtCertRun.kt:524:            val cursor = db.rawQuery(
+grouptrack/GtCertRun.kt:529:                val name = c.getString(0) ?: "Unnamed"
+grouptrack/GtCertRun.kt:530:                val type = c.getString(1) ?: ""
+grouptrack/GtCertRun.kt:531:                val geom = c.getString(2) ?: return null
+grouptrack/GtCertRun.kt:532:                val desc = if (c.columnCount > 3) (c.getString(3) ?: "") else ""
+grouptrack/GtCertRun.kt:533:                val coords = geom.removePrefix("POINT(").removeSuffix(")").trim().split(" ")
+grouptrack/GtCertRun.kt:535:                val lon = coords[0]
+grouptrack/GtCertRun.kt:536:                val lat = coords[1]
+grouptrack/GtCertRun.kt:537:                val sb = StringBuilder()
+grouptrack/GtCertRun.kt:553:    fun routeGpx(db: SQLiteDatabase, routeId: String): Pair<String, String>? {
+grouptrack/GtCertRun.kt:555:            val cursor = db.rawQuery(
+grouptrack/GtCertRun.kt:560:                val name = c.getString(0) ?: "Unnamed"
+grouptrack/GtCertRun.kt:561:                val geom = c.getString(1) ?: return null
+grouptrack/GtCertRun.kt:575:                val notes = SpatialDbManager.readRouteNotes(routeId)
+grouptrack/GtCertRun.kt:576:                val desc = notes?.optJSONObject("narrative")?.optString("headline") ?: ""
+grouptrack/GtCertRun.kt:577:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+grouptrack/GtCertRun.kt:578:                val points = coordStr.split(",").mapNotNull { pt ->
+grouptrack/GtCertRun.kt:579:                    val parts = pt.trim().split(" ")
+grouptrack/GtCertRun.kt:582:                val sb = StringBuilder()
+grouptrack/GtCertRun.kt:610:                var idx = 1
+grouptrack/GtCertRun.kt:638:    fun trailGpx(db: SQLiteDatabase, trailId: String): Pair<String, String>? {
+grouptrack/GtCertRun.kt:640:            val cursor = db.rawQuery(
+grouptrack/GtCertRun.kt:645:                val name = c.getString(0) ?: "Unnamed"
+grouptrack/GtCertRun.kt:646:                val geom = c.getString(1) ?: return null
+grouptrack/GtCertRun.kt:647:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+grouptrack/GtCertRun.kt:648:                val points = coordStr.split(",").mapNotNull { pt ->
+grouptrack/GtCertRun.kt:649:                    val parts = pt.trim().split(" ")
+grouptrack/GtCertRun.kt:652:                val sb = StringBuilder()
+grouptrack/GtCertRun.kt:671:    fun landGeoJson(db: SQLiteDatabase, s: Double, w: Double, n: Double, e: Double, pub: Boolean, rst: Boolean, limit: Int, extraWhere: String): String {
+grouptrack/GtCertRun.kt:673:        val kinds = ArrayList<String>()
+grouptrack/GtCertRun.kt:677:        val sb = StringBuilder(64 * 1024)
+grouptrack/GtCertRun.kt:679:        var first = true
+grouptrack/GtCertRun.kt:684:                fun q(i: Int) = SpatialDbManager.jsonEsc(c.getString(i) ?: "")
+grouptrack/GtCertRun.kt:701:                            val sp = pt.indexOf(' ')
 grouptrack/FilterModule.kt:49:class GtFilterBridge(
 grouptrack/FilterModule.kt:51:    val state: (String) -> Int,
 grouptrack/FilterModule.kt:52:    val setState: (String, Int) -> Unit,
@@ -14315,6 +14429,117 @@ SHARED:cert/CertRead.kt:121:            val s2 = conn.prepare("SELECT trail_id, 
 SHARED:cert/CertRead.kt:123:            val sb = StringBuilder(); val sp = StringBuilder()
 SHARED:cert/CertRead.kt:124:            for (id in chunk) { val g = geoms[id]; sb.append(if (g == null) "-" else api.geomHash(g)).append(','); sp.append(if (g == null) "-" else api.parseGpx(GtGpx.trail("", g)).joinToString(";") { v(it.first) + " " + v(it.second) }).append('\u0003') }
 SHARED:cert/CertRead.kt:125:            val key = "trails/p" + k.toString().padStart(4, '0')
+SHARED:cert/Cert16c.kt:52:object Cert16c {
+SHARED:cert/Cert16c.kt:53:    data class Est(val tileCount: Int, val mbBits: Int, val within: Boolean, val zMin: Int, val zMax: Int)
+SHARED:cert/Cert16c.kt:56:        val name: String
+SHARED:cert/Cert16c.kt:57:        fun setRecipesDir(dir: Path)
+SHARED:cert/Cert16c.kt:58:        fun boxesOf(f: Path): List<DoubleArray>
+SHARED:cert/Cert16c.kt:59:        fun recipeBoxes(): Pair<String, List<DoubleArray>>?
+SHARED:cert/Cert16c.kt:60:        fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>)
+SHARED:cert/Cert16c.kt:61:        fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>)
+SHARED:cert/Cert16c.kt:62:        fun enqueueWithElevation(n: Double, s: Double, e: Double, w: Double, replace: Boolean, what: String): Int
+SHARED:cert/Cert16c.kt:63:        fun queueSquares(sq: Set<Long>, replace: Boolean, why: String): Pair<Int, Int>
+SHARED:cert/Cert16c.kt:64:        fun queueSquaresNamed(sq: Set<Long>, names: Map<Long, Set<String>>, replace: Boolean, why: String): Pair<Int, Int>
+SHARED:cert/Cert16c.kt:65:        fun queueFromRecipe(count: Int): String
+SHARED:cert/Cert16c.kt:66:        fun quickEstimate(n: Double, s: Double, e: Double, w: Double, zMin: Int, zMax: Int): Est
+SHARED:cert/Cert16c.kt:67:        fun segmentCells(n: Double, s: Double, e: Double, w: Double, sizeTiles: Int, zMax: Int): List<DoubleArray>
+SHARED:cert/Cert16c.kt:70:        fun takeEntries(): Pair<List<String>, String>
+SHARED:cert/Cert16c.kt:75:    class NewSide(private val fsys: FileSystem) : Side {
+SHARED:cert/Cert16c.kt:76:        override val name = "NEW"
+SHARED:cert/Cert16c.kt:77:        private val appended = ArrayList<GtQueueEntry>()
+SHARED:cert/Cert16c.kt:78:        private var k = 0
+SHARED:cert/Cert16c.kt:80:        private val plat = object : GtQueuePlatform {
+SHARED:cert/Cert16c.kt:81:            override fun append(entries: List<GtQueueEntry>) { appended.addAll(entries) }
+SHARED:cert/Cert16c.kt:82:            override fun downloadZoom(): Int = 18
+SHARED:cert/Cert16c.kt:83:            override fun satLayers(): Int? = null
+SHARED:cert/Cert16c.kt:84:            override fun recipesDir(): Path = recipes ?: throw IllegalStateException("cert: no recipe folder set")
+SHARED:cert/Cert16c.kt:86:        private val files = object : GtFiles {
+SHARED:cert/Cert16c.kt:87:            override val fs: FileSystem = fsys
+SHARED:cert/Cert16c.kt:88:            override fun setLastModified(path: Path, epochMs: Long): Boolean = throw UnsupportedOperationException("not used by 16c")
+SHARED:cert/Cert16c.kt:89:            override fun lastModified(path: Path): Long = throw UnsupportedOperationException("not used by 16c")
+SHARED:cert/Cert16c.kt:90:            override fun list(dir: Path): List<Path> = fsys.listOrNull(dir) ?: emptyList()
+SHARED:cert/Cert16c.kt:92:        private val ids = object : GtIds { override fun newId(): String { k++; return "q$k" } }
+SHARED:cert/Cert16c.kt:93:        private val clock = object : GtClock {
+SHARED:cert/Cert16c.kt:94:            override fun nowInstant(): String = throw UnsupportedOperationException("not used by 16c")
+SHARED:cert/Cert16c.kt:95:            override fun localNow(): GtLocalTime = throw UnsupportedOperationException("not used by 16c")
+SHARED:cert/Cert16c.kt:96:            override fun epochMs(): Long = 0L
+SHARED:cert/Cert16c.kt:98:        private val q = GtVectorQueue(ids, clock, files, plat)
+SHARED:cert/Cert16c.kt:99:        override fun setRecipesDir(dir: Path) { recipes = dir }
+SHARED:cert/Cert16c.kt:100:        override fun boxesOf(f: Path) = q.boxesOf(f)
+SHARED:cert/Cert16c.kt:101:        override fun recipeBoxes() = q.recipeBoxes()
+SHARED:cert/Cert16c.kt:102:        override fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) = q.squaresInBox(n, s, e, w, into)
+SHARED:cert/Cert16c.kt:103:        override fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>) = q.squaresFor(segments, into)
+SHARED:cert/Cert16c.kt:104:        override fun enqueueWithElevation(n: Double, s: Double, e: Double, w: Double, replace: Boolean, what: String) =
+SHARED:cert/Cert16c.kt:106:        override fun queueSquares(sq: Set<Long>, replace: Boolean, why: String) = q.queueSquares(sq, replace, why)
+SHARED:cert/Cert16c.kt:107:        override fun queueSquaresNamed(sq: Set<Long>, names: Map<Long, Set<String>>, replace: Boolean, why: String) =
+SHARED:cert/Cert16c.kt:109:        override fun queueFromRecipe(count: Int) = q.queueFromRecipe(count)
+SHARED:cert/Cert16c.kt:110:        override fun quickEstimate(n: Double, s: Double, e: Double, w: Double, zMin: Int, zMax: Int): Est =
+SHARED:cert/Cert16c.kt:112:        override fun segmentCells(n: Double, s: Double, e: Double, w: Double, sizeTiles: Int, zMax: Int) =
+SHARED:cert/Cert16c.kt:114:        override fun takeEntries(): Pair<List<String>, String> {
+SHARED:cert/Cert16c.kt:115:            val es = appended.toList(); appended.clear(); k = 0
+SHARED:cert/Cert16c.kt:123:    class Track(val hash: String, val name: String, val segs: List<List<Pair<Double, Double>>>?)
+SHARED:cert/Cert16c.kt:126:    fun parseWkt(wkt: String): List<List<Pair<Double, Double>>>? {
+SHARED:cert/Cert16c.kt:127:        val g = wkt.trim()
+SHARED:cert/Cert16c.kt:129:        val segments: List<String> = when {
+SHARED:cert/Cert16c.kt:134:        val out = segments.mapNotNull { seg ->
+SHARED:cert/Cert16c.kt:135:            val pts = seg.split(",").mapNotNull { p ->
+SHARED:cert/Cert16c.kt:136:                val parts = p.trim().split(" ")
+SHARED:cert/Cert16c.kt:138:                val lon = parts[0].toDoubleOrNull() ?: return@mapNotNull null
+SHARED:cert/Cert16c.kt:139:                val lat = parts[1].toDoubleOrNull() ?: return@mapNotNull null
+SHARED:cert/Cert16c.kt:149:    fun readTracks(c: SQLiteConnection): List<Track> {
+SHARED:cert/Cert16c.kt:150:        val firsts = LinkedHashMap<String, Pair<String?, String?>>()
+SHARED:cert/Cert16c.kt:151:        val st = c.prepare("SELECT geom_hash, name, geometry FROM tracks WHERE geom_hash IS NOT NULL ORDER BY geom_hash, rowid")
+SHARED:cert/Cert16c.kt:152:        try { while (st.step()) { val h = st.getText(0); if (h !in firsts) firsts[h] = Pair(if (st.isNull(1)) null else st.getText(1), if (st.isNull(2)) null else st.getText(2)) } }
+SHARED:cert/Cert16c.kt:154:        fun routeName(h: String): String? {
+SHARED:cert/Cert16c.kt:155:            val r = c.prepare("SELECT name FROM routes WHERE geom_hash=? LIMIT 1")
+SHARED:cert/Cert16c.kt:159:            val nm = v.first?.takeIf { it.isNotBlank() } ?: routeName(h) ?: h.take(8)
+SHARED:cert/Cert16c.kt:164:    fun hx(d: Double): String = d.toRawBits().toULong().toString(16)
+SHARED:cert/Cert16c.kt:165:    fun dx(s: String): Double = Double.fromBits(s.toULong(16).toLong())
+SHARED:cert/Cert16c.kt:166:    fun boxText(b: DoubleArray): String = b.joinToString(",") { hx(it) }
+SHARED:cert/Cert16c.kt:167:    fun boxOf(t: String): DoubleArray = t.split(',').map { dx(it) }.toDoubleArray()
+SHARED:cert/Cert16c.kt:170:    fun tracksText(ts: List<Track>): String {
+SHARED:cert/Cert16c.kt:171:        val sb = StringBuilder(); var pts = 0
+SHARED:cert/Cert16c.kt:174:            val s = t.segs
+SHARED:cert/Cert16c.kt:182:    class Crafted(val dirs: List<Pair<String, Path>>)
+SHARED:cert/Cert16c.kt:184:    fun craft(fs: FileSystem, root: Path): Crafted {
+SHARED:cert/Cert16c.kt:187:        fun dir(n: String): Path { val d = root / n; fs.createDirectories(d); return d }
+SHARED:cert/Cert16c.kt:188:        fun file(d: Path, n: String, t: String) { fs.write(d / n) { writeUtf8(t) } }
+SHARED:cert/Cert16c.kt:189:        val empty = dir("empty")
+SHARED:cert/Cert16c.kt:191:        val noboxes = dir("noboxes"); file(noboxes, "grouptrack_maps_2099-01-01.gtmaps", """{"slots":[{"slot":"SAT","tiles":5,"boxes":[]}]}""")
+SHARED:cert/Cert16c.kt:192:        val noslots = dir("noslots"); file(noslots, "grouptrack_maps_2099-01-02.gtmaps", """{"version":1}""")
+SHARED:cert/Cert16c.kt:193:        val odd = dir("odd")
+SHARED:cert/Cert16c.kt:202:        val corrupt = dir("corrupt"); file(corrupt, "grouptrack_maps_2099-01-04.gtmaps", "not json {")
+SHARED:cert/Cert16c.kt:208:    private val G = listOf(
+SHARED:cert/Cert16c.kt:215:    fun treeBins(sq: Set<Long>): Int {
+SHARED:cert/Cert16c.kt:217:        val n = 4096L
+SHARED:cert/Cert16c.kt:218:        var tb = 0
+SHARED:cert/Cert16c.kt:220:            val xs = row.map { (it / n).toInt() }.sorted()
+SHARED:cert/Cert16c.kt:221:            val m = GtJavaHashMapLong<Int>()
+SHARED:cert/Cert16c.kt:222:            var a = xs[0]; var b = xs[0]
+SHARED:cert/Cert16c.kt:230:    private fun setText(s: Set<Long>): String {
+SHARED:cert/Cert16c.kt:231:        val l = s.sorted()
+SHARED:cert/Cert16c.kt:234:    private fun boxesText(bs: List<DoubleArray>): String =
+SHARED:cert/Cert16c.kt:236:    private fun estText(e: Est) = "tiles=${e.tileCount};mb=${e.mbBits.toUInt().toString(16)};within=${e.within};z=${e.zMin}-${e.zMax}"
+SHARED:cert/Cert16c.kt:241:    class Inputs(val tracks: List<Track>, val recipesDir: Path, val recipeFiles: List<Path>, val qboxes: List<DoubleArray>, val crafted: Crafted)
+SHARED:cert/Cert16c.kt:244:    fun recipeFiles(fs: FileSystem, dir: Path): List<Path> = (fs.listOrNull(dir) ?: emptyList()).filter { it.name.endsWith(".gtmaps") }.sortedBy { it.name }
+SHARED:cert/Cert16c.kt:246:    fun run(side: Side, inp: Inputs, fs: FileSystem, emit: (String, String) -> Unit, progress: (String) -> Unit) {
+SHARED:cert/Cert16c.kt:247:        fun call(key: String, f: () -> String) { emit(key, try { f() } catch (e: Throwable) { "EXCEPTION" }) }
+SHARED:cert/Cert16c.kt:248:        fun entries(key: String) {
+SHARED:cert/Cert16c.kt:249:            val r = try { side.takeEntries() } catch (e: Throwable) { emit("$key|entries", "EXCEPTION"); return }
+SHARED:cert/Cert16c.kt:257:        val all = HashSet<Long>(); val names = HashMap<Long, MutableSet<String>>(); var used = 0
+SHARED:cert/Cert16c.kt:259:            val k = "A|" + (i + 1).toString().padStart(4, '0')
+SHARED:cert/Cert16c.kt:261:            val segs = t.segs
+SHARED:cert/Cert16c.kt:263:            val mine = HashSet<Long>()
+SHARED:cert/Cert16c.kt:276:        val hboxes = LinkedHashMap<String, DoubleArray>()
+SHARED:cert/Cert16c.kt:278:            val k = "C|" + f.name
+SHARED:cert/Cert16c.kt:280:            var boxes: List<DoubleArray> = emptyList()
+SHARED:cert/Cert16c.kt:283:            val sq = HashSet<Long>()
+SHARED:cert/Cert16c.kt:297:            val k = "E|$nm"
+SHARED:cert/Cert16c.kt:306:            val k = "F|" + (i + 1).toString().padStart(4, '0')
+SHARED:cert/Cert16c.kt:314:            val k = "G|" + g[0]; val b = doubleArrayOf(g[1] as Double, g[2] as Double, g[3] as Double, g[4] as Double)
+SHARED:cert/Cert16c.kt:322:        var i = 0
+SHARED:cert/Cert16c.kt:324:            val k = "H|" + (++i).toString().padStart(4, '0')
+SHARED:cert/Cert16c.kt:326:            var own = 0
 SHARED:cert/Cert15g.kt:51:object Cert15g {
 SHARED:cert/Cert15g.kt:52:    const val SLUG = "certutah"
 SHARED:cert/Cert15g.kt:54:    const val S = 37.0; const val W = -114.05; const val N = 42.0; const val E = -109.04
@@ -14855,10 +15080,10 @@ SHARED:queue/GtJavaHashMapLong.kt:64:            val e0 = old[j] ?: continue
 SHARED:queue/GtJavaHashMapLong.kt:66:            var loH: Node<V>? = null; var loT: Node<V>? = null; var hiH: Node<V>? = null; var hiT: Node<V>? = null
 SHARED:queue/GtJavaHashMapLong.kt:67:            var e: Node<V>? = e0
 SHARED:queue/GtJavaHashMapLong.kt:69:                val nx = e.next
-SHARED:queue/GtJavaHashMapLong.kt:82:    fun entries(): List<Pair<Long, V>> {
-SHARED:queue/GtJavaHashMapLong.kt:83:        val out = ArrayList<Pair<Long, V>>(size)
-SHARED:queue/GtJavaHashMapLong.kt:84:        for (b in table) { var e = b; while (e != null) { out.add(e.key to e.value); e = e.next } }
-SHARED:queue/GtJavaHashMapLong.kt:88:    fun values(): List<V> = entries().map { it.second }
+SHARED:queue/GtJavaHashMapLong.kt:81:    fun entries(): List<Pair<Long, V>> {
+SHARED:queue/GtJavaHashMapLong.kt:82:        val out = ArrayList<Pair<Long, V>>(size)
+SHARED:queue/GtJavaHashMapLong.kt:83:        for (b in table) { var e = b; while (e != null) { out.add(e.key to e.value); e = e.next } }
+SHARED:queue/GtJavaHashMapLong.kt:87:    fun values(): List<V> = entries().map { it.second }
 SHARED:queue/GtTileMath.kt:18:data class GtDownloadEstimate(
 SHARED:queue/GtTileMath.kt:19:    val tileCount: Int,
 SHARED:queue/GtTileMath.kt:20:    val estimatedMB: Float,

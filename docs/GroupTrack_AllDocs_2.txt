@@ -3701,6 +3701,368 @@ a0bcd919511:1415c / 15d / 15e switches: RiderTrailWriter, SpatialDbManager (trac
 Step 15 is COMPLETE (15a–15g ported, certified on the Droid and the iPad, and switched).
 
 
+=== GroupTrack_2.8_iPad_Plan_2026-11-11_v15.html ===
+GroupTrack 2.8 — the native iPad app — plan v14 (2026-11-10 19:50 EOD)
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;padding:0 0 60px}
+main{max-width:1000px;margin:0 auto;padding:0 18px}h1{font-size:26px;margin:26px 0 4px}h2{font-size:20px;margin:30px 0 8px;color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:4px}h3{font-size:16px;margin:18px 0 6px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:12px 0}.good{border-left:4px solid var(--good)}.warn{border-left:4px solid var(--warn)}.dim{color:var(--dim)}
+table{border-collapse:collapse;width:100%;margin:8px 0}td,th{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{background:#1c232c}code{font:13px "SF Mono",Consolas,monospace;background:#1c232c;padding:1px 4px;border-radius:3px}
+DOCUMENT ID: PLAN-2.8-IPAD · v4 · 2026-11-06 17:15 EOD (v3 12:05, v2 10:30, v1 09:58) · sections 11–16 are new; section 11 (THE STEP LIST) replaces section 10 · living document — update in place, new version number each change
+GroupTrack 2.8 — the native iPad app — v14 (2026-11-10 19:50)
+Started 2026-11-05/06 on the Mac. 2.7e is released and locked; 2.8 is the iPad.
+1. What 2.8 is
+2.8 ends with a deployed native iPad app (roadmap, Fred 10-22). 2.9 = one-way data sync Android → AWS (services layer only, no paygate). 3.0 = AWS services: paygate (e.g. the first 200 users free for a year), Mac/PC planning station against the AWS model, map-licensing review.
+Two phases (Fred 10-02): Phase 1 — GroupTrack on iPad with group functions off (riding solo: map, search, AI routes, rides, imports, recording, manual/help). Phase 2 — the GroupTrack Group Comm plugin (mesh radio, group awareness).
+The goal: an iPad app that looks and feels as much like GroupTrack on Android as technically possible (Fred 10-02).
+2. Decided (from the design corpus, 07-04 … 11-05)
+#DecisionSource
+D1One map page for all platforms. The 2.7e MapLibre GL JS page (assets/vecmap) runs in a WKWebView on iPad/Mac; per platform only the native pieces differ (tile/asset serving, the SQLite database, files, GPS, Bluetooth). Doing 2.7e on Leaflet would have baked Leaflet into the layer iPad waits on.2.7e plan 10-29; 07-04
+D2GroupTrack stays a standalone app; the radio is a plugin. GroupTrack owns all screens; the comm side is headless services behind an API (values in, mesh functions run, results out). Ride radio settings handed over as WHAT; the comm side decides HOW.10-02, 10-08, 10-12
+D3The iPad radio plugin = our own open-source fork of the Meshtastic-Apple mesh code, headless — no base Meshtastic install, no Meshtastic menus. Bluetooth first (the iTAK model); Wi-Fi radio↔iPad set aside (range).10-02, 10-08
+D4CoT is GroupTrack's data format; the comm layer does the wire encoding per transport (compact TAK packet on mesh, TAK protocol on IP).10-03
+D5Prove iPad radio set-up from the same ride config data before writing plugin code — a blocker found early if it fails.10-02
+D6The Android app is never rebased on experimental mesh code; 2.7e stays on its proven integration. Emergency 2.7e fixes only on 2.7e-support.10-02; 11-05
+D7One unknown at a time: prove the environment with known-good artifacts before adding KMP, then KMP before iPad code.07-04
+D8GroupTrack needs a Wi-Fi + Cellular iPad (Wi-Fi-only iPads have no GPS chip). No SIM or plan needed; the first fix is slower without data.11-05
+D10Screens: Compose Multiplatform (Fred 11-06: "I prefer compose multiplatform") — the Android panels are already Compose (Material 3) and move largely as they are; same look on Android and iPad; one codebase. Confirmed only after the spike (§6 step 1): the 2.7e map page in a WKWebView inside a Compose iPad screen with a tap back to Kotlin, plus one real GroupTrack panel.11-06
+D11Design rule: planning components shared and portable; riding components native per platform. The PC/web side is planning only (map, search, AI route design, build routes, recipes, create and send rides) — no riding, radio or recording (Fred 07-04, restated 11-06). Build the planning components as shared KMP logic + Compose screens so 3.0 can take them to the web (Compose for Web / Wasm) integrated with the AWS model, instead of writing them a third time. Swift would close the web door (SwiftUI does not run in a browser).11-06
+D9Google Play only on Android; the App Store for iPad (Apple Developer Program, Fred enrolled 11-05).10-19; 11-05
+3. Environment — ready (11-05/06)
+PartState
+MacMacBook Air (M), macOS 26.7.2 (updated from 26.5.1 for Xcode; macOS 27.2 deliberately not installed — dev tools first). 316 GB free.
+Xcode27.2 (27B52) in /Applications; xcode-select set; license accepted; first launch run.
+iOS SimulatoriOS 27.2 runtime (24B8117) + an extra device-specific iPhone runtime (24B91016s — removable, ~8 GB). Six iPads available; iPad Pro 13-inch (M5) booted and checked: grouptrack.org/videos.html renders correctly in Safari (screenshot Desktop/ipad_sim_videos.png). Open it: Xcode › Open Developer Tool › Simulator (in Xcode 27 the Simulator app is not at the old path). Command-line: xcrun simctl openurl booted &lt;url&gt;, xcrun simctl io booted screenshot &lt;file&gt;.
+Kotlin MultiplatformJava: Temurin 21 (default) + 17; Android Studio with the Kotlin Multiplatform plugin (plugins/kmm-plugin); kdoctor 1.1.0 installed — it says "ready", but still reports the plugin missing because it only knows the old "Kotlin Multiplatform Mobile" plugin (outdated tool, not a problem). CocoaPods skipped (optional; link the shared module as an XCFramework / Swift Package).
+Apple Developer ProgramFred enrolled 11-05 (individual). When active: Xcode › Settings › Accounts › + › Apple ID.
+Already in the codeThe Meshtastic base already uses Kotlin Multiplatform and Compose Multiplatform in core/model, core/common, core/repository, core/resources, core/proto (and core/proto/.../packages/kmp); gradle/libs.versions.toml pins compose-multiplatform 1.11.0-alpha03 and the com.android.kotlin.multiplatform.library plugin. The radio/mesh data models are already shareable. SDK levels (config.properties): MIN_SDK 26, TARGET_SDK 36, COMPILE_SDK 36.
+CodeBranch 2.8 cut 11-06 from tag 2.7e-2026-11-06c (28cef0107), pushed. 2.7e-support at the same commit for emergency fixes.
+Test iPadiPad Pro 12.9" (1st gen), Wi-Fi + Cellular, iPadOS 16.7, no SIM — has GPS; Fred's throwaway. Probably too old for current Meshtastic-Apple; slow. Use the Simulator for current iPadOS; a newer cellular iPad for phase 2.
+4. The bridge surface — first inventory (from the 2.8 branch, 11-06)
+Everything that renders INSIDE the map page ports as is. Every place the page reaches OUT to the device is a bridge call, rebuilt natively on iPad. Its size is the real iPad cost (07-04).
+DirectionWhatCount
+Map page → app@JavascriptInterface callbacks in GroupTrackScreen.kt (two interfaces): onMapReady, onMapBoundsReady, onViewportChanged, onBearing, onMapTap, onMapLongPress, onProximityTap, onMarkerTapped, onTrackTap, onTrailTap, onRouteTap, onWaypointTap, onAreaSelected, onRouteModeOffRequested14 names, 27 annotations
+App → map pageevaluateJavascript calls (draw tracks, trails, routes, carts, land, view, compass…)94
+Map page → filesshouldInterceptRequest serving tiles, fonts, sprites, style from the device (VecMapServer) → on iPad a WKURLSchemeHandler2 places
+Map page assetsassets/vecmap: maplibre-gl.js/.css, liberty_style.json, fonts, sprites, vec_*.js (artstyle, carts, compass, land, nodata, ports, spatial, tracks, view)~17 MB of assets in total
+Kotlin sidegrouptrack/ + convoy/: 181 .kt files, ~64,000 lines; 94 files import android.* directlyto classify
+Next: classify each Kotlin file — pure logic (moves to a shared KMP module), Android-only (rewrite natively), or screen (Compose → SwiftUI). That is the "entanglement inventory" (07-04 step 2).
+5. Open — for Fred to decide
+#QuestionNotes
+O1Shared logic: Kotlin Multiplatform, or rewrite in Swift? → D12 Kotlin Multiplatform (11-06, section 7)Shared module in the MAIN repo on 2.8, used by Android too — never a second copy. SQLite through androidx.sqlite (proved in the spike).
+O2Screens on iPad: SwiftUI, or Compose Multiplatform? → D10 Compose Multiplatform — CONFIRMED by the spike 11-06 (section 7).Risks to watch: the map embed (UIKitView/WKWebView) is the one piece everything hangs on; Android-only code inside panels needs iPad versions; text fields, scrolling feel and accessibility are less "iPad" than SwiftUI; a larger app.
+O3Oldest iPadOS supportedLikely 17+. Check Meshtastic-Apple's minimum.
+O4Position source on iPad (proposed 11-05)iPad GPS when present; else the connected radio's GPS (group riding works, coarser track); both → Fred's 10-12 rule (radio if ≤12 s old, else device); Wi-Fi location = planning only, no REC; none = planning only. The readout shows the source.
+O5GPL of the Meshtastic-Apple forkFine at ~40 installs; a separate conversation at ~40,000.
+O6Paygate on iPadApple in-app purchase rules differ from Play; belongs with 3.0, but the iPad listing needs a decision on free vs paid.
+6. First steps (proposed order)
+☑ DONE 11-06 — see section 7. THE COMPOSE MULTIPLATFORM SPIKE (started 11-06 10:00) — a separate throwaway project ~/Projects/GroupTrackSpike (package com.grouptrack.spike, Android + iOS, Share UI, Kotlin DSL, min SDK 26), created with Android Studio's Kotlin Multiplatform wizard. Use the same Compose Multiplatform version as the main project (1.11.x). Pass = (a) runs on the iPad Pro 13" Simulator, (b) shows the 2.7e map page in a WKWebView inside a Compose screen with a tap reaching Kotlin, (c) one real GroupTrack panel (the Map menu with OVERVIEW rows) moved over.
+☐ Build and run Meshtastic-Apple unchanged in the Simulator (proves Xcode + Swift + the mesh code; shows its minimum iPadOS) — clone into its own folder, never into the GroupTrack repo.
+☑ Done inside the spike (11-06) — A minimal iPad shell: a SwiftUI app with one WKWebView that loads the 2.7e map page from the app bundle (tiles/fonts through a URL scheme handler) — the first GroupTrack map on iPad, in the Simulator.
+☑ DONE 11-06 — section 8. The entanglement inventory of the 181 Kotlin files (pure / Android-only / screen) → decides O1 and the size of the shared module.
+☑ DONE 11-06 (step 3a) — the spatial queries, not RideCalc. KMP spike: one pure-logic piece (e.g. RideCalc or the route-recipe model) built as a shared module and called from the iPad shell.
+☐ Radio set-up proof (D5) on a real iPad with a radio — Bluetooth needs real hardware.
+☐ Then the phase 1 build list — superseded by section 9 (Fred's method, 11-06).
+7. The spike — results (11-06, 10:00–12:00)
+PASSED. Compose Multiplatform carries GroupTrack on iPad. Project ~/AndroidStudioProjects/GroupTrackSpike ($GT_SPIKE), iPad Pro 13" Simulator ($GT_IPAD_SIM), Kotlin 2.4.21 · CMP 1.12.2. Screenshots in _orig/. Environment doc v6 sections 20–22.
+StepWhat was provedEvidence
+1The wizard project builds and runs on the iPad SimulatorBUILD SUCCEEDED; "Compose: Hello" on screen
+2A map web page inside a Compose screen (UIKitView + WKWebView); Kotlin → page (evaluateJavaScript) and page → Kotlin (webkit.messageHandlers)spike_step2b.png: "Map tap: 36.94963, -113.79892" in the Compose header. Fix: read the message with body.toString() (a cast gets nothing).
+2cThe REAL 2.7e map page, unchanged, served by the app (WKURLSchemeHandler gtvec://local/a/… = VecMapServer; https://gtvec.local/ rewritten as files are served). A JS shim gives the page a window.Android — every handler arrives by name.spike_step2c.png: onMapReady, onViewportChanged, onBearing by name; 21/21 tiles; no page errors
+2dFully offline from the Droid's own map store — VEC.mbtiles read in place, same table and raw z/x/y key as MBTilesStore.readTile; Internet ON/OFF switchspike_step2d_off.png: internet OFF, 63 tiles from the store, 0 empty, z15 over Desert Color
+3aThe first real GroupTrack logic in SHARED Kotlin — GtSpatial.kt ported from SpatialDbManager / SpatialDisplayManager / LandAreas (same SQL, same GeoJSON, same limits and zoom gates) over androidx.sqlite; trails, tracks, waypoints, routes, public/restricted land drawn by the page's own functionsspike_step3a.png, z14 St George: Trails 322 · Tracks 2 · Waypoints 4 · Routes 0 · Land 13 — all identical to the 2.7e queries run on the same database on the Mac; query 225 ms; onTrailTap arrives
+Droid 1's data on the Mac (11-06) — $GT_SPIKE/_data/droid1_2026-11-06/, 2.5 GB: both databases, Land_Ownership, osm, states, recipes, rides, route_drafts, imports, settings; maps/tiles/VEC.mbtiles (57,000 vector tiles, z0–z14, SW Utah → the North-East) and DEM.mbtiles. adb cannot read the app's .mbtiles (-rw-------), so a test-only step IPADEXPORT-2026-11-06 (grouptrack/IpadExport.kt, one line in MeshUtilApplication; runs only when GroupTrack/ipad_export.request exists) copied them to Download — test build 2026-11-06_1118_mac_28cef0107_UNCOMMITTED on Droid 1 only. ⚠ Uncommitted on 2.8; CODE RULE 3 — remove before 2.8 is released.
+Spatial database contents (Droid 1): trails 229,178 (motorized access 88,679 · shape only 77,695 · road-concurrent 19,292 · paved shared use 13,886 · TERRA 9,203 · hiking+biking 7,519 · link 2,906 · hiking only 2,491 · rider 1,562 · biking only 1,235 …) · land areas 18,562 (public 15,420 · non-federal 2,666 · restricted 476) · waypoints 595 (trailheads 590) · tracks 130 · routes 23 · reference points 31,376.
+Learned: SQLite is in iOS but not in Kotlin's iOS libraries — use androidx.sqlite (KMP). Map tiles in the store are uncompressed vector tiles (metadata says "webp" — harmless). The Xcode 27.2 "higher than known" warning did not stop any build. Real iPad: iPadOS 16.7 is below the spike's 18.2 target (lower it for device tests).
+8. The entanglement inventory (11-06)
+185 GroupTrack files, 65,200 lines (heuristic scan, ~10 per bucket hand-checked). Full table: GroupTrack_2.8_KMP_inventory_2026-11-06.csv (GroupTrack_docs).
+BucketFilesLinesFate
+A pure logic111,815moves as is
+B model, swappable ties5119,486moves with standard swaps: Log 92 files, File 61, org.json 49, java.time/UUID 44, SQLite 17, http → ktor
+C screens9527,935placeholders first, then filled in manual order (section 9)
+D platform2815,964a shared interface ("socket") each; Android wired to today's code, iPad placeholder until its turn
+Largest: GroupTrackScreen 3,887 (D — must split: ride state machine vs map hosting/GPS), SpatialDbManager 3,274 (B), RouteExplorer 2,357 (B, no Context — easiest big win), HomeStateImportController 1,798 (D — WorkManager), RouteModule 1,674 (C), ConvoyViewModel 1,435 (D — must split). Context in 124 files, mostly for file paths → one shared "where are my files" helper. Five model-like files talk to the map page directly (SpatialDisplayManager, RouteDraftStore, RiderTrailWriter, ConvoyArtifactOps, RidePreview) → one shared "map page" interface. Only one file touches Bluetooth (GrpAwareness). TileCodec (Bitmap) needs a per-platform image decoder.
+9. THE METHOD — Fred 11-06
+Move the whole model, then the screens. The non-screen layer is built first, so every service is waiting when its screen arrives (Fred 11:48, 11:52).
+Screens like the documentation. Wire the whole presentation layer as placeholders generated from the manual's screen tree (the same ids as GroupTrack's menu handlers, e.g. map.backup, map.export_routes) — each shows "&lt;id&gt; — not yet on iPad". Then chase them one at a time, walking the manual's layers. Placeholders left = progress (Fred 11:51).
+CERTIFICATION = THE SCREEN PROCESS, COMPARED WITH TODAY'S RESULT. A service is proven only when a screen process that calls it gives the same result as the Droid on the same data; certifying the screen process certifies every service it calls. Builds, logs and number checks are fault-finding, not certification (Fred 11:53–11:55).
+After each model batch the Droids are re-walked through the same screens — the Android app runs on the shared code, so its certification proves the move.
+One shared module in the main repo on 2.8, used by Android and iPad; the spike is a test bench only.
+Order of the map pieces (Fred 11:36–11:38): map store (done) → spatial database (done in the spike) → the filter (FilterModule / TrailFilterState) so completeness is judged type by type against the database counts above → map settings (map_keys.json, trail colours) → Map menu → 3D (DEM). The map display includes public and restricted areas.
+10. Next steps (11-06 afternoon) — SUPERSEDED by section 11 (the flat step list, Fred 15:44)
+☐ Shared module in the main repo (2.8): read how the repo's existing KMP modules are built (core/model, common, …), add a grouptrack-shared module with Android + iOS targets, the "where are my files" helper and a logging helper. Raise Kotlin / Compose Multiplatform to the spike's versions only if iOS needs it — Android certified on a Droid after any version change.
+☐ Batch 1: the 11 pure files + the database layer (SpatialDbManager's read side, TrailFilterState, LandAreas' display side) — Android switched to it, Droids re-walked (trails / filter / land on ONE MAP compared with today).
+☐ The iPad app in the main repo: the spike's map host (scheme handler, shim, store) moved in.
+☐ The placeholder skeleton from the manual's screen tree.
+☐ Then batch by batch, screen by screen, per section 9.
+11. ⭐ THE STEP LIST — one flat numbered list (Fred 15:44: "why step 1 step 2 step 3 so everything is defined and I know what is next and what is left")
+Rule: no nested labels. Every message says which step we are on. This table is the record; updated in place.
+Where we are (11-11 21:20): steps 1–16 DONE (16c eaa913f54 certified, 16d 64d562813 switched). Step 17 = GroupTrack_2.8_step17_inventory_sequence_2026-11-11_v1.html — the 9 groups, the sequence, the 7-stage process; Fred 21:20 "perfect": the sequence as proposed, G2 (storage, settings, startup) first, G8 (ride runtime, Bluetooth, GPS) after step 18–19 with a real iPad, remove ArtifactSearch / VectorMapTest / ConvoyDevSeeder (and RiderTrailScanner if dead) once each is checked. — was (11-10 17:45): steps 1–15 done — step 15 COMPLETE (15a–15g ported as is, each certified Droid OLD = NEW and iPad = Droid, then switched in the app; last: 15g 57cd2a8a7 + switch 8877ab18e). (v9 said "the iPad has 13 rows about TIMES to resolve": resolved 11-10 — they were Apple's math, fixed by GtMath (§23), and the pre-1970 file time, D14.) Step 16: 16a ✅ GtMath tan / atan / sinh / ln (7f06a478b) · 16b ✅ the save-by-area write path in shared code, not called yet (264f3d186) · 16c next (certify, design §24) · 16d the switch. Ahead: 17 (inventory first), 17b, 17c, 18 (the iPad app).11-07 lessons (they govern every run from here): (1) Math.toRadians on Droid 1 = x × 0.017453292519943295 (probe), not x/180×π — shared code uses the constant (GtRoute; GtRead still /180×π, to check); (2) a side-by-side run must not hold two big caches (OutOfMemoryError 256 MB); (3) every clock field set aside — createdAt, updatedAt AND notes.generated; (4) the comparison stays EXACT — the route search keeps the top 6 of many, so a last-digit difference reorders rides (Fred 19:28); (5) land PUBLIC and ALL both run (Fred 19:23: public / private classified differently now); (6) the log buffer is flooded by DetailGate — record traces live (logcat | grep --line-buffered &gt; file); (7) report files written where adb can read them, flushed as the run goes.
+#StepSize / howHow it is certifiedStatus
+1Shared module :grouptrack-shared (Kotlin Multiplatform: Android + iPad)—Builds for both✅ d1e8afaad
+2Map filter (TrailFilterState / Map Keys); one SQLite per platform; the shared module's own logger—Walked on Droid 1 by Fred✅ 96d7c6fbf
+3ONE MAP display — trails, tracks, waypoints, routes, land — on shared code (GtSpatial)—Walk W before/after: identical counts and map data sizes✅ 1b32f3bbd
+4GPX export text on shared code (GtGpx)—CERTIFIED 852/852✅ 24b949537
+5The certification harness (section 12): OLD = 2.7e on the Droid, NEW = shared code on the Droid, MAC = shared code on the iPad simulator, same data——✅ 24b949537; v3 (sampling + progress) 40e6efa21; v4 (modes reads / writes / all) with step 10
+6Lookups on shared code (GtRead: search, detail card, lists, aliases, trailheads, route / track lookups)—CERTIFIED 447/447 OLD = NEW = MAC (run 1606)✅ 40e6efa21 — not yet used by the screens (step 7)
+7Switch the app's screens to the shared lookups: SpatialDbManager's ~30 reading functions become one-line calls to GtRead (the screens don't change)One patch; the old bodies goHarness reads run: the app's answers (now GtRead) against the SAVED 2.7e results from run 1606 — must stay 447/447; then a walk of search, detail card, lists on Droid 1✅ 6f8ce1c67 — 276/276 vs saved 2.7e (run 0924)
+8Harness speed: compare against the SAVED 2.7e baseline (no OLD side each run); trim the per-trail hash / parse checkSmallA reads run in ~10 min✅ 39bd5effa — the FROZEN copy (gtcert_frozen, 11-07 11:02) + baseline; lookups 234/234
+9Harness checks: (a) every HELP link opens a section that exists; (b) every map batch is valid JSON; (c) every trail can be found at a view centred on it (z12, z14) — names any trail that can never be drawn(a) help_cert_2026-11-06.py(a) CERTIFIED 17:40: 96 code ids, 0 open the front page; 104 table entries, 0 broken; 0 broken links in manual / notes / quick start◐ (a) ✅ fad53fdbb (manual v126, help links v124, notes v73); (b)(c) ✅ 81227ea93 — 20,736 batches valid JSON; z12 1309/1728, z14 1690/1728 found (38 crowded out by the 1,000-trail cap — backlog)
+10Writes on shared code (GtWrite): waypoints (add, rename, retype, delete), routes (add, rename, delete, notes, trailhead anchor), aliases (add, rename, delete, preferred), tracks — database part (add with the 3-layer duplicate rule, rename, delete), trails (add through the import duplicate check: INSERT / DROP / ALIAS, delete, Remove all trail data)Patch GTCERTW + fix1 (a misplaced comment) + fix2 (Droid ran out of memory hashing the trails table — now streamed)Writes run on COPIES of Droid 1's databases (never the live ones): the same scripted ~200 actions on each side, every result line, then EVERY table fingerprinted row by row (ids → NEW#n, clock times → T). OLD = 2.7e with its handles pointed at the copy for the run✅ CERTIFIED 274/274 OLD = NEW = MAC (run 1958; after FIX1–FIX5: a mid-line comment ×2, Droid out of memory, REAL text differs by platform ×2). Committed 19aa24632. HALFWAY POINT
+11Switch the app to the shared writes: SpatialDbManager's write functions call GtWrite (GPX file removal stays on the platform side)One patchWrites run again (app vs saved 2.7e results) + walk: add / rename / delete a waypoint, route, track on Droid 1✅ 79a7618bb (with 12b) — 274/274 app vs shared (run 1324); GtAppDb: the app's own handles so import transactions hold; walked 18:33–18:49
+12Database opening and setup on shared code: init, schema create / upgrade, the delete-and-rebuild gateMedium; Android-only file paths stay behind an interfaceFresh install + upgrade from 2.7e on Droid 2 (no data loss), the gate refuses as today✅ 12a e0503ea11 GtSchema v1 (FRESH / UPGRADE / AGAIN identical on the Mac, rows unchanged); 12b 79a7618bb startup calls GtSchema.ensure after the frozen pre-2.8 steps — Droid 1 log: schema version 1. Fresh install on a Droid NOT done (would wipe it; the Mac FRESH check covers it)
+13Route builder logic (RouteExplorer, 2,357 lines, no Android dependencies — the easiest big file)Large but cleanRoute-build cases: the same start / end / filter give the same route on OLD, NEW, MAC◐ 13a 1183c0382 GtFmt (Java-identical String.format, 4.3 M + 450 k values); 13b + 13c bfdc0d9e8 / 48d497bc5 GtRoute + gt_cert mode routes: 153/153 (run 2009); 13d 801e11da7 ✅ the app runs GtRoute (RouteExplorer.kt a 155-line front door, RouteModule unchanged), walked on Droid 1
+14Rides: ride store, ride packages (send / receive / apply)MediumA ride package made by 2.7e opens identically; one made by the shared code opens in 2.7e✅ 14b + 14c 9657a8ac1 GtRides, CERTIFIED twice vs 2.7e (runs 1225 / 1229: 2042 same, 6 labelled lenient-JSON lines); 14e d78dd7156 the switch (−865 lines) + two GPX attachments for riders without GroupTrack; walked on Droid 1 (Fred 13:05). Found on the way: DbAudit's startup repair read swapped handles (STEP14C-G guard; live data checked, nothing lost). Time zone + calendar → step 22
+15Imports and track sync: GPX / KML / KMZ / GeoJSON import, OSM trails, resolveTrackAdd, track properties, backfill, Resync tracks with their filesLarge; files go through okioImport the same test files on copies, every table compared (as step 10)✅ COMPLETE 11-10. PORT AS IS, certify as is (Fred 11-08 18:23). 15a cf612fd57 + step 7 fix 63550d922 · 15b b7d3642e2 parsers + converter (Droid 529/0, iPad 581/0 + 4 EXPECTED) + switch 3f8e3b2d2 · GEOM A c2830a4b9 · 15c 62beefef6 rider trails + GtRx.WS (Droid 459,085/0, iPad 3,345/0) · 15d a7b2141bb (by analysis, D9) · 15e aa24012ff GPX import, the import preprocessor (+ GtMath phase 1, D14; phase 2 ad80ab2ef) · the 15c/15d/15e switches a0bcd9195 (Droid 1 Resync) · 15f 6b4400f56 agency trail import (Droid 572,503/0, iPad 116,299/0 COMPARED) + switch 120f58e9d (Utah area import 0 new 0 errors) · 15g 57cd2a8a7 OSM extract + import + D16 (Droid 687,564/0, iPad 231,365/0 COMPARED) + switch 8877ab18e (Utah state: tag pass 428,801 rows, extract 93,761, import 93,599 found / 0 new / 0 errors). HomeStateImportController → step 16.
+16Map sources and downloads — REDEFINED 11-09 (Fred 16:10–16:12): a recipe restore is just save-by-area re-run over the recipe's boxes, so the step is: certify the save-by-area WRITES in shared code; working through the queue (fetch, store, mark done) stays platform code and runs as it does now (Android workers; iPad background transfers)Medium (was Large)From the same area or recipe, OLD and NEW produce the same queue requests (boxes, zooms, tile lists, counts, the rows written) — a pure write, no downloads, fast and offline. No extra checks invented ("we don't plan for lightning strike")◐ 16a ✅ 7f06a478b GtMath tan / atan / sinh / ln (MATHTILE 0 / 1,938,346) · 16b ✅ 264f3d186 the write path in shared code (com.grouptrack.shared.queue — GtVectorQueue, GtTileMath, GtQueueEntry + JSON, GtJavaHashMapLong), not called yet · 16c ✅ eaa913f54 CERTIFIED (Droid OLD = NEW 0 DIFF; iPad = Droid 6,399 SAME / 0 DIFF, cross-device COMPARED; 131 tracks, 73 recipes, crafted folders and boxes, the tile math; 1 EXPECTED: a corrupt recipe's reader message; fixA a nested comment, fixB Android opens read/write — the cert reads a copy) · 16d ✅ 64d562813 the switch, files checked byte for byte the certified ones; Droid 1: an area download and a track corridor (54 squares → 9 boxes, 18 jobs) — STEP 16 COMPLETE (11-11) · was: 16d the switch (VectorTiles' writes + enqueueArea's VEC/DEM branch → GtVectorQueue; SAT/TOPO branch, saveQueue, workers stay Android)
+17Remaining model files (inventory section 8 — incl. the 18 files that use the database handles directly)Bucket by bucketHarness case per file group◐ the inventory, the 9 groups, the sequence and the process: GroupTrack_2.8_step17_inventory_sequence_2026-11-11_v1.html (approved 11-11 21:20); next = G2's detailed inventory
+17bThe Droid 2 rebuild walk — THE CONTROL (Fred 14:57–15:56): full image of Droid 2 to the Mac → inventory A → clear + reinstall → first launch → user_id/profile back → the 5 seed-email files → inventory B → compare → restore group by group from the imageTools: gt_roadmap_2026-11-09b.sh + gt_roadmap_compare_2026-11-09b.sh (written, tested on samples); the app-made DB copy still to writeCompare by record counts + content fingerprints per table (never file size: deleted rows leave holes); every folder listed, empty ones too; MISSING-WHOLE-FOLDER vs EMPTY-AFTER. adb cannot read the app's DBs on a release build (Droid 2: -rw-------) — the app makes the copy (TEST-ONLY request mode); these image save/restore tools are the control for the final before/after validation⬜ trial 15:37: folders + 110 small files read, DBs and map stores refused
+17cDecide from the 17b compare whether to repair the seed save for anything it loses, before the Mac acceptance (Fred 14:59)—The 17b gap list⬜
+18The iPad app in the repo (:grouptrack-ipad + iosApp) launching on the shared model with Droid 1's data, saved view and filterSpike code moves inThe map opens on the iPad simulator as on Droid 1. ACCEPTANCE (Fred 14:59): import Droid 2's seed email on the iPad and compare with the rebuilt Droid 2 — this is also the proof of the platform move (iPad ↔ Android: tracks, routes, waypoints, rider trails, maps recipe)⬜
+19Placeholder skeleton for every screen, generated from the manual's screen tree (HELP on each placeholder opens its manual section)GeneratedEvery screen reachable; help_cert on the iPad build · Requires HELP BY DEVICE TYPE (opened 11-07, Fred 11-10 18:05: in the FIRST Apple delivery): every manual / Quick Start / release-notes section marked Android, iPad or both — ONE HTML source, never a per-platform copy — so HELP shows the instructions for the device it runs on; the no-radio button labelled with the device type ("Android only" / "iPad only").⬜
+20Fill in the screens, in manual order, each walked iPad vs Droid on the same dataThe bulk of the hand workEach screen = its services certified (Fred: the screen walk certifies every service it calls)⬜
+21Platform pieces: GPS, radio over Bluetooth (real iPad), background downloads, Files folder, Open in / AirDrop, help in a WKWebViewReal iPad needed for BLEField test in January (Utah)⬜
+22Ride time zone + calendar entry (decided 11-08): rides.time_zone (GtSchema v2), the form like a calendar entry, the .ics, the exact time-zone notice — design in the living master §step22Medium; a database changeThe fixed time-zone table (Utah ↔ Arizona / Nevada / Navajo, DST days, Eastern) on Droid and iPad; .ics golden checks · Added 11-10 19:48 (Fred): calendar entries created from ride CREATION and ride IMPORT (not only the invite's .ics); the ride's date and time stored and entered compatible with calendar entries; the ride's waypoint (name + GPS) in the entry's LOCATION field.⬜
+postPOST-CONVERSION: the import rules — two import processes (Import trails; Import tracks, routes and waypoints) into one GPX importer, the 4 × 4 matrix, the waypoint mapping table, keep converted originals; 11-09: every file split into single-type objects (points → waypoints, also in trail files); expands 15e's import preprocessor — section 20 belowMediumOne case per cell of the matrix⬜
+V3 rule (11-08, agreed): anything stored, hashed or synced is produced identically on every platform (golden-tested on the Droid's own answers), or stored in a canonical form — geom_hash, times, stored computed numbers. Order after 10: 7 → 8 → 9(b)(c) → 11 → 12 … The harness rule stands: whole database, every filter element on and off by itself, OLD / NEW / MAC; heavy per-trail checks sampled (~20,000 + edge set).
+12. THE CERTIFICATION HARNESS (Fred 13:17–13:21, 15:52)
+Fred's method: not a walk per function ("we will be here for a year") — run the old method, log it; run the new method, log it; run the Mac, log it — every filter element on and off by itself — over the database. One command, one report. And (15:52): sample the heavy per-row checks — "realistically the read write test could have been done on 20,000 random records".
+One command: bash "$GT_CMDS/gt_cert_v3.sh" &lt;build&gt; — installs on Droid 1 (deploy_v2 + recording), places GroupTrack/cert_run.request AFTER a force-stop, launches GroupTrack, runs the Mac side meanwhile (./gradlew :grouptrack-shared:iosSimulatorArm64Test --tests '*CertMacTest*' on $GT_IPAD_SIM), waits with no time limit, pulls the Droid file, prints the report (cert_compare_2026-11-06.py). Files: ~/AndroidStudioProjects/GroupTrackSpike/_data/cert/.
+Three sides, one line per check KIND|KEY|VARIANT|COUNT|FINGERPRINT (fingerprint = first 16 hex of SHA-256 of the exact output): OLD = 2.7e's code on the Droid · NEW = the shared code on the Droid · MAC = the shared code on the iPad simulator against the Mac copy of Droid 1's databases. CERTIFIED = all three identical.
+Cases (v3): WHERE — all 19 filter combinations (everything on, each element off/changed by itself, the rider's saved settings) over ALL 229,178 trails · TRAILS — every trail of the sample through query + builder, Restricted on and off · TRACKS / WAYPOINTS / ROUTES / LAND (all 18,562 areas, the 3 overlay settings) · GPX of every waypoint/route and the trail sample · SEARCH (every letter and digit, each type) · DETAIL · ALIASES · LIST · CORRIDOR · THEAD (trailheads near every waypoint) · RUSING · WPTAT · ROUTE · TRACK · GEOMHASH · PARSEGPX.
+The trail sample: every k-th trail id (~20,000) + the EDGE SET (~3,790: names with quotes / apostrophes / backslashes / non-ASCII / blank, restricted segments, multi-part lines) + the 200 largest — the same ids on every side.
+Code (TEST-ONLY — remove before 2.8 ships, CODE RULE 3): shared cert/GtCert.kt, cert/CertRead.kt, iosTest/…/CertMacTest.kt; app grouptrack/GtCertRun.kt (runs only on the request file; holds a FROZEN copy of 2.7e's trail query/builder, land query, GPX builders and filter rules for the OLD side) and the line in MeshUtilApplication. Also test-only: IPADEXPORT (grouptrack/IpadExport.kt, commit 6bcd1ab8e).
+Runs 11-06: 1355 — 840/852 (land acres) · 1413 — 852/852 CERTIFIED · 1430 — 1803/2036 (number text halfway rounding) · 1606 — 447/447 CERTIFIED (sampled). Reports in GroupTrack_docs: GroupTrack_2.8_CERT_report_2026-11-06_1413.txt, …_1606.txt.
+Lessons: (1) the run must happen while GroupTrack is ON SCREEN and must not be force-stopped after it starts (v1 killed its own run: the install restarts the app, that process took the request, the force-stop killed it — v2 stops first, then places the request, then launches). (2) The whole database for every per-row check cost 90 minutes on the tablet — sample instead (v3). (3) Time estimates for Droid runs were wrong three times on 11-06 — measure, do not guess; progress lines inside every long part.
+13. WHAT THE HARNESS FOUND (11-06) — both now fixed and certified
+FindingCauseFix
+12 of 63 land pages differed on the Droid only (Mac = 2.7e)Shared land query read acres (REAL) as text; Android's system SQLite writes a REAL as 15-digit text → an area of 1234.49999999999 acres showed 1235 where 2.7e shows 1234. Was live on Droid 1's ONE MAP since batch 1b (noon).GTLANDACRES — read acres as a number (as 2.7e's getDouble)
+233 detail / search checks differed against 2.7e (Droid = Mac)2.7e reads stored numbers as text through Android's Cursor, which formats a REAL with C %g (6 significant digits) on the EXACT stored value. The shared code rounded the short printed form — differs on exact-halfway digits (36.50225 is held as 36.502249999… → Android 36.5022, shared 36.5023): 113 of 200,000 coordinates.GTCG2 — GtRead.cG rounds the exact stored value, half-even; proved identical to C/Python %g on 1,135,284 values. The iPad now shows exactly what the Droid shows.
+(design) the shared logger's lines vanished from the tablet logMeshtastic sets the global Kermit logger to send a release build's lines to Datadog/Crashlytics, not logcatGTLOG — gtLogger(tag): own config, platform log only, never analytics. Every shared file uses it.
+(design) two SQLite engines on one file in one app can corrupt itthe bundled SQLite (right for iPad) beside Android's own SQLite on the same databaseGTBATCH1A — gtOpenDatabase(): Android = the system SQLite (sqlite-framework), iPad = bundled. One engine per platform.
+Checked 11-06 (Fred 14:06–14:07): neither database has triggers, foreign keys, ON DELETE cascades, ON CONFLICT rules or virtual tables (R-tree / full-text); both use the rollback journal. Every cascade ("a route's notes die with the route") is GroupTrack's own code — it moves and is certified with the code. Per-connection pragmas (the map store's secure_delete etc.) must be set the same on the iPad (speed, not data).
+Known 2.7e defect found 11-06, kept on purpose: a route's GPX with notes carries its &lt;extensions&gt;&lt;grouptrack:notes&gt; block TWICE (before and after the points). Kept so the move certifies byte-identical; fix as its own item (Fred asked whether to list it — not yet answered).
+14. Decisions and requirements recorded 11-06
+D12 Kotlin Multiplatform for the shared logic (recorded in v3).
+Certification = the screen process compared with today's result (section 9) — plus the harness (section 12) for the model layer.
+iPad files (Fred 14:21 "we can get rid of those damned file pickers"): GroupTrack gets its own folder in the Files app (UIFileSharingEnabled + LSSupportsOpeningDocumentsInPlace) — riders drop GPX / ride packages / maps in, no picker; "Open in GroupTrack" from Mail/Messages/Safari/Files via the share sheet; AirDrop straight in; exports land in the folder or go out by share sheet. Limit: other folders still need one pick. Decide when the import/export screens come up.
+Help and manuals must work on iPad (Fred 14:23): grouptrack_manual.html (10.6 MB, 111 screenshots built in), quickstart, release notes and grouptrack_help_links.json shown in the iPad web view like the map, opening at the screen's section; external links (Help › Videos → grouptrack.org) in Safari; check the 10.6 MB page opens quickly. Harness check (step 9): every HELP link's anchor exists in the manual.
+Real test iPad: iPadOS 16.7 is below the spike's 18.2 target — lower the target for device tests.
+15. STEP 10 DESIGN — the writes (mapped 11-06 16:55)
+GroupSpatialDbManager functionsTables
+RoutesinsertRoute, renameRoute, deleteRoute, writeRouteNotes, deleteRouteNotes, deleteRouteAliases, setRouteAnchorroutes, route_notes, artifact_aliases
+TracksresolveTrackAdd → insertTrackToDb, renameTrackInDb, deleteTrackFromDb, updateTrackPropertiesForHash, backfillAllTrackProperties, syncTracksFromFilestracks, track_properties, artifact_aliases
+TrailsinsertTrail (+ the import dedup session: beginDedupSession, sourceUidSeen, markSourceUid, resolveByGeom, endDedupSession), deleteTrailFromDb, clearAllTrailDatatrails, trail_properties, artifact_aliases
+WaypointsinsertWaypointWithId, renameWaypoint, deleteWaypoint, changeWaypointTypewaypoints
+AliasesaddAlias, renameAlias, deleteAlias, setPreferredAliasartifact_aliases
+Never on live data: the run copies Droid 1's two databases (three copies: OLD, NEW, MAC), runs the SAME scripted sequence on each (saves, adds and re-adds for the duplicate checks, imports, renames, deletes, alias changes — a few thousand actions over a sample of real items), then compares EVERY table row by row.
+2.7e's writes go through the one live handle (spatialDb / extensionDb): the OLD side needs a test-only way to point those handles at the copy for the run (Droid 1 on the GroupTrack screen, untouched) — or frozen copies that take the database as input. Decide at the start of step 10.
+IDs and times: nine functions make random ids / timestamps (UUID, the clock) — new rows are matched by creation order, timestamps checked present and sane; the shared code gets a replaceable id/clock source so its own repeat runs are exactly identical.
+Not in step 10: the 18 other files that write through the database handles directly (ride store, profiles, networks, OSM import, DB audit, home-state import, trail importer…) — they move with their own files (steps 13–17).
+First run needs the OLD side to make the baseline (new cases); later runs compare to the saved baseline.
+17. Decided 11-06 evening (Fred) — requirements on the steps ahead
+ItemDecision / requirementAffects
+Riders~60% iPad, 40% Android: the iPad app is the majority platform. iPad app → installed base on both → the community launches on it.everything
+One accountOne V3 user, several login identities: Google (Android) and Sign in with Apple (Apple requires it, or an equivalent privacy login, when an app offers Google sign-in). In place before the App Store submission.V3, step 21
+One subscriptionPlay and the App Store bill separately; V3 records "active subscriber" whichever store billed.V3
+CommunitySupports non-GroupTrack users: routes / waypoints as GPX, ride schedules as calendar invites (.ics). GroupTrack = the better package (maps offline along the ride, trails incl. rider trails, the route on them, group tracking).V3 web front end, step 14
+Background (iPad)Mostly the download queue: foreground as Android; background = iOS background transfers in batches; queue state stays in download_queue. Long jobs (imports, land) foreground + RESUMABLE. GPS and the radio in background: supported. ⚠ Wi-Fi-only iPads have no GPS (cellular iPad or Bluetooth GPS) — open.steps 15, 16, 21
+ScreensAlready Compose: ≈ 6 platform helpers (toast, share, pick a file, open with, back, web view) written once + mechanical edits; risk in the map view, pickers / share, screens calling SpatialDbManager directly.steps 18–20
+App StoreApple Developer membership in place. App Store Connect set-up together 11-07: app record, name, bundle id, TestFlight internal group.step 18
+iOS beta launch kitGATED: only after sample screens from the iPad app AND one working install on a real iPad. Then TestFlight public link, site sign-up (name, email, device, state), a featured teaser panel + Facebook teaser.after step 18
+Manual overviewsFour-part OVERVIEW (What it does · How you use it · What it means to you · When to use it — the "objection staircase") for Route, Rides, MAP KEY, FILTER, Readout, Account: AFTER the first iPad cut.docs
+Harnessgt_cert_v5.sh (request before stop; stops if the run does not start); exact-bits number compare; streamed hashes; patch self-check (no "//" inside edited code lines; braces balance); set -o pipefail in build chains.every step
+16. The day in commits (branch 2.8, all pushed, no attribution lines)
+d1e8afaad shared module · 6bcd1ab8e TEST-ONLY map-store export · 96d7c6fbf filter + one SQLite per platform + own logger · 1b32f3bbd ONE MAP queries · 24b949537 GPX + harness + acres fix · 40e6efa21 lookups + exact %g + harness v3. Evening: fad53fdbb help links certified — manual v126 / help links v124 / notes v73 into the app (RELASSETS-2026-11-06c); step 10 patches GTCERTW + FIX1 + FIX2 applied, running (to be committed on CERTIFIED). Earlier: Droid 1 ran test build 2026-11-06_1605_mac_24b949537_UNCOMMITTED (= 40e6efa21's code); Droid 2 on the released 2.7e.
+Rules carried over: one command at a time; dated Python patch scripts with marker guards; never reuse a filename; code rules 1–3; say so first when a tool or process isn't working; the living docs are the record.
+18. Platform rules for shared code (found 11-06 … 11-09) — every port follows them
+Numbers to text: never Kotlin's own Double/Float toString or string templates for anything stored, hashed, compared or synced — GtJava.jd (Java's Double.toString on both platforms). Text to numbers: GtJavaParse. Times: GtTime. JSON: GtOrgJson.
+Geometry text and its hash: only GtGeom (points in → WKT + geom_hash out; comma with no space, lon first). Geom B (the Android copies onto GtGeom) is still to do, area by area.
+Regex on file text: GtRx.findAll, never Regex.findAll (on Android Kotlin's findAll copies the whole text per match — quadratic).
+Regex whitespace: GtRx.WS, never \s (Android = Unicode White_Space, iPad = ASCII; [\s\S] is fine). 30 uses still to sweep: GtGpxParse 10, GtImportConverter 19, GtRoute 1, GtGeom.parse 1 — one pass + re-cert.
+JVM-only library calls (e.g. Map.putIfAbsent) do not compile for the iPad — the iOS compile check runs before every build.
+Decoded invalid UTF-8 differs by platform — nothing stored, hashed or synced may come from reading a binary file as text.
+Directory listing order is not defined (java.io.File.listFiles vs okio list) — where order decides a result, sort by a defined key.
+Math (11-10, the GtMath rule): shared code calls GtMath for sin / cos / asin / hypot / pow / tan / atan / sinh / ln — never kotlin.math. Android = java.lang.Math (unchanged); the iPad = Android's own algorithms ported to Kotlin, proven bit for bit (§23). Math.toRadians / toDegrees = × Android's constants (GtJava.toRadians / toDegrees).
+Java collections whose ORDER is an output (11-10): a java.util.HashMap's iteration order decides 2.7e's box order in queueSquaresNamed — shared code reproduces it (GtJavaHashMapLong), never Kotlin's HashMap where order reaches a result.
+Certs: every startup job that touches a database is on GtCertGuard before a cert runs (15f: GtUtahPrivate.startup ran on OLD's copy); cross-device fingerprints leave out android_metadata; snapshot sizes are of the MASKED text; snapshots skip SQLite side files.
+Files: a file time before 1970 is refused as java.io.File does (D14).
+19. RECOVERY — a parked release (end of 2.8, or its own release) — decided 11-09 14:57–16:30 (Fred)
+Status: parked, nothing built. Fred 16:04: "this again is a whole new app — tag it for the end of 2.8; it may end up as its own release." 16:26–16:30: full disaster recovery is beyond what we can build; DR is a DEVICE plan, not an application plan — protect only the limited hard-to-recreate data. 17b (the control) defines the gap list that is its input.
+The seed email (exists today) is an emergency seed of personal data — tracks, waypoints, routes, rider trails, the maps recipe — PERIOD (Fred 16:17–16:18), and the platform-move path (iPad ↔ Android), proven at step 18. Nothing else goes into it.
+First launch asks: "Is this a new install, or are you recovering GroupTrack from saved data?" — a recovery never makes a throwaway profile.
+The recovery gate: once a restore starts, every launch returns to the recovery checklist until it is finished; no new activity in between; a piece may be re-run only inside that window; the window closes once (done, or "Stop recovery and start fresh" with a warning).
+The checklist, in order: identity (the saved profile and its user_id — a random UUID made at profile creation, used by rides, check-in, enrollment and 14 other places — replace the temporary one, rows already written under it re-pointed) → the 5 seed files → the DB + archive restore → the data check against the before image → the maps download queue LAST (the maps get their own check when the queue ends).
+What is saved: everything EXCEPT an omit list kept in one place — the rows the email covers, the map stores (rebuilt from the recipe), the state trails and their rules (rebuilt by the state load; ~300 MB), caches, the backup's own files, TEST-ONLY folders. So anything new is saved without anyone remembering it. Databases by TABLE (rows), never whole files.
+Format: a .tar.gz (one file, paths kept, a manifest with relative paths and sha256). Measured on Droid 1's 11-08 copies: data DB 62 MB → 18 MB gzip / 12 MB xz; spatial DB 518 MB → 184 MB gzip (mostly state trails, omitted); map tiles do not shrink.
+Release-proof: a save from any older release restores into every later one through the same schema steps an update runs (a cert case: restore a save from each old version); a save from a NEWER release is refused with a clear message.
+Destination: the rider's choice through the system picker — Google Drive's hidden app folder (no size limit, both platforms), a USB drive, any folder. Android Auto Backup needs no code but has a 25 MB cap and is Android only (worth a one-hour test then).
+The control (17b's image save/restore + record-count compare) judges it — the product never grades itself. The request-file triggers stay test-only; the rider starts everything from the app's screens.
+20. POST-CONVERSION list (each item proven against the certified 2.8 behaviour)
+Import rules (11-08 matrix + 11-09): two import jobs into one GPX writer; every file split into single-type objects — points always waypoints (also in trail files and track files), lines a track, route or trail by the matrix. Built by EXPANDING step 15e's import preprocessor.
+Rider trails off the screen's path: the track add returns as soon as the track is stored; the rider-trail scan runs as a background task, one track after another; the map refreshes when the trails land (the existing trailsChanged signal). The cert waits for the queue to empty before it compares.
+A new rider-trail scan method (Fred 17:30–17:49, for correctness, not speed — the current one leaves gaps a second pass fills): walk the track; where snap-to finds an existing trail, follow it; where it does not, create trail until snap-to finds one again, and join there. One pass, no gaps. Check: snapped length + created length = the whole track (less the tiny-wobble rule). Proven by running old and new on the same tracks.
+D2 MULTILINESTRING joints; D5 + D8 the Resync item; D12 non-finite coordinates (if Fred does not take it earlier).
+The SAT-tile toast (Fred 11-10, after 2.8 is complete): the toast that counts the OLD map volume ("SAT tiles" — VectorTiles.oldTilesOf, VECTILECOUNT-2026-10-31: the recipe's tile total over the old slots, all but VEC / DEM) must show the vector + elevation tiles actually being downloaded (queueSquares returns that estimate).
+D15 the import recap's labels (with D10).
+The map blank at low zoom (11-07, end of 2.8; Fred's description 11-10 18:01): the map is HALF blank at z4 and TOTALLY blank at z3 and below — at z4 the area shown at z5 is redisplayed but area not previously displayed is not retrieved; z3 and below is empty. Online too, on Droid 1.
+Fred's post-2.8 items surfaced 11-10 (detail 17:54–17:58):
+Near-duplicate tracks become aliases — the definition is NOT decided: roughly "covering a % of the same ground"; decide it by exploring the data (Fred 17:58).
+The export round trip — tracks, routes, waypoints and "Rider" trails: what is exported comes back the same when it is imported again.
+Arrow heads — wherever arrow heads are displayed they are not large enough now to show the direction while driving; make them big enough to drive by.
+Land areas disappear below z7 — the public and restricted land areas (their polygon outlines and fills) are not drawn below zoom 7 (a separate item from the 11-07 "map blank at z4 and below").
+The search group filter — the categories must NOT be selected on the way in; selecting a category then restricts the display to the selected category.
+21. 2.7e defects found by the step 15 certifications (11-09)
+D1 "%" in a track name throws in the rider scan's log line — 2.8 FIX (shared code does not throw).
+D2 MULTILINESTRING flattened with straight joints — after the conversion.
+D3 a comment claims a dedup layer that does not exist — harmless.
+D4 stale comments — documentation only.
+D5 the Resync imports convoy_track_temp recordings as tracks (4 "Convoy Track" junk tracks) — later, with D8.
+D6 tracks.bbox text via Kotlin's Double.toString in GtWrite — the cert decides.
+D7 the TrackSyncResult cross-foot comment is false — documentation only.
+D8 a Resync aliases a track under the name inside its file, even its own hash — later, with D5.
+D9 two never-recorded twin files resolve by folder listing order — harness-only in practice (Fred 18:10).
+D10 the import recap's "skipped" list is never filled.
+D11 org.json accepts almost-JSON in a foreign route &lt;desc&gt; that a strict parser rejects — odd input only.
+D12 one Infinity point in an imported GPX → the rider scan fills in forever → out of memory → crash — OPEN, Fred decides when to fix.
+D13 the import's trail/route WKT built with Kotlin's number text (differs on the iPad) — fixed in the port with GtGeom ("the hash trap": GtJava.jd for every double in text).
+D14 (11-10) a track file time before 1970: Android refuses it ("Negative time"), Apple's file call accepted 1582 — shared code refuses as Java does (Android unchanged).
+D15 (11-10) the import recap's labels — post-conversion.
+D16 (11-10, Fred) the OSM ledger's skinny_bytes (file size; deleted rows leave holes) → skinny_rows (total rows by SQL) — CHANGED in 15g, the owner's decision.
+22. The day in commits — 11-09 (branch 2.8, all pushed, no attribution lines)
+b7d3642e2 15b parsers + converter (RXFIX, fixB, fixC) — certified.
+c2830a4b9 GEOM A, GtGeom — certified.
+3f8e3b2d2 15b switch — certified.
+62beefef6 15c rider trails + GtRx.WS — certified.
+a7b2141bb 15d track add / Resync / properties — certified by analysis (D9).
+Uncommitted: 15e (applied 18:14) + the TEST-ONLY 15e fix A (heap logging; largeHeap in the manifest — revert before the commit).
+23. GtMath — Android's math on the iPad (11-10)
+How it was found (07:17–07:37): the 11-09 15e iPad report had 13 rows about times. Fred 07:17: "we have prided ourselves on resolving every difference" — find it, don't accept it. MATHPROBE (a TEST-ONLY probe: the haversine's every step, Droid vs iPad, bit for bit) showed the FIRST differing step was cos (one last bit: droid …5006, iPad …5005), then everything after it. Apple's libm and Android's give different last bits on some inputs; a distance one bit different moves a track property, a rider-trail cut and anything hashed from it.
+The rule: shared code never calls kotlin.math sin / cos / asin / hypot / pow / tan / atan / sinh / ln — it calls GtMath. Android: GtMath = java.lang.Math, unchanged by construction. iPad: GtMath = Android's OWN algorithms in plain Kotlin:
+ cos / sin: FreeBSD msun (Android's libm) — GtMathPort; asin / hypot: fdlibm — GtMathPort. Proof MATHPROBE/MATHPORT: 6,000,000 Droid values (C, S, A, H 1,500,000 each), iPad 0 DIFF (08:13).
+ pow: Arm optimized-routines pow (what Android's libm compiles), with platform.posix.fma for the fused steps — GtMathPow. First tried x·x for pow(x, 2.0): MATHPOW (08:32) showed Android's Math.pow(x, 2.0) is NOT x·x on 1,266 of 1,500,000 (Android's pow is not correctly rounded) → gtmath2b replaced it with the port: 0 / 1,500,000 (09:50). Apple's own pow would differ on 2,305.
+ tan / atan / sinh (+ the exp / expm1 they use): fdlibm, line for line from JDK 21 FdLibm.java — GtMathFdlibm (common code; its huge-argument reduction shares GtMathPort.kernelRemPio2, made internal). StrictMath = the Droid on these, proven by MATHTILE.
+ ln: Arm optimized-routines log (N = 128 table, POLY 6 / POLY1 12, with fma where clang contracts one expression) — GtMathLog (iosMain). glibc aarch64 = the Droid.
+MATHTILE (16a, 16:57): the tile math the save-by-area writes run, on real inputs (every track point's latitude and every 7th trail's, 400,000 latitudes, + seeded random): Apple differed on tan 158,960 / 400,000, ln 647, sinh 29,336, atan 6,943, lat2tile-before-2^z 25,040, stored box edge 15,899. Fred (AskUserQuestion): "Port them to GtMath (Recommended)". After the port (MATHTILE2, 17:10): T, C, L, Y 400,000 each and SH, AT, O 112,782 each — 0 DIFF.
+Math.toRadians / toDegrees = × the constants (GtJava.toRadians / toDegrees), proven again by MATHTILE (Y and O kinds).
+Kept TEST-ONLY until GtCert is removed before the 2.8 release (CODE RULE 3): GtMathProbe.kt (modes mathprobe, mathpow, mathtile) and the iosTest MacTests (GtMathPortMacTest, GtMathPowMacTest, GtMathTileMacTest, GtMathTile2MacTest).
+24. Step 16c — the certification design (11-10)
+What it proves (plan v10 step 16, Fred 11-09): from the same area or recipe, OLD (2.7e) and NEW (GtVectorQueue) produce the same queue requests — boxes, cells, counts, labels, order, the download_queue.json text. A pure write: no download, nothing touches the live queue. No extra checks invented ("we don't plan for lightning strike").
+OLD side (TEST-ONLY, generated by a make_old_copies_16c script, every substitution counted, any miss → nothing written): VectorTilesCertOld = a verbatim copy of convoy/VectorTiles.kt with DownloadQueueManager.enqueueArea( → DownloadQueueCertOld.enqueueArea( and GroupTrackStorage.dir("recipes") → the cert's recipe folder; DownloadQueueCertOld = the two enqueueArea overloads copied verbatim from ConvoyDownloadQueue.kt with init(context), _queue.value = current, saveQueue(), startNextIfAvailable() → nothing, and val current = _queue.value.toMutableList() → the cert's collected list. quickEstimate / segmentCells / QueueEntry.toJson are 2.7e's own pure code, called as they are.
+Ids and clocks: 2.7e's QueueEntry defaults (UUID.randomUUID, System.currentTimeMillis) — each entry takes one of each, in creation order; the cert renumbers OLD's in append order (q1, q2 …, createdAt 0) and gives NEW the same sequence through GtIds / GtClock. Every other field compared exactly.
+The file text: OLD = JSONArray(entries.map { it.toJson() }).toString(2) (Android's org.json); NEW = GtQueueJson.fileText. Compared as text (sha256 + length per case; the first DIFF of each kind written in full).
+DOWNLOAD_ZOOM: the Droid checks ConvoyConfig.DOWNLOAD_ZOOM == 18 (STOP otherwise); the cert's platform answers 18 on both sides.
+Inputs, real data only, written INTO the Droid report so the iPad replays exactly the same ones (hex bits for doubles): (a) every track of the cert copy of the spatial DB (cert15c_input) → squaresFor, then queueSquaresNamed one track at a time (the corridor path) and ALL tracks together with their names (the multi-corridor path — the hardest test of the HashMap order); (b) Droid 1's newest recipe (grouptrack_maps_*.gtmaps) → boxesOf / recipeBoxes, squaresInBox + queueSquares (the restore / conversion path) and queueFromRecipe; (c) the boxes of Droid 1's current download_queue.json (READ only — Fred's real save-by-area areas) → enqueueWithElevation; (d) quickEstimate and segmentCells on the same boxes at zMax 18 (a box big enough to split into several cells is among Fred's real areas or the recipe).
+Verdict: Droid OLD = NEW 0 DIFF, then the iPad = the Droid's report 0 DIFF, cross-device COMPARED (gt_cert_v24, as v23's rule). Expected cost: a few minutes per side (no database writes).
+Known limits of the port, to watch in 16c: the tree-bin case of the HashMap (counted); a corrupt recipe's error text ("Could not read the recipe: …" — the JSON reader's message differs from org.json's; the outcome is the same).
+25. The day in commits — 11-10 (branch 2.8, all pushed, no attribution lines)CommitTimeWhatHow it was proven
+aa24012ff08:1615e GPX import in shared code (GtGpxImport, the import preprocessor) + GtMath phase 1 (GtTracks, GtRiderScan on Android's math) + the 1970 file-date rule (D14)Droid OLD = NEW (2.7e); iPad report = the Droid on every row (the 13 "TIMES" rows of 11-09 are gone — see GtMath and D14 below)
+ad80ab2ef10:18GtMath phase 2: GtRead + GtRoute (+ CertMap) on GtMath; pow on the iPad = Arm's optimized-routines pow, as AndroidMATHPOW: 0 / 1,500,000 values; every iPad check re-run against the Droid (08:45–10:03): CERT, MAPCHECK, SCHEMA, GEOM, R15C, T15D, T15E, GT15A, GT15B, GTFMT, MATHPROBE
+a0bcd919511:1415c / 15d / 15e switches: RiderTrailWriter, SpatialDbManager (track sync, insertWaypoint, resolveTrackAdd, properties, backfill, deleteTrackFromDb, allTrackGeomHashes), ConvoyTrackOps.importGpxAllArtifacts and the import screen's per-file loop call the certified shared code on the app's own handles (GtAppDb) and real environment (GtImportAndroid)checked on Droid 1 with Resync; the TEST-ONLY OLD copies keep the certs running 2.7e
+6b4400f5613:3115f agency trail import (TrailImporter 2.7e) in shared code (GtTrailImport)CERTIFIED Droid 572,503 SAME / 0 DIFF (run 12:47, 1,545 s); iPad 116,299 SAME / 0 DIFF, cross-device COMPARED (13:13, 495 s)
+120f58e9d13:4315f switch: TrailImporter = front door of GtTrailImportchecked on Droid 1: a Utah area import, 0 new, 0 errors
+57cd2a8a716:1615g OSM extract + import (OsmPbfTagReader, OsmExtractWorker, OsmImportWorker, OsmImportStage, OsmImportLedger, OsmLayerCatalog, OsmGpkgDecoder, OsmTrailClassifier, OsmExtractProgress) ported as is to com.grouptrack.shared.osm + D16CERTIFIED Droid 687,564 SAME / 0 DIFF (15:20, 1,634 s; the 14:28 run 687,569 / 0 before D16); iPad 231,365 SAME / 0 DIFF, cross-device COMPARED (15:48, 737 s)
+8877ab18e16:3715g switch: the nine OSM files are front doors; GtOsmAndroid = 2.7e's Android-only code moved word for word (legacy rescue + sweep, free space, the Downloads sweep, the notification); SpatialDbManager.sharedOsmImportchecked on Droid 1 (Utah state): tag pass 428,801 rows, extract 93,761 trails, import 93,599 found / 0 new / 0 errors (Fred: "0 added 149529 processed")
+7f06a478b17:1516a GtMath tan / atan / sinh / ln — Android = java.lang.Math (unchanged); iPad = fdlibm tan/atan/sinh (GtMathFdlibm) and Arm's log (GtMathLog)MATHTILE: 1,938,346 Droid values, iPad 0 DIFF on every kind incl. every stored box edge (Apple's own differed on 236,825)
+264f3d18617:2816b the save-by-area write path in shared code, ported as is (com.grouptrack.shared.queue: GtQueueEntry, GtJavaHashMapLong, GtTileMath, GtVectorQueue) — not called yetcompiles for Android (gt_build_v2) and the iPad (11 s, one harmless warning); 16c certifies
+Step 15 is COMPLETE (15a–15g ported, certified on the Droid and the iPad, and switched).
+
+
+=== GroupTrack_2.8_step17_inventory_sequence_2026-11-11_v1.html ===
+GroupTrack 2.8 — Step 17: the remaining model, sequence and process (v1, 2026-11-11)
+body{font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1150px;margin:0 auto;padding:24px;background:#0f1216;color:#e6edf3}
+h1{font-size:22px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}h2{font-size:18px;color:#58a6ff;margin-top:30px;border-bottom:1px solid #2a3038;padding-bottom:4px}
+h3{font-size:15px;color:#e3b341;margin:16px 0 6px}code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+table{border-collapse:collapse;width:100%;margin:8px 0;font-size:13px}th,td{border:1px solid #2a3038;padding:5px 8px;text-align:left;vertical-align:top}th{background:#1a2027;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:12px 16px;margin:10px 0}.next{border-left:4px solid #58a6ff}.warn{border-left:4px solid #d29922}.done{border-left:4px solid #3fb950}li{margin:4px 0}
+GroupTrack 2.8 — Step 17: the remaining model files, the sequence, and the process (v1 · 2026-11-11 21:20)
+Where 2.8 is (11-11 21:10): steps 1–16 DONE — every step ported AS IS, certified (Droid OLD = NEW; iPad = Droid, cross-device COMPARED) and switched. Today: 16c eaa913f54 (the save-by-area writes: Droid 0 DIFF, iPad 6,399 SAME / 0 DIFF) and 16d 64d562813 (the switch; area download + track corridor checked on Droid 1). Pushed.
+Step 17 (plan §11): "Remaining model files (inventory §8 — incl. the 18 files that use the database handles directly) · bucket by bucket · harness case per file group." Rule: the inventory and bucket list go to Fred BEFORE any port. This document is that list.
+1. What is left (the 11-06 inventory, re-checked against the code tonight)
+Bucket (11-06)FilesLines nowAlready on shared code (switched)
+A pure logic111,6172 (OsmTrailClassifier, ConvoyNode)
+B model, swappable ties5112,94613 — SpatialDbManager, RouteExplorer, TrailImporter, ConvoyRideStore, TrailFilterState, the 6 OSM files, VectorTiles, RideApplySource, ConvoyRideJsonWriter (3,082 lines)
+D platform2813,461parts of 8 (the import / download / OSM front doors)
+C screens9527,937— (steps 19–20: placeholders, then filled in manual order)
+Steps 1–16 moved the data core: the database (reads, writes, schema), the map filter and display, routes, rides, every import, rider trails, OSM, agency trails and the save-by-area queue. What remains of the model is grouped below by what it does — each group is one harness case (plan §11 step 17).
+2. The groups
+G1 — Map store and map sources (what the map draws from)
+FileLinesTiesFate
+MBTilesStore605SQLite (the tile stores)port + cert (tile rows on copies)
+MapSourceManager599Context, assets, prefsport (sources, slots) + a settings socket
+TileCodec66android BitmapSOCKET: a per-platform image decoder (plan §8)
+VectorTiles (rest: tileTemplate, downloadSources, oldTilesOf), ElevationTiles~110okhttp, assetsport; http through the shared client
+ConvoyMapRecipe, MapStateStore390Context, filesport (recipe file, saved view)
+ConvoySourceClear, ConvoySourceMigration, ConvoyCorridorDelete, GroupTrackConversion1,442Context, filesport + cert (what is deleted / converted, on copies)
+ConvoyTileCalculator (rest), ConvoyTileDownloader (the fetch)710okhttp, workersthe math ports (part done in 16b); the FETCH stays platform (plan §11 step 16, Fred 11-09)
+G2 — Storage, settings, profile, startup (what the app opens with)
+FileLinesTiesFate
+GroupTrackStorage224Context, pathsSOCKET: the one "where are my files" helper (plan §8: Context in 124 files, mostly for paths)
+ConvoySettingsRepository, ConvoySettingsViewModel, ConvoyConfig, ConvoyMasterConfig, ConvoyEventConfig780prefs, Contextport behind a settings socket
+ConvoyUser, ConvoyProfileStore, ConvoyNetworkStore, ConvoySessionManager549SQLite, prefsport + cert (rows on copies)
+StateData, StateDataQueue319Contextport
+StartupHousekeeping, DbAudit505SQLite, Contextport + cert (each startup job on copies; GtCertGuard stays)
+GtHelp, IpadExport, ConvoyMarkerRenderer111Contextsmall: port / socket
+G3 — Trail rules and land (who may ride where)
+FileLinesTiesFate
+TrackRules589SQLiteport + cert
+LandAreas550SQLite, http (PAD-US)port + cert (display side already in step 3)
+OwnershipReclass677SQLiteport + cert (the 15f lesson: it runs at startup — on GtCertGuard)
+TrailCheck, UtahPrivate, TrailCleanup743SQLiteport + cert
+G4 — The map-page talkers (model code that talks to the map page directly — plan §8)
+FileLinesFate
+SpatialDisplayManager, RouteDraftStore, ConvoyArtifactOps (+ RidePreview; RiderTrailWriter already switched)1,649ONE shared "map page" interface, then port; cert = the map batches sent for the same view (step 3's method)
+G5 — Pure ride logic (no Android at all)
+FileLinesFate
+RouteManager, LeadEstimate, ConvoyEngine, TrailClassifier, RideStats, RecordingState, ConvoyNavArgs1,009port as is; cert = golden values Droid vs iPad (the 15a method)
+ArtifactSearch132no caller found — remove rather than port? (Fred)
+RiderTrailScanner373called only from RiderTrailWriter (switched at 15c) — check it is now dead; remove with the cert copies? (Fred)
+LaunchModules151app wiring — likely stays Android
+G6 — Exports and sharing
+FileLinesFate
+ExportAll (SQLite), GtBackup, GtConfigPdf, GtRideStatsSend, ConvoyRideSend, ConvoyFileReceiver~900the content ports + cert (the files made, byte for byte — step 4's method); the share / email / open-with step is a SOCKET
+G7 — Server and catalogs (network)
+FileLinesFate
+ConvoyApiClient, NetworkGenerator, ConvoyInviteHandler, GeofabrikCatalog994http → the shared client (ktor, plan §8); cert = the requests made, against a replay server (15f's method)
+G8 — Ride runtime and group awareness (needs a real iPad)
+FileLinesFate
+GroupTrackScreen (ride state machine part), ConvoyViewModel5,320MUST SPLIT first (plan §8): ride state machine (shared) vs map hosting / GPS (platform)
+ConvoyGpsService, TabletPosition643SOCKET: GPS (step 21)
+GrpAwareness, GroupTrackComm677SOCKET: radio over Bluetooth (step 21; field test in January, Utah)
+G9 — Workers and background (stay platform)
+FileLinesFate
+ConvoyDownloadWorker, ConvoyCorridorWorker, ConvoyDeleteWorker, ConvoyDownloadNotification, ConvoyDownloadActionReceiver, OsmImportPanel909stay Android (WorkManager); the iPad gets its own background transfers (step 21). Only the interface they call is shared.
+HomeStateImportController1,801SPLIT: the state-import model (shared — most of it already behind 15f / 15g) vs WorkManager (platform)
+VectorMapTest, ConvoyDevSeeder568dev / test screens — remove before release rather than port? (Fred)
+3. The proposed sequence (by what step 18 needs first)
+Step 18's acceptance (plan §11): the map opens on the iPad simulator as on Droid 1, with Droid 1's data, saved view and filter; then Droid 2's seed email imported on the iPad. So the order follows what the iPad needs to open the map, then what the screens need:
+17-1 G2 storage, settings, startup — the iPad can find and open its files, settings and profile (the "where are my files" socket first; it removes most of the 124 Context uses).
+17-2 G1 map store and sources — the iPad map draws from the same stores (the image decoder socket).
+17-3 G4 the map-page interface — the display and route-draft code talks to either map page.
+17-4 G3 trail rules and land — who may ride where, the same on both.
+17-5 G5 pure ride logic — small, fast certs (golden values).
+17-6 G6 exports and sharing — the seed email the step 18 acceptance imports.
+17-7 G7 server and catalogs — sign-in, rides on AWS, the state catalog.
+17-8 G9 the worker interfaces (the workers themselves stay Android).
+G8 ride runtime and group awareness — AFTER step 18–19, with the screens and a real iPad (Bluetooth + GPS; field test January, Utah). The two big splits (GroupTrackScreen, ConvoyViewModel) are done in this group.
+Then 17b (the Droid 2 rebuild walk — the control), 17c, 18.
+4. The process, per group (the method that took steps 10–16 through)
+Inventory the group — every file, every caller, every Android tie — to Fred before any port.
+Simulate on the Mac's real data where the group computes something (as tonight's 16c simulation: volumes, edge cases, what the cert will meet) — before any patch is applied (Fred 11-11 18:48).
+Port AS IS into grouptrack-shared — the platform rules (plan §18): GtMath, GtJava text, GtOrgJson, GtRx, GtGeom, sorted listings, Java collection order where it reaches a result. No behaviour change.
+iPad compile (compileKotlinIosSimulatorArm64) before every build.
+Certify: TEST-ONLY generated OLD copies (counted substitutions; any miss writes nothing), ONE shared runner, Droid OLD = NEW (0 DIFF), then the iPad = the Droid's report (0 DIFF, input fingerprints equal: "cross-device COMPARED") — on real data, nothing live touched.
+Switch: front doors; the files checked byte for byte against the certified ones before the switch (16d's check).
+Walk on Droid 1 the screens that use it; commit by explicit paths, no attribution lines; push.
+Sockets (paths, settings, image decoding, GPS, Bluetooth, share / email, background work): a shared interface; Android wired to today's code unchanged; the iPad a placeholder until its turn. A socket is checked by a Droid walk, not a cert (there is no new logic in it).
+5. For Fred to decide
+The sequence in §3 (or another order).
+Remove rather than port: ArtifactSearch (no caller), VectorMapTest and ConvoyDevSeeder (dev screens), and RiderTrailScanner if it proves dead after 15c.
+G8 (ride runtime, Bluetooth, GPS) after step 18–19 with a real iPad — or earlier.
+The first group to inventory in detail: G2 (recommended — it is what the iPad opens with).
+Counts are from the 11-06 inventory table (GroupTrack_2.8_KMP_inventory_2026-11-06.csv) re-measured on today's 2.8 code; "switched" was found by the switch markers in each file. Each group's detailed inventory (step 1 of the process) re-checks its files one by one before anything is ported.
+
+
 === GroupTrack_COMPLETED_TASK_2026-10-22_v1.html ===
 GroupTrack Completed 2026-10-22
 :root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
@@ -4371,6 +4733,111 @@ GroupTrackOG — Quick Start
 Rel 2.7e · the common jobs, step by step. Tap a task to open it; each step links to the User Manual
 section that explains that screen, and every screen's HELP opens that same section.
 GroupTrackOG 2.7e has one map — a vector map, drawn sharp at every zoom, with the shape of the ground for 3D. Everything is reached from the buttons around its edge: MENU top left, the ride button top centre, a column
+down the right side, and the bottom bar. Two documents come with it: this Quick Start — how to get a job done — and the
+User Manual — what every screen does and how to use it. What is new is in the
+release notes.
+⚠ If your GroupTrackOG has not been updated since Rel 2.6c (22 July 2026) — start over. You have missed many structural changes, and this is the cleanest way forward:
+Save your tracks — open your tablet's Files app and copy the Documents › my_tracks folder into Download.
+Uninstall GroupTrackOG, then install it again from Google Play. The new install starts clean. Your old GroupTrackOG folders stay in Documents (old maps can take several GB): once your tracks are back, you can delete Documents › GroupTrack and Documents › my_tracks to free the space.
+Import your tracks — Map › IMPORT MAP FEATURES › Import files, pick the files in Download, and choose DELETE FILES &amp; CLOSE — your tracks are safely in GroupTrackOG and your Download folder stays clean.
+★ For every rider — import your track history. Every ride you have recorded, in GroupTrackOG or any other app (onX, Gaia GPS, Garmin…), can extend the trail network GroupTrackOG knows. Export your tracks as GPX, then tap the GPX attachment in your email, or use Map › IMPORT MAP FEATURES › Import files for files in Download — choose DELETE FILES &amp; CLOSE to keep Download clean.
+Each track is imported under its own name, and also creates unnamed "Rider" trails — only for the sections of your track where no known trail exists — extending your trail network. "Rider" is a trail type you can identify in FILTER.
+Moving to a new tablet? Map › EXPORT MAP FEATURES › Export all tracks takes your GroupTrackOG tracks with you.
+onX, Gaia GPS and Garmin are trademarks of their respective owners; GroupTrackOG is not affiliated with them.
+The words we use. You go on a ride, you follow a route, and you record your track. Trails are on the ground, routes are planned, tracks are recorded — and a ride brings them together. All of them, and waypoints and trailheads: The words GroupTrackOG uses.
+1 · First startInstall GroupTrackOG and set it up once.Install GroupTrackOG from Google Play and open it. (Before the map: first start) Updating from an earlier version? GroupTrackOG first rebuilds the maps on your tablet in the new form — connect power and the internet, then PROCEED (Updating to one map).Choose your home state when GroupTrackOG asks: its trails are imported — your starting trail network. Riding in other states too? Map › Import trails by state. Riding in Utah? Then Map › Assign Utah private property.Fill in your rider profile: your callsign, email, vehicle and colour. MENU › Account.Bring in your riding history. Export all your tracks from the navigation apps you used before (onX, Gaia GPS and others) as GPX files, and import them: Map › Import tracks, routes and waypoints from GPX files, with maps. GroupTrackOG imports your tracks, downloads the maps around them, and creates new trails for any trails you have ridden that are not yet in its trail database. This gives GroupTrackOG the best starting point to serve the way you ride.Riding with a mesh radio? MENU › Settings › turn Group awareness on. Riding alone with the tablet, leave it off.Imported tracks before 5 October 2026? Run Map › Create trails from tracks once. Running it again does no harm.
+2 · Set up the mapMake the map show what matters for your ride.Choose how you look at the map, on the right side: 2D / 3D — the shape of the ground — and N up / My dir — north up, or the way you are going up. The compass beside MENU shows north; tap it for north up. To tilt the map, put two fingers side by side and slide them up together.Choose what is drawn — trails, tracks, routes, waypoints, public or private land: FILTER.Find out what a line means, or change its colour: MAP KEY, then STYLE › on its row.Learn to move around the map: Map gestures and Touching the map.
+3 · Plan a routeLay out where the group will ride.Tap Add Route on the bottom bar.Let GroupTrackOG design it: AI route design — there must be a trail within ½ mile (2,640 ft) of where you start. Or draw it yourself: Build it myself.Save it. A trailhead within 0.1 mile (528 ft) of the first point is reused; otherwise a new one is made.Old unfinished routes in the way? Clear leftover routes.
+4 · Get the maps before you lose signalDownload the maps you will need where there is no cell service.Along a route or track: Map › Download maps along tracks. For a whole area: Map › Download maps by area.Watch it finish: the first line of the Map menu, or DETAILS › the queue.Check where your maps reach: FILTER › OFF-GRID MAPS › tick Available.Leave Download settings › Replace existing tiles off, unless you want those maps downloaded again.
+5 · Create a ride and send itOne ride holds the route, trailhead, date and time, the maps and the radio setup.Rides › Create a ride. Start from a route or a track; GroupTrackOG looks for trailheads within ½ mile (2,640 ft).Complete every item — a ride cannot be sent until it is complete.Rides › My rides › Send. An email opens with the ride attached: add the riders' addresses and send.
+6 · Get a ride someone sent youOpen the ride and GroupTrackOG sets everything up.Tap the ride attachment in the email and choose Open with GroupTrackOG. Watch the route, the trailhead, the offline maps and the mesh radio setup for the ride being created.Saved the file instead? Rides › Import a ride — the section shows how to find it in a busy Downloads folder.Riding with a radio: put the ride's settings on it — RADIO SETUP › Configure radio for rides.
+7 · Ride on your ownOne rider, no radio: the tablet's GPS places your cart.Set Mode to Android only.Tap REC to record your track.Keep your cart in view: CENTRE ON ME. Read your speed, heading and battery on the readout.Finish: Ending the ride.
+8 · Ride as a groupSeveral riders, each with a mesh radio: every cart on the map, no cell service needed.Set Mode to Group, and connect your radio: GRP Awareness.Tap CHK IN and choose your ride (or No scheduled ride and name your track) and your role. Checking in does not start recording — the button then reads REC: tap it to record.See every cart, and change roles: Rides › View checked-in carts.Switch the readout between your cart and the group: View: My Cart / Group (the readout).
+9 · After the rideFinish cleanly and help us improve GroupTrackOG.End the ride. Your track is saved, and ground you rode where no trail is published becomes a rider trail by itself.Send the ride's statistics to GroupTrackOG: Rides › Email last ride statistics (Rides).See how well the radios heard each other: MENU › Settings › Ride statistics.
+10 · Something wrong?Help is on every screen.HELP, top right of every panel, opens the manual at the job you are in.ISSUE, beside it, captures the screen and emails it to us — say in the email what went wrong.A trail missing from the map: MENU › Settings › Check a trail.What changed in this version: the release notes.Map › Resync tracks is a repair tool — use it only when GroupTrackOG support asks.
+
+
+=== GroupTrack_QuickStart_2.7f_2026-11-11_v99.html ===
+GroupTrack Off Grid — Quick Start — Rel 2.7f (v99, 2026-11-11)
+body{font:16px/1.7 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:820px;
+margin:0 auto;padding:20px;background:#0f1216;color:#e6edf3}
+h1{font-size:24px;color:#58a6ff;margin-bottom:4px}
+.sub{color:#8b949e;font-size:15px;margin-top:0;margin-bottom:22px}
+details{margin:10px 0;border:1px solid #2a3038;border-radius:8px;background:#161b22}
+details[open]{background:#12171d}
+summary{padding:14px 16px;cursor:pointer;font-weight:bold;font-size:16px;
+color:#58a6ff;list-style:none;line-height:1.45}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸ ";color:#8b949e}
+details[open]>summary::before{content:"▾ "}
+details details{margin:8px 14px 8px 14px;border-color:#232a33}
+details details>summary{font-size:15px;color:#8fd0ff;padding:11px 14px}
+.body{padding:2px 18px 16px 18px}
+.step{margin:14px 0}
+.step b{color:#e6edf3;display:block;margin-bottom:2px}
+.note{background:#1a2027;border-left:3px solid #d29922;padding:10px 13px;
+margin:14px 0;border-radius:0 5px 5px 0;font-size:15px}
+.more{background:#12203a;border-left:3px solid #58a6ff;padding:10px 13px;
+margin:14px 0;border-radius:0 5px 5px 0;font-size:15px}
+code{background:#0d1117;padding:1px 6px;border-radius:3px;font-size:14px;color:#8fd0ff}
+li{margin:6px 0}
+.pick{font-size:15px;color:#8b949e;margin:16px 0 8px}
+.navtree{font-size:14px;line-height:1.5;margin:10px 0}
+.navtree .l1{color:#8FD0FF;font-weight:bold;margin-top:13px}
+.navtree .l2{color:#dde3e9;padding-left:22px;margin-top:3px}
+.navtree .l3{color:#8b949e;padding-left:44px;margin-top:2px;font-size:13px}
+.mesh{color:#d29922;font-size:11px;font-weight:normal;
+border:1px solid #4a3d1a;border-radius:3px;padding:1px 5px;margin-left:6px}
+.shot{width:100%;max-width:1152px;border:1px solid #2a3038;border-radius:6px;
+display:block;margin:14px 0 4px}
+.cap{color:#8b949e;font-size:13px;margin:0 0 8px}
+.leg{border-collapse:collapse;width:100%;font-size:13px;margin:0 0 6px}
+.leg td{border:1px solid #2a3038;padding:5px 9px;vertical-align:top}
+.leg td.k{width:30px;text-align:center;font-weight:bold;color:#ff2d55}
+.leg td.n{width:180px;color:#e6edf3;font-weight:bold}
+.foot{color:#8b949e;font-size:12px;font-style:italic;margin:0 0 14px}
+.mand{background:#1b1410;border:2px solid #d29922;border-radius:8px;
+padding:8px 16px 14px;margin:12px 0}
+.mand .mh{color:#e3b341;font-size:12.5px;text-transform:uppercase;
+letter-spacing:.7px;font-weight:bold;margin:8px 0 8px}
+.mand label{display:block;margin:7px 0;font-size:15.5px;cursor:pointer;color:#e6edf3}
+.mand input{margin-right:9px;transform:scale(1.2)}
+h3.ch{font-size:16px;color:#8FD0FF;margin:26px 0 4px}
+.tlink{color:#e6edf3;text-decoration:none;border-bottom:1px dotted #4a5560}
+.tlink:hover{color:#8FD0FF;border-bottom-color:#8FD0FF}
+.mand .tlink{color:#e6edf3}
+.mbtn{display:inline-block;background:#12203a;border:1px solid #58a6ff;
+color:#58a6ff;font-weight:bold;font-size:13.5px;padding:9px 16px;
+border-radius:6px;text-decoration:none;margin:4px 0 14px}
+.meshonly{display:block;color:#d29922;font-size:12.5px;font-weight:normal;
+margin-top:3px;font-style:italic}
+.chall{background:#12171d;border:1px solid #2a3038;border-radius:8px;
+padding:6px 16px 14px;margin:12px 0}
+.chall .cg{color:#8b949e;font-size:12px;text-transform:uppercase;
+letter-spacing:.6px;margin:14px 0 6px;font-weight:bold}
+.chall label{display:block;margin:6px 0;font-size:15px;cursor:pointer}
+.chall input{margin-right:9px;transform:scale(1.15)}
+.figure{background:#0d1117;border:1px dashed #3a4450;border-radius:6px;
+padding:26px 14px;margin:14px 0;text-align:center;color:#6b7580;font-size:13px}
+h3{margin-top:16px;margin-bottom:4px}
+.ex{margin:8px 0}
+.ex>summary{font-size:15px;color:#8fd0ff;padding:11px 14px}
+.man{font-size:14px;margin:10px 0 2px}
+a{color:#58a6ff}
+h2{font-size:19px;color:#e6edf3;margin-top:34px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+.train{font-size:15px;color:#8b949e;margin:18px 0 6px}
+ol.steps li{margin:5px 0}
+/* DOCOG-2026-11-07: THE GROUPTRACK OG MARK -- the raised OG; the mark at 88% so it fits where GroupTrack fit */
+.gtL{white-space:nowrap;font-size:.88em}.gtL sup{font-size:.42em;font-weight:800;letter-spacing:.03em;vertical-align:super;margin-left:.08em;color:#e39a00;line-height:0}
+<!-- QS v93 (2026-10-27): first start seeds the trail network from the home state.
+QS v92 (2026-10-27): the words we use (TERMS), linked to the manual's terms section.
+QS v91 (2026-10-27): rewritten for 2.7c One Map -- ten tasks, each step linked to the 2.7c manual's process sections (HELP ids). Replaces the
+2.7b exercises (v90, kept in GroupTrack_docs). Built by GroupTrack/inbox/quickstart27c_build_2026-10-27.py; the build stops on a link to a missing section. -->
+GroupTrackOG — Quick Start
+Rel 2.7f · the common jobs, step by step. Tap a task to open it; each step links to the User Manual
+section that explains that screen, and every screen's HELP opens that same section.
+New in 2.7f — the AI route planner. Rides now come back by a different trail and use the miles you ask for, with several to choose from. While you add your own places, an orange rectangle shows how far a ride can reach and green trails show where your pins can go. In areas with few trails or places of interest the planner says so, recommends pins, and plans from 10 miles. AI route design
+GroupTrackOG has one map — a vector map, drawn sharp at every zoom, with the shape of the ground for 3D. Everything is reached from the buttons around its edge: MENU top left, the ride button top centre, a column
 down the right side, and the bottom bar. Two documents come with it: this Quick Start — how to get a job done — and the
 User Manual — what every screen does and how to use it. What is new is in the
 release notes.
@@ -25972,8 +26439,8 @@ Earlier, kept: Branch: feature/convoy-event-ride · seven commits 09-23 (ride JS
 Release: 2.7 · Next: finish the JSON test → IMPORT → a Send screen → Thursday Natak call.
 
 
-=== grouptrack_handoff_2026-11-11_v111.html ===
-GroupTrack handoff — 2026-11-11 13:05 (v111) — AI route planner: scenic fill, variations, connected trails green — committed on 2.8 · next: 2.7e replay → Play, then 16c · was (v110) — Moab AI-route fixes committed on 2.8 · open: compare pins + rectangle not seen · then recipe test, 2.7e replay, 16cbody{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1200px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+=== grouptrack_handoff_2026-11-11_v112.html ===
+GroupTrack handoff — 2026-11-11 21:25 (v112) — 2.7e update f on Play production · 2.8 step 16 COMPLETE · step 17 planned, G2 next · was (v111) — AI route planner: scenic fill, variations, connected trails green — committed on 2.8 · next: 2.7e replay → Play, then 16c · was (v110) — Moab AI-route fixes committed on 2.8 · open: compare pins + rectangle not seen · then recipe test, 2.7e replay, 16cbody{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1200px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
 h1{font-size:23px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
 h2{font-size:18px;color:#58a6ff;margin-top:34px;border-bottom:1px solid #2a3038;padding-bottom:5px}
 h3{font-size:15px;color:#b8c2cc;margin:18px 0 6px}
@@ -25986,10 +26453,38 @@ th{background:#1a2027;color:#8FD0FF}
 td:first-child{font-weight:600;color:#e3b341;white-space:nowrap}
 .hi{color:#e3b341} .fig{overflow-x:auto;background:#161b22;border-radius:6px;padding:8px 0}
 .fig svg{max-width:100%;height:auto;display:block;margin:0 auto}
-li{margin:5px 0}GroupTrack handoff — 2026-11-11 13:05 (v111) — the AI route planner WORKS AGAIN the way it used to: it comes back by another trail and fills toward the ceiling (the scenic route, not the fastest), gives several distinct rides, and shows the trails connected to the trailhead in green while pins are dropped — all committed on 2.8 (4a3e8681c · 31429347b · 7a019c485 · bab0fad35) · Fred: "much better results" · next: the 2.7e replay → Play (Fred's yes), then 16c — before that, 10:25 (v110) — AI-route work of the morning COMMITTED on 2.8 (b7cd26242 · f35ef8c90 · 782ded022 · 7c36038f1 · AICMPCTX unverified) · OPEN: the compare table did not show the pins + rectangle (10:23) · next: verify that, aifailtrim, the reachable-features test at "Add your own places?", recipe test, 2.7e replay → Play, then 16c — before that, 01:40 (v109): ⚠ MOAB AI-ROUTE CRASH (live in 2.7e, a rider hit it): crash fix 1 + the drop-pins message applied on 2.8, NOT committed · the pin-drop crash fix (AIPINWAIT) written and dry-run, apply in the AM · then 2.7e replay → Play · then back to 16c — earlier the same day: 2.8 step 15 COMPLETE (15e · switches · 15f · 15g certified Droid + iPad and switched) · GtMath · 16a · 16b committed and pushed (264f3d186) · next: 16c (certify the save-by-area writes), 16d (switch), 17 inventory
+li{margin:5px 0}GroupTrack handoff — 2026-11-11 21:25 (v112) — 2.7e UPDATE f LIVE on Google Play (all four tracks, 29321521, the AI-route fixes for riders) · 2.8 STEP 16 COMPLETE: 16c CERTIFIED (eaa913f54) and 16d SWITCHED (64d562813) · step 17 PLANNED (9 groups, the sequence, the process — Fred "perfect") · next: G2's detailed inventory — before that, 13:05 (v111) — the AI route planner WORKS AGAIN the way it used to: it comes back by another trail and fills toward the ceiling (the scenic route, not the fastest), gives several distinct rides, and shows the trails connected to the trailhead in green while pins are dropped — all committed on 2.8 (4a3e8681c · 31429347b · 7a019c485 · bab0fad35) · Fred: "much better results" · next: the 2.7e replay → Play (Fred's yes), then 16c — before that, 10:25 (v110) — AI-route work of the morning COMMITTED on 2.8 (b7cd26242 · f35ef8c90 · 782ded022 · 7c36038f1 · AICMPCTX unverified) · OPEN: the compare table did not show the pins + rectangle (10:23) · next: verify that, aifailtrim, the reachable-features test at "Add your own places?", recipe test, 2.7e replay → Play, then 16c — before that, 01:40 (v109): ⚠ MOAB AI-ROUTE CRASH (live in 2.7e, a rider hit it): crash fix 1 + the drop-pins message applied on 2.8, NOT committed · the pin-drop crash fix (AIPINWAIT) written and dry-run, apply in the AM · then 2.7e replay → Play · then back to 16c — earlier the same day: 2.8 step 15 COMPLETE (15e · switches · 15f · 15g certified Droid + iPad and switched) · GtMath · 16a · 16b committed and pushed (264f3d186) · next: 16c (certify the save-by-area writes), 16d (switch), 17 inventory
 FRESH START FOR 2.7c (Fred 10-21 19:20): "we are on 2.7c, everything before that should be gone." This handoff holds only 2.7c work and the items still open from 2.7b. Everything removed &mdash; all 191 sections of living master v164 and all of handoff v70, word for word, with the 13 that were still marked open listed first &mdash; is in GroupTrack_REMOVED_through_2.7b_2026-10-21_v1.html (in docs/ and in GroupTrack_AllDocs_2.txt), and every earlier dated version is in GroupTrack_AllDocs_1_through_2.7b_2026-10-21.txt (frozen).
 The rule from now on (Fred 10-21 19:19): remove items as they are completed. When an item is done, its section moves out of this document into that day's COMPLETED_TASK document, leaving a one-line pointer. This document should stay small; if it grows day after day, items are not being removed.
-⭐⭐⭐ NEXT SESSION — START HERE (11-11 13:05, Fred: "we call it quits for now") — the AI route planner is fixed on 2.8; next = apply the same to 2.7e and ship it (Play only with Fred's yes), then 2.8 certification resumes at 16c
+⭐⭐⭐ NEXT SESSION — START HERE (11-11 21:25) — 2.8 step 17, group G2 (storage, settings, profile, startup): its detailed inventory to Fred BEFORE any port
+▶ State at 21:25
+Branch 2.8 at 64d562813, pushed. git status: only 1200000 (Fred removes it) and _patch_backups/.
+Droid 1: build 2026-11-11_2052_mac_eaa913f54_UNCOMMITTED = the code of 64d562813 (16d). Droid 2: uninstalled 20:50 (Play's update f installed and checked first), then the same 2.8 build; Utah trails importing; the backup GPX (tracks, routes, waypoints, rider trails of 11-11) pushed to its Download to import (the Mac copy: GroupTrackSpike/_data/droid2_2026-11-11/Download).
+2.7e update f (1048b9aae, tag 2.7e-2026-11-11f, version 29321521): Available on Google Play, production released 11-11 14:34; internal, closed, open testing and production all on it. Fred's tester was still on update e (29321520) at 20:05 — installed from Play; checks given: the production rollout %, clear the Play Store's storage, or the signed universal APK from App bundle explorer (keeps his data).
+✅ The evening (18:33–21:20)WhatResult
+16c package (inbox/step16c_2026-11-11)Cert16c (the ONE runner), GtCert16c (Droid), GtCertQueue16cMacTest (iPad), make_old_copies_16c (VectorTilesCertOld + DownloadQueueCertOld, generated), gt_cert_v24 (+ mode queue16c, step 1h pushes the 73 recipes of _data/droid1_2026-11-06/recipes), the needless cast in GtJavaHashMapLong removed. Simulated first on the Mac's data (Fred 18:48): 738 corridor jobs, 869 squares → 68 boxes, 2,313 restore jobs, at most 5 runs in a z12 row (a tree bin needs 49+) — sim16c_2026-11-11.py in the package.
+fixA"recipes/*.gtmaps" in a KDoc opened a NESTED comment (Kotlin) — build 18:56 failed "Unclosed comment".
+fixBAndroid's gtOpenDatabase opens read/write whatever readOnly says; the adb-pushed cert15c_input is not the app's to write — the Droid run aborted in 1 s (20:13). The cert reads a copy in the app's cache (as 15c–15g).
+16c CERTIFIED eaa913f54Droid OLD = NEW 0 DIFF; iPad = Droid 6,399 SAME, 0 DIFF, cross-device COMPARED (131 tracks, 73 recipes, 2 queue boxes, crafted folders and boxes, the tile math); 1 EXPECTED: a corrupt recipe — both refuse it, the reader's message text differs (org.json vs kotlinx), as the 11-10 design foresaw. No tree bins.
+16d SWITCHED 64d562813switch16d_2026-11-11.py: VectorTiles' 9 writes → front doors (189 → 85 lines); DownloadQueueManager's Android GtQueuePlatform (append = 2.7e's add / saveQueue / startNext; init in each enqueueArea via satLayers; DOWNLOAD_ZOOM; SAT count; recipes folder; UUID + clock); enqueueArea's VEC / DEM case → shared; SAT / TOPO unchanged. The two files were checked byte for byte the certified ones first. Droid 1: an area download (DL VEC 1/1 846 tiles + DL DEM 1/1 90, downloaded) and the corridor of "Escalate: hole in the wall, devils garden" (54 squares → 9 boxes, 18 jobs, named).
+Step 17 plannedGroupTrack_2.8_step17_inventory_sequence_2026-11-11_v1.html: the 9 groups (G1 map store/sources · G2 storage/settings/profile/startup · G3 trail rules/land · G4 the map-page talkers · G5 pure ride logic · G6 exports/sharing · G7 server/catalogs · G8 ride runtime / Bluetooth / GPS · G9 workers), the sequence, the 7-stage process. Fred 21:20 "perfect": G2 first; G8 after step 18–19 with a real iPad; remove ArtifactSearch (no caller), VectorMapTest and ConvoyDevSeeder (dev screens), RiderTrailScanner if dead, once each is checked. Plan v15 records step 16 complete and step 17 planned.
+▶ Next session (11-12) — the plan of attack, in order
+Start of day (5 min): bash "$GT_CMDS/daily_check_v1.sh"; cd "$GT_REPO" &amp;&amp; git status --short &amp;&amp; git log --oneline -1 — expect 2.8 at the docs-into-app commit (after 64d562813) and only 1200000 + _patch_backups/ untracked. Droid 1 plugged in, unlocked, Developer options › Stay awake on; adb devices shows both Droids as device.
+The Settings release label (Fred 11-11 21:26, small, first): ConvoySettingsScreen.kt line 423 "GroupTrack Rel 2.7c — Build …" → read from ONE release constant set at each release. Patch on 2.8 (dry run → apply → build → Droid 1 Settings shows the right release → commit). The same fix + tonight's docs as in-app assets go into the next Android (2.7) update with Fred's yes.
+Step 17 · G2 — the detailed inventory (storage, settings, profile, startup): GroupTrackStorage · ConvoySettingsRepository / ConvoySettingsViewModel / ConvoyConfig / ConvoyMasterConfig / ConvoyEventConfig · ConvoyUser / ConvoyProfileStore / ConvoyNetworkStore / ConvoySessionManager · StateData / StateDataQueue · StartupHousekeeping / DbAudit · GtHelp / IpadExport / ConvoyMarkerRenderer. For each: what it does, every caller, every Android tie, socket or port, how it is certified. To Fred before any port.
+G2 port, first piece (after Fred's yes): the "where are my files" socket (GroupTrackStorage) — it removes most of the 124 Context uses (plan §8). Then the process: simulate on the Mac's data → port as is → iPad compile → certify → switch (byte-for-byte check) → Droid walk → commit.
+Droid 2: finish the restore on 2.8 (Utah trails, then Import files — the four GroupTrack_*_2026-11-11.gpx, tracks last); note anything that comes back wrong (the first full 2.8 import on a clean tablet). Then the 17b control can use it.
+The tester on 2.7e update e: his phone's version after the Play checks; if Play still holds it, the signed universal APK (App bundle explorer › 29321521 › Downloads) installs over e and keeps his data.
+When time allows: capture the manual's AI planner screens (manual v139: the Add-your-own-places choice, the orange rectangle, green trails, the poor-area pop-up, compare with pins + rectangle); the backup email with no attachments (GtBackup.send); GtRoute's 4 !! warnings.
+Not tomorrow: G1 onward (after G2), 17b / 17c, 18. The 2.7e update with the Settings fix waits for Fred's yes.
+📋 Added to the lists 11-11 evening
+GroupTrack on Android Auto / CarPlay (Fred 11-11 21:45–21:48): "android auto / CarPlay compatible devices are much cheaper than an android or iPad tablet, everybody has a phone. makes barrier to entry cheaper, but apple compliance and cert is an issue." What it takes: a PHONE build (CarPlay runs from an iPhone, not an iPad — the shared code carries over, the screens need phone layouts); the navigation-category entitlement (Apple) / navigation app review (Google); the car screen uses the platforms' templates — the map plus a few driving controls (next turn, the group's carts, the route), planning stays on the phone. After 2.8. Fred's research 11-11 21:56: off-road apps qualify without turn-by-turn (onX Offroad and Trails Offroad run on CarPlay) — CarPlay: the Navigation entitlement (com.apple.developer.carplay-maps), CPMapTemplate in free-driving mode (a live map, no navigation session), at most 4 map buttons, must work fully offline with no network popups; Android Auto: the NAVIGATION category + MAP_TEMPLATES, a full-screen map without routing cards, at most 4 actions, an explicit pan button, handle geo intents (Play review NF-6); both: setup (downloads, imports, radio pairing) only on the phone. The engineering cost to weigh: both car screens need the map drawn NATIVELY into the car's surface / window — GroupTrack's map is MapLibre GL JS in a web view, so the dash view needs MapLibre Native (Android and iOS) reading the same vector + elevation stores.
+THE SETTINGS RELEASE LABEL IS HARD-CODED "Rel 2.7c" (Fred 11-11 21:26: "the setting panel still references 2.7c. frustrating") — found 21:30: ConvoySettingsScreen.kt line 423 text = "GroupTrack Rel 2.7c — Build ${BuildConfig.BUILD_STAMP}" (RELLABEL-2026-09-30), never updated since 2.7c, on 2.7e-support AND 2.8. Fix: the label from ONE release constant set at each release (not typed into a screen). AND the in-app docs shipped with 2.7f are stale: 2.7e-support's assets hold release notes v71 (update c) — the EOD asset copy was not done for update f. Both go into the next Android update; on 2.8 the assets are refreshed from tonight's v84 / v139 / v99.
+The backup email had no attachments (Droid 2, 21:06) — GtBackup.send to check.
+Droid 1 drops off USB (13:46, 20:30) — Stay awake; a cert pre-check.
+GtRoute's 4 unnecessary !! warnings (cosmetic, from today's AI patches).
+Fred's test iPads (22:17–22:20): two — one on iPadOS 16.7, one on iPadOS 17.7.11. Both are within what the 2.8 app needs. Step 18: minimum iPadOS 16.0 so both install; check Xcode 26 still debugs on the 16.7 one (if not, it is install-and-check only).
+⭐⭐ 11-11 — was START HERE (11-11 13:05) · status 21:25: the 2.7e replay done and on Play (update f, all tracks); step 16 complete; step 17 planned — was: ⭐⭐⭐ NEXT SESSION — START HERE (11-11 13:05, Fred: "we call it quits for now") — the AI route planner is fixed on 2.8; next = apply the same to 2.7e and ship it (Play only with Fred's yes), then 2.8 certification resumes at 16c
 ▶ State at 13:05
 Branch 2.8 at bab0fad35. Every AI-route change of 11-11 is committed. bab0fad35 is not pushed yet (1 ahead of origin/2.8) — the docs recommit pushes it, or git push. git status: only 1200000 (Fred removes it) and _patch_backups/.
 Droid 1: build 2026-11-11_1256_mac_7a019c485_UNCOMMITTED = the code of bab0fad35 (built before the commit). Recording ~/Downloads/gt_logs/droid1_1111_1257.log.
@@ -28507,8 +29002,8 @@ The lead question at REC when no Leader is known: keep as a fallback, or retire.
 Polyline dots when no route is displayed (carried from 2.7b).
 
 
-=== grouptrack_living_master_2026-11-11_v235.html ===
-GroupTrack — Living Master — v235 (2026-11-11 13:05)
+=== grouptrack_living_master_2026-11-11_v236.html ===
+GroupTrack — Living Master — v236 (2026-11-11 21:25)
 :root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
 header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
@@ -28533,15 +29028,15 @@ th{background:#12203a;color:var(--accent)}
 /* ROUTENOTES-2026-08-23 */
 .ascii{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:14px;
   font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#8b949e;overflow-x:auto;margin:12px 0}
-GroupTrack — Living Master — v235 (2026-11-11 13:05) — the Moab AI-route crash fixed and the AI route planner rebuilt on 2.8 (scenic fill, variations, green connected trails; b7cd26242 … bab0fad35) · next: 2.7e replay → Play, then 16c — was v234 — 2.8 step 15 COMPLETE (15e · 15c/15d/15e switches · 15f · 15g certified Droid + iPad and switched) · GtMath (Android's math on the iPad) · 16a · 16b · next: 16c, certify the save-by-area writes
+GroupTrack — Living Master — v236 (2026-11-11 21:25) — 2.7e update f LIVE on Play production (29321521) · 2.8 step 16 COMPLETE (16c eaa913f54 certified, 16d 64d562813 switched) · step 17 planned (9 groups; G2 first) — was v235 (2026-11-11 13:05) — the Moab AI-route crash fixed and the AI route planner rebuilt on 2.8 (scenic fill, variations, green connected trails; b7cd26242 … bab0fad35) · next: 2.7e replay → Play, then 16c — was v234 — 2.8 step 15 COMPLETE (15e · 15c/15d/15e switches · 15f · 15g certified Droid + iPad and switched) · GtMath (Android's math on the iPad) · 16a · 16b · next: 16c, certify the save-by-area writes
 FRESH START FOR 2.7c (Fred 10-21 19:20): "we are on 2.7c, everything before that should be gone." This living master holds only 2.7c work and the items still open from 2.7b. Everything removed &mdash; all 191 sections of living master v164 and all of handoff v70, word for word, with the 13 that were still marked open listed first &mdash; is in GroupTrack_REMOVED_through_2.7b_2026-10-21_v1.html (in docs/ and in GroupTrack_AllDocs_2.txt), and every earlier dated version is in GroupTrack_AllDocs_1_through_2.7b_2026-10-21.txt (frozen).
 The rule from now on (Fred 10-21 19:19): remove items as they are completed. When an item is done, its section moves out of this document into that day's COMPLETED_TASK document, leaving a one-line pointer. This document should stay small; if it grows day after day, items are not being removed.
 ✅ 2.8 CHECKLIST — every open 2.8 item in one place (standing section, added v217 11-10 18:00; each day's START HERE points here instead of repeating it)
 The rule for 2.8 (Fred 11-08 18:23, restated 11-10 17:51): no change to the base app until a 2.8 base version is running — port AS IS, certify AS IS, one change at a time to control the variable. Every behaviour change below waits in "After the 2.8 base" unless Fred moves it.
 A. The 2.8 steps ahead (plan v10 §11)
-16c certify the save-by-area writes (design: NEXT SESSION below and plan v10 §24) — remove the needless cast in GtJavaHashMapLong.kt line 78 in the same package.
-16d the switch (VectorTiles' writes + enqueueArea's VEC/DEM branch → GtVectorQueue; check on Droid 1).
-17 remaining model files — the inventory and bucket list to Fred BEFORE any port.
+[DONE 11-11 — eaa913f54: Droid OLD = NEW 0 DIFF; iPad = Droid 6,399 SAME / 0 DIFF, cross-device COMPARED] 16c certify the save-by-area writes (design: NEXT SESSION below and plan v10 §24) — remove the needless cast in GtJavaHashMapLong.kt line 78 in the same package.
+[DONE 11-11 — 64d562813: files checked byte for byte the certified ones; Droid 1 area download + track corridor] 16d the switch (VectorTiles' writes + enqueueArea's VEC/DEM branch → GtVectorQueue; check on Droid 1).
+[PLANNED 11-11 21:20 — GroupTrack_2.8_step17_inventory_sequence_2026-11-11_v1.html, Fred "perfect": the 9 groups G1–G9; sequence G2 storage/settings/startup → G1 map store/sources → G4 the map-page interface → G3 trail rules/land → G5 pure ride logic → G6 exports/sharing → G7 server/catalogs → G9 the worker interfaces; G8 ride runtime / Bluetooth / GPS after step 18–19 with a real iPad; remove ArtifactSearch, VectorMapTest, ConvoyDevSeeder (and RiderTrailScanner if dead) once each is checked. Process per group: inventory → simulate on the Mac's data → port as is → iPad compile → certify → switch (byte-for-byte check) → Droid walk + commit. NEXT: G2's detailed inventory] 17 remaining model files — the inventory and bucket list to Fred BEFORE any port.
 HELP BY DEVICE TYPE — in the FIRST Apple delivery of 2.8 (opened 11-07, Fred; restated 11-10 18:05): every section of the manual, Quick Start and release notes is marked as pertaining to Android, iPad, or both, so the app shows the proper help and screen instructions for the device it runs on. Rules (Fred 11-07): never clone the manual / Quick Start / release notes per platform — ONE HTML source, no two sets to keep in sync; each part is owned by Android, Apple or both; a document displays both, or only the device type's parts. The no-radio mode button is labelled with the device type ("Android only" / "iPad only"), and the manual describes that button generically as the device type, not per platform. Needed by step 19 (every placeholder screen's HELP opens its manual section) and step 20 (each screen walked iPad vs Droid).
 17b the Droid 2 rebuild walk (the control; the app-made DB copy still to write) → 17c decide on the seed save → 18 the iPad app (acceptance: Droid 2's seed email on the iPad) → 19 placeholder screens → 20 fill the screens → 21 platform pieces (GPS, BLE, background downloads, Files, AirDrop, help).
 22 — ride calendar entry: the ride's time zone and calendar entry — ONE function (Fred 11-10 19:49): the ride form takes date, start time and time zone the way a calendar entry does (time picker, zone selector; rides.time_zone, schema v2); the organizer's zone defines the event and each receiver's calendar converts it, with every receiver told the event was adjusted; a calendar entry is CREATED on the organizer's device at ride creation and on a rider's device at ride import, and the invite carries the .ics for riders without GroupTrack; the ride's meeting waypoint (name + GPS) is the entry's LOCATION. Design: the STEP 22 section below.
@@ -28570,6 +29065,12 @@ Resync speed (NEW ~45 s vs OLD ~15 min) — cause to confirm from the code befor
 MAPCHECK z14: 38 trails crowded out by the 1,000-trail cap.
 16c: watch the HashMap tree-bin case (49+ runs in one z12 row — counted) and the recipe error text.
 F. After the 2.8 base is running (behaviour changes — one at a time)
+GroupTrack on Android Auto / CarPlay (Fred 11-11 21:45–21:48): "android auto / CarPlay compatible devices are much cheaper than an android or iPad tablet, everybody has a phone. makes barrier to entry cheaper, but apple compliance and cert is an issue." What it takes: a PHONE build (CarPlay runs from an iPhone, not an iPad — the shared code carries over, the screens need phone layouts); the navigation-category entitlement (Apple) / navigation app review (Google); the car screen uses the platforms' templates — the map plus a few driving controls (next turn, the group's carts, the route), planning stays on the phone. After 2.8. Fred's research 11-11 21:56: off-road apps qualify without turn-by-turn (onX Offroad and Trails Offroad run on CarPlay) — CarPlay: the Navigation entitlement (com.apple.developer.carplay-maps), CPMapTemplate in free-driving mode (a live map, no navigation session), at most 4 map buttons, must work fully offline with no network popups; Android Auto: the NAVIGATION category + MAP_TEMPLATES, a full-screen map without routing cards, at most 4 actions, an explicit pan button, handle geo intents (Play review NF-6); both: setup (downloads, imports, radio pairing) only on the phone. The engineering cost to weigh: both car screens need the map drawn NATIVELY into the car's surface / window — GroupTrack's map is MapLibre GL JS in a web view, so the dash view needs MapLibre Native (Android and iOS) reading the same vector + elevation stores.
+THE SETTINGS RELEASE LABEL IS HARD-CODED "Rel 2.7c" (Fred 11-11 21:26: "the setting panel still references 2.7c. frustrating") — found 21:30: ConvoySettingsScreen.kt line 423 text = "GroupTrack Rel 2.7c — Build ${BuildConfig.BUILD_STAMP}" (RELLABEL-2026-09-30), never updated since 2.7c, on 2.7e-support AND 2.8. Fix: the label from ONE release constant set at each release (not typed into a screen). AND the in-app docs shipped with 2.7f are stale: 2.7e-support's assets hold release notes v71 (update c) — the EOD asset copy was not done for update f. Both go into the next Android update; on 2.8 the assets are refreshed from tonight's v84 / v139 / v99.
+The backup email had no attachments (Fred 11-11 21:06, Droid 2): Map › Back up my GroupTrack data saved the GPX files to Download, but the email draft carried no attachments — check GtBackup.send.
+Droid 1 drops off USB (11-11 13:46 and 20:30 — two cert runs waited on a Droid that did not answer). Developer options › Stay awake; consider a cert pre-check (adb get-state) before step 1.
+GtRoute.kt: 4 unnecessary !! warnings (lines ~2235, 2464, 2478, 2497 — from the 11-11 AI-route patches; cosmetic) — tidy in one pass.
+Fred's iPad is an original (Fred 11-11 21:20: "lets hope the code is supported") — Fred 11-11 22:17–22:20: two test iPads — one on iPadOS 16.7, one on iPadOS 17.7.11 (iPad Pro 12.9", Wi-Fi + Cellular with GPS). Both are within what the 2.8 app needs (Kotlin/Native, Compose Multiplatform, the MapLibre web view). Step 18: set the app's minimum iPadOS to 16.0 so both test iPads (and riders' older iPads) install it; confirm then that Xcode 26 still runs and debugs on a 16.7 device — if not, the 17.7.11 iPad is the debug device and the 16.7 one is install-and-check only.
 FILTERS RESET (Fred 11-11 14:21): "find what resets and turns filters off continually" — something keeps resetting the map FILTER and turning filters off; find the cause before any fix (with the filter-restore-after-a-route-build item below).
 The release panel in Settings says 2.7c (Fred 11-11 14:21, on 2.7e update f from Play): the version / release shown in Settings is out of date — check where it reads it from (the in-app release notes were not updated for update f either), on 2.7e and 2.8.
 TRAIL CONNECTORS ACROSS HIGHWAYS (Fred 11-11 12:44: "add reengineering connectors to 2.8 to connect trails across highways"; 09:48: "building trail connectors … to break out of closed trail networks (connected trails across a road or navigating short distance on a road)"; 08:13: "where trails cross highways it shows as no connecting trails … maybe when we write we should let unnamed trail connectors be drawn in as rider trails when we cross a road. Or just connect those segments?"; 12:33: "on trail 79 miles hard to find connected trails across highways"). Today a trail that stops at a road is a separate network in the data, so pins beyond the road are refused and the search cannot ride past it. AICONNECTED (bab0fad35) shows the gap: the connected trails are green, the rest are not.
@@ -28612,7 +29113,17 @@ CFGHOME (Fred 10-12, catalogued, not built): move compare / apply saved configs 
 Track recording losing GPS during rides (open issue 10-12).
 CHECKINCONNECT (CHK IN with no radio) unreachable in Android-only mode — revisit when group riding on Android gets a ride selection in Settings (Fred 10-11).
 Restricted-area closure polylines (10-06 moved to future; 11-02: once on AWS, ride planners post closure polylines).
-⭐⭐⭐ NEXT SESSION (11-11 or later — Fred has appointments 11-11) — START HERE (11-10 EOD 17:45) — 2.8 step 15 COMPLETE (15e · 15c/15d/15e switches · 15f · 15g, all certified Droid + iPad and switched) · GtMath (Android's math on the iPad) · 16a GtMath tan/atan/sinh/ln · 16b save-by-area writes in shared code · next: 16c (certify the save-by-area writes)
+⭐⭐⭐ NEXT SESSION (11-12) — START HERE (11-11 EOD 21:40) — the plan of attack: the Settings label, then 2.8 step 17 · G2
+State: 2.7f (2.7e update f, 29321521) LIVE on all four Play tracks · 2.8 steps 1–16 DONE (16c eaa913f54, 16d 64d562813) · step 17 planned and approved (GroupTrack_2.8_step17_inventory_sequence_2026-11-11_v1.html; Fred 21:20 "perfect") · docs v84 / v139 / v99 as 2.7f, handoff v112.
+Start of day (5 min): bash "$GT_CMDS/daily_check_v1.sh"; cd "$GT_REPO" &amp;&amp; git status --short &amp;&amp; git log --oneline -1 — expect 2.8 at the docs-into-app commit (after 64d562813) and only 1200000 + _patch_backups/ untracked. Droid 1 plugged in, unlocked, Developer options › Stay awake on; adb devices shows both Droids as device.
+The Settings release label (Fred 11-11 21:26, small, first): ConvoySettingsScreen.kt line 423 "GroupTrack Rel 2.7c — Build …" → read from ONE release constant set at each release. Patch on 2.8 (dry run → apply → build → Droid 1 Settings shows the right release → commit). The same fix + tonight's docs as in-app assets go into the next Android (2.7) update with Fred's yes.
+Step 17 · G2 — the detailed inventory (storage, settings, profile, startup): GroupTrackStorage · ConvoySettingsRepository / ConvoySettingsViewModel / ConvoyConfig / ConvoyMasterConfig / ConvoyEventConfig · ConvoyUser / ConvoyProfileStore / ConvoyNetworkStore / ConvoySessionManager · StateData / StateDataQueue · StartupHousekeeping / DbAudit · GtHelp / IpadExport / ConvoyMarkerRenderer. For each: what it does, every caller, every Android tie, socket or port, how it is certified. To Fred before any port.
+G2 port, first piece (after Fred's yes): the "where are my files" socket (GroupTrackStorage) — it removes most of the 124 Context uses (plan §8). Then the process: simulate on the Mac's data → port as is → iPad compile → certify → switch (byte-for-byte check) → Droid walk → commit.
+Droid 2: finish the restore on 2.8 (Utah trails, then Import files — the four GroupTrack_*_2026-11-11.gpx, tracks last); note anything that comes back wrong (the first full 2.8 import on a clean tablet). Then the 17b control can use it.
+The tester on 2.7e update e: his phone's version after the Play checks; if Play still holds it, the signed universal APK (App bundle explorer › 29321521 › Downloads) installs over e and keeps his data.
+When time allows: capture the manual's AI planner screens (manual v139: the Add-your-own-places choice, the orange rectangle, green trails, the poor-area pop-up, compare with pins + rectangle); the backup email with no attachments (GtBackup.send); GtRoute's 4 !! warnings.
+Not tomorrow: G1 onward (after G2), 17b / 17c, 18. The 2.7e update with the Settings fix waits for Fred's yes.
+⭐⭐ 11-11 — was START HERE (11-10 EOD 17:45) · status 11-11 EOD: 16c and 16d done (see above) — was: ⭐⭐⭐ NEXT SESSION (11-11 or later — Fred has appointments 11-11) — START HERE (11-10 EOD 17:45) — 2.8 step 15 COMPLETE (15e · 15c/15d/15e switches · 15f · 15g, all certified Droid + iPad and switched) · GtMath (Android's math on the iPad) · 16a GtMath tan/atan/sinh/ln · 16b save-by-area writes in shared code · next: 16c (certify the save-by-area writes)
 State at EOD 11-10 (17:45): branch 2.8, everything committed and PUSHED through 264f3d186 (16b); git status on the Mac shows only two untracked items, both intentional: the stray empty file 1200000 in the repo root (0 bytes, made 14:50 by a mistyped command — Fred removes it: rm "$GT_REPO/1200000") and _patch_backups/ (kept out of git on purpose). No TEST-ONLY manifest change is outstanding (the 11-09 largeHeap line is gone from the manifest). Newest build: 2026-11-10_1728_mac_7f06a478b (LATEST.txt) — it was built while the 16b files were installed but not yet committed, so it does contain 16b's four new (uncalled) files even though its build.txt says "clean" (see the gt_build_v2 flaw below). Droid 1 last had 2026-11-10_1654_mac_8877ab18e_UNCOMMITTED deployed (the MATHTILE probe run). Commands: build = bash "$GT_CMDS/gt_build_v2.sh"; cert = bash "$GT_CMDS/gt_cert_v23.sh" &lt;build&gt; &lt;mode&gt; (v22, v21b kept; earlier ones SUPERSEDED); docs = bash "$GT_CMDS/recommit_v26.sh". (recommit_v26, 11-10 18:10: v25's closing line printed "RECOMMIT V24 COMPLETE" — Fred reran it several times over 11-09/11-10 thinking he had run the wrong version; v26 says v26 in the banner, the commit message and the closing line; v25 renamed recommit_v25_SUPERSEDED_DO_NOT_RUN.sh. Still to mark superseded: recommit_v22.sh and recommit_v24.sh in commands/.)
 ▶ Next session, in order (one command at a time; Fred runs each and pastes the result)
 Start of day: bash "$GT_CMDS/daily_check_v1.sh" (read-only: IN SYNC or numbered issues); cd "$GT_REPO" &amp;&amp; git status --short &amp;&amp; git log --oneline -1 — expect 264f3d186 and only 1200000 + _patch_backups/ untracked.
@@ -79729,8 +80240,8 @@ The completion screen shows the full picture — records read, records in your a
 duplicates, added, and anything that could not be processed.
 
 
-=== grouptrack_release_notes_2026-11-11_v83.html ===
-GroupTrack Off Grid Release Notes v83
+=== grouptrack_release_notes_2026-11-11_v84.html ===
+GroupTrack Off Grid Release Notes v84 — 2.7f
 body{font:14px/1.6 system-ui,sans-serif;max-width:900px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
 h1{font-size:20px;border-bottom:2px solid #7bb661;padding-bottom:6px;margin-bottom:4px}
 .rel{color:#555;font-size:13px;margin:0 0 18px}
@@ -79770,6 +80281,9 @@ Import your tracks — Map › IMPORT MAP FEATURES › Import files, pick the fi
 Each track is imported under its own name, and also creates unnamed "Rider" trails — only for the sections of your track where no known trail exists — extending your trail network. "Rider" is a trail type you can identify in FILTER.
 Moving to a new tablet? Map › EXPORT MAP FEATURES › Export all tracks takes your GroupTrackOG tracks with you.
 onX, Gaia GPS and Garmin are trademarks of their respective owners; GroupTrackOG is not affiliated with them.
+GroupTrackOG 2.7f — 11 November 2026
+Rel 2.7f · 11 November 2026 — the AI route planner: no crash, longer rides, and it tells you what an area can do
+Everything in this release is in the AI route planner — see the four items below.
 GroupTrackOG 2.7e — 6 November 2026
  map.export_routes (map.export never existed); Import trails from GPX files and Convert files to GPX -> Import files (map.gpx), the one import. -->
  Help > Videos (HELPVIDEOS), commit ecf3a990e, certified on Droid 2. -->
@@ -79782,7 +80296,7 @@ GroupTrackOG 2.7e — 6 November 2026
         says which attachment is for whom."  What it means for you: everyone in the group gets the route and the meeting point,
         whatever app they ride with.  Manual: the ride invite section (Rides > send) -- to update with this text.
      Every later completed rider-visible 2.8 item is added to this list the day it is completed. -->
-Rel 2.7e · 11 November 2026 — the AI route planner: no crash, longer rides, and it tells you what an area can do
+Rel 2.7f · 11 November 2026 — what changed
 FIX The AI route planner no longer closes in big trail areasIn large trail areas such as Moab, dropping places quickly while the planner was building could run the tablet out of memory and close GroupTrackOG. The planner now checks one place at a time; if you tap while it is checking, it says "Checking your last pin — one moment."
 NEW Rides that use the miles you asked for — the scenic route, not the fastestA ride now comes back to the trailhead by a different trail and takes in more trail along the way, up to the most miles you asked for, instead of going out and back the shortest way. You get several different rides to choose from, ordered by their places of interest and then by miles.
 NEW See the area you are planning inWhen you add your own places, an orange rectangle shows how far the ride can reach for the miles you asked for, with the number of places of interest in it, and the trails connected to your trailhead are drawn in green. Drop your places on green trails: a place with no trail joining it to your trailhead is not accepted. The compare screen keeps your places and the rectangle on the map with the rides.
