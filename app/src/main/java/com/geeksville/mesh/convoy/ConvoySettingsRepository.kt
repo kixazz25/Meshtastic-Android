@@ -3,19 +3,29 @@ package com.geeksville.mesh.convoy
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.floatPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.geeksville.mesh.grouptrack.GtSettingsAndroid
+import com.grouptrack.shared.settings.GtRideSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/*
+ * SWITCH17G2B2-2026-11-12 (2.8 step 17, G2b-2 switch): the ride settings live in the settings socket (GtRideSettings, store
+ * "convoy_settings" -- SharedPreferences), certified against 2.7e's DataStore version. Every public name, type and default is 2.7e's,
+ * so ConvoyViewModel and the Settings screen do not change. The flows now follow the store: each change updates them at once.
+ * ONE-TIME COPY (CODE RULE 3 -- no "done" marker; remove when the release after 2.8a is cut): at start the values 2.7e saved in its
+ * DataStore are copied across, but ONLY into keys the new store does not hold yet, so nothing saved since is ever overwritten and a later
+ * start copies nothing. The DataStore is only read for that copy (and the TEST-ONLY certRawSnapshot).
+ */
 private val Context.convoyDataStore: DataStore<Preferences>
         by preferencesDataStore(name = "convoy_settings")
 
@@ -23,103 +33,47 @@ private val Context.convoyDataStore: DataStore<Preferences>
 class ConvoySettingsRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    companion object {
-        val KEY_SIGNAL_DROP_MINUTES    = floatPreferencesKey("signal_drop_minutes")
-        val KEY_SIGNAL_LOST_MINUTES    = floatPreferencesKey("signal_lost_minutes")
-        val KEY_OFF_TRACK_MILES        = floatPreferencesKey("off_track_miles")
-        val KEY_ADMISSION_WINDOW_HOURS = intPreferencesKey("admission_window_hours")
-        // Format: "nodeId|callsign|epochDay"
-        val KEY_REMOVED_CARTS          = stringSetPreferencesKey("removed_carts")
-        // GRPMODE2-2026-10-13: KEY_LEAD_LOCK_FEET removed (never shown, never used)
+    private val rs = GtRideSettings(GtSettingsAndroid(context), GtRideSettings.STORE) { LocalDate.now().toEpochDay() }
+
+    private val _drop = MutableStateFlow(rs.signalDropMinutes())
+    private val _lost = MutableStateFlow(rs.signalLostMinutes())
+    private val _off = MutableStateFlow(rs.offTrackMiles())
+    private val _offSaved = MutableStateFlow(rs.offTrackMilesSaved())   // CODE RULE 1: null = never saved (2.7e offTrackMilesSaved)
+    private val _adm = MutableStateFlow(rs.admissionWindowHours())
+    private val _removed = MutableStateFlow(rs.removedCartsForToday())
+
+    val signalDropMinutes: Flow<Float> = _drop
+    val signalLostMinutes: Flow<Float> = _lost
+    val offTrackMiles: Flow<Float> = _off
+    val offTrackMilesSaved: Flow<Float?> = _offSaved
+    val admissionWindowHours: Flow<Int> = _adm
+    val removedCartsForToday: Flow<Map<String, String>> = _removed
+
+    private fun refresh() {
+        _drop.value = rs.signalDropMinutes(); _lost.value = rs.signalLostMinutes(); _off.value = rs.offTrackMiles()
+        _offSaved.value = rs.offTrackMilesSaved(); _adm.value = rs.admissionWindowHours(); _removed.value = rs.removedCartsForToday()
     }
 
-    // ── Flows ─────────────────────────────────────────────────────────────
-
-    val signalDropMinutes: Flow<Float> = context.convoyDataStore.data
-        .map { it[KEY_SIGNAL_DROP_MINUTES] ?: 2f }
-
-    val signalLostMinutes: Flow<Float> = context.convoyDataStore.data
-        .map { it[KEY_SIGNAL_LOST_MINUTES] ?: 10f }
-
-    val offTrackMiles: Flow<Float> = context.convoyDataStore.data
-        .map { it[KEY_OFF_TRACK_MILES] ?: 0.5f }
-
-    /** GRPMODE2-2026-10-13: the rider's Off Track value. CODE RULE 1: null = never set -- the built-in 150 ft stays in force. */
-    val offTrackMilesSaved: Flow<Float?> = context.convoyDataStore.data
-        .map { it[KEY_OFF_TRACK_MILES] }
-
-    val admissionWindowHours: Flow<Int> = context.convoyDataStore.data
-        .map { it[KEY_ADMISSION_WINDOW_HOURS] ?: 1 }
-
-    /** Map of nodeId -> callsign for carts removed today only */
-    val removedCartsForToday: Flow<Map<String, String>> = context.convoyDataStore.data
-        .map { prefs ->
-            val today = LocalDate.now().toEpochDay().toString()
-            (prefs[KEY_REMOVED_CARTS] ?: emptySet())
-                .filter { it.endsWith("|$today") }
-                .associate { entry ->
-                    val parts = entry.split("|")
-                    parts[0] to parts[1]   // nodeId to callsign
-                }
-        }
-
-    // ── Writers ───────────────────────────────────────────────────────────
-
-    suspend fun setSignalDropMinutes(value: Float) {
-        context.convoyDataStore.edit { it[KEY_SIGNAL_DROP_MINUTES] = value }
-        ConvoyConfig.SIGNAL_DROP_MINUTES = value
-    }
-
-    suspend fun setSignalLostMinutes(value: Float) {
-        context.convoyDataStore.edit { it[KEY_SIGNAL_LOST_MINUTES] = value }
-        ConvoyConfig.LOST_MINUTES = value
-    }
-
-    suspend fun setOffTrackMiles(value: Float) {
-        context.convoyDataStore.edit { it[KEY_OFF_TRACK_MILES] = value }
-        ConvoyConfig.OFF_TRACK_MILES = value
-    }
-
-    suspend fun setAdmissionWindowHours(value: Int) {
-        context.convoyDataStore.edit { it[KEY_ADMISSION_WINDOW_HOURS] = value }
-    }
-
-    /** Remove a cart for today — stored with callsign for display in settings */
-    suspend fun removeCart(nodeId: String, callsign: String) {
-        val entry = "$nodeId|$callsign|${LocalDate.now().toEpochDay()}"
-        context.convoyDataStore.edit { prefs ->
-            val current = prefs[KEY_REMOVED_CARTS] ?: emptySet()
-            prefs[KEY_REMOVED_CARTS] = current + entry
+    init {
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            runCatching {
+                val old = context.convoyDataStore.data.first().asMap().mapKeys { it.key.name }
+                val n = rs.fillMissing(old)
+                android.util.Log.i("ConvoySettings", "SWITCH17G2B2 one-time copy: ${old.size} DataStore value(s), $n copied (the rest were already saved)")
+                refresh()
+            }.onFailure { android.util.Log.e("ConvoySettings", "SWITCH17G2B2 one-time copy failed: ${it.message}") }
         }
     }
 
-    /** CARTRESET-2026-09-30 (Fred): the end of a ride resets every cart to Active -- the list is emptied, old days too. */
-    suspend fun clearRemovedCarts() {
-        context.convoyDataStore.edit { prefs -> prefs[KEY_REMOVED_CARTS] = emptySet() }
-    }
+    suspend fun setSignalDropMinutes(value: Float) { rs.setSignalDropMinutes(value); ConvoyConfig.SIGNAL_DROP_MINUTES = value; refresh() }
+    suspend fun setSignalLostMinutes(value: Float) { rs.setSignalLostMinutes(value); ConvoyConfig.LOST_MINUTES = value; refresh() }
+    suspend fun setOffTrackMiles(value: Float) { rs.setOffTrackMiles(value); ConvoyConfig.OFF_TRACK_MILES = value; refresh() }
+    suspend fun setAdmissionWindowHours(value: Int) { rs.setAdmissionWindowHours(value); refresh() }
+    suspend fun removeCart(nodeId: String, callsign: String) { rs.removeCart(nodeId, callsign); refresh() }
+    suspend fun clearRemovedCarts() { rs.clearRemovedCarts(); refresh() }
+    suspend fun reinstateCart(nodeId: String) { rs.reinstateCart(nodeId); refresh() }
+    suspend fun purgeStaleRemovedCarts() { rs.purgeStaleRemovedCarts(); refresh() }
 
-    /** Reinstate a removed cart */
-    suspend fun reinstateCart(nodeId: String) {
-        val today = LocalDate.now().toEpochDay().toString()
-        context.convoyDataStore.edit { prefs ->
-            val current = prefs[KEY_REMOVED_CARTS] ?: emptySet()
-            prefs[KEY_REMOVED_CARTS] = current.filterNot {
-                it.startsWith("$nodeId|") && it.endsWith("|$today")
-            }.toSet()
-        }
-    }
-
-    /** Remove entries from previous days — call on app start */
-    // STEP17G2B2-2026-11-12 TEST-ONLY (CODE RULE 3): the rider's DataStore values, READ ONLY, for the G2b-2 cert (GtCert17b2); removed by the switch
+    // STEP17G2B2-2026-11-12 TEST-ONLY (CODE RULE 3): the rider's DataStore values, READ ONLY, for the G2b-2 cert (GtCert17b2) -- kept until GtCertRun goes
     suspend fun certRawSnapshot(): Map<String, Any?> = context.convoyDataStore.data.first().asMap().mapKeys { it.key.name }
-
-    suspend fun purgeStaleRemovedCarts() {
-        val today = LocalDate.now().toEpochDay().toString()
-        context.convoyDataStore.edit { prefs ->
-            val current = prefs[KEY_REMOVED_CARTS] ?: emptySet()
-            prefs[KEY_REMOVED_CARTS] = current.filter {
-                it.endsWith("|$today")
-            }.toSet()
-        }
-    }
 }
