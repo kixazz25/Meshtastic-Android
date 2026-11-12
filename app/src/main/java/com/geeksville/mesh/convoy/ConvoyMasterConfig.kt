@@ -1,10 +1,13 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import android.util.Base64
-import android.util.Log
+import com.geeksville.mesh.grouptrack.GtStorageAndroid
+import com.grouptrack.shared.config.GtMasterConfig
+import com.grouptrack.shared.config.GtMasterConfigStore
+import com.grouptrack.shared.json.GtOrgJson
+import kotlinx.serialization.json.JsonObject
+import okio.FileSystem
 import org.json.JSONObject
-import java.io.File
 
 /**
  * ConvoyMasterConfig — V2 master radio configuration
@@ -17,6 +20,10 @@ import java.io.File
  * NO user in the shipped app can create or modify this file.
  * Every event config is derived from this master.
  * Only channel name and PSK change per event.
+ *
+ * SWITCH17G2D-2026-11-12 (2.8 step 17, G2d): front doors to the shared GtMasterConfig / GtMasterConfigStore (certified at 0ed882ae7: Droid 69 SAME,
+ * 0 DIFF; iPad = Droid). Every field, name and type kept; the same asset, the same filesDir/master_config.json, the same log lines.
+ * toJson / fromJson keep their org.json JSONObject for the callers (the shared code writes and reads the text).
  */
 data class ConvoyMasterConfig(
     val hardwareModel: String,
@@ -85,188 +92,25 @@ data class ConvoyMasterConfig(
     val capturedDate: String,
     val capturedFirmware: String
 ) {
-    fun toJson(): JSONObject = JSONObject().apply {
-        put("hardwareModel",             hardwareModel)
-        put("firmwareVersion",           firmwareVersion)
-        put("pioEnv",                    pioEnv)
-        put("longName",                  longName)
-        put("shortName",                 shortName)
-        put("nodeRole",                  nodeRole)
-        put("isManaged",                 isManaged)
-        put("serialEnabled",             serialEnabled)
-        put("loraRegion",                loraRegion)
-        put("loraModemPreset",           loraModemPreset)
-        put("loraBandwidth",             loraBandwidth)
-        put("loraSpreadFactor",          loraSpreadFactor)
-        put("loraCodingRate",            loraCodingRate)
-        put("loraHopLimit",              loraHopLimit)
-        put("loraTxEnabled",             loraTxEnabled)
-        put("loraTxPower",               loraTxPower)
-        put("loraChannelNum",            loraChannelNum)
-        put("primaryChannelName",        primaryChannelName)
-        put("primaryChannelPsk",         primaryChannelPsk)
-        put("channelId",                 channelId)
-        put("channelUplinkEnabled",      channelUplinkEnabled)
-        put("channelDownlinkEnabled",    channelDownlinkEnabled)
-        put("positionPrecision",         positionPrecision)
-        put("channelIsMuted",            channelIsMuted)
-        put("gpsEnabled",                gpsEnabled)
-        put("gpsMode",                   gpsMode)
-        put("gpsUpdateSecs",             gpsUpdateSecs)
-        put("gpsAttemptTime",            gpsAttemptTime)
-        put("positionBroadcastSecs",     positionBroadcastSecs)
-        put("smartPositionEnabled",      smartPositionEnabled)
-        put("fixedPosition",             fixedPosition)
-        put("positionFlags",             positionFlags)
-        put("smartMinIntervalSecs",      smartMinIntervalSecs)
-        put("smartMinDistanceMeters",    smartMinDistanceMeters)
-        put("displayUnits",              displayUnits)
-        put("screenTimeout",             screenTimeout)
-        put("autoScreenBrightness",      autoScreenBrightness)
-        put("compassNorthTop",           compassNorthTop)
-        put("telemetryDeviceInterval",   telemetryDeviceInterval)
-        put("telemetryEnvInterval",      telemetryEnvInterval)
-        put("telemetryEnvEnabled",       telemetryEnvEnabled)
-        put("mqttEnabled",               mqttEnabled)
-        put("mqttAddress",               mqttAddress)
-        put("mqttUsername",              mqttUsername)
-        put("mqttEncryptionEnabled",     mqttEncryptionEnabled)
-        put("mqttJsonEnabled",           mqttJsonEnabled)
-        put("serialModuleEnabled",       serialModuleEnabled)
-        put("serialBaud",                serialBaud)
-        put("extNotificationEnabled",    extNotificationEnabled)
-        put("extNotificationAlertMsg",   extNotificationAlertMsg)
-        put("rangeTestEnabled",          rangeTestEnabled)
-        put("storeForwardEnabled",       storeForwardEnabled)
-        put("neighborInfoEnabled",       neighborInfoEnabled)
-        put("detectionSensorEnabled",    detectionSensorEnabled)
-        put("audioEnabled",              audioEnabled)
-        put("deviceProfileBase64",       deviceProfileBase64)
-        put("capturedDate",              capturedDate)
-        put("capturedFirmware",          capturedFirmware)
-    }
-    
+    fun toJson(): JSONObject = JSONObject(GtOrgJson.compact(toShared().toJson()))
+
+    fun toShared(): GtMasterConfig = GtMasterConfig(hardwareModel, firmwareVersion, pioEnv, longName, shortName, nodeRole, isManaged, serialEnabled, loraRegion, loraModemPreset, loraBandwidth, loraSpreadFactor, loraCodingRate, loraHopLimit, loraTxEnabled, loraTxPower, loraChannelNum, primaryChannelName, primaryChannelPsk, channelId, channelUplinkEnabled, channelDownlinkEnabled, positionPrecision, channelIsMuted, gpsEnabled, gpsMode, gpsUpdateSecs, gpsAttemptTime, positionBroadcastSecs, smartPositionEnabled, fixedPosition, positionFlags, smartMinIntervalSecs, smartMinDistanceMeters, displayUnits, screenTimeout, autoScreenBrightness, compassNorthTop, telemetryDeviceInterval, telemetryEnvInterval, telemetryEnvEnabled, mqttEnabled, mqttAddress, mqttUsername, mqttEncryptionEnabled, mqttJsonEnabled, serialModuleEnabled, serialBaud, extNotificationEnabled, extNotificationAlertMsg, rangeTestEnabled, storeForwardEnabled, neighborInfoEnabled, detectionSensorEnabled, audioEnabled, deviceProfileBase64, capturedDate, capturedFirmware)
+
     companion object {
-        private const val TAG          = "ConvoyMasterConfig"
         private const val ASSET_FILE   = "master_config.json"
-        private const val DEVICE_FILE  = "master_config.json"
-        private const val CONFIG_VERSION = 2
 
-        fun fromJson(obj: JSONObject): ConvoyMasterConfig = ConvoyMasterConfig(
-            hardwareModel          = obj.optString("hardwareModel", "Unknown"),
-            firmwareVersion        = obj.optString("firmwareVersion", "Unknown"),
-            pioEnv                 = obj.optString("pioEnv", ""),
-            longName               = obj.optString("longName", ""),
-            shortName              = obj.optString("shortName", ""),
-            nodeRole               = obj.optString("nodeRole", "CLIENT"),
-            isManaged              = obj.optBoolean("isManaged", false),
-            serialEnabled          = obj.optBoolean("serialEnabled", false),
-            loraRegion             = obj.optString("loraRegion", "US"),
-            loraModemPreset        = obj.optString("loraModemPreset", "LONG_FAST"),
-            loraBandwidth          = obj.optInt("loraBandwidth", 0),
-            loraSpreadFactor       = obj.optInt("loraSpreadFactor", 0),
-            loraCodingRate         = obj.optInt("loraCodingRate", 0),
-            loraHopLimit           = obj.optInt("loraHopLimit", 3),
-            loraTxEnabled          = obj.optBoolean("loraTxEnabled", true),
-            loraTxPower            = obj.optInt("loraTxPower", 27),
-            loraChannelNum         = obj.optInt("loraChannelNum", 0),
-            primaryChannelName     = obj.optString("primaryChannelName", ""),
-            primaryChannelPsk      = obj.optString("primaryChannelPsk", ""),
-            channelId              = obj.optInt("channelId", 0),
-            channelUplinkEnabled   = obj.optBoolean("channelUplinkEnabled", false),
-            channelDownlinkEnabled  = obj.optBoolean("channelDownlinkEnabled", false),
-            positionPrecision       = obj.optInt("positionPrecision", 32),
-            channelIsMuted          = obj.optBoolean("channelIsMuted", false),
-            gpsEnabled             = obj.optBoolean("gpsEnabled", true),
-            gpsMode                = obj.optString("gpsMode", "ENABLED"),
-            gpsUpdateSecs          = obj.optInt("gpsUpdateSecs", 1),
-            gpsAttemptTime         = obj.optInt("gpsAttemptTime", 900),
-            positionBroadcastSecs  = obj.optInt("positionBroadcastSecs", 5),
-            smartPositionEnabled   = obj.optBoolean("smartPositionEnabled", true),
-            fixedPosition          = obj.optBoolean("fixedPosition", false),
-            positionFlags          = obj.optInt("positionFlags", 811),
-            smartMinIntervalSecs   = obj.optInt("smartMinIntervalSecs", 3),
-            smartMinDistanceMeters = obj.optInt("smartMinDistanceMeters", 10),
-            displayUnits           = obj.optInt("displayUnits", 0),
-            screenTimeout          = obj.optInt("screenTimeout", 0),
-            autoScreenBrightness   = obj.optBoolean("autoScreenBrightness", false),
-            compassNorthTop        = obj.optBoolean("compassNorthTop", false),
-            telemetryDeviceInterval= obj.optInt("telemetryDeviceInterval", 0),
-            telemetryEnvInterval   = obj.optInt("telemetryEnvInterval", 0),
-            telemetryEnvEnabled    = obj.optBoolean("telemetryEnvEnabled", false),
-            mqttEnabled            = obj.optBoolean("mqttEnabled", false),
-            mqttAddress            = obj.optString("mqttAddress", ""),
-            mqttUsername           = obj.optString("mqttUsername", ""),
-            mqttEncryptionEnabled  = obj.optBoolean("mqttEncryptionEnabled", false),
-            mqttJsonEnabled        = obj.optBoolean("mqttJsonEnabled", false),
-            serialModuleEnabled    = obj.optBoolean("serialModuleEnabled", false),
-            serialBaud             = obj.optInt("serialBaud", 0),
-            extNotificationEnabled = obj.optBoolean("extNotificationEnabled", false),
-            extNotificationAlertMsg= obj.optBoolean("extNotificationAlertMsg", false),
-            rangeTestEnabled       = obj.optBoolean("rangeTestEnabled", false),
-            storeForwardEnabled    = obj.optBoolean("storeForwardEnabled", false),
-            neighborInfoEnabled    = obj.optBoolean("neighborInfoEnabled", false),
-            detectionSensorEnabled = obj.optBoolean("detectionSensorEnabled", false),
-            audioEnabled           = obj.optBoolean("audioEnabled", false),
-            deviceProfileBase64    = obj.optString("deviceProfileBase64", ""),
-            capturedDate           = obj.optString("capturedDate", ""),
-            capturedFirmware       = obj.optString("capturedFirmware", "")
-        )
-        
-        fun load(context: Context): ConvoyMasterConfig? {
-            val deviceFile = File(context.filesDir, DEVICE_FILE)
+        fun fromShared(g: GtMasterConfig): ConvoyMasterConfig = ConvoyMasterConfig(g.hardwareModel, g.firmwareVersion, g.pioEnv, g.longName, g.shortName, g.nodeRole, g.isManaged, g.serialEnabled, g.loraRegion, g.loraModemPreset, g.loraBandwidth, g.loraSpreadFactor, g.loraCodingRate, g.loraHopLimit, g.loraTxEnabled, g.loraTxPower, g.loraChannelNum, g.primaryChannelName, g.primaryChannelPsk, g.channelId, g.channelUplinkEnabled, g.channelDownlinkEnabled, g.positionPrecision, g.channelIsMuted, g.gpsEnabled, g.gpsMode, g.gpsUpdateSecs, g.gpsAttemptTime, g.positionBroadcastSecs, g.smartPositionEnabled, g.fixedPosition, g.positionFlags, g.smartMinIntervalSecs, g.smartMinDistanceMeters, g.displayUnits, g.screenTimeout, g.autoScreenBrightness, g.compassNorthTop, g.telemetryDeviceInterval, g.telemetryEnvInterval, g.telemetryEnvEnabled, g.mqttEnabled, g.mqttAddress, g.mqttUsername, g.mqttEncryptionEnabled, g.mqttJsonEnabled, g.serialModuleEnabled, g.serialBaud, g.extNotificationEnabled, g.extNotificationAlertMsg, g.rangeTestEnabled, g.storeForwardEnabled, g.neighborInfoEnabled, g.detectionSensorEnabled, g.audioEnabled, g.deviceProfileBase64, g.capturedDate, g.capturedFirmware)
 
-            // Try device file first
-            if (deviceFile.exists()) {
-                return try {
-                    val json = JSONObject(deviceFile.readText())
-                    val deviceVersion = json.optInt("configVersion", 0)
-                    if (deviceVersion < CONFIG_VERSION) {
-                        Log.i(TAG, "Master config v$deviceVersion < $CONFIG_VERSION, restoring from asset")
-                        restoreFromAsset(context)
-                    } else {
-                        fromJson(json).also { Log.i(TAG, "Master config loaded from device v$deviceVersion") }
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Device master config corrupt, restoring from asset", e)
-                    restoreFromAsset(context)
-                }
-            }
+        fun fromJson(obj: JSONObject): ConvoyMasterConfig = fromShared(GtMasterConfig.fromJson(GtOrgJson.parse(obj.toString()) as JsonObject))
 
-            // Missing — restore from bundled asset
-            Log.i(TAG, "Master config missing on device, restoring from asset")
-            return restoreFromAsset(context)
+        private fun store(context: Context) = GtMasterConfigStore(FileSystem.SYSTEM, GtStorageAndroid.of(context).filesDir() / GtMasterConfig.DEVICE_FILE) {
+            context.assets.open(ASSET_FILE).bufferedReader().use { it.readText() }
         }
 
-        /**
-         * Copy master config from bundled asset to device storage.
-         * Called on first install and whenever device file is missing.
-         */
-        private fun restoreFromAsset(context: Context): ConvoyMasterConfig? {
-            return try {
-                val json = context.assets.open(ASSET_FILE)
-                    .bufferedReader().use { it.readText() }
-                File(context.filesDir, DEVICE_FILE).also {
-                    it.parentFile?.mkdirs()
-                    it.writeText(json)
-                }
-                fromJson(JSONObject(json))
-                    .also { Log.i(TAG, "Master config restored from asset") }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to load master config from asset", e)
-                null
-            }
-        }
+        /** Device file first; missing, older than CONFIG_VERSION or corrupt -> restored from the bundled asset. */
+        fun load(context: Context): ConvoyMasterConfig? = store(context).load()?.let { fromShared(it) }
 
-        /**
-         * Check if master config is present — device or asset.
-         */
-        fun exists(context: Context): Boolean {
-            if (File(context.filesDir, DEVICE_FILE).exists()) return true
-            return try {
-                context.assets.open(ASSET_FILE).close()
-                true
-            } catch (e: Exception) { false }
-        }
+        /** Check if master config is present — device or asset. */
+        fun exists(context: Context): Boolean = store(context).exists()
     }
 }

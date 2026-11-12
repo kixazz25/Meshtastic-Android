@@ -1,8 +1,16 @@
 package com.geeksville.mesh.convoy
 
+import android.content.Context
+import com.geeksville.mesh.grouptrack.GtStorageAndroid
+import com.grouptrack.shared.config.GtEventConfig
+import com.grouptrack.shared.config.GtEventStore
+import com.grouptrack.shared.json.GtOrgJson
+import kotlinx.serialization.json.JsonObject
+import okio.FileSystem
+import okio.Path.Companion.toOkioPath
 import org.json.JSONObject
+import java.io.File
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 /**
@@ -13,6 +21,9 @@ import java.util.UUID
  * Hardware ID of organizer's active radio is the primary key.
  *
  * No manual radio config. No import. Master is the single source.
+ *
+ * SWITCH17G2D-2026-11-12 (2.8 step 17, G2d): front doors to the shared GtEventConfig / GtEventStore (certified at 0ed882ae7: Droid 69 SAME, 0 DIFF;
+ * iPad = Droid). Every field, name and type kept; the same files in filesDir/convoy_events, the same text, File.listFiles' own order.
  */
 data class ConvoyEventConfig(
     val eventId: String,
@@ -52,72 +63,14 @@ data class ConvoyEventConfig(
     val mapAreaWest: Double = 0.0,
     val mapZoomDepth: Int = 14
 ) {
-    fun toJson(): JSONObject = JSONObject().apply {
-        put("eventId",              eventId)
-        put("eventName",            eventName)
-        put("eventDate",            eventDate)
-        put("eventDescription",     eventDescription)
-        put("organizerUserId",      organizerUserId)
-        put("organizerFirstName",   organizerFirstName)
-        put("organizerLastName",    organizerLastName)
-        put("organizerEmail",       organizerEmail)
-        put("organizerPhone",       organizerPhone)
-        put("organizerVehicleType", organizerVehicleType)
-        put("hardwareId",           hardwareId)
-        put("deviceId",             deviceId)
-        put("hardwareModel",        hardwareModel)
-        put("firmwareVersion",      firmwareVersion)
-        put("channelName",          channelName)
-        put("channelPsk",           channelPsk)
-        put("loraRegion",           loraRegion)
-        put("loraModemPreset",      loraModemPreset)
-        put("loraBandwidth",        loraBandwidth)
-        put("loraSpreadFactor",     loraSpreadFactor)
-        put("loraCodingRate",       loraCodingRate)
-        put("loraHopLimit",         loraHopLimit)
-        put("loraTxPower",          loraTxPower)
-        put("createdDate",          createdDate)
-        put("expirationDate",       expirationDate)
-        put("mapAreaNorth",         mapAreaNorth)
-        put("mapAreaSouth",         mapAreaSouth)
-        put("mapAreaEast",          mapAreaEast)
-        put("mapAreaWest",          mapAreaWest)
-        put("mapZoomDepth",         mapZoomDepth)
-    }
+    fun toJson(): JSONObject = JSONObject(GtOrgJson.compact(toShared().toJson()))
+
+    fun toShared(): GtEventConfig = GtEventConfig(eventId, eventName, eventDate, eventDescription, organizerUserId, organizerFirstName, organizerLastName, organizerEmail, organizerPhone, organizerVehicleType, hardwareId, deviceId, hardwareModel, firmwareVersion, channelName, channelPsk, loraRegion, loraModemPreset, loraBandwidth, loraSpreadFactor, loraCodingRate, loraHopLimit, loraTxPower, createdDate, expirationDate, mapAreaNorth, mapAreaSouth, mapAreaEast, mapAreaWest, mapZoomDepth)
 
     companion object {
-        fun fromJson(obj: JSONObject) = ConvoyEventConfig(
-            eventId             = obj.getString("eventId"),
-            eventName           = obj.getString("eventName"),
-            eventDate           = obj.getString("eventDate"),
-            eventDescription    = obj.optString("eventDescription", ""),
-            organizerUserId     = obj.getString("organizerUserId"),
-            organizerFirstName  = obj.getString("organizerFirstName"),
-            organizerLastName   = obj.getString("organizerLastName"),
-            organizerEmail      = obj.getString("organizerEmail"),
-            organizerPhone      = obj.getString("organizerPhone"),
-            organizerVehicleType= obj.optString("organizerVehicleType", ""),
-            hardwareId          = obj.getString("hardwareId"),
-            deviceId            = obj.optString("deviceId", ""),
-            hardwareModel       = obj.optString("hardwareModel", ""),
-            firmwareVersion     = obj.optString("firmwareVersion", ""),
-            channelName         = obj.getString("channelName"),
-            channelPsk          = obj.getString("channelPsk"),
-            loraRegion          = obj.optString("loraRegion", "US"),
-            loraModemPreset     = obj.optString("loraModemPreset", "LONG_FAST"),
-            loraBandwidth       = obj.optInt("loraBandwidth", 250),
-            loraSpreadFactor    = obj.optInt("loraSpreadFactor", 11),
-            loraCodingRate      = obj.optInt("loraCodingRate", 8),
-            loraHopLimit        = obj.optInt("loraHopLimit", 3),
-            loraTxPower         = obj.optInt("loraTxPower", 27),
-            createdDate         = obj.getString("createdDate"),
-            expirationDate      = obj.getString("expirationDate"),
-            mapAreaNorth        = obj.optDouble("mapAreaNorth", 0.0),
-            mapAreaSouth        = obj.optDouble("mapAreaSouth", 0.0),
-            mapAreaEast         = obj.optDouble("mapAreaEast", 0.0),
-            mapAreaWest         = obj.optDouble("mapAreaWest", 0.0),
-            mapZoomDepth        = obj.optInt("mapZoomDepth", 14)
-        )
+        fun fromShared(g: GtEventConfig): ConvoyEventConfig = ConvoyEventConfig(g.eventId, g.eventName, g.eventDate, g.eventDescription, g.organizerUserId, g.organizerFirstName, g.organizerLastName, g.organizerEmail, g.organizerPhone, g.organizerVehicleType, g.hardwareId, g.deviceId, g.hardwareModel, g.firmwareVersion, g.channelName, g.channelPsk, g.loraRegion, g.loraModemPreset, g.loraBandwidth, g.loraSpreadFactor, g.loraCodingRate, g.loraHopLimit, g.loraTxPower, g.createdDate, g.expirationDate, g.mapAreaNorth, g.mapAreaSouth, g.mapAreaEast, g.mapAreaWest, g.mapZoomDepth)
+
+        fun fromJson(obj: JSONObject): ConvoyEventConfig = fromShared(GtEventConfig.fromJson(GtOrgJson.parse(obj.toString()) as JsonObject))
 
         /**
          * Create an event config derived from master config.
@@ -133,63 +86,21 @@ data class ConvoyEventConfig(
             eventDescription: String,
             channelName: String,
             channelPsk: String
-        ): ConvoyEventConfig {
-            val fmt    = DateTimeFormatter.ISO_LOCAL_DATE
-            val today  = LocalDate.now()
-            val evDate = try { LocalDate.parse(eventDate, fmt) } catch (e: Exception) { today }
-            return ConvoyEventConfig(
-                eventId             = UUID.randomUUID().toString(),
-                eventName           = eventName.trim(),
-                eventDate           = eventDate,
-                eventDescription    = eventDescription.trim(),
-                organizerUserId     = organizer.userId,
-                organizerFirstName  = organizer.firstName,
-                organizerLastName   = organizer.lastName,
-                organizerEmail      = organizer.email,
-                organizerPhone      = organizer.cellPhone,
-                organizerVehicleType= organizer.vehicleType,
-                hardwareId          = hardwareId,
-                deviceId            = deviceId,
-                hardwareModel       = master.hardwareModel,
-                firmwareVersion     = master.firmwareVersion,
-                channelName         = channelName.trim(),
-                channelPsk          = channelPsk,
-                loraRegion          = master.loraRegion,
-                loraModemPreset     = master.loraModemPreset,
-                loraBandwidth       = master.loraBandwidth,
-                loraSpreadFactor    = master.loraSpreadFactor,
-                loraCodingRate      = master.loraCodingRate,
-                loraHopLimit        = master.loraHopLimit,
-                loraTxPower         = master.loraTxPower,
-                createdDate         = today.format(fmt),
-                expirationDate      = evDate.plusDays(30).format(fmt)
-            )
-        }
+        ): ConvoyEventConfig = fromShared(GtEventConfig.createFromMaster(master.toShared(), organizer.toShared(), hardwareId, deviceId,
+            eventName, eventDate, eventDescription, channelName, channelPsk, LocalDate.now().toString(), UUID.randomUUID().toString()))
     }
 }
 
 /**
  * ConvoyEventStore — local JSON file storage for event configs
- * Directory: C:/ConvoyProto/events/
+ * Directory: filesDir/convoy_events (SWITCH17G2D-2026-11-12: the shared GtEventStore; File.listFiles' order, as 2.7e)
  */
 object ConvoyEventStore {
     private const val EVENTS_DIR = "convoy_events"
-    fun eventsDir(context: android.content.Context): java.io.File =
-        java.io.File(context.filesDir, EVENTS_DIR).also { it.mkdirs() }
-    fun save(context: android.content.Context, event: ConvoyEventConfig) {
-        val safeName = event.eventName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
-        val safeDate = event.eventDate.replace("/", "-").replace(" ", "_")
-        val fileName = "${event.eventId}_${safeName}_${safeDate}.json"
-        val file = java.io.File(eventsDir(context), fileName)
-        file.parentFile?.mkdirs()
-        file.writeText(event.toJson().toString(2))
+    fun eventsDir(context: Context): File = File(context.filesDir, EVENTS_DIR).also { it.mkdirs() }
+    private fun store(context: Context) = GtEventStore(FileSystem.SYSTEM, GtStorageAndroid.of(context).filesDir() / GtEventStore.EVENTS_DIR) { p ->
+        File(p.toString()).listFiles()?.map { it.toOkioPath() }
     }
-    fun loadAll(context: android.content.Context): List<ConvoyEventConfig> {
-        return eventsDir(context).listFiles { f -> f.extension == "json" }
-            ?.mapNotNull {
-                try { ConvoyEventConfig.fromJson(org.json.JSONObject(it.readText())) }
-                catch (e: Exception) { null }
-            } ?: emptyList()
-    }
+    fun save(context: Context, event: ConvoyEventConfig) = store(context).save(event.toShared())
+    fun loadAll(context: Context): List<ConvoyEventConfig> = store(context).loadAll().map { ConvoyEventConfig.fromShared(it) }
 }
-
