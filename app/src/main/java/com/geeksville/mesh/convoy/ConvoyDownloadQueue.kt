@@ -309,7 +309,8 @@ object DownloadQueueManager {
             vecCtx?.let { init(it) }   // 2.7e enqueueArea's init(context)
             return MapSourceManager.getDownloadSources().find { it.first == "SAT" }?.second?.size
         }
-        override fun recipesDir(): okio.Path = GroupTrackStorage.dir("recipes").toOkioPath()
+        override fun recipesDir(): okio.Path = vecCtx?.let { com.geeksville.mesh.grouptrack.GtStorageAndroid.of(it).dir("recipes") }   // SWITCH17G2A-2026-11-12
+            ?: GroupTrackStorage.dir("recipes").toOkioPath()   // CODE RULE 1: no front door has run yet -- 2.7e's own answer, as before
     }
     private val vecFiles = object : com.grouptrack.shared.imports.GtFiles {
         override val fs: okio.FileSystem = okio.FileSystem.SYSTEM

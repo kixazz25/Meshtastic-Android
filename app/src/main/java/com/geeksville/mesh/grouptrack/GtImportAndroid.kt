@@ -53,11 +53,12 @@ class GtImportAndroid(context: Context) : GtImportEnv {
     }
 
     override val paths = object : GtImportPaths {
-        override fun groupTrackRoot(): Path = GroupTrackStorage.root(app).toOkioPath()
+        private val st = GtStorageAndroid.of(app)   // SWITCH17G2A-2026-11-12: the one storage socket
+        override fun groupTrackRoot(): Path = st.root()
         override fun tracksDir(): Path = ConvoyTrackOps.tracksDir().toOkioPath()   // creates it, as 2.7e
-        override fun dir(name: String): Path = GroupTrackStorage.dir(name, app).toOkioPath()
-        override fun cacheDir(): Path = app.cacheDir.toOkioPath()
-        override fun filesDir(): Path = app.filesDir.toOkioPath()
+        override fun dir(name: String): Path = st.dir(name)
+        override fun cacheDir(): Path = st.cacheDir()
+        override fun filesDir(): Path = st.filesDir()
     }
 
     override val http: GtHttp = GtHttpAndroid

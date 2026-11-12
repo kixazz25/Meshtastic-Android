@@ -75,8 +75,9 @@ internal object GtRidesAndroid {
 
     /** STEP14: java.io.File calls exactly as 2.7e made them, for one Context. */
     class Files(private val context: Context) : RideFiles {
-        override fun ridesDir(): String = GroupTrackStorage.dir("rides", context).path
-        override fun stagingDir(): String = java.io.File(context.filesDir, "gpx_staging").path
+        private val st = com.geeksville.mesh.grouptrack.GtStorageAndroid.of(context)   // SWITCH17G2A-2026-11-12: the one storage socket
+        override fun ridesDir(): String = st.dir("rides").toString()
+        override fun stagingDir(): String = (st.filesDir() / "gpx_staging").toString()
         override fun child(dir: String, name: String): String = java.io.File(dir, name).path
         override fun sibling(path: String, name: String): String = java.io.File(java.io.File(path).parentFile, name).path
         override fun name(path: String): String = java.io.File(path).name
