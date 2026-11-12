@@ -74,8 +74,7 @@ internal class GtJavaHashMapLong<V : Any> {
             if (loT != null) { loT.next = null; t[j] = loH }
             if (hiT != null) { hiT.next = null; t[j + oldCap] = hiH }
         }
-        @Suppress("UNCHECKED_CAST")
-        table = t as Array<Node<V>?>
+        table = t   // STEP16C-2026-11-11: the needless cast removed (16b's one iOS warning; arrayOfNulls already gives Array<Node<V>?>)
     }
 
     /** (key, value) in HashMap's iteration order. */
