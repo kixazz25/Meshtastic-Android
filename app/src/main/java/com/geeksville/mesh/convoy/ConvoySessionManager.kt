@@ -1,117 +1,53 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import android.util.Log
+import com.geeksville.mesh.grouptrack.GtSettingsAndroid
+import com.grouptrack.shared.settings.GtSession
 
-private const val TAG = "ConvoySession"
-private const val PREFS_NAME = "grouptrack_user"
-
-const val TERMS_VERSION   = "1.0"
-const val PRIVACY_VERSION = "1.0"
+/*
+ * SWITCH17G2B1-2026-11-12 (2.8 step 17, G2b-1 switch): every function is a front door to the shared GtSession (certified 11-12 11:16,
+ * 0c178d566: Droid 44 SAME / 0 DIFF, iPad = Droid). The same names, signatures and store ("grouptrack_user", SharedPreferences through
+ * GtSettingsAndroid) -- no caller changes. The 2.7e code is kept, generated, as SessionCertOld (the cert's OLD side, TEST-ONLY).
+ */
+const val TERMS_VERSION   = GtSession.TERMS_VERSION
+const val PRIVACY_VERSION = GtSession.PRIVACY_VERSION
 
 object ConvoySessionManager {
 
-    fun getUserId(ctx: Context): String? =
-        prefs(ctx).getString("user_id", null)
+    private fun s(ctx: Context) = GtSession(GtSettingsAndroid(ctx), GtSession.STORE, System::currentTimeMillis)
 
-    fun isSignedIn(ctx: Context): Boolean =
-        getUserId(ctx) != null
-
-    fun isSubscribed(ctx: Context): Boolean {
-        if (prefs(ctx).getBoolean("dev_subscribed_override", false)) return true
-        val exp = prefs(ctx).getLong("subscription_expires_at", 0L)
-        return exp > System.currentTimeMillis()
-    }
-
-    fun isSubscriptionExpired(ctx: Context): Boolean =
-        isSignedIn(ctx) && !isSubscribed(ctx)
-
-    fun termsAccepted(ctx: Context): Boolean =
-        prefs(ctx).getString("terms_version", null) == TERMS_VERSION
-
-    fun privacyAccepted(ctx: Context): Boolean =
-        prefs(ctx).getString("privacy_version", null) == PRIVACY_VERSION
-
-    fun isOrganizer(ctx: Context): Boolean =
-        prefs(ctx).getBoolean("is_organizer", false)
-
-    fun getFirstName(ctx: Context): String =
-        prefs(ctx).getString("first_name", "") ?: ""
-
-    fun getEmail(ctx: Context): String =
-        prefs(ctx).getString("email", "") ?: ""
-
-    fun getZipCode(ctx: Context): String =
-        prefs(ctx).getString("zip_code", "") ?: ""
-    fun getCity(ctx: Context): String =
-        prefs(ctx).getString("city", "") ?: ""
-    fun setCity(ctx: Context, city: String) =
-        prefs(ctx).edit().putString("city", city).apply()
-    fun getState(ctx: Context): String =
-        prefs(ctx).getString("state", "") ?: ""
-    fun setState(ctx: Context, state: String) =
-        prefs(ctx).edit().putString("state", state).apply()
-    // Phase C: server-side ZIP lookup trigger — on PUT /users/{id},
-    // if zip_code provided and city/state blank, server calls
-    // api.zippopotam.us/us/{zip} and populates city/state automatically.""
-
-    fun getSearchRadius(ctx: Context): Int =
-        prefs(ctx).getInt("search_radius_miles", 25)
-
-    fun setZipCode(ctx: Context, zip: String) {
-        prefs(ctx).edit().putString("zip_code", zip).apply()
-    }
-
-    fun setSearchRadius(ctx: Context, miles: Int) {
-        prefs(ctx).edit().putInt("search_radius_miles", miles).apply()
-    }
-
-    fun saveUser(ctx: Context, userId: String, googleId: String,
-                 email: String, firstName: String, lastName: String) {
-        prefs(ctx).edit().apply {
-            putString("user_id",    userId)
-            putString("google_id",  googleId)
-            putString("email",      email)
-            putString("first_name", firstName)
-            putString("last_name",  lastName)
-            apply()
-        }
-        Log.i(TAG, "User saved: $userId")
-    }
-
-    fun acceptTerms(ctx: Context) {
-        prefs(ctx).edit().putString("terms_version", TERMS_VERSION).apply()
-    }
-
-    fun acceptPrivacy(ctx: Context) {
-        prefs(ctx).edit().putString("privacy_version", PRIVACY_VERSION).apply()
-    }
-
-    fun setOrganizer(ctx: Context, value: Boolean) {
-        prefs(ctx).edit().putBoolean("is_organizer", value).apply()
-    }
-
-    fun setSubscriptionExpiry(ctx: Context, expiresAtMs: Long) {
-        prefs(ctx).edit().putLong("subscription_expires_at", expiresAtMs).apply()
-    }
-
-    fun clearSession(ctx: Context) {
-        prefs(ctx).edit().clear().apply()
-        Log.i(TAG, "Session cleared")
-    }
+    fun getUserId(ctx: Context): String? = s(ctx).getUserId()
+    fun isSignedIn(ctx: Context): Boolean = s(ctx).isSignedIn()
+    fun isSubscribed(ctx: Context): Boolean = s(ctx).isSubscribed()
+    fun isSubscriptionExpired(ctx: Context): Boolean = s(ctx).isSubscriptionExpired()
+    fun termsAccepted(ctx: Context): Boolean = s(ctx).termsAccepted()
+    fun privacyAccepted(ctx: Context): Boolean = s(ctx).privacyAccepted()
+    fun isOrganizer(ctx: Context): Boolean = s(ctx).isOrganizer()
+    fun getFirstName(ctx: Context): String = s(ctx).getFirstName()
+    fun getEmail(ctx: Context): String = s(ctx).getEmail()
+    fun getZipCode(ctx: Context): String = s(ctx).getZipCode()
+    fun getCity(ctx: Context): String = s(ctx).getCity()
+    fun setCity(ctx: Context, city: String) = s(ctx).setCity(city)
+    fun getState(ctx: Context): String = s(ctx).getState()
+    fun setState(ctx: Context, state: String) = s(ctx).setState(state)
+    // Phase C: server-side ZIP lookup trigger -- on PUT /users/{id}, if zip_code provided and city/state blank, the server calls
+    // api.zippopotam.us/us/{zip} and populates city/state automatically.
+    fun getSearchRadius(ctx: Context): Int = s(ctx).getSearchRadius()
+    fun setZipCode(ctx: Context, zip: String) { s(ctx).setZipCode(zip) }
+    fun setSearchRadius(ctx: Context, miles: Int) { s(ctx).setSearchRadius(miles) }
+    fun saveUser(ctx: Context, userId: String, googleId: String, email: String, firstName: String, lastName: String) =
+        s(ctx).saveUser(userId, googleId, email, firstName, lastName)
+    fun acceptTerms(ctx: Context) { s(ctx).acceptTerms() }
+    fun acceptPrivacy(ctx: Context) { s(ctx).acceptPrivacy() }
+    fun setOrganizer(ctx: Context, value: Boolean) { s(ctx).setOrganizer(value) }
+    fun setSubscriptionExpiry(ctx: Context, expiresAtMs: Long) { s(ctx).setSubscriptionExpiry(expiresAtMs) }
+    fun clearSession(ctx: Context) = s(ctx).clearSession()
 
     enum class LaunchRoute {
         CONVOY_MAP, SIGN_IN, TERMS, PRIVACY, SUBSCRIPTION, DASHBOARD
     }
 
-    fun resolveLaunchRoute(ctx: Context, hasInternet: Boolean): LaunchRoute {
-        if (!isSignedIn(ctx))      return LaunchRoute.SIGN_IN
-        if (!termsAccepted(ctx))   return LaunchRoute.TERMS
-        if (!privacyAccepted(ctx)) return LaunchRoute.PRIVACY
-        if (ConvoyConfig.PAYWALL_ENABLED && !isSubscribed(ctx)) return LaunchRoute.SUBSCRIPTION
-        return LaunchRoute.DASHBOARD
-    }
-
-    private fun prefs(ctx: Context) =
-        ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    /** GtSession's route mapped by name onto this enum (the same six names, the same order) -- callers keep using this one. */
+    fun resolveLaunchRoute(ctx: Context, hasInternet: Boolean): LaunchRoute =
+        LaunchRoute.valueOf(s(ctx).resolveLaunchRoute(hasInternet).name)
 }

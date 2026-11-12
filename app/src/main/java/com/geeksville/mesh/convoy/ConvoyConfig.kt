@@ -11,7 +11,7 @@ object ConvoyConfig {
     @Volatile var waypointChecked: Set<String>? = null
     @Volatile var routeChecked: Set<String>? = null
 
-    const val MAP_DEFAULT_ZOOM = 18.0
+    const val MAP_DEFAULT_ZOOM = com.grouptrack.shared.settings.GtConfig.MAP_DEFAULT_ZOOM   // SWITCH17G2B1-2026-11-12 -- was: 18.0
     // TILE_SOURCES — reads from MapSourceManager (map_sources.json)
     // No hardcoded URLs. Single source of truth.
     val TILE_SOURCES: Map<String, String>
@@ -28,7 +28,7 @@ object ConvoyConfig {
     // settings. "not reported" means no map has been opened yet this session,
     // or the HTML predates the version marker - which is itself the answer.
     @JvmField var MAP_HTML_VERSION: String = "not reported"
-    const val LOCAL_TILE_BASE = "convoy://tiles/"
+    const val LOCAL_TILE_BASE = com.grouptrack.shared.settings.GtConfig.LOCAL_TILE_BASE   // SWITCH17G2B1-2026-11-12 -- was: "convoy://tiles/"
 
     // Shared tile storage — package-independent, survives app reinstall/rename
     // <tileRoot>/maps/tiles/{source}/{z}/{x}/{y}.png
@@ -61,19 +61,19 @@ object ConvoyConfig {
     // lifetimes, which is the shape of the 08-16 reinstall wipe.
     // ⭐ Deleted rather than disabled: dead code that looks live survives
     // because nobody is sure about it.
-    const val MAP_GROUP_ZOOM_PADDING = 1.4f
-    const val MAP_CART_ZOOM = 18.0
-    const val MAP_MIN_ZOOM = 16.0
+    const val MAP_GROUP_ZOOM_PADDING = com.grouptrack.shared.settings.GtConfig.MAP_GROUP_ZOOM_PADDING   // SWITCH17G2B1-2026-11-12 -- was: 1.4f
+    const val MAP_CART_ZOOM = com.grouptrack.shared.settings.GtConfig.MAP_CART_ZOOM   // SWITCH17G2B1-2026-11-12 -- was: 18.0
+    const val MAP_MIN_ZOOM = com.grouptrack.shared.settings.GtConfig.MAP_MIN_ZOOM   // SWITCH17G2B1-2026-11-12 -- was: 16.0
     /** Show downloaded tile overlay on map open — OFF bypasses z18 scan */
     var SHOW_DOWNLOADED_ON_OPEN = false
-    const val BLINK_LOST_MS = 3000L
-    const val BLINK_DROP_MS = 150L
-    const val MARKER_SIZE_LARGE_DP = 24
-    const val MARKER_SIZE_MEDIUM_DP = 16
+    const val BLINK_LOST_MS = com.grouptrack.shared.settings.GtConfig.BLINK_LOST_MS   // SWITCH17G2B1-2026-11-12 -- was: 3000L
+    const val BLINK_DROP_MS = com.grouptrack.shared.settings.GtConfig.BLINK_DROP_MS   // SWITCH17G2B1-2026-11-12 -- was: 150L
+    const val MARKER_SIZE_LARGE_DP = com.grouptrack.shared.settings.GtConfig.MARKER_SIZE_LARGE_DP   // SWITCH17G2B1-2026-11-12 -- was: 24
+    const val MARKER_SIZE_MEDIUM_DP = com.grouptrack.shared.settings.GtConfig.MARKER_SIZE_MEDIUM_DP   // SWITCH17G2B1-2026-11-12 -- was: 16
     var SIGNAL_DROP_MINUTES = 2f
     var LOST_MINUTES = 10f
     var OFF_TRACK_MILES = 0.028f  // 150 feet
-    const val API_BASE_URL = "https://grouptrack.org/convoy_api.php/"  // V3.0 backend
+    const val API_BASE_URL = com.grouptrack.shared.settings.GtConfig.API_BASE_URL   // SWITCH17G2B1-2026-11-12 -- was: "https://grouptrack.org/convoy_api.php/"  // V3.0 backend
     /* V3-REFRESH (RETIRE26-2026-10-08, Fred): V3 PICK-UP PLANNING -- these legacy items MUST be addressed before
      * this flag is turned on. The V3 screens are a reference to the old code, to be refreshed to the 2.7 functions:
      *  - Create Ride / Ride Detail / Profile / Dashboard "Apply Master / Ride Config to Radio" and Field Radio
@@ -84,9 +84,9 @@ object ConvoyConfig {
      *  - GroupTrackBottomNav RADIO menu (GroupTrackTheme.kt) and the dev long-press menu: review against 2.7.
      *  - The retired 2.6 chain (checklist field arrays, apply rules, WorkingConfig verify) is reference only:
      *    docs/reference/retired_2.6_radio_apply/. Nothing there compiles or may be re-wired as-is. */
-    const val V3_FEATURES_ENABLED = false
-    const val PAYWALL_ENABLED = false              // Flip to true when growth warrants paywall                  // Flip to true to expose V3 to testers
-    const val IS_STANDALONE_BUILD = true  // true = beta APK, false = Google Play build
+    const val V3_FEATURES_ENABLED = com.grouptrack.shared.settings.GtConfig.V3_FEATURES_ENABLED   // SWITCH17G2B1-2026-11-12 -- was: false
+    const val PAYWALL_ENABLED = com.grouptrack.shared.settings.GtConfig.PAYWALL_ENABLED   // SWITCH17G2B1-2026-11-12 -- was: false              // Flip to true when growth warrants paywall                  // Flip to true to expose V3 to testers
+    const val IS_STANDALONE_BUILD = com.grouptrack.shared.settings.GtConfig.IS_STANDALONE_BUILD   // SWITCH17G2B1-2026-11-12 -- was: true  // true = beta APK, false = Google Play build
     var TRACK_EXPORT_FORMAT = "GPX"  // GPX = default (Garmin/Strava/AllTrails), KML = Google Earth/route donation
     var DOWNLOAD_ZOOM = 18
     var SEARCH_FLY_ZOOM = 10
@@ -103,6 +103,6 @@ object ConvoyConfig {
     // A corridor is not a corridor at these zooms and that is fine: one
     // z4 tile is ~2,500 km across, so it covers most of the western US.
     // A continental view for a single tile.
-    const val DOWNLOAD_ZOOM_MIN = 4
+    const val DOWNLOAD_ZOOM_MIN = com.grouptrack.shared.settings.GtConfig.DOWNLOAD_ZOOM_MIN   // SWITCH17G2B1-2026-11-12 -- was: 4
     var TRACK_MULTICOLOR = true
 }
