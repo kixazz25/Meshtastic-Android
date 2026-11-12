@@ -1,7 +1,24 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import android.util.Log
+import com.geeksville.mesh.grouptrack.GtImportAndroid
+import com.geeksville.mesh.grouptrack.GtOsmAndroid
+import com.grouptrack.shared.imports.GtClock
+import com.grouptrack.shared.imports.GtFiles
+import com.grouptrack.shared.imports.GtHttp
+import com.grouptrack.shared.imports.GtIds
+import com.grouptrack.shared.imports.GtImportEnv
+import com.grouptrack.shared.imports.GtImportPaths
+import com.grouptrack.shared.imports.GtImportPlatform
+import com.grouptrack.shared.imports.GtTrailClass
+import com.grouptrack.shared.osm.GtOsmPlatform
+import com.grouptrack.shared.osm.GtOsmStage
+import com.grouptrack.shared.state.GtStateData
+import com.grouptrack.shared.state.GtStateDataRun
+import com.grouptrack.shared.text.GtLocalTime
+import okio.FileSystem
+import okio.Path
+import okio.Path.Companion.toOkioPath
 import java.io.File
 
 /**
@@ -27,142 +44,102 @@ import java.io.File
  *      skip the download.
  *   3. At the end of the run (Step 5, where everything used to be deleted) [save] moves the verified PBF and zip into
  *      states/<slug>/ before the working folder is cleared.
+ *
+ * SWITCH17G2E1-2026-11-12 (2.8 step 17, G2e-1): front doors to the shared GtStateData (certified at 34f000359: Droid 58 SAME, 0 DIFF;
+ * iPad = Droid). Every public name, parameter and type kept -- the callers (HomeStateImportController, HomeStatePickerScreen,
+ * LandAreas, UtahPrivate) are unchanged. The two in-memory sets stay here, one per process, as 2.7e (ConcurrentHashMap).
+ * The three path functions take no Context in 2.7e, so they use [pathsOnly]: GroupTrackStorage.dir(name) as 2.7e called it.
  */
 object StateData {
-    private const val TAG = "StateData"
-
     /** Fred 10:34: "more than six months old". */
-    const val STALE_DAYS = 183
+    const val STALE_DAYS = GtStateData.STALE_DAYS
 
-    /** The rider's answers for the run about to start: slug -> true = refresh, false = use saved. Cleared by [restore]. */
-    private val answers = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    /** 2.7e's two in-memory sets: the rider's answers for the run about to start, and the states refreshing this run. */
+    private object Run : GtStateDataRun {
+        private val answers = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+        private val refreshing = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
+        override fun putAnswer(slug: String, refresh: Boolean) { answers[slug] = refresh }
+        override fun removeAnswer(slug: String): Boolean? = answers.remove(slug)
+        override fun hasAnswer(slug: String): Boolean = answers.containsKey(slug)
+        override fun addRefreshing(slug: String) { refreshing.add(slug) }
+        override fun refreshing(): List<String> = refreshing.toList()
+        override fun clearRefreshing() { refreshing.clear() }
+    }
 
-    private fun dirFor(slug: String): File = GroupTrackStorage.dir("states/$slug")
+    private fun sd(ctx: Context): GtStateData { val env = GtImportAndroid(ctx); return GtStateData(env, GtOsmStage(env, GtOsmAndroid(ctx)), Run) }
+    private fun f(p: Path): File = File(p.toString())
 
-    private fun savedPbf(ctx: Context, slug: String) = File(dirFor(slug), OsmImportStage.pbfFor(ctx, slug).name)
-    private fun savedZip(ctx: Context, slug: String) = File(dirFor(slug), OsmImportStage.zipFor(ctx, slug).name)
+    /** No Context (as 2.7e): only the folder rules are used -- GroupTrackStorage.dir(name), the OSM stage is never reached. */
+    private val pathsOnly: GtStateData by lazy {
+        val env = object : GtImportEnv {
+            override val clock = object : GtClock {
+                override fun nowInstant(): String = java.time.Instant.now().toString()
+                override fun localNow(): GtLocalTime = throw UnsupportedOperationException("StateData paths only")
+                override fun epochMs(): Long = System.currentTimeMillis()
+            }
+            override val ids = object : GtIds { override fun newId(): String = throw UnsupportedOperationException("StateData paths only") }
+            override val files = object : GtFiles {
+                override val fs: FileSystem = FileSystem.SYSTEM
+                override fun setLastModified(path: Path, epochMs: Long): Boolean = File(path.toString()).setLastModified(epochMs)
+                override fun lastModified(path: Path): Long = File(path.toString()).lastModified()
+                override fun list(dir: Path): List<Path> = File(dir.toString()).listFiles()?.map { it.toOkioPath() } ?: emptyList()
+            }
+            override val paths = object : GtImportPaths {
+                override fun groupTrackRoot(): Path = GroupTrackStorage.root().toOkioPath()
+                override fun tracksDir(): Path = throw UnsupportedOperationException("StateData paths only")
+                override fun dir(name: String): Path = GroupTrackStorage.dir(name).toOkioPath()
+                override fun cacheDir(): Path = throw UnsupportedOperationException("StateData paths only")
+                override fun filesDir(): Path = throw UnsupportedOperationException("StateData paths only")
+            }
+            override val http = object : GtHttp { override fun get(url: String, readTimeoutMs: Int): String? = throw UnsupportedOperationException("StateData paths only") }
+            override val trailClass = object : GtTrailClass { override fun useOf(category: String): String = throw UnsupportedOperationException("StateData paths only") }
+            override val platform = object : GtImportPlatform {
+                override fun readAsset(name: String): String = throw UnsupportedOperationException("StateData paths only")
+                override fun enqueueCorridor(geomHash: String, slot: String, replaceExisting: Boolean): Int = throw UnsupportedOperationException("StateData paths only")
+                override fun saveToDownloads(file: Path): String = throw UnsupportedOperationException("StateData paths only")
+                override fun onTrailsChanged() {}
+            }
+        }
+        val noPlat = object : GtOsmPlatform {
+            override fun onOsmRoot(root: Path) = throw UnsupportedOperationException("StateData paths only")
+            override fun discardLegacy(slug: String) = throw UnsupportedOperationException("StateData paths only")
+            override fun usableSpace(dir: Path): Long = throw UnsupportedOperationException("StateData paths only")
+            override fun sweepDownloadedZips(slug: String) = throw UnsupportedOperationException("StateData paths only")
+            override fun foreground(worker: String, text: String) = throw UnsupportedOperationException("StateData paths only")
+        }
+        GtStateData(env, GtOsmStage(env, noPlat), Run)
+    }
 
-    /**
-     * FETCHFIRST-2026-11-02: the state's PAD-US zip, kept in the state's folder and never moved or discarded. [folder] is the state's
-     * folder name -- California's two halves (california/norcal, california/socal) share one CA file in states/california.
-     */
-    fun landFile(folder: String, code: String): File = File(dirFor(folder), "padus_state_$code.zip")
+    /** FETCHFIRST-2026-11-02: the state's PAD-US zip, kept in the state's folder (California's halves share states/california). */
+    fun landFile(folder: String, code: String): File = f(pathsOnly.landFile(folder, code))
     /** PADUSSVC-2026-11-02: the state's PAD-US areas from the USGS service -- one JSON page per line. Replaces the zip. */
-    fun landPages(folder: String, code: String): File = File(dirFor(folder), "padus_$code.jsonl")
-
+    fun landPages(folder: String, code: String): File = f(pathsOnly.landPages(folder, code))
     /** FETCHFIRST-2026-11-02: one agency trail source's saved pages for the state (one JSON page per line). */
-    fun agencyFile(slug: String, sourceId: String): File = File(File(dirFor(slug), "agency"), "$sourceId.jsonl")
+    fun agencyFile(slug: String, sourceId: String): File = f(pathsOnly.agencyFile(slug, sourceId))
 
     /** True when the state's two files are saved. */
-    fun has(ctx: Context, slug: String): Boolean = savedPbf(ctx, slug).exists() && savedZip(ctx, slug).exists()
-
-    /** DATAQUEUE-2026-11-02: the states whose data this run downloads fresh ("Download fresh data", or REFRESH on the 6-month question). */
-    private val refreshing = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
-
+    fun has(ctx: Context, slug: String): Boolean = sd(ctx).has(slug)
     /** DATAQUEUE-2026-11-02: download this state's files again (California's halves share the "california" land folder). */
-    fun isRefresh(slug: String): Boolean = refreshing.any { it == slug || it.startsWith("$slug/") }
-
+    fun isRefresh(slug: String): Boolean = pathsOnly.isRefresh(slug)
     /** DATAQUEUE-2026-11-02: the run is over -- the next one uses the saved data again. */
-    fun endRun() { refreshing.clear() }
+    fun endRun() = pathsOnly.endRun()
 
-    /** DATAQUEUE-2026-11-02: what each kind of file is USED BY -- the per-state record says so, for pruning later (Fred 12:16). */
-    private val USED_BY = mapOf(
-        "pbf" to "OSM trails import -- trail access tags (Open Source Maps)",
-        "gpkg" to "OSM trails import -- trail lines (Open Source Maps)",
-        "land" to "public / private / restricted land (PAD-US) -- step 8 and the map's land areas",
-        "agency" to "agency trails import",
-        "ownership" to "(retired 11-02 -- PAD-US replaced it)")
-
-    /**
-     * DATAQUEUE-2026-11-02: write states/<slug>/state_data.json for every state in [rows] (the import's file rows) -- each file's kind,
-     * name, where it is kept, MB, date, status and what it is used by. The OSM files are recorded where they are SAVED (states/<slug>/)
-     * -- they move there at the end of the import.
-     */
-    fun writeRecords(ctx: Context, rows: List<org.json.JSONObject>) {
-        for ((slug, list) in rows.groupBy { it.optString("state_slug") }) {
-            if (slug.isEmpty()) continue
-            val files = org.json.JSONArray()
-            for (r in list) {
-                val kind = r.optString("fetch_kind")
-                val dest = File(r.optString("dest"))
-                val kept = if (kind == "pbf" || kind == "gpkg") File(dirFor(slug), dest.name) else dest
-                val f = if (dest.exists()) dest else kept
-                files.put(org.json.JSONObject()
-                    .put("kind", kind).put("name", r.optString("name")).put("path", kept.path)
-                    .put("mb", if (f.exists()) f.length() / 1_048_576L else 0L)
-                    .put("date", if (f.exists()) java.time.Instant.ofEpochMilli(f.lastModified()).toString() else "")
-                    .put("status", r.optString("status")).put("used_by", USED_BY[kind] ?: ""))
-            }
-            val d = dirFor(slug); if (!d.exists()) d.mkdirs()
-            File(d, "state_data.json").writeText(org.json.JSONObject().put("state", slug)
-                .put("written", java.time.Instant.now().toString()).put("files", files).toString(1))
-            Log.i(TAG, "STATEDATA $slug: record written (${files.length()} file(s))")
-        }
-    }
+    /** DATAQUEUE-2026-11-02: write states/<slug>/state_data.json for every state in [rows] (the import's file rows). */
+    fun writeRecords(ctx: Context, rows: List<org.json.JSONObject>) = sd(ctx).writeRecords(rows.map {
+        GtStateData.Row(it.optString("state_slug"), it.optString("fetch_kind"), it.optString("name"), it.optString("dest"), it.optString("status")) })
 
     /** When the saved data was downloaded (ms), or 0 when nothing is saved. CODE RULE 1: 0 = none, not null. */
-    fun downloadedMs(ctx: Context, slug: String): Long = if (has(ctx, slug)) savedPbf(ctx, slug).lastModified() else 0L
-
+    fun downloadedMs(ctx: Context, slug: String): Long = sd(ctx).downloadedMs(slug)
     /** Whole days since the saved data was downloaded, or -1 when nothing is saved. */
-    fun ageDays(ctx: Context, slug: String): Int {
-        val t = downloadedMs(ctx, slug)
-        return if (t <= 0L) -1 else ((System.currentTimeMillis() - t) / 86_400_000L).toInt()
-    }
-
+    fun ageDays(ctx: Context, slug: String): Int = sd(ctx).ageDays(slug)
     /** Saved size in MB (both files), 0 when nothing is saved. */
-    fun sizeMb(ctx: Context, slug: String): Long =
-        if (has(ctx, slug)) (savedPbf(ctx, slug).length() + savedZip(ctx, slug).length()) / 1_048_576L else 0L
-
+    fun sizeMb(ctx: Context, slug: String): Long = sd(ctx).sizeMb(slug)
     /** The states in [slugs] whose saved data is over [STALE_DAYS] old and not yet answered for this run. */
-    fun staleSlugs(ctx: Context, slugs: List<String>): List<String> =
-        slugs.distinct().filter { !answers.containsKey(it) && ageDays(ctx, it) > STALE_DAYS }
-
+    fun staleSlugs(ctx: Context, slugs: List<String>): List<String> = sd(ctx).staleSlugs(slugs)
     /** The rider's answer to the refresh question for [slugs]. */
-    fun answer(slugs: List<String>, refresh: Boolean) {
-        for (s in slugs) answers[s] = refresh
-        Log.i(TAG, "STATEDATA refresh question: ${slugs.joinToString()} -> " + if (refresh) "REFRESH" else "use saved")
-    }
-
-    /**
-     * Before the run's download step: a refresh asked -> delete the saved files (the run downloads); otherwise move the
-     * saved files into the working folder so the existing exists() checks skip the download.
-     */
-    fun restore(ctx: Context, slug: String) {
-        val refresh = answers.remove(slug) == true
-        val sp = savedPbf(ctx, slug); val sz = savedZip(ctx, slug)
-        if (refresh) {
-            // DATAQUEUE-2026-11-02 (Fred 15:59): a refresh no longer DELETES the saved copy -- every file of the state downloads over it
-            //  and replaces it only when the new one is complete. A failed or stopped refresh keeps the old data.
-            refreshing.add(slug)
-            Log.i(TAG, "STATEDATA $slug: refresh asked -- every file downloads again; the saved copy is kept until each new one is complete")
-        }
-        if (!sp.exists() && !sz.exists()) { Log.i(TAG, "STATEDATA $slug: nothing saved -- downloading"); return }
-        val age = ageDays(ctx, slug)   // before the move: the age is read from the saved PBF
-        val wp = OsmImportStage.pbfFor(ctx, slug); val wz = OsmImportStage.zipFor(ctx, slug)
-        var moved = 0
-        if (sp.exists() && !wp.exists() && sp.renameTo(wp)) moved++
-        if (sz.exists() && !wz.exists() && sz.renameTo(wz)) moved++
-        Log.i(TAG, "STATEDATA $slug: using saved data ($moved file(s), downloaded ${age.coerceAtLeast(0)} day(s) ago by file date) -- no download")
-    }
-
+    fun answer(slugs: List<String>, refresh: Boolean) = pathsOnly.answer(slugs, refresh)
+    /** Before the run's download step: refresh -> marked; saved files move into the working folder (no download). */
+    fun restore(ctx: Context, slug: String) = sd(ctx).restore(slug)
     /** At the end of the run: move the verified PBF and zip into states/<slug>/ before the working folder is cleared. */
-    fun save(ctx: Context, slug: String) {
-        try {
-            val d = dirFor(slug); if (!d.exists()) d.mkdirs()
-            val wp = OsmImportStage.pbfFor(ctx, slug); val wz = OsmImportStage.zipFor(ctx, slug)
-            var kept = 0
-            if (wp.exists() && OsmImportStage.verifyPbf(wp)) {
-                val t = savedPbf(ctx, slug); if (t.exists()) t.delete()
-                if (wp.renameTo(t)) kept++
-            }
-            if (wz.exists() && OsmImportStage.verifyZip(wz)) {
-                val t = savedZip(ctx, slug); if (t.exists()) t.delete()
-                if (wz.renameTo(t)) kept++
-            }
-            Log.i(TAG, "STATEDATA $slug: $kept file(s) saved to ${d.path} (${sizeMb(ctx, slug)} MB)")
-        } catch (e: Exception) {
-            // Never fail an import over keeping its files: the import itself is complete.
-            Log.w(TAG, "STATEDATA $slug: save skipped -- ${e.javaClass.simpleName} ${e.message}")
-        }
-    }
+    fun save(ctx: Context, slug: String) = sd(ctx).save(slug)
 }
