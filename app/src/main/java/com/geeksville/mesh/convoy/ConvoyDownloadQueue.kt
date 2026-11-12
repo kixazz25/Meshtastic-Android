@@ -205,6 +205,7 @@ object DownloadQueueManager {
     private var initialized = false
 
     // -- Init: create channel, load persisted queue --------
+    @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     fun init(context: Context) {
         if (initialized) return
         appCtx = context.applicationContext
@@ -260,10 +261,12 @@ object DownloadQueueManager {
             priority = DownloadPriority.AREA
         )
 
-        val current = _queue.value.toMutableList()
-        current.add(entry)
-        _queue.value = current
-        saveQueue()
+        synchronized(this) {   // QUEUELOCK-2026-11-12: one locked read-change-write
+            val current = _queue.value.toMutableList()
+            current.add(entry)
+            _queue.value = current
+            saveQueue()
+        }
         // SIZECALC-LOG-2026-07-23: unsegmented path - no sizeTiles, no split.
         android.util.Log.i(
             "SIZECALC",
@@ -293,10 +296,12 @@ object DownloadQueueManager {
     @Volatile private var vecCtx: Context? = null   // CODE RULE 1: null = no queuing front door has run yet (nothing can be appended before one does)
     private val vecPlatform = object : com.grouptrack.shared.queue.GtQueuePlatform {
         override fun append(entries: List<com.grouptrack.shared.queue.GtQueueEntry>) {
-            val current = _queue.value.toMutableList()
-            for (e in entries) current.add(e.toAppEntry())
-            _queue.value = current
-            saveQueue()
+            synchronized(this@DownloadQueueManager) {   // QUEUELOCK-2026-11-12: one locked read-change-write
+                val current = _queue.value.toMutableList()
+                for (e in entries) current.add(e.toAppEntry())
+                _queue.value = current
+                saveQueue()
+            }
             startNextIfAvailable()
         }
         override fun downloadZoom(): Int = ConvoyConfig.DOWNLOAD_ZOOM
@@ -404,13 +409,16 @@ object DownloadQueueManager {
                 downloadType = if (isVec) DownloadType.MAP_SOURCE_REFRESH else DownloadType.AREA,   // VECRFSH-2026-10-30: a recipe rebuild
                 priority = if (isVec) DownloadPriority.REFRESH else DownloadPriority.AREA
             )
-            val current = _queue.value.toMutableList()
-            current.add(entry)
-            _queue.value = current
-            saveQueue()
+            synchronized(this) {   // QUEUELOCK-2026-11-12: one locked read-change-write
+                val current = _queue.value.toMutableList()
+                current.add(entry)
+                _queue.value = current
+                saveQueue()
+            }
             startNextIfAvailable()
             return 1
         }
+        synchronized(this) {   // QUEUELOCK-2026-11-12: one locked read-change-write (inner lines keep their old indent)
         val current = _queue.value.toMutableList()
         cells.forEachIndexed { i, cell ->
             val entry = QueueEntry(
@@ -436,6 +444,7 @@ object DownloadQueueManager {
         }
         _queue.value = current
         saveQueue()
+        }   // QUEUELOCK-2026-11-12
         android.util.Log.i(TAG, "Enqueued area: $slotName ${cells.size} cells replace=$replaceExisting")
         startNextIfAvailable()
         return cells.size
@@ -518,10 +527,12 @@ object DownloadQueueManager {
             downloadType = DownloadType.DELETE_AREA_TILES,
             priority = DownloadPriority.DELETE
         )
-        val current = _queue.value.toMutableList()
-        current.add(entry)
-        _queue.value = current
-        saveQueue()
+        synchronized(this) {   // QUEUELOCK-2026-11-12: one locked read-change-write
+            val current = _queue.value.toMutableList()
+            current.add(entry)
+            _queue.value = current
+            saveQueue()
+        }
         android.util.Log.i(TAG,
             "DELETE queued: slot=$slotName box=$boxTiles geom-tiles, stores=$storeNames, " +
             "ACTUALLY ON DISK=$totalTiles id=${entry.id}")
@@ -575,6 +586,7 @@ object DownloadQueueManager {
         )
         if (cells.isEmpty()) return 0
 
+        synchronized(this) {   // QUEUELOCK-2026-11-12: one locked read-change-write (inner lines keep their old indent)
         val current = _queue.value.toMutableList()
         cells.forEachIndexed { i, cell ->
             val entry = QueueEntry(
@@ -594,6 +606,7 @@ object DownloadQueueManager {
         }
         _queue.value = current
         saveQueue()
+        }   // QUEUELOCK-2026-11-12
         android.util.Log.i(TAG, "Enqueued refresh: $slotName ${cells.size} grid cells")
         startNextIfAvailable()
         return cells.size
@@ -687,10 +700,12 @@ object DownloadQueueManager {
             completedAt = now,
             geomHash = geomHash
         )
-        val current = _queue.value.toMutableList()
-        current.add(entry)
-        _queue.value = current
-        saveQueue()
+        synchronized(this) {   // QUEUELOCK-2026-11-12: one locked read-change-write
+            val current = _queue.value.toMutableList()
+            current.add(entry)
+            _queue.value = current
+            saveQueue()
+        }
         android.util.Log.i(TAG, "CORRMIGRATE-2026-08-07H recorded: $label tiles=$tilesRemoved")
     }
 
@@ -818,10 +833,12 @@ object DownloadQueueManager {
             priority = DownloadPriority.CORRIDOR,
             geomHash = geomHash
         )
-        val current = _queue.value.toMutableList()
-        current.add(entry)
-        _queue.value = current
-        saveQueue()
+        synchronized(this) {   // QUEUELOCK-2026-11-12: one locked read-change-write
+            val current = _queue.value.toMutableList()
+            current.add(entry)
+            _queue.value = current
+            saveQueue()
+        }
         android.util.Log.i(TAG,
             "CORRIDOR queued: slot=$slotName tiles=${tiles.size} x$slotLayers layers " +
             "= $totalTiles hash=$geomHash id=${entry.id}")
@@ -1001,8 +1018,9 @@ object DownloadQueueManager {
             Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y.toDouble() / n))))
         val slotLayers = MapSourceManager.getDownloadSources()
             .filter { it.first == slotName }.sumOf { it.second.size }
-        val current = _queue.value.toMutableList()
         var totalTiles = 0L
+        synchronized(this) {   // QUEUELOCK-2026-11-12: one locked read-change-write (inner lines keep their old indent)
+        val current = _queue.value.toMutableList()
         boxes.forEachIndexed { i, b ->
             val tiles = b[4].toInt() * Math.max(1, slotLayers)
             totalTiles += tiles
@@ -1019,6 +1037,7 @@ object DownloadQueueManager {
         }
         _queue.value = current
         saveQueue()
+        }   // QUEUELOCK-2026-11-12
         android.util.Log.i(TAG,
             "RECREATE-2026-08-11G $slotName: ${boxes.size} job(s), $totalTiles tile(s), " +
             "$dropped empty quadrant(s) dropped")
@@ -1032,6 +1051,7 @@ object DownloadQueueManager {
      *  rather than displacing the first, so nothing is demoted behind the
      *  user's back. Only affects QUEUED entries; a running job is already
      *  past the decision. */
+    @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     fun promote(entryId: String) {
         val current = _queue.value.toMutableList()
         val idx = current.indexOfFirst { it.id == entryId }
@@ -1045,6 +1065,7 @@ object DownloadQueueManager {
     }
 
     // -- Cancel a queued or active download -----------------
+    @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     fun cancel(entryId: String) {
         val entry = _queue.value.find { it.id == entryId } ?: return
         if (entry.workRequestId != null) {
@@ -1075,6 +1096,7 @@ object DownloadQueueManager {
         startNextIfAvailable()
     }
     fun isQueuePaused(): Boolean = queuePaused
+    @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     fun cancelAll() {
         val current = _queue.value.toMutableList()
         for (entry in current) {
@@ -1092,6 +1114,7 @@ object DownloadQueueManager {
         saveQueue()
         android.util.Log.i(TAG, "Cancelled all: ${current.size - completed.size} removed, ${completed.size} complete kept")
     }
+    @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     fun removeEntry(entryId: String) {
         val entry = _queue.value.find { it.id == entryId } ?: return
         if (entry.workRequestId != null && entry.status == QueueStatus.DOWNLOADING) {
@@ -1110,6 +1133,7 @@ object DownloadQueueManager {
         startNextIfAvailable()
     }
     // -- Clear completed/cancelled/failed entries ----------
+    @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     fun clearCompleted() {
         val terminal = setOf(QueueStatus.COMPLETE, QueueStatus.CANCELLED, QueueStatus.FAILED)
         val current = _queue.value.toMutableList()
@@ -1119,6 +1143,7 @@ object DownloadQueueManager {
     }
 
     // -- Progress update from Worker -----------------------
+    @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     fun updateProgress(entryId: String, downloaded: Int, failed: Int) {
         val current = _queue.value.toMutableList()
         val idx = current.indexOfFirst { it.id == entryId }
@@ -1290,6 +1315,7 @@ object DownloadQueueManager {
     }
 
     // -- Persistence: save queue to JSON -------------------
+    @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     private fun saveQueue() {
         try {
             val dir = File(appCtx.filesDir, "download_queue")
@@ -1307,6 +1333,7 @@ object DownloadQueueManager {
     }
 
     // -- Persistence: load queue from JSON -----------------
+    @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     private fun loadQueue() {
         try {
             val file = File(appCtx.filesDir, "download_queue/$QUEUE_FILE")
