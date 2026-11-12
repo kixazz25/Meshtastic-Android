@@ -22,6 +22,7 @@ kotlin {
             api(libs.okio)
             api("androidx.sqlite:sqlite:2.5.2")                  // the SQLiteConnection interface (part of this module's API)
             implementation(libs.kotlinx.serialization.json)     // org.json replacement (JsonElement API only, no plugin)
+            implementation(libs.kotlinx.coroutines.core)        // STEP17G2E2A: the state data queue (coroutines in commonMain)
         }
         androidMain.dependencies { implementation("androidx.sqlite:sqlite-framework:2.5.2") }   // Android's own SQLite
         iosMain.dependencies { implementation("androidx.sqlite:sqlite-bundled:2.5.2") }         // as proved in the spike 11-06
