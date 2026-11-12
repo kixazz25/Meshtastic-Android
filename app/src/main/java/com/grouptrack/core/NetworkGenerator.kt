@@ -1,7 +1,11 @@
 package com.grouptrack.core
 
 import java.security.SecureRandom
-import java.util.Base64
+import com.grouptrack.shared.net.GtMeshDefaults
+import com.grouptrack.shared.net.GtNetworkConfig
+import com.grouptrack.shared.net.GtNetworkGenerator
+import com.grouptrack.shared.net.GtOwnerType
+import com.grouptrack.shared.net.GtRandom
 
 /**
  * NETGEN-2026-09-23 — makes a network config. PURE KOTLIN: no Android, no database.
@@ -52,8 +56,7 @@ object NetworkGenerator {
 
     // ---- callsign: the strictest carrier is the Meshtastic long name (max_size:40 -> 39) ---
     const val CALLSIGN_MAX = 39
-    private val CALLSIGN_OK = Regex("^[A-Za-z0-9 .'\\-]{1,$CALLSIGN_MAX}$")
-    fun isValidCallsign(s: String): Boolean = CALLSIGN_OK.matches(s)
+    fun isValidCallsign(s: String): Boolean = GtNetworkGenerator.isValidCallsign(s)   // SWITCH17G2C1-2026-11-12: the shared rule (same pattern)
 
     // ---- mesh ride values -------------------------------------------------------------------------
     // ONEDEFAULT-2026-09-26 (Fred): ONE standard -- the radio values every new ride carries come from
@@ -88,55 +91,41 @@ object NetworkGenerator {
         }
     }
 
+    // SWITCH17G2C1-2026-11-12 (2.8 step 17 G2c-1): the generating lives in the shared GtNetworkGenerator (certified OLD = NEW at 803ecd4c0, 19 SAME,
+    // iPad = Droid). Same SecureRandom source, same draw order (id, then key, then password), same values from MeshDefaults above.
     private val rng = SecureRandom()
+    /** the shared generator on this object's SecureRandom -- ConvoyNetworkStore uses it too (one random source, as 2.7e) */
+    val shared = GtNetworkGenerator(object : GtRandom {
+        override fun nextInt(bound: Int): Int = rng.nextInt(bound)
+        override fun nextBytes(b: ByteArray) = rng.nextBytes(b)
+    })
 
-    private fun pick(alphabet: String, n: Int): String =
-        buildString(n) { repeat(n) { append(alphabet[rng.nextInt(alphabet.length)]) } }
+    /** the MeshDefaults values right now, as the shared code takes them */
+    fun meshNow(): GtMeshDefaults = GtMeshDefaults(MeshDefaults.REGION, MeshDefaults.MODEM_PRESET, MeshDefaults.HOP_LIMIT, MeshDefaults.TX_POWER,
+        MeshDefaults.FREQUENCY_SLOT, MeshDefaults.ROLE)
+    fun toShared(t: OwnerType): GtOwnerType = GtOwnerType.valueOf(t.name)
+    fun fromShared(t: GtOwnerType): OwnerType = OwnerType.valueOf(t.name)
+    fun fromShared(c: GtNetworkConfig): NetworkConfig = NetworkConfig(configId = c.configId, ownerType = fromShared(c.ownerType), ownerId = c.ownerId,
+        displayName = c.displayName, baseVersion = c.baseVersion, region = c.region, modemPreset = c.modemPreset, hopLimit = c.hopLimit,
+        txPower = c.txPower, frequencySlot = c.frequencySlot, psk = c.psk, role = c.role, networkSsid = c.networkSsid, networkPassword = c.networkPassword)
 
     /** Group + 6 from a secure source. Generated ONCE, at save — never per keystroke. */
-    fun newChannelId(): String = CHANNEL_PREFIX + pick(ID_ALPHABET, CHANNEL_SUFFIX_LEN)
+    fun newChannelId(): String = shared.newChannelId()
 
     /** 32 random bytes, base64. psk_random is never used: every device must hold THIS key. */
-    fun newKey(): String {
-        val b = ByteArray(32); rng.nextBytes(b)
-        return Base64.getEncoder().encodeToString(b)
-    }
+    fun newKey(): String = shared.newKey()
 
     /** 8 random lowercase letters — read aloud to a straggler at the trailhead. */
-    fun newWifiPassword(): String = pick(PW_ALPHABET, WIFI_PASSWORD_LEN)
+    fun newWifiPassword(): String = shared.newWifiPassword()
 
     /**
      * A new config for [ownerType]/[ownerId]. [isTaken] checks the id against configs already
-     * on this tablet; ids are retried until free (collisions at 36^6 are rare, so 10 tries is
-     * a bug signal, not a limit). Returns null only on that failure.
+     * on this tablet; ids are retried until free (10 tries). Returns null only on that failure.
      */
     fun generate(
         ownerType: OwnerType,
         ownerId: String,
         displayName: String,
         isTaken: (String) -> Boolean
-    ): NetworkConfig? {
-        var id = ""
-        for (i in 1..10) {
-            val c = newChannelId()
-            if (c != DEFAULT_CHANNEL && !isTaken(c)) { id = c; break }
-        }
-        if (id.isEmpty()) return null
-        return NetworkConfig(
-            configId = id,
-            ownerType = ownerType,
-            ownerId = ownerId,
-            displayName = displayName,
-            baseVersion = MeshDefaults.BASE_VERSION,
-            region = MeshDefaults.REGION,
-            modemPreset = MeshDefaults.MODEM_PRESET,
-            hopLimit = MeshDefaults.HOP_LIMIT,
-            txPower = minOf(MeshDefaults.TX_POWER, MeshDefaults.TX_POWER_CAP),
-            frequencySlot = MeshDefaults.FREQUENCY_SLOT,
-            psk = newKey(),
-            role = MeshDefaults.ROLE,
-            networkSsid = id,
-            networkPassword = newWifiPassword()
-        )
-    }
+    ): NetworkConfig? = shared.generate(toShared(ownerType), ownerId, displayName, meshNow(), isTaken)?.let { fromShared(it) }
 }
