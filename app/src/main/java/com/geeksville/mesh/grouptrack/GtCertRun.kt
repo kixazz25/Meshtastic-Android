@@ -114,6 +114,7 @@ object GtCertRun {
                     if (mode == "import15e") GtCert15e.run(app, w)
                     if (mode == "trail15f") GtCert15f.run(app, w)   // STEP15F-2026-11-10: the agency trail import, 2.7e vs shared (TEST-ONLY)
                     if (mode == "osm15g") GtCert15g.run(app, w)   // STEP15G-2026-11-10: the OSM extract + import, 2.7e vs shared (TEST-ONLY)
+                    if (mode == "storage17a") GtCert17a.run(app, w)   // STEP17G2A-2026-11-12: the storage socket, GroupTrackStorage vs GtStorage (TEST-ONLY)
                     if (mode == "queue16c") GtCert16c.run(app, w)   // STEP16C-2026-11-11: the save-by-area writes, 2.7e vs shared (TEST-ONLY)
                     if (mode == "mathtile") GtMathProbe.runTile(app, w)   // MATHTILE-2026-11-10: the save-by-area tile math (TEST-ONLY)
                     if (mode == "mathpow") GtMathProbe.runPow(app, w)   // MATHPOW-2026-11-10: Android's Math.pow(x, 2.0) (TEST-ONLY)
@@ -121,7 +122,7 @@ object GtCertRun {
                     // STEP15A-2026-11-08: "golden15a" = the 15a foundations (Java number / date / org.json text) -- Android's answers and the
                     // shared code's, one line each (GtGolden15a). Reads no database. gt_cert_v12 copies the file to the Mac for GtFoundation15aMacTest.
                     if (mode == "golden15a") { val g = GtGolden15a.write(w); Log.i(TAG, "GTCERT golden15a: ${g.lines} lines, ${g.diffs} DIFF on the Droid") }
-                    if (mode != "queue16c" && mode != "mathtile" && mode != "osm15g" && mode != "trail15f" && mode != "mathpow" && mode != "mathprobe" && mode != "import15e" && mode != "track15d" && mode != "writes" && mode != "lookups" && mode != "freeze" && mode != "routes" && mode != "rides" && mode != "golden15a" && mode != "parse15b" && mode != "geom" && mode != "rider15c") {   // STEP8B-2026-11-07, STEP13C, STEP15A-2026-11-08
+                    if (mode != "storage17a" && mode != "queue16c" && mode != "mathtile" && mode != "osm15g" && mode != "trail15f" && mode != "mathpow" && mode != "mathprobe" && mode != "import15e" && mode != "track15d" && mode != "writes" && mode != "lookups" && mode != "freeze" && mode != "routes" && mode != "rides" && mode != "golden15a" && mode != "parse15b" && mode != "geom" && mode != "rider15c") {   // STEP8B-2026-11-07, STEP13C, STEP15A-2026-11-08
                         var n = 0
                         GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
                         com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, com.grouptrack.shared.cert.CertRead.TrailSample.ALL /* STEP8-2026-11-07 */,
