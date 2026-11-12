@@ -1,10 +1,16 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import org.json.JSONArray
+import com.geeksville.mesh.grouptrack.GtSettingsAndroid
+import com.geeksville.mesh.grouptrack.GtStorageAndroid
+import com.grouptrack.shared.json.GtOrgJson
+import com.grouptrack.shared.user.GtUser
+import com.grouptrack.shared.user.GtUserStore
+import com.grouptrack.shared.user.GtUserType
+import kotlinx.serialization.json.JsonObject
+import okio.FileSystem
 import org.json.JSONObject
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 /**
@@ -14,6 +20,10 @@ import java.util.UUID
  * All fields required except knownDevices (auto-populated)
  * Expiration: one year from creation date
  * Pay model: deferred to V3
+ *
+ * SWITCH17G2C2-2026-11-12 (2.8 step 17, G2c-2): front doors to the shared GtUser / GtUserStore (certified at 2dc90a905: Droid 226 SAME,
+ * 0 DIFF on 13 cases + the rider's own file; iPad = Droid). Every public name and type kept -- the screens are unchanged. The same file
+ * (filesDir/convoy_users.json, the same text), the same prefs file and key (convoy_prefs / active_user_id). Today = LocalDate.now().
  */
 
 enum class ConvoyUserType { ORGANIZER, RIDER }
@@ -32,46 +42,19 @@ data class ConvoyUser(
 ) {
     val fullName: String get() = "$firstName $lastName"
 
-    val isExpired: Boolean
-        get() {
-            val fmt = DateTimeFormatter.ISO_LOCAL_DATE
-            val expiry = LocalDate.parse(expirationDate, fmt)
-            return LocalDate.now().isAfter(expiry)
-        }
+    val isExpired: Boolean get() = toShared().isExpiredOn(LocalDate.now().toString())
 
-    fun toJson(): JSONObject = JSONObject().apply {
-        put("userId", userId)
-        put("userType", userType.name)
-        put("firstName", firstName)
-        put("lastName", lastName)
-        put("email", email)
-        put("cellPhone", cellPhone)
-        put("vehicleType", vehicleType)
-        put("createdDate", createdDate)
-        put("expirationDate", expirationDate)
-        put("knownDevices", JSONArray(knownDevices))
-    }
+    fun toJson(): JSONObject = JSONObject(GtOrgJson.compact(toShared().toJson()))
+
+    /** the shared user -- knownDevices is the SAME list (2.7e callers change it in place) */
+    fun toShared(): GtUser = GtUser(userId, GtUserType.valueOf(userType.name), firstName, lastName, email, cellPhone, vehicleType,
+        createdDate, expirationDate, knownDevices)
 
     companion object {
-        fun fromJson(obj: JSONObject): ConvoyUser {
-            val devices = mutableListOf<String>()
-            val arr = obj.optJSONArray("knownDevices")
-            if (arr != null) {
-                for (i in 0 until arr.length()) devices.add(arr.getString(i))
-            }
-            return ConvoyUser(
-                userId        = obj.getString("userId"),
-                userType      = ConvoyUserType.valueOf(obj.getString("userType")),
-                firstName     = obj.getString("firstName"),
-                lastName      = obj.getString("lastName"),
-                email         = obj.getString("email"),
-                cellPhone     = obj.getString("cellPhone"),
-                vehicleType   = obj.getString("vehicleType"),
-                createdDate   = obj.getString("createdDate"),
-                expirationDate= obj.getString("expirationDate"),
-                knownDevices  = devices
-            )
-        }
+        fun fromShared(g: GtUser): ConvoyUser = ConvoyUser(g.userId, ConvoyUserType.valueOf(g.userType.name), g.firstName, g.lastName, g.email,
+            g.cellPhone, g.vehicleType, g.createdDate, g.expirationDate, g.knownDevices)
+
+        fun fromJson(obj: JSONObject): ConvoyUser = fromShared(GtUser.fromJson(GtOrgJson.parse(obj.toString()) as JsonObject))
 
         fun create(
             userType: ConvoyUserType,
@@ -80,21 +63,8 @@ data class ConvoyUser(
             email: String,
             cellPhone: String,
             vehicleType: String
-        ): ConvoyUser {
-            val today = LocalDate.now()
-            val fmt   = DateTimeFormatter.ISO_LOCAL_DATE
-            return ConvoyUser(
-                userId         = UUID.randomUUID().toString(),
-                userType       = userType,
-                firstName      = firstName.trim(),
-                lastName       = lastName.trim(),
-                email          = email.trim(),
-                cellPhone      = cellPhone.trim(),
-                vehicleType    = vehicleType.trim(),
-                createdDate    = today.format(fmt),
-                expirationDate = today.plusYears(1).format(fmt)
-            )
-        }
+        ): ConvoyUser = fromShared(GtUser.create(GtUserType.valueOf(userType.name), firstName, lastName, email, cellPhone, vehicleType,
+            LocalDate.now().toString(), UUID.randomUUID().toString()))
     }
 }
 
@@ -110,73 +80,23 @@ data class ConvoyUser(
  */
 object ConvoyUserStore {
 
-    private const val FILE_NAME = "convoy_users.json"
-    private const val ACTIVE_KEY = "active_user_id"
-    private const val PREFS_NAME = "convoy_prefs"
+    private fun store(context: Context) = GtUserStore(FileSystem.SYSTEM, GtStorageAndroid.of(context).filesDir() / GtUserStore.FILE_NAME,
+        GtSettingsAndroid(context).store(GtUserStore.PREFS_NAME))
 
-    // ── Load all users ────────────────────────────────────────────────────────
-    fun loadAll(context: Context): List<ConvoyUser> {
-        val file = java.io.File(context.filesDir, FILE_NAME)
-        if (!file.exists()) return emptyList()
-        return try {
-            val arr = JSONArray(file.readText())
-            (0 until arr.length()).map { ConvoyUser.fromJson(arr.getJSONObject(it)) }
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
+    fun loadAll(context: Context): List<ConvoyUser> = store(context).loadAll().map { ConvoyUser.fromShared(it) }
 
-    // ── Save all users ────────────────────────────────────────────────────────
-    fun saveAll(context: Context, users: List<ConvoyUser>) {
-        val arr = JSONArray()
-        users.forEach { arr.put(it.toJson()) }
-        java.io.File(context.filesDir, FILE_NAME).writeText(arr.toString())
-    }
+    fun saveAll(context: Context, users: List<ConvoyUser>) = store(context).saveAll(users.map { it.toShared() })
 
-    // ── Save single user (add or update) ─────────────────────────────────────
-    fun save(context: Context, user: ConvoyUser) {
-        val users = loadAll(context).toMutableList()
-        val idx = users.indexOfFirst { it.userId == user.userId }
-        if (idx >= 0) users[idx] = user else users.add(user)
-        saveAll(context, users)
-    }
+    fun save(context: Context, user: ConvoyUser) = store(context).save(user.toShared())
 
-    // ── Get active user ───────────────────────────────────────────────────────
-    fun getActiveUser(context: Context): ConvoyUser? {
-        val prefs  = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val active = prefs.getString(ACTIVE_KEY, null) ?: return null
-        return loadAll(context).firstOrNull { it.userId == active }
-    }
+    fun getActiveUser(context: Context): ConvoyUser? = store(context).getActiveUser()?.let { ConvoyUser.fromShared(it) }
 
-    // ── Set active user ───────────────────────────────────────────────────────
-    fun setActiveUser(context: Context, userId: String) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit().putString(ACTIVE_KEY, userId).apply()
-    }
+    fun setActiveUser(context: Context, userId: String) = store(context).setActiveUser(userId)
 
-    // ── Check enrollment ──────────────────────────────────────────────────────
-    fun isEnrolled(context: Context): Boolean = getActiveUser(context) != null
+    fun isEnrolled(context: Context): Boolean = store(context).isEnrolled()
 
-    // ── Add device to active user ─────────────────────────────────────────────
-    fun addDeviceToActiveUser(context: Context, hardwareId: String) {
-        val user = getActiveUser(context) ?: return
-        if (!user.knownDevices.contains(hardwareId)) {
-            user.knownDevices.add(hardwareId)
-            save(context, user)
-        }
-    }
+    fun addDeviceToActiveUser(context: Context, hardwareId: String) = store(context).addDeviceToActiveUser(hardwareId)
 
-    // ── Resolve pairing at import/export ─────────────────────────────────────
     // Returns the verified active user after pairing resolution
-    fun resolvePairing(context: Context, hardwareId: String): ConvoyUser? {
-        val activeUser = getActiveUser(context) ?: return null
-        return if (activeUser.knownDevices.contains(hardwareId)) {
-            activeUser // Match found
-        } else {
-            // Add device to current user — create pairing silently
-            activeUser.knownDevices.add(hardwareId)
-            save(context, activeUser)
-            activeUser
-        }
-    }
+    fun resolvePairing(context: Context, hardwareId: String): ConvoyUser? = store(context).resolvePairing(hardwareId)?.let { ConvoyUser.fromShared(it) }
 }
