@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import javax.inject.Inject
@@ -109,6 +110,9 @@ class ConvoySettingsRepository @Inject constructor(
     }
 
     /** Remove entries from previous days — call on app start */
+    // STEP17G2B2-2026-11-12 TEST-ONLY (CODE RULE 3): the rider's DataStore values, READ ONLY, for the G2b-2 cert (GtCert17b2); removed by the switch
+    suspend fun certRawSnapshot(): Map<String, Any?> = context.convoyDataStore.data.first().asMap().mapKeys { it.key.name }
+
     suspend fun purgeStaleRemovedCarts() {
         val today = LocalDate.now().toEpochDay().toString()
         context.convoyDataStore.edit { prefs ->
