@@ -1,6 +1,7 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
+import okio.Path.Companion.toOkioPath   // STEP16D-2026-11-11
 import org.json.JSONObject
 
 /**
@@ -39,24 +40,10 @@ object VectorTiles {
         return listOf(SLOT to listOf(MapSourceManager.TileLayer("overlay", t, "pbf", SLOT, 0)))
     }
 
-    /** The newest recipe saved on this phone: every box of every slot (n, s, e, w), exact duplicates once, in file order. */
-    fun recipeBoxes(): Pair<String, List<DoubleArray>>? {
-        val f = GroupTrackStorage.dir("recipes").listFiles()
-            ?.filter { it.name.startsWith("grouptrack_maps_") && it.name.endsWith(".gtmaps") }
-            ?.maxByOrNull { it.name } ?: return null
-        val slots = JSONObject(f.readText()).optJSONArray("slots") ?: return Pair(f.name, emptyList())
-        val seen = HashSet<String>(); val out = ArrayList<DoubleArray>()
-        for (i in 0 until slots.length()) {
-            val b = slots.optJSONObject(i)?.optJSONArray("boxes") ?: continue
-            for (j in 0 until b.length()) {
-                val x = b.optJSONObject(j) ?: continue
-                val box = doubleArrayOf(x.optDouble("n"), x.optDouble("s"), x.optDouble("e"), x.optDouble("w"))
-                if (box.any { it.isNaN() }) continue
-                if (seen.add(box.joinToString(","))) out.add(box)
-            }
-        }
-        return Pair(f.name, out)
-    }
+    /** STEP16D-2026-11-11: the save-by-area writes are the SHARED code (GtVectorQueue, certified 16c: Droid OLD = NEW, iPad = Droid,
+     *  6,399 values). These are its Android front doors -- same names, same arguments, same results; the queue platform is
+     *  DownloadQueueManager's (vecQueueFor). The newest recipe saved on this phone: every box of every slot, duplicates once. */
+    fun recipeBoxes(): Pair<String, List<DoubleArray>>? = DownloadQueueManager.vecQueue().recipeBoxes()
 
     /** VECTILECOUNT-2026-10-31: the recipe's own tile total over the OLD map slots (all but VEC / DEM) -- "your old maps: N tiles". */
     fun oldTilesOf(f: java.io.File): Long = try {
@@ -66,124 +53,33 @@ object VectorTiles {
         t
     } catch (e: Exception) { 0L }
 
-    /** VECCONVERT-2026-10-31: every box of one recipe file (n, s, e, w), exact duplicates once. */
-    fun boxesOf(f: java.io.File): List<DoubleArray> {
-        val slots = JSONObject(f.readText()).optJSONArray("slots") ?: return emptyList()
-        val seen = HashSet<String>(); val out = ArrayList<DoubleArray>()
-        for (i in 0 until slots.length()) {
-            val b = slots.optJSONObject(i)?.optJSONArray("boxes") ?: continue
-            for (j in 0 until b.length()) {
-                val x = b.optJSONObject(j) ?: continue
-                val box = doubleArrayOf(x.optDouble("n"), x.optDouble("s"), x.optDouble("e"), x.optDouble("w"))
-                if (box.any { it.isNaN() }) continue
-                if (seen.add(box.joinToString(","))) out.add(box)
-            }
-        }
-        return out
-    }
+    /** STEP16D-2026-11-11: every box of one recipe file (n, s, e, w), exact duplicates once. */
+    fun boxesOf(f: java.io.File): List<DoubleArray> = DownloadQueueManager.vecQueue().boxesOf(f.toOkioPath())
 
-    /** VECCONVERT-2026-10-31: the z12 squares a box covers (recipe boxes are on the z12 grid -- RECIPESCAN -- so this is exact;
-     *  an edge a hair inside a square is pulled in by 1e-9 so it does not add the neighbour). */
-    fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) {
-        val nn = 1 shl SQ_Z
-        val x0 = sqX(w + 1e-9).coerceIn(0, nn - 1); val x1 = sqX(e - 1e-9).coerceIn(0, nn - 1)
-        val y0 = sqY(n - 1e-9).coerceIn(0, nn - 1); val y1 = sqY(s + 1e-9).coerceIn(0, nn - 1)
-        for (x in x0..x1) for (y in y0..y1) into.add(x.toLong() * nn + y)
-    }
+    /** STEP16D-2026-11-11: the z12 squares a box covers. */
+    fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) =
+        DownloadQueueManager.vecQueue().squaresInBox(n, s, e, w, into)
 
-    /** DEMSOURCE-2026-10-30 (Fred 14:12-14:13): THE BINDING. Every vector box is queued WITH its elevation -- same box, same step.
-     *  Separate jobs (own rows, counts, failures), never separate decisions. The one door for a vector download. */
-    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean): Int =   // VECDL-2026-10-31: replace REQUIRED
-        enqueueWithElevation(context, n, s, e, w, replaceExisting, what = "")   // VECTRACKNAMES-2026-10-31: no label suffix
+    /** DEMSOURCE-2026-10-30 THE BINDING (STEP16D-2026-11-11: the shared code): every vector box queued WITH its elevation. */
+    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean): Int =
+        enqueueWithElevation(context, n, s, e, w, replaceExisting, what = "")
 
     /** VECTRACKNAMES-2026-10-31: the same, both jobs labelled with [what] (a track name; "" = none). */
     fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean, what: String): Int =
-        DownloadQueueManager.enqueueArea(context, SLOT, n, s, e, w, replaceExisting, what) + DownloadQueueManager.enqueueArea(context, ElevationTiles.SLOT, n, s, e, w, replaceExisting, what)
+        DownloadQueueManager.vecQueueFor(context).enqueueWithElevation(n, s, e, w, replaceExisting, what)
 
-    // ---- VECDL-2026-10-31 (Fred 10-30 15:57: "yes just pull the full area"): a corridor on the vector map = the FULL AREA of the track --
-    // every z12 square the line passes through plus RING squares all round, joined into tight boxes (rows of squares, then equal rows
-    // stacked -- the RECIPESCAN method), each queued vector + elevation. Never a strip, never one box from the extremes.
-    private const val SQ_Z = 12
-    private const val RING = 1   // one z12 square all round (~7-8 km in Utah)
-    private fun sqX(lon: Double) = Math.floor((lon + 180.0) / 360.0 * (1 shl SQ_Z)).toInt()
-    private fun sqY(lat: Double): Int {
-        val r = Math.toRadians(lat.coerceIn(-85.0, 85.0))
-        return Math.floor((1.0 - Math.log(Math.tan(r) + 1.0 / Math.cos(r)) / Math.PI) / 2.0 * (1 shl SQ_Z)).toInt()
-    }
-    private fun lonOf(x: Int) = x.toDouble() / (1 shl SQ_Z) * 360.0 - 180.0
-    private fun latOf(y: Int): Double { val k = Math.PI - 2.0 * Math.PI * y / (1 shl SQ_Z); return Math.toDegrees(Math.atan(Math.sinh(k))) }
-
-    /** Adds the squares under [segments] (lat, lon), with the ring, to [into]. Long straight legs are walked in ~2 km steps. */
-    fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>) {
-        val n = 1 shl SQ_Z
-        fun add(lat: Double, lon: Double) {
-            val x = sqX(lon); val y = sqY(lat)
-            for (dx in -RING..RING) for (dy in -RING..RING) {
-                val xx = x + dx; val yy = y + dy
-                if (xx in 0 until n && yy in 0 until n) into.add(xx.toLong() * n + yy)
-            }
-        }
-        for (seg in segments) {
-            var prev: Pair<Double, Double>? = null
-            for (p in seg) {
-                val q = prev
-                if (q != null) {
-                    val steps = Math.max(1, Math.ceil(Math.max(Math.abs(p.first - q.first), Math.abs(p.second - q.second)) / 0.02).toInt())
-                    for (i in 1 until steps) { val f = i.toDouble() / steps; add(q.first + (p.first - q.first) * f, q.second + (p.second - q.second) * f) }
-                }
-                add(p.first, p.second); prev = p
-            }
-        }
-    }
+    /** VECDL-2026-10-31 (STEP16D-2026-11-11: the shared code): the squares under [segments] (lat, lon), with the ring, into [into]. */
+    fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>) =
+        DownloadQueueManager.vecQueue().squaresFor(segments, into)
 
     /** Joins [squares] into tight boxes and queues each vector + elevation. Returns (jobs, estimated tiles). */
     fun queueSquares(context: Context, squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
-        queueSquaresNamed(context, squares, emptyMap(), replaceExisting, why)   // VECTRACKNAMES-2026-10-31: labelled with why
+        queueSquaresNamed(context, squares, emptyMap(), replaceExisting, why)
 
     /** VECTRACKNAMES-2026-10-31: [names] = the tracks each square is for; a box is labelled with the tracks in it (empty -> [why]). */
-    fun queueSquaresNamed(context: Context, squares: Set<Long>, names: Map<Long, Set<String>>, replaceExisting: Boolean, why: String): Pair<Int, Int> {
-        if (squares.isEmpty()) return Pair(0, 0)
-        val n = (1 shl SQ_Z).toLong()
-        class Box(val x0: Int, val x1: Int, val y0: Int, var y1: Int)
-        val byRow = squares.groupBy { (it % n).toInt() }
-        var open = HashMap<Long, Box>(); val done = ArrayList<Box>()
-        for (y in byRow.keys.sorted()) {
-            val xs = byRow.getValue(y).map { (it / n).toInt() }.sorted()
-            val runs = ArrayList<Pair<Int, Int>>(); var a = xs[0]; var b = xs[0]
-            for (x in xs.drop(1)) { if (x == b + 1) b = x else { runs.add(a to b); a = x; b = x } }
-            runs.add(a to b)
-            val next = HashMap<Long, Box>()
-            for ((x0, x1) in runs) {
-                val k = x0.toLong() * n + x1; val o = open[k]
-                if (o != null && o.y1 == y - 1) { o.y1 = y; next[k] = o } else next[k] = Box(x0, x1, y, y)
-            }
-            for ((k, o) in open) if (next[k] !== o) done.add(o)
-            open = next
-        }
-        done.addAll(open.values)
-        var jobs = 0; var tiles = 0
-        for (bx in done) {
-            val nn = latOf(bx.y0); val ss = latOf(bx.y1 + 1); val ww = lonOf(bx.x0); val ee = lonOf(bx.x1 + 1)
-            val inBox = sortedSetOf<String>()   // VECTRACKNAMES-2026-10-31
-            if (names.isNotEmpty()) for (x in bx.x0..bx.x1) for (y in bx.y0..bx.y1) names[x.toLong() * n + y]?.let { inBox.addAll(it) }
-            val what = when { inBox.isEmpty() -> why; inBox.size <= 2 -> inBox.joinToString(", "); else -> inBox.take(2).joinToString(", ") + " +${inBox.size - 2}" }
-            jobs += enqueueWithElevation(context, nn, ss, ee, ww, replaceExisting, what)
-            tiles += ConvoyTileCalculator.quickEstimate(nn, ss, ee, ww, zMin = 0, zMax = Z_MAX).tileCount +
-                ConvoyTileCalculator.quickEstimate(nn, ss, ee, ww, zMin = 0, zMax = ElevationTiles.Z_MAX).tileCount
-        }
-        android.util.Log.i(TAG, "VECDL-2026-10-31 $why: ${squares.size} z12 square(s) -> ${done.size} box(es), $jobs job(s), ~$tiles tiles, replace=$replaceExisting")
-        return Pair(jobs, tiles)
-    }
+    fun queueSquaresNamed(context: Context, squares: Set<Long>, names: Map<Long, Set<String>>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
+        DownloadQueueManager.vecQueueFor(context).queueSquaresNamed(squares, names, replaceExisting, why)
 
     /** Queue the first [count] recipe boxes as VEC AREA downloads. Returns one line for the screen. */
-    fun queueFromRecipe(context: Context, count: Int): String {
-        val r = try { recipeBoxes() } catch (e: Exception) { return "Could not read the recipe: ${e.message}" }
-            ?: return "No saved recipe on this phone yet."
-        val take = r.second.take(count)
-        if (take.isEmpty()) return "${r.first}: no boxes in it."
-        var jobs = 0
-        for (b in take) jobs += enqueueWithElevation(context, b[0], b[1], b[2], b[3], false)   // DEMSOURCE-2026-10-30: the binding
-        return "${r.first.removePrefix("grouptrack_maps_").removeSuffix(".gtmaps")}: queued ${take.size} of ${r.second.size} boxes " +
-            "as $jobs job(s) -- vector and elevation together (DL VEC, DL DEM). Watch them in Download queues."
-    }
+    fun queueFromRecipe(context: Context, count: Int): String = DownloadQueueManager.vecQueueFor(context).queueFromRecipe(count)
 }

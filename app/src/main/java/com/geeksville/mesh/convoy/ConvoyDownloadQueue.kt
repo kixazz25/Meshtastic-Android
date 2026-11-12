@@ -13,6 +13,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.UUID
+import okio.Path.Companion.toOkioPath   // STEP16D-2026-11-11
 
 // ===========================================================
 // QueueEntry -- one download request (region x all layers)
@@ -281,6 +282,57 @@ object DownloadQueueManager {
 
     /** Enqueue grid-based refresh: multiple small jobs per ~12 mile cell.
      *  Returns number of cells enqueued. Call from background thread. */
+    // ---- STEP16D-2026-11-11 (2.8 step 16d): the VEC / DEM save-by-area path is the SHARED code (GtVectorQueue, certified at 16c, eaa913f54:
+    // Droid OLD = NEW 0 DIFF; iPad = Droid 6,399 SAME, 0 DIFF, cross-device COMPARED). This is its Android platform -- 2.7e's own steps:
+    //   append      = the end of 2.7e's enqueueArea: the entries added to the queue in order, saveQueue(), startNextIfAvailable();
+    //   satLayers   = MapSourceManager's SAT layer count (feeds the SIZECALC log line only). The shared enqueueArea calls it FIRST (after a
+    //                 pure tile count), so init(context) runs there -- once per enqueueArea, as 2.7e's enqueueArea ran it;
+    //   downloadZoom= ConvoyConfig.DOWNLOAD_ZOOM (a var, read at each call, as 2.7e's default argument); recipesDir = GroupTrackStorage.dir("recipes");
+    //   ids / clock = UUID.randomUUID() / System.currentTimeMillis() -- QueueEntry's own defaults, in the same order (id, then createdAt).
+    // The SAT / TOPO branch of enqueueArea, saveQueue / loadQueue and every worker are 2.7e's, unchanged.
+    @Volatile private var vecCtx: Context? = null   // CODE RULE 1: null = no queuing front door has run yet (nothing can be appended before one does)
+    private val vecPlatform = object : com.grouptrack.shared.queue.GtQueuePlatform {
+        override fun append(entries: List<com.grouptrack.shared.queue.GtQueueEntry>) {
+            val current = _queue.value.toMutableList()
+            for (e in entries) current.add(e.toAppEntry())
+            _queue.value = current
+            saveQueue()
+            startNextIfAvailable()
+        }
+        override fun downloadZoom(): Int = ConvoyConfig.DOWNLOAD_ZOOM
+        override fun satLayers(): Int? {
+            vecCtx?.let { init(it) }   // 2.7e enqueueArea's init(context)
+            return MapSourceManager.getDownloadSources().find { it.first == "SAT" }?.second?.size
+        }
+        override fun recipesDir(): okio.Path = GroupTrackStorage.dir("recipes").toOkioPath()
+    }
+    private val vecFiles = object : com.grouptrack.shared.imports.GtFiles {
+        override val fs: okio.FileSystem = okio.FileSystem.SYSTEM
+        override fun setLastModified(path: okio.Path, epochMs: Long): Boolean = File(path.toString()).setLastModified(epochMs)
+        override fun lastModified(path: okio.Path): Long = File(path.toString()).lastModified()
+        /** java.io.File.listFiles() ?: empty -- GtImportAndroid's contract (2.7e recipeBoxes: listFiles() ?: null) */
+        override fun list(dir: okio.Path): List<okio.Path> = File(dir.toString()).listFiles()?.map { it.toOkioPath() } ?: emptyList()
+    }
+    private val vecShared = com.grouptrack.shared.queue.GtVectorQueue(
+        object : com.grouptrack.shared.imports.GtIds { override fun newId(): String = UUID.randomUUID().toString() },
+        object : com.grouptrack.shared.imports.GtClock {
+            override fun nowInstant(): String = java.time.Instant.now().toString()
+            override fun localNow(): com.grouptrack.shared.text.GtLocalTime = throw UnsupportedOperationException("not used by the queue")
+            override fun epochMs(): Long = System.currentTimeMillis()
+        },
+        vecFiles, vecPlatform)
+    /** STEP16D-2026-11-11: the shared save-by-area code for a front door that may QUEUE -- it brings the context 2.7e's enqueueArea had. */
+    fun vecQueueFor(context: Context): com.grouptrack.shared.queue.GtVectorQueue { vecCtx = context; return vecShared }
+    /** STEP16D-2026-11-11: the same, for the parts that never queue (recipe boxes, the z12 squares). */
+    fun vecQueue(): com.grouptrack.shared.queue.GtVectorQueue = vecShared
+    /** STEP16D-2026-11-11: the shared entry as the app's QueueEntry -- every field, enums by name (the same names). */
+    private fun com.grouptrack.shared.queue.GtQueueEntry.toAppEntry() = QueueEntry(
+        id = id, north = north, south = south, east = east, west = west, status = QueueStatus.valueOf(status.name),
+        totalTiles = totalTiles, downloadedTiles = downloadedTiles, failedTiles = failedTiles, retryCount = retryCount, createdAt = createdAt,
+        label = label, workRequestId = workRequestId, refreshMode = refreshMode, refreshSlot = refreshSlot,
+        downloadType = DownloadType.valueOf(downloadType.name), priority = priority, completedAt = completedAt, startedAt = startedAt,
+        tilesPerSec = tilesPerSec, geomHash = geomHash)
+
     /** Unified area download: one slot, broken into grid cells */
     fun enqueueArea(
         context: Context,
@@ -299,6 +351,8 @@ object DownloadQueueManager {
         what: String
     ): Int {
         init(context)
+        if (slotName == VectorTiles.SLOT || slotName == ElevationTiles.SLOT)   // STEP16D-2026-11-11: the VEC / DEM branch = the shared code (certified 16c)
+            return vecQueueFor(context).enqueueArea(slotName, north, south, east, west, replaceExisting, what)
         val sfx = if (what.isBlank()) "" else " \u00b7 $what"   // VECTRACKNAMES-2026-10-31
         // VECSOURCE-2026-10-30: VEC is not in getDownloadSources (not a map-bar slot) -- it is one layer.
         val slotLayers = if (slotName == VectorTiles.SLOT || slotName == ElevationTiles.SLOT) 1   // DEMSOURCE-2026-10-30: DEM is one layer too
