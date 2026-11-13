@@ -7883,17 +7883,17 @@ StateDataQueue.kt:20:    override fun put(key: String, value: Boolean) { json.pu
 StateDataQueue.kt:21:    override fun remove(key: String) { json.remove(key) }
 StateDataQueue.kt:24:object StateDataQueue {
 StateDataQueue.kt:25:    private const val PREFS = "state_data_queue"
-StateDataQueue.kt:28:    private val core = GtStateDataQueue(Dispatchers.IO) { r -> HomeStateImportController.abortDownload((r as JsonRow).json) }
-StateDataQueue.kt:31:    val maxAtOnce: MutableStateFlow<Int> = core.maxAtOnce
-StateDataQueue.kt:33:    val waitingOnRider: MutableStateFlow<Boolean> = core.waitingOnRider
-StateDataQueue.kt:35:    val active: MutableStateFlow<Boolean> = core.active
-StateDataQueue.kt:37:    private fun store(ctx: Context) = GtSettingsAndroid(ctx).store(PREFS)
-StateDataQueue.kt:40:    fun load(ctx: Context) = core.load(store(ctx))
-StateDataQueue.kt:43:    fun setMax(ctx: Context, v: Int) = core.setMax(store(ctx), v)
-StateDataQueue.kt:46:    fun stop(id: String) = core.stop(id)
-StateDataQueue.kt:49:    fun retry(id: String) = core.retry(id)
-StateDataQueue.kt:52:    fun cancelAll() = core.cancelAll()
-StateDataQueue.kt:59:    suspend fun run(list: List<JSONObject>, fetch: (JSONObject) -> Boolean, onChange: () -> Unit): Boolean =
+StateDataQueue.kt:28:    private val core = GtStateDataQueue(Dispatchers.IO) { r ->
+StateDataQueue.kt:37:    val maxAtOnce: MutableStateFlow<Int> = core.maxAtOnce
+StateDataQueue.kt:39:    val waitingOnRider: MutableStateFlow<Boolean> = core.waitingOnRider
+StateDataQueue.kt:41:    val active: MutableStateFlow<Boolean> = core.active
+StateDataQueue.kt:43:    private fun store(ctx: Context) = GtSettingsAndroid(ctx).store(PREFS)
+StateDataQueue.kt:46:    fun load(ctx: Context) = core.load(store(ctx))
+StateDataQueue.kt:49:    fun setMax(ctx: Context, v: Int) = core.setMax(store(ctx), v)
+StateDataQueue.kt:52:    fun stop(id: String) = core.stop(id)
+StateDataQueue.kt:55:    fun retry(id: String) = core.retry(id)
+StateDataQueue.kt:58:    fun cancelAll() = core.cancelAll()
+StateDataQueue.kt:65:    suspend fun run(list: List<JSONObject>, fetch: (JSONObject) -> Boolean, onChange: () -> Unit): Boolean =
 GroupMode.kt:19:object GroupMode {
 GroupMode.kt:20:    private const val PREFS = "grouptrack_group_mode"
 GroupMode.kt:21:    private const val KEY = "group_awareness"
@@ -16111,50 +16111,55 @@ SHARED:cert/Cert17e2.kt:21:        fun stop(id: String); fun retry(id: String); 
 SHARED:cert/Cert17e2.kt:22:        fun load(); fun setMax(v: Int); fun maxAtOnce(): Int; fun waiting(): Boolean; fun active(): Boolean
 SHARED:cert/Cert17e2.kt:26:        fun serverOf(url: String, sourceId: String): String
 SHARED:cert/Cert17e2.kt:28:    private fun fields(id: String, kind: String, url: String, src: String = "", status: String = "pending") =
-SHARED:cert/Cert17e2.kt:35:    fun text(r: GtQueueRow) = r.optString("id") + ":" + r.optString("status") + ":" + r.optString("current_step") + (if (r.optBoolean("_stop")) ":STOP" else "")
-SHARED:cert/Cert17e2.kt:37:    suspend fun run(side: Side, sleep: (Long) -> Unit, emit: (String, String) -> Unit) {
-SHARED:cert/Cert17e2.kt:50:        data class Script(val len: Map<String, Int>, val results: Map<String, List<Boolean>>, val throws: Set<String> = emptySet(), val untilStop: Set<String> = emptySet())
-SHARED:cert/Cert17e2.kt:51:        suspend fun scenario(name: String, max: Int, rows: List<Map<String, String>>, sc: Script, press: (List<GtQueueRow>, (String) -> Unit) -> Unit) {
-SHARED:cert/Cert17e2.kt:53:            val rs = rows.map { side.row(it) }
-SHARED:cert/Cert17e2.kt:54:            val attempts = HashMap<String, Int>()
-SHARED:cert/Cert17e2.kt:55:            val snaps = ArrayList<String>()
-SHARED:cert/Cert17e2.kt:56:            fun snap() { val s = rs.joinToString(" ") { text(it) } + " | waiting=${side.waiting()} active=${side.active()}"; if (snaps.lastOrNull() != s) snaps.add(s) }
-SHARED:cert/Cert17e2.kt:57:            val fetch: (GtQueueRow) -> Boolean = { r ->
-SHARED:cert/Cert17e2.kt:58:                val id = r.optString("id"); val n = attempts.getOrElse(id) { 0 }; attempts[id] = n + 1
-SHARED:cert/Cert17e2.kt:60:                var waited = 0
-SHARED:cert/Cert17e2.kt:61:                val len = sc.len[id] ?: 1
-SHARED:cert/Cert17e2.kt:66:            val ok = side.run(rs, fetch) { snap(); press(rs) { emit("$name|press", it) } }
-SHARED:cert/Cert17e2.kt:73:        val base = listOf(fields("r1", "pbf", GEO), fields("r2", "gpkg", GEO2), fields("r3", "land", USGS), fields("r4", "agency", "", "blm-gtrn"),
-SHARED:cert/Cert17e2.kt:80:        val retried = HashSet<String>()
-SHARED:cert/Cert17e2.kt:82:            if (side.waiting()) for (r in rs) { val id = r.optString("id")
-SHARED:cert/Cert17e2.kt:86:        var stopped = false; var retriedD = false
-SHARED:cert/Cert17e2.kt:88:            val r2 = rs[1]
-SHARED:cert/Cert17e2.kt:94:        var cancelled = false
-SHARED:cert/Cert17e2.kt:100:        var g = false
-SHARED:cert/Cert17e2.kt:107:    class MapRow(f: Map<String, String>) : GtQueueRow {
-SHARED:cert/Cert17e2.kt:108:        private val m = LinkedHashMap<String, Any>(f)
-SHARED:cert/Cert17e2.kt:109:        override fun optString(key: String): String = m[key]?.toString() ?: ""
-SHARED:cert/Cert17e2.kt:110:        override fun optBoolean(key: String): Boolean = m[key] == true || m[key] == "true"
-SHARED:cert/Cert17e2.kt:111:        override fun put(key: String, value: String) { m[key] = value }
-SHARED:cert/Cert17e2.kt:112:        override fun put(key: String, value: Boolean) { m[key] = value }
-SHARED:cert/Cert17e2.kt:113:        override fun remove(key: String) { m.remove(key) }
-SHARED:cert/Cert17e2.kt:116:    class NewSide(io: CoroutineDispatcher, private val prefs: GtSettingsStore, private val makeRow: (Map<String, String>) -> GtQueueRow) : Side {
-SHARED:cert/Cert17e2.kt:117:        private val aborted = ArrayList<String>()
-SHARED:cert/Cert17e2.kt:118:        private val q = GtStateDataQueue(io) { r -> aborted.add(r.optString("id")) }
-SHARED:cert/Cert17e2.kt:119:        override fun row(fields: Map<String, String>) = makeRow(fields)
-SHARED:cert/Cert17e2.kt:120:        override suspend fun run(rows: List<GtQueueRow>, fetch: (GtQueueRow) -> Boolean, onChange: () -> Unit) = q.run(rows, fetch, onChange)
-SHARED:cert/Cert17e2.kt:121:        override fun stop(id: String) = q.stop(id)
-SHARED:cert/Cert17e2.kt:122:        override fun retry(id: String) = q.retry(id)
-SHARED:cert/Cert17e2.kt:123:        override fun cancelAll() = q.cancelAll()
-SHARED:cert/Cert17e2.kt:124:        override fun load() = q.load(prefs)
-SHARED:cert/Cert17e2.kt:125:        override fun setMax(v: Int) = q.setMax(prefs, v)
-SHARED:cert/Cert17e2.kt:126:        override fun maxAtOnce() = q.maxAtOnce.value
-SHARED:cert/Cert17e2.kt:127:        override fun waiting() = q.waitingOnRider.value
-SHARED:cert/Cert17e2.kt:128:        override fun active() = q.active.value
-SHARED:cert/Cert17e2.kt:129:        override fun savedMax() = if (prefs.contains(GtStateDataQueue.KEY_MAX)) "${prefs.getInt(GtStateDataQueue.KEY_MAX, -1)}" else "none"
-SHARED:cert/Cert17e2.kt:130:        override fun putSavedMax(v: Int?) = prefs.edit { if (v == null) remove(GtStateDataQueue.KEY_MAX) else putInt(GtStateDataQueue.KEY_MAX, v) }
-SHARED:cert/Cert17e2.kt:131:        override fun aborts(): List<String> = aborted.toList()
-SHARED:cert/Cert17e2.kt:132:        override fun serverOf(url: String, sourceId: String) = GtStateDataQueue.serverOf(MapRow(mapOf("url" to url, "source_id" to sourceId)))
+SHARED:cert/Cert17e2.kt:41:    fun text(r: GtQueueRow) = r.optString("id") + ":" + r.optString("status") + ":" + r.optString("current_step") + (if (r.optBoolean("_stop")) ":STOP" else "")
+SHARED:cert/Cert17e2.kt:43:    suspend fun run(side: Side, sleep: (Long) -> Unit, emit: (String, String) -> Unit) {
+SHARED:cert/Cert17e2.kt:56:        data class Script(val len: Map<String, Int>, val results: Map<String, List<Boolean>>, val throws: Set<String> = emptySet(), val untilStop: Set<String> = emptySet())
+SHARED:cert/Cert17e2.kt:57:        suspend fun scenario(name: String, max: Int, rows: List<Map<String, String>>, sc: Script, press: (List<GtQueueRow>, (String) -> Unit) -> Unit) {
+SHARED:cert/Cert17e2.kt:59:            val rs = rows.map { side.row(it) }
+SHARED:cert/Cert17e2.kt:60:            val attempts = HashMap<String, Int>()
+SHARED:cert/Cert17e2.kt:61:            val snaps = ArrayList<String>()
+SHARED:cert/Cert17e2.kt:62:            fun snap() { val s = rs.joinToString(" ") { text(it) } + " | waiting=${side.waiting()} active=${side.active()}"; if (snaps.lastOrNull() != s) snaps.add(s) }
+SHARED:cert/Cert17e2.kt:63:            val fetch: (GtQueueRow) -> Boolean = { r ->
+SHARED:cert/Cert17e2.kt:64:                val id = r.optString("id"); val n = attempts.getOrElse(id) { 0 }; attempts[id] = n + 1
+SHARED:cert/Cert17e2.kt:66:                var waited = 0
+SHARED:cert/Cert17e2.kt:67:                val len = sc.len[id] ?: 1
+SHARED:cert/Cert17e2.kt:75:            val ok = side.run(rs, fetch) { snap(); press(rs) { emit("$name|press", it) } }
+SHARED:cert/Cert17e2.kt:94:        val utahSaved = listOf(
+SHARED:cert/Cert17e2.kt:104:        val utah = utahSaved.map { it + ("status" to "pending") }
+SHARED:cert/Cert17e2.kt:105:        val nh = listOf(
+SHARED:cert/Cert17e2.kt:112:        val UT_GPKG = "file:utah:gpkg"; val UT_LAND = "file:UT:padus"; val UT_BLM = "file:utah:agency:blm_gtlf_all"
+SHARED:cert/Cert17e2.kt:114:        val len = mapOf(UT_GPKG to 12, UT_LAND to 3, "file:utah:pbf" to 2)
+SHARED:cert/Cert17e2.kt:122:        val retried = HashSet<String>()
+SHARED:cert/Cert17e2.kt:128:        var stalled = 0
+SHARED:cert/Cert17e2.kt:131:                for (r in rs) { val id = r.optString("id")
+SHARED:cert/Cert17e2.kt:140:        var stopped = false; var retriedD = false
+SHARED:cert/Cert17e2.kt:142:            val gp = rs[1]
+SHARED:cert/Cert17e2.kt:148:        var cancelled = false
+SHARED:cert/Cert17e2.kt:154:        var g = false
+SHARED:cert/Cert17e2.kt:163:    class MapRow(f: Map<String, String>) : GtQueueRow {
+SHARED:cert/Cert17e2.kt:164:        private val m = LinkedHashMap<String, Any>(f)
+SHARED:cert/Cert17e2.kt:165:        override fun optString(key: String): String = m[key]?.toString() ?: ""
+SHARED:cert/Cert17e2.kt:166:        override fun optBoolean(key: String): Boolean = m[key] == true || m[key] == "true"
+SHARED:cert/Cert17e2.kt:167:        override fun put(key: String, value: String) { m[key] = value }
+SHARED:cert/Cert17e2.kt:168:        override fun put(key: String, value: Boolean) { m[key] = value }
+SHARED:cert/Cert17e2.kt:169:        override fun remove(key: String) { m.remove(key) }
+SHARED:cert/Cert17e2.kt:172:    class NewSide(io: CoroutineDispatcher, private val prefs: GtSettingsStore, private val makeRow: (Map<String, String>) -> GtQueueRow) : Side {
+SHARED:cert/Cert17e2.kt:173:        private val aborted = ArrayList<String>()
+SHARED:cert/Cert17e2.kt:174:        private val q = GtStateDataQueue(io) { r -> aborted.add(r.optString("id")) }
+SHARED:cert/Cert17e2.kt:175:        override fun row(fields: Map<String, String>) = makeRow(fields)
+SHARED:cert/Cert17e2.kt:176:        override suspend fun run(rows: List<GtQueueRow>, fetch: (GtQueueRow) -> Boolean, onChange: () -> Unit) = q.run(rows, fetch, onChange)
+SHARED:cert/Cert17e2.kt:177:        override fun stop(id: String) = q.stop(id)
+SHARED:cert/Cert17e2.kt:178:        override fun retry(id: String) = q.retry(id)
+SHARED:cert/Cert17e2.kt:179:        override fun cancelAll() = q.cancelAll()
+SHARED:cert/Cert17e2.kt:180:        override fun load() = q.load(prefs)
+SHARED:cert/Cert17e2.kt:181:        override fun setMax(v: Int) = q.setMax(prefs, v)
+SHARED:cert/Cert17e2.kt:182:        override fun maxAtOnce() = q.maxAtOnce.value
+SHARED:cert/Cert17e2.kt:183:        override fun waiting() = q.waitingOnRider.value
+SHARED:cert/Cert17e2.kt:184:        override fun active() = q.active.value
+SHARED:cert/Cert17e2.kt:185:        override fun savedMax() = if (prefs.contains(GtStateDataQueue.KEY_MAX)) "${prefs.getInt(GtStateDataQueue.KEY_MAX, -1)}" else "none"
+SHARED:cert/Cert17e2.kt:186:        override fun putSavedMax(v: Int?) = prefs.edit { if (v == null) remove(GtStateDataQueue.KEY_MAX) else putInt(GtStateDataQueue.KEY_MAX, v) }
+SHARED:cert/Cert17e2.kt:187:        override fun aborts(): List<String> = aborted.toList()
+SHARED:cert/Cert17e2.kt:188:        override fun serverOf(url: String, sourceId: String) = GtStateDataQueue.serverOf(MapRow(mapOf("url" to url, "source_id" to sourceId)))
 SHARED:cert/CertGeom.kt:22:object CertGeom {
 SHARED:cert/CertGeom.kt:24:    class Summary(val rows: Int, val same: Int, val noncanonical: Int, val diff: Int, val lookupOk: Int, val tracks: Int)
 SHARED:cert/CertGeom.kt:26:    private val TABLES = listOf("waypoints" to "waypoint_id", "routes" to "route_id", "tracks" to "track_id", "trails" to "trail_id")

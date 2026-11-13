@@ -16,6 +16,20 @@ li{margin:5px 0}</style></head><body><main><h1>GroupTrack handoff — 2026-11-12
 <div class="card" style="border-left:4px solid #58a6ff"><p><b>FRESH START FOR 2.7c (Fred 10-21 19:20):</b> "we are on 2.7c, everything before that should be gone." This handoff holds only 2.7c work and the items still open from 2.7b. <b>Everything removed</b> &mdash; all 191 sections of living master v164 and all of handoff v70, word for word, with the 13 that were still marked open listed first &mdash; is in <code>GroupTrack_REMOVED_through_2.7b_2026-10-21_v1.html</code> (in docs/ and in GroupTrack_AllDocs_2.txt), and every earlier dated version is in <code>GroupTrack_AllDocs_1_through_2.7b_2026-10-21.txt</code> (frozen).</p>
 <p><b>The rule from now on (Fred 10-21 19:19): remove items as they are completed.</b> When an item is done, its section moves out of this document into that day's COMPLETED_TASK document, leaving a one-line pointer. This document should stay small; if it grows day after day, items are not being removed.</p></div>
 <h2>⭐⭐⭐ NEXT SESSION — START HERE (11-12 18:45) — 2.8 step 17 G2e-2: REBUILD the queue cert on REAL rows, then G2f, G2g</h2>
+<div class="card done"><h3>✅ THE PATCHES ARE BUILT AND DRY-RUN CLEAN (11-12 23:xx) — tomorrow is a walk-through, not a build</h3>
+<p>Package <code>$GT_INBOX/step17g2e2f_2026-11-12/</code>. <b>Nothing is applied.</b> Run order, the four patches and what the simulation proved: <code>RUN_ORDER_2026-11-12.md</code> in that folder.</p>
+<ol>
+<li><code>bash "$GT_CMDS/daily_check_v1.sh"</code></li>
+<li><code>cd "$GT_REPO" &amp;&amp; git status --short &amp;&amp; git log --oneline -1</code></li>
+<li><code>python3 "$GT_INBOX/step17g2e2f_2026-11-12/step17g2e2f_install_2026-11-12.py"</code> — dry run (A the stop() thread · B the real rows · C the iPad test, new · D coroutines on the test classpath)</li>
+<li>the same with <code>--apply</code></li>
+<li><code>python3 "$GT_INBOX/step17g2e2f_2026-11-12/make_gt_cert_v33_2026-11-12.py"</code> — dry run, then <code>--apply</code> (writes <code>gt_cert_v33.sh</code> = v32 + the iPad half of queue17e2)</li>
+<li><code>cd "$GT_REPO" &amp;&amp; ./gradlew :grouptrack-shared:compileKotlinIosSimulatorArm64</code></li>
+<li><code>bash "$GT_CMDS/gt_build_v2.sh"</code></li>
+<li><code>bash "$GT_CMDS/gt_cert_v33.sh" &lt;build&gt; queue17e2</code> → read the <b>report file</b></li>
+<li>commit G2e-2, then <b>G2f</b> (StartupHousekeeping, DbAudit) and <b>G2g</b> close G2</li>
+</ol>
+<p><b>What the simulation found, before any patch</b> (the approved step 2, Fred 11-11 18:48): at 1 at a time the order is pure kind order with the pbf last; at 2 the pbf is held by its gate until everything else is here; <b>at 4 the pbf starts beside the GeoPackage’s tail — both on <code>download.geofabrik.de</code> at once</b>, the one place two files share a server on purpose (2.7e <code>PBFSTART-2026-11-02</code>, Fred 18:01), because the pbf gate skips the server check. Invented rows never produced it. The saved statuses change the opening too: <code>B-saved</code> starts gpkg + the ugrc agency row because the land row is already completed. No scenario deadlocks; New Hampshire’s land row is <b>failed</b> in its manifest, so it re-queues on a third real host.</p></div>
 <div class="card next"><h3>▶ State at EOD 11-12</h3><ul>
 <li><b>Branch 2.8</b> at <code>49162b6c3</code>. <b>10 commits UNPUSHED</b> (12:43–15:36) — push when Fred asks.</li>
 <li><b>Uncommitted on purpose</b> (the G2e-2 cert pieces, not yet certified): <code>StateDataQueue.kt</code> (M, the switch), <code>GtCertRun.kt</code> (M, the queue17e2 line), <code>StateDataQueueCertOld.kt</code> (new, TEST-ONLY), <code>GtCert17e2.kt</code> (new). Plus <code>_patch_backups/</code>. The stray <code>1200000</code> is gone.</li>
