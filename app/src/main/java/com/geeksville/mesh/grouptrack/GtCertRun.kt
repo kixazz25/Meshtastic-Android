@@ -114,7 +114,8 @@ object GtCertRun {
                     if (mode == "import15e") GtCert15e.run(app, w)
                     if (mode == "trail15f") GtCert15f.run(app, w)   // STEP15F-2026-11-10: the agency trail import, 2.7e vs shared (TEST-ONLY)
                     if (mode == "osm15g") GtCert15g.run(app, w)   // STEP15G-2026-11-10: the OSM extract + import, 2.7e vs shared (TEST-ONLY)
-                    if (mode == "state17e1") GtCert17e1.run(app, w)   // STEP17G2E1-2026-11-12: a state's kept data, 2.7e vs shared (TEST-ONLY)
+                    if (mode == "state17e1") GtCert17e1.run(app, w)
+                    if (mode == "queue17e2") GtCert17e2.run(app, w)   // STEP17G2E2E-2026-11-12: the state data queue, 2.7e vs shared (TEST-ONLY)   // STEP17G2E1-2026-11-12: a state's kept data, 2.7e vs shared (TEST-ONLY)
                     if (mode == "config17d") GtCert17d.run(app, w)   // STEP17G2D-2026-11-12: the V2 config files, 2.7e vs shared (TEST-ONLY)
                     if (mode == "user17c2") GtCert17c2.run(app, w)   // STEP17G2C2-2026-11-12: the V2 local user, 2.7e vs shared (TEST-ONLY)
                     if (mode == "net17c") GtCert17c.run(app, w)   // STEP17G2C1-2026-11-12: the profile + networks + generator, 2.7e vs shared (TEST-ONLY)
@@ -128,7 +129,7 @@ object GtCertRun {
                     // STEP15A-2026-11-08: "golden15a" = the 15a foundations (Java number / date / org.json text) -- Android's answers and the
                     // shared code's, one line each (GtGolden15a). Reads no database. gt_cert_v12 copies the file to the Mac for GtFoundation15aMacTest.
                     if (mode == "golden15a") { val g = GtGolden15a.write(w); Log.i(TAG, "GTCERT golden15a: ${g.lines} lines, ${g.diffs} DIFF on the Droid") }
-                    if (mode != "state17e1" && mode != "config17d" && mode != "user17c2" && mode != "net17c" && mode != "ride17b2" && mode != "session17b" && mode != "storage17a" && mode != "queue16c" && mode != "mathtile" && mode != "osm15g" && mode != "trail15f" && mode != "mathpow" && mode != "mathprobe" && mode != "import15e" && mode != "track15d" && mode != "writes" && mode != "lookups" && mode != "freeze" && mode != "routes" && mode != "rides" && mode != "golden15a" && mode != "parse15b" && mode != "geom" && mode != "rider15c") {   // STEP8B-2026-11-07, STEP13C, STEP15A-2026-11-08
+                    if (mode != "state17e1" && mode != "config17d" && mode != "user17c2" && mode != "net17c" && mode != "ride17b2" && mode != "session17b" && mode != "storage17a" && mode != "queue16c" && mode != "mathtile" && mode != "osm15g" && mode != "trail15f" && mode != "mathpow" && mode != "mathprobe" && mode != "import15e" && mode != "track15d" && mode != "writes" && mode != "lookups" && mode != "freeze" && mode != "routes" && mode != "rides" && mode != "golden15a" && mode != "parse15b" && mode != "geom" && mode != "rider15c" && mode != "queue17e2") {   // STEP17G2E2J-2026-11-13: queue17e2 skips the whole-database pass, as every other 17-group mode does   // STEP8B-2026-11-07, STEP13C, STEP15A-2026-11-08
                         var n = 0
                         GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
                         com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, com.grouptrack.shared.cert.CertRead.TrailSample.ALL /* STEP8-2026-11-07 */,

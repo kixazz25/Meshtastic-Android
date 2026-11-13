@@ -26,7 +26,7 @@ kotlin {
         }
         androidMain.dependencies { implementation("androidx.sqlite:sqlite-framework:2.5.2") }   // Android's own SQLite
         iosMain.dependencies { implementation("androidx.sqlite:sqlite-bundled:2.5.2") }         // as proved in the spike 11-06
-        commonTest.dependencies { implementation(kotlin("test")) }
+        commonTest.dependencies { implementation(kotlin("test")); implementation(libs.kotlinx.coroutines.core) }   // STEP17G2E2F-2026-11-12: runBlocking in the 17e2 iPad test
     }
 }
 
