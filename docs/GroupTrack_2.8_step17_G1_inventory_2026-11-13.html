@@ -1,0 +1,133 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>GroupTrack 2.8 — step 17 group G1 inventory</title>
+<style>
+ body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1120px;margin:28px auto;padding:0 18px;color:#111}
+ h1{font-size:22px;margin:0 0 4px} h2{font-size:17px;margin:26px 0 8px;border-bottom:2px solid #ddd;padding-bottom:3px}
+ .sub{color:#666;margin:0 0 18px}
+ table{border-collapse:collapse;width:100%;margin:10px 0 18px;font-size:13.5px}
+ th,td{border:1px solid #d6d6d6;padding:5px 8px;text-align:left;vertical-align:top}
+ th{background:#f2f2f2} td.n{text-align:right;font-variant-numeric:tabular-nums}
+ code{background:#f4f4f4;padding:1px 4px;border-radius:3px;font-size:12.5px}
+ .stop{background:#fff3f3;border-left:4px solid #c00;padding:9px 12px;margin:12px 0}
+ .ok{background:#f2fbf2;border-left:4px solid #2a2;padding:9px 12px;margin:12px 0}
+ .note{background:#f7f7ff;border-left:4px solid #66c;padding:9px 12px;margin:12px 0}
+ .pill{display:inline-block;background:#eee;border-radius:10px;padding:0 7px;font-size:12px}
+</style>
+
+<h1>Step 17 — group G1 inventory: map store and map sources</h1>
+<p class="sub">2026-11-13 · for Fred's approval before any port · 13 files, 3,926 lines measured on today's 2.8 code</p>
+
+<div class="note"><b>Why this document exists.</b> Step 1 of the group process: every file, every caller,
+every Android tie, to Fred before anything is ported. G1 is the largest group attempted so far —
+larger than all of G2 put together (2,488 lines) — so the piece split matters more here than it did
+for G2f.</div>
+
+<h2>1. The files, as measured</h2>
+<table>
+<tr><th>File</th><th class="n">Lines</th><th class="n">Callers</th><th>Android ties (what cannot cross)</th><th>Fate</th></tr>
+<tr><td><code>ConvoyTileCalculator</code></td><td class="n">364</td><td class="n">10</td><td><b>none</b></td><td>port — pure math, part already in <code>GtTileMath</code> (16b)</td></tr>
+<tr><td><code>TileCodec</code></td><td class="n">66</td><td class="n">2</td><td>Bitmap, BitmapFactory, os.Build</td><td><b>SOCKET</b> — a per-platform image codec, never ported</td></tr>
+<tr><td><code>ElevationTiles</code></td><td class="n">29</td><td class="n">8</td><td>Context, JSONObject</td><td>port</td></tr>
+<tr><td><code>VectorTiles</code></td><td class="n">85</td><td class="n">14</td><td>Context, JSONObject</td><td>port; http through the shared client</td></tr>
+<tr><td><code>ConvoyMapRecipe</code></td><td class="n">170</td><td class="n">4</td><td>Context, Environment, JSONArray/Object</td><td>port (the recipe file)</td></tr>
+<tr><td><code>MapStateStore</code></td><td class="n">220</td><td class="n">8</td><td>Context, JSONArray/Object</td><td>port (the saved view)</td></tr>
+<tr><td><code>MapSourceManager</code></td><td class="n">599</td><td class="n">20</td><td>Context, JSONObject</td><td>port (sources, slots) + a settings socket</td></tr>
+<tr><td><code>MBTilesStore</code></td><td class="n">605</td><td class="n">15</td><td>SQLiteDatabase, os.Environment</td><td>port + cert (tile rows on copies)</td></tr>
+<tr><td><code>ConvoySourceMigration</code></td><td class="n">228</td><td class="n">2</td><td>util.Log, JSONArray/Object</td><td>port + cert</td></tr>
+<tr><td><code>ConvoySourceClear</code></td><td class="n">317</td><td class="n">1</td><td>util.Log</td><td>port + cert (<b>what is deleted</b>)</td></tr>
+<tr><td><code>ConvoyCorridorDelete</code></td><td class="n">234</td><td class="n">3</td><td>Context</td><td>port + cert (<b>what is deleted</b>)</td></tr>
+<tr><td><code>GroupTrackConversion</code></td><td class="n">663</td><td class="n">3</td><td>Context, net.Uri, util.Log, <b>DocumentFile (SAF)</b>, JSON</td><td>port + cert</td></tr>
+<tr><td><code>ConvoyTileDownloader</code></td><td class="n">346</td><td class="n">8</td><td>Context, OkHttpClient, Request</td><td>the URL/path math ports; <b>the FETCH stays platform</b></td></tr>
+</table>
+
+<h2>2. What is NOT a port, and why</h2>
+<ul>
+<li><b><code>TileCodec</code> (66)</b> — encodes tiles as WebP through <code>Bitmap.CompressFormat</code>.
+There is no shared image codec; this is a declared socket per plan §8. G1 defines the seam, each
+platform implements it. Nothing to certify beyond the seam's contract.</li>
+<li><b><code>ConvoyTileDownloader</code>'s fetch (of 346)</b> — OkHttp calls, retry/backoff, worker
+integration. The inventory already calls the fetch platform. What ports is <code>buildTileUrl</code>
+and <code>tilePath</code>: string and path math.</li>
+</ul>
+
+<h2>3. Proposed piece split — eight pieces, certified one at a time</h2>
+<p>Ordered by risk, not by the inventory's listing order: least-tied first, and
+<b>anything that deletes rider data last</b>, when the group's harness is already proven.</p>
+<table>
+<tr><th>Piece</th><th>Files</th><th class="n">Lines</th><th>What it adds that nothing before it had</th></tr>
+<tr><td>G1a</td><td><code>ConvoyTileCalculator</code> + <code>ConvoyTileDownloader</code>'s url/path math</td><td class="n">~420</td><td>nothing — zero Android ties, pure math. Proves the group's pipe.</td></tr>
+<tr><td>G1b</td><td><code>TileCodec</code></td><td class="n">66</td><td>the first declared SOCKET in step 17 — a seam contract, not a port</td></tr>
+<tr><td>G1c</td><td><code>ElevationTiles</code> + <code>VectorTiles</code></td><td class="n">114</td><td>http through the shared client; assets + JSON specs</td></tr>
+<tr><td>G1d</td><td><code>MapStateStore</code> + <code>ConvoyMapRecipe</code></td><td class="n">390</td><td>file-backed state, the saved view, the daily recipe</td></tr>
+<tr><td>G1e</td><td><code>MapSourceManager</code></td><td class="n">599</td><td>20 callers — the widest blast radius in G1; a settings socket</td></tr>
+<tr><td>G1f</td><td><code>MBTilesStore</code></td><td class="n">605</td><td>real SQLite tile stores; cert on COPIES, never the live stores</td></tr>
+<tr><td>G1g</td><td><code>ConvoySourceMigration</code> + <code>ConvoySourceClear</code> + <code>ConvoyCorridorDelete</code></td><td class="n">779</td><td><b>deletion.</b> What gets removed and what is kept.</td></tr>
+<tr><td>G1h</td><td><code>GroupTrackConversion</code></td><td class="n">663</td><td>SAF / DocumentFile — the heaviest Android tie in the group</td></tr>
+</table>
+
+<div class="stop"><b>⛔ G1g and G1h are the two to be careful with.</b> The 08-08 data-loss incident and
+the storage conversion are both in this territory: <code>ConvoySourceClear</code> deletes tile store
+directories, <code>ConvoyCorridorDelete</code> removes tiles by corridor, and
+<code>GroupTrackConversion</code> moves the rider's whole GroupTrack folder through SAF. Their certs
+must run on copies and must compare <i>what would be deleted</i> before anything is. They are last
+in the order for that reason, not because they are least important.</div>
+
+<div class="ok"><b>What G1 inherits for free</b> from G2f and G2g: the OLD-copy-with-counted-manifest
+pattern and its mechanical verification (reverse the manifest, diff against <code>git show 2.7e:…</code>);
+the fixture-drives-both-sides shape; the Droid/iPad runner-script recipe; and the four harness rules —
+scripted clock, fixture-ordered listings, sorted collections, and never comparing a file's generated
+text. <code>GtTileMath</code> and <code>GtStorage</code> already exist in shared.</div>
+
+<h2>4. Open question for Fred</h2>
+<p>G1 is 3,926 lines against G2's 2,488, and G2 took roughly a day and a half. On that arithmetic G1
+is two to three days on its own. The piece split above is designed so each piece is independently
+shippable and switchable — so G1 can be <i>partially</i> complete at any point without leaving the
+Android app in a broken state. Confirm the split, or reorder it.</p>
+<h2>5. POST-2.8 CLEANUP TASKS — found during this inventory, deliberately not done now</h2>
+<div class="stop"><b>⛔ These are CHANGES, not ports.</b> Fred, 11-13 13:03: "corridor downloads were
+changed to represent the corridor's area. If removal wasn't changed we need to add that to the
+post-2.8 Mac build as a cleanup task." Recorded here so the port does not quietly absorb them —
+each one touches screens or navigation and belongs in one deliberate pass, not as a side effect.</div>
+
+<table>
+<tr><th>#</th><th>Task</th><th class="n">Lines</th><th>Evidence</th><th>What it touches</th></tr>
+<tr><td>C1</td><td><b>Remove the pre-vector corridor DELETE.</b> Corridor downloads became the
+track/route AREA when the vector map landed, and that math is already shared as
+<code>GtVectorQueue.squaresFor</code>. The REMOVAL path was never changed, so it still computes the
+old taper/funnel corridor — and per Fred the pre-vector stores no longer exist, so it can find
+nothing.</td><td class="n">~374</td>
+<td><code>ConvoyDownloadQueue:795</code> (the corridor DOWNLOAD) sits behind
+<code>if (GtMapEngine.isVector) { … return }</code>, and <code>isVector</code> is
+<code>cached ?: true</code> with <code>isVectorCached() = true</code> — VECONE-2026-11-01, "the only
+map". So the download arm is unreachable. <code>ConvoyCorridorDelete:135/191</code> has no such gate.</td>
+<td><code>ConvoyCorridorDelete</code> (234) + <code>corridorTiles</code> and its taper/funnel in
+<code>ConvoyTileCalculator</code> (~140), <b>and the corridor-delete controls on two screens</b>:
+<code>MapScreens:423/491</code> and <code>ConvoyMapSourceScreen:542/550</code>, reachable via
+<code>ConvoyNavigation:156</code>.</td></tr>
+
+<tr><td>C2</td><td><b>Check the SAT tile reads.</b> If pre-vector SAT stores are gone, three reads
+of them are dead too.</td><td class="n">~small</td>
+<td><code>GroupTrackScreen:1146/1160/1173</code> call <code>MBTilesStore.readTile("SAT_L…")</code>.
+⚠ NOT verified dead — only noticed. <code>map_sources.json</code> still offers
+<code>google-hybrid</code> as slot SAT.</td><td><code>GroupTrackScreen</code></td></tr>
+
+<tr><td>C3</td><td><b>Dead functions in <code>ConvoyTileCalculator</code>.</b> No caller outside
+their own file.</td><td class="n">~30</td>
+<td><code>maxZoomForSource</code>, <code>estimateSizeMB</code>, <code>isWithinCeiling</code> — zero
+call sites found by a receiver-qualified search across all source sets.</td>
+<td><code>ConvoyTileCalculator</code> only</td></tr>
+
+<tr><td>C4</td><td><b><code>ConvoyMarkerRenderer</code> the class is dead</b> (carried over from the
+G2g inventory).</td><td class="n">~10</td>
+<td>Its JS bridge moved inline to <code>GroupTrackScreen:904/1241</code>; the object is built at
+<code>:433</code> and <code>onNodeTapped</code> is never invoked. ⚠ The CLASS is dead, the FILE is
+not — <code>LatLngPoint</code> and <code>TrackSegment</code> are live at <code>:579-580</code>.</td>
+<td><code>ConvoyMarkerRenderer</code>, <code>GroupTrackScreen:433</code></td></tr>
+</table>
+
+<div class="note"><b>Why C1 is ported anyway, for now.</b> <code>corridorTiles</code> is ~140 lines
+and the numeric shims it needs (<code>GtMath.pow</code>, <code>GtMath.cos</code>,
+<code>GtJava.toRadians</code>) already exist and are certified. Porting it is cheap; removing it
+means editing two screens and a nav path in the middle of the group with the widest blast radius.
+⭐ Sequence and variable count: the port stays a port, and C1 happens as its own change.</div>

@@ -1,0 +1,135 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>GroupTrack 2.8 — step 17 group G1a — findings</title>
+<style>
+ body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1000px;margin:28px auto;padding:0 18px;color:#1b1b1b}
+ h1{font-size:23px;border-bottom:2px solid #333;padding-bottom:6px} h2{font-size:18px;margin-top:28px}
+ h3{font-size:15px;margin-top:20px} code{background:#f2f2f2;padding:1px 4px;border-radius:3px;font-size:13px}
+ table{border-collapse:collapse;width:100%;margin:10px 0} th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;vertical-align:top;font-size:13.5px}
+ th{background:#eee} .y{color:#0a0} .n{color:#b00} .pend{color:#a60}
+ blockquote{border-left:3px solid #bbb;margin:10px 0;padding:2px 12px;color:#444}
+</style></head><body>
+
+<h1>Step 17 · group G1a — findings</h1>
+<p><b>Date</b> 2026-11-13 · <b>Scope</b> <code>ConvoyTileCalculator</code> + <code>ConvoyTileDownloader.buildTileUrl</code>
+→ <code>GtTileCalc</code> · <b>Status</b> artifacts built and compiling on both targets; certification run pending.</p>
+
+<h2>1. Why G1a is first in G1</h2>
+<p>The approved inventory picked it to <i>prove the group's pipe</i>: ~420 lines, <b>zero Android ties, pure math</b>.
+Six pure functions, no collaborator seam, no scripted clock, no file listings — so none of G2f's four harness rules
+apply. The one seam is <code>ConvoyConfig.DOWNLOAD_ZOOM</code>, a <code>var</code> the rider's slider sets, which both
+sides take as a parameter from one scripted value.</p>
+
+<h2>2. The members — ported, and not ported</h2>
+<table>
+<tr><th>2.7e member</th><th>In the port?</th><th>Evidence</th></tr>
+<tr><td><code>maxZoomForSource</code></td><td class="y">KEPT</td><td>called by <code>calculateTiles</code> at <code>ConvoyTileCalculator:272</code>. An internal caller is a caller. ⚠ Wrongly called dead earlier today from a grep that excluded the declaring file.</td></tr>
+<tr><td><code>maxZoomForSlot</code></td><td class="y">KEPT</td><td><code>ConvoyTileDownloader:146</code></td></tr>
+<tr><td><code>zoomRanges</code></td><td class="y">KEPT</td><td><code>ConvoyDeleteWorker:85</code>, <code>ConvoyDownloadQueue:509</code> (REMOVEAREA-2026-11-03)</td></tr>
+<tr><td><code>calculateTiles</code></td><td class="y">KEPT</td><td><code>MapScreens:85</code>, <code>ConvoyDownloadQueue:239</code>, <code>ConvoyDownloadWorker:172/173</code></td></tr>
+<tr><td><code>buildTileUrl</code></td><td class="y">KEPT</td><td><code>ConvoyTileDownloader:177</code> — internal to the live vector downloader</td></tr>
+<tr><td><code>corridorTiles</code></td><td class="n">DROPPED</td><td>no reachable caller: <code>ConvoyCorridorWorker</code> (zero callers), <code>ConvoyCorridorDelete</code> (zero reachable callers since 11-13), and the arm below <code>enqueueCorridor</code>'s <code>isVector</code> return</td></tr>
+<tr><td><code>stampPoint</code></td><td class="n">DROPPED</td><td>private helper, used only by <code>corridorTiles</code></td></tr>
+<tr><td><code>estimateSizeMB</code></td><td class="n">DROPPED</td><td>only use is <code>isWithinCeiling</code> — a dead chain</td></tr>
+<tr><td><code>isWithinCeiling</code></td><td class="n">DROPPED</td><td><b>zero uses anywhere</b> in the xref</td></tr>
+<tr><td><code>AVG_TILE_KB</code></td><td class="n">DROPPED</td><td>only use is <code>estimateSizeMB</code></td></tr>
+<tr><td><code>tileRelPath</code></td><td class="n">NEVER EXISTED</td><td>⛔ <code>decl 0</code>. Invented in an earlier draft of the port. See §4 Q1.</td></tr>
+</table>
+<p><b>⭐ Download by corridor is LIVE and is ported — just not here.</b> It is the route/track map download, reached from
+the GPX import (<code>GtGpxImport:345/486</code> via <code>env.platform.enqueueCorridor</code>, <code>GtImportEnv:83</code>),
+<code>GroupTrackScreen:2536</code> and <code>MapScreens:178/503</code>. Its <i>method</i> changed, not its existence: a
+corridor is now the track's AREA (<code>VectorTiles.squaresFor</code>, VECDL-2026-10-31), derived in
+<code>VectorTiles</code>/<code>GtVectorQueue</code> and <b>already certified in Cert16c</b>. Only the pre-vector taper is gone.</p>
+
+<h2>3. The substitution manifest (OLD side)</h2>
+<p><code>git diff 2.7e -- ConvoyTileCalculator.kt</code> is <b>empty</b>, so the OLD copy is taken from code identical to
+the field-lock version — nothing had to be undone first, unlike G2f.</p>
+<table>
+<tr><th>#</th><th>Substitution</th><th>Count</th></tr>
+<tr><td>1</td><td>object name → <code>ConvoyTileCalculatorCertOld</code></td><td>×1</td></tr>
+<tr><td>2</td><td><code>ConvoyConfig.DOWNLOAD_ZOOM</code> → <code>downloadZoom</code> (the 16b rule)</td><td>×6</td></tr>
+<tr><td>2b</td><td>the new parameter threaded to an internal call site</td><td>×1</td></tr>
+<tr><td>3</td><td>parameter defaults → required</td><td>×4</td></tr>
+<tr><td>4</td><td>certified math CALLED, not copied (<code>ConvoyTileCalculator.lon2tile/lat2tile</code>)</td><td>×8</td></tr>
+<tr><td>5</td><td><code>buildTileUrl</code> taken from <code>ConvoyTileDownloader:54</code></td><td>×1</td></tr>
+</table>
+<p><b>Tally, checkable without arithmetic:</b> <code>downloadZoom</code> appears 10 times = 3 parameter declarations
++ 6 substituted reads + 1 threaded argument.</p>
+<p>⚠ <b>Method note worth keeping.</b> Three successive attempts to count this manifest by regex were wrong three
+different ways: an <i>expression body</i> and a <i>parameter default</i> both read <code>= ConvoyConfig.DOWNLOAD_ZOOM</code>;
+a <code>$</code>-anchored pattern missed <code>zoomRanges</code>, whose two parameters share a line; and counting the bare
+identifier conflated declarations, reads and threaded arguments. For a 120-line file the hand count IS the check.</p>
+
+<h2>4. M1 — the per-group check</h2>
+<p>Required before the group closes (living master, <code>#blast-check</code>). Four of five are answered by the
+cross-reference work done while writing the port.</p>
+<table>
+<tr><th>Q</th><th>Question</th><th>Answer</th></tr>
+<tr><td>1</td><td><b>Fabrications</b> — does every member of the port have a 2.7e declaration?</td>
+    <td class="n">ONE FOUND AND REMOVED. <code>tileRelPath</code> had <code>decl 0</code> — no such function in
+    <code>ConvoyTileCalculator</code> or <code>ConvoyTileDownloader</code>. The nearest real thing,
+    <code>ConvoyTileDownloader.tilePath(context, …)</code>, returns a <code>File</code>, calls <code>mkdirs</code> and
+    stays platform. ⛔ This is the failure the cert cannot catch: a member with no OLD counterpart has nothing to
+    compare against, so it passes by never being exercised. The other five keepers all have 2.7e declarations.</td></tr>
+<tr><td>2</td><td><b>Wrongly dropped</b> — does every member left out have zero callers, <i>counting its own file</i>?</td>
+    <td class="y">YES, after one correction. <code>maxZoomForSource</code> was wrongly marked dead and restored — its
+    caller is internal (<code>:272</code>). The five genuine drops have no reachable caller.</td></tr>
+<tr><td>3</td><td><b>Orphaned callers</b> — are all callers routed to the shared front door?</td>
+    <td class="pend">PENDING THE SWITCH. Nothing references <code>GtTileCalc</code> yet; this is answered when the
+    Android callers are repointed, which is a separate commit after certification.</td></tr>
+<tr><td>4</td><td><b>Branch reachability</b> — can the branch it sits in ever execute?</td>
+    <td class="y">YES — and it is what killed <code>corridorTiles</code>. <code>enqueueCorridor</code> is live with many
+    live callers, but everything after <code>if (GtMapEngine.isVector(context)) { … return }</code> is unreachable
+    (<code>cached ?: true</code>, VECONE-2026-11-01).</td></tr>
+<tr><td>5</td><td><b>Wrongly kept</b> — does every member put IN have a reachable caller?</td>
+    <td class="y">YES, after dropping six. An earlier draft kept <code>estimateSizeMB</code>/<code>isWithinCeiling</code>
+    explicitly "to keep the OLD/NEW comparison total" — which is the error Q5 names: there is nothing to compare when
+    neither side is ever called.</td></tr>
+</table>
+
+<h2>5. The certification</h2>
+<p><b>148 keys</b> — 11 <code>MAXSLOT</code> (every slot, mixed case, trailing space: <code>uppercase()</code> is in the
+path), 5 <code>MAXSRC</code> (proving <code>sourceName</code> is ignored <i>identically</i>), 32 <code>ZRANGE</code>,
+96 <code>CALC</code>, 4 <code>URL</code>.</p>
+<h3>Two deliberate departures from G2f</h3>
+<p><b>⭐ Order is COMPARED, not sorted away</b> — the opposite of G2f's rule 3. 2.7e builds <code>tiles</code> with
+<code>mutableListOf</code> and nested <code>for (z) for (x) for (y)</code>, so order is fixed by the source, not by a hash
+or the filesystem. It is part of the behaviour and a reordering would be a real defect. G2f sorted because its collections
+came from set iteration and <code>listFiles()</code>; nothing here does.</p>
+<p><b>⚠ Mercator edges are in the sweep on purpose</b> — at 89.999° <code>tan(rad)</code> runs away and 2.7e clamps
+nothing. Both sides must run away <i>identically</i>: faithfulness, not correctness. A defect both sides reproduce is a PASS.</p>
+<p>Boxes are deliberately tiny (0.01°) so <code>CALC</code> stays a value comparison and not a memory test — enumerating a
+state-sized box is the millions-of-tiles problem that created <code>zoomRanges</code> (REMOVEAREA-2026-11-03).</p>
+<p><code>lon2tile</code>/<code>lat2tile</code> are <b>not under test</b>: certified at 16a as MATHTILE, 0 DIFF across
+1,938,346 values. OLD calls 2.7e's own, NEW calls <code>GtTileMath</code>'s. Shared ground is what makes a DIFF here
+attributable to G1a's members alone.</p>
+
+<h3>Pass criteria (unchanged from 14c)</h3>
+<p>Droid <code># G1A done: N SAME, 0 DIFF</code> <b>and</b> iPad 0 DIFF with <code>cross-device COMPARED</code>,
+<b>two clean runs</b>.</p>
+
+<h2>6. Artifacts</h2>
+<table>
+<tr><th>File</th><th>Lines</th><th>Role</th></tr>
+<tr><td><code>grouptrack-shared/…/queue/GtTileCalc.kt</code></td><td>163</td><td>NEW — six live members, no imports (<code>GtTileMath</code> is same-package)</td></tr>
+<tr><td><code>app/…/convoy/ConvoyTileCalculatorCertOld.kt</code></td><td>142</td><td>OLD — 2.7e, counted manifest</td></tr>
+<tr><td><code>grouptrack-shared/…/cert/Cert17g1a.kt</code></td><td>182</td><td>the one runner — 148 keys, sink form</td></tr>
+<tr><td><code>app/…/grouptrack/GtCert17g1a.kt</code></td><td>70</td><td>Droid harness (takes <code>ctx</code> only to match the dispatch signature; no Context is used)</td></tr>
+<tr><td><code>grouptrack-shared/src/iosTest/…/GtCertTile17g1aMacTest.kt</code></td><td>55</td><td>iPad replay</td></tr>
+<tr><td><code>$GT_CMDS/gt_cert_v39.sh</code></td><td>721</td><td>v38 + mode <code>tile17g1a</code></td></tr>
+</table>
+<p><code>GtCertRun</code>: dispatch line at <code>:118</code> and the <b>skip-list entry</b> at <code>:138</code> — the
+latter is what avoids the 25–30 minute whole-database pass (the 11-12 <code>queue17e2</code> lesson).</p>
+<p>Both targets compile: <code>:app:compileGoogleReleaseKotlin</code> and
+<code>:grouptrack-shared:compileTestKotlinIosSimulatorArm64</code> both BUILD SUCCESSFUL.</p>
+
+<h2>7. Port fidelity defect found and fixed</h2>
+<p>2.7e is <code>maxZoomForSource(sourceName: String): Int = ConvoyConfig.DOWNLOAD_ZOOM</code> — it <b>takes
+<code>sourceName</code> and ignores it</b>, a [V2.6b-NO-ZOOM-CAP] leftover. The port had replaced the parameter with
+<code>downloadZoom</code> rather than adding to it. 16b's rule is that app state becomes an <i>additional</i> parameter;
+the original signature is still the thing being certified. Corrected to
+<code>maxZoomForSource(sourceName, downloadZoom)</code>, with the call site mirroring 2.7e's
+<code>maxZoomForSource(sourceName)</code>. Behaviour is unchanged on both sides — the point is shape, so OLD and NEW can
+be compared argument for argument.</p>
+<p>Found by reading the OLD source to build the CertOld copy, which is what that exercise is for.</p>
+
+</body></html>
