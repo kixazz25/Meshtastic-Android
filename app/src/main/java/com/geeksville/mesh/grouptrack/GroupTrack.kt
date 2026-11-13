@@ -55,6 +55,21 @@ import com.geeksville.mesh.convoy.GroupMode
  * @param mapType     the map type showing (SAT, TOPO, ...) -- sets the colours (SHELL2-2026-10-22).
  * @param online      the ride map's internet check -- the INTERNET button reads Status: Online / Offline (SHELL4-2026-10-22).
  */
+/** CORRRETIRE-2026-11-13 (Fred 13:32-13:38): FUNCTIONS RETIRED BY THE VECTOR CONVERSION (VECONE-2026-11-01).
+ *  Listed and greyed, NOT removed -- the rows, their code and their manual sections come out during the iPad
+ *  certification pass. The value is the suffix the greyed row carries: a retired row must NOT read
+ *  "not attached yet" (ATTACH1-2026-10-22's wording for a row still waiting to be wired). These were attached
+ *  and are finished, which is the opposite thing, and the manual still describes them.
+ *  ⛔ A row listed here must also have NO entry in the `actions` bridge, or it stays live. The bridge is what
+ *  decides; this map only words it. */
+val GT_RETIRED: Map<String, String> = mapOf(
+    "map.rm_track" to "no longer needed \u2014 vector maps rebuild track coverage",
+    // CORRCREDITS-2026-11-13: map.sources is NOT retired. Verified in ConvoyMapSourceScreen -- selectedSlot is
+    // never set non-null and optTracks is never set true, so the source picker and the migration were ALREADY
+    // unreachable; the screen is a credits page, and manual#map.sources tells the reader to open it. There was
+    // no function to retire, and greying the row only hid the credits. map.rm_track above is the real retirement.
+)
+
 /** MAPTEXT-2026-10-23 (Fred 11:42): one line of the Map menu -- plain text, left-aligned, no box; a full-width tap target.
  *  Not attached = grey with "not attached yet". */
 @Composable
@@ -63,7 +78,8 @@ private fun GtMenuLine(label: String, live: Boolean, indent: Boolean, overviewId
     GtHelp.load(androidx.compose.ui.platform.LocalContext.current)
     androidx.compose.foundation.layout.Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
-            if (live) label else "$label  \u00b7  not attached yet",
+            // CORRRETIRE-2026-11-13: a retired row says so; only a never-wired row says "not attached yet".
+            if (live) label else "$label  \u00b7  " + (GT_RETIRED[overviewId] ?: "not attached yet"),
             color = if (live) s.panelText else Gt.dim,
             fontSize = 16.sp, fontWeight = if (live) FontWeight.SemiBold else FontWeight.Normal,
             modifier = Modifier.weight(1f).clickable(enabled = live, onClick = onTap)
@@ -293,7 +309,8 @@ fun GroupTrackLaunchLayer(
                             return@forEach
                         }
                         GtButton(
-                            if (actions[pr.id] != null) pr.label else "${pr.label}  ·  not attached yet",   // ATTACH1-2026-10-22: the bridge decides
+                            // CORRRETIRE-2026-11-13: same wording rule as GtMenuLine above.
+                            if (actions[pr.id] != null) pr.label else "${pr.label}  ·  " + (GT_RETIRED[pr.id] ?: "not attached yet"),   // ATTACH1-2026-10-22: the bridge decides
                             { actions[pr.id]?.let { act -> if (!openModule.stays) open = ""; act() } },
                             modifier = Modifier.fillMaxWidth(),
                             emphasis = if (actions[pr.id] != null) androidx.compose.ui.graphics.Color.Unspecified else Gt.dim,
@@ -301,7 +318,9 @@ fun GroupTrackLaunchLayer(
                         )
                     }
                     // CLASSICOFF-2026-10-23: MENU > Classic layout removed -- ONE MAP is the only layout.
-                    if (rows.any { it.children.isEmpty() && actions[it.id] == null } && openModule.id !in setOf("filter", "key", "search")) Text("Placeholder — 2.7c shell (SHELL-2026-10-22). Rows are attached one module at a time.",   // GTFILTER: only while rows are unattached
+                    // CORRRETIRE-2026-11-13: a retired row is not an unattached one -- without this, greying
+                    // map.sources (the Map menu's only childless top-level row) would put the 2.7c shell notice on the Map menu.
+                    if (rows.any { it.children.isEmpty() && actions[it.id] == null && it.id !in GT_RETIRED } && openModule.id !in setOf("filter", "key", "search")) Text("Placeholder — 2.7c shell (SHELL-2026-10-22). Rows are attached one module at a time.",   // GTFILTER: only while rows are unattached
                         color = GtScheme.current.value.panelDim, fontSize = 12.sp, fontWeight = FontWeight.Normal)
                 }
             }

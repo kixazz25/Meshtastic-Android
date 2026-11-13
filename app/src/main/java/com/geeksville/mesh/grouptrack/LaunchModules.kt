@@ -86,7 +86,8 @@ object LaunchModules {
         // MAPTARGET4-2026-10-23 (Fred 10:04-10:18, option B): queue summary on top (drawn by GroupTrack), Map source, then
         // sections as TWISTIES, one open at a time. MAP TYPE is the Map: TYPE button on the map, not here. Ids of attached rows kept.
         LaunchModule("map", "Map", LaunchSlot.BOTTOM_BAR, 1, groupOnly = false, stays = false, processes = p("map",
-            "sources" to "Map source") + listOf(
+            // SRCCREDITS-2026-11-13 (Fred 13:49): the row names what the screen is -- credits, not a choice.
+            "sources" to "Map source credits") + listOf(
             g("map", "dl", "DOWNLOAD MAPS FOR OFFLINE USE",
                 "dl_area" to "Download maps by area",   // draw a box (by area and by box are ONE function -- Fred 10:09)
                 "dl_tracks" to "Download maps along tracks",   // all tracks, or pick

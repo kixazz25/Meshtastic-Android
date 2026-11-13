@@ -137,7 +137,9 @@ fun ConvoyMapSourceScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Map Sources") },
+                // SRCCREDITS-2026-11-13 (Fred 13:49): "map source credits" -- the screen only shows where the map
+                // comes from and the credit each source requires; the picker it once had is unreachable.
+                title = { Text("Map source credits") },
                 actions = {   // GTMAP-2026-10-22: HELP ✕ top right, as every screen (the back arrow is gone; ✕ goes back)
                     com.geeksville.mesh.grouptrack.GtHelpButton("map.sources")
                     com.geeksville.mesh.grouptrack.GtCloseButton(onNavigateBack)

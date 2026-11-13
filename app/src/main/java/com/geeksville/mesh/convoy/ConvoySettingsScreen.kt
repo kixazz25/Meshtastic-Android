@@ -269,10 +269,20 @@ fun ConvoySettingsScreen(
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
 
-            SectionLabel("Map Sources")
+            SectionLabel("Map source credits")   // SRCCREDITS-2026-11-13 (Fred 13:49)
+            // CORRCREDITS-2026-11-13 (Fred 13:47): LIVE, RETITLED. "it is the same credit screen as the one in t setting
+            // the old function is no longer used ... the screen has no way to launch it" -- verified: this row and the Map
+            // menu's "Map source" row navigate to the SAME screen (ConvoyRoutes.ConvoyMapSources), whose source picker is
+            // unreachable (selectedSlot never set non-null) and whose migration never runs (optTracks never set true).
+            // So the screen is a credits page. The word doing the damage was "Change": the row promised a choice the screen
+            // does not offer. Retitled rather than greyed -- the credits must stay reachable (OpenMapTiles' licence, and
+            // manual#map.sources says "Open it to read where the map comes from. There is nothing to choose").
+            // CORRCREDITS2-2026-11-13: the superseded CORRRETIRE2 block was removed from here -- it said "GREYED, NOT
+            // REMOVED ... the clickable is DROPPED" above a row that is live, which would mislead the next reader.
             androidx.compose.material3.ListItem(
-                headlineContent = { Text("Change Map Sources", style = MaterialTheme.typography.bodyLarge) },
-                supportingContent = { Text("The map source",   /* ONESOURCEUI-2026-10-30 */ style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                headlineContent = { Text("Map source credits", style = MaterialTheme.typography.bodyLarge) },   // SRCCREDITS-2026-11-13
+                supportingContent = { Text("Where the map comes from, and the credit each source requires \u2014 one vector map, nothing to choose",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 modifier = Modifier.clickable { onNavigateToMapSources() }
             )
             HorizontalDivider()

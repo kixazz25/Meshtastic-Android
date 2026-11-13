@@ -3052,8 +3052,14 @@ fun GroupTrackScreen(
                 "map.convert" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "convert" },   // MAPIMPORTS-2026-10-30
                 "map.synctracks" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "sync" },   // GTSYNC-2026-10-23
                 "map.flyover" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "radius" },   // GTRADIUS-2026-10-23
-                "map.rm_track" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "rmtrack" },   // GTHEAVY-2026-10-23
+                // CORRRETIRE-2026-11-13: RETIRED -- corridor-by-area delete. Off the bridge, so the row greys out
+                // (GT_RETIRED in GroupTrack.kt words it). GtRemoveTrackScreen and ConvoyCorridorDelete.kt are
+                // untouched and now unreachable; they come out during the iPad certification pass.
+                // "map.rm_track" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "rmtrack" },   // GTHEAVY-2026-10-23
                 "map.repair" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "refresh" },   // GTHEAVY-2026-10-23   // GTTRACKS-2026-10-23
+                // CORRCREDITS-2026-11-13: LIVE. The source-change function is gone from this screen already (its picker
+                // is unreachable -- selectedSlot is never set), so what this row opens is the map's CREDITS page, which
+                // OpenMapTiles' licence requires be visible and which manual#map.sources tells the reader to open.
                 "map.sources" to { onNavigateToMapSources() },   // GTMAP: the Map Sources screen, as is
                 // VIEWHOUSE-2026-10-30: the two buttons where "Map: SAT" was -- PLACEHOLDERS, the page does the work when it is built
                 "view.3d" to { GtMapView.tilt.value = !GtMapView.tilt.value
