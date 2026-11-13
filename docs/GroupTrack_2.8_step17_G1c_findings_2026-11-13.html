@@ -1,0 +1,120 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>GroupTrack 2.8 — step 17 group G1c — findings</title>
+<style>
+ body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1000px;margin:28px auto;padding:0 18px;color:#1b1b1b}
+ h1{font-size:23px;border-bottom:2px solid #333;padding-bottom:6px} h2{font-size:18px;margin-top:28px}
+ code{background:#f2f2f2;padding:1px 4px;border-radius:3px;font-size:13px}
+ table{border-collapse:collapse;width:100%;margin:10px 0} th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;vertical-align:top;font-size:13.5px}
+ th{background:#eee} .y{color:#0a0} .n{color:#b00} .pend{color:#a60}
+</style></head><body>
+
+<h1>Step 17 · group G1c — findings</h1>
+<p><b>Date</b> 2026-11-13 · <b>Scope</b> <code>VectorTiles</code> + <code>ElevationTiles</code> source resolution
+→ <code>GtMapSpec</code> · <b>Status</b> <b class="y">CERTIFIED</b> — 58 SAME / 0 DIFF / 6 EXPECTED on Droid 1,
+64 SAME / 0 DIFF cross-device on the iPad, two clean runs. Build
+<code>2026-11-13_1548_mac_ad928ec47_UNCOMMITTED</code>.</p>
+
+<h2>1. Most of G1c was already done</h2>
+<p><code>VectorTiles</code> has 13 members and <b>nine were already front doors</b> to <code>GtVectorQueue</code>,
+certified at 16c (6,399 values, Droid OLD = NEW, iPad = Droid): <code>recipeBoxes</code>, <code>boxesOf</code>,
+<code>squaresInBox</code>, <code>enqueueWithElevation</code> ×2, <code>squaresFor</code>, <code>queueSquares</code>,
+<code>queueSquaresNamed</code>, <code>queueFromRecipe</code>. They are untouched, and are <b>deliberately absent from
+the OLD side</b> — re-testing them would re-test closed work and put a second uncertified copy on the comparison.</p>
+<p>What was left is the SOURCE SPEC: where the tile URLs come from, and the recipe's old-tile count.</p>
+
+<h2>2. The seams — three, all existing shapes</h2>
+<table>
+<tr><th>Seam</th><th>Why</th><th>Precedent</th></tr>
+<tr><td><code>readAsset(name)</code></td><td><code>map_sources.json</code> ships in the APK; Android's <code>AssetManager</code> has no common equivalent, and on the iPad it is a bundle resource</td><td><code>GtImportEnv:81</code>, <code>GtRides:145</code>, <code>GtHelpAssets</code></td></tr>
+<tr><td><code>httpGet(url, ms)</code></td><td>OpenFreeMap <b>versions its tile path</b>, so the template cannot be a constant — it is read from the TileJSON at runtime</td><td><code>GtHttp.get</code>, <code>GtImportEnv:68</code></td></tr>
+<tr><td>— none for files —</td><td>2.7e's <code>oldTilesOf</code> takes a <code>java.io.File</code>; the port takes the TEXT. Reading the file is the front door's job, which keeps the shared file free of filesystem access</td><td>—</td></tr>
+</table>
+<p><b>⚠ A shared type, not <code>MapSourceManager.TileLayer</code>.</b> That type belongs to G1e (599 lines, 20 callers,
+not ported). Blocking G1c on G1e would invert the inventory for no benefit, so shared declares
+<code>GtTileLayerSpec</code> — with <b>2.7e's field names exactly</b> (<code>role, urlTemplate, tileFormat, cacheDir,
+renderOrder</code>), not "improved" to <code>format</code>/<code>order</code>. Same lesson as G1a's ignored
+<code>sourceName</code>: the port reproduces the shape. The certification compares the FIELDS, never the type.</p>
+
+<h2>3. The substitution manifest (OLD side)</h2>
+<table>
+<tr><th>#</th><th>Substitution</th><th>Count</th></tr>
+<tr><td>1</td><td>two objects merged, members prefixed <code>vector*</code>/<code>elevation*</code>; bodies unchanged</td><td>×2</td></tr>
+<tr><td>2</td><td><code>context.assets.open(…)</code> → <code>env.readAsset(…)</code></td><td>×2</td></tr>
+<tr><td>3</td><td>the OkHttp block → <code>env.httpGet(tj, 6_000)</code></td><td>×1</td></tr>
+<tr><td>4</td><td><code>oldTilesOf(f: File)</code> → <code>oldTilesOf(recipeText: String)</code></td><td>×1</td></tr>
+<tr><td>5</td><td><code>resetForCert()</code> added — see §5</td><td>×1</td></tr>
+</table>
+<p><b>⭐ The OLD side keeps <code>org.json</code> on purpose.</b> That is the comparison: 2.7e lenient vs the port's
+strict <code>GtOrgJson</code>. And the GOOD asset text is <b>not invented</b> — the harness reads the real
+<code>map_sources.json</code> out of the APK and hands the same string to both sides, because the shipped asset is
+deterministic. An invented "good" fixture would certify the port against a file that does not ship.</p>
+
+<h2>4. The recorded divergence — 6 EXPECTED</h2>
+<p>2.7e parses with <code>org.json</code>, whose <code>JSONTokener</code> is <b>lenient</b>; the port parses with
+<code>GtOrgJson</code> over kotlinx, which is <b>strict</b> and says so in its own header:</p>
+<p><i>"NOT REPRODUCED (kotlinx is strict, Android's JSONTokener is lenient): comments, single quotes, unquoted keys,
+'=' / ';' separators, and text after the first value. Android accepts those; [parse] throws (<b>the golden run marks
+them EXPECTED</b>)."</i></p>
+<p>Three fixtures feed exactly those cases, over two keys each. OLD finds the tilejson; NEW gives up. <b>Measured, not
+assumed</b> — the first run reported 58 SAME / 6 DIFF and these were the six. This is the G2g <code>GtConfigs</code>
+precedent: recorded, not chased.</p>
+<p><b>⭐ Why it is unreachable in practice.</b> <code>GtMapSpec</code> reads
+<code>context.assets.open("map_sources.json")</code> — the asset WE SHIP, which is well-formed (a strict parser reads
+it) and contains no comments, single quotes or unquoted keys. ⚠ It is <b>NOT</b> the user-editable external
+<code>map_sources.json</code> that <code>MapSourceManager.externalJsonFile()</code> reads; that file never reaches
+this code. The TileJSON comes from OpenFreeMap, serving valid JSON.</p>
+<p><b>⛔ Marking a divergence expected does not mean testing it less.</b> The harness records the base key as
+<code>EXPECTED</code> and <b>also emits <code>&lt;key&gt;|newonly</code></b> carrying the port's own answer, so the
+iPad still compares NEW against NEW on those fixtures — which is why the iPad reports <b>64</b> SAME, not 58.
+And if an expected key ever comes back SAME the harness writes <code># G1C-NOTE … is STALE</code> rather than passing
+quietly: that is how an expected-diff list rots into a permanent excuse, and the guard is there to stop it.</p>
+
+<h2>5. Two warts reproduced on purpose</h2>
+<p><b>The cache.</b> 2.7e caches the resolved tile template in a <code>@Volatile var</code> with <b>no
+invalidation</b>, so if OpenFreeMap re-versions its path mid-session the stale template is used until the process
+restarts. Reproduced exactly, and <b>certified as a key</b>: <code>CACHE2</code> resolves once, then asks again with a
+DIFFERENT http answer and requires the FIRST one back, with <code>http_calls</code> proving no refetch.</p>
+<p><b><code>spec()</code> re-reads and re-parses the whole asset on every call.</b> 2.7e does; so does the port.</p>
+<p><code>resetForCert()</code> exists on <b>both</b> sides because <code>resolved</code> is process-wide state: without
+it the second fixture would answer with the first fixture's template and every later key would be a lie that happens
+to match. Production never calls it.</p>
+
+<h2>6. M1 — the per-group check</h2>
+<table>
+<tr><th>Q</th><th>Question</th><th>Answer</th></tr>
+<tr><td>1</td><td>Fabrications</td><td class="y">NONE. All five ported members have 2.7e declarations. Two declared additions, both legitimate and present on both sides: <code>resetForCert</code> (a test hook — 2.7e's cache is clearable only by restarting) and <code>GtTileLayerSpec</code> (the shared mirror of <code>MapSourceManager.TileLayer</code>, same field names). ⚠ Neither is a silent invention of the kind G1a's <code>tileRelPath</code> was.</td></tr>
+<tr><td>2</td><td>Wrongly dropped</td><td class="y">NONE. Every member has live callers (checked against the 20:04 index): <code>oldTilesOf</code> — <code>EmergencyRestore:109</code>, <code>MapConversion:63/138</code>; <code>downloadSources</code> ×2 — <code>ConvoyDownloadWorker:83/178/179</code>; <code>tileTemplate</code> — <code>VectorMapTest:238</code>; <code>urlTemplate</code> — <code>VectorMapTest:244</code>; <code>Z_MAX</code> ×2 — 7 refs each. ⚠ The nine queue members are not "dropped" — they were ported at 16c.</td></tr>
+<tr><td>3</td><td>Orphaned callers</td><td class="pend">PENDING THE SWITCH. Nothing references <code>GtMapSpec</code> yet; answered when the Android callers are repointed, in a separate commit.</td></tr>
+<tr><td>4</td><td>Branch reachability</td><td class="y">CHECKED, nothing dead. Unlike G1a and G1b, every branch here is reachable — the lenient-asset arms are reachable in principle, just never fed by a real input.</td></tr>
+<tr><td>5</td><td>Wrongly kept</td><td class="y">NONE. Nothing unreachable was carried in. G1c is the first G1 piece with no skips.</td></tr>
+</table>
+
+<h2>7. The certification — 64 keys</h2>
+<table>
+<tr><th>Keys</th><th>What they prove</th></tr>
+<tr><td><code>VTPL</code>/<code>VDL</code> real ×5 + <code>fetch_null</code></td><td>TileJSON resolution against good, no-<code>tiles</code>, empty-<code>tiles</code>, blank-tile, not-JSON, and the fetch failing</td></tr>
+<tr><td><code>CACHE2</code> ×4</td><td>the no-invalidation cache, including <code>http_calls</code> and the post-reset behaviour</td></tr>
+<tr><td><code>EUTPL</code>/<code>EDL</code> real</td><td>the elevation template and descriptor</td></tr>
+<tr><td>synthetic assets ×9 ×4</td><td>missing, no-vector, empty-vector, blank-tilejson, no-elevation, wrong-types, and the three lenient cases</td></tr>
+<tr><td><code>OLDTILES</code> ×9</td><td>the VEC/DEM exclusion, plus <code>tiles</code> as string, as double, missing, a null entry, not-JSON</td></tr>
+<tr><td><code>CONST</code> ×2</td><td>slot names and zoom ceilings</td></tr>
+</table>
+<p><b>⛔ The asset is carried in the Droid report.</b> The iPad has no APK, so the Droid writes the real
+<code>map_sources.json</code> (3,386 bytes) onto a <code># G1C-ASSET</code> line and the iPad reads it back. Without
+that, the iPad would certify the port against whatever happened to be on the Mac. The script refuses to proceed if the
+line is missing.</p>
+
+<h2>8. Artifacts</h2>
+<table>
+<tr><th>File</th><th>Lines</th><th>Role</th></tr>
+<tr><td><code>grouptrack-shared/…/mapsource/GtMapSpec.kt</code></td><td>179</td><td>NEW port + the <code>GtMapSpecEnv</code> seam</td></tr>
+<tr><td><code>app/…/convoy/MapSpecCertOld.kt</code></td><td>119</td><td>OLD — 2.7e over real org.json, counted manifest</td></tr>
+<tr><td><code>grouptrack-shared/…/cert/Cert17g1c.kt</code></td><td>~230</td><td>the one runner — 64 keys + <code>EXPECTED_DIFF</code></td></tr>
+<tr><td><code>app/…/grouptrack/GtCert17g1c.kt</code></td><td>~80</td><td>Droid harness — carries the asset, classifies EXPECTED</td></tr>
+<tr><td><code>grouptrack-shared/src/iosTest/…/GtCertMapSpec17g1cMacTest.kt</code></td><td>~85</td><td>iPad replay — reads the asset back</td></tr>
+<tr><td><code>$GT_CMDS/gt_cert_v41.sh</code></td><td>—</td><td>v40 + the EXPECTED-aware verdict</td></tr>
+</table>
+<p><code>GtCertRun</code>: dispatch and the <b>skip-list entry</b> (the latter avoids the 25–30 minute whole-database
+pass — the 11-12 <code>queue17e2</code> lesson).</p>
+
+</body></html>
