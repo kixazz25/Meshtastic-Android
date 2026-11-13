@@ -1,41 +1,42 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import org.json.JSONObject
+import com.grouptrack.shared.help.GtHelpAssets
+import com.grouptrack.shared.help.GtHelpLinks
 
 /**
- * SHELL-2026-10-22 (2.7c standard 5, Fred 10-22): every launch point and every function has a HELP link to the manual pages
- * that support it.
+ * SWITCH17G2G-2026-11-13 (2.8 step 17, G2g): front door to the shared GtHelpLinks (certified by
+ * help17g2g -- 63 keys, 0 DIFF, both devices, twice).
  *
- * The links are DATA, not code (Fred 09:47: "the manual pages are a placeholder; the documentation process must have a method to
- * update the function-to-manual link"). They live in assets/grouptrack_help_links.json:
+ * SHELL-2026-10-22 (2.7c standard 5, Fred 10-22): every launch point and every function has a HELP
+ * link to the manual pages that support it. ⭐ The links are DATA, not code -- the manual rebuild
+ * regenerates assets/grouptrack_help_links.json from the manual's page ids, so a new manual updates
+ * every HELP button without a code change. The lookup rule (the process's own entry, else its
+ * MODULE's entry, else the manual's front page) now lives in GtHelpLinks.
  *
- *   { "links": { "<module id>": "manual#<page id>", "<module id>.<process id>": "manual#<page id>", ... } }
+ * Every public name is kept: GtHelpButton, GtHelpView and the forty-odd screens that call them are
+ * unchanged.
  *
- * The manual rebuild regenerates that file from the manual's page ids, so a new manual updates every HELP button without a code
- * change. Lookup: the process's own entry, else its module's entry (a group of functions shares one page), else the manual's
- * front page -- and the doc process reports every id that fell through as a missing page.
+ * ⚠ ONE KNOWN DIVERGENCE, following the GtConfigs precedent: 2.7e parsed with org.json, which is
+ * LENIENT; the shared table parses with GtOrgJson, which is strict. A malformed asset Android would
+ * have tolerated is rejected -- and both then fall back to an EMPTY table, so every id gets the
+ * front page, which is 2.7e's own behaviour for an unreadable asset. Certified: a non-string value
+ * renders identically on both (g2g.number|id=route -> "7").
  */
 object GtHelp {
-    private const val ASSET = "grouptrack_help_links.json"
-    @Volatile private var links: Map<String, String> = emptyMap()
-    @Volatile private var loaded = false
 
-    fun load(ctx: Context) {
-        if (loaded) return
-        links = runCatching {
-            val o = JSONObject(ctx.assets.open(ASSET).bufferedReader().use { it.readText() }).getJSONObject("links")
-            o.keys().asSequence().associateWith { k -> o.getString(k) }
-        }.getOrElse { e -> android.util.Log.w("GtHelp", "SHELL-2026-10-22: $ASSET not read: ${e.message}"); emptyMap() }
-        loaded = true
-    }
+    fun load(ctx: Context) = GtHelpLinks.load(AndroidAssets(ctx))
 
-    /** MENUOVERVIEW-2026-11-04: true when the manual has a section of its own for [id] (not the module's or the front page). */
-    fun has(id: String): Boolean = links.containsKey(id)
+    /** MENUOVERVIEW-2026-11-04: true when the manual has a section of its own for [id]. */
+    fun has(id: String): Boolean = GtHelpLinks.has(id)
 
     /** The document key the docs viewer opens for [id] ("map", "map.download", ...). */
-    fun linkFor(id: String): String =
-        links[id] ?: links[id.substringBefore(".")] ?: "manual".also {
-            android.util.Log.i("GtHelp", "SHELL-2026-10-22: no manual page for '$id' -- opening the manual's front page")
-        }
+    fun linkFor(id: String): String = GtHelpLinks.linkFor(id)
+
+    /** ⚠ THROWS when the asset is absent, exactly as 2.7e's ctx.assets.open did -- the shared
+     *  load()'s runCatching is what turns that into an empty table and a logged warning. */
+    private class AndroidAssets(private val ctx: Context) : GtHelpAssets {
+        override fun text(name: String): String =
+            ctx.assets.open(name).bufferedReader().use { it.readText() }
+    }
 }
