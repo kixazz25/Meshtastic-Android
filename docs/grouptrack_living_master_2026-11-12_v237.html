@@ -572,6 +572,55 @@ The retained files are <b>not dated</b> — "latest" means each download replace
 <b>⭐ THE ACTUAL REASON FOR THE ORDER — Fred's, and it is a better one.</b> <b>Do not gin and correct code we do not know is even used.</b> The ordering is not about what a <i>removal</i> costs; removal is cheap whenever it happens. It is about not spending <b>porting, fixing and certifying effort</b> on code of unknown utility. That is the same principle as <a href="#blast-check">M3, the pre-port eligibility gate</a> and "port AS IS — but only what is REACHABLE": the expensive mistake is <i>working on</i> dead code, not deleting it late.
 <br><b>WHAT THIS CHANGES IN THE PLAN:</b> nothing in the <b>sequence</b> — P1→P4 stands as Fred set it at 17:27. What it changes is <b>what must be front-loaded</b>. Since removal is cheap at any time, the thing that genuinely has to come early is <b>the knowledge of whether code is used</b> — which is the instrumented walkthrough in P2 below, not the deletions in P3. <b>Front-load the determination; the removals can follow at any convenient point.</b>
 
+<br><br><b>⭐⭐⭐ THE TWO PASSES — INSERT WHAT IS CERTIFIED, THEN CREATE WHAT IS NOT. (PASS1-2026-11-13)</b>
+<br><b>Fred, 11-13 18:05:</b> "where methods exist we need to just insert them into the code replacing the old methods. they have been certified already. where they don't exist they need to be created and certified in harness testing. one object at a time for the [h]arness build and then cert[i]fication testing of whatever 'batc[h]' you designate."
+<br><b>Fred, 11-13 18:06:</b> "that should be a very fast replacement pa[ss] with previously cert[i]fied methods."
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>pass</th><th>what it is</th><th>certification needed</th><th>cadence</th></tr>
+<tr><td><b>PASS 1</b></td><td><b>INSERT</b> an already-certified shared method, replacing the old method at its call sites. <b>This is the switch.</b></td><td><b>NONE.</b> The method is certified. What the switch must prove is the <b>wiring</b>, not the method.</td><td>fast, and it can move in groups</td></tr>
+<tr><td><b>PASS 2</b></td><td><b>CREATE</b> what does not exist, then certify it in harness testing.</td><td>full L2/L3</td><td><b>harness build: ONE object at a time.</b> Cert runs: in batches Claude designates.</td></tr>
+</table>
+
+<br><b>⚠ CORRECTION TO A CLAIM MADE AT 17:59.</b> Claude said the switch cost was "unmeasured — certified twice, switched zero times", counting only G1a and G1c. That was <b>G1-scoped and understated the real backlog by an order of magnitude.</b> Measured 11-13 18:05 across the whole repo:
+<ul>
+<li><b>38 certified pieces</b> — one <code>*CertOld.kt</code> OLD-side substitution file each, in <code>app/</code>.</li>
+<li><b>22 are CONFIRMED NOT SWITCHED</b> — live app code (excluding <code>*CertOld.kt</code> and the <code>GtCert*</code> harnesses) still calls the 2.7e original. <b>335 references.</b></li>
+<li><b>3</b> have no live caller outside their own file — already switched, or orphaned. Confirm which.</li>
+<li><b>13</b> have a <code>CertOld</code> name that does not map to the original class, so switch status is <b>unknown</b> and must be resolved by hand. Header-derived origins: <code>DownloadQueue←ConvoyDownloadQueue</code> &middot; <code>EventConfig←ConvoyEventConfig</code> &middot; <code>GpxImport←ConvoyTrackImportScreen/ConvoyTrackOps</code> &middot; <code>ImportParse←ConvoyTrackOps/SpatialDbManager</code> &middot; <code>MasterConfig←ConvoyMasterConfig</code> &middot; <code>RideImport←ConvoyFileReceiver</code> &middot; <code>TrackSync←SpatialDbManager</code> &middot; <code>UserStore←ConvoyUser</code>; <b>no origin named in header</b> for <code>MapSpec</code>, <code>NetworkStore</code>, <code>ProfileStore</code>, <code>Session</code>, <code>SettingsRepo</code>.</li>
+</ul>
+<b>⛔ THE CONSEQUENCE, STATED PLAINLY: a 2.8a build made today would run almost entirely on OLD Android code, with 38 certified pieces sitting unused on the shelf.</b> Pass 1 is therefore both the cheapest and the highest-value work in the project, and it comes <b>first</b>.
+
+<br><br><b>⭐ PASS 1 WORK LIST — CONFIRMED UNWIRED, HEAVIEST FIRST.</b>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>certified piece</th><th>live refs</th><th>live files</th><th>note</th></tr>
+<tr><td><code>VectorTiles</code></td><td align="right">61</td><td align="right">11</td><td></td></tr>
+<tr><td><code>ConvoyRideStore</code></td><td align="right">42</td><td align="right">10</td><td></td></tr>
+<tr><td><code>RouteExplorer</code></td><td align="right">31</td><td align="right">1</td><td><b>⚠ orphan risk — all refs in ONE file</b></td></tr>
+<tr><td><code>TrailImporter</code></td><td align="right">28</td><td align="right">5</td><td></td></tr>
+<tr><td><code>ConvoyTileCalculator</code></td><td align="right">27</td><td align="right">9</td><td></td></tr>
+<tr><td><code>StateData</code></td><td align="right">24</td><td align="right">4</td><td></td></tr>
+<tr><td><code>OsmImportStage</code></td><td align="right">22</td><td align="right">5</td><td></td></tr>
+<tr><td><code>NetworkGenerator</code></td><td align="right">22</td><td align="right">7</td><td></td></tr>
+<tr><td><code>RiderTrailWriter</code></td><td align="right">14</td><td align="right">7</td><td></td></tr>
+<tr><td><code>RiderTrailScanner</code></td><td align="right">12</td><td align="right">1</td><td><b>⚠ orphan risk — all refs in ONE file</b></td></tr>
+<tr><td><code>StateDataQueue</code></td><td align="right">9</td><td align="right">2</td><td></td></tr>
+<tr><td><code>ConvoyRideJsonWriter</code></td><td align="right">8</td><td align="right">5</td><td></td></tr>
+<tr><td><code>StartupHousekeeping</code></td><td align="right">8</td><td align="right">2</td><td></td></tr>
+<tr><td><code>ImportConverter</code></td><td align="right">6</td><td align="right">3</td><td></td></tr>
+<tr><td><code>OsmImportLedger</code></td><td align="right">6</td><td align="right">2</td><td></td></tr>
+<tr><td><code>GtHelp</code></td><td align="right">6</td><td align="right">3</td><td></td></tr>
+<tr><td><code>OsmExtractWorker</code></td><td align="right">4</td><td align="right">2</td><td></td></tr>
+<tr><td><code>OsmImportWorker</code></td><td align="right">4</td><td align="right">3</td><td></td></tr>
+<tr><td><code>OsmExtractProgress</code></td><td align="right">2</td><td align="right">1</td><td><b>⚠ orphan risk — all refs in ONE file</b></td></tr>
+<tr><td><code>RideApplySource</code></td><td align="right">2</td><td align="right">2</td><td></td></tr>
+<tr><td><code>DbAudit</code></td><td align="right">2</td><td align="right">1</td><td><b>⚠ orphan risk — all refs in ONE file</b></td></tr>
+<tr><td><code>OsmPbfTagReader</code></td><td align="right">1</td><td align="right">1</td><td><b>⚠ orphan risk — all refs in ONE file</b></td></tr>
+</table>
+
+<b>⭐ WHY "VERY FAST" IS THE RIGHT CALL — the pattern is proven, not novel.</b> Measured 11-13 18:06: <b>71 of 357 live app <code>.kt</code> files already import <code>com.grouptrack.shared</code></b>, and the Android sockets are constructed in <i>real app code</i>, not only in harnesses — <code>ConvoyDownloadQueue</code>, <code>ConvoyMasterConfig</code>, <code>ConvoySessionManager</code>, <code>ConvoySettingsRepository</code>, <code>ConvoyUser</code>, <code>ConvoyEventConfig</code>. <b>There is no central socket registry that must be built first</b>; each call site constructs its own, and that has already been done dozens of times. A switch is therefore: point the call at the shared class and hand it its socket the way the other 71 files do.
+<br><b>⚠ THE ONE PART THAT IS NOT FAST — certified is not wired.</b> The cert proves the <b>method</b>; the switch must prove the <b>wiring</b>. Each switch can surface <b>M1 Q3 (orphaned callers)</b>: Android code that becomes unreachable the moment the call moves. That is not a certification cost, it is <b>discovery</b>, and its output feeds straight into the <a href="#cleanup-2-8">C list</a>. <b>Highest orphan risk = the pieces whose references sit in a single file</b>: <code>RouteExplorer</code> (31 refs, 1 file), <code>RiderTrailScanner</code> (12, 1), <code>OsmExtractProgress</code> (2, 1), <code>DbAudit</code> (2, 1), <code>OsmPbfTagReader</code> (1, 1). Switch one of those early to measure what a Q3 cascade actually costs.
+<br><b>VERIFICATION FOR PASS 1</b> (not certification): the build compiles &middot; the existing cert suites still pass &middot; the affected <a href="#seam-tasks">L4 walkthrough</a> tasks still walk. A switch that breaks a walkthrough step has found a wiring defect, which is exactly what Pass 1 is for.
+
 <br><br><b>⭐ THE PHASES, AS RESEQUENCED.</b>
 <table border="1" cellpadding="5" cellspacing="0">
 <tr><th>phase</th><th>what happens</th><th>certification that closes it</th></tr>

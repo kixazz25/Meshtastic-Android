@@ -26970,7 +26970,8 @@ G1gSKIPPED — 779 lines, dead not dormant. Cleanup C7/C8
 LEFTG1d 390 · G1e 599 · G1f 605 · G1h 663 = 2,257 lines
 ⭐ THE FOUR PHASES (Fred 11-13 17:27 — this SUPERSEDES the 15:13 "clean after the iPad gen" call).
 The first job below is inside P1.
-P1finish L1/L2/L3 — G1d, G1e, G1f, G1h-if-kept — then the two owed switches (G1a, G1c), then V1 blast analysis
+P1a⭐ PASS 1 — INSERT THE ALREADY-CERTIFIED METHODS. NO NEW CERTIFICATION. START HERE. Measured 11-13 18:05: 38 certified pieces exist; 22 are CONFIRMED NOT SWITCHED, 341 live references. A 2.8a build made today would run almost entirely on OLD Android code. Heaviest first: VectorTiles 61 &middot; ConvoyRideStore 42 &middot; RouteExplorer 31 &middot; TrailImporter 28 &middot; ConvoyTileCalculator 27 &middot; StateData 24. Verification, not certification: compiles &middot; cert suites still pass &middot; affected walkthrough tasks still walk. Expect Q3 orphaned callers — that output goes to the C list. (HANDOFFPASS1-2026-11-13)
+P1bPASS 2 — CREATE AND CERTIFY WHAT DOES NOT EXIST: G1d, G1e, G1f, G1h-if-kept. Harness build ONE object at a time; cert runs in designated batches. Then V1 blast analysis. Also resolve the 13 pieces whose switch status is unknown (CertOld name does not map to the original class).
 P2build 2.8a Droid, treat it as uncertified, close it with the L4 walkthrough in Quick Start order (34 of 38 steps; task 8 needs Utah)
 P3work the C list down in keystone order, re-running the affected L4 tasks after each removal — not the cert suites, which unreachable code cannot change
 P4the first iPad generation, onto a pruned and certified shared model
@@ -30217,6 +30218,45 @@ One codebase. Once 2.8 is certified for release, Android and Mac share grouptrac
 And this pile is not even shared code. Measured 11-13 17:36: every prune-pile file lives under app/src/main/java/com/geeksville/mesh/convoy/, and they are two different kinds — do not read the list as "delete these files" (PRUNEPRECISION-2026-11-13):&nbsp;&nbsp;WHOLE-FILE deletions (1,047 lines): ConvoySourceClear 317 &middot; ConvoyCorridorDelete 234 &middot; ConvoySourceMigration 228 &middot; ConvoyCorridorWorker 202 &middot; TileCodec 66.&nbsp;&nbsp;IN-FILE removals only — the file STAYS (1,297 lines): ConvoyMapSourceScreen's dead branch 877 (the file is the live map-source credits screen) &middot; ConvoyTileDownloader's corridorTiles+stampPoint 147 &middot; the raster arms 138 &middot; GtRemoveTrackScreen 112 &middot; the estimateSizeMB chain 12 &middot; ConvoyMarkerRenderer ~10 &middot; MBTilesStore:81's metadata write — ONE line. MBTilesStore itself is G1f, a PORT target, not a deletion. Zero prune candidates are in grouptrack-shared (the only matches there are header prose reading "NOT PORTED"). Because they are SKIPPED, they are never ported, so the iPad never receives them at any point — removal timing has no bearing on the iPad, not "half the cost".
 ⭐ THE ACTUAL REASON FOR THE ORDER — Fred's, and it is a better one. Do not gin and correct code we do not know is even used. The ordering is not about what a removal costs; removal is cheap whenever it happens. It is about not spending porting, fixing and certifying effort on code of unknown utility. That is the same principle as M3, the pre-port eligibility gate and "port AS IS — but only what is REACHABLE": the expensive mistake is working on dead code, not deleting it late.
 WHAT THIS CHANGES IN THE PLAN: nothing in the sequence — P1→P4 stands as Fred set it at 17:27. What it changes is what must be front-loaded. Since removal is cheap at any time, the thing that genuinely has to come early is the knowledge of whether code is used — which is the instrumented walkthrough in P2 below, not the deletions in P3. Front-load the determination; the removals can follow at any convenient point.
+⭐⭐⭐ THE TWO PASSES — INSERT WHAT IS CERTIFIED, THEN CREATE WHAT IS NOT. (PASS1-2026-11-13)
+Fred, 11-13 18:05: "where methods exist we need to just insert them into the code replacing the old methods. they have been certified already. where they don't exist they need to be created and certified in harness testing. one object at a time for the [h]arness build and then cert[i]fication testing of whatever 'batc[h]' you designate."
+Fred, 11-13 18:06: "that should be a very fast replacement pa[ss] with previously cert[i]fied methods."
+passwhat it iscertification neededcadence
+PASS 1INSERT an already-certified shared method, replacing the old method at its call sites. This is the switch.NONE. The method is certified. What the switch must prove is the wiring, not the method.fast, and it can move in groups
+PASS 2CREATE what does not exist, then certify it in harness testing.full L2/L3harness build: ONE object at a time. Cert runs: in batches Claude designates.
+⚠ CORRECTION TO A CLAIM MADE AT 17:59. Claude said the switch cost was "unmeasured — certified twice, switched zero times", counting only G1a and G1c. That was G1-scoped and understated the real backlog by an order of magnitude. Measured 11-13 18:05 across the whole repo:
+38 certified pieces — one *CertOld.kt OLD-side substitution file each, in app/.
+22 are CONFIRMED NOT SWITCHED — live app code (excluding *CertOld.kt and the GtCert* harnesses) still calls the 2.7e original. 335 references.
+3 have no live caller outside their own file — already switched, or orphaned. Confirm which.
+13 have a CertOld name that does not map to the original class, so switch status is unknown and must be resolved by hand. Header-derived origins: DownloadQueue←ConvoyDownloadQueue &middot; EventConfig←ConvoyEventConfig &middot; GpxImport←ConvoyTrackImportScreen/ConvoyTrackOps &middot; ImportParse←ConvoyTrackOps/SpatialDbManager &middot; MasterConfig←ConvoyMasterConfig &middot; RideImport←ConvoyFileReceiver &middot; TrackSync←SpatialDbManager &middot; UserStore←ConvoyUser; no origin named in header for MapSpec, NetworkStore, ProfileStore, Session, SettingsRepo.
+⛔ THE CONSEQUENCE, STATED PLAINLY: a 2.8a build made today would run almost entirely on OLD Android code, with 38 certified pieces sitting unused on the shelf. Pass 1 is therefore both the cheapest and the highest-value work in the project, and it comes first.
+⭐ PASS 1 WORK LIST — CONFIRMED UNWIRED, HEAVIEST FIRST.
+certified piecelive refslive filesnote
+VectorTiles6111
+ConvoyRideStore4210
+RouteExplorer311⚠ orphan risk — all refs in ONE file
+TrailImporter285
+ConvoyTileCalculator279
+StateData244
+OsmImportStage225
+NetworkGenerator227
+RiderTrailWriter147
+RiderTrailScanner121⚠ orphan risk — all refs in ONE file
+StateDataQueue92
+ConvoyRideJsonWriter85
+StartupHousekeeping82
+ImportConverter63
+OsmImportLedger62
+GtHelp63
+OsmExtractWorker42
+OsmImportWorker43
+OsmExtractProgress21⚠ orphan risk — all refs in ONE file
+RideApplySource22
+DbAudit21⚠ orphan risk — all refs in ONE file
+OsmPbfTagReader11⚠ orphan risk — all refs in ONE file
+⭐ WHY "VERY FAST" IS THE RIGHT CALL — the pattern is proven, not novel. Measured 11-13 18:06: 71 of 357 live app .kt files already import com.grouptrack.shared, and the Android sockets are constructed in real app code, not only in harnesses — ConvoyDownloadQueue, ConvoyMasterConfig, ConvoySessionManager, ConvoySettingsRepository, ConvoyUser, ConvoyEventConfig. There is no central socket registry that must be built first; each call site constructs its own, and that has already been done dozens of times. A switch is therefore: point the call at the shared class and hand it its socket the way the other 71 files do.
+⚠ THE ONE PART THAT IS NOT FAST — certified is not wired. The cert proves the method; the switch must prove the wiring. Each switch can surface M1 Q3 (orphaned callers): Android code that becomes unreachable the moment the call moves. That is not a certification cost, it is discovery, and its output feeds straight into the C list. Highest orphan risk = the pieces whose references sit in a single file: RouteExplorer (31 refs, 1 file), RiderTrailScanner (12, 1), OsmExtractProgress (2, 1), DbAudit (2, 1), OsmPbfTagReader (1, 1). Switch one of those early to measure what a Q3 cascade actually costs.
+VERIFICATION FOR PASS 1 (not certification): the build compiles &middot; the existing cert suites still pass &middot; the affected L4 walkthrough tasks still walk. A switch that breaks a walkthrough step has found a wiring defect, which is exactly what Pass 1 is for.
 ⭐ THE PHASES, AS RESEQUENCED.
 phasewhat happenscertification that closes it
 P1Finish the remaining L1/L2/L3 work — G1d, G1e, G1f, and G1h only if CODE RULE 3 keeps it. Then the switches (G1a and G1c are still owed), then V1 blast analysis.per item: 0 DIFF both devices, twice
