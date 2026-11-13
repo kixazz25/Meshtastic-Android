@@ -1,0 +1,46 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>GroupTrack 2.8 — Step 17 · G2 inventory (v1, 2026-11-12)</title>
+<style>body{font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1150px;margin:0 auto;padding:24px;background:#fafaf7;color:#1d1d1b}
+h1{font-size:24px}h2{font-size:19px;margin-top:28px;border-bottom:2px solid #1e4d8c;padding-bottom:4px}table{border-collapse:collapse;width:100%;margin:10px 0}
+th,td{border:1px solid #c9c9c0;padding:6px 8px;vertical-align:top;text-align:left;font-size:14px}th{background:#e8eef7}code{background:#eee;padding:1px 4px;border-radius:3px;font-size:13px}
+.card{background:#fff;border:1px solid #ddd;border-left:5px solid #1e4d8c;padding:10px 14px;margin:12px 0}.dec{border-left-color:#c77700}</style></head><body>
+<h1>GroupTrack 2.8 — Step 17 · G2: storage, settings, profile, startup — the detailed inventory (v1, 2026-11-12)</h1>
+<div class="card"><b>RELEASE TARGET:</b> D 2.8a HF0 — part of the converted Android app (2.8a = the 2.7e features + the AI route fix + the queue fix, running on the unified code). <b>Rule (11-11 21:20):</b> this inventory goes to Fred BEFORE any port. Every port: real data run through a simulation first, dry run, OLD = NEW on the Droid, iPad = Droid on the same input, then the switch. Measured on the 2.8 branch at e7696f8a2 (11-12 10:15).</div>
+
+<h2>1. What G2 is</h2>
+<p>The things the app opens with: where its files live, its settings, the rider's profile and networks, the session, the state/agency data list, and the start-up jobs. 17 files, 2,987 lines. Every one of them reaches Android directly (Context, SharedPreferences, File, android.database, Log), which is why G2 is first: the later groups call into it.</p>
+
+<h2>2. The files, measured</h2>
+<table><tr><th>File</th><th>Lines</th><th>Used by</th><th>Android ties (counted)</th><th>Fate</th></tr>
+<tr><td>GroupTrackStorage</td><td>224</td><td><b>49 files</b> (51 × dir(name), 7 × root, 4 × internalBase, 3 × rootReady, 3 × remember …)</td><td>Context, getExternalFilesDir, Environment (public Documents — the pre-SAF layout)</td><td><b>G2a — the STORAGE SOCKET</b></td></tr>
+<tr><td>ConvoyConfig</td><td>108</td><td>27</td><td>constants; 1 prefs read</td><td>G2b — constants to shared as they are</td></tr>
+<tr><td>ConvoySettingsRepository</td><td>121</td><td>2</td><td>18 SharedPreferences, Flow</td><td>G2b — behind the SETTINGS SOCKET</td></tr>
+<tr><td>ConvoySettingsViewModel</td><td>84</td><td>1</td><td>ViewModel / StateFlow (screen side)</td><td>stays — the screen phase</td></tr>
+<tr><td>ConvoySessionManager</td><td>117</td><td>14</td><td>1 prefs, 25 small functions</td><td>G2b — settings socket</td></tr>
+<tr><td>ConvoyUser (+ ConvoyUserStore)</td><td>182</td><td>3</td><td>2 prefs, 3 files, 9 JSON</td><td>G2c — port + cert</td></tr>
+<tr><td>ConvoyProfileStore</td><td>126</td><td>12</td><td>7 SQLite</td><td>G2c — port (gtOpenDatabase) + cert on copies</td></tr>
+<tr><td>ConvoyNetworkStore</td><td>124</td><td>8</td><td>8 SQLite</td><td>G2c — port + cert on copies</td></tr>
+<tr><td>ConvoyMasterConfig</td><td>272</td><td>4</td><td>6 files, 5 JSON (org.json)</td><td>G2d — port to GtJson + cert (read / write round trips)</td></tr>
+<tr><td>ConvoyEventConfig (+ ConvoyEventStore)</td><td>195</td><td>7</td><td>4 files, 4 JSON</td><td>G2d — same</td></tr>
+<tr><td>StateData</td><td>168</td><td>4</td><td>9 files, 4 JSON</td><td>G2e — port + cert</td></tr>
+<tr><td>StateDataQueue</td><td>151</td><td>2</td><td>2 prefs, 1 http, 5 JSON, Flow</td><td>G2e — port behind GtHttp + the settings socket</td></tr>
+<tr><td>StartupHousekeeping</td><td>349</td><td>3</td><td>10 SQLite, 4 files, 1 prefs</td><td>G2f — each start-up job on copies, cert (GtCertGuard stays)</td></tr>
+<tr><td>DbAudit (GtDbAudit)</td><td>156</td><td>2</td><td>24 SQLite</td><td>G2f — same</td></tr>
+<tr><td>GtHelp</td><td>41</td><td>3</td><td>1 file, 2 JSON</td><td>G2g — small port</td></tr>
+<tr><td>ConvoyMarkerRenderer</td><td>28</td><td>1</td><td>data classes only (LatLngPoint, TrackSegment)</td><td>G2g — to shared as they are</td></tr>
+<tr><td>IpadExport (GtIpadExport)</td><td>42</td><td><b>0 callers found</b></td><td>TEST-ONLY tool of 11-06 (copies the .mbtiles to Download for the Mac)</td><td>G2g — <b>remove</b> once Fred confirms the iPad data is on the Mac</td></tr></table>
+
+<h2>3. The finding that shapes G2 — paths are already socketed THREE times</h2>
+<p>Steps 15–16 each built their own "where are my files" interface: <code>GtImportPaths</code> (imports: groupTrackRoot, tracksDir, dir(name), cacheDir, filesDir), <code>RideFiles</code> (rides: ridesDir, stagingDir, child, sibling, name) and <code>GtQueuePlatform.recipesDir()</code> (16b). Each Android version wraps GroupTrackStorage. G2a makes <b>ONE</b> storage socket in grouptrack-shared — <code>GtStorage</code>: root, dir(name), tracksDir, tileRoot, cacheDir, filesDir, isInternal — with one Android implementation over GroupTrackStorage (unchanged) and, at step 18, one iPad implementation (the app's Documents/GroupTrack). The three existing interfaces then take their answers from it, so a path can only be worked out one way on each platform (the V3 rule: produced identically).</p>
+
+<h2>4. The proposed sequence (one change at a time; each = simulation → dry run → cert → switch → commit)</h2>
+<table><tr><th>Sub-step</th><th>What</th><th>Certified by</th></tr>
+<tr><td><b>G2a</b></td><td>GtStorage socket + its Android implementation; GtImportPaths / RideFiles / recipesDir answer from it</td><td>every path the app asks for (the 51 dir names found in the code + root/tracks/tile/cache/files), OLD = NEW on Droid 1 and Droid 2, both storage modes</td></tr>
+<tr><td><b>G2b</b></td><td>GtSettings socket (typed get / put with the same defaults; Android = the same SharedPreferences files and keys); ConvoyConfig constants to shared; ConvoySettingsRepository + ConvoySessionManager behind it</td><td>every key read through OLD and NEW on the Droid's real prefs = the same value; no file or key name changes</td></tr>
+<tr><td><b>G2c</b></td><td>profile, networks, user: ConvoyProfileStore, ConvoyNetworkStore (gtOpenDatabase), ConvoyUser</td><td>rows written by OLD and NEW on copies of the Droid's database = identical</td></tr>
+<tr><td><b>G2d</b></td><td>config files: ConvoyMasterConfig, ConvoyEventConfig on GtJson</td><td>every config file on the Droid read and written back: OLD text = NEW text</td></tr>
+<tr><td><b>G2e</b></td><td>StateData, StateDataQueue (GtHttp)</td><td>the state list parsed OLD = NEW; the queue's saved state identical</td></tr>
+<tr><td><b>G2f</b></td><td>StartupHousekeeping, DbAudit</td><td>each start-up job on copies: the database after OLD = after NEW</td></tr>
+<tr><td><b>G2g</b></td><td>GtHelp, the two map data classes; IpadExport removed</td><td>small; compile + the help pages open</td></tr></table>
+<div class="card"><b>Fred 10:14: "perfect order"</b> — the G2 sequence G2a → G2g is approved. (IpadExport removal and screens-stay-for-the-screen-phase: assumed yes unless Fred says otherwise.)</div>
+<div class="card dec"><b>FOR FRED before G2a starts:</b> (1) the order above — or change it; (2) IpadExport: is all the iPad data you need already on the Mac (11-06, 1.6 GB from Droid 1), so the tool can go? (3) ConvoySettingsViewModel and every Composable stay for the screen phase — agreed?</div>
+</body></html>
