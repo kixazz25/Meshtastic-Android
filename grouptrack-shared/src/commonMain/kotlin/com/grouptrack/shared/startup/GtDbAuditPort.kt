@@ -93,7 +93,7 @@ object GtDbAuditPort {
             if (!f.name.endsWith(".gpx") || f.name.startsWith(".")) continue
             if (f.name.removeSuffix(".gpx") in hashes) continue
             if (f.lastModified > recent) { kept.add("${f.name} (changed in the last 2 hours)"); whyBy[f.name] = "recent"; continue }
-            val pts = try { env.parseGpxTrackPoints(f.text) } catch (e: Exception) { emptyList() }
+            val pts = try { env.parseGpxTrackPoints(env.readText(f)) } catch (e: Exception) { emptyList() }
             val why = when {
                 pts.isEmpty() -> "no points"
                 env.computeGeomHash("LINESTRING(" + pts.joinToString(",") { "${it.first} ${it.second}" } + ")") in hashes -> "a copy of a track GroupTrack has"

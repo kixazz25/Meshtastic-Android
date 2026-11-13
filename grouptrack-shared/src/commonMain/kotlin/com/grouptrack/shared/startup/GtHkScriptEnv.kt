@@ -136,6 +136,7 @@ class GtHkScriptEnv(private val fx: GtHkFixture) : GtHkEnv {
 
     // ---- ConvoyTrackOps (rule 2)
     override fun trackFiles(): List<GtHkFile> = fx.files
+    override fun readText(f: GtHkFile): String = f.text
     override fun tracksDirName(): String = fx.tracksDirName
 
     // ---- TrailClassifier (piece 3)

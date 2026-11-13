@@ -72,6 +72,15 @@ interface GtHkEnv {
     // ---- ConvoyTrackOps (rule 2) -------------------------------------------
     /** Ordered by the fixture. ⛔ NEVER a live directory listing. */
     fun trackFiles(): List<GtHkFile>
+
+    /**
+     * ⛔ READ ON DEMAND, NEVER EAGERLY. 2.7e calls f.readText() INSIDE repairNow's loop, after the
+     * .gpx filter, the "has a row" check and the two-hour window have already skipped most files.
+     * ⚠ Found at the G2f switch, 11-13: returning the text inside [GtHkFile] made [trackFiles]
+     * read every track on the device at startup. Harmless in a fixture, a real startup regression
+     * on a rider with hundreds of tracks.
+     */
+    fun readText(f: GtHkFile): String
     fun tracksDirName(): String
 
     // ---- TrailClassifier ----------------------------------------------------
@@ -104,7 +113,8 @@ data class GtHkFile(
     val name: String,
     val lastModified: Long,
     val length: Long,
-    val text: String,
+    /** Fixture text. ⚠ Production leaves this empty and answers through [GtHkEnv.readText]. */
+    val text: String = "",
     /** What parseGpxTrackPoints returns for [text]. Empty models a file with no points. */
     val points: List<Pair<Double, Double>> = emptyList(),
     /** What computeGeomHash returns for the LINESTRING built from [points]. */

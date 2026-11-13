@@ -97,6 +97,7 @@ object Cert17g2f {
         override fun fileLength(path: String): Long = trip("fileLength()")
         override fun fileDelete(path: String): Boolean = trip("fileDelete()")
         override fun trackFiles(): List<GtHkFile> = trip("trackFiles()")
+        override fun readText(f: GtHkFile): String = trip("readText()")
         override fun tracksDirName(): String = trip("tracksDirName()")
         override fun useOf(cartoCode: String): String = trip("useOf()")
         override fun sweepManifests() = trip("sweepManifests()")
