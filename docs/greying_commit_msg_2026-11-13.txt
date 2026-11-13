@@ -1,0 +1,54 @@
+2.8: retire the corridor-by-area delete; keep the map-source credits
+
+Fred 11-13 13:32-13:59. Retires a function with no purpose and corrects the
+wording of a screen that is now only a credits page. NO code deleted -- the
+removals are recorded as 2.8 post-Apple cleanup (C5-C9 in the living master)
+and run during the iPad certification pass.
+
+RETIRED -- corridor-by-area delete (CORRRETIRE-2026-11-13)
+  Map > REMOVE MAPS > "Remove maps for all tracks" is off the actions bridge,
+  so it renders grey and unclickable. The mechanism is the shell's own
+  (ATTACH1-2026-10-22): a row with no bridge entry greys out.
+  A retired row must not read "not attached yet" -- that is the wording for a
+  row still waiting to be wired, and these were wired and are finished -- so
+  GT_RETIRED supplies its own suffix. Retired ids are also excluded from the
+  "Placeholder - 2.7c shell" footer test, which fires on any unattached
+  childless top-level row.
+  ConvoyCorridorDelete and GtRemoveTrackScreen now have ZERO reachable
+  callers: the other call site (ConvoyMapSourceScreen:542/550) sits inside
+  if (optTracks), and optTracks is declared false at :233 and never assigned.
+
+NOT RETIRED -- the map source screen is a CREDITS page (CORRCREDITS-2026-11-13)
+  Greyed first, then corrected in the same hour. There was never a function
+  there to retire: selectedSlot is assigned only null, so the source picker
+  and applySource are unreachable, and the screen renders only "The map" and
+  "Sources and credits". Greying its two doors removed the only access to the
+  credits, which OpenMapTiles' licence requires be visible and which
+  manual#map.sources explicitly tells the reader to open.
+  Both doors live again. The word doing the damage was "Change": the row
+  promised a choice the screen does not offer.
+
+RETITLED -- "Map source credits" in all four places (SRCCREDITS-2026-11-13)
+  The screen title, the Map menu row, the Settings row and the Settings
+  section label disagreed with each other even before today. Help ids are NOT
+  renamed: they key the manual anchors.
+
+DOWNLOAD BY CORRIDOR IS LIVE AND UNTOUCHED
+  Worth stating because it was briefly misread as dead. It is the route/track
+  map download, reached from the GPX import (GtGpxImport:345/486 via the
+  env.platform.enqueueCorridor seam), GroupTrackScreen:2536 and
+  MapScreens:178/503. Its METHOD changed, not its existence: a corridor is now
+  the track's AREA (VectorTiles.squaresFor, VECDL-2026-10-31), derived in
+  VectorTiles / GtVectorQueue and already certified in Cert16c. Only the
+  pre-vector taper is dead.
+
+Step 17 effect: G1g (ConvoySourceMigration + ConvoySourceClear +
+ConvoyCorridorDelete, 779 lines) is delete-not-port, and G1a sheds
+corridorTiles plus five zero-reference members. G1 drops from 3,922 to ~3,000
+lines, and the removed quarter is the part carrying the 08-08 data-loss risk.
+The approved eight-piece inventory is amended in the EOD doc pass.
+
+Verified: :app:compileGoogleReleaseKotlin BUILD SUCCESSFUL, no errors.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01XhRvAsrsXjQpBxev3DfnXA

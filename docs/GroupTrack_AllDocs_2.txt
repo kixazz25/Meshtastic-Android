@@ -3968,6 +3968,376 @@ a0bcd919511:1415c / 15d / 15e switches: RiderTrailWriter, SpatialDbManager (trac
 Step 15 is COMPLETE (15a–15g ported, certified on the Droid and the iPad, and switched).
 
 
+=== GroupTrack_2.8_step17_G1_inventory_2026-11-13.html ===
+GroupTrack 2.8 — step 17 group G1 inventory
+ body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1120px;margin:28px auto;padding:0 18px;color:#111}
+ h1{font-size:22px;margin:0 0 4px} h2{font-size:17px;margin:26px 0 8px;border-bottom:2px solid #ddd;padding-bottom:3px}
+ .sub{color:#666;margin:0 0 18px}
+ table{border-collapse:collapse;width:100%;margin:10px 0 18px;font-size:13.5px}
+ th,td{border:1px solid #d6d6d6;padding:5px 8px;text-align:left;vertical-align:top}
+ th{background:#f2f2f2} td.n{text-align:right;font-variant-numeric:tabular-nums}
+ code{background:#f4f4f4;padding:1px 4px;border-radius:3px;font-size:12.5px}
+ .stop{background:#fff3f3;border-left:4px solid #c00;padding:9px 12px;margin:12px 0}
+ .ok{background:#f2fbf2;border-left:4px solid #2a2;padding:9px 12px;margin:12px 0}
+ .note{background:#f7f7ff;border-left:4px solid #66c;padding:9px 12px;margin:12px 0}
+ .pill{display:inline-block;background:#eee;border-radius:10px;padding:0 7px;font-size:12px}
+Step 17 — group G1 inventory: map store and map sources
+2026-11-13 · for Fred's approval before any port · 13 files, 3,926 lines measured on today's 2.8 code
+Why this document exists. Step 1 of the group process: every file, every caller,
+every Android tie, to Fred before anything is ported. G1 is the largest group attempted so far —
+larger than all of G2 put together (2,488 lines) — so the piece split matters more here than it did
+for G2f.
+1. The files, as measured
+FileLinesCallersAndroid ties (what cannot cross)Fate
+ConvoyTileCalculator36410noneport — pure math, part already in GtTileMath (16b)
+TileCodec662Bitmap, BitmapFactory, os.BuildSOCKET — a per-platform image codec, never ported
+ElevationTiles298Context, JSONObjectport
+VectorTiles8514Context, JSONObjectport; http through the shared client
+ConvoyMapRecipe1704Context, Environment, JSONArray/Objectport (the recipe file)
+MapStateStore2208Context, JSONArray/Objectport (the saved view)
+MapSourceManager59920Context, JSONObjectport (sources, slots) + a settings socket
+MBTilesStore60515SQLiteDatabase, os.Environmentport + cert (tile rows on copies)
+ConvoySourceMigration2282util.Log, JSONArray/Objectport + cert
+ConvoySourceClear3171util.Logport + cert (what is deleted)
+ConvoyCorridorDelete2343Contextport + cert (what is deleted)
+GroupTrackConversion6633Context, net.Uri, util.Log, DocumentFile (SAF), JSONport + cert
+ConvoyTileDownloader3468Context, OkHttpClient, Requestthe URL/path math ports; the FETCH stays platform
+2. What is NOT a port, and why
+TileCodec (66) — encodes tiles as WebP through Bitmap.CompressFormat.
+There is no shared image codec; this is a declared socket per plan §8. G1 defines the seam, each
+platform implements it. Nothing to certify beyond the seam's contract.
+ConvoyTileDownloader's fetch (of 346) — OkHttp calls, retry/backoff, worker
+integration. The inventory already calls the fetch platform. What ports is buildTileUrl
+— string math — and that is all.
+⛔ CORRECTED G1INVSTATUS-2026-11-13: tilePath DOES NOT PORT. It returns a
+java.io.File and calls mkdirs, which is platform, and the cross-reference shows it has
+no callers at all (its one apparent hit, GroupTrackScreen:1139, is a local variable of the same
+name). ⚠ This sentence, as originally written, is what led an earlier draft of GtTileCalc to invent
+tileRelPath — a port member with NO 2.7e counterpart, which is the one failure a certification cannot
+catch, because a member with nothing to compare against passes by never being exercised. Fixed at the source.
+3. Proposed piece split — eight pieces, certified one at a time
+Ordered by risk, not by the inventory's listing order: least-tied first, and
+anything that deletes rider data last, when the group's harness is already proven.
+⛔ THE SPLIT STANDS, BUT THIS TABLE IS NO LONGER THE STATUS (G1INVSTATUS-2026-11-13). Two of the eight pieces
+turned out to be SKIPS rather than ports — including G1g, the one flagged ⛔ careful below — and the line counts for
+G1a and G1c are smaller than estimated here. See §3b for what is certified, skipped and left. This table is
+kept as written because it is the approved plan and the reasoning for the ORDER is still correct; it is not amended
+row by row so the two can be compared.
+PieceFilesLinesWhat it adds that nothing before it had
+G1aConvoyTileCalculator + ConvoyTileDownloader's url/path math~420nothing — zero Android ties, pure math. Proves the group's pipe.
+G1bTileCodec66the first declared SOCKET in step 17 — a seam contract, not a port
+G1cElevationTiles + VectorTiles114http through the shared client; assets + JSON specs
+G1dMapStateStore + ConvoyMapRecipe390file-backed state, the saved view, the daily recipe
+G1eMapSourceManager59920 callers — the widest blast radius in G1; a settings socket
+G1fMBTilesStore605real SQLite tile stores; cert on COPIES, never the live stores
+G1gConvoySourceMigration + ConvoySourceClear + ConvoyCorridorDelete779deletion. What gets removed and what is kept.
+G1hGroupTrackConversion663SAF / DocumentFile — the heaviest Android tie in the group
+⛔ G1g and G1h are the two to be careful with. The 08-08 data-loss incident and
+the storage conversion are both in this territory: ConvoySourceClear deletes tile store
+directories, ConvoyCorridorDelete removes tiles by corridor, and
+GroupTrackConversion moves the rider's whole GroupTrack folder through SAF. Their certs
+must run on copies and must compare what would be deleted before anything is. They are last
+in the order for that reason, not because they are least important.
+What G1 inherits for free from G2f and G2g: the OLD-copy-with-counted-manifest
+pattern and its mechanical verification (reverse the manifest, diff against git show 2.7e:…);
+the fixture-drives-both-sides shape; the Droid/iPad runner-script recipe; and the four harness rules —
+scripted clock, fixture-ordered listings, sorted collections, and never comparing a file's generated
+text. GtTileMath and GtStorage already exist in shared.
+3b. STATUS — 2026-11-13 EOD: what is certified, what is skipped, what is left
+⛔ G1b AND G1g ARE CLOSED AS G-ITEMS (PRUNETOTAL-2026-11-13). Fred, 11-13 16:27: "why are they in G if they
+are prune issues that are not called[?] isn’t that what the new post gen c items represent[?]" — and he is right.
+A G-piece is port-and-certify work; a C-item is prune-after-the-gen work. Carrying these two as "G1b
+SKIPPED" and "G1g SKIPPED" tracks the same code in two places, which is exactly how one copy goes stale — this
+inventory still described G1b as "the first declared SOCKET" hours after that had been disproved, and the living
+master still said C1 was "a LIVE DEFECT" after the function was retired.
+So: their only LIVE tracking is C7 / C8 / C10 in the living master. What stays here is their
+EVIDENCE, not their status — the reachability proof is the whole justification for not porting 845 lines,
+and whoever runs the prune after the gen will reasonably ask how we know. The rows below are kept for that reason.
+And the count, stated properly: G1 had 8 candidates; 6 are port work and 2 were never port
+work at all. Of the 6: 2 certified, 4 remain (G1d, G1e, G1f, G1h — 2,257 lines).
+4 of 8 pieces resolved in one day. Two certified, two skipped. The port surface for G1 fell from
+3,922 lines to roughly 2,850, and the skipped quarter included the piece this inventory flagged ⛔ careful
+because of the 08-08 data-loss incident.
+PieceWhatLinesStatusEvidence
+G1aConvoyTileCalculator + buildTileUrl~260 portedCERTIFIED148 keys, 0 DIFF both devices, two runs. Commit f0e9fc928. Six members skipped (corridorTiles, stampPoint, estimateSizeMB, isWithinCeiling, AVG_TILE_KB) and one removed as a fabrication (tileRelPath). Findings: GroupTrack_2.8_step17_G1a_findings_2026-11-13.html
+G1bTileCodec66SKIPPED⚠ Inventoried as "the first declared SOCKET"; it is neither socket nor port. Nothing re-encodes any more — both live producers pass role "overlay" so encode() returns at line 1. Pre-vector legacy. Cleanup C10; removal post-iPad per M2.
+G1cVectorTiles + ElevationTiles source spec~115 portedCERTIFIED64 keys, 58 SAME / 0 DIFF / 6 EXPECTED on Droid, 64 SAME cross-device, two runs. Commit 4e9dc9db1. ⭐ Nine of VectorTiles' 13 members needed nothing — already front doors to GtVectorQueue, certified at 16c. Findings: GroupTrack_2.8_step17_G1c_findings_2026-11-13.html
+G1dMapStateStore + ConvoyMapRecipe390TO DOfile-backed state, the saved view, the daily recipe
+G1eMapSourceManager599TO DO20 callers — the widest blast radius in G1; a settings socket. ⚠ G1c declared GtTileLayerSpec as a shared mirror of its TileLayer; reconcile the two here.
+G1fMBTilesStore605TO DOreal SQLite tile stores; cert on COPIES, never the live stores. ⚠ Carries the format = "webp" metadata defect found 11-13 (:81).
+G1gConvoySourceMigration + ConvoySourceClear + ConvoyCorridorDelete779SKIPPED⛔ The piece flagged ⛔ careful below. DEAD, not dormant: selectedSlot is never set non-null and optTracks never set true, so the source picker, applySource and the whole migration are unreachable; ConvoySourceMigration.begin() is the only writer of a migration record and sits inside applySource, so no record can exist; the two directory scans sit BEHIND the refreshSlot gate; and ConvoySourceClear.hasUnfinished() has no caller. Cleanup C7/C8; removal post-iPad per M2.
+G1hGroupTrackConversion663TO DOSAF / DocumentFile — the heaviest Android tie in the group
+LEFT TO CERTIFY IN G1: four pieces, 2,257 lines — G1d 390, G1e 599, G1f 605, G1h 663.
+⭐ THE ORDER STILL HOLDS, with one amendment. §3 put the data-deleting work last; G1g was that work and it is
+gone, so the remaining risk concentrates in G1f (real SQLite stores — certify on COPIES) and G1h (SAF).
+G1e before G1f is now worth more than it was: G1f's store work reads layer assignments from
+MapSourceManager, and G1c already had to declare a shared mirror of its TileLayer to avoid
+blocking on it. Suggested order: G1d → G1e → G1f → G1h.
+⚠ M1 Q3 IS OPEN ON BOTH CERTIFIED PIECES. Neither G1a nor G1c is SWITCHED — the Android callers still use
+ConvoyTileCalculator, VectorTiles and ElevationTiles. "Certified" is not
+"switched", and Q3 (orphaned callers) is only answerable after the switch. Two switch commits are outstanding.
+4. Open question for Fred
+G1 is 3,926 lines against G2's 2,488, and G2 took roughly a day and a half. On that arithmetic G1
+is two to three days on its own. The piece split above is designed so each piece is independently
+shippable and switchable — so G1 can be partially complete at any point without leaving the
+Android app in a broken state. Confirm the split, or reorder it.
+5. POST-2.8 CLEANUP TASKS — found during this inventory, deliberately not done now
+⛔ These are CHANGES, not ports. Fred, 11-13 13:03: "corridor downloads were
+changed to represent the corridor's area. If removal wasn't changed we need to add that to the
+post-2.8 Mac build as a cleanup task." Recorded here so the port does not quietly absorb them —
+each one touches screens or navigation and belongs in one deliberate pass, not as a side effect.
+#TaskLinesEvidenceWhat it touches
+C1Remove the pre-vector corridor DELETE. Corridor downloads became the
+track/route AREA when the vector map landed, and that math is already shared as
+GtVectorQueue.squaresFor. The REMOVAL path was never changed, so it still computes the
+old taper/funnel corridor — and per Fred the pre-vector stores no longer exist, so it can find
+nothing.~374
+ConvoyDownloadQueue:795 (the corridor DOWNLOAD) sits behind
+if (GtMapEngine.isVector) { … return }, and isVector is
+cached ?: true with isVectorCached() = true — VECONE-2026-11-01, "the only
+map". So the download arm is unreachable. ConvoyCorridorDelete:135/191 has no such gate.
+ConvoyCorridorDelete (234) + corridorTiles and its taper/funnel in
+ConvoyTileCalculator (~140), and the corridor-delete controls on two screens:
+MapScreens:423/491 and ConvoyMapSourceScreen:542/550, reachable via
+ConvoyNavigation:156.
+C2Check the SAT tile reads. If pre-vector SAT stores are gone, three reads
+of them are dead too.~small
+GroupTrackScreen:1146/1160/1173 call MBTilesStore.readTile("SAT_L…").
+⚠ NOT verified dead — only noticed. map_sources.json still offers
+google-hybrid as slot SAT.GroupTrackScreen
+C3Dead functions in ConvoyTileCalculator. No caller outside
+their own file.~30
+maxZoomForSource, estimateSizeMB, isWithinCeiling — zero
+call sites found by a receiver-qualified search across all source sets.
+ConvoyTileCalculator only
+C4ConvoyMarkerRenderer the class is dead (carried over from the
+G2g inventory).~10
+Its JS bridge moved inline to GroupTrackScreen:904/1241; the object is built at
+:433 and onNodeTapped is never invoked. ⚠ The CLASS is dead, the FILE is
+not — LatLngPoint and TrackSegment are live at :579-580.
+ConvoyMarkerRenderer, GroupTrackScreen:433
+Why C1 is ported anyway, for now. corridorTiles is ~140 lines
+and the numeric shims it needs (GtMath.pow, GtMath.cos,
+GtJava.toRadians) already exist and are certified. Porting it is cheap; removing it
+means editing two screens and a nav path in the middle of the group with the widest blast radius.
+⭐ Sequence and variable count: the port stays a port, and C1 happens as its own change.
+
+
+=== GroupTrack_2.8_step17_G1a_findings_2026-11-13.html ===
+GroupTrack 2.8 — step 17 group G1a — findings
+ body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1000px;margin:28px auto;padding:0 18px;color:#1b1b1b}
+ h1{font-size:23px;border-bottom:2px solid #333;padding-bottom:6px} h2{font-size:18px;margin-top:28px}
+ h3{font-size:15px;margin-top:20px} code{background:#f2f2f2;padding:1px 4px;border-radius:3px;font-size:13px}
+ table{border-collapse:collapse;width:100%;margin:10px 0} th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;vertical-align:top;font-size:13.5px}
+ th{background:#eee} .y{color:#0a0} .n{color:#b00} .pend{color:#a60}
+ blockquote{border-left:3px solid #bbb;margin:10px 0;padding:2px 12px;color:#444}
+Step 17 · group G1a — findings
+Date 2026-11-13 · Scope ConvoyTileCalculator + ConvoyTileDownloader.buildTileUrl
+→ GtTileCalc · Status artifacts built and compiling on both targets; certification run pending.
+1. Why G1a is first in G1
+The approved inventory picked it to prove the group's pipe: ~420 lines, zero Android ties, pure math.
+Six pure functions, no collaborator seam, no scripted clock, no file listings — so none of G2f's four harness rules
+apply. The one seam is ConvoyConfig.DOWNLOAD_ZOOM, a var the rider's slider sets, which both
+sides take as a parameter from one scripted value.
+2. The members — ported, and not ported
+2.7e memberIn the port?Evidence
+maxZoomForSourceKEPTcalled by calculateTiles at ConvoyTileCalculator:272. An internal caller is a caller. ⚠ Wrongly called dead earlier today from a grep that excluded the declaring file.
+maxZoomForSlotKEPTConvoyTileDownloader:146
+zoomRangesKEPTConvoyDeleteWorker:85, ConvoyDownloadQueue:509 (REMOVEAREA-2026-11-03)
+calculateTilesKEPTMapScreens:85, ConvoyDownloadQueue:239, ConvoyDownloadWorker:172/173
+buildTileUrlKEPTConvoyTileDownloader:177 — internal to the live vector downloader
+corridorTilesDROPPEDno reachable caller: ConvoyCorridorWorker (zero callers), ConvoyCorridorDelete (zero reachable callers since 11-13), and the arm below enqueueCorridor's isVector return
+stampPointDROPPEDprivate helper, used only by corridorTiles
+estimateSizeMBDROPPEDonly use is isWithinCeiling — a dead chain
+isWithinCeilingDROPPEDzero uses anywhere in the xref
+AVG_TILE_KBDROPPEDonly use is estimateSizeMB
+tileRelPathNEVER EXISTED⛔ decl 0. Invented in an earlier draft of the port. See §4 Q1.
+⭐ Download by corridor is LIVE and is ported — just not here. It is the route/track map download, reached from
+the GPX import (GtGpxImport:345/486 via env.platform.enqueueCorridor, GtImportEnv:83),
+GroupTrackScreen:2536 and MapScreens:178/503. Its method changed, not its existence: a
+corridor is now the track's AREA (VectorTiles.squaresFor, VECDL-2026-10-31), derived in
+VectorTiles/GtVectorQueue and already certified in Cert16c. Only the pre-vector taper is gone.
+3. The substitution manifest (OLD side)
+git diff 2.7e -- ConvoyTileCalculator.kt is empty, so the OLD copy is taken from code identical to
+the field-lock version — nothing had to be undone first, unlike G2f.
+#SubstitutionCount
+1object name → ConvoyTileCalculatorCertOld×1
+2ConvoyConfig.DOWNLOAD_ZOOM → downloadZoom (the 16b rule)×6
+2bthe new parameter threaded to an internal call site×1
+3parameter defaults → required×4
+4certified math CALLED, not copied (ConvoyTileCalculator.lon2tile/lat2tile)×8
+5buildTileUrl taken from ConvoyTileDownloader:54×1
+Tally, checkable without arithmetic: downloadZoom appears 10 times = 3 parameter declarations
++ 6 substituted reads + 1 threaded argument.
+⚠ Method note worth keeping. Three successive attempts to count this manifest by regex were wrong three
+different ways: an expression body and a parameter default both read = ConvoyConfig.DOWNLOAD_ZOOM;
+a $-anchored pattern missed zoomRanges, whose two parameters share a line; and counting the bare
+identifier conflated declarations, reads and threaded arguments. For a 120-line file the hand count IS the check.
+4. M1 — the per-group check
+Required before the group closes (living master, #blast-check). Four of five are answered by the
+cross-reference work done while writing the port.
+QQuestionAnswer
+1Fabrications — does every member of the port have a 2.7e declaration?
+    ONE FOUND AND REMOVED. tileRelPath had decl 0 — no such function in
+    ConvoyTileCalculator or ConvoyTileDownloader. The nearest real thing,
+    ConvoyTileDownloader.tilePath(context, …), returns a File, calls mkdirs and
+    stays platform. ⛔ This is the failure the cert cannot catch: a member with no OLD counterpart has nothing to
+    compare against, so it passes by never being exercised. The other five keepers all have 2.7e declarations.
+2Wrongly dropped — does every member left out have zero callers, counting its own file?
+    YES, after one correction. maxZoomForSource was wrongly marked dead and restored — its
+    caller is internal (:272). The five genuine drops have no reachable caller.
+3Orphaned callers — are all callers routed to the shared front door?
+    PENDING THE SWITCH. Nothing references GtTileCalc yet; this is answered when the
+    Android callers are repointed, which is a separate commit after certification.
+4Branch reachability — can the branch it sits in ever execute?
+    YES — and it is what killed corridorTiles. enqueueCorridor is live with many
+    live callers, but everything after if (GtMapEngine.isVector(context)) { … return } is unreachable
+    (cached ?: true, VECONE-2026-11-01).
+5Wrongly kept — does every member put IN have a reachable caller?
+    YES, after dropping six. An earlier draft kept estimateSizeMB/isWithinCeiling
+    explicitly "to keep the OLD/NEW comparison total" — which is the error Q5 names: there is nothing to compare when
+    neither side is ever called.
+5. The certification
+148 keys — 11 MAXSLOT (every slot, mixed case, trailing space: uppercase() is in the
+path), 5 MAXSRC (proving sourceName is ignored identically), 32 ZRANGE,
+96 CALC, 4 URL.
+Two deliberate departures from G2f
+⭐ Order is COMPARED, not sorted away — the opposite of G2f's rule 3. 2.7e builds tiles with
+mutableListOf and nested for (z) for (x) for (y), so order is fixed by the source, not by a hash
+or the filesystem. It is part of the behaviour and a reordering would be a real defect. G2f sorted because its collections
+came from set iteration and listFiles(); nothing here does.
+⚠ Mercator edges are in the sweep on purpose — at 89.999° tan(rad) runs away and 2.7e clamps
+nothing. Both sides must run away identically: faithfulness, not correctness. A defect both sides reproduce is a PASS.
+Boxes are deliberately tiny (0.01°) so CALC stays a value comparison and not a memory test — enumerating a
+state-sized box is the millions-of-tiles problem that created zoomRanges (REMOVEAREA-2026-11-03).
+lon2tile/lat2tile are not under test: certified at 16a as MATHTILE, 0 DIFF across
+1,938,346 values. OLD calls 2.7e's own, NEW calls GtTileMath's. Shared ground is what makes a DIFF here
+attributable to G1a's members alone.
+Pass criteria (unchanged from 14c)
+Droid # G1A done: N SAME, 0 DIFF and iPad 0 DIFF with cross-device COMPARED,
+two clean runs.
+6. Artifacts
+FileLinesRole
+grouptrack-shared/…/queue/GtTileCalc.kt163NEW — six live members, no imports (GtTileMath is same-package)
+app/…/convoy/ConvoyTileCalculatorCertOld.kt142OLD — 2.7e, counted manifest
+grouptrack-shared/…/cert/Cert17g1a.kt182the one runner — 148 keys, sink form
+app/…/grouptrack/GtCert17g1a.kt70Droid harness (takes ctx only to match the dispatch signature; no Context is used)
+grouptrack-shared/src/iosTest/…/GtCertTile17g1aMacTest.kt55iPad replay
+$GT_CMDS/gt_cert_v39.sh721v38 + mode tile17g1a
+GtCertRun: dispatch line at :118 and the skip-list entry at :138 — the
+latter is what avoids the 25–30 minute whole-database pass (the 11-12 queue17e2 lesson).
+Both targets compile: :app:compileGoogleReleaseKotlin and
+:grouptrack-shared:compileTestKotlinIosSimulatorArm64 both BUILD SUCCESSFUL.
+7. Port fidelity defect found and fixed
+2.7e is maxZoomForSource(sourceName: String): Int = ConvoyConfig.DOWNLOAD_ZOOM — it takes
+sourceName and ignores it, a [V2.6b-NO-ZOOM-CAP] leftover. The port had replaced the parameter with
+downloadZoom rather than adding to it. 16b's rule is that app state becomes an additional parameter;
+the original signature is still the thing being certified. Corrected to
+maxZoomForSource(sourceName, downloadZoom), with the call site mirroring 2.7e's
+maxZoomForSource(sourceName). Behaviour is unchanged on both sides — the point is shape, so OLD and NEW can
+be compared argument for argument.
+Found by reading the OLD source to build the CertOld copy, which is what that exercise is for.
+
+
+=== GroupTrack_2.8_step17_G1c_findings_2026-11-13.html ===
+GroupTrack 2.8 — step 17 group G1c — findings
+ body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1000px;margin:28px auto;padding:0 18px;color:#1b1b1b}
+ h1{font-size:23px;border-bottom:2px solid #333;padding-bottom:6px} h2{font-size:18px;margin-top:28px}
+ code{background:#f2f2f2;padding:1px 4px;border-radius:3px;font-size:13px}
+ table{border-collapse:collapse;width:100%;margin:10px 0} th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;vertical-align:top;font-size:13.5px}
+ th{background:#eee} .y{color:#0a0} .n{color:#b00} .pend{color:#a60}
+Step 17 · group G1c — findings
+Date 2026-11-13 · Scope VectorTiles + ElevationTiles source resolution
+→ GtMapSpec · Status CERTIFIED — 58 SAME / 0 DIFF / 6 EXPECTED on Droid 1,
+64 SAME / 0 DIFF cross-device on the iPad, two clean runs. Build
+2026-11-13_1548_mac_ad928ec47_UNCOMMITTED.
+1. Most of G1c was already done
+VectorTiles has 13 members and nine were already front doors to GtVectorQueue,
+certified at 16c (6,399 values, Droid OLD = NEW, iPad = Droid): recipeBoxes, boxesOf,
+squaresInBox, enqueueWithElevation ×2, squaresFor, queueSquares,
+queueSquaresNamed, queueFromRecipe. They are untouched, and are deliberately absent from
+the OLD side — re-testing them would re-test closed work and put a second uncertified copy on the comparison.
+What was left is the SOURCE SPEC: where the tile URLs come from, and the recipe's old-tile count.
+2. The seams — three, all existing shapes
+SeamWhyPrecedent
+readAsset(name)map_sources.json ships in the APK; Android's AssetManager has no common equivalent, and on the iPad it is a bundle resourceGtImportEnv:81, GtRides:145, GtHelpAssets
+httpGet(url, ms)OpenFreeMap versions its tile path, so the template cannot be a constant — it is read from the TileJSON at runtimeGtHttp.get, GtImportEnv:68
+— none for files —2.7e's oldTilesOf takes a java.io.File; the port takes the TEXT. Reading the file is the front door's job, which keeps the shared file free of filesystem access—
+⚠ A shared type, not MapSourceManager.TileLayer. That type belongs to G1e (599 lines, 20 callers,
+not ported). Blocking G1c on G1e would invert the inventory for no benefit, so shared declares
+GtTileLayerSpec — with 2.7e's field names exactly (role, urlTemplate, tileFormat, cacheDir,
+renderOrder), not "improved" to format/order. Same lesson as G1a's ignored
+sourceName: the port reproduces the shape. The certification compares the FIELDS, never the type.
+3. The substitution manifest (OLD side)
+#SubstitutionCount
+1two objects merged, members prefixed vector*/elevation*; bodies unchanged×2
+2context.assets.open(…) → env.readAsset(…)×2
+3the OkHttp block → env.httpGet(tj, 6_000)×1
+4oldTilesOf(f: File) → oldTilesOf(recipeText: String)×1
+5resetForCert() added — see §5×1
+⭐ The OLD side keeps org.json on purpose. That is the comparison: 2.7e lenient vs the port's
+strict GtOrgJson. And the GOOD asset text is not invented — the harness reads the real
+map_sources.json out of the APK and hands the same string to both sides, because the shipped asset is
+deterministic. An invented "good" fixture would certify the port against a file that does not ship.
+4. The recorded divergence — 6 EXPECTED
+2.7e parses with org.json, whose JSONTokener is lenient; the port parses with
+GtOrgJson over kotlinx, which is strict and says so in its own header:
+"NOT REPRODUCED (kotlinx is strict, Android's JSONTokener is lenient): comments, single quotes, unquoted keys,
+'=' / ';' separators, and text after the first value. Android accepts those; [parse] throws (the golden run marks
+them EXPECTED)."
+Three fixtures feed exactly those cases, over two keys each. OLD finds the tilejson; NEW gives up. Measured, not
+assumed — the first run reported 58 SAME / 6 DIFF and these were the six. This is the G2g GtConfigs
+precedent: recorded, not chased.
+⭐ Why it is unreachable in practice. GtMapSpec reads
+context.assets.open("map_sources.json") — the asset WE SHIP, which is well-formed (a strict parser reads
+it) and contains no comments, single quotes or unquoted keys. ⚠ It is NOT the user-editable external
+map_sources.json that MapSourceManager.externalJsonFile() reads; that file never reaches
+this code. The TileJSON comes from OpenFreeMap, serving valid JSON.
+⛔ Marking a divergence expected does not mean testing it less. The harness records the base key as
+EXPECTED and also emits &lt;key&gt;|newonly carrying the port's own answer, so the
+iPad still compares NEW against NEW on those fixtures — which is why the iPad reports 64 SAME, not 58.
+And if an expected key ever comes back SAME the harness writes # G1C-NOTE … is STALE rather than passing
+quietly: that is how an expected-diff list rots into a permanent excuse, and the guard is there to stop it.
+5. Two warts reproduced on purpose
+The cache. 2.7e caches the resolved tile template in a @Volatile var with no
+invalidation, so if OpenFreeMap re-versions its path mid-session the stale template is used until the process
+restarts. Reproduced exactly, and certified as a key: CACHE2 resolves once, then asks again with a
+DIFFERENT http answer and requires the FIRST one back, with http_calls proving no refetch.
+spec() re-reads and re-parses the whole asset on every call. 2.7e does; so does the port.
+resetForCert() exists on both sides because resolved is process-wide state: without
+it the second fixture would answer with the first fixture's template and every later key would be a lie that happens
+to match. Production never calls it.
+6. M1 — the per-group check
+QQuestionAnswer
+1FabricationsNONE. All five ported members have 2.7e declarations. Two declared additions, both legitimate and present on both sides: resetForCert (a test hook — 2.7e's cache is clearable only by restarting) and GtTileLayerSpec (the shared mirror of MapSourceManager.TileLayer, same field names). ⚠ Neither is a silent invention of the kind G1a's tileRelPath was.
+2Wrongly droppedNONE. Every member has live callers (checked against the 20:04 index): oldTilesOf — EmergencyRestore:109, MapConversion:63/138; downloadSources ×2 — ConvoyDownloadWorker:83/178/179; tileTemplate — VectorMapTest:238; urlTemplate — VectorMapTest:244; Z_MAX ×2 — 7 refs each. ⚠ The nine queue members are not "dropped" — they were ported at 16c.
+3Orphaned callersPENDING THE SWITCH. Nothing references GtMapSpec yet; answered when the Android callers are repointed, in a separate commit.
+4Branch reachabilityCHECKED, nothing dead. Unlike G1a and G1b, every branch here is reachable — the lenient-asset arms are reachable in principle, just never fed by a real input.
+5Wrongly keptNONE. Nothing unreachable was carried in. G1c is the first G1 piece with no skips.
+7. The certification — 64 keys
+KeysWhat they prove
+VTPL/VDL real ×5 + fetch_nullTileJSON resolution against good, no-tiles, empty-tiles, blank-tile, not-JSON, and the fetch failing
+CACHE2 ×4the no-invalidation cache, including http_calls and the post-reset behaviour
+EUTPL/EDL realthe elevation template and descriptor
+synthetic assets ×9 ×4missing, no-vector, empty-vector, blank-tilejson, no-elevation, wrong-types, and the three lenient cases
+OLDTILES ×9the VEC/DEM exclusion, plus tiles as string, as double, missing, a null entry, not-JSON
+CONST ×2slot names and zoom ceilings
+⛔ The asset is carried in the Droid report. The iPad has no APK, so the Droid writes the real
+map_sources.json (3,386 bytes) onto a # G1C-ASSET line and the iPad reads it back. Without
+that, the iPad would certify the port against whatever happened to be on the Mac. The script refuses to proceed if the
+line is missing.
+8. Artifacts
+FileLinesRole
+grouptrack-shared/…/mapsource/GtMapSpec.kt179NEW port + the GtMapSpecEnv seam
+app/…/convoy/MapSpecCertOld.kt119OLD — 2.7e over real org.json, counted manifest
+grouptrack-shared/…/cert/Cert17g1c.kt~230the one runner — 64 keys + EXPECTED_DIFF
+app/…/grouptrack/GtCert17g1c.kt~80Droid harness — carries the asset, classifies EXPECTED
+grouptrack-shared/src/iosTest/…/GtCertMapSpec17g1cMacTest.kt~85iPad replay — reads the asset back
+$GT_CMDS/gt_cert_v41.sh—v40 + the EXPECTED-aware verdict
+GtCertRun: dispatch and the skip-list entry (the latter avoids the 25–30 minute whole-database
+pass — the 11-12 queue17e2 lesson).
+
+
 === GroupTrack_2.8_step17_G2_inventory_2026-11-12_v2.html ===
 GroupTrack 2.8 — Step 17 · G2 inventory (v2, 2026-11-12 11:00)
 body{font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1150px;margin:0 auto;padding:24px;background:#fafaf7;color:#1d1d1b}
@@ -26572,7 +26942,7 @@ Earlier, kept: Branch: feature/convoy-event-ride · seven commits 09-23 (ride JS
 Release: 2.7 · Next: finish the JSON test → IMPORT → a Send screen → Thursday Natak call.
 
 
-=== grouptrack_handoff_2026-11-13_v114.html ===
+=== grouptrack_handoff_2026-11-13_v115.html ===
 GroupTrack handoff — 2026-11-13 00:55 (v114) — G2e-2 queue cert RUNNING on real rows: all 10 scenarios passed both sides in 22 s, verdict pending the whole-database pass · 4 defects recorded, none fixed · was (v113) — G2a–G2e-1 certified and switchedbody{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1200px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
 h1{font-size:23px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
 h2{font-size:18px;color:#58a6ff;margin-top:34px;border-bottom:1px solid #2a3038;padding-bottom:5px}
@@ -26586,13 +26956,126 @@ th{background:#1a2027;color:#8FD0FF}
 td:first-child{font-weight:600;color:#e3b341;white-space:nowrap}
 .hi{color:#e3b341} .fig{overflow-x:auto;background:#161b22;border-radius:6px;padding:8px 0}
 .fig svg{max-width:100%;height:auto;display:block;margin:0 auto}
-li{margin:5px 0}GroupTrack handoff — 2026-11-13 00:55 (v114) — G2e-2: the queue certification RUNS on REAL manifest rows. All ten scenarios completed on BOTH sides in 22 s (00:45:25–00:45:47); the run then entered the whole-database pass, so the verdict was not yet read when the session ended — first job in the AM. Three harness patches applied (f, h, i); the one PRODUCT fix was WITHDRAWN unapplied, because a parity certification demands the same behaviour as the certified Android (Fred 00:15). Four defects recorded with evidence, none fixed — one service, three process. — before that, 11-12 18:45 (v113): G2a–G2d certified and switched, G2e-1 (StateData) certified (Droid 58 SAME, iPad 58 SAME) and switched, G2e-2 ported; 10 commits unpushed
+li{margin:5px 0}GroupTrack handoff — 2026-11-13 16:00 (v115) — step 17 group G1: four of eight pieces resolved in one day. G1a (tile arithmetic, 148 keys) and G1c (map source spec, 64 keys) CERTIFIED on both devices, two clean runs each; G1b and G1g SKIPPED as unreachable — 845 lines that will never be ported, including the piece the inventory flagged ⛔ for the 08-08 data-loss incident. ~1,070 lines off G1’s port surface and ~2,200 lines of never-executing code identified in all. Four commits: 8d4abfc2b the corridor-delete retirement, f0e9fc928 G1a, ad928ec47 the navxref fix + the reachability method, 4e9dc9db1 G1c. A whole method came out of it — M1 (the per-group check, five questions), M2 (skip, don’t remove), V1 (the blast analysis, timed as the last step before 2.8a), T1 (a navxref defect found and fixed). — before that, GroupTrack handoff — 2026-11-13 00:55 (v114) — G2e-2: the queue certification RUNS on REAL manifest rows. All ten scenarios completed on BOTH sides in 22 s (00:45:25–00:45:47); the run then entered the whole-database pass, so the verdict was not yet read when the session ended — first job in the AM. Three harness patches applied (f, h, i); the one PRODUCT fix was WITHDRAWN unapplied, because a parity certification demands the same behaviour as the certified Android (Fred 00:15). Four defects recorded with evidence, none fixed — one service, three process. — before that, 11-12 18:45 (v113): G2a–G2d certified and switched, G2e-1 (StateData) certified (Droid 58 SAME, iPad 58 SAME) and switched, G2e-2 ported; 10 commits unpushed
 FRESH START FOR 2.7c (Fred 10-21 19:20): "we are on 2.7c, everything before that should be gone." This handoff holds only 2.7c work and the items still open from 2.7b. Everything removed &mdash; all 191 sections of living master v164 and all of handoff v70, word for word, with the 13 that were still marked open listed first &mdash; is in GroupTrack_REMOVED_through_2.7b_2026-10-21_v1.html (in docs/ and in GroupTrack_AllDocs_2.txt), and every earlier dated version is in GroupTrack_AllDocs_1_through_2.7b_2026-10-21.txt (frozen).
 The rule from now on (Fred 10-21 19:19): remove items as they are completed. When an item is done, its section moves out of this document into that day's COMPLETED_TASK document, leaving a one-line pointer. This document should stay small; if it grows day after day, items are not being removed.
-⭐⭐⭐ NEXT SESSION — START HERE (11-13 00:55) — read the G2e-2 report, then G2f, G2g
+⭐⭐⭐ NEXT SESSION — START HERE (11-13 16:00) — G1d, then the two outstanding switches
+✅ WHERE G1 ACTUALLY STANDS — 4 of 8 pieces resolved
+Authoritative status, with evidence per piece: docs/GroupTrack_2.8_step17_G1_inventory_2026-11-13.html
+§3b (added at EOD; §3's table is the approved plan, not the status).
+G1aCERTIFIED — 148 keys, 0 DIFF both devices, twice. f0e9fc928
+G1bSKIPPED — TileCodec, pre-vector legacy. Cleanup C10
+G1cCERTIFIED — 64 keys, 58 SAME / 0 DIFF / 6 EXPECTED, iPad 64 SAME, twice. 4e9dc9db1
+G1gSKIPPED — 779 lines, dead not dormant. Cleanup C7/C8
+LEFTG1d 390 · G1e 599 · G1f 605 · G1h 663 = 2,257 lines
+⭐ THE FOUR PHASES (Fred 11-13 17:27 — this SUPERSEDES the 15:13 "clean after the iPad gen" call).
+The first job below is inside P1.
+P1finish L1/L2/L3 — G1d, G1e, G1f, G1h-if-kept — then the two owed switches (G1a, G1c), then V1 blast analysis
+P2build 2.8a Droid, treat it as uncertified, close it with the L4 walkthrough in Quick Start order (34 of 38 steps; task 8 needs Utah)
+P3work the C list down in keystone order, re-running the affected L4 tasks after each removal — not the cert suites, which unreachable code cannot change
+P4the first iPad generation, onto a pruned and certified shared model
+⛔ No iPad build until Android is certified as a working app (Fred 17:24). The A-vs-B decision on task 8
+is OPEN and deliberately deferred — it gets cheaper once P3's pace is known, and until Fred states it the gate
+is strict. Full reasoning: living master, THE THREE LEVELS → L4 → THE GATE ORDERING → RESEQUENCED. (HANDOFFPHASES-2026-11-13)
+▶ FIRST JOB: ask Fred the CODE RULE 3 question on G1h — then G1d. (FIRSTJOB-SEAMLEVELS-2026-11-13)
+Why that order changed. On 11-13 at 17:15 we answered L1 — does a shared method to read or
+write this entity already exist? — for every remaining G1 item (see the living master,
+THE THREE LEVELS). Three of the four need no new seam at all. That makes the order a question of which
+item can be removed, not which is largest.
+#do thiswhy
+0Ask Fred: does CODE RULE 3 delete GroupTrackConversion?Costs one question. A "yes, every install has converted" removes 663 lines AND the only new socket in all of G1 (SAF/DocumentFile, 19 calls). Do not build that socket before the answer.
+1G1d — MapStateStore + ConvoyMapRecipe (390)No new seam. GtStorage+okio, GtOrgJson, GtTime all exist. Pure L3 — proves the L3-only pattern on the smallest item.
+2G1e — MapSourceManager (599)No new seam (⚠ the inventory's "settings socket" was wrong — zero SharedPreferences; it is JSON + file). Still before G1f: reconcile GtTileLayerSpec with TileLayer here, as G1c deferred.
+3G1f — MBTilesStore (605)Seam exists (gtOpenDatabase). One L2 pass on the tile-store schema, then 18 cheap L3s — not 18 certifications. Certify on COPIES, never the live stores.
+4G1h — only if step 0 said keepThe one item needing a new socket. If CODE RULE 3 keeps it, design the SAF seam as an L2 in its own right.
+Two switches are still owed from 11-13: G1a and G1c are certified, not switched. The switch is what
+answers M1 Q3 (orphaned callers), so do G1a's switch early next session to measure what a switch costs.
+G1e before G1f matters more than it did. G1f's store work reads layer assignments from
+MapSourceManager, and G1c already had to declare GtTileLayerSpec as a shared mirror of its
+TileLayer to avoid blocking on it — reconcile those two in G1e.
+The risk moved. §3 put the data-deleting work last; G1g was that work and it is gone. What is left
+concentrates in G1f (real SQLite stores — certify on COPIES, never the live stores) and G1h (SAF /
+DocumentFile, the heaviest Android tie in the group).
+G1f carries a known defect to fix or record: MBTilesStore:81 writes
+format = "webp" into the MBTiles metadata for every tile, which no longer describes what is stored —
+VEC is pbf, DEM is png.
+⚠ TWO SWITCHES ARE OUTSTANDING — "certified" is not "switched"
+Neither certified piece is switched. The Android callers still use ConvoyTileCalculator,
+VectorTiles and ElevationTiles. Each switch is its own commit, and the switch is what
+answers M1 Q3 (orphaned callers) — which is marked PENDING in both findings docs. ⛔ Do not record either piece
+as complete until its Q3 is answered.
+⭐⭐ THE METHOD THAT CAME OUT OF TODAY — living master, #blast-check and #skip-policy
+This is the durable part of the day and it changes how every remaining piece is handled.
+M1 — the per-group check. The last action of closing any group, from G1a on: five questions over that
+group's members, by FIELD and by FUNCTION (where_used_raw.txt AND
+field_crossref_raw.txt — a port moves both, and a field still read by code the port left behind fails
+exactly like a dropped function). Answers recorded in the group's own findings doc. A group is not closed until
+they are.
+The five questions. Q1 fabrications (does every ported member have a 2.7e declaration?) · Q2 wrongly
+dropped (does every omitted member have zero callers, counting its own file?) · Q3 orphaned callers · Q4
+branch reachability (can the branch it sits in ever execute?) · Q5 wrongly kept (does every member put IN
+have a reachable caller?).
+Why Q4 and Q5 had to be added. Q1–Q3 are all caller-based and would have missed every straggler found
+today. Certifying back to callers — what the convoy-app move, one map and removing the tick all did — catches
+everything that stopped being called. It cannot catch code that never stops being called: a branch behind a
+gate that can never vary (isVector() = cached ?: true) stays reachable on paper and
+unreachable in fact.
+M2 — SKIP, DON'T REMOVE. SKIP = not ported; free, changes no Android code, decided at port time. REMOVE =
+the Android code deleted; a change to the shipping app, deferred until after the initial iPad generation.
+Supersedes the earlier "DELETE rather than PORT" wording.
+And why a skip is provably safe (Fred 15:14): "code not executed is by definition same result under the new
+code." So a skip needs no certification run — its evidence is reachability — and certifying unreachable code
+is vacuous: 0 DIFF because neither side runs. ⛔ The caveat: the whole weight then rests on the reachability
+evidence, and three such calls were wrong in one hour today, all from greps that excluded the declaring file.
+V1 — the blast analysis. A gate on declaring step 17 done, timed as THE LAST STEP BEFORE THE 2.8a DROID
+BUILD. Scope FIXED to the pre-11-13 backlog (G2a–G2g, 15a/15e, 16b/16c, 17e1/17e2) and not allowed to grow,
+because every group from G1a on carries its own M1 check. Order: finish step 17 → regenerate the indexes → V1 → cut
+2.8a → step 18.
+🧰 TOOLING — one defect found and FIXED (T1)
+The navigation xref mislabelled every ListItem row. label_near() searched FORWARD from
+the clickable, and a Material3 ListItem puts its label FIRST and
+modifier = Modifier.clickable{} LAST — so the window ran into the NEXT row and took its headline. Labels
+were shifted one row up against actions and "Edit rider profile" appeared zero times in the whole
+index.
+Fixed in a new tool, $GT_CMDS/navxref_2026-11-13.py (gen_xrefs_v3.sh selects by
+sort -V on the filename, so it is picked up automatically; the 11-09 file is untouched). Verified by
+holding the ACTION constant across 387 parsed pairs: 4 labels changed, 383 untouched, clickables still 418. Two
+of the four were previously unknown — the old code was taking a BUTTON label and a DIALOG TITLE from further down.
+⭐ This mattered because the walkthrough is the instrument for REACHABILITY (Fred 14:21): the cert proves
+faithfulness, the xref proves completeness, only the walkthrough proves a user can get there. V1 leans on it, so it
+had to be right before V1 runs.
+🧹 CLEANUP AND PRUNING FOUND TODAY — living master, 2.8 CLEANUP ACTIVITIES
+⛔ All of it is recorded, not done, and timed per M2: removal after the initial iPad generation.
+~2,200 lines of never-executing code identified in total, of which ~1,070 were on step 17's critical path.
+C1downgraded from "a LIVE DEFECT" to RETIRED — the corridor-by-area delete has zero reachable callers. The question it posed (give the delete an isVector branch) is void: there is no caller to give it to.
+C1breversed — corridorTiles is NOT ported. ⭐ Carries a standing warning that download-by-corridor IS live (the route/track map download, method now the track's AREA) and is certified elsewhere, at Cert16c.
+C5the raster arms below the two isVector early returns in enqueueCorridor / enqueueCorridorBatch. ⛔ Remove the arm, not the function.
+C6ConvoyCorridorWorker.kt, 202 lines, zero callers — and in no G1 piece, so the inventory would have missed it entirely.
+C7ConvoyCorridorDelete.kt (234) + GtRemoveTrackScreen (112). Row greyed today; removal with the manual update.
+C8ConvoyMapSourceScreen.kt — ~900 of 1,060 lines unreachable. Keep the credits branch.
+C9three manual sections, plus a gap greying does not close: GtMenuLine's OVERVIEW button is not gated on live, so a greyed row still opens its manual section.
+C10TileCodec.kt (66) — G1b's skip. Plus MBTilesStore:81's stale format = "webp" metadata.
+🗂 State at 16:00
+Four commits, working tree clean (before the EOD doc pass): 8d4abfc2b · f0e9fc928 ·
+ad928ec47 · 4e9dc9db1. Branch 2.8.
+Build: 2026-11-13_1548_mac_ad928ec47_UNCOMMITTED, installed on droid1. Both certs ran twice
+clean against it.
+Scripts: cert runner at gt_cert_v41.sh (v39 added tile17g1a, v40
+mapspec17g1c, v41 the EXPECTED-aware verdict). Recommit at v26. Indexes regenerated 20:04 UTC with
+the fixed navxref.
+Findings docs: ..._G1a_findings_2026-11-13.html, ..._G1c_findings_2026-11-13.html,
+and the inventory's new §3b.
+UI changed today: Map › REMOVE MAPS › "Remove maps for all tracks" is greyed; "Map source credits"
+(renamed, from "Change Map Sources") is live in both the Map menu and Settings — it is one credits screen with
+two doors, and OpenMapTiles' licence needs it reachable.
+⚠ Deferred, agreed: a cert-only mode for gt_build_v2.sh that drops
+bundleGoogleRelease — the AAB is a Play artifact and no cert touches it. Line 17 of that script.
+⭐⭐ 11-13 00:55 — was START HERE · status 16:00: G2f and G2g both certified and switched, group G2 CLOSED; the day then went to G1
 ✅ AGREED — what passing a service certification means (Fred 11-13 00:53 "perfect my friend")
 The method, for every remaining group: define the service, define the results we are monitoring, and mimic the same results on both devices. That is step 1 of each group's cert design — before any harness is written. Tonight's harness went wrong precisely because the rows were invented and the monitored results were never stated up front.
 What a service IS (Fred 11-13 00:55): it takes a UNIT OF WORK, sends or receives it, and hands off the result — and the certification asks only whether that hand-off is consistent, on both platforms. We are not researching or solving internet issues. A network failure, a server timeout, a rider cancelling — those are INPUTS to the test, scripted, not problems the service is asked to solve. The service's job is to report what happened, the same way, every time, on both devices.
+SIMULATE THE HARNESS, NOT JUST THE SERVICE (Fred 11-13 07:48–07:49, now the method): "we are creating patches, applying them to the model, then running simulation, correcting the patches — 20 minutes becomes 40 — 4th patch today on something I thought was finished last night." Every failure of 11-12/13 was in the TEST, not the queue: the untilStop stub hung a retried row (predictable in simulation), the per-callback snapshots sampled thread scheduling (predictable by reasoning), and queue17e2 was left out of GtCertRun's skip list (a one-line read). The simulation written on 11-12 modelled the PRODUCT algorithm only — the harness is a program too and was never modelled.
+The rule: no certification patch goes to Fred until the harness has been simulated. The simulation must show (1) EVERY scenario TERMINATES — no hang, with a tick cap that fails loudly — and (2) every COMPARED key is a DECISION the service makes, never a sampled observation (anything read on a timer or a callback while other threads mutate state is nondeterministic by construction and must not be compared). Pattern to copy: inbox/step17g2e2l_2026-11-13/sim17g2e2l_2026-11-13.py — it models the queue, the stub fetch and each scenario's press, and prints a terminate/ticks/returns/attempts table plus a decision-vs-sampled audit of every emitted key.
 A service cert PASSES if and only if:
 the Droid report's own verdict line reads # E17E2 done: N SAME, 0 DIFF (or that group's equivalent) — every compared key identical between the generated 2.7e copy and the shared code, on the SAME real data;
 the iPad report reads 0 DIFF against that same Droid report, with equal input fingerprints — cross-device COMPARED;
@@ -29274,6 +29757,8 @@ The rule for 2.8 (Fred 11-08 18:23, restated 11-10 17:51): no change to the base
 ✅ AGREED — what passing a service certification means (Fred 11-13 00:53 "perfect my friend")
 The method, for every remaining group: define the service, define the results we are monitoring, and mimic the same results on both devices. That is step 1 of each group's cert design — before any harness is written. Tonight's harness went wrong precisely because the rows were invented and the monitored results were never stated up front.
 What a service IS (Fred 11-13 00:55): it takes a UNIT OF WORK, sends or receives it, and hands off the result — and the certification asks only whether that hand-off is consistent, on both platforms. We are not researching or solving internet issues. A network failure, a server timeout, a rider cancelling — those are INPUTS to the test, scripted, not problems the service is asked to solve. The service's job is to report what happened, the same way, every time, on both devices.
+SIMULATE THE HARNESS, NOT JUST THE SERVICE (Fred 11-13 07:48–07:49, now the method): "we are creating patches, applying them to the model, then running simulation, correcting the patches — 20 minutes becomes 40 — 4th patch today on something I thought was finished last night." Every failure of 11-12/13 was in the TEST, not the queue: the untilStop stub hung a retried row (predictable in simulation), the per-callback snapshots sampled thread scheduling (predictable by reasoning), and queue17e2 was left out of GtCertRun's skip list (a one-line read). The simulation written on 11-12 modelled the PRODUCT algorithm only — the harness is a program too and was never modelled.
+The rule: no certification patch goes to Fred until the harness has been simulated. The simulation must show (1) EVERY scenario TERMINATES — no hang, with a tick cap that fails loudly — and (2) every COMPARED key is a DECISION the service makes, never a sampled observation (anything read on a timer or a callback while other threads mutate state is nondeterministic by construction and must not be compared). Pattern to copy: inbox/step17g2e2l_2026-11-13/sim17g2e2l_2026-11-13.py — it models the queue, the stub fetch and each scenario's press, and prints a terminate/ticks/returns/attempts table plus a decision-vs-sampled audit of every emitted key.
 A service cert PASSES if and only if:
 the Droid report's own verdict line reads # E17E2 done: N SAME, 0 DIFF (or that group's equivalent) — every compared key identical between the generated 2.7e copy and the shared code, on the SAME real data;
 the iPad report reads 0 DIFF against that same Droid report, with equal input fingerprints — cross-device COMPARED;
@@ -29509,6 +29994,288 @@ The export round trip — tracks, routes, waypoints and "Rider" trails: what is 
 Arrow heads — wherever arrow heads are displayed they are not large enough now to show the direction while driving; make them big enough to drive by.
 Land areas disappear below z7 — the public and restricted land areas (their polygon outlines and fills) are not drawn below zoom 7 (a separate item from the 11-07 "map blank at z4 and below").
 The search group filter — the categories must NOT be selected on the way in; selecting a category then restricts the display to the selected category.
+🧹 2.8 CLEANUP ACTIVITIES — found during the step 17 ports (do with the Mac build, post-2.8)
+Fred, 11-13 13:03: "corridor downloads were changed to represent the corridor's area. If removal wasn't changed we need to add that to the post-2.8 Mac build as a cleanup task." ⛔ These are CHANGES, not ports — each touches screens or navigation, so each is one deliberate pass, never a side effect of a port.
+⭐⭐ WHAT THIS LIST IS — the definition, the number and the order (PRUNETOTAL-2026-11-13)
+Fred, 11-13 16:29: "items that have no impact on android functionality that need to be removed as we gen apple model."
+⭐⭐ THE ENTRY TEST — “IT CANNOT BE IN USE”, not “it is unreferenced” (CDEF-V3-2026-11-13)Fred, 11-13 16:36: “our definition it[’s] it can’t be in use. it may be there in code but if the structure that populate[s] and read[s] it no longer exist[s] it cannot be in use.”⛔ This supersedes “proved unreferenced”. Unreferenced is SUFFICIENT but not NECESSARY, and the gap between them is the entire Class B category: the raster arms in enqueueCorridor, and all of G1g, are fully referenced and cannot execute. A reference-based test misses them; a usability-based test catches both.So the evidence an item carries is not “nobody mentions it” — it is THE PRODUCER AND THE CONSUMER ARE BOTH GONE:&nbsp;&nbsp;• no producer — nothing can put data in, drive the branch, or reach the launch point. (G1g: begin() is the only writer of a migration record and sits inside unreachable code, so no record can exist.)&nbsp;&nbsp;• no consumer — nothing reads the result. (MBTilesStore:81’s format row: written on every store, read by nothing, anywhere.)⚠ A leftover CONFIGURATION entry is not a producer. map_sources.json still lists google-hybrid and a default_slots entry for legacy key SAT — 14 of the original 15 sources were removed, per the file’s own _onesource note — but a config row nothing acts on is as inert as an unread metadata string.≈ 2,344 LINES THAT NEVER EXECUTE. Removing them cannot change Android behaviour, because they are not reached — that is M2's theorem (#skip-policy): code not executed is by definition the same result under the new code. The claim rests entirely on the per-item reachability evidence below, nothing else.
+WHY IT IS DONE AS THE APPLE MODEL IS GENERATED, and not sooner or later: the alternative is porting dead code, which then certifies VACUOUSLY — 0 DIFF because neither side runs — and is afterwards maintained on TWO platforms. A dead member ports perfectly and tells you nothing. Pruning before the gen is also why removal is deferred: a deletion is a change to the SHIPPING app, so it waits until the iPad build has shown nothing needed it.
+MEASURED, AND DE-DUPLICATED. ⚠ The C-items below overlap — C1b's "~374 lines" is ConvoyCorridorDelete (234) plus corridorTiles (~140), which are also C7 and C5 — so adding the C column gives a wrong number. The split that does not double-count:
+&nbsp;&nbsp;WHOLE FILES, delete outright — 1,047 lines in 5 files: ConvoySourceClear 317 · ConvoyCorridorDelete 234 · ConvoySourceMigration 228 · ConvoyCorridorWorker 202 · TileCodec 66.
+&nbsp;&nbsp;PORTIONS OF LIVE FILES, surgery not deletion — 1,297 lines: ConvoyMapSourceScreen :175→end less the live SectionHeader = 877 · corridorTiles + stampPoint 147 · the two raster arms in ConvoyDownloadQueue (enqueueCorridor 102 + enqueueCorridorBatch 36) = 138 · GtRemoveTrackScreen 112 · estimateSizeMB/isWithinCeiling/AVG_TILE_KB 12 · ConvoyMarkerRenderer class ~10 · MBTilesStore:81's format = "webp" 1.
+&nbsp;&nbsp;⭐ On that last line: it is written into the MBTiles metadata table and NEVER READ — not in MBTilesStore, not elsewhere in the app, and nothing in the map assets opens the file to read metadata; tiles are served by readTile(z,x,y). So it is an inert string in an unread row, not a correctness defect: the same Class B shape as everything else here, one level down — the statement runs, its OUTPUT is dead. ⚠ An earlier note called it a live correctness fix; that was Q4 applied to the code but not to its output.
+⭐⭐ THE ORDER — and why biggest-first is right here. ConvoyMapSourceScreen's dead branch is the KEYSTONE: it is the only caller of three of the five deletable files.
+&nbsp;&nbsp;ConvoyMapSourceScreen dead branch (877) → ConvoyCorridorDelete (234, with GtRemoveTrackScreen 112) · ConvoySourceClear (317) → ConvoySourceMigration (228).
+&nbsp;&nbsp;So TWO surgical edits unlock 1,768 lines, 75% of the list, and ConvoySourceClear / ConvoySourceMigration need no direct handling at all — they fall in order. Independent and trivial: ConvoyCorridorWorker (202, zero callers) and TileCodec (66, one call site).
+&nbsp;&nbsp;⛔ Biggest-first works because the biggest item is the LOWEST RISK PER LINE — one contiguous dead span, in one file, behind one condition. The delicate work is small: the 138 lines of raster arms sit INSIDE two live functions with many live callers (enqueueCorridor, enqueueCorridorBatch), where a slip breaks the live corridor download. Do that one LAST, alone, with its own build.
+⚠ TWO THINGS THAT ARE NOT "no functional impact", and must not hide in the number:
+&nbsp;&nbsp;• GtRemoveTrackScreen's 112 lines — the CODE is unreachable, but removing it also takes the greyed menu row and its manual sections. Zero functional impact, NON-ZERO visible impact. Deliberate, and it travels with C9.
+&nbsp;&nbsp;• C2 is UNVERIFIED — noticed, never proved dead, and map_sources.json still offers google-hybrid as slot SAT. ⛔ It is NOT in the 2,344 and must pass Q4 before it joins the list. The total is only as good as the evidence, and C2 is the one item with none. Evidence for all four is in docs/GroupTrack_2.8_step17_G1_inventory_2026-11-13.html §5.
+✅ C1 IS RETIRED, NOT A DEFECT AND NOT A PORT — closed 11-13 13:52 (was "a LIVE DEFECT", upgraded 13:07).
+What closed it: Fred, 13:32 — "we can't we just remove the remove corridor by area function. period. t no longer has a purpose"; 13:35 — "grey out ... on the panel"; 13:38 — "there is no longer a change of map source". The function was not fixed, it was withdrawn: space is no longer the constraint it was in August, and the vector conversion already redownloaded every corridor by the new method.
+It now has ZERO reachable callers, proved by the generated where-used index and read in the source:
+&nbsp;&nbsp;• MapScreens:423/491 (GtRemoveTrackScreen) — its row map.rm_track is OFF the actions bridge, so it renders grey and unclickable (CORRRETIRE-2026-11-13; the mechanism is the shell's own, GroupTrack.kt:296 / GtMenuLine).
+&nbsp;&nbsp;• ConvoyMapSourceScreen:542/550 — was ALREADY unreachable before 11-13, and had been since the conversion: the call sits inside if (optTracks), and optTracks is declared mutableStateOf(false) at :233 and never assigned anywhere.
+⭐ Therefore C1 is not a behaviour change to make and not a 2.7f hot-fix. The earlier entry asked whether to give the delete an isVector branch; that question is void — there is no longer a caller to give it to. The derivation analysis below is KEPT because it is the record of why the two shapes diverged, which is why the function went rather than got patched.
+The analysis as written 13:07:
+Fred's principle: "however we pull the maps is the method we need to use to remove them." The two derivations DO NOT MATCH:
+&nbsp;&nbsp;• DOWNLOAD (vector, live): GtVectorQueue.squaresFor — a z12 grid (SQ_Z=12), a 1-square ring around each point, interpolated every 0.02°, all tracks' squares unioned so shared ground is queued once.
+&nbsp;&nbsp;• DELETE (ConvoyCorridorDelete:135/191): ConvoyTileCalculator.corridorTiles(segments) — per-zoom tiles z10–z18, a 0.00724° cos(lat)-scaled buffer, no slot cap, funnel OFF.
+⚠ ConvoyCorridorDelete has ZERO vector awareness — no isVector, no VectorTiles, no squaresFor anywhere in the file. It computes the old shape and calls MBTilesStore.deleteTiles(store, corridor).
+⛔ CONSEQUENCE: a rider pressing delete-corridors removes only the tiles where the two sets happen to coincide and strands the rest — the same stranding the August comment warned about, arriving from the other direction. The store keeps growing.
+⭐ NOT a port problem: G1a reproduces 2.7e faithfully, defect included, and the cert PASSES because both sides compute the same wrong set (a defect both sides reproduce identically is a PASS).
+Fix in principle: give the delete the same isVector branch the download has, so it derives squares via squaresFor and removes those. Small, but a behaviour change — Fred's call whether this is a 2.7f hot-fix or a 2.8 item.
+Reachable from: MapScreens:423/491, ConvoyMapSourceScreen:542/550, via ConvoyNavigation:156.
+C1b — then remove the pre-vector corridor math (~374 lines). Corridor DOWNLOADS became the track/route AREA with the vector map, and that math is already shared as GtVectorQueue.squaresFor; the REMOVAL path was never changed and still computes the old taper/funnel corridor. Per Fred the pre-vector stores no longer exist (the conversion redownloaded corridors with the new method), so it can find nothing. Evidence: ConvoyDownloadQueue:795 (the corridor download) sits behind if (GtMapEngine.isVector) { … return } and isVector can never be false — cached ?: true, isVectorCached() = true, VECONE-2026-11-01 "the only map"; ConvoyCorridorDelete:135/191 has no such gate. ⚠ Touches ConvoyCorridorDelete (234) + corridorTiles and its taper/funnel in ConvoyTileCalculator (~140) AND the corridor-delete controls on two screens — MapScreens:423/491, ConvoyMapSourceScreen:542/550, reachable via ConvoyNavigation:156. ⛔ REVERSED 11-13 13:57-13:59 — corridorTiles is NOT ported in G1a. The earlier line here said "Ported AS IS in G1a meanwhile ... so the port stays a port", on the reasoning that the raster arm was a live fallback. Fred 13:57: "we are a vector M[a]p application now. any incomplete migration is running old code, there is no way to reach or run this code from vector maps." So the arm below if (GtMapEngine.isVector) { … return } is not a fallback to preserve, it is old code, and a port carries live code only. corridorTiles is dropped from GtTileCalc.kt together with five members that have ZERO live references at all — maxZoomForSource, stampPoint, estimateSizeMB, isWithinCeiling, tileRelPath. G1a keeps what the vector path reaches: calculateTiles, zoomRanges, maxZoomForSlot, buildTileUrl, segmentCells, tileBoundsLatLon.
+⭐ READ THIS BEFORE "RESTORING" corridorTiles TO THE PORT — the mistake made once already at 13:20 and corrected at 13:57. Dropping it does NOT mean the corridor download is unported. Download by corridor is LIVE and stays: it is the route/track-specific map download, reached from the GPX import (GtGpxImport:345/486 through the env.platform.enqueueCorridor seam, GtImportEnv:83), GroupTrackScreen:2536 and MapScreens:178/503. Its METHOD changed, not its existence: a corridor is now the track's AREA (VectorTiles.squaresFor boxes, VECDL-2026-10-31 "on the vector map a corridor is the FULL AREA of the track"), and that derivation lives in VectorTiles / GtVectorQueue.squaresFor — already certified in Cert16c ("2.7e enqueueCorridor's vector path"). G1a can shed the member because the function is ported elsewhere, not because it was abandoned.
+C2 — check the SAT tile reads. GroupTrackScreen:1146/1160/1173 still call MBTilesStore.readTile("SAT_L…"). If the pre-vector SAT stores are gone these are dead too. ⚠ RE-STATED under the CDEF-V3-2026-11-13 test. It IS referenced, and map_sources.json still configures google-hybrid as slot SAT — but a config row is not a producer. The two checks it needs: (a) can anything still ENQUEUE a SAT download? The map bar’s SAT slot went at ONESOURCEUI-2026-10-30 / VECONE-2026-11-01, and ConvoyDownloadWorker:180’s else-branch is the only path that would use it. (b) can anything still DISPLAY a SAT tile? Vector is the only map. If both are no, the store is never populated and the reads are never driven — no producer, no consumer, so it cannot be in use and it joins the list. ⛔ Until those two are written down it stays OUT of the 2,344: the total is only as good as its evidence.⭐ AND THE BIGGER LEAD THIS OPENS. If sources and default_slots are each a single leftover entry for a source that never displays, then much of G1e (MapSourceManager, 599 lines — the biggest port left in G1) may be unreachable the same way: slot assignment, the column-file override, the API keys, source switching. ⚠ Run Q4 over G1e BEFORE porting a line of it — it could shrink as G1g did. Related to the SAT-tile toast item above.
+C3 — dead functions in ConvoyTileCalculator (12 lines, CORRECTED). estimateSizeMB + isWithinCeiling + AVG_TILE_KB — a dead chain: isWithinCeiling has ZERO uses anywhere, and estimateSizeMB’s only use was isWithinCeiling.
+⛔ CORRECTED PRUNETOTAL-2026-11-13: maxZoomForSource IS NOT DEAD and has been removed from this item. It is called by calculateTiles at ConvoyTileCalculator:272 — an INTERNAL caller, which is still a caller. The original "zero call sites by a receiver-qualified search" was wrong because the search excluded the declaring file; that is the same error made three times on 11-13 and the reason Q1–Q5 say never to filter it out. It is KEPT in the G1a port, and the item is 12 lines, not ~30. Touches that file only, so this one is near-zero risk. Ported anyway in G1a to keep the OLD/NEW comparison total.
+C4 — ConvoyMarkerRenderer the CLASS is dead (~10 lines). Its JS bridge moved inline to GroupTrackScreen:904/1241; the object is built at :433 and onNodeTapped is never invoked. ⚠ The CLASS is dead, the FILE is not — LatLngPoint and TrackSegment are live at :579-580 and are deferred to G4, where their consumer lives. (Carried from the G2g inventory.)
+C5 — the raster arms below the two vector early returns (~60 lines + corridorTiles’ taper/funnel ~140). Fred 13:59: "agreed that needs to go in [the] 2.8 post-apple cleanup."
+ConvoyDownloadQueue.enqueueCorridor:787-805 and enqueueCorridorBatch:741+ each read if (GtMapEngine.isVector(context)) { … return … } and then continue into the pre-vector path. isVector can never be false (cached ?: true, isVectorCached() = true, VECONE-2026-11-01 "the only map"), so everything after those returns is unreachable, including the only remaining use of ConvoyTileCalculator.corridorTiles.
+⛔ REMOVE THE ARM, NOT THE FUNCTION. enqueueCorridor / enqueueCorridorBatch are LIVE and must keep working — see the ⭐ note in C1b for the callers. Only the code below the return goes.
+C6 — ConvoyCorridorWorker.kt (202 lines) is dead outright. The generated index shows NO reference to it anywhere outside its own file except two doc-comment mentions in ConvoyCorridorDelete.kt:10/96. Nothing enqueues it; the live downloader is ConvoyDownloadWorker, which VectorTiles.kt:37 describes as "what the worker downloads for a VEC job". ⚠ Not listed in any G1 piece, so it would otherwise be missed by the step-17 inventory entirely.
+C7 — ConvoyCorridorDelete.kt (234) + GtRemoveTrackScreen (MapScreens:409-520): delete both. Zero reachable callers as of 11-13 13:35 (see C1). The row stays listed and greyed until this pass runs, per Fred 13:35 — "we [will] deal with removing those button[s] and updating the manual sections while we are certifying the iPad processes." Removing the row means deleting "rm_track" to "Remove maps for all tracks" from LaunchModules.kt:96 and its GT_RETIRED entry in GroupTrack.kt.
+C8 — ConvoyMapSourceScreen.kt: roughly 900 of its 1058 lines are unreachable; keep the credits. selectedSlot is declared null at :82 and assigned ONLY null (:122, :181), so if (selectedSlot == null) at :156 is always true. Dead behind it: the source picker, applySource (:101, only call site :214), the API-key dialogs, and the whole migration chain — whose gate refreshSlot is also set only inside applySource (:130) and is remember, never read from disk.
+⭐ G1g FOLLOWS FROM THIS — 779 lines DELETE rather than PORT, which is a change to the approved eight-piece split in docs/GroupTrack_2.8_step17_G1_inventory_2026-11-13.html (amend it in the EOD pass). ConvoySourceMigration.begin() is the only writer of a migration record and sits inside applySource, so no record can be created; the two directory scans (inProgress() :306/:426) sit BEHIND the refreshSlot gate; and ConvoySourceClear.hasUnfinished():316 — the one function that could wake the chain independently — has no caller. So G1g is dead, not dormant: a leftover record on disk cannot resume it. ⚠ G1g was one of the two pieces the inventory flagged ⛔ careful because of the 08-08 data-loss incident.
+WHAT MUST SURVIVE: the :156 branch — "The map" and "Sources and credits". OpenMapTiles’ licence requires visible credit, and the map satisfies it independently (MapLibre’s maplibregl-ctrl-attrib, and the map page’s own "the credits at the bottom … are required" note), but this screen is where the manual sends the reader. Retitled to "Map source credits" in four places on 11-13 (SRCCREDITS-2026-11-13), and both its doors kept LIVE (CORRCREDITS-2026-11-13) after being greyed in error earlier the same hour.
+C9 — the manual, and a gap greying does not close. Three sections describe retired functions: manual#map.rm_track still presents the delete as a working two-step workflow ("Confirm, then run Download maps along tracks"), manual#menu.settings.sources embeds a screenshot of the old screen, and manual#map.sources is already credits-only and correct.
+⚠ GtMenuLine’s OVERVIEW button is NOT gated on live (GroupTrack.kt): if (GtHelp.has(overviewId)) Text("OVERVIEW", … .clickable { GtHelpView.open(overviewId) }). A greyed row therefore still opens its manual section. Either gate OVERVIEW on live, or rewrite the section — but a row cannot be retired by greying alone while its help stays one tap away. ⛔ Do NOT rename the help ids (map.sources, map.rm_track, menu.settings.sources): they key the manual anchors.
+⛔⛔ V1 — BLAST ANALYSIS over every group already certified and switched. A GATE ON DECLARING STEP 17 DONE, not a cleanup. (BLASTCHECK-2026-11-13)
+Fred, 11-13 14:09: "before we complete we should use the function ref on the things we have processed already for blast ana[l]ysis. if we['ve] missed then here we could have missed things we have put to bed already and they will not bite us until we have a broken Mac implementa[t]ion."
+WHY — the method failed three times in one hour on 11-13, all the same way. Reachability was judged with ad-hoc greps that EXCLUDED the declaring file, which hides every INTERNAL caller. Three wrong calls inside G1a alone:
+&nbsp;&nbsp;• maxZoomForSource called "0 live refs" — it is called by calculateTiles at ConvoyTileCalculator:272, a member being kept.
+&nbsp;&nbsp;• buildTileUrl called "0 live refs" — its live declaration IS ConvoyTileDownloader:54 and its use at :177 is in that same file.
+&nbsp;&nbsp;• corridorTiles called live, then dead, then live again before the xref settled it.
+And one failure the Android cert cannot catch at all: GtTileCalc.tileRelPath was written into the port with no 2.7e counterpart (decl 0 in the xref; the Android ConvoyTileDownloader.tilePath has no callers either — the one apparent hit, GroupTrackScreen:1139, is a local variable of the same name). A ported member with no OLD original has nothing to compare against, so it passes certification by never being exercised.
+⭐ THE RISK THIS GATE EXISTS FOR. Dropping a member that is actually live, or adding one that never existed, does NOT fail the Android certification — both sides agree, or the member is simply never called. It surfaces on the iPad as a missing symbol or a silent no-op, long after the group was signed off and we stopped looking. That is the "broken Mac implementation" Fred names.
+WHAT TO RUN — regenerate first (bash "$GT_CMDS/gen_xrefs_v3.sh"; the index is only as fresh as its last run), then for EVERY member of EVERY shared port already switched, three questions against docs/where_used_raw.txt read as declaration / internal / external, never with the declaring file filtered out:
+&nbsp;&nbsp;1. Fabrications — does each member of the shared port have a 2.7e declaration? decl 0 means it was invented and certifies nothing.
+&nbsp;&nbsp;2. Wrongly dropped — does each 2.7e member left OUT of a port have zero callers, counting uses inside its own declaring file?
+&nbsp;&nbsp;3. Orphaned callers — does each member KEPT have all its callers routed to the shared front door, with none still reaching the old Android implementation?
+&nbsp;&nbsp;4. ⛔ Can the branch it sits in ever execute? (BLASTQ4-2026-11-13.) Q1–Q3 are all CALLER-based and would have missed every straggler found on 11-13. Fred, 14:14: "removal followed[,] the trick is the function[s] were still embedded in functions that were still used with[out] any way to call or access them." The removal was done; what survived is dead code inside live functions. Two classes:
+&nbsp;&nbsp;&nbsp;&nbsp;• CLASS A — symbol-level dead, hidden behind a chain. corridorTiles has no live caller — but only once you know ConvoyCorridorDelete and ConvoyCorridorWorker are themselves dead. The xref finds this provided the chain is followed all the way down instead of stopping at "it has callers".
+&nbsp;&nbsp;&nbsp;&nbsp;• CLASS B — branch-level dead inside a LIVE symbol. ⛔ THE XREF CAN NEVER FIND THIS. ConvoyDownloadQueue.enqueueCorridor is live with many live callers, yet everything after if (GtMapEngine.isVector(context)) { … return … } is unreachable. The index’s unit is the SYMBOL; the dead thing is a BRANCH. No amount of caller analysis sees it.
+&nbsp;&nbsp;&nbsp;&nbsp;HOW TO RUN Q4 — cheap, because the gates are few and known. List the conditions that can never vary, then read what sits behind them: GtMapEngine.isVector() = cached ?: true, isVectorCached() = true (VECONE-2026-11-01 "the only map"), and any state declared mutableStateOf(false) that is never assigned — which is exactly how optTracks (ConvoyMapSourceScreen:233) and selectedSlot (:82) killed 779 lines of G1g without a single caller disappearing. Everything behind if (!isVector), or after an if (isVector) { … return }, is dead whatever its enclosing function’s caller count says.
+&nbsp;&nbsp;5. ⛔⛔ WRONGLY KEPT — does each member PUT INTO the port have a reachable caller? THE ONLY ONE OF THE FIVE THAT FIRES BEFORE THE PORT IS WRITTEN. (BLASTQ5-2026-11-13.) Fred, 14:19: "had we stuck to the original plan we would have converted all the ma[th], none of that code would have executed and we would have moved on leaving the mess in place."
+&nbsp;&nbsp;&nbsp;&nbsp;The hole it closes. "Port AS IS, warts and all" is the right rule for FAITHFULNESS and says nothing about NECESSITY. Followed alone on 11-13 it would have carried into grouptrack-shared: corridorTiles + stampPoint (~140 lines), estimateSizeMB + isWithinCeiling + AVG_TILE_KB, the fabricated tileRelPath, and all 779 lines of G1g. An earlier draft of GtTileCalc.kt said so in as many words — "Ported to keep the OLD/NEW comparison total".
+&nbsp;&nbsp;&nbsp;&nbsp;⛔⛔ AND IT WOULD ALL HAVE PASSED CERTIFICATION. Dead code ports perfectly: OLD and NEW agree exactly, 0 DIFF, two clean runs, signed off. The cert compares OLD against NEW, so it is a faithfulness test and NOT a necessity test — it cannot tell you a member should not exist, because a member nothing calls behaves identically on both sides. ⚠ Q1–Q4 miss it too: the member HAS a 2.7e declaration (not Q1), was not dropped (not Q2), has no callers to orphan (not Q3), and need not sit behind a constant gate (not Q4).
+&nbsp;&nbsp;&nbsp;&nbsp;⭐ Why it is worth a question of its own. The cost is not a bug — nothing breaks. It is dead code PROMOTED into the shared module, certified, carried to iOS and maintained on two platforms forever, which is strictly worse than leaving it in the Android app where it was only in one place. ⚠ So ask it while writing the port, not at the end: by then the member is certified and the evidence says it is correct.
+&nbsp;&nbsp;&nbsp;&nbsp;The rule, stated: port AS IS — but only what is REACHABLE. Faithfulness governs HOW a member is ported; reachability governs WHETHER it is.
+&nbsp;&nbsp;&nbsp;&nbsp;⭐ WHY THE BIG MOVES MISSED THIS CLASS. The convoy-app move, one map and removing the tick all certified back to CALLERS, which was right and caught everything that stopped being called. Class B never stops being called. Neutralising a feature by making its gate constant leaves the code behind the gate intact, reachable on paper and unreachable in fact — so it survives a caller-based sweep untouched. These are the stragglers.
+SCOPE — FIXED, AND IT CANNOT GROW. Fred, 14:11: "everything completed ahead of us should use the ref function by field or function. this way we limit what we have to perform the blast analysis on." (BLASTSCOPE-V3-2026-11-13.) V1 therefore covers ONLY the backlog that predates the discipline:
+&nbsp;&nbsp;• G2a–G2g — step 17 group G2, closed 11-13 before the method changed.
+&nbsp;&nbsp;• 15a / 15e, 16b / 16c, 17e1 / 17e2 — the earlier shared work the later ports depend on (GtMath, GtTileMath, GtVectorQueue, the import seams).
+&nbsp;&nbsp;• Nothing from G1a onward — those carry their own check, M1 below. ⛔ Do NOT add later groups to this list; adding them is the failure this split exists to prevent.
+⭐ Why fixing the scope matters. Left open, V1 would face all of step 17 at the end — the largest surface at the latest moment, with the least appetite for finding anything. That is how a final gate becomes a rubber stamp. A fixed backlog plus a per-group check means the end-of-step work is small and the verification is done while each group is still fresh.
+⭐⭐ M1 — THE PER-GROUP CHECK. Standing method, from G1a on. The LAST action of closing any group, after the two clean cert runs and the switch, before the commit.
+Run the three questions above over that group’s members only — fabrications, wrongly dropped, orphaned callers — and record the answers in the group’s own findings doc. A group is not closed until they are recorded; "certified and switched" is not the same as "verified complete".
+BY FIELD AND BY FUNCTION — both indexes, because a port moves both:
+&nbsp;&nbsp;• docs/where_used_raw.txt — functions, derived from function_universe_raw.txt.
+&nbsp;&nbsp;• docs/field_crossref_raw.txt — the field-level cross-reference. ⚠ A field read by code the port left behind fails exactly like a dropped function, and the function index will not show it.
+⛔ Regenerate before each group’s check (bash "$GT_CMDS/gen_xrefs_v3.sh"): the indexes are only as fresh as their last run, and a port that just switched its callers is precisely the change a stale index cannot see.
+⛔ Read decl / internal / external separately, and never filter out the declaring file — that single habit produced all three wrong calls listed above.
+⛔⛔ WHEN — THIS IS THE LAST STEP BEFORE THE 2.8a DROID BUILD. Fred, 14:10: "that has to be reviewed last[,] the last step for building a 2.8a droid app." (BLASTSEQ-V2-2026-11-13, replacing v1's looser "before step 18 starts".)
+⭐ Why last and not sooner. 2.8a is the Android release cut FROM the finished shared code, so step 17 is complete at that moment and nothing further will move. Run the analysis then and it covers ALL of it — G1 through G7 in one pass, against one regenerated index. Run it earlier and it certifies a moving target: every group closed afterwards is unchecked, and the gap is invisible because the groups it did cover all passed.
+So the order is: finish step 17 → regenerate the indexes → V1 blast analysis over every port → then cut 2.8a → then step 18 (the iPad build).
+⚠ 2.8a is the checkpoint that matters because it is the last build where a miss is cheap. Android has the tooling, the device harness and the cert runner; the iPad has none of that yet. A wrongly dropped or fabricated member that survives into 2.8a surfaces on the iPad as a missing symbol or a silent no-op, on the platform with the least tooling, after the group was signed off — which is the whole reason the certification method exists.
+⚠ T1 — TOOLING DEFECT, DIAGNOSED AND DEFERRED: the navigation xref mislabels every ListItem row. (NAVXREFLABEL-2026-11-13)
+Why it matters now: Fred, 11-13 14:21 — "the purpose of the application walk through would be more likely to surface these issues." The walkthrough is the designated instrument for REACHABILITY (the cert proves faithfulness, the xref proves completeness, only the walkthrough proves a user can get there), and docs/navigation_xref.txt — "the click tree, for the user manual" — is what produces it. It currently reports launch points pointing at the wrong screens.
+THE SYMPTOM, from the 11-13 01:08 index at 0c6774b48:
+&nbsp;&nbsp;• ConvoySettingsScreen.kt:267 | “Change Map Sources” | onNavigateToProfile() — line 267 is the PROFILE row; its real label is "Edit rider profile" (line 265).
+&nbsp;&nbsp;• ConvoySettingsScreen.kt:276 | “Send issue reports by email” | onNavigateToMapSources() — line 276 is the MAP SOURCES row; its real label is "Change Map Sources" (line 274).
+&nbsp;&nbsp;• "Edit rider profile" appears ZERO times in the whole file. Labels are shifted one row up against actions, and the first label of each run is lost.
+ROOT CAUSE — label_near() in $GT_CMDS/navxref_2026-11-09.py (called at :193 with the CLICKABLE’s position):
+&nbsp;&nbsp;win = body[pos : pos + 1600] searches FORWARD from the clickable, and returns the first match. In a Material3 ListItem the label is the FIRST argument and modifier = Modifier.clickable{} is the LAST, so the forward window runs past the closing paren into the NEXT row and takes its headline. The backward fallback (back = body[pos-400 : pos]) sits below and is never reached, because forward always matches something.
+THE FIX — in label_near, before the forward search: if the text immediately behind pos shows we are inside a ListItem( / headlineContent, take the LAST Text(…) BEFORE pos instead of the first one after it. Strictly conditional, so every other clickable is byte-identical. New filename per the golden rule (navxref_v2_….py), never a reissue.
+BLAST RADIUS — small but exactly the wrong 6: 6 of 418 clickables use the label-before-modifier shape, and they are Settings-style rows, i.e. launch points. ⚠ A walkthrough reading this file would conclude "Change Map Sources" opens the profile screen.
+VERIFICATION when it is done: regenerate, then diff — clickables must stay 418, EXACTLY 6 labels may change, nothing else. A larger diff means revert the one .py and think again. The previous output is recoverable: docs/navigation_xref_2026-11-09.txt is a dated copy beside the live file.
+⭐ WHY IT IS SAFE TO DEFER, AND WHY IT WAS. The risk of the fix itself is low — it is a GENERATOR, not the app: it cannot break the build, the ports or a certification, and its output has a dated backup. The reason to wait is focus, not danger: the tool is needed at V1 (the last step before the 2.8a Droid build), so fixing it mid-G1 buys that work nothing. ⚠ There is also one real coupling — gen_xrefs_v3.sh regenerates ALL FOUR indexes, so running it mid-port swaps out the where_used_raw.txt the port work is querying. One variable at a time.
+DO IT: at a break point, or as the first step of V1 — whichever comes first. It must be fixed BEFORE V1 runs, since V1 leans on the walkthrough.
+⭐⭐ M2 — SKIP, DON’T REMOVE. Standing rule for every remaining step-17 piece. (SKIPPOLICY-2026-11-13)
+Fred, 11-13 15:13: "do we remove or just skip as not used. I prefer to skip if it is no[t] called an[d] place the clean after the initial iPad gen."
+Two decisions that were being run together, and must not be:
+&nbsp;&nbsp;• SKIP — the member or file is NOT PORTED into grouptrack-shared. Free: it changes no Android code, nothing that ships in 2.8a moves, and there is nothing to retest. Decided at port time by M1’s five questions.
+&nbsp;&nbsp;• REMOVE — the Android code is DELETED. That is a change to the shipping app, so it carries real risk and gets its own pass. ⛔ Deferred until AFTER THE INITIAL iPAD GENERATION, by which point the iPad build exists and has shown that nothing needed it.
+⭐ Why the separation matters: skipping is a decision about the PORT; removing is a decision about the APP. A wrong skip costs a port later. A wrong removal costs a defect in a release. Keeping them apart keeps the expensive mistake out of reach.
+⚠ This supersedes the earlier "DELETE rather than PORT" wording used for G1g in C8 above. G1g is SKIPPED — not ported, not yet deleted. Its removal is a C-list item like the rest, and the C-list is already timed post-2.8/Mac, which is the same boundary Fred names here.
+So the step-17 question is never "should this be deleted?" It is "is this reachable?" — and if not, it is skipped and written down. Deletion is a separate activity with its own schedule.
+⭐⭐ WHY A SKIP IS PROVABLY SAFE — the basis of this rule. Fred, 11-13 15:14: "code not executed is b[y] definition same result under the new code." That is the whole argument, and it is not a judgment call: unexecuted code contributes nothing observable, so omitting it leaves behaviour identical BY CONSTRUCTION. Skipping unreachable code cannot change what the app does.
+Consequence 1 — A SKIP NEEDS NO CERTIFICATION RUN. Its evidence is REACHABILITY, not an OLD/NEW comparison. This is why G1b was settled in twenty minutes with the cross-reference instead of a build / deploy / cert cycle, and why a skipped piece still closes properly: the finding is written down with its call sites, and that IS the proof. ⚠ So a skip must never be recorded as "certified" — nothing was certified. It was shown to be unreachable, which is a different and stronger claim.
+Consequence 2 — CERTIFYING UNREACHABLE CODE IS VACUOUS, which is Q5 from the other direction. A dead member ported faithfully gives 0 DIFF because NEITHER SIDE RUNS. The pass carries no information. That is why "it certified clean" can never be the reason a member belongs in the port.
+⛔ THE ONE THING THIS DOES NOT LICENSE. The theorem holds only for code that is genuinely never executed, so the ENTIRE weight rests on the reachability evidence being right — and on 11-13 three reachability calls were wrong in one hour, all from greps that excluded the declaring file. The argument is sound; the input is what needs the care. Hence M1’s five questions, hence by FIELD and by FUNCTION, hence never filtering out the declaring file.
+C10 — TileCodec.kt (66 lines): SKIPPED in G1b, remove post-iPad. The WebP re-encoder is pre-vector legacy.
+G1b was inventoried as "the first declared SOCKET in step 17 — a seam contract, not a port". It turns out to be neither: there is no platform codec work left to declare a seam for, because nothing re-encodes any more.
+WHY IT IS DEAD. TileCodec is V2.6a, built to hit a "35-40% aggregate storage-reduction goal" on raster satellite/topo imagery. Under vector maps there is no such imagery, and encode returns at its first line for everything now downloaded:
+&nbsp;&nbsp;• VectorTiles.downloadSources → TileLayer("overlay", …, "pbf", …) — role overlay, so if (isOverlay) return bytes. Correct: vector tiles are protobuf and re-encoding them as an image would corrupt them.
+&nbsp;&nbsp;• ElevationTiles.downloadSources → TileLayer("overlay", …, "png", …) — role overlay. Also correct, and ElevationTiles:24 says why: DEM encodes elevation IN THE PIXEL VALUES, so "re-encoding (as satellite base images are, to WebP) would change them -- spikes and pits in 3D".
+&nbsp;&nbsp;• the only role: 'base' entries left in map_sources.json are google-hybrid and a custom-source template — the pre-vector raster sources, whose store has been empty since the conversion.
+WHERE USED (fresh index): TileCodec has exactly ONE call site, MBTilesStore:156, plus one doc comment in VectorTiles:37. compressWebp, BASE_QUALITY and OVERLAY_QUALITY have ZERO external references.
+⚠ AND A DEAD BRANCH INSIDE THE DEAD FILE (a Q4 catch): because encode returns early for overlays, val quality = if (isOverlay) OVERLAY_QUALITY else BASE_QUALITY can only ever be BASE_QUALITY, so OVERLAY_QUALITY = 100 is unused and the entire WEBP_LOSSLESS arm of compressWebp is unreachable. The file’s own header still documents "OVERLAY → LOSSLESS WebP", which the code stopped doing at [V2.6a-Q95-PASS].
+⭐ WEBP IS STILL LIVE ON THE READ SIDE — do not conclude otherwise (Fred 15:11, "we do use we[bp] on html ... screens"). It is the MAP’s HTML, not the manual’s: GroupTrackScreen:1148/1162/1175 serve WebResourceResponse("image/webp", …) under // [V2.6a-WEBP] read intercepts serve image/webp. Those are the SAT tile reads already listed as C2, and they are WebView code, so they do not port either way. ⚠ The manual’s own images are JPEG — 182 data:image/jpeg embeds, and ZERO .webp files exist anywhere in the repo or the Drive folder.
+THIRD ITEM, newly found: MBTilesStore:81 records format = "webp" in the MBTiles metadata for every tile, which no longer describes what is stored (VEC is pbf, DEM is png). A one-line correctness issue — recorded, not fixed.
+⭐⭐⭐ THE RASTER HEAD — why the prune pile exists, and the pre-port gate it produced (M3). (RASTERHEAD-2026-11-13)
+Fred, 11-13 16:44: "probably the old downloads and writes not attached to a source that would actually deliver tiles." · 16:41: "I am wondering if this is the misconception pile that we did not know what to do with."
+⭐ THE MODEL — one subsystem with its head cut off. The prune pile is not random leftovers. 9 of its 10 items are stations on the RASTER TILE PIPELINE, which still exists end to end in code while its source no longer delivers anything:
+&nbsp;&nbsp;MapSourceManager (google-hybrid, slot SAT — configured, never displayed) → ConvoyDownloadWorker:180's else-branch → ConvoyTileDownloader / corridorTiles → TileCodec.encode (role "base") → MBTilesStore (SAT, SAT_LABELS_*) → the ESRI read intercepts. Plus the operations on those stores: ConvoyCorridorWorker, ConvoyCorridorDelete, GtRemoveTrackScreen, ConvoySourceClear, ConvoySourceMigration, ConvoyMapSourceScreen. (The 10th, ConvoyMarkerRenderer, is a marker JS bridge — unrelated.)
+The source stopped delivering and everything downstream stopped running while remaining fully referenced. That is why no reference-based search found it.
+⭐ WHY NO CERTIFICATION EVER TOUCHED IT — tested, 10 for 10. Searched every Cert*.kt / GtCert*.kt in app and shared: ConvoyCorridorDelete, ConvoySourceClear, ConvoySourceMigration, ConvoyCorridorWorker, TileCodec, corridorTiles, SAT_LABELS, GtRemoveTrackScreen, ConvoyMapSourceScreen, ConvoyMarkerRenderer — ZERO certification files each. For contrast: SpatialDbManager 16, VectorTiles 4, MapSourceManager / GtVectorQueue 3, ConvoyTileCalculator 2.
+The certification work to date followed THE DATA — reads, writes, lookups, imports, queues, state. Anything participating in I/O got certified; what never matched an I/O path was set aside and never classified. It accumulated as the pile nobody knew what to do with, and today's finding is WHY it never matched: it does not run.
+⭐ So "zero certifications" is a cheap PREDICTOR of unreachability and a good first filter. ⚠ It is only a predictor: MBTilesStore also shows zero and is thoroughly live — it is exercised INDIRECTLY (the writes/reads baselines go through SpatialDbManager and the queue, never naming it). Use it to decide where to look, never as the verdict.
+⛔ THE DANGER THAT REMAINS: raster-only branches INSIDE the shared trunk. The vector pipeline shares ConvoyDownloadWorker, ConvoyTileDownloader, MBTilesStore and ConvoyDownloadQueue with the raster one, so those files are LIVE. The dead parts are branches within them — enqueueCorridor's arm, the role == "base" path, ConvoyDownloadWorker:180's else. Class B: referenced and unreachable, invisible to every tool except the constant-gate check (Q4).
+⭐ THE ENTRY TEST'S THIRD VARIANT — EXECUTED BUT UNCONSUMED. Three shapes all pass "no consumer" while failing "unreferenced":
+&nbsp;&nbsp;• MBTilesStore:81 writes a format metadata row that nothing anywhere reads.
+&nbsp;&nbsp;• GroupTrackScreen:1154/1167 intercept ESRI URLs (/Reference/World_Transportation/, /Reference/World_Boundaries_and_Places/) that nothing sends, reading SAT_LABELS_* stores that no source can create — those cache_dirs appear NOWHERE in map_sources.json. This closes C2.
+&nbsp;&nbsp;• ConvoyMapSourceScreen:79/81 call getAllSources() / getSlotAssignments() on every open and the credits branch consumes neither — of its ten bindings only selectedSlot is used, and only as the if that picks the branch. Fred, 16:50: "reachable from the display panel that sho[w]s open map source licensing. somebody just repurposed the store." The credits are HARDCODED strings; the source-registry state it still initialises is vestigial.
+⚠ A reference-based test catches none of these. "It cannot be in use" catches all three.
+⭐⭐ M3 — THE PRE-PORT ELIGIBILITY GATE. Run BEFORE porting a piece, not at its close.
+Fred, 16:41: "I do not know how that was even identified as needing certification." — and the honest answer is that nothing identified it. The G1 inventory was built by FUNCTIONAL GROUPING ("map store and map sources"), measured by line count, with everything assumed live. No reachability test was applied to any of the 13 files. That is why it contained two pieces that were never port work and called one of them "the first declared SOCKET".
+So the port list must be DERIVED from reachability, not from a file listing. M1 stays as the closing check (Q3, after the switch); M3 is the opening one, and it is cheap — index queries and reading, no builds, no deploys, no cert cycles. The biggest file in G1 took about ten minutes.
+THE QUESTION, per member — mechanical, not a judgement call: is its producer/consumer on the VECTOR path, the RASTER path, or BOTH? Raster only → cannot execute → C. Vector or shared trunk → port and certify.
+THE ROW, per member: what · referenced (decl / internal / external, never filtering the declaring file) · producer (what changes it) · consumer (what uses it) · verdict. For a SKIP that row IS the justification — it is what C2 lacked for a month.
+⚠ Give it a fixed output and a stopping rule. It is open-ended reading, and 11-13 showed how fast that becomes an all-day diversion.
+⭐ THE FOUR REMAINING G1 VERDICTS — run 11-13 16:50-17:00
+PieceImpacts executing code?Verdict
+G1d MapStateStore + ConvoyMapRecipeYes, heavily — checkedIdsFor 23 refs, rideKey 12, readMap 8, all from GroupTrackScreen; the recipe feeds MapConversion / EmergencyRestorePORT. Dead and trivial: ViewState, writeDaily, KEEP_DAYS
+G1e MapSourceManagerPartly. Live core: TileLayer (the type VectorTiles/ElevationTiles return), init, setActive, getOverlayJson, getSlotSources, getDownloadSources, activeSourceKeyPORT THE CORE ONLY. Dead head: 8 public functions with ZERO external refs (getOnlineUrl, getLocalUrl, getOverlayLayers, getAllOverlayLayers, getActiveOnlineUrl, getActiveLocalUrl, resolveUrl, terminatedColumns) + updateSlotSource, getApiKey/saveApiKey, isSourceAvailable, getAllSources, getSlotAssignments — all reached only from unreachable screen code. ⭐ And the column-file WRITE chain behind updateSlotSource can never run; the READ path at init still does
+G1f MBTilesStoreYes — insertTile, readTile, tilesInBounds, deleteSource (16), closeAll (13), the count/zoom helpersPORT. ⚠ Two members' only callers are DEAD: countTiles ← ConvoyCorridorDelete:213, deleteTiles ← :140. They become zero-caller AFTER the prune — so prune first, then the port surface shrinks
+G1h GroupTrackConversionYes — the authority gate calls isComplete, isFreshInstall, recordFreshInstall, inspectMaps, moveOutMaps, copyMaps, renameSources; ConvoySettingsScreen:106 calls readRecordPORT — but see the CODE RULE 3 question below
+⚠ THE HONEST HEADLINE: the remaining PORT work does not collapse. 2,257 → roughly 1,900. The raster-head insight cut the PRUNE pile, not the port pile, because the port pile is the shared trunk — which is exactly why it survived.
+⛔ THE OPEN QUESTION FOR FRED — G1h and CODE RULE 3 (664 lines). GroupTrackConversion is the ONE-TIME SAF storage conversion. It is reachable, so M3 says port it — but CODE RULE 3 says one-time launch code carries no marker and WE remove it when the next release is cut. If every install has converted, 664 lines may be removable rather than portable. That is a release decision, not a tooling answer, and it is the single biggest open item on the remaining list.
+⚠ AND THE WARNING THAT MATTERS MOST FOR G3–G7. The group list was produced by the same functional-grouping criterion that put two dead pieces inside G1, and it has never been reachability-tested. G3 (trail rules / land 2,559) · G4 (1,649) · G5 (pure ride logic 1,665) · G6 (exports / sharing 900) · G7 (server and catalogs 994) = 7,767 lines, none of it examined. ⭐ Run M3 over each BEFORE porting it. Some fraction will not need porting either, and finding that out costs index queries, while not finding it out costs a port, a vacuous certification, and maintenance on two platforms.
+⭐⭐⭐ THE RESTRUCTURED TASK LIST — BY SEAM, NOT BY FILE. The gate before 2.8a can be built as a testable lab. (SEAMTASKS-2026-11-13)
+Fred, 11-13 17:01: "organize like items for certification so we [ad]dress in the same pass the io items etc." · 17:04: "detailing the function[] calls to be certified in that seam … we will end up with a day or two of seam work certification that must be completed before the android refactored version can be built and deployed as a testable lab."
+WHY BY SEAM. The seam is the expensive part; the members around it are cheap once it exists. One seam design serves many members — and the alternative is what happened on 11-13, where G1c built GtMapSpecEnv.readAsset and G1e will need the same thing again. Cross-device risk also CLUSTERS by seam: SQLite differs between the platforms, file paths differ, clocks differ. Grouping by seam puts that risk in one pass with one harness instead of spreading it thin.
+⭐⭐⭐ THE THREE LEVELS. We have been conflating L2 with L3 and paying L2 prices for L3 work. (SEAMLEVELS-2026-11-13)
+Fred, 11-13 17:08: "if we group the seam we then have io reads and writes form 30 processes, the semantics read and write function we are certifying that we can read or write doesn't matter where or how many the method changes and the method is certified for all activities for that entity on the seam."
+Fred, 11-13 17:13: "we keep conflating functional certification for a specific task or activity (combining many seam certified activities) with seam certfications. can I read or write, does this method to access or write dat exist or do I need to add a new method."
+levelthe question it answersunitcosthow often
+L1 &mdash; SEAM EXISTENCEDoes a method to read or write this entity exist in the shared model, or must one be added?the entityminutes &mdash; an index queryonce per entity, at port time
+L2 &mdash; SEAM CERTIFICATIONDoes that method read and write identically on both platforms?the methodsubstantial &mdash; this is the real workONCE. Every caller inherits it.
+L3 &mdash; FUNCTIONAL CERTIFICATIONDoes an activity that combines already-certified seam operations reach the same result?the activity / the membercheap &mdash; the seam is scriptedone per activity
+L2 IS CERTIFIED ONCE FOR ALL CALLERS — and we have already done it twice, by accident:
+GtTileMath: lon2tile / lat2tile certified once at 1,938,346 values. G1a's own findings doc then states that "lon2tile/lat2tile are NOT under test" &mdash; the caller inherited the seam and nobody re-certified it.
+GtHkDb (G2f), in its own header: "the statement a side DECIDED to run is a DECISION and is compared. Whether SQLite would honour it is a different certification." That sentence is the L2/L3 split, written down three days before we named it.
+What the conflation costs. MBTilesStore's 18 functions read as 18 certifications. They are one L2 (can the shared model read and write a tile store at all) plus 18 cheap L3s (does each call pick the same rows and build the same statement). The same correction applies to G3&ndash;G7's 7,767 lines: those are mostly callers of a handful of seams. The step-17 estimate scales with SEAM COUNT, not line count.
+⭐ L1 ANSWERED FOR EVERY REMAINING G1 ITEM (measured 11-13 17:15 against the 2.7e sources).
+itemlinesplatform calls measuredseams it needsdo they exist?verdict
+G1d MapStateStore + ConvoyMapRecipe390JSON 29 &middot; File 7 &middot; Context 7 &middot; clock 1 &middot; SQLite 0 &middot; SAF 0file read/write &middot; JSON &middot; clockGtStorage+okio &middot; GtOrgJson &middot; GtTime &mdash; ALL EXISTNO NEW SEAM. L3 only.
+G1e MapSourceManager599JSON 25 &middot; File 5 &middot; Context 11 &middot; SQLite 0 &middot; SAF 0 &middot; SharedPreferences 0file read/write &middot; JSON &middot; httpGtStorage+okio &middot; GtOrgJson &middot; GtNetworks &mdash; ALL EXISTNO NEW SEAM. L3 only. ⚠ CORRECTION: the G1 inventory called this "a settings socket". It uses zero SharedPreferences. It is a JSON + file item.
+G1f MBTilesStore605SQLite 32 &middot; File 3 &middot; Context 0 &middot; JSON 0 &middot; clock 0SQLite open + statementgtOpenDatabase (db/GtDb.kt) over androidx.sqlite SQLiteConnection &mdash; EXISTSSEAM EXISTS. One L2 pass on the tile-store schema, then 18 L3s.
+G1h GroupTrackConversion663SAF/DocumentFile 19 &middot; Context 15 &middot; clock 11 &middot; JSON 8 &middot; File 6SAF document tree &middot; file &middot; clock &middot; JSONthe last three exist; SAF HAS NO SHARED SEAM — the only new socket in all of G1NEW SEAM NEEDED &mdash; and this is the item CODE RULE 3 may DELETE instead of port. Answer that question BEFORE building the socket.
+So three of the four remaining G1 items need no new seam method at all, and the one that does is the one that may not need porting. Fred's 17:09 read ("half the entities already exist in GtHkDb") was conservative.
+⭐ THE EXISTING SEAM SURFACE — CHECK THIS BEFORE ADDING A SOCKET. commonMain public fun/expect counts, 11-13:
+GtSettings 42 (socket + GtSession) &middot; GtWrite 32 &middot; GtRead 28 &middot; GtHkEnv 26 &middot; GtOrgJson 20 &middot; GtTime 19 &middot; GtSpatial 18 &middot; GtImportDb 16 &middot; GtNetworks 16 &middot; GtStorage 11 &middot; GtDbAuditPort 4 &middot; GtSchema 3 &middot; gtOpenDatabase 1.
+236 seam functions are already in service. An L1 question is answered from this list, not from a new design.
+⚠ WHAT THIS DOES NOT CHANGE. An L3 pass is cheap only once its L2 holds. A member whose seam is uncertified is not cheap, and a member with no reachable caller is neither: it goes to the C list, because an unused method cannot be functionally certified at all (11-13 16:58). The lists below are L3 sets; each seam's own L2 is named under its Contract.
+⭐⭐⭐ L4 — THE PROCESS WALKTHROUGH, DRIVEN BY THE QUICK START. The last gate before 2.8a is a testable lab. (WALKTHROUGH-2026-11-13)
+Fred, 11-13 17:22: "every process will have to be rectified as a process on the droid version near and start over. using the quickstart manual for the sequence so we exercise that manuals correctness"
+WHAT IT IS. Once the refactored Android build exists, every process is re-certified as a process on the Droid, end to end, in the order the Quick Start gives. One pass produces two certifications:
+the refactored app does the job — which L1/L2/L3 cannot prove. L3 certifies a member; a process combines many members across many seams, and nothing below L4 exercises the combination.
+the Quick Start is correct — if a step does not match the app, one of the two is wrong, and the walkthrough tells you which. The manual is tested by being used as the script.
+WHY IT IS NOT REDUNDANT WITH L1–L3. Fred, 11-13: "the purpose of the application walk through would be more likely to surface these issues" — the issues being code still in line that never executes. An L3 cert compares OLD against NEW for a member; it is blind to a process that no longer reaches that member at all. Only the walkthrough sees that. L4 is therefore where M1 Q3 (orphaned callers) gets answered at the process level, not just at the switch.
+⭐ THE SCRIPT (measured 11-13 17:20). GroupTrack_QuickStart_2.7f_2026-11-11_v99.html — 10 tasks, 38 numbered steps, 45 links into the User Manual. Those manual links are the map from task → screen → the seams that step exercises, so the walkthrough is traceable back to the L2/L3 work without inventing a new index.
+#taskstepsat the 2.8a gate
+1First start5bench — and it must be a FRESH INSTALL ("start over", 17:22)
+2Set up the map4bench
+3Plan a route4bench
+4Get the maps before you lose signal4bench
+5Create a ride and send it3bench
+6Get a ride someone sent you3bench
+7Ride on your own4bench
+8Ride as a group4⚠ CANNOT BE WALKED IN NEW HAMPSHIRE — DEFERS TO JANUARY
+9After the ride3bench
+10Something wrong?4bench
+⚠ THE TASK 8 CONSTRAINT, STATED NOW SO IT IS NOT DISCOVERED IN JANUARY. Group riding needs real distance between carts. There are no ATVs in New Hampshire and no way to space carts apart until Utah in January. Therefore:
+the 2.8a lab gate is tasks 1–7, 9, 10 — 34 of the 38 steps, walked on the bench;
+task 8 (4 steps) defers to the January field test — the same constraint that already defers G8. One trip closes both, so plan them as one trip, not two;
+task 8 stays OPEN with its reason recorded. It is never marked complete by reasoning about it — that is exactly the "nominal pass" this project has already rejected once today (11-13 16:58).
+ORDER RULE. The Quick Start's order is the walkthrough order — do not reorder it for convenience, because the order is itself part of what is being certified. Task 1 being a fresh install matters beyond tidiness: a fresh install and a converted install take different startup paths, and what a fresh install actually needs is the evidence that answers CODE RULE 3 on G1h (GroupTrackConversion).
+IF THE MANUAL IS WRONG, it gets a NEW file (…_v100) under the GOLDEN RULE — never a re-issue of v99 — and the defect is recorded with the step number that found it.
+WHERE L4 SITS: after the blast analysis (V1) and after the 2.8a build. It is the last gate before the build may be called a testable lab.
+⭐⭐⭐ THE GATE ORDERING — NO iPAD BUILD UNTIL ANDROID IS CERTIFIED AS A WORKING APP. (IPADGATE-2026-11-13)
+Fred, 11-13 17:24: "we cannot proceed with a iPad build until we certify that all functions correctly still on the android. that all our methods continue to support a fully functioning app."
+THE ORDER IS NOW FIXED:
+&nbsp;&nbsp;L1/L2/L3 per item &nbsp;→&nbsp; the switches &nbsp;→&nbsp; V1 blast analysis &nbsp;→&nbsp; 2.8a Droid build &nbsp;→&nbsp; L4 process walkthrough &nbsp;→&nbsp; ⛔ THE GATE &nbsp;→&nbsp; the first iPad generation.
+WHY THE ORDER IS THIS WAY, AND NOT NEGOTIABLE. The shared module is the same code on both platforms. An uncertified Android app does not merely risk Android — it means we do not know what the shared methods do, and an iPad built on top of that inherits a defect we cannot localise, with a second platform's own differences layered over it. Certifying Android first is what makes an iPad failure attributable: anything that then breaks on iPad is the iPad's platform half, because the shared half is already known good.
+WHAT THE GATE BLOCKS: the first iPad generation, and anything built on it.
+WHAT IT DOES NOT BLOCK: the C-list removals. Those still land after the first iPad generation, exactly as decided at 15:13 ("I prefer to skip if it is no called an place the clean after the initial iPad gen"). The two decisions do not collide, and the reason is Fred's own theorem: code that does not execute returns the same result under the new code, so ~2,344 lines of unreachable Android code sitting in the 2.8a build cannot affect what the L4 walkthrough observes. Dead code does not fail a walkthrough. Missing code does.
+⛔ THE DECISION THIS GATE FORCES — OPEN, FOR FRED, AND IT MOVES THE iPAD DATE.
+"All functions correctly" and task 8 (Ride as a group) cannot both be satisfied before January: group riding needs real distance between carts, and there are no ATVs in New Hampshire. So the gate resolves one of two ways, and they are weeks apart:
+optionwhat it meanscost
+A — strictTask 8 is part of "all functions correctly". The gate does not open until the January Utah field test passes.The first iPad generation waits until January. Nothing is taken on faith. G8 and task 8 close on the same trip.
+B — carved outTasks 1–7, 9, 10 (34 of 38 steps) open the gate. Task 8 is recorded OPEN with its reason and closes in January as a field item against both the Droid and the iPad.iPad generation can start weeks earlier. The risk accepted is explicit and bounded: group tracking is uncertified on either platform until January, and that is the feature the app is named for.
+Not recorded as decided. Claude's read, offered and not acted on: B, because the shared-module risk task 8 would catch is the mesh/transport path, which is G8 — already deferred to January for the identical reason, so A pays a month to re-learn what G8's deferral already tells us. But the choice is Fred's, and until he states it the gate is treated as A (strict), because that is the reading that cannot produce a false pass.
+⭐⭐⭐ RESEQUENCED — THE PRUNE MOVES BEFORE THE iPAD BUILD. This SUPERSEDES the 15:13 decision. (RESEQ-2026-11-13)
+Fred, 11-13 17:27: "in terms of sequencing I think our discovery and task list lends itself [t]o another change we build and decertify the droid. then we work the c list down and prune and clean the droid code base continually rectifying. then we progre[ss] to the iPad build."
+⚠ WHAT THIS REVERSES. At 15:13 Fred decided: "I prefer to skip if it is no called an place the clean after the initial iPad gen." The 17:27 sequence moves the cleanup before the iPad generation instead. 17:27 governs. The 15:13 decision stands only in its other half, which is unchanged and still correct: SKIP at port time is free; REMOVE is a separate, later act (see M2).
+⚠ CLAUDE'S FIRST RATIONALE FOR THIS ORDER WAS WRONG, AND IS STRUCK. (RESEQFIX2-2026-11-13)
+Claude argued the order was driven by asymmetric certification cost — that pruning after the iPad generation would make each removal a "two-platform change re-certified twice". Fred, 11-13 17:35: "I disagree with your assessment and soon as we gen a droid version and certify 2.8 version for release we are back to one codebase for android and Mac. removing code remove from both implementations. I just do not like ginning and correcting code that we do not know if it is even used."
+Fred is right, and the measurement makes it worse for the original argument:
+One codebase. Once 2.8 is certified for release, Android and Mac share grouptrack-shared. A removal there is ONE edit that removes from both implementations — not a change applied twice. That is a property of the architecture working, not a cost.
+And this pile is not even shared code. Measured 11-13 17:36: every prune-pile file lives under app/src/main/java/com/geeksville/mesh/convoy/, and they are two different kinds — do not read the list as "delete these files" (PRUNEPRECISION-2026-11-13):&nbsp;&nbsp;WHOLE-FILE deletions (1,047 lines): ConvoySourceClear 317 &middot; ConvoyCorridorDelete 234 &middot; ConvoySourceMigration 228 &middot; ConvoyCorridorWorker 202 &middot; TileCodec 66.&nbsp;&nbsp;IN-FILE removals only — the file STAYS (1,297 lines): ConvoyMapSourceScreen's dead branch 877 (the file is the live map-source credits screen) &middot; ConvoyTileDownloader's corridorTiles+stampPoint 147 &middot; the raster arms 138 &middot; GtRemoveTrackScreen 112 &middot; the estimateSizeMB chain 12 &middot; ConvoyMarkerRenderer ~10 &middot; MBTilesStore:81's metadata write — ONE line. MBTilesStore itself is G1f, a PORT target, not a deletion. Zero prune candidates are in grouptrack-shared (the only matches there are header prose reading "NOT PORTED"). Because they are SKIPPED, they are never ported, so the iPad never receives them at any point — removal timing has no bearing on the iPad, not "half the cost".
+⭐ THE ACTUAL REASON FOR THE ORDER — Fred's, and it is a better one. Do not gin and correct code we do not know is even used. The ordering is not about what a removal costs; removal is cheap whenever it happens. It is about not spending porting, fixing and certifying effort on code of unknown utility. That is the same principle as M3, the pre-port eligibility gate and "port AS IS — but only what is REACHABLE": the expensive mistake is working on dead code, not deleting it late.
+WHAT THIS CHANGES IN THE PLAN: nothing in the sequence — P1→P4 stands as Fred set it at 17:27. What it changes is what must be front-loaded. Since removal is cheap at any time, the thing that genuinely has to come early is the knowledge of whether code is used — which is the instrumented walkthrough in P2 below, not the deletions in P3. Front-load the determination; the removals can follow at any convenient point.
+⭐ THE PHASES, AS RESEQUENCED.
+phasewhat happenscertification that closes it
+P1Finish the remaining L1/L2/L3 work — G1d, G1e, G1f, and G1h only if CODE RULE 3 keeps it. Then the switches (G1a and G1c are still owed), then V1 blast analysis.per item: 0 DIFF both devices, twice
+P2Build 2.8a Droid and treat the whole app as uncertified — the refactored app is a new app; nothing 2.7e earned carries over to it as a process.L4 walkthrough, Quick Start order, 34 of 38 steps on the bench
+P3Work the C list down in keystone order, pruning the Droid codebase, re-certifying after each removal.the affected L4 tasks re-run per removal — not the full L1–L3 set (see the rule below)
+P4The first iPad generation, onto a pruned and certified shared model.its own L2/L3 per seam on the iPad half
+THE P3 RE-CERTIFICATION RULE. Removing unreachable code cannot change an L2 or an L3 result — by Fred's own theorem, code that does not execute returns the same result. So P3 does not re-run the cert suites. What P3 re-runs is the L4 walkthrough, because the walkthrough is the only thing that can catch the one failure mode that matters here: something we judged unreachable turning out to be reachable. A prune that breaks a walkthrough step has proved the reachability analysis wrong, and that is exactly what we want it to be able to prove. Prune in keystone order — ConvoyMapSourceScreen's dead branch is the only caller of three deletable files, so two surgical edits unlock 1,768 of the 2,344 lines (75%) — and walk the affected tasks after each keystone, not after all of them.
+⭐⭐⭐ P3's INTERNAL ORDER — SORT THE PRUNE QUEUE BY EXECUTION, NOT BY SIZE. (P3EXEC-2026-11-13)
+Fred, 11-13 17:32: "before we remove we will identify the if the process is even executed now. something not executing is easy t remove. leaving th[e] execut[i]ng items to the back of the process."
+This is already the right sort, because the C list is not one kind of thing. The entry test found three variants, and they carry three different removal risks. Sorting by line count or by keystone alone mixes them; sorting by execution separates them:
+ordervariantdoes it execute?what removal costs
+1st(a) no caller — whole files, orphaned membersNo. Nothing reaches it.Nearly free. Deleting code that cannot run cannot change behaviour. These are the "easy to remove" items.
+2nd(b) branch-dead inside a live symbol — Class BThe symbol does; the branch does not.Medium — and the risk is the EDIT, not the code. The branch cannot run, but the scalpel is going into live code, so a mis-aimed cut breaks something that does run.
+3rd / LAST(c) executed but unconsumedYES. It runs on every pass.Highest — removal changes what executes. Fewer writes, less work, different timing. Known members: MBTilesStore.initSchema's metadata writes; ConvoyMapSourceScreen:79/:81's getAllSources / getSlotAssignments. Back of the queue, exactly as Fred says.
+HOW KEYSTONE ORDER AND EXECUTION ORDER RECONCILE — they barely conflict. The keystone edit (ConvoyMapSourceScreen's dead branch) is a variant (b), so strict execution order would put it second. But what it unlocks — three whole files — is variant (a), the free kind. So the real sequence is: prove the keystone branch dead → two surgical edits → delete the three now-orphaned files (free) → the rest of (a) → the rest of (b) → (c) last. One deliberate variant-(b) cut up front buys 75% of the queue as variant (a).
+⚠ AND ONE ITEM IS NOT YET SORTABLE. MapSourceManager.getSourceByKey has 6 callers, three of them in dead files. Its live callers must be separated from its dead ones before it is classified into any variant. It is not in the queue until that is done.
+⭐ HOW TO ESTABLISH "IS IT EVEN EXECUTED NOW" — MEASURE IT, DO NOT INFER IT.
+Static analysis is what we have been using, and on 11-13 it was wrong three times in one day (maxZoomForSource, buildTileUrl, corridorTiles — all from greps that excluded the declaring file and hid internal callers). It is necessary but it is not evidence of execution.
+The measured version is available for free, because P2 already runs the walkthrough:
+Instrument every prune candidate in the 2.8a build — one log line on entry, per candidate. Under CODE RULE 3 this needs no marker and no version check; it comes out when the next release is cut.
+Run the L4 walkthrough (34 of 38 steps, Quick Start order) with the log capturing.
+Anything never logged is confirmed not-executed BY OBSERVATION, across every process the app actually performs — not by an index query. Anything that does log is reclassified on the spot, and if it was in the C list the entry test was wrong about it.
+What this buys: P3 starts with measured execution data instead of inferred, the three-wrong-calls failure mode of 11-13 cannot repeat inside the prune, and the log is a durable artifact — the evidence for each removal is a line of captured output, not a paragraph of reasoning. It also catches the opposite error: a candidate that logs during a step we assumed it had nothing to do with.
+⚠ What it does NOT prove: that a never-logged item is unreachable forever — only that none of the 34 walked steps reached it. Task 8 is not walked until January, so any candidate touched only by group riding stays unproven and must not be removed on walkthrough silence alone. Static evidence plus the January field test closes those; the log closes the rest.
+⭐ WHAT THIS DOES TO THE TASK-8 / JANUARY QUESTION — it largely dissolves it.
+P3 is real calendar work: 2,344 lines, keystone-ordered, each removal followed by a walkthrough pass. That phase plausibly runs into January on its own. If it does, option A (strict) costs little or nothing, because the January field test lands inside a window the prune was going to occupy anyway. The resequencing is therefore also the cheapest way to buy option A. Do not decide A vs B until P2 is done  and P3's real pace is known — the decision gets cheaper by waiting, which is rare enough to be worth saying.
+⚠ ONE READING TO CONFIRM. "build and decertify the droid" is read here as build 2.8a and treat it as uncertified — the P2 row above. The other possible reading, "build and re-certify", produces the same work in the same order, so nothing downstream depends on which was meant. Flagged rather than silently resolved.
+⭐ SEAM D — NO SEAM AT ALL. Do this first (it proves the pipe, as G1a did).
+Decision certs (L3): MapSourceManager.TileLayer · setActive · getSlotSources · getDownloadSources · activeSourceKey · MapStateStore's data classes (TypeState, PanelBoxes, BBox, FitArtifact, RouteState, MapSnapshot) · rideKey · checkedIdsFor
+Contract: none. Pure data and in-memory lookups. Cheapest certs in the remaining set.
+⭐ SEAM A — THE TILE STORE (SQLite). MBTilesStore, 605 lines, 32 SQLite calls, zero Context, zero JSON, zero clock — a pure database layer.
+Decision certs (L3) — these calls, with the seam scripted: insertTile · readTile · hasTile · countInTileRange · tileExtentAtZoom · sourceInfo · tilesInBounds · scanKeys · zoomLevelsPresent · countAtZoom · xyAtZoom · storeExists · countByParent · countTileRange · deleteTileRange · reclaimableBytes · deleteSource · closeAll
+Contract: a GtTileStore socket. ⭐ The pattern already exists — G2f's GtHkDb, where the statement a side DECIDED to run is the compared decision and whether SQLite would honour it is a different certification. So the SQL text and the key arithmetic port and get certified; execution stays platform. iOS brings its own SQLite binding.
+⚠ Certify on COPIES, never the live stores (the inventory's own warning for this piece).
+⭐ SEAM B — FILE-BACKED JSON STATE + CLOCK. Three files, one seam design.
+Decision certs (L3) — these calls, with the seam scripted: MapStateStore.saveMap · readMap · deleteMap · saveView · readView — and ConvoyMapRecipe.writeDailyAsync · writeFresh · CONVERSION — and MapSourceManager.init · getOverlayJson
+Contract: file read/write + JSON + a clock. ⭐ Mostly exists: readAsset (G1c's GtMapSpecEnv, and GtImportEnv:81), okio FileSystem, GtOrgJson (G2g). ⛔ THE CLOCK IS THE ONE TO DESIGN — ConvoyMapRecipe has a date in its filename and today() in its logic, and G2f's RULE 1 is that now() must be SCRIPTED on both sides or a run that straddles midnight flips a decision.
+⭐ SEAM C — SAF / STORAGE CONVERSION. GroupTrackConversion, 663 lines, 26 DocumentFile/Uri/ContentResolver hits, 15 Context, 11 clock — the heaviest Android tie in G1, and iOS has no equivalent file model.
+Decision certs (L3) — these calls, with the seam scripted: isComplete · isFreshInstall · recordFreshInstall · readRecord · inspectMaps · moveOutMaps · copyMaps · renameSources
+Contract: a new storage socket. Only the record FORMAT, the completion logic and the exclusion rules port; the file movement is platform.
+⛔ DO NOT START SEAM C UNTIL THE CODE RULE 3 QUESTION IS ANSWERED — this is the one-time SAF conversion. If every install has converted, 664 lines come out rather than go over, and the whole seam is unnecessary. That is a release decision for Fred and it is the cheapest possible win on the remaining list.
+⭐⭐ MOVED TO C — the unused members, with the where-used that supports it (per M3, the row IS the justification)
+MemberWhere usedWhy it cannot be in use
+MapSourceManager.getOnlineUrl, getLocalUrl, getOverlayLayers, getAllOverlayLayers, getActiveOnlineUrl, getActiveLocalUrl, resolveUrl, terminatedColumnsZERO external references (fresh index, 20:04)the raster URL-resolution surface; the vector map builds its URLs from the TileJSON instead
+MapSourceManager.updateSlotSourceConvoyMapSourceScreen:118 — only callerinside applySource, which is unreachable (selectedSlot never set non-null)
+MapSourceManager.getApiKey, saveApiKeyConvoyMapSourceScreen:739, :742 — only callersApiKeyDialog, inside the dead branch
+MapSourceManager.isSourceAvailableConvoyMapSourceScreen:205 — only callerinside the dead else-branch
+MapSourceManager.getAllSources, getSlotAssignmentsConvoyMapSourceScreen:79, :81⭐ EXECUTED BUT UNCONSUMED — they run on every open, and of the composable's ten bindings the credits branch uses only selectedSlot, as the if that selects it. The credits are hardcoded strings
+the column-file WRITE chain: writeColumnFile, saveExternalJson, readTerminatedreached only via updateSlotSourcenothing can change a slot's source, so nothing writes the column file. ⚠ The READ path at init still runs — do not remove that
+MBTilesStore.countTiles, deleteTilesConvoyCorridorDelete:213, :140 — only callersboth in a file with zero reachable callers. ⚠ They become zero-caller only AFTER the prune, so prune first
+MBTilesStore.initSchema's metadata writesname/format/scheme rows read by NOTHING, anywhereexecuted, output unconsumed — the third variant of the entry test
+GroupTrackConversion.RECORD_NAME, StepResult, EXT_SUFFIXzero external referencesleftovers of the record format
+⚠ MapSourceManager.getSourceByKey6 callers, THREE in dead files: ConvoyCorridorWorker:108, ConvoyCorridorDelete:123, :206UNRESOLVED — its live callers must be separated from its dead ones before it is classified. Do not move it on this evidence
+⛔⛔ THE GATE — what must be complete before 2.8a is built and deployed as a testable lab
+Fred's estimate, 17:04: "a day or two of seam work certification." On the evidence that is the right order of magnitude for G1, and it is contingent on three things:
+&nbsp;&nbsp;1. Seams D → B → A certified (D proves the pipe, B shares one design across three files, A is the socket). Seam C only if CODE RULE 3 says the conversion stays.
+&nbsp;&nbsp;2. The two outstanding SWITCHES — G1a and G1c are certified but NOT switched; the Android callers still use ConvoyTileCalculator, VectorTiles and ElevationTiles. The switch is what answers M1 Q3.
+&nbsp;&nbsp;3. V1, the blast analysis — the LAST step before the 2.8a build, over the pre-11-13 backlog (see #blast-check).
+⚠ And it is G1 only. G3–G7 are 7,767 lines that have never been reachability-tested by the same criterion that put two dead pieces inside G1. Run M3 over each before porting. The "day or two" is the gate for G1's seams, not for step 17.
 📋 Open items carried (2.8) — the full list is the 2.8 CHECKLIST above
 The GtRx.WS sweep (30 uses of \s: GtGpxParse 10, GtImportConverter 19, GtRoute 1, GtGeom.parse 1) + re-cert of parse15b, geom and the route code — one pass.
 Geom B — the Android hash/WKT copies onto GtGeom, area by area.

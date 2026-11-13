@@ -1214,6 +1214,7 @@ ui/connections/components/ConnectionsNavIcon.kt:49:import org.meshtastic.core.ui
 ui/connections/components/ConnectionsNavIcon.kt:53:    modifier: Modifier = Modifier,
 ui/connections/components/ConnectionsNavIcon.kt:64:    Crossfade(targetState = backgroundIcon, label = "ConnectionIcon") {
 ui/connections/components/ConnectionsNavIcon.kt:74:                    val badgeSize = size.width * .45f
+ui/connections/components/ConnectionsNavIcon.kt:75:                    with(it) { draw(Size(badgeSize, badgeSize), colorFilter = ColorFilter.tint(tint)) }
 ui/connections/components/ConnectionsNavIcon.kt:83:private fun getTint(connectionState: ConnectionState): Color = when (connectionState) {
 ui/connections/components/ConnectionsNavIcon.kt:91:    override val values: Sequence<ConnectionState> =
 ui/connections/components/ConnectionsNavIcon.kt:117:    override val values: Sequence<DeviceType> = sequenceOf(DeviceType.BLE, DeviceType.TCP, DeviceType.USB)
@@ -2147,6 +2148,7 @@ repository/radio/NordicBleInterface.kt:381:            connectionScope.launch {
 repository/radio/NordicBleInterface.kt:385:                            if (characteristic.properties.contains(CharacteristicProperty.WRITE_WITHOUT_RESPONSE)) {
 repository/radio/NordicBleInterface.kt:391:                        retryBleOperation(tag = address) { characteristic.write(p, writeType = writeType) }
 repository/radio/NordicBleInterface.kt:394:                        bytesSent += p.size
+repository/radio/NordicBleInterface.kt:397:                                "to toRadioCharacteristic with $writeType - " +
 repository/radio/NordicBleInterface.kt:398:                                "${p.size} bytes (Total TX: $bytesSent bytes)"
 repository/radio/NordicBleInterface.kt:406:                        Logger.w(e) { "[$address] Attribute invalidated during write, clearing characteristics" }
 repository/radio/NordicBleInterface.kt:410:                            "[$address] Failed to write packet to toRadioCharacteristic after " +
@@ -5094,6 +5096,7 @@ grouptrack/GroupTrack.kt:40: * Fred 09:30: "remove everything from the convoy sc
 grouptrack/GroupTrack.kt:41: * items and launch points as placeholders, then attach the placeholders to the new scaffolding." Fred 09:33: "a module for each
 grouptrack/GroupTrack.kt:42: * launch point; items move as modules called into the scaffolding"; the last step retires ConvoyScreen.kt and GroupTrack.kt
 grouptrack/GroupTrack.kt:43: * becomes the start screen.
+grouptrack/GroupTrack.kt:45: * FOR NOW the map, recording, radio and dialogs still run in ConvoyScreen; with Settings > Layout = ONE MAP it hides its own
 grouptrack/GroupTrack.kt:47: *   top centre  -- GPS / zoom information, RECORD under it
 grouptrack/GroupTrack.kt:48: *   left        -- MENU, then zoom + / -
 grouptrack/GroupTrack.kt:49: *   right       -- MODE (ANDROID ONLY / GROUP), INTERNET, KEY, FILTER, CENTRE ON ME
@@ -5537,6 +5540,60 @@ grouptrack/GtCert17g2g.kt:43:            if (o == n) { same++; w.write("G2G\t$k\
 grouptrack/GtCert17g2g.kt:44:            else { diff++; w.write("G2G\t$k\tDIFF\t${esc(o)} | ${esc(n)}\n") }
 grouptrack/GtCert17g2g.kt:46:        w.write("# G2G done: $same SAME, $diff DIFF in ${(System.currentTimeMillis() - t0) / 1000} s\n")
 grouptrack/GtCert17g2g.kt:47:        w.flush()
+grouptrack/GtCert17g1c.kt:1:package com.geeksville.mesh.grouptrack
+grouptrack/GtCert17g1c.kt:3:import android.content.Context
+grouptrack/GtCert17g1c.kt:4:import com.geeksville.mesh.convoy.MapSpecCertOld
+grouptrack/GtCert17g1c.kt:5:import com.grouptrack.shared.cert.Cert17g1c
+grouptrack/GtCert17g1c.kt:6:import com.grouptrack.shared.mapsource.GtMapSpecEnv
+grouptrack/GtCert17g1c.kt:7:import java.io.Writer
+grouptrack/GtCert17g1c.kt:10: * STEP17G1C-2026-11-13 (2.8 step 17, G1c cert, Droid side) ⚠ TEST-ONLY
+grouptrack/GtCert17g1c.kt:11: * (CODE RULE 3: remove with GtCertRun before 2.8 is released).
+grouptrack/GtCert17g1c.kt:13: * OLD = 2.7e's VectorTiles + ElevationTiles source resolution as real Android code over real
+grouptrack/GtCert17g1c.kt:14: * org.json (MapSpecCertOld, counted manifest). NEW = the shared GtMapSpec over GtOrgJson.
+grouptrack/GtCert17g1c.kt:16: * ⛔ THE ASSET IS CARRIED IN THE REPORT. The iPad has no APK, so it cannot read map_sources.json.
+grouptrack/GtCert17g1c.kt:17: * If the two devices ran different asset text every key would be meaningless, so the REAL asset is
+grouptrack/GtCert17g1c.kt:18: * read here, handed to both sides, AND written into the report on a "# G1C-ASSET" line for the iPad
+grouptrack/GtCert17g1c.kt:19: * to read back. 3,386 bytes, one escaped line.
+grouptrack/GtCert17g1c.kt:21: * Lines: G1C <tab> key <tab> SAME|DIFF <tab> value; footer "# G1C done: N SAME, N DIFF in S s".
+grouptrack/GtCert17g1c.kt:25:    private fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r")
+grouptrack/GtCert17g1c.kt:27:    /** OLD: 2.7e, real org.json, real MapSourceManager.TileLayer. */
+grouptrack/GtCert17g1c.kt:28:    private class OldSide : Cert17g1c.Side {
+grouptrack/GtCert17g1c.kt:29:        override fun resetForCert() = MapSpecCertOld.resetForCert()
+grouptrack/GtCert17g1c.kt:30:        override fun vectorTileTemplate(env: GtMapSpecEnv) = MapSpecCertOld.vectorTileTemplate(env)
+grouptrack/GtCert17g1c.kt:31:        override fun vectorDownloadSources(env: GtMapSpecEnv) =
+grouptrack/GtCert17g1c.kt:32:            MapSpecCertOld.vectorDownloadSources(env).flatMap { (slot, ls) ->
+grouptrack/GtCert17g1c.kt:33:                ls.map { "$slot|${it.role}|${it.urlTemplate}|${it.tileFormat}|${it.cacheDir}|${it.renderOrder}" }
+grouptrack/GtCert17g1c.kt:35:        override fun elevationUrlTemplate(env: GtMapSpecEnv) = MapSpecCertOld.elevationUrlTemplate(env)
+grouptrack/GtCert17g1c.kt:36:        override fun elevationDownloadSources(env: GtMapSpecEnv) =
+grouptrack/GtCert17g1c.kt:37:            MapSpecCertOld.elevationDownloadSources(env).flatMap { (slot, ls) ->
+grouptrack/GtCert17g1c.kt:38:                ls.map { "$slot|${it.role}|${it.urlTemplate}|${it.tileFormat}|${it.cacheDir}|${it.renderOrder}" }
+grouptrack/GtCert17g1c.kt:40:        override fun oldTilesOf(recipeText: String) = MapSpecCertOld.oldTilesOf(recipeText)
+grouptrack/GtCert17g1c.kt:43:    fun run(ctx: Context, w: Writer) {
+grouptrack/GtCert17g1c.kt:46:        val asset = try {
+grouptrack/GtCert17g1c.kt:47:            ctx.assets.open("map_sources.json").bufferedReader().use { it.readText() }
+grouptrack/GtCert17g1c.kt:49:            w.write("G1C\tASSET-UNREADABLE\tDIFF\t${esc(e.toString())}\n"); w.flush(); return
+grouptrack/GtCert17g1c.kt:52:        w.write("# G1C-ASSET\t${esc(asset)}\n")
+grouptrack/GtCert17g1c.kt:54:        val oldMap = LinkedHashMap<String, String>()
+grouptrack/GtCert17g1c.kt:55:        val newMap = LinkedHashMap<String, String>()
+grouptrack/GtCert17g1c.kt:56:        try { Cert17g1c.run(OldSide(), asset) { k, v -> oldMap[k] = v } }
+grouptrack/GtCert17g1c.kt:57:        catch (e: Exception) { w.write("G1C\tOLD-THREW\tDIFF\t${esc(e.toString())}\n"); w.flush(); return }
+grouptrack/GtCert17g1c.kt:58:        try { Cert17g1c.run(Cert17g1c.NewSide, asset) { k, v -> newMap[k] = v } }
+grouptrack/GtCert17g1c.kt:59:        catch (e: Exception) { w.write("G1C\tNEW-THREW\tDIFF\t${esc(e.toString())}\n"); w.flush(); return }
+grouptrack/GtCert17g1c.kt:61:        var same = 0
+grouptrack/GtCert17g1c.kt:62:        var diff = 0
+grouptrack/GtCert17g1c.kt:63:        var expected = 0
+grouptrack/GtCert17g1c.kt:64:        for (k in (oldMap.keys + newMap.keys).distinct()) {
+grouptrack/GtCert17g1c.kt:65:            val o = oldMap[k] ?: "(missing)"
+grouptrack/GtCert17g1c.kt:66:            val n = newMap[k] ?: "(missing)"
+grouptrack/GtCert17g1c.kt:67:            val why = Cert17g1c.EXPECTED_DIFF[k]
+grouptrack/GtCert17g1c.kt:69:                same++; w.write("G1C\t$k\tSAME\t${esc(o)}\n")
+grouptrack/GtCert17g1c.kt:71:                if (why != null) w.write("# G1C-NOTE\tEXPECTED_DIFF[$k] is STALE: OLD and NEW now agree ($why)\n")
+grouptrack/GtCert17g1c.kt:74:                expected++
+grouptrack/GtCert17g1c.kt:75:                w.write("G1C\t$k\tEXPECTED\t${esc(o)} | ${esc(n)}  [$why]\n")
+grouptrack/GtCert17g1c.kt:77:                w.write("G1C\t$k|newonly\tSAME\t${esc(n)}\n")
+grouptrack/GtCert17g1c.kt:78:            } else { diff++; w.write("G1C\t$k\tDIFF\t${esc(o)} | ${esc(n)}\n") }
+grouptrack/GtCert17g1c.kt:80:        w.write("# G1C done: $same SAME, $diff DIFF, $expected EXPECTED in ${(System.currentTimeMillis() - t0) / 1000} s\n")
+grouptrack/GtCert17g1c.kt:81:        w.flush()
 grouptrack/GtCert17g2f.kt:1:package com.geeksville.mesh.grouptrack
 grouptrack/GtCert17g2f.kt:3:import android.content.Context
 grouptrack/GtCert17g2f.kt:4:import android.database.sqlite.SQLiteDatabase
@@ -8650,6 +8707,7 @@ grouptrack/GroupTrackScreen.kt:1559:                        "It has no GPS of it
 grouptrack/GroupTrackScreen.kt:1560:                        "location through a network connection \u2014 and there is no " +
 grouptrack/GroupTrackScreen.kt:1561:                        "network on the trail.\n\n" +
 grouptrack/GroupTrackScreen.kt:1562:                        "It requires a mesh radio to function off-grid. We recommend " +
+grouptrack/GroupTrackScreen.kt:1564:                        "tightly with GroupTrack OG."
 grouptrack/GroupTrackScreen.kt:1569:                        onClick = { netPosAck = true }
 grouptrack/GroupTrackScreen.kt:1570:                    ) { androidx.compose.material3.Text("OK") }
 grouptrack/GroupTrackScreen.kt:1575:                            nogpsContext.getSharedPreferences(
@@ -10142,6 +10200,7 @@ grouptrack/Backup.kt:122:        val me = try { com.geeksville.mesh.convoy.Convo
 grouptrack/Backup.kt:123:        val uris = ArrayList(b.files.map { FileProvider.getUriForFile(ctx, ctx.packageName + ".provider", it) })
 grouptrack/Backup.kt:124:        val body = "My GroupTrack OG backup, $day. Keep this email — it recreates GroupTrack OG on a new or reloaded phone.\n\n" +
 grouptrack/Backup.kt:125:            "In this backup:\n" + b.list + "\n" +
+grouptrack/Backup.kt:126:            "TO RECOVER, on the phone or tablet, with GroupTrack OG installed and Wi-Fi on:\n" +
 grouptrack/Backup.kt:127:            "1. Tap the maps file (GroupTrack maps <date>.json), choose GroupTrack OG, tap RESTORE MY MAPS. The maps download while you do the rest.\n" +
 grouptrack/Backup.kt:128:            "2. Tap the ROUTES, TRACKS and WAYPOINTS files one at a time, choose GroupTrack OG, answer NO to \"Are these files trails?\", untick MAPS, tap IMPORT.\n" +
 grouptrack/Backup.kt:129:            "3. Tap the RIDER TRAILS file the same way and answer YES -- they come back as trails.\n" +   // ONEIMPORT-2026-11-04
@@ -10249,411 +10308,412 @@ grouptrack/GtCertRun.kt:114:                    if (mode == "import15e") GtCert1
 grouptrack/GtCertRun.kt:115:                    if (mode == "trail15f") GtCert15f.run(app, w)   // STEP15F-2026-11-10: the agency trail import, 2.7e vs shared (TEST-ONLY)
 grouptrack/GtCertRun.kt:116:                    if (mode == "osm15g") GtCert15g.run(app, w)   // STEP15G-2026-11-10: the OSM extract + import, 2.7e vs shared (TEST-ONLY)
 grouptrack/GtCertRun.kt:117:                    if (mode == "state17e1") GtCert17e1.run(app, w)
-grouptrack/GtCertRun.kt:118:                    if (mode == "tile17g1a") GtCert17g1a.run(app, w)   // STEP17G1A-2026-11-13: the tile-set arithmetic, 2.7e vs shared -- PURE functions, no Context used (TEST-ONLY)
-grouptrack/GtCertRun.kt:119:                    if (mode == "help17g2g") GtCert17g2g.run(app, w)   // STEP17G2G-2026-11-13: the HELP link table, 2.7e on real org.json vs shared (TEST-ONLY)
-grouptrack/GtCertRun.kt:120:                    if (mode == "hk17g2f4") GtCert17g2f.run4(app, w)   // STEP17G2F4-2026-11-13: the startup container (G2f piece 4), 2.7e on real SQLite + real files vs shared (TEST-ONLY)
-grouptrack/GtCertRun.kt:121:                    if (mode == "hk17g2f3") GtCert17g2f.run3(app, w)   // STEP17G2F3-2026-11-13: the database repair (G2f piece 3), 2.7e on real SQLite + real files vs shared (TEST-ONLY)
-grouptrack/GtCertRun.kt:122:                    if (mode == "hk17g2f2") GtCert17g2f.run2(app, w)   // STEP17G2F2-2026-11-13: the database audit (G2f piece 2), 2.7e on real SQLite vs shared (TEST-ONLY)
-grouptrack/GtCertRun.kt:123:                    if (mode == "hk17g2f1") GtCert17g2f.run(app, w)   // STEP17G2F1-2026-11-13: startup housekeeping everyLaunch (G2f piece 1), 2.7e vs shared (TEST-ONLY)
-grouptrack/GtCertRun.kt:124:                    if (mode == "queue17e2") GtCert17e2.run(app, w)   // STEP17G2E2E-2026-11-12: the state data queue, 2.7e vs shared (TEST-ONLY)   // STEP17G2E1-2026-11-12: a state's kept data, 2.7e vs shared (TEST-ONLY)
-grouptrack/GtCertRun.kt:125:                    if (mode == "config17d") GtCert17d.run(app, w)   // STEP17G2D-2026-11-12: the V2 config files, 2.7e vs shared (TEST-ONLY)
-grouptrack/GtCertRun.kt:126:                    if (mode == "user17c2") GtCert17c2.run(app, w)   // STEP17G2C2-2026-11-12: the V2 local user, 2.7e vs shared (TEST-ONLY)
-grouptrack/GtCertRun.kt:127:                    if (mode == "net17c") GtCert17c.run(app, w)   // STEP17G2C1-2026-11-12: the profile + networks + generator, 2.7e vs shared (TEST-ONLY)
-grouptrack/GtCertRun.kt:128:                    if (mode == "ride17b2") GtCert17b2.run(app, w)   // STEP17G2B2-2026-11-12: the ride settings, DataStore vs GtRideSettings (TEST-ONLY)
-grouptrack/GtCertRun.kt:129:                    if (mode == "session17b") GtCert17b.run(app, w)   // STEP17G2B1-2026-11-12: the session + settings socket + constants (TEST-ONLY)
-grouptrack/GtCertRun.kt:130:                    if (mode == "storage17a") GtCert17a.run(app, w)   // STEP17G2A-2026-11-12: the storage socket, GroupTrackStorage vs GtStorage (TEST-ONLY)
-grouptrack/GtCertRun.kt:131:                    if (mode == "queue16c") GtCert16c.run(app, w)   // STEP16C-2026-11-11: the save-by-area writes, 2.7e vs shared (TEST-ONLY)
-grouptrack/GtCertRun.kt:132:                    if (mode == "mathtile") GtMathProbe.runTile(app, w)   // MATHTILE-2026-11-10: the save-by-area tile math (TEST-ONLY)
-grouptrack/GtCertRun.kt:133:                    if (mode == "mathpow") GtMathProbe.runPow(app, w)   // MATHPOW-2026-11-10: Android's Math.pow(x, 2.0) (TEST-ONLY)
-grouptrack/GtCertRun.kt:134:                    if (mode == "mathprobe") GtMathProbe.run(app, w)   // MATHPROBE-2026-11-10: what Android's Math returns (TEST-ONLY)
-grouptrack/GtCertRun.kt:137:                    if (mode == "golden15a") { val g = GtGolden15a.write(w); Log.i(TAG, "GTCERT golden15a: ${g.lines} lines, ${g.diffs} DIFF on the Droid") }
-grouptrack/GtCertRun.kt:138:                    if (mode != "state17e1" && mode != "config17d" && mode != "user17c2" && mode != "net17c" && mode != "ride17b2" && mode != "session17b" && mode != "storage17a" && mode != "queue16c" && mode != "mathtile" && mode != "osm15g" && mode != "trail15f" && mode != "mathpow" && mode != "mathprobe" && mode != "import15e" && mode != "track15d" && mode != "writes" && mode != "lookups" && mode != "freeze" && mode != "routes" && mode != "rides" && mode != "golden15a" && mode != "parse15b" && mode != "geom" && mode != "rider15c" && mode != "queue17e2" && mode != "hk17g2f1" && mode != "hk17g2f2" && mode != "hk17g2f3" && mode != "hk17g2f4" && mode != "help17g2g" && mode != "tile17g1a") {   // STEP17G2E2J-2026-11-13: queue17e2 skips the whole-database pass, as every other 17-group mode does   // STEP8B-2026-11-07, STEP13C, STEP15A-2026-11-08
-grouptrack/GtCertRun.kt:140:                        GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
-grouptrack/GtCertRun.kt:141:                        com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, com.grouptrack.shared.cert.CertRead.TrailSample.ALL /* STEP8-2026-11-07 */,
-grouptrack/GtCertRun.kt:142:                            { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })   // GTCERT-2B-2026-11-06
-grouptrack/GtCertRun.kt:143:                        Log.i(TAG, "GTCERT new side: $n lines in ${(System.currentTimeMillis() - t0) / 1000} s")
-grouptrack/GtCertRun.kt:145:                        runOld(conn, db, edb, saved, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })
-grouptrack/GtCertRun.kt:146:                        com.grouptrack.shared.cert.CertRead.run(OldRead, conn, com.grouptrack.shared.cert.CertRead.TrailSample.ALL, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })   // GTCERT-2B-2026-11-06
-grouptrack/GtCertRun.kt:147:                        Log.i(TAG, "GTCERT old side: $o lines in ${(System.currentTimeMillis() - t1) / 1000} s")
-grouptrack/GtCertRun.kt:149:                    if (mode == "writes" || mode == "all") runWrites(app, db, edb, w)   // GTCERTW-2026-11-06
-grouptrack/GtCertRun.kt:151:                try { conn.close() } catch (_: Exception) {}; try { dconn?.close() } catch (_: Exception) {}
-grouptrack/GtCertRun.kt:152:                val name = ImportConverter.saveToDownloads(app, out)
-grouptrack/GtCertRun.kt:153:                Log.i(TAG, "GTCERT done in ${(System.currentTimeMillis() - t0) / 1000} s -> Download/$name")
-grouptrack/GtCertRun.kt:155:                Log.e(TAG, "GTCERT failed after ${(System.currentTimeMillis() - t0) / 1000} s: $e", e)
-grouptrack/GtCertRun.kt:157:        }.start()
-grouptrack/GtCertRun.kt:160:    /** GTCERTW-2026-11-06: 2.7e's SpatialDbManager write functions as the OLD side of step 10 -- called while its handles point at a COPY. */
-grouptrack/GtCertRun.kt:161:    private object OldWrite : com.grouptrack.shared.cert.CertWrite.Api {
-grouptrack/GtCertRun.kt:162:        override fun insertWaypointWithId(id: String, name: String, lat: Double, lon: Double, type: String) = SpatialDbManager.insertWaypointWithId(id, name, lat, lon, type)
-grouptrack/GtCertRun.kt:163:        override fun renameWaypoint(id: String, n: String) { SpatialDbManager.renameWaypoint(id, n) }
-grouptrack/GtCertRun.kt:164:        override fun deleteWaypoint(id: String) { SpatialDbManager.deleteWaypoint(id) }
-grouptrack/GtCertRun.kt:165:        override fun changeWaypointType(id: String, t: String) { SpatialDbManager.changeWaypointType(id, t) }
-grouptrack/GtCertRun.kt:166:        override fun insertRoute(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) = SpatialDbManager.insertRoute(name, wkt, a, b, c, d)
-grouptrack/GtCertRun.kt:167:        override fun renameRoute(id: String, n: String) { SpatialDbManager.renameRoute(id, n) }
-grouptrack/GtCertRun.kt:168:        override fun deleteRoute(id: String) { SpatialDbManager.deleteRoute(id) }
-grouptrack/GtCertRun.kt:169:        override fun writeRouteNotes(routeId: String, notesJson: String) = SpatialDbManager.writeRouteNotes(routeId, org.json.JSONObject(notesJson))
-grouptrack/GtCertRun.kt:170:        override fun deleteRouteNotes(routeId: String) = SpatialDbManager.deleteRouteNotes(routeId)
-grouptrack/GtCertRun.kt:171:        override fun setRouteAnchor(routeId: String, lat: Double, lon: Double, name: String) = SpatialDbManager.setRouteAnchor(routeId, lat, lon, name)
-grouptrack/GtCertRun.kt:172:        override fun addAlias(type: String, id: String, name: String, hash: String) { SpatialDbManager.addAlias(type, id, name, hash, null) }
-grouptrack/GtCertRun.kt:173:        override fun renameAlias(aliasId: String, t: String) { SpatialDbManager.renameAlias(aliasId, t) }
-grouptrack/GtCertRun.kt:174:        override fun deleteAlias(aliasId: String) { SpatialDbManager.deleteAlias(aliasId) }
-grouptrack/GtCertRun.kt:175:        override fun setPreferredAlias(type: String, id: String, aliasId: String) { SpatialDbManager.setPreferredAlias(type, id, aliasId) }
-grouptrack/GtCertRun.kt:176:        override fun insertTrack(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) =
-grouptrack/GtCertRun.kt:177:            SpatialDbManager.insertTrackToDb(name, wkt, a, b, c, d).let { "${it.wasNew},${it.trackId},${it.geomHash},${it.name}" }
-grouptrack/GtCertRun.kt:178:        override fun renameTrack(id: String, n: String) { SpatialDbManager.renameTrackInDb(id, n) }
-grouptrack/GtCertRun.kt:179:        override fun deleteTrack(id: String) { SpatialDbManager.deleteTrackFromDb(id) }
-grouptrack/GtCertRun.kt:180:        override fun beginDedup() { SpatialDbManager.beginDedupSession() }
-grouptrack/GtCertRun.kt:181:        override fun endDedup() { SpatialDbManager.endDedupSession() }
-grouptrack/GtCertRun.kt:182:        override fun sourceUidSeen(s: String, u: String) = SpatialDbManager.sourceUidSeen(s, u)
-grouptrack/GtCertRun.kt:183:        override fun markSourceUid(s: String, u: String) { SpatialDbManager.markSourceUid(s, u) }
-grouptrack/GtCertRun.kt:184:        override fun insertTrail(id: String, name: String?, wkt: String, a: Double, b: Double, c: Double, d: Double, created: String) =
-grouptrack/GtCertRun.kt:185:            SpatialDbManager.insertTrail(id, name, wkt, a, b, c, d, created).let { "${it.first},${it.second}" }
-grouptrack/GtCertRun.kt:186:        override fun deleteTrail(id: String) { SpatialDbManager.deleteTrailFromDb(id) }
-grouptrack/GtCertRun.kt:187:        override fun clearAllTrails() = SpatialDbManager.clearAllTrailData().let { "${it.trails},${it.properties},${it.aliases},${it.error}" }
-grouptrack/GtCertRun.kt:191:     * GTCERTW-2026-11-06: step 10 -- the WRITES, on two COPIES of the live databases in the app's cache (never the live files):
-grouptrack/GtCertRun.kt:192:     * NEW = the shared GtWrite on copy "new"; OLD = 2.7e's SpatialDbManager with its two handles pointed at copy "old" for the run and
-grouptrack/GtCertRun.kt:193:     * put back afterwards (finally). The copies are deleted at the end. GPX files are never touched (the script only deletes tracks it made).
-grouptrack/GtCertRun.kt:195:    private fun runWrites(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, w: java.io.Writer) {
-grouptrack/GtCertRun.kt:196:        val e = edb ?: run { Log.e(TAG, "GTCERTW no data database -- writes not run"); return }
-grouptrack/GtCertRun.kt:197:        val dir = java.io.File(app.cacheDir, "gtcertw"); dir.deleteRecursively(); dir.mkdirs()
-grouptrack/GtCertRun.kt:198:        val tracksDir = com.geeksville.mesh.convoy.ConvoyTrackOps.tracksDir()
-grouptrack/GtCertRun.kt:199:        val exists: (String) -> Boolean = { h -> java.io.File(tracksDir, "$h.gpx").exists() }
-grouptrack/GtCertRun.kt:200:        fun copy(tag: String): Pair<String, String> {
-grouptrack/GtCertRun.kt:201:            val s = java.io.File(dir, "$tag-spatial.db"); val x = java.io.File(dir, "$tag-data.db")
-grouptrack/GtCertRun.kt:202:            java.io.File(db.path).copyTo(s, true); java.io.File(e.path).copyTo(x, true); return s.path to x.path
-grouptrack/GtCertRun.kt:205:        val (ns, ne) = copy("new"); val (os, oe) = copy("old")
-grouptrack/GtCertRun.kt:206:        Log.i(TAG, "GTCERTW copies made in ${(System.currentTimeMillis() - t0) / 1000} s")
-grouptrack/GtCertRun.kt:208:            val c = gtOpenDatabase(ns, false); val d = gtOpenDatabase(ne, false)
-grouptrack/GtCertRun.kt:210:                val gw = com.grouptrack.shared.spatial.GtWrite(c, d, { java.util.UUID.randomUUID().toString() }, { java.time.Instant.now().toString() })
-grouptrack/GtCertRun.kt:211:                com.grouptrack.shared.cert.CertWrite.run(com.grouptrack.shared.cert.CertWrite.Shared(gw), c, d, exists, { l -> w.write("NEW|$l\n") }, { p -> Log.i(TAG, "GTCERT new: $p") })
-grouptrack/GtCertRun.kt:212:            } finally { c.close(); d.close() }
-grouptrack/GtCertRun.kt:215:            val prev = SpatialDbManager.certSwapDatabases(oS, oE)
-grouptrack/GtCertRun.kt:217:                val c2 = gtOpenDatabase(os, true); val d2 = gtOpenDatabase(oe, true)
-grouptrack/GtCertRun.kt:218:                try { com.grouptrack.shared.cert.CertWrite.run(OldWrite, c2, d2, exists, { l -> w.write("OLD|$l\n") }, { p -> Log.i(TAG, "GTCERT old: $p") }) }
-grouptrack/GtCertRun.kt:219:                finally { c2.close(); d2.close() }
-grouptrack/GtCertRun.kt:221:                SpatialDbManager.certSwapDatabases(prev.first, prev.second)
-grouptrack/GtCertRun.kt:222:                try { oS.close() } catch (_: Exception) {}; try { oE.close() } catch (_: Exception) {}
-grouptrack/GtCertRun.kt:223:                Log.i(TAG, "GTCERTW live handles restored")
-grouptrack/GtCertRun.kt:226:        Log.i(TAG, "GTCERTW writes done in ${(System.currentTimeMillis() - t0) / 1000} s")
-grouptrack/GtCertRun.kt:230:     * STEP8B-2026-11-07: the FROZEN copy the lookups check reads -- made by mode "freeze" from the live databases, then never changed,
-grouptrack/GtCertRun.kt:231:     * so riding and testing on the Droid cannot move the baseline. Kept in the app's own files, not the cache (the system may clear
-grouptrack/GtCertRun.kt:232:     * the cache). [data] is null exactly when the live data database is absent, as in 2.7e (CODE RULE 1: see GtSpatial).
-grouptrack/GtCertRun.kt:234:    private class Frozen(val spatial: String, val data: String?, val stamp: String)
-grouptrack/GtCertRun.kt:235:    private fun frozenDir(app: Context) = java.io.File(app.filesDir, "gtcert_frozen")
-grouptrack/GtCertRun.kt:236:    private fun freeze(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, stamp: String): Frozen {
-grouptrack/GtCertRun.kt:238:        val dir = frozenDir(app); dir.deleteRecursively(); dir.mkdirs()
-grouptrack/GtCertRun.kt:239:        fun cp(src: String, name: String): String {
-grouptrack/GtCertRun.kt:240:            val d = java.io.File(dir, name); java.io.File(src).copyTo(d, true)
-grouptrack/GtCertRun.kt:241:            val wal = java.io.File("$src-wal"); if (wal.exists() && wal.length() > 0) wal.copyTo(java.io.File(dir, "$name-wal"), true)
-grouptrack/GtCertRun.kt:242:            return d.path
-grouptrack/GtCertRun.kt:244:        val s = cp(db.path, "spatial.db"); val d = edb?.let { cp(it.path, "data.db") }
-grouptrack/GtCertRun.kt:245:        java.io.File(dir, "stamp.txt").writeText(stamp)
-grouptrack/GtCertRun.kt:246:        Log.i(TAG, "GTCERT frozen copy made in ${(System.currentTimeMillis() - t) / 1000} s: $s" + (d?.let { " + $it" } ?: " (no data database)"))
-grouptrack/GtCertRun.kt:247:        return Frozen(s, d, stamp)
-grouptrack/GtCertRun.kt:249:    /** The frozen copy, or null when this Droid has none yet (mode "freeze" makes it). */
-grouptrack/GtCertRun.kt:250:    private fun frozen(app: Context): Frozen? {
-grouptrack/GtCertRun.kt:251:        val dir = frozenDir(app); val st = java.io.File(dir, "stamp.txt"); val s = java.io.File(dir, "spatial.db")
-grouptrack/GtCertRun.kt:252:        if (!st.exists() || !s.exists()) return null
-grouptrack/GtCertRun.kt:253:        val d = java.io.File(dir, "data.db")
-grouptrack/GtCertRun.kt:254:        return Frozen(s.path, if (d.exists()) d.path else null, st.readText().trim())
-grouptrack/GtCertRun.kt:257:    /** GTCERT-2B-2026-11-06: 2.7e's SpatialDbManager reading functions as the OLD side of the batch-2b cases. */
-grouptrack/GtCertRun.kt:258:    private object OldRead : com.grouptrack.shared.cert.CertRead.Api {
-grouptrack/GtCertRun.kt:259:        override fun search(type: String, term: String) = SpatialDbManager.searchByName(type, term)
-grouptrack/GtCertRun.kt:260:        override fun detail(type: String, id: String): Map<String, String?> = SpatialDbManager.getArtifactDetail(type, id)
-grouptrack/GtCertRun.kt:261:        override fun aliases(type: String, id: String) = SpatialDbManager.getAliasesFor(type, id)
-grouptrack/GtCertRun.kt:262:        override fun list(table: String) = SpatialDbManager.queryArtifactList(table, -90.0, -180.0, 90.0, 180.0)
-grouptrack/GtCertRun.kt:263:        override fun corridor() = SpatialDbManager.queryAllTracksForCorridor()
-grouptrack/GtCertRun.kt:264:        override fun trailheads(lat: Double, lon: Double) = SpatialDbManager.trailheadsNear(lat, lon).map { listOf<Any>(it.waypointId, it.name, it.lat, it.lon, it.miles) }
-grouptrack/GtCertRun.kt:265:        override fun routeUsing(waypointId: String) = SpatialDbManager.routeUsingTrailhead(waypointId)
-grouptrack/GtCertRun.kt:266:        override fun routeName(id: String) = SpatialDbManager.routeNameById(id)
-grouptrack/GtCertRun.kt:267:        override fun routeHash(id: String) = SpatialDbManager.routeGeomHash(id)
-grouptrack/GtCertRun.kt:268:        override fun routeByHash(hash: String) = SpatialDbManager.findRouteIdByHash(hash)
-grouptrack/GtCertRun.kt:269:        override fun nameExists(name: String) = SpatialDbManager.routeNameExists(name)
-grouptrack/GtCertRun.kt:270:        override fun nextNumber(base: String) = SpatialDbManager.nextRouteNumber(base)
-grouptrack/GtCertRun.kt:271:        override fun trackName(id: String) = SpatialDbManager.trackName(id)
-grouptrack/GtCertRun.kt:272:        override fun trackGeom(id: String) = SpatialDbManager.trackGeometry(id)
-grouptrack/GtCertRun.kt:273:        override fun waypointAt(lat: Double, lon: Double) = SpatialDbManager.waypointNameAt(lat, lon)
-grouptrack/GtCertRun.kt:274:        override fun geomHash(wkt: String) = SpatialDbManager.computeGeomHash(wkt)
-grouptrack/GtCertRun.kt:275:        override fun parseGpx(text: String) = SpatialDbManager.parseGpxTrackPoints(text)
-grouptrack/GtCertRun.kt:276:        override fun trackIdForGpx(text: String) = SpatialDbManager.trackIdForGpxText(text)
-grouptrack/GtCertRun.kt:279:    /** (headline, notes JSON) exactly as 2.7e's buildRouteGpxById makes them. */
-grouptrack/GtCertRun.kt:280:    private fun notesFor(routeId: String): Pair<String, String?> {
-grouptrack/GtCertRun.kt:281:        val notes = SpatialDbManager.readRouteNotes(routeId)
-grouptrack/GtCertRun.kt:282:        return (notes?.optJSONObject("narrative")?.optString("headline") ?: "") to notes?.toString()
-grouptrack/GtCertRun.kt:285:    fun countFeatures(json: String): Int {
-grouptrack/GtCertRun.kt:286:        var n = 0; var i = json.indexOf("{\"type\":\"Feature\""); while (i >= 0) { n++; i = json.indexOf("{\"type\":\"Feature\"", i + 1) }; return n
-grouptrack/GtCertRun.kt:289:    /** The OLD side, same checks, same order, same lines as GtCert.runNew -- with 2.7e's code. The enumeration (combos, pages, ids)
-grouptrack/GtCertRun.kt:290:     *  comes from GtCert; it only names what to compare. */
-grouptrack/GtCertRun.kt:291:    private fun runOld(conn: androidx.sqlite.SQLiteConnection, db: SQLiteDatabase, edb: SQLiteDatabase?, saved: GtCert.Combo,
-grouptrack/GtCertRun.kt:292:                       emit: (String) -> Unit, progress: (String) -> Unit) {
-grouptrack/GtCertRun.kt:293:        val cats = GtCert.categories(conn)
-grouptrack/GtCertRun.kt:294:        for (cb in GtCert.combos(cats, saved)) {
-grouptrack/GtCertRun.kt:295:            val w = legacyWhere(cb.land, cb.restricted, cb.use, cb.off)
-grouptrack/GtCertRun.kt:297:            db.rawQuery("SELECT trail_id FROM trails WHERE 1=1$w ORDER BY trail_id", null).use { c -> while (c.moveToNext()) c.getString(0)?.let { got.add(it) } }
-grouptrack/GtCertRun.kt:298:            emit(GtCert.line("WHERE", cb.id, "-", got.size, GtCert.fp(got.joinToString("\n")) + "/" + GtCert.fp(w)))
-grouptrack/GtCertRun.kt:300:        progress("filters done")
-grouptrack/GtCertRun.kt:301:        val tp = GtCert.pages(conn, "trails", "trail_id", true)
-grouptrack/GtCertRun.kt:303:            val w = legacyWhere("ALL", r, "ALL", emptySet())
-grouptrack/GtCertRun.kt:304:            for ((k, frag) in tp) {
-grouptrack/GtCertRun.kt:305:                val rows = queryTrails(db, edb, -90.0, -180.0, 90.0, 180.0, 1_000_000, w + frag)
-grouptrack/GtCertRun.kt:306:                emit(GtCert.line("TRAILS", k, "r$r", rows.size, GtCert.fp(trailGeoJson(rows, r))))
-grouptrack/GtCertRun.kt:308:            progress("trails r$r done")
-grouptrack/GtCertRun.kt:310:        SpatialDbManager.queryTracksByViewport(-90.0, -180.0, 90.0, 180.0, 1_000_000).let { emit(GtCert.line("TRACKS", "all", "-", it.size, GtCert.fp(SpatialDbManager.buildTrackGeoJson(it)))) }
-grouptrack/GtCertRun.kt:311:        SpatialDbManager.queryWaypointsByViewport(-90.0, -180.0, 90.0, 180.0, 1_000_000).let { emit(GtCert.line("WAYPOINTS", "all", "-", it.size, GtCert.fp(SpatialDbManager.buildWaypointGeoJson(it)))) }
-grouptrack/GtCertRun.kt:312:        SpatialDbManager.queryRoutesByViewport(-90.0, -180.0, 90.0, 180.0, 1_000_000).let { emit(GtCert.line("ROUTES", "all", "-", it.size, GtCert.fp(SpatialDbManager.buildRouteGeoJson(it)))) }
-grouptrack/GtCertRun.kt:313:        val lp = GtCert.pages(conn, "land_areas", "area_id", false)
-grouptrack/GtCertRun.kt:314:        for ((pub, rst) in listOf(true to true, true to false, false to true)) for ((k, frag) in lp) {
-grouptrack/GtCertRun.kt:315:            val json = landGeoJson(db, -90.0, -180.0, 90.0, 180.0, pub, rst, 1_000_000, frag)
-grouptrack/GtCertRun.kt:316:            emit(GtCert.line("LAND", k, "p${pub}r$rst", countFeatures(json), GtCert.fp(json)))
-grouptrack/GtCertRun.kt:318:        progress("land done")
-grouptrack/GtCertRun.kt:319:        fun gpxPages(kind: String, table: String, col: String, one: (String) -> String?) {
-grouptrack/GtCertRun.kt:320:            for ((k, frag) in GtCert.pages(conn, table, col, true)) {
-grouptrack/GtCertRun.kt:322:                for (id in GtCert.ids(conn, "SELECT $col FROM $table WHERE 1=1$frag ORDER BY $col")) { val g = one(id); if (g != null) { sb.append(g).append('\u0000'); n++ } else sb.append("NULL\u0000") }
-grouptrack/GtCertRun.kt:323:                emit(GtCert.line(kind, k, "-", n, GtCert.fp(sb.toString())))
-grouptrack/GtCertRun.kt:326:        gpxPages("GPXW", "waypoints", "waypoint_id") { waypointGpx(db, it)?.second }
-grouptrack/GtCertRun.kt:327:        gpxPages("GPXR", "routes", "route_id") { routeGpx(db, it)?.second }
-grouptrack/GtCertRun.kt:328:        gpxPages("GPXT", "trails", "trail_id") { trailGpx(db, it)?.second }
-grouptrack/GtCertRun.kt:329:        progress("gpx done")
-grouptrack/GtCertRun.kt:333:    private const val GPX_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-grouptrack/GtCertRun.kt:334:        "<gpx version=\"1.1\" creator=\"GroupTrack\"\n" +
-grouptrack/GtCertRun.kt:337:    private const val GPX_FOOTER = "</gpx>"
-grouptrack/GtCertRun.kt:338:    private fun xmlEscape(s: String): String =
-grouptrack/GtCertRun.kt:339:        s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
-grouptrack/GtCertRun.kt:341:    /** TrailFilterState.regenerate() (2.7e), as a function of the four settings. */
-grouptrack/GtCertRun.kt:342:    private fun legacyWhere(land: String, restricted: Boolean, use: String, off: Set<String>): String {
-grouptrack/GtCertRun.kt:344:        sb.append(" AND (status IS NULL OR status <> 'CLOSED')")
-grouptrack/GtCertRun.kt:345:        val lands = ArrayList<String>()
-grouptrack/GtCertRun.kt:346:        if (land != "PRIVATE") lands.add("PUBLIC")
-grouptrack/GtCertRun.kt:347:        if (land != "PUBLIC") lands.add("PRIVATE")
-grouptrack/GtCertRun.kt:348:        if (restricted) lands.add("RESTRICTED")
-grouptrack/GtCertRun.kt:349:        sb.append(" AND (land_status IS NULL OR land_status IN (" + lands.joinToString(",") { "'" + it + "'" } + "))")
-grouptrack/GtCertRun.kt:350:        if (use == "MOTORIZED" || use == "NON-MOTORIZED") {
-grouptrack/GtCertRun.kt:351:            sb.append(" AND (use_type IS NULL OR use_type='")
-grouptrack/GtCertRun.kt:352:                .append(use).append("')")
-grouptrack/GtCertRun.kt:354:        if (off.contains("__unofficial")) {
-grouptrack/GtCertRun.kt:355:            sb.append(" AND (status IS NULL OR status NOT IN ('UNOFFICIAL','UNCERTAIN'))")
-grouptrack/GtCertRun.kt:357:        val cats = off.filter { it != "__unofficial" }
-grouptrack/GtCertRun.kt:358:        if (cats.isNotEmpty()) {
-grouptrack/GtCertRun.kt:359:            sb.append(" AND COALESCE(carto_code,'shape only') NOT IN (")
-grouptrack/GtCertRun.kt:360:            sb.append(cats.joinToString(",") { "'" + it.replace("'", "") + "'" })
-grouptrack/GtCertRun.kt:361:            sb.append(")")
-grouptrack/GtCertRun.kt:363:        return sb.toString()
-grouptrack/GtCertRun.kt:366:    fun queryTrails(db: SQLiteDatabase, edb: SQLiteDatabase?, south: Double, west: Double, north: Double, east: Double, limit: Int, where: String): List<Map<String, String?>> {
-grouptrack/GtCertRun.kt:367:        val results = mutableListOf<MutableMap<String, String?>>()
-grouptrack/GtCertRun.kt:368:        val cursor = db.rawQuery(
-grouptrack/GtCertRun.kt:393:            "SELECT trail_id, name, geometry, carto_code AS CartoCode, status AS Status, land_status AS Land, restricted_geom AS RstGeom, open_geom AS OpenGeom FROM trails " +   // RSTSEG-2026-11-02: + RstGeom   // LANDDISPLAY-2026-11-02: + Land
-grouptrack/GtCertRun.kt:395:                where +
-grouptrack/GtCertRun.kt:410:                " ORDER BY " +
-grouptrack/GtCertRun.kt:413:            arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
-grouptrack/GtCertRun.kt:415:        while (cursor.moveToNext()) {
-grouptrack/GtCertRun.kt:416:            val wkt = cursor.getString(2)
-grouptrack/GtCertRun.kt:418:                results.add(mutableMapOf(
-grouptrack/GtCertRun.kt:421:                    "Status" to (if (cursor.columnCount > 4) cursor.getString(4) else null),
-grouptrack/GtCertRun.kt:422:                    "trail_id" to cursor.getString(0),
-grouptrack/GtCertRun.kt:423:                    "name" to cursor.getString(1),
-grouptrack/GtCertRun.kt:424:                    "geometry" to wkt,
-grouptrack/GtCertRun.kt:425:                    "CartoCode" to cursor.getString(3),
-grouptrack/GtCertRun.kt:426:                    "Land" to (if (cursor.columnCount > 5) cursor.getString(5) else null),   // LANDDISPLAY-2026-11-02: RESTRICTED draws red
-grouptrack/GtCertRun.kt:427:                    "RstGeom" to (if (cursor.columnCount > 6) cursor.getString(6) else null),   // RSTSEG-2026-11-02: the red segments
-grouptrack/GtCertRun.kt:428:                    "OpenGeom" to (if (cursor.columnCount > 7) cursor.getString(7) else null)   // RSTOPEN-2026-11-02: the trail without them
-grouptrack/GtCertRun.kt:432:        cursor.close()
-grouptrack/GtCertRun.kt:437:        if (edb != null && results.isNotEmpty()) {
-grouptrack/GtCertRun.kt:439:                val ids = results.mapNotNull { it["trail_id"] }
-grouptrack/GtCertRun.kt:440:                if (ids.isNotEmpty()) {
-grouptrack/GtCertRun.kt:441:                    val placeholders = ids.joinToString(",") { "?" }
-grouptrack/GtCertRun.kt:442:                    val pc = edb.rawQuery(
-grouptrack/GtCertRun.kt:444:                        "horse_allowed, hike_difficulty, bike_difficulty, owner_steward, county " +
-grouptrack/GtCertRun.kt:445:                        "FROM trail_properties WHERE trail_id IN (" + placeholders + ")",
-grouptrack/GtCertRun.kt:448:                    val byId = HashMap<String, Map<String, String?>>()
-grouptrack/GtCertRun.kt:451:                            val tid = it.getString(0) ?: continue
-grouptrack/GtCertRun.kt:452:                            byId[tid] = mapOf(
-grouptrack/GtCertRun.kt:453:                                "SurfaceType" to it.getString(1),
-grouptrack/GtCertRun.kt:454:                                "DesignatedUses" to it.getString(2),
-grouptrack/GtCertRun.kt:455:                                "MotorizedAllowed" to it.getString(3),
-grouptrack/GtCertRun.kt:456:                                "HorseAllowed" to it.getString(4),
-grouptrack/GtCertRun.kt:457:                                "HikeDifficulty" to it.getString(5),
-grouptrack/GtCertRun.kt:458:                                "BikeDifficulty" to it.getString(6),
-grouptrack/GtCertRun.kt:459:                                "OwnerSteward" to it.getString(7),
-grouptrack/GtCertRun.kt:460:                                "County" to it.getString(8)
-grouptrack/GtCertRun.kt:464:                    for (row in results) {
-grouptrack/GtCertRun.kt:465:                        val props = byId[row["trail_id"]] ?: continue
-grouptrack/GtCertRun.kt:466:                        for ((k, v) in props) {
-grouptrack/GtCertRun.kt:468:                            val existing = row[k]
-grouptrack/GtCertRun.kt:469:                            if (!existing.isNullOrBlank()) continue
-grouptrack/GtCertRun.kt:479:        return results
-grouptrack/GtCertRun.kt:482:    fun trailGeoJson(trails: List<Map<String, String?>>, restricted: Boolean): String {
-grouptrack/GtCertRun.kt:484:        sb.append("{\"type\":\"FeatureCollection\",\"features\":[")
-grouptrack/GtCertRun.kt:485:        var first = true
-grouptrack/GtCertRun.kt:486:        for (trail in trails) {
-grouptrack/GtCertRun.kt:488:            val wkt = (if (!trail["RstGeom"].isNullOrEmpty()) (trail["OpenGeom"] ?: trail["geometry"]) else trail["geometry"]) ?: ""   // NULL open = not worked out yet -> whole line
-grouptrack/GtCertRun.kt:491:                val rg0 = trail["RstGeom"] ?: ""
-grouptrack/GtCertRun.kt:492:                if (rg0.isNotEmpty() && restricted) {
-grouptrack/GtCertRun.kt:493:                    val rc0 = SpatialDbManager.wktToGeoJsonCoords(rg0)
-grouptrack/GtCertRun.kt:494:                    if (rc0 != "[]") { if (!first) sb.append(","); first = false
-grouptrack/GtCertRun.kt:495:                        sb.append("{\"type\":\"Feature\",\"properties\":{\"trail_id\":\"" + SpatialDbManager.jsonEsc(trail["trail_id"] ?: "") +
-grouptrack/GtCertRun.kt:496:                            "\",\"PrimaryName\":\"" + SpatialDbManager.jsonEsc(trail["name"] ?: "") + "\",\"_rst\":1},\"geometry\":{\"type\":\"MultiLineString\",\"coordinates\":" + rc0 + "}}") }
-grouptrack/GtCertRun.kt:500:            val coords = SpatialDbManager.wktToGeoJsonCoords(wkt)
-grouptrack/GtCertRun.kt:501:            if (coords == "[]") continue
-grouptrack/GtCertRun.kt:502:            if (!first) sb.append(",")
-grouptrack/GtCertRun.kt:503:            first = false
-grouptrack/GtCertRun.kt:504:            val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
-grouptrack/GtCertRun.kt:505:            fun s(k: String): String = SpatialDbManager.jsonEsc(trail[k] ?: "")   // RIDERESC-2026-10-09 (was: a quote became \\" -> broken batch)
-grouptrack/GtCertRun.kt:506:            sb.append("{\"type\":\"Feature\",\"properties\":{")
-grouptrack/GtCertRun.kt:511:            sb.append("\"trail_id\":\"" + s("trail_id") + "\"")
-grouptrack/GtCertRun.kt:512:            sb.append(",\"PrimaryName\":\"" + s("name") + "\"")
-grouptrack/GtCertRun.kt:513:            sb.append(",\"CartoCode\":\"" + s("CartoCode") + "\"")
-grouptrack/GtCertRun.kt:514:            sb.append(",\"SurfaceType\":\"" + s("SurfaceType") + "\"")
-grouptrack/GtCertRun.kt:515:            sb.append(",\"DesignatedUses\":\"" + s("DesignatedUses") + "\"")
-grouptrack/GtCertRun.kt:516:            sb.append(",\"MotorizedAllowed\":\"" + s("MotorizedAllowed") + "\"")
-grouptrack/GtCertRun.kt:517:            sb.append(",\"HorseAllowed\":\"" + s("HorseAllowed") + "\"")
-grouptrack/GtCertRun.kt:518:            sb.append(",\"HikeDifficulty\":\"" + s("HikeDifficulty") + "\"")
-grouptrack/GtCertRun.kt:519:            sb.append(",\"BikeDifficulty\":\"" + s("BikeDifficulty") + "\"")
-grouptrack/GtCertRun.kt:520:            sb.append(",\"OwnerSteward\":\"" + s("OwnerSteward") + "\"")
-grouptrack/GtCertRun.kt:521:            sb.append(",\"County\":\"" + s("County") + "\"")
-grouptrack/GtCertRun.kt:522:            sb.append(",\"Land\":\"" + s("Land") + "\"")   // LANDDISPLAY-2026-11-02
-grouptrack/GtCertRun.kt:523:            sb.append("},\"geometry\":{\"type\":\"" + geoType + "\",\"coordinates\":" + coords + "}}")
-grouptrack/GtCertRun.kt:525:            val rg = trail["RstGeom"] ?: ""
-grouptrack/GtCertRun.kt:526:            if (rg.isNotEmpty() && restricted) {
-grouptrack/GtCertRun.kt:527:                val rc = SpatialDbManager.wktToGeoJsonCoords(rg)
-grouptrack/GtCertRun.kt:528:                if (rc != "[]") sb.append(",{\"type\":\"Feature\",\"properties\":{\"trail_id\":\"" + s("trail_id") +
-grouptrack/GtCertRun.kt:529:                    "\",\"PrimaryName\":\"" + s("name") + "\",\"_rst\":1},\"geometry\":{\"type\":\"MultiLineString\",\"coordinates\":" + rc + "}}")
-grouptrack/GtCertRun.kt:532:        sb.append("]}")
-grouptrack/GtCertRun.kt:533:        return sb.toString()
-grouptrack/GtCertRun.kt:536:    fun waypointGpx(db: SQLiteDatabase, waypointId: String): Pair<String, String>? {
-grouptrack/GtCertRun.kt:538:            val cursor = db.rawQuery(
-grouptrack/GtCertRun.kt:539:                "SELECT name, type, geometry FROM waypoints WHERE waypoint_id=?",
-grouptrack/GtCertRun.kt:540:                arrayOf(waypointId))
-grouptrack/GtCertRun.kt:541:            cursor.use { c ->
-grouptrack/GtCertRun.kt:543:                val name = c.getString(0) ?: "Unnamed"
-grouptrack/GtCertRun.kt:544:                val type = c.getString(1) ?: ""
-grouptrack/GtCertRun.kt:545:                val geom = c.getString(2) ?: return null
-grouptrack/GtCertRun.kt:546:                val desc = if (c.columnCount > 3) (c.getString(3) ?: "") else ""
-grouptrack/GtCertRun.kt:547:                val coords = geom.removePrefix("POINT(").removeSuffix(")").trim().split(" ")
-grouptrack/GtCertRun.kt:548:                if (coords.size < 2) return null
-grouptrack/GtCertRun.kt:549:                val lon = coords[0]
-grouptrack/GtCertRun.kt:550:                val lat = coords[1]
-grouptrack/GtCertRun.kt:552:                sb.append(GPX_HEADER)
-grouptrack/GtCertRun.kt:553:                sb.append("  <wpt lat=\"").append(lat).append("\" lon=\"").append(lon).append("\">\n")
-grouptrack/GtCertRun.kt:554:                sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
-grouptrack/GtCertRun.kt:555:                if (type.isNotEmpty()) sb.append("    <type>").append(xmlEscape(type)).append("</type>\n")
-grouptrack/GtCertRun.kt:556:                if (desc.isNotEmpty()) sb.append("    <desc>").append(xmlEscape(desc)).append("</desc>\n")
-grouptrack/GtCertRun.kt:557:                sb.append("  </wpt>\n")
-grouptrack/GtCertRun.kt:558:                sb.append(GPX_FOOTER)
-grouptrack/GtCertRun.kt:559:                return Pair(name, sb.toString())
-grouptrack/GtCertRun.kt:562:            android.util.Log.e("SpatialDb", "buildWaypointGpx error: " + e.message)
-grouptrack/GtCertRun.kt:567:    fun routeGpx(db: SQLiteDatabase, routeId: String): Pair<String, String>? {
-grouptrack/GtCertRun.kt:569:            val cursor = db.rawQuery(
-grouptrack/GtCertRun.kt:570:                "SELECT name, geometry FROM routes WHERE route_id=?",
-grouptrack/GtCertRun.kt:571:                arrayOf(routeId))
-grouptrack/GtCertRun.kt:572:            cursor.use { c ->
-grouptrack/GtCertRun.kt:574:                val name = c.getString(0) ?: "Unnamed"
-grouptrack/GtCertRun.kt:575:                val geom = c.getString(1) ?: return null
-grouptrack/GtCertRun.kt:578:                 * ⛔ This read `columnCount > 2` against a two-column SELECT, so
-grouptrack/GtCertRun.kt:579:                 * it has NEVER fired and no narrative has ever been shared. It
-grouptrack/GtCertRun.kt:580:                 * was written for a description column that does not exist.
-grouptrack/GtCertRun.kt:582:                 * ⭐ It lives in route_notes, and readRouteNotes() returns it.
-grouptrack/GtCertRun.kt:584:                 * ⚠ <desc> GETS THE HEADLINE, NOT THE JSON. Gaia and onX put
-grouptrack/GtCertRun.kt:585:                 * human prose here, and a rider opening this route there should
-grouptrack/GtCertRun.kt:586:                 * see a sentence rather than a payload. The structured block
-grouptrack/GtCertRun.kt:587:                 * goes in <extensions>, which other apps ignore.
-grouptrack/GtCertRun.kt:589:                val notes = SpatialDbManager.readRouteNotes(routeId)
-grouptrack/GtCertRun.kt:590:                val desc = notes?.optJSONObject("narrative")?.optString("headline") ?: ""
-grouptrack/GtCertRun.kt:591:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-grouptrack/GtCertRun.kt:592:                val points = coordStr.split(",").mapNotNull { pt ->
-grouptrack/GtCertRun.kt:593:                    val parts = pt.trim().split(" ")
-grouptrack/GtCertRun.kt:594:                    if (parts.size >= 2) Pair(parts[1], parts[0]) else null
-grouptrack/GtCertRun.kt:597:                sb.append(GPX_HEADER)
-grouptrack/GtCertRun.kt:598:                sb.append("  <rte>\n")
-grouptrack/GtCertRun.kt:599:                sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
-grouptrack/GtCertRun.kt:600:                if (desc.isNotEmpty()) sb.append("    <desc>").append(xmlEscape(desc)).append("</desc>\n")
-grouptrack/GtCertRun.kt:603:                 * \u26d4 parseGpxRoutes has looked for <grouptrack:notes> since
-grouptrack/GtCertRun.kt:604:                 * 08-29 and prefers it over <desc> -- "the payload wins where
-grouptrack/GtCertRun.kt:605:                 * present -- it is ours and complete." Nothing ever wrote it,
-grouptrack/GtCertRun.kt:606:                 * so every route we exported carried one sentence and lost its
-grouptrack/GtCertRun.kt:607:                 * narrative detail and its recipe.
-grouptrack/GtCertRun.kt:610:                 * the notes block so it would make the same journey with no new
-grouptrack/GtCertRun.kt:611:                 * plumbing. This is the step that journey was missing.
-grouptrack/GtCertRun.kt:613:                 * \u26a0 ESCAPED. The JSON is full of quotes and the recipe's
-grouptrack/GtCertRun.kt:614:                 * trailFilter clause can carry < and >; unescaped, one filtered
-grouptrack/GtCertRun.kt:615:                 * route produces a file nothing can parse.
-grouptrack/GtCertRun.kt:617:                if (notes != null) {
-grouptrack/GtCertRun.kt:618:                    sb.append("    <extensions>\n")
-grouptrack/GtCertRun.kt:619:                    sb.append("      <grouptrack:notes>")
-grouptrack/GtCertRun.kt:620:                    sb.append(xmlEscape(notes.toString()))
-grouptrack/GtCertRun.kt:621:                    sb.append("</grouptrack:notes>\n")
-grouptrack/GtCertRun.kt:622:                    sb.append("    </extensions>\n")
-grouptrack/GtCertRun.kt:625:                for ((lat, lon) in points) {
-grouptrack/GtCertRun.kt:626:                    sb.append("    <rtept lat=\"").append(lat).append("\" lon=\"").append(lon).append("\">\n")
-grouptrack/GtCertRun.kt:627:                    sb.append("      <name>Pt ").append(idx).append("</name>\n")
-grouptrack/GtCertRun.kt:628:                    sb.append("    </rtept>\n")
-grouptrack/GtCertRun.kt:631:                /* THE WHOLE PAYLOAD, so the recipe travels with the route.
-grouptrack/GtCertRun.kt:632:                 * A recipient presses one button and gets six rides from the
-grouptrack/GtCertRun.kt:633:                 * sender's parameters -- the entire point of keeping a recipe.
-grouptrack/GtCertRun.kt:635:                if (notes != null) {
-grouptrack/GtCertRun.kt:636:                    sb.append("    <extensions>\n")
-grouptrack/GtCertRun.kt:637:                    sb.append("      <grouptrack:notes>")
-grouptrack/GtCertRun.kt:638:                    sb.append(xmlEscape(notes.toString()))
-grouptrack/GtCertRun.kt:639:                    sb.append("</grouptrack:notes>\n")
-grouptrack/GtCertRun.kt:640:                    sb.append("    </extensions>\n")
-grouptrack/GtCertRun.kt:642:                sb.append("  </rte>\n")
-grouptrack/GtCertRun.kt:643:                sb.append(GPX_FOOTER)
-grouptrack/GtCertRun.kt:644:                return Pair(name, sb.toString())
-grouptrack/GtCertRun.kt:647:            android.util.Log.e("SpatialDb", "buildRouteGpx error: " + e.message)
-grouptrack/GtCertRun.kt:652:    fun trailGpx(db: SQLiteDatabase, trailId: String): Pair<String, String>? {
-grouptrack/GtCertRun.kt:654:            val cursor = db.rawQuery(
-grouptrack/GtCertRun.kt:655:                "SELECT name, geometry FROM trails WHERE trail_id=?",
-grouptrack/GtCertRun.kt:656:                arrayOf(trailId))
-grouptrack/GtCertRun.kt:657:            cursor.use { c ->
-grouptrack/GtCertRun.kt:659:                val name = c.getString(0) ?: "Unnamed"
-grouptrack/GtCertRun.kt:660:                val geom = c.getString(1) ?: return null
-grouptrack/GtCertRun.kt:661:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-grouptrack/GtCertRun.kt:662:                val points = coordStr.split(",").mapNotNull { pt ->
-grouptrack/GtCertRun.kt:663:                    val parts = pt.trim().split(" ")
-grouptrack/GtCertRun.kt:664:                    if (parts.size >= 2) Pair(parts[1], parts[0]) else null
-grouptrack/GtCertRun.kt:667:                sb.append(GPX_HEADER)
-grouptrack/GtCertRun.kt:668:                sb.append("  <trk>\n")
-grouptrack/GtCertRun.kt:669:                sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
-grouptrack/GtCertRun.kt:670:                sb.append("    <trkseg>\n")
-grouptrack/GtCertRun.kt:671:                for ((lat, lon) in points) {
-grouptrack/GtCertRun.kt:672:                    sb.append("      <trkpt lat=\"").append(lat).append("\" lon=\"").append(lon).append("\"/>\n")
-grouptrack/GtCertRun.kt:674:                sb.append("    </trkseg>\n")
-grouptrack/GtCertRun.kt:675:                sb.append("  </trk>\n")
-grouptrack/GtCertRun.kt:676:                sb.append(GPX_FOOTER)
-grouptrack/GtCertRun.kt:677:                return Pair(name, sb.toString())
-grouptrack/GtCertRun.kt:680:            android.util.Log.e("SpatialDb", "buildTrailGpx error: " + e.message)
-grouptrack/GtCertRun.kt:685:    fun landGeoJson(db: SQLiteDatabase, s: Double, w: Double, n: Double, e: Double, pub: Boolean, rst: Boolean, limit: Int, extraWhere: String): String {
-grouptrack/GtCertRun.kt:686:        LandAreas.createTables(db)
-grouptrack/GtCertRun.kt:687:        val kinds = ArrayList<String>()
-grouptrack/GtCertRun.kt:688:        if (pub) kinds.add("'PUBLIC'")
-grouptrack/GtCertRun.kt:689:        if (rst) kinds.add("'RESTRICTED'")
-grouptrack/GtCertRun.kt:690:        if (kinds.isEmpty()) return "{\"type\":\"FeatureCollection\",\"features\":[]}"
-grouptrack/GtCertRun.kt:692:        sb.append("{\"type\":\"FeatureCollection\",\"features\":[")
-grouptrack/GtCertRun.kt:693:        var first = true
-grouptrack/GtCertRun.kt:694:        db.rawQuery("SELECT area_id, kind, unit_name, own_name, mang_name, des_name, pub_access, acres, rings FROM land_areas " +
-grouptrack/GtCertRun.kt:695:            "WHERE kind IN (" + kinds.joinToString(",") + ") AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?" + extraWhere + " " +
-grouptrack/GtCertRun.kt:696:            "ORDER BY acres DESC LIMIT ?", arrayOf(s.toString(), n.toString(), w.toString(), e.toString(), limit.toString())).use { c ->
-grouptrack/GtCertRun.kt:698:                fun q(i: Int) = SpatialDbManager.jsonEsc(c.getString(i) ?: "")
-grouptrack/GtCertRun.kt:699:                if (!first) sb.append(',')
-grouptrack/GtCertRun.kt:700:                first = false
-grouptrack/GtCertRun.kt:701:                sb.append("{\"type\":\"Feature\",\"properties\":{\"area_id\":").append(c.getLong(0))
-grouptrack/GtCertRun.kt:702:                    .append(",\"kind\":\"").append(q(1)).append("\",\"unit\":\"").append(q(2))
-grouptrack/GtCertRun.kt:703:                    .append("\",\"owner\":\"").append(q(3)).append("\",\"manager\":\"").append(q(4))
-grouptrack/GtCertRun.kt:704:                    .append("\",\"designation\":\"").append(q(5)).append("\",\"access\":\"").append(q(6))
-grouptrack/GtCertRun.kt:705:                    .append("\",\"acres\":").append(Math.round(c.getDouble(7)))
-grouptrack/GtCertRun.kt:706:                    .append("},\"geometry\":{\"type\":\"MultiPolygon\",\"coordinates\":[")
-grouptrack/GtCertRun.kt:707:                c.getString(8).split('|').forEachIndexed { pi, poly ->
-grouptrack/GtCertRun.kt:708:                    if (pi > 0) sb.append(',')
-grouptrack/GtCertRun.kt:709:                    sb.append('[')
-grouptrack/GtCertRun.kt:710:                    poly.split(';').forEachIndexed { ri, ring ->
-grouptrack/GtCertRun.kt:711:                        if (ri > 0) sb.append(',')
-grouptrack/GtCertRun.kt:712:                        sb.append('[')
-grouptrack/GtCertRun.kt:713:                        ring.split(',').forEachIndexed { k, pt ->
-grouptrack/GtCertRun.kt:714:                            if (k > 0) sb.append(',')
-grouptrack/GtCertRun.kt:716:                            sb.append('[').append(pt, 0, sp).append(',').append(pt, sp + 1, pt.length).append(']')
-grouptrack/GtCertRun.kt:718:                        sb.append(']')
-grouptrack/GtCertRun.kt:720:                    sb.append(']')
-grouptrack/GtCertRun.kt:722:                sb.append("]}}")
-grouptrack/GtCertRun.kt:725:        sb.append("]}")
-grouptrack/GtCertRun.kt:726:        return sb.toString()
+grouptrack/GtCertRun.kt:118:                    if (mode == "mapspec17g1c") GtCert17g1c.run(app, w)   // STEP17G1C-2026-11-13: the map source spec, 2.7e org.json vs shared GtOrgJson (TEST-ONLY)
+grouptrack/GtCertRun.kt:119:                    if (mode == "tile17g1a") GtCert17g1a.run(app, w)   // STEP17G1A-2026-11-13: the tile-set arithmetic, 2.7e vs shared -- PURE functions, no Context used (TEST-ONLY)
+grouptrack/GtCertRun.kt:120:                    if (mode == "help17g2g") GtCert17g2g.run(app, w)   // STEP17G2G-2026-11-13: the HELP link table, 2.7e on real org.json vs shared (TEST-ONLY)
+grouptrack/GtCertRun.kt:121:                    if (mode == "hk17g2f4") GtCert17g2f.run4(app, w)   // STEP17G2F4-2026-11-13: the startup container (G2f piece 4), 2.7e on real SQLite + real files vs shared (TEST-ONLY)
+grouptrack/GtCertRun.kt:122:                    if (mode == "hk17g2f3") GtCert17g2f.run3(app, w)   // STEP17G2F3-2026-11-13: the database repair (G2f piece 3), 2.7e on real SQLite + real files vs shared (TEST-ONLY)
+grouptrack/GtCertRun.kt:123:                    if (mode == "hk17g2f2") GtCert17g2f.run2(app, w)   // STEP17G2F2-2026-11-13: the database audit (G2f piece 2), 2.7e on real SQLite vs shared (TEST-ONLY)
+grouptrack/GtCertRun.kt:124:                    if (mode == "hk17g2f1") GtCert17g2f.run(app, w)   // STEP17G2F1-2026-11-13: startup housekeeping everyLaunch (G2f piece 1), 2.7e vs shared (TEST-ONLY)
+grouptrack/GtCertRun.kt:125:                    if (mode == "queue17e2") GtCert17e2.run(app, w)   // STEP17G2E2E-2026-11-12: the state data queue, 2.7e vs shared (TEST-ONLY)   // STEP17G2E1-2026-11-12: a state's kept data, 2.7e vs shared (TEST-ONLY)
+grouptrack/GtCertRun.kt:126:                    if (mode == "config17d") GtCert17d.run(app, w)   // STEP17G2D-2026-11-12: the V2 config files, 2.7e vs shared (TEST-ONLY)
+grouptrack/GtCertRun.kt:127:                    if (mode == "user17c2") GtCert17c2.run(app, w)   // STEP17G2C2-2026-11-12: the V2 local user, 2.7e vs shared (TEST-ONLY)
+grouptrack/GtCertRun.kt:128:                    if (mode == "net17c") GtCert17c.run(app, w)   // STEP17G2C1-2026-11-12: the profile + networks + generator, 2.7e vs shared (TEST-ONLY)
+grouptrack/GtCertRun.kt:129:                    if (mode == "ride17b2") GtCert17b2.run(app, w)   // STEP17G2B2-2026-11-12: the ride settings, DataStore vs GtRideSettings (TEST-ONLY)
+grouptrack/GtCertRun.kt:130:                    if (mode == "session17b") GtCert17b.run(app, w)   // STEP17G2B1-2026-11-12: the session + settings socket + constants (TEST-ONLY)
+grouptrack/GtCertRun.kt:131:                    if (mode == "storage17a") GtCert17a.run(app, w)   // STEP17G2A-2026-11-12: the storage socket, GroupTrackStorage vs GtStorage (TEST-ONLY)
+grouptrack/GtCertRun.kt:132:                    if (mode == "queue16c") GtCert16c.run(app, w)   // STEP16C-2026-11-11: the save-by-area writes, 2.7e vs shared (TEST-ONLY)
+grouptrack/GtCertRun.kt:133:                    if (mode == "mathtile") GtMathProbe.runTile(app, w)   // MATHTILE-2026-11-10: the save-by-area tile math (TEST-ONLY)
+grouptrack/GtCertRun.kt:134:                    if (mode == "mathpow") GtMathProbe.runPow(app, w)   // MATHPOW-2026-11-10: Android's Math.pow(x, 2.0) (TEST-ONLY)
+grouptrack/GtCertRun.kt:135:                    if (mode == "mathprobe") GtMathProbe.run(app, w)   // MATHPROBE-2026-11-10: what Android's Math returns (TEST-ONLY)
+grouptrack/GtCertRun.kt:138:                    if (mode == "golden15a") { val g = GtGolden15a.write(w); Log.i(TAG, "GTCERT golden15a: ${g.lines} lines, ${g.diffs} DIFF on the Droid") }
+grouptrack/GtCertRun.kt:139:                    if (mode != "state17e1" && mode != "config17d" && mode != "user17c2" && mode != "net17c" && mode != "ride17b2" && mode != "session17b" && mode != "storage17a" && mode != "queue16c" && mode != "mathtile" && mode != "osm15g" && mode != "trail15f" && mode != "mathpow" && mode != "mathprobe" && mode != "import15e" && mode != "track15d" && mode != "writes" && mode != "lookups" && mode != "freeze" && mode != "routes" && mode != "rides" && mode != "golden15a" && mode != "parse15b" && mode != "geom" && mode != "rider15c" && mode != "queue17e2" && mode != "hk17g2f1" && mode != "hk17g2f2" && mode != "hk17g2f3" && mode != "hk17g2f4" && mode != "help17g2g" && mode != "tile17g1a" && mode != "mapspec17g1c") {   // STEP17G2E2J-2026-11-13: queue17e2 skips the whole-database pass, as every other 17-group mode does   // STEP8B-2026-11-07, STEP13C, STEP15A-2026-11-08
+grouptrack/GtCertRun.kt:141:                        GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
+grouptrack/GtCertRun.kt:142:                        com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, com.grouptrack.shared.cert.CertRead.TrailSample.ALL /* STEP8-2026-11-07 */,
+grouptrack/GtCertRun.kt:143:                            { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })   // GTCERT-2B-2026-11-06
+grouptrack/GtCertRun.kt:144:                        Log.i(TAG, "GTCERT new side: $n lines in ${(System.currentTimeMillis() - t0) / 1000} s")
+grouptrack/GtCertRun.kt:146:                        runOld(conn, db, edb, saved, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })
+grouptrack/GtCertRun.kt:147:                        com.grouptrack.shared.cert.CertRead.run(OldRead, conn, com.grouptrack.shared.cert.CertRead.TrailSample.ALL, { l -> w.write("OLD|$l\n"); o++ }, { p -> Log.i(TAG, "GTCERT old: $p ($o lines)") })   // GTCERT-2B-2026-11-06
+grouptrack/GtCertRun.kt:148:                        Log.i(TAG, "GTCERT old side: $o lines in ${(System.currentTimeMillis() - t1) / 1000} s")
+grouptrack/GtCertRun.kt:150:                    if (mode == "writes" || mode == "all") runWrites(app, db, edb, w)   // GTCERTW-2026-11-06
+grouptrack/GtCertRun.kt:152:                try { conn.close() } catch (_: Exception) {}; try { dconn?.close() } catch (_: Exception) {}
+grouptrack/GtCertRun.kt:153:                val name = ImportConverter.saveToDownloads(app, out)
+grouptrack/GtCertRun.kt:154:                Log.i(TAG, "GTCERT done in ${(System.currentTimeMillis() - t0) / 1000} s -> Download/$name")
+grouptrack/GtCertRun.kt:156:                Log.e(TAG, "GTCERT failed after ${(System.currentTimeMillis() - t0) / 1000} s: $e", e)
+grouptrack/GtCertRun.kt:158:        }.start()
+grouptrack/GtCertRun.kt:161:    /** GTCERTW-2026-11-06: 2.7e's SpatialDbManager write functions as the OLD side of step 10 -- called while its handles point at a COPY. */
+grouptrack/GtCertRun.kt:162:    private object OldWrite : com.grouptrack.shared.cert.CertWrite.Api {
+grouptrack/GtCertRun.kt:163:        override fun insertWaypointWithId(id: String, name: String, lat: Double, lon: Double, type: String) = SpatialDbManager.insertWaypointWithId(id, name, lat, lon, type)
+grouptrack/GtCertRun.kt:164:        override fun renameWaypoint(id: String, n: String) { SpatialDbManager.renameWaypoint(id, n) }
+grouptrack/GtCertRun.kt:165:        override fun deleteWaypoint(id: String) { SpatialDbManager.deleteWaypoint(id) }
+grouptrack/GtCertRun.kt:166:        override fun changeWaypointType(id: String, t: String) { SpatialDbManager.changeWaypointType(id, t) }
+grouptrack/GtCertRun.kt:167:        override fun insertRoute(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) = SpatialDbManager.insertRoute(name, wkt, a, b, c, d)
+grouptrack/GtCertRun.kt:168:        override fun renameRoute(id: String, n: String) { SpatialDbManager.renameRoute(id, n) }
+grouptrack/GtCertRun.kt:169:        override fun deleteRoute(id: String) { SpatialDbManager.deleteRoute(id) }
+grouptrack/GtCertRun.kt:170:        override fun writeRouteNotes(routeId: String, notesJson: String) = SpatialDbManager.writeRouteNotes(routeId, org.json.JSONObject(notesJson))
+grouptrack/GtCertRun.kt:171:        override fun deleteRouteNotes(routeId: String) = SpatialDbManager.deleteRouteNotes(routeId)
+grouptrack/GtCertRun.kt:172:        override fun setRouteAnchor(routeId: String, lat: Double, lon: Double, name: String) = SpatialDbManager.setRouteAnchor(routeId, lat, lon, name)
+grouptrack/GtCertRun.kt:173:        override fun addAlias(type: String, id: String, name: String, hash: String) { SpatialDbManager.addAlias(type, id, name, hash, null) }
+grouptrack/GtCertRun.kt:174:        override fun renameAlias(aliasId: String, t: String) { SpatialDbManager.renameAlias(aliasId, t) }
+grouptrack/GtCertRun.kt:175:        override fun deleteAlias(aliasId: String) { SpatialDbManager.deleteAlias(aliasId) }
+grouptrack/GtCertRun.kt:176:        override fun setPreferredAlias(type: String, id: String, aliasId: String) { SpatialDbManager.setPreferredAlias(type, id, aliasId) }
+grouptrack/GtCertRun.kt:177:        override fun insertTrack(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) =
+grouptrack/GtCertRun.kt:178:            SpatialDbManager.insertTrackToDb(name, wkt, a, b, c, d).let { "${it.wasNew},${it.trackId},${it.geomHash},${it.name}" }
+grouptrack/GtCertRun.kt:179:        override fun renameTrack(id: String, n: String) { SpatialDbManager.renameTrackInDb(id, n) }
+grouptrack/GtCertRun.kt:180:        override fun deleteTrack(id: String) { SpatialDbManager.deleteTrackFromDb(id) }
+grouptrack/GtCertRun.kt:181:        override fun beginDedup() { SpatialDbManager.beginDedupSession() }
+grouptrack/GtCertRun.kt:182:        override fun endDedup() { SpatialDbManager.endDedupSession() }
+grouptrack/GtCertRun.kt:183:        override fun sourceUidSeen(s: String, u: String) = SpatialDbManager.sourceUidSeen(s, u)
+grouptrack/GtCertRun.kt:184:        override fun markSourceUid(s: String, u: String) { SpatialDbManager.markSourceUid(s, u) }
+grouptrack/GtCertRun.kt:185:        override fun insertTrail(id: String, name: String?, wkt: String, a: Double, b: Double, c: Double, d: Double, created: String) =
+grouptrack/GtCertRun.kt:186:            SpatialDbManager.insertTrail(id, name, wkt, a, b, c, d, created).let { "${it.first},${it.second}" }
+grouptrack/GtCertRun.kt:187:        override fun deleteTrail(id: String) { SpatialDbManager.deleteTrailFromDb(id) }
+grouptrack/GtCertRun.kt:188:        override fun clearAllTrails() = SpatialDbManager.clearAllTrailData().let { "${it.trails},${it.properties},${it.aliases},${it.error}" }
+grouptrack/GtCertRun.kt:192:     * GTCERTW-2026-11-06: step 10 -- the WRITES, on two COPIES of the live databases in the app's cache (never the live files):
+grouptrack/GtCertRun.kt:193:     * NEW = the shared GtWrite on copy "new"; OLD = 2.7e's SpatialDbManager with its two handles pointed at copy "old" for the run and
+grouptrack/GtCertRun.kt:194:     * put back afterwards (finally). The copies are deleted at the end. GPX files are never touched (the script only deletes tracks it made).
+grouptrack/GtCertRun.kt:196:    private fun runWrites(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, w: java.io.Writer) {
+grouptrack/GtCertRun.kt:197:        val e = edb ?: run { Log.e(TAG, "GTCERTW no data database -- writes not run"); return }
+grouptrack/GtCertRun.kt:198:        val dir = java.io.File(app.cacheDir, "gtcertw"); dir.deleteRecursively(); dir.mkdirs()
+grouptrack/GtCertRun.kt:199:        val tracksDir = com.geeksville.mesh.convoy.ConvoyTrackOps.tracksDir()
+grouptrack/GtCertRun.kt:200:        val exists: (String) -> Boolean = { h -> java.io.File(tracksDir, "$h.gpx").exists() }
+grouptrack/GtCertRun.kt:201:        fun copy(tag: String): Pair<String, String> {
+grouptrack/GtCertRun.kt:202:            val s = java.io.File(dir, "$tag-spatial.db"); val x = java.io.File(dir, "$tag-data.db")
+grouptrack/GtCertRun.kt:203:            java.io.File(db.path).copyTo(s, true); java.io.File(e.path).copyTo(x, true); return s.path to x.path
+grouptrack/GtCertRun.kt:206:        val (ns, ne) = copy("new"); val (os, oe) = copy("old")
+grouptrack/GtCertRun.kt:207:        Log.i(TAG, "GTCERTW copies made in ${(System.currentTimeMillis() - t0) / 1000} s")
+grouptrack/GtCertRun.kt:209:            val c = gtOpenDatabase(ns, false); val d = gtOpenDatabase(ne, false)
+grouptrack/GtCertRun.kt:211:                val gw = com.grouptrack.shared.spatial.GtWrite(c, d, { java.util.UUID.randomUUID().toString() }, { java.time.Instant.now().toString() })
+grouptrack/GtCertRun.kt:212:                com.grouptrack.shared.cert.CertWrite.run(com.grouptrack.shared.cert.CertWrite.Shared(gw), c, d, exists, { l -> w.write("NEW|$l\n") }, { p -> Log.i(TAG, "GTCERT new: $p") })
+grouptrack/GtCertRun.kt:213:            } finally { c.close(); d.close() }
+grouptrack/GtCertRun.kt:216:            val prev = SpatialDbManager.certSwapDatabases(oS, oE)
+grouptrack/GtCertRun.kt:218:                val c2 = gtOpenDatabase(os, true); val d2 = gtOpenDatabase(oe, true)
+grouptrack/GtCertRun.kt:219:                try { com.grouptrack.shared.cert.CertWrite.run(OldWrite, c2, d2, exists, { l -> w.write("OLD|$l\n") }, { p -> Log.i(TAG, "GTCERT old: $p") }) }
+grouptrack/GtCertRun.kt:220:                finally { c2.close(); d2.close() }
+grouptrack/GtCertRun.kt:222:                SpatialDbManager.certSwapDatabases(prev.first, prev.second)
+grouptrack/GtCertRun.kt:223:                try { oS.close() } catch (_: Exception) {}; try { oE.close() } catch (_: Exception) {}
+grouptrack/GtCertRun.kt:224:                Log.i(TAG, "GTCERTW live handles restored")
+grouptrack/GtCertRun.kt:227:        Log.i(TAG, "GTCERTW writes done in ${(System.currentTimeMillis() - t0) / 1000} s")
+grouptrack/GtCertRun.kt:231:     * STEP8B-2026-11-07: the FROZEN copy the lookups check reads -- made by mode "freeze" from the live databases, then never changed,
+grouptrack/GtCertRun.kt:232:     * so riding and testing on the Droid cannot move the baseline. Kept in the app's own files, not the cache (the system may clear
+grouptrack/GtCertRun.kt:233:     * the cache). [data] is null exactly when the live data database is absent, as in 2.7e (CODE RULE 1: see GtSpatial).
+grouptrack/GtCertRun.kt:235:    private class Frozen(val spatial: String, val data: String?, val stamp: String)
+grouptrack/GtCertRun.kt:236:    private fun frozenDir(app: Context) = java.io.File(app.filesDir, "gtcert_frozen")
+grouptrack/GtCertRun.kt:237:    private fun freeze(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, stamp: String): Frozen {
+grouptrack/GtCertRun.kt:239:        val dir = frozenDir(app); dir.deleteRecursively(); dir.mkdirs()
+grouptrack/GtCertRun.kt:240:        fun cp(src: String, name: String): String {
+grouptrack/GtCertRun.kt:241:            val d = java.io.File(dir, name); java.io.File(src).copyTo(d, true)
+grouptrack/GtCertRun.kt:242:            val wal = java.io.File("$src-wal"); if (wal.exists() && wal.length() > 0) wal.copyTo(java.io.File(dir, "$name-wal"), true)
+grouptrack/GtCertRun.kt:243:            return d.path
+grouptrack/GtCertRun.kt:245:        val s = cp(db.path, "spatial.db"); val d = edb?.let { cp(it.path, "data.db") }
+grouptrack/GtCertRun.kt:246:        java.io.File(dir, "stamp.txt").writeText(stamp)
+grouptrack/GtCertRun.kt:247:        Log.i(TAG, "GTCERT frozen copy made in ${(System.currentTimeMillis() - t) / 1000} s: $s" + (d?.let { " + $it" } ?: " (no data database)"))
+grouptrack/GtCertRun.kt:248:        return Frozen(s, d, stamp)
+grouptrack/GtCertRun.kt:250:    /** The frozen copy, or null when this Droid has none yet (mode "freeze" makes it). */
+grouptrack/GtCertRun.kt:251:    private fun frozen(app: Context): Frozen? {
+grouptrack/GtCertRun.kt:252:        val dir = frozenDir(app); val st = java.io.File(dir, "stamp.txt"); val s = java.io.File(dir, "spatial.db")
+grouptrack/GtCertRun.kt:253:        if (!st.exists() || !s.exists()) return null
+grouptrack/GtCertRun.kt:254:        val d = java.io.File(dir, "data.db")
+grouptrack/GtCertRun.kt:255:        return Frozen(s.path, if (d.exists()) d.path else null, st.readText().trim())
+grouptrack/GtCertRun.kt:258:    /** GTCERT-2B-2026-11-06: 2.7e's SpatialDbManager reading functions as the OLD side of the batch-2b cases. */
+grouptrack/GtCertRun.kt:259:    private object OldRead : com.grouptrack.shared.cert.CertRead.Api {
+grouptrack/GtCertRun.kt:260:        override fun search(type: String, term: String) = SpatialDbManager.searchByName(type, term)
+grouptrack/GtCertRun.kt:261:        override fun detail(type: String, id: String): Map<String, String?> = SpatialDbManager.getArtifactDetail(type, id)
+grouptrack/GtCertRun.kt:262:        override fun aliases(type: String, id: String) = SpatialDbManager.getAliasesFor(type, id)
+grouptrack/GtCertRun.kt:263:        override fun list(table: String) = SpatialDbManager.queryArtifactList(table, -90.0, -180.0, 90.0, 180.0)
+grouptrack/GtCertRun.kt:264:        override fun corridor() = SpatialDbManager.queryAllTracksForCorridor()
+grouptrack/GtCertRun.kt:265:        override fun trailheads(lat: Double, lon: Double) = SpatialDbManager.trailheadsNear(lat, lon).map { listOf<Any>(it.waypointId, it.name, it.lat, it.lon, it.miles) }
+grouptrack/GtCertRun.kt:266:        override fun routeUsing(waypointId: String) = SpatialDbManager.routeUsingTrailhead(waypointId)
+grouptrack/GtCertRun.kt:267:        override fun routeName(id: String) = SpatialDbManager.routeNameById(id)
+grouptrack/GtCertRun.kt:268:        override fun routeHash(id: String) = SpatialDbManager.routeGeomHash(id)
+grouptrack/GtCertRun.kt:269:        override fun routeByHash(hash: String) = SpatialDbManager.findRouteIdByHash(hash)
+grouptrack/GtCertRun.kt:270:        override fun nameExists(name: String) = SpatialDbManager.routeNameExists(name)
+grouptrack/GtCertRun.kt:271:        override fun nextNumber(base: String) = SpatialDbManager.nextRouteNumber(base)
+grouptrack/GtCertRun.kt:272:        override fun trackName(id: String) = SpatialDbManager.trackName(id)
+grouptrack/GtCertRun.kt:273:        override fun trackGeom(id: String) = SpatialDbManager.trackGeometry(id)
+grouptrack/GtCertRun.kt:274:        override fun waypointAt(lat: Double, lon: Double) = SpatialDbManager.waypointNameAt(lat, lon)
+grouptrack/GtCertRun.kt:275:        override fun geomHash(wkt: String) = SpatialDbManager.computeGeomHash(wkt)
+grouptrack/GtCertRun.kt:276:        override fun parseGpx(text: String) = SpatialDbManager.parseGpxTrackPoints(text)
+grouptrack/GtCertRun.kt:277:        override fun trackIdForGpx(text: String) = SpatialDbManager.trackIdForGpxText(text)
+grouptrack/GtCertRun.kt:280:    /** (headline, notes JSON) exactly as 2.7e's buildRouteGpxById makes them. */
+grouptrack/GtCertRun.kt:281:    private fun notesFor(routeId: String): Pair<String, String?> {
+grouptrack/GtCertRun.kt:282:        val notes = SpatialDbManager.readRouteNotes(routeId)
+grouptrack/GtCertRun.kt:283:        return (notes?.optJSONObject("narrative")?.optString("headline") ?: "") to notes?.toString()
+grouptrack/GtCertRun.kt:286:    fun countFeatures(json: String): Int {
+grouptrack/GtCertRun.kt:287:        var n = 0; var i = json.indexOf("{\"type\":\"Feature\""); while (i >= 0) { n++; i = json.indexOf("{\"type\":\"Feature\"", i + 1) }; return n
+grouptrack/GtCertRun.kt:290:    /** The OLD side, same checks, same order, same lines as GtCert.runNew -- with 2.7e's code. The enumeration (combos, pages, ids)
+grouptrack/GtCertRun.kt:291:     *  comes from GtCert; it only names what to compare. */
+grouptrack/GtCertRun.kt:292:    private fun runOld(conn: androidx.sqlite.SQLiteConnection, db: SQLiteDatabase, edb: SQLiteDatabase?, saved: GtCert.Combo,
+grouptrack/GtCertRun.kt:293:                       emit: (String) -> Unit, progress: (String) -> Unit) {
+grouptrack/GtCertRun.kt:294:        val cats = GtCert.categories(conn)
+grouptrack/GtCertRun.kt:295:        for (cb in GtCert.combos(cats, saved)) {
+grouptrack/GtCertRun.kt:296:            val w = legacyWhere(cb.land, cb.restricted, cb.use, cb.off)
+grouptrack/GtCertRun.kt:298:            db.rawQuery("SELECT trail_id FROM trails WHERE 1=1$w ORDER BY trail_id", null).use { c -> while (c.moveToNext()) c.getString(0)?.let { got.add(it) } }
+grouptrack/GtCertRun.kt:299:            emit(GtCert.line("WHERE", cb.id, "-", got.size, GtCert.fp(got.joinToString("\n")) + "/" + GtCert.fp(w)))
+grouptrack/GtCertRun.kt:301:        progress("filters done")
+grouptrack/GtCertRun.kt:302:        val tp = GtCert.pages(conn, "trails", "trail_id", true)
+grouptrack/GtCertRun.kt:304:            val w = legacyWhere("ALL", r, "ALL", emptySet())
+grouptrack/GtCertRun.kt:305:            for ((k, frag) in tp) {
+grouptrack/GtCertRun.kt:306:                val rows = queryTrails(db, edb, -90.0, -180.0, 90.0, 180.0, 1_000_000, w + frag)
+grouptrack/GtCertRun.kt:307:                emit(GtCert.line("TRAILS", k, "r$r", rows.size, GtCert.fp(trailGeoJson(rows, r))))
+grouptrack/GtCertRun.kt:309:            progress("trails r$r done")
+grouptrack/GtCertRun.kt:311:        SpatialDbManager.queryTracksByViewport(-90.0, -180.0, 90.0, 180.0, 1_000_000).let { emit(GtCert.line("TRACKS", "all", "-", it.size, GtCert.fp(SpatialDbManager.buildTrackGeoJson(it)))) }
+grouptrack/GtCertRun.kt:312:        SpatialDbManager.queryWaypointsByViewport(-90.0, -180.0, 90.0, 180.0, 1_000_000).let { emit(GtCert.line("WAYPOINTS", "all", "-", it.size, GtCert.fp(SpatialDbManager.buildWaypointGeoJson(it)))) }
+grouptrack/GtCertRun.kt:313:        SpatialDbManager.queryRoutesByViewport(-90.0, -180.0, 90.0, 180.0, 1_000_000).let { emit(GtCert.line("ROUTES", "all", "-", it.size, GtCert.fp(SpatialDbManager.buildRouteGeoJson(it)))) }
+grouptrack/GtCertRun.kt:314:        val lp = GtCert.pages(conn, "land_areas", "area_id", false)
+grouptrack/GtCertRun.kt:315:        for ((pub, rst) in listOf(true to true, true to false, false to true)) for ((k, frag) in lp) {
+grouptrack/GtCertRun.kt:316:            val json = landGeoJson(db, -90.0, -180.0, 90.0, 180.0, pub, rst, 1_000_000, frag)
+grouptrack/GtCertRun.kt:317:            emit(GtCert.line("LAND", k, "p${pub}r$rst", countFeatures(json), GtCert.fp(json)))
+grouptrack/GtCertRun.kt:319:        progress("land done")
+grouptrack/GtCertRun.kt:320:        fun gpxPages(kind: String, table: String, col: String, one: (String) -> String?) {
+grouptrack/GtCertRun.kt:321:            for ((k, frag) in GtCert.pages(conn, table, col, true)) {
+grouptrack/GtCertRun.kt:323:                for (id in GtCert.ids(conn, "SELECT $col FROM $table WHERE 1=1$frag ORDER BY $col")) { val g = one(id); if (g != null) { sb.append(g).append('\u0000'); n++ } else sb.append("NULL\u0000") }
+grouptrack/GtCertRun.kt:324:                emit(GtCert.line(kind, k, "-", n, GtCert.fp(sb.toString())))
+grouptrack/GtCertRun.kt:327:        gpxPages("GPXW", "waypoints", "waypoint_id") { waypointGpx(db, it)?.second }
+grouptrack/GtCertRun.kt:328:        gpxPages("GPXR", "routes", "route_id") { routeGpx(db, it)?.second }
+grouptrack/GtCertRun.kt:329:        gpxPages("GPXT", "trails", "trail_id") { trailGpx(db, it)?.second }
+grouptrack/GtCertRun.kt:330:        progress("gpx done")
+grouptrack/GtCertRun.kt:334:    private const val GPX_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+grouptrack/GtCertRun.kt:335:        "<gpx version=\"1.1\" creator=\"GroupTrack\"\n" +
+grouptrack/GtCertRun.kt:338:    private const val GPX_FOOTER = "</gpx>"
+grouptrack/GtCertRun.kt:339:    private fun xmlEscape(s: String): String =
+grouptrack/GtCertRun.kt:340:        s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+grouptrack/GtCertRun.kt:342:    /** TrailFilterState.regenerate() (2.7e), as a function of the four settings. */
+grouptrack/GtCertRun.kt:343:    private fun legacyWhere(land: String, restricted: Boolean, use: String, off: Set<String>): String {
+grouptrack/GtCertRun.kt:345:        sb.append(" AND (status IS NULL OR status <> 'CLOSED')")
+grouptrack/GtCertRun.kt:346:        val lands = ArrayList<String>()
+grouptrack/GtCertRun.kt:347:        if (land != "PRIVATE") lands.add("PUBLIC")
+grouptrack/GtCertRun.kt:348:        if (land != "PUBLIC") lands.add("PRIVATE")
+grouptrack/GtCertRun.kt:349:        if (restricted) lands.add("RESTRICTED")
+grouptrack/GtCertRun.kt:350:        sb.append(" AND (land_status IS NULL OR land_status IN (" + lands.joinToString(",") { "'" + it + "'" } + "))")
+grouptrack/GtCertRun.kt:351:        if (use == "MOTORIZED" || use == "NON-MOTORIZED") {
+grouptrack/GtCertRun.kt:352:            sb.append(" AND (use_type IS NULL OR use_type='")
+grouptrack/GtCertRun.kt:353:                .append(use).append("')")
+grouptrack/GtCertRun.kt:355:        if (off.contains("__unofficial")) {
+grouptrack/GtCertRun.kt:356:            sb.append(" AND (status IS NULL OR status NOT IN ('UNOFFICIAL','UNCERTAIN'))")
+grouptrack/GtCertRun.kt:358:        val cats = off.filter { it != "__unofficial" }
+grouptrack/GtCertRun.kt:359:        if (cats.isNotEmpty()) {
+grouptrack/GtCertRun.kt:360:            sb.append(" AND COALESCE(carto_code,'shape only') NOT IN (")
+grouptrack/GtCertRun.kt:361:            sb.append(cats.joinToString(",") { "'" + it.replace("'", "") + "'" })
+grouptrack/GtCertRun.kt:362:            sb.append(")")
+grouptrack/GtCertRun.kt:364:        return sb.toString()
+grouptrack/GtCertRun.kt:367:    fun queryTrails(db: SQLiteDatabase, edb: SQLiteDatabase?, south: Double, west: Double, north: Double, east: Double, limit: Int, where: String): List<Map<String, String?>> {
+grouptrack/GtCertRun.kt:368:        val results = mutableListOf<MutableMap<String, String?>>()
+grouptrack/GtCertRun.kt:369:        val cursor = db.rawQuery(
+grouptrack/GtCertRun.kt:394:            "SELECT trail_id, name, geometry, carto_code AS CartoCode, status AS Status, land_status AS Land, restricted_geom AS RstGeom, open_geom AS OpenGeom FROM trails " +   // RSTSEG-2026-11-02: + RstGeom   // LANDDISPLAY-2026-11-02: + Land
+grouptrack/GtCertRun.kt:396:                where +
+grouptrack/GtCertRun.kt:411:                " ORDER BY " +
+grouptrack/GtCertRun.kt:414:            arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
+grouptrack/GtCertRun.kt:416:        while (cursor.moveToNext()) {
+grouptrack/GtCertRun.kt:417:            val wkt = cursor.getString(2)
+grouptrack/GtCertRun.kt:419:                results.add(mutableMapOf(
+grouptrack/GtCertRun.kt:422:                    "Status" to (if (cursor.columnCount > 4) cursor.getString(4) else null),
+grouptrack/GtCertRun.kt:423:                    "trail_id" to cursor.getString(0),
+grouptrack/GtCertRun.kt:424:                    "name" to cursor.getString(1),
+grouptrack/GtCertRun.kt:425:                    "geometry" to wkt,
+grouptrack/GtCertRun.kt:426:                    "CartoCode" to cursor.getString(3),
+grouptrack/GtCertRun.kt:427:                    "Land" to (if (cursor.columnCount > 5) cursor.getString(5) else null),   // LANDDISPLAY-2026-11-02: RESTRICTED draws red
+grouptrack/GtCertRun.kt:428:                    "RstGeom" to (if (cursor.columnCount > 6) cursor.getString(6) else null),   // RSTSEG-2026-11-02: the red segments
+grouptrack/GtCertRun.kt:429:                    "OpenGeom" to (if (cursor.columnCount > 7) cursor.getString(7) else null)   // RSTOPEN-2026-11-02: the trail without them
+grouptrack/GtCertRun.kt:433:        cursor.close()
+grouptrack/GtCertRun.kt:438:        if (edb != null && results.isNotEmpty()) {
+grouptrack/GtCertRun.kt:440:                val ids = results.mapNotNull { it["trail_id"] }
+grouptrack/GtCertRun.kt:441:                if (ids.isNotEmpty()) {
+grouptrack/GtCertRun.kt:442:                    val placeholders = ids.joinToString(",") { "?" }
+grouptrack/GtCertRun.kt:443:                    val pc = edb.rawQuery(
+grouptrack/GtCertRun.kt:445:                        "horse_allowed, hike_difficulty, bike_difficulty, owner_steward, county " +
+grouptrack/GtCertRun.kt:446:                        "FROM trail_properties WHERE trail_id IN (" + placeholders + ")",
+grouptrack/GtCertRun.kt:449:                    val byId = HashMap<String, Map<String, String?>>()
+grouptrack/GtCertRun.kt:452:                            val tid = it.getString(0) ?: continue
+grouptrack/GtCertRun.kt:453:                            byId[tid] = mapOf(
+grouptrack/GtCertRun.kt:454:                                "SurfaceType" to it.getString(1),
+grouptrack/GtCertRun.kt:455:                                "DesignatedUses" to it.getString(2),
+grouptrack/GtCertRun.kt:456:                                "MotorizedAllowed" to it.getString(3),
+grouptrack/GtCertRun.kt:457:                                "HorseAllowed" to it.getString(4),
+grouptrack/GtCertRun.kt:458:                                "HikeDifficulty" to it.getString(5),
+grouptrack/GtCertRun.kt:459:                                "BikeDifficulty" to it.getString(6),
+grouptrack/GtCertRun.kt:460:                                "OwnerSteward" to it.getString(7),
+grouptrack/GtCertRun.kt:461:                                "County" to it.getString(8)
+grouptrack/GtCertRun.kt:465:                    for (row in results) {
+grouptrack/GtCertRun.kt:466:                        val props = byId[row["trail_id"]] ?: continue
+grouptrack/GtCertRun.kt:467:                        for ((k, v) in props) {
+grouptrack/GtCertRun.kt:469:                            val existing = row[k]
+grouptrack/GtCertRun.kt:470:                            if (!existing.isNullOrBlank()) continue
+grouptrack/GtCertRun.kt:480:        return results
+grouptrack/GtCertRun.kt:483:    fun trailGeoJson(trails: List<Map<String, String?>>, restricted: Boolean): String {
+grouptrack/GtCertRun.kt:485:        sb.append("{\"type\":\"FeatureCollection\",\"features\":[")
+grouptrack/GtCertRun.kt:486:        var first = true
+grouptrack/GtCertRun.kt:487:        for (trail in trails) {
+grouptrack/GtCertRun.kt:489:            val wkt = (if (!trail["RstGeom"].isNullOrEmpty()) (trail["OpenGeom"] ?: trail["geometry"]) else trail["geometry"]) ?: ""   // NULL open = not worked out yet -> whole line
+grouptrack/GtCertRun.kt:492:                val rg0 = trail["RstGeom"] ?: ""
+grouptrack/GtCertRun.kt:493:                if (rg0.isNotEmpty() && restricted) {
+grouptrack/GtCertRun.kt:494:                    val rc0 = SpatialDbManager.wktToGeoJsonCoords(rg0)
+grouptrack/GtCertRun.kt:495:                    if (rc0 != "[]") { if (!first) sb.append(","); first = false
+grouptrack/GtCertRun.kt:496:                        sb.append("{\"type\":\"Feature\",\"properties\":{\"trail_id\":\"" + SpatialDbManager.jsonEsc(trail["trail_id"] ?: "") +
+grouptrack/GtCertRun.kt:497:                            "\",\"PrimaryName\":\"" + SpatialDbManager.jsonEsc(trail["name"] ?: "") + "\",\"_rst\":1},\"geometry\":{\"type\":\"MultiLineString\",\"coordinates\":" + rc0 + "}}") }
+grouptrack/GtCertRun.kt:501:            val coords = SpatialDbManager.wktToGeoJsonCoords(wkt)
+grouptrack/GtCertRun.kt:502:            if (coords == "[]") continue
+grouptrack/GtCertRun.kt:503:            if (!first) sb.append(",")
+grouptrack/GtCertRun.kt:504:            first = false
+grouptrack/GtCertRun.kt:505:            val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
+grouptrack/GtCertRun.kt:506:            fun s(k: String): String = SpatialDbManager.jsonEsc(trail[k] ?: "")   // RIDERESC-2026-10-09 (was: a quote became \\" -> broken batch)
+grouptrack/GtCertRun.kt:507:            sb.append("{\"type\":\"Feature\",\"properties\":{")
+grouptrack/GtCertRun.kt:512:            sb.append("\"trail_id\":\"" + s("trail_id") + "\"")
+grouptrack/GtCertRun.kt:513:            sb.append(",\"PrimaryName\":\"" + s("name") + "\"")
+grouptrack/GtCertRun.kt:514:            sb.append(",\"CartoCode\":\"" + s("CartoCode") + "\"")
+grouptrack/GtCertRun.kt:515:            sb.append(",\"SurfaceType\":\"" + s("SurfaceType") + "\"")
+grouptrack/GtCertRun.kt:516:            sb.append(",\"DesignatedUses\":\"" + s("DesignatedUses") + "\"")
+grouptrack/GtCertRun.kt:517:            sb.append(",\"MotorizedAllowed\":\"" + s("MotorizedAllowed") + "\"")
+grouptrack/GtCertRun.kt:518:            sb.append(",\"HorseAllowed\":\"" + s("HorseAllowed") + "\"")
+grouptrack/GtCertRun.kt:519:            sb.append(",\"HikeDifficulty\":\"" + s("HikeDifficulty") + "\"")
+grouptrack/GtCertRun.kt:520:            sb.append(",\"BikeDifficulty\":\"" + s("BikeDifficulty") + "\"")
+grouptrack/GtCertRun.kt:521:            sb.append(",\"OwnerSteward\":\"" + s("OwnerSteward") + "\"")
+grouptrack/GtCertRun.kt:522:            sb.append(",\"County\":\"" + s("County") + "\"")
+grouptrack/GtCertRun.kt:523:            sb.append(",\"Land\":\"" + s("Land") + "\"")   // LANDDISPLAY-2026-11-02
+grouptrack/GtCertRun.kt:524:            sb.append("},\"geometry\":{\"type\":\"" + geoType + "\",\"coordinates\":" + coords + "}}")
+grouptrack/GtCertRun.kt:526:            val rg = trail["RstGeom"] ?: ""
+grouptrack/GtCertRun.kt:527:            if (rg.isNotEmpty() && restricted) {
+grouptrack/GtCertRun.kt:528:                val rc = SpatialDbManager.wktToGeoJsonCoords(rg)
+grouptrack/GtCertRun.kt:529:                if (rc != "[]") sb.append(",{\"type\":\"Feature\",\"properties\":{\"trail_id\":\"" + s("trail_id") +
+grouptrack/GtCertRun.kt:530:                    "\",\"PrimaryName\":\"" + s("name") + "\",\"_rst\":1},\"geometry\":{\"type\":\"MultiLineString\",\"coordinates\":" + rc + "}}")
+grouptrack/GtCertRun.kt:533:        sb.append("]}")
+grouptrack/GtCertRun.kt:534:        return sb.toString()
+grouptrack/GtCertRun.kt:537:    fun waypointGpx(db: SQLiteDatabase, waypointId: String): Pair<String, String>? {
+grouptrack/GtCertRun.kt:539:            val cursor = db.rawQuery(
+grouptrack/GtCertRun.kt:540:                "SELECT name, type, geometry FROM waypoints WHERE waypoint_id=?",
+grouptrack/GtCertRun.kt:541:                arrayOf(waypointId))
+grouptrack/GtCertRun.kt:542:            cursor.use { c ->
+grouptrack/GtCertRun.kt:544:                val name = c.getString(0) ?: "Unnamed"
+grouptrack/GtCertRun.kt:545:                val type = c.getString(1) ?: ""
+grouptrack/GtCertRun.kt:546:                val geom = c.getString(2) ?: return null
+grouptrack/GtCertRun.kt:547:                val desc = if (c.columnCount > 3) (c.getString(3) ?: "") else ""
+grouptrack/GtCertRun.kt:548:                val coords = geom.removePrefix("POINT(").removeSuffix(")").trim().split(" ")
+grouptrack/GtCertRun.kt:549:                if (coords.size < 2) return null
+grouptrack/GtCertRun.kt:550:                val lon = coords[0]
+grouptrack/GtCertRun.kt:551:                val lat = coords[1]
+grouptrack/GtCertRun.kt:553:                sb.append(GPX_HEADER)
+grouptrack/GtCertRun.kt:554:                sb.append("  <wpt lat=\"").append(lat).append("\" lon=\"").append(lon).append("\">\n")
+grouptrack/GtCertRun.kt:555:                sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
+grouptrack/GtCertRun.kt:556:                if (type.isNotEmpty()) sb.append("    <type>").append(xmlEscape(type)).append("</type>\n")
+grouptrack/GtCertRun.kt:557:                if (desc.isNotEmpty()) sb.append("    <desc>").append(xmlEscape(desc)).append("</desc>\n")
+grouptrack/GtCertRun.kt:558:                sb.append("  </wpt>\n")
+grouptrack/GtCertRun.kt:559:                sb.append(GPX_FOOTER)
+grouptrack/GtCertRun.kt:560:                return Pair(name, sb.toString())
+grouptrack/GtCertRun.kt:563:            android.util.Log.e("SpatialDb", "buildWaypointGpx error: " + e.message)
+grouptrack/GtCertRun.kt:568:    fun routeGpx(db: SQLiteDatabase, routeId: String): Pair<String, String>? {
+grouptrack/GtCertRun.kt:570:            val cursor = db.rawQuery(
+grouptrack/GtCertRun.kt:571:                "SELECT name, geometry FROM routes WHERE route_id=?",
+grouptrack/GtCertRun.kt:572:                arrayOf(routeId))
+grouptrack/GtCertRun.kt:573:            cursor.use { c ->
+grouptrack/GtCertRun.kt:575:                val name = c.getString(0) ?: "Unnamed"
+grouptrack/GtCertRun.kt:576:                val geom = c.getString(1) ?: return null
+grouptrack/GtCertRun.kt:579:                 * ⛔ This read `columnCount > 2` against a two-column SELECT, so
+grouptrack/GtCertRun.kt:580:                 * it has NEVER fired and no narrative has ever been shared. It
+grouptrack/GtCertRun.kt:581:                 * was written for a description column that does not exist.
+grouptrack/GtCertRun.kt:583:                 * ⭐ It lives in route_notes, and readRouteNotes() returns it.
+grouptrack/GtCertRun.kt:585:                 * ⚠ <desc> GETS THE HEADLINE, NOT THE JSON. Gaia and onX put
+grouptrack/GtCertRun.kt:586:                 * human prose here, and a rider opening this route there should
+grouptrack/GtCertRun.kt:587:                 * see a sentence rather than a payload. The structured block
+grouptrack/GtCertRun.kt:588:                 * goes in <extensions>, which other apps ignore.
+grouptrack/GtCertRun.kt:590:                val notes = SpatialDbManager.readRouteNotes(routeId)
+grouptrack/GtCertRun.kt:591:                val desc = notes?.optJSONObject("narrative")?.optString("headline") ?: ""
+grouptrack/GtCertRun.kt:592:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+grouptrack/GtCertRun.kt:593:                val points = coordStr.split(",").mapNotNull { pt ->
+grouptrack/GtCertRun.kt:594:                    val parts = pt.trim().split(" ")
+grouptrack/GtCertRun.kt:595:                    if (parts.size >= 2) Pair(parts[1], parts[0]) else null
+grouptrack/GtCertRun.kt:598:                sb.append(GPX_HEADER)
+grouptrack/GtCertRun.kt:599:                sb.append("  <rte>\n")
+grouptrack/GtCertRun.kt:600:                sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
+grouptrack/GtCertRun.kt:601:                if (desc.isNotEmpty()) sb.append("    <desc>").append(xmlEscape(desc)).append("</desc>\n")
+grouptrack/GtCertRun.kt:604:                 * \u26d4 parseGpxRoutes has looked for <grouptrack:notes> since
+grouptrack/GtCertRun.kt:605:                 * 08-29 and prefers it over <desc> -- "the payload wins where
+grouptrack/GtCertRun.kt:606:                 * present -- it is ours and complete." Nothing ever wrote it,
+grouptrack/GtCertRun.kt:607:                 * so every route we exported carried one sentence and lost its
+grouptrack/GtCertRun.kt:608:                 * narrative detail and its recipe.
+grouptrack/GtCertRun.kt:611:                 * the notes block so it would make the same journey with no new
+grouptrack/GtCertRun.kt:612:                 * plumbing. This is the step that journey was missing.
+grouptrack/GtCertRun.kt:614:                 * \u26a0 ESCAPED. The JSON is full of quotes and the recipe's
+grouptrack/GtCertRun.kt:615:                 * trailFilter clause can carry < and >; unescaped, one filtered
+grouptrack/GtCertRun.kt:616:                 * route produces a file nothing can parse.
+grouptrack/GtCertRun.kt:618:                if (notes != null) {
+grouptrack/GtCertRun.kt:619:                    sb.append("    <extensions>\n")
+grouptrack/GtCertRun.kt:620:                    sb.append("      <grouptrack:notes>")
+grouptrack/GtCertRun.kt:621:                    sb.append(xmlEscape(notes.toString()))
+grouptrack/GtCertRun.kt:622:                    sb.append("</grouptrack:notes>\n")
+grouptrack/GtCertRun.kt:623:                    sb.append("    </extensions>\n")
+grouptrack/GtCertRun.kt:626:                for ((lat, lon) in points) {
+grouptrack/GtCertRun.kt:627:                    sb.append("    <rtept lat=\"").append(lat).append("\" lon=\"").append(lon).append("\">\n")
+grouptrack/GtCertRun.kt:628:                    sb.append("      <name>Pt ").append(idx).append("</name>\n")
+grouptrack/GtCertRun.kt:629:                    sb.append("    </rtept>\n")
+grouptrack/GtCertRun.kt:632:                /* THE WHOLE PAYLOAD, so the recipe travels with the route.
+grouptrack/GtCertRun.kt:633:                 * A recipient presses one button and gets six rides from the
+grouptrack/GtCertRun.kt:634:                 * sender's parameters -- the entire point of keeping a recipe.
+grouptrack/GtCertRun.kt:636:                if (notes != null) {
+grouptrack/GtCertRun.kt:637:                    sb.append("    <extensions>\n")
+grouptrack/GtCertRun.kt:638:                    sb.append("      <grouptrack:notes>")
+grouptrack/GtCertRun.kt:639:                    sb.append(xmlEscape(notes.toString()))
+grouptrack/GtCertRun.kt:640:                    sb.append("</grouptrack:notes>\n")
+grouptrack/GtCertRun.kt:641:                    sb.append("    </extensions>\n")
+grouptrack/GtCertRun.kt:643:                sb.append("  </rte>\n")
+grouptrack/GtCertRun.kt:644:                sb.append(GPX_FOOTER)
+grouptrack/GtCertRun.kt:645:                return Pair(name, sb.toString())
+grouptrack/GtCertRun.kt:648:            android.util.Log.e("SpatialDb", "buildRouteGpx error: " + e.message)
+grouptrack/GtCertRun.kt:653:    fun trailGpx(db: SQLiteDatabase, trailId: String): Pair<String, String>? {
+grouptrack/GtCertRun.kt:655:            val cursor = db.rawQuery(
+grouptrack/GtCertRun.kt:656:                "SELECT name, geometry FROM trails WHERE trail_id=?",
+grouptrack/GtCertRun.kt:657:                arrayOf(trailId))
+grouptrack/GtCertRun.kt:658:            cursor.use { c ->
+grouptrack/GtCertRun.kt:660:                val name = c.getString(0) ?: "Unnamed"
+grouptrack/GtCertRun.kt:661:                val geom = c.getString(1) ?: return null
+grouptrack/GtCertRun.kt:662:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+grouptrack/GtCertRun.kt:663:                val points = coordStr.split(",").mapNotNull { pt ->
+grouptrack/GtCertRun.kt:664:                    val parts = pt.trim().split(" ")
+grouptrack/GtCertRun.kt:665:                    if (parts.size >= 2) Pair(parts[1], parts[0]) else null
+grouptrack/GtCertRun.kt:668:                sb.append(GPX_HEADER)
+grouptrack/GtCertRun.kt:669:                sb.append("  <trk>\n")
+grouptrack/GtCertRun.kt:670:                sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
+grouptrack/GtCertRun.kt:671:                sb.append("    <trkseg>\n")
+grouptrack/GtCertRun.kt:672:                for ((lat, lon) in points) {
+grouptrack/GtCertRun.kt:673:                    sb.append("      <trkpt lat=\"").append(lat).append("\" lon=\"").append(lon).append("\"/>\n")
+grouptrack/GtCertRun.kt:675:                sb.append("    </trkseg>\n")
+grouptrack/GtCertRun.kt:676:                sb.append("  </trk>\n")
+grouptrack/GtCertRun.kt:677:                sb.append(GPX_FOOTER)
+grouptrack/GtCertRun.kt:678:                return Pair(name, sb.toString())
+grouptrack/GtCertRun.kt:681:            android.util.Log.e("SpatialDb", "buildTrailGpx error: " + e.message)
+grouptrack/GtCertRun.kt:686:    fun landGeoJson(db: SQLiteDatabase, s: Double, w: Double, n: Double, e: Double, pub: Boolean, rst: Boolean, limit: Int, extraWhere: String): String {
+grouptrack/GtCertRun.kt:687:        LandAreas.createTables(db)
+grouptrack/GtCertRun.kt:688:        val kinds = ArrayList<String>()
+grouptrack/GtCertRun.kt:689:        if (pub) kinds.add("'PUBLIC'")
+grouptrack/GtCertRun.kt:690:        if (rst) kinds.add("'RESTRICTED'")
+grouptrack/GtCertRun.kt:691:        if (kinds.isEmpty()) return "{\"type\":\"FeatureCollection\",\"features\":[]}"
+grouptrack/GtCertRun.kt:693:        sb.append("{\"type\":\"FeatureCollection\",\"features\":[")
+grouptrack/GtCertRun.kt:694:        var first = true
+grouptrack/GtCertRun.kt:695:        db.rawQuery("SELECT area_id, kind, unit_name, own_name, mang_name, des_name, pub_access, acres, rings FROM land_areas " +
+grouptrack/GtCertRun.kt:696:            "WHERE kind IN (" + kinds.joinToString(",") + ") AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?" + extraWhere + " " +
+grouptrack/GtCertRun.kt:697:            "ORDER BY acres DESC LIMIT ?", arrayOf(s.toString(), n.toString(), w.toString(), e.toString(), limit.toString())).use { c ->
+grouptrack/GtCertRun.kt:699:                fun q(i: Int) = SpatialDbManager.jsonEsc(c.getString(i) ?: "")
+grouptrack/GtCertRun.kt:700:                if (!first) sb.append(',')
+grouptrack/GtCertRun.kt:701:                first = false
+grouptrack/GtCertRun.kt:702:                sb.append("{\"type\":\"Feature\",\"properties\":{\"area_id\":").append(c.getLong(0))
+grouptrack/GtCertRun.kt:703:                    .append(",\"kind\":\"").append(q(1)).append("\",\"unit\":\"").append(q(2))
+grouptrack/GtCertRun.kt:704:                    .append("\",\"owner\":\"").append(q(3)).append("\",\"manager\":\"").append(q(4))
+grouptrack/GtCertRun.kt:705:                    .append("\",\"designation\":\"").append(q(5)).append("\",\"access\":\"").append(q(6))
+grouptrack/GtCertRun.kt:706:                    .append("\",\"acres\":").append(Math.round(c.getDouble(7)))
+grouptrack/GtCertRun.kt:707:                    .append("},\"geometry\":{\"type\":\"MultiPolygon\",\"coordinates\":[")
+grouptrack/GtCertRun.kt:708:                c.getString(8).split('|').forEachIndexed { pi, poly ->
+grouptrack/GtCertRun.kt:709:                    if (pi > 0) sb.append(',')
+grouptrack/GtCertRun.kt:710:                    sb.append('[')
+grouptrack/GtCertRun.kt:711:                    poly.split(';').forEachIndexed { ri, ring ->
+grouptrack/GtCertRun.kt:712:                        if (ri > 0) sb.append(',')
+grouptrack/GtCertRun.kt:713:                        sb.append('[')
+grouptrack/GtCertRun.kt:714:                        ring.split(',').forEachIndexed { k, pt ->
+grouptrack/GtCertRun.kt:715:                            if (k > 0) sb.append(',')
+grouptrack/GtCertRun.kt:717:                            sb.append('[').append(pt, 0, sp).append(',').append(pt, sp + 1, pt.length).append(']')
+grouptrack/GtCertRun.kt:719:                        sb.append(']')
+grouptrack/GtCertRun.kt:721:                    sb.append(']')
+grouptrack/GtCertRun.kt:723:                sb.append("]}}")
+grouptrack/GtCertRun.kt:726:        sb.append("]}")
+grouptrack/GtCertRun.kt:727:        return sb.toString()
 grouptrack/FilterModule.kt:1:package com.geeksville.mesh.grouptrack
 grouptrack/FilterModule.kt:3:import androidx.compose.foundation.Canvas
 grouptrack/FilterModule.kt:4:import androidx.compose.foundation.background
@@ -16133,6 +16193,7 @@ RouteExplorerCertOld.kt:14:import kotlin.math.sin
 RouteExplorerCertOld.kt:15:import kotlin.math.sqrt
 RouteExplorerCertOld.kt:16:import kotlin.random.Random
 RouteExplorerCertOld.kt:21: * The exploratory route suggester. A port of the research generator that was
+RouteExplorerCertOld.kt:22: * proven on 2026-08-22 across THREE corridors with no retuning between them:
 RouteExplorerCertOld.kt:24: *     corridor        best route          retrace   unconfirmed junctions
 RouteExplorerCertOld.kt:25: *     Toroweap        78 mi /  6 feats      50%     176
 RouteExplorerCertOld.kt:26: *     Bar 10          74 mi / 10 feats      36%      53
@@ -16902,6 +16963,8 @@ RouteExplorerCertOld.kt:1383:    private var splitSeq = 0
 RouteExplorerCertOld.kt:1386:     * Insert a node at [proj] on edge [ei], splitting it in two.
 RouteExplorerCertOld.kt:1388:     * ⭐ THIS IS THE ORIGIN FIX. nearestNode() returns the closest EXISTING
 RouteExplorerCertOld.kt:1389:     * node and nodes only exist at junctions, so a tap mid-trail was dragged
+RouteExplorerCertOld.kt:1390:     * hundreds of feet. Measured 613 ft with ONE spoke; splitting gives 24 ft
+RouteExplorerCertOld.kt:1391:     * with two.
 RouteExplorerCertOld.kt:1393:     * ⚠ The synthetic key must not collide with a real cellKey. Negative keys
 RouteExplorerCertOld.kt:1394:     * cannot be produced by cellKey at any latitude we serve.
 RouteExplorerCertOld.kt:1396:    private fun splitEdgeAt(g: Graph, ei: Int, proj: DoubleArray): Long {
@@ -19679,6 +19742,7 @@ ConvoyDownloadQueuePanel.kt:382: * once QueueEntry carries `completedAt` alongsi
 ConvoyDownloadQueuePanel.kt:383: * each completed entry yields a real observed rate of
 ConvoyDownloadQueuePanel.kt:384: * downloadedTiles / (completedAt - createdAt). Averaging the last 2 smooths
 ConvoyDownloadQueuePanel.kt:385: * the estimate, survives app restarts (persisted in the entry, not held in
+ConvoyDownloadQueuePanel.kt:386: * memory), and does NOT jitter with connectivity the way instantaneous
 ConvoyDownloadQueuePanel.kt:387: * throughput sampling does - which matters on trails where the link drops.
 ConvoyDownloadQueuePanel.kt:389: * Until then this returns null so line 3 does not render. Do NOT substitute a
 ConvoyDownloadQueuePanel.kt:390: * live-rate estimate here: an unstable number is worse than none.
@@ -24393,6 +24457,7 @@ ConvoyViewModel.kt:242:    val noPositionError: kotlinx.coroutines.flow.StateFlo
 ConvoyViewModel.kt:244:    private val _networkPositionWarning = kotlinx.coroutines.flow.MutableStateFlow(false)
 ConvoyViewModel.kt:245:    val networkPositionWarning: kotlinx.coroutines.flow.StateFlow<Boolean> = _networkPositionWarning
 ConvoyViewModel.kt:250:     * This is the live feed that drives the cart when there is no radio. It used
+ConvoyViewModel.kt:251:     * to subscribe to GPS_PROVIDER alone. On a device with NO GPS CHIP that
 ConvoyViewModel.kt:252:     * delivers nothing, the legacy NETWORK_PROVIDER is dormant on modern Android
 ConvoyViewModel.kt:253:     * (Play Services moved network-derived positioning into FUSED), and the cart
 ConvoyViewModel.kt:254:     * ended up with a name and 0.0/0.0 -- silently, with the map left at its
@@ -27515,6 +27580,7 @@ ConvoyMapRecipe.kt:61:     * The app's OWN folder, beside the stores it describe
 ConvoyMapRecipe.kt:62:     * Downloads is the INBOX: a recipe mailed by someone else lands there, and
 ConvoyMapRecipe.kt:63:     * the panel lists the two separately so "came from outside" and "made here"
 ConvoyMapRecipe.kt:66:    private fun dir(): File =
+ConvoyMapRecipe.kt:67:        GroupTrackStorage.dir("recipes")   // STORAGEROOT-2026-09-11
 ConvoyMapRecipe.kt:69:    private fun today(): String =
 ConvoyMapRecipe.kt:70:        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 ConvoyMapRecipe.kt:72:    /** Background, best effort. Never throws into the caller. */
@@ -29691,6 +29757,7 @@ ConvoyNotesPanel.kt:86:     * NOTESTWISTY-2026-09-03: start folded, opened by ta
 ConvoyNotesPanel.kt:88:     * ⭐ Fred, 09-03, on why this panel needs it: the route narrative is long --
 ConvoyNotesPanel.kt:89:     * a headline, four stats, ten features, ten stops in order, ground covered
 ConvoyNotesPanel.kt:91:     * three things a rider decides on.
+ConvoyNotesPanel.kt:92:     * ⚠ A section with NO HEADING cannot fold -- there would be nothing to tap.
 ConvoyNotesPanel.kt:93:     * The headline is one of those, which is correct: it is the first thing you
 ConvoyNotesPanel.kt:96:    val collapsed: Boolean = false,
 ConvoyNotesPanel.kt:107: * NOTESPANEL-2026-08-23: a WIP draft's `notes` block -> sections.
@@ -30460,6 +30527,7 @@ TrailImporterCertOld.kt:376:     *  ⚠ WHY COLLAPSED: insertFeature reads only 
 TrailImporterCertOld.kt:377:     *  (motorized, surface, county, manager|steward) and drops the rest
 TrailImporterCertOld.kt:379:     *  and ohv50 and none of the three ever reach the DB. Emitting OSM's four
 TrailImporterCertOld.kt:380:     *  access tags separately would send them nowhere.
+TrailImporterCertOld.kt:382:     *  ⚠ highway=track with NO access tag returns BLANK, not a guessed "Yes".
 TrailImporterCertOld.kt:383:     *  A track is wide enough for a vehicle by definition, but that is PHYSICAL
 TrailImporterCertOld.kt:384:     *  capability, not LEGAL access -- and legal access is the entire purpose of
 TrailImporterCertOld.kt:385:     *  this column. A wrong "Yes" is worse than an empty field. */
@@ -33717,6 +33785,7 @@ TrackSyncCertOld.kt:309:        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) 
 TrackSyncCertOld.kt:310:                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
 TrackSyncCertOld.kt:311:                Math.sin(dLon / 2) * Math.sin(dLon / 2)
 TrackSyncCertOld.kt:312:        return 2 * R * Math.asin(Math.min(1.0, Math.sqrt(a)))
+TrackSyncCertOld.kt:315:    /** Derive + upsert track_properties for the track with this geom_hash.
 TrackSyncCertOld.kt:316:     *  Reads <hash>.gpx from my_tracks. Writes only GPX-derived columns; never
 TrackSyncCertOld.kt:317:     *  touches shared/ride_id/area_id. Returns true on a successful write. */
 TrackSyncCertOld.kt:318:    fun updateTrackPropertiesForHash(geomHash: String, onProgress: ((String) -> Unit)? = null): Boolean {
@@ -34190,6 +34259,7 @@ ConvoyRouteToolbar.kt:84:     * and has two call sites, so it must not own a dia
 ConvoyRouteToolbar.kt:85:     * Default no-op so the frozen ConvoyScreen call site needs no edit.
 ConvoyRouteToolbar.kt:92:     * ROUTECLOSE-2026-09-02: CLOSE THE TOOL. Not discard.
 ConvoyRouteToolbar.kt:94:     * ⛔ Fred, 09-02: "I can exit with discard but it is not intuitive if you
+ConvoyRouteToolbar.kt:95:     * are not doing anything with the tool. We are not discarding."
 ConvoyRouteToolbar.kt:96:     * Opening Route+, looking at it, and wanting out is not throwing work away
 ConvoyRouteToolbar.kt:97:     * -- and the only exit said DISCARD, which is a different and frightening
 ConvoyRouteToolbar.kt:100:     * ⚠ THIS DOES NOT TEAR ANYTHING DOWN. Fred: "the restart functions protect
@@ -35907,6 +35977,7 @@ SpatialDbManager.kt:1329:        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
 SpatialDbManager.kt:1330:                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
 SpatialDbManager.kt:1331:                Math.sin(dLon / 2) * Math.sin(dLon / 2)
 SpatialDbManager.kt:1332:        return 2 * R * Math.asin(Math.min(1.0, Math.sqrt(a)))
+SpatialDbManager.kt:1335:    /** Derive + upsert track_properties for the track with this geom_hash.
 SpatialDbManager.kt:1336:     *  Reads <hash>.gpx from my_tracks. Writes only GPX-derived columns; never
 SpatialDbManager.kt:1337:     *  touches shared/ride_id/area_id. Returns true on a successful write. */
 SpatialDbManager.kt:1338:    fun updateTrackPropertiesForHash(geomHash: String, onProgress: ((String) -> Unit)? = null): Boolean =
@@ -36075,6 +36146,7 @@ SpatialDbManager.kt:1593:        return TrailClearResult(r.trails, r.properties,
 SpatialDbManager.kt:1597:     * RIDERTRAILDELETE-2026-09-08: remove one trail, both stores.
 SpatialDbManager.kt:1599:     * ⚠ BOTH STORES, and the extension row is not optional. TRAILCLEAR-2026-08-24L
 SpatialDbManager.kt:1601:     * spatial row is gone an orphan there joins to nothing and can never be
+SpatialDbManager.kt:1602:     * reached again -- and worse, TrailImporter inserts with INSERT OR IGNORE
 SpatialDbManager.kt:1603:     * on (source_id, source_unique_id), so a stale row KEEPS THE SLOT and a
 SpatialDbManager.kt:1604:     * re-imported trail silently gets no properties.
 SpatialDbManager.kt:1606:     * ⚠ THIS IS NOT PERMANENT FOR A RIDER TRAIL. They are derived from tracks
@@ -41134,6 +41206,83 @@ ConvoyRideJsonWriter.kt:46:        SpatialDbManager.init(context)   // 2.7e: bui
 ConvoyRideJsonWriter.kt:47:        return Shared.save(GtRidesAndroid.Files(context), rideId)
 ConvoyRideJsonWriter.kt:50:    /** One GPX: waypoints go after <metadata> (or the <gpx> tag), before the route — GPX order. */
 ConvoyRideJsonWriter.kt:51:    internal fun mergeWpts(routeGpx: String, wpts: String): String = Shared.mergeWpts(routeGpx, wpts)
+MapSpecCertOld.kt:1:package com.geeksville.mesh.convoy
+MapSpecCertOld.kt:3:import com.grouptrack.shared.mapsource.GtMapSpecEnv
+MapSpecCertOld.kt:4:import org.json.JSONObject
+MapSpecCertOld.kt:7: * MapSpecCertOld — 2.7e's VectorTiles and ElevationTiles source resolution, AS IT IS, for the G1c
+MapSpecCertOld.kt:8: * certification. STEP17G1C-CERTOLD-2026-11-13 ⚠ TEST-ONLY (CODE RULE 3: remove with GtCertRun
+MapSpecCertOld.kt:9: * before 2.8 is released).
+MapSpecCertOld.kt:11: * ⛔ DO NOT EDIT TO MAKE A TEST PASS. This is the OLD side. If OLD and NEW differ, the port is
+MapSpecCertOld.kt:12: * wrong, not this file.
+MapSpecCertOld.kt:14: * ⭐ IT KEEPS org.json ON PURPOSE. That is the entire point of the comparison: 2.7e parses with
+MapSpecCertOld.kt:15: * org.json (LENIENT); the shared port parses with GtOrgJson over kotlinx (STRICT — its own header
+MapSpecCertOld.kt:16: * says so: "NOT REPRODUCED ... comments, single quotes, unquoted keys"). The certification SCRIPTS a
+MapSpecCertOld.kt:18: * from G2g, where the same difference was recorded rather than chased.
+MapSpecCertOld.kt:20: * ⭐ BOTH SIDES TAKE THE SAME [GtMapSpecEnv] — the G2f rule. One scripted asset text, one scripted
+MapSpecCertOld.kt:21: * HTTP answer, handed to OLD and NEW alike, so a difference cannot come from the network moving or
+MapSpecCertOld.kt:22: * the asset differing.
+MapSpecCertOld.kt:28: *  1. object names                                                            ×2
+MapSpecCertOld.kt:30: *     (2.7e has two objects; both are small and share the asset, so the OLD side keeps them
+MapSpecCertOld.kt:31: *     together and names the members vector* / elevation*, matching GtMapSpec's shape. ⚠ The
+MapSpecCertOld.kt:32: *     BODIES are unchanged — only the enclosing object and the member names.)
+MapSpecCertOld.kt:34: *  2. THE ASSET READ BECOMES A SEAM                                           ×2
+MapSpecCertOld.kt:35: *       context.assets.open("map_sources.json").bufferedReader().use { it.readText() }
+MapSpecCertOld.kt:36: *         ->  env.readAsset("map_sources.json")
+MapSpecCertOld.kt:38: *     ⛔ WHY: AssetManager is Android-only. ⚠ NOTE the asset text itself is NOT invented by the
+MapSpecCertOld.kt:39: *     harness — it reads the REAL map_sources.json out of the APK and hands the same string to both
+MapSpecCertOld.kt:40: *     sides, because the shipped asset is deterministic. Only the malformed cases are synthetic.
+MapSpecCertOld.kt:43: *       OkHttpClient.Builder().callTimeout(6, SECONDS).build().newCall(Request(url)).execute()
+MapSpecCertOld.kt:44: *       ...  r.isSuccessful / r.body?.string()
+MapSpecCertOld.kt:45: *         ->  env.httpGet(tj, 6_000)   (null = any failure, including a non-success status)
+MapSpecCertOld.kt:47: *     ⛔ WHY: the network cannot be in a certification. ⚠ 2.7e LOGS the HTTP code and returns null;
+MapSpecCertOld.kt:48: *     the code is an observation, never a compared decision, so collapsing every failure to null
+MapSpecCertOld.kt:49: *     loses nothing that is compared.
+MapSpecCertOld.kt:51: *  4. oldTilesOf TAKES THE TEXT, NOT A FILE                                   ×1
+MapSpecCertOld.kt:52: *       fun oldTilesOf(f: java.io.File)  ...  JSONObject(f.readText())
+MapSpecCertOld.kt:53: *         ->  fun oldTilesOf(recipeText: String)  ...  JSONObject(recipeText)
+MapSpecCertOld.kt:54: *     at 2.7e VectorTiles:51-57. Reading the file is the front door's job on both sides.
+MapSpecCertOld.kt:56: *  5. resetForCert ADDED                                                      ×1
+MapSpecCertOld.kt:57: *     2.7e has no such function: `resolved` is clearable only by restarting the process. The test
+MapSpecCertOld.kt:58: *     must drive the cold path repeatedly, so both sides get the same hook. Production never calls it.
+MapSpecCertOld.kt:60: * ⚠ NOT PRESENT: the nine queue members (recipeBoxes, boxesOf, squaresInBox, enqueueWithElevation
+MapSpecCertOld.kt:61: * ×2, squaresFor, queueSquares, queueSquaresNamed, queueFromRecipe). They are already front doors to
+MapSpecCertOld.kt:62: * GtVectorQueue, CERTIFIED AT 16c — 6,399 values, Droid OLD = NEW and iPad = Droid. Re-testing them
+MapSpecCertOld.kt:63: * here would re-test closed work and put a second uncertified copy on the OLD side.
+MapSpecCertOld.kt:64: * ⚠ MapSourceManager.TileLayer IS NOT SUBSTITUTED: the Android side has the real type, and the
+MapSpecCertOld.kt:65: * certification compares the FIELDS (role, url, format, cacheDir, order), never the type — exactly
+MapSpecCertOld.kt:66: * as G1a compared TileKey to GtTileKey by value.
+MapSpecCertOld.kt:70:    private const val TAG = "MapSpecCertOld"
+MapSpecCertOld.kt:71:    private const val ASSET = "map_sources.json"
+MapSpecCertOld.kt:73:    @Volatile private var resolved: String? = null
+MapSpecCertOld.kt:76:    fun resetForCert() { resolved = null }
+MapSpecCertOld.kt:78:    /** 2.7e VectorTiles:19 / ElevationTiles:15, with substitution 2. */
+MapSpecCertOld.kt:79:    private fun spec(env: GtMapSpecEnv, array: String): JSONObject? = try {
+MapSpecCertOld.kt:80:        JSONObject(env.readAsset(ASSET)).optJSONArray(array)?.optJSONObject(0)
+MapSpecCertOld.kt:81:    } catch (e: Exception) { android.util.Log.e(TAG, "$ASSET: ${e.message}"); null }
+MapSpecCertOld.kt:83:    /** 2.7e VectorTiles.tileTemplate, with substitution 3. */
+MapSpecCertOld.kt:84:    fun vectorTileTemplate(env: GtMapSpecEnv): String? {
+MapSpecCertOld.kt:85:        resolved?.let { return it }
+MapSpecCertOld.kt:86:        val tj = spec(env, "vector_sources")?.optString("tilejson")?.takeIf { it.isNotBlank() } ?: return null
+MapSpecCertOld.kt:88:            val body = env.httpGet(tj, 6_000)
+MapSpecCertOld.kt:89:            if (body == null) { android.util.Log.e(TAG, "TileJSON not fetched"); return null }
+MapSpecCertOld.kt:90:            val t = JSONObject(body).optJSONArray("tiles")?.optString(0)
+MapSpecCertOld.kt:91:            if (t.isNullOrBlank()) { android.util.Log.e(TAG, "TileJSON has no tiles"); null }
+MapSpecCertOld.kt:92:            else { resolved = t; android.util.Log.i(TAG, "VECSOURCE-2026-10-30 tiles: $t"); t }
+MapSpecCertOld.kt:93:        } catch (e: Exception) { android.util.Log.e(TAG, "TileJSON: ${e.message}"); null }
+MapSpecCertOld.kt:96:    /** 2.7e VectorTiles.downloadSources. */
+MapSpecCertOld.kt:97:    fun vectorDownloadSources(env: GtMapSpecEnv): List<Pair<String, List<MapSourceManager.TileLayer>>> {
+MapSpecCertOld.kt:98:        val t = vectorTileTemplate(env) ?: return emptyList()
+MapSpecCertOld.kt:102:    /** 2.7e ElevationTiles.urlTemplate. */
+MapSpecCertOld.kt:103:    fun elevationUrlTemplate(env: GtMapSpecEnv): String? =
+MapSpecCertOld.kt:104:        spec(env, "elevation_sources")?.optString("url_template")?.takeIf { it.isNotBlank() }
+MapSpecCertOld.kt:106:    /** 2.7e ElevationTiles.downloadSources. */
+MapSpecCertOld.kt:107:    fun elevationDownloadSources(env: GtMapSpecEnv): List<Pair<String, List<MapSourceManager.TileLayer>>> {
+MapSpecCertOld.kt:108:        val t = elevationUrlTemplate(env) ?: return emptyList()
+MapSpecCertOld.kt:112:    /** 2.7e VectorTiles.oldTilesOf, with substitution 4. */
+MapSpecCertOld.kt:113:    fun oldTilesOf(recipeText: String): Long = try {
+MapSpecCertOld.kt:114:        val slots = JSONObject(recipeText).optJSONArray("slots"); var t = 0L
+MapSpecCertOld.kt:115:        if (slots != null) for (i in 0 until slots.length()) { val o = slots.optJSONObject(i) ?: continue
+MapSpecCertOld.kt:116:            val s = o.optString("slot"); if (s != "VEC" && s != "DEM") t += o.optLong("tiles") }
 VectorTilesCertOld.kt:1:package com.geeksville.mesh.convoy
 VectorTilesCertOld.kt:4: * STEP16C-2026-11-11: TEST-ONLY copy of 2.7e's VectorTiles.kt -- the OLD side of the step 16c certification (GtCert16c).
 VectorTilesCertOld.kt:5: * GENERATED by make_old_copies_16c.py from the 2.7e source; do not edit by hand. Changes, and only these: the object's name; enqueueWithElevation calls DownloadQueueCertOld.enqueueArea (the copy below); the recipe folder is DownloadQueueCertOld.recipesDir.
@@ -44424,6 +44573,7 @@ GrpAwareness.kt:148: * OWN rows from the comm side's radio list (paired first, t
 GrpAwareness.kt:149: * embedded. Same look and words as before.
 GrpAwareness.kt:150: *  - The title red until a radio is connected, then green.
 GrpAwareness.kt:151: *  - CONNECTED TO: the radio's name with DISCONNECT, and "Last applied: <ride> . <date>"; empty when not connected.
+GrpAwareness.kt:152: *  - AVAILABLE RADIOS: paired ones with CONNECT and FORGET; new ones marked NEW TO THIS ANDROID with PAIR. One radio at a
 GrpAwareness.kt:153: *    time: CONNECT and PAIR are greyed while a radio is in use (DISCONNECT first). The radio in use is only in its box.
 GrpAwareness.kt:154: *  - FORGET, confirmed: removed from GroupTrack and from Android's Bluetooth pairings.
 GrpAwareness.kt:155: *  - Three actions side by side: SELECT A RIDE AND APPLY SETTINGS TO THE RADIO . RADIO SETTINGS . MESHTASTIC SIDE MENU.
@@ -46663,6 +46813,7 @@ MBTilesStore.kt:4:import android.database.sqlite.SQLiteDatabase
 MBTilesStore.kt:5:import java.io.File
 MBTilesStore.kt:8: * MBTilesStore — V2.6 Pass 1 tile storage.
 MBTilesStore.kt:10: * Replaces loose-file tile storage (<TILE_DIR>/<type>/<z>/<x>/<y>.png)
+MBTilesStore.kt:11: * with one MBTiles SQLite database PER TYPE:
 MBTilesStore.kt:12: *     <TILE_DIR>/<type>.mbtiles
 MBTilesStore.kt:13: * where <type> is the old cache_dir / directory name
 MBTilesStore.kt:17: *   Stored RAW z/x/y, NO TMS y-flip. This exactly replicates the loose-file
@@ -48926,6 +49077,7 @@ SHARED:track/GtTracks.kt:401:                    writer.addAlias("track", res.tr
 SHARED:track/GtTracks.kt:402:                    deleteSource()
 SHARED:track/GtTracks.kt:403:                    logAdd.i { "ALIAS ${res.geomHash.take(12)} '$name'" }
 SHARED:track/GtTracks.kt:408:            logAdd.e { "resolveTrackAdd failed: ${e.message}" }
+SHARED:track/GtTracks.kt:428:    /** Derive + upsert track_properties for the track with this geom_hash.
 SHARED:track/GtTracks.kt:429:     *  Reads <hash>.gpx from my_tracks. Writes only GPX-derived columns; never
 SHARED:track/GtTracks.kt:430:     *  touches shared/ride_id/area_id. Returns true on a successful write.
 SHARED:track/GtTracks.kt:431:     *  (STEP15D: [onProgress] nullable for 2.7e's reason -- resolveTrackAdd calls it with none; no default here, CODE RULE 1.) */
@@ -49188,6 +49340,7 @@ SHARED:route/GtRoute.kt:37: *  - sortedSetOf (java.util.TreeSet) -> a set read b
 SHARED:route/GtRoute.kt:38: *  - Instant.now() and RouteDraftStore.writeRawDraft -> [env], set once by the platform. (java.util.UUID was imported, never used.)
 SHARED:route/GtRoute.kt:39: *  - TrailFilterState -> the SHARED TrailFilterState (com.grouptrack.shared.filter), as GtSpatial uses it.
 SHARED:route/GtRoute.kt:45: * The exploratory route suggester. A port of the research generator that was
+SHARED:route/GtRoute.kt:46: * proven on 2026-08-22 across THREE corridors with no retuning between them:
 SHARED:route/GtRoute.kt:48: *     corridor        best route          retrace   unconfirmed junctions
 SHARED:route/GtRoute.kt:49: *     Toroweap        78 mi /  6 feats      50%     176
 SHARED:route/GtRoute.kt:50: *     Bar 10          74 mi / 10 feats      36%      53
@@ -50064,6 +50217,8 @@ SHARED:route/GtRoute.kt:1586:    private var splitSeq = 0
 SHARED:route/GtRoute.kt:1589:     * Insert a node at [proj] on edge [ei], splitting it in two.
 SHARED:route/GtRoute.kt:1591:     * ⭐ THIS IS THE ORIGIN FIX. nearestNode() returns the closest EXISTING
 SHARED:route/GtRoute.kt:1592:     * node and nodes only exist at junctions, so a tap mid-trail was dragged
+SHARED:route/GtRoute.kt:1593:     * hundreds of feet. Measured 613 ft with ONE spoke; splitting gives 24 ft
+SHARED:route/GtRoute.kt:1594:     * with two.
 SHARED:route/GtRoute.kt:1596:     * ⚠ The synthetic key must not collide with a real cellKey. Negative keys
 SHARED:route/GtRoute.kt:1597:     * cannot be produced by cellKey at any latitude we serve.
 SHARED:route/GtRoute.kt:1599:    private fun splitEdgeAt(g: Graph, ei: Int, proj: DoubleArray): Long {
@@ -57029,6 +57184,7 @@ SHARED:cert/Cert16c.kt:30: * clock order is checked, not rewritten.
 SHARED:cert/Cert16c.kt:31: * THE INPUT, real data only (the same on every side; its fingerprints are compared before anything else -- "cross-device COMPARED"):
 SHARED:cert/Cert16c.kt:32: *   the tracks of the 15c input database (cert15c_input on the Droid = _data/live_2026-11-08 on the Mac): geom_hash, name, geometry
 SHARED:cert/Cert16c.kt:33: *   parsed by 2.7e's SpatialDbManager.parseWktSegments (copied below as [parseWkt] -- the reader, not what is certified);
+SHARED:cert/Cert16c.kt:34: *   the recipes (*.gtmaps) of Droid 1 (the Mac's _data/droid1_2026-11-06/recipes -> the Droid's GroupTrack/cert16c_input/recipes);
 SHARED:cert/Cert16c.kt:35: *   the boxes of Droid 1's download_queue.json (Fred's real save-by-area areas, READ only on the Droid, written into its report as hex
 SHARED:cert/Cert16c.kt:36: *   bits so the iPad replays exactly the same ones).
 SHARED:cert/Cert16c.kt:37: * THE SCRIPT (keys in brackets):
@@ -58494,6 +58650,152 @@ SHARED:cert/Cert15d.kt:573:    private fun numbered(rows: MutableList<Pair<Strin
 SHARED:cert/Cert15d.kt:574:        rows.sortWith(compareBy<Pair<String, String>> { it.first }.thenBy { it.second })
 SHARED:cert/Cert15d.kt:575:        var last = ""; var dup = 0
 SHARED:cert/Cert15d.kt:576:        for ((k, c) in rows) { dup = if (k == last) dup + 1 else 0; last = k; out(k + (if (dup > 0) "#${dup + 1}" else ""), c) }
+SHARED:cert/Cert17g1c.kt:1:package com.grouptrack.shared.cert
+SHARED:cert/Cert17g1c.kt:3:import com.grouptrack.shared.mapsource.GtMapSpec
+SHARED:cert/Cert17g1c.kt:4:import com.grouptrack.shared.mapsource.GtMapSpecEnv
+SHARED:cert/Cert17g1c.kt:7: * Cert17g1c — the ONE runner for step 17 group G1c (GtMapSpec). STEP17G1C-CERT-2026-11-13
+SHARED:cert/Cert17g1c.kt:9: * WHAT IS UNDER TEST: where the tile URLs come from. The vector TileJSON resolution, the elevation
+SHARED:cert/Cert17g1c.kt:10: * URL template, the two downloadSources descriptors, and the recipe's old-tile count.
+SHARED:cert/Cert17g1c.kt:12: * ⚠ NOT UNDER TEST — and deliberately absent from the OLD side too: the nine VectorTiles members
+SHARED:cert/Cert17g1c.kt:13: * that are already front doors to GtVectorQueue, CERTIFIED AT 16c (6,399 values, Droid OLD = NEW,
+SHARED:cert/Cert17g1c.kt:14: * iPad = Droid). Re-running them here would re-test closed work.
+SHARED:cert/Cert17g1c.kt:20: * ⛔ 1. THE ASSET AND THE HTTP ANSWER ARE BOTH SCRIPTED, and both sides get the SAME env (the G2f
+SHARED:cert/Cert17g1c.kt:21: *       rule). The network cannot be in a certification, and an asset read differing between sides
+SHARED:cert/Cert17g1c.kt:22: *       would make every key meaningless.
+SHARED:cert/Cert17g1c.kt:23: *       ⭐ But the GOOD asset text is NOT invented: the harness reads the REAL map_sources.json out
+SHARED:cert/Cert17g1c.kt:24: *       of the APK and hands that string to both sides, because the shipped asset is deterministic.
+SHARED:cert/Cert17g1c.kt:25: *       Only the broken variants are synthetic. An invented "good" fixture would certify the port
+SHARED:cert/Cert17g1c.kt:26: *       against a file that does not ship.
+SHARED:cert/Cert17g1c.kt:28: * ⛔ 2. `resolved` IS PROCESS-WIDE STATE AND MUST BE RESET BETWEEN FIXTURES. 2.7e caches the
+SHARED:cert/Cert17g1c.kt:29: *       resolved tile template in a @Volatile var with no invalidation, so without a reset the
+SHARED:cert/Cert17g1c.kt:30: *       SECOND fixture would answer with the FIRST fixture's template and every later key would be
+SHARED:cert/Cert17g1c.kt:31: *       a lie that happens to match on both sides. [resetForCert] is called before each fixture.
+SHARED:cert/Cert17g1c.kt:32: *       ⭐ And one fixture tests the cache ON PURPOSE (CACHE2): resolve once, then ask again with a
+SHARED:cert/Cert17g1c.kt:33: *       DIFFERENT http answer. The correct 2.7e behaviour is to return the FIRST one. That wart is
+SHARED:cert/Cert17g1c.kt:34: *       the behaviour, so it is a compared key rather than something the harness tidies away.
+SHARED:cert/Cert17g1c.kt:36: * ⛔ 3. THE STRICT / LENIENT DIVERGENCE IS SCRIPTED, NOT ASSUMED. 2.7e parses with org.json
+SHARED:cert/Cert17g1c.kt:37: *       (lenient); the port parses with GtOrgJson over kotlinx (strict). GtOrgJson's own header
+SHARED:cert/Cert17g1c.kt:38: *       lists what it does NOT reproduce: comments, single quotes, unquoted keys, '='/';'
+SHARED:cert/Cert17g1c.kt:39: *       separators, trailing text. So LENIENT1-3 feed exactly those. ⚠ A DIFF there is NOT a port
+SHARED:cert/Cert17g1c.kt:40: *       defect — it is the known, recorded GtConfigs divergence from G2g. Both sides' catch-alls
+SHARED:cert/Cert17g1c.kt:41: *       return the same give-up answer (null / 0), so the expectation is SAME; if it is not, the
+SHARED:cert/Cert17g1c.kt:42: *       difference gets written down, not patched.
+SHARED:cert/Cert17g1c.kt:44: * COMPARED: every returned value. These are pure given the env, so the return value IS the decision.
+SHARED:cert/Cert17g1c.kt:45: * NOT COMPARED: the HTTP status code and the log text. 2.7e logs the code and returns null either
+SHARED:cert/Cert17g1c.kt:46: * way, so the code is an observation.
+SHARED:cert/Cert17g1c.kt:51:     * ⛔ KEYS WHERE OLD AND NEW ARE KNOWN TO DIFFER, with the reason. Measured on 11-13, not assumed:
+SHARED:cert/Cert17g1c.kt:52:     * the first G1c run reported 58 SAME / 6 DIFF and these were the six.
+SHARED:cert/Cert17g1c.kt:54:     * ⭐ WHY THIS IS A RECORDED DIVERGENCE AND NOT A PORT DEFECT. 2.7e parses with org.json, whose
+SHARED:cert/Cert17g1c.kt:55:     * JSONTokener is LENIENT; the port parses with GtOrgJson over kotlinx, which is STRICT and says
+SHARED:cert/Cert17g1c.kt:57:     * comments, single quotes, unquoted keys, '=' / ';' separators, and text after the first value.
+SHARED:cert/Cert17g1c.kt:58:     * Android accepts those; [parse] throws (the golden run marks them EXPECTED)." These three
+SHARED:cert/Cert17g1c.kt:59:     * fixtures feed exactly those cases, so OLD finds the tilejson and NEW gives up.
+SHARED:cert/Cert17g1c.kt:61:     * ⭐ AND WHY IT IS UNREACHABLE IN PRACTICE. GtMapSpec reads context.assets.open("map_sources.json")
+SHARED:cert/Cert17g1c.kt:62:     * -- the asset WE SHIP, which is well-formed (a strict parser reads it) and contains no comments,
+SHARED:cert/Cert17g1c.kt:63:     * single quotes or unquoted keys. ⚠ It is NOT the user-editable external map_sources.json that
+SHARED:cert/Cert17g1c.kt:64:     * MapSourceManager.externalJsonFile() reads; that file never reaches this code. The TileJSON comes
+SHARED:cert/Cert17g1c.kt:65:     * from OpenFreeMap, serving valid JSON.
+SHARED:cert/Cert17g1c.kt:67:     * ⛔ THESE ARE STILL RUN AND STILL COMPARED CROSS-DEVICE. An expected key is recorded as EXPECTED
+SHARED:cert/Cert17g1c.kt:68:     * rather than DIFF, and the harness ALSO emits "<key>|newonly" carrying the port's own answer, so
+SHARED:cert/Cert17g1c.kt:69:     * the iPad still checks NEW against NEW. Marking a divergence expected must never mean testing it
+SHARED:cert/Cert17g1c.kt:70:     * less -- only that OLD disagreeing with NEW is not news.
+SHARED:cert/Cert17g1c.kt:71:     * ⚠ If an expected key ever comes back SAME, the entry here is STALE: the harness says so on a
+SHARED:cert/Cert17g1c.kt:72:     * "# G1C-NOTE" line rather than quietly passing.
+SHARED:cert/Cert17g1c.kt:74:    val EXPECTED_DIFF: Map<String, String> = mapOf(
+SHARED:cert/Cert17g1c.kt:75:        "VTPL|lenient_unquoted" to "org.json accepts unquoted keys; GtOrgJson (kotlinx) throws",
+SHARED:cert/Cert17g1c.kt:76:        "VDL|lenient_unquoted" to "org.json accepts unquoted keys; GtOrgJson (kotlinx) throws",
+SHARED:cert/Cert17g1c.kt:77:        "VTPL|lenient_single" to "org.json accepts single-quoted strings; GtOrgJson throws",
+SHARED:cert/Cert17g1c.kt:78:        "VDL|lenient_single" to "org.json accepts single-quoted strings; GtOrgJson throws",
+SHARED:cert/Cert17g1c.kt:79:        "VTPL|lenient_trailing" to "org.json stops at the first value; GtOrgJson rejects trailing text",
+SHARED:cert/Cert17g1c.kt:80:        "VDL|lenient_trailing" to "org.json stops at the first value; GtOrgJson rejects trailing text",
+SHARED:cert/Cert17g1c.kt:83:    interface Side {
+SHARED:cert/Cert17g1c.kt:84:        fun resetForCert()
+SHARED:cert/Cert17g1c.kt:85:        fun vectorTileTemplate(env: GtMapSpecEnv): String?
+SHARED:cert/Cert17g1c.kt:86:        /** flattened "slot|role|url|format|dir|order" per layer, so the layer TYPE never matters */
+SHARED:cert/Cert17g1c.kt:87:        fun vectorDownloadSources(env: GtMapSpecEnv): List<String>
+SHARED:cert/Cert17g1c.kt:88:        fun elevationUrlTemplate(env: GtMapSpecEnv): String?
+SHARED:cert/Cert17g1c.kt:89:        fun elevationDownloadSources(env: GtMapSpecEnv): List<String>
+SHARED:cert/Cert17g1c.kt:90:        fun oldTilesOf(recipeText: String): Long
+SHARED:cert/Cert17g1c.kt:93:    /** A scripted env. [assetText] null = readAsset throws (the asset is missing). */
+SHARED:cert/Cert17g1c.kt:95:        private val assetText: String?,
+SHARED:cert/Cert17g1c.kt:96:        private val httpAnswers: List<String?>,
+SHARED:cert/Cert17g1c.kt:98:        var httpCalls = 0; private set
+SHARED:cert/Cert17g1c.kt:99:        override fun readAsset(name: String): String =
+SHARED:cert/Cert17g1c.kt:100:            assetText ?: throw RuntimeException("asset not found: $name")
+SHARED:cert/Cert17g1c.kt:101:        override fun httpGet(url: String, timeoutMs: Int): String? {
+SHARED:cert/Cert17g1c.kt:102:            val i = httpCalls.coerceAtMost(httpAnswers.size - 1)
+SHARED:cert/Cert17g1c.kt:103:            httpCalls++
+SHARED:cert/Cert17g1c.kt:104:            return if (httpAnswers.isEmpty()) null else httpAnswers[i]
+SHARED:cert/Cert17g1c.kt:111:    private const val TJ_NO_TILES = """{"maxzoom":14}"""
+SHARED:cert/Cert17g1c.kt:112:    private const val TJ_EMPTY_TILES = """{"tiles":[]}"""
+SHARED:cert/Cert17g1c.kt:113:    private const val TJ_BLANK_TILE = """{"tiles":[""]}"""
+SHARED:cert/Cert17g1c.kt:114:    private const val TJ_NOT_JSON = """<html>503 Service Unavailable</html>"""
+SHARED:cert/Cert17g1c.kt:118:    private const val A_EMPTY_VECTOR = """{"vector_sources":[],"elevation_sources":[]}"""
+SHARED:cert/Cert17g1c.kt:119:    private const val A_BLANK_TJ = """{"vector_sources":[{"tilejson":""}],"elevation_sources":[{"url_template":""}]}"""
+SHARED:cert/Cert17g1c.kt:121:    private const val A_WRONG_TYPES = """{"vector_sources":{"tilejson":"x"},"elevation_sources":"nope"}"""
+SHARED:cert/Cert17g1c.kt:128:    private const val R_MIXED = """{"slots":[{"slot":"VEC","tiles":100},{"slot":"DEM","tiles":50},{"slot":"SAT","tiles":7000},{"slot":"TOPO","tiles":300}]}"""
+SHARED:cert/Cert17g1c.kt:129:    private const val R_ONLY_NEW = """{"slots":[{"slot":"VEC","tiles":100},{"slot":"DEM","tiles":50}]}"""
+SHARED:cert/Cert17g1c.kt:130:    private const val R_NO_SLOTS = """{"date":"2026-11-13"}"""
+SHARED:cert/Cert17g1c.kt:131:    private const val R_EMPTY = """{"slots":[]}"""
+SHARED:cert/Cert17g1c.kt:132:    private const val R_STRING_TILES = """{"slots":[{"slot":"SAT","tiles":"1234"}]}"""
+SHARED:cert/Cert17g1c.kt:133:    private const val R_DOUBLE_TILES = """{"slots":[{"slot":"SAT","tiles":12.9}]}"""
+SHARED:cert/Cert17g1c.kt:134:    private const val R_MISSING_TILES = """{"slots":[{"slot":"SAT"}]}"""
+SHARED:cert/Cert17g1c.kt:135:    private const val R_NULL_ENTRY = """{"slots":[null,{"slot":"SAT","tiles":5}]}"""
+SHARED:cert/Cert17g1c.kt:136:    private const val R_NOT_JSON = """not json at all"""
+SHARED:cert/Cert17g1c.kt:139:     * [realAsset] = the REAL map_sources.json text, read from the APK by the harness and handed to
+SHARED:cert/Cert17g1c.kt:140:     * both sides. ⛔ Required, not defaulted: a cert that silently ran against an invented asset
+SHARED:cert/Cert17g1c.kt:143:    fun run(side: Side, realAsset: String, sink: (String, String) -> Unit) {
+SHARED:cert/Cert17g1c.kt:145:        fun layers(l: List<String>) = if (l.isEmpty()) "(empty)" else l.joinToString(";")
+SHARED:cert/Cert17g1c.kt:149:        val tjCases = listOf(
+SHARED:cert/Cert17g1c.kt:150:            "good" to TJ_GOOD, "no_tiles" to TJ_NO_TILES, "empty_tiles" to TJ_EMPTY_TILES,
+SHARED:cert/Cert17g1c.kt:151:            "blank_tile" to TJ_BLANK_TILE, "not_json" to TJ_NOT_JSON,
+SHARED:cert/Cert17g1c.kt:153:        for ((name, tj) in tjCases) {
+SHARED:cert/Cert17g1c.kt:154:            side.resetForCert()
+SHARED:cert/Cert17g1c.kt:156:            sink("VTPL|real|$name", s(side.vectorTileTemplate(env)))
+SHARED:cert/Cert17g1c.kt:157:            side.resetForCert()
+SHARED:cert/Cert17g1c.kt:158:            val env2 = FixtureEnv(realAsset, listOf(tj))
+SHARED:cert/Cert17g1c.kt:159:            sink("VDL|real|$name", layers(side.vectorDownloadSources(env2)))
+SHARED:cert/Cert17g1c.kt:162:        side.resetForCert()
+SHARED:cert/Cert17g1c.kt:163:        sink("VTPL|real|fetch_null", s(side.vectorTileTemplate(FixtureEnv(realAsset, listOf(null)))))
+SHARED:cert/Cert17g1c.kt:166:        side.resetForCert()
+SHARED:cert/Cert17g1c.kt:167:        val cacheEnv = FixtureEnv(realAsset, listOf(TJ_GOOD, TJ_SECOND))
+SHARED:cert/Cert17g1c.kt:168:        val first = side.vectorTileTemplate(cacheEnv)
+SHARED:cert/Cert17g1c.kt:169:        val second = side.vectorTileTemplate(cacheEnv)
+SHARED:cert/Cert17g1c.kt:170:        sink("CACHE2|first", s(first))
+SHARED:cert/Cert17g1c.kt:171:        sink("CACHE2|second_must_equal_first", s(second))
+SHARED:cert/Cert17g1c.kt:172:        sink("CACHE2|http_calls", cacheEnv.httpCalls.toString())
+SHARED:cert/Cert17g1c.kt:174:        side.resetForCert()
+SHARED:cert/Cert17g1c.kt:175:        sink("CACHE2|after_reset", s(side.vectorTileTemplate(FixtureEnv(realAsset, listOf(TJ_SECOND)))))
+SHARED:cert/Cert17g1c.kt:178:        side.resetForCert()
+SHARED:cert/Cert17g1c.kt:179:        sink("EUTPL|real", s(side.elevationUrlTemplate(FixtureEnv(realAsset, emptyList()))))
+SHARED:cert/Cert17g1c.kt:180:        side.resetForCert()
+SHARED:cert/Cert17g1c.kt:181:        sink("EDL|real", layers(side.elevationDownloadSources(FixtureEnv(realAsset, emptyList()))))
+SHARED:cert/Cert17g1c.kt:184:        val assets = listOf(
+SHARED:cert/Cert17g1c.kt:185:            "missing" to null, "no_vector" to A_NO_VECTOR, "empty_vector" to A_EMPTY_VECTOR,
+SHARED:cert/Cert17g1c.kt:186:            "blank_tj" to A_BLANK_TJ, "no_elev" to A_NO_ELEV, "wrong_types" to A_WRONG_TYPES,
+SHARED:cert/Cert17g1c.kt:190:        for ((name, text) in assets) {
+SHARED:cert/Cert17g1c.kt:191:            side.resetForCert(); sink("VTPL|$name", s(side.vectorTileTemplate(FixtureEnv(text, listOf(TJ_GOOD)))))
+SHARED:cert/Cert17g1c.kt:192:            side.resetForCert(); sink("VDL|$name", layers(side.vectorDownloadSources(FixtureEnv(text, listOf(TJ_GOOD)))))
+SHARED:cert/Cert17g1c.kt:193:            side.resetForCert(); sink("EUTPL|$name", s(side.elevationUrlTemplate(FixtureEnv(text, emptyList()))))
+SHARED:cert/Cert17g1c.kt:194:            side.resetForCert(); sink("EDL|$name", layers(side.elevationDownloadSources(FixtureEnv(text, emptyList()))))
+SHARED:cert/Cert17g1c.kt:198:        val recipes = listOf(
+SHARED:cert/Cert17g1c.kt:199:            "mixed" to R_MIXED, "only_new" to R_ONLY_NEW, "no_slots" to R_NO_SLOTS,
+SHARED:cert/Cert17g1c.kt:200:            "empty" to R_EMPTY, "string_tiles" to R_STRING_TILES, "double_tiles" to R_DOUBLE_TILES,
+SHARED:cert/Cert17g1c.kt:201:            "missing_tiles" to R_MISSING_TILES, "null_entry" to R_NULL_ENTRY, "not_json" to R_NOT_JSON,
+SHARED:cert/Cert17g1c.kt:203:        for ((name, text) in recipes) sink("OLDTILES|$name", side.oldTilesOf(text).toString())
+SHARED:cert/Cert17g1c.kt:206:        sink("CONST|vec", "${GtMapSpec.VEC_SLOT}|${GtMapSpec.VEC_Z_MAX}")
+SHARED:cert/Cert17g1c.kt:207:        sink("CONST|dem", "${GtMapSpec.DEM_SLOT}|${GtMapSpec.DEM_Z_MAX}")
+SHARED:cert/Cert17g1c.kt:210:    /** The NEW side — the shared port. */
+SHARED:cert/Cert17g1c.kt:212:        override fun resetForCert() = GtMapSpec.resetForCert()
+SHARED:cert/Cert17g1c.kt:213:        override fun vectorTileTemplate(env: GtMapSpecEnv) = GtMapSpec.vectorTileTemplate(env)
+SHARED:cert/Cert17g1c.kt:214:        override fun vectorDownloadSources(env: GtMapSpecEnv) =
+SHARED:cert/Cert17g1c.kt:215:            GtMapSpec.vectorDownloadSources(env).flatMap { (slot, ls) ->
+SHARED:cert/Cert17g1c.kt:216:                ls.map { "$slot|${it.role}|${it.urlTemplate}|${it.tileFormat}|${it.cacheDir}|${it.renderOrder}" }
+SHARED:cert/Cert17g1c.kt:218:        override fun elevationUrlTemplate(env: GtMapSpecEnv) = GtMapSpec.elevationUrlTemplate(env)
+SHARED:cert/Cert17g1c.kt:219:        override fun elevationDownloadSources(env: GtMapSpecEnv) =
+SHARED:cert/Cert17g1c.kt:220:            GtMapSpec.elevationDownloadSources(env).flatMap { (slot, ls) ->
+SHARED:cert/Cert17g1c.kt:221:                ls.map { "$slot|${it.role}|${it.urlTemplate}|${it.tileFormat}|${it.cacheDir}|${it.renderOrder}" }
+SHARED:cert/Cert17g1c.kt:223:        override fun oldTilesOf(recipeText: String) = GtMapSpec.oldTilesOf(recipeText)
 SHARED:cert/Cert17g2g.kt:1:package com.grouptrack.shared.cert
 SHARED:cert/Cert17g2g.kt:4:import com.grouptrack.shared.help.GtHelpAssets
 SHARED:cert/Cert17g2g.kt:5:import com.grouptrack.shared.help.GtHelpFixture
@@ -59348,6 +59650,7 @@ SHARED:queue/GtVectorQueue.kt:26:    fun downloadZoom(): Int
 SHARED:queue/GtVectorQueue.kt:27:    /** MapSourceManager's SAT layer count, or null when there is no SAT source. 2.7e reads it on the VEC / DEM path for its
 SHARED:queue/GtVectorQueue.kt:28:     *  SIZECALC log line only. */
 SHARED:queue/GtVectorQueue.kt:29:    fun satLayers(): Int?
+SHARED:queue/GtVectorQueue.kt:30:    /** GroupTrackStorage.dir("recipes"). */
 SHARED:queue/GtVectorQueue.kt:31:    fun recipesDir(): Path
 SHARED:queue/GtVectorQueue.kt:35: * STEP16B-2026-11-10 (2.8 step 16b): THE SAVE-BY-AREA WRITE PATH, PORTED AS IS --
 SHARED:queue/GtVectorQueue.kt:36: *   convoy/VectorTiles.kt: boxesOf, recipeBoxes, squaresInBox, enqueueWithElevation, sqX / sqY / lonOf / latOf, squaresFor,
@@ -59542,6 +59845,7 @@ SHARED:queue/GtTileCalc.kt:50: * tileRelPath — ⛔ NEVER EXISTED IN 2.7e. It w
 SHARED:queue/GtTileCalc.kt:51: *   The xref reports decl 0: no such function in ConvoyTileCalculator or ConvoyTileDownloader. The
 SHARED:queue/GtTileCalc.kt:52: *   nearest Android thing is ConvoyTileDownloader.tilePath(context, …), which returns a File, has no
 SHARED:queue/GtTileCalc.kt:53: *   callers of its own, and stays platform (it calls mkdirs). ⚠ THIS IS THE WORST OF THE SIX: a
+SHARED:queue/GtTileCalc.kt:54: *   ported member with no OLD counterpart has nothing to certify against, so it passes by never
 SHARED:queue/GtTileCalc.kt:55: *   being exercised. If a shared path helper is ever genuinely needed, port the real tilePath with a
 SHARED:queue/GtTileCalc.kt:56: *   counted substitution — do not reinstate this.
 SHARED:queue/GtTileCalc.kt:58: * ⭐ maxZoomForSource IS KEPT even though nothing outside ConvoyTileCalculator calls it: it is
@@ -62026,6 +62330,123 @@ SHARED:help/GtHelpLinks.kt:71: * The asset seam. ⚠ [text] must THROW when the 
 SHARED:help/GtHelpLinks.kt:72: * ctx.assets.open(...) does -- load()'s runCatching is what turns that into an empty table.
 SHARED:help/GtHelpLinks.kt:74:interface GtHelpAssets {
 SHARED:help/GtHelpLinks.kt:75:    fun text(name: String): String
+SHARED:mapsource/GtMapSpec.kt:1:package com.grouptrack.shared.mapsource
+SHARED:mapsource/GtMapSpec.kt:3:import com.grouptrack.shared.json.GtOrgJson
+SHARED:mapsource/GtMapSpec.kt:4:import com.grouptrack.shared.log.gtLogger
+SHARED:mapsource/GtMapSpec.kt:5:import kotlinx.serialization.json.JsonArray
+SHARED:mapsource/GtMapSpec.kt:6:import kotlinx.serialization.json.JsonObject
+SHARED:mapsource/GtMapSpec.kt:7:import kotlin.concurrent.Volatile
+SHARED:mapsource/GtMapSpec.kt:10: * GtMapSpec — the shared port of 2.7e's VectorTiles and ElevationTiles source resolution
+SHARED:mapsource/GtMapSpec.kt:11: * (2.8 step 17, G1c). STEP17G1C-2026-11-13
+SHARED:mapsource/GtMapSpec.kt:13: * ⭐ MOST OF G1c WAS ALREADY DONE. VectorTiles has 13 members and NINE of them are already front
+SHARED:mapsource/GtMapSpec.kt:14: * doors to GtVectorQueue, certified at 16c (Droid OLD = NEW, iPad = Droid, 6,399 values):
+SHARED:mapsource/GtMapSpec.kt:15: * recipeBoxes, boxesOf, squaresInBox, enqueueWithElevation x2, squaresFor, queueSquares,
+SHARED:mapsource/GtMapSpec.kt:16: * queueSquaresNamed, queueFromRecipe. They stay exactly as they are. What was left is what this
+SHARED:mapsource/GtMapSpec.kt:17: * file ports: the SOURCE SPEC — where the tile URLs come from, and the recipe's old-tile count.
+SHARED:mapsource/GtMapSpec.kt:19: * ⛔ NOTHING HERE IS SKIPPED. Every member has live callers, checked against the 20:04 index:
+SHARED:mapsource/GtMapSpec.kt:20: *   oldTilesOf    EmergencyRestore:109, MapConversion:63, MapConversion:138
+SHARED:mapsource/GtMapSpec.kt:21: *   downloadSources (both)  ConvoyDownloadWorker:83, :178, :179
+SHARED:mapsource/GtMapSpec.kt:22: *   tileTemplate  VectorMapTest:238 (and internally by downloadSources)
+SHARED:mapsource/GtMapSpec.kt:23: *   urlTemplate   VectorMapTest:244
+SHARED:mapsource/GtMapSpec.kt:24: *   Z_MAX (both)  7 references each
+SHARED:mapsource/GtMapSpec.kt:27: *  THE SEAMS — three, all already existing patterns
+SHARED:mapsource/GtMapSpec.kt:29: *  readAsset(name)  map_sources.json ships in the APK's assets. Android's AssetManager has no
+SHARED:mapsource/GtMapSpec.kt:30: *                   common equivalent; on the iPad it is a bundle resource. Same shape as
+SHARED:mapsource/GtMapSpec.kt:32: *  httpGet(url, ms) the TileJSON fetch. OpenFreeMap VERSIONS its tile path, so the template cannot
+SHARED:mapsource/GtMapSpec.kt:33: *                   be a constant — it is read from the TileJSON at runtime. Same shape as
+SHARED:mapsource/GtMapSpec.kt:35: *  ⚠ NO FILE SEAM. 2.7e's oldTilesOf takes a java.io.File and calls readText(). Here it takes the
+SHARED:mapsource/GtMapSpec.kt:36: *  TEXT. Reading the file is the front door's job, which keeps this file free of filesystem access
+SHARED:mapsource/GtMapSpec.kt:37: *  and makes the member trivially testable with a fixture string.
+SHARED:mapsource/GtMapSpec.kt:39: * ⛔ JSON IS STRICT HERE, LENIENT IN 2.7e. 2.7e uses org.json (lenient); this uses GtOrgJson
+SHARED:mapsource/GtMapSpec.kt:40: * (strict) — the GtConfigs precedent from G2g. A malformed map_sources.json or TileJSON body can
+SHARED:mapsource/GtMapSpec.kt:41: * therefore be accepted by OLD and rejected by NEW. That divergence is RECORDED, NOT REPRODUCED:
+SHARED:mapsource/GtMapSpec.kt:43: * and both sides' catch-all returns the same "give up" answer (null / 0) in any case.
+SHARED:mapsource/GtMapSpec.kt:46: *   - spec() re-reads and re-parses the whole asset on EVERY call. 2.7e does; so does this.
+SHARED:mapsource/GtMapSpec.kt:47: *   - tileTemplate caches the resolved template FOREVER in a @Volatile var, with no invalidation.
+SHARED:mapsource/GtMapSpec.kt:48: *     If OpenFreeMap re-versions its path mid-session, 2.7e keeps the stale one until the process
+SHARED:mapsource/GtMapSpec.kt:49: *     restarts. Reproduced exactly — see [resetForCert] for how the test gets around it.
+SHARED:mapsource/GtMapSpec.kt:50: *   - a failed TileJSON fetch is NOT cached, so every call retries. Also 2.7e's behaviour.
+SHARED:mapsource/GtMapSpec.kt:54:    const val VEC_SLOT = "VEC"
+SHARED:mapsource/GtMapSpec.kt:55:    const val VEC_Z_MAX = 14    // VECENQUEUE-2026-10-30: OpenFreeMap ends at z14; never list tiles above it
+SHARED:mapsource/GtMapSpec.kt:56:    const val DEM_SLOT = "DEM"
+SHARED:mapsource/GtMapSpec.kt:57:    const val DEM_Z_MAX = 12    // DEMSOURCE-2026-10-30: elevation to z12; MapLibre stretches it closer in
+SHARED:mapsource/GtMapSpec.kt:59:    private const val ASSET = "map_sources.json"
+SHARED:mapsource/GtMapSpec.kt:60:    private val log = gtLogger("GtMapSpec")
+SHARED:mapsource/GtMapSpec.kt:62:    /** ⛔ 2.7e's `@Volatile private var resolved` in VectorTiles. Cached for the process's life, never
+SHARED:mapsource/GtMapSpec.kt:65:    private var resolved: String? = null
+SHARED:mapsource/GtMapSpec.kt:67:    /** TEST-ONLY: 2.7e has no such function — the cache is only clearable by restarting the process.
+SHARED:mapsource/GtMapSpec.kt:68:     *  The certification needs to drive the cold path repeatedly, so the OLD side gets the same hook.
+SHARED:mapsource/GtMapSpec.kt:69:     *  ⚠ Not a behaviour difference: production never calls it. */
+SHARED:mapsource/GtMapSpec.kt:70:    fun resetForCert() { resolved = null }
+SHARED:mapsource/GtMapSpec.kt:72:    /** One layer the worker should download. Shared's own type — see the note on G1e below. */
+SHARED:mapsource/GtMapSpec.kt:73:    /** ⛔ FIELD NAMES MIRROR 2.7e's MapSourceManager.TileLayer EXACTLY (role, urlTemplate,
+SHARED:mapsource/GtMapSpec.kt:74:     *  tileFormat, cacheDir, renderOrder) -- not "improved" to format/order. Same lesson as
+SHARED:mapsource/GtMapSpec.kt:75:     *  maxZoomForSource's ignored parameter: the port reproduces the shape, so OLD and NEW line up
+SHARED:mapsource/GtMapSpec.kt:76:     *  field for field and the front door maps one to the other without a translation table. */
+SHARED:mapsource/GtMapSpec.kt:77:    data class GtTileLayerSpec(
+SHARED:mapsource/GtMapSpec.kt:78:        val role: String,
+SHARED:mapsource/GtMapSpec.kt:79:        val urlTemplate: String,
+SHARED:mapsource/GtMapSpec.kt:80:        val tileFormat: String,
+SHARED:mapsource/GtMapSpec.kt:81:        val cacheDir: String,
+SHARED:mapsource/GtMapSpec.kt:82:        val renderOrder: Int = 0,
+SHARED:mapsource/GtMapSpec.kt:86:     * ⚠ WHY A SHARED TYPE RATHER THAN MapSourceManager.TileLayer: that type belongs to
+SHARED:mapsource/GtMapSpec.kt:87:     * MapSourceManager, which is G1e (599 lines, 20 callers) and not ported yet. Blocking G1c on
+SHARED:mapsource/GtMapSpec.kt:88:     * G1e would invert the inventory's order for no benefit. The Android front door maps this to
+SHARED:mapsource/GtMapSpec.kt:89:     * MapSourceManager.TileLayer field for field; the certification compares the FIELDS, never the
+SHARED:mapsource/GtMapSpec.kt:90:     * type, exactly as G1a compared GtTileKey to TileKey by value.
+SHARED:mapsource/GtMapSpec.kt:93:    /** 2.7e: JSONObject(assetText).optJSONArray(array)?.optJSONObject(0).
+SHARED:mapsource/GtMapSpec.kt:94:     *  ⚠ GtOrgJson has no optJSONArray/optJSONObject equivalents -- it is a VALUE helper over kotlinx
+SHARED:mapsource/GtMapSpec.kt:95:     *  elements -- so the navigation is done with kotlinx casts. A wrong type yields null, which is
+SHARED:mapsource/GtMapSpec.kt:96:     *  what org.json's optJSONArray/optJSONObject also do (they return null rather than throwing). */
+SHARED:mapsource/GtMapSpec.kt:97:    private fun specOf(env: GtMapSpecEnv, array: String): JsonObject? = try {
+SHARED:mapsource/GtMapSpec.kt:98:        val root = GtOrgJson.parse(env.readAsset(ASSET)) as? JsonObject
+SHARED:mapsource/GtMapSpec.kt:99:        (root?.get(array) as? JsonArray)?.getOrNull(0) as? JsonObject
+SHARED:mapsource/GtMapSpec.kt:101:        log.e { "$ASSET: ${e.message}" }   // 2.7e logs and returns null
+SHARED:mapsource/GtMapSpec.kt:107:    /** 2.7e VectorTiles.tileTemplate. The {z}/{x}/{y} template from the TileJSON — OpenFreeMap
+SHARED:mapsource/GtMapSpec.kt:108:     *  versions its tile path, so it cannot be a constant. Null = not reachable now. */
+SHARED:mapsource/GtMapSpec.kt:109:    fun vectorTileTemplate(env: GtMapSpecEnv): String? {
+SHARED:mapsource/GtMapSpec.kt:110:        resolved?.let { return it }
+SHARED:mapsource/GtMapSpec.kt:114:        val tj = specOf(env, "vector_sources")
+SHARED:mapsource/GtMapSpec.kt:115:            ?.let { GtOrgJson.optString(it, "tilejson") }?.takeIf { it.isNotBlank() } ?: return null
+SHARED:mapsource/GtMapSpec.kt:117:            val body = env.httpGet(tj, 6_000)
+SHARED:mapsource/GtMapSpec.kt:118:            if (body == null) { log.e { "TileJSON not fetched" }; return null }
+SHARED:mapsource/GtMapSpec.kt:120:            val tiles = (GtOrgJson.parse(body) as? JsonObject)?.get("tiles") as? JsonArray
+SHARED:mapsource/GtMapSpec.kt:121:            val t = if (tiles == null) null else GtOrgJson.optString(tiles, 0)
+SHARED:mapsource/GtMapSpec.kt:122:            if (t.isNullOrBlank()) { log.e { "TileJSON has no tiles" }; null }
+SHARED:mapsource/GtMapSpec.kt:123:            else { resolved = t; log.i { "VECSOURCE-2026-10-30 tiles: $t" }; t }
+SHARED:mapsource/GtMapSpec.kt:124:        } catch (e: Exception) { log.e { "TileJSON: ${e.message}" }; null }
+SHARED:mapsource/GtMapSpec.kt:127:    /** 2.7e VectorTiles.downloadSources. Role "overlay" = stored as received; vector tiles are
+SHARED:mapsource/GtMapSpec.kt:128:     *  protobuf and re-encoding them as an image would corrupt them. */
+SHARED:mapsource/GtMapSpec.kt:129:    fun vectorDownloadSources(env: GtMapSpecEnv): List<Pair<String, List<GtTileLayerSpec>>> {
+SHARED:mapsource/GtMapSpec.kt:130:        val t = vectorTileTemplate(env) ?: return emptyList()
+SHARED:mapsource/GtMapSpec.kt:131:        return listOf(VEC_SLOT to listOf(GtTileLayerSpec("overlay", t, "pbf", VEC_SLOT, 0)))
+SHARED:mapsource/GtMapSpec.kt:136:    /** 2.7e ElevationTiles.urlTemplate. The map's online fill for a tile that is not stored. */
+SHARED:mapsource/GtMapSpec.kt:137:    fun elevationUrlTemplate(env: GtMapSpecEnv): String? =
+SHARED:mapsource/GtMapSpec.kt:138:        specOf(env, "elevation_sources")
+SHARED:mapsource/GtMapSpec.kt:139:            ?.let { GtOrgJson.optString(it, "url_template") }?.takeIf { it.isNotBlank() }
+SHARED:mapsource/GtMapSpec.kt:141:    /** 2.7e ElevationTiles.downloadSources. ⛔ Role "overlay" = stored AS RECEIVED: the pixel
+SHARED:mapsource/GtMapSpec.kt:143:    fun elevationDownloadSources(env: GtMapSpecEnv): List<Pair<String, List<GtTileLayerSpec>>> {
+SHARED:mapsource/GtMapSpec.kt:144:        val t = elevationUrlTemplate(env) ?: return emptyList()
+SHARED:mapsource/GtMapSpec.kt:145:        return listOf(DEM_SLOT to listOf(GtTileLayerSpec("overlay", t, "png", DEM_SLOT, 0)))
+SHARED:mapsource/GtMapSpec.kt:151:     * 2.7e VectorTiles.oldTilesOf. The recipe's tile total over the OLD map slots — every slot but
+SHARED:mapsource/GtMapSpec.kt:152:     * VEC and DEM — which is what "your old maps: N tiles" reports.
+SHARED:mapsource/GtMapSpec.kt:153:     * ⚠ Takes the recipe's TEXT, not a File (see the seam note above). 2.7e swallows every failure
+SHARED:mapsource/GtMapSpec.kt:154:     * and answers 0; so does this.
+SHARED:mapsource/GtMapSpec.kt:156:    fun oldTilesOf(recipeText: String): Long = try {
+SHARED:mapsource/GtMapSpec.kt:157:        val slots = (GtOrgJson.parse(recipeText) as? JsonObject)?.get("slots") as? JsonArray
+SHARED:mapsource/GtMapSpec.kt:159:        if (slots != null) for (i in 0 until slots.size) {
+SHARED:mapsource/GtMapSpec.kt:160:            val o = slots.getOrNull(i) as? JsonObject ?: continue   // 2.7e: optJSONObject(i) ?: continue
+SHARED:mapsource/GtMapSpec.kt:161:            val s = GtOrgJson.optString(o, "slot")
+SHARED:mapsource/GtMapSpec.kt:162:            if (s != VEC_SLOT && s != DEM_SLOT) t += GtOrgJson.optLong(o, "tiles")
+SHARED:mapsource/GtMapSpec.kt:169: * The G1c seam. Two methods, both already-established shapes — readAsset as in GtImportEnv:81 and
+SHARED:mapsource/GtMapSpec.kt:170: * GtHelpAssets, httpGet as in GtHttp.get (GtImportEnv:68).
+SHARED:mapsource/GtMapSpec.kt:172:interface GtMapSpecEnv {
+SHARED:mapsource/GtMapSpec.kt:173:    /** The APK asset's text. On the iPad, a bundle resource. Throws if missing — 2.7e's spec()
+SHARED:mapsource/GtMapSpec.kt:174:     *  catches the throw and returns null, so the catch stays in GtMapSpec, not here. */
+SHARED:mapsource/GtMapSpec.kt:175:    fun readAsset(name: String): String
+SHARED:mapsource/GtMapSpec.kt:176:    /** GET returning the body, or null on any failure (non-success status included). 2.7e logs the
+SHARED:mapsource/GtMapSpec.kt:177:     *  HTTP code and returns null; the code itself is an observation, never a compared decision. */
+SHARED:mapsource/GtMapSpec.kt:178:    fun httpGet(url: String, timeoutMs: Int): String?
 SHARED-android:db/GtDb.android.kt:1:package com.grouptrack.shared.db
 SHARED-android:db/GtDb.android.kt:3:import androidx.sqlite.SQLiteConnection
 SHARED-android:db/GtDb.android.kt:4:import androidx.sqlite.driver.AndroidSQLiteDriver

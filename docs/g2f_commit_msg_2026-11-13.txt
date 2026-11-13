@@ -1,0 +1,54 @@
+2.8 step 17 G2f: startup HOUSEKEEPING + the database AUDIT CERTIFIED -- OLD (2.7e, real Android code) = NEW (shared), iPad = Droid, in four pieces
+
+Certified one piece at a time (Fred 11-13 10:16: "replace a piece and certify, then another
+piece -- too many variables to isolate changes that break something"). Each piece adds exactly
+one new class of thing, so a DIFF names its own cause. Two clean runs each, both sides.
+
+  piece 1  everyLaunch                4 SAME 0 DIFF   proves the PIPE, nothing else
+  piece 2  GtDbAudit.run             18 SAME 0 DIFF   the file + database seam, read-only
+  piece 3  repair + repairNow        31 SAME 0 DIFF   destruction, the clock, classification
+  piece 4  StartupHousekeeping.run   16 SAME 0 DIFF   the container and its three jobs
+
+OLD IS REALLY 2.7e, not a second transcription of it. The generated copies run as real Android
+code -- real Cursor loops over a real scratch SQLiteDatabase, real .gpx files really deleted,
+real UPDATE / DELETE / ALTER -- all built from one GtHkFixture that also scripts the shared
+side. Each copy carries a counted substitution manifest, and reversing that manifest and
+diffing against `git show 2.7e:...` leaves nothing but braces. The two put-back predicates are
+checksum-identical to 2.7e.
+
+FOUR HARNESS RULES, from a simulation run BEFORE any patch (Fred 11-13 07:49, the new method):
+  1. now() is scripted on BOTH sides. repairNow decides a file's fate by currentTimeMillis()-2h;
+     a 45-second gap flipped a file at that boundary from "changed in the last 2 hours" to "a
+     real track". The fixture holds cccc.gpx and hhhh.gpx 60 s apart across that line on purpose.
+  2. the track file list is fixture-ordered, never listFiles().
+  3. collections compare SORTED, never a .take(n) log string -- identical sets gave different
+     samples under two platform flavours.
+  4. the schema marker's TEXT is never compared; it embeds a timestamp.
+
+SEVEN DEFECTS FOUND BEFORE A BUILD, not after: an early return in the port where 2.7e has an
+if/else; the ATTACH statement's bound file path (the Droid's scratch file vs the iPad's
+fixture); a mistyped SQL quote; key PRESENCE vs key VALUE (the one real iteration, 11:02); the
+error message being a SQLite driver string; and two fixtures OLD could never reach, dropped
+rather than faked (PIECE2_NO_PATH, and TRAIL_COLUMNS modelled as platform-variable when it is a
+source-order List).
+
+RECORDED, NOT FIXED -- 2.7f defects, for triage after 2.8 first gen:
+  * @Synchronized is on the WRONG FUNCTION. StartupHousekeeping.kt:72-102 -- the KDoc saying
+    "BLOCKING, AND DELIBERATELY SO" is followed by @Synchronized, then a SECOND KDoc, then
+    everyLaunch. Kotlin treats comments as whitespace, so the lock binds to the NO-OP while
+    run(), which deletes every trail, is unsynchronized. Ported as is; the port's header says
+    why it must stay that way.
+  * repairNow's `path.isNullOrEmpty()` arm is unreachable: sp.path comes from a real open
+    database, which always has one.
+  * ConvoyMarkerRenderer is dead -- its JS bridge moved inline into GroupTrackScreen (904, 1241)
+    and the class is constructed at 433 and never used. LatLngPoint / TrackSegment in the same
+    file are LIVE.
+
+TEST-ONLY, out with GtCertRun before 2.8 is released (CODE RULE 3): StartupHousekeepingCertOld,
+DbAuditCertOld, GtCert17g2f, GtHkCertClock, GtHkCertLog, GtHkCertStubs, Cert17g2f, the four
+GtCertHk17g2fNMacTests, and GtCertRun's four hk17g2fN dispatch + skip-list entries.
+
+Runner scripts (Drive, not the repo): gt_cert_v34 .. v37, one mode per piece.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01XhRvAsrsXjQpBxev3DfnXA

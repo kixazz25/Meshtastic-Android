@@ -48,12 +48,23 @@ There is no shared image codec; this is a declared socket per plan §8. G1 defin
 platform implements it. Nothing to certify beyond the seam's contract.</li>
 <li><b><code>ConvoyTileDownloader</code>'s fetch (of 346)</b> — OkHttp calls, retry/backoff, worker
 integration. The inventory already calls the fetch platform. What ports is <code>buildTileUrl</code>
-and <code>tilePath</code>: string and path math.</li>
+— string math — and <b>that is all</b>.
+<br>⛔ <b>CORRECTED G1INVSTATUS-2026-11-13: <code>tilePath</code> DOES NOT PORT.</b> It returns a
+<code>java.io.File</code> and calls <code>mkdirs</code>, which is platform, and the cross-reference shows it has
+<b>no callers at all</b> (its one apparent hit, <code>GroupTrackScreen:1139</code>, is a local variable of the same
+name). ⚠ This sentence, as originally written, is what led an earlier draft of <code>GtTileCalc</code> to invent
+<code>tileRelPath</code> — a port member with NO 2.7e counterpart, which is the one failure a certification cannot
+catch, because a member with nothing to compare against passes by never being exercised. Fixed at the source.</li>
 </ul>
 
 <h2>3. Proposed piece split — eight pieces, certified one at a time</h2>
 <p>Ordered by risk, not by the inventory's listing order: least-tied first, and
 <b>anything that deletes rider data last</b>, when the group's harness is already proven.</p>
+<p>⛔ <b>THE SPLIT STANDS, BUT THIS TABLE IS NO LONGER THE STATUS (G1INVSTATUS-2026-11-13).</b> Two of the eight pieces
+turned out to be SKIPS rather than ports — including G1g, the one flagged ⛔ careful below — and the line counts for
+G1a and G1c are smaller than estimated here. <b>See §3b for what is certified, skipped and left.</b> This table is
+kept as written because it is the approved plan and the reasoning for the ORDER is still correct; it is not amended
+row by row so the two can be compared.</p>
 <table>
 <tr><th>Piece</th><th>Files</th><th class="n">Lines</th><th>What it adds that nothing before it had</th></tr>
 <tr><td>G1a</td><td><code>ConvoyTileCalculator</code> + <code>ConvoyTileDownloader</code>'s url/path math</td><td class="n">~420</td><td>nothing — zero Android ties, pure math. Proves the group's pipe.</td></tr>
@@ -78,6 +89,42 @@ pattern and its mechanical verification (reverse the manifest, diff against <cod
 the fixture-drives-both-sides shape; the Droid/iPad runner-script recipe; and the four harness rules —
 scripted clock, fixture-ordered listings, sorted collections, and never comparing a file's generated
 text. <code>GtTileMath</code> and <code>GtStorage</code> already exist in shared.</div>
+
+<h2 id="g1-status">3b. STATUS — 2026-11-13 EOD: what is certified, what is skipped, what is left</h2>
+<p>⛔ <b>G1b AND G1g ARE CLOSED AS G-ITEMS (PRUNETOTAL-2026-11-13).</b> Fred, 11-13 16:27: "why are they in G if they
+are prune issues that are not called[?] isn’t that what the new post gen c items represent[?]" — and he is right.
+A G-piece is <b>port-and-certify work</b>; a C-item is <b>prune-after-the-gen work</b>. Carrying these two as "G1b
+SKIPPED" and "G1g SKIPPED" tracks the same code in two places, which is exactly how one copy goes stale — this
+inventory still described G1b as "the first declared SOCKET" hours after that had been disproved, and the living
+master still said C1 was "a LIVE DEFECT" after the function was retired.
+<br><b>So: their only LIVE tracking is C7 / C8 / C10 in the living master.</b> What stays here is their
+<b>EVIDENCE</b>, not their status — the reachability proof is the whole justification for not porting 845 lines,
+and whoever runs the prune after the gen will reasonably ask how we know. The rows below are kept for that reason.
+<br><b>And the count, stated properly:</b> G1 had <b>8 candidates</b>; <b>6 are port work</b> and 2 were never port
+work at all. Of the 6: <b>2 certified, 4 remain</b> (G1d, G1e, G1f, G1h — 2,257 lines).</p>
+<p><b>4 of 8 pieces resolved in one day.</b> Two certified, two skipped. The port surface for G1 fell from
+<b>3,922 lines to roughly 2,850</b>, and the skipped quarter included the piece this inventory flagged ⛔ careful
+because of the 08-08 data-loss incident.</p>
+<table>
+<tr><th>Piece</th><th>What</th><th class="n">Lines</th><th>Status</th><th>Evidence</th></tr>
+<tr><td>G1a</td><td><code>ConvoyTileCalculator</code> + <code>buildTileUrl</code></td><td class="n">~260 ported</td><td><b style="color:#0a0">CERTIFIED</b></td><td>148 keys, 0 DIFF both devices, two runs. Commit <code>f0e9fc928</code>. Six members skipped (<code>corridorTiles</code>, <code>stampPoint</code>, <code>estimateSizeMB</code>, <code>isWithinCeiling</code>, <code>AVG_TILE_KB</code>) and one removed as a fabrication (<code>tileRelPath</code>). Findings: <code>GroupTrack_2.8_step17_G1a_findings_2026-11-13.html</code></td></tr>
+<tr><td>G1b</td><td><code>TileCodec</code></td><td class="n">66</td><td><b style="color:#b00">SKIPPED</b></td><td>⚠ Inventoried as "the first declared SOCKET"; it is neither socket nor port. Nothing re-encodes any more — both live producers pass role <code>"overlay"</code> so <code>encode()</code> returns at line 1. Pre-vector legacy. Cleanup <b>C10</b>; removal post-iPad per <b>M2</b>.</td></tr>
+<tr><td>G1c</td><td><code>VectorTiles</code> + <code>ElevationTiles</code> source spec</td><td class="n">~115 ported</td><td><b style="color:#0a0">CERTIFIED</b></td><td>64 keys, 58 SAME / 0 DIFF / 6 EXPECTED on Droid, 64 SAME cross-device, two runs. Commit <code>4e9dc9db1</code>. ⭐ Nine of <code>VectorTiles</code>' 13 members needed nothing — already front doors to <code>GtVectorQueue</code>, certified at 16c. Findings: <code>GroupTrack_2.8_step17_G1c_findings_2026-11-13.html</code></td></tr>
+<tr><td>G1d</td><td><code>MapStateStore</code> + <code>ConvoyMapRecipe</code></td><td class="n">390</td><td>TO DO</td><td>file-backed state, the saved view, the daily recipe</td></tr>
+<tr><td>G1e</td><td><code>MapSourceManager</code></td><td class="n">599</td><td>TO DO</td><td>20 callers — the widest blast radius in G1; a settings socket. ⚠ G1c declared <code>GtTileLayerSpec</code> as a shared mirror of its <code>TileLayer</code>; reconcile the two here.</td></tr>
+<tr><td>G1f</td><td><code>MBTilesStore</code></td><td class="n">605</td><td>TO DO</td><td>real SQLite tile stores; cert on COPIES, never the live stores. ⚠ Carries the <code>format = "webp"</code> metadata defect found 11-13 (<code>:81</code>).</td></tr>
+<tr><td>G1g</td><td><code>ConvoySourceMigration</code> + <code>ConvoySourceClear</code> + <code>ConvoyCorridorDelete</code></td><td class="n">779</td><td><b style="color:#b00">SKIPPED</b></td><td>⛔ The piece flagged ⛔ careful below. DEAD, not dormant: <code>selectedSlot</code> is never set non-null and <code>optTracks</code> never set true, so the source picker, <code>applySource</code> and the whole migration are unreachable; <code>ConvoySourceMigration.begin()</code> is the only writer of a migration record and sits inside <code>applySource</code>, so no record can exist; the two directory scans sit BEHIND the <code>refreshSlot</code> gate; and <code>ConvoySourceClear.hasUnfinished()</code> has no caller. Cleanup <b>C7</b>/<b>C8</b>; removal post-iPad per <b>M2</b>.</td></tr>
+<tr><td>G1h</td><td><code>GroupTrackConversion</code></td><td class="n">663</td><td>TO DO</td><td>SAF / DocumentFile — the heaviest Android tie in the group</td></tr>
+</table>
+<p><b>LEFT TO CERTIFY IN G1: four pieces, 2,257 lines</b> — G1d 390, G1e 599, G1f 605, G1h 663.</p>
+<p><b>⭐ THE ORDER STILL HOLDS, with one amendment.</b> §3 put the data-deleting work last; G1g was that work and it is
+gone, so the remaining risk concentrates in <b>G1f</b> (real SQLite stores — certify on COPIES) and <b>G1h</b> (SAF).
+<b>G1e before G1f</b> is now worth more than it was: G1f's store work reads layer assignments from
+<code>MapSourceManager</code>, and G1c already had to declare a shared mirror of its <code>TileLayer</code> to avoid
+blocking on it. Suggested order: <b>G1d → G1e → G1f → G1h</b>.</p>
+<p><b>⚠ M1 Q3 IS OPEN ON BOTH CERTIFIED PIECES.</b> Neither G1a nor G1c is SWITCHED — the Android callers still use
+<code>ConvoyTileCalculator</code>, <code>VectorTiles</code> and <code>ElevationTiles</code>. "Certified" is not
+"switched", and Q3 (orphaned callers) is only answerable after the switch. Two switch commits are outstanding.</p>
 
 <h2>4. Open question for Fred</h2>
 <p>G1 is 3,926 lines against G2's 2,488, and G2 took roughly a day and a half. On that arithmetic G1

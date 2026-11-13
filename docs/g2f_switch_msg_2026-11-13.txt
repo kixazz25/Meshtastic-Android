@@ -1,0 +1,41 @@
+2.8 step 17 G2f SWITCH: StartupHousekeeping and GtDbAudit are now front doors to the shared port
+
+505 lines of Android implementation replaced by 87 lines of delegation. Every public name is
+kept, so ConvoyAuthorityGateScreenV2, GroupTrack.kt and Backup.kt are unchanged -- the gate
+still reads StartupHousekeeping.Result as its Compose state.
+
+  StartupHousekeeping.kt   349 -> 46   -> GtStartupHousekeeping (certified hk17g2f1, hk17g2f4)
+  DbAudit.kt               156 -> 41   -> GtDbAuditPort         (certified hk17g2f2, hk17g2f3)
+  GtHkAndroid.kt           new, 97     -- the real collaborators behind the certified seam
+
+VERIFIED ON DROID 1, not just certified. The certs structurally cannot cover the switch:
+GtCertGuard.skip returns true during a cert run, so StartupHousekeeping.run is SKIPPED in all
+four. Proof is a normal launch on a fresh process (4859, 12:20):
+    === HOUSEKEEPING START ===
+    jobSchemaConverge: marker present -- nothing to do
+    === HOUSEKEEPING DONE in 168ms ===
+    everyLaunch: no-op -- jobs live in run()
+    DbAudit: DBREPAIR rider trails put back ... 0 imported, 0 made from tracks
+    DbAudit: DBREPAIR track files with no row: deleted 0, kept 0
+Every job behaved as 2.7e would: converge stood down on its marker, jobPalette merged nothing
+and so logged nothing, PRUNEUGRC found no ownership file, the sweep was silent because it only
+speaks on failure. All four certs re-run against the switched code: 4 / 18 / 31 / 16, 0 DIFF,
+cross-device COMPARED.
+
+TWO DEFECTS THE SWITCH FOUND THAT CERTIFICATION COULD NOT:
+  * trackFiles() read EVERY track eagerly. GtHkFile carried the text, so the seam read every
+    .gpx on the device at startup -- harmless in a fixture, a real regression on a rider with
+    hundreds of tracks. 2.7e calls f.readText() INSIDE repairNow's loop, after three filters
+    have already skipped most files. GtHkEnv.readText now does the same.
+  * THE LOG TAG WAS WRONG. GtHkAndroid hardcoded one tag, so the audit's DBREPAIR lines came
+    out tagged Housekeeping and `adb logcat -s DbAudit` lost them. Caught on the first real
+    launch (12:16). The tag is now a constructor parameter. ⭐ Both live in the one file no
+    certification touches -- the Android side of the seam.
+
+@Synchronized IS NOT REPRODUCED, deliberately. In 2.7e it bound to everyLaunch -- the NO-OP --
+while run(), which deletes every trail, had no lock. The real wart is run() being unsynchronized
+and it is preserved. A lock on a one-line no-op has no observable behaviour and writing it in
+new code would only mislead. Still recorded against 2.7f for triage after 2.8 first gen.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01XhRvAsrsXjQpBxev3DfnXA

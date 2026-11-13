@@ -1,0 +1,133 @@
+2.8 step 17 G1c: certify the map source spec (GtMapSpec)
+
+58 SAME, 0 DIFF, 6 EXPECTED on Droid 1; 64 SAME, 0 DIFF cross-device on the
+iPad simulator; two clean runs (14c rule). Build
+2026-11-13_1548_mac_ad928ec47_UNCOMMITTED.
+
+MOST OF G1c WAS ALREADY DONE. VectorTiles has 13 members and NINE were already
+front doors to GtVectorQueue, certified at 16c (6,399 values): recipeBoxes,
+boxesOf, squaresInBox, enqueueWithElevation x2, squaresFor, queueSquares,
+queueSquaresNamed, queueFromRecipe. Untouched, and deliberately ABSENT from the
+OLD side -- re-testing them would re-test closed work and put a second
+uncertified copy on the comparison. What was left is the SOURCE SPEC: where the
+tile URLs come from, and the recipe's old-tile count.
+
+THREE SEAMS, ALL EXISTING SHAPES
+  readAsset(name)   map_sources.json ships in the APK; AssetManager has no common
+                    equivalent and on the iPad it is a bundle resource.
+                    (GtImportEnv:81, GtRides:145, GtHelpAssets)
+  httpGet(url, ms)  OpenFreeMap VERSIONS its tile path, so the template cannot be
+                    a constant -- it is read from the TileJSON at runtime.
+                    (GtHttp.get, GtImportEnv:68)
+  no file seam      2.7e's oldTilesOf takes a java.io.File; the port takes the
+                    TEXT, so the shared file needs no filesystem access.
+
+A SHARED TYPE, NOT MapSourceManager.TileLayer -- that type is G1e (599 lines, 20
+callers, not ported), and blocking G1c on it would invert the inventory for no
+benefit. GtTileLayerSpec carries 2.7e's field names EXACTLY (role, urlTemplate,
+tileFormat, cacheDir, renderOrder), not "improved" to format/order: the same
+lesson as G1a's ignored sourceName. The cert compares fields, never the type.
+
+THE RECORDED DIVERGENCE -- 6 EXPECTED, measured not assumed
+2.7e parses with org.json (LENIENT); the port parses with GtOrgJson over kotlinx
+(STRICT), whose own header says: "NOT REPRODUCED ... comments, single quotes,
+unquoted keys, '='/';' separators, and text after the first value. Android
+accepts those; [parse] throws (the golden run marks them EXPECTED)." Three
+fixtures feed exactly those, two keys each. The FIRST run reported 58 SAME / 6
+DIFF and these were the six -- so the divergence is measured, then recorded.
+This is the G2g GtConfigs precedent.
+
+  UNREACHABLE IN PRACTICE: GtMapSpec reads context.assets.open("map_sources.json")
+  -- the asset WE SHIP, which is well-formed and has no comments, single quotes
+  or unquoted keys. It is NOT the user-editable external map_sources.json that
+  MapSourceManager.externalJsonFile() reads; that file never reaches this code.
+  The TileJSON comes from OpenFreeMap, serving valid JSON.
+
+  AND IT IS STILL TESTED AS HARD. Marking a divergence expected must never mean
+  testing it less. The harness records the base key as EXPECTED and ALSO emits
+  "<key>|newonly" with the port's own answer, so the iPad still compares NEW
+  against NEW on those fixtures -- which is why the iPad reports 64, not 58.
+  A staleness guard writes "# G1C-NOTE ... is STALE" if an expected key ever
+  comes back SAME, because that is how an expected-diff list rots into a
+  permanent excuse.
+
+TWO WARTS REPRODUCED ON PURPOSE
+  The cache: 2.7e holds the resolved template in a @Volatile var with NO
+  invalidation, so a mid-session re-version is ignored until the process
+  restarts. CACHE2 certifies it -- resolve, ask again with a DIFFERENT http
+  answer, require the FIRST back, with http_calls proving no refetch.
+  spec() re-reads and re-parses the whole asset on every call. 2.7e does too.
+  resetForCert() exists on BOTH sides because `resolved` is process-wide state:
+  without it the second fixture would answer with the first fixture's template
+  and every later key would be a lie that happens to match.
+
+THE ASSET IS CARRIED IN THE REPORT. The iPad has no APK, so the Droid writes the
+real map_sources.json (3,386 bytes) onto a "# G1C-ASSET" line and the iPad reads
+it back. Without it the iPad would certify against whatever was on the Mac. The
+script refuses to proceed if the line is missing.
+
+M1 PER-GROUP CHECK -- recorded in the findings doc
+  Q1 fabrications    NONE. Two declared additions, both on both sides:
+                     resetForCert (test hook) and GtTileLayerSpec (the shared
+                     mirror of TileLayer). Neither is a silent invention of the
+                     kind G1a's tileRelPath was.
+  Q2 wrongly dropped NONE. Every member has live callers. The nine queue members
+                     are not dropped -- they were ported at 16c.
+  Q3 orphaned callers PENDING THE SWITCH.
+  Q4 branch reachable CHECKED, nothing dead -- the first G1 piece with no skips.
+  Q5 wrongly kept     NONE.
+
+NOT SWITCHED. The Android callers still use VectorTiles / ElevationTiles. The
+switch is a separate commit, which is also what answers Q3.
+
+ALSO IN THIS COMMIT -- G1b, AND THE RULE IT PRODUCED (living master).
+
+G1b (TileCodec, 66 lines) is SKIPPED, not ported. It was inventoried as "the
+first declared SOCKET in step 17 -- a seam contract, not a port"; it is neither.
+There is no platform codec work left to declare a seam for, because nothing
+re-encodes any more: TileCodec is V2.6a, built for raster satellite/topo
+imagery, and both live producers pass role "overlay" so encode() returns at its
+first line. VectorTiles -> pbf (protobuf; re-encoding would corrupt it);
+ElevationTiles -> png (the pixel values ARE the heights, so lossy re-encoding
+would put spikes and pits in the 3D terrain). The only role:'base' entries left
+in map_sources.json are google-hybrid and a custom template -- the pre-vector
+raster sources, whose store has been empty since the conversion.
+  Where used: ONE call site (MBTilesStore:156) plus one doc comment.
+  compressWebp, BASE_QUALITY and OVERLAY_QUALITY have ZERO external references.
+  A Q4 catch inside the dead file: the early return makes OVERLAY_QUALITY unused
+  and the whole WEBP_LOSSLESS arm unreachable, while the header still documents
+  "OVERLAY -> LOSSLESS WebP", which the code stopped doing at [V2.6a-Q95-PASS].
+  WebP IS still live on the READ side -- the MAP's HTML, not the manual's:
+  GroupTrackScreen:1148/1162/1175 serve image/webp (already cleanup C2). The
+  manual's images are JPEG; zero .webp files exist anywhere in the repo.
+  New: MBTilesStore:81 records format = "webp" in the MBTiles metadata, which no
+  longer describes what is stored. Recorded, not fixed.
+
+M2 -- SKIP, DON'T REMOVE. Two decisions that were being run together:
+  SKIP    not ported into grouptrack-shared. Free: no Android code changes,
+          nothing shipping in 2.8a moves, nothing to retest. Decided at port
+          time by M1's five questions.
+  REMOVE  the Android code is deleted. A change to the shipping app, so it
+          carries real risk -- DEFERRED until after the initial iPad generation.
+  This supersedes the earlier "DELETE rather than PORT" wording used for G1g.
+  G1g is SKIPPED: not ported, not yet deleted.
+
+  WHY A SKIP IS PROVABLY SAFE: code not executed is by definition the same result
+  under the new code. Unexecuted code contributes nothing observable, so omitting
+  it leaves behaviour identical BY CONSTRUCTION. Consequence: a skip needs NO
+  certification run -- its evidence is REACHABILITY. And certifying unreachable
+  code is vacuous: 0 DIFF because neither side runs, so the pass carries no
+  information. That is why "it certified clean" can never be the reason a member
+  belongs in the port.
+  THE ONE CAVEAT: the whole weight then rests on the reachability evidence being
+  right, and on 11-13 three reachability calls were wrong in one hour, all from
+  greps that excluded the declaring file. The argument is sound; the input needs
+  the care. Hence M1's five questions, by FIELD and by FUNCTION, never filtering
+  out the declaring file.
+
+G1 AFTER TODAY: 4 of 8 pieces resolved. G1a and G1c certified; G1b and G1g
+skipped. ~1,070 lines removed from the port surface, and the skipped quarter
+included the piece the inventory flagged for the 08-08 data-loss incident.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01XhRvAsrsXjQpBxev3DfnXA

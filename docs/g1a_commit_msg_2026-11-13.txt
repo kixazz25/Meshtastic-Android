@@ -1,0 +1,91 @@
+2.8 step 17 G1a: certify the tile-set arithmetic (GtTileCalc)
+
+148 SAME, 0 DIFF on Droid 1 and on the iPad simulator, cross-device COMPARED,
+two clean runs (14c rule). Build 2026-11-13_1455_mac_8d4abfc2b_UNCOMMITTED.
+
+G1a is the first piece of group G1 and was chosen to prove the group's pipe:
+pure math, zero Android ties. The only seam is ConvoyConfig.DOWNLOAD_ZOOM -- a
+var the rider's slider sets -- which both sides take as a parameter from one
+scripted value. None of G2f's four harness rules apply: no clock, no
+listFiles() order, no truncated log sample, no generated file text.
+
+WHAT IS CERTIFIED -- 148 keys
+  11 MAXSLOT   every slot, mixed case and a trailing space (uppercase() is in
+               the path), across 11 download-zoom values
+   5 MAXSRC    proving sourceName is ignored IDENTICALLY on both sides
+  32 ZRANGE    zoomRanges over 8 boxes x 4 zoom ranges
+  96 CALC      calculateTiles, including the sourceName branch that reaches
+               maxZoomForSource, at two download zooms
+   4 URL       buildTileUrl, including negative x+y through the {s} modulo
+
+TWO DELIBERATE DEPARTURES FROM G2f
+  Order is COMPARED, not sorted away. 2.7e builds `tiles` with mutableListOf
+  and nested for(z)for(x)for(y), so order is fixed by the source, not by a hash
+  or the filesystem; it is part of the behaviour. G2f sorted because ITS
+  collections came from set iteration and listFiles(). Nothing here does.
+
+  Mercator edges are in the sweep on purpose. At 89.999 degrees tan(rad) runs
+  away and 2.7e clamps nothing, so both sides must run away identically.
+  Faithfulness, not correctness -- a defect both sides reproduce is a PASS.
+  It came back clean on Apple silicon, as did the negative-x+y modulo.
+
+THE PORT: SIX MEMBERS IN, SIX OUT
+  KEPT    GtTileKey, maxZoomForSource, maxZoomForSlot, zoomRanges,
+          calculateTiles, buildTileUrl
+  DROPPED corridorTiles + stampPoint (no reachable caller: ConvoyCorridorWorker
+          has zero callers, ConvoyCorridorDelete zero reachable ones, and the
+          third use is the arm below enqueueCorridor's isVector return, which
+          can never be false); estimateSizeMB + isWithinCeiling + AVG_TILE_KB
+          (a dead chain -- isWithinCeiling has zero uses anywhere)
+  REMOVED tileRelPath -- it NEVER EXISTED IN 2.7e (xref decl 0). It was
+          invented in an earlier draft of the port. This is the failure the
+          certification cannot catch: a member with no OLD counterpart has
+          nothing to compare against, so it passes by never being exercised.
+
+  GtTileCalc.kt: 248 -> 147 lines, and it now imports nothing (GtTileMath is
+  the same package). The header carries a "WHAT IS NOT HERE, AND WHY" block,
+  because corridorTiles was put back once already on the reasoning that its
+  enclosing function had live callers. It does. The code is still dead.
+
+  DOWNLOAD BY CORRIDOR IS LIVE AND IS PORTED -- just not here. It is the
+  route/track map download, reached from the GPX import (GtGpxImport:345/486 via
+  the env.platform.enqueueCorridor seam), GroupTrackScreen:2536 and
+  MapScreens:178/503. Its METHOD changed, not its existence: a corridor is now
+  the track's AREA (VectorTiles.squaresFor, VECDL-2026-10-31), derived in
+  VectorTiles/GtVectorQueue and already certified in Cert16c.
+
+PORT FIDELITY DEFECT FOUND AND FIXED
+  2.7e is maxZoomForSource(sourceName: String): Int = ConvoyConfig.DOWNLOAD_ZOOM
+  -- it takes sourceName and IGNORES it, a [V2.6b-NO-ZOOM-CAP] leftover. The
+  port had REPLACED the parameter with downloadZoom rather than adding to it.
+  16b's rule is that app state becomes an ADDITIONAL parameter; the original
+  signature is still the thing being certified. Corrected, with the call site
+  mirroring 2.7e's maxZoomForSource(sourceName). Behaviour unchanged on both
+  sides -- the point is shape, so OLD and NEW compare argument for argument.
+  Found by reading the OLD source to build the CertOld copy.
+
+THE SUBSTITUTION MANIFEST -- counted, and corrected twice
+  x1 object name · x6 ConvoyConfig.DOWNLOAD_ZOOM -> downloadZoom · x1 that
+  parameter threaded to an internal call site · x4 parameter defaults made
+  required · x8 lon2tile/lat2tile CALLED not copied · x1 buildTileUrl from
+  ConvoyTileDownloader:54.
+  Tally: downloadZoom appears 10 times = 3 declarations + 6 reads + 1 threaded.
+  git diff 2.7e -- ConvoyTileCalculator.kt is EMPTY, so the OLD copy is taken
+  from code identical to the field-lock version.
+  lon2tile/lat2tile are NOT under test: certified at 16a as MATHTILE, 0 DIFF
+  across 1,938,346 values.
+
+M1 PER-GROUP CHECK (living master #blast-check) -- recorded in the findings doc
+  Q1 fabrications    ONE FOUND AND REMOVED (tileRelPath)
+  Q2 wrongly dropped yes, after restoring maxZoomForSource -- its only caller
+                     is internal (ConvoyTileCalculator:272), and the grep that
+                     called it dead had excluded its own declaring file
+  Q3 orphaned callers PENDING THE SWITCH -- nothing references GtTileCalc yet
+  Q4 branch reachable yes, and it is what killed corridorTiles
+  Q5 wrongly kept     yes, after dropping six
+
+NOT SWITCHED. The Android callers still use ConvoyTileCalculator. The switch is
+a separate commit, which is also what answers Q3.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01XhRvAsrsXjQpBxev3DfnXA

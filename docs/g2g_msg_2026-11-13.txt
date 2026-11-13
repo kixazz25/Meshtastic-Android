@@ -1,0 +1,46 @@
+2.8 step 17 G2g: the HELP link table CERTIFIED and SWITCHED -- 63 SAME, 0 DIFF, both devices, twice. GROUP G2 CLOSES.
+
+GtHelp -> the shared GtHelpLinks. 63 keys: the table size after every load, and has(id) plus
+linkFor(id) for nine probe ids across six scripted assets, and the once-only load latch.
+
+What is certified is the lookup rule, which is the whole service: the process's own entry, else
+its MODULE's entry (a group of functions shares one page), else the manual's front page.
+  map.nope     -> manual#map        (the module fallback)
+  route.nope   -> manual#route
+  nothere.sub  -> manual            (no module either)
+  latch        -> load GOOD then EMPTY, the table is still GOOD (size 5)
+
+THE PARSER SWAP WAS SCRIPTED, NOT ASSUMED. 2.7e reads with org.json (lenient); the shared table
+reads with GtOrgJson (strict) -- the divergence GtConfigs met first. A non-string value was put
+in the fixture on purpose so the RUN would answer rather than me deciding beforehand that the
+asset only holds strings:
+    g2g.number|id=route   SAME   true|7
+org.json's getString() and GtOrgJson.valueText render it identically. The leniency difference
+itself is recorded, not reproduced: a malformed asset is rejected on both sides and both fall
+back to an EMPTY table, which is 2.7e's own behaviour for an asset it cannot read.
+
+VERIFIED ON DROID 1: HELP opened the correct manual page, not the front page, and the log holds
+NO GtHelp lines -- a read failure would have warned and a fallthrough would have logged "no
+manual page for ...". Silence is the proof the real asset parsed and the lookup hit.
+
+SCOPE DECISION, recorded so the inventory's G2g line does not read as half-done:
+  * ConvoyMarkerRenderer is DEAD and is NOT ported. Its own comment calls it "the bridge for node
+    tap callbacks from JavaScript", but the bridge is a @JavascriptInterface declared inline in
+    GroupTrackScreen (904, 1241) calling viewModel.onMarkerTapped directly. The class is built at
+    line 433 and its onNodeTapped lambda is never invoked. ⚠ The CLASS is dead, the FILE is not --
+    LatLngPoint and TrackSegment in it are live at GroupTrackScreen 579-580. Recorded for 2.7f
+    triage; not deleted, because deletion is a change and this is a port.
+  * LatLngPoint and TrackSegment are DEFERRED TO G4. They are data carriers with no logic and no
+    shared consumer today; a certification would compare two constructors and a default colour.
+    G4 is the map-page talkers, where the code that would use them lives.
+
+TEST-ONLY, out with GtCertRun before 2.8 is released (CODE RULE 3): GtHelpCertOld, GtHelpCertLog,
+GtCert17g2g, Cert17g2g, GtHelpFixture, GtCertHelp17g2gMacTest, GtHelpLinks.resetForCert, and
+GtCertRun's help17g2g dispatch + skip-list entry. Runner: gt_cert_v38.
+
+GROUP G2 IS COMPLETE: G2a storage, G2b1 session, G2b2 ride settings, G2c1 profile/networks,
+G2c2 local user, G2d V2 configs, G2e1 state data, G2e2 the state queue, G2f startup housekeeping
++ the database audit, G2g the HELP table. All ported, certified on both devices, and switched.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01XhRvAsrsXjQpBxev3DfnXA

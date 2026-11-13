@@ -1,0 +1,76 @@
+2.8: fix the navxref label pairing; record the reachability method
+
+TOOLING FIX -- the navigation xref mislabelled every ListItem row (living
+master T1, #navxref-label-defect).
+
+label_near() searched FORWARD 1600 chars from the clickable and returned the
+first string found. A Material3 ListItem puts its label FIRST and
+`modifier = Modifier.clickable{}` LAST, so the window ran past the closing paren
+into the NEXT row and took ITS headline. Labels came out shifted one row up
+against actions, and the first label of each run was lost -- "Edit rider
+profile" appeared ZERO times in the index, and "Change Map Sources" was reported
+as calling onNavigateToProfile().
+
+That mattered because the walkthrough is the instrument for REACHABILITY (the
+cert proves faithfulness, the xref proves completeness, only the walkthrough
+proves a user can get there), and V1 leans on it.
+
+THE FIX, in a NEW tool file (golden rule): GroupTrack/commands/navxref_2026-11-13.py,
+from navxref_2026-11-09.py with label_near changed and nothing else.
+gen_xrefs_v3.sh selects by `sort -V` on the filename, so the new date is picked
+automatically. ⚠ The tool is in the Drive commands folder, NOT this repo, so it
+is not in this commit -- only its regenerated output is.
+
+When the clickable is inside a ListItem, read BACKWARD -- but NOT "the last
+string before pos", which is the supportingContent text and would be a second
+wrong label. It must be the first Text(...) AFTER the last headlineContent,
+anchored to the last `ListItem(` within 800 chars. Requiring both anchors ties
+the label to THIS ListItem and not a neighbouring row's. Strictly conditional:
+without those anchors the original forward search runs unchanged.
+
+VERIFIED by holding the ACTION constant and comparing labels across 387 parsed
+pairs: 4 changed, 383 untouched, clickables still 418.
+  onNavigateToProfile()        "Change Map Sources"           -> "Edit rider profile"
+  onNavigateToMapSources()     "Send issue reports by email"  -> "Map source credits"
+  showConversionRecord = true  "CLOSE"                        -> "View conversion record"
+  trailClearAsk = true         "Remove all trail data?"       -> "Remove all trail data"
+The last two were not previously known: the old code was taking a BUTTON label
+and a DIALOG TITLE from further down the file.
+
+REGENERATED INDEXES (gen_xrefs_v3.sh): navigation_xref, where_used_raw,
+function_universe_raw, field_crossref_raw. The previous set was from 06:08, so
+it predated today's commits.
+
+LIVING MASTER -- the reachability method, recorded. This is the content written
+after the 8d4abfc2b commit and so not included in it.
+
+  V1  BLAST ANALYSIS, a gate on declaring step 17 done, timed as the LAST STEP
+      BEFORE THE 2.8a DROID BUILD -- run earlier and it certifies a moving
+      target. Scope FIXED to the pre-11-13 backlog (G2a-G2g, 15a/15e, 16b/16c,
+      17e1/17e2) and explicitly not allowed to grow.
+  M1  the per-group check, standing method from G1a on: the last action of
+      closing any group, by FIELD and by FUNCTION (where_used_raw AND
+      field_crossref_raw -- a port moves both, and a field read by code the port
+      left behind fails exactly like a dropped function).
+  Q1-Q5 the five questions, with Q4 (branch reachability) and Q5 (wrongly kept)
+      added because Q1-Q3 are caller-based and would have missed every straggler
+      found on 11-13.
+  C1  downgraded from "a LIVE DEFECT" to RETIRED, with the zero-caller proof.
+  C1b REVERSED: corridorTiles is NOT ported, with a standing warning that
+      download-by-corridor IS live and is certified elsewhere (Cert16c).
+  C5-C9 the raster arms, ConvoyCorridorWorker, ConvoyCorridorDelete +
+      GtRemoveTrackScreen, ConvoyMapSourceScreen's ~900 unreachable lines, and
+      the three manual sections + the GtMenuLine OVERVIEW gap.
+  T1  this defect, now closed.
+
+WHY Q4 AND Q5 EXIST, since it is the durable lesson: certifying back to callers
+caught everything that STOPPED being called, which is what the convoy-app move,
+one map and removing the tick all did. It cannot catch code that never stops
+being called -- a branch behind a gate that can never vary (isVector() =
+cached ?: true) stays reachable on paper and unreachable in fact. And "port AS
+IS" governs HOW a member is ported, never WHETHER: dead code ports perfectly,
+agrees on both sides, passes certification, and is then carried on two platforms
+forever. The rule is now stated: port AS IS -- but only what is REACHABLE.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01XhRvAsrsXjQpBxev3DfnXA
