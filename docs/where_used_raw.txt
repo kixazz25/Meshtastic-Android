@@ -59836,84 +59836,92 @@ SHARED:queue/GtTileCalc.kt:39: *   .enqueueCorridor seam, GtImportEnv:83), Group
 SHARED:queue/GtTileCalc.kt:40: *   changed, not its existence: a corridor is now the track's AREA (VECDL-2026-10-31), derived by
 SHARED:queue/GtTileCalc.kt:41: *   VectorTiles.squaresFor / GtVectorQueue — ALREADY CERTIFIED IN Cert16c. So the function lives in
 SHARED:queue/GtTileCalc.kt:42: *   another group; only the old taper is gone. Removal of the dead arms is cleanup C5.
-SHARED:queue/GtTileCalc.kt:44: * estimateSizeMB + isWithinCeiling + AVG_TILE_KB — dead in 2.7e. NOT PORTED.
-SHARED:queue/GtTileCalc.kt:45: *   isWithinCeiling has ZERO uses anywhere in the xref; estimateSizeMB's only use was
-SHARED:queue/GtTileCalc.kt:46: *   isWithinCeiling; AVG_TILE_KB's only use was estimateSizeMB. A dead chain ports as nothing.
-SHARED:queue/GtTileCalc.kt:47: *   (Earlier drafts kept them "to keep the OLD/NEW comparison total" — wrong: there is nothing to
-SHARED:queue/GtTileCalc.kt:48: *   compare when neither side is ever called. Cleanup C3.)
-SHARED:queue/GtTileCalc.kt:50: * tileRelPath — ⛔ NEVER EXISTED IN 2.7e. It was INVENTED in an earlier draft of this port.
-SHARED:queue/GtTileCalc.kt:51: *   The xref reports decl 0: no such function in ConvoyTileCalculator or ConvoyTileDownloader. The
-SHARED:queue/GtTileCalc.kt:52: *   nearest Android thing is ConvoyTileDownloader.tilePath(context, …), which returns a File, has no
-SHARED:queue/GtTileCalc.kt:53: *   callers of its own, and stays platform (it calls mkdirs). ⚠ THIS IS THE WORST OF THE SIX: a
-SHARED:queue/GtTileCalc.kt:54: *   ported member with no OLD counterpart has nothing to certify against, so it passes by never
-SHARED:queue/GtTileCalc.kt:55: *   being exercised. If a shared path helper is ever genuinely needed, port the real tilePath with a
-SHARED:queue/GtTileCalc.kt:56: *   counted substitution — do not reinstate this.
-SHARED:queue/GtTileCalc.kt:58: * ⭐ maxZoomForSource IS KEPT even though nothing outside ConvoyTileCalculator calls it: it is
-SHARED:queue/GtTileCalc.kt:59: * called by [calculateTiles] at ConvoyTileCalculator:272, which is live. An internal caller is a
-SHARED:queue/GtTileCalc.kt:60: * caller. Judging it from a grep that excluded its own declaring file is exactly how it was
-SHARED:queue/GtTileCalc.kt:61: * wrongly marked dead earlier the same day.
-SHARED:queue/GtTileCalc.kt:63: * ⭐ AND IT KEEPS ITS IGNORED sourceName PARAMETER (STEP17G1A-SOURCENAME-2026-11-13). An earlier draft
-SHARED:queue/GtTileCalc.kt:64: * replaced it with downloadZoom; that is not what 16b says. App state becomes an ADDITIONAL parameter —
-SHARED:queue/GtTileCalc.kt:65: * the original signature is still the thing being certified. 2.7e passes a source name and throws it
-SHARED:queue/GtTileCalc.kt:66: * away, so the port does too.
-SHARED:queue/GtTileCalc.kt:68: * ⚠ DOWNLOAD_ZOOM_MIN IS ALREADY SHARED — ConvoyConfig.DOWNLOAD_ZOOM_MIN is a const reading
-SHARED:queue/GtTileCalc.kt:69: * GtConfig.DOWNLOAD_ZOOM_MIN (SWITCH17G2B1-2026-11-12). Only DOWNLOAD_ZOOM, the `var` the slider sets,
-SHARED:queue/GtTileCalc.kt:70: * is app state, so it is the only value the front door has to pass in. 2.7e carries both as parameter
-SHARED:queue/GtTileCalc.kt:71: * DEFAULTS; the port makes them required, which is 16b's precedent and CODE RULE 1's preference.
-SHARED:queue/GtTileCalc.kt:73:data class GtTileKey(val z: Int, val x: Int, val y: Int) {
-SHARED:queue/GtTileCalc.kt:74:    /** Slippy-map convention. ⚠ MBTiles paths and registry keys are built from this. */
-SHARED:queue/GtTileCalc.kt:75:    override fun toString(): String = "$z/$x/$y"
-SHARED:queue/GtTileCalc.kt:78:        fun fromString(s: String): GtTileKey {
-SHARED:queue/GtTileCalc.kt:79:            val parts = s.split("/")
-SHARED:queue/GtTileCalc.kt:80:            return GtTileKey(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
-SHARED:queue/GtTileCalc.kt:88:     * [V2.6b-NO-ZOOM-CAP] Download requests the FULL zoom range for every source. The per-source
-SHARED:queue/GtTileCalc.kt:89:     * max_zoom in map_sources.json is retained as a DISPLAY clamp -- download and display ceilings
-SHARED:queue/GtTileCalc.kt:91:     * ⚠ DEAD in 2.7e: no caller outside its own file (cleanup task C3). Ported to keep the
-SHARED:queue/GtTileCalc.kt:92:     * OLD/NEW comparison total.
-SHARED:queue/GtTileCalc.kt:100:    fun maxZoomForSource(sourceName: String, downloadZoom: Int): Int = downloadZoom
-SHARED:queue/GtTileCalc.kt:103:     * ZOOMSLOT-2026-08-10D: THE DOWNLOAD ZOOM RULE. Satellite to z18, rendered maps to z16.
-SHARED:queue/GtTileCalc.kt:105:     * Economics, not capability: each level quadruples the tile count. Above z18 satellite imagery
-SHARED:queue/GtTileCalc.kt:106:     * in open country is upscaled rather than sharper, and above z16 a topo map has said everything
-SHARED:queue/GtTileCalc.kt:107:     * it has to say. So the levels above these cost 4x per step and return nothing.
-SHARED:queue/GtTileCalc.kt:109:     * Keyed on the SLOT, not the source, because every download path carries the slot and none of
-SHARED:queue/GtTileCalc.kt:110:     * them carry the source. ⛔ An EMPTY slot means NO CAP -- see the note on [corridorTiles].
-SHARED:queue/GtTileCalc.kt:112:    fun maxZoomForSlot(slotName: String, downloadZoom: Int): Int = when (slotName.uppercase()) {
-SHARED:queue/GtTileCalc.kt:113:        "" -> downloadZoom
-SHARED:queue/GtTileCalc.kt:114:        "SAT" -> minOf(18, downloadZoom)
-SHARED:queue/GtTileCalc.kt:115:        "DEM" -> minOf(12, downloadZoom)   // DEMSOURCE-2026-10-30: elevation to z12; MapLibre stretches it closer in
-SHARED:queue/GtTileCalc.kt:116:        "VEC" -> minOf(14, downloadZoom)   // VECSOURCE-2026-10-30: vector tiles end at z14; MapLibre over-zooms
-SHARED:queue/GtTileCalc.kt:117:        else -> minOf(16, downloadZoom)
-SHARED:queue/GtTileCalc.kt:121:     * REMOVEAREA-2026-11-03: each zoom's x / y range of a box -- [z, xMin, xMax, yMin, yMax] --
-SHARED:queue/GtTileCalc.kt:122:     * WITHOUT listing its tiles. ⚠ A state-sized box is millions of tiles: listing them ran out of
-SHARED:queue/GtTileCalc.kt:123:     * memory. Same zooms and edges as [calculateTiles].
-SHARED:queue/GtTileCalc.kt:125:    fun zoomRanges(north: Double, south: Double, east: Double, west: Double, zMin: Int, zMax: Int): List<IntArray> =
-SHARED:queue/GtTileCalc.kt:126:        (zMin..zMax).map { z ->
-SHARED:queue/GtTileCalc.kt:127:            intArrayOf(z, GtTileMath.lon2tile(west, z), GtTileMath.lon2tile(east, z),
-SHARED:queue/GtTileCalc.kt:128:                GtTileMath.lat2tile(north, z), GtTileMath.lat2tile(south, z))
-SHARED:queue/GtTileCalc.kt:131:    /** Every tile key for a bounding box across zoom levels. */
-SHARED:queue/GtTileCalc.kt:132:    fun calculateTiles(
-SHARED:queue/GtTileCalc.kt:133:        north: Double, south: Double, east: Double, west: Double,
-SHARED:queue/GtTileCalc.kt:134:        zMin: Int, zMax: Int,
-SHARED:queue/GtTileCalc.kt:135:        sourceName: String = "",
-SHARED:queue/GtTileCalc.kt:136:        downloadZoom: Int,
-SHARED:queue/GtTileCalc.kt:139:        val effectiveZMax = if (sourceName.isNotEmpty()) minOf(zMax, maxZoomForSource(sourceName, downloadZoom)) else zMax
-SHARED:queue/GtTileCalc.kt:140:        val tiles = mutableListOf<GtTileKey>()
-SHARED:queue/GtTileCalc.kt:141:        for (z in zMin..effectiveZMax) {
-SHARED:queue/GtTileCalc.kt:142:            val xMin = GtTileMath.lon2tile(west, z)
-SHARED:queue/GtTileCalc.kt:143:            val xMax = GtTileMath.lon2tile(east, z)
-SHARED:queue/GtTileCalc.kt:144:            val yMin = GtTileMath.lat2tile(north, z)  // north = smaller y value
-SHARED:queue/GtTileCalc.kt:145:            val yMax = GtTileMath.lat2tile(south, z)  // south = larger y value
-SHARED:queue/GtTileCalc.kt:146:            for (x in xMin..xMax) for (y in yMin..yMax) tiles.add(GtTileKey(z, x, y))
-SHARED:queue/GtTileCalc.kt:148:        return tiles
-SHARED:queue/GtTileCalc.kt:152:     * SUBDOMAIN-2026-08-02: the tile URL. ⚠ {s} cycles 0-3 by (x + y) mod 4, written so a negative
-SHARED:queue/GtTileCalc.kt:154:     * ⭐ From ConvoyTileDownloader -- the only part of it that ports. The FETCH stays platform
-SHARED:queue/GtTileCalc.kt:155:     * (OkHttp, retry/backoff, 429/503 handling, the workers).
-SHARED:queue/GtTileCalc.kt:157:    fun buildTileUrl(tile: GtTileKey, sourceUrl: String): String =
-SHARED:queue/GtTileCalc.kt:158:        sourceUrl
-SHARED:queue/GtTileCalc.kt:159:            .replace("{s}", (((tile.x + tile.y) % 4 + 4) % 4).toString())
-SHARED:queue/GtTileCalc.kt:160:            .replace("{z}", tile.z.toString())
-SHARED:queue/GtTileCalc.kt:161:            .replace("{x}", tile.x.toString())
-SHARED:queue/GtTileCalc.kt:162:            .replace("{y}", tile.y.toString())
+SHARED:queue/GtTileCalc.kt:44: * estimateSizeMB + isWithinCeiling — dead in 2.7e. NOT PORTED. isWithinCeiling has ZERO uses
+SHARED:queue/GtTileCalc.kt:45: *   anywhere in the xref; estimateSizeMB's only use was isWithinCeiling. Cleanup C3.
+SHARED:queue/GtTileCalc.kt:46: * ⚠⚠ CORRECTION (ESTBUG-2026-11-14): AVG_TILE_KB and CEILING_MB are **NOT** dead, and an earlier
+SHARED:queue/GtTileCalc.kt:47: *   draft of this header wrongly said AVG_TILE_KB's only use was estimateSizeMB. It has TWO uses:
+SHARED:queue/GtTileCalc.kt:48: *   estimateSizeMB (dead) AND ConvoyTileCalculator.quickEstimate:321 (LIVE -- 8 callers). The chain
+SHARED:queue/GtTileCalc.kt:49: *   analysis followed estimateSizeMB -> isWithinCeiling, found it dead, and never asked whether the
+SHARED:queue/GtTileCalc.kt:50: *   CONSTANT had another consumer. Both live on in GtTileMath (ported under step 16b, certified).
+SHARED:queue/GtTileCalc.kt:52: *   only VEC (pbf) and DEM (terrarium png). The estimate and the ceiling dialog are both computed on
+SHARED:queue/GtTileCalc.kt:53: *   a constant for maps that no longer exist. Fred 11-14 08:27. DO NOT fix it here -- see the living
+SHARED:queue/GtTileCalc.kt:54: *   master: the fix is a deliberate post-switch change with MEASURED tile sizes, not another guess,
+SHARED:queue/GtTileCalc.kt:55: *   and changing it inside the port would invalidate the 16b certification.
+SHARED:queue/GtTileCalc.kt:56: *   (Earlier drafts kept them "to keep the OLD/NEW comparison total" — wrong: there is nothing to
+SHARED:queue/GtTileCalc.kt:57: *   compare when neither side is ever called. Cleanup C3.)
+SHARED:queue/GtTileCalc.kt:59: * tileRelPath — ⛔ NEVER EXISTED IN 2.7e. It was INVENTED in an earlier draft of this port.
+SHARED:queue/GtTileCalc.kt:60: *   The xref reports decl 0: no such function in ConvoyTileCalculator or ConvoyTileDownloader. The
+SHARED:queue/GtTileCalc.kt:61: *   nearest Android thing is ConvoyTileDownloader.tilePath(context, …), which returns a File, has no
+SHARED:queue/GtTileCalc.kt:62: *   callers of its own, and stays platform (it calls mkdirs). ⚠ THIS IS THE WORST OF THE SIX: a
+SHARED:queue/GtTileCalc.kt:63: *   ported member with no OLD counterpart has nothing to certify against, so it passes by never
+SHARED:queue/GtTileCalc.kt:64: *   being exercised. If a shared path helper is ever genuinely needed, port the real tilePath with a
+SHARED:queue/GtTileCalc.kt:65: *   counted substitution — do not reinstate this.
+SHARED:queue/GtTileCalc.kt:67: * ⭐ maxZoomForSource IS KEPT even though nothing outside ConvoyTileCalculator calls it: it is
+SHARED:queue/GtTileCalc.kt:68: * called by [calculateTiles] at ConvoyTileCalculator:272, which is live. An internal caller is a
+SHARED:queue/GtTileCalc.kt:69: * caller. Judging it from a grep that excluded its own declaring file is exactly how it was
+SHARED:queue/GtTileCalc.kt:70: * wrongly marked dead earlier the same day.
+SHARED:queue/GtTileCalc.kt:72: * ⭐ AND IT KEEPS ITS IGNORED sourceName PARAMETER (STEP17G1A-SOURCENAME-2026-11-13). An earlier draft
+SHARED:queue/GtTileCalc.kt:73: * replaced it with downloadZoom; that is not what 16b says. App state becomes an ADDITIONAL parameter —
+SHARED:queue/GtTileCalc.kt:74: * the original signature is still the thing being certified. 2.7e passes a source name and throws it
+SHARED:queue/GtTileCalc.kt:75: * away, so the port does too.
+SHARED:queue/GtTileCalc.kt:77: * ⚠ DOWNLOAD_ZOOM_MIN IS ALREADY SHARED — ConvoyConfig.DOWNLOAD_ZOOM_MIN is a const reading
+SHARED:queue/GtTileCalc.kt:78: * GtConfig.DOWNLOAD_ZOOM_MIN (SWITCH17G2B1-2026-11-12). Only DOWNLOAD_ZOOM, the `var` the slider sets,
+SHARED:queue/GtTileCalc.kt:79: * is app state, so it is the only value the front door has to pass in. 2.7e carries both as parameter
+SHARED:queue/GtTileCalc.kt:80: * DEFAULTS; the port makes them required, which is 16b's precedent and CODE RULE 1's preference.
+SHARED:queue/GtTileCalc.kt:82:data class GtTileKey(val z: Int, val x: Int, val y: Int) {
+SHARED:queue/GtTileCalc.kt:83:    /** Slippy-map convention. ⚠ MBTiles paths and registry keys are built from this. */
+SHARED:queue/GtTileCalc.kt:84:    override fun toString(): String = "$z/$x/$y"
+SHARED:queue/GtTileCalc.kt:87:        fun fromString(s: String): GtTileKey {
+SHARED:queue/GtTileCalc.kt:88:            val parts = s.split("/")
+SHARED:queue/GtTileCalc.kt:89:            return GtTileKey(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
+SHARED:queue/GtTileCalc.kt:97:     * [V2.6b-NO-ZOOM-CAP] Download requests the FULL zoom range for every source. The per-source
+SHARED:queue/GtTileCalc.kt:98:     * max_zoom in map_sources.json is retained as a DISPLAY clamp -- download and display ceilings
+SHARED:queue/GtTileCalc.kt:100:     * ⚠ DEAD in 2.7e: no caller outside its own file (cleanup task C3). Ported to keep the
+SHARED:queue/GtTileCalc.kt:101:     * OLD/NEW comparison total.
+SHARED:queue/GtTileCalc.kt:109:    fun maxZoomForSource(sourceName: String, downloadZoom: Int): Int = downloadZoom
+SHARED:queue/GtTileCalc.kt:112:     * ZOOMSLOT-2026-08-10D: THE DOWNLOAD ZOOM RULE. Satellite to z18, rendered maps to z16.
+SHARED:queue/GtTileCalc.kt:114:     * Economics, not capability: each level quadruples the tile count. Above z18 satellite imagery
+SHARED:queue/GtTileCalc.kt:115:     * in open country is upscaled rather than sharper, and above z16 a topo map has said everything
+SHARED:queue/GtTileCalc.kt:116:     * it has to say. So the levels above these cost 4x per step and return nothing.
+SHARED:queue/GtTileCalc.kt:118:     * Keyed on the SLOT, not the source, because every download path carries the slot and none of
+SHARED:queue/GtTileCalc.kt:119:     * them carry the source. ⛔ An EMPTY slot means NO CAP -- see the note on [corridorTiles].
+SHARED:queue/GtTileCalc.kt:121:    fun maxZoomForSlot(slotName: String, downloadZoom: Int): Int = when (slotName.uppercase()) {
+SHARED:queue/GtTileCalc.kt:122:        "" -> downloadZoom
+SHARED:queue/GtTileCalc.kt:123:        "SAT" -> minOf(18, downloadZoom)
+SHARED:queue/GtTileCalc.kt:124:        "DEM" -> minOf(12, downloadZoom)   // DEMSOURCE-2026-10-30: elevation to z12; MapLibre stretches it closer in
+SHARED:queue/GtTileCalc.kt:125:        "VEC" -> minOf(14, downloadZoom)   // VECSOURCE-2026-10-30: vector tiles end at z14; MapLibre over-zooms
+SHARED:queue/GtTileCalc.kt:126:        else -> minOf(16, downloadZoom)
+SHARED:queue/GtTileCalc.kt:130:     * REMOVEAREA-2026-11-03: each zoom's x / y range of a box -- [z, xMin, xMax, yMin, yMax] --
+SHARED:queue/GtTileCalc.kt:131:     * WITHOUT listing its tiles. ⚠ A state-sized box is millions of tiles: listing them ran out of
+SHARED:queue/GtTileCalc.kt:132:     * memory. Same zooms and edges as [calculateTiles].
+SHARED:queue/GtTileCalc.kt:134:    fun zoomRanges(north: Double, south: Double, east: Double, west: Double, zMin: Int, zMax: Int): List<IntArray> =
+SHARED:queue/GtTileCalc.kt:135:        (zMin..zMax).map { z ->
+SHARED:queue/GtTileCalc.kt:136:            intArrayOf(z, GtTileMath.lon2tile(west, z), GtTileMath.lon2tile(east, z),
+SHARED:queue/GtTileCalc.kt:137:                GtTileMath.lat2tile(north, z), GtTileMath.lat2tile(south, z))
+SHARED:queue/GtTileCalc.kt:140:    /** Every tile key for a bounding box across zoom levels. */
+SHARED:queue/GtTileCalc.kt:141:    fun calculateTiles(
+SHARED:queue/GtTileCalc.kt:142:        north: Double, south: Double, east: Double, west: Double,
+SHARED:queue/GtTileCalc.kt:143:        zMin: Int, zMax: Int,
+SHARED:queue/GtTileCalc.kt:144:        sourceName: String = "",
+SHARED:queue/GtTileCalc.kt:145:        downloadZoom: Int,
+SHARED:queue/GtTileCalc.kt:148:        val effectiveZMax = if (sourceName.isNotEmpty()) minOf(zMax, maxZoomForSource(sourceName, downloadZoom)) else zMax
+SHARED:queue/GtTileCalc.kt:149:        val tiles = mutableListOf<GtTileKey>()
+SHARED:queue/GtTileCalc.kt:150:        for (z in zMin..effectiveZMax) {
+SHARED:queue/GtTileCalc.kt:151:            val xMin = GtTileMath.lon2tile(west, z)
+SHARED:queue/GtTileCalc.kt:152:            val xMax = GtTileMath.lon2tile(east, z)
+SHARED:queue/GtTileCalc.kt:153:            val yMin = GtTileMath.lat2tile(north, z)  // north = smaller y value
+SHARED:queue/GtTileCalc.kt:154:            val yMax = GtTileMath.lat2tile(south, z)  // south = larger y value
+SHARED:queue/GtTileCalc.kt:155:            for (x in xMin..xMax) for (y in yMin..yMax) tiles.add(GtTileKey(z, x, y))
+SHARED:queue/GtTileCalc.kt:157:        return tiles
+SHARED:queue/GtTileCalc.kt:161:     * SUBDOMAIN-2026-08-02: the tile URL. ⚠ {s} cycles 0-3 by (x + y) mod 4, written so a negative
+SHARED:queue/GtTileCalc.kt:163:     * ⭐ From ConvoyTileDownloader -- the only part of it that ports. The FETCH stays platform
+SHARED:queue/GtTileCalc.kt:164:     * (OkHttp, retry/backoff, 429/503 handling, the workers).
+SHARED:queue/GtTileCalc.kt:166:    fun buildTileUrl(tile: GtTileKey, sourceUrl: String): String =
+SHARED:queue/GtTileCalc.kt:167:        sourceUrl
+SHARED:queue/GtTileCalc.kt:168:            .replace("{s}", (((tile.x + tile.y) % 4 + 4) % 4).toString())
+SHARED:queue/GtTileCalc.kt:169:            .replace("{z}", tile.z.toString())
+SHARED:queue/GtTileCalc.kt:170:            .replace("{x}", tile.x.toString())
+SHARED:queue/GtTileCalc.kt:171:            .replace("{y}", tile.y.toString())
 SHARED:db/GtSchema.kt:1:package com.grouptrack.shared.db
 SHARED:db/GtSchema.kt:3:import androidx.sqlite.SQLiteConnection
 SHARED:db/GtSchema.kt:4:import com.grouptrack.shared.log.gtLogger

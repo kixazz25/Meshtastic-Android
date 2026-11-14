@@ -26971,7 +26971,7 @@ G1gSKIPPED — 779 lines, dead not dormant. Cleanup C7/C8
 LEFTG1d 390 · G1e 599 · G1f 605 · G1h 663 = 2,257 lines
 ⭐ THE FOUR PHASES (Fred 11-13 17:27 — this SUPERSEDES the 15:13 "clean after the iPad gen" call).
 The first job below is inside P1.
-P1a⭐ PASS 1 — INSERT THE ALREADY-CERTIFIED METHODS. NO NEW CERTIFICATION. START HERE. Measured 11-13 18:05: 38 certified pieces exist; 22 are CONFIRMED NOT SWITCHED, 341 live references. A 2.8a build made today would run almost entirely on OLD Android code. Heaviest first: VectorTiles 61 &middot; ConvoyRideStore 42 &middot; RouteExplorer 31 &middot; TrailImporter 28 &middot; ConvoyTileCalculator 27 &middot; StateData 24. Verification, not certification: compiles &middot; cert suites still pass &middot; affected walkthrough tasks still walk. Expect Q3 orphaned callers — that output goes to the C list. (HANDOFFPASS1-2026-11-13)
+P1a⭐ PASS 1 — INSERT THE ALREADY-CERTIFIED METHODS. NO NEW CERTIFICATION. START HERE. ⚠ The 11-13 figures (22 unwired, 341 refs) are WITHDRAWN — they came from a test that asked whether live code still names the original class, but this project switches by delegation (keep the Android class, gut it, call shared), so call sites never change. Re-measured 11-14: 35 of 38 certified pieces are ALREADY SWITCHED. Pass 1 is THREE pieces, four files, 851 lines: G1c VectorTiles 85 + ElevationTiles 29 (certified 11-13 — do this first, smallest and freshest) → G1a ConvoyTileCalculator 364 (certified 11-13) → RiderTrailScanner 373, the new find: certified back in step 15 and never switched, while its sibling RiderTrailWriter 309 is switched indirectly via SpatialDbManager.sharedRider() — a half-switched pair nobody had an inventory to notice. Do it last; it is the most likely to orphan shared helpers. Verification, not certification: compiles &middot; cert suites still pass &middot; affected walkthrough tasks still walk. Expect Q3 orphaned callers — that output goes to the C list. Estimate: hours, not days. (HANDOFFPASS1FIX-2026-11-14)
 P1bPASS 2 — CREATE AND CERTIFY WHAT DOES NOT EXIST: G1d, G1e, G1f, G1h-if-kept. Harness build ONE object at a time; cert runs in designated batches. Then V1 blast analysis. Also resolve the 13 pieces whose switch status is unknown (CertOld name does not map to the original class).
 P2build 2.8a Droid, treat it as uncertified, close it with the L4 walkthrough in Quick Start order (34 of 38 steps; task 8 needs Utah)
 P3work the C list down in keystone order, re-running the affected L4 tasks after each removal — not the cert suites, which unreachable code cannot change
@@ -30226,35 +30226,78 @@ passwhat it iscertification neededcadence
 PASS 1INSERT an already-certified shared method, replacing the old method at its call sites. This is the switch.NONE. The method is certified. What the switch must prove is the wiring, not the method.fast, and it can move in groups
 PASS 2CREATE what does not exist, then certify it in harness testing.full L2/L3harness build: ONE object at a time. Cert runs: in batches Claude designates.
 ⚠ CORRECTION TO A CLAIM MADE AT 17:59. Claude said the switch cost was "unmeasured — certified twice, switched zero times", counting only G1a and G1c. That was G1-scoped and understated the real backlog by an order of magnitude. Measured 11-13 18:05 across the whole repo:
-38 certified pieces — one *CertOld.kt OLD-side substitution file each, in app/.
-22 are CONFIRMED NOT SWITCHED — live app code (excluding *CertOld.kt and the GtCert* harnesses) still calls the 2.7e original. 335 references.
-3 have no live caller outside their own file — already switched, or orphaned. Confirm which.
-13 have a CertOld name that does not map to the original class, so switch status is unknown and must be resolved by hand. Header-derived origins: DownloadQueue←ConvoyDownloadQueue &middot; EventConfig←ConvoyEventConfig &middot; GpxImport←ConvoyTrackImportScreen/ConvoyTrackOps &middot; ImportParse←ConvoyTrackOps/SpatialDbManager &middot; MasterConfig←ConvoyMasterConfig &middot; RideImport←ConvoyFileReceiver &middot; TrackSync←SpatialDbManager &middot; UserStore←ConvoyUser; no origin named in header for MapSpec, NetworkStore, ProfileStore, Session, SettingsRepo.
-⛔ THE CONSEQUENCE, STATED PLAINLY: a 2.8a build made today would run almost entirely on OLD Android code, with 38 certified pieces sitting unused on the shelf. Pass 1 is therefore both the cheapest and the highest-value work in the project, and it comes first.
-⭐ PASS 1 WORK LIST — CONFIRMED UNWIRED, HEAVIEST FIRST.
-certified piecelive refslive filesnote
-VectorTiles6111
-ConvoyRideStore4210
-RouteExplorer311⚠ orphan risk — all refs in ONE file
-TrailImporter285
-ConvoyTileCalculator279
-StateData244
-OsmImportStage225
-NetworkGenerator227
-RiderTrailWriter147
-RiderTrailScanner121⚠ orphan risk — all refs in ONE file
-StateDataQueue92
-ConvoyRideJsonWriter85
-StartupHousekeeping82
-ImportConverter63
-OsmImportLedger62
-GtHelp63
-OsmExtractWorker42
-OsmImportWorker43
-OsmExtractProgress21⚠ orphan risk — all refs in ONE file
-RideApplySource22
-DbAudit21⚠ orphan risk — all refs in ONE file
-OsmPbfTagReader11⚠ orphan risk — all refs in ONE file
+38 certified pieces &mdash; one *CertOld.kt OLD-side substitution file each, in app/.
+✅ RE-MEASURED 11-14: 35 of the 38 are ALREADY SWITCHED. See the correction below — the 11-13 figure of "22 confirmed NOT switched" was produced by the wrong test.
+⛔ THREE pieces, in four files, 851 lines, are genuinely unswitched. That is the whole of Pass 1.
+⚠⚠ THE 11-13 PASS 1 INVENTORY WAS WRONG. THREE SUCCESSIVE TESTS, EACH MISSING SOMETHING. (PASS1FIX-2026-11-14)
+This is the same failure shape as the three bad reachability calls of 11-13: a grep that does not match how the code actually works. Recording all three attempts, because the lesson is the method, not the number.
+#the test askedwhat it missedresult
+1"does live app code still name the original class?"The switch idiom is DELEGATION — keep the Android class name, gut its body, call shared. Call sites never change, so the name stays everywhere.said 22 unswitched. Wrong.
+2"does the original Android file reference com.grouptrack.shared?"Indirect delegation. RiderTrailWriter calls SpatialDbManager.sharedRider(), which holds the shared GtRiderTrails — so the file never names the shared package at all.said 4 unswitched. Still wrong.
+3"does it delegate directly OR indirectly (via an Android holder of shared objects)?"— and cross-checked against two cases known independently.3 unswitched. This is the figure.
+WHY TEST 3 IS TRUSTED: it independently flags ConvoyTileCalculator and VectorTiles/ElevationTiles as unswitched — which are exactly G1a and G1c, the two switches already known to be owed from 11-13's certification work. It agrees with known truth on both, and finds one more.
+⚠ A MARKER CONVENTION EXISTS BUT IS NOT AUTHORITATIVE. The codebase marks its own switches (STEP15CDE-SWITCH-2026-11-10, STEP15B-SWITCH-2026-11-09, STEP15G-SWITCH-2026-11-10, STEP15F-SWITCH-2026-11-10, bare SWITCH-2026-10-30 and others). 22 files carry one; 35 pieces are switched — so the markers are a useful signal and an incomplete index. Never switch-status from markers alone. Conversely RiderTrailWriter carries 3 markers and zero direct shared references, which is what exposed test 2.
+⛔ THE CONSEQUENCE, CORRECTED. (PASS1CONSEQ-2026-11-14) The 11-13 entry said "a 2.8a build made today would run almost entirely on OLD Android code, with 38 certified pieces sitting unused on the shelf". That is FALSE and is withdrawn. It followed from test 1. What is true on the 11-14 measurement:
+A 2.8a build made today would run mostly on SHARED code already. 35 of 38 certified pieces are wired in, most as thin delegating wrappers — ConvoySessionManager is down to 53 lines, ConvoyProfileStore 58, ConvoyNetworkStore 50, OsmGpkgDecoder 24. The migration is far further along than the 11-13 entry implied.
+Pass 1 is still first, but for a different reason. Not "most of the app is unwired" — it is that 851 lines in four files are the last certified work not yet in service, and two of those are switches this project already owed itself from yesterday. Finishing them costs hours and closes the gap between what has been certified and what actually runs.
+⚠ And the half-switched pair is the real warning. RiderTrailWriter is switched while its sibling RiderTrailScanner is not. Nobody noticed, because no inventory existed that could tell the difference. That is the defect Pass 1 exists to close — not bulk rewiring.
+⭐ PASS 1 WORK LIST — THE REAL ONE. THREE PIECES, FOUR FILES, 851 LINES. (PASS1FIX-2026-11-14)
+pieceandroid file(s)linesstatus / note
+G1aConvoyTileCalculator364Certified 11-13 (f0e9fc928, 148 keys, 0 DIFF both devices, twice). Shared port: GtTileCalc. Zero direct and zero indirect delegation.
+G1cVectorTiles + ElevationTiles85 + 29Certified 11-13 (4e9dc9db1, 64 keys, twice). Shared port: GtMapSpec.
+step 15RiderTrailScanner373⭐ THE NEW FIND. Certified in step 15 and never switched — shared port GtRiderScan (369 lines) exists and is certified while the Android original still runs standalone. Note its sibling RiderTrailWriter (309) IS switched, indirectly via SpatialDbManager.sharedRider(), so the pair was half-switched and nobody noticed.
+✅ VERIFIED SWITCHED AT FUNCTION LEVEL — the four large files that file-level tests could not settle:
+SpatialDbManager (2,243 lines) delegates parseGpxTrackPoints at :908 with a STEP7-2026-11-07: shared code marker and holds GtRead/GtWrite/GtSchema/gtOpenDatabase &middot; ConvoyDownloadQueue (1,365) constructs GtVectorQueue with its platform/files/ids/clock sockets at :322 &middot; ConvoyTrackOps (467) imports GtGpxParse at :11 marked STEP15B-SWITCH-2026-11-09 &middot; ConvoyFileReceiver (251) — object RideImport delegates to GtRideImport.importRide at :164. All four switched.
+⭐ WHAT THIS DOES TO THE ESTIMATE. Fred, 11-13 18:06: "that should be a very fast replacement pa[ss]". More right than it looked. Pass 1 is hours, not days — 851 lines across four files, three of which are the two switches already owed from yesterday's own certification work. The 341 references figure in the 11-13 entry was an artefact of test 1 and is withdrawn.
+⚠ WHAT DOES NOT CHANGE: each switch still has to prove its wiring, and M1 Q3 (orphaned callers) still applies — that is the point of Pass 1 and its output still feeds the C list. Start with G1c (114 lines across two small files, certified yesterday, freshest in mind), then G1a, then RiderTrailScanner — which is the one most likely to orphan something, since its sibling writer is already switched and the two may share dead helpers.
+⭐⭐⭐ THE FUNCTION-LEVEL SWITCH MAP — measured 11-14 08:20. (SWITCHMAP-2026-11-14)
+⚠ FIRST, THE GRANULARITY LESSON: THE UNIT OF SWITCHING IS THE FUNCTION, NOT THE FILE. VectorTiles is half switched — 7 of its 13 functions already delegate to the shared GtVectorQueue through DownloadQueueManager.vecQueue(), while its spec functions do not. The RiderTrailWriter / RiderTrailScanner pair is the same shape: writer switched, scanner not. Nobody noticed either case, because no inventory existed that could tell the difference. That is what Pass 1 actually closes — not bulk rewiring.
+⭐ G1c — READY. Five live call sites in four files.
+Android function→ sharedlive callersnote
+VectorTiles.tileTemplate(ctx)GtMapSpec.vectorTileTemplate(env)VectorMapTest:238Context → env
+VectorTiles.oldTilesOf(File)GtMapSpec.oldTilesOf(String)EmergencyRestore:109 &middot; MapConversion:63 &middot; :138File → String: the CALLER reads the file
+ElevationTiles.urlTemplate(ctx)GtMapSpec.elevationUrlTemplate(env)VectorMapTest:244Context → env
+VectorTiles.downloadSourcesElevationTiles.downloadSourcesvectorDownloadSourceselevationDownloadSourcesConvoyDownloadWorker:83 &middot; :178 &middot; :179⚠ MIRRORED TYPE — see below
+spec() ×2 (private)specOf(env, key) (internal)—goes with the above
+G1c ALSO NEEDS ONE NEW PIECE: an Android GtMapSpecEnv implementation (call it GtMapSpecAndroid) — readAsset via context.assets, httpGet via OkHttp. ~15 lines, the same shape as the existing GtStorageAndroid / GtSettingsAndroid / GtNetAndroid. The cert used a fixture env (FixtureEnv in GtCert17g1c); the app needs a real one. This is the ONE piece of new code in all of Pass 1.
+⭐ G1a — BLOCKER RESOLVED. 12 functions, split four ways.
+functionsdestinationnote
+maxZoomForSource &middot; maxZoomForSlot &middot; zoomRanges &middot; calculateTiles &middot; buildTileUrl &middot; fromStringGtTileCalc / GtTileKeythe six G1a keepers, certified 11-13 (f0e9fc928)
+lon2tile &middot; lat2tileGtTileMathcertified separately at 1,938,346 values; GtTileCalc already calls them internally. They switch in the same edit.
+quickEstimateGtTileMath:41✅ RESOLVED — it IS ported. Under step 16c, not G1a, which is why it appeared in Cert16c and not in GtTileCalc and looked stranded. ⚠ It has 8 live call sites — MapScreens:51, GroupTrackScreen:913/:1295/:2459, ConvoyDownloadQueue:372/:373/:427/:581 — more than the other eleven functions combined, so it dominates the G1a switch. Returns a mirrored type; see below.
+corridorTiles &middot; stampPoint &middot; estimateSizeMB &middot; isWithinCeilingNOWHERE — C listdeliberately not ported (the dead chain documented in GtTileCalc's header). Leave them in place; they come out in P3.
+⭐ RiderTrailScanner — BLOCKER RESOLVED. The port is clean.
+GtRiderScan covers haversineM, scan, key, linesMeetNear, d, anchorAt. The three that looked missing:
+bearingDeg and angleDiff — deliberately NOT PORTED, and it is in writing. GtRiderScan.kt:18: "NOT PORTED, dead in 2.7e (callers checked 11-09 with grep over app/ and grouptrack-shared/, none)"; :173: "dead since RIDERRULES-2026-10-09, not ported." Independently confirmed 11-14: zero live references outside their own file. This is M2 SKIP working exactly as designed — the decision was made at port time and written down where the next reader would find it. → C list.
+cellKey — a private helper, renamed to key(r, c) in GtRiderScan:301. Private on both sides, so it needs no public counterpart. (The cellKey in GtRoute:604 is a different function — a route grid, not a rider scan. Do not conflate them.)
+⭐⭐ THE MIRRORED-TYPE ADAPTER PATTERN — THREE INSTANCES, AND IT IS NOT A DEFECT.
+Pass 1 keeps meeting the same situation: a shared data class that mirrors an Android one field for field, because the port deliberately avoided blocking on a type that had not moved yet.
+shared typeAndroid typefieldsresolution
+GtMapSpec.GtTileLayerSpecMapSourceManager.TileLayeridentical, same order: role, urlTemplate, tileFormat, cacheDir, renderOrder = 0one-line .map { } adapter now, deleted in G1e when TileLayer itself moves. CODE RULE 3 shaped: temporary, removed when its successor lands. Alternative: defer both downloadSources to G1e.
+GtTileMath.GtDownloadEstimateDownloadEstimateidentical: tileCount, estimatedMB, withinCeiling, zoomMin, zoomMax✅ no adapter needed — see the C-list find below. The used surfaces are the same.
+GtMapSpecEnv(none yet)—write GtMapSpecAndroid, as above
+The general rule this establishes: a shared type carries data; the Android type may add platform formatting that cannot exist in commonMain ("%,d" grouping and String.format are JVM, not Kotlin common). Where the Android type adds only formatting, keep the Android type as a thin wrapper and map into it. Where it adds nothing, delete it and let callers take the shared type.
+⭐ NEW C-LIST LINES FOUND BY THE MAPPING — Pass 1 doing its job.
+A THIRD DEAD CHAIN, same shape as 11-13's estimateSizeMB → isWithinCeiling → AVG_TILE_KB: on DownloadEstimate (ConvoyTileCalculator:361–363), displaySize, displayCount and summary have zero callers anywhere in live app code — and summary's only inputs are the other two, so the three fall together. 3 lines → C list. Their absence is also what makes GtDownloadEstimate a drop-in: the two types have identical used surfaces.
+Also to the C list from this mapping: bearingDeg, angleDiff (RiderTrailScanner, confirmed dead above) and the four ConvoyTileCalculator non-ports already listed.
+⚠ These are variant (a) — no caller — so by the 11-13 17:32 rule they are FRONT of the removal queue, not back. But they are still P3 work, not Pass 1 work: Pass 1 switches, P3 removes.
+⭐⭐⭐ THE DOWNLOAD-ESTIMATE DEFECT — and the first live proof that CERTIFICATION PROVES SAMENESS, NOT CORRECTNESS. (ESTBUG-2026-11-14)
+Fred, 11-14 08:27: "and that calc is wrong it clcs in sat tiles if it has a toast message."
+He is right, and the path holds three defects. Found while mapping the G1a switch — which is Pass 1 earning its place.
+#defectwhereeffect
+1AVG_TILE_KB = 15f is a SATELLITE-RASTER constant, used to turn a tile count into MB.ConvoyTileCalculator:28 &rarr; :321; mirrored in GtTileMath:27 &rarr; :48The app now downloads only VEC (pbf vector) and DEM (terrarium png). Neither is 15 KB. Every MB figure shown to a rider, and the withinCeiling verdict that gates the "Area Too Large" dialog, are computed for maps the app no longer has.
+2The dialog text is off by 10×.GroupTrackScreen:673It reads "exceeds the 500 MB limit" while CEILING_MB = 5000f. Independent of defect 1 and visible to a rider.
+3This port put a WRONG COMMENT in the code — now corrected.GtTileCalc.kt headerIt claimed "AVG_TILE_KB's only use was estimateSizeMB. A dead chain ports as nothing." AVG_TILE_KB has TWO uses: estimateSizeMB (dead) and quickEstimate:321 (live, 8 callers). The analysis followed estimateSizeMB → isWithinCeiling, found it dead, and never asked whether the CONSTANT had another consumer. estimateSizeMB and isWithinCeiling are genuinely dead; AVG_TILE_KB and CEILING_MB are live.
+⛔⛔ WE CERTIFIED THE BUG, AND THE CERTIFICATION WAS NOT AT FAULT. GtTileMath.quickEstimate was ported AS IS under step 16b and certified at 0 DIFF on 1,938,346 values. It carries the identical AVG_TILE_KB = 15f and the identical sizeMB line. OLD == NEW, and both are wrong by the same 15 KB.
+The cert did exactly its job — it proved the port faithful. Porting AS IS is still correct, and this is not an argument against the method.
+But nothing in the L1–L4 ladder can catch a wrong constant, because a wrong constant is identical on both sides. L2 compares platforms; L3 compares OLD to NEW; neither compares either side to reality.
+What caught it was Fred looking at a toast. That is his 11-13 17:22 point landing in practice — "the purpose of the application walk through would be more likely to surface these issues" — and this dialog sits in L4 walkthrough Task 4, "Get the maps before you lose signal."
+⭐ THE DURABLE RULE: certification answers "does it behave the same?"; it never answers "is it right?" A faithful port of wrong code is still wrong code. The only gates that test correctness are L4 and a human reading the screen. Budget for that explicitly — do not let a wall of 0-DIFF results imply the app is correct.
+⭐ HOW THE FIX IS SHAPED — deliberately NOT part of Pass 1.
+⛔ Do NOT change the constant inside the port. It would invalidate the step-16b certification and break port-AS-IS. Pass 1 switches behaviour-for-behaviour; a correctness change must not ride along inside it.
+It needs a MEASUREMENT, not another guess. No code anywhere in the repo knows a real tile size — AVG_TILE_KB = 15f is the only source, and the tiles+duration yardstick designed 07-25 was never built. The stores live on device, so the number comes from a device query on VEC.mbtiles and DEM.mbtiles: SELECT COUNT(*), AVG(LENGTH(tile_data)), MAX(LENGTH(tile_data)) FROM tiles; — and VEC and DEM need separate figures, since pbf and terrarium png are nothing alike.
+Then one deliberate change, after the switch: per-slot sizes replacing the single constant, the 500/5000 string corrected (a display string, not under certification, so it can ride along), and the cert re-run with the new expected values — a behaviour change, so it needs a new golden run, not a waiver.
+Blast radius of the fix, measured: 4 display points (GroupTrackScreen:673, :698, MapScreens:63, :2520), 2 logs, 3 ViewModel plumbing sites. Small.
 ⭐ WHY "VERY FAST" IS THE RIGHT CALL — the pattern is proven, not novel. Measured 11-13 18:06: 71 of 357 live app .kt files already import com.grouptrack.shared, and the Android sockets are constructed in real app code, not only in harnesses — ConvoyDownloadQueue, ConvoyMasterConfig, ConvoySessionManager, ConvoySettingsRepository, ConvoyUser, ConvoyEventConfig. There is no central socket registry that must be built first; each call site constructs its own, and that has already been done dozens of times. A switch is therefore: point the call at the shared class and hand it its socket the way the other 71 files do.
 ⚠ THE ONE PART THAT IS NOT FAST — certified is not wired. The cert proves the method; the switch must prove the wiring. Each switch can surface M1 Q3 (orphaned callers): Android code that becomes unreachable the moment the call moves. That is not a certification cost, it is discovery, and its output feeds straight into the C list. Highest orphan risk = the pieces whose references sit in a single file: RouteExplorer (31 refs, 1 file), RiderTrailScanner (12, 1), OsmExtractProgress (2, 1), DbAudit (2, 1), OsmPbfTagReader (1, 1). Switch one of those early to measure what a Q3 cascade actually costs.
 VERIFICATION FOR PASS 1 (not certification): the build compiles &middot; the existing cert suites still pass &middot; the affected L4 walkthrough tasks still walk. A switch that breaks a walkthrough step has found a wiring defect, which is exactly what Pass 1 is for.

@@ -583,39 +583,111 @@ The retained files are <b>not dated</b> — "latest" means each download replace
 
 <br><b>⚠ CORRECTION TO A CLAIM MADE AT 17:59.</b> Claude said the switch cost was "unmeasured — certified twice, switched zero times", counting only G1a and G1c. That was <b>G1-scoped and understated the real backlog by an order of magnitude.</b> Measured 11-13 18:05 across the whole repo:
 <ul>
-<li><b>38 certified pieces</b> — one <code>*CertOld.kt</code> OLD-side substitution file each, in <code>app/</code>.</li>
-<li><b>22 are CONFIRMED NOT SWITCHED</b> — live app code (excluding <code>*CertOld.kt</code> and the <code>GtCert*</code> harnesses) still calls the 2.7e original. <b>335 references.</b></li>
-<li><b>3</b> have no live caller outside their own file — already switched, or orphaned. Confirm which.</li>
-<li><b>13</b> have a <code>CertOld</code> name that does not map to the original class, so switch status is <b>unknown</b> and must be resolved by hand. Header-derived origins: <code>DownloadQueue←ConvoyDownloadQueue</code> &middot; <code>EventConfig←ConvoyEventConfig</code> &middot; <code>GpxImport←ConvoyTrackImportScreen/ConvoyTrackOps</code> &middot; <code>ImportParse←ConvoyTrackOps/SpatialDbManager</code> &middot; <code>MasterConfig←ConvoyMasterConfig</code> &middot; <code>RideImport←ConvoyFileReceiver</code> &middot; <code>TrackSync←SpatialDbManager</code> &middot; <code>UserStore←ConvoyUser</code>; <b>no origin named in header</b> for <code>MapSpec</code>, <code>NetworkStore</code>, <code>ProfileStore</code>, <code>Session</code>, <code>SettingsRepo</code>.</li>
+<li><b>38 certified pieces</b> &mdash; one <code>*CertOld.kt</code> OLD-side substitution file each, in <code>app/</code>.</li>
+<li><b>✅ RE-MEASURED 11-14: <u>35 of the 38 are ALREADY SWITCHED.</u></b> See the correction below — the 11-13 figure of "22 confirmed NOT switched" was produced by the wrong test.</li>
+<li><b>⛔ THREE pieces, in four files, 851 lines, are genuinely unswitched.</b> That is the whole of Pass 1.</li>
 </ul>
-<b>⛔ THE CONSEQUENCE, STATED PLAINLY: a 2.8a build made today would run almost entirely on OLD Android code, with 38 certified pieces sitting unused on the shelf.</b> Pass 1 is therefore both the cheapest and the highest-value work in the project, and it comes <b>first</b>.
 
-<br><br><b>⭐ PASS 1 WORK LIST — CONFIRMED UNWIRED, HEAVIEST FIRST.</b>
+<br><b>⚠⚠ THE 11-13 PASS 1 INVENTORY WAS WRONG. THREE SUCCESSIVE TESTS, EACH MISSING SOMETHING. (PASS1FIX-2026-11-14)</b>
+<br>This is the same failure shape as the three bad reachability calls of 11-13: <b>a grep that does not match how the code actually works.</b> Recording all three attempts, because the lesson is the method, not the number.
 <table border="1" cellpadding="5" cellspacing="0">
-<tr><th>certified piece</th><th>live refs</th><th>live files</th><th>note</th></tr>
-<tr><td><code>VectorTiles</code></td><td align="right">61</td><td align="right">11</td><td></td></tr>
-<tr><td><code>ConvoyRideStore</code></td><td align="right">42</td><td align="right">10</td><td></td></tr>
-<tr><td><code>RouteExplorer</code></td><td align="right">31</td><td align="right">1</td><td><b>⚠ orphan risk — all refs in ONE file</b></td></tr>
-<tr><td><code>TrailImporter</code></td><td align="right">28</td><td align="right">5</td><td></td></tr>
-<tr><td><code>ConvoyTileCalculator</code></td><td align="right">27</td><td align="right">9</td><td></td></tr>
-<tr><td><code>StateData</code></td><td align="right">24</td><td align="right">4</td><td></td></tr>
-<tr><td><code>OsmImportStage</code></td><td align="right">22</td><td align="right">5</td><td></td></tr>
-<tr><td><code>NetworkGenerator</code></td><td align="right">22</td><td align="right">7</td><td></td></tr>
-<tr><td><code>RiderTrailWriter</code></td><td align="right">14</td><td align="right">7</td><td></td></tr>
-<tr><td><code>RiderTrailScanner</code></td><td align="right">12</td><td align="right">1</td><td><b>⚠ orphan risk — all refs in ONE file</b></td></tr>
-<tr><td><code>StateDataQueue</code></td><td align="right">9</td><td align="right">2</td><td></td></tr>
-<tr><td><code>ConvoyRideJsonWriter</code></td><td align="right">8</td><td align="right">5</td><td></td></tr>
-<tr><td><code>StartupHousekeeping</code></td><td align="right">8</td><td align="right">2</td><td></td></tr>
-<tr><td><code>ImportConverter</code></td><td align="right">6</td><td align="right">3</td><td></td></tr>
-<tr><td><code>OsmImportLedger</code></td><td align="right">6</td><td align="right">2</td><td></td></tr>
-<tr><td><code>GtHelp</code></td><td align="right">6</td><td align="right">3</td><td></td></tr>
-<tr><td><code>OsmExtractWorker</code></td><td align="right">4</td><td align="right">2</td><td></td></tr>
-<tr><td><code>OsmImportWorker</code></td><td align="right">4</td><td align="right">3</td><td></td></tr>
-<tr><td><code>OsmExtractProgress</code></td><td align="right">2</td><td align="right">1</td><td><b>⚠ orphan risk — all refs in ONE file</b></td></tr>
-<tr><td><code>RideApplySource</code></td><td align="right">2</td><td align="right">2</td><td></td></tr>
-<tr><td><code>DbAudit</code></td><td align="right">2</td><td align="right">1</td><td><b>⚠ orphan risk — all refs in ONE file</b></td></tr>
-<tr><td><code>OsmPbfTagReader</code></td><td align="right">1</td><td align="right">1</td><td><b>⚠ orphan risk — all refs in ONE file</b></td></tr>
+<tr><th>#</th><th>the test asked</th><th>what it missed</th><th>result</th></tr>
+<tr><td>1</td><td>"does live app code still <b>name</b> the original class?"</td><td><b>The switch idiom is DELEGATION</b> — keep the Android class name, gut its body, call shared. <b>Call sites never change</b>, so the name stays everywhere.</td><td>said 22 unswitched. <b>Wrong.</b></td></tr>
+<tr><td>2</td><td>"does the original Android <b>file reference <code>com.grouptrack.shared</code></b>?"</td><td><b>Indirect delegation.</b> <code>RiderTrailWriter</code> calls <code>SpatialDbManager.sharedRider()</code>, which holds the shared <code>GtRiderTrails</code> — so the file never names the shared package at all.</td><td>said 4 unswitched. <b>Still wrong.</b></td></tr>
+<tr><td><b>3</b></td><td>"does it delegate <b>directly OR indirectly</b> (via an Android holder of shared objects)?"</td><td>— and cross-checked against two cases known independently.</td><td><b>3 unswitched. This is the figure.</b></td></tr>
 </table>
+<b>WHY TEST 3 IS TRUSTED:</b> it independently flags <code>ConvoyTileCalculator</code> and <code>VectorTiles</code>/<code>ElevationTiles</code> as unswitched — which are exactly <b>G1a and G1c, the two switches already known to be owed</b> from 11-13's certification work. It agrees with known truth on both, and finds one more.
+<br><b>⚠ A MARKER CONVENTION EXISTS BUT IS NOT AUTHORITATIVE.</b> The codebase marks its own switches (<code>STEP15CDE-SWITCH-2026-11-10</code>, <code>STEP15B-SWITCH-2026-11-09</code>, <code>STEP15G-SWITCH-2026-11-10</code>, <code>STEP15F-SWITCH-2026-11-10</code>, bare <code>SWITCH-2026-10-30</code> and others). <b>22 files carry one; 35 pieces are switched</b> — so the markers are a useful signal and an <b>incomplete</b> index. Never switch-status from markers alone. Conversely <code>RiderTrailWriter</code> carries 3 markers and zero direct shared references, which is what exposed test 2.
+
+<br><br><b>⛔ THE CONSEQUENCE, CORRECTED. (PASS1CONSEQ-2026-11-14)</b> The 11-13 entry said "a 2.8a build made today would run almost entirely on OLD Android code, with 38 certified pieces sitting unused on the shelf". <b>That is FALSE and is withdrawn.</b> It followed from test 1. What is true on the 11-14 measurement:
+<ul>
+<li><b>A 2.8a build made today would run mostly on SHARED code already.</b> 35 of 38 certified pieces are wired in, most as thin delegating wrappers — <code>ConvoySessionManager</code> is down to 53 lines, <code>ConvoyProfileStore</code> 58, <code>ConvoyNetworkStore</code> 50, <code>OsmGpkgDecoder</code> 24. The migration is far further along than the 11-13 entry implied.</li>
+<li><b>Pass 1 is still first, but for a different reason.</b> Not "most of the app is unwired" — it is that <b>851 lines in four files are the last certified work not yet in service</b>, and two of those are switches this project already owed itself from yesterday. Finishing them costs hours and closes the gap between what has been certified and what actually runs.</li>
+<li><b>⚠ And the half-switched pair is the real warning.</b> <code>RiderTrailWriter</code> is switched while its sibling <code>RiderTrailScanner</code> is not. Nobody noticed, because no inventory existed that could tell the difference. <b>That is the defect Pass 1 exists to close</b> — not bulk rewiring.</li>
+</ul>
+
+<br><br><b>⭐ PASS 1 WORK LIST — THE REAL ONE. THREE PIECES, FOUR FILES, 851 LINES. (PASS1FIX-2026-11-14)</b>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>piece</th><th>android file(s)</th><th>lines</th><th>status / note</th></tr>
+<tr><td><b>G1a</b></td><td><code>ConvoyTileCalculator</code></td><td align="right">364</td><td><b>Certified 11-13</b> (<code>f0e9fc928</code>, 148 keys, 0 DIFF both devices, twice). Shared port: <code>GtTileCalc</code>. Zero direct and zero indirect delegation.</td></tr>
+<tr><td><b>G1c</b></td><td><code>VectorTiles</code> + <code>ElevationTiles</code></td><td align="right">85 + 29</td><td><b>Certified 11-13</b> (<code>4e9dc9db1</code>, 64 keys, twice). Shared port: <code>GtMapSpec</code>.</td></tr>
+<tr><td><b>step 15</b></td><td><code>RiderTrailScanner</code></td><td align="right">373</td><td><b>⭐ THE NEW FIND.</b> Certified in step 15 and <b>never switched</b> — shared port <code>GtRiderScan</code> (369 lines) exists and is certified while the Android original still runs standalone. Note its sibling <code>RiderTrailWriter</code> (309) <b>IS</b> switched, indirectly via <code>SpatialDbManager.sharedRider()</code>, so the pair was half-switched and nobody noticed.</td></tr>
+</table>
+<b>✅ VERIFIED SWITCHED AT FUNCTION LEVEL — the four large files that file-level tests could not settle:</b>
+<code>SpatialDbManager</code> (2,243 lines) delegates <code>parseGpxTrackPoints</code> at <code>:908</code> with a <code>STEP7-2026-11-07: shared code</code> marker and holds <code>GtRead</code>/<code>GtWrite</code>/<code>GtSchema</code>/<code>gtOpenDatabase</code> &middot; <code>ConvoyDownloadQueue</code> (1,365) constructs <code>GtVectorQueue</code> with its platform/files/ids/clock sockets at <code>:322</code> &middot; <code>ConvoyTrackOps</code> (467) imports <code>GtGpxParse</code> at <code>:11</code> marked <code>STEP15B-SWITCH-2026-11-09</code> &middot; <code>ConvoyFileReceiver</code> (251) — <code>object RideImport</code> delegates to <code>GtRideImport.importRide</code> at <code>:164</code>. <b>All four switched.</b>
+<br><b>⭐ WHAT THIS DOES TO THE ESTIMATE.</b> Fred, 11-13 18:06: "that should be a very fast replacement pa[ss]". <b>More right than it looked.</b> Pass 1 is <b>hours, not days</b> — 851 lines across four files, three of which are the two switches already owed from yesterday's own certification work. The <b>341 references</b> figure in the 11-13 entry was an artefact of test 1 and is withdrawn.
+<br><b>⚠ WHAT DOES NOT CHANGE:</b> each switch still has to prove its <b>wiring</b>, and <b>M1 Q3 (orphaned callers)</b> still applies — that is the point of Pass 1 and its output still feeds the <a href="#cleanup-2-8">C list</a>. <b>Start with G1c</b> (114 lines across two small files, certified yesterday, freshest in mind), then <b>G1a</b>, then <b>RiderTrailScanner</b> — which is the one most likely to orphan something, since its sibling writer is already switched and the two may share dead helpers.
+
+<br><br><b>⭐⭐⭐ THE FUNCTION-LEVEL SWITCH MAP — measured 11-14 08:20. (SWITCHMAP-2026-11-14)</b>
+<br><b>⚠ FIRST, THE GRANULARITY LESSON: THE UNIT OF SWITCHING IS THE FUNCTION, NOT THE FILE.</b> <code>VectorTiles</code> is <b>half switched</b> — 7 of its 13 functions already delegate to the shared <code>GtVectorQueue</code> through <code>DownloadQueueManager.vecQueue()</code>, while its <i>spec</i> functions do not. The <code>RiderTrailWriter</code> / <code>RiderTrailScanner</code> pair is the same shape: writer switched, scanner not. <b>Nobody noticed either case, because no inventory existed that could tell the difference.</b> That is what Pass 1 actually closes — not bulk rewiring.
+
+<br><br><b>⭐ G1c — READY. Five live call sites in four files.</b>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>Android function</th><th>→ shared</th><th>live callers</th><th>note</th></tr>
+<tr><td><code>VectorTiles.tileTemplate(ctx)</code></td><td><code>GtMapSpec.vectorTileTemplate(env)</code></td><td><code>VectorMapTest:238</code></td><td>Context → env</td></tr>
+<tr><td><code>VectorTiles.oldTilesOf(File)</code></td><td><code>GtMapSpec.oldTilesOf(String)</code></td><td><code>EmergencyRestore:109</code> &middot; <code>MapConversion:63</code> &middot; <code>:138</code></td><td><b>File → String</b>: the CALLER reads the file</td></tr>
+<tr><td><code>ElevationTiles.urlTemplate(ctx)</code></td><td><code>GtMapSpec.elevationUrlTemplate(env)</code></td><td><code>VectorMapTest:244</code></td><td>Context → env</td></tr>
+<tr><td><code>VectorTiles.downloadSources</code><br><code>ElevationTiles.downloadSources</code></td><td><code>vectorDownloadSources</code><br><code>elevationDownloadSources</code></td><td><code>ConvoyDownloadWorker:83</code> &middot; <code>:178</code> &middot; <code>:179</code></td><td><b>⚠ MIRRORED TYPE — see below</b></td></tr>
+<tr><td><code>spec()</code> ×2 (private)</td><td><code>specOf(env, key)</code> (internal)</td><td>—</td><td>goes with the above</td></tr>
+</table>
+<b>G1c ALSO NEEDS ONE NEW PIECE:</b> an Android <code>GtMapSpecEnv</code> implementation (call it <code>GtMapSpecAndroid</code>) — <code>readAsset</code> via <code>context.assets</code>, <code>httpGet</code> via OkHttp. <b>~15 lines, the same shape as the existing <code>GtStorageAndroid</code> / <code>GtSettingsAndroid</code> / <code>GtNetAndroid</code>.</b> The cert used a fixture env (<code>FixtureEnv</code> in <code>GtCert17g1c</code>); the app needs a real one. This is the ONE piece of new code in all of Pass 1.
+
+<br><br><b>⭐ G1a — BLOCKER RESOLVED. 12 functions, split four ways.</b>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>functions</th><th>destination</th><th>note</th></tr>
+<tr><td><code>maxZoomForSource</code> &middot; <code>maxZoomForSlot</code> &middot; <code>zoomRanges</code> &middot; <code>calculateTiles</code> &middot; <code>buildTileUrl</code> &middot; <code>fromString</code></td><td><b><code>GtTileCalc</code></b> / <code>GtTileKey</code></td><td>the six G1a keepers, certified 11-13 (<code>f0e9fc928</code>)</td></tr>
+<tr><td><code>lon2tile</code> &middot; <code>lat2tile</code></td><td><b><code>GtTileMath</code></b></td><td>certified separately at <b>1,938,346 values</b>; <code>GtTileCalc</code> already calls them internally. They switch in the same edit.</td></tr>
+<tr><td><b><code>quickEstimate</code></b></td><td><b><code>GtTileMath:41</code></b></td><td><b>✅ RESOLVED — it IS ported.</b> Under <b>step 16c</b>, not G1a, which is why it appeared in <code>Cert16c</code> and not in <code>GtTileCalc</code> and looked stranded. <b>⚠ It has 8 live call sites</b> — <code>MapScreens:51</code>, <code>GroupTrackScreen:913</code>/<code>:1295</code>/<code>:2459</code>, <code>ConvoyDownloadQueue:372</code>/<code>:373</code>/<code>:427</code>/<code>:581</code> — <b>more than the other eleven functions combined</b>, so it dominates the G1a switch. Returns a mirrored type; see below.</td></tr>
+<tr><td><code>corridorTiles</code> &middot; <code>stampPoint</code> &middot; <code>estimateSizeMB</code> &middot; <code>isWithinCeiling</code></td><td><b>NOWHERE — <a href="#cleanup-2-8">C list</a></b></td><td>deliberately not ported (the dead chain documented in <code>GtTileCalc</code>'s header). <b>Leave them in place</b>; they come out in P3.</td></tr>
+</table>
+
+<br><b>⭐ RiderTrailScanner — BLOCKER RESOLVED. The port is clean.</b>
+<br><code>GtRiderScan</code> covers <code>haversineM</code>, <code>scan</code>, <code>key</code>, <code>linesMeetNear</code>, <code>d</code>, <code>anchorAt</code>. The three that looked missing:
+<ul>
+<li><b><code>bearingDeg</code> and <code>angleDiff</code> — deliberately NOT PORTED, and it is in writing.</b> <code>GtRiderScan.kt:18</code>: "NOT PORTED, dead in 2.7e (callers checked 11-09 with grep over app/ and grouptrack-shared/, none)"; <code>:173</code>: "dead since RIDERRULES-2026-10-09, not ported." Independently confirmed 11-14: <b>zero live references outside their own file.</b> This is <a href="#skip-policy">M2 SKIP</a> working exactly as designed — the decision was made at port time and written down where the next reader would find it. <b>→ C list.</b></li>
+<li><b><code>cellKey</code></b> — a private helper, renamed to <code>key(r, c)</code> in <code>GtRiderScan:301</code>. Private on both sides, so it needs no public counterpart. (The <code>cellKey</code> in <code>GtRoute:604</code> is a <i>different</i> function — a route grid, not a rider scan. Do not conflate them.)</li>
+</ul>
+
+<br><b>⭐⭐ THE MIRRORED-TYPE ADAPTER PATTERN — THREE INSTANCES, AND IT IS NOT A DEFECT.</b>
+<br>Pass 1 keeps meeting the same situation: a shared data class that mirrors an Android one field for field, because the port deliberately avoided blocking on a type that had not moved yet.
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>shared type</th><th>Android type</th><th>fields</th><th>resolution</th></tr>
+<tr><td><code>GtMapSpec.GtTileLayerSpec</code></td><td><code>MapSourceManager.TileLayer</code></td><td><b>identical, same order</b>: <code>role</code>, <code>urlTemplate</code>, <code>tileFormat</code>, <code>cacheDir</code>, <code>renderOrder = 0</code></td><td>one-line <code>.map { }</code> adapter now, <b>deleted in G1e</b> when <code>TileLayer</code> itself moves. CODE RULE 3 shaped: temporary, removed when its successor lands. <i>Alternative: defer both <code>downloadSources</code> to G1e.</i></td></tr>
+<tr><td><code>GtTileMath.GtDownloadEstimate</code></td><td><code>DownloadEstimate</code></td><td><b>identical</b>: <code>tileCount</code>, <code>estimatedMB</code>, <code>withinCeiling</code>, <code>zoomMin</code>, <code>zoomMax</code></td><td><b>✅ no adapter needed</b> — see the C-list find below. The used surfaces are the same.</td></tr>
+<tr><td><code>GtMapSpecEnv</code></td><td>(none yet)</td><td>—</td><td>write <code>GtMapSpecAndroid</code>, as above</td></tr>
+</table>
+<b>The general rule this establishes:</b> a shared type carries <b>data</b>; the Android type may add <b>platform formatting</b> that cannot exist in commonMain (<code>"%,d"</code> grouping and <code>String.format</code> are JVM, not Kotlin common). Where the Android type adds only formatting, <b>keep the Android type as a thin wrapper and map into it</b>. Where it adds nothing, <b>delete it and let callers take the shared type.</b>
+
+<br><br><b>⭐ NEW C-LIST LINES FOUND BY THE MAPPING — Pass 1 doing its job.</b>
+<br><b>A THIRD DEAD CHAIN, same shape as 11-13's <code>estimateSizeMB</code> → <code>isWithinCeiling</code> → <code>AVG_TILE_KB</code>:</b> on <code>DownloadEstimate</code> (<code>ConvoyTileCalculator:361–363</code>), <code>displaySize</code>, <code>displayCount</code> and <code>summary</code> have <b>zero callers anywhere in live app code</b> — and <code>summary</code>'s only inputs are the other two, so the three fall together. <b>3 lines → C list.</b> Their absence is also what makes <code>GtDownloadEstimate</code> a drop-in: the two types have <b>identical used surfaces</b>.
+<br><b>Also to the C list from this mapping:</b> <code>bearingDeg</code>, <code>angleDiff</code> (RiderTrailScanner, confirmed dead above) and the four <code>ConvoyTileCalculator</code> non-ports already listed.
+<br><b>⚠ These are variant (a) — no caller — so by the <a href="#cleanup-2-8">11-13 17:32 rule they are FRONT of the removal queue</a>, not back. But they are still P3 work, not Pass 1 work: Pass 1 switches, P3 removes.</b>
+
+<br><br><b>⭐⭐⭐ THE DOWNLOAD-ESTIMATE DEFECT — and the first live proof that CERTIFICATION PROVES SAMENESS, NOT CORRECTNESS. (ESTBUG-2026-11-14)</b>
+<br><b>Fred, 11-14 08:27:</b> "and that calc is wrong it clcs in sat tiles if it has a toast message."
+<br>He is right, and the path holds <b>three</b> defects. Found while mapping the G1a switch — which is Pass 1 earning its place.
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>#</th><th>defect</th><th>where</th><th>effect</th></tr>
+<tr><td><b>1</b></td><td><b><code>AVG_TILE_KB = 15f</code> is a SATELLITE-RASTER constant</b>, used to turn a tile count into MB.</td><td><code>ConvoyTileCalculator:28</code> &rarr; <code>:321</code>; mirrored in <code>GtTileMath:27</code> &rarr; <code>:48</code></td><td>The app now downloads <b>only VEC (pbf vector) and DEM (terrarium png)</b>. Neither is 15 KB. <b>Every MB figure shown to a rider, and the <code>withinCeiling</code> verdict that gates the "Area Too Large" dialog, are computed for maps the app no longer has.</b></td></tr>
+<tr><td><b>2</b></td><td><b>The dialog text is off by 10×.</b></td><td><code>GroupTrackScreen:673</code></td><td>It reads "exceeds the <b>500</b> MB limit" while <code>CEILING_MB = <b>5000</b>f</code>. Independent of defect 1 and visible to a rider.</td></tr>
+<tr><td><b>3</b></td><td><b>This port put a WRONG COMMENT in the code</b> — now corrected.</td><td><code>GtTileCalc.kt</code> header</td><td>It claimed "AVG_TILE_KB's only use was estimateSizeMB. A dead chain ports as nothing." <b>AVG_TILE_KB has TWO uses</b>: <code>estimateSizeMB</code> (dead) and <code>quickEstimate:321</code> (<b>live, 8 callers</b>). The analysis followed <code>estimateSizeMB → isWithinCeiling</code>, found it dead, and <b>never asked whether the CONSTANT had another consumer.</b> <code>estimateSizeMB</code> and <code>isWithinCeiling</code> are genuinely dead; <b><code>AVG_TILE_KB</code> and <code>CEILING_MB</code> are live.</b></td></tr>
+</table>
+
+<br><b>⛔⛔ WE CERTIFIED THE BUG, AND THE CERTIFICATION WAS NOT AT FAULT.</b> <code>GtTileMath.quickEstimate</code> was ported <b>AS IS</b> under step 16b and certified at <b>0 DIFF on 1,938,346 values</b>. It carries the identical <code>AVG_TILE_KB = 15f</code> and the identical <code>sizeMB</code> line. <b>OLD == NEW, and both are wrong by the same 15 KB.</b>
+<ul>
+<li><b>The cert did exactly its job</b> — it proved the port faithful. Porting AS IS is still correct, and this is not an argument against the method.</li>
+<li><b>But nothing in the L1–L4 ladder can catch a wrong constant</b>, because a wrong constant is <i>identical on both sides</i>. L2 compares platforms; L3 compares OLD to NEW; neither compares <b>either side to reality</b>.</li>
+<li><b>What caught it was Fred looking at a toast.</b> That is <a href="#seam-tasks">his 11-13 17:22 point</a> landing in practice — "the purpose of the application walk through would be more likely to surface these issues" — and this dialog sits in <b>L4 walkthrough Task 4, "Get the maps before you lose signal."</b></li>
+<li><b>⭐ THE DURABLE RULE:</b> <b>certification answers "does it behave the same?"; it never answers "is it right?"</b> A faithful port of wrong code is still wrong code. The only gates that test correctness are <b>L4</b> and a human reading the screen. Budget for that explicitly — do not let a wall of 0-DIFF results imply the app is correct.</li>
+</ul>
+
+<br><b>⭐ HOW THE FIX IS SHAPED — deliberately NOT part of Pass 1.</b>
+<ul>
+<li><b>⛔ Do NOT change the constant inside the port.</b> It would invalidate the step-16b certification and break port-AS-IS. Pass 1 switches behaviour-for-behaviour; a correctness change must not ride along inside it.</li>
+<li><b>It needs a MEASUREMENT, not another guess.</b> No code anywhere in the repo knows a real tile size — <code>AVG_TILE_KB = 15f</code> is the only source, and the <a href="#cleanup-2-8">tiles+duration yardstick designed 07-25</a> was never built. The stores live on device, so the number comes from a device query on <code>VEC.mbtiles</code> and <code>DEM.mbtiles</code>: <code>SELECT COUNT(*), AVG(LENGTH(tile_data)), MAX(LENGTH(tile_data)) FROM tiles;</code> — and VEC and DEM need <b>separate</b> figures, since pbf and terrarium png are nothing alike.</li>
+<li><b>Then one deliberate change, after the switch:</b> per-slot sizes replacing the single constant, the 500/5000 string corrected (a display string, not under certification, so it can ride along), and the <b>cert re-run with the new expected values</b> — a behaviour change, so it needs a new golden run, not a waiver.</li>
+<li><b>Blast radius of the fix, measured:</b> 4 display points (<code>GroupTrackScreen:673</code>, <code>:698</code>, <code>MapScreens:63</code>, <code>:2520</code>), 2 logs, 3 ViewModel plumbing sites. Small.</li>
+</ul>
 
 <b>⭐ WHY "VERY FAST" IS THE RIGHT CALL — the pattern is proven, not novel.</b> Measured 11-13 18:06: <b>71 of 357 live app <code>.kt</code> files already import <code>com.grouptrack.shared</code></b>, and the Android sockets are constructed in <i>real app code</i>, not only in harnesses — <code>ConvoyDownloadQueue</code>, <code>ConvoyMasterConfig</code>, <code>ConvoySessionManager</code>, <code>ConvoySettingsRepository</code>, <code>ConvoyUser</code>, <code>ConvoyEventConfig</code>. <b>There is no central socket registry that must be built first</b>; each call site constructs its own, and that has already been done dozens of times. A switch is therefore: point the call at the shared class and hand it its socket the way the other 71 files do.
 <br><b>⚠ THE ONE PART THAT IS NOT FAST — certified is not wired.</b> The cert proves the <b>method</b>; the switch must prove the <b>wiring</b>. Each switch can surface <b>M1 Q3 (orphaned callers)</b>: Android code that becomes unreachable the moment the call moves. That is not a certification cost, it is <b>discovery</b>, and its output feeds straight into the <a href="#cleanup-2-8">C list</a>. <b>Highest orphan risk = the pieces whose references sit in a single file</b>: <code>RouteExplorer</code> (31 refs, 1 file), <code>RiderTrailScanner</code> (12, 1), <code>OsmExtractProgress</code> (2, 1), <code>DbAudit</code> (2, 1), <code>OsmPbfTagReader</code> (1, 1). Switch one of those early to measure what a Q3 cascade actually costs.
