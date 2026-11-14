@@ -592,6 +592,84 @@ RouteExplorerCertOld.kt:2358:    private fun round1(v: Double) = Math.round(v * 
 RouteExplorerCertOld.kt:2359:    private fun round2(v: Double) = Math.round(v * 100.0) / 100.0
 RouteExplorerCertOld.kt:2360:    private fun round6(v: Double) = Math.round(v * 1e6) / 1e6
 RouteExplorerCertOld.kt:2361:    private fun nowIso(): String =
+MBTilesStoreCertOld.kt:18: *   1. object -> class(certDir)                                                          x1
+MBTilesStoreCertOld.kt:34:class MBTilesStoreCertOld(private val certDir: File) {
+MBTilesStoreCertOld.kt:36:    private val handles = HashMap<String, SQLiteDatabase>()
+MBTilesStoreCertOld.kt:43:    private fun dbFileFor(type: String): File = File(tilesDir(), "$type.mbtiles")
+MBTilesStoreCertOld.kt:46:    private fun db(type: String): SQLiteDatabase? {
+MBTilesStoreCertOld.kt:49:            val f = dbFileFor(type)
+MBTilesStoreCertOld.kt:50:            val fresh = !f.exists()
+MBTilesStoreCertOld.kt:51:            val d = SQLiteDatabase.openOrCreateDatabase(f, null)
+MBTilesStoreCertOld.kt:59:    private fun initSchema(d: SQLiteDatabase, type: String) {
+MBTilesStoreCertOld.kt:66:    private fun ensureSchema(d: SQLiteDatabase) {
+MBTilesStoreCertOld.kt:80:    fun autoVacuum(type: String): String {
+MBTilesStoreCertOld.kt:81:        val d = db(type) ?: return "(no handle)"
+MBTilesStoreCertOld.kt:87:    fun insertTile(type: String, z: Int, x: Int, y: Int, bytes: ByteArray): Boolean {
+MBTilesStoreCertOld.kt:88:        val d = db(type) ?: return false
+MBTilesStoreCertOld.kt:96:    fun readTile(type: String, z: Int, x: Int, y: Int): ByteArray? {
+MBTilesStoreCertOld.kt:97:        val d = db(type) ?: return null
+MBTilesStoreCertOld.kt:105:    fun hasTile(type: String, z: Int, x: Int, y: Int): Boolean {
+MBTilesStoreCertOld.kt:106:        val d = db(type) ?: return false
+MBTilesStoreCertOld.kt:113:    fun countInTileRange(type: String, z: Int, xMin: Long, xMax: Long, yMin: Long, yMax: Long): Int {
+MBTilesStoreCertOld.kt:114:        val d = db(type) ?: return 0
+MBTilesStoreCertOld.kt:122:    fun countTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int {
+MBTilesStoreCertOld.kt:123:        val d = db(type) ?: return 0
+MBTilesStoreCertOld.kt:131:    fun tileExtentAtZoom(type: String, z: Int): LongArray? {
+MBTilesStoreCertOld.kt:132:        val d = db(type) ?: return null
+MBTilesStoreCertOld.kt:142:    fun zoomLevelsPresent(type: String): List<Int> {
+MBTilesStoreCertOld.kt:143:        val d = db(type) ?: return emptyList()
+MBTilesStoreCertOld.kt:144:        val out = ArrayList<Int>()
+MBTilesStoreCertOld.kt:153:    fun countAtZoom(type: String, z: Int): Int {
+MBTilesStoreCertOld.kt:154:        val d = db(type) ?: return 0
+MBTilesStoreCertOld.kt:161:    fun xyAtZoom(type: String, z: Int): List<Pair<Long, Long>> {
+MBTilesStoreCertOld.kt:162:        val d = db(type) ?: return emptyList()
+MBTilesStoreCertOld.kt:163:        val out = ArrayList<Pair<Long, Long>>()
+MBTilesStoreCertOld.kt:172:    fun countByParent(type: String, z: Int, shift: Int): List<LongArray> {
+MBTilesStoreCertOld.kt:173:        val d = db(type) ?: return emptyList()
+MBTilesStoreCertOld.kt:174:        val out = ArrayList<LongArray>()
+MBTilesStoreCertOld.kt:184:    fun scanKeys(type: String): List<TileKey> {
+MBTilesStoreCertOld.kt:185:        val d = db(type) ?: return emptyList()
+MBTilesStoreCertOld.kt:186:        val keys = ArrayList<TileKey>()
+MBTilesStoreCertOld.kt:195:    fun tilesInBounds(type: String, north: Double, south: Double, east: Double, west: Double): List<TileKey> {
+MBTilesStoreCertOld.kt:196:        val d = db(type) ?: return emptyList()
+MBTilesStoreCertOld.kt:197:        val out = ArrayList<TileKey>()
+MBTilesStoreCertOld.kt:199:            val n = 1L shl z
+MBTilesStoreCertOld.kt:200:            fun lon2x(lon: Double): Long = Math.floor((lon + 180.0) / 360.0 * n).toLong()
+MBTilesStoreCertOld.kt:201:            fun lat2y(lat: Double): Long {
+MBTilesStoreCertOld.kt:202:                val r = Math.toRadians(lat)
+MBTilesStoreCertOld.kt:205:            val xMin = lon2x(west).coerceIn(0L, n - 1)
+MBTilesStoreCertOld.kt:206:            val xMax = lon2x(east).coerceIn(0L, n - 1)
+MBTilesStoreCertOld.kt:208:            val yMax = lat2y(south).coerceIn(0L, n - 1)
+MBTilesStoreCertOld.kt:218:    fun storeExists(type: String): Boolean = dbFileFor(type).exists()
+MBTilesStoreCertOld.kt:220:    fun deleteTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int {
+MBTilesStoreCertOld.kt:222:        val d = db(type) ?: return 0
+MBTilesStoreCertOld.kt:229:    fun countTiles(type: String, tiles: List<TileKey>): Int {
+MBTilesStoreCertOld.kt:232:        val d = db(type) ?: return 0
+MBTilesStoreCertOld.kt:233:        var found = 0
+MBTilesStoreCertOld.kt:236:                val (z, x) = key
+MBTilesStoreCertOld.kt:237:                val rows = group.map { it.y }
+MBTilesStoreCertOld.kt:238:                var i = 0
+MBTilesStoreCertOld.kt:240:                    val chunk = rows.subList(i, minOf(i + 500, rows.size))
+MBTilesStoreCertOld.kt:241:                    val placeholders = chunk.joinToString(",") { "?" }
+MBTilesStoreCertOld.kt:242:                    val args = ArrayList<String>(chunk.size + 2)
+MBTilesStoreCertOld.kt:254:    fun deleteTiles(type: String, tiles: List<TileKey>): Int {
+MBTilesStoreCertOld.kt:257:        val d = db(type) ?: return 0
+MBTilesStoreCertOld.kt:258:        var removed = 0
+MBTilesStoreCertOld.kt:263:                    val (z, x) = key
+MBTilesStoreCertOld.kt:264:                    val rows = group.map { it.y }
+MBTilesStoreCertOld.kt:265:                    var i = 0
+MBTilesStoreCertOld.kt:267:                        val chunk = rows.subList(i, minOf(i + 500, rows.size))
+MBTilesStoreCertOld.kt:268:                        val placeholders = chunk.joinToString(",") { "?" }
+MBTilesStoreCertOld.kt:269:                        val args = ArrayList<String>(chunk.size + 2)
+MBTilesStoreCertOld.kt:283:    fun reclaimableBytes(type: String): Long {
+MBTilesStoreCertOld.kt:285:        val d = db(type) ?: return 0L
+MBTilesStoreCertOld.kt:286:        var pages = 0L
+MBTilesStoreCertOld.kt:287:        var pageSize = 0L
+MBTilesStoreCertOld.kt:295:    fun deleteSource(type: String): Boolean {
+MBTilesStoreCertOld.kt:297:        val f = dbFileFor(type)
+MBTilesStoreCertOld.kt:298:        var ok = true
+MBTilesStoreCertOld.kt:300:            val s = File(f.parentFile, f.name + suffix)
+MBTilesStoreCertOld.kt:307:    fun certTeardown() {
 ConvoyTileCalculator.kt:27:object ConvoyTileCalculator {
 ConvoyTileCalculator.kt:30:    private const val AVG_TILE_KB = 15f
 ConvoyTileCalculator.kt:33:    const val CEILING_MB = 5000f
@@ -636,6 +714,32 @@ ConvoyTileCalculator.kt:350:    val zoomMax: Int
 ConvoyTileCalculator.kt:352:    val displaySize: String get() = "%.1f MB".format(estimatedMB)
 ConvoyTileCalculator.kt:353:    val displayCount: String get() = "%,d tiles".format(tileCount)
 ConvoyTileCalculator.kt:354:    val summary: String get() = "$displayCount — $displaySize (z$zoomMin–z$zoomMax)"
+ConvoyMapRecipeCertOld.kt:25: *   1. object -> class(files, paths, clock, env)                                            x1
+ConvoyMapRecipeCertOld.kt:54:class ConvoyMapRecipeCertOld(
+ConvoyMapRecipeCertOld.kt:55:    private val files: GtFiles,
+ConvoyMapRecipeCertOld.kt:56:    private val paths: GtImportPaths,
+ConvoyMapRecipeCertOld.kt:57:    private val clock: GtClock,
+ConvoyMapRecipeCertOld.kt:58:    private val env: GtRecipeEnv,
+ConvoyMapRecipeCertOld.kt:60:    private val EXT = ".gtmaps"
+ConvoyMapRecipeCertOld.kt:61:    private val PREFIX = "grouptrack_maps_"
+ConvoyMapRecipeCertOld.kt:62:    private val KEEP_DAYS = 60
+ConvoyMapRecipeCertOld.kt:63:    private val CONVERSION = "grouptrack_conversion.gtmaps"
+ConvoyMapRecipeCertOld.kt:69:    private fun sdf(pattern: String) = SimpleDateFormat(pattern, Locale.US).apply {
+ConvoyMapRecipeCertOld.kt:73:    private fun today(): String = sdf("yyyy-MM-dd").format(Date(clock.epochMs()))
+ConvoyMapRecipeCertOld.kt:75:    fun writeDaily(): Path? = write(fresh = false)
+ConvoyMapRecipeCertOld.kt:76:    fun writeFresh(): Path? = write(fresh = true)
+ConvoyMapRecipeCertOld.kt:78:    private fun write(fresh: Boolean): Path? {
+ConvoyMapRecipeCertOld.kt:79:        val target = dir() / (PREFIX + today() + EXT)
+ConvoyMapRecipeCertOld.kt:90:        val slots = JSONArray()
+ConvoyMapRecipeCertOld.kt:91:        var grand = 0L
+ConvoyMapRecipeCertOld.kt:96:            val boxes = JSONArray()
+ConvoyMapRecipeCertOld.kt:97:            val n = 1L shl r.refZ
+ConvoyMapRecipeCertOld.kt:98:            fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0
+ConvoyMapRecipeCertOld.kt:99:            fun latOf(y: Long) = Math.toDegrees(
+ConvoyMapRecipeCertOld.kt:120:        val doc = JSONObject().apply {
+ConvoyMapRecipeCertOld.kt:135:    private fun prune() {
+ConvoyMapRecipeCertOld.kt:137:            val cutoff = clock.epochMs() - KEEP_DAYS * 24L * 60L * 60L * 1000L
+ConvoyMapRecipeCertOld.kt:139:                val name = f.name
 MasterConfigCertOld.kt:13:object MasterCertOldEnv {
 MasterConfigCertOld.kt:14:    @Volatile var certDir: File? = null
 MasterConfigCertOld.kt:15:    @Volatile var certAsset: String? = null
@@ -1289,6 +1393,51 @@ OsmImportLedger.kt:44:    fun setPendingBbox(ctx: Context, slug: String, s: Doub
 OsmImportLedger.kt:45:    fun clearPendingImport(ctx: Context, slug: String) = led(ctx).clearPendingImport(slug)
 OsmImportLedger.kt:46:    fun archiveLedger(ctx: Context, slug: String): File? = led(ctx).archiveLedger(slug)?.let { File(it.toString()) }
 OsmImportLedger.kt:47:    fun finalizeAndDelete(ctx: Context, slug: String, bytesReclaimed: Long, deleted: List<String>) = led(ctx).finalizeAndDelete(slug, bytesReclaimed, deleted)
+MapStateStoreCertOld.kt:18: *   1. object MapStateStore -> class MapStateStoreCertOld(files, paths)                     x1
+MapStateStoreCertOld.kt:20: *      G2f rule). 2.7e's object reaches GroupTrackStorage directly and could not be pointed at a
+MapStateStoreCertOld.kt:29: *      It stays in the live object and in the shared port; it is only absent from this copy.
+MapStateStoreCertOld.kt:32:class MapStateStoreCertOld(private val files: GtFiles, private val paths: GtImportPaths) {
+MapStateStoreCertOld.kt:34:    private val TYPES = listOf("Trails", "Tracks", "Waypoints", "Routes")
+MapStateStoreCertOld.kt:38:    private fun fileFor(mapKey: String) =
+MapStateStoreCertOld.kt:41:    private fun viewFile(mapKey: String) =
+MapStateStoreCertOld.kt:44:    fun rideKey(): String = "grouptrack"
+MapStateStoreCertOld.kt:46:    private fun defaults(): MapStateStore.MapSnapshot {
+MapStateStoreCertOld.kt:47:        val t = TYPES.associateWith { type ->
+MapStateStoreCertOld.kt:53:    fun saveMap(mapKey: String, snap: MapStateStore.MapSnapshot) {
+MapStateStoreCertOld.kt:55:            val root = JSONObject()
+MapStateStoreCertOld.kt:56:            val artifacts = JSONObject()
+MapStateStoreCertOld.kt:58:                val ts = snap.types[type] ?: MapStateStore.TypeState(0, emptyList())
+MapStateStoreCertOld.kt:59:                val o = JSONObject()
+MapStateStoreCertOld.kt:61:                val arr = JSONArray()
+MapStateStoreCertOld.kt:63:                    val ro = JSONObject()
+MapStateStoreCertOld.kt:71:            val panel = JSONObject()
+MapStateStoreCertOld.kt:77:                val b = JSONObject()
+MapStateStoreCertOld.kt:84:                val fa = JSONObject()
+MapStateStoreCertOld.kt:89:                val rsO = JSONObject()
+MapStateStoreCertOld.kt:99:    fun deleteMap(mapKey: String) {
+MapStateStoreCertOld.kt:103:    fun readMap(mapKey: String): MapStateStore.MapSnapshot {
+MapStateStoreCertOld.kt:105:            val f = fileFor(mapKey)
+MapStateStoreCertOld.kt:108:            val artifacts = root.optJSONObject("artifacts") ?: return defaults()
+MapStateStoreCertOld.kt:109:            val types = HashMap<String, MapStateStore.TypeState>()
+MapStateStoreCertOld.kt:111:                val o = artifacts.optJSONObject(type)
+MapStateStoreCertOld.kt:116:                val state = o.optInt("state", if (type == "Trails") 1 else 0)
+MapStateStoreCertOld.kt:117:                val rows = ArrayList<MapStateStore.Row>()
+MapStateStoreCertOld.kt:118:                val arr = o.optJSONArray("rows")
+MapStateStoreCertOld.kt:121:                        val ro = arr.optJSONObject(i) ?: continue
+MapStateStoreCertOld.kt:122:                        val id = ro.optString("id", "")
+MapStateStoreCertOld.kt:129:            val p = root.optJSONObject("panel")
+MapStateStoreCertOld.kt:130:            val panel = if (p == null) MapStateStore.PanelBoxes() else MapStateStore.PanelBoxes(
+MapStateStoreCertOld.kt:135:            val bboxObj = root.optJSONObject("bbox")
+MapStateStoreCertOld.kt:136:            val bbox = if (bboxObj == null) null else MapStateStore.BBox(
+MapStateStoreCertOld.kt:141:            val faObj = root.optJSONObject("fitArtifact")
+MapStateStoreCertOld.kt:142:            val fitArtifact = if (faObj == null) null else MapStateStore.FitArtifact(
+MapStateStoreCertOld.kt:145:            val rsObj = root.optJSONObject("routeState")
+MapStateStoreCertOld.kt:146:            val routeState = if (rsObj == null) null else MapStateStore.RouteState(
+MapStateStoreCertOld.kt:155:    fun saveView(mapKey: String, mapType: String, offline: Boolean) {
+MapStateStoreCertOld.kt:163:    fun readView(mapKey: String): MapStateStore.ViewState = try {
+MapStateStoreCertOld.kt:164:        val f = viewFile(mapKey)
+MapStateStoreCertOld.kt:171:    fun checkedIdsFor(snap: MapStateStore.MapSnapshot, type: String): Set<String>? {
+MapStateStoreCertOld.kt:172:        val ts = snap.types[type] ?: return null
 LandAreas.kt:36:object LandAreas {
 LandAreas.kt:37:    private const val TAG = "LandAreas"
 LandAreas.kt:40:    val PUBLIC_OWN = setOf("FED", "STAT", "LOC", "DIST")
@@ -4960,77 +5109,69 @@ ConvoyEndOfRideForm.kt:58:    val surveyDone = !survey || (rating in 1..5 && dif
 ConvoyEndOfRideForm.kt:59:    val canSave = surveyDone && name.isNotBlank()
 ConvoyEndOfRideForm.kt:60:    val dim = Gt.dim
 ConvoyEndOfRideForm.kt:108:                    val missing = buildList {
-MapStateStore.kt:28:object MapStateStore {
-MapStateStore.kt:33:    private fun dir(): java.io.File = GroupTrackStorage.dir("state")
-MapStateStore.kt:34:    private val TYPES = listOf("Trails", "Tracks", "Waypoints", "Routes")
-MapStateStore.kt:39:    @Volatile var lastMapProcessed: String? = null
-MapStateStore.kt:41:    data class Row(val id: String, val name: String, val checked: Boolean)
-MapStateStore.kt:42:    data class TypeState(val state: Int, val rows: List<Row>)
-MapStateStore.kt:43:    data class PanelBoxes(
-MapStateStore.kt:44:        val tilesChecked: Boolean = false,
-MapStateStore.kt:45:        val trailsChecked: Boolean = false,
-MapStateStore.kt:46:        val removeTilesChecked: Boolean = false
-MapStateStore.kt:48:    data class BBox(
-MapStateStore.kt:49:        val south: Double,
-MapStateStore.kt:50:        val west: Double,
-MapStateStore.kt:51:        val north: Double,
-MapStateStore.kt:52:        val east: Double,
-MapStateStore.kt:55:    data class FitArtifact(
-MapStateStore.kt:56:        val id: String,
-MapStateStore.kt:57:        val name: String,
-MapStateStore.kt:58:        val type: String
-MapStateStore.kt:63:    data class RouteState(
-MapStateStore.kt:64:        val open: Boolean,
-MapStateStore.kt:65:        val status: String,
-MapStateStore.kt:66:        val draftName: String
-MapStateStore.kt:68:    data class MapSnapshot(
-MapStateStore.kt:69:        val types: Map<String, TypeState>,
-MapStateStore.kt:70:        val panel: PanelBoxes,
-MapStateStore.kt:71:        val bbox: BBox? = null,
-MapStateStore.kt:72:        val fitArtifact: FitArtifact? = null,
-MapStateStore.kt:73:        val routeState: RouteState? = null
-MapStateStore.kt:81:    private fun fileFor(mapKey: String): File {
-MapStateStore.kt:82:        val dir = dir()
-MapStateStore.kt:87:    private fun defaults(): MapSnapshot {
-MapStateStore.kt:88:        val t = TYPES.associateWith { type ->
-MapStateStore.kt:95:    fun saveMap(mapKey: String, snap: MapSnapshot) {
-MapStateStore.kt:97:            val root = JSONObject()
-MapStateStore.kt:98:            val artifacts = JSONObject()
-MapStateStore.kt:100:                val ts = snap.types[type] ?: TypeState(0, emptyList())
-MapStateStore.kt:101:                val o = JSONObject()
-MapStateStore.kt:103:                val arr = JSONArray()
-MapStateStore.kt:105:                    val ro = JSONObject()
-MapStateStore.kt:115:            val panel = JSONObject()
-MapStateStore.kt:121:                val b = org.json.JSONObject()
-MapStateStore.kt:128:                val fa = org.json.JSONObject()
-MapStateStore.kt:133:                val rsO = org.json.JSONObject()
-MapStateStore.kt:144:    fun deleteMap(mapKey: String) {
-MapStateStore.kt:148:    fun readMap(mapKey: String): MapSnapshot {
-MapStateStore.kt:150:            val f = fileFor(mapKey)
-MapStateStore.kt:152:            val root = JSONObject(f.readText())
-MapStateStore.kt:153:            val artifacts = root.optJSONObject("artifacts") ?: return defaults()
-MapStateStore.kt:154:            val types = HashMap<String, TypeState>()
-MapStateStore.kt:156:                val o = artifacts.optJSONObject(type)
-MapStateStore.kt:161:                val state = o.optInt("state", if (type == "Trails") 1 else 0)
-MapStateStore.kt:162:                val rows = ArrayList<Row>()
-MapStateStore.kt:163:                val arr = o.optJSONArray("rows")
-MapStateStore.kt:166:                        val ro = arr.optJSONObject(i) ?: continue
-MapStateStore.kt:167:                        val id = ro.optString("id", "")
-MapStateStore.kt:174:            val p = root.optJSONObject("panel")
-MapStateStore.kt:175:            val panel = if (p == null) PanelBoxes() else PanelBoxes(
-MapStateStore.kt:180:            val bboxObj = root.optJSONObject("bbox")
-MapStateStore.kt:181:            val bbox = if (bboxObj == null) null else BBox(
-MapStateStore.kt:186:            val faObj = root.optJSONObject("fitArtifact")
-MapStateStore.kt:187:            val fitArtifact = if (faObj == null) null else FitArtifact(
-MapStateStore.kt:190:            val rsObj = root.optJSONObject("routeState")
-MapStateStore.kt:191:            val routeState = if (rsObj == null) null else RouteState(
-MapStateStore.kt:202:    data class ViewState(val mapType: String, val offline: Boolean)
-MapStateStore.kt:203:    private fun viewFile(mapKey: String): File { val d = dir(); if (!d.exists()) d.mkdirs(); return File(d, mapKey + "_view.json") }
-MapStateStore.kt:204:    fun saveView(mapKey: String, mapType: String, offline: Boolean) {
-MapStateStore.kt:208:    fun readView(mapKey: String): ViewState = try {
-MapStateStore.kt:209:        val f = viewFile(mapKey)
-MapStateStore.kt:215:    fun checkedIdsFor(snap: MapSnapshot, type: String): Set<String>? {
-MapStateStore.kt:216:        val ts = snap.types[type] ?: return null
+MapStateStore.kt:41:object MapStateStore {
+MapStateStore.kt:47:    private val TYPES = listOf("Trails", "Tracks", "Waypoints", "Routes")
+MapStateStore.kt:52:    @Volatile var lastMapProcessed: String? = null
+MapStateStore.kt:54:    data class Row(val id: String, val name: String, val checked: Boolean)
+MapStateStore.kt:55:    data class TypeState(val state: Int, val rows: List<Row>)
+MapStateStore.kt:56:    data class PanelBoxes(
+MapStateStore.kt:57:        val tilesChecked: Boolean = false,
+MapStateStore.kt:58:        val trailsChecked: Boolean = false,
+MapStateStore.kt:59:        val removeTilesChecked: Boolean = false
+MapStateStore.kt:61:    data class BBox(
+MapStateStore.kt:62:        val south: Double,
+MapStateStore.kt:63:        val west: Double,
+MapStateStore.kt:64:        val north: Double,
+MapStateStore.kt:65:        val east: Double,
+MapStateStore.kt:68:    data class FitArtifact(
+MapStateStore.kt:69:        val id: String,
+MapStateStore.kt:70:        val name: String,
+MapStateStore.kt:71:        val type: String
+MapStateStore.kt:76:    data class RouteState(
+MapStateStore.kt:77:        val open: Boolean,
+MapStateStore.kt:78:        val status: String,
+MapStateStore.kt:79:        val draftName: String
+MapStateStore.kt:81:    data class MapSnapshot(
+MapStateStore.kt:82:        val types: Map<String, TypeState>,
+MapStateStore.kt:83:        val panel: PanelBoxes,
+MapStateStore.kt:84:        val bbox: BBox? = null,
+MapStateStore.kt:85:        val fitArtifact: FitArtifact? = null,
+MapStateStore.kt:86:        val routeState: RouteState? = null
+MapStateStore.kt:96:     * THE IDIOM IS DELEGATION. This object keeps its name, its data classes and every signature;
+MapStateStore.kt:110:    private val shared: GtMapState by lazy {
+MapStateStore.kt:112:        val files = object : GtFiles {
+MapStateStore.kt:113:            override val fs: FileSystem = FileSystem.SYSTEM
+MapStateStore.kt:114:            override fun setLastModified(path: Path, epochMs: Long): Boolean = File(path.toString()).setLastModified(epochMs)
+MapStateStore.kt:115:            override fun lastModified(path: Path): Long = File(path.toString()).lastModified()
+MapStateStore.kt:116:            override fun list(dir: Path): List<Path> = File(dir.toString()).listFiles()?.map { it.toOkioPath() } ?: emptyList()
+MapStateStore.kt:118:        val paths = object : GtImportPaths {
+MapStateStore.kt:119:            override fun groupTrackRoot(): Path = GroupTrackStorage.root().toOkioPath()
+MapStateStore.kt:120:            override fun dir(name: String): Path = GroupTrackStorage.dir(name).toOkioPath()
+MapStateStore.kt:121:            override fun tracksDir(): Path = throw UnsupportedOperationException("MapStateStore: state folder only")
+MapStateStore.kt:122:            override fun cacheDir(): Path = throw UnsupportedOperationException("MapStateStore: state folder only")
+MapStateStore.kt:123:            override fun filesDir(): Path = throw UnsupportedOperationException("MapStateStore: state folder only")
+MapStateStore.kt:130:    private fun row(r: GtRow) = Row(id = r.id, name = r.name, checked = r.checked)
+MapStateStore.kt:131:    private fun gtRow(r: Row) = GtRow(id = r.id, name = r.name, checked = r.checked)
+MapStateStore.kt:132:    private fun typeState(t: GtTypeState) = TypeState(state = t.state, rows = t.rows.map { row(it) })
+MapStateStore.kt:133:    private fun gtTypeState(t: TypeState) = GtTypeState(state = t.state, rows = t.rows.map { gtRow(it) })
+MapStateStore.kt:134:    private fun panel(p: GtPanelBoxes) =
+MapStateStore.kt:136:    private fun gtPanel(p: PanelBoxes) =
+MapStateStore.kt:138:    private fun bbox(b: GtBBox?) =
+MapStateStore.kt:140:    private fun gtBBox(b: BBox?) =
+MapStateStore.kt:142:    private fun fit(f: GtFitArtifact?) = f?.let { FitArtifact(id = it.id, name = it.name, type = it.type) }
+MapStateStore.kt:143:    private fun gtFit(f: FitArtifact?) = f?.let { GtFitArtifact(id = it.id, name = it.name, type = it.type) }
+MapStateStore.kt:144:    private fun route(r: GtRouteState?) = r?.let { RouteState(open = it.open, status = it.status, draftName = it.draftName) }
+MapStateStore.kt:145:    private fun gtRoute(r: RouteState?) = r?.let { GtRouteState(open = it.open, status = it.status, draftName = it.draftName) }
+MapStateStore.kt:147:    private fun snap(s: GtMapSnapshot) = MapSnapshot(
+MapStateStore.kt:154:    private fun gtSnap(s: MapSnapshot) = GtMapSnapshot(
+MapStateStore.kt:167:    data class ViewState(val mapType: String, val offline: Boolean)
+MapStateStore.kt:171:    fun rideKey(): String = GtMapState.rideKey()
+MapStateStore.kt:173:    fun saveMap(mapKey: String, snap: MapSnapshot) = shared.saveMap(mapKey, gtSnap(snap))
+MapStateStore.kt:175:    fun deleteMap(mapKey: String) = shared.deleteMap(mapKey)
+MapStateStore.kt:177:    fun readMap(mapKey: String): MapSnapshot = snap(shared.readMap(mapKey))
+MapStateStore.kt:179:    fun saveView(mapKey: String, mapType: String, offline: Boolean) = shared.saveView(mapKey, mapType, offline)
+MapStateStore.kt:181:    fun readView(mapKey: String): ViewState =
+MapStateStore.kt:184:    fun checkedIdsFor(snap: MapSnapshot, type: String): Set<String>? =
 TrailStylePanel.kt:58:fun TrailStylePanel(
 TrailStylePanel.kt:65:    val saved = TrailFilterState.style[row.name]
 TrailStylePanel.kt:66:    val startC = saved?.first ?: colorHex(row.color)
@@ -8747,6 +8888,58 @@ grouptrack/GtNetAndroid.kt:10:    class JavaRng(private val r: java.util.Random)
 grouptrack/GtNetAndroid.kt:11:        override fun nextInt(bound: Int): Int = r.nextInt(bound)
 grouptrack/GtNetAndroid.kt:12:        override fun nextBytes(b: ByteArray) = r.nextBytes(b)
 grouptrack/GtNetAndroid.kt:15:    fun mesh(): GtMeshDefaults = NetworkGenerator.MeshDefaults.let { GtMeshDefaults(it.REGION, it.MODEM_PRESET, it.HOP_LIMIT, it.TX_POWER, it.FREQUENCY_SLOT, it.ROLE) }
+grouptrack/GtCert17maprecipe.kt:44:object GtCert17maprecipe {
+grouptrack/GtCert17maprecipe.kt:46:    private fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r")
+grouptrack/GtCert17maprecipe.kt:48:    private class CertFiles : GtFiles {
+grouptrack/GtCert17maprecipe.kt:49:        override val fs: FileSystem = FileSystem.SYSTEM
+grouptrack/GtCert17maprecipe.kt:50:        override fun setLastModified(path: Path, epochMs: Long): Boolean = File(path.toString()).setLastModified(epochMs)
+grouptrack/GtCert17maprecipe.kt:51:        override fun lastModified(path: Path): Long = File(path.toString()).lastModified()
+grouptrack/GtCert17maprecipe.kt:52:        override fun list(dir: Path): List<Path> = (File(dir.toString()).listFiles() ?: emptyArray()).map { it.toOkioPath() }
+grouptrack/GtCert17maprecipe.kt:55:    private class CertPaths(private val root: Path, private val cache: Path) : GtImportPaths {
+grouptrack/GtCert17maprecipe.kt:56:        override fun groupTrackRoot(): Path = root
+grouptrack/GtCert17maprecipe.kt:57:        override fun tracksDir(): Path = root / "my_tracks"
+grouptrack/GtCert17maprecipe.kt:58:        override fun dir(name: String): Path = root / name
+grouptrack/GtCert17maprecipe.kt:59:        override fun cacheDir(): Path = cache
+grouptrack/GtCert17maprecipe.kt:60:        override fun filesDir(): Path = root / "files"
+grouptrack/GtCert17maprecipe.kt:67:    private object CertClock : GtClock {
+grouptrack/GtCert17maprecipe.kt:68:        override fun nowInstant(): String = java.time.Instant.ofEpochMilli(Cert17maprecipe.NOW).toString()
+grouptrack/GtCert17maprecipe.kt:70:        override fun localNow(): GtLocalTime = Cert17maprecipe.PINNED_LOCAL
+grouptrack/GtCert17maprecipe.kt:71:        override fun epochMs(): Long = Cert17maprecipe.NOW
+grouptrack/GtCert17maprecipe.kt:79:        fun selfCheck(): String? {
+grouptrack/GtCert17maprecipe.kt:80:            val u = java.time.LocalDateTime.ofInstant(
+grouptrack/GtCert17maprecipe.kt:82:            val p = Cert17maprecipe.PINNED_LOCAL
+grouptrack/GtCert17maprecipe.kt:83:            val ok = u.year == p.year && u.monthValue == p.month && u.dayOfMonth == p.day &&
+grouptrack/GtCert17maprecipe.kt:90:    private class OldSide(private val files: GtFiles, private val paths: GtImportPaths) : Cert17maprecipe.Side {
+grouptrack/GtCert17maprecipe.kt:92:        override fun run(fx: Cert17maprecipe.Fx, fresh: Boolean): Cert17maprecipe.Out {
+grouptrack/GtCert17maprecipe.kt:93:            val dir = paths.dir("recipes")
+grouptrack/GtCert17maprecipe.kt:100:            val fxFiles = Cert17maprecipe.overlay(files, fx.seed.toMap())
+grouptrack/GtCert17maprecipe.kt:101:            val store = ConvoyMapRecipeCertOld(fxFiles, paths, CertClock, Cert17maprecipe.FxEnv(fx))
+grouptrack/GtCert17maprecipe.kt:102:            val ret = if (fresh) store.writeFresh() else store.writeDaily()
+grouptrack/GtCert17maprecipe.kt:107:            var version = "null"; var created = "null"; var slotCount = "null"
+grouptrack/GtCert17maprecipe.kt:108:            val slots = ArrayList<String>(); val boxes = ArrayList<String>()
+grouptrack/GtCert17maprecipe.kt:109:            val text = ret?.let { try { fxFiles.fs.read(it) { readUtf8() } } catch (e: Exception) { null } }
+grouptrack/GtCert17maprecipe.kt:111:                val root = JSONObject(text)
+grouptrack/GtCert17maprecipe.kt:116:                val arr = root.optJSONArray("slots") ?: JSONArray()
+grouptrack/GtCert17maprecipe.kt:119:                    val o = arr.optJSONObject(i) ?: continue
+grouptrack/GtCert17maprecipe.kt:120:                    val bx = o.optJSONArray("boxes") ?: JSONArray()
+grouptrack/GtCert17maprecipe.kt:125:                        val b = bx.optJSONObject(j) ?: continue
+grouptrack/GtCert17maprecipe.kt:132:            val listing = try { fxFiles.list(dir).map { it.name }.sorted().joinToString(",") } catch (e: Exception) { "?" }
+grouptrack/GtCert17maprecipe.kt:137:    fun run(ctx: Context, w: Writer) {
+grouptrack/GtCert17maprecipe.kt:138:        val t0 = System.currentTimeMillis()
+grouptrack/GtCert17maprecipe.kt:139:        val base = File(ctx.cacheDir, "gtcert17maprecipe")
+grouptrack/GtCert17maprecipe.kt:141:        val oldRoot = File(base, "old").also { it.mkdirs() }
+grouptrack/GtCert17maprecipe.kt:142:        val newRoot = File(base, "new").also { it.mkdirs() }
+grouptrack/GtCert17maprecipe.kt:143:        val cache = File(base, "cache").also { it.mkdirs() }
+grouptrack/GtCert17maprecipe.kt:144:        val files = CertFiles()
+grouptrack/GtCert17maprecipe.kt:149:        val today = GtTime.local(CertClock.localNow(), "yyyy-MM-dd")
+grouptrack/GtCert17maprecipe.kt:152:        val oldMap = LinkedHashMap<String, String>()
+grouptrack/GtCert17maprecipe.kt:153:        val newMap = LinkedHashMap<String, String>()
+grouptrack/GtCert17maprecipe.kt:163:        var same = 0
+grouptrack/GtCert17maprecipe.kt:164:        var diff = 0
+grouptrack/GtCert17maprecipe.kt:165:        var expected = 0
+grouptrack/GtCert17maprecipe.kt:167:            val o = oldMap[k] ?: "(missing)"
+grouptrack/GtCert17maprecipe.kt:168:            val n = newMap[k] ?: "(missing)"
+grouptrack/GtCert17maprecipe.kt:169:            val whyExp = Cert17maprecipe.EXPECTED_DIFF[k]
 grouptrack/GtCert15f.kt:43:object GtCert15f {
 grouptrack/GtCert15f.kt:44:    private const val TAG = "CertRun"
 grouptrack/GtCert15f.kt:45:    private const val MAX_DIFF_LINES = 2000
@@ -9247,6 +9440,13 @@ grouptrack/GtHkCertStubs.kt:65:    fun parse(text: String): List<Pair<Double, Do
 grouptrack/GtHkCertStubs.kt:66:    fun hash(wkt: String): String = hashes[wkt] ?: ""
 grouptrack/GtHkCertStubs.kt:67:    fun useOf(cartoCode: String): String = "MOTORIZED"
 grouptrack/GtHkCertStubs.kt:70:    fun delete(f: File): Boolean = if (f.name in failDelete) false else f.delete()
+grouptrack/GtCert17blob.kt:24:object GtCert17blob {
+grouptrack/GtCert17blob.kt:25:    private fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r")
+grouptrack/GtCert17blob.kt:27:    fun run(ctx: Context, w: Writer) {
+grouptrack/GtCert17blob.kt:28:        val t0 = System.currentTimeMillis()
+grouptrack/GtCert17blob.kt:29:        val base = File(ctx.cacheDir, "gtcert17blob")
+grouptrack/GtCert17blob.kt:31:        val db = File(base, "probe.db")
+grouptrack/GtCert17blob.kt:32:        var n = 0
 grouptrack/GtCert16c.kt:35:object GtCert16c {
 grouptrack/GtCert16c.kt:36:    private const val TAG = "CertRun"
 grouptrack/GtCert16c.kt:37:    private const val MAX_DIFF_LINES = 2000
@@ -9634,6 +9834,49 @@ grouptrack/MapRecipes.kt:120:    fun receive(ctx: Context, displayName: String?,
 grouptrack/MapRecipes.kt:124:            var f = File(receivedDir(ctx), "$base.gtmaps"); var k = 2
 grouptrack/MapRecipes.kt:133:        val r = routeOf(o) ?: return ""
 grouptrack/MapRecipes.kt:140:    private fun bringForward(ctx: Context) {
+grouptrack/GtCert17mapstate.kt:42:object GtCert17mapstate {
+grouptrack/GtCert17mapstate.kt:44:    private fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r")
+grouptrack/GtCert17mapstate.kt:47:    private class CertFiles : GtFiles {
+grouptrack/GtCert17mapstate.kt:48:        override val fs: FileSystem = FileSystem.SYSTEM
+grouptrack/GtCert17mapstate.kt:49:        override fun setLastModified(path: Path, epochMs: Long): Boolean = File(path.toString()).setLastModified(epochMs)
+grouptrack/GtCert17mapstate.kt:50:        override fun lastModified(path: Path): Long = File(path.toString()).lastModified()
+grouptrack/GtCert17mapstate.kt:51:        override fun list(dir: Path): List<Path> = (File(dir.toString()).listFiles() ?: emptyArray()).map { it.toOkioPath() }
+grouptrack/GtCert17mapstate.kt:55:    private class CertPaths(private val root: Path, private val cache: Path) : GtImportPaths {
+grouptrack/GtCert17mapstate.kt:56:        override fun groupTrackRoot(): Path = root
+grouptrack/GtCert17mapstate.kt:57:        override fun tracksDir(): Path = root / "my_tracks"
+grouptrack/GtCert17mapstate.kt:58:        override fun dir(name: String): Path = root / name
+grouptrack/GtCert17mapstate.kt:59:        override fun cacheDir(): Path = cache
+grouptrack/GtCert17mapstate.kt:60:        override fun filesDir(): Path = root / "files"
+grouptrack/GtCert17mapstate.kt:64:    private class OldSide(private val files: GtFiles, private val paths: GtImportPaths) : Cert17mapstate.Side {
+grouptrack/GtCert17mapstate.kt:65:        private val store = MapStateStoreCertOld(files, paths)
+grouptrack/GtCert17mapstate.kt:67:        private fun write(name: String, text: String, exists: Boolean) {
+grouptrack/GtCert17mapstate.kt:68:            val d = paths.dir("state"); files.fs.createDirectories(d)
+grouptrack/GtCert17mapstate.kt:69:            val p = d / name
+grouptrack/GtCert17mapstate.kt:74:        private fun flat(s: MapStateStore.MapSnapshot): List<String> =
+grouptrack/GtCert17mapstate.kt:76:                val ts = s.types[t]
+grouptrack/GtCert17mapstate.kt:86:        private fun defaultsSnap(): MapStateStore.MapSnapshot = MapStateStore.MapSnapshot(
+grouptrack/GtCert17mapstate.kt:91:        private fun snap(s: MapStateStore.MapSnapshot) = Cert17mapstate.snapOf(flat(s), flat(defaultsSnap()))
+grouptrack/GtCert17mapstate.kt:93:        override fun readMapAfter(mapKey: String, text: String, exists: Boolean): Cert17mapstate.Snap {
+grouptrack/GtCert17mapstate.kt:96:        override fun readViewAfter(mapKey: String, text: String, exists: Boolean): String {
+grouptrack/GtCert17mapstate.kt:98:            val v = store.readView(mapKey); return v.mapType + "|" + v.offline
+grouptrack/GtCert17mapstate.kt:100:        override fun roundTrip(mapKey: String, text: String): Cert17mapstate.Snap {
+grouptrack/GtCert17mapstate.kt:105:        override fun rideKey(): String = store.rideKey()
+grouptrack/GtCert17mapstate.kt:106:        override fun typeDefaults(): String =
+grouptrack/GtCert17mapstate.kt:110:    fun run(ctx: Context, w: Writer) {
+grouptrack/GtCert17mapstate.kt:111:        val t0 = System.currentTimeMillis()
+grouptrack/GtCert17mapstate.kt:112:        val base = File(ctx.cacheDir, "gtcert17mapstate")
+grouptrack/GtCert17mapstate.kt:114:        val oldRoot = File(base, "old").also { it.mkdirs() }
+grouptrack/GtCert17mapstate.kt:115:        val newRoot = File(base, "new").also { it.mkdirs() }
+grouptrack/GtCert17mapstate.kt:116:        val cache = File(base, "cache").also { it.mkdirs() }
+grouptrack/GtCert17mapstate.kt:117:        val files = CertFiles()
+grouptrack/GtCert17mapstate.kt:120:        val oldMap = LinkedHashMap<String, String>()
+grouptrack/GtCert17mapstate.kt:121:        val newMap = LinkedHashMap<String, String>()
+grouptrack/GtCert17mapstate.kt:129:        var same = 0
+grouptrack/GtCert17mapstate.kt:130:        var diff = 0
+grouptrack/GtCert17mapstate.kt:131:        var expected = 0
+grouptrack/GtCert17mapstate.kt:133:            val o = oldMap[k] ?: "(missing)"
+grouptrack/GtCert17mapstate.kt:134:            val n = newMap[k] ?: "(missing)"
+grouptrack/GtCert17mapstate.kt:135:            val whyExp = Cert17mapstate.EXPECTED_DIFF[k]
 grouptrack/GtHkCertLog.kt:9:object GtHkCertLog {
 grouptrack/GtHkCertLog.kt:10:    private val lines = ArrayList<String>()
 grouptrack/GtHkCertLog.kt:11:    private val probes = LinkedHashMap<String, String>()
@@ -9670,6 +9913,64 @@ grouptrack/GtCert17g2g.kt:38:        var same = 0
 grouptrack/GtCert17g2g.kt:39:        var diff = 0
 grouptrack/GtCert17g2g.kt:41:            val o = oldMap[k] ?: "(missing)"
 grouptrack/GtCert17g2g.kt:42:            val n = newMap[k] ?: "(missing)"
+grouptrack/GtCert17mbtiles.kt:39:object GtCert17mbtiles {
+grouptrack/GtCert17mbtiles.kt:41:    private fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r")
+grouptrack/GtCert17mbtiles.kt:47:    private class CertTileEnv(private val dir: File) : GtTileStoreEnv {
+grouptrack/GtCert17mbtiles.kt:48:        private val handles = HashMap<String, SQLiteConnection>()
+grouptrack/GtCert17mbtiles.kt:50:        private fun fileFor(type: String) = File(dir.also { if (!it.exists()) it.mkdirs() }, "$type.mbtiles")
+grouptrack/GtCert17mbtiles.kt:53:        override fun connection(type: String): SQLiteConnection? {
+grouptrack/GtCert17mbtiles.kt:56:                val f = fileFor(type)
+grouptrack/GtCert17mbtiles.kt:57:                val fresh = !f.exists()
+grouptrack/GtCert17mbtiles.kt:58:                val c = gtOpenDatabase(f.absolutePath, false)
+grouptrack/GtCert17mbtiles.kt:66:        override fun storeExists(type: String): Boolean = fileFor(type).exists()
+grouptrack/GtCert17mbtiles.kt:68:        override fun deleteStore(type: String): Boolean {
+grouptrack/GtCert17mbtiles.kt:70:            val f = fileFor(type)
+grouptrack/GtCert17mbtiles.kt:71:            var ok = true
+grouptrack/GtCert17mbtiles.kt:73:                val s = File(f.parentFile, f.name + suffix)
+grouptrack/GtCert17mbtiles.kt:79:        private fun exec(c: SQLiteConnection, sql: String) {
+grouptrack/GtCert17mbtiles.kt:80:            val st = c.prepare(sql); try { st.step() } finally { st.close() }
+grouptrack/GtCert17mbtiles.kt:83:        private fun ensureSchema(c: SQLiteConnection) {
+grouptrack/GtCert17mbtiles.kt:95:        private fun initMetadata(c: SQLiteConnection, type: String) {
+grouptrack/GtCert17mbtiles.kt:97:                val st = c.prepare("INSERT OR REPLACE INTO metadata(name,value) VALUES(?,?)")
+grouptrack/GtCert17mbtiles.kt:102:        fun teardown() {
+grouptrack/GtCert17mbtiles.kt:109:    private class OldSide(private val store: MBTilesStoreCertOld) : Cert17mbtiles.Side {
+grouptrack/GtCert17mbtiles.kt:112:        private fun gt(k: TileKey) = GtTileKey(z = k.z, x = k.x, y = k.y)
+grouptrack/GtCert17mbtiles.kt:113:        private fun old(k: GtTileKey) = TileKey(z = k.z, x = k.x, y = k.y)
+grouptrack/GtCert17mbtiles.kt:115:        override fun seed(slot: String, tiles: List<GtTileKey>, big: Boolean) {
+grouptrack/GtCert17mbtiles.kt:120:        override fun autoVacuum(slot: String) = store.autoVacuum(slot)
+grouptrack/GtCert17mbtiles.kt:121:        override fun insertTile(slot: String, z: Int, x: Int, y: Int, bytes: ByteArray) = store.insertTile(slot, z, x, y, bytes)
+grouptrack/GtCert17mbtiles.kt:122:        override fun readTile(slot: String, z: Int, x: Int, y: Int) = store.readTile(slot, z, x, y)
+grouptrack/GtCert17mbtiles.kt:123:        override fun hasTile(slot: String, z: Int, x: Int, y: Int) = store.hasTile(slot, z, x, y)
+grouptrack/GtCert17mbtiles.kt:124:        override fun countInTileRange(slot: String, z: Int, xMin: Long, xMax: Long, yMin: Long, yMax: Long) =
+grouptrack/GtCert17mbtiles.kt:126:        override fun countTileRange(slot: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int) =
+grouptrack/GtCert17mbtiles.kt:128:        override fun tileExtentAtZoom(slot: String, z: Int) = store.tileExtentAtZoom(slot, z)
+grouptrack/GtCert17mbtiles.kt:129:        override fun zoomLevelsPresent(slot: String) = store.zoomLevelsPresent(slot)
+grouptrack/GtCert17mbtiles.kt:130:        override fun countAtZoom(slot: String, z: Int) = store.countAtZoom(slot, z)
+grouptrack/GtCert17mbtiles.kt:131:        override fun xyAtZoom(slot: String, z: Int) = store.xyAtZoom(slot, z)
+grouptrack/GtCert17mbtiles.kt:132:        override fun countByParent(slot: String, z: Int, shift: Int) = store.countByParent(slot, z, shift)
+grouptrack/GtCert17mbtiles.kt:133:        override fun scanKeys(slot: String) = store.scanKeys(slot).map { gt(it) }
+grouptrack/GtCert17mbtiles.kt:134:        override fun tilesInBounds(slot: String, north: Double, south: Double, east: Double, west: Double) =
+grouptrack/GtCert17mbtiles.kt:136:        override fun deleteTileRange(slot: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int) =
+grouptrack/GtCert17mbtiles.kt:138:        override fun countTiles(slot: String, tiles: List<GtTileKey>) = store.countTiles(slot, tiles.map { old(it) })
+grouptrack/GtCert17mbtiles.kt:139:        override fun deleteTiles(slot: String, tiles: List<GtTileKey>) = store.deleteTiles(slot, tiles.map { old(it) })
+grouptrack/GtCert17mbtiles.kt:140:        override fun storeExists(slot: String) = store.storeExists(slot)
+grouptrack/GtCert17mbtiles.kt:141:        override fun reclaimableBytes(slot: String) = store.reclaimableBytes(slot)
+grouptrack/GtCert17mbtiles.kt:142:        override fun deleteSource(slot: String) = store.deleteSource(slot)
+grouptrack/GtCert17mbtiles.kt:145:    fun run(ctx: Context, w: Writer) {
+grouptrack/GtCert17mbtiles.kt:146:        val t0 = System.currentTimeMillis()
+grouptrack/GtCert17mbtiles.kt:147:        val base = File(ctx.cacheDir, "gtcert17mbtiles")
+grouptrack/GtCert17mbtiles.kt:149:        val oldDir = File(base, "old").also { it.mkdirs() }
+grouptrack/GtCert17mbtiles.kt:150:        val newDir = File(base, "new").also { it.mkdirs() }
+grouptrack/GtCert17mbtiles.kt:152:        val oldStore = MBTilesStoreCertOld(oldDir)
+grouptrack/GtCert17mbtiles.kt:153:        val newEnv = CertTileEnv(newDir)
+grouptrack/GtCert17mbtiles.kt:155:        val oldMap = LinkedHashMap<String, String>()
+grouptrack/GtCert17mbtiles.kt:156:        val newMap = LinkedHashMap<String, String>()
+grouptrack/GtCert17mbtiles.kt:168:        var same = 0
+grouptrack/GtCert17mbtiles.kt:169:        var diff = 0
+grouptrack/GtCert17mbtiles.kt:170:        var expected = 0
+grouptrack/GtCert17mbtiles.kt:172:            val o = oldMap[k] ?: "(missing)"
+grouptrack/GtCert17mbtiles.kt:173:            val n = newMap[k] ?: "(missing)"
+grouptrack/GtCert17mbtiles.kt:174:            val whyExp = Cert17mbtiles.EXPECTED_DIFF[k]
 grouptrack/GtCert17g1c.kt:23:object GtCert17g1c {
 grouptrack/GtCert17g1c.kt:25:    private fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r")
 grouptrack/GtCert17g1c.kt:28:    private class OldSide : Cert17g1c.Side {
@@ -11081,159 +11382,159 @@ grouptrack/GtCertRun.kt:88:                    if (mode == "rides") { val fz = f
 grouptrack/GtCertRun.kt:96:                    if (mode == "geom") { val fz = frozen(app)
 grouptrack/GtCertRun.kt:98:                        else { w.write("# frozen=${fz.stamp}\n"); val gc = gtOpenDatabase(fz.spatial, true)
 grouptrack/GtCertRun.kt:99:                            try { val s = com.grouptrack.shared.cert.CertGeom.run(gc, { l -> w.write(l); w.write("\n") }, { p -> Log.i(TAG, "GTCERT geom: $p") })
-grouptrack/GtCertRun.kt:138:                    if (mode == "golden15a") { val g = GtGolden15a.write(w); Log.i(TAG, "GTCERT golden15a: ${g.lines} lines, ${g.diffs} DIFF on the Droid") }
-grouptrack/GtCertRun.kt:140:                        var n = 0
-grouptrack/GtCertRun.kt:145:                        val t1 = System.currentTimeMillis(); var o = 0
-grouptrack/GtCertRun.kt:153:                val name = ImportConverter.saveToDownloads(app, out)
-grouptrack/GtCertRun.kt:162:    private object OldWrite : com.grouptrack.shared.cert.CertWrite.Api {
-grouptrack/GtCertRun.kt:163:        override fun insertWaypointWithId(id: String, name: String, lat: Double, lon: Double, type: String) = SpatialDbManager.insertWaypointWithId(id, name, lat, lon, type)
-grouptrack/GtCertRun.kt:164:        override fun renameWaypoint(id: String, n: String) { SpatialDbManager.renameWaypoint(id, n) }
-grouptrack/GtCertRun.kt:165:        override fun deleteWaypoint(id: String) { SpatialDbManager.deleteWaypoint(id) }
-grouptrack/GtCertRun.kt:166:        override fun changeWaypointType(id: String, t: String) { SpatialDbManager.changeWaypointType(id, t) }
-grouptrack/GtCertRun.kt:167:        override fun insertRoute(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) = SpatialDbManager.insertRoute(name, wkt, a, b, c, d)
-grouptrack/GtCertRun.kt:168:        override fun renameRoute(id: String, n: String) { SpatialDbManager.renameRoute(id, n) }
-grouptrack/GtCertRun.kt:169:        override fun deleteRoute(id: String) { SpatialDbManager.deleteRoute(id) }
-grouptrack/GtCertRun.kt:170:        override fun writeRouteNotes(routeId: String, notesJson: String) = SpatialDbManager.writeRouteNotes(routeId, org.json.JSONObject(notesJson))
-grouptrack/GtCertRun.kt:171:        override fun deleteRouteNotes(routeId: String) = SpatialDbManager.deleteRouteNotes(routeId)
-grouptrack/GtCertRun.kt:172:        override fun setRouteAnchor(routeId: String, lat: Double, lon: Double, name: String) = SpatialDbManager.setRouteAnchor(routeId, lat, lon, name)
-grouptrack/GtCertRun.kt:173:        override fun addAlias(type: String, id: String, name: String, hash: String) { SpatialDbManager.addAlias(type, id, name, hash, null) }
-grouptrack/GtCertRun.kt:174:        override fun renameAlias(aliasId: String, t: String) { SpatialDbManager.renameAlias(aliasId, t) }
-grouptrack/GtCertRun.kt:175:        override fun deleteAlias(aliasId: String) { SpatialDbManager.deleteAlias(aliasId) }
-grouptrack/GtCertRun.kt:176:        override fun setPreferredAlias(type: String, id: String, aliasId: String) { SpatialDbManager.setPreferredAlias(type, id, aliasId) }
-grouptrack/GtCertRun.kt:177:        override fun insertTrack(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) =
-grouptrack/GtCertRun.kt:179:        override fun renameTrack(id: String, n: String) { SpatialDbManager.renameTrackInDb(id, n) }
-grouptrack/GtCertRun.kt:180:        override fun deleteTrack(id: String) { SpatialDbManager.deleteTrackFromDb(id) }
-grouptrack/GtCertRun.kt:181:        override fun beginDedup() { SpatialDbManager.beginDedupSession() }
-grouptrack/GtCertRun.kt:182:        override fun endDedup() { SpatialDbManager.endDedupSession() }
-grouptrack/GtCertRun.kt:183:        override fun sourceUidSeen(s: String, u: String) = SpatialDbManager.sourceUidSeen(s, u)
-grouptrack/GtCertRun.kt:184:        override fun markSourceUid(s: String, u: String) { SpatialDbManager.markSourceUid(s, u) }
-grouptrack/GtCertRun.kt:185:        override fun insertTrail(id: String, name: String?, wkt: String, a: Double, b: Double, c: Double, d: Double, created: String) =
-grouptrack/GtCertRun.kt:187:        override fun deleteTrail(id: String) { SpatialDbManager.deleteTrailFromDb(id) }
-grouptrack/GtCertRun.kt:188:        override fun clearAllTrails() = SpatialDbManager.clearAllTrailData().let { "${it.trails},${it.properties},${it.aliases},${it.error}" }
-grouptrack/GtCertRun.kt:196:    private fun runWrites(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, w: java.io.Writer) {
-grouptrack/GtCertRun.kt:197:        val e = edb ?: run { Log.e(TAG, "GTCERTW no data database -- writes not run"); return }
-grouptrack/GtCertRun.kt:198:        val dir = java.io.File(app.cacheDir, "gtcertw"); dir.deleteRecursively(); dir.mkdirs()
-grouptrack/GtCertRun.kt:199:        val tracksDir = com.geeksville.mesh.convoy.ConvoyTrackOps.tracksDir()
-grouptrack/GtCertRun.kt:200:        val exists: (String) -> Boolean = { h -> java.io.File(tracksDir, "$h.gpx").exists() }
-grouptrack/GtCertRun.kt:201:        fun copy(tag: String): Pair<String, String> {
-grouptrack/GtCertRun.kt:202:            val s = java.io.File(dir, "$tag-spatial.db"); val x = java.io.File(dir, "$tag-data.db")
-grouptrack/GtCertRun.kt:205:        val t0 = System.currentTimeMillis()
-grouptrack/GtCertRun.kt:206:        val (ns, ne) = copy("new"); val (os, oe) = copy("old")
-grouptrack/GtCertRun.kt:209:            val c = gtOpenDatabase(ns, false); val d = gtOpenDatabase(ne, false)
-grouptrack/GtCertRun.kt:211:                val gw = com.grouptrack.shared.spatial.GtWrite(c, d, { java.util.UUID.randomUUID().toString() }, { java.time.Instant.now().toString() })
-grouptrack/GtCertRun.kt:214:            val oS = SQLiteDatabase.openDatabase(os, null, SQLiteDatabase.OPEN_READWRITE)
-grouptrack/GtCertRun.kt:215:            val oE = SQLiteDatabase.openDatabase(oe, null, SQLiteDatabase.OPEN_READWRITE)
-grouptrack/GtCertRun.kt:216:            val prev = SpatialDbManager.certSwapDatabases(oS, oE)
-grouptrack/GtCertRun.kt:218:                val c2 = gtOpenDatabase(os, true); val d2 = gtOpenDatabase(oe, true)
-grouptrack/GtCertRun.kt:235:    private class Frozen(val spatial: String, val data: String?, val stamp: String)
-grouptrack/GtCertRun.kt:236:    private fun frozenDir(app: Context) = java.io.File(app.filesDir, "gtcert_frozen")
-grouptrack/GtCertRun.kt:237:    private fun freeze(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, stamp: String): Frozen {
-grouptrack/GtCertRun.kt:238:        val t = System.currentTimeMillis()
-grouptrack/GtCertRun.kt:239:        val dir = frozenDir(app); dir.deleteRecursively(); dir.mkdirs()
-grouptrack/GtCertRun.kt:240:        fun cp(src: String, name: String): String {
-grouptrack/GtCertRun.kt:241:            val d = java.io.File(dir, name); java.io.File(src).copyTo(d, true)
-grouptrack/GtCertRun.kt:242:            val wal = java.io.File("$src-wal"); if (wal.exists() && wal.length() > 0) wal.copyTo(java.io.File(dir, "$name-wal"), true)
-grouptrack/GtCertRun.kt:245:        val s = cp(db.path, "spatial.db"); val d = edb?.let { cp(it.path, "data.db") }
-grouptrack/GtCertRun.kt:251:    private fun frozen(app: Context): Frozen? {
-grouptrack/GtCertRun.kt:252:        val dir = frozenDir(app); val st = java.io.File(dir, "stamp.txt"); val s = java.io.File(dir, "spatial.db")
-grouptrack/GtCertRun.kt:254:        val d = java.io.File(dir, "data.db")
-grouptrack/GtCertRun.kt:259:    private object OldRead : com.grouptrack.shared.cert.CertRead.Api {
-grouptrack/GtCertRun.kt:260:        override fun search(type: String, term: String) = SpatialDbManager.searchByName(type, term)
-grouptrack/GtCertRun.kt:261:        override fun detail(type: String, id: String): Map<String, String?> = SpatialDbManager.getArtifactDetail(type, id)
-grouptrack/GtCertRun.kt:262:        override fun aliases(type: String, id: String) = SpatialDbManager.getAliasesFor(type, id)
-grouptrack/GtCertRun.kt:263:        override fun list(table: String) = SpatialDbManager.queryArtifactList(table, -90.0, -180.0, 90.0, 180.0)
-grouptrack/GtCertRun.kt:264:        override fun corridor() = SpatialDbManager.queryAllTracksForCorridor()
-grouptrack/GtCertRun.kt:265:        override fun trailheads(lat: Double, lon: Double) = SpatialDbManager.trailheadsNear(lat, lon).map { listOf<Any>(it.waypointId, it.name, it.lat, it.lon, it.miles) }
-grouptrack/GtCertRun.kt:266:        override fun routeUsing(waypointId: String) = SpatialDbManager.routeUsingTrailhead(waypointId)
-grouptrack/GtCertRun.kt:267:        override fun routeName(id: String) = SpatialDbManager.routeNameById(id)
-grouptrack/GtCertRun.kt:268:        override fun routeHash(id: String) = SpatialDbManager.routeGeomHash(id)
-grouptrack/GtCertRun.kt:269:        override fun routeByHash(hash: String) = SpatialDbManager.findRouteIdByHash(hash)
-grouptrack/GtCertRun.kt:270:        override fun nameExists(name: String) = SpatialDbManager.routeNameExists(name)
-grouptrack/GtCertRun.kt:271:        override fun nextNumber(base: String) = SpatialDbManager.nextRouteNumber(base)
-grouptrack/GtCertRun.kt:272:        override fun trackName(id: String) = SpatialDbManager.trackName(id)
-grouptrack/GtCertRun.kt:273:        override fun trackGeom(id: String) = SpatialDbManager.trackGeometry(id)
-grouptrack/GtCertRun.kt:274:        override fun waypointAt(lat: Double, lon: Double) = SpatialDbManager.waypointNameAt(lat, lon)
-grouptrack/GtCertRun.kt:275:        override fun geomHash(wkt: String) = SpatialDbManager.computeGeomHash(wkt)
-grouptrack/GtCertRun.kt:276:        override fun parseGpx(text: String) = SpatialDbManager.parseGpxTrackPoints(text)
-grouptrack/GtCertRun.kt:277:        override fun trackIdForGpx(text: String) = SpatialDbManager.trackIdForGpxText(text)
-grouptrack/GtCertRun.kt:281:    private fun notesFor(routeId: String): Pair<String, String?> {
-grouptrack/GtCertRun.kt:282:        val notes = SpatialDbManager.readRouteNotes(routeId)
-grouptrack/GtCertRun.kt:286:    fun countFeatures(json: String): Int {
-grouptrack/GtCertRun.kt:287:        var n = 0; var i = json.indexOf("{\"type\":\"Feature\""); while (i >= 0) { n++; i = json.indexOf("{\"type\":\"Feature\"", i + 1) }; return n
-grouptrack/GtCertRun.kt:292:    private fun runOld(conn: androidx.sqlite.SQLiteConnection, db: SQLiteDatabase, edb: SQLiteDatabase?, saved: GtCert.Combo,
-grouptrack/GtCertRun.kt:294:        val cats = GtCert.categories(conn)
-grouptrack/GtCertRun.kt:296:            val w = legacyWhere(cb.land, cb.restricted, cb.use, cb.off)
-grouptrack/GtCertRun.kt:297:            val got = ArrayList<String>()
-grouptrack/GtCertRun.kt:302:        val tp = GtCert.pages(conn, "trails", "trail_id", true)
-grouptrack/GtCertRun.kt:304:            val w = legacyWhere("ALL", r, "ALL", emptySet())
-grouptrack/GtCertRun.kt:306:                val rows = queryTrails(db, edb, -90.0, -180.0, 90.0, 180.0, 1_000_000, w + frag)
-grouptrack/GtCertRun.kt:314:        val lp = GtCert.pages(conn, "land_areas", "area_id", false)
-grouptrack/GtCertRun.kt:316:            val json = landGeoJson(db, -90.0, -180.0, 90.0, 180.0, pub, rst, 1_000_000, frag)
-grouptrack/GtCertRun.kt:320:        fun gpxPages(kind: String, table: String, col: String, one: (String) -> String?) {
-grouptrack/GtCertRun.kt:322:                val sb = StringBuilder(); var n = 0
-grouptrack/GtCertRun.kt:323:                for (id in GtCert.ids(conn, "SELECT $col FROM $table WHERE 1=1$frag ORDER BY $col")) { val g = one(id); if (g != null) { sb.append(g).append('\u0000'); n++ } else sb.append("NULL\u0000") }
-grouptrack/GtCertRun.kt:334:    private const val GPX_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-grouptrack/GtCertRun.kt:338:    private const val GPX_FOOTER = "</gpx>"
-grouptrack/GtCertRun.kt:339:    private fun xmlEscape(s: String): String =
-grouptrack/GtCertRun.kt:343:    private fun legacyWhere(land: String, restricted: Boolean, use: String, off: Set<String>): String {
-grouptrack/GtCertRun.kt:344:        val sb = StringBuilder()
-grouptrack/GtCertRun.kt:346:        val lands = ArrayList<String>()
-grouptrack/GtCertRun.kt:358:        val cats = off.filter { it != "__unofficial" }
-grouptrack/GtCertRun.kt:367:    fun queryTrails(db: SQLiteDatabase, edb: SQLiteDatabase?, south: Double, west: Double, north: Double, east: Double, limit: Int, where: String): List<Map<String, String?>> {
-grouptrack/GtCertRun.kt:368:        val results = mutableListOf<MutableMap<String, String?>>()
-grouptrack/GtCertRun.kt:369:        val cursor = db.rawQuery(
-grouptrack/GtCertRun.kt:417:            val wkt = cursor.getString(2)
-grouptrack/GtCertRun.kt:440:                val ids = results.mapNotNull { it["trail_id"] }
-grouptrack/GtCertRun.kt:442:                    val placeholders = ids.joinToString(",") { "?" }
-grouptrack/GtCertRun.kt:443:                    val pc = edb.rawQuery(
-grouptrack/GtCertRun.kt:449:                    val byId = HashMap<String, Map<String, String?>>()
-grouptrack/GtCertRun.kt:452:                            val tid = it.getString(0) ?: continue
-grouptrack/GtCertRun.kt:466:                        val props = byId[row["trail_id"]] ?: continue
-grouptrack/GtCertRun.kt:469:                            val existing = row[k]
-grouptrack/GtCertRun.kt:483:    fun trailGeoJson(trails: List<Map<String, String?>>, restricted: Boolean): String {
-grouptrack/GtCertRun.kt:484:        val sb = StringBuilder()
-grouptrack/GtCertRun.kt:486:        var first = true
-grouptrack/GtCertRun.kt:492:                val rg0 = trail["RstGeom"] ?: ""
-grouptrack/GtCertRun.kt:494:                    val rc0 = SpatialDbManager.wktToGeoJsonCoords(rg0)
-grouptrack/GtCertRun.kt:501:            val coords = SpatialDbManager.wktToGeoJsonCoords(wkt)
-grouptrack/GtCertRun.kt:505:            val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
-grouptrack/GtCertRun.kt:526:            val rg = trail["RstGeom"] ?: ""
-grouptrack/GtCertRun.kt:528:                val rc = SpatialDbManager.wktToGeoJsonCoords(rg)
-grouptrack/GtCertRun.kt:537:    fun waypointGpx(db: SQLiteDatabase, waypointId: String): Pair<String, String>? {
-grouptrack/GtCertRun.kt:539:            val cursor = db.rawQuery(
-grouptrack/GtCertRun.kt:544:                val name = c.getString(0) ?: "Unnamed"
-grouptrack/GtCertRun.kt:545:                val type = c.getString(1) ?: ""
-grouptrack/GtCertRun.kt:546:                val geom = c.getString(2) ?: return null
-grouptrack/GtCertRun.kt:547:                val desc = if (c.columnCount > 3) (c.getString(3) ?: "") else ""
-grouptrack/GtCertRun.kt:548:                val coords = geom.removePrefix("POINT(").removeSuffix(")").trim().split(" ")
-grouptrack/GtCertRun.kt:550:                val lon = coords[0]
-grouptrack/GtCertRun.kt:551:                val lat = coords[1]
-grouptrack/GtCertRun.kt:552:                val sb = StringBuilder()
-grouptrack/GtCertRun.kt:568:    fun routeGpx(db: SQLiteDatabase, routeId: String): Pair<String, String>? {
-grouptrack/GtCertRun.kt:570:            val cursor = db.rawQuery(
-grouptrack/GtCertRun.kt:575:                val name = c.getString(0) ?: "Unnamed"
-grouptrack/GtCertRun.kt:576:                val geom = c.getString(1) ?: return null
-grouptrack/GtCertRun.kt:590:                val notes = SpatialDbManager.readRouteNotes(routeId)
-grouptrack/GtCertRun.kt:591:                val desc = notes?.optJSONObject("narrative")?.optString("headline") ?: ""
-grouptrack/GtCertRun.kt:592:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-grouptrack/GtCertRun.kt:593:                val points = coordStr.split(",").mapNotNull { pt ->
-grouptrack/GtCertRun.kt:594:                    val parts = pt.trim().split(" ")
-grouptrack/GtCertRun.kt:597:                val sb = StringBuilder()
-grouptrack/GtCertRun.kt:625:                var idx = 1
-grouptrack/GtCertRun.kt:653:    fun trailGpx(db: SQLiteDatabase, trailId: String): Pair<String, String>? {
-grouptrack/GtCertRun.kt:655:            val cursor = db.rawQuery(
-grouptrack/GtCertRun.kt:660:                val name = c.getString(0) ?: "Unnamed"
-grouptrack/GtCertRun.kt:661:                val geom = c.getString(1) ?: return null
-grouptrack/GtCertRun.kt:662:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-grouptrack/GtCertRun.kt:663:                val points = coordStr.split(",").mapNotNull { pt ->
-grouptrack/GtCertRun.kt:664:                    val parts = pt.trim().split(" ")
-grouptrack/GtCertRun.kt:667:                val sb = StringBuilder()
-grouptrack/GtCertRun.kt:686:    fun landGeoJson(db: SQLiteDatabase, s: Double, w: Double, n: Double, e: Double, pub: Boolean, rst: Boolean, limit: Int, extraWhere: String): String {
-grouptrack/GtCertRun.kt:688:        val kinds = ArrayList<String>()
-grouptrack/GtCertRun.kt:692:        val sb = StringBuilder(64 * 1024)
-grouptrack/GtCertRun.kt:694:        var first = true
-grouptrack/GtCertRun.kt:699:                fun q(i: Int) = SpatialDbManager.jsonEsc(c.getString(i) ?: "")
-grouptrack/GtCertRun.kt:716:                            val sp = pt.indexOf(' ')
+grouptrack/GtCertRun.kt:142:                    if (mode == "golden15a") { val g = GtGolden15a.write(w); Log.i(TAG, "GTCERT golden15a: ${g.lines} lines, ${g.diffs} DIFF on the Droid") }
+grouptrack/GtCertRun.kt:150:                        var n = 0
+grouptrack/GtCertRun.kt:155:                        val t1 = System.currentTimeMillis(); var o = 0
+grouptrack/GtCertRun.kt:163:                val name = ImportConverter.saveToDownloads(app, out)
+grouptrack/GtCertRun.kt:172:    private object OldWrite : com.grouptrack.shared.cert.CertWrite.Api {
+grouptrack/GtCertRun.kt:173:        override fun insertWaypointWithId(id: String, name: String, lat: Double, lon: Double, type: String) = SpatialDbManager.insertWaypointWithId(id, name, lat, lon, type)
+grouptrack/GtCertRun.kt:174:        override fun renameWaypoint(id: String, n: String) { SpatialDbManager.renameWaypoint(id, n) }
+grouptrack/GtCertRun.kt:175:        override fun deleteWaypoint(id: String) { SpatialDbManager.deleteWaypoint(id) }
+grouptrack/GtCertRun.kt:176:        override fun changeWaypointType(id: String, t: String) { SpatialDbManager.changeWaypointType(id, t) }
+grouptrack/GtCertRun.kt:177:        override fun insertRoute(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) = SpatialDbManager.insertRoute(name, wkt, a, b, c, d)
+grouptrack/GtCertRun.kt:178:        override fun renameRoute(id: String, n: String) { SpatialDbManager.renameRoute(id, n) }
+grouptrack/GtCertRun.kt:179:        override fun deleteRoute(id: String) { SpatialDbManager.deleteRoute(id) }
+grouptrack/GtCertRun.kt:180:        override fun writeRouteNotes(routeId: String, notesJson: String) = SpatialDbManager.writeRouteNotes(routeId, org.json.JSONObject(notesJson))
+grouptrack/GtCertRun.kt:181:        override fun deleteRouteNotes(routeId: String) = SpatialDbManager.deleteRouteNotes(routeId)
+grouptrack/GtCertRun.kt:182:        override fun setRouteAnchor(routeId: String, lat: Double, lon: Double, name: String) = SpatialDbManager.setRouteAnchor(routeId, lat, lon, name)
+grouptrack/GtCertRun.kt:183:        override fun addAlias(type: String, id: String, name: String, hash: String) { SpatialDbManager.addAlias(type, id, name, hash, null) }
+grouptrack/GtCertRun.kt:184:        override fun renameAlias(aliasId: String, t: String) { SpatialDbManager.renameAlias(aliasId, t) }
+grouptrack/GtCertRun.kt:185:        override fun deleteAlias(aliasId: String) { SpatialDbManager.deleteAlias(aliasId) }
+grouptrack/GtCertRun.kt:186:        override fun setPreferredAlias(type: String, id: String, aliasId: String) { SpatialDbManager.setPreferredAlias(type, id, aliasId) }
+grouptrack/GtCertRun.kt:187:        override fun insertTrack(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double) =
+grouptrack/GtCertRun.kt:189:        override fun renameTrack(id: String, n: String) { SpatialDbManager.renameTrackInDb(id, n) }
+grouptrack/GtCertRun.kt:190:        override fun deleteTrack(id: String) { SpatialDbManager.deleteTrackFromDb(id) }
+grouptrack/GtCertRun.kt:191:        override fun beginDedup() { SpatialDbManager.beginDedupSession() }
+grouptrack/GtCertRun.kt:192:        override fun endDedup() { SpatialDbManager.endDedupSession() }
+grouptrack/GtCertRun.kt:193:        override fun sourceUidSeen(s: String, u: String) = SpatialDbManager.sourceUidSeen(s, u)
+grouptrack/GtCertRun.kt:194:        override fun markSourceUid(s: String, u: String) { SpatialDbManager.markSourceUid(s, u) }
+grouptrack/GtCertRun.kt:195:        override fun insertTrail(id: String, name: String?, wkt: String, a: Double, b: Double, c: Double, d: Double, created: String) =
+grouptrack/GtCertRun.kt:197:        override fun deleteTrail(id: String) { SpatialDbManager.deleteTrailFromDb(id) }
+grouptrack/GtCertRun.kt:198:        override fun clearAllTrails() = SpatialDbManager.clearAllTrailData().let { "${it.trails},${it.properties},${it.aliases},${it.error}" }
+grouptrack/GtCertRun.kt:206:    private fun runWrites(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, w: java.io.Writer) {
+grouptrack/GtCertRun.kt:207:        val e = edb ?: run { Log.e(TAG, "GTCERTW no data database -- writes not run"); return }
+grouptrack/GtCertRun.kt:208:        val dir = java.io.File(app.cacheDir, "gtcertw"); dir.deleteRecursively(); dir.mkdirs()
+grouptrack/GtCertRun.kt:209:        val tracksDir = com.geeksville.mesh.convoy.ConvoyTrackOps.tracksDir()
+grouptrack/GtCertRun.kt:210:        val exists: (String) -> Boolean = { h -> java.io.File(tracksDir, "$h.gpx").exists() }
+grouptrack/GtCertRun.kt:211:        fun copy(tag: String): Pair<String, String> {
+grouptrack/GtCertRun.kt:212:            val s = java.io.File(dir, "$tag-spatial.db"); val x = java.io.File(dir, "$tag-data.db")
+grouptrack/GtCertRun.kt:215:        val t0 = System.currentTimeMillis()
+grouptrack/GtCertRun.kt:216:        val (ns, ne) = copy("new"); val (os, oe) = copy("old")
+grouptrack/GtCertRun.kt:219:            val c = gtOpenDatabase(ns, false); val d = gtOpenDatabase(ne, false)
+grouptrack/GtCertRun.kt:221:                val gw = com.grouptrack.shared.spatial.GtWrite(c, d, { java.util.UUID.randomUUID().toString() }, { java.time.Instant.now().toString() })
+grouptrack/GtCertRun.kt:224:            val oS = SQLiteDatabase.openDatabase(os, null, SQLiteDatabase.OPEN_READWRITE)
+grouptrack/GtCertRun.kt:225:            val oE = SQLiteDatabase.openDatabase(oe, null, SQLiteDatabase.OPEN_READWRITE)
+grouptrack/GtCertRun.kt:226:            val prev = SpatialDbManager.certSwapDatabases(oS, oE)
+grouptrack/GtCertRun.kt:228:                val c2 = gtOpenDatabase(os, true); val d2 = gtOpenDatabase(oe, true)
+grouptrack/GtCertRun.kt:245:    private class Frozen(val spatial: String, val data: String?, val stamp: String)
+grouptrack/GtCertRun.kt:246:    private fun frozenDir(app: Context) = java.io.File(app.filesDir, "gtcert_frozen")
+grouptrack/GtCertRun.kt:247:    private fun freeze(app: Context, db: SQLiteDatabase, edb: SQLiteDatabase?, stamp: String): Frozen {
+grouptrack/GtCertRun.kt:248:        val t = System.currentTimeMillis()
+grouptrack/GtCertRun.kt:249:        val dir = frozenDir(app); dir.deleteRecursively(); dir.mkdirs()
+grouptrack/GtCertRun.kt:250:        fun cp(src: String, name: String): String {
+grouptrack/GtCertRun.kt:251:            val d = java.io.File(dir, name); java.io.File(src).copyTo(d, true)
+grouptrack/GtCertRun.kt:252:            val wal = java.io.File("$src-wal"); if (wal.exists() && wal.length() > 0) wal.copyTo(java.io.File(dir, "$name-wal"), true)
+grouptrack/GtCertRun.kt:255:        val s = cp(db.path, "spatial.db"); val d = edb?.let { cp(it.path, "data.db") }
+grouptrack/GtCertRun.kt:261:    private fun frozen(app: Context): Frozen? {
+grouptrack/GtCertRun.kt:262:        val dir = frozenDir(app); val st = java.io.File(dir, "stamp.txt"); val s = java.io.File(dir, "spatial.db")
+grouptrack/GtCertRun.kt:264:        val d = java.io.File(dir, "data.db")
+grouptrack/GtCertRun.kt:269:    private object OldRead : com.grouptrack.shared.cert.CertRead.Api {
+grouptrack/GtCertRun.kt:270:        override fun search(type: String, term: String) = SpatialDbManager.searchByName(type, term)
+grouptrack/GtCertRun.kt:271:        override fun detail(type: String, id: String): Map<String, String?> = SpatialDbManager.getArtifactDetail(type, id)
+grouptrack/GtCertRun.kt:272:        override fun aliases(type: String, id: String) = SpatialDbManager.getAliasesFor(type, id)
+grouptrack/GtCertRun.kt:273:        override fun list(table: String) = SpatialDbManager.queryArtifactList(table, -90.0, -180.0, 90.0, 180.0)
+grouptrack/GtCertRun.kt:274:        override fun corridor() = SpatialDbManager.queryAllTracksForCorridor()
+grouptrack/GtCertRun.kt:275:        override fun trailheads(lat: Double, lon: Double) = SpatialDbManager.trailheadsNear(lat, lon).map { listOf<Any>(it.waypointId, it.name, it.lat, it.lon, it.miles) }
+grouptrack/GtCertRun.kt:276:        override fun routeUsing(waypointId: String) = SpatialDbManager.routeUsingTrailhead(waypointId)
+grouptrack/GtCertRun.kt:277:        override fun routeName(id: String) = SpatialDbManager.routeNameById(id)
+grouptrack/GtCertRun.kt:278:        override fun routeHash(id: String) = SpatialDbManager.routeGeomHash(id)
+grouptrack/GtCertRun.kt:279:        override fun routeByHash(hash: String) = SpatialDbManager.findRouteIdByHash(hash)
+grouptrack/GtCertRun.kt:280:        override fun nameExists(name: String) = SpatialDbManager.routeNameExists(name)
+grouptrack/GtCertRun.kt:281:        override fun nextNumber(base: String) = SpatialDbManager.nextRouteNumber(base)
+grouptrack/GtCertRun.kt:282:        override fun trackName(id: String) = SpatialDbManager.trackName(id)
+grouptrack/GtCertRun.kt:283:        override fun trackGeom(id: String) = SpatialDbManager.trackGeometry(id)
+grouptrack/GtCertRun.kt:284:        override fun waypointAt(lat: Double, lon: Double) = SpatialDbManager.waypointNameAt(lat, lon)
+grouptrack/GtCertRun.kt:285:        override fun geomHash(wkt: String) = SpatialDbManager.computeGeomHash(wkt)
+grouptrack/GtCertRun.kt:286:        override fun parseGpx(text: String) = SpatialDbManager.parseGpxTrackPoints(text)
+grouptrack/GtCertRun.kt:287:        override fun trackIdForGpx(text: String) = SpatialDbManager.trackIdForGpxText(text)
+grouptrack/GtCertRun.kt:291:    private fun notesFor(routeId: String): Pair<String, String?> {
+grouptrack/GtCertRun.kt:292:        val notes = SpatialDbManager.readRouteNotes(routeId)
+grouptrack/GtCertRun.kt:296:    fun countFeatures(json: String): Int {
+grouptrack/GtCertRun.kt:297:        var n = 0; var i = json.indexOf("{\"type\":\"Feature\""); while (i >= 0) { n++; i = json.indexOf("{\"type\":\"Feature\"", i + 1) }; return n
+grouptrack/GtCertRun.kt:302:    private fun runOld(conn: androidx.sqlite.SQLiteConnection, db: SQLiteDatabase, edb: SQLiteDatabase?, saved: GtCert.Combo,
+grouptrack/GtCertRun.kt:304:        val cats = GtCert.categories(conn)
+grouptrack/GtCertRun.kt:306:            val w = legacyWhere(cb.land, cb.restricted, cb.use, cb.off)
+grouptrack/GtCertRun.kt:307:            val got = ArrayList<String>()
+grouptrack/GtCertRun.kt:312:        val tp = GtCert.pages(conn, "trails", "trail_id", true)
+grouptrack/GtCertRun.kt:314:            val w = legacyWhere("ALL", r, "ALL", emptySet())
+grouptrack/GtCertRun.kt:316:                val rows = queryTrails(db, edb, -90.0, -180.0, 90.0, 180.0, 1_000_000, w + frag)
+grouptrack/GtCertRun.kt:324:        val lp = GtCert.pages(conn, "land_areas", "area_id", false)
+grouptrack/GtCertRun.kt:326:            val json = landGeoJson(db, -90.0, -180.0, 90.0, 180.0, pub, rst, 1_000_000, frag)
+grouptrack/GtCertRun.kt:330:        fun gpxPages(kind: String, table: String, col: String, one: (String) -> String?) {
+grouptrack/GtCertRun.kt:332:                val sb = StringBuilder(); var n = 0
+grouptrack/GtCertRun.kt:333:                for (id in GtCert.ids(conn, "SELECT $col FROM $table WHERE 1=1$frag ORDER BY $col")) { val g = one(id); if (g != null) { sb.append(g).append('\u0000'); n++ } else sb.append("NULL\u0000") }
+grouptrack/GtCertRun.kt:344:    private const val GPX_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+grouptrack/GtCertRun.kt:348:    private const val GPX_FOOTER = "</gpx>"
+grouptrack/GtCertRun.kt:349:    private fun xmlEscape(s: String): String =
+grouptrack/GtCertRun.kt:353:    private fun legacyWhere(land: String, restricted: Boolean, use: String, off: Set<String>): String {
+grouptrack/GtCertRun.kt:354:        val sb = StringBuilder()
+grouptrack/GtCertRun.kt:356:        val lands = ArrayList<String>()
+grouptrack/GtCertRun.kt:368:        val cats = off.filter { it != "__unofficial" }
+grouptrack/GtCertRun.kt:377:    fun queryTrails(db: SQLiteDatabase, edb: SQLiteDatabase?, south: Double, west: Double, north: Double, east: Double, limit: Int, where: String): List<Map<String, String?>> {
+grouptrack/GtCertRun.kt:378:        val results = mutableListOf<MutableMap<String, String?>>()
+grouptrack/GtCertRun.kt:379:        val cursor = db.rawQuery(
+grouptrack/GtCertRun.kt:427:            val wkt = cursor.getString(2)
+grouptrack/GtCertRun.kt:450:                val ids = results.mapNotNull { it["trail_id"] }
+grouptrack/GtCertRun.kt:452:                    val placeholders = ids.joinToString(",") { "?" }
+grouptrack/GtCertRun.kt:453:                    val pc = edb.rawQuery(
+grouptrack/GtCertRun.kt:459:                    val byId = HashMap<String, Map<String, String?>>()
+grouptrack/GtCertRun.kt:462:                            val tid = it.getString(0) ?: continue
+grouptrack/GtCertRun.kt:476:                        val props = byId[row["trail_id"]] ?: continue
+grouptrack/GtCertRun.kt:479:                            val existing = row[k]
+grouptrack/GtCertRun.kt:493:    fun trailGeoJson(trails: List<Map<String, String?>>, restricted: Boolean): String {
+grouptrack/GtCertRun.kt:494:        val sb = StringBuilder()
+grouptrack/GtCertRun.kt:496:        var first = true
+grouptrack/GtCertRun.kt:502:                val rg0 = trail["RstGeom"] ?: ""
+grouptrack/GtCertRun.kt:504:                    val rc0 = SpatialDbManager.wktToGeoJsonCoords(rg0)
+grouptrack/GtCertRun.kt:511:            val coords = SpatialDbManager.wktToGeoJsonCoords(wkt)
+grouptrack/GtCertRun.kt:515:            val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
+grouptrack/GtCertRun.kt:536:            val rg = trail["RstGeom"] ?: ""
+grouptrack/GtCertRun.kt:538:                val rc = SpatialDbManager.wktToGeoJsonCoords(rg)
+grouptrack/GtCertRun.kt:547:    fun waypointGpx(db: SQLiteDatabase, waypointId: String): Pair<String, String>? {
+grouptrack/GtCertRun.kt:549:            val cursor = db.rawQuery(
+grouptrack/GtCertRun.kt:554:                val name = c.getString(0) ?: "Unnamed"
+grouptrack/GtCertRun.kt:555:                val type = c.getString(1) ?: ""
+grouptrack/GtCertRun.kt:556:                val geom = c.getString(2) ?: return null
+grouptrack/GtCertRun.kt:557:                val desc = if (c.columnCount > 3) (c.getString(3) ?: "") else ""
+grouptrack/GtCertRun.kt:558:                val coords = geom.removePrefix("POINT(").removeSuffix(")").trim().split(" ")
+grouptrack/GtCertRun.kt:560:                val lon = coords[0]
+grouptrack/GtCertRun.kt:561:                val lat = coords[1]
+grouptrack/GtCertRun.kt:562:                val sb = StringBuilder()
+grouptrack/GtCertRun.kt:578:    fun routeGpx(db: SQLiteDatabase, routeId: String): Pair<String, String>? {
+grouptrack/GtCertRun.kt:580:            val cursor = db.rawQuery(
+grouptrack/GtCertRun.kt:585:                val name = c.getString(0) ?: "Unnamed"
+grouptrack/GtCertRun.kt:586:                val geom = c.getString(1) ?: return null
+grouptrack/GtCertRun.kt:600:                val notes = SpatialDbManager.readRouteNotes(routeId)
+grouptrack/GtCertRun.kt:601:                val desc = notes?.optJSONObject("narrative")?.optString("headline") ?: ""
+grouptrack/GtCertRun.kt:602:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+grouptrack/GtCertRun.kt:603:                val points = coordStr.split(",").mapNotNull { pt ->
+grouptrack/GtCertRun.kt:604:                    val parts = pt.trim().split(" ")
+grouptrack/GtCertRun.kt:607:                val sb = StringBuilder()
+grouptrack/GtCertRun.kt:635:                var idx = 1
+grouptrack/GtCertRun.kt:663:    fun trailGpx(db: SQLiteDatabase, trailId: String): Pair<String, String>? {
+grouptrack/GtCertRun.kt:665:            val cursor = db.rawQuery(
+grouptrack/GtCertRun.kt:670:                val name = c.getString(0) ?: "Unnamed"
+grouptrack/GtCertRun.kt:671:                val geom = c.getString(1) ?: return null
+grouptrack/GtCertRun.kt:672:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+grouptrack/GtCertRun.kt:673:                val points = coordStr.split(",").mapNotNull { pt ->
+grouptrack/GtCertRun.kt:674:                    val parts = pt.trim().split(" ")
+grouptrack/GtCertRun.kt:677:                val sb = StringBuilder()
+grouptrack/GtCertRun.kt:696:    fun landGeoJson(db: SQLiteDatabase, s: Double, w: Double, n: Double, e: Double, pub: Boolean, rst: Boolean, limit: Int, extraWhere: String): String {
+grouptrack/GtCertRun.kt:698:        val kinds = ArrayList<String>()
+grouptrack/GtCertRun.kt:702:        val sb = StringBuilder(64 * 1024)
+grouptrack/GtCertRun.kt:704:        var first = true
+grouptrack/GtCertRun.kt:709:                fun q(i: Int) = SpatialDbManager.jsonEsc(c.getString(i) ?: "")
+grouptrack/GtCertRun.kt:726:                            val sp = pt.indexOf(' ')
 grouptrack/FilterModule.kt:49:class GtFilterBridge(
 grouptrack/FilterModule.kt:51:    val state: (String) -> Int,
 grouptrack/FilterModule.kt:52:    val setState: (String, Int) -> Unit,
@@ -14557,6 +14858,69 @@ SHARED:ride/GDateCert.kt:31:    fun toEpochDay(y: Int, m: Int, d: Int): String {
 SHARED:ride/GDateCert.kt:32:        val g = GDate.of(y, m, d) ?: return "ERR"
 SHARED:ride/GDateCert.kt:36:    fun ofEpochDay(e: Long): String {
 SHARED:ride/GDateCert.kt:41:    fun isBefore(a: String, b: String): String {
+SHARED:mapstate/GtMapState.kt:69:data class GtRow(val id: String, val name: String, val checked: Boolean)
+SHARED:mapstate/GtMapState.kt:70:data class GtTypeState(val state: Int, val rows: List<GtRow>)
+SHARED:mapstate/GtMapState.kt:71:data class GtPanelBoxes(
+SHARED:mapstate/GtMapState.kt:72:    val tilesChecked: Boolean = false,
+SHARED:mapstate/GtMapState.kt:73:    val trailsChecked: Boolean = false,
+SHARED:mapstate/GtMapState.kt:74:    val removeTilesChecked: Boolean = false,
+SHARED:mapstate/GtMapState.kt:78:data class GtBBox(
+SHARED:mapstate/GtMapState.kt:79:    val south: Double,
+SHARED:mapstate/GtMapState.kt:80:    val west: Double,
+SHARED:mapstate/GtMapState.kt:81:    val north: Double,
+SHARED:mapstate/GtMapState.kt:82:    val east: Double,
+SHARED:mapstate/GtMapState.kt:83:    val zoom: Double = 15.0,
+SHARED:mapstate/GtMapState.kt:85:data class GtFitArtifact(val id: String, val name: String, val type: String)
+SHARED:mapstate/GtMapState.kt:88:data class GtRouteState(val open: Boolean, val status: String, val draftName: String)
+SHARED:mapstate/GtMapState.kt:89:data class GtMapSnapshot(
+SHARED:mapstate/GtMapState.kt:90:    val types: Map<String, GtTypeState>,
+SHARED:mapstate/GtMapState.kt:91:    val panel: GtPanelBoxes,
+SHARED:mapstate/GtMapState.kt:92:    val bbox: GtBBox? = null,
+SHARED:mapstate/GtMapState.kt:93:    val fitArtifact: GtFitArtifact? = null,
+SHARED:mapstate/GtMapState.kt:94:    val routeState: GtRouteState? = null,
+SHARED:mapstate/GtMapState.kt:98:data class GtViewState(val mapType: String, val offline: Boolean)
+SHARED:mapstate/GtMapState.kt:100:class GtMapState(private val files: GtFiles, private val paths: GtImportPaths) {
+SHARED:mapstate/GtMapState.kt:102:    companion object {
+SHARED:mapstate/GtMapState.kt:103:        /** 2.7e private val TYPES -- the order drives the written artifact order AND the read loop. */
+SHARED:mapstate/GtMapState.kt:104:        val TYPES = listOf("Trails", "Tracks", "Waypoints", "Routes")
+SHARED:mapstate/GtMapState.kt:107:        fun typeDefault(type: String): Int = if (type == "Trails") 1 else 0
+SHARED:mapstate/GtMapState.kt:109:        const val DEFAULT_ZOOM = 15.0
+SHARED:mapstate/GtMapState.kt:110:        const val DEFAULT_STATUS = "draft"
+SHARED:mapstate/GtMapState.kt:113:        fun rideKey(): String = "grouptrack"
+SHARED:mapstate/GtMapState.kt:116:        fun checkedIdsFor(snap: GtMapSnapshot, type: String): Set<String>? {
+SHARED:mapstate/GtMapState.kt:117:            val ts = snap.types[type] ?: return null
+SHARED:mapstate/GtMapState.kt:123:    private val log = gtLogger("MapStateStore")
+SHARED:mapstate/GtMapState.kt:126:     * 2.7e @Volatile var lastMapProcessed -- which map last ran its view refresh; gates reseeding a
+SHARED:mapstate/GtMapState.kt:130:    var lastMapProcessed: String? = null
+SHARED:mapstate/GtMapState.kt:132:    private fun dir() = paths.dir("state")
+SHARED:mapstate/GtMapState.kt:135:    private fun fileFor(mapKey: String) = dir().also { files.fs.createDirectories(it) } / (mapKey + "_panel.json")
+SHARED:mapstate/GtMapState.kt:138:    private fun viewFile(mapKey: String) = dir().also { files.fs.createDirectories(it) } / (mapKey + "_view.json")
+SHARED:mapstate/GtMapState.kt:141:    fun defaults(): GtMapSnapshot =
+SHARED:mapstate/GtMapState.kt:144:    fun saveMap(mapKey: String, snap: GtMapSnapshot) {
+SHARED:mapstate/GtMapState.kt:146:            val root = buildJsonObject {
+SHARED:mapstate/GtMapState.kt:188:    fun deleteMap(mapKey: String) {
+SHARED:mapstate/GtMapState.kt:192:    fun readMap(mapKey: String): GtMapSnapshot {
+SHARED:mapstate/GtMapState.kt:194:            val f = fileFor(mapKey)
+SHARED:mapstate/GtMapState.kt:196:            val root = GtOrgJson.parse(files.fs.read(f) { readUtf8() }) as? JsonObject ?: return defaults()
+SHARED:mapstate/GtMapState.kt:197:            val artifacts = root["artifacts"] as? JsonObject ?: return defaults()
+SHARED:mapstate/GtMapState.kt:198:            val types = HashMap<String, GtTypeState>()
+SHARED:mapstate/GtMapState.kt:200:                val o = artifacts[type] as? JsonObject
+SHARED:mapstate/GtMapState.kt:203:                val state = GtOrgJson.optInt(o, "state", typeDefault(type))
+SHARED:mapstate/GtMapState.kt:204:                val rows = ArrayList<GtRow>()
+SHARED:mapstate/GtMapState.kt:205:                val arr = o["rows"] as? JsonArray
+SHARED:mapstate/GtMapState.kt:208:                    val id = GtOrgJson.optString(ro, "id")
+SHARED:mapstate/GtMapState.kt:214:            val p = root["panel"] as? JsonObject
+SHARED:mapstate/GtMapState.kt:215:            val panel = if (p == null) GtPanelBoxes() else GtPanelBoxes(
+SHARED:mapstate/GtMapState.kt:219:            val b = root["bbox"] as? JsonObject
+SHARED:mapstate/GtMapState.kt:220:            val bbox = if (b == null) null else GtBBox(
+SHARED:mapstate/GtMapState.kt:224:            val fa = root["fitArtifact"] as? JsonObject
+SHARED:mapstate/GtMapState.kt:225:            val fitArtifact = if (fa == null) null else GtFitArtifact(
+SHARED:mapstate/GtMapState.kt:227:            val rs = root["routeState"] as? JsonObject
+SHARED:mapstate/GtMapState.kt:228:            val routeState = if (rs == null) null else GtRouteState(
+SHARED:mapstate/GtMapState.kt:238:    fun saveView(mapKey: String, mapType: String, offline: Boolean) {
+SHARED:mapstate/GtMapState.kt:240:            val o = buildJsonObject { put("mapType", mapType); put("offline", offline) }
+SHARED:mapstate/GtMapState.kt:245:    fun readView(mapKey: String): GtViewState = try {
+SHARED:mapstate/GtMapState.kt:246:        val f = viewFile(mapKey)
 SHARED:user/GtUsers.kt:22:enum class GtUserType { ORGANIZER, RIDER }
 SHARED:user/GtUsers.kt:25:object GtIsoDate {
 SHARED:user/GtUsers.kt:26:    private val RX = Regex("^(\\d{4})-(\\d{2})-(\\d{2})$")
@@ -15283,6 +15647,47 @@ SHARED:json/GtOrgJson.kt:197:    private fun write(sb: StringBuilder, e: JsonEle
 SHARED:json/GtOrgJson.kt:201:                var first = true
 SHARED:json/GtOrgJson.kt:234:    fun quote(s: String): String {
 SHARED:json/GtOrgJson.kt:235:        val sb = StringBuilder(s.length + 2)
+SHARED:cert/Cert17mapstate.kt:28:object Cert17mapstate {
+SHARED:cert/Cert17mapstate.kt:35:    const val MAP_KEY: String = "cert17mapstate"
+SHARED:cert/Cert17mapstate.kt:38:    data class Snap(
+SHARED:cert/Cert17mapstate.kt:39:        val why: String,
+SHARED:cert/Cert17mapstate.kt:41:        val panel: String,
+SHARED:cert/Cert17mapstate.kt:42:        val bbox: String,
+SHARED:cert/Cert17mapstate.kt:43:        val fit: String,
+SHARED:cert/Cert17mapstate.kt:44:        val route: String,
+SHARED:cert/Cert17mapstate.kt:49:        fun readMapAfter(mapKey: String, text: String, exists: Boolean): Snap
+SHARED:cert/Cert17mapstate.kt:51:        fun readViewAfter(mapKey: String, text: String, exists: Boolean): String
+SHARED:cert/Cert17mapstate.kt:53:        fun roundTrip(mapKey: String, text: String): Snap
+SHARED:cert/Cert17mapstate.kt:55:        fun rideKey(): String
+SHARED:cert/Cert17mapstate.kt:60:    val FIXTURES: List<Triple<String, String, Boolean>> = listOf(
+SHARED:cert/Cert17mapstate.kt:89:    val EXPECTED_DIFF: Map<String, String> = mapOf(
+SHARED:cert/Cert17mapstate.kt:114:    val LENIENT: Set<String> = setOf("LENIENT-comment", "LENIENT-squote", "LENIENT-trailing")
+SHARED:cert/Cert17mapstate.kt:125:    fun typeLine(type: String, state: Int, rowCount: Int, ids: Set<String>?): String =
+SHARED:cert/Cert17mapstate.kt:127:    fun panelLine(tiles: Boolean, trails: Boolean, remove: Boolean): String = "$tiles|$trails|$remove"
+SHARED:cert/Cert17mapstate.kt:128:    fun bboxLine(s: Double?, w: Double?, n: Double?, e: Double?, z: Double?): String =
+SHARED:cert/Cert17mapstate.kt:130:    fun fitLine(id: String?, name: String?, type: String?): String =
+SHARED:cert/Cert17mapstate.kt:132:    fun routeLine(open: Boolean?, status: String?, draft: String?): String =
+SHARED:cert/Cert17mapstate.kt:142:    fun why(flat: List<String>, flatDefaults: List<String>): String =
+SHARED:cert/Cert17mapstate.kt:146:    fun snapOf(flat: List<String>, flatDefaults: List<String>): Snap =
+SHARED:cert/Cert17mapstate.kt:150:    fun flatten(s: GtMapSnapshot): List<String> =
+SHARED:cert/Cert17mapstate.kt:152:            val ts = s.types[t]
+SHARED:cert/Cert17mapstate.kt:167:    fun newSide(files: GtFiles, paths: GtImportPaths): Side = object : Side {
+SHARED:cert/Cert17mapstate.kt:168:        private val store = GtMapState(files, paths)
+SHARED:cert/Cert17mapstate.kt:170:        private fun write(name: String, text: String, exists: Boolean) {
+SHARED:cert/Cert17mapstate.kt:171:            val d = paths.dir("state"); files.fs.createDirectories(d)
+SHARED:cert/Cert17mapstate.kt:172:            val p = d / name
+SHARED:cert/Cert17mapstate.kt:176:        private fun snap(s: GtMapSnapshot): Snap = snapOf(flatten(s), flatten(store.defaults()))
+SHARED:cert/Cert17mapstate.kt:178:        override fun readMapAfter(mapKey: String, text: String, exists: Boolean): Snap {
+SHARED:cert/Cert17mapstate.kt:181:        override fun readViewAfter(mapKey: String, text: String, exists: Boolean): String {
+SHARED:cert/Cert17mapstate.kt:183:            val v = store.readView(mapKey); return v.mapType + "|" + v.offline
+SHARED:cert/Cert17mapstate.kt:185:        override fun roundTrip(mapKey: String, text: String): Snap {
+SHARED:cert/Cert17mapstate.kt:190:        override fun rideKey(): String = GtMapState.rideKey()
+SHARED:cert/Cert17mapstate.kt:191:        override fun typeDefaults(): String =
+SHARED:cert/Cert17mapstate.kt:195:    private fun emit(sink: (String, String) -> Unit, key: String, s: Snap) {
+SHARED:cert/Cert17mapstate.kt:209:    fun run(side: Side, mapKey: String, sink: (String, String) -> Unit) {
+SHARED:cert/Cert17mapstate.kt:227:private const val GOOD: String =
+SHARED:cert/Cert17mapstate.kt:245:private const val LEN_BODY: String =
+SHARED:cert/Cert17mapstate.kt:250:private val LEN_SQUOTE: String = (LEN_BODY + "}").replace('"', '\'')
 SHARED:cert/GtCert.kt:20:object GtCert {
 SHARED:cert/GtCert.kt:21:    data class Combo(val id: String, val land: String, val restricted: Boolean, val use: String, val off: Set<String>)
 SHARED:cert/GtCert.kt:24:    private const val ALL = 1_000_000
@@ -15522,6 +15927,66 @@ SHARED:cert/Cert15f.kt:322:    fun dumpTables(conn: SQLiteConnection, dataConn: 
 SHARED:cert/Cert15f.kt:324:        val st = dataConn.prepare("SELECT ingestion_id, source_id, ingested_at, trail_count, dupes_skipped, bounds_json FROM source_ingestions ORDER BY rowid")
 SHARED:cert/Cert15f.kt:326:            var k = 0; val all = StringBuilder()
 SHARED:cert/Cert15f.kt:329:                val cells = (0 until 6).joinToString("|") { i ->
+SHARED:cert/Cert17maprecipe.kt:48:object Cert17maprecipe {
+SHARED:cert/Cert17maprecipe.kt:51:    const val NOW: Long = 1_762_000_000_000L
+SHARED:cert/Cert17maprecipe.kt:58:    val PINNED_LOCAL: GtLocalTime = GtLocalTime(2025, 11, 1, 12, 26, 40)
+SHARED:cert/Cert17maprecipe.kt:60:    const val VEC = "CERTVEC"
+SHARED:cert/Cert17maprecipe.kt:61:    const val DEM = "CERTDEM"
+SHARED:cert/Cert17maprecipe.kt:62:    private const val DAY_MS = 24L * 60L * 60L * 1000L
+SHARED:cert/Cert17maprecipe.kt:64:    data class Fx(
+SHARED:cert/Cert17maprecipe.kt:65:        val name: String,
+SHARED:cert/Cert17maprecipe.kt:66:        val slots: List<Triple<String, String, String>>,
+SHARED:cert/Cert17maprecipe.kt:67:        val stores: Set<String>,
+SHARED:cert/Cert17maprecipe.kt:68:        val recipes: Map<String, GtRecipeResult?>,
+SHARED:cert/Cert17maprecipe.kt:70:        val seed: List<Pair<String, Long>>,
+SHARED:cert/Cert17maprecipe.kt:71:        val busy: Int,
+SHARED:cert/Cert17maprecipe.kt:75:    data class Out(
+SHARED:cert/Cert17maprecipe.kt:76:        val ret: String,
+SHARED:cert/Cert17maprecipe.kt:77:        val version: String,
+SHARED:cert/Cert17maprecipe.kt:78:        val created: String,
+SHARED:cert/Cert17maprecipe.kt:79:        val slotCount: String,
+SHARED:cert/Cert17maprecipe.kt:80:        val slots: List<String>,
+SHARED:cert/Cert17maprecipe.kt:81:        val boxes: List<String>,
+SHARED:cert/Cert17maprecipe.kt:82:        val files: String,
+SHARED:cert/Cert17maprecipe.kt:87:        fun run(fx: Fx, fresh: Boolean): Out
+SHARED:cert/Cert17maprecipe.kt:95:    fun slotLine(slot: String, source: String, zMin: Int, zMax: Int, tiles: Long, boxCount: Int): String =
+SHARED:cert/Cert17maprecipe.kt:98:    /** A box: every coordinate as BITS and as TEXT. See the class note. */
+SHARED:cert/Cert17maprecipe.kt:99:    fun boxLine(n: Double, s: Double, w: Double, e: Double, tiles: Long): String =
+SHARED:cert/Cert17maprecipe.kt:103:    private fun r(slot: String, refZ: Int, levels: List<Int>, boxes: List<LongArray>, total: Long) =
+SHARED:cert/Cert17maprecipe.kt:107:    fun todayFile(today: String): String = GtMapRecipe.PREFIX + today + GtMapRecipe.EXT
+SHARED:cert/Cert17maprecipe.kt:109:    private val BOX = listOf(longArrayOf(100, 103, 200, 204, 20), longArrayOf(0, 0, 0, 0, 1),
+SHARED:cert/Cert17maprecipe.kt:116:    fun fixtures(todayName: String): List<Fx> {
+SHARED:cert/Cert17maprecipe.kt:117:        val todayFile = todayFile(todayName)
+SHARED:cert/Cert17maprecipe.kt:118:        val conv = GtMapRecipe.CONVERSION
+SHARED:cert/Cert17maprecipe.kt:155:    val EXPECTED_DIFF: Map<String, String> = emptyMap()
+SHARED:cert/Cert17maprecipe.kt:168:    fun overlay(base: GtFiles, seeded: Map<String, Long>): GtFiles = object : GtFiles {
+SHARED:cert/Cert17maprecipe.kt:169:        override val fs = base.fs
+SHARED:cert/Cert17maprecipe.kt:171:        override fun lastModified(path: Path): Long = seeded[path.name] ?: base.lastModified(path)
+SHARED:cert/Cert17maprecipe.kt:172:        override fun list(dir: Path): List<Path> = base.list(dir)
+SHARED:cert/Cert17maprecipe.kt:176:    class FxEnv(private val fx: Fx) : GtRecipeEnv {
+SHARED:cert/Cert17maprecipe.kt:177:        override fun slotSources() = fx.slots
+SHARED:cert/Cert17maprecipe.kt:178:        override fun storeExists(slot: String) = slot in fx.stores
+SHARED:cert/Cert17maprecipe.kt:179:        override fun deriveRecipe(slot: String) = fx.recipes[slot]
+SHARED:cert/Cert17maprecipe.kt:180:        override fun vectorBusyCount() = fx.busy
+SHARED:cert/Cert17maprecipe.kt:181:        override val vecSlot = VEC
+SHARED:cert/Cert17maprecipe.kt:182:        override val demSlot = DEM
+SHARED:cert/Cert17maprecipe.kt:186:    fun newSide(files: GtFiles, paths: GtImportPaths, clock: GtClock): Side = object : Side {
+SHARED:cert/Cert17maprecipe.kt:187:        override fun run(fx: Fx, fresh: Boolean): Out {
+SHARED:cert/Cert17maprecipe.kt:188:            val dir = paths.dir("recipes")
+SHARED:cert/Cert17maprecipe.kt:195:            val fxFiles = overlay(files, fx.seed.toMap())
+SHARED:cert/Cert17maprecipe.kt:196:            val store = GtMapRecipe(fxFiles, paths, clock, FxEnv(fx))
+SHARED:cert/Cert17maprecipe.kt:197:            val ret = if (fresh) store.writeFresh() else store.writeDaily()
+SHARED:cert/Cert17maprecipe.kt:201:            val text = ret?.let { try { fxFiles.fs.read(it) { readUtf8() } } catch (e: Exception) { null } }
+SHARED:cert/Cert17maprecipe.kt:202:            var version = "null"; var created = "null"; var slotCount = "null"
+SHARED:cert/Cert17maprecipe.kt:203:            val slots = ArrayList<String>(); val boxes = ArrayList<String>()
+SHARED:cert/Cert17maprecipe.kt:205:                val root = Json.parseToJsonElement(text).jsonObject
+SHARED:cert/Cert17maprecipe.kt:208:                val arr = root["slots"]?.jsonArray ?: JsonArray(emptyList())
+SHARED:cert/Cert17maprecipe.kt:211:                    val o = el.jsonObject
+SHARED:cert/Cert17maprecipe.kt:212:                    val bx = o["boxes"]?.jsonArray ?: JsonArray(emptyList())
+SHARED:cert/Cert17maprecipe.kt:221:                        val b = be.jsonObject
+SHARED:cert/Cert17maprecipe.kt:229:            val listing = try { fxFiles.list(dir).map { it.name }.sorted().joinToString(",") } catch (e: Exception) { "?" }
+SHARED:cert/Cert17maprecipe.kt:234:    private fun emit(sink: (String, String) -> Unit, key: String, o: Out) {
+SHARED:cert/Cert17maprecipe.kt:244:    fun run(side: Side, todayName: String, sink: (String, String) -> Unit) {
 SHARED:cert/CertSchema.kt:13:object CertSchema {
 SHARED:cert/CertSchema.kt:14:    fun dump(c: SQLiteConnection, positions: Boolean): List<String> {
 SHARED:cert/CertSchema.kt:15:        val out = ArrayList<String>()
@@ -15589,6 +16054,73 @@ SHARED:cert/Cert15b.kt:114:            val src = inDir / n
 SHARED:cert/Cert15b.kt:118:                    val c = side.toGpx(fs, src, outDir, asTrails)
 SHARED:cert/Cert15b.kt:119:                    val bytes = fs.read(outDir / c.fileName) { readByteString() }
 SHARED:cert/Cert15b.kt:122:                    val m = e.message ?: ""
+SHARED:cert/Cert17mbtiles.kt:28:object Cert17mbtiles {
+SHARED:cert/Cert17mbtiles.kt:30:    const val SLOT = "CERTTILES"
+SHARED:cert/Cert17mbtiles.kt:31:    const val CHURN_SLOT = "CERTCHURN"
+SHARED:cert/Cert17mbtiles.kt:34:    fun blobFor(z: Int, x: Int, y: Int): ByteArray {
+SHARED:cert/Cert17mbtiles.kt:35:        val n = ((z * 7919 + x * 104729 + y * 1299709) and 0xff)
+SHARED:cert/Cert17mbtiles.kt:36:        val head = byteArrayOf(n.toByte(), ((n * 31) and 0xff).toByte(), 0, -1)
+SHARED:cert/Cert17mbtiles.kt:41:    fun bigBlob(): ByteArray = ByteArray(4096) { ((it * 7) and 0xff).toByte() }
+SHARED:cert/Cert17mbtiles.kt:47:    val LOGIC: List<GtTileKey> =
+SHARED:cert/Cert17mbtiles.kt:60:    val CHURN: List<GtTileKey> = (0 until 300).map { GtTileKey(13, it % 64, it / 64) }
+SHARED:cert/Cert17mbtiles.kt:65:        fun seed(slot: String, tiles: List<GtTileKey>, big: Boolean)
+SHARED:cert/Cert17mbtiles.kt:67:        fun autoVacuum(slot: String): String
+SHARED:cert/Cert17mbtiles.kt:68:        fun insertTile(slot: String, z: Int, x: Int, y: Int, bytes: ByteArray): Boolean
+SHARED:cert/Cert17mbtiles.kt:69:        fun readTile(slot: String, z: Int, x: Int, y: Int): ByteArray?
+SHARED:cert/Cert17mbtiles.kt:70:        fun hasTile(slot: String, z: Int, x: Int, y: Int): Boolean
+SHARED:cert/Cert17mbtiles.kt:71:        fun countInTileRange(slot: String, z: Int, xMin: Long, xMax: Long, yMin: Long, yMax: Long): Int
+SHARED:cert/Cert17mbtiles.kt:72:        fun countTileRange(slot: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int
+SHARED:cert/Cert17mbtiles.kt:73:        fun tileExtentAtZoom(slot: String, z: Int): LongArray?
+SHARED:cert/Cert17mbtiles.kt:74:        fun zoomLevelsPresent(slot: String): List<Int>
+SHARED:cert/Cert17mbtiles.kt:75:        fun countAtZoom(slot: String, z: Int): Int
+SHARED:cert/Cert17mbtiles.kt:76:        fun xyAtZoom(slot: String, z: Int): List<Pair<Long, Long>>
+SHARED:cert/Cert17mbtiles.kt:77:        fun countByParent(slot: String, z: Int, shift: Int): List<LongArray>
+SHARED:cert/Cert17mbtiles.kt:78:        fun scanKeys(slot: String): List<GtTileKey>
+SHARED:cert/Cert17mbtiles.kt:79:        fun tilesInBounds(slot: String, north: Double, south: Double, east: Double, west: Double): List<GtTileKey>
+SHARED:cert/Cert17mbtiles.kt:80:        fun deleteTileRange(slot: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int
+SHARED:cert/Cert17mbtiles.kt:81:        fun countTiles(slot: String, tiles: List<GtTileKey>): Int
+SHARED:cert/Cert17mbtiles.kt:82:        fun deleteTiles(slot: String, tiles: List<GtTileKey>): Int
+SHARED:cert/Cert17mbtiles.kt:83:        fun storeExists(slot: String): Boolean
+SHARED:cert/Cert17mbtiles.kt:84:        fun reclaimableBytes(slot: String): Long
+SHARED:cert/Cert17mbtiles.kt:85:        fun deleteSource(slot: String): Boolean
+SHARED:cert/Cert17mbtiles.kt:89:    fun hex(b: ByteArray?): String {
+SHARED:cert/Cert17mbtiles.kt:91:        val d = "0123456789abcdef"
+SHARED:cert/Cert17mbtiles.kt:92:        val sb = StringBuilder(b.size * 2)
+SHARED:cert/Cert17mbtiles.kt:93:        for (x in b) { val v = x.toInt() and 0xff; sb.append(d[v shr 4]).append(d[v and 0xf]) }
+SHARED:cert/Cert17mbtiles.kt:96:    fun keys(ks: List<GtTileKey>): String =
+SHARED:cert/Cert17mbtiles.kt:98:    fun pairs(ps: List<Pair<Long, Long>>): String =
+SHARED:cert/Cert17mbtiles.kt:100:    fun parents(rs: List<LongArray>): String =
+SHARED:cert/Cert17mbtiles.kt:102:    fun extent(e: LongArray?): String = if (e == null) "null" else e.joinToString(",")
+SHARED:cert/Cert17mbtiles.kt:105:    val EXPECTED_DIFF: Map<String, String> = emptyMap()
+SHARED:cert/Cert17mbtiles.kt:113:    fun newSide(env: GtTileStoreEnv): Side = object : Side {
+SHARED:cert/Cert17mbtiles.kt:114:        private val store = GtMBTiles(env)
+SHARED:cert/Cert17mbtiles.kt:116:        override fun seed(slot: String, tiles: List<GtTileKey>, big: Boolean) {
+SHARED:cert/Cert17mbtiles.kt:122:        override fun autoVacuum(slot: String): String {
+SHARED:cert/Cert17mbtiles.kt:123:            val c = env.connection(slot) ?: return "(no handle)"
+SHARED:cert/Cert17mbtiles.kt:124:            val st = c.prepare("PRAGMA auto_vacuum")
+SHARED:cert/Cert17mbtiles.kt:128:        override fun insertTile(slot: String, z: Int, x: Int, y: Int, bytes: ByteArray) = store.insertTile(slot, z, x, y, bytes)
+SHARED:cert/Cert17mbtiles.kt:129:        override fun readTile(slot: String, z: Int, x: Int, y: Int) = store.readTile(slot, z, x, y)
+SHARED:cert/Cert17mbtiles.kt:130:        override fun hasTile(slot: String, z: Int, x: Int, y: Int) = store.hasTile(slot, z, x, y)
+SHARED:cert/Cert17mbtiles.kt:131:        override fun countInTileRange(slot: String, z: Int, xMin: Long, xMax: Long, yMin: Long, yMax: Long) =
+SHARED:cert/Cert17mbtiles.kt:133:        override fun countTileRange(slot: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int) =
+SHARED:cert/Cert17mbtiles.kt:135:        override fun tileExtentAtZoom(slot: String, z: Int) = store.tileExtentAtZoom(slot, z)
+SHARED:cert/Cert17mbtiles.kt:136:        override fun zoomLevelsPresent(slot: String) = store.zoomLevelsPresent(slot)
+SHARED:cert/Cert17mbtiles.kt:137:        override fun countAtZoom(slot: String, z: Int) = store.countAtZoom(slot, z)
+SHARED:cert/Cert17mbtiles.kt:138:        override fun xyAtZoom(slot: String, z: Int) = store.xyAtZoom(slot, z)
+SHARED:cert/Cert17mbtiles.kt:139:        override fun countByParent(slot: String, z: Int, shift: Int) = store.countByParent(slot, z, shift)
+SHARED:cert/Cert17mbtiles.kt:140:        override fun scanKeys(slot: String) = store.scanKeys(slot)
+SHARED:cert/Cert17mbtiles.kt:141:        override fun tilesInBounds(slot: String, north: Double, south: Double, east: Double, west: Double) =
+SHARED:cert/Cert17mbtiles.kt:143:        override fun deleteTileRange(slot: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int) =
+SHARED:cert/Cert17mbtiles.kt:145:        override fun countTiles(slot: String, tiles: List<GtTileKey>) = store.countTiles(slot, tiles)
+SHARED:cert/Cert17mbtiles.kt:146:        override fun deleteTiles(slot: String, tiles: List<GtTileKey>) = store.deleteTiles(slot, tiles)
+SHARED:cert/Cert17mbtiles.kt:147:        override fun storeExists(slot: String) = store.storeExists(slot)
+SHARED:cert/Cert17mbtiles.kt:148:        override fun reclaimableBytes(slot: String) = store.reclaimableBytes(slot)
+SHARED:cert/Cert17mbtiles.kt:149:        override fun deleteSource(slot: String) = store.deleteSource(slot)
+SHARED:cert/Cert17mbtiles.kt:152:    fun run(side: Side, sink: (String, String) -> Unit) {
+SHARED:cert/Cert17mbtiles.kt:168:        val points = listOf(
+SHARED:cert/Cert17mbtiles.kt:181:        val ranges = listOf(
+SHARED:cert/Cert17mbtiles.kt:202:            val tb = side.tilesInBounds(SLOT, box[0], box[1], box[2], box[3])
+SHARED:cert/Cert17mbtiles.kt:212:        val chunky = (0 until 501).map { GtTileKey(13, 400, 800 + it) }
 SHARED:cert/CertMap.kt:18:object CertMap {
 SHARED:cert/CertMap.kt:19:    const val N = 1_500
 SHARED:cert/CertMap.kt:20:    private const val W_PX = 1280.0
@@ -15610,6 +16142,29 @@ SHARED:cert/CertMap.kt:58:                    val why = if (rows.size >= GtSpati
 SHARED:cert/CertMap.kt:62:                val lim = GtSpatial.otherLimit(z)
 SHARED:cert/CertMap.kt:63:                val kinds = listOf(
 SHARED:cert/CertMap.kt:82:    private fun clean(v: String) = v.replace('|', '/').replace('\n', ' ')
+SHARED:cert/GtBlobProbe.kt:22:object GtBlobProbe {
+SHARED:cert/GtBlobProbe.kt:24:    private fun hex(b: ByteArray): String = b.joinToString("") {
+SHARED:cert/GtBlobProbe.kt:25:        val v = it.toInt() and 0xff
+SHARED:cert/GtBlobProbe.kt:26:        val d = "0123456789abcdef"
+SHARED:cert/GtBlobProbe.kt:31:    private fun cases(): List<Pair<String, ByteArray>> = listOf(
+SHARED:cert/GtBlobProbe.kt:45:    fun run(dbPath: String, sink: (String, String) -> Unit) {
+SHARED:cert/GtBlobProbe.kt:46:        val c = try { gtOpenDatabase(dbPath, false) } catch (e: Exception) {
+SHARED:cert/GtBlobProbe.kt:49:        fun exec(sql: String) { val st = c.prepare(sql); try { st.step() } finally { st.close() } }
+SHARED:cert/GtBlobProbe.kt:50:        fun one(sql: String): String {
+SHARED:cert/GtBlobProbe.kt:51:            val st = c.prepare(sql)
+SHARED:cert/GtBlobProbe.kt:70:            val (name, bytes) = kv
+SHARED:cert/GtBlobProbe.kt:72:                val ins = c.prepare("INSERT OR REPLACE INTO tiles(zoom_level,tile_column,tile_row,tile_data) VALUES(?,?,?,?)")
+SHARED:cert/GtBlobProbe.kt:77:                val sel = c.prepare("SELECT tile_data FROM tiles WHERE zoom_level=10 AND tile_column=$i AND tile_row=0 LIMIT 1")
+SHARED:cert/GtBlobProbe.kt:78:                val back = try { if (sel.step()) sel.getBlob(0) else null } finally { sel.close() }
+SHARED:cert/GtBlobProbe.kt:89:            val ins = c.prepare("INSERT OR REPLACE INTO tiles(zoom_level,tile_column,tile_row,tile_data) VALUES(?,?,?,?)")
+SHARED:cert/GtBlobProbe.kt:92:            val sel = c.prepare("SELECT tile_data FROM tiles WHERE zoom_level=10 AND tile_column=0 AND tile_row=0")
+SHARED:cert/GtBlobProbe.kt:93:            val back = try { if (sel.step()) sel.getBlob(0) else null } finally { sel.close() }
+SHARED:cert/GtBlobProbe.kt:100:                val ins = c.prepare("INSERT OR REPLACE INTO tiles(zoom_level,tile_column,tile_row,tile_data) VALUES(?,?,?,?)")
+SHARED:cert/GtBlobProbe.kt:103:            val st = c.prepare("SELECT tile_column >> 2, tile_row >> 2, COUNT(*) FROM tiles WHERE zoom_level=12 GROUP BY 1, 2")
+SHARED:cert/GtBlobProbe.kt:104:            val rows = StringBuilder()
+SHARED:cert/GtBlobProbe.kt:110:            val dz = c.prepare("SELECT DISTINCT zoom_level FROM tiles ORDER BY zoom_level")
+SHARED:cert/GtBlobProbe.kt:111:            val zs = StringBuilder(); try { while (dz.step()) zs.append(dz.getLong(0)).append(',') } finally { dz.close() }
+SHARED:cert/GtBlobProbe.kt:125:            val name = p.substringBefore('=')
 SHARED:cert/Cert15c.kt:48:object Cert15c {
 SHARED:cert/Cert15c.kt:51:    class Res(val tracksScanned: Int, val trailsAdded: Int, val miles: Double, val tracksRemoved: Int, val trailsTotal: Int,
 SHARED:cert/Cert15c.kt:52:              val trailsRemoved: Int, val trailsUnchanged: Int, val milesTotal: Double) {
@@ -16941,6 +17496,72 @@ SHARED:db/GtSchema.kt:100:        val sql = text.lines().filter { !it.trim().sta
 SHARED:db/GtSchema.kt:104:                val st = raw.trim(); if (st.isEmpty()) continue
 SHARED:db/GtDb.kt:12:expect fun gtOpenDatabase(path: String, readOnly: Boolean): SQLiteConnection
 SHARED:log/GtLog.kt:14:fun gtLogger(tag: String): Logger = Logger(loggerConfigInit(platformLogWriter(), minSeverity = Severity.Verbose), tag)
+SHARED:mbtiles/GtMBTiles.kt:17: * 2.7e holds `private val handles = HashMap<String, SQLiteDatabase>()`, @Synchronized, with an
+SHARED:mbtiles/GtMBTiles.kt:21: * class stateless and certifiable and is why `closeAll` being dead is convenient rather than awkward.
+SHARED:mbtiles/GtMBTiles.kt:36:class GtMBTiles(private val env: GtTileStoreEnv) {
+SHARED:mbtiles/GtMBTiles.kt:40:    private inline fun <T> read(type: String, sql: String, bind: (SQLiteStatement) -> Unit, fallback: T, body: (SQLiteStatement) -> T): T {
+SHARED:mbtiles/GtMBTiles.kt:41:        val c = env.connection(type) ?: return fallback
+SHARED:mbtiles/GtMBTiles.kt:43:            val st = c.prepare(sql)
+SHARED:mbtiles/GtMBTiles.kt:49:    private fun changes(c: SQLiteConnection): Int {
+SHARED:mbtiles/GtMBTiles.kt:50:        val st = c.prepare("SELECT changes()")
+SHARED:mbtiles/GtMBTiles.kt:54:    private fun exec(c: SQLiteConnection, sql: String) {
+SHARED:mbtiles/GtMBTiles.kt:55:        val st = c.prepare(sql); try { st.step() } finally { st.close() }
+SHARED:mbtiles/GtMBTiles.kt:61:    fun insertTile(type: String, z: Int, x: Int, y: Int, bytes: ByteArray): Boolean {
+SHARED:mbtiles/GtMBTiles.kt:62:        val c = env.connection(type) ?: return false
+SHARED:mbtiles/GtMBTiles.kt:64:            val st = c.prepare("INSERT OR REPLACE INTO tiles(zoom_level,tile_column,tile_row,tile_data) VALUES(?,?,?,?)")
+SHARED:mbtiles/GtMBTiles.kt:76:    fun readTile(type: String, z: Int, x: Int, y: Int): ByteArray? = read(
+SHARED:mbtiles/GtMBTiles.kt:82:    fun hasTile(type: String, z: Int, x: Int, y: Int): Boolean = read(
+SHARED:mbtiles/GtMBTiles.kt:93:    fun countInTileRange(type: String, z: Int, xMin: Long, xMax: Long, yMin: Long, yMax: Long): Int = read(
+SHARED:mbtiles/GtMBTiles.kt:99:    fun countTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int = read(
+SHARED:mbtiles/GtMBTiles.kt:109:    fun tileExtentAtZoom(type: String, z: Int): LongArray? = read(
+SHARED:mbtiles/GtMBTiles.kt:118:    fun zoomLevelsPresent(type: String): List<Int> = read(
+SHARED:mbtiles/GtMBTiles.kt:120:    ) { st -> val out = ArrayList<Int>(); while (st.step()) out.add(st.getLong(0).toInt()); out }
+SHARED:mbtiles/GtMBTiles.kt:123:    fun countAtZoom(type: String, z: Int): Int = read(
+SHARED:mbtiles/GtMBTiles.kt:128:    fun xyAtZoom(type: String, z: Int): List<Pair<Long, Long>> = read(
+SHARED:mbtiles/GtMBTiles.kt:130:    ) { st -> val out = ArrayList<Pair<Long, Long>>(); while (st.step()) out.add(st.getLong(0) to st.getLong(1)); out }
+SHARED:mbtiles/GtMBTiles.kt:137:    fun countByParent(type: String, z: Int, shift: Int): List<LongArray> = read(
+SHARED:mbtiles/GtMBTiles.kt:140:    ) { st -> val out = ArrayList<LongArray>(); while (st.step()) out.add(longArrayOf(st.getLong(0), st.getLong(1), st.getLong(2))); out }
+SHARED:mbtiles/GtMBTiles.kt:145:    fun scanKeys(type: String): List<GtTileKey> = read(
+SHARED:mbtiles/GtMBTiles.kt:148:        val out = ArrayList<GtTileKey>()
+SHARED:mbtiles/GtMBTiles.kt:160:    fun tilesInBounds(type: String, north: Double, south: Double, east: Double, west: Double): List<GtTileKey> {
+SHARED:mbtiles/GtMBTiles.kt:161:        val out = ArrayList<GtTileKey>()
+SHARED:mbtiles/GtMBTiles.kt:163:            val n = 1L shl z
+SHARED:mbtiles/GtMBTiles.kt:165:            val xMin = GtTileMath.lon2tile(west, z).toLong().coerceIn(0L, n - 1)
+SHARED:mbtiles/GtMBTiles.kt:166:            val xMax = GtTileMath.lon2tile(east, z).toLong().coerceIn(0L, n - 1)
+SHARED:mbtiles/GtMBTiles.kt:167:            val yMin = GtTileMath.lat2tile(north, z).toLong().coerceIn(0L, n - 1)
+SHARED:mbtiles/GtMBTiles.kt:168:            val yMax = GtTileMath.lat2tile(south, z).toLong().coerceIn(0L, n - 1)
+SHARED:mbtiles/GtMBTiles.kt:174:                val rows = ArrayList<GtTileKey>()
+SHARED:mbtiles/GtMBTiles.kt:190:    fun deleteTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int {
+SHARED:mbtiles/GtMBTiles.kt:192:        val c = env.connection(type) ?: return 0
+SHARED:mbtiles/GtMBTiles.kt:194:            val st = c.prepare("DELETE FROM tiles WHERE zoom_level=? AND tile_column BETWEEN ? AND ? AND tile_row BETWEEN ? AND ?")
+SHARED:mbtiles/GtMBTiles.kt:210:    fun countTiles(type: String, tiles: List<GtTileKey>): Int {
+SHARED:mbtiles/GtMBTiles.kt:213:        val c = env.connection(type) ?: return 0
+SHARED:mbtiles/GtMBTiles.kt:214:        var found = 0
+SHARED:mbtiles/GtMBTiles.kt:217:                val (z, x) = key
+SHARED:mbtiles/GtMBTiles.kt:218:                val rows = group.map { it.y }
+SHARED:mbtiles/GtMBTiles.kt:219:                var i = 0
+SHARED:mbtiles/GtMBTiles.kt:221:                    val chunk = rows.subList(i, minOf(i + 500, rows.size))
+SHARED:mbtiles/GtMBTiles.kt:222:                    val st = c.prepare(
+SHARED:mbtiles/GtMBTiles.kt:241:    fun deleteTiles(type: String, tiles: List<GtTileKey>): Int {
+SHARED:mbtiles/GtMBTiles.kt:244:        val c = env.connection(type) ?: return 0
+SHARED:mbtiles/GtMBTiles.kt:245:        var removed = 0
+SHARED:mbtiles/GtMBTiles.kt:250:                    val (z, x) = key
+SHARED:mbtiles/GtMBTiles.kt:251:                    val rows = group.map { it.y }
+SHARED:mbtiles/GtMBTiles.kt:252:                    var i = 0
+SHARED:mbtiles/GtMBTiles.kt:254:                        val chunk = rows.subList(i, minOf(i + 500, rows.size))
+SHARED:mbtiles/GtMBTiles.kt:255:                        val st = c.prepare(
+SHARED:mbtiles/GtMBTiles.kt:279:    fun storeExists(type: String): Boolean = env.storeExists(type)
+SHARED:mbtiles/GtMBTiles.kt:283:     * ⛔ KNOWN MEANINGLESS ON auto_vacuum=FULL -- see the class note. Ported faithfully anyway,
+SHARED:mbtiles/GtMBTiles.kt:286:    fun reclaimableBytes(type: String): Long {
+SHARED:mbtiles/GtMBTiles.kt:288:        val c = env.connection(type) ?: return 0L
+SHARED:mbtiles/GtMBTiles.kt:289:        var pages = 0L
+SHARED:mbtiles/GtMBTiles.kt:290:        var pageSize = 0L
+SHARED:mbtiles/GtMBTiles.kt:293:            val a = c.prepare("PRAGMA freelist_count")
+SHARED:mbtiles/GtMBTiles.kt:295:            val b = c.prepare("PRAGMA page_size")
+SHARED:mbtiles/GtMBTiles.kt:302:    fun deleteSource(type: String): Boolean = env.deleteStore(type)
+SHARED:mbtiles/GtMBTiles.kt:317:    fun connection(type: String): SQLiteConnection?
+SHARED:mbtiles/GtMBTiles.kt:319:    fun storeExists(type: String): Boolean
+SHARED:mbtiles/GtMBTiles.kt:321:    fun deleteStore(type: String): Boolean
 SHARED:text/GtRx.kt:19:class GtRxMatch(val value: String, val groupValues: List<String>, val range: IntRange)
 SHARED:text/GtRx.kt:21:object GtRx {
 SHARED:text/GtRx.kt:30:    const val WS = "[\u0009-\u000D \u0085   -     　]"
@@ -18015,6 +18636,46 @@ SHARED:startup/GtHkEnv.kt:135:    fun rawQueryRows(sql: String): List<List<Strin
 SHARED:startup/GtHkEnv.kt:137:    fun execSQL(sql: String, bindings: List<String> = emptyList())
 SHARED:startup/GtHkEnv.kt:139:    fun probeColumnThrows(col: String): Boolean
 SHARED:startup/GtHkEnv.kt:140:    val path: String?
+SHARED:maprecipe/GtMapRecipe.kt:46:class GtMapRecipe(
+SHARED:maprecipe/GtMapRecipe.kt:47:    private val files: GtFiles,
+SHARED:maprecipe/GtMapRecipe.kt:48:    private val paths: GtImportPaths,
+SHARED:maprecipe/GtMapRecipe.kt:49:    private val clock: GtClock,
+SHARED:maprecipe/GtMapRecipe.kt:50:    private val env: GtRecipeEnv,
+SHARED:maprecipe/GtMapRecipe.kt:53:    companion object {
+SHARED:maprecipe/GtMapRecipe.kt:54:        const val EXT = ".gtmaps"
+SHARED:maprecipe/GtMapRecipe.kt:55:        const val PREFIX = "grouptrack_maps_"
+SHARED:maprecipe/GtMapRecipe.kt:56:        const val KEEP_DAYS = 60
+SHARED:maprecipe/GtMapRecipe.kt:58:        const val CONVERSION = "grouptrack_conversion.gtmaps"
+SHARED:maprecipe/GtMapRecipe.kt:61:        fun lonOf(x: Long, n: Long): Double = x.toDouble() / n * 360.0 - 180.0
+SHARED:maprecipe/GtMapRecipe.kt:63:        /** 2.7e: Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n)))) -- see the class note. */
+SHARED:maprecipe/GtMapRecipe.kt:64:        fun latOf(y: Long, n: Long): Double =
+SHARED:maprecipe/GtMapRecipe.kt:71:    private fun today(): String = GtTime.local(clock.localNow(), "yyyy-MM-dd")
+SHARED:maprecipe/GtMapRecipe.kt:73:    fun writeDaily(): Path? = write(fresh = false)
+SHARED:maprecipe/GtMapRecipe.kt:76:    fun writeFresh(): Path? = write(fresh = true)
+SHARED:maprecipe/GtMapRecipe.kt:79:    private fun write(fresh: Boolean): Path? {
+SHARED:maprecipe/GtMapRecipe.kt:80:        val target = dir() / (PREFIX + today() + EXT)
+SHARED:maprecipe/GtMapRecipe.kt:92:        var any = false
+SHARED:maprecipe/GtMapRecipe.kt:93:        val doc = try {
+SHARED:maprecipe/GtMapRecipe.kt:94:            val slotsJson = buildJsonArray {
+SHARED:maprecipe/GtMapRecipe.kt:98:                    val r = env.deriveRecipe(slot) ?: continue
+SHARED:maprecipe/GtMapRecipe.kt:99:                    val n = 1L shl r.refZ
+SHARED:maprecipe/GtMapRecipe.kt:137:    private fun prune() {
+SHARED:maprecipe/GtMapRecipe.kt:139:            val cutoff = clock.epochMs() - KEEP_DAYS * 24L * 60L * 60L * 1000L
+SHARED:maprecipe/GtMapRecipe.kt:141:                val name = f.name
+SHARED:maprecipe/GtMapRecipe.kt:153:data class GtRecipeResult(
+SHARED:maprecipe/GtMapRecipe.kt:154:    val slot: String,
+SHARED:maprecipe/GtMapRecipe.kt:155:    val refZ: Int,
+SHARED:maprecipe/GtMapRecipe.kt:156:    val levels: List<Int>,
+SHARED:maprecipe/GtMapRecipe.kt:157:    val boxes: List<LongArray>,
+SHARED:maprecipe/GtMapRecipe.kt:158:    val dropped: Int,
+SHARED:maprecipe/GtMapRecipe.kt:159:    val totalTiles: Long,
+SHARED:maprecipe/GtMapRecipe.kt:163: * What the recipe needs from the rest of the app. See the class note for why these are sockets and
+SHARED:maprecipe/GtMapRecipe.kt:168:    fun slotSources(): List<Triple<String, String, String>>
+SHARED:maprecipe/GtMapRecipe.kt:170:    fun storeExists(slot: String): Boolean
+SHARED:maprecipe/GtMapRecipe.kt:172:    fun deriveRecipe(slot: String): GtRecipeResult?
+SHARED:maprecipe/GtMapRecipe.kt:174:    fun vectorBusyCount(): Int
+SHARED:maprecipe/GtMapRecipe.kt:175:    val vecSlot: String
+SHARED:maprecipe/GtMapRecipe.kt:176:    val demSlot: String
 SHARED:help/GtHelpFixture.kt:8:object GtHelpFixture {
 SHARED:help/GtHelpFixture.kt:11:    const val GOOD = """{"links":{"map":"manual#map","map.dl_area":"manual#download-area","route":"manual#route","route.notes":"manual#route-notes","rides.carts":"manual#carts"}}"""
 SHARED:help/GtHelpFixture.kt:14:    const val NO_LINKS = """{"other":{"map":"manual#map"}}"""

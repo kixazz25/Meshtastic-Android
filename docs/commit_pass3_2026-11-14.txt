@@ -1,0 +1,48 @@
+2.8 step 17 Phase 2 pass 3: MBTilesStore ported to shared GtMBTiles and CERTIFIED - PHASE 2 COMPLETE
+
+GtMBTiles (322 lines, commonMain) ports 2.7e MBTilesStore's 18 LIVE members.
+Not yet switched: the live MBTilesStore is untouched and GtMBTiles has no callers.
+
+TWO MEMBERS SKIPPED, both measured dead (M2 - skip, never remove):
+closeAll has ZERO call sites anywhere. sourceInfo's only caller is
+ConvoyTileDownloader.sourceInfo, a one-line wrapper with zero callers - a
+two-level dead chain. Those two wrappers are a free C-class removal, 8 lines.
+
+THE HANDLE CACHE STAYS ON THE PLATFORM. 2.7e holds a synchronized
+HashMap<String, SQLiteDatabase> with an isOpen recheck, so MBTilesStore is
+stateful where passes 1 and 2 were not. That cache is platform state - handle
+lifetime, thread safety, open-or-create - not business logic, so it sits behind
+GtTileStoreEnv and leaves the port stateless and certifiable.
+
+Cert17mbtiles: 84 compared keys. Droid 84 SAME / 0 DIFF / 0 EXPECTED, iPad 84
+SAME / 0 DIFF / 0 ENGINE-FACT cross-device COMPARED, two clean runs with
+byte-identical reports.
+
+PRE-FLIGHT FIRST (GtBlobProbe, mode blob17): no blob had ever crossed the shared
+SQLite driver anywhere in this project, and readTile/insertTile are entirely blob
+I/O on the hottest path in the app. Proved before building an 18-member harness
+on the assumption: 6/6 blob round trips byte-identical on both platforms, plus
+the >> operator with GROUP BY ordinals, BETWEEN, MIN/MAX, DISTINCT/ORDER BY and
+INSERT OR REPLACE. 30 SAME, 2 platform facts (sqlite_version 3.39.2 vs 3.46.0,
+page_count 6 vs 5), 0 BLOCKER.
+
+tilesInBounds REUSES GtTileMath.lon2tile/lat2tile, and the reuse was verified
+rather than assumed: identical in form across z0-z18 over 247 latitudes, zero
+differences. Pass 2 went the other way on the same question - GtVectorQueue's
+latOf is algebraically equal to ConvoyMapRecipe's and differs in floating point -
+so the check is the point, not the outcome.
+
+FINDING, and it answers a question this file has been asking since 2026-07-25:
+reclaimableBytes is freelist_count * page_size, and on an auto_vacuum=FULL
+database freed pages return to the OS, so it is STRUCTURALLY ZERO. Measured on
+device under real churn - 300 tiles of 4 KB, 48 columns deleted, freelist still
+0 - and auto_vacuum is FULL on both platforms and both handle types. 2.7e's own
+DELETE-BANDING-2026-07-25 comment asks whether "0 MB reclaimable after removing
+38,896 tiles" meant the pragma returned zero or the arithmetic was wrong, and
+guesses WAL. It is neither: the space had already been returned, and the file
+sets journal_mode=TRUNCATE so there was never a WAL. The member certifies at
+0 DIFF and that proves nothing - recorded in the cert, not left to look like a
+result. Do not build a VACUUM flow on it.
+
+Living master v238: the measured MBTilesStore review, the reclaimableBytes
+finding, and the four cert-tooling faults fixed today.
