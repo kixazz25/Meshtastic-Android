@@ -41,9 +41,18 @@ package com.grouptrack.shared.queue
  *   VectorTiles.squaresFor / GtVectorQueue — ALREADY CERTIFIED IN Cert16c. So the function lives in
  *   another group; only the old taper is gone. Removal of the dead arms is cleanup C5.
  *
- * estimateSizeMB + isWithinCeiling + AVG_TILE_KB — dead in 2.7e. NOT PORTED.
- *   isWithinCeiling has ZERO uses anywhere in the xref; estimateSizeMB's only use was
- *   isWithinCeiling; AVG_TILE_KB's only use was estimateSizeMB. A dead chain ports as nothing.
+ * estimateSizeMB + isWithinCeiling — dead in 2.7e. NOT PORTED. isWithinCeiling has ZERO uses
+ *   anywhere in the xref; estimateSizeMB's only use was isWithinCeiling. Cleanup C3.
+ * ⚠⚠ CORRECTION (ESTBUG-2026-11-14): AVG_TILE_KB and CEILING_MB are **NOT** dead, and an earlier
+ *   draft of this header wrongly said AVG_TILE_KB's only use was estimateSizeMB. It has TWO uses:
+ *   estimateSizeMB (dead) AND ConvoyTileCalculator.quickEstimate:321 (LIVE -- 8 callers). The chain
+ *   analysis followed estimateSizeMB -> isWithinCeiling, found it dead, and never asked whether the
+ *   CONSTANT had another consumer. Both live on in GtTileMath (ported under step 16b, certified).
+ *   ⛔ AND THE VALUE IS WRONG: 15 KB/tile is a SATELLITE-RASTER figure, while the app now downloads
+ *   only VEC (pbf) and DEM (terrarium png). The estimate and the ceiling dialog are both computed on
+ *   a constant for maps that no longer exist. Fred 11-14 08:27. DO NOT fix it here -- see the living
+ *   master: the fix is a deliberate post-switch change with MEASURED tile sizes, not another guess,
+ *   and changing it inside the port would invalidate the 16b certification.
  *   (Earlier drafts kept them "to keep the OLD/NEW comparison total" — wrong: there is nothing to
  *   compare when neither side is ever called. Cleanup C3.)
  *
