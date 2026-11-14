@@ -59479,52 +59479,91 @@ SHARED:queue/GtTileMath.kt:20:    val estimatedMB: Float,
 SHARED:queue/GtTileMath.kt:21:    val withinCeiling: Boolean,
 SHARED:queue/GtTileMath.kt:22:    val zoomMin: Int,
 SHARED:queue/GtTileMath.kt:23:    val zoomMax: Int
-SHARED:queue/GtTileMath.kt:27:    private const val AVG_TILE_KB = 15f
-SHARED:queue/GtTileMath.kt:28:    const val CEILING_MB = 5000f
-SHARED:queue/GtTileMath.kt:29:    private val seg = gtLogger("SEGMENT")
-SHARED:queue/GtTileMath.kt:31:    fun lon2tile(lon: Double, z: Int): Int =
-SHARED:queue/GtTileMath.kt:32:        floor((lon + 180.0) / 360.0 * (1 shl z)).toInt()
-SHARED:queue/GtTileMath.kt:34:    fun lat2tile(lat: Double, z: Int): Int {
-SHARED:queue/GtTileMath.kt:35:        val rad = GtJava.toRadians(lat)
-SHARED:queue/GtTileMath.kt:36:        return floor(
-SHARED:queue/GtTileMath.kt:41:    fun quickEstimate(north: Double, south: Double, east: Double, west: Double, zMin: Int, zMax: Int): GtDownloadEstimate {
-SHARED:queue/GtTileMath.kt:42:        var totalTiles = 0
-SHARED:queue/GtTileMath.kt:43:        for (z in zMin..zMax) {
-SHARED:queue/GtTileMath.kt:44:            val xCount = lon2tile(east, z) - lon2tile(west, z) + 1
-SHARED:queue/GtTileMath.kt:45:            val yCount = lat2tile(south, z) - lat2tile(north, z) + 1
-SHARED:queue/GtTileMath.kt:46:            totalTiles += xCount * yCount
-SHARED:queue/GtTileMath.kt:48:        val sizeMB = totalTiles * AVG_TILE_KB / 1024f
-SHARED:queue/GtTileMath.kt:50:            tileCount = totalTiles,
-SHARED:queue/GtTileMath.kt:51:            estimatedMB = sizeMB,
-SHARED:queue/GtTileMath.kt:52:            withinCeiling = sizeMB <= CEILING_MB,
-SHARED:queue/GtTileMath.kt:53:            zoomMin = zMin,
-SHARED:queue/GtTileMath.kt:54:            zoomMax = zMax
-SHARED:queue/GtTileMath.kt:58:    fun segmentCells(
-SHARED:queue/GtTileMath.kt:59:        north: Double, south: Double, east: Double, west: Double,
-SHARED:queue/GtTileMath.kt:60:        sizeTiles: Int,
-SHARED:queue/GtTileMath.kt:61:        zMax: Int,
-SHARED:queue/GtTileMath.kt:65:        val n = maxOf(1, ceil(sizeTiles.toDouble() / segCeilingTiles).toInt())
-SHARED:queue/GtTileMath.kt:66:        val tileDeg = 360.0 / GtMath.pow(2.0, zMax.toDouble())
-SHARED:queue/GtTileMath.kt:67:        val pad = if (n > 1) overlapTiles * tileDeg else 0.0
-SHARED:queue/GtTileMath.kt:68:        val dLat = north - south
-SHARED:queue/GtTileMath.kt:69:        val dLon = east - west
-SHARED:queue/GtTileMath.kt:70:        val cutLat = dLat >= dLon
-SHARED:queue/GtTileMath.kt:71:        val cells = mutableListOf<DoubleArray>()
-SHARED:queue/GtTileMath.kt:73:            val f0 = i.toDouble() / n
-SHARED:queue/GtTileMath.kt:74:            val f1 = (i + 1).toDouble() / n
-SHARED:queue/GtTileMath.kt:75:            val baseN: Double; val baseS: Double; val baseE: Double; val baseW: Double
-SHARED:queue/GtTileMath.kt:76:            if (cutLat) {
-SHARED:queue/GtTileMath.kt:77:                baseN = north - f0 * dLat; baseS = north - f1 * dLat; baseE = east; baseW = west
-SHARED:queue/GtTileMath.kt:79:                baseN = north; baseS = south; baseW = west + f0 * dLon; baseE = west + f1 * dLon
-SHARED:queue/GtTileMath.kt:81:            val cN = baseN + pad
-SHARED:queue/GtTileMath.kt:82:            val cS = baseS - pad
-SHARED:queue/GtTileMath.kt:83:            val cE = baseE + pad
-SHARED:queue/GtTileMath.kt:84:            val cW = baseW - pad
-SHARED:queue/GtTileMath.kt:85:            cells.add(doubleArrayOf(cN, cS, cE, cW))
-SHARED:queue/GtTileMath.kt:86:            seg.i { "cell ${i + 1}/$n N=${GtJava.jd(cN)} S=${GtJava.jd(cS)} E=${GtJava.jd(cE)} W=${GtJava.jd(cW)}" }
-SHARED:queue/GtTileMath.kt:89:            "SPLIT sizeTiles=$sizeTiles ceiling=$segCeilingTiles segments=$n " +
-SHARED:queue/GtTileMath.kt:90:                "cutAxis=${if (cutLat) "lat" else "lon"} overlapTiles=${if (n > 1) overlapTiles else 0} padDeg=${GtJava.jd(pad)}"
-SHARED:queue/GtTileMath.kt:92:        return cells
+SHARED:queue/GtTileMath.kt:27: * ESTCALC-2026-11-14: what one vector-map area download actually fetches, per slot and in total.
+SHARED:queue/GtTileMath.kt:28: * The breakdown is kept, not just the total, so a screen can show "VEC n + DEM n" without a second call.
+SHARED:queue/GtTileMath.kt:30:data class GtAreaTiles(
+SHARED:queue/GtTileMath.kt:31:    val vecTiles: Int,
+SHARED:queue/GtTileMath.kt:32:    val demTiles: Int,
+SHARED:queue/GtTileMath.kt:34:    val total: Int get() = vecTiles + demTiles
+SHARED:queue/GtTileMath.kt:38:    private const val AVG_TILE_KB = 15f
+SHARED:queue/GtTileMath.kt:39:    const val CEILING_MB = 5000f
+SHARED:queue/GtTileMath.kt:40:    private val seg = gtLogger("SEGMENT")
+SHARED:queue/GtTileMath.kt:42:    fun lon2tile(lon: Double, z: Int): Int =
+SHARED:queue/GtTileMath.kt:43:        floor((lon + 180.0) / 360.0 * (1 shl z)).toInt()
+SHARED:queue/GtTileMath.kt:45:    fun lat2tile(lat: Double, z: Int): Int {
+SHARED:queue/GtTileMath.kt:46:        val rad = GtJava.toRadians(lat)
+SHARED:queue/GtTileMath.kt:47:        return floor(
+SHARED:queue/GtTileMath.kt:52:    fun quickEstimate(north: Double, south: Double, east: Double, west: Double, zMin: Int, zMax: Int): GtDownloadEstimate {
+SHARED:queue/GtTileMath.kt:53:        var totalTiles = 0
+SHARED:queue/GtTileMath.kt:54:        for (z in zMin..zMax) {
+SHARED:queue/GtTileMath.kt:55:            val xCount = lon2tile(east, z) - lon2tile(west, z) + 1
+SHARED:queue/GtTileMath.kt:56:            val yCount = lat2tile(south, z) - lat2tile(north, z) + 1
+SHARED:queue/GtTileMath.kt:57:            totalTiles += xCount * yCount
+SHARED:queue/GtTileMath.kt:59:        val sizeMB = totalTiles * AVG_TILE_KB / 1024f
+SHARED:queue/GtTileMath.kt:61:            tileCount = totalTiles,
+SHARED:queue/GtTileMath.kt:62:            estimatedMB = sizeMB,
+SHARED:queue/GtTileMath.kt:63:            withinCeiling = sizeMB <= CEILING_MB,
+SHARED:queue/GtTileMath.kt:64:            zoomMin = zMin,
+SHARED:queue/GtTileMath.kt:65:            zoomMax = zMax
+SHARED:queue/GtTileMath.kt:70:     * ESTCALC-2026-11-14 (Fred 11-14 08:35: "make it a callable function so we can easily reuse").
+SHARED:queue/GtTileMath.kt:71:     * THE ONE AREA ESTIMATE. Every caller that wants "how big is this download?" asks THIS, so the
+SHARED:queue/GtTileMath.kt:72:     * preview and the queue can never disagree again.
+SHARED:queue/GtTileMath.kt:74:     * WHY IT EXISTS: the 2.7e UI callers asked [quickEstimate] with NO zoom arguments and inherited the
+SHARED:queue/GtTileMath.kt:75:     * RASTER defaults (DOWNLOAD_ZOOM_MIN=4 .. DOWNLOAD_ZOOM=18), while the queue correctly asked
+SHARED:queue/GtTileMath.kt:76:     * zMin=0, zMax=<that slot's ceiling>. Tile count quadruples per zoom level, so the preview over-counted
+SHARED:queue/GtTileMath.kt:77:     * by ~150-230x: a ~60 km area showed 271,735 tiles / 3,980 MB against a real job of 1,287, and a
+SHARED:queue/GtTileMath.kt:78:     * ~150 km trip was REFUSED by the "Area Too Large" gate while the real job was under 10,000 tiles.
+SHARED:queue/GtTileMath.kt:81:     * WHAT IT IS: exactly what GtVectorQueue.enqueueArea:195-196 does, for both slots a vector-map area
+SHARED:queue/GtTileMath.kt:82:     * download actually fetches -- VEC and DEM, zMin=0 to each slot's OWN ceiling, ONE layer each.
+SHARED:queue/GtTileMath.kt:83:     * The raster path multiplied by satLayers (3, for SAT's three layers over the same geography); a
+SHARED:queue/GtTileMath.kt:84:     * vector slot is one layer, so there is no layer multiplier here.
+SHARED:queue/GtTileMath.kt:86:     * CERTIFICATION: this adds NO new seam. Both calls are already certified -- Cert16c compares
+SHARED:queue/GtTileMath.kt:87:     * quickEstimate at z0-14 (key "qe14") and z0-12 (key "qe12") over every box in its set, Droid
+SHARED:queue/GtTileMath.kt:88:     * OLD = NEW and iPad = Droid. Composing two certified results with "+" is a DECISION, not a seam,
+SHARED:queue/GtTileMath.kt:89:     * so it needs no new golden run. See the living master, THE THREE LEVELS.
+SHARED:queue/GtTileMath.kt:91:     * ⛔ THE CEILINGS ARE PARAMETERS ON PURPOSE. [vecZMax] / [demZMax] are passed in, never read from a
+SHARED:queue/GtTileMath.kt:92:     * constant here, because those two numbers ALREADY exist in FOUR places -- VectorTiles.Z_MAX,
+SHARED:queue/GtTileMath.kt:93:     * ElevationTiles.Z_MAX, GtVectorQueue.Z_MAX/DEM_Z_MAX, GtMapSpec.VEC_Z_MAX/DEM_Z_MAX. This must not
+SHARED:queue/GtTileMath.kt:94:     * become a fifth. (Same reason GtTileMath's header makes quickEstimate's zMin/zMax REQUIRED: a
+SHARED:queue/GtTileMath.kt:95:     * default that reads app state is how the raster range leaked into the UI in the first place.)
+SHARED:queue/GtTileMath.kt:96:     * Android callers pass GtVectorQueue.Z_MAX and GtVectorQueue.DEM_Z_MAX.
+SHARED:queue/GtTileMath.kt:98:     * ⚠ TILES ONLY, NO MB. estimatedMB anywhere in this file is computed from AVG_TILE_KB = 15f, a
+SHARED:queue/GtTileMath.kt:99:     * SATELLITE-RASTER figure, and the app now downloads only pbf vector and terrarium png. Until the
+SHARED:queue/GtTileMath.kt:100:     * real per-slot byte sizes are measured off VEC.mbtiles / DEM.mbtiles, a caller that needs MB owns
+SHARED:queue/GtTileMath.kt:101:     * that conversion in platform code: shared carries DATA, the platform carries DISPLAY.
+SHARED:queue/GtTileMath.kt:103:    fun areaTiles(
+SHARED:queue/GtTileMath.kt:104:        north: Double,
+SHARED:queue/GtTileMath.kt:105:        south: Double,
+SHARED:queue/GtTileMath.kt:106:        east: Double,
+SHARED:queue/GtTileMath.kt:107:        west: Double,
+SHARED:queue/GtTileMath.kt:111:        vecTiles = quickEstimate(north, south, east, west, zMin = 0, zMax = vecZMax).tileCount,
+SHARED:queue/GtTileMath.kt:112:        demTiles = quickEstimate(north, south, east, west, zMin = 0, zMax = demZMax).tileCount,
+SHARED:queue/GtTileMath.kt:115:    fun segmentCells(
+SHARED:queue/GtTileMath.kt:116:        north: Double, south: Double, east: Double, west: Double,
+SHARED:queue/GtTileMath.kt:117:        sizeTiles: Int,
+SHARED:queue/GtTileMath.kt:118:        zMax: Int,
+SHARED:queue/GtTileMath.kt:122:        val n = maxOf(1, ceil(sizeTiles.toDouble() / segCeilingTiles).toInt())
+SHARED:queue/GtTileMath.kt:123:        val tileDeg = 360.0 / GtMath.pow(2.0, zMax.toDouble())
+SHARED:queue/GtTileMath.kt:124:        val pad = if (n > 1) overlapTiles * tileDeg else 0.0
+SHARED:queue/GtTileMath.kt:125:        val dLat = north - south
+SHARED:queue/GtTileMath.kt:126:        val dLon = east - west
+SHARED:queue/GtTileMath.kt:127:        val cutLat = dLat >= dLon
+SHARED:queue/GtTileMath.kt:128:        val cells = mutableListOf<DoubleArray>()
+SHARED:queue/GtTileMath.kt:130:            val f0 = i.toDouble() / n
+SHARED:queue/GtTileMath.kt:131:            val f1 = (i + 1).toDouble() / n
+SHARED:queue/GtTileMath.kt:132:            val baseN: Double; val baseS: Double; val baseE: Double; val baseW: Double
+SHARED:queue/GtTileMath.kt:133:            if (cutLat) {
+SHARED:queue/GtTileMath.kt:134:                baseN = north - f0 * dLat; baseS = north - f1 * dLat; baseE = east; baseW = west
+SHARED:queue/GtTileMath.kt:136:                baseN = north; baseS = south; baseW = west + f0 * dLon; baseE = west + f1 * dLon
+SHARED:queue/GtTileMath.kt:138:            val cN = baseN + pad
+SHARED:queue/GtTileMath.kt:139:            val cS = baseS - pad
+SHARED:queue/GtTileMath.kt:140:            val cE = baseE + pad
+SHARED:queue/GtTileMath.kt:141:            val cW = baseW - pad
+SHARED:queue/GtTileMath.kt:142:            cells.add(doubleArrayOf(cN, cS, cE, cW))
+SHARED:queue/GtTileMath.kt:143:            seg.i { "cell ${i + 1}/$n N=${GtJava.jd(cN)} S=${GtJava.jd(cS)} E=${GtJava.jd(cE)} W=${GtJava.jd(cW)}" }
+SHARED:queue/GtTileMath.kt:146:            "SPLIT sizeTiles=$sizeTiles ceiling=$segCeilingTiles segments=$n " +
+SHARED:queue/GtTileMath.kt:147:                "cutAxis=${if (cutLat) "lat" else "lon"} overlapTiles=${if (n > 1) overlapTiles else 0} padDeg=${GtJava.jd(pad)}"
+SHARED:queue/GtTileMath.kt:149:        return cells
 SHARED:queue/GtQueueEntry.kt:1:package com.grouptrack.shared.queue
 SHARED:queue/GtQueueEntry.kt:3:import com.grouptrack.shared.imports.GtClock
 SHARED:queue/GtQueueEntry.kt:4:import com.grouptrack.shared.imports.GtIds
