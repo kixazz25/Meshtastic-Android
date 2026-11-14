@@ -1,13 +1,19 @@
 package com.geeksville.mesh.convoy
 
+// SWITCHMAPRECIPE-2026-11-14: the certified shared port and what it needs
+import com.grouptrack.shared.imports.GtClock
+import com.grouptrack.shared.imports.GtFiles
+import com.grouptrack.shared.imports.GtImportPaths
+import com.grouptrack.shared.maprecipe.GtMapRecipe
+import com.grouptrack.shared.maprecipe.GtRecipeEnv
+import com.grouptrack.shared.maprecipe.GtRecipeResult
+import com.grouptrack.shared.text.GtLocalTime
+import okio.FileSystem
+import okio.Path
+import okio.Path.Companion.toOkioPath
+
 import android.content.Context
-import android.os.Environment
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * RECIPE-2026-08-12L: THE DAILY MAP RECIPE.
@@ -51,25 +57,79 @@ import java.util.Locale
  */
 object ConvoyMapRecipe {
     private const val TAG = "MapRecipe"
-    private const val EXT = ".gtmaps"
-    private const val PREFIX = "grouptrack_maps_"
-    private const val KEEP_DAYS = 60
     /** VECCONVERT-2026-10-31: the record made when the old maps were converted -- Restart map conversion replays it. */
-    const val CONVERSION = "grouptrack_conversion.gtmaps"
+    /** SWITCHMAPRECIPE-2026-11-14: from the shared companion, so the two cannot drift. */
+    const val CONVERSION = GtMapRecipe.CONVERSION
 
+    // ---------------------------------------------------------------- SWITCHMAPRECIPE-2026-11-14
     /**
-     * The app's OWN folder, beside the stores it describes - not Downloads.
-     * Downloads is the INBOX: a recipe mailed by someone else lands there, and
-     * the panel lists the two separately so "came from outside" and "made here"
-     * stay distinguishable.
+     * \u26d4 SWITCHED to the shared GtMapRecipe (certified 11-14: Droid 175 SAME / 0 DIFF /
+     * 0 EXPECTED, iPad 175 SAME / 0 DIFF cross-device, two clean runs).
+     *
+     * THE IDIOM IS DELEGATION. Only three members are used outside this file -- CONVERSION,
+     * writeDailyAsync and writeFresh -- and all three keep their signatures. Every comment in the
+     * header above still governs; none of it is restated here.
+     *
+     * \u26a0 writeDailyAsync STAYS HERE. It is a Thread, i.e. platform, and was deliberately not
+     * ported; it now wraps the delegating writeDaily.
+     *
+     * \u26a0 THREE SOCKETS, and why they are sockets and not ports: 2.7e reached
+     * MapSourceManager.getSlotSources, MBTilesStore.storeExists and
+     * DownloadQueueManager.deriveRecipe/queue directly. deriveRecipe runs the quadtree -- hundreds
+     * of COUNT queries per slot against MBTilesStore -- so porting it HERE would have made the
+     * recipe's certification depend on the tile store's. It is certified with pass 3 instead.
      */
-    private fun dir(): File =
-        GroupTrackStorage.dir("recipes")   // STORAGEROOT-2026-09-11
+    private fun env(context: Context): GtRecipeEnv = object : GtRecipeEnv {
+        override fun slotSources(): List<Triple<String, String, String>> = MapSourceManager.getSlotSources()
+        override fun storeExists(slot: String): Boolean = MBTilesStore.storeExists(slot)
+        override fun deriveRecipe(slot: String): GtRecipeResult? =
+            // RECIPETIGHT-2026-10-30: tight = true, boxes follow your maps
+            DownloadQueueManager.deriveRecipe(context, slot, tight = true)?.let {
+                // \u26a0 NAMED ARGUMENTS: GtRecipeResult mirrors RecipeResult field for field, and
+                // refZ / dropped are both Int -- a positional swap would COMPILE.
+                GtRecipeResult(
+                    slot = it.slot, refZ = it.refZ, levels = it.levels,
+                    boxes = it.boxes, dropped = it.dropped, totalTiles = it.totalTiles)
+            }
+        override fun vectorBusyCount(): Int {
+            // 2.7e: init(context) THEN count -- the init is part of the check, not setup
+            DownloadQueueManager.init(context)
+            return DownloadQueueManager.queue.value.count {
+                (it.status == QueueStatus.QUEUED || it.status == QueueStatus.DOWNLOADING ||
+                    it.status == QueueStatus.PAUSED) &&
+                    (it.refreshSlot == VectorTiles.SLOT || it.refreshSlot == ElevationTiles.SLOT)
+            }
+        }
+        override val vecSlot: String = VectorTiles.SLOT
+        override val demSlot: String = ElevationTiles.SLOT
+    }
 
-    private fun today(): String =
-        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+    private fun shared(context: Context): GtMapRecipe {
+        val files = object : GtFiles {
+            override val fs: FileSystem = FileSystem.SYSTEM
+            override fun setLastModified(path: Path, epochMs: Long): Boolean = File(path.toString()).setLastModified(epochMs)
+            override fun lastModified(path: Path): Long = File(path.toString()).lastModified()
+            override fun list(dir: Path): List<Path> = File(dir.toString()).listFiles()?.map { it.toOkioPath() } ?: emptyList()
+        }
+        val paths = object : GtImportPaths {
+            override fun groupTrackRoot(): Path = GroupTrackStorage.root().toOkioPath()
+            override fun dir(name: String): Path = GroupTrackStorage.dir(name).toOkioPath()   // STORAGEROOT-2026-09-11
+            override fun tracksDir(): Path = throw UnsupportedOperationException("ConvoyMapRecipe: recipes folder only")
+            override fun cacheDir(): Path = throw UnsupportedOperationException("ConvoyMapRecipe: recipes folder only")
+            override fun filesDir(): Path = throw UnsupportedOperationException("ConvoyMapRecipe: recipes folder only")
+        }
+        val clock = object : GtClock {
+            override fun nowInstant(): String = java.time.Instant.now().toString()
+            override fun localNow(): GtLocalTime {
+                val t = java.time.LocalDateTime.now()   // DEVICE-LOCAL, as 2.7e's SimpleDateFormat
+                return GtLocalTime(t.year, t.monthValue, t.dayOfMonth, t.hour, t.minute, t.second)
+            }
+            override fun epochMs(): Long = System.currentTimeMillis()
+        }
+        return GtMapRecipe(files, paths, clock, env(context))
+    }
 
-    /** Background, best effort. Never throws into the caller. */
+    /** Background, best effort. Never throws into the caller. \u26a0 Platform -- not ported. */
     fun writeDailyAsync(context: Context) {
         val app = context.applicationContext
         Thread {
@@ -79,92 +139,10 @@ object ConvoyMapRecipe {
         }.start()
     }
 
-    fun writeDaily(context: Context): File? = write(context, fresh = false)
+    fun writeDaily(context: Context): File? =
+        shared(context.applicationContext).writeDaily()?.let { File(it.toString()) }
 
-    /** VECCONVERT-2026-10-31: the conversion's first step -- today's recipe rewritten from the tiles on the phone now. */
-    fun writeFresh(context: Context): File? = write(context, fresh = true)
-
-    // CODE RULE 1: fresh is required -- writeDaily (false: once a day, not mid-conversion) and writeFresh (true) state it.
-    private fun write(context: Context, fresh: Boolean): File? {
-        val target = File(dir(), PREFIX + today() + EXT)
-        if (fresh) target.delete()
-        else if (File(dir(), CONVERSION).exists()) {
-            // VECCONVERT-2026-10-31: not while the conversion's downloads run -- yesterday's file stays the newest (a vector
-            // download of the rider's own also holds it off; the next start writes it)
-            DownloadQueueManager.init(context)
-            val busy = DownloadQueueManager.queue.value.count { (it.status == QueueStatus.QUEUED || it.status == QueueStatus.DOWNLOADING ||
-                it.status == QueueStatus.PAUSED) && (it.refreshSlot == VectorTiles.SLOT || it.refreshSlot == ElevationTiles.SLOT) }
-            if (busy > 0) { android.util.Log.i(TAG, "VECCONVERT $busy vector / elevation job(s) pending -- no daily recipe today"); return null }
-        }
-        if (target.exists()) {
-            android.util.Log.i(TAG, "RECIPE-2026-08-12L today's recipe already written")
-            prune()
-            return target
-        }
-        val slots = JSONArray()
-        var grand = 0L
-        // VECCONVERT-2026-10-31: the vector map and elevation are recorded too; a slot with no store is skipped (deriveRecipe would create one)
-        for (slot in (MapSourceManager.getSlotSources().map { it.first } + listOf(VectorTiles.SLOT, ElevationTiles.SLOT)).distinct()) {
-            if (!MBTilesStore.storeExists(slot)) continue
-            val r = DownloadQueueManager.deriveRecipe(context, slot, tight = true) ?: continue   // RECIPETIGHT-2026-10-30: boxes follow your maps
-            val boxes = JSONArray()
-            val n = 1L shl r.refZ
-            fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0
-            fun latOf(y: Long) = Math.toDegrees(
-                Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y.toDouble() / n))))
-            for (b in r.boxes) {
-                boxes.put(JSONObject().apply {
-                    put("n", latOf(b[2])); put("s", latOf(b[3] + 1))
-                    put("w", lonOf(b[0])); put("e", lonOf(b[1] + 1))
-                    put("tiles", b[4])
-                })
-            }
-            grand += r.totalTiles
-            slots.put(JSONObject().apply {
-                put("slot", r.slot)
-                put("source", MapSourceManager.getSlotSources()
-                    .find { it.first == r.slot }?.third ?: "")
-                put("zMin", r.levels.min())
-                put("zMax", r.levels.max())
-                put("tiles", r.totalTiles)
-                put("boxes", boxes)
-            })
-        }
-        if (slots.length() == 0) {
-            android.util.Log.i(TAG, "RECIPE-2026-08-12L nothing stored in any slot - no recipe")
-            return null
-        }
-        val doc = JSONObject().apply {
-            put("version", 1)
-            put("created", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Date()))
-            put("slots", slots)
-        }
-        return try {
-            dir().mkdirs()
-            target.writeText(doc.toString())
-            android.util.Log.i(TAG,
-                "RECIPE-2026-08-12L wrote ${target.name}: ${slots.length()} slot(s), " +
-                "$grand tile(s), ${target.length()} bytes")
-            prune()
-            target
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "RECIPE-2026-08-12L write failed: ${e.message}")
-            null
-        }
-    }
-
-    /** Anything older than KEEP_DAYS goes. Sixty files of a few KB is nothing. */
-    private fun prune() {
-        try {
-            val cutoff = System.currentTimeMillis() - KEEP_DAYS * 24L * 60L * 60L * 1000L
-            dir().listFiles()?.forEach { f ->
-                if (f.name.startsWith(PREFIX) && f.name.endsWith(EXT) &&
-                    f.lastModified() < cutoff) {
-                    if (f.delete()) android.util.Log.i(TAG, "RECIPE-2026-08-12L pruned ${f.name}")
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "RECIPE-2026-08-12L prune failed: ${e.message}")
-        }
-    }
+    /** VECCONVERT-2026-10-31: the conversion's first step -- today's recipe rewritten from the tiles now. */
+    fun writeFresh(context: Context): File? =
+        shared(context.applicationContext).writeFresh()?.let { File(it.toString()) }
 }
