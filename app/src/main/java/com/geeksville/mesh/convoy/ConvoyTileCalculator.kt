@@ -1,5 +1,7 @@
 package com.geeksville.mesh.convoy
 
+import com.grouptrack.shared.queue.GtTileCalc   // G1ADELEGATE-2026-11-14
+import com.grouptrack.shared.queue.GtTileMath   // G1ADELEGATE-2026-11-14
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.floor
@@ -36,19 +38,15 @@ object ConvoyTileCalculator {
      * Convert longitude to tile X coordinate at zoom level z.
      * Standard Web Mercator slippy map formula.
      */
-    fun lon2tile(lon: Double, z: Int): Int =
-        floor((lon + 180.0) / 360.0 * (1 shl z)).toInt()
+    /** G1ADELEGATE-2026-11-14: THE SHARED CODE (GtTileMath, certified at 1,938,346 values -- MATHTILE 11-10). */
+    fun lon2tile(lon: Double, z: Int): Int = GtTileMath.lon2tile(lon, z)
 
     /**
      * Convert latitude to tile Y coordinate at zoom level z.
      * Standard Web Mercator slippy map formula.
      */
-    fun lat2tile(lat: Double, z: Int): Int {
-        val rad = Math.toRadians(lat)
-        return floor(
-            (1.0 - ln(tan(rad) + 1.0 / cos(rad)) / PI) / 2.0 * (1 shl z)
-        ).toInt()
-    }
+    /** G1ADELEGATE-2026-11-14: THE SHARED CODE (GtTileMath -- Android's own tan/ln/cos algorithms on the iPad). */
+    fun lat2tile(lat: Double, z: Int): Int = GtTileMath.lat2tile(lat, z)
 
     // ── Main calculation ──────────────────────────────────────────────────────
 
@@ -69,7 +67,11 @@ object ConvoyTileCalculator {
     // current behavior for sources that top out). The per-source max_zoom in
     // map_sources.json is retained as a DISPLAY clamp to snap back to — download and
     // display ceilings are intentionally decoupled.
-    fun maxZoomForSource(sourceName: String): Int = ConvoyConfig.DOWNLOAD_ZOOM
+    /** G1ADELEGATE-2026-11-14: THE SHARED CODE. ⛔ [sourceName] is IGNORED there too, exactly as here -- a
+     *  [V2.6b-NO-ZOOM-CAP] leftover the port kept on purpose. DOWNLOAD_ZOOM is a `var`, so it is read
+     *  HERE, per call, and threaded in; the shared function must never reach app state itself. */
+    fun maxZoomForSource(sourceName: String): Int =
+        GtTileCalc.maxZoomForSource(sourceName, ConvoyConfig.DOWNLOAD_ZOOM)
 
     /**
      * ZOOMSLOT-2026-08-10D: THE DOWNLOAD ZOOM RULE. Satellite to z18, rendered maps to z16.
@@ -87,13 +89,9 @@ object ConvoyTileCalculator {
      *
      * An empty slot means NO CAP - see the note on corridorTiles.
      */
-    fun maxZoomForSlot(slotName: String): Int = when (slotName.uppercase()) {
-        "" -> ConvoyConfig.DOWNLOAD_ZOOM
-        "SAT" -> minOf(18, ConvoyConfig.DOWNLOAD_ZOOM)
-        "DEM" -> minOf(12, ConvoyConfig.DOWNLOAD_ZOOM)   // DEMSOURCE-2026-10-30: elevation to z12; MapLibre stretches it closer in
-        "VEC" -> minOf(14, ConvoyConfig.DOWNLOAD_ZOOM)   // VECSOURCE-2026-10-30: vector tiles end at z14; MapLibre over-zooms
-        else -> minOf(16, ConvoyConfig.DOWNLOAD_ZOOM)
-    }
+    /** G1ADELEGATE-2026-11-14: THE SHARED CODE (11 MAXSLOT keys in Cert17g1a). The per-slot ceilings live there now. */
+    fun maxZoomForSlot(slotName: String): Int =
+        GtTileCalc.maxZoomForSlot(slotName, ConvoyConfig.DOWNLOAD_ZOOM)
 
     /** CORRIDOR-DERIVATION-2026-07-24: the tile set within `bufferDeg` of a line.
      *
@@ -256,10 +254,14 @@ object ConvoyTileCalculator {
 
     /** REMOVEAREA-2026-11-03: each zoom's x / y range of a box -- [z, xMin, xMax, yMin, yMax] -- WITHOUT listing its tiles (a state-sized
      *  box is millions of tiles: listing them ran out of memory). Same zooms and edges as calculateTiles. */
+    /** G1ADELEGATE-2026-11-14: THE SHARED CODE (32 ZRANGE keys in Cert17g1a). */
     fun zoomRanges(north: Double, south: Double, east: Double, west: Double,
                    zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN, zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM): List<IntArray> =
-        (zMin..zMax).map { z -> intArrayOf(z, lon2tile(west, z), lon2tile(east, z), lat2tile(north, z), lat2tile(south, z)) }
+        GtTileCalc.zoomRanges(north, south, east, west, zMin, zMax)
 
+    /** G1ADELEGATE-2026-11-14: THE SHARED CODE (96 CALC keys in Cert17g1a). The result is mapped to the Android
+     *  TileKey with NAMED arguments -- z / x / y are all Int, so a positional mapping could transpose a
+     *  coordinate and still compile. ⛔ Do not "simplify" it back to positional. */
     fun calculateTiles(
         north: Double,
         south: Double,
@@ -268,22 +270,11 @@ object ConvoyTileCalculator {
         zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
         zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM,
         sourceName: String = ""
-    ): List<TileKey> {
-        val effectiveZMax = if (sourceName.isNotEmpty()) minOf(zMax, maxZoomForSource(sourceName)) else zMax
-        val tiles = mutableListOf<TileKey>()
-        for (z in zMin..effectiveZMax) {
-            val xMin = lon2tile(west, z)
-            val xMax = lon2tile(east, z)
-            val yMin = lat2tile(north, z)  // north = smaller y value
-            val yMax = lat2tile(south, z)  // south = larger y value
-            for (x in xMin..xMax) {
-                for (y in yMin..yMax) {
-                    tiles.add(TileKey(z, x, y))
-                }
-            }
-        }
-        return tiles
-    }
+    ): List<TileKey> =
+        GtTileCalc.calculateTiles(
+            north, south, east, west, zMin, zMax, sourceName,
+            downloadZoom = ConvoyConfig.DOWNLOAD_ZOOM,
+        ).map { TileKey(z = it.z, x = it.x, y = it.y) }
 
     // ── Size estimation ───────────────────────────────────────────────────────
 
@@ -304,6 +295,14 @@ object ConvoyTileCalculator {
      * Quick estimate without building the full tile list.
      * Useful for live preview while user is drawing the bounding box.
      */
+    /** G1ADELEGATE-2026-11-14: THE SHARED CODE (GtTileMath.quickEstimate, certified under step 16c -- keys
+     *  qe14 / qe12 / qe18 / qe4-18). Mapped with NAMED arguments: tileCount / zoomMin / zoomMax are all
+     *  Int, so positional could transpose them silently.
+     *  ⚠ THE RASTER DEFAULTS BELOW ARE A KNOWN DEFECT, kept here deliberately: zMin/zMax default to
+     *  DOWNLOAD_ZOOM_MIN=4 .. DOWNLOAD_ZOOM=18, the RASTER range, while the app downloads only VEC
+     *  (z0-14) and DEM (z0-12). The 4 UI callers take these defaults and over-count by ~150-230x; the
+     *  queue callers pass the right zooms and are correct. Fixing it is a CALLER-side change in the
+     *  post-2.8 register, NOT a change here -- this function is a faithful port and its cert stands. */
     fun quickEstimate(
         north: Double,
         south: Double,
@@ -311,20 +310,13 @@ object ConvoyTileCalculator {
         west: Double,
         zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
         zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM
-    ): DownloadEstimate {
-        var totalTiles = 0
-        for (z in zMin..zMax) {
-            val xCount = lon2tile(east, z) - lon2tile(west, z) + 1
-            val yCount = lat2tile(south, z) - lat2tile(north, z) + 1
-            totalTiles += xCount * yCount
-        }
-        val sizeMB = totalTiles * AVG_TILE_KB / 1024f
-        return DownloadEstimate(
-            tileCount = totalTiles,
-            estimatedMB = sizeMB,
-            withinCeiling = sizeMB <= CEILING_MB,
-            zoomMin = zMin,
-            zoomMax = zMax
+    ): DownloadEstimate = GtTileMath.quickEstimate(north, south, east, west, zMin, zMax).let {
+        DownloadEstimate(
+            tileCount = it.tileCount,
+            estimatedMB = it.estimatedMB,
+            withinCeiling = it.withinCeiling,
+            zoomMin = it.zoomMin,
+            zoomMax = it.zoomMax,
         )
     }
 
@@ -341,10 +333,9 @@ data class TileKey(val z: Int, val x: Int, val y: Int) {
     override fun toString(): String = "$z/$x/$y"
 
     companion object {
-        fun fromString(s: String): TileKey {
-            val parts = s.split("/")
-            return TileKey(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
-        }
+        /** G1ADELEGATE-2026-11-14: THE SHARED CODE (GtTileKey.fromString), mapped with NAMED arguments. */
+        fun fromString(s: String): TileKey =
+            com.grouptrack.shared.queue.GtTileKey.fromString(s).let { TileKey(z = it.z, x = it.x, y = it.y) }
     }
 }
 

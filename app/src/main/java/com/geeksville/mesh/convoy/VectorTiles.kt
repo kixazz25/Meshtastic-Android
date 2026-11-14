@@ -1,8 +1,9 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
+import com.geeksville.mesh.grouptrack.GtMapSpecAndroid   // G1CDELEGATE-2026-11-14
+import com.grouptrack.shared.mapsource.GtMapSpec         // G1CDELEGATE-2026-11-14
 import okio.Path.Companion.toOkioPath   // STEP16D-2026-11-11
-import org.json.JSONObject
 
 /**
  * VECSOURCE-2026-10-30 (2.7e step 1, Fred 10-30): THE FOURTH GROUP -- vector maps, store VEC.mbtiles.
@@ -10,35 +11,20 @@ import org.json.JSONObject
  * Fed from the daily recipe (ConvoyMapRecipe) through the ordinary AREA download queue.
  */
 object VectorTiles {
-    const val SLOT = "VEC"
-    const val Z_MAX = 14   // VECENQUEUE-2026-10-30: OpenFreeMap ends at z14; never list tiles above it
-    private const val TAG = "VectorTiles"
-    @Volatile private var resolved: String? = null
+    // G1CDELEGATE-2026-11-14: the SHARED constants -- one source of truth, no second copy to drift.
+    const val SLOT = GtMapSpec.VEC_SLOT
+    const val Z_MAX = GtMapSpec.VEC_Z_MAX   // VECENQUEUE-2026-10-30: OpenFreeMap ends at z14; never list tiles above it
+    // TAG and the @Volatile resolved cache are GONE -- GtMapSpec owns the cache (and its resetForCert).
 
-    private fun spec(context: Context): JSONObject? = try {
-        JSONObject(context.assets.open("map_sources.json").bufferedReader().use { it.readText() })
-            .optJSONArray("vector_sources")?.optJSONObject(0)
-    } catch (e: Exception) { android.util.Log.e(TAG, "map_sources.json: ${e.message}"); null }
-
-    /** The {z}/{x}/{y} template from the TileJSON (OpenFreeMap versions its tile path). Null = not reachable now. */
-    fun tileTemplate(context: Context): String? {
-        resolved?.let { return it }
-        val tj = spec(context)?.optString("tilejson")?.takeIf { it.isNotBlank() } ?: return null
-        return try {
-            okhttp3.OkHttpClient.Builder().callTimeout(6, java.util.concurrent.TimeUnit.SECONDS).build().newCall(   /* VECONLINE2-2026-10-31 */ okhttp3.Request.Builder().url(tj).build()).execute().use { r ->
-                if (!r.isSuccessful) { android.util.Log.e(TAG, "TileJSON HTTP ${r.code}"); return null }
-                val t = JSONObject(r.body?.string() ?: "{}").optJSONArray("tiles")?.optString(0)
-                if (t.isNullOrBlank()) { android.util.Log.e(TAG, "TileJSON has no tiles"); null }
-                else { resolved = t; android.util.Log.i(TAG, "VECSOURCE-2026-10-30 tiles: $t"); t }
-            }
-        } catch (e: Exception) { android.util.Log.e(TAG, "TileJSON: ${e.message}"); null }
-    }
+    /** G1CDELEGATE-2026-11-14: THE SHARED CODE (GtMapSpec.vectorTileTemplate, certified 11-13 -- 4e9dc9db1).
+     *  The {z}/{x}/{y} template from the TileJSON (OpenFreeMap versions its tile path). Null = not reachable now.
+     *  The asset read and the TileJSON fetch are the socket's (GtMapSpecAndroid.Env). */
+    fun tileTemplate(context: Context): String? =
+        GtMapSpec.vectorTileTemplate(GtMapSpecAndroid.Env(context))
 
     /** What the worker downloads for a VEC job. Role "overlay": TileCodec stores the bytes as received (no image re-encode). */
-    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> {
-        val t = tileTemplate(context) ?: return emptyList()
-        return listOf(SLOT to listOf(MapSourceManager.TileLayer("overlay", t, "pbf", SLOT, 0)))
-    }
+    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> =
+        GtMapSpecAndroid.layers(GtMapSpec.vectorDownloadSources(GtMapSpecAndroid.Env(context)))
 
     /** STEP16D-2026-11-11: the save-by-area writes are the SHARED code (GtVectorQueue, certified 16c: Droid OLD = NEW, iPad = Droid,
      *  6,399 values). These are its Android front doors -- same names, same arguments, same results; the queue platform is
@@ -47,10 +33,10 @@ object VectorTiles {
 
     /** VECTILECOUNT-2026-10-31: the recipe's own tile total over the OLD map slots (all but VEC / DEM) -- "your old maps: N tiles". */
     fun oldTilesOf(f: java.io.File): Long = try {
-        val slots = JSONObject(f.readText()).optJSONArray("slots"); var t = 0L
-        if (slots != null) for (i in 0 until slots.length()) { val o = slots.optJSONObject(i) ?: continue
-            val s = o.optString("slot"); if (s != SLOT && s != ElevationTiles.SLOT) t += o.optLong("tiles") }
-        t
+        // G1CDELEGATE-2026-11-14: THE SHARED CODE. Reading the file is the front door's job (MapSpecCertOld
+        // substitution 4). ⚠ THE try/catch STAYS HERE: 2.7e wrapped the READ and the parse together and
+        // returned 0L for either, so without it a missing recipe file would now THROW where it returned 0.
+        GtMapSpec.oldTilesOf(f.readText())
     } catch (e: Exception) { 0L }
 
     /** STEP16D-2026-11-11: every box of one recipe file (n, s, e, w), exact duplicates once. */
