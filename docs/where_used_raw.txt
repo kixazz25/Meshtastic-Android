@@ -5508,6 +5508,51 @@ grouptrack/GtHkCertLog.kt:29:    fun d(tag: String, msg: String) { lines.add(msg
 grouptrack/GtHkCertLog.kt:30:    fun i(tag: String, msg: String) { lines.add(msg) }
 grouptrack/GtHkCertLog.kt:31:    fun w(tag: String, msg: String) { lines.add(msg) }
 grouptrack/GtHkCertLog.kt:32:    fun e(tag: String, msg: String) { lines.add(msg) }
+grouptrack/GtMapSpecAndroid.kt:1:package com.geeksville.mesh.grouptrack
+grouptrack/GtMapSpecAndroid.kt:3:import android.content.Context
+grouptrack/GtMapSpecAndroid.kt:4:import com.geeksville.mesh.convoy.MapSourceManager
+grouptrack/GtMapSpecAndroid.kt:5:import com.grouptrack.shared.mapsource.GtMapSpecEnv
+grouptrack/GtMapSpecAndroid.kt:8: * G1CSWITCH-2026-11-14 (2.8 step 17, G1c switch): Android's answers for the shared map-source spec
+grouptrack/GtMapSpecAndroid.kt:9: * (com.grouptrack.shared.mapsource.GtMapSpec, certified 11-13 -- 4e9dc9db1, 64 keys, 0 DIFF on
+grouptrack/GtMapSpecAndroid.kt:10: * Droid and iPad, twice). Same shape as GtStorageAndroid / GtSettingsAndroid / GtHkAndroid.
+grouptrack/GtMapSpecAndroid.kt:12: * The certification ran against Cert17g1c.FixtureEnv (scripted asset text + scripted HTTP bodies).
+grouptrack/GtMapSpecAndroid.kt:13: * This is the REAL env the app uses; it must behave as that fixture's contract says:
+grouptrack/GtMapSpecAndroid.kt:14: *   readAsset THROWS on failure -- GtMapSpec.specOf wraps it in try/catch, logs and returns null,
+grouptrack/GtMapSpecAndroid.kt:15: *     which is exactly what 2.7e's own spec() did. Returning null here instead would skip that log.
+grouptrack/GtMapSpecAndroid.kt:16: *   httpGet returns null for ANY failure, a non-success status included (MapSpecCertOld
+grouptrack/GtMapSpecAndroid.kt:17: *     substitution 3: "the code is an observation, never a compared decision, so collapsing every
+grouptrack/GtMapSpecAndroid.kt:18: *     failure to null loses nothing that is compared"). 2.7e logged the code; so does this.
+grouptrack/GtMapSpecAndroid.kt:21:    private const val TAG = "GtMapSpecAndroid"
+grouptrack/GtMapSpecAndroid.kt:24:     * G1CDELEGATE-2026-11-14 (G1c option A): the shared layer spec mapped to MapSourceManager.TileLayer,
+grouptrack/GtMapSpecAndroid.kt:25:     * FIELD FOR FIELD -- role, urlTemplate, tileFormat, cacheDir, renderOrder, same names and order.
+grouptrack/GtMapSpecAndroid.kt:26:     * GtMapSpec deliberately mirrors that type rather than importing it, because MapSourceManager is
+grouptrack/GtMapSpecAndroid.kt:27:     * G1e (599 lines, 20 callers) and not ported yet; blocking G1c on G1e would invert the inventory
+grouptrack/GtMapSpecAndroid.kt:28:     * order for no gain. ⛔ THIS FUNCTION IS TEMPORARY: when G1e moves TileLayer into shared code,
+grouptrack/GtMapSpecAndroid.kt:29:     * delete it and let the callers take GtTileLayerSpec directly. One mapping, one place, so the
+grouptrack/GtMapSpecAndroid.kt:30:     * layer decision ("overlay" / "pbf" / slot / 0) is never written twice and cannot drift.
+grouptrack/GtMapSpecAndroid.kt:32:    fun layers(
+grouptrack/GtMapSpecAndroid.kt:33:        spec: List<Pair<String, List<com.grouptrack.shared.mapsource.GtMapSpec.GtTileLayerSpec>>>
+grouptrack/GtMapSpecAndroid.kt:34:    ): List<Pair<String, List<MapSourceManager.TileLayer>>> = spec.map { (slot, ls) ->
+grouptrack/GtMapSpecAndroid.kt:39:        slot to ls.map {
+grouptrack/GtMapSpecAndroid.kt:41:                role = it.role,
+grouptrack/GtMapSpecAndroid.kt:42:                urlTemplate = it.urlTemplate,
+grouptrack/GtMapSpecAndroid.kt:43:                tileFormat = it.tileFormat,
+grouptrack/GtMapSpecAndroid.kt:44:                cacheDir = it.cacheDir,
+grouptrack/GtMapSpecAndroid.kt:45:                renderOrder = it.renderOrder,
+grouptrack/GtMapSpecAndroid.kt:50:    /** @param context any Context -- only assets are read from it, so an application context is fine. */
+grouptrack/GtMapSpecAndroid.kt:51:    class Env(private val context: Context) : GtMapSpecEnv {
+grouptrack/GtMapSpecAndroid.kt:52:        /** 2.7e: context.assets.open("map_sources.json").bufferedReader().use { it.readText() } */
+grouptrack/GtMapSpecAndroid.kt:53:        override fun readAsset(name: String): String =
+grouptrack/GtMapSpecAndroid.kt:54:            context.assets.open(name).bufferedReader().use { it.readText() }
+grouptrack/GtMapSpecAndroid.kt:56:        /** 2.7e VectorTiles:26-28 -- OkHttp with a callTimeout; [timeoutMs] is what the shared code asks for (6_000). */
+grouptrack/GtMapSpecAndroid.kt:57:        override fun httpGet(url: String, timeoutMs: Int): String? = try {
+grouptrack/GtMapSpecAndroid.kt:59:                .callTimeout(timeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+grouptrack/GtMapSpecAndroid.kt:60:                .build()
+grouptrack/GtMapSpecAndroid.kt:61:                .newCall(okhttp3.Request.Builder().url(url).build())
+grouptrack/GtMapSpecAndroid.kt:62:                .execute()
+grouptrack/GtMapSpecAndroid.kt:65:                        android.util.Log.e(TAG, "TileJSON HTTP ${r.code}")   // 2.7e logged the code too
+grouptrack/GtMapSpecAndroid.kt:67:                    } else r.body?.string()
+grouptrack/GtMapSpecAndroid.kt:70:            android.util.Log.e(TAG, "TileJSON: ${e.message}")
 grouptrack/GtCert17g2g.kt:1:package com.geeksville.mesh.grouptrack
 grouptrack/GtCert17g2g.kt:3:import android.content.Context
 grouptrack/GtCert17g2g.kt:4:import com.grouptrack.shared.cert.Cert17g2g
@@ -17584,184 +17629,183 @@ RouteExplorerCertOld.kt:2360:    private fun round6(v: Double) = Math.round(v * 
 RouteExplorerCertOld.kt:2361:    private fun nowIso(): String =
 RouteExplorerCertOld.kt:2362:        java.time.Instant.now().toString()
 ConvoyTileCalculator.kt:1:package com.geeksville.mesh.convoy
-ConvoyTileCalculator.kt:3:import kotlin.math.PI
-ConvoyTileCalculator.kt:4:import kotlin.math.cos
-ConvoyTileCalculator.kt:5:import kotlin.math.floor
-ConvoyTileCalculator.kt:6:import kotlin.math.ln
-ConvoyTileCalculator.kt:7:import kotlin.math.tan
-ConvoyTileCalculator.kt:12: * Calculates the complete set of Web Mercator slippy map tile coordinates
-ConvoyTileCalculator.kt:13: * for a given geographic bounding box across a range of zoom levels.
-ConvoyTileCalculator.kt:16: *   - ConvoyTileDownloader — to know which tiles to download
-ConvoyTileCalculator.kt:17: *   - ConvoyScreen.kt — to estimate download size before starting
-ConvoyTileCalculator.kt:19: * All functions are pure — no side effects, fully unit testable.
-ConvoyTileCalculator.kt:22: *   zMin = DOWNLOAD_ZOOM_MIN (10) — always included, gives regional overview
-ConvoyTileCalculator.kt:23: *   zMax = ConvoyConfig.DOWNLOAD_ZOOM (user-set via slider, default 18)
-ConvoyTileCalculator.kt:27:    /** Average tile size in KB — used for size estimation */
-ConvoyTileCalculator.kt:28:    private const val AVG_TILE_KB = 15f
-ConvoyTileCalculator.kt:30:    /** Maximum allowed download in MB */
-ConvoyTileCalculator.kt:31:    const val CEILING_MB = 5000f
-ConvoyTileCalculator.kt:36:     * Convert longitude to tile X coordinate at zoom level z.
-ConvoyTileCalculator.kt:39:    fun lon2tile(lon: Double, z: Int): Int =
-ConvoyTileCalculator.kt:40:        floor((lon + 180.0) / 360.0 * (1 shl z)).toInt()
-ConvoyTileCalculator.kt:43:     * Convert latitude to tile Y coordinate at zoom level z.
-ConvoyTileCalculator.kt:46:    fun lat2tile(lat: Double, z: Int): Int {
-ConvoyTileCalculator.kt:47:        val rad = Math.toRadians(lat)
-ConvoyTileCalculator.kt:48:        return floor(
-ConvoyTileCalculator.kt:56:     * Calculate all tile keys for a bounding box across zoom levels.
-ConvoyTileCalculator.kt:58:     * @param north  North boundary latitude
-ConvoyTileCalculator.kt:59:     * @param south  South boundary latitude
-ConvoyTileCalculator.kt:60:     * @param east   East boundary longitude
-ConvoyTileCalculator.kt:61:     * @param west   West boundary longitude
-ConvoyTileCalculator.kt:62:     * @param zMin   Minimum zoom level (default: ConvoyConfig.DOWNLOAD_ZOOM_MIN = 10)
-ConvoyTileCalculator.kt:63:     * @param zMax   Maximum zoom level (default: ConvoyConfig.DOWNLOAD_ZOOM = 18)
-ConvoyTileCalculator.kt:64:     * @return       Complete list of TileKey objects covering the bounding box
-ConvoyTileCalculator.kt:72:    fun maxZoomForSource(sourceName: String): Int = ConvoyConfig.DOWNLOAD_ZOOM
-ConvoyTileCalculator.kt:75:     * ZOOMSLOT-2026-08-10D: THE DOWNLOAD ZOOM RULE. Satellite to z18, rendered maps to z16.
-ConvoyTileCalculator.kt:77:     * Economics, not capability: each level quadruples the tile count. Above z18
-ConvoyTileCalculator.kt:78:     * satellite imagery in open country is upscaled rather than sharper, and
-ConvoyTileCalculator.kt:79:     * above z16 a topo map has said everything it has to say - contours do not
-ConvoyTileCalculator.kt:80:     * gain detail, labels just get bigger. So the levels above these cost 4x
-ConvoyTileCalculator.kt:81:     * per step and return nothing.
-ConvoyTileCalculator.kt:83:     * KEYED ON THE SLOT, NOT THE SOURCE, because every download path already
-ConvoyTileCalculator.kt:84:     * carries the slot and none of them carry the source. That is also why this
-ConvoyTileCalculator.kt:85:     * publishes as a rule a rider can understand instead of a table of vendor
-ConvoyTileCalculator.kt:86:     * ceilings nobody should have to know.
-ConvoyTileCalculator.kt:88:     * An empty slot means NO CAP - see the note on corridorTiles.
-ConvoyTileCalculator.kt:90:    fun maxZoomForSlot(slotName: String): Int = when (slotName.uppercase()) {
-ConvoyTileCalculator.kt:91:        "" -> ConvoyConfig.DOWNLOAD_ZOOM
-ConvoyTileCalculator.kt:92:        "SAT" -> minOf(18, ConvoyConfig.DOWNLOAD_ZOOM)
-ConvoyTileCalculator.kt:93:        "DEM" -> minOf(12, ConvoyConfig.DOWNLOAD_ZOOM)   // DEMSOURCE-2026-10-30: elevation to z12; MapLibre stretches it closer in
-ConvoyTileCalculator.kt:94:        "VEC" -> minOf(14, ConvoyConfig.DOWNLOAD_ZOOM)   // VECSOURCE-2026-10-30: vector tiles end at z14; MapLibre over-zooms
-ConvoyTileCalculator.kt:95:        else -> minOf(16, ConvoyConfig.DOWNLOAD_ZOOM)
-ConvoyTileCalculator.kt:98:    /** CORRIDOR-DERIVATION-2026-07-24: the tile set within `bufferDeg` of a line.
-ConvoyTileCalculator.kt:100:     *  NO POLYGON IS BUILT. Walk the points and stamp every tile within the
-ConvoyTileCalculator.kt:101:     *  buffer at each zoom into a SET. Overlaps collapse for free - which is
-ConvoyTileCalculator.kt:102:     *  what makes a self-crossing track (the "figure 7") trivial here, where a
-ConvoyTileCalculator.kt:103:     *  polygon buffer would need self-intersection handling.
-ConvoyTileCalculator.kt:105:     *  ⚠ INTERPOLATION IS NOT OPTIONAL. Track points can be hundreds of metres
-ConvoyTileCalculator.kt:106:     *  apart on a straight fast section; stamping only at the vertices would
-ConvoyTileCalculator.kt:107:     *  leave HOLES in the corridor at high zoom. We step at half a tile width
-ConvoyTileCalculator.kt:108:     *  (at zMax) so no tile between two points can be missed.
-ConvoyTileCalculator.kt:111:     *  gap between two disjoint segments (see getTrackPoints).
-ConvoyTileCalculator.kt:113:     *  @param segments one inner list per segment, points as (LAT, LON)
-ConvoyTileCalculator.kt:114:     *  @param bufferDeg half-width in DEGREES OF LATITUDE (0.00724 ~ half a
-ConvoyTileCalculator.kt:115:     *         mile, the same pad getTrackBbox uses, so PoC numbers are
-ConvoyTileCalculator.kt:116:     *         directly comparable to the bbox baseline)
-ConvoyTileCalculator.kt:117:     *  @return deduped tiles, ready for ConvoyTileDownloader.downloadTiles */
-ConvoyTileCalculator.kt:118:    fun corridorTiles(
-ConvoyTileCalculator.kt:119:        segments: List<List<Pair<Double, Double>>>,
-ConvoyTileCalculator.kt:121:        zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
-ConvoyTileCalculator.kt:122:        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM,
-ConvoyTileCalculator.kt:134:        slotName: String = "",
-ConvoyTileCalculator.kt:161:        val keys = LinkedHashSet<TileKey>()
-ConvoyTileCalculator.kt:162:        val zTop = minOf(zMax, maxZoomForSlot(slotName))
-ConvoyTileCalculator.kt:163:        if (zTop < zMax) {
-ConvoyTileCalculator.kt:164:            android.util.Log.i("Corridor",
-ConvoyTileCalculator.kt:165:                "ZOOMSLOT-2026-08-10D: $slotName capped z$zMax -> z$zTop")
-ConvoyTileCalculator.kt:168:        val stepDeg = (360.0 / Math.pow(2.0, zTop.toDouble())) / 2.0
-ConvoyTileCalculator.kt:169:        for (seg in segments) {
-ConvoyTileCalculator.kt:172:                stampPoint(keys, seg[i].first, seg[i].second, bufferDeg, zMin, zTop, funnelH)
-ConvoyTileCalculator.kt:176:                val dLat = lat2 - lat1
-ConvoyTileCalculator.kt:177:                val dLon = lon2 - lon1
-ConvoyTileCalculator.kt:178:                val dist = Math.max(Math.abs(dLat), Math.abs(dLon))
-ConvoyTileCalculator.kt:179:                val steps = Math.ceil(dist / stepDeg).toInt()
-ConvoyTileCalculator.kt:180:                if (steps <= 1) continue
-ConvoyTileCalculator.kt:181:                for (s in 1 until steps) {
-ConvoyTileCalculator.kt:182:                    val f = s.toDouble() / steps
-ConvoyTileCalculator.kt:183:                    stampPoint(keys, lat1 + dLat * f, lon1 + dLon * f, bufferDeg, zMin, zTop, funnelH)
-ConvoyTileCalculator.kt:187:        android.util.Log.i("Corridor",
-ConvoyTileCalculator.kt:188:            "corridorTiles: ${segments.size} seg, ${segments.sumOf { it.size }} pts, " +
-ConvoyTileCalculator.kt:189:            "FUNNEL-2026-08-12B bufferDeg=$bufferDeg funnelH=$funnelH z$zMin-$zTop -> ${keys.size} tiles")
-ConvoyTileCalculator.kt:190:        return keys.toList()
-ConvoyTileCalculator.kt:193:    /** CORRIDOR-DERIVATION-2026-07-24: every tile within `bufferDeg` of ONE point, at every
-ConvoyTileCalculator.kt:194:     *  zoom. Longitude is scaled by cos(lat) so the buffer stays circular on
-ConvoyTileCalculator.kt:195:     *  the ground rather than stretching east-west away from the equator -
-ConvoyTileCalculator.kt:196:     *  the same correction getTrackBbox applies to its pad. */
-ConvoyTileCalculator.kt:197:    private fun stampPoint(
-ConvoyTileCalculator.kt:200:        bufferDeg: Double, zMin: Int, zMax: Int, funnelH: Int = 0
-ConvoyTileCalculator.kt:202:        val cosLat = Math.max(0.01, Math.cos(Math.toRadians(lat)))
-ConvoyTileCalculator.kt:203:        for (z in zMin..zMax) {
-ConvoyTileCalculator.kt:215:            val latBuf: Double
-ConvoyTileCalculator.kt:216:            val lonBuf: Double
-ConvoyTileCalculator.kt:218:                lonBuf = funnelH * 360.0 / Math.pow(2.0, z.toDouble())
-ConvoyTileCalculator.kt:219:                latBuf = lonBuf * cosLat
-ConvoyTileCalculator.kt:221:                latBuf = bufferDeg
-ConvoyTileCalculator.kt:222:                lonBuf = bufferDeg / cosLat
-ConvoyTileCalculator.kt:248:            val world = (1 shl z) - 1
-ConvoyTileCalculator.kt:249:            val xMin = lon2tile(lon - lonBuf, z).coerceIn(0, world)
-ConvoyTileCalculator.kt:250:            val xMax = lon2tile(lon + lonBuf, z).coerceIn(0, world)
-ConvoyTileCalculator.kt:251:            val yMin = lat2tile(lat + latBuf, z).coerceIn(0, world)   // north = smaller y
-ConvoyTileCalculator.kt:252:            val yMax = lat2tile(lat - latBuf, z).coerceIn(0, world)
-ConvoyTileCalculator.kt:253:            for (x in xMin..xMax) for (y in yMin..yMax) into.add(TileKey(z, x, y))
-ConvoyTileCalculator.kt:257:    /** REMOVEAREA-2026-11-03: each zoom's x / y range of a box -- [z, xMin, xMax, yMin, yMax] -- WITHOUT listing its tiles (a state-sized
-ConvoyTileCalculator.kt:258:     *  box is millions of tiles: listing them ran out of memory). Same zooms and edges as calculateTiles. */
-ConvoyTileCalculator.kt:259:    fun zoomRanges(north: Double, south: Double, east: Double, west: Double,
-ConvoyTileCalculator.kt:260:                   zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN, zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM): List<IntArray> =
-ConvoyTileCalculator.kt:261:        (zMin..zMax).map { z -> intArrayOf(z, lon2tile(west, z), lon2tile(east, z), lat2tile(north, z), lat2tile(south, z)) }
-ConvoyTileCalculator.kt:263:    fun calculateTiles(
-ConvoyTileCalculator.kt:264:        north: Double,
-ConvoyTileCalculator.kt:265:        south: Double,
-ConvoyTileCalculator.kt:266:        east: Double,
-ConvoyTileCalculator.kt:267:        west: Double,
-ConvoyTileCalculator.kt:268:        zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
-ConvoyTileCalculator.kt:269:        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM,
-ConvoyTileCalculator.kt:270:        sourceName: String = ""
-ConvoyTileCalculator.kt:272:        val effectiveZMax = if (sourceName.isNotEmpty()) minOf(zMax, maxZoomForSource(sourceName)) else zMax
-ConvoyTileCalculator.kt:273:        val tiles = mutableListOf<TileKey>()
-ConvoyTileCalculator.kt:274:        for (z in zMin..effectiveZMax) {
-ConvoyTileCalculator.kt:275:            val xMin = lon2tile(west, z)
-ConvoyTileCalculator.kt:276:            val xMax = lon2tile(east, z)
-ConvoyTileCalculator.kt:277:            val yMin = lat2tile(north, z)  // north = smaller y value
-ConvoyTileCalculator.kt:278:            val yMax = lat2tile(south, z)  // south = larger y value
-ConvoyTileCalculator.kt:279:            for (x in xMin..xMax) {
-ConvoyTileCalculator.kt:280:                for (y in yMin..yMax) {
-ConvoyTileCalculator.kt:281:                    tiles.add(TileKey(z, x, y))
-ConvoyTileCalculator.kt:285:        return tiles
-ConvoyTileCalculator.kt:291:     * Estimate download size in MB for a list of tiles.
-ConvoyTileCalculator.kt:292:     * Uses average tile size of 15KB.
-ConvoyTileCalculator.kt:294:    fun estimateSizeMB(tiles: List<TileKey>): Float =
-ConvoyTileCalculator.kt:295:        tiles.size * AVG_TILE_KB / 1024f
-ConvoyTileCalculator.kt:298:     * Check if a tile list is within the download ceiling.
-ConvoyTileCalculator.kt:300:    fun isWithinCeiling(tiles: List<TileKey>): Boolean =
-ConvoyTileCalculator.kt:301:        estimateSizeMB(tiles) <= CEILING_MB
-ConvoyTileCalculator.kt:304:     * Quick estimate without building the full tile list.
-ConvoyTileCalculator.kt:305:     * Useful for live preview while user is drawing the bounding box.
-ConvoyTileCalculator.kt:307:    fun quickEstimate(
-ConvoyTileCalculator.kt:308:        north: Double,
-ConvoyTileCalculator.kt:309:        south: Double,
-ConvoyTileCalculator.kt:310:        east: Double,
-ConvoyTileCalculator.kt:311:        west: Double,
-ConvoyTileCalculator.kt:312:        zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
-ConvoyTileCalculator.kt:313:        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM
-ConvoyTileCalculator.kt:315:        var totalTiles = 0
-ConvoyTileCalculator.kt:316:        for (z in zMin..zMax) {
-ConvoyTileCalculator.kt:317:            val xCount = lon2tile(east, z) - lon2tile(west, z) + 1
-ConvoyTileCalculator.kt:318:            val yCount = lat2tile(south, z) - lat2tile(north, z) + 1
-ConvoyTileCalculator.kt:319:            totalTiles += xCount * yCount
-ConvoyTileCalculator.kt:321:        val sizeMB = totalTiles * AVG_TILE_KB / 1024f
-ConvoyTileCalculator.kt:323:            tileCount = totalTiles,
-ConvoyTileCalculator.kt:324:            estimatedMB = sizeMB,
-ConvoyTileCalculator.kt:325:            withinCeiling = sizeMB <= CEILING_MB,
-ConvoyTileCalculator.kt:326:            zoomMin = zMin,
-ConvoyTileCalculator.kt:327:            zoomMax = zMax
-ConvoyTileCalculator.kt:336: * A single map tile identified by zoom level and x/y coordinates.
-ConvoyTileCalculator.kt:337: * Key format: "{z}/{x}/{y}" — matches standard slippy map convention.
-ConvoyTileCalculator.kt:339:data class TileKey(val z: Int, val x: Int, val y: Int) {
-ConvoyTileCalculator.kt:340:    /** String key for registry lookup and file path construction */
-ConvoyTileCalculator.kt:341:    override fun toString(): String = "$z/$x/$y"
-ConvoyTileCalculator.kt:344:        fun fromString(s: String): TileKey {
-ConvoyTileCalculator.kt:345:            val parts = s.split("/")
-ConvoyTileCalculator.kt:346:            return TileKey(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
-ConvoyTileCalculator.kt:352: * Result of a quick size estimate before downloading.
-ConvoyTileCalculator.kt:354:data class DownloadEstimate(
-ConvoyTileCalculator.kt:355:    val tileCount: Int,
-ConvoyTileCalculator.kt:356:    val estimatedMB: Float,
-ConvoyTileCalculator.kt:357:    val withinCeiling: Boolean,
-ConvoyTileCalculator.kt:358:    val zoomMin: Int,
-ConvoyTileCalculator.kt:359:    val zoomMax: Int
-ConvoyTileCalculator.kt:361:    val displaySize: String get() = "%.1f MB".format(estimatedMB)
-ConvoyTileCalculator.kt:362:    val displayCount: String get() = "%,d tiles".format(tileCount)
-ConvoyTileCalculator.kt:363:    val summary: String get() = "$displayCount — $displaySize (z$zoomMin–z$zoomMax)"
+ConvoyTileCalculator.kt:3:import com.grouptrack.shared.queue.GtTileCalc   // G1ADELEGATE-2026-11-14
+ConvoyTileCalculator.kt:4:import com.grouptrack.shared.queue.GtTileMath   // G1ADELEGATE-2026-11-14
+ConvoyTileCalculator.kt:5:import kotlin.math.PI
+ConvoyTileCalculator.kt:6:import kotlin.math.cos
+ConvoyTileCalculator.kt:7:import kotlin.math.floor
+ConvoyTileCalculator.kt:8:import kotlin.math.ln
+ConvoyTileCalculator.kt:9:import kotlin.math.tan
+ConvoyTileCalculator.kt:14: * Calculates the complete set of Web Mercator slippy map tile coordinates
+ConvoyTileCalculator.kt:15: * for a given geographic bounding box across a range of zoom levels.
+ConvoyTileCalculator.kt:18: *   - ConvoyTileDownloader — to know which tiles to download
+ConvoyTileCalculator.kt:19: *   - ConvoyScreen.kt — to estimate download size before starting
+ConvoyTileCalculator.kt:21: * All functions are pure — no side effects, fully unit testable.
+ConvoyTileCalculator.kt:24: *   zMin = DOWNLOAD_ZOOM_MIN (10) — always included, gives regional overview
+ConvoyTileCalculator.kt:25: *   zMax = ConvoyConfig.DOWNLOAD_ZOOM (user-set via slider, default 18)
+ConvoyTileCalculator.kt:29:    /** Average tile size in KB — used for size estimation */
+ConvoyTileCalculator.kt:30:    private const val AVG_TILE_KB = 15f
+ConvoyTileCalculator.kt:32:    /** Maximum allowed download in MB */
+ConvoyTileCalculator.kt:33:    const val CEILING_MB = 5000f
+ConvoyTileCalculator.kt:38:     * Convert longitude to tile X coordinate at zoom level z.
+ConvoyTileCalculator.kt:41:    /** G1ADELEGATE-2026-11-14: THE SHARED CODE (GtTileMath, certified at 1,938,346 values -- MATHTILE 11-10). */
+ConvoyTileCalculator.kt:42:    fun lon2tile(lon: Double, z: Int): Int = GtTileMath.lon2tile(lon, z)
+ConvoyTileCalculator.kt:45:     * Convert latitude to tile Y coordinate at zoom level z.
+ConvoyTileCalculator.kt:49:    fun lat2tile(lat: Double, z: Int): Int = GtTileMath.lat2tile(lat, z)
+ConvoyTileCalculator.kt:54:     * Calculate all tile keys for a bounding box across zoom levels.
+ConvoyTileCalculator.kt:56:     * @param north  North boundary latitude
+ConvoyTileCalculator.kt:57:     * @param south  South boundary latitude
+ConvoyTileCalculator.kt:58:     * @param east   East boundary longitude
+ConvoyTileCalculator.kt:59:     * @param west   West boundary longitude
+ConvoyTileCalculator.kt:60:     * @param zMin   Minimum zoom level (default: ConvoyConfig.DOWNLOAD_ZOOM_MIN = 10)
+ConvoyTileCalculator.kt:61:     * @param zMax   Maximum zoom level (default: ConvoyConfig.DOWNLOAD_ZOOM = 18)
+ConvoyTileCalculator.kt:62:     * @return       Complete list of TileKey objects covering the bounding box
+ConvoyTileCalculator.kt:70:    /** G1ADELEGATE-2026-11-14: THE SHARED CODE. ⛔ [sourceName] is IGNORED there too, exactly as here -- a
+ConvoyTileCalculator.kt:71:     *  [V2.6b-NO-ZOOM-CAP] leftover the port kept on purpose. DOWNLOAD_ZOOM is a `var`, so it is read
+ConvoyTileCalculator.kt:72:     *  HERE, per call, and threaded in; the shared function must never reach app state itself. */
+ConvoyTileCalculator.kt:73:    fun maxZoomForSource(sourceName: String): Int =
+ConvoyTileCalculator.kt:74:        GtTileCalc.maxZoomForSource(sourceName, ConvoyConfig.DOWNLOAD_ZOOM)
+ConvoyTileCalculator.kt:77:     * ZOOMSLOT-2026-08-10D: THE DOWNLOAD ZOOM RULE. Satellite to z18, rendered maps to z16.
+ConvoyTileCalculator.kt:79:     * Economics, not capability: each level quadruples the tile count. Above z18
+ConvoyTileCalculator.kt:80:     * satellite imagery in open country is upscaled rather than sharper, and
+ConvoyTileCalculator.kt:81:     * above z16 a topo map has said everything it has to say - contours do not
+ConvoyTileCalculator.kt:82:     * gain detail, labels just get bigger. So the levels above these cost 4x
+ConvoyTileCalculator.kt:83:     * per step and return nothing.
+ConvoyTileCalculator.kt:85:     * KEYED ON THE SLOT, NOT THE SOURCE, because every download path already
+ConvoyTileCalculator.kt:86:     * carries the slot and none of them carry the source. That is also why this
+ConvoyTileCalculator.kt:87:     * publishes as a rule a rider can understand instead of a table of vendor
+ConvoyTileCalculator.kt:88:     * ceilings nobody should have to know.
+ConvoyTileCalculator.kt:90:     * An empty slot means NO CAP - see the note on corridorTiles.
+ConvoyTileCalculator.kt:92:    /** G1ADELEGATE-2026-11-14: THE SHARED CODE (11 MAXSLOT keys in Cert17g1a). The per-slot ceilings live there now. */
+ConvoyTileCalculator.kt:93:    fun maxZoomForSlot(slotName: String): Int =
+ConvoyTileCalculator.kt:94:        GtTileCalc.maxZoomForSlot(slotName, ConvoyConfig.DOWNLOAD_ZOOM)
+ConvoyTileCalculator.kt:96:    /** CORRIDOR-DERIVATION-2026-07-24: the tile set within `bufferDeg` of a line.
+ConvoyTileCalculator.kt:98:     *  NO POLYGON IS BUILT. Walk the points and stamp every tile within the
+ConvoyTileCalculator.kt:99:     *  buffer at each zoom into a SET. Overlaps collapse for free - which is
+ConvoyTileCalculator.kt:100:     *  what makes a self-crossing track (the "figure 7") trivial here, where a
+ConvoyTileCalculator.kt:101:     *  polygon buffer would need self-intersection handling.
+ConvoyTileCalculator.kt:103:     *  ⚠ INTERPOLATION IS NOT OPTIONAL. Track points can be hundreds of metres
+ConvoyTileCalculator.kt:104:     *  apart on a straight fast section; stamping only at the vertices would
+ConvoyTileCalculator.kt:105:     *  leave HOLES in the corridor at high zoom. We step at half a tile width
+ConvoyTileCalculator.kt:106:     *  (at zMax) so no tile between two points can be missed.
+ConvoyTileCalculator.kt:109:     *  gap between two disjoint segments (see getTrackPoints).
+ConvoyTileCalculator.kt:111:     *  @param segments one inner list per segment, points as (LAT, LON)
+ConvoyTileCalculator.kt:112:     *  @param bufferDeg half-width in DEGREES OF LATITUDE (0.00724 ~ half a
+ConvoyTileCalculator.kt:113:     *         mile, the same pad getTrackBbox uses, so PoC numbers are
+ConvoyTileCalculator.kt:114:     *         directly comparable to the bbox baseline)
+ConvoyTileCalculator.kt:115:     *  @return deduped tiles, ready for ConvoyTileDownloader.downloadTiles */
+ConvoyTileCalculator.kt:116:    fun corridorTiles(
+ConvoyTileCalculator.kt:117:        segments: List<List<Pair<Double, Double>>>,
+ConvoyTileCalculator.kt:119:        zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
+ConvoyTileCalculator.kt:120:        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM,
+ConvoyTileCalculator.kt:132:        slotName: String = "",
+ConvoyTileCalculator.kt:159:        val keys = LinkedHashSet<TileKey>()
+ConvoyTileCalculator.kt:160:        val zTop = minOf(zMax, maxZoomForSlot(slotName))
+ConvoyTileCalculator.kt:161:        if (zTop < zMax) {
+ConvoyTileCalculator.kt:162:            android.util.Log.i("Corridor",
+ConvoyTileCalculator.kt:163:                "ZOOMSLOT-2026-08-10D: $slotName capped z$zMax -> z$zTop")
+ConvoyTileCalculator.kt:166:        val stepDeg = (360.0 / Math.pow(2.0, zTop.toDouble())) / 2.0
+ConvoyTileCalculator.kt:167:        for (seg in segments) {
+ConvoyTileCalculator.kt:170:                stampPoint(keys, seg[i].first, seg[i].second, bufferDeg, zMin, zTop, funnelH)
+ConvoyTileCalculator.kt:174:                val dLat = lat2 - lat1
+ConvoyTileCalculator.kt:175:                val dLon = lon2 - lon1
+ConvoyTileCalculator.kt:176:                val dist = Math.max(Math.abs(dLat), Math.abs(dLon))
+ConvoyTileCalculator.kt:177:                val steps = Math.ceil(dist / stepDeg).toInt()
+ConvoyTileCalculator.kt:178:                if (steps <= 1) continue
+ConvoyTileCalculator.kt:179:                for (s in 1 until steps) {
+ConvoyTileCalculator.kt:180:                    val f = s.toDouble() / steps
+ConvoyTileCalculator.kt:181:                    stampPoint(keys, lat1 + dLat * f, lon1 + dLon * f, bufferDeg, zMin, zTop, funnelH)
+ConvoyTileCalculator.kt:185:        android.util.Log.i("Corridor",
+ConvoyTileCalculator.kt:186:            "corridorTiles: ${segments.size} seg, ${segments.sumOf { it.size }} pts, " +
+ConvoyTileCalculator.kt:187:            "FUNNEL-2026-08-12B bufferDeg=$bufferDeg funnelH=$funnelH z$zMin-$zTop -> ${keys.size} tiles")
+ConvoyTileCalculator.kt:188:        return keys.toList()
+ConvoyTileCalculator.kt:191:    /** CORRIDOR-DERIVATION-2026-07-24: every tile within `bufferDeg` of ONE point, at every
+ConvoyTileCalculator.kt:192:     *  zoom. Longitude is scaled by cos(lat) so the buffer stays circular on
+ConvoyTileCalculator.kt:193:     *  the ground rather than stretching east-west away from the equator -
+ConvoyTileCalculator.kt:194:     *  the same correction getTrackBbox applies to its pad. */
+ConvoyTileCalculator.kt:195:    private fun stampPoint(
+ConvoyTileCalculator.kt:198:        bufferDeg: Double, zMin: Int, zMax: Int, funnelH: Int = 0
+ConvoyTileCalculator.kt:200:        val cosLat = Math.max(0.01, Math.cos(Math.toRadians(lat)))
+ConvoyTileCalculator.kt:201:        for (z in zMin..zMax) {
+ConvoyTileCalculator.kt:213:            val latBuf: Double
+ConvoyTileCalculator.kt:214:            val lonBuf: Double
+ConvoyTileCalculator.kt:216:                lonBuf = funnelH * 360.0 / Math.pow(2.0, z.toDouble())
+ConvoyTileCalculator.kt:217:                latBuf = lonBuf * cosLat
+ConvoyTileCalculator.kt:219:                latBuf = bufferDeg
+ConvoyTileCalculator.kt:220:                lonBuf = bufferDeg / cosLat
+ConvoyTileCalculator.kt:246:            val world = (1 shl z) - 1
+ConvoyTileCalculator.kt:247:            val xMin = lon2tile(lon - lonBuf, z).coerceIn(0, world)
+ConvoyTileCalculator.kt:248:            val xMax = lon2tile(lon + lonBuf, z).coerceIn(0, world)
+ConvoyTileCalculator.kt:249:            val yMin = lat2tile(lat + latBuf, z).coerceIn(0, world)   // north = smaller y
+ConvoyTileCalculator.kt:250:            val yMax = lat2tile(lat - latBuf, z).coerceIn(0, world)
+ConvoyTileCalculator.kt:251:            for (x in xMin..xMax) for (y in yMin..yMax) into.add(TileKey(z, x, y))
+ConvoyTileCalculator.kt:255:    /** REMOVEAREA-2026-11-03: each zoom's x / y range of a box -- [z, xMin, xMax, yMin, yMax] -- WITHOUT listing its tiles (a state-sized
+ConvoyTileCalculator.kt:256:     *  box is millions of tiles: listing them ran out of memory). Same zooms and edges as calculateTiles. */
+ConvoyTileCalculator.kt:257:    /** G1ADELEGATE-2026-11-14: THE SHARED CODE (32 ZRANGE keys in Cert17g1a). */
+ConvoyTileCalculator.kt:258:    fun zoomRanges(north: Double, south: Double, east: Double, west: Double,
+ConvoyTileCalculator.kt:259:                   zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN, zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM): List<IntArray> =
+ConvoyTileCalculator.kt:260:        GtTileCalc.zoomRanges(north, south, east, west, zMin, zMax)
+ConvoyTileCalculator.kt:262:    /** G1ADELEGATE-2026-11-14: THE SHARED CODE (96 CALC keys in Cert17g1a). The result is mapped to the Android
+ConvoyTileCalculator.kt:263:     *  TileKey with NAMED arguments -- z / x / y are all Int, so a positional mapping could transpose a
+ConvoyTileCalculator.kt:264:     *  coordinate and still compile. ⛔ Do not "simplify" it back to positional. */
+ConvoyTileCalculator.kt:265:    fun calculateTiles(
+ConvoyTileCalculator.kt:266:        north: Double,
+ConvoyTileCalculator.kt:267:        south: Double,
+ConvoyTileCalculator.kt:268:        east: Double,
+ConvoyTileCalculator.kt:269:        west: Double,
+ConvoyTileCalculator.kt:270:        zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
+ConvoyTileCalculator.kt:271:        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM,
+ConvoyTileCalculator.kt:272:        sourceName: String = ""
+ConvoyTileCalculator.kt:274:        GtTileCalc.calculateTiles(
+ConvoyTileCalculator.kt:275:            north, south, east, west, zMin, zMax, sourceName,
+ConvoyTileCalculator.kt:276:            downloadZoom = ConvoyConfig.DOWNLOAD_ZOOM,
+ConvoyTileCalculator.kt:282:     * Estimate download size in MB for a list of tiles.
+ConvoyTileCalculator.kt:283:     * Uses average tile size of 15KB.
+ConvoyTileCalculator.kt:285:    fun estimateSizeMB(tiles: List<TileKey>): Float =
+ConvoyTileCalculator.kt:286:        tiles.size * AVG_TILE_KB / 1024f
+ConvoyTileCalculator.kt:289:     * Check if a tile list is within the download ceiling.
+ConvoyTileCalculator.kt:291:    fun isWithinCeiling(tiles: List<TileKey>): Boolean =
+ConvoyTileCalculator.kt:292:        estimateSizeMB(tiles) <= CEILING_MB
+ConvoyTileCalculator.kt:295:     * Quick estimate without building the full tile list.
+ConvoyTileCalculator.kt:296:     * Useful for live preview while user is drawing the bounding box.
+ConvoyTileCalculator.kt:298:    /** G1ADELEGATE-2026-11-14: THE SHARED CODE (GtTileMath.quickEstimate, certified under step 16c -- keys
+ConvoyTileCalculator.kt:299:     *  qe14 / qe12 / qe18 / qe4-18). Mapped with NAMED arguments: tileCount / zoomMin / zoomMax are all
+ConvoyTileCalculator.kt:301:     *  ⚠ THE RASTER DEFAULTS BELOW ARE A KNOWN DEFECT, kept here deliberately: zMin/zMax default to
+ConvoyTileCalculator.kt:302:     *  DOWNLOAD_ZOOM_MIN=4 .. DOWNLOAD_ZOOM=18, the RASTER range, while the app downloads only VEC
+ConvoyTileCalculator.kt:303:     *  (z0-14) and DEM (z0-12). The 4 UI callers take these defaults and over-count by ~150-230x; the
+ConvoyTileCalculator.kt:304:     *  queue callers pass the right zooms and are correct. Fixing it is a CALLER-side change in the
+ConvoyTileCalculator.kt:305:     *  post-2.8 register, NOT a change here -- this function is a faithful port and its cert stands. */
+ConvoyTileCalculator.kt:306:    fun quickEstimate(
+ConvoyTileCalculator.kt:307:        north: Double,
+ConvoyTileCalculator.kt:308:        south: Double,
+ConvoyTileCalculator.kt:309:        east: Double,
+ConvoyTileCalculator.kt:310:        west: Double,
+ConvoyTileCalculator.kt:311:        zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
+ConvoyTileCalculator.kt:312:        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM
+ConvoyTileCalculator.kt:313:    ): DownloadEstimate = GtTileMath.quickEstimate(north, south, east, west, zMin, zMax).let {
+ConvoyTileCalculator.kt:315:            tileCount = it.tileCount,
+ConvoyTileCalculator.kt:316:            estimatedMB = it.estimatedMB,
+ConvoyTileCalculator.kt:317:            withinCeiling = it.withinCeiling,
+ConvoyTileCalculator.kt:318:            zoomMin = it.zoomMin,
+ConvoyTileCalculator.kt:319:            zoomMax = it.zoomMax,
+ConvoyTileCalculator.kt:328: * A single map tile identified by zoom level and x/y coordinates.
+ConvoyTileCalculator.kt:329: * Key format: "{z}/{x}/{y}" — matches standard slippy map convention.
+ConvoyTileCalculator.kt:331:data class TileKey(val z: Int, val x: Int, val y: Int) {
+ConvoyTileCalculator.kt:332:    /** String key for registry lookup and file path construction */
+ConvoyTileCalculator.kt:333:    override fun toString(): String = "$z/$x/$y"
+ConvoyTileCalculator.kt:336:        /** G1ADELEGATE-2026-11-14: THE SHARED CODE (GtTileKey.fromString), mapped with NAMED arguments. */
+ConvoyTileCalculator.kt:337:        fun fromString(s: String): TileKey =
+ConvoyTileCalculator.kt:338:            com.grouptrack.shared.queue.GtTileKey.fromString(s).let { TileKey(z = it.z, x = it.x, y = it.y) }
+ConvoyTileCalculator.kt:343: * Result of a quick size estimate before downloading.
+ConvoyTileCalculator.kt:345:data class DownloadEstimate(
+ConvoyTileCalculator.kt:346:    val tileCount: Int,
+ConvoyTileCalculator.kt:347:    val estimatedMB: Float,
+ConvoyTileCalculator.kt:348:    val withinCeiling: Boolean,
+ConvoyTileCalculator.kt:349:    val zoomMin: Int,
+ConvoyTileCalculator.kt:350:    val zoomMax: Int
+ConvoyTileCalculator.kt:352:    val displaySize: String get() = "%.1f MB".format(estimatedMB)
+ConvoyTileCalculator.kt:353:    val displayCount: String get() = "%,d tiles".format(tileCount)
+ConvoyTileCalculator.kt:354:    val summary: String get() = "$displayCount — $displaySize (z$zoomMin–z$zoomMax)"
 MasterConfigCertOld.kt:1:package com.geeksville.mesh.convoy
 MasterConfigCertOld.kt:3:import android.content.Context
 MasterConfigCertOld.kt:4:import android.util.Base64
@@ -30903,63 +30947,51 @@ TrailImporterCertOld.kt:1022:        val dir = certTrailAreasDir()
 TrailImporterCertOld.kt:1023:        if (!dir.exists()) dir.mkdirs()
 VectorTiles.kt:1:package com.geeksville.mesh.convoy
 VectorTiles.kt:3:import android.content.Context
-VectorTiles.kt:4:import okio.Path.Companion.toOkioPath   // STEP16D-2026-11-11
-VectorTiles.kt:5:import org.json.JSONObject
-VectorTiles.kt:8: * VECSOURCE-2026-10-30 (2.7e step 1, Fred 10-30): THE FOURTH GROUP -- vector maps, store VEC.mbtiles.
-VectorTiles.kt:9: * Source: map_sources.json "vector_sources" (OpenFreeMap). NOT a map-bar slot: Leaflet cannot draw vector tiles; MapLibre will.
-VectorTiles.kt:10: * Fed from the daily recipe (ConvoyMapRecipe) through the ordinary AREA download queue.
-VectorTiles.kt:13:    const val SLOT = "VEC"
-VectorTiles.kt:14:    const val Z_MAX = 14   // VECENQUEUE-2026-10-30: OpenFreeMap ends at z14; never list tiles above it
-VectorTiles.kt:15:    private const val TAG = "VectorTiles"
-VectorTiles.kt:16:    @Volatile private var resolved: String? = null
-VectorTiles.kt:18:    private fun spec(context: Context): JSONObject? = try {
-VectorTiles.kt:19:        JSONObject(context.assets.open("map_sources.json").bufferedReader().use { it.readText() })
-VectorTiles.kt:21:    } catch (e: Exception) { android.util.Log.e(TAG, "map_sources.json: ${e.message}"); null }
-VectorTiles.kt:23:    /** The {z}/{x}/{y} template from the TileJSON (OpenFreeMap versions its tile path). Null = not reachable now. */
-VectorTiles.kt:24:    fun tileTemplate(context: Context): String? {
-VectorTiles.kt:25:        resolved?.let { return it }
-VectorTiles.kt:26:        val tj = spec(context)?.optString("tilejson")?.takeIf { it.isNotBlank() } ?: return null
-VectorTiles.kt:28:            okhttp3.OkHttpClient.Builder().callTimeout(6, java.util.concurrent.TimeUnit.SECONDS).build().newCall(   /* VECONLINE2-2026-10-31 */ okhttp3.Request.Builder().url(tj).build()).execute().use { r ->
-VectorTiles.kt:29:                if (!r.isSuccessful) { android.util.Log.e(TAG, "TileJSON HTTP ${r.code}"); return null }
-VectorTiles.kt:30:                val t = JSONObject(r.body?.string() ?: "{}").optJSONArray("tiles")?.optString(0)
-VectorTiles.kt:31:                if (t.isNullOrBlank()) { android.util.Log.e(TAG, "TileJSON has no tiles"); null }
-VectorTiles.kt:32:                else { resolved = t; android.util.Log.i(TAG, "VECSOURCE-2026-10-30 tiles: $t"); t }
-VectorTiles.kt:34:        } catch (e: Exception) { android.util.Log.e(TAG, "TileJSON: ${e.message}"); null }
-VectorTiles.kt:37:    /** What the worker downloads for a VEC job. Role "overlay": TileCodec stores the bytes as received (no image re-encode). */
-VectorTiles.kt:38:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> {
-VectorTiles.kt:39:        val t = tileTemplate(context) ?: return emptyList()
-VectorTiles.kt:40:        return listOf(SLOT to listOf(MapSourceManager.TileLayer("overlay", t, "pbf", SLOT, 0)))
-VectorTiles.kt:43:    /** STEP16D-2026-11-11: the save-by-area writes are the SHARED code (GtVectorQueue, certified 16c: Droid OLD = NEW, iPad = Droid,
-VectorTiles.kt:44:     *  6,399 values). These are its Android front doors -- same names, same arguments, same results; the queue platform is
-VectorTiles.kt:45:     *  DownloadQueueManager's (vecQueueFor). The newest recipe saved on this phone: every box of every slot, duplicates once. */
-VectorTiles.kt:46:    fun recipeBoxes(): Pair<String, List<DoubleArray>>? = DownloadQueueManager.vecQueue().recipeBoxes()
-VectorTiles.kt:48:    /** VECTILECOUNT-2026-10-31: the recipe's own tile total over the OLD map slots (all but VEC / DEM) -- "your old maps: N tiles". */
-VectorTiles.kt:49:    fun oldTilesOf(f: java.io.File): Long = try {
-VectorTiles.kt:50:        val slots = JSONObject(f.readText()).optJSONArray("slots"); var t = 0L
-VectorTiles.kt:51:        if (slots != null) for (i in 0 until slots.length()) { val o = slots.optJSONObject(i) ?: continue
-VectorTiles.kt:52:            val s = o.optString("slot"); if (s != SLOT && s != ElevationTiles.SLOT) t += o.optLong("tiles") }
-VectorTiles.kt:56:    /** STEP16D-2026-11-11: every box of one recipe file (n, s, e, w), exact duplicates once. */
-VectorTiles.kt:57:    fun boxesOf(f: java.io.File): List<DoubleArray> = DownloadQueueManager.vecQueue().boxesOf(f.toOkioPath())
-VectorTiles.kt:59:    /** STEP16D-2026-11-11: the z12 squares a box covers. */
-VectorTiles.kt:60:    fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) =
-VectorTiles.kt:61:        DownloadQueueManager.vecQueue().squaresInBox(n, s, e, w, into)
-VectorTiles.kt:63:    /** DEMSOURCE-2026-10-30 THE BINDING (STEP16D-2026-11-11: the shared code): every vector box queued WITH its elevation. */
-VectorTiles.kt:64:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean): Int =
-VectorTiles.kt:65:        enqueueWithElevation(context, n, s, e, w, replaceExisting, what = "")
-VectorTiles.kt:67:    /** VECTRACKNAMES-2026-10-31: the same, both jobs labelled with [what] (a track name; "" = none). */
-VectorTiles.kt:68:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean, what: String): Int =
-VectorTiles.kt:69:        DownloadQueueManager.vecQueueFor(context).enqueueWithElevation(n, s, e, w, replaceExisting, what)
-VectorTiles.kt:71:    /** VECDL-2026-10-31 (STEP16D-2026-11-11: the shared code): the squares under [segments] (lat, lon), with the ring, into [into]. */
-VectorTiles.kt:72:    fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>) =
-VectorTiles.kt:73:        DownloadQueueManager.vecQueue().squaresFor(segments, into)
-VectorTiles.kt:75:    /** Joins [squares] into tight boxes and queues each vector + elevation. Returns (jobs, estimated tiles). */
-VectorTiles.kt:76:    fun queueSquares(context: Context, squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
-VectorTiles.kt:77:        queueSquaresNamed(context, squares, emptyMap(), replaceExisting, why)
-VectorTiles.kt:79:    /** VECTRACKNAMES-2026-10-31: [names] = the tracks each square is for; a box is labelled with the tracks in it (empty -> [why]). */
-VectorTiles.kt:80:    fun queueSquaresNamed(context: Context, squares: Set<Long>, names: Map<Long, Set<String>>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
-VectorTiles.kt:81:        DownloadQueueManager.vecQueueFor(context).queueSquaresNamed(squares, names, replaceExisting, why)
-VectorTiles.kt:83:    /** Queue the first [count] recipe boxes as VEC AREA downloads. Returns one line for the screen. */
-VectorTiles.kt:84:    fun queueFromRecipe(context: Context, count: Int): String = DownloadQueueManager.vecQueueFor(context).queueFromRecipe(count)
+VectorTiles.kt:4:import com.geeksville.mesh.grouptrack.GtMapSpecAndroid   // G1CDELEGATE-2026-11-14
+VectorTiles.kt:5:import com.grouptrack.shared.mapsource.GtMapSpec         // G1CDELEGATE-2026-11-14
+VectorTiles.kt:6:import okio.Path.Companion.toOkioPath   // STEP16D-2026-11-11
+VectorTiles.kt:9: * VECSOURCE-2026-10-30 (2.7e step 1, Fred 10-30): THE FOURTH GROUP -- vector maps, store VEC.mbtiles.
+VectorTiles.kt:10: * Source: map_sources.json "vector_sources" (OpenFreeMap). NOT a map-bar slot: Leaflet cannot draw vector tiles; MapLibre will.
+VectorTiles.kt:11: * Fed from the daily recipe (ConvoyMapRecipe) through the ordinary AREA download queue.
+VectorTiles.kt:15:    const val SLOT = GtMapSpec.VEC_SLOT
+VectorTiles.kt:16:    const val Z_MAX = GtMapSpec.VEC_Z_MAX   // VECENQUEUE-2026-10-30: OpenFreeMap ends at z14; never list tiles above it
+VectorTiles.kt:19:    /** G1CDELEGATE-2026-11-14: THE SHARED CODE (GtMapSpec.vectorTileTemplate, certified 11-13 -- 4e9dc9db1).
+VectorTiles.kt:20:     *  The {z}/{x}/{y} template from the TileJSON (OpenFreeMap versions its tile path). Null = not reachable now.
+VectorTiles.kt:21:     *  The asset read and the TileJSON fetch are the socket's (GtMapSpecAndroid.Env). */
+VectorTiles.kt:22:    fun tileTemplate(context: Context): String? =
+VectorTiles.kt:23:        GtMapSpec.vectorTileTemplate(GtMapSpecAndroid.Env(context))
+VectorTiles.kt:25:    /** What the worker downloads for a VEC job. Role "overlay": TileCodec stores the bytes as received (no image re-encode). */
+VectorTiles.kt:26:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> =
+VectorTiles.kt:27:        GtMapSpecAndroid.layers(GtMapSpec.vectorDownloadSources(GtMapSpecAndroid.Env(context)))
+VectorTiles.kt:29:    /** STEP16D-2026-11-11: the save-by-area writes are the SHARED code (GtVectorQueue, certified 16c: Droid OLD = NEW, iPad = Droid,
+VectorTiles.kt:30:     *  6,399 values). These are its Android front doors -- same names, same arguments, same results; the queue platform is
+VectorTiles.kt:31:     *  DownloadQueueManager's (vecQueueFor). The newest recipe saved on this phone: every box of every slot, duplicates once. */
+VectorTiles.kt:32:    fun recipeBoxes(): Pair<String, List<DoubleArray>>? = DownloadQueueManager.vecQueue().recipeBoxes()
+VectorTiles.kt:34:    /** VECTILECOUNT-2026-10-31: the recipe's own tile total over the OLD map slots (all but VEC / DEM) -- "your old maps: N tiles". */
+VectorTiles.kt:35:    fun oldTilesOf(f: java.io.File): Long = try {
+VectorTiles.kt:39:        GtMapSpec.oldTilesOf(f.readText())
+VectorTiles.kt:42:    /** STEP16D-2026-11-11: every box of one recipe file (n, s, e, w), exact duplicates once. */
+VectorTiles.kt:43:    fun boxesOf(f: java.io.File): List<DoubleArray> = DownloadQueueManager.vecQueue().boxesOf(f.toOkioPath())
+VectorTiles.kt:45:    /** STEP16D-2026-11-11: the z12 squares a box covers. */
+VectorTiles.kt:46:    fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) =
+VectorTiles.kt:47:        DownloadQueueManager.vecQueue().squaresInBox(n, s, e, w, into)
+VectorTiles.kt:49:    /** DEMSOURCE-2026-10-30 THE BINDING (STEP16D-2026-11-11: the shared code): every vector box queued WITH its elevation. */
+VectorTiles.kt:50:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean): Int =
+VectorTiles.kt:51:        enqueueWithElevation(context, n, s, e, w, replaceExisting, what = "")
+VectorTiles.kt:53:    /** VECTRACKNAMES-2026-10-31: the same, both jobs labelled with [what] (a track name; "" = none). */
+VectorTiles.kt:54:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean, what: String): Int =
+VectorTiles.kt:55:        DownloadQueueManager.vecQueueFor(context).enqueueWithElevation(n, s, e, w, replaceExisting, what)
+VectorTiles.kt:57:    /** VECDL-2026-10-31 (STEP16D-2026-11-11: the shared code): the squares under [segments] (lat, lon), with the ring, into [into]. */
+VectorTiles.kt:58:    fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>) =
+VectorTiles.kt:59:        DownloadQueueManager.vecQueue().squaresFor(segments, into)
+VectorTiles.kt:61:    /** Joins [squares] into tight boxes and queues each vector + elevation. Returns (jobs, estimated tiles). */
+VectorTiles.kt:62:    fun queueSquares(context: Context, squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
+VectorTiles.kt:63:        queueSquaresNamed(context, squares, emptyMap(), replaceExisting, why)
+VectorTiles.kt:65:    /** VECTRACKNAMES-2026-10-31: [names] = the tracks each square is for; a box is labelled with the tracks in it (empty -> [why]). */
+VectorTiles.kt:66:    fun queueSquaresNamed(context: Context, squares: Set<Long>, names: Map<Long, Set<String>>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
+VectorTiles.kt:67:        DownloadQueueManager.vecQueueFor(context).queueSquaresNamed(squares, names, replaceExisting, why)
+VectorTiles.kt:69:    /** Queue the first [count] recipe boxes as VEC AREA downloads. Returns one line for the screen. */
+VectorTiles.kt:70:    fun queueFromRecipe(context: Context, count: Int): String = DownloadQueueManager.vecQueueFor(context).queueFromRecipe(count)
 ArtifactSearch.kt:1:package com.geeksville.mesh.convoy
 ArtifactSearch.kt:4: * Reusable, DB-free helpers for artifact name-search results.
 ArtifactSearch.kt:8: * Artifact names are NOT unique: the same name can occur on many artifacts with
@@ -32971,22 +33003,19 @@ ConvoyTileDownloader.kt:342:    fun sourceInfo(context: Context, sourceName: Str
 ConvoyTileDownloader.kt:344:        return MBTilesStore.sourceInfo(sourceName)
 ElevationTiles.kt:1:package com.geeksville.mesh.convoy
 ElevationTiles.kt:3:import android.content.Context
-ElevationTiles.kt:4:import org.json.JSONObject
-ElevationTiles.kt:7: * DEMSOURCE-2026-10-30 (2.7e, Fred 14:07-14:14): THE ELEVATION SOURCE -- store DEM. map_sources.json "elevation_sources" (AWS Terrain Tiles,
-ElevationTiles.kt:8: * Terrarium PNG, z0-z12). Not selectable: it is always queued WITH vector (VectorTiles.enqueueWithElevation), as its own jobs.
-ElevationTiles.kt:11:    const val SLOT = "DEM"
-ElevationTiles.kt:12:    const val Z_MAX = 12
-ElevationTiles.kt:13:    private const val TAG = "ElevationTiles"
-ElevationTiles.kt:15:    private fun spec(context: Context): JSONObject? = try {
-ElevationTiles.kt:16:        JSONObject(context.assets.open("map_sources.json").bufferedReader().use { it.readText() })
-ElevationTiles.kt:18:    } catch (e: Exception) { android.util.Log.e(TAG, "map_sources.json: ${e.message}"); null }
-ElevationTiles.kt:20:    /** VECONLINE-2026-10-31: the {z}/{x}/{y} URL, for the map's online fill (a tile not stored, shown while online). */
-ElevationTiles.kt:21:    fun urlTemplate(context: Context): String? = spec(context)?.optString("url_template")?.takeIf { it.isNotBlank() }
-ElevationTiles.kt:23:    /** What the worker downloads for a DEM job. ⛔ Role "overlay" = stored AS RECEIVED: the pixel colours are the heights, and
-ElevationTiles.kt:24:     *  re-encoding (as satellite base images are, to WebP) would change them -- spikes and pits in 3D. */
-ElevationTiles.kt:25:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> {
-ElevationTiles.kt:26:        val t = spec(context)?.optString("url_template")?.takeIf { it.isNotBlank() } ?: return emptyList()
-ElevationTiles.kt:27:        return listOf(SLOT to listOf(MapSourceManager.TileLayer("overlay", t, "png", SLOT, 0)))
+ElevationTiles.kt:4:import com.geeksville.mesh.grouptrack.GtMapSpecAndroid   // G1CDELEGATE-2026-11-14
+ElevationTiles.kt:5:import com.grouptrack.shared.mapsource.GtMapSpec         // G1CDELEGATE-2026-11-14
+ElevationTiles.kt:8: * DEMSOURCE-2026-10-30 (2.7e, Fred 14:07-14:14): THE ELEVATION SOURCE -- store DEM. map_sources.json "elevation_sources" (AWS Terrain Tiles,
+ElevationTiles.kt:9: * Terrarium PNG, z0-z12). Not selectable: it is always queued WITH vector (VectorTiles.enqueueWithElevation), as its own jobs.
+ElevationTiles.kt:13:    const val SLOT = GtMapSpec.DEM_SLOT
+ElevationTiles.kt:14:    const val Z_MAX = GtMapSpec.DEM_Z_MAX
+ElevationTiles.kt:16:    /** VECONLINE-2026-10-31: the {z}/{x}/{y} URL, for the map's online fill (a tile not stored, shown while online). */
+ElevationTiles.kt:17:    fun urlTemplate(context: Context): String? =
+ElevationTiles.kt:18:        GtMapSpec.elevationUrlTemplate(GtMapSpecAndroid.Env(context))   // G1CDELEGATE-2026-11-14
+ElevationTiles.kt:20:    /** What the worker downloads for a DEM job. ⛔ Role "overlay" = stored AS RECEIVED: the pixel colours are the heights, and
+ElevationTiles.kt:21:     *  re-encoding (as satellite base images are, to WebP) would change them -- spikes and pits in 3D. */
+ElevationTiles.kt:22:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> =
+ElevationTiles.kt:23:        GtMapSpecAndroid.layers(GtMapSpec.elevationDownloadSources(GtMapSpecAndroid.Env(context)))
 ArtifactDetailPanel.kt:1:package com.geeksville.mesh.convoy
 ArtifactDetailPanel.kt:3:import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 ArtifactDetailPanel.kt:4:import androidx.compose.ui.platform.LocalContext

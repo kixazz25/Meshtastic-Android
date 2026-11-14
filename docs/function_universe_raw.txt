@@ -592,60 +592,50 @@ RouteExplorerCertOld.kt:2358:    private fun round1(v: Double) = Math.round(v * 
 RouteExplorerCertOld.kt:2359:    private fun round2(v: Double) = Math.round(v * 100.0) / 100.0
 RouteExplorerCertOld.kt:2360:    private fun round6(v: Double) = Math.round(v * 1e6) / 1e6
 RouteExplorerCertOld.kt:2361:    private fun nowIso(): String =
-ConvoyTileCalculator.kt:25:object ConvoyTileCalculator {
-ConvoyTileCalculator.kt:28:    private const val AVG_TILE_KB = 15f
-ConvoyTileCalculator.kt:31:    const val CEILING_MB = 5000f
-ConvoyTileCalculator.kt:39:    fun lon2tile(lon: Double, z: Int): Int =
-ConvoyTileCalculator.kt:46:    fun lat2tile(lat: Double, z: Int): Int {
-ConvoyTileCalculator.kt:47:        val rad = Math.toRadians(lat)
-ConvoyTileCalculator.kt:72:    fun maxZoomForSource(sourceName: String): Int = ConvoyConfig.DOWNLOAD_ZOOM
-ConvoyTileCalculator.kt:90:    fun maxZoomForSlot(slotName: String): Int = when (slotName.uppercase()) {
-ConvoyTileCalculator.kt:118:    fun corridorTiles(
-ConvoyTileCalculator.kt:161:        val keys = LinkedHashSet<TileKey>()
-ConvoyTileCalculator.kt:162:        val zTop = minOf(zMax, maxZoomForSlot(slotName))
-ConvoyTileCalculator.kt:168:        val stepDeg = (360.0 / Math.pow(2.0, zTop.toDouble())) / 2.0
-ConvoyTileCalculator.kt:174:                val (lat1, lon1) = seg[i]
-ConvoyTileCalculator.kt:175:                val (lat2, lon2) = seg[i + 1]
-ConvoyTileCalculator.kt:176:                val dLat = lat2 - lat1
-ConvoyTileCalculator.kt:177:                val dLon = lon2 - lon1
-ConvoyTileCalculator.kt:178:                val dist = Math.max(Math.abs(dLat), Math.abs(dLon))
-ConvoyTileCalculator.kt:179:                val steps = Math.ceil(dist / stepDeg).toInt()
-ConvoyTileCalculator.kt:182:                    val f = s.toDouble() / steps
-ConvoyTileCalculator.kt:197:    private fun stampPoint(
-ConvoyTileCalculator.kt:202:        val cosLat = Math.max(0.01, Math.cos(Math.toRadians(lat)))
-ConvoyTileCalculator.kt:215:            val latBuf: Double
-ConvoyTileCalculator.kt:216:            val lonBuf: Double
-ConvoyTileCalculator.kt:248:            val world = (1 shl z) - 1
-ConvoyTileCalculator.kt:249:            val xMin = lon2tile(lon - lonBuf, z).coerceIn(0, world)
-ConvoyTileCalculator.kt:250:            val xMax = lon2tile(lon + lonBuf, z).coerceIn(0, world)
-ConvoyTileCalculator.kt:252:            val yMax = lat2tile(lat - latBuf, z).coerceIn(0, world)
-ConvoyTileCalculator.kt:259:    fun zoomRanges(north: Double, south: Double, east: Double, west: Double,
-ConvoyTileCalculator.kt:263:    fun calculateTiles(
-ConvoyTileCalculator.kt:272:        val effectiveZMax = if (sourceName.isNotEmpty()) minOf(zMax, maxZoomForSource(sourceName)) else zMax
-ConvoyTileCalculator.kt:273:        val tiles = mutableListOf<TileKey>()
-ConvoyTileCalculator.kt:275:            val xMin = lon2tile(west, z)
-ConvoyTileCalculator.kt:276:            val xMax = lon2tile(east, z)
-ConvoyTileCalculator.kt:294:    fun estimateSizeMB(tiles: List<TileKey>): Float =
-ConvoyTileCalculator.kt:300:    fun isWithinCeiling(tiles: List<TileKey>): Boolean =
-ConvoyTileCalculator.kt:307:    fun quickEstimate(
-ConvoyTileCalculator.kt:315:        var totalTiles = 0
-ConvoyTileCalculator.kt:317:            val xCount = lon2tile(east, z) - lon2tile(west, z) + 1
-ConvoyTileCalculator.kt:318:            val yCount = lat2tile(south, z) - lat2tile(north, z) + 1
-ConvoyTileCalculator.kt:321:        val sizeMB = totalTiles * AVG_TILE_KB / 1024f
-ConvoyTileCalculator.kt:339:data class TileKey(val z: Int, val x: Int, val y: Int) {
-ConvoyTileCalculator.kt:341:    override fun toString(): String = "$z/$x/$y"
-ConvoyTileCalculator.kt:343:    companion object {
-ConvoyTileCalculator.kt:344:        fun fromString(s: String): TileKey {
-ConvoyTileCalculator.kt:345:            val parts = s.split("/")
-ConvoyTileCalculator.kt:354:data class DownloadEstimate(
-ConvoyTileCalculator.kt:355:    val tileCount: Int,
-ConvoyTileCalculator.kt:356:    val estimatedMB: Float,
-ConvoyTileCalculator.kt:357:    val withinCeiling: Boolean,
-ConvoyTileCalculator.kt:358:    val zoomMin: Int,
-ConvoyTileCalculator.kt:359:    val zoomMax: Int
-ConvoyTileCalculator.kt:361:    val displaySize: String get() = "%.1f MB".format(estimatedMB)
-ConvoyTileCalculator.kt:362:    val displayCount: String get() = "%,d tiles".format(tileCount)
-ConvoyTileCalculator.kt:363:    val summary: String get() = "$displayCount — $displaySize (z$zoomMin–z$zoomMax)"
+ConvoyTileCalculator.kt:27:object ConvoyTileCalculator {
+ConvoyTileCalculator.kt:30:    private const val AVG_TILE_KB = 15f
+ConvoyTileCalculator.kt:33:    const val CEILING_MB = 5000f
+ConvoyTileCalculator.kt:42:    fun lon2tile(lon: Double, z: Int): Int = GtTileMath.lon2tile(lon, z)
+ConvoyTileCalculator.kt:49:    fun lat2tile(lat: Double, z: Int): Int = GtTileMath.lat2tile(lat, z)
+ConvoyTileCalculator.kt:73:    fun maxZoomForSource(sourceName: String): Int =
+ConvoyTileCalculator.kt:93:    fun maxZoomForSlot(slotName: String): Int =
+ConvoyTileCalculator.kt:116:    fun corridorTiles(
+ConvoyTileCalculator.kt:159:        val keys = LinkedHashSet<TileKey>()
+ConvoyTileCalculator.kt:160:        val zTop = minOf(zMax, maxZoomForSlot(slotName))
+ConvoyTileCalculator.kt:166:        val stepDeg = (360.0 / Math.pow(2.0, zTop.toDouble())) / 2.0
+ConvoyTileCalculator.kt:172:                val (lat1, lon1) = seg[i]
+ConvoyTileCalculator.kt:173:                val (lat2, lon2) = seg[i + 1]
+ConvoyTileCalculator.kt:174:                val dLat = lat2 - lat1
+ConvoyTileCalculator.kt:175:                val dLon = lon2 - lon1
+ConvoyTileCalculator.kt:176:                val dist = Math.max(Math.abs(dLat), Math.abs(dLon))
+ConvoyTileCalculator.kt:177:                val steps = Math.ceil(dist / stepDeg).toInt()
+ConvoyTileCalculator.kt:180:                    val f = s.toDouble() / steps
+ConvoyTileCalculator.kt:195:    private fun stampPoint(
+ConvoyTileCalculator.kt:200:        val cosLat = Math.max(0.01, Math.cos(Math.toRadians(lat)))
+ConvoyTileCalculator.kt:213:            val latBuf: Double
+ConvoyTileCalculator.kt:214:            val lonBuf: Double
+ConvoyTileCalculator.kt:246:            val world = (1 shl z) - 1
+ConvoyTileCalculator.kt:247:            val xMin = lon2tile(lon - lonBuf, z).coerceIn(0, world)
+ConvoyTileCalculator.kt:248:            val xMax = lon2tile(lon + lonBuf, z).coerceIn(0, world)
+ConvoyTileCalculator.kt:250:            val yMax = lat2tile(lat - latBuf, z).coerceIn(0, world)
+ConvoyTileCalculator.kt:258:    fun zoomRanges(north: Double, south: Double, east: Double, west: Double,
+ConvoyTileCalculator.kt:265:    fun calculateTiles(
+ConvoyTileCalculator.kt:285:    fun estimateSizeMB(tiles: List<TileKey>): Float =
+ConvoyTileCalculator.kt:291:    fun isWithinCeiling(tiles: List<TileKey>): Boolean =
+ConvoyTileCalculator.kt:306:    fun quickEstimate(
+ConvoyTileCalculator.kt:331:data class TileKey(val z: Int, val x: Int, val y: Int) {
+ConvoyTileCalculator.kt:333:    override fun toString(): String = "$z/$x/$y"
+ConvoyTileCalculator.kt:335:    companion object {
+ConvoyTileCalculator.kt:337:        fun fromString(s: String): TileKey =
+ConvoyTileCalculator.kt:345:data class DownloadEstimate(
+ConvoyTileCalculator.kt:346:    val tileCount: Int,
+ConvoyTileCalculator.kt:347:    val estimatedMB: Float,
+ConvoyTileCalculator.kt:348:    val withinCeiling: Boolean,
+ConvoyTileCalculator.kt:349:    val zoomMin: Int,
+ConvoyTileCalculator.kt:350:    val zoomMax: Int
+ConvoyTileCalculator.kt:352:    val displaySize: String get() = "%.1f MB".format(estimatedMB)
+ConvoyTileCalculator.kt:353:    val displayCount: String get() = "%,d tiles".format(tileCount)
+ConvoyTileCalculator.kt:354:    val summary: String get() = "$displayCount — $displaySize (z$zoomMin–z$zoomMax)"
 MasterConfigCertOld.kt:13:object MasterCertOldEnv {
 MasterConfigCertOld.kt:14:    @Volatile var certDir: File? = null
 MasterConfigCertOld.kt:15:    @Volatile var certAsset: String? = null
@@ -4154,29 +4144,20 @@ TrailImporterCertOld.kt:996:                val f = s.getJSONObject("fields")
 TrailImporterCertOld.kt:997:                val extras = mutableMapOf<String, String>()
 TrailImporterCertOld.kt:1021:    private fun trailAreasDir(): File {
 TrailImporterCertOld.kt:1022:        val dir = certTrailAreasDir()
-VectorTiles.kt:12:object VectorTiles {
-VectorTiles.kt:13:    const val SLOT = "VEC"
-VectorTiles.kt:15:    private const val TAG = "VectorTiles"
-VectorTiles.kt:16:    @Volatile private var resolved: String? = null
-VectorTiles.kt:18:    private fun spec(context: Context): JSONObject? = try {
-VectorTiles.kt:24:    fun tileTemplate(context: Context): String? {
-VectorTiles.kt:26:        val tj = spec(context)?.optString("tilejson")?.takeIf { it.isNotBlank() } ?: return null
-VectorTiles.kt:30:                val t = JSONObject(r.body?.string() ?: "{}").optJSONArray("tiles")?.optString(0)
-VectorTiles.kt:38:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> {
-VectorTiles.kt:39:        val t = tileTemplate(context) ?: return emptyList()
-VectorTiles.kt:46:    fun recipeBoxes(): Pair<String, List<DoubleArray>>? = DownloadQueueManager.vecQueue().recipeBoxes()
-VectorTiles.kt:49:    fun oldTilesOf(f: java.io.File): Long = try {
-VectorTiles.kt:50:        val slots = JSONObject(f.readText()).optJSONArray("slots"); var t = 0L
-VectorTiles.kt:51:        if (slots != null) for (i in 0 until slots.length()) { val o = slots.optJSONObject(i) ?: continue
-VectorTiles.kt:52:            val s = o.optString("slot"); if (s != SLOT && s != ElevationTiles.SLOT) t += o.optLong("tiles") }
-VectorTiles.kt:57:    fun boxesOf(f: java.io.File): List<DoubleArray> = DownloadQueueManager.vecQueue().boxesOf(f.toOkioPath())
-VectorTiles.kt:60:    fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) =
-VectorTiles.kt:64:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean): Int =
-VectorTiles.kt:68:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean, what: String): Int =
-VectorTiles.kt:72:    fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>) =
-VectorTiles.kt:76:    fun queueSquares(context: Context, squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
-VectorTiles.kt:80:    fun queueSquaresNamed(context: Context, squares: Set<Long>, names: Map<Long, Set<String>>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
-VectorTiles.kt:84:    fun queueFromRecipe(context: Context, count: Int): String = DownloadQueueManager.vecQueueFor(context).queueFromRecipe(count)
+VectorTiles.kt:13:object VectorTiles {
+VectorTiles.kt:15:    const val SLOT = GtMapSpec.VEC_SLOT
+VectorTiles.kt:22:    fun tileTemplate(context: Context): String? =
+VectorTiles.kt:26:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> =
+VectorTiles.kt:32:    fun recipeBoxes(): Pair<String, List<DoubleArray>>? = DownloadQueueManager.vecQueue().recipeBoxes()
+VectorTiles.kt:35:    fun oldTilesOf(f: java.io.File): Long = try {
+VectorTiles.kt:43:    fun boxesOf(f: java.io.File): List<DoubleArray> = DownloadQueueManager.vecQueue().boxesOf(f.toOkioPath())
+VectorTiles.kt:46:    fun squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>) =
+VectorTiles.kt:50:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean): Int =
+VectorTiles.kt:54:    fun enqueueWithElevation(context: Context, n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean, what: String): Int =
+VectorTiles.kt:58:    fun squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>) =
+VectorTiles.kt:62:    fun queueSquares(context: Context, squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
+VectorTiles.kt:66:    fun queueSquaresNamed(context: Context, squares: Set<Long>, names: Map<Long, Set<String>>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
+VectorTiles.kt:70:    fun queueFromRecipe(context: Context, count: Int): String = DownloadQueueManager.vecQueueFor(context).queueFromRecipe(count)
 ArtifactSearch.kt:71:data class ArtifactResult(
 ArtifactSearch.kt:72:    val id: String,
 ArtifactSearch.kt:73:    val name: String,
@@ -4695,14 +4676,11 @@ ConvoyTileDownloader.kt:323:            var lon = west
 ConvoyTileDownloader.kt:325:                val cellE = minOf(lon + step, east)
 ConvoyTileDownloader.kt:336:    fun deleteSource(context: Context, sourceName: String): Boolean {
 ConvoyTileDownloader.kt:342:    fun sourceInfo(context: Context, sourceName: String): Pair<Int, Float> {
-ElevationTiles.kt:10:object ElevationTiles {
-ElevationTiles.kt:11:    const val SLOT = "DEM"
-ElevationTiles.kt:12:    const val Z_MAX = 12
-ElevationTiles.kt:13:    private const val TAG = "ElevationTiles"
-ElevationTiles.kt:15:    private fun spec(context: Context): JSONObject? = try {
-ElevationTiles.kt:21:    fun urlTemplate(context: Context): String? = spec(context)?.optString("url_template")?.takeIf { it.isNotBlank() }
-ElevationTiles.kt:25:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> {
-ElevationTiles.kt:26:        val t = spec(context)?.optString("url_template")?.takeIf { it.isNotBlank() } ?: return emptyList()
+ElevationTiles.kt:11:object ElevationTiles {
+ElevationTiles.kt:13:    const val SLOT = GtMapSpec.DEM_SLOT
+ElevationTiles.kt:14:    const val Z_MAX = GtMapSpec.DEM_Z_MAX
+ElevationTiles.kt:17:    fun urlTemplate(context: Context): String? =
+ElevationTiles.kt:22:    fun downloadSources(context: Context): List<Pair<String, List<MapSourceManager.TileLayer>>> =
 ArtifactDetailPanel.kt:37:fun ArtifactDetailPanel(
 ArtifactDetailPanel.kt:80:    val aMono = FontFamily.Monospace
 ArtifactDetailPanel.kt:81:    val aGreen = Gt.accent
@@ -9670,6 +9648,12 @@ grouptrack/GtHkCertLog.kt:29:    fun d(tag: String, msg: String) { lines.add(msg
 grouptrack/GtHkCertLog.kt:30:    fun i(tag: String, msg: String) { lines.add(msg) }
 grouptrack/GtHkCertLog.kt:31:    fun w(tag: String, msg: String) { lines.add(msg) }
 grouptrack/GtHkCertLog.kt:32:    fun e(tag: String, msg: String) { lines.add(msg) }
+grouptrack/GtMapSpecAndroid.kt:20:object GtMapSpecAndroid {
+grouptrack/GtMapSpecAndroid.kt:21:    private const val TAG = "GtMapSpecAndroid"
+grouptrack/GtMapSpecAndroid.kt:32:    fun layers(
+grouptrack/GtMapSpecAndroid.kt:51:    class Env(private val context: Context) : GtMapSpecEnv {
+grouptrack/GtMapSpecAndroid.kt:53:        override fun readAsset(name: String): String =
+grouptrack/GtMapSpecAndroid.kt:57:        override fun httpGet(url: String, timeoutMs: Int): String? = try {
 grouptrack/GtCert17g2g.kt:16:object GtCert17g2g {
 grouptrack/GtCert17g2g.kt:18:    private fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r")
 grouptrack/GtCert17g2g.kt:21:    private class OldSide : Cert17g2g.Side {
