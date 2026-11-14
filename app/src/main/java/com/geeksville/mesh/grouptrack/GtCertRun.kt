@@ -115,6 +115,7 @@ object GtCertRun {
                     if (mode == "trail15f") GtCert15f.run(app, w)   // STEP15F-2026-11-10: the agency trail import, 2.7e vs shared (TEST-ONLY)
                     if (mode == "osm15g") GtCert15g.run(app, w)   // STEP15G-2026-11-10: the OSM extract + import, 2.7e vs shared (TEST-ONLY)
                     if (mode == "state17e1") GtCert17e1.run(app, w)
+                    if (mode == "mapstate17") GtCert17mapstate.run(app, w)   // CERTRUNMAPSTATE-2026-11-14: the map panel/view state, 2.7e org.json vs shared GtOrgJson (TEST-ONLY)
                     if (mode == "mapspec17g1c") GtCert17g1c.run(app, w)   // STEP17G1C-2026-11-13: the map source spec, 2.7e org.json vs shared GtOrgJson (TEST-ONLY)
                     if (mode == "tile17g1a") GtCert17g1a.run(app, w)   // STEP17G1A-2026-11-13: the tile-set arithmetic, 2.7e vs shared -- PURE functions, no Context used (TEST-ONLY)
                     if (mode == "help17g2g") GtCert17g2g.run(app, w)   // STEP17G2G-2026-11-13: the HELP link table, 2.7e on real org.json vs shared (TEST-ONLY)
@@ -136,7 +137,13 @@ object GtCertRun {
                     // STEP15A-2026-11-08: "golden15a" = the 15a foundations (Java number / date / org.json text) -- Android's answers and the
                     // shared code's, one line each (GtGolden15a). Reads no database. gt_cert_v12 copies the file to the Mac for GtFoundation15aMacTest.
                     if (mode == "golden15a") { val g = GtGolden15a.write(w); Log.i(TAG, "GTCERT golden15a: ${g.lines} lines, ${g.diffs} DIFF on the Droid") }
-                    if (mode != "state17e1" && mode != "config17d" && mode != "user17c2" && mode != "net17c" && mode != "ride17b2" && mode != "session17b" && mode != "storage17a" && mode != "queue16c" && mode != "mathtile" && mode != "osm15g" && mode != "trail15f" && mode != "mathpow" && mode != "mathprobe" && mode != "import15e" && mode != "track15d" && mode != "writes" && mode != "lookups" && mode != "freeze" && mode != "routes" && mode != "rides" && mode != "golden15a" && mode != "parse15b" && mode != "geom" && mode != "rider15c" && mode != "queue17e2" && mode != "hk17g2f1" && mode != "hk17g2f2" && mode != "hk17g2f3" && mode != "hk17g2f4" && mode != "help17g2g" && mode != "tile17g1a" && mode != "mapspec17g1c") {   // STEP17G2E2J-2026-11-13: queue17e2 skips the whole-database pass, as every other 17-group mode does   // STEP8B-2026-11-07, STEP13C, STEP15A-2026-11-08
+                    // CERTRUNINVERT-2026-11-14: ⛔ POSITIVE, NOT NEGATIVE. This was a chain of 32 hand-maintained
+                    // `mode != "..."` clauses, one per object cert. A new cert that forgot to add itself did not
+                    // fail -- it silently ran this whole-database pass (minutes of trail/route/track dump) and was
+                    // then compared as if it were the object cert. That happened on 11-14 with mapstate17.
+                    // Equivalence checked before inverting: of the modes gt_cert accepts, the only ones absent
+                    // from the old chain were "reads" and "all". Every object cert is now excluded BY DEFAULT.
+                    if (mode == "reads" || mode == "all") {   // STEP17G2E2J-2026-11-13: queue17e2 skips the whole-database pass, as every other 17-group mode does   // STEP8B-2026-11-07, STEP13C, STEP15A-2026-11-08
                         var n = 0
                         GtCert.runNew(conn, dconn, saved, { id -> notesFor(id) }, { l -> w.write("NEW|$l\n"); n++ }, { p -> Log.i(TAG, "GTCERT new: $p ($n lines)") })
                         com.grouptrack.shared.cert.CertRead.run(com.grouptrack.shared.cert.CertRead.Shared(com.grouptrack.shared.spatial.GtRead(conn, dconn)), conn, com.grouptrack.shared.cert.CertRead.TrailSample.ALL /* STEP8-2026-11-07 */,
