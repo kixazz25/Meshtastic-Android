@@ -115,6 +115,8 @@ object GtCertRun {
                     if (mode == "trail15f") GtCert15f.run(app, w)   // STEP15F-2026-11-10: the agency trail import, 2.7e vs shared (TEST-ONLY)
                     if (mode == "osm15g") GtCert15g.run(app, w)   // STEP15G-2026-11-10: the OSM extract + import, 2.7e vs shared (TEST-ONLY)
                     if (mode == "state17e1") GtCert17e1.run(app, w)
+                    if (mode == "mbtiles17") GtCert17mbtiles.run(app, w)   // MBTILESIPAD-2026-11-14: the tile store, 2.7e SQLiteDatabase vs shared gtOpenDatabase (TEST-ONLY)
+                    if (mode == "blob17") GtCert17blob.run(app, w)   // BLOB17-2026-11-14: the pass 3 pre-flight -- what the shared SQLite driver does with BLOBs (TEST-ONLY)
                     if (mode == "maprecipe17") GtCert17maprecipe.run(app, w)   // CERTRUNMAPRECIPE-2026-11-14: the daily map recipe, 2.7e org.json + java.lang.Math vs shared (TEST-ONLY)
                     if (mode == "mapstate17") GtCert17mapstate.run(app, w)   // CERTRUNMAPSTATE-2026-11-14: the map panel/view state, 2.7e org.json vs shared GtOrgJson (TEST-ONLY)
                     if (mode == "mapspec17g1c") GtCert17g1c.run(app, w)   // STEP17G1C-2026-11-13: the map source spec, 2.7e org.json vs shared GtOrgJson (TEST-ONLY)
