@@ -111,7 +111,49 @@ class GtCertImport15eMacTest {
         override fun endBackfill() { b = false }
     }
 
+    /** GTINPUTFP-2026-11-15: the INPUT snapshot's hash is a CONSTANT. Do not recompute it.
+     *  Five cert classes each re-hashed the same read-only live_* snapshot (~545 MB) on every
+     *  run -- about 2.7 GB of debug-build pure-Kotlin SHA-256 per suite, for an answer that
+     *  cannot have changed. That, not data volume, is why these five were the slow ones.
+     *
+     *  SAFETY -- this can make the suite faster; it cannot make it wrong:
+     *   - ONLY "/live_" paths are cached. Work-dir files are rebuilt each run and never cached.
+     *   - The key is full path + byte size, so a changed snapshot recomputes.
+     *   - Every cache read/write is best-effort; any failure falls through to the full hash.
+     *   - The per-table fp: fingerprints that validate the RESULT are untouched.
+     *  Delete _data/.gt_input_fp.txt to force a full recompute. */
     private fun sha256(fs: FileSystem, p: Path, say: (String) -> Unit): String {
+        val key = p.toString()
+        val cacheable = key.contains("/live_")
+        val size = try { fs.metadata(p).size ?: -1L } catch (e: Throwable) { -1L }
+        val cache = p.parent?.parent?.div(".gt_input_fp.txt")
+        if (cacheable && cache != null && size >= 0L) {
+            try {
+                if (fs.exists(cache)) {
+                    for (ln in fs.read(cache) { readUtf8() }.split('\n')) {
+                        val f = ln.split('\t')
+                        if (f.size == 3 && f[0] == key && f[1] == size.toString()) {
+                            say("hashing ${p.name}: CACHED (${size shr 20} MB not re-read)")
+                            return f[2]
+                        }
+                    }
+                }
+            } catch (e: Throwable) { }
+        }
+        val h = sha256Raw(fs, p, say)
+        if (cacheable && cache != null && size >= 0L) {
+            try {
+                val keep = if (fs.exists(cache))
+                    fs.read(cache) { readUtf8() }.split('\n')
+                        .filter { it.isNotBlank() && it.split('\t').getOrNull(0) != key }
+                    else emptyList()
+                fs.write(cache) { writeUtf8((keep + "$key\t$size\t$h").joinToString("\n") + "\n") }
+            } catch (e: Throwable) { }
+        }
+        return h
+    }
+
+    private fun sha256Raw(fs: FileSystem, p: Path, say: (String) -> Unit): String {
         val hs = HashingSink.sha256(blackholeSink()); val out = hs.buffer(); var done = 0L; var chunks = 0
         fs.read(p) { val buf = okio.Buffer()
             while (true) { val n = read(buf, 1L shl 20); if (n < 0) break; done += n; out.write(buf, n); if (++chunks % 100 == 0) say("hashing ${p.name}: ${done shr 20} MB") } }
