@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GroupTrack — INTERIM working memo — 2026-11-15</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}ol{margin:6px 0;padding-left:22px}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+.hi{color:var(--warn);font-weight:700}.step{background:#12203a;border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0}
+.src{font:11px var(--mono);color:var(--dim);border-top:1px dotted var(--line);margin-top:8px;padding-top:5px}
+table{border-collapse:collapse;width:100%;font:12.5px var(--mono);margin:8px 0}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+th{background:#12203a;color:var(--accent)}
+
+/* ROUTENOTES-2026-08-23 */
+.ascii{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:14px;
+  font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#8b949e;overflow-x:auto;margin:12px 0}
+</style>
+</head>
+<body>
+<header>
+<div class="ttl">GroupTrack &mdash; <b>COMPLETED TODAY</b> &mdash; 2026-11-15 &mdash; <span class="tag t-warn">NOT A VERSION</span></div>
+<div class="sub">every item closed today, with its evidence &middot; becomes the day's completed-activity record at the EOD process</div>
+</header>
+<main>
+<h2 id="what">WHAT THIS IS</h2>
+<div class="card">
+<p>The day's <b>completed list</b> &mdash; one row per item that closed, so that pruning the handoff and the checklist never loses the fact that something was addressed. Items <b>arrive here by being moved out of</b> the handoff interim or the checklist interim, never by being retyped.</p>
+<table><tr><th>field</th><th>what goes in it</th></tr>
+<tr><td><b>key</b></td><td>The Julian key it carried on the checklist (<code>C28-YYDDD</code>), or <code>&mdash;</code> if it was never keyed.</td></tr>
+<tr><td><b>what closed</b></td><td>In terms that survive a month away from it.</td></tr>
+<tr><td><b>evidence</b></td><td>The measurement, commit, or device observation that closed it. <b>Not</b> "done".</td></tr>
+<tr><td><b>commit</b></td><td>The commit number, once recommit has run. <code>pending</code> until then.</td></tr>
+</table>
+</div>
+
+<h2 id="closed">CLOSED 2026-11-15</h2>
+
+<div class="card"><h3><span class="tag t-good">CLOSED</span> <code>C28-26319</code> &middot; G10 &mdash; framework output from <code>grouptrack-shared</code></h3>
+<table>
+<tr><td><b>what closed</b></td><td>The module produced nothing an Xcode app could link. A static <code>binaries.framework</code> was added for <code>iosArm64</code> and <code>iosSimulatorArm64</code>, <code>baseName = "GroupTrackShared"</code>.</td></tr>
+<tr><td><b>evidence</b></td><td><code>linkDebugFrameworkIosArm64</code> BUILD SUCCESSFUL in 31 s; artifact verified 57.9 MB, exports the three ported objects plus the socket protocols.</td></tr>
+<tr><td><b>commit</b></td><td><code>cba0c41ee</code> &mdash; amended 08:11 with the corrected message and the Gradle comment staged (1 file, +15/-2). &#9888; Still <b>UNPUSHED</b> (ahead 1). Was <code>8b59fb90d</code> before the amend.</td></tr>
+</table></div>
+
+<div class="card"><h3><span class="tag t-good">CLOSED</span> &mdash; &middot; the iOS blob pre-flight &mdash; pass 3 is clear on the shared SQLite driver</h3>
+<table>
+<tr><td><b>what closed</b></td><td>Whether the two SQLite builds (Android's system SQLite vs iOS <code>BundledSQLiteDriver</code>) round-trip blobs identically. They do. This was a <b>blocker gate</b> for pass 3, not a nice-to-have.</td></tr>
+<tr><td><b>evidence</b></td><td><code>36 SAME, 0 DIFF, 2 PLATFORM-FACT, 0 BLOCKER, cross-device COMPARED</code>. All six round trips IDENTICAL on both engines &mdash; <code>empty</code>, <code>one-zero</code>, <code>embedded-nul</code>, <code>high-bytes</code>, <code>gzip-magic</code>, <code>kb-deterministic</code>, which are the adversarial cases for WebP and PBF tile payloads. Droid SQLite 3.39.2, Mac 3.46.0, both platform-facted.</td></tr>
+<tr><td><b>commit</b></td><td><code>pending</code> &mdash; test-only code (CODE RULE 3).</td></tr>
+</table></div>
+
+<div class="card"><h3><span class="tag t-good">CLOSED</span> &mdash; &middot; the three safety pragmas take effect on iOS</h3>
+<table>
+<tr><td><b>what closed</b></td><td>Whether <code>secure_delete=OFF</code>, <code>synchronous=NORMAL</code> and <code>journal_mode=TRUNCATE</code> actually stick on <code>BundledSQLiteDriver</code>, or silently fail to apply. <b>They stick.</b></td></tr>
+<tr><td><b>evidence</b></td><td><code>stuck|secure_delete mac=0</code> &middot; <code>stuck|synchronous mac=1</code> &middot; <code>stuck|journal_mode mac=truncate</code>. A pragma that silently did not take is what <code>GtBlobProbe</code> exists to catch, and none did.</td></tr>
+<tr><td><b>commit</b></td><td><code>pending</code></td></tr>
+</table>
+<div class="note">&#9888; <b>This closes the question, not the gap.</b> The pragmas have no iOS <b>production</b> owner &mdash; they are set on iOS only by TEST-ONLY code marked for deletion before 2.8 ships. That item stays OPEN on the checklist.</div></div>
+
+<div class="card"><h3><span class="tag t-good">CLOSED</span> &mdash; &middot; 28 of 37 iOS foundation certifications proven to run</h3>
+<table>
+<tr><td><b>what closed</b></td><td>36 of the 37 <code>iosTest</code> classes had been compiled but <b>never executed</b>. They have now run. <b>28 PASS, 0 FAIL, 9 capped by a too-short timeout (slow, not broken).</b> Includes all three step-17 ports, the schema builder, all four housekeeping certs, every math port, storage, state-data, session, user, config, network and both queue certs.</td></tr>
+<tr><td><b>evidence</b></td><td><code>~/Downloads/gt_ios_cert_perclass_report_2026-11-15.txt</code> plus the result XML under <code>grouptrack-shared/build/test-results/iosSimulatorArm64Test/</code>.</td></tr>
+<tr><td><b>commit</b></td><td><code>pending</code></td></tr>
+</table>
+<div class="note">The nine capped classes are <b>not</b> closed &mdash; they are in flight uncapped. This row records only that the suite was run and scored.</div></div>
+
+<div class="src">Completed list for 2026-11-15. Created 09:23. Items are MOVED here out of the handoff and checklist interims; becomes the day's completed-activity record at the EOD process.</div>
+</main>
+</body>
+</html>
