@@ -28388,118 +28388,102 @@ OsmPbfTagReaderCertOld.kt:422:                    if (onWay(id, tags)) written++
 OsmPbfTagReaderCertOld.kt:425:                skip(c, w[0])                    // 1 nodes, 2 dense, 4 relations
 OsmPbfTagReaderCertOld.kt:428:        return written
 ConvoyMapRecipe.kt:1:package com.geeksville.mesh.convoy
-ConvoyMapRecipe.kt:3:import android.content.Context
-ConvoyMapRecipe.kt:4:import android.os.Environment
-ConvoyMapRecipe.kt:5:import org.json.JSONArray
-ConvoyMapRecipe.kt:6:import org.json.JSONObject
-ConvoyMapRecipe.kt:7:import java.io.File
-ConvoyMapRecipe.kt:8:import java.text.SimpleDateFormat
-ConvoyMapRecipe.kt:9:import java.util.Date
-ConvoyMapRecipe.kt:10:import java.util.Locale
-ConvoyMapRecipe.kt:15: * A few KB describing what would otherwise be 15 GB to rebuild by hand.
-ConvoyMapRecipe.kt:17: * WHY: 08-11 established that a fresh install destroys map data in a way that
-ConvoyMapRecipe.kt:18: * cannot be prevented or recovered from. This does not save the tiles - it
-ConvoyMapRecipe.kt:21: * WHAT IT IS: the quadtree boxes from DownloadQueueManager.deriveRecipe, per
-ConvoyMapRecipe.kt:22: * slot, as lat/lon. ⭐ Derived by the SAME code a real rebuild uses, so a recipe
-ConvoyMapRecipe.kt:23: * cannot describe something a rebuild would not queue.
-ConvoyMapRecipe.kt:25: * CADENCE: startup, once per DAY - today's file existing is the skip condition.
-ConvoyMapRecipe.kt:26: * The quadtree runs a COUNT per quadrant per level, a few hundred queries per
-ConvoyMapRecipe.kt:27: * slot, so once per launch would be wasteful.
-ConvoyMapRecipe.kt:29: * ⭐ HISTORY IS WHAT MAKES IT SAFE. Sixty days are kept. If today's run happens
-ConvoyMapRecipe.kt:30: * mid-rebuild and captures half the coverage, yesterday's file is still there -
-ConvoyMapRecipe.kt:31: * so there is NO queue check, NO migration check, NO "is the store healthy"
-ConvoyMapRecipe.kt:32: * guard and NO skip logic beyond the date. Just write it.
-ConvoyMapRecipe.kt:34: * ⚠ The DATE IN THE FILENAME IS THE INDEX. No prefs, no manifest-of-manifests,
-ConvoyMapRecipe.kt:35: * nothing to keep in sync - and prefs are wiped by exactly the events this
-ConvoyMapRecipe.kt:38: * ⚠ ALL SLOTS IN ONE FILE. A DR file capturing only SAT would be a bad recipe
-ConvoyMapRecipe.kt:39: * on the day it is needed.
-ConvoyMapRecipe.kt:41: * ⚠ BEST EFFORT THROUGHOUT. Every failure is logged and swallowed: a DR
-ConvoyMapRecipe.kt:42: * convenience must never be able to stop the app starting.
-ConvoyMapRecipe.kt:44: * ⚠ THE RESTORE IS NOT BUILT YET, DELIBERATELY. Fred: ship the writer first,
-ConvoyMapRecipe.kt:45: * because recipes have to exist before anyone needs one.
-ConvoyMapRecipe.kt:46: * ⛔ AND WHEN IT IS BUILT, THE REPLAY MUST BE DownloadType.AREA WITH
-ConvoyMapRecipe.kt:47: * DownloadPriority.REFRESH - separate fields, deliberately mismatched. AREA
-ConvoyMapRecipe.kt:48: * because the worker filters MAP_SOURCE_REFRESH jobs to hasTile, so a
-ConvoyMapRecipe.kt:49: * refresh-typed replay onto a rebuilt store downloads NOTHING and every job
-ConvoyMapRecipe.kt:53:    private const val TAG = "MapRecipe"
-ConvoyMapRecipe.kt:54:    private const val EXT = ".gtmaps"
-ConvoyMapRecipe.kt:55:    private const val PREFIX = "grouptrack_maps_"
-ConvoyMapRecipe.kt:56:    private const val KEEP_DAYS = 60
-ConvoyMapRecipe.kt:57:    /** VECCONVERT-2026-10-31: the record made when the old maps were converted -- Restart map conversion replays it. */
-ConvoyMapRecipe.kt:58:    const val CONVERSION = "grouptrack_conversion.gtmaps"
-ConvoyMapRecipe.kt:61:     * The app's OWN folder, beside the stores it describes - not Downloads.
-ConvoyMapRecipe.kt:62:     * Downloads is the INBOX: a recipe mailed by someone else lands there, and
-ConvoyMapRecipe.kt:63:     * the panel lists the two separately so "came from outside" and "made here"
-ConvoyMapRecipe.kt:66:    private fun dir(): File =
-ConvoyMapRecipe.kt:67:        GroupTrackStorage.dir("recipes")   // STORAGEROOT-2026-09-11
-ConvoyMapRecipe.kt:69:    private fun today(): String =
-ConvoyMapRecipe.kt:70:        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-ConvoyMapRecipe.kt:72:    /** Background, best effort. Never throws into the caller. */
-ConvoyMapRecipe.kt:73:    fun writeDailyAsync(context: Context) {
-ConvoyMapRecipe.kt:74:        val app = context.applicationContext
-ConvoyMapRecipe.kt:76:            try { writeDaily(app) } catch (e: Exception) {
-ConvoyMapRecipe.kt:77:                android.util.Log.e(TAG, "RECIPE-2026-08-12L daily recipe failed: ${e.message}")
-ConvoyMapRecipe.kt:79:        }.start()
-ConvoyMapRecipe.kt:82:    fun writeDaily(context: Context): File? = write(context, fresh = false)
-ConvoyMapRecipe.kt:84:    /** VECCONVERT-2026-10-31: the conversion's first step -- today's recipe rewritten from the tiles on the phone now. */
-ConvoyMapRecipe.kt:85:    fun writeFresh(context: Context): File? = write(context, fresh = true)
-ConvoyMapRecipe.kt:88:    private fun write(context: Context, fresh: Boolean): File? {
-ConvoyMapRecipe.kt:89:        val target = File(dir(), PREFIX + today() + EXT)
-ConvoyMapRecipe.kt:90:        if (fresh) target.delete()
-ConvoyMapRecipe.kt:91:        else if (File(dir(), CONVERSION).exists()) {
-ConvoyMapRecipe.kt:94:            DownloadQueueManager.init(context)
-ConvoyMapRecipe.kt:95:            val busy = DownloadQueueManager.queue.value.count { (it.status == QueueStatus.QUEUED || it.status == QueueStatus.DOWNLOADING ||
-ConvoyMapRecipe.kt:96:                it.status == QueueStatus.PAUSED) && (it.refreshSlot == VectorTiles.SLOT || it.refreshSlot == ElevationTiles.SLOT) }
-ConvoyMapRecipe.kt:97:            if (busy > 0) { android.util.Log.i(TAG, "VECCONVERT $busy vector / elevation job(s) pending -- no daily recipe today"); return null }
-ConvoyMapRecipe.kt:99:        if (target.exists()) {
-ConvoyMapRecipe.kt:100:            android.util.Log.i(TAG, "RECIPE-2026-08-12L today's recipe already written")
-ConvoyMapRecipe.kt:101:            prune()
-ConvoyMapRecipe.kt:102:            return target
-ConvoyMapRecipe.kt:104:        val slots = JSONArray()
-ConvoyMapRecipe.kt:105:        var grand = 0L
-ConvoyMapRecipe.kt:107:        for (slot in (MapSourceManager.getSlotSources().map { it.first } + listOf(VectorTiles.SLOT, ElevationTiles.SLOT)).distinct()) {
-ConvoyMapRecipe.kt:108:            if (!MBTilesStore.storeExists(slot)) continue
-ConvoyMapRecipe.kt:109:            val r = DownloadQueueManager.deriveRecipe(context, slot, tight = true) ?: continue   // RECIPETIGHT-2026-10-30: boxes follow your maps
-ConvoyMapRecipe.kt:110:            val boxes = JSONArray()
-ConvoyMapRecipe.kt:111:            val n = 1L shl r.refZ
-ConvoyMapRecipe.kt:112:            fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0
-ConvoyMapRecipe.kt:113:            fun latOf(y: Long) = Math.toDegrees(
-ConvoyMapRecipe.kt:114:                Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y.toDouble() / n))))
-ConvoyMapRecipe.kt:115:            for (b in r.boxes) {
-ConvoyMapRecipe.kt:116:                boxes.put(JSONObject().apply {
-ConvoyMapRecipe.kt:117:                    put("n", latOf(b[2])); put("s", latOf(b[3] + 1))
-ConvoyMapRecipe.kt:118:                    put("w", lonOf(b[0])); put("e", lonOf(b[1] + 1))
-ConvoyMapRecipe.kt:119:                    put("tiles", b[4])
-ConvoyMapRecipe.kt:122:            grand += r.totalTiles
-ConvoyMapRecipe.kt:123:            slots.put(JSONObject().apply {
-ConvoyMapRecipe.kt:124:                put("slot", r.slot)
-ConvoyMapRecipe.kt:125:                put("source", MapSourceManager.getSlotSources()
-ConvoyMapRecipe.kt:126:                    .find { it.first == r.slot }?.third ?: "")
-ConvoyMapRecipe.kt:127:                put("zMin", r.levels.min())
-ConvoyMapRecipe.kt:128:                put("zMax", r.levels.max())
-ConvoyMapRecipe.kt:129:                put("tiles", r.totalTiles)
-ConvoyMapRecipe.kt:130:                put("boxes", boxes)
-ConvoyMapRecipe.kt:133:        if (slots.length() == 0) {
-ConvoyMapRecipe.kt:134:            android.util.Log.i(TAG, "RECIPE-2026-08-12L nothing stored in any slot - no recipe")
-ConvoyMapRecipe.kt:137:        val doc = JSONObject().apply {
-ConvoyMapRecipe.kt:138:            put("version", 1)
-ConvoyMapRecipe.kt:139:            put("created", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Date()))
-ConvoyMapRecipe.kt:140:            put("slots", slots)
-ConvoyMapRecipe.kt:143:            dir().mkdirs()
-ConvoyMapRecipe.kt:144:            target.writeText(doc.toString())
-ConvoyMapRecipe.kt:145:            android.util.Log.i(TAG,
-ConvoyMapRecipe.kt:146:                "RECIPE-2026-08-12L wrote ${target.name}: ${slots.length()} slot(s), " +
-ConvoyMapRecipe.kt:147:                "$grand tile(s), ${target.length()} bytes")
-ConvoyMapRecipe.kt:148:            prune()
-ConvoyMapRecipe.kt:149:            target
-ConvoyMapRecipe.kt:151:            android.util.Log.e(TAG, "RECIPE-2026-08-12L write failed: ${e.message}")
-ConvoyMapRecipe.kt:156:    /** Anything older than KEEP_DAYS goes. Sixty files of a few KB is nothing. */
-ConvoyMapRecipe.kt:157:    private fun prune() {
-ConvoyMapRecipe.kt:159:            val cutoff = System.currentTimeMillis() - KEEP_DAYS * 24L * 60L * 60L * 1000L
-ConvoyMapRecipe.kt:161:                if (f.name.startsWith(PREFIX) && f.name.endsWith(EXT) &&
-ConvoyMapRecipe.kt:162:                    f.lastModified() < cutoff) {
-ConvoyMapRecipe.kt:163:                    if (f.delete()) android.util.Log.i(TAG, "RECIPE-2026-08-12L pruned ${f.name}")
-ConvoyMapRecipe.kt:167:            android.util.Log.e(TAG, "RECIPE-2026-08-12L prune failed: ${e.message}")
+ConvoyMapRecipe.kt:4:import com.grouptrack.shared.imports.GtClock
+ConvoyMapRecipe.kt:5:import com.grouptrack.shared.imports.GtFiles
+ConvoyMapRecipe.kt:6:import com.grouptrack.shared.imports.GtImportPaths
+ConvoyMapRecipe.kt:7:import com.grouptrack.shared.maprecipe.GtMapRecipe
+ConvoyMapRecipe.kt:8:import com.grouptrack.shared.maprecipe.GtRecipeEnv
+ConvoyMapRecipe.kt:9:import com.grouptrack.shared.maprecipe.GtRecipeResult
+ConvoyMapRecipe.kt:10:import com.grouptrack.shared.text.GtLocalTime
+ConvoyMapRecipe.kt:11:import okio.FileSystem
+ConvoyMapRecipe.kt:12:import okio.Path
+ConvoyMapRecipe.kt:13:import okio.Path.Companion.toOkioPath
+ConvoyMapRecipe.kt:15:import android.content.Context
+ConvoyMapRecipe.kt:16:import java.io.File
+ConvoyMapRecipe.kt:21: * A few KB describing what would otherwise be 15 GB to rebuild by hand.
+ConvoyMapRecipe.kt:23: * WHY: 08-11 established that a fresh install destroys map data in a way that
+ConvoyMapRecipe.kt:24: * cannot be prevented or recovered from. This does not save the tiles - it
+ConvoyMapRecipe.kt:27: * WHAT IT IS: the quadtree boxes from DownloadQueueManager.deriveRecipe, per
+ConvoyMapRecipe.kt:28: * slot, as lat/lon. ⭐ Derived by the SAME code a real rebuild uses, so a recipe
+ConvoyMapRecipe.kt:29: * cannot describe something a rebuild would not queue.
+ConvoyMapRecipe.kt:31: * CADENCE: startup, once per DAY - today's file existing is the skip condition.
+ConvoyMapRecipe.kt:32: * The quadtree runs a COUNT per quadrant per level, a few hundred queries per
+ConvoyMapRecipe.kt:33: * slot, so once per launch would be wasteful.
+ConvoyMapRecipe.kt:35: * ⭐ HISTORY IS WHAT MAKES IT SAFE. Sixty days are kept. If today's run happens
+ConvoyMapRecipe.kt:36: * mid-rebuild and captures half the coverage, yesterday's file is still there -
+ConvoyMapRecipe.kt:37: * so there is NO queue check, NO migration check, NO "is the store healthy"
+ConvoyMapRecipe.kt:38: * guard and NO skip logic beyond the date. Just write it.
+ConvoyMapRecipe.kt:40: * ⚠ The DATE IN THE FILENAME IS THE INDEX. No prefs, no manifest-of-manifests,
+ConvoyMapRecipe.kt:41: * nothing to keep in sync - and prefs are wiped by exactly the events this
+ConvoyMapRecipe.kt:44: * ⚠ ALL SLOTS IN ONE FILE. A DR file capturing only SAT would be a bad recipe
+ConvoyMapRecipe.kt:45: * on the day it is needed.
+ConvoyMapRecipe.kt:47: * ⚠ BEST EFFORT THROUGHOUT. Every failure is logged and swallowed: a DR
+ConvoyMapRecipe.kt:48: * convenience must never be able to stop the app starting.
+ConvoyMapRecipe.kt:50: * ⚠ THE RESTORE IS NOT BUILT YET, DELIBERATELY. Fred: ship the writer first,
+ConvoyMapRecipe.kt:51: * because recipes have to exist before anyone needs one.
+ConvoyMapRecipe.kt:52: * ⛔ AND WHEN IT IS BUILT, THE REPLAY MUST BE DownloadType.AREA WITH
+ConvoyMapRecipe.kt:53: * DownloadPriority.REFRESH - separate fields, deliberately mismatched. AREA
+ConvoyMapRecipe.kt:54: * because the worker filters MAP_SOURCE_REFRESH jobs to hasTile, so a
+ConvoyMapRecipe.kt:55: * refresh-typed replay onto a rebuilt store downloads NOTHING and every job
+ConvoyMapRecipe.kt:59:    private const val TAG = "MapRecipe"
+ConvoyMapRecipe.kt:60:    /** VECCONVERT-2026-10-31: the record made when the old maps were converted -- Restart map conversion replays it. */
+ConvoyMapRecipe.kt:61:    /** SWITCHMAPRECIPE-2026-11-14: from the shared companion, so the two cannot drift. */
+ConvoyMapRecipe.kt:62:    const val CONVERSION = GtMapRecipe.CONVERSION
+ConvoyMapRecipe.kt:66:     * \u26d4 SWITCHED to the shared GtMapRecipe (certified 11-14: Droid 175 SAME / 0 DIFF /
+ConvoyMapRecipe.kt:67:     * 0 EXPECTED, iPad 175 SAME / 0 DIFF cross-device, two clean runs).
+ConvoyMapRecipe.kt:69:     * THE IDIOM IS DELEGATION. Only three members are used outside this file -- CONVERSION,
+ConvoyMapRecipe.kt:70:     * writeDailyAsync and writeFresh -- and all three keep their signatures. Every comment in the
+ConvoyMapRecipe.kt:71:     * header above still governs; none of it is restated here.
+ConvoyMapRecipe.kt:73:     * \u26a0 writeDailyAsync STAYS HERE. It is a Thread, i.e. platform, and was deliberately not
+ConvoyMapRecipe.kt:74:     * ported; it now wraps the delegating writeDaily.
+ConvoyMapRecipe.kt:77:     * MapSourceManager.getSlotSources, MBTilesStore.storeExists and
+ConvoyMapRecipe.kt:78:     * DownloadQueueManager.deriveRecipe/queue directly. deriveRecipe runs the quadtree -- hundreds
+ConvoyMapRecipe.kt:79:     * of COUNT queries per slot against MBTilesStore -- so porting it HERE would have made the
+ConvoyMapRecipe.kt:80:     * recipe's certification depend on the tile store's. It is certified with pass 3 instead.
+ConvoyMapRecipe.kt:82:    private fun env(context: Context): GtRecipeEnv = object : GtRecipeEnv {
+ConvoyMapRecipe.kt:83:        override fun slotSources(): List<Triple<String, String, String>> = MapSourceManager.getSlotSources()
+ConvoyMapRecipe.kt:84:        override fun storeExists(slot: String): Boolean = MBTilesStore.storeExists(slot)
+ConvoyMapRecipe.kt:85:        override fun deriveRecipe(slot: String): GtRecipeResult? =
+ConvoyMapRecipe.kt:87:            DownloadQueueManager.deriveRecipe(context, slot, tight = true)?.let {
+ConvoyMapRecipe.kt:91:                    slot = it.slot, refZ = it.refZ, levels = it.levels,
+ConvoyMapRecipe.kt:92:                    boxes = it.boxes, dropped = it.dropped, totalTiles = it.totalTiles)
+ConvoyMapRecipe.kt:94:        override fun vectorBusyCount(): Int {
+ConvoyMapRecipe.kt:96:            DownloadQueueManager.init(context)
+ConvoyMapRecipe.kt:97:            return DownloadQueueManager.queue.value.count {
+ConvoyMapRecipe.kt:98:                (it.status == QueueStatus.QUEUED || it.status == QueueStatus.DOWNLOADING ||
+ConvoyMapRecipe.kt:99:                    it.status == QueueStatus.PAUSED) &&
+ConvoyMapRecipe.kt:100:                    (it.refreshSlot == VectorTiles.SLOT || it.refreshSlot == ElevationTiles.SLOT)
+ConvoyMapRecipe.kt:103:        override val vecSlot: String = VectorTiles.SLOT
+ConvoyMapRecipe.kt:104:        override val demSlot: String = ElevationTiles.SLOT
+ConvoyMapRecipe.kt:107:    private fun shared(context: Context): GtMapRecipe {
+ConvoyMapRecipe.kt:108:        val files = object : GtFiles {
+ConvoyMapRecipe.kt:110:            override fun setLastModified(path: Path, epochMs: Long): Boolean = File(path.toString()).setLastModified(epochMs)
+ConvoyMapRecipe.kt:111:            override fun lastModified(path: Path): Long = File(path.toString()).lastModified()
+ConvoyMapRecipe.kt:112:            override fun list(dir: Path): List<Path> = File(dir.toString()).listFiles()?.map { it.toOkioPath() } ?: emptyList()
+ConvoyMapRecipe.kt:114:        val paths = object : GtImportPaths {
+ConvoyMapRecipe.kt:115:            override fun groupTrackRoot(): Path = GroupTrackStorage.root().toOkioPath()
+ConvoyMapRecipe.kt:116:            override fun dir(name: String): Path = GroupTrackStorage.dir(name).toOkioPath()   // STORAGEROOT-2026-09-11
+ConvoyMapRecipe.kt:117:            override fun tracksDir(): Path = throw UnsupportedOperationException("ConvoyMapRecipe: recipes folder only")
+ConvoyMapRecipe.kt:118:            override fun cacheDir(): Path = throw UnsupportedOperationException("ConvoyMapRecipe: recipes folder only")
+ConvoyMapRecipe.kt:119:            override fun filesDir(): Path = throw UnsupportedOperationException("ConvoyMapRecipe: recipes folder only")
+ConvoyMapRecipe.kt:121:        val clock = object : GtClock {
+ConvoyMapRecipe.kt:122:            override fun nowInstant(): String = java.time.Instant.now().toString()
+ConvoyMapRecipe.kt:123:            override fun localNow(): GtLocalTime {
+ConvoyMapRecipe.kt:124:                val t = java.time.LocalDateTime.now()   // DEVICE-LOCAL, as 2.7e's SimpleDateFormat
+ConvoyMapRecipe.kt:125:                return GtLocalTime(t.year, t.monthValue, t.dayOfMonth, t.hour, t.minute, t.second)
+ConvoyMapRecipe.kt:127:            override fun epochMs(): Long = System.currentTimeMillis()
+ConvoyMapRecipe.kt:129:        return GtMapRecipe(files, paths, clock, env(context))
+ConvoyMapRecipe.kt:132:    /** Background, best effort. Never throws into the caller. \u26a0 Platform -- not ported. */
+ConvoyMapRecipe.kt:133:    fun writeDailyAsync(context: Context) {
+ConvoyMapRecipe.kt:134:        val app = context.applicationContext
+ConvoyMapRecipe.kt:136:            try { writeDaily(app) } catch (e: Exception) {
+ConvoyMapRecipe.kt:137:                android.util.Log.e(TAG, "RECIPE-2026-08-12L daily recipe failed: ${e.message}")
+ConvoyMapRecipe.kt:139:        }.start()
+ConvoyMapRecipe.kt:142:    fun writeDaily(context: Context): File? =
+ConvoyMapRecipe.kt:143:        shared(context.applicationContext).writeDaily()?.let { File(it.toString()) }
+ConvoyMapRecipe.kt:145:    /** VECCONVERT-2026-10-31: the conversion's first step -- today's recipe rewritten from the tiles now. */
+ConvoyMapRecipe.kt:146:    fun writeFresh(context: Context): File? =
+ConvoyMapRecipe.kt:147:        shared(context.applicationContext).writeFresh()?.let { File(it.toString()) }
 ConvoyNetworkStore.kt:1:package com.geeksville.mesh.convoy
 ConvoyNetworkStore.kt:3:import com.geeksville.mesh.grouptrack.GtAppDb
 ConvoyNetworkStore.kt:4:import com.grouptrack.shared.net.GtNetworkStore
@@ -47636,330 +47620,224 @@ ConvoySettingsScreen.kt:507:            onValueChangeFinished = { onValueChangeF
 ConvoySettingsScreen.kt:509:            steps                 = steps,
 ConvoySettingsScreen.kt:510:            modifier              = Modifier
 MBTilesStore.kt:1:package com.geeksville.mesh.convoy
-MBTilesStore.kt:3:import android.os.Environment
-MBTilesStore.kt:4:import android.database.sqlite.SQLiteDatabase
-MBTilesStore.kt:5:import java.io.File
-MBTilesStore.kt:8: * MBTilesStore — V2.6 Pass 1 tile storage.
-MBTilesStore.kt:10: * Replaces loose-file tile storage (<TILE_DIR>/<type>/<z>/<x>/<y>.png)
-MBTilesStore.kt:11: * with one MBTiles SQLite database PER TYPE:
+MBTilesStore.kt:3:import androidx.sqlite.SQLiteConnection
+MBTilesStore.kt:4:import com.grouptrack.shared.db.gtOpenDatabase
+MBTilesStore.kt:5:import com.grouptrack.shared.mbtiles.GtMBTiles
+MBTilesStore.kt:6:import com.grouptrack.shared.mbtiles.GtTileStoreEnv
+MBTilesStore.kt:7:import com.grouptrack.shared.queue.GtTileKey
+MBTilesStore.kt:8:import java.io.File
+MBTilesStore.kt:11: * MBTilesStore -- V2.6 Pass 1 tile storage. One MBTiles SQLite database PER TYPE:
 MBTilesStore.kt:12: *     <TILE_DIR>/<type>.mbtiles
-MBTilesStore.kt:13: * where <type> is the old cache_dir / directory name
-MBTilesStore.kt:17: *   Stored RAW z/x/y, NO TMS y-flip. This exactly replicates the loose-file
-MBTilesStore.kt:18: *   scheme (<type>/<z>/<x>/<y>.png) so every existing read path resolves the
-MBTilesStore.kt:19: *   same tile with the same key. The downloader wrote raw tile.y; both
-MBTilesStore.kt:20: *   intercepts read raw y (they only reorder Esri's z/y/x URL back to z/x/y).
-MBTilesStore.kt:21: *   insertTile and readTile therefore both use raw z/x/y. Do NOT introduce a
-MBTilesStore.kt:22: *   flip here — it would silently blank offline tiles.
-MBTilesStore.kt:24: * Schema (canonical MBTiles):
-MBTilesStore.kt:25: *   tiles(zoom_level, tile_column, tile_row, tile_data)
-MBTilesStore.kt:26: *   metadata(name, value)
-MBTilesStore.kt:27: *   UNIQUE INDEX tile_index ON tiles(zoom_level, tile_column, tile_row)   [mandatory]
-MBTilesStore.kt:29: * Storage: Documents/GroupTrack/maps/tiles/  (same TILE_DIR the loose tree used;
-MBTilesStore.kt:30: * survives reinstall). One open handle cached per type.
-MBTilesStore.kt:33: * execSQL with bound args, cached handles, best-effort try/catch + Log tags.
-MBTilesStore.kt:37:    private const val TAG = "MBTilesStore"
-MBTilesStore.kt:40:    private val handles = HashMap<String, SQLiteDatabase>()
-MBTilesStore.kt:42:    /** The tiles root — identical to ConvoyConfig.TILE_DIR
-MBTilesStore.kt:43:     *  (Documents/GroupTrack/maps/tiles). */
-MBTilesStore.kt:44:    private fun tilesDir(): File {
-MBTilesStore.kt:45:        val dir = ConvoyConfig.TILE_DIR
-MBTilesStore.kt:46:        if (!dir.exists()) dir.mkdirs()
-MBTilesStore.kt:50:    /** Resolve a type to its .mbtiles file. TOPO+ keeps its '+' verbatim —
-MBTilesStore.kt:51:     *  it's a filename, not a URL segment here, so no encoding needed. */
-MBTilesStore.kt:52:    private fun dbFileFor(type: String): File = File(tilesDir(), "$type.mbtiles")
-MBTilesStore.kt:54:    /** Open-or-create the DB for a type, create canonical schema on first use,
-MBTilesStore.kt:55:     *  and cache the handle. Returns null only on hard failure. */
-MBTilesStore.kt:57:    private fun db(type: String): SQLiteDatabase? {
-MBTilesStore.kt:58:        handles[type]?.let { if (it.isOpen) return it else handles.remove(type) }
-MBTilesStore.kt:60:            val f = dbFileFor(type)
-MBTilesStore.kt:61:            val fresh = !f.exists()
-MBTilesStore.kt:63:            if (fresh) initSchema(d, type)
-MBTilesStore.kt:65:            ensureSchema(d)
-MBTilesStore.kt:66:            handles[type] = d
-MBTilesStore.kt:69:            android.util.Log.e(TAG, "open failed for $type: ${e.message}")
-MBTilesStore.kt:74:    private fun initSchema(d: SQLiteDatabase, type: String) {
-MBTilesStore.kt:75:        ensureSchema(d)
-MBTilesStore.kt:81:            val format = "webp"   // [V2.6a-WEBP] all tiles stored WebP (base lossy, overlay lossless)
-MBTilesStore.kt:82:            d.execSQL("INSERT OR REPLACE INTO metadata(name,value) VALUES('name',?)", arrayOf<Any>(type))
-MBTilesStore.kt:83:            d.execSQL("INSERT OR REPLACE INTO metadata(name,value) VALUES('format',?)", arrayOf<Any>(format))
-MBTilesStore.kt:84:            d.execSQL("INSERT OR REPLACE INTO metadata(name,value) VALUES('scheme',?)", arrayOf<Any>("xyz"))
-MBTilesStore.kt:85:            android.util.Log.i(TAG, "created $type.mbtiles (format=$format, scheme=xyz raw z/x/y)")
-MBTilesStore.kt:87:            android.util.Log.w(TAG, "metadata init $type: ${e.message}")
-MBTilesStore.kt:91:    private fun ensureSchema(d: SQLiteDatabase) {
-MBTilesStore.kt:135:                d.rawQuery("PRAGMA $p", null).use { c ->
-MBTilesStore.kt:136:                    val got = if (c.moveToFirst()) c.getString(0) else "(no row)"
-MBTilesStore.kt:137:                    android.util.Log.i(TAG, "MBPRAGMA-2026-08-09G: $p -> $got")
-MBTilesStore.kt:140:                android.util.Log.w(TAG, "MBPRAGMA-2026-08-09G: $p FAILED: ${e.message}")
-MBTilesStore.kt:143:        d.execSQL("CREATE TABLE IF NOT EXISTS tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB)")
-MBTilesStore.kt:144:        d.execSQL("CREATE TABLE IF NOT EXISTS metadata (name TEXT, value TEXT)")
-MBTilesStore.kt:145:        d.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS tile_index ON tiles(zoom_level, tile_column, tile_row)")
-MBTilesStore.kt:149:     * Insert (or replace) one tile. RAW z/x/y — no flip. type = old cache_dir.
-MBTilesStore.kt:150:     * REPLACE keeps the resume/overwrite semantics simple (last write wins),
-MBTilesStore.kt:151:     * matching the old dest.writeBytes overwrite behavior.
-MBTilesStore.kt:152:     * Returns true on success.
-MBTilesStore.kt:154:    fun insertTile(type: String, z: Int, x: Int, y: Int, bytes: ByteArray, isOverlay: Boolean = false): Boolean {
-MBTilesStore.kt:155:        val d = db(type) ?: return false
-MBTilesStore.kt:156:        val stored = TileCodec.encode(bytes, isOverlay)   // [V2.6a-WEBP] lossy base / lossless overlay
-MBTilesStore.kt:158:            d.execSQL(
-MBTilesStore.kt:159:                "INSERT OR REPLACE INTO tiles(zoom_level,tile_column,tile_row,tile_data) VALUES(?,?,?,?)",
-MBTilesStore.kt:160:                arrayOf<Any>(z, x, y, stored)
-MBTilesStore.kt:164:            android.util.Log.e(TAG, "insertTile $type z$z/$x/$y: ${e.message}")
-MBTilesStore.kt:170:     * Read one tile's bytes, or null if absent. RAW z/x/y — same key as insert.
-MBTilesStore.kt:171:     * This is the read contract every shouldInterceptRequest branch calls.
-MBTilesStore.kt:173:    fun readTile(type: String, z: Int, x: Int, y: Int): ByteArray? {
-MBTilesStore.kt:176:        android.util.Log.i("OFFTRACE", "OFFTRACE-2026-08-11M readTile type=$type z=$z x=$x y=$y")
-MBTilesStore.kt:178:        val d = db(type) ?: return null
-MBTilesStore.kt:180:            d.rawQuery(
-MBTilesStore.kt:181:                "SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=? LIMIT 1",
-MBTilesStore.kt:182:                arrayOf(z.toString(), x.toString(), y.toString())
-MBTilesStore.kt:183:            ).use { c -> if (c.moveToFirst()) c.getBlob(0) else null }
-MBTilesStore.kt:185:            android.util.Log.e(TAG, "readTile $type z$z/$x/$y: ${e.message}")
-MBTilesStore.kt:190:    /** True if a tile exists (resume-skip check; replaces dest.exists()). */
-MBTilesStore.kt:191:    fun hasTile(type: String, z: Int, x: Int, y: Int): Boolean {
-MBTilesStore.kt:192:        val d = db(type) ?: return false
-MBTilesStore.kt:194:            d.rawQuery(
-MBTilesStore.kt:195:                "SELECT 1 FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=? LIMIT 1",
-MBTilesStore.kt:196:                arrayOf(z.toString(), x.toString(), y.toString())
-MBTilesStore.kt:202:     * RECREATE-2026-08-11G: how many STORED tiles fall inside a tile-coordinate range at one
-MBTilesStore.kt:203:     * zoom. Indexed range scan on tile_index -- no blobs, so it stays cheap on a
-MBTilesStore.kt:204:     * multi-gigabyte store even when called hundreds of times by the quadtree.
-MBTilesStore.kt:206:     * This is the whole basis of Recreate: never ask what a box COULD cover,
-MBTilesStore.kt:207:     * ask what it HAS.
-MBTilesStore.kt:209:    fun countInTileRange(type: String, z: Int, xMin: Long, xMax: Long,
-MBTilesStore.kt:210:                         yMin: Long, yMax: Long): Int {
-MBTilesStore.kt:211:        val d = db(type) ?: return 0
-MBTilesStore.kt:213:            d.rawQuery(
-MBTilesStore.kt:214:                "SELECT COUNT(*) FROM tiles WHERE zoom_level=? " +
-MBTilesStore.kt:216:                arrayOf(z.toString(), xMin.toString(), xMax.toString(),
-MBTilesStore.kt:217:                        yMin.toString(), yMax.toString())
-MBTilesStore.kt:218:            ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
-MBTilesStore.kt:220:            android.util.Log.e(TAG, "RECREATE-2026-08-11G countInTileRange $type z$z: ${e.message}")
-MBTilesStore.kt:226:     * RECREATE-2026-08-11G: the tile-coordinate extent actually occupied at one zoom, as
-MBTilesStore.kt:227:     * [xMin, xMax, yMin, yMax]. Null when the level holds nothing.
-MBTilesStore.kt:229:     * MIN/MAX only, so this is the store's bounding box -- deliberately. It is
-MBTilesStore.kt:230:     * the STARTING box for the quadtree, which then discards whatever inside it
-MBTilesStore.kt:231:     * turns out to be empty. The extent lies about disjoint coverage; the
-MBTilesStore.kt:232:     * quadtree is what corrects for that.
-MBTilesStore.kt:234:    fun tileExtentAtZoom(type: String, z: Int): LongArray? {
-MBTilesStore.kt:235:        val d = db(type) ?: return null
-MBTilesStore.kt:237:            d.rawQuery(
-MBTilesStore.kt:239:                "MIN(tile_row), MAX(tile_row) FROM tiles WHERE zoom_level=?",
-MBTilesStore.kt:240:                arrayOf(z.toString())
-MBTilesStore.kt:242:                if (c.moveToFirst() && !c.isNull(0))
-MBTilesStore.kt:243:                    longArrayOf(c.getLong(0), c.getLong(1), c.getLong(2), c.getLong(3))
-MBTilesStore.kt:247:            android.util.Log.e(TAG, "RECREATE-2026-08-11G tileExtentAtZoom $type z$z: ${e.message}")
-MBTilesStore.kt:252:    /** Tile count + size (MB) for a type. Replaces sourceInfo's dir walk. */
-MBTilesStore.kt:253:    fun sourceInfo(type: String): Pair<Int, Float> {
-MBTilesStore.kt:254:        val d = db(type) ?: return Pair(0, 0f)
-MBTilesStore.kt:256:            var count = 0
-MBTilesStore.kt:257:            d.rawQuery("SELECT COUNT(*) FROM tiles", null).use { if (it.moveToFirst()) count = it.getInt(0) }
-MBTilesStore.kt:258:            val bytes = dbFileFor(type).length()
-MBTilesStore.kt:259:            Pair(count, bytes / (1024f * 1024f))
-MBTilesStore.kt:264:     * REFRESHOOM-2026-08-11L: the tiles this store ACTUALLY HOLDS inside a lat/lon box.
-MBTilesStore.kt:266:     * Replaces computing every tile in the rectangle and filtering to the ones
-MBTilesStore.kt:267:     * on disk. That filter was correct but it built the whole rectangle first:
-MBTilesStore.kt:268:     * a sparse corridor spread over degrees of ground is millions of TileKey
-MBTilesStore.kt:269:     * objects before one is discarded, and on 08-11 it exhausted a 512 MB heap
-MBTilesStore.kt:270:     * and killed the app on the first Recreate job.
-MBTilesStore.kt:272:     * Bounded by what is STORED, not by the size of the box -- so a job holding
-MBTilesStore.kt:273:     * 50,000 tiles allocates 50,000 objects however much ground it spans. It is
-MBTilesStore.kt:274:     * also faster: one indexed range scan per level instead of millions of
-MBTilesStore.kt:275:     * allocations plus a hasTile query each.
-MBTilesStore.kt:278:     * why north maps to yMin here. Same convention calculateTiles uses.
-MBTilesStore.kt:280:    fun tilesInBounds(type: String, north: Double, south: Double,
-MBTilesStore.kt:281:                      east: Double, west: Double): List<TileKey> {
-MBTilesStore.kt:282:        val d = db(type) ?: return emptyList()
-MBTilesStore.kt:284:        for (z in zoomLevelsPresent(type)) {
-MBTilesStore.kt:286:            fun lon2x(lon: Double): Long =
-MBTilesStore.kt:287:                Math.floor((lon + 180.0) / 360.0 * n).toLong()
-MBTilesStore.kt:288:            fun lat2y(lat: Double): Long {
-MBTilesStore.kt:289:                val r = Math.toRadians(lat)
-MBTilesStore.kt:290:                return Math.floor(
-MBTilesStore.kt:294:            val xMin = lon2x(west).coerceIn(0L, n - 1)
-MBTilesStore.kt:295:            val xMax = lon2x(east).coerceIn(0L, n - 1)
-MBTilesStore.kt:296:            val yMin = lat2y(north).coerceIn(0L, n - 1)
-MBTilesStore.kt:297:            val yMax = lat2y(south).coerceIn(0L, n - 1)
-MBTilesStore.kt:299:                d.rawQuery(
-MBTilesStore.kt:300:                    "SELECT tile_column, tile_row FROM tiles WHERE zoom_level=? " +
-MBTilesStore.kt:302:                    arrayOf(z.toString(), xMin.toString(), xMax.toString(),
-MBTilesStore.kt:303:                            yMin.toString(), yMax.toString())
-MBTilesStore.kt:306:                        out.add(TileKey(z, c.getInt(0), c.getInt(1)))
-MBTilesStore.kt:309:                android.util.Log.e(TAG, "REFRESHOOM-2026-08-11L tilesInBounds $type z$z: ${e.message}")
-MBTilesStore.kt:315:    /** All (z,x,y) keys for a type. Replaces scanTilesToKeys' dir walk. */
-MBTilesStore.kt:316:    fun scanKeys(type: String): List<TileKey> {
-MBTilesStore.kt:317:        val d = db(type) ?: return emptyList()
-MBTilesStore.kt:318:        val keys = ArrayList<TileKey>()
-MBTilesStore.kt:320:            d.rawQuery("SELECT zoom_level, tile_column, tile_row FROM tiles", null).use { c ->
-MBTilesStore.kt:321:                while (c.moveToNext()) keys.add(TileKey(c.getInt(0), c.getInt(1), c.getInt(2)))
-MBTilesStore.kt:323:        } catch (e: Exception) { android.util.Log.e(TAG, "scanKeys $type: ${e.message}") }
-MBTilesStore.kt:324:        android.util.Log.i(TAG, "scanKeys $type: ${keys.size} tiles")
-MBTilesStore.kt:325:        return keys
-MBTilesStore.kt:331:     * RECREATE-2026-08-11A: which zoom levels actually hold tiles for this store.
-MBTilesStore.kt:333:     * The whole point of Recreate-by-Source: never ask what a bbox COULD cover,
-MBTilesStore.kt:334:     * ask what the store HAS. A level with no rows is simply absent from this
-MBTilesStore.kt:335:     * list and never becomes work.
-MBTilesStore.kt:337:    fun zoomLevelsPresent(type: String): List<Int> {
-MBTilesStore.kt:338:        val d = db(type) ?: return emptyList()
-MBTilesStore.kt:341:            d.rawQuery("SELECT DISTINCT zoom_level FROM tiles ORDER BY zoom_level", null).use { c ->
-MBTilesStore.kt:342:                while (c.moveToNext()) out.add(c.getInt(0))
-MBTilesStore.kt:345:            android.util.Log.e(TAG, "RECREATE-2026-08-11A zoomLevelsPresent $type: ${e.message}")
-MBTilesStore.kt:351:     * RECREATE-2026-08-11A: how many tiles exist at one zoom. COUNT only -- no rows
-MBTilesStore.kt:352:     * materialised, no blobs touched, so this is cheap even on a 15 GB store.
-MBTilesStore.kt:354:    fun countAtZoom(type: String, z: Int): Int {
-MBTilesStore.kt:355:        val d = db(type) ?: return 0
-MBTilesStore.kt:357:            d.rawQuery("SELECT COUNT(*) FROM tiles WHERE zoom_level=?",
-MBTilesStore.kt:358:                arrayOf(z.toString())).use { c ->
-MBTilesStore.kt:359:                if (c.moveToFirst()) return c.getInt(0)
-MBTilesStore.kt:362:            android.util.Log.e(TAG, "RECREATE-2026-08-11A countAtZoom $type z$z: ${e.message}")
-MBTilesStore.kt:367:    fun xyAtZoom(type: String, z: Int): List<Pair<Long, Long>> {
-MBTilesStore.kt:368:        val d = db(type) ?: return emptyList()
-MBTilesStore.kt:371:            d.rawQuery("SELECT tile_column, tile_row FROM tiles WHERE zoom_level=?", arrayOf(z.toString())).use { c ->
-MBTilesStore.kt:372:                while (c.moveToNext()) out.add(Pair(c.getLong(0), c.getLong(1)))
-MBTilesStore.kt:374:        } catch (e: Exception) { android.util.Log.e(TAG, "xyAtZoom $type z$z: ${e.message}") }
-MBTilesStore.kt:378:    /** Delete all tiles for a type — drops the whole .mbtiles file.
-MBTilesStore.kt:379:     *  Replaces deleteSource's deleteRecursively. */
-MBTilesStore.kt:381:    /** DELETE-AREA-2026-07-25: does a store file exist for this type?
-MBTilesStore.kt:382:     *  Checked before deleting so we do not CREATE an empty .mbtiles for a
-MBTilesStore.kt:383:     *  layer that was never downloaded -- db() opens-or-creates. */
-MBTilesStore.kt:384:    fun storeExists(type: String): Boolean = dbFileFor(type).exists()
-MBTilesStore.kt:386:    /** RECIPESCAN-2026-10-30: one zoom level's stored tiles grouped by their ancestor `shift` levels up -- (ax, ay, count).
-MBTilesStore.kt:387:     *  ONE indexed pass per level; the daily recipe reads every level this way instead of counting box by box. */
-MBTilesStore.kt:388:    fun countByParent(type: String, z: Int, shift: Int): List<LongArray> {
-MBTilesStore.kt:389:        val d = db(type) ?: return emptyList()
-MBTilesStore.kt:392:            d.rawQuery(
-MBTilesStore.kt:393:                "SELECT tile_column >> $shift, tile_row >> $shift, COUNT(*) FROM tiles WHERE zoom_level=? GROUP BY 1, 2",
-MBTilesStore.kt:394:                arrayOf(z.toString())
-MBTilesStore.kt:395:            ).use { c -> while (c.moveToNext()) out.add(longArrayOf(c.getLong(0), c.getLong(1), c.getLong(2))) }
-MBTilesStore.kt:397:            android.util.Log.e(TAG, "countByParent $type z$z: ${e.message}")
-MBTilesStore.kt:402:    /** DELETE-AREA-2026-07-25: how many tiles sit inside this z/x/y rectangle.
-MBTilesStore.kt:403:     *  Indexed count via tile_index. Used to report what a delete actually
-MBTilesStore.kt:404:     *  removed, and available for an exact pre-count off the main thread. */
-MBTilesStore.kt:405:    fun countTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int {
-MBTilesStore.kt:406:        if (!storeExists(type)) return 0
-MBTilesStore.kt:407:        val d = db(type) ?: return 0
-MBTilesStore.kt:410:            d.rawQuery(
-MBTilesStore.kt:411:                "SELECT COUNT(*) FROM tiles WHERE zoom_level=? AND tile_column BETWEEN ? AND ? AND tile_row BETWEEN ? AND ?",
-MBTilesStore.kt:412:                arrayOf(z.toString(), xMin.toString(), xMax.toString(), yMin.toString(), yMax.toString())
-MBTilesStore.kt:413:            ).use { c -> if (c.moveToFirst()) n = c.getInt(0) }
-MBTilesStore.kt:415:            android.util.Log.e(TAG, "countTileRange $type z$z: ${e.message}")
-MBTilesStore.kt:420:    /** DELETE-AREA-2026-07-25: remove every tile inside a z/x/y rectangle.
-MBTilesStore.kt:421:     *  Returns rows deleted.
-MBTilesStore.kt:423:     *  ONE STATEMENT PER ZOOM, not one per tile. A bbox is a CONTIGUOUS
-MBTilesStore.kt:424:     *  RECTANGLE in x/y at every zoom, so BETWEEN is EXACTLY equivalent to
-MBTilesStore.kt:425:     *  enumerating the tiles -- not an approximation. ~18 statements replace
-MBTilesStore.kt:426:     *  ~50,000. (A CORRIDOR delete could not use this form: its tile set is
-MBTilesStore.kt:427:     *  a buffered line, not a rectangle.)
-MBTilesStore.kt:429:     *  RAW z/x/y, NO FLIP -- same convention as insertTile/readTile. Using
-MBTilesStore.kt:430:     *  the TMS-flipped row here would silently delete THE WRONG TILES and
-MBTilesStore.kt:431:     *  look like a partial success.
-MBTilesStore.kt:434:     *  the pages inside the file; the .mbtiles keeps its size until a VACUUM.
-MBTilesStore.kt:435:     *  That is a separate, explicit action -- VACUUM needs roughly the file's
-MBTilesStore.kt:436:     *  own size in free space, so it cannot be fired blindly here. */
-MBTilesStore.kt:437:    fun deleteTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int {
-MBTilesStore.kt:438:        if (!storeExists(type)) return 0
-MBTilesStore.kt:439:        val d = db(type) ?: return 0
-MBTilesStore.kt:441:            d.delete(
-MBTilesStore.kt:442:                "tiles",
-MBTilesStore.kt:444:                arrayOf(z.toString(), xMin.toString(), xMax.toString(), yMin.toString(), yMax.toString())
-MBTilesStore.kt:447:            android.util.Log.e(TAG, "deleteTileRange $type z$z: ${e.message}")
-MBTilesStore.kt:455:     * Delete an EXPLICIT LIST of tiles. The primitive a corridor delete needs.
-MBTilesStore.kt:457:     * WHY IT HAD TO EXIST: this store could previously delete only a RANGE
-MBTilesStore.kt:458:     * (deleteTileRange, min/max x and y) or a WHOLE SOURCE (deleteSource).
-MBTilesStore.kt:459:     * A corridor is neither. Deleting a corridor by range would remove its
-MBTilesStore.kt:460:     * BOUNDING BOX - the same hull that makes an area refresh over corridors
-MBTilesStore.kt:461:     * wrong, except inverted: instead of downloading ground the user never
-MBTilesStore.kt:462:     * had, it would delete ground the user still wants.
-MBTilesStore.kt:464:     * Grouped by (z, x) and deleted with tile_row IN (...). A corridor is a
-MBTilesStore.kt:465:     * thin strip, so most (z, x) pairs hold a short run of consecutive rows -
-MBTilesStore.kt:467:     * Chunked at 500 binds; SQLite allows 999 and the query already uses two.
-MBTilesStore.kt:469:     * One transaction for the whole call - a half-deleted corridor is not a
-MBTilesStore.kt:470:     * state worth leaving behind, and it is markedly faster.
-MBTilesStore.kt:472:     * Returns the number of rows actually removed, which is what the worker
-MBTilesStore.kt:473:     * should report: the caller's tile list is what COULD be there, not what
-MBTilesStore.kt:474:     * WAS. (Same distinction the DELETE-BANDING-2026-07-25 note draws.)
-MBTilesStore.kt:476:    /** CORRDELETE-ONDISK-2026-08-07D: how many of these EXACT tiles are on
-MBTilesStore.kt:477:     *  disk. Deliberately mirrors deleteTiles() below -- same grouping, same
-MBTilesStore.kt:478:     *  500-bind chunking, same WHERE shape -- because a pre-count that selects
-MBTilesStore.kt:479:     *  on different criteria than the delete is worse than no pre-count: it
-MBTilesStore.kt:480:     *  reads as authoritative while disagreeing with what actually happens.
-MBTilesStore.kt:482:     *  countTileRange() cannot serve here. It takes min/max x and y, which is a
-MBTilesStore.kt:483:     *  BOUNDING BOX, and a corridor is not one -- the box around a corridor
-MBTilesStore.kt:484:     *  includes ground the corridor never touches.
-MBTilesStore.kt:486:     *  Indexed COUNT(*) per (z, x) group. Read-only, no transaction, safe to
-MBTilesStore.kt:487:     *  run before the user has confirmed anything. Background thread only. */
-MBTilesStore.kt:488:    fun countTiles(type: String, tiles: List<TileKey>): Int {
-MBTilesStore.kt:489:        if (tiles.isEmpty()) return 0
-MBTilesStore.kt:490:        if (!storeExists(type)) return 0
-MBTilesStore.kt:491:        val d = db(type) ?: return 0
-MBTilesStore.kt:492:        var found = 0
-MBTilesStore.kt:494:            for ((key, group) in tiles.groupBy { it.z to it.x }) {
-MBTilesStore.kt:496:                val rows = group.map { it.y }
-MBTilesStore.kt:498:                while (i < rows.size) {
-MBTilesStore.kt:499:                    val chunk = rows.subList(i, minOf(i + 500, rows.size))
-MBTilesStore.kt:500:                    val placeholders = chunk.joinToString(",") { "?" }
-MBTilesStore.kt:501:                    val args = ArrayList<String>(chunk.size + 2)
-MBTilesStore.kt:502:                    args.add(z.toString())
-MBTilesStore.kt:503:                    args.add(x.toString())
-MBTilesStore.kt:504:                    for (y in chunk) args.add(y.toString())
-MBTilesStore.kt:505:                    d.rawQuery(
-MBTilesStore.kt:506:                        "SELECT COUNT(*) FROM tiles " +
-MBTilesStore.kt:507:                            "WHERE zoom_level=? AND tile_column=? AND tile_row IN ($placeholders)",
-MBTilesStore.kt:508:                        args.toTypedArray()
-MBTilesStore.kt:509:                    ).use { c -> if (c.moveToFirst()) found += c.getInt(0) }
-MBTilesStore.kt:510:                    i += chunk.size
-MBTilesStore.kt:513:            android.util.Log.i(TAG,
-MBTilesStore.kt:514:                "countTiles $type: ${tiles.size} requested, $found present")
-MBTilesStore.kt:515:            found
-MBTilesStore.kt:517:            android.util.Log.e(TAG, "countTiles $type: ${e.message}")
-MBTilesStore.kt:518:            found
-MBTilesStore.kt:522:    fun deleteTiles(type: String, tiles: List<TileKey>): Int {
-MBTilesStore.kt:523:        if (tiles.isEmpty()) return 0
-MBTilesStore.kt:524:        if (!storeExists(type)) return 0
-MBTilesStore.kt:525:        val d = db(type) ?: return 0
-MBTilesStore.kt:526:        var removed = 0
-MBTilesStore.kt:530:                for ((key, group) in tiles.groupBy { it.z to it.x }) {
-MBTilesStore.kt:532:                    val rows = group.map { it.y }
-MBTilesStore.kt:534:                    while (i < rows.size) {
-MBTilesStore.kt:535:                        val chunk = rows.subList(i, minOf(i + 500, rows.size))
-MBTilesStore.kt:536:                        val placeholders = chunk.joinToString(",") { "?" }
-MBTilesStore.kt:537:                        val args = ArrayList<String>(chunk.size + 2)
-MBTilesStore.kt:538:                        args.add(z.toString())
-MBTilesStore.kt:539:                        args.add(x.toString())
-MBTilesStore.kt:540:                        for (y in chunk) args.add(y.toString())
-MBTilesStore.kt:541:                        removed += d.delete(
-MBTilesStore.kt:542:                            "tiles",
-MBTilesStore.kt:543:                            "zoom_level=? AND tile_column=? AND tile_row IN ($placeholders)",
-MBTilesStore.kt:544:                            args.toTypedArray()
-MBTilesStore.kt:546:                        i += chunk.size
-MBTilesStore.kt:553:            android.util.Log.i(TAG,
-MBTilesStore.kt:554:                "deleteTiles $type: ${tiles.size} requested, $removed actually removed")
-MBTilesStore.kt:555:            removed
-MBTilesStore.kt:557:            android.util.Log.e(TAG, "deleteTiles $type: ${e.message}")
-MBTilesStore.kt:558:            removed
-MBTilesStore.kt:561:    /** DELETE-AREA-2026-07-25: reclaimable bytes sitting in this store's
-MBTilesStore.kt:562:     *  freelist. freelist_count * page_size. Lets the UI say "delete freed
-MBTilesStore.kt:564:    fun reclaimableBytes(type: String): Long {
-MBTilesStore.kt:565:        if (!storeExists(type)) return 0L
-MBTilesStore.kt:566:        val d = db(type) ?: return 0L
-MBTilesStore.kt:567:        var pages = 0L
-MBTilesStore.kt:568:        var pageSize = 0L
-MBTilesStore.kt:570:            d.rawQuery("PRAGMA freelist_count", null).use { c -> if (c.moveToFirst()) pages = c.getLong(0) }
-MBTilesStore.kt:571:            d.rawQuery("PRAGMA page_size", null).use { c -> if (c.moveToFirst()) pageSize = c.getLong(0) }
-MBTilesStore.kt:573:            android.util.Log.e(TAG, "reclaimableBytes $type: ${e.message}")
-MBTilesStore.kt:581:        android.util.Log.i(TAG,
-MBTilesStore.kt:582:            "reclaimable $type: freelist_count=$pages page_size=$pageSize -> ${pages * pageSize} bytes")
-MBTilesStore.kt:583:        return pages * pageSize
-MBTilesStore.kt:586:    fun deleteSource(type: String): Boolean {
-MBTilesStore.kt:587:        handles.remove(type)?.let { try { it.close() } catch (_: Exception) {} }
-MBTilesStore.kt:588:        val f = dbFileFor(type)
-MBTilesStore.kt:591:        for (suffix in listOf("", "-journal", "-wal", "-shm")) {
-MBTilesStore.kt:592:            val s = File(f.parentFile, f.name + suffix)
-MBTilesStore.kt:593:            if (s.exists() && !s.delete()) ok = false
-MBTilesStore.kt:595:        android.util.Log.i(TAG, "deleteSource $type = $ok")
-MBTilesStore.kt:599:    /** Close all open handles (app teardown). */
-MBTilesStore.kt:601:    fun closeAll() {
-MBTilesStore.kt:602:        for ((_, d) in handles) try { d.close() } catch (_: Exception) {}
-MBTilesStore.kt:603:        handles.clear()
+MBTilesStore.kt:13: * where <type> is the old cache_dir / directory name (SAT, SAT_LABELS_TRANSPORT,
+MBTilesStore.kt:16: * GTSWITCH17MBTILES-2026-11-14 (2.8 step 17, Phase 2 switch 3 of 3)
+MBTilesStore.kt:18: * THE EIGHTEEN LIVE MEMBERS NOW DELEGATE TO GtMBTiles, the certified shared port
+MBTilesStore.kt:19: * (84 SAME / 0 DIFF / 0 EXPECTED, two clean runs, Droid and iPad). The object name,
+MBTilesStore.kt:20: * every public signature and the TileKey types are unchanged, so NO CALL SITE MOVED.
+MBTilesStore.kt:22: * WHAT STAYED HERE, AND WHY -- this file is now the PLATFORM HALF the port excludes:
+MBTilesStore.kt:23: *   - THE HANDLE CACHE. 2.7e held HashMap<String, SQLiteDatabase>; it is now
+MBTilesStore.kt:24: *     HashMap<String, SQLiteConnection> on the shared driver. Handle lifetime and
+MBTilesStore.kt:25: *     thread safety are platform state, not business logic, which is what keeps
+MBTilesStore.kt:27: *   - OPEN-OR-CREATE, THE SCHEMA AND THE THREE SAFETY PRAGMAS (below).
+MBTilesStore.kt:28: *   - TileCodec.encode. BitmapFactory and Bitmap.CompressFormat are Android-only and
+MBTilesStore.kt:29: *     unportable, so insertTile encodes HERE and hands shared the resulting bytes.
+MBTilesStore.kt:30: *     The port takes bytes and stores bytes, which is correct.
+MBTilesStore.kt:31: *   - sourceInfo and closeAll. Both measured DEAD 11-14 (closeAll: zero call sites;
+MBTilesStore.kt:32: *     sourceInfo: its only caller is ConvoyTileDownloader.sourceInfo, itself callerless).
+MBTilesStore.kt:33: *     The port skips them (M2: skip, do not remove, until after the first iPad
+MBTilesStore.kt:34: *     generation). They are reimplemented here over the connection cache so this
+MBTilesStore.kt:35: *     file's public surface is unchanged.
+MBTilesStore.kt:37: * TWO KNOWN GAPS, RECORDED RATHER THAN FIXED -- a port is not the place to fix either:
+MBTilesStore.kt:38: *   1. CERT GAP: insertTile's codec dispatch was never exercised. Both live slots are
+MBTilesStore.kt:39: *      role "overlay", and TileCodec.encode returns overlay bytes unchanged, so the
+MBTilesStore.kt:40: *      isOverlay=false branch is unreachable today. It was still a hole in the cert.
+MBTilesStore.kt:41: *   2. PER-MEMBER ERROR LOGGING IS GONE from the data path. The shared port swallows
+MBTilesStore.kt:44: *      log here. Return values are byte-identical to 2.7e; diagnostics are thinner.
+MBTilesStore.kt:45: *      The informational logs that DID survive are kept below.
+MBTilesStore.kt:48: *   Stored RAW z/x/y, NO TMS y-flip. This replicates the loose-file scheme
+MBTilesStore.kt:49: *   (<type>/<z>/<x>/<y>.png) so every existing read path resolves the same tile with
+MBTilesStore.kt:50: *   the same key. Do NOT introduce a flip -- it would silently blank offline tiles.
+MBTilesStore.kt:52: * Schema (canonical MBTiles):
+MBTilesStore.kt:53: *   tiles(zoom_level, tile_column, tile_row, tile_data)
+MBTilesStore.kt:54: *   metadata(name, value)
+MBTilesStore.kt:55: *   UNIQUE INDEX tile_index ON tiles(zoom_level, tile_column, tile_row)   [mandatory]
+MBTilesStore.kt:59:    private const val TAG = "MBTilesStore"
+MBTilesStore.kt:61:    /** The certified shared port. This object is its platform env. */
+MBTilesStore.kt:62:    private val shared: GtMBTiles by lazy { GtMBTiles(this) }
+MBTilesStore.kt:64:    /** One cached open connection per type (= per old cache_dir). Platform state. */
+MBTilesStore.kt:65:    private val handles = HashMap<String, SQLiteConnection>()
+MBTilesStore.kt:70:    private fun gt(k: TileKey) = GtTileKey(z = k.z, x = k.x, y = k.y)
+MBTilesStore.kt:71:    private fun old(k: GtTileKey) = TileKey(z = k.z, x = k.x, y = k.y)
+MBTilesStore.kt:75:    /** The tiles root -- identical to ConvoyConfig.TILE_DIR (Documents/GroupTrack/maps/tiles). */
+MBTilesStore.kt:76:    private fun tilesDir(): File {
+MBTilesStore.kt:77:        val dir = ConvoyConfig.TILE_DIR
+MBTilesStore.kt:78:        if (!dir.exists()) dir.mkdirs()
+MBTilesStore.kt:82:    /** Resolve a type to its .mbtiles file. TOPO+ keeps its '+' verbatim -- it is a
+MBTilesStore.kt:83:     *  filename, not a URL segment here, so no encoding is needed. */
+MBTilesStore.kt:84:    private fun dbFileFor(type: String): File = File(tilesDir(), "$type.mbtiles")
+MBTilesStore.kt:87:     * 2.7e db(type): open-or-create, ensure the canonical schema, cache the connection.
+MBTilesStore.kt:88:     * Null only on hard failure.
+MBTilesStore.kt:90:     * NOTE vs 2.7e: the cached-handle branch had an isOpen recheck. androidx's
+MBTilesStore.kt:91:     * SQLiteConnection exposes no isOpen, so the cached connection is returned as held;
+MBTilesStore.kt:92:     * it is closed only by deleteStore or closeAll, both of which drop it from the map.
+MBTilesStore.kt:95:    override fun connection(type: String): SQLiteConnection? {
+MBTilesStore.kt:96:        handles[type]?.let { return it }
+MBTilesStore.kt:98:            val f = dbFileFor(type)
+MBTilesStore.kt:99:            val fresh = !f.exists()
+MBTilesStore.kt:100:            val c = gtOpenDatabase(f.absolutePath, false)
+MBTilesStore.kt:101:            ensureSchema(c)
+MBTilesStore.kt:102:            if (fresh) initMetadata(c, type)
+MBTilesStore.kt:103:            handles[type] = c
+MBTilesStore.kt:106:            android.util.Log.e(TAG, "open failed for $type: ${e.message}")
+MBTilesStore.kt:111:    /** 2.7e storeExists / dbFileFor(type).exists(): checked WITHOUT opening, so a check
+MBTilesStore.kt:112:     *  can never CREATE an empty .mbtiles for a layer that was never downloaded. */
+MBTilesStore.kt:114:    override fun storeExists(type: String): Boolean = dbFileFor(type).exists()
+MBTilesStore.kt:116:    /** 2.7e deleteSource's body: drop the handle, then the file AND its sidecars. */
+MBTilesStore.kt:118:    override fun deleteStore(type: String): Boolean {
+MBTilesStore.kt:119:        handles.remove(type)?.let { try { it.close() } catch (_: Exception) {} }
+MBTilesStore.kt:120:        val f = dbFileFor(type)
+MBTilesStore.kt:123:        for (suffix in listOf("", "-journal", "-wal", "-shm")) {
+MBTilesStore.kt:124:            val s = File(f.parentFile, f.name + suffix)
+MBTilesStore.kt:125:            if (s.exists() && !s.delete()) ok = false
+MBTilesStore.kt:130:    private fun exec(c: SQLiteConnection, sql: String) {
+MBTilesStore.kt:131:        val st = c.prepare(sql); try { st.step() } finally { st.close() }
+MBTilesStore.kt:135:     * MBPRAGMA-2026-08-09D/G: per-connection pragmas, set on EVERY open, ONE TRY EACH.
+MBTilesStore.kt:137:     * secure_delete: Android ships it ON, which overwrites freed content with zeros
+MBTilesStore.kt:138:     * instead of marking pages free. Tiles average ~23 KB, so a 21,852-tile delete wrote
+MBTilesStore.kt:139:     * ~500 MB of zeros -- measured 08-09 at ~2.6 MB/s, which is what made the corridor
+MBTilesStore.kt:140:     * delete ~98 tiles/sec.
+MBTilesStore.kt:142:     * synchronous NORMAL: the default forces an fsync on every commit. NORMAL keeps the
+MBTilesStore.kt:143:     * rollback journal, so a crash still rolls back cleanly and a rolled-back delete is
+MBTilesStore.kt:146:     * All three are PER-CONNECTION: none is persisted in the file, nothing already
+MBTilesStore.kt:147:     * written is touched, and there is no migration.
+MBTilesStore.kt:149:     * *** DO NOT SWITCH THIS TO A NON-DURABLE JOURNAL SETTING. *** The modes that skip
+MBTilesStore.kt:150:     * the rollback journal leave the file UNDEFINED if a write is interrupted -- not a
+MBTilesStore.kt:151:     * partial delete you can re-run, a potentially corrupt database. The write-ahead
+MBTilesStore.kt:152:     * option is PERSISTENT (file format change, companion files, a real migration) and
+MBTilesStore.kt:154:     * delete exceeds. These stores are ~14 GB with NO BACKUP, and a database the
+MBTilesStore.kt:155:     * framework considers corrupt can be DELETED by the default error handler.
+MBTilesStore.kt:156:     * Crash-safety is not tradeable for delete speed.
+MBTilesStore.kt:158:     * ONE TRY EACH is not stylistic: the earlier attempt used execSQL for two of the
+MBTilesStore.kt:159:     * three and set NOTHING on device -- the first call threw and took the other two
+MBTilesStore.kt:160:     * down with it, including the one already written correctly.
+MBTilesStore.kt:162:    private fun ensureSchema(c: SQLiteConnection) {
+MBTilesStore.kt:164:            try { exec(c, "PRAGMA $p") } catch (e: Exception) {
+MBTilesStore.kt:165:                android.util.Log.w(TAG, "MBPRAGMA-2026-08-09G: $p FAILED: ${e.message}")
+MBTilesStore.kt:168:        exec(c, "CREATE TABLE IF NOT EXISTS tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB)")
+MBTilesStore.kt:169:        exec(c, "CREATE TABLE IF NOT EXISTS metadata (name TEXT, value TEXT)")
+MBTilesStore.kt:170:        exec(c, "CREATE UNIQUE INDEX IF NOT EXISTS tile_index ON tiles(zoom_level, tile_column, tile_row)")
+MBTilesStore.kt:173:    /** 2.7e initSchema's metadata half. format is the dominant tile format for the type. */
+MBTilesStore.kt:174:    private fun initMetadata(c: SQLiteConnection, type: String) {
+MBTilesStore.kt:176:            val format = "webp"   // [V2.6a-WEBP] all tiles stored WebP (base lossy, overlay lossless)
+MBTilesStore.kt:177:            for ((k, v) in listOf("name" to type, "format" to format, "scheme" to "xyz")) {
+MBTilesStore.kt:178:                val st = c.prepare("INSERT OR REPLACE INTO metadata(name,value) VALUES(?,?)")
+MBTilesStore.kt:179:                try { st.bindText(1, k); st.bindText(2, v); st.step() } finally { st.close() }
+MBTilesStore.kt:181:            android.util.Log.i(TAG, "created $type.mbtiles (format=$format, scheme=xyz raw z/x/y)")
+MBTilesStore.kt:183:            android.util.Log.w(TAG, "metadata init $type: ${e.message}")
+MBTilesStore.kt:190:     * Insert (or replace) one tile. RAW z/x/y -- no flip. REPLACE keeps the
+MBTilesStore.kt:191:     * resume/overwrite semantics simple (last write wins).
+MBTilesStore.kt:193:     * TileCodec.encode RUNS HERE, BEFORE the shared call: it needs BitmapFactory and
+MBTilesStore.kt:194:     * Bitmap.CompressFormat, which are Android-only. See cert gap 1 in the class note --
+MBTilesStore.kt:195:     * isOverlay=false is unreachable today because both live slots are overlays.
+MBTilesStore.kt:197:    fun insertTile(type: String, z: Int, x: Int, y: Int, bytes: ByteArray, isOverlay: Boolean = false): Boolean {
+MBTilesStore.kt:198:        val stored = TileCodec.encode(bytes, isOverlay)   // [V2.6a-WEBP] lossy base / lossless overlay
+MBTilesStore.kt:199:        return shared.insertTile(type, z, x, y, stored)
+MBTilesStore.kt:204:    /** Read one tile's bytes, or null if absent. RAW z/x/y -- same key as insert.
+MBTilesStore.kt:205:     *  This is the read contract every shouldInterceptRequest branch calls. */
+MBTilesStore.kt:206:    fun readTile(type: String, z: Int, x: Int, y: Int): ByteArray? {
+MBTilesStore.kt:209:        android.util.Log.i("OFFTRACE", "OFFTRACE-2026-08-11M readTile type=$type z=$z x=$x y=$y")
+MBTilesStore.kt:210:        return shared.readTile(type, z, x, y)
+MBTilesStore.kt:213:    /** True if a tile exists (resume-skip check; replaces dest.exists()). */
+MBTilesStore.kt:214:    fun hasTile(type: String, z: Int, x: Int, y: Int): Boolean = shared.hasTile(type, z, x, y)
+MBTilesStore.kt:218:    /** RECREATE-2026-08-11G: how many STORED tiles fall inside a tile-coordinate range
+MBTilesStore.kt:219:     *  at one zoom. The whole basis of Recreate: never ask what a box COULD cover, ask
+MBTilesStore.kt:220:     *  what it HAS. */
+MBTilesStore.kt:221:    fun countInTileRange(type: String, z: Int, xMin: Long, xMax: Long, yMin: Long, yMax: Long): Int =
+MBTilesStore.kt:222:        shared.countInTileRange(type, z, xMin, xMax, yMin, yMax)
+MBTilesStore.kt:224:    /** DELETE-AREA-2026-07-25: the Int-argument twin. Both exist; both are live. */
+MBTilesStore.kt:225:    fun countTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int =
+MBTilesStore.kt:226:        shared.countTileRange(type, z, xMin, xMax, yMin, yMax)
+MBTilesStore.kt:228:    /** RECREATE-2026-08-11G: [xMin, xMax, yMin, yMax] actually occupied at one zoom, or
+MBTilesStore.kt:229:     *  null when the level holds nothing. MIN/MAX only -- the store's bounding box,
+MBTilesStore.kt:230:     *  deliberately. The extent lies about disjoint coverage; the quadtree corrects that. */
+MBTilesStore.kt:231:    fun tileExtentAtZoom(type: String, z: Int): LongArray? = shared.tileExtentAtZoom(type, z)
+MBTilesStore.kt:233:    /** RECREATE-2026-08-11A: which zoom levels actually hold tiles. A level with no rows
+MBTilesStore.kt:234:     *  is simply absent from this list and never becomes work. */
+MBTilesStore.kt:235:    fun zoomLevelsPresent(type: String): List<Int> = shared.zoomLevelsPresent(type)
+MBTilesStore.kt:237:    /** RECREATE-2026-08-11A: how many tiles exist at one zoom. COUNT only. */
+MBTilesStore.kt:238:    fun countAtZoom(type: String, z: Int): Int = shared.countAtZoom(type, z)
+MBTilesStore.kt:240:    /** [V2.6-PASS1-S4] the (x,y) pairs present at a zoom. Feeds the coverage-highlight walks. */
+MBTilesStore.kt:241:    fun xyAtZoom(type: String, z: Int): List<Pair<Long, Long>> = shared.xyAtZoom(type, z)
+MBTilesStore.kt:243:    /** RECIPESCAN-2026-10-30: one level's tiles grouped by their ancestor `shift` levels
+MBTilesStore.kt:244:     *  up -- (ax, ay, count). ONE indexed pass per level. */
+MBTilesStore.kt:245:    fun countByParent(type: String, z: Int, shift: Int): List<LongArray> = shared.countByParent(type, z, shift)
+MBTilesStore.kt:249:    /** All (z,x,y) keys for a type. Replaces scanTilesToKeys' dir walk. */
+MBTilesStore.kt:250:    fun scanKeys(type: String): List<TileKey> {
+MBTilesStore.kt:251:        val keys = shared.scanKeys(type).map { old(it) }
+MBTilesStore.kt:252:        android.util.Log.i(TAG, "scanKeys $type: ${keys.size} tiles")
+MBTilesStore.kt:253:        return keys
+MBTilesStore.kt:257:     * REFRESHOOM-2026-08-11L: the tiles this store ACTUALLY HOLDS inside a lat/lon box.
+MBTilesStore.kt:258:     * Bounded by what is STORED, not by the size of the box -- the previous version built
+MBTilesStore.kt:259:     * every tile in the rectangle first and exhausted a 512 MB heap on 08-11.
+MBTilesStore.kt:261:     * RAW z/x/y, no TMS flip -- and NORTH is the SMALLER tile row, which is why north maps
+MBTilesStore.kt:262:     * to yMin. Same convention calculateTiles uses.
+MBTilesStore.kt:264:    fun tilesInBounds(type: String, north: Double, south: Double, east: Double, west: Double): List<TileKey> =
+MBTilesStore.kt:265:        shared.tilesInBounds(type, north, south, east, west).map { old(it) }
+MBTilesStore.kt:270:     * DELETE-AREA-2026-07-25: remove every tile inside a z/x/y rectangle. Returns rows deleted.
+MBTilesStore.kt:272:     * ONE STATEMENT PER ZOOM, not one per tile. A bbox is a CONTIGUOUS RECTANGLE in x/y at
+MBTilesStore.kt:273:     * every zoom, so BETWEEN is EXACTLY equivalent to enumerating the tiles. (A CORRIDOR
+MBTilesStore.kt:274:     * delete could not use this form: its tile set is a buffered line, not a rectangle.)
+MBTilesStore.kt:276:     * NOTE: space is NOT returned to the filesystem by this -- SQLite frees the pages inside
+MBTilesStore.kt:277:     * the file. See reclaimableBytes: on an auto_vacuum=FULL store the pages ARE returned,
+MBTilesStore.kt:278:     * which is why that member reads zero.
+MBTilesStore.kt:280:    fun deleteTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int =
+MBTilesStore.kt:281:        shared.deleteTileRange(type, z, xMin, xMax, yMin, yMax)
+MBTilesStore.kt:283:    /** CORRDELETE-ONDISK-2026-08-07D: how many of these EXACT tiles are on disk.
+MBTilesStore.kt:284:     *  Deliberately mirrors deleteTiles -- same grouping, same 500-bind chunking, same
+MBTilesStore.kt:285:     *  WHERE shape -- because a pre-count that selects on different criteria than the
+MBTilesStore.kt:286:     *  delete reads as authoritative while disagreeing with what actually happens.
+MBTilesStore.kt:287:     *  countTileRange cannot serve here: it takes a BOUNDING BOX, and a corridor is not one. */
+MBTilesStore.kt:288:    fun countTiles(type: String, tiles: List<TileKey>): Int {
+MBTilesStore.kt:289:        val found = shared.countTiles(type, tiles.map { gt(it) })
+MBTilesStore.kt:290:        android.util.Log.i(TAG, "countTiles $type: ${tiles.size} requested, $found present")
+MBTilesStore.kt:291:        return found
+MBTilesStore.kt:295:     * MBTILESDELTILES-2026-08-06: delete an EXPLICIT LIST of tiles -- the primitive a
+MBTilesStore.kt:296:     * corridor delete needs. This store could previously delete only a RANGE or a WHOLE
+MBTilesStore.kt:297:     * SOURCE; a corridor is neither, and deleting it by range would remove its BOUNDING BOX.
+MBTilesStore.kt:299:     * Returns rows actually removed, which is what the worker should report: the caller's
+MBTilesStore.kt:300:     * tile list is what COULD be there, not what WAS.
+MBTilesStore.kt:302:    fun deleteTiles(type: String, tiles: List<TileKey>): Int {
+MBTilesStore.kt:303:        val removed = shared.deleteTiles(type, tiles.map { gt(it) })
+MBTilesStore.kt:304:        android.util.Log.i(TAG, "deleteTiles $type: ${tiles.size} requested, $removed actually removed")
+MBTilesStore.kt:305:        return removed
+MBTilesStore.kt:311:     * DELETE-AREA-2026-07-25: reclaimable bytes in this store's freelist
+MBTilesStore.kt:314:     * KNOWN MEANINGLESS AND KEPT FAITHFUL. Measured 11-14: on an auto_vacuum=FULL database
+MBTilesStore.kt:315:     * (which the Droid reports) freed pages return to the OS, the freelist never fills, and
+MBTilesStore.kt:316:     * the product is STRUCTURALLY ZERO. This answers the open DELETE-BANDING-2026-07-25
+MBTilesStore.kt:317:     * question -- "0 MB reclaimable after removing 38,896 tiles ... most likely WAL": not
+MBTilesStore.kt:318:     * WAL, this file sets journal_mode=TRUNCATE; the space was already returned.
+MBTilesStore.kt:320:     * 2.7e logged freelist_count and page_size separately. Both now live inside the shared
+MBTilesStore.kt:321:     * port, so only the product is available to log here.
+MBTilesStore.kt:323:    fun reclaimableBytes(type: String): Long {
+MBTilesStore.kt:324:        val bytes = shared.reclaimableBytes(type)
+MBTilesStore.kt:325:        android.util.Log.i(TAG, "reclaimable $type: $bytes bytes")
+MBTilesStore.kt:326:        return bytes
+MBTilesStore.kt:329:    /** Delete all tiles for a type -- drops the whole .mbtiles file and its sidecars. */
+MBTilesStore.kt:330:    fun deleteSource(type: String): Boolean {
+MBTilesStore.kt:331:        val ok = shared.deleteSource(type)
+MBTilesStore.kt:332:        android.util.Log.i(TAG, "deleteSource $type = $ok")
+MBTilesStore.kt:338:    /** Tile count + size (MB) for a type. Replaces sourceInfo's dir walk.
+MBTilesStore.kt:339:     *  DEAD: its only caller is ConvoyTileDownloader.sourceInfo, which has zero callers. */
+MBTilesStore.kt:340:    fun sourceInfo(type: String): Pair<Int, Float> {
+MBTilesStore.kt:341:        val c = connection(type) ?: return Pair(0, 0f)
+MBTilesStore.kt:343:            var count = 0
+MBTilesStore.kt:344:            val st = c.prepare("SELECT COUNT(*) FROM tiles")
+MBTilesStore.kt:345:            try { if (st.step()) count = st.getLong(0).toInt() } finally { st.close() }
+MBTilesStore.kt:346:            val bytes = dbFileFor(type).length()
+MBTilesStore.kt:347:            Pair(count, bytes / (1024f * 1024f))
+MBTilesStore.kt:351:    /** Close all open connections (app teardown). DEAD: zero call sites anywhere. */
+MBTilesStore.kt:353:    fun closeAll() {
+MBTilesStore.kt:354:        for ((_, c) in handles) try { c.close() } catch (_: Exception) {}
+MBTilesStore.kt:355:        handles.clear()
 ImportConverterCertOld.kt:1:package com.geeksville.mesh.convoy
 ImportConverterCertOld.kt:4: * STEP15B-2026-11-09: TEST-ONLY copy of 2.7e's ImportConverter.kt (toGpx and what it calls) -- the OLD side of the step 15b certification (GtCert15b).
 ImportConverterCertOld.kt:5: * GENERATED by make_old_copies_15b.py from the 2.7e source; do not edit by hand. Changes, and only these: the object renamed ImportConverter -> ImportConverterCertOld; convertAll and

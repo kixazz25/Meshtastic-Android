@@ -1,0 +1,35 @@
+2.8 step 17: switch MapStateStore and ConvoyMapRecipe to their certified shared ports
+
+Phase 1 rule - the methods exist and are certified, so these are switches: no
+harness, no new certification. THE IDIOM IS DELEGATION. Both objects keep their
+names, their data classes and every signature; only the bodies moved, and not one
+call site changed (51 across 7 members for MapStateStore, 3 members for the recipe).
+
+MapStateStore -> GtMapState (certified: Droid 343 SAME / 0 DIFF / 6 EXPECTED,
+iPad 349 SAME / 0 DIFF cross-device, two clean runs). org.json is gone from the
+file. The 6 EXPECTED are org.json's tolerance of comments and single quotes,
+which kotlinx refuses - it throws and lands in defaults(), a branch 2.7e already
+has and already calls correct. ViewState had to be re-declared: 2.7e declared it
+below rideKey, inside the replaced range, and it has callers. lastMapProcessed
+stays on the Android side - @Volatile cross-thread state no compared key reads.
+
+ConvoyMapRecipe -> GtMapRecipe (certified: Droid 175 SAME / 0 DIFF / 0 EXPECTED,
+iPad 175 SAME / 0 DIFF cross-device, two clean runs). writeDailyAsync stays here:
+it is a Thread, i.e. platform, and was deliberately not ported. CONVERSION now
+reads from the shared companion so the two cannot drift. The three sockets -
+slot sources, storeExists, deriveRecipe - are wired to MapSourceManager,
+MBTilesStore and DownloadQueueManager, which is why the recipe did not have to
+wait for the tile store's port.
+
+Every mirrored-type mapping uses NAMED ARGUMENTS. GtRow/Row, GtBBox/BBox,
+GtRecipeResult/RecipeResult and the rest mirror field for field with identical
+types, so a positional swap would compile and silently transpose values.
+
+MBTilesStore is NOT switched in this commit. Its switch exposed a real gap:
+2.7e's insertTile calls TileCodec.encode(bytes, isOverlay) before inserting, and
+both the shared port and the cert's OLD side dropped it - so pass 3 certified at
+0 DIFF while comparing two implementations that both skipped the codec. It is
+inert in practice (every live slot is declared role "overlay", and encode()
+returns the input unchanged for overlays, deliberately, so DEM terrain-RGB pixels
+stay exact), but the dispatch was never exercised. The switch will keep
+TileCodec on the Android side, where BitmapFactory has to live anyway.

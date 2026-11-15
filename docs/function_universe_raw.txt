@@ -3305,30 +3305,35 @@ OsmPbfTagReaderCertOld.kt:412:                val v = vals
 OsmPbfTagReaderCertOld.kt:414:                    val tags = HashMap<String, String>(k.size * 2)
 OsmPbfTagReaderCertOld.kt:416:                        val ki = k[i]
 OsmPbfTagReaderCertOld.kt:417:                        val vi = v[i]
-ConvoyMapRecipe.kt:52:object ConvoyMapRecipe {
-ConvoyMapRecipe.kt:53:    private const val TAG = "MapRecipe"
-ConvoyMapRecipe.kt:54:    private const val EXT = ".gtmaps"
-ConvoyMapRecipe.kt:55:    private const val PREFIX = "grouptrack_maps_"
-ConvoyMapRecipe.kt:56:    private const val KEEP_DAYS = 60
-ConvoyMapRecipe.kt:58:    const val CONVERSION = "grouptrack_conversion.gtmaps"
-ConvoyMapRecipe.kt:66:    private fun dir(): File =
-ConvoyMapRecipe.kt:69:    private fun today(): String =
-ConvoyMapRecipe.kt:73:    fun writeDailyAsync(context: Context) {
-ConvoyMapRecipe.kt:74:        val app = context.applicationContext
-ConvoyMapRecipe.kt:82:    fun writeDaily(context: Context): File? = write(context, fresh = false)
-ConvoyMapRecipe.kt:85:    fun writeFresh(context: Context): File? = write(context, fresh = true)
-ConvoyMapRecipe.kt:88:    private fun write(context: Context, fresh: Boolean): File? {
-ConvoyMapRecipe.kt:89:        val target = File(dir(), PREFIX + today() + EXT)
-ConvoyMapRecipe.kt:95:            val busy = DownloadQueueManager.queue.value.count { (it.status == QueueStatus.QUEUED || it.status == QueueStatus.DOWNLOADING ||
-ConvoyMapRecipe.kt:104:        val slots = JSONArray()
-ConvoyMapRecipe.kt:105:        var grand = 0L
-ConvoyMapRecipe.kt:110:            val boxes = JSONArray()
-ConvoyMapRecipe.kt:111:            val n = 1L shl r.refZ
-ConvoyMapRecipe.kt:112:            fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0
-ConvoyMapRecipe.kt:113:            fun latOf(y: Long) = Math.toDegrees(
-ConvoyMapRecipe.kt:137:        val doc = JSONObject().apply {
-ConvoyMapRecipe.kt:157:    private fun prune() {
-ConvoyMapRecipe.kt:159:            val cutoff = System.currentTimeMillis() - KEEP_DAYS * 24L * 60L * 60L * 1000L
+ConvoyMapRecipe.kt:58:object ConvoyMapRecipe {
+ConvoyMapRecipe.kt:59:    private const val TAG = "MapRecipe"
+ConvoyMapRecipe.kt:62:    const val CONVERSION = GtMapRecipe.CONVERSION
+ConvoyMapRecipe.kt:82:    private fun env(context: Context): GtRecipeEnv = object : GtRecipeEnv {
+ConvoyMapRecipe.kt:83:        override fun slotSources(): List<Triple<String, String, String>> = MapSourceManager.getSlotSources()
+ConvoyMapRecipe.kt:84:        override fun storeExists(slot: String): Boolean = MBTilesStore.storeExists(slot)
+ConvoyMapRecipe.kt:85:        override fun deriveRecipe(slot: String): GtRecipeResult? =
+ConvoyMapRecipe.kt:94:        override fun vectorBusyCount(): Int {
+ConvoyMapRecipe.kt:103:        override val vecSlot: String = VectorTiles.SLOT
+ConvoyMapRecipe.kt:104:        override val demSlot: String = ElevationTiles.SLOT
+ConvoyMapRecipe.kt:107:    private fun shared(context: Context): GtMapRecipe {
+ConvoyMapRecipe.kt:108:        val files = object : GtFiles {
+ConvoyMapRecipe.kt:109:            override val fs: FileSystem = FileSystem.SYSTEM
+ConvoyMapRecipe.kt:110:            override fun setLastModified(path: Path, epochMs: Long): Boolean = File(path.toString()).setLastModified(epochMs)
+ConvoyMapRecipe.kt:111:            override fun lastModified(path: Path): Long = File(path.toString()).lastModified()
+ConvoyMapRecipe.kt:112:            override fun list(dir: Path): List<Path> = File(dir.toString()).listFiles()?.map { it.toOkioPath() } ?: emptyList()
+ConvoyMapRecipe.kt:114:        val paths = object : GtImportPaths {
+ConvoyMapRecipe.kt:115:            override fun groupTrackRoot(): Path = GroupTrackStorage.root().toOkioPath()
+ConvoyMapRecipe.kt:117:            override fun tracksDir(): Path = throw UnsupportedOperationException("ConvoyMapRecipe: recipes folder only")
+ConvoyMapRecipe.kt:118:            override fun cacheDir(): Path = throw UnsupportedOperationException("ConvoyMapRecipe: recipes folder only")
+ConvoyMapRecipe.kt:119:            override fun filesDir(): Path = throw UnsupportedOperationException("ConvoyMapRecipe: recipes folder only")
+ConvoyMapRecipe.kt:121:        val clock = object : GtClock {
+ConvoyMapRecipe.kt:122:            override fun nowInstant(): String = java.time.Instant.now().toString()
+ConvoyMapRecipe.kt:123:            override fun localNow(): GtLocalTime {
+ConvoyMapRecipe.kt:127:            override fun epochMs(): Long = System.currentTimeMillis()
+ConvoyMapRecipe.kt:133:    fun writeDailyAsync(context: Context) {
+ConvoyMapRecipe.kt:134:        val app = context.applicationContext
+ConvoyMapRecipe.kt:142:    fun writeDaily(context: Context): File? =
+ConvoyMapRecipe.kt:146:    fun writeFresh(context: Context): File? =
 ConvoyNetworkStore.kt:20:object ConvoyNetworkStore {
 ConvoyNetworkStore.kt:26:    private fun nowUtc(): String =
 ConvoyNetworkStore.kt:31:    private val store = GtNetworkStore({ SpatialDbManager.getExtensionDb()?.let { GtAppDb.wrap(it) } }, NetworkGenerator.shared,
@@ -8637,92 +8642,60 @@ ConvoySettingsScreen.kt:404:            var statsText by remember { mutableState
 ConvoySettingsScreen.kt:459:private fun SectionLabel(title: String) {
 ConvoySettingsScreen.kt:470:private fun AlertSlider(
 ConvoySettingsScreen.kt:479:    var localValue = value
-MBTilesStore.kt:32: * Mirrors SpatialDbManager conventions: object singleton, openOrCreateDatabase,
-MBTilesStore.kt:35:object MBTilesStore {
-MBTilesStore.kt:37:    private const val TAG = "MBTilesStore"
-MBTilesStore.kt:40:    private val handles = HashMap<String, SQLiteDatabase>()
-MBTilesStore.kt:44:    private fun tilesDir(): File {
-MBTilesStore.kt:45:        val dir = ConvoyConfig.TILE_DIR
-MBTilesStore.kt:52:    private fun dbFileFor(type: String): File = File(tilesDir(), "$type.mbtiles")
-MBTilesStore.kt:57:    private fun db(type: String): SQLiteDatabase? {
-MBTilesStore.kt:60:            val f = dbFileFor(type)
-MBTilesStore.kt:61:            val fresh = !f.exists()
-MBTilesStore.kt:62:            val d = SQLiteDatabase.openOrCreateDatabase(f, null)
-MBTilesStore.kt:74:    private fun initSchema(d: SQLiteDatabase, type: String) {
-MBTilesStore.kt:91:    private fun ensureSchema(d: SQLiteDatabase) {
-MBTilesStore.kt:136:                    val got = if (c.moveToFirst()) c.getString(0) else "(no row)"
-MBTilesStore.kt:154:    fun insertTile(type: String, z: Int, x: Int, y: Int, bytes: ByteArray, isOverlay: Boolean = false): Boolean {
-MBTilesStore.kt:155:        val d = db(type) ?: return false
-MBTilesStore.kt:173:    fun readTile(type: String, z: Int, x: Int, y: Int): ByteArray? {
-MBTilesStore.kt:178:        val d = db(type) ?: return null
-MBTilesStore.kt:191:    fun hasTile(type: String, z: Int, x: Int, y: Int): Boolean {
-MBTilesStore.kt:192:        val d = db(type) ?: return false
-MBTilesStore.kt:209:    fun countInTileRange(type: String, z: Int, xMin: Long, xMax: Long,
-MBTilesStore.kt:211:        val d = db(type) ?: return 0
-MBTilesStore.kt:234:    fun tileExtentAtZoom(type: String, z: Int): LongArray? {
-MBTilesStore.kt:235:        val d = db(type) ?: return null
-MBTilesStore.kt:253:    fun sourceInfo(type: String): Pair<Int, Float> {
-MBTilesStore.kt:254:        val d = db(type) ?: return Pair(0, 0f)
-MBTilesStore.kt:256:            var count = 0
-MBTilesStore.kt:258:            val bytes = dbFileFor(type).length()
-MBTilesStore.kt:280:    fun tilesInBounds(type: String, north: Double, south: Double,
-MBTilesStore.kt:282:        val d = db(type) ?: return emptyList()
-MBTilesStore.kt:283:        val out = ArrayList<TileKey>()
-MBTilesStore.kt:285:            val n = 1L shl z
-MBTilesStore.kt:286:            fun lon2x(lon: Double): Long =
-MBTilesStore.kt:288:            fun lat2y(lat: Double): Long {
-MBTilesStore.kt:289:                val r = Math.toRadians(lat)
-MBTilesStore.kt:294:            val xMin = lon2x(west).coerceIn(0L, n - 1)
-MBTilesStore.kt:295:            val xMax = lon2x(east).coerceIn(0L, n - 1)
-MBTilesStore.kt:296:            val yMin = lat2y(north).coerceIn(0L, n - 1)
-MBTilesStore.kt:297:            val yMax = lat2y(south).coerceIn(0L, n - 1)
-MBTilesStore.kt:316:    fun scanKeys(type: String): List<TileKey> {
-MBTilesStore.kt:317:        val d = db(type) ?: return emptyList()
-MBTilesStore.kt:318:        val keys = ArrayList<TileKey>()
-MBTilesStore.kt:337:    fun zoomLevelsPresent(type: String): List<Int> {
-MBTilesStore.kt:338:        val d = db(type) ?: return emptyList()
-MBTilesStore.kt:339:        val out = ArrayList<Int>()
-MBTilesStore.kt:354:    fun countAtZoom(type: String, z: Int): Int {
-MBTilesStore.kt:355:        val d = db(type) ?: return 0
-MBTilesStore.kt:367:    fun xyAtZoom(type: String, z: Int): List<Pair<Long, Long>> {
-MBTilesStore.kt:368:        val d = db(type) ?: return emptyList()
-MBTilesStore.kt:369:        val out = ArrayList<Pair<Long, Long>>()
-MBTilesStore.kt:384:    fun storeExists(type: String): Boolean = dbFileFor(type).exists()
-MBTilesStore.kt:388:    fun countByParent(type: String, z: Int, shift: Int): List<LongArray> {
-MBTilesStore.kt:389:        val d = db(type) ?: return emptyList()
-MBTilesStore.kt:390:        val out = ArrayList<LongArray>()
-MBTilesStore.kt:405:    fun countTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int {
-MBTilesStore.kt:407:        val d = db(type) ?: return 0
-MBTilesStore.kt:408:        var n = 0
-MBTilesStore.kt:437:    fun deleteTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int {
-MBTilesStore.kt:439:        val d = db(type) ?: return 0
-MBTilesStore.kt:488:    fun countTiles(type: String, tiles: List<TileKey>): Int {
-MBTilesStore.kt:491:        val d = db(type) ?: return 0
-MBTilesStore.kt:492:        var found = 0
-MBTilesStore.kt:495:                val (z, x) = key
-MBTilesStore.kt:496:                val rows = group.map { it.y }
-MBTilesStore.kt:497:                var i = 0
-MBTilesStore.kt:499:                    val chunk = rows.subList(i, minOf(i + 500, rows.size))
-MBTilesStore.kt:500:                    val placeholders = chunk.joinToString(",") { "?" }
-MBTilesStore.kt:501:                    val args = ArrayList<String>(chunk.size + 2)
-MBTilesStore.kt:522:    fun deleteTiles(type: String, tiles: List<TileKey>): Int {
-MBTilesStore.kt:525:        val d = db(type) ?: return 0
-MBTilesStore.kt:526:        var removed = 0
-MBTilesStore.kt:531:                    val (z, x) = key
-MBTilesStore.kt:532:                    val rows = group.map { it.y }
-MBTilesStore.kt:533:                    var i = 0
-MBTilesStore.kt:535:                        val chunk = rows.subList(i, minOf(i + 500, rows.size))
-MBTilesStore.kt:536:                        val placeholders = chunk.joinToString(",") { "?" }
-MBTilesStore.kt:537:                        val args = ArrayList<String>(chunk.size + 2)
-MBTilesStore.kt:564:    fun reclaimableBytes(type: String): Long {
-MBTilesStore.kt:566:        val d = db(type) ?: return 0L
-MBTilesStore.kt:567:        var pages = 0L
-MBTilesStore.kt:568:        var pageSize = 0L
-MBTilesStore.kt:586:    fun deleteSource(type: String): Boolean {
-MBTilesStore.kt:588:        val f = dbFileFor(type)
-MBTilesStore.kt:590:        var ok = true
-MBTilesStore.kt:592:            val s = File(f.parentFile, f.name + suffix)
-MBTilesStore.kt:601:    fun closeAll() {
+MBTilesStore.kt:19: * (84 SAME / 0 DIFF / 0 EXPECTED, two clean runs, Droid and iPad). The object name,
+MBTilesStore.kt:57:object MBTilesStore : GtTileStoreEnv {
+MBTilesStore.kt:59:    private const val TAG = "MBTilesStore"
+MBTilesStore.kt:61:    /** The certified shared port. This object is its platform env. */
+MBTilesStore.kt:62:    private val shared: GtMBTiles by lazy { GtMBTiles(this) }
+MBTilesStore.kt:65:    private val handles = HashMap<String, SQLiteConnection>()
+MBTilesStore.kt:70:    private fun gt(k: TileKey) = GtTileKey(z = k.z, x = k.x, y = k.y)
+MBTilesStore.kt:71:    private fun old(k: GtTileKey) = TileKey(z = k.z, x = k.x, y = k.y)
+MBTilesStore.kt:76:    private fun tilesDir(): File {
+MBTilesStore.kt:77:        val dir = ConvoyConfig.TILE_DIR
+MBTilesStore.kt:84:    private fun dbFileFor(type: String): File = File(tilesDir(), "$type.mbtiles")
+MBTilesStore.kt:95:    override fun connection(type: String): SQLiteConnection? {
+MBTilesStore.kt:98:            val f = dbFileFor(type)
+MBTilesStore.kt:99:            val fresh = !f.exists()
+MBTilesStore.kt:100:            val c = gtOpenDatabase(f.absolutePath, false)
+MBTilesStore.kt:114:    override fun storeExists(type: String): Boolean = dbFileFor(type).exists()
+MBTilesStore.kt:118:    override fun deleteStore(type: String): Boolean {
+MBTilesStore.kt:120:        val f = dbFileFor(type)
+MBTilesStore.kt:122:        var ok = true
+MBTilesStore.kt:124:            val s = File(f.parentFile, f.name + suffix)
+MBTilesStore.kt:130:    private fun exec(c: SQLiteConnection, sql: String) {
+MBTilesStore.kt:131:        val st = c.prepare(sql); try { st.step() } finally { st.close() }
+MBTilesStore.kt:162:    private fun ensureSchema(c: SQLiteConnection) {
+MBTilesStore.kt:174:    private fun initMetadata(c: SQLiteConnection, type: String) {
+MBTilesStore.kt:178:                val st = c.prepare("INSERT OR REPLACE INTO metadata(name,value) VALUES(?,?)")
+MBTilesStore.kt:194:     * Bitmap.CompressFormat, which are Android-only. See cert gap 1 in the class note --
+MBTilesStore.kt:197:    fun insertTile(type: String, z: Int, x: Int, y: Int, bytes: ByteArray, isOverlay: Boolean = false): Boolean {
+MBTilesStore.kt:206:    fun readTile(type: String, z: Int, x: Int, y: Int): ByteArray? {
+MBTilesStore.kt:214:    fun hasTile(type: String, z: Int, x: Int, y: Int): Boolean = shared.hasTile(type, z, x, y)
+MBTilesStore.kt:221:    fun countInTileRange(type: String, z: Int, xMin: Long, xMax: Long, yMin: Long, yMax: Long): Int =
+MBTilesStore.kt:225:    fun countTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int =
+MBTilesStore.kt:231:    fun tileExtentAtZoom(type: String, z: Int): LongArray? = shared.tileExtentAtZoom(type, z)
+MBTilesStore.kt:235:    fun zoomLevelsPresent(type: String): List<Int> = shared.zoomLevelsPresent(type)
+MBTilesStore.kt:238:    fun countAtZoom(type: String, z: Int): Int = shared.countAtZoom(type, z)
+MBTilesStore.kt:241:    fun xyAtZoom(type: String, z: Int): List<Pair<Long, Long>> = shared.xyAtZoom(type, z)
+MBTilesStore.kt:245:    fun countByParent(type: String, z: Int, shift: Int): List<LongArray> = shared.countByParent(type, z, shift)
+MBTilesStore.kt:250:    fun scanKeys(type: String): List<TileKey> {
+MBTilesStore.kt:251:        val keys = shared.scanKeys(type).map { old(it) }
+MBTilesStore.kt:264:    fun tilesInBounds(type: String, north: Double, south: Double, east: Double, west: Double): List<TileKey> =
+MBTilesStore.kt:280:    fun deleteTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int =
+MBTilesStore.kt:288:    fun countTiles(type: String, tiles: List<TileKey>): Int {
+MBTilesStore.kt:289:        val found = shared.countTiles(type, tiles.map { gt(it) })
+MBTilesStore.kt:302:    fun deleteTiles(type: String, tiles: List<TileKey>): Int {
+MBTilesStore.kt:303:        val removed = shared.deleteTiles(type, tiles.map { gt(it) })
+MBTilesStore.kt:323:    fun reclaimableBytes(type: String): Long {
+MBTilesStore.kt:324:        val bytes = shared.reclaimableBytes(type)
+MBTilesStore.kt:330:    fun deleteSource(type: String): Boolean {
+MBTilesStore.kt:331:        val ok = shared.deleteSource(type)
+MBTilesStore.kt:340:    fun sourceInfo(type: String): Pair<Int, Float> {
+MBTilesStore.kt:341:        val c = connection(type) ?: return Pair(0, 0f)
+MBTilesStore.kt:343:            var count = 0
+MBTilesStore.kt:344:            val st = c.prepare("SELECT COUNT(*) FROM tiles")
+MBTilesStore.kt:346:            val bytes = dbFileFor(type).length()
+MBTilesStore.kt:353:    fun closeAll() {
 ImportConverterCertOld.kt:5: * GENERATED by make_old_copies_15b.py from the 2.7e source; do not edit by hand. Changes, and only these: the object renamed ImportConverter -> ImportConverterCertOld; convertAll and
 ImportConverterCertOld.kt:17:object ImportConverterCertOld {
 ImportConverterCertOld.kt:19:    private val CONVERTIBLE = setOf("kml", "kmz", "geojson", "json")

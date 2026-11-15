@@ -1,0 +1,79 @@
+2.8 step 17: switch MBTilesStore to its certified shared port
+
+Phase 2 switch 3 of 3. MBTilesStore's eighteen live members now delegate to
+GtMBTiles, certified in pass 3 at 84 SAME / 0 DIFF / 0 EXPECTED over two clean
+runs on Droid 1 and the iPad simulator (a2f87f7).
+
+Delegation, not replacement: the object name, every public signature and both
+TileKey types are unchanged, so NO CALL SITE MOVED. 605 -> 357 lines.
+
+WHAT STAYED ON ANDROID, AND WHY
+  - The handle cache. HashMap<String, SQLiteDatabase> becomes
+    HashMap<String, SQLiteConnection> on the shared driver. Handle lifetime and
+    thread safety are platform state, which is what lets GtMBTiles be stateless
+    and therefore certifiable.
+  - Open-or-create, the canonical schema, and the three safety pragmas
+    (secure_delete=OFF, synchronous=NORMAL, journal_mode=TRUNCATE), each still in
+    its own try. The 08-09 rationale is kept verbatim: these stores are ~14 GB
+    with no backup, and a database the framework considers corrupt can be deleted
+    by the default error handler.
+  - TileCodec.encode. BitmapFactory and Bitmap.CompressFormat are Android-only.
+    insertTile encodes here and hands the shared port the resulting bytes; the
+    port takes bytes and stores bytes, which is correct. This is the defect that
+    deferred the switch yesterday: an earlier draft had dropped the codec from
+    both sides of the cert, so two implementations agreed while both skipped it.
+  - sourceInfo and closeAll, both measured dead 11-14 (closeAll has zero call
+    sites; sourceInfo's only caller is ConvoyTileDownloader.sourceInfo, itself
+    callerless). The port skips them under M2 (skip, do not remove, until after
+    the first iPad generation); they are reimplemented here over the connection
+    cache so this file's public surface does not move.
+
+DELTAS NOT COVERED BY THE CERT, recorded deliberately
+  1. This env is not the certified env. CertTileEnv was. This one differs in
+     three ways: real ConvoyConfig.TILE_DIR instead of a cache dir,
+     metadata format="webp" instead of "pbf", and the Android log lines.
+  2. The TileKey <-> GtTileKey mapping at the boundary is new code. Named
+     arguments on both directions: the two types are the same shape, so a
+     positional swap would compile and silently transpose x and y.
+  3. insertTile's codec dispatch is still unexercised. Both live slots are role
+     "overlay" and TileCodec.encode returns overlay bytes unchanged, so the base
+     branch is unreachable today. It was a hole in the cert and it still is.
+
+PER-MEMBER ERROR LOGGING IS GONE FROM THE DATA PATH. The shared port swallows
+exceptions and returns 2.7e's own fallbacks (null / 0 / emptyList / false)
+silently; the exception never crosses the boundary, so there is nothing left to
+log here. Return values are byte-identical to 2.7e; diagnostics are thinner. The
+informational logs that could survive were kept (scanKeys, countTiles,
+deleteTiles, reclaimableBytes, deleteSource, store creation, OFFTRACE readTile).
+This cost real time during tonight's verification and is worth watching.
+
+DEVICE VERIFICATION (build 2026-11-14_1835_mac_c11c1f524, Droid 1 and Droid 2)
+  - download over an approximate hand-drawn area: 546 tiles on 2.8 against 400
+    on 2.7e for a separately drawn area -- insertTile, the codec and the
+    hasTile resume-skip all behave as 2.7e on the real 3.8 GB store.
+  - map draw from stored tiles: readTile serving normally.
+  - delete area: 259 tiles and 27 DEM tiles reported removed. This is the one
+    that mattered: 2.7e's d.delete() returns the row count directly, while the
+    port runs SELECT changes() after the statement. Non-zero and plausible on
+    real data with the real pragmas, so all four delete members read correctly.
+  - COVERAGE ROUND TRIP, the strongest check of the three: with maps offline,
+    zooming into the deleted ground produced the app's own "tiles do not exist
+    below z11" message -- the delete removed real coverage, not just rows -- and
+    re-downloading restored that ground to z18. End to end through insertTile,
+    readTile and the delete members on the live 3.8 GB store, observed in the app
+    rather than inferred from a counter.
+  - Row counts on the live stores could NOT be read: the .mbtiles files are mode
+    0600 owned by the app uid, so adb pull is denied, and run-as fails because the
+    build is not debuggable ("run-as: package not debuggable"). Verifying stored
+    row counts would need a debuggable build or app-side export code. The coverage
+    round trip above makes that unnecessary.
+
+PRE-EXISTING DEFECT FOUND, NOT A PORT REGRESSION
+The tile calculator reports the BOX count as "tiles called for download":
+118,360 requested against ~500 actual work. Present identically on 2.7e and 2.8.
+Registered, not fixed here.
+
+Phase 2 is complete. All three passes are certified and switched:
+  pass 1  MapStateStore    -> GtMapState    374c9c5a4 / switched c11c1f524
+  pass 2  ConvoyMapRecipe  -> GtMapRecipe   860be3a26 / switched c11c1f524
+  pass 3  MBTilesStore     -> GtMBTiles     a2f87f7   / switched here
