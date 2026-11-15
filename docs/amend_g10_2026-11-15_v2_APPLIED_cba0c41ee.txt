@@ -1,0 +1,67 @@
+2.8b G10: static iOS framework output from grouptrack-shared
+
+Compiling was not producing: the module built for iOS but emitted nothing an
+Xcode app could link. Static binaries.framework on iosArm64 and
+iosSimulatorArm64, baseName GroupTrackShared.
+
+Verified: linkDebugFrameworkIosArm64 BUILD SUCCESSFUL in 31s; the artifact
+exists (57.9 MB binary, headers, Info.plist, Modules) and exports GtMapState,
+GtMapRecipe, GtMBTiles plus the GtFiles / GtImportPaths / GtTileStoreEnv
+protocols.
+
+Finding: the sockets export as Obj-C protocols, so they COULD be implemented in
+Swift. They should not be. The certified test doubles (MacFiles on okio,
+MacTileEnv on the real gtOpenDatabase) are Kotlin, so promoting them to iosMain
+makes the production implementations the certified ones. Swift is reserved for
+what Kotlin cannot reach: the document picker and CoreBluetooth.
+
+Compose Multiplatform is NOT reopened by this: D10 (11-06, confirmed by the spike)
+chose Compose Multiplatform for the iPad screens, and SwiftUI was REJECTED for
+presentation because it gives zero reuse of the web layer and closes the 3.0
+web door (Compose/Wasm). A stub needs no screens, which is why none are wired
+here -- that is scope, not a decision. XCFramework when something is distributed.
+
+DONE: 26319 G10 - no framework output from grouptrack-shared
+
+DECIDED: the nine platform sockets are implemented in KOTLIN iosMain, not Swift. The sockets
+export as Obj-C protocols so Swift was a real option, but the certified test doubles
+(MacFiles on okio, MacTileEnv on the real gtOpenDatabase) are Kotlin -- promoting them makes
+the PRODUCTION implementations the CERTIFIED ones, and the H1-H3 harnesses can run against
+production rather than against doubles. Swift is reserved for what Kotlin cannot reach: the
+document picker (L2b) and CoreBluetooth (L2a). Consequence: no Xcode project is needed for
+the next gap-discovery stage -- promote the doubles to iosMain and re-run H1-H3 against the
+production env on the simulator.
+
+AUDIT: grepped both AllDocs volumes for swift (54 hits in AllDocs 2, 678 in volume 1)
+before recording this. The decisions do not conflict: D12 Kotlin MP for shared logic,
+D10 Compose MP for screens, SwiftUI rejected for presentation and reserved for the
+native shell.
+
+CORRECTED 2026-11-15 09:48 (this replaced a wrong sentence in the first draft of this
+message, which said the spike built a "SwiftUI + WKWebView iPad shell"). Measured by
+reading the spike in full: the WebView is in KOTLIN iosMain, not Swift. GtVecMap.ios.kt
+holds UIKitView + WKWebView, a gtvec:// WKURLSchemeHandler serving assets and tiles
+(WKWebView cannot take over https://, so https://gtvec.local/ is rewritten), and a
+window.Android Proxy SHIM that lets the 2.7e vecmap page run UNEDITED.
+ContentView.swift is 17 lines hosting MainViewControllerKt.MainViewController() -- the
+correct entry point for a Compose MP app, not a SwiftUI WebView shell. So the spike
+CONFIRMS D10 rather than suggesting Swift, and there is no SwiftUI stub to find.
+
+ALSO MEASURED 2026-11-15 and material to the next stage:
+ - The Android JS bridge is 14 methods, EVERY ONE void, arguments Double/String only,
+   and no call site in the page consumes a return value (12 sites, all bare statements
+   or existence guards). That is why a four-line window.Android Proxy can replace the
+   whole bridge: @JavascriptInterface is synchronous and can return to JS, postMessage
+   cannot. One seam with 14 members, not 14 ports.
+ - The spike BYPASSES the certified ports: its VecStore reads VEC.mbtiles with its own
+   SQL instead of GtMBTiles via GtTileStoreEnv, and its GtSpatial is a 186-line ANCESTOR
+   of the certified 246-line one (286 lines differ; the certified one has the per-kind
+   query/GeoJson split and the pub handling the spike lacks). Neither was wrong on
+   11-06 -- GtMBTiles did not exist until 11-14. Both are obsolete now.
+ - DECIDED: transcribe, do not repair. The spike is FROZEN as the iPad oracle (now under
+   git, 8dd74ca) and the real work lands in grouptrack-shared.
+ - The 37 iosTest classes had been COMPILED but never RUN; 36 of them had no results at
+   all. They have now run: 28 PASS, 0 FAIL, 9 slow-not-broken. The blob pre-flight
+   passes cross-device (36 SAME, 0 DIFF, 0 BLOCKER) so pass 3 is clear on
+   BundledSQLiteDriver, and all three safety pragmas take effect on iOS -- though
+   nothing in PRODUCTION owns them there yet, which stays open.

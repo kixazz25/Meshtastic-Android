@@ -1,0 +1,56 @@
+2.8b GtIosEnv un-parked: remove the .HOLD_UNCOMPILED stand-in now the real file compiles
+
+The park from fec742131 is finished. GtIosEnv.kt compiles and links (7c20f643c), so the
+.HOLD_UNCOMPILED copy beside it is dead weight and goes.
+
+RECORD OF THE 11-15 METHOD WORK, because the instruments live in the shared commands folder
+and this is the repo-side pointer to them:
+
+We had two instruments with OPPOSITE blind spots and no third:
+  certification    proves the paths that RAN produced correct bytes. SILENT on paths that never
+                   ran. Osm15g can be 231,365 SAME / 0 DIFF while the raster branch beside it
+                   never executes. A passing cert and a dead branch are perfectly compatible.
+  seam/import scan sees every file that EXISTS, by what it imports. Cannot tell whether any of
+                   it runs, so it billed a dead branch as seam work.
+Neither answers "is it executed" -- Fred's own rule from 11-13 17:32, which had no tooling until
+today and so was applied by hand to exactly one function (CONVDEAD-2026-11-14).
+
+PROVED ON THE RASTER QUESTION. 2.8a on Droid 1, a real 1,670-tile area download:
+  VECDL-2026-10-31 area -> vector + elevation
+  Layer: VEC url=tiles.openfreemap.org   Layer: DEM url=elevation-tiles-prod
+  Complete: downloaded=1536 failed=0     Complete: downloaded=134 failed=0
+  slot=SAT  ...  0 occurrences in 36,733 lines
+The download took the vector branch at submitDownload:9 and never fell through to the raster
+call at :14. Reference counting had argued BOTH SIDES of this inside ten minutes, because 8 call
+sites in one file prove only that the file talks to itself. The log settled it in one grep.
+The SAT source ENTRY stays live (MapSourceManager loads it at launch, 1,018 log hits, and it
+feeds the credits screen). The SAT DOWNLOAD BRANCH is dead. Two different things, two files.
+
+WHY IT HID FOR TEN DAYS PAST THE 11-01 VECONE CUTOVER: the seam list's unit was the FILE.
+ConvoyDownloadQueue has 17 shared refs so the whole file counted PORTED -- including the 2.7e
+raster branch its own line 295 admits it still carries. ConvoyMapSourceScreen has 2 refs, counted
+PORTED, and holds 94 dead lines (SlotCard, ApiKeyRow) behind a route repurposed to map credits on
+11-13. A file-granularity instrument cannot say "half of this is dead".
+
+FOUR RULES EARNED TODAY:
+  1. Verify by DECLARED NAME, never by filename. ConvoyDownloadQueuePanel.kt declares
+     DownloadQueuePanel; a filename grep reported 0 refs for a composable with 4 live callers.
+     This morning's 16 route removals were safe precisely because the tool matched declarations.
+  2. A reference means nothing without its GUARD. A call site inside a dead branch is a
+     reference to nothing.
+  3. A count means nothing without a NAMED CALLER, and one hop to a root. "Someone calls it"
+     is the aggregate claim that failed all day.
+  4. Every run carries a BUDGET. Osm15g's 733 s against a 737 s expectation was trustworthy at
+     once; Import15e's 20 minutes against 187 s was unambiguously wrong. Four stalls today came
+     from optimistic estimates against a 180 s cap -- the rule binds the estimator too.
+
+SCOPE AS IT NOW STANDS: 3,196 functions, 945 touching a seam, 685 mechanical (CONTEXT/LOGGING ->
+one socket + Kermit, no decision needed), 260 needing a decision, 48 of those removed by the
+device-only scope call (no radio, no group awareness), leaving 212. DEFAULT IS KEEP: nothing is
+called dead unless both instruments agree, and anything undecidable stays in.
+
+Instruments, all in the shared commands folder:
+  gt_deadcode_2026-11-15_v3.sh      is it REFERENCED (5 verify kinds, each sentinel-proven)
+  gt_execscope_2026-11-15_v1.sh     is it EXECUTED (file level, from real-flow logs)
+  gt_seamfn_2026-11-15_v2.py        the seam list BY FUNCTION
+  gt_seamactive_2026-11-15_v4.py    all three columns + the caller named + the root hop

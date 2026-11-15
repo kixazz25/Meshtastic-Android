@@ -12720,8 +12720,8 @@ SHARED:track/GtTracks.kt:113:    companion object {
 SHARED:track/GtTracks.kt:114:        private val TRKPT = Regex("""<trkpt\b[^>]*\blat="([^"]+)"[^>]*\blon="([^"]+)"""")
 SHARED:track/GtTracks.kt:119:        fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> {
 SHARED:track/GtTracks.kt:120:            val coords = mutableListOf<Pair<Double, Double>>()
-SHARED:track/GtTracks.kt:122:                val lat = GtJavaParse.toDoubleOrNull(m.groupValues[1]) ?: continue
-SHARED:track/GtTracks.kt:123:                val lon = GtJavaParse.toDoubleOrNull(m.groupValues[2]) ?: continue
+SHARED:track/GtTracks.kt:122:                val lat = GtJavaParse.latOrNull(m.groupValues[1]) ?: continue
+SHARED:track/GtTracks.kt:123:                val lon = GtJavaParse.lonOrNull(m.groupValues[2]) ?: continue
 SHARED:track/GtTracks.kt:130:        fun haversineMiles(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
 SHARED:track/GtTracks.kt:131:            val R = 3958.7613
 SHARED:track/GtTracks.kt:132:            val dLat = GtJava.toRadians(lat2 - lat1)
@@ -13573,152 +13573,157 @@ SHARED:rider/GtRiderTrails.kt:112:        private const val TAG = "RiderTrails"
 SHARED:rider/GtRiderTrails.kt:115:        const val CATEGORY = "rider"
 SHARED:rider/GtRiderTrails.kt:119:        const val SOURCE_ID = "rides"
 SHARED:rider/GtRiderTrails.kt:126:        private const val BBOX_MARGIN_DEG = 0.001
-SHARED:rider/GtRiderTrails.kt:141:        fun parseGeometry(wkt: String?): List<GtRiderScan.Pt> {
-SHARED:rider/GtRiderTrails.kt:143:            val open = wkt.indexOf('(')
-SHARED:rider/GtRiderTrails.kt:145:            val body = wkt.substring(open).replace("(", " ").replace(")", " ")
-SHARED:rider/GtRiderTrails.kt:146:            val out = ArrayList<GtRiderScan.Pt>()
-SHARED:rider/GtRiderTrails.kt:148:                val f = part.trim().split(WS)
-SHARED:rider/GtRiderTrails.kt:150:                val lon = GtJavaParse.toDoubleOrNull(f[0]) ?: continue
-SHARED:rider/GtRiderTrails.kt:151:                val lat = GtJavaParse.toDoubleOrNull(f[1]) ?: continue
-SHARED:rider/GtRiderTrails.kt:168:        private fun buildGeometry(pts: List<GtRiderScan.Pt>): GtGeom.Geom =
-SHARED:rider/GtRiderTrails.kt:182:    private fun candidatesFor(pts: List<GtRiderScan.Pt>, excludeRider: Boolean): List<List<GtRiderScan.Pt>> {
-SHARED:rider/GtRiderTrails.kt:183:        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-SHARED:rider/GtRiderTrails.kt:184:        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-SHARED:rider/GtRiderTrails.kt:191:        val out = ArrayList<List<GtRiderScan.Pt>>()
-SHARED:rider/GtRiderTrails.kt:198:                val q = parseGeometry(g)
-SHARED:rider/GtRiderTrails.kt:235:    fun scanTrackByHash(geomHash: String): Pair<Int, Double> {
-SHARED:rider/GtRiderTrails.kt:236:        var foundName: String? = null
-SHARED:rider/GtRiderTrails.kt:237:        var foundGeom: String? = null
-SHARED:rider/GtRiderTrails.kt:247:        val geom = foundGeom
-SHARED:rider/GtRiderTrails.kt:255:        val r = scanTrack(foundName, geom)
-SHARED:rider/GtRiderTrails.kt:261:    fun scanTrack(trackName: String?, geometry: String?): Pair<Int, Double> {
-SHARED:rider/GtRiderTrails.kt:262:        val pts = parseGeometry(geometry)
-SHARED:rider/GtRiderTrails.kt:264:        val network = candidatesFor(pts, excludeRider = false)
-SHARED:rider/GtRiderTrails.kt:265:        val found = GtRiderScan.scan(pts, network)
-SHARED:rider/GtRiderTrails.kt:268:        var n = 0
-SHARED:rider/GtRiderTrails.kt:269:        var miles = 0.0
-SHARED:rider/GtRiderTrails.kt:296:    private fun writeOne(t: GtRiderScan.RiderTrail): Boolean {
-SHARED:rider/GtRiderTrails.kt:297:        val g = buildGeometry(t.points)
-SHARED:rider/GtRiderTrails.kt:298:        val wkt = g.wkt
-SHARED:rider/GtRiderTrails.kt:300:        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-SHARED:rider/GtRiderTrails.kt:301:        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-SHARED:rider/GtRiderTrails.kt:309:        val now = env.clock.nowInstant()
-SHARED:rider/GtRiderTrails.kt:310:        val newId = env.ids.newId()
-SHARED:rider/GtRiderTrails.kt:311:        val hash = g.hash
-SHARED:rider/GtRiderTrails.kt:315:        val res = try {
-SHARED:rider/GtRiderTrails.kt:321:        val trailId = res.first
-SHARED:rider/GtRiderTrails.kt:355:    fun scanAll(onProgress: ((Int, Int) -> Unit)?): Result {
-SHARED:rider/GtRiderTrails.kt:359:        val stored = HashMap<String, String>()
-SHARED:rider/GtRiderTrails.kt:363:                val h = if (gh != null) gh
-SHARED:rider/GtRiderTrails.kt:372:        val ids = ArrayList<Pair<String, String?>>()
-SHARED:rider/GtRiderTrails.kt:385:        val produced = HashSet<String>()
-SHARED:rider/GtRiderTrails.kt:387:        var added = 0; var unchanged = 0
-SHARED:rider/GtRiderTrails.kt:388:        var addedMi = 0.0; var totalMi = 0.0
-SHARED:rider/GtRiderTrails.kt:391:            val (geom, name) = ids[i]
-SHARED:rider/GtRiderTrails.kt:392:            val pts = parseGeometry(geom)
-SHARED:rider/GtRiderTrails.kt:394:            val network = candidatesFor(pts, excludeRider = true) + piecesNear(runPieces, pts)
-SHARED:rider/GtRiderTrails.kt:395:            var n = 0
-SHARED:rider/GtRiderTrails.kt:397:                val hash = buildGeometry(t.points).hash
-SHARED:rider/GtRiderTrails.kt:400:                val mi = t.totalM / 1609.34
-SHARED:rider/GtRiderTrails.kt:407:        var removed = 0
-SHARED:rider/GtRiderTrails.kt:425:    private fun piecesNear(pieces: List<List<GtRiderScan.Pt>>, pts: List<GtRiderScan.Pt>): List<List<GtRiderScan.Pt>> {
-SHARED:rider/GtRiderTrails.kt:427:        val la1 = pts.minOf { it.lat } - BBOX_MARGIN_DEG; val la2 = pts.maxOf { it.lat } + BBOX_MARGIN_DEG
-SHARED:rider/GtRiderTrails.kt:428:        val lo1 = pts.minOf { it.lon } - BBOX_MARGIN_DEG; val lo2 = pts.maxOf { it.lon } + BBOX_MARGIN_DEG
+SHARED:rider/GtRiderTrails.kt:137:        private const val MAX_TRACK_SPAN_MILES = 300.0
+SHARED:rider/GtRiderTrails.kt:152:        fun parseGeometry(wkt: String?): List<GtRiderScan.Pt> {
+SHARED:rider/GtRiderTrails.kt:154:            val open = wkt.indexOf('(')
+SHARED:rider/GtRiderTrails.kt:156:            val body = wkt.substring(open).replace("(", " ").replace(")", " ")
+SHARED:rider/GtRiderTrails.kt:157:            val out = ArrayList<GtRiderScan.Pt>()
+SHARED:rider/GtRiderTrails.kt:159:                val f = part.trim().split(WS)
+SHARED:rider/GtRiderTrails.kt:161:                val lon = GtJavaParse.toDoubleOrNull(f[0]) ?: continue
+SHARED:rider/GtRiderTrails.kt:162:                val lat = GtJavaParse.toDoubleOrNull(f[1]) ?: continue
+SHARED:rider/GtRiderTrails.kt:179:        private fun buildGeometry(pts: List<GtRiderScan.Pt>): GtGeom.Geom =
+SHARED:rider/GtRiderTrails.kt:193:    private fun candidatesFor(pts: List<GtRiderScan.Pt>, excludeRider: Boolean): List<List<GtRiderScan.Pt>> {
+SHARED:rider/GtRiderTrails.kt:194:        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+SHARED:rider/GtRiderTrails.kt:195:        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+SHARED:rider/GtRiderTrails.kt:202:        val out = ArrayList<List<GtRiderScan.Pt>>()
+SHARED:rider/GtRiderTrails.kt:207:        val spanMiles =
+SHARED:rider/GtRiderTrails.kt:224:                val q = parseGeometry(g)
+SHARED:rider/GtRiderTrails.kt:261:    fun scanTrackByHash(geomHash: String): Pair<Int, Double> {
+SHARED:rider/GtRiderTrails.kt:262:        var foundName: String? = null
+SHARED:rider/GtRiderTrails.kt:263:        var foundGeom: String? = null
+SHARED:rider/GtRiderTrails.kt:273:        val geom = foundGeom
+SHARED:rider/GtRiderTrails.kt:281:        val r = scanTrack(foundName, geom)
+SHARED:rider/GtRiderTrails.kt:287:    fun scanTrack(trackName: String?, geometry: String?): Pair<Int, Double> {
+SHARED:rider/GtRiderTrails.kt:288:        val pts = parseGeometry(geometry)
+SHARED:rider/GtRiderTrails.kt:290:        val network = candidatesFor(pts, excludeRider = false)
+SHARED:rider/GtRiderTrails.kt:291:        val found = GtRiderScan.scan(pts, network)
+SHARED:rider/GtRiderTrails.kt:294:        var n = 0
+SHARED:rider/GtRiderTrails.kt:295:        var miles = 0.0
+SHARED:rider/GtRiderTrails.kt:322:    private fun writeOne(t: GtRiderScan.RiderTrail): Boolean {
+SHARED:rider/GtRiderTrails.kt:323:        val g = buildGeometry(t.points)
+SHARED:rider/GtRiderTrails.kt:324:        val wkt = g.wkt
+SHARED:rider/GtRiderTrails.kt:326:        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+SHARED:rider/GtRiderTrails.kt:327:        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+SHARED:rider/GtRiderTrails.kt:335:        val now = env.clock.nowInstant()
+SHARED:rider/GtRiderTrails.kt:336:        val newId = env.ids.newId()
+SHARED:rider/GtRiderTrails.kt:337:        val hash = g.hash
+SHARED:rider/GtRiderTrails.kt:341:        val res = try {
+SHARED:rider/GtRiderTrails.kt:347:        val trailId = res.first
+SHARED:rider/GtRiderTrails.kt:381:    fun scanAll(onProgress: ((Int, Int) -> Unit)?): Result {
+SHARED:rider/GtRiderTrails.kt:385:        val stored = HashMap<String, String>()
+SHARED:rider/GtRiderTrails.kt:389:                val h = if (gh != null) gh
+SHARED:rider/GtRiderTrails.kt:398:        val ids = ArrayList<Pair<String, String?>>()
+SHARED:rider/GtRiderTrails.kt:411:        val produced = HashSet<String>()
+SHARED:rider/GtRiderTrails.kt:413:        var added = 0; var unchanged = 0
+SHARED:rider/GtRiderTrails.kt:414:        var addedMi = 0.0; var totalMi = 0.0
+SHARED:rider/GtRiderTrails.kt:417:            val (geom, name) = ids[i]
+SHARED:rider/GtRiderTrails.kt:418:            val pts = parseGeometry(geom)
+SHARED:rider/GtRiderTrails.kt:420:            val network = candidatesFor(pts, excludeRider = true) + piecesNear(runPieces, pts)
+SHARED:rider/GtRiderTrails.kt:421:            var n = 0
+SHARED:rider/GtRiderTrails.kt:423:                val hash = buildGeometry(t.points).hash
+SHARED:rider/GtRiderTrails.kt:426:                val mi = t.totalM / 1609.34
+SHARED:rider/GtRiderTrails.kt:433:        var removed = 0
+SHARED:rider/GtRiderTrails.kt:451:    private fun piecesNear(pieces: List<List<GtRiderScan.Pt>>, pts: List<GtRiderScan.Pt>): List<List<GtRiderScan.Pt>> {
+SHARED:rider/GtRiderTrails.kt:453:        val la1 = pts.minOf { it.lat } - BBOX_MARGIN_DEG; val la2 = pts.maxOf { it.lat } + BBOX_MARGIN_DEG
+SHARED:rider/GtRiderTrails.kt:454:        val lo1 = pts.minOf { it.lon } - BBOX_MARGIN_DEG; val lo2 = pts.maxOf { it.lon } + BBOX_MARGIN_DEG
 SHARED:rider/GtRiderScan.kt:104:object GtRiderScan {
 SHARED:rider/GtRiderScan.kt:108:    const val NEAR_M = 20.0
 SHARED:rider/GtRiderScan.kt:110:    const val TINY_M = 10.0
 SHARED:rider/GtRiderScan.kt:112:    const val MIN_RUN_M = 150.0
 SHARED:rider/GtRiderScan.kt:114:    const val MAX_CONN_M = 60.0
 SHARED:rider/GtRiderScan.kt:116:    const val DENSE_M = 10.0
-SHARED:rider/GtRiderScan.kt:128:    private const val CELL = 0.002
-SHARED:rider/GtRiderScan.kt:132:    data class Pt(val lon: Double, val lat: Double)
-SHARED:rider/GtRiderScan.kt:142:     * (STEP15C: 2.7e's `val joinedBothEnds get() = joinedHead && joinedTail` is not ported -- never read.)
-SHARED:rider/GtRiderScan.kt:144:    data class RiderTrail(
-SHARED:rider/GtRiderScan.kt:145:        val points: List<Pt>,
-SHARED:rider/GtRiderScan.kt:146:        val riddenM: Double,
-SHARED:rider/GtRiderScan.kt:147:        val totalM: Double,
-SHARED:rider/GtRiderScan.kt:148:        val joinedHead: Boolean,
-SHARED:rider/GtRiderScan.kt:149:        val joinedTail: Boolean
-SHARED:rider/GtRiderScan.kt:152:    private class Seg(
-SHARED:rider/GtRiderScan.kt:153:        val lo1: Double, val la1: Double,
-SHARED:rider/GtRiderScan.kt:154:        val lo2: Double, val la2: Double,
-SHARED:rider/GtRiderScan.kt:156:        val line: Int
-SHARED:rider/GtRiderScan.kt:162:    fun haversineM(la1: Double, lo1: Double, la2: Double, lo2: Double): Double {
-SHARED:rider/GtRiderScan.kt:163:        val r = 6371000.0
-SHARED:rider/GtRiderScan.kt:164:        val p1 = GtJava.toRadians(la1)
-SHARED:rider/GtRiderScan.kt:165:        val p2 = GtJava.toRadians(la2)
-SHARED:rider/GtRiderScan.kt:166:        val dp = GtJava.toRadians(la2 - la1)
-SHARED:rider/GtRiderScan.kt:167:        val dl = GtJava.toRadians(lo2 - lo1)
-SHARED:rider/GtRiderScan.kt:168:        val x = sin(dp / 2) * sin(dp / 2) +
-SHARED:rider/GtRiderScan.kt:183:    fun scan(track: List<Pt>, network: List<List<Pt>>): List<RiderTrail> {
-SHARED:rider/GtRiderScan.kt:193:        val grid = HashMap<Long, MutableList<Seg>>()
-SHARED:rider/GtRiderScan.kt:196:                val a = line[k]
-SHARED:rider/GtRiderScan.kt:197:                val b = line[k + 1]
-SHARED:rider/GtRiderScan.kt:199:                val seg = Seg(a.lon, a.lat, b.lon, b.lat, li)
-SHARED:rider/GtRiderScan.kt:200:                val r1 = (min(a.lat, b.lat) / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:201:                val r2 = (max(a.lat, b.lat) / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:202:                val c1 = (min(a.lon, b.lon) / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:203:                val c2 = (max(a.lon, b.lon) / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:211:        val dense = ArrayList<Pt>(track.size * 4)
-SHARED:rider/GtRiderScan.kt:212:        val orig = ArrayList<Boolean>(track.size * 4)
-SHARED:rider/GtRiderScan.kt:215:            val a = track[k]
-SHARED:rider/GtRiderScan.kt:216:            val b = track[k + 1]
-SHARED:rider/GtRiderScan.kt:217:            val d = haversineM(a.lat, a.lon, b.lat, b.lon)
-SHARED:rider/GtRiderScan.kt:218:            val steps = (d / DENSE_M).toInt()
-SHARED:rider/GtRiderScan.kt:220:                val f = t * DENSE_M / d
-SHARED:rider/GtRiderScan.kt:225:        val n = dense.size
-SHARED:rider/GtRiderScan.kt:226:        val cum = DoubleArray(n)
-SHARED:rider/GtRiderScan.kt:231:        val anchor = arrayOfNulls<Pt>(n)
-SHARED:rider/GtRiderScan.kt:232:        val anchorLine = IntArray(n) { -1 }
-SHARED:rider/GtRiderScan.kt:235:        val out = ArrayList<RiderTrail>()
-SHARED:rider/GtRiderScan.kt:236:        var i = 0
-SHARED:rider/GtRiderScan.kt:239:            val start = i
-SHARED:rider/GtRiderScan.kt:243:            var j = i
-SHARED:rider/GtRiderScan.kt:245:            val end = j
-SHARED:rider/GtRiderScan.kt:248:                val riddenM = cum[end - 1] - cum[start]
-SHARED:rider/GtRiderScan.kt:249:                val hj = start > 0 && haversineM(anchor[start - 1]!!.lat, anchor[start - 1]!!.lon, dense[start].lat, dense[start].lon) <= MAX_CONN_M
-SHARED:rider/GtRiderScan.kt:250:                val tj = end < n && haversineM(dense[end - 1].lat, dense[end - 1].lon, anchor[end]!!.lat, anchor[end]!!.lon) <= MAX_CONN_M
-SHARED:rider/GtRiderScan.kt:253:                val keep = if (hj && tj) {
-SHARED:rider/GtRiderScan.kt:258:                    val head = if (start > 0) anchor[start - 1] else null
-SHARED:rider/GtRiderScan.kt:259:                    val tail = if (end < n) anchor[end] else null
-SHARED:rider/GtRiderScan.kt:262:                    val run = ArrayList<Pt>()
-SHARED:rider/GtRiderScan.kt:267:                    val pts = ArrayList<Pt>(run.size + 2)
-SHARED:rider/GtRiderScan.kt:268:                    var joinedHead = false
-SHARED:rider/GtRiderScan.kt:270:                        val d = haversineM(head.lat, head.lon, run[0].lat, run[0].lon)
-SHARED:rider/GtRiderScan.kt:278:                    var joinedTail = false
-SHARED:rider/GtRiderScan.kt:280:                        val last = run[run.size - 1]
-SHARED:rider/GtRiderScan.kt:281:                        val d = haversineM(last.lat, last.lon, tail.lat, tail.lon)
-SHARED:rider/GtRiderScan.kt:288:                    var totalM = 0.0
-SHARED:rider/GtRiderScan.kt:301:    private fun key(r: Int, c: Int): Long = (r.toLong() shl 32) xor (c.toLong() and 0xFFFFFFFFL)
-SHARED:rider/GtRiderScan.kt:311:    private fun linesMeetNear(grid: Map<Long, MutableList<Seg>>, a: Int, b: Int, lon: Double, lat: Double): Boolean {
-SHARED:rider/GtRiderScan.kt:312:        val r = (lat / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:313:        val c = (lon / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:314:        val kx = 111320.0 * cos(GtJava.toRadians(lat))
-SHARED:rider/GtRiderScan.kt:315:        val ky = 111320.0
-SHARED:rider/GtRiderScan.kt:316:        val sa = ArrayList<Seg>()
-SHARED:rider/GtRiderScan.kt:317:        val sb = ArrayList<Seg>()
-SHARED:rider/GtRiderScan.kt:321:        fun d(px: Double, py: Double, s: Seg): Double {
-SHARED:rider/GtRiderScan.kt:322:            val ax = (s.lo1 - px) * kx
-SHARED:rider/GtRiderScan.kt:323:            val ay = (s.la1 - py) * ky
-SHARED:rider/GtRiderScan.kt:324:            val dx = (s.lo2 - px) * kx - ax
-SHARED:rider/GtRiderScan.kt:325:            val dy = (s.la2 - py) * ky - ay
-SHARED:rider/GtRiderScan.kt:326:            val l2 = dx * dx + dy * dy
-SHARED:rider/GtRiderScan.kt:327:            val t = if (l2 == 0.0) 0.0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / l2))
-SHARED:rider/GtRiderScan.kt:337:    private fun anchorAt(
-SHARED:rider/GtRiderScan.kt:342:        val r = (lat / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:343:        val c = (lon / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:344:        val kx = 111320.0 * cos(GtJava.toRadians(lat))
-SHARED:rider/GtRiderScan.kt:345:        val ky = 111320.0
-SHARED:rider/GtRiderScan.kt:346:        var best: Pt? = null
-SHARED:rider/GtRiderScan.kt:347:        var bestD = NEAR_M
-SHARED:rider/GtRiderScan.kt:350:                val bucket = grid[key(r + dr, c + dc)] ?: continue
-SHARED:rider/GtRiderScan.kt:352:                    val ax = (s.lo1 - lon) * kx
-SHARED:rider/GtRiderScan.kt:353:                    val ay = (s.la1 - lat) * ky
-SHARED:rider/GtRiderScan.kt:354:                    val dx = (s.lo2 - lon) * kx - ax
-SHARED:rider/GtRiderScan.kt:355:                    val dy = (s.la2 - lat) * ky - ay
-SHARED:rider/GtRiderScan.kt:356:                    val l2 = dx * dx + dy * dy
-SHARED:rider/GtRiderScan.kt:357:                    val t = if (l2 == 0.0) 0.0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / l2))
-SHARED:rider/GtRiderScan.kt:358:                    val d = hypot(ax + t * dx, ay + t * dy)
+SHARED:rider/GtRiderScan.kt:123:    const val MAX_FILL_M = 5_000.0
+SHARED:rider/GtRiderScan.kt:128:    const val MAX_CELLS_PER_SEG = 10_000L
+SHARED:rider/GtRiderScan.kt:140:    private const val CELL = 0.002
+SHARED:rider/GtRiderScan.kt:144:    data class Pt(val lon: Double, val lat: Double)
+SHARED:rider/GtRiderScan.kt:154:     * (STEP15C: 2.7e's `val joinedBothEnds get() = joinedHead && joinedTail` is not ported -- never read.)
+SHARED:rider/GtRiderScan.kt:156:    data class RiderTrail(
+SHARED:rider/GtRiderScan.kt:157:        val points: List<Pt>,
+SHARED:rider/GtRiderScan.kt:158:        val riddenM: Double,
+SHARED:rider/GtRiderScan.kt:159:        val totalM: Double,
+SHARED:rider/GtRiderScan.kt:160:        val joinedHead: Boolean,
+SHARED:rider/GtRiderScan.kt:161:        val joinedTail: Boolean
+SHARED:rider/GtRiderScan.kt:164:    private class Seg(
+SHARED:rider/GtRiderScan.kt:165:        val lo1: Double, val la1: Double,
+SHARED:rider/GtRiderScan.kt:166:        val lo2: Double, val la2: Double,
+SHARED:rider/GtRiderScan.kt:168:        val line: Int
+SHARED:rider/GtRiderScan.kt:174:    fun haversineM(la1: Double, lo1: Double, la2: Double, lo2: Double): Double {
+SHARED:rider/GtRiderScan.kt:175:        val r = 6371000.0
+SHARED:rider/GtRiderScan.kt:176:        val p1 = GtJava.toRadians(la1)
+SHARED:rider/GtRiderScan.kt:177:        val p2 = GtJava.toRadians(la2)
+SHARED:rider/GtRiderScan.kt:178:        val dp = GtJava.toRadians(la2 - la1)
+SHARED:rider/GtRiderScan.kt:179:        val dl = GtJava.toRadians(lo2 - lo1)
+SHARED:rider/GtRiderScan.kt:180:        val x = sin(dp / 2) * sin(dp / 2) +
+SHARED:rider/GtRiderScan.kt:195:    fun scan(track: List<Pt>, network: List<List<Pt>>): List<RiderTrail> {
+SHARED:rider/GtRiderScan.kt:205:        val grid = HashMap<Long, MutableList<Seg>>()
+SHARED:rider/GtRiderScan.kt:208:                val a = line[k]
+SHARED:rider/GtRiderScan.kt:209:                val b = line[k + 1]
+SHARED:rider/GtRiderScan.kt:211:                val seg = Seg(a.lon, a.lat, b.lon, b.lat, li)
+SHARED:rider/GtRiderScan.kt:212:                val r1 = (min(a.lat, b.lat) / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:213:                val r2 = (max(a.lat, b.lat) / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:214:                val c1 = (min(a.lon, b.lon) / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:215:                val c2 = (max(a.lon, b.lon) / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:218:                val cells = (r2.toLong() - r1 + 1L) * (c2.toLong() - c1 + 1L)
+SHARED:rider/GtRiderScan.kt:227:        val dense = ArrayList<Pt>(track.size * 4)
+SHARED:rider/GtRiderScan.kt:228:        val orig = ArrayList<Boolean>(track.size * 4)
+SHARED:rider/GtRiderScan.kt:231:            val a = track[k]
+SHARED:rider/GtRiderScan.kt:232:            val b = track[k + 1]
+SHARED:rider/GtRiderScan.kt:233:            val d = haversineM(a.lat, a.lon, b.lat, b.lon)
+SHARED:rider/GtRiderScan.kt:236:                val steps = if (d.isFinite() && d <= MAX_FILL_M) (d / DENSE_M).toInt() else 0
+SHARED:rider/GtRiderScan.kt:238:                val f = t * DENSE_M / d
+SHARED:rider/GtRiderScan.kt:243:        val n = dense.size
+SHARED:rider/GtRiderScan.kt:244:        val cum = DoubleArray(n)
+SHARED:rider/GtRiderScan.kt:249:        val anchor = arrayOfNulls<Pt>(n)
+SHARED:rider/GtRiderScan.kt:250:        val anchorLine = IntArray(n) { -1 }
+SHARED:rider/GtRiderScan.kt:253:        val out = ArrayList<RiderTrail>()
+SHARED:rider/GtRiderScan.kt:254:        var i = 0
+SHARED:rider/GtRiderScan.kt:257:            val start = i
+SHARED:rider/GtRiderScan.kt:261:            var j = i
+SHARED:rider/GtRiderScan.kt:263:            val end = j
+SHARED:rider/GtRiderScan.kt:266:                val riddenM = cum[end - 1] - cum[start]
+SHARED:rider/GtRiderScan.kt:267:                val hj = start > 0 && haversineM(anchor[start - 1]!!.lat, anchor[start - 1]!!.lon, dense[start].lat, dense[start].lon) <= MAX_CONN_M
+SHARED:rider/GtRiderScan.kt:268:                val tj = end < n && haversineM(dense[end - 1].lat, dense[end - 1].lon, anchor[end]!!.lat, anchor[end]!!.lon) <= MAX_CONN_M
+SHARED:rider/GtRiderScan.kt:271:                val keep = if (hj && tj) {
+SHARED:rider/GtRiderScan.kt:276:                    val head = if (start > 0) anchor[start - 1] else null
+SHARED:rider/GtRiderScan.kt:277:                    val tail = if (end < n) anchor[end] else null
+SHARED:rider/GtRiderScan.kt:280:                    val run = ArrayList<Pt>()
+SHARED:rider/GtRiderScan.kt:285:                    val pts = ArrayList<Pt>(run.size + 2)
+SHARED:rider/GtRiderScan.kt:286:                    var joinedHead = false
+SHARED:rider/GtRiderScan.kt:288:                        val d = haversineM(head.lat, head.lon, run[0].lat, run[0].lon)
+SHARED:rider/GtRiderScan.kt:296:                    var joinedTail = false
+SHARED:rider/GtRiderScan.kt:298:                        val last = run[run.size - 1]
+SHARED:rider/GtRiderScan.kt:299:                        val d = haversineM(last.lat, last.lon, tail.lat, tail.lon)
+SHARED:rider/GtRiderScan.kt:306:                    var totalM = 0.0
+SHARED:rider/GtRiderScan.kt:319:    private fun key(r: Int, c: Int): Long = (r.toLong() shl 32) xor (c.toLong() and 0xFFFFFFFFL)
+SHARED:rider/GtRiderScan.kt:329:    private fun linesMeetNear(grid: Map<Long, MutableList<Seg>>, a: Int, b: Int, lon: Double, lat: Double): Boolean {
+SHARED:rider/GtRiderScan.kt:330:        val r = (lat / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:331:        val c = (lon / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:332:        val kx = 111320.0 * cos(GtJava.toRadians(lat))
+SHARED:rider/GtRiderScan.kt:333:        val ky = 111320.0
+SHARED:rider/GtRiderScan.kt:334:        val sa = ArrayList<Seg>()
+SHARED:rider/GtRiderScan.kt:335:        val sb = ArrayList<Seg>()
+SHARED:rider/GtRiderScan.kt:339:        fun d(px: Double, py: Double, s: Seg): Double {
+SHARED:rider/GtRiderScan.kt:340:            val ax = (s.lo1 - px) * kx
+SHARED:rider/GtRiderScan.kt:341:            val ay = (s.la1 - py) * ky
+SHARED:rider/GtRiderScan.kt:342:            val dx = (s.lo2 - px) * kx - ax
+SHARED:rider/GtRiderScan.kt:343:            val dy = (s.la2 - py) * ky - ay
+SHARED:rider/GtRiderScan.kt:344:            val l2 = dx * dx + dy * dy
+SHARED:rider/GtRiderScan.kt:345:            val t = if (l2 == 0.0) 0.0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / l2))
+SHARED:rider/GtRiderScan.kt:355:    private fun anchorAt(
+SHARED:rider/GtRiderScan.kt:360:        val r = (lat / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:361:        val c = (lon / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:362:        val kx = 111320.0 * cos(GtJava.toRadians(lat))
+SHARED:rider/GtRiderScan.kt:363:        val ky = 111320.0
+SHARED:rider/GtRiderScan.kt:364:        var best: Pt? = null
+SHARED:rider/GtRiderScan.kt:365:        var bestD = NEAR_M
+SHARED:rider/GtRiderScan.kt:368:                val bucket = grid[key(r + dr, c + dc)] ?: continue
+SHARED:rider/GtRiderScan.kt:370:                    val ax = (s.lo1 - lon) * kx
+SHARED:rider/GtRiderScan.kt:371:                    val ay = (s.la1 - lat) * ky
+SHARED:rider/GtRiderScan.kt:372:                    val dx = (s.lo2 - lon) * kx - ax
+SHARED:rider/GtRiderScan.kt:373:                    val dy = (s.la2 - lat) * ky - ay
+SHARED:rider/GtRiderScan.kt:374:                    val l2 = dx * dx + dy * dy
+SHARED:rider/GtRiderScan.kt:375:                    val t = if (l2 == 0.0) 0.0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / l2))
+SHARED:rider/GtRiderScan.kt:376:                    val d = hypot(ax + t * dx, ay + t * dy)
 SHARED:osm/GtOsmProgress.kt:13:object GtOsmProgress {
 SHARED:osm/GtOsmProgress.kt:16:    const val KEY = "osm_extract_progress"
 SHARED:osm/GtOsmProgress.kt:18:    const val PUBLISH_MS = 1_000L
@@ -14951,8 +14956,8 @@ SHARED:imports/GtImportConverter.kt:81:    private val GPX_PT = Regex("""<(?:trk
 SHARED:imports/GtImportConverter.kt:82:    private val LAT_RX = Regex("""\blat\s*=\s*["']([-0-9.eE+]+)["']""")
 SHARED:imports/GtImportConverter.kt:83:    private val LON_RX = Regex("""\blon\s*=\s*["']([-0-9.eE+]+)["']""")
 SHARED:imports/GtImportConverter.kt:84:    private fun gpxPts(block: String): List<Pair<Double, Double>> = GtRx.findAll(GPX_PT, block).mapNotNull { m ->
-SHARED:imports/GtImportConverter.kt:85:        val lat = LAT_RX.find(m.groupValues[1])?.groupValues?.get(1)?.let { GtJavaParse.toDoubleOrNull(it) }
-SHARED:imports/GtImportConverter.kt:86:        val lon = LON_RX.find(m.groupValues[1])?.groupValues?.get(1)?.let { GtJavaParse.toDoubleOrNull(it) }
+SHARED:imports/GtImportConverter.kt:85:        val lat = LAT_RX.find(m.groupValues[1])?.groupValues?.get(1)?.let { GtJavaParse.latOrNull(it) }
+SHARED:imports/GtImportConverter.kt:86:        val lon = LON_RX.find(m.groupValues[1])?.groupValues?.get(1)?.let { GtJavaParse.lonOrNull(it) }
 SHARED:imports/GtImportConverter.kt:90:    private fun gpxLine(b: String, segs: List<List<Pair<Double, Double>>>, c: Collector) {
 SHARED:imports/GtImportConverter.kt:91:        val own = Regex("""<name>\s*(?:<!\[CDATA\[)?([\s\S]*?)(?:]]>)?\s*</name>""").find(b)?.groupValues?.get(1)?.let { clean(it) } ?: ""
 SHARED:imports/GtImportConverter.kt:92:        val ty = Regex("""<type>([\s\S]*?)</type>""").find(b)?.groupValues?.get(1)?.let { clean(it) } ?: ""
@@ -15001,7 +15006,7 @@ SHARED:imports/GtImportConverter.kt:226:    private fun addPoint(name: String, l
 SHARED:imports/GtImportConverter.kt:232:    private val NAME_RX = Regex("""<name>\s*(?:<!\[CDATA\[)?([\s\S]*?)(?:]]>)?\s*</name>""")
 SHARED:imports/GtImportConverter.kt:234:    private fun coords(s: String): List<Pair<Double, Double>> = s.trim().split(Regex("""\s+""")).mapNotNull { p ->
 SHARED:imports/GtImportConverter.kt:235:        val a = p.split(",")
-SHARED:imports/GtImportConverter.kt:237:            val lon = GtJavaParse.toDoubleOrNull(a[0]); val lat = GtJavaParse.toDoubleOrNull(a[1])
+SHARED:imports/GtImportConverter.kt:237:            val lon = GtJavaParse.lonOrNull(a[0]); val lat = GtJavaParse.latOrNull(a[1])
 SHARED:imports/GtImportConverter.kt:242:    private fun fromKml(t: String, c: Collector) {
 SHARED:imports/GtImportConverter.kt:245:            val pm = m.groupValues[1]
 SHARED:imports/GtImportConverter.kt:246:            val d = LinkedHashMap<String, String>()
@@ -15150,8 +15155,8 @@ SHARED:imports/GtGpxParse.kt:104:        val wptPattern = Regex("""<wpt\s+lat="(
 SHARED:imports/GtGpxParse.kt:105:        val namePattern = Regex("""<name>([^<]*)</name>""")
 SHARED:imports/GtGpxParse.kt:106:        val typePattern = Regex("""<type>([^<]*)</type>""")
 SHARED:imports/GtGpxParse.kt:107:        val descPattern = Regex("""<desc>([^<]*)</desc>""")
-SHARED:imports/GtGpxParse.kt:110:            val lat = GtJavaParse.toDoubleOrNull(match.groupValues[1]) ?: continue
-SHARED:imports/GtGpxParse.kt:111:            val lon = GtJavaParse.toDoubleOrNull(match.groupValues[2]) ?: continue
+SHARED:imports/GtGpxParse.kt:110:            val lat = GtJavaParse.latOrNull(match.groupValues[1]) ?: continue
+SHARED:imports/GtGpxParse.kt:111:            val lon = GtJavaParse.lonOrNull(match.groupValues[2]) ?: continue
 SHARED:imports/GtGpxParse.kt:112:            val inner = match.groupValues[3]
 SHARED:imports/GtGpxParse.kt:114:            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Waypoint"
 SHARED:imports/GtGpxParse.kt:115:            val rawType = typePattern.find(inner)?.groupValues?.get(1)?.trim()?.lowercase() ?: "other"
@@ -15170,8 +15175,8 @@ SHARED:imports/GtGpxParse.kt:197:        val rteptPattern = Regex("""<rtept\s+la
 SHARED:imports/GtGpxParse.kt:200:            val inner = match.groupValues[1]
 SHARED:imports/GtGpxParse.kt:201:            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Route"
 SHARED:imports/GtGpxParse.kt:202:            val points = mutableListOf<Pair<Double, Double>>()
-SHARED:imports/GtGpxParse.kt:205:                val lat = GtJavaParse.toDoubleOrNull(ptMatch.groupValues[1]) ?: continue
-SHARED:imports/GtGpxParse.kt:206:                val lon = GtJavaParse.toDoubleOrNull(ptMatch.groupValues[2]) ?: continue
+SHARED:imports/GtGpxParse.kt:205:                val lat = GtJavaParse.latOrNull(ptMatch.groupValues[1]) ?: continue
+SHARED:imports/GtGpxParse.kt:206:                val lon = GtJavaParse.lonOrNull(ptMatch.groupValues[2]) ?: continue
 SHARED:imports/GtGpxParse.kt:216:                val notes = xmlUnescape(
 SHARED:imports/GtGpxParse.kt:218:                val desc = xmlUnescape(
 SHARED:imports/GtGpxParse.kt:230:    data class TrackPtFull(val lat: Double, val lon: Double, val eleM: Double?, val timeMs: Long?)
@@ -15184,13 +15189,13 @@ SHARED:imports/GtGpxParse.kt:243:        val timeRegex = Regex("""<time>([^<]+)<
 SHARED:imports/GtGpxParse.kt:246:        fun parseTime(s: String): Long? = GtTime.gpxTime(s)
 SHARED:imports/GtGpxParse.kt:251:        val lastClose = gpxText.lastIndexOf("</trkpt>")
 SHARED:imports/GtGpxParse.kt:252:        val ptText = if (lastClose < 0) "" else gpxText.substring(0, lastClose + "</trkpt>".length)
-SHARED:imports/GtGpxParse.kt:254:            val lat = GtJavaParse.toDoubleOrNull(m.groupValues[1]) ?: continue
-SHARED:imports/GtGpxParse.kt:255:            val lon = GtJavaParse.toDoubleOrNull(m.groupValues[2]) ?: continue
+SHARED:imports/GtGpxParse.kt:254:            val lat = GtJavaParse.latOrNull(m.groupValues[1]) ?: continue
+SHARED:imports/GtGpxParse.kt:255:            val lon = GtJavaParse.lonOrNull(m.groupValues[2]) ?: continue
 SHARED:imports/GtGpxParse.kt:256:            val inner = m.groupValues[3]
 SHARED:imports/GtGpxParse.kt:257:            val ele = eleRegex.find(inner)?.groupValues?.get(1)?.trim()?.let { GtJavaParse.toDoubleOrNull(it) }
 SHARED:imports/GtGpxParse.kt:258:            val tMs = timeRegex.find(inner)?.groupValues?.get(1)?.let { parseTime(it) }
-SHARED:imports/GtGpxParse.kt:262:            val lat = GtJavaParse.toDoubleOrNull(m.groupValues[1]) ?: continue
-SHARED:imports/GtGpxParse.kt:263:            val lon = GtJavaParse.toDoubleOrNull(m.groupValues[2]) ?: continue
+SHARED:imports/GtGpxParse.kt:262:            val lat = GtJavaParse.latOrNull(m.groupValues[1]) ?: continue
+SHARED:imports/GtGpxParse.kt:263:            val lon = GtJavaParse.lonOrNull(m.groupValues[2]) ?: continue
 SHARED:imports/GtImportEnv.kt:14:    val clock: GtClock
 SHARED:imports/GtImportEnv.kt:15:    val ids: GtIds
 SHARED:imports/GtImportEnv.kt:16:    val files: GtFiles
@@ -17611,33 +17616,35 @@ SHARED:text/GtMathFdlibm.kt:376:            val tt = h * w
 SHARED:text/GtJavaParse.kt:19:object GtJavaParse {
 SHARED:text/GtJavaParse.kt:20:    private val DECIMAL = Regex("""[+-]?(NaN|Infinity|((\d+\.?\d*|\.\d+)([eE][+-]?\d+)?[fFdD]?))""")
 SHARED:text/GtJavaParse.kt:21:    private val HEX = Regex("""([+-]?)0[xX]([0-9a-fA-F]*)(\.([0-9a-fA-F]*))?[pP]([+-]?\d+)[fFdD]?""")
-SHARED:text/GtJavaParse.kt:23:    fun toDoubleOrNull(s0: String): Double? {
-SHARED:text/GtJavaParse.kt:24:        val s = s0.trim { it <= ' ' }
-SHARED:text/GtJavaParse.kt:27:            val unsigned = s.removePrefix("+").removePrefix("-")
-SHARED:text/GtJavaParse.kt:30:            var body = if (s.last() in "fFdD") s.dropLast(1) else s
-SHARED:text/GtJavaParse.kt:33:            val sign = if (body.startsWith("+") || body.startsWith("-")) body.substring(0, 1) else ""
-SHARED:text/GtJavaParse.kt:34:            var num = body.substring(sign.length)
-SHARED:text/GtJavaParse.kt:36:            val ei = num.indexOfFirst { it == 'e' || it == 'E' }
-SHARED:text/GtJavaParse.kt:37:            val mant = if (ei < 0) num else num.substring(0, ei)
-SHARED:text/GtJavaParse.kt:42:        val m = HEX.matchEntire(s) ?: return null
-SHARED:text/GtJavaParse.kt:43:        val neg = m.groupValues[1] == "-"
-SHARED:text/GtJavaParse.kt:44:        val whole = m.groupValues[2]
-SHARED:text/GtJavaParse.kt:45:        val frac = m.groupValues[4]
-SHARED:text/GtJavaParse.kt:47:        val expText = m.groupValues[5]
-SHARED:text/GtJavaParse.kt:48:        val v = hexValue(whole + frac, frac.length, expText)
-SHARED:text/GtJavaParse.kt:53:    private fun hexValue(digits: String, fracDigits: Int, expText: String): Double {
-SHARED:text/GtJavaParse.kt:55:        val e2 = (expText.removePrefix("+").let { t -> if (t.startsWith("-")) -clampInt(t.drop(1)) else clampInt(t) })
-SHARED:text/GtJavaParse.kt:56:        var mant = 0L
-SHARED:text/GtJavaParse.kt:58:        var sticky = false
-SHARED:text/GtJavaParse.kt:59:        var seen = false
-SHARED:text/GtJavaParse.kt:61:            val d = ch.digitToInt(16)
-SHARED:text/GtJavaParse.kt:74:        var kept: Long
-SHARED:text/GtJavaParse.kt:80:            val s = shift.toInt()
-SHARED:text/GtJavaParse.kt:81:            val drop = mant and ((1L shl s) - 1)
-SHARED:text/GtJavaParse.kt:83:            val half = 1L shl (s - 1)
-SHARED:text/GtJavaParse.kt:93:    private fun scale(k: Long, p: Long): Double = k.toDouble() * pow2(p)
-SHARED:text/GtJavaParse.kt:95:    private fun pow2(p: Long): Double = when {
-SHARED:text/GtJavaParse.kt:102:    private fun clampInt(t: String): Int = t.trimStart('0').let { if (it.length > 9) 999_999_999 else if (it.isEmpty()) 0 else it.toInt() }
+SHARED:text/GtJavaParse.kt:29:    fun latOrNull(s0: String): Double? =
+SHARED:text/GtJavaParse.kt:33:    fun lonOrNull(s0: String): Double? =
+SHARED:text/GtJavaParse.kt:36:    fun toDoubleOrNull(s0: String): Double? {
+SHARED:text/GtJavaParse.kt:37:        val s = s0.trim { it <= ' ' }
+SHARED:text/GtJavaParse.kt:40:            val unsigned = s.removePrefix("+").removePrefix("-")
+SHARED:text/GtJavaParse.kt:43:            var body = if (s.last() in "fFdD") s.dropLast(1) else s
+SHARED:text/GtJavaParse.kt:46:            val sign = if (body.startsWith("+") || body.startsWith("-")) body.substring(0, 1) else ""
+SHARED:text/GtJavaParse.kt:47:            var num = body.substring(sign.length)
+SHARED:text/GtJavaParse.kt:49:            val ei = num.indexOfFirst { it == 'e' || it == 'E' }
+SHARED:text/GtJavaParse.kt:50:            val mant = if (ei < 0) num else num.substring(0, ei)
+SHARED:text/GtJavaParse.kt:55:        val m = HEX.matchEntire(s) ?: return null
+SHARED:text/GtJavaParse.kt:56:        val neg = m.groupValues[1] == "-"
+SHARED:text/GtJavaParse.kt:57:        val whole = m.groupValues[2]
+SHARED:text/GtJavaParse.kt:58:        val frac = m.groupValues[4]
+SHARED:text/GtJavaParse.kt:60:        val expText = m.groupValues[5]
+SHARED:text/GtJavaParse.kt:61:        val v = hexValue(whole + frac, frac.length, expText)
+SHARED:text/GtJavaParse.kt:66:    private fun hexValue(digits: String, fracDigits: Int, expText: String): Double {
+SHARED:text/GtJavaParse.kt:68:        val e2 = (expText.removePrefix("+").let { t -> if (t.startsWith("-")) -clampInt(t.drop(1)) else clampInt(t) })
+SHARED:text/GtJavaParse.kt:69:        var mant = 0L
+SHARED:text/GtJavaParse.kt:71:        var sticky = false
+SHARED:text/GtJavaParse.kt:72:        var seen = false
+SHARED:text/GtJavaParse.kt:74:            val d = ch.digitToInt(16)
+SHARED:text/GtJavaParse.kt:87:        var kept: Long
+SHARED:text/GtJavaParse.kt:93:            val s = shift.toInt()
+SHARED:text/GtJavaParse.kt:94:            val drop = mant and ((1L shl s) - 1)
+SHARED:text/GtJavaParse.kt:96:            val half = 1L shl (s - 1)
+SHARED:text/GtJavaParse.kt:106:    private fun scale(k: Long, p: Long): Double = k.toDouble() * pow2(p)
+SHARED:text/GtJavaParse.kt:108:    private fun pow2(p: Long): Double = when {
+SHARED:text/GtJavaParse.kt:115:    private fun clampInt(t: String): Int = t.trimStart('0').let { if (it.length > 9) 999_999_999 else if (it.isEmpty()) 0 else it.toInt() }
 SHARED:text/GtMath.kt:13:object GtMath {
 SHARED:text/GtMath.kt:14:    fun sin(x: Double): Double = gtMathSin(x)
 SHARED:text/GtMath.kt:15:    fun cos(x: Double): Double = gtMathCos(x)
@@ -18712,6 +18719,48 @@ SHARED-android:text/GtMath.android.kt:7:internal actual fun gtMathHypot(x: Doubl
 SHARED-android:text/GtMath.android.kt:10:internal actual fun gtMathAtan(x: Double): Double = java.lang.Math.atan(x)
 SHARED-android:text/GtMath.android.kt:11:internal actual fun gtMathSinh(x: Double): Double = java.lang.Math.sinh(x)
 SHARED-android:text/GtMath.android.kt:12:internal actual fun gtMathLn(x: Double): Double = java.lang.Math.log(x)
+SHARED-ios:platform/GtIosEnv.kt:4: *  timeIntervalSinceReferenceDate, which counts from 2001-01-01. The class method
+SHARED-ios:platform/GtIosEnv.kt:63:private fun sysDir(which: ULong): String =
+SHARED-ios:platform/GtIosEnv.kt:70: *  class that makes the same call -- this is copied from code the compiler already accepts,
+SHARED-ios:platform/GtIosEnv.kt:73:class IosFiles : GtFiles {
+SHARED-ios:platform/GtIosEnv.kt:74:    override val fs: FileSystem = FileSystem.SYSTEM
+SHARED-ios:platform/GtIosEnv.kt:79:    override fun setLastModified(path: Path, epochMs: Long): Boolean = try {
+SHARED-ios:platform/GtIosEnv.kt:88:    override fun lastModified(path: Path): Long = fs.metadataOrNull(path)?.lastModifiedAtMillis ?: 0L
+SHARED-ios:platform/GtIosEnv.kt:93:    override fun list(dir: Path): List<Path> = try { fs.list(dir) } catch (e: Exception) { emptyList() }
+SHARED-ios:platform/GtIosEnv.kt:97:class IosPaths : GtImportPaths {
+SHARED-ios:platform/GtIosEnv.kt:98:    private val documents: Path get() = sysDir(NSDocumentDirectory).toPath()
+SHARED-ios:platform/GtIosEnv.kt:100:    override fun groupTrackRoot(): Path = (documents / "GroupTrack").also { ensure(it) }
+SHARED-ios:platform/GtIosEnv.kt:103:    override fun tracksDir(): Path = (documents / "my_tracks").also { ensure(it) }
+SHARED-ios:platform/GtIosEnv.kt:106:    override fun dir(name: String): Path = groupTrackRoot() / name
+SHARED-ios:platform/GtIosEnv.kt:108:    override fun cacheDir(): Path = (sysDir(NSCachesDirectory).toPath() / "GroupTrack").also { ensure(it) }
+SHARED-ios:platform/GtIosEnv.kt:110:    override fun filesDir(): Path = (sysDir(NSLibraryDirectory).toPath() / "GroupTrack").also { ensure(it) }
+SHARED-ios:platform/GtIosEnv.kt:112:    private fun ensure(p: Path) { try { FileSystem.SYSTEM.createDirectories(p) } catch (e: Exception) { } }
+SHARED-ios:platform/GtIosEnv.kt:116:object IosClock : GtClock {
+SHARED-ios:platform/GtIosEnv.kt:117:    override fun epochMs(): Long = (NSDate().timeIntervalSince1970 * 1000.0).toLong()
+SHARED-ios:platform/GtIosEnv.kt:118:    override fun nowInstant(): String = GtTime.instantTextMs(epochMs())
+SHARED-ios:platform/GtIosEnv.kt:119:    override fun localNow(): GtLocalTime {
+SHARED-ios:platform/GtIosEnv.kt:120:        val c = NSCalendar.currentCalendar
+SHARED-ios:platform/GtIosEnv.kt:121:        val u = NSCalendarUnitYear or NSCalendarUnitMonth or NSCalendarUnitDay or
+SHARED-ios:platform/GtIosEnv.kt:123:        val d = c.components(u, fromDate = NSDate())
+SHARED-ios:platform/GtIosEnv.kt:132:object IosIds : GtIds {
+SHARED-ios:platform/GtIosEnv.kt:133:    override fun newId(): String = NSUUID().UUIDString.lowercase()
+SHARED-ios:platform/GtIosEnv.kt:142: * Until this class existed, the pragmas had NO iOS production owner: they were set only by
+SHARED-ios:platform/GtIosEnv.kt:145:class IosTileEnv(private val paths: GtImportPaths) : GtTileStoreEnv {
+SHARED-ios:platform/GtIosEnv.kt:146:    private val fs = FileSystem.SYSTEM
+SHARED-ios:platform/GtIosEnv.kt:148:    private val handles = HashMap<String, SQLiteConnection>()
+SHARED-ios:platform/GtIosEnv.kt:150:    private fun dir(): Path = paths.groupTrackRoot()
+SHARED-ios:platform/GtIosEnv.kt:151:    private fun path(type: String): String = (dir() / "$type.mbtiles").toString()
+SHARED-ios:platform/GtIosEnv.kt:153:    override fun connection(type: String): SQLiteConnection? {
+SHARED-ios:platform/GtIosEnv.kt:157:            val fresh = !fs.exists(path(type).toPath())
+SHARED-ios:platform/GtIosEnv.kt:158:            val c = gtOpenDatabase(path(type), false)
+SHARED-ios:platform/GtIosEnv.kt:166:    override fun storeExists(type: String): Boolean = fs.exists(path(type).toPath())
+SHARED-ios:platform/GtIosEnv.kt:168:    override fun deleteStore(type: String): Boolean {
+SHARED-ios:platform/GtIosEnv.kt:170:        var ok = true
+SHARED-ios:platform/GtIosEnv.kt:172:            val p = (path(type) + suffix).toPath()
+SHARED-ios:platform/GtIosEnv.kt:178:    private fun exec(c: SQLiteConnection, sql: String) { val st = c.prepare(sql); try { st.step() } finally { st.close() } }
+SHARED-ios:platform/GtIosEnv.kt:180:    private fun ensureSchema(c: SQLiteConnection) {
+SHARED-ios:platform/GtIosEnv.kt:193:    private fun initMetadata(c: SQLiteConnection, type: String) {
+SHARED-ios:platform/GtIosEnv.kt:195:            val st = c.prepare("INSERT OR REPLACE INTO metadata(name,value) VALUES(?,?)")
 SHARED-ios:db/GtDb.ios.kt:10:actual fun gtOpenDatabase(path: String, readOnly: Boolean): SQLiteConnection =
 SHARED-ios:text/GtMathPow.kt:28:internal object GtMathPow {
 SHARED-ios:text/GtMathPow.kt:29:    private fun f(u: ULong): Double = Double.fromBits(u.toLong())

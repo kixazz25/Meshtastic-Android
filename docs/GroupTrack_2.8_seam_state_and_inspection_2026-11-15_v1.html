@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GroupTrack 2.8 — Seam state &amp; inspection process — 2026-11-15</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}ol{margin:6px 0;padding-left:22px}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+.hi{color:var(--warn);font-weight:700}.step{background:#12203a;border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0}
+.src{font:11px var(--mono);color:var(--dim);border-top:1px dotted var(--line);margin-top:8px;padding-top:5px}
+table{border-collapse:collapse;width:100%;font:12.5px var(--mono);margin:8px 0}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+th{background:#12203a;color:var(--accent)}
+
+/* ROUTENOTES-2026-08-23 */
+.ascii{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:14px;
+  font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#8b949e;overflow-x:auto;margin:12px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="ttl">GroupTrack <b>2.8</b> — SEAM STATE &amp; TOMORROW'S INSPECTION PROCESS</div>
+  <div class="sub">2026-11-15 EOD · v1 · branch 2.8 · head 772469edb (pushed)</div>
+</header>
+<main>
+
+<h2>WHAT THIS IS</h2>
+<div class="card">
+<p>The end-of-day state of the <b>seam work</b> for the iPad/iOS port: how many objects actually
+carry a seam, which are <b>in service</b> (port them) and which are <b>not in service</b> (remove
+them with a record), the process for inspecting the rest, and what still stands between us and an
+iOS build.</p>
+<p>Today's deliverable was not code. It was <b>method</b>. We began the day able to say what code
+<i>exists</i> and whether it <i>produces correct bytes</i>, and unable to say whether it
+<i>runs</i>. That third question is Fred's own rule from <b>11-13 17:32</b> — "is the function even
+executed" — and until today it had no tooling, so it had been applied by hand to exactly one
+function (CONVDEAD-2026-11-14). It now has four instruments and a reproducible script, and the
+first time it ran it overturned an answer that reference counting had given twice.</p>
+</div>
+
+<h2>THE NUMBER — reconciliation, because two denominators disagreed</h2>
+<div class="card">
+<p><span class="tag t-warn">OPEN</span>Fred referred at 16:37 to <b>56 objects</b>. That figure is
+<b>not in the doc set</b> — a sweep of docs_mirror and repo docs found <code>56</code> only in
+timestamps. The likeliest mapping, offered and <b>not assumed</b>:</p>
+<ul>
+<li><b>59</b> "not ported" objects from the earlier seam table, <b>minus 3</b> confirmed dead today
+(<code>OsmImportPanel</code>, <code>ConvoySourceClear</code>, the raster download branch) = <b>56</b>.</li>
+</ul>
+<div class="note">This is exactly the defect this doc is written to stop: the register recorded
+<b>59</b> without recording what it counted, so the number cannot be re-derived or challenged.
+Every figure below carries its method. CONFIRM OR CORRECT THE 56 BEFORE IT IS USED AGAIN.</div>
+</div>
+
+<h2>1 · THE RESEARCH — what today established</h2>
+
+<h3>1.1 Two instruments, opposite blind spots, and no third</h3>
+<div class="card">
+<ul>
+<li><b>Certification</b> proves the paths that <i>ran</i> produced correct bytes. It is
+<b>silent</b> on paths that never ran. Osm15g can be 231,365 SAME / 0 DIFF while the raster branch
+beside it never executes once. <b>A passing cert and a dead branch are perfectly compatible.</b></li>
+<li><b>The seam / import scan</b> sees every file that <i>exists</i>, by what it imports. It cannot
+tell whether any of it runs — so it billed a dead branch as seam work.</li>
+<li><b>Neither answers "is it executed."</b> That was the gap.</li>
+</ul>
+</div>
+
+<h3>1.2 The raster question, settled on execution evidence</h3>
+<div class="card">
+<p>2.8a on Droid 1, a real area download of 1,670 tiles:</p>
+<ul>
+<li><code>VECDL-2026-10-31 area N=38.08 S=37.59 E=-113.14 W=-113.95 -&gt; vector + elevation</code></li>
+<li><code>Layer: VEC url=tiles.openfreemap.org/planet/...</code> → <code>downloaded=1536 failed=0</code></li>
+<li><code>Layer: DEM url=s3.amazonaws.com/elevation-tiles-prod/...</code> → <code>downloaded=134 failed=0</code></li>
+<li><code>slot=SAT</code> — <b class="hi">0 occurrences in 36,733 lines</b></li>
+</ul>
+<p>The download took the vector branch at <code>submitDownload:9</code> and never fell through to
+the raster call at <code>:14</code>. Reference counting had argued <b>both sides</b> of this inside
+ten minutes, because eight call sites inside one file prove only that the file talks to itself.
+The log settled it in one grep.</p>
+<p><span class="tag t-good">LIVE</span>The SAT <b>source entry</b> — <code>MapSourceManager</code>
+loads it at launch (1,018 log hits; <code>active=SAT</code>, <code>slot 1 SAT -&gt; google-hybrid</code>)
+and it feeds the credits screen.<br>
+<span class="tag t-bad">DEAD</span>The SAT <b>download branch</b>. Two different things, two files,
+and the line to cut along.</p>
+</div>
+
+<h3>1.3 Why it hid for ten days past the 11-01 VECONE cutover</h3>
+<div class="card">
+<p><b>The seam list's unit was the FILE. The dead code's unit is the BRANCH.</b></p>
+<ul>
+<li><code>ConvoyDownloadQueue.kt</code> — <b>17</b> shared refs, so the whole file counted
+<b>PORTED</b>, including the 2.7e raster branch its own line 295 admits it still carries.</li>
+<li><code>ConvoyMapSourceScreen.kt</code> — <b>2</b> shared refs, counted <b>PORTED</b>, and holds
+<b>94 dead lines</b> (<code>SlotCard</code> 820-876, <code>ApiKeyRow</code> 940-976, both 0 calls)
+behind a live route repurposed to map-source credits on 11-13 (<code>SRCCREDITS-2026-11-13</code>).</li>
+</ul>
+<p>A file-granularity instrument has no way to say "half of this is dead." Once as "already done,"
+once as "work to do" — never as "delete."</p>
+</div>
+
+<h3>1.4 Four rules earned today</h3>
+<div class="card">
+<ol>
+<li><b>Verify by DECLARED NAME, never by filename.</b> <code>ConvoyDownloadQueuePanel.kt</code>
+declares <code>DownloadQueuePanel</code>; a filename grep reported 0 refs for a composable with 4
+live callers. This morning's 16 route removals were safe precisely because the tool matched
+declarations.</li>
+<li><b>A reference means nothing without its GUARD.</b> A call site inside a dead branch is a
+reference to nothing.</li>
+<li><b>A count means nothing without a NAMED CALLER</b> and one hop to a root. "Someone calls it"
+is the aggregate claim that failed all day (Fred 16:22).</li>
+<li><b>Every run carries a BUDGET.</b> Osm15g's 733 s against a 737 s expectation was trustworthy
+at once; Import15e's 20 minutes against 187 s was unambiguously wrong. <b>Four stalls today came
+from optimistic estimates against a 180 s cap — the rule binds the estimator too.</b></li>
+</ol>
+</div>
+
+<h2>2 · STATE OF THE SEAM OBJECTS — the funnel, with its method</h2>
+<div class="card">
+<h3>Files</h3>
+<ul>
+<li><b>365</b> app <code>.kt</code> files total</li>
+<li><b>41</b> CertOld (deleted at the release cut) → <b>324</b> candidates</li>
+<li><b>182</b> of those carry <b>zero</b> shared <code>Gt*</code> references
+<span class="note" style="display:inline">method: <code>grep -cE '\bGt[A-Z][A-Za-z0-9_]*'</code> = 0</span></li>
+</ul>
+<h3>Functions — the right unit</h3>
+<ul>
+<li><b>3,196</b> functions found across the 324 candidates</li>
+<li><b>945</b> whose <b>own body</b> touches a seam <span class="tag t-prog">THE REAL LIST</span></li>
+<li><b>685</b> mechanical only (CONTEXT and/or LOGGING) → one socket + Kermit, <b>no decision needed but THE BULK OF THE BLOCKING WORK</b> — see §2A</li>
+<li><b>260</b> need a per-function decision</li>
+<li><b>−48</b> removed by Fred's device-only scope call (no radio, no group awareness)</li>
+<li><b class="hi">212</b> in-scope decision functions, across <b>113</b> files</li>
+</ul>
+<div class="note">Heuristic error rate stated, not hidden: 14 suspect function spans out of 3,196
+(0.4%). Bodies come from an indent heuristic, not a parser.</div>
+</div>
+
+<div class="card">
+<h3>Seam types, counted BY FUNCTION (not by file)</h3>
+<ul>
+<li><code>CONTEXT</code> <b>593</b> · <code>LOGGING</code> <b>454</b> — 91% of all seam instances, both mechanical</li>
+<li><code>COMPOSE_LOCALS</code> 75 · <code>NOTIFY</code> 64 · <code>INTENTS</code> 54 · <code>THREADING</code> 42</li>
+<li><code>GRAPHICS</code> 22 · <code>RESOURCES</code> 18 · <code>SAF</code> 13 · <code>WORKMGR</code> 11 · <code>PKGMGR</code> 3 · <code>VIEWMODEL</code> 3</li>
+</ul>
+<p><b>WORKMGR is only 11 functions app-wide.</b> That whole seam type is a day, not a phase.</p>
+<h3>Where the 212 concentrate</h3>
+<ul>
+<li>20 <code>GroupTrackScreen</code> (incl. the 7-seam function at line 140) · 13 <code>ConvoyGpsService</code>
+· 10 <code>MapScreens</code> · 9 <code>GroupTrackConversion</code> · 7 <code>RouteModule</code>
+· 6 <code>ConvoyDownloadNotification</code> · 5 <code>ConvoyDownloadQueue</code></li>
+<li>then a tail of ~65 files with a single row each</li>
+</ul>
+</div>
+
+
+<h2>2A · THE BLOCKING SET — what must be addressed before the iOS model is genned</h2>
+<div class="card">
+<p><span class="tag t-warn">FRED 16:40</span>"I am concerned with all seams that must be addressed
+prior to the iOS model being genned. Categorizing them, analyzing if they are in use, and then
+fixing each set type."</p>
+<p><b class="hi">The correction this section makes:</b> the 685 mechanical rows were written below
+as "no decision needed," which is true and was the wrong emphasis. They need no <i>decision</i>,
+but they are <b>the bulk of the blocking work</b>. 685 functions is what stops the model
+compiling; the 212 are only the part that needs us to talk.</p>
+
+<h3>The distinction that decides what actually blocks</h3>
+<p><b>No file in <code>app/</code> ever builds for iOS.</b> The iOS build consumes
+<code>grouptrack-shared</code> only. So a seam blocks the iOS model <b>only when that function's
+behaviour is needed on the iPad</b>. That splits the 945 three ways:</p>
+<ul>
+<li><span class="tag t-bad">BLOCKS</span><b>iPad needs the behaviour, and it touches a seam</b> →
+the logic moves to shared and the Android API behind it needs a <b>socket</b>. This is the real
+blocking set.</li>
+<li><span class="tag t-prog">PORT</span><b>iPad needs the behaviour, no seam</b> → straight move to
+shared, no socket, no decision.</li>
+<li><span class="tag t-good">STAYS</span><b>Android-only plumbing the iPad reimplements</b> → stays
+a front door in <code>app/</code>, may keep using Android APIs freely, <b>never needs to build for
+iOS</b>. Not a blocker at all.</li>
+</ul>
+
+<h3 class="hi">THE MISSING MEASUREMENT — tomorrow's first job</h3>
+<p>We do not yet know the size of category 1, because <b>which of the 113 files hold behaviour the
+iPad needs is a judgment per function, not a grep.</b> The earlier register figures ("141 iOS-bound
+files, 82 non-portable surfaces") come from the same source that produced <b>59</b> and <b>76</b>
+without recording what they counted, so they are <b>not carried into this doc</b>. They may be
+right; they are not re-derivable, which is the same defect this doc exists to end.</p>
+<div class="note">Until that split is made, the honest statement of scope is: <b>945 seam functions
+exist; an unknown subset of them blocks the iOS build.</b> Stating a blocking number before the
+split is measured would repeat exactly the error that billed the dead raster branch as seam work.</div>
+
+<h3>THE SEQUENCE, as Fred set it (16:40)</h3>
+<div class="step"><b>1 · CATEGORIZE</b> — every seam function into the three categories above.
+Done by seam type, file by file, using the 113-file concentration order. The two mechanical types
+(CONTEXT 593, LOGGING 454) can be categorized in bulk; the other ten are per function.</div>
+<div class="step"><b>2 · ANALYZE IF IN USE</b> — the three columns
+(<code>gt_seamactive_v4</code>): referenced, executed, and whether each call site is guarded, with
+the caller named and one hop to a root. <b>Default KEEP.</b> Not-in-use rows leave the blocking set
+entirely and go to §3.1 for removal with a record.</div>
+<div class="step"><b>3 · FIX EACH SET BY TYPE</b> — one solution per seam type, applied across
+every function carrying it, rather than file by file. Order is cheapest-and-widest first:</div>
+<ul>
+<li><code>LOGGING</code> <b>454</b> → Kermit. Mechanical find/replace. Largest single win.</li>
+<li><code>CONTEXT</code> <b>593</b> → the socket that already exists in several forms (<code>GtStorage</code>, <code>GtImportPlatform</code>, <code>GtFiles</code>). Certified 17-G2a.</li>
+<li><code>COMPOSE_LOCALS</code> <b>75</b> → <code>LocalContext</code> is the genuine Android tie in panels. Compose Multiplatform publishes under <code>androidx.compose.*</code>, so the panel imports are <b>already portable</b>; only this local needs replacing.</li>
+<li><code>NOTIFY</code> <b>64</b> → one notification socket. Likely collapses to a single decision for all 64.</li>
+<li><code>INTENTS</code> <b>54</b> → the file-picker / open-with family. Needs the iPad equivalent (document picker) plus the three MIME types.</li>
+<li><code>THREADING</code> <b>42</b> → coroutines, already in the shared module.</li>
+<li><code>GRAPHICS</code> 22 · <code>RESOURCES</code> 18 · <code>SAF</code> 13 · <code>WORKMGR</code> <b>11</b> · <code>PKGMGR</code> 3 · <code>VIEWMODEL</code> 3 — all small. WORKMGR is a day, not a phase.</li>
+</ul>
+<p><b>Solving by type is the whole point of the exercise</b> (Fred 11-15): identify the type, group
+it across the codebase, solve for the seam type once. Twelve solutions cover 945 functions. Doing
+it file by file would be 113 passes over the same twelve problems.</p>
+</div>
+
+<h2>3 · IN SERVICE vs NOT IN SERVICE</h2>
+
+<h3>3.1 NOT IN SERVICE — remove, with a record at the place in the code</h3>
+<div class="card">
+<p>Each of these is confirmed by <b>two independent instruments</b>, which is the standard that
+authorised this morning's 16 route removals.</p>
+<ul>
+<li><span class="tag t-bad">DEAD</span><b>raster / SAT branch of <code>enqueueArea</code></b> — referenced, never executed (§1.2). Includes the TOPO remnant.</li>
+<li><span class="tag t-bad">DEAD</span><b>raster branch of <code>ConvoyDownloadWorker</code></b> — <code>:176</code> getDownloadSources loop, <code>:204</code>, <code>:209</code></li>
+<li><span class="tag t-bad">DEAD</span><b><code>ConvoyCorridorWorker</code> raster path</b> — <code>:108</code>, <code>:140</code></li>
+<li><span class="tag t-bad">DEAD</span><b><code>SlotCard</code> + <code>ApiKeyRow</code></b> in ConvoyMapSourceScreen — 94 lines, 0 calls</li>
+<li><span class="tag t-bad">DEAD</span><b><code>ConvoySourceClear</code></b> — 0 code / 0 comment refs. Also a dead caller of <code>cancelAll</code>; removing it is safe because <code>MapScreens:422</code> also calls it.</li>
+<li><span class="tag t-bad">DEAD</span><b><code>OsmImportPanel</code></b> — 94 lines, 0 code / 12 comment refs</li>
+<li><span class="tag t-bad">DEAD</span><b>5 <code>MapSourceManager</code> URL members</b> — <code>getActiveLocalUrl</code>, <code>getActiveOnlineUrl</code>, <code>resolveUrl</code>, <code>getAllOverlayLayers</code>, plus overlay layers. Superseded by direct <code>layer.urlTemplate</code> access.</li>
+</ul>
+<div class="note">Removal leaves a RECORD AT THE PLACE IN THE CODE (Fred 11-15 14:06): what was
+removed, its original line, the evidence, and <code>git show &lt;commit&gt;^:&lt;path&gt;</code> to
+restore. No stubs where there were no callers — a stub nobody can reach is not a placeholder.</div>
+</div>
+
+<h3>3.2 IN SERVICE — port them (traced, 5 of 5 ACTIVE)</h3>
+<div class="card">
+<p><code>ConvoyDownloadQueue</code> was traced end to end as the pattern, because it is where
+today's miss happened:</p>
+<ul>
+<li><code>init</code> (209) [CONTEXT NOTIFY] — 6 external callers + 12 in-file → <b>ACTIVE</b></li>
+<li><code>cancel</code> (1070) [WORKMGR] — notification receiver :25/:32, ConvoyViewModel:1423, panel :263 → <b>ACTIVE</b></li>
+<li><code>cancelAll</code> (1101) [WORKMGR] — MapScreens:422 live (ConvoySourceClear:134 dead) → <b>ACTIVE</b></li>
+<li><code>removeEntry</code> (1119) [WORKMGR] — panel :274 → <code>DownloadQueuePanel</code> → MapScreens:128, GroupTrackScreen:2206/:2259 → <b>ACTIVE</b></li>
+<li><code>launchWorker</code> (1230) [WORKMGR] — private, :1226; 2.8a logged <code>Launched worker for: DL VEC</code> → <b>ACTIVE by execution</b></li>
+</ul>
+<p><b>Five for five ACTIVE, zero removals</b> — a useful result, not a wasted hour: this file's real
+port cost is <b>4 WorkManager sockets + 1 notification socket</b>, and nothing in it is dead. The
+raster branch sits in <code>enqueueArea</code>, a CONTEXT/LOGGING row below the decision line.</p>
+</div>
+
+<h2>4 · TOMORROW'S INSPECTION PROCESS</h2>
+<div class="card">
+<p><b class="hi">DEFAULT IS KEEP</b> (Fred 16:04): "if we error it will be leaving in the function
+we cannot rule out." A wrong keep costs one socket. A wrong removal costs a working app. Nothing is
+called dead unless <b>both</b> instruments agree.</p>
+<div class="step"><b>Step 1 — run the three-column pass.</b> From a terminal, NOT the tool bridge
+(180 s cap; four stalls today). Budget under 60 s.
+<br><code>python3 ~/Downloads/gt_seamactive_2026-11-15_v4.py</code> with GT_REPO / GT_LOGS /
+GT_ROWS / GT_OUT / GT_TSV / GT_SITES set.</div>
+<div class="step"><b>Step 2 — triage its verdicts.</b> ACTIVE rows need no discussion: port them.
+Only two buckets come to us.</div>
+<div class="step"><b>Step 3 — read GUARDED ONLY rows together.</b> Every caller sits inside a
+condition. The <code>callsites</code> TSV gives each guard verbatim. We read the condition and
+decide whether it can be true on an iPad. <b>This is the column that would have caught raster.</b></div>
+<div class="step"><b>Step 4 — trace CANDIDATE rows together.</b> No caller and no execution. Walk
+the flow from app knowledge, as we did for the queue.</div>
+<div class="step"><b>Step 5 — UNDECIDABLE rows KEEP.</b> No log text of their own means no execution
+signal. Undecidable is never dead.</div>
+<div class="step"><b>Step 6 — then the mechanical 685.</b> LOGGING → Kermit (find/replace).
+CONTEXT → the socket that already exists in several forms. No per-function decision; the work is
+the same whether the function is hot or cold, so reviewing them would cost more than doing them.</div>
+<div class="note">Why the mechanical ones skip review: the point of asking "is it active" is to
+avoid work that need not be performed (Fred 15:53). For CONTEXT/LOGGING the work is a one-line
+substitution, so the review costs more than the work it would save. For the other ten types each
+function is a design decision, which is where activity matters.</div>
+</div>
+
+<h2>5 · GETTING THE MODEL READY FOR AN iOS BUILD</h2>
+<div class="card">
+<h3>Done</h3>
+<ul>
+<li><span class="tag t-good">DONE</span><b>32 of 37 cert classes pass, zero content differences anywhere.</b> Osm15g 231,365 SAME / 0 DIFF in 733 s (budget 737) · Rider15c 3,345 / 0 in 529 s · Trail15f PASS 508 s · Import15e completes in 173 s</li>
+<li><span class="tag t-good">DONE</span><b>Phase 1 iOS sockets compile and link</b> (<code>7c20f643c</code>) — <code>IosFiles</code>, <code>IosPaths</code>, <code>IosClock</code>, <code>IosIds</code>, <code>IosTileEnv</code>. Production code, not test doubles.</li>
+<li><span class="tag t-good">DONE</span><b>D12 closed in shared code</b> — coordinate guard, scan bounds, 300-mile span pre-pass</li>
+<li><span class="tag t-good">DONE</span><b>Input-hash cache</b> — removed ~20 min per class from five classes, permanently. This is what makes re-certification cheap enough to run after every fix.</li>
+</ul>
+<h3>Remaining, in order</h3>
+<ol>
+<li><b>Switch <code>RiderTrailScanner</code> → <code>GtRiderScan</code></b> — highest value, zero design risk. Closes the live D12 defect on Android that GTSCANBOUND and GTSPANGUARD <b>do not reach</b> (RiderTrailScanner has zero shared refs). Target already certified at 3,345 SAME / 0 DIFF.</li>
+<li><b>Fix <code>noteInserted</code></b> to cover <code>"track"</code>, <code>"waypoint"</code>, <code>"route"</code> — currently <code>"trail"</code> only (GtWrite.kt:207). Then re-run Track15d (~7 min).</li>
+<li><b>Point the 28 green certs at <code>GtIosEnv</code></b> instead of their doubles — the first real exercise of a real sandbox, clock and file times.</li>
+<li><b>Convert <code>grouptrack-comm</code> to KMP</b> — nearly free: <code>GroupCommPlugin</code> has <b>zero</b> <code>android.*</code> imports; only its build declaration is Android-bound. <code>core/proto</code> is already a KMP library (Wire, 26 <code>.proto</code>, zero android imports), so the Meshtastic protocol is already platform-free and BLE touches only 4 files.</li>
+<li><b>The build path itself</b>: one-line <code>grouptrack-shared</code> → <code>meshtastic.kmp.library.compose</code>; <code>MainViewController.kt</code> in <code>iosMain</code>; an <code>iosApp</code> Xcode target (Fred creates it, build settings and the gradle phase supplied); <code>linkDebugFrameworkIosSimulatorArm64</code>.</li>
+<li><b>Three MIME types into the manifest</b>: <code>application/gpx+xml</code>, <code>application/vnd.google-earth.kml+xml</code>, <code>.kmz</code>.</li>
+<li><b>Droid re-record of <code>import15e</code> with g11 included</b> — closes D12 properly and lets the three harness exclusions at gt_cert_v47.sh lines 208/741/812 come out, turning the fixture into the thing that PROVES bad data is handled instead of the file two platforms delete.</li>
+<li><b>The mtime family</b> — fix the one-second truncation (Android <code>setLastModified</code> truncates, NSDate rounds), then record whatever remains as EXPECTED per the G1c precedent.</li>
+</ol>
+<div class="note">Target iOS floor: <b>16</b> (Fred 11-15), moving up from there. The panels move
+largely as they are — they are already Compose Material 3, and Compose Multiplatform publishes
+under <code>androidx.compose.*</code>, so those imports are already portable. The genuine Android
+tie in panels is <code>LocalContext</code> (58 of 82 files). <b>No scaffolding</b>: it was a hedge
+against the model not being ready, and the model is ready.</div>
+</div>
+
+<h2>6 · DEFERRED BY DECISION</h2>
+<div class="card">
+<p><span class="tag t-warn">DEFERRED</span><b>Group awareness.</b> Fred 16:37: "we will discuss
+group awareness when we have completed all other items." Not in scope, not in the 212, and the 48
+radio / mesh / grp-awareness rows were removed from the decision list on that basis. Certification
+remains device-only: no radio function, no group awareness.</p>
+</div>
+
+<h2>7 · THE INSTRUMENT SET</h2>
+<div class="card">
+<p>All four in the shared commands folder, so they survive the session. Superseded versions are
+renamed <code>_SUPERSEDED_DO_NOT_RUN</code>.</p>
+<ul>
+<li><code>gt_deadcode_2026-11-15_v3.sh</code> — <b>is it REFERENCED.</b> 5 verify kinds, each proven by a sentinel producing a plausible LIVE count. Aborts itself if its sentinel reports DEAD, so a DEAD verdict carries information.</li>
+<li><code>gt_execscope_2026-11-15_v1.sh</code> — <b>is it EXECUTED</b> (file level, from real-flow logs). Known false-negative: <code>GroupTrackStorage</code> reads NOT-SEEN while being certified and live, so absence is never an authorisation alone.</li>
+<li><code>gt_seamfn_2026-11-15_v2.py</code> — <b>the seam list BY FUNCTION.</b> Deliberately includes files already marked PORTED, because excluding them is how raster survived.</li>
+<li><code>gt_seamactive_2026-11-15_v4.py</code> — <b>all three columns + the caller named + the root hop.</b> Writes a <code>callsites</code> TSV with every guard verbatim.</li>
+</ul>
+</div>
+
+<h2>8 · BANKED TODAY</h2>
+<div class="card">
+<ul>
+<li><b>9 commits, all pushed</b> to <code>origin/2.8</code>, head <code>772469edb</code>. Attribution check 0 across all of them.</li>
+<li><b>16 dead route declarations removed</b> and verified three ways: <code>:core:navigation</code> and <code>:app:compileGoogleDebugKotlin</code> both compile; a full signed release build in 12m31s; 36,733 log lines from Droid 1 with 0 fatals, 0 ClassNotFoundException, 0 SerializationException (the subtle risk, since they were <code>@Serializable</code>), and 0 mentions of any removed name.</li>
+<li><b>2.8a built and deployed to Droid 1</b>, behaving — all artifacts display, search works, AI build returns routes.</li>
+<li><b>The execution column exists</b> and is reproducible as a script, where this morning Fred's 11-13 rule had none.</li>
+</ul>
+</div>
+
+<div class="src">GroupTrack_2.8_seam_state_and_inspection_2026-11-15_v1.html · written 2026-11-15 EOD ·
+every figure in this doc carries the method that produced it, because the defect it replaces was a
+register that kept conclusions and dropped methods — missing budgets, unreproducible seam counts,
+and two file denominators (182 and 59) neither of which was written down with its definition.</div>
+
+</main>
+
+</body>
+</html>

@@ -1,0 +1,40 @@
+2.8b G10: static iOS framework output from grouptrack-shared
+
+Compiling was not producing: the module built for iOS but emitted nothing an
+Xcode app could link. Static binaries.framework on iosArm64 and
+iosSimulatorArm64, baseName GroupTrackShared.
+
+Verified: linkDebugFrameworkIosArm64 BUILD SUCCESSFUL in 31s; the artifact
+exists (57.9 MB binary, headers, Info.plist, Modules) and exports GtMapState,
+GtMapRecipe, GtMBTiles plus the GtFiles / GtImportPaths / GtTileStoreEnv
+protocols.
+
+Finding: the sockets export as Obj-C protocols, so they COULD be implemented in
+Swift. They should not be. The certified test doubles (MacFiles on okio,
+MacTileEnv on the real gtOpenDatabase) are Kotlin, so promoting them to iosMain
+makes the production implementations the certified ones. Swift is reserved for
+what Kotlin cannot reach: the document picker and CoreBluetooth.
+
+Compose Multiplatform is NOT reopened by this: D10 (11-06, confirmed by the spike)
+chose Compose Multiplatform for the iPad screens, and SwiftUI was REJECTED for
+presentation because it gives zero reuse of the web layer and closes the 3.0
+web door (Compose/Wasm). A stub needs no screens, which is why none are wired
+here -- that is scope, not a decision. XCFramework when something is distributed.
+
+DONE: 26319 G10 - no framework output from grouptrack-shared
+
+DECIDED: the nine platform sockets are implemented in KOTLIN iosMain, not Swift. The sockets
+export as Obj-C protocols so Swift was a real option, but the certified test doubles
+(MacFiles on okio, MacTileEnv on the real gtOpenDatabase) are Kotlin -- promoting them makes
+the PRODUCTION implementations the CERTIFIED ones, and the H1-H3 harnesses can run against
+production rather than against doubles. Swift is reserved for what Kotlin cannot reach: the
+document picker (L2b) and CoreBluetooth (L2a). Consequence: no Xcode project is needed for
+the next gap-discovery stage -- promote the doubles to iosMain and re-run H1-H3 against the
+production env on the simulator.
+
+AUDIT: grepped both AllDocs volumes for swift (54 hits in AllDocs 2, 678 in volume 1)
+before recording this. The decisions do not conflict: D12 Kotlin MP for shared logic,
+D10 Compose MP for screens, SwiftUI rejected for presentation and reserved for the
+native shell. Also found: the 11-06 spike ALREADY built a SwiftUI + WKWebView iPad
+shell that loaded the 2.7e map page -- so a stub app may largely exist. Find it before
+building one.

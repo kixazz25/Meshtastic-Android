@@ -29531,6 +29531,7 @@ RideImportAction.kt:14:    val importPicker = androidx.activity.compose.remember
 RideImportAction.kt:15:        object : androidx.activity.result.contract.ActivityResultContracts.OpenDocument() {
 RideImportAction.kt:16:            override fun createIntent(context: android.content.Context, input: Array<String>): android.content.Intent =
 RideImportAction.kt:17:                super.createIntent(context, input).putExtra(
+RideImportAction.kt:19:                    android.provider.DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Download"),
 RideImportAction.kt:25:                val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
 RideImportAction.kt:26:                    ?: throw IllegalStateException("could not read the file")
 RideImportAction.kt:27:                RideImport.importRide(context, text, bringForward = false)
@@ -41426,6 +41427,10 @@ ConvoyFileReceiver.kt:17: * Completely isolated from MainActivity and all Meshta
 ConvoyFileReceiver.kt:19: * Receives .convoy file from email or any other source.
 ConvoyFileReceiver.kt:20: * Reads convoyDocType field and routes to the correct import directory.
 ConvoyFileReceiver.kt:23: * Import directories (all under filesDir):
+ConvoyFileReceiver.kt:24: *   convoy_import/       — convoy_ride documents
+ConvoyFileReceiver.kt:25: *   convoy_map_import/   — convoy_map_region documents (V3)
+ConvoyFileReceiver.kt:26: *   convoy_route_import/ — convoy_route documents (V3)
+ConvoyFileReceiver.kt:27: *   convoy_master_import/— convoy_master documents (future)
 ConvoyFileReceiver.kt:29: * Each directory is scanned by the appropriate handler on next app open.
 ConvoyFileReceiver.kt:33:    override fun onCreate(savedInstanceState: Bundle?) {
 ConvoyFileReceiver.kt:34:        super.onCreate(savedInstanceState)
@@ -47713,6 +47718,7 @@ MBTilesStore.kt:149:     * *** DO NOT SWITCH THIS TO A NON-DURABLE JOURNAL SETTI
 MBTilesStore.kt:150:     * the rollback journal leave the file UNDEFINED if a write is interrupted -- not a
 MBTilesStore.kt:151:     * partial delete you can re-run, a potentially corrupt database. The write-ahead
 MBTilesStore.kt:152:     * option is PERSISTENT (file format change, companion files, a real migration) and
+MBTilesStore.kt:153:     * SQLite documents it as failing above a gigabyte per transaction, which a 600k-tile
 MBTilesStore.kt:154:     * delete exceeds. These stores are ~14 GB with NO BACKUP, and a database the
 MBTilesStore.kt:155:     * framework considers corrupt can be DELETED by the default error handler.
 MBTilesStore.kt:156:     * Crash-safety is not tradeable for delete speed.
@@ -49615,8 +49621,8 @@ SHARED:track/GtTracks.kt:117:        /** Parse GPX file for track points, return
 SHARED:track/GtTracks.kt:119:        fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> {
 SHARED:track/GtTracks.kt:120:            val coords = mutableListOf<Pair<Double, Double>>()
 SHARED:track/GtTracks.kt:121:            for (m in GtRx.findAll(TRKPT, gpxText)) {
-SHARED:track/GtTracks.kt:122:                val lat = GtJavaParse.toDoubleOrNull(m.groupValues[1]) ?: continue
-SHARED:track/GtTracks.kt:123:                val lon = GtJavaParse.toDoubleOrNull(m.groupValues[2]) ?: continue
+SHARED:track/GtTracks.kt:122:                val lat = GtJavaParse.latOrNull(m.groupValues[1]) ?: continue
+SHARED:track/GtTracks.kt:123:                val lon = GtJavaParse.lonOrNull(m.groupValues[2]) ?: continue
 SHARED:track/GtTracks.kt:124:                coords.add(Pair(lon, lat))
 SHARED:track/GtTracks.kt:126:            return coords
 SHARED:track/GtTracks.kt:129:        /** (STEP15D: 2.7e's private haversineMiles -- R = 3958.7613, Double. NOT GtRead's (3958.8, Float): INVENTORY T4.) */
@@ -51711,181 +51717,195 @@ SHARED:rider/GtRiderTrails.kt:122:         * Candidate trails are selected by th
 SHARED:rider/GtRiderTrails.kt:123:         * this much (~110 m) so a trail just outside it can still anchor a point
 SHARED:rider/GtRiderTrails.kt:124:         * near the edge.
 SHARED:rider/GtRiderTrails.kt:126:        private const val BBOX_MARGIN_DEG = 0.001
-SHARED:rider/GtRiderTrails.kt:131:         * Stored geometry -> points. Handles LINESTRING and MULTILINESTRING, the
-SHARED:rider/GtRiderTrails.kt:132:         * latter flattened, which is what the scan wants: one continuous ride.
-SHARED:rider/GtRiderTrails.kt:134:         * RouteManager has an equivalent parser. This one is local because the
-SHARED:rider/GtRiderTrails.kt:135:         * writer must not depend on the route layer, but if that changes they
-SHARED:rider/GtRiderTrails.kt:136:         * should be reconciled rather than left to drift.
-SHARED:rider/GtRiderTrails.kt:137:         * (STEP15C: [wkt] is String? because it comes straight from a geometry column that may be NULL -- 2.7e's signature.
-SHARED:rider/GtRiderTrails.kt:138:         *  ⚠ The flattening joins the LAST point of one part to the FIRST of the next with a segment that is not on the ground --
-SHARED:rider/GtRiderTrails.kt:141:        fun parseGeometry(wkt: String?): List<GtRiderScan.Pt> {
-SHARED:rider/GtRiderTrails.kt:143:            val open = wkt.indexOf('(')
-SHARED:rider/GtRiderTrails.kt:144:            if (open < 0) return emptyList()
-SHARED:rider/GtRiderTrails.kt:145:            val body = wkt.substring(open).replace("(", " ").replace(")", " ")
-SHARED:rider/GtRiderTrails.kt:147:            for (part in body.split(',')) {
-SHARED:rider/GtRiderTrails.kt:148:                val f = part.trim().split(WS)
-SHARED:rider/GtRiderTrails.kt:149:                if (f.size < 2) continue
-SHARED:rider/GtRiderTrails.kt:150:                val lon = GtJavaParse.toDoubleOrNull(f[0]) ?: continue
-SHARED:rider/GtRiderTrails.kt:151:                val lat = GtJavaParse.toDoubleOrNull(f[1]) ?: continue
-SHARED:rider/GtRiderTrails.kt:156:        private val WS = Regex(GtRx.WS + "+")   // STEP15C-FIXWS-2026-11-09: 2.7e's Regex("\\s+") as ANDROID reads it (GtRx.WS); one instance
-SHARED:rider/GtRiderTrails.kt:159:         * Points -> stored geometry, in the app's EXACT format: lon then lat,
-SHARED:rider/GtRiderTrails.kt:160:         * separated by one space, pairs separated by a comma with NO space.
-SHARED:rider/GtRiderTrails.kt:162:         * THE FORMAT IS THE CONTRACT. The identity hash is taken over this string,
-SHARED:rider/GtRiderTrails.kt:163:         * so a stray space produces a different identity for identical ground and
-SHARED:rider/GtRiderTrails.kt:164:         * duplicate detection stops recognising its own rows -- silently. Matched
-SHARED:rider/GtRiderTrails.kt:165:         * to ConvoyTrackOps, which is where the app already builds this.
-SHARED:rider/GtRiderTrails.kt:166:         * (STEP15C/GEOMONE: the format now lives in ONE place, GtGeom; the text and its hash come back together.)
-SHARED:rider/GtRiderTrails.kt:168:        private fun buildGeometry(pts: List<GtRiderScan.Pt>): GtGeom.Geom =
-SHARED:rider/GtRiderTrails.kt:169:            GtGeom.lineLonLat(pts.map { Pair(it.lon, it.lat) })
-SHARED:rider/GtRiderTrails.kt:175:     * Candidate trails near this track. THE WHOLE TABLE MUST NEVER BE READ:
-SHARED:rider/GtRiderTrails.kt:176:     * Utah is 145,942 trails and about 5.6 million segments, which on a 3 GB
-SHARED:rider/GtRiderTrails.kt:177:     * device is not a slow index, it is an allocation that does not come back.
-SHARED:rider/GtRiderTrails.kt:178:     * One track covers a small area, so its bounding box is the query.
-SHARED:rider/GtRiderTrails.kt:182:    private fun candidatesFor(pts: List<GtRiderScan.Pt>, excludeRider: Boolean): List<List<GtRiderScan.Pt>> {
-SHARED:rider/GtRiderTrails.kt:183:        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-SHARED:rider/GtRiderTrails.kt:184:        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-SHARED:rider/GtRiderTrails.kt:186:            if (p.lat < minLat) minLat = p.lat
-SHARED:rider/GtRiderTrails.kt:187:            if (p.lat > maxLat) maxLat = p.lat
-SHARED:rider/GtRiderTrails.kt:188:            if (p.lon < minLon) minLon = p.lon
-SHARED:rider/GtRiderTrails.kt:189:            if (p.lon > maxLon) maxLon = p.lon
-SHARED:rider/GtRiderTrails.kt:193:            db.trailCandidates(
-SHARED:rider/GtRiderTrails.kt:194:                GtJava.jd(minLat - BBOX_MARGIN_DEG), GtJava.jd(maxLat + BBOX_MARGIN_DEG),
-SHARED:rider/GtRiderTrails.kt:195:                GtJava.jd(minLon - BBOX_MARGIN_DEG), GtJava.jd(maxLon + BBOX_MARGIN_DEG),
-SHARED:rider/GtRiderTrails.kt:196:                excludeRider, CATEGORY
-SHARED:rider/GtRiderTrails.kt:198:                val q = parseGeometry(g)
-SHARED:rider/GtRiderTrails.kt:199:                if (q.size >= 2) out.add(q)
-SHARED:rider/GtRiderTrails.kt:202:            log.e { "candidate query failed: ${e.message}" }
-SHARED:rider/GtRiderTrails.kt:208:     * Scan one track and write whatever new ground it found.
-SHARED:rider/GtRiderTrails.kt:210:     * The caller opens the dedup session. [scanAll] does it once for the whole
-SHARED:rider/GtRiderTrails.kt:211:     * pass rather than per track, which is why it is not done here.
-SHARED:rider/GtRiderTrails.kt:213:     * @return trails written, and their total miles.
-SHARED:rider/GtRiderTrails.kt:216:     * Scan ONE track, by its geometry hash -- the track key.
-SHARED:rider/GtRiderTrails.kt:218:     * For the add-a-track trigger, which has the hash in hand and no geometry
-SHARED:rider/GtRiderTrails.kt:219:     * string. Looks the row up and hands off to [scanTrack] below: one scan
-SHARED:rider/GtRiderTrails.kt:220:     * implementation, two ways in.
-SHARED:rider/GtRiderTrails.kt:223:     * the two. scanAll opens ONE session for its whole pass, so the delegate
-SHARED:rider/GtRiderTrails.kt:224:     * below must not open one -- doing that per track inside the loop would
-SHARED:rider/GtRiderTrails.kt:225:     * reload every hash on every track. But a single track added on its own has
-SHARED:rider/GtRiderTrails.kt:226:     * no session around it, and without one resolveByGeom reads an empty map
-SHARED:rider/GtRiderTrails.kt:227:     * and every derived trail looks new.
-SHARED:rider/GtRiderTrails.kt:228:     *   (STEP15C note: superseded by DUPECHECK-2026-10-20 below -- no session is opened here; resolveByGeom then does one indexed
-SHARED:rider/GtRiderTrails.kt:229:     *   lookup per trail (GtWrite.nameByHash). Kept as 2.7e has it.)
-SHARED:rider/GtRiderTrails.kt:231:     * ⚠ DATABASE WORK, and it runs inline on the caller's thread.
-SHARED:rider/GtRiderTrails.kt:233:     * @return trails written, and their total miles.
-SHARED:rider/GtRiderTrails.kt:235:    fun scanTrackByHash(geomHash: String): Pair<Int, Double> {
-SHARED:rider/GtRiderTrails.kt:236:        var foundName: String? = null
-SHARED:rider/GtRiderTrails.kt:237:        var foundGeom: String? = null
-SHARED:rider/GtRiderTrails.kt:239:            db.trackNameGeometry(geomHash)?.let { (n, g) ->
-SHARED:rider/GtRiderTrails.kt:240:                foundName = n
-SHARED:rider/GtRiderTrails.kt:241:                foundGeom = g
-SHARED:rider/GtRiderTrails.kt:244:            log.e { "track read failed for ${geomHash.take(12)}: ${e.message}" }
-SHARED:rider/GtRiderTrails.kt:247:        val geom = foundGeom
-SHARED:rider/GtRiderTrails.kt:248:        if (geom.isNullOrBlank()) {
-SHARED:rider/GtRiderTrails.kt:250:            log.i { "no geometry for ${geomHash.take(12)} -- nothing to scan" }
-SHARED:rider/GtRiderTrails.kt:255:        val r = scanTrack(foundName, geom)
-SHARED:rider/GtRiderTrails.kt:256:        if (r.first > 0) env.platform.onTrailsChanged()   // RIDERIDS-2026-10-09: the maps reload
-SHARED:rider/GtRiderTrails.kt:260:    /** (STEP15C: [trackName] is String? because tracks.name may be NULL -- logged as "(unnamed)"; [geometry] as [parseGeometry].) */
-SHARED:rider/GtRiderTrails.kt:261:    fun scanTrack(trackName: String?, geometry: String?): Pair<Int, Double> {
-SHARED:rider/GtRiderTrails.kt:262:        val pts = parseGeometry(geometry)
-SHARED:rider/GtRiderTrails.kt:263:        if (pts.size < 2) return Pair(0, 0.0)
-SHARED:rider/GtRiderTrails.kt:264:        val network = candidatesFor(pts, excludeRider = false)
-SHARED:rider/GtRiderTrails.kt:265:        val found = GtRiderScan.scan(pts, network)
-SHARED:rider/GtRiderTrails.kt:266:        if (found.isEmpty()) return Pair(0, 0.0)
-SHARED:rider/GtRiderTrails.kt:269:        var miles = 0.0
-SHARED:rider/GtRiderTrails.kt:270:        for (t in found) {
-SHARED:rider/GtRiderTrails.kt:271:            if (writeOne(t)) { n++; miles += t.totalM / 1609.34 }
-SHARED:rider/GtRiderTrails.kt:274:        if (n > 0) log.i { "${trackName ?: "(unnamed)"}: $n trail(s), " + GtFmt.f(miles, 2) + " mi" }
-SHARED:rider/GtRiderTrails.kt:275:        return Pair(n, miles)
-SHARED:rider/GtRiderTrails.kt:279:     * One rider trail into both stores.
-SHARED:rider/GtRiderTrails.kt:282:     * ("spatial wins only if it has a real value"), so a trail written to one
-SHARED:rider/GtRiderTrails.kt:283:     * and not the other disagrees with itself. TrailImporter writes carto to
-SHARED:rider/GtRiderTrails.kt:284:     * the spatial row on create for the same reason.
-SHARED:rider/GtRiderTrails.kt:286:     * carto_code_source is set as well as carto_code. Step 8 reads the SOURCE
-SHARED:rider/GtRiderTrails.kt:287:     * value in preference, so leaving it empty would send 'rider' through
-SHARED:rider/GtRiderTrails.kt:288:     * categoryOf as a bare carto value; setting both means the row says the
-SHARED:rider/GtRiderTrails.kt:289:     * same thing whichever field is read.
-SHARED:rider/GtRiderTrails.kt:292:     * ownership from the polygon test, use from the category map. Hand-setting
-SHARED:rider/GtRiderTrails.kt:293:     * them here would be a second path that drifts from the classifier.
-SHARED:rider/GtRiderTrails.kt:294:     *   (STEP15C note: superseded by RIDEROUT-2026-10-24 below, which DOES set both. Kept as 2.7e has it.)
-SHARED:rider/GtRiderTrails.kt:296:    private fun writeOne(t: GtRiderScan.RiderTrail): Boolean {
-SHARED:rider/GtRiderTrails.kt:297:        val g = buildGeometry(t.points)
-SHARED:rider/GtRiderTrails.kt:300:        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-SHARED:rider/GtRiderTrails.kt:301:        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-SHARED:rider/GtRiderTrails.kt:302:        for (p in t.points) {
-SHARED:rider/GtRiderTrails.kt:303:            if (p.lat < minLat) minLat = p.lat
-SHARED:rider/GtRiderTrails.kt:304:            if (p.lat > maxLat) maxLat = p.lat
-SHARED:rider/GtRiderTrails.kt:305:            if (p.lon < minLon) minLon = p.lon
-SHARED:rider/GtRiderTrails.kt:306:            if (p.lon > maxLon) maxLon = p.lon
-SHARED:rider/GtRiderTrails.kt:309:        val now = env.clock.nowInstant()
-SHARED:rider/GtRiderTrails.kt:310:        val newId = env.ids.newId()
-SHARED:rider/GtRiderTrails.kt:311:        val hash = g.hash
-SHARED:rider/GtRiderTrails.kt:316:            writer.insertTrail(newId, null, wkt, minLat, maxLat, minLon, maxLon, now)
-SHARED:rider/GtRiderTrails.kt:318:            log.e { "insertTrail failed: ${e.message}" }
-SHARED:rider/GtRiderTrails.kt:321:        val trailId = res.first
-SHARED:rider/GtRiderTrails.kt:322:        if (res.second != GtWrite.Decision.INSERT) return false
-SHARED:rider/GtRiderTrails.kt:327:            db.setTrailClass(trailId, CATEGORY, CATEGORY, env.trailClass.useOf(CATEGORY), "PUBLIC")
-SHARED:rider/GtRiderTrails.kt:328:        } catch (e: Exception) { log.w { "spatial carto write: ${e.message}" } }
-SHARED:rider/GtRiderTrails.kt:334:            db.insertTrailPropsRider(trailId, SOURCE_ID, hash, CATEGORY, "yes", now)
-SHARED:rider/GtRiderTrails.kt:335:        } catch (e: Exception) { log.w { "trail_properties write: ${e.message}" } }
-SHARED:rider/GtRiderTrails.kt:341:     * Every track, in one pass -- RIDERIDS-2026-10-09 (Fred): RECONCILE, NEVER CLEAR. The release g/h clear-and-rebuild gave
-SHARED:rider/GtRiderTrails.kt:342:     * every rider trail a NEW random ID on every run, so anything holding a rider trail's ID (a saved route snapped to it,
-SHARED:rider/GtRiderTrails.kt:343:     * a selection) broke on every run, and "added" meant "re-laid". Now:
-SHARED:rider/GtRiderTrails.kt:344:     *   1. each track is matched against the REAL trails only (rider trails excluded from the candidates), plus the pieces
-SHARED:rider/GtRiderTrails.kt:345:     *      THIS RUN has already produced -- so two recordings of one ride do not both lay it (what the DB did before);
-SHARED:rider/GtRiderTrails.kt:346:     *   2. each piece is compared with the rider trails already stored, BY GEOMETRY HASH:
-SHARED:rider/GtRiderTrails.kt:347:     *        same piece already stored -> UNCHANGED, untouched, same ID, same created_at;
-SHARED:rider/GtRiderTrails.kt:348:     *        new piece                 -> ADDED (today's date -- "added" is a true add for the day);
-SHARED:rider/GtRiderTrails.kt:349:     *   3. stored rider trails this run no longer produces -> REMOVED.
-SHARED:rider/GtRiderTrails.kt:350:     * On an unchanged database a second run reports 0 added, 0 removed. The dedup session is opened ONCE for the pass.
-SHARED:rider/GtRiderTrails.kt:352:     * @param onProgress optional; null where there is no UI to report to (the import stage has a manifest instead).
-SHARED:rider/GtRiderTrails.kt:353:     *   (CODE RULE 1: nullable for 2.7e's reason just given -- a caller with no UI. No default: the front door passes its own.)
-SHARED:rider/GtRiderTrails.kt:355:    fun scanAll(onProgress: ((Int, Int) -> Unit)?): Result {
-SHARED:rider/GtRiderTrails.kt:356:        val tracksRemoved = 0   // RIDEROUT-2026-10-24: the 09-07 "Unnamed n" prototype cleanup is gone (job done; it could delete a real GPX track)
-SHARED:rider/GtRiderTrails.kt:359:        val stored = HashMap<String, String>()
-SHARED:rider/GtRiderTrails.kt:361:            db.riderStored(CATEGORY) { id, gh, geom ->
-SHARED:rider/GtRiderTrails.kt:362:                if (id == null) return@riderStored
-SHARED:rider/GtRiderTrails.kt:364:                        else if (geom != null) GtGeom.hash(geom) else return@riderStored
-SHARED:rider/GtRiderTrails.kt:365:                stored[h] = id
-SHARED:rider/GtRiderTrails.kt:368:            log.e { "RIDERIDS: rider trail read failed: ${e.message}" }
-SHARED:rider/GtRiderTrails.kt:369:            return Result(0, 0, 0.0, tracksRemoved, 0, 0, 0, 0.0)
-SHARED:rider/GtRiderTrails.kt:374:            db.tracksForRider { name, geom ->
-SHARED:rider/GtRiderTrails.kt:375:                if (geom != null) ids.add(Pair(geom, name))
-SHARED:rider/GtRiderTrails.kt:378:            log.e { "track read failed: ${e.message}" }
-SHARED:rider/GtRiderTrails.kt:379:            return Result(0, 0, 0.0, tracksRemoved, 0, 0, 0, 0.0)
-SHARED:rider/GtRiderTrails.kt:382:        writer.beginDedupSession()
-SHARED:rider/GtRiderTrails.kt:383:        try {   // STEP15A-2026-11-08 (owner decision 6): the session is ended on every way out -- 2.7e never ended it, so
-SHARED:rider/GtRiderTrails.kt:385:        val produced = HashSet<String>()
-SHARED:rider/GtRiderTrails.kt:386:        val runPieces = ArrayList<List<GtRiderScan.Pt>>()   // this run's pieces -- network for the tracks after
-SHARED:rider/GtRiderTrails.kt:387:        var added = 0; var unchanged = 0
-SHARED:rider/GtRiderTrails.kt:388:        var addedMi = 0.0; var totalMi = 0.0
-SHARED:rider/GtRiderTrails.kt:390:            onProgress?.invoke(i, ids.size)
-SHARED:rider/GtRiderTrails.kt:391:            val (geom, name) = ids[i]
-SHARED:rider/GtRiderTrails.kt:392:            val pts = parseGeometry(geom)
-SHARED:rider/GtRiderTrails.kt:393:            if (pts.size < 2) continue
-SHARED:rider/GtRiderTrails.kt:394:            val network = candidatesFor(pts, excludeRider = true) + piecesNear(runPieces, pts)
-SHARED:rider/GtRiderTrails.kt:396:            for (t in GtRiderScan.scan(pts, network)) {
-SHARED:rider/GtRiderTrails.kt:397:                val hash = buildGeometry(t.points).hash
-SHARED:rider/GtRiderTrails.kt:398:                if (!produced.add(hash)) continue          // the same piece twice in one run: once is enough
-SHARED:rider/GtRiderTrails.kt:399:                runPieces.add(t.points)
-SHARED:rider/GtRiderTrails.kt:400:                val mi = t.totalM / 1609.34
-SHARED:rider/GtRiderTrails.kt:401:                if (stored.containsKey(hash)) { unchanged++; totalMi += mi; n++ }
-SHARED:rider/GtRiderTrails.kt:402:                else if (writeOne(t)) { added++; addedMi += mi; totalMi += mi; n++ }
-SHARED:rider/GtRiderTrails.kt:404:            if (n > 0) log.i { "${name ?: "(unnamed)"}: $n rider trail(s)" }
-SHARED:rider/GtRiderTrails.kt:407:        var removed = 0
-SHARED:rider/GtRiderTrails.kt:409:        for ((hash, id) in stored) {
-SHARED:rider/GtRiderTrails.kt:410:            if (hash in produced) continue
-SHARED:rider/GtRiderTrails.kt:411:            try { writer.deleteTrailFromDb(id); removed++ } catch (e: Exception) { log.w { "delete $id: ${e.message}" } }
-SHARED:rider/GtRiderTrails.kt:413:        onProgress?.invoke(ids.size, ids.size)
-SHARED:rider/GtRiderTrails.kt:414:        if (added + removed > 0) env.platform.onTrailsChanged()   // the maps reload -- only on a change
-SHARED:rider/GtRiderTrails.kt:416:        log.i { "RIDERIDS scanAll: ${ids.size} track(s) -> ${added + unchanged} rider trail(s): $added added (" + GtFmt.f(addedMi, 2) + " mi), " +
-SHARED:rider/GtRiderTrails.kt:417:            "$unchanged unchanged, $removed removed; total " + GtFmt.f(totalMi, 2) + " mi; $tracksRemoved unnamed track(s) removed" }
-SHARED:rider/GtRiderTrails.kt:418:        return Result(ids.size, added, addedMi, tracksRemoved, added + unchanged, removed, unchanged, totalMi)
-SHARED:rider/GtRiderTrails.kt:420:            writer.endDedupSession()   // STEP15A-2026-11-08
-SHARED:rider/GtRiderTrails.kt:424:    /** RIDERIDS-2026-10-09: this run's pieces whose box touches the track's box (+ the candidate margin). */
-SHARED:rider/GtRiderTrails.kt:425:    private fun piecesNear(pieces: List<List<GtRiderScan.Pt>>, pts: List<GtRiderScan.Pt>): List<List<GtRiderScan.Pt>> {
-SHARED:rider/GtRiderTrails.kt:427:        val la1 = pts.minOf { it.lat } - BBOX_MARGIN_DEG; val la2 = pts.maxOf { it.lat } + BBOX_MARGIN_DEG
-SHARED:rider/GtRiderTrails.kt:428:        val lo1 = pts.minOf { it.lon } - BBOX_MARGIN_DEG; val lo2 = pts.maxOf { it.lon } + BBOX_MARGIN_DEG
-SHARED:rider/GtRiderTrails.kt:429:        return pieces.filter { p ->
+SHARED:rider/GtRiderTrails.kt:128:        /** GTSPANGUARD-2026-11-15 (Fred 11-15): the REALITY CHECK. The widest a real ride can be,
+SHARED:rider/GtRiderTrails.kt:130:         *  longitude is 69 miles at the equator and 53 at Utah's latitude, so a degree limit
+SHARED:rider/GtRiderTrails.kt:131:         *  would mean two different rides depending on where the rider is.
+SHARED:rider/GtRiderTrails.kt:133:         *  300 miles is far beyond any OHV ride and about 100x a normal track. Past it the bbox
+SHARED:rider/GtRiderTrails.kt:134:         *  query stops being a query: it returns the whole trails table and this function's own
+SHARED:rider/GtRiderTrails.kt:135:         *  header calls that "an allocation that does not come back" (Utah alone: 145,942 trails,
+SHARED:rider/GtRiderTrails.kt:136:         *  ~5.6 M segments). A track that wide is a GPS glitch or a malformed file, not a ride. */
+SHARED:rider/GtRiderTrails.kt:137:        private const val MAX_TRACK_SPAN_MILES = 300.0
+SHARED:rider/GtRiderTrails.kt:142:         * Stored geometry -> points. Handles LINESTRING and MULTILINESTRING, the
+SHARED:rider/GtRiderTrails.kt:143:         * latter flattened, which is what the scan wants: one continuous ride.
+SHARED:rider/GtRiderTrails.kt:145:         * RouteManager has an equivalent parser. This one is local because the
+SHARED:rider/GtRiderTrails.kt:146:         * writer must not depend on the route layer, but if that changes they
+SHARED:rider/GtRiderTrails.kt:147:         * should be reconciled rather than left to drift.
+SHARED:rider/GtRiderTrails.kt:148:         * (STEP15C: [wkt] is String? because it comes straight from a geometry column that may be NULL -- 2.7e's signature.
+SHARED:rider/GtRiderTrails.kt:149:         *  ⚠ The flattening joins the LAST point of one part to the FIRST of the next with a segment that is not on the ground --
+SHARED:rider/GtRiderTrails.kt:152:        fun parseGeometry(wkt: String?): List<GtRiderScan.Pt> {
+SHARED:rider/GtRiderTrails.kt:154:            val open = wkt.indexOf('(')
+SHARED:rider/GtRiderTrails.kt:155:            if (open < 0) return emptyList()
+SHARED:rider/GtRiderTrails.kt:156:            val body = wkt.substring(open).replace("(", " ").replace(")", " ")
+SHARED:rider/GtRiderTrails.kt:158:            for (part in body.split(',')) {
+SHARED:rider/GtRiderTrails.kt:159:                val f = part.trim().split(WS)
+SHARED:rider/GtRiderTrails.kt:160:                if (f.size < 2) continue
+SHARED:rider/GtRiderTrails.kt:161:                val lon = GtJavaParse.toDoubleOrNull(f[0]) ?: continue
+SHARED:rider/GtRiderTrails.kt:162:                val lat = GtJavaParse.toDoubleOrNull(f[1]) ?: continue
+SHARED:rider/GtRiderTrails.kt:167:        private val WS = Regex(GtRx.WS + "+")   // STEP15C-FIXWS-2026-11-09: 2.7e's Regex("\\s+") as ANDROID reads it (GtRx.WS); one instance
+SHARED:rider/GtRiderTrails.kt:170:         * Points -> stored geometry, in the app's EXACT format: lon then lat,
+SHARED:rider/GtRiderTrails.kt:171:         * separated by one space, pairs separated by a comma with NO space.
+SHARED:rider/GtRiderTrails.kt:173:         * THE FORMAT IS THE CONTRACT. The identity hash is taken over this string,
+SHARED:rider/GtRiderTrails.kt:174:         * so a stray space produces a different identity for identical ground and
+SHARED:rider/GtRiderTrails.kt:175:         * duplicate detection stops recognising its own rows -- silently. Matched
+SHARED:rider/GtRiderTrails.kt:176:         * to ConvoyTrackOps, which is where the app already builds this.
+SHARED:rider/GtRiderTrails.kt:177:         * (STEP15C/GEOMONE: the format now lives in ONE place, GtGeom; the text and its hash come back together.)
+SHARED:rider/GtRiderTrails.kt:179:        private fun buildGeometry(pts: List<GtRiderScan.Pt>): GtGeom.Geom =
+SHARED:rider/GtRiderTrails.kt:180:            GtGeom.lineLonLat(pts.map { Pair(it.lon, it.lat) })
+SHARED:rider/GtRiderTrails.kt:186:     * Candidate trails near this track. THE WHOLE TABLE MUST NEVER BE READ:
+SHARED:rider/GtRiderTrails.kt:187:     * Utah is 145,942 trails and about 5.6 million segments, which on a 3 GB
+SHARED:rider/GtRiderTrails.kt:188:     * device is not a slow index, it is an allocation that does not come back.
+SHARED:rider/GtRiderTrails.kt:189:     * One track covers a small area, so its bounding box is the query.
+SHARED:rider/GtRiderTrails.kt:193:    private fun candidatesFor(pts: List<GtRiderScan.Pt>, excludeRider: Boolean): List<List<GtRiderScan.Pt>> {
+SHARED:rider/GtRiderTrails.kt:194:        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+SHARED:rider/GtRiderTrails.kt:195:        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+SHARED:rider/GtRiderTrails.kt:197:            if (p.lat < minLat) minLat = p.lat
+SHARED:rider/GtRiderTrails.kt:198:            if (p.lat > maxLat) maxLat = p.lat
+SHARED:rider/GtRiderTrails.kt:199:            if (p.lon < minLon) minLon = p.lon
+SHARED:rider/GtRiderTrails.kt:200:            if (p.lon > maxLon) maxLon = p.lon
+SHARED:rider/GtRiderTrails.kt:207:        val spanMiles =
+SHARED:rider/GtRiderTrails.kt:208:            if (minLat <= maxLat && minLon <= maxLon)
+SHARED:rider/GtRiderTrails.kt:209:                GtRiderScan.haversineM(minLat, minLon, maxLat, maxLon) / 1609.344
+SHARED:rider/GtRiderTrails.kt:211:        if (!spanMiles.isFinite() || spanMiles > MAX_TRACK_SPAN_MILES) {
+SHARED:rider/GtRiderTrails.kt:213:                "track bbox diagonal ${spanMiles} mi (lat ${minLat}..${maxLat}, lon ${minLon}..${maxLon}) " +
+SHARED:rider/GtRiderTrails.kt:214:                "exceeds $MAX_TRACK_SPAN_MILES mi -- not a ride; no trail candidates"
+SHARED:rider/GtRiderTrails.kt:219:            db.trailCandidates(
+SHARED:rider/GtRiderTrails.kt:220:                GtJava.jd(minLat - BBOX_MARGIN_DEG), GtJava.jd(maxLat + BBOX_MARGIN_DEG),
+SHARED:rider/GtRiderTrails.kt:221:                GtJava.jd(minLon - BBOX_MARGIN_DEG), GtJava.jd(maxLon + BBOX_MARGIN_DEG),
+SHARED:rider/GtRiderTrails.kt:222:                excludeRider, CATEGORY
+SHARED:rider/GtRiderTrails.kt:224:                val q = parseGeometry(g)
+SHARED:rider/GtRiderTrails.kt:225:                if (q.size >= 2) out.add(q)
+SHARED:rider/GtRiderTrails.kt:228:            log.e { "candidate query failed: ${e.message}" }
+SHARED:rider/GtRiderTrails.kt:234:     * Scan one track and write whatever new ground it found.
+SHARED:rider/GtRiderTrails.kt:236:     * The caller opens the dedup session. [scanAll] does it once for the whole
+SHARED:rider/GtRiderTrails.kt:237:     * pass rather than per track, which is why it is not done here.
+SHARED:rider/GtRiderTrails.kt:239:     * @return trails written, and their total miles.
+SHARED:rider/GtRiderTrails.kt:242:     * Scan ONE track, by its geometry hash -- the track key.
+SHARED:rider/GtRiderTrails.kt:244:     * For the add-a-track trigger, which has the hash in hand and no geometry
+SHARED:rider/GtRiderTrails.kt:245:     * string. Looks the row up and hands off to [scanTrack] below: one scan
+SHARED:rider/GtRiderTrails.kt:246:     * implementation, two ways in.
+SHARED:rider/GtRiderTrails.kt:249:     * the two. scanAll opens ONE session for its whole pass, so the delegate
+SHARED:rider/GtRiderTrails.kt:250:     * below must not open one -- doing that per track inside the loop would
+SHARED:rider/GtRiderTrails.kt:251:     * reload every hash on every track. But a single track added on its own has
+SHARED:rider/GtRiderTrails.kt:252:     * no session around it, and without one resolveByGeom reads an empty map
+SHARED:rider/GtRiderTrails.kt:253:     * and every derived trail looks new.
+SHARED:rider/GtRiderTrails.kt:254:     *   (STEP15C note: superseded by DUPECHECK-2026-10-20 below -- no session is opened here; resolveByGeom then does one indexed
+SHARED:rider/GtRiderTrails.kt:255:     *   lookup per trail (GtWrite.nameByHash). Kept as 2.7e has it.)
+SHARED:rider/GtRiderTrails.kt:257:     * ⚠ DATABASE WORK, and it runs inline on the caller's thread.
+SHARED:rider/GtRiderTrails.kt:259:     * @return trails written, and their total miles.
+SHARED:rider/GtRiderTrails.kt:261:    fun scanTrackByHash(geomHash: String): Pair<Int, Double> {
+SHARED:rider/GtRiderTrails.kt:262:        var foundName: String? = null
+SHARED:rider/GtRiderTrails.kt:263:        var foundGeom: String? = null
+SHARED:rider/GtRiderTrails.kt:265:            db.trackNameGeometry(geomHash)?.let { (n, g) ->
+SHARED:rider/GtRiderTrails.kt:266:                foundName = n
+SHARED:rider/GtRiderTrails.kt:267:                foundGeom = g
+SHARED:rider/GtRiderTrails.kt:270:            log.e { "track read failed for ${geomHash.take(12)}: ${e.message}" }
+SHARED:rider/GtRiderTrails.kt:273:        val geom = foundGeom
+SHARED:rider/GtRiderTrails.kt:274:        if (geom.isNullOrBlank()) {
+SHARED:rider/GtRiderTrails.kt:276:            log.i { "no geometry for ${geomHash.take(12)} -- nothing to scan" }
+SHARED:rider/GtRiderTrails.kt:281:        val r = scanTrack(foundName, geom)
+SHARED:rider/GtRiderTrails.kt:282:        if (r.first > 0) env.platform.onTrailsChanged()   // RIDERIDS-2026-10-09: the maps reload
+SHARED:rider/GtRiderTrails.kt:286:    /** (STEP15C: [trackName] is String? because tracks.name may be NULL -- logged as "(unnamed)"; [geometry] as [parseGeometry].) */
+SHARED:rider/GtRiderTrails.kt:287:    fun scanTrack(trackName: String?, geometry: String?): Pair<Int, Double> {
+SHARED:rider/GtRiderTrails.kt:288:        val pts = parseGeometry(geometry)
+SHARED:rider/GtRiderTrails.kt:289:        if (pts.size < 2) return Pair(0, 0.0)
+SHARED:rider/GtRiderTrails.kt:290:        val network = candidatesFor(pts, excludeRider = false)
+SHARED:rider/GtRiderTrails.kt:291:        val found = GtRiderScan.scan(pts, network)
+SHARED:rider/GtRiderTrails.kt:292:        if (found.isEmpty()) return Pair(0, 0.0)
+SHARED:rider/GtRiderTrails.kt:295:        var miles = 0.0
+SHARED:rider/GtRiderTrails.kt:296:        for (t in found) {
+SHARED:rider/GtRiderTrails.kt:297:            if (writeOne(t)) { n++; miles += t.totalM / 1609.34 }
+SHARED:rider/GtRiderTrails.kt:300:        if (n > 0) log.i { "${trackName ?: "(unnamed)"}: $n trail(s), " + GtFmt.f(miles, 2) + " mi" }
+SHARED:rider/GtRiderTrails.kt:301:        return Pair(n, miles)
+SHARED:rider/GtRiderTrails.kt:305:     * One rider trail into both stores.
+SHARED:rider/GtRiderTrails.kt:308:     * ("spatial wins only if it has a real value"), so a trail written to one
+SHARED:rider/GtRiderTrails.kt:309:     * and not the other disagrees with itself. TrailImporter writes carto to
+SHARED:rider/GtRiderTrails.kt:310:     * the spatial row on create for the same reason.
+SHARED:rider/GtRiderTrails.kt:312:     * carto_code_source is set as well as carto_code. Step 8 reads the SOURCE
+SHARED:rider/GtRiderTrails.kt:313:     * value in preference, so leaving it empty would send 'rider' through
+SHARED:rider/GtRiderTrails.kt:314:     * categoryOf as a bare carto value; setting both means the row says the
+SHARED:rider/GtRiderTrails.kt:315:     * same thing whichever field is read.
+SHARED:rider/GtRiderTrails.kt:318:     * ownership from the polygon test, use from the category map. Hand-setting
+SHARED:rider/GtRiderTrails.kt:319:     * them here would be a second path that drifts from the classifier.
+SHARED:rider/GtRiderTrails.kt:320:     *   (STEP15C note: superseded by RIDEROUT-2026-10-24 below, which DOES set both. Kept as 2.7e has it.)
+SHARED:rider/GtRiderTrails.kt:322:    private fun writeOne(t: GtRiderScan.RiderTrail): Boolean {
+SHARED:rider/GtRiderTrails.kt:323:        val g = buildGeometry(t.points)
+SHARED:rider/GtRiderTrails.kt:326:        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+SHARED:rider/GtRiderTrails.kt:327:        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+SHARED:rider/GtRiderTrails.kt:328:        for (p in t.points) {
+SHARED:rider/GtRiderTrails.kt:329:            if (p.lat < minLat) minLat = p.lat
+SHARED:rider/GtRiderTrails.kt:330:            if (p.lat > maxLat) maxLat = p.lat
+SHARED:rider/GtRiderTrails.kt:331:            if (p.lon < minLon) minLon = p.lon
+SHARED:rider/GtRiderTrails.kt:332:            if (p.lon > maxLon) maxLon = p.lon
+SHARED:rider/GtRiderTrails.kt:335:        val now = env.clock.nowInstant()
+SHARED:rider/GtRiderTrails.kt:336:        val newId = env.ids.newId()
+SHARED:rider/GtRiderTrails.kt:337:        val hash = g.hash
+SHARED:rider/GtRiderTrails.kt:342:            writer.insertTrail(newId, null, wkt, minLat, maxLat, minLon, maxLon, now)
+SHARED:rider/GtRiderTrails.kt:344:            log.e { "insertTrail failed: ${e.message}" }
+SHARED:rider/GtRiderTrails.kt:347:        val trailId = res.first
+SHARED:rider/GtRiderTrails.kt:348:        if (res.second != GtWrite.Decision.INSERT) return false
+SHARED:rider/GtRiderTrails.kt:353:            db.setTrailClass(trailId, CATEGORY, CATEGORY, env.trailClass.useOf(CATEGORY), "PUBLIC")
+SHARED:rider/GtRiderTrails.kt:354:        } catch (e: Exception) { log.w { "spatial carto write: ${e.message}" } }
+SHARED:rider/GtRiderTrails.kt:360:            db.insertTrailPropsRider(trailId, SOURCE_ID, hash, CATEGORY, "yes", now)
+SHARED:rider/GtRiderTrails.kt:361:        } catch (e: Exception) { log.w { "trail_properties write: ${e.message}" } }
+SHARED:rider/GtRiderTrails.kt:367:     * Every track, in one pass -- RIDERIDS-2026-10-09 (Fred): RECONCILE, NEVER CLEAR. The release g/h clear-and-rebuild gave
+SHARED:rider/GtRiderTrails.kt:368:     * every rider trail a NEW random ID on every run, so anything holding a rider trail's ID (a saved route snapped to it,
+SHARED:rider/GtRiderTrails.kt:369:     * a selection) broke on every run, and "added" meant "re-laid". Now:
+SHARED:rider/GtRiderTrails.kt:370:     *   1. each track is matched against the REAL trails only (rider trails excluded from the candidates), plus the pieces
+SHARED:rider/GtRiderTrails.kt:371:     *      THIS RUN has already produced -- so two recordings of one ride do not both lay it (what the DB did before);
+SHARED:rider/GtRiderTrails.kt:372:     *   2. each piece is compared with the rider trails already stored, BY GEOMETRY HASH:
+SHARED:rider/GtRiderTrails.kt:373:     *        same piece already stored -> UNCHANGED, untouched, same ID, same created_at;
+SHARED:rider/GtRiderTrails.kt:374:     *        new piece                 -> ADDED (today's date -- "added" is a true add for the day);
+SHARED:rider/GtRiderTrails.kt:375:     *   3. stored rider trails this run no longer produces -> REMOVED.
+SHARED:rider/GtRiderTrails.kt:376:     * On an unchanged database a second run reports 0 added, 0 removed. The dedup session is opened ONCE for the pass.
+SHARED:rider/GtRiderTrails.kt:378:     * @param onProgress optional; null where there is no UI to report to (the import stage has a manifest instead).
+SHARED:rider/GtRiderTrails.kt:379:     *   (CODE RULE 1: nullable for 2.7e's reason just given -- a caller with no UI. No default: the front door passes its own.)
+SHARED:rider/GtRiderTrails.kt:381:    fun scanAll(onProgress: ((Int, Int) -> Unit)?): Result {
+SHARED:rider/GtRiderTrails.kt:382:        val tracksRemoved = 0   // RIDEROUT-2026-10-24: the 09-07 "Unnamed n" prototype cleanup is gone (job done; it could delete a real GPX track)
+SHARED:rider/GtRiderTrails.kt:385:        val stored = HashMap<String, String>()
+SHARED:rider/GtRiderTrails.kt:387:            db.riderStored(CATEGORY) { id, gh, geom ->
+SHARED:rider/GtRiderTrails.kt:388:                if (id == null) return@riderStored
+SHARED:rider/GtRiderTrails.kt:390:                        else if (geom != null) GtGeom.hash(geom) else return@riderStored
+SHARED:rider/GtRiderTrails.kt:391:                stored[h] = id
+SHARED:rider/GtRiderTrails.kt:394:            log.e { "RIDERIDS: rider trail read failed: ${e.message}" }
+SHARED:rider/GtRiderTrails.kt:395:            return Result(0, 0, 0.0, tracksRemoved, 0, 0, 0, 0.0)
+SHARED:rider/GtRiderTrails.kt:400:            db.tracksForRider { name, geom ->
+SHARED:rider/GtRiderTrails.kt:401:                if (geom != null) ids.add(Pair(geom, name))
+SHARED:rider/GtRiderTrails.kt:404:            log.e { "track read failed: ${e.message}" }
+SHARED:rider/GtRiderTrails.kt:405:            return Result(0, 0, 0.0, tracksRemoved, 0, 0, 0, 0.0)
+SHARED:rider/GtRiderTrails.kt:408:        writer.beginDedupSession()
+SHARED:rider/GtRiderTrails.kt:409:        try {   // STEP15A-2026-11-08 (owner decision 6): the session is ended on every way out -- 2.7e never ended it, so
+SHARED:rider/GtRiderTrails.kt:411:        val produced = HashSet<String>()
+SHARED:rider/GtRiderTrails.kt:412:        val runPieces = ArrayList<List<GtRiderScan.Pt>>()   // this run's pieces -- network for the tracks after
+SHARED:rider/GtRiderTrails.kt:413:        var added = 0; var unchanged = 0
+SHARED:rider/GtRiderTrails.kt:414:        var addedMi = 0.0; var totalMi = 0.0
+SHARED:rider/GtRiderTrails.kt:416:            onProgress?.invoke(i, ids.size)
+SHARED:rider/GtRiderTrails.kt:417:            val (geom, name) = ids[i]
+SHARED:rider/GtRiderTrails.kt:418:            val pts = parseGeometry(geom)
+SHARED:rider/GtRiderTrails.kt:419:            if (pts.size < 2) continue
+SHARED:rider/GtRiderTrails.kt:420:            val network = candidatesFor(pts, excludeRider = true) + piecesNear(runPieces, pts)
+SHARED:rider/GtRiderTrails.kt:422:            for (t in GtRiderScan.scan(pts, network)) {
+SHARED:rider/GtRiderTrails.kt:423:                val hash = buildGeometry(t.points).hash
+SHARED:rider/GtRiderTrails.kt:424:                if (!produced.add(hash)) continue          // the same piece twice in one run: once is enough
+SHARED:rider/GtRiderTrails.kt:425:                runPieces.add(t.points)
+SHARED:rider/GtRiderTrails.kt:426:                val mi = t.totalM / 1609.34
+SHARED:rider/GtRiderTrails.kt:427:                if (stored.containsKey(hash)) { unchanged++; totalMi += mi; n++ }
+SHARED:rider/GtRiderTrails.kt:428:                else if (writeOne(t)) { added++; addedMi += mi; totalMi += mi; n++ }
+SHARED:rider/GtRiderTrails.kt:430:            if (n > 0) log.i { "${name ?: "(unnamed)"}: $n rider trail(s)" }
+SHARED:rider/GtRiderTrails.kt:433:        var removed = 0
+SHARED:rider/GtRiderTrails.kt:435:        for ((hash, id) in stored) {
+SHARED:rider/GtRiderTrails.kt:436:            if (hash in produced) continue
+SHARED:rider/GtRiderTrails.kt:437:            try { writer.deleteTrailFromDb(id); removed++ } catch (e: Exception) { log.w { "delete $id: ${e.message}" } }
+SHARED:rider/GtRiderTrails.kt:439:        onProgress?.invoke(ids.size, ids.size)
+SHARED:rider/GtRiderTrails.kt:440:        if (added + removed > 0) env.platform.onTrailsChanged()   // the maps reload -- only on a change
+SHARED:rider/GtRiderTrails.kt:442:        log.i { "RIDERIDS scanAll: ${ids.size} track(s) -> ${added + unchanged} rider trail(s): $added added (" + GtFmt.f(addedMi, 2) + " mi), " +
+SHARED:rider/GtRiderTrails.kt:443:            "$unchanged unchanged, $removed removed; total " + GtFmt.f(totalMi, 2) + " mi; $tracksRemoved unnamed track(s) removed" }
+SHARED:rider/GtRiderTrails.kt:444:        return Result(ids.size, added, addedMi, tracksRemoved, added + unchanged, removed, unchanged, totalMi)
+SHARED:rider/GtRiderTrails.kt:446:            writer.endDedupSession()   // STEP15A-2026-11-08
+SHARED:rider/GtRiderTrails.kt:450:    /** RIDERIDS-2026-10-09: this run's pieces whose box touches the track's box (+ the candidate margin). */
+SHARED:rider/GtRiderTrails.kt:451:    private fun piecesNear(pieces: List<List<GtRiderScan.Pt>>, pts: List<GtRiderScan.Pt>): List<List<GtRiderScan.Pt>> {
+SHARED:rider/GtRiderTrails.kt:453:        val la1 = pts.minOf { it.lat } - BBOX_MARGIN_DEG; val la2 = pts.maxOf { it.lat } + BBOX_MARGIN_DEG
+SHARED:rider/GtRiderTrails.kt:454:        val lo1 = pts.minOf { it.lon } - BBOX_MARGIN_DEG; val lo2 = pts.maxOf { it.lon } + BBOX_MARGIN_DEG
+SHARED:rider/GtRiderTrails.kt:455:        return pieces.filter { p ->
 SHARED:rider/GtRiderScan.kt:1:package com.grouptrack.shared.rider
 SHARED:rider/GtRiderScan.kt:3:import com.grouptrack.shared.text.GtJava
 SHARED:rider/GtRiderScan.kt:4:import com.grouptrack.shared.text.GtMath.asin   // GTMATH-2026-11-10: Android's math on every platform
@@ -51972,134 +51992,146 @@ SHARED:rider/GtRiderScan.kt:112:    const val MIN_RUN_M = 150.0
 SHARED:rider/GtRiderScan.kt:114:    const val MAX_CONN_M = 60.0
 SHARED:rider/GtRiderScan.kt:115:    /** RIDERLINE-2026-10-09: the track is filled in to this spacing before matching (onX records 30-700 m apart). */
 SHARED:rider/GtRiderScan.kt:116:    const val DENSE_M = 10.0
-SHARED:rider/GtRiderScan.kt:119:     * A ~200 m grid over the candidate segments. Comparing every track point
-SHARED:rider/GtRiderScan.kt:120:     * against an unindexed network is the difference between seconds and hours.
-SHARED:rider/GtRiderScan.kt:123:     * DATABASE. The Python indexed every trail because it ran on a laptop. Utah
-SHARED:rider/GtRiderScan.kt:124:     * is 145,942 trails and about 5.6 million segments -- held as boxed doubles
-SHARED:rider/GtRiderScan.kt:126:     * track's own bounding box and this stays small.
-SHARED:rider/GtRiderScan.kt:128:    private const val CELL = 0.002
-SHARED:rider/GtRiderScan.kt:130:    /** lon, lat -- the order the stored geometry uses, kept so the port cannot
-SHARED:rider/GtRiderScan.kt:132:    data class Pt(val lon: Double, val lat: Double)
-SHARED:rider/GtRiderScan.kt:135:     * One rider trail. [points] already includes its anchors, so it is ready to
-SHARED:rider/GtRiderScan.kt:136:     * become a single geometry.
-SHARED:rider/GtRiderScan.kt:138:     * [riddenM] is the ground actually ridden -- the run without its anchors --
-SHARED:rider/GtRiderScan.kt:139:     * and is what [MIN_RUN_M] was tested against. [totalM] includes the
-SHARED:rider/GtRiderScan.kt:140:     * connectors. Reporting the first is honest; the second is what the trail
-SHARED:rider/GtRiderScan.kt:142:     * (STEP15C: 2.7e's `val joinedBothEnds get() = joinedHead && joinedTail` is not ported -- never read.)
-SHARED:rider/GtRiderScan.kt:144:    data class RiderTrail(
-SHARED:rider/GtRiderScan.kt:145:        val points: List<Pt>,
-SHARED:rider/GtRiderScan.kt:146:        val riddenM: Double,
-SHARED:rider/GtRiderScan.kt:147:        val totalM: Double,
-SHARED:rider/GtRiderScan.kt:148:        val joinedHead: Boolean,
-SHARED:rider/GtRiderScan.kt:149:        val joinedTail: Boolean
-SHARED:rider/GtRiderScan.kt:152:    private class Seg(
-SHARED:rider/GtRiderScan.kt:155:        /** RIDERRULES-2026-10-09: which candidate trail this segment belongs to (the tiny-connector rule). */
-SHARED:rider/GtRiderScan.kt:156:        val line: Int
-SHARED:rider/GtRiderScan.kt:161:    /** Metres between two lat/lon points. */
-SHARED:rider/GtRiderScan.kt:162:    fun haversineM(la1: Double, lo1: Double, la2: Double, lo2: Double): Double {
-SHARED:rider/GtRiderScan.kt:164:        val p1 = GtJava.toRadians(la1)
-SHARED:rider/GtRiderScan.kt:165:        val p2 = GtJava.toRadians(la2)
-SHARED:rider/GtRiderScan.kt:166:        val dp = GtJava.toRadians(la2 - la1)
-SHARED:rider/GtRiderScan.kt:167:        val dl = GtJava.toRadians(lo2 - lo1)
-SHARED:rider/GtRiderScan.kt:170:        return 2.0 * r * asin(sqrt(x))
-SHARED:rider/GtRiderScan.kt:178:     * @param track   the recorded track's points, in order.
-SHARED:rider/GtRiderScan.kt:179:     * @param network candidate trails near this track, each a list of points.
-SHARED:rider/GtRiderScan.kt:180:     *                Pass only what the track's bounding box selects -- see
-SHARED:rider/GtRiderScan.kt:181:     *                [CELL].
-SHARED:rider/GtRiderScan.kt:183:    fun scan(track: List<Pt>, network: List<List<Pt>>): List<RiderTrail> {
-SHARED:rider/GtRiderScan.kt:184:        if (track.size < 2) return emptyList()
-SHARED:rider/GtRiderScan.kt:193:        val grid = HashMap<Long, MutableList<Seg>>()
-SHARED:rider/GtRiderScan.kt:194:        for ((li, line) in network.withIndex()) {
-SHARED:rider/GtRiderScan.kt:195:            for (k in 0 until line.size - 1) {
-SHARED:rider/GtRiderScan.kt:196:                val a = line[k]
-SHARED:rider/GtRiderScan.kt:197:                val b = line[k + 1]
-SHARED:rider/GtRiderScan.kt:200:                val r1 = (min(a.lat, b.lat) / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:201:                val r2 = (max(a.lat, b.lat) / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:202:                val c1 = (min(a.lon, b.lon) / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:203:                val c2 = (max(a.lon, b.lon) / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:204:                for (r in r1..r2) for (c in c1..c2) grid.getOrPut(key(r, c)) { ArrayList() }.add(seg)
-SHARED:rider/GtRiderScan.kt:211:        val dense = ArrayList<Pt>(track.size * 4)
-SHARED:rider/GtRiderScan.kt:212:        val orig = ArrayList<Boolean>(track.size * 4)
-SHARED:rider/GtRiderScan.kt:213:        dense.add(track[0]); orig.add(true)
-SHARED:rider/GtRiderScan.kt:214:        for (k in 0 until track.size - 1) {
-SHARED:rider/GtRiderScan.kt:217:            val d = haversineM(a.lat, a.lon, b.lat, b.lon)
-SHARED:rider/GtRiderScan.kt:218:            val steps = (d / DENSE_M).toInt()
-SHARED:rider/GtRiderScan.kt:219:            for (t in 1..steps) {
-SHARED:rider/GtRiderScan.kt:220:                val f = t * DENSE_M / d
-SHARED:rider/GtRiderScan.kt:221:                if (f < 1.0) { dense.add(Pt(a.lon + (b.lon - a.lon) * f, a.lat + (b.lat - a.lat) * f)); orig.add(false) }
-SHARED:rider/GtRiderScan.kt:223:            dense.add(b); orig.add(true)
-SHARED:rider/GtRiderScan.kt:225:        val n = dense.size
-SHARED:rider/GtRiderScan.kt:227:        for (k in 1 until n) cum[k] = cum[k - 1] + haversineM(dense[k - 1].lat, dense[k - 1].lon, dense[k].lat, dense[k].lon)
-SHARED:rider/GtRiderScan.kt:231:        val anchor = arrayOfNulls<Pt>(n)
-SHARED:rider/GtRiderScan.kt:232:        val anchorLine = IntArray(n) { -1 }
-SHARED:rider/GtRiderScan.kt:233:        for (i in 0 until n) anchor[i] = anchorAt(grid, dense[i].lon, dense[i].lat, anchorLine, i)
-SHARED:rider/GtRiderScan.kt:238:            if (anchor[i] != null) { i++; continue }
-SHARED:rider/GtRiderScan.kt:239:            val start = i
-SHARED:rider/GtRiderScan.kt:244:            while (j < n && anchor[j] == null) j++
-SHARED:rider/GtRiderScan.kt:247:            if (end - start >= 2) {
-SHARED:rider/GtRiderScan.kt:248:                val riddenM = cum[end - 1] - cum[start]
-SHARED:rider/GtRiderScan.kt:249:                val hj = start > 0 && haversineM(anchor[start - 1]!!.lat, anchor[start - 1]!!.lon, dense[start].lat, dense[start].lon) <= MAX_CONN_M
-SHARED:rider/GtRiderScan.kt:250:                val tj = end < n && haversineM(dense[end - 1].lat, dense[end - 1].lon, anchor[end]!!.lat, anchor[end]!!.lon) <= MAX_CONN_M
-SHARED:rider/GtRiderScan.kt:253:                val keep = if (hj && tj) {
-SHARED:rider/GtRiderScan.kt:254:                    riddenM >= TINY_M || (anchorLine[start - 1] != anchorLine[end] &&
-SHARED:rider/GtRiderScan.kt:255:                        !linesMeetNear(grid, anchorLine[start - 1], anchorLine[end], dense[start].lon, dense[start].lat))
-SHARED:rider/GtRiderScan.kt:256:                } else riddenM >= MIN_RUN_M
-SHARED:rider/GtRiderScan.kt:257:                if (keep) {
-SHARED:rider/GtRiderScan.kt:258:                    val head = if (start > 0) anchor[start - 1] else null
-SHARED:rider/GtRiderScan.kt:259:                    val tail = if (end < n) anchor[end] else null
-SHARED:rider/GtRiderScan.kt:263:                    run.add(dense[start])
-SHARED:rider/GtRiderScan.kt:264:                    for (q in start + 1 until end - 1) if (orig[q]) run.add(dense[q])
-SHARED:rider/GtRiderScan.kt:265:                    run.add(dense[end - 1])
-SHARED:rider/GtRiderScan.kt:267:                    val pts = ArrayList<Pt>(run.size + 2)
-SHARED:rider/GtRiderScan.kt:268:                    var joinedHead = false
-SHARED:rider/GtRiderScan.kt:269:                    if (head != null) {
-SHARED:rider/GtRiderScan.kt:270:                        val d = haversineM(head.lat, head.lon, run[0].lat, run[0].lon)
-SHARED:rider/GtRiderScan.kt:271:                        if (d <= MAX_CONN_M) {
-SHARED:rider/GtRiderScan.kt:272:                            joinedHead = true
-SHARED:rider/GtRiderScan.kt:274:                            if (d > 0.5) pts.add(head)
-SHARED:rider/GtRiderScan.kt:278:                    var joinedTail = false
-SHARED:rider/GtRiderScan.kt:279:                    if (tail != null) {
-SHARED:rider/GtRiderScan.kt:280:                        val last = run[run.size - 1]
-SHARED:rider/GtRiderScan.kt:281:                        val d = haversineM(last.lat, last.lon, tail.lat, tail.lon)
-SHARED:rider/GtRiderScan.kt:282:                        if (d <= MAX_CONN_M) {
-SHARED:rider/GtRiderScan.kt:283:                            joinedTail = true
-SHARED:rider/GtRiderScan.kt:284:                            if (d > 0.5) pts.add(tail)
-SHARED:rider/GtRiderScan.kt:288:                    var totalM = 0.0
-SHARED:rider/GtRiderScan.kt:289:                    for (t in 0 until pts.size - 1) {
-SHARED:rider/GtRiderScan.kt:290:                        totalM += haversineM(pts[t].lat, pts[t].lon, pts[t + 1].lat, pts[t + 1].lon)
-SHARED:rider/GtRiderScan.kt:292:                    out.add(RiderTrail(pts, riddenM, totalM, joinedHead, joinedTail))
-SHARED:rider/GtRiderScan.kt:300:    /** The grid key for cell (row, column) -- the same formula as [cellKey]. (STEP15C: cellKey itself was dead in 2.7e; not ported.) */
-SHARED:rider/GtRiderScan.kt:301:    private fun key(r: Int, c: Int): Long = (r.toLong() shl 32) xor (c.toLong() and 0xFFFFFFFFL)
-SHARED:rider/GtRiderScan.kt:304:     * RIDERLINE-2026-10-09: the nearest point ON a trail's LINE within [NEAR_M] whose segment runs the same way, or
-SHARED:rider/GtRiderScan.kt:305:     * null if this point is off the network. Was: the nearest NODE -- a point riding the middle of a long segment
-SHARED:rider/GtRiderScan.kt:306:     * read as off-network, and the anchor (the join) landed on a corner, not where the track meets the trail.
-SHARED:rider/GtRiderScan.kt:307:     * Local flat-earth metres around the point -- exact enough at 20 m.
-SHARED:rider/GtRiderScan.kt:308:     * (STEP15C: in 2.7e this comment sits above linesMeetNear, but it describes [anchorAt] -- kept here, where 2.7e has it.)
-SHARED:rider/GtRiderScan.kt:310:    /** RIDERRULES-2026-10-09: do trails [a] and [b] already meet (come within [NEAR_M]) in the cells around this point? */
-SHARED:rider/GtRiderScan.kt:311:    private fun linesMeetNear(grid: Map<Long, MutableList<Seg>>, a: Int, b: Int, lon: Double, lat: Double): Boolean {
-SHARED:rider/GtRiderScan.kt:312:        val r = (lat / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:313:        val c = (lon / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:314:        val kx = 111320.0 * cos(GtJava.toRadians(lat))
-SHARED:rider/GtRiderScan.kt:318:        for (dr in -1..1) for (dc in -1..1) for (s in grid[key(r + dr, c + dc)] ?: continue) {
-SHARED:rider/GtRiderScan.kt:319:            if (s.line == a) sa.add(s) else if (s.line == b) sb.add(s)
-SHARED:rider/GtRiderScan.kt:328:            return hypot(ax + t * dx, ay + t * dy)
-SHARED:rider/GtRiderScan.kt:331:            if (d(x.lo1, x.la1, y) <= NEAR_M || d(x.lo2, x.la2, y) <= NEAR_M ||
-SHARED:rider/GtRiderScan.kt:332:                d(y.lo1, y.la1, x) <= NEAR_M || d(y.lo2, y.la2, x) <= NEAR_M) return true
-SHARED:rider/GtRiderScan.kt:337:    private fun anchorAt(
-SHARED:rider/GtRiderScan.kt:338:        grid: Map<Long, MutableList<Seg>>,
-SHARED:rider/GtRiderScan.kt:342:        val r = (lat / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:343:        val c = (lon / CELL).toInt()
-SHARED:rider/GtRiderScan.kt:344:        val kx = 111320.0 * cos(GtJava.toRadians(lat))
-SHARED:rider/GtRiderScan.kt:346:        var best: Pt? = null
-SHARED:rider/GtRiderScan.kt:347:        var bestD = NEAR_M
-SHARED:rider/GtRiderScan.kt:350:                val bucket = grid[key(r + dr, c + dc)] ?: continue
-SHARED:rider/GtRiderScan.kt:351:                for (s in bucket) {
-SHARED:rider/GtRiderScan.kt:358:                    val d = hypot(ax + t * dx, ay + t * dy)
-SHARED:rider/GtRiderScan.kt:359:                    if (d < bestD) {
-SHARED:rider/GtRiderScan.kt:360:                        bestD = d
-SHARED:rider/GtRiderScan.kt:361:                        best = Pt(s.lo1 + (s.lo2 - s.lo1) * t, s.la1 + (s.la2 - s.la1) * t)
-SHARED:rider/GtRiderScan.kt:362:                        outLine[idx] = s.line
-SHARED:rider/GtRiderScan.kt:367:        return best
+SHARED:rider/GtRiderScan.kt:118:    /** GTSCANBOUND-2026-11-15: the longest segment worth FILLING IN. Densification exists for
+SHARED:rider/GtRiderScan.kt:119:     *  recording gaps (30-700 m per the note at the polyline step), so 5 km is 7x the largest
+SHARED:rider/GtRiderScan.kt:120:     *  real gap and 500 steps. Beyond it a segment is a JUMP, not a gap: no trail follows it,
+SHARED:rider/GtRiderScan.kt:121:     *  every inserted point is off-network by construction, and the cost is unbounded --
+SHARED:rider/GtRiderScan.kt:122:     *  Utah to the Gulf of Guinea asks for 1.1 million points, Infinity for 2.1 billion. */
+SHARED:rider/GtRiderScan.kt:123:    const val MAX_FILL_M = 5_000.0
+SHARED:rider/GtRiderScan.kt:125:    /** GTSCANBOUND-2026-11-15: the most grid cells ONE network segment may claim. At
+SHARED:rider/GtRiderScan.kt:126:     *  CELL = 0.002 (~200 m) a 1 km trail segment claims about 24; the whole globe is
+SHARED:rider/GtRiderScan.kt:127:     *  90,000 x 180,000. A segment past this is a malformed row, not a trail. */
+SHARED:rider/GtRiderScan.kt:128:    const val MAX_CELLS_PER_SEG = 10_000L
+SHARED:rider/GtRiderScan.kt:131:     * A ~200 m grid over the candidate segments. Comparing every track point
+SHARED:rider/GtRiderScan.kt:132:     * against an unindexed network is the difference between seconds and hours.
+SHARED:rider/GtRiderScan.kt:135:     * DATABASE. The Python indexed every trail because it ran on a laptop. Utah
+SHARED:rider/GtRiderScan.kt:136:     * is 145,942 trails and about 5.6 million segments -- held as boxed doubles
+SHARED:rider/GtRiderScan.kt:138:     * track's own bounding box and this stays small.
+SHARED:rider/GtRiderScan.kt:140:    private const val CELL = 0.002
+SHARED:rider/GtRiderScan.kt:142:    /** lon, lat -- the order the stored geometry uses, kept so the port cannot
+SHARED:rider/GtRiderScan.kt:144:    data class Pt(val lon: Double, val lat: Double)
+SHARED:rider/GtRiderScan.kt:147:     * One rider trail. [points] already includes its anchors, so it is ready to
+SHARED:rider/GtRiderScan.kt:148:     * become a single geometry.
+SHARED:rider/GtRiderScan.kt:150:     * [riddenM] is the ground actually ridden -- the run without its anchors --
+SHARED:rider/GtRiderScan.kt:151:     * and is what [MIN_RUN_M] was tested against. [totalM] includes the
+SHARED:rider/GtRiderScan.kt:152:     * connectors. Reporting the first is honest; the second is what the trail
+SHARED:rider/GtRiderScan.kt:154:     * (STEP15C: 2.7e's `val joinedBothEnds get() = joinedHead && joinedTail` is not ported -- never read.)
+SHARED:rider/GtRiderScan.kt:156:    data class RiderTrail(
+SHARED:rider/GtRiderScan.kt:157:        val points: List<Pt>,
+SHARED:rider/GtRiderScan.kt:158:        val riddenM: Double,
+SHARED:rider/GtRiderScan.kt:159:        val totalM: Double,
+SHARED:rider/GtRiderScan.kt:160:        val joinedHead: Boolean,
+SHARED:rider/GtRiderScan.kt:161:        val joinedTail: Boolean
+SHARED:rider/GtRiderScan.kt:164:    private class Seg(
+SHARED:rider/GtRiderScan.kt:167:        /** RIDERRULES-2026-10-09: which candidate trail this segment belongs to (the tiny-connector rule). */
+SHARED:rider/GtRiderScan.kt:168:        val line: Int
+SHARED:rider/GtRiderScan.kt:173:    /** Metres between two lat/lon points. */
+SHARED:rider/GtRiderScan.kt:174:    fun haversineM(la1: Double, lo1: Double, la2: Double, lo2: Double): Double {
+SHARED:rider/GtRiderScan.kt:176:        val p1 = GtJava.toRadians(la1)
+SHARED:rider/GtRiderScan.kt:177:        val p2 = GtJava.toRadians(la2)
+SHARED:rider/GtRiderScan.kt:178:        val dp = GtJava.toRadians(la2 - la1)
+SHARED:rider/GtRiderScan.kt:179:        val dl = GtJava.toRadians(lo2 - lo1)
+SHARED:rider/GtRiderScan.kt:182:        return 2.0 * r * asin(sqrt(x))
+SHARED:rider/GtRiderScan.kt:190:     * @param track   the recorded track's points, in order.
+SHARED:rider/GtRiderScan.kt:191:     * @param network candidate trails near this track, each a list of points.
+SHARED:rider/GtRiderScan.kt:192:     *                Pass only what the track's bounding box selects -- see
+SHARED:rider/GtRiderScan.kt:193:     *                [CELL].
+SHARED:rider/GtRiderScan.kt:195:    fun scan(track: List<Pt>, network: List<List<Pt>>): List<RiderTrail> {
+SHARED:rider/GtRiderScan.kt:196:        if (track.size < 2) return emptyList()
+SHARED:rider/GtRiderScan.kt:205:        val grid = HashMap<Long, MutableList<Seg>>()
+SHARED:rider/GtRiderScan.kt:206:        for ((li, line) in network.withIndex()) {
+SHARED:rider/GtRiderScan.kt:207:            for (k in 0 until line.size - 1) {
+SHARED:rider/GtRiderScan.kt:208:                val a = line[k]
+SHARED:rider/GtRiderScan.kt:209:                val b = line[k + 1]
+SHARED:rider/GtRiderScan.kt:212:                val r1 = (min(a.lat, b.lat) / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:213:                val r2 = (max(a.lat, b.lat) / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:214:                val c1 = (min(a.lon, b.lon) / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:215:                val c2 = (max(a.lon, b.lon) / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:218:                val cells = (r2.toLong() - r1 + 1L) * (c2.toLong() - c1 + 1L)
+SHARED:rider/GtRiderScan.kt:219:                if (cells > MAX_CELLS_PER_SEG) continue
+SHARED:rider/GtRiderScan.kt:220:                for (r in r1..r2) for (c in c1..c2) grid.getOrPut(key(r, c)) { ArrayList() }.add(seg)
+SHARED:rider/GtRiderScan.kt:227:        val dense = ArrayList<Pt>(track.size * 4)
+SHARED:rider/GtRiderScan.kt:228:        val orig = ArrayList<Boolean>(track.size * 4)
+SHARED:rider/GtRiderScan.kt:229:        dense.add(track[0]); orig.add(true)
+SHARED:rider/GtRiderScan.kt:230:        for (k in 0 until track.size - 1) {
+SHARED:rider/GtRiderScan.kt:233:            val d = haversineM(a.lat, a.lon, b.lat, b.lon)
+SHARED:rider/GtRiderScan.kt:236:                val steps = if (d.isFinite() && d <= MAX_FILL_M) (d / DENSE_M).toInt() else 0
+SHARED:rider/GtRiderScan.kt:237:            for (t in 1..steps) {
+SHARED:rider/GtRiderScan.kt:238:                val f = t * DENSE_M / d
+SHARED:rider/GtRiderScan.kt:239:                if (f < 1.0) { dense.add(Pt(a.lon + (b.lon - a.lon) * f, a.lat + (b.lat - a.lat) * f)); orig.add(false) }
+SHARED:rider/GtRiderScan.kt:241:            dense.add(b); orig.add(true)
+SHARED:rider/GtRiderScan.kt:243:        val n = dense.size
+SHARED:rider/GtRiderScan.kt:245:        for (k in 1 until n) cum[k] = cum[k - 1] + haversineM(dense[k - 1].lat, dense[k - 1].lon, dense[k].lat, dense[k].lon)
+SHARED:rider/GtRiderScan.kt:249:        val anchor = arrayOfNulls<Pt>(n)
+SHARED:rider/GtRiderScan.kt:250:        val anchorLine = IntArray(n) { -1 }
+SHARED:rider/GtRiderScan.kt:251:        for (i in 0 until n) anchor[i] = anchorAt(grid, dense[i].lon, dense[i].lat, anchorLine, i)
+SHARED:rider/GtRiderScan.kt:256:            if (anchor[i] != null) { i++; continue }
+SHARED:rider/GtRiderScan.kt:257:            val start = i
+SHARED:rider/GtRiderScan.kt:262:            while (j < n && anchor[j] == null) j++
+SHARED:rider/GtRiderScan.kt:265:            if (end - start >= 2) {
+SHARED:rider/GtRiderScan.kt:266:                val riddenM = cum[end - 1] - cum[start]
+SHARED:rider/GtRiderScan.kt:267:                val hj = start > 0 && haversineM(anchor[start - 1]!!.lat, anchor[start - 1]!!.lon, dense[start].lat, dense[start].lon) <= MAX_CONN_M
+SHARED:rider/GtRiderScan.kt:268:                val tj = end < n && haversineM(dense[end - 1].lat, dense[end - 1].lon, anchor[end]!!.lat, anchor[end]!!.lon) <= MAX_CONN_M
+SHARED:rider/GtRiderScan.kt:271:                val keep = if (hj && tj) {
+SHARED:rider/GtRiderScan.kt:272:                    riddenM >= TINY_M || (anchorLine[start - 1] != anchorLine[end] &&
+SHARED:rider/GtRiderScan.kt:273:                        !linesMeetNear(grid, anchorLine[start - 1], anchorLine[end], dense[start].lon, dense[start].lat))
+SHARED:rider/GtRiderScan.kt:274:                } else riddenM >= MIN_RUN_M
+SHARED:rider/GtRiderScan.kt:275:                if (keep) {
+SHARED:rider/GtRiderScan.kt:276:                    val head = if (start > 0) anchor[start - 1] else null
+SHARED:rider/GtRiderScan.kt:277:                    val tail = if (end < n) anchor[end] else null
+SHARED:rider/GtRiderScan.kt:281:                    run.add(dense[start])
+SHARED:rider/GtRiderScan.kt:282:                    for (q in start + 1 until end - 1) if (orig[q]) run.add(dense[q])
+SHARED:rider/GtRiderScan.kt:283:                    run.add(dense[end - 1])
+SHARED:rider/GtRiderScan.kt:285:                    val pts = ArrayList<Pt>(run.size + 2)
+SHARED:rider/GtRiderScan.kt:286:                    var joinedHead = false
+SHARED:rider/GtRiderScan.kt:287:                    if (head != null) {
+SHARED:rider/GtRiderScan.kt:288:                        val d = haversineM(head.lat, head.lon, run[0].lat, run[0].lon)
+SHARED:rider/GtRiderScan.kt:289:                        if (d <= MAX_CONN_M) {
+SHARED:rider/GtRiderScan.kt:290:                            joinedHead = true
+SHARED:rider/GtRiderScan.kt:292:                            if (d > 0.5) pts.add(head)
+SHARED:rider/GtRiderScan.kt:296:                    var joinedTail = false
+SHARED:rider/GtRiderScan.kt:297:                    if (tail != null) {
+SHARED:rider/GtRiderScan.kt:298:                        val last = run[run.size - 1]
+SHARED:rider/GtRiderScan.kt:299:                        val d = haversineM(last.lat, last.lon, tail.lat, tail.lon)
+SHARED:rider/GtRiderScan.kt:300:                        if (d <= MAX_CONN_M) {
+SHARED:rider/GtRiderScan.kt:301:                            joinedTail = true
+SHARED:rider/GtRiderScan.kt:302:                            if (d > 0.5) pts.add(tail)
+SHARED:rider/GtRiderScan.kt:306:                    var totalM = 0.0
+SHARED:rider/GtRiderScan.kt:307:                    for (t in 0 until pts.size - 1) {
+SHARED:rider/GtRiderScan.kt:308:                        totalM += haversineM(pts[t].lat, pts[t].lon, pts[t + 1].lat, pts[t + 1].lon)
+SHARED:rider/GtRiderScan.kt:310:                    out.add(RiderTrail(pts, riddenM, totalM, joinedHead, joinedTail))
+SHARED:rider/GtRiderScan.kt:318:    /** The grid key for cell (row, column) -- the same formula as [cellKey]. (STEP15C: cellKey itself was dead in 2.7e; not ported.) */
+SHARED:rider/GtRiderScan.kt:319:    private fun key(r: Int, c: Int): Long = (r.toLong() shl 32) xor (c.toLong() and 0xFFFFFFFFL)
+SHARED:rider/GtRiderScan.kt:322:     * RIDERLINE-2026-10-09: the nearest point ON a trail's LINE within [NEAR_M] whose segment runs the same way, or
+SHARED:rider/GtRiderScan.kt:323:     * null if this point is off the network. Was: the nearest NODE -- a point riding the middle of a long segment
+SHARED:rider/GtRiderScan.kt:324:     * read as off-network, and the anchor (the join) landed on a corner, not where the track meets the trail.
+SHARED:rider/GtRiderScan.kt:325:     * Local flat-earth metres around the point -- exact enough at 20 m.
+SHARED:rider/GtRiderScan.kt:326:     * (STEP15C: in 2.7e this comment sits above linesMeetNear, but it describes [anchorAt] -- kept here, where 2.7e has it.)
+SHARED:rider/GtRiderScan.kt:328:    /** RIDERRULES-2026-10-09: do trails [a] and [b] already meet (come within [NEAR_M]) in the cells around this point? */
+SHARED:rider/GtRiderScan.kt:329:    private fun linesMeetNear(grid: Map<Long, MutableList<Seg>>, a: Int, b: Int, lon: Double, lat: Double): Boolean {
+SHARED:rider/GtRiderScan.kt:330:        val r = (lat / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:331:        val c = (lon / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:332:        val kx = 111320.0 * cos(GtJava.toRadians(lat))
+SHARED:rider/GtRiderScan.kt:336:        for (dr in -1..1) for (dc in -1..1) for (s in grid[key(r + dr, c + dc)] ?: continue) {
+SHARED:rider/GtRiderScan.kt:337:            if (s.line == a) sa.add(s) else if (s.line == b) sb.add(s)
+SHARED:rider/GtRiderScan.kt:346:            return hypot(ax + t * dx, ay + t * dy)
+SHARED:rider/GtRiderScan.kt:349:            if (d(x.lo1, x.la1, y) <= NEAR_M || d(x.lo2, x.la2, y) <= NEAR_M ||
+SHARED:rider/GtRiderScan.kt:350:                d(y.lo1, y.la1, x) <= NEAR_M || d(y.lo2, y.la2, x) <= NEAR_M) return true
+SHARED:rider/GtRiderScan.kt:355:    private fun anchorAt(
+SHARED:rider/GtRiderScan.kt:356:        grid: Map<Long, MutableList<Seg>>,
+SHARED:rider/GtRiderScan.kt:360:        val r = (lat / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:361:        val c = (lon / CELL).toInt()
+SHARED:rider/GtRiderScan.kt:362:        val kx = 111320.0 * cos(GtJava.toRadians(lat))
+SHARED:rider/GtRiderScan.kt:364:        var best: Pt? = null
+SHARED:rider/GtRiderScan.kt:365:        var bestD = NEAR_M
+SHARED:rider/GtRiderScan.kt:368:                val bucket = grid[key(r + dr, c + dc)] ?: continue
+SHARED:rider/GtRiderScan.kt:369:                for (s in bucket) {
+SHARED:rider/GtRiderScan.kt:376:                    val d = hypot(ax + t * dx, ay + t * dy)
+SHARED:rider/GtRiderScan.kt:377:                    if (d < bestD) {
+SHARED:rider/GtRiderScan.kt:378:                        bestD = d
+SHARED:rider/GtRiderScan.kt:379:                        best = Pt(s.lo1 + (s.lo2 - s.lo1) * t, s.la1 + (s.la2 - s.la1) * t)
+SHARED:rider/GtRiderScan.kt:380:                        outLine[idx] = s.line
+SHARED:rider/GtRiderScan.kt:385:        return best
 SHARED:osm/GtOsmProgress.kt:1:package com.grouptrack.shared.osm
 SHARED:osm/GtOsmProgress.kt:3:import com.grouptrack.shared.json.GtOrgJson
 SHARED:osm/GtOsmProgress.kt:4:import kotlinx.serialization.json.JsonArray
@@ -55261,8 +55293,8 @@ SHARED:imports/GtImportConverter.kt:81:    private val GPX_PT = Regex("""<(?:trk
 SHARED:imports/GtImportConverter.kt:82:    private val LAT_RX = Regex("""\blat\s*=\s*["']([-0-9.eE+]+)["']""")
 SHARED:imports/GtImportConverter.kt:83:    private val LON_RX = Regex("""\blon\s*=\s*["']([-0-9.eE+]+)["']""")
 SHARED:imports/GtImportConverter.kt:84:    private fun gpxPts(block: String): List<Pair<Double, Double>> = GtRx.findAll(GPX_PT, block).mapNotNull { m ->
-SHARED:imports/GtImportConverter.kt:85:        val lat = LAT_RX.find(m.groupValues[1])?.groupValues?.get(1)?.let { GtJavaParse.toDoubleOrNull(it) }
-SHARED:imports/GtImportConverter.kt:86:        val lon = LON_RX.find(m.groupValues[1])?.groupValues?.get(1)?.let { GtJavaParse.toDoubleOrNull(it) }
+SHARED:imports/GtImportConverter.kt:85:        val lat = LAT_RX.find(m.groupValues[1])?.groupValues?.get(1)?.let { GtJavaParse.latOrNull(it) }
+SHARED:imports/GtImportConverter.kt:86:        val lon = LON_RX.find(m.groupValues[1])?.groupValues?.get(1)?.let { GtJavaParse.lonOrNull(it) }
 SHARED:imports/GtImportConverter.kt:90:    private fun gpxLine(b: String, segs: List<List<Pair<Double, Double>>>, c: Collector) {
 SHARED:imports/GtImportConverter.kt:91:        val own = Regex("""<name>\s*(?:<!\[CDATA\[)?([\s\S]*?)(?:]]>)?\s*</name>""").find(b)?.groupValues?.get(1)?.let { clean(it) } ?: ""
 SHARED:imports/GtImportConverter.kt:92:        val ty = Regex("""<type>([\s\S]*?)</type>""").find(b)?.groupValues?.get(1)?.let { clean(it) } ?: ""
@@ -55356,7 +55388,7 @@ SHARED:imports/GtImportConverter.kt:232:    private val NAME_RX = Regex("""<name
 SHARED:imports/GtImportConverter.kt:234:    private fun coords(s: String): List<Pair<Double, Double>> = s.trim().split(Regex("""\s+""")).mapNotNull { p ->
 SHARED:imports/GtImportConverter.kt:235:        val a = p.split(",")
 SHARED:imports/GtImportConverter.kt:236:        if (a.size < 2) null else {
-SHARED:imports/GtImportConverter.kt:237:            val lon = GtJavaParse.toDoubleOrNull(a[0]); val lat = GtJavaParse.toDoubleOrNull(a[1])
+SHARED:imports/GtImportConverter.kt:237:            val lon = GtJavaParse.lonOrNull(a[0]); val lat = GtJavaParse.latOrNull(a[1])
 SHARED:imports/GtImportConverter.kt:242:    private fun fromKml(t: String, c: Collector) {
 SHARED:imports/GtImportConverter.kt:243:        Regex("""<Document\b[^>]*>\s*<name>\s*(?:<!\[CDATA\[)?([\s\S]*?)(?:]]>)?\s*</name>""").find(t)?.let { c.docName = clean(it.groupValues[1]) }
 SHARED:imports/GtImportConverter.kt:244:        for (m in GtRx.findAll(Regex("""<Placemark\b[^>]*>([\s\S]*?)</Placemark>"""), t)) {
@@ -55782,8 +55814,8 @@ SHARED:imports/GtGpxParse.kt:105:        val namePattern = Regex("""<name>([^<]*
 SHARED:imports/GtGpxParse.kt:106:        val typePattern = Regex("""<type>([^<]*)</type>""")
 SHARED:imports/GtGpxParse.kt:107:        val descPattern = Regex("""<desc>([^<]*)</desc>""")
 SHARED:imports/GtGpxParse.kt:109:        for (match in GtRx.findAll(wptPattern, gpxText)) {
-SHARED:imports/GtGpxParse.kt:110:            val lat = GtJavaParse.toDoubleOrNull(match.groupValues[1]) ?: continue
-SHARED:imports/GtGpxParse.kt:111:            val lon = GtJavaParse.toDoubleOrNull(match.groupValues[2]) ?: continue
+SHARED:imports/GtGpxParse.kt:110:            val lat = GtJavaParse.latOrNull(match.groupValues[1]) ?: continue
+SHARED:imports/GtGpxParse.kt:111:            val lon = GtJavaParse.lonOrNull(match.groupValues[2]) ?: continue
 SHARED:imports/GtGpxParse.kt:112:            val inner = match.groupValues[3]
 SHARED:imports/GtGpxParse.kt:114:            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Waypoint"
 SHARED:imports/GtGpxParse.kt:115:            val rawType = typePattern.find(inner)?.groupValues?.get(1)?.trim()?.lowercase() ?: "other"
@@ -55848,8 +55880,8 @@ SHARED:imports/GtGpxParse.kt:200:            val inner = match.groupValues[1]
 SHARED:imports/GtGpxParse.kt:201:            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Route"
 SHARED:imports/GtGpxParse.kt:202:            val points = mutableListOf<Pair<Double, Double>>()
 SHARED:imports/GtGpxParse.kt:204:            for (ptMatch in GtRx.findAll(rteptPattern, inner)) {
-SHARED:imports/GtGpxParse.kt:205:                val lat = GtJavaParse.toDoubleOrNull(ptMatch.groupValues[1]) ?: continue
-SHARED:imports/GtGpxParse.kt:206:                val lon = GtJavaParse.toDoubleOrNull(ptMatch.groupValues[2]) ?: continue
+SHARED:imports/GtGpxParse.kt:205:                val lat = GtJavaParse.latOrNull(ptMatch.groupValues[1]) ?: continue
+SHARED:imports/GtGpxParse.kt:206:                val lon = GtJavaParse.lonOrNull(ptMatch.groupValues[2]) ?: continue
 SHARED:imports/GtGpxParse.kt:207:                points.add(Pair(lon, lat))  // WKT order: lon, lat
 SHARED:imports/GtGpxParse.kt:210:            if (points.size >= 2) {
 SHARED:imports/GtGpxParse.kt:216:                val notes = xmlUnescape(
@@ -55875,14 +55907,14 @@ SHARED:imports/GtGpxParse.kt:246:        fun parseTime(s: String): Long? = GtTim
 SHARED:imports/GtGpxParse.kt:251:        val lastClose = gpxText.lastIndexOf("</trkpt>")
 SHARED:imports/GtGpxParse.kt:252:        val ptText = if (lastClose < 0) "" else gpxText.substring(0, lastClose + "</trkpt>".length)
 SHARED:imports/GtGpxParse.kt:253:        for (m in GtRx.findAll(ptRegex, ptText)) {
-SHARED:imports/GtGpxParse.kt:254:            val lat = GtJavaParse.toDoubleOrNull(m.groupValues[1]) ?: continue
-SHARED:imports/GtGpxParse.kt:255:            val lon = GtJavaParse.toDoubleOrNull(m.groupValues[2]) ?: continue
+SHARED:imports/GtGpxParse.kt:254:            val lat = GtJavaParse.latOrNull(m.groupValues[1]) ?: continue
+SHARED:imports/GtGpxParse.kt:255:            val lon = GtJavaParse.lonOrNull(m.groupValues[2]) ?: continue
 SHARED:imports/GtGpxParse.kt:256:            val inner = m.groupValues[3]
 SHARED:imports/GtGpxParse.kt:257:            val ele = eleRegex.find(inner)?.groupValues?.get(1)?.trim()?.let { GtJavaParse.toDoubleOrNull(it) }
 SHARED:imports/GtGpxParse.kt:258:            val tMs = timeRegex.find(inner)?.groupValues?.get(1)?.let { parseTime(it) }
 SHARED:imports/GtGpxParse.kt:261:        for (m in GtRx.findAll(latLonOnly, gpxText)) {
-SHARED:imports/GtGpxParse.kt:262:            val lat = GtJavaParse.toDoubleOrNull(m.groupValues[1]) ?: continue
-SHARED:imports/GtGpxParse.kt:263:            val lon = GtJavaParse.toDoubleOrNull(m.groupValues[2]) ?: continue
+SHARED:imports/GtGpxParse.kt:262:            val lat = GtJavaParse.latOrNull(m.groupValues[1]) ?: continue
+SHARED:imports/GtGpxParse.kt:263:            val lon = GtJavaParse.lonOrNull(m.groupValues[2]) ?: continue
 SHARED:imports/GtImportEnv.kt:1:package com.grouptrack.shared.imports
 SHARED:imports/GtImportEnv.kt:3:import com.grouptrack.shared.text.GtLocalTime
 SHARED:imports/GtImportEnv.kt:4:import okio.FileSystem
@@ -61880,56 +61912,66 @@ SHARED:text/GtJavaParse.kt:16: * ⚠ GtOrgJson.javaParseDouble (15a) has the sam
 SHARED:text/GtJavaParse.kt:17: * ⚠ GtRead.parseGpxTrackPoints (step 7) still calls Kotlin's own toDoubleOrNull -- identical on Android, an iPad item for the owner.
 SHARED:text/GtJavaParse.kt:20:    private val DECIMAL = Regex("""[+-]?(NaN|Infinity|((\d+\.?\d*|\.\d+)([eE][+-]?\d+)?[fFdD]?))""")
 SHARED:text/GtJavaParse.kt:21:    private val HEX = Regex("""([+-]?)0[xX]([0-9a-fA-F]*)(\.([0-9a-fA-F]*))?[pP]([+-]?\d+)[fFdD]?""")
-SHARED:text/GtJavaParse.kt:23:    fun toDoubleOrNull(s0: String): Double? {
-SHARED:text/GtJavaParse.kt:26:        if (DECIMAL.matches(s)) {
-SHARED:text/GtJavaParse.kt:27:            val unsigned = s.removePrefix("+").removePrefix("-")
-SHARED:text/GtJavaParse.kt:28:            if (unsigned == "NaN") return Double.NaN
-SHARED:text/GtJavaParse.kt:29:            if (unsigned == "Infinity") return if (s.startsWith("-")) Double.NEGATIVE_INFINITY else Double.POSITIVE_INFINITY
-SHARED:text/GtJavaParse.kt:30:            var body = if (s.last() in "fFdD") s.dropLast(1) else s
-SHARED:text/GtJavaParse.kt:33:            val sign = if (body.startsWith("+") || body.startsWith("-")) body.substring(0, 1) else ""
-SHARED:text/GtJavaParse.kt:34:            var num = body.substring(sign.length)
-SHARED:text/GtJavaParse.kt:37:            val mant = if (ei < 0) num else num.substring(0, ei)
-SHARED:text/GtJavaParse.kt:38:            if (mant.endsWith(".")) num = mant + "0" + (if (ei < 0) "" else num.substring(ei))
-SHARED:text/GtJavaParse.kt:39:            body = sign + num
-SHARED:text/GtJavaParse.kt:40:            return body.toDouble()
-SHARED:text/GtJavaParse.kt:43:        val neg = m.groupValues[1] == "-"
-SHARED:text/GtJavaParse.kt:44:        val whole = m.groupValues[2]
-SHARED:text/GtJavaParse.kt:45:        val frac = m.groupValues[4]
-SHARED:text/GtJavaParse.kt:46:        if (whole.isEmpty() && frac.isEmpty()) return null   // "0x.p1" is not a number
-SHARED:text/GtJavaParse.kt:47:        val expText = m.groupValues[5]
-SHARED:text/GtJavaParse.kt:48:        val v = hexValue(whole + frac, frac.length, expText)
-SHARED:text/GtJavaParse.kt:52:    /** The exact value of the hex digits [digits] x 16^-[fracDigits] x 2^[expText], rounded half even to a double. */
-SHARED:text/GtJavaParse.kt:53:    private fun hexValue(digits: String, fracDigits: Int, expText: String): Double {
-SHARED:text/GtJavaParse.kt:55:        val e2 = (expText.removePrefix("+").let { t -> if (t.startsWith("-")) -clampInt(t.drop(1)) else clampInt(t) })
-SHARED:text/GtJavaParse.kt:56:        var mant = 0L
-SHARED:text/GtJavaParse.kt:57:        var dropped = 0          // hex digits not kept (each 4 bits)
-SHARED:text/GtJavaParse.kt:58:        var sticky = false
-SHARED:text/GtJavaParse.kt:59:        var seen = false
-SHARED:text/GtJavaParse.kt:60:        for (ch in digits) {
-SHARED:text/GtJavaParse.kt:62:            if (!seen && d == 0) continue          // leading zeros
-SHARED:text/GtJavaParse.kt:63:            seen = true
-SHARED:text/GtJavaParse.kt:64:            if (mant < (1L shl 56)) mant = mant * 16 + d else { dropped++; if (d != 0) sticky = true }
-SHARED:text/GtJavaParse.kt:66:        if (mant == 0L) return 0.0
-SHARED:text/GtJavaParse.kt:67:        val binExp = e2.toLong() - 4L * fracDigits + 4L * dropped     // value = mant x 2^binExp (+ sticky below the last kept bit)
-SHARED:text/GtJavaParse.kt:68:        val hb = 63 - mant.countLeadingZeroBits()                     // highest set bit of mant
-SHARED:text/GtJavaParse.kt:69:        val e = hb + binExp                                           // the value's unbiased exponent
-SHARED:text/GtJavaParse.kt:71:        val avail: Long = if (e >= -1022) 53 else 53 - (-1022 - e)    // significand bits the result can hold
-SHARED:text/GtJavaParse.kt:73:        val shift = (hb + 1) - avail                                  // bits of mant to drop
-SHARED:text/GtJavaParse.kt:74:        var kept: Long
-SHARED:text/GtJavaParse.kt:75:        if (shift > 0) {
-SHARED:text/GtJavaParse.kt:76:            if (shift > 62) {
-SHARED:text/GtJavaParse.kt:78:                return if (avail == 0L && (mant.countOneBits() > 1 || sticky)) scale(1L, e - avail + 1) else 0.0
-SHARED:text/GtJavaParse.kt:80:            val s = shift.toInt()
-SHARED:text/GtJavaParse.kt:81:            val drop = mant and ((1L shl s) - 1)
-SHARED:text/GtJavaParse.kt:82:            kept = mant ushr s
-SHARED:text/GtJavaParse.kt:83:            val half = 1L shl (s - 1)
-SHARED:text/GtJavaParse.kt:84:            if (drop > half || (drop == half && (sticky || (kept and 1L) == 1L))) kept++
-SHARED:text/GtJavaParse.kt:86:            kept = mant shl (-shift).toInt()
-SHARED:text/GtJavaParse.kt:88:        return scale(kept, e - avail + 1)
-SHARED:text/GtJavaParse.kt:91:    /** [k] x 2^[p], exact: k <= 2^53 and p is -1074 (a subnormal result) or the normal exponent minus 52, so 2^p is a double and the
-SHARED:text/GtJavaParse.kt:93:    private fun scale(k: Long, p: Long): Double = k.toDouble() * pow2(p)
-SHARED:text/GtJavaParse.kt:95:    private fun pow2(p: Long): Double = when {
-SHARED:text/GtJavaParse.kt:102:    private fun clampInt(t: String): Int = t.trimStart('0').let { if (it.length > 9) 999_999_999 else if (it.isEmpty()) 0 else it.toInt() }
+SHARED:text/GtJavaParse.kt:24:     *  "1e400" parses to +Infinity and "NaN" to NaN; both used to reach the rider scan, which
+SHARED:text/GtJavaParse.kt:25:     *  promoted an infinite-extent segment and ran the Droid out of memory (cert D12, 11-09).
+SHARED:text/GtJavaParse.kt:26:     *  GtRead already refuses non-finite values coming OUT of the database (GtRead.kt:292);
+SHARED:text/GtJavaParse.kt:27:     *  this applies the same rule where untrusted data comes IN. Callers already drop a null
+SHARED:text/GtJavaParse.kt:28:     *  point, so an invalid coordinate is dropped by the guard that is already there. */
+SHARED:text/GtJavaParse.kt:29:    fun latOrNull(s0: String): Double? =
+SHARED:text/GtJavaParse.kt:30:        toDoubleOrNull(s0)?.takeIf { it.isFinite() && it >= -90.0 && it <= 90.0 }
+SHARED:text/GtJavaParse.kt:32:    /** GTCOORDGUARD-2026-11-15: a LONGITUDE -- finite and on Earth, or nothing. See [latOrNull]. */
+SHARED:text/GtJavaParse.kt:33:    fun lonOrNull(s0: String): Double? =
+SHARED:text/GtJavaParse.kt:34:        toDoubleOrNull(s0)?.takeIf { it.isFinite() && it >= -180.0 && it <= 180.0 }
+SHARED:text/GtJavaParse.kt:36:    fun toDoubleOrNull(s0: String): Double? {
+SHARED:text/GtJavaParse.kt:39:        if (DECIMAL.matches(s)) {
+SHARED:text/GtJavaParse.kt:40:            val unsigned = s.removePrefix("+").removePrefix("-")
+SHARED:text/GtJavaParse.kt:41:            if (unsigned == "NaN") return Double.NaN
+SHARED:text/GtJavaParse.kt:42:            if (unsigned == "Infinity") return if (s.startsWith("-")) Double.NEGATIVE_INFINITY else Double.POSITIVE_INFINITY
+SHARED:text/GtJavaParse.kt:43:            var body = if (s.last() in "fFdD") s.dropLast(1) else s
+SHARED:text/GtJavaParse.kt:46:            val sign = if (body.startsWith("+") || body.startsWith("-")) body.substring(0, 1) else ""
+SHARED:text/GtJavaParse.kt:47:            var num = body.substring(sign.length)
+SHARED:text/GtJavaParse.kt:50:            val mant = if (ei < 0) num else num.substring(0, ei)
+SHARED:text/GtJavaParse.kt:51:            if (mant.endsWith(".")) num = mant + "0" + (if (ei < 0) "" else num.substring(ei))
+SHARED:text/GtJavaParse.kt:52:            body = sign + num
+SHARED:text/GtJavaParse.kt:53:            return body.toDouble()
+SHARED:text/GtJavaParse.kt:56:        val neg = m.groupValues[1] == "-"
+SHARED:text/GtJavaParse.kt:57:        val whole = m.groupValues[2]
+SHARED:text/GtJavaParse.kt:58:        val frac = m.groupValues[4]
+SHARED:text/GtJavaParse.kt:59:        if (whole.isEmpty() && frac.isEmpty()) return null   // "0x.p1" is not a number
+SHARED:text/GtJavaParse.kt:60:        val expText = m.groupValues[5]
+SHARED:text/GtJavaParse.kt:61:        val v = hexValue(whole + frac, frac.length, expText)
+SHARED:text/GtJavaParse.kt:65:    /** The exact value of the hex digits [digits] x 16^-[fracDigits] x 2^[expText], rounded half even to a double. */
+SHARED:text/GtJavaParse.kt:66:    private fun hexValue(digits: String, fracDigits: Int, expText: String): Double {
+SHARED:text/GtJavaParse.kt:68:        val e2 = (expText.removePrefix("+").let { t -> if (t.startsWith("-")) -clampInt(t.drop(1)) else clampInt(t) })
+SHARED:text/GtJavaParse.kt:69:        var mant = 0L
+SHARED:text/GtJavaParse.kt:70:        var dropped = 0          // hex digits not kept (each 4 bits)
+SHARED:text/GtJavaParse.kt:71:        var sticky = false
+SHARED:text/GtJavaParse.kt:72:        var seen = false
+SHARED:text/GtJavaParse.kt:73:        for (ch in digits) {
+SHARED:text/GtJavaParse.kt:75:            if (!seen && d == 0) continue          // leading zeros
+SHARED:text/GtJavaParse.kt:76:            seen = true
+SHARED:text/GtJavaParse.kt:77:            if (mant < (1L shl 56)) mant = mant * 16 + d else { dropped++; if (d != 0) sticky = true }
+SHARED:text/GtJavaParse.kt:79:        if (mant == 0L) return 0.0
+SHARED:text/GtJavaParse.kt:80:        val binExp = e2.toLong() - 4L * fracDigits + 4L * dropped     // value = mant x 2^binExp (+ sticky below the last kept bit)
+SHARED:text/GtJavaParse.kt:81:        val hb = 63 - mant.countLeadingZeroBits()                     // highest set bit of mant
+SHARED:text/GtJavaParse.kt:82:        val e = hb + binExp                                           // the value's unbiased exponent
+SHARED:text/GtJavaParse.kt:84:        val avail: Long = if (e >= -1022) 53 else 53 - (-1022 - e)    // significand bits the result can hold
+SHARED:text/GtJavaParse.kt:86:        val shift = (hb + 1) - avail                                  // bits of mant to drop
+SHARED:text/GtJavaParse.kt:87:        var kept: Long
+SHARED:text/GtJavaParse.kt:88:        if (shift > 0) {
+SHARED:text/GtJavaParse.kt:89:            if (shift > 62) {
+SHARED:text/GtJavaParse.kt:91:                return if (avail == 0L && (mant.countOneBits() > 1 || sticky)) scale(1L, e - avail + 1) else 0.0
+SHARED:text/GtJavaParse.kt:93:            val s = shift.toInt()
+SHARED:text/GtJavaParse.kt:94:            val drop = mant and ((1L shl s) - 1)
+SHARED:text/GtJavaParse.kt:95:            kept = mant ushr s
+SHARED:text/GtJavaParse.kt:96:            val half = 1L shl (s - 1)
+SHARED:text/GtJavaParse.kt:97:            if (drop > half || (drop == half && (sticky || (kept and 1L) == 1L))) kept++
+SHARED:text/GtJavaParse.kt:99:            kept = mant shl (-shift).toInt()
+SHARED:text/GtJavaParse.kt:101:        return scale(kept, e - avail + 1)
+SHARED:text/GtJavaParse.kt:104:    /** [k] x 2^[p], exact: k <= 2^53 and p is -1074 (a subnormal result) or the normal exponent minus 52, so 2^p is a double and the
+SHARED:text/GtJavaParse.kt:106:    private fun scale(k: Long, p: Long): Double = k.toDouble() * pow2(p)
+SHARED:text/GtJavaParse.kt:108:    private fun pow2(p: Long): Double = when {
+SHARED:text/GtJavaParse.kt:115:    private fun clampInt(t: String): Int = t.trimStart('0').let { if (it.length > 9) 999_999_999 else if (it.isEmpty()) 0 else it.toInt() }
 SHARED:text/GtMath.kt:1:package com.grouptrack.shared.text
 SHARED:text/GtMath.kt:4: * GTMATH-2026-11-10 (Fred 11-10 07:17-07:37): THE PLATFORM RULE -- shared code never calls kotlin.math's sin / cos / asin / hypot; it
 SHARED:text/GtMath.kt:5: * calls GtMath, so every stored or compared number is the same on Android and the iPad (V3 rule: identical on every platform).
@@ -64284,6 +64326,133 @@ SHARED-android:text/GtMath.android.kt:9:internal actual fun gtMathTan(x: Double)
 SHARED-android:text/GtMath.android.kt:10:internal actual fun gtMathAtan(x: Double): Double = java.lang.Math.atan(x)
 SHARED-android:text/GtMath.android.kt:11:internal actual fun gtMathSinh(x: Double): Double = java.lang.Math.sinh(x)
 SHARED-android:text/GtMath.android.kt:12:internal actual fun gtMathLn(x: Double): Double = java.lang.Math.log(x)
+SHARED-ios:platform/GtIosEnv.kt:1:package com.grouptrack.shared.platform
+SHARED-ios:platform/GtIosEnv.kt:3:/** GTIOSENVFIX-2026-11-15: NSDate has NO timeIntervalSince1970 CONSTRUCTOR -- only
+SHARED-ios:platform/GtIosEnv.kt:4: *  timeIntervalSinceReferenceDate, which counts from 2001-01-01. The class method
+SHARED-ios:platform/GtIosEnv.kt:6: *  has been compiling with it all along. Taken from working code, not documentation:
+SHARED-ios:platform/GtIosEnv.kt:7: *  the first version of this file was written from docs and never compiled, which is
+SHARED-ios:platform/GtIosEnv.kt:8: *  what blocked the whole iOS test build. */
+SHARED-ios:platform/GtIosEnv.kt:10:import androidx.sqlite.SQLiteConnection
+SHARED-ios:platform/GtIosEnv.kt:11:import com.grouptrack.shared.db.gtOpenDatabase
+SHARED-ios:platform/GtIosEnv.kt:12:import com.grouptrack.shared.imports.GtClock
+SHARED-ios:platform/GtIosEnv.kt:13:import com.grouptrack.shared.imports.GtFiles
+SHARED-ios:platform/GtIosEnv.kt:14:import com.grouptrack.shared.imports.GtIds
+SHARED-ios:platform/GtIosEnv.kt:15:import com.grouptrack.shared.imports.GtImportPaths
+SHARED-ios:platform/GtIosEnv.kt:16:import com.grouptrack.shared.mbtiles.GtTileStoreEnv
+SHARED-ios:platform/GtIosEnv.kt:17:import com.grouptrack.shared.text.GtLocalTime
+SHARED-ios:platform/GtIosEnv.kt:18:import com.grouptrack.shared.text.GtTime
+SHARED-ios:platform/GtIosEnv.kt:19:import kotlinx.cinterop.ExperimentalForeignApi
+SHARED-ios:platform/GtIosEnv.kt:20:import okio.FileSystem
+SHARED-ios:platform/GtIosEnv.kt:21:import okio.Path
+SHARED-ios:platform/GtIosEnv.kt:22:import okio.Path.Companion.toPath
+SHARED-ios:platform/GtIosEnv.kt:23:import platform.Foundation.NSCachesDirectory
+SHARED-ios:platform/GtIosEnv.kt:24:import platform.Foundation.NSDate
+SHARED-ios:platform/GtIosEnv.kt:25:import platform.Foundation.dateWithTimeIntervalSince1970
+SHARED-ios:platform/GtIosEnv.kt:26:import platform.Foundation.NSDocumentDirectory
+SHARED-ios:platform/GtIosEnv.kt:27:import platform.Foundation.NSFileManager
+SHARED-ios:platform/GtIosEnv.kt:28:import platform.Foundation.NSFileModificationDate
+SHARED-ios:platform/GtIosEnv.kt:29:import platform.Foundation.NSLibraryDirectory
+SHARED-ios:platform/GtIosEnv.kt:30:import platform.Foundation.NSSearchPathForDirectoriesInDomains
+SHARED-ios:platform/GtIosEnv.kt:31:import platform.Foundation.NSUUID
+SHARED-ios:platform/GtIosEnv.kt:32:import platform.Foundation.NSUserDomainMask
+SHARED-ios:platform/GtIosEnv.kt:33:import platform.Foundation.timeIntervalSince1970
+SHARED-ios:platform/GtIosEnv.kt:34:import platform.Foundation.NSCalendar
+SHARED-ios:platform/GtIosEnv.kt:35:import platform.Foundation.NSCalendarUnitDay
+SHARED-ios:platform/GtIosEnv.kt:36:import platform.Foundation.NSCalendarUnitHour
+SHARED-ios:platform/GtIosEnv.kt:37:import platform.Foundation.NSCalendarUnitMinute
+SHARED-ios:platform/GtIosEnv.kt:38:import platform.Foundation.NSCalendarUnitMonth
+SHARED-ios:platform/GtIosEnv.kt:39:import platform.Foundation.NSCalendarUnitSecond
+SHARED-ios:platform/GtIosEnv.kt:40:import platform.Foundation.NSCalendarUnitYear
+SHARED-ios:platform/GtIosEnv.kt:43: * IOSSOCKETS-2026-11-15 (2.8b phase 1): the PRODUCTION iOS halves of the four map-critical
+SHARED-ios:platform/GtIosEnv.kt:44: * sockets. Promoted from the certified iosTest doubles -- MacFiles, MacPaths, MacClock and
+SHARED-ios:platform/GtIosEnv.kt:45: * MacTileEnv -- which are real implementations (okio FileSystem, the real gtOpenDatabase on
+SHARED-ios:platform/GtIosEnv.kt:48: * ⛔ THIS IS PROMOTION AND HARDENING, NOT A COPY. Three things the doubles got away with
+SHARED-ios:platform/GtIosEnv.kt:49: * because a test injected its own world, and production cannot:
+SHARED-ios:platform/GtIosEnv.kt:50: *   1. setLastModified returned false. It is implementable on iOS (NSFileModificationDate) and
+SHARED-ios:platform/GtIosEnv.kt:51: *      its no-op already caused two phantom DIFFs in pass 2. IMPLEMENTED here.
+SHARED-ios:platform/GtIosEnv.kt:52: *   2. MacPaths put my_tracks UNDER the root and never created it. GtImportPaths' own contract
+SHARED-ios:platform/GtIosEnv.kt:53: *      says "a SIBLING of the root, created". FIXED here.
+SHARED-ios:platform/GtIosEnv.kt:54: *   3. MacPaths' cacheDir/filesDir were children of the injected root. On iOS they are the real
+SHARED-ios:platform/GtIosEnv.kt:55: *      sandbox Caches and Library directories. FIXED here.
+SHARED-ios:platform/GtIosEnv.kt:57: * ⚠ FIRST DRAFT OF THE FOUNDATION SIGNATURES. Every Foundation call below is written from the
+SHARED-ios:platform/GtIosEnv.kt:58: * documented API, not from a compile. The COMPILER is the check -- run
+SHARED-ios:platform/GtIosEnv.kt:59: * ./gradlew :grouptrack-shared:compileKotlinIosSimulatorArm64 and tie each error to a line here.
+SHARED-ios:platform/GtIosEnv.kt:60: * Do not assume this file is correct because it is committed.
+SHARED-ios:platform/GtIosEnv.kt:63:private fun sysDir(which: ULong): String =
+SHARED-ios:platform/GtIosEnv.kt:65:        ?: error("iOS sandbox directory $which not available")   // CODE RULE 1: no nullable fallback -- a missing sandbox dir is not recoverable
+SHARED-ios:platform/GtIosEnv.kt:68:/** GTIOSENVFIX2-2026-11-15: ExperimentalForeignApi is required by setAttributes's `error`
+SHARED-ios:platform/GtIosEnv.kt:69: *  parameter, which is a CPointer. GtCertImport15eMacTest:53 carries the same opt-in on the
+SHARED-ios:platform/GtIosEnv.kt:70: *  class that makes the same call -- this is copied from code the compiler already accepts,
+SHARED-ios:platform/GtIosEnv.kt:71: *  not inferred from documentation. */
+SHARED-ios:platform/GtIosEnv.kt:76:    /** IOSSOCKETS-2026-11-15: okio cannot SET a file time; NSFileManager can. 2.7e keeps a track's
+SHARED-ios:platform/GtIosEnv.kt:77:     *  earliest <time> as its file time, and MacFiles returning false made prune run on different
+SHARED-ios:platform/GtIosEnv.kt:78:     *  inputs -- one of pass 2's two phantom DIFFs. */
+SHARED-ios:platform/GtIosEnv.kt:79:    override fun setLastModified(path: Path, epochMs: Long): Boolean = try {
+SHARED-ios:platform/GtIosEnv.kt:81:            mapOf<Any?, Any?>(NSFileModificationDate to NSDate.dateWithTimeIntervalSince1970(epochMs / 1000.0)),
+SHARED-ios:platform/GtIosEnv.kt:82:            ofItemAtPath = path.toString(),
+SHARED-ios:platform/GtIosEnv.kt:83:            error = null,
+SHARED-ios:platform/GtIosEnv.kt:87:    /** 0 when the file is missing, as java.io.File. */
+SHARED-ios:platform/GtIosEnv.kt:88:    override fun lastModified(path: Path): Long = fs.metadataOrNull(path)?.lastModifiedAtMillis ?: 0L
+SHARED-ios:platform/GtIosEnv.kt:90:    /** SORTED -- okio's order. Owner decision 11: the iPad is sorted, Android is listFiles order.
+SHARED-ios:platform/GtIosEnv.kt:91:     *  The track resync's order decides which of two same-geometry files becomes the track and
+SHARED-ios:platform/GtIosEnv.kt:92:     *  which an alias (INVENTORY T8), so this is a DECISION already taken, not an accident. */
+SHARED-ios:platform/GtIosEnv.kt:93:    override fun list(dir: Path): List<Path> = try { fs.list(dir) } catch (e: Exception) { emptyList() }
+SHARED-ios:platform/GtIosEnv.kt:96:/** Where GroupTrack keeps things inside the iOS sandbox. Resolved on each call, as the contract says. */
+SHARED-ios:platform/GtIosEnv.kt:98:    private val documents: Path get() = sysDir(NSDocumentDirectory).toPath()
+SHARED-ios:platform/GtIosEnv.kt:100:    override fun groupTrackRoot(): Path = (documents / "GroupTrack").also { ensure(it) }
+SHARED-ios:platform/GtIosEnv.kt:102:    /** ⛔ A SIBLING of the root, created -- NOT a child. MacPaths had this wrong. */
+SHARED-ios:platform/GtIosEnv.kt:103:    override fun tracksDir(): Path = (documents / "my_tracks").also { ensure(it) }
+SHARED-ios:platform/GtIosEnv.kt:105:    /** A named child of the root ("data/trail_areas", "osm", "imports", "config"). NOT created. */
+SHARED-ios:platform/GtIosEnv.kt:106:    override fun dir(name: String): Path = groupTrackRoot() / name
+SHARED-ios:platform/GtIosEnv.kt:108:    override fun cacheDir(): Path = (sysDir(NSCachesDirectory).toPath() / "GroupTrack").also { ensure(it) }
+SHARED-ios:platform/GtIosEnv.kt:110:    override fun filesDir(): Path = (sysDir(NSLibraryDirectory).toPath() / "GroupTrack").also { ensure(it) }
+SHARED-ios:platform/GtIosEnv.kt:112:    private fun ensure(p: Path) { try { FileSystem.SYSTEM.createDirectories(p) } catch (e: Exception) { } }
+SHARED-ios:platform/GtIosEnv.kt:115:/** The device clock. */
+SHARED-ios:platform/GtIosEnv.kt:117:    override fun epochMs(): Long = (NSDate().timeIntervalSince1970 * 1000.0).toLong()
+SHARED-ios:platform/GtIosEnv.kt:118:    override fun nowInstant(): String = GtTime.instantTextMs(epochMs())
+SHARED-ios:platform/GtIosEnv.kt:119:    override fun localNow(): GtLocalTime {
+SHARED-ios:platform/GtIosEnv.kt:125:            d.year.toInt(), d.month.toInt(), d.day.toInt(),
+SHARED-ios:platform/GtIosEnv.kt:126:            d.hour.toInt(), d.minute.toInt(), d.second.toInt(),
+SHARED-ios:platform/GtIosEnv.kt:131:/** java.util.UUID.randomUUID().toString() -- proven in the 11-06 spike. */
+SHARED-ios:platform/GtIosEnv.kt:133:    override fun newId(): String = NSUUID().UUIDString.lowercase()
+SHARED-ios:platform/GtIosEnv.kt:137: * The tile store's platform half. Mirrors the CERTIFIED MacTileEnv exactly in structure, with the
+SHARED-ios:platform/GtIosEnv.kt:140: * ⛔ THE THREE SAFETY PRAGMAS, EACH IN ITS OWN TRY. GtTileStoreEnv's own contract: "each must be
+SHARED-ios:platform/GtIosEnv.kt:141: * set in its OWN try -- a structure added after execSQL silently set NOTHING on device."
+SHARED-ios:platform/GtIosEnv.kt:142: * Until this class existed, the pragmas had NO iOS production owner: they were set only by
+SHARED-ios:platform/GtIosEnv.kt:143: * TEST-ONLY code marked for deletion before 2.8 ships (CODE RULE 3).
+SHARED-ios:platform/GtIosEnv.kt:145:class IosTileEnv(private val paths: GtImportPaths) : GtTileStoreEnv {
+SHARED-ios:platform/GtIosEnv.kt:146:    private val fs = FileSystem.SYSTEM
+SHARED-ios:platform/GtIosEnv.kt:147:    /** APP-LIFETIME cache -- MacTileEnv had a test teardown(); production has none and must not. */
+SHARED-ios:platform/GtIosEnv.kt:148:    private val handles = HashMap<String, SQLiteConnection>()
+SHARED-ios:platform/GtIosEnv.kt:150:    private fun dir(): Path = paths.groupTrackRoot()
+SHARED-ios:platform/GtIosEnv.kt:151:    private fun path(type: String): String = (dir() / "$type.mbtiles").toString()
+SHARED-ios:platform/GtIosEnv.kt:153:    override fun connection(type: String): SQLiteConnection? {
+SHARED-ios:platform/GtIosEnv.kt:154:        handles[type]?.let { return it }
+SHARED-ios:platform/GtIosEnv.kt:157:            val fresh = !fs.exists(path(type).toPath())
+SHARED-ios:platform/GtIosEnv.kt:158:            val c = gtOpenDatabase(path(type), false)
+SHARED-ios:platform/GtIosEnv.kt:159:            ensureSchema(c)
+SHARED-ios:platform/GtIosEnv.kt:160:            if (fresh) initMetadata(c, type)
+SHARED-ios:platform/GtIosEnv.kt:161:            handles[type] = c
+SHARED-ios:platform/GtIosEnv.kt:163:        } catch (e: Exception) { null }   // null on hard failure, exactly as 2.7e
+SHARED-ios:platform/GtIosEnv.kt:166:    override fun storeExists(type: String): Boolean = fs.exists(path(type).toPath())
+SHARED-ios:platform/GtIosEnv.kt:168:    override fun deleteStore(type: String): Boolean {
+SHARED-ios:platform/GtIosEnv.kt:169:        handles.remove(type)?.let { try { it.close() } catch (e: Exception) { } }
+SHARED-ios:platform/GtIosEnv.kt:171:        for (suffix in listOf("", "-journal", "-wal", "-shm")) {
+SHARED-ios:platform/GtIosEnv.kt:172:            val p = (path(type) + suffix).toPath()
+SHARED-ios:platform/GtIosEnv.kt:173:            if (fs.exists(p)) try { fs.delete(p) } catch (e: Exception) { ok = false }
+SHARED-ios:platform/GtIosEnv.kt:178:    private fun exec(c: SQLiteConnection, sql: String) { val st = c.prepare(sql); try { st.step() } finally { st.close() } }
+SHARED-ios:platform/GtIosEnv.kt:180:    private fun ensureSchema(c: SQLiteConnection) {
+SHARED-ios:platform/GtIosEnv.kt:183:            try { exec(c, "PRAGMA $p") } catch (e: Exception) { }
+SHARED-ios:platform/GtIosEnv.kt:185:        exec(c, "CREATE TABLE IF NOT EXISTS tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB)")
+SHARED-ios:platform/GtIosEnv.kt:186:        exec(c, "CREATE TABLE IF NOT EXISTS metadata (name TEXT, value TEXT)")
+SHARED-ios:platform/GtIosEnv.kt:187:        exec(c, "CREATE UNIQUE INDEX IF NOT EXISTS tile_index ON tiles(zoom_level, tile_column, tile_row)")
+SHARED-ios:platform/GtIosEnv.kt:190:    /** ⚠ format: the Droid's MBTilesStore writes "webp" [V2.6a-WEBP]; MacTileEnv's cert env wrote
+SHARED-ios:platform/GtIosEnv.kt:191:     *  "pbf". VEC.mbtiles holds vector tiles, so "pbf" is right for the vector store -- CONFIRM
+SHARED-ios:platform/GtIosEnv.kt:192:     *  against the Droid's VEC.mbtiles metadata before trusting either. */
+SHARED-ios:platform/GtIosEnv.kt:193:    private fun initMetadata(c: SQLiteConnection, type: String) {
+SHARED-ios:platform/GtIosEnv.kt:194:        for ((k, v) in listOf("name" to type, "format" to "pbf", "scheme" to "xyz")) {
+SHARED-ios:platform/GtIosEnv.kt:195:            val st = c.prepare("INSERT OR REPLACE INTO metadata(name,value) VALUES(?,?)")
+SHARED-ios:platform/GtIosEnv.kt:196:            try { st.bindText(1, k); st.bindText(2, v); st.step() } finally { st.close() }
 SHARED-ios:db/GtDb.ios.kt:1:package com.grouptrack.shared.db
 SHARED-ios:db/GtDb.ios.kt:3:import androidx.sqlite.SQLiteConnection
 SHARED-ios:db/GtDb.ios.kt:4:import androidx.sqlite.driver.bundled.BundledSQLiteDriver
