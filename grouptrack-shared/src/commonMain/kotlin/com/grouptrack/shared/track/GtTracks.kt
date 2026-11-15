@@ -119,8 +119,8 @@ class GtTracks(private val conn: SQLiteConnection, private val dataConn: SQLiteC
         fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> {
             val coords = mutableListOf<Pair<Double, Double>>()
             for (m in GtRx.findAll(TRKPT, gpxText)) {
-                val lat = GtJavaParse.toDoubleOrNull(m.groupValues[1]) ?: continue
-                val lon = GtJavaParse.toDoubleOrNull(m.groupValues[2]) ?: continue
+                val lat = GtJavaParse.latOrNull(m.groupValues[1]) ?: continue
+                val lon = GtJavaParse.lonOrNull(m.groupValues[2]) ?: continue
                 coords.add(Pair(lon, lat))
             }
             return coords

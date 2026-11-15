@@ -125,6 +125,17 @@ class GtRiderTrails(private val conn: SQLiteConnection, private val dataConn: SQ
          */
         private const val BBOX_MARGIN_DEG = 0.001
 
+        /** GTSPANGUARD-2026-11-15 (Fred 11-15): the REALITY CHECK. The widest a real ride can be,
+         *  measured as the bounding box DIAGONAL IN MILES -- not degrees, because a degree of
+         *  longitude is 69 miles at the equator and 53 at Utah's latitude, so a degree limit
+         *  would mean two different rides depending on where the rider is.
+         *
+         *  300 miles is far beyond any OHV ride and about 100x a normal track. Past it the bbox
+         *  query stops being a query: it returns the whole trails table and this function's own
+         *  header calls that "an allocation that does not come back" (Utah alone: 145,942 trails,
+         *  ~5.6 M segments). A track that wide is a GPS glitch or a malformed file, not a ride. */
+        private const val MAX_TRACK_SPAN_MILES = 300.0
+
         // -- geometry text ---------------------------------------------------
 
         /**
@@ -189,6 +200,21 @@ class GtRiderTrails(private val conn: SQLiteConnection, private val dataConn: SQ
             if (p.lon > maxLon) maxLon = p.lon
         }
         val out = ArrayList<List<GtRiderScan.Pt>>()
+        // GTSPANGUARD-2026-11-15: THE PRE-PASS. Enforce the assumption stated in this function's
+        // own header -- "One track covers a small area, so its bounding box is the query."
+        // Measured as the bbox diagonal in miles with the scan's own certified haversine, so the
+        // limit is one distance everywhere rather than one number of degrees.
+        val spanMiles =
+            if (minLat <= maxLat && minLon <= maxLon)
+                GtRiderScan.haversineM(minLat, minLon, maxLat, maxLon) / 1609.344
+            else Double.NaN
+        if (!spanMiles.isFinite() || spanMiles > MAX_TRACK_SPAN_MILES) {
+            log.w {
+                "track bbox diagonal ${spanMiles} mi (lat ${minLat}..${maxLat}, lon ${minLon}..${maxLon}) " +
+                "exceeds $MAX_TRACK_SPAN_MILES mi -- not a ride; no trail candidates"
+            }
+            return out
+        }
         try {
             db.trailCandidates(
                 GtJava.jd(minLat - BBOX_MARGIN_DEG), GtJava.jd(maxLat + BBOX_MARGIN_DEG),

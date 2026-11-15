@@ -115,6 +115,18 @@ object GtRiderScan {
     /** RIDERLINE-2026-10-09: the track is filled in to this spacing before matching (onX records 30-700 m apart). */
     const val DENSE_M = 10.0
 
+    /** GTSCANBOUND-2026-11-15: the longest segment worth FILLING IN. Densification exists for
+     *  recording gaps (30-700 m per the note at the polyline step), so 5 km is 7x the largest
+     *  real gap and 500 steps. Beyond it a segment is a JUMP, not a gap: no trail follows it,
+     *  every inserted point is off-network by construction, and the cost is unbounded --
+     *  Utah to the Gulf of Guinea asks for 1.1 million points, Infinity for 2.1 billion. */
+    const val MAX_FILL_M = 5_000.0
+
+    /** GTSCANBOUND-2026-11-15: the most grid cells ONE network segment may claim. At
+     *  CELL = 0.002 (~200 m) a 1 km trail segment claims about 24; the whole globe is
+     *  90,000 x 180,000. A segment past this is a malformed row, not a trail. */
+    const val MAX_CELLS_PER_SEG = 10_000L
+
     /**
      * A ~200 m grid over the candidate segments. Comparing every track point
      * against an unindexed network is the difference between seconds and hours.
@@ -201,6 +213,10 @@ object GtRiderScan {
                 val r2 = (max(a.lat, b.lat) / CELL).toInt()
                 val c1 = (min(a.lon, b.lon) / CELL).toInt()
                 val c2 = (max(a.lon, b.lon) / CELL).toInt()
+                // GTSCANBOUND-2026-11-15: a segment claiming more than MAX_CELLS_PER_SEG cells is a
+                // malformed row, not a trail. Filling its bounding box is unbounded work.
+                val cells = (r2.toLong() - r1 + 1L) * (c2.toLong() - c1 + 1L)
+                if (cells > MAX_CELLS_PER_SEG) continue
                 for (r in r1..r2) for (c in c1..c2) grid.getOrPut(key(r, c)) { ArrayList() }.add(seg)
             }
         }
@@ -215,7 +231,9 @@ object GtRiderScan {
             val a = track[k]
             val b = track[k + 1]
             val d = haversineM(a.lat, a.lon, b.lat, b.lon)
-            val steps = (d / DENSE_M).toInt()
+            // GTSCANBOUND-2026-11-15: fill GAPS, never jumps. d non-finite or past MAX_FILL_M
+                //   -> no fill; b is still added below, so the geometry is unchanged.
+                val steps = if (d.isFinite() && d <= MAX_FILL_M) (d / DENSE_M).toInt() else 0
             for (t in 1..steps) {
                 val f = t * DENSE_M / d
                 if (f < 1.0) { dense.add(Pt(a.lon + (b.lon - a.lon) * f, a.lat + (b.lat - a.lat) * f)); orig.add(false) }

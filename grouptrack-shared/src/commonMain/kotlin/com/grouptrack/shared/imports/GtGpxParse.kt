@@ -107,8 +107,8 @@ object GtGpxParse {
         val descPattern = Regex("""<desc>([^<]*)</desc>""")
 
         for (match in GtRx.findAll(wptPattern, gpxText)) {
-            val lat = GtJavaParse.toDoubleOrNull(match.groupValues[1]) ?: continue
-            val lon = GtJavaParse.toDoubleOrNull(match.groupValues[2]) ?: continue
+            val lat = GtJavaParse.latOrNull(match.groupValues[1]) ?: continue
+            val lon = GtJavaParse.lonOrNull(match.groupValues[2]) ?: continue
             val inner = match.groupValues[3]
 
             val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Waypoint"
@@ -202,8 +202,8 @@ object GtGpxParse {
             val points = mutableListOf<Pair<Double, Double>>()
 
             for (ptMatch in GtRx.findAll(rteptPattern, inner)) {
-                val lat = GtJavaParse.toDoubleOrNull(ptMatch.groupValues[1]) ?: continue
-                val lon = GtJavaParse.toDoubleOrNull(ptMatch.groupValues[2]) ?: continue
+                val lat = GtJavaParse.latOrNull(ptMatch.groupValues[1]) ?: continue
+                val lon = GtJavaParse.lonOrNull(ptMatch.groupValues[2]) ?: continue
                 points.add(Pair(lon, lat))  // WKT order: lon, lat
             }
 
@@ -251,16 +251,16 @@ object GtGpxParse {
         val lastClose = gpxText.lastIndexOf("</trkpt>")
         val ptText = if (lastClose < 0) "" else gpxText.substring(0, lastClose + "</trkpt>".length)
         for (m in GtRx.findAll(ptRegex, ptText)) {
-            val lat = GtJavaParse.toDoubleOrNull(m.groupValues[1]) ?: continue
-            val lon = GtJavaParse.toDoubleOrNull(m.groupValues[2]) ?: continue
+            val lat = GtJavaParse.latOrNull(m.groupValues[1]) ?: continue
+            val lon = GtJavaParse.lonOrNull(m.groupValues[2]) ?: continue
             val inner = m.groupValues[3]
             val ele = eleRegex.find(inner)?.groupValues?.get(1)?.trim()?.let { GtJavaParse.toDoubleOrNull(it) }
             val tMs = timeRegex.find(inner)?.groupValues?.get(1)?.let { parseTime(it) }
             out.add(TrackPtFull(lat, lon, ele, tMs))
         }
         for (m in GtRx.findAll(latLonOnly, gpxText)) {
-            val lat = GtJavaParse.toDoubleOrNull(m.groupValues[1]) ?: continue
-            val lon = GtJavaParse.toDoubleOrNull(m.groupValues[2]) ?: continue
+            val lat = GtJavaParse.latOrNull(m.groupValues[1]) ?: continue
+            val lon = GtJavaParse.lonOrNull(m.groupValues[2]) ?: continue
             out.add(TrackPtFull(lat, lon, null, null))
         }
         return out

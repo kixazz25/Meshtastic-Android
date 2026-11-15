@@ -82,8 +82,8 @@ object GtImportConverter {
     private val LAT_RX = Regex("""\blat\s*=\s*["']([-0-9.eE+]+)["']""")
     private val LON_RX = Regex("""\blon\s*=\s*["']([-0-9.eE+]+)["']""")
     private fun gpxPts(block: String): List<Pair<Double, Double>> = GtRx.findAll(GPX_PT, block).mapNotNull { m ->
-        val lat = LAT_RX.find(m.groupValues[1])?.groupValues?.get(1)?.let { GtJavaParse.toDoubleOrNull(it) }
-        val lon = LON_RX.find(m.groupValues[1])?.groupValues?.get(1)?.let { GtJavaParse.toDoubleOrNull(it) }
+        val lat = LAT_RX.find(m.groupValues[1])?.groupValues?.get(1)?.let { GtJavaParse.latOrNull(it) }
+        val lon = LON_RX.find(m.groupValues[1])?.groupValues?.get(1)?.let { GtJavaParse.lonOrNull(it) }
         if (lat == null || lon == null) null else Pair(lon, lat)
     }.toList()
 
@@ -234,7 +234,7 @@ object GtImportConverter {
     private fun coords(s: String): List<Pair<Double, Double>> = s.trim().split(Regex("""\s+""")).mapNotNull { p ->
         val a = p.split(",")
         if (a.size < 2) null else {
-            val lon = GtJavaParse.toDoubleOrNull(a[0]); val lat = GtJavaParse.toDoubleOrNull(a[1])
+            val lon = GtJavaParse.lonOrNull(a[0]); val lat = GtJavaParse.latOrNull(a[1])
             if (lon == null || lat == null) null else Pair(lon, lat)
         }
     }

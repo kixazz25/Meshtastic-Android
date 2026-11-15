@@ -20,6 +20,19 @@ object GtJavaParse {
     private val DECIMAL = Regex("""[+-]?(NaN|Infinity|((\d+\.?\d*|\.\d+)([eE][+-]?\d+)?[fFdD]?))""")
     private val HEX = Regex("""([+-]?)0[xX]([0-9a-fA-F]*)(\.([0-9a-fA-F]*))?[pP]([+-]?\d+)[fFdD]?""")
 
+    /** GTCOORDGUARD-2026-11-15: a LATITUDE -- finite and on Earth, or nothing.
+     *  "1e400" parses to +Infinity and "NaN" to NaN; both used to reach the rider scan, which
+     *  promoted an infinite-extent segment and ran the Droid out of memory (cert D12, 11-09).
+     *  GtRead already refuses non-finite values coming OUT of the database (GtRead.kt:292);
+     *  this applies the same rule where untrusted data comes IN. Callers already drop a null
+     *  point, so an invalid coordinate is dropped by the guard that is already there. */
+    fun latOrNull(s0: String): Double? =
+        toDoubleOrNull(s0)?.takeIf { it.isFinite() && it >= -90.0 && it <= 90.0 }
+
+    /** GTCOORDGUARD-2026-11-15: a LONGITUDE -- finite and on Earth, or nothing. See [latOrNull]. */
+    fun lonOrNull(s0: String): Double? =
+        toDoubleOrNull(s0)?.takeIf { it.isFinite() && it >= -180.0 && it <= 180.0 }
+
     fun toDoubleOrNull(s0: String): Double? {
         val s = s0.trim { it <= ' ' }
         if (s.isEmpty()) return null
