@@ -13,8 +13,21 @@ kotlin {
         namespace = "com.grouptrack.shared"
         androidResources.enable = false
     }
-    iosArm64()
-    iosSimulatorArm64()
+    // GTIPADFW-2026-11-15 (gap C28-26319 G10): the module COMPILED for iOS but produced nothing an
+    // Xcode app could link -- compiling is not producing. STATIC framework first: the smallest
+    // linkable artifact, which is what proves the ports link and read real data. An XCFramework
+    // comes when something is actually distributed. NO SCREENS ARE WIRED HERE, and that is SCOPE,
+    // NOT A DECISION: D10 (11-06, confirmed by the spike) chose COMPOSE MULTIPLATFORM for the iPad
+    // screens, and SwiftUI was REJECTED for presentation -- zero reuse of the web layer, and it
+    // closes the 3.0 web door (Compose/Wasm). A stub needs no screens; D10 stands.
+    // NOTE: the iOS DEPLOYMENT TARGET (16, so one binary runs on both iPad Pros) is set by the
+    // consuming Xcode project, not here -- do not expect to find it in this file.
+    listOf(iosArm64(), iosSimulatorArm64()).forEach { t ->
+        t.binaries.framework {
+            baseName = "GroupTrackShared"
+            isStatic = true
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {
