@@ -596,6 +596,47 @@ TIED TO POST-2.8 &mdash; found by using the app, fix after the refactor ships</h
 </table>
 </div>
 
+<h2 id="shape-proof">&#11088; SHAPE, NOT HASH &mdash; now proven on live data (SHAPEPROOF-2026-11-15)</h2>
+
+<p><b>Fred 2026-11-15:</b> <i>"duplicate tracks will be by shape and not by hash. points can be
+different for the exact same ride by two riders."</i> And: <i>"local duplicate creation should
+probably shift to shape rules once they are created. would have solved our rename issue from
+yesterday."</i></p>
+
+<p>That was a design argument this morning. <code>GtCertGeomMacTest</code> turned it into a
+measurement this afternoon.</p>
+
+<table>
+<tr><th>Result</th><th>Value</th></tr>
+<tr><td>rows checked (real 11-08 spatial DB)</td><td>230,109</td></tr>
+<tr><td>SAME</td><td>230,106 &mdash; incl. all 229,361 trails, 595 waypoints, 131 tracks</td></tr>
+<tr><td>DIFF</td><td class="good"><b>0</b> &mdash; geometry hashing is identical across engines</td></tr>
+<tr><td>NONCANONICAL</td><td class="bad"><b>3 routes</b> &mdash; <code>c1c7ec1d</code>,
+    <code>b5439e7d</code>, <code>be3da471</code></td></tr>
+</table>
+
+<p><b>WHAT THE 3 ARE.</b> Each is <i>"stored with a space after the comma"</i>. The same ground,
+serialised differently, so it hashes differently. <code>0 DIFF</code> establishes that the ground
+itself is not in question &mdash; only the text it is stored as.</p>
+
+<p class="bad"><b>&#9888; SO HASH-BASED DEDUP IS ALREADY WRONG ON THIS DATABASE.</b> Not
+theoretically, and not only for two riders recording the same trail &mdash; for three routes
+sitting in the live DB right now. A hash comparison reports them as distinct ground. A shape
+comparison does not. This is the same failure as the 11-14 rename issue, and it is why
+<a href="#r29">#r29</a>'s download rule is <i>"give me ground I do not have"</i> rather than
+<i>"give me hashes I do not have"</i>.</p>
+
+<p><b>OPEN &mdash; and now evidence-backed rather than speculative:</b></p>
+<ul>
+<li>Canonicalise on write, so the format cannot vary. Cheap, and it stops new ones appearing.</li>
+<li>Decide whether to canonicalise the 3 existing rows or leave them as the regression fixture.
+    Leaving them has real value: they are the only known natural instance of the defect.</li>
+<li>Shift <b>local</b> duplicate detection to shape, per Fred above. The 2.9 federation already
+    assumes shape; the device does not yet.</li>
+<li>The 9-in-89,554 OSM/UGRC hash-match figure now has a companion measurement from the other
+    direction: 3 in 230,109 rows differ by format alone.</li>
+</ul>
+
 <h2 id="blast-verified">&#11088; THE BLAST-RADIUS REFERENCE &mdash; AUDITED AND REPAIRED (BLASTVERIFY-2026-11-15)</h2>
 <div class="card">
 <p><b>Fred 2026-11-15 11:14:</b> <i>"be sure that our blast radius refs are correct &mdash; this is when we are going to rely on them. This push to isolate dead code."</i> &rarr; 11:19: <i>"we have plenty of time to walk through test if the actual fits the determined call reference."</i></p>

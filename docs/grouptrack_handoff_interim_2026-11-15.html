@@ -490,7 +490,79 @@ surveys with 9 HASH MATCHES IN 89,554.</pre>
 <div class="note"><b>Where this lands in the register:</b> Phase 7 (native-only, Swift) already held the file picker at <b>49 hits / 14 files</b> with <b>17 <code>contentResolver</code></b> uses. <b>This adds the file-type LAUNCHER as a distinct item</b> &mdash; it is not the picker. The picker is <i>the app asks for a file</i>; the launcher is <i>the system hands the app a file</i>. They are different mechanisms on both platforms (<code>ActivityResultContracts</code> vs <code>&lt;intent-filter&gt;</code>; <code>UIDocumentPickerViewController</code> vs <code>CFBundleDocumentTypes</code>), and conflating them would leave "Open with GroupTrack" quietly missing on the iPad.</div>
 </div>
 
+<h2 id="root-set">THE LAUNCH-POINT ROOT SET &mdash; why a hit count of zero is not evidence</h2>
+
+<p><b>Fred 2026-11-15 11:49:</b> <i>"lets be sure our install and housekeeping start are
+valid launch points so we do not impact code that will not duplicate until a release or
+new install."</i></p>
+
+<p class="bad"><b>&#9888; THE HOLE THIS CLOSES.</b> The removal stub
+(<a href="#root-set">root set</a> &middot; <a href="#removal-pipeline">#removal-pipeline</a>) is an instrument: it measures how often a
+gutted body was being called. That reading is only meaningful for code that runs on
+<b>every launch</b>. For code that runs <b>once per install</b> or <b>once per release
+upgrade</b>, a count of zero is the <i>expected</i> reading on a device that has already
+passed that point &mdash; and both droids have. Driving removal from hit counts would delete
+precisely the code that no running device can defend.</p>
+
+<p><b>THE RULE.</b> Reachability from a root counts as LIVE, whatever the hit count says. The
+tool gets a root set, and every name reachable from it is protected from both the suggester
+and the stub.</p>
+
+<table>
+<tr><th>Root</th><th>What it is</th><th>Measured 11-15</th><th>What a zero count means</th></tr>
+<tr><td><b>R1 EVERY LAUNCH</b></td>
+    <td>Activity / Service <code>onCreate</code>, <code>GtStartupHousekeeping.everyLaunch</code>,
+        <code>StartupHousekeeping.run</code></td>
+    <td><code>onCreate</code> &times;8, <code>StartupHousekeeping</code> 43 refs</td>
+    <td class="good">GENUINELY DEAD. The instrument is trustworthy here and only here.</td></tr>
+<tr><td><b>R2 ONCE PER INSTALL</b></td>
+    <td>Fresh-install schema creation and any seeding guarded by an is-it-empty test</td>
+    <td><code>CREATE TABLE</code> &times;116, <b><code>onUpgrade</code> &times;0</b></td>
+    <td class="bad">NO INFORMATION. On an existing install the IF NOT EXISTS statements run
+        and create nothing; seeding behind an emptiness test never fires again.</td></tr>
+<tr><td><b>R3 ONCE PER RELEASE UPGRADE</b></td>
+    <td><code>migrateLegacy</code>, <code>clearTrailsOnce</code> and the <code>*Once</code>
+        family, plus one-time launch code under CODE RULE 3</td>
+    <td><code>fun *Once</code> &times;6, <code>migrateLegacy</code> &times;2</td>
+    <td class="bad">NO INFORMATION. Already ran on Droid 1 and Droid 2. Reads zero forever on
+        every device that is not mid-upgrade.</td></tr>
+<tr><td><b>C CERT-OLD</b></td>
+    <td>The <code>*CertOld.kt</code> side-by-side oracles</td>
+    <td>a large share of the 116 <code>CREATE TABLE</code> hits</td>
+    <td>Not dead, and not the automation's to touch. <b>WE</b> remove these at the release cut
+        under CODE RULE 3, deliberately.</td></tr>
+</table>
+
+<p class="bad"><b>&#9888; THERE IS NO <code>onUpgrade</code> ANYWHERE.</b> Zero hits across
+app/, core/ and grouptrack-shared/. Schema evolution runs entirely through
+<code>CREATE TABLE IF NOT EXISTS</code>. That is a fact about the application, not a defect
+found by this sweep, but it means <b>the fresh-install path IS the migration path</b>, so R2
+and R3 are not cleanly separable and both must be protected as one.</p>
+
+<p><b>WHAT THE TOOL OWES.</b> Three changes to
+<code>gt_deadcode_2026-11-15_v3.sh</code>, none of them written yet:</p>
+<ol>
+<li><b>A root-set file</b> the verifier reads, listing R1/R2/R3/C names. Anything in it, or
+    reachable from it, is reported PROTECTED rather than DEAD &mdash; a third verdict beside
+    LIVE and DEAD.</li>
+<li><b>A transitive pass.</b> Today the tool answers "is this name referenced." The root set
+    needs "is this name reachable from a root," which is a different question and one grep
+    cannot answer. Until that pass exists, R2/R3 removal stays MANUAL.</li>
+<li><b>A sentinel for the new verdict.</b> A known R3 name &mdash;
+    <code>clearTrailsOnce</code> &mdash; must come back PROTECTED every run. If it ever comes
+    back DEAD, the root set is not loading and no result below it is trustworthy. Same
+    discipline as the LIVE sentinel: a verifier that cannot produce its own verdicts is an
+    echo.</li>
+</ol>
+
+<p><b>SO THE GATE ON AUTOMATION IS:</b> automated removal is authorised for R1-reachable code
+only. R2, R3 and C come out by hand, named one at a time, at the release cut. The 16 dead
+<code>ConvoyRoutes</code> declarations qualify as R1 work &mdash; a route is reached from
+navigation on every launch, and all 16 have zero references of any kind, so no hit count is
+involved in the verdict.</p>
+
 <h2 id="removal-pipeline">&#11088; THE DEAD-CODE REMOVAL PIPELINE &mdash; AUTOMATABLE (REMOVALPIPE-2026-11-15)</h2>
+<p class="bad"><b>&#9888; READ <a href="#root-set">#root-set</a> FIRST.</b> The hit count below is only evidence for code that runs on every launch.</p>
 <div class="card">
 <p><b>Fred 2026-11-15 11:28&ndash;11:29:</b> <i>"If you get to batch and then a reliable single-item verifier, we can automate the removal of inactive code. Backed up first, then removed and rebuilt. You can leave empty functioning placeholders for code that has been removed so app flows stay the same&hellip; basically going to call an empty function that says e.g. 'raster processing removed'."</i></p>
 <table>

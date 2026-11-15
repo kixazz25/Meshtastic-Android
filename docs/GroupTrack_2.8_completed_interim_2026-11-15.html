@@ -76,7 +76,23 @@ th{background:#12203a;color:var(--accent)}
 <tr><td><b>evidence</b></td><td><code>~/Downloads/gt_ios_cert_perclass_report_2026-11-15.txt</code> plus the result XML under <code>grouptrack-shared/build/test-results/iosSimulatorArm64Test/</code>.</td></tr>
 <tr><td><b>commit</b></td><td><code>pending</code></td></tr>
 </table>
-<div class="note">The nine capped classes are <b>not</b> closed &mdash; they are in flight uncapped. This row records only that the suite was run and scored.</div></div>
+<div class="note">&#9888; <b>CORRECTED 2026-11-15 11:55.</b> The nine capped classes are <b>not</b> closed, and they are <b>no longer in flight</b> &mdash; the uncapped run <b>stopped without completing</b> at 15:14&nbsp;UTC with no exit record, no runner log and no aggregate report (one result XML only, for <code>GtCertBlob17MacTest</code>). It produced <b>two</b> of the nine first, both PASS: <code>Rider15b</code> and <code>Geom</code>. <b>Running tally: 30 proven, 0 FAIL, 7 unproven.</b> Whether the daemon was killed or the launching shell ended is not known from the evidence on disk.</div></div>
+
+<div class="card"><h3><span class="tag t-good">CLOSED</span> &mdash; &middot; the 45-fixture import corpus reads the same on both engines (GT15BGEOM-2026-11-15)</h3>
+<table>
+<tr><td><b>what closed</b></td><td><code>GtCertRider15bMacTest</code> &mdash; one of the nine classes capped by the short timeout, and the one that parses <b>70&nbsp;MB across 45 import fixtures</b>. Run uncapped, it <b>PASSED</b>: <b>585 keys checked, 581 SAME, 0 DIFFER, 4 EXPECTED</b>.</td></tr>
+<tr><td><b>evidence</b></td><td><code>_data/cert/GroupTrack_GT15B_mac_2026-11-15_1000.txt</code>. All four EXPECTED rows are <code>.kmz</code> files &mdash; <i>binary zip read as text</i> &mdash; so length and sha differ by platform (<code>HillbillyHills_TrailsV3.kmz</code> droid&nbsp;279,755 / mac&nbsp;277,205, and three more of the same kind). That is a platform fact about reading a zip as text, not a defect, and it is the second time this corpus has produced exactly four of them.</td></tr>
+<tr><td><b>commit</b></td><td><code>pending</code></td></tr>
+</table>
+<div class="note">Confirms the 11-15 diagnosis that the nine capped classes are <b>slow, not broken</b>. This was the single heaviest parse in the suite.</div></div>
+
+<div class="card"><h3><span class="tag t-good">CLOSED</span> &mdash; &middot; 230,109 spatial rows hash identically on iOS &mdash; and 3 of them prove the shape rule (GT15BGEOM-2026-11-15)</h3>
+<table>
+<tr><td><b>what closed</b></td><td><code>GtCertGeomMacTest</code>, also one of the nine. Run uncapped it <b>PASSED</b> over the real 11-08 spatial DB: <b>230,109 rows, 230,106 SAME, 3 NONCANONICAL, 0 DIFF</b> &mdash; including all <b>229,361 trails rows</b>, 595 waypoints, 131 tracks, and the end-ride lookup at <b>131/131</b>.</td></tr>
+<tr><td><b>evidence</b></td><td><code>_data/cert/GroupTrack_GEOM_mac_2026-11-15_1000.txt</code> against <code>_data/live_2026-11-08/grouptrack_spatial.db</code>. <b>0 DIFF</b> is the headline: the geometry hashing is identical across engines on a quarter-million real rows.</td></tr>
+<tr><td><b>commit</b></td><td><code>pending</code></td></tr>
+</table>
+<div class="note">&#11088; <b>THE 3 NONCANONICAL ROWS ARE THE FINDING.</b> Three <code>routes</code> are <i>"stored with a space after the comma"</i>: the same ground, serialised differently, so it hashes differently. <code>0 DIFF</code> means the ground is not in question &mdash; only the format is. This is <a href="grouptrack_living_checklist_interim_2026-11-15.html#r29">Fred's shape-not-hash rule</a> appearing as live data rather than as a design argument, and it is the answer to <i>"would have solved our rename issue from yesterday."</i> Route ids: <code>c1c7ec1d</code>, <code>b5439e7d</code>, <code>be3da471</code>.</div></div>
 
 <div class="src">Completed list for 2026-11-15. Created 09:23. Items are MOVED here out of the handoff and checklist interims; becomes the day's completed-activity record at the EOD process.</div>
 </main>
