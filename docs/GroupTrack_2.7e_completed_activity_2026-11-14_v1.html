@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GroupTrack — 2.7e VECTOR MAPS — completed activity</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}ol{margin:6px 0;padding-left:22px}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+.hi{color:var(--warn);font-weight:700}.step{background:#12203a;border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0}
+.src{font:11px var(--mono);color:var(--dim);border-top:1px dotted var(--line);margin-top:8px;padding-top:5px}
+table{border-collapse:collapse;width:100%;font:12.5px var(--mono);margin:8px 0}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+th{background:#12203a;color:var(--accent)}
+
+/* ROUTENOTES-2026-08-23 */
+.ascii{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:14px;
+  font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#8b949e;overflow-x:auto;margin:12px 0}
+</style>
+</head>
+<body>
+<header><div class="ttl">GroupTrack &mdash; <b>2.7e VECTOR MAPS — completed activity</b></div><div class="sub">extracted 2026-11-14 from grouptrack_living_master_2026-11-14_v238.html &middot; 1 section(s)</div></header>
+<main>
+<div class="card"><p>Release 2.7e — vector maps, OpenFreeMap, MapLibre — extracted VERBATIM from the living master on 2026-11-14.</p></div>
+<h2 id="rel-2-7e">⭐⭐⭐ RELEASE 2.7e — VECTOR MAPS: one map source, OpenFreeMap tiles, MapLibre (decided 10-29 17:49–19:48, Fred) · BUILT 10-30 on Droid 1 · migration designed 10-30</h2>
+<div class="card next"><p><b>STATE 10-30 EOD — BUILT on Droid 1 through 3D, carts and heading-up</b> (commits <code>cfa4de7dc</code> → <code>9c18ef9e8</code>). The plan, the migration design, the tester-build order and today's rejections are in <b>SATURDAY 10-31 — START HERE</b> at the top. <b>What below is superseded by 10-30:</b> (1) satellite as the alternative single source — <b>rejected</b> (Fred 15:19, "satellite is gone"); (2) the conversion deletes the rasters first — now <b>queue first, then delete</b>, and it starts by building the recipe from the tiles (an install with no tiles is a new install); (3) the vector corridor "draws the route's rectangle + ~5 miles" — now <b>tight boxes over the full area</b> (Fred 15:57); (4) elevation (contours/hillshade "not in 2.7e") — <b>in 2.7e</b>: a second, non-selectable source (AWS Terrain Tiles, DEM store, z0–12) always queued with vector; 3D works; (5) the step-3 interim "Google Hybrid until MapLibre" — done and passed: the map is MapLibre now.</p></div>
+
+<div class="card next">
+<p><b>PURPOSE:</b> replace the raster map stack (Google Hybrid / Esri Topo / OpenTopoMap + label stores, Leaflet) with <b>one vector map</b> drawn by <b>MapLibre</b> — licence-clean, a fraction of the storage and download time, sharp at every zoom, rotation and 3D, and the same map page for Android, iPad and Mac. Fred 19:47: "this is no less intrusive than it was at the beginning … our area and corridor downloads will continue … all features come in the pbf downloads prepositioned, and we have a replacement service for providing map data within the same request and fulfil structure our downloads currently support. all with no changes in infrastructure."</p>
+<p><b>WHY NOW:</b> D29 — the Google sources (default slot 1) break Google's terms, and stored Google tiles are on every tablet. Fred 18:07: "goggle exposure is not small. it is embedded on every device." The 07-26 / 08-14 MapLibre direction (memory: grouptrack-vector-rendering) was already set; this makes it the next release.</p>
+<p><b>SCOPE — Fred's five steps (19:13), in order:</b></p>
+<ol>
+<li><b>Add the vector map source</b> to <code>map_sources.json</code>: OpenFreeMap, a <b>fourth store directory</b> beside SAT / TOPO / TOPO+, format <code>pbf</code>, z0–14, not a Leaflet map type. Check the downloader's tile validation and MBTiles metadata (<code>format=pbf</code>) before the first run.</li>
+<li><b>Rebuild the map in that fourth directory by finishing the recreate-from-recipe function</b>: newest recipe → each box's lat/lon exactly as reported (Fred 18:32: "we need to download exactly the long and lat we report down to z14" — no recount) → <b>AREA</b> jobs z0–14 into the vector store; the existing queue manages itself (Fred 18:29). Test: Droid 1's recipe → Droid 2 (Droid 1 stays the reference on the current build).</li>
+<li><b>Remove TOPO and TOPO+ as map sources</b> → one active source (Google Hybrid until MapLibre) and one map button fewer. Their files stay on tablets until step 5.</li>
+<li><b>Remove Leaflet, install MapLibre in ONE MAP's page — directly, on the MapLibre branch, tested on Droid 2 against Droid 1</b> (Fred 19:06: "just replace the leaflet with map libre once we have the tiles over. has to be better than taking it apart and making things coexist"). <b>Rule: the JavaScript bridge stays identical</b> — every function Kotlin calls (<code>fitBounds</code>, <code>setView</code>, <code>showQueuedAreas</code>, <code>showSearchCenter</code> …) and every <code>Android.*</code> call back keeps its name and arguments, so Kotlin does not change. Order: list the bridge contract → base map (stored vector, offline via <code>addProtocol</code>) → display trails/routes/tracks/waypoints (GeoJSON from SpatialDbManager, unchanged) → taps (<code>queryRenderedFeatures</code>) → search and fit → downloads (area drawing, route rectangle) → planning (pins, build, compare, create a ride) → saved view (+ bearing, pitch) → <b>group riding display last</b> (carts, lead track, check-in; the tick was removed in 2.7b). Fonts (glyphs) bundled in assets or names vanish offline. Style starts from an OpenFreeMap style (Liberty / Bright / Positron) adjusted to a topo look; one download can carry several looks (style switch, not a second source).</li>
+<li><b>Conversion routine</b> (one-time, CODE RULE 3): message on first start of the new version, online only — "Updating your maps to the new format: old map images removed, N areas downloaded" — Yes / Next start → write today's recipe (it is built FROM the stores, so it must be fresh before anything is deleted; the recipe folder survives) → <b>delete the three raster directories first, Google included</b> (Fred 18:28: "once we change the method to vector then the images have to go … we will need to reclaim the space before downloading") → queue the recipe boxes as vector AREA jobs z0–14. Trails, routes, rides stay drawn throughout.</li>
+</ol>
+<p><b>FRAME — what does not change:</b> trails, tracks, routes, waypoints, rides and the spatial DB; snapping (Kotlin, against the DB — <b>never snap or route against tiles</b>: clipped, simplified, unstable ids); the Geofabrik import of trails, places and natural features (<code>reference_points</code> feeds RouteExplorer's scoring and "features this route passes" — the tiles' names are for drawing only); the download queue, MBTiles, recipes, area and corridor downloads (for a vector source the corridor simply draws the route's rectangle + margin, ~5 miles, a named setting — Fred 18:23: "leave corridor in place and it simply draws the rectangle by itself"); ride import downloads the ride's maps as now (follow-up to measure: carry the ride's vector tiles inside the .convoy file).</p>
+<p><b>THE MODEL AFTER 2.7e:</b> one map source per rider (Fred 18:12: "we are not doing both. one map source"). Default and target = vector. Satellite was argued both ways (18:12–18:22); Fred's resting position 18:21: "moving maps to one source which is vector based or sat is exactly the process we have now without the three sources" — satellite (USGS imagery, public domain, by corridor) remains possible as the alternative single source; vector needs no corridor at z14. Google, Esri, TOPO, TOPO+ and the two Esri label stores retire.</p>
+<p><b>SOURCE — OpenFreeMap (Fred 19:40: "we have enough to do without creating and managing infrastructure"):</b> free public instance, no registration/key, "no limits on map views or requests" (README), z/x/y vector tiles in the OpenMapTiles schema to z14, so the existing queue downloads them unchanged; attribution required: "OpenFreeMap © OpenMapTiles, Data from OpenStreetMap" (MapLibre shows it); publishes full planet MBTiles weekly — the self-host fallback with the same z/x/y addresses, so the app's process never changes (Fred 19:21: "whatever we are doing we need to do it from day 1. no changing processes in the middle"). <b>Not confirmed:</b> its terms do not mention offline/bulk storage either way → send the operator a note before release. Street names, places, water, land arrive inside the tiles (<code>transportation_name</code> etc.) — no PBF kept on the tablet, no reprocessing per area (Fred 19:43).</p>
+<p><b>THE RECIPE (read 18:30, <code>ConvoyMapRecipe.kt</code>):</b> <code>recipes/grouptrack_maps_YYYY-MM-DD.gtmaps</code> in the app's external files dir (<code>/sdcard/Android/data/com.grouptrack.android/files/GroupTrack/recipes/</code>), written once a day at startup, 60 kept; JSON <code>{version:1, created, slots:[{slot, source, zMin, zMax, tiles, boxes:[{n,s,w,e,tiles}]}]}</code>; boxes from <code>DownloadQueueManager.deriveRecipe</code> — a quadtree over STORED tiles, empties dropped, ≤50,000 tiles per box, lat/lon. The restore was deliberately left unbuilt (08-12); its rule: replay as <code>DownloadType.AREA</code> + <code>DownloadPriority.REFRESH</code> — a refresh-typed replay downloads nothing and completes at zero looking successful. The recipe screen already lists "RECEIVED (Downloads)" → Droid 1's recipe can drive Droid 2.</p>
+<p><b>STATE 10-29:</b> designed only. Measurements owed first: a southwestern-Utah vector area on Droid 2 — size, download time, look at z15–17 vs Esri/Google on roads Fred knows (estimate: a western state at z0–14 = a few hundred MB; a rider's areas less).</p>
+<p><b>NUMBERS that drove it:</b> Droid 2 08-02: SAT 4.24 GB + label stores 0.46 GB; Bar 10 corridor ≈107,000 tiles across five stores; zooms 15–18 ≈ 98% of a raster download, and vector stops at 14. Server (if self-hosting ever needed): EC2 8 GB disk (5.4 GB free, shared with the website), 1 GB RAM, 1 vCPU, AWS CLI 2.33 present, no credentials (needs an IAM role), IMDSv2 token required.</p>
+<p><b>MAP SOURCES TODAY (D29 table, 17:28–17:51):</b></p>
+<table><tr><th>Source</th><th>Licence</th><th>Offline in an app</th><th>2.7e</th></tr>
+<tr><td>Google Hybrid / Satellite / Roads / Terrain</td><td>Proprietary</td><td>Not permitted (no API, no storage); <code>mt.google.com</code>, no key</td><td>Retire; delete stored files in the conversion</td></tr>
+<tr><td>Esri Imagery / Overlays / USA Topo / Topo / NatGeo</td><td>Proprietary</td><td>Production/offline needs an Esri licence</td><td>Retire (Esri Topo is default slot 2)</td></tr>
+<tr><td>OpenTopoMap</td><td>CC-BY-SA</td><td>Volunteer server; asks apps not to bulk download</td><td>Retire (slot 3)</td></tr>
+<tr><td>OpenStreetMap standard</td><td>ODbL</td><td>Tile policy forbids bulk/offline</td><td>Retire (catalogue only)</td></tr>
+<tr><td>Thunderforest Outdoors</td><td>Proprietary styling</td><td>Rider's own key, entered at activation (Fred 17:35) — rider's own terms</td><td>Retire with the rest</td></tr>
+<tr><td>CARTO Voyager</td><td>Proprietary styling</td><td>Commercial use needs a licence</td><td>Retire</td></tr>
+<tr><td>USGS Topo / Imagery Topo / Imagery Only</td><td>Public domain</td><td>Allowed</td><td>Imagery Only = the satellite option if ever used (Imagery Topo is heavier than Google Hybrid — Fred 17:51)</td></tr>
+<tr><td><b>OpenFreeMap</b> (vector)</td><td>ODbL + OpenMapTiles</td><td>Not addressed in its terms — confirm</td><td><b>The source</b></td></tr>
+<tr><td>OSMF vector tiles (vector.openstreetmap.org)</td><td>ODbL</td><td><b>Prohibited</b> ("including downloading for offline use")</td><td>Rejected</td></tr></table>
+<p><b>Also on the table, not in 2.7e:</b> contours and hillshade from USGS 3DEP / elevation tiles; public land from PAD-US (public domain) — "am I on public land?"; private parcel lines (onX's headline feature) need licensed county data — separate decision. onX for reference: its own tiles compiled from public GIS + its guides, licensed imagery, Mapbox renderer (MapLibre is the open fork of Mapbox GL).</p>
+<p><b>iPad / Mac:</b> MapLibre GL JS is a web library — the same map page runs in the iPad/Mac WKWebView; per platform only the native pieces differ (tile serving via the URL scheme handler, the SQLite DB, BLE). Doing this on Leaflet would have baked Leaflet into the layer iPad and Mac wait on.</p>
+<p><b>REJECTED — AND WHY:</b></p>
+<ul>
+<li><b>Self-hosting on AWS (S3 + CloudFront, a PMTiles file, a PMTiles range reader)</b> — worked out 19:17–19:31 (cost pennies; downloads would bypass the EC2 server), dropped 19:37–19:40: Fred does not want to build and manage infrastructure for what a free service provides. Kept as the fallback only, fed by OpenFreeMap's weekly planet file.</li>
+<li><b>Cutting states out of the file</b> — Fred 19:23: "no cutting states out. our promise was 50 states."</li>
+<li><b>OSM's own vector server</b> — its policy prohibits offline/bulk downloading.</li>
+<li><b>Protomaps public build as a live source</b> — one big file (not z/x/y), not meant as a production source; would have needed a reader and a later switch (breaks "no changing processes").</li>
+<li><b>Grandfathering Google through the Meshtastic fork</b> (Fred 17:31) — Meshtastic's Google map uses the licensed Maps SDK with its own API key; a fork carries the code licence, not Meshtastic's agreement with Google; GroupTrack bulk-stores raw tiles from an unofficial address. The corridor argument (17:33, "targeted, not bulk") helps with volunteer servers' volume concerns, not with Google's no-storage rule.</li>
+<li><b>Moving trails into the vector tiles / routing on tiles</b> — tile geometry is clipped and simplified, ids unstable (07-26 rule).</li>
+<li><b>First-launch area picking / riding-area boxes / trails cut into grid squares on a server</b> (18:16–18:21) — Fred: first-launch setup "will be painful"; trails by state are cheap and done once ("we have a process that works"); maps were the heavy part and vector at z14 removes it.</li>
+<li><b>Download vector, then delete raster</b> — Fred 18:28: delete first to reclaim space; the images are useless after the change.</li>
+<li><b>A second test map screen / Leaflet and MapLibre coexisting</b> (19:01–19:06) — replaced by a direct swap on Droid 2 with Droid 1 as the reference; the <code>maplibre-gl-leaflet</code> plugin (vector under Leaflet) noted only as an emergency interim — it gives no rotation or 3D.</li>
+<li><b>A Mac browser test page</b> — Fred 19:01: no spatial DB there; test on the Droid.</li>
+<li><b>Satellite + vector both</b> — Fred 18:12: one source, never two.</li>
+</ul>
+</div>
+
+</main>
+</body>
+</html>
