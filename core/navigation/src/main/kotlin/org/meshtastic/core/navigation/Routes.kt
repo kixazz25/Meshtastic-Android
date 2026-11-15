@@ -188,20 +188,45 @@ object ConvoyRoutes {
     @Serializable data object ConvoyEnrollment : Route
     @Serializable data object ConvoyEmailGate   : Route
     @Serializable data object ConvoyCreateEvent : Route
-    @Serializable data object ConvoySettingsPanel : Route
-    @Serializable data object ConvoyMasterCapture : Route
-    @Serializable data object ConvoyApplyListMaint  : Route  // Maintenance only
-    @Serializable data object ConvoyMasterCaptureMaint : Route  // Maintenance only
-    @Serializable data object ConvoyMasterSuccess : Route
-    @Serializable data object ConvoyApplyList     : Route
-    @Serializable data object ConvoyApplyRadio    : Route
-    @Serializable data object ConvoyWriteArchive  : Route
-    @Serializable data object ConvoyWriteDevice   : Route
-    @Serializable data object ConvoyWriteLoRa     : Route
-    @Serializable data object ConvoyWritePosition : Route
-    @Serializable data object ConvoyWriteChannel  : Route
-    @Serializable data object ConvoyWriteVerify   : Route
-    @Serializable data object ConvoyReconnectWait : Route
+    // ---- GTREMOVED-2026-11-15: 16 DEAD ROUTE DECLARATIONS REMOVED FROM HERE ----
+    //
+    // What: the old RADIO-WRITE WIZARD (the six ConvoyWrite*) and the old MASTER-CONFIG
+    //       FLOW (ConvoyApply*, ConvoyMasterCapture*, ConvoyMasterSuccess), plus four more
+    //       the 2.7c ONE MAP flattening orphaned. The screens went; these stayed behind.
+    //       See PLANNEROUT-2026-10-23 and ConvoyNavigation:214 for the planning map's.
+    //
+    // Removed at their original lines in this file:
+    //   ConvoySettingsPanel        line 191
+    //   ConvoyMasterCapture        line 192
+    //   ConvoyApplyListMaint       line 193
+    //   ConvoyMasterCaptureMaint   line 194
+    //   ConvoyMasterSuccess        line 195
+    //   ConvoyApplyList            line 196
+    //   ConvoyApplyRadio           line 197
+    //   ConvoyWriteArchive         line 198
+    //   ConvoyWriteDevice          line 199
+    //   ConvoyWriteLoRa            line 200
+    //   ConvoyWritePosition        line 201
+    //   ConvoyWriteChannel         line 202
+    //   ConvoyWriteVerify          line 203
+    //   ConvoyReconnectWait        line 204
+    //   ConvoyMapViewer            line 221   (was below, outside this block)
+    //   ConvoyProfileSetup         line 223   (was below, outside this block)
+    //
+    // Evidence (gt_deadcode_2026-11-15_v3.sh sweep routes, 2026-11-15 19:10):
+    //   DEAD 16, LIVE 0 of 16. Every one 0 code references AND 0 comment references.
+    //   Sentinel ConvoyDashboard verified LIVE (5 refs), so the pattern CAN report LIVE
+    //   and a DEAD verdict carries information. 49 declared - 16 = 33, and 33 are
+    //   registered via gtComposable and 33 referenced: the arithmetic closes exactly.
+    //   Agreed by three independent methods: declared-vs-registered set difference, a
+    //   hand audit of all 49, and the tool's exact-form verify.
+    //
+    // NO STUBS: a removal stub keeps a signature so call sites still compile and counts
+    //   how often a gutted body ran. These had NO callers at all, so there was nothing
+    //   to keep and nothing to count. This comment is the record.
+    //
+    // To restore any of them: git show <this commit>^:<this path>
+    // ---------------------------------------------------------------------------------
     @Serializable data object ConvoyArchiveRestore  : Route
     @Serializable data object ConvoyTransferRide     : Route
     @Serializable data object ConvoySignIn           : Route  // V3 Phase A
@@ -218,9 +243,9 @@ object ConvoyRoutes {
     @Serializable data object ConvoyProfile          : Route  // V3 Phase B
     @Serializable data object ConvoyExplore          : Route  // V3 Phase B
     @Serializable data object ConvoyTracks           : Route  // V3 Phase B
-    @Serializable data object ConvoyMapViewer        : Route  // V2.4 Map Viewer with trail overlay
+    // GTREMOVED-2026-11-15: ConvoyMapViewer removed from here -- 0 refs; see the record above.
     @Serializable data object ConvoyTrackImport      : Route  // V2.4 Import tracks from Downloads
-    @Serializable data object ConvoyProfileSetup      : Route  // V3 Phase B
+    // GTREMOVED-2026-11-15: ConvoyProfileSetup removed from here -- 0 refs; see the record above.
     @Serializable data object ConvoyDownloadRideConfig : Route  // V3 Phase B
     @Serializable data object ConvoyMyOrganizers : Route  // V3 Phase B
     @Serializable data object ConvoyCompletedRides : Route  // V3 Phase B
