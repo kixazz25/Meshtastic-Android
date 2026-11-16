@@ -100,6 +100,11 @@ object GtCertRun {
                     // row being the second leg in GtCertValuesMacTest; random = PROPERTIES only, never values.
                     // ⚠ Excluded from the whole-database pass by default (CERTRUNINVERT-2026-11-14, line below).
                     if (mode == "certvalues") GtCertValues.run(app, w)
+                    // CERTPATHS-2026-11-16: seam 2's ENVIRONMENT half (TEST-ONLY, CODE RULE 3).
+                    // ⚠ the ONLY cert that WRITES: a probe file under <cacheDir>/certpaths_tmp,
+                    // <root>/certpaths_tmp and <my_tracks>/certpaths_tmp, each deleted after. A path can
+                    // be perfectly shaped and unwritable, and every tail would still match.
+                    if (mode == "certpaths") GtCertPaths.run(app, w)
                     // GEOMONE-2026-11-09: "geom" = THE ONE geometry module (shared GtGeom) vs EVERY stored row of the frozen copy (CertGeom):
                     // rebuilt text == stored text, hash == stored hash, the end-ride lookup finds each track. Read-only. Mac side: GtCertGeomMacTest.
                     if (mode == "geom") { val fz = frozen(app)
