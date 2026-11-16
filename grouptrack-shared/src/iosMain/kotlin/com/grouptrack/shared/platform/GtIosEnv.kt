@@ -20,16 +20,11 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
-import platform.Foundation.NSCachesDirectory
 import platform.Foundation.NSDate
 import platform.Foundation.dateWithTimeIntervalSince1970
-import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSFileModificationDate
-import platform.Foundation.NSLibraryDirectory
-import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSUUID
-import platform.Foundation.NSUserDomainMask
 import platform.Foundation.timeIntervalSince1970
 import platform.Foundation.NSCalendar
 import platform.Foundation.NSCalendarUnitDay
@@ -60,10 +55,6 @@ import platform.Foundation.NSCalendarUnitYear
  * Do not assume this file is correct because it is committed.
  */
 
-private fun sysDir(which: ULong): String =
-    (NSSearchPathForDirectoriesInDomains(which, NSUserDomainMask, true).firstOrNull() as? String)
-        ?: error("iOS sandbox directory $which not available")   // CODE RULE 1: no nullable fallback -- a missing sandbox dir is not recoverable
-
 /** GtFiles on okio, plus the two things okio cannot do. */
 /** GTIOSENVFIX2-2026-11-15: ExperimentalForeignApi is required by setAttributes's `error`
  *  parameter, which is a CPointer. GtCertImport15eMacTest:53 carries the same opt-in on the
@@ -91,25 +82,6 @@ class IosFiles : GtFiles {
      *  The track resync's order decides which of two same-geometry files becomes the track and
      *  which an alias (INVENTORY T8), so this is a DECISION already taken, not an accident. */
     override fun list(dir: Path): List<Path> = try { fs.list(dir) } catch (e: Exception) { emptyList() }
-}
-
-/** Where GroupTrack keeps things inside the iOS sandbox. Resolved on each call, as the contract says. */
-class IosPaths : GtImportPaths {
-    private val documents: Path get() = sysDir(NSDocumentDirectory).toPath()
-
-    override fun groupTrackRoot(): Path = (documents / "GroupTrack").also { ensure(it) }
-
-    /** ⛔ A SIBLING of the root, created -- NOT a child. MacPaths had this wrong. */
-    override fun tracksDir(): Path = (documents / "my_tracks").also { ensure(it) }
-
-    /** A named child of the root ("data/trail_areas", "osm", "imports", "config"). NOT created. */
-    override fun dir(name: String): Path = groupTrackRoot() / name
-
-    override fun cacheDir(): Path = (sysDir(NSCachesDirectory).toPath() / "GroupTrack").also { ensure(it) }
-
-    override fun filesDir(): Path = (sysDir(NSLibraryDirectory).toPath() / "GroupTrack").also { ensure(it) }
-
-    private fun ensure(p: Path) { try { FileSystem.SYSTEM.createDirectories(p) } catch (e: Exception) { } }
 }
 
 /** The device clock. */

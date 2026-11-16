@@ -46,8 +46,12 @@ import platform.Foundation.NSUserDomainMask
  * tileRoot() is NOT a separate place: Android's body is identical to root()'s, so shared
  * GtStorage.tileRoot() = base.root() is right, and tiles land at root/maps/tiles on both.
  *
- * ⚠ IosPaths is left in place and untouched: the 32 passing cert classes construct it, and breaking
- * a green cert to tidy a name is not a trade worth making today.
+ * IOSPATHSRM-2026-11-16: IosPaths has been REMOVED. The claim that stood here -- that 32 cert
+ * classes construct it -- was written from assumption and was false: measured 11-16, IosPaths had
+ * exactly one non-comment occurrence in the repo, its own declaration. The iosTest certs each
+ * write their own inline GtImportPaths double. It was dead AND divergent from Android, and two
+ * implementations of one interface in iosMain is an invitation to wire the wrong one when the
+ * env is assembled. IosImportPaths below is the only GtImportPaths on iOS.
  *
  * ⛔ NEVER build my_tracks as dir("my_tracks"). GroupTrackStorage carries the same warning: it would
  * nest the folder INSIDE GroupTrack and silently change a layout that has been flat since the

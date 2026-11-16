@@ -3,6 +3,7 @@ package com.grouptrack.shared.platform
 import com.grouptrack.shared.imports.GtHttp
 import com.grouptrack.shared.log.gtLogger
 import com.grouptrack.shared.mapsource.GtMapSpecEnv
+import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSData
 import platform.Foundation.NSError
@@ -95,7 +96,9 @@ private class HttpOut {
  * @param waitMs            how long we block before abandoning the wait. A backstop only: the
  *                          session's own timeouts should fire first.
  */
-@OptIn(ExperimentalForeignApi::class)
+// BetaInteropApi: NSString.create(data=, encoding=) is beta interop. Named explicitly rather
+// than suppressed -- GtIosEnv.kt:68 carries the same kind of note for setAttributes.
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 private fun fetch(
     url: String,
     userAgent: String?,
