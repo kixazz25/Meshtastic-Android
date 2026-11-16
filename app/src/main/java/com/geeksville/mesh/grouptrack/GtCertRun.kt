@@ -92,6 +92,8 @@ object GtCertRun {
                     // STEP15B-2026-11-09: "parse15b" = the import parsers and converter, 2.7e (ImportParseCertOld / ImportConverterCertOld)
                     // vs shared GtGpxParse / GtImportConverter, on the files adb-pushed to GroupTrack/cert15b/. Reads no database.
                     if (mode == "parse15b") GtCert15b.run(app, w)
+                    // CERTLOG-2026-11-16: the LOGGING seam certification (TEST-ONLY, CODE RULE 3)
+                    if (mode == "certlog") GtCertLog.run(app, w)
                     // GEOMONE-2026-11-09: "geom" = THE ONE geometry module (shared GtGeom) vs EVERY stored row of the frozen copy (CertGeom):
                     // rebuilt text == stored text, hash == stored hash, the end-ride lookup finds each track. Read-only. Mac side: GtCertGeomMacTest.
                     if (mode == "geom") { val fz = frozen(app)
