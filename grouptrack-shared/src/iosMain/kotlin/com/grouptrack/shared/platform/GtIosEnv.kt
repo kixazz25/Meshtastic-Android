@@ -33,6 +33,11 @@ import platform.Foundation.NSCalendarUnitMinute
 import platform.Foundation.NSCalendarUnitMonth
 import platform.Foundation.NSCalendarUnitSecond
 import platform.Foundation.NSCalendarUnitYear
+import com.grouptrack.shared.imports.GtHttp
+import com.grouptrack.shared.imports.GtImportEnv
+import com.grouptrack.shared.imports.GtImportPlatform
+import com.grouptrack.shared.imports.GtTrailClass
+import com.grouptrack.shared.storage.GtStorage
 
 /**
  * IOSSOCKETS-2026-11-15 (2.8b phase 1): the PRODUCTION iOS halves of the four map-critical
@@ -168,4 +173,51 @@ class IosTileEnv(private val paths: GtImportPaths) : GtTileStoreEnv {
             try { st.bindText(1, k); st.bindText(2, v); st.step() } finally { st.close() }
         }
     }
+}
+
+
+/**
+ * IOSIMPORTENV-2026-11-16: the iPad's GtImportEnv -- register item G7, "production import wiring".
+ *
+ * Nothing new is implemented here. All seven parts existed before this class; what was missing was
+ * the assembly, and until 1d8b7e87c it could not be written safely because TWO GtImportPaths
+ * implementations sat in iosMain and disagreed about cacheDir()/filesDir(). One has been removed.
+ *
+ * Mirrors GtImportAndroid(context), member for member:
+ *     clock       GtClock            IosClock            (java.time.Instant -> NSDate)
+ *     ids         GtIds              IosIds              (UUID -> NSUUID)
+ *     files       GtFiles            IosFiles            (okio + NSFileManager for setLastModified)
+ *     paths       GtImportPaths      IosImportPaths      (through GtStorage, as Android's st)
+ *     http        GtHttp             IosHttp             (HttpURLConnection -> NSURLSession)
+ *     trailClass  GtTrailClass       IosTrailClass       (TrailClassifier.useOf, ported as data)
+ *     platform    GtImportPlatform   IosImportPlatform   (readAsset + saveToDownloads real;
+ *                                                         enqueueCorridor and onTrailsChanged throw)
+ *
+ * ONE PATHS INSTANCE, SHARED. IosImportPlatform's parameter is the CONCRETE IosImportPaths, not the
+ * interface, so a careless assembly would construct two independent instances. Android holds a single
+ * st = GtStorageAndroid.of(app) for the same reason. One instance here, passed to both.
+ *
+ * CODE RULE 1 -- the st parameter is a non-null default, and the reason is certification, not
+ * convenience: production takes the real sandbox via iosStorage(), while GtCertPathsMacTest already
+ * injects a GtStorage rooted at a temp directory (IosImportPaths(st)). A cert that could not point the
+ * env at a scratch root would have to write into the real container to prove anything.
+ *
+ * ⚠ WHAT THIS DOES NOT MAKE TRUE. The env now exists and type-checks; it has not been RUN. Two of
+ * IosImportPlatform's four members still throw -- enqueueCorridor needs the iOS download queue
+ * (GtQueuePlatform has no implementation on either platform) and onTrailsChanged needs a map to
+ * reload. So iOS GPX IMPORT must not be claimed as working: the export half is certified, the import
+ * half reaches two throwing members. Per SVCFIRST-2026-11-16 they throw loudly and name themselves
+ * rather than degrading into something that reads as a bug.
+ */
+class IosImportEnv(st: GtStorage = iosStorage()) : GtImportEnv {
+    /** ONE instance -- see the note above; IosImportPlatform takes the concrete type. */
+    private val p = IosImportPaths(st)
+
+    override val clock: GtClock = IosClock
+    override val ids: GtIds = IosIds
+    override val files: GtFiles = IosFiles()
+    override val paths: GtImportPaths = p
+    override val http: GtHttp = IosHttp
+    override val trailClass: GtTrailClass = IosTrailClass()
+    override val platform: GtImportPlatform = IosImportPlatform(p, FileSystem.SYSTEM)
 }
