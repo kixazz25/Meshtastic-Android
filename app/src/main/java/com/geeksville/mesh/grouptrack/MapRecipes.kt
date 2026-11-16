@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
@@ -87,8 +88,8 @@ object GtRecipes {
 
     /** SEND: the share sheet with the recipe attached; the email tells the rider how to open it. "" = the sheet opened. */
     fun send(ctx: Context, f: File, label: String): String = try {
-        ctx.cacheDir.listFiles { x -> x.name.startsWith("GroupTrack maps ") }?.forEach { it.delete() }
-        val copy = File(ctx.cacheDir, "GroupTrack maps $label.json")   // RECIPEJSON-2026-11-03: Gmail hands a .json on; not a .gtmaps
+        GtPathsAndroid.cache(ctx).listFiles { x -> x.name.startsWith("GroupTrack maps ") }?.forEach { it.delete() }
+        val copy = File(GtPathsAndroid.cache(ctx), "GroupTrack maps $label.json")   // RECIPEJSON-2026-11-03: Gmail hands a .json on; not a .gtmaps
         f.copyTo(copy, overwrite = true)
         val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".provider", copy)
         val play = "https://play.google.com/store/apps/details?id=com.grouptrack.android&hl=en_US"

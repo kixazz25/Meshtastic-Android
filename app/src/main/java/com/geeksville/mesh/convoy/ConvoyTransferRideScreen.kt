@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.convoy
 
 import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
@@ -26,6 +27,7 @@ import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtPathsAndroid
 
 @Composable
 fun ConvoyTransferRideScreen(
@@ -63,7 +65,7 @@ fun ConvoyTransferRideScreen(
             val safeName = ride.eventName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
             val safeDate = ride.eventDate.replace("/", "-").replace(" ", "_")
             val fileName = "convoy_ride_${safeName}_${safeDate}.convoy"
-            val outFile  = File(context.cacheDir, fileName)
+            val outFile  = File(GtPathsAndroid.cache(context), fileName)
             val rideJson = ride.toJson().apply { put("convoyDocType", "convoy_ride") }
             outFile.writeText(rideJson.toString(2))
 

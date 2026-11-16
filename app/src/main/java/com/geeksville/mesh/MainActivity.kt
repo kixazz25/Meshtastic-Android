@@ -14,6 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh
 
 import android.app.PendingIntent
@@ -59,6 +60,7 @@ import org.meshtastic.core.ui.util.showToast
 import org.meshtastic.feature.intro.AppIntroductionScreen
 import javax.inject.Inject
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtPathsAndroid
 
 // Session-only convoy persistence: cleared once per process (true cold launch).
 // Top-level var = one instance per process; survives activity recreation (rotation),
@@ -210,7 +212,7 @@ class MainActivity : ComponentActivity() {
 
     private fun handleConvoyRideImport(uri: Uri) {
         try {
-            val importDir = java.io.File(filesDir, "convoy_import").also { it.mkdirs() }
+            val importDir = java.io.File(GtPathsAndroid.files(this), "convoy_import").also { it.mkdirs() }
             val fileName  = "ride_${System.currentTimeMillis()}.convoy"
             val destFile  = java.io.File(importDir, fileName)
             contentResolver.openInputStream(uri)?.use { input ->

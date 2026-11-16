@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.convoy
 
 import android.content.Context
@@ -10,6 +11,7 @@ import android.webkit.WebView
 import java.io.File
 import java.io.FileOutputStream
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtPathsAndroid
 
 /**
  * RIDEPREVIEW-2026-09-24 — the ride's map picture (Fred 09-24).
@@ -33,7 +35,7 @@ object RidePreview {
     private fun safe(id: String) = id.replace(Regex("[^A-Za-z0-9_-]"), "_")
 
     /** The picture captured at ADD A RIDE, before the ride exists (keyed by route). */
-    fun pendingFile(context: Context, routeId: String) = File(context.cacheDir, "ride_preview_" + safe(routeId) + ".jpg")
+    fun pendingFile(context: Context, routeId: String) = File(GtPathsAndroid.cache(context), "ride_preview_" + safe(routeId) + ".jpg")
 
     /** The picture kept with a saved ride. */
     fun rideFile(context: Context, rideId: String) = File(GroupTrackStorage.dir("rides", context), safe(rideId) + ".jpg")

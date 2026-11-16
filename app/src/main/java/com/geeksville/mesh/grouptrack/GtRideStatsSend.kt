@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
@@ -20,7 +21,7 @@ import java.io.File
 object GtRideStatsSend {
     fun send(ctx: Context, report: String, statsJson: String, lead: List<com.geeksville.mesh.convoy.WPoint>, lastGpx: File?) {
         val stamp = java.text.SimpleDateFormat("yyyy-MM-dd_HHmm", java.util.Locale.US).format(java.util.Date())
-        val dir = File(ctx.cacheDir, "ride_stats").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
+        val dir = File(GtPathsAndroid.cache(ctx), "ride_stats").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
         val files = ArrayList<File>()
         runCatching { File(dir, "ride_stats_$stamp.txt").also { it.writeText(report); files.add(it) } }
         runCatching { File(dir, "ride_stats_$stamp.json").also { it.writeText(statsJson); files.add(it) } }

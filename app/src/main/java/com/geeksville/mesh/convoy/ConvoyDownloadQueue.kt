@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.convoy
 
 import android.content.Context
@@ -15,6 +16,7 @@ import java.io.File
 import java.util.UUID
 import okio.Path.Companion.toOkioPath   // STEP16D-2026-11-11
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtPathsAndroid
 
 // ===========================================================
 // QueueEntry -- one download request (region x all layers)
@@ -1306,7 +1308,7 @@ object DownloadQueueManager {
     @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     private fun saveQueue() {
         try {
-            val dir = File(appCtx.filesDir, "download_queue")
+            val dir = File(GtPathsAndroid.files(appCtx), "download_queue")
             dir.mkdirs()
             val file = File(dir, QUEUE_FILE)
             val arr = JSONArray()
@@ -1324,7 +1326,7 @@ object DownloadQueueManager {
     @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     private fun loadQueue() {
         try {
-            val file = File(appCtx.filesDir, "download_queue/$QUEUE_FILE")
+            val file = File(GtPathsAndroid.files(appCtx), "download_queue/$QUEUE_FILE")
             if (!file.exists()) return
             val arr = JSONArray(file.readText())
             val entries = mutableListOf<QueueEntry>()
@@ -1336,7 +1338,7 @@ object DownloadQueueManager {
         } catch (e: Exception) {
             log.e { "Load queue failed: ${e.message} - quarantining" }
             try {
-                val bad = File(appCtx.filesDir, "download_queue/" + QUEUE_FILE)
+                val bad = File(GtPathsAndroid.files(appCtx), "download_queue/" + QUEUE_FILE)
                 if (bad.exists()) {
                     val quarantine = File(bad.parentFile, QUEUE_FILE + ".corrupt")
                     if (quarantine.exists()) quarantine.delete()

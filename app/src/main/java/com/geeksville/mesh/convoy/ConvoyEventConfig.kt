@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.convoy
 
 import android.content.Context
@@ -12,6 +13,7 @@ import org.json.JSONObject
 import java.io.File
 import java.time.LocalDate
 import java.util.UUID
+import com.geeksville.mesh.grouptrack.GtPathsAndroid
 
 /**
  * ConvoyEventConfig — V2 event/ride configuration
@@ -97,7 +99,7 @@ data class ConvoyEventConfig(
  */
 object ConvoyEventStore {
     private const val EVENTS_DIR = "convoy_events"
-    fun eventsDir(context: Context): File = File(context.filesDir, EVENTS_DIR).also { it.mkdirs() }
+    fun eventsDir(context: Context): File = File(GtPathsAndroid.files(context), EVENTS_DIR).also { it.mkdirs() }
     private fun store(context: Context) = GtEventStore(FileSystem.SYSTEM, GtStorageAndroid.of(context).filesDir() / GtEventStore.EVENTS_DIR) { p ->
         File(p.toString()).listFiles()?.map { it.toOkioPath() }
     }

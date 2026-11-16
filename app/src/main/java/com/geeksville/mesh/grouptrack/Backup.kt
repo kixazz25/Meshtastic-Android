@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
@@ -94,7 +95,7 @@ object GtBackup {
 
     /** The backup's files (cache/backup), the email's list, and its fingerprint. */
     private fun build(ctx: Context, toDownloads: Boolean): Built {
-        val dir = File(ctx.cacheDir, "backup").also { it.mkdirs(); it.listFiles()?.forEach { x -> x.delete() } }
+        val dir = File(GtPathsAndroid.cache(ctx), "backup").also { it.mkdirs(); it.listFiles()?.forEach { x -> x.delete() } }
         val files = ArrayList<File>(); val list = StringBuilder(); val print = StringBuilder()
         for ((type, label) in TYPES) {
             val msg = GtExportAll.run(ctx, type, toDownloads)

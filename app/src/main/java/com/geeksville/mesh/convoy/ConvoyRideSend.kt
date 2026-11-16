@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.convoy
 
 import android.content.Context
@@ -5,6 +6,7 @@ import android.content.Intent
 import androidx.core.content.FileProvider
 import java.io.File
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtPathsAndroid
 
 /**
  * RIDESEND-2026-09-23 — sends a ride. SENDING IS THE LOCK (Fred 09-23): after the first send only
@@ -46,13 +48,13 @@ object ConvoyRideSend {
             val label = (name.trim() + (if (dayShort.isNotBlank()) " - $dayShort" else ""))
                 .replace(Regex("[^A-Za-z0-9 ._-]"), "_").replace(Regex("\\s+"), " ").trim().take(60)
                 .ifBlank { "GroupTrack OG ride" }
-            context.cacheDir.listFiles { f -> f.name.endsWith(".convoy") }?.forEach { it.delete() }
-            val out = File(context.cacheDir, "$label.convoy")
+            GtPathsAndroid.cache(context).listFiles { f -> f.name.endsWith(".convoy") }?.forEach { it.delete() }
+            val out = File(GtPathsAndroid.cache(context), "$label.convoy")
             stored.copyTo(out, overwrite = true)
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", out)
             // STEP14E-2026-11-08 (Fred 12:48): riders WITHOUT GroupTrack get the route and the trailhead + waypoints as two GPX files,
             // cut from the package's own gpx (shared GtRideJson.splitGpx) so they always match it. Own folder, emptied per send.
-            val sendDir = File(context.cacheDir, "ride_send").also { d -> d.listFiles()?.forEach { it.delete() }; d.mkdirs() }
+            val sendDir = File(GtPathsAndroid.cache(context), "ride_send").also { d -> d.listFiles()?.forEach { it.delete() }; d.mkdirs() }
             val rideData = org.json.JSONObject(stored.readText()).optJSONObject("rideData")
             val gpx = if (rideData == null || rideData.isNull("gpx")) "" else rideData.optString("gpx", "")
             val gpxUris = ArrayList<android.net.Uri>()

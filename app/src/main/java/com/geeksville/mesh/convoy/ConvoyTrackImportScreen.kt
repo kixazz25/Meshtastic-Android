@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.convoy
 
 import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
@@ -53,6 +54,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtPathsAndroid
 
 /**
  * ConvoyTrackImportScreen -- V2.4 in-app file browser for track import.
@@ -162,7 +164,7 @@ fun ConvoyTrackImportScreen(
         staging = true
         scope.launch {
             val staged = withContext(Dispatchers.IO) {
-                val dir = java.io.File(context.filesDir, "gpx_staging")
+                val dir = java.io.File(GtPathsAndroid.files(context), "gpx_staging")
                 // \u26a0 CLEARED AT THE START TOO. A previous run that died leaves
                 // files here, and importing yesterday's selection silently would
                 // be worse than losing it.

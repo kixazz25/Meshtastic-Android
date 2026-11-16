@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.convoy
 
 import android.content.Context
@@ -10,6 +11,7 @@ import java.io.File
 import okio.Path.Companion.toOkioPath   // STEP15CDE-SWITCH-2026-11-10
 import com.grouptrack.shared.imports.GtGpxParse   // STEP15B-SWITCH-2026-11-09
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtPathsAndroid
 
 /**
  * Pure file operations for tracks. No UI, no Compose. Callable from any screen.
@@ -431,7 +433,7 @@ object ConvoyTrackOps {
     /** Share artifact as GPX via email intent. Creates temp file, attaches, deletes after. */
     fun shareGpx(context: android.content.Context, name: String, gpxContent: String) {
         try {
-            val tempFile = java.io.File(context.cacheDir, "${(name.replace(Regex("[^A-Za-z0-9._-]+"), "_").trim('_').ifEmpty { "track" })}.gpx")   // GPXNAME-2026-10-01: safe file name
+            val tempFile = java.io.File(GtPathsAndroid.cache(context), "${(name.replace(Regex("[^A-Za-z0-9._-]+"), "_").trim('_').ifEmpty { "track" })}.gpx")   // GPXNAME-2026-10-01: safe file name
             tempFile.writeText(gpxContent, Charsets.UTF_8)
             val uri = androidx.core.content.FileProvider.getUriForFile(
                 context, context.packageName + ".provider", tempFile)

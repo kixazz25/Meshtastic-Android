@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.convoy
 
 import android.app.Activity
@@ -6,6 +7,7 @@ import android.os.Bundle
 import org.json.JSONObject
 import java.io.File
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtPathsAndroid
 
 /**
  * ConvoyFileReceiver
@@ -124,7 +126,7 @@ class ConvoyFileReceiver : Activity() {
             }
 
             // Write to import directory
-            val importDir = File(filesDir, importDirName).also { it.mkdirs() }
+            val importDir = File(GtPathsAndroid.files(this), importDirName).also { it.mkdirs() }
             val fileName = "convoy_${System.currentTimeMillis()}.convoy"
             val destFile = File(importDir, fileName)
             destFile.writeText(content)
@@ -212,7 +214,7 @@ object GpxOpen {
             .replace(Regex("[^A-Za-z0-9 _-]"), "_").trim().ifBlank { "import" }
         return try {
             // The panel's own policy: staging holds only the current selection.
-            val stage = java.io.File(context.filesDir, "gpx_staging")
+            val stage = java.io.File(GtPathsAndroid.files(context), "gpx_staging")
             if (stage.exists()) stage.listFiles()?.forEach { it.delete() }
             stage.mkdirs()
             val f = java.io.File(stage, base + ext)

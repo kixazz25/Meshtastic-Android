@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
@@ -73,7 +74,7 @@ object GtConfigPdf {
         y += 12f
         wrap("Keep this document private: it holds the channel key. Anyone with the key can see the group's positions.", small)
         page?.let { doc.finishPage(it) }
-        val dir = File(ctx.cacheDir, "radio_configs").apply { mkdirs() }
+        val dir = File(GtPathsAndroid.cache(ctx), "radio_configs").apply { mkdirs() }
         val safe = title.replace(Regex("[^A-Za-z0-9 ._-]"), "_").trim().ifBlank { "config" }.take(60)
         val f = File(dir, "GroupTrack OG radio setup - $safe.pdf")
         f.outputStream().use { doc.writeTo(it) }

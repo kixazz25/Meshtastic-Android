@@ -121,6 +121,13 @@ class GtCertPathsMacTest {
             // ⚠ EXPORT-D is the iPad's OWN verification (did the file land in Documents/Download).
             // The Droid's equivalent is EXPORT-A/B, which asks MediaStore -- a different question with
             // a different key. So EXPORT-D is asserted on its own merits here and never compared.
+            // ⛔ PATHS|accessor|* is a DROID-ONLY check and must be skipped here. GtCertPaths
+            // compares ctx.cacheDir against GtPathsAndroid.cache(ctx) -- the java.io.File hop the 23
+            // converted call sites actually take. java.io.File does not exist on iOS, so the iPad
+            // cannot produce these keys; comparing them would put them in `extra` and fail a passing
+            // cert. That is exactly what the refusal keys did at 10:47, and writing the Droid side
+            // without the matching skip here is the same mistake twice in one hour.
+            if (k.startsWith("PATHS|accessor|")) continue
             if (k.startsWith("EXPORT-D|")) {
                 if (!v.startsWith("true")) trips.add("$k  mac=$v")
                 continue
@@ -129,7 +136,10 @@ class GtCertPathsMacTest {
             if (d == v) { same++; continue }
             real.add("$k  droid=$d  mac=$v")
         }
-        val extra = droid.keys - mine.keys.map { lookup(it) }.toSet()
+        // ⚠ the Droid legitimately emits SAME keys the iPad cannot run (the accessor hop). Those
+        // are named here rather than silently tolerated, so a genuinely MISSING key still fails.
+        val droidOnly = setOf("PATHS|accessor|cacheDir", "PATHS|accessor|filesDir", "PATHS|accessor|child")
+        val extra = droid.keys - mine.keys.map { lookup(it) }.toSet() - droidOnly
 
         println("CERTPATHS mac: --- the two containers, reported not compared ---")
         for ((k, v) in droidFacts) println("CERTPATHS mac: FACT droid  $k = $v")

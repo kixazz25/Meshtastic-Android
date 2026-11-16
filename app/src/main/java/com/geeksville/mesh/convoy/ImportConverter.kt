@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.convoy
 
 import java.io.File
@@ -5,6 +6,7 @@ import com.grouptrack.shared.imports.GtImportConverter   // STEP15B-SWITCH-2026-
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtPathsAndroid
 
 /**
  * MAPIMPORTS-2026-10-30 (D31, Fred 10-30): "Convert files to GPX" -- KML / KMZ / GeoJSON -> a GPX the import already reads.
@@ -19,7 +21,7 @@ object ImportConverter {
 
     /** Every picked file: copied in, converted, the GPX saved to Download. One result line per file. */
     fun convertAll(context: android.content.Context, uris: List<android.net.Uri>): List<String> {
-        val dir = File(context.cacheDir, "convert_staging")
+        val dir = File(GtPathsAndroid.cache(context), "convert_staging")
         if (dir.exists()) dir.listFiles()?.forEach { it.delete() }   // a previous run that died leaves files here
         dir.mkdirs()
         val out = ArrayList<String>()

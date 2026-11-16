@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.convoy
 
 import androidx.lifecycle.ViewModel
@@ -19,6 +20,7 @@ import kotlinx.coroutines.launch
 // COMMREPORT-2026-10-12: RadioOps no longer used here -- the GPS interval goes through CommMessaging.setReporting (P4.4)
 import javax.inject.Inject
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtPathsAndroid
 
 /**
  * HUD display modes — IMP-001 Task 4.1
@@ -672,7 +674,7 @@ class ConvoyViewModel @Inject constructor(
 
     suspend fun scanImportDirectory() {
         try {
-            val importDir = java.io.File(appContext.filesDir, "convoy_import").also { it.mkdirs() }
+            val importDir = java.io.File(GtPathsAndroid.files(appContext), "convoy_import").also { it.mkdirs() }
             // MediaStore.Downloads query removed — was legacy code replaced by ConvoyFileReceiver.
             // The query blocked main thread on devices with large Downloads (tiles/tracks).
             if (!importDir.exists()) return
@@ -968,7 +970,7 @@ class ConvoyViewModel @Inject constructor(
 
     // ── File logger ───────────────────────────────────────────────────────
     private val convoyLogFile: java.io.File by lazy {
-        java.io.File(appContext.filesDir, "convoy_debug.log").also {
+        java.io.File(GtPathsAndroid.files(appContext), "convoy_debug.log").also {
             it.writeText("=== GroupTrack Debug Log ${System.currentTimeMillis()} ===\n")
         }
     }

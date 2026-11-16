@@ -134,6 +134,35 @@ object GtCertPaths {
         val missed = old.keys - new.keys
         for (k in missed) { diff++; w.write("CERTPATHS\t$k\tDIFF\tOLD answered but NEW did not: ${esc(old[k]!!)}\n") }
 
+        // ============================================== THE ACCESSOR THE 23 SITES ACTUALLY CALL
+        // Fred 11-16 11:49: "and you ran simulated data through this patch?"  -- no, and this is the
+        // hop that was untested. certpaths proved app.cacheDir == GtStorage.cacheDir(). But the 23
+        // converted sites do not call GtStorage; they call GtPathsAndroid, which adds .toString() and
+        // a java.io.File wrap:
+        //     ctx.cacheDir                                          what the sites used to call
+        //     GtStorageAndroid.of(ctx).cacheDir()                   what certpaths already proved
+        //     File(GtStorageAndroid.of(ctx).cacheDir().toString())  what GtPathsAndroid returns
+        // If that last hop renders a path differently from java.io.File.getPath(), all 23 sites point
+        // somewhere else and every other check in this cert still passes. So it is compared HERE,
+        // against the direct call, as a STRICT key -- the simulation that should have run before the
+        // patch, now standing between the patch and the build.
+        run {
+            val oldCache = app.cacheDir.path
+            val newCache = GtPathsAndroid.cache(app).path
+            if (oldCache == newCache) { same++; w.write("CERTPATHS\tPATHS|accessor|cacheDir\tSAME\t${esc(newCache)}\n") }
+            else { diff++; w.write("CERTPATHS\tPATHS|accessor|cacheDir\tDIFF\tOLD ${esc(oldCache)} | NEW ${esc(newCache)}\n") }
+            val oldFiles = app.filesDir.path
+            val newFiles = GtPathsAndroid.files(app).path
+            if (oldFiles == newFiles) { same++; w.write("CERTPATHS\tPATHS|accessor|filesDir\tSAME\t${esc(newFiles)}\n") }
+            else { diff++; w.write("CERTPATHS\tPATHS|accessor|filesDir\tDIFF\tOLD ${esc(oldFiles)} | NEW ${esc(newFiles)}\n") }
+            // and that a child path built off the accessor matches one built off the direct call --
+            // which is what every one of the 23 sites actually does: File(<dir>, "subfolder")
+            val oldChild = java.io.File(app.cacheDir, "convert_staging").path
+            val newChild = java.io.File(GtPathsAndroid.cache(app), "convert_staging").path
+            if (oldChild == newChild) { same++; w.write("CERTPATHS\tPATHS|accessor|child\tSAME\t${esc(newChild)}\n") }
+            else { diff++; w.write("CERTPATHS\tPATHS|accessor|child\tDIFF\tOLD ${esc(oldChild)} | NEW ${esc(newChild)}\n") }
+        }
+
         // ================================================================ THE EXPORT LEG
         // Fred 11-16 10:31: "it is the test that determines if our default environment mapping puts
         // files in the download directory properly."

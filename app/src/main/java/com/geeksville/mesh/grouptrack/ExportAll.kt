@@ -1,3 +1,4 @@
+// SEAM2PATHS-2026-11-16: Context.cacheDir/filesDir -> the shared storage socket
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
@@ -89,7 +90,7 @@ object GtExportAll {
     @Volatile private var pending: java.io.File? = null
 
     private fun keepForShare(ctx: Context, name: String, gpx: String) {
-        val dir = java.io.File(ctx.cacheDir, "exports").also { it.mkdirs(); it.listFiles()?.forEach { x -> x.delete() } }
+        val dir = java.io.File(GtPathsAndroid.cache(ctx), "exports").also { it.mkdirs(); it.listFiles()?.forEach { x -> x.delete() } }
         pending = java.io.File(dir, "$name.gpx").also { it.writeText(gpx) }
     }
 
