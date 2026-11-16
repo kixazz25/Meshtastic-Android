@@ -7,8 +7,10 @@ import com.grouptrack.shared.filter.TrailFilterState
 import com.grouptrack.shared.imports.GtClock
 import com.grouptrack.shared.imports.GtImportPaths
 import com.grouptrack.shared.log.gtLogger
+import com.grouptrack.shared.text.GtTime
 import com.grouptrack.shared.spatial.GtRead
 import com.grouptrack.shared.startup.GtHkDb
+import com.grouptrack.shared.startup.GtManifestSweep
 import com.grouptrack.shared.startup.GtHkEnv
 import com.grouptrack.shared.startup.GtHkFile
 import okio.FileSystem
@@ -218,17 +220,28 @@ class IosHkEnv(
     // ---- HomeStateImportController -------------------------------------------
 
     /**
-     * ⛔ NOT PORTED YET, AND THIS IS A FUNCTIONAL HOLE WITH A NAME ON IT, not a design choice.
-     * Until the 90 lines move to commonMain, an interrupted trail import is not detected on iPad:
-     * no manifest is classified, killedImportArea is never set, the picker never re-opens, and the
-     * rider is never told to rerun. See the class note.
+     * SWEEPPORT-2026-11-16: ported, no longer a hole. The 90 lines live in GtManifestSweep; this
+     * supplies the platform's three inputs and keeps the one piece of app state Android keeps.
+     *
+     * [killedImportArea] mirrors HomeStateImportController's @Volatile var -- the shared port RETURNS
+     * it rather than holding it, and HomeStatePickerScreen's analogue reads it from here.
      */
-    override fun sweepManifests(): Unit =
-        throw IllegalStateException(
-            "GTIOSHK-2026-11-16: sweepManifests NOT PORTED -- interrupted trail imports are not " +
-                "detected on iOS until HomeStateImportController.sweepManifests (90 lines) moves to " +
-                "commonMain. This is a functional hole, not a no-op."
+    var killedImportArea: String? = null
+        private set
+
+    override fun sweepManifests() {
+        val dir = paths.dir("imports")
+        try { fs.createDirectories(dir) } catch (e: Exception) { }
+        val r = GtManifestSweep.run(
+            fs = fs,
+            importsDir = dir,
+            nowIso = GtTime.local(clock.localNow(), "yyyy-MM-dd'T'HH:mm:ss"),
+            logI = { log.i { it } },
+            logW = { log.w { it } },
+            logE = { log.e { it } },
         )
+        if (r.killedArea != null) killedImportArea = r.killedArea
+    }
 
     // ---- the schema marker ---------------------------------------------------
 
