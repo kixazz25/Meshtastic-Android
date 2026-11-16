@@ -4,6 +4,8 @@ import androidx.sqlite.SQLITE_DATA_FLOAT
 import androidx.sqlite.SQLITE_DATA_NULL
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteStatement
+import com.grouptrack.shared.gpx.GtGpx
+import com.grouptrack.shared.json.GtOrgJson
 import com.grouptrack.shared.log.gtLogger
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -194,6 +196,67 @@ class GtRead(private val conn: SQLiteConnection, private val dataConn: SQLiteCon
         catch (e: Exception) { log.w { "readRouteNotes: ${e.message}" }; null }
     }
     private fun notesObject(routeId: String): JsonObject? = readRouteNotesPayload(routeId)?.let { try { Json.parseToJsonElement(it).jsonObject } catch (e: Exception) { null } }
+
+    // ---- RIDESPATIAL-2026-11-16: the four reads the ride model needs (2.7e SpatialDbManager, same SQL, same bytes) ------------
+    /*
+     * ⚠ THESE ARE A SECOND COPY, IDENTICAL BY CONSTRUCTION. SpatialDbManager still has its own
+     * buildRouteGpxById / buildWaypointGpxById / routeRecipe / readRouteNotes, and Android still calls those.
+     * Switching Android onto these is its own change with its own build and three-column certification.
+     * ⛔ UNTIL THEN, DO NOT EDIT ONE WITHOUT THE OTHER. (Same standing as GtManifestSweep, 2026-11-16.)
+     *
+     * ⭐ WHY THE NOTES ARE RE-SERIALISED AND NOT PASSED THROUGH. GtGpx.route takes the notes "exactly as the
+     * platform serialises them", and 2.7e's platform is org.json: SpatialDbManager hands over
+     * org.json.JSONObject(payload).toString(), NOT the stored payload. That round trip is not identity --
+     * JSONObject.numberToString writes a Double equal to its Long as the Long, so a recipe anchor stored as
+     * -113.0 comes back "-113". kotlinx keeps the literal and would write "-113.0", and the GPX <extensions>
+     * block would differ between the Droid and the iPad for every recipe that has coordinates. GtOrgJson.compact
+     * reproduces org.json's writer, so it does not.
+     *
+     * ⚠ EXPECTED DIVERGENCE (already recorded for GtOrgJson): org.json's JSONTokener is LENIENT and kotlinx is
+     * STRICT, so a payload with a comment or an unquoted key parses on the Droid and not here. Every payload in
+     * route_notes is written by GroupTrack itself, and the failure direction is the same either way -- a parse
+     * failure yields null, exactly as 2.7e's catch does.
+     */
+
+    /** SpatialDbManager.buildRouteGpxById(routeId): Pair(route name, GPX text), or null. */
+    fun routeGpx(routeId: String): Pair<String, String>? = try {
+        stmt(conn, "SELECT name, geometry FROM routes WHERE route_id=?", listOf(routeId)) { st ->
+            if (!st.step()) null else {
+                val name = cellText(st, 0) ?: "Unnamed"
+                val geom = cellText(st, 1)
+                if (geom == null) null else {
+                    /* CLOSEPLANNER-2026-08-29, as 2.7e left it: the narrative comes from route_notes, NOT from a
+                     * description column. 2.7e's own `columnCount > 2` test against this two-column SELECT never
+                     * fired; it is not reproduced, because reproducing a branch that cannot run is not fidelity. */
+                    val notes = notesObject(routeId)
+                    val headline = GtOrgJson.optString(notes?.get("narrative") as? JsonObject, "headline")
+                    Pair(name, GtGpx.route(name, geom, headline, notes?.let { GtOrgJson.compact(it) }))
+                }
+            }
+        }
+    } catch (e: Exception) { log.e { "routeGpx error: " + e.message }; null }
+
+    /** SpatialDbManager.buildWaypointGpxById(waypointId): Pair(waypoint name, GPX text), or null. */
+    fun waypointGpx(waypointId: String): Pair<String, String>? = try {
+        stmt(conn, "SELECT name, type, geometry FROM waypoints WHERE waypoint_id=?", listOf(waypointId)) { st ->
+            if (!st.step()) null else {
+                val name = cellText(st, 0) ?: "Unnamed"
+                val type = cellText(st, 1) ?: ""
+                val geom = cellText(st, 2)
+                /* ⛔ desc IS ALWAYS "". 2.7e reads `if (c.columnCount > 3)` against this THREE-column SELECT, so
+                 * the waypoint <desc> has never been written. Kept as the empty string it has always been. */
+                if (geom == null) null else GtGpx.waypoint(name, type, geom, "")?.let { Pair(name, it) }
+            }
+        }
+    } catch (e: Exception) { log.e { "waypointGpx error: " + e.message }; null }
+
+    /** SpatialDbManager.routeRecipe(routeId)?.toString() -- the recipe block, or null when the route has none
+     *  (hand-drawn and imported routes do not, and the button is shown or not on exactly that). */
+    fun routeRecipeText(routeId: String): String? =
+        (notesObject(routeId)?.get("recipe") as? JsonObject)?.let { GtOrgJson.compact(it) }
+
+    /** SpatialDbManager.readRouteNotes(routeId)?.toString() -- the whole narrative payload, re-serialised as above. */
+    fun routeNotesText(routeId: String): String? = notesObject(routeId)?.let { GtOrgJson.compact(it) }
 
     fun nextRouteNumber(base: String): Int {
         val b = base.trim().lowercase()
