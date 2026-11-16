@@ -1,7 +1,6 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.grouptrack.shared.cert.CertLog
 import com.grouptrack.shared.log.gtLogger
 import java.io.File
@@ -66,13 +65,25 @@ object GtCertLog {
     fun run(ctx: Context, w: Writer) {
         val t0 = System.currentTimeMillis()
         val app = ctx.applicationContext
-        val f = File(File(GroupTrackStorage.rootReady(app), "certlog"), "gt_logcert_corpus_2026-11-16.tsv")
-        w.write("# CERTLOG corpus ${f.path} exists=${f.exists()} len=${if (f.exists()) f.length() else -1L}\n")
-        if (!f.exists()) {
-            log.e { "GTCERT certlog failed: no corpus at ${f.path} -- push it first" }
-            w.write("CERTLOG\tNO-CORPUS\tDIFF\t${esc(f.path)}\n"); w.flush(); return
+        // CERTLOGASSET-2026-11-16: the corpus is an APP ASSET, not a pushed file. Prior art:
+        // Cert17g1c / Cert17e1 / CertSchema / GtMapSpec all take their fixture through readAsset.
+        // Why it matters here: the asset ships inside the APK, so the Droid and the Mac cannot
+        // read different inputs, there is no push step to mis-scope (v48's push block landed
+        // inside `if [ "$MODE" = osm15g ]` and never ran), and the 1455 '$' characters never pass
+        // through Kotlin source escaping, which would have risked corrupting the very characters
+        // under test.
+        val name = "gt_logcert_corpus_2026-11-16.tsv"
+        val text = try {
+            app.assets.open(name).bufferedReader().use { it.readText() }
+        } catch (e: Exception) {
+            log.e { "GTCERT certlog failed: asset $name not readable -- ${e.message}" }
+            w.write("CERTLOG\tNO-CORPUS\tDIFF\t${esc(name + ": " + e.toString())}\n"); w.flush(); return
         }
-        val parsed = CertLog.parseCorpus(f.readText())
+        // The corpus fingerprint goes in the report so the Mac can PROVE it read the same input.
+        var h = 0L
+        for (c in text) h = h * 31 + c.code
+        w.write("# CERTLOG corpus asset=$name len=${text.length} lines=${text.count { it == '\n' }} hash=$h\n")
+        val parsed = CertLog.parseCorpus(text)
         val cases = parsed.first
         for (b in parsed.second) w.write("# CERTLOG BADROW ${esc(b)}\n")
         if (cases.isEmpty()) {
@@ -130,6 +141,13 @@ object GtCertLog {
                 diff++; w.write("CERTLOG\t$k\tDIFF\t$o | $n\n")
             }
         }
+        // Fred 11-16 08:38: "write your test cases to a print file and test from there." The cases
+        // the Droid ACTUALLY used are printed into the report, so a later difference can never be
+        // blamed on the two sides having read different input.
+        w.write("# CERTLOG cases-used begin\n")
+        for ((i, c) in cases.withIndex())
+            w.write("# CASE\t${CertLog.keyOf(i, c)}\t${c.level}\t${c.tag}\t${CertLog.esc(c.text)}\n")
+        w.write("# CERTLOG cases-used end\n")
         w.write("# CERTLOG fences runId=$runId -- slice the recorded logcat on BEGIN OLD / BEGIN NEW / END\n")
         w.write("# CERTLOG done: $same SAME, $diff DIFF, $expected EXPECTED in ${(System.currentTimeMillis() - t0) / 1000} s\n")
         w.flush()

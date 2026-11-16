@@ -1,0 +1,995 @@
+level	tag	text	source
+d	ConvoyTap	"onMapLongPress [UPDATE :571] lat=$lat lon=$lon"	GroupTrackScreen.kt:873
+d	ConvoyTap	"onMapLongPress [FACTORY :788] lat=$lat lon=$lon"	GroupTrackScreen.kt:1235
+d	ConvoyTap	"DIALOG gate pendingWaypoint=$pendingWaypoint"	GroupTrackScreen.kt:1590
+d	DetailGate	"CONVOY gate type=$pendingDetailType id=$pendingDetailId"	GroupTrackScreen.kt:2578
+d	RouteBridge	"GTROUTE1 tap $lat,$lon zoom=${b[4]} radius=${snapRadiusM.toInt()}m trails=${trails.size} -> " +\n                    if (s != null) "SNAPPED ${s.lineType} ${s.lineId}" else "FREE"	RouteModule.kt:920
+i	GuidedPin	"AIPERIMCOUNT-2026-11-11: " + nf + " feature(s) in the planning perimeter, the farthest " +\n                "%.1f".format(farMi) + " mi from the trailhead (minimum asked " + mLoAsk + " mi)"	RouteModule.kt:1084
+i	TAG	"VECMAPDIAG tile z$z/$x/$y " + (if (raw == null) "NOT HELD" else\n                            "held ${raw.size} B head=" + raw.take(8).joinToString("") { "%02x".format(it) })	VectorMapTest.kt:51
+i	GPSINT	"apply smart ${was}s -> ${secs}s, standing ${pos.position_broadcast_secs}s -> " +\n                "${newPos.position_broadcast_secs}s at ${System.currentTimeMillis()}"	MeshCommMessaging.kt:114
+i	GPSINT	"cycle2 first reconnect connected=$firstUp wait=${request.settleWaitSecs}s " +\n                "gap=${request.reconnectGapSecs}s at ${System.currentTimeMillis()}"	MeshCommMessaging.kt:134
+i	RXSTATS	"LEADVIS-2026-10-20 from " + num + " snr " + n.snr + " rssi " + n.rssi + " hops " + n.hopsAway +\n                        " ch " + n.deviceMetrics.channel_utilization + " air " + n.deviceMetrics.air_util_tx + " at " + n.latitude + "," + n.longitude	MeshCommMessaging.kt:173
+i	ConvoyGate	"eval: realStorage=" + storage + " background=" + background +\n            " -> " + result.javaClass.simpleName +\n            (if (attempt >= 0) " (attempt " + attempt + ")" else "")	ConvoyAuthorityGateScreenV2.kt:232
+w	ConvoyGate	"storage still not real after retries; showing StorageDeclined"	ConvoyAuthorityGateScreenV2.kt:528
+i	TAG	"CORRMIGRATE-2026-08-07H delete done: $processed tracks, $total tiles, $byStore"	ConvoyCorridorDelete.kt:160
+i	TAG	"CORRDELETE-STAGE1-2026-08-07B preview done: ${previews.size} tracks, ${result.totalTiles} distinct tiles, " +\n                "${result.overlapSavings} shared, skipped noGeom=$skippedNoGeom empty=$skippedEmpty, " +\n                "ON DISK=${result.onDiskTotal} across ${onDisk.size} store(s) $onDisk"	ConvoyCorridorDelete.kt:226
+w	TAG	"ORPHAN-2026-08-08O: no queue entry for id=$entryId ('$label'). "\n                + "Nothing owns this job, so there is no work. Throwing it out."	ConvoyCorridorWorker.kt:69
+i	TAG	"Corridor $slotName: ${corridor.size} derived, ${tiles.size} missing, replace=$replaceExisting"	ConvoyCorridorWorker.kt:99
+e	TAG	"SLOTTRACE-2026-08-04: slot=$slotName RESOLVED TO NOTHING - corridor will "\n                + "download no tiles. Column terminated or id unknown."	ConvoyCorridorWorker.kt:111
+d	TAG	"SLOTTRACE-2026-08-04: slot=$slotName -> id=${source.id} "\n                + "label=${source.shortLabel} layers=${source.layers.size} "\n                + "baseUrl=${source.baseUrl}"	ConvoyCorridorWorker.kt:115
+e	TAG	"SLOTTRACE-2026-08-04: FAILURE slot=$slotName layer=${layer.cacheDir} "\n                    + "url=${layer.urlTemplate} cause=${e::class.java.simpleName}: ${e.message}"	ConvoyCorridorWorker.kt:163
+i	TAG	"Corridor complete: $label downloaded=$totalDownloaded failed=$totalFailed"	ConvoyCorridorWorker.kt:170
+i	TAG	"Delete $slotName: ${ranges.size} zoom levels across ${storeNames.size} store(s): $storeNames"	ConvoyDeleteWorker.kt:104
+i	TAG	"Delete complete: $label -- $totalRemoved tiles removed, " +\n            "${reclaimable / (1024 * 1024)} MB reclaimable (needs VACUUM to return to disk)"	ConvoyDeleteWorker.kt:176
+i	SIZECALC	"src=enqueue label='${entry.label}' slot=ALL " +\n            "N=$north S=$south E=$east W=$west " +\n            "dLat=${north - south} dLon=${east - west} " +\n            "oneLayer=${tiles.size} slotLayers=NA satLayers=NA " +\n            "layerCountAllSlots=$layerCount " +\n            "sizeTiles=NONE segments=NONE entryTiles=${entry.totalTiles} " +\n            "id=${entry.id}"	ConvoyDownloadQueue.kt:271
+i	SIZECALC	"src=enqueueArea label='DL $slotName' slot=$slotName " +\n                "N=$north S=$south E=$east W=$west " +\n                "dLat=${north - south} dLon=${east - west} " +\n                "oneLayer=$oneLayerTiles slotLayers=$slotLayers satLayers=$satLayers " +\n                "sizeTiles=$sizeTiles segments=${cells.size} " +\n                "entryTilesWholeBox=$entryTilesWhole " +\n                "perCellApprox=${entryTilesWhole / Math.max(1, cells.size)} " +\n                "replace=$replaceExisting"	ConvoyDownloadQueue.kt:386
+i	SIZECALC	"  cell ${i + 1}/${cells.size} src=enqueueArea slot=$slotName " +\n                "label='${entry.label}' entryTiles=${entry.totalTiles} " +\n                "N=${cell[0]} S=${cell[1]} E=${cell[2]} W=${cell[3]} " +\n                "id=${entry.id}"	ConvoyDownloadQueue.kt:437
+i	TAG	"DELETE queued: slot=$slotName box=$boxTiles geom-tiles, stores=$storeNames, " +\n            "ACTUALLY ON DISK=$totalTiles id=${entry.id}"	ConvoyDownloadQueue.kt:537
+w	TAG	"CORRIDORBATCH-2026-08-05: nothing to queue " +\n                "(tracks=${geomHashes.size} slots=${slotNames.size})"	ConvoyDownloadQueue.kt:720
+w	TAG	"CORRIDORBATCH-2026-08-05: skipped ${skippedHashes.size} track(s) with no usable " +\n                "geometry: $skippedShort"	ConvoyDownloadQueue.kt:758
+i	TAG	"CORRIDORBATCH-2026-08-05: ${geomHashes.size} track(s) x ${slotNames.size} slot(s) " +\n            "-> $jobs job(s), $tiles tile(s), ${skippedHashes.size} skipped, " +\n            "replace=$replaceExisting"	ConvoyDownloadQueue.kt:762
+i	TAG	"CORRIDOR queued: slot=$slotName tiles=${tiles.size} x$slotLayers layers " +\n            "= $totalTiles hash=$geomHash id=${entry.id}"	ConvoyDownloadQueue.kt:843
+i	TAG	"RECREATE-2026-08-11G $slotName: ${boxes.size} job(s), $totalTiles tile(s), " +\n            "$dropped empty quadrant(s) dropped"	ConvoyDownloadQueue.kt:1042
+w	TAG	"ORPHAN-2026-08-08O: no queue entry for id=$entryId ('$label'). "\n                + "Nothing owns this job, so there is no work. Throwing it out."	ConvoyDownloadWorker.kt:67
+e	TAG	"SLOTTRACE-2026-08-04: slot=$refreshSlot RESOLVED TO NOTHING. "\n                    + "No layers, so nothing will download and this job will still "\n                    + "report success. Column is terminated or the id is unknown."	ConvoyDownloadWorker.kt:88
+d	TAG	"SLOTTRACE-2026-08-04: slot=$refreshSlot -> id=${source?.id} "\n                    + "label=${source?.shortLabel} layers=${layers.size} "\n                    + "baseUrl=${source?.baseUrl}"	ConvoyDownloadWorker.kt:93
+d	TAG	"SLOTTRACE-2026-08-04:   layer role=${ly.role} cacheDir=${ly.cacheDir} "\n                        + "url=${ly.urlTemplate}"	ConvoyDownloadWorker.kt:98
+e	TAG	"SLOTTRACE-2026-08-04: FAILURE slot=$refreshSlot layer=${layer.cacheDir} "\n                        + "url=${layer.urlTemplate} cause=${e::class.java.simpleName}: ${e.message}"	ConvoyDownloadWorker.kt:159
+i	MIGSURFACE	"OPT2-RECREATE-2026-08-11I start: slot=$slot"	ConvoyMapSourceScreen.kt:474
+e	MIGSURFACE	"MIGSURFACE-2026-08-08Q failed: ${e.message}"	ConvoyMapSourceScreen.kt:502
+i	TAG	"BEGIN $slot $fromSourceId -> $toSourceId, " +\n                "${sizes.values.sum()} bytes across ${fromCacheDirs.size} store(s): ${dest.name}"	ConvoySourceMigration.kt:123
+i	Corridor	"ZOOMSLOT-2026-08-10D: $slotName capped z$zMax -> z$zTop"	ConvoyTileCalculator.kt:162
+i	Corridor	"corridorTiles: ${segments.size} seg, ${segments.sumOf { it.size }} pts, " +\n            "FUNNEL-2026-08-12B bufferDeg=$bufferDeg funnelH=$funnelH z$zMin-$zTop -> ${keys.size} tiles"	ConvoyTileCalculator.kt:185
+i	TileDownloader	"ZCAP2-2026-09-14: $sourceName cap z$zCap -- skipping ${tiles.size - capTiles.size} of ${tiles.size} tiles"	ConvoyTileDownloader.kt:149
+i	SEGMENT	"SPLIT sizeTiles=$sizeTiles ceiling=$segCeilingTiles segments=$n " +\n            "cutAxis=${if (cutLat) "lat" else "lon"} overlapTiles=${if (n > 1) overlapTiles else 0} padDeg=$pad"	ConvoyTileDownloader.kt:309
+e	ImportPicker	"$name SIZE MISMATCH $srcLen != ${target.length()}"	ConvoyTrackImportScreen.kt:187
+w	ImportPicker	"delete $name: ${e.message}"	ConvoyTrackImportScreen.kt:204
+i	ImportPicker	"$name staged, original " +\n                                    (if (gone) "deleted" else "KEPT")	ConvoyTrackImportScreen.kt:207
+i	ConvoyVM	"FOLLOWLOG following " + (if (pan) "ON" else "OFF") + " by " +\n            Throwable().stackTrace.drop(1).take(3).joinToString(" < ") { it.fileName + ":" + it.lineNumber }	ConvoyViewModel.kt:201
+i	ConvoyVM	"FOLLOWLOG following ON by TRACK START (REC) -- REC started by " +   // FOLLOWLOG-2026-11-03\n            Throwable().stackTrace.drop(1).take(6).joinToString(" < ") { it.fileName + ":" + it.lineNumber }	ConvoyViewModel.kt:320
+i	LEADEST	"ESTVIEW-2026-10-20 vm: " + est.leadId + " est " + est.lat + "," + est.lon +\n                        " last " + est.lastLat + "," + est.lastLon + " silent " + est.silentMs / 1000 + " s " + (if (est.onRoute) "on route" else "no route") + " " + (est.speedMps * 2.237).toInt() + " mph"	ConvoyViewModel.kt:586
+i	POLYLINE	"POLYLINE-2026-10-20 lead " + e.cartId + " polyline " + e.key + " (" + e.poly.size + " points): " +\n                    (if (ok) "lead track pinned, " + leadCart.dots().size + " dot(s)" else "NOT applied -- not this lead's track, or no track yet")	ConvoyViewModel.kt:1123
+i	POLYLINE	"POLYLINE-2026-10-20 received from " + id + " (" + p.callsign + "): " + n + " points over " + secs + " s" +\n            (if (first) "" else " -- the repeat, already have it") + " lead=" + isLead + " rec=" + _trackActive.value + " group=" + GroupMode.on.value +\n            " | lead's last point " + (System.currentTimeMillis() - (p.t0Ms + (n - 1) * p.stepMs)) + " ms before my clock (UTC ms: delivery + clock difference) " + "TRIM-2026-10-20"	ConvoyViewModel.kt:1229
+i	TAG	"detectHomeState: bbox fallback lat=%.4f lon=%.4f → %s".format(\n            loc.latitude, loc.longitude, result?.name ?: "outside US")	GeofabrikCatalog.kt:215
+i	GroupMode	"GRPMODE-2026-10-13: group awareness " + (if (on.value) "ON" else "OFF") +\n            (if (p.contains(KEY)) "" else " (not set yet -- from the first-start answer)")	GroupMode.kt:35
+i	TAG	"isFreshInstall=$fresh (first=${pi.firstInstallTime} " +\n            "last=${pi.lastUpdateTime})"	GroupTrackConversion.kt:135
+i	GTStorage	"SESSION MODE: " + (if (internal) "INTERNAL" else "EXTERNAL") +\n                " root=" + root().absolutePath	GroupTrackStorage.kt:91
+i	TAG	"Starting import: $areaLabel type=$areaType " +\n                "states=${states.size} bbox S=$bboxSouth W=$bboxWest N=$bboxNorth E=$bboxEast"	HomeStateImportController.kt:354
+i	TAG	"Home state import ${if (allOk) "COMPLETED" else "COMPLETED WITH ERRORS"} " +\n                "for ${areaLabel} in ${(System.currentTimeMillis() - startMs) / 1000}s"	HomeStateImportController.kt:702
+i	TAG	"setPendingImport for $slug: bbox " +\n            "S=$bboxSouth W=$bboxWest N=$bboxNorth E=$bboxEast"	HomeStateImportController.kt:838
+i	TAG	"clearTrailsOnce: adopted the prior marker at " +\n                        found.absolutePath + " -- NOT clearing again"	HomeStateImportController.kt:1506
+i	TAG	"clearTrailsOnce: no trail_properties (" +\n                            inner.message + ")"	HomeStateImportController.kt:1583
+i	TAG	"clearTrailsOnce: removed " + removed + " trail(s) and " +\n            props + " trail_properties row(s) -- home state picker will " +\n            "re-import under the new filter"	HomeStateImportController.kt:1595
+w	TAG	"sweep: copied ${f.name} but could not delete " +\n                                "the original -- duplicate left in imports/"	HomeStateImportController.kt:1710
+w	TAG	"sweep: copy of ${f.name} did not verify " +\n                            "(target ${target.length()}B vs source ${f.length()}B) -- " +\n                            "original left in place"	HomeStateImportController.kt:1714
+e	TAG	"sweep: move of ${f.name} failed: ${e.message} -- " +\n                        "original left in place, will retry next launch"	HomeStateImportController.kt:1720
+i	TAG	"AREA import: bbox S=${areaBbox[0]} W=${areaBbox[1]} " +\n                "N=${areaBbox[2]} E=${areaBbox[3]} -> ${hits.size} state(s): " +\n                hits.joinToString(", ") { it.slug }	HomeStatePickerScreen.kt:103
+i	TAG	"PADUSLAND $code: $pub public, $restr restricted, $nonfed non-federal areas ($skipped skipped) " +\n            "in ${(System.currentTimeMillis() - t0) / 1000}s"	LandAreas.kt:147
+i	TAG	"PADUSLAND $code: $pub public, $restr restricted, $nonfed non-federal areas ($skipped skipped) from the USGS service " +\n            "in ${(System.currentTimeMillis() - t0) / 1000}s"	LandAreas.kt:415
+e	MapSourceMgr	"COLUMNFILE-2026-08-03: FALLBACK WAS USED - column file left untouched"	MapSourceManager.kt:102
+e	MapSourceMgr	"COLUMNFILE-2026-08-03: column file present but UNREADABLE - not seeding, not overwriting: ${e.message}"	MapSourceManager.kt:113
+i	MapSourceMgr	"COLUMNFILE-2026-08-03: column file current (vc=$vc), no install pass"	MapSourceManager.kt:119
+i	MapSourceMgr	"COLUMNFILE-2026-08-03: INSTALL PASS (file vc=$columnFileVersion -> app vc=$vc)"	MapSourceManager.kt:126
+e	MapSourceMgr	"COLUMNFILE-PHASE2-2026-08-04: FALLBACK WAS USED - column file NOT applied"	MapSourceManager.kt:158
+e	MapSourceMgr	"COLUMNFILE-PHASE2-2026-08-04: column list missing or empty - keeping catalogue defaults"	MapSourceManager.kt:164
+w	MapSourceMgr	"COLUMNFILE-PHASE2-2026-08-04: skipping malformed column row $i"	MapSourceManager.kt:175
+e	MapSourceMgr	"COLUMNFILE-PHASE2-2026-08-04: no usable column rows - keeping catalogue defaults"	MapSourceManager.kt:182
+w	MapSourceMgr	"COLUMNFILE-PHASE2-2026-08-04: active '$wantActive' is not a column - keeping '$activeSourceKey'"	MapSourceManager.kt:193
+i	MapSourceMgr	"COLUMNFILE-PHASE2-2026-08-04: APPLIED ${loaded.size} columns, $resolved resolve to a source, "\n            + "active=$activeSourceKey"	MapSourceManager.kt:198
+i	MapSourceMgr	"COLUMNFILE-PHASE2-2026-08-04:   slot ${s.slot} ${s.legacyKey} -> ${s.sourceId} "\n                + (if (src == null) "[TERMINATED - no catalogue entry]" else "url=${src.baseUrl}")	MapSourceManager.kt:203
+w	MapSourceMgr	"COLUMNFILE-2026-08-03: TERMINATED SOURCE IN COLUMN(S): $columnsTerminated"	MapSourceManager.kt:219
+i	MapSourceMgr	"COLUMNFILE-2026-08-03: wrote ${cols.length()} columns (vc=$vc, terminated=$columnsTerminated)"	MapSourceManager.kt:282
+e	MapSourceMgr	"COLUMNFILE-2026-08-03: FALLBACK REQUESTED - hardcoded sources in use. "\n            + "Column file will NOT be written. Caller: "\n            + android.util.Log.getStackTraceString(Throwable())	MapSourceManager.kt:367
+w	MapSourceMgr	"INITFIX-2026-09-14: sources empty -- reading map_sources.json rather than falling back"	MapSourceManager.kt:582
+e	MapSourceMgr	"INITFIX-2026-09-14: NO SOURCES AND NO WAY TO READ THEM -- hardcoded fallback in use. " +\n                "appContext=" + (if (ctx == null) "NULL" else "present")	MapSourceManager.kt:591
+i	TAG	"RSTAREA: $areas restricted areas, $tested motorized trails tested, $withSeg with restricted segments, " +\n                "$restricted wholly restricted, in ${(System.currentTimeMillis() - t0) / 1000}s"	OwnershipReclass.kt:290
+i	TAG	"step 8 complete: $n classified, $priv private, $restricted restricted, " +\n            "in ${(System.currentTimeMillis() - started) / 1000}s"	OwnershipReclass.kt:299
+w	TAG	"DB v3 migration: SKIPPED -- marker " + dbMarker + " but rows=" + existingRows +\n                            " (reinstall over existing data); stamping marker, no delete"	SpatialDbManager.kt:152
+i	SpatialDb	"Applying v5 migration: attribute columns on trail_properties"	SpatialDbManager.kt:345
+i	Corridor	"getTrackPoints $hash: ${out.size} segment(s), ${out.sumOf { it.size }} points"	SpatialDbManager.kt:1928
+i	Corridor	"getRoutePoints $hash: ${out.size} segment(s), ${out.sumOf { it.size }} points"	SpatialDbManager.kt:1999
+i	SpatialDisplay	"TRACE $type: raw=${raw.size} items=${items.size} " +\n                        "json=${json.length}b state=$state " +\n                        "checked=${checkedIds?.size ?: -1} limit=$limit | " +\n                        "'$probe' raw=$inRaw items=$inItems json=$inJson"	SpatialDisplayManager.kt:304
+i	SpatialDisplay	"TRACE $type: raw=${raw.size} items=${items.size} " +\n                        "json=${json.length}b state=$state " +\n                        "checked=${checkedIds?.size ?: -1} limit=$limit"	SpatialDisplayManager.kt:330
+e	NetworkGenerator	"ONEDEFAULT: grouptrack_default.json not read (${e.message}) -- using the fallback values"	NetworkGenerator.kt:89
+d	TrackImport	"handleIntent action=${intent.action} data=${intent.data} type=${intent.type}"	MainActivity.kt:155
+e	ConvoyImport	"Failed to copy convoy file: ${e.message}"	MainActivity.kt:223
+w	BatchGrid	"surface lookup: ${e.message}"	AiCompareTable.kt:164
+i	TAG	"BACKUP changed -- offering SEND BACKUP (${b.files.size} files); changed since sent: ${diff.ifEmpty { "(nothing sent yet)" }}"	Backup.kt:66
+i	TAG	"BACKUP built ${files.size} file(s) toDownloads=$toDownloads: ${files.joinToString { "${it.name} ${it.length()}" }}"	Backup.kt:115
+i	TAG	"BACKUP email opened: ${b.files.size} attachment(s), to=${if (me.isEmpty()) "(none)" else "profile email"}"	Backup.kt:145
+i	TAG	"VECEMERGENCY ${if (clean) "clean" else "fill gaps"}: ${r.first} job(s), ~${r.second} tiles queued at ${System.currentTimeMillis()}"	EmergencyRestore.kt:88
+i	TAG	"SHAREEXPORT share sheet for ${f.name} (${f.length()} bytes)"	ExportAll.kt:115
+i	TAG	"EXPORTALL $type: $n of ${ids.size} written ($skipped skipped) -> Downloads/$file.gpx ok=$ok" + (if (why.isEmpty()) "" else " SKIPPED: " + why.take(20).joinToString("; "))	ExportAll.kt:153
+e	PlanGate	"PLANGATE-2026-08-12C register failed: ${e.message}"	GroupTrackScreen.kt:212
+i	ConvoyMap	"HUDFIT $hudMode -> fitted (${nodes.size} cart(s) with a position)"	GroupTrackScreen.kt:566
+i	ConvoyScreen	"CHECKINMAP: ride ${ci.rideId} -> route $rid + its trailhead on the ride map"	GroupTrackScreen.kt:775
+i	ConvoyDownload	"onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}"	GroupTrackScreen.kt:912
+i	ConvoyDownload	"estimate tiles=${estimate.tileCount} mb=${estimate.estimatedMB}"	GroupTrackScreen.kt:914
+i	ConvoyMap	"MAPSTARTUP-2026-10-19: saved frame NOT restored (" + (if (!hasInternet) "offline" else "not usable: ${bbEntry.south},${bbEntry.west},${bbEntry.north},${bbEntry.east}") + ") -- centring on my cart"	GroupTrackScreen.kt:1075
+d	ConvoyMap	"RIDEENTRY: centring on my cart from the tick: ${meNow.latitude}, ${meNow.longitude}"	GroupTrackScreen.kt:1096
+d	ConvoyMap	"Centering map on device GPS: ${loc.latitude}, ${loc.longitude}"	GroupTrackScreen.kt:1099
+d	ConvoyMap	"RIDEENTRY: first fix -- centring: ${m.latitude}, ${m.longitude}"	GroupTrackScreen.kt:1108
+d	ConvoyIntercept	"TILE mbtiles hit=${bytes != null} type=$type z$z/$x/$y"	GroupTrackScreen.kt:1147
+i	ConvoyJS	"[${msg.messageLevel()}] ${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})"	GroupTrackScreen.kt:1185
+e	JSONDIAG	"READ(gate fired) Tr=${rs.types["Trails"]?.state} Tk=${rs.types["Tracks"]?.state} bbox=${rs.bbox} TrChecked=${MapStateStore.checkedIdsFor(rs, "Trails")?.size}"	GroupTrackScreen.kt:1256
+i	ConvoyDownload	"onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}"	GroupTrackScreen.kt:1294
+i	ConvoyDownload	"estimate tiles=${estimate.tileCount} mb=${estimate.estimatedMB}"	GroupTrackScreen.kt:1296
+i	ConvoyTap	"Touch DOWN at x=${event.x.toInt()} y=${event.y.toInt()}"	GroupTrackScreen.kt:1440
+i	ConvoyTap	"Touch CANCEL at x=${event.x.toInt()} y=${event.y.toInt()}"	GroupTrackScreen.kt:1465
+i	GtSearch	"SEARCHFIT2 ${r.type} '${r.name}' -> FIT $typeName ${r.id}"	GroupTrackScreen.kt:2973
+i	TAG	"GTCERT parse15b OLD ${f.name} not run (too slow on Android -- RXFIX)"	GtCert15b.kt:87
+i	TAG	"GTCERT parse15b ${side.name} ${f.name} ${System.currentTimeMillis() - ts} ms"	GtCert15b.kt:92
+w	TAG	"GTCERT parse15b DIFF $key\\n OLD ${a.take(300)}\\n NEW ${b.take(300)}"	GtCert15b.kt:103
+e	TAG	"GTCERT rider15c STOP: no input at ${inDir.path} -- push the Mac's live_2026-11-08 there (gt_cert_v19b rider15c)"	GtCert15c.kt:87
+w	TAG	"GTCERT rider15c DIFF $key\\n OLD ${a.take(300)}\\n NEW ${b.take(300)}"	GtCert15c.kt:107
+i	TAG	"GTCERT rider15c inputs read (${(System.currentTimeMillis() - t0) / 1000} s)"	GtCert15c.kt:125
+e	TAG	"GTCERT track15d STOP: no input at ${dbIn.path} / ${trIn.path} -- run gt_cert_v20 track15d"	GtCert15d.kt:125
+w	TAG	"GTCERT track15d DIFF $key\\n OLD ${a.take(300)}\\n NEW ${b.take(300)}"	GtCert15d.kt:137
+i	TAG	"GTCERT import15e $msg [heap ${(rt.totalMemory() - rt.freeMemory()) / 1048576} MB of ${rt.maxMemory() / 1048576}]"	GtCert15e.kt:61
+e	TAG	"GTCERT import15e STOP: no input at ${dbIn.path} / ${trIn.path} / ${gpxIn.path} -- run gt_cert_v21 import15e"	GtCert15e.kt:135
+w	TAG	"GTCERT import15e DIFF $key\\n OLD ${a.take(300)}\\n NEW ${b.take(300)}"	GtCert15e.kt:147
+i	TAG	"GTCERT trail15f $msg [heap ${(rt.totalMemory() - rt.freeMemory()) / 1048576} MB of ${rt.maxMemory() / 1048576}]"	GtCert15f.kt:51
+e	TAG	"GTCERT trail15f STOP: no input at ${dbIn.path} / ${agIn.path} -- run gt_cert_v22 trail15f"	GtCert15f.kt:125
+w	TAG	"GTCERT trail15f DIFF $key\\n OLD ${a.take(300)}\\n NEW ${b.take(300)}"	GtCert15f.kt:137
+i	TAG	"GTCERT osm15g $msg [heap ${(rt.totalMemory() - rt.freeMemory()) / 1048576} MB of ${rt.maxMemory() / 1048576}]"	GtCert15g.kt:56
+e	TAG	"GTCERT osm15g STOP: no input at ${dbIn.path} / ${osmIn.path} -- run gt_cert_v23 osm15g"	GtCert15g.kt:141
+w	TAG	"GTCERT osm15g DIFF $key\\n OLD ${a.take(300)}\\n NEW ${b.take(300)}"	GtCert15g.kt:153
+i	TAG	"GTCERT queue16c $msg [heap ${(rt.totalMemory() - rt.freeMemory()) / 1048576} MB of ${rt.maxMemory() / 1048576}]"	GtCert16c.kt:43
+e	TAG	"GTCERT queue16c STOP: no input at ${inS.path} / ${recIn.path} -- run gt_cert_v24 queue16c"	GtCert16c.kt:88
+e	TAG	"GTCERT queue16c STOP: DOWNLOAD_ZOOM ${ConvoyConfig.DOWNLOAD_ZOOM}"	GtCert16c.kt:93
+w	TAG	"GTCERT queue16c DIFF $key\\n OLD ${a.take(300)}\\n NEW ${b.take(300)}"	GtCert16c.kt:104
+i	TAG	"GTCERT rides $case ${side.name} $what"	GtCertRides.kt:381
+w	TAG	"GTCERT rides DIFF $key\\n OLD ${a.take(300)}\\n NEW ${b.take(300)}"	GtCertRides.kt:394
+i	TAG	"GTCERT rides 7-gdate ${i + 1} cases, ${(System.currentTimeMillis() - t0) / 1000} s"	GtCertRides.kt:1032
+i	TAG	"GTCERT rides 7-gdate done in ${(System.currentTimeMillis() - t0) / 1000} s"	GtCertRides.kt:1058
+w	TAG	"GTCERT DIFF $what $key\\n OLD ${a.take(300)}\\n NEW ${b.take(300)}"	GtCertRoutes.kt:36
+i	TAG	"GTCERT routes: ${reqs.size} requests, land $land"	GtCertRoutes.kt:53
+i	TAG	"GTCERT routes ${i + 1}/${reqs.size} ${r.key}: same $same diff $diff"	GtCertRoutes.kt:88
+i	TAG	"GTCERT app: frozen copy of ${fz.stamp}" + (if (mode == "freeze") " (just made)" else "") + " -- trail pages every ${sample.every} from page ${sample.start}"	GtCertRun.kt:67
+i	TAG	"GTCERT app lookups: $o lines in ${(System.currentTimeMillis() - t0) / 1000} s"	GtCertRun.kt:80
+i	TAG	"GTCERT geom: ${s.rows} rows, ${s.diff} DIFF, ${s.noncanonical} NONCANONICAL"	GtCertRun.kt:100
+i	TAG	"GTCERT golden15a: ${g.lines} lines, ${g.diffs} DIFF on the Droid"	GtCertRun.kt:142
+i	TAG	"GTCERT new side: $n lines in ${(System.currentTimeMillis() - t0) / 1000} s"	GtCertRun.kt:154
+i	TAG	"GTCERT old side: $o lines in ${(System.currentTimeMillis() - t1) / 1000} s"	GtCertRun.kt:158
+i	TAG	"GTCERT done in ${(System.currentTimeMillis() - t0) / 1000} s -> Download/$name"	GtCertRun.kt:164
+e	TAG	"GTCERT failed after ${(System.currentTimeMillis() - t0) / 1000} s: $e"	GtCertRun.kt:166
+i	TAG	"GTCERTW copies made in ${(System.currentTimeMillis() - t0) / 1000} s"	GtCertRun.kt:217
+i	TAG	"GTCERTW writes done in ${(System.currentTimeMillis() - t0) / 1000} s"	GtCertRun.kt:237
+i	TAG	"GTCERT frozen copy made in ${(System.currentTimeMillis() - t) / 1000} s: $s" + (d?.let { " + $it" } ?: " (no data database)")	GtCertRun.kt:257
+e	TAG	"TileJSON HTTP ${r.code}"	GtMapSpecAndroid.kt:65
+e	TAG	"TileJSON: ${e.message}"	GtMapSpecAndroid.kt:70
+e	STAGE_TAG	"legacy migration failed: ${e.javaClass.simpleName} ${e.message}"	GtOsmAndroid.kt:30
+i	STAGE_TAG	"legacy OSM directory found at ${old.absolutePath} -- migrating"	GtOsmAndroid.kt:42
+w	STAGE_TAG	"could not move ${f.name} (${f.length()} bytes) -- left in place rather than deleted"	GtOsmAndroid.kt:60
+i	EXTRACT_TAG	"deleted download ${f.name} ($mb MB)"	GtOsmAndroid.kt:106
+w	EXTRACT_TAG	"could not delete download ${f.name}"	GtOsmAndroid.kt:108
+i	TAG	"IPADEXPORT $slot: ${f.length()} B -> Download/$name in ${(System.currentTimeMillis() - t0) / 1000} s"	IpadExport.kt:34
+e	TAG	"IPADEXPORT $slot failed: ${e.message}"	IpadExport.kt:36
+i	TAG	"VECCONVERT estimate: ${sq.size} z12 squares, $tiles tiles, ~$mins min (${f.name})"	MapConversion.kt:62
+e	TAG	"VECEMERSCREEN ${e.message}"	MapConversion.kt:72
+i	TAG	"VECCONVERT removed empty store ${f.name}"	MapConversion.kt:91
+i	TAG	"VECCONVERT removed empty folder ${d.path}"	MapConversion.kt:93
+e	TAG	"VECCONVERT clearing empties: ${e.message}"	MapConversion.kt:96
+e	TAG	"VECCONVERT check failed: ${e.message}"	MapConversion.kt:102
+e	TAG	"VECCONVERT prepare failed: ${e.message} -- no screen, nothing changed"	MapConversion.kt:118
+i	TAG	"VECCONVERT conversion recipe kept from ${java.util.Date(keep.lastModified())}"	MapConversion.kt:131
+i	TAG	"VECCONVERT conversion recipe ${keep.name} from ${daily.name}"	MapConversion.kt:132
+i	TAG	"VECCONVERT estimate: ${sq.size} z12 squares, $tiles tiles, ~$mins min"	MapConversion.kt:137
+i	TAG	"VECCONVERT done: ${r.first} job(s), ~${r.second} tiles queued; deleted $pending"	MapConversion.kt:163
+e	TAG	"VECCONVERT proceed failed: ${e.message}"	MapConversion.kt:165
+e	TAG	"VECCONVERT engine write: ${e.message}"	MapEngine.kt:32
+e	TAG	"VECSWITCH-2026-10-30 write: ${e.message}"	MapEngine.kt:40
+w	TAG	"MAPRECIPES Downloads not readable: ${e.message}"	MapRecipes.kt:47
+i	TAG	"MAPRECIPES restore $label (${f.name}): ${sq.size} squares -> ${r.first} job(s), ~${r.second} tiles"	MapRecipes.kt:81
+i	TAG	"MAPRECIPES send $label (${f.name}, ${f.length()} bytes)"	MapRecipes.kt:105
+i	TAG	"MAPRECIPES received ${f.name} (${f.length()} bytes) -> Saved map recipes"	MapRecipes.kt:127
+i	TAG	"MAPRECIPES received a route recipe (${displayName ?: "no name"}) -> the AI build"	MapRecipes.kt:134
+i	Overlay	"GTOFFGRID available: ${bounds.size} rect(s) from $type z$z"	MapScreens.kt:229
+e	Recreate	"GTHEAVY recreate scan failed: ${e.message}"	MapScreens.kt:568
+i	RouteExplorer	"AIFAIL: recipe FILTER applied -- ${f.whereOrEmpty()}"	RouteModule.kt:542
+i	RouteExplorer	"AIFAIL: all land on, searching again -- ${f.whereOrEmpty()}"	RouteModule.kt:584
+w	RouteExplorer	"AIFAILCHECK: ${e.message}"	RouteModule.kt:621
+i	RouteExplorer	"AISEARCH: ${out.size} route(s) | " + summary.replace("\\n", " | ")	RouteModule.kt:752
+i	RouteBridge	"GTROUTE1 FIRSTPOINT at $lat,$lon -- trailheads near: ${nearby.size}"	RouteModule.kt:926
+i	RouteSave	"GTROUTE1 anchor '${th.name}' -> $newRouteId ok=$ok"	RouteModule.kt:979
+w	TAG	"count: ${e.message}"	TrailCleanup.kt:59
+w	TAG	"ids: ${e.message}"	TrailCleanup.kt:63
+i	TAG	"TRAILCLEAN area N${b.north} S${b.south} E${b.east} W${b.west}: $nt tracks, $nr trails removed (tracks=$tracks rider=$rider other=$other)"	TrailCleanup.kt:80
+w	TAG	"sources: ${e.message}"	TrailCleanup.kt:92
+e	TAG	"deleteSource: ${e.message}"	TrailCleanup.kt:111
+i	TAG	"TRAILCLEAN source '${s.label}': $gone trails deleted, $kept kept (another source has them)"	TrailCleanup.kt:114
+i	TAG	"LANDSYNC menu: ${result.value}"	UtahPrivate.kt:105
+i	TAG	"LANDSYNC startup: waiting (conversion jobs=$conv, screen='$st', importing=${HomeStateImportController.isImporting})"	UtahPrivate.kt:128
+i	TAG	"VECMAPDIAG tile z$z/$x/$y online " + (bytes?.let { "${it.size} B" } ?: "NONE (${VecOnline.lastWhy})")	VectorMapTest.kt:54
+i	TAG	"VECMAPDIAG dem z$z/$x/$y " + (if (b != null) "held ${b.size} B" else if (d != null) "online ${d.size} B" else "NOT HELD")	VectorMapTest.kt:66
+e	TAG	"VECMAP-2026-10-30 $path: ${e.message}"	VectorMapTest.kt:82
+i	VecMap	"VECMAPDIAG z12 extent x ${e?.getOrNull(0)}..${e?.getOrNull(1)} y ${e?.getOrNull(2)}..${e?.getOrNull(3)}  start=${start?.joinToString()}"	VectorMapTest.kt:116
+e	VecMap	"VECMAPDIAG store: ${ex.message}"	VectorMapTest.kt:117
+i	VecMap	"VECMAPGPS open at $hash (" + (if (here != null) "last fix ${here.provider}" else "no fix -- recipe box") + ")"	VectorMapTest.kt:136
+i	VecMap	"VECMAPSIZE2 view ${v.width}x${v.height}"	VectorMapTest.kt:149
+i	VecMapJS	"${m.message()} (${m.sourceId()}:${m.lineNumber()})"	VectorMapTest.kt:155
+w	TAG	"VECONLINE $kind fetch failed (${e.message}) -- stored tiles only for 30 s"	VectorMapTest.kt:221
+i	ConvoyProfile	"Exported profile to: ${f.absolutePath}"	MeshCommConfig.kt:50
+w	RadioConfig	"drift: ${e.message}"	MeshCommConfig.kt:80
+i	RadioConfig	"PRESETPANEL-2026-10-20 GPS panel: preset $preset, moving every ${movingIntervalSecs}s"	MeshCommConfig.kt:107
+i	RadioConfig	"RADIONET-2026-10-12: network not known yet (${e.message})"	MeshCommConfig.kt:171
+w	RadioConfig	"SAVEDCFG-2026-10-12: cannot compare: ${e.message}"	MeshCommConfig.kt:184
+w	RadioConfig	"CONFIGPDF-2026-10-26: cannot read the config: ${e.message}"	MeshCommConfig.kt:224
+w	COMMRADIOS	"pairing failed: ${e.message}"	MeshCommLink.kt:82
+i	COMMHEALTH	"GRPMODE-2026-10-13: group awareness off -- radio dropped (remembered: ${p.getString("radio_before_off", null)})"	MeshCommLink.kt:107
+i	COMMHEALTH	"GRPMODE-2026-10-13: group awareness on -- radio ${if (back.isNullOrBlank()) "unchanged" else back}"	MeshCommLink.kt:112
+w	COMMHEALTH	"pairing listener not registered: ${e.message}"	MeshCommLink.kt:175
+w	COMMHEALTH	"step failed: ${e.message}"	MeshCommLink.kt:196
+i	COMMHEALTH	"connecting for ${(now - hConnectingSinceMs) / 1000} s -- stuck"	MeshCommLink.kt:296
+i	COMMHEALTH	"health: talking=${h.talking} recovering=${h.recovering} attempts=${h.attempts} reason=${h.reason} (link=$state own=${ownTakMs?.let { (now - it) / 1000 }}s traffic=${(now - hTrafficMs) / 1000}s)"	MeshCommLink.kt:319
+i	GPSINT	"written at ${System.currentTimeMillis()}"	MeshCommMessaging.kt:120
+i	GPSINT	"disconnect at ${System.currentTimeMillis()}"	MeshCommMessaging.kt:124
+i	GPSINT	"reconnect at ${System.currentTimeMillis()}"	MeshCommMessaging.kt:128
+i	GPSINT	"cycle2 disconnect at ${System.currentTimeMillis()}"	MeshCommMessaging.kt:138
+i	GPSINT	"cycle2 reconnect at ${System.currentTimeMillis()}"	MeshCommMessaging.kt:141
+e	GPSINT	"failed: ${e.message}"	MeshCommMessaging.kt:147
+i	COMMRADIOS	"found nearby: ${p.name} ${p.address}"	MeshRadioList.kt:133
+w	COMMRADIOS	"scan failed: ${e.message}"	MeshRadioList.kt:139
+d	TAG	"registerUser: ${response.code} $responseBody"	ConvoyApiClient.kt:62
+e	TAG	"registerUser error: ${e.message}"	ConvoyApiClient.kt:73
+d	TAG	"acceptTerms: ${response.code}"	ConvoyApiClient.kt:98
+e	TAG	"acceptTerms error: ${e.message}"	ConvoyApiClient.kt:101
+d	TAG	"becomeOrganizer: ${response.code}"	ConvoyApiClient.kt:124
+e	TAG	"becomeOrganizer error: ${e.message}"	ConvoyApiClient.kt:127
+d	TAG	"getTerms[$type]: ${response.code}"	ConvoyApiClient.kt:144
+e	TAG	"getTerms error: ${e.message}"	ConvoyApiClient.kt:155
+d	TAG	"createRide: ${response.code} $responseBody"	ConvoyApiClient.kt:199
+e	TAG	"createRide error: ${e.message}"	ConvoyApiClient.kt:210
+d	TAG	"createInvite: ${response.code} $responseBody"	ConvoyApiClient.kt:233
+e	TAG	"createInvite error: ${e.message}"	ConvoyApiClient.kt:244
+d	TAG	"downloadRide: ${response.code} ${responseBody.take(100)}"	ConvoyApiClient.kt:261
+e	TAG	"downloadRide error: ${e.message}"	ConvoyApiClient.kt:266
+d	TAG	"enrollRider: ${response.code}"	ConvoyApiClient.kt:293
+e	TAG	"enrollRider error: ${e.message}"	ConvoyApiClient.kt:296
+d	TAG	"submitSurvey: ${response.code}"	ConvoyApiClient.kt:338
+e	TAG	"submitSurvey error: ${e.message}"	ConvoyApiClient.kt:341
+d	TAG	"followOrganizer: ${response.code}"	ConvoyApiClient.kt:362
+e	TAG	"followOrganizer error: ${e.message}"	ConvoyApiClient.kt:365
+d	TAG	"unfollowOrganizer: ${response.code}"	ConvoyApiClient.kt:386
+e	TAG	"unfollowOrganizer error: ${e.message}"	ConvoyApiClient.kt:389
+d	TAG	"broadcastRide: ${response.code}"	ConvoyApiClient.kt:412
+e	TAG	"broadcastRide error: ${e.message}"	ConvoyApiClient.kt:416
+d	TAG	"FIT $artifactType $artifactId -> bbox=[$south,$west,$north,$east] rows=${finalRows.size}"	ConvoyArtifactOps.kt:60
+w	TAG	"TRACKROUTE: track $trackId has ${pts.size} points"	ConvoyArtifactOps.kt:130
+e	TAG	"TRACKROUTE: writeDraft failed: ${e.message}"	ConvoyArtifactOps.kt:135
+i	TAG	"TRACKROUTE: convertroute draft '${name.trim()}' from track $trackId (${pts.size} points -> ${kept.size})"	ConvoyArtifactOps.kt:138
+w	TAG	"TRACKROUTE: track $trackId has ${pts.size} points"	ConvoyArtifactOps.kt:159
+e	TAG	"TRACKROUTE: insertRoute failed: ${e.message}"	ConvoyArtifactOps.kt:164
+e	TAG	"ROUTETH: new trailhead waypoint not saved: ${it.message}"	ConvoyArtifactOps.kt:182
+i	TAG	"ROUTETH: route $id trailhead '${trailhead.name}' (new=${trailhead.isNew}) anchored=$anchored"	ConvoyArtifactOps.kt:184
+i	TAG	"TRACKROUTE: track $trackId -> ROUTE $id '${name.trim()}' (${pts.size} points -> ${kept.size}; $miles mi; notes rows $rows)"	ConvoyArtifactOps.kt:185
+w	ConvGate	"persist grant: ${e.message}"	ConvoyAuthorityGateScreenV2.kt:399
+i	TAG	"CORRMIGRATE-2026-08-07H delete start: ${hashes.size} tracks"	ConvoyCorridorDelete.kt:119
+i	TAG	"CORRDELETE-STAGE1-2026-08-07B preview start: ${hashes.size} tracks with geom_hash"	ConvoyCorridorDelete.kt:174
+e	TAG	"Corridor layer ${layer.cacheDir} failed: ${e.message}"	ConvoyCorridorWorker.kt:160
+d	TAG	"setForeground skipped: ${e.message}"	ConvoyCorridorWorker.kt:199
+i	TAG	"Delete stopped mid-band at $store z${r.z} y=$y"	ConvoyDeleteWorker.kt:151
+d	TAG	"$store z${r.z}: removed $zRemoved (${(r.yMax - r.yMin + 1)} rows, band=$bandRows)"	ConvoyDeleteWorker.kt:165
+d	TAG	"setForeground skipped: ${e.message}"	ConvoyDeleteWorker.kt:203
+i	TAG	"Seeded — notif:${getNotifCount(ctx)} invites:${getInviteCount(ctx)} rides:${getRideCount(ctx)} pub:${getPublicRideCount(ctx)}"	ConvoyDevSeeder.kt:26
+w	TAG	"setMaxConcurrent persist failed: ${e.message}"	ConvoyDownloadQueue.kt:184
+i	TAG	"Enqueued: ${entry.label} (${entry.totalTiles} tiles) id=${entry.id}"	ConvoyDownloadQueue.kt:281
+i	TAG	"Enqueued area: $slotName ${cells.size} cells replace=$replaceExisting"	ConvoyDownloadQueue.kt:449
+i	TAG	"Enqueued refresh: $slotName ${cells.size} grid cells"	ConvoyDownloadQueue.kt:611
+i	TAG	"RECIPESCAN-2026-10-30 $slotName: ${cells.size} occupied z$cellZ squares -> ${boxes.size} box(es), $total stored tile(s)"	ConvoyDownloadQueue.kt:1000
+i	TAG	"Promoted to priority 1: ${current[idx].label}"	ConvoyDownloadQueue.kt:1064
+e	TAG	"Cancel WorkManager failed: ${e.message}"	ConvoyDownloadQueue.kt:1077
+i	TAG	"Cancelled and removed: ${entry.label} id=$entryId"	ConvoyDownloadQueue.kt:1085
+e	TAG	"CancelAll worker failed: ${e.message}"	ConvoyDownloadQueue.kt:1109
+i	TAG	"Cancelled all: ${current.size - completed.size} removed, ${completed.size} complete kept"	ConvoyDownloadQueue.kt:1116
+e	TAG	"Remove worker cancel failed: ${e.message}"	ConvoyDownloadQueue.kt:1126
+i	TAG	"Removed: ${entry.label} id=$entryId"	ConvoyDownloadQueue.kt:1133
+i	TAG	"Launched worker for: ${entry.label} id=${entry.id}"	ConvoyDownloadQueue.kt:1303
+e	TAG	"Save queue failed: ${e.message}"	ConvoyDownloadQueue.kt:1332
+i	TAG	"Loaded ${entries.size} queue entries from disk"	ConvoyDownloadQueue.kt:1348
+e	TAG	"Load queue failed: ${e.message} - quarantining"	ConvoyDownloadQueue.kt:1350
+i	TAG	"REFRESHOOM-2026-08-11L Refresh cell: ${existingTiles.size} stored tile(s) in bounds, ${layers.size} layer(s)"	ConvoyDownloadWorker.kt:123
+e	TAG	"Refresh layer ${layer.cacheDir} failed: ${e.message}"	ConvoyDownloadWorker.kt:156
+i	TAG	"Tiles: ${tiles.size} x $totalLayers layers = $totalTiles total"	ConvoyDownloadWorker.kt:192
+d	TAG	"Layer: ${layer.cacheDir} url=${layer.urlTemplate.take(60)}..."	ConvoyDownloadWorker.kt:204
+e	TAG	"Layer ${layer.cacheDir} failed: ${e.message}"	ConvoyDownloadWorker.kt:232
+d	TAG	"setForeground skipped: ${e.message}"	ConvoyDownloadWorker.kt:272
+e	TAG	"Not valid JSON — ignoring file: ${e.message}"	ConvoyFileReceiver.kt:105
+e	TAG	"ConvoyFileReceiver failed: ${e.message}"	ConvoyFileReceiver.kt:138
+i	TAG	"GPXOPEN-2026-10-09: staged ${f.name} (${f.length()} bytes) -> import panel"	ConvoyFileReceiver.kt:230
+e	TAG	"GPXOPEN-2026-10-09: staging failed: ${e.message}"	ConvoyFileReceiver.kt:233
+i	TAG	"Track recording started: ${tempFile.name}"	ConvoyGpsService.kt:178
+i	TAG	"Track recording stopped. File: ${file?.name}"	ConvoyGpsService.kt:237
+e	TAG	"finalizeTrack error: ${e.message}"	ConvoyGpsService.kt:261
+e	TAG	"GPS permission not granted: ${e.message}"	ConvoyGpsService.kt:306
+e	TAG	"stopLocationUpdates error: ${e.message}"	ConvoyGpsService.kt:314
+e	TAG	"Failed to open KML writer: ${e.message}"	ConvoyGpsService.kt:378
+e	TAG	"KML write error: ${e.message}"	ConvoyGpsService.kt:387
+e	TAG	"KML close error: ${e.message}"	ConvoyGpsService.kt:398
+e	TAG	"Failed to open GPX writer: ${e.message}"	ConvoyGpsService.kt:423
+e	TAG	"GPX write error: ${e.message}"	ConvoyGpsService.kt:433
+e	TAG	"GPX close error: ${e.message}"	ConvoyGpsService.kt:443
+e	TAG	"Failed to acquire wake lock: ${e.message}"	ConvoyGpsService.kt:461
+e	TAG	"Failed to release wake lock: ${e.message}"	ConvoyGpsService.kt:472
+i	TAG	"Ride saved: ${eventConfig.eventName} (${eventConfig.eventId})"	ConvoyInviteHandler.kt:78
+i	TAG	"Enrolled in ride: ${eventConfig.eventId}"	ConvoyInviteHandler.kt:88
+i	TAG	"Invite processing complete: ${eventConfig.eventName}"	ConvoyInviteHandler.kt:114
+e	TAG	"Failed to parse ride JSON: ${e.message}"	ConvoyInviteHandler.kt:117
+e	TAG	"Failed to download ride: ${e.message}"	ConvoyInviteHandler.kt:122
+e	TAG	"RECIPE-2026-08-12L daily recipe failed: ${e.message}"	ConvoyMapRecipe.kt:137
+w	ConvoyRideCreate	"ZIPFROMTH: geocoder failed: ${e.message}"	ConvoyRideCreateScreen.kt:181
+e	TAG	"send failed: ${e.message}"	ConvoyRideSend.kt:127
+i	ConvoySettings	"SWITCH17G2B2 one-time copy: ${old.size} DataStore value(s), $n copied (the rest were already saved)"	ConvoySettingsRepository.kt:62
+e	ConvoySettings	"SWITCH17G2B2 one-time copy failed: ${it.message}"	ConvoySettingsRepository.kt:64
+e	TAG	"registerUser failed: ${e.message}"	ConvoySignInScreen.kt:162
+e	TAG	"Google Sign-In failed: ${e.statusCode}"	ConvoySignInScreen.kt:173
+i	TAG	"RESUME $slot: ${already.size} already deleted, ${todo.size} remaining"	ConvoySourceClear.kt:120
+e	TAG	"deleteSource $dir threw: ${e.message}"	ConvoySourceClear.kt:165
+i	TAG	"CLEARED $slot: ${deleted.size} store(s), $bytesBefore bytes"	ConvoySourceClear.kt:186
+i	TAG	"workers idle after ${waited}ms"	ConvoySourceClear.kt:208
+i	TAG	"orphans: ${orphans.joinToString(", ")} ($bytes bytes)"	ConvoySourceClear.kt:282
+e	TAG	"deleteSource $dir threw: ${e.message}"	ConvoySourceClear.kt:290
+i	TAG	"removed ${deleted.size} orphaned store(s), $bytes bytes"	ConvoySourceClear.kt:307
+e	TAG	"begin failed: ${e.message}"	ConvoySourceMigration.kt:127
+e	TAG	"read failed ${record.name}: ${e.message}"	ConvoySourceMigration.kt:146
+e	TAG	"update failed ${record.name}: ${e.message}"	ConvoySourceMigration.kt:156
+i	TAG	"PHASE ${record.name} -> $phase"	ConvoySourceMigration.kt:162
+i	TAG	"DELETED $cacheDir (${record.name})"	ConvoySourceMigration.kt:180
+i	TAG	"COMPLETE ${record.name}"	ConvoySourceMigration.kt:193
+e	TAG	"FAILED ${record.name}: $reason"	ConvoySourceMigration.kt:207
+e	TileDownloader	"Tile fail attempt=$attempt: $url err=${e.message}"	ConvoyTileDownloader.kt:110
+i	TileDownloader	"DL: $url -> $sourceName.mbtiles z${tile.z}/${tile.x}/${tile.y}"	ConvoyTileDownloader.kt:180
+i	TileDownloader	"Scanned $slotName: ${keys.size} tiles (mbtiles)"	ConvoyTileDownloader.kt:215
+i	TileDownloader	"Bounds for $slotName: N=${"%.4f".format(north)} S=${"%.4f".format(south)} E=${"%.4f".format(east)} W=${"%.4f".format(west)}"	ConvoyTileDownloader.kt:235
+i	SEGMENT	"cell ${i + 1}/$n N=$cN S=$cS E=$cE W=$cW"	ConvoyTileDownloader.kt:307
+i	TileDownloader	"Grid: ${cells.size} cells at ${gridMiles}mi"	ConvoyTileDownloader.kt:331
+e	ImportPicker	"$name FAILED: ${e.message}"	ConvoyTrackImportScreen.kt:212
+i	Import	"RECAP TRIGGER: new=$newTotal dupe=$dupeTotal files=${imported.size}"	ConvoyTrackImportScreen.kt:288
+e	ConvoyTrackOps	"Copy to Downloads failed: ${e.message}"	ConvoyTrackOps.kt:101
+e	ConvoyTrackOps	"Share failed: ${e.message}"	ConvoyTrackOps.kt:124
+e	ConvoyTrackOps	"Import failed for $sourceName: ${e.message}"	ConvoyTrackOps.kt:302
+e	ConvoyTrackOps	"fixDateFromContent failed: ${e.message}"	ConvoyTrackOps.kt:320
+e	TrackOps	"shareGpx failed: ${e.message}"	ConvoyTrackOps.kt:446
+i	TrackOps	"Exported to Downloads: ${file.absolutePath}"	ConvoyTrackOps.kt:459
+e	TrackOps	"exportGpxToDownloads failed: ${e.message}"	ConvoyTrackOps.kt:462
+e	TrailSource	"Failed to load catalog: ${e.message}"	ConvoyTrailSourceScreen.kt:644
+i	ConvoyTransfer	"Sharing ride: ${ride.eventName}"	ConvoyTransferRideScreen.kt:88
+e	ConvoyTransfer	"Share failed: ${e.message}"	ConvoyTransferRideScreen.kt:91
+i	ROLEREPORT	"ROLEREPORT sent #$n at ${System.currentTimeMillis()}: $cs as $role"	ConvoyViewModel.kt:413
+w	ROLEREPORT	"ROLEREPORT #$n not sent: ${it.message}"	ConvoyViewModel.kt:414
+i	TICKSHADOW	"GROUPOFF-2026-10-15: group awareness off -- board now ${boardCarts.size} cart(s)"	ConvoyViewModel.kt:619
+i	ANDROIDMODE	"FAILCLEAR-2026-10-15: 3 failed reconnects -- Android only (other carts cleared, group awareness stays on; board ${boardCarts.size} cart(s))"	ConvoyViewModel.kt:651
+e	ConvoyImport	"Failed to process ${file.name}: ${e.message}"	ConvoyViewModel.kt:696
+e	ConvoyImport	"Import scan failed: ${e.message}"	ConvoyViewModel.kt:705
+i	ANDROIDMODE	"ANDROIDMODE1-2026-10-14: Android mode -- other carts cleared (kept my cart: ${myNodes.size})"	ConvoyViewModel.kt:734
+d	ConvoyVM	"Deleted temp track: ${temp.name}"	ConvoyViewModel.kt:913
+w	ConvoyVM	"finalizeTrack: no geometry, not a track: ${f.name} -- file deleted=${f.delete()}"	ConvoyViewModel.kt:941
+i	ConvoyVM	"finalizeTrack resolveTrackAdd: $outcome name='${name.trim()}'"	ConvoyViewModel.kt:952
+e	ConvoyVM	"finalizeTrack insert failed: ${e.message}"	ConvoyViewModel.kt:964
+i	TICKSHADOW	"board: group awareness off -- my cart only (${boardCarts.size})"	ConvoyViewModel.kt:1052
+i	ROLEREPORT	"LEADBOARD-2026-10-15 applied at ${System.currentTimeMillis()}: lead = " + reportedLeader	ConvoyViewModel.kt:1061
+i	TAG	"Loaded ${result.size} states from $ASSET_FILE"	GeofabrikCatalog.kt:103
+w	TAG	"detectHomeState: no usable location (loc=${loc != null})"	GeofabrikCatalog.kt:190
+i	TAG	"detectHomeState: geocoder → $adminArea → ${match.name}"	GeofabrikCatalog.kt:204
+w	TAG	"record unreadable: ${e.message}"	GroupTrackConversion.kt:108
+w	TAG	"isFreshInstall failed, assuming update: ${e.message}"	GroupTrackConversion.kt:139
+w	TAG	"readRecord: ${e.message}"	GroupTrackConversion.kt:158
+i	TAG	"record written: ${f.absolutePath}"	GroupTrackConversion.kt:210
+e	TAG	"writeRecord FAILED: ${e.message}"	GroupTrackConversion.kt:212
+w	TAG	"close before copy: ${e.message}"	GroupTrackConversion.kt:248
+i	TAG	"=== CONVERSION ${if (ok) "DONE" else "FAILED"} ==="	GroupTrackConversion.kt:282
+e	TAG	"moveOutMaps FAILED: ${e.message}"	GroupTrackConversion.kt:392
+e	TAG	"copyMaps FAILED: ${e.message}"	GroupTrackConversion.kt:442
+e	TAG	"$prefix/$cname FAILED: ${e.message}"	GroupTrackConversion.kt:495
+e	TAG	"delete $name: ${e.message}"	GroupTrackConversion.kt:536
+e	TAG	"delete parked maps: ${e.message}"	GroupTrackConversion.kt:551
+e	TAG	"deleteSources FAILED: ${e.message}"	GroupTrackConversion.kt:557
+e	TAG	"$name FAILED: ${e.message}"	GroupTrackConversion.kt:610
+e	TAG	"$prefix/$cname FAILED: ${e.message}"	GroupTrackConversion.kt:658
+e	GTStorage	"internalBase failed: ${e.message}"	GroupTrackStorage.kt:114
+i	TAG	"$MARK: skipped ${skipped.joinToString("; ")}"	HomeStateImportController.kt:368
+i	TAG	"Manifest: $totalSources sources, file=${mFile.name}"	HomeStateImportController.kt:417
+w	TAG	"DATAQUEUE record: ${e.message}"	HomeStateImportController.kt:438
+e	TAG	"Unknown process type: ${src.getString("process")}"	HomeStateImportController.kt:510
+e	TAG	"PADUSLAND: land areas not built -- ${e.javaClass.simpleName} ${e.message}"	HomeStateImportController.kt:610
+e	TAG	"step 8 failed, import stands: ${e.message}"	HomeStateImportController.kt:685
+e	TAG	"PBF failed verification for $slug, removing: ${pbfFile.name}"	HomeStateImportController.kt:751
+i	TAG	"PBF complete: ${pbfFile.name} (${pbfFile.length() / 1_048_576} MB)"	HomeStateImportController.kt:756
+i	TAG	"Download complete: ${zipFile.name} (${zipFile.length() / 1_048_576} MB)"	HomeStateImportController.kt:769
+i	TAG	"FETCHFIRST: ${rows.length()} file row(s)"	HomeStateImportController.kt:1079
+i	TAG	"FETCHFIRST ${row.optString("name")}: saved on tablet -- no download"	HomeStateImportController.kt:1092
+i	TAG	"PADUSSVC: old zip removed ${it.name}: ${it.delete()}"	HomeStateImportController.kt:1139
+e	TAG	"FETCHFIRST ${row.optString("name")}: ${e.javaClass.simpleName} ${e.message}"	HomeStateImportController.kt:1156
+i	TAG	"FETCHFIRST ${row.optString("name")}: " + if (ok) "ready (${dest.length() / 1_048_576} MB)" else "FAILED"	HomeStateImportController.kt:1164
+w	TAG	"Download: attempt $attempt failed, retrying in ${wait}ms"	HomeStateImportController.kt:1189
+e	TAG	"Download HTTP ${conn.responseCode} for $urlStr"	HomeStateImportController.kt:1214
+i	TAG	"sweep: ${f.name} classified $verdict -> history/${target.name}"	HomeStateImportController.kt:1692
+e	TAG	"sweep: ${f.name} unreadable, left in place: ${e.message}"	HomeStateImportController.kt:1727
+i	TAG	"sweep: $swept of ${files.size} manifest(s) moved to history"	HomeStateImportController.kt:1730
+w	TAG	"needsTrailData: query failed (${e.message}) -> RIDE MAP (panel available)"	HomeStateImportController.kt:1782
+i	TAG	"ANY-STATE import: ${allStates.size} states, no pre-selection"	HomeStatePickerScreen.kt:123
+i	TAG	"Detected: ${detected?.name ?: "none"}, ${allStates.size} states loaded"	HomeStatePickerScreen.kt:134
+i	TAG	"AREAPICK-2026-10-24: run ${run.joinToString(", ") { it.slug }} + ${cats.size} source(s); skipped ${left.joinToString("; ")}"	HomeStatePickerScreen.kt:152
+e	ImportConvert	"$name: ${e.message}"	ImportConverter.kt:40
+w	TAG	"PADUSLAND $code: no PAD-US data at ${zip.path} -- this state stays all PUBLIC"	LandAreas.kt:74
+e	TAG	"PADUSLAND $code: no $layer KMZ in ${zip.name}"	LandAreas.kt:110
+e	TAG	"PADUSSVC HTTP ${c.responseCode}"	LandAreas.kt:307
+e	TAG	"PADUSSVC: ${e.javaClass.simpleName} ${e.message}"	LandAreas.kt:309
+w	TAG	"PADUSSVC $code: ${e.javaClass.simpleName} ${e.message}"	LandAreas.kt:345
+i	TAG	"PADUSSVC $code: $pages page(s), $got areas saved -> ${dest.path} (${dest.length() / 1_048_576} MB) ok=$ok"	LandAreas.kt:351
+i	TAG	"PADUSLAND index: ${polys.size} polygons, ${cov.size} state(s) covered, ${grid.size} cells, ${big.size} large"	LandAreas.kt:547
+e	TAG	"open failed for $type: ${e.message}"	MBTilesStore.kt:106
+w	TAG	"MBPRAGMA-2026-08-09G: $p FAILED: ${e.message}"	MBTilesStore.kt:165
+w	TAG	"metadata init $type: ${e.message}"	MBTilesStore.kt:183
+i	TAG	"scanKeys $type: ${keys.size} tiles"	MBTilesStore.kt:252
+i	TAG	"countTiles $type: ${tiles.size} requested, $found present"	MBTilesStore.kt:290
+i	TAG	"deleteTiles $type: ${tiles.size} requested, $removed actually removed"	MBTilesStore.kt:304
+e	MapSourceMgr	"COLUMNFILE-2026-08-03: version code unavailable: ${e.message}"	MapSourceManager.kt:84
+e	MapSourceMgr	"COLUMNFILE-2026-08-03: column write failed: ${e.message}"	MapSourceManager.kt:285
+i	MapSourceMgr	"Loaded ${sources.size} sources, ${defaultSlots.size} slots, ${apiKeys.size} API keys"	MapSourceManager.kt:353
+e	MapSourceMgr	"JSON load failed: ${e.message}"	MapSourceManager.kt:358
+e	MapSourceMgr	"COLUMNFILE-2026-08-03: column read failed: ${e.message}"	MapSourceManager.kt:504
+e	MapSourceMgr	"Failed to load API keys: ${e.message}"	MapSourceManager.kt:517
+e	MapSourceMgr	"Failed to save API key: ${e.message}"	MapSourceManager.kt:530
+w	TAG	"docToShow: ${e.message}"	MeshNavFold.kt:79
+w	TAG	"isFolded: ${e.message}"	MeshNavFold.kt:115
+w	TAG	"setFolded: ${e.message}"	MeshNavFold.kt:139
+e	TAG	"MediaStore query failed: ${e.javaClass.simpleName} ${e.message}"	OsmImportStage.kt:217
+i	TAG	"candidates found: ${out.size}"	OsmImportStage.kt:219
+e	TAG	"openInputStream returned null for ${c.displayName}"	OsmImportStage.kt:261
+e	TAG	"size mismatch: copied=${part.length()} expected=${c.bytes}"	OsmImportStage.kt:266
+e	TAG	"copied file failed zip verification: ${c.displayName}"	OsmImportStage.kt:271
+e	TAG	"rename failed: ${part.name} -> ${target.name}"	OsmImportStage.kt:277
+i	TAG	"adopted ${c.displayName} -> ${target.absolutePath} (${target.length()} bytes)"	OsmImportStage.kt:281
+e	TAG	"adopt failed: ${e.javaClass.simpleName} ${e.message}"	OsmImportStage.kt:284
+i	TAG	"deleted original ${c.displayName}: rows=$n"	OsmImportStage.kt:297
+w	TAG	"could not delete original: ${e.javaClass.simpleName} ${e.message}"	OsmImportStage.kt:300
+e	TAG	"PADUSLAND: land areas unreadable: ${e.message} -- land PUBLIC"	OwnershipReclass.kt:141
+i	TAG	"PADUSLAND: ${landIdx.size} land areas, ${landIdx.states} state(s) with PAD-US data, ${(System.currentTimeMillis() - started) / 1000}s"	OwnershipReclass.kt:142
+w	TAG	"designated_uses read failed: ${e.message}"	OwnershipReclass.kt:206
+i	TAG	"step 8: $n of $total (${(System.currentTimeMillis() - started) / 1000}s)"	OwnershipReclass.kt:250
+i	RadioConfig	"CHECKINAPPLY: ride ${RadioConfigLauncher.autoRideId} applied, verified=$ok"	RadioConfigScreen.kt:213
+w	TAG	"capture failed: ${e.message}"	RidePreview.kt:85
+i	TAG	"RIDEPREVIEW-2026-09-24: captured ${out.name} (${out.length()} bytes)"	RidePreview.kt:101
+i	TAG	"RIDEPREVIEW-2026-09-24: kept as ${rideFile(context, rideId).name}"	RidePreview.kt:118
+w	TAG	"adopt failed: ${e.message}"	RidePreview.kt:120
+e	TAG	"candidate query failed: ${e.message}"	RiderTrailWriter.kt:174
+e	TAG	"insertTrail failed: ${e.message}"	RiderTrailWriter.kt:251
+w	TAG	"spatial carto write: ${e.message}"	RiderTrailWriter.kt:264
+w	TAG	"trail_properties write: ${e.message}"	RiderTrailWriter.kt:276
+w	Rides	"RIDESLIST: load failed: ${e.message}"	RidesScreen.kt:90
+w	TAG	"batch migration failed: ${it.message}"	RouteDraftStore.kt:131
+w	TAG	"batch unreadable, ignoring: ${it.message}"	RouteDraftStore.kt:144
+w	TAG	"BATCHHEAL: open batch '${b.optString("batchName")}' names no surviving drafts -- cleared"	RouteDraftStore.kt:161
+i	TAG	"ROUTEFILES: last AI search -- routes=$routes header=$headerWritten error=${error ?: "-"}"	RouteDraftStore.kt:177
+w	TAG	"ROUTEFILES: could not record the search outcome: ${it.message}"	RouteDraftStore.kt:178
+w	TAG	"ROUTEFILES: could not record the search detail: ${it.message}"	RouteDraftStore.kt:189
+w	TAG	"COMPARETRACE: could not write the trace: ${it.message}"	RouteDraftStore.kt:270
+i	TAG	"BATCHHEAL: '$name' removed from the open batch (${kept.length()} left)"	RouteDraftStore.kt:329
+w	TAG	"BATCHHEAL: prune of '$name' failed: ${it.message}"	RouteDraftStore.kt:331
+w	TAG	"recipe into draft '$nm' failed: ${it.message}"	RouteDraftStore.kt:455
+i	TAG	"batch '$batchName' written with ${draftNames.size} route(s)"	RouteDraftStore.kt:466
+e	TAG	"batch write failed: ${it.message}"	RouteDraftStore.kt:467
+i	TAG	"drew ${rows.size} batch route(s)"	RouteDraftStore.kt:553
+d	TAG	"writeDraft '$name' -> ${target.name} (${arr.length()} pts)"	RouteDraftStore.kt:688
+w	TAG	"readNotes failed for $name: ${e.message}"	RouteDraftStore.kt:723
+i	TAG	"wrote generated draft: $name (${doc.optJSONArray("vertices")?.length() ?: 0} pts)"	RouteDraftStore.kt:746
+e	TAG	"writeRawDraft failed for $name: ${e.message}"	RouteDraftStore.kt:749
+w	TAG	"skip unreadable draft ${f.name}: ${e.message}"	RouteDraftStore.kt:767
+w	SpatialDb	"status column: ${e.message}"	SpatialDbManager.kt:267
+w	SpatialDb	"$col column: ${e.message}"	SpatialDbManager.kt:290
+i	TAG	"Applied spatial schema: ${spatialFile.absolutePath}"	SpatialDbManager.kt:319
+i	TAG	"Opened spatial database: ${spatialFile.absolutePath}"	SpatialDbManager.kt:321
+i	TAG	"Applied extension schema: \\${extFile.absolutePath}"	SpatialDbManager.kt:329
+i	TAG	"Opened extension database: \\${extFile.absolutePath}"	SpatialDbManager.kt:331
+w	SpatialDb	"v5 $c: ${e.message}"	SpatialDbManager.kt:357
+i	TAG	"IDXSOURCE: trail_properties(source_id, source_unique_id) index ready in ${System.currentTimeMillis() - t0} ms"	SpatialDbManager.kt:394
+w	TAG	"IDXSOURCE: ${e.message}"	SpatialDbManager.kt:396
+w	TAG	"area_downloads migration: ${e.message}"	SpatialDbManager.kt:410
+w	TAG	"route_notes migration: ${e.message}"	SpatialDbManager.kt:436
+w	TAG	"DEVSCHEMA-2026-09-22: ${e.message}"	SpatialDbManager.kt:454
+e	TAG	"GTSCHEMA-2026-11-07: ${e.message}"	SpatialDbManager.kt:466
+e	TAG	"Database init failed: ${e.message}"	SpatialDbManager.kt:475
+w	TAG	"SQL skip: ${e.message} | ${statement.take(60)}"	SpatialDbManager.kt:510
+i	CertRun	"GTCERTW handles now ${spatial?.path} / ${extension?.path}"	SpatialDbManager.kt:574
+i	TrackLazy	"Viewport query returned ${results.size} tracks"	SpatialDbManager.kt:829
+e	TrackLazy	"Viewport query failed: ${e.message}"	SpatialDbManager.kt:831
+i	WaypointLazy	"Viewport query returned ${results.size} waypoints"	SpatialDbManager.kt:943
+e	WaypointLazy	"Viewport query failed: ${e.message}"	SpatialDbManager.kt:945
+i	RouteLazy	"Viewport query returned ${results.size} routes"	SpatialDbManager.kt:993
+e	RouteLazy	"Viewport query failed: ${e.message}"	SpatialDbManager.kt:995
+i	TrackLazy	"Tracks-only viewport query returned ${results.size} tracks"	SpatialDbManager.kt:1042
+e	TrackLazy	"Tracks-only viewport query failed: ${e.message}"	SpatialDbManager.kt:1044
+w	SpatialDb	"readRouteNotes: ${e.message}"	SpatialDbManager.kt:1180
+w	SpatialDb	"routeNameCount: ${e.message}"	SpatialDbManager.kt:1242
+w	SpatialDb	"loadHashes($table): ${ex.message}"	SpatialDbManager.kt:1403
+w	SpatialDb	"DUPECHECK-2026-10-20 nameByHash($table): ${ex.message}"	SpatialDbManager.kt:1427
+e	SpatialDb	"getArtifactBounds($table) failed: ${e.message}"	SpatialDbManager.kt:1512
+e	SpatialDb	"Track file not found: ${gpxFile.absolutePath}"	SpatialDbManager.kt:1748
+i	SpatialDb	"buildTrackGpxById: $name (${content.length} chars)"	SpatialDbManager.kt:1754
+e	Corridor	"getTrackPoints lookup failed for $hash: ${e.message}"	SpatialDbManager.kt:1916
+e	Corridor	"getRoutePoints lookup failed for $hash: ${e.message}"	SpatialDbManager.kt:1993
+w	Corridor	"ROUTECORR-2026-08-10B: name lookup failed in $table: ${e.message}"	SpatialDbManager.kt:2049
+e	TrackMaps	"getTrackBbox lookup failed for $hash: ${e.message}"	SpatialDbManager.kt:2072
+e	TrackMaps	"getRouteBbox lookup failed for $hash: ${e.message}"	SpatialDbManager.kt:2109
+e	TrackMaps	"bbox lookup failed for $hash: ${e.message}"	SpatialDbManager.kt:2153
+w	SpatialDisplay	"TRACE failed: ${e.message}"	SpatialDisplayManager.kt:336
+i	SpatialDisplay	"TRAILDRAW $type: sent ${items.size} -> page $res"	SpatialDisplayManager.kt:347
+i	LandAreas	"LANDDRAW ${r.second} areas (public=$pub restricted=$rst) zoom=$zoom"	SpatialDisplayManager.kt:430
+w	LandAreas	"LANDDISPLAY: ${e.message}"	SpatialDisplayManager.kt:432
+w	TAG	"encode failed (${if (isOverlay) "overlay" else "base"}) -> passthrough: ${e.message}"	TileCodec.kt:48
+e	ConvoyReconnect	"BT toggle failed: ${e.message}"	UIViewModel.kt:186
+e	TAG	"BACKUP start-up check failed"	Backup.kt:71
+e	TAG	"DBAUDIT"	Backup.kt:79
+e	TAG	"BACKUP build"	Backup.kt:80
+e	TAG	"BACKUP open failed"	Backup.kt:147
+e	TAG	"DBREPAIR failed"	DbAudit.kt:37
+e	TAG	"EXPORTALL $type"	ExportAll.kt:77
+e	TAG	"SHAREEXPORT share failed"	ExportAll.kt:117
+e	TAG	"GTCERT rider15c aborted"	GtCert15c.kt:171
+e	TAG	"GTCERT track15d aborted"	GtCert15d.kt:213
+e	TAG	"GTCERT import15e aborted"	GtCert15e.kt:223
+e	TAG	"GTCERT trail15f aborted"	GtCert15f.kt:255
+e	TAG	"GTCERT osm15g aborted"	GtCert15g.kt:256
+e	TAG	"GTCERT queue16c aborted"	GtCert16c.kt:154
+e	TAG	"GTCERT net17c aborted"	GtCert17c.kt:109
+e	TAG	"GTCERT user17c2 aborted"	GtCert17c2.kt:82
+e	TAG	"GTCERT config17d aborted"	GtCert17d.kt:94
+e	TAG	"GTCERT state17e1 aborted"	GtCert17e1.kt:69
+e	TAG	"GTCERT rides aborted"	GtCertRides.kt:450
+e	TAG	"MAPRECIPES send failed"	MapRecipes.kt:107
+e	BatchGrid	"batch draw failed: " + it.message	RouteModule.kt:136
+e	RouteExplorer	"explore failed"	RouteModule.kt:755
+e	RadioConfig	"APPLYTRACE: cannot use this configuration"	MeshCommConfig.kt:64
+e	RadioConfig	"APPLYTRACE: cannot use save '$id'"	MeshCommConfig.kt:72
+e	RadioConfig	"APPLYTRACE: cannot use this configuration"	MeshCommConfig.kt:92
+e	RadioConfig	"APPLYTRACE: GPS panel cannot use the radio's settings"	MeshCommConfig.kt:105
+e	RadioConfig	"APPLYTRACE: cannot use save '$id'"	MeshCommConfig.kt:115
+e	TAG	"Failed to load $ASSET_FILE"	GeofabrikCatalog.kt:107
+w	TAG	"detectHomeState: geocoder failed, falling back to bbox"	GeofabrikCatalog.kt:210
+e	TAG	"STEP8PAGED: step 8 FAILED -- out of memory. Trails keep no category/use/land from this run."	HomeStateImportController.kt:634
+e	TAG	"Catalog source $sourceId failed"	HomeStateImportController.kt:930
+e	TAG	"area catalog failed"	HomeStateImportController.kt:989
+e	TAG	"Failed to query catalog sources"	HomeStateImportController.kt:1005
+e	TAG	"Download failed: $urlStr"	HomeStateImportController.kt:1246
+e	TAG	"persist '$name' failed"	RouteDraftStore.kt:691
+e	TAG	"openDraft '$name' failed"	RouteDraftStore.kt:811
+e	TAG	"deleteDraft '$name' failed"	RouteDraftStore.kt:867
+e	SpatialDb	"Failed to read track file"	SpatialDbManager.kt:1757
+i	NetworkGenerator	"ONEDEFAULT: mesh values from grouptrack_default.json -- $REGION $MODEM_PRESET hop $HOP_LIMIT tx $TX_POWER slot $FREQUENCY_SLOT $ROLE"	NetworkGenerator.kt:86
+i	ConvoyImport	"Convoy file received — type=$docType file=$fileName"	MainActivity.kt:221
+i	TrackImport	"GPXOPEN-2026-10-09: $message"	MainActivity.kt:251
+i	TAG	"BACKUP start-up check: no internet"	Backup.kt:51
+i	TAG	"BACKUP start-up check: NOT NOW today"	Backup.kt:52
+i	TAG	"BACKUP start-up check: nothing to back up"	Backup.kt:59
+i	TAG	"BACKUP unchanged since the last backup sent -- nothing offered"	Backup.kt:60
+i	TAG	"BACKUP NOT NOW"	Backup.kt:89
+i	TAG	"DBREPAIR skipped: a certification run is using swapped database handles"	DbAudit.kt:35
+i	TAG	"VECEMERGENCY deleted the vector maps and elevation (VEC, DEM) -- clean rebuild"	EmergencyRestore.kt:85
+i	TAG	"TRAILEXPORT $n trail(s) -> Downloads/$file.gpx ok=$ok"	ExportAll.kt:68
+i	ROUTEMODE	"$site -> $v"	GroupTrackScreen.kt:102
+w	ConvoyMap	"MAPSTARTUP-2026-10-19: frame not saved (not usable): $lastViewportSouth,$lastViewportWest,$lastViewportNorth,$lastViewportEast"	GroupTrackScreen.kt:344
+i	VecOnline	"VECONLINE " + (if (isOfflineMode) "OFFLINE MODE -- stored maps only" else "online fill allowed")	GroupTrackScreen.kt:438
+i	ConvoyMap	"MAPSTARTUP-2026-10-19: network lost -- switched to local tiles"	GroupTrackScreen.kt:450
+i	LEADEST	"ESTVIEW-2026-10-20 screen: drew " + node.nodeId + " at " + est.lat + "," + est.lon + " (est. " + ss + " s)"	GroupTrackScreen.kt:481
+i	LEADDRAW	"LEADVIS-2026-10-20 lead track sent: " + parts.size + " segs to page " + System.identityHashCode(wv)	GroupTrackScreen.kt:603
+d	RouteBridge	"onMapTap lat=$lat lon=$lon"	GroupTrackScreen.kt:840
+d	RouteTap	"CONVOY bridge id=$id"	GroupTrackScreen.kt:945
+d	WaypointTap	"CONVOY bridge id=$id"	GroupTrackScreen.kt:971
+d	TrailTap	"CONVOY(reuse) bridge id=$id"	GroupTrackScreen.kt:982
+d	TrackTap	"CONVOY(reuse :652) bridge id=$id"	GroupTrackScreen.kt:994
+d	TrackTap	"CONVOY(reuse) post -> setting state id=$id"	GroupTrackScreen.kt:996
+i	LEADDRAW	"LEADVIS-2026-10-20 map page REUSED " + System.identityHashCode(existing) + " vm " + System.identityHashCode(viewModel)	GroupTrackScreen.kt:1002
+i	HtmlVer	"HTMLVER-2026-08-13B loaded $clean"	GroupTrackScreen.kt:1026
+d	ConvoyMap	if (!hasInternet) "No internet — auto-switching to local tiles" else "PERSISTVIEW: saved choice is LOCAL"	GroupTrackScreen.kt:1051
+d	ConvoyMap	"Restored persisted frame"	GroupTrackScreen.kt:1082
+w	ConvoyMap	"RIDEENTRY: no position yet -- centring on the first fix"	GroupTrackScreen.kt:1102
+w	ConvoyMap	"Location permission not granted — map stays at default view"	GroupTrackScreen.kt:1118
+i	OFFTRACE	"OFFTRACE-2026-08-11M convoy-map REQ $url"	GroupTrackScreen.kt:1132
+i	OFFTRACE	"OFFTRACE-2026-08-11M convoy-map MATCHED convoy://"	GroupTrackScreen.kt:1135
+d	RouteBridge	"onMapTap lat=$lat lon=$lon"	GroupTrackScreen.kt:1202
+d	RouteTap	"CONVOY bridge id=$id"	GroupTrackScreen.kt:1357
+d	WaypointTap	"CONVOY bridge id=$id"	GroupTrackScreen.kt:1381
+d	TrailTap	"CONVOY(create) bridge id=$id"	GroupTrackScreen.kt:1390
+d	TrackTap	"CONVOY(create :916) bridge id=$id"	GroupTrackScreen.kt:1402
+d	TrackTap	"CONVOY(create) post -> setting state id=$id"	GroupTrackScreen.kt:1404
+i	LEADDRAW	"LEADVIS-2026-10-20 map page CREATED " + System.identityHashCode(it) + " vm " + System.identityHashCode(viewModel)	GroupTrackScreen.kt:1411
+i	ConvoyTap	"LONGPRESS at x=$lx y=$ly"	GroupTrackScreen.kt:1446
+i	ConvoyTap	"Touch UP at x=$x y=$y"	GroupTrackScreen.kt:1474
+i	ConvoyTap	"findNearestMarker result=$result"	GroupTrackScreen.kt:1476
+i	ConvoyTap	"Node found: $node"	GroupTrackScreen.kt:1480
+e	WptCreate	"insert failed: " + e.message	GroupTrackScreen.kt:1635
+i	ConvoyScreen	"SOLOREC: no radio -> solo ride (no check-in), recording=$soloBg"	GroupTrackScreen.kt:1783
+i	ROLEREPORT	"ROLECONFLICT-2026-10-15: " + rcMyRole + " also claimed by " + otherName + " -- this cart set back to Rider"	GroupTrackScreen.kt:2772
+i	TAG	"GTCERT parse15b: $same SAME, $diff DIFF, $expected EXPECTED"	GtCert15b.kt:109
+i	TAG	"GTCERT rider15c $p"	GtCert15c.kt:137
+i	TAG	"GTCERT rider15c live handles restored"	GtCert15c.kt:140
+i	TAG	"GTCERT rider15c $p"	GtCert15c.kt:160
+i	TAG	"GTCERT rider15c: $same SAME, $diff DIFF, $expected EXPECTED"	GtCert15c.kt:187
+i	TAG	"GTCERT track15d $msg"	GtCert15d.kt:58
+i	TAG	"GTCERT track15d live handles restored"	GtCert15d.kt:182
+i	TAG	"GTCERT track15d: $same SAME, $diff DIFF, $expected EXPECTED"	GtCert15d.kt:229
+i	TAG	"GTCERT import15e live handles restored"	GtCert15e.kt:192
+i	TAG	"GTCERT import15e: $same SAME, $diff DIFF, $expected EXPECTED"	GtCert15e.kt:239
+i	TAG	"GTCERT trail15f live handles restored"	GtCert15f.kt:213
+i	TAG	"GTCERT trail15f: $same SAME, $diff DIFF, $expected EXPECTED"	GtCert15f.kt:272
+i	TAG	"GTCERT osm15g live handles restored"	GtCert15g.kt:216
+i	TAG	"GTCERT osm15g: $same SAME, $diff DIFF, $expected EXPECTED"	GtCert15g.kt:275
+i	TAG	"GTCERT queue16c: $same SAME, $diff DIFF, $expected EXPECTED"	GtCert16c.kt:161
+i	TAG	"GTCERT storage17a: $same SAME, $diff DIFF, $expected EXPECTED"	GtCert17a.kt:42
+i	TAG	"GTCERT session17b: $same SAME, $diff DIFF"	GtCert17b.kt:101
+i	TAG	"GTCERT ride17b2: $same SAME, $diff DIFF"	GtCert17b2.kt:86
+i	TAG	"GTCERT net17c: $same SAME, $diff DIFF"	GtCert17c.kt:115
+i	TAG	"GTCERT user17c2: $same SAME, $diff DIFF"	GtCert17c2.kt:87
+i	TAG	"GTCERT config17d: $same SAME, $diff DIFF"	GtCert17d.kt:98
+i	TAG	"GTCERT state17e1: $same SAME, $diff DIFF"	GtCert17e1.kt:72
+i	CertRun	"STEP15A cert mode: $job not run"	GtCertGuard.kt:19
+i	TAG	"GTCERT rides done: same $same diff $diff"	GtCertRides.kt:472
+i	TAG	"GTCERT routes done: same $same diff $diff"	GtCertRoutes.kt:93
+i	TAG	"GTCERT request found (deleted=$deleted, mode='$mode') -- whole-database run starting"	GtCertRun.kt:36
+e	TAG	"GTCERT no spatial database"	GtCertRun.kt:43
+e	TAG	"GTCERT failed: no frozen copy on this Droid -- run gt_cert with mode freeze first"	GtCertRun.kt:61
+i	TAG	"GTCERT app: $p ($o lines)"	GtCertRun.kt:73
+i	TAG	"GTCERT live handles restored"	GtCertRun.kt:78
+e	TAG	"GTCERT failed: no frozen copy on this Droid -- run gt_cert with mode freeze first"	GtCertRun.kt:85
+e	TAG	"GTCERT failed: no frozen copy on this Droid -- run gt_cert with mode freeze first"	GtCertRun.kt:89
+e	TAG	"GTCERT failed: no frozen copy on this Droid -- run gt_cert with mode freeze first"	GtCertRun.kt:97
+i	TAG	"GTCERT geom: $p"	GtCertRun.kt:99
+i	TAG	"GTCERT new: $p ($n lines)"	GtCertRun.kt:151
+i	TAG	"GTCERT new: $p ($n lines)"	GtCertRun.kt:153
+i	TAG	"GTCERT old: $p ($o lines)"	GtCertRun.kt:156
+i	TAG	"GTCERT old: $p ($o lines)"	GtCertRun.kt:157
+e	TAG	"GTCERTW no data database -- writes not run"	GtCertRun.kt:207
+i	TAG	"GTCERT new: $p"	GtCertRun.kt:222
+i	TAG	"GTCERT old: $p"	GtCertRun.kt:229
+i	TAG	"GTCERTW live handles restored"	GtCertRun.kt:234
+e	SpatialDb	"buildWaypointGpx error: " + e.message	GtCertRun.kt:573
+e	SpatialDb	"buildRouteGpx error: " + e.message	GtCertRun.kt:658
+e	SpatialDb	"buildTrailGpx error: " + e.message	GtCertRun.kt:691
+i	tag	line	GtHkAndroid.kt:100
+e	TAG	"HTTP " + code + " " + conn.responseMessage + " -- server said: " + trimmed	GtImportAndroid.kt:100
+e	TAG	"HTTP " + code + " for URL: " + urlStr	GtImportAndroid.kt:101
+i	TAG	"HTTP " + code + " OK, " + text.length + " chars"	GtImportAndroid.kt:105
+e	TAG	"HTTP FAILED [" + ex.javaClass.simpleName + "] " + ex.message	GtImportAndroid.kt:108
+e	TAG	"HTTP FAILED for URL: " + urlStr	GtImportAndroid.kt:109
+i	TAG	"GTCERT mathprobe $msg"	GtMathProbe.kt:29
+i	TAG	"GTCERT mathprobe done: $n values"	GtMathProbe.kt:80
+i	TAG	"GTCERT mathpow $msg"	GtMathProbe.kt:92
+i	TAG	"GTCERT mathpow done: $n values"	GtMathProbe.kt:130
+i	TAG	"GTCERT mathtile $msg"	GtMathProbe.kt:145
+i	TAG	"GTCERT mathtile done: $n values"	GtMathProbe.kt:190
+i	STAGE_TAG	"legacy migration: moved=$moved droppedStale=$dropped failed=$failed"	GtOsmAndroid.kt:67
+i	STAGE_TAG	"legacy sweep: removed $ln stranded file(s) for $slug"	GtOsmAndroid.kt:77
+i	EXTRACT_TAG	"downloads swept for $slug: $removed file(s), $freedMb MB"	GtOsmAndroid.kt:112
+i	TAG	"IPADEXPORT request found (deleted=$deleted) -- copying the map stores to Download"	IpadExport.kt:25
+i	TAG	"IPADEXPORT $slot: not on this tablet"	IpadExport.kt:30
+i	TAG	"IPADEXPORT done"	IpadExport.kt:39
+i	TAG	"VECCONVERT no old maps -- new install or already converted"	MapConversion.kt:104
+i	TAG	"VECCONVERT old maps $stores -- the conversion"	MapConversion.kt:107
+e	TAG	"VECCONVERT no recipe -- no screen, nothing converted, nothing deleted"	MapConversion.kt:126
+e	TAG	"VECCONVERT nothing queued -- old maps kept"	MapConversion.kt:158
+i	MapConversion	"VECCONVERT cancelled -- GroupTrack ends; old maps untouched; asks again next start"	MapConversion.kt:245
+i	TAG	"VECONE-2026-11-01 engine this run: VEC (MapLibre) -- the only map"	MapEngine.kt:25
+i	TAG	"VECCONVERT-2026-10-31 engine set to VEC (MapLibre) by the conversion"	MapEngine.kt:34
+i	TAG	"VECSWITCH-2026-10-30 switching to " + (if (vector) "VEC" else "SAT") + " -- restarting"	MapEngine.kt:41
+i	Recreate	"GTHEAVY PROCEED $s -> $queued job(s) queued"	MapScreens.kt:627
+e	BatchGrid	"AICMPCTX-2026-11-11: " + it.message	RouteModule.kt:169
+e	GuidedPin	"assess failed: " + e.message	RouteModule.kt:308
+e	GuidedPin	"AICONNECTED-2026-11-11: failed: " + e.message	RouteModule.kt:364
+e	GuidedPin	"select failed: " + e.message	RouteModule.kt:429
+i	RouteExplorer	"AIFLOOR10-2026-11-11: no $mLo-$mHi mile ride -- searching again from $AI_RETRY_FLOOR miles"	RouteModule.kt:727
+i	RouteExplorer	"AISEARCH: error | " + summary.replace("\\n", " | ")	RouteModule.kt:761
+i	RouteSave	"GTROUTE1 save stopped -- no trailhead near the start"	RouteModule.kt:959
+e	GuidedPin	"AIPERIMCOUNT-2026-11-11: count failed: " + e.message	RouteModule.kt:1079
+i	GuidedPin	"AIPERIMCOUNT-2026-11-11: poor area -- minimum lowered from " + mLoAsk + " to " + AI_RETRY_FLOOR + " mi"	RouteModule.kt:1102
+e	BatchGrid	"load failed: " + r.name	RouteModule.kt:1644
+e	BatchGrid	"build failed: " + r.name	RouteModule.kt:1655
+i	BatchGrid	"ROUTEDUPE-2026-10-28: '" + nm + "' is the same route as '" + first + "' -- added as another name"	RouteModule.kt:1669
+i	TAG	"LANDSYNC startup: $r"	UtahPrivate.kt:134
+w	TAG	"VECMAPGLYPH not bundled $path"	VectorMapTest.kt:79
+i	VecMap	"VECMAPDIAG store VEC levels=$lv  $per"	VectorMapTest.kt:114
+w	TAG	"VECONLINE $kind busy 4 s -- two fetches already running, drawn empty: $url"	VectorMapTest.kt:202
+i	TAG	"VECONLINE $kind tile from the internet ($n so far): $url"	VectorMapTest.kt:212
+i	RadioConfig	s	MeshCommConfig.kt:128
+w	RadioSetup	"saved-config check failed: " + e.message + " -- treated as none"	MeshCommConfig.kt:254
+i	COMMRADIOS	"pairing $radioId"	MeshCommLink.kt:75
+i	COMMHEALTH	"pairing changed (" + (if (state == android.bluetooth.BluetoothDevice.BOND_BONDED) "paired" else "removed") + ") -> paired list refreshed"	MeshCommLink.kt:162
+i	COMMHEALTH	"ghost: saved radio $saved is not paired in Android -> no radio"	MeshCommLink.kt:260
+i	COMMHEALTH	if (btOff) "Bluetooth off -- reconnects held" else "Bluetooth on -- reconnects resume"	MeshCommLink.kt:271
+i	COMMHEALTH	if (applying) "radio settings being applied -- reconnects held" else "settings apply over -- reconnects resume"	MeshCommLink.kt:277
+i	COMMHEALTH	"radio talking again after $hAttempts reconnect(s)"	MeshCommLink.kt:284
+i	COMMHEALTH	"radio not talking -> reconnect $hAttempts ($saved)"	MeshCommLink.kt:299
+i	CommMenus	"COMMSETTINGS-2026-10-12 radio settings left"	MeshCommMenus.kt:79
+i	CommMenus	"NODESMENU-2026-10-15 nodes left"	MeshCommMenus.kt:86
+i	POLYLINE	"POLYTEST-2026-10-20 send u-d-f " + n + " points, " + wire.size + " bytes, uid " + tak.uid	MeshCommMessaging.kt:69
+w	POLYLINE	"POLYTEST-2026-10-20 send failed: " + e.message	MeshCommMessaging.kt:79
+i	GPSINT	"reconnect after failure"	MeshCommMessaging.kt:148
+i	POLYLINE	"POLYLINE-2026-10-20 comm: gap polyline from " + s.from + " uid " + s.uid + " " + n + " points, step " + step + " ms"	MeshCommMessaging.kt:193
+i	COMMRADIOS	"scan paused: $p"	MeshRadioList.kt:101
+i	COMMRADIOS	"scan: $p"	MeshRadioList.kt:115
+i	COMMRADIOS	"scan started"	MeshRadioList.kt:127
+i	COMMRADIOS	"scan stopped"	MeshRadioList.kt:149
+i	ArtifactDetail	"Preferred name-swap not yet built"	ArtifactDetailPanel.kt:277
+w	TAG	"FIT: no bbox for $artifactType $artifactId"	ConvoyArtifactOps.kt:25
+d	TAG	"RENAME $artifactType $artifactId -> $newName"	ConvoyArtifactOps.kt:74
+d	TAG	"DELETE REFUSED $artifactId -- trailhead of $usedBy"	ConvoyArtifactOps.kt:89
+d	TAG	"DELETE $artifactType $artifactId"	ConvoyArtifactOps.kt:109
+d	TAG	"TO ROUTE $trackId — Pass 1 stub"	ConvoyArtifactOps.kt:114
+w	TAG	"TRACKROUTE: no geometry for track $trackId"	ConvoyArtifactOps.kt:128
+w	TAG	"TRACKROUTE: Route+ holds an unsaved route -- refused"	ConvoyArtifactOps.kt:131
+w	TAG	"TRACKROUTE: no geometry for track $trackId"	ConvoyArtifactOps.kt:157
+d	TAG	"TO TRACK $routeId — Pass 1 stub"	ConvoyArtifactOps.kt:228
+d	TAG	"UPLOAD $artifactType $artifactId — Pass 1 stub (V2.5 collect only)"	ConvoyArtifactOps.kt:233
+d	TAG	"DOWNLOAD $artifactType $artifactId — Pass 1 stub"	ConvoyArtifactOps.kt:238
+d	TAG	"CHANGE TYPE REFUSED $waypointId -- trailhead of $usedBy"	ConvoyArtifactOps.kt:253
+d	TAG	"CHANGE TYPE $waypointId -> $newTypeId"	ConvoyArtifactOps.kt:261
+d	TAG	"EDIT POINTS $routeId — Pass 1 stub"	ConvoyArtifactOps.kt:312
+d	TAG	"ADD ALIAS $artifactType $artifactId '$alias' — Pass 1 stub"	ConvoyArtifactOps.kt:317
+d	TAG	"SET TH route=$routeId waypoint=$waypointId — Pass 1 stub"	ConvoyArtifactOps.kt:322
+e	ConvoyGate	"startup sweep failed: " + e.message	ConvoyAuthorityGateScreenV2.kt:209
+e	ConvoyGate	"trail check failed: " + e.message	ConvoyAuthorityGateScreenV2.kt:220
+e	TAG	"Missing geom_hash or slot - hash='$geomHash' slot='$slotName'"	ConvoyCorridorWorker.kt:57
+i	TAG	"Starting corridor: $label hash=$geomHash id=$entryId"	ConvoyCorridorWorker.kt:62
+e	TAG	"No geometry for hash=$geomHash"	ConvoyCorridorWorker.kt:81
+w	TAG	"Empty corridor for hash=$geomHash"	ConvoyCorridorWorker.kt:89
+i	TAG	"Corridor already complete on disk: $label"	ConvoyCorridorWorker.kt:103
+e	TAG	"No layers for slot=$slotName"	ConvoyCorridorWorker.kt:122
+i	TAG	"Worker stopped by system/user"	ConvoyCorridorWorker.kt:134
+e	TAG	"Missing slot for delete entry $entryId"	ConvoyDeleteWorker.kt:74
+i	TAG	"Starting delete: $label id=$entryId box N=$north S=$south E=$east W=$west"	ConvoyDeleteWorker.kt:79
+w	TAG	"No tiles in box for $slotName"	ConvoyDeleteWorker.kt:87
+i	TAG	"Delete stopped by system/user"	ConvoyDeleteWorker.kt:119
+d	TAG	"No store for $store - nothing to remove"	ConvoyDeleteWorker.kt:123
+i	TAG	"Dev data cleared"	ConvoyDevSeeder.kt:33
+i	DownloadAction	"Cancel from notification: $entryId"	ConvoyDownloadActionReceiver.kt:26
+i	DownloadAction	"Cancel ALL from notification"	ConvoyDownloadActionReceiver.kt:34
+i	TAG	"QEVAL-2026-08-08I maxConcurrent=$v"	ConvoyDownloadQueue.kt:186
+i	TAG	"VECDL-2026-10-31 area N=$north S=$south E=$east W=$west -> vector + elevation, replace=$replaceExisting"	ConvoyDownloadQueue.kt:469
+i	TAG	"DELETE $slotName: nothing on disk in this area"	ConvoyDownloadQueue.kt:541
+i	TAG	"REMOVEAREA-2026-11-03 remove by area: slots=$slots, $total tile(s) on disk in the box"	ConvoyDownloadQueue.kt:566
+i	TAG	"CORRMIGRATE-2026-08-07H recorded: $label tiles=$tilesRemoved"	ConvoyDownloadQueue.kt:710
+w	TAG	"enqueueCorridor: no geometry for $geomHash"	ConvoyDownloadQueue.kt:782
+w	TAG	"enqueueCorridor: empty corridor for $geomHash"	ConvoyDownloadQueue.kt:798
+i	TAG	"RECIPE-2026-08-12L $slotName: nothing stored"	ConvoyDownloadQueue.kt:906
+i	TAG	"RECIPESCAN-2026-10-30 $slotName: nothing stored at z$cellZ or above"	ConvoyDownloadQueue.kt:971
+i	TAG	"Queue PAUSED"	ConvoyDownloadQueue.kt:1092
+i	TAG	"Queue RESUMED"	ConvoyDownloadQueue.kt:1096
+i	TAG	"Complete: id=$entryId downloaded=$downloaded failed=$failed"	ConvoyDownloadQueue.kt:1194
+e	TAG	"Failed: id=$entryId reason=$message"	ConvoyDownloadQueue.kt:1203
+w	TAG	"Quarantined corrupt queue file"	ConvoyDownloadQueue.kt:1357
+e	TAG	"Quarantine failed: " + q.message	ConvoyDownloadQueue.kt:1360
+i	TAG	"Starting download: $label id=$entryId"	ConvoyDownloadWorker.kt:50
+i	TAG	"REFRESH MODE: slot=$refreshSlot cell bounds N=$north S=$south E=$east W=$west"	ConvoyDownloadWorker.kt:80
+e	TAG	"VECSOURCE-2026-10-30: vector TileJSON not reachable -- $label failed, nothing downloaded"	ConvoyDownloadWorker.kt:183
+i	TAG	"Worker stopped by system/user"	ConvoyDownloadWorker.kt:200
+i	TAG	"Complete: $label -- $totalDownloaded downloaded, $totalFailed failed"	ConvoyDownloadWorker.kt:247
+d	TAG	"checkPendingDistributions — stub, Phase C"	ConvoyEnrollmentQueue.kt:21
+d	TAG	"queueMapDownload — rideId=$rideId stub, Phase C"	ConvoyEnrollmentQueue.kt:30
+d	TAG	"processMapQueue — stub, Phase C"	ConvoyEnrollmentQueue.kt:40
+d	TAG	"setRadioConfigPending — rideId=$rideId"	ConvoyEnrollmentQueue.kt:47
+d	TAG	"setRadioConfigApplied — rideId=$rideId"	ConvoyEnrollmentQueue.kt:54
+d	TAG	"addRideToCalendar — stub CAL-01, Phase C"	ConvoyEnrollmentQueue.kt:60
+d	TAG	"postOrganizerStatus — stub, Phase C"	ConvoyEnrollmentQueue.kt:73
+d	TAG	"processSurveyQueue — stub, Phase C"	ConvoyEnrollmentQueue.kt:81
+d	TAG	"followOrganizer — organizerId=$organizerId stub FOLLOW-01, Phase C"	ConvoyEnrollmentQueue.kt:88
+d	TAG	"unfollowOrganizer — organizerId=$organizerId stub FOLLOW-01, Phase C"	ConvoyEnrollmentQueue.kt:94
+w	TAG	"No URI in intent — ignoring"	ConvoyFileReceiver.kt:39
+i	TAG	"Received convoy file URI: $uri"	ConvoyFileReceiver.kt:44
+e	TAG	"Empty or unreadable file from URI: $uri"	ConvoyFileReceiver.kt:52
+w	TAG	"Not a convoy file — ignoring"	ConvoyFileReceiver.kt:94
+i	TAG	"convoy file received — docType=$docType"	ConvoyFileReceiver.kt:111
+w	TAG	"Unknown convoyDocType: $docType — discarding"	ConvoyFileReceiver.kt:120
+i	TAG	"Saved $docType to $importDirName/$fileName"	ConvoyFileReceiver.kt:132
+i	TAG	"Convoy file saved successfully — $docType ready for import"	ConvoyFileReceiver.kt:135
+w	TAG	"TRACKRULES-2026-10-19 dropped: the recorder has stopped"	ConvoyGpsService.kt:69
+i	TAG	"RECSLEEP-2026-10-19: sleep clock restarted at " + why	ConvoyGpsService.kt:108
+i	TAG	"ConvoyGpsService created"	ConvoyGpsService.kt:136
+i	TAG	"ConvoyGpsService destroyed"	ConvoyGpsService.kt:157
+i	TAG	"Track recording paused"	ConvoyGpsService.kt:190
+i	TAG	"Track recording resumed"	ConvoyGpsService.kt:203
+i	TAG	"WAKE: sleep reset — resuming track on next GPS update"	ConvoyGpsService.kt:210
+e	TAG	"TRACKRULES-2026-10-19 stop: " + e.message	ConvoyGpsService.kt:228
+i	TAG	"Track finalized: $finalName"	ConvoyGpsService.kt:254
+e	TAG	"Failed to rename temp file to $finalName"	ConvoyGpsService.kt:257
+w	TAG	"No GPS hardware — will use radio position from mesh"	ConvoyGpsService.kt:288
+e	TAG	"ONEFEED-2026-10-19 the position feed did not start (permission?)"	ConvoyGpsService.kt:303
+i	TAG	"GPS updates started"	ConvoyGpsService.kt:304
+i	TAG	"SLEEP: no movement for 25 min — pausing track"	ConvoyGpsService.kt:331
+i	TAG	"Wake lock acquired"	ConvoyGpsService.kt:459
+i	TAG	"Wake lock released"	ConvoyGpsService.kt:469
+w	TAG	"No URI in intent"	ConvoyInviteHandler.kt:43
+i	TAG	"Invite deep link received: $uri"	ConvoyInviteHandler.kt:48
+e	TAG	"No token in invite URL: $uri"	ConvoyInviteHandler.kt:53
+i	TAG	"Processing invite token: $token"	ConvoyInviteHandler.kt:58
+w	TAG	"Enrollment failed — ride saved locally"	ConvoyInviteHandler.kt:89
+i	TAG	"No user_id — skipping enrollment. Ride saved locally."	ConvoyInviteHandler.kt:92
+i	TAG	"Map bounds found — queuing tile download"	ConvoyInviteHandler.kt:103
+i	TAG	"Map download queued: $tileSource z$zoomMax [$north,$south,$east,$west]"	ConvoyInviteHandler.kt:151
+w	ConvoyRideCreate	"SAVEWHY: $status"	ConvoyRideCreateScreen.kt:397
+i	ConvoyRideCreate	"SAVEWHY: save tapped, all conditions met"	ConvoyRideCreateScreen.kt:400
+i	ConvoyRideCreate	"EDITRIDE: $editRideId sent=$editSent ok=$ok"	ConvoyRideCreateScreen.kt:418
+i	TAG	"RIDESEND-2026-09-23: $rideId shared and locked"	ConvoyRideSend.kt:124
+i	TAG	"User cached: $userId"	ConvoySignInScreen.kt:77
+i	ConvoyDev	"Dev subscription override: $subscribed"	ConvoySignInScreen.kt:100
+e	TAG	"awaitIdle TIMEOUT with $stillBusy still downloading"	ConvoySourceClear.kt:216
+i	TAG	"no orphaned stores for this change"	ConvoySourceClear.kt:267
+e	TAG	why	ConvoySourceClear.kt:276
+w	TileDownloader	"HTTP $code (retryable) attempt=$attempt: $url"	ConvoyTileDownloader.kt:95
+w	TileDownloader	"HTTP $code: $url"	ConvoyTileDownloader.kt:99
+w	ImportPicker	"$name not GPX/KML -- original KEPT"	ConvoyTrackImportScreen.kt:197
+i	CommLink	"COMMLINKREQ-2026-10-11: $what -> $r"	ConvoyViewModel.kt:93
+i	ConvoyVM	"ONEFEED-2026-10-19: my cart listens to the position feed"	ConvoyViewModel.kt:279
+e	ConvoyVM	"ONEFEED-2026-10-19: the position feed did not start (permission?)"	ConvoyViewModel.kt:280
+i	CommMenus	"COMMMENUS open '$id' -> $r"	ConvoyViewModel.kt:329
+i	CommMenus	"COMMSETTINGS-2026-10-12 close '$id' -> $r"	ConvoyViewModel.kt:336
+i	ROLEREPORT	"ROLEREPORT: role '$rideRole' -- riders do not report"	ConvoyViewModel.kt:376
+i	ROLEREPORT	"GRPMODE-2026-10-13: group awareness off -- no role reports"	ConvoyViewModel.kt:382
+w	ROLEREPORT	"ROLEPOS-2026-10-19 ROLEREPORT #$n: no radio position yet -- skipped"	ConvoyViewModel.kt:393
+w	ROLEREPORT	"ROLEREPORT #$n not sent: $res"	ConvoyViewModel.kt:411
+i	ROLEREPORT	"ROLEREPORT: run complete ($n reports, $role)"	ConvoyViewModel.kt:423
+w	LEADTRACK	"LEADTRACKBOARD-2026-10-18: entry failed: " + ex.message	ConvoyViewModel.kt:572
+i	LEADEST	"ESTREC-2026-10-20 REC off -- estimate cleared"	ConvoyViewModel.kt:583
+i	LEADEST	"LEADEST-2026-10-20 lead " + est.leadId + " silent " + est.silentMs / 1000 + " s -- " + (if (est.onRoute && est.moving) "moving along the route" else "blinking in place")	ConvoyViewModel.kt:585
+w	LEADEST	"LEADEST-2026-10-20 tick failed: " + ex.message	ConvoyViewModel.kt:589
+i	TICKSHADOW	"ROLESHOW-2026-10-15: checked in = $checkedIn -- roles " + (if (checkedIn) "shown" else "hidden")	ConvoyViewModel.kt:634
+w	ConvoyImport	"Unknown convoy doc type: $docType"	ConvoyViewModel.kt:692
+i	ConvoyScreen	"SLEEP: BLE disconnected"	ConvoyViewModel.kt:884
+i	ConvoyScreen	"WAKE: BLE reconnecting"	ConvoyViewModel.kt:889
+w	ConvoyVM	"ENDRIDE: no track id -- survey not saved"	ConvoyViewModel.kt:959
+i	ROLEREPORT	"LEADCLEAR-2026-10-15: no Leader reported any more -- lead " + reportedLeadId + " cleared"	ConvoyViewModel.kt:1067
+d	LEADTRACK	"TRACKRULES-2026-10-19: lead " + e.cartId + " written"	ConvoyViewModel.kt:1130
+i	LEADEST	"LEADEST-2026-10-20 heard after " + o.silentMs / 1000 + " s: estimate off by " + o.errorM.toInt() + " m (" + (if (o.onRoute) "on route" else "in place") + ", " + (o.speedMps * 2.237).toInt() + " mph)"	ConvoyViewModel.kt:1133
+i	LEADTRACK	"TRIM-2026-10-20 lead track shown from " + leadCart.trimmedAtMs() + " (UTC ms), " + leadCart.segments().size + " segs"	ConvoyViewModel.kt:1141
+w	POLYLINE	"POLYLINE-2026-10-20 lead: dead air " + (t1 - t0) / 1000 + " s but only " + inside + " own fix(es) in it -- nothing sent"	ConvoyViewModel.kt:1193
+i	POLYLINE	"POLYLINE-2026-10-20 lead " + what + ": dead air " + secs + " s, " + p.lats.size + " points -> " + r	ConvoyViewModel.kt:1213
+w	TAG	"detectHomeState: geocoder returned '$adminArea' but no state match"	GeofabrikCatalog.kt:207
+i	GroupMode	"GRPMODE-2026-10-13: group awareness set " + (if (value) "ON" else "OFF")	GroupMode.kt:42
+i	TAG	"fresh install -- no migration, closing the record"	GroupTrackConversion.kt:150
+e	TAG	"no internal base -- cannot write the record"	GroupTrackConversion.kt:172
+i	TAG	"=== CONVERSION START === tree=$treeUri"	GroupTrackConversion.kt:234
+e	TAG	msg	GroupTrackConversion.kt:254
+e	TAG	msg	GroupTrackConversion.kt:259
+e	TAG	msg	GroupTrackConversion.kt:266
+i	TAG	"moveOutMaps: no GroupTrack -- nothing to do"	GroupTrackConversion.kt:378
+i	TAG	"moveOutMaps: no maps -- nothing to do"	GroupTrackConversion.kt:384
+i	TAG	"moveOutMaps: " + (if (moved != null) "moved" else "FAILED")	GroupTrackConversion.kt:389
+w	TAG	"$prefix/$cname copied but not deleted"	GroupTrackConversion.kt:488
+e	TAG	"$prefix/$cname SIZE MISMATCH $srcBytes != $dstBytes"	GroupTrackConversion.kt:490
+i	TAG	"deleteSources: $name " + (if (ok) "DELETED" else "FAILED")	GroupTrackConversion.kt:538
+i	TAG	"deleteSources: maps " + (if (ok) "DELETED" else "FAILED")	GroupTrackConversion.kt:553
+i	TAG	"$name: not present in the granted tree"	GroupTrackConversion.kt:597
+i	TAG	"skip $prefix/$cname"	GroupTrackConversion.kt:637
+e	TAG	"$prefix/$cname SIZE MISMATCH $srcBytes != $dstBytes"	GroupTrackConversion.kt:654
+i	TAG	"CANCELFIX: import cancelled by request while files download -- through the data queue"	HomeStateImportController.kt:154
+i	TAG	"import cancelled by request"	HomeStateImportController.kt:160
+w	TAG	"OVERLAP: record not saved this time (rows changing) -- saved at the next change"	HomeStateImportController.kt:202
+i	TAG	"$MARK_OVERLAP: $srcId starts while $stillDownloading file(s) still downloading"	HomeStateImportController.kt:488
+e	TAG	"DATAQUEUE: import cancelled before processing finished -- not every file is here"	HomeStateImportController.kt:530
+e	TAG	"FETCHFIRST: stopped before processing -- could not get: $dataMissing"	HomeStateImportController.kt:541
+i	TAG	"PADUSLAND: new land data -- step 8 classifies every trail"	HomeStateImportController.kt:612
+e	TAG	"step 8 FAILED: " + OwnershipReclass.lastError	HomeStateImportController.kt:665
+i	TAG	"step 8: nothing reclassified"	HomeStateImportController.kt:666
+i	TAG	"step 8: $changed trail(s) classified"	HomeStateImportController.kt:672
+w	TAG	"step 8 skipped: databases unavailable"	HomeStateImportController.kt:678
+e	TAG	"PBF download failed for $slug"	HomeStateImportController.kt:741
+e	TAG	"Download failed for $slug"	HomeStateImportController.kt:764
+e	TAG	"Tag pass failed for $slug (rows=$builtRows)"	HomeStateImportController.kt:797
+i	TAG	"Tag pass complete for $slug: $builtRows rows"	HomeStateImportController.kt:800
+i	TAG	"Tag table already present for $slug, skipping tag pass"	HomeStateImportController.kt:802
+i	TAG	"Ledger created for $slug"	HomeStateImportController.kt:812
+e	TAG	"Extract failed for $slug"	HomeStateImportController.kt:824
+e	TAG	"Import failed for $slug"	HomeStateImportController.kt:851
+i	TAG	"Catalog source $sourceId: $total records"	HomeStateImportController.kt:927
+e	TAG	"FETCHFIRST: unknown file kind $kind"	HomeStateImportController.kt:1153
+e	TAG	"Download: too many redirects for $urlStr"	HomeStateImportController.kt:1175
+e	TAG	"Download: giving up on $urlStr after $attempt attempts"	HomeStateImportController.kt:1185
+i	TAG	"Download stopped by the rider: $urlStr"	HomeStateImportController.kt:1245
+e	TAG	"clearTrailsOnce: legacy marker unreadable: " + e.message	HomeStateImportController.kt:1501
+e	TAG	"clearTrailsOnce: marker unreadable, standing down: " + e.message	HomeStateImportController.kt:1520
+i	TAG	"clearTrailsOnce: no spatial DB yet, marked and skipped"	HomeStateImportController.kt:1531
+e	TAG	"clearTrailsOnce: FAILED, will retry: " + e.message	HomeStateImportController.kt:1590
+e	TAG	"clearTrailsOnce: marker write failed: " + e.message	HomeStateImportController.kt:1613
+w	TAG	"sweep: " + f.name + " is not a manifest, left alone"	HomeStateImportController.kt:1637
+i	TAG	"sweep: imports/ is empty, nothing to do"	HomeStateImportController.kt:1642
+i	TAG	"needsTrailData: no spatial DB file -> HOME STATE"	HomeStateImportController.kt:1754
+w	TAG	"needsTrailData: count unreadable -> RIDE MAP (panel available)"	HomeStateImportController.kt:1769
+i	TAG	"needsTrailData: 0 trails -> HOME STATE"	HomeStateImportController.kt:1773
+i	TAG	"needsTrailData: $count trails -> RIDE MAP"	HomeStateImportController.kt:1777
+w	TAG	"import already running -- showing its progress"	HomeStatePickerScreen.kt:203
+i	TAG	"PADUSLAND $code: land areas already built from this zip"	LandAreas.kt:76
+i	TAG	"RSTSEG: land rules $have -> $RULES -- every trail is classified again"	LandAreas.kt:87
+e	TAG	"PADUSSVC $code: the service gave no count ($expected)"	LandAreas.kt:320
+i	TAG	"PADUSSVC $code: $expected areas to fetch"	LandAreas.kt:321
+w	TAG	"PADUSSVC $code: page at $offset failed -- retrying at $size"	LandAreas.kt:334
+e	TAG	"PADUSSVC $code: page at $offset failed -- giving up ($got of $expected)"	LandAreas.kt:335
+e	TAG	"PADUSSVC $code: only $got of $expected -- not saved"	LandAreas.kt:348
+i	TAG	"created $type.mbtiles (format=$format, scheme=xyz raw z/x/y)"	MBTilesStore.kt:181
+i	OFFTRACE	"OFFTRACE-2026-08-11M readTile type=$type z=$z x=$x y=$y"	MBTilesStore.kt:209
+i	TAG	"reclaimable $type: $bytes bytes"	MBTilesStore.kt:325
+i	TAG	"deleteSource $type = $ok"	MBTilesStore.kt:332
+i	MapSourceMgr	"COLUMNFILE-2026-08-03: column file ABSENT - seeding from defaults"	MapSourceManager.kt:134
+e	MapSourceMgr	"COLUMNFILE-2026-08-03: rename failed, column file NOT updated"	MapSourceManager.kt:278
+i	MapSourceMgr	"Reading assets map_sources.json"	MapSourceManager.kt:301
+w	MapSourceMgr	"Using hardcoded fallback"	MapSourceManager.kt:364
+i	MapSourceMgr	"Slot $legacyKey updated to source $newSourceId"	MapSourceManager.kt:469
+e	MapSourceMgr	"COLUMNFILE-2026-08-03: FALLBACK WAS USED - not persisting"	MapSourceManager.kt:478
+w	MapSourceMgr	"COLUMNFILE-2026-08-03: no context, slot change not persisted"	MapSourceManager.kt:483
+i	MapSourceMgr	"Saved API key for $sourceId"	MapSourceManager.kt:528
+i	TAG	"meshtastic nav " + if (folded) "folded" else "unfolded"	MeshNavFold.kt:137
+w	TAG	"INPROCESS-2026-10-02: background extract for $slug retired; not enqueued"	OsmExtractWorker.kt:43
+w	TAG	"INPROCESS-2026-10-02: background import for $slug retired; not enqueued"	OsmImportWorker.kt:44
+e	TAG	"FAIL: $msg"	OsmImportWorker.kt:48
+i	TAG	"step 8: every trail already has its land -- only the restricted pass runs"	OwnershipReclass.kt:126
+e	TAG	"PADUSLAND: land areas too large for this heap -- land PUBLIC"	OwnershipReclass.kt:140
+i	TAG	"step 8: classifying $total rows in pages of $PAGE"	OwnershipReclass.kt:166
+e	TAG	"step 8 FAILED: $lastError"	OwnershipReclass.kt:243
+i	TAG	"RSTAREA totals: $segTotal trails with restricted segments, $rstTotal wholly restricted"	OwnershipReclass.kt:295
+i	RadioConfig	"CHECKINAPPLY: radio '$radioName' vs callsign '$callsign' -- held for the rider"	RadioConfigScreen.kt:193
+i	RadioConfig	"CHECKINAPPLY: ride $rid not found on this tablet"	RadioConfigScreen.kt:200
+i	RadioSetup	"RADIOSETUP: " + s	RadioSetupPrompt.kt:62
+w	TAG	"no geometry for either argument"	RidePreview.kt:58
+i	TAG	"RIDEFIT-2026-09-24: fit -> $r"	RidePreview.kt:80
+i	TAG	"migrated open batch out of the drafts directory"	RouteDraftStore.kt:130
+i	TAG	"COMPARETRACE: " + sb.toString().trimEnd('\\n').replace("\\n", " | ")	RouteDraftStore.kt:269
+i	TAG	"AIORPHANS: deleted $n orphaned AI route(s)"	RouteDraftStore.kt:285
+i	TAG	"ROUTEFILES: deleted all route files ($n)"	RouteDraftStore.kt:298
+i	TAG	"BATCHHEAL: '$name' was the last route of the open batch -- batch cleared"	RouteDraftStore.kt:325
+i	TAG	"no drafts, no batch written"	RouteDraftStore.kt:368
+w	TAG	"batch names '$nm' but the draft is gone"	RouteDraftStore.kt:518
+w	TAG	"BATCHDELETE: refused to delete '$name' -- it belongs to the open compare batch"	RouteDraftStore.kt:857
+d	TAG	"deleteDraft '$name' -> $ok"	RouteDraftStore.kt:863
+w	TAG	"DB marker: file read failed: " + ex.message	SpatialDbManager.kt:90
+i	TAG	"DB marker: adopted legacy prefs value " + legacy	SpatialDbManager.kt:96
+i	TAG	"DB marker: stamped missing marker file at " + dbMarker	SpatialDbManager.kt:110
+e	TAG	"DB marker: stamp-if-missing failed: " + ex.message	SpatialDbManager.kt:112
+w	TAG	"DB marker: row probe failed, assuming populated: " + ex.message	SpatialDbManager.kt:145
+e	TAG	"DB marker: stamp failed: " + ex.message	SpatialDbManager.kt:160
+i	TAG	"DB v3 migration: delete " + SPATIAL_DB + suffix + " = " + ok	SpatialDbManager.kt:177
+i	TAG	"DB v3 migration: delete " + EXTENSION_DB + suffix + " = " + ok	SpatialDbManager.kt:185
+i	TAG	"DB v3 migration: spatial-clean=" + sd + " extension-clean=" + ed + " (marker was " + dbMarker + ")"	SpatialDbManager.kt:189
+e	TAG	"DB marker: write failed: " + ex.message	SpatialDbManager.kt:197
+i	TAG	"DB v3 migration: marker set to 3; DBs will rebuild from v3 assets"	SpatialDbManager.kt:200
+w	TAG	"DB v3 migration: a delete failed (scoped-storage?); marker NOT advanced, will retry next launch"	SpatialDbManager.kt:202
+e	TAG	"DB v3 migration gate error: " + ex.message	SpatialDbManager.kt:206
+i	SpatialDb	"Applying v2 migration to tracks table"	SpatialDbManager.kt:217
+w	SpatialDb	"Migration partial: " + e2.message	SpatialDbManager.kt:225
+i	SpatialDb	"Applying v3 migration: type column on tracks"	SpatialDbManager.kt:231
+w	SpatialDb	"v3 migration partial: " + e3.message	SpatialDbManager.kt:235
+i	SpatialDb	"Applying v3 migration: bbox columns on waypoints"	SpatialDbManager.kt:241
+w	SpatialDb	"waypoint bbox migration: " + e3.message	SpatialDbManager.kt:248
+i	SpatialDb	"Applying migration: status on trails"	SpatialDbManager.kt:263
+i	SpatialDb	"Applying migration: $col on trails"	SpatialDbManager.kt:286
+i	SpatialDb	"Applying v4 migration: carto_code on trails"	SpatialDbManager.kt:309
+w	SpatialDb	"v4 migration: " + e4.message	SpatialDbManager.kt:312
+i	TAG	"Migrated: added area_downloads table"	SpatialDbManager.kt:408
+i	TAG	"Migrated: added route_notes table"	SpatialDbManager.kt:434
+i	TAG	"DEVSCHEMA-2026-09-22: extension tables $tablesBefore -> $tablesAfter"	SpatialDbManager.kt:452
+i	TAG	"GTSCHEMA-2026-11-07: schema version $sv"	SpatialDbManager.kt:464
+i	TAG	"Spatial DB: $trailCount trails, $trackCount tracks, $wptCount waypoints, $routeCount routes"	SpatialDbManager.kt:473
+i	SpatialDb	"STEP7 shared lookups opened on " + s.path + (if (e != null) " + " + e.path else " (no data db)")	SpatialDbManager.kt:555
+w	SpatialDb	"STEP7 lookup failed: " + ex.message	SpatialDbManager.kt:559
+i	SpatialDb	"STEP11 shared writer on the app's handles"	SpatialDbManager.kt:1069
+w	TrackProps	"backfill already running -- skipping concurrent call"	SpatialDbManager.kt:1349
+i	TrackDelete	"no geom_hash for $id -- no file to remove"	SpatialDbManager.kt:1615
+i	TrackDelete	"deleteTrackFromDb($id) complete"	SpatialDbManager.kt:1616
+e	SpatialDb	"buildWaypointGpx error: " + e.message	SpatialDbManager.kt:1685
+e	SpatialDb	"buildRouteGpx error: " + e.message	SpatialDbManager.kt:1721
+w	TAG	"queryGeomByIds($type) failed: " + e.message	SpatialDbManager.kt:1791
+e	SpatialDb	"buildTrailGpx error: " + e.message	SpatialDbManager.kt:1811
+i	TAG	"Databases closed"	SpatialDbManager.kt:1824
+w	Corridor	"getTrackPoints: no geometry for hash $hash"	SpatialDbManager.kt:1921
+w	Corridor	"$tag: unsupported WKT for $hash"	SpatialDbManager.kt:1959
+w	TrackMaps	"getTrackBbox: no bbox row for hash $hash"	SpatialDbManager.kt:2075
+w	TrackMaps	"no bbox row for hash $hash"	SpatialDbManager.kt:2156
+i	TrackMaps	"queued $count tiles for '$name' ($hash)"	SpatialDbManager.kt:2170
+i	SpatialDisplay	"GTBATCH1B shared queries opened on " + db.path + (if (ext != null) " + " + ext.path else " (no data db)")	SpatialDisplayManager.kt:47
+w	SpatialDisplay	"TRACE DROPPED: $dump"	SpatialDisplayManager.kt:326
+i	SpatialDisplay	"VIEWPORT S=%.4f W=%.4f N=%.4f E=%.4f zoom=$zoom states=$states".format(south, west, north, east)	SpatialDisplayManager.kt:396
+w	TABLETPOS	"GPSLAMP-2026-10-19: satellite status refused: " + e.message	TabletPosition.kt:44
+i	TABLETPOS	"ONEFEED-2026-10-19: feed started (fused, high accuracy, 3 s) -- listeners " + listeners.size	TabletPosition.kt:78
+e	TABLETPOS	"ONEFEED-2026-10-19: feed refused: " + e.message	TabletPosition.kt:81
+i	TABLETPOS	"ONEFEED-2026-10-19: feed stopped (no listeners)"	TabletPosition.kt:98
+w	TRACKRULES	"TRACKRULES-2026-10-19 lookup failed: " + e.message	TrackRules.kt:152
+d	TRACKRULES	"TRACKRULES-2026-10-19 $name WAIT at an intersection (" + f.rule + ")"	TrackRules.kt:346
+i	ConvoyReconnect	"Toggling Bluetooth for radio reconnect"	UIViewModel.kt:174
+i	ConvoyReconnect	"Bluetooth re-enabled — waiting for radio reconnect"	UIViewModel.kt:184
