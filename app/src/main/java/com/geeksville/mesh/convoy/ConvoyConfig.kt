@@ -30,18 +30,29 @@ object ConvoyConfig {
     @JvmField var MAP_HTML_VERSION: String = "not reported"
     const val LOCAL_TILE_BASE = com.grouptrack.shared.settings.GtConfig.LOCAL_TILE_BASE   // SWITCH17G2B1-2026-11-12 -- was: "convoy://tiles/"
 
-    // Shared tile storage — package-independent, survives app reinstall/rename
-    // <tileRoot>/maps/tiles/{source}/{z}/{x}/{y}.png
+    // Tile storage. <tileRoot>/maps/tiles/{source}/{z}/{x}/{y}.png
     //
-    // TILEROOT-2026-09-11: \u26d4 tileRoot(), NOT root(). The MBTiles store stays in
-    // PUBLIC storage through release 1 while everything else migrates to
-    // app-private -- ~17 GB that cannot move quickly, against ~415 MB that can.
-    // \u2b50 Release 2 changes this ONE accessor rather than reopening the migration.
+    // TILEROOT-2026-09-11, CORRECTED 2026-11-16: this comment used to say the MBTiles store
+    // STAYS IN PUBLIC STORAGE through release 1, and to treat tileRoot() as deliberately
+    // different from root(). BOTH STATEMENTS ARE NOW FALSE, and the stale version cost a
+    // re-derivation on 11-16 (Fred: "fix it so we do not get mislead again"):
     //
-    // \u26a0 The line above is the property being traded away if the tiles ever move
-    // internal: a rider can back a public map store up to an SD card and restore
-    // it to a replacement device. Under Android 11+ an app-private directory is
-    // not reachable by any file manager, so none of that is possible there.
+    //   * ALL TILES ARE APP-INTERNAL. Public tile storage required All Files Access, which
+    //     Google REJECTED -- appeal rejected 09-11. The move was forced by Play compliance,
+    //     not chosen, so there is nothing here left to decide or defer to a "release 2".
+    //   * tileRoot() IS root(). GroupTrackStorage.tileRoot()'s body is identical to root()'s:
+    //     internalRoot() when useInternal (the default), publicRoot() otherwise. Shared
+    //     GtStorage.tileRoot() = base.root() is therefore correct, not a divergence.
+    //
+    // WHAT WAS LOST WITH IT, so nobody offers it as a feature again: a rider could once back a
+    // public map store up to an SD card and restore it to a replacement device. An app-private
+    // directory is not reachable that way, so that route is gone and is not coming back. Device
+    // recovery is the device's own migration, with the backup email as the emergency seed --
+    // there is no application-specific tile recovery.
+    //
+    // ⚠ internalBase() is getExternalFilesDir(null), which Android DELETES ON UNINSTALL. The old
+    // header's "survives app reinstall/rename" was true only of public storage and is false now;
+    // uninstalling Droid 2 on 11-11 lost its data and needed a restore from backup files.
     val TILE_DIR: java.io.File
         get() {
             val dir = java.io.File(GroupTrackStorage.tileRoot(), "maps/tiles")

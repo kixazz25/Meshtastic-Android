@@ -94,6 +94,12 @@ object GtCertRun {
                     if (mode == "parse15b") GtCert15b.run(app, w)
                     // CERTLOG-2026-11-16: the LOGGING seam certification (TEST-ONLY, CODE RULE 3)
                     if (mode == "certlog") GtCertLog.run(app, w)
+                    // CERTVALUES-2026-11-16: seam 2 batch 1 -- the PURE-VALUE services (TEST-ONLY, CODE RULE 3).
+                    // trailuse = Android's TrailClassifier table vs the shared GtTrailUse table, both read as
+                    // they stand (Android is NOT patched); queuerow = the Droid's org.json row, the iPad's map
+                    // row being the second leg in GtCertValuesMacTest; random = PROPERTIES only, never values.
+                    // ⚠ Excluded from the whole-database pass by default (CERTRUNINVERT-2026-11-14, line below).
+                    if (mode == "certvalues") GtCertValues.run(app, w)
                     // GEOMONE-2026-11-09: "geom" = THE ONE geometry module (shared GtGeom) vs EVERY stored row of the frozen copy (CertGeom):
                     // rebuilt text == stored text, hash == stored hash, the end-ride lookup finds each track. Read-only. Mac side: GtCertGeomMacTest.
                     if (mode == "geom") { val fz = frozen(app)
