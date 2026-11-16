@@ -1,0 +1,70 @@
+2.8b LOGGING seam CERTIFIED three ways, byte for byte -- and the corpus becomes an app asset
+
+THE RESULT. The 994-site android.util.Log -> gtLogger conversion (491b15cac) is certified:
+
+  LEG 1+2  OLD vs NEW on Droid 1      994 SAME, 0 DIFF, 0 EXPECTED
+  PASS B   logcat OLD vs NEW blocks   1082 lines each, identical; 34 em dashes on both sides
+  LEG 3    iPad vs the Droid's NEW    994 SAME, 0 DIFF, 0 UTF8-FACT
+           XML tests="1" failures="0" errors="0"
+
+Joined on key outside the test as an independent check: 994 keys, 0 differing, 0 droid-only,
+0 ipad-only. The 36 non-ASCII cases came through identically on both platforms.
+
+Fred 11-16 08:33, the standard this run exists to meet: "does it compile is not enough. we run a
+test harness of existing functions on old droid code, new droid repeated test functionality with
+unified code, and then the iPad version from unified code. results have to be byte for byte
+identical. we are replacing fundamental services which touch hundreds of routines. we do not want
+to be chasing ghosts in hundreds of routines for a failed change at a service level that compiled."
+Logging is the first fundamental service swapped under that standard, and it holds.
+
+Fred 08:06 was the call that made it worth running whole: "one special character somewhere could
+wreak havoc. we must emulate today's messaging exactly or identify and repair the failing message
+content." The corpus carries 2548 quotes, 1455 dollars, 724 brace pairs, 95 apostrophes, 88
+newlines, 24 backslashes, 13 percents and 36 NON-ASCII characters (em dashes U+2014, arrows
+U+2192). A sample would have missed all 36; they are precisely where Kermit's Android writer and
+its iOS writer could have diverged, and the fenced logcat blocks prove they did not.
+
+WHAT CHANGED HERE -- the corpus is now an APP ASSET, not a pushed file.
+  app/src/main/assets/gt_logcert_corpus_2026-11-16.tsv   (93,780 bytes, 994 cases)
+  GtCertLog reads it with app.assets.open(name), the pattern Cert17g1c / Cert17e1 / CertSchema /
+  GtMapSpec already use, and the MacTest supplies its own reader off _data/cert exactly as
+  GtCertTrail15fMacTest and GtCertImport15eMacTest do.
+WHY, and it is not tidiness:
+  - the asset ships INSIDE the APK, so the Droid and the Mac cannot read different corpora. That
+    is the failure that would silently invalidate a comparison rather than fail it.
+  - there is no push step to mis-scope. v48's push block was inserted inside
+    `if [ "$MODE" = osm15g ]` and never ran for certlog, which is why the first run reported
+    NO-CORPUS. With an asset there is nothing to push and nothing to get wrong.
+  - the 1455 '$' characters never pass through Kotlin source escaping. Fixtures-in-code (the
+    Cert17mbtiles pattern) would have required escaping every one of them as ${'$'} -- 1455
+    chances to corrupt the very characters under test. Measured before choosing, not assumed.
+  - the report now carries the corpus length, line count and hash, so each side can PROVE which
+    input it read.
+ALSO: the cases the Droid actually used are printed into the report between
+"# CERTLOG cases-used begin/end" (Fred 08:38: "write your test cases to a print file and test from
+there"), so a later difference can never be blamed on the two sides reading different input.
+
+NOT YET EXERCISED: today's run went through the PUSH path, because the installed build (0830)
+predates this patch. The asset path is proven only once a build carrying it runs certlog.
+
+THE TEMPLATE FOR THE REMAINING NINE SEAM TYPES. Reusable unchanged: corpus-as-data in a TSV,
+OldSide / newSide() through ONE shared runner emitting (key, value), the driver doing the
+SAME/EXPECTED/DIFF comparison, the MacTest loading only the Droid's SAME lines and asserting 0,
+the fenced-logcat pass, and the asset delivery. Seam-specific: the TSV's columns (the values that
+control that seam) and the two Side implementations. Format decided from prior art, not invented:
+line-oriented TSV in, line-oriented .txt out, flat field=value fingerprints -- because a
+difference then localises to ONE line, which a single JSON document or a DB file cannot do.
+Per-seam fingerprints where there is no return value:
+  NOTIFY     channel, title, text, icon, importance, ongoing, autoCancel, actions, group, progress
+  INTENTS    action, type, extras, flags
+  WORKMGR    worker, tag, constraints, inputData
+  GRAPHICS   op, width, height, config + a pixel hash; expect platform divergence, record EXPECTED
+
+OPEN, both repairs to gt_cert rather than to the certification:
+  - v48's post-run certlog block sits inside the wait loop, so the iPad leg does not fire
+    automatically; it was run as two manual commands today.
+  - an unrecognised mode still falls through to the generic cert_compare, which printed a 447-row
+    table of NEW=None against the lookups keys. Noise, not a result -- but it looks alarming and
+    should be suppressed for modes that bring their own comparison.
+
+DONE: the LOGGING seam is converted, compiled and CERTIFIED byte for byte on all three legs

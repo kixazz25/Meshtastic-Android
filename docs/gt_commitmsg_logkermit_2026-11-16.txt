@@ -1,0 +1,65 @@
+2.8b LOGGING seam SOLVED BY TYPE: android.util.Log -> gtLogger/Kermit, 994 sites in 102 files
+
+The first seam type cleared under the 11-15 method: identify the type, group it across the
+codebase, solve for the seam type once. LOGGING was the largest single category -- 454 functions
+by the 11-15 count, 994 call sites measured properly today -- and it is now zero in app/.
+
+WHAT CHANGED, four shapes:
+  Log.x(TAG, "m")              -> log.x { "m" }                        615 sites (file-level val)
+  Log.x("Lit", "m")            -> gtLogger("Lit").x { "m" }            379 sites (inline)
+  Log.e(TAG, "m", e)           -> log.e(e) { "m" }                      41 sites
+  multi-line messages          -> parenthesised, see below              61 sites
+plus `private val log = gtLogger(TAG)` where a single TAG exists, the gtLogger import (after the
+last import, or after `package` in the 2 files that have no imports), and `import android.util.Log`
+removed from all 102 files.
+
+TAGS ARE UNCHANGED. Where the call used its own tag rather than TAG -- Log.e("ConvoyTransfer",..),
+Log.i("GtHelp",..), Log.e(STAGE_TAG,..) -- the conversion uses that same tag inline, so every
+logcat line reads exactly as 2.7e's did. This is the form GtRoute.kt has compiled with since
+STEP13; the call shapes were copied from that file rather than from Kermit's documentation.
+
+CertOld (41 files) deliberately excluded -- they are deleted at the release cut, so converting
+them would be churn against code that will not exist.
+
+THREE BUGS, FOUND BY APPLYING A BAD VERSION AND READING THE COMPILER:
+  1. A multi-line concatenation moved from ( ) into { } changes meaning. Inside parentheses a
+     newline does not end an expression; inside a lambda it DOES, so
+         log.w { "a"
+             + "b" }
+     parsed as two statements and the second began with a unary plus -- 16 "Unresolved reference
+     'unaryPlus'" errors. FIX: parenthesise any multi-line message.
+  2. Kotlin string templates can nest quotes:
+         Log.i(TAG, "orphans: ${orphans.joinToString(", ")} ($bytes bytes)")
+     A naive scanner takes the " of ", " as the string's end and inverts literal and code from
+     there on. That shredded ConvoySourceClear and HomeStatePickerScreen. FIX: the string scanner
+     skips ${ ... } as a balanced region, including strings nested inside it.
+  3. A file with no import lines at all (TabletPosition.kt is package-only) got no gtLogger
+     import. FIX: insert after `package` when there are no imports.
+
+THE METHOD LESSON, and it is the one worth keeping. The version that broke the build HAD a
+"simulation", and that simulation reported "987 sites seen, 987 accounted for, OK". Every word
+true -- and all of it about its own bookkeeping. It counted what it intended to do and confirmed
+its arithmetic agreed with itself. It never looked at the Kotlin it was about to write.
+Fred 11-16 07:44: "it should be a comparison of old messages written to new messages written.
+that is a simulation." The project has done exactly that for weeks with gt_sidebyside and the
+cert harness; this script had to learn it the expensive way.
+So the simulation now writes OLD -> NEW for all 994 sites, grouped MULTILINE / TEMPLATE /
+THROWABLE / PLAIN because those first two are where it broke, and each rewritten file is
+structurally re-parsed (parens and braces must still balance outside literals) before it is
+written. Report: gt_logkermit_sim_2026-11-16_v6.txt.
+
+VERIFIED before applying: every v4 failure site read individually in that report --
+ConvoyCorridorWorker:69, ConvoySourceClear:282, TabletPosition:44, HomeStatePickerScreen:103/134/152,
+MapSourceManager:198. Two checker alarms were traced to the checkers themselves, not the
+conversion (a line-leading "+" inside the parens the fix added; a quote count whose ${...} strip
+cannot handle nested braces -- OLD fails it identically).
+
+RESULT: :app:compileGoogleDebugKotlin BUILD SUCCESSFUL in 21s.
+
+SCOPE: this closes the largest of the twelve seam types. Of the adjusted volume (1,125 functions
+counted once; 324 pass-through and 12 UI-only need nothing), 523 were MECH_LOG. The remaining real
+work is 266 functions, of which the genuine design work is 135 across five patterns.
+NEXT IN SEQUENCE: SOCKET_EXISTS (56) on the already-certified GtPaths / GtImportPlatform, then
+down the type list by size.
+
+DONE: the LOGGING seam type, solved once and applied everywhere

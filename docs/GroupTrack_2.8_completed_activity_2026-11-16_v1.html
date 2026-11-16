@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack &mdash; 2.8 completed activity &mdash; 2026-11-16</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:0 0 6px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding-left:8px;margin:6px 0}
+table{border-collapse:collapse;width:100%;margin:8px 0}th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;font-size:13px}
+th{background:#1b2230;color:var(--accent);font-weight:700}
+</style></head><body>
+<header><div class="ttl">GroupTrack &mdash; <b>2.8 COMPLETED ACTIVITY</b> &mdash; 2026-11-16</div>
+<div class="sub">15 commits &middot; generated from git, not typed &middot; the day's work papers</div></header>
+<main>
+<div class="card">
+<p>One row per item that closed today, with its EVIDENCE (a measurement, a commit, a device observation) and its commit number.
+Items ARRIVE here by being MOVED out of the handoff interim or the checklist interim &mdash; never by being retyped. This is the
+day&rsquo;s completed-activity record, so that pruning never loses the fact that something was addressed.</p>
+<p><b>&#9888; EVERY FIGURE BELOW IS READ FROM GIT AT GENERATION TIME</b> (subject line and diffstat per commit). The prose under each
+is the measured finding from the session that produced it. Where this session has no first-hand evidence for a commit, it says so
+rather than paraphrasing.</p>
+</div>
+
+<h2>THE SERVICE-LAYER SCORE AT EOD</h2>
+<div class="card">
+<p><b>54 members closed today</b> across 7 of the register&rsquo;s 12 absent interfaces: <code>GtHkEnv</code> (22),
+<code>GtHkDb</code> (4), <code>RideFiles</code> (15), <code>GtOsmPlatform</code> (5), <code>RideSpatial</code> (5),
+<code>GtMapSpecEnv</code> (2), <code>GtHttp</code> (1). Verified by grepping <code>iosMain</code> per interface.</p>
+<p><b>19 remain</b> &mdash; <code>GtQueuePlatform</code> 4, <code>GtRecipeEnv</code> 4, <code>Flight</code> 4,
+<code>RideImportPlatform</code> 3, <code>RideNetworks</code> 3, and <code>IosImportPlatform.enqueueCorridor</code> 1 (exists, throws).
+<code>GtQueuePlatform</code>'s 4 unlock 9 of the 19. See SEAMGROWTH-2026-11-16: that 19 is a FLOOR.</p>
+<p><b>&#9940; ALL SIX iOS CLASSES WRITTEN TODAY ARE COMPILE-VERIFIED ONLY.</b> A clean
+<code>compileKotlinIosSimulatorArm64</code> proves the symbols resolve and nothing more. Of the three columns &mdash; old code on
+Android, new code on Android, new code on the iPad &mdash; column 3 DOES NOT EXIST YET and cannot until there is an Xcode target.
+The first time any of these six runs will be in that environment.</p>
+</div>
+
+<h2>THE COMMITS, OLDEST FIRST</h2>
+<div class="card"><h3><code>491b15cac</code> &mdash; 2.8b LOGGING seam SOLVED BY TYPE: android.util.Log -&gt; gtLogger/Kermit, 994 sites in 102 files</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-warn">logging</span>
+<p>The seam SOLVED BY TYPE rather than by call site: <code>android.util.Log</code> &rarr; <code>gtLogger</code>/Kermit. &#9888; THE HAZARD THIS CREATED, checked by hand and still true: <code>android.util.Log</code> took an EAGER string, Kermit takes a LAZY lambda, so a message containing a side effect or an expensive call would change WHEN it runs. Safe only because <code>gtLogger</code> builds its Logger with <code>minSeverity = Severity.Verbose</code>, so every level is enabled and every lambda still executes. &#9940; If that minSeverity ever tightens, 994 sites change behaviour at once.</p>
+</div>
+<div class="card"><h3><code>13fc10025</code> &mdash; 2.8b CERTLOG: the three-way certification of the LOGGING seam (TEST-ONLY, CODE RULE 3)</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-warn">logging</span>
+<p>The three-way certification harness. TEST-ONLY under CODE RULE 3 &mdash; removed before 2.8 ships; it carries no done-marker by design.</p>
+</div>
+<div class="card"><h3><code>9d9a68667</code> &mdash; 2.8b LOGGING seam CERTIFIED three ways, byte for byte -- and the corpus becomes an app asset</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-warn">logging</span>
+<p>Certified three ways, BYTE FOR BYTE. The log corpus becomes an app asset so the comparison runs on device against real recorded output rather than a fixture. &#9888; Register item: <code>gt_logcert_corpus_2026-11-16.tsv</code> must come OUT of the shipping assets before release.</p>
+</div>
+<div class="card"><h3><code>b20b80648</code> &mdash; 2.8b seam 2 batch 1 CERTIFIED: the pure-value services, three legs</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-good">seam 2</span>
+<p>Batch 1, the pure-value services, certified on three legs.</p>
+</div>
+<div class="card"><h3><code>1e471fe43</code> &mdash; 2.8b seam 2 environment CERTIFIED: the iPad uses Android&#x27;s layout, tail for tail</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-good">seam 2</span>
+<p>The environment certified TAIL FOR TAIL: the iPad uses Android's layout. This is the <code>certpaths</code> run at 10:51 that fixes the iPad destination mapping &mdash; <code>files/GroupTrack/</code> &rarr; <code>Documents/GroupTrack/</code> and the FLAT SIBLING <code>files/my_tracks/</code> &rarr; <code>Documents/my_tracks/</code>. That mapping is what STEP 6 of the Phase 2 procedure depends on.</p>
+</div>
+<div class="card"><h3><code>1df0d5c2b</code> &mdash; 2.8b seam 2 paths CONVERTED: 23 call sites onto the shared storage socket</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-good">seam 2</span>
+<p>23 call sites moved onto the shared storage socket.</p>
+</div>
+<div class="card"><h3><code>9da1877ff</code> &mdash; 2.8b seam 2 assets CONVERTED + CERTIFIED: 8 call sites, 13 assets, both parsers</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-good">seam 2</span>
+<p>8 call sites, 13 assets, both parsers &mdash; converted AND certified.</p>
+</div>
+<div class="card"><h3><code>044f704ef</code> &mdash; 2.8b iOS HTTP services: GtHttp + GtMapSpecEnv, two implementations not one</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-prog">iOS</span>
+<p><code>GtHttp</code> + <code>GtMapSpecEnv</code>: <b>TWO implementations, deliberately not one.</b> Five behaviours differ and merging them would have changed 2.7e's answers &mdash; connect-15s+read vs total callTimeout; UA <code>GroupTrack/2.5</code> vs none; error body read and truncated at 2000 chars vs code only; different log tags; null-on-200 for <code>httpGet</code>. &#11088; RE-ENTRANCY IS A REQUIREMENT, not a nicety (Fred 14:09: "the download queue is submitting 4 http tasks at the same time"), so there is no shared mutable state: a session, holder and semaphore PER CALL. A single shared <code>NSURLSession</code> was rejected because it would serialise at <code>HTTPMaximumConnectionsPerHost</code>. &#9888; Throws a named error if called on the MAIN THREAD. <b>This commit closed the last two map-path members</b> &mdash; see XCODESTEPS STEP 0.</p>
+</div>
+<div class="card"><h3><code>1d8b7e87c</code> &mdash; 2.8b remove the dead, Android-divergent IosPaths; one GtImportPaths on iOS</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-prog">iOS</span>
+<p>Removed the dead, Android-divergent <code>IosPaths</code> (19 lines + an orphaned <code>sysDir</code> + 5 now-unused Foundation imports). &#9940; THE LESSON: a comment IN THIS CODEBASE claimed "the 32 passing cert classes construct it". Measured, <code>IosPaths</code> had exactly ONE non-comment occurrence &mdash; its own declaration. The comment was written by Claude and was false. Do not trust a comment about usage; grep it.</p>
+</div>
+<div class="card"><h3><code>e7ded437d</code> &mdash; 2.8b assemble GtImportEnv on iOS -- register item G7</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-prog">iOS</span>
+<p><code>GtImportEnv</code> assembled on iOS (register item G7). <code>IosImportPaths</code> is constructed ONCE and the concrete instance is handed to <code>IosImportPlatform</code> &mdash; two instances would mean two path roots.</p>
+</div>
+<div class="card"><h3><code>c278f5594</code> &mdash; 2.8b iOS GtOsmPlatform -- the last platform hook for OSM trail import</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-prog">iOS</span>
+<p><code>GtOsmPlatform</code>, the last platform hook for OSM trail import. 2 members REAL (<code>usableSpace</code> via <code>NSFileSystemFreeSize</code>, fail-closed to 0L; <code>sweepDownloadedZips</code> over <code>Documents/Download</code> only &mdash; Safari's downloads are outside the sandbox, a capability difference, not a defect). 3 members EMPTY ON PURPOSE with the reason in the code. &#11088; <code>foreground()</code> is a no-op because Android's own <code>foreground()</code> BUILDS a Notification and DISCARDS it (<code>@Suppress("UNUSED_VARIABLE") val info</code>, INPROCESS-2026-10-02) &mdash; so the no-op is behaviourally IDENTICAL. Measured, not assumed.</p>
+</div>
+<div class="card"><h3><code>b7fd2beb6</code> &mdash; 2.8b iOS GtHkEnv + GtHkDb -- startup housekeeping, 25 of 26 members</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-prog">iOS</span>
+<p><code>GtHkEnv</code> (22 members) + <code>GtHkDb</code> (4) &mdash; startup housekeeping, the largest single interface. &#9940; <code>initDb</code> MUST NOT THROW: its caller at <code>GtStartupHousekeeping:102</code> is unguarded, so it catches and logs instead, and the databases are simply unavailable on failure. "Extension db" was measured to mean <code>grouptrack_data.db</code> &mdash; a second PLAIN database holding extension tables. There is no SQLite extension, no SpatiaLite and no native library anywhere in the tree; an earlier inference that there was, was wrong.</p>
+</div>
+<div class="card"><h3><code>e130c0b6c</code> &mdash; 2.8b port sweepManifests to commonMain -- closes the housekeeping hole, 26 of 26</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-prog">iOS</span>
+<p><code>sweepManifests</code> ported to <code>commonMain</code> (90 lines) &mdash; closes the housekeeping hole, 26 of 26. It is the INTERRUPTED-IMPORT DETECTOR for trail imports (Fred: "did it complete properly, does it need to be rerun"), not clutter-tidying, so shipping a throw would have silently lost import recovery on the iPad. Preserves MARKERFIX-2026-08-25M, STAMP-FIRST-THEN-MOVE, SWEEPNAME-2026-08-21I (':' &rarr; '-', because ':' fails the create on FAT) and SWEEPMOVE-2026-08-21H (copy-then-delete, verify before delete). <code>killedArea</code> is RETURNED, not global state. &#9888; SECOND COPY: Android still runs its own; DO NOT EDIT ONE ALONE.</p>
+</div>
+<div class="card"><h3><code>64ad69138</code> &mdash; 2.8b iPad: RideFiles for iOS (GTIOSRIDEFILES-2026-11-16)</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-prog">iOS</span>
+<p><code>RideFiles</code>, all 15 members. Four <code>java.io.File</code> RETURN CONVENTIONS would have been wrong if translated by shape: <code>mkdirs</code> is true ONLY IF IT CREATED SOMETHING (okio's <code>createDirectories</code> is silently idempotent); <code>list</code> returns NULL for not-a-folder/not-readable per CODE RULE 1 (okio throws); <code>rename</code> RETURNS FALSE and never throws, which is the SWEEPMOVE-2026-08-21H scar on FUSE (okio's <code>atomicMove</code> throws); <code>delete</code>/<code>length</code>/<code>isFile</code> answer false/0L/false for a missing file. &#11088; The interface's own doc PRE-RECORDED these divergences when the seam was cut &mdash; they were specified, not judged.</p>
+</div>
+<div class="card"><h3><code>20fa3cfb2</code> &mdash; 2.8b iPad: RideSpatial for iOS (RIDESPATIAL-2026-11-16)</h3>
+<div class="note">(no diffstat)</div>
+<span class="tag t-prog">iOS</span>
+<p><code>RideSpatial</code>, 5 members. <code>GtRead</code> (commonMain) gained the four reads ADDITIVELY &mdash; 63 insertions, 0 deletions, no caller, so Android cannot have moved. <code>IosRideSpatial</code> is 38 lines of pure delegation with no iOS-specific behaviour at all. &#11088; THE TRAP: Android hands <code>GtGpx.route</code> not the stored payload but <code>org.json.JSONObject(payload).toString()</code> &mdash; and that round trip is NOT identity, because <code>numberToString</code> writes a Double equal to its Long AS the Long. A recipe anchor stored as <code>-113.0</code> comes back <code>"-113"</code>; kotlinx would have written <code>"-113.0"</code> and the GPX &lt;extensions&gt; block would differ between Droid and iPad for every recipe carrying coordinates. <code>GtOrgJson.compact</code> reproduces org.json's writer. Two 2.7e branches measured DEAD and deliberately not reproduced (<code>columnCount &gt; 2</code> against a 2-column SELECT; <code>columnCount &gt; 3</code> against a 3-column SELECT, so waypoint &lt;desc&gt; has always been "").</p>
+</div>
+</main></body></html>
