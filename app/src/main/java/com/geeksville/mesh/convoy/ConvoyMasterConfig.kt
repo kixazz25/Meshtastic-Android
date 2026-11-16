@@ -1,3 +1,4 @@
+// SEAM2ASSETS-2026-11-16: assets.open -> the shared asset socket
 package com.geeksville.mesh.convoy
 
 import android.content.Context
@@ -8,6 +9,7 @@ import com.grouptrack.shared.json.GtOrgJson
 import kotlinx.serialization.json.JsonObject
 import okio.FileSystem
 import org.json.JSONObject
+import com.geeksville.mesh.grouptrack.GtAssetsAndroid
 
 /**
  * ConvoyMasterConfig — V2 master radio configuration
@@ -104,7 +106,7 @@ data class ConvoyMasterConfig(
         fun fromJson(obj: JSONObject): ConvoyMasterConfig = fromShared(GtMasterConfig.fromJson(GtOrgJson.parse(obj.toString()) as JsonObject))
 
         private fun store(context: Context) = GtMasterConfigStore(FileSystem.SYSTEM, GtStorageAndroid.of(context).filesDir() / GtMasterConfig.DEVICE_FILE) {
-            context.assets.open(ASSET_FILE).bufferedReader().use { it.readText() }
+            GtAssetsAndroid.text(context, ASSET_FILE)
         }
 
         /** Device file first; missing, older than CONFIG_VERSION or corrupt -> restored from the bundled asset. */

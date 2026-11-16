@@ -1,3 +1,4 @@
+// SEAM2ASSETS-2026-11-16: assets.open -> the shared asset socket
 package com.geeksville.mesh.convoy
 
 import android.content.Context
@@ -8,6 +9,7 @@ import java.time.Instant
 import java.util.UUID
 import okio.Path.Companion.toOkioPath   // STEP15CDE-SWITCH-2026-11-10
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtAssetsAndroid
 
 /**
  * SpatialDbManager -- singleton managing two SQLite databases for V2.5.
@@ -491,7 +493,7 @@ object SpatialDbManager {
 
     /** Run SQL schema file from assets */
     private fun runSchemaFromAsset(context: Context, db: SQLiteDatabase, assetName: String) {
-        val raw = context.assets.open(assetName).bufferedReader().use { it.readText() }
+        val raw = GtAssetsAndroid.text(context, assetName)
         // Strip comment lines first, then split on semicolons
         val sql = raw.lines()
             .filter { !it.trim().startsWith("--") }

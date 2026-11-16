@@ -1,3 +1,4 @@
+// SEAM2ASSETS-2026-11-16: assets.open -> the shared asset socket
 package com.grouptrack.core
 
 import java.security.SecureRandom
@@ -7,6 +8,7 @@ import com.grouptrack.shared.net.GtNetworkGenerator
 import com.grouptrack.shared.net.GtOwnerType
 import com.grouptrack.shared.net.GtRandom
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtAssetsAndroid
 
 /**
  * NETGEN-2026-09-23 — makes a network config. PURE KOTLIN: no Android, no database.
@@ -76,7 +78,7 @@ object NetworkGenerator {
 
         /** Reads network.mesh from the GroupTrack default asset. Returns false (and keeps the fallback) on failure. */
         fun loadFrom(context: android.content.Context): Boolean = try {
-            val mesh = org.json.JSONObject(context.assets.open("grouptrack_default.json").bufferedReader().use { it.readText() })
+            val mesh = org.json.JSONObject(GtAssetsAndroid.text(context, "grouptrack_default.json"))
                 .getJSONObject("network").getJSONObject("mesh")
             REGION = mesh.getString("region")
             MODEM_PRESET = mesh.getString("preset")

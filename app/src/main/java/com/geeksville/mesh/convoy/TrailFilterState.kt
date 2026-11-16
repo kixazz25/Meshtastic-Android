@@ -1,7 +1,9 @@
+// SEAM2ASSETS-2026-11-16: assets.open -> the shared asset socket
 package com.geeksville.mesh.convoy
 
 import java.io.File
 import com.grouptrack.shared.filter.TrailFilterState as Shared
+import com.geeksville.mesh.grouptrack.GtAssetsAndroid
 
 /**
  * TrailFilterState -- GTBATCH1A-2026-11-06 (2.8): a PASS-THROUGH to the shared one (grouptrack-shared,
@@ -36,7 +38,7 @@ object TrailFilterState {
     fun file(): File = File(GroupTrackStorage.root(), Shared.FILE_NAME)
 
     private fun asset(context: android.content.Context): () -> String =
-        { context.assets.open(DEFAULTS_ASSET).bufferedReader().use { it.readText() } }
+        { GtAssetsAndroid.text(context, DEFAULTS_ASSET) }
 
     @Synchronized fun installDefaults(context: android.content.Context): Boolean = Shared.installDefaults(asset(context))
     @Synchronized fun ensureDefaults(context: android.content.Context) = Shared.ensureDefaults(asset(context))

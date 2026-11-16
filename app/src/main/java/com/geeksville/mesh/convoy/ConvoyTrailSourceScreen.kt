@@ -1,3 +1,4 @@
+// SEAM2ASSETS-2026-11-16: assets.open -> the shared asset socket
 package com.geeksville.mesh.convoy
 
 import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
@@ -23,6 +24,7 @@ import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtAssetsAndroid
 
 // ----------------------------------------------------------------
 // ConvoyTrailSourceScreen -- V2.5 §9 Trail Import Flow
@@ -618,7 +620,7 @@ private fun ValidationRow(label: String, value: String) {
 
 internal fun loadSourceCatalog(context: Context): List<CatalogSource> {
     return try {
-        val json = context.assets.open("trail_sources.json").bufferedReader().use { it.readText() }
+        val json = GtAssetsAndroid.text(context, "trail_sources.json")
         val root = JSONObject(json)
         val arr = root.getJSONArray("sources")
         (0 until arr.length()).map { i ->

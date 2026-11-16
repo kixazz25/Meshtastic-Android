@@ -1,8 +1,10 @@
+// SEAM2ASSETS-2026-11-16: assets.open -> the shared asset socket
 package com.geeksville.mesh.convoy
 
 import android.content.Context
 import org.json.JSONObject
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtAssetsAndroid
 
 /**
  * GeofabrikCatalog — loads the shipped geofabrik_states.json asset
@@ -76,8 +78,7 @@ object GeofabrikCatalog {
     fun load(context: Context): List<GeofabrikState> {
         cached?.let { return it }
         return try {
-            val json = context.assets.open(ASSET_FILE)
-                .bufferedReader().use { it.readText() }
+            val json = GtAssetsAndroid.text(context, ASSET_FILE)
             val root = JSONObject(json)
             val arr = root.getJSONArray("states")
             val result = mutableListOf<GeofabrikState>()

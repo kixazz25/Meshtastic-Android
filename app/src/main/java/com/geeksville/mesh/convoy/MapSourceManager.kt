@@ -1,9 +1,11 @@
+// SEAM2ASSETS-2026-11-16: assets.open -> the shared asset socket
 package com.geeksville.mesh.convoy
 
 import android.content.Context
 import java.io.File
 import org.json.JSONObject
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtAssetsAndroid
 
 /**
  * MapSourceManager — single source of truth for all tile source URLs.
@@ -284,8 +286,7 @@ object MapSourceManager {
         appContext = context
         try {
             // Always read from bundled asset — single source of truth
-            val json = context.assets.open("map_sources.json")
-                .bufferedReader().use { it.readText() }
+            val json = GtAssetsAndroid.text(context, "map_sources.json")
             gtLogger("MapSourceMgr").i { "Reading assets map_sources.json" }
             val root = JSONObject(json)
             val sourcesArray = root.getJSONArray("sources")

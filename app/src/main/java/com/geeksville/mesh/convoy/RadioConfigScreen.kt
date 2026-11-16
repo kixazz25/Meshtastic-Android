@@ -1,3 +1,4 @@
+// SEAM2ASSETS-2026-11-16: assets.open -> the shared asset socket
 package com.geeksville.mesh.convoy
 
 import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
@@ -42,6 +43,7 @@ import com.grouptrack.comm.ApplyRequest
 import com.grouptrack.comm.CommResult
 import com.grouptrack.comm.ConfigChange
 import com.grouptrack.shared.log.gtLogger
+import com.geeksville.mesh.grouptrack.GtAssetsAndroid
 
 /*
  * RADIOCFG4-2026-09-25 (GroupTrack 2.7) -- the radio configurator, part 4: the SCREEN.
@@ -113,7 +115,7 @@ fun RadioConfigScreen(
     var nameTouched by remember { mutableStateOf(false) }
     LaunchedEffect(radioName) { if (!nameTouched && radioName.isNotEmpty()) radioCallsign = radioName }
     val defaultJson = remember {
-        runCatching { JSONObject(context.assets.open("grouptrack_default.json").bufferedReader().use { it.readText() }) }.getOrNull()
+        runCatching { JSONObject(GtAssetsAndroid.text(context, "grouptrack_default.json")) }.getOrNull()
     }
 
     BackHandler(enabled = true) { if (phase != "APPLYING") onClose() }
