@@ -2,8 +2,8 @@ package com.geeksville.mesh.convoy
 
 import android.database.sqlite.SQLiteDatabase
 import android.os.Environment
-import android.util.Log
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * OwnershipReclass — STEP 8 of the state import. OWNERSHIP-2026-08-31.
@@ -56,6 +56,7 @@ import java.io.File
 object OwnershipReclass {
 
     private const val TAG = "OwnershipReclass"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     // STEP8PAGED-2026-10-23: rows per page in run() (also the IN-list size -- under SQLite's 999 bound parameters).
     private const val PAGE = 10_000   // QUICKFIX-2026-11-03 (#4): was 500 -- the reads; the IN-list lookups stay at IN_MAX
@@ -123,7 +124,7 @@ object OwnershipReclass {
             val todo = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE geometry IS NOT NULL AND geometry <> ''$only", null)
                 .use { if (it.moveToFirst()) it.getInt(0) else 0 }
             // RSTAREAFIX-2026-11-02: no early return -- the restricted pass after the pages must still run
-            if (todo == 0) Log.i(TAG, "step 8: every trail already has its land -- only the restricted pass runs")
+            if (todo == 0) log.i { "step 8: every trail already has its land -- only the restricted pass runs" }
         }
         // CATEGORYALWAYS-2026-10-10 (Fred): "our categories are meaningless unless they are applied. Land ownership
         // just happened to be in the same process." This step used to RETURN -1 right here when the ownership file
@@ -137,9 +138,9 @@ object OwnershipReclass {
         // PADUSLAND-2026-11-02: land from PAD-US -- land_areas, built per state by the import from its saved PAD-US zip. The Utah UGRC
         //  file is gone (PRUNEUGRC). No PAD-US data loaded -> the index covers nothing and every trail is PUBLIC (Fred's default).
         val landIdx: LandAreas.LandIndex = try { LandAreas.loadIndex(sDb) }
-            catch (e: OutOfMemoryError) { Log.e(TAG, "PADUSLAND: land areas too large for this heap -- land PUBLIC"); LandAreas.LandIndex(emptyList(), emptyMap(), IntArray(0), emptyList()) }
-            catch (e: Exception) { Log.e(TAG, "PADUSLAND: land areas unreadable: ${e.message} -- land PUBLIC"); LandAreas.LandIndex(emptyList(), emptyMap(), IntArray(0), emptyList()) }
-        Log.i(TAG, "PADUSLAND: ${landIdx.size} land areas, ${landIdx.states} state(s) with PAD-US data, ${(System.currentTimeMillis() - started) / 1000}s")
+            catch (e: OutOfMemoryError) { log.e { "PADUSLAND: land areas too large for this heap -- land PUBLIC" }; LandAreas.LandIndex(emptyList(), emptyMap(), IntArray(0), emptyList()) }
+            catch (e: Exception) { log.e { "PADUSLAND: land areas unreadable: ${e.message} -- land PUBLIC" }; LandAreas.LandIndex(emptyList(), emptyMap(), IntArray(0), emptyList()) }
+        log.i { "PADUSLAND: ${landIdx.size} land areas, ${landIdx.states} state(s) with PAD-US data, ${(System.currentTimeMillis() - started) / 1000}s" }
 
         // ── the rows: no usable carto, whatever source wrote them ──────────
         // ⭐ BY VALUE, NOT BY SOURCE (Fred 08-31): an unspecified UGRC road
@@ -163,7 +164,7 @@ object OwnershipReclass {
         lastError = ""; lastPrivate = 0
         val total = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE geometry IS NOT NULL AND geometry <> ''$only", null)   // STEP8EMPTY-2026-10-24
             .use { if (it.moveToFirst()) it.getInt(0) else 0 }
-        Log.i(TAG, "step 8: classifying $total rows in pages of $PAGE")
+        log.i { "step 8: classifying $total rows in pages of $PAGE" }
         // RSTAREAFIX-2026-11-02: no early return here either -- with no rows the page loop ends at once and the restricted pass runs
         // \u2b50 THE FOUR FIELDS (unchanged): carto_code_source keeps what the source said; carto_code is OUR category;
         // land_status and use_type each answer one question. \u26a0 BOTH STORES -- SpatialDbManager arbitrates between them.
@@ -203,7 +204,7 @@ object OwnershipReclass {
                     }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "designated_uses read failed: ${e.message}")
+                log.w { "designated_uses read failed: ${e.message}" }
             }
             sDb.beginTransaction()
             eDb.beginTransaction()
@@ -240,14 +241,14 @@ object OwnershipReclass {
                 eDb.setTransactionSuccessful()
             } catch (e: Exception) {
                 lastError = "write failed after $n of $total trails: ${e.message}"
-                Log.e(TAG, "step 8 FAILED: $lastError")
+                log.e { "step 8 FAILED: $lastError" }
                 return -1
             } finally {
                 eDb.endTransaction()
                 sDb.endTransaction()
             }
             onProgress?.invoke(n, total)
-            if (n / 20_000 != (n - ids.size) / 20_000) Log.i(TAG, "step 8: $n of $total (${(System.currentTimeMillis() - started) / 1000}s)")   // RSTAREA-2026-11-02
+            if (n / 20_000 != (n - ids.size) / 20_000) log.i { "step 8: $n of $total (${(System.currentTimeMillis() - started) / 1000}s)" }   // RSTAREA-2026-11-02
         }
         // RSTAREA-2026-11-02 (Fred 14:36): THE RESTRICTED PASS -- from the AREAS. For each restricted polygon, only the motorized trails
         //  whose box meets it (indexed box columns); each trail once; segments written, >= 95% -> RESTRICTED. Streamed, per polygon.
@@ -287,17 +288,17 @@ object OwnershipReclass {
                     sDb.endTransaction()
                 }
             }
-            Log.i(TAG, "RSTAREA: $areas restricted areas, $tested motorized trails tested, $withSeg with restricted segments, " +
-                "$restricted wholly restricted, in ${(System.currentTimeMillis() - t0) / 1000}s")
+            log.i { ("RSTAREA: $areas restricted areas, $tested motorized trails tested, $withSeg with restricted segments, " +
+                "$restricted wholly restricted, in ${(System.currentTimeMillis() - t0) / 1000}s") }
             // RSTQUICK-2026-11-02: the totals now on the tablet -- the same after every import unless the land, the rules or the trails change
             val segTotal = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE restricted_geom IS NOT NULL AND restricted_geom <> ''", null).use { if (it.moveToFirst()) it.getInt(0) else -1 }
             val rstTotal = sDb.rawQuery("SELECT COUNT(*) FROM trails WHERE land_status = 'RESTRICTED'", null).use { if (it.moveToFirst()) it.getInt(0) else -1 }
-            Log.i(TAG, "RSTAREA totals: $segTotal trails with restricted segments, $rstTotal wholly restricted")
+            log.i { "RSTAREA totals: $segTotal trails with restricted segments, $rstTotal wholly restricted" }
         }
         lastPrivate = priv
         lastRestricted = restricted
-        Log.i(TAG, "step 8 complete: $n classified, $priv private, $restricted restricted, " +
-            "in ${(System.currentTimeMillis() - started) / 1000}s")
+        log.i { ("step 8 complete: $n classified, $priv private, $restricted restricted, " +
+            "in ${(System.currentTimeMillis() - started) / 1000}s") }
         return n
     }
 

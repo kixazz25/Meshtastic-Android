@@ -2,7 +2,6 @@ package com.geeksville.mesh.grouptrack
 
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -16,6 +15,7 @@ import androidx.core.content.FileProvider
 import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.geeksville.mesh.convoy.VectorTiles
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * BACKUP-2026-11-03 (Fred 11:32-11:41): everything needed to recreate GroupTrack after a forced reload, a crash or a new phone -- the four
@@ -26,6 +26,7 @@ import java.io.File
  */
 object GtBackup {
     private const val TAG = "Backup"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val PREF = "gt_backup"
     private val TYPES = listOf("routes" to "routes", "tracks" to "tracks", "waypoints" to "waypoints", "trails" to "rider trails")
 
@@ -48,27 +49,27 @@ object GtBackup {
     fun autoCheck(ctx: Context) {
         if (checked) return
         checked = true
-        if (!online(ctx)) { Log.i(TAG, "BACKUP start-up check: no internet"); return }
-        if (prefs(ctx).getString("notNow", "") == today()) { Log.i(TAG, "BACKUP start-up check: NOT NOW today"); return }
+        if (!online(ctx)) { log.i { "BACKUP start-up check: no internet" }; return }
+        if (prefs(ctx).getString("notNow", "") == today()) { log.i { "BACKUP start-up check: NOT NOW today" }; return }
         Thread {
             try {
                 Thread.sleep(20_000)   // after the start-up work
                 GtDbAudit.run(ctx)   // DBAUDIT-2026-11-03: read-only, logged
                 val b = build(ctx, false)
                 when {
-                    b.files.isEmpty() -> Log.i(TAG, "BACKUP start-up check: nothing to back up")
-                    b.print == prefs(ctx).getString("sent", "") -> Log.i(TAG, "BACKUP unchanged since the last backup sent -- nothing offered")
+                    b.files.isEmpty() -> log.i { "BACKUP start-up check: nothing to back up" }
+                    b.print == prefs(ctx).getString("sent", "") -> log.i { "BACKUP unchanged since the last backup sent -- nothing offered" }
                     else -> {
                         // BACKUPDIAG-2026-11-03: which part changed since the backup sent
                         val was = (prefs(ctx).getString("sent", "") ?: "").split(';').filter { it.contains('=') }.associate { it.substringBefore('=') to it.substringAfter('=') }
                         val now = b.print.split(';').filter { it.contains('=') }.associate { it.substringBefore('=') to it.substringAfter('=') }
                         val diff = (was.keys + now.keys).filter { was[it] != now[it] }.joinToString(", ") { k -> "$k ${was[k]?.take(8) ?: "none"}->${now[k]?.take(8) ?: "none"}" }
-                        Log.i(TAG, "BACKUP changed -- offering SEND BACKUP (${b.files.size} files); changed since sent: ${diff.ifEmpty { "(nothing sent yet)" }}")
+                        log.i { "BACKUP changed -- offering SEND BACKUP (${b.files.size} files); changed since sent: ${diff.ifEmpty { "(nothing sent yet)" }}" }
                         waiting = b
                         android.os.Handler(android.os.Looper.getMainLooper()).post { ready.value = b.list }
                     }
                 }
-            } catch (e: Exception) { Log.e(TAG, "BACKUP start-up check failed", e) }
+            } catch (e: Exception) { log.e(e) { "BACKUP start-up check failed" } }
         }.start()
     }
 
@@ -76,8 +77,8 @@ object GtBackup {
     fun start(ctx: Context) {
         android.widget.Toast.makeText(ctx, "Building your GroupTrack OG backup…", android.widget.Toast.LENGTH_SHORT).show()
         Thread {
-            try { GtDbAudit.run(ctx) } catch (e: Exception) { Log.e(TAG, "DBAUDIT", e) }   // DBAUDIT-2026-11-03
-            val b = try { build(ctx, true) } catch (e: Exception) { Log.e(TAG, "BACKUP build", e); Built(emptyList(), "Backup failed: ${e.message}", "") }
+            try { GtDbAudit.run(ctx) } catch (e: Exception) { log.e(e) { "DBAUDIT" } }   // DBAUDIT-2026-11-03
+            val b = try { build(ctx, true) } catch (e: Exception) { log.e(e) { "BACKUP build" }; Built(emptyList(), "Backup failed: ${e.message}", "") }
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 if (b.files.isEmpty()) android.widget.Toast.makeText(ctx, b.list.ifEmpty { "Nothing to back up yet." }, android.widget.Toast.LENGTH_LONG).show()
                 else send(ctx, b)
@@ -86,7 +87,7 @@ object GtBackup {
     }
 
     fun sendReady(ctx: Context) { val b = waiting; ready.value = ""; waiting = null; if (b != null) send(ctx, b) }
-    fun notNow(ctx: Context) { prefs(ctx).edit().putString("notNow", today()).apply(); ready.value = ""; waiting = null; Log.i(TAG, "BACKUP NOT NOW") }
+    fun notNow(ctx: Context) { prefs(ctx).edit().putString("notNow", today()).apply(); ready.value = ""; waiting = null; log.i { "BACKUP NOT NOW" } }
 
     private fun sha(s: String): String = java.security.MessageDigest.getInstance("SHA-256").digest(s.toByteArray())
         .joinToString("") { "%02x".format(it) }
@@ -112,7 +113,7 @@ object GtBackup {
             // the recipe is rewritten daily with a new date -- its MAP BOXES are what changes
             print.append("maps=").append(sha(VectorTiles.boxesOf(recipe).joinToString("|") { it.joinToString(",") })).append(';')
         }
-        Log.i(TAG, "BACKUP built ${files.size} file(s) toDownloads=$toDownloads: ${files.joinToString { "${it.name} ${it.length()}" }}")
+        log.i { "BACKUP built ${files.size} file(s) toDownloads=$toDownloads: ${files.joinToString { "${it.name} ${it.length()}" }}" }
         return Built(files, list.toString(), print.toString())
     }
 
@@ -142,9 +143,9 @@ object GtBackup {
             if (gmail.resolveActivity(ctx.packageManager) != null) ctx.startActivity(gmail)
             else ctx.startActivity(Intent.createChooser(mail, "Send or save your GroupTrack OG backup").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             prefs(ctx).edit().putString("sent", b.print).apply()
-            Log.i(TAG, "BACKUP email opened: ${b.files.size} attachment(s), to=${if (me.isEmpty()) "(none)" else "profile email"}")
+            log.i { "BACKUP email opened: ${b.files.size} attachment(s), to=${if (me.isEmpty()) "(none)" else "profile email"}" }
         } catch (e: Exception) {
-            Log.e(TAG, "BACKUP open failed", e)
+            log.e(e) { "BACKUP open failed" }
             android.widget.Toast.makeText(ctx, "Could not open the email: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }

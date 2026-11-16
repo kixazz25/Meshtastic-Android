@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.RadioButton
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * ConvoyMapSourceScreen — assign tile sources to the 3 fixed map slots.
@@ -471,8 +472,7 @@ fun ConvoyMapSourceScreen(
                                         // submit never runs, and the migration no
                                         // longer cancels downloads the user queued
                                         // for their own reasons.
-                                        android.util.Log.i("MIGSURFACE",
-                                            "OPT2-RECREATE-2026-08-11I start: slot=$slot")
+                                        gtLogger("MIGSURFACE").i { "OPT2-RECREATE-2026-08-11I start: slot=$slot" }
                                         migLog = migLog + Pair(
                                             "Reading the maps stored for $slot", false)
                                         migProgress = "Reading the store"
@@ -499,8 +499,7 @@ fun ConvoyMapSourceScreen(
                                     } catch (e: Exception) {
                                         // ⚠ 08-08: a throw here left the panel up with no
                                         // way out. Release the queue and report, always.
-                                        android.util.Log.e("MIGSURFACE",
-                                            "MIGSURFACE-2026-08-08Q failed: ${e.message}", e)
+                                        gtLogger("MIGSURFACE").e(e) { "MIGSURFACE-2026-08-08Q failed: ${e.message}" }
                                         withContext(Dispatchers.IO) {
                                             DownloadQueueManager.resumeQueue()
                                         }

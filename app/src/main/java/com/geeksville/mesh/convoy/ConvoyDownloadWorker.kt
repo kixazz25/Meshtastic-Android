@@ -8,6 +8,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * Background tile download worker. Runs as foreground service with
@@ -25,6 +26,7 @@ class ConvoyDownloadWorker(
 
     companion object {
         private const val TAG = "DownloadWorker"
+        private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
         private const val PROGRESS_INTERVAL = 250  // update notification every N tiles
     }
 
@@ -47,7 +49,7 @@ class ConvoyDownloadWorker(
         // fetched ONLY the tiles already stored (trace 11-07 16:37). The refresh branch below is now unreachable; removed in a later cleanup.
         val refreshOnly = false
 
-        android.util.Log.i(TAG, "Starting download: $label id=$entryId")
+        log.i { "Starting download: $label id=$entryId" }
 
         // Initialize queue manager (handles app-killed restart case)
         DownloadQueueManager.init(appContext)
@@ -64,9 +66,8 @@ class ConvoyDownloadWorker(
         // ⚠ No markFailed here -- there is no entry to mark, and writing one
         // would trade a running ghost for a permanent row.
         if (DownloadQueueManager.queue.value.none { it.id == entryId }) {
-            android.util.Log.w(TAG,
-                "ORPHAN-2026-08-08O: no queue entry for id=$entryId ('$label'). "
-                + "Nothing owns this job, so there is no work. Throwing it out.")
+            log.w { ("ORPHAN-2026-08-08O: no queue entry for id=$entryId ('$label'). "
+                + "Nothing owns this job, so there is no work. Throwing it out.") }
             return Result.failure()
         }
 
@@ -77,7 +78,7 @@ class ConvoyDownloadWorker(
 
         // ── Refresh mode: single slot, bounds-based, only existing tiles ──
         if (refreshOnly) {   // REPLACEFIX-2026-11-03
-            android.util.Log.i(TAG, "REFRESH MODE: slot=$refreshSlot cell bounds N=$north S=$south E=$east W=$west")
+            log.i { "REFRESH MODE: slot=$refreshSlot cell bounds N=$north S=$south E=$east W=$west" }
             val source = MapSourceManager.getSourceByKey(refreshSlot)
             // REPLACEFIX-2026-11-03: the vector map / elevation layer comes from its own source, not the raster list
             val layers = if (vectorSlot) (if (refreshSlot == VectorTiles.SLOT) VectorTiles.downloadSources(appContext) else ElevationTiles.downloadSources(appContext))
@@ -85,19 +86,16 @@ class ConvoyDownloadWorker(
             // SLOTTRACE-2026-08-04: TEMPORARY. Remove in the commit that closes the trace.
             // What did this slot actually resolve to, in this process, at this moment?
             if (layers.isEmpty()) {   // REPLACEFIX-2026-11-03: was source == null
-                android.util.Log.e(TAG,
-                    "SLOTTRACE-2026-08-04: slot=$refreshSlot RESOLVED TO NOTHING. "
+                log.e { ("SLOTTRACE-2026-08-04: slot=$refreshSlot RESOLVED TO NOTHING. "
                     + "No layers, so nothing will download and this job will still "
-                    + "report success. Column is terminated or the id is unknown.")
+                    + "report success. Column is terminated or the id is unknown.") }
             } else {
-                android.util.Log.d(TAG,
-                    "SLOTTRACE-2026-08-04: slot=$refreshSlot -> id=${source?.id} "
+                log.d { ("SLOTTRACE-2026-08-04: slot=$refreshSlot -> id=${source?.id} "
                     + "label=${source?.shortLabel} layers=${layers.size} "
-                    + "baseUrl=${source?.baseUrl}")
+                    + "baseUrl=${source?.baseUrl}") }
                 layers.forEach { ly ->
-                    android.util.Log.d(TAG,
-                        "SLOTTRACE-2026-08-04:   layer role=${ly.role} cacheDir=${ly.cacheDir} "
-                        + "url=${ly.urlTemplate}")
+                    log.d { ("SLOTTRACE-2026-08-04:   layer role=${ly.role} cacheDir=${ly.cacheDir} "
+                        + "url=${ly.urlTemplate}") }
                 }
             }
 
@@ -120,7 +118,7 @@ class ConvoyDownloadWorker(
             var totalDownloaded = 0
             var totalFailed = 0
 
-            android.util.Log.i(TAG, "REFRESHOOM-2026-08-11L Refresh cell: ${existingTiles.size} stored tile(s) in bounds, ${layers.size} layer(s)")
+            log.i { "REFRESHOOM-2026-08-11L Refresh cell: ${existingTiles.size} stored tile(s) in bounds, ${layers.size} layer(s)" }
             DownloadQueueManager.updateProgress(entryId, 0, 0)
 
             if (existingTiles.isEmpty()) {
@@ -153,12 +151,11 @@ class ConvoyDownloadWorker(
                     }
                 }
                 result.onFailure { e ->
-                    android.util.Log.e(TAG, "Refresh layer ${layer.cacheDir} failed: ${e.message}")
+                    log.e { "Refresh layer ${layer.cacheDir} failed: ${e.message}" }
                     // SLOTTRACE-2026-08-04: TEMPORARY. A cause with no context cost an evening
                     // of reconstruction on 08-02 ("CORR SAT failed", nothing else).
-                    android.util.Log.e(TAG,
-                        "SLOTTRACE-2026-08-04: FAILURE slot=$refreshSlot layer=${layer.cacheDir} "
-                        + "url=${layer.urlTemplate} cause=${e::class.java.simpleName}: ${e.message}")
+                    log.e { ("SLOTTRACE-2026-08-04: FAILURE slot=$refreshSlot layer=${layer.cacheDir} "
+                        + "url=${layer.urlTemplate} cause=${e::class.java.simpleName}: ${e.message}") }
                 }
             }
             DownloadQueueManager.markComplete(entryId, totalDownloaded, totalFailed)
@@ -180,7 +177,7 @@ class ConvoyDownloadWorker(
             else if (refreshSlot.isNotEmpty()) allSources.filter { it.first == refreshSlot } else allSources
         if ((refreshSlot == VectorTiles.SLOT || refreshSlot == ElevationTiles.SLOT) && downloadSources.isEmpty()) {   // DEMSOURCE-2026-10-30
             // ⛔ never a zero-tile "success": every tile is counted FAILED so the queue shows it.
-            android.util.Log.e(TAG, "VECSOURCE-2026-10-30: vector TileJSON not reachable -- $label failed, nothing downloaded")
+            log.e { "VECSOURCE-2026-10-30: vector TileJSON not reachable -- $label failed, nothing downloaded" }
             DownloadQueueManager.markComplete(entryId, 0, tiles.size)
             return Result.success()
         }
@@ -189,7 +186,7 @@ class ConvoyDownloadWorker(
         var totalDownloaded = 0
         var totalFailed = 0
 
-        android.util.Log.i(TAG, "Tiles: ${tiles.size} x $totalLayers layers = $totalTiles total")
+        log.i { "Tiles: ${tiles.size} x $totalLayers layers = $totalTiles total" }
 
         DownloadQueueManager.updateProgress(entryId, 0, 0)
 
@@ -197,11 +194,11 @@ class ConvoyDownloadWorker(
             for ((layerIndex, layer) in layers.withIndex()) {
                 // Check if WorkManager cancelled us
                 if (isStopped) {
-                    android.util.Log.i(TAG, "Worker stopped by system/user")
+                    log.i { "Worker stopped by system/user" }
                     return Result.failure()
                 }
 
-                android.util.Log.d(TAG, "Layer: ${layer.cacheDir} url=${layer.urlTemplate.take(60)}...")
+                log.d { "Layer: ${layer.cacheDir} url=${layer.urlTemplate.take(60)}..." }
 
                 val result = ConvoyTileDownloader.downloadTiles(
                     context = appContext,
@@ -229,7 +226,7 @@ class ConvoyDownloadWorker(
                 }
 
                 result.onFailure { e ->
-                    android.util.Log.e(TAG, "Layer ${layer.cacheDir} failed: ${e.message}")
+                    log.e { "Layer ${layer.cacheDir} failed: ${e.message}" }
                 }
             }
         }
@@ -244,7 +241,7 @@ class ConvoyDownloadWorker(
             ConvoyDownloadNotification.completeNotification(appContext, label, totalDownloaded).build()
         )
 
-        android.util.Log.i(TAG, "Complete: $label -- $totalDownloaded downloaded, $totalFailed failed")
+        log.i { "Complete: $label -- $totalDownloaded downloaded, $totalFailed failed" }
         return Result.success()
     }
 
@@ -269,7 +266,7 @@ class ConvoyDownloadWorker(
             setForegroundAsync(info)
         } catch (e: Exception) {
             // Worker may be finishing -- safe to ignore
-            android.util.Log.d(TAG, "setForeground skipped: ${e.message}")
+            log.d { "setForeground skipped: ${e.message}" }
         }
     }
 }

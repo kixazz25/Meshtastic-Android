@@ -2,7 +2,6 @@ package com.geeksville.mesh.convoy
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.util.Log
 import org.xmlpull.v1.XmlPullParser
 import org.json.JSONArray   // PADUSSVC-2026-11-02
 import org.json.JSONObject
@@ -10,6 +9,7 @@ import java.io.File
 import java.io.InputStream
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * PADUSLAND-2026-11-02 -- public, restricted and non-federal LAND AREAS from the state's saved PAD-US zip (USGS PAD-US 4.1).
@@ -35,6 +35,7 @@ import java.util.zip.ZipInputStream
  */
 object LandAreas {
     private const val TAG = "LandAreas"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val TOL = 0.0003            // ~30 m
     private const val CELL = 0.05             // grid cell, degrees (~3.5 mi) -- as step 8's old index
     val PUBLIC_OWN = setOf("FED", "STAT", "LOC", "DIST")
@@ -71,9 +72,9 @@ object LandAreas {
             val gs = rows.first()
             val folder = gs.parentState?.lowercase()?.replace(' ', '-') ?: gs.slug
             val zip = StateData.landPages(folder, code)   // PADUSSVC-2026-11-02: the service pages, not the zip
-            if (!zip.exists() || zip.length() < 10_000L) { Log.w(TAG, "PADUSLAND $code: no PAD-US data at ${zip.path} -- this state stays all PUBLIC"); continue }
+            if (!zip.exists() || zip.length() < 10_000L) { log.w { "PADUSLAND $code: no PAD-US data at ${zip.path} -- this state stays all PUBLIC" }; continue }
             val have = db.rawQuery("SELECT zip_mtime FROM land_sources WHERE state_code=?", arrayOf(code)).use { if (it.moveToFirst()) it.getLong(0) else 0L }
-            if (have == zip.lastModified() && !rulesChanged) { Log.i(TAG, "PADUSLAND $code: land areas already built from this zip"); continue }   // INHOLDING-2026-11-02
+            if (have == zip.lastModified() && !rulesChanged) { log.i { "PADUSLAND $code: land areas already built from this zip" }; continue }   // INHOLDING-2026-11-02
             // the state's box: every geofabrik row of this code (California's two halves)
             val all = GeofabrikCatalog.load(ctx).filter { it.landCode == code }
             val box = doubleArrayOf(all.minOf { it.bboxSouth }, all.minOf { it.bboxWest }, all.maxOf { it.bboxNorth }, all.maxOf { it.bboxEast })
@@ -84,7 +85,7 @@ object LandAreas {
         val have = db.rawQuery("SELECT v FROM land_meta WHERE k='rules'", null).use { if (it.moveToFirst()) it.getString(0) else "" }
         if (have != RULES.toString()) {
             db.execSQL("INSERT OR REPLACE INTO land_meta (k, v) VALUES ('rules', ?)", arrayOf<Any?>(RULES.toString()))
-            Log.i(TAG, "RSTSEG: land rules $have -> $RULES -- every trail is classified again")
+            log.i { "RSTSEG: land rules $have -> $RULES -- every trail is classified again" }
             rebuilt = true
         }
         return rebuilt
@@ -107,7 +108,7 @@ object LandAreas {
             ZipFile(zip).use { zf ->
                 for ((layer, label) in listOf("Fee_State" to "ownership", "Designation_State" to "wilderness areas")) {
                     val e = zf.entries().asSequence().firstOrNull { val n = it.name.substringAfterLast('/'); n.contains(layer) && n.endsWith(".kmz") }
-                    if (e == null) { Log.e(TAG, "PADUSLAND $code: no $layer KMZ in ${zip.name}"); throw IllegalStateException("no $layer KMZ in the PAD-US zip") }
+                    if (e == null) { log.e { "PADUSLAND $code: no $layer KMZ in ${zip.name}" }; throw IllegalStateException("no $layer KMZ in the PAD-US zip") }
                     var seen = 0
                     onStep("Public lands · reading $label")
                     ZipInputStream(zf.getInputStream(e)).use { zin ->
@@ -144,8 +145,8 @@ object LandAreas {
         } finally {
             db.endTransaction()
         }
-        Log.i(TAG, "PADUSLAND $code: $pub public, $restr restricted, $nonfed non-federal areas ($skipped skipped) " +
-            "in ${(System.currentTimeMillis() - t0) / 1000}s")
+        log.i { ("PADUSLAND $code: $pub public, $restr restricted, $nonfed non-federal areas ($skipped skipped) " +
+            "in ${(System.currentTimeMillis() - t0) / 1000}s") }
     }
 
     /** Stream a KML: for each Placemark, its <description> fields and its polygons (each a list of rings, flat x,y arrays). */
@@ -304,9 +305,9 @@ object LandAreas {
     private fun httpText(url: String): String? = try {
         val c = java.net.URL(url).openConnection() as java.net.HttpURLConnection
         c.connectTimeout = 30_000; c.readTimeout = 180_000
-        try { if (c.responseCode == 200) c.inputStream.bufferedReader().use { it.readText() } else { Log.e(TAG, "PADUSSVC HTTP ${c.responseCode}"); null } }
+        try { if (c.responseCode == 200) c.inputStream.bufferedReader().use { it.readText() } else { log.e { "PADUSSVC HTTP ${c.responseCode}" }; null } }
         finally { c.disconnect() }
-    } catch (e: Exception) { Log.e(TAG, "PADUSSVC: ${e.javaClass.simpleName} ${e.message}"); null }
+    } catch (e: Exception) { log.e { "PADUSSVC: ${e.javaClass.simpleName} ${e.message}" }; null }
 
     /**
      * Fetch state [code] from the service into [dest] (one JSON page per line, written as .part and renamed only when whole):
@@ -317,8 +318,8 @@ object LandAreas {
         fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
         val base = SERVICE + "?where=" + enc(whereFor(code))
         val expected = httpText("$base&returnCountOnly=true&f=json")?.let { try { JSONObject(it).optInt("count", -1) } catch (e: Exception) { -1 } } ?: -1
-        if (expected <= 0) { Log.e(TAG, "PADUSSVC $code: the service gave no count ($expected)"); return false }
-        Log.i(TAG, "PADUSSVC $code: $expected areas to fetch")
+        if (expected <= 0) { log.e { "PADUSSVC $code: the service gave no count ($expected)" }; return false }
+        log.i { "PADUSSVC $code: $expected areas to fetch" }
         val part = File(dest.path + ".part")
         part.parentFile?.mkdirs(); part.delete()
         var offset = 0; var pages = 0; var got = 0; var size = 2000
@@ -331,8 +332,8 @@ object LandAreas {
                     val root = if (json == null) null else try { JSONObject(json) } catch (e: Exception) { null }
                     val feats = root?.optJSONArray("features")
                     if (root == null || feats == null || root.has("error")) {
-                        if (size > 100) { size /= 2; Log.w(TAG, "PADUSSVC $code: page at $offset failed -- retrying at $size"); continue }
-                        Log.e(TAG, "PADUSSVC $code: page at $offset failed -- giving up ($got of $expected)"); return false
+                        if (size > 100) { size /= 2; log.w { "PADUSSVC $code: page at $offset failed -- retrying at $size" }; continue }
+                        log.e { "PADUSSVC $code: page at $offset failed -- giving up ($got of $expected)" }; return false
                     }
                     val n = feats.length()
                     if (n == 0) break
@@ -342,13 +343,13 @@ object LandAreas {
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "PADUSSVC $code: ${e.javaClass.simpleName} ${e.message}")
+            log.w { "PADUSSVC $code: ${e.javaClass.simpleName} ${e.message}" }
             part.delete(); return false
         }
-        if (got < expected) { Log.e(TAG, "PADUSSVC $code: only $got of $expected -- not saved"); part.delete(); return false }
+        if (got < expected) { log.e { "PADUSSVC $code: only $got of $expected -- not saved" }; part.delete(); return false }
         dest.delete()
         val ok = part.renameTo(dest)
-        Log.i(TAG, "PADUSSVC $code: $pages page(s), $got areas saved -> ${dest.path} (${dest.length() / 1_048_576} MB) ok=$ok")
+        log.i { "PADUSSVC $code: $pages page(s), $got areas saved -> ${dest.path} (${dest.length() / 1_048_576} MB) ok=$ok" }
         return ok
     }
 
@@ -412,8 +413,8 @@ object LandAreas {
         } finally {
             db.endTransaction()
         }
-        Log.i(TAG, "PADUSLAND $code: $pub public, $restr restricted, $nonfed non-federal areas ($skipped skipped) from the USGS service " +
-            "in ${(System.currentTimeMillis() - t0) / 1000}s")
+        log.i { ("PADUSLAND $code: $pub public, $restr restricted, $nonfed non-federal areas ($skipped skipped) from the USGS service " +
+            "in ${(System.currentTimeMillis() - t0) / 1000}s") }
     }
 
     // ── the index step 8 reads ──────────────────────────────────────────
@@ -544,7 +545,7 @@ object LandAreas {
             if ((x1 - x0 + 1).toLong() * (y1 - y0 + 1).toLong() > 20000L) { big.add(i); return@forEachIndexed }   // tested by box every time
             for (gx in x0..x1) for (gy in y0..y1) grid.getOrPut(key(gx, gy)) { ArrayList() }.add(i)
         }
-        Log.i(TAG, "PADUSLAND index: ${polys.size} polygons, ${cov.size} state(s) covered, ${grid.size} cells, ${big.size} large")
+        log.i { "PADUSLAND index: ${polys.size} polygons, ${cov.size} state(s) covered, ${grid.size} cells, ${big.size} large" }
         return LandIndex(polys, grid.mapValues { it.value.toIntArray() }, big.toIntArray(), cov)
     }
 }

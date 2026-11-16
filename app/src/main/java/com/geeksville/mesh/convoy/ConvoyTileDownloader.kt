@@ -11,6 +11,7 @@ import okhttp3.Request
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.coroutineContext
+import com.grouptrack.shared.log.gtLogger
 
 // ============================================================
 // ConvoyTileDownloader.kt
@@ -92,11 +93,11 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
                         code == 429 || code == 503 || code == 502 -> {  // [V2.6b-502] 502=transient gateway, retry
                             val retryAfterMs = response.header("Retry-After")?.toLongOrNull()?.times(1000) ?: 0L
                             response.close()
-                            android.util.Log.w("TileDownloader", "HTTP $code (retryable) attempt=$attempt: $url")
+                            gtLogger("TileDownloader").w { "HTTP $code (retryable) attempt=$attempt: $url" }
                             FetchOutcome(null, true, retryAfterMs)
                         }
                         else -> {
-                            android.util.Log.w("TileDownloader", "HTTP $code: $url")
+                            gtLogger("TileDownloader").w { "HTTP $code: $url" }
                             response.close()
                             FetchOutcome(null, false, 0L)
                         }
@@ -107,7 +108,7 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
                 val backoff = maxOf(result.retryAfterMs, TILE_BACKOFF_BASE_MS * (1L shl attempt))
                 kotlinx.coroutines.delay(backoff)
             } catch (e: Exception) {
-                android.util.Log.e("TileDownloader", "Tile fail attempt=$attempt: $url err=${e.message}")
+                gtLogger("TileDownloader").e { "Tile fail attempt=$attempt: $url err=${e.message}" }
                 if (attempt >= TILE_MAX_RETRIES) return null
                 kotlinx.coroutines.delay(TILE_BACKOFF_BASE_MS * (1L shl attempt))
             }
@@ -146,10 +147,7 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
             val zCap = ConvoyTileCalculator.maxZoomForSlot(sourceName)
             val capTiles = tiles.filter { it.z <= zCap }
             if (capTiles.size != tiles.size) {
-                android.util.Log.i(
-                    "TileDownloader",
-                    "ZCAP2-2026-09-14: $sourceName cap z$zCap -- skipping ${tiles.size - capTiles.size} of ${tiles.size} tiles"
-                )
+                gtLogger("TileDownloader").i { "ZCAP2-2026-09-14: $sourceName cap z$zCap -- skipping ${tiles.size - capTiles.size} of ${tiles.size} tiles" }
             }
             var downloaded = 0
             var failed = 0
@@ -177,7 +175,7 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
                                 val url = buildTileUrl(tile, sourceUrl)
                                 if (tile.z == 18 && loggedZ18 < 3) {
                                     loggedZ18++
-                                    android.util.Log.i("TileDownloader", "DL: $url -> $sourceName.mbtiles z${tile.z}/${tile.x}/${tile.y}")
+                                    gtLogger("TileDownloader").i { "DL: $url -> $sourceName.mbtiles z${tile.z}/${tile.x}/${tile.y}" }
                                 }
                                 Triple(tile, fetchTileBytes(url), false)
                             }
@@ -212,7 +210,7 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
     fun scanTilesToKeys(slotName: String): List<TileKey> {
         // [V2.6-PASS1-S4] DB-backed: slotName is the type (= old cache_dir).
         val keys = MBTilesStore.scanKeys(slotName)
-        android.util.Log.i("TileDownloader", "Scanned $slotName: ${keys.size} tiles (mbtiles)")
+        gtLogger("TileDownloader").i { "Scanned $slotName: ${keys.size} tiles (mbtiles)" }
         return keys
     }
 
@@ -232,7 +230,7 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
         val south = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (maxY + 1) / n))))
         val west = minX.toDouble() / n * 360.0 - 180.0
         val east = (maxX + 1).toDouble() / n * 360.0 - 180.0
-        android.util.Log.i("TileDownloader", "Bounds for $slotName: N=${"%.4f".format(north)} S=${"%.4f".format(south)} E=${"%.4f".format(east)} W=${"%.4f".format(west)}")
+        gtLogger("TileDownloader").i { "Bounds for $slotName: N=${"%.4f".format(north)} S=${"%.4f".format(south)} E=${"%.4f".format(east)} W=${"%.4f".format(west)}" }
         return doubleArrayOf(north, south, east, west)
     }
 
@@ -304,13 +302,10 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
             val cE = baseE + pad
             val cW = baseW - pad
             cells.add(doubleArrayOf(cN, cS, cE, cW))
-            android.util.Log.i("SEGMENT", "cell ${i + 1}/$n N=$cN S=$cS E=$cE W=$cW")
+            gtLogger("SEGMENT").i { "cell ${i + 1}/$n N=$cN S=$cS E=$cE W=$cW" }
         }
-        android.util.Log.i(
-            "SEGMENT",
-            "SPLIT sizeTiles=$sizeTiles ceiling=$segCeilingTiles segments=$n " +
-            "cutAxis=${if (cutLat) "lat" else "lon"} overlapTiles=${if (n > 1) overlapTiles else 0} padDeg=$pad"
-        )
+        gtLogger("SEGMENT").i { ("SPLIT sizeTiles=$sizeTiles ceiling=$segCeilingTiles segments=$n " +
+            "cutAxis=${if (cutLat) "lat" else "lon"} overlapTiles=${if (n > 1) overlapTiles else 0} padDeg=$pad") }
         return cells
     }
 
@@ -328,7 +323,7 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
             }
             lat += step
         }
-        android.util.Log.i("TileDownloader", "Grid: ${cells.size} cells at ${gridMiles}mi")
+        gtLogger("TileDownloader").i { "Grid: ${cells.size} cells at ${gridMiles}mi" }
         return cells
     }
 

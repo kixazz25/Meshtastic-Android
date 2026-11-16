@@ -2,8 +2,8 @@ package com.geeksville.mesh.grouptrack
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.util.Log
 import com.geeksville.mesh.convoy.GroupTrackStorage
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * MATHPROBE-2026-11-10 (TEST-ONLY; Fred 11-10 07:17 "find it", 07:37 "solve the issue"): what ANDROID's java.lang.Math returns for
@@ -19,6 +19,7 @@ import com.geeksville.mesh.convoy.GroupTrackStorage
  */
 object GtMathProbe {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val D2R = 0.017453292519943295          // GtJava.toRadians / Android's Math.toRadians constant
     private const val CAP = 1_500_000                      // per function
 
@@ -26,7 +27,7 @@ object GtMathProbe {
 
     fun run(app: Context, w: java.io.Writer) {
         val t0 = System.currentTimeMillis(); var last = t0
-        fun progress(msg: String) { val now = System.currentTimeMillis(); if (now - last >= 10_000) { last = now; Log.i(TAG, "GTCERT mathprobe $msg") } }
+        fun progress(msg: String) { val now = System.currentTimeMillis(); if (now - last >= 10_000) { last = now; log.i { "GTCERT mathprobe $msg" } } }
         val f = java.io.File(GroupTrackStorage.dir("cert15c_input", app), "grouptrack_spatial.db")
         if (!f.isFile) { w.write("# MATHPROBE: STOP -- no input at ${f.path} (gt_cert pushes it for rider15c)\n"); return }
         val cosIn = LinkedHashSet<Long>(); val sinIn = LinkedHashSet<Long>(); val asinIn = LinkedHashSet<Long>()
@@ -77,7 +78,7 @@ object GtMathProbe {
         for (b in asinIn) { val x = java.lang.Double.longBitsToDouble(b); w.write("A|"); w.write(java.lang.Long.toHexString(b)); w.write("|"); w.write(h(Math.asin(x))); w.write("\n"); if (++n % 200_000 == 0) progress("writing $n") }
         for (p in hyIn) { val (xs, ys) = p.split(','); val x = java.lang.Double.longBitsToDouble(java.lang.Long.parseUnsignedLong(xs, 16)); val y = java.lang.Double.longBitsToDouble(java.lang.Long.parseUnsignedLong(ys, 16)); w.write("H|"); w.write(p); w.write("|"); w.write(h(Math.hypot(x, y))); w.write("\n"); if (++n % 200_000 == 0) progress("writing $n") }
         w.write("# MATHPROBE done: $n values in ${(System.currentTimeMillis() - t0) / 1000} s\n")
-        Log.i(TAG, "GTCERT mathprobe done: $n values")
+        log.i { "GTCERT mathprobe done: $n values" }
     }
 
     /**
@@ -89,7 +90,7 @@ object GtMathProbe {
      */
     fun runPow(app: Context, w: java.io.Writer) {
         val t0 = System.currentTimeMillis(); var last = t0
-        fun progress(msg: String) { val now = System.currentTimeMillis(); if (now - last >= 10_000) { last = now; Log.i(TAG, "GTCERT mathpow $msg") } }
+        fun progress(msg: String) { val now = System.currentTimeMillis(); if (now - last >= 10_000) { last = now; log.i { "GTCERT mathpow $msg" } } }
         val f = java.io.File(GroupTrackStorage.dir("cert15c_input", app), "grouptrack_spatial.db")
         if (!f.isFile) { w.write("# MATHPOW: STOP -- no input at ${f.path} (gt_cert pushes it for rider15c)\n"); return }
         val pIn = LinkedHashSet<Long>(); val realCap = 1_200_000
@@ -127,7 +128,7 @@ object GtMathProbe {
         var n = 0
         for (b in pIn) { val x = java.lang.Double.longBitsToDouble(b); w.write("P|"); w.write(java.lang.Long.toHexString(b)); w.write("|"); w.write(h(Math.pow(x, 2.0))); w.write("\n"); if (++n % 200_000 == 0) progress("writing $n") }
         w.write("# MATHPOW done: $n values in ${(System.currentTimeMillis() - t0) / 1000} s\n")
-        Log.i(TAG, "GTCERT mathpow done: $n values")
+        log.i { "GTCERT mathpow done: $n values" }
     }
 
     /**
@@ -142,7 +143,7 @@ object GtMathProbe {
      */
     fun runTile(app: Context, w: java.io.Writer) {
         val t0 = System.currentTimeMillis(); var last = t0
-        fun progress(msg: String) { val now = System.currentTimeMillis(); if (now - last >= 10_000) { last = now; Log.i(TAG, "GTCERT mathtile $msg") } }
+        fun progress(msg: String) { val now = System.currentTimeMillis(); if (now - last >= 10_000) { last = now; log.i { "GTCERT mathtile $msg" } } }
         val f = java.io.File(GroupTrackStorage.dir("cert15c_input", app), "grouptrack_spatial.db")
         if (!f.isFile) { w.write("# MATHTILE: STOP -- no input at ${f.path} (gt_cert pushes it for rider15c)\n"); return }
         val lats = LinkedHashSet<Long>(); val cap = 400_000
@@ -187,6 +188,6 @@ object GtMathProbe {
         for (z in 0..14) for (y in 0L..(1L shl z)) row(z, y)
         for (z in 15..18) repeat(20_000) { row(z, (rnd.nextDouble() * ((1L shl z) + 1)).toLong()) }
         w.write("# MATHTILE done: $n values in ${(System.currentTimeMillis() - t0) / 1000} s\n")
-        Log.i(TAG, "GTCERT mathtile done: $n values")
+        log.i { "GTCERT mathtile done: $n values" }
     }
 }

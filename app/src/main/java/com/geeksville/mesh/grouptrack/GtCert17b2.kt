@@ -1,7 +1,6 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -16,6 +15,7 @@ import com.geeksville.mesh.convoy.certOldDataStore17b2
 import com.grouptrack.shared.settings.GtRideSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP17G2B2-2026-11-12 (2.8 step 17, G2b-2) ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the ride settings,
@@ -28,6 +28,7 @@ import kotlinx.coroutines.runBlocking
  */
 object GtCert17b2 {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     fun enc(v: Any?): String = GtCert17b.enc(v)
 
     fun run(app: Context, w: java.io.Writer) = runBlocking {
@@ -83,6 +84,6 @@ object GtCert17b2 {
         check("copy|no-overwrite", "5.0 / 1 copied / 3", "${n.signalDropMinutes()} / $c2 copied / ${n.admissionWindowHours()}")
         ods.edit { it.clear() }; ns.edit { clear() }; app.deleteSharedPreferences("gtcert17b2_new")
         w.write("# S17C done: $same SAME, $diff DIFF in ${(System.currentTimeMillis() - t0) / 1000} s\n")
-        Log.i(TAG, "GTCERT ride17b2: $same SAME, $diff DIFF")
+        log.i { "GTCERT ride17b2: $same SAME, $diff DIFF" }
     }
 }

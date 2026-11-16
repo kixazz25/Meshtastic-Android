@@ -6,6 +6,7 @@ import com.grouptrack.comm.CommMenus
 import com.grouptrack.comm.CommResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * COMMMENUS-2026-10-08 (2.7b cycle 1, design v16 §R6.2) -- the MESH implementation of CommMenus: the native Meshtastic
@@ -76,13 +77,13 @@ object MeshScreens {
     fun onSettingsPage(showing: Boolean) {
         if (open.value != MeshCommMenus.RADIO_SETTINGS) { reached = false; return }
         if (showing) reached = true
-        else if (reached) { reached = false; open.value = null; android.util.Log.i("CommMenus", "COMMSETTINGS-2026-10-12 radio settings left") }
+        else if (reached) { reached = false; open.value = null; gtLogger("CommMenus").i { "COMMSETTINGS-2026-10-12 radio settings left" } }
     }
     /** NODESMENU-2026-10-15: the twin of onSettingsPage for Nodes -- leaving it (BACK TO MAP or Android's back) clears [open]. */
     @Volatile private var reachedNodes = false
     fun onNodesPage(showing: Boolean) {
         if (open.value != MeshCommMenus.NODES) { reachedNodes = false; return }
         if (showing) reachedNodes = true
-        else if (reachedNodes) { reachedNodes = false; open.value = null; baseId = null; android.util.Log.i("CommMenus", "NODESMENU-2026-10-15 nodes left") }
+        else if (reachedNodes) { reachedNodes = false; open.value = null; baseId = null; gtLogger("CommMenus").i { "NODESMENU-2026-10-15 nodes left" } }
     }
 }

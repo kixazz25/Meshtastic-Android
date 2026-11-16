@@ -3,7 +3,6 @@ package com.geeksville.mesh.grouptrack
 import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
-import android.util.Log
 import com.geeksville.mesh.convoy.ConvoyRideJsonWriterCertOld
 import com.geeksville.mesh.convoy.ConvoyRideStoreCertOld
 import com.geeksville.mesh.convoy.GroupTrackStorage
@@ -31,6 +30,7 @@ import java.io.File
 import java.security.MessageDigest
 import java.time.LocalDate
 import java.util.Locale
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP14C-2026-11-08: the ride-model certification -- 2.7e's ConvoyRideStore / ConvoyRideJsonWriter / RideApplySource / RideImport (the
@@ -54,6 +54,7 @@ import java.util.Locale
  */
 object GtCertRides {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     // =================================================================================================================================
     // the two sides behind one face
@@ -378,7 +379,7 @@ object GtCertRides {
 
     private fun safe(f: () -> String): String = try { f() } catch (e: Throwable) { "EXCEPTION $e" }
 
-    private fun progress(case: String, side: Side, what: String) { Log.i(TAG, "GTCERT rides $case ${side.name} $what") }
+    private fun progress(case: String, side: Side, what: String) { log.i { "GTCERT rides $case ${side.name} $what" } }
 
     // =================================================================================================================================
     // the run
@@ -391,7 +392,7 @@ object GtCertRides {
         fun put(s: String) { w.write(s); ext.write(s) }
         fun check(key: String, a: String, b: String) {
             if (a == b) { same++; put("RIDES|$key|SAME\n") }
-            else { diff++; put("RIDES|$key|DIFF\n  OLD|$a\n  NEW|$b\n"); Log.w(TAG, "GTCERT rides DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}") }
+            else { diff++; put("RIDES|$key|DIFF\n  OLD|$a\n  NEW|$b\n"); log.w { "GTCERT rides DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}" } }
         }
         put("# rides: frozen copy $stamp\n")
         if (dataPath == null) {
@@ -447,7 +448,7 @@ object GtCertRides {
             put("# rides: OLD case 6 done in ${(System.currentTimeMillis() - t0) / 1000} s\n")
         } catch (e: Throwable) {
             aborted = e.toString()
-            put("# rides: ABORTED $e\n"); Log.e(TAG, "GTCERT rides aborted", e)
+            put("# rides: ABORTED $e\n"); log.e(e) { "GTCERT rides aborted" }
         } finally {
             GtRideStore.env = liveEnv
         }
@@ -469,7 +470,7 @@ object GtCertRides {
         try { gdate { k, a, b -> check(k, a, b) } } catch (e: Throwable) { put("# rides: case 7 ABORTED $e\n") }
         put("# rides done: same $same diff $diff in ${(System.currentTimeMillis() - t0) / 1000} s" +
             (if (aborted != null) " (ABORTED: $aborted)" else "") + "\n")
-        Log.i(TAG, "GTCERT rides done: same $same diff $diff")
+        log.i { "GTCERT rides done: same $same diff $diff" }
         try { ext.close() } catch (_: Exception) {}
     }
 
@@ -1029,7 +1030,7 @@ object GtCertRides {
             val t = randText(ld)
             kParse.cmp("parse('$t')", jParse(t), GDateCert.parse(t))
             if (i % 10 == 0) { kBefore.cmp("isBefore('$t','$prevText')", jBefore(t, prevText), GDateCert.isBefore(t, prevText)); prevText = t }
-            if (i % 100_000 == 99_999) Log.i(TAG, "GTCERT rides 7-gdate ${i + 1} cases, ${(System.currentTimeMillis() - t0) / 1000} s")
+            if (i % 100_000 == 99_999) log.i { "GTCERT rides 7-gdate ${i + 1} cases, ${(System.currentTimeMillis() - t0) / 1000} s" }
         }
         // the edge years (PORT_NOTES f7)
         val years = listOf(-999_999_999, 999_999_999, -1_000_000_000, 1_000_000_000, 0, -1, 1, 9999, 10000, 999, 1000, -999, -1000,
@@ -1055,6 +1056,6 @@ object GtCertRides {
             if (k.d == 0L) check(key, "all equal", "all equal")
             else check(key, "${k.d} of ${k.n} differ: " + k.ex.joinToString(" ; "), "(java.time is the OLD side)")
         }
-        Log.i(TAG, "GTCERT rides 7-gdate done in ${(System.currentTimeMillis() - t0) / 1000} s")
+        log.i { "GTCERT rides 7-gdate done in ${(System.currentTimeMillis() - t0) / 1000} s" }
     }
 }

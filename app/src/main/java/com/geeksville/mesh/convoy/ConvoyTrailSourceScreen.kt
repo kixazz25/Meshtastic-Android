@@ -2,7 +2,6 @@ package com.geeksville.mesh.convoy
 
 import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.content.Context
-import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import com.grouptrack.shared.log.gtLogger
 
 // ----------------------------------------------------------------
 // ConvoyTrailSourceScreen -- V2.5 §9 Trail Import Flow
@@ -641,7 +641,7 @@ internal fun loadSourceCatalog(context: Context): List<CatalogSource> {
             )
         }
     } catch (e: Exception) {
-        Log.e("TrailSource", "Failed to load catalog: ${e.message}")
+        gtLogger("TrailSource").e { "Failed to load catalog: ${e.message}" }
         emptyList()
     }
 }

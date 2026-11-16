@@ -1,12 +1,12 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import com.geeksville.mesh.convoy.ConvoyConfig
 import com.geeksville.mesh.convoy.ConvoySessionManager
 import com.geeksville.mesh.convoy.SessionCertOld
 import com.grouptrack.shared.settings.GtConfig
 import com.grouptrack.shared.settings.GtSession
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP17G2B1-2026-11-12 (2.8 step 17, G2b-1) ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the settings
@@ -20,6 +20,7 @@ import com.grouptrack.shared.settings.GtSession
  */
 object GtCert17b {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     fun enc(v: Any?): String = when (v) {
         null -> "null"; is String -> "s:$v"; is Int -> "i:$v"; is Long -> "l:$v"; is Float -> "f:$v"; is Boolean -> "b:$v"
         is Set<*> -> "set:" + v.map { it.toString() }.sorted().joinToString("\u001f")
@@ -98,6 +99,6 @@ object GtCert17b {
         check("config|DOWNLOAD_ZOOM_MIN", "${ConvoyConfig.DOWNLOAD_ZOOM_MIN}", "${GtConfig.DOWNLOAD_ZOOM_MIN}")
 
         w.write("# S17B done: $same SAME, $diff DIFF in ${(System.currentTimeMillis() - t0) / 1000} s\n")
-        Log.i(TAG, "GTCERT session17b: $same SAME, $diff DIFF")
+        log.i { "GTCERT session17b: $same SAME, $diff DIFF" }
     }
 }

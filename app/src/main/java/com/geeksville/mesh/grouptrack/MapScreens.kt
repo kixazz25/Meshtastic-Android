@@ -37,6 +37,7 @@ import com.geeksville.mesh.convoy.DownloadQueueManager
 import com.geeksville.mesh.convoy.HomeStatePickerScreen
 import com.geeksville.mesh.convoy.MapSourceManager
 import com.geeksville.mesh.convoy.SlotDisplayInfo
+import com.grouptrack.shared.log.gtLogger
 
 /*
  * GTAREA2-2026-10-23 (2.7c, Fred 10:53): THE MAP FUNCTIONS AS SEPARATE, CALLABLE SCREEN MODULES.
@@ -226,7 +227,7 @@ object GtOffGrid {
                     i = j + 1
                 }
             }
-            android.util.Log.i("Overlay", "GTOFFGRID available: ${bounds.size} rect(s) from $type z$z")
+            gtLogger("Overlay").i { "GTOFFGRID available: ${bounds.size} rect(s) from $type z$z" }
             val json = "[" + bounds.joinToString(",") + "]"
             android.os.Handler(android.os.Looper.getMainLooper()).post { if (available.value) js("showDownloadedAreas($json)") }
         }.start()
@@ -565,7 +566,7 @@ fun GtRefreshSourceScreen(onDone: () -> Unit) {
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("Recreate", "GTHEAVY recreate scan failed: ${e.message}")
+                gtLogger("Recreate").e { "GTHEAVY recreate scan failed: ${e.message}" }
             }
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 // a slower scan of the PREVIOUS slot must not overwrite the results of the one since picked
@@ -624,7 +625,7 @@ fun GtRefreshSourceScreen(onDone: () -> Unit) {
                 onDone()
                 Thread {
                     val queued = DownloadQueueManager.enqueueRecreateSource(context, s)
-                    android.util.Log.i("Recreate", "GTHEAVY PROCEED $s -> $queued job(s) queued")
+                    gtLogger("Recreate").i { "GTHEAVY PROCEED $s -> $queued job(s) queued" }
                 }.start()
             }) { Text("PROCEED TO COPY") }
         },

@@ -2,12 +2,12 @@ package com.geeksville.mesh.grouptrack
 
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import androidx.core.content.FileProvider
 import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.geeksville.mesh.convoy.VectorTiles
 import org.json.JSONObject
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * MAPRECIPES-2026-11-03 (Fred 10:2x): the map recipes -- restore as of a day, send by email, receive with one click.
@@ -17,6 +17,7 @@ import java.io.File
  */
 object GtRecipes {
     private const val TAG = "MapRecipes"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     /** A recipe just opened from an email / Downloads: its path, picked when Saved map recipes opens. "" = none (CODE RULE 1). */
     val pick = androidx.compose.runtime.mutableStateOf("")
     /** An AI route recipe just opened from an email / Downloads: its JSON, consumed by the shell. "" = none. */
@@ -44,7 +45,7 @@ object GtRecipes {
             android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS).listFiles()
                 ?.filter { it.name.startsWith("grouptrack_maps_") && it.name.endsWith(".gtmaps") }?.sortedByDescending { it.name }
                 ?.forEach { rcv.add(row(it, dayOf(it))) }
-        } catch (e: Exception) { Log.w(TAG, "MAPRECIPES Downloads not readable: ${e.message}") }
+        } catch (e: Exception) { log.w { "MAPRECIPES Downloads not readable: ${e.message}" } }
         return Pair(saved, rcv)
     }
 
@@ -78,7 +79,7 @@ object GtRecipes {
         if (sq.isEmpty()) return "No map areas in this recipe."
         val rep = GtDownloadDefaults.initialReplace(ctx)   // REPLACEDEFAULT-2026-11-03
         val r = VectorTiles.queueSquares(ctx, sq, rep, "restore $label")
-        Log.i(TAG, "MAPRECIPES restore $label (${f.name}): ${sq.size} squares -> ${r.first} job(s), ~${r.second} tiles")
+        log.i { "MAPRECIPES restore $label (${f.name}): ${sq.size} squares -> ${r.first} job(s), ~${r.second} tiles" }
         return if (r.first == 0) "Nothing could be queued." else
             "Queued ${r.first} download jobs for the maps as of $label — " + (if (rep) "every map downloads fresh." else "only what is missing downloads.") +
                 " Watch them in Map › MAP DOWNLOADS."
@@ -102,9 +103,9 @@ object GtRecipes {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         ctx.startActivity(Intent.createChooser(send, "Send the map recipe").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        Log.i(TAG, "MAPRECIPES send $label (${f.name}, ${f.length()} bytes)")
+        log.i { "MAPRECIPES send $label (${f.name}, ${f.length()} bytes)" }
         ""
-    } catch (e: Exception) { Log.e(TAG, "MAPRECIPES send failed", e); "Could not send: ${e.message}" }
+    } catch (e: Exception) { log.e(e) { "MAPRECIPES send failed" }; "Could not send: ${e.message}" }
 
     /** An AI route recipe: the recipe itself (anchorLat + milesHigh), bare or under "recipe" (an ISSUE attachment). */
     private fun routeOf(o: JSONObject): JSONObject? {
@@ -124,14 +125,14 @@ object GtRecipes {
             var f = File(receivedDir(ctx), "$base.gtmaps"); var k = 2
             while (f.exists() && f.readText() != content) { f = File(receivedDir(ctx), "$base ($k).gtmaps"); k++ }
             f.writeText(content)
-            Log.i(TAG, "MAPRECIPES received ${f.name} (${f.length()} bytes) -> Saved map recipes")
+            log.i { "MAPRECIPES received ${f.name} (${f.length()} bytes) -> Saved map recipes" }
             pick.value = f.absolutePath
             GtArea.ready.value = "recipes"
             bringForward(ctx)
             return "Map recipe received — tap RESTORE to download its maps."
         }
         val r = routeOf(o) ?: return ""
-        Log.i(TAG, "MAPRECIPES received a route recipe (${displayName ?: "no name"}) -> the AI build")
+        log.i { "MAPRECIPES received a route recipe (${displayName ?: "no name"}) -> the AI build" }
         routeRecipe.value = r.toString()
         bringForward(ctx)
         return "Route recipe received — the AI build opens at its summary."

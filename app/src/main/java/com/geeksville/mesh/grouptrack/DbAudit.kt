@@ -1,8 +1,8 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import com.grouptrack.shared.startup.GtDbAuditPort
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * SWITCH17G2F-2026-11-13 (2.8 step 17, G2f): front door to the shared GtDbAuditPort (certified by
@@ -15,6 +15,7 @@ import com.grouptrack.shared.startup.GtDbAuditPort
  */
 object GtDbAudit {
     private const val TAG = "DbAudit"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     /** Read-only. Nothing is changed or deleted. */
     fun run(ctx: Context) { GtDbAuditPort.run(GtHkAndroid(ctx, TAG)) }
@@ -32,9 +33,9 @@ object GtDbAudit {
             Thread {
                 try {
                     Thread.sleep(delayMs)
-                    if (GtCertRun.active) { Log.i(TAG, "DBREPAIR skipped: a certification run is using swapped database handles"); return@Thread }
+                    if (GtCertRun.active) { log.i { "DBREPAIR skipped: a certification run is using swapped database handles" }; return@Thread }
                     body()
-                } catch (e: Exception) { Log.e(TAG, "DBREPAIR failed", e) }
+                } catch (e: Exception) { log.e(e) { "DBREPAIR failed" } }
             }.start()
         }
     }

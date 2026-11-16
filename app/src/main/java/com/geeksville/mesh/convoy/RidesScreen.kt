@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.grouptrack.shared.log.gtLogger
 
 /*
  * RIDESLIST-2026-09-26 (Fred) -- Work with Rides -> "Rides -- send, edit, delete": ONE list of every ride on this
@@ -87,7 +88,7 @@ private fun loadRideLines(context: android.content.Context): List<RideLine> {
             out
         }
     } catch (e: Exception) {
-        android.util.Log.w("Rides", "RIDESLIST: load failed: ${e.message}"); emptyList()
+        gtLogger("Rides").w { "RIDESLIST: load failed: ${e.message}" }; emptyList()
     }
 }
 

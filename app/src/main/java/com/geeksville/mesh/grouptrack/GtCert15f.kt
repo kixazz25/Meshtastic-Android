@@ -2,7 +2,6 @@ package com.geeksville.mesh.grouptrack
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.util.Log
 import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.geeksville.mesh.convoy.SpatialDbManager
 import com.geeksville.mesh.convoy.TrailImporterCertOld
@@ -22,6 +21,7 @@ import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toOkioPath
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP15F-2026-11-10 ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 15f certification on the Droid
@@ -42,13 +42,14 @@ import java.io.File
  */
 object GtCert15f {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val MAX_DIFF_LINES = 2000
 
     private var lastLog = 0L
     private fun progress(msg: String, force: Boolean = false) {
         val now = System.currentTimeMillis()
         if (force || msg.contains(" E1 ") || msg.contains(" E2 ") || now - lastLog >= 15_000) { lastLog = now; val rt = Runtime.getRuntime()
-            Log.i(TAG, "GTCERT trail15f $msg [heap ${(rt.totalMemory() - rt.freeMemory()) / 1048576} MB of ${rt.maxMemory() / 1048576}]") }
+            log.i { "GTCERT trail15f $msg [heap ${(rt.totalMemory() - rt.freeMemory()) / 1048576} MB of ${rt.maxMemory() / 1048576}]" } }
     }
 
     /** OLD: the app's code, as the TEST-ONLY copy carries it, on SpatialDbManager's (swapped) handles; [progressLog] = its certProgress. */
@@ -122,7 +123,7 @@ object GtCert15f {
         val inS = File(dbIn, "grouptrack_spatial.db"); val inD = File(dbIn, "grouptrack_data.db")
         if (!inS.isFile || !inD.isFile || !agIn.isDirectory || (agIn.listFiles { f -> f.name.endsWith(".jsonl") }?.size ?: 0) == 0) {
             w.write("# T15F: STOP -- no input (need ${inS.path}, ${inD.path} and the saved pages in ${agIn.path}; gt_cert_v22 pushes them). Not run.\n")
-            Log.e(TAG, "GTCERT trail15f STOP: no input at ${dbIn.path} / ${agIn.path} -- run gt_cert_v22 trail15f")
+            log.e { "GTCERT trail15f STOP: no input at ${dbIn.path} / ${agIn.path} -- run gt_cert_v22 trail15f" }
             return
         }
         var same = 0; var diff = 0; var expected = 0; var diffLines = 0
@@ -134,7 +135,7 @@ object GtCert15f {
                 else -> {
                     diff++
                     if (diffLines < MAX_DIFF_LINES) { diffLines++; put("T15F\t$key\tDIFF\t$b\n  OLD\t$a\n  NEW\t$b\n") }
-                    Log.w(TAG, "GTCERT trail15f DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}")
+                    log.w { "GTCERT trail15f DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}" }
                 }
             }
         }
@@ -210,7 +211,7 @@ object GtCert15f {
                                 TrailImporterCertOld.certHttpFn = null; TrailImporterCertOld.certClock = null
                                 TrailImporterCertOld.updateMode = TrailImporterCertOld.UpdateMode.CARTO_ONLY
                                 SpatialDbManager.certSwapDatabases(prev.first, prev.second)
-                                Log.i(TAG, "GTCERT trail15f live handles restored")
+                                log.i { "GTCERT trail15f live handles restored" }
                             }
                         } finally { dt.close() }
                     } finally { sp.close() }
@@ -252,7 +253,7 @@ object GtCert15f {
             }
             put("# T15F: tables dumped in ${(System.currentTimeMillis() - tT) / 1000} s\n")
         } catch (e: Throwable) {
-            aborted = e.toString(); put("# T15F: ABORTED $e\n"); Log.e(TAG, "GTCERT trail15f aborted", e)
+            aborted = e.toString(); put("# T15F: ABORTED $e\n"); log.e(e) { "GTCERT trail15f aborted" }
         }
 
         // ---- compare ----
@@ -269,7 +270,7 @@ object GtCert15f {
         if (diff > diffLines) put("# T15F: ${diff - diffLines} more DIFF lines not written (see logcat CertRun)\n")
         put("# T15F done: $same SAME, $diff DIFF, $expected EXPECTED in ${(System.currentTimeMillis() - t0) / 1000} s" +
             (if (aborted != null) " (ABORTED: $aborted)" else "") + "\n")
-        Log.i(TAG, "GTCERT trail15f: $same SAME, $diff DIFF, $expected EXPECTED")
+        log.i { "GTCERT trail15f: $same SAME, $diff DIFF, $expected EXPECTED" }
     }
 
     private fun dump(dir: File, out: File, inp: Cert15d.Inputs, label: String) {

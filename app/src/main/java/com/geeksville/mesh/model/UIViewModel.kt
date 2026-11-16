@@ -71,6 +71,7 @@ import org.meshtastic.proto.ChannelSet
 import org.meshtastic.proto.ClientNotification
 import org.meshtastic.proto.SharedContact
 import javax.inject.Inject
+import com.grouptrack.shared.log.gtLogger
 
 @HiltViewModel
 @Suppress("LongParameterList", "TooManyFunctions")
@@ -171,7 +172,7 @@ constructor(
         val bluetoothManager = context.getSystemService(android.content.Context.BLUETOOTH_SERVICE)
             as? android.bluetooth.BluetoothManager
         val adapter = bluetoothManager?.adapter ?: return
-        android.util.Log.i("ConvoyReconnect", "Toggling Bluetooth for radio reconnect")
+        gtLogger("ConvoyReconnect").i { "Toggling Bluetooth for radio reconnect" }
         viewModelScope.launch {
             try {
                 // Disable Bluetooth
@@ -181,9 +182,9 @@ constructor(
                 // Re-enable Bluetooth
                 @Suppress("DEPRECATION")
                 adapter.enable()
-                android.util.Log.i("ConvoyReconnect", "Bluetooth re-enabled — waiting for radio reconnect")
+                gtLogger("ConvoyReconnect").i { "Bluetooth re-enabled — waiting for radio reconnect" }
             } catch (e: Exception) {
-                android.util.Log.e("ConvoyReconnect", "BT toggle failed: ${e.message}")
+                gtLogger("ConvoyReconnect").e { "BT toggle failed: ${e.message}" }
             }
         }
     }

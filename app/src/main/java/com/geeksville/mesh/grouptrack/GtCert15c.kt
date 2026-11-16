@@ -2,7 +2,6 @@ package com.geeksville.mesh.grouptrack
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.util.Log
 import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.geeksville.mesh.convoy.RiderTrailWriterCertOld
 import com.geeksville.mesh.convoy.SpatialDbManager
@@ -14,6 +13,7 @@ import com.grouptrack.shared.rider.GtRiderScan
 import com.grouptrack.shared.rider.GtRiderTrails
 import com.grouptrack.shared.spatial.GtWrite
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP15C-2026-11-09 ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 15c certification on the Droid
@@ -41,6 +41,7 @@ import java.io.File
  */
 object GtCert15c {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val MAX_DIFF_LINES = 2000
 
     /** OLD: 2.7e, as the TEST-ONLY copies carry it, on SpatialDbManager's (swapped) handles. */
@@ -84,7 +85,7 @@ object GtCert15c {
         if (!inS.isFile || !inD.isFile) {
             // STEP15C-B: no fallback to the frozen copy (Fred 11-09)
             w.write("# R15C: STOP -- no input at ${inDir.path} (need grouptrack_spatial.db + grouptrack_data.db; gt_cert_v19b pushes them). Not run.\n")
-            Log.e(TAG, "GTCERT rider15c STOP: no input at ${inDir.path} -- push the Mac's live_2026-11-08 there (gt_cert_v19b rider15c)")
+            log.e { "GTCERT rider15c STOP: no input at ${inDir.path} -- push the Mac's live_2026-11-08 there (gt_cert_v19b rider15c)" }
             return
         }
         for (f in listOf(inS, inD)) w.write("# R15C: input ${f.name} len=${f.length()} sha256=${sha256(f)}\n")
@@ -104,7 +105,7 @@ object GtCert15c {
                     if (diffLines < MAX_DIFF_LINES) { diffLines++; put("R15C\t$key\tDIFF\t$b\n  OLD\t$a\n  NEW\t$b\n")
                         // STEP15C-B (Fred 11-09, Q3): a trail row (s1) or a new trail's properties (s3) that differs is named -- never tolerated
                         if (key.startsWith("tables|s1|") || key.startsWith("tables|s3|")) put("  NOTE\tTRAIL ROW DIFFERS (WKT / geom_hash / columns) -- investigate (Q3), not tolerated\n") }
-                    Log.w(TAG, "GTCERT rider15c DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}")
+                    log.w { "GTCERT rider15c DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}" }
                 }
             }
         }
@@ -122,7 +123,7 @@ object GtCert15c {
             // what each copy holds before its side runs (read from the copy itself, never from the input files)
             val inOld = inputs(oldD); val inNew = inputs(newD)
             put("# R15C: before the run: ${inOld.trailIds.size} trails, ${inOld.aliasIds.size} trail aliases, ${inOld.trackHashes.size} tracks\n")
-            Log.i(TAG, "GTCERT rider15c inputs read (${(System.currentTimeMillis() - t0) / 1000} s)")
+            log.i { "GTCERT rider15c inputs read (${(System.currentTimeMillis() - t0) / 1000} s)" }
 
             // ---- OLD: 2.7e on copy "old" ----
             val tO = System.currentTimeMillis()
@@ -134,10 +135,10 @@ object GtCert15c {
                         val prev = SpatialDbManager.certSwapDatabases(sp, dt)
                         try {
                             Cert15c.runScript(OldSide, inOld, { k, v -> o.write(k); o.write("\t"); o.write(Cert15c.esc(v)); o.write("\n") },
-                                { p -> Log.i(TAG, "GTCERT rider15c $p") })
+                                { p -> log.i { "GTCERT rider15c $p" } })
                         } finally {
                             SpatialDbManager.certSwapDatabases(prev.first, prev.second)
-                            Log.i(TAG, "GTCERT rider15c live handles restored")
+                            log.i { "GTCERT rider15c live handles restored" }
                         }
                     } finally { dt.close() }
                 } finally { sp.close() }
@@ -157,7 +158,7 @@ object GtCert15c {
                         val env = CountingEnv(GtImportAndroid(app))
                         val side = Cert15c.NewSide(GtRiderTrails(conn, dconn, writer, env)) { env.count }
                         Cert15c.runScript(side, inNew, { k, v -> o.write(k); o.write("\t"); o.write(Cert15c.esc(v)); o.write("\n") },
-                            { p -> Log.i(TAG, "GTCERT rider15c $p") })
+                            { p -> log.i { "GTCERT rider15c $p" } })
                     } finally { dt.close() }
                 } finally { sp.close() }
             }
@@ -168,7 +169,7 @@ object GtCert15c {
             dump(oldD, inOld, oldD.tables); dump(newD, inNew, newD.tables)
             put("# R15C: tables dumped in ${(System.currentTimeMillis() - tT) / 1000} s\n")
         } catch (e: Throwable) {
-            aborted = e.toString(); put("# R15C: ABORTED $e\n"); Log.e(TAG, "GTCERT rider15c aborted", e)
+            aborted = e.toString(); put("# R15C: ABORTED $e\n"); log.e(e) { "GTCERT rider15c aborted" }
         }
 
         // ---- compare ----
@@ -184,7 +185,7 @@ object GtCert15c {
         if (diff > diffLines) put("# R15C: ${diff - diffLines} more DIFF lines not written (see logcat CertRun)\n")
         put("# R15C done: $same SAME, $diff DIFF, $expected EXPECTED in ${(System.currentTimeMillis() - t0) / 1000} s" +
             (if (aborted != null) " (ABORTED: $aborted)" else "") + "\n")
-        Log.i(TAG, "GTCERT rider15c: $same SAME, $diff DIFF, $expected EXPECTED")
+        log.i { "GTCERT rider15c: $same SAME, $diff DIFF, $expected EXPECTED" }
     }
 
     /** a side's folder: the input databases COPIED in (with -wal / -journal when the input has them). */

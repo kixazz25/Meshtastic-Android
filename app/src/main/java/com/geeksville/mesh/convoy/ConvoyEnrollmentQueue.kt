@@ -1,7 +1,7 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import android.util.Log
+import com.grouptrack.shared.log.gtLogger
 
 // ============================================================
 // ConvoyEnrollmentQueue.kt
@@ -14,11 +14,12 @@ import android.util.Log
 object ConvoyEnrollmentQueue {
 
     private const val TAG = "ConvoyEnrollmentQueue"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     // Called on every app startup with internet connection
     // Phase C: GET /users/pending_invites → distribute JSON for any undistributed invites
     fun checkPendingDistributions(ctx: Context) {
-        Log.d(TAG, "checkPendingDistributions — stub, Phase C")
+        log.d { "checkPendingDistributions — stub, Phase C" }
         // Phase C implementation:
         // val response = ConvoyApiClient.getPendingInvites(userId)
         // response.forEach { invite -> distributeRideJson(ctx, invite.token) }
@@ -27,7 +28,7 @@ object ConvoyEnrollmentQueue {
     // Called after JSON receipt — starts map tile download
     // Phase C: ConvoyTileDownloader.downloadTiles(bounds)
     fun queueMapDownload(ctx: Context, rideId: String, boundsNorth: Double, boundsSouth: Double, boundsEast: Double, boundsWest: Double) {
-        Log.d(TAG, "queueMapDownload — rideId=$rideId stub, Phase C")
+        log.d { "queueMapDownload — rideId=$rideId stub, Phase C" }
         setEnrollmentStatus(ctx, rideId, "maps", "PENDING")
         // Phase C implementation:
         // ConvoyTileDownloader.downloadTiles(boundsNorth, boundsSouth, boundsEast, boundsWest)
@@ -37,27 +38,27 @@ object ConvoyEnrollmentQueue {
 
     // Called on app startup if maps are pending and connection available
     fun processMapQueue(ctx: Context) {
-        Log.d(TAG, "processMapQueue — stub, Phase C")
+        log.d { "processMapQueue — stub, Phase C" }
         // Phase C: check all enrollment_{rideId}_maps_status = PENDING/DOWNLOADING
         // resume downloads
     }
 
     // Called on JSON receipt — flags radio config as pending
     fun setRadioConfigPending(ctx: Context, rideId: String) {
-        Log.d(TAG, "setRadioConfigPending — rideId=$rideId")
+        log.d { "setRadioConfigPending — rideId=$rideId" }
         setEnrollmentStatus(ctx, rideId, "radio", "PENDING")
         // Field Radio screen reads this flag and shows APPLY CONFIG prompt
     }
 
     // Called when rider applies radio config in Field Radio screen
     fun setRadioConfigApplied(ctx: Context, rideId: String) {
-        Log.d(TAG, "setRadioConfigApplied — rideId=$rideId")
+        log.d { "setRadioConfigApplied — rideId=$rideId" }
         setEnrollmentStatus(ctx, rideId, "radio", "APPLIED")
     }
 
     // Called on ACCEPT tap — CAL-01 stub
     fun addRideToCalendar(ctx: Context, rideName: String, date: String, time: String, location: String = "") {
-        Log.d(TAG, "addRideToCalendar — stub CAL-01, Phase C")
+        log.d { "addRideToCalendar — stub CAL-01, Phase C" }
         android.widget.Toast.makeText(ctx, "Calendar entry — Phase C", android.widget.Toast.LENGTH_SHORT).show()
         // Phase C implementation:
         // val intent = Intent(Intent.ACTION_INSERT).apply {
@@ -70,7 +71,7 @@ object ConvoyEnrollmentQueue {
 
     // Called on first ride save — sets organizer status
     fun postOrganizerStatus(ctx: Context) {
-        Log.d(TAG, "postOrganizerStatus — stub, Phase C")
+        log.d { "postOrganizerStatus — stub, Phase C" }
         ConvoySessionManager.setOrganizer(ctx, true)
         // Phase C implementation:
         // ConvoyApiClient.postOrganizerStatus(userId)
@@ -78,20 +79,20 @@ object ConvoyEnrollmentQueue {
 
     // Called on app startup — uploads any queued ride surveys
     fun processSurveyQueue(ctx: Context) {
-        Log.d(TAG, "processSurveyQueue — stub, Phase C")
+        log.d { "processSurveyQueue — stub, Phase C" }
         // Phase C: check SharedPrefs for queued surveys
         // POST /ride/survey for each, clear on success
     }
 
     // Follow/unfollow organizer stubs
     fun followOrganizer(ctx: Context, organizerId: String, organizerName: String) {
-        Log.d(TAG, "followOrganizer — organizerId=$organizerId stub FOLLOW-01, Phase C")
+        log.d { "followOrganizer — organizerId=$organizerId stub FOLLOW-01, Phase C" }
         android.widget.Toast.makeText(ctx, "Following $organizerName", android.widget.Toast.LENGTH_SHORT).show()
         // Phase C: ConvoyApiClient.postFollow(userId, organizerId)
     }
 
     fun unfollowOrganizer(ctx: Context, organizerId: String, organizerName: String) {
-        Log.d(TAG, "unfollowOrganizer — organizerId=$organizerId stub FOLLOW-01, Phase C")
+        log.d { "unfollowOrganizer — organizerId=$organizerId stub FOLLOW-01, Phase C" }
         android.widget.Toast.makeText(ctx, "Unfollowed $organizerName", android.widget.Toast.LENGTH_SHORT).show()
         // Phase C: ConvoyApiClient.deleteFollow(userId, organizerId)
     }

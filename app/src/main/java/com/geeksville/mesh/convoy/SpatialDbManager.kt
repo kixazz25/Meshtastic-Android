@@ -7,6 +7,7 @@ import java.io.File
 import java.time.Instant
 import java.util.UUID
 import okio.Path.Companion.toOkioPath   // STEP15CDE-SWITCH-2026-11-10
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * SpatialDbManager -- singleton managing two SQLite databases for V2.5.
@@ -32,6 +33,7 @@ import okio.Path.Companion.toOkioPath   // STEP15CDE-SWITCH-2026-11-10
 object SpatialDbManager {
 
     private const val TAG = "SpatialDbMgr"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val SPATIAL_DB = "grouptrack_spatial.db"
     private const val MARKER_FILE = ".db_schema_version"
     private const val EXTENSION_DB = "grouptrack_data.db"
@@ -87,13 +89,13 @@ object SpatialDbManager {
                         dbMarker = markerFile.readText().trim().toIntOrNull() ?: 0
                     }
                 } catch (ex: Exception) {
-                    android.util.Log.w(TAG, "DB marker: file read failed: " + ex.message)
+                    log.w { "DB marker: file read failed: " + ex.message }
                 }
                 if (dbMarker <= 0) {
                     val legacy = prefs.getInt("db_schema_marker", 0)
                     if (legacy > 0) {
                         dbMarker = legacy
-                        android.util.Log.i(TAG, "DB marker: adopted legacy prefs value " + legacy)
+                        log.i { "DB marker: adopted legacy prefs value " + legacy }
                     }
                 }
 
@@ -107,9 +109,9 @@ object SpatialDbManager {
                 if (dbMarker >= 3 && !markerFile.exists()) {
                     try {
                         markerFile.writeText(dbMarker.toString())
-                        android.util.Log.i(TAG, "DB marker: stamped missing marker file at " + dbMarker)
+                        log.i { "DB marker: stamped missing marker file at " + dbMarker }
                     } catch (ex: Exception) {
-                        android.util.Log.e(TAG, "DB marker: stamp-if-missing failed: " + ex.message)
+                        log.e { "DB marker: stamp-if-missing failed: " + ex.message }
                     }
                 }
 
@@ -142,22 +144,19 @@ object SpatialDbManager {
                         }
                     }
                 } catch (ex: Exception) {
-                    android.util.Log.w(TAG, "DB marker: row probe failed, assuming populated: " + ex.message)
+                    log.w { "DB marker: row probe failed, assuming populated: " + ex.message }
                     existingRows = -1
                 }
 
                 if (dbMarker < 3 && existingRows != 0) {
                     // Data present (or unreadable) but the marker is behind: this is a
                     // reinstall over live databases, not a fresh install. Stamp and skip.
-                    android.util.Log.w(
-                        TAG,
-                        "DB v3 migration: SKIPPED -- marker " + dbMarker + " but rows=" + existingRows +
-                            " (reinstall over existing data); stamping marker, no delete"
-                    )
+                    log.w { ("DB v3 migration: SKIPPED -- marker " + dbMarker + " but rows=" + existingRows +
+                            " (reinstall over existing data); stamping marker, no delete") }
                     try {
                         markerFile.writeText("3")
                     } catch (ex: Exception) {
-                        android.util.Log.e(TAG, "DB marker: stamp failed: " + ex.message)
+                        log.e { "DB marker: stamp failed: " + ex.message }
                     }
                     prefs.edit().putInt("db_schema_marker", 3).apply()
                     dbMarker = 3
@@ -174,7 +173,7 @@ object SpatialDbManager {
                         val f = File(dir, SPATIAL_DB + suffix)
                         if (f.exists()) {
                             val ok = f.delete()
-                            android.util.Log.i(TAG, "DB v3 migration: delete " + SPATIAL_DB + suffix + " = " + ok)
+                            log.i { "DB v3 migration: delete " + SPATIAL_DB + suffix + " = " + ok }
                             if (!ok) sd = false
                         }
                     }
@@ -182,11 +181,11 @@ object SpatialDbManager {
                         val f = File(dir, EXTENSION_DB + suffix)
                         if (f.exists()) {
                             val ok = f.delete()
-                            android.util.Log.i(TAG, "DB v3 migration: delete " + EXTENSION_DB + suffix + " = " + ok)
+                            log.i { "DB v3 migration: delete " + EXTENSION_DB + suffix + " = " + ok }
                             if (!ok) ed = false
                         }
                     }
-                    android.util.Log.i(TAG, "DB v3 migration: spatial-clean=" + sd + " extension-clean=" + ed + " (marker was " + dbMarker + ")")
+                    log.i { "DB v3 migration: spatial-clean=" + sd + " extension-clean=" + ed + " (marker was " + dbMarker + ")" }
                     if (sd && ed) {
                         // DBMARKER-SHARED-2026-08-16: write the file first -- it is the one that
                         // survives an uninstall. The prefs value is kept in step so a
@@ -194,16 +193,16 @@ object SpatialDbManager {
                         try {
                             File(dir, MARKER_FILE).writeText("3")
                         } catch (ex: Exception) {
-                            android.util.Log.e(TAG, "DB marker: write failed: " + ex.message)
+                            log.e { "DB marker: write failed: " + ex.message }
                         }
                         prefs.edit().putInt("db_schema_marker", 3).apply()
-                        android.util.Log.i(TAG, "DB v3 migration: marker set to 3; DBs will rebuild from v3 assets")
+                        log.i { "DB v3 migration: marker set to 3; DBs will rebuild from v3 assets" }
                     } else {
-                        android.util.Log.w(TAG, "DB v3 migration: a delete failed (scoped-storage?); marker NOT advanced, will retry next launch")
+                        log.w { "DB v3 migration: a delete failed (scoped-storage?); marker NOT advanced, will retry next launch" }
                     }
                 }
             } catch (ex: Exception) {
-                android.util.Log.e(TAG, "DB v3 migration gate error: " + ex.message)
+                log.e { "DB v3 migration gate error: " + ex.message }
             }
             // === end delete-gate ===
 
@@ -214,7 +213,7 @@ object SpatialDbManager {
             try {
                 spatialDb!!.rawQuery("SELECT geometry FROM tracks LIMIT 1", null).use { it.moveToFirst() }
             } catch (e: Exception) {
-                android.util.Log.i("SpatialDb", "Applying v2 migration to tracks table")
+                gtLogger("SpatialDb").i { "Applying v2 migration to tracks table" }
                 try {
                     spatialDb!!.execSQL("ALTER TABLE tracks ADD COLUMN geometry TEXT")
                     spatialDb!!.execSQL("ALTER TABLE tracks ADD COLUMN min_lat REAL")
@@ -222,30 +221,30 @@ object SpatialDbManager {
                     spatialDb!!.execSQL("ALTER TABLE tracks ADD COLUMN min_lon REAL")
                     spatialDb!!.execSQL("ALTER TABLE tracks ADD COLUMN max_lon REAL")
                     spatialDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_tracks_bbox ON tracks(min_lat, max_lat, min_lon, max_lon)")
-                } catch (e2: Exception) { android.util.Log.w("SpatialDb", "Migration partial: " + e2.message) }
+                } catch (e2: Exception) { gtLogger("SpatialDb").w { "Migration partial: " + e2.message } }
             }
             // v3 migration: add type column to tracks (TRACK/ROUTE distinction)
             try {
                 spatialDb!!.rawQuery("SELECT type FROM tracks LIMIT 1", null).use { it.moveToFirst() }
             } catch (e: Exception) {
-                android.util.Log.i("SpatialDb", "Applying v3 migration: type column on tracks")
+                gtLogger("SpatialDb").i { "Applying v3 migration: type column on tracks" }
                 try {
                     spatialDb!!.execSQL("ALTER TABLE tracks ADD COLUMN type TEXT NOT NULL DEFAULT 'TRACK'")
                     spatialDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_tracks_type ON tracks(type)")
-                } catch (e3: Exception) { android.util.Log.w("SpatialDb", "v3 migration partial: " + e3.message) }
+                } catch (e3: Exception) { gtLogger("SpatialDb").w { "v3 migration partial: " + e3.message } }
             }
             // v3 migration: ensure waypoints table has bbox columns for viewport queries
             try {
                 spatialDb!!.rawQuery("SELECT min_lat FROM waypoints LIMIT 1", null).use { it.moveToFirst() }
             } catch (e: Exception) {
-                android.util.Log.i("SpatialDb", "Applying v3 migration: bbox columns on waypoints")
+                gtLogger("SpatialDb").i { "Applying v3 migration: bbox columns on waypoints" }
                 try {
                     spatialDb!!.execSQL("ALTER TABLE waypoints ADD COLUMN min_lat REAL")
                     spatialDb!!.execSQL("ALTER TABLE waypoints ADD COLUMN max_lat REAL")
                     spatialDb!!.execSQL("ALTER TABLE waypoints ADD COLUMN min_lon REAL")
                     spatialDb!!.execSQL("ALTER TABLE waypoints ADD COLUMN max_lon REAL")
                     spatialDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_waypoints_bbox ON waypoints(min_lat, max_lat, min_lon, max_lon)")
-                } catch (e3: Exception) { android.util.Log.w("SpatialDb", "waypoint bbox migration: " + e3.message) }
+                } catch (e3: Exception) { gtLogger("SpatialDb").w { "waypoint bbox migration: " + e3.message } }
             }
             // STATUS-2026-09-01: `status` on TRAILS.
             // ⛔ THIS IS WHAT CRASHED THE 09-01 BUILD. queryTrailsByViewport
@@ -260,11 +259,11 @@ object SpatialDbManager {
                 spatialDb!!.rawQuery("SELECT status FROM trails LIMIT 1", null)
                     .use { it.moveToFirst() }
             } catch (_: Exception) {
-                android.util.Log.i("SpatialDb", "Applying migration: status on trails")
+                gtLogger("SpatialDb").i { "Applying migration: status on trails" }
                 try {
                     spatialDb!!.execSQL("ALTER TABLE trails ADD COLUMN status TEXT")
                 } catch (e: Exception) {
-                    android.util.Log.w("SpatialDb", "status column: ${e.message}")
+                    gtLogger("SpatialDb").w { "status column: ${e.message}" }
                 }
             }
 
@@ -283,11 +282,11 @@ object SpatialDbManager {
                     spatialDb!!.rawQuery("SELECT $col FROM trails LIMIT 1", null)
                         .use { it.moveToFirst() }
                 } catch (_: Exception) {
-                    android.util.Log.i("SpatialDb", "Applying migration: $col on trails")
+                    gtLogger("SpatialDb").i { "Applying migration: $col on trails" }
                     try {
                         spatialDb!!.execSQL("ALTER TABLE trails ADD COLUMN $col TEXT")
                     } catch (e: Exception) {
-                        android.util.Log.w("SpatialDb", "$col column: ${e.message}")
+                        gtLogger("SpatialDb").w { "$col column: ${e.message}" }
                     }
                 }
             }
@@ -306,19 +305,19 @@ object SpatialDbManager {
             try {
                 spatialDb!!.rawQuery("SELECT carto_code FROM trails LIMIT 1", null).use { it.moveToFirst() }
             } catch (e: Exception) {
-                android.util.Log.i("SpatialDb", "Applying v4 migration: carto_code on trails")
+                gtLogger("SpatialDb").i { "Applying v4 migration: carto_code on trails" }
                 try {
                     spatialDb!!.execSQL("ALTER TABLE trails ADD COLUMN carto_code TEXT")
-                } catch (e4: Exception) { android.util.Log.w("SpatialDb", "v4 migration: " + e4.message) }
+                } catch (e4: Exception) { gtLogger("SpatialDb").w { "v4 migration: " + e4.message } }
             }
             if (!hasTable(spatialDb!!, "schema_version")) {
                 runSchemaFromAsset(context, spatialDb!!, "schema_spatial_v3.sql")
                 // CLEANUP-2026-08-04: the $ was backslash-escaped, so this logged the
                 // LITERAL text and the DB path never appeared. That is the line that
                 // would have made the 08-01 loss obvious immediately.
-                android.util.Log.i(TAG, "Applied spatial schema: ${spatialFile.absolutePath}")
+                log.i { "Applied spatial schema: ${spatialFile.absolutePath}" }
             } else {
-                android.util.Log.i(TAG, "Opened spatial database: ${spatialFile.absolutePath}")
+                log.i { "Opened spatial database: ${spatialFile.absolutePath}" }
             }
 
             // Open/create extension database
@@ -326,9 +325,9 @@ object SpatialDbManager {
             extensionDb = SQLiteDatabase.openOrCreateDatabase(extFile, null)
             if (!hasTable(extensionDb!!, "schema_version")) {
                 runSchemaFromAsset(context, extensionDb!!, "schema_extension_v3.sql")
-                android.util.Log.i(TAG, "Applied extension schema: \${extFile.absolutePath}")
+                log.i { "Applied extension schema: \${extFile.absolutePath}" }
             } else {
-                android.util.Log.i(TAG, "Opened extension database: \${extFile.absolutePath}")
+                log.i { "Opened extension database: \${extFile.absolutePath}" }
             }
 
             // ── STATUS-2026-09-01: both databases are open from here ──────
@@ -342,8 +341,7 @@ object SpatialDbManager {
                     "SELECT ref_code FROM trail_properties LIMIT 1", null
                 ).use { it.moveToFirst() }
             } catch (_: Exception) {
-                android.util.Log.i("SpatialDb",
-                    "Applying v5 migration: attribute columns on trail_properties")
+                gtLogger("SpatialDb").i { "Applying v5 migration: attribute columns on trail_properties" }
                 for (c in listOf("ref_code", "operator", "width_raw",
                                  "maxwidth_raw", "incline", "sac_scale",
                                  "mtb_scale", "trail_visibility",
@@ -354,7 +352,7 @@ object SpatialDbManager {
                     } catch (e: Exception) {
                         // One column already present is not a reason to abandon
                         // the rest -- a half-applied earlier run must converge.
-                        android.util.Log.w("SpatialDb", "v5 $c: ${e.message}")
+                        gtLogger("SpatialDb").w { "v5 $c: ${e.message}" }
                     }
                 }
             }
@@ -391,9 +389,9 @@ object SpatialDbManager {
             try {
                 val t0 = System.currentTimeMillis()
                 extensionDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_tp_source ON trail_properties(source_id, source_unique_id)")
-                android.util.Log.i(TAG, "IDXSOURCE: trail_properties(source_id, source_unique_id) index ready in ${System.currentTimeMillis() - t0} ms")
+                log.i { "IDXSOURCE: trail_properties(source_id, source_unique_id) index ready in ${System.currentTimeMillis() - t0} ms" }
             } catch (e: Exception) {
-                android.util.Log.w(TAG, "IDXSOURCE: ${e.message}")
+                log.w { "IDXSOURCE: ${e.message}" }
             }
             // Migrate: add area_downloads if missing (existing DBs)
             if (!hasTable(extensionDb!!, "area_downloads")) {
@@ -405,9 +403,9 @@ object SpatialDbManager {
                         ride_id TEXT, created_at TEXT NOT NULL, completed_at TEXT)""")
                     extensionDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_area_dl_type ON area_downloads(artifact_type, direction)")
                     extensionDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_area_dl_ride ON area_downloads(ride_id)")
-                    android.util.Log.i(TAG, "Migrated: added area_downloads table")
+                    log.i { "Migrated: added area_downloads table" }
                 } catch (e: Exception) {
-                    android.util.Log.w(TAG, "area_downloads migration: ${e.message}")
+                    log.w { "area_downloads migration: ${e.message}" }
                 }
             }
             // ROUTENOTES-2026-08-23X: route_notes. Same shape as the area_downloads
@@ -431,9 +429,9 @@ object SpatialDbManager {
                         author TEXT DEFAULT 'generated', created_at TEXT NOT NULL)""")
                     extensionDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_route_notes_route ON route_notes(route_id, seq)")
                     extensionDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_route_notes_hash ON route_notes(geom_hash)")
-                    android.util.Log.i(TAG, "Migrated: added route_notes table")
+                    log.i { "Migrated: added route_notes table" }
                 } catch (e: Exception) {
-                    android.util.Log.w(TAG, "route_notes migration: ${e.message}")
+                    log.w { "route_notes migration: ${e.message}" }
                 }
             }
             // DEVSCHEMA-2026-09-22: V3-shaped device tables (convergence doc v24).
@@ -449,9 +447,9 @@ object SpatialDbManager {
                 val tablesAfter = extensionDb!!.rawQuery(
                     "SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'", null
                 ).use { c -> if (c.moveToFirst()) c.getInt(0) else -1 }
-                android.util.Log.i(TAG, "DEVSCHEMA-2026-09-22: extension tables $tablesBefore -> $tablesAfter")
+                log.i { "DEVSCHEMA-2026-09-22: extension tables $tablesBefore -> $tablesAfter" }
             } catch (e: Exception) {
-                android.util.Log.w(TAG, "DEVSCHEMA-2026-09-22: ${e.message}")
+                log.w { "DEVSCHEMA-2026-09-22: ${e.message}" }
             }
             // STEP12B-2026-11-07: the shared schema (GtSchema) -- the ONE place the schema is brought current, on both platforms.
             // The pre-2.8 steps above are Android's frozen history and run first; the iPad runs only GtSchema. Every schema change
@@ -461,18 +459,18 @@ object SpatialDbManager {
                     com.geeksville.mesh.grouptrack.GtAppDb.wrap(spatialDb!!),
                     com.geeksville.mesh.grouptrack.GtAppDb.wrap(extensionDb!!)
                 ) { name -> context.assets.open(name).bufferedReader().use { it.readText() } }
-                android.util.Log.i(TAG, "GTSCHEMA-2026-11-07: schema version $sv")
+                log.i { "GTSCHEMA-2026-11-07: schema version $sv" }
             } catch (e: Exception) {
-                android.util.Log.e(TAG, "GTSCHEMA-2026-11-07: ${e.message}")
+                log.e { "GTSCHEMA-2026-11-07: ${e.message}" }
             }
             initialized = true
             val trailCount = countRows(spatialDb!!, "trails")
             val trackCount = countRows(spatialDb!!, "tracks")
             val wptCount = countRows(spatialDb!!, "waypoints")
             val routeCount = countRows(spatialDb!!, "routes")
-            android.util.Log.i(TAG, "Spatial DB: $trailCount trails, $trackCount tracks, $wptCount waypoints, $routeCount routes")
+            log.i { "Spatial DB: $trailCount trails, $trackCount tracks, $wptCount waypoints, $routeCount routes" }
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "Database init failed: ${e.message}")
+            log.e { "Database init failed: ${e.message}" }
         }
     }
 
@@ -507,7 +505,7 @@ object SpatialDbManager {
                     try {
                         db.execSQL("$statement;")
                     } catch (e: Exception) {
-                        android.util.Log.w(TAG, "SQL skip: ${e.message} | ${statement.take(60)}")
+                        log.w { "SQL skip: ${e.message} | ${statement.take(60)}" }
                     }
                 }
             db.setTransactionSuccessful()
@@ -552,11 +550,11 @@ object SpatialDbManager {
                 val c = com.grouptrack.shared.db.gtOpenDatabase(s.path, true)
                 val d = e?.let { com.grouptrack.shared.db.gtOpenDatabase(it.path, true) }
                 lookupConns = c to d; lookupFor = s to e; lookups = com.grouptrack.shared.spatial.GtRead(c, d)
-                android.util.Log.i("SpatialDb", "STEP7 shared lookups opened on " + s.path + (if (e != null) " + " + e.path else " (no data db)"))
+                gtLogger("SpatialDb").i { "STEP7 shared lookups opened on " + s.path + (if (e != null) " + " + e.path else " (no data db)") }
             }
             f(lookups!!)
         } catch (ex: Exception) {
-            android.util.Log.w("SpatialDb", "STEP7 lookup failed: " + ex.message); none
+            gtLogger("SpatialDb").w { "STEP7 lookup failed: " + ex.message }; none
         }
     }
 
@@ -571,7 +569,7 @@ object SpatialDbManager {
     fun certSwapDatabases(spatial: SQLiteDatabase?, extension: SQLiteDatabase?): Pair<SQLiteDatabase?, SQLiteDatabase?> {
         val prev = spatialDb to extensionDb
         spatialDb = spatial; extensionDb = extension
-        android.util.Log.i("CertRun", "GTCERTW handles now ${spatial?.path} / ${extension?.path}")
+        gtLogger("CertRun").i { "GTCERTW handles now ${spatial?.path} / ${extension?.path}" }
         return prev
     }
 
@@ -826,9 +824,9 @@ object SpatialDbManager {
                     ))
                 }
             }
-            android.util.Log.i("TrackLazy", "Viewport query returned ${results.size} tracks")
+            gtLogger("TrackLazy").i { "Viewport query returned ${results.size} tracks" }
         } catch (e: Exception) {
-            android.util.Log.e("TrackLazy", "Viewport query failed: ${e.message}")
+            gtLogger("TrackLazy").e { "Viewport query failed: ${e.message}" }
         }
         return results
     }
@@ -940,9 +938,9 @@ object SpatialDbManager {
                     ))
                 }
             }
-            android.util.Log.i("WaypointLazy", "Viewport query returned ${results.size} waypoints")
+            gtLogger("WaypointLazy").i { "Viewport query returned ${results.size} waypoints" }
         } catch (e: Exception) {
-            android.util.Log.e("WaypointLazy", "Viewport query failed: ${e.message}")
+            gtLogger("WaypointLazy").e { "Viewport query failed: ${e.message}" }
         }
         return results
     }
@@ -990,9 +988,9 @@ object SpatialDbManager {
                     ))
                 }
             }
-            android.util.Log.i("RouteLazy", "Viewport query returned ${results.size} routes")
+            gtLogger("RouteLazy").i { "Viewport query returned ${results.size} routes" }
         } catch (e: Exception) {
-            android.util.Log.e("RouteLazy", "Viewport query failed: ${e.message}")
+            gtLogger("RouteLazy").e { "Viewport query failed: ${e.message}" }
         }
         return results
     }
@@ -1039,9 +1037,9 @@ object SpatialDbManager {
                     ))
                 }
             }
-            android.util.Log.i("TrackLazy", "Tracks-only viewport query returned ${results.size} tracks")
+            gtLogger("TrackLazy").i { "Tracks-only viewport query returned ${results.size} tracks" }
         } catch (e: Exception) {
-            android.util.Log.e("TrackLazy", "Tracks-only viewport query failed: ${e.message}")
+            gtLogger("TrackLazy").e { "Tracks-only viewport query failed: ${e.message}" }
         }
         return results
     }
@@ -1066,7 +1064,7 @@ object SpatialDbManager {
         if (writerObj == null || writerFor?.first !== s || writerFor?.second !== e) {
             writerObj = com.grouptrack.shared.spatial.GtWrite(com.geeksville.mesh.grouptrack.GtAppDb.wrap(s), e?.let { com.geeksville.mesh.grouptrack.GtAppDb.wrap(it) }, { newId() }, { now() })
             writerFor = s to e
-            android.util.Log.i("SpatialDb", "STEP11 shared writer on the app's handles")
+            gtLogger("SpatialDb").i { "STEP11 shared writer on the app's handles" }
         }
         writerObj
     }
@@ -1177,7 +1175,7 @@ object SpatialDbManager {
                 if (c.moveToNext()) org.json.JSONObject(c.getString(0)) else null
             }
         } catch (e: Exception) {
-            android.util.Log.w("SpatialDb", "readRouteNotes: ${e.message}"); null
+            gtLogger("SpatialDb").w { "readRouteNotes: ${e.message}" }; null
         }
     }
 
@@ -1239,7 +1237,7 @@ object SpatialDbManager {
             ).use { c -> if (c.moveToFirst()) n = c.getInt(0) }
             n
         } catch (e: Exception) {
-            android.util.Log.w("SpatialDb", "routeNameCount: ${e.message}")
+            gtLogger("SpatialDb").w { "routeNameCount: ${e.message}" }
             0
         }
     }
@@ -1346,7 +1344,7 @@ object SpatialDbManager {
         val t = sharedTracks()
         if (t == null) {
             if (!propertiesBackfillRunning.compareAndSet(false, true)) {
-                android.util.Log.w("TrackProps", "backfill already running -- skipping concurrent call")
+                gtLogger("TrackProps").w { "backfill already running -- skipping concurrent call" }
                 onProgress?.invoke("\u26a0 properties pass already running \u2014 skipped")
             } else propertiesBackfillRunning.set(false)
             return BackfillResult(0, 0, emptyList())
@@ -1400,7 +1398,7 @@ object SpatialDbManager {
             val c = db.rawQuery("SELECT geom_hash, name FROM $table WHERE geom_hash IS NOT NULL", null)
             val m = dedupHashToName[type]!!
             c.use { while (it.moveToNext()) m[it.getString(0)] = it.getString(1) ?: "Not Named" }
-        } catch (ex: Exception) { android.util.Log.w("SpatialDb", "loadHashes($table): ${ex.message}") }
+        } catch (ex: Exception) { gtLogger("SpatialDb").w { "loadHashes($table): ${ex.message}" } }
     }
 
     /** Has this (source_id, source_unique_id) already been imported? In-memory. */
@@ -1424,7 +1422,7 @@ object SpatialDbManager {
             db.rawQuery("SELECT name FROM $table WHERE geom_hash=? LIMIT 1", arrayOf(geomHash)).use { c ->
                 if (c.moveToFirst()) (if (c.isNull(0)) "Not Named" else c.getString(0)) else null
             }
-        } catch (ex: Exception) { android.util.Log.w("SpatialDb", "DUPECHECK-2026-10-20 nameByHash($table): ${ex.message}"); null }
+        } catch (ex: Exception) { gtLogger("SpatialDb").w { "DUPECHECK-2026-10-20 nameByHash($table): ${ex.message}" }; null }
     }
 
     /** Record a freshly-inserted artifact in the in-memory lookup. */
@@ -1509,7 +1507,7 @@ object SpatialDbManager {
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "getArtifactBounds($table) failed: ${e.message}")
+            gtLogger("SpatialDb").e { "getArtifactBounds($table) failed: ${e.message}" }
         }
         return null
     }
@@ -1612,8 +1610,8 @@ object SpatialDbManager {
     fun deleteTrackFromDb(id: String) {   // STEP15CDE-SWITCH-2026-11-10 (15d): the shared GtTracks -- the rows (as since step 11) AND the GPX file
         val t = sharedTracks()
         if (t != null) { t.deleteTrackFromDb(id); return }
-        android.util.Log.i("TrackDelete", "no geom_hash for $id -- no file to remove")   // 2.7e with no database open
-        android.util.Log.i("TrackDelete", "deleteTrackFromDb($id) complete")
+        gtLogger("TrackDelete").i { "no geom_hash for $id -- no file to remove" }   // 2.7e with no database open
+        gtLogger("TrackDelete").i { "deleteTrackFromDb($id) complete" }
     }
 
     
@@ -1682,7 +1680,7 @@ object SpatialDbManager {
                 return Pair(name, gpx)
             }
         } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "buildWaypointGpx error: " + e.message)
+            gtLogger("SpatialDb").e { "buildWaypointGpx error: " + e.message }
             return null
         }
     }
@@ -1718,7 +1716,7 @@ object SpatialDbManager {
                 return Pair(name, com.grouptrack.shared.gpx.GtGpx.route(name, geom, desc, notes?.toString()))
             }
         } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "buildRouteGpx error: " + e.message)
+            gtLogger("SpatialDb").e { "buildRouteGpx error: " + e.message }
             return null
         }
     }
@@ -1745,16 +1743,16 @@ object SpatialDbManager {
         val tracksDir = ConvoyTrackOps.tracksDir()   // MYTRACKSDB-2026-09-12
         val gpxFile = java.io.File(tracksDir, "$geomHash.gpx")
         if (!gpxFile.exists()) {
-            android.util.Log.e("SpatialDb", "Track file not found: ${gpxFile.absolutePath}")
+            gtLogger("SpatialDb").e { "Track file not found: ${gpxFile.absolutePath}" }
             return null
         }
 
         return try {
             val content = gpxFile.readText()
-            android.util.Log.i("SpatialDb", "buildTrackGpxById: $name (${content.length} chars)")
+            gtLogger("SpatialDb").i { "buildTrackGpxById: $name (${content.length} chars)" }
             name to content
         } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "Failed to read track file", e)
+            gtLogger("SpatialDb").e(e) { "Failed to read track file" }
             null
         }
     }
@@ -1788,7 +1786,7 @@ object SpatialDbManager {
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.w(TAG, "queryGeomByIds($type) failed: " + e.message)
+            log.w { "queryGeomByIds($type) failed: " + e.message }
         }
         return out
     }
@@ -1808,7 +1806,7 @@ object SpatialDbManager {
                 return Pair(name, com.grouptrack.shared.gpx.GtGpx.trail(name, geom))
             }
         } catch (e: Exception) {
-            android.util.Log.e("SpatialDb", "buildTrailGpx error: " + e.message)
+            gtLogger("SpatialDb").e { "buildTrailGpx error: " + e.message }
             return null
         }
     }
@@ -1821,7 +1819,7 @@ object SpatialDbManager {
         spatialDb = null
         extensionDb = null
         initialized = false
-        android.util.Log.i(TAG, "Databases closed")
+        log.i { "Databases closed" }
     }
 
     // ── Accessors ─────────────────────────────────────────────
@@ -1913,20 +1911,19 @@ object SpatialDbManager {
                 arrayOf(hash)
             ).use { c -> if (c.moveToFirst()) wkt = c.getString(0) }
         } catch (e: Exception) {
-            android.util.Log.e("Corridor", "getTrackPoints lookup failed for $hash: ${e.message}")
+            gtLogger("Corridor").e { "getTrackPoints lookup failed for $hash: ${e.message}" }
             return null
         }
         val g = wkt
         if (g.isNullOrBlank()) {
-            android.util.Log.w("Corridor", "getTrackPoints: no geometry for hash $hash")
+            gtLogger("Corridor").w { "getTrackPoints: no geometry for hash $hash" }
             return null
         }
         // ROUTECORR-2026-08-10A: the parse moved to parseWktSegments below so tracks and
         // routes share ONE copy and cannot drift apart later. Behaviour here is
         // unchanged - same input, same output, same failure cases.
         val out = parseWktSegments(g, hash, "getTrackPoints") ?: return null
-        android.util.Log.i("Corridor",
-            "getTrackPoints $hash: ${out.size} segment(s), ${out.sumOf { it.size }} points")
+        gtLogger("Corridor").i { "getTrackPoints $hash: ${out.size} segment(s), ${out.sumOf { it.size }} points" }
         return out
     }
 
@@ -1956,7 +1953,7 @@ object SpatialDbManager {
             g.startsWith("LINESTRING(") ->
                 listOf(g.removePrefix("LINESTRING(").removeSuffix(")"))
             else -> {
-                android.util.Log.w("Corridor", "$tag: unsupported WKT for $hash")
+                gtLogger("Corridor").w { "$tag: unsupported WKT for $hash" }
                 return null
             }
         }
@@ -1990,14 +1987,13 @@ object SpatialDbManager {
                 arrayOf(hash)
             ).use { c -> if (c.moveToFirst()) wkt = c.getString(0) }
         } catch (e: Exception) {
-            android.util.Log.e("Corridor", "getRoutePoints lookup failed for $hash: ${e.message}")
+            gtLogger("Corridor").e { "getRoutePoints lookup failed for $hash: ${e.message}" }
             return null
         }
         val g = wkt
         if (g.isNullOrBlank()) return null
         val out = parseWktSegments(g, hash, "getRoutePoints") ?: return null
-        android.util.Log.i("Corridor",
-            "getRoutePoints $hash: ${out.size} segment(s), ${out.sumOf { it.size }} points")
+        gtLogger("Corridor").i { "getRoutePoints $hash: ${out.size} segment(s), ${out.sumOf { it.size }} points" }
         return out
     }
 
@@ -2046,7 +2042,7 @@ object SpatialDbManager {
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.w("Corridor", "ROUTECORR-2026-08-10B: name lookup failed in $table: ${e.message}")
+                gtLogger("Corridor").w { "ROUTECORR-2026-08-10B: name lookup failed in $table: ${e.message}" }
             }
         }
         return null
@@ -2069,10 +2065,10 @@ object SpatialDbManager {
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("TrackMaps", "getTrackBbox lookup failed for $hash: ${e.message}")
+            gtLogger("TrackMaps").e { "getTrackBbox lookup failed for $hash: ${e.message}" }
             return null
         }
-        if (!found) { android.util.Log.w("TrackMaps", "getTrackBbox: no bbox row for hash $hash"); return null }
+        if (!found) { gtLogger("TrackMaps").w { "getTrackBbox: no bbox row for hash $hash" }; return null }
         val padLat = 0.00724
         val midLat = (minLat + maxLat) / 2.0
         val padLon = 0.00724 / Math.max(0.01, Math.cos(Math.toRadians(midLat)))
@@ -2106,7 +2102,7 @@ object SpatialDbManager {
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("TrackMaps", "getRouteBbox lookup failed for $hash: ${e.message}")
+            gtLogger("TrackMaps").e { "getRouteBbox lookup failed for $hash: ${e.message}" }
             return null
         }
         if (!found) return null
@@ -2150,10 +2146,10 @@ object SpatialDbManager {
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("TrackMaps", "bbox lookup failed for $hash: ${e.message}")
+            gtLogger("TrackMaps").e { "bbox lookup failed for $hash: ${e.message}" }
             return 0
         }
-        if (!found) { android.util.Log.w("TrackMaps", "no bbox row for hash $hash"); return 0 }
+        if (!found) { gtLogger("TrackMaps").w { "no bbox row for hash $hash" }; return 0 }
         // 1/2-mile pad: lat constant; lon scaled by cos(midLat), guarded near the poles.
         val padLat = 0.00724
         val midLat = (minLat + maxLat) / 2.0
@@ -2167,7 +2163,7 @@ object SpatialDbManager {
             "DL $name"
         )
         val count = entry.totalTiles
-        android.util.Log.i("TrackMaps", "queued $count tiles for '$name' ($hash)")
+        gtLogger("TrackMaps").i { "queued $count tiles for '$name' ($hash)" }
         return count
     }
 

@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import okio.Path.Companion.toOkioPath   // STEP15CDE-SWITCH-2026-11-10
 import com.grouptrack.shared.imports.GtGpxParse   // STEP15B-SWITCH-2026-11-09
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * Pure file operations for tracks. No UI, no Compose. Callable from any screen.
@@ -98,7 +99,7 @@ object ConvoyTrackOps {
             }
             true
         } catch (e: Exception) {
-            android.util.Log.e("ConvoyTrackOps", "Copy to Downloads failed: ${e.message}")
+            gtLogger("ConvoyTrackOps").e { "Copy to Downloads failed: ${e.message}" }
             false
         }
     }
@@ -121,7 +122,7 @@ object ConvoyTrackOps {
             }
             context.startActivity(chooser)
         } catch (e: Exception) {
-            android.util.Log.e("ConvoyTrackOps", "Share failed: ${e.message}")
+            gtLogger("ConvoyTrackOps").e { "Share failed: ${e.message}" }
         }
     }
 
@@ -299,7 +300,7 @@ object ConvoyTrackOps {
             return@withContext ImportResult.Success(sourceName, listOf(sourceName))
 
         } catch (e: Exception) {
-            android.util.Log.e("ConvoyTrackOps", "Import failed for $sourceName: ${e.message}")
+            gtLogger("ConvoyTrackOps").e { "Import failed for $sourceName: ${e.message}" }
             ImportResult.Failed(sourceName, e.message ?: "Unknown error")
         }
     }
@@ -317,7 +318,7 @@ object ConvoyTrackOps {
             file.setLastModified(earliest)
             true
         } catch (e: Exception) {
-            android.util.Log.e("ConvoyTrackOps", "fixDateFromContent failed: ${e.message}")
+            gtLogger("ConvoyTrackOps").e { "fixDateFromContent failed: ${e.message}" }
             false
         }
     }
@@ -443,7 +444,7 @@ object ConvoyTrackOps {
             context.startActivity(android.content.Intent.createChooser(intent, "Share $name"))
             // Temp file cleaned up on next cache clear
         } catch (e: Exception) {
-            android.util.Log.e("TrackOps", "shareGpx failed: ${e.message}")
+            gtLogger("TrackOps").e { "shareGpx failed: ${e.message}" }
             android.widget.Toast.makeText(context, "Share failed: ${e.message}",
                 android.widget.Toast.LENGTH_SHORT).show()
         }
@@ -456,10 +457,10 @@ object ConvoyTrackOps {
                 android.os.Environment.DIRECTORY_DOWNLOADS)
             val file = java.io.File(downloadsDir, "${(name.replace(Regex("[^A-Za-z0-9._-]+"), "_").trim('_').ifEmpty { "track" })}.gpx")   // GPXNAME-2026-10-01: safe file name
             file.writeText(gpxContent, Charsets.UTF_8)
-            android.util.Log.i("TrackOps", "Exported to Downloads: ${file.absolutePath}")
+            gtLogger("TrackOps").i { "Exported to Downloads: ${file.absolutePath}" }
             true
         } catch (e: Exception) {
-            android.util.Log.e("TrackOps", "exportGpxToDownloads failed: ${e.message}")
+            gtLogger("TrackOps").e { "exportGpxToDownloads failed: ${e.message}" }
             false
         }
     }

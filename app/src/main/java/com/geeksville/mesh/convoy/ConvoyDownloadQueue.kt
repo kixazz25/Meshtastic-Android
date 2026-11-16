@@ -14,6 +14,7 @@ import org.json.JSONObject
 import java.io.File
 import java.util.UUID
 import okio.Path.Companion.toOkioPath   // STEP16D-2026-11-11
+import com.grouptrack.shared.log.gtLogger
 
 // ===========================================================
 // QueueEntry -- one download request (region x all layers)
@@ -181,9 +182,9 @@ object DownloadQueueManager {
             context.getSharedPreferences("convoy_queue", Context.MODE_PRIVATE)
                 .edit().putInt("max_concurrent", v).apply()
         } catch (e: Exception) {
-            android.util.Log.w(TAG, "setMaxConcurrent persist failed: ${e.message}")
+            log.w { "setMaxConcurrent persist failed: ${e.message}" }
         }
-        android.util.Log.i(TAG, "QEVAL-2026-08-08I maxConcurrent=$v")
+        log.i { "QEVAL-2026-08-08I maxConcurrent=$v" }
         startNextIfAvailable()
     }
 
@@ -196,6 +197,7 @@ object DownloadQueueManager {
     }
     private const val QUEUE_FILE = "download_queue.json"
     private const val TAG = "DownloadQueue"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     private val _queue = MutableStateFlow<List<QueueEntry>>(emptyList())
     private var queuePaused = false
@@ -268,17 +270,14 @@ object DownloadQueueManager {
             saveQueue()
         }
         // SIZECALC-LOG-2026-07-23: unsegmented path - no sizeTiles, no split.
-        android.util.Log.i(
-            "SIZECALC",
-            "src=enqueue label='${entry.label}' slot=ALL " +
+        gtLogger("SIZECALC").i { ("src=enqueue label='${entry.label}' slot=ALL " +
             "N=$north S=$south E=$east W=$west " +
             "dLat=${north - south} dLon=${east - west} " +
             "oneLayer=${tiles.size} slotLayers=NA satLayers=NA " +
             "layerCountAllSlots=$layerCount " +
             "sizeTiles=NONE segments=NONE entryTiles=${entry.totalTiles} " +
-            "id=${entry.id}"
-        )
-        android.util.Log.i(TAG, "Enqueued: ${entry.label} (${entry.totalTiles} tiles) id=${entry.id}")
+            "id=${entry.id}") }
+        log.i { "Enqueued: ${entry.label} (${entry.totalTiles} tiles) id=${entry.id}" }
         startNextIfAvailable()
         return entry
     }
@@ -383,17 +382,14 @@ object DownloadQueueManager {
         run {
             val entryTilesWhole =   // VECENQUEUE-2026-10-30: VEC never lists the box
                 (if (isVec) oneLayerTiles else ConvoyTileCalculator.calculateTiles(north, south, east, west).size) * slotLayers
-            android.util.Log.i(
-                "SIZECALC",
-                "src=enqueueArea label='DL $slotName' slot=$slotName " +
+            gtLogger("SIZECALC").i { ("src=enqueueArea label='DL $slotName' slot=$slotName " +
                 "N=$north S=$south E=$east W=$west " +
                 "dLat=${north - south} dLon=${east - west} " +
                 "oneLayer=$oneLayerTiles slotLayers=$slotLayers satLayers=$satLayers " +
                 "sizeTiles=$sizeTiles segments=${cells.size} " +
                 "entryTilesWholeBox=$entryTilesWhole " +
                 "perCellApprox=${entryTilesWhole / Math.max(1, cells.size)} " +
-                "replace=$replaceExisting"
-            )
+                "replace=$replaceExisting") }
         }
         if (cells.isEmpty()) {
             // Small area — single job
@@ -434,19 +430,16 @@ object DownloadQueueManager {
                 priority = if (isVec) DownloadPriority.REFRESH else DownloadPriority.AREA
             )
             // SIZECALC-LOG-2026-07-23: per-cell entry as queued.
-            android.util.Log.i(
-                "SIZECALC",
-                "  cell ${i + 1}/${cells.size} src=enqueueArea slot=$slotName " +
+            gtLogger("SIZECALC").i { ("  cell ${i + 1}/${cells.size} src=enqueueArea slot=$slotName " +
                 "label='${entry.label}' entryTiles=${entry.totalTiles} " +
                 "N=${cell[0]} S=${cell[1]} E=${cell[2]} W=${cell[3]} " +
-                "id=${entry.id}"
-            )
+                "id=${entry.id}") }
             current.add(entry)
         }
         _queue.value = current
         saveQueue()
         }   // QUEUELOCK-2026-11-12
-        android.util.Log.i(TAG, "Enqueued area: $slotName ${cells.size} cells replace=$replaceExisting")
+        log.i { "Enqueued area: $slotName ${cells.size} cells replace=$replaceExisting" }
         startNextIfAvailable()
         return cells.size
     }
@@ -466,7 +459,7 @@ object DownloadQueueManager {
         // VECDL-2026-10-31: on the vector map an area download is vector + elevation (one box; enqueueArea segments it)
         if (com.geeksville.mesh.grouptrack.GtMapEngine.isVector(context)) {
             if (selectedSlots.isNotEmpty()) VectorTiles.enqueueWithElevation(context, north, south, east, west, replaceExisting)
-            android.util.Log.i(TAG, "VECDL-2026-10-31 area N=$north S=$south E=$east W=$west -> vector + elevation, replace=$replaceExisting")
+            log.i { "VECDL-2026-10-31 area N=$north S=$south E=$east W=$west -> vector + elevation, replace=$replaceExisting" }
             return
         }
         for (slotName in selectedSlots) {
@@ -534,11 +527,10 @@ object DownloadQueueManager {
             _queue.value = current
             saveQueue()
         }
-        android.util.Log.i(TAG,
-            "DELETE queued: slot=$slotName box=$boxTiles geom-tiles, stores=$storeNames, " +
-            "ACTUALLY ON DISK=$totalTiles id=${entry.id}")
+        log.i { ("DELETE queued: slot=$slotName box=$boxTiles geom-tiles, stores=$storeNames, " +
+            "ACTUALLY ON DISK=$totalTiles id=${entry.id}") }
         if (totalTiles == 0) {
-            android.util.Log.i(TAG, "DELETE $slotName: nothing on disk in this area")
+            log.i { "DELETE $slotName: nothing on disk in this area" }
         }
         startNextIfAvailable()
         return totalTiles
@@ -563,7 +555,7 @@ object DownloadQueueManager {
             if (slotName != VectorTiles.SLOT && slotName != ElevationTiles.SLOT && !MBTilesStore.storeExists(slotName)) continue
             total += enqueueDelete(context, slotName, north, south, east, west)
         }
-        android.util.Log.i(TAG, "REMOVEAREA-2026-11-03 remove by area: slots=$slots, $total tile(s) on disk in the box")
+        log.i { "REMOVEAREA-2026-11-03 remove by area: slots=$slots, $total tile(s) on disk in the box" }
         return total
     }
 
@@ -608,7 +600,7 @@ object DownloadQueueManager {
         _queue.value = current
         saveQueue()
         }   // QUEUELOCK-2026-11-12
-        android.util.Log.i(TAG, "Enqueued refresh: $slotName ${cells.size} grid cells")
+        log.i { "Enqueued refresh: $slotName ${cells.size} grid cells" }
         startNextIfAvailable()
         return cells.size
     }
@@ -707,7 +699,7 @@ object DownloadQueueManager {
             _queue.value = current
             saveQueue()
         }
-        android.util.Log.i(TAG, "CORRMIGRATE-2026-08-07H recorded: $label tiles=$tilesRemoved")
+        log.i { "CORRMIGRATE-2026-08-07H recorded: $label tiles=$tilesRemoved" }
     }
 
     fun enqueueCorridorBatch(
@@ -717,9 +709,8 @@ object DownloadQueueManager {
         replaceExisting: Boolean
     ): CorridorBatchResult {
         if (geomHashes.isEmpty() || slotNames.isEmpty()) {
-            android.util.Log.w(TAG,
-                "CORRIDORBATCH-2026-08-05: nothing to queue " +
-                "(tracks=${geomHashes.size} slots=${slotNames.size})")
+            log.w { ("CORRIDORBATCH-2026-08-05: nothing to queue " +
+                "(tracks=${geomHashes.size} slots=${slotNames.size})") }
             return CorridorBatchResult()
         }
         // VECDL-2026-10-31: on the vector map the corridors are the FULL AREA -- all tracks' squares joined, shared ground queued once
@@ -755,14 +746,12 @@ object DownloadQueueManager {
             // Joined OUTSIDE the log template: Kotlin does not allow a nested string
             // literal inside a ${...} expression -- the quote terminates the outer string.
             val skippedShort = skippedHashes.joinToString(separator = ", ") { it.take(8) }
-            android.util.Log.w(TAG,
-                "CORRIDORBATCH-2026-08-05: skipped ${skippedHashes.size} track(s) with no usable " +
-                "geometry: $skippedShort")
+            log.w { ("CORRIDORBATCH-2026-08-05: skipped ${skippedHashes.size} track(s) with no usable " +
+                "geometry: $skippedShort") }
         }
-        android.util.Log.i(TAG,
-            "CORRIDORBATCH-2026-08-05: ${geomHashes.size} track(s) x ${slotNames.size} slot(s) " +
+        log.i { ("CORRIDORBATCH-2026-08-05: ${geomHashes.size} track(s) x ${slotNames.size} slot(s) " +
             "-> $jobs job(s), $tiles tile(s), ${skippedHashes.size} skipped, " +
-            "replace=$replaceExisting")
+            "replace=$replaceExisting") }
         return CorridorBatchResult(jobs = jobs, tiles = tiles, skipped = skippedHashes.size)
     }
 
@@ -779,7 +768,7 @@ object DownloadQueueManager {
         // geometry wherever it is stored and the corridor is identical.
         val segments = SpatialDbManager.getCorridorGeometry(context, geomHash)
         if (segments.isNullOrEmpty()) {
-            android.util.Log.w(TAG, "enqueueCorridor: no geometry for $geomHash")
+            log.w { "enqueueCorridor: no geometry for $geomHash" }
             return 0
         }
         // VECDL-2026-10-31: on the vector map a corridor is the FULL AREA of the track, vector + elevation
@@ -795,7 +784,7 @@ object DownloadQueueManager {
         val tiles = ConvoyTileCalculator.corridorTiles(
             segments, slotName = slotName, funnelH = 4)
         if (tiles.isEmpty()) {
-            android.util.Log.w(TAG, "enqueueCorridor: empty corridor for $geomHash")
+            log.w { "enqueueCorridor: empty corridor for $geomHash" }
             return 0
         }
         val slotLayers = MapSourceManager.getDownloadSources()
@@ -840,9 +829,8 @@ object DownloadQueueManager {
             _queue.value = current
             saveQueue()
         }
-        android.util.Log.i(TAG,
-            "CORRIDOR queued: slot=$slotName tiles=${tiles.size} x$slotLayers layers " +
-            "= $totalTiles hash=$geomHash id=${entry.id}")
+        log.i { ("CORRIDOR queued: slot=$slotName tiles=${tiles.size} x$slotLayers layers " +
+            "= $totalTiles hash=$geomHash id=${entry.id}") }
         startNextIfAvailable()
         return totalTiles
     }
@@ -903,7 +891,7 @@ object DownloadQueueManager {
         MapSourceManager.init(context)
         val levels = MBTilesStore.zoomLevelsPresent(slotName)
         if (levels.isEmpty()) {
-            android.util.Log.i(TAG, "RECIPE-2026-08-12L $slotName: nothing stored")
+            log.i { "RECIPE-2026-08-12L $slotName: nothing stored" }
             return null
         }
         if (tight) return deriveScan(slotName, levels)   // RECIPESCAN-2026-10-30
@@ -968,7 +956,7 @@ object DownloadQueueManager {
             }
         }
         if (cells.isEmpty()) {
-            android.util.Log.i(TAG, "RECIPESCAN-2026-10-30 $slotName: nothing stored at z$cellZ or above")
+            log.i { "RECIPESCAN-2026-10-30 $slotName: nothing stored at z$cellZ or above" }
             return null
         }
         val byRow = cells.keys.groupBy({ it and 0xffffffffL }, { it ushr 32 }).toSortedMap()
@@ -997,7 +985,7 @@ object DownloadQueueManager {
         }
         boxes.addAll(open.values)
         val total = boxes.sumOf { it[4] }
-        android.util.Log.i(TAG, "RECIPESCAN-2026-10-30 $slotName: ${cells.size} occupied z$cellZ squares -> ${boxes.size} box(es), $total stored tile(s)")
+        log.i { "RECIPESCAN-2026-10-30 $slotName: ${cells.size} occupied z$cellZ squares -> ${boxes.size} box(es), $total stored tile(s)" }
         return RecipeResult(slotName, cellZ, levels, boxes, 0, total)
     }
 
@@ -1039,9 +1027,8 @@ object DownloadQueueManager {
         _queue.value = current
         saveQueue()
         }   // QUEUELOCK-2026-11-12
-        android.util.Log.i(TAG,
-            "RECREATE-2026-08-11G $slotName: ${boxes.size} job(s), $totalTiles tile(s), " +
-            "$dropped empty quadrant(s) dropped")
+        log.i { ("RECREATE-2026-08-11G $slotName: ${boxes.size} job(s), $totalTiles tile(s), " +
+            "$dropped empty quadrant(s) dropped") }
         startNextIfAvailable()
         return boxes.size
     }
@@ -1061,7 +1048,7 @@ object DownloadQueueManager {
         current[idx] = current[idx].copy(priority = DownloadPriority.PROMOTED)
         _queue.value = current
         saveQueue()
-        android.util.Log.i(TAG, "Promoted to priority 1: ${current[idx].label}")
+        log.i { "Promoted to priority 1: ${current[idx].label}" }
         startNextIfAvailable()
     }
 
@@ -1074,7 +1061,7 @@ object DownloadQueueManager {
                 WorkManager.getInstance(appCtx)
                     .cancelWorkById(UUID.fromString(entry.workRequestId))
             } catch (e: Exception) {
-                android.util.Log.e(TAG, "Cancel WorkManager failed: ${e.message}")
+                log.e { "Cancel WorkManager failed: ${e.message}" }
             }
         }
         // Remove from queue entirely — cancelled jobs don't come back
@@ -1082,18 +1069,18 @@ object DownloadQueueManager {
         current.removeAll { it.id == entryId }
         _queue.value = current
         saveQueue()
-        android.util.Log.i(TAG, "Cancelled and removed: ${entry.label} id=$entryId")
+        log.i { "Cancelled and removed: ${entry.label} id=$entryId" }
         startNextIfAvailable()
     }
 
     // -- Queue control ------------------------------------
     fun holdQueue() {
         queuePaused = true
-        android.util.Log.i(TAG, "Queue PAUSED")
+        log.i { "Queue PAUSED" }
     }
     fun resumeQueue() {
         queuePaused = false
-        android.util.Log.i(TAG, "Queue RESUMED")
+        log.i { "Queue RESUMED" }
         startNextIfAvailable()
     }
     fun isQueuePaused(): Boolean = queuePaused
@@ -1106,14 +1093,14 @@ object DownloadQueueManager {
                     WorkManager.getInstance(appCtx)
                         .cancelWorkById(java.util.UUID.fromString(entry.workRequestId))
                 } catch (e: Exception) {
-                    android.util.Log.e(TAG, "CancelAll worker failed: ${e.message}")
+                    log.e { "CancelAll worker failed: ${e.message}" }
                 }
             }
         }
         val completed = current.filter { it.status == QueueStatus.COMPLETE }
         _queue.value = completed  // keep completed for history, remove rest
         saveQueue()
-        android.util.Log.i(TAG, "Cancelled all: ${current.size - completed.size} removed, ${completed.size} complete kept")
+        log.i { "Cancelled all: ${current.size - completed.size} removed, ${completed.size} complete kept" }
     }
     @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     fun removeEntry(entryId: String) {
@@ -1123,14 +1110,14 @@ object DownloadQueueManager {
                 WorkManager.getInstance(appCtx)
                     .cancelWorkById(java.util.UUID.fromString(entry.workRequestId))
             } catch (e: Exception) {
-                android.util.Log.e(TAG, "Remove worker cancel failed: ${e.message}")
+                log.e { "Remove worker cancel failed: ${e.message}" }
             }
         }
         val current = _queue.value.toMutableList()
         current.removeAll { it.id == entryId }
         _queue.value = current
         saveQueue()
-        android.util.Log.i(TAG, "Removed: ${entry.label} id=$entryId")
+        log.i { "Removed: ${entry.label} id=$entryId" }
         startNextIfAvailable()
     }
     // -- Clear completed/cancelled/failed entries ----------
@@ -1191,7 +1178,7 @@ object DownloadQueueManager {
                 }
             )
         }
-        android.util.Log.i(TAG, "Complete: id=$entryId downloaded=$downloaded failed=$failed")
+        log.i { "Complete: id=$entryId downloaded=$downloaded failed=$failed" }
         startNextIfAvailable()
     }
 
@@ -1200,7 +1187,7 @@ object DownloadQueueManager {
         updateEntry(entryId) {
             it.copy(status = QueueStatus.FAILED, retryCount = it.retryCount + 1)
         }
-        android.util.Log.e(TAG, "Failed: id=$entryId reason=$message")
+        log.e { "Failed: id=$entryId reason=$message" }
         startNextIfAvailable()
     }
 
@@ -1300,7 +1287,7 @@ object DownloadQueueManager {
                 workRequestId = workRequest.id.toString()
             )
         }
-        android.util.Log.i(TAG, "Launched worker for: ${entry.label} id=${entry.id}")
+        log.i { "Launched worker for: ${entry.label} id=${entry.id}" }
     }
 
     // -- Internal: update a single entry -------------------
@@ -1329,7 +1316,7 @@ object DownloadQueueManager {
             if (file.exists()) file.delete()
             if (!tmp.renameTo(file)) { tmp.delete() }
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "Save queue failed: ${e.message}")
+            log.e { "Save queue failed: ${e.message}" }
         }
     }
 
@@ -1345,19 +1332,19 @@ object DownloadQueueManager {
                 entries.add(QueueEntry.fromJson(arr.getJSONObject(i)))
             }
             _queue.value = entries
-            android.util.Log.i(TAG, "Loaded ${entries.size} queue entries from disk")
+            log.i { "Loaded ${entries.size} queue entries from disk" }
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "Load queue failed: ${e.message} - quarantining")
+            log.e { "Load queue failed: ${e.message} - quarantining" }
             try {
                 val bad = File(appCtx.filesDir, "download_queue/" + QUEUE_FILE)
                 if (bad.exists()) {
                     val quarantine = File(bad.parentFile, QUEUE_FILE + ".corrupt")
                     if (quarantine.exists()) quarantine.delete()
                     if (!bad.renameTo(quarantine)) bad.delete()
-                    android.util.Log.w(TAG, "Quarantined corrupt queue file")
+                    log.w { "Quarantined corrupt queue file" }
                 }
             } catch (q: Exception) {
-                android.util.Log.e(TAG, "Quarantine failed: " + q.message)
+                log.e { "Quarantine failed: " + q.message }
             }
             _queue.value = emptyList()
         }

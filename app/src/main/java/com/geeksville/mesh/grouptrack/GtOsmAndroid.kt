@@ -6,11 +6,11 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.util.Log
 import androidx.work.ForegroundInfo
 import com.grouptrack.shared.osm.GtOsmPlatform
 import okio.Path
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP15G-SWITCH-2026-11-10: Android's GtOsmPlatform -- what the shared OSM extract + import (com.grouptrack.shared.osm, certified
@@ -27,7 +27,7 @@ class GtOsmAndroid(context: Context) : GtOsmPlatform {
             try {
                 migrateLegacy(File(root.toString()))
             } catch (e: Exception) {
-                Log.e(STAGE_TAG, "legacy migration failed: ${e.javaClass.simpleName} ${e.message}")
+                gtLogger(STAGE_TAG).e { "legacy migration failed: ${e.javaClass.simpleName} ${e.message}" }
             }
         }
     }
@@ -39,7 +39,7 @@ class GtOsmAndroid(context: Context) : GtOsmPlatform {
     private fun migrateLegacy(newRoot: File) {
         val old = legacyRootDir()
         if (!old.exists() || !old.isDirectory) return
-        Log.i(STAGE_TAG, "legacy OSM directory found at ${old.absolutePath} -- migrating")
+        gtLogger(STAGE_TAG).i { "legacy OSM directory found at ${old.absolutePath} -- migrating" }
         var moved = 0
         var dropped = 0
         var failed = 0
@@ -57,14 +57,14 @@ class GtOsmAndroid(context: Context) : GtOsmPlatform {
                     f.renameTo(target) -> moved++
                     else -> {
                         failed++
-                        Log.w(STAGE_TAG, "could not move ${f.name} (${f.length()} bytes) -- left in place rather than deleted")
+                        gtLogger(STAGE_TAG).w { "could not move ${f.name} (${f.length()} bytes) -- left in place rather than deleted" }
                     }
                 }
             }
             if (entry.listFiles()?.isEmpty() == true) entry.delete()
         }
         if (old.listFiles()?.isEmpty() == true) old.delete()
-        Log.i(STAGE_TAG, "legacy migration: moved=$moved droppedStale=$dropped failed=$failed")
+        gtLogger(STAGE_TAG).i { "legacy migration: moved=$moved droppedStale=$dropped failed=$failed" }
     }
 
     /** 2.7e OsmImportStage.discardState's legacy sweep (OSM-CANCEL-SWEEPS-LEGACY-2026-07-28) -- SAME SLUG ONLY. The caller guards it. */
@@ -74,7 +74,7 @@ class GtOsmAndroid(context: Context) : GtOsmPlatform {
             var ln = 0
             legacyDir.listFiles()?.forEach { f -> if (!f.isDirectory && f.delete()) ln++ }
             legacyDir.delete()
-            if (ln > 0) Log.i(STAGE_TAG, "legacy sweep: removed $ln stranded file(s) for $slug")
+            if (ln > 0) gtLogger(STAGE_TAG).i { "legacy sweep: removed $ln stranded file(s) for $slug" }
         }
         val legacyRoot = legacyRootDir()
         if (legacyRoot.exists() && legacyRoot.listFiles()?.isEmpty() == true) legacyRoot.delete()
@@ -103,13 +103,13 @@ class GtOsmAndroid(context: Context) : GtOsmPlatform {
                 val mb = f.length() / 1048576L
                 if (f.delete()) {
                     removed++; freedMb += mb
-                    Log.i(EXTRACT_TAG, "deleted download ${f.name} ($mb MB)")
+                    gtLogger(EXTRACT_TAG).i { "deleted download ${f.name} ($mb MB)" }
                 } else {
-                    Log.w(EXTRACT_TAG, "could not delete download ${f.name}")
+                    gtLogger(EXTRACT_TAG).w { "could not delete download ${f.name}" }
                 }
             }
         }
-        Log.i(EXTRACT_TAG, "downloads swept for $slug: $removed file(s), $freedMb MB")
+        gtLogger(EXTRACT_TAG).i { "downloads swept for $slug: $removed file(s), $freedMb MB" }
     }
 
     /**

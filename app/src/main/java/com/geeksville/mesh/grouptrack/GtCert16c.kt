@@ -1,7 +1,6 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import com.geeksville.mesh.convoy.ConvoyConfig
 import com.geeksville.mesh.convoy.ConvoyTileCalculator
 import com.geeksville.mesh.convoy.ConvoyTileDownloader
@@ -16,6 +15,7 @@ import okio.Path
 import okio.Path.Companion.toOkioPath
 import org.json.JSONArray
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP16C-2026-11-11 ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 16c certification on the Droid
@@ -34,13 +34,14 @@ import java.io.File
  */
 object GtCert16c {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val MAX_DIFF_LINES = 2000
 
     private var lastLog = 0L
     private fun progress(msg: String, force: Boolean = false) {
         val now = System.currentTimeMillis()
         if (force || now - lastLog >= 15_000) { lastLog = now; val rt = Runtime.getRuntime()
-            Log.i(TAG, "GTCERT queue16c $msg [heap ${(rt.totalMemory() - rt.freeMemory()) / 1048576} MB of ${rt.maxMemory() / 1048576}]") }
+            log.i { "GTCERT queue16c $msg [heap ${(rt.totalMemory() - rt.freeMemory()) / 1048576} MB of ${rt.maxMemory() / 1048576}]" } }
     }
 
     /** OLD: the app's code, as the TEST-ONLY copies carry it. */
@@ -85,12 +86,12 @@ object GtCert16c {
         val nRec = recIn.listFiles { x -> x.name.endsWith(".gtmaps") }?.size ?: 0
         if (!inS.isFile || nRec == 0) {
             w.write("# Q16C: STOP -- no input (need ${inS.path} and the recipes in ${recIn.path}; gt_cert_v24 pushes them). Not run.\n")
-            Log.e(TAG, "GTCERT queue16c STOP: no input at ${inS.path} / ${recIn.path} -- run gt_cert_v24 queue16c")
+            log.e { "GTCERT queue16c STOP: no input at ${inS.path} / ${recIn.path} -- run gt_cert_v24 queue16c" }
             return
         }
         if (ConvoyConfig.DOWNLOAD_ZOOM != 18) {
             w.write("# Q16C: STOP -- ConvoyConfig.DOWNLOAD_ZOOM is ${ConvoyConfig.DOWNLOAD_ZOOM}, the cert's platform answers 18. Not run.\n")
-            Log.e(TAG, "GTCERT queue16c STOP: DOWNLOAD_ZOOM ${ConvoyConfig.DOWNLOAD_ZOOM}"); return
+            log.e { "GTCERT queue16c STOP: DOWNLOAD_ZOOM ${ConvoyConfig.DOWNLOAD_ZOOM}" }; return
         }
         var same = 0; var diff = 0; var expected = 0; var diffLines = 0
         fun put(s: String) { w.write(s) }
@@ -101,7 +102,7 @@ object GtCert16c {
                 else -> {
                     diff++
                     if (diffLines < MAX_DIFF_LINES) { diffLines++; put("Q16C\t$key\tDIFF\t$b\n  OLD\t$a\n  NEW\t$b\n") }
-                    Log.w(TAG, "GTCERT queue16c DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}")
+                    log.w { "GTCERT queue16c DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}" }
                 }
             }
         }
@@ -151,13 +152,13 @@ object GtCert16c {
             for ((k, b) in new) { val a = old[k]; if (a == null) check("$k (only NEW)", "", b) else check(k, a, b) }
             for ((k, a) in old) if (k !in new) check("$k (only OLD)", a, "")
         } catch (e: Throwable) {
-            aborted = e.toString(); put("# Q16C: ABORTED $e\n"); Log.e(TAG, "GTCERT queue16c aborted", e)
+            aborted = e.toString(); put("# Q16C: ABORTED $e\n"); log.e(e) { "GTCERT queue16c aborted" }
         } finally {
             DownloadQueueCertOld.collected.clear()
         }
         if (diff > diffLines) put("# Q16C: ${diff - diffLines} more DIFF lines not written (see logcat CertRun)\n")
         put("# Q16C done: $same SAME, $diff DIFF, $expected EXPECTED in ${(System.currentTimeMillis() - t0) / 1000} s" +
             (if (aborted != null) " -- ABORTED" else "") + "\n")
-        Log.i(TAG, "GTCERT queue16c: $same SAME, $diff DIFF, $expected EXPECTED")
+        log.i { "GTCERT queue16c: $same SAME, $diff DIFF, $expected EXPECTED" }
     }
 }

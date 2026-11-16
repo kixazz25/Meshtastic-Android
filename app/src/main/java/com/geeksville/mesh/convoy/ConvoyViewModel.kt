@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 // CLEANDEAD-2026-10-14: the Meshtastic imports removed (profile use cases, node / config repositories, DeviceProfile)
 // COMMREPORT-2026-10-12: RadioOps no longer used here -- the GPS interval goes through CommMessaging.setReporting (P4.4)
 import javax.inject.Inject
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * HUD display modes — IMP-001 Task 4.1
@@ -90,7 +91,7 @@ class ConvoyViewModel @Inject constructor(
         viewModelScope.launch { val r = commLink.forget(radioId); linkResult("forget", r); onResult(r is com.grouptrack.comm.CommResult.Ok) }
     }
     private fun linkResult(what: String, r: com.grouptrack.comm.CommResult) {
-        android.util.Log.i("CommLink", "COMMLINKREQ-2026-10-11: $what -> $r")
+        gtLogger("CommLink").i { "COMMLINKREQ-2026-10-11: $what -> $r" }
     }
     /** This radio's node number, while the tick still reads the radio's node list (cycle 3 retires it). On the mesh the
      *  device id is the node number as text -- the same id the Comm API uses for members. */
@@ -198,8 +199,8 @@ class ConvoyViewModel @Inject constructor(
     val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
     fun setAutoPan(pan: Boolean) {
         // FOLLOWLOG-2026-11-03 (Fred 18:07): who turns following on / off -- the map jumped to NH (my cart, z18) with REC off
-        if (_autoPan.value != pan) android.util.Log.i("ConvoyVM", "FOLLOWLOG following " + (if (pan) "ON" else "OFF") + " by " +
-            Throwable().stackTrace.drop(1).take(3).joinToString(" < ") { it.fileName + ":" + it.lineNumber })
+        if (_autoPan.value != pan) gtLogger("ConvoyVM").i { ("FOLLOWLOG following " + (if (pan) "ON" else "OFF") + " by " +
+            Throwable().stackTrace.drop(1).take(3).joinToString(" < ") { it.fileName + ":" + it.lineNumber }) }
         _autoPan.value = pan
     }
 
@@ -276,8 +277,8 @@ class ConvoyViewModel @Inject constructor(
         phoneLocationListener = listener
 
 
-        if (TabletPosition.add(appContext, listener)) android.util.Log.i("ConvoyVM", "ONEFEED-2026-10-19: my cart listens to the position feed")
-        else { android.util.Log.e("ConvoyVM", "ONEFEED-2026-10-19: the position feed did not start (permission?)"); phoneLocationListener = null }
+        if (TabletPosition.add(appContext, listener)) gtLogger("ConvoyVM").i { "ONEFEED-2026-10-19: my cart listens to the position feed" }
+        else { gtLogger("ConvoyVM").e { "ONEFEED-2026-10-19: the position feed did not start (permission?)" }; phoneLocationListener = null }
     }
 
     private fun stopPhoneGps() {
@@ -317,8 +318,8 @@ class ConvoyViewModel @Inject constructor(
         // TRACK: Activate AFTER identity and lead are locked
         _trackActive.value = true
         _autoPan.value = true   // autoPan ON during recording
-        android.util.Log.i("ConvoyVM", "FOLLOWLOG following ON by TRACK START (REC) -- REC started by " +   // FOLLOWLOG-2026-11-03
-            Throwable().stackTrace.drop(1).take(6).joinToString(" < ") { it.fileName + ":" + it.lineNumber })
+        gtLogger("ConvoyVM").i { ("FOLLOWLOG following ON by TRACK START (REC) -- REC started by " +   // FOLLOWLOG-2026-11-03
+            Throwable().stackTrace.drop(1).take(6).joinToString(" < ") { it.fileName + ":" + it.lineNumber }) }
         convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
     }
 
@@ -326,14 +327,14 @@ class ConvoyViewModel @Inject constructor(
      *  Meshtastic screen; the comm side answers NotSupported for an id it does not offer. */
     fun openCommMenu(id: String): com.grouptrack.comm.CommResult {
         val r = commMenus.open(id)
-        android.util.Log.i("CommMenus", "COMMMENUS open '$id' -> $r")
+        gtLogger("CommMenus").i { "COMMMENUS open '$id' -> $r" }
         return r
     }
     /** COMMSETTINGS-2026-10-12: the comm-side screen open now (CODE RULE 1: null = none); closing it; the menus the comm side offers. */
     val openMenu: StateFlow<String?> = commMenus.openMenu
     fun closeCommMenu(id: String): com.grouptrack.comm.CommResult {
         val r = commMenus.close(id)
-        android.util.Log.i("CommMenus", "COMMSETTINGS-2026-10-12 close '$id' -> $r")
+        gtLogger("CommMenus").i { "COMMSETTINGS-2026-10-12 close '$id' -> $r" }
         return r
     }
     val commMenuIds: Set<String> = commMenus.items().map { it.id }.toSet()
@@ -373,13 +374,13 @@ class ConvoyViewModel @Inject constructor(
                     held == com.grouptrack.comm.Role.TAIL_GUNNER) com.grouptrack.comm.Role.RIDER
                 else {
                     roleReportJob?.cancel()
-                    android.util.Log.i("ROLEREPORT", "ROLEREPORT: role '$rideRole' -- riders do not report")
+                    gtLogger("ROLEREPORT").i { "ROLEREPORT: role '$rideRole' -- riders do not report" }
                     return
                 }
             }
         }
         // OWNROLE-2026-09-28 (Fred): MY role lives in the SAME store as everyone else's (against my own radio's number).
-        if (!GroupMode.on.value) { android.util.Log.i("ROLEREPORT", "GRPMODE-2026-10-13: group awareness off -- no role reports"); return }
+        if (!GroupMode.on.value) { gtLogger("ROLEREPORT").i { "GRPMODE-2026-10-13: group awareness off -- no role reports" }; return }
         myNum?.let { commMessaging.recordOwnRole(it.toString(), role) }   // COMMRECV-2026-10-08
         roleReportJob?.cancel()
         val startedAt = System.currentTimeMillis()
@@ -390,7 +391,7 @@ class ConvoyViewModel @Inject constructor(
                 runCatching {
                     // ROLEPOS-2026-10-19 (Fred 10-19 13:07 "everybody else sees the radio"): the report carries MY RADIO'S own last position, never the
                     // tablet's (since ONEFEED my cart = the tablet -> it gave every other tablet a second, different position for my cart).
-                    if (myRadioFixMs == 0L) { android.util.Log.w("ROLEREPORT", "ROLEPOS-2026-10-19 ROLEREPORT #$n: no radio position yet -- skipped"); return@runCatching }
+                    if (myRadioFixMs == 0L) { gtLogger("ROLEREPORT").w { "ROLEPOS-2026-10-19 ROLEREPORT #$n: no radio position yet -- skipped" }; return@runCatching }
                     val lat = myRadioLat
                     val lon = myRadioLon
                     val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
@@ -408,10 +409,10 @@ class ConvoyViewModel @Inject constructor(
                             com.grouptrack.comm.GroupTrackDetail.Kind.REPORT),
                     ))
                     if (res !is com.grouptrack.comm.CommResult.Ok) {
-                        android.util.Log.w("ROLEREPORT", "ROLEREPORT #$n not sent: $res"); return@runCatching
+                        gtLogger("ROLEREPORT").w { "ROLEREPORT #$n not sent: $res" }; return@runCatching
                     }
-                    android.util.Log.i("ROLEREPORT", "ROLEREPORT sent #$n at ${System.currentTimeMillis()}: $cs as $role")
-                }.onFailure { android.util.Log.w("ROLEREPORT", "ROLEREPORT #$n not sent: ${it.message}") }
+                    gtLogger("ROLEREPORT").i { "ROLEREPORT sent #$n at ${System.currentTimeMillis()}: $cs as $role" }
+                }.onFailure { gtLogger("ROLEREPORT").w { "ROLEREPORT #$n not sent: ${it.message}" } }
                 kotlinx.coroutines.delay(if (n < 3) 5_000L else 30_000L)   // ROLEBTN-2026-09-29: the first three 5 s apart, then 30 s
                 // THE SCHEDULE (Fred): until 3 minutes after REC; a change made DURING the ride: 3 minutes from the change.
                 // No REC yet: keep going (capped at 4 hours). END cancels this job (stopGroupTrack).
@@ -420,7 +421,7 @@ class ConvoyViewModel @Inject constructor(
                 val endAt = if (recAt == 0L) startedAt + 4 * 3_600_000L else maxOf(recAt, startedAt) + 120_000L
                 if (System.currentTimeMillis() >= endAt) break
             }
-            android.util.Log.i("ROLEREPORT", "ROLEREPORT: run complete ($n reports, $role)")
+            gtLogger("ROLEREPORT").i { "ROLEREPORT: run complete ($n reports, $role)" }
         }
     }
 
@@ -569,7 +570,7 @@ class ConvoyViewModel @Inject constructor(
         }
         // LEADTRACKBOARD-2026-10-18: the receiving queue's ONE consumer (background). The truth (last heard, status, lead) is already on the board.
         viewModelScope.launch(Dispatchers.Default) {
-            for (e in trackQueue) try { trackConsume(e) } catch (ex: Exception) { android.util.Log.w("LEADTRACK", "LEADTRACKBOARD-2026-10-18: entry failed: " + ex.message) }
+            for (e in trackQueue) try { trackConsume(e) } catch (ex: Exception) { gtLogger("LEADTRACK").w { "LEADTRACKBOARD-2026-10-18: entry failed: " + ex.message } }
         }
         // POLYLINE-2026-10-20: the POLYTEST pop-up listener is gone -- a gap polyline now arrives as a comm event (onGapPolylineReceived)
         // LEADEST-2026-10-20: every second -- the silent lead's estimate (only while group awareness is on)
@@ -580,13 +581,13 @@ class ConvoyViewModel @Inject constructor(
                     // ESTREC-2026-10-20 (Fred 15:51): only while REC is on -- the lead's reports reach the estimate only through the lead-track queue
                     // (fed while REC is on); REC off = cleared at once and its memory reset (was: blinked forever after REC stopped)
                     val recOn = GroupMode.on.value && _trackActive.value
-                    if (!recOn && _leadEstimate.value != null) { leadEst.reset(); android.util.Log.i("LEADEST", "ESTREC-2026-10-20 REC off -- estimate cleared") }
+                    if (!recOn && _leadEstimate.value != null) { leadEst.reset(); gtLogger("LEADEST").i { "ESTREC-2026-10-20 REC off -- estimate cleared" } }
                     val est = if (recOn) leadEst.tick(System.currentTimeMillis(), estRouteNow()) else null
-                    if (est != null && _leadEstimate.value == null) android.util.Log.i("LEADEST", "LEADEST-2026-10-20 lead " + est.leadId + " silent " + est.silentMs / 1000 + " s -- " + (if (est.onRoute && est.moving) "moving along the route" else "blinking in place"))
-                    if (est != null && (est.silentMs / 1000) % 15 == 0L) android.util.Log.i("LEADEST", "ESTVIEW-2026-10-20 vm: " + est.leadId + " est " + est.lat + "," + est.lon +
-                        " last " + est.lastLat + "," + est.lastLon + " silent " + est.silentMs / 1000 + " s " + (if (est.onRoute) "on route" else "no route") + " " + (est.speedMps * 2.237).toInt() + " mph")   // diagnostic
+                    if (est != null && _leadEstimate.value == null) gtLogger("LEADEST").i { "LEADEST-2026-10-20 lead " + est.leadId + " silent " + est.silentMs / 1000 + " s -- " + (if (est.onRoute && est.moving) "moving along the route" else "blinking in place") }
+                    if (est != null && (est.silentMs / 1000) % 15 == 0L) gtLogger("LEADEST").i { ("ESTVIEW-2026-10-20 vm: " + est.leadId + " est " + est.lat + "," + est.lon +
+                        " last " + est.lastLat + "," + est.lastLon + " silent " + est.silentMs / 1000 + " s " + (if (est.onRoute) "on route" else "no route") + " " + (est.speedMps * 2.237).toInt() + " mph") }   // diagnostic
                     _leadEstimate.value = est
-                } catch (ex: Exception) { android.util.Log.w("LEADEST", "LEADEST-2026-10-20 tick failed: " + ex.message) }
+                } catch (ex: Exception) { gtLogger("LEADEST").w { "LEADEST-2026-10-20 tick failed: " + ex.message } }
             }
         }
         // HEARDBOARD-2026-10-14: the cart board's ONLY radio input -- a message received from a radio (MemberHeard). Nothing at start-up.
@@ -616,7 +617,7 @@ class ConvoyViewModel @Inject constructor(
             androidx.compose.runtime.snapshotFlow { GroupMode.on.value }.collect { on ->
                 if (!on) {
                     boardRecompute(System.currentTimeMillis())
-                    android.util.Log.i("TICKSHADOW", "GROUPOFF-2026-10-15: group awareness off -- board now ${boardCarts.size} cart(s)")
+                    gtLogger("TICKSHADOW").i { "GROUPOFF-2026-10-15: group awareness off -- board now ${boardCarts.size} cart(s)" }
                 }
             }
         }
@@ -631,7 +632,7 @@ class ConvoyViewModel @Inject constructor(
                     if (role != c.rideRole) boardCarts[id] = c.copy(rideRole = role)
                 }
                 boardRecompute(System.currentTimeMillis())
-                android.util.Log.i("TICKSHADOW", "ROLESHOW-2026-10-15: checked in = $checkedIn -- roles " + (if (checkedIn) "shown" else "hidden"))
+                gtLogger("TICKSHADOW").i { "ROLESHOW-2026-10-15: checked in = $checkedIn -- roles " + (if (checkedIn) "shown" else "hidden") }
             }
         }
         // FAILCLEAR-2026-10-15 (T5.4e, Fred 10-14 22:21 / 10-15 14:24): the 3rd failed reconnect (not talking, attempts >= 3 -- the power-cycle
@@ -648,7 +649,7 @@ class ConvoyViewModel @Inject constructor(
                     val mine = resolveMyCartId()
                     boardCarts.keys.retainAll { it == mine }; boardSpeedStart.keys.retainAll { it == mine }; boardSpeedLast.keys.retainAll { it == mine }
                     boardRecompute(System.currentTimeMillis())
-                    android.util.Log.i("ANDROIDMODE", "FAILCLEAR-2026-10-15: 3 failed reconnects -- Android only (other carts cleared, group awareness stays on; board ${boardCarts.size} cart(s))")
+                    gtLogger("ANDROIDMODE").i { "FAILCLEAR-2026-10-15: 3 failed reconnects -- Android only (other carts cleared, group awareness stays on; board ${boardCarts.size} cart(s))" }
                 }
             }
         }
@@ -689,11 +690,11 @@ class ConvoyViewModel @Inject constructor(
                             lastImportedName = event.eventName
                             importCount++
                         }
-                        else -> android.util.Log.w("ConvoyImport", "Unknown convoy doc type: $docType")
+                        else -> gtLogger("ConvoyImport").w { "Unknown convoy doc type: $docType" }
                     }
                     file.delete()
                 } catch (e: Exception) {
-                    android.util.Log.e("ConvoyImport", "Failed to process ${file.name}: ${e.message}")
+                    gtLogger("ConvoyImport").e { "Failed to process ${file.name}: ${e.message}" }
                     file.delete()
                 }
             }
@@ -702,7 +703,7 @@ class ConvoyViewModel @Inject constructor(
                 _pendingImportBanner.value = msg
             }
         } catch (e: Exception) {
-            android.util.Log.e("ConvoyImport", "Import scan failed: ${e.message}")
+            gtLogger("ConvoyImport").e { "Import scan failed: ${e.message}" }
         }
     }
 
@@ -731,7 +732,7 @@ class ConvoyViewModel @Inject constructor(
         trackQueue.trySend(TrackEntry.Reset)                 // LEADTRACKBOARD-2026-10-18: Android mode -- the board's lead track too
         _convoyState.value = if (myNodes.isEmpty()) ConvoyEngine.ConvoyState.empty()
             else ConvoyEngine.compute(nodes = myNodes, myCartId = mine, nowMs = System.currentTimeMillis())
-        android.util.Log.i("ANDROIDMODE", "ANDROIDMODE1-2026-10-14: Android mode -- other carts cleared (kept my cart: ${myNodes.size})")
+        gtLogger("ANDROIDMODE").i { "ANDROIDMODE1-2026-10-14: Android mode -- other carts cleared (kept my cart: ${myNodes.size})" }
     }
     fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
     fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = if (GroupMode.on.value) HudMode.GROUP else HudMode.MY_CART }   // GRPMODE-2026-10-13
@@ -881,12 +882,12 @@ class ConvoyViewModel @Inject constructor(
     fun sleepRadio() {
         radioBeforeSleep = commLink.selectedRadioId.value ?: ""
         viewModelScope.launch { commLink.disconnect() }
-        android.util.Log.i("ConvoyScreen", "SLEEP: BLE disconnected")
+        gtLogger("ConvoyScreen").i { "SLEEP: BLE disconnected" }
     }
     fun wakeRadio() {
         val r = radioBeforeSleep
         if (r.isNotBlank()) viewModelScope.launch { commLink.resume(r) }
-        android.util.Log.i("ConvoyScreen", "WAKE: BLE reconnecting")
+        gtLogger("ConvoyScreen").i { "WAKE: BLE reconnecting" }
     }
     fun wakeFromSleep(context: android.content.Context) {
         gpsService?.wakeSleep()
@@ -910,7 +911,7 @@ class ConvoyViewModel @Inject constructor(
         val temp = pendingTempFile ?: return
         if (temp.exists()) {
             temp.delete()
-            android.util.Log.d("ConvoyVM", "Deleted temp track: ${temp.name}")
+            gtLogger("ConvoyVM").d { "Deleted temp track: ${temp.name}" }
         }
         pendingTempFile = null
         lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
@@ -938,7 +939,7 @@ class ConvoyViewModel @Inject constructor(
             f.writeText(text)
             val coords = com.geeksville.mesh.convoy.SpatialDbManager.parseGpxTrackPoints(text)
             // TRACKSFIX-2026-11-03: no points = not a track -- the file goes too (it was left in my_tracks forever)
-            if (coords.isEmpty()) { android.util.Log.w("ConvoyVM", "finalizeTrack: no geometry, not a track: ${f.name} -- file deleted=${f.delete()}"); return }
+            if (coords.isEmpty()) { gtLogger("ConvoyVM").w { "finalizeTrack: no geometry, not a track: ${f.name} -- file deleted=${f.delete()}" }; return }
             var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
             var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
             for ((lon, lat) in coords) {
@@ -949,19 +950,19 @@ class ConvoyViewModel @Inject constructor(
             // INSERT / DROP_NAME / DROP_ALIAS / ALIAS -- it owns the rename to
             // <hash>.gpx, the source-file delete, the metric feed, and aliasing.
             val outcome = com.geeksville.mesh.convoy.SpatialDbManager.resolveTrackAdd(name.trim(), f)
-            android.util.Log.i("ConvoyVM", "finalizeTrack resolveTrackAdd: $outcome name='${name.trim()}'")
+            gtLogger("ConvoyVM").i { "finalizeTrack resolveTrackAdd: $outcome name='${name.trim()}'" }
             // CHECKIN-2026-09-27: the survey is written only when the track exists (INSERT, or DROP/ALIAS onto an existing one).
             pendingSurvey?.let { sv ->
                 if (outcome != com.geeksville.mesh.convoy.SpatialDbManager.AddOutcome.NO_GEOMETRY &&
                     outcome != com.geeksville.mesh.convoy.SpatialDbManager.AddOutcome.ERROR) {
                     val tid = com.geeksville.mesh.convoy.SpatialDbManager.trackIdForGpxText(text)
                     if (tid != null) ConvoyRideStore.saveSurvey(tid, sv)
-                    else android.util.Log.w("ConvoyVM", "ENDRIDE: no track id -- survey not saved")
+                    else gtLogger("ConvoyVM").w { "ENDRIDE: no track id -- survey not saved" }
                 }
             }
             pendingSurvey = null; endingCheckIn = null   // CHECKIN-2026-09-27
         } catch (e: Exception) {
-            android.util.Log.e("ConvoyVM", "finalizeTrack insert failed: ${e.message}")
+            gtLogger("ConvoyVM").e { "finalizeTrack insert failed: ${e.message}" }
         }
     }
 
@@ -1049,7 +1050,7 @@ class ConvoyViewModel @Inject constructor(
         // Group awareness OFF = Android mode = my cart only -- a board rule, applied on EVERY payload (Fred 13:09).
         if (!GroupMode.on.value && boardCarts.keys.any { it != mine }) {
             boardCarts.keys.retainAll { it == mine }; boardSpeedStart.keys.retainAll { it == mine }; boardSpeedLast.keys.retainAll { it == mine }
-            android.util.Log.i("TICKSHADOW", "board: group awareness off -- my cart only (${boardCarts.size})")
+            gtLogger("TICKSHADOW").i { "board: group awareness off -- my cart only (${boardCarts.size})" }
         }
         val nodes = boardCarts.values.toList()
         // LEADBOARD-2026-10-15 (T5.4b, ROLETICK moved): a cart reporting Leader is the lead -- set through setLeadCart only when it differs.
@@ -1058,13 +1059,13 @@ class ConvoyViewModel @Inject constructor(
         if (reportedLeader != null) {
             if (reportedLeader != lockedLeadNodeId) {
                 setLeadCart(reportedLeader)
-                android.util.Log.i("ROLEREPORT", "LEADBOARD-2026-10-15 applied at ${System.currentTimeMillis()}: lead = " + reportedLeader)
+                gtLogger("ROLEREPORT").i { "LEADBOARD-2026-10-15 applied at ${System.currentTimeMillis()}: lead = " + reportedLeader }
             }
             reportedLeadId = reportedLeader   // LEADCLEAR-2026-10-15
         } else if (reportedLeadId != null && lockedLeadNodeId == reportedLeadId) {
             // LEADCLEAR-2026-10-15 (Fred 13:19): the Leader dropped the role and nobody claims it -> NO lead (a REC pick is never cleared here)
             setLeadCart(null)
-            android.util.Log.i("ROLEREPORT", "LEADCLEAR-2026-10-15: no Leader reported any more -- lead " + reportedLeadId + " cleared")
+            gtLogger("ROLEREPORT").i { "LEADCLEAR-2026-10-15: no Leader reported any more -- lead " + reportedLeadId + " cleared" }
             reportedLeadId = null
         }
         boardState = if (nodes.isEmpty()) ConvoyEngine.ConvoyState.empty() else ConvoyEngine.compute(
@@ -1120,17 +1121,17 @@ class ConvoyViewModel @Inject constructor(
             is TrackEntry.Reset -> { leadCart.reset(); _offTrackIds.value = emptySet(); trackPublish(); leadEst.reset(); _leadEstimate.value = null }   // LEADEST-2026-10-20
             is TrackEntry.Poly -> {   // POLYLINE-2026-10-20: the lead's gap polyline -> the lead track is pinned to it
                 val ok = leadCart.onGapPolyline(e.cartId, e.poly)
-                android.util.Log.i("POLYLINE", "POLYLINE-2026-10-20 lead " + e.cartId + " polyline " + e.key + " (" + e.poly.size + " points): " +
-                    (if (ok) "lead track pinned, " + leadCart.dots().size + " dot(s)" else "NOT applied -- not this lead's track, or no track yet"))
+                gtLogger("POLYLINE").i { ("POLYLINE-2026-10-20 lead " + e.cartId + " polyline " + e.key + " (" + e.poly.size + " points): " +
+                    (if (ok) "lead track pinned, " + leadCart.dots().size + " dot(s)" else "NOT applied -- not this lead's track, or no track yet")) }
                 if (ok) trackPublish()
             }
             is TrackEntry.Real -> {
                 // 3 RECORDER: the ride detail JSON is written HERE (RIDEDETAIL, after the tick) -- the real report only, never my tablet's own GPS.
                 if (e.isLead && !e.isMine) {
-                    if (leadCart.onLeadReport(e.cartId, e.p, e.rxMs)) { trackPublish(); android.util.Log.d("LEADTRACK", "TRACKRULES-2026-10-19: lead " + e.cartId + " written") }
+                    if (leadCart.onLeadReport(e.cartId, e.p, e.rxMs)) { trackPublish(); gtLogger("LEADTRACK").d { "TRACKRULES-2026-10-19: lead " + e.cartId + " written" } }
                     // LEADEST-2026-10-20: heard -> the estimate (if one was showing) ends; its error to the ride statistics
                     leadEst.onReport(e.cartId, e.p, e.rxMs, estRouteNow())?.let { o ->
-                        android.util.Log.i("LEADEST", "LEADEST-2026-10-20 heard after " + o.silentMs / 1000 + " s: estimate off by " + o.errorM.toInt() + " m (" + (if (o.onRoute) "on route" else "in place") + ", " + (o.speedMps * 2.237).toInt() + " mph)")
+                        gtLogger("LEADEST").i { "LEADEST-2026-10-20 heard after " + o.silentMs / 1000 + " s: estimate off by " + o.errorM.toInt() + " m (" + (if (o.onRoute) "on route" else "in place") + ", " + (o.speedMps * 2.237).toInt() + " mph)" }
                         if (GroupMode.on.value) RideStats.onEstimate(o)
                     }
                     _leadEstimate.value = null
@@ -1138,7 +1139,7 @@ class ConvoyViewModel @Inject constructor(
                     // TRIM-2026-10-20 (Fred 10-20 14:49-14:56): my cart replaces the lead track behind me -- the shown lead track is cut by time
                     if (leadCart.trimTo(e.p)) {
                         trackPublish()
-                        if (e.rxMs - trimLogMs >= 30_000L) { trimLogMs = e.rxMs; android.util.Log.i("LEADTRACK", "TRIM-2026-10-20 lead track shown from " + leadCart.trimmedAtMs() + " (UTC ms), " + leadCart.segments().size + " segs") }
+                        if (e.rxMs - trimLogMs >= 30_000L) { trimLogMs = e.rxMs; gtLogger("LEADTRACK").i { "TRIM-2026-10-20 lead track shown from " + leadCart.trimmedAtMs() + " (UTC ms), " + leadCart.segments().size + " segs" } }
                     }
                 } else {
                     // off-track: THAT cart against the lead track, when its own report arrives (Settings -> OFF_TRACK_MILES)
@@ -1190,7 +1191,7 @@ class ConvoyViewModel @Inject constructor(
         val fx = polyOwnFixes.toList()
         val inside = fx.count { it.first in t0..t1 }
         if (inside < 2) {
-            android.util.Log.w("POLYLINE", "POLYLINE-2026-10-20 lead: dead air " + (t1 - t0) / 1000 + " s but only " + inside + " own fix(es) in it -- nothing sent")
+            gtLogger("POLYLINE").w { "POLYLINE-2026-10-20 lead: dead air " + (t1 - t0) / 1000 + " s but only " + inside + " own fix(es) in it -- nothing sent" }
             return null
         }
         val step = (t1 - t0) / 19
@@ -1210,7 +1211,7 @@ class ConvoyViewModel @Inject constructor(
         val secs = p.stepMs * 19 / 1000
         viewModelScope.launch {
             val r = commMessaging.deliverPolyline(p)
-            android.util.Log.i("POLYLINE", "POLYLINE-2026-10-20 lead " + what + ": dead air " + secs + " s, " + p.lats.size + " points -> " + r)
+            gtLogger("POLYLINE").i { "POLYLINE-2026-10-20 lead " + what + ": dead air " + secs + " s, " + p.lats.size + " points -> " + r }
             if (what == "sent" && r is com.grouptrack.comm.CommResult.Ok)
                 android.widget.Toast.makeText(appContext, "Gap polyline sent: " + (secs / 60) + ":" + "%02d".format(secs % 60) + " of dead air", android.widget.Toast.LENGTH_LONG).show()
         }
@@ -1226,9 +1227,9 @@ class ConvoyViewModel @Inject constructor(
         val n = minOf(p.lats.size, p.lons.size)
         val secs = p.stepMs * (n - 1) / 1000
         val isLead = id == lockedLeadNodeId
-        android.util.Log.i("POLYLINE", "POLYLINE-2026-10-20 received from " + id + " (" + p.callsign + "): " + n + " points over " + secs + " s" +
+        gtLogger("POLYLINE").i { ("POLYLINE-2026-10-20 received from " + id + " (" + p.callsign + "): " + n + " points over " + secs + " s" +
             (if (first) "" else " -- the repeat, already have it") + " lead=" + isLead + " rec=" + _trackActive.value + " group=" + GroupMode.on.value +
-            " | lead's last point " + (System.currentTimeMillis() - (p.t0Ms + (n - 1) * p.stepMs)) + " ms before my clock (UTC ms: delivery + clock difference) " + "TRIM-2026-10-20")
+            " | lead's last point " + (System.currentTimeMillis() - (p.t0Ms + (n - 1) * p.stepMs)) + " ms before my clock (UTC ms: delivery + clock difference) " + "TRIM-2026-10-20") }
         if (!first) return
         android.widget.Toast.makeText(appContext, "Gap polyline from " + p.callsign.ifBlank { id } + ": " + n + " points, " + (secs / 60) + ":" + "%02d".format(secs % 60), android.widget.Toast.LENGTH_LONG).show()
         if (!GroupMode.on.value || !_trackActive.value || !isLead || n < 2) return

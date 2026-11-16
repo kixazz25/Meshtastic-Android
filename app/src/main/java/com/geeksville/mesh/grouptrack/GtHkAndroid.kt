@@ -2,7 +2,6 @@ package com.geeksville.mesh.grouptrack
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.util.Log
 import com.geeksville.mesh.convoy.ConvoyTrackOps
 import com.geeksville.mesh.convoy.HomeStateImportController
 import com.geeksville.mesh.convoy.OwnershipReclass
@@ -13,6 +12,7 @@ import com.grouptrack.shared.startup.GtHkDb
 import com.grouptrack.shared.startup.GtHkEnv
 import com.grouptrack.shared.startup.GtHkFile
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * SWITCH17G2F-2026-11-13 (2.8 step 17, G2f): the Android side of [GtHkEnv] -- the real collaborators
@@ -97,5 +97,5 @@ class GtHkAndroid(private val ctx: Context, private val tag: String = "Housekeep
         m.writeText(body)
     }
 
-    override fun log(line: String) { Log.i(tag, line) }
+    override fun log(line: String) { gtLogger(tag).i { line } }
 }

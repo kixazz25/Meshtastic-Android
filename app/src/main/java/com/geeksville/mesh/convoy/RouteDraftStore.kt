@@ -1,11 +1,11 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.time.Instant
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * RouteDraftStore — interim (in-progress) route persistence.
@@ -44,6 +44,7 @@ import java.time.Instant
 object RouteDraftStore {
 
     private const val TAG = "RouteDraftStore"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val SCHEMA_VERSION = 1
     private const val DIR_NAME = "route_drafts"
 
@@ -127,8 +128,8 @@ object RouteDraftStore {
                 runCatching {
                     legacy.copyTo(f, overwrite = true)
                     legacy.delete()
-                    Log.i(TAG, "migrated open batch out of the drafts directory")
-                }.onFailure { Log.w(TAG, "batch migration failed: ${it.message}") }
+                    log.i { "migrated open batch out of the drafts directory" }
+                }.onFailure { log.w { "batch migration failed: ${it.message}" } }
             }
         }
         return f
@@ -141,7 +142,7 @@ object RouteDraftStore {
         return runCatching { JSONObject(f.readText()) }.getOrElse {
             // ⚠ A corrupt batch must not strand the rider. Report it and let the
             // caller fall through to the ordinary WIP list.
-            Log.w(TAG, "batch unreadable, ignoring: ${it.message}")
+            log.w { "batch unreadable, ignoring: ${it.message}" }
             null
         }
     }
@@ -158,7 +159,7 @@ object RouteDraftStore {
             if (n.isNotEmpty() && fileFor(n).exists()) live++
         }
         if (live == 0) {
-            Log.w(TAG, "BATCHHEAL: open batch '${b.optString("batchName")}' names no surviving drafts -- cleared")
+            log.w { "BATCHHEAL: open batch '${b.optString("batchName")}' names no surviving drafts -- cleared" }
             clearBatch()
             return false
         }
@@ -174,8 +175,8 @@ object RouteDraftStore {
             val o = JSONObject().put("at", now()).put("routes", routes).put("headerWritten", headerWritten)
             if (error != null) o.put("error", error)
             File(batchDir(), LAST_SEARCH_FILE).writeText(o.toString(2))
-            Log.i(TAG, "ROUTEFILES: last AI search -- routes=$routes header=$headerWritten error=${error ?: "-"}")
-        }.onFailure { Log.w(TAG, "ROUTEFILES: could not record the search outcome: ${it.message}") }
+            log.i { "ROUTEFILES: last AI search -- routes=$routes header=$headerWritten error=${error ?: "-"}" }
+        }.onFailure { log.w { "ROUTEFILES: could not record the search outcome: ${it.message}" } }
     }
 
     /** AIFAIL-2026-11-03: the search's RECIPE and what it worked on, kept with its outcome -- success or not (after recordSearchOutcome). */
@@ -186,7 +187,7 @@ object RouteDraftStore {
             o.put("searched", text)
             o.put("recipe", recipe)
             f.writeText(o.toString(2))
-        }.onFailure { Log.w(TAG, "ROUTEFILES: could not record the search detail: ${it.message}") }
+        }.onFailure { log.w { "ROUTEFILES: could not record the search detail: ${it.message}" } }
     }
 
     /** AIFAIL-2026-11-03: the last AI search as text, for an ISSUE report ("" when none is recorded). */
@@ -266,8 +267,8 @@ object RouteDraftStore {
             val f = File(batchDir(), TRACE_FILE)
             val old = if (f.exists()) f.readLines() else emptyList()
             f.writeText((old + sb.toString().trimEnd('\n').split('\n')).takeLast(400).joinToString("\n") + "\n")
-            Log.i(TAG, "COMPARETRACE: " + sb.toString().trimEnd('\n').replace("\n", " | "))
-        }.onFailure { Log.w(TAG, "COMPARETRACE: could not write the trace: ${it.message}") }
+            log.i { "COMPARETRACE: " + sb.toString().trimEnd('\n').replace("\n", " | ") }
+        }.onFailure { log.w { "COMPARETRACE: could not write the trace: ${it.message}" } }
     }
 
     fun compareTraceTail(lines: Int = 60): String = runCatching {
@@ -282,7 +283,7 @@ object RouteDraftStore {
     fun deleteOrphanAiDrafts(): Int {
         var n = 0
         for (d in listDrafts()) if (!isInOpenBatch(d.name) && isAiDraft(d.name) && deleteDraft(d.name)) n++
-        if (n > 0) Log.i(TAG, "AIORPHANS: deleted $n orphaned AI route(s)")
+        if (n > 0) log.i { "AIORPHANS: deleted $n orphaned AI route(s)" }
         return n
     }
 
@@ -295,7 +296,7 @@ object RouteDraftStore {
         clearBatch()
         var n = 0
         for (d in listDrafts()) if (deleteDraft(d.name)) n++
-        Log.i(TAG, "ROUTEFILES: deleted all route files ($n)")
+        log.i { "ROUTEFILES: deleted all route files ($n)" }
         return n
     }
 
@@ -322,13 +323,13 @@ object RouteDraftStore {
             if (!removed) return
             if (kept.length() == 0) {
                 clearBatch()
-                Log.i(TAG, "BATCHHEAL: '$name' was the last route of the open batch -- batch cleared")
+                log.i { "BATCHHEAL: '$name' was the last route of the open batch -- batch cleared" }
             } else {
                 b.put("routes", kept)
                 batchFile().writeText(b.toString(2))
-                Log.i(TAG, "BATCHHEAL: '$name' removed from the open batch (${kept.length()} left)")
+                log.i { "BATCHHEAL: '$name' removed from the open batch (${kept.length()} left)" }
             }
-        }.onFailure { Log.w(TAG, "BATCHHEAL: prune of '$name' failed: ${it.message}") }
+        }.onFailure { log.w { "BATCHHEAL: prune of '$name' failed: ${it.message}" } }
     }
 
     fun clearBatch() {
@@ -365,7 +366,7 @@ object RouteDraftStore {
         if (draftNames.isEmpty()) {
             // ⚠ No drafts means nothing to resolve. Writing a batch here would
             // lock route creation behind an empty compare screen.
-            Log.i(TAG, "no drafts, no batch written")
+            log.i { "no drafts, no batch written" }
             return
         }
         val o = JSONObject()
@@ -452,7 +453,7 @@ object RouteDraftStore {
                     if (df.exists()) df.delete()
                     dtmp.renameTo(df)
                 }
-            }.onFailure { Log.w(TAG, "recipe into draft '$nm' failed: ${it.message}") }
+            }.onFailure { log.w { "recipe into draft '$nm' failed: ${it.message}" } }
         }
 
         // ⚠ ATOMIC, matching this store's own convention. A half-written batch
@@ -463,8 +464,8 @@ object RouteDraftStore {
             tmp.writeText(o.toString(2))
             if (f.exists()) f.delete()
             tmp.renameTo(f)
-            Log.i(TAG, "batch '$batchName' written with ${draftNames.size} route(s)")
-        }.onFailure { Log.e(TAG, "batch write failed: ${it.message}") }
+            log.i { "batch '$batchName' written with ${draftNames.size} route(s)" }
+        }.onFailure { log.e { "batch write failed: ${it.message}" } }
     }
 
     /**
@@ -515,7 +516,7 @@ object RouteDraftStore {
                 // ⚠ VISIBLE. A draft named by the batch but missing from disk
                 // would otherwise leave the rider comparing five lines against
                 // a legend showing six.
-                Log.w(TAG, "batch names '$nm' but the draft is gone")
+                log.w { "batch names '$nm' but the draft is gone" }
                 continue
             }
             val pts = dr.vertices.joinToString(",", "[", "]") {
@@ -550,7 +551,7 @@ object RouteDraftStore {
          * ⚠ Once, not locked -- the rider pans and zooms from there.
          */
         onMain(wv, "map.setZoom(11)")
-        Log.i(TAG, "drew ${rows.size} batch route(s)")
+        log.i { "drew ${rows.size} batch route(s)" }
         return rows
     }
 
@@ -685,10 +686,10 @@ object RouteDraftStore {
                 target.writeText(root.toString())
                 tmp.delete()
             }
-            Log.d(TAG, "writeDraft '$name' -> ${target.name} (${arr.length()} pts)")
+            log.d { "writeDraft '$name' -> ${target.name} (${arr.length()} pts)" }
             true
         } catch (e: Exception) {
-            Log.e(TAG, "persist '$name' failed", e)
+            log.e(e) { "persist '$name' failed" }
             false
         }
     }
@@ -720,7 +721,7 @@ object RouteDraftStore {
             if (!f.exists()) null
             else JSONObject(f.readText()).optJSONObject("notes")
         } catch (e: Exception) {
-            Log.w(TAG, "readNotes failed for $name: ${e.message}")
+            log.w { "readNotes failed for $name: ${e.message}" }
             null
         }
     }
@@ -743,10 +744,10 @@ object RouteDraftStore {
         return try {
             draftDir()
             fileFor(name).writeText(doc.toString())
-            Log.i(TAG, "wrote generated draft: $name (${doc.optJSONArray("vertices")?.length() ?: 0} pts)")
+            log.i { "wrote generated draft: $name (${doc.optJSONArray("vertices")?.length() ?: 0} pts)" }
             true
         } catch (e: Exception) {
-            Log.e(TAG, "writeRawDraft failed for $name: ${e.message}")
+            log.e { "writeRawDraft failed for $name: ${e.message}" }
             false
         }
     }
@@ -764,7 +765,7 @@ object RouteDraftStore {
                 val pts = o.optJSONArray("vertices")?.length() ?: 0
                 out.add(DraftInfo(name, updated, pts, created))
             } catch (e: Exception) {
-                Log.w(TAG, "skip unreadable draft ${f.name}: ${e.message}")
+                log.w { "skip unreadable draft ${f.name}: ${e.message}" }
             }
         }
         // newest first
@@ -808,7 +809,7 @@ object RouteDraftStore {
             }
             OpenedDraft(o.optString("name", name), method, verts)
         } catch (e: Exception) {
-            Log.e(TAG, "openDraft '$name' failed", e)
+            log.e(e) { "openDraft '$name' failed" }
             null
         }
     }
@@ -854,17 +855,17 @@ object RouteDraftStore {
         // BATCHDELETE-2026-10-07 (Fred): UNIVERSAL -- a route of the open compare batch is never deleted on its own.
         // The batch is resolved in the compare table, which clears the batch header first (then these are ordinary drafts).
         if (isInOpenBatch(name)) {
-            Log.w(TAG, "BATCHDELETE: refused to delete '$name' -- it belongs to the open compare batch")
+            log.w { "BATCHDELETE: refused to delete '$name' -- it belongs to the open compare batch" }
             return false
         }
         return try {
             val f = fileFor(name)
             val ok = if (f.exists()) f.delete() else true
-            Log.d(TAG, "deleteDraft '$name' -> $ok")
+            log.d { "deleteDraft '$name' -> $ok" }
             if (ok) pruneFromBatch(name)   // BATCHHEAL-2026-10-07: the batch never names a draft that is gone
             ok
         } catch (e: Exception) {
-            Log.e(TAG, "deleteDraft '$name' failed", e)
+            log.e(e) { "deleteDraft '$name' failed" }
             false
         }
     }

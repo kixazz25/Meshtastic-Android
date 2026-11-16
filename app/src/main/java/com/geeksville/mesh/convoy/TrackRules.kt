@@ -1,5 +1,7 @@
 package com.geeksville.mesh.convoy
 
+import com.grouptrack.shared.log.gtLogger
+
 /**
  * TRACKRULES-2026-10-19 (2.7b -- Fred 10-19 08:12-08:57). THE TRACK RULES, WRITTEN ONCE. Replaces TrackPipeline.kt (LEADTRACKBOARD-2026-10-18).
  * Model + proof: track_model_full_2026-10-19.py (yesterday's points; every case below is a case there).
@@ -149,7 +151,7 @@ object TrackGrounds {
                 while (c.moveToNext()) { val id = c.getString(0) ?: continue; val g = c.getString(1) ?: continue; out += parse(id, g) }
                 out
             }
-        } catch (e: Exception) { android.util.Log.w("TRACKRULES", "TRACKRULES-2026-10-19 lookup failed: " + e.message); emptyList() }
+        } catch (e: Exception) { gtLogger("TRACKRULES").w { "TRACKRULES-2026-10-19 lookup failed: " + e.message }; emptyList() }
         private fun box(s: Double, w: Double, n: Double, e: Double) = arrayOf(s.toString(), n.toString(), w.toString(), e.toString())
         override fun route(id: String): Line? = query("SELECT route_id, geometry FROM routes WHERE route_id = ?", arrayOf(id)).firstOrNull()
         override fun routesNear(s: Double, w: Double, n: Double, e: Double) =
@@ -343,7 +345,7 @@ class TrackWriter(private val name: String, private val fill: Boolean) {   // MY
         val f = path.fill(a, p, tMs - last.tMs)   // GAPFILL-2026-10-20: the silent time
         if (f.alts.isNotEmpty()) {                                          // R5: at an intersection -> hold, write nothing yet
             held = Held(p, tMs, alt, f.alts)
-            android.util.Log.d("TRACKRULES", "TRACKRULES-2026-10-19 $name WAIT at an intersection (" + f.rule + ")")
+            gtLogger("TRACKRULES").d { "TRACKRULES-2026-10-19 $name WAIT at an intersection (" + f.rule + ")" }
             return ups
         }
         val seg = placed(f, p)

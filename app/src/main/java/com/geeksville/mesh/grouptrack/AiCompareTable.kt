@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * COMPARETABLE-2026-08-27 — the AI batch, compared.
@@ -161,7 +162,7 @@ fun GtCompareTable(
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.w("BatchGrid", "surface lookup: ${e.message}")
+            gtLogger("BatchGrid").w { "surface lookup: ${e.message}" }
         }
         out
     }

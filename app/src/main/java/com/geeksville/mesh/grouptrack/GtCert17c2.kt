@@ -1,7 +1,6 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import com.geeksville.mesh.convoy.ConvoyUserCertOld
 import com.geeksville.mesh.convoy.ConvoyUserType
 import com.geeksville.mesh.convoy.UserCertOldEnv
@@ -11,6 +10,7 @@ import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import java.io.File
 import java.time.LocalDate
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP17G2C2-2026-11-12 (2.8 step 17, G2c-2) ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the V2 local
@@ -21,6 +21,7 @@ import java.time.LocalDate
  */
 object GtCert17c2 {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r")
 
     private class OldSide(private val app: Context, private val dir: File) : Cert17c2.Side {
@@ -79,11 +80,11 @@ object GtCert17c2 {
                 else { diff++; w.write("U17C\t$k\tDIFF\n  OLD\t${o?.let { esc(it) } ?: "(missing)"}\n  NEW\t${n?.let { esc(it) } ?: "(missing)"}\n") }
             }
         } catch (e: Throwable) {
-            diff++; w.write("# U17C: ABORTED $e\n"); Log.e(TAG, "GTCERT user17c2 aborted", e)
+            diff++; w.write("# U17C: ABORTED $e\n"); log.e(e) { "GTCERT user17c2 aborted" }
         } finally { work.deleteRecursively() }
         val stillOwn = if (own.isFile) own.readText() else null
         if (stillOwn != ownText) { diff++; w.write("# U17C: ⚠ the rider's convoy_users.json CHANGED during the cert\n") }
         w.write("# U17C done: $same SAME, $diff DIFF in ${(System.currentTimeMillis() - t0) / 1000} s\n")
-        Log.i(TAG, "GTCERT user17c2: $same SAME, $diff DIFF")
+        log.i { "GTCERT user17c2: $same SAME, $diff DIFF" }
     }
 }

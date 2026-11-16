@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.first
 import org.json.JSONObject
 import org.meshtastic.proto.DeviceProfile
 import javax.inject.Inject
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * COMMCONFIG-2026-10-12 (2.7b cycle 1 P4.2) -- the MESH implementation of CommConfig: GroupTrack says WHAT (the ride file and the
@@ -47,7 +48,7 @@ class MeshCommConfig @Inject constructor(
         val p = current()
         f.parentFile?.mkdirs()
         f.outputStream().use { exportProfileUseCase(it, p).getOrElse { e -> throw e } }
-        android.util.Log.i("ConvoyProfile", "Exported profile to: ${f.absolutePath}")
+        gtLogger("ConvoyProfile").i { "Exported profile to: ${f.absolutePath}" }
     }
     /** "field: old -> new" (the configurator's change line) -> a ConfigChange. A line without an arrow ("channel key: changed")
      *  is kept whole in [ConfigChange.field] with empty from/to -- GroupTrack shows it as it is. */
@@ -61,7 +62,7 @@ class MeshCommConfig @Inject constructor(
         val v = RadioConfigurator.fromRideFile(JSONObject(configDoc), defaultDoc(), callsign)
         RadioConfigurator.build(current(), v).changes.map(::change) to CommResult.Ok
     } catch (e: Exception) {
-        android.util.Log.e("RadioConfig", "APPLYTRACE: cannot use this configuration", e)
+        gtLogger("RadioConfig").e(e) { "APPLYTRACE: cannot use this configuration" }
         emptyList<ConfigChange>() to CommResult.Failed(e.message ?: e.javaClass.simpleName)
     }
 
@@ -69,7 +70,7 @@ class MeshCommConfig @Inject constructor(
         val v = RadioConfigurator.fromProfile(load(java.io.File(id)))
         RadioConfigurator.build(current(), v).changes.map(::change) to CommResult.Ok
     } catch (e: Exception) {
-        android.util.Log.e("RadioConfig", "APPLYTRACE: cannot use save '$id'", e)
+        gtLogger("RadioConfig").e(e) { "APPLYTRACE: cannot use save '$id'" }
         emptyList<ConfigChange>() to CommResult.Failed(e.message ?: e.javaClass.simpleName)
     }
 
@@ -77,7 +78,7 @@ class MeshCommConfig @Inject constructor(
         val id = nodeId()
         val last = id?.let { RadioBackups.list(context, it).firstOrNull() }?.let(::load)
         if (last != null) ConfigCompare.differences(last, current()).map { ConfigChange(it.path, it.a, it.b) } else emptyList()
-    } catch (e: Exception) { android.util.Log.w("RadioConfig", "drift: ${e.message}"); emptyList() }
+    } catch (e: Exception) { gtLogger("RadioConfig").w { "drift: ${e.message}" }; emptyList() }
 
     // ------------------------------------------------------------------ apply
     override suspend fun applyConfig(configDoc: String, callsign: String): CommResult {
@@ -89,7 +90,7 @@ class MeshCommConfig @Inject constructor(
     override suspend fun applyRide(request: ApplyRequest): CommResult {
         _report.value = null   // a new apply: the last one's report is not shown for it
         val v = try { RadioConfigurator.fromRideFile(JSONObject(request.configDoc), defaultDoc(), request.callsign) }
-            catch (e: Exception) { android.util.Log.e("RadioConfig", "APPLYTRACE: cannot use this configuration", e)
+            catch (e: Exception) { gtLogger("RadioConfig").e(e) { "APPLYTRACE: cannot use this configuration" }
                 return CommResult.Failed(e.message ?: e.javaClass.simpleName) }
         return run(v, request.title, request.saveTitle, request.rideId)
     }
@@ -102,9 +103,9 @@ class MeshCommConfig @Inject constructor(
             val now = RadioConfigurator.fromProfile(current())
             now.copy(preset = org.meshtastic.proto.Config.LoRaConfig.ModemPreset.valueOf(preset),
                 reporting = now.reporting.copy(smartMinIntervalSecs = movingIntervalSecs))
-        } catch (e: Exception) { android.util.Log.e("RadioConfig", "APPLYTRACE: GPS panel cannot use the radio's settings", e)
+        } catch (e: Exception) { gtLogger("RadioConfig").e(e) { "APPLYTRACE: GPS panel cannot use the radio's settings" }
             return CommResult.Failed(e.message ?: e.javaClass.simpleName) }
-        android.util.Log.i("RadioConfig", "PRESETPANEL-2026-10-20 GPS panel: preset $preset, moving every ${movingIntervalSecs}s")
+        gtLogger("RadioConfig").i { "PRESETPANEL-2026-10-20 GPS panel: preset $preset, moving every ${movingIntervalSecs}s" }
         return run(v, "GPS panel", "GPS panel -- $preset every ${movingIntervalSecs} s", null)
     }
 
@@ -112,7 +113,7 @@ class MeshCommConfig @Inject constructor(
         _report.value = null   // a new apply: the last one's report is not shown for it
         val f = java.io.File(id)
         val v = try { RadioConfigurator.fromProfile(load(f)) }
-            catch (e: Exception) { android.util.Log.e("RadioConfig", "APPLYTRACE: cannot use save '$id'", e)
+            catch (e: Exception) { gtLogger("RadioConfig").e(e) { "APPLYTRACE: cannot use save '$id'" }
                 return CommResult.Failed(e.message ?: e.javaClass.simpleName) }
         return run(v, RadioBackups.title(f), saveTitle, RadioBackups.rideId(f))
     }
@@ -125,7 +126,7 @@ class MeshCommConfig @Inject constructor(
                     stopReason: String? = null, written: List<String> = emptyList(), savedAs: String? = null) {
             _report.value = ApplyReport(running, log.toList(), checks, verified, stoppedAt, stopReason, written, savedAs)
         }
-        fun addLog(s: String) { android.util.Log.i("RadioConfig", s); log += s.removePrefix("RADIOWRITER: "); publish(true) }
+        fun addLog(s: String) { gtLogger("RadioConfig").i { s }; log += s.removePrefix("RADIOWRITER: "); publish(true) }
         publish(true)
         return try {
             if (RadioBackups.list(context, id).isEmpty()) {
@@ -168,7 +169,7 @@ class MeshCommConfig @Inject constructor(
     // RADIONET-2026-10-12: the radio's own answer -- the primary channel's name from the settings it reported. null if not read yet.
     override suspend fun currentNetwork(): String? = try {
         if (nodeId() == null) null else RadioConfigurator.primaryChannel(current()).name
-    } catch (e: Exception) { android.util.Log.i("RadioConfig", "RADIONET-2026-10-12: network not known yet (${e.message})"); null }
+    } catch (e: Exception) { gtLogger("RadioConfig").i { "RADIONET-2026-10-12: network not known yet (${e.message})" }; null }
 
     // SAVEDCFG-2026-10-12 (P4.3): the saved-configs screen's list and comparison.
     override suspend fun savedSetups(): List<SavedSetup> = nodeId()?.let { id ->
@@ -181,7 +182,7 @@ class MeshCommConfig @Inject constructor(
         ConfigCompare.differences(profileOf(a), profileOf(b), includeManaged = true)
             .map { ConfigDifference(it.path, it.a, it.b, it.path in ConfigCompare.MANAGED) } to CommResult.Ok
     } catch (e: Exception) {
-        android.util.Log.w("RadioConfig", "SAVEDCFG-2026-10-12: cannot compare: ${e.message}")
+        gtLogger("RadioConfig").w { "SAVEDCFG-2026-10-12: cannot compare: ${e.message}" }
         emptyList<ConfigDifference>() to CommResult.Failed(e.message ?: e.javaClass.simpleName)
     }
 
@@ -221,7 +222,7 @@ class MeshCommConfig @Inject constructor(
         val key = runCatching { RadioConfigurator.primaryChannel(p).psk.base64() }.getOrDefault("(not readable)")
         pdfRows.map { (s, n, path) -> com.grouptrack.comm.ConfigSetting(s, n, if (path == "channel[0].psk") key else flat[path] ?: "(not set)") } to CommResult.Ok
     } catch (e: Exception) {
-        android.util.Log.w("RadioConfig", "CONFIGPDF-2026-10-26: cannot read the config: ${e.message}")
+        gtLogger("RadioConfig").w { "CONFIGPDF-2026-10-26: cannot read the config: ${e.message}" }
         emptyList<com.grouptrack.comm.ConfigSetting>() to CommResult.Failed(e.message ?: e.javaClass.simpleName)
     }
 
@@ -251,7 +252,7 @@ class MeshCommConfig @Inject constructor(
             }
         }
     } catch (e: Exception) {
-        android.util.Log.w("RadioSetup", "saved-config check failed: " + e.message + " -- treated as none")
+        gtLogger("RadioSetup").w { "saved-config check failed: " + e.message + " -- treated as none" }
         false
     }
 

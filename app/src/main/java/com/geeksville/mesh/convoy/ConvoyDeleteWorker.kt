@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * DELETE-AREA-2026-07-25
@@ -54,6 +55,7 @@ class ConvoyDeleteWorker(
 
     companion object {
         private const val TAG = "DeleteWorker"
+        private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
         // DELETE-BANDING-2026-07-25: approximate tiles touched per DELETE
         // statement. Small enough that a statement returns in well under a
         // second even on satellite blobs, so progress moves and isStopped can
@@ -71,12 +73,12 @@ class ConvoyDeleteWorker(
         val slotName = inputData.getString("refresh_slot") ?: ""
 
         if (slotName.isBlank()) {
-            android.util.Log.e(TAG, "Missing slot for delete entry $entryId")
+            log.e { "Missing slot for delete entry $entryId" }
             DownloadQueueManager.markFailed(entryId, "Delete job missing source")
             return Result.failure()
         }
 
-        android.util.Log.i(TAG, "Starting delete: $label id=$entryId box N=$north S=$south E=$east W=$west")
+        log.i { "Starting delete: $label id=$entryId box N=$north S=$south E=$east W=$west" }
         DownloadQueueManager.init(appContext)
         MapSourceManager.init(appContext)
         showProgress(entryId, label, 0, 1)
@@ -84,7 +86,7 @@ class ConvoyDeleteWorker(
         // -- Derive the same tile set the download would have written -------
         val zr = ConvoyTileCalculator.zoomRanges(north, south, east, west)   // REMOVEAREA-2026-11-03: no tile list (a state ran out of memory)
         if (zr.isEmpty()) {
-            android.util.Log.w(TAG, "No tiles in box for $slotName")
+            log.w { "No tiles in box for $slotName" }
             DownloadQueueManager.markComplete(entryId, 0, 0)
             return Result.success()
         }
@@ -101,8 +103,7 @@ class ConvoyDeleteWorker(
         } else {
             layers.mapIndexed { i, layer -> if (i == 0) slotName else layer.cacheDir }
         }
-        android.util.Log.i(TAG,
-            "Delete $slotName: ${ranges.size} zoom levels across ${storeNames.size} store(s): $storeNames")
+        log.i { "Delete $slotName: ${ranges.size} zoom levels across ${storeNames.size} store(s): $storeNames" }
 
         val totalUnits = Math.max(1, ranges.size * storeNames.size)
         var unitsDone = 0
@@ -116,11 +117,11 @@ class ConvoyDeleteWorker(
 
         for (store in storeNames) {
             if (isStopped) {
-                android.util.Log.i(TAG, "Delete stopped by system/user")
+                log.i { "Delete stopped by system/user" }
                 return Result.failure()
             }
             if (!MBTilesStore.storeExists(store)) {
-                android.util.Log.d(TAG, "No store for $store - nothing to remove")
+                log.d { "No store for $store - nothing to remove" }
                 unitsDone += ranges.size
                 continue
             }
@@ -148,7 +149,7 @@ class ConvoyDeleteWorker(
                 var zRemoved = 0
                 while (y <= r.yMax) {
                     if (isStopped) {
-                        android.util.Log.i(TAG, "Delete stopped mid-band at $store z${r.z} y=$y")
+                        log.i { "Delete stopped mid-band at $store z${r.z} y=$y" }
                         return Result.failure()
                     }
                     val yEnd = Math.min(r.yMax, y + bandRows - 1)
@@ -162,7 +163,7 @@ class ConvoyDeleteWorker(
                 totalRemoved = totalRemovedSoFar
                 unitsDone++
                 if (zRemoved > 0) {
-                    android.util.Log.d(TAG, "$store z${r.z}: removed $zRemoved (${(r.yMax - r.yMin + 1)} rows, band=$bandRows)")
+                    log.d { "$store z${r.z}: removed $zRemoved (${(r.yMax - r.yMin + 1)} rows, band=$bandRows)" }
                 }
             }
         }
@@ -173,9 +174,8 @@ class ConvoyDeleteWorker(
         DownloadQueueManager.markComplete(entryId, totalRemoved, 0)
 
         val reclaimable = storeNames.sumOf { MBTilesStore.reclaimableBytes(it) }
-        android.util.Log.i(TAG,
-            "Delete complete: $label -- $totalRemoved tiles removed, " +
-            "${reclaimable / (1024 * 1024)} MB reclaimable (needs VACUUM to return to disk)")
+        log.i { ("Delete complete: $label -- $totalRemoved tiles removed, " +
+            "${reclaimable / (1024 * 1024)} MB reclaimable (needs VACUUM to return to disk)") }
 
         val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(
@@ -200,7 +200,7 @@ class ConvoyDeleteWorker(
             }
             setForegroundAsync(info)
         } catch (e: Exception) {
-            android.util.Log.d(TAG, "setForeground skipped: ${e.message}")
+            log.d { "setForeground skipped: ${e.message}" }
         }
     }
 }

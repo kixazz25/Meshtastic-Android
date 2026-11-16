@@ -3,7 +3,6 @@ package com.geeksville.mesh.convoy
 import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.app.Activity
 import android.content.Context
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
@@ -41,6 +40,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import kotlinx.coroutines.launch
+import com.grouptrack.shared.log.gtLogger
 
 // ============================================================
 // ConvoySignInScreen.kt
@@ -55,6 +55,7 @@ import kotlinx.coroutines.launch
 // ============================================================
 
 private const val TAG = "ConvoySignIn"
+private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 private const val PREFS_NAME = "grouptrack_user"
 private const val PREF_USER_ID = "user_id"
 private const val PREF_GOOGLE_ID = "google_id"
@@ -74,7 +75,7 @@ fun saveUserToPrefs(context: Context, userId: String, googleId: String,
         putString(PREF_LAST_NAME, lastName)
         apply()
     }
-    Log.i(TAG, "User cached: $userId")
+    log.i { "User cached: $userId" }
 }
 
 fun getUserId(context: Context): String? =
@@ -97,7 +98,7 @@ fun setDevSubscribed(context: Context, subscribed: Boolean) {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
         .putLong("subscription_expires_at", expiresAt)
         .apply()
-    android.util.Log.i("ConvoyDev", "Dev subscription override: $subscribed")
+    gtLogger("ConvoyDev").i { "Dev subscription override: $subscribed" }
 }
 
 fun getDevSubscribed(context: Context): Boolean =
@@ -159,7 +160,7 @@ fun ConvoySignInScreen(
                         onFailure = { e ->
                             isLoading = false
                             errorMessage = "Could not register with GroupTrack server. Check your connection and try again."
-                            Log.e(TAG, "registerUser failed: ${e.message}")
+                            log.e { "registerUser failed: ${e.message}" }
                         }
                     )
                 }
@@ -170,7 +171,7 @@ fun ConvoySignInScreen(
                     7     -> "No network connection. Connect to the internet and try again."
                     else  -> "Sign-in failed (${e.statusCode}). Please try again."
                 }
-                Log.e(TAG, "Google Sign-In failed: ${e.statusCode}")
+                log.e { "Google Sign-In failed: ${e.statusCode}" }
             }
         } else {
             isLoading = false

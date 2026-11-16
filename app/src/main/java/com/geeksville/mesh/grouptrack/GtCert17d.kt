@@ -1,7 +1,6 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import com.geeksville.mesh.convoy.ConvoyUser
 import com.geeksville.mesh.convoy.ConvoyUserType
 import com.geeksville.mesh.convoy.EventCertOldEnv
@@ -15,6 +14,7 @@ import okio.Path.Companion.toOkioPath
 import org.json.JSONObject
 import java.io.File
 import java.time.LocalDate
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP17G2D-2026-11-12 (2.8 step 17, G2d) ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the config files,
@@ -25,6 +25,7 @@ import java.time.LocalDate
  */
 object GtCert17d {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r")
     private val ORG_OLD = Cert17d.ORG.let { ConvoyUser(it.userId, ConvoyUserType.valueOf(it.userType.name), it.firstName, it.lastName, it.email, it.cellPhone, it.vehicleType, it.createdDate, it.expirationDate) }
 
@@ -91,10 +92,10 @@ object GtCert17d {
                 else { diff++; w.write("D17C\t$k\tDIFF\n  OLD\t${o?.let { esc(it) } ?: "(missing)"}\n  NEW\t${n?.let { esc(it) } ?: "(missing)"}\n") }
             }
         } catch (e: Throwable) {
-            diff++; w.write("# D17C: ABORTED $e\n"); Log.e(TAG, "GTCERT config17d aborted", e)
+            diff++; w.write("# D17C: ABORTED $e\n"); log.e(e) { "GTCERT config17d aborted" }
         } finally { work.deleteRecursively() }
         if (snapshot(app) != before) { diff++; w.write("# D17C: ⚠ the rider's master_config.json or convoy_events CHANGED during the cert\n") }
         w.write("# D17C done: $same SAME, $diff DIFF in ${(System.currentTimeMillis() - t0) / 1000} s\n")
-        Log.i(TAG, "GTCERT config17d: $same SAME, $diff DIFF")
+        log.i { "GTCERT config17d: $same SAME, $diff DIFF" }
     }
 }

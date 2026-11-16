@@ -1,8 +1,8 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import com.geeksville.mesh.convoy.GroupTrackStorage
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP17G2A-2026-11-12 (2.8 step 17, G2a) ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the storage socket,
@@ -13,6 +13,7 @@ import com.geeksville.mesh.convoy.GroupTrackStorage
  */
 object GtCert17a {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private val NAMES = listOf("rides", "recipes", "cert15c_input", "config", "state", "osm", "imports", "cert15d_input", "cert15b",
         "states/utah", "ipad_export.request", "gtcert_routes_2026-11-12_1015", "gtcert_rides_export", "gtcert_rides_2026-11-12_1015",
         "data/trail_areas", "cert_run.request", "cert16c_input", "cert15g_input", "cert15f_input", "", "rides/", "a//b", "states/")
@@ -39,6 +40,6 @@ object GtCert17a {
             else { diff++; w.write("S17A\tdir|$n\tDIFF\n  OLD\trefusal expected\n  NEW\t${r.getOrNull()}\n") }
         }
         w.write("# S17A done: $same SAME, $diff DIFF, $expected EXPECTED in ${(System.currentTimeMillis() - t0) / 1000} s\n")
-        Log.i(TAG, "GTCERT storage17a: $same SAME, $diff DIFF, $expected EXPECTED")
+        log.i { "GTCERT storage17a: $same SAME, $diff DIFF, $expected EXPECTED" }
     }
 }

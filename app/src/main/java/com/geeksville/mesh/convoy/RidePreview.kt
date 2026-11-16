@@ -6,10 +6,10 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.webkit.WebView
 import java.io.File
 import java.io.FileOutputStream
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * RIDEPREVIEW-2026-09-24 — the ride's map picture (Fred 09-24).
@@ -25,6 +25,7 @@ import java.io.FileOutputStream
  */
 object RidePreview {
     private const val TAG = "RidePreview"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val SETTLE_MS = 2200L      // time for the fitted tiles to arrive (RIDEFIT-2026-09-24)
     private const val SIZE_PX = 720          // saved picture is 720 x 720
     private const val EDGE_CSS_PX = 16       // breathing room around the route inside the square
@@ -55,7 +56,7 @@ object RidePreview {
     fun captureThen(webView: WebView?, a: String, b: String, then: () -> Unit) {
         val wv = webView ?: run { then(); return }
         val routeId = listOf(a, b).firstOrNull { ConvoyRideStore.routeGeometry(it) != null }
-            ?: run { Log.w(TAG, "no geometry for either argument"); then(); return }
+            ?: run { log.w { "no geometry for either argument" }; then(); return }
         val pts = ConvoyRideStore.routeGeometry(routeId)?.let { ConvoyRideStore.parseWktLine(it) } ?: emptyList()
         if (pts.isEmpty() || wv.width <= 0 || wv.height <= 0) { then(); return }
         // parseWktLine gives (LON, LAT). Only the extremes matter for a fit.
@@ -77,12 +78,12 @@ object RidePreview {
             "if(typeof fitRouteSquare==='function'){fitRouteSquare($minLat,$minLon,$maxLat,$maxLon,$padX,$padY);return 'fitted';}" +
             "fitBounds([$minLat,$maxLat],[$minLon,$maxLon]);return 'fitted-plain';" +
             "}catch(e){return 'ERR '+e;}})()"
-        wv.evaluateJavascript(js) { r -> Log.i(TAG, "RIDEFIT-2026-09-24: fit -> $r") }
+        wv.evaluateJavascript(js) { r -> log.i { "RIDEFIT-2026-09-24: fit -> $r" } }
         Handler(Looper.getMainLooper()).postDelayed({
             try {
                 capture(wv, pendingFile(wv.context, routeId))
             } catch (e: Exception) {
-                Log.w(TAG, "capture failed: ${e.message}")
+                log.w { "capture failed: ${e.message}" }
             }
             then()
         }, SETTLE_MS)
@@ -98,7 +99,7 @@ object RidePreview {
         val scaled = Bitmap.createScaledBitmap(square, SIZE_PX, SIZE_PX, true)
         out.parentFile?.mkdirs()
         FileOutputStream(out).use { scaled.compress(Bitmap.CompressFormat.JPEG, 82, it) }
-        Log.i(TAG, "RIDEPREVIEW-2026-09-24: captured ${out.name} (${out.length()} bytes)")
+        log.i { "RIDEPREVIEW-2026-09-24: captured ${out.name} (${out.length()} bytes)" }
     }
 
     /** The picture to show on the ride screen: the ride's own, else the pending one for the route. */
@@ -115,9 +116,9 @@ object RidePreview {
         if (!src.isFile) return
         try {
             src.copyTo(rideFile(context, rideId), overwrite = true)
-            Log.i(TAG, "RIDEPREVIEW-2026-09-24: kept as ${rideFile(context, rideId).name}")
+            log.i { "RIDEPREVIEW-2026-09-24: kept as ${rideFile(context, rideId).name}" }
         } catch (e: Exception) {
-            Log.w(TAG, "adopt failed: ${e.message}")
+            log.w { "adopt failed: ${e.message}" }
         }
     }
 }

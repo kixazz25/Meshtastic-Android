@@ -1,7 +1,6 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -47,6 +46,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * LANDSYNC-2026-11-02 (Fred 18:41-18:43): Map > IMPORT MAP FEATURES > Update public / private land, and the 2.7e startup run.
@@ -58,6 +58,7 @@ import java.util.Locale
  */
 object GtUtahPrivate {
     private const val TAG = "LandSync"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     val open = mutableStateOf(false)
     val busy = mutableStateOf(false)
     /** what is happening now ("" when idle). */
@@ -102,7 +103,7 @@ object GtUtahPrivate {
         scope.launch {
             result.value = try { work(app, fresh, all = true, startup = false) } catch (t: OutOfMemoryError) { "FAILED: out of memory." }
                            catch (t: Exception) { "FAILED: " + t.message }
-            Log.i(TAG, "LANDSYNC menu: ${result.value}")
+            log.i { "LANDSYNC menu: ${result.value}" }
             step.value = ""; progress.value = -1f; busy.value = false
         }
     }
@@ -125,13 +126,13 @@ object GtUtahPrivate {
                 val ready = !conv && st != "checking" && st != "ask" && !HomeStateImportController.isImporting && !busy.value &&
                     SpatialDbManager.getSpatialDb() != null && SpatialDbManager.getExtensionDb() != null
                 if (ready) break
-                Log.i(TAG, "LANDSYNC startup: waiting (conversion jobs=$conv, screen='$st', importing=${HomeStateImportController.isImporting})")
+                log.i { "LANDSYNC startup: waiting (conversion jobs=$conv, screen='$st', importing=${HomeStateImportController.isImporting})" }
                 delay(30_000L)
             }
             if (com.geeksville.mesh.grouptrack.GtCertGuard.skip("LANDSYNC startup (land areas + step 8)")) return@launch   // STEP15F-FIXB-2026-11-10 (TEST-ONLY)
             busy.value = true; progress.value = -1f
             val r = try { work(app, fresh = false, all = false, startup = true) } catch (t: Throwable) { "FAILED: ${t.javaClass.simpleName} ${t.message}" }
-            Log.i(TAG, "LANDSYNC startup: $r")
+            log.i { "LANDSYNC startup: $r" }
             step.value = ""; progress.value = -1f; busy.value = false
         }
     }

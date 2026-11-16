@@ -1,8 +1,8 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import android.util.Log
 import org.json.JSONObject
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * GeofabrikCatalog — loads the shipped geofabrik_states.json asset
@@ -28,6 +28,7 @@ import org.json.JSONObject
  */
 
 private const val TAG = "GeofabrikCatalog"
+private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 private const val ASSET_FILE = "geofabrik_states.json"
 
 data class GeofabrikState(
@@ -100,11 +101,11 @@ object GeofabrikCatalog {
                     )
                 )
             }
-            Log.i(TAG, "Loaded ${result.size} states from $ASSET_FILE")
+            log.i { "Loaded ${result.size} states from $ASSET_FILE" }
             cached = result
             result
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load $ASSET_FILE", e)
+            log.e(e) { "Failed to load $ASSET_FILE" }
             emptyList()
         }
     }
@@ -187,7 +188,7 @@ object GeofabrikCatalog {
             ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
 
         if (loc == null || (loc.latitude == 0.0 && loc.longitude == 0.0)) {
-            Log.w(TAG, "detectHomeState: no usable location (loc=${loc != null})")
+            log.w { "detectHomeState: no usable location (loc=${loc != null})" }
             return null
         }
 
@@ -201,19 +202,19 @@ object GeofabrikCatalog {
                 val match = states.firstOrNull { it.name.equals(adminArea, ignoreCase = true) }
                     ?: states.firstOrNull { it.parentState?.equals(adminArea, ignoreCase = true) == true }
                 if (match != null) {
-                    Log.i(TAG, "detectHomeState: geocoder → $adminArea → ${match.name}")
+                    log.i { "detectHomeState: geocoder → $adminArea → ${match.name}" }
                     return match
                 }
-                Log.w(TAG, "detectHomeState: geocoder returned '$adminArea' but no state match")
+                log.w { "detectHomeState: geocoder returned '$adminArea' but no state match" }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "detectHomeState: geocoder failed, falling back to bbox", e)
+            log.w(e) { "detectHomeState: geocoder failed, falling back to bbox" }
         }
 
         // Fallback to bbox matching
         val result = findByLocation(states, loc.latitude, loc.longitude)
-        Log.i(TAG, "detectHomeState: bbox fallback lat=%.4f lon=%.4f → %s".format(
-            loc.latitude, loc.longitude, result?.name ?: "outside US"))
+        log.i { ("detectHomeState: bbox fallback lat=%.4f lon=%.4f → %s".format(
+            loc.latitude, loc.longitude, result?.name ?: "outside US")) }
         return result
     }
 

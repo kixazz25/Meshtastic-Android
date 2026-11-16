@@ -2,7 +2,6 @@ package com.geeksville.mesh.grouptrack
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.util.Log
 import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.geeksville.mesh.convoy.OsmCertHooks15g
 import com.geeksville.mesh.convoy.OsmExtractProgressCertOld
@@ -29,6 +28,7 @@ import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toOkioPath
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP15G-2026-11-10 ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 15g certification on the Droid
@@ -47,13 +47,14 @@ import java.io.File
  */
 object GtCert15g {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val MAX_DIFF_LINES = 2000
 
     private var lastLog = 0L
     private fun progress(msg: String, force: Boolean = false) {
         val now = System.currentTimeMillis()
         if (force || msg.startsWith("OLD ") || msg.startsWith("NEW ") || now - lastLog >= 15_000) { lastLog = now; val rt = Runtime.getRuntime()
-            Log.i(TAG, "GTCERT osm15g $msg [heap ${(rt.totalMemory() - rt.freeMemory()) / 1048576} MB of ${rt.maxMemory() / 1048576}]") }
+            log.i { "GTCERT osm15g $msg [heap ${(rt.totalMemory() - rt.freeMemory()) / 1048576} MB of ${rt.maxMemory() / 1048576}]" } }
     }
 
     /** OLD: the app's code, as the TEST-ONLY copies carry it. */
@@ -138,7 +139,7 @@ object GtCert15g {
         val inP = File(osmIn, "utah-latest.osm.pbf"); val inZ = File(osmIn, "utah-latest-free.gpkg.zip")
         if (!inS.isFile || !inD.isFile || !inP.isFile || !inZ.isFile) {
             w.write("# T15G: STOP -- no input (need ${inS.path}, ${inD.path}, ${inP.path}, ${inZ.path}; gt_cert_v23 pushes them). Not run.\n")
-            Log.e(TAG, "GTCERT osm15g STOP: no input at ${dbIn.path} / ${osmIn.path} -- run gt_cert_v23 osm15g")
+            log.e { "GTCERT osm15g STOP: no input at ${dbIn.path} / ${osmIn.path} -- run gt_cert_v23 osm15g" }
             return
         }
         var same = 0; var diff = 0; var expected = 0; var diffLines = 0
@@ -150,7 +151,7 @@ object GtCert15g {
                 else -> {
                     diff++
                     if (diffLines < MAX_DIFF_LINES) { diffLines++; put("T15G\t$key\tDIFF\t$b\n  OLD\t$a\n  NEW\t$b\n") }
-                    Log.w(TAG, "GTCERT osm15g DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}")
+                    log.w { "GTCERT osm15g DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}" }
                 }
             }
         }
@@ -213,7 +214,7 @@ object GtCert15g {
                             } finally {
                                 OsmCertHooks15g.root = null; OsmCertHooks15g.config = null; OsmCertHooks15g.rec = null
                                 SpatialDbManager.certSwapDatabases(prev.first, prev.second)
-                                Log.i(TAG, "GTCERT osm15g live handles restored")
+                                log.i { "GTCERT osm15g live handles restored" }
                             }
                         } finally { dt.close() }
                     } finally { sp.close() }
@@ -253,7 +254,7 @@ object GtCert15g {
             }
             put("# T15G: tables dumped in ${(System.currentTimeMillis() - tT) / 1000} s\n")
         } catch (e: Throwable) {
-            aborted = e.toString(); put("# T15G: ABORTED $e\n"); Log.e(TAG, "GTCERT osm15g aborted", e)
+            aborted = e.toString(); put("# T15G: ABORTED $e\n"); log.e(e) { "GTCERT osm15g aborted" }
         } finally {
             OsmCertHooks15g.root = null; OsmCertHooks15g.config = null; OsmCertHooks15g.rec = null
         }
@@ -272,7 +273,7 @@ object GtCert15g {
         if (diff > diffLines) put("# T15G: ${diff - diffLines} more DIFF lines not written (see logcat CertRun)\n")
         put("# T15G done: $same SAME, $diff DIFF, $expected EXPECTED in ${(System.currentTimeMillis() - t0) / 1000} s" +
             (if (aborted != null) " (ABORTED: $aborted)" else "") + "\n")
-        Log.i(TAG, "GTCERT osm15g: $same SAME, $diff DIFF, $expected EXPECTED")
+        log.i { "GTCERT osm15g: $same SAME, $diff DIFF, $expected EXPECTED" }
         // the copies stay until the next run (inspection); the big ones go now
         for (d in listOf(oldD, newD)) d.osm.deleteRecursively()
     }

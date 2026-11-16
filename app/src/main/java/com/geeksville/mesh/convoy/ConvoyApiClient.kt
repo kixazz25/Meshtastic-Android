@@ -1,6 +1,5 @@
 package com.geeksville.mesh.convoy
 
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -9,6 +8,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+import com.grouptrack.shared.log.gtLogger
 
 // ============================================================
 // ConvoyApiClient.kt
@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit
 object ConvoyApiClient {
 
     private const val TAG = "ConvoyApiClient"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private val JSON = "application/json; charset=utf-8".toMediaType()
 
     private val client: OkHttpClient by lazy {
@@ -59,7 +60,7 @@ object ConvoyApiClient {
 
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: ""
-            Log.d(TAG, "registerUser: ${response.code} $responseBody")
+            log.d { "registerUser: ${response.code} $responseBody" }
 
             if (response.isSuccessful) {
                 val json = JSONObject(responseBody)
@@ -70,7 +71,7 @@ object ConvoyApiClient {
                 Result.failure(Exception("HTTP ${response.code}: $responseBody"))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "registerUser error: ${e.message}")
+            log.e { "registerUser error: ${e.message}" }
             Result.failure(e)
         }
     }
@@ -95,10 +96,10 @@ object ConvoyApiClient {
                 .build()
 
             val response = client.newCall(request).execute()
-            Log.d(TAG, "acceptTerms: ${response.code}")
+            log.d { "acceptTerms: ${response.code}" }
             Result.success(response.isSuccessful)
         } catch (e: Exception) {
-            Log.e(TAG, "acceptTerms error: ${e.message}")
+            log.e { "acceptTerms error: ${e.message}" }
             Result.failure(e)
         }
     }
@@ -121,10 +122,10 @@ object ConvoyApiClient {
                 .build()
 
             val response = client.newCall(request).execute()
-            Log.d(TAG, "becomeOrganizer: ${response.code}")
+            log.d { "becomeOrganizer: ${response.code}" }
             Result.success(response.isSuccessful)
         } catch (e: Exception) {
-            Log.e(TAG, "becomeOrganizer error: ${e.message}")
+            log.e { "becomeOrganizer error: ${e.message}" }
             Result.failure(e)
         }
     }
@@ -141,7 +142,7 @@ object ConvoyApiClient {
 
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: ""
-            Log.d(TAG, "getTerms[$type]: ${response.code}")
+            log.d { "getTerms[$type]: ${response.code}" }
 
             if (response.isSuccessful) {
                 val json = JSONObject(responseBody)
@@ -152,7 +153,7 @@ object ConvoyApiClient {
                 Result.failure(Exception("HTTP ${response.code}"))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "getTerms error: ${e.message}")
+            log.e { "getTerms error: ${e.message}" }
             Result.failure(e)
         }
     }
@@ -196,7 +197,7 @@ object ConvoyApiClient {
 
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: ""
-            Log.d(TAG, "createRide: ${response.code} $responseBody")
+            log.d { "createRide: ${response.code} $responseBody" }
 
             if (response.isSuccessful) {
                 val json = JSONObject(responseBody)
@@ -207,7 +208,7 @@ object ConvoyApiClient {
                 Result.failure(Exception("HTTP ${response.code}: $responseBody"))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "createRide error: ${e.message}")
+            log.e { "createRide error: ${e.message}" }
             Result.failure(e)
         }
     }
@@ -230,7 +231,7 @@ object ConvoyApiClient {
 
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: ""
-            Log.d(TAG, "createInvite: ${response.code} $responseBody")
+            log.d { "createInvite: ${response.code} $responseBody" }
 
             if (response.isSuccessful) {
                 val json = JSONObject(responseBody)
@@ -241,7 +242,7 @@ object ConvoyApiClient {
                 Result.failure(Exception("HTTP ${response.code}: $responseBody"))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "createInvite error: ${e.message}")
+            log.e { "createInvite error: ${e.message}" }
             Result.failure(e)
         }
     }
@@ -258,12 +259,12 @@ object ConvoyApiClient {
 
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: ""
-            Log.d(TAG, "downloadRide: ${response.code} ${responseBody.take(100)}")
+            log.d { "downloadRide: ${response.code} ${responseBody.take(100)}" }
 
             if (response.isSuccessful) Result.success(responseBody)
             else Result.failure(Exception("HTTP ${response.code}: $responseBody"))
         } catch (e: Exception) {
-            Log.e(TAG, "downloadRide error: ${e.message}")
+            log.e { "downloadRide error: ${e.message}" }
             Result.failure(e)
         }
     }
@@ -290,10 +291,10 @@ object ConvoyApiClient {
                 .build()
 
             val response = client.newCall(request).execute()
-            Log.d(TAG, "enrollRider: ${response.code}")
+            log.d { "enrollRider: ${response.code}" }
             Result.success(response.isSuccessful)
         } catch (e: Exception) {
-            Log.e(TAG, "enrollRider error: ${e.message}")
+            log.e { "enrollRider error: ${e.message}" }
             Result.failure(e)
         }
     }
@@ -335,10 +336,10 @@ object ConvoyApiClient {
                 .build()
 
             val response = client.newCall(request).execute()
-            Log.d(TAG, "submitSurvey: ${response.code}")
+            log.d { "submitSurvey: ${response.code}" }
             Result.success(response.isSuccessful)
         } catch (e: Exception) {
-            Log.e(TAG, "submitSurvey error: ${e.message}")
+            log.e { "submitSurvey error: ${e.message}" }
             Result.failure(e)
         }
     }
@@ -359,10 +360,10 @@ object ConvoyApiClient {
                 .build()
 
             val response = client.newCall(request).execute()
-            Log.d(TAG, "followOrganizer: ${response.code}")
+            log.d { "followOrganizer: ${response.code}" }
             Result.success(response.isSuccessful)
         } catch (e: Exception) {
-            Log.e(TAG, "followOrganizer error: ${e.message}")
+            log.e { "followOrganizer error: ${e.message}" }
             Result.failure(e)
         }
     }
@@ -383,10 +384,10 @@ object ConvoyApiClient {
                 .build()
 
             val response = client.newCall(request).execute()
-            Log.d(TAG, "unfollowOrganizer: ${response.code}")
+            log.d { "unfollowOrganizer: ${response.code}" }
             Result.success(response.isSuccessful)
         } catch (e: Exception) {
-            Log.e(TAG, "unfollowOrganizer error: ${e.message}")
+            log.e { "unfollowOrganizer error: ${e.message}" }
             Result.failure(e)
         }
     }
@@ -409,11 +410,11 @@ object ConvoyApiClient {
                 .build()
 
             val response = client.newCall(request).execute()
-            Log.d(TAG, "broadcastRide: ${response.code}")
+            log.d { "broadcastRide: ${response.code}" }
             if (response.code == 409) Result.failure(Exception("ALREADY_SENT"))
             else Result.success(response.isSuccessful)
         } catch (e: Exception) {
-            Log.e(TAG, "broadcastRide error: ${e.message}")
+            log.e { "broadcastRide error: ${e.message}" }
             Result.failure(e)
         }
     }

@@ -2,7 +2,6 @@ package com.geeksville.mesh.convoy
 
 import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import android.content.Intent
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,6 +25,7 @@ import androidx.core.content.FileProvider
 import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import com.grouptrack.shared.log.gtLogger
 
 @Composable
 fun ConvoyTransferRideScreen(
@@ -85,10 +85,10 @@ fun ConvoyTransferRideScreen(
             }
             context.startActivity(Intent.createChooser(intent, "Send Ride via..."))
             statusMsg = "\u2713 Share sheet opened"
-            Log.i("ConvoyTransfer", "Sharing ride: ${ride.eventName}")
+            gtLogger("ConvoyTransfer").i { "Sharing ride: ${ride.eventName}" }
         } catch (e: Exception) {
             statusMsg = "\u2717 Failed: ${e.message}"
-            Log.e("ConvoyTransfer", "Share failed: ${e.message}")
+            gtLogger("ConvoyTransfer").e { "Share failed: ${e.message}" }
         }
     }
 

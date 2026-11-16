@@ -1,6 +1,6 @@
 package com.geeksville.mesh.grouptrack
 
-import android.util.Log
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP15A-2026-11-08 ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): CERT MODE for the jobs that must not
@@ -16,7 +16,7 @@ import android.util.Log
 object GtCertGuard {
     fun skip(job: String): Boolean {
         if (!GtCertRun.active) return false
-        Log.i("CertRun", "STEP15A cert mode: $job not run")
+        gtLogger("CertRun").i { "STEP15A cert mode: $job not run" }
         return true
     }
 }

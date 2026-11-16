@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.grouptrack.shared.log.gtLogger
 
 /*
  * RADIOSETUPSTART-2026-10-01 (GroupTrack 2.7a) -- the startup radio-setup question.
@@ -59,7 +60,7 @@ object RadioSetupState {
     /** Called by the standard apply when it finishes VERIFIED. */
     fun markDone(ctx: Context) { prefs(ctx).edit().putString(KEY, DONE).apply(); log("answer = done (verified apply)") }
 
-    private fun log(s: String) = android.util.Log.i("RadioSetup", "RADIOSETUP: " + s)
+    private fun log(s: String) = gtLogger("RadioSetup").i { "RADIOSETUP: " + s }
 }
 
 @Composable

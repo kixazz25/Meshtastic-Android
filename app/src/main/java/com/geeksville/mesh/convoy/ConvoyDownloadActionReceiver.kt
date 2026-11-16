@@ -3,6 +3,7 @@ package com.geeksville.mesh.convoy
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * Handles notification action buttons for download queue.
@@ -23,7 +24,7 @@ class ConvoyDownloadActionReceiver : BroadcastReceiver() {
             ACTION_CANCEL -> {
                 val entryId = intent.getStringExtra(EXTRA_ENTRY_ID) ?: return
                 DownloadQueueManager.cancel(entryId)
-                android.util.Log.i("DownloadAction", "Cancel from notification: $entryId")
+                gtLogger("DownloadAction").i { "Cancel from notification: $entryId" }
             }
             ACTION_CANCEL_ALL -> {
                 val queue = DownloadQueueManager.queue.value
@@ -31,7 +32,7 @@ class ConvoyDownloadActionReceiver : BroadcastReceiver() {
                 queue.filter { it.status in cancellable }.forEach {
                     DownloadQueueManager.cancel(it.id)
                 }
-                android.util.Log.i("DownloadAction", "Cancel ALL from notification")
+                gtLogger("DownloadAction").i { "Cancel ALL from notification" }
             }
         }
     }

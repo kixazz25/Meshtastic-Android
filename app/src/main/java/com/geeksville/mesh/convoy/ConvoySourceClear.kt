@@ -1,6 +1,5 @@
 package com.geeksville.mesh.convoy
 
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -8,6 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * SOURCECLEAR-2026-08-06
@@ -35,6 +35,7 @@ import java.io.File
 object ConvoySourceClear {
 
     private const val TAG = "SourceClear"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     /** How long to wait for cancelled workers to actually stop. */
     private const val IDLE_TIMEOUT_MS = 15_000L
@@ -117,7 +118,7 @@ object ConvoySourceClear {
         }
         val todo = allDirs.filter { it !in already }
         if (already.isNotEmpty()) {
-            Log.i(TAG, "RESUME $slot: ${already.size} already deleted, ${todo.size} remaining")
+            log.i { "RESUME $slot: ${already.size} already deleted, ${todo.size} remaining" }
         }
 
         // Measure before deleting - afterwards the files are gone and the
@@ -162,7 +163,7 @@ object ConvoySourceClear {
                 val ok = try {
                     MBTilesStore.deleteSource(dir)
                 } catch (e: Exception) {
-                    Log.e(TAG, "deleteSource $dir threw: ${e.message}")
+                    log.e { "deleteSource $dir threw: ${e.message}" }
                     false
                 }
                 if (ok) {
@@ -183,7 +184,7 @@ object ConvoySourceClear {
             // 6 - done
             ConvoySourceMigration.complete(record)
             DownloadQueueManager.resumeQueue()
-            Log.i(TAG, "CLEARED $slot: ${deleted.size} store(s), $bytesBefore bytes")
+            log.i { "CLEARED $slot: ${deleted.size} store(s), $bytesBefore bytes" }
             Result.Success(deleted + already.toList(), bytesBefore)
 
         } catch (e: Exception) {
@@ -205,7 +206,7 @@ object ConvoySourceClear {
             val busy = DownloadQueueManager.queue.value
                 .count { it.status == QueueStatus.DOWNLOADING }
             if (busy == 0) {
-                if (waited > 0) Log.i(TAG, "workers idle after ${waited}ms")
+                if (waited > 0) log.i { "workers idle after ${waited}ms" }
                 return true
             }
             delay(IDLE_POLL_MS)
@@ -213,7 +214,7 @@ object ConvoySourceClear {
         }
         val stillBusy = DownloadQueueManager.queue.value
             .count { it.status == QueueStatus.DOWNLOADING }
-        Log.e(TAG, "awaitIdle TIMEOUT with $stillBusy still downloading")
+        log.e { "awaitIdle TIMEOUT with $stillBusy still downloading" }
         return false
     }
 
@@ -264,7 +265,7 @@ object ConvoySourceClear {
 
         val orphans = from.filter { it !in to && it !in already }
         if (orphans.isEmpty()) {
-            Log.i(TAG, "no orphaned stores for this change")
+            log.i { "no orphaned stores for this change" }
             ConvoySourceMigration.setPhase(record, "no_orphans")
             return@withContext Result.Success(emptyList(), 0L)
         }
@@ -273,13 +274,13 @@ object ConvoySourceClear {
             .count { it.status == QueueStatus.DOWNLOADING }
         if (busy > 0) {
             val why = "$busy download(s) in progress - try again when the queue is idle"
-            Log.e(TAG, why)
+            log.e { why }
             return@withContext Result.Failed(why)
         }
 
         val bytes = ConvoySourceMigration.totalBytes(orphans)
         ConvoySourceMigration.setPhase(record, "deleting_orphans")
-        Log.i(TAG, "orphans: ${orphans.joinToString(", ")} ($bytes bytes)")
+        log.i { "orphans: ${orphans.joinToString(", ")} ($bytes bytes)" }
 
         val deleted = ArrayList<String>()
         val failedDirs = ArrayList<String>()
@@ -287,7 +288,7 @@ object ConvoySourceClear {
             val ok = try {
                 MBTilesStore.deleteSource(dir)
             } catch (e: Exception) {
-                Log.e(TAG, "deleteSource $dir threw: ${e.message}")
+                log.e { "deleteSource $dir threw: ${e.message}" }
                 false
             }
             if (ok) {
@@ -304,7 +305,7 @@ object ConvoySourceClear {
             return@withContext Result.Failed(why)
         }
 
-        Log.i(TAG, "removed ${deleted.size} orphaned store(s), $bytes bytes")
+        log.i { "removed ${deleted.size} orphaned store(s), $bytes bytes" }
         Result.Success(deleted, bytes)
     }
 

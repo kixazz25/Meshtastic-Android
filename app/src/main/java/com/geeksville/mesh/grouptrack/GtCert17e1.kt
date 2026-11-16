@@ -1,7 +1,6 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import com.geeksville.mesh.convoy.StateCertOldEnv
 import com.geeksville.mesh.convoy.StateDataCertOld
 import com.grouptrack.shared.cert.Cert17e1
@@ -12,6 +11,7 @@ import okio.Path
 import okio.Path.Companion.toOkioPath
 import org.json.JSONObject
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP17G2E1-2026-11-12 (2.8 step 17, G2e-1) ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): a state's kept
@@ -21,6 +21,7 @@ import java.io.File
  */
 object GtCert17e1 {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r")
     private fun setMtime(p: Path, ms: Long): Boolean = File(p.toString()).setLastModified(ms)
     private val files = object : GtFiles {
@@ -66,9 +67,9 @@ object GtCert17e1 {
                 else { diff++; w.write("E17C\t$k\tDIFF\n  OLD\t${o?.let { esc(it) } ?: "(missing)"}\n  NEW\t${n?.let { esc(it) } ?: "(missing)"}\n") }
             }
         } catch (e: Throwable) {
-            diff++; w.write("# E17C: ABORTED $e\n"); Log.e(TAG, "GTCERT state17e1 aborted", e)
+            diff++; w.write("# E17C: ABORTED $e\n"); log.e(e) { "GTCERT state17e1 aborted" }
         } finally { work.deleteRecursively(); StateCertOldEnv.root = null }
         w.write("# E17C done: $same SAME, $diff DIFF in ${(System.currentTimeMillis() - t0) / 1000} s\n")
-        Log.i(TAG, "GTCERT state17e1: $same SAME, $diff DIFF")
+        log.i { "GTCERT state17e1: $same SAME, $diff DIFF" }
     }
 }

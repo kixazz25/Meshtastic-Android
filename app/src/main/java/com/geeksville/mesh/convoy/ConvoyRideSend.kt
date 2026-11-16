@@ -2,9 +2,9 @@ package com.geeksville.mesh.convoy
 
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import androidx.core.content.FileProvider
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * RIDESEND-2026-09-23 — sends a ride. SENDING IS THE LOCK (Fred 09-23): after the first send only
@@ -18,6 +18,7 @@ import java.io.File
 object ConvoyRideSend {
 
     private const val TAG = "ConvoyRideSend"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     const val MIME = "application/x-convoy-ride"
 
     /** STEP14E-2026-11-08 (Fred 12:48): the invite's line for riders without GroupTrack (only when GPX files are attached). */
@@ -121,10 +122,10 @@ object ConvoyRideSend {
             if (context !is android.app.Activity) chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(chooser)
             ConvoyRideStore.markDistributed(rideId)   // THE LOCK
-            Log.i(TAG, "RIDESEND-2026-09-23: $rideId shared and locked")
+            log.i { "RIDESEND-2026-09-23: $rideId shared and locked" }
             null
         } catch (e: Exception) {
-            Log.e(TAG, "send failed: ${e.message}")
+            log.e { "send failed: ${e.message}" }
             "Send failed: ${e.message}"
         }
     }

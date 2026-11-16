@@ -1,6 +1,7 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * CORRDELETE-STAGE1-2026-08-07B
@@ -23,6 +24,7 @@ import android.content.Context
 object ConvoyCorridorDelete {
 
     private const val TAG = "ConvoyCorridorDelete"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     /**
      * Per-track preview result.
@@ -116,7 +118,7 @@ object ConvoyCorridorDelete {
     ): DeleteResult {
         MapSourceManager.init(context)
         val hashes = SpatialDbManager.allTrackGeomHashes()
-        android.util.Log.i(TAG, "CORRMIGRATE-2026-08-07H delete start: ${hashes.size} tracks")
+        log.i { "CORRMIGRATE-2026-08-07H delete start: ${hashes.size} tracks" }
 
         // Same live-layer derivation as ConvoyDownloadQueue.enqueueDelete :354-358.
         val storeNames: List<String> = run {
@@ -157,8 +159,7 @@ object ConvoyCorridorDelete {
             onProgress(processed, hashes.size, shown)
         }
 
-        android.util.Log.i(TAG,
-            "CORRMIGRATE-2026-08-07H delete done: $processed tracks, $total tiles, $byStore")
+        log.i { "CORRMIGRATE-2026-08-07H delete done: $processed tracks, $total tiles, $byStore" }
         return DeleteResult(processed, total, byStore)
     }
 
@@ -171,7 +172,7 @@ object ConvoyCorridorDelete {
     fun previewAllTracks(context: Context, slotName: String): PreviewResult {
         MapSourceManager.init(context)
         val hashes = SpatialDbManager.allTrackGeomHashes()
-        android.util.Log.i(TAG, "CORRDELETE-STAGE1-2026-08-07B preview start: ${hashes.size} tracks with geom_hash")
+        log.i { "CORRDELETE-STAGE1-2026-08-07B preview start: ${hashes.size} tracks with geom_hash" }
 
         val previews = ArrayList<TrackPreview>()
         val distinct = HashSet<TileKey>()
@@ -223,12 +224,9 @@ object ConvoyCorridorDelete {
             onDiskByStore = onDisk,
             onDiskTotal = onDiskTotal
         )
-        android.util.Log.i(
-            TAG,
-            "CORRDELETE-STAGE1-2026-08-07B preview done: ${previews.size} tracks, ${result.totalTiles} distinct tiles, " +
+        log.i { ("CORRDELETE-STAGE1-2026-08-07B preview done: ${previews.size} tracks, ${result.totalTiles} distinct tiles, " +
                 "${result.overlapSavings} shared, skipped noGeom=$skippedNoGeom empty=$skippedEmpty, " +
-                "ON DISK=${result.onDiskTotal} across ${onDisk.size} store(s) $onDisk"
-        )
+                "ON DISK=${result.onDiskTotal} across ${onDisk.size} store(s) $onDisk") }
         return result
     }
 }

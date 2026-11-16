@@ -1,6 +1,6 @@
 package com.geeksville.mesh.convoy
 
-import android.util.Log
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * RIDERTRAILWRITER-2026-09-07 -- turns recorded tracks into trails.
@@ -50,6 +50,7 @@ import android.util.Log
 object RiderTrailWriter {
 
     private const val TAG = "RiderTrails"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     /** Our own category. Recognised by TrailClassifier so step 8 preserves it. */
     const val CATEGORY = "rider"
@@ -171,7 +172,7 @@ object RiderTrailWriter {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "candidate query failed: ${e.message}")
+            log.e { "candidate query failed: ${e.message}" }
         }
         return out
     }
@@ -248,7 +249,7 @@ object RiderTrailWriter {
         val res = try {
             SpatialDbManager.insertTrail(newId, null, wkt, minLat, maxLat, minLon, maxLon, now)
         } catch (e: Exception) {
-            Log.e(TAG, "insertTrail failed: ${e.message}")
+            log.e { "insertTrail failed: ${e.message}" }
             return false
         }
         val trailId = res.first
@@ -261,7 +262,7 @@ object RiderTrailWriter {
                 "UPDATE trails SET carto_code=?, carto_code_source=?, use_type=?, land_status=? WHERE trail_id=?",
                 arrayOf<Any?>(CATEGORY, CATEGORY, TrailClassifier.useOf(CATEGORY), "PUBLIC", trailId)
             )
-        } catch (e: Exception) { Log.w(TAG, "spatial carto write: ${e.message}") }
+        } catch (e: Exception) { log.w { "spatial carto write: ${e.message}" } }
 
         // source_unique_id is the geometry hash: stable across re-runs, unique
         // per geometry, so the INSERT OR IGNORE on (source_id, source_unique_id)
@@ -273,7 +274,7 @@ object RiderTrailWriter {
                     "VALUES (?,?,?,?,?,?)",
                 arrayOf<Any?>(trailId, SOURCE_ID, hash, CATEGORY, "yes", now)
             )
-        } catch (e: Exception) { Log.w(TAG, "trail_properties write: ${e.message}") }
+        } catch (e: Exception) { log.w { "trail_properties write: ${e.message}" } }
 
         return true
     }

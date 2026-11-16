@@ -1,7 +1,7 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import android.util.Log
+import com.grouptrack.shared.log.gtLogger
 
 // ============================================================
 // ConvoyDevSeeder.kt
@@ -10,6 +10,7 @@ import android.util.Log
 // ============================================================
 
 private const val TAG          = "ConvoyDevSeeder"
+private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 private const val PREFS_RIDES  = "grouptrack_rides"
 private const val PREFS_NOTIF  = "grouptrack_notifications"
 private const val PREFS_INVITE = "grouptrack_invites"
@@ -23,14 +24,14 @@ object ConvoyDevSeeder {
         seedInvites(ctx)
         seedRides(ctx)
         seedPublicRides(ctx)
-        Log.i(TAG, "Seeded — notif:${getNotifCount(ctx)} invites:${getInviteCount(ctx)} rides:${getRideCount(ctx)} pub:${getPublicRideCount(ctx)}")
+        log.i { "Seeded — notif:${getNotifCount(ctx)} invites:${getInviteCount(ctx)} rides:${getRideCount(ctx)} pub:${getPublicRideCount(ctx)}" }
     }
 
     fun clear(ctx: Context) {
         listOf(PREFS_RIDES, PREFS_NOTIF, PREFS_INVITE, PREFS_PUBLIC).forEach {
             ctx.getSharedPreferences(it, Context.MODE_PRIVATE).edit().clear().apply()
         }
-        Log.i(TAG, "Dev data cleared")
+        log.i { "Dev data cleared" }
     }
 
     fun getRideCount(ctx: Context)       = ctx.getSharedPreferences(PREFS_RIDES,  Context.MODE_PRIVATE).getInt("ride_count", 0)

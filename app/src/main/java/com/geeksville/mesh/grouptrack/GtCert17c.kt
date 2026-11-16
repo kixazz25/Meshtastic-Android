@@ -2,7 +2,6 @@ package com.geeksville.mesh.grouptrack
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.util.Log
 import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.geeksville.mesh.convoy.NetworkStoreCertOld
 import com.geeksville.mesh.convoy.ProfileStoreCertOld
@@ -19,6 +18,7 @@ import com.grouptrack.shared.net.GtProfileStore
 import com.grouptrack.shared.net.GtRiderProfile
 import java.io.File
 import java.security.MessageDigest
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP17G2C1-2026-11-12 (2.8 step 17, G2c-1) ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the rider profile,
@@ -30,6 +30,7 @@ import java.security.MessageDigest
  */
 object GtCert17c {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     const val NOW = "2026-11-12T12:00:00Z"
     fun prof(p: RiderProfile?): String = p?.let { listOf(it.userId, it.firstName, it.lastName, it.callsign, it.email, it.cell, it.defaultRole, it.vehicleType, it.team).joinToString("|") } ?: "null"
     fun prof(p: GtRiderProfile?): String = p?.let { listOf(it.userId, it.firstName, it.lastName, it.callsign, it.email, it.cell, it.defaultRole, it.vehicleType, it.team).joinToString("|") } ?: "null"
@@ -106,12 +107,12 @@ object GtCert17c {
             for (id in all) { on.deleteUnused(id); nn.deleteUnused(id) }
             check("net.deleteUnused|rows", dump(a, "network_configs", "config_id"), dump(b, "network_configs", "config_id"))
         } catch (e: Throwable) {
-            diff++; w.write("# N17C: ABORTED $e\n"); Log.e(TAG, "GTCERT net17c aborted", e)
+            diff++; w.write("# N17C: ABORTED $e\n"); log.e(e) { "GTCERT net17c aborted" }
         } finally {
             ProfileStoreCertOld.certDb = null; NetworkStoreCertOld.certDb = null
             a.close(); b.close(); work.deleteRecursively()
         }
         w.write("# N17C done: $same SAME, $diff DIFF in ${(System.currentTimeMillis() - t0) / 1000} s\n")
-        Log.i(TAG, "GTCERT net17c: $same SAME, $diff DIFF")
+        log.i { "GTCERT net17c: $same SAME, $diff DIFF" }
     }
 }

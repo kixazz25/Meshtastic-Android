@@ -3,6 +3,7 @@ package com.geeksville.mesh.grouptrack
 import android.content.Context
 import com.geeksville.mesh.convoy.MapSourceManager
 import com.grouptrack.shared.mapsource.GtMapSpecEnv
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * G1CSWITCH-2026-11-14 (2.8 step 17, G1c switch): Android's answers for the shared map-source spec
@@ -19,6 +20,7 @@ import com.grouptrack.shared.mapsource.GtMapSpecEnv
  */
 object GtMapSpecAndroid {
     private const val TAG = "GtMapSpecAndroid"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     /**
      * G1CDELEGATE-2026-11-14 (G1c option A): the shared layer spec mapped to MapSourceManager.TileLayer,
@@ -62,12 +64,12 @@ object GtMapSpecAndroid {
                 .execute()
                 .use { r ->
                     if (!r.isSuccessful) {
-                        android.util.Log.e(TAG, "TileJSON HTTP ${r.code}")   // 2.7e logged the code too
+                        log.e { "TileJSON HTTP ${r.code}" }   // 2.7e logged the code too
                         null
                     } else r.body?.string()
                 }
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "TileJSON: ${e.message}")
+            log.e { "TileJSON: ${e.message}" }
             null
         }
     }

@@ -1,7 +1,6 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import com.geeksville.mesh.convoy.ConvoyTrackOps
 import com.geeksville.mesh.convoy.DownloadQueueManager
 import com.geeksville.mesh.convoy.GroupTrackStorage
@@ -23,6 +22,7 @@ import okio.Path.Companion.toOkioPath
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP15A-2026-11-08 (2.8 step 15): the Android implementation of the shared import code's env -- each part is exactly the 2.7e call
@@ -82,6 +82,7 @@ class GtImportAndroid(context: Context) : GtImportEnv {
  */
 object GtHttpAndroid : GtHttp {
     private const val TAG = "TrailImporter"   // the 2.7e tag, so logcat recordings read the same
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     override fun get(url: String, readTimeoutMs: Int): String? {
         val urlStr = url
@@ -97,16 +98,16 @@ object GtHttpAndroid : GtHttp {
                     "(error body unreadable: " + e2.javaClass.simpleName + ")"
                 }
                 val trimmed = if (body.length > 2000) body.substring(0, 2000) + " ...[truncated]" else body
-                Log.e(TAG, "HTTP " + code + " " + conn.responseMessage + " -- server said: " + trimmed)
-                Log.e(TAG, "HTTP " + code + " for URL: " + urlStr)
+                log.e { "HTTP " + code + " " + conn.responseMessage + " -- server said: " + trimmed }
+                log.e { "HTTP " + code + " for URL: " + urlStr }
                 return null
             }
             val text = conn.inputStream.bufferedReader().use { it.readText() }
-            Log.i(TAG, "HTTP " + code + " OK, " + text.length + " chars")
+            log.i { "HTTP " + code + " OK, " + text.length + " chars" }
             text
         } catch (ex: Throwable) {
-            Log.e(TAG, "HTTP FAILED [" + ex.javaClass.simpleName + "] " + ex.message)
-            Log.e(TAG, "HTTP FAILED for URL: " + urlStr)
+            log.e { "HTTP FAILED [" + ex.javaClass.simpleName + "] " + ex.message }
+            log.e { "HTTP FAILED for URL: " + urlStr }
             null
         }
     }

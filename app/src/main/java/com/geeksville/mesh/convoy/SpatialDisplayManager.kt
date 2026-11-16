@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.webkit.WebView
+import com.grouptrack.shared.log.gtLogger
 
 //
 // SpatialDisplayManager - the ONE standard process for displaying artifacts on a map.
@@ -44,7 +45,7 @@ object SpatialDisplayManager {
                 com.grouptrack.shared.db.gtOpenDatabase(db.path, true),
                 ext?.let { com.grouptrack.shared.db.gtOpenDatabase(it.path, true) })
             sharedFor = db
-            android.util.Log.i("SpatialDisplay", "GTBATCH1B shared queries opened on " + db.path + (if (ext != null) " + " + ext.path else " (no data db)"))
+            gtLogger("SpatialDisplay").i { "GTBATCH1B shared queries opened on " + db.path + (if (ext != null) " + " + ext.path else " (no data db)") }
         }
         f(shared!!)
     }
@@ -301,11 +302,10 @@ object SpatialDisplayManager {
                 // in b.build() -- the WKT-to-GeoJSON conversion -- and not in
                 // any query or filter.
                 val inJson = json.contains(probe, ignoreCase = true)
-                android.util.Log.i("SpatialDisplay",
-                    "TRACE $type: raw=${raw.size} items=${items.size} " +
+                gtLogger("SpatialDisplay").i { ("TRACE $type: raw=${raw.size} items=${items.size} " +
                         "json=${json.length}b state=$state " +
                         "checked=${checkedIds?.size ?: -1} limit=$limit | " +
-                        "'$probe' raw=$inRaw items=$inItems json=$inJson")
+                        "'$probe' raw=$inRaw items=$inItems json=$inJson") }
                 // ⭐ When the trail IS in raw but NOT in the json, dump the row
                 // so we can see what is different about it. Geometry length is
                 // the first suspect: this one is a 5-mile line inside a bbox
@@ -323,17 +323,16 @@ object SpatialDisplayManager {
                                 .append(if (sv.length > 90) sv.substring(0, 90) else sv)
                                 .append("  ")
                         }
-                        android.util.Log.w("SpatialDisplay", "TRACE DROPPED: $dump")
+                        gtLogger("SpatialDisplay").w { "TRACE DROPPED: $dump" }
                     }
                 }
             } else {
-                android.util.Log.i("SpatialDisplay",
-                    "TRACE $type: raw=${raw.size} items=${items.size} " +
+                gtLogger("SpatialDisplay").i { ("TRACE $type: raw=${raw.size} items=${items.size} " +
                         "json=${json.length}b state=$state " +
-                        "checked=${checkedIds?.size ?: -1} limit=$limit")
+                        "checked=${checkedIds?.size ?: -1} limit=$limit") }
             }
         } catch (e: Exception) {
-            android.util.Log.w("SpatialDisplay", "TRACE failed: ${e.message}")
+            gtLogger("SpatialDisplay").w { "TRACE failed: ${e.message}" }
         }
 
         main.post {
@@ -344,7 +343,7 @@ object SpatialDisplayManager {
                 "(typeof trailLayer!=='undefined'&&trailLayer&&trailLayer.getLayers)?trailLayer.getLayers().length:-1" else "-1"
             wv.evaluateJavascript("(function(){try{" + b.jsUpdate + "(" + json + ");return 'ok '+(" + probe +
                     ");}catch(e){return 'ERR '+e;}})()") { res ->
-                android.util.Log.i("SpatialDisplay", "TRAILDRAW $type: sent ${items.size} -> page $res")
+                gtLogger("SpatialDisplay").i { "TRAILDRAW $type: sent ${items.size} -> page $res" }
             }
             wv.evaluateJavascript(b.jsShow + "()", null)
         }
@@ -393,7 +392,7 @@ object SpatialDisplayManager {
         webView: WebView?, context: Context
     ) {
         // VPDIAG-2026-11-03 (Fred 17:59 "no tracks display at all"): the area the map asked for, and each layer's state
-        android.util.Log.i("SpatialDisplay", "VIEWPORT S=%.4f W=%.4f N=%.4f E=%.4f zoom=$zoom states=$states".format(south, west, north, east))
+        gtLogger("SpatialDisplay").i { "VIEWPORT S=%.4f W=%.4f N=%.4f E=%.4f zoom=$zoom states=$states".format(south, west, north, east) }
         for (type in listOf("Trails", "Tracks", "Waypoints", "Routes")) {
             val st = states[type] ?: DS_OFF
             val ids = selectLists[type]
@@ -427,9 +426,9 @@ object SpatialDisplayManager {
         val json = try {   // GTBATCH1B-2026-11-06: the shared query; the table is still created here first (as 2.7e did)
             LandAreas.createTables(db)
             val r = withShared { it.landGeoJson(south, west, north, east, pub, rst, 600) } ?: return
-            android.util.Log.i("LandAreas", "LANDDRAW ${r.second} areas (public=$pub restricted=$rst) zoom=$zoom")
+            gtLogger("LandAreas").i { "LANDDRAW ${r.second} areas (public=$pub restricted=$rst) zoom=$zoom" }
             r.first
-        } catch (e: Exception) { android.util.Log.w("LandAreas", "LANDDISPLAY: ${e.message}"); return }
+        } catch (e: Exception) { gtLogger("LandAreas").w { "LANDDISPLAY: ${e.message}" }; return }
         main.post { wv.evaluateJavascript("window.updateLandAreas&&updateLandAreas($json,$pub,$rst)", null) }
     }
 }

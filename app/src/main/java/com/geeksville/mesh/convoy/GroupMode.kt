@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalContext
+import com.grouptrack.shared.log.gtLogger
 
 /*
  * GRPMODE-2026-10-13 (Fred 10-12 / 10-13) -- group awareness ON (a Meshtastic radio, the group on the map) or OFF (this tablet only).
@@ -32,14 +33,14 @@ object GroupMode {
         val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         on.value = if (p.contains(KEY)) p.getBoolean(KEY, true) else RadioSetupState.answer(ctx) != RadioSetupState.NO
         loaded = true
-        android.util.Log.i("GroupMode", "GRPMODE-2026-10-13: group awareness " + (if (on.value) "ON" else "OFF") +
-            (if (p.contains(KEY)) "" else " (not set yet -- from the first-start answer)"))
+        gtLogger("GroupMode").i { ("GRPMODE-2026-10-13: group awareness " + (if (on.value) "ON" else "OFF") +
+            (if (p.contains(KEY)) "" else " (not set yet -- from the first-start answer)")) }
     }
 
     fun set(ctx: Context, value: Boolean) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY, value).apply()
         on.value = value; loaded = true
-        android.util.Log.i("GroupMode", "GRPMODE-2026-10-13: group awareness set " + (if (value) "ON" else "OFF"))
+        gtLogger("GroupMode").i { "GRPMODE-2026-10-13: group awareness set " + (if (value) "ON" else "OFF") }
     }
 
     /** A greyed group control was tapped: say how to turn group mode on. */

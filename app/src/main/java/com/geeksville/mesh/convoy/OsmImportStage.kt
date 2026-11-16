@@ -6,12 +6,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.util.Log
 import com.geeksville.mesh.grouptrack.GtImportAndroid
 import com.geeksville.mesh.grouptrack.GtOsmAndroid
 import com.grouptrack.shared.osm.GtOsmStage
 import okio.Path.Companion.toOkioPath
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * Which stage a state's OSM import is at. DERIVED FROM DISK, never stored.
@@ -33,6 +33,7 @@ enum class OsmStage { ACQUIRE, ACQUIRE_GPKG, PREPARE_TAGS, REDUCE, IMPORT }
 object OsmImportStage {
 
     private const val TAG = "OsmStage"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     /** OSM-SKINNY-CONSTANT-2026-07-28: ONE name for all fifty states. */
     const val SKINNY_NAME = GtOsmStage.SKINNY_NAME
@@ -214,9 +215,9 @@ object OsmImportStage {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "MediaStore query failed: ${e.javaClass.simpleName} ${e.message}")
+            log.e { "MediaStore query failed: ${e.javaClass.simpleName} ${e.message}" }
         }
-        Log.i(TAG, "candidates found: ${out.size}")
+        log.i { "candidates found: ${out.size}" }
         return out
     }
 
@@ -258,30 +259,30 @@ object OsmImportStage {
                     output.flush()
                 }
             } ?: run {
-                Log.e(TAG, "openInputStream returned null for ${c.displayName}")
+                log.e { "openInputStream returned null for ${c.displayName}" }
                 return false
             }
 
             if (c.bytes > 0 && part.length() != c.bytes) {
-                Log.e(TAG, "size mismatch: copied=${part.length()} expected=${c.bytes}")
+                log.e { "size mismatch: copied=${part.length()} expected=${c.bytes}" }
                 part.delete()
                 return false
             }
             if (!verifyZip(part)) {
-                Log.e(TAG, "copied file failed zip verification: ${c.displayName}")
+                log.e { "copied file failed zip verification: ${c.displayName}" }
                 part.delete()
                 return false
             }
             if (target.exists()) target.delete()
             if (!part.renameTo(target)) {
-                Log.e(TAG, "rename failed: ${part.name} -> ${target.name}")
+                log.e { "rename failed: ${part.name} -> ${target.name}" }
                 part.delete()
                 return false
             }
-            Log.i(TAG, "adopted ${c.displayName} -> ${target.absolutePath} (${target.length()} bytes)")
+            log.i { "adopted ${c.displayName} -> ${target.absolutePath} (${target.length()} bytes)" }
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "adopt failed: ${e.javaClass.simpleName} ${e.message}")
+            log.e { "adopt failed: ${e.javaClass.simpleName} ${e.message}" }
             part.delete()
             return false
         }
@@ -294,10 +295,10 @@ object OsmImportStage {
      */
     fun deleteOriginal(ctx: Context, c: Candidate): Boolean = try {
         val n = ctx.contentResolver.delete(c.uri, null, null)
-        Log.i(TAG, "deleted original ${c.displayName}: rows=$n")
+        log.i { "deleted original ${c.displayName}: rows=$n" }
         n > 0
     } catch (e: Exception) {
-        Log.w(TAG, "could not delete original: ${e.javaClass.simpleName} ${e.message}")
+        log.w { "could not delete original: ${e.javaClass.simpleName} ${e.message}" }
         false
     }
 }

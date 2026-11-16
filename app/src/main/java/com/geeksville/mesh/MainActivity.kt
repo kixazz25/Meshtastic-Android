@@ -58,6 +58,7 @@ import org.meshtastic.core.ui.theme.MODE_DYNAMIC
 import org.meshtastic.core.ui.util.showToast
 import org.meshtastic.feature.intro.AppIntroductionScreen
 import javax.inject.Inject
+import com.grouptrack.shared.log.gtLogger
 
 // Session-only convoy persistence: cleared once per process (true cold launch).
 // Top-level var = one instance per process; survives activity recreation (rotation),
@@ -152,7 +153,7 @@ class MainActivity : ComponentActivity() {
 
     @Suppress("NestedBlockDepth")
     private fun handleIntent(intent: Intent) {
-        android.util.Log.d("TrackImport", "handleIntent action=${intent.action} data=${intent.data} type=${intent.type}")
+        gtLogger("TrackImport").d { "handleIntent action=${intent.action} data=${intent.data} type=${intent.type}" }
         val appLinkAction = intent.action
         val appLinkData: Uri? = intent.data
 
@@ -218,9 +219,9 @@ class MainActivity : ComponentActivity() {
             // Peek at convoyDocType to confirm valid convoy file
             val json = org.json.JSONObject(destFile.readText())
             val docType = json.optString("convoyDocType", "unknown")
-            android.util.Log.i("ConvoyImport", "Convoy file received — type=$docType file=$fileName")
+            gtLogger("ConvoyImport").i { "Convoy file received — type=$docType file=$fileName" }
         } catch (e: Exception) {
-            android.util.Log.e("ConvoyImport", "Failed to copy convoy file: ${e.message}")
+            gtLogger("ConvoyImport").e { "Failed to copy convoy file: ${e.message}" }
         }
     }
 
@@ -248,7 +249,7 @@ class MainActivity : ComponentActivity() {
         // as every other import (tracks, routes and waypoints alike) -- no separate background import with a toast.
         lifecycleScope.launch {
             val message = com.geeksville.mesh.convoy.GpxOpen.fromUri(this@MainActivity, uri)
-            android.util.Log.i("TrackImport", "GPXOPEN-2026-10-09: $message")
+            gtLogger("TrackImport").i { "GPXOPEN-2026-10-09: $message" }
             android.widget.Toast.makeText(this@MainActivity, message, android.widget.Toast.LENGTH_LONG).show()
         }
     }

@@ -97,9 +97,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import com.grouptrack.shared.log.gtLogger
 
 // RMTRACE-2026-10-01: diagnostic -- logs every route-mode transition with the site that made it. Remove with the fix.
-private fun rmTrace(v: Boolean, site: String): Boolean { android.util.Log.i("ROUTEMODE", "$site -> $v"); return v }
+private fun rmTrace(v: Boolean, site: String): Boolean { gtLogger("ROUTEMODE").i { "$site -> $v" }; return v }
 
 /**
  * ConvoyScreen — IMP-001 Task 4.2 + 5.1 + 5.2 + 5.3 + 5.4
@@ -209,7 +210,7 @@ fun GroupTrackScreen(
             }
         }
         try { cm?.registerDefaultNetworkCallback(cb) } catch (e: Exception) {
-            android.util.Log.e("PlanGate", "PLANGATE-2026-08-12C register failed: ${e.message}")
+            gtLogger("PlanGate").e { "PLANGATE-2026-08-12C register failed: ${e.message}" }
         }
         onDispose { try { cm?.unregisterNetworkCallback(cb) } catch (e: Exception) { } }
     }
@@ -341,7 +342,7 @@ fun GroupTrackScreen(
             // MAPSTARTUP-2026-10-19: never save a frame the map has not reported yet (0,0,0,0 -> the tester's z0) or a world-size one.
             // CODE RULE 1: bbox null = no usable frame -> the next entry centres on my cart (RIDEENTRY). The layer states are still saved.
             val bbOk = mapFrameOk(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
-            if (!bbOk) android.util.Log.w("ConvoyMap", "MAPSTARTUP-2026-10-19: frame not saved (not usable): $lastViewportSouth,$lastViewportWest,$lastViewportNorth,$lastViewportEast")
+            if (!bbOk) gtLogger("ConvoyMap").w { "MAPSTARTUP-2026-10-19: frame not saved (not usable): $lastViewportSouth,$lastViewportWest,$lastViewportNorth,$lastViewportEast" }
             MapStateStore.saveMap(MapStateStore.rideKey(), MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes(), if (bbOk) MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast) else null, null,
                 com.geeksville.mesh.grouptrack.GtRoute.routeState()))   // GTROUTE1-2026-10-23: ONE MAP's RouteState (was null)
         }
@@ -435,7 +436,7 @@ fun GroupTrackScreen(
     // VECONLINE-2026-10-31 (Fred 08:04): OFFLINE MODE = stored maps only on the vector map; redraw its tiles when it flips
     LaunchedEffect(isOfflineMode) {
         VecOnline.localOnly = isOfflineMode
-        android.util.Log.i("VecOnline", "VECONLINE " + (if (isOfflineMode) "OFFLINE MODE -- stored maps only" else "online fill allowed"))
+        gtLogger("VecOnline").i { "VECONLINE " + (if (isOfflineMode) "OFFLINE MODE -- stored maps only" else "online fill allowed") }
         // ONLINEFILL-2026-11-03 (Fred 12:53): reload() kept the empty tiles given while offline -- setTiles (same URL) drops them and asks again
         webViewRef.value?.evaluateJavascript("try{['openmaptiles','gt-dem','gt-dem-shade'].forEach(function(s){var x=map.getSource(s); if(x){ if(x.setTiles&&x.tiles) x.setTiles(x.tiles.slice()); else if(x.reload) x.reload(); }}); console.log('ONLINEFILL tiles asked again')}catch(e){console.log('ONLINEFILL '+e)}", null)
     }
@@ -447,7 +448,7 @@ fun GroupTrackScreen(
             viewModel.setOfflineMode(true)
             val localUrl = ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
             webViewRef.value?.evaluateJavascript("setTileUrl('$localUrl', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
-            android.util.Log.i("ConvoyMap", "MAPSTARTUP-2026-10-19: network lost -- switched to local tiles")
+            gtLogger("ConvoyMap").i { "MAPSTARTUP-2026-10-19: network lost -- switched to local tiles" }
         }
     }
     // RIDERIDS-2026-10-09 (Fred): rider trails were added or removed -> reload the trails on this map, once, and only then.
@@ -478,7 +479,7 @@ fun GroupTrackScreen(
                     val ss = est.silentMs / 1000
                     val estLabel = label + " \u00b7 est. " + (ss / 60) + ":" + "%02d".format(ss % 60)
                     wv.evaluateJavascript("addMarker('${node.nodeId}', ${est.lat}, ${est.lon}, '$color', '$estLabel', $isMine, $isOffTrack, true)", null)
-                    if (ss % 15 == 0L) android.util.Log.i("LEADEST", "ESTVIEW-2026-10-20 screen: drew " + node.nodeId + " at " + est.lat + "," + est.lon + " (est. " + ss + " s)")   // diagnostic
+                    if (ss % 15 == 0L) gtLogger("LEADEST").i { "ESTVIEW-2026-10-20 screen: drew " + node.nodeId + " at " + est.lat + "," + est.lon + " (est. " + ss + " s)" }   // diagnostic
                     wv.evaluateJavascript("setLastHeard(${est.lastLat}, ${est.lastLon})", null)
                 } else wv.evaluateJavascript("addMarker('${node.nodeId}', ${node.latitude}, ${node.longitude}, '$color', '$label', $isMine, $isOffTrack)", null)
                 // VECHEADING-2026-10-30: my course + speed to the page every tick (heading-up on the vector map; the satellite page ignores it)
@@ -563,7 +564,7 @@ fun GroupTrackScreen(
             HudMode.GROUP -> if (nodes.isNotEmpty()) wv.evaluateJavascript("fitBounds([" + nodes.joinToString(",") { "${it.latitude}" } + "], [" + nodes.joinToString(",") { "${it.longitude}" } + "], 0, 0.1)", null)
             else -> {}
         }
-        android.util.Log.i("ConvoyMap", "HUDFIT $hudMode -> fitted (${nodes.size} cart(s) with a position)")
+        gtLogger("ConvoyMap").i { "HUDFIT $hudMode -> fitted (${nodes.size} cart(s) with a position)" }
     }
 
     // ── Push convoy data to renderer on each state change ─────────────────
@@ -600,7 +601,7 @@ fun GroupTrackScreen(
             }
         }
         val json = "[" + parts.joinToString(",") + "]"
-        android.util.Log.i("LEADDRAW", "LEADVIS-2026-10-20 lead track sent: " + parts.size + " segs to page " + System.identityHashCode(wv))   // diagnostic (T6 removes)
+        gtLogger("LEADDRAW").i { "LEADVIS-2026-10-20 lead track sent: " + parts.size + " segs to page " + System.identityHashCode(wv) }   // diagnostic (T6 removes)
         wv.evaluateJavascript("drawTrack(" + json + ")", null)
     }
     // POLYLINE-2026-10-20: gap-polyline points that fit no line -- orange dots with a black edge, never joined (hidden with the lead track)
@@ -772,7 +773,7 @@ fun GroupTrackScreen(
                         }
                         saveConvoyState()
                         webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
-                        android.util.Log.i("ConvoyScreen", "CHECKINMAP: ride ${ci.rideId} -> route $rid + its trailhead on the ride map")
+                        gtLogger("ConvoyScreen").i { "CHECKINMAP: ride ${ci.rideId} -> route $rid + its trailhead on the ride map" }
                     }
                 }
                 showCheckIn = false
@@ -837,7 +838,7 @@ fun GroupTrackScreen(
                         @android.webkit.JavascriptInterface
                         fun onMapTap(lat: Double, lon: Double) {
                             if (com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) { com.geeksville.mesh.grouptrack.GtRoute.onTap(context, lat, lon); return }   // GTROUTE1-2026-10-23
-                            android.util.Log.d("RouteBridge", "onMapTap lat=$lat lon=$lon")
+                            gtLogger("RouteBridge").d { "onMapTap lat=$lat lon=$lon" }
                             kotlinx.coroutines.MainScope().launch {
                                 val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                     SpatialDbManager.init(context)
@@ -870,8 +871,7 @@ fun GroupTrackScreen(
                         fun onMapLongPress(lat: Double, lon: Double) {
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
                                 // WAYPOINT-TRACE-2026-07-31
-                                android.util.Log.d("ConvoyTap",
-                                    "onMapLongPress [UPDATE :571] lat=$lat lon=$lon")
+                                gtLogger("ConvoyTap").d { "onMapLongPress [UPDATE :571] lat=$lat lon=$lon" }
                                 pendingWaypoint = Pair(lat, lon)
                             }
                         }
@@ -909,9 +909,9 @@ fun GroupTrackScreen(
                         @android.webkit.JavascriptInterface
                         fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
                             if (com.geeksville.mesh.grouptrack.GtArea.take(north, south, east, west)) return   // GTAREA2-2026-10-23: a function was waiting
-                            android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
+                            gtLogger("ConvoyDownload").i { "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}" }
                             val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
-                            android.util.Log.i("ConvoyDownload", "estimate tiles=${estimate.tileCount} mb=${estimate.estimatedMB}")
+                            gtLogger("ConvoyDownload").i { "estimate tiles=${estimate.tileCount} mb=${estimate.estimatedMB}" }
                             val pending = ConvoyViewModel.PendingDownload(
                                 tileCount     = estimate.tileCount,
                                 sizeMB        = estimate.estimatedMB,
@@ -942,7 +942,7 @@ fun GroupTrackScreen(
                         }
                         @android.webkit.JavascriptInterface
                         fun onRouteTap(id: String) {
-                            android.util.Log.d("RouteTap", "CONVOY bridge id=$id")
+                            gtLogger("RouteTap").d { "CONVOY bridge id=$id" }
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
                                 // HOME1C-2026-10-23 (Fred 21:32): ONE MAP -- a route WITH a narrative opens it first (description, BUILD FROM RECIPE,
                                 // ROUTE DETAILS -> the card), the planner's rule (MVS 1730); a route without one opens the card, as before.
@@ -968,7 +968,7 @@ fun GroupTrackScreen(
                         fun onWaypointTap(id: String) {
                             // WPTTAP-2026-09-30 (Fred): mirrors onTrailTap. There are TWO bridge objects in this file
                             // (reuse and create); this method is on both, or it is invisible to one of them.
-                            android.util.Log.d("WaypointTap", "CONVOY bridge id=$id")
+                            gtLogger("WaypointTap").d { "CONVOY bridge id=$id" }
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
                                 pendingDetailType = "Waypoints"
                                 pendingDetailId = id
@@ -979,7 +979,7 @@ fun GroupTrackScreen(
                             // CONVOYTRAILTAP-2026-09-03: mirrors onTrackTap. ⚠ There
                             // are TWO bridge objects in this file -- reuse and create
                             // -- and a method on one is invisible to the other.
-                            android.util.Log.d("TrailTap", "CONVOY(reuse) bridge id=$id")
+                            gtLogger("TrailTap").d { "CONVOY(reuse) bridge id=$id" }
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
                                 pendingDetailType = "Trails"
                                 pendingDetailId = id
@@ -991,15 +991,15 @@ fun GroupTrackScreen(
                         @android.webkit.JavascriptInterface
                         fun onTrackTap(id: String) {
                             // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
-                            android.util.Log.d("TrackTap", "CONVOY(reuse :652) bridge id=$id")
+                            gtLogger("TrackTap").d { "CONVOY(reuse :652) bridge id=$id" }
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                android.util.Log.d("TrackTap", "CONVOY(reuse) post -> setting state id=$id")
+                                gtLogger("TrackTap").d { "CONVOY(reuse) post -> setting state id=$id" }
                                 pendingDetailType = "Tracks"
                                 pendingDetailId = id
                             }
                         }
                     }, "Android")
-                    android.util.Log.i("LEADDRAW", "LEADVIS-2026-10-20 map page REUSED " + System.identityHashCode(existing) + " vm " + System.identityHashCode(viewModel))   // diagnostic
+                    gtLogger("LEADDRAW").i { "LEADVIS-2026-10-20 map page REUSED " + System.identityHashCode(existing) + " vm " + System.identityHashCode(viewModel) }   // diagnostic
                     webViewRef.value = existing
                     existing
                 } else {
@@ -1023,7 +1023,7 @@ fun GroupTrackScreen(
                                 val clean = v?.trim('"') ?: ""
                                 if (clean.isNotBlank() && clean != "null") {
                                     ConvoyConfig.MAP_HTML_VERSION = clean
-                                    android.util.Log.i("HtmlVer", "HTMLVER-2026-08-13B loaded $clean")
+                                    gtLogger("HtmlVer").i { "HTMLVER-2026-08-13B loaded $clean" }
                                 }
                             }
 
@@ -1048,7 +1048,7 @@ fun GroupTrackScreen(
                                 val tileUrl = if (!goLocal) {
                                     ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
                                 } else {
-                                    android.util.Log.d("ConvoyMap", if (!hasInternet) "No internet — auto-switching to local tiles" else "PERSISTVIEW: saved choice is LOCAL")
+                                    gtLogger("ConvoyMap").d { if (!hasInternet) "No internet — auto-switching to local tiles" else "PERSISTVIEW: saved choice is LOCAL" }
                                     ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
                                 }
                                 if (goLocal) {
@@ -1072,14 +1072,14 @@ fun GroupTrackScreen(
                                     // MAPSTARTUP-2026-10-19 (Fred 10-19 14:35): the saved frame is restored ONLY when online and usable; otherwise RIDEENTRY
                                     // below centres on my cart at z15 (the live viewport draw then fills the displayed layers for that view).
                                     val frameUse = bbEntry != null && hasInternet && mapFrameOk(bbEntry.south, bbEntry.west, bbEntry.north, bbEntry.east)
-                                    if (bbEntry != null && !frameUse) android.util.Log.i("ConvoyMap", "MAPSTARTUP-2026-10-19: saved frame NOT restored (" + (if (!hasInternet) "offline" else "not usable: ${bbEntry.south},${bbEntry.west},${bbEntry.north},${bbEntry.east}") + ") -- centring on my cart")
+                                    if (bbEntry != null && !frameUse) gtLogger("ConvoyMap").i { "MAPSTARTUP-2026-10-19: saved frame NOT restored (" + (if (!hasInternet) "offline" else "not usable: ${bbEntry.south},${bbEntry.west},${bbEntry.north},${bbEntry.east}") + ") -- centring on my cart" }
                                     if (bbEntry != null && frameUse) {
                                         // SEED lastViewport* BEFORE draw — closes the stale window for
                                         // other readers (route-snap, save) until onViewportChanged fires.
                                         lastViewportSouth = bbEntry.south; lastViewportWest = bbEntry.west
                                         lastViewportNorth = bbEntry.north; lastViewportEast = bbEntry.east
                                         view.evaluateJavascript("fitBounds([${bbEntry.south},${bbEntry.north}],[${bbEntry.west},${bbEntry.east}])", null)
-                                        android.util.Log.d("ConvoyMap", "Restored persisted frame")
+                                        gtLogger("ConvoyMap").d { "Restored persisted frame" }
                                         SpatialDisplayManager.drawPersistedState(MapStateStore.rideKey(), view, context)
                                     } else {
                                         // Trails loaded on demand via TRAILS button
@@ -1093,19 +1093,19 @@ fun GroupTrackScreen(
                                             // (every 2 s, up to 2 minutes) instead of leaving the map at its default view.
                                             val meNow = viewModel.convoyState.value.nodes.firstOrNull { it.isMyCart && it.latitude != 0.0 && it.longitude != 0.0 }
                                             if (meNow != null) {
-                                                android.util.Log.d("ConvoyMap", "RIDEENTRY: centring on my cart from the tick: ${meNow.latitude}, ${meNow.longitude}")
+                                                gtLogger("ConvoyMap").d { "RIDEENTRY: centring on my cart from the tick: ${meNow.latitude}, ${meNow.longitude}" }
                                                 view.evaluateJavascript("setView(${meNow.latitude}, ${meNow.longitude}, 15)", null)
                                             } else if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
-                                                android.util.Log.d("ConvoyMap", "Centering map on device GPS: ${loc.latitude}, ${loc.longitude}")
+                                                gtLogger("ConvoyMap").d { "Centering map on device GPS: ${loc.latitude}, ${loc.longitude}" }
                                                 view.evaluateJavascript("setView(${loc.latitude}, ${loc.longitude}, 15)", null)
                                             } else {
-                                                android.util.Log.w("ConvoyMap", "RIDEENTRY: no position yet -- centring on the first fix")
+                                                gtLogger("ConvoyMap").w { "RIDEENTRY: no position yet -- centring on the first fix" }
                                                 val wv: android.webkit.WebView = view
                                                 fun centreOnFirstFix(triesLeft: Int) {
                                                     wv.postDelayed({
                                                         val m = viewModel.convoyState.value.nodes.firstOrNull { it.isMyCart && it.latitude != 0.0 && it.longitude != 0.0 }
                                                         if (m != null) {
-                                                            android.util.Log.d("ConvoyMap", "RIDEENTRY: first fix -- centring: ${m.latitude}, ${m.longitude}")
+                                                            gtLogger("ConvoyMap").d { "RIDEENTRY: first fix -- centring: ${m.latitude}, ${m.longitude}" }
                                                             wv.evaluateJavascript("setView(${m.latitude}, ${m.longitude}, 15)", null)
                                                         } else if (triesLeft > 0) {
                                                             centreOnFirstFix(triesLeft - 1)
@@ -1115,7 +1115,7 @@ fun GroupTrackScreen(
                                                 centreOnFirstFix(60)
                                             }
                                         } catch (e: SecurityException) {
-                                            android.util.Log.w("ConvoyMap", "Location permission not granted — map stays at default view")
+                                            gtLogger("ConvoyMap").w { "Location permission not granted — map stays at default view" }
                                         }
                                     }
                                 }, 600)
@@ -1129,10 +1129,10 @@ fun GroupTrackScreen(
                                 // convoy:// line ever appears, the map is still asking
                                 // for https and the interceptor is irrelevant.
                                 if (url.contains("tile") || url.startsWith("convoy://")) {
-                                    android.util.Log.i("OFFTRACE", "OFFTRACE-2026-08-11M convoy-map REQ $url")
+                                    gtLogger("OFFTRACE").i { "OFFTRACE-2026-08-11M convoy-map REQ $url" }
                                 }
                                 if (url.startsWith("convoy://tiles/")) {
-                                    android.util.Log.i("OFFTRACE", "OFFTRACE-2026-08-11M convoy-map MATCHED convoy://")
+                                    gtLogger("OFFTRACE").i { "OFFTRACE-2026-08-11M convoy-map MATCHED convoy://" }
                                     // [V2.6-PASS1-READ] base tile from MBTiles. Path = <type>/<z>/<x>/<y>.png
                                     // Split from the RIGHT: last 3 = z/x/y; everything before = type (keeps TOPO+).
                                     val tilePath = url.removePrefix("convoy://tiles/")
@@ -1144,7 +1144,7 @@ fun GroupTrackScreen(
                                         val type = seg.subList(0, seg.size - 3).joinToString("/")
                                         if (z != null && x != null && y != null) {
                                             val bytes = MBTilesStore.readTile(type, z, x, y)
-                                            android.util.Log.d("ConvoyIntercept", "TILE mbtiles hit=${bytes != null} type=$type z$z/$x/$y")
+                                            gtLogger("ConvoyIntercept").d { "TILE mbtiles hit=${bytes != null} type=$type z$z/$x/$y" }
                                             if (bytes != null) return android.webkit.WebResourceResponse("image/webp", null, java.io.ByteArrayInputStream(bytes))
                                         }
                                     }
@@ -1182,7 +1182,7 @@ fun GroupTrackScreen(
                         }
                         webChromeClient = object : android.webkit.WebChromeClient() {
                             override fun onConsoleMessage(msg: android.webkit.ConsoleMessage): Boolean {
-                                android.util.Log.i("ConvoyJS", "[${msg.messageLevel()}] ${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})")
+                                gtLogger("ConvoyJS").i { "[${msg.messageLevel()}] ${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})" }
                                 return true
                             }
                         }
@@ -1199,7 +1199,7 @@ fun GroupTrackScreen(
                             @android.webkit.JavascriptInterface
                             fun onMapTap(lat: Double, lon: Double) {
                                 if (com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) { com.geeksville.mesh.grouptrack.GtRoute.onTap(context, lat, lon); return }   // GTROUTE1-2026-10-23
-                                android.util.Log.d("RouteBridge", "onMapTap lat=$lat lon=$lon")
+                                gtLogger("RouteBridge").d { "onMapTap lat=$lat lon=$lon" }
                                 kotlinx.coroutines.MainScope().launch {
                                     val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                         SpatialDbManager.init(context)
@@ -1232,8 +1232,7 @@ fun GroupTrackScreen(
                             fun onMapLongPress(lat: Double, lon: Double) {
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     // WAYPOINT-TRACE-2026-07-31
-                                    android.util.Log.d("ConvoyTap",
-                                        "onMapLongPress [FACTORY :788] lat=$lat lon=$lon")
+                                    gtLogger("ConvoyTap").d { "onMapLongPress [FACTORY :788] lat=$lat lon=$lon" }
                                     pendingWaypoint = Pair(lat, lon)
                                 }
                             }
@@ -1253,7 +1252,7 @@ fun GroupTrackScreen(
                                 // GATE: reseed convoy state from JSON only if active map changed since last refresh.
                                 run {   // [refresh-restore 2026-07-01] gate removed: reseed convoy state EVERY viewport event (automatic refresh). Reads convoy JSON only -> map-independence preserved.
                                     val rs = MapStateStore.readMap(MapStateStore.rideKey())
-                                    android.util.Log.e("JSONDIAG", "READ(gate fired) Tr=${rs.types["Trails"]?.state} Tk=${rs.types["Tracks"]?.state} bbox=${rs.bbox} TrChecked=${MapStateStore.checkedIdsFor(rs, "Trails")?.size}")
+                                    gtLogger("JSONDIAG").e { "READ(gate fired) Tr=${rs.types["Trails"]?.state} Tk=${rs.types["Tracks"]?.state} bbox=${rs.bbox} TrChecked=${MapStateStore.checkedIdsFor(rs, "Trails")?.size}" }
                                     trailState = rs.types["Trails"]?.state ?: DS_OFF
                                     trackState = rs.types["Tracks"]?.state ?: DS_OFF
                                     waypointState = rs.types["Waypoints"]?.state ?: DS_OFF
@@ -1291,9 +1290,9 @@ fun GroupTrackScreen(
                             @android.webkit.JavascriptInterface
                             fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
                                 if (com.geeksville.mesh.grouptrack.GtArea.take(north, south, east, west)) return   // GTAREA2-2026-10-23: a function was waiting
-                                android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
+                                gtLogger("ConvoyDownload").i { "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}" }
                             val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
-                            android.util.Log.i("ConvoyDownload", "estimate tiles=${estimate.tileCount} mb=${estimate.estimatedMB}")
+                            gtLogger("ConvoyDownload").i { "estimate tiles=${estimate.tileCount} mb=${estimate.estimatedMB}" }
                                 val pending = ConvoyViewModel.PendingDownload(
                                     tileCount     = estimate.tileCount,
                                     sizeMB        = estimate.estimatedMB,
@@ -1354,7 +1353,7 @@ fun GroupTrackScreen(
                             }
                             @android.webkit.JavascriptInterface
                             fun onRouteTap(id: String) {
-                                android.util.Log.d("RouteTap", "CONVOY bridge id=$id")
+                                gtLogger("RouteTap").d { "CONVOY bridge id=$id" }
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     // HOME1C-2026-10-23 (Fred 21:32): ONE MAP -- a route WITH a narrative opens it first (description, BUILD FROM RECIPE,
                                     // ROUTE DETAILS -> the card), the planner's rule (MVS 1730); a route without one opens the card, as before.
@@ -1378,7 +1377,7 @@ fun GroupTrackScreen(
                             fun onWaypointTap(id: String) {
                                 // WPTTAP-2026-09-30 (Fred): mirrors onTrailTap. There are TWO bridge objects in this file
                                 // (reuse and create); this method is on both, or it is invisible to one of them.
-                                android.util.Log.d("WaypointTap", "CONVOY bridge id=$id")
+                                gtLogger("WaypointTap").d { "CONVOY bridge id=$id" }
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     pendingDetailType = "Waypoints"
                                     pendingDetailId = id
@@ -1387,7 +1386,7 @@ fun GroupTrackScreen(
                             @android.webkit.JavascriptInterface
                             fun onTrailTap(id: String) {
                                 // CONVOYTRAILTAP-2026-09-03: the create-path bridge.
-                                android.util.Log.d("TrailTap", "CONVOY(create) bridge id=$id")
+                                gtLogger("TrailTap").d { "CONVOY(create) bridge id=$id" }
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     pendingDetailType = "Trails"
                                     pendingDetailId = id
@@ -1399,16 +1398,16 @@ fun GroupTrackScreen(
                             @android.webkit.JavascriptInterface
                             fun onTrackTap(id: String) {
                                 // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
-                                android.util.Log.d("TrackTap", "CONVOY(create :916) bridge id=$id")
+                                gtLogger("TrackTap").d { "CONVOY(create :916) bridge id=$id" }
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    android.util.Log.d("TrackTap", "CONVOY(create) post -> setting state id=$id")
+                                    gtLogger("TrackTap").d { "CONVOY(create) post -> setting state id=$id" }
                                     pendingDetailType = "Tracks"
                                     pendingDetailId = id
                                 }
                             }
                         }, "Android")
                     }.also {
-                        android.util.Log.i("LEADDRAW", "LEADVIS-2026-10-20 map page CREATED " + System.identityHashCode(it) + " vm " + System.identityHashCode(viewModel))   // diagnostic
+                        gtLogger("LEADDRAW").i { "LEADVIS-2026-10-20 map page CREATED " + System.identityHashCode(it) + " vm " + System.identityHashCode(viewModel) }   // diagnostic
                         viewModel.persistentWebView = it
                         webViewRef.value = it
                     }
@@ -1437,13 +1436,13 @@ fun GroupTrackScreen(
                     when (event.action) {
                         android.view.MotionEvent.ACTION_DOWN -> {
                             lpDown[0] = event.x
-                            android.util.Log.i("ConvoyTap", "Touch DOWN at x=${event.x.toInt()} y=${event.y.toInt()}")   // VECWATCH2-2026-10-31
+                            gtLogger("ConvoyTap").i { "Touch DOWN at x=${event.x.toInt()} y=${event.y.toInt()}" }   // VECWATCH2-2026-10-31
                             lpDown[1] = event.y
                             val lx = event.x.toInt()
                             val ly = event.y.toInt()
                             lpRunnable[0]?.let { lpHandler.removeCallbacks(it) }
                             val r = Runnable {
-                                android.util.Log.i("ConvoyTap", "LONGPRESS at x=$lx y=$ly")
+                                gtLogger("ConvoyTap").i { "LONGPRESS at x=$lx y=$ly" }
                                 view.evaluateJavascript("longPressAt($lx, $ly)", null)
                             }
                             lpRunnable[0] = r
@@ -1462,7 +1461,7 @@ fun GroupTrackScreen(
                         android.view.MotionEvent.ACTION_CANCEL -> {
                             lpRunnable[0]?.let { lpHandler.removeCallbacks(it) }
                             // VECWATCH2-2026-10-31: a gesture the system took away from the map was invisible in the log
-                            if (event.action == android.view.MotionEvent.ACTION_CANCEL) android.util.Log.i("ConvoyTap", "Touch CANCEL at x=${event.x.toInt()} y=${event.y.toInt()}")
+                            if (event.action == android.view.MotionEvent.ACTION_CANCEL) gtLogger("ConvoyTap").i { "Touch CANCEL at x=${event.x.toInt()} y=${event.y.toInt()}" }
                         }
                     }
                     if (event.action == android.view.MotionEvent.ACTION_MOVE ||
@@ -1471,13 +1470,13 @@ fun GroupTrackScreen(
                     if (event.action == android.view.MotionEvent.ACTION_UP) {
                         val x = event.x.toInt()
                         val y = event.y.toInt()
-                        android.util.Log.i("ConvoyTap", "Touch UP at x=$x y=$y")
+                        gtLogger("ConvoyTap").i { "Touch UP at x=$x y=$y" }
                         view.evaluateJavascript("findNearestMarker($x, $y)") { result ->
-                            android.util.Log.i("ConvoyTap", "findNearestMarker result=$result")
+                            gtLogger("ConvoyTap").i { "findNearestMarker result=$result" }
                             val nodeId = result?.trim('"') ?: ""
                             if (nodeId.isNotEmpty()) {
                                 val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
-                                android.util.Log.i("ConvoyTap", "Node found: $node")
+                                gtLogger("ConvoyTap").i { "Node found: $node" }
                                 if (node != null) viewModel.onMarkerTapped(node)
                             }
                         }
@@ -1587,8 +1586,7 @@ fun GroupTrackScreen(
                     // once this path is understood. It is here because nothing
                     // else distinguishes "state never written" from "state
                     // written into a scope this composition does not observe".
-                    if (pendingWaypoint != null) android.util.Log.d(
-                        "ConvoyTap", "DIALOG gate pendingWaypoint=$pendingWaypoint")
+                    if (pendingWaypoint != null) gtLogger("ConvoyTap").d { "DIALOG gate pendingWaypoint=$pendingWaypoint" }
                     pendingWaypoint?.let { (wLat, wLon) ->
                         androidx.compose.material3.AlertDialog(
                             onDismissRequest = { pendingWaypoint = null },
@@ -1632,7 +1630,7 @@ fun GroupTrackScreen(
                                                 webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
                                             }
                                         } catch (e: Exception) {
-                                            android.util.Log.e("WptCreate", "insert failed: " + e.message)
+                                            gtLogger("WptCreate").e { "insert failed: " + e.message }
                                         }
                                     }.start()
                                     pendingWaypoint = null
@@ -1780,7 +1778,7 @@ fun GroupTrackScreen(
                                         viewModel.startRecording(context)
                                         viewModel.startGroupTrack()
                                     }   // else it stays at REC: that tap asks for the permission, as always
-                                    android.util.Log.i("ConvoyScreen", "SOLOREC: no radio -> solo ride (no check-in), recording=$soloBg")
+                                    gtLogger("ConvoyScreen").i { "SOLOREC: no radio -> solo ride (no check-in), recording=$soloBg" }
                                 }
                             }
                             RecordingState.IDLE -> {
@@ -2575,10 +2573,7 @@ fun GroupTrackScreen(
         // Bridge, asset version, braces, exceptions and today's patches
         // were all ruled out first. ⚠ THE MOVE IS CORRECT REGARDLESS; if
         // the taps still fail, the log we finally get is the next clue.
-            android.util.Log.d(
-                "DetailGate",
-                "CONVOY gate type=$pendingDetailType id=$pendingDetailId"
-            )
+            gtLogger("DetailGate").d { "CONVOY gate type=$pendingDetailType id=$pendingDetailId" }
             if (pendingDetailId != null && pendingDetailType != null) {
                 ArtifactDetailPanel(
                     // TRACKRIDE-CONVOY-2026-10-05 (Fred): ADD A RIDE (routes) and CREATE RIDE (tracks) on the RIDE map too -- the SAME panel
@@ -2769,7 +2764,7 @@ fun GroupTrackScreen(
             roleConflict = Pair(rcRoleNames[rcMyRole] ?: rcMyRole, otherName)
             viewModel.checkIn.value = ci.copy(role = "rider")   // the normal release (as View Cart Roles' change to Rider)
             viewModel.startRoleReports("rider")
-            android.util.Log.i("ROLEREPORT", "ROLECONFLICT-2026-10-15: " + rcMyRole + " also claimed by " + otherName + " -- this cart set back to Rider")
+            gtLogger("ROLEREPORT").i { "ROLECONFLICT-2026-10-15: " + rcMyRole + " also claimed by " + otherName + " -- this cart set back to Rider" }
             CartPickerLauncher.open()
         }
         roleConflict?.let { (rcRole, rcName) ->
@@ -2970,7 +2965,7 @@ fun GroupTrackScreen(
                         fun inTable(tb: String, col: String) = try { db?.rawQuery("SELECT 1 FROM $tb WHERE $col=? LIMIT 1", arrayOf(r.id))?.use { it.moveToFirst() } == true } catch (e: Exception) { false }
                         val typeName = when { inTable("tracks", "track_id") -> "Tracks"; inTable("routes", "route_id") -> "Routes"; inTable("waypoints", "waypoint_id") -> "Waypoints"; inTable("trails", "trail_id") -> "Trails"; else -> "" }
                         // SEARCHFIT2-2026-11-03 (Fred 19:09): the search does the panel's FIT -- others OFF, this one SELECTED, fitted
-                        android.util.Log.i("GtSearch", "SEARCHFIT2 ${r.type} '${r.name}' -> FIT $typeName ${r.id}")
+                        gtLogger("GtSearch").i { "SEARCHFIT2 ${r.type} '${r.name}' -> FIT $typeName ${r.id}" }
                         if (typeName.isNotEmpty()) gtFitOne(typeName, r.id)
                         else webViewRef.value?.evaluateJavascript("fitBounds([$s0,$n0],[$w0,$e0])", null)
                     }

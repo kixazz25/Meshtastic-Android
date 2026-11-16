@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import com.geeksville.mesh.convoy.GroupTrackStorage
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * VECSWITCH-2026-10-30 (2.7e step 4.2, Fred 11:36 / 13:37): THE MAP ENGINE -- SAT (Leaflet, convoy_map.html) or VEC (MapLibre,
@@ -14,6 +15,7 @@ import java.io.File
  */
 object GtMapEngine {
     private const val TAG = "MapEngine"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val FILE = "map_engine.txt"
     @Volatile private var cached: Boolean? = null
 
@@ -22,23 +24,23 @@ object GtMapEngine {
     /** true = the vector engine (MapLibre). */
     // VECONE-2026-11-01: VECTOR IS THE ONLY MAP -- always true (a fresh install with no map_engine.txt fell back to Leaflet).
     // The Satellite / Leaflet path is unreachable; its code is deleted later (living master: delete dead Satellite/Leaflet code).
-    fun isVector(ctx: Context): Boolean = cached ?: true.also { cached = it; android.util.Log.i(TAG, "VECONE-2026-11-01 engine this run: VEC (MapLibre) -- the only map") }
+    fun isVector(ctx: Context): Boolean = cached ?: true.also { cached = it; log.i { "VECONE-2026-11-01 engine this run: VEC (MapLibre) -- the only map" } }
 
     /** VECPORTS-2026-10-31: the engine this run without a context (read once when the map page loads); false before that. */
     fun isVectorCached(): Boolean = true   // VECONE-2026-11-01: the only map
 
     /** VECCONVERT-2026-10-31: the conversion -- the vector map from this start on, NO restart (called before the map page loads). */
     fun useVector(ctx: Context) {
-        try { file(ctx).writeText("VEC") } catch (e: Exception) { android.util.Log.e(TAG, "VECCONVERT engine write: ${e.message}") }
+        try { file(ctx).writeText("VEC") } catch (e: Exception) { log.e { "VECCONVERT engine write: ${e.message}" } }
         cached = true
-        android.util.Log.i(TAG, "VECCONVERT-2026-10-31 engine set to VEC (MapLibre) by the conversion")
+        log.i { "VECCONVERT-2026-10-31 engine set to VEC (MapLibre) by the conversion" }
     }
 
     /** Save the choice, then END and RESTART GroupTrack so the map is built fresh in the chosen engine. */
     fun switchTo(ctx: Context, vector: Boolean) {
         try { file(ctx).writeText(if (vector) "VEC" else "SAT") }
-        catch (e: Exception) { android.util.Log.e(TAG, "VECSWITCH-2026-10-30 write: ${e.message}"); return }
-        android.util.Log.i(TAG, "VECSWITCH-2026-10-30 switching to " + (if (vector) "VEC" else "SAT") + " -- restarting")
+        catch (e: Exception) { log.e { "VECSWITCH-2026-10-30 write: ${e.message}" }; return }
+        log.i { "VECSWITCH-2026-10-30 switching to " + (if (vector) "VEC" else "SAT") + " -- restarting" }
         val launch = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName) ?: return
         ctx.startActivity(Intent.makeRestartActivityTask(launch.component))
         Runtime.getRuntime().exit(0)

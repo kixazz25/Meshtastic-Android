@@ -52,6 +52,7 @@ import okio.Path.Companion.toOkioPath   // STEP15CDE-SWITCH-2026-11-10
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * ConvoyTrackImportScreen -- V2.4 in-app file browser for track import.
@@ -184,8 +185,7 @@ fun ConvoyTrackImportScreen(
                         // write is the one loss worth preventing.
                         val srcLen = doc?.length() ?: -1L
                         if (srcLen > 0 && target.length() != srcLen) {
-                            android.util.Log.e("ImportPicker",
-                                "$name SIZE MISMATCH $srcLen != ${target.length()}")
+                            gtLogger("ImportPicker").e { "$name SIZE MISMATCH $srcLen != ${target.length()}" }
                             target.delete()
                             continue
                         }
@@ -194,22 +194,20 @@ fun ConvoyTrackImportScreen(
                         // deleted the file from Download first. Only a staged copy that reads as GPX or KML lets the original go.
                         val head = try { target.inputStream().use { i -> val b = ByteArray(4096); val n = i.read(b); if (n > 0) String(b, 0, n) else "" } } catch (e: Exception) { "" }
                         val readable = head.contains("<gpx", ignoreCase = true) || head.contains("<kml", ignoreCase = true)
-                        if (!readable) android.util.Log.w("ImportPicker", "$name not GPX/KML -- original KEPT")
+                        if (!readable) gtLogger("ImportPicker").w { "$name not GPX/KML -- original KEPT" }
                         if (deleteOriginals && readable) {
                             // \u26a0 NEEDS THE WRITE FLAG ON THE PICKER INTENT. Without
                             // it this fails silently and the rider thinks the
                             // original went.
                             val gone = try { doc?.delete() ?: false }
                             catch (e: Exception) {
-                                android.util.Log.w("ImportPicker",
-                                    "delete $name: ${e.message}"); false
+                                gtLogger("ImportPicker").w { "delete $name: ${e.message}" }; false
                             }
-                            android.util.Log.i("ImportPicker",
-                                "$name staged, original " +
-                                    (if (gone) "deleted" else "KEPT"))
+                            gtLogger("ImportPicker").i { ("$name staged, original " +
+                                    (if (gone) "deleted" else "KEPT")) }
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("ImportPicker", "$name FAILED: ${e.message}")
+                        gtLogger("ImportPicker").e { "$name FAILED: ${e.message}" }
                     }
                 }
                 out
@@ -285,7 +283,7 @@ fun ConvoyTrackImportScreen(
             recapDupe = dupeTotal
             recapAliased = aliasedTotal
             recapSkippedCount = skippedTotal
-            android.util.Log.i("Import", "RECAP TRIGGER: new=$newTotal dupe=$dupeTotal files=${imported.size}")
+            gtLogger("Import").i { "RECAP TRIGGER: new=$newTotal dupe=$dupeTotal files=${imported.size}" }
             showProgress = false
             showRecap = true
         }

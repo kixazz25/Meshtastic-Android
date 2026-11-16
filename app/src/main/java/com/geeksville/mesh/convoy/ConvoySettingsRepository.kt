@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.grouptrack.shared.log.gtLogger
 
 /*
  * SWITCH17G2B2-2026-11-12 (2.8 step 17, G2b-2 switch): the ride settings live in the settings socket (GtRideSettings, store
@@ -59,9 +60,9 @@ class ConvoySettingsRepository @Inject constructor(
             runCatching {
                 val old = context.convoyDataStore.data.first().asMap().mapKeys { it.key.name }
                 val n = rs.fillMissing(old)
-                android.util.Log.i("ConvoySettings", "SWITCH17G2B2 one-time copy: ${old.size} DataStore value(s), $n copied (the rest were already saved)")
+                gtLogger("ConvoySettings").i { "SWITCH17G2B2 one-time copy: ${old.size} DataStore value(s), $n copied (the rest were already saved)" }
                 refresh()
-            }.onFailure { android.util.Log.e("ConvoySettings", "SWITCH17G2B2 one-time copy failed: ${it.message}") }
+            }.onFailure { gtLogger("ConvoySettings").e { "SWITCH17G2B2 one-time copy failed: ${it.message}" } }
         }
     }
 

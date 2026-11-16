@@ -42,6 +42,7 @@ import com.geeksville.mesh.convoy.RouteDraftStore
 import com.geeksville.mesh.convoy.RouteManager
 import com.geeksville.mesh.convoy.SpatialDbManager
 import kotlinx.coroutines.launch
+import com.grouptrack.shared.log.gtLogger
 
 /*
  * GTROUTE1-2026-10-23 (2.7c, Fred 13:09-13:35): ROUTE+ STAGE 1 -- "Build it myself" on ONE MAP.
@@ -133,7 +134,7 @@ object GtRoute {
         runCatching {
             batchRows.value = RouteDraftStore.drawBatch(wv())
             batchName.value = RouteDraftStore.readBatch()?.optString("batchName") ?: ""
-        }.onFailure { android.util.Log.e("BatchGrid", "batch draw failed: " + it.message, it) }
+        }.onFailure { gtLogger("BatchGrid").e(it) { "batch draw failed: " + it.message } }
         batchHidden.value = emptySet()
         batchSave.value = emptySet()
         RouteDraftStore.traceCompare("Route+", "ONE MAP compare table OPENED with " + batchRows.value.size + " row(s)")
@@ -166,7 +167,7 @@ object GtRoute {
                 }
                 js("if (window.showCompareContext) showCompareContext('" + pj + "'," + box + ")")
             }
-        }.onFailure { android.util.Log.e("BatchGrid", "AICMPCTX-2026-11-11: " + it.message) }
+        }.onFailure { gtLogger("BatchGrid").e { "AICMPCTX-2026-11-11: " + it.message } }
         batchOpen.value = true
     }
 
@@ -305,7 +306,7 @@ object GtRoute {
                             milesLow = mLo, milesHigh = mHi, mphLow = sLo, mphHigh = sHi), pts, shape)
                 }
             } catch (e: Exception) {
-                android.util.Log.e("GuidedPin", "assess failed: " + e.message)
+                gtLogger("GuidedPin").e { "assess failed: " + e.message }
             }
             val res = out
             android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -361,7 +362,7 @@ object GtRoute {
                         sb.append(']')
                     }
                 }
-            } catch (e: Exception) { android.util.Log.e("GuidedPin", "AICONNECTED-2026-11-11: failed: " + e.message) }
+            } catch (e: Exception) { gtLogger("GuidedPin").e { "AICONNECTED-2026-11-11: failed: " + e.message } }
             sb.append(']')
             val json = sb.toString()
             android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -426,7 +427,7 @@ object GtRoute {
                         gpParsePointWkt(hit["geometry"])?.let { la = it[0]; lo = it[1] }
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("GuidedPin", "select failed: " + e.message)
+                    gtLogger("GuidedPin").e { "select failed: " + e.message }
                 }
                 val fnm = nm
                 val trailsOff = layersNow().getOrElse(0) { 0 } == 0   // 0 = DS_OFF (the planner's trailState == DS_OFF)
@@ -539,7 +540,7 @@ object GtRoute {
         f.setGroup(f.off.toList(), true)
         val off = fp.optJSONArray("off")
         if (off != null) f.setGroup((0 until off.length()).map { off.optString(it) }, false)
-        android.util.Log.i("RouteExplorer", "AIFAIL: recipe FILTER applied -- ${f.whereOrEmpty()}")
+        gtLogger("RouteExplorer").i { "AIFAIL: recipe FILTER applied -- ${f.whereOrEmpty()}" }
     }
 
     /** AIFAIL-2026-11-03 (Fred 06:48): every value of a recipe as text -- start (name + GPS), miles, mph, finish, places, trail selection. */
@@ -581,7 +582,7 @@ object GtRoute {
         f.setLand("ALL"); f.setRestricted(true)
         GtOpenModule.trailsTick.intValue++
         notice.value = ""; noticeFilter.value = false; noticeAllLand.value = false
-        android.util.Log.i("RouteExplorer", "AIFAIL: all land on, searching again -- ${f.whereOrEmpty()}")
+        gtLogger("RouteExplorer").i { "AIFAIL: all land on, searching again -- ${f.whereOrEmpty()}" }
         findRides(ctx)
     }
 
@@ -618,7 +619,7 @@ object GtRoute {
                 }
                 trailheadOk.value = near != null
                 checks.value = "CHECKS BEFORE THE SEARCH\n$c1" + (if (c2.isNotEmpty()) "\n$c2" else "")
-            } catch (e: Exception) { checks.value = ""; trailheadOk.value = true; android.util.Log.w("RouteExplorer", "AIFAILCHECK: ${e.message}") }
+            } catch (e: Exception) { checks.value = ""; trailheadOk.value = true; gtLogger("RouteExplorer").w { "AIFAILCHECK: ${e.message}" } }
         }.start()
     }
 
@@ -724,7 +725,7 @@ object GtRoute {
                     // AIFLOOR10-2026-11-11 (Fred 08:54 "drop the floor to 10 miles and rerun the compare function. our goal is to get trails"):
                     //  nothing in the band -> once more from 10 miles (same ceiling; the network is cached). Not after a cancel.
                     if (out.isEmpty() && mLo > AI_RETRY_FLOOR && aiStep.intValue == PIN_STEP_SEARCH) {
-                        android.util.Log.i("RouteExplorer", "AIFLOOR10-2026-11-11: no $mLo-$mHi mile ride -- searching again from $AI_RETRY_FLOOR miles")
+                        gtLogger("RouteExplorer").i { "AIFLOOR10-2026-11-11: no $mLo-$mHi mile ride -- searching again from $AI_RETRY_FLOOR miles" }
                         aiProgress.value = "No $mLo-$mHi mile rides here — looking from $AI_RETRY_FLOOR miles"
                         out = search(AI_RETRY_FLOOR)
                         lowUsed = AI_RETRY_FLOOR
@@ -749,16 +750,16 @@ object GtRoute {
                     val recipe = currentRecipe(aLat, aLon, aName, mLo, mHi, sLo, sHi, pins, if (loop == false) eLat to eLon else null)
                     summary = recipeText(recipe) + "\n" + statsText()
                     RouteDraftStore.recordSearchDetail(summary, recipe)
-                    android.util.Log.i("RouteExplorer", "AISEARCH: ${out.size} route(s) | " + summary.replace("\n", " | "))
+                    gtLogger("RouteExplorer").i { "AISEARCH: ${out.size} route(s) | " + summary.replace("\n", " | ") }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("RouteExplorer", "explore failed", e)
+                gtLogger("RouteExplorer").e(e) { "explore failed" }
                 RouteDraftStore.recordSearchOutcome(-1, false, e.message ?: e.toString())
                 runCatching {   // AIFAIL-2026-11-03: a failed search keeps its recipe too
                     val recipe = currentRecipe(aLat, aLon, aName, mLo, mHi, sLo, sHi, pins, if (loop == false) eLat to eLon else null)
                     summary = recipeText(recipe) + "\n" + statsText()
                     RouteDraftStore.recordSearchDetail(summary, recipe)
-                    android.util.Log.i("RouteExplorer", "AISEARCH: error | " + summary.replace("\n", " | "))
+                    gtLogger("RouteExplorer").i { "AISEARCH: error | " + summary.replace("\n", " | ") }
                 }
                 err = "Could not build rides: " + (e.message ?: "error")
             }
@@ -917,13 +918,13 @@ object GtRoute {
                 val mPerPx = 156543.03392 * kotlin.math.cos(Math.toRadians(lat)) / Math.pow(2.0, b[4])
                 val snapRadiusM = (44.0 * mPerPx).coerceIn(15.0, 150.0)
                 val s = RouteManager.snapTrailsOnly(lat, lon, trails, snapRadiusM)
-                android.util.Log.d("RouteBridge", "GTROUTE1 tap $lat,$lon zoom=${b[4]} radius=${snapRadiusM.toInt()}m trails=${trails.size} -> " +
-                    if (s != null) "SNAPPED ${s.lineType} ${s.lineId}" else "FREE")
+                gtLogger("RouteBridge").d { ("GTROUTE1 tap $lat,$lon zoom=${b[4]} radius=${snapRadiusM.toInt()}m trails=${trails.size} -> " +
+                    if (s != null) "SNAPPED ${s.lineType} ${s.lineId}" else "FREE") }
                 if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
             }
             if (RouteManager.routeVertices().isEmpty()) {
                 val nearby = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SpatialDbManager.trailheadsNear(lat, lon) }
-                android.util.Log.i("RouteBridge", "GTROUTE1 FIRSTPOINT at $lat,$lon -- trailheads near: ${nearby.size}")
+                gtLogger("RouteBridge").i { "GTROUTE1 FIRSTPOINT at $lat,$lon -- trailheads near: ${nearby.size}" }
             }
             RouteManager.addVertex(v)
             autosave()
@@ -956,7 +957,7 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                 }
             } ?: emptyList()
             if (thFirst != null && thNear.isEmpty()) {
-                android.util.Log.i("RouteSave", "GTROUTE1 save stopped -- no trailhead near the start")
+                gtLogger("RouteSave").i { "GTROUTE1 save stopped -- no trailhead near the start" }
                 R.thName.value = name.ifBlank { "Route" } + " trailhead"
                 R.thPrompt.value = true
                 return@launch
@@ -976,7 +977,7 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                     RouteManager.routeVertices().firstOrNull()?.let { first ->
                         SpatialDbManager.trailheadsNear(first.lat, first.lon, 0.1).firstOrNull()?.let { th ->
                             val ok = SpatialDbManager.setRouteAnchor(newRouteId, th.lat, th.lon, th.name)
-                            android.util.Log.i("RouteSave", "GTROUTE1 anchor '${th.name}' -> $newRouteId ok=$ok")
+                            gtLogger("RouteSave").i { "GTROUTE1 anchor '${th.name}' -> $newRouteId ok=$ok" }
                         }
                     }
                     true
@@ -1076,13 +1077,13 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                             far = maxOf(far, Math.sqrt(dx * dx + dy * dy))
                         }
                     }
-                } catch (e: Exception) { android.util.Log.e("GuidedPin", "AIPERIMCOUNT-2026-11-11: count failed: " + e.message) }
+                } catch (e: Exception) { gtLogger("GuidedPin").e { "AIPERIMCOUNT-2026-11-11: count failed: " + e.message } }
                 c to far
             }
             val nf = fr.first; val farMi = fr.second
             val mLoAsk = R.pinMiLow.intValue
-            android.util.Log.i("GuidedPin", "AIPERIMCOUNT-2026-11-11: " + nf + " feature(s) in the planning perimeter, the farthest " +
-                "%.1f".format(farMi) + " mi from the trailhead (minimum asked " + mLoAsk + " mi)")
+            gtLogger("GuidedPin").i { ("AIPERIMCOUNT-2026-11-11: " + nf + " feature(s) in the planning perimeter, the farthest " +
+                "%.1f".format(farMi) + " mi from the trailhead (minimum asked " + mLoAsk + " mi)") }
             if (st == PIN_STEP_ASK && nf >= 0) {   // AIPERIMCOUNT-2026-11-11 v5 (Fred 09:10): good candidate, or drop pins -- decided on REACH
                 val nfs = "approximately " + nf + (if (nf == 1) " feature" else " features") +
                     (if (nf > 0) ", the farthest about " + Math.round(farMi) + " miles from the trailhead" else "")
@@ -1099,7 +1100,7 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                 //  request's minimum NOW, so the first search already runs from 10 miles (the review screen shows it)
                 if (!goodAi && mLoAsk > AI_RETRY_FLOOR) {
                     R.pinMiLow.intValue = AI_RETRY_FLOOR
-                    android.util.Log.i("GuidedPin", "AIPERIMCOUNT-2026-11-11: poor area -- minimum lowered from " + mLoAsk + " to " + AI_RETRY_FLOOR + " mi")
+                    gtLogger("GuidedPin").i { "AIPERIMCOUNT-2026-11-11: poor area -- minimum lowered from " + mLoAsk + " to " + AI_RETRY_FLOOR + " mi" }
                 }
             }
             R.js("if (window.showPerimeter) showPerimeter(" + "%.6f,%.6f,%.6f,%.6f".format(java.util.Locale.US,
@@ -1641,7 +1642,7 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                 RouteDraftStore.clearBatch()
                 for (r in keep) {
                     if (RouteDraftStore.loadIntoRouteManager(r.name) == null) {
-                        android.util.Log.e("BatchGrid", "load failed: " + r.name)
+                        gtLogger("BatchGrid").e { "load failed: " + r.name }
                         continue
                     }
                     val verts = RouteManager.routeVertices()
@@ -1652,7 +1653,7 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                         verts.filter { it.snapped && it.lineType == "track" }.mapNotNull { it.lineId }, "track"))
                     val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
                     if (built == null) {
-                        android.util.Log.e("BatchGrid", "build failed: " + r.name)
+                        gtLogger("BatchGrid").e { "build failed: " + r.name }
                         continue
                     }
                     val (wkt, bbox) = built
@@ -1666,7 +1667,7 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                     if (existing != null) {
                         val first = SpatialDbManager.routeNameById(existing) ?: "a saved route"
                         SpatialDbManager.addAlias("route", existing, nm, gh, null)
-                        android.util.Log.i("BatchGrid", "ROUTEDUPE-2026-10-28: '" + nm + "' is the same route as '" + first + "' -- added as another name")
+                        gtLogger("BatchGrid").i { "ROUTEDUPE-2026-10-28: '" + nm + "' is the same route as '" + first + "' -- added as another name" }
                         dupes.add("\"" + nm + "\" is the same route as \"" + first + "\"")
                         RouteDraftStore.deleteDraft(r.name)
                         continue

@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
 import java.io.ByteArrayOutputStream
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * TileCodec — V2.6a tile compression for MBTilesStore.
@@ -27,6 +28,7 @@ import java.io.ByteArrayOutputStream
 object TileCodec {
 
     private const val TAG = "TileCodec"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val BASE_QUALITY = 80      // q80: -63% storage, visually lossless at z19. q95 tested = catastrophic lossy-to-lossy bloat (rejected).
     private const val OVERLAY_QUALITY = 100  // lossless-equivalent for labels
 
@@ -45,7 +47,7 @@ object TileCodec {
             bmp.recycle()
             if (ok && out.size() > 0) out.toByteArray() else bytes
         } catch (e: Throwable) {
-            android.util.Log.w(TAG, "encode failed (${if (isOverlay) "overlay" else "base"}) -> passthrough: ${e.message}")
+            log.w { "encode failed (${if (isOverlay) "overlay" else "base"}) -> passthrough: ${e.message}" }
             bytes
         }
     }

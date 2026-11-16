@@ -3,6 +3,7 @@ package com.geeksville.mesh.convoy
 import android.content.Context
 import android.os.Environment
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STORAGEROOT-2026-09-11: the ONE place a GroupTrack path is resolved.
@@ -88,9 +89,8 @@ object GroupTrackStorage {
         remember(ctx)
         useInternal = internal
         modeChosen = true
-        android.util.Log.i("GTStorage",
-            "SESSION MODE: " + (if (internal) "INTERNAL" else "EXTERNAL") +
-                " root=" + root().absolutePath)
+        gtLogger("GTStorage").i { ("SESSION MODE: " + (if (internal) "INTERNAL" else "EXTERNAL") +
+                " root=" + root().absolutePath) }
     }
 
     /**
@@ -111,7 +111,7 @@ object GroupTrackStorage {
         return try {
             ctx.getExternalFilesDir(null)
         } catch (e: Exception) {
-            android.util.Log.e("GTStorage", "internalBase failed: ${e.message}")
+            gtLogger("GTStorage").e { "internalBase failed: ${e.message}" }
             null
         }
     }

@@ -13,13 +13,13 @@ import android.location.LocationManager
 import android.os.Binder
 import android.os.IBinder
 import android.os.PowerManager
-import android.util.Log
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * ConvoyGpsService
@@ -66,7 +66,7 @@ class ConvoyGpsService : Service() {
     private val trackExec = java.util.concurrent.Executors.newSingleThreadExecutor()
     /** On the track worker, in order. After the service is destroyed nothing is queued (a late radio position is dropped, logged). */
     private fun onTrackThread(block: () -> Unit) {
-        try { trackExec.execute(block) } catch (e: java.util.concurrent.RejectedExecutionException) { Log.w(TAG, "TRACKRULES-2026-10-19 dropped: the recorder has stopped") }
+        try { trackExec.execute(block) } catch (e: java.util.concurrent.RejectedExecutionException) { log.w { "TRACKRULES-2026-10-19 dropped: the recorder has stopped" } }
     }
 
     var totalDistanceMiles: Double = 0.0
@@ -105,12 +105,13 @@ class ConvoyGpsService : Service() {
         lastMovementMs = System.currentTimeMillis()
         lastMoveLat = 0.0
         lastMoveLon = 0.0
-        Log.i(TAG, "RECSLEEP-2026-10-19: sleep clock restarted at " + why)
+        log.i { "RECSLEEP-2026-10-19: sleep clock restarted at " + why }
     }
     var lastLon: Double? = null
 
     companion object {
         private const val TAG = "ConvoyGpsService"
+        private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
         const val CHANNEL_ID = "convoy_gps_recording"
         const val NOTIFICATION_ID = 1001
 
@@ -133,7 +134,7 @@ class ConvoyGpsService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        Log.i(TAG, "ConvoyGpsService created")
+        log.i { "ConvoyGpsService created" }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -154,7 +155,7 @@ class ConvoyGpsService : Service() {
         val isGpxEnd = ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX"
         onTrackThread { if (isGpxEnd) closeGpx() else closeKml() }   // TRACKRULES-2026-10-19: in order, after any queued point
         trackExec.shutdown()
-        Log.i(TAG, "ConvoyGpsService destroyed")
+        log.i { "ConvoyGpsService destroyed" }
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -175,7 +176,7 @@ class ConvoyGpsService : Service() {
         startLocationUpdates()
         state = State.RECORDING
         updateNotification()
-        Log.i(TAG, "Track recording started: ${tempFile.name}")
+        log.i { "Track recording started: ${tempFile.name}" }
     }
 
     /**
@@ -187,7 +188,7 @@ class ConvoyGpsService : Service() {
         releaseWakeLock()
         state = State.PAUSED
         updateNotification()
-        Log.i(TAG, "Track recording paused")
+        log.i { "Track recording paused" }
     }
 
     /**
@@ -200,14 +201,14 @@ class ConvoyGpsService : Service() {
         startLocationUpdates()
         state = State.RECORDING
         updateNotification()
-        Log.i(TAG, "Track recording resumed")
+        log.i { "Track recording resumed" }
     }
     fun wakeSleep() {
         isSleeping = false
         lastMovementMs = System.currentTimeMillis()
         lastMoveLat = 0.0
         lastMoveLon = 0.0
-        Log.i(TAG, "WAKE: sleep reset — resuming track on next GPS update")
+        log.i { "WAKE: sleep reset — resuming track on next GPS update" }
     }
 
     /**
@@ -225,7 +226,7 @@ class ConvoyGpsService : Service() {
             trackExec.submit { writeTrackPoints(myCart.stop(System.currentTimeMillis())); if (isGpxStop) closeGpx() else closeKml() }
                 .get(5, java.util.concurrent.TimeUnit.SECONDS)
         } catch (e: Exception) {
-            Log.e(TAG, "TRACKRULES-2026-10-19 stop: " + e.message); if (isGpxStop) closeGpx() else closeKml()
+            log.e { "TRACKRULES-2026-10-19 stop: " + e.message }; if (isGpxStop) closeGpx() else closeKml()
         }
         val file = currentTempFile
         currentTempFile = null
@@ -234,7 +235,7 @@ class ConvoyGpsService : Service() {
         totalDistanceMiles = 0.0
         state = State.IDLE
         updateNotification()
-        Log.i(TAG, "Track recording stopped. File: ${file?.name}")
+        log.i { "Track recording stopped. File: ${file?.name}" }
         return file
     }
 
@@ -251,14 +252,14 @@ class ConvoyGpsService : Service() {
             val finalFile = File(tempFile.parent, finalName)
             val success = tempFile.renameTo(finalFile)
             if (success) {
-                Log.i(TAG, "Track finalized: $finalName")
+                log.i { "Track finalized: $finalName" }
                 finalFile
             } else {
-                Log.e(TAG, "Failed to rename temp file to $finalName")
+                log.e { "Failed to rename temp file to $finalName" }
                 tempFile // Return temp file if rename fails
             }
         } catch (e: Exception) {
-            Log.e(TAG, "finalizeTrack error: ${e.message}")
+            log.e { "finalizeTrack error: ${e.message}" }
             tempFile
         }
     }
@@ -285,7 +286,7 @@ class ConvoyGpsService : Service() {
             locationManager = lm
             // Check if GPS hardware exists on this device
             if (!lm.allProviders.contains(LocationManager.GPS_PROVIDER)) {
-                Log.w(TAG, "No GPS hardware — will use radio position from mesh")
+                log.w { "No GPS hardware — will use radio position from mesh" }
                 useRadioGps = true
                 return
             }
@@ -300,10 +301,10 @@ class ConvoyGpsService : Service() {
                 onGpsUpdate(loc.latitude, loc.longitude, loc.altitude)
             }
             feedListener = listener
-            if (!TabletPosition.add(this, listener)) Log.e(TAG, "ONEFEED-2026-10-19 the position feed did not start (permission?)")
-            Log.i(TAG, "GPS updates started")
+            if (!TabletPosition.add(this, listener)) log.e { "ONEFEED-2026-10-19 the position feed did not start (permission?)" }
+            log.i { "GPS updates started" }
         } catch (e: SecurityException) {
-            Log.e(TAG, "GPS permission not granted: ${e.message}")
+            log.e { "GPS permission not granted: ${e.message}" }
         }
     }
 
@@ -311,7 +312,7 @@ class ConvoyGpsService : Service() {
         try {
             feedListener?.let { TabletPosition.remove(this, it) }   // ONEFEED-2026-10-19
         } catch (e: Exception) {
-            Log.e(TAG, "stopLocationUpdates error: ${e.message}")
+            log.e { "stopLocationUpdates error: ${e.message}" }
         }
         feedListener = null; recLat = 0.0; recLon = 0.0   // ONEFEED-2026-10-19
         locationManager = null
@@ -328,7 +329,7 @@ class ConvoyGpsService : Service() {
         } else if (System.currentTimeMillis() - lastMovementMs > SLEEP_THRESHOLD_MS) {
             isSleeping = true
             pauseTrack()
-            android.util.Log.i(TAG, "SLEEP: no movement for 25 min — pausing track")   // ZZZ25-2026-10-16
+            log.i { "SLEEP: no movement for 25 min — pausing track" }   // ZZZ25-2026-10-16
             onSleepTriggered?.invoke()
             return
         }
@@ -375,7 +376,7 @@ class ConvoyGpsService : Service() {
             writer.write("<Placemark><name>Track</name><LineString><coordinates>\n")
             writer.flush()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to open KML writer: ${e.message}")
+            log.e { "Failed to open KML writer: ${e.message}" }
         }
     }
 
@@ -384,7 +385,7 @@ class ConvoyGpsService : Service() {
             kmlWriter?.write("$lon,$lat,$alt\n")
             kmlWriter?.flush()
         } catch (e: Exception) {
-            Log.e(TAG, "KML write error: ${e.message}")
+            log.e { "KML write error: ${e.message}" }
         }
     }
 
@@ -395,7 +396,7 @@ class ConvoyGpsService : Service() {
             kmlWriter?.flush()
             kmlWriter?.close()
         } catch (e: Exception) {
-            Log.e(TAG, "KML close error: ${e.message}")
+            log.e { "KML close error: ${e.message}" }
         }
         kmlWriter = null
     }
@@ -420,7 +421,7 @@ class ConvoyGpsService : Service() {
             writer.write("<trk><name>Convoy Track</name><trkseg>\n")
             writer.flush()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to open GPX writer: ${e.message}")
+            log.e { "Failed to open GPX writer: ${e.message}" }
         }
     }
 
@@ -430,7 +431,7 @@ class ConvoyGpsService : Service() {
             gpxWriter?.write("<trkpt lat=\"$lat\" lon=\"$lon\"><ele>$alt</ele><time>$ts</time></trkpt>\n")
             gpxWriter?.flush()
         } catch (e: Exception) {
-            Log.e(TAG, "GPX write error: ${e.message}")
+            log.e { "GPX write error: ${e.message}" }
         }
     }
 
@@ -440,7 +441,7 @@ class ConvoyGpsService : Service() {
             gpxWriter?.flush()
             gpxWriter?.close()
         } catch (e: Exception) {
-            Log.e(TAG, "GPX close error: ${e.message}")
+            log.e { "GPX close error: ${e.message}" }
         }
         gpxWriter = null
     }
@@ -456,9 +457,9 @@ class ConvoyGpsService : Service() {
             ).also {
                 it.acquire(4 * 60 * 60 * 1000L) // 4 hour max safety timeout
             }
-            Log.i(TAG, "Wake lock acquired")
+            log.i { "Wake lock acquired" }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to acquire wake lock: ${e.message}")
+            log.e { "Failed to acquire wake lock: ${e.message}" }
         }
     }
 
@@ -466,10 +467,10 @@ class ConvoyGpsService : Service() {
         try {
             if (wakeLock?.isHeld == true) {
                 wakeLock?.release()
-                Log.i(TAG, "Wake lock released")
+                log.i { "Wake lock released" }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to release wake lock: ${e.message}")
+            log.e { "Failed to release wake lock: ${e.message}" }
         }
         wakeLock = null
     }

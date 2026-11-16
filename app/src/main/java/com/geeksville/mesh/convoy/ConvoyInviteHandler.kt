@@ -3,12 +3,12 @@ package com.geeksville.mesh.convoy
 import android.app.Activity
 import android.content.Context
 import android.os.Bundle
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import com.grouptrack.shared.log.gtLogger
 
 // ============================================================
 // ConvoyInviteHandler.kt
@@ -32,6 +32,7 @@ import org.json.JSONObject
 // ============================================================
 
 private const val TAG = "ConvoyInviteHandler"
+private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
 class ConvoyInviteHandler : Activity() {
 
@@ -40,22 +41,22 @@ class ConvoyInviteHandler : Activity() {
 
         val uri = intent?.data
         if (uri == null) {
-            Log.w(TAG, "No URI in intent")
+            log.w { "No URI in intent" }
             finish()
             return
         }
 
-        Log.i(TAG, "Invite deep link received: $uri")
+        log.i { "Invite deep link received: $uri" }
 
         // Extract token from path: /invite/{token}
         val token = uri.lastPathSegment
         if (token.isNullOrBlank()) {
-            Log.e(TAG, "No token in invite URL: $uri")
+            log.e { "No token in invite URL: $uri" }
             finish()
             return
         }
 
-        Log.i(TAG, "Processing invite token: $token")
+        log.i { "Processing invite token: $token" }
 
         CoroutineScope(Dispatchers.Main).launch {
             processInvite(token)
@@ -75,7 +76,7 @@ class ConvoyInviteHandler : Activity() {
 
                     // Step 3 — Save to convoy_events/ — identical to email import
                     ConvoyEventStore.save(this@ConvoyInviteHandler, eventConfig)
-                    Log.i(TAG, "Ride saved: ${eventConfig.eventName} (${eventConfig.eventId})")
+                    log.i { "Ride saved: ${eventConfig.eventName} (${eventConfig.eventId})" }
 
                     // Step 4 — Enroll rider if signed in
                     val userId = getUserId(this@ConvoyInviteHandler)
@@ -85,11 +86,11 @@ class ConvoyInviteHandler : Activity() {
                             rideId = eventConfig.eventId
                         )
                         enrollResult.fold(
-                            onSuccess = { Log.i(TAG, "Enrolled in ride: ${eventConfig.eventId}") },
-                            onFailure = { Log.w(TAG, "Enrollment failed — ride saved locally") }
+                            onSuccess = { log.i { "Enrolled in ride: ${eventConfig.eventId}" } },
+                            onFailure = { log.w { "Enrollment failed — ride saved locally" } }
                         )
                     } else {
-                        Log.i(TAG, "No user_id — skipping enrollment. Ride saved locally.")
+                        log.i { "No user_id — skipping enrollment. Ride saved locally." }
                     }
 
                     // Step 5 — Trigger map tile download if map bounds present
@@ -100,7 +101,7 @@ class ConvoyInviteHandler : Activity() {
 
                     if (!mapBoundsNorth.isNaN() && !mapBoundsSouth.isNaN() &&
                         !mapBoundsEast.isNaN()  && !mapBoundsWest.isNaN()) {
-                        Log.i(TAG, "Map bounds found — queuing tile download")
+                        log.i { "Map bounds found — queuing tile download" }
                         queueMapDownload(
                             this@ConvoyInviteHandler,
                             mapBoundsNorth, mapBoundsSouth,
@@ -111,15 +112,15 @@ class ConvoyInviteHandler : Activity() {
                     }
 
                     // Step 6 — Done. User will see the ride in RIDE tab on next app open.
-                    Log.i(TAG, "Invite processing complete: ${eventConfig.eventName}")
+                    log.i { "Invite processing complete: ${eventConfig.eventName}" }
 
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to parse ride JSON: ${e.message}")
+                    log.e { "Failed to parse ride JSON: ${e.message}" }
                 }
                 finish()
             },
             onFailure = { e ->
-                Log.e(TAG, "Failed to download ride: ${e.message}")
+                log.e { "Failed to download ride: ${e.message}" }
                 finish()
             }
         )
@@ -148,7 +149,7 @@ class ConvoyInviteHandler : Activity() {
                     putBoolean("pending_download", true)
                     apply()
                 }
-            Log.i(TAG, "Map download queued: $tileSource z$zoomMax [$north,$south,$east,$west]")
+            log.i { "Map download queued: $tileSource z$zoomMax [$north,$south,$east,$west]" }
         }
 
         // ── Check and clear pending download ─────────────────────────────────

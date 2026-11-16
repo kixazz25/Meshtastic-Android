@@ -2,7 +2,6 @@ package com.geeksville.mesh.grouptrack
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.util.Log
 import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.geeksville.mesh.convoy.RiderTrailWriterCertOld
 import com.geeksville.mesh.convoy.SpatialDbManager
@@ -18,6 +17,7 @@ import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toOkioPath
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP15D-2026-11-09 ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 15d certification on the Droid
@@ -49,13 +49,14 @@ import java.io.File
  */
 object GtCert15d {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val MAX_DIFF_LINES = 2000
 
     private var lastLog = 0L
     /** "GTCERT track15d <msg>" -- every phase line, and progress lines at most once per 15 s (the wait loop shows the last one). */
     private fun progress(msg: String, force: Boolean = false) {
         val now = System.currentTimeMillis()
-        if (force || msg.contains(" phase ") || now - lastLog >= 15_000) { lastLog = now; Log.i(TAG, "GTCERT track15d $msg") }
+        if (force || msg.contains(" phase ") || now - lastLog >= 15_000) { lastLog = now; log.i { "GTCERT track15d $msg" } }
     }
 
     /** OLD: the app's code, as the TEST-ONLY copy carries it, on SpatialDbManager's (swapped) handles and the copy's folders. */
@@ -122,7 +123,7 @@ object GtCert15d {
         val inS = File(dbIn, "grouptrack_spatial.db"); val inD = File(dbIn, "grouptrack_data.db")
         if (!inS.isFile || !inD.isFile || !trIn.isDirectory) {
             w.write("# T15D: STOP -- no input (need ${inS.path}, ${inD.path} and the folder ${trIn.path}; gt_cert_v20 pushes them). Not run.\n")
-            Log.e(TAG, "GTCERT track15d STOP: no input at ${dbIn.path} / ${trIn.path} -- run gt_cert_v20 track15d")
+            log.e { "GTCERT track15d STOP: no input at ${dbIn.path} / ${trIn.path} -- run gt_cert_v20 track15d" }
             return
         }
         var same = 0; var diff = 0; var expected = 0; var diffLines = 0
@@ -134,7 +135,7 @@ object GtCert15d {
                 else -> {
                     diff++
                     if (diffLines < MAX_DIFF_LINES) { diffLines++; put("T15D\t$key\tDIFF\t$b\n  OLD\t$a\n  NEW\t$b\n") }
-                    Log.w(TAG, "GTCERT track15d DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}")
+                    log.w { "GTCERT track15d DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}" }
                 }
             }
         }
@@ -179,7 +180,7 @@ object GtCert15d {
                         } finally {
                             TrackSyncCertOld.certTracks = null; TrackSyncCertOld.certRootDir = null
                             SpatialDbManager.certSwapDatabases(prev.first, prev.second)
-                            Log.i(TAG, "GTCERT track15d live handles restored")
+                            log.i { "GTCERT track15d live handles restored" }
                         }
                     } finally { dt.close() }
                 } finally { sp.close() }
@@ -210,7 +211,7 @@ object GtCert15d {
             progress("phase dump NEW", true); dump(newD, inp, "NEW")
             put("# T15D: tables dumped in ${(System.currentTimeMillis() - tT) / 1000} s\n")
         } catch (e: Throwable) {
-            aborted = e.toString(); put("# T15D: ABORTED $e\n"); Log.e(TAG, "GTCERT track15d aborted", e)
+            aborted = e.toString(); put("# T15D: ABORTED $e\n"); log.e(e) { "GTCERT track15d aborted" }
         }
 
         // ---- compare ----
@@ -226,7 +227,7 @@ object GtCert15d {
         if (diff > diffLines) put("# T15D: ${diff - diffLines} more DIFF lines not written (see logcat CertRun)\n")
         put("# T15D done: $same SAME, $diff DIFF, $expected EXPECTED in ${(System.currentTimeMillis() - t0) / 1000} s" +
             (if (aborted != null) " (ABORTED: $aborted)" else "") + "\n")
-        Log.i(TAG, "GTCERT track15d: $same SAME, $diff DIFF, $expected EXPECTED")
+        log.i { "GTCERT track15d: $same SAME, $diff DIFF, $expected EXPECTED" }
     }
 
     /** a side's folder: the input databases COPIED in (with -wal / -journal when the input has them), my_tracks file by file in name

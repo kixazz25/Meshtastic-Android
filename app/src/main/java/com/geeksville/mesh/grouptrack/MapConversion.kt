@@ -19,6 +19,7 @@ import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.geeksville.mesh.convoy.MBTilesStore
 import com.geeksville.mesh.convoy.VectorTiles
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * VECCONVERT-2026-10-31 (2.7e build step 2; design Fred 10-30 15:17-15:55) + VECWELCOME-2026-10-31c (Fred 19:13-19:40):
@@ -41,6 +42,7 @@ import java.io.File
  */
 object GtMapConversion {
     private const val TAG = "MapConversion"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     /** VECRATE-2026-10-31: Droid 1 clean rebuild, Wi-Fi, every tile fetched: ~53 tiles/s (20:07:47-20:24:27, 53,768 tiles; Droid 2's ~100/s was mostly skipped tiles). */
     private const val TILES_PER_MIN = 3200.0
 
@@ -59,7 +61,7 @@ object GtMapConversion {
         val tiles = tilesFor(sq, VectorTiles.Z_MAX) + tilesFor(sq, ElevationTiles.Z_MAX)
         val mins = Math.max(1, Math.ceil(tiles / TILES_PER_MIN).toInt())
         val time = if (mins < 90) "$mins minute${if (mins == 1) "" else "s"}" else "${"%.1f".format(mins / 60.0)} hours"
-        android.util.Log.i(TAG, "VECCONVERT estimate: ${sq.size} z12 squares, $tiles tiles, ~$mins min (${f.name})")
+        log.i { "VECCONVERT estimate: ${sq.size} z12 squares, $tiles tiles, ~$mins min (${f.name})" }
         val old = VectorTiles.oldTilesOf(f)
         return (if (old > 0) "Your old maps: ${"%,d".format(old)} tiles. " else "") +
             "The new map for the same area: ${"%,d".format(tiles)} tiles \u2014 about $time on Wi-Fi."
@@ -69,7 +71,7 @@ object GtMapConversion {
     fun emergencyAsk(context: Context, clean: Boolean) {
         val f = recipeFile(); if (!f.exists()) return
         emergency = if (clean) "clean" else "keep"
-        Thread { try { line.value = estimateLine(f); stage.value = "ask" } catch (e: Exception) { android.util.Log.e(TAG, "VECEMERSCREEN ${e.message}"); emergency = "" } }.start()
+        Thread { try { line.value = estimateLine(f); stage.value = "ask" } catch (e: Exception) { log.e { "VECEMERSCREEN ${e.message}" }; emergency = "" } }.start()
     }
 
     private fun recipeFile() = File(GroupTrackStorage.dir("recipes"), ConvoyMapRecipe.CONVERSION)
@@ -88,23 +90,23 @@ object GtMapConversion {
             for (f in ConvoyConfig.TILE_DIR.listFiles() ?: emptyArray()) {
                 val t = f.name.removeSuffix(".mbtiles")
                 if (f.isFile && f.name.endsWith(".mbtiles") && f.length() <= 100_000L && t != VectorTiles.SLOT && t != ElevationTiles.SLOT) {
-                    MBTilesStore.deleteSource(t); android.util.Log.i(TAG, "VECCONVERT removed empty store ${f.name}")
+                    MBTilesStore.deleteSource(t); log.i { "VECCONVERT removed empty store ${f.name}" }
                 } else if (f.isDirectory) f.walkBottomUp().forEach { d ->
-                    if (d.isDirectory && (d.listFiles()?.isEmpty() == true) && d.delete()) android.util.Log.i(TAG, "VECCONVERT removed empty folder ${d.path}")
+                    if (d.isDirectory && (d.listFiles()?.isEmpty() == true) && d.delete()) log.i { "VECCONVERT removed empty folder ${d.path}" }
                 }
             }
-        } catch (e: Exception) { android.util.Log.e(TAG, "VECCONVERT clearing empties: ${e.message}") }
+        } catch (e: Exception) { log.e { "VECCONVERT clearing empties: ${e.message}" } }
     }
 
     /** The startup entry point (MainActivity). Best effort: nothing here can stop GroupTrack starting. */
     fun startup(context: Context) {
         val app = context.applicationContext
-        val stores = try { oldStores() } catch (e: Exception) { android.util.Log.e(TAG, "VECCONVERT check failed: ${e.message}"); emptyList() }
+        val stores = try { oldStores() } catch (e: Exception) { log.e { "VECCONVERT check failed: ${e.message}" }; emptyList() }
         if (stores.isEmpty()) {
-            android.util.Log.i(TAG, "VECCONVERT no old maps -- new install or already converted")
+            log.i { "VECCONVERT no old maps -- new install or already converted" }
             clearEmpties(); ConvoyMapRecipe.writeDailyAsync(app); return
         }
-        android.util.Log.i(TAG, "VECCONVERT old maps $stores -- the conversion")
+        log.i { "VECCONVERT old maps $stores -- the conversion" }
         GtMapEngine.useVector(app)   // the new map cannot draw the old ones
         pending = stores
         // VECONE-2026-11-01 (agreed 10-31 20:35): "Checking your maps..." while the recipe is built -- the question only once it exists
@@ -115,7 +117,7 @@ object GtMapConversion {
         // no recipe, no screen, nothing changed (logged); the next start tries again.
         Thread {
             try { prepare(app) }
-            catch (e: Exception) { android.util.Log.e(TAG, "VECCONVERT prepare failed: ${e.message} -- no screen, nothing changed"); stage.value = "" }   // VECONE
+            catch (e: Exception) { log.e { "VECCONVERT prepare failed: ${e.message} -- no screen, nothing changed" }; stage.value = "" }   // VECONE
         }.start()
     }
 
@@ -123,18 +125,18 @@ object GtMapConversion {
     private fun prepare(app: Context) {
         val daily = ConvoyMapRecipe.writeFresh(app)
         if (daily == null) {
-            android.util.Log.e(TAG, "VECCONVERT no recipe -- no screen, nothing converted, nothing deleted")
+            log.e { "VECCONVERT no recipe -- no screen, nothing converted, nothing deleted" }
             stage.value = ""   // VECONE-2026-11-01: the checking screen closes
             return
         }
         val keep = recipeFile()
-        if (keep.exists()) android.util.Log.i(TAG, "VECCONVERT conversion recipe kept from ${java.util.Date(keep.lastModified())}")
-        else { daily.copyTo(keep); android.util.Log.i(TAG, "VECCONVERT conversion recipe ${keep.name} from ${daily.name}") }
+        if (keep.exists()) log.i { "VECCONVERT conversion recipe kept from ${java.util.Date(keep.lastModified())}" }
+        else { daily.copyTo(keep); log.i { "VECCONVERT conversion recipe ${keep.name} from ${daily.name}" } }
         val sq = squaresOf(keep)
         val tiles = tilesFor(sq, VectorTiles.Z_MAX) + tilesFor(sq, ElevationTiles.Z_MAX)
         val mins = Math.max(1, Math.ceil(tiles / TILES_PER_MIN).toInt())
         val time = if (mins < 90) "$mins minute${if (mins == 1) "" else "s"}" else "${"%.1f".format(mins / 60.0)} hours"
-        android.util.Log.i(TAG, "VECCONVERT estimate: ${sq.size} z12 squares, $tiles tiles, ~$mins min")
+        log.i { "VECCONVERT estimate: ${sq.size} z12 squares, $tiles tiles, ~$mins min" }
         val old = VectorTiles.oldTilesOf(keep)   // VECTILECOUNT-2026-10-31 (Fred 21:01)
         line.value = (if (old > 0) "Your old maps: ${"%,d".format(old)} tiles. " else "") +
             "The new map for the same area: ${"%,d".format(tiles)} tiles \u2014 about $time on Wi-Fi."
@@ -155,14 +157,14 @@ object GtMapConversion {
             try {
                 val r = VectorTiles.queueSquares(app, squaresOf(recipeFile()), false, "conversion")
                 if (r.first == 0) {
-                    android.util.Log.e(TAG, "VECCONVERT nothing queued -- old maps kept")
+                    log.e { "VECCONVERT nothing queued -- old maps kept" }
                     line.value = "Nothing could be queued, so your old maps were kept. The conversion runs again at the next start."
                     return@Thread
                 }
                 for (t in pending) MBTilesStore.deleteSource(t)
-                android.util.Log.i(TAG, "VECCONVERT done: ${r.first} job(s), ~${r.second} tiles queued; deleted $pending")
+                log.i { "VECCONVERT done: ${r.first} job(s), ~${r.second} tiles queued; deleted $pending" }
                 line.value = "Your maps are queued: ${r.first} download jobs."
-            } catch (e: Exception) { android.util.Log.e(TAG, "VECCONVERT proceed failed: ${e.message}")
+            } catch (e: Exception) { log.e { "VECCONVERT proceed failed: ${e.message}" }
                 line.value = "The conversion could not start (${e.message}). The next start runs it again." }
         }.start()
     }
@@ -242,7 +244,7 @@ fun GtConversionPanel(onManual: () -> Unit, onNotes: () -> Unit, onQuickStart: (
                     GtButton("PROCEED NOW", { GtMapConversion.proceed(ctx) })
                     if (GtMapConversion.emergency.isNotEmpty()) GtButton("CANCEL", close, emphasis = GtScheme.current.value.bad /* CONTRAST2-2026-11-01 */)   // VECEMERSCREEN: closes only
                     else GtButton("CANCEL \u2014 END GROUPTRACK UNTIL I AM READY", {
-                        android.util.Log.i("MapConversion", "VECCONVERT cancelled -- GroupTrack ends; old maps untouched; asks again next start")
+                        gtLogger("MapConversion").i { "VECCONVERT cancelled -- GroupTrack ends; old maps untouched; asks again next start" }
                         (ctx as? android.app.Activity)?.finishAffinity() }, emphasis = GtScheme.current.value.bad /* CONTRAST2-2026-11-01 */)
                     if (GtMapConversion.emergency.isEmpty()) Text("Cancel ends GroupTrack OG and changes nothing. It asks again the next time GroupTrack OG starts.", fontSize = 12.sp,
                         color = Gt.dim, modifier = Modifier.padding(top = 4.dp))

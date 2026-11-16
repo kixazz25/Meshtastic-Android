@@ -6,6 +6,7 @@ import com.grouptrack.shared.net.GtNetworkConfig
 import com.grouptrack.shared.net.GtNetworkGenerator
 import com.grouptrack.shared.net.GtOwnerType
 import com.grouptrack.shared.net.GtRandom
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * NETGEN-2026-09-23 — makes a network config. PURE KOTLIN: no Android, no database.
@@ -83,10 +84,10 @@ object NetworkGenerator {
             TX_POWER = mesh.getInt("txPower")
             FREQUENCY_SLOT = mesh.getInt("frequencySlot")
             ROLE = mesh.getString("role")
-            android.util.Log.i("NetworkGenerator", "ONEDEFAULT: mesh values from grouptrack_default.json -- $REGION $MODEM_PRESET hop $HOP_LIMIT tx $TX_POWER slot $FREQUENCY_SLOT $ROLE")
+            gtLogger("NetworkGenerator").i { "ONEDEFAULT: mesh values from grouptrack_default.json -- $REGION $MODEM_PRESET hop $HOP_LIMIT tx $TX_POWER slot $FREQUENCY_SLOT $ROLE" }
             true
         } catch (e: Exception) {
-            android.util.Log.e("NetworkGenerator", "ONEDEFAULT: grouptrack_default.json not read (${e.message}) -- using the fallback values")
+            gtLogger("NetworkGenerator").e { "ONEDEFAULT: grouptrack_default.json not read (${e.message}) -- using the fallback values" }
             false
         }
     }

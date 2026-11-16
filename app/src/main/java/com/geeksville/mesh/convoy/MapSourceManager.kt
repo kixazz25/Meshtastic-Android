@@ -3,6 +3,7 @@ package com.geeksville.mesh.convoy
 import android.content.Context
 import java.io.File
 import org.json.JSONObject
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * MapSourceManager — single source of truth for all tile source URLs.
@@ -81,7 +82,7 @@ object MapSourceManager {
         if (android.os.Build.VERSION.SDK_INT >= 28) pi.longVersionCode
         else @Suppress("DEPRECATION") pi.versionCode.toLong()
     } catch (e: Exception) {
-        android.util.Log.e("MapSourceMgr", "COLUMNFILE-2026-08-03: version code unavailable: ${e.message}")
+        gtLogger("MapSourceMgr").e { "COLUMNFILE-2026-08-03: version code unavailable: ${e.message}" }
         -1L
     }
 
@@ -99,8 +100,7 @@ object MapSourceManager {
         // the column file is NOT touched - not seeded, not updated, not expired.
         // Fallback data must never reach the user column table by any route.
         if (usedFallback) {
-            android.util.Log.e("MapSourceMgr",
-                "COLUMNFILE-2026-08-03: FALLBACK WAS USED - column file left untouched")
+            gtLogger("MapSourceMgr").e { "COLUMNFILE-2026-08-03: FALLBACK WAS USED - column file left untouched" }
             return
         }
         val vc = currentVersionCode(context)
@@ -110,28 +110,25 @@ object MapSourceManager {
             val existing = try {
                 JSONObject(file.readText(Charsets.UTF_8))
             } catch (e: Exception) {
-                android.util.Log.e("MapSourceMgr",
-                    "COLUMNFILE-2026-08-03: column file present but UNREADABLE - not seeding, not overwriting: ${e.message}")
+                gtLogger("MapSourceMgr").e { "COLUMNFILE-2026-08-03: column file present but UNREADABLE - not seeding, not overwriting: ${e.message}" }
                 return
             }
             columnFileVersion = existing.optLong("version_code", -1L)
             if (columnFileVersion == vc) {
-                android.util.Log.i("MapSourceMgr",
-                    "COLUMNFILE-2026-08-03: column file current (vc=$vc), no install pass")
+                gtLogger("MapSourceMgr").i { "COLUMNFILE-2026-08-03: column file current (vc=$vc), no install pass" }
                 readTerminated(existing)
                 // COLUMNFILE-PHASE2-2026-08-04: the file is the user's assignment table. Apply it.
                 applyColumnFile(existing)
                 return
             }
-            android.util.Log.i("MapSourceMgr",
-                "COLUMNFILE-2026-08-03: INSTALL PASS (file vc=$columnFileVersion -> app vc=$vc)")
+            gtLogger("MapSourceMgr").i { "COLUMNFILE-2026-08-03: INSTALL PASS (file vc=$columnFileVersion -> app vc=$vc)" }
             writeColumnFile(vc, existing)
             // COLUMNFILE-PHASE2-2026-08-04: re-read what the install pass just wrote. It carried the
             // user's assignments forward (priorById) and refreshed url_template, so
             // the file - not defaultSlots - is the correct post-install state.
             readColumnFileOrNull()?.let { applyColumnFile(it) }
         } else {
-            android.util.Log.i("MapSourceMgr", "COLUMNFILE-2026-08-03: column file ABSENT - seeding from defaults")
+            gtLogger("MapSourceMgr").i { "COLUMNFILE-2026-08-03: column file ABSENT - seeding from defaults" }
             writeColumnFile(vc, null)
         }
     }
@@ -155,14 +152,12 @@ object MapSourceManager {
      */
     private fun applyColumnFile(root: JSONObject) {
         if (usedFallback) {
-            android.util.Log.e("MapSourceMgr",
-                "COLUMNFILE-PHASE2-2026-08-04: FALLBACK WAS USED - column file NOT applied")
+            gtLogger("MapSourceMgr").e { "COLUMNFILE-PHASE2-2026-08-04: FALLBACK WAS USED - column file NOT applied" }
             return
         }
         val arr = root.optJSONArray("columns")
         if (arr == null || arr.length() == 0) {
-            android.util.Log.e("MapSourceMgr",
-                "COLUMNFILE-PHASE2-2026-08-04: column list missing or empty - keeping catalogue defaults")
+            gtLogger("MapSourceMgr").e { "COLUMNFILE-PHASE2-2026-08-04: column list missing or empty - keeping catalogue defaults" }
             return
         }
         val loaded = mutableListOf<SlotConfig>()
@@ -172,15 +167,13 @@ object MapSourceManager {
             val sid = c.optString("source_id", "")
             val slotNo = c.optInt("slot", i + 1)
             if (key.isEmpty() || sid.isEmpty()) {
-                android.util.Log.w("MapSourceMgr",
-                    "COLUMNFILE-PHASE2-2026-08-04: skipping malformed column row $i")
+                gtLogger("MapSourceMgr").w { "COLUMNFILE-PHASE2-2026-08-04: skipping malformed column row $i" }
                 continue
             }
             loaded.add(SlotConfig(slotNo, sid, key))
         }
         if (loaded.isEmpty()) {
-            android.util.Log.e("MapSourceMgr",
-                "COLUMNFILE-PHASE2-2026-08-04: no usable column rows - keeping catalogue defaults")
+            gtLogger("MapSourceMgr").e { "COLUMNFILE-PHASE2-2026-08-04: no usable column rows - keeping catalogue defaults" }
             return
         }
 
@@ -190,19 +183,16 @@ object MapSourceManager {
         if (wantActive.isNotEmpty() && loaded.any { it.legacyKey == wantActive }) {
             activeSourceKey = wantActive
         } else if (wantActive.isNotEmpty()) {
-            android.util.Log.w("MapSourceMgr",
-                "COLUMNFILE-PHASE2-2026-08-04: active '$wantActive' is not a column - keeping '$activeSourceKey'")
+            gtLogger("MapSourceMgr").w { "COLUMNFILE-PHASE2-2026-08-04: active '$wantActive' is not a column - keeping '$activeSourceKey'" }
         }
 
         val resolved = loaded.count { s -> sources.any { it.id == s.sourceId } }
-        android.util.Log.i("MapSourceMgr",
-            "COLUMNFILE-PHASE2-2026-08-04: APPLIED ${loaded.size} columns, $resolved resolve to a source, "
-            + "active=$activeSourceKey")
+        gtLogger("MapSourceMgr").i { ("COLUMNFILE-PHASE2-2026-08-04: APPLIED ${loaded.size} columns, $resolved resolve to a source, "
+            + "active=$activeSourceKey") }
         loaded.forEach { s ->
             val src = sources.find { it.id == s.sourceId }
-            android.util.Log.i("MapSourceMgr",
-                "COLUMNFILE-PHASE2-2026-08-04:   slot ${s.slot} ${s.legacyKey} -> ${s.sourceId} "
-                + (if (src == null) "[TERMINATED - no catalogue entry]" else "url=${src.baseUrl}"))
+            gtLogger("MapSourceMgr").i { ("COLUMNFILE-PHASE2-2026-08-04:   slot ${s.slot} ${s.legacyKey} -> ${s.sourceId} "
+                + (if (src == null) "[TERMINATED - no catalogue entry]" else "url=${src.baseUrl}")) }
         }
     }
 
@@ -216,8 +206,7 @@ object MapSourceManager {
             }
         }
         if (columnsTerminated.isNotEmpty()) {
-            android.util.Log.w("MapSourceMgr",
-                "COLUMNFILE-2026-08-03: TERMINATED SOURCE IN COLUMN(S): $columnsTerminated")
+            gtLogger("MapSourceMgr").w { "COLUMNFILE-2026-08-03: TERMINATED SOURCE IN COLUMN(S): $columnsTerminated" }
         }
     }
 
@@ -275,14 +264,13 @@ object MapSourceManager {
             tmp.writeText(root.toString(2), Charsets.UTF_8)
             if (dest.exists()) dest.delete()
             if (!tmp.renameTo(dest)) {
-                android.util.Log.e("MapSourceMgr", "COLUMNFILE-2026-08-03: rename failed, column file NOT updated")
+                gtLogger("MapSourceMgr").e { "COLUMNFILE-2026-08-03: rename failed, column file NOT updated" }
                 return
             }
             columnFileVersion = vc
-            android.util.Log.i("MapSourceMgr",
-                "COLUMNFILE-2026-08-03: wrote ${cols.length()} columns (vc=$vc, terminated=$columnsTerminated)")
+            gtLogger("MapSourceMgr").i { "COLUMNFILE-2026-08-03: wrote ${cols.length()} columns (vc=$vc, terminated=$columnsTerminated)" }
         } catch (e: Exception) {
-            android.util.Log.e("MapSourceMgr", "COLUMNFILE-2026-08-03: column write failed: ${e.message}")
+            gtLogger("MapSourceMgr").e { "COLUMNFILE-2026-08-03: column write failed: ${e.message}" }
         }
     }
 
@@ -298,7 +286,7 @@ object MapSourceManager {
             // Always read from bundled asset — single source of truth
             val json = context.assets.open("map_sources.json")
                 .bufferedReader().use { it.readText() }
-            android.util.Log.i("MapSourceMgr", "Reading assets map_sources.json")
+            gtLogger("MapSourceMgr").i { "Reading assets map_sources.json" }
             val root = JSONObject(json)
             val sourcesArray = root.getJSONArray("sources")
             val parsed = mutableListOf<TileSource>()
@@ -350,24 +338,23 @@ object MapSourceManager {
             // first good init still skipping the column file.
             usedFallback = false
             loadApiKeys()
-            android.util.Log.i("MapSourceMgr", "Loaded ${sources.size} sources, ${defaultSlots.size} slots, ${apiKeys.size} API keys")
+            gtLogger("MapSourceMgr").i { "Loaded ${sources.size} sources, ${defaultSlots.size} slots, ${apiKeys.size} API keys" }
             // COLUMNFILE-2026-08-03: seed / maintain the user column file. WRITE ONLY in
             // phase 1 - nothing reads it for resolution yet.
             syncColumnFile(context)
         } catch (e: Exception) {
-            android.util.Log.e("MapSourceMgr", "JSON load failed: ${e.message}")
+            gtLogger("MapSourceMgr").e { "JSON load failed: ${e.message}" }
             loadFallback()
         }
     }
 
     private fun loadFallback() {
-        android.util.Log.w("MapSourceMgr", "Using hardcoded fallback")
+        gtLogger("MapSourceMgr").w { "Using hardcoded fallback" }
         // COLUMNFILE-2026-08-03
         usedFallback = true
-        android.util.Log.e("MapSourceMgr",
-            "COLUMNFILE-2026-08-03: FALLBACK REQUESTED - hardcoded sources in use. "
+        gtLogger("MapSourceMgr").e { ("COLUMNFILE-2026-08-03: FALLBACK REQUESTED - hardcoded sources in use. "
             + "Column file will NOT be written. Caller: "
-            + android.util.Log.getStackTraceString(Throwable()))
+            + android.util.Log.getStackTraceString(Throwable())) }
         // ONESOURCE-2026-10-30: the fallback matches the catalogue -- one source, SAT (was Esri x3: SAT, TOPO, TOPO+).
         sources = listOf(
             TileSource("google-hybrid", "Google", "HYB", "Google Hybrid", "HYB",
@@ -466,7 +453,7 @@ object MapSourceManager {
             set(slotIndex, SlotConfig(oldSlot.slot, newSourceId, oldSlot.legacyKey))
         }
         saveExternalJson()
-        android.util.Log.i("MapSourceMgr", "Slot $legacyKey updated to source $newSourceId")
+        gtLogger("MapSourceMgr").i { "Slot $legacyKey updated to source $newSourceId" }
     }
 
     /** Save current slot assignments to the user column file. */
@@ -475,12 +462,12 @@ object MapSourceManager {
         // persists the user's column table. It does NOT write the sources array -
         // that is the distinction from the external file 79251ae72 removed.
         if (usedFallback) {
-            android.util.Log.e("MapSourceMgr", "COLUMNFILE-2026-08-03: FALLBACK WAS USED - not persisting")
+            gtLogger("MapSourceMgr").e { "COLUMNFILE-2026-08-03: FALLBACK WAS USED - not persisting" }
             return
         }
         val ctx = appContext
         if (ctx == null) {
-            android.util.Log.w("MapSourceMgr", "COLUMNFILE-2026-08-03: no context, slot change not persisted")
+            gtLogger("MapSourceMgr").w { "COLUMNFILE-2026-08-03: no context, slot change not persisted" }
             return
         }
         // COLUMNFILE-SAVEFIX-2026-08-03: pass null, NOT the on-disk file.
@@ -501,7 +488,7 @@ object MapSourceManager {
             val f = columnFile()
             if (!f.exists()) null else JSONObject(f.readText(Charsets.UTF_8))
         } catch (e: Exception) {
-            android.util.Log.e("MapSourceMgr", "COLUMNFILE-2026-08-03: column read failed: ${e.message}")
+            gtLogger("MapSourceMgr").e { "COLUMNFILE-2026-08-03: column read failed: ${e.message}" }
             null
         }
     }
@@ -514,7 +501,7 @@ object MapSourceManager {
             val json = JSONObject(file.readText(Charsets.UTF_8))
             json.keys().forEach { key -> apiKeys[key] = json.getString(key) }
         } catch (e: Exception) {
-            android.util.Log.e("MapSourceMgr", "Failed to load API keys: ${e.message}")
+            gtLogger("MapSourceMgr").e { "Failed to load API keys: ${e.message}" }
         }
     }
 
@@ -525,9 +512,9 @@ object MapSourceManager {
             val json = JSONObject()
             apiKeys.forEach { (k, v) -> json.put(k, v) }
             apiKeysFile().writeText(json.toString(2), Charsets.UTF_8)
-            android.util.Log.i("MapSourceMgr", "Saved API key for $sourceId")
+            gtLogger("MapSourceMgr").i { "Saved API key for $sourceId" }
         } catch (e: Exception) {
-            android.util.Log.e("MapSourceMgr", "Failed to save API key: ${e.message}")
+            gtLogger("MapSourceMgr").e { "Failed to save API key: ${e.message}" }
         }
     }
 
@@ -579,21 +566,14 @@ object MapSourceManager {
 
         val ctx = appContext
         if (ctx != null) {
-            android.util.Log.w(
-                "MapSourceMgr",
-                "INITFIX-2026-09-14: sources empty -- reading map_sources.json rather than falling back"
-            )
+            gtLogger("MapSourceMgr").w { "INITFIX-2026-09-14: sources empty -- reading map_sources.json rather than falling back" }
             initialized = false
             init(ctx)
             if (sources.isNotEmpty()) return
         }
 
-        android.util.Log.e(
-            "MapSourceMgr",
-            "INITFIX-2026-09-14: NO SOURCES AND NO WAY TO READ THEM -- hardcoded fallback in use. " +
-                "appContext=" + (if (ctx == null) "NULL" else "present"),
-            Throwable("ensureInit fallback caller")
-        )
+        gtLogger("MapSourceMgr").e(Throwable("ensureInit fallback caller")) { ("INITFIX-2026-09-14: NO SOURCES AND NO WAY TO READ THEM -- hardcoded fallback in use. " +
+                "appContext=" + (if (ctx == null) "NULL" else "present")) }
         loadFallback()
     }
 }

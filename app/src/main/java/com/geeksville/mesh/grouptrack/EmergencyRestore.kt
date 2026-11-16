@@ -32,6 +32,7 @@ import com.geeksville.mesh.convoy.QueueStatus
 import com.geeksville.mesh.convoy.VectorTiles
 import java.io.File
 import kotlinx.coroutines.launch
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * VECEMERGENCY-2026-10-31 (Fred 20:02): Maps > MAP RECOVERY > "Emergency download -- maps as of the conversion date": a SCREEN (it was a
@@ -43,6 +44,7 @@ import kotlinx.coroutines.launch
  */
 object GtEmergency {
     private const val TAG = "MapConversion"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val TILES_PER_MIN = 3200.0   // VECRATE-2026-10-31: as GtMapConversion -- Droid 1 clean rebuild, Wi-Fi, 53,768 tiles in 16 min 40 s
     fun record() = File(GroupTrackStorage.dir("recipes"), ConvoyMapRecipe.CONVERSION)
 
@@ -82,10 +84,10 @@ object GtEmergency {
             if (busy > 0) return "$busy vector / elevation download(s) are still in the queue. Let them finish, or cancel them in MAP DOWNLOADS, " +
                 "before deleting the maps."
             MBTilesStore.deleteSource(VectorTiles.SLOT); MBTilesStore.deleteSource(ElevationTiles.SLOT)
-            android.util.Log.i(TAG, "VECEMERGENCY deleted the vector maps and elevation (VEC, DEM) -- clean rebuild")
+            log.i { "VECEMERGENCY deleted the vector maps and elevation (VEC, DEM) -- clean rebuild" }
         }
         val r = VectorTiles.queueSquares(context.applicationContext, sq, false, "emergency download")
-        android.util.Log.i(TAG, "VECEMERGENCY ${if (clean) "clean" else "fill gaps"}: ${r.first} job(s), ~${r.second} tiles queued at ${System.currentTimeMillis()}")
+        log.i { "VECEMERGENCY ${if (clean) "clean" else "fill gaps"}: ${r.first} job(s), ~${r.second} tiles queued at ${System.currentTimeMillis()}" }
         return if (r.first == 0) "Nothing could be queued." else
             "Queued ${r.first} download jobs" + (if (clean) " — everything downloads again." else " — only what is missing downloads.") +
             " Watch them in Map \u203a MAP DOWNLOADS."

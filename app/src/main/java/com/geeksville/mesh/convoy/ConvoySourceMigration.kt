@@ -1,12 +1,12 @@
 package com.geeksville.mesh.convoy
 
-import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * SOURCEMIGRATION-2026-08-06
@@ -37,6 +37,7 @@ import java.util.Locale
 object ConvoySourceMigration {
 
     private const val TAG = "SourceMigration"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val SCHEMA = 1
 
     /** maps/source_changes/ - sibling of maps/tiles/, never inside a cache dir. */
@@ -120,11 +121,11 @@ object ConvoySourceMigration {
             root.put("error", JSONObject.NULL)
 
             write(dest, root)
-            Log.i(TAG, "BEGIN $slot $fromSourceId -> $toSourceId, " +
-                "${sizes.values.sum()} bytes across ${fromCacheDirs.size} store(s): ${dest.name}")
+            log.i { ("BEGIN $slot $fromSourceId -> $toSourceId, " +
+                "${sizes.values.sum()} bytes across ${fromCacheDirs.size} store(s): ${dest.name}") }
             dest
         } catch (e: Exception) {
-            Log.e(TAG, "begin failed: ${e.message}")
+            log.e { "begin failed: ${e.message}" }
             null
         }
     }
@@ -143,7 +144,7 @@ object ConvoySourceMigration {
     fun read(record: File): JSONObject? = try {
         if (!record.exists()) null else JSONObject(record.readText(Charsets.UTF_8))
     } catch (e: Exception) {
-        Log.e(TAG, "read failed ${record.name}: ${e.message}")
+        log.e { "read failed ${record.name}: ${e.message}" }
         null
     }
 
@@ -153,13 +154,13 @@ object ConvoySourceMigration {
             block(root)
             write(record, root)
         } catch (e: Exception) {
-            Log.e(TAG, "update failed ${record.name}: ${e.message}")
+            log.e { "update failed ${record.name}: ${e.message}" }
         }
     }
 
     fun setPhase(record: File, phase: String) {
         update(record) { it.put("phase", phase) }
-        Log.i(TAG, "PHASE ${record.name} -> $phase")
+        log.i { "PHASE ${record.name} -> $phase" }
     }
 
     fun noteQueueCleared(record: File) {
@@ -177,7 +178,7 @@ object ConvoySourceMigration {
             arr.put(cacheDir)
             it.put("deleted_cache_dirs", arr)
         }
-        Log.i(TAG, "DELETED $cacheDir (${record.name})")
+        log.i { "DELETED $cacheDir (${record.name})" }
     }
 
     /** "all_tracks" | "selected" | "none" - what the user chose to reload. */
@@ -190,7 +191,7 @@ object ConvoySourceMigration {
             it.put("phase", "complete")
             it.put("completed_at", System.currentTimeMillis())
         }
-        Log.i(TAG, "COMPLETE ${record.name}")
+        log.i { "COMPLETE ${record.name}" }
     }
 
     /**
@@ -204,7 +205,7 @@ object ConvoySourceMigration {
             it.put("phase", "failed")
             it.put("error", reason)
         }
-        Log.e(TAG, "FAILED ${record.name}: $reason")
+        log.e { "FAILED ${record.name}: $reason" }
     }
 
     /** Records with no completed_at, newest first. Empty = nothing in flight. */

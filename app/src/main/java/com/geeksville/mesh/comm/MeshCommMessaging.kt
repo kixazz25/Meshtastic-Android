@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.first   // COMMREPORT-2026-10-12
 import kotlinx.coroutines.flow.map   // REPORTNOW-2026-10-13
 import kotlinx.coroutines.flow.mapNotNull   // POLYLINE-2026-10-20
 import javax.inject.Inject
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * COMMSEND-2026-10-08 (2.7b cycle 1 step 2a, design v16 §R6.5) -- the MESH implementation of CommMessaging.
@@ -66,7 +67,7 @@ class MeshCommMessaging @Inject constructor(
             )
             val body = org.meshtastic.proto.TAKPacketV2.ADAPTER.encode(tak)
             val wire = ByteArray(body.size + 1); wire[0] = 0xFF.toByte(); body.copyInto(wire, 1)
-            android.util.Log.i("POLYLINE", "POLYTEST-2026-10-20 send u-d-f " + n + " points, " + wire.size + " bytes, uid " + tak.uid)
+            gtLogger("POLYLINE").i { "POLYTEST-2026-10-20 send u-d-f " + n + " points, " + wire.size + " bytes, uid " + tak.uid }
             if (wire.size > 230) CommResult.Failed("TOO_BIG " + wire.size + " bytes") else {
                 radioController.sendMessage(org.meshtastic.core.model.DataPacket(bytes = okio.ByteString.of(*wire),
                     dataType = org.meshtastic.proto.PortNum.ATAK_PLUGIN_V2.value, wantAck = false))
@@ -76,7 +77,7 @@ class MeshCommMessaging @Inject constructor(
     } catch (e: kotlinx.coroutines.CancellationException) {
         throw e
     } catch (e: Exception) {
-        android.util.Log.w("POLYLINE", "POLYTEST-2026-10-20 send failed: " + e.message)
+        gtLogger("POLYLINE").w { "POLYTEST-2026-10-20 send failed: " + e.message }
         CommResult.Failed(e.message ?: e.javaClass.simpleName)
     }
     override suspend fun setReporting(request: ReportingRequest): CommResult = setReporting(request) {}
@@ -111,41 +112,41 @@ class MeshCommMessaging @Inject constructor(
             )
             val was = pos.broadcast_smart_minimum_interval_secs
             if (newPos == pos) { onStep(ReportingStep.UNCHANGED); return CommResult.Ok }
-            android.util.Log.i("GPSINT", "apply smart ${was}s -> ${secs}s, standing ${pos.position_broadcast_secs}s -> " +
-                "${newPos.position_broadcast_secs}s at ${System.currentTimeMillis()}")
+            gtLogger("GPSINT").i { ("apply smart ${was}s -> ${secs}s, standing ${pos.position_broadcast_secs}s -> " +
+                "${newPos.position_broadcast_secs}s at ${System.currentTimeMillis()}") }
             onStep(ReportingStep.WRITING)
             ops.beginEdit()
             ops.writeConfig(org.meshtastic.proto.Config(position = newPos))
             ops.commitEdit()
-            android.util.Log.i("GPSINT", "written at ${System.currentTimeMillis()}")
+            gtLogger("GPSINT").i { "written at ${System.currentTimeMillis()}" }
             onStep(ReportingStep.WRITTEN)
             kotlinx.coroutines.delay(3_000)
             ops.disconnect(); disconnected = true
-            android.util.Log.i("GPSINT", "disconnect at ${System.currentTimeMillis()}")
+            gtLogger("GPSINT").i { "disconnect at ${System.currentTimeMillis()}" }
             onStep(ReportingStep.RESTARTING)
             kotlinx.coroutines.delay(20_000)   // GPSRECON20-2026-09-29 (Fred): 10 s was too short for the radio to restart
             ops.reconnect(); disconnected = false
-            android.util.Log.i("GPSINT", "reconnect at ${System.currentTimeMillis()}")
+            gtLogger("GPSINT").i { "reconnect at ${System.currentTimeMillis()}" }
             // GPSCYCLE2-2026-09-30 (Fred): once the reconnect has CONNECTED, one more cycle -- wait -> disconnect -> gap -> reconnect.
             onStep(ReportingStep.RECONNECTING_AGAIN)
             val firstUp = kotlinx.coroutines.withTimeoutOrNull(60_000) {
                 ops.connection.first { it == org.meshtastic.core.model.ConnectionState.Connected }
             } != null
-            android.util.Log.i("GPSINT", "cycle2 first reconnect connected=$firstUp wait=${request.settleWaitSecs}s " +
-                "gap=${request.reconnectGapSecs}s at ${System.currentTimeMillis()}")   // GPSTIMING-2026-09-30
+            gtLogger("GPSINT").i { ("cycle2 first reconnect connected=$firstUp wait=${request.settleWaitSecs}s " +
+                "gap=${request.reconnectGapSecs}s at ${System.currentTimeMillis()}") }   // GPSTIMING-2026-09-30
             kotlinx.coroutines.delay(request.settleWaitSecs * 1000L)
             ops.disconnect(); disconnected = true
-            android.util.Log.i("GPSINT", "cycle2 disconnect at ${System.currentTimeMillis()}")
+            gtLogger("GPSINT").i { "cycle2 disconnect at ${System.currentTimeMillis()}" }
             kotlinx.coroutines.delay(request.reconnectGapSecs * 1000L)
             ops.reconnect(); disconnected = false
-            android.util.Log.i("GPSINT", "cycle2 reconnect at ${System.currentTimeMillis()}")
+            gtLogger("GPSINT").i { "cycle2 reconnect at ${System.currentTimeMillis()}" }
             onStep(ReportingStep.DONE)
             CommResult.Ok
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            android.util.Log.e("GPSINT", "failed: ${e.message}", e)
-            if (disconnected) runCatching { ops.reconnect() }.onSuccess { android.util.Log.i("GPSINT", "reconnect after failure") }
+            gtLogger("GPSINT").e(e) { "failed: ${e.message}" }
+            if (disconnected) runCatching { ops.reconnect() }.onSuccess { gtLogger("GPSINT").i { "reconnect after failure" } }
             CommResult.Failed(e.message ?: e.javaClass.simpleName)
         }
     }
@@ -170,8 +171,8 @@ class MeshCommMessaging @Inject constructor(
                 if (n.lastHeard != lastHeard[num] && heardMs >= eventSessionStartMs && heardMs >= now - 120_000L) {
                     lastHeard[num] = n.lastHeard
                     emit(CommEvent.MemberHeard(memberOf(n)))
-                    android.util.Log.i("RXSTATS", "LEADVIS-2026-10-20 from " + num + " snr " + n.snr + " rssi " + n.rssi + " hops " + n.hopsAway +
-                        " ch " + n.deviceMetrics.channel_utilization + " air " + n.deviceMetrics.air_util_tx + " at " + n.latitude + "," + n.longitude)   // diagnostic (T6b records it)
+                    gtLogger("RXSTATS").i { ("LEADVIS-2026-10-20 from " + num + " snr " + n.snr + " rssi " + n.rssi + " hops " + n.hopsAway +
+                        " ch " + n.deviceMetrics.channel_utilization + " air " + n.deviceMetrics.air_util_tx + " at " + n.latitude + "," + n.longitude) }   // diagnostic (T6b records it)
                     // COTMSG-2026-10-15 (T5.4a-1): the same received report as a CoT message -- nobody listens yet (T5.4a-2 switches the board)
                     val msg = messageOf(n, reportSecsCache ?: 6)
                     if (msg != null) emit(CommEvent.Received(msg, setOf(com.grouptrack.comm.Transport.LORA)))
@@ -190,7 +191,7 @@ class MeshCommMessaging @Inject constructor(
         val step = Regex("step=(\\d+)").find(s.remarks)?.groupValues?.get(1)?.toLongOrNull() ?: return null
         val n = minOf(s.lats.size, s.lons.size)
         if (n < 2) return null
-        android.util.Log.i("POLYLINE", "POLYLINE-2026-10-20 comm: gap polyline from " + s.from + " uid " + s.uid + " " + n + " points, step " + step + " ms")
+        gtLogger("POLYLINE").i { "POLYLINE-2026-10-20 comm: gap polyline from " + s.from + " uid " + s.uid + " " + n + " points, step " + step + " ms" }
         return GapPolyline(s.from.toString(), s.callsign, t0s * 1000L, step, s.lats.take(n), s.lons.take(n))
     }
     override val events: Flow<CommEvent> = kotlinx.coroutines.flow.merge(heardEvents, polylineEvents)

@@ -1,7 +1,6 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * MeshNavFold — is the Meshtastic navigation rail folded away?
@@ -44,6 +44,7 @@ import java.io.File
 object MeshNavFold {
 
     private const val TAG = "MeshNavFold"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val FILE = "mesh_nav_folded"
 
     private fun file(): File = File(SpatialDbManager.dbDir(), FILE)
@@ -76,7 +77,7 @@ object MeshNavFold {
             // changed -- the release notes.
             if (seen.isEmpty()) DocToShow.QUICKSTART else DocToShow.RELEASE_NOTES
         } catch (e: Exception) {
-            Log.w(TAG, "docToShow: ${e.message}")
+            log.w { "docToShow: ${e.message}" }
             DocToShow.NONE
         }
     }
@@ -112,7 +113,7 @@ object MeshNavFold {
             _folded.value = try {
                 file().exists()
             } catch (e: Exception) {
-                Log.w(TAG, "isFolded: ${e.message}")
+                log.w { "isFolded: ${e.message}" }
                 false
             }
             loaded = true
@@ -134,9 +135,9 @@ object MeshNavFold {
             } else {
                 f.delete()
             }
-            Log.i(TAG, "meshtastic nav " + if (folded) "folded" else "unfolded")
+            log.i { "meshtastic nav " + if (folded) "folded" else "unfolded" }
         } catch (e: Exception) {
-            Log.w(TAG, "setFolded: ${e.message}")
+            log.w { "setFolded: ${e.message}" }
         }
     }
 }

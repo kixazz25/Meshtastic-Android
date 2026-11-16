@@ -32,6 +32,7 @@ import com.geeksville.mesh.convoy.SpatialDbManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * TRAILCLEAN-2026-11-04 (Fred 08:42-08:54). Two ways to take trails (and tracks) back out:
@@ -43,6 +44,7 @@ import kotlinx.coroutines.withContext
  */
 object GtTrailCleanup {
     private const val TAG = "TrailClean"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     class Counts(val tracks: Int, val rider: Int, val other: Int)
     class Src(val source: String, val batch: String, val trails: Int) {
         val label: String get() = when {
@@ -56,11 +58,11 @@ object GtTrailCleanup {
     private const val RIDER = "(carto_code='rider' OR carto_code_source='rider')"
     private fun count(sql: String): Int = try {
         SpatialDbManager.getSpatialDb()?.rawQuery(sql, null)?.use { if (it.moveToFirst()) it.getInt(0) else 0 } ?: 0
-    } catch (e: Exception) { android.util.Log.w(TAG, "count: ${e.message}"); 0 }
+    } catch (e: Exception) { log.w { "count: ${e.message}" }; 0 }
     private fun ids(db: android.database.sqlite.SQLiteDatabase?, sql: String, args: Array<String> = emptyArray()): List<String> {
         val out = ArrayList<String>()
         try { db?.rawQuery(sql, args)?.use { while (it.moveToNext()) if (!it.isNull(0)) out.add(it.getString(0)) } }
-        catch (e: Exception) { android.util.Log.w(TAG, "ids: ${e.message}") }
+        catch (e: Exception) { log.w { "ids: ${e.message}" } }
         return out
     }
 
@@ -77,7 +79,7 @@ object GtTrailCleanup {
         val where = when { rider && other -> "1=1"; rider -> RIDER; other -> "NOT $RIDER"; else -> "" }
         if (where.isNotEmpty()) for (id in ids(sp, "SELECT trail_id FROM trails WHERE $where AND " + inside(b))) { SpatialDbManager.deleteTrailFromDb(id); nr++ }
         if (nr > 0 || nt > 0) RiderTrailWriter.trailsChanged.value = System.currentTimeMillis()   // the maps reload
-        android.util.Log.i(TAG, "TRAILCLEAN area N${b.north} S${b.south} E${b.east} W${b.west}: $nt tracks, $nr trails removed (tracks=$tracks rider=$rider other=$other)")
+        log.i { "TRAILCLEAN area N${b.north} S${b.south} E${b.east} W${b.west}: $nt tracks, $nr trails removed (tracks=$tracks rider=$rider other=$other)" }
         return "$nt tracks, $nr trails removed"
     }
 
@@ -89,7 +91,7 @@ object GtTrailCleanup {
                     "FROM trail_properties WHERE source_id='import' GROUP BY 1,2 ORDER BY 3 DESC", null)?.use {   // TRAILSRCONLY-2026-11-04: only our imports
                 while (it.moveToNext()) out.add(Src(it.getString(0), it.getString(1) ?: "", it.getInt(2)))
             }
-        } catch (e: Exception) { android.util.Log.w(TAG, "sources: ${e.message}") }
+        } catch (e: Exception) { log.w { "sources: ${e.message}" } }
         return out
     }
 
@@ -108,10 +110,10 @@ object GtTrailCleanup {
                 else { SpatialDbManager.deleteTrailFromDb(id); gone++ }
             }
             ex.setTransactionSuccessful(); sp?.setTransactionSuccessful()
-        } catch (e: Exception) { android.util.Log.e(TAG, "deleteSource: ${e.message}") }
+        } catch (e: Exception) { log.e { "deleteSource: ${e.message}" } }
         finally { try { ex.endTransaction() } catch (_: Exception) {}; try { sp?.endTransaction() } catch (_: Exception) {} }
         if (gone > 0) RiderTrailWriter.trailsChanged.value = System.currentTimeMillis()
-        android.util.Log.i(TAG, "TRAILCLEAN source '${s.label}': $gone trails deleted, $kept kept (another source has them)")
+        log.i { "TRAILCLEAN source '${s.label}': $gone trails deleted, $kept kept (another source has them)" }
         return "$gone trails deleted" + if (kept > 0) ", $kept kept (another source also has them)" else ""
     }
 }

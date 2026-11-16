@@ -1,5 +1,7 @@
 package com.geeksville.mesh.convoy
 
+import com.grouptrack.shared.log.gtLogger
+
 /**
  * ONEFEED-2026-10-19 (Fred 10-19 12:20-12:21): THE ONE ANDROID POSITION FEED -- Google's fused location (as onX), HIGH_ACCURACY, every 3 s.
  * No other GPS request in the app. Listeners:
@@ -41,7 +43,7 @@ object TabletPosition {
             (ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager)
                 .registerGnssStatusCallback(cb, android.os.Handler(android.os.Looper.getMainLooper()))
             gnssCb = cb
-        } catch (e: Exception) { android.util.Log.w("TABLETPOS", "GPSLAMP-2026-10-19: satellite status refused: " + e.message) }
+        } catch (e: Exception) { gtLogger("TABLETPOS").w { "GPSLAMP-2026-10-19: satellite status refused: " + e.message } }
     }
     private fun stopGnss(ctx: android.content.Context) {
         val cb = gnssCb ?: return
@@ -75,10 +77,10 @@ object TabletPosition {
                 .requestLocationUpdates(req, cb, android.os.Looper.getMainLooper())
             callback = cb
             startGnss(ctx.applicationContext)   // GPSLAMP-2026-10-19
-            android.util.Log.i("TABLETPOS", "ONEFEED-2026-10-19: feed started (fused, high accuracy, 3 s) -- listeners " + listeners.size)
+            gtLogger("TABLETPOS").i { "ONEFEED-2026-10-19: feed started (fused, high accuracy, 3 s) -- listeners " + listeners.size }
             true
         } catch (e: Exception) {
-            android.util.Log.e("TABLETPOS", "ONEFEED-2026-10-19: feed refused: " + e.message)
+            gtLogger("TABLETPOS").e { "ONEFEED-2026-10-19: feed refused: " + e.message }
             listeners.remove(l)
             false
         }
@@ -95,6 +97,6 @@ object TabletPosition {
         } catch (_: Exception) {}
         callback = null
         stopGnss(ctx.applicationContext)   // GPSLAMP-2026-10-19
-        android.util.Log.i("TABLETPOS", "ONEFEED-2026-10-19: feed stopped (no listeners)")
+        gtLogger("TABLETPOS").i { "ONEFEED-2026-10-19: feed stopped (no listeners)" }
     }
 }

@@ -21,6 +21,7 @@ import org.meshtastic.core.ble.MeshtasticBleConstants
 import org.meshtastic.core.data.manager.RadioNameStore
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.minutes
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * COMMRADIOS-2026-10-11 (2.7b cycle 1 P2b) -- THE RADIO LIST, on the comm side. GRP Awareness draws its rows from [radios].
@@ -98,7 +99,7 @@ class MeshRadioList @Inject constructor(
                 val p = problemOf(st)
                 if (p == null) beginScan()
                 else if (scanJob?.isActive == true) {
-                    android.util.Log.i("COMMRADIOS", "scan paused: $p")
+                    gtLogger("COMMRADIOS").i { "scan paused: $p" }
                     scanJob?.cancel(); scanJob = null; found.value = emptyMap()
                 }
             }
@@ -112,7 +113,7 @@ class MeshRadioList @Inject constructor(
         bluetoothRepository.refreshState()
         val p = problemOf(bluetoothRepository.state.value)
         if (p != null) {
-            android.util.Log.i("COMMRADIOS", "scan: $p")
+            gtLogger("COMMRADIOS").i { "scan: $p" }
             if (scanJob?.isActive != true) found.value = emptyMap()   // radios from an earlier scan are not shown
             return CommResult.Failed(p)
         }
@@ -124,19 +125,19 @@ class MeshRadioList @Inject constructor(
         if (scanJob?.isActive == true) return
         found.value = emptyMap()
         scanJob = scope.launch {
-            android.util.Log.i("COMMRADIOS", "scan started")
+            gtLogger("COMMRADIOS").i { "scan started" }
             while (isActive) {
                 try {
                     bleScanner.scan(5.minutes).collect { p ->
                         if (p.name?.matches(namePattern) == true && p.address !in found.value) {
                             found.value = found.value + (p.address to p)
-                            android.util.Log.i("COMMRADIOS", "found nearby: ${p.name} ${p.address}")
+                            gtLogger("COMMRADIOS").i { "found nearby: ${p.name} ${p.address}" }
                         }
                     }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    android.util.Log.w("COMMRADIOS", "scan failed: ${e.message}")
+                    gtLogger("COMMRADIOS").w { "scan failed: ${e.message}" }
                     delay(10_000L)
                 }
             }
@@ -146,7 +147,7 @@ class MeshRadioList @Inject constructor(
     /** Stops looking (GroupTrack: GRP Awareness closed). */
     fun stopScan() {
         wanted = false   // COMMBTOFF-2026-10-11
-        if (scanJob?.isActive == true) android.util.Log.i("COMMRADIOS", "scan stopped")
+        if (scanJob?.isActive == true) gtLogger("COMMRADIOS").i { "scan stopped" }
         scanJob?.cancel(); scanJob = null
     }
 

@@ -41,6 +41,7 @@ import androidx.compose.runtime.collectAsState
 import com.grouptrack.comm.ApplyRequest
 import com.grouptrack.comm.CommResult
 import com.grouptrack.comm.ConfigChange
+import com.grouptrack.shared.log.gtLogger
 
 /*
  * RADIOCFG4-2026-09-25 (GroupTrack 2.7) -- the radio configurator, part 4: the SCREEN.
@@ -190,14 +191,14 @@ fun RadioConfigScreen(
         // RADIONAME-2026-10-31b (Fred 16:16): CHECK IN never renames silently -- radio name and this device's callsign must match, else it
         // waits on this screen for the rider (the prompt below)
         if (radioName.isEmpty() || radioName != callsign) {
-            android.util.Log.i("RadioConfig", "CHECKINAPPLY: radio '$radioName' vs callsign '$callsign' -- held for the rider"); return@LaunchedEffect
+            gtLogger("RadioConfig").i { "CHECKINAPPLY: radio '$radioName' vs callsign '$callsign' -- held for the rider" }; return@LaunchedEffect
         }
         // NORIDEDEFAULT-2026-10-10: "GroupTrack" asks for the GroupTrack default target (it carries no ride id).
         val t = if (rid == com.grouptrack.core.NetworkGenerator.DEFAULT_CHANNEL)
             targets.firstOrNull { it.rideId == null && it.savedId == null && it.name == "GroupTrack default" }
         else targets.firstOrNull { it.rideId == rid }
         if (t == null) {
-            android.util.Log.i("RadioConfig", "CHECKINAPPLY: ride $rid not found on this tablet")
+            gtLogger("RadioConfig").i { "CHECKINAPPLY: ride $rid not found on this tablet" }
             val cb = RadioConfigLauncher.onAutoResult
             RadioConfigLauncher.autoRideId = null; RadioConfigLauncher.onAutoResult = null
             onClose(); cb?.invoke(false)
@@ -210,7 +211,7 @@ fun RadioConfigScreen(
         if (phase == "PREVIEW" && (chosen?.rideId == RadioConfigLauncher.autoRideId || autoDefault)) apply()
         if (phase == "RESULT") {
             val ok = (applied as? CommResult.Applied)?.verified == true
-            android.util.Log.i("RadioConfig", "CHECKINAPPLY: ride ${RadioConfigLauncher.autoRideId} applied, verified=$ok")
+            gtLogger("RadioConfig").i { "CHECKINAPPLY: ride ${RadioConfigLauncher.autoRideId} applied, verified=$ok" }
             kotlinx.coroutines.delay(1500)   // the result shows briefly
             val cb = RadioConfigLauncher.onAutoResult
             RadioConfigLauncher.autoRideId = null; RadioConfigLauncher.onAutoResult = null

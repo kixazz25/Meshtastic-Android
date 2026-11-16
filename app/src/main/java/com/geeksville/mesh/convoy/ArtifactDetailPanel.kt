@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * ArtifactDetailPanel -- standalone, callable detail popup for ANY artifact.
@@ -274,7 +275,7 @@ fun ArtifactDetailPanel(
                                 Text(if (pref) "\u2605" else "\u2606",
                                     color = if (pref) aGreen else aDim, fontSize = 12.sp,
                                     modifier = Modifier.clickable {
-                                        android.util.Log.i("ArtifactDetail", "Preferred name-swap not yet built")
+                                        gtLogger("ArtifactDetail").i { "Preferred name-swap not yet built" }
                                     }.padding(end = 4.dp))
                                 Text(a["alias"] ?: "", color = aBlue, fontSize = 12.sp,
                                     fontFamily = aMono, maxLines = 1,

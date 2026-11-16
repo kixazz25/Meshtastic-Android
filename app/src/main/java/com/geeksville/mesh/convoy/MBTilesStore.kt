@@ -6,6 +6,7 @@ import com.grouptrack.shared.mbtiles.GtMBTiles
 import com.grouptrack.shared.mbtiles.GtTileStoreEnv
 import com.grouptrack.shared.queue.GtTileKey
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * MBTilesStore -- V2.6 Pass 1 tile storage. One MBTiles SQLite database PER TYPE:
@@ -57,6 +58,7 @@ import java.io.File
 object MBTilesStore : GtTileStoreEnv {
 
     private const val TAG = "MBTilesStore"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     /** The certified shared port. This object is its platform env. */
     private val shared: GtMBTiles by lazy { GtMBTiles(this) }
@@ -103,7 +105,7 @@ object MBTilesStore : GtTileStoreEnv {
             handles[type] = c
             c
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "open failed for $type: ${e.message}")
+            log.e { "open failed for $type: ${e.message}" }
             null
         }
     }
@@ -162,7 +164,7 @@ object MBTilesStore : GtTileStoreEnv {
     private fun ensureSchema(c: SQLiteConnection) {
         for (p in listOf("secure_delete=OFF", "synchronous=NORMAL", "journal_mode=TRUNCATE")) {
             try { exec(c, "PRAGMA $p") } catch (e: Exception) {
-                android.util.Log.w(TAG, "MBPRAGMA-2026-08-09G: $p FAILED: ${e.message}")
+                log.w { "MBPRAGMA-2026-08-09G: $p FAILED: ${e.message}" }
             }
         }
         exec(c, "CREATE TABLE IF NOT EXISTS tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB)")
@@ -178,9 +180,9 @@ object MBTilesStore : GtTileStoreEnv {
                 val st = c.prepare("INSERT OR REPLACE INTO metadata(name,value) VALUES(?,?)")
                 try { st.bindText(1, k); st.bindText(2, v); st.step() } finally { st.close() }
             }
-            android.util.Log.i(TAG, "created $type.mbtiles (format=$format, scheme=xyz raw z/x/y)")
+            log.i { "created $type.mbtiles (format=$format, scheme=xyz raw z/x/y)" }
         } catch (e: Exception) {
-            android.util.Log.w(TAG, "metadata init $type: ${e.message}")
+            log.w { "metadata init $type: ${e.message}" }
         }
     }
 
@@ -206,7 +208,7 @@ object MBTilesStore : GtTileStoreEnv {
     fun readTile(type: String, z: Int, x: Int, y: Int): ByteArray? {
         // OFFTRACE-2026-08-11M: what the store actually returns. A null here with tiles
         // on disk means the lookup, not the map.
-        android.util.Log.i("OFFTRACE", "OFFTRACE-2026-08-11M readTile type=$type z=$z x=$x y=$y")
+        gtLogger("OFFTRACE").i { "OFFTRACE-2026-08-11M readTile type=$type z=$z x=$x y=$y" }
         return shared.readTile(type, z, x, y)
     }
 
@@ -249,7 +251,7 @@ object MBTilesStore : GtTileStoreEnv {
     /** All (z,x,y) keys for a type. Replaces scanTilesToKeys' dir walk. */
     fun scanKeys(type: String): List<TileKey> {
         val keys = shared.scanKeys(type).map { old(it) }
-        android.util.Log.i(TAG, "scanKeys $type: ${keys.size} tiles")
+        log.i { "scanKeys $type: ${keys.size} tiles" }
         return keys
     }
 
@@ -287,7 +289,7 @@ object MBTilesStore : GtTileStoreEnv {
      *  countTileRange cannot serve here: it takes a BOUNDING BOX, and a corridor is not one. */
     fun countTiles(type: String, tiles: List<TileKey>): Int {
         val found = shared.countTiles(type, tiles.map { gt(it) })
-        android.util.Log.i(TAG, "countTiles $type: ${tiles.size} requested, $found present")
+        log.i { "countTiles $type: ${tiles.size} requested, $found present" }
         return found
     }
 
@@ -301,7 +303,7 @@ object MBTilesStore : GtTileStoreEnv {
      */
     fun deleteTiles(type: String, tiles: List<TileKey>): Int {
         val removed = shared.deleteTiles(type, tiles.map { gt(it) })
-        android.util.Log.i(TAG, "deleteTiles $type: ${tiles.size} requested, $removed actually removed")
+        log.i { "deleteTiles $type: ${tiles.size} requested, $removed actually removed" }
         return removed
     }
 
@@ -322,14 +324,14 @@ object MBTilesStore : GtTileStoreEnv {
      */
     fun reclaimableBytes(type: String): Long {
         val bytes = shared.reclaimableBytes(type)
-        android.util.Log.i(TAG, "reclaimable $type: $bytes bytes")
+        log.i { "reclaimable $type: $bytes bytes" }
         return bytes
     }
 
     /** Delete all tiles for a type -- drops the whole .mbtiles file and its sidecars. */
     fun deleteSource(type: String): Boolean {
         val ok = shared.deleteSource(type)
-        android.util.Log.i(TAG, "deleteSource $type = $ok")
+        log.i { "deleteSource $type = $ok" }
         return ok
     }
 

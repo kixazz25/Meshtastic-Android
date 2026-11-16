@@ -1,9 +1,9 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import com.geeksville.mesh.convoy.ConvoyTrackOps
 import com.geeksville.mesh.convoy.SpatialDbManager
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * EXPORTALL-2026-11-03 (Fred 11-01; 11-03 10:26 "it should bundle all objects in one gpx file for importing. one type at a time"):
@@ -13,6 +13,7 @@ import com.geeksville.mesh.convoy.SpatialDbManager
  */
 object GtExportAll {
     private const val TAG = "ExportAll"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
         "<gpx version=\"1.1\" creator=\"GroupTrack\"\n" +
         "     xmlns=\"http://www.topografix.com/GPX/1/1\"\n" +
@@ -65,7 +66,7 @@ object GtExportAll {
         val file = "GroupTrack_RIDER_TRAILS_$day"
         val ok = if (toDownloads) ConvoyTrackOps.exportGpxToDownloads(file, sb.toString()) else true   // BACKUP-2026-11-03
         if (ok) keepForShare(ctx, file, sb.toString())   // SHAREEXPORT-2026-11-03
-        Log.i(TAG, "TRAILEXPORT $n trail(s) -> Downloads/$file.gpx ok=$ok")
+        log.i { "TRAILEXPORT $n trail(s) -> Downloads/$file.gpx ok=$ok" }
         if (!ok) return "Export failed: could not write to Downloads."
         return "Exported $n rider trails to Downloads: $file.gpx. Bring them back with Map › Import files — they come back as trails."
     }
@@ -74,7 +75,7 @@ object GtExportAll {
     fun start(ctx: Context, type: String) {
         android.widget.Toast.makeText(ctx, "Exporting all $type…", android.widget.Toast.LENGTH_SHORT).show()
         Thread {
-            val msg = try { run(ctx, type, true) } catch (e: Exception) { Log.e(TAG, "EXPORTALL $type", e); "Export failed: ${e.message}" }
+            val msg = try { run(ctx, type, true) } catch (e: Exception) { log.e(e) { "EXPORTALL $type" }; "Export failed: ${e.message}" }
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_LONG).show()
                 shareNow(ctx)   // SHAREEXPORT-2026-11-03
@@ -112,9 +113,9 @@ object GtExportAll {
             }
             ctx.startActivity(android.content.Intent.createChooser(send, "Send or save $what")
                 .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-            Log.i(TAG, "SHAREEXPORT share sheet for ${f.name} (${f.length()} bytes)")
+            log.i { "SHAREEXPORT share sheet for ${f.name} (${f.length()} bytes)" }
         } catch (e: Exception) {
-            Log.e(TAG, "SHAREEXPORT share failed", e)
+            log.e(e) { "SHAREEXPORT share failed" }
             android.widget.Toast.makeText(ctx, "Saved to Downloads; could not open sharing: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
@@ -150,7 +151,7 @@ object GtExportAll {
         val file = "GroupTrack_${type.uppercase(java.util.Locale.US)}_$day"
         val ok = if (toDownloads) ConvoyTrackOps.exportGpxToDownloads(file, sb.toString()) else true   // BACKUP-2026-11-03
         if (ok) keepForShare(ctx, file, sb.toString())   // SHAREEXPORT-2026-11-03
-        Log.i(TAG, "EXPORTALL $type: $n of ${ids.size} written ($skipped skipped) -> Downloads/$file.gpx ok=$ok" + (if (why.isEmpty()) "" else " SKIPPED: " + why.take(20).joinToString("; ")))
+        log.i { "EXPORTALL $type: $n of ${ids.size} written ($skipped skipped) -> Downloads/$file.gpx ok=$ok" + (if (why.isEmpty()) "" else " SKIPPED: " + why.take(20).joinToString("; ")) }
         if (!ok) return "Export failed: could not write to Downloads."
         return "Exported $n $type to Downloads: $file.gpx" + (if (skipped > 0) " ($skipped could not be read)" else "") + "."
     }

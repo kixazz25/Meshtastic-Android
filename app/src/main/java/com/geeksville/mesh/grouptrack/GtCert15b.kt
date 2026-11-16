@@ -1,7 +1,6 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.geeksville.mesh.convoy.ImportConverterCertOld
 import com.geeksville.mesh.convoy.ImportParseCertOld
@@ -10,6 +9,7 @@ import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toOkioPath
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP15B-2026-11-09 ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 15b certification on the Droid --
@@ -24,6 +24,7 @@ import java.io.File
  */
 object GtCert15b {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     /** OLD: 2.7e, as the TEST-ONLY copies carry it. Files are java.io.File as 2.7e used them. */
     private object OldSide : Cert15b.Side {
@@ -84,12 +85,12 @@ object GtCert15b {
                 for (f in files) {
                     if (side.name == "OLD" && f.name in OLD_TOO_SLOW) {
                         w.write("# P15B OLD not run on the Droid: ${f.name} (RXFIX-2026-11-09: 2.7e takes hours on Android; the JVM proof covers it)\n")
-                        Log.i(TAG, "GTCERT parse15b OLD ${f.name} not run (too slow on Android -- RXFIX)"); continue
+                        log.i { "GTCERT parse15b OLD ${f.name} not run (too slow on Android -- RXFIX)" }; continue
                     }
                     val dest: java.io.Writer = if (side.name == "NEW" && f.name in OLD_TOO_SLOW) noW else o
                     val ts = System.currentTimeMillis()
                     Cert15b.runFile(side, fs, f.toOkioPath(), work) { k, v -> dest.write(k); dest.write("\t"); dest.write(Cert15b.esc(v)); dest.write("\n") }
-                    Log.i(TAG, "GTCERT parse15b ${side.name} ${f.name} ${System.currentTimeMillis() - ts} ms")
+                    log.i { "GTCERT parse15b ${side.name} ${f.name} ${System.currentTimeMillis() - ts} ms" }
                 }
             }
             sideFiles[side.name] = out
@@ -100,13 +101,13 @@ object GtCert15b {
             when {
                 a == b -> { same++; w.write("P15B\t$key\tSAME\t$b\n") }
                 key.contains("(EXPECTED") -> { expected++; w.write("P15B\t$key\tEXPECTED\t$b\n  OLD\t$a\n  NEW\t$b\n") }
-                else -> { diff++; w.write("P15B\t$key\tDIFF\t$b\n  OLD\t$a\n  NEW\t$b\n"); Log.w(TAG, "GTCERT parse15b DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}") }
+                else -> { diff++; w.write("P15B\t$key\tDIFF\t$b\n  OLD\t$a\n  NEW\t$b\n"); log.w { "GTCERT parse15b DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}" } }
             }
         }
         var newonly = 0   // RXFIX-2026-11-09
         newOnly.forEachLine { l -> val t = l.indexOf('\t'); if (t > 0) { newonly++; w.write("P15B\t${l.substring(0, t)}\tNEWONLY\t${l.substring(t + 1)}\n") } }
         w.write("# P15B done: $same SAME, $diff DIFF, $expected EXPECTED, $newonly NEWONLY in ${(System.currentTimeMillis() - t0) / 1000} s\n")
-        Log.i(TAG, "GTCERT parse15b: $same SAME, $diff DIFF, $expected EXPECTED")
+        log.i { "GTCERT parse15b: $same SAME, $diff DIFF, $expected EXPECTED" }
     }
 
     private fun splitLine(l: String?): Pair<String, String> {

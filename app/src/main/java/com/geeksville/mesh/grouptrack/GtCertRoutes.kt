@@ -1,9 +1,9 @@
 package com.geeksville.mesh.grouptrack
 
 import android.database.sqlite.SQLiteDatabase
-import android.util.Log
 import com.geeksville.mesh.convoy.RouteExplorerCertOld as Old
 import com.grouptrack.shared.route.GtRoute as New
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP13C-2026-11-07: the route builder certification -- 2.7e's RouteExplorer (the TEST-ONLY copy RouteExplorerCertOld) against the
@@ -20,6 +20,7 @@ import com.grouptrack.shared.route.GtRoute as New
  */
 object GtCertRoutes {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     private class Rq(val key: String, val lat: Double, val lon: Double, val mLo: Double, val mHi: Double, val sLo: Double, val sHi: Double,
                      val pins: List<Pair<Double, Double>>, val end: Pair<Double, Double>?)
@@ -33,7 +34,7 @@ object GtCertRoutes {
         fun put(s: String) { w.write(s); ext.write(s) }
         fun check(what: String, key: String, a: String, b: String) {
             if (a == b) { same++; put("ROUTES|$what|$key|SAME\n") }
-            else { diff++; put("ROUTES|$what|$key|DIFF\n  OLD|$a\n  NEW|$b\n"); Log.w(TAG, "GTCERT DIFF $what $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}") }
+            else { diff++; put("ROUTES|$what|$key|DIFF\n  OLD|$a\n  NEW|$b\n"); log.w { "GTCERT DIFF $what $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}" } }
         }
         // STEP13C-C: which degrees-to-radians formula this Droid's Math.toRadians is (PORT_NOTES risk 1)
         run { var m1 = 0; var m2 = 0; var n = 0; val rr = java.util.Random(5)
@@ -50,7 +51,7 @@ object GtCertRoutes {
             tf.setLand(land)
             val reqs = reqs0.map { Rq(it.key + "[$land]", it.lat, it.lon, it.mLo, it.mHi, it.sLo, it.sHi, it.pins, it.end) }
             put("# routes: ${reqs.size} requests, land $land, filter '${tf.whereOrEmpty()}'\n")
-            Log.i(TAG, "GTCERT routes: ${reqs.size} requests, land $land")
+            log.i { "GTCERT routes: ${reqs.size} requests, land $land" }
             for ((i, r) in reqs.withIndex()) {
                 val name = "certroute_${i + 1}"
                 val oReq = Old.Request(r.lat, r.lon, name, r.mLo, r.mHi, r.sLo, r.sHi, includePoints = r.pins)
@@ -85,12 +86,12 @@ object GtCertRoutes {
                 check("CONNECTED", r.key, Old.connectedMiles(fS, oReq).toString(), New.connectedMiles(conn, nReq).toString())
                 check("NEARESTTRAIL", r.key, Old.nearestShownTrailMeters(fS, r.lat, r.lon).toString(), New.nearestShownTrailMeters(conn, r.lat, r.lon).toString())
                 Old.certClearCache(); New.clearCache(); ext.flush()
-                Log.i(TAG, "GTCERT routes ${i + 1}/${reqs.size} ${r.key}: same $same diff $diff")
+                log.i { "GTCERT routes ${i + 1}/${reqs.size} ${r.key}: same $same diff $diff" }
             }
             } } finally { if (tf.land != landWas) tf.setLand(landWas); put("# land put back: ${tf.land}\n") }
         } finally { Old.certDraftSink = { _, _ -> true }; try { fS.close() } catch (_: Exception) {} }
         put("# routes done: same $same diff $diff in ${(System.currentTimeMillis() - t0) / 1000} s\n"); try { ext.close() } catch (_: Exception) {}
-        Log.i(TAG, "GTCERT routes done: same $same diff $diff")
+        log.i { "GTCERT routes done: same $same diff $diff" }
     }
 
     /** a draft as org.json reads it (so "2" and "2.0" are the same number), the two clock fields removed. */

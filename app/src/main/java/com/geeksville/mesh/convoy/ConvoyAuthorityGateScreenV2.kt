@@ -42,6 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import com.grouptrack.shared.log.gtLogger
 
 // Meshtastic palette (matches ConvoyEmailGateScreen)
 private val MshBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF101510 
@@ -206,7 +207,7 @@ private fun evaluateState(context: android.content.Context, attempt: Int): Autho
         } catch (e: Exception) {
             // Housekeeping must never block the gate. A sweep that fails leaves
             // the manifests where they are and retries next launch.
-            android.util.Log.e("ConvoyGate", "startup sweep failed: " + e.message)
+            gtLogger("ConvoyGate").e { "startup sweep failed: " + e.message }
         }
     }
 
@@ -217,7 +218,7 @@ private fun evaluateState(context: android.content.Context, attempt: Int): Autho
             HomeStateImportController.needsTrailData(context)
         } catch (e: Exception) {
             // Never strand the rider at the gate over a failed check.
-            android.util.Log.e("ConvoyGate", "trail check failed: " + e.message)
+            gtLogger("ConvoyGate").e { "trail check failed: " + e.message }
             false
         }
     } else false
@@ -229,12 +230,9 @@ private fun evaluateState(context: android.content.Context, attempt: Int): Autho
         needsTrails  -> AuthorityState.NeedTrailData
         else         -> AuthorityState.Granted
     }
-    android.util.Log.i(
-        "ConvoyGate",
-        "eval: realStorage=" + storage + " background=" + background +
+    gtLogger("ConvoyGate").i { ("eval: realStorage=" + storage + " background=" + background +
             " -> " + result.javaClass.simpleName +
-            (if (attempt >= 0) " (attempt " + attempt + ")" else "")
-    )
+            (if (attempt >= 0) " (attempt " + attempt + ")" else "")) }
     return result
 }
 
@@ -396,7 +394,7 @@ fun ConvoyAuthorityGateScreenV2(
                     android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             )
         } catch (e: Exception) {
-            android.util.Log.w("ConvGate", "persist grant: ${e.message}")
+            gtLogger("ConvGate").w { "persist grant: ${e.message}" }
         }
         convTree = uri
         // \u2b50 Look before asking: no maps means no question.
@@ -525,10 +523,7 @@ fun ConvoyAuthorityGateScreenV2(
             }
         }
         state = if (fresh is AuthorityState.NeedStorage && settingsVisited) {
-            android.util.Log.w(
-                "ConvoyGate",
-                "storage still not real after retries; showing StorageDeclined"
-            )
+            gtLogger("ConvoyGate").w { "storage still not real after retries; showing StorageDeclined" }
             AuthorityState.StorageDeclined
         } else {
             fresh

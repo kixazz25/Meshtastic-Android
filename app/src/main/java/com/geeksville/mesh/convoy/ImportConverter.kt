@@ -4,6 +4,7 @@ import java.io.File
 import com.grouptrack.shared.imports.GtImportConverter   // STEP15B-SWITCH-2026-11-09
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * MAPIMPORTS-2026-10-30 (D31, Fred 10-30): "Convert files to GPX" -- KML / KMZ / GeoJSON -> a GPX the import already reads.
@@ -37,7 +38,7 @@ object ImportConverter {
                 val saved = saveToDownloads(context, r.file)
                 out.add("$name -> Download/$saved   ${r.lines} lines (${r.tracks} tracks), ${r.points} points")
             } catch (e: Exception) {
-                android.util.Log.e("ImportConvert", "$name: ${e.message}")
+                gtLogger("ImportConvert").e { "$name: ${e.message}" }
                 out.add("FAILED $name: ${e.message ?: "could not convert"}")
             }
         }

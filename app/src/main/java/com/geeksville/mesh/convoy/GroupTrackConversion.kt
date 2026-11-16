@@ -2,11 +2,11 @@ package com.geeksville.mesh.convoy
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * CONVERSION-2026-09-12: copy GroupTrack out of shared storage, through a SAF
@@ -29,6 +29,7 @@ import java.io.File
 object GroupTrackConversion {
 
     private const val TAG = "GTConversion"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     /** \u2b50 The record IS the flag. Present and complete means never again. */
     const val RECORD_NAME = "conversion_record.json"
@@ -105,7 +106,7 @@ object GroupTrackConversion {
         return try {
             JSONObject(f.readText()).optBoolean("complete", false)
         } catch (e: Exception) {
-            Log.w(TAG, "record unreadable: ${e.message}")
+            log.w { "record unreadable: ${e.message}" }
             false
         }
     }
@@ -132,11 +133,11 @@ object GroupTrackConversion {
     fun isFreshInstall(ctx: Context): Boolean = try {
         val pi = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
         val fresh = pi.firstInstallTime == pi.lastUpdateTime
-        Log.i(TAG, "isFreshInstall=$fresh (first=${pi.firstInstallTime} " +
-            "last=${pi.lastUpdateTime})")
+        log.i { ("isFreshInstall=$fresh (first=${pi.firstInstallTime} " +
+            "last=${pi.lastUpdateTime})") }
         fresh
     } catch (e: Exception) {
-        Log.w(TAG, "isFreshInstall failed, assuming update: ${e.message}")
+        log.w { "isFreshInstall failed, assuming update: ${e.message}" }
         false
     }
 
@@ -147,7 +148,7 @@ object GroupTrackConversion {
      * otherwise a new rider is asked on every launch forever.
      */
     fun recordFreshInstall(ctx: Context) {
-        Log.i(TAG, "fresh install -- no migration, closing the record")
+        log.i { "fresh install -- no migration, closing the record" }
         writeRecord(ctx, Outcome(true, "none (fresh install)", emptyList()))
     }
 
@@ -155,7 +156,7 @@ object GroupTrackConversion {
     fun readRecord(ctx: Context): String? =
         recordFile(ctx)?.takeIf { it.exists() }?.let {
             try { it.readText() } catch (e: Exception) {
-                Log.w(TAG, "readRecord: ${e.message}"); null
+                log.w { "readRecord: ${e.message}" }; null
             }
         }
 
@@ -169,7 +170,7 @@ object GroupTrackConversion {
      */
     private fun writeRecord(ctx: Context, outcome: Outcome) {
         val f = recordFile(ctx) ?: run {
-            Log.e(TAG, "no internal base -- cannot write the record")
+            log.e { "no internal base -- cannot write the record" }
             return
         }
         try {
@@ -207,9 +208,9 @@ object GroupTrackConversion {
                 outcome.error?.let { put("error", it) }
                 put("steps", steps)
             }.toString(2))
-            Log.i(TAG, "record written: ${f.absolutePath}")
+            log.i { "record written: ${f.absolutePath}" }
         } catch (e: Exception) {
-            Log.e(TAG, "writeRecord FAILED: ${e.message}")
+            log.e { "writeRecord FAILED: ${e.message}" }
         }
     }
 
@@ -231,7 +232,7 @@ object GroupTrackConversion {
      * costs disk space, not data.
      */
     fun run(ctx: Context, treeUri: Uri, onProgress: ((String) -> Unit)? = null): Outcome {
-        Log.i(TAG, "=== CONVERSION START === tree=$treeUri")
+        log.i { "=== CONVERSION START === tree=$treeUri" }
 
         // CONVFIX-2026-09-13: \u26d4 THE ACCESSOR NEEDS A CONTEXT AND HAD NONE.
         // GroupTrackStorage learns one only through remember(), and the ONLY
@@ -245,25 +246,25 @@ object GroupTrackConversion {
         GroupTrackStorage.remember(ctx)
 
         try { SpatialDbManager.close() } catch (e: Exception) {
-            Log.w(TAG, "close before copy: ${e.message}")
+            log.w { "close before copy: ${e.message}" }
         }
 
         val internal = GroupTrackStorage.internalBase()
         if (internal == null) {
             val msg = "no internal base -- cannot copy"
-            Log.e(TAG, msg)
+            log.e { msg }
             return Outcome(false, treeUri.toString(), emptyList(), msg)
         }
         if (!internal.exists() && !internal.mkdirs()) {
             val msg = "cannot create ${internal.absolutePath}"
-            Log.e(TAG, msg)
+            log.e { msg }
             return Outcome(false, treeUri.toString(), emptyList(), msg)
         }
 
         val tree = DocumentFile.fromTreeUri(ctx, treeUri)
         if (tree == null || !tree.isDirectory) {
             val msg = "granted tree is not readable"
-            Log.e(TAG, msg)
+            log.e { msg }
             return Outcome(false, treeUri.toString(), emptyList(), msg)
         }
 
@@ -279,7 +280,7 @@ object GroupTrackConversion {
         val ok = steps.all { it.ok }
         val outcome = Outcome(ok, treeUri.toString(), steps)
         writeRecord(ctx, outcome)
-        Log.i(TAG, "=== CONVERSION ${if (ok) "DONE" else "FAILED"} ===")
+        log.i { "=== CONVERSION ${if (ok) "DONE" else "FAILED"} ===" }
         return outcome
     }
 
@@ -375,21 +376,21 @@ object GroupTrackConversion {
             val gt = tree.listFiles().firstOrNull {
                 it.isDirectory && it.name == DIR_GROUPTRACK
             } ?: run {
-                Log.i(TAG, "moveOutMaps: no GroupTrack -- nothing to do")
+                log.i { "moveOutMaps: no GroupTrack -- nothing to do" }
                 return true
             }
             val maps = gt.listFiles().firstOrNull {
                 it.isDirectory && it.name == "maps"
             } ?: run {
-                Log.i(TAG, "moveOutMaps: no maps -- nothing to do")
+                log.i { "moveOutMaps: no maps -- nothing to do" }
                 return true
             }
             val moved = android.provider.DocumentsContract.moveDocument(
                 ctx.contentResolver, maps.uri, gt.uri, tree.uri)
-            Log.i(TAG, "moveOutMaps: " + (if (moved != null) "moved" else "FAILED"))
+            log.i { "moveOutMaps: " + (if (moved != null) "moved" else "FAILED") }
             moved != null
         } catch (e: Exception) {
-            Log.e(TAG, "moveOutMaps FAILED: ${e.message}")
+            log.e { "moveOutMaps FAILED: ${e.message}" }
             false
         }
     }
@@ -439,7 +440,7 @@ object GroupTrackConversion {
                 if (bad > 0) "$bad file(s) failed" else null,
                 started, System.currentTimeMillis())
         } catch (e: Exception) {
-            Log.e(TAG, "copyMaps FAILED: ${e.message}")
+            log.e { "copyMaps FAILED: ${e.message}" }
             StepResult("maps", true, items, false, e.message,
                 started, System.currentTimeMillis())
         }
@@ -485,14 +486,14 @@ object GroupTrackConversion {
                 if (ok) {
                     // \u26d4 ONLY NOW. A source deleted on a short write is the one
                     // loss this design exists to avoid.
-                    if (!child.delete()) Log.w(TAG, "$prefix/$cname copied but not deleted")
+                    if (!child.delete()) log.w { "$prefix/$cname copied but not deleted" }
                 } else {
-                    Log.e(TAG, "$prefix/$cname SIZE MISMATCH $srcBytes != $dstBytes")
+                    log.e { "$prefix/$cname SIZE MISMATCH $srcBytes != $dstBytes" }
                 }
                 items.add(Item("$prefix/$cname", srcBytes, dstBytes, ok,
                     if (ok) null else "size mismatch"))
             } catch (e: Exception) {
-                Log.e(TAG, "$prefix/$cname FAILED: ${e.message}")
+                log.e { "$prefix/$cname FAILED: ${e.message}" }
                 items.add(Item("$prefix/$cname", srcBytes, 0L, false, e.message))
             }
         }
@@ -533,9 +534,9 @@ object GroupTrackConversion {
                 val ok = try {
                     d.delete()
                 } catch (e: Exception) {
-                    Log.e(TAG, "delete $name: ${e.message}"); false
+                    log.e { "delete $name: ${e.message}" }; false
                 }
-                Log.i(TAG, "deleteSources: $name " + (if (ok) "DELETED" else "FAILED"))
+                log.i { "deleteSources: $name " + (if (ok) "DELETED" else "FAILED") }
                 if (ok) done.add(name)
             }
 
@@ -548,13 +549,13 @@ object GroupTrackConversion {
                 it.isDirectory && it.name == DIR_MAPS_PARKED
             }?.let { parked ->
                 val ok = try { parked.delete() } catch (e: Exception) {
-                    Log.e(TAG, "delete parked maps: ${e.message}"); false
+                    log.e { "delete parked maps: ${e.message}" }; false
                 }
-                Log.i(TAG, "deleteSources: maps " + (if (ok) "DELETED" else "FAILED"))
+                log.i { "deleteSources: maps " + (if (ok) "DELETED" else "FAILED") }
                 if (ok) done.add(DIR_MAPS_PARKED)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "deleteSources FAILED: ${e.message}")
+            log.e { "deleteSources FAILED: ${e.message}" }
         }
         return done
     }
@@ -594,7 +595,7 @@ object GroupTrackConversion {
         val started = System.currentTimeMillis()
         val src = tree.listFiles().firstOrNull { it.isDirectory && it.name == name }
         if (src == null) {
-            Log.i(TAG, "$name: not present in the granted tree")
+            log.i { "$name: not present in the granted tree" }
             onProgress?.invoke("$name: nothing to copy")
             return StepResult(name, false, emptyList(), true, null,
                 started, System.currentTimeMillis())
@@ -607,7 +608,7 @@ object GroupTrackConversion {
                 if (bad > 0) "$bad item(s) failed" else null,
                 started, System.currentTimeMillis())
         } catch (e: Exception) {
-            Log.e(TAG, "$name FAILED: ${e.message}")
+            log.e { "$name FAILED: ${e.message}" }
             StepResult(name, true, items, false, e.message,
                 started, System.currentTimeMillis())
         }
@@ -634,7 +635,7 @@ object GroupTrackConversion {
         for (child in src.listFiles()) {
             val cname = child.name ?: continue
             if (isExcluded(cname)) {
-                Log.i(TAG, "skip $prefix/$cname")
+                log.i { "skip $prefix/$cname" }
                 continue
             }
             val target = File(dest, cname)
@@ -651,11 +652,11 @@ object GroupTrackConversion {
                 }
                 val dstBytes = target.length()
                 val ok = dstBytes == srcBytes
-                if (!ok) Log.e(TAG, "$prefix/$cname SIZE MISMATCH $srcBytes != $dstBytes")
+                if (!ok) log.e { "$prefix/$cname SIZE MISMATCH $srcBytes != $dstBytes" }
                 items.add(Item("$prefix/$cname", srcBytes, dstBytes, ok,
                     if (ok) null else "size mismatch"))
             } catch (e: Exception) {
-                Log.e(TAG, "$prefix/$cname FAILED: ${e.message}")
+                log.e { "$prefix/$cname FAILED: ${e.message}" }
                 items.add(Item("$prefix/$cname", srcBytes, 0L, false, e.message))
             }
         }

@@ -1,10 +1,10 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.util.Log
 import com.geeksville.mesh.convoy.ConvoyConfig
 import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.geeksville.mesh.convoy.ImportConverter
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * IPADEXPORT-2026-11-06 (Fred 11-06 "move all the data over and be done with it" -- 2.8 iPad work): copy the map stores to Download
@@ -17,26 +17,27 @@ import com.geeksville.mesh.convoy.ImportConverter
  */
 object GtIpadExport {
     private const val TAG = "IpadExport"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     fun runIfRequested(ctx: Context) {
         val request = GroupTrackStorage.dir("ipad_export.request", ctx)
         if (!request.exists()) return
         val deleted = request.delete()
-        Log.i(TAG, "IPADEXPORT request found (deleted=$deleted) -- copying the map stores to Download")
+        log.i { "IPADEXPORT request found (deleted=$deleted) -- copying the map stores to Download" }
         val app = ctx.applicationContext
         Thread {
             for (slot in listOf("VEC", "DEM")) {
                 val f = java.io.File(ConvoyConfig.TILE_DIR, "$slot.mbtiles")
-                if (!f.exists()) { Log.i(TAG, "IPADEXPORT $slot: not on this tablet"); continue }
+                if (!f.exists()) { log.i { "IPADEXPORT $slot: not on this tablet" }; continue }
                 try {
                     val t0 = System.currentTimeMillis()
                     val name = ImportConverter.saveToDownloads(app, f)
-                    Log.i(TAG, "IPADEXPORT $slot: ${f.length()} B -> Download/$name in ${(System.currentTimeMillis() - t0) / 1000} s")
+                    log.i { "IPADEXPORT $slot: ${f.length()} B -> Download/$name in ${(System.currentTimeMillis() - t0) / 1000} s" }
                 } catch (e: Exception) {
-                    Log.e(TAG, "IPADEXPORT $slot failed: ${e.message}")
+                    log.e { "IPADEXPORT $slot failed: ${e.message}" }
                 }
             }
-            Log.i(TAG, "IPADEXPORT done")
+            log.i { "IPADEXPORT done" }
         }.start()
     }
 }

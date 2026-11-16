@@ -7,6 +7,7 @@ import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.tan
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * ConvoyTileCalculator — V2.4 Offline Map Tile Calculator
@@ -159,8 +160,7 @@ object ConvoyTileCalculator {
         val keys = LinkedHashSet<TileKey>()
         val zTop = minOf(zMax, maxZoomForSlot(slotName))
         if (zTop < zMax) {
-            android.util.Log.i("Corridor",
-                "ZOOMSLOT-2026-08-10D: $slotName capped z$zMax -> z$zTop")
+            gtLogger("Corridor").i { "ZOOMSLOT-2026-08-10D: $slotName capped z$zMax -> z$zTop" }
         }
         // Half a tile width at zTop, in degrees of longitude.
         val stepDeg = (360.0 / Math.pow(2.0, zTop.toDouble())) / 2.0
@@ -182,9 +182,8 @@ object ConvoyTileCalculator {
                 }
             }
         }
-        android.util.Log.i("Corridor",
-            "corridorTiles: ${segments.size} seg, ${segments.sumOf { it.size }} pts, " +
-            "FUNNEL-2026-08-12B bufferDeg=$bufferDeg funnelH=$funnelH z$zMin-$zTop -> ${keys.size} tiles")
+        gtLogger("Corridor").i { ("corridorTiles: ${segments.size} seg, ${segments.sumOf { it.size }} pts, " +
+            "FUNNEL-2026-08-12B bufferDeg=$bufferDeg funnelH=$funnelH z$zMin-$zTop -> ${keys.size} tiles") }
         return keys.toList()
     }
 

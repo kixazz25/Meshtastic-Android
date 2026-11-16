@@ -1,9 +1,9 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.grouptrack.shared.log.gtLogger
 
 // ----------------------------------------------------------------
 // ConvoyArtifactOps -- V2.5 Scaffold (Pass 1)
@@ -16,13 +16,14 @@ import kotlinx.coroutines.withContext
 object ConvoyArtifactOps {
 
     private const val TAG = "ArtifactOps"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 
     /** FIT: write a convoy JSON (fitted type SELECTED w/ full bbox list, only the fitted
      *  artifact checked; other types OFF; bbox = artifact extent) then drawPersistedState.
      *  Rides the persistence machinery — no FIT-specific draw. */
     fun fit(context: Context, webView: android.webkit.WebView?, mapKey: String, artifactType: String, artifactId: String) {
         val bb = SpatialDbManager.bboxForArtifact(artifactType, artifactId) ?: run {
-            Log.w(TAG, "FIT: no bbox for $artifactType $artifactId"); return
+            log.w { "FIT: no bbox for $artifactType $artifactId" }; return
         }
         val south = bb[0]; val west = bb[1]; val north = bb[2]; val east = bb[3]
         // Query ALL of this type in the artifact bbox -> the toggle list (same query draw runs).
@@ -57,7 +58,7 @@ object ConvoyArtifactOps {
             MapStateStore.FitArtifact(artifactId, fittedName, artifactType)
         )
         MapStateStore.saveMap(mapKey, snap)
-        Log.d(TAG, "FIT $artifactType $artifactId -> bbox=[$south,$west,$north,$east] rows=${finalRows.size}")
+        log.d { "FIT $artifactType $artifactId -> bbox=[$south,$west,$north,$east] rows=${finalRows.size}" }
         SpatialDisplayManager.drawPersistedState(mapKey, webView, context)
     }
 
@@ -71,7 +72,7 @@ object ConvoyArtifactOps {
                 "Tracks" -> SpatialDbManager.renameTrackInDb(artifactId, newName)
             }
         }
-        Log.d(TAG, "RENAME $artifactType $artifactId -> $newName")
+        log.d { "RENAME $artifactType $artifactId -> $newName" }
     }
 
     /** DELETE: DB enforces guards. Caller refreshes its map. */
@@ -86,7 +87,7 @@ object ConvoyArtifactOps {
                     android.widget.Toast.makeText(context, "This is the trailhead of route \"$usedBy\". " +
                         "Remove the route first.", android.widget.Toast.LENGTH_LONG).show()
                 }
-                Log.d(TAG, "DELETE REFUSED $artifactId -- trailhead of $usedBy")
+                log.d { "DELETE REFUSED $artifactId -- trailhead of $usedBy" }
                 return
             }
         }
@@ -106,12 +107,12 @@ object ConvoyArtifactOps {
                 "Trails" -> SpatialDbManager.deleteTrailFromDb(artifactId)
             }
         }
-        Log.d(TAG, "DELETE $artifactType $artifactId")
+        log.d { "DELETE $artifactType $artifactId" }
     }
 
     /** TO ROUTE: flip track type to route, link source_track_id */
     fun toRoute(trackId: String) {
-        Log.d(TAG, "TO ROUTE $trackId — Pass 1 stub")
+        log.d { "TO ROUTE $trackId — Pass 1 stub" }
     }
 
     /**
@@ -125,17 +126,17 @@ object ConvoyArtifactOps {
      */
     suspend fun trackToConvertDraft(context: Context, trackId: String, name: String): Int = withContext(Dispatchers.IO) {
         SpatialDbManager.init(context)
-        val wkt = SpatialDbManager.trackGeometry(trackId) ?: run { Log.w(TAG, "TRACKROUTE: no geometry for track $trackId"); return@withContext -1 }
+        val wkt = SpatialDbManager.trackGeometry(trackId) ?: run { log.w { "TRACKROUTE: no geometry for track $trackId" }; return@withContext -1 }
         val pts = ConvoyRideStore.parseWktLine(wkt)   // lon/lat pairs
-        if (pts.size < 2) { Log.w(TAG, "TRACKROUTE: track $trackId has ${pts.size} points"); return@withContext -2 }
-        if (RouteManager.routeVertices().isNotEmpty()) { Log.w(TAG, "TRACKROUTE: Route+ holds an unsaved route -- refused"); return@withContext -3 }
+        if (pts.size < 2) { log.w { "TRACKROUTE: track $trackId has ${pts.size} points" }; return@withContext -2 }
+        if (RouteManager.routeVertices().isNotEmpty()) { log.w { "TRACKROUTE: Route+ holds an unsaved route -- refused" }; return@withContext -3 }
         val kept = simplifyByHeading(pts)
         RouteManager.clearRoute()
         for (p in kept) RouteManager.addVertex(RouteManager.freeVertex(p.second, p.first))
-        val ok = try { RouteDraftStore.writeDraft(name.trim(), "convertroute") } catch (e: Exception) { Log.e(TAG, "TRACKROUTE: writeDraft failed: ${e.message}"); false }
+        val ok = try { RouteDraftStore.writeDraft(name.trim(), "convertroute") } catch (e: Exception) { log.e { "TRACKROUTE: writeDraft failed: ${e.message}" }; false }
         RouteManager.clearRoute()
         if (!ok) return@withContext -4
-        Log.i(TAG, "TRACKROUTE: convertroute draft '${name.trim()}' from track $trackId (${pts.size} points -> ${kept.size})")
+        log.i { "TRACKROUTE: convertroute draft '${name.trim()}' from track $trackId (${pts.size} points -> ${kept.size})" }
         kept.size
     }
 
@@ -154,14 +155,14 @@ object ConvoyArtifactOps {
     suspend fun trackToRoute(context: Context, trackId: String, name: String, description: String,
                              trailhead: RouteTrailhead): String? = withContext(Dispatchers.IO) {   // TRACKDESC-2026-09-26 + ROUTETH-2026-09-27
         SpatialDbManager.init(context)
-        val wkt = SpatialDbManager.trackGeometry(trackId) ?: run { Log.w(TAG, "TRACKROUTE: no geometry for track $trackId"); return@withContext null }
+        val wkt = SpatialDbManager.trackGeometry(trackId) ?: run { log.w { "TRACKROUTE: no geometry for track $trackId" }; return@withContext null }
         val pts = ConvoyRideStore.parseWktLine(wkt)   // lon/lat pairs
-        if (pts.size < 2) { Log.w(TAG, "TRACKROUTE: track $trackId has ${pts.size} points"); return@withContext null }
+        if (pts.size < 2) { log.w { "TRACKROUTE: track $trackId has ${pts.size} points" }; return@withContext null }
         val kept = simplifyByHeading(pts)
         val line = "LINESTRING(" + kept.joinToString(", ") { "${it.first} ${it.second}" } + ")"
         val id = try {
             SpatialDbManager.insertRoute(name.trim(), line, kept.minOf { it.second }, kept.maxOf { it.second }, kept.minOf { it.first }, kept.maxOf { it.first })
-        } catch (e: Exception) { Log.e(TAG, "TRACKROUTE: insertRoute failed: ${e.message}"); "" }
+        } catch (e: Exception) { log.e { "TRACKROUTE: insertRoute failed: ${e.message}" }; "" }
         if (id.isBlank()) return@withContext null
         // TRACKDESC-2026-09-26 (Fred): the route is born WITH its narrative -- the route owns it. Headline = automatic
         // ("Created from track <track> -- <miles> miles", measured on the RECORDED points); description = the rider's words.
@@ -179,10 +180,10 @@ object ConvoyArtifactOps {
         // ROUTETH-2026-09-27 (Fred): the trailhead is PART OF THE ROUTE -- a new one becomes a trailhead waypoint; either
         // way it is written into the route's recipe (the anchor every ride of this route takes).
         if (trailhead.isNew) runCatching { SpatialDbManager.insertWaypoint(trailhead.name, trailhead.lat, trailhead.lon, "trailhead") }
-            .onFailure { Log.e(TAG, "ROUTETH: new trailhead waypoint not saved: ${it.message}") }
+            .onFailure { log.e { "ROUTETH: new trailhead waypoint not saved: ${it.message}" } }
         val anchored = SpatialDbManager.setRouteAnchor(id, trailhead.lat, trailhead.lon, trailhead.name)
-        Log.i(TAG, "ROUTETH: route $id trailhead '${trailhead.name}' (new=${trailhead.isNew}) anchored=$anchored")
-        Log.i(TAG, "TRACKROUTE: track $trackId -> ROUTE $id '${name.trim()}' (${pts.size} points -> ${kept.size}; $miles mi; notes rows $rows)")
+        log.i { "ROUTETH: route $id trailhead '${trailhead.name}' (new=${trailhead.isNew}) anchored=$anchored" }
+        log.i { "TRACKROUTE: track $trackId -> ROUTE $id '${name.trim()}' (${pts.size} points -> ${kept.size}; $miles mi; notes rows $rows)" }
         id
     }
 
@@ -225,17 +226,17 @@ object ConvoyArtifactOps {
 
     /** TO TRACK: flip route type back to track */
     fun toTrack(routeId: String) {
-        Log.d(TAG, "TO TRACK $routeId — Pass 1 stub")
+        log.d { "TO TRACK $routeId — Pass 1 stub" }
     }
 
     /** UPLOAD: share prompt -> upload queue entry (V2.5 collect only) */
     fun upload(artifactType: String, artifactId: String) {
-        Log.d(TAG, "UPLOAD $artifactType $artifactId — Pass 1 stub (V2.5 collect only)")
+        log.d { "UPLOAD $artifactType $artifactId — Pass 1 stub (V2.5 collect only)" }
     }
 
     /** DOWNLOAD: create HIGH priority tile jobs for artifact geometry */
     fun download(artifactType: String, artifactId: String) {
-        Log.d(TAG, "DOWNLOAD $artifactType $artifactId — Pass 1 stub")
+        log.d { "DOWNLOAD $artifactType $artifactId — Pass 1 stub" }
     }
 
     /** CHANGE TYPE: change waypoint type. Caller refreshes its map. */
@@ -250,7 +251,7 @@ object ConvoyArtifactOps {
                     android.widget.Toast.makeText(context, "This is the trailhead of route \"$usedBy\" -- it stays a " +
                         "Trailhead. Remove the route first.", android.widget.Toast.LENGTH_LONG).show()
                 }
-                Log.d(TAG, "CHANGE TYPE REFUSED $waypointId -- trailhead of $usedBy")
+                log.d { "CHANGE TYPE REFUSED $waypointId -- trailhead of $usedBy" }
                 return
             }
         }
@@ -258,7 +259,7 @@ object ConvoyArtifactOps {
             SpatialDbManager.init(context)
             SpatialDbManager.changeWaypointType(waypointId, newTypeId)
         }
-        Log.d(TAG, "CHANGE TYPE $waypointId -> $newTypeId")
+        log.d { "CHANGE TYPE $waypointId -> $newTypeId" }
     }
 
     /** Shared GPX builder for SHARE/EXPORT (type-dispatched). null = no GPX for type. */
@@ -309,16 +310,16 @@ object ConvoyArtifactOps {
 
     /** EDIT POINTS: enter route edit mode with draggable handles */
     fun editPoints(routeId: String) {
-        Log.d(TAG, "EDIT POINTS $routeId — Pass 1 stub")
+        log.d { "EDIT POINTS $routeId — Pass 1 stub" }
     }
 
     /** + ALIAS: add alias to artifact */
     fun addAlias(artifactType: String, artifactId: String, alias: String) {
-        Log.d(TAG, "ADD ALIAS $artifactType $artifactId '$alias' — Pass 1 stub")
+        log.d { "ADD ALIAS $artifactType $artifactId '$alias' — Pass 1 stub" }
     }
 
     /** SET TH: assign trailhead waypoint to route */
     fun setTrailhead(routeId: String, waypointId: String) {
-        Log.d(TAG, "SET TH route=$routeId waypoint=$waypointId — Pass 1 stub")
+        log.d { "SET TH route=$routeId waypoint=$waypointId — Pass 1 stub" }
     }
 }

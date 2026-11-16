@@ -1,10 +1,10 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import android.util.Log
 import androidx.work.Data
 import androidx.work.workDataOf
 import com.grouptrack.shared.osm.GtOsmImport
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * C3 IMPORT: skinny DB -> the production spatial DB (OSM-C3A-IMPORT-2026-07-28): every trail OVERLAPPING the ledger's pending box
@@ -34,6 +34,7 @@ class OsmImportWorker(
 
     companion object {
         private const val TAG = "OsmImport"
+        private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
         const val KEY_SLUG = "slug"
         const val KEY_ERROR = "error"
         /** ONE source id for all states, not one per state. */
@@ -41,11 +42,11 @@ class OsmImportWorker(
         fun uniqueName(slug: String) = "osm_import_$slug"
         fun enqueue(ctx: Context, slug: String) {
             // INPROCESS-2026-10-02: retired -- the state import runs the import directly. Nothing enqueues a job.
-            Log.w(TAG, "INPROCESS-2026-10-02: background import for $slug retired; not enqueued")
+            log.w { "INPROCESS-2026-10-02: background import for $slug retired; not enqueued" }
         }
     }
 
-    private fun fail(msg: String): Result { Log.e(TAG, "FAIL: $msg"); return Result.failure(workDataOf(KEY_ERROR to msg)) }
+    private fun fail(msg: String): Result { log.e { "FAIL: $msg" }; return Result.failure(workDataOf(KEY_ERROR to msg)) }
 
     suspend fun doWork(): Result {   // INPROCESS-2026-10-02 (no suspension inside, as 2.7e)
         val imp = SpatialDbManager.sharedOsmImport(applicationContext, runSlug, onProgress)

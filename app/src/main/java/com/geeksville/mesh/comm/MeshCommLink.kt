@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import org.meshtastic.core.model.ConnectionState
 import org.meshtastic.core.repository.ServiceRepository
 import javax.inject.Inject
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * COMMLINK-2026-10-11 (2.7b cycle 1 P2.1) -- the MESH implementation of CommLink: the radio link.
@@ -72,14 +73,14 @@ class MeshCommLink @Inject constructor(
         if (radioId.startsWith("x") && bluetoothRepository.state.value.bondedDevices.none { "x" + it.address == radioId }) {
             val p = radioList.scanned(radioId) ?: return CommResult.Failed("RADIO_NOT_FOUND")
             try {
-                android.util.Log.i("COMMRADIOS", "pairing $radioId")
+                gtLogger("COMMRADIOS").i { "pairing $radioId" }
                 bluetoothRepository.bond(p)
             } catch (e: SecurityException) {
                 return CommResult.Failed("PERMISSION_MISSING")
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                android.util.Log.w("COMMRADIOS", "pairing failed: ${e.message}")
+                gtLogger("COMMRADIOS").w { "pairing failed: ${e.message}" }
                 return CommResult.Failed("PAIR_FAILED")
             }
         }
@@ -104,12 +105,12 @@ class MeshCommLink @Inject constructor(
         if (!active) {
             if (!current.isNullOrBlank() && current != "n") p.edit().putString("radio_before_off", current).apply()
             if (!current.isNullOrBlank() && current != "n") radioController.setDeviceAddress("n")
-            android.util.Log.i("COMMHEALTH", "GRPMODE-2026-10-13: group awareness off -- radio dropped (remembered: ${p.getString("radio_before_off", null)})")
+            gtLogger("COMMHEALTH").i { "GRPMODE-2026-10-13: group awareness off -- radio dropped (remembered: ${p.getString("radio_before_off", null)})" }
         } else {
             val back = p.getString("radio_before_off", null)
             if ((current.isNullOrBlank() || current == "n") && !back.isNullOrBlank()) radioController.setDeviceAddress(back)
             p.edit().remove("radio_before_off").apply()
-            android.util.Log.i("COMMHEALTH", "GRPMODE-2026-10-13: group awareness on -- radio ${if (back.isNullOrBlank()) "unchanged" else back}")
+            gtLogger("COMMHEALTH").i { "GRPMODE-2026-10-13: group awareness on -- radio ${if (back.isNullOrBlank()) "unchanged" else back}" }
         }
         return CommResult.Ok
     }
@@ -159,7 +160,7 @@ class MeshCommLink @Inject constructor(
         override fun onReceive(c: android.content.Context, i: android.content.Intent) {
             val state = i.getIntExtra(android.bluetooth.BluetoothDevice.EXTRA_BOND_STATE, -1)
             if (state == android.bluetooth.BluetoothDevice.BOND_BONDED || state == android.bluetooth.BluetoothDevice.BOND_NONE) {
-                android.util.Log.i("COMMHEALTH", "pairing changed (" + (if (state == android.bluetooth.BluetoothDevice.BOND_BONDED) "paired" else "removed") + ") -> paired list refreshed")
+                gtLogger("COMMHEALTH").i { "pairing changed (" + (if (state == android.bluetooth.BluetoothDevice.BOND_BONDED) "paired" else "removed") + ") -> paired list refreshed" }
                 bluetoothRepository.refreshState()
             }
         }
@@ -172,7 +173,7 @@ class MeshCommLink @Inject constructor(
                     android.content.IntentFilter(android.bluetooth.BluetoothDevice.ACTION_BOND_STATE_CHANGED),
                     androidx.core.content.ContextCompat.RECEIVER_EXPORTED)   // a system broadcast (as Meshtastic's USB receiver)
             }
-        } catch (e: Exception) { android.util.Log.w("COMMHEALTH", "pairing listener not registered: ${e.message}") }
+        } catch (e: Exception) { gtLogger("COMMHEALTH").w { "pairing listener not registered: ${e.message}" } }
         // COMMNAMES-2026-10-11: the name table lives on the comm side -- loaded here, before GroupTrack's first tick reads it.
         org.meshtastic.core.data.manager.RadioNameStore.load(context.filesDir)
         org.meshtastic.core.data.manager.RadioNameStore.mirrorDir = context.getExternalFilesDir(null)   // RADIONAMES2-2026-10-04: a pullable copy
@@ -193,7 +194,7 @@ class MeshCommLink @Inject constructor(
         scope.launch {
             while (true) {
                 delay(5_000L)
-                try { healthStep() } catch (e: Exception) { android.util.Log.w("COMMHEALTH", "step failed: ${e.message}") }
+                try { healthStep() } catch (e: Exception) { gtLogger("COMMHEALTH").w { "step failed: ${e.message}" } }
             }
         }
     }
@@ -257,7 +258,7 @@ class MeshCommLink @Inject constructor(
             val paired = pairedMacs()
             ghost = paired.isNotEmpty() && saved.substring(1).uppercase() !in paired
             if (ghost) {   // COMMHEALTH2-2026-10-11: acts (was Main.kt GRPAWARE-SYNC)
-                android.util.Log.i("COMMHEALTH", "ghost: saved radio $saved is not paired in Android -> no radio")
+                gtLogger("COMMHEALTH").i { "ghost: saved radio $saved is not paired in Android -> no radio" }
                 radioController.setDeviceAddress("n")
                 hUnpaired = true
             }
@@ -268,20 +269,20 @@ class MeshCommLink @Inject constructor(
         // raise the banner telling the rider to FORGET a good radio). Recovery starts fresh when Bluetooth is back on.
         val btOff = !talking && saved != null && saved.startsWith("x") && !bluetoothOn()
         if (btOff != hBtOff) {
-            android.util.Log.i("COMMHEALTH", if (btOff) "Bluetooth off -- reconnects held" else "Bluetooth on -- reconnects resume")
+            gtLogger("COMMHEALTH").i { if (btOff) "Bluetooth off -- reconnects held" else "Bluetooth on -- reconnects resume" }
             hBtOff = btOff
         }
         if (btOff) { hAttempts = 0; hNotTalkingSinceMs = now; hConnectingSinceMs = 0L; hLastAttemptMs = 0L }
         val applying = now < hHoldUntilMs   // COMMRADIOOPS-2026-10-12
         if (applying != hApplying) {
-            android.util.Log.i("COMMHEALTH", if (applying) "radio settings being applied -- reconnects held" else "settings apply over -- reconnects resume")
+            gtLogger("COMMHEALTH").i { if (applying) "radio settings being applied -- reconnects held" else "settings apply over -- reconnects resume" }
             hApplying = applying
         }
         if (applying) { hAttempts = 0; hNotTalkingSinceMs = now; hConnectingSinceMs = 0L; hLastAttemptMs = 0L }
         // the recovery loop (was Main.kt LINKFIX / LINKFIX2 / LINKHB) -- COMMHEALTH2-2026-10-11: acts
         var stuck = false
         if (talking) {
-            if (hAttempts > 0) android.util.Log.i("COMMHEALTH", "radio talking again after $hAttempts reconnect(s)")
+            if (hAttempts > 0) gtLogger("COMMHEALTH").i { "radio talking again after $hAttempts reconnect(s)" }
             hAttempts = 0; hNotTalkingSinceMs = 0L; hConnectingSinceMs = 0L
         } else {
             if (state != hPrevState || saved != hPrevSaved) { hNotTalkingSinceMs = now; hPrevState = state; hPrevSaved = saved }
@@ -293,10 +294,10 @@ class MeshCommLink @Inject constructor(
                 val act = !btOff && !applying && needsRecovery && !saved.isNullOrBlank() && saved != "n" &&   // COMMBTOFF-2026-10-11 + COMMRADIOOPS-2026-10-12
                     (stuck || silentLong || now - hNotTalkingSinceMs >= 20_000L) && now - hLastAttemptMs >= 45_000L   /* SILENCE30S-2026-10-18 */
                 if (act) {
-                    if (stuck) { android.util.Log.i("COMMHEALTH", "connecting for ${(now - hConnectingSinceMs) / 1000} s -- stuck"); hConnectingSinceMs = 0L }
+                    if (stuck) { gtLogger("COMMHEALTH").i { "connecting for ${(now - hConnectingSinceMs) / 1000} s -- stuck" }; hConnectingSinceMs = 0L }
                     if (hAttempts < 3 || now - hLastAttemptMs >= 120_000L) {
                         hAttempts++; hLastAttemptMs = now
-                        android.util.Log.i("COMMHEALTH", "radio not talking -> reconnect $hAttempts ($saved)")
+                        gtLogger("COMMHEALTH").i { "radio not talking -> reconnect $hAttempts ($saved)" }
                         radioController.setDeviceAddress("n")
                         delay(1_500L)
                         radioController.setDeviceAddress(saved!!)   // act requires a saved radio (checked above)
@@ -316,7 +317,7 @@ class MeshCommLink @Inject constructor(
         }
         val h = LinkHealth(talking = talking, recovering = !talking && hAttempts > 0, attempts = hAttempts, reason = reason)
         if (h != _health.value) {
-            android.util.Log.i("COMMHEALTH", "health: talking=${h.talking} recovering=${h.recovering} attempts=${h.attempts} reason=${h.reason} (link=$state own=${ownTakMs?.let { (now - it) / 1000 }}s traffic=${(now - hTrafficMs) / 1000}s)")
+            gtLogger("COMMHEALTH").i { "health: talking=${h.talking} recovering=${h.recovering} attempts=${h.attempts} reason=${h.reason} (link=$state own=${ownTakMs?.let { (now - it) / 1000 }}s traffic=${(now - hTrafficMs) / 1000}s)" }
             _health.value = h
         }
     }

@@ -1,7 +1,6 @@
 package com.geeksville.mesh.convoy
 
 import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
@@ -24,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * HomeStatePickerScreen — the home state setup flow.
@@ -38,6 +38,7 @@ import kotlinx.coroutines.withContext
  */
 
 private const val TAG = "HomeStatePicker"
+private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 private val mono = FontFamily.Monospace
 private val bg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF0F1216 
 private val cardBg: Color get() = Gt.panel  // STD1-2026-10-24 was 0xFF1A2233 
@@ -100,9 +101,9 @@ fun HomeStatePickerScreen(
             val hits = GeofabrikCatalog.findByBbox(
                 all, areaBbox[0], areaBbox[1], areaBbox[2], areaBbox[3]
             )
-            Log.i(TAG, "AREA import: bbox S=${areaBbox[0]} W=${areaBbox[1]} " +
+            log.i { ("AREA import: bbox S=${areaBbox[0]} W=${areaBbox[1]} " +
                 "N=${areaBbox[2]} E=${areaBbox[3]} -> ${hits.size} state(s): " +
-                hits.joinToString(", ") { it.slug })
+                hits.joinToString(", ") { it.slug }) }
             // AREAPICK-2026-10-24 (Fred 12:53-12:56): THE LIST FIRST -- a rectangle can touch a state with no ground in the box.
             // Whole-imported states open unticked; everything else ticked. An empty state list is NOT an error.
             areaWhole = withContext(Dispatchers.IO) { HomeStateImportController.wholeImportedDates(context) }
@@ -120,7 +121,7 @@ fun HomeStatePickerScreen(
         // TRAILSELECT-2026-08-21D: any-state entry -- straight to the list, nothing chosen.
         if (anyState) {
             phase = "list"
-            Log.i(TAG, "ANY-STATE import: ${allStates.size} states, no pre-selection")
+            log.i { "ANY-STATE import: ${allStates.size} states, no pre-selection" }
             return@LaunchedEffect
         }
         val detected = withContext(Dispatchers.IO) { GeofabrikCatalog.detectHomeState(context) }
@@ -131,7 +132,7 @@ fun HomeStatePickerScreen(
         } else {
             phase = "list"
         }
-        Log.i(TAG, "Detected: ${detected?.name ?: "none"}, ${allStates.size} states loaded")
+        log.i { "Detected: ${detected?.name ?: "none"}, ${allStates.size} states loaded" }
     }
 
     // AREAPICK-2026-10-24: START -- exactly what is ticked, as THE import (outlives the screen, one at a time), as startImport below.
@@ -149,7 +150,7 @@ fun HomeStatePickerScreen(
             st.name + " Open Source Maps" + (areaWhole[st.slug]?.let { " (already imported whole $it)" } ?: " (left out by you)")
         } + areaCat.filter { it.id !in areaCatPicked }.map { it.name + " (left out by you)" }
         val cats = areaCatPicked
-        Log.i(TAG, "AREAPICK-2026-10-24: run ${run.joinToString(", ") { it.slug }} + ${cats.size} source(s); skipped ${left.joinToString("; ")}")
+        log.i { "AREAPICK-2026-10-24: run ${run.joinToString(", ") { it.slug }} + ${cats.size} source(s); skipped ${left.joinToString("; ")}" }
         HomeStateImportController.launchImport {
             // CANCELFIX-2026-11-02: the panel ends however the run ends -- a cancelled run too
             try { HomeStateImportController.executeArea(context, bb[0], bb[1], bb[2], bb[3], run, cats, left) } finally { phase = "done" }
@@ -200,7 +201,7 @@ fun HomeStatePickerScreen(
         // ⭐ THE CONTROLLER OWNS THE JOB NOW. It outlives every screen, one
         // import at a time, and cancel reaches the work instead of the panel.
         if (!HomeStateImportController.beginImport()) {
-            Log.w(TAG, "import already running -- showing its progress")
+            log.w { "import already running -- showing its progress" }
             phase = "running"   // KILLEDIMPORT-2026-10-02: was a silent return -- the panel that would not proceed
             return
         }

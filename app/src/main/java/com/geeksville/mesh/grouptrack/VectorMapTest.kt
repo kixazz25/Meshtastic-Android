@@ -18,6 +18,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.geeksville.mesh.convoy.MBTilesStore
 import com.geeksville.mesh.convoy.VectorTiles
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * VECMAP-2026-10-30 (2.7e step 4.1): the app answers the vector page's requests itself -- nothing goes to the internet.
@@ -48,10 +49,10 @@ object VecMapServer {
                     else {
                         val raw = MBTilesStore.readTile(VectorTiles.SLOT, z, x, y)
                         // VECMAPDIAG-2026-10-30: what the map is actually given
-                        android.util.Log.i(TAG, "VECMAPDIAG tile z$z/$x/$y " + (if (raw == null) "NOT HELD" else
-                            "held ${raw.size} B head=" + raw.take(8).joinToString("") { "%02x".format(it) }))
+                        gtLogger(TAG).i { ("VECMAPDIAG tile z$z/$x/$y " + (if (raw == null) "NOT HELD" else
+                            "held ${raw.size} B head=" + raw.take(8).joinToString("") { "%02x".format(it) })) }
                         val bytes = raw ?: VecOnline.vector(context, z, x, y)   // VECONLINE-2026-10-31: stored first, then the internet
-                        if (raw == null) android.util.Log.i(TAG, "VECMAPDIAG tile z$z/$x/$y online " + (bytes?.let { "${it.size} B" } ?: "NONE (${VecOnline.lastWhy})"))   // ONLINEFILL-2026-11-03
+                        if (raw == null) gtLogger(TAG).i { "VECMAPDIAG tile z$z/$x/$y online " + (bytes?.let { "${it.size} B" } ?: "NONE (${VecOnline.lastWhy})") }   // ONLINEFILL-2026-11-03
                         // VECNODATA-2026-10-31: tell the page whether this tile is held (the zoom-back and its note)
                         WebResourceResponse("application/x-protobuf", null, 200, "OK", CORS + mapOf("X-GT-Held" to (if (bytes != null) "1" else "0")),
                             java.io.ByteArrayInputStream(bytes?.let { gunzipIfNeeded(it) } ?: ByteArray(0)))
@@ -63,7 +64,7 @@ object VecMapServer {
                     val z = seg.getOrNull(0)?.toIntOrNull(); val x = seg.getOrNull(1)?.toIntOrNull(); val y = seg.getOrNull(2)?.toIntOrNull()
                     val b = if (z == null || x == null || y == null) null else MBTilesStore.readTile(com.geeksville.mesh.convoy.ElevationTiles.SLOT, z, x, y)
                     val d = b ?: (if (z == null || x == null || y == null) null else VecOnline.elevation(context, z, x, y))   // VECONLINE-2026-10-31
-                    android.util.Log.i(TAG, "VECMAPDIAG dem z$z/$x/$y " + (if (b != null) "held ${b.size} B" else if (d != null) "online ${d.size} B" else "NOT HELD"))   // VECWATCH-2026-10-31
+                    gtLogger(TAG).i { "VECMAPDIAG dem z$z/$x/$y " + (if (b != null) "held ${b.size} B" else if (d != null) "online ${d.size} B" else "NOT HELD") }   // VECWATCH-2026-10-31
                     if (d == null) notFound() else ok("image/png", d)
                 }
                 path.startsWith("/a/") -> {
@@ -76,10 +77,10 @@ object VecMapServer {
         } catch (e: java.io.FileNotFoundException) {
             // VECMAPGLYPH-2026-10-30: a font range we do not bundle is served EMPTY, not 404 -- MapLibre drops the whole tile
             // when a glyph range fails (13:11: peaks with a triangle blanked whole areas). It then just lacks those glyphs.
-            android.util.Log.w(TAG, "VECMAPGLYPH not bundled $path")
+            gtLogger(TAG).w { "VECMAPGLYPH not bundled $path" }
             if (path.startsWith("/a/fonts/")) ok("application/x-protobuf", ByteArray(0)) else notFound()
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "VECMAP-2026-10-30 $path: ${e.message}")
+            gtLogger(TAG).e { "VECMAP-2026-10-30 $path: ${e.message}" }
             notFound()
         }
     }
@@ -111,10 +112,10 @@ fun GtVectorMapTestScreen(online: Boolean, onDone: () -> Unit) {   // VECMAPONLI
             try {
                 val lv = MBTilesStore.zoomLevelsPresent(VectorTiles.SLOT)
                 val per = lv.joinToString(" ") { z -> "z$z=" + MBTilesStore.countInTileRange(VectorTiles.SLOT, z, 0L, (1L shl z) - 1, 0L, (1L shl z) - 1) }
-                android.util.Log.i("VecMap", "VECMAPDIAG store VEC levels=$lv  $per")
+                gtLogger("VecMap").i { "VECMAPDIAG store VEC levels=$lv  $per" }
                 val e = MBTilesStore.tileExtentAtZoom(VectorTiles.SLOT, 12)
-                android.util.Log.i("VecMap", "VECMAPDIAG z12 extent x ${e?.getOrNull(0)}..${e?.getOrNull(1)} y ${e?.getOrNull(2)}..${e?.getOrNull(3)}  start=${start?.joinToString()}")
-            } catch (ex: Exception) { android.util.Log.e("VecMap", "VECMAPDIAG store: ${ex.message}") }
+                gtLogger("VecMap").i { "VECMAPDIAG z12 extent x ${e?.getOrNull(0)}..${e?.getOrNull(1)} y ${e?.getOrNull(2)}..${e?.getOrNull(3)}  start=${start?.joinToString()}" }
+            } catch (ex: Exception) { gtLogger("VecMap").e { "VECMAPDIAG store: ${ex.message}" } }
         }.start(); true
     }
     // VECMAPGPS-2026-10-30 (Fred 13:04): open where the rider IS -- last known GPS / network / passive fix, zoom 13.
@@ -133,7 +134,7 @@ fun GtVectorMapTestScreen(online: Boolean, onDone: () -> Unit) {   // VECMAPONLI
         start != null -> "#12/${(start[0] + start[1]) / 2}/${(start[2] + start[3]) / 2}"
         else -> "#5/40/-100"
     }
-    remember { android.util.Log.i("VecMap", "VECMAPGPS open at $hash (" + (if (here != null) "last fix ${here.provider}" else "no fix -- recipe box") + ")"); true }
+    remember { gtLogger("VecMap").i { "VECMAPGPS open at $hash (" + (if (here != null) "last fix ${here.provider}" else "no fix -- recipe box") + ")" }; true }
     // VECMAPSIZE-2026-10-30: the Dialog window wraps its content, so the web view started at zero height and MapLibre drew
     // nothing (12:30: three tiles requested, one row). The test map is given the screen's size explicitly.
     val cfg = androidx.compose.ui.platform.LocalConfiguration.current
@@ -146,13 +147,13 @@ fun GtVectorMapTestScreen(online: Boolean, onDone: () -> Unit) {   // VECMAPONLI
                     layoutParams = android.view.ViewGroup.LayoutParams(
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                     addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-                        android.util.Log.i("VecMap", "VECMAPSIZE2 view ${v.width}x${v.height}")
+                        gtLogger("VecMap").i { "VECMAPSIZE2 view ${v.width}x${v.height}" }
                     }
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     webChromeClient = object : WebChromeClient() {
                         override fun onConsoleMessage(m: ConsoleMessage): Boolean {
-                            android.util.Log.i("VecMapJS", "${m.message()} (${m.sourceId()}:${m.lineNumber()})")
+                            gtLogger("VecMapJS").i { "${m.message()} (${m.sourceId()}:${m.lineNumber()})" }
                             return true
                         }
                     }
@@ -199,7 +200,7 @@ object VecOnline {
 
     private fun get(url: String, kind: String): ByteArray? {
         if (!slots.tryAcquire(4, java.util.concurrent.TimeUnit.SECONDS)) {   // VECONE-2026-11-01: was 1 s -- tiles drawn empty while downloads ran
-            android.util.Log.w(TAG, "VECONLINE $kind busy 4 s -- two fetches already running, drawn empty: $url"); return null
+            gtLogger(TAG).w { "VECONLINE $kind busy 4 s -- two fetches already running, drawn empty: $url" }; return null
         }
         try { return getNow(url, kind) } finally { slots.release() }
     }
@@ -209,7 +210,7 @@ object VecOnline {
             if (r.isSuccessful) {
                 val b = r.body?.bytes()
                 val n = ++served
-                if (n == 1 || n % 200 == 0) android.util.Log.i(TAG, "VECONLINE $kind tile from the internet ($n so far): $url")
+                if (n == 1 || n % 200 == 0) gtLogger(TAG).i { "VECONLINE $kind tile from the internet ($n so far): $url" }
                 b
             } else {
                 if (r.code >= 500) downUntil = System.currentTimeMillis() + 30_000
@@ -218,7 +219,7 @@ object VecOnline {
         }
     } catch (e: Exception) {
         downUntil = System.currentTimeMillis() + 30_000
-        android.util.Log.w(TAG, "VECONLINE $kind fetch failed (${e.message}) -- stored tiles only for 30 s")
+        gtLogger(TAG).w { "VECONLINE $kind fetch failed (${e.message}) -- stored tiles only for 30 s" }
         null
     }
 

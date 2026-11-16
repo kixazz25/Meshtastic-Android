@@ -3,9 +3,9 @@ package com.geeksville.mesh.convoy
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import org.json.JSONObject
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * ConvoyFileReceiver
@@ -36,12 +36,12 @@ class ConvoyFileReceiver : Activity() {
         try {
             val uri = intent?.data
             if (uri == null) {
-                Log.w(TAG, "No URI in intent — ignoring")
+                gtLogger(TAG).w { "No URI in intent — ignoring" }
                 finish()
                 return
             }
 
-            Log.i(TAG, "Received convoy file URI: $uri")
+            gtLogger(TAG).i { "Received convoy file URI: $uri" }
 
             // Read file content
             val content = contentResolver.openInputStream(uri)?.use { input ->
@@ -49,7 +49,7 @@ class ConvoyFileReceiver : Activity() {
             }
 
             if (content.isNullOrBlank()) {
-                Log.e(TAG, "Empty or unreadable file from URI: $uri")
+                gtLogger(TAG).e { "Empty or unreadable file from URI: $uri" }
                 finish()
                 return
             }
@@ -91,7 +91,7 @@ class ConvoyFileReceiver : Activity() {
 
             // Validate this is actually a convoy file before processing
             if (!content.contains("convoyDocType")) {
-                Log.w(TAG, "Not a convoy file — ignoring")
+                gtLogger(TAG).w { "Not a convoy file — ignoring" }
                 // GPXOPEN-2026-10-09: never silent -- the rider is told what happened.
                 android.widget.Toast.makeText(this, "This file isn't a GroupTrack OG ride, map recipe, route recipe or a GPX / KML track."   /* MAPRECIPES-2026-11-03 */,
                     android.widget.Toast.LENGTH_LONG).show()
@@ -102,13 +102,13 @@ class ConvoyFileReceiver : Activity() {
             val json = try {
                 JSONObject(content)
             } catch (e: Exception) {
-                Log.e(TAG, "Not valid JSON — ignoring file: ${e.message}")
+                gtLogger(TAG).e { "Not valid JSON — ignoring file: ${e.message}" }
                 finish()
                 return
             }
 
             val docType = json.optString("convoyDocType", "unknown")
-            Log.i(TAG, "convoy file received — docType=$docType")
+            gtLogger(TAG).i { "convoy file received — docType=$docType" }
 
             // Route to correct import directory based on docType
             val importDirName = when (docType) {
@@ -117,7 +117,7 @@ class ConvoyFileReceiver : Activity() {
                 "convoy_route"       -> "convoy_route_import"
                 "convoy_master"      -> "convoy_master_import"
                 else -> {
-                    Log.w(TAG, "Unknown convoyDocType: $docType — discarding")
+                    gtLogger(TAG).w { "Unknown convoyDocType: $docType — discarding" }
                     finish()
                     return
                 }
@@ -129,13 +129,13 @@ class ConvoyFileReceiver : Activity() {
             val destFile = File(importDir, fileName)
             destFile.writeText(content)
 
-            Log.i(TAG, "Saved $docType to $importDirName/$fileName")
+            gtLogger(TAG).i { "Saved $docType to $importDirName/$fileName" }
 
             // File saved — user will see splash next time they open the convoy menu
-            Log.i(TAG, "Convoy file saved successfully — $docType ready for import")
+            gtLogger(TAG).i { "Convoy file saved successfully — $docType ready for import" }
 
         } catch (e: Exception) {
-            Log.e(TAG, "ConvoyFileReceiver failed: ${e.message}")
+            gtLogger(TAG).e { "ConvoyFileReceiver failed: ${e.message}" }
             // GPXOPEN-2026-10-09: never silent.
             android.widget.Toast.makeText(this, "Could not open the file: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         } finally {
@@ -227,10 +227,10 @@ object GpxOpen {
                     context.startActivity(launch)
                 }
             }
-            Log.i(TAG, "GPXOPEN-2026-10-09: staged ${f.name} (${f.length()} bytes) -> import panel")
+            gtLogger(TAG).i { "GPXOPEN-2026-10-09: staged ${f.name} (${f.length()} bytes) -> import panel" }
             "Opening ${f.name} \u2014 choose maps and tap IMPORT."
         } catch (e: Exception) {
-            Log.e(TAG, "GPXOPEN-2026-10-09: staging failed: ${e.message}")
+            gtLogger(TAG).e { "GPXOPEN-2026-10-09: staging failed: ${e.message}" }
             "Could not open the file: ${e.message}"
         }
     }

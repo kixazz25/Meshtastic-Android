@@ -2,7 +2,6 @@ package com.geeksville.mesh.grouptrack
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.util.Log
 import com.geeksville.mesh.convoy.GpxImportCertOld
 import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.geeksville.mesh.convoy.RiderTrailWriterCertOld
@@ -23,6 +22,7 @@ import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toOkioPath
 import java.io.File
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * STEP15E-2026-11-09 ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 15e certification on the Droid
@@ -53,12 +53,13 @@ import java.io.File
  */
 object GtCert15e {
     private const val TAG = "CertRun"
+    private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val MAX_DIFF_LINES = 2000
 
     private var lastLog = 0L
     private fun progress(msg: String, force: Boolean = false) {
         val now = System.currentTimeMillis()
-        if (force || msg.contains(" phase ") || msg.contains(": file ") || now - lastLog >= 15_000) { lastLog = now; val rt = Runtime.getRuntime(); Log.i(TAG, "GTCERT import15e $msg [heap ${(rt.totalMemory() - rt.freeMemory()) / 1048576} MB of ${rt.maxMemory() / 1048576}]") }   // STEP15E-FIXA-2026-11-09
+        if (force || msg.contains(" phase ") || msg.contains(": file ") || now - lastLog >= 15_000) { lastLog = now; val rt = Runtime.getRuntime(); log.i { "GTCERT import15e $msg [heap ${(rt.totalMemory() - rt.freeMemory()) / 1048576} MB of ${rt.maxMemory() / 1048576}]" } }   // STEP15E-FIXA-2026-11-09
     }
 
     /** OLD: the app's code, as the TEST-ONLY copy carries it, on SpatialDbManager's (swapped) handles and the copy's folders. */
@@ -132,7 +133,7 @@ object GtCert15e {
         val inS = File(dbIn, "grouptrack_spatial.db"); val inD = File(dbIn, "grouptrack_data.db")
         if (!inS.isFile || !inD.isFile || !trIn.isDirectory || !gpxIn.isDirectory) {
             w.write("# T15E: STOP -- no input (need ${inS.path}, ${inD.path}, the folder ${trIn.path} and the folder ${gpxIn.path}; gt_cert_v21 pushes them). Not run.\n")
-            Log.e(TAG, "GTCERT import15e STOP: no input at ${dbIn.path} / ${trIn.path} / ${gpxIn.path} -- run gt_cert_v21 import15e")
+            log.e { "GTCERT import15e STOP: no input at ${dbIn.path} / ${trIn.path} / ${gpxIn.path} -- run gt_cert_v21 import15e" }
             return
         }
         var same = 0; var diff = 0; var expected = 0; var diffLines = 0
@@ -144,7 +145,7 @@ object GtCert15e {
                 else -> {
                     diff++
                     if (diffLines < MAX_DIFF_LINES) { diffLines++; put("T15E\t$key\tDIFF\t$b\n  OLD\t$a\n  NEW\t$b\n") }
-                    Log.w(TAG, "GTCERT import15e DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}")
+                    log.w { "GTCERT import15e DIFF $key\n OLD ${a.take(300)}\n NEW ${b.take(300)}" }
                 }
             }
         }
@@ -189,7 +190,7 @@ object GtCert15e {
                         } finally {
                             TrackSyncCertOld.certTracks = null; TrackSyncCertOld.certRootDir = null; GpxImportCertOld.certCacheDir = null
                             SpatialDbManager.certSwapDatabases(prev.first, prev.second)
-                            Log.i(TAG, "GTCERT import15e live handles restored")
+                            log.i { "GTCERT import15e live handles restored" }
                         }
                     } finally { dt.close() }
                 } finally { sp.close() }
@@ -220,7 +221,7 @@ object GtCert15e {
             progress("phase dump NEW", true); dump(newD, inp, notes, "NEW")
             put("# T15E: tables dumped in ${(System.currentTimeMillis() - tT) / 1000} s\n")
         } catch (e: Throwable) {
-            aborted = e.toString(); put("# T15E: ABORTED $e\n"); Log.e(TAG, "GTCERT import15e aborted", e)
+            aborted = e.toString(); put("# T15E: ABORTED $e\n"); log.e(e) { "GTCERT import15e aborted" }
         }
 
         // ---- compare ----
@@ -236,7 +237,7 @@ object GtCert15e {
         if (diff > diffLines) put("# T15E: ${diff - diffLines} more DIFF lines not written (see logcat CertRun)\n")
         put("# T15E done: $same SAME, $diff DIFF, $expected EXPECTED in ${(System.currentTimeMillis() - t0) / 1000} s" +
             (if (aborted != null) " (ABORTED: $aborted)" else "") + "\n")
-        Log.i(TAG, "GTCERT import15e: $same SAME, $diff DIFF, $expected EXPECTED")
+        log.i { "GTCERT import15e: $same SAME, $diff DIFF, $expected EXPECTED" }
     }
 
     private fun copyIn(d: Dirs, inS: File, inD: File, trFiles: List<File>) {

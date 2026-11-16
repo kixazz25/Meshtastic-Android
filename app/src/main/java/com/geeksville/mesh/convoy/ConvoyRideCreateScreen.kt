@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * RIDECREATE-2026-09-22 — create a ride. FIRST PASS (shell).
@@ -178,7 +179,7 @@ fun ConvoyRideCreateScreen(
                     android.location.Geocoder(context, java.util.Locale.US)
                         .getFromLocation(th.lat, th.lon, 1)?.firstOrNull()?.postalCode
             } catch (e: Exception) {
-                android.util.Log.w("ConvoyRideCreate", "ZIPFROMTH: geocoder failed: ${e.message}")
+                gtLogger("ConvoyRideCreate").w { "ZIPFROMTH: geocoder failed: ${e.message}" }
                 null
             }
         }
@@ -394,10 +395,10 @@ fun ConvoyRideCreateScreen(
                     // is always tappable and SAYS what is missing instead of silently doing nothing.
                     if (!canSave) {
                         status = "\u2717 Cannot save yet \u2014 a ride needs a name."   // SAVEPLAN-2026-09-24
-                        android.util.Log.w("ConvoyRideCreate", "SAVEWHY: $status")
+                        gtLogger("ConvoyRideCreate").w { "SAVEWHY: $status" }
                         return@clickable
                     }
-                    android.util.Log.i("ConvoyRideCreate", "SAVEWHY: save tapped, all conditions met")
+                    gtLogger("ConvoyRideCreate").i { "SAVEWHY: save tapped, all conditions met" }
                     // PROTECTROUTE-2026-09-24: Save never renames the route.
                     // RIDETH-2026-09-23: a trailhead found by the 1/2-mile search goes into the route's RECIPE.
                     trailhead?.let { th ->
@@ -415,7 +416,7 @@ fun ConvoyRideCreateScreen(
                     if (editRideId != null) {
                         val ok = if (editSent) ConvoyRideStore.updateRideDate(editRideId, rideDate)
                                  else ConvoyRideStore.updateRide(editRideId, rideName, rideDate, startTime, description, zipCode, !isPrivate, routeId)
-                        android.util.Log.i("ConvoyRideCreate", "EDITRIDE: $editRideId sent=$editSent ok=$ok")
+                        gtLogger("ConvoyRideCreate").i { "EDITRIDE: $editRideId sent=$editSent ok=$ok" }
                         if (ok) {
                             ConvoyRideJsonWriter.save(context, editRideId)
                             status = "\u2713 Ride updated" + (if (editSent) " \u2014 send it again so riders get the new date" else "")

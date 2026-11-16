@@ -7,6 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * CORRIDOR-WORKER-2026-07-24
@@ -43,6 +44,7 @@ class ConvoyCorridorWorker(
 
     companion object {
         private const val TAG = "CorridorWorker"
+        private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
         private const val PROGRESS_INTERVAL = 25
     }
 
@@ -54,21 +56,20 @@ class ConvoyCorridorWorker(
         val replaceExisting = inputData.getBoolean("refresh_mode", false)
 
         if (geomHash.isBlank() || slotName.isBlank()) {
-            android.util.Log.e(TAG, "Missing geom_hash or slot - hash='$geomHash' slot='$slotName'")
+            log.e { "Missing geom_hash or slot - hash='$geomHash' slot='$slotName'" }
             DownloadQueueManager.markFailed(entryId, "Corridor job missing track or source")
             return Result.failure()
         }
 
-        android.util.Log.i(TAG, "Starting corridor: $label hash=$geomHash id=$entryId")
+        log.i { "Starting corridor: $label hash=$geomHash id=$entryId" }
         DownloadQueueManager.init(appContext)
         MapSourceManager.init(appContext)
         // ── ORPHAN-2026-08-08O: no entry, no work. See ConvoyDownloadWorker
         // for the full note. Deliberately AFTER init (the queue must be loaded
         // before it can be asked) and deliberately WITHOUT markFailed. ──
         if (DownloadQueueManager.queue.value.none { it.id == entryId }) {
-            android.util.Log.w(TAG,
-                "ORPHAN-2026-08-08O: no queue entry for id=$entryId ('$label'). "
-                + "Nothing owns this job, so there is no work. Throwing it out.")
+            log.w { ("ORPHAN-2026-08-08O: no queue entry for id=$entryId ('$label'). "
+                + "Nothing owns this job, so there is no work. Throwing it out.") }
             return Result.failure()
         }
         showProgress(entryId, label, 0, 1)
@@ -78,7 +79,7 @@ class ConvoyCorridorWorker(
         // needs the same tracks-then-routes lookup as the enqueue.
         val segments = SpatialDbManager.getCorridorGeometry(appContext, geomHash)
         if (segments.isNullOrEmpty()) {
-            android.util.Log.e(TAG, "No geometry for hash=$geomHash")
+            log.e { "No geometry for hash=$geomHash" }
             DownloadQueueManager.markFailed(entryId, "Track geometry not found")
             return Result.failure()
         }
@@ -86,7 +87,7 @@ class ConvoyCorridorWorker(
         val corridor = ConvoyTileCalculator.corridorTiles(
             segments, slotName = slotName, funnelH = 4)
         if (corridor.isEmpty()) {
-            android.util.Log.w(TAG, "Empty corridor for hash=$geomHash")
+            log.w { "Empty corridor for hash=$geomHash" }
             DownloadQueueManager.markComplete(entryId, 0, 0)
             return Result.success()
         }
@@ -96,11 +97,10 @@ class ConvoyCorridorWorker(
         val tiles = if (replaceExisting) corridor else corridor.filter { t ->
             !MBTilesStore.hasTile(slotName, t.z, t.x, t.y)
         }
-        android.util.Log.i(TAG,
-            "Corridor $slotName: ${corridor.size} derived, ${tiles.size} missing, replace=$replaceExisting")
+        log.i { "Corridor $slotName: ${corridor.size} derived, ${tiles.size} missing, replace=$replaceExisting" }
 
         if (tiles.isEmpty()) {
-            android.util.Log.i(TAG, "Corridor already complete on disk: $label")
+            log.i { "Corridor already complete on disk: $label" }
             DownloadQueueManager.markComplete(entryId, 0, 0)
             return Result.success()
         }
@@ -108,18 +108,16 @@ class ConvoyCorridorWorker(
         val source = MapSourceManager.getSourceByKey(slotName)
         // SLOTTRACE-2026-08-04: TEMPORARY. Remove in the commit that closes the trace.
         if (source == null) {
-            android.util.Log.e(TAG,
-                "SLOTTRACE-2026-08-04: slot=$slotName RESOLVED TO NOTHING - corridor will "
-                + "download no tiles. Column terminated or id unknown.")
+            log.e { ("SLOTTRACE-2026-08-04: slot=$slotName RESOLVED TO NOTHING - corridor will "
+                + "download no tiles. Column terminated or id unknown.") }
         } else {
-            android.util.Log.d(TAG,
-                "SLOTTRACE-2026-08-04: slot=$slotName -> id=${source.id} "
+            log.d { ("SLOTTRACE-2026-08-04: slot=$slotName -> id=${source.id} "
                 + "label=${source.shortLabel} layers=${source.layers.size} "
-                + "baseUrl=${source.baseUrl}")
+                + "baseUrl=${source.baseUrl}") }
         }
         val layers = source?.layers ?: emptyList()
         if (layers.isEmpty()) {
-            android.util.Log.e(TAG, "No layers for slot=$slotName")
+            log.e { "No layers for slot=$slotName" }
             DownloadQueueManager.markFailed(entryId, "No layers for source $slotName")
             return Result.failure()
         }
@@ -131,7 +129,7 @@ class ConvoyCorridorWorker(
 
         for ((layerIndex, layer) in layers.withIndex()) {
             if (isStopped) {
-                android.util.Log.i(TAG, "Worker stopped by system/user")
+                log.i { "Worker stopped by system/user" }
                 return Result.failure()
             }
             val result = ConvoyTileDownloader.downloadTiles(
@@ -157,18 +155,16 @@ class ConvoyCorridorWorker(
                 }
             }
             result.onFailure { e ->
-                android.util.Log.e(TAG, "Corridor layer ${layer.cacheDir} failed: ${e.message}")
+                log.e { "Corridor layer ${layer.cacheDir} failed: ${e.message}" }
                 // SLOTTRACE-2026-08-04: TEMPORARY. "CORR SAT failed" with no exception and no
                 // HTTP status is what made the 08-02 corridor failure unrecoverable.
-                android.util.Log.e(TAG,
-                    "SLOTTRACE-2026-08-04: FAILURE slot=$slotName layer=${layer.cacheDir} "
-                    + "url=${layer.urlTemplate} cause=${e::class.java.simpleName}: ${e.message}")
+                log.e { ("SLOTTRACE-2026-08-04: FAILURE slot=$slotName layer=${layer.cacheDir} "
+                    + "url=${layer.urlTemplate} cause=${e::class.java.simpleName}: ${e.message}") }
             }
         }
 
         DownloadQueueManager.markComplete(entryId, totalDownloaded, totalFailed)
-        android.util.Log.i(TAG,
-            "Corridor complete: $label downloaded=$totalDownloaded failed=$totalFailed")
+        log.i { "Corridor complete: $label downloaded=$totalDownloaded failed=$totalFailed" }
         return Result.success()
     }
 
@@ -196,7 +192,7 @@ class ConvoyCorridorWorker(
             setForegroundAsync(info)
         } catch (e: Exception) {
             // Worker may be finishing -- safe to ignore
-            android.util.Log.d(TAG, "setForeground skipped: ${e.message}")
+            log.d { "setForeground skipped: ${e.message}" }
         }
     }
 }

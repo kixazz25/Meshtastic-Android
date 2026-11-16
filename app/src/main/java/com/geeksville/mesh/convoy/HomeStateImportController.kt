@@ -1,7 +1,6 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
-import android.util.Log
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +16,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import com.grouptrack.shared.log.gtLogger
 
 /**
  * HomeStateImportController — orchestrates the full home state import.
@@ -34,6 +34,7 @@ import java.net.URL
  */
 
 private const val TAG = "HomeStateImport"
+private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
 // WORDING-2026-09-13: \u26d4 WAS 7, WHICH PREDICTED ABOUT AN HOUR across nine
 // sources. Utah -- 145,000 trails, the heaviest state there is -- finished in
 // FIFTEEN MINUTES on Droid 2 today. \u26a0 Three predicts ~27: honest cover for a
@@ -151,13 +152,13 @@ object HomeStateImportController {
         // CANCELFIX-2026-11-02 (Fred 18:51): while files are downloading, cancel through the data queue -- the run ends cleanly
         //  (record stamped failed, saved data moved back, the panel ends). A job cancel left the run with no ending at all.
         if (StateDataQueue.active.value) {
-            Log.i(TAG, "CANCELFIX: import cancelled by request while files download -- through the data queue")
+            log.i { "CANCELFIX: import cancelled by request while files download -- through the data queue" }
             StateDataQueue.cancelAll()
             return
         }
         val j = importJob
         if (j?.isActive == true) {
-            Log.i(TAG, "import cancelled by request")
+            log.i { "import cancelled by request" }
             j.cancel()
             _progress.value?.let { _progress.value = it.copy(phase = "failed") }   // CANCELFIX-2026-11-02: the panel ends
         }
@@ -199,7 +200,7 @@ object HomeStateImportController {
             val text = try { manifest.toString(2) } catch (e: ConcurrentModificationException) { null }
             if (text != null) { synchronized(MANIFEST_LOCK) { file.writeText(text) }; return }
         }
-        Log.w(TAG, "OVERLAP: record not saved this time (rows changing) -- saved at the next change")
+        log.w { "OVERLAP: record not saved this time (rows changing) -- saved at the next change" }
     }
     private val MANIFEST_LOCK = Any()
     private const val MARK_OVERLAP = "OVERLAP-2026-11-02"
@@ -351,8 +352,8 @@ object HomeStateImportController {
         withContext(Dispatchers.IO) {
             if (com.geeksville.mesh.grouptrack.GtCertGuard.skip("home-state import (executeRun)")) return@withContext false   // STEP15A-2026-11-08 cert mode (TEST-ONLY)
             val startMs = System.currentTimeMillis()
-            Log.i(TAG, "Starting import: $areaLabel type=$areaType " +
-                "states=${states.size} bbox S=$bboxSouth W=$bboxWest N=$bboxNorth E=$bboxEast")
+            log.i { ("Starting import: $areaLabel type=$areaType " +
+                "states=${states.size} bbox S=$bboxSouth W=$bboxWest N=$bboxNorth E=$bboxEast") }
             // 1. Catalog sources intersecting the RUN's bbox
             var catalogSources = findCatalogSourcesInBbox(
                 context, bboxSouth, bboxWest, bboxNorth, bboxEast
@@ -365,7 +366,7 @@ object HomeStateImportController {
             val skipped = leftOut.toMutableList()
             val runStates = states
             if (areaType == "bbox") catalogSources = catalogSources.filter { it.first in pickedCatalog }
-            if (skipped.isNotEmpty()) Log.i(TAG, "$MARK: skipped ${skipped.joinToString("; ")}")
+            if (skipped.isNotEmpty()) log.i { "$MARK: skipped ${skipped.joinToString("; ")}" }
             lastSkipped = skipped.toList()
             val catalogIds = catalogSources.map { it.first }
             val catalogNames = catalogSources.associate { it.first to it.second }
@@ -414,7 +415,7 @@ object HomeStateImportController {
             val sources = manifest.getJSONArray("sources")
             val totalSources = sources.length()
 
-            Log.i(TAG, "Manifest: $totalSources sources, file=${mFile.name}")
+            log.i { "Manifest: $totalSources sources, file=${mFile.name}" }
 
             // 3. Publish initial progress
             publishProgress(areaLabel, totalSources, sources, "running", startMs)
@@ -435,7 +436,7 @@ object HomeStateImportController {
                         try { writeManifest(mFile, manifest) } catch (_: Exception) { }
                         try { publishProgress(areaLabel, totalSources, sources, "running", startMs) } catch (_: Exception) { }
                     }
-                    try { StateData.writeRecords(context, fileRowsNow) } catch (e: Exception) { Log.w(TAG, "DATAQUEUE record: ${e.message}") }
+                    try { StateData.writeRecords(context, fileRowsNow) } catch (e: Exception) { log.w { "DATAQUEUE record: ${e.message}" } }
                     if (!haveAll) queueGaveUp = true   // CANCELFIX-2026-11-02
                     haveAll
                 }
@@ -485,7 +486,7 @@ object HomeStateImportController {
                     if (!filesHere(need)) { cancelled = true; break }
                 }
                 val stillDownloading = fileRowsNow.count { it.optString("status") != "completed" }
-                if (stillDownloading > 0) Log.i(TAG, "$MARK_OVERLAP: $srcId starts while $stillDownloading file(s) still downloading")
+                if (stillDownloading > 0) log.i { "$MARK_OVERLAP: $srcId starts while $stillDownloading file(s) still downloading" }
 
                 // Mark in_progress
                 src.put("status", "in_progress")
@@ -507,7 +508,7 @@ object HomeStateImportController {
                         savedAgencyFiles(sources, src.getString("id")))   // FETCHFIRST-2026-11-02
                     "fetch_file" -> runFetch(context, src)   // FETCHFIRST-2026-11-02
                     else -> {
-                        Log.e(TAG, "Unknown process type: ${src.getString("process")}")
+                        log.e { "Unknown process type: ${src.getString("process")}" }
                         false
                     }
                 }
@@ -527,7 +528,7 @@ object HomeStateImportController {
             // OVERLAP-2026-11-02: step 8 only when every file is here; Cancel (or a file that cannot be had) ends the run, as before
             if (!cancelled && queue != null && !queue.await()) cancelled = true
             if (cancelled) {
-                Log.e(TAG, "DATAQUEUE: import cancelled before processing finished -- not every file is here")
+                log.e { "DATAQUEUE: import cancelled before processing finished -- not every file is here" }
                 manifest.put("process_state", "failed")
                 manifest.put("completed_at", iso8601Now())
                 writeManifest(mFile, manifest)
@@ -538,7 +539,7 @@ object HomeStateImportController {
                 return@withContext false
             }
             if (dataMissing.isNotEmpty()) {
-                Log.e(TAG, "FETCHFIRST: stopped before processing -- could not get: $dataMissing")
+                log.e { "FETCHFIRST: stopped before processing -- could not get: $dataMissing" }
                 // FETCHFIX-2026-11-02: the OSM files the PBF row restored go back to states/<slug>/ -- not stranded in the working folder
                 for (gs in runStates) StateData.save(context, gs.slug)
                 manifest.put("process_state", "failed")
@@ -607,9 +608,9 @@ object HomeStateImportController {
                     val landRebuilt = try {
                         LandAreas.ensure(context, sDb, runStates) { msg -> downloadDetailFlow.value = msg }
                     } catch (e: Exception) {
-                        Log.e(TAG, "PADUSLAND: land areas not built -- ${e.javaClass.simpleName} ${e.message}"); false
+                        log.e { "PADUSLAND: land areas not built -- ${e.javaClass.simpleName} ${e.message}" }; false
                     }
-                    if (landRebuilt) Log.i(TAG, "PADUSLAND: new land data -- step 8 classifies every trail")
+                    if (landRebuilt) log.i { "PADUSLAND: new land data -- step 8 classifies every trail" }
                     // OOMGUARD-2026-09-15: BACKSTOP. The heap guard in
                     // OwnershipReclass.loadRings should prevent this, but an
                     // OOM here must never take down the FIRST RUN -- this is the
@@ -631,7 +632,7 @@ object HomeStateImportController {
                     } catch (e: OutOfMemoryError) {
                         // STEP8PAGED-2026-10-23: a FAILURE, said as one (it was logged as "skipped (no ownership data)").
                         OwnershipReclass.lastError = "out of memory"
-                        Log.e(TAG, "STEP8PAGED: step 8 FAILED -- out of memory. Trails keep no category/use/land from this run.", e)
+                        log.e(e) { "STEP8PAGED: step 8 FAILED -- out of memory. Trails keep no category/use/land from this run." }
                         -1
                     }
                     downloadDetailFlow.value = null
@@ -662,27 +663,27 @@ object HomeStateImportController {
                     writeManifest(mFile, manifest)
                     publishProgress(areaLabel, totalSources, sources, "running", startMs)
                     when {
-                        changed < 0 -> Log.e(TAG, "step 8 FAILED: " + OwnershipReclass.lastError)   // STEP8PAGED-2026-10-23
-                        changed == 0 -> Log.i(TAG, "step 8: nothing reclassified")
+                        changed < 0 -> log.e { "step 8 FAILED: " + OwnershipReclass.lastError }   // STEP8PAGED-2026-10-23
+                        changed == 0 -> log.i { "step 8: nothing reclassified" }
                         // ⚠ CORRECTED 09-07: this said "-> residential". Nothing
                         // has become residential since 08-31 -- land_status is
                         // its own field, and a private road KEEPS its category.
                         // A log line read while diagnosing must not describe
                         // behaviour that was deliberately removed.
-                        else -> Log.i(TAG, "step 8: $changed trail(s) classified")
+                        else -> log.i { "step 8: $changed trail(s) classified" }
                     }
                 } else {
                     // ⚠ THIS one is a real failure, unlike the missing-file case
                     // above: with no database nothing was classified and nothing
                     // can be. Recorded so the row does not sit at pending.
-                    Log.w(TAG, "step 8 skipped: databases unavailable")
+                    log.w { "step 8 skipped: databases unavailable" }
                     findStage(sources, CLASSIFY_STAGE_ID)?.put("status", "failed")
                     writeManifest(mFile, manifest)
                     publishProgress(areaLabel, totalSources, sources, "running", startMs)
                 }
             } catch (e: Exception) {
                 // Housekeeping must never block a completed import.
-                Log.e(TAG, "step 8 failed, import stands: ${e.message}")
+                log.e { "step 8 failed, import stands: ${e.message}" }
                 try {
                     findStage(sources, CLASSIFY_STAGE_ID)?.put("status", "failed")
                     writeManifest(mFile, manifest)
@@ -699,8 +700,8 @@ object HomeStateImportController {
                 if (allOk) "completed" else "failed", startMs)
 
             StateData.endRun()   // DATAQUEUE-2026-11-02: the refresh asked for this run is done
-            Log.i(TAG, "Home state import ${if (allOk) "COMPLETED" else "COMPLETED WITH ERRORS"} " +
-                "for ${areaLabel} in ${(System.currentTimeMillis() - startMs) / 1000}s")
+            log.i { ("Home state import ${if (allOk) "COMPLETED" else "COMPLETED WITH ERRORS"} " +
+                "for ${areaLabel} in ${(System.currentTimeMillis() - startMs) / 1000}s") }
             allOk
         }
 
@@ -738,7 +739,7 @@ object HomeStateImportController {
         if (!pbfFile.exists()) {
             val okPbf = downloadFile(pbfUrl, pbfFile, src)
             if (!okPbf) {
-                Log.e(TAG, "PBF download failed for $slug")
+                log.e { "PBF download failed for $slug" }
                 return false
             }
         }
@@ -748,12 +749,12 @@ object HomeStateImportController {
         // the failure class that marked three FAILED runs as imported on
         // 07-27. Delete it so the retry starts clean.
         if (!OsmImportStage.verifyPbf(pbfFile)) {
-            Log.e(TAG, "PBF failed verification for $slug, removing: ${pbfFile.name}")
+            log.e { "PBF failed verification for $slug, removing: ${pbfFile.name}" }
             pbfFile.delete()
             return false
         }
         downloadDetailFlow.value = null
-        Log.i(TAG, "PBF complete: ${pbfFile.name} (${pbfFile.length() / 1_048_576} MB)")
+        log.i { "PBF complete: ${pbfFile.name} (${pbfFile.length() / 1_048_576} MB)" }
 
         // Step 1b: Download the GeoPackage
         updateSourceStep(src, "Downloading", "$gpkgUrl")
@@ -761,12 +762,12 @@ object HomeStateImportController {
         if (!zipFile.exists()) {
             val ok = downloadFile(gpkgUrl, zipFile, src)
             if (!ok) {
-                Log.e(TAG, "Download failed for $slug")
+                log.e { "Download failed for $slug" }
                 return false
             }
         }
         downloadDetailFlow.value = null
-        Log.i(TAG, "Download complete: ${zipFile.name} (${zipFile.length() / 1_048_576} MB)")
+        log.i { "Download complete: ${zipFile.name} (${zipFile.length() / 1_048_576} MB)" }
 
         // ── TAGPASS-2026-08-30 ────────────────────────────────────────────
         // Step 1c: read the PBF into the interim tag table.
@@ -794,12 +795,12 @@ object HomeStateImportController {
             if (builtRows <= 0) {
                 // ⛔ build() already removed its own output. Fail the source
                 // rather than let the join run on a partial tag set.
-                Log.e(TAG, "Tag pass failed for $slug (rows=$builtRows)")
+                log.e { "Tag pass failed for $slug (rows=$builtRows)" }
                 return false
             }
-            Log.i(TAG, "Tag pass complete for $slug: $builtRows rows")
+            log.i { "Tag pass complete for $slug: $builtRows rows" }
         } else {
-            Log.i(TAG, "Tag table already present for $slug, skipping tag pass")
+            log.i { "Tag table already present for $slug, skipping tag pass" }
         }
 
         // Step 2: Create the ledger (required before setPendingImport)
@@ -809,7 +810,7 @@ object HomeStateImportController {
             "Geofabrik ${src.optString("name", slug)} (auto download)",
             OsmImportLedger.priorImports(context, slug)
         )
-        Log.i(TAG, "Ledger created for $slug")
+        log.i { "Ledger created for $slug" }
 
         // Step 3: Extract
         updateSourceStep(src, "Extracting", null)
@@ -821,7 +822,7 @@ object HomeStateImportController {
             downloadDetailFlow.value = null
         }
         if (!extractOk) {
-            Log.e(TAG, "Extract failed for $slug")
+            log.e { "Extract failed for $slug" }
             return false
         }
 
@@ -835,8 +836,8 @@ object HomeStateImportController {
         // "state" on an area row would invite it to treat the run as whole-state.
         val scope = if (src.optString("process") == "geofabrik_area") "area" else "state"
         OsmImportLedger.setPendingImport(context, slug, scope, bbox)
-        Log.i(TAG, "setPendingImport for $slug: bbox " +
-            "S=$bboxSouth W=$bboxWest N=$bboxNorth E=$bboxEast")
+        log.i { ("setPendingImport for $slug: bbox " +
+            "S=$bboxSouth W=$bboxWest N=$bboxNorth E=$bboxEast") }
 
         // Step 5: Import
         updateSourceStep(src, "Importing", null)
@@ -848,7 +849,7 @@ object HomeStateImportController {
             downloadDetailFlow.value = null
         }
         if (!importOk) {
-            Log.e(TAG, "Import failed for $slug")
+            log.e { "Import failed for $slug" }
             return false
         }
 
@@ -924,10 +925,10 @@ object HomeStateImportController {
             src.put("dupes", pDropped + pAliased + pSkipped)
             src.put("adds", total)
             src.put("errors", pErrors)
-            Log.i(TAG, "Catalog source $sourceId: $total records")
+            log.i { "Catalog source $sourceId: $total records" }
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Catalog source $sourceId failed", e)
+            log.e(e) { "Catalog source $sourceId failed" }
             false
         }
     }
@@ -986,7 +987,7 @@ object HomeStateImportController {
             src.status != "display_only_not_queryable" &&
                 src.boundaryN >= s && src.boundaryS <= n && src.boundaryE >= w && src.boundaryW <= e
         }
-    } catch (ex: Exception) { Log.e(TAG, "area catalog failed", ex); emptyList() }
+    } catch (ex: Exception) { log.e(ex) { "area catalog failed" }; emptyList() }
 
     private fun findCatalogSourcesInBbox(
         context: Context,
@@ -1002,7 +1003,7 @@ object HomeStateImportController {
                 src.boundaryE >= west && src.boundaryW <= east
             }.map { it.id to it.name }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to query catalog sources", e)
+            log.e(e) { "Failed to query catalog sources" }
             emptyList()
         }
     }
@@ -1076,7 +1077,7 @@ object HomeStateImportController {
                 }
             }
         }
-        Log.i(TAG, "FETCHFIRST: ${rows.length()} file row(s)")
+        log.i { "FETCHFIRST: ${rows.length()} file row(s)" }
         return rows
     }
 
@@ -1089,7 +1090,7 @@ object HomeStateImportController {
 
     private fun savedRow(row: JSONObject, f: File): Boolean {
         updateSourceStep(row, "Saved on tablet", "${f.length() / 1_048_576} MB")
-        Log.i(TAG, "FETCHFIRST ${row.optString("name")}: saved on tablet -- no download")
+        log.i { "FETCHFIRST ${row.optString("name")}: saved on tablet -- no download" }
         return true
     }
 
@@ -1136,7 +1137,7 @@ object HomeStateImportController {
                         }
                         // the old ScienceBase zip is no longer used -- removed once the service file is complete
                         if (okL) dest.parentFile?.listFiles { f -> f.name.startsWith("padus_state_") && f.name.endsWith(".zip") }
-                            ?.forEach { Log.i(TAG, "PADUSSVC: old zip removed ${it.name}: ${it.delete()}") }
+                            ?.forEach { log.i { "PADUSSVC: old zip removed ${it.name}: ${it.delete()}" } }
                         okL
                     }
                 "agency" -> if (!force && dest.exists()) savedRow(row, dest)   // an empty file is a real answer: nothing in this state
@@ -1150,10 +1151,10 @@ object HomeStateImportController {
                             row.put("step_detail", d); downloadDetailFlow.value = d
                         }
                     }
-                else -> { Log.e(TAG, "FETCHFIRST: unknown file kind $kind"); false }
+                else -> { log.e { "FETCHFIRST: unknown file kind $kind" }; false }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "FETCHFIRST ${row.optString("name")}: ${e.javaClass.simpleName} ${e.message}"); false
+            log.e { "FETCHFIRST ${row.optString("name")}: ${e.javaClass.simpleName} ${e.message}" }; false
         }
         downloadDetailFlow.value = null
         if (ok && row.optString("current_step") != "Saved on tablet") updateSourceStep(row, "Downloaded", "${dest.length() / 1_048_576} MB")
@@ -1161,7 +1162,7 @@ object HomeStateImportController {
         // FETCHFIX-2026-11-02: a file that failed its check is not left behind to look like data (12:19: a 4 KB HTML page as the PAD-US zip)
         // DATAQUEUE-2026-11-02: only a file that FAILS its check is removed -- a failed or stopped REFRESH keeps the good old copy
         if (!ok && dest.exists() && !goodFile(kind, dest)) dest.delete()
-        Log.i(TAG, "FETCHFIRST ${row.optString("name")}: " + if (ok) "ready (${dest.length() / 1_048_576} MB)" else "FAILED")
+        log.i { "FETCHFIRST ${row.optString("name")}: " + if (ok) "ready (${dest.length() / 1_048_576} MB)" else "FAILED" }
         return ok
     }
 
@@ -1172,7 +1173,7 @@ object HomeStateImportController {
         attempt: Int = 1, depth: Int = 0,
     ): Boolean {
         if (depth > 5) {
-            Log.e(TAG, "Download: too many redirects for $urlStr")
+            log.e { "Download: too many redirects for $urlStr" }
             return false
         }
         val ok = downloadOnce(urlStr, dest, activeSrc, depth)
@@ -1182,11 +1183,11 @@ object HomeStateImportController {
         // or a moment of no signal; short enough that a genuinely dead URL does
         // not hold the import for a minute.
         if (attempt >= 3) {
-            Log.e(TAG, "Download: giving up on $urlStr after $attempt attempts")
+            log.e { "Download: giving up on $urlStr after $attempt attempts" }
             return false
         }
         val wait = if (attempt == 1) 2000L else 8000L
-        Log.w(TAG, "Download: attempt $attempt failed, retrying in ${wait}ms")
+        log.w { "Download: attempt $attempt failed, retrying in ${wait}ms" }
         try { Thread.sleep(wait) } catch (_: InterruptedException) { return false }
         return downloadFile(urlStr, dest, activeSrc, attempt + 1, depth)
     }
@@ -1211,7 +1212,7 @@ object HomeStateImportController {
                 return false
             }
             if (conn.responseCode != 200) {
-                Log.e(TAG, "Download HTTP ${conn.responseCode} for $urlStr")
+                log.e { "Download HTTP ${conn.responseCode} for $urlStr" }
                 conn.disconnect()
                 return false
             }
@@ -1242,8 +1243,8 @@ object HomeStateImportController {
             true
         } catch (e: Exception) {
             if (activeSrc != null) liveConns.remove(activeSrc)   // STOPNOW-2026-11-02
-            if (activeSrc != null && activeSrc.optBoolean("_stop")) { Log.i(TAG, "Download stopped by the rider: $urlStr"); return false }
-            Log.e(TAG, "Download failed: $urlStr", e)
+            if (activeSrc != null && activeSrc.optBoolean("_stop")) { log.i { "Download stopped by the rider: $urlStr" }; return false }
+            log.e(e) { "Download failed: $urlStr" }
             false
         }
     }
@@ -1498,16 +1499,13 @@ object HomeStateImportController {
                 legacy.firstOrNull { it.exists() }
             } catch (e: Exception) {
                 // Same standing-down rule as below: cannot tell, do nothing.
-                Log.e(TAG, "clearTrailsOnce: legacy marker unreadable: " + e.message)
+                log.e { "clearTrailsOnce: legacy marker unreadable: " + e.message }
                 return -1
             }
             if (found != null) {
                 writeClearMarker(marker, -1, -1)
-                Log.i(
-                    TAG,
-                    "clearTrailsOnce: adopted the prior marker at " +
-                        found.absolutePath + " -- NOT clearing again"
-                )
+                log.i { ("clearTrailsOnce: adopted the prior marker at " +
+                        found.absolutePath + " -- NOT clearing again") }
                 return -1
             }
         }
@@ -1517,7 +1515,7 @@ object HomeStateImportController {
         } catch (e: Exception) {
             // Cannot tell. Do NOTHING -- see the note above. A wipe we are not
             // certain is needed is worse than a wipe we skip.
-            Log.e(TAG, "clearTrailsOnce: marker unreadable, standing down: " + e.message)
+            log.e { "clearTrailsOnce: marker unreadable, standing down: " + e.message }
             return -1
         }
         if (alreadyRan) return -1
@@ -1528,7 +1526,7 @@ object HomeStateImportController {
             // new filter anyway, and leaving the marker off would run this again
             // after the rider's first import.
             writeClearMarker(marker, 0)
-            Log.i(TAG, "clearTrailsOnce: no spatial DB yet, marked and skipped")
+            log.i { "clearTrailsOnce: no spatial DB yet, marked and skipped" }
             return 0
         }
 
@@ -1580,21 +1578,21 @@ object HomeStateImportController {
                     } catch (inner: Exception) {
                         // Absent on a device that never imported. Not an error,
                         // and not a reason to fail the whole clear.
-                        Log.i(TAG, "clearTrailsOnce: no trail_properties (" +
-                            inner.message + ")")
+                        log.i { ("clearTrailsOnce: no trail_properties (" +
+                            inner.message + ")") }
                     }
                 }
             }
         } catch (e: Exception) {
             // No marker written, so this retries next launch.
-            Log.e(TAG, "clearTrailsOnce: FAILED, will retry: " + e.message)
+            log.e { "clearTrailsOnce: FAILED, will retry: " + e.message }
             return -1
         }
 
         writeClearMarker(marker, removed, props)
-        Log.i(TAG, "clearTrailsOnce: removed " + removed + " trail(s) and " +
+        log.i { ("clearTrailsOnce: removed " + removed + " trail(s) and " +
             props + " trail_properties row(s) -- home state picker will " +
-            "re-import under the new filter")
+            "re-import under the new filter") }
         return removed
     }
 
@@ -1610,7 +1608,7 @@ object HomeStateImportController {
             o.put("cleared_at", java.time.Instant.now().toString())
             marker.writeText(o.toString(2))
         } catch (e: Exception) {
-            Log.e(TAG, "clearTrailsOnce: marker write failed: " + e.message)
+            log.e { "clearTrailsOnce: marker write failed: " + e.message }
         }
     }
 
@@ -1634,12 +1632,12 @@ object HomeStateImportController {
                 try {
                     JSONObject(f.readText()).optJSONArray("sources") != null
                 } catch (e: Exception) {
-                    Log.w(TAG, "sweep: " + f.name + " is not a manifest, left alone")
+                    log.w { "sweep: " + f.name + " is not a manifest, left alone" }
                     false
                 }
             }
         if (files.isEmpty()) {
-            Log.i(TAG, "sweep: imports/ is empty, nothing to do")
+            log.i { "sweep: imports/ is empty, nothing to do" }
             return 0
         }
 
@@ -1689,7 +1687,7 @@ object HomeStateImportController {
                 // move. The previous log said only "could not move", which made a
                 // correct classification look like a broken one.
                 val verdict = if (allCounted) "completed" else "KILLED"
-                Log.i(TAG, "sweep: ${f.name} classified $verdict -> history/${target.name}")
+                log.i { "sweep: ${f.name} classified $verdict -> history/${target.name}" }
 
                 // SWEEPMOVE-2026-08-21H: COPY-THEN-DELETE, not renameTo.
                 // renameTo() returns false on FUSE-mounted external storage when
@@ -1707,27 +1705,27 @@ object HomeStateImportController {
                         } else {
                             // Copy is safe; the original would not delete. Say so
                             // plainly -- next launch will see both.
-                            Log.w(TAG, "sweep: copied ${f.name} but could not delete " +
-                                "the original -- duplicate left in imports/")
+                            log.w { ("sweep: copied ${f.name} but could not delete " +
+                                "the original -- duplicate left in imports/") }
                         }
                     } else {
-                        Log.w(TAG, "sweep: copy of ${f.name} did not verify " +
+                        log.w { ("sweep: copy of ${f.name} did not verify " +
                             "(target ${target.length()}B vs source ${f.length()}B) -- " +
-                            "original left in place")
+                            "original left in place") }
                         target.delete()
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "sweep: move of ${f.name} failed: ${e.message} -- " +
-                        "original left in place, will retry next launch")
+                    log.e { ("sweep: move of ${f.name} failed: ${e.message} -- " +
+                        "original left in place, will retry next launch") }
                 }
 
                 if (moved) swept++
             } catch (e: Exception) {
                 // A manifest we cannot parse is still evidence. Never delete it.
-                Log.e(TAG, "sweep: ${f.name} unreadable, left in place: ${e.message}")
+                log.e { "sweep: ${f.name} unreadable, left in place: ${e.message}" }
             }
         }
-        Log.i(TAG, "sweep: $swept of ${files.size} manifest(s) moved to history")
+        log.i { "sweep: $swept of ${files.size} manifest(s) moved to history" }
         return swept
     }
 
@@ -1751,7 +1749,7 @@ object HomeStateImportController {
     fun needsTrailData(ctx: Context): Boolean {
         val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
         if (!dbFile.exists()) {
-            Log.i(TAG, "needsTrailData: no spatial DB file -> HOME STATE")
+            log.i { "needsTrailData: no spatial DB file -> HOME STATE" }
             return true
         }
         return try {
@@ -1766,20 +1764,20 @@ object HomeStateImportController {
             }
             when {
                 count < 0 -> {
-                    Log.w(TAG, "needsTrailData: count unreadable -> RIDE MAP (panel available)")
+                    log.w { "needsTrailData: count unreadable -> RIDE MAP (panel available)" }
                     false
                 }
                 count == 0 -> {
-                    Log.i(TAG, "needsTrailData: 0 trails -> HOME STATE")
+                    log.i { "needsTrailData: 0 trails -> HOME STATE" }
                     true
                 }
                 else -> {
-                    Log.i(TAG, "needsTrailData: $count trails -> RIDE MAP")
+                    log.i { "needsTrailData: $count trails -> RIDE MAP" }
                     false
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "needsTrailData: query failed (${e.message}) -> RIDE MAP (panel available)")
+            log.w { "needsTrailData: query failed (${e.message}) -> RIDE MAP (panel available)" }
             false
         }
     }
