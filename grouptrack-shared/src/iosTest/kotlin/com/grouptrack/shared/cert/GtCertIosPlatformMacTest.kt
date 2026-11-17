@@ -5,6 +5,18 @@ import com.grouptrack.shared.platform.IosImportPlatform
 import com.grouptrack.shared.platform.IosOsmPlatform
 import com.grouptrack.shared.platform.IosQueuePlatform
 import com.grouptrack.shared.platform.IosDownloadQueue
+import com.grouptrack.shared.platform.IosMeshDefaults
+import com.grouptrack.shared.platform.IosRecipeEnv
+import com.grouptrack.shared.platform.IosRideImportLauncher
+import com.grouptrack.shared.platform.IosRideImportPlatform
+import com.grouptrack.shared.platform.IosRideNet
+import com.grouptrack.shared.platform.IosRideNetworks
+import com.grouptrack.shared.platform.IosTileEnv
+import com.grouptrack.shared.net.GtMeshDefaults
+import com.grouptrack.shared.net.GtNetworkConfig
+import com.grouptrack.shared.net.GtOwnerType
+import com.grouptrack.shared.queue.GtQueueJson
+import com.grouptrack.shared.ride.RideNetOwner
 import com.grouptrack.shared.platform.IosRideFiles
 import com.grouptrack.shared.imports.GtClock
 import com.grouptrack.shared.imports.GtIds
@@ -118,7 +130,15 @@ class GtCertIosPlatformMacTest {
         var cthrew = ""
         try { ip.enqueueCorridor("deadbeef", "VEC", false); cthrew = "NO THROW" } catch (e: Exception) { cthrew = e.message ?: "" }
         eq("import|enqueueCorridor throws", true, cthrew != "NO THROW")
-        eq("import|enqueueCorridor marker", true, cthrew.contains("CERTPATHS-2026-11-16"))
+        // IOSCORRIDOR-2026-11-17: enqueueCorridor is now IMPLEMENTED (vector path). Unwired -- no
+        // spatial read and no vector queue injected, which is this instance -- it still REFUSES, and
+        // still by name, so the regression this guards against is unchanged. The marker moved because
+        // the reason did: it is no longer "the queue does not exist", it is "nothing is wired to it".
+        // ⚠ THE CERT CAUGHT THIS ITSELF. The old assertion named CERTPATHS-2026-11-16 and failed the
+        // moment the member was implemented, which is exactly the behaviour wanted from a pinned
+        // marker -- a deliberate change has to be acknowledged here rather than slipping through.
+        eq("import|enqueueCorridor marker", true, cthrew.contains("IOSCORRIDOR-2026-11-17"))
+        eq("import|enqueueCorridor refuses rather than returning 0", true, cthrew.contains("not a 0"))
 
         // ---------------- IosRideFiles: java.io.File's RETURN CONVENTIONS ----------------
         val rf = IosRideFiles()
@@ -467,5 +487,131 @@ class GtCertIosPlatformMacTest {
         println("IOSPLATQ mac: $same SAME, $bad DIFF -- done")
         assertEquals(0, bad, "IosDownloadQueue behaved differently from 2.7e's documented behaviour")
         assertTrue(same > 40, "too few assertions ran ($same) -- the queue leg did not execute fully")
+    }
+
+    // ---- IOSPLAT3-2026-11-17: IosRecipeEnv, IosRideNetworks, IosRideImportPlatform ---------------
+    // The three classes written after the queue leg, which had no coverage at all. Fred 11-17:
+    // "remember we need a test harness for all of todays work to verify."
+
+    @Test
+    fun recipeNetworksAndImport() {
+        val fs = FileSystem.SYSTEM
+        val base = FileSystem.SYSTEM_TEMPORARY_DIRECTORY / "gtplat3_${Random.nextInt(100000, 999999)}"
+        fs.createDirectories(base / "files")
+        val paths = QPaths(base)
+
+        // --- IosRecipeEnv: the four answered members --------------------------------------------
+        val env = IosRecipeEnv(paths)
+        eq("recipe|vecSlot", "VEC", env.vecSlot)
+        eq("recipe|demSlot", "DEM", env.demSlot)
+        // the DELEGATION is the contract, not a path guess: it must answer whatever IosTileEnv answers
+        val tiles = IosTileEnv(paths)
+        eq("recipe|storeExists delegates to IosTileEnv (VEC)", tiles.storeExists("VEC"), env.storeExists("VEC"))
+        eq("recipe|storeExists delegates to IosTileEnv (nonsense)", tiles.storeExists("NOPE"), env.storeExists("NOPE"))
+
+        // --- vectorBusyCount with NO runtime must THROW, not answer 0 ---------------------------
+        // GtMapRecipe does `if (vectorBusyCount() > 0) return null`, so 0 means GO AHEAD.
+        var threw = "did not throw"
+        try { env.vectorBusyCount() } catch (e: Exception) { threw = e.message ?: "" }
+        eq("recipe|vectorBusyCount refuses without a runtime", true, threw.contains("IOSRECIPE-2026-11-17"))
+        eq("recipe|...and says why 0 is not an answer", true, threw.contains("go ahead"))
+
+        // --- vectorBusyCount counts, and BUSYREAD: the read must not schedule -------------------
+        run {
+            val r = base / "busy"; fs.createDirectories(r / "files")
+            val p2 = QPaths(r)
+            val seeded = listOf(
+                qe("a", 0, GtQueueStatus.QUEUED).copy(refreshSlot = "VEC"),
+                qe("b", 0, GtQueueStatus.DOWNLOADING).copy(refreshSlot = "DEM"),
+                qe("c", 0, GtQueueStatus.PAUSED).copy(refreshSlot = "VEC"),
+                qe("d", 0, GtQueueStatus.COMPLETE, 1L, 2L, 1, 0, 1.0, 0, 3L).copy(refreshSlot = "VEC"),
+                qe("e", 0, GtQueueStatus.QUEUED).copy(refreshSlot = "SAT"),
+                qe("f", 0, GtQueueStatus.QUEUED),                       // refreshSlot "" -- an area job
+            )
+            val d = r / "files" / IosDownloadQueue.QUEUE_DIR
+            fs.createDirectories(d)
+            fs.write(d / IosDownloadQueue.QUEUE_FILE) { writeUtf8(GtQueueJson.fileText(seeded)) }
+            var ran = 0
+            val q = IosDownloadQueue(QIds(), QClock(), p2, fs) { _, _ -> ran++; true }
+            val env2 = IosRecipeEnv(p2, IosTileEnv(p2), q)
+            eq("recipe|vectorBusyCount = VEC/DEM in QUEUED|DOWNLOADING|PAUSED", 3, env2.vectorBusyCount())
+            // BUSYREAD-2026-11-17: the read loaded the file and scheduled NOTHING
+            eq("recipe|the read did not run any job", 0, ran)
+            eq("recipe|statuses survived the read", listOf(
+                GtQueueStatus.QUEUED, GtQueueStatus.DOWNLOADING, GtQueueStatus.PAUSED,
+                GtQueueStatus.COMPLETE, GtQueueStatus.QUEUED, GtQueueStatus.QUEUED),
+                q.queue().map { it.status })
+            eq("recipe|a second call is stable", 3, env2.vectorBusyCount())
+        }
+
+        // --- the two refusals, by name ----------------------------------------------------------
+        var slotMsg = "did not throw"
+        try { env.slotSources() } catch (e: Exception) { slotMsg = e.message ?: "" }
+        eq("recipe|slotSources refuses", true, slotMsg.contains("IOSRECIPE-2026-11-17"))
+        eq("recipe|...and warns an empty list would read as success", true, slotMsg.contains("no slots"))
+        var derMsg = "did not throw"
+        try { env.deriveRecipe("VEC") } catch (e: Exception) { derMsg = e.message ?: "" }
+        eq("recipe|deriveRecipe refuses", true, derMsg.contains("IOSRECIPE-2026-11-17"))
+        eq("recipe|...and is a throw, not the null GtMapRecipe would skip", true, derMsg.contains("not a null"))
+
+        // --- IosRideNet: every j* field is org.json TEXT -----------------------------------------
+        // The display name carries a FORWARD SLASH and a QUOTE: org.json escapes both, and the slash
+        // escape is the one no other writer produces.
+        run {
+            val cfg = GtNetworkConfig(
+                configId = "Group-ABC123", ownerType = GtOwnerType.RIDE, ownerId = "rider-1",
+                displayName = "Bar 10 / the \"main\" loop", baseVersion = 1,
+                region = "US", modemPreset = "MEDIUM_FAST", hopLimit = 3, txPower = 0,
+                frequencySlot = 0, psk = "AAAA", role = "TAK_TRACKER", networkSsid = "GT-ABC123",
+                networkPassword = null,
+            )
+            val n = IosRideNet(cfg)
+            eq("ridenet|configId is plain", "Group-ABC123", n.configId)
+            eq("ridenet|displayName is plain", "Bar 10 / the \"main\" loop", n.displayName)
+            eq("ridenet|jRegion is QUOTED", "\"US\"", n.jRegion)
+            eq("ridenet|jHopLimit is UNQUOTED", "3", n.jHopLimit)
+            eq("ridenet|jBaseVersion is UNQUOTED", "1", n.jBaseVersion)
+            eq("ridenet|jTxPower 0", "0", n.jTxPower)
+            eq("ridenet|jOwnerType uses ownerType.db", "\"ride\"", n.jOwnerType)
+            eq("ridenet|jDisplayName escapes / and \"",
+                "\"Bar 10 \\/ the \\\"main\\\" loop\"", n.jDisplayName)
+            eq("ridenet|jNetworkPassword null stays null", null, n.jNetworkPassword)
+            eq("ridenet|jRole", "\"TAK_TRACKER\"", n.jRole)
+        }
+
+        // --- IosMeshDefaults: the fallbacks ARE 2.7e's literals ---------------------------------
+        eq("mesh|fallback = 2.7e's MeshDefaults literals",
+            GtMeshDefaults("US", "MEDIUM_FAST", 3, 0, 0, "TAK_TRACKER"), GtMeshDefaults())
+        fact("mesh|now() in this bundle", IosMeshDefaults.now())
+
+        // --- IosRideNetworks with no database: refuse, never pretend -----------------------------
+        run {
+            val nets = IosRideNetworks({ null })
+            eq("ridenets|load with no db -> null", null, nets.load("Group-ABC123"))
+            eq("ridenets|create with no db -> null", null, nets.create(RideNetOwner.RIDE, "r1", "Bar 10"))
+            var ok = "ok"
+            try { nets.deleteUnused("Group-ABC123") } catch (e: Exception) { ok = "THREW: ${e.message}" }
+            eq("ridenets|deleteUnused with no db is a silent return", "ok", ok)
+        }
+
+        // --- IosRideImportPlatform: the work is KEPT, the absences are logged --------------------
+        run {
+            IosRideImportLauncher.clear()
+            eq("rideimp|pending starts null", null, IosRideImportLauncher.pending)
+            val plat = IosRideImportPlatform()
+            var ok = "ok"
+            try { plat.initMapSources(); plat.bringForward() } catch (e: Exception) { ok = "THREW: ${e.message}" }
+            eq("rideimp|initMapSources and bringForward do not throw", "ok", ok)
+            plat.offer("/tmp/ride-abc.gpx")
+            eq("rideimp|offer KEEPS the path", "/tmp/ride-abc.gpx", IosRideImportLauncher.pending)
+            IosRideImportLauncher.clear()
+            eq("rideimp|clear resets it", null, IosRideImportLauncher.pending)
+        }
+
+        try { fs.deleteRecursively(base) } catch (e: Exception) { }
+
+        println("IOSPLAT3 mac: $same SAME, $bad DIFF -- done")
+        assertEquals(0, bad, "a class written after the queue leg answered differently from Android's documented behaviour")
+        assertTrue(same > 28, "too few assertions ran ($same)")
     }
 }
