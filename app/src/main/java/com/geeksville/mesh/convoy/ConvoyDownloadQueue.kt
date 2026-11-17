@@ -1195,7 +1195,11 @@ object DownloadQueueManager {
 
     // -- Launch next queued entry if under concurrency cap --
     @Synchronized   // VECONE-2026-11-01: one picker at a time -- 10-31 18:14 14 jobs got 22 worker launches
-    private fun startNextIfAvailable() {
+    private         // ⭐ RULEMOD-2026-11-17: SELECTION (order, the 1..4 clamp, the drain) is a RULE and belongs in
+        // the deferred shared rule module -- see the full note on GtJobSurface. The RUNTIME around it
+        // does not: it writes files. Today the rule lives HERE and in the other platform's copy, so a
+        // change to how the next entry is chosen must be made in both. There is no list but that note.
+    fun startNextIfAvailable() {
         if (!initialized) return
         if (com.geeksville.mesh.grouptrack.GtCertGuard.skip("DownloadQueueManager start")) return   // STEP15A-2026-11-08 cert mode (TEST-ONLY): no tile job starts (they read geometry through the handles)
         if (queuePaused) return

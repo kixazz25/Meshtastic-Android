@@ -19,6 +19,7 @@ import com.grouptrack.shared.text.GtMath.asin
 import com.grouptrack.shared.text.GtMath.cos
 import com.grouptrack.shared.text.GtMath.sin
 import kotlin.math.sqrt
+import com.grouptrack.shared.text.GtJavaParse
 
 /**
  * GtRead -- SpatialDbManager's READING side in SHARED Kotlin (batch 2b, GTBATCH2B-2026-11-06). Ported from 2.7e, same SQL, same results:
@@ -272,6 +273,93 @@ class GtRead(private val conn: SQLiteConnection, private val dataConn: SQLiteCon
         try { dataConn?.let { d -> rows(d, "SELECT alias FROM artifact_aliases WHERE artifact_type='route'", emptyList(), 1).forEach { take(it[0]) } } } catch (e: Exception) { log.w { "nextRouteNumber aliases: ${e.message}" } }
         return max + 1
     }
+    // ---- CORRIDORREAD-2026-11-17: the corridor reads (2.7e SpatialDbManager, same SQL, same order) ----
+    /*
+     * ⚠ A SECOND COPY, same standing as the four ride reads above and GtManifestSweep:
+     * SpatialDbManager keeps getCorridorGeometry / getTrackPoints / getRoutePoints / nameForGeomHash and
+     * Android still calls those. ⛔ DO NOT EDIT ONE WITHOUT THE OTHER.
+     *
+     * ⛔ WHY parseWktSegments IS PORTED AND GtGeom.parse IS NOT -- it looks like the obvious reuse and
+     * it is not a substitute. Four differences, measured 11-17:
+     *   1. GtGeom.parse is STRICT: one malformed point returns null for the WHOLE geometry. 2.7e SKIPS a
+     *      bad point and SKIPS a segment left with none.
+     *   2. GtGeom.parse requires exactly two fields per point. WKT carrying elevation ("lon lat ele")
+     *      makes it return null, so the corridor would silently fail to queue, fall through to routes,
+     *      find nothing, and log "no geometry". 2.7e reads fields 0 and 1 and ignores the rest.
+     *   3. GtGeom.parse accepts POINT; 2.7e rejects anything that is not LINESTRING/MULTILINESTRING.
+     *   4. GtGeom.parse returns WKT order (lon, lat). These return (lat, lon).
+     * ⚠ (lat, lon) IS THE CONTRACT, not a preference: GtVectorQueue.squaresFor documents "segments
+     * (lat, lon)" and does sqX(lon) / sqY(lat). A positional swap COMPILES and moves the corridor off
+     * the planet.
+     * ⛔ NOR GtRiderTrails.parseGeometry, the other near-miss: it FLATTENS MULTILINESTRING, and its own
+     * header records that the flattening joins the last point of one part to the first of the next with
+     * "a segment that is not on the ground". A rider-trail scan tolerates that; a corridor would buffer
+     * and DOWNLOAD tiles along a line no trail follows.
+     */
+
+    /** 2.7e getCorridorGeometry: tracks first, then routes. geom_hash is content-addressed and unique in
+     *  both tables, so the same hash is the same ground wherever it is stored. */
+    fun corridorGeometry(geomHash: String): List<List<Pair<Double, Double>>>? =
+        wktSegmentsFrom("tracks", geomHash) ?: wktSegmentsFrom("routes", geomHash)
+
+    /** 2.7e nameForGeomHash: tracks, then routes. ⚠ A row that EXISTS with a blank name falls through to
+     *  the other table -- the loop wants a USABLE name, not the first hit. Each table is tried inside its
+     *  own catch so one broken table does not end the lookup. Caller decides what to show on null. */
+    fun nameForGeomHash(geomHash: String): String? {
+        val h = geomHash.substringBeforeLast(".gpx").trim()
+        for (table in listOf("tracks", "routes")) {
+            try {
+                val nm = first(conn, "SELECT name FROM " + table + " WHERE geom_hash=? LIMIT 1", listOf(h))
+                if (!nm.isNullOrBlank()) return nm
+            } catch (e: Exception) {
+                log.w { "CORRIDORREAD-2026-11-17: name lookup failed in " + table + ": " + e.message }
+            }
+        }
+        return null
+    }
+
+    private fun wktSegmentsFrom(table: String, geomHash: String): List<List<Pair<Double, Double>>>? {
+        val h = geomHash.substringBeforeLast(".gpx").trim()
+        val wkt = try {
+            first(conn, "SELECT geometry FROM " + table + " WHERE geom_hash=? LIMIT 1", listOf(h))
+        } catch (e: Exception) {
+            log.e { "CORRIDORREAD-2026-11-17: " + table + " lookup failed for " + h + ": " + e.message }
+            return null
+        }
+        if (wkt.isNullOrBlank()) return null
+        return parseWktSegments(wkt, h, table)
+    }
+
+    /** 2.7e SpatialDbManager.parseWktSegments, ported shape for shape. See the ⛔ note above. */
+    private fun parseWktSegments(wkt: String, hash: String, tag: String): List<List<Pair<Double, Double>>>? {
+        val g = wkt.trim()
+        if (g.isBlank()) return null
+        val segments: List<String> = when {
+            g.startsWith("MULTILINESTRING(") ->
+                g.removePrefix("MULTILINESTRING(").removeSuffix(")")
+                    .split("),(").map { it.trim('(', ')') }
+            g.startsWith("LINESTRING(") -> listOf(g.removePrefix("LINESTRING(").removeSuffix(")"))
+            else -> {
+                log.w { "CORRIDORREAD-2026-11-17: " + tag + ": unsupported WKT for " + hash }
+                return null
+            }
+        }
+        val out = segments.mapNotNull { seg ->
+            val pts = seg.split(",").mapNotNull { p ->
+                val parts = p.trim().split(" ")
+                if (parts.size < 2) return@mapNotNull null
+                // ⚠ GtJavaParse, not Kotlin's toDoubleOrNull: 2.7e runs on the JVM, where this is
+                // Double.parseDouble behind a screen. GtJavaParse reproduces Java's reading on BOTH
+                // platforms (established 15b), so a coordinate cannot read differently on the iPad.
+                val lon = GtJavaParse.toDoubleOrNull(parts[0]) ?: return@mapNotNull null
+                val lat = GtJavaParse.toDoubleOrNull(parts[1]) ?: return@mapNotNull null
+                Pair(lat, lon)      // FLIPPED -- WKT is lon lat; squaresFor wants (lat, lon)
+            }
+            if (pts.isEmpty()) null else pts
+        }
+        return if (out.isEmpty()) null else out
+    }
+
     fun routeNameById(routeId: String): String? = try { first(conn, "SELECT name FROM routes WHERE route_id=? LIMIT 1", listOf(routeId)) } catch (e: Exception) { null }
     fun findRouteIdByHash(geomHash: String): String? = try { first(conn, "SELECT route_id FROM routes WHERE geom_hash=? LIMIT 1", listOf(geomHash)) } catch (e: Exception) { null }
     fun routeGeomHash(routeId: String): String? = try { first(conn, "SELECT geom_hash FROM routes WHERE route_id=? LIMIT 1", listOf(routeId)) } catch (e: Exception) { null }

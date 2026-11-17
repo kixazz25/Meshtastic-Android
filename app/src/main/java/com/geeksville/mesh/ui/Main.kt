@@ -79,6 +79,7 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import co.touchlab.kermit.Logger
 import com.geeksville.mesh.BuildConfig
@@ -571,6 +572,25 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             settingsGraph(navController)
             firmwareGraph(navController)
         }
+
+        // ── A running job's surface ───────────────────────────────────────────
+        // JOBSURF-2026-11-17 (Fred): an import that is still running must never lose its display.
+        // Before this, the gate POPS ITSELF on proceed (popUpTo inclusive), so the picker was
+        // DESTROYED while the import ran on in the controller's own scope -- the job survived, its
+        // surface did not. On the iPad the job itself would have been terminated. One rule now, in
+        // commonMain (GtJobSurface), rendered by each platform, so they cannot drift.
+        // ⚠ HERE, after the NavHost and inside the Box, which is the app's established always-on-top
+        // socket -- the same place RIDEIMPORT2-2026-09-24 puts the ride-import panel. Box children
+        // stack, so this draws over the graph without displacing it.
+        // ⚠⚠ JOBSURFPAIR-2026-11-17 -- ONE RULE, TWO RENDERS. DO NOT CHANGE ONE RENDER ALONE.
+        //   rule GtJobSurface (commonMain/state) | pin Cert17jobsurface (mode jobsurf17)
+        //   android StateImportAccordion (HomeStatePickerScreen.kt, state StateImportSurface)
+        //   apple JobSurfaceView -- NOT BUILT YET, the reserved name
+        // An edit on one side must land on the other in the SAME release. Drift here is silent: the rule
+        // still passes, both screens still work, and they disagree.
+        val gtJobEntry by navController.currentBackStackEntryAsState()
+        LaunchedEffect(gtJobEntry?.id) { com.geeksville.mesh.convoy.StateImportSurface.onDestinationChanged() }
+        com.geeksville.mesh.convoy.StateImportAccordion()
 
         // ── Convoy submenu overlay ────────────────────────────────────────────
         // RIDEIMPORT2-2026-09-24: an imported ride's GPX -- the existing import panel, file ticked, no picker.

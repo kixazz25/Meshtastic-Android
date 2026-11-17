@@ -34,6 +34,21 @@ import okio.Path
  */
 class IosQueuePlatform(
     private val paths: GtImportPaths = IosImportPaths(),
+    /**
+     * IOSQWIRE-2026-11-17: the runtime, INJECTED and nullable.
+     * ⭐ WHY NULLABLE, against CODE RULE 1 (no nullable as a shortcut). This is not a shortcut, it is
+     * the distinction the rider feels. [IosDownloadQueue] now exists and is certified in the harness,
+     * but the APP does not yet construct one, because constructing one means supplying a real `fetch`
+     * -- URLSession tile downloading, which is not written. Two different states:
+     *   queue != null -> a runtime is wired; append queues, persists and schedules, as Android does.
+     *   queue == null -> no runtime is wired; append THROWS, named, exactly as before.
+     * Collapsing them would mean either a throw after the runtime is wired, or -- far worse -- an
+     * append that succeeds into a queue nothing drains. The second is the silent degradation this
+     * class's note was written to refuse. Evaluated at the point of contact (CODE RULE 2): the check
+     * is inside append, where the entries actually need a runtime.
+     * ⛔ When the real fetch lands, this parameter stops being nullable and this note goes with it.
+     */
+    private val queue: IosDownloadQueue? = null,
 ) : GtQueuePlatform {
 
     private val log = gtLogger("VectorQueue")   // 2.7e's tag, so the logs read as the Droid's
@@ -44,10 +59,18 @@ class IosQueuePlatform(
      */
     override fun append(entries: List<GtQueueEntry>): Unit {
         val n = entries.size
-        log.e { "IOSQUEUE-2026-11-17: append($n) refused -- no iOS download queue runtime" }
+        val q = queue
+        if (q != null) {
+            // 2.7e, in order: entries added, file written, then the picker runs -- append() does all
+            // three, and startNextIfAvailable is called AFTER the save, never before.
+            q.append(entries)
+            log.i { "IOSQWIRE-2026-11-17: append($n) queued; ${q.queue().size} entries in the queue" }
+            return
+        }
+        log.e { "IOSQUEUE-2026-11-17: append($n) refused -- no iOS download queue runtime wired" }
         throw IllegalStateException(
             "IOSQUEUE-2026-11-17: GtQueuePlatform.append was called with " + n + " entries, but the iPad " +
-            "has no download-queue runtime yet (no queue state, no download_queue.json writer, no worker). " +
+            "has no download-queue runtime WIRED. IosDownloadQueue exists and is certified in the harness; nothing constructs one yet, because that needs a real URLSession fetch. " +
             "The save-by-area ARITHMETIC is shared and ran correctly to produce these entries; only the " +
             "RUNTIME is missing. It is deliberately a throw and not a silent no-op: queueing entries that " +
             "nothing will ever download would report success and fetch no tiles. Same blocker as " +

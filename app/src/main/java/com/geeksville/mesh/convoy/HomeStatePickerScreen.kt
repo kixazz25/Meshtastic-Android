@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.grouptrack.shared.log.gtLogger
+import com.grouptrack.shared.state.GtJobSurface
 
 /**
  * HomeStatePickerScreen — the home state setup flow.
@@ -83,6 +84,14 @@ fun HomeStatePickerScreen(
     var refreshThen by remember { mutableStateOf<() -> Unit>({}) }
     var freshData by remember { mutableStateOf(false) }   // DATAQUEUE-2026-11-02 (Fred 15:59): "Download fresh data"
     val progress by HomeStateImportController.progress.collectAsState()
+
+    // JOBSURF-2026-11-17: tell the surface rule that the job's own screen is up, so the overlay
+    // stands down and this screen renders the import itself (GtJobSurface: otherOnTop = false ->
+    // EXPANDED). onDispose is what makes the overlay appear the instant the rider leaves.
+    DisposableEffect(Unit) {
+        StateImportSurface.pickerVisible = true
+        onDispose { StateImportSurface.pickerVisible = false }
+    }
     // KILLEDIMPORT-2026-10-02: a running import this screen did not start still ends in "done".
     LaunchedEffect(progress?.phase) {
         if (phase == "running" && !HomeStateImportController.isImporting &&
@@ -556,6 +565,77 @@ private fun StateListPanel(
 }
 
 // ── Panel 3: Progress ────────────────────────────────────────────
+
+
+/**
+ * JOBSURF-2026-11-17: the collapsed/expanded surface of a running import, drawn OVER whatever the
+ * rider selected. Fred 11-17: "job must always stay up with new screen or process over the top. we
+ * can minimize screen with a step x of xx counter but something must stay present if anything else
+ * is allowed to be selected."
+ *
+ * ⛔ THIS IS THE RENDER, NOT THE RULE. What state to be in comes from
+ * [com.grouptrack.shared.state.GtJobSurface] in commonMain, so the iPad cannot drift from Android by
+ * someone editing a screen. If this draws something the rule did not ask for, this is the defect.
+ *
+ * ⚠ THE PICKER OWNS ITS OWN EXPANDED VIEW. When the job's own screen is up the rule says EXPANDED
+ * and that screen already draws [ProgressPanel]; this returns early so the panel is never drawn
+ * twice. The overlay exists only for "something else is on top". *
+ * ⚠⚠ JOBSURFPAIR-2026-11-17 -- ONE RULE, TWO RENDERS. DO NOT CHANGE ONE RENDER ALONE.
+ *   rule      GtJobSurface          commonMain/state   -- the only place the decision lives
+ *   pin       Cert17jobsurface      mode jobsurf17     -- edit the rule and this fails at once
+ *   android   StateImportAccordion  HomeStatePickerScreen.kt (state: StateImportSurface)
+ *   apple     JobSurfaceView        NOT BUILT YET -- the reserved name, so there is one thing to grep
+ * An edit on one side must land on the other IN THE SAME RELEASE. Drift here is silent by nature: the
+ * rule still passes its cert, both screens still work on their own device, and they disagree with each
+ * other. Nothing in the build will say so -- only a rider on two platforms will notice, and only once.
+ */
+@Composable
+fun StateImportAccordion() {
+    val running = HomeStateImportController.isImporting
+    if (!running) return                       // ABSENT -- no job, no chrome
+    if (StateImportSurface.pickerVisible) return   // the job's own screen is drawing it
+
+    val progress by HomeStateImportController.progress.collectAsState()
+    val surface = StateImportSurface.surface(running)
+    val expanded = surface == GtJobSurface.Surface.EXPANDED
+
+    // STEPLABEL-2026-11-17: currentSourceIndex is indexOfFirst { in_progress }, so it is -1 whenever
+    // nothing is mid-flight -- between two sources and at the end. "step 0 of 7" would be a lie the
+    // rider sees for real seconds, so a -1 reads as the last step rather than a zeroth one.
+    val total = progress?.totalSources ?: 0
+    val raw = progress?.currentSourceIndex ?: -1
+    val step = if (raw < 0) total else (raw + 1).coerceAtMost(if (total > 0) total else 1)
+
+    Column(Modifier.fillMaxWidth().background(bg)) {
+        Surface(
+            color = Gt.text.copy(alpha = 0.18f),
+            modifier = Modifier.fillMaxWidth().clickable { StateImportSurface.tap() }
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Importing " + (progress?.stateName ?: "trail data"),
+                        color = green, fontSize = 15.sp, fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        if (total > 0) "step $step of $total — keep GroupTrack OG open"
+                        else "working — keep GroupTrack OG open",
+                        color = Gt.text, fontSize = 12.sp
+                    )
+                }
+                Text(
+                    if (expanded) "HIDE" else "SHOW",
+                    color = Gt.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(6.dp)
+                )
+            }
+        }
+        if (expanded) ProgressPanel(progress = progress)
+    }
+}
 
 @Composable
 private fun ProgressPanel(progress: ImportProgress?) {

@@ -1,6 +1,8 @@
 package com.grouptrack.shared.platform
 
 import com.grouptrack.shared.imports.GtImportPlatform
+import com.grouptrack.shared.spatial.GtRead
+import com.grouptrack.shared.queue.GtVectorQueue
 import com.grouptrack.shared.log.gtLogger
 import okio.FileSystem
 import okio.Path
@@ -40,6 +42,14 @@ import okio.Path
 class IosImportPlatform(
     private val paths: IosImportPaths = IosImportPaths(),
     private val fs: FileSystem = FileSystem.SYSTEM,
+    /**
+     * IOSCORRIDOR-2026-11-17: the two things [enqueueCorridor] needs, injected and nullable for the
+     * reason given on IosQueuePlatform (CODE RULE 1) -- the pieces exist and are certified, nothing in
+     * the app constructs them yet. Both absent is the ordinary case today and [enqueueCorridor] says so
+     * by name rather than answering 0.
+     */
+    private val read: GtRead? = null,
+    private val vecQueue: GtVectorQueue? = null,
 ) : GtImportPlatform {
 
     private val log = gtLogger("GtIosImport")
@@ -83,13 +93,48 @@ class IosImportPlatform(
         return target.name
     }
 
-    /** ⛔ NOT WIRED -- the iOS download queue does not exist (GtQueuePlatform: no impl either side). */
-    override fun enqueueCorridor(geomHash: String, slot: String, replaceExisting: Boolean): Int =
-        throw UnsupportedOperationException(
-            "CERTPATHS-2026-11-16: enqueueCorridor needs the iOS download queue (GtQueuePlatform is " +
-                "unimplemented on both platforms). Reached only from the GPX IMPORT path " +
-                "(GtGpxImport:345/:486), never from export."
-        )
+    /**
+     * IOSCORRIDOR-2026-11-17: 2.7e DownloadQueueManager.enqueueCorridor, VECTOR PATH ONLY.
+     *
+     * ⭐ ONLY THE VECTOR PATH, on Fred's call (11-17): "be sure we are using the new enqueue corridor...
+     * the old corridor methods applied to tile processing and is no longer active." The tree agrees --
+     * GtTileCalc records that GtMapEngine.isVector "can never be false (`cached ?: true`,
+     * VECONE-2026-11-01 'the only map')". So ConvoyTileCalculator.corridorTiles, the funnel, slotLayers,
+     * the display bbox and the raster QueueEntry are all dead code and are deliberately NOT ported.
+     *
+     * ⚠ [slot] IS ACCEPTED AND IGNORED, and that is 2.7e's behaviour, not an oversight: its vector
+     * branch never reads slotName, because queueSquaresNamed queues VEC and DEM itself. The parameter
+     * survives on the interface for the raster path that no longer runs.
+     * ⚠ THE RETURN IS ESTIMATED TILES, NOT JOBS -- 2.7e returns queueSquaresNamed(...).second, and the
+     * pair is (jobs, estimated tiles). Returning .first would compile and under-report by ~100x.
+     * ⚠ Every square is labelled with the SAME single name (sq.associateWith { setOf(nm) }), the name
+     * falls back to geomHash.take(8) (VECTRACKNAMES-2026-10-31), and the reason is "corridor <name>".
+     */
+    override fun enqueueCorridor(geomHash: String, slot: String, replaceExisting: Boolean): Int {
+        val r = read
+        val q = vecQueue
+        if (r == null || q == null) {
+            log.e { "IOSCORRIDOR-2026-11-17: enqueueCorridor refused -- " + (if (r == null) "no spatial read" else "no vector queue") }
+            throw IllegalStateException(
+                "IOSCORRIDOR-2026-11-17: GtImportPlatform.enqueueCorridor was called for " + geomHash +
+                " but " + (if (r == null) "no spatial read" else "no vector queue runtime") + " is wired. " +
+                "Both pieces exist and are certified -- GtRead.corridorGeometry/nameForGeomHash " +
+                "(CORRIDORREAD-2026-11-17) and GtVectorQueue.squaresFor/queueSquaresNamed (Cert16c) -- " +
+                "but nothing constructs them here yet. ⛔ It is a throw and not a 0: 0 is what 2.7e " +
+                "returns for 'this track has no geometry', so a 0 would read as a successful import of a " +
+                "track with nothing to download, and the rider would get a trail with no map under it."
+            )
+        }
+        val segments = r.corridorGeometry(geomHash)
+        if (segments.isNullOrEmpty()) {
+            log.w { "enqueueCorridor: no geometry for " + geomHash }   // 2.7e's line
+            return 0
+        }
+        val sq = HashSet<Long>()
+        q.squaresFor(segments, sq)
+        val nm = r.nameForGeomHash(geomHash) ?: geomHash.take(8)
+        return q.queueSquaresNamed(sq, sq.associateWith { setOf(nm) }, replaceExisting, "corridor " + nm).second
+    }
 
     /** ⛔ NOT WIRED -- Android sets RiderTrailWriter.trailsChanged so the map reloads; no iPad map yet. */
     override fun onTrailsChanged() {
