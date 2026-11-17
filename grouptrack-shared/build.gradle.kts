@@ -31,6 +31,9 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // COMMKMP-2026-11-17: the Comm contract is EXPORTED, so GroupTrackShared.framework
+            // carries it and Xcode links one framework rather than two.
+            api(projects.grouptrackComm)
             implementation(libs.kermit)
             api(libs.okio)
             api("androidx.sqlite:sqlite:2.5.2")                  // the SQLiteConnection interface (part of this module's API)
