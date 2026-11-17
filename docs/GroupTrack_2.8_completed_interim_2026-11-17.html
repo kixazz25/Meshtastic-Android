@@ -1,0 +1,211 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — COMPLETED 2026-11-17</title></head><body>
+<h1>COMPLETED 2026-11-17</h1>
+<p>One row per item that closed today, with its EVIDENCE (a measurement, a commit, a device
+observation) and its commit number. Items ARRIVE here by being MOVED out of the handoff interim
+or the checklist interim -- never by being retyped. Becomes the day&rsquo;s completed-activity
+record at the EOD process, so that pruning never loses the fact that something was addressed.</p>
+<h2>CLOSED 2026-11-17</h2>
+
+<h3>IosFlight &mdash; GtTracks.Flight, 4 members (IOSFLIGHT-2026-11-17)</h3>
+<p>EVIDENCE: compiles (<code>compileKotlinIosSimulatorArm64 BUILD SUCCESSFUL</code>); simulated over 12 cases on three columns before the
+patch (<code>gt_flightsim_2026-11-17_v1.py</code>); and <b>executed</b> by the new cert leg, 12 of its 39 assertions.
+An <code>object</code>, not a class, because the interface requires it ("the front door passes the SAME object to every GtTracks it
+makes") &mdash; a per-instance guard is no guard. NOT <code>@Volatile</code>, which is this codebase's usual pattern but gives VISIBILITY
+not ATOMICITY. <code>kotlin.concurrent.AtomicInt</code>, <code>compareAndSet(0,1)</code>; end unconditional, as 2.7e's
+<code>set(false)</code> is.</p>
+
+<h3>IosQueuePlatform &mdash; GtQueuePlatform, 3 of 4 members (IOSQUEUE-2026-11-17)</h3>
+<p>EVIDENCE: compiles; executed by the cert leg (<code>downloadZoom</code> 18, <code>satLayers</code> null, <code>recipesDir</code> name,
+and that <code>append</code> throws carrying its marker).</p>
+<p><code>append</code> is a NAMED THROW, not an implementation, and that is the design: <b><code>queue16c</code> certified the queue with
+the platform owning the runtime</b> &mdash; its own header says "no init, no saveQueue, no worker". So <code>append</code> IS the iOS
+queue runtime, and it is real work, not a socket shared code can satisfy. A half-queue that persisted entries without running them would
+be worse than a throw, because it would SUCCEED: the rider saves an area, the call returns, no tile arrives.</p>
+<p>MEASURED: <code>ConvoyConfig.DOWNLOAD_ZOOM</code> (<code>var</code>, :102) is <b>never assigned anywhere in the tree</b> &mdash; its
+declaration is the only assignment, and <code>GtCert16c</code> refuses to run unless it is 18. The seam <code>Cert17g1a</code> calls
+"THE ONE SEAM" is a constant in practice on both platforms.</p>
+
+<h3>&#11088; iosplat17 &mdash; the first cert leg that EXECUTES iOS platform code (IOSPLAT17-2026-11-17)</h3>
+<p>EVIDENCE: <b>39 SAME, 0 DIFF, 0 failures</b> (<code>GtCertIosPlatformMacTest</code>, iosSimulatorArm64Test).</p>
+<p>WHY IT WAS NEEDED, measured: 40 iosTest cert legs existed and 25 classes are declared in <code>iosMain/platform</code> &mdash;
+<b>19 referenced by no cert and no test</b>. The 40 legs certify SHARED code through doubles (<code>Cert16c</code> supplies its own
+<code>GtQueuePlatform</code> answering 18 / null / a fixed folder), so the real iOS implementations had never been executed by anything.
+Compared: answers that must equal Android's. PRINTED as FACTs, never compared: platform facts (container absolute, free space) &mdash;
+"comparing those would fail on a CORRECT implementation" (GtCertPathsMacTest).</p>
+
+<h3>&#9940; OKIODEL-2026-11-17 &mdash; four delete defects, found by that leg on its FIRST run</h3>
+<p>okio's <code>FileSystem.delete</code> defaults to <code>mustExist = false</code>, so deleting what is not there SILENTLY SUCCEEDS;
+<code>java.io.File.delete()</code> returns FALSE. Each site measured against its original:</p>
+<table><tr><th>site</th><th>was</th><th>Android</th></tr>
+<tr><td><code>IosRideFiles.delete</code></td><td>answered TRUE for a missing file</td><td><code>File(path).delete()</code></td></tr>
+<tr><td><code>IosHkEnv.fileDelete</code></td><td>the same</td><td><code>GtHkAndroid.kt:77</code></td></tr>
+<tr><td><code>sweepDownloadedZips</code></td><td>counted a vanished file as removed, inflating <code>removed</code>/<code>freedMb</code></td><td><code>GtOsmAndroid.kt:104</code> <code>if (f.delete())</code></td></tr>
+<tr><td><code>deleteStore</code></td><td>left <code>ok = true</code> in the race window</td><td><code>MBTilesStore.kt:120</code></td></tr></table>
+<p>All four compiled clean on 11-16 and shipped under commit messages claiming fidelity. None would surface on a screen &mdash; they
+present as a ride file that reports deleted and is not, and a sweep claiming space it did not free. The correct pattern already existed at
+<code>GtTracks.deleteTrackFromDb</code> and was rewritten instead of copied, in a class whose own header documents the trap.</p>
+<p>&#9888; A later sweep of ALL of <code>grouptrack-shared</code> found 20 more <code>fs.delete</code> calls without
+<code>mustExist</code> and RETIRED them as non-defects: each is pre-guarded by <code>fs.exists</code> or its result is unused, and on a
+genuine failure okio throws where java.io returns false &mdash; same boolean. Adding the flag there would be noise and would change
+race-window behaviour from "treat as deleted" to "treat as failed".</p>
+
+<h3>GtManifestSweep &mdash; simulated (no code change)</h3>
+<p>EVIDENCE: <code>gt_qsweepsim_2026-11-17_v2.py</code>, 12 cases, OLD 2.7e vs NEW shared, all identical &mdash; a non-manifest
+<code>.json</code> left alone (the MARKERFIX defect that once ate <code>clearTrailsOnce</code>'s marker), unreadable left in place, an
+empty <code>sources</code> array counted as KILLED, <code>imported</code>-only old manifests passing, the colon sanitized to
+<code>-</code>, and <code>killedArea</code> falling through state &rarr; area &rarr; <code>"last"</code>. It was ported 11-16 and had
+never been simulated or tested.</p>
+
+<h3>&#9940; REVERSED THE SAME DAY &mdash; GtDownloadQueue + GtJobLauncher, created and removed (see SEAMREF-2026-11-17)</h3>
+<p>A 227-line shared download-queue runtime and a new <code>GtJobLauncher</code> interface were written, simulated (14 cases, then 9 more
+for <code>initAndResume</code>, all identical to 2.7e) &mdash; and then <b>removed unbuilt</b>. Recorded here so it is not rebuilt.</p>
+<p><b>WHY IT WAS WRONG.</b> The codebase already held TWO certified designs and this was a third: <b>A</b>
+<code>GtQueuePlatform.append</code>, platform owns the runtime, certified by <code>queue16c</code>; <b>B</b>
+<code>GtStateDataQueue</code>, shared owns the runtime with the work injected as a <code>fetch</code> lambda and progress out through
+<code>onChange</code>, certified by <code>queue17e2</code>. The new code was B with an interface where B uses lambdas, for a queue that A
+already governs.</p>
+<p><b>WHAT THE REFERENCE SET SAID, when finally asked.</b> The call graph around <code>DownloadQueueManager</code> is dense and
+Android-side &mdash; ~20 enqueuers, <b>~21 worker callbacks</b> (<code>updateProgress</code>, <code>markComplete</code>,
+<code>markFailed</code> from all three workers), ~55 panel reads and controls, all naming one Android object. Moving that runtime into
+shared code means re-pointing about a hundred call sites and re-certifying them against a design certified the other way. The where-used
+also exposed that the seam is BIDIRECTIONAL and the invented interface was one-directional.</p>
+<p><b>COST:</b> about an hour of Claude's work, no commits, no writes &mdash; verified: never committed, never referenced, never
+executed, no database writer in it, and no <code>download_queue.json</code> written anywhere. <b>The iOS work it was meant to enable is
+unchanged and smaller:</b> implement <code>GtQueuePlatform.append</code> with an iOS runtime in <code>GtStateDataQueue</code>'s certified
+shape.</p>
+
+<h3>&#11088; The app-owned file model &mdash; ONE lookup primitive (ROWSIN-2026-11-17)</h3>
+<p>EVIDENCE: commit <code>d38a70333</code>; simulated <b>44 matched / 0 missed</b> against the real directory spellings
+(<code>gt_pathmatchsim_2026-11-17_v1.py</code>), where the two SQL selections it replaced scored 34/10 and 36/8.</p>
+<p><code>GtFileHome.rowsIn(ctx, family)</code> is now the only way the app finds its own files, and it matches MediaStore
+<code>RELATIVE_PATH</code> <b>in Kotlin, not in SQL</b>. Both SQL attempts failed for opposite reasons and that is the durable lesson:
+<code>LIKE 'Download/GroupTrack%'</code> matched sibling directories (prefix hazard), and exact equality matched nothing because the real
+corpus holds <code>download/</code> lowercase and doubled-slash spellings. <code>has()</code>, <code>save()</code>'s existing-row lookup and
+<code>resetAll()</code> all route through it; the dead <code>PATH_IS</code> selection is gone and its kdoc corrected rather than deleted.</p>
+
+<h3>One picker, four families (ONEPICKER-2026-11-17)</h3>
+<p>EVIDENCE: commit <code>d38a70333</code>; <code>GtFilePicker.kt</code>, 197 lines.</p>
+<p><code>GtFilePickerBody(family)</code> is ONE composable body whose title, section and extensions derive from the family &mdash; rides,
+maps, DR and map features. The frame is the caller's (<code>GtScreenFrame</code> keeps title/HELP/ISSUE/close), so the picker is a body, not
+a screen. On the track-import screen it is now the EMPTY STATE: the system picker no longer auto-launches, the rider sees GroupTrack's own
+directory first, and reaching outside it is the labelled exception &mdash; "SELECT FILES" became "IMPORT FROM SOMEWHERE ELSE".
+<code>stageAndList(uris, keepSources = true)</code> is what stops the picker's own files being deleted as if they were imports.</p>
+
+<h3>&#9940; The duplicate-record defect, and what it really was (TRACKROUTESEP-2026-11-17)</h3>
+<p>EVIDENCE: four routes admitted on 11-17 at 18:22Z; the simulation predicted <b>all four reimport hashes character-for-character before
+the device database was pulled</b> (<code>gt_importsim_2026-11-17_v1.py</code>). Live DB after: 27 routes, 27 distinct hashes, 0 shared;
+<code>UNIQUE(geom_hash)</code> present as <code>sqlite_autoindex_routes_2</code>. Fixed in <code>d38a70333</code>.</p>
+<p><code>trackToRoute</code> emitted its WKT with <code>joinToString(", ")</code> while every other writer
+(<code>GtGeom.coords</code>, <code>RouteManager.buildWktAndBbox</code>, <code>RiderTrailWriter.buildGeometry</code>) emits <code>","</code>.
+Since <code>geom_hash = sha256(WKT text)</code>, one space per coordinate pair is a different identity for identical ground, so
+<code>UNIQUE(geom_hash)</code> enforced "no duplicate <b>spelling</b>" and never saw the duplicate geometry. The dedupe was never broken; the
+WRITER disagreed with itself. <b>This was an intermittent bug &mdash; it only fires on a track converted to a route and then reimported
+&mdash; which is why nine months of production and a certified file-I/O pass never caught it.</b></p>
+<p>Two things it also exposed, both still open: the recap counters are documented as "tracks newly inserted" and the route block only does
+<code>routeCount++</code>, so routes and waypoints have <b>never</b> had honest insert accounting; and the select screen showing 25 of 27 is
+a bbox filter, not phantom rows.</p>
+
+<h3>&#9940; TRIED AND REVERTED THE SAME DAY &mdash; canonicalising the hash (CANONREVERT-2026-11-17)</h3>
+<p>Recorded so it is not rebuilt. The first fix proposed canonicalising inside <code>GtGeom.hash</code> &mdash; and that was
+over-engineering a defect that lived in one caller. Fred stopped it with the right question: <i>"what are we changing the hash that
+works?"</i> Canonicalising changes identity semantics for all four spatial tables, drags in a convergence job and a corridor-tile re-key,
+and &mdash; decisively &mdash; skews 2.7e and 2.8 hashes apart, which would have <b>destroyed Droid 2 as the oracle</b> on the very night a
+reseed was planned. <code>GtGeom.hash</code> is back to <code>wkt.encodeUtf8().sha256().hex()</code>.
+<code>GtGeom.Parsed.canonical()</code> (written 11-09 for exactly this case) remains unused and correct to leave unused.</p>
+<p>The durable rule: the hash was not wrong, so the hash was not the place to fix it. Shape-based duplicate detection is already parked as
+<code>C28-26319</code> for after 2.8, "because it touches every import path".</p>
+
+<h3>The seeding database, repaired twice (SEEDREPAIR-2026-11-17)</h3>
+<p>EVIDENCE: <code>droid1_2026-11-17_1353_SEED</code> &mdash; 23 routes, <b>0 hash mismatches under BOTH 2.7e's raw-text hash and 2.8's</b>,
+0 duplicate-geometry groups.</p>
+<p>v1 and v2 were wrong in the same direction: they repaired the seed for 2.8 and would have shipped a database Droid 2 (2.7e) hashes
+differently, which Fred caught &mdash; <i>"you have to repair the repair for deployment to droid 2."</i> v3 satisfies both regimes at once.
+The confirming detail: the re-keyed legacy <code>Beryl</code> took hash <code>9165afa7&hellip;</code>, which is exactly the hash of the
+duplicate that had been deleted &mdash; proving the two rows were the same ground and that the repair converged rather than invented.</p>
+
+<h3>Email, and the house pattern (EMAILHOUSE / SHARELABEL-2026-11-17)</h3>
+<p>EVIDENCE: the manifest <code>&lt;queries&gt;</code> block declares only the <code>geo:</code> intent, so
+<code>resolveActivity</code> against <code>com.google.android.gm</code> returns null on API 30+ even with Gmail installed.</p>
+<p>The first attempt copied <code>Backup.send()</code> &mdash; which means it copied <b>the one email path in the app that has never
+worked</b>, for that reason. Fred's correction was the method lesson of the day: <i>"we open emails I 5 other places check the
+implemenations."</i> The house pattern (<code>GtIssue</code>, <code>GtRideStatsSend</code>) is <code>ACTION_SEND[_MULTIPLE]</code>,
+<code>type = "*/*"</code>, <code>EXTRA_EMAIL</code>/<code>SUBJECT</code>/<code>TEXT</code>/<code>STREAM</code>,
+<code>FLAG_GRANT_READ_URI_PERMISSION</code>, <code>createChooser</code> inside <code>runCatching</code> with an honest toast, and
+<b>no <code>setPackage</code></b>. Adopted in <code>share()</code>, which now archives through
+<code>GtFileHome.save(MAP_FEATURES, &hellip;)</code> BEFORE it shares &mdash; the file exists whether or not the chooser is used.</p>
+<p>&#9888; I also miscited <code>CONVERTFIX-2026-10-30</code> as governing <code>Intent.type</code>. It governs MediaStore
+<code>MIME_TYPE</code> on INSERT (octet-stream, mandatory). Two different fields.</p>
+<p>The button label was changed to EMAIL and <b>reverted to SHARE within eight minutes</b>, on Fred's call: <i>"this may be a place where we
+have to leave share in and the iOS implementation will be different."</i> Android's chooser and iOS's share sheet are the same gesture; the
+seven remaining share points therefore need the ARCHIVE, not an email conversion.</p>
+
+<h3>grouptrack-comm becomes KMP, and Compose off alpha (COMMKMP-2026-11-17)</h3>
+<p>EVIDENCE: commit <code>3b1688743</code>; gradle <code>BUILD SUCCESSFUL in 2m 57s</code>, 306 tasks.</p>
+<p><code>grouptrack-comm</code> now uses the KMP library convention with iOS targets and
+<code>api(libs.kotlinx.coroutines.core)</code>; <code>compose-multiplatform</code> moved <code>1.11.0-alpha03 &rarr; 1.12.2</code>.</p>
+<p>&#9940; <b>Two defects in how this was done, both mine, recorded because the commits carry them.</b> First,
+<code>git mv</code> auto-staged the rename, so <code>d38a70333</code> took GroupTrackComm.kt's move WITHOUT its build file and
+<b>HEAD does not build at that commit</b> &mdash; <code>3b1688743</code> repairs it and its message says "do not bisect across
+d38a70333". Second, <code>3b1688743</code>'s message claims the Comm contract travels inside the framework. <b>It does not:</b>
+<code>api()</code> is not <code>export()</code> for a Kotlin/Native framework, and the generated ObjC header carries 506 interfaces,
+<code>GtGeom</code> 34 times, and Comm types <b>zero</b>. Whether Swift needs <code>export(projects.grouptrackComm)</code> is an open
+decision.</p>
+
+<h3>The Xcode project exists (IOSPROJ-2026-11-17)</h3>
+<p>EVIDENCE: <code>iosapp/iosapp.xcodeproj/project.xcproj</code> &mdash; <code>PRODUCT_BUNDLE_IDENTIFIER com.grouptrack.ios</code>,
+<code>IPHONEOS_DEPLOYMENT_TARGET 16.0</code>, <code>TARGETED_DEVICE_FAMILY 2</code> (iPad only),
+<code>SUPPORTED_PLATFORMS iphoneos iphonesimulator</code>. Still untracked; commit once it builds.</p>
+<p>Steps 1 and 2 of XCODESTEPS are closed. The framework it must link already exists and is real:
+<code>grouptrack-shared/build/bin/iosSimulatorArm64/debugFramework/GroupTrackShared.framework</code>, a static archive, 57 MB,
+17,376-line header. Two false starts (an "Untitled Project", then a lowercase <code>iosapp</code>, each with a nested <code>.git</code>)
+are parked in <code>_to_delete/</code>. Xcode 27 writes <code>project.xcproj</code> as JSON with trailing commas, and with
+<code>GENERATE_INFOPLIST_FILE = YES</code> the Info.plist keys become <code>INFOPLIST_KEY_*</code> build settings &mdash; which is why
+there is no Info.plist to edit.</p>
+
+<h3>Disaster recovery, defined rather than built (DRTRIAGE-2026-11-17)</h3>
+<p>Seven checklist cards now carry it, on Fred's instruction: <i>"I just want to get these thoughts on paper so we do not loose what real
+dr looks like. what we. have no is triage."</i> The measurement that makes the design cheap: rider-owned data is <b>~40 MB of a 3,104 MB
+corpus</b> (spatial 518 MB, of which trails alone are 416.8; data 62 MB; states 921; cert inputs 1,378). Everything else is
+redistributable. Scope cut for now: only the DR job's EMAIL is replaced, by a write to the DR directory. The rest is post-2.8b.</p>
+
+<h3>&#11088; The rider doc set, updated and POSTED &mdash; and the manual is in git for the first time (MANUALBASE-2026-11-17)</h3>
+<p>EVIDENCE: three assets deployed and verified &mdash; <code>grouptrack_manual.html</code> 10,805,816 bytes (9 &times;
+<code>TO FILL (2.8)</code>, stub index 31 entries, title <i>2.8 (v140, 2026-11-17)</i>), <code>grouptrack_quickstart.html</code>
+21,442, <code>grouptrack_release_notes.html</code> 191,565. Previous assets backed up to
+<code>GroupTrack/_patch_backups/assets_2026-11-17_1710/</code>.</p>
+<p>Nine manual sections stubbed for 2.8 &mdash; <code>map.gpx</code>, <code>map.backup</code>, the four
+<code>map.export_*</code>, <code>map.recipes</code>, <code>map.rm_track</code>, <code>rides.import</code> &mdash; each verified
+POSITIONALLY inside its own section, and each added to the stub index (22 &rarr; 31). <code>map.backup</code> and the four exports
+are marked <b>TEXT NOW WRONG</b> rather than thin: they describe an email and a share sheet that no longer create the file.
+<code>map.rm_track</code> is marked for deletion. <code>map.repair</code> was ported forward from v122 &mdash; the one id the APP
+series had dropped &mdash; restoring the count to 95.</p>
+<p><b>&#9940; AND THE NEAR-MISS THAT BECAME METHOD RULE 3.</b> The first attempt (<code>APP_v138</code>) was built from
+<code>inbox/grouptrack_manual_APP_v137.html</code>, the highest number in the inbox. <b>The real head was the shipped asset, whose
+own comments run to MANUAL v139.</b> Deploying v138 would have destroyed 8,757 characters of real content: the 2.7f title and the
+22-entry <b>stub index</b> &mdash; the backfill register the entire stub method depends on. Caught by comparing byte sizes before
+overwriting (asset 10,732,111 vs v137 10,722,510) rather than by assuming the inbox was current. v138 is parked in
+<code>_to_delete/manual_v138_stale_baseline_2026-11-17/</code>. See MANUALBASE and SKIPLOUD.</p>
+<p><b>Release notes v85</b> opens the 2.8 block: the picker, the duplicate-route fix and export-writes-first as shipped behaviour;
+backup-to-DR-folder and the Map menu removals as <b>QUEUED</b> stubs, because they are decided and not built. <b>Quick Start
+v100</b> stubs the three steps that change and flags the <code>grouptrack_manual.html#&hellip;</code> links to re-check.</p>
+<p><b>The manual now LIVES in <code>docs/</code></b> and is deployed from there to assets, instead of arriving through the Drive
+inbox. <code>recommit</code>&rsquo;s 10 MB skip is untouched and simply never applies to it again. 154 manual versions were already
+in git history; this is the first from the APP series.</p>
+
+<h3>Process &mdash; closed today</h3>
+<ul>
+<li><b>start_of_day v7</b> (SODV7-2026-11-17): MEMORY added to the start-of-day gate alongside the living checklist and the EOD handoff,
+and the three rider docs (Quick Start, release notes, user manual) as a DAILY obligation carrying Fred's rule verbatim &mdash; "we have
+one moment of clarity on changes. it is as soon as they are completed." Both copies written (GT_CMDS and Desktop &mdash; the launcher
+uses the Desktop one), the <code>Start of Day.command</code> repointed, v6 renamed SUPERSEDED.</li>
+<li><b>SEAMREF-2026-11-17</b>: a seam is not unqualified until the reference set says so. Six instances in one morning, all already
+solved.</li>
+<li><b>Scope set for the job screen</b>: JOBSCOPE (stub screen on top so another selection cannot terminate the job), JOBCHIP (the chip
+is that screen's MINIMIZED state, not a separate indicator), CHIPDRAG (draggable &mdash; acceptance testing).</li>
+<li><b>gt_certsweep v3</b>: names <code>gt_cert_v55</code>; v2 called the stale v53, which is what made <code>certlog</code> fail.</li>
+<li><b>gt_iosenv_2026-11-17_v1.sh</b>: the post-first-build environment and setup check &mdash; clean container, bundle audit (13 JSON /
+6 SQL / 69 vecmap, and that the vecmap tree was not flattened), what <code>initDb</code> built, a from-scratch baseline. It refuses to
+recommend seeding while any check fails, because seeding first makes every later fault ambiguous between app and data.</li>
+</ul>
+</body></html>
