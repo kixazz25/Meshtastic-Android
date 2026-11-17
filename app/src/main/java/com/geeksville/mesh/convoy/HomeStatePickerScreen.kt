@@ -3,6 +3,9 @@ package com.geeksville.mesh.convoy
 import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
@@ -19,7 +22,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -592,7 +597,12 @@ private fun StateListPanel(
 @Composable
 fun StateImportAccordion() {
     val running = HomeStateImportController.isImporting
-    if (!running) return                       // ABSENT -- no job, no chrome
+    if (!running) {
+        // CHIPDRAG-2026-11-17: ABSENT. Drop the position so the next job's chip is not parked wherever
+        // the last one was left, possibly off a screen of a different size.
+        StateImportSurface.resetPosition()
+        return                                 // ABSENT -- no job, no chrome
+    }
     if (StateImportSurface.pickerVisible) return   // the job's own screen is drawing it
 
     val progress by HomeStateImportController.progress.collectAsState()
@@ -606,15 +616,39 @@ fun StateImportAccordion() {
     val raw = progress?.currentSourceIndex ?: -1
     val step = if (raw < 0) total else (raw + 1).coerceAtMost(if (total > 0) total else 1)
 
-    Column(Modifier.fillMaxWidth().background(bg)) {
+    // CHIPDRAG-2026-11-17: the offset applies ONLY while collapsed. Expanded this is the job's full
+    // panel and belongs where the layout puts it -- an offset full-height panel would clip off-screen.
+    val off = if (expanded) Modifier else Modifier.offset {
+        IntOffset(StateImportSurface.dragX.roundToInt(), StateImportSurface.dragY.roundToInt())
+    }
+    Column(Modifier.fillMaxWidth().then(off).background(bg)) {
         Surface(
             color = Gt.text.copy(alpha = 0.18f),
-            modifier = Modifier.fillMaxWidth().clickable { StateImportSurface.tap() }
+            // CHIPSTD-2026-11-17: the ROW IS NOT CLICKABLE. The toggle lives on SHOW/HIDE, which is
+            // GtPanel's idiom -- with HELP, ISSUE and CANCEL IMPORT in the row, a bar-wide clickable
+            // would make a near-miss on any of them silently collapse the panel instead.
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // ⭐ A DEDICATED HANDLE, which is GtPanel's idiom (GtPanel.kt:222 "☰ MOVE") and the
+                // reason it works: the drag lives on the handle, so the whole header stays tappable for
+                // SHOW/HIDE. Putting detectDragGestures on the row would make every tap a candidate
+                // drag and swallow taps on a slow finger.
+                if (!expanded) {
+                    Text(
+                        "\u2630", color = Gt.text, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .pointerInput(Unit) {
+                                detectDragGestures { change, drag ->
+                                    change.consume(); StateImportSurface.nudge(drag.x, drag.y)
+                                }
+                            }
+                            .padding(end = 10.dp)
+                    )
+                }
                 Column(Modifier.weight(1f)) {
                     Text(
                         "Importing " + (progress?.stateName ?: "trail data"),
@@ -626,11 +660,33 @@ fun StateImportAccordion() {
                         color = Gt.text, fontSize = 12.sp
                     )
                 }
+                // CHIPSTD-2026-11-17: the standard trio, ISSUE-2026-10-24 -- "HELP - ISSUE - close, on
+                // every panel". This surface had none of it.
                 Text(
                     if (expanded) "HIDE" else "SHOW",
                     color = Gt.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(6.dp)
+                    modifier = Modifier.clickable { StateImportSurface.tap() }.padding(6.dp)
                 )
+                // HELP + ISSUE in one call: GtHelpButton draws ISSUE beside itself
+                // ("wherever HELP is, ISSUE is"). The help id is the import's own, the same one
+                // GtImportFrame uses for this subject, so HELP opens the page the rider expects.
+                com.geeksville.mesh.grouptrack.GtHelpButton("map.trails_state")
+                /*
+                 * ⭐ CANCEL IMPORT WHERE THE ✕ WOULD BE, and that is the whole point of this decision.
+                 * GtPanel's ✕ means LEAVE THE VIEW (PANELX-2026-10-22), and GtImportFrame says so out
+                 * loud while a job runs: "X closes this view, the import keeps running", with CANCEL
+                 * IMPORT beside it as the real cancel. This surface has no view to leave -- it IS the
+                 * minimum, and GtJobSurface forbids ABSENT while a job runs. So a ✕ here could only
+                 * mean one of two things: a lie (dismiss, and the rider loses the job's display for the
+                 * rest of the run) or the real cancel. It is the real cancel, under its real name.
+                 * ⚠ NO CONFIRMATION, which matches GtImportFrame exactly -- its CANCEL IMPORT calls
+                 * cancelImport() directly. Parity beats my preference here, but a chip is easier to
+                 * mis-tap than a full-screen button, so this is flagged for acceptance testing rather
+                 * than settled.
+                 */
+                TextButton(onClick = { HomeStateImportController.cancelImport() }) {
+                    Text("CANCEL IMPORT", color = Gt.bad, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
         if (expanded) ProgressPanel(progress = progress)

@@ -1,6 +1,7 @@
 package com.geeksville.mesh.convoy
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.grouptrack.shared.state.GtJobSurface
@@ -58,4 +59,26 @@ object StateImportSurface {
     fun onDestinationChanged() { holder = holder.onDestinationChanged() }
 
     fun surface(jobRunning: Boolean): GtJobSurface.Surface = holder.surface(jobRunning, !pickerVisible)
+
+    /**
+     * CHIPDRAG-2026-11-17 (Fred): "chip should be a draggable item so we can position anywhere on the
+     * screen. that is a detail for acceptance testing but lets not lose it."
+     *
+     * ⚠ HERE, NOT IN THE COMPOSABLE, for the same reason the collapsed state is here: the chip must
+     * stay where the rider put it across every screen change, and an import outlives every screen
+     * (IMPORTOWNER-2026-09-03). GtPanel keeps its own dx/dy in `remember(title)`, which is right for a
+     * panel that dies with its screen and wrong for this.
+     * ⚠ NOT RESET BY [onDestinationChanged]. Auto-collapse re-arms on navigation; the chip's POSITION
+     * does not, because the rider moved it deliberately and having it jump home on every screen change
+     * would be the opposite of positioning it. Cleared when the job ends, below.
+     */
+    var dragX by mutableFloatStateOf(0f)
+        private set
+    var dragY by mutableFloatStateOf(0f)
+        private set
+
+    fun nudge(dx: Float, dy: Float) { dragX += dx; dragY += dy }
+
+    /** The job finished and the surface went ABSENT: the next job's chip starts where it belongs. */
+    fun resetPosition() { dragX = 0f; dragY = 0f }
 }
