@@ -1,8 +1,8 @@
 ==============================================================================
 GROUPTRACK -- NAVIGATION CROSS-REFERENCE v2 (the click tree, for the user manual)
 ==============================================================================
-Generated: 2026-11-16 17:05   branch 2.8 @ 20fa3cfb2   files scanned: 279   composables: 243
-Clickables: 418   state-opened panels: 57   routes: 0
+Generated: 2026-11-17 18:04   branch 2.8 @ 8fbe2df00   files scanned: 283   composables: 245
+Clickables: 423   state-opened panels: 57   routes: 0
 Each panel shows [file last commit date]: a screenshot whose build date is OLDER than that date needs a recapture.
 
 === 1. THE CLICK TREE (from each screen downward) ===
@@ -38,36 +38,36 @@ ApiKeyRow  [ConvoyMapSourceScreen.kt:939 · 2026-11-16]
    ▸ “Key configured”  (line 949)
       → does: Row( modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically ) { Icon( if (hasKey)…
 
-AreaItemRow  [HomeStatePickerScreen.kt:333 · 2026-11-16]
-   ▸ “?”  (line 335)
+AreaItemRow  [HomeStatePickerScreen.kt:347 · 2026-11-17]
+   ▸ “?”  (line 349)
       → does: onClick()
 
-ArtifactDetailPanel  [ArtifactDetailPanel.kt:37 · 2026-11-16]
-   ▸ “CONTINUE”  (line 175)
+ArtifactDetailPanel  [ArtifactDetailPanel.kt:37 · 2026-11-17]
+   ▸ “CONTINUE”  (line 183)
       → does: val f = first!! runCatching { SpatialDbManager.insertWaypoint(thNewName.trim(), f.second, f.first, "trailhead…
-   ▸ “Cancel”  (line 183)
+   ▸ “Cancel”  (line 191)
       → does: showThPopup = false
-   ▸ “CREATE ROUTE & RIDE”  (line 207)
+   ▸ “CREATE ROUTE & RIDE”  (line 215)
       → calls back GroupTrackScreen  (onCreateRideFromTrack → tid: String, name: String, desc: String, th: ConvoyArtifactOps.RouteTrailhead -…)
-   ▸ “Cancel”  (line 212)
+   ▸ “Cancel”  (line 220)
       → does: showRideNameDialog = false
-   ▸ “×”  (line 277)
+   ▸ “×”  (line 285)
       → does: gtLogger("ArtifactDetail").i { "Preferred name-swap not yet built" }
-   ▸ “DETAILS”  (line 288)
+   ▸ “DETAILS”  (line 296)
       → calls back GroupTrackScreen  (onDeleteAlias → aliasId -> coroutineScope.launch { ConvoyArtifactOps.deleteAlias(context, alias…)
-   ▸ “Rename $artifactType”  (line 344)
+   ▸ “Rename $artifactType”  (line 352)
       → does: showTech = !showTech
-   ▸ “RENAME”  (line 378)
+   ▸ “RENAME”  (line 386)
       → calls back GroupTrackScreen  (onRename → id, newName -> val capType = pendingDetailType if (capType != null) coroutineSc…)
-   ▸ “CANCEL”  (line 383)
+   ▸ “CANCEL”  (line 391)
       → does: showRenameDialog = false
-   ▸ “DELETE”  (line 395)
+   ▸ “DELETE”  (line 403)
       → calls back GroupTrackScreen  (onDelete → id -> val capType = pendingDetailType if (capType != null) coroutineScope.launc…)
-   ▸ “CANCEL”  (line 400)
+   ▸ “CANCEL”  (line 408)
       → does: showDeleteConfirm = false
-   ▸ “CANCEL”  (line 415)
-      → calls back GroupTrackScreen  (onChangeType → id, newType -> coroutineScope.launch { ConvoyArtifactOps.changeType(context, id…)
    ▸ “CANCEL”  (line 423)
+      → calls back GroupTrackScreen  (onChangeType → id, newType -> coroutineScope.launch { ConvoyArtifactOps.changeType(context, id…)
+   ▸ “CANCEL”  (line 431)
       → does: showTypeChooser = false
 
 ArtifactListItem  [ArtifactListPanel.kt:169 · 2026-10-26]
@@ -148,9 +148,9 @@ CompletedRideCard  [ConvoyCompletedRidesScreen.kt:400 · 2026-10-24]
    ▸ “COMPLETED”  (line 403)
       → calls back ConvoyCompletedRidesScreen  (onClick → onNavigateToDetail(ride.id))
 
-CompletionPanel  [HomeStatePickerScreen.kt:732 · 2026-11-16]
-   ▸ “▾  ”  (line 759)
-      RecapLine  [HomeStatePickerScreen.kt:715 · 2026-11-16]  ← opens (showDetail)
+CompletionPanel  [HomeStatePickerScreen.kt:868 · 2026-11-17]
+   ▸ “▾  ”  (line 895)
+      RecapLine  [HomeStatePickerScreen.kt:851 · 2026-11-17]  ← opens (showDetail)
 
 ConfigReviewScreen  [ConfigReviewScreen.kt:67 · 2026-10-26]
    ▸ “Saved configs”  (line 137)
@@ -316,7 +316,7 @@ ConvoyDownloadConfirm  [ConvoyDownloadConfirm.kt:36 · 2026-11-03]
    ▸ “Replace existing tiles”  (line 125)
       → does: replaceExisting = !replaceExisting
    ▸ “CANCEL”  (line 136)
-      RecapLine  [HomeStatePickerScreen.kt:715 · 2026-11-16]  ← opens (showDetail)  (expanded above)
+      RecapLine  [HomeStatePickerScreen.kt:851 · 2026-11-17]  ← opens (showDetail)  (expanded above)
    ▸ “PROCEED”  (line 145)
       → calls back ConvoyTrackImportScreen  (onProceed → _, sel, replace -> selectedSlots = sel replaceExisting = replace showSourcePopu…)
       → calls back GroupTrackScreen  (onProceed → bbox, selectedSlots, replace -> showDownloadConfirm = false // CORRIDOR-WIRING-…)
@@ -593,23 +593,30 @@ ConvoyTrackExportSheet  [ConvoyTrackExportSheet.kt:39 · 2026-10-24]
       ▸ “Rename”  (line 97)
          → calls back ConvoyTrackExportSheet  (onConfirm → newName -> val f = renameTarget; renameTarget = null f?.let { scope.launch { va…)
 
-ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:69 · 2026-11-16]
-   ▸ “Import files — GPX, KML, KMZ, GeoJSON”  (line 378)
+ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:69 · 2026-11-17]
+   ▸ “Import files — GPX, KML, KMZ, GeoJSON”  (line 381)
       → calls back MainScreen  (onDismiss → com.geeksville.mesh.convoy.RideImportLauncher.clear())
-   ▸ “Delete the originals after copying”  (line 500)
+   ▸ “Delete the originals after copying”  (line 509)
       → does: deleteOriginals = !deleteOriginals
-   ▸ “  SELECT FILES  ”  (line 513)
+   ▸ “  IMPORT FROM SOMEWHERE ELSE  ”  (line 522)
       → does: // \u26a0 GPX and KML are frequently reported as // octet-stream, so the wildcard has to be there or // the r…
-   ▸ “  Back to Map  ”  (line 532)
+   ▸ “  Back to Map  ”  (line 541)
       → calls back MainScreen  (onDismiss → com.geeksville.mesh.convoy.RideImportLauncher.clear())
-   ▸ “Source name — on every trail's details; Delete trails by source removes them together”  (line 558)
+   ▸ “Source name — on every trail's details; Delete trails by source removes them together”  (line 567)
       → does: trailsAnswer = a // TRAILCLEAN-2026-11-04: the source name starts as the first picked file's name if (a == "Y…
-   ▸ “?”  (line 609)
+   ▸ “?”  (line 618)
       → does: selected = if (checked) selected - file.name else selected + file.name
-   ▸ “Select All  (${selected.size} of ${files.size})”  (line 709)
+   ▸ “Select All  (${selected.size} of ${files.size})”  (line 718)
       → does: selected = if (selected.size == files.size) emptySet() else files.map { it.name }.toSet()
-   ▸ “NO”  (line 744)
+   ▸ “NO”  (line 753)
       ConvoyDownloadConfirm  [ConvoyDownloadConfirm.kt:36 · 2026-11-03]  ← opens (showSourcePopup)  (expanded above)
+   GtFilePickerBody  [GtFilePicker.kt:95 · 2026-11-17]  ← part of this screen
+      ▸ “☑”  (line 134)
+         → does: chosen = if (on) chosen - r.id else chosen + r.id
+      ▸ “DELETE”  (line 188)
+         → does: var gone = 0 for (r in picked) { try { if (ctx.contentResolver.delete(r.uri, null, null) > 0) gone++ } catch …
+      ▸ “CANCEL”  (line 201)
+         → does: confirmDelete = false
 
 ConvoyTrailSourceScreen  [ConvoyTrailSourceScreen.kt:66 · 2026-11-16]
    ▸ “IMPORT FULL SOURCE”  (line 123)
@@ -723,8 +730,8 @@ ConvoyTransferRideScreen  [ConvoyTransferRideScreen.kt:32 · 2026-11-16]
    ▸ “CANCEL”  (line 237)
       → does: onBack()
 
-DataQueueHeader  [HomeStatePickerScreen.kt:667 · 2026-11-16]
-   ▸ “A file could not be downloaded. RETRY it below, or cancel the import.”  (line 681)
+DataQueueHeader  [HomeStatePickerScreen.kt:803 · 2026-11-17]
+   ▸ “A file could not be downloaded. RETRY it below, or cancel the import.”  (line 817)
       → does: StateDataQueue.setMax(ctx, n)
 
 DetailActionButton  [ConvoyRideDetailScreen.kt:489 · 2026-10-24]
@@ -820,10 +827,10 @@ GroupModeActivatePopup  [GroupMode.kt:51 · 2026-11-16]
 
 GroupTrackHeader  [GroupTrackTheme.kt:66 · 2026-11-07]  (expanded above)
 
-GroupTrackLaunchLayer  [GroupTrack.kt:96 · 2026-11-13]
+GroupTrackLaunchLayer  [GroupTrack.kt:96 · 2026-11-17]
    ▸ “mode”  (line 196)
       → does: tap(m)
-   GtCompass  [GroupTrack.kt:333 · 2026-11-13]  ← part of this screen
+   GtCompass  [GroupTrack.kt:333 · 2026-11-17]  ← part of this screen
       ▸ “N”  (line 341)
          → does: Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.rotate(-bearing)) { Text("N", …
    GtIconButton  [GtPanel.kt:162 · 2026-10-24]  ← part of this screen
@@ -948,21 +955,21 @@ GroupTrackScreen  [GroupTrackScreen.kt:140 · 2026-11-16]
             ▸ “CANCEL IMPORT”  (line 662)
                → does: com.geeksville.mesh.convoy.HomeStateImportController.cancelImport()
             GtScreenFrame  [MapScreens.kt:637 · 2026-11-16]  ← part of this screen  (expanded above)
-         HomeStatePickerScreen  [HomeStatePickerScreen.kt:52 · 2026-11-16]  ← part of this screen
-            ▸ “REFRESH”  (line 174)
+         HomeStatePickerScreen  [HomeStatePickerScreen.kt:58 · 2026-11-17]  ← part of this screen
+            ▸ “REFRESH”  (line 188)
                → does: go(true)
-            ▸ “USE SAVED”  (line 175)
+            ▸ “USE SAVED”  (line 189)
                → does: go(false)
-            ▸ “Download fresh data”  (line 273)
+            ▸ “Download fresh data”  (line 287)
                → does: freshData = !freshData
-            StateListPanel  [HomeStatePickerScreen.kt:440 · 2026-11-16]  ← part of this screen
-               ▸ “${item.entries.size} region${if (item.entries.size > 1) ”  (line 475)
+            StateListPanel  [HomeStatePickerScreen.kt:454 · 2026-11-17]  ← part of this screen
+               ▸ “${item.entries.size} region${if (item.entries.size > 1) ”  (line 489)
                   → calls back HomeStatePickerScreen  (onSelect → selectedItem = it)
-            AreaSourcePanel  [HomeStatePickerScreen.kt:342 · 2026-11-16]  ← part of this screen
-               AreaItemRow  [HomeStatePickerScreen.kt:333 · 2026-11-16]  ← part of this screen  (expanded above)
-            ProgressPanel  [HomeStatePickerScreen.kt:560 · 2026-11-16]  ← part of this screen
-               DataQueueHeader  [HomeStatePickerScreen.kt:667 · 2026-11-16]  ← part of this screen  (expanded above)
-            CompletionPanel  [HomeStatePickerScreen.kt:732 · 2026-11-16]  ← part of this screen  (expanded above)
+            AreaSourcePanel  [HomeStatePickerScreen.kt:356 · 2026-11-17]  ← part of this screen
+               AreaItemRow  [HomeStatePickerScreen.kt:347 · 2026-11-17]  ← part of this screen  (expanded above)
+            ProgressPanel  [HomeStatePickerScreen.kt:696 · 2026-11-17]  ← part of this screen
+               DataQueueHeader  [HomeStatePickerScreen.kt:803 · 2026-11-17]  ← part of this screen  (expanded above)
+            CompletionPanel  [HomeStatePickerScreen.kt:868 · 2026-11-17]  ← part of this screen  (expanded above)
       GtRecipesScreen  [MapScreens.kt:253 · 2026-11-16]  ← part of this screen
          ▸ “CLOSE”  (line 319)
             → does: onDone()
@@ -974,13 +981,13 @@ GroupTrackScreen  [GroupTrackScreen.kt:140 · 2026-11-16]
             → does: clean.value = !clean.value; sure.value = false
       GtImportStateScreen  [MapScreens.kt:344 · 2026-11-16]  ← part of this screen
          GtImportFrame  [MapScreens.kt:656 · 2026-11-16]  ← part of this screen  (expanded above)
-         HomeStatePickerScreen  [HomeStatePickerScreen.kt:52 · 2026-11-16]  ← part of this screen  (expanded above)
+         HomeStatePickerScreen  [HomeStatePickerScreen.kt:58 · 2026-11-17]  ← part of this screen  (expanded above)
       GtImportGpxScreen  [MapScreens.kt:352 · 2026-11-16]  ← part of this screen
          GtScreenFrame  [MapScreens.kt:637 · 2026-11-16]  ← part of this screen  (expanded above)
-         ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:69 · 2026-11-16]  ← part of this screen  (expanded above)
+         ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:69 · 2026-11-17]  ← part of this screen  (expanded above)
       GtImportGpxTrailsScreen  [MapScreens.kt:360 · 2026-11-16]  ← part of this screen
          GtScreenFrame  [MapScreens.kt:637 · 2026-11-16]  ← part of this screen  (expanded above)
-         ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:69 · 2026-11-16]  ← part of this screen  (expanded above)
+         ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:69 · 2026-11-17]  ← part of this screen  (expanded above)
       GtConvertGpxScreen  [MapScreens.kt:368 · 2026-11-16]  ← part of this screen
          GtScreenFrame  [MapScreens.kt:637 · 2026-11-16]  ← part of this screen  (expanded above)
          ConvertToGpxScreen  [ConvertToGpxScreen.kt:32 · 2026-10-30]  ← part of this screen  (expanded above)
@@ -1014,7 +1021,7 @@ GroupTrackScreen  [GroupTrackScreen.kt:140 · 2026-11-16]
    MyCartHud  [GroupTrackScreen.kt:3238 · 2026-11-16]  ← part of this screen
    NodeDetailHud  [GroupTrackScreen.kt:3296 · 2026-11-16]  ← part of this screen
    CollapsedPill  [GroupTrackScreen.kt:3334 · 2026-11-16]  ← part of this screen  (expanded above)
-   GroupTrackLaunchLayer  [GroupTrack.kt:96 · 2026-11-13]  ← part of this screen  (expanded above)
+   GroupTrackLaunchLayer  [GroupTrack.kt:96 · 2026-11-17]  ← part of this screen  (expanded above)
    GtRouteHost  [RouteModule.kt:941 · 2026-11-16]  ← part of this screen
       ▸ “SEARCH — find your area”  (line 1303)
          → does: searchOpen.value = !searchOpen.value
@@ -1102,13 +1109,15 @@ GtButton  [GtPanel.kt:144 · 2026-10-24]  (expanded above)
 
 GtCompareTable  [AiCompareTable.kt:66 · 2026-11-16]  (expanded above)
 
-GtCompass  [GroupTrack.kt:333 · 2026-11-13]  (expanded above)
+GtCompass  [GroupTrack.kt:333 · 2026-11-17]  (expanded above)
 
 GtDownloadSettingsPanel  [DownloadDefaults.kt:91 · 2026-11-03]  (expanded above)
 
 GtDownloadSummary  [DownloadDefaults.kt:80 · 2026-11-03]  (expanded above)
 
 GtEmergencyScreen  [EmergencyRestore.kt:97 · 2026-11-16]  (expanded above)
+
+GtFilePickerBody  [GtFilePicker.kt:95 · 2026-11-17]  (expanded above)
 
 GtFilterBody  [FilterModule.kt:60 · 2026-11-03]  (expanded above)
 
@@ -1129,7 +1138,7 @@ GtMenuItem  [GroupTrackTheme.kt:390 · 2026-11-07]  (expanded above)
 
 GtMenuLabel  [GroupTrackTheme.kt:363 · 2026-11-07]  (expanded above)
 
-GtMenuLine  [GroupTrack.kt:75 · 2026-11-13]
+GtMenuLine  [GroupTrack.kt:75 · 2026-11-17]
    ▸ “OVERVIEW”  (line 85)
       → ⚠ no action found
    ▸ “OVERVIEW”  (line 92)
@@ -1175,24 +1184,30 @@ GtTrailSourcesScreen  [TrailCleanup.kt:176 · 2026-11-16]  (expanded above)
 
 GtUtahPrivatePanel  [UtahPrivate.kt:184 · 2026-11-16]  (expanded above)
 
-HomeStatePickerScreen  [HomeStatePickerScreen.kt:52 · 2026-11-16]  (expanded above)
+HomeStatePickerScreen  [HomeStatePickerScreen.kt:58 · 2026-11-17]  (expanded above)
 
-ImportRecapDialog  [ConvoyTrackImportScreen.kt:850 · 2026-11-16]
-   ▸ “DELETE FILES & CLOSE”  (line 870)
+ImportRecapDialog  [ConvoyTrackImportScreen.kt:859 · 2026-11-17]
+   ▸ “DELETE FILES & CLOSE”  (line 879)
       → calls back ConvoyTrackImportScreen  (onFilesDelete → scope.launch { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO…)
       → calls back MainScreen  (via ConvoyTrackImportScreen.onDismiss)
 
-MainScreen  [Main.kt:172 · 2026-11-07]
-   ▸ “?”  (line 466)
+MainScreen  [Main.kt:173 · 2026-11-17]
+   ▸ “?”  (line 467)
       → goes to route  (route route)
       → goes to ConvoyAuthorityGate  (route ConvoyAuthorityGate)
-   ▸ “Hide Mesh”  (line 544)
+   ▸ “Hide Mesh”  (line 545)
       → goes to ConvoyAuthorityGate  (route ConvoyAuthorityGate)
-   ▸ “◀ BACK TO MAP”  (line 677)
+   ▸ “◀ BACK TO MAP”  (line 697)
       → does: convoyViewModel.closeCommMenu(grpOpenNow ?: "")
-   ▸ “OK”  (line 699)
+   ▸ “OK”  (line 719)
       → does: com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false com.geeksville.mesh.convoy.GrpAwaren…
-   ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:69 · 2026-11-16]  ← part of this screen  (expanded above)
+   StateImportAccordion  [HomeStatePickerScreen.kt:597 · 2026-11-17]  ← part of this screen
+      ▸ “wherever HELP is, ISSUE is”  (line 668)
+         → does: StateImportSurface.tap()
+      ▸ “CANCEL IMPORT”  (line 687)
+         → does: HomeStateImportController.cancelImport()
+      ProgressPanel  [HomeStatePickerScreen.kt:696 · 2026-11-17]  ← part of this screen  (expanded above)
+   ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:69 · 2026-11-17]  ← part of this screen  (expanded above)
    GroupModeActivatePopup  [GroupMode.kt:51 · 2026-11-16]  ← part of this screen  (expanded above)
    GtHelpViewer  [GtHelpViewer.kt:51 · 2026-10-27]  ← part of this screen
 
@@ -1273,7 +1288,9 @@ SourceRow  [ConvoyMapSourceScreen.kt:876 · 2026-11-16]  (expanded above)
 
 SourceSelectCard  [ConvoyTrailSourceScreen.kt:571 · 2026-11-16]  (expanded above)
 
-StateListPanel  [HomeStatePickerScreen.kt:440 · 2026-11-16]  (expanded above)
+StateImportAccordion  [HomeStatePickerScreen.kt:597 · 2026-11-17]  (expanded above)
+
+StateListPanel  [HomeStatePickerScreen.kt:454 · 2026-11-17]  (expanded above)
 
 StepButton  [ConvoyAiStepPanel.kt:91 · 2026-10-24]
    ▸ “?”  (line 98)
@@ -1308,7 +1325,7 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-11-07]
       → does: notice.pending = null; open()
 
 === 2. PANELS AND SCREENS — source file and its last commit date ===
-2026-11-16  ArtifactDetailPanel                          app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:37  (13 clickables)
+2026-11-17  ArtifactDetailPanel                          app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:37  (13 clickables)
 2026-10-26  ArtifactListPanel                            app/src/main/java/com/geeksville/mesh/convoy/ArtifactListPanel.kt:41  (4 clickables)
 2026-10-26  ArtifactListItem                             app/src/main/java/com/geeksville/mesh/convoy/ArtifactListPanel.kt:169  (1 clickables)
 2026-10-26  ConfigReviewScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConfigReviewScreen.kt:67  (9 clickables)
@@ -1384,8 +1401,8 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-11-07]
 2026-10-24  ConvoyTrackExportSheet                       app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackExportSheet.kt:39  (4 clickables)
 2026-10-24  FilterTab                                    app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackExportSheet.kt:285  (1 clickables)
 2026-10-24  TrackRow                                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackExportSheet.kt:301  (1 clickables)
-2026-11-16  ConvoyTrackImportScreen                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt:69  (8 clickables)
-2026-11-16  ImportRecapDialog                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt:850  (1 clickables)
+2026-11-17  ConvoyTrackImportScreen                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt:69  (8 clickables)
+2026-11-17  ImportRecapDialog                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt:859  (1 clickables)
 2026-11-16  ConvoyTrailSourceScreen                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrailSourceScreen.kt:66  (17 clickables)
 2026-11-16  MethodCard                                   app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrailSourceScreen.kt:555  (1 clickables)
 2026-11-16  SourceSelectCard                             app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrailSourceScreen.kt:571  (1 clickables)
@@ -1398,11 +1415,13 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-11-07]
 2026-11-07  GtMenuLabel                                  app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:363  (1 clickables)
 2026-11-07  GtMenuItem                                   app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:390  (1 clickables)
 2026-11-07  GrpAwarenessPanel                            app/src/main/java/com/geeksville/mesh/convoy/GrpAwareness.kt:157  (11 clickables)
-2026-11-16  HomeStatePickerScreen                        app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:52  (3 clickables)
-2026-11-16  AreaItemRow                                  app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:333  (1 clickables)
-2026-11-16  StateListPanel                               app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:440  (1 clickables)
-2026-11-16  DataQueueHeader                              app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:667  (1 clickables)
-2026-11-16  CompletionPanel                              app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:732  (1 clickables)
+2026-11-17  GtFilePickerBody                             app/src/main/java/com/geeksville/mesh/convoy/GtFilePicker.kt:95  (3 clickables)
+2026-11-17  HomeStatePickerScreen                        app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:58  (3 clickables)
+2026-11-17  AreaItemRow                                  app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:347  (1 clickables)
+2026-11-17  StateListPanel                               app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:454  (1 clickables)
+2026-11-17  StateImportAccordion                         app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:597  (2 clickables)
+2026-11-17  DataQueueHeader                              app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:803  (1 clickables)
+2026-11-17  CompletionPanel                              app/src/main/java/com/geeksville/mesh/convoy/HomeStatePickerScreen.kt:868  (1 clickables)
 2026-11-16  RadioConfigScreen                            app/src/main/java/com/geeksville/mesh/convoy/RadioConfigScreen.kt:89  (5 clickables)
 2026-10-24  RiderTrailsDialog                            app/src/main/java/com/geeksville/mesh/convoy/RiderTrailsDialog.kt:37  (1 clickables)
 2026-11-16  RidesScreen                                  app/src/main/java/com/geeksville/mesh/convoy/RidesScreen.kt:102  (8 clickables)
@@ -1418,9 +1437,9 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-11-07]
 2026-11-03  GtFilterBody                                 app/src/main/java/com/geeksville/mesh/grouptrack/FilterModule.kt:60  (7 clickables)
 2026-11-03  TrailGroup                                   app/src/main/java/com/geeksville/mesh/grouptrack/FilterModule.kt:156  (2 clickables)
 2026-11-03  Seg                                          app/src/main/java/com/geeksville/mesh/grouptrack/FilterModule.kt:185  (1 clickables)
-2026-11-13  GtMenuLine                                   app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrack.kt:75  (2 clickables)
-2026-11-13  GroupTrackLaunchLayer                        app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrack.kt:96  (1 clickables)
-2026-11-13  GtCompass                                    app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrack.kt:333  (1 clickables)
+2026-11-17  GtMenuLine                                   app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrack.kt:75  (2 clickables)
+2026-11-17  GroupTrackLaunchLayer                        app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrack.kt:96  (1 clickables)
+2026-11-17  GtCompass                                    app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrack.kt:333  (1 clickables)
 2026-11-16  GroupTrackScreen                             app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:140  (27 clickables)
 2026-11-16  CollapsedPill                                app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:3334  (1 clickables)
 2026-11-16  CartPickerPanel                              app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:3436  (5 clickables)
@@ -1450,7 +1469,7 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-11-07]
 2026-11-16  GtRemoveFeaturesScreen                       app/src/main/java/com/geeksville/mesh/grouptrack/TrailCleanup.kt:130  (2 clickables)
 2026-11-16  GtTrailSourcesScreen                         app/src/main/java/com/geeksville/mesh/grouptrack/TrailCleanup.kt:176  (3 clickables)
 2026-11-16  GtUtahPrivatePanel                           app/src/main/java/com/geeksville/mesh/grouptrack/UtahPrivate.kt:184  (1 clickables)
-2026-11-07  MainScreen                                   app/src/main/java/com/geeksville/mesh/ui/Main.kt:172  (4 clickables)
+2026-11-17  MainScreen                                   app/src/main/java/com/geeksville/mesh/ui/Main.kt:173  (4 clickables)
 
 === 3. STATE FLAGS → PANELS THEY SHOW ===
 GroupMode                          → SectionLabel
@@ -1523,19 +1542,19 @@ true                               → GtHelpButton
 waiting                            → GtButton
 
 === 4. EVERY CLICKABLE (flat) — file:line | panel | label | action ===
-ArtifactDetailPanel.kt:175 | ArtifactDetailPanel | “CONTINUE” | val f = first!! runCatching { SpatialDbManager.insertWaypoint(thNewName.trim(), f.second, f.first, "trailhead") } chose…
-ArtifactDetailPanel.kt:183 | ArtifactDetailPanel | “Cancel” | showThPopup = false
-ArtifactDetailPanel.kt:207 | ArtifactDetailPanel | “CREATE ROUTE & RIDE” | val th = chosenTh!! // FIRSTPOINT-2026-09-27 showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteName.trim()…
-ArtifactDetailPanel.kt:212 | ArtifactDetailPanel | “Cancel” | showRideNameDialog = false
-ArtifactDetailPanel.kt:277 | ArtifactDetailPanel | “×” | gtLogger("ArtifactDetail").i { "Preferred name-swap not yet built" }
-ArtifactDetailPanel.kt:288 | ArtifactDetailPanel | “DETAILS” | onDeleteAlias(aId); reloadAliases()
-ArtifactDetailPanel.kt:344 | ArtifactDetailPanel | “Rename $artifactType” | showTech = !showTech
-ArtifactDetailPanel.kt:378 | ArtifactDetailPanel | “RENAME” | onRename?.invoke(id, renameText); showRenameDialog = false; onDismiss(null, null)
-ArtifactDetailPanel.kt:383 | ArtifactDetailPanel | “CANCEL” | showRenameDialog = false
-ArtifactDetailPanel.kt:395 | ArtifactDetailPanel | “DELETE” | onDelete?.invoke(id); showDeleteConfirm = false; onDismiss(null, null)
-ArtifactDetailPanel.kt:400 | ArtifactDetailPanel | “CANCEL” | showDeleteConfirm = false
-ArtifactDetailPanel.kt:415 | ArtifactDetailPanel | “CANCEL” | onChangeType?.invoke(id, wType); showTypeChooser = false; onDismiss(null, null)
-ArtifactDetailPanel.kt:423 | ArtifactDetailPanel | “CANCEL” | showTypeChooser = false
+ArtifactDetailPanel.kt:183 | ArtifactDetailPanel | “CONTINUE” | val f = first!! runCatching { SpatialDbManager.insertWaypoint(thNewName.trim(), f.second, f.first, "trailhead") } chose…
+ArtifactDetailPanel.kt:191 | ArtifactDetailPanel | “Cancel” | showThPopup = false
+ArtifactDetailPanel.kt:215 | ArtifactDetailPanel | “CREATE ROUTE & RIDE” | val th = chosenTh!! // FIRSTPOINT-2026-09-27 showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteName.trim()…
+ArtifactDetailPanel.kt:220 | ArtifactDetailPanel | “Cancel” | showRideNameDialog = false
+ArtifactDetailPanel.kt:285 | ArtifactDetailPanel | “×” | gtLogger("ArtifactDetail").i { "Preferred name-swap not yet built" }
+ArtifactDetailPanel.kt:296 | ArtifactDetailPanel | “DETAILS” | onDeleteAlias(aId); reloadAliases()
+ArtifactDetailPanel.kt:352 | ArtifactDetailPanel | “Rename $artifactType” | showTech = !showTech
+ArtifactDetailPanel.kt:386 | ArtifactDetailPanel | “RENAME” | onRename?.invoke(id, renameText); showRenameDialog = false; onDismiss(null, null)
+ArtifactDetailPanel.kt:391 | ArtifactDetailPanel | “CANCEL” | showRenameDialog = false
+ArtifactDetailPanel.kt:403 | ArtifactDetailPanel | “DELETE” | onDelete?.invoke(id); showDeleteConfirm = false; onDismiss(null, null)
+ArtifactDetailPanel.kt:408 | ArtifactDetailPanel | “CANCEL” | showDeleteConfirm = false
+ArtifactDetailPanel.kt:423 | ArtifactDetailPanel | “CANCEL” | onChangeType?.invoke(id, wType); showTypeChooser = false; onDismiss(null, null)
+ArtifactDetailPanel.kt:431 | ArtifactDetailPanel | “CANCEL” | showTypeChooser = false
 ArtifactListPanel.kt:92 | ArtifactListPanel | “$artifactType (${artifacts.size})” | gtFolded = !gtFolded
 ArtifactListPanel.kt:116 | ArtifactListPanel | “DESELECT ALL” | onSelectAll()
 ArtifactListPanel.kt:121 | ArtifactListPanel | “FIT” | onDeselectAll()
@@ -1743,15 +1762,15 @@ ConvoyTrackExportSheet.kt:151 | ConvoyTrackExportSheet | “Date ↓” | sortMo
 ConvoyTrackExportSheet.kt:196 | ConvoyTrackExportSheet | “Copied to Downloads” | actionTarget = f
 ConvoyTrackExportSheet.kt:288 | FilterTab | “✓ ” | Text((if (selected) "\u2713 " else "") + label, color = if (selected) Gt.text else Gt.dim, fontSize = 12.sp, fontFamily…
 ConvoyTrackExportSheet.kt:309 | TrackRow | “${dateFmt.format(Date(file.lastModified()))}    ${ConvoyTrackOps.formatSize(file.length())}” | Surface( modifier = Modifier.size(8.dp), shape = RoundedCornerShape(4.dp), color = if (isInProgress) Gt.warn.copy(alpha…
-ConvoyTrackImportScreen.kt:378 | ConvoyTrackImportScreen | “Import files — GPX, KML, KMZ, GeoJSON” | onDismiss()
-ConvoyTrackImportScreen.kt:500 | ConvoyTrackImportScreen | “Delete the originals after copying” | deleteOriginals = !deleteOriginals
-ConvoyTrackImportScreen.kt:513 | ConvoyTrackImportScreen | “  SELECT FILES  ” | // \u26a0 GPX and KML are frequently reported as // octet-stream, so the wildcard has to be there or // the rider sees …
-ConvoyTrackImportScreen.kt:532 | ConvoyTrackImportScreen | “  Back to Map  ” | onDismiss()
-ConvoyTrackImportScreen.kt:558 | ConvoyTrackImportScreen | “Source name — on every trail's details; Delete trails by source removes them together” | trailsAnswer = a // TRAILCLEAN-2026-11-04: the source name starts as the first picked file's name if (a == "YES" && tra…
-ConvoyTrackImportScreen.kt:609 | ConvoyTrackImportScreen | “?” | selected = if (checked) selected - file.name else selected + file.name
-ConvoyTrackImportScreen.kt:709 | ConvoyTrackImportScreen | “Select All  (${selected.size} of ${files.size})” | selected = if (selected.size == files.size) emptySet() else files.map { it.name }.toSet()
-ConvoyTrackImportScreen.kt:744 | ConvoyTrackImportScreen | “NO” | if (trailsAnswer == "NO" && selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport()
-ConvoyTrackImportScreen.kt:870 | ImportRecapDialog | “DELETE FILES & CLOSE” | onFilesDelete(); onDismiss()
+ConvoyTrackImportScreen.kt:381 | ConvoyTrackImportScreen | “Import files — GPX, KML, KMZ, GeoJSON” | onDismiss()
+ConvoyTrackImportScreen.kt:509 | ConvoyTrackImportScreen | “Delete the originals after copying” | deleteOriginals = !deleteOriginals
+ConvoyTrackImportScreen.kt:522 | ConvoyTrackImportScreen | “  IMPORT FROM SOMEWHERE ELSE  ” | // \u26a0 GPX and KML are frequently reported as // octet-stream, so the wildcard has to be there or // the rider sees …
+ConvoyTrackImportScreen.kt:541 | ConvoyTrackImportScreen | “  Back to Map  ” | onDismiss()
+ConvoyTrackImportScreen.kt:567 | ConvoyTrackImportScreen | “Source name — on every trail's details; Delete trails by source removes them together” | trailsAnswer = a // TRAILCLEAN-2026-11-04: the source name starts as the first picked file's name if (a == "YES" && tra…
+ConvoyTrackImportScreen.kt:618 | ConvoyTrackImportScreen | “?” | selected = if (checked) selected - file.name else selected + file.name
+ConvoyTrackImportScreen.kt:718 | ConvoyTrackImportScreen | “Select All  (${selected.size} of ${files.size})” | selected = if (selected.size == files.size) emptySet() else files.map { it.name }.toSet()
+ConvoyTrackImportScreen.kt:753 | ConvoyTrackImportScreen | “NO” | if (trailsAnswer == "NO" && selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport()
+ConvoyTrackImportScreen.kt:879 | ImportRecapDialog | “DELETE FILES & CLOSE” | onFilesDelete(); onDismiss()
 ConvoyTrailSourceScreen.kt:123 | ConvoyTrailSourceScreen | “IMPORT FULL SOURCE” | when (step) { ImportStep.METHOD_SELECT -> onNavigateBack() ImportStep.A1_SOURCE_SELECT -> onNavigateBack() ImportStep.A…
 ConvoyTrailSourceScreen.kt:158 | ConvoyTrailSourceScreen | “IMPORT FULL SOURCE” | step = ImportStep.A1_SOURCE_SELECT
 ConvoyTrailSourceScreen.kt:164 | ConvoyTrailSourceScreen | “IMPORT BY AREA” | step = ImportStep.B1_DRAW_AREA
@@ -1796,13 +1815,18 @@ GrpAwareness.kt:276 | GrpAwarenessPanel | “RADIO SETTINGS” | message = ""; o
 GrpAwareness.kt:283 | GrpAwarenessPanel | “NODES” | message = ""; onMeshtastic()
 GrpAwareness.kt:300 | GrpAwarenessPanel | “FORGET” | if (r.id == selectedAddress) onDisconnect() val rName = r.name onForget(r.id) { ok -> // COMMLINKREQ-2026-10-11: the co…
 GrpAwareness.kt:309 | GrpAwarenessPanel | “CANCEL” | forgetting = null
-HomeStatePickerScreen.kt:174 | HomeStatePickerScreen | “REFRESH” | go(true)
-HomeStatePickerScreen.kt:175 | HomeStatePickerScreen | “USE SAVED” | go(false)
-HomeStatePickerScreen.kt:273 | HomeStatePickerScreen | “Download fresh data” | freshData = !freshData
-HomeStatePickerScreen.kt:335 | AreaItemRow | “?” | onClick()
-HomeStatePickerScreen.kt:475 | StateListPanel | “${item.entries.size} region${if (item.entries.size > 1) ” | onSelect(item)
-HomeStatePickerScreen.kt:681 | DataQueueHeader | “A file could not be downloaded. RETRY it below, or cancel the import.” | StateDataQueue.setMax(ctx, n)
-HomeStatePickerScreen.kt:759 | CompletionPanel | “▾  ” | showDetail = !showDetail
+GtFilePicker.kt:134 | GtFilePickerBody | “☑” | chosen = if (on) chosen - r.id else chosen + r.id
+GtFilePicker.kt:188 | GtFilePickerBody | “DELETE” | var gone = 0 for (r in picked) { try { if (ctx.contentResolver.delete(r.uri, null, null) > 0) gone++ } catch (e: Except…
+GtFilePicker.kt:201 | GtFilePickerBody | “CANCEL” | confirmDelete = false
+HomeStatePickerScreen.kt:188 | HomeStatePickerScreen | “REFRESH” | go(true)
+HomeStatePickerScreen.kt:189 | HomeStatePickerScreen | “USE SAVED” | go(false)
+HomeStatePickerScreen.kt:287 | HomeStatePickerScreen | “Download fresh data” | freshData = !freshData
+HomeStatePickerScreen.kt:349 | AreaItemRow | “?” | onClick()
+HomeStatePickerScreen.kt:489 | StateListPanel | “${item.entries.size} region${if (item.entries.size > 1) ” | onSelect(item)
+HomeStatePickerScreen.kt:668 | StateImportAccordion | “wherever HELP is, ISSUE is” | StateImportSurface.tap()
+HomeStatePickerScreen.kt:687 | StateImportAccordion | “CANCEL IMPORT” | HomeStateImportController.cancelImport()
+HomeStatePickerScreen.kt:817 | DataQueueHeader | “A file could not be downloaded. RETRY it below, or cancel the import.” | StateDataQueue.setMax(ctx, n)
+HomeStatePickerScreen.kt:895 | CompletionPanel | “▾  ” | showDetail = !showDetail
 RadioConfigScreen.kt:224 | RadioConfigScreen | “Apply ride to radio” | 
 RadioConfigScreen.kt:263 | RadioConfigScreen | “USE MY CALLSIGN ($callsign)” | radioCallsign = callsign; nameTouched = true
 RadioConfigScreen.kt:268 | RadioConfigScreen | “${chosen?.name}” | choose(t)
@@ -1937,10 +1961,10 @@ TrailCleanup.kt:195 | GtTrailSourcesScreen | “%,d” | pick = s
 TrailCleanup.kt:210 | GtTrailSourcesScreen | “CANCEL” | busy = true scope.launch { val r = withContext(Dispatchers.IO) { GtTrailCleanup.deleteSource(p) } android.widget.Toast.…
 TrailCleanup.kt:220 | GtTrailSourcesScreen | “CANCEL” | pick = null
 UtahPrivate.kt:220 | GtUtahPrivatePanel | “Download the latest public-lands data first” | latest = !latest
-Main.kt:466 | MainScreen | “?” | val isRepress = destination == topLevelDestination if (isRepress) { when (destination) { TopLevelDestination.Nodes -> {…
-Main.kt:544 | MainScreen | “Hide Mesh” | MeshNavFold.setFolded(ctx, true) // HIDEMESH-2026-09-28 (Fred): Hide Mesh also RETURNS TO THE RIDE MAP -- the map tab's…
-Main.kt:677 | MainScreen | “◀ BACK TO MAP” | convoyViewModel.closeCommMenu(grpOpenNow ?: "")
-Main.kt:699 | MainScreen | “OK” | com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false com.geeksville.mesh.convoy.GrpAwarenessLaunche…
+Main.kt:467 | MainScreen | “?” | val isRepress = destination == topLevelDestination if (isRepress) { when (destination) { TopLevelDestination.Nodes -> {…
+Main.kt:545 | MainScreen | “Hide Mesh” | MeshNavFold.setFolded(ctx, true) // HIDEMESH-2026-09-28 (Fred): Hide Mesh also RETURNS TO THE RIDE MAP -- the map tab's…
+Main.kt:697 | MainScreen | “◀ BACK TO MAP” | convoyViewModel.closeCommMenu(grpOpenNow ?: "")
+Main.kt:719 | MainScreen | “OK” | com.geeksville.mesh.convoy.GrpAwarenessLauncher.powerCycle.value = false com.geeksville.mesh.convoy.GrpAwarenessLaunche…
 
 === 5. UNRESOLVED — clickables with no action found (check each by hand) ===
 ConvoyTrackDialogs.kt:60 | ActionRow | “?” | 
