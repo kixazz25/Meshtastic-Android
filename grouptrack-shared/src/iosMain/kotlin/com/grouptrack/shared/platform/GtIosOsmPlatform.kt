@@ -101,7 +101,10 @@ class IosOsmPlatform(
             val md = try { fs.metadataOrNull(f) } catch (e: Exception) { null }
             if (md?.isDirectory == true) continue
             val mb = (md?.size ?: 0L) / 1048576L
-            val ok = try { fs.delete(f); true } catch (e: Exception) { false }
+            // ⛔ OKIODEL-2026-11-17: mustExist = true. Android is `if (f.delete())`
+            // (GtOsmAndroid.kt:104), so a file that vanished between the list and the delete counts as
+            // NOT removed. Without mustExist it counts as removed, inflating `removed` and `freedMb`.
+            val ok = try { fs.delete(f, mustExist = true); true } catch (e: Exception) { false }
             if (ok) {
                 removed++; freedMb += mb
                 log.i { "deleted download $name ($mb MB)" }

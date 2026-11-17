@@ -67,9 +67,19 @@ class IosRideFiles(
     override fun exists(path: String): Boolean =
         try { fs.exists(path.toPath()) } catch (e: Exception) { false }
 
-    /** File.delete(): false when the file is absent or cannot be removed -- never a throw. */
+    /**
+     * File.delete(): false when the file is absent or cannot be removed -- never a throw.
+     *
+     * ⛔ RIDEDEL-2026-11-17 -- mustExist = true IS LOAD-BEARING, DO NOT DROP IT. okio's
+     * FileSystem.delete defaults to mustExist = FALSE, so deleting a path that is not there SILENTLY
+     * SUCCEEDS and this member answered TRUE where java.io.File.delete() answers FALSE. Caught by
+     * GtCertIosPlatformMacTest on its first ever run (38 SAME, 1 DIFF) -- it is invisible otherwise,
+     * because a caller testing delete() to learn whether a file was really removed just gets a false
+     * positive. The same correction already existed in this codebase at GtTracks.deleteTrackFromDb
+     * ("File.delete(): false, never throws"); it should have been copied rather than rewritten.
+     */
     override fun delete(path: String): Boolean =
-        try { fs.delete(path.toPath()); true } catch (e: Exception) { false }
+        try { fs.delete(path.toPath(), mustExist = true); true } catch (e: Exception) { false }
 
     /** File.mkdirs(): TRUE ONLY IF IT CREATED SOMETHING. See note 1. */
     override fun mkdirs(path: String): Boolean {

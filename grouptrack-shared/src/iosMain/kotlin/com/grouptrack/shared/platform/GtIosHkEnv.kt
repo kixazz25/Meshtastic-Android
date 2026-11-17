@@ -190,8 +190,11 @@ class IosHkEnv(
     override fun fileExists(path: String): Boolean = try { fs.exists(path.toPath()) } catch (e: Exception) { false }
     override fun fileLength(path: String): Long =
         try { fs.metadataOrNull(path.toPath())?.size ?: 0L } catch (e: Exception) { 0L }
+    /** ⛔ OKIODEL-2026-11-17: mustExist = true IS LOAD-BEARING. Android is `File(path).delete()`
+     *  (GtHkAndroid.kt:77), which answers FALSE for a missing file; okio's delete defaults to
+     *  mustExist = false and SUCCEEDS on one, so this answered TRUE. Do not simplify it back. */
     override fun fileDelete(path: String): Boolean =
-        try { fs.delete(path.toPath()); true } catch (e: Exception) { false }
+        try { fs.delete(path.toPath(), mustExist = true); true } catch (e: Exception) { false }
 
     // ---- ConvoyTrackOps ------------------------------------------------------
 

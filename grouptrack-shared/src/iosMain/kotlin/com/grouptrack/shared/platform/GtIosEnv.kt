@@ -147,7 +147,11 @@ class IosTileEnv(private val paths: GtImportPaths) : GtTileStoreEnv {
         var ok = true
         for (suffix in listOf("", "-journal", "-wal", "-shm")) {
             val p = (path(type) + suffix).toPath()
-            if (fs.exists(p)) try { fs.delete(p) } catch (e: Exception) { ok = false }
+            // ⛔ OKIODEL-2026-11-17: mustExist = true. Android is
+            // `if (s.exists() && !s.delete()) ok = false` (MBTilesStore.kt:120 / GtCert17mbtiles.kt:74):
+            // exists first, and a FAILED delete sets ok = false. Only the race window differs, but
+            // without mustExist a file that vanished after the exists() check leaves ok = true.
+            if (fs.exists(p)) try { fs.delete(p, mustExist = true) } catch (e: Exception) { ok = false }
         }
         return ok
     }
