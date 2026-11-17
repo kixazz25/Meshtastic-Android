@@ -84,7 +84,62 @@ startup assertion that enumerates all three sets and fails loudly. <b>3</b> Push
 (<code>droid1_2026-11-17_1353_SEED</code>) to Droid 2 &mdash; needs <code>LATEST.txt</code> repointed. <b>4</b>
 <code>GtGpx.lineLatLon</code> drops points on 474 multi-segment state trails (simulate against the real 474 first). <b>5</b> The
 seven remaining share points need the ARCHIVE, not an email conversion (SHARELABEL).</p>
-<p><b>STILL UNCOMMITTED:</b> <code>iosapp/</code> &mdash; commit once it builds.</p>
+<p><b>&#11088; 6 &mdash; THE ONE OPEN DR ITEM, and it is small (DRFILE-2026-11-17).</b> <b>Specify that the backup item is SAVED AS A FILE, not sent as an email.</b> That is the whole open item. It needs a build, and nothing else about DR changes with it. The manual already carries its stub (<code>map.backup</code>, marked TEXT NOW WRONG) and release notes v85 carries it as QUEUED, so the documents are ahead of the code and will be correct the day it ships.</p>
+<p><b>&#9940; DO NOT CONFUSE IT WITH THE REBUILD.</b> The REBUILD of the DR process around a weekly backup process is a separate, much larger piece and stays on the living checklist with the rest of the post-2b items (DRDESIGN, DRSCOPE, DRRESTORE, DRTRIAGE). Only the file-not-email specification belongs in the short-range plan.</p>
+<p><b>&#11088; CLASSIFICATION OWED &mdash; Fred 11-17 17:37.</b> This item needs its release: <b>complete with 2.8a, complete with 2.8b, or deferred back to the checklist</b>. My read is <b>2.8a</b>, because it is Android behaviour and 2.8a is the release the file model just landed in &mdash; but it is Fred&rsquo;s call, and until it is made the item has no release, which is the one state the checklist rule says will not get done.</p>
+<p><b>&#11088; THE RULE THIS CAME FROM (Fred 11-17 17:37).</b> <i>&ldquo;eod i[s] the focus of the next few days. other[wise] it belong[s] on living doc with the rest of the post 2b items. so the discussion [is the] item to be complete with 2a or 2b release or deferred back to checklist.&rdquo;</i> &rArr; EVERY item sits in exactly one of two places, and the release decides which: tied to 2.8a or 2.8b, it belongs in THIS document as the next few days&rsquo; plan; anything post-2b belongs on the living checklist. An item with no release decision is in neither, which is how it disappears. <b>The DR work was in the wrong place tonight: the whole of it sat on the checklist, including the one piece that is actually next.</b></p>
+<p>STILL UNCOMMITTED:</b> <code>iosapp/</code> &mdash; commit once it builds.</p>
+</div>
+
+<h2 id="certcover">&#11088;&#11088; DURABLE RULE &mdash; WHAT A TEST COVERS IS PART OF ITS RESULT (CERTCOVER-2026-11-17)</h2>
+<div class="card">
+<p>From the 11-17 17:41&ndash;17:50 discussion, after the duplicate-route defect. Four parts, one idea: <b>a pass is only
+meaningful alongside what was tested.</b></p>
+
+<p><b>1 &middot; THE THREE-COLUMN HARNESS IS CORRECTLY SCOPED &mdash; do not re-aim it.</b> Fred 11-17 17:45:
+<i>&ldquo;it is what we said from the beginning[,] certifying tha[t] the service results are consistent between platform[s]. that is
+why we do functional tests. lots of code has bene changed in the last 2 months.&rdquo;</i> The harness answers ONE question, the one
+specified on 11-16: did the service return the same values after our changes. <b>Consistency, not correctness.</b> With two months of
+churn in the codebase, &ldquo;did our changes alter behaviour&rdquo; is the dominant risk, and the harness is aimed at it correctly.
+Pointing it at correctness would make it worse at its own job. Correctness is the FUNCTIONAL tests&rsquo; question.</p>
+
+<p><b>2 &middot; A FUNCTIONAL TEST MUST STATE WHAT IT DOES NOT COVER.</b> This is the 11-15 harness rule
+(INTENT &middot; PURPOSE &middot; METHOD &middot; HOW WE VERIFY &middot; <b>what it does NOT cover</b>) and 11-17 is what its absence
+costs. The file I/O certification passed honestly and never exercised <i>convert a track to a route, export it, import it again</i>
+&mdash; the only path that fires the defect. Because the gap was unwritten, the green result was read as proof the defect could not
+exist: <i>&ldquo;this worked before&hellip; we tested and certified again[st] live code and it worked during file I/O tests.&rdquo;</i>
+<b>A pass with unstated coverage does not merely fail to find the defect &mdash; it supplies positive evidence against looking where
+the defect is</b>, and pushes the search at the newest commits when the cause was nine months old. The attractive wrong turn here was
+<i>the unique key must be off</i>: it explains the symptom completely, it is cheap to check, checking it feels like progress, and it
+is wrong. The constraint was always present (<code>sqlite_autoindex_routes_2</code>, 27 routes / 27 distinct hashes).</p>
+
+<p><b>3 &middot; SMALL TABLES YOU LOOK AT. LARGE TABLES YOU COUNT.</b> Fred 11-17 17:47: routes were chosen as the test artifact and
+there are only 23 on the whole map &mdash; <i>&ldquo;one view and dupes are obvious. do trails or tracks and not so obvious which is
+why this was never spotted before.&rdquo;</i> Trails are 416.8 MB and the dominant table; four extra rows there are invisible and
+nobody would think to count. Both halves are in evidence on 11-17: routes, one view, obvious; rider trails, <b>1,735 of 1,735 refused,
+0 admitted, 0 point loss</b> &mdash; which means something ONLY because it was counted. &rArr; a functional test records WHICH ARTIFACT
+TYPE it ran against and WHETHER IT LOOKED OR COUNTED. Passing on trails proves far less than passing on routes. The trap is that
+counting feels unnecessary once looking has worked.</p>
+
+<p><b>4 &middot; &#9940; ACROSS DEVICES, NEVER COMPARE SCREENS &mdash; read this before SxS testing.</b> Fred 11-17 17:48: the map view
+scales by screen dimension, so <i>&ldquo;what[ is] display[ed] is unique to device and view, different results by definition.&rdquo;</i>
+What appears on a map is a function of FOUR things &mdash; the data, the viewport bbox, the screen dimensions, the zoom &mdash; and
+between Droid 1 and the iPad <b>three of the four differ</b>. An observed difference therefore carries NO information until the
+viewport is pinned. The 11-17 proof case: the select screen showed 25 while the table held 27, and that was the bbox filter, not
+phantom rows; a third device would give a third number and all three would be correct.</p>
+<p>&rArr; <b>SxS criteria.</b> Screens are compared for LAYOUT AND BEHAVIOUR only &mdash; does the panel open, does the control
+respond, does the label fit. COUNTS AND CONTENTS are compared at the SERVICE BOUNDARY with an explicit bbox, or straight out of the
+database. <b>&ldquo;Do both maps look the same&rdquo; is never a passing criterion.</b> If a count differs on two screens, the first
+question is the viewport, not the data. This is also why the three-column harness compares service returns for a GIVEN INPUT rather
+than screenshots: the viewport is a parameter there, not a property of the hardware.</p>
+
+<p><b>WHY 11-17 CAUGHT IT AT ALL, stated plainly, because it was close.</b> A unification gives a pre-existing shared-code defect
+perfect cover &mdash; every shared-code change is a suspect, so &ldquo;we broke it&rdquo; grows more plausible than &ldquo;it was
+always broken&rdquo; the more honest work gets done. <code>trackToRoute</code> was wrong in ALL THREE columns, so the consistency
+harness would have returned SAME/SAME/SAME and signed off, correctly, by its own scope. On the iPad the duplicate would have presented
+as a port defect because the importer there is new code. And the reseed was planned FROM Droid 1 &mdash; the four duplicate rows were
+in Droid 1 at 18:22Z, so one day later the iPad seed carries the corruption and there is no clean iPad to compare against. The window
+in which Droid 2 on 2.7e is a trustworthy oracle closes at the reseed; this was found inside it.</p>
 </div>
 
 <h2 id="eod1116">&#11088;&#11088;&#11088; EOD 2026-11-16 &mdash; THE SERVICE LAYER, AND WHAT STANDS BETWEEN US AND A RUNNING SIM (EOD1116-2026-11-16)</h2>
