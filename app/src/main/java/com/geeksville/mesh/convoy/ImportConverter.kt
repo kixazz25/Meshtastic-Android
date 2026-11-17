@@ -49,7 +49,26 @@ object ImportConverter {
     }
 
     /** ⚠ No WRITE permission is held below Android 10 (minSdk 26): there the save fails and the line says so. */
+    /**
+     * CONVERTDEST-2026-11-17: the converted file goes to GroupTrack Map Features, not the Downloads
+     * root. Rule 4's other half -- the exports moved first and this did not, which the journey matrix
+     * (gt_journeysim_2026-11-17_v1) found and no unit test would have: this function is perfectly
+     * correct on its own, it was just pointing at the wrong place.
+     *
+     * ⚠ ONE BEHAVIOUR CHANGE, DELIBERATE. The old path uniquified ("name_2.gpx", "_3"...) to avoid
+     * clobbering a rider's own file in the SHARED Downloads root. Map Features is app-owned, and the
+     * local directories are the CURRENT recovery position, so GtFileHome REPLACES instead -- the same
+     * rule as every other archive write. Uniquifying there would fill the folder with near-duplicates
+     * and break the promise that importing something twice does not add it twice.
+     * ⛔ The legacy body below is kept for API < 29 only (minSdk 26), where MediaStore is unavailable.
+     */
     fun saveToDownloads(context: android.content.Context, f: File): String {   // ONEIMPORT-2026-11-04: the import saves the converted file too
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            val saved = GtFileHome.save(context, GtFileOpen.Family.MAP_FEATURES, f)
+            if (saved != null) return saved
+            // falls through to the legacy write when MediaStore refused, so a failure is still a
+            // written file rather than a silent loss
+        }
         if (android.os.Build.VERSION.SDK_INT < 29) {
             val d = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
             var t = File(d, f.name); var n = 2

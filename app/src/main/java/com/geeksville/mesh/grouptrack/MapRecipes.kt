@@ -115,12 +115,29 @@ object GtRecipes {
     }
 
     /**
+     * FAMILYOF-2026-11-17: WHAT this JSON is, with no side effect. [receive] branches on this instead
+     * of repeating the two tests, so there is ONE recognition rule rather than one here and a copy in
+     * whatever else needs to ask -- GtFileOpen.familyOf and the Droid cert both ask it.
+     *
+     * ⚠ A CERT COULD NOT ASK [receive]. Recognising a recipe there also WRITES it to recipes/received,
+     * sets the picked recipe, opens the recipes screen and brings the app forward. Certifying the
+     * routing had to be possible without any of that happening.
+     */
+    enum class Kind { MAP, ROUTE }
+
+    fun kind(o: JSONObject): Kind? = when {
+        o.optJSONArray("slots") != null -> Kind.MAP
+        routeOf(o) != null -> Kind.ROUTE
+        else -> null
+    }
+
+    /**
      * From ConvoyFileReceiver: a JSON file opened from an email / Downloads. A map recipe is kept in recipes/received and opens
      * Saved map recipes with it picked; a route recipe opens the AI build at its summary. Returns the rider's message,
      * "" = not a recipe (the receiver goes on). [displayName]: null = the sending app gave no name (as GpxOpen.displayName).
      */
     fun receive(ctx: Context, displayName: String?, content: String, o: JSONObject): String {
-        if (o.optJSONArray("slots") != null) {
+        if (kind(o) == Kind.MAP) {   // FAMILYOF-2026-11-17: the one recognition rule
             val base = (displayName ?: "grouptrack_maps_received_${System.currentTimeMillis()}").removeSuffix(".json").removeSuffix(".gtmaps")   // RECIPEJSON-2026-11-03
                 .replace(Regex("[^A-Za-z0-9 ._-]"), "_").trim().ifBlank { "received" }
             var f = File(receivedDir(ctx), "$base.gtmaps"); var k = 2

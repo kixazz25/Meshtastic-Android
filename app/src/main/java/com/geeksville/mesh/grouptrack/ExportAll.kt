@@ -65,11 +65,14 @@ object GtExportAll {
         sb.append("</gpx>\n")
         val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
         val file = "GroupTrack_RIDER_TRAILS_$day"
-        val ok = if (toDownloads) ConvoyTrackOps.exportGpxToDownloads(file, sb.toString()) else true   // BACKUP-2026-11-03
+        // EXPORTFAM-2026-11-17: into GroupTrack Map Features, through MediaStore (mechanism B).
+        val ok = if (toDownloads) com.geeksville.mesh.convoy.GtFileHome.save(
+            ctx, com.geeksville.mesh.convoy.GtFileOpen.Family.MAP_FEATURES,
+            com.geeksville.mesh.convoy.ConvoyTrackOps.safeGpxName(file), sb.toString()) != null else true
         if (ok) keepForShare(ctx, file, sb.toString())   // SHAREEXPORT-2026-11-03
-        log.i { "TRAILEXPORT $n trail(s) -> Downloads/$file.gpx ok=$ok" }
-        if (!ok) return "Export failed: could not write to Downloads."
-        return "Exported $n rider trails to Downloads: $file.gpx. Bring them back with Map › Import files — they come back as trails."
+        log.i { "TRAILEXPORT $n trail(s) -> GroupTrack Map Features/$file.gpx ok=$ok" }
+        if (!ok) return "Export failed: could not write to GroupTrack Map Features."
+        return "Exported $n rider trails to GroupTrack Map Features: $file.gpx. Bring them back by tapping the file — they come back as trails."
     }
 
     /** Off the main thread; the result as a toast. [type] = "routes" | "tracks" | "waypoints". */
@@ -150,10 +153,13 @@ object GtExportAll {
         sb.append("</gpx>\n")
         val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
         val file = "GroupTrack_${type.uppercase(java.util.Locale.US)}_$day"
-        val ok = if (toDownloads) ConvoyTrackOps.exportGpxToDownloads(file, sb.toString()) else true   // BACKUP-2026-11-03
+        // EXPORTFAM-2026-11-17: into GroupTrack Map Features, through MediaStore (mechanism B).
+        val ok = if (toDownloads) com.geeksville.mesh.convoy.GtFileHome.save(
+            ctx, com.geeksville.mesh.convoy.GtFileOpen.Family.MAP_FEATURES,
+            com.geeksville.mesh.convoy.ConvoyTrackOps.safeGpxName(file), sb.toString()) != null else true
         if (ok) keepForShare(ctx, file, sb.toString())   // SHAREEXPORT-2026-11-03
-        log.i { "EXPORTALL $type: $n of ${ids.size} written ($skipped skipped) -> Downloads/$file.gpx ok=$ok" + (if (why.isEmpty()) "" else " SKIPPED: " + why.take(20).joinToString("; ")) }
-        if (!ok) return "Export failed: could not write to Downloads."
-        return "Exported $n $type to Downloads: $file.gpx" + (if (skipped > 0) " ($skipped could not be read)" else "") + "."
+        log.i { "EXPORTALL $type: $n of ${ids.size} written ($skipped skipped) -> GroupTrack Map Features/$file.gpx ok=$ok" + (if (why.isEmpty()) "" else " SKIPPED: " + why.take(20).joinToString("; ")) }
+        if (!ok) return "Export failed: could not write to GroupTrack Map Features."
+        return "Exported $n $type to GroupTrack Map Features: $file.gpx" + (if (skipped > 0) " ($skipped could not be read)" else "") + "."
     }
 }

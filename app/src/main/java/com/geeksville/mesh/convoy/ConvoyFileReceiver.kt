@@ -45,9 +45,29 @@ class ConvoyFileReceiver : Activity() {
 
             gtLogger(TAG).i { "Received convoy file URI: $uri" }
 
-            // Read file content
-            val content = contentResolver.openInputStream(uri)?.use { input ->
-                input.bufferedReader().readText()
+            // HEADREAD-2026-11-17: route on the HEAD, then read the rest only if something recognised
+            // it. Before this the whole file was decoded into a String first -- 293 MB of .db in the
+            // real Download folder, to decide it was not ours. See GtFileOpen.HEAD_CHARS.
+            var family: GtFileOpen.Family? = null
+            val content: String? = contentResolver.openInputStream(uri)?.use { input ->
+                val reader = input.bufferedReader()
+                val buf = CharArray(GtFileOpen.HEAD_CHARS)
+                var n = 0
+                // ⚠ a Reader may return a SHORT read: loop until the buffer is full or the stream ends,
+                // or a file delivered in small chunks would be judged on a few hundred bytes.
+                while (n < GtFileOpen.HEAD_CHARS) {
+                    val got = reader.read(buf, n, GtFileOpen.HEAD_CHARS - n)
+                    if (got < 0) break
+                    n += got
+                }
+                val head = if (n <= 0) "" else String(buf, 0, n)
+                family = GtFileOpen.familyOf(head)
+                when {
+                    head.isBlank() -> null
+                    family == null -> head          // nothing recognised it: the head is all we need
+                    n < GtFileOpen.HEAD_CHARS -> head              // the whole file fitted
+                    else -> head + reader.readText()               // recognised and larger: read the rest
+                }
             }
 
             if (content.isNullOrBlank()) {
@@ -55,86 +75,41 @@ class ConvoyFileReceiver : Activity() {
                 finish()
                 return
             }
-
-            // GPXOPEN-2026-10-09 (Fred): Gmail hands EVERY attachment over as application/octet-stream and only this
-            // receiver accepts that type (ONEOPEN-2026-09-26 took it off MainActivity), so emailed GPX/KML files land
-            // HERE -- and were dropped silently ("Not a convoy file -- ignoring"; proven 10-08 with two onX files).
-            // An XML file that is GPX or KML goes to THE one GPX import: staged and opened in the import panel
-            // (tracks, routes and waypoints alike), exactly like a ride's GPX. Ride files are JSON, so XML is checked
-            // first and can never be mistaken for a ride.
-            if (content.trimStart().startsWith("<") && GpxOpen.looksLikeGpxOrKml(content)) {
-                val message = GpxOpen.stageAndOffer(this, GpxOpen.displayName(this, uri), content, bringForward = true)
-                android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
-                return
-            }
-
-            // RIDEIMPORT2-2026-09-24 (Fred): a GroupTrack ride file (format 3). First, STORE it unchanged as
-            // rides/<rideId>.json -- Apply Ride and Send read rides from there. Then STAGE its GPX where the import
-            // panel stages picked files and open that panel with it ticked (no picker): route, trailhead, recipe
-            // and narrative come in, the maps download, and the panel deletes the staged file as always.
-            // Checked FIRST, before the old-format test below.
-            if (content.contains("\"grouptrack.ride\"")) {
-                // RIDEIMPORT3-2026-09-25: the shared ride import (also used by Work with Rides -> Import a ride).
-                val message = RideImport.importRide(this, content, bringForward = true)
-                android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
-                finish()
-                return
-            }
-
-            // MAPRECIPES-2026-11-03 (Fred 10:2x): a GroupTrack MAP RECIPE (.gtmaps -- "slots") or an AI ROUTE RECIPE (.json -- anchorLat +
-            // milesHigh), one click from the email or Downloads. JSON only: GPX / KML and rides were handled above.
-            if (content.trimStart().startsWith("{")) {
-                val o = try { JSONObject(content) } catch (e: Exception) { null }
-                if (o != null) {
-                    val m = com.geeksville.mesh.grouptrack.GtRecipes.receive(this, GpxOpen.displayName(this, uri), content, o)
-                    if (m.isNotEmpty()) { android.widget.Toast.makeText(this, m, android.widget.Toast.LENGTH_LONG).show(); return }
-                }
-            }
-
-            // Validate this is actually a convoy file before processing
-            if (!content.contains("convoyDocType")) {
-                gtLogger(TAG).w { "Not a convoy file — ignoring" }
-                // GPXOPEN-2026-10-09: never silent -- the rider is told what happened.
-                android.widget.Toast.makeText(this, "This file isn't a GroupTrack OG ride, map recipe, route recipe or a GPX / KML track."   /* MAPRECIPES-2026-11-03 */,
+            if (family == null) {
+                // HEADREAD-2026-11-17: the same message the dispatch gives, without reading the file.
+                gtLogger(TAG).w { "Not a convoy file — ignoring (head only, ${content.length} chars read)" }
+                android.widget.Toast.makeText(this,
+                    "This file isn't a GroupTrack OG ride, map recipe, route recipe or a GPX / KML track.",
                     android.widget.Toast.LENGTH_LONG).show()
                 return
             }
 
-            // Parse JSON and read convoyDocType
-            val json = try {
-                JSONObject(content)
-            } catch (e: Exception) {
-                gtLogger(TAG).e { "Not valid JSON — ignoring file: ${e.message}" }
-                finish()
-                return
+            // ONEOPEN2-2026-11-17: THE one dispatch, now in GtFileOpen so that a file tapped from
+            // outside, a file tapped in our own screen and a DIRECTORY tapped in our own screen all run
+            // the same routing (Fred 11-17). The branch bodies moved there verbatim; this activity keeps
+            // only what is activity-shaped -- the URI, the Toast and finish().
+            // NULLNAME-2026-11-17: asked ONCE. displayName queries the content resolver, and this was
+            // calling it twice -- once to route and once to archive.
+            val arrivalName = GpxOpen.displayName(this, uri)
+            val outcome = GtFileOpen.receive(this, arrivalName, content, bringForward = true)
+
+            // ARCHIVE-2026-11-17 (Fred rule 2): "anything processed from downloads should be archived
+            // to the owning sub directory." outcome.family came from the dispatch that recognised the
+            // content, so this is the one place that knows where it goes.
+            // ⚠ ARCHIVED ON RECOGNITION, NOT ON SUCCESS. If the import itself failed, a copy of what
+            // ARRIVED is exactly what a recovery wants -- and the rider already has the failure message.
+            // ⚠ The arrival name is kept as given, even when Gmail supplies something unhelpful: it is
+            // what the rider saw in the email, and renaming it would make the archive harder to
+            // recognise, not easier. When the sender gave NO name at all, a timestamped one is
+            // synthesised -- the same fallback GtRecipes.receive already uses for that case, so an
+            // unnamed arrival is still archived rather than dropped.
+            outcome.family?.let { fam ->
+                GtFileHome.save(this, fam, arrivalName ?: "received_${System.currentTimeMillis()}", content)
             }
-
-            val docType = json.optString("convoyDocType", "unknown")
-            gtLogger(TAG).i { "convoy file received — docType=$docType" }
-
-            // Route to correct import directory based on docType
-            val importDirName = when (docType) {
-                "convoy_ride"        -> "convoy_import"
-                "convoy_map_region"  -> "convoy_map_import"
-                "convoy_route"       -> "convoy_route_import"
-                "convoy_master"      -> "convoy_master_import"
-                else -> {
-                    gtLogger(TAG).w { "Unknown convoyDocType: $docType — discarding" }
-                    finish()
-                    return
-                }
+            val message = outcome.message
+            if (message.isNotEmpty()) {
+                android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
             }
-
-            // Write to import directory
-            val importDir = File(GtPathsAndroid.files(this), importDirName).also { it.mkdirs() }
-            val fileName = "convoy_${System.currentTimeMillis()}.convoy"
-            val destFile = File(importDir, fileName)
-            destFile.writeText(content)
-
-            gtLogger(TAG).i { "Saved $docType to $importDirName/$fileName" }
-
-            // File saved — user will see splash next time they open the convoy menu
-            gtLogger(TAG).i { "Convoy file saved successfully — $docType ready for import" }
 
         } catch (e: Exception) {
             gtLogger(TAG).e { "ConvoyFileReceiver failed: ${e.message}" }
@@ -248,6 +223,15 @@ object GpxOpen {
         val text = read.second
         if (text.isNullOrBlank()) return "Could not read ${read.first ?: "the file"}."
         if (!looksLikeGpxOrKml(text)) return "${read.first ?: "This file"} isn't a GPX or KML track."
+        // ARCHIVE-2026-11-17: MainActivity's door, and it has to archive here too. The manifest splits
+        // the two entry points by MIME -- ConvoyFileReceiver owns octet-stream/json/.convoy, MainActivity
+        // owns gpx+xml/kml/xml -- so without this, whether a tapped GPX is archived would depend on
+        // which MIME the file manager happened to supply. Same family, since this branch has already
+        // established the content is GPX or KML.
+        // ⚠ Tapping a file that is ALREADY in Map Features re-writes it with identical content and the
+        // same name, which GtFileHome replaces in place. A harmless no-op, not a duplicate.
+        GtFileHome.save(context, GtFileOpen.Family.MAP_FEATURES,
+            read.first ?: "received_${System.currentTimeMillis()}.gpx", text)
         return stageAndOffer(context, read.first, text, bringForward = false)
     }
 }

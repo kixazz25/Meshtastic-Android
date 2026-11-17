@@ -453,11 +453,27 @@ object ConvoyTrackOps {
     }
 
     /** Export GPX to Downloads folder. File stays there. */
+    /**
+     * EXPORTFAM-2026-11-17: GPXNAME-2026-10-01's safe file name, extracted so the raw write below and
+     * GtFileHome (MediaStore) produce byte-identical names. One naming rule, two mechanisms.
+     */
+    fun safeGpxName(name: String): String =
+        (name.replace(Regex("[^A-Za-z0-9._-]+"), "_").trim('_').ifEmpty { "track" }) + ".gpx"
+
+    /**
+     * ⛔ EXPORTFAM-2026-11-17: PRODUCTION NO LONGER CALLS THIS. It is mechanism A -- a raw
+     * java.io.File write into the public Downloads directory -- and GtCertPaths records why that is a
+     * problem: "THERE ARE TWO EXPORT MECHANISMS IN THIS APP AND THEY DO NOT AGREE... Whether [A] is
+     * true at targetSdk 36 is the open question, and A failing is SILENT."
+     * It is KEPT so certpaths' EXPORT-A leg keeps measuring the raw write against B on a real device.
+     * Every production caller (GtExportAll x2, ConvoyArtifactOps) now goes through GtFileHome, which is
+     * mechanism B -- MediaStore with IS_PENDING, which needs no permission and is verified on device.
+     */
     fun exportGpxToDownloads(name: String, gpxContent: String): Boolean {
         return try {
             val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
                 android.os.Environment.DIRECTORY_DOWNLOADS)
-            val file = java.io.File(downloadsDir, "${(name.replace(Regex("[^A-Za-z0-9._-]+"), "_").trim('_').ifEmpty { "track" })}.gpx")   // GPXNAME-2026-10-01: safe file name
+            val file = java.io.File(downloadsDir, safeGpxName(name))   // GPXNAME-2026-10-01, via EXPORTFAM-2026-11-17
             file.writeText(gpxContent, Charsets.UTF_8)
             gtLogger("TrackOps").i { "Exported to Downloads: ${file.absolutePath}" }
             true

@@ -144,6 +144,14 @@ fun ArtifactDetailPanel(
                     if ((artifactType != "Trails" || riderMade) && onDelete != null) {
                         DetailActionButton("DELETE", Gt.bad) { showDeleteConfirm = true }
                     }
+                    // SHARELABEL-2026-11-17 (supersedes EMAILLABEL the same afternoon): SHARE, because
+                    // on Android the mechanism for an attachment IS the share sheet -- a button reading
+                    // EMAIL that opens a chooser is a lie about what it does.
+                    // \u2b50 The RULE is shared, the RENDER is not: "archive to the owning directory,
+                    // then hand it off" holds on both platforms (SHAREMAIL/EMAILHOUSE do the archive);
+                    // the hand-off is Android's share sheet here and the iPad's own mail composer there.
+                    // Fred 14:54: "this may be a place where we have to leave share in and the iOS
+                    // implementation will be different."
                     if (onShare != null) { DetailActionButton("SHARE", aGreen) { onShare(id) } }
                     if (onExport != null) { DetailActionButton("EXPORT", aGreen) { onExport(id) } }
                     // NARRBTN-2026-08-23Y

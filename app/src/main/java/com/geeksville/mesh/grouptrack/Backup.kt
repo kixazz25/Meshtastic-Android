@@ -41,6 +41,25 @@ object GtBackup {
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
     private fun today() = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
 
+    /**
+     * ARCHIVE-2026-11-17 (Fred): "the full image of map recipes and all artifacts should be sent
+     * minimally once per week or when starting app is more then 7 days."
+     *
+     * ⚠ The floor is on the EMAIL, not on the archive -- the archive is written on every start-up
+     * check regardless. A rider should not be emailed an identical set every Monday for no reason, but
+     * a dated full image once a week is worth having: it is a restore point even in a quiet week, and
+     * it is proof the backup still works rather than having silently stopped.
+     * ⚠ No pref means nothing was ever sent, which the unchanged branch cannot reach anyway (an empty
+     * fingerprint never matches a built one), so 0L is safe.
+     */
+    private fun weekOld(ctx: Context): Boolean {
+        val at = prefs(ctx).getLong("sentAtMs", 0L)
+        if (at == 0L) return true
+        val days = (System.currentTimeMillis() - at) / 86_400_000L
+        if (days > 7) log.i { "BACKUP unchanged but $days days since the last send -- offering the weekly image" }
+        return days > 7
+    }
+
     private fun online(ctx: Context): Boolean = try {
         val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java)
         cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
@@ -56,16 +75,26 @@ object GtBackup {
             try {
                 Thread.sleep(20_000)   // after the start-up work
                 GtDbAudit.run(ctx)   // DBAUDIT-2026-11-03: read-only, logged
+                // ARCHIVEGATE-2026-11-17: build WITHOUT writing to Downloads. keepForShare already
+                // puts every file in cache/exports, so the content exists and can be archived below --
+                // after the fingerprint says it is worth archiving.
+                // ⛔ THIS WAS build(ctx, true) FOR TWENTY MINUTES AND THAT WAS WRONG. It wrote all four
+                // DR exports on EVERY app start -- GroupTrack_TRACKS is 20 MB on Droid 2, so ~21 MB of
+                // MediaStore writes per launch -- against Fred's actual rule: "we only need to save
+                // changed data. the full image ... minimally once per week." Found by his first test:
+                // "4 seperate exports all came in one election."
                 val b = build(ctx, false)
                 when {
                     b.files.isEmpty() -> log.i { "BACKUP start-up check: nothing to back up" }
-                    b.print == prefs(ctx).getString("sent", "") -> log.i { "BACKUP unchanged since the last backup sent -- nothing offered" }
+                    b.print == prefs(ctx).getString("sent", "") && !weekOld(ctx) ->
+                        log.i { "BACKUP unchanged since the last backup sent -- nothing offered, nothing archived" }
                     else -> {
                         // BACKUPDIAG-2026-11-03: which part changed since the backup sent
                         val was = (prefs(ctx).getString("sent", "") ?: "").split(';').filter { it.contains('=') }.associate { it.substringBefore('=') to it.substringAfter('=') }
                         val now = b.print.split(';').filter { it.contains('=') }.associate { it.substringBefore('=') to it.substringAfter('=') }
                         val diff = (was.keys + now.keys).filter { was[it] != now[it] }.joinToString(", ") { k -> "$k ${was[k]?.take(8) ?: "none"}->${now[k]?.take(8) ?: "none"}" }
                         log.i { "BACKUP changed -- offering SEND BACKUP (${b.files.size} files); changed since sent: ${diff.ifEmpty { "(nothing sent yet)" }}" }
+                        archive(ctx, b)   // ARCHIVEGATE-2026-11-17: changed (or week-old) -- so archive it
                         waiting = b
                         android.os.Handler(android.os.Looper.getMainLooper()).post { ready.value = b.list }
                     }
@@ -92,6 +121,29 @@ object GtBackup {
 
     private fun sha(s: String): String = java.security.MessageDigest.getInstance("SHA-256").digest(s.toByteArray())
         .joinToString("") { "%02x".format(it) }
+
+    /**
+     * ARCHIVEGATE-2026-11-17: the DR position, into its owning folders. Called only when the
+     * fingerprint CHANGED or the weekly floor fired -- the archive follows the same rule as the email,
+     * which is what Fred asked for: save changed data, with a full image at least weekly.
+     *
+     * ⚠ The files are already built, in cache/backup. This copies them; it does not rebuild, so the
+     * exports run ONCE per check however many destinations they end up in.
+     * ⚠ Family by NAME, because that is what the file is: the four GPX sets are map features, and the
+     * recipe ("GroupTrack maps <day>.json", RECIPEJSON-2026-11-03) is a map.
+     */
+    private fun archive(ctx: Context, b: Built) {
+        var n = 0
+        for (f in b.files) {
+            val fam = when {
+                f.name.endsWith(".gpx", true) -> com.geeksville.mesh.convoy.GtFileOpen.Family.MAP_FEATURES
+                f.name.startsWith("GroupTrack maps ") -> com.geeksville.mesh.convoy.GtFileOpen.Family.MAPS
+                else -> null   // nothing else is rider data; it stays in the email only
+            } ?: continue
+            if (com.geeksville.mesh.convoy.GtFileHome.save(ctx, fam, f) != null) n++
+        }
+        log.i { "ARCHIVEGATE-2026-11-17: archived $n of ${b.files.size} file(s) to their owning folders" }
+    }
 
     /** The backup's files (cache/backup), the email's list, and its fingerprint. */
     private fun build(ctx: Context, toDownloads: Boolean): Built {
@@ -143,7 +195,7 @@ object GtBackup {
             val gmail = Intent(mail).setPackage("com.google.android.gm")
             if (gmail.resolveActivity(ctx.packageManager) != null) ctx.startActivity(gmail)
             else ctx.startActivity(Intent.createChooser(mail, "Send or save your GroupTrack OG backup").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            prefs(ctx).edit().putString("sent", b.print).apply()
+            prefs(ctx).edit().putString("sent", b.print).putLong("sentAtMs", System.currentTimeMillis()).apply()   // ARCHIVE-2026-11-17
             log.i { "BACKUP email opened: ${b.files.size} attachment(s), to=${if (me.isEmpty()) "(none)" else "profile email"}" }
         } catch (e: Exception) {
             log.e(e) { "BACKUP open failed" }

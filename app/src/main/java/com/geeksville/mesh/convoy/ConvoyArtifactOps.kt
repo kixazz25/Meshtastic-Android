@@ -159,7 +159,15 @@ object ConvoyArtifactOps {
         val pts = ConvoyRideStore.parseWktLine(wkt)   // lon/lat pairs
         if (pts.size < 2) { log.w { "TRACKROUTE: track $trackId has ${pts.size} points" }; return@withContext null }
         val kept = simplifyByHeading(pts)
-        val line = "LINESTRING(" + kept.joinToString(", ") { "${it.first} ${it.second}" } + ")"
+        // TRACKROUTESEP-2026-11-17: "," NOT ", ". ⛔ geom_hash is sha256 of THIS TEXT and
+        // UNIQUE(geom_hash) is what refuses a duplicate route. Every other writer (GtGeom.coords,
+        // RouteManager.buildWktAndBbox, RiderTrailWriter.buildGeometry) emits no space; this one emitted
+        // a space, so a converted route hashed differently from identical ground and 4 duplicates were
+        // admitted on 11-17. Fred: "we added a duplicate record to the database. that violate our riles."
+        // ⚠ The HASH IS NOT THE BUG -- it worked for nine months. Do not "fix" this by changing
+        // GtGeom.hash: that changes identity for every row and drags in a conversion (tried and reverted,
+        // CANONREVERT-2026-11-17). Keep every writer canonical instead.
+        val line = "LINESTRING(" + kept.joinToString(",") { "${it.first} ${it.second}" } + ")"
         val id = try {
             SpatialDbManager.insertRoute(name.trim(), line, kept.minOf { it.second }, kept.maxOf { it.second }, kept.minOf { it.first }, kept.maxOf { it.first })
         } catch (e: Exception) { log.e { "TRACKROUTE: insertRoute failed: ${e.message}" }; "" }
@@ -275,14 +283,68 @@ object ConvoyArtifactOps {
             }
         }
 
-    /** SHARE: build GPX + hand to share sheet. Toasts on failure (op owns UI feedback). */
+    /**
+     * SHARE -> EMAIL, for every artifact type (Waypoints, Routes, Trails, Tracks).
+     *
+     * SHAREMAIL-2026-11-17. Fred 11-17 14:04: "artifacts show share and export. export should go to
+     * owning directories share should become email." And 11-17: "any explicit share option and they all
+     * should be come emails" -- the iPad has no Android share sheet, so email is the one mechanism both
+     * platforms have.
+     *
+     * ⭐ THE ATTACHMENT *IS* THE ARCHIVE. The file is written to GroupTrack Map Features first and
+     * that URI is attached, rather than ConvoyTrackOps.shareGpx's temp copy in the cache. One file, and
+     * rule 2 ("anything processed from downloads should be archived to the owning sub directory") holds by
+     * construction instead of by a second call that could be forgotten.
+     * ⭐ The name comes from the SAME ConvoyTrackOps.safeGpxName that EXPORT uses, into the same
+     * family -- so sharing an artifact that was already exported REPLACES that row instead of making
+     * "name (1)" beside it.
+     *
+     * ⛔ octet-stream, NOT application/gpx+xml. CONVERTFIX-2026-10-30: the typed GPX mime makes
+     * Android rename the arriving file ".bin" on the RECEIVING device. shareGpx had it wrong and every
+     * artifact-panel share has been going out that way.
+     */
     suspend fun share(context: Context, artifactType: String, artifactId: String) {
         val gpx = buildGpx(context, artifactType, artifactId)
+        val uri = if (gpx != null) withContext(Dispatchers.IO) {
+            GtFileHome.save(context, GtFileOpen.Family.MAP_FEATURES,
+                ConvoyTrackOps.safeGpxName(gpx.first), gpx.second)
+        } else null
         withContext(Dispatchers.Main) {
-            if (gpx != null) {
-                ConvoyTrackOps.shareGpx(context, gpx.first, gpx.second)
-            } else {
+            if (gpx == null || uri == null) {
                 android.widget.Toast.makeText(context, "Share failed", android.widget.Toast.LENGTH_SHORT).show()
+                return@withContext
+            }
+            // EMAILHOUSE-2026-11-17: GtIssue / GtRideStatsSend's shape -- the two email paths that
+            // ship and work. \u26d4 NOT Backup.send()'s setPackage("com.google.android.gm"): the
+            // manifest's <queries> declares the geo: intent only, so on API 30+ resolveActivity against
+            // a named package returns null even with Gmail installed and it falls to the chooser anyway.
+            // A chooser IS the behaviour for an attachment (Fred 11-17: "everything with an attachment
+            // open via share"); EXTRA_EMAIL and a mail-shaped type are what make it read as mail.
+            // \u26a0 type "*/*", NOT octet-stream. CONVERTFIX-2026-10-30 governs the MediaStore
+            // MIME_TYPE on insert -- where octet-stream is still correct and GtFileHome keeps it -- not
+            // Intent.type. octet-stream here listed Drive, Files and Bluetooth and read as a generic
+            // share sheet. GtRideStatsSend emails .gpx with "*/*" and has always arrived intact.
+            val mail = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "*/*"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                putExtra(android.content.Intent.EXTRA_SUBJECT,
+                    "GroupTrack " + artifactType.lowercase() + ": " + gpx.first)
+                putExtra(android.content.Intent.EXTRA_TEXT,
+                    "Attached: " + gpx.first + ", exported from GroupTrack OG.\n\n" +
+                    "Open the attachment on a tablet running GroupTrack to bring it in.")
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            runCatching {
+                context.startActivity(android.content.Intent.createChooser(mail, "Email " + gpx.first)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                android.widget.Toast.makeText(context,
+                    "Saved to GroupTrack Map Features \u2014 pick your mail app",
+                    android.widget.Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                log.w { "EMAILHOUSE-2026-11-17: no app took the send: ${it.message}" }
+                android.widget.Toast.makeText(context,
+                    "No email app on this tablet \u2014 the file is in GroupTrack Map Features.",
+                    android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -290,12 +352,14 @@ object ConvoyArtifactOps {
     /** EXPORT: build GPX + write to Downloads. Toasts result (op owns UI feedback). */
     suspend fun export(context: Context, artifactType: String, artifactId: String) {
         val gpx = buildGpx(context, artifactType, artifactId)
+        // EXPORTFAM-2026-11-17: into GroupTrack Map Features, through MediaStore (mechanism B).
         val ok = if (gpx != null) withContext(Dispatchers.IO) {
-            ConvoyTrackOps.exportGpxToDownloads(gpx.first, gpx.second)
+            GtFileHome.save(context, GtFileOpen.Family.MAP_FEATURES,
+                ConvoyTrackOps.safeGpxName(gpx.first), gpx.second) != null
         } else false
         withContext(Dispatchers.Main) {
             android.widget.Toast.makeText(context,
-                if (ok == true) "Exported to Downloads" else "Export failed",
+                if (ok == true) "Exported to GroupTrack Map Features" else "Export failed",
                 android.widget.Toast.LENGTH_SHORT).show()
         }
     }

@@ -159,7 +159,13 @@ fun ConvoyTrackImportScreen(
      * tree grant, and a FRESH INSTALL never takes one because the conversion
      * skips. This needs nothing and works everywhere.
      */
-    fun stageAndList(uris: List<android.net.Uri>) {
+    /**
+     * ONEPICKER-2026-11-17: [keepSources] -- the rows from GroupTrack's OWN picker are the RECOVERY
+     * COPIES (rule 2: anything processed from Downloads is archived to its owning directory). Importing
+     * one must never consume it, so our picker passes true and the delete below cannot fire. The system
+     * picker's own route still passes false and behaves exactly as it did.
+     */
+    fun stageAndList(uris: List<android.net.Uri>, keepSources: Boolean = false) {
         if (uris.isEmpty()) return
         staging = true
         scope.launch {
@@ -197,7 +203,7 @@ fun ConvoyTrackImportScreen(
                         val head = try { target.inputStream().use { i -> val b = ByteArray(4096); val n = i.read(b); if (n > 0) String(b, 0, n) else "" } } catch (e: Exception) { "" }
                         val readable = head.contains("<gpx", ignoreCase = true) || head.contains("<kml", ignoreCase = true)
                         if (!readable) gtLogger("ImportPicker").w { "$name not GPX/KML -- original KEPT" }
-                        if (deleteOriginals && readable) {
+                        if (deleteOriginals && readable && !keepSources) {   // ONEPICKER-2026-11-17
                             // \u26a0 NEEDS THE WRITE FLAG ON THE PICKER INTENT. Without
                             // it this fails silently and the rider thinks the
                             // original went.
@@ -238,16 +244,13 @@ fun ConvoyTrackImportScreen(
     // same screen. \u26a0 The delete choice was already defaulted on and happens
     // during staging, so asking first was the redundant step; the list reports
     // what was deleted.
-    var pickerOpened by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        scanning = false
-        if (!pickerOpened && files.isEmpty()) {
-            pickerOpened = true
-            pickNotice.ask { pickFiles.launch(arrayOf(
-                "application/gpx+xml", "application/vnd.google-earth.kml+xml",
-                "application/octet-stream", "text/xml", "*/*")) }
-        }
-    }
+    // ONEPICKER-2026-11-17: THE SYSTEM PICKER NO LONGER OPENS ITSELF.
+    // Fred 11-17: "import still presents file picker. no sense testingth next release with
+    // instrumentation until I have the new picker."
+    // The auto-launch was deliberate from 09-13 (STORAGECTX-2026-09-13) because the Downloads scan had
+    // started returning an empty list and there was nothing left to show. GtFilePickerBody below is what
+    // can be shown again: the app's OWN MediaStore rows, which need no grant to list.
+    LaunchedEffect(Unit) { scanning = false }
 
     // -- Import handler -----------------------------------------------
     fun doImport() {
@@ -480,10 +483,16 @@ fun ConvoyTrackImportScreen(
             }
         } else if (files.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                modifier = Modifier.fillMaxSize()
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // ONEPICKER-2026-11-17: GroupTrack's OWN picker, over the owning directory.
+                    // Fred 11-17 12:57: "use the same picker for all imports rides, maps, dr (grouptrac),
+                    // and fetaures" -- one body, the family chooses the section and the types.
+                    // keepSources = true: these rows ARE the recovery copies.
+                    GtFilePickerBody(GtFileOpen.Family.MAP_FEATURES) { uris ->
+                        stageAndList(uris, keepSources = true)
+                    }
                     // IMPORTPICKER-2026-09-13: \u2b50 THE ENTRY POINT, not an error.
                     // The old text said no files were FOUND, which was a lie once
                     // the scan could not see them.
@@ -521,7 +530,7 @@ fun ConvoyTrackImportScreen(
                         shape = RoundedCornerShape(10.dp),
                         color = Gt.panel
                     ) {
-                        Text("  SELECT FILES  ",
+                        Text("  IMPORT FROM SOMEWHERE ELSE  ",   // ONEPICKER-2026-11-17
                             color = Gt.accent,
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
