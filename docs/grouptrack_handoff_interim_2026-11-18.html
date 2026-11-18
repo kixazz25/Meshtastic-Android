@@ -481,6 +481,280 @@ and <b>nothing throws</b>. This is why the 6 <code>.sql</code> are in the startu
 <code>sqlReadByShared</code> naming the four the shared code actually reads.</p>
 </div>
 
+<h3>&#11088;&#11088;&#11088; WHAT IS LEFT BEFORE A SIM MODEL WITH SCREENS &mdash; FRED'S GATE REORDER (GATES-2026-11-18)</h3>
+<div class="card">
+<p><b>First, what already exists, so nobody re-asks.</b> An iPad app that launches and runs our code is
+<b>DONE as of 11-18</b>: the framework links, <code>GtGeom</code> matches Droid 1 byte-for-byte across 230,009
+rows, 19 bundle assets read through the production reader, and both databases build themselves. What does not
+exist is the app <i>with panels</i>.</p>
+<p><b>Fred 11-18 12:05, reordering the gates:</b> <i>&ldquo;so I would move gate 1 to gate three[,] we can test
+and access and app without mesh functionality while we resolve the comm module.&rdquo;</i></p>
+<div class="step"><b>THE ORDER IS NOW: (1) a service reads and writes a row &rarr; (2) the first shared composable renders on the sim &rarr; (3) export the comm module.</b></div>
+<p><b>Why the reorder is right, and the supporting fact is Fred's own:</b> Bluetooth is unusable on the simulator
+(his 11-16 constraint). So exporting comm early buys <b>compile surface and nothing testable</b>. See
+GRPAWARESIM below &mdash; it cannot even turn the awareness light green.</p>
+<p>&#9940; <b>DEFERRING THE EXPORT IS NOT STUBBING IT OUT.</b> The Kotlin stays; CoreBluetooth stays in play per
+Fred's 11-16 rule (<i>&ldquo;needs to stay in play &mdash; not stubbed out&rdquo;</i>); mesh remains in scope
+(<i>&ldquo;the mesh services layer is included in this build&rdquo;</i>). Only the <code>export()</code> to the
+ObjC header is postponed. A future session must not read gate 3 as licence to stub.</p>
+<p><b>GATE 1 &mdash; a service has never read or written a row on the iPad.</b> DBPROBE proved the SCHEMA builds
+and verified it with raw <code>PRAGMA</code>/table counts. Two correct, <i>empty</i> databases and no evidence any
+service can use them. Cheapest next build: write one row and read it back <b>through the shared service layer</b>,
+not raw SQL.</p>
+<p><b>GATE 2 &mdash; see NOSHAREDUI below. This is the gate that decides the shape of everything after it.</b></p>
+<p><b>GATE 3 &mdash; comm is not reachable from Swift.</b> Measured: <code>Comm</code> has <b>0</b> declarations
+in the generated header against 405 <code>@interface</code> for the rest, because <code>api()</code> is not
+<code>export()</code>. Tracked as <code>C28-26330</code> for the share seam and owed separately for comm itself.</p>
+</div>
+
+<h3>&#11088;&#11088; THE SCREENS ARE STILL IN <code>app/</code> &mdash; THE MIGRATION IS UNSTARTED, AND THE PIPE DOES NOT EXIST YET (NOSHAREDUI-2026-11-18)</h3>
+<div class="card">
+<p><b>Measured 11-18 12:07, by the platform primitive (METHOD RULE 2) &mdash; <code>@Composable</code>, not our own
+names:</b></p>
+<div class="step"><code>app/</code> &mdash; <b>314</b> <code>@Composable</code> annotations across <b>101</b> files &middot; <code>grouptrack-shared</code> &mdash; <b>0</b> &middot; <code>commonMain</code> <b>0</b> &middot; <code>iosMain</code> <b>0</b></div>
+<p><b>And the Compose Multiplatform already in the build is not the UI runtime</b> &mdash; it is
+<code>compose.multiplatform.resources</code> in <code>core/model</code> and <code>core/domain</code>, which are
+upstream Meshtastic's modules, not ours.</p>
+<p><b>&#11088; KMP AND COMPOSE MULTIPLATFORM DO HANDLE OUR UI. D10 STANDS AND NOTHING HERE QUESTIONS IT.</b> The
+measurement above says only that the screens have not been MOVED yet, which is exactly what
+<code>grouptrack-shared</code>'s own header already said: <i>&ldquo;NO SCREENS ARE WIRED HERE, and that is SCOPE,
+NOT A DECISION.&rdquo;</i> Unstarted, not broken.</p>
+<p><b>&#11088;&#11088; AND THE DECISIVE FACT, which must not be lost: COMPOSE MULTIPLATFORM USES THE SAME
+<code>androidx.compose.*</code> PACKAGE NAMES.</b> <code>material3</code>, <code>foundation</code>,
+<code>ui</code> &mdash; identical imports. So most of the 314 composables <b>compile unchanged</b> once the file
+sits in a shared source set. <b>The UI is not rewritten.</b> What does not travel is the Android PLATFORM code
+mixed into the same files &mdash; <code>Context</code>, <code>Intent</code>, <code>ConnectivityManager</code>,
+<code>org.json</code> &mdash; which is the GRPAWARESIM pattern exactly: portable light, Android panel, one file.</p>
+<p><b>So GATE 2 is two different things, and they must not be confused:</b></p>
+<p>&middot; <b>THE PIPE &mdash; genuinely new, and tiny (~10 lines).</b> Add the CMP UI dependencies to
+<code>grouptrack-shared</code> and one <code>ComposeUIViewController</code> entry point. Tracked as
+CMPPIPE-2026-11-18. It is the highest-information build left on the iPad: it either proves the panel path or
+tells us it does not work, for the price of one screen.</p>
+<p>&middot; <b>THE MIGRATION &mdash; moving the 101 files, mostly unchanged.</b> This is a migration and Claude
+was wrong to call it otherwise (see the correction below).</p>
+<p><b>&#9940; TWO CLAUDE CORRECTIONS, recorded because Fred caught both and the wording would otherwise have
+entered the permanent record:</b></p>
+<p><b>(a) &ldquo;There is no shared UI&rdquo; was too broad</b> and read as though the architecture were wrong.
+Fred 11-18 12:11: <i>&ldquo;wait what do you mean no shared ui[?] th[e] Kotlin mul[t]iplatform is supposed to
+handle our ui. what is going on?&rdquo;</i> It does. The measurement was only about where the files sit today.</p>
+<p><b>(b) &ldquo;New work, not a migration&rdquo; was simply wrong.</b> It IS a migration &mdash; files move from
+<code>app/</code> into a shared source set, and most of them compile as they are. Only the ~10-line pipe is new.</p>
+<p>Both errors came from the same habit: describing the shape of work from one measurement without checking what
+the measurement did and did not say. CONSUMER-2026-11-18 in its third form &mdash; and note that for most of
+11-18 Claude also described the pipe as a mere &ldquo;wiring step&rdquo;, which it is not, because the CMP UI
+dependencies were never present in the module.</p>
+<p><b>What is NOT sized, and must not be guessed:</b> the 60-screen job. It is a <b>101-file</b> migration out of
+<code>app/</code>. Because the Compose imports are identical, the cost per file is NOT &ldquo;rewrite the
+screen&rdquo; &mdash; it is &ldquo;separate whatever Android platform code is mixed in&rdquo;, and GRPAWARESIM
+below suggests some files need SPLITTING rather than a clean move. <b>That split hypothesis rests on ONE file.</b>
+The next sizing pass is a per-file Android-only API audit across the 101; until it runs, no screen count has a
+cost attached to it.</p>
+</div>
+
+<h3>&#11088;&#11088; GROUP AWARENESS ON THE SIM &mdash; THE LIGHT IS PORTABLE, THE PANEL IS NOT (GRPAWARESIM-2026-11-18)</h3>
+<div class="card">
+<p><b>Fred 11-18 12:06:</b> <i>&ldquo;gr[ou]p aware[ness] need and radio functions on map panel&rdquo;</i> &mdash;
+raised against the gate reorder, because the map panel is the screen you would want first.</p>
+<p><b>The question that had to be measured, not assumed:</b> does group awareness read from LIVE mesh or from
+stored positions? If stored, the seeded Droid 1 data would render the group's last known positions on the sim with
+no comm at all.</p>
+<p><b>Answer &mdash; it is LIVE-ONLY, with no stored fallback.</b> <code>grpAwarenessColor()</code>
+(<code>app/.../convoy/GrpAwareness.kt:86</code>) reads exactly four things, all in-memory Compose state set from
+Main by the tick: <code>GroupMode.on</code>, <code>GrpAwarenessLauncher.connected</code>,
+<code>.talking</code>, <code>.pulseAt</code>. <b>Zero database.</b> And <code>lastHeardMs</code> appears in only
+<b>3</b> files with <b>no</b> insert, update or select anywhere &mdash; it is never persisted.</p>
+<p><b>Consequence for the sim:</b> the awareness light renders <b>grey</b> (group mode off) or <b>red</b> (on, not
+talking), and <b>can never be green</b> &mdash; by Fred's own LINKFIX-2026-10-03 rule, a connected-but-silent radio
+is red. <b>This is correct behaviour on the sim, not a defect, and exporting comm does not change it.</b> Only a
+real radio does. Which is the strongest argument for the reorder.</p>
+<p><b>The split this exposes, and why it matters for sizing:</b></p>
+<p>&middot; <b>PORTABLE</b> &mdash; the awareness LIGHT: Compose state plus a colour, nothing Android-specific.</p>
+<p>&middot; <b>NOT PORTABLE</b> &mdash; the awareness PANEL: <code>ConnectivityManager</code>,
+<code>BluetoothAdapter.ACTION_REQUEST_ENABLE</code>, <code>Settings.ACTION_BLUETOOTH_SETTINGS</code>,
+<code>Settings.ACTION_APPLICATION_DETAILS_SETTINGS</code>, <code>org.json.JSONObject</code>. And that panel is
+<b>already out of the first pass</b> by Fred's 11-16 decision &mdash; <i>&ldquo;exactly two panels, the mesh-screen
+links to radio settings and nodes &mdash; leave them out of the first pass.&rdquo;</i></p>
+<p>&#9940; <b>Both halves live in the SAME FILE</b>, with the Android imports at the top. So this file is a
+<b>split</b>, not a move. That is the finding to carry into the 101-file audit.</p>
+</div>
+
+<h3>&#9940;&#9940;&#9940; THE RADIO AND MESH MENUS ARE UNTESTABLE ON THE SIMULATOR &mdash; NOT MERELY DEFERRED (NOSIMRADIO-2026-11-18)</h3>
+<div class="card">
+<div class="step"><b>Fred 11-18 12:07: &ldquo;we cannot test any function on those menus[,] period.&rdquo;</b></div>
+<p><b>This is a stronger statement than &ldquo;out of the first pass&rdquo; and it must not be softened back
+into that.</b> The 11-16 decision deferred two panels as a matter of SEQUENCE. This says the radio and mesh
+menus cannot be EXERCISED on the simulator at all &mdash; there is no radio, Bluetooth is dead, and every
+function on those menus either drives Android platform APIs or needs live traffic. Building them, exporting
+comm for them, or writing tests against them on the sim produces <b>no evidence of anything</b>.</p>
+<p><b>What follows, concretely:</b> comm's <code>export()</code> stays at gate 3 &middot; the GrpAwareness
+panel is not ported in the sim phase &middot; CONNECT / DISCONNECT / FORGET / ADD A RADIO / APPLY RIDE TO RADIO
+get no sim work &middot; and the awareness light's red-or-grey state on the sim is the CORRECT result, not a
+finding to chase.</p>
+<p>&#11088; <b>AND IT IS A LIMIT ON THE CERTIFICATION HARNESS, which is the part worth carrying forward.</b>
+Fred's harness has three columns &mdash; rigid old code on Android, new code on Android, new code on the iPad.
+<b>The iPad column can never cover a radio function while the target is the simulator.</b> By
+CERTCOVER-2026-11-17 (what a test covers is part of its result), every sim certification must therefore STATE
+that radio and mesh functions are uncovered, rather than reporting a pass that silently excludes them. The
+coverage gap closes only on the pivot Fred named on 11-16: a sideloaded TestFlight install on a real iPad with
+a paired radio.</p>
+</div>
+
+<h3>&#11088;&#11088;&#11088; FRED: MAPS FIRST, WITHOUT REGARD TO COMPLEXITY (MAPSFIRST-2026-11-18)</h3>
+<div class="card">
+<p><b>Fred 11-18 13:48:</b> <i>&ldquo;my opinion is maps which are a backdrop for everything should be the first
+thing we move. without regard to complexity.&rdquo;</i></p>
+<p><b>Claude had proposed the opposite</b> &mdash; move one CLEAN dialog first to prove the mechanics. Fred's
+argument beats it and is recorded because the reasoning generalises: <b>a cheap screen proves the mechanics but is
+wasted motion if the backdrop turns out to be the thing that cannot move.</b> The gate should be the hardest
+load-bearing thing, not the easiest.</p>
+<p><b>And it paid immediately</b> &mdash; maps-first exposed two stale Claude conclusions within the hour
+(vecmap &ldquo;not needed on iOS&rdquo;, and folder references &ldquo;no longer exist&rdquo;). Both are corrected
+below.</p>
+</div>
+
+<h3>&#11088;&#11088; THE 101-FILE MIGRATION, SIZED (SCREENAUDIT-2026-11-18)</h3>
+<div class="card">
+<p>Measured by Android-only imports per file (the platform primitive, METHOD RULE 2), across the 101 files under
+<code>app/</code> holding 314 <code>@Composable</code>:</p>
+<div class="step"><b>CLEAN (0 Android-only imports): 29 files / 79 composables &middot; LIGHT (1-2): 42 / 139 &middot; MID (3-8): 25 / 84 &middot; HEAVY (9+): 5 / 12</b></div>
+<p>So <b>25% of the composables move with no separation work</b>, and clean+light is <b>69% needing at most two
+fixes each</b>. The heavy end is five files. Far better than the morning's &ldquo;101 files to split&rdquo; guess.</p>
+<p><b>The blockers concentrate:</b> <code>LocalContext</code> in <b>55</b> files &mdash; solve what composables use
+Android <code>Context</code> FOR (help lookup, resources, file access, starting activities) and over half the set
+unblocks on one abstraction. Then <code>androidx.navigation</code> 24, <code>lifecycle</code> 13,
+<code>activity</code> 11, <code>hilt</code>/<code>dagger</code> 9/5, <code>org.json</code> 5.
+<code>androidx.compose.ui.tooling</code> in 10 files is only <code>@Preview</code> &mdash; free to drop.</p>
+<p>&#9940; <b>CLEAN IS NECESSARY, NOT SUFFICIENT.</b> Files in the same package reference each other with NO
+import, so a &ldquo;clean&rdquo; file can still touch Android-bound code invisibly. The compiler is the test.</p>
+</div>
+
+<h3>&#11088;&#11088;&#11088; THE MAP IS A WEBVIEW, AND THE SPIKE ALREADY PROVED IT ON THE IPAD (MAPORACLE-2026-11-18)</h3>
+<div class="card">
+<p><b>Fred 11-18 13:49:</b> <i>&ldquo;that was the first thing that was tested. i[t] was the maplibre in the sim
+panel...&rdquo;</i> He was right, and Claude was re-deriving settled ground.</p>
+<p><b>Measured:</b> <code>org.maplibre</code> appears in <b>0</b> files. There is no native MapLibre SDK. The map
+is <code>convoy_map.html</code> / <code>vecmap_main.html</code> in a <b>WebView</b> (22 files), i.e. MapLibre GL
+<b>JS</b>. <code>GroupTrackScreen.kt:1196</code>:</p>
+<div class="step"><code>loadUrl(if (GtMapEngine.isVector(ctx)) "https://${VecMapServer.HOST}/a/vecmap_main.html" else "file:///android_asset/convoy_map.html")</code></div>
+<p><b>THE NOV 6 SPIKE RESULT (<code>_orig/full3a.jpg</code>), on the iPad simulator:</b></p>
+<div class="step">page: VECWATCH z13.0 loaded true tilesLoaded true &middot; map req 46/46/0 &middot; <b>page errors: none</b><br>
+server: store OPEN &middot; assets 21 &middot; from store 38 &middot; internet 8 &middot; missing 2<br>
+spatial: app z14 &middot; <b>Trails 322 &middot; Tracks 2 &middot; Waypoints 4 &middot; Land 13 &middot; query 225 ms</b><br>
+bridge: shim &times;1 &middot; onBearing &times;1 &middot; onMapReady &times;1 &middot; onViewportChanged &times;10 &middot; onTrailTap &times;2</div>
+<p>St George rendering with trails, a track, waypoint pins and land-ownership hatching. <b>So nothing about
+maps-first is speculative.</b> The 11-15 decision stands: <b>transcribe, do not repair &mdash; the spike is the
+oracle.</b></p>
+<p><b>What the Nov 6 run was fed</b> (<code>_data/droid1_2026-11-06/</code>, a COMPLETE GroupTrack root, not just
+databases):</p>
+<div class="step"><code>grouptrack_spatial.db</code> 519M &middot; <code>grouptrack_data.db</code> 62M &middot; <code>maps/tiles/VEC.mbtiles</code> 452M &middot; <code>maps/tiles/DEM.mbtiles</code> 418M &middot; <code>state/grouptrack_panel.json</code> &middot; <code>state/planning_panel.json</code> &middot; map_keys.json &middot; map_slots.json &middot; recipes &middot; rides &middot; imports &middot; osm</div>
+<p>&#11088; <b>THE TILE STORE IS ONE FILE, NOT A TREE</b> &mdash; <code>VecStore(documentsFile("VEC.mbtiles"))</code>,
+read-only, <code>tiles(zoom_level, tile_column, tile_row, tile_data)</code>, scheme xyz. Seeding is a directory
+copy, not a reconstruction. (Note the spike put it at <b>Documents root</b>; Android keeps it at
+<code>maps/tiles/VEC.mbtiles</code> &mdash; a divergence to decide at transcription, not to copy unnoticed.)</p>
+</div>
+
+<h3>&#9940;&#9940; THE FLATTENED-DIRECTORY PROBLEM HAD A STANDARD ANSWER ALL ALONG (VECOPAQUE-2026-11-18)</h3>
+<div class="card">
+<div class="step"><b>Fred 11-18 14:06: &ldquo;this is a fundamental issue and there has to be a solution within the normal install process. lets research before we write non standard complex solutions.&rdquo;</b></div>
+<p><b>He was right and the research found it in minutes.</b> Xcode 27's JSON project format gives the
+<code>folder</code> kind an <b><code>opaque-folders</code></b> property (a string set). A folder named there is
+copied into the bundle <b>AS A UNIT, structure intact</b> &mdash; the classic blue-folder behaviour. Without it,
+<code>kind:folder</code> is a SYNCHRONIZED folder that walks the tree and flattens.</p>
+<p><b>The fix is one key:</b></p>
+<div class="step"><code>{ "kind": "folder", "path": "iosapp", "target-membership": [ "iosapp" ], "opaque-folders": [ "Resources/vecmap" ] }</code></div>
+<p><b>VERIFIED IN THE BUILT APP, not by a green build:</b> 69 files present, and
+<code>iosapp.app/vecmap/fonts/Noto Sans Italic/0-255.pbf</code> at the bundle root &mdash; the same shape Android
+has at <code>assets/vecmap/</code>. Commit <code>b0dbe8245</code>.</p>
+<p>&#9940; <b>CLAUDE'S ERROR, AND THE ONE THAT MATTERS MOST TODAY:</b> this morning's
+<code>{"kind":"folder","path":...}</code> attempt OMITTED <code>opaque-folders</code>, produced nine
+&ldquo;Multiple commands produce&rdquo; errors, and Claude concluded <b>folder references no longer exist in the
+JSON format</b>. One incomplete attempt became a standing architectural &ldquo;fact&rdquo;, and the rest of the
+day was spent designing around it.</p>
+<p><b>What that wrong conclusion nearly bought us</b> &mdash; four separate workarounds, all proposed, none needed:
+a <code>.zip</code> shipped as a flat asset plus a first-launch unpacker &middot; <code>composeResources</code>
+(which needs Xcode to run Gradle, forbidden here by <code>ENABLE_USER_SCRIPT_SANDBOXING: YES</code>) &middot;
+<code>embedAndSignAppleFrameworkForXcode</code> &middot; renaming all 69 files flat with a manifest.</p>
+<div class="step"><b>DURABLE RULE &mdash; A FAILED ATTEMPT IS NOT A PROVEN ABSENCE.</b> &ldquo;I tried it and it broke&rdquo; establishes that THAT attempt was wrong, never that the capability is missing. Before building a workaround, establish the absence directly &mdash; here, one reading of the schema. Fred's instinct, every time: a fundamental need has a standard answer, and inventing one beside it is the tell that the research was skipped.</div>
+</div>
+
+<h3>&#11088; WHAT ACTUALLY SHIPS WITH THE APP, AND WHAT DOES NOT (VECASSETS-2026-11-18)</h3>
+<div class="card">
+<p><b>Fred 11-18 13:55:</b> <i>&ldquo;there are no bundled map assets&rdquo;</i> &mdash; correct, and Claude had
+been using &ldquo;assets&rdquo; loosely enough to confuse the whole discussion.</p>
+<p><b>Measured:</b> <code>app/src/main/assets/vecmap</code> is <b>69 files / 5.0 MB of VIEWER</b>:
+<code>maplibre-gl.js</code> 788K, the styles, ten <code>vec_*.js</code> scripts, sprites 236K, and fonts
+<b>3.8 MB</b> &mdash; where all 45 <code>.pbf</code> files are GLYPH RANGES
+(<code>fonts_ofm/Noto Sans Regular/0-255.pbf</code>). <b>ZERO map tiles ship.</b></p>
+<p><b>Three sources, three mechanisms</b> (<code>VectorMapTest.kt</code>):</p>
+<div class="step"><code>/a/&lt;rel&gt;</code> &rarr; the bundled VIEWER &middot; <code>/t/z/x/y.pbf</code> &rarr; the VEC store (downloaded at runtime) &middot; then the internet (OpenFreeMap / AWS Terrain), shown but never stored</div>
+<p><b>Fred's point about directories</b> (13:53): the store's directories are created at runtime by the app,
+exactly as on Android &mdash; and that is already proven on iPadOS, since the app built
+<code>Documents/GroupTrack</code> and both databases unaided (DBPROBE 8/8). <b>Only the 5 MB viewer ever needed a
+shipping mechanism.</b></p>
+</div>
+
+<h3>&#9940; THE MAP STATE THAT MADE THE SPIKE'S TRAILS APPEAR (MAPSTATESEED-2026-11-18)</h3>
+<div class="card">
+<p><b>Fred 11-18 14:13:</b> <i>&ldquo;the state was se[t] by the apps last state f[r]om the database we used as a
+testing model.&rdquo;</i></p>
+<p><b>Measured:</b> map panel state is <b>FILES, not rows</b> &mdash; <code>GtMapState.dir() = paths.dir("state")</code>,
+holding <code>&lt;mapKey&gt;_panel.json</code> and <code>&lt;mapKey&gt;_view.json</code> under the GroupTrack root.
+It travelled with Droid 1's capture because the whole directory came across.</p>
+<p><b>Claude overstated the risk and is corrected here:</b> <code>GtMapState.defaults()</code> is <i>&ldquo;Trails
+ON, others OFF, no rows, all panel boxes false&rdquo;</i>, so a fresh iPad with no state files <b>still shows
+trails</b>. It would show them with default filters and no saved selections or bbox &mdash; not an empty map.</p>
+<p>&#11088; <b>THE CONSEQUENCE IS FOR THE HARNESS.</b> Three columns means the iPad must show WHAT DROID 1 SHOWS.
+So the seed is the GroupTrack DIRECTORY INCLUDING <code>state/</code>, never just the two <code>.db</code> files
+&mdash; seed only the databases and every visual comparison is off for a reason that has nothing to do with the
+port.</p>
+<p><b>Still Android-only, and needed for real filtering:</b> <code>TrailFilterState.kt</code>
+(<code>app/.../convoy/</code>) is what turns <code>map_keys_defaults.json</code> into the query predicate. The
+defaults asset itself already reads on the iPad (one of the 19), and <code>GtIosHkEnv.kt:141</code> already
+declares it.</p>
+</div>
+
+<h3>&#11088;&#11088; MAPS-FIRST, THE REMAINING WORK (MAPSTEPS-2026-11-18)</h3>
+<div class="card">
+<p><b>1. SHIP THE VIEWER &mdash; DONE</b> (<code>b0dbe8245</code>). 69 files, structure intact, verified in the bundle.</p>
+<p><b>2. TRANSCRIBE <code>GtVecMap.ios.kt.step2d</code></b> (234 lines) into iosMain &mdash; the file
+<code>GtIosHttp.kt:59</code> already points at. What it contains: a <code>WKURLSchemeHandler</code> on a custom
+<code>gtvec://local/</code> scheme (WKWebView cannot intercept <code>https://</code>, so the page's
+<code>https://gtvec.local/</code> is rewritten as files are served); a <code>WKScriptMessageHandler</code>; and the
+SHIM that gives the page a <code>window.Android</code> Proxy posting <code>name\u0001[args]</code>. Two deliberate
+divergences from the oracle: assets now come from the BUNDLE folder rather than
+<code>Res.getUri("files/vecmap/...")</code>, and the store should use <code>androidx.sqlite</code> (already bundled
+and proven by DBPROBE) rather than the spike's cinterop <code>gtsqlite</code> shim, which the spike itself
+retired (<code>_orig/gtsqlite.def.retired</code>).</p>
+<p><b>3. SEED</b> &mdash; the GroupTrack directory into the sim's Documents. &#9940; The container UUID CHANGES ON
+EVERY REINSTALL (two different ones were seen on 11-18 alone), so resolve it with
+<code>xcrun simctl get_app_container &lt;device&gt; com.grouptrack.ios data</code>, never a hardcoded path. Choose
+<code>droid1_2026-11-06</code> to reproduce the proven result exactly, or
+<code>_data/sidebyside/droid1_2026-11-17_1353/files/GroupTrack/</code> for the current three-column harness. DEM
+(418 MB) can be skipped for first light &mdash; the Nov 6 run showed <code>elev req 0/0/0</code>.</p>
+<p><b>4. HOST IT</b> in the Compose <code>UIViewController</code> from CMPPIPE &mdash; the spike used the identical
+<code>UIViewControllerRepresentable</code> pattern, which this morning's pipe rebuilt without knowing.</p>
+<p><b>5. THE DISPATCH TABLE</b> &mdash; C28-26319 B3: 14 names delivered, ONE wired. <i>&ldquo;Wiring, not
+feasibility.&rdquo;</i> &#9940; And its own warning: a catch-all Proxy makes an unhandled name indistinguishable
+from a handled one at the page, so <b>dispatch gaps are silent by construction.</b></p>
+</div>
+
+<h3>&#9940;&#9940;&#9940; THE CHARACTERISTIC iOS RISK: SIX SILENT FAILURES IN ONE DAY (SILENT6-2026-11-18)</h3>
+<div class="card">
+<p>Every one of these builds green and fails quietly at runtime. This is now the defining hazard of the iPad port,
+and the argument for making the startup assertion REFUSE rather than report (C28-26329):</p>
+<p><b>1.</b> <code>GtHelpLinks.load</code> wraps <code>iosBundleAsset</code> in <code>runCatching</code> &rarr; an
+EMPTY help table &middot; <b>2.</b> <code>GtMapSpec.spec()</code> catches &rarr; <b>null</b> &middot;
+<b>3.</b> a missing <code>.sql</code> &rarr; a HALF-BUILT database, nothing thrown &middot;
+<b>4.</b> <code>INFOPLIST_KEY_*</code> accepts any name, ships only allowlisted ones, drops the rest WITHOUT A WORD
+(cost a build and a wrong diagnosis on 11-18) &middot; <b>5.</b> a synchronized folder FLATTENS resources silently
+whenever basenames happen not to collide &mdash; it only errored for us because 36 of 69 did &middot;
+<b>6.</b> the bridge's catch-all Proxy makes an unhandled name look handled, so
+<code>vec_ports.js</code>'s &ldquo;MISSING&rdquo; branch can never fire on iOS.</p>
+<p><b>And a seventh in waiting:</b> <code>Resources/</code> is gitignored, so a fresh clone builds an app with NO
+viewer, green, and the map comes up blank. The zip route would have had the same hole. <b>vecmap belongs in the
+startup assertion</b> &mdash; 19 becomes 20.</p>
+</div>
+
 <h3>&#11088;&#11088; DURABLE RULE &mdash; READ THE CONSUMER FIRST (CONSUMER-2026-11-18)</h3>
 <div class="card">
 <div class="step"><b>The code that READS an asset defines where the asset must be. The code that OPENS a database defines who must create its directory. No reasoning about a project format substitutes for one grep of the reading function.</b></div>
