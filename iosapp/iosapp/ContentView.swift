@@ -51,6 +51,7 @@ private func runGeomProbe() -> [ProbeCheck] {
 
 struct ContentView: View {
     private let checks = runGeomProbe()
+    private let assets = StartupAssertion.run()   // STEP 4: the 19 bundle assets, via the production reader
 
     var body: some View {
         let failures = checks.filter { !$0.ok }
@@ -79,6 +80,23 @@ struct ContentView: View {
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(c.ok ? Color.secondary : Color.red)
                     }
+                }
+
+                Divider()
+
+                let assetBad = assets.filter { !$0.ok }
+                Text(assetBad.isEmpty ? "BUNDLE ASSETS OK" : "BUNDLE ASSETS FAILED")
+                    .font(.title2).bold()
+                    .foregroundStyle(assetBad.isEmpty ? Color.green : Color.red)
+                Text(assetBad.isEmpty
+                     ? "All \(assets.count) read through NSBundle.pathForResource, the same reader GtSchema and GtHelpLinks use. A missing one would have terminated before this screen drew."
+                     : "\(assetBad.count) of \(assets.count) read empty.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                ForEach(assets) { a in
+                    Text((a.ok ? "PASS   " : "FAIL   ") + "[\(a.kind)] " + a.name + "   " + a.note)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(a.ok ? Color.secondary : Color.red)
                 }
 
                 Spacer(minLength: 8)
