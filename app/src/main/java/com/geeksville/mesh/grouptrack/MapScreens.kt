@@ -662,7 +662,6 @@ fun GtScreenFrame(title: String, helpId: String, onClose: () -> Unit, note: Stri
             }
             extra()
             GtHelpButton(helpId)
-            GtIssueButton(helpId)   // PANELSTD-2026-11-18: HELP - ISSUE - close, as GtPanel
             GtCloseButton(onClose)
         }
         Box(modifier = Modifier.weight(1f)) { content() }
@@ -688,7 +687,6 @@ fun GtDialogTitle(title: String, helpId: String, onClose: () -> Unit, closeEnabl
     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         Text(title, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
         GtHelpButton(helpId)
-        GtIssueButton(helpId)   // PANELSTD-2026-11-18
         GtCloseButton(onClose, enabled = closeEnabled)
     }
 }
