@@ -151,7 +151,18 @@ class IosHkEnv(
         if (attempted) return
         attempted = true
         try {
-            val dir = paths.groupTrackRoot()            // GroupTrackStorage.rootReady()'s analogue: created
+            // DBDIR-2026-11-18: groupTrackRoot() is CONTRACTUALLY NOT CREATED -- GtImportPaths says
+            // "GroupTrackStorage.root()" for this member and "created" only for tracksDir(), and
+            // IosStorageBase.root() repeats it: "Not created -- see rootReady." The comment that used to
+            // sit here claimed rootReady()'s behaviour and was wrong, so gtOpenDatabase was asked to make
+            // a file inside a directory that did not exist. SQLite failed, the catch below left both
+            // connections null, and DBPROBE-2026-11-18 reported "DATABASE UNAVAILABLE" with no other clue.
+            // Android creates it at the DATABASE layer (GroupTrackStorage.rootReady(ctx), as MapEngine.kt:22
+            // and MapSourceManager.kt:63 do), not in its paths object -- so this is the right layer for it.
+            // \u26d4 NOT a copy of rootReady(): its .nomedia keeps Android's gallery out of the folder, and
+            // iPadOS has no gallery scanner and no such file. Parity of INTENT, not of artefacts.
+            val dir = paths.groupTrackRoot()
+            fs.createDirectories(dir)                  // no-op when it already exists
             val sp = (dir / SPATIAL_DB).toString()
             val dt = (dir / DATA_DB).toString()
             val s = gtOpenDatabase(sp, false)

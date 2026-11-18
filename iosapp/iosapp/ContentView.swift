@@ -52,6 +52,7 @@ private func runGeomProbe() -> [ProbeCheck] {
 struct ContentView: View {
     private let checks = runGeomProbe()
     private let assets = StartupAssertion.run()   // STEP 4: the 19 bundle assets, via the production reader
+    private let dbs = DbProbe.run()               // after STEP 4: the app builds its own database
 
     var body: some View {
         let failures = checks.filter { !$0.ok }
@@ -97,6 +98,28 @@ struct ContentView: View {
                     Text((a.ok ? "PASS   " : "FAIL   ") + "[\(a.kind)] " + a.name + "   " + a.note)
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(a.ok ? Color.secondary : Color.red)
+                }
+
+                Divider()
+
+                let dbBad = dbs.filter { !$0.ok }
+                Text(dbBad.isEmpty ? "DATABASE BUILT ON iPADOS" : "DATABASE FAILED")
+                    .font(.title2).bold()
+                    .foregroundStyle(dbBad.isEmpty ? Color.green : Color.red)
+                Text(dbBad.isEmpty
+                     ? "Created by the same GtSchema Android runs, from the same schema files, in a database the app made itself."
+                     : "\(dbBad.count) of \(dbs.count) failed. initBb leaves connections nil rather than throwing -- the reason is in the DBPROBE log.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                ForEach(dbs) { c in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text((c.ok ? "PASS   " : "FAIL   ") + c.what)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(c.ok ? Color.green : Color.red)
+                        Text("    " + c.got)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Spacer(minLength: 8)
