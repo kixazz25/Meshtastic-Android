@@ -5,6 +5,12 @@
 // is just another connection on the same engine; iPad = the bundled SQLite. Two SQLite copies on one file in one app can corrupt it.
 plugins {
     alias(libs.plugins.meshtastic.kmp.library)
+    // CMPPIPE-2026-11-18: Compose Multiplatform for the iPad SCREENS. D10 (11-06) chose CMP and
+    // REJECTED SwiftUI for presentation, so this is the sanctioned path, not a new decision.
+    // The convention plugin applies compose-compiler + org.jetbrains.compose and puts the CMP
+    // RUNTIME and RESOURCES in commonMain -- it does NOT bring the UI toolkit, so compose.ui /
+    // foundation / material3 are added explicitly below.
+    alias(libs.plugins.meshtastic.kmp.library.compose)
 }
 
 kotlin {
@@ -39,6 +45,13 @@ kotlin {
             api("androidx.sqlite:sqlite:2.5.2")                  // the SQLiteConnection interface (part of this module's API)
             implementation(libs.kotlinx.serialization.json)     // org.json replacement (JsonElement API only, no plugin)
             implementation(libs.kotlinx.coroutines.core)        // STEP17G2E2A: the state data queue (coroutines in commonMain)
+            // CMPPIPE-2026-11-18: the UI toolkit itself. The kmp.library.compose convention gives
+            // only runtime + resources. compose.* accessors come from the org.jetbrains.compose
+            // plugin that convention applies.
+            implementation(compose.runtime)
+            implementation(compose.foundation)
+            implementation(compose.material3)
+            implementation(compose.ui)
         }
         androidMain.dependencies { implementation("androidx.sqlite:sqlite-framework:2.5.2") }   // Android's own SQLite
         iosMain.dependencies { implementation("androidx.sqlite:sqlite-bundled:2.5.2") }         // as proved in the spike 11-06
