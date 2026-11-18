@@ -190,6 +190,333 @@ remainder of MAPMENU and come before Xcode.</p>
 <p><b>&#9888; Droid 2 is not connected this morning</b>, so the seed push stays blocked and is not in today&rsquo;s order.</p>
 </div>
 
+<h2 id="day18b">&#11088;&#11088;&#11088; TODAY 2026-11-18 PART 2 &mdash; compileSdk 37, THE PANEL STANDARD INCIDENT, AND THE IPAD'S FIRST DATABASE (DAY18B-2026-11-18)</h2>
+<div class="card">
+<p><b>What this section is.</b> Part 1 above covers the maps-menu revisions that became 2.8a. This part covers
+09:00&ndash;11:45: the SDK 37 migration, a process failure of mine that cost an hour and changed how we work, the
+manual stubs, and XCODESTEPS STEP 3 and STEP 4 &mdash; which ended with the iPad building its own database.</p>
+<p><b>Commits landed today, in order:</b>
+<code>0d8f5ef22</code> 2.8a map menu + manual v141 stubs &middot;
+<code>b0a5b36d3</code> ISSUE duplicate fix &middot;
+<code>698aa4494</code> compileSdk 37 + AGP 9.1.1 &middot;
+<code>52c9e19b6</code> CMP 1.12.2 off alpha &middot;
+<code>62dddca97</code> OVERVIEW v142 &middot;
+<code>7ac181539</code> iosapp restore point &middot;
+<code>bccb56c1d</code> STEP 3 &middot;
+<code>17698c717</code> STEP 4 &middot;
+<code>5f0406801</code> the iPad database.</p>
+</div>
+
+<h3>&#9940;&#9940; THE PANEL STANDARD INCIDENT &mdash; WHAT I GOT WRONG, AND THE RULES THAT CAME OUT OF IT (PANELSTD-2026-11-18)</h3>
+<div class="card">
+<p><b>What happened.</b> Fred found <code>HELP &middot; ISSUE &middot; ISSUE &middot; &#10005;</code> on the saved map
+features screen. My morning patch had added a second <code>GtIssueButton(helpId)</code> directly after
+<code>GtHelpButton(helpId)</code> &mdash; but <code>GtHelpButton</code> <b>already contains one</b>, by the
+ISSUE-2026-10-24 standard and with the comment saying so three lines above the code I was patching:</p>
+<div class="step"><code>// ISSUE-2026-10-24: ISSUE beside HELP -- wherever HELP is, ISSUE is.</code> &mdash; GtHelpViewer.kt, inside <code>GtHelpButton</code></div>
+<p><b>The blast radius.</b> Two lines, in the two shared frame composables, affecting 26 surfaces:
+9 <code>GtScreenFrame</code> screens and 17 <code>GtDialogTitle</code> dialogs. Reverted in
+<code>MapScreens.kt</code> (lines 665 and 691 deleted, 44870 &rarr; 44722 chars), enumerated by file:line
+from <code>0d8f5ef22</code>, and certified by Fred on device. Fixed in <code>b0a5b36d3</code>.</p>
+<p><b>The real failure was not the patch, it was the count.</b> This was the <b>second time in one morning</b> I
+asserted a screen-standard number without measuring &mdash; at 07:50 I claimed 38 non-standard screens and Fred
+corrected me. The 26 came from an uncounted "14 screens" I had carried in my head. Fred:
+<i>&ldquo;you gave e 3 number 2 found, 26 planned and 37 updated. confidence is low:(&rdquo;</i> and
+<i>&ldquo;remove the patch on 37 screens and lets start over. this is getting stupid. these mass changes are
+scaring me.&rdquo;</i></p>
+<p><b>I then compounded it by misreading him.</b> When he said <i>&ldquo;the two samples you gave me they were
+wrong&rdquo;</i> I took it as &ldquo;your prediction failed&rdquo; and withdrew the 26. He corrected:
+<i>&ldquo;no they were duplicated on this screen they should have been in your fix list.&rdquo;</i> His check had
+<b>confirmed</b> the diagnosis on three screens. I withdrew the withdrawal.</p>
+</div>
+<h3>&#11088; NEW WORKING RULES, AT FRED'S INSISTENCE (11-18, binding)</h3>
+<div class="card">
+<p><b>1. ONE CHANGE, ONE BUILD.</b> Nothing bundled.</p>
+<p><b>2. I SHOW THE SIMULATION; FRED APPLIES.</b> I do not apply.</p>
+<p><b>3. NO COUNT ABOUT THE SCREEN SET &mdash; OR ANYTHING &mdash; WITHOUT A GREP SHOWN FIRST.</b></p>
+<p><b>4. A CHANGE TOUCHING MORE THAN A COUPLE OF SURFACES GETS SIZED AND AGREED BEFORE A PATCH EXISTS.</b></p>
+<p>These sit alongside the standing PANEL/SCREEN STANDARD note: COLOUR/PRESENTATION (STD1-2026-10-24, via
+<code>GtScheme.current</code> &rarr; <code>Gt.&lt;role&gt;</code>) and HEADER (ISSUE-2026-10-24, HELP &middot; ISSUE
+&middot; close) are <b>two separate standards</b>, and &#9940; a screen is NOT non-standard because it does not call
+<code>GtScreenFrame</code> or <code>GtPanel</code>.</p>
+</div>
+
+<h3>&#11088; compileSdk 37 &mdash; TWO VALUES, AND WHY IT COST ALMOST NOTHING (SDK37-2026-11-18)</h3>
+<div class="card">
+<p><b>The change, in full:</b> <code>config.properties</code> <code>COMPILE_SDK=36</code> &rarr; <code>37</code>,
+and <code>gradle/libs.versions.toml</code> <code>agp = "9.0.1"</code> &rarr; <code>"9.1.1"</code>. That is all.
+<code>TARGET_SDK=36</code> and <code>MIN_SDK=26</code> unchanged, JDK 17 throughout. Commit <code>698aa4494</code>.</p>
+<p><b>Why it was cheap:</b> compileSdk 37 requires AGP &ge; 9.1.1, and AGP 9.1 requires Gradle &ge; 9.3.1 &mdash;
+which <b>was already the wrapper</b>, so the Gradle version did not move. (AGP 9.5.0 is the latest stable but wants
+Gradle 9.6.0; not taken.) Precedent: bisq-network/bisq-mobile #1682, a KMP project, took this bump with
+Kotlin/KSP/CMP unchanged, closed 2026-10-15.</p>
+<p><b>Certified by an APP BUILD, not a module compile</b> &mdash; the 11-17 lesson. Build 0932.</p>
+<p><b>compileSdk is not targetSdk.</b> compileSdk is what Compose demands; targetSdk is what opts into Android 17
+behaviour changes. targetSdk 37 for GroupTrack is nearly empty, measured: RFCOMM N/A (0 <code>BluetoothSocket</code>
+refs), native DCL N/A (0 <code>System.load</code>), background audio N/A, widget bitmap N/A, keystore N/A. It is
+owed as its own release, not bundled here.</p>
+</div>
+<h3>&#9940;&#9940; TWO ANDROID 17 CHANGES ARE UNGATED &mdash; targetSdk 36 IS NOT A SHIELD</h3>
+<div class="card">
+<p>These apply <b>regardless of compileSdk and targetSdk</b>, so staying on targetSdk 36 does not defer them:</p>
+<p><b>1. The per-app MEMORY LIMITER.</b> It throttles, then kills. <b>There is no catchable exception.</b> The only
+way to see it after the fact is <code>ApplicationExitInfo</code> with reason <code>REASON_OTHER</code> and
+<code>"MemoryLimiter:AnonSwap"</code> in <code>getDescription()</code>. GroupTrack has <b>zero</b>
+<code>getHistoricalProcessExitReasons</code>, <b>zero</b> <code>onTrimMemory</code>, and no
+<code>largeHeap</code> &mdash; so today a limiter kill is indistinguishable from a crash. A probe is owed. This
+matters most for the 20-minute state import and the big GPX writes.</p>
+<p><b>2. Bluetooth AUTONOMOUS RE-PAIRING.</b> Android now re-pairs on bond loss and prompts the user;
+<code>ACTION_KEY_MISSING</code> is only broadcast if that <i>fails</i>. GroupTrack has 0
+<code>ACTION_KEY_MISSING</code> refs, and its bond receiver (<code>MeshCommLink.kt:160-167</code>) only logs and
+refreshes, so it is idempotent and safe. <b>The conflict is <code>MeshCommLink.forget()</code>
+(<code>:121-127</code>, hidden <code>removeBond()</code> by reflection):</b> Android may re-pair the radio the rider
+just told it to forget. A test is owed.</p>
+<p><b>The Android 18 pre-warning is already satisfied</b> &mdash; implicit URI grants on
+<code>ACTION_SEND</code>/<code>SEND_MULTIPLE</code>: all 15 <code>createChooser</code> sites already call
+<code>addFlags(FLAG_GRANT_READ_URI_PERMISSION)</code>; no <code>ACTION_IMAGE_CAPTURE</code> anywhere;
+<code>network_security_config</code> already in the manifest. Nothing to do.</p>
+</div>
+
+<h3>&#11088; COMPOSE MULTIPLATFORM OFF ALPHA (COMPOSEVER-2026-11-18)</h3>
+<div class="card">
+<p><code>compose-multiplatform</code> <code>1.11.0-alpha03</code> &rarr; <code>1.12.2</code>. Commit
+<code>52c9e19b6</code>, build 0948. <b>This is the bump that FAILED on 11-17</b> &mdash; it passed once 37 was in,
+and <code>checkGoogleReleaseAarMetadata</code> cleared. Device-certified on the map, a dialog, a full screen and
+HELP, because 1.11 &rarr; 1.12 is a UI runtime change and a compile is not evidence. The stale
+&ldquo;Queued, not done&rdquo; line in <code>libs.versions.toml</code> was rewritten to record it as done in
+<code>698aa4494</code>.</p>
+<p>Fred's standing rule from 11-16 &mdash; <i>&ldquo;we do not want to be on an alpha version&rdquo;</i> &mdash;
+is now satisfied, and CMP is on the iPad critical path for the panel phase (see [[2.8b]] &mdash; KMP is the
+cornerstone; CMP is what moves our panels).</p>
+</div>
+
+<h3>&#11088; THE OVERVIEW LEGIBILITY REGRESSION &mdash; RESTORED, NOT PATCHED (OVCONTRAST-2026-11-18)</h3>
+<div class="card">
+<p><b>Fred:</b> <i>&ldquo;overview text in help i[s] unreadable. looks like very light blu[e] on white&rdquo;</i>
+and the decisive detail, <i>&ldquo;used to be a black background on 2.7e.&rdquo;</i></p>
+<p><b>Traced by walking the asset's history, not by guessing.</b> The overview blocks arrived <b>11-04</b>
+(<code>d0b0770b2</code>, 23 blocks, dark). The regression came in <b>11-11</b> (<code>077e55bc0</code>), which only
+changed the styling &mdash; the block count held at 23 across it. (I had first told Fred the blocks arrived 11-11;
+his recollection was right and mine was wrong.)</p>
+<p><b>The giveaway that the 11-11 change was half-done:</b> <code>.ovh</code> had been re-coloured for a light panel
+so the heading stayed readable, while the paragraphs got no rule at all. Restored to the 11-04 values:
+<code>.ov { border:1px solid #7bb661; background:rgba(123,182,97,.10) }</code> and
+<code>.ovh { color:#7bb661 }</code>. Manual v142, commit <code>62dddca97</code>, build 1003.</p>
+<p><b>My v1 of that script was the wrong fix</b> and Fred's one sentence killed it: it darkened the paragraph text
+to suit the light panel (14.67:1) and added an <code>.ov a</code> rule &mdash; which would have <b>preserved the
+regression</b> and left a light box in a dark document. v2 restored the original values and needed no new rules.
+<b>Restoring beats patching when the change was a regression.</b></p>
+</div>
+
+<h3>&#11088; THE MANUAL STUBS, AND WHAT MONDAY OWES (MANUALSTUB-2026-11-18)</h3>
+<div class="card">
+<p><b>Fred 11-18:</b> <i>&ldquo;ok new screens today and changes removal must be stubbed into manual. on Monday we
+need t[o] complete these stu[b]s, screen captures, section removals, and section notes&rdquo;</i> and
+<i>&ldquo;[l]ets target the finish work (manual, new release quickstart) for Monday.&rdquo;</i></p>
+<p><b>v140 &rarr; v141</b> (9 anchored edits): NEW <code>map.export_all</code> and <code>map.features</code> stub
+sections; corrected <code>map.backup</code> stub with the overview rewritten to Fred's 08:19 wording
+(<i>&ldquo;tapping this row is the immediate, on-demand version of that same scheduled weekly save&rdquo;</i>, and
+the backwards &ldquo;open the recipe, then each GPX file&rdquo; line removed); corrected
+<code>map.recipes</code> stub, flagging that v140's &ldquo;SEND no longer emails&rdquo; was <b>false</b>; index
+31 &rarr; 33; title to 2.8a/v141; a stale <code>v139</code> sub line fixed. <b>v141 &rarr; v142</b>: the three
+OVCONTRAST CSS edits.</p>
+<p><b><code>grouptrack_help_links.json</code></b> &mdash; added <code>map.export_all</code> and
+<code>map.features</code>, repointed <code>map.export</code> off <code>map.export_routes</code>, appended an
+<code>_about</code> version note, re-validated. Remember this file is <b>DATA regenerated from the manual's page
+ids</b> (<code>GtHelp.kt:13</code>), not a hand-kept index: 95 anchors, 110 <code>&lt;details&gt;</code>.</p>
+<p><b>Monday's list:</b> fold the four <code>map.export_*</code> sections; flesh out <code>map.features</code>;
+<b>delete <code>map.rm_track</code></b>; complete the corrected <code>map.backup</code> and
+<code>map.recipes</code> text; screen captures; section removals; section notes; plus the new-release quickstart.</p>
+<p>&#9940; <b>MANUALIMG is sequenced BEFORE Monday's content work</b> so the content diff lands on the small file:
+the asset is 10,805,816 bytes of which the base64 payload is 10,593,864 &mdash; <b>98.0%</b>. As real files that is
+7,945,398, leaving 211,952 bytes (207 KB) of HTML. 183 images, all JPEG. Extraction also helps iOS (WKWebView and
+jetsam).</p>
+</div>
+
+<h3>&#11088; THE 2.8a MAP MENU DELIVERABLES, AS CERTIFIED (EXPORTONE / SAVEDFEAT-2026-11-18)</h3>
+<div class="card">
+<p>Built, device-certified by Fred, and shipped as 2.8a with an AAB and a deploy. EXPORTONE: export all routes,
+all tracks, all waypoints and rider trails each to <b>one</b> GPX file in the Map Features directory. SAVEDFEAT:
+Import files opens the MAP FEATURES view, importing from the Map Features directory, then save, email or delete.
+Both trace to Fred's 11-17 16:32 direction recorded in [[2.8b]].</p>
+<p><b>Papercut owed:</b> <code>deploy_v3.sh</code>'s usage text and closing hint still say
+<code>deploy_v2.sh</code>. Found when I read the Oct 6 <code>deploy.sh</code> instead of the Nov 9
+<code>deploy_v3.sh</code> and caught myself before issuing the command. A card is owed.</p>
+<p><b>Retraction:</b> I wrongly claimed <code>gt_build_v2.sh</code> counts untracked files toward the UNCOMMITTED
+stamp. It reported <code>code clean (matches the commit)</code> with <code>?? iosapp/</code> present. Withdrawn.</p>
+</div>
+
+<h3>&#11088; TRAIL RECLASSIFICATION &mdash; FILED AS A POST-2.8b OPEN ITEM (TRAILRECLASS-2026-11-18)</h3>
+<div class="card">
+<p><b>Fred:</b> <i>&ldquo;so annoying we have a need to reclassify a trail that exists that is a road or otherwise
+non rideable. we do not want to delete [the] trail as it would just be recreated&hellip; scary that we lose this
+info&rdquo;</i> and <i>&ldquo;we even created a classification for this item&hellip; I looked for the function to use
+it to reclassify but it does not exist.&rdquo;</i></p>
+<p><b>He was right, and the measured finding is that the classification already exists &mdash; only the setter is
+missing.</b> Full detail is in card <b>C28-26322</b> in
+<code>docs/grouptrack_living_checklist_interim_2026-11-18.html</code>, TIED TO POST-2.8, including which of the
+three functions are safe to touch. The one durable rule to carry: &#9940; <b>THE MATCHER MUST KEEP SEEING
+UNRIDEABLE TRAILS</b> &mdash; <code>RiderTrailWriter.candidatesFor</code> (<code>:148</code>) has <b>no status
+predicate</b>, and that is load-bearing: strip it and a ridden track matches nothing and regenerates the trail.</p>
+<p><b>And the standing law it must not break</b> (<code>TrailClassifier.kt:24</code>, Fred 08-31):
+&#9940; OWNERSHIP IS A SEPARATE FIELD, NOT A CATEGORY. <code>rider</code> is a <b>carto_code</b>; unrideable is a
+<b>status</b>. So the round trip is a flag set and clear, never an overwrite &mdash; folding the two axes together is
+exactly what made step 8 overwrite identity, and 201 rows could no longer say what they used to be.</p>
+</div>
+
+<h3>&#11088;&#11088; XCODESTEPS STEP 3 &mdash; THE FRAMEWORK LINKS, AND THE GEOMETRY MATCHES (GEOMPROBE-2026-11-18)</h3>
+<div class="card">
+<p><b>Done and device-verified.</b> Added per-SDK <code>FRAMEWORK_SEARCH_PATHS</code>,
+<code>OTHER_LDFLAGS</code>, and six <code>INFOPLIST_KEY_*</code>; target build settings 31 &rarr; 40. Commit
+<code>bccb56c1d</code>.</p>
+<p><b>GEOMPROBE 3 of 3 passed on the iPad:</b> <code>GtGeom</code> produces <b>byte-identical WKT and
+<code>geom_hash</code></b> on iPadOS &mdash; the invariant checked against all <b>230,009</b> rows of Droid 1's
+live copy. This is the first evidence that the shared code is doing the same arithmetic on Apple silicon.</p>
+<p><b>Framework facts, measured:</b> <code>GroupTrackShared</code> is a <b>STATIC</b> framework (the binary is a
+&ldquo;current ar archive&rdquo;) &mdash; linked, never embedded. 405 <code>@interface</code> + 101
+<code>@protocol</code> = <b>506</b>, matching the 11-17 doc. <code>GtGeom</code> 34. <b><code>Comm</code> 0</b>
+&mdash; confirming <code>api()</code> is not <code>export()</code>. &#9940; <b>Only
+<code>debugFramework</code> has ever been linked; <code>releaseFramework</code> is owed.</b> And because
+<code>ENABLE_USER_SCRIPT_SANDBOXING: YES</code>, Xcode cannot run Gradle: <b>the framework must be relinked by
+Gradle BEFORE any Xcode build</b> that depends on shared-code changes.</p>
+<p><b>This also corrects <code>3b1688743</code></b>, which claimed the Comm contract travels inside the framework.
+It does not &mdash; <code>Comm</code> has zero declarations in the generated header. The commit message is wrong and
+a correction is owed.</p>
+</div>
+<h3>&#9940; A KOTLIN MEMBER NAMED <code>NULL</code> CANNOT CROSS INTO OBJC (cost one build)</h3>
+<div class="card">
+<p>GEOMPROBE's first build failed <b>in the generated header, not in my Swift</b>:</p>
+<div class="step"><code>GroupTrackShared.h:5474: error: property requires fields to be named</code> on <code>@property ... *NULL</code></div>
+<p><b>Cause:</b> <code>GtOrgJson</code> had <code>val NULL: JsonElement get() = JsonNull</code>. NULL is a C macro,
+so the generated header will not compile &mdash; which means <b>no Swift anywhere can import the framework</b>. One
+Kotlin property name took the whole iOS build down. Fred: <i>&ldquo;rename.&rdquo;</i> Renamed to
+<code>jsonNull</code>, one caller updated (<code>GtFoundation15aTest.kt:139</code>), with an 8-line comment in the
+source recording the trap. <code>TRUE</code> and <code>FALSE</code> are the same trap. The regenerated header was
+swept for other C-macro collisions in properties: <b>zero</b>. (My first scanner over-reported 7; 6 were false
+positives &mdash; <code>remove</code> inside <code>swift_name</code> string literals.)</p>
+<p><b>Three more Kotlin&rarr;Swift hazards worth having in writing:</b> a name colliding with NSObject gets a
+trailing underscore (<code>GtGeom.Geom.hash</code> &rarr; ObjC getter <code>hash_</code>); Kotlin <b>default
+parameters do not cross into Swift</b>, so every argument must be passed; and Kotlin exceptions arrive as
+<code>NSException</code>, which Swift <b>cannot catch</b> &mdash; a missing asset <i>terminates</i> rather than
+returning an error.</p>
+</div>
+
+<h3>&#11088;&#11088; XCODESTEPS STEP 4 &mdash; 19 BUNDLE ASSETS, WITH NO PROJECT FILE CHANGE AT ALL (IOSRES / STARTASSERT-2026-11-18)</h3>
+<div class="card">
+<p><b>Done and device-verified: STARTASSERT 19 of 19</b>, read through the <b>production reader</b>
+(<code>IosHelpAssets</code>), not a test path. 13 JSON from <code>CertAssets.ASSETS</code> + 6 <code>.sql</code>,
+flat at the bundle root, in <code>iosapp/iosapp/Resources/</code> as a synchronized folder. Commit
+<code>17698c717</code>. <code>.gitignore</code> gained <code>iosapp/iosapp/Resources/</code> (IOSRES-2026-11-18)
+and <code>**/xcuserdata/</code>, <code>*.xcuserstate</code>, <code>**/DerivedData/</code>
+(XCUSERDATA-2026-11-18).</p>
+<p><b>&#9940; THE ASSET CONTRACT, which is the whole reason the flat layout is correct:</b>
+<code>GtIosAssets.iosBundleAsset</code> &rarr;
+<code>NSBundle.mainBundle.pathForResource(stem, ext)</code> &mdash; <b>basename + extension, NO
+subdirectory</b>. So a synchronized folder's flattening is the <i>required</i> behaviour, not a workaround. And it
+<b>MUST THROW</b>: <code>GtHelpLinks.load</code> wraps it in <code>runCatching</code> and falls back to an
+<b>EMPTY table</b>; <code>GtMapSpec.spec()</code> catches and returns <b>null</b>. A missing asset therefore gives a
+<i>silently degraded</i> app, which is why the startup assertion exists at all.</p>
+<p><b>Two failed attempts, and what they taught &mdash; the Xcode 27 JSON project format:</b></p>
+<p><b>1.</b> <code>{"kind":"folder","path":"../app/src/main/assets/vecmap"}</code> &rarr; nine <i>&ldquo;Multiple
+commands produce&rdquo;</i> errors. <code>kind:folder</code> is a <b>SYNCHRONIZED GROUP</b>, not a folder reference:
+it walks the tree and adds files <i>individually</i>, compiles new <code>.swift</code> with no project entry, and
+<b>flattens resources to the bundle root</b>. &#11088; <b>Xcode refused rather than flattening silently only
+because the collisions were real</b> &mdash; a resource set with unique basenames would have flattened quietly into
+exactly the blank-map-with-no-cause the handoff predicted.</p>
+<p><b>2.</b> 19 top-level <code>files</code> entries with <code>kind</code> omitted &rarr; <i>&ldquo;xcodebuild:
+error: Unable to read project.&rdquo;</i> My JSON parsed; <b>Xcode's validator rejected it</b>. I had over-trusted an
+unofficial schema gist. The only working file reference in the project is a <b>child of a group</b>.</p>
+<p><b>3.</b> Multi-value build settings are <b>ARRAYS</b>, not space-separated strings &mdash; Xcode normalised
+<code>OTHER_LDFLAGS</code> to <code>[ "-framework", "GroupTrackShared", ]</code> itself. Also:
+<code>project.xcproj</code> carries trailing commas, so it is <b>not strict JSON</b> &mdash; edit by
+verbatim-anchored insertion and validate by stripping trailing commas and parsing.</p>
+<p><b>vecmap is not needed on iOS, and that is measured, not assumed:</b> 69 files, 10 dirs, 3 levels, spaces in dir
+names, <b>33 distinct basenames</b> &mdash; so a flattening add loses 36. The Android server resolves by full path
+(<code>VectorMapTest.kt:73</code>, <code>context.assets.open("vecmap/$rel")</code>). But <b>nothing in iosMain reads
+vecmap at all</b>: every reference there is a comment about Android, and <code>GtIosHttp.kt:59</code> points at a
+<code>GtVecMap.ios.kt</code> that does not exist. I spent time on the flattening problem before checking that.</p>
+</div>
+
+<h3>&#11088;&#11088;&#11088; THE IPAD BUILDS ITS OWN DATABASE (DBPROBE / DBDIR-2026-11-18)</h3>
+<div class="card">
+<p><b>Fred's question, which set the direction:</b> <i>&ldquo;why doesn't application install and launch create
+of database and folders&rdquo;</i> &mdash; and before it, the correction that saved the morning:
+<i>&ldquo;I do not understand what we are doing[,] why do we not gen the app routing the build application install.
+we are troubleshooting [a] theoretical implementation issue&rdquo;</i> and <i>&ldquo;lets deal with the real install
+case and not make one up.&rdquo;</i> Both were right. The answer to his &ldquo;do we need to bundle a blank
+database?&rdquo; is <b>no</b> &mdash; and now proven.</p>
+<p><b>DBPROBE 8 of 8 passed:</b> <code>grouptrack_spatial.db</code> (9 tables) and
+<code>grouptrack_data.db</code> (30 tables), <code>PRAGMA user_version</code> = 1 in both, <code>trails</code>
+present, in <code>Documents/GroupTrack</code>. Commit <code>5f0406801</code>.</p>
+<p><b>The bug, and why the first run gave 1 of 3 with both connections nil.</b>
+<code>GtImportPaths.groupTrackRoot()</code> is <b>contractually NOT created</b>; the directory did not exist, and
+SQLite cannot open a file in a directory that is not there.</p>
+<p>&#9940;&#9940; <b>THE NEAR-MISS, AND THE CONTRACT THAT STOPPED IT.</b> I was one step from changing
+<code>IosImportPaths.groupTrackRoot()</code> to create the directory. <b>That would have passed the probe and been
+wrong</b> &mdash; 11 call sites, two of which only want <code>.parent</code> to find Download. What stopped it was
+reading the interface contract, which says it in as many words:</p>
+<div class="step"><code>groupTrackRoot()</code> &mdash; &ldquo;GroupTrackStorage.root()&rdquo;, <b>not created</b> &middot; <code>tracksDir()</code> &mdash; <b>created</b> &middot; <code>IosStorageBase.root()</code> &mdash; &ldquo;Not created -- see rootReady&rdquo; &middot; <code>GtStorage.rootReady()</code> = createDirectories + <code>.nomedia</code></div>
+<p><b>So the fix went in the CONSUMER</b>, <code>GtIosHkEnv.kt</code> (+1072 chars, marker DBDIR-2026-11-18):
+<code>val dir = paths.groupTrackRoot()</code> then <code>fs.createDirectories(dir)</code> &mdash; a no-op when it
+already exists. The contract is unchanged and the 11 call sites are untouched.</p>
+</div>
+<h3>&#9940; THE SCHEMA VERSION NUMBERS COLLIDE, AND NOTHING IN THE CODE SAYS SO</h3>
+<div class="card">
+<p><b>Fred:</b> <i>&ldquo;so your saying the current db build is version 1 not the current db model. I disagree I
+think that is meant to bring old version to new structures&rdquo;</i> and <i>&ldquo;we are on v3. new model builds
+at v3. so what are we doing.&rdquo;</i> He was right to push, and the resolution is that <b>both numbers are real
+and they mean different things</b>:</p>
+<p>The <b>&ldquo;v3&rdquo;</b> in <code>schema_spatial_v3.sql</code> is the <b>FILE's generation</b> &mdash;
+Android's v1&rarr;v2&rarr;v3 history. <b><code>GtSchema.CURRENT = 1</code></b> is <b>GtSchema's own step
+counter</b>. <b>Version 1 is BUILT FROM the v3 files</b> &mdash; so it <i>is</i> the current model, not an old one.
+Android replays its frozen pre-2.8 history first; the iPad runs only this. <code>UPGRADES = emptyList()</code>
+because there has never been a step 2.</p>
+<p><code>versionOne</code> reads three <code>.sql</code> (spatial_v3, extension_v3, device_additions) <b>and</b>
+adds 15 tables/columns inline in Kotlin; <code>GtTrailImport.kt:764</code> reads a fourth
+(<code>schema_spatial_v1_to_v2.sql</code>). Standing rule holds: <b>add a step to <code>UPGRADES</code> and raise
+<code>CURRENT</code> &mdash; never edit version 1.</b></p>
+<p>&#9940; <b>A THIRD SILENT FAILURE MODE, found here:</b> a missing <code>.sql</code> gives a <b>HALF-BUILT
+DATABASE</b> &mdash; the inline <code>CREATE TABLE IF NOT EXISTS</code> tables exist, the schema-file tables do not,
+and <b>nothing throws</b>. This is why the 6 <code>.sql</code> are in the startup assertion with
+<code>sqlReadByShared</code> naming the four the shared code actually reads.</p>
+</div>
+
+<h3>&#11088;&#11088; DURABLE RULE &mdash; READ THE CONSUMER FIRST (CONSUMER-2026-11-18)</h3>
+<div class="card">
+<div class="step"><b>The code that READS an asset defines where the asset must be. The code that OPENS a database defines who must create its directory. No reasoning about a project format substitutes for one grep of the reading function.</b></div>
+<p>Both of today's wasted efforts were the same mistake: guessing Xcode's project schema twice, and chasing
+vecmap's flattening before checking that nothing on iOS reads vecmap. <b>One grep of <code>iosBundleAsset</code>
+would have prevented both</b> &mdash; it says basename, no subdirectory, must throw, which settles the layout
+question outright. The database near-miss is the same rule in its second form, and there the contract was read in
+time.</p>
+<p>This sits with the standing method rules: <b>METHOD RULE 1</b> (11-15) verify by DECLARED NAME, never filename;
+<b>METHOD RULE 2</b> (11-17) enumerate by platform primitive, not by our own function names; <b>METHOD RULE 3 /
+MANUALBASE</b> (11-18) the manual of record is the ASSET the app opens, and its version is the highest
+<code>&lt;!-- MANUAL vNNN --&gt;</code> comment inside it, never the filename.</p>
+<p><b>A process cost worth recording:</b> I sent Fred into Xcode's UI repeatedly after he had told me he gets lost
+there &mdash; he pasted a file path into zsh twice and finally said <i>&ldquo;I have no idea what you wan me to
+do...&rdquo;</i>. <b>The no-UI synchronized-folder route existed the whole time.</b> Prefer the route that is one
+pasteable command.</p>
+</div>
+
+<h3>&#9940; THREE STALE ITEMS IN THE DOC SET, TO RETIRE</h3>
+<div class="card">
+<p><b>1. The bundle-id &ldquo;DECISION OWED &mdash; FRED&rdquo; card (C28-26320) is stale.</b> The project carries
+<code>com.grouptrack.ios</code>, which was the spec's own recommendation, taken 11-17. Retire the card.</p>
+<p><b>2. The 11-16 &ldquo;ORDER OF WORK IS SETTLED&rdquo; paragraph is stale and I have withdrawn the flag.</b>
+Fred: <i>&ldquo;what decision are we overriding[?] all seams have been addressed.&rdquo;</i> He was right &mdash;
+that paragraph was written 11-16 and carried forward verbatim without revisiting, and it describes the world
+<i>before</i> the step-17 seam work closed. The one seam Fred names as still unserviced is the share/email path:
+<i>&ldquo;the only seam I am aware of that is not being serviced is the send email process where we are using the
+android share process.&rdquo;</i> That is 15 <code>createChooser</code> sites across 12 files, all under
+<code>app/src/main/java/com/geeksville/mesh/</code> and <b>none</b> in grouptrack-shared &mdash; 13 attach files
+(&rarr; <code>UIActivityViewController</code>) and 2 <code>mailto:</code> (&rarr;
+<code>UIApplication.open</code>). The fix is one <code>expect</code>/<code>actual</code>
+<code>GtShare.send(files, subject)</code> plus routing 15 callers.</p>
+<p><b>3. <code>map.rm_track</code> is still in the manual</b> pending Monday's removals &mdash; tracked in the
+MANUALSTUB list above, not a separate card.</p>
+</div>
+
 <h2 id="certcover">&#11088;&#11088; DURABLE RULE &mdash; WHAT A TEST COVERS IS PART OF ITS RESULT (CERTCOVER-2026-11-17)</h2>
 <div class="card">
 <p>From the 11-17 17:41&ndash;17:50 discussion, after the duplicate-route defect. Four parts, one idea: <b>a pass is only
@@ -463,6 +790,12 @@ there is none &mdash; <b>not</b> because it licenses starting Xcode early. This 
 (&ldquo;why are we switching to iOS build when we know we have seams that will not execute?&rdquo;) and at 14:30 (&ldquo;you could not
 tell a software bug from a missing service and we would find the same service missing in 15 functions&rdquo;). SVCFIRST-2026-11-16
 stands. Do not re-litigate it; it has now been asked and answered three times.</p>
+<div class="note">
+<p><b>&#11088; CORRECTION 2026-11-18 (RETIRE18-2026-11-18) &mdash; THE FLAG ABOVE IS WITHDRAWN; THE DECISION BEHIND IT WAS NEVER WRONG.</b> SVCFIRST-2026-11-16 was correct when it was written and it did its job: the seams were closed before Xcode was opened. What went stale is this paragraph's <i>instruction</i> &mdash; it was carried forward verbatim for two days without revisiting, so it kept telling a reader that the sim build had not been earned yet, long after the step-17 seam work had closed.</p>
+<p><b>Fred, 11-18, when it was quoted back at him:</b> <i>&ldquo;what decision are we overriding[?] all seams have been addressed.&rdquo;</i> He was right. XCODESTEPS STEP 3 and STEP 4 then ran the same day, and the iPad linked the framework, read all 19 bundle assets through the production reader, and built its own database &mdash; see DAY18B-2026-11-18.</p>
+<p><b>The one seam Fred names as still unserviced</b> is the share/email path: <i>&ldquo;the only seam I am aware of that is not being serviced is the send email process where we are using the android share process.&rdquo;</i> Measured: 15 <code>createChooser</code> sites across 12 files, all under <code>app/src/main/java/com/geeksville/mesh/</code> and none in grouptrack-shared. Tracked as <code>C28-26330</code> &middot; SHARESEAM. It does not block the sim work.</p>
+<p>&#9940; <b>The durable lesson is about the doc set, not the decision:</b> a paragraph that forbids something because a precondition is unmet must name the precondition in a checkable form, so a later reader can test whether it still holds instead of obeying it indefinitely.</p>
+</div>
 <p><b>Where a screen DOES reach one of the 19</b>, the result is a named, dated throw carrying the SVCFIRST marker &mdash; designed
 behaviour to be read and recorded, not a crash to debug.</p>
 

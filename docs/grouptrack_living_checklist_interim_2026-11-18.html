@@ -393,6 +393,142 @@ TIED TO 2.8b &mdash; the iPad release</h2>
 </table>
 </div>
 
+<h2>OPENED 2026-11-18 &mdash; THE EIGHT CARDS OWED FROM SDK 37 AND XCODESTEPS (CL18B-2026-11-18) (C28-26323 &hellip; C28-26330)</h2>
+<div class="card">
+<p>All eight were measured on 11-18, not guessed. Four belong to a POST-2.8 Android release and four to
+2.8b; each card's tag says which. Full narrative is in the DAY18B-2026-11-18 section of
+<code>docs/grouptrack_handoff_interim_2026-11-18.html</code>.</p>
+</div>
+
+<div class="card"><h3><span class="tag t-warn">QUEUED POST-2.8 &mdash; OWN RELEASE</span> <code>C28-26323</code> &middot; TGTSDK37 &mdash; targetSdk 37 is nearly empty for GroupTrack, and should ship on its own</h3>
+<div class="card">
+<p><b>Where we are:</b> <code>COMPILE_SDK=37</code> and AGP 9.1.1 landed 11-18 in <code>698aa4494</code>.
+<code>TARGET_SDK</code> is still <b>36</b>, deliberately. compileSdk is what Compose demands; targetSdk is what
+opts into Android 17 behaviour changes.</p>
+<p><b>Measured cost of moving targetSdk to 37 &mdash; close to nothing:</b> RFCOMM N/A (<b>0</b>
+<code>BluetoothSocket</code> refs) &middot; native DCL N/A (<b>0</b> <code>System.load</code>) &middot;
+background audio N/A &middot; widget bitmap N/A &middot; keystore N/A.</p>
+<p><b>Why it still gets its own release:</b> one change, one build. A targetSdk bump changes runtime behaviour
+across the whole app, so it does not ride along with feature work &mdash; and the two ungated changes below
+(C28-26324, C28-26325) want instrumenting first, because they bite whether or not we bump.</p>
+</div>
+</div>
+
+<div class="card"><h3><span class="tag t-bad">ACTIVE POST-2.8 &mdash; UNGATED, BITES TODAY</span> <code>C28-26324</code> &middot; MEMLIMIT &mdash; the Android 17 memory limiter kills silently and we have no way to see it</h3>
+<div class="card">
+<p>&#9940; <b>This is UNGATED</b> &mdash; it applies regardless of compileSdk and targetSdk, so staying on
+targetSdk 36 is not a shield.</p>
+<p><b>What it does:</b> the per-app memory limiter throttles, then kills. <b>There is no catchable
+exception.</b> The only way to see it after the fact is <code>ApplicationExitInfo</code> with reason
+<code>REASON_OTHER</code> and <code>"MemoryLimiter:AnonSwap"</code> in <code>getDescription()</code>.</p>
+<p><b>What GroupTrack has today, measured:</b> <b>zero</b> <code>getHistoricalProcessExitReasons</code>,
+<b>zero</b> <code>onTrimMemory</code>, and no <code>largeHeap</code>. So a limiter kill is today
+<b>indistinguishable from a crash</b>, and we would spend the day debugging the wrong thing.</p>
+<p><b>The work:</b> read <code>getHistoricalProcessExitReasons</code> at startup, and when the last exit was a
+limiter kill, say so in the log and in the startup notice. This matters most for the 20-minute state import and
+the big GPX writes &mdash; exactly the runs a rider would report as "it just closed".</p>
+</div>
+</div>
+
+<div class="card"><h3><span class="tag t-bad">ACTIVE POST-2.8 &mdash; UNGATED, CONTRADICTS A USER ACTION</span> <code>C28-26325</code> &middot; BTREPAIR &mdash; Android may re-pair the radio the rider just told us to forget</h3>
+<div class="card">
+<p>&#9940; <b>Also UNGATED.</b> Android 17 re-pairs autonomously on bond loss and prompts the user;
+<code>ACTION_KEY_MISSING</code> is only broadcast if that re-pair <i>fails</i>.</p>
+<p><b>What is already safe, measured:</b> GroupTrack has <b>0</b> <code>ACTION_KEY_MISSING</code> refs, and the
+bond receiver at <code>MeshCommLink.kt:160-167</code> only logs and refreshes &mdash; idempotent, so a surprise
+re-pair does not corrupt our state.</p>
+<p><b>The conflict:</b> <code>MeshCommLink.forget()</code> (<code>:121-127</code>) calls the hidden
+<code>removeBond()</code> by reflection. Android may simply re-pair the radio afterwards, so FORGET may not
+stick &mdash; a user action we appear to honour and then silently undo.</p>
+<p><b>The work:</b> a device test on Android 17 &mdash; forget the radio, then watch for an autonomous re-pair
+prompt. Decide then whether forget needs to also mark the node as refused on our side, rather than relying on the
+bond being gone.</p>
+</div>
+</div>
+
+<div class="card"><h3><span class="tag t-warn">PROCESS &mdash; STALE STRING, FOUND 11-18</span> <code>C28-26326</code> &middot; DEPLOYHINT &mdash; <code>deploy_v3.sh</code>'s usage text and closing hint still say <code>deploy_v2.sh</code></h3>
+<div class="card">
+<p><b>How it surfaced:</b> I read the Oct 6 <code>deploy.sh</code> instead of the Nov 9
+<code>deploy_v3.sh</code> and caught it before issuing the command. Then found v3 itself still names v2 in two
+places it prints to the operator.</p>
+<p><b>Why it is worth a card and not a shrug:</b> this is the GOLDEN RULE's failure mode in reverse &mdash; the
+file name is right and the <i>text</i> is stale, so a correct script tells you to go run a superseded one. The
+commands folder has 40-odd <code>_SUPERSEDED_DO_NOT_RUN</code> files precisely because running the wrong version
+is the hazard we design against.</p>
+<p><b>The work:</b> two string edits in <code>$GT_CMDS/deploy_v3.sh</code>. While there, check the other
+<code>_v3</code> scripts for the same stale self-reference.</p>
+</div>
+</div>
+
+<div class="card"><h3><span class="tag t-bad">ACTIVE 2.8b &mdash; NEVER ONCE EXERCISED</span> <code>C28-26327</code> &middot; RELFRAME &mdash; <code>releaseFramework</code> has never been linked</h3>
+<div class="card">
+<p><b>Measured 11-18:</b> every iOS build to date has linked <code>debugFramework</code>. The release variant has
+<b>never been produced or linked</b>, so nothing is known about it: not its size, not whether the generated header
+is identical, not whether it links at all.</p>
+<p><b>Why this is not a detail:</b> GroupTrack does not ship debug builds (standing rule, Android side). The iPad
+release will link the release framework, and the first time we try it will be under deadline. The
+<code>GtOrgJson.NULL</code> failure on 11-18 is the warning: a problem in the generated header stops <i>all</i>
+Swift compilation, and it surfaced only when something actually imported the framework.</p>
+<p><b>The work:</b> link <code>releaseFramework</code> once, now, and compare the generated header's declaration
+counts against debug's measured 405 <code>@interface</code> + 101 <code>@protocol</code> = 506.</p>
+</div>
+</div>
+
+<div class="card"><h3><span class="tag t-warn">QUEUED 2.8b &mdash; BLOCKS A NAMED FEATURE</span> <code>C28-26328</code> &middot; DOCTYPES &mdash; <code>CFBundleDocumentTypes</code> is not set, so a <code>.gpx</code> in Downloads cannot open GroupTrack</h3>
+<div class="card">
+<p><b>Fred's requirement (11-16), one of the two net missing features:</b> another user sends a ride or a box as an
+attachment, and <i>tapping the <code>.gpx</code> should launch the app and its import</i>.</p>
+<p><b>Where we are:</b> STEP 3 added six <code>INFOPLIST_KEY_*</code> entries; <code>CFBundleDocumentTypes</code>
+is <b>not</b> among them. Without it iOS does not offer GroupTrack as a handler, so the feature cannot work
+regardless of what the import code does.</p>
+<p><b>The work:</b> declare the document types (and the UTIs) GroupTrack accepts, then prove the hand-off end to
+end on the sim. Pairs with the ONE FILE PICKER rule (Fred 11-17): the picker's section and title change by
+directory, the picker does not.</p>
+</div>
+</div>
+
+<div class="card"><h3><span class="tag t-prog">IN FLIGHT 2.8b &mdash; HALF BUILT 11-18</span> <code>C28-26329</code> &middot; LOUDASSERT &mdash; the startup assertion reports; it does not refuse to start</h3>
+<div class="card">
+<p><b>What landed 11-18 (<code>17698c717</code>):</b> <code>StartupAssertion.swift</code> checks all 19 bundle
+assets through the <b>production reader</b> and reported <b>19 of 19</b> on the iPad. <code>DbProbe.swift</code>
+reported <b>8 of 8</b>. Both render their results in <code>ContentView</code>.</p>
+<p>&#9940; <b>What is still missing is the loudness.</b> The whole reason the assertion exists is that the asset
+reader's failures are SILENT: <code>GtHelpLinks.load</code> wraps <code>iosBundleAsset</code> in
+<code>runCatching</code> and falls back to an <b>EMPTY table</b>; <code>GtMapSpec.spec()</code> catches and returns
+<b>null</b>; and a missing <code>.sql</code> leaves a <b>HALF-BUILT database</b> with no error at all. A probe that
+merely prints its findings into a view nobody reads does not catch any of those in a real build.</p>
+<p><b>The work:</b> make a failed assertion refuse to proceed, with the missing name in the message. Then it is a
+gate, not a report.</p>
+<p><b>Resolved, so not part of this card:</b> <b>vecmap does not need to go to iOS.</b> Measured 11-18 &mdash; 69
+files, 10 dirs, 33 distinct basenames (a flattening add would lose 36), and the Android server resolves by full
+path (<code>VectorMapTest.kt:73</code>). But <b>nothing in iosMain reads vecmap</b>: every reference there is a
+comment about Android, and <code>GtIosHttp.kt:59</code> points at a <code>GtVecMap.ios.kt</code> that does not
+exist. Do not re-open this without first grepping iosMain.</p>
+</div>
+</div>
+
+<div class="card"><h3><span class="tag t-bad">ACTIVE 2.8b &mdash; THE ONE SEAM FRED NAMES AS UNSERVICED</span> <code>C28-26330</code> &middot; SHARESEAM &mdash; one <code>expect</code>/<code>actual</code> <code>GtShare.send</code>, and 15 callers to route</h3>
+<div class="card">
+<p><b>Fred 11-18:</b> <i>"the only seam I am aware of that is not being serviced is the send email process where we
+are using the android share process."</i> He is right, and this card exists because the 11-16
+"ORDER OF WORK IS SETTLED" paragraph is stale &mdash; all the other seams closed.</p>
+<p><b>Measured, by platform primitive (METHOD RULE 2), not by our own function names:</b> <b>15</b>
+<code>createChooser</code> sites across <b>12</b> files, all under
+<code>app/src/main/java/com/geeksville/mesh/</code> and <b>none</b> in <code>grouptrack-shared</code>. Of those,
+<b>13 attach files</b> (&rarr; <code>UIActivityViewController</code>) and <b>2 are <code>mailto:</code></b>
+(&rarr; <code>UIApplication.open</code>).</p>
+<p><b>The shape of the fix:</b> one <code>expect</code>/<code>actual</code>
+<code>GtShare.send(files, subject)</code>, plus routing the 15 callers. &#9940; Because 15 call sites is well past
+"a couple of surfaces", this gets SIZED AND AGREED before a patch exists (11-18 rule 4).</p>
+<p><b>Two standing constraints on it:</b> SHARE STAYS on Android &mdash; Fred 11-17: <i>"this may be a place where
+we have to leave share in and the iOS implementation will be different."</i> And CHECK THE EXISTING
+IMPLEMENTATIONS FIRST &mdash; <i>"we open emails I[n] 5 other places check the implemen[t]ations"</i>, said after
+a change was built on the one email path in the app that had never worked.</p>
+<p><b>Already satisfied, so not part of this work:</b> all 15 sites already call
+<code>addFlags(FLAG_GRANT_READ_URI_PERMISSION)</code>, which is what Android 18 will require.</p>
+</div>
+</div>
+
 <h2>TIED TO 2.8b &mdash; OPENED 2026-11-17 (C28-26321)</h2>
 <div class="card">
 <h3><span class="tag t-bad">ACTIVE</span> <code>C28-26321</code> &middot; The state-download summary screen needs its OWN release-notes entry (RELNOTE-2026-11-17)</h3>
@@ -488,7 +624,12 @@ TIED TO 2.8b &mdash; the iPad release</h2>
 </table>
 </div>
 <div class="card">
-<h3><span class="tag t-warn">DECISION OWED &mdash; FRED</span> <code>C28-26320</code> &middot; The iOS bundle identifier is undecided</h3>
+<h3><span class="tag t-good">DECIDED 11-17 &mdash; RETIRED RETIRE18-2026-11-18</span> <code>C28-26320</code> &middot; The iOS bundle identifier &mdash; <code>com.grouptrack.ios</code></h3>
+<div class="card">
+<p><b>RESOLVED, and this card is retired.</b> The Xcode project carries <code>com.grouptrack.ios</code>, which was the spec's own recommendation; the decision was taken 11-17 and has been in the project ever since. Confirmed on 11-18 by reading the project, not from memory.</p>
+<p><b>Why it sat here as "owed" for two days:</b> the card was written before the project existed, and nothing re-read it once the value was in place. It was still being reported as a decision owed on the 11-18 morning pass. &#9940; A card that asks Fred for a decision must be re-checked against the code before it is reported again &mdash; the answer may already be in the repo.</p>
+<p><b>Original card body, kept for the record:</b></p>
+</div>
 <table>
 <tr><td><b>problem</b></td><td>Nothing in this repo defines an iOS <code>PRODUCT_BUNDLE_IDENTIFIER</code> (verified 11-16). The seed procedure needs it &mdash; <code>xcrun simctl get_app_container booted &lt;BUNDLE_ID&gt; data</code> cannot be run without it.</td></tr>
 <tr><td><b>anticipated solution</b></td><td>Recommend <code>com.grouptrack.ios</code>. <b>&#9940; It must NOT be <code>com.grouptrack.android</code></b>, which is the Android APPLICATION ID and carries its own history of confusion with the Kotlin source path <code>com/geeksville/mesh/convoy/</code>.</td></tr>
