@@ -111,9 +111,20 @@ object GtFileHome {
     /**
      * ROWSIN-2026-11-17: the files in [family]'s directory whose name ends with one of [exts].
      * Fred 11-17: "gpx, kms, and geo-json files are allowed" -- so the caller names what it handles.
+     *
+     * \u26d4 EMPTYEXTS-2026-11-18: AN EMPTY [exts] MEANS EVERY FILE, and it did the opposite.
+     * GtFilePicker.exts() documents it plainly -- "ROOT is the DR directory and holds every artifact the
+     * recovery job writes, so it filters nothing: an empty list means 'offer everything in the folder'"
+     * -- but `exts.any { .. }` on an empty list is FALSE for every row, so this returned NOTHING. The
+     * kdoc and the code were written the same day and said opposite things.
+     * \u26a0 It only became reachable on 11-18: DRFILE made Family.ROOT the directory the backup writes
+     * its five files into, so the DR listing is the first caller to pass an empty list. It would have
+     * presented as an EMPTY RECOVERY FOLDER -- which reads as "the backup did not write", not as a
+     * filter bug, and that is the expensive kind of wrong.
      */
     fun listFiles(ctx: Context, family: GtFileOpen.Family, exts: List<String>): List<Row> =
-        rowsIn(ctx, family).filter { r -> exts.any { r.name.endsWith(it, ignoreCase = true) } }
+        rowsIn(ctx, family)
+            .filter { r -> exts.isEmpty() || exts.any { r.name.endsWith(it, ignoreCase = true) } }
             .sortedBy { it.name.lowercase() }
 
     /** "Download/GroupTrack Maps" -- MediaStore creates the directory from this on the first write. */

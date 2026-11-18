@@ -3037,10 +3037,8 @@ fun GroupTrackScreen(
                 "map.recipes" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "recipes" },   // GTRECIPES-2026-10-23
                 "map.trails_state" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "state" },   // GTIMPORTS-2026-10-23
                 "map.backup" to { com.geeksville.mesh.grouptrack.GtBackup.start(context) },   // BACKUP-2026-11-03
-                "map.export_routes" to { com.geeksville.mesh.grouptrack.GtExportAll.start(context, "routes") },   // EXPORTALL-2026-11-03
-                "map.export_tracks" to { com.geeksville.mesh.grouptrack.GtExportAll.start(context, "tracks") },
-                "map.export_waypoints" to { com.geeksville.mesh.grouptrack.GtExportAll.start(context, "waypoints") },
-                "map.export_trails" to { com.geeksville.mesh.grouptrack.GtExportAll.start(context, "trails") },   // TRAILEXPORT-2026-11-03
+                "map.export_all" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "exportall" },   // EXPORTONE-2026-11-18: four rows became one screen
+                "map.features" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "features" },   // SAVEDFEAT-2026-11-18
                 "map.gpx" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "gpx" },   // GTIMPORTS-2026-10-23
                 "map.ridertrails" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "rider" },   // GTIMPORTS-2026-10-23
                 "map.gpxtrails" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "gpxtrails" },   // MAPIMPORTS-2026-10-30

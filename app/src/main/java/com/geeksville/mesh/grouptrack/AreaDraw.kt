@@ -91,6 +91,8 @@ fun GtAreaHost(js: (String) -> Unit, barModifier: Modifier) {
         "radius" -> GtAreaRadiusScreen(done)   // GTRADIUS-2026-10-23
         "rmtrack" -> GtRemoveTrackScreen(done)   // GTHEAVY-2026-10-23
         "refresh" -> GtRefreshSourceScreen(done)   // GTHEAVY-2026-10-23
+        "exportall" -> GtExportFeaturesScreen(done)   // EXPORTONE-2026-11-18
+        "features" -> GtSavedFeaturesScreen(done)   // SAVEDFEAT-2026-11-18
         "bystate" -> GtStateCountsScreen(done)   // AREASKIP-2026-10-24
         "tracks" -> GtDownloadTracksScreen(done)   // GTTRACKS-2026-10-23: no box -- opened straight from the menu
     }

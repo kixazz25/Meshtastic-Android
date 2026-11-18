@@ -29,7 +29,14 @@ testRetry = "1.6.4"
 turbine = "1.2.1"
 
 # Compose Multiplatform
-compose-multiplatform = "1.12.2"   # COMPOSEVER-2026-11-17: off alpha (XCODESTEPS step 1)
+# COMPOSEVER-2026-11-17 tried "1.12.2" to get off alpha (Fred 11-16: "we do not want to be on an
+# alpha version"). REVERTED 11-18 as COMPOSESDK-2026-11-18: Compose Multiplatform 1.12.x pulls
+# androidx.compose 1.12.x, which REQUIRES compileSdk 37, and AGP 9.0.1's maximum is 36. The app build
+# fails at :app:checkGoogleReleaseAarMetadata with 20 such issues.
+# -- Nothing caught it on 11-17 because the "BUILD SUCCESSFUL" that verified 3b1688743 was a shared-module
+#    compile, not an app build, so it never reached that task. The last app build (15:01) predated the bump.
+# -- Off-alpha therefore costs a compileSdk 37 + AGP migration, not a version bump. Queued, not done.
+compose-multiplatform = "1.11.0-alpha03"
 
 # Google
 hilt = "2.59.2"

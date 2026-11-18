@@ -93,12 +93,11 @@ object LaunchModules {
                 "dl_tracks" to "Download maps along tracks",   // all tracks, or pick
                 "dl_settings" to "Download settings \u2014 replace existing tiles"),   // ONESOURCEUI-2026-10-30: one source   // DLDEFAULTS-2026-10-24
             g("map", "rm", "REMOVE MAPS",
-                "rm_area" to "Remove maps by area",
-                "rm_track" to "Remove maps for all tracks"),   // stays (Fred 10:14); RMALLTRACKS-2026-10-23: it is ALL tracks
+                "rm_area" to "Remove maps by area"),   // EXPORTONE-2026-11-18: rm_track row removed (Fred 11-18: "Remove Maps for all tacks dead")
             g("map", "repair", "MAP RECOVERY",   // MAPRECOVERY2-2026-10-23 (Fred 10:26-10:28)
                 "restartconv" to "Emergency download \u2014 maps as of the conversion date (if the conversion was interrupted)",   // VECCONVERT-2026-10-31 (Fred 10-31 18:12)
                 "recipes" to "Saved map recipes \u2014 restore maps or send them by email (60 days)",   // GTRECIPES-2026-10-23 (Fred 11:43); RECIPESROW-2026-11-03 (Fred 11:26)
-                "backup" to "Back up my GroupTrack OG data \u2014 one email with everything to recover",   // BACKUP-2026-11-03 (Fred 11:38); BACKUPROW-2026-11-03 (Fred 17:41): in MAP RECOVERY
+                "backup" to "Save my GroupTrack OG data for disaster recovery \u2014 five files in your GroupTrack folder, saved automatically every week",   // BACKUP-2026-11-03 (Fred 11:38); BACKUPROW-2026-11-03 (Fred 17:41): in MAP RECOVERY
                 // QUICKFIX-2026-11-03 (#5): hidden for the 2.7e release -- not built; bring the row back when it is
                 // "restore" to "Restore maps as of a date \u2014 coming soon",   // RESTORESOON-2026-10-25 (Fred 21:03)   // NEW: replays a daily map recipe (ConvoyMapRecipe) -- restore not built yet
                 // HIDEREPAIR-2026-11-04 (Fred 13:49): satellite-era Refresh maps off the menu -- today's recipe (Saved map recipes > RESTORE MY MAPS) updates the maps
@@ -110,10 +109,8 @@ object LaunchModules {
                 // ONEIMPORT-2026-11-04 (Fred 07:59): ONE import -- "convert" and "gpxtrails" rows removed (the screens stay, unused)
                 "gpx" to "Import files \u2014 GPX, KML, KMZ, GeoJSON (tracks, routes, waypoints or trails)"),
             g("map", "export", "EXPORT MAP FEATURES",   // MAPMENU3-2026-11-03 (Fred 20:35)
-                "export_routes" to "Export all routes \u2014 one GPX file",
-                "export_tracks" to "Export all tracks \u2014 one GPX file",
-                "export_waypoints" to "Export all waypoints \u2014 one GPX file",
-                "export_trails" to "Export my rider trails \u2014 imported from outside GroupTrack OG or made from my tracks, one GPX file"),   // TRAILEXPORT-2026-11-03 (Fred 11:05); RIDERTRAILSROW-2026-11-03 (Fred 11:28)
+                "export_all" to "Export map features \u2014 routes, tracks, waypoints or rider trails, each one GPX file",
+                "features" to "Work with exported map features \u2014 email or delete a file you saved earlier"),   // SAVEDFEAT-2026-11-18
             g("map", "fixfeat", "SYNC OR REPAIR MAP FEATURES",   // MAPMENU3-2026-11-03 (Fred 20:35)
                 "utahprivate" to "Update public / private land \u2014 align trails with the state\'s public-lands data",   // UTAHPRIV-2026-10-24; LANDSYNC-2026-11-02 (Fred 18:43)
                 "ridertrails" to "Create trails from tracks",

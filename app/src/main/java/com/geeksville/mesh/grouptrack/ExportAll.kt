@@ -20,6 +20,83 @@ object GtExportAll {
         "     xmlns=\"http://www.topografix.com/GPX/1/1\"\n" +
         "     xmlns:grouptrack=\"https://grouptrack.app/gpx/1\">\n"
 
+    /**
+     * EXPORTONE-2026-11-18: THE four map-feature types, in one place, in export order.
+     * ⛔ This list was private to GtBackup, which meant the DR set and the Map menu each carried
+     * their own idea of "all map features" and could drift. GtExportAll owns exporting, so it owns the
+     * list; GtBackup now reads it. One list, two consumers (the de-duplication rule).
+     */
+    val TYPES = listOf("routes" to "routes", "tracks" to "tracks",
+                       "waypoints" to "waypoints", "trails" to "rider trails")
+
+    /**
+     * EXPORTONE-2026-11-18: write every ticked [types] to GroupTrack Map Features and return the files
+     * written, in TYPES order. A type with nothing on the tablet is skipped silently and simply does
+     * not appear in the result -- that is what lets the screen say "3 file(s)" honestly.
+     *
+     * ⚠ WHY IT COPIES. keepForShare keeps ONE file in cache/exports and DELETES the rest on every
+     * call, so after a four-type run only the last file still exists and the earlier File handles point
+     * at nothing. Each file is copied into its own run folder as it is produced. GtBackup.build() does
+     * exactly this for the same reason; this is not a new mechanism.
+     */
+    fun exportMany(ctx: Context, types: Set<String>): List<java.io.File> {
+        val dir = java.io.File(GtPathsAndroid.cache(ctx), "exportrun")
+            .also { it.mkdirs(); it.listFiles()?.forEach { x -> x.delete() } }
+        val out = ArrayList<java.io.File>()
+        for ((type, _) in TYPES) {
+            if (type !in types) continue
+            val msg = try { run(ctx, type, true) } catch (e: Exception) { log.e(e) { "EXPORTONE-2026-11-18 $type" }; continue }
+            val f = takeWritten()
+            if (f == null) { log.i { "EXPORTONE-2026-11-18: $type -- nothing written ($msg)" }; continue }
+            val copy = java.io.File(dir, f.name)
+            try { f.copyTo(copy, overwrite = true); out.add(copy) }
+            catch (e: Exception) { log.e(e) { "EXPORTONE-2026-11-18: could not stage ${f.name}" } }
+        }
+        log.i { "EXPORTONE-2026-11-18: wrote ${out.size} of ${types.size} ticked type(s): " + out.joinToString { it.name } }
+        return out
+    }
+
+    /**
+     * EXPORTONE-2026-11-18: ONE share sheet for the files a run just wrote, reached from the prompt
+     * the export screen raises after saving. Fred 07:06: "the se[le]ctor panel [is] asking a prompt
+     * after the save[:] do you wan[t] to send these files as an email. the files are know[n] and if yes
+     * the sh[ar]e [sheet] is created with up to four files passed."
+     *
+     * ⭐ THIS PROMPT IS THE ONE SOLICITATION, and it replaces two. Before: the chooser fired by
+     * itself on every export (nobody asked), and emailing anything else meant walking to the selector.
+     * Now the rider is asked once, at the only moment the answer is obvious, and the files are already
+     * known so nothing has to be picked again.
+     *
+     * ⚠ THE INTENT TYPE IS THE TWO-WILDCARD FORM, not octet-stream: octet-stream made the chooser
+     * read as a generic share sheet (EMAILHOUSE-2026-11-17). ⛔ No setPackage -- the manifest's <queries> declares the geo: intent
+     * only, so a named-package lookup returns null even with a mail app installed. A chooser is the
+     * mechanism on Android; that is why "open an email with the files attached" is not available.
+     */
+    fun emailWritten(ctx: Context, files: List<java.io.File>) {
+        if (files.isEmpty()) return
+        try {
+            val uris = ArrayList(files.map {
+                androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".provider", it) })
+            val send = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
+                type = "*/*"
+                putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "GroupTrack OG map features")
+                putExtra(android.content.Intent.EXTRA_TEXT,
+                    "Attached: " + files.joinToString(", ") { it.name } + ", exported from GroupTrack OG.\n\n" +
+                    "Open an attachment on a tablet running GroupTrack OG to bring it in.")
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            ctx.startActivity(android.content.Intent.createChooser(send, "Send as email")
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            log.i { "EXPORTONE-2026-11-18: share sheet for ${files.size} file(s)" }
+        } catch (e: Exception) {
+            log.e(e) { "EXPORTONE-2026-11-18: no app took the send" }
+            android.widget.Toast.makeText(ctx,
+                "Saved to GroupTrack Map Features; no app would take the email.",
+                android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun xml(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
     /** What one item's GPX holds inside <gpx>, without its <metadata>. "" = nothing usable. */
@@ -76,20 +153,14 @@ object GtExportAll {
     }
 
     /** Off the main thread; the result as a toast. [type] = "routes" | "tracks" | "waypoints". */
-    fun start(ctx: Context, type: String) {
-        android.widget.Toast.makeText(ctx, "Exporting all $type…", android.widget.Toast.LENGTH_SHORT).show()
-        Thread {
-            val msg = try { run(ctx, type, true) } catch (e: Exception) { log.e(e) { "EXPORTALL $type" }; "Export failed: ${e.message}" }
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_LONG).show()
-                shareNow(ctx)   // SHAREEXPORT-2026-11-03
-            }
-        }.start()
-    }
+    // EXPORTONE-2026-11-18: start(ctx, type) was here -- the single-type entry behind each of the four Map
+    // rows, toast then export. With one screen and one prompt there is no caller left; exportMany is
+    // the entry now. GtCertPaths still calls run() directly, which is untouched.
 
-    // SHAREEXPORT-2026-11-03 (Fred 11:29): every export-all also opens the share sheet (email, Drive, Files ...). The copy lives in
-    // cache/exports (what the FileProvider shares); only the newest is kept. pending: the file written by this run, null = none written
-    // (the export failed or found nothing) -- a field set by the export thread and taken once on the main thread.
+    // SHAREEXPORT-2026-11-03, SUPERSEDED BY NOSHARE-2026-11-18: export-all no longer opens a share sheet.
+    // The cache/exports copy and [pending] REMAIN, and are not vestigial -- GtBackup.build() calls
+    // run() then takeWritten() to collect one file per type for the DR set (DRFILE-2026-11-18).
+    // pending: the file written by this run, null = none written (the export failed or found nothing).
     @Volatile private var pending: java.io.File? = null
 
     private fun keepForShare(ctx: Context, name: String, gpx: String) {
@@ -100,29 +171,6 @@ object GtExportAll {
     /** BACKUP-2026-11-03: the file this run wrote, taken (the backup collects one per type instead of sharing each). null = none. */
     fun takeWritten(): java.io.File? { val f = pending; pending = null; return f }
 
-    private fun shareNow(ctx: Context) {
-        val f = pending ?: return
-        pending = null
-        try {
-            val uri = androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".provider", f)
-            val what = f.nameWithoutExtension.replace('_', ' ')
-            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                type = "application/octet-stream"
-                putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                putExtra(android.content.Intent.EXTRA_SUBJECT, what)
-                putExtra(android.content.Intent.EXTRA_TEXT, "$what, sent from GroupTrack OG.\n\n" +
-                    "On your Android phone or tablet: tap the attachment and choose GroupTrack OG — it opens in GroupTrack OG's GPX import.\n\n" +
-                    "Don't have GroupTrack OG yet? Get it on Google Play:\nhttps://play.google.com/store/apps/details?id=com.grouptrack.android&hl=en_US\n")
-                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            ctx.startActivity(android.content.Intent.createChooser(send, "Send or save $what")
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-            log.i { "SHAREEXPORT share sheet for ${f.name} (${f.length()} bytes)" }
-        } catch (e: Exception) {
-            log.e(e) { "SHAREEXPORT share failed" }
-            android.widget.Toast.makeText(ctx, "Saved to Downloads; could not open sharing: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
-        }
-    }
 
     /** One GPX, every item of [type], to Downloads. The message for the rider. */
     /** BACKUP-2026-11-03: [toDownloads] false = the background backup (the file is kept for it only, never in Downloads). */

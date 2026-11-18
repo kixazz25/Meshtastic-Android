@@ -633,7 +633,23 @@ fun GtRefreshSourceScreen(onDone: () -> Unit) {
     )
 }
 
-/** GTSTD-2026-10-23: the standard header for a full-screen module -- title, [extra] buttons, HELP, X; [content] below. */
+/**
+ * GTSTD-2026-10-23: the standard header for a full-screen module -- title, [extra] buttons, HELP,
+ * ISSUE, X; [content] below.
+ *
+ * PANELSTD-2026-11-18 (Fred 06:49): "all new screens have to adhere to dro[id] standards[:] help,
+ * open issue and close on every panel[,] and color and presentation are dro[id] fi[d]el[i]ty light or
+ * dark for grouptrack."
+ *
+ * ⛔ THIS FRAME DID NOT MEET THAT STANDARD. It is dated GTSTD-2026-10-23; the ISSUE rule is
+ * ISSUE-2026-10-24 ("HELP - ISSUE - close, on every panel", GtPanel.kt) -- one day later -- so the
+ * button was added to GtPanel and never here. SEVEN screens use this frame and not one supplied ISSUE
+ * through [extra]: the state counts, the one import, import-trails-from-GPX, convert-to-GPX, import
+ * trails, delete-trails-by-source and the vector map test. Fixed HERE rather than in each screen, so a
+ * new screen meets the standard by construction.
+ * ⚠ Colour and light/dark need nothing: Gt.panel / Gt.text / Gt.dim / Gt.accent / Gt.bad are read
+ * from the current scheme by ROLE (STD1-2026-10-24), so a frame built from them follows the theme.
+ */
 @Composable
 fun GtScreenFrame(title: String, helpId: String, onClose: () -> Unit, note: String = "",
                   extra: @Composable () -> Unit = {}, content: @Composable () -> Unit) {
@@ -646,6 +662,7 @@ fun GtScreenFrame(title: String, helpId: String, onClose: () -> Unit, note: Stri
             }
             extra()
             GtHelpButton(helpId)
+            GtIssueButton(helpId)   // PANELSTD-2026-11-18: HELP - ISSUE - close, as GtPanel
             GtCloseButton(onClose)
         }
         Box(modifier = Modifier.weight(1f)) { content() }
@@ -664,12 +681,14 @@ fun GtImportFrame(onClose: () -> Unit, content: @Composable () -> Unit) {
         content = content)
 }
 
-/** GTSTD-2026-10-23: a dialog title meeting the standard -- the title, then HELP and X. */
+/** GTSTD-2026-10-23: a dialog title meeting the standard -- the title, then HELP, ISSUE and X.
+ *  PANELSTD-2026-11-18: ISSUE added here too, missing for the same reason as GtScreenFrame. */
 @Composable
 fun GtDialogTitle(title: String, helpId: String, onClose: () -> Unit, closeEnabled: Boolean = true) {
     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         Text(title, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
         GtHelpButton(helpId)
+        GtIssueButton(helpId)   // PANELSTD-2026-11-18
         GtCloseButton(onClose, enabled = closeEnabled)
     }
 }

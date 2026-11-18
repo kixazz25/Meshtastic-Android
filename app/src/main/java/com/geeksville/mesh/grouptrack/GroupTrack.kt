@@ -63,7 +63,8 @@ import com.geeksville.mesh.convoy.GroupMode
  *  ⛔ A row listed here must also have NO entry in the `actions` bridge, or it stays live. The bridge is what
  *  decides; this map only words it. */
 val GT_RETIRED: Map<String, String> = mapOf(
-    "map.rm_track" to "no longer needed \u2014 vector maps rebuild track coverage",
+    // EXPORTONE-2026-11-18: "map.rm_track" was here. The ROW is gone from LaunchModules now, so there is
+    // nothing left to grey or to word -- a retired row needs this entry, a removed one does not.
     // CORRCREDITS-2026-11-13: map.sources is NOT retired. Verified in ConvoyMapSourceScreen -- selectedSlot is
     // never set non-null and optTracks is never set true, so the source picker and the migration were ALREADY
     // unreachable; the screen is a credits page, and manual#map.sources tells the reader to open it. There was
@@ -133,9 +134,10 @@ fun GroupTrackLaunchLayer(
     val trailsTick = GtOpenModule.trailsTick.intValue
     androidx.compose.runtime.LaunchedEffect(trailsTick) { if (trailsTick > 0) filter.trailsChanged() }
     // MAPRECIPES-2026-11-03: an AI route recipe opened from an email / Downloads -> the AI build at its summary, its FILTER applied
-    // BACKUP-2026-11-03 (Fred 11:41): every start with internet -- a CHANGED backup offers SEND BACKUP / NOT NOW
+    // BACKUP-2026-11-03 (Fred 11:41), rewritten DRFILE-2026-11-18: every start with internet -- a CHANGED
+    // (or week-old) backup WRITES its five files to the DR directory. No offer and no dialog: Fred 11-18
+    // "no more email", and nothing is asked of the rider for a file written to their own folder.
     androidx.compose.runtime.LaunchedEffect(Unit) { GtDbAudit.repair(ctx.applicationContext); com.geeksville.mesh.convoy.GtFileHome.resetOnce(ctx.applicationContext); GtBackup.autoCheck(ctx.applicationContext) }   // TRACKSFIX-2026-11-03: repair first
-    GtBackupReadyDialog()
     // RESTOREQUEUE-2026-11-03: a recipe restore was queued -> the download queue
     androidx.compose.runtime.LaunchedEffect(GtRecipes.openQueue.value) { if (GtRecipes.openQueue.value) { GtRecipes.openQueue.value = false; open = ""; actions["map.queues"]?.invoke() } }
     val rcvRoute = GtRecipes.routeRecipe.value

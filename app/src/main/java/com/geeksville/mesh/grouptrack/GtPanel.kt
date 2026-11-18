@@ -152,7 +152,15 @@ fun GtButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, 
             .padding(horizontal = 14.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = if (!enabled) GtColors.Dim else if (emphasis == Color.Unspecified) s.text else emphasis,
+        // BTNDIM-2026-11-18 (Fred 07:46): "hate to read, the text is grey on blue in buttons. make text
+        // white." The disabled colour was GtColors.Dim -- a FIXED grey, the one colour in this button that
+        // did NOT come from the scheme (s.bg, s.edge and s.text all do). On the topo scheme the button is
+        // blue 0D47A1, and a fixed grey on it is unreadable. That is a STD1-2026-10-24 violation inside the
+        // shared control: "screens write Gt.<role>, never a colour of their own."
+        // \u26a0 NOT literal white: OnSatellite's buttons ARE white, so white letters would vanish there.
+        // s.panelDim is the scheme's own dim role -- B8C7D9 on blue (reads as white), 5B6B7D on white --
+        // so it is legible on both AND still distinguishable from an enabled button.
+        Text(label, color = if (!enabled) s.panelDim else if (emphasis == Color.Unspecified) s.text else emphasis,
             fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
 }

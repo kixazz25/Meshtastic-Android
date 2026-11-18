@@ -2,17 +2,6 @@
 package com.geeksville.mesh.grouptrack
 
 import android.content.Context
-import android.content.Intent
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import com.geeksville.mesh.convoy.GroupTrackStorage
 import com.geeksville.mesh.convoy.VectorTiles
 import java.io.File
@@ -29,13 +18,8 @@ object GtBackup {
     private const val TAG = "Backup"
     private val log = gtLogger(TAG)   // GTLOGKERMIT-2026-11-16: android.util.Log(TAG, ..) -- same tag, so the logs read as 2.7e's
     private const val PREF = "gt_backup"
-    private val TYPES = listOf("routes" to "routes", "tracks" to "tracks", "waypoints" to "waypoints", "trails" to "rider trails")
-
-    /** The summary of a CHANGED backup waiting for SEND BACKUP / NOT NOW. "" = nothing to offer (CODE RULE 1). */
-    val ready = androidx.compose.runtime.mutableStateOf("")
 
     private class Built(val files: List<File>, val list: String, val print: String)
-    @Volatile private var waiting: Built? = null   // the backup behind [ready]; null = none built
     @Volatile private var checked = false           // the start-up check runs once per app start
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
@@ -45,10 +29,12 @@ object GtBackup {
      * ARCHIVE-2026-11-17 (Fred): "the full image of map recipes and all artifacts should be sent
      * minimally once per week or when starting app is more then 7 days."
      *
-     * ⚠ The floor is on the EMAIL, not on the archive -- the archive is written on every start-up
-     * check regardless. A rider should not be emailed an identical set every Monday for no reason, but
-     * a dated full image once a week is worth having: it is a restore point even in a quiet week, and
-     * it is proof the backup still works rather than having silently stopped.
+     * ⚠ CORRECTED DRFILE-2026-11-18: this paragraph said "the floor is on the EMAIL, not on the
+     * archive -- the archive is written on every start-up check regardless". That stopped being true
+     * on 11-17 when ARCHIVEGATE put archive() inside the gated branch, and there is no email at all
+     * from 11-18. THE FLOOR IS ON THE WRITE: unchanged and inside 7 days writes nothing. A dated full
+     * image once a week is still worth having -- it is a restore point even in a quiet week, and proof
+     * the backup still works rather than having silently stopped.
      * ⚠ No pref means nothing was ever sent, which the unchanged branch cannot reach anyway (an empty
      * fingerprint never matches a built one), so 0L is safe.
      */
@@ -70,7 +56,6 @@ object GtBackup {
         if (checked) return
         checked = true
         if (!online(ctx)) { log.i { "BACKUP start-up check: no internet" }; return }
-        if (prefs(ctx).getString("notNow", "") == today()) { log.i { "BACKUP start-up check: NOT NOW today" }; return }
         Thread {
             try {
                 Thread.sleep(20_000)   // after the start-up work
@@ -94,30 +79,34 @@ object GtBackup {
                         val now = b.print.split(';').filter { it.contains('=') }.associate { it.substringBefore('=') to it.substringAfter('=') }
                         val diff = (was.keys + now.keys).filter { was[it] != now[it] }.joinToString(", ") { k -> "$k ${was[k]?.take(8) ?: "none"}->${now[k]?.take(8) ?: "none"}" }
                         log.i { "BACKUP changed -- offering SEND BACKUP (${b.files.size} files); changed since sent: ${diff.ifEmpty { "(nothing sent yet)" }}" }
-                        archive(ctx, b)   // ARCHIVEGATE-2026-11-17: changed (or week-old) -- so archive it
-                        waiting = b
-                        android.os.Handler(android.os.Looper.getMainLooper()).post { ready.value = b.list }
+                        archive(ctx, b)   // DRFILE-2026-11-18: changed (or week-old) -- write the set to DR
                     }
                 }
             } catch (e: Exception) { log.e(e) { "BACKUP start-up check failed" } }
         }.start()
     }
 
-    /** Map > Back up my GroupTrack data: build now (GPX also to Downloads) and open the email. */
+    /**
+     * Map > Back up my GroupTrack data -- ON DEMAND, and it stays (Fred 11-18: "it can stay on demand
+     * but it builds files in startup also"). Builds the five files and writes them to the DR directory.
+     * ⚠ build(ctx, false), not true: the rider's own Map Features copies come from the EXPORT rows.
+     * This path is the DR position, so the set belongs in DR and nowhere else -- writing both would put
+     * the same GPX in two folders on every backup.
+     */
     fun start(ctx: Context) {
         android.widget.Toast.makeText(ctx, "Building your GroupTrack OG backup…", android.widget.Toast.LENGTH_SHORT).show()
         Thread {
             try { GtDbAudit.run(ctx) } catch (e: Exception) { log.e(e) { "DBAUDIT" } }   // DBAUDIT-2026-11-03
-            val b = try { build(ctx, true) } catch (e: Exception) { log.e(e) { "BACKUP build" }; Built(emptyList(), "Backup failed: ${e.message}", "") }
+            val b = try { build(ctx, false) } catch (e: Exception) { log.e(e) { "BACKUP build" }; Built(emptyList(), "Backup failed: ${e.message}", "") }
+            if (b.files.isNotEmpty()) archive(ctx, b)   // DRFILE-2026-11-18
             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                if (b.files.isEmpty()) android.widget.Toast.makeText(ctx, b.list.ifEmpty { "Nothing to back up yet." }, android.widget.Toast.LENGTH_LONG).show()
-                else send(ctx, b)
+                android.widget.Toast.makeText(ctx,
+                    if (b.files.isEmpty()) b.list.ifEmpty { "Nothing to back up yet." }
+                    else "Saved ${b.files.size} file(s) to GroupTrack (your recovery folder).",
+                    android.widget.Toast.LENGTH_LONG).show()
             }
         }.start()
     }
-
-    fun sendReady(ctx: Context) { val b = waiting; ready.value = ""; waiting = null; if (b != null) send(ctx, b) }
-    fun notNow(ctx: Context) { prefs(ctx).edit().putString("notNow", today()).apply(); ready.value = ""; waiting = null; log.i { "BACKUP NOT NOW" } }
 
     private fun sha(s: String): String = java.security.MessageDigest.getInstance("SHA-256").digest(s.toByteArray())
         .joinToString("") { "%02x".format(it) }
@@ -132,24 +121,40 @@ object GtBackup {
      * ⚠ Family by NAME, because that is what the file is: the four GPX sets are map features, and the
      * recipe ("GroupTrack maps <day>.json", RECIPEJSON-2026-11-03) is a map.
      */
+    /**
+     * DRFILE-2026-11-18 (Fred 11-18 06:24, 06:27): "remove the email and save the startup contents in
+     * the dr directory"; "this generates 5 files used for data recreation".
+     *
+     * THE WHOLE SET GOES TO ONE PLACE -- Family.ROOT, the DR directory. The 11-17 version scattered it
+     * (gpx -> Map Features, recipe -> Maps, everything else dropped) ONLY because there was no DR
+     * destination then; its own note said the DR position "now lives in the three folders themselves".
+     * There is a destination now, so the set is a set again: five files, one folder, each tappable to
+     * restore -- which is the recovery Fred described ("we can launch every one of the recovery jobs
+     * by tapping it from the dr directory").
+     *
+     * ⛔ IT RECORDS THE FINGERPRINT. send() used to do that, and send() is gone. Leave this out and
+     * the gate never advances, so the backup re-archives on EVERY launch -- GroupTrack_TRACKS is 20 MB
+     * on Droid 2, so ~21 MB of MediaStore writes per start. Simulated: gt_drfilesim_2026-11-18_v1.py
+     * scores the correct version at 4 writes in 7 launches and that mistake at 6.
+     * ⚠ The pref key stays "sent" rather than becoming "saved": renaming it would make every existing
+     * install read an empty fingerprint and write one more full set for no benefit.
+     */
     private fun archive(ctx: Context, b: Built) {
         var n = 0
         for (f in b.files) {
-            val fam = when {
-                f.name.endsWith(".gpx", true) -> com.geeksville.mesh.convoy.GtFileOpen.Family.MAP_FEATURES
-                f.name.startsWith("GroupTrack maps ") -> com.geeksville.mesh.convoy.GtFileOpen.Family.MAPS
-                else -> null   // nothing else is rider data; it stays in the email only
-            } ?: continue
-            if (com.geeksville.mesh.convoy.GtFileHome.save(ctx, fam, f) != null) n++
+            if (com.geeksville.mesh.convoy.GtFileHome.save(
+                    ctx, com.geeksville.mesh.convoy.GtFileOpen.Family.ROOT, f) != null) n++
         }
-        log.i { "ARCHIVEGATE-2026-11-17: archived $n of ${b.files.size} file(s) to their owning folders" }
+        if (n > 0) prefs(ctx).edit().putString("sent", b.print).putLong("sentAtMs", System.currentTimeMillis()).apply()
+        log.i { "DRFILE-2026-11-18: wrote $n of ${b.files.size} file(s) to the DR directory" +
+            (if (n > 0) " -- fingerprint recorded" else " -- NOTHING WRITTEN, fingerprint left alone") }
     }
 
     /** The backup's files (cache/backup), the email's list, and its fingerprint. */
     private fun build(ctx: Context, toDownloads: Boolean): Built {
         val dir = File(GtPathsAndroid.cache(ctx), "backup").also { it.mkdirs(); it.listFiles()?.forEach { x -> x.delete() } }
         val files = ArrayList<File>(); val list = StringBuilder(); val print = StringBuilder()
-        for ((type, label) in TYPES) {
+        for ((type, label) in GtExportAll.TYPES) {   // EXPORTONE-2026-11-18: one list, shared with the export screen
             val msg = GtExportAll.run(ctx, type, toDownloads)
             val f = GtExportAll.takeWritten() ?: continue   // none of this type, or it could not be written
             val copy = File(dir, f.name); f.copyTo(copy, overwrite = true); files.add(copy)
@@ -170,58 +175,5 @@ object GtBackup {
         return Built(files, list.toString(), print.toString())
     }
 
-    /** The email: to the rider's profile email, the files attached, the recovery steps. Its fingerprint becomes the one SENT. */
-    private fun send(ctx: Context, b: Built) {
-        val day = today()
-        val me = try { com.geeksville.mesh.convoy.ConvoyProfileStore.load()?.email?.trim() ?: "" } catch (e: Exception) { "" }
-        val uris = ArrayList(b.files.map { FileProvider.getUriForFile(ctx, ctx.packageName + ".provider", it) })
-        val body = "My GroupTrack OG backup, $day. Keep this email — it recreates GroupTrack OG on a new or reloaded phone.\n\n" +
-            "In this backup:\n" + b.list + "\n" +
-            "TO RECOVER, on the phone or tablet, with GroupTrack OG installed and Wi-Fi on:\n" +
-            "1. Tap the maps file (GroupTrack maps <date>.json), choose GroupTrack OG, tap RESTORE MY MAPS. The maps download while you do the rest.\n" +
-            "2. Tap the ROUTES, TRACKS and WAYPOINTS files one at a time, choose GroupTrack OG, answer NO to \"Are these files trails?\", untick MAPS, tap IMPORT.\n" +
-            "3. Tap the RIDER TRAILS file the same way and answer YES -- they come back as trails.\n" +   // ONEIMPORT-2026-11-04
-            "Importing something that is already there is safe — it is not added twice.\n\n" +
-            "Get GroupTrack OG on Google Play:\nhttps://play.google.com/store/apps/details?id=com.grouptrack.android&hl=en_US\n"
-        val mail = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-            type = "application/octet-stream"
-            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
-            if (me.isNotEmpty()) putExtra(Intent.EXTRA_EMAIL, arrayOf(me))
-            putExtra(Intent.EXTRA_SUBJECT, "GroupTrack OG backup $day")
-            putExtra(Intent.EXTRA_TEXT, body)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        try {
-            val gmail = Intent(mail).setPackage("com.google.android.gm")
-            if (gmail.resolveActivity(ctx.packageManager) != null) ctx.startActivity(gmail)
-            else ctx.startActivity(Intent.createChooser(mail, "Send or save your GroupTrack OG backup").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            prefs(ctx).edit().putString("sent", b.print).putLong("sentAtMs", System.currentTimeMillis()).apply()   // ARCHIVE-2026-11-17
-            log.i { "BACKUP email opened: ${b.files.size} attachment(s), to=${if (me.isEmpty()) "(none)" else "profile email"}" }
-        } catch (e: Exception) {
-            log.e(e) { "BACKUP open failed" }
-            android.widget.Toast.makeText(ctx, "Could not open the email: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
-        }
-    }
 }
 
-/** BACKUP-2026-11-03: the start-up offer -- shown only when the backup CHANGED since the last one sent. */
-@Composable
-fun GtBackupReadyDialog() {
-    val list = GtBackup.ready.value
-    if (list.isEmpty()) return
-    val ctx = LocalContext.current
-    AlertDialog(
-        onDismissRequest = { GtBackup.notNow(ctx) },
-        title = { Text("Your GroupTrack OG data changed", fontWeight = FontWeight.Bold, color = Gt.text) },
-        text = {
-            androidx.compose.foundation.layout.Column {
-                Text("A new backup is ready:", color = Gt.text, fontSize = 14.sp)
-                Text(list, color = Gt.text, fontSize = 13.sp, modifier = Modifier.padding(vertical = 6.dp))
-                Text("Email it to yourself to keep it safe. It recreates GroupTrack OG on a new or reloaded phone.", color = Gt.dim, fontSize = 12.sp)
-            }
-        },
-        confirmButton = { GtButton("SEND BACKUP", { GtBackup.sendReady(ctx) }) },
-        dismissButton = { GtButton("NOT NOW", { GtBackup.notNow(ctx) }) },
-        containerColor = Gt.panel
-    )
-}

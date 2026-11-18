@@ -92,10 +92,19 @@ object GtFilePicker {
  *   the recovery copies (rule 2: "Anything processed form downloads should be archived to the owning sub
  *   directory"). Importing an archived file must never consume the archive.
  */
+/**
+ * SAVEDFEAT-2026-11-18: [showImport] -- CODE RULE 1, so here is why a caller omits it. The manage
+ * row's job is DELETE and EMAIL (Fred 07:12: "work with exported map features to delete form saves or
+ * send a prior item v[ia] email"). IMPORT already has its own row, and offering it here would be the
+ * duplicate function this whole day has been removing.
+ * ⚠ The extension filter is NOT a parameter: the folder's own list is correct for both callers.
+ * Fred 07:14: "this is only importable and only map features."
+ */
 @Composable
 fun GtFilePickerBody(
     family: GtFileOpen.Family,
-    onImport: (List<Uri>) -> Unit,
+    showImport: Boolean = true,
+    onImport: (List<Uri>) -> Unit = {},
 ) {
     val ctx = LocalContext.current
     var rows by remember { mutableStateOf<List<GtFileHome.Row>>(emptyList()) }
@@ -144,7 +153,7 @@ fun GtFilePickerBody(
         if (rows.isNotEmpty()) {
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly) {
-                GtButton("IMPORT", { if (picked.isNotEmpty()) onImport(picked.map { it.uri }) },
+                if (showImport) GtButton("IMPORT", { if (picked.isNotEmpty()) onImport(picked.map { it.uri }) },
                     enabled = picked.isNotEmpty())
                 GtButton("EMAIL", {
                     // EMAILOPT-2026-11-17: Fred 11-17 -- "any explicit share option and they all should be
