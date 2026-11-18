@@ -168,7 +168,15 @@ object GtOrgJson {
     fun num(i: Int): JsonElement = JsonUnquotedLiteral(i.toString())
     fun str(s: String): JsonElement = JsonPrimitive(s)
     fun bool(b: Boolean): JsonElement = JsonPrimitive(b)
-    val NULL: JsonElement get() = JsonNull
+    /** ⛔ DELIBERATELY NOT NAMED `NULL`, however much org.json’s JSONObject.NULL invites it.
+     *  A Kotlin member named NULL generates an ObjC @property named NULL, and NULL is a C MACRO:
+     *  clang expands it inside the declaration and GroupTrackShared.h fails to compile with
+     *  "property requires fields to be named" — which means NO Swift can import the framework at
+     *  all. Found 2026-11-18 (GEOMPROBE) the first time anything ever imported it; the module had
+     *  been compiling and producing a framework for days with a header nothing had parsed.
+     *  ⚠ The same applies to TRUE / FALSE and any other C macro name (see the note at the top of
+     *  this file): org.json’s spelling cannot be mirrored for a member that crosses into ObjC. */
+    val jsonNull: JsonElement get() = JsonNull
 
     // ---- writing ------------------------------------------------------------------------------------------------------------
     /** JSONObject.numberToString (Android) for a number literal of kind [k]. */

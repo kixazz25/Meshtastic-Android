@@ -136,7 +136,7 @@ class GtFoundation15aTest {
     }
 
     @Test fun orgJsonPut() {
-        val o = JsonObject(linkedMapOf("n" to GtOrgJson.num(40.5), "w" to GtOrgJson.num(100.0), "l" to GtOrgJson.num(7L), "z" to GtOrgJson.NULL))
+        val o = JsonObject(linkedMapOf("n" to GtOrgJson.num(40.5), "w" to GtOrgJson.num(100.0), "l" to GtOrgJson.num(7L), "z" to GtOrgJson.jsonNull))
         assertEquals("""{"n":40.5,"w":100,"l":7,"z":null}""", GtOrgJson.compact(o))
         assertEquals("100.0", GtOrgJson.optString(o, "w"))
         assertFailsWith<IllegalArgumentException> { GtOrgJson.num(Double.NaN) }
