@@ -165,6 +165,11 @@ class ConvoyGpsService : Service() {
      * Creates temp KML file. GPS updates begin immediately.
      */
     fun startTrack() {
+        // TRACKGROUNDS-2026-11-19 (Fred 11-19 10:52 "shouldn't the start recording button set track grounds?"): it ASSERTS,
+        // it does not set -- CODE RULE 2, checked at the point of contact. MYCARTSNAP-2026-11-19 made my cart take the rules,
+        // so an unset source now means the recorded track is written with every route / trail rule OFF while still looking
+        // like a good ride. That must be loud at the moment recording starts, not discovered in the GPX afterwards.
+        TrackGrounds.assertSet("ConvoyGpsService.startTrack")
         if (state != State.IDLE) return
         val isGpx = ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX"
         val tempFile = if (isGpx) createTempGpxFile() else createTempKmlFile()

@@ -1,6 +1,11 @@
-package com.geeksville.mesh.convoy
+package com.grouptrack.shared.track
 
 import com.grouptrack.shared.log.gtLogger
+import com.grouptrack.shared.text.GtJava      // GTMATH-2026-11-10: toRadians = deg * 0.017453292519943295, proven == java.lang.Math on Droid 1
+import com.grouptrack.shared.text.GtMath      // GTMATH-2026-11-10: Android IS java.lang.Math (not one bit changes); the iPad gets Android's algorithms
+import kotlin.concurrent.Volatile
+import kotlin.math.abs
+import kotlin.math.sqrt                        // GtMath has no sqrt BY DESIGN: IEEE 754 requires it correctly rounded everywhere
 
 /**
  * TRACKRULES-2026-10-19 (2.7b -- Fred 10-19 08:12-08:57). THE TRACK RULES, WRITTEN ONCE. Replaces TrackPipeline.kt (LEADTRACKBOARD-2026-10-18).
@@ -44,11 +49,11 @@ data class WPoint(val lat: Double, val lon: Double, val tMs: Long, val alt: Doub
 class Line(val id: String, val pts: List<TrackPoint>) {
     private val lat0 = pts.firstOrNull()?.lat ?: 0.0
     private val lon0 = pts.firstOrNull()?.lon ?: 0.0
-    private val kx = Math.cos(Math.toRadians(lat0)) * 111_320.0
+    private val kx = GtMath.cos(GtJava.toRadians(lat0)) * 111_320.0
     private val ky = 110_574.0
     val xs = DoubleArray(pts.size) { (pts[it].lon - lon0) * kx }
     val ys = DoubleArray(pts.size) { (pts[it].lat - lat0) * ky }
-    val cum = DoubleArray(pts.size).also { c -> for (i in 1 until pts.size) c[i] = c[i - 1] + Math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]) }
+    val cum = DoubleArray(pts.size).also { c -> for (i in 1 until pts.size) c[i] = c[i - 1] + GtMath.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]) }
     fun x(p: TrackPoint) = (p.lon - lon0) * kx
     fun y(p: TrackPoint) = (p.lat - lat0) * ky
 
@@ -63,7 +68,7 @@ class Line(val id: String, val pts: List<TrackPoint>) {
         for (i in 0 until pts.size - 1) {
             val dx = xs[i + 1] - xs[i]; val dy = ys[i + 1] - ys[i]; val l2 = dx * dx + dy * dy
             val t = if (l2 == 0.0) 0.0 else (((px - xs[i]) * dx + (py - ys[i]) * dy) / l2).coerceIn(0.0, 1.0)
-            all.add(Place(Math.hypot(px - xs[i] - t * dx, py - ys[i] - t * dy), i, t, cum[i] + t * Math.sqrt(l2)))
+            all.add(Place(GtMath.hypot(px - xs[i] - t * dx, py - ys[i] - t * dy), i, t, cum[i] + t * sqrt(l2)))
         }
         val out = ArrayList<Place>()
         for (k in all.indices) {
@@ -93,18 +98,18 @@ class Line(val id: String, val pts: List<TrackPoint>) {
 
 object TrackGeo {
     fun metres(a: TrackPoint, b: TrackPoint): Double {
-        val k = Math.cos(Math.toRadians((a.lat + b.lat) / 2)) * 111_320.0
-        return Math.hypot((b.lon - a.lon) * k, (b.lat - a.lat) * 110_574.0)
+        val k = GtMath.cos(GtJava.toRadians((a.lat + b.lat) / 2)) * 111_320.0
+        return GtMath.hypot((b.lon - a.lon) * k, (b.lat - a.lat) * 110_574.0)
     }
     fun length(pts: List<TrackPoint>): Double { var s = 0.0; for (i in 1 until pts.size) s += metres(pts[i - 1], pts[i]); return s }
     /** Distance in metres from p to the segment a-b (local flat projection -- fine at segment length). */
     fun metresToSegment(p: TrackPoint, a: TrackPoint, b: TrackPoint): Double {
-        val k = Math.cos(Math.toRadians(p.lat)) * 111_320.0
+        val k = GtMath.cos(GtJava.toRadians(p.lat)) * 111_320.0
         val ax = (a.lon - p.lon) * k; val ay = (a.lat - p.lat) * 110_574.0
         val bx = (b.lon - p.lon) * k; val by = (b.lat - p.lat) * 110_574.0
         val dx = bx - ax; val dy = by - ay; val len2 = dx * dx + dy * dy
         val t = if (len2 == 0.0) 0.0 else (-(ax * dx + ay * dy) / len2).coerceIn(0.0, 1.0)
-        return Math.hypot(ax + t * dx, ay + t * dy)
+        return GtMath.hypot(ax + t * dx, ay + t * dy)
     }
 }
 
@@ -124,42 +129,36 @@ object TrackGrounds {
     /** The ONE route on the screen. CODE RULE 1: null = there is not exactly one displayed route (routes off, all on, or several
      *  selected) -> R3 uses any saved route that both points lie on. Set by ConvoyScreen from the Routes display state. */
     @Volatile var displayedRouteId: String? = null
-    @Volatile var source: LineSource = DbLineSource
+    /** TRACKGROUNDS-2026-11-19: the DEFAULT is the loud no-op below, NEVER a platform source -- commonMain cannot name
+     *  Android's DbLineSource. (This initializer is what failed to compile at 11:13: the carve-out took the object out of
+     *  this file and left the reference to it behind. The guard checked that nothing OUTSIDE the file named DbLineSource
+     *  and never checked inside the file being edited.) Android sets this in SpatialDbManager.init; the iPad sets its own. */
+    @Volatile var source: LineSource = UnsetLineSource
 
-    object DbLineSource : LineSource {
-        private val cache = java.util.concurrent.ConcurrentHashMap<String, List<Line>>()
-        private fun parse(id: String, wkt: String): List<Line> = cache.getOrPut(id + "\u0000" + wkt.length) {
-            if (cache.size > 2000) cache.clear()
-            val body = when {
-                wkt.startsWith("MULTILINESTRING(") -> wkt.removePrefix("MULTILINESTRING(").removeSuffix(")")
-                wkt.startsWith("LINESTRING(") -> "(" + wkt.removePrefix("LINESTRING(").removeSuffix(")") + ")"
-                else -> return@getOrPut emptyList()
-            }
-            body.split("),(").mapIndexedNotNull { k, part ->
-                val pts = part.trim('(', ')').split(",").mapNotNull { c ->
-                    val xy = c.trim().split(" ")
-                    val lon = xy.getOrNull(0)?.toDoubleOrNull(); val lat = xy.getOrNull(1)?.toDoubleOrNull()
-                    if (lon == null || lat == null) null else TrackPoint(lat, lon)
-                }
-                if (pts.size < 2) null else Line(if (k == 0) id else "$id#$k", pts)
-            }
+    /** TRACKGROUNDS-2026-11-19 (Fred 11-19 10:52 "shouldn't the start recording button set track grounds?"). MEASURED: there are TWO
+     *  consumers of [source] and only one of them records -- ConvoyViewModel:164,174 feeds LeadEstimate with no recording running. So
+     *  each platform SETS this at STARTUP and the recorder ASSERTS it at record-start ([assertSet]).
+     *  The shared default is a LOUD NO-OP, never a silent one: a source that quietly returned nothing would let a track record with
+     *  every route / trail rule OFF and still look like a successful ride. */
+    object UnsetLineSource : LineSource {
+        private fun loud(what: String) = gtLogger("TRACKRULES").e {
+            "TRACKGROUNDS-2026-11-19 TrackGrounds.source IS UNSET -- " + what + " returned nothing. " +
+                "The platform did not set it at startup; every route / trail rule is OFF."
         }
-        private fun query(sql: String, args: Array<String>): List<Line> = try {
-            val db = SpatialDbManager.getSpatialDb()
-            if (db == null) emptyList() else db.rawQuery(sql, args).use { c ->
-                val out = ArrayList<Line>()
-                while (c.moveToNext()) { val id = c.getString(0) ?: continue; val g = c.getString(1) ?: continue; out += parse(id, g) }
-                out
-            }
-        } catch (e: Exception) { gtLogger("TRACKRULES").w { "TRACKRULES-2026-10-19 lookup failed: " + e.message }; emptyList() }
-        private fun box(s: Double, w: Double, n: Double, e: Double) = arrayOf(s.toString(), n.toString(), w.toString(), e.toString())
-        override fun route(id: String): Line? = query("SELECT route_id, geometry FROM routes WHERE route_id = ?", arrayOf(id)).firstOrNull()
-        override fun routesNear(s: Double, w: Double, n: Double, e: Double) =
-            query("SELECT route_id, geometry FROM routes WHERE min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT 50", box(s, w, n, e))
-        override fun tracksNear(s: Double, w: Double, n: Double, e: Double) =   // GAPFILL-2026-10-20
-            query("SELECT track_id, geometry FROM tracks WHERE (type='TRACK' OR type IS NULL) AND min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT 50", box(s, w, n, e))
-        override fun trailsNear(s: Double, w: Double, n: Double, e: Double) =
-            query("SELECT trail_id, geometry FROM trails WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT 200", box(s, w, n, e))
+        override fun route(id: String): Line? { loud("route(" + id + ")"); return null }
+        override fun routesNear(s: Double, w: Double, n: Double, e: Double): List<Line> { loud("routesNear"); return emptyList() }
+        override fun trailsNear(s: Double, w: Double, n: Double, e: Double): List<Line> { loud("trailsNear"); return emptyList() }
+        override fun tracksNear(s: Double, w: Double, n: Double, e: Double): List<Line> { loud("tracksNear"); return emptyList() }
+    }
+
+    /** TRACKGROUNDS-2026-11-19: the record-start ASSERT. Returns false when the rules would run blind, and says so loudly.
+     *  CODE RULE 2: checked at the point of contact (record-start), not retroactively over a finished track. */
+    fun assertSet(where: String): Boolean {
+        if (source !== UnsetLineSource) return true
+        gtLogger("TRACKRULES").e {
+            "TRACKGROUNDS-2026-11-19 " + where + ": TrackGrounds.source IS UNSET -- recording would write with every route / trail rule OFF."
+        }
+        return false
     }
 }
 
@@ -209,9 +208,9 @@ class TrackPath {
                 val bestB = cb.minOf { it.off }
                 val nearB = if (wide) cb else cb.filter { it.off <= bestB + NEAR_M }
                 for (qa in nearA) for (qb in nearB) {
-                    val len = Math.abs(qb.s - qa.s)
+                    val len = abs(qb.s - qa.s)
                     if (!drivable(len, dtMs) || (useMin && len < minFillM)) continue   // MOVINGFILL-2026-10-20
-                    val key = listOf<Any>(qb.s < qa.s, len, r.id != lastLine[kind], if (prev != null) Math.abs(qa.s - prev) else 0.0)
+                    val key = listOf<Any>(qb.s < qa.s, len, r.id != lastLine[kind], if (prev != null) abs(qa.s - prev) else 0.0)
                     if (best == null || cmp.compare(key, best.first) < 0) best = Pair(key, Triple(r, qa, qb))
                 }
             }
@@ -246,7 +245,7 @@ class TrackPath {
         var nearA = paAll.filter { it.first <= paAll[0].first + NEAR_M }
         trailPrev?.let { (tid, s) ->
             nearA = nearA.sortedWith(compareBy<Pair<Double, Cand>>({ it.second.line.id != tid },
-                { if (it.second.line.id == tid) Math.abs(it.second.place.s - s) else it.first }))
+                { if (it.second.line.id == tid) abs(it.second.place.s - s) else it.first }))
         }
         val ca = nearA[0].second
         val nearB: List<Pair<Double, Cand>> = if (bChoice != null) listOf(Pair(bChoice.place.off, bChoice))
@@ -566,17 +565,26 @@ class LeadCartProcess(val updateFrequency: Int = 1) {
         for (i in 1 until l.size) best = minOf(best, TrackGeo.metresToSegment(p, TrackPoint(l[i - 1].lat, l[i - 1].lon), TrackPoint(l[i].lat, l[i].lon)))
         return best
     }
-    /** The lead track from the point my cart has reached on (TRIM-2026-10-20 -- was: the whole track, R1). */
-    fun segments(): List<ConvoyEngine.LeadTrackSegment> {
-        val l = screen.line.filter { it.tMs >= trimMs }; val out = ArrayList<ConvoyEngine.LeadTrackSegment>()
-        for (i in 1 until l.size) out.add(ConvoyEngine.LeadTrackSegment(startLat = l[i - 1].lat, startLon = l[i - 1].lon, endLat = l[i].lat, endLon = l[i].lon, color = "#1E88FF", nodeId = lead))   // BLUETRACKS-2026-10-20: bright blue, solid (was orange -- hard to see on red rock)
-        return out
-    }
+
+    /** SEAMRULE-2026-11-19: was segments() (TRIM-2026-10-20). ConvoyEngine.LeadTrackSegment is an ANDROID DISPLAY type, so it does not
+     *  cross the seam: this hands over the DRAWN (trimmed) lead line and the host builds its own segments from it.
+     *  See LeadCartSegments.kt in the app for Android's side. */
+    fun drawnLine(): List<WPoint> = screen.line.filter { it.tMs >= trimMs }
+    /** SEAMRULE-2026-11-19: the lead node whose track this is, for the host's display segments. */
+    fun leadId(): String = lead
 }
 
 /** MY CART: the chip every 3 s, or my radio when the tablet has no chip. The written points are the GPX AND the screen (R6). */
 class MyCartProcess(val updateFrequency: Int = 1) {
-    private val track = TrackWriter("my", fill = false)     // MYCARTRAW-2026-10-19: my cart raw for now (Fred 10-19 12:06)
+    // MYCARTRAW-2026-10-19 (Fred 10-19 12:06) REVERSED BY ITS AUTHOR on 11-19 (Fred 10:48 "the recording should also be aptly
+    // snap to rules for the gpx points being used", 11:06 "my return track should not stay raw it should snap to the outbound
+    // trail created by my track recording", 11:08 "the return trip should process the outbound trail as its [route] trail").
+    // MYCARTSNAP-2026-11-19: MY CART NOW TAKES THE ROUTE / TRAIL RULES, as the lead track always has.
+    //   outbound over virgin ground -> no track and no trail there -> STRAIGHT, and RiderTrailWriter creates the trail
+    //   return over the same ground -> tracksNear finds the outbound TRACK, then trail() finds the rider TRAIL -> it snaps
+    // REQUIRES NO ROUTE DISPLAYED: with one shown the rules use it alone and fall to STRAIGHT (line "off the displayed
+    // route = straight (no trails)") -- the outbound trail would be ignored.
+    private val track = TrackWriter("my", fill = true)
     private val screen = ScreenWriter(updateFrequency)
     fun reset() { track.reset(); screen.reset() }
     /** Returns the points WRITTEN by this position (empty while it waits at an intersection): the recorder writes exactly these. */

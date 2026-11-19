@@ -474,6 +474,13 @@ object SpatialDbManager {
         } catch (e: Exception) {
             log.e { "Database init failed: ${e.message}" }
         }
+
+        // TRACKGROUNDS-2026-11-19: Android SETS the rules' line source HERE, at the point the spatial database is open --
+        // not at record-start. MEASURED 11-19: TrackGrounds.source has TWO consumers and only one records (ConvoyViewModel:164,174
+        // feeds LeadEstimate with no recording running), so a record-start SET would leave the estimate blind. The recorder
+        // ASSERTS it instead (ConvoyGpsService.startTrack -> TrackGrounds.assertSet).
+        TrackGrounds.source = DbLineSource
+        gtLogger("TRACKRULES").i { "TRACKGROUNDS-2026-11-19 TrackGrounds.source = DbLineSource (set at startup)" }
     }
 
     /** Check if a table exists in the database */
