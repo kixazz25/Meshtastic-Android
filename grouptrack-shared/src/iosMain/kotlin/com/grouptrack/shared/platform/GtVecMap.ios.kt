@@ -10,6 +10,7 @@ import androidx.sqlite.SQLiteStatement
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_READONLY
 import com.grouptrack.shared.db.gtOpenDatabase
+import com.grouptrack.shared.mapstate.GtMapState
 import com.grouptrack.shared.spatial.GtSpatial
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -143,6 +144,36 @@ private class VecStore(val path: String) {
         if (b.isEmpty()) return NSData()
         return b.usePinned { NSData.dataWithBytes(it.addressOf(0), b.size.toULong()) }
     }
+}
+
+/**
+ * MAPFRAME-2026-11-18: the frame the last session left, from the panel json.
+ *
+ * The page opens at its own hardcoded default (center [-98.5,39.5] zoom 4, vecmap_main.html:31)
+ * and holds no localStorage, so only the host can reposition it. GtMapState reads the panel
+ * json in SHARED code; IosFiles and IosImportPaths are already here.
+ *
+ * mapFrameOk is GroupTrackScreen.kt:3884 verbatim: never 0,0,0,0 (a frame the map never
+ * reported), north above south, east above west, and no more than 2 degrees across -- a
+ * world-size frame is not a position, it is a map that never settled.
+ */
+private fun mapFrameOk(s: Double, w: Double, n: Double, e: Double): Boolean =
+    !(s == 0.0 && w == 0.0 && n == 0.0 && e == 0.0) && n > s && e > w && (n - s) <= 2.0 && (e - w) <= 2.0
+
+@OptIn(ExperimentalForeignApi::class)
+private fun restoreFrame(web: WKWebView, log: (String) -> Unit) {
+    val bb = try {
+        GtMapState(IosFiles(), IosImportPaths()).readMap(GtMapState.rideKey()).bbox
+    } catch (e: Throwable) {
+        log("panel json unreadable: " + e.message); return
+    }
+    if (bb == null) { log("no saved frame in the panel json -- the page keeps its own default"); return }
+    if (!mapFrameOk(bb.south, bb.west, bb.north, bb.east)) {
+        log("saved frame not usable: " + bb.south + "," + bb.west + "," + bb.north + "," + bb.east); return
+    }
+    // GroupTrackScreen.kt:1081 verbatim -- fitBounds takes [lats] then [lons]
+    web.evaluateJavaScript("fitBounds([" + bb.south + "," + bb.north + "],[" + bb.west + "," + bb.east + "])", null)
+    log("restored frame " + bb.south + "," + bb.west + " .. " + bb.north + "," + bb.east)
 }
 
 /**
@@ -342,6 +373,9 @@ fun GtVecMap(modifier: Modifier = Modifier, onMessage: (String, String) -> Unit)
         GtVecMessages { fn, args ->
             onMessage(fn, args)
             if (fn == "onViewportChanged") runner.request(args)
+            // MAPFRAME-2026-11-18: reposition once the page exists -- before onMapReady there is
+            // no map object to move.
+            if (fn == "onMapReady") runner.web?.let { w -> restoreFrame(w) { s -> onMessage("frame", s) } }
         }
     }
     val server = remember { GtVecServer { s -> onMessage("server", s) } }
