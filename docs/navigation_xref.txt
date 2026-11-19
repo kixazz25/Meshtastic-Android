@@ -1,8 +1,8 @@
 ==============================================================================
 GROUPTRACK -- NAVIGATION CROSS-REFERENCE v2 (the click tree, for the user manual)
 ==============================================================================
-Generated: 2026-11-18 21:02   branch 2.8 @ 92b15a097   files scanned: 284   composables: 247
-Clickables: 424   state-opened panels: 57   routes: 0
+Generated: 2026-11-19 17:04   branch 2.8 @ 17279bf3f   files scanned: 273   composables: 216
+Clickables: 375   state-opened panels: 47   routes: 0
 Each panel shows [file last commit date]: a screenshot whose build date is OLDER than that date needs a recapture.
 
 === 1. THE CLICK TREE (from each screen downward) ===
@@ -42,48 +42,6 @@ AreaItemRow  [HomeStatePickerScreen.kt:347 · 2026-11-17]
    ▸ “?”  (line 349)
       → does: onClick()
 
-ArtifactDetailPanel  [ArtifactDetailPanel.kt:37 · 2026-11-17]
-   ▸ “CONTINUE”  (line 183)
-      → does: val f = first!! runCatching { SpatialDbManager.insertWaypoint(thNewName.trim(), f.second, f.first, "trailhead…
-   ▸ “Cancel”  (line 191)
-      → does: showThPopup = false
-   ▸ “CREATE ROUTE & RIDE”  (line 215)
-      → calls back GroupTrackScreen  (onCreateRideFromTrack → tid: String, name: String, desc: String, th: ConvoyArtifactOps.RouteTrailhead -…)
-   ▸ “Cancel”  (line 220)
-      → does: showRideNameDialog = false
-   ▸ “×”  (line 285)
-      → does: gtLogger("ArtifactDetail").i { "Preferred name-swap not yet built" }
-   ▸ “DETAILS”  (line 296)
-      → calls back GroupTrackScreen  (onDeleteAlias → aliasId -> coroutineScope.launch { ConvoyArtifactOps.deleteAlias(context, alias…)
-   ▸ “Rename $artifactType”  (line 352)
-      → does: showTech = !showTech
-   ▸ “RENAME”  (line 386)
-      → calls back GroupTrackScreen  (onRename → id, newName -> val capType = pendingDetailType if (capType != null) coroutineSc…)
-   ▸ “CANCEL”  (line 391)
-      → does: showRenameDialog = false
-   ▸ “DELETE”  (line 403)
-      → calls back GroupTrackScreen  (onDelete → id -> val capType = pendingDetailType if (capType != null) coroutineScope.launc…)
-   ▸ “CANCEL”  (line 408)
-      → does: showDeleteConfirm = false
-   ▸ “CANCEL”  (line 423)
-      → calls back GroupTrackScreen  (onChangeType → id, newType -> coroutineScope.launch { ConvoyArtifactOps.changeType(context, id…)
-   ▸ “CANCEL”  (line 431)
-      → does: showTypeChooser = false
-
-ArtifactListItem  [ArtifactListPanel.kt:169 · 2026-10-26]
-   ▸ “Waypoints”  (line 204)
-      → calls back GroupTrackScreen  (via ArtifactListPanel.onNameClick)
-
-ArtifactListPanel  [ArtifactListPanel.kt:41 · 2026-10-26]
-   ▸ “$artifactType (${artifacts.size})”  (line 92)
-      ArtifactListItem  [ArtifactListPanel.kt:169 · 2026-10-26]  ← opens (gtFolded)  (expanded above)
-   ▸ “DESELECT ALL”  (line 116)
-      → calls back GroupTrackScreen  (onSelectAll → gtApplyList(artifactList.mapNotNull { it["id"] }.toSet()))
-   ▸ “FIT”  (line 121)
-      → calls back GroupTrackScreen  (onDeselectAll → gtApplyList(emptySet()))
-   ▸ “No $artifactType in current map view”  (line 127)
-      → does: onFitToSelected()
-
 BcastNavBtn  [ConvoyBroadcastScreen.kt:90 · 2026-10-24]
    ▸ “?”  (line 93)
       → does: onClick()
@@ -96,16 +54,16 @@ BuildBtn  [ConvoyRouteToolbar.kt:383 · 2026-10-24]
    ▸ “?”  (line 386)
       → does: onClick()
 
-CartPickerPanel  [GroupTrackScreen.kt:3434 · 2026-11-18]
-   ▸ “CHANGE MY ROLE · now ”  (line 3475)
+CartPickerPanel  [GroupTrackScreen.kt:3519 · 2026-11-19]
+   ▸ “CHANGE MY ROLE · now ”  (line 3560)
       → calls back GroupTrackScreen  (onChangeMyRole → showRoleChange = true; showCartPicker = false)
-   ▸ “CART ROLES · ${nodes.size} radio”  (line 3484)
+   ▸ “CART ROLES · ${nodes.size} radio”  (line 3569)
       → does: listOpen = !listOpen
-   ▸ “REMOVE”  (line 3511)
+   ▸ “REMOVE”  (line 3596)
       → calls back GroupTrackScreen  (onSelect → selectedNode -> // CARTROLESTAP-2026-10-06 (Fred): only MY OWN role can be chan…)
-   ▸ “○”  (line 3527)
+   ▸ “○”  (line 3612)
       → calls back GroupTrackScreen  (onToggleActive → id, cs -> val removing = !viewModel.removedCarts.value.containsKey(id) viewMode…)
-   ▸ “✔ checked in    ● not checked in — a bare radio, or a rider who has not checked in yet: ”  (line 3544)
+   ▸ “✔ checked in    ● not checked in — a bare radio, or a rider who has not checked in yet: ”  (line 3629)
       → calls back GroupTrackScreen  (onToggleActive → id, cs -> val removing = !viewModel.removedCarts.value.containsKey(id) viewMode…)
 
 CheckInSheet  [ConvoyCheckIn.kt:52 · 2026-11-07]
@@ -114,11 +72,9 @@ CheckInSheet  [ConvoyCheckIn.kt:52 · 2026-11-07]
    ▸ “No rides on this tablet.”  (line 121)
       → does: rideFilter = o
    ▸ “No scheduled ride”  (line 134)
-      GtButton  [GtPanel.kt:144 · 2026-11-18]  ← opens (picked)
-         ▸ “screens write Gt.<role>, never a colour of their own.”  (line 151)
-            → does: // BTNDIM-2026-11-18 (Fred 07:46): "hate to read, the text is grey on blue in buttons. make text // white." T…
+      → does: chosen = r; picked = true; role = defaultRole(r)
    ▸ “No scheduled ride”  (line 140)
-      GtButton  [GtPanel.kt:144 · 2026-11-18]  ← opens (picked)  (expanded above)
+      → does: chosen = null; picked = true
    ▸ “⛔ ”  (line 161)
       → does: role = v
    ▸ “CHOOSE ANOTHER ROLE”  (line 181)
@@ -128,16 +84,12 @@ CheckInSheet  [ConvoyCheckIn.kt:52 · 2026-11-07]
    ▸ “”  (line 206)
       → calls back GroupTrackScreen  (onDone → ci, showOnMap -> viewModel.checkIn.value = ci viewModel.startRoleReports(ci.rol…)
 
-Chip  [TrailStylePanel.kt:203 · 2026-10-30]
-   ▸ “?”  (line 211)
-      → does: onClick()
-
 CleanTick  [TrailCleanup.kt:121 · 2026-11-16]
    ▸ “?”  (line 123)
       → does: set(!on)
 
-CollapsedPill  [GroupTrackScreen.kt:3332 · 2026-11-18]
-   ▸ “$totalNodes UNITS”  (line 3348)
+CollapsedPill  [GroupTrackScreen.kt:3417 · 2026-11-19]
+   ▸ “$totalNodes UNITS”  (line 3433)
       → calls back GroupTrackScreen  (onExpand → viewModel.setHudMode(if (GroupMode.on.value) HudMode.GROUP else HudMode.MY_CART))
 
 CompletedItemRow  [ConvoyDownloadQueuePanel.kt:684 · 2026-10-31]
@@ -484,16 +436,6 @@ ConvoyRideDetailScreen  [ConvoyRideDetailScreen.kt:34 · 2026-10-24]
          → does: onEmailTap()
    GroupTrackBottomNav  [GroupTrackTheme.kt:220 · 2026-11-07]  ← part of this screen  (expanded above)
 
-ConvoyRiderProfileScreen  [ConvoyRiderProfileScreen.kt:63 · 2026-11-07]
-   ▸ “Team colour on the map”  (line 134)
-      → does: role = key
-   ▸ “This stays on your tablet. GroupTrack OG uses it only to identify you to your ”  (line 153)
-      → does: team = name
-   ▸ “Cancel”  (line 185)
-      → does: onCancel?.invoke()
-   ▸ “Could not save -- check the callsign and email.”  (line 194)
-      → does: val id = ConvoyProfileStore.save( RiderProfile( firstName = firstName.trim(), lastName = lastName.trim(), cal…
-
 ConvoyRouteToolbar  [ConvoyRouteToolbar.kt:61 · 2026-10-24]
    ▸ “ROUTE + ($vertexCount pts)”  (line 180)
       → does: minimized = !minimized
@@ -624,27 +566,16 @@ ConvoyTrailSourceScreen  [ConvoyTrailSourceScreen.kt:66 · 2026-11-16]
       ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (step)  (expanded above)
       CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (step)
       GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (step)
-      GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (step)
-         ▸ “Offline — places are left out; your trails, routes, tracks and waypoints are searched.”  (line 157)
-            → does: pick = g; inState = true; choosing = false; if (searched.isNotEmpty()) run()
-         ScopeSeg  [SearchModule.kt:209 · 2026-10-29]  ← part of this screen
-            ▸ “✓ ”  (line 212)
-               → does: Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelText, fontSize = 13.sp, fontWei…
-         TypeChip  [SearchModule.kt:219 · 2026-10-29]  ← part of this screen
-            ▸ “✓ ”  (line 224)
-               → does: Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelDim, fontSize = 13.sp, fontWeig…
    ▸ “IMPORT FULL SOURCE”  (line 158)
       CellLabel  [ConvoyCreateEventScreen.kt:363 · 2026-10-24]  ← opens (step)  (expanded above)
       ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (step)  (expanded above)
       CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (step)  (expanded above)
       GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (step)  (expanded above)
-      GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (step)  (expanded above)
    ▸ “IMPORT BY AREA”  (line 164)
       CellLabel  [ConvoyCreateEventScreen.kt:363 · 2026-10-24]  ← opens (step)  (expanded above)
       ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (step)  (expanded above)
       CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (step)  (expanded above)
       GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (step)  (expanded above)
-      GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (step)  (expanded above)
    ▸ “BACK”  (line 178)
       → does: selectedSourceId = src.id
    ▸ “BACK”  (line 183)
@@ -652,25 +583,21 @@ ConvoyTrailSourceScreen  [ConvoyTrailSourceScreen.kt:66 · 2026-11-16]
       ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (step)  (expanded above)
       CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (step)  (expanded above)
       GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (step)  (expanded above)
-      GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (step)  (expanded above)
    ▸ “VALIDATE”  (line 187)
       CellLabel  [ConvoyCreateEventScreen.kt:363 · 2026-10-24]  ← opens (step)  (expanded above)
       ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (step)  (expanded above)
       CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (step)  (expanded above)
       GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (step)  (expanded above)
-      GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (step)  (expanded above)
    ▸ “BACK”  (line 248)
       CellLabel  [ConvoyCreateEventScreen.kt:363 · 2026-10-24]  ← opens (step)  (expanded above)
       ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (step)  (expanded above)
       CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (step)  (expanded above)
       GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (step)  (expanded above)
-      GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (step)  (expanded above)
    ▸ “IMPORT TRAILS”  (line 252)
       CellLabel  [ConvoyCreateEventScreen.kt:363 · 2026-10-24]  ← opens (step)  (expanded above)
       ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (step)  (expanded above)
       CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (step)  (expanded above)
       GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (step)  (expanded above)
-      GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (step)  (expanded above)
    ▸ “DONE”  (line 323)
       → does: onNavigateBack()
    ▸ “CANCEL”  (line 347)
@@ -678,13 +605,11 @@ ConvoyTrailSourceScreen  [ConvoyTrailSourceScreen.kt:66 · 2026-11-16]
       ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (step)  (expanded above)
       CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (step)  (expanded above)
       GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (step)  (expanded above)
-      GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (step)  (expanded above)
    ▸ “FIND SOURCES”  (line 351)
       CellLabel  [ConvoyCreateEventScreen.kt:363 · 2026-10-24]  ← opens (step)  (expanded above)
       ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (step)  (expanded above)
       CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (step)  (expanded above)
       GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (step)  (expanded above)
-      GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (step)  (expanded above)
    ▸ “processed”  (line 389)
       → does: selectedSourceIds = if (checked) selectedSourceIds - src.id else selectedSourceIds + src.id
    ▸ “CANCEL”  (line 424)
@@ -694,19 +619,16 @@ ConvoyTrailSourceScreen  [ConvoyTrailSourceScreen.kt:66 · 2026-11-16]
       ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (step)  (expanded above)
       CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (step)  (expanded above)
       GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (step)  (expanded above)
-      GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (step)  (expanded above)
    ▸ “BACK”  (line 461)
       CellLabel  [ConvoyCreateEventScreen.kt:363 · 2026-10-24]  ← opens (step)  (expanded above)
       ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (step)  (expanded above)
       CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (step)  (expanded above)
       GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (step)  (expanded above)
-      GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (step)  (expanded above)
    ▸ “south”  (line 465)
       CellLabel  [ConvoyCreateEventScreen.kt:363 · 2026-10-24]  ← opens (step)  (expanded above)
       ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (step)  (expanded above)
       CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (step)  (expanded above)
       GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (step)  (expanded above)
-      GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (step)  (expanded above)
    ▸ “DONE”  (line 536)
       → does: onNavigateBack()
    MethodCard  [ConvoyTrailSourceScreen.kt:555 · 2026-11-16]  ← part of this screen
@@ -715,7 +637,6 @@ ConvoyTrailSourceScreen  [ConvoyTrailSourceScreen.kt:66 · 2026-11-16]
          ConvoyPinMileageHud  [ConvoyGuidedPinPanel.kt:120 · 2026-10-24]  ← opens (via ConvoyTrailSourceScreen.onClick)  (expanded above)
          CreateSectionLabel  [ConvoyCreateRideScreen.kt:546 · 2026-10-29]  ← opens (via ConvoyTrailSourceScreen.onClick)  (expanded above)
          GtAiStepScreen  [AiGuidedPanels.kt:127 · 2026-11-03]  ← opens (via ConvoyTrailSourceScreen.onClick)  (expanded above)
-         GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  ← opens (via ConvoyTrailSourceScreen.onClick)  (expanded above)
    SourceSelectCard  [ConvoyTrailSourceScreen.kt:571 · 2026-11-16]  ← part of this screen
       ▸ “✅”  (line 574)
          → calls back ConvoyTrailSourceScreen  (onClick → selectedSourceId = src.id)
@@ -794,7 +715,6 @@ FilterBar  [ConvoyCompletedRidesScreen.kt:291 · 2026-10-24]  (expanded above)
 FilterChip  [ConvoyDownloadQueuePanel.kt:557 · 2026-10-31]
    ▸ “✓ ”  (line 562)
       → calls back CheckInSheet  (onClick → rideFilter = "")
-      GtButton  [GtPanel.kt:144 · 2026-11-18]  ← opens (via CheckInSheet.onClick)  (expanded above)
 
 FilterColumn  [TrailFilterPanel.kt:131 · 2026-10-24]
    ▸ “UNUSED_EXPRESSION”  (line 147)
@@ -811,18 +731,18 @@ GpButton  [ConvoyGuidedPinPanel.kt:234 · 2026-10-24]
    ▸ “?”  (line 239)
       → does: onClick()
 
-GpsIntervalDialog  [GroupTrackScreen.kt:3656 · 2026-11-18]
-   ▸ “Every radio in the group must be on the same preset -- a radio on another preset hears nobody. ”  (line 3708)
+GpsIntervalDialog  [GroupTrackScreen.kt:3741 · 2026-11-19]
+   ▸ “Every radio in the group must be on the same preset -- a radio on another preset hears nobody. ”  (line 3793)
       → does: preset = key
-   ▸ “Raise the wait if your cart does not reappear after APPLY.”  (line 3719)
+   ▸ “Raise the wait if your cart does not reappear after APPLY.”  (line 3804)
       → does: timingOpen = !timingOpen
-   ▸ “APPLY”  (line 3747)
+   ▸ “APPLY”  (line 3832)
       → calls back GroupTrackScreen  (onApply → secs, preset -> viewModel.applyLocationInterval(secs, preset))
 
-GpsLocationRow  [GroupTrackScreen.kt:3606 · 2026-11-18]
-   ▸ “??”  (line 3618)
+GpsLocationRow  [GroupTrackScreen.kt:3691 · 2026-11-19]
+   ▸ “??”  (line 3703)
       → calls back GroupTrackScreen  (onOpen → if (!GroupMode.on.value) GroupMode.askToActivate() else { viewModel.clearGpsApp…)
-   ▸ “switch the text light/dark”  (line 3642)
+   ▸ “switch the text light/dark”  (line 3727)
       → calls back GroupTrackScreen  (onToggleText → viewModel.hudTextWhiteByMap[hudMapKey] = !hudOnDark)
 
 GroupModeActivatePopup  [GroupMode.kt:51 · 2026-11-16]
@@ -831,53 +751,7 @@ GroupModeActivatePopup  [GroupMode.kt:51 · 2026-11-16]
 
 GroupTrackHeader  [GroupTrackTheme.kt:66 · 2026-11-07]  (expanded above)
 
-GroupTrackLaunchLayer  [GroupTrack.kt:97 · 2026-11-18]
-   ▸ “mode”  (line 198)
-      → does: tap(m)
-   GtCompass  [GroupTrack.kt:335 · 2026-11-18]  ← part of this screen
-      ▸ “N”  (line 343)
-         → does: Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.rotate(-bearing)) { Text("N", …
-   GtIconButton  [GtPanel.kt:170 · 2026-11-18]  ← part of this screen
-      ▸ “?”  (line 177)
-         → ⚠ no action found
-   GtDownloadSettingsPanel  [DownloadDefaults.kt:91 · 2026-11-03]  ← part of this screen
-      ▸ “$slot  ·  $label”  (line 112)
-         → does: sel = if (on) sel - slot else sel + slot
-      ▸ “Replace existing tiles”  (line 118)
-         → does: rep = !rep
-   GtUtahPrivatePanel  [UtahPrivate.kt:184 · 2026-11-16]  ← part of this screen
-      ▸ “Download the latest public-lands data first”  (line 220)
-         → does: latest = !latest
-   GtFilterBody  [FilterModule.kt:60 · 2026-11-03]  ← part of this screen
-      ▸ “Available”  (line 93)
-         → does: GtOffGrid.setAvailable(!GtOffGrid.available.value)
-      ▸ “Downloading”  (line 97)
-         → does: GtOffGrid.setDownloading(!GtOffGrid.downloading.value)
-      ▸ “Public”  (line 112)
-         → does: setLandTicks(!pubOn, privOn)
-      ▸ “Private”  (line 116)
-         → does: setLandTicks(pubOn, !privOn)
-      ▸ “Public”  (line 127)
-         → does: TrailFilterState.setAreaPublic(!TrailFilterState.areaPublic); tick++; f.trailsChanged()
-      ▸ “Restricted”  (line 132)
-         → does: TrailFilterState.setAreaRestricted(!TrailFilterState.areaRestricted); tick++; f.trailsChanged()
-      ▸ “Restricted — closed to motor vehicles”  (line 142)
-         → does: TrailFilterState.setRestricted(!TrailFilterState.restricted); tick++; f.trailsChanged()
-      Seg  [FilterModule.kt:185 · 2026-11-03]  ← part of this screen
-         ▸ “✓ ”  (line 188)
-            → does: Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelText, fontSize = 13.sp, fontWei…
-      TrailGroup  [FilterModule.kt:156 · 2026-11-03]  ← part of this screen
-         ▸ “?”  (line 164)
-            → does: TrailFilterState.setGroup(names, !allOn); bump(); f.trailsChanged()
-         ▸ “?”  (line 170)
-            → does: TrailFilterState.toggleCategory(r.name); bump(); f.trailsChanged()
-   GtKeyBody  [KeyModule.kt:43 · 2026-11-02]  ← part of this screen
-      StyleRow  [KeyModule.kt:95 · 2026-11-02]  ← part of this screen
-         ▸ “STYLE ›”  (line 102)
-            Sample  [KeyModule.kt:145 · 2026-11-02]  ← shows (direct)
-      FixedRow  [KeyModule.kt:109 · 2026-11-02]  ← part of this screen
-
-GroupTrackScreen  [GroupTrackScreen.kt:140 · 2026-11-18]
+GroupTrackScreen  [GroupTrackScreen.kt:140 · 2026-11-19]
    ▸ “Grant”  (line 644)
       → does: showStoragePermissionDialog = false try { val intent = android.content.Intent( android.provider.Settings.ACTI…
    ▸ “Later”  (line 661)
@@ -928,13 +802,12 @@ GroupTrackScreen  [GroupTrackScreen.kt:140 · 2026-11-18]
       → does: showDocsChooser = false
    ▸ “Close”  (line 2146)
       → does: docsBack()
-   ▸ “OK”  (line 2787)
+   ▸ “OK”  (line 2800)
       → does: roleConflict = null
-   ▸ “DELETE THEM”  (line 2941)
+   ▸ “DELETE THEM”  (line 2954)
       → does: val n = RouteDraftStore.deleteAllRouteFiles() gtClearAsk = false android.widget.Toast.makeText(context, "Clea…
    DownloadQueuePanel  [ConvoyDownloadQueuePanel.kt:54 · 2026-10-31]  ← part of this screen  (expanded above)
    GtAreaHost  [AreaDraw.kt:55 · 2026-11-18]  ← part of this screen
-      GtDownloadAreaScreen  [MapScreens.kt:49 · 2026-11-18]  ← part of this screen
       GtRemoveAreaScreen  [MapScreens.kt:83 · 2026-11-18]  ← part of this screen
          ▸ “CANCEL”  (line 98)
             → does: onDone() Thread { DownloadQueueManager.submitDelete(ctx, bbox.north, bbox.south, bbox.east, bbox.west) }.star…
@@ -942,7 +815,7 @@ GroupTrackScreen  [GroupTrackScreen.kt:140 · 2026-11-18]
             → does: onDone()
       GtRemoveFeaturesScreen  [TrailCleanup.kt:130 · 2026-11-16]  ← part of this screen
          ▸ “CANCEL”  (line 159)
-            GtButton  [GtPanel.kt:144 · 2026-11-18]  ← opens (busy)  (expanded above)
+            → does: busy = true scope.launch { val r = withContext(Dispatchers.IO) { GtTrailCleanup.removeArea(bbox, tracks, ride…
          ▸ “CANCEL”  (line 169)
             → does: onDone()
          CleanTick  [TrailCleanup.kt:121 · 2026-11-16]  ← part of this screen  (expanded above)
@@ -950,15 +823,13 @@ GroupTrackScreen  [GroupTrackScreen.kt:140 · 2026-11-18]
          ▸ “%,d”  (line 195)
             → does: pick = s
          ▸ “CANCEL”  (line 210)
-            GtButton  [GtPanel.kt:144 · 2026-11-18]  ← opens (busy)  (expanded above)
+            → does: busy = true scope.launch { val r = withContext(Dispatchers.IO) { GtTrailCleanup.deleteSource(p) } android.wid…
          ▸ “CANCEL”  (line 220)
             → does: pick = null
-         GtScreenFrame  [MapScreens.kt:653 · 2026-11-18]  ← part of this screen
       GtImportAreaScreen  [MapScreens.kt:114 · 2026-11-18]  ← part of this screen
          GtImportFrame  [MapScreens.kt:672 · 2026-11-18]  ← part of this screen
             ▸ “CANCEL IMPORT”  (line 678)
                → does: com.geeksville.mesh.convoy.HomeStateImportController.cancelImport()
-            GtScreenFrame  [MapScreens.kt:653 · 2026-11-18]  ← part of this screen  (expanded above)
          HomeStatePickerScreen  [HomeStatePickerScreen.kt:58 · 2026-11-17]  ← part of this screen
             ▸ “REFRESH”  (line 188)
                → does: go(true)
@@ -987,20 +858,17 @@ GroupTrackScreen  [GroupTrackScreen.kt:140 · 2026-11-18]
          GtImportFrame  [MapScreens.kt:672 · 2026-11-18]  ← part of this screen  (expanded above)
          HomeStatePickerScreen  [HomeStatePickerScreen.kt:58 · 2026-11-17]  ← part of this screen  (expanded above)
       GtImportGpxScreen  [MapScreens.kt:352 · 2026-11-18]  ← part of this screen
-         GtScreenFrame  [MapScreens.kt:653 · 2026-11-18]  ← part of this screen  (expanded above)
          ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:69 · 2026-11-17]  ← part of this screen  (expanded above)
       GtImportGpxTrailsScreen  [MapScreens.kt:360 · 2026-11-18]  ← part of this screen
-         GtScreenFrame  [MapScreens.kt:653 · 2026-11-18]  ← part of this screen  (expanded above)
          ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:69 · 2026-11-17]  ← part of this screen  (expanded above)
       GtConvertGpxScreen  [MapScreens.kt:368 · 2026-11-18]  ← part of this screen
-         GtScreenFrame  [MapScreens.kt:653 · 2026-11-18]  ← part of this screen  (expanded above)
          ConvertToGpxScreen  [ConvertToGpxScreen.kt:32 · 2026-10-30]  ← part of this screen  (expanded above)
       GtAreaRadiusScreen  [MapScreens.kt:734 · 2026-11-18]  ← part of this screen
          ▸ “SAVE”  (line 756)
             → does: GtSearchZoom.set(ctx, z.floatValue.toInt()); onDone()
       GtRemoveTrackScreen  [MapScreens.kt:409 · 2026-11-18]  ← part of this screen
          ▸ “SAT”  (line 483)
-            GtButton  [GtPanel.kt:144 · 2026-11-18]  ← opens (busy)  (expanded above)
+            → does: // PAST THIS POINT THERE ARE NO MORE GATES. Stopping after the delete would strand the user with removed // c…
          ▸ “CANCEL”  (line 523)
             → does: // Nothing has been destroyed. Release the queue so backing out does not leave it held. scope.launch { kotlin…
       GtRefreshSourceScreen  [MapScreens.kt:541 · 2026-11-18]  ← part of this screen
@@ -1009,73 +877,69 @@ GroupTrackScreen  [GroupTrackScreen.kt:140 · 2026-11-18]
          ▸ “PROCEED TO COPY”  (line 623)
             → does: val s = slot.value onDone() Thread { val queued = DownloadQueueManager.enqueueRecreateSource(context, s) gtLo…
       GtExportFeaturesScreen  [ExportFeatures.kt:44 · 2026-11-18]  ← part of this screen
-         GtScreenFrame  [MapScreens.kt:653 · 2026-11-18]  ← part of this screen  (expanded above)
          ExportTick  [ExportFeatures.kt:121 · 2026-11-18]  ← part of this screen  (expanded above)
       GtSavedFeaturesScreen  [ExportFeatures.kt:108 · 2026-11-18]  ← part of this screen
-         GtScreenFrame  [MapScreens.kt:653 · 2026-11-18]  ← part of this screen  (expanded above)
          GtFilePickerBody  [GtFilePicker.kt:103 · 2026-11-18]  ← part of this screen  (expanded above)
       GtStateCountsScreen  [StateCounts.kt:78 · 2026-10-24]  ← part of this screen
-         GtScreenFrame  [MapScreens.kt:653 · 2026-11-18]  ← part of this screen  (expanded above)
       GtDownloadTracksScreen  [MapScreens.kt:143 · 2026-11-18]  ← part of this screen
          ConvoyCorridorPicker  [ConvoyCorridorPicker.kt:94 · 2026-11-03]  ← part of this screen  (expanded above)
-   RoleChangeDialog  [GroupTrackScreen.kt:3782 · 2026-11-18]  ← part of this screen
-      ▸ “To give up a role, choose Rider. A role someone holds must be released first. The Leader is changed last.”  (line 3803)
+   RoleChangeDialog  [GroupTrackScreen.kt:3867 · 2026-11-19]  ← part of this screen
+      ▸ “To give up a role, choose Rider. A role someone holds must be released first. The Leader is changed last.”  (line 3888)
          → does: if (heldBy[v] != null) heldWarn = v else role = v
-      ▸ “APPLY”  (line 3811)
+      ▸ “APPLY”  (line 3896)
          → calls back GroupTrackScreen  (onApply → newRole -> viewModel.checkIn.value = rci.copy(role = newRole) viewModel.startRo…)
-      ▸ “OK”  (line 3825)
+      ▸ “OK”  (line 3910)
          → does: heldWarn = null
-   GpsIntervalDialog  [GroupTrackScreen.kt:3656 · 2026-11-18]  ← part of this screen  (expanded above)
-   GpsLocationRow  [GroupTrackScreen.kt:3606 · 2026-11-18]  ← part of this screen  (expanded above)
-   GroupHud  [GroupTrackScreen.kt:3125 · 2026-11-18]  ← part of this screen
-   MyCartHud  [GroupTrackScreen.kt:3236 · 2026-11-18]  ← part of this screen
-   NodeDetailHud  [GroupTrackScreen.kt:3294 · 2026-11-18]  ← part of this screen
-   CollapsedPill  [GroupTrackScreen.kt:3332 · 2026-11-18]  ← part of this screen  (expanded above)
-   GroupTrackLaunchLayer  [GroupTrack.kt:97 · 2026-11-18]  ← part of this screen  (expanded above)
+   GpsIntervalDialog  [GroupTrackScreen.kt:3741 · 2026-11-19]  ← part of this screen  (expanded above)
+   GpsLocationRow  [GroupTrackScreen.kt:3691 · 2026-11-19]  ← part of this screen  (expanded above)
+   GroupHud  [GroupTrackScreen.kt:3210 · 2026-11-19]  ← part of this screen
+   MyCartHud  [GroupTrackScreen.kt:3321 · 2026-11-19]  ← part of this screen
+   NodeDetailHud  [GroupTrackScreen.kt:3379 · 2026-11-19]  ← part of this screen
+   CollapsedPill  [GroupTrackScreen.kt:3417 · 2026-11-19]  ← part of this screen  (expanded above)
    GtRouteHost  [RouteModule.kt:941 · 2026-11-16]  ← part of this screen
       ▸ “SEARCH — find your area”  (line 1303)
          → does: searchOpen.value = !searchOpen.value
-      ▸ “YES — I'LL DROP PINS (RECOMMENDED)”  (line 1388)
+      ▸ “YES — I'LL DROP PINS (RECOMMENDED)”  (line 1394)
          → does: R.askWarn.value = ""; R.pinNotice.value = ""; R.aiStep.intValue = PIN_STEP_INCLUDE
-      ▸ “NO — DESIGN IT FOR ME”  (line 1393)
+      ▸ “NO — DESIGN IT FOR ME”  (line 1399)
          → does: R.askWarn.value = ""; R.pinNotice.value = ""; R.pinPoints.value = emptyList(); R.aiStep.intValue = PIN_STEP_S…
-      ▸ “Save as completed route”  (line 1418)
+      ▸ “Save as completed route”  (line 1424)
          → does: val nm = R.routeName.value.trim() if (nm.isBlank() || nm == RouteDraftStore.UNNAMED) android.widget.Toast.mak…
-      ▸ “Save as in progress”  (line 1435)
+      ▸ “Save as in progress”  (line 1441)
          → does: val nm = R.routeName.value.trim() if (nm.isBlank() || nm == RouteDraftStore.UNNAMED) android.widget.Toast.mak…
-      ▸ “Roll back”  (line 1461)
+      ▸ “Roll back”  (line 1467)
          → does: R.showDiscardChoice.value = false RouteDraftStore.loadIntoRouteManager(R.routeName.value) scope.launch { val …
-      ▸ “Delete in-progress”  (line 1471)
+      ▸ “Delete in-progress”  (line 1477)
          → does: R.showDiscardChoice.value = false RouteManager.clearRoute() if (RouteDraftStore.isInOpenBatch(R.routeName.val…
-      ▸ “Keep”  (line 1503)
+      ▸ “Keep”  (line 1509)
          → does: val n = nm.value.trim() if (n.isBlank()) err.value = "Enter a name" else if (RouteDraftStore.isNameTaken(n)) …
-      ▸ “Discard”  (line 1513)
+      ▸ “Discard”  (line 1519)
          → does: RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED) R.showResolver.value = false; R.draftTick.intValue++ if …
-      ▸ “${di.pointCount} points”  (line 1535)
+      ▸ “${di.pointCount} points”  (line 1541)
          → does: R.showPicker.value = false; R.resumeReq.value = di.name // GTROUTE1F-2026-10-23: the one resume path
-      ▸ “Delete”  (line 1538)
+      ▸ “Delete”  (line 1544)
          → does: if (RouteDraftStore.isInOpenBatch(di.name)) { android.widget.Toast.makeText(ctx, "This route is part of an op…
-      ▸ “+ Build it myself”  (line 1548)
+      ▸ “+ Build it myself”  (line 1554)
          → does: if (RouteDraftStore.draftExists(RouteDraftStore.UNNAMED)) { android.widget.Toast.makeText(ctx, "Rename or del…
-      ▸ “+ AI route design”  (line 1554)
+      ▸ “+ AI route design”  (line 1560)
          → does: R.showPicker.value = false; R.startAi()
-      ▸ “CREATE TRAILHEAD”  (line 1572)
+      ▸ “CREATE TRAILHEAD”  (line 1578)
          → does: val f = RouteManager.routeVertices().firstOrNull() R.thPrompt.value = false if (f != null) scope.launch { val…
-      ▸ “Cancel”  (line 1585)
+      ▸ “Cancel”  (line 1591)
          → does: R.thPrompt.value = false
-      ▸ “SHOW ALL LAND AND SEARCH AGAIN”  (line 1599)
+      ▸ “SHOW ALL LAND AND SEARCH AGAIN”  (line 1605)
          → does: R.showAllLandAndSearch(nctx)
-      ▸ “OK”  (line 1600)
+      ▸ “OK”  (line 1606)
          → does: R.notice.value = ""; R.noticeFilter.value = false; R.noticeAllLand.value = false
-      ▸ “OPEN FILTER”  (line 1604)
+      ▸ “OPEN FILTER”  (line 1610)
          → does: R.notice.value = ""; R.noticeFilter.value = false; R.noticeAllLand.value = false; R.filterPeek.value = true; …
-      ▸ “Save”  (line 1710)
+      ▸ “Save”  (line 1716)
          → does: R.batchAreaPrompt.value = false runBatchSave(R.batchAreaName.value)
-      ▸ “Cancel”  (line 1715)
+      ▸ “Cancel”  (line 1721)
          → does: R.batchAreaPrompt.value = false
-      ▸ “Delete”  (line 1723)
+      ▸ “Delete”  (line 1729)
          → does: R.batchDeleteConfirm.value = false; runBatchSave("")
-      ▸ “Cancel”  (line 1724)
+      ▸ “Cancel”  (line 1730)
          → does: R.batchDeleteConfirm.value = false
       ConvoyRouteToolbar  [ConvoyRouteToolbar.kt:61 · 2026-10-24]  ← part of this screen  (expanded above)
       GtGuidedSummaryPanel  [AiGuidedPanels.kt:38 · 2026-11-03]  ← part of this screen
@@ -1115,13 +979,13 @@ GrpAwarenessPanel  [GrpAwareness.kt:157 · 2026-11-07]
 
 GtAreaRadiusScreen  [MapScreens.kt:734 · 2026-11-18]  (expanded above)
 
-GtButton  [GtPanel.kt:144 · 2026-11-18]  (expanded above)
-
 GtCompareTable  [AiCompareTable.kt:66 · 2026-11-16]  (expanded above)
 
-GtCompass  [GroupTrack.kt:335 · 2026-11-18]  (expanded above)
-
-GtDownloadSettingsPanel  [DownloadDefaults.kt:91 · 2026-11-03]  (expanded above)
+GtDownloadSettingsPanel  [DownloadDefaults.kt:91 · 2026-11-03]
+   ▸ “$slot  ·  $label”  (line 112)
+      → does: sel = if (on) sel - slot else sel + slot
+   ▸ “Replace existing tiles”  (line 118)
+      → does: rep = !rep
 
 GtDownloadSummary  [DownloadDefaults.kt:80 · 2026-11-03]  (expanded above)
 
@@ -1129,49 +993,26 @@ GtEmergencyScreen  [EmergencyRestore.kt:97 · 2026-11-16]  (expanded above)
 
 GtFilePickerBody  [GtFilePicker.kt:103 · 2026-11-18]  (expanded above)
 
-GtFilterBody  [FilterModule.kt:60 · 2026-11-03]  (expanded above)
-
-GtHelpButton  [GtHelpViewer.kt:35 · 2026-10-27]
+GtHelpButton  [GtHelpViewer.kt:35 · 2026-11-19]
    ▸ “HELP”  (line 40)
       → does: GtHelpView.open(id)
-   GtIssueButton  [GtIssue.kt:181 · 2026-11-03]  ← part of this screen
+   GtIssueButton  [GtIssue.kt:181 · 2026-11-19]  ← part of this screen
       ▸ “ISSUE”  (line 184)
          → does: GtIssue.start(view, id)
 
-GtIconButton  [GtPanel.kt:170 · 2026-11-18]  (expanded above)
-
 GtImportFrame  [MapScreens.kt:672 · 2026-11-18]  (expanded above)
 
-GtIssueButton  [GtIssue.kt:181 · 2026-11-03]  (expanded above)
+GtIssueButton  [GtIssue.kt:181 · 2026-11-19]  (expanded above)
 
 GtMenuItem  [GroupTrackTheme.kt:390 · 2026-11-07]  (expanded above)
 
 GtMenuLabel  [GroupTrackTheme.kt:363 · 2026-11-07]  (expanded above)
 
-GtMenuLine  [GroupTrack.kt:76 · 2026-11-18]
-   ▸ “OVERVIEW”  (line 86)
-      → ⚠ no action found
-   ▸ “OVERVIEW”  (line 93)
-      → does: GtHelpView.open(overviewId)
-
 GtNavBtn  [GroupTrackTheme.kt:344 · 2026-11-07]  (expanded above)
-
-GtNotesPanel  [NotesPanel.kt:38 · 2026-11-07]
-   ▸ “${s.lines.size}”  (line 108)
-      GtHelpButton  [GtHelpViewer.kt:35 · 2026-10-27]  ← opens (open)  (expanded above)
-   ▸ “?”  (line 193)
-      → does: action()
-
-GtPanel  [GtPanel.kt:198 · 2026-11-18]
-   ▸ “HELP”  (line 237)
-      → does: collapsed = !collapsed
-   ▸ “HELP”  (line 240)
-      → does: GtHelpView.open(helpId)
-   GtIssueButton  [GtIssue.kt:181 · 2026-11-03]  ← part of this screen  (expanded above)
 
 GtQueueSummary  [MapScreens.kt:125 · 2026-11-18]
    ▸ “No maps downloading”  (line 132)
-      → calls back GroupTrackLaunchLayer  (onOpen → open = ""; actions["map.queues"]?.invoke())
+      → does: onOpen()
    DownloadQueuePanel  [ConvoyDownloadQueuePanel.kt:54 · 2026-10-31]  ← part of this screen  (expanded above)
 
 GtRecipeGroup  [MapScreens.kt:325 · 2026-11-18]  (expanded above)
@@ -1188,11 +1029,11 @@ GtRemoveTrackScreen  [MapScreens.kt:409 · 2026-11-18]  (expanded above)
 
 GtRouteHost  [RouteModule.kt:941 · 2026-11-16]  (expanded above)
 
-GtSearchBody  [SearchModule.kt:68 · 2026-10-29]  (expanded above)
-
 GtTrailSourcesScreen  [TrailCleanup.kt:176 · 2026-11-16]  (expanded above)
 
-GtUtahPrivatePanel  [UtahPrivate.kt:184 · 2026-11-16]  (expanded above)
+GtUtahPrivatePanel  [UtahPrivate.kt:184 · 2026-11-16]
+   ▸ “Download the latest public-lands data first”  (line 220)
+      → does: latest = !latest
 
 HomeStatePickerScreen  [HomeStatePickerScreen.kt:58 · 2026-11-17]  (expanded above)
 
@@ -1219,7 +1060,6 @@ MainScreen  [Main.kt:173 · 2026-11-17]
       ProgressPanel  [HomeStatePickerScreen.kt:696 · 2026-11-17]  ← part of this screen  (expanded above)
    ConvoyTrackImportScreen  [ConvoyTrackImportScreen.kt:69 · 2026-11-17]  ← part of this screen  (expanded above)
    GroupModeActivatePopup  [GroupMode.kt:51 · 2026-11-16]  ← part of this screen  (expanded above)
-   GtHelpViewer  [GtHelpViewer.kt:51 · 2026-10-27]  ← part of this screen
 
 MethodCard  [ConvoyTrailSourceScreen.kt:555 · 2026-11-16]  (expanded above)
 
@@ -1280,13 +1120,9 @@ RidesScreen  [RidesScreen.kt:102 · 2026-11-16]
       → does: confirmDelete = null
    ConvoyRideCreateScreen  [ConvoyRideCreateScreen.kt:63 · 2026-11-16]  ← part of this screen  (expanded above)
 
-RoleChangeDialog  [GroupTrackScreen.kt:3782 · 2026-11-18]  (expanded above)
-
-ScopeSeg  [SearchModule.kt:209 · 2026-10-29]  (expanded above)
+RoleChangeDialog  [GroupTrackScreen.kt:3867 · 2026-11-19]  (expanded above)
 
 SearchButton  [ConvoyCompletedRidesScreen.kt:367 · 2026-10-24]  (expanded above)
-
-Seg  [FilterModule.kt:185 · 2026-11-03]  (expanded above)
 
 SegHalf  [ConvoyRouteToolbar.kt:361 · 2026-10-24]  (expanded above)
 
@@ -1306,8 +1142,6 @@ StepButton  [ConvoyAiStepPanel.kt:91 · 2026-10-24]
    ▸ “?”  (line 98)
       → does: onClick()
 
-StyleRow  [KeyModule.kt:95 · 2026-11-02]  (expanded above)
-
 TableButton  [ConvoyBatchGridPanel.kt:115 · 2026-10-24]  (expanded above)
 
 TrackRow  [ConvoyTrackExportSheet.kt:301 · 2026-10-24]  (expanded above)
@@ -1319,25 +1153,11 @@ TrailFilterPanel  [TrailFilterPanel.kt:58 · 2026-10-24]
       → does: TrailFilterState.setLand( if (includePrivate) "PUBLIC" else "ALL") changed()
    FilterColumn  [TrailFilterPanel.kt:131 · 2026-10-24]  ← part of this screen  (expanded above)
 
-TrailGroup  [FilterModule.kt:156 · 2026-11-03]  (expanded above)
-
-TrailStylePanel  [TrailStylePanel.kt:57 · 2026-10-30]
-   ▸ “✕”  (line 93)
-      → calls back GtKeyBody  (onCancel → styling = null)
-   ▸ “PATTERN”  (line 124)
-      → does: c = hex
-   Chip  [TrailStylePanel.kt:203 · 2026-10-30]  ← part of this screen  (expanded above)
-
-TypeChip  [SearchModule.kt:219 · 2026-10-29]  (expanded above)
-
 rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-11-07]
    ▸ “CONTINUE”  (line 76)
       → does: notice.pending = null; open()
 
 === 2. PANELS AND SCREENS — source file and its last commit date ===
-2026-11-17  ArtifactDetailPanel                          app/src/main/java/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:37  (13 clickables)
-2026-10-26  ArtifactListPanel                            app/src/main/java/com/geeksville/mesh/convoy/ArtifactListPanel.kt:41  (4 clickables)
-2026-10-26  ArtifactListItem                             app/src/main/java/com/geeksville/mesh/convoy/ArtifactListPanel.kt:169  (1 clickables)
 2026-10-26  ConfigReviewScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConfigReviewScreen.kt:67  (9 clickables)
 2026-10-30  ConvertToGpxScreen                           app/src/main/java/com/geeksville/mesh/convoy/ConvertToGpxScreen.kt:32  (1 clickables)
 2026-10-24  StepButton                                   app/src/main/java/com/geeksville/mesh/convoy/ConvoyAiStepPanel.kt:91  (1 clickables)
@@ -1397,7 +1217,6 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-11-07]
 2026-10-24  EnrollmentTwistie                            app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt:422  (1 clickables)
 2026-10-24  EnrolleeRow                                  app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt:463  (1 clickables)
 2026-10-24  DetailActionButton                           app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideDetailScreen.kt:489  (1 clickables)
-2026-11-07  ConvoyRiderProfileScreen                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyRiderProfileScreen.kt:63  (4 clickables)
 2026-10-24  ConvoyRouteToolbar                           app/src/main/java/com/geeksville/mesh/convoy/ConvoyRouteToolbar.kt:61  (3 clickables)
 2026-10-24  SegHalf                                      app/src/main/java/com/geeksville/mesh/convoy/ConvoyRouteToolbar.kt:361  (1 clickables)
 2026-10-24  BuildBtn                                     app/src/main/java/com/geeksville/mesh/convoy/ConvoyRouteToolbar.kt:383  (1 clickables)
@@ -1438,31 +1257,19 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-11-07]
 2026-10-24  TrailFilterPanel                             app/src/main/java/com/geeksville/mesh/convoy/TrailFilterPanel.kt:58  (2 clickables)
 2026-10-24  FilterColumn                                 app/src/main/java/com/geeksville/mesh/convoy/TrailFilterPanel.kt:131  (1 clickables)
 2026-10-24  FilterRow                                    app/src/main/java/com/geeksville/mesh/convoy/TrailFilterPanel.kt:166  (1 clickables)
-2026-10-30  TrailStylePanel                              app/src/main/java/com/geeksville/mesh/convoy/TrailStylePanel.kt:57  (2 clickables)
-2026-10-30  Chip                                         app/src/main/java/com/geeksville/mesh/convoy/TrailStylePanel.kt:203  (1 clickables)
 2026-11-16  GtCompareTable                               app/src/main/java/com/geeksville/mesh/grouptrack/AiCompareTable.kt:66  (2 clickables)
 2026-11-03  GtDownloadSummary                            app/src/main/java/com/geeksville/mesh/grouptrack/DownloadDefaults.kt:80  (1 clickables)
 2026-11-03  GtDownloadSettingsPanel                      app/src/main/java/com/geeksville/mesh/grouptrack/DownloadDefaults.kt:91  (2 clickables)
 2026-11-16  GtEmergencyScreen                            app/src/main/java/com/geeksville/mesh/grouptrack/EmergencyRestore.kt:97  (1 clickables)
 2026-11-18  ExportTick                                   app/src/main/java/com/geeksville/mesh/grouptrack/ExportFeatures.kt:121  (1 clickables)
-2026-11-03  GtFilterBody                                 app/src/main/java/com/geeksville/mesh/grouptrack/FilterModule.kt:60  (7 clickables)
-2026-11-03  TrailGroup                                   app/src/main/java/com/geeksville/mesh/grouptrack/FilterModule.kt:156  (2 clickables)
-2026-11-03  Seg                                          app/src/main/java/com/geeksville/mesh/grouptrack/FilterModule.kt:185  (1 clickables)
-2026-11-18  GtMenuLine                                   app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrack.kt:76  (2 clickables)
-2026-11-18  GroupTrackLaunchLayer                        app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrack.kt:97  (1 clickables)
-2026-11-18  GtCompass                                    app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrack.kt:335  (1 clickables)
-2026-11-18  GroupTrackScreen                             app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:140  (27 clickables)
-2026-11-18  CollapsedPill                                app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:3332  (1 clickables)
-2026-11-18  CartPickerPanel                              app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:3434  (5 clickables)
-2026-11-18  GpsLocationRow                               app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:3606  (2 clickables)
-2026-11-18  GpsIntervalDialog                            app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:3656  (3 clickables)
-2026-11-18  RoleChangeDialog                             app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:3782  (3 clickables)
-2026-10-27  GtHelpButton                                 app/src/main/java/com/geeksville/mesh/grouptrack/GtHelpViewer.kt:35  (1 clickables)
-2026-11-03  GtIssueButton                                app/src/main/java/com/geeksville/mesh/grouptrack/GtIssue.kt:181  (1 clickables)
-2026-11-18  GtButton                                     app/src/main/java/com/geeksville/mesh/grouptrack/GtPanel.kt:144  (1 clickables)
-2026-11-18  GtIconButton                                 app/src/main/java/com/geeksville/mesh/grouptrack/GtPanel.kt:170  (1 clickables)
-2026-11-18  GtPanel                                      app/src/main/java/com/geeksville/mesh/grouptrack/GtPanel.kt:198  (2 clickables)
-2026-11-02  StyleRow                                     app/src/main/java/com/geeksville/mesh/grouptrack/KeyModule.kt:95  (1 clickables)
+2026-11-19  GroupTrackScreen                             app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:140  (27 clickables)
+2026-11-19  CollapsedPill                                app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:3417  (1 clickables)
+2026-11-19  CartPickerPanel                              app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:3519  (5 clickables)
+2026-11-19  GpsLocationRow                               app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:3691  (2 clickables)
+2026-11-19  GpsIntervalDialog                            app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:3741  (3 clickables)
+2026-11-19  RoleChangeDialog                             app/src/main/java/com/geeksville/mesh/grouptrack/GroupTrackScreen.kt:3867  (3 clickables)
+2026-11-19  GtHelpButton                                 app/src/main/java/com/geeksville/mesh/grouptrack/GtHelpViewer.kt:35  (1 clickables)
+2026-11-19  GtIssueButton                                app/src/main/java/com/geeksville/mesh/grouptrack/GtIssue.kt:181  (1 clickables)
 2026-11-18  GtRemoveAreaScreen                           app/src/main/java/com/geeksville/mesh/grouptrack/MapScreens.kt:83  (2 clickables)
 2026-11-18  GtQueueSummary                               app/src/main/java/com/geeksville/mesh/grouptrack/MapScreens.kt:125  (1 clickables)
 2026-11-18  GtRecipesScreen                              app/src/main/java/com/geeksville/mesh/grouptrack/MapScreens.kt:253  (1 clickables)
@@ -1471,11 +1278,7 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-11-07]
 2026-11-18  GtRefreshSourceScreen                        app/src/main/java/com/geeksville/mesh/grouptrack/MapScreens.kt:541  (2 clickables)
 2026-11-18  GtImportFrame                                app/src/main/java/com/geeksville/mesh/grouptrack/MapScreens.kt:672  (1 clickables)
 2026-11-18  GtAreaRadiusScreen                           app/src/main/java/com/geeksville/mesh/grouptrack/MapScreens.kt:734  (1 clickables)
-2026-11-07  GtNotesPanel                                 app/src/main/java/com/geeksville/mesh/grouptrack/NotesPanel.kt:38  (2 clickables)
 2026-11-16  GtRouteHost                                  app/src/main/java/com/geeksville/mesh/grouptrack/RouteModule.kt:941  (22 clickables)
-2026-10-29  GtSearchBody                                 app/src/main/java/com/geeksville/mesh/grouptrack/SearchModule.kt:68  (1 clickables)
-2026-10-29  ScopeSeg                                     app/src/main/java/com/geeksville/mesh/grouptrack/SearchModule.kt:209  (1 clickables)
-2026-10-29  TypeChip                                     app/src/main/java/com/geeksville/mesh/grouptrack/SearchModule.kt:219  (1 clickables)
 2026-11-16  CleanTick                                    app/src/main/java/com/geeksville/mesh/grouptrack/TrailCleanup.kt:121  (1 clickables)
 2026-11-16  GtRemoveFeaturesScreen                       app/src/main/java/com/geeksville/mesh/grouptrack/TrailCleanup.kt:130  (2 clickables)
 2026-11-16  GtTrailSourcesScreen                         app/src/main/java/com/geeksville/mesh/grouptrack/TrailCleanup.kt:176  (3 clickables)
@@ -1484,13 +1287,8 @@ rememberPickerNotice  [FilePickerNotice.kt:55 · 2026-11-07]
 
 === 3. STATE FLAGS → PANELS THEY SHOW ===
 GroupMode                          → SectionLabel
-GtIssue                            → GtButton
-GtRideStart                        → GtButton
-R                                  → GtButton, GtDialogTitle, GtNotesPanel
-activeListType                     → ArtifactListPanel
+R                                  → GtDialogTitle, GtHelpButton
 activeRole                         → AccordionHeader
-artifactType                       → DetailActionButton
-busy                               → GtButton
 changeOpen                         → GtCheck
 com                                → ConfigReviewScreen, GrpAwarenessPanel, RadioConfigScreen, RidesScreen
 convDone                           → GateBody
@@ -1498,30 +1296,19 @@ convoyState                        → ContactLostBanner
 dateSearched                       → EmptyState
 expanded                           → CompletedRideCard, FilterChip
 gtClearAsk                         → GtHelpButton
-gtFolded                           → ArtifactListItem
 inviteCount                        → AccordionHeader
 inviteExpanded                     → RideDisplayPanel
 invited                            → NotifAccordion
 isOrganizer                        → AccordionHeader, ConvoyOrganizerPendingRides, DetailActionButton, StatusBadge, VisibilityBadge
-learning                           → GtButton
-m                                  → GateButton, GtButton
+m                                  → GateButton
 masterConfig                       → CellLabel, CreateSectionLabel, StatusBanner
 migRunning                         → MigrationSteps
 myCart                             → HiVisText
 nameSearched                       → EmptyState
 nearMeExpanded                     → RideDisplayPanel
-onAddRide                          → DetailActionButton
-onBuildFromRecipe                  → DetailActionButton
-onCreateRideFromTrack              → DetailActionButton
-onExport                           → DetailActionButton
-onShare                            → DetailActionButton
-onShowNotes                        → DetailActionButton
 open                               → GtHelpButton
-openModule                         → GtMenuLine, GtPanel, GtQueueSummary
 organizer                          → CellLabel, CreateSectionLabel
-pendingDetailId                    → ArtifactDetailPanel
 phase                              → GtCheck
-picked                             → GtButton
 qoHeld                             → ActionButton
 qtDoneOpen                         → CompletedItemRow
 qtQueuedOpen                       → QueuedItemRow
@@ -1545,32 +1332,12 @@ showSourcePopup                    → ConvoyDownloadConfirm
 showSyncDialog                     → SyncTracksDialog
 showTrailFilter                    → TrailFilterPanel
 slots                              → GtCheck
-st                                 → TrailStylePanel
-step                               → CellLabel, ConvoyPinMileageHud, CreateSectionLabel, GtAiStepScreen, GtSearchBody
+step                               → CellLabel, ConvoyPinMileageHud, CreateSectionLabel, GtAiStepScreen
 survey                             → FilterChip
 tableOpen                          → DataRow
 true                               → GtHelpButton
-waiting                            → GtButton
 
 === 4. EVERY CLICKABLE (flat) — file:line | panel | label | action ===
-ArtifactDetailPanel.kt:183 | ArtifactDetailPanel | “CONTINUE” | val f = first!! runCatching { SpatialDbManager.insertWaypoint(thNewName.trim(), f.second, f.first, "trailhead") } chose…
-ArtifactDetailPanel.kt:191 | ArtifactDetailPanel | “Cancel” | showThPopup = false
-ArtifactDetailPanel.kt:215 | ArtifactDetailPanel | “CREATE ROUTE & RIDE” | val th = chosenTh!! // FIRSTPOINT-2026-09-27 showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteName.trim()…
-ArtifactDetailPanel.kt:220 | ArtifactDetailPanel | “Cancel” | showRideNameDialog = false
-ArtifactDetailPanel.kt:285 | ArtifactDetailPanel | “×” | gtLogger("ArtifactDetail").i { "Preferred name-swap not yet built" }
-ArtifactDetailPanel.kt:296 | ArtifactDetailPanel | “DETAILS” | onDeleteAlias(aId); reloadAliases()
-ArtifactDetailPanel.kt:352 | ArtifactDetailPanel | “Rename $artifactType” | showTech = !showTech
-ArtifactDetailPanel.kt:386 | ArtifactDetailPanel | “RENAME” | onRename?.invoke(id, renameText); showRenameDialog = false; onDismiss(null, null)
-ArtifactDetailPanel.kt:391 | ArtifactDetailPanel | “CANCEL” | showRenameDialog = false
-ArtifactDetailPanel.kt:403 | ArtifactDetailPanel | “DELETE” | onDelete?.invoke(id); showDeleteConfirm = false; onDismiss(null, null)
-ArtifactDetailPanel.kt:408 | ArtifactDetailPanel | “CANCEL” | showDeleteConfirm = false
-ArtifactDetailPanel.kt:423 | ArtifactDetailPanel | “CANCEL” | onChangeType?.invoke(id, wType); showTypeChooser = false; onDismiss(null, null)
-ArtifactDetailPanel.kt:431 | ArtifactDetailPanel | “CANCEL” | showTypeChooser = false
-ArtifactListPanel.kt:92 | ArtifactListPanel | “$artifactType (${artifacts.size})” | gtFolded = !gtFolded
-ArtifactListPanel.kt:116 | ArtifactListPanel | “DESELECT ALL” | onSelectAll()
-ArtifactListPanel.kt:121 | ArtifactListPanel | “FIT” | onDeselectAll()
-ArtifactListPanel.kt:127 | ArtifactListPanel | “No $artifactType in current map view” | onFitToSelected()
-ArtifactListPanel.kt:204 | ArtifactListItem | “Waypoints” | onNameClick()
 ConfigReviewScreen.kt:137 | ConfigReviewScreen | “Saved configs” | 
 ConfigReviewScreen.kt:157 | ConfigReviewScreen | “Back to the list” | compared = null; selected = null
 ConfigReviewScreen.kt:162 | ConfigReviewScreen | “Cancel compare” | comparing = false
@@ -1729,10 +1496,6 @@ ConvoyRideDetailScreen.kt:315 | ConvoyRideDetailScreen | “RIDE AREA MAP” | s
 ConvoyRideDetailScreen.kt:433 | EnrollmentTwistie | “▼” | onToggle()
 ConvoyRideDetailScreen.kt:481 | EnrolleeRow | “?” | onEmailTap()
 ConvoyRideDetailScreen.kt:506 | DetailActionButton | “?” | onClick()
-ConvoyRiderProfileScreen.kt:134 | ConvoyRiderProfileScreen | “Team colour on the map” | role = key
-ConvoyRiderProfileScreen.kt:153 | ConvoyRiderProfileScreen | “This stays on your tablet. GroupTrack OG uses it only to identify you to your ” | team = name
-ConvoyRiderProfileScreen.kt:185 | ConvoyRiderProfileScreen | “Cancel” | onCancel?.invoke()
-ConvoyRiderProfileScreen.kt:194 | ConvoyRiderProfileScreen | “Could not save -- check the callsign and email.” | val id = ConvoyProfileStore.save( RiderProfile( firstName = firstName.trim(), lastName = lastName.trim(), callsign = ca…
 ConvoyRouteToolbar.kt:180 | ConvoyRouteToolbar | “ROUTE + ($vertexCount pts)” | minimized = !minimized
 ConvoyRouteToolbar.kt:184 | ConvoyRouteToolbar | “route” | minimized = !minimized
 ConvoyRouteToolbar.kt:204 | ConvoyRouteToolbar | “METHOD” | if (!methodOpen) { if (vertexCount > 0) onMethodLockedTap() else methodOpen = true }
@@ -1856,9 +1619,6 @@ TrailFilterPanel.kt:86 | TrailFilterPanel | “✕” | onDismiss()
 TrailFilterPanel.kt:99 | TrailFilterPanel | “Include private land” | TrailFilterState.setLand( if (includePrivate) "PUBLIC" else "ALL") changed()
 TrailFilterPanel.kt:147 | FilterColumn | “UNUSED_EXPRESSION” | TrailFilterState.setGroup(names, !allOn); onChanged()
 TrailFilterPanel.kt:172 | FilterRow | “UNUSED_EXPRESSION” | TrailFilterState.toggleCategory(r.name); onChanged()
-TrailStylePanel.kt:93 | TrailStylePanel | “✕” | onCancel()
-TrailStylePanel.kt:124 | TrailStylePanel | “PATTERN” | c = hex
-TrailStylePanel.kt:211 | Chip | “?” | onClick()
 AiCompareTable.kt:224 | GtCompareTable | “▾ Hide” | onToggleShown(r.name)
 AiCompareTable.kt:254 | GtCompareTable | “Miles” | tableOpen = !tableOpen
 DownloadDefaults.kt:85 | GtDownloadSummary | “For this download only — the defaults are set in Map › Download settings.” | onToggle()
@@ -1866,20 +1626,6 @@ DownloadDefaults.kt:112 | GtDownloadSettingsPanel | “$slot  ·  $label” | se
 DownloadDefaults.kt:118 | GtDownloadSettingsPanel | “Replace existing tiles” | rep = !rep
 EmergencyRestore.kt:134 | GtEmergencyScreen | “Delete my vector maps and elevation first, and download everything again (” | clean.value = !clean.value; sure.value = false
 ExportFeatures.kt:124 | ExportTick | “?” | set(!on)
-FilterModule.kt:93 | GtFilterBody | “Available” | GtOffGrid.setAvailable(!GtOffGrid.available.value)
-FilterModule.kt:97 | GtFilterBody | “Downloading” | GtOffGrid.setDownloading(!GtOffGrid.downloading.value)
-FilterModule.kt:112 | GtFilterBody | “Public” | setLandTicks(!pubOn, privOn)
-FilterModule.kt:116 | GtFilterBody | “Private” | setLandTicks(pubOn, !privOn)
-FilterModule.kt:127 | GtFilterBody | “Public” | TrailFilterState.setAreaPublic(!TrailFilterState.areaPublic); tick++; f.trailsChanged()
-FilterModule.kt:132 | GtFilterBody | “Restricted” | TrailFilterState.setAreaRestricted(!TrailFilterState.areaRestricted); tick++; f.trailsChanged()
-FilterModule.kt:142 | GtFilterBody | “Restricted — closed to motor vehicles” | TrailFilterState.setRestricted(!TrailFilterState.restricted); tick++; f.trailsChanged()
-FilterModule.kt:164 | TrailGroup | “?” | TrailFilterState.setGroup(names, !allOn); bump(); f.trailsChanged()
-FilterModule.kt:170 | TrailGroup | “?” | TrailFilterState.toggleCategory(r.name); bump(); f.trailsChanged()
-FilterModule.kt:188 | Seg | “✓ ” | Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelText, fontSize = 13.sp, fontWeight = Font…
-GroupTrack.kt:86 | GtMenuLine | “OVERVIEW” | 
-GroupTrack.kt:93 | GtMenuLine | “OVERVIEW” | GtHelpView.open(overviewId)
-GroupTrack.kt:198 | GroupTrackLaunchLayer | “mode” | tap(m)
-GroupTrack.kt:343 | GtCompass | “N” | Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.rotate(-bearing)) { Text("N", color = re…
 GroupTrackScreen.kt:644 | GroupTrackScreen | “Grant” | showStoragePermissionDialog = false try { val intent = android.content.Intent( android.provider.Settings.ACTION_MANAGE_…
 GroupTrackScreen.kt:661 | GroupTrackScreen | “Later” | showStoragePermissionDialog = false
 GroupTrackScreen.kt:679 | GroupTrackScreen | “OK” | viewModel.clearPendingDownload()
@@ -1905,29 +1651,24 @@ GroupTrackScreen.kt:1942 | GroupTrackScreen | “Sleeping” | coroutineScope.la
 GroupTrackScreen.kt:2091 | GroupTrackScreen | “Cancel” | showDocsChooser = false // HELPVIDEOS-2026-11-05: VIDEOS opens the website; the three documents stay in the app if (key…
 GroupTrackScreen.kt:2114 | GroupTrackScreen | “Cancel” | showDocsChooser = false
 GroupTrackScreen.kt:2146 | GroupTrackScreen | “Close” | docsBack()
-GroupTrackScreen.kt:2787 | GroupTrackScreen | “OK” | roleConflict = null
-GroupTrackScreen.kt:2941 | GroupTrackScreen | “DELETE THEM” | val n = RouteDraftStore.deleteAllRouteFiles() gtClearAsk = false android.widget.Toast.makeText(context, "Cleared $n rou…
-GroupTrackScreen.kt:3348 | CollapsedPill | “$totalNodes UNITS” | onExpand()
-GroupTrackScreen.kt:3475 | CartPickerPanel | “CHANGE MY ROLE · now ” | onChangeMyRole()
-GroupTrackScreen.kt:3484 | CartPickerPanel | “CART ROLES · ${nodes.size} radio” | listOpen = !listOpen
-GroupTrackScreen.kt:3511 | CartPickerPanel | “REMOVE” | onSelect(node)
-GroupTrackScreen.kt:3527 | CartPickerPanel | “○” | onToggleActive(node.nodeId, node.callsign)
-GroupTrackScreen.kt:3544 | CartPickerPanel | “✔ checked in    ● not checked in — a bare radio, or a rider who has not checked in yet: ” | onToggleActive(rid, rcall)
-GroupTrackScreen.kt:3618 | GpsLocationRow | “??” | onOpen()
-GroupTrackScreen.kt:3642 | GpsLocationRow | “switch the text light/dark” | onToggleText()
-GroupTrackScreen.kt:3708 | GpsIntervalDialog | “Every radio in the group must be on the same preset -- a radio on another preset hears nobody. ” | preset = key
-GroupTrackScreen.kt:3719 | GpsIntervalDialog | “Raise the wait if your cart does not reappear after APPLY.” | timingOpen = !timingOpen
-GroupTrackScreen.kt:3747 | GpsIntervalDialog | “APPLY” | val p = preset; if (secs != null && p != null) onApply(secs, p)
-GroupTrackScreen.kt:3803 | RoleChangeDialog | “To give up a role, choose Rider. A role someone holds must be released first. The Leader is changed last.” | if (heldBy[v] != null) heldWarn = v else role = v
-GroupTrackScreen.kt:3811 | RoleChangeDialog | “APPLY” | onApply(role)
-GroupTrackScreen.kt:3825 | RoleChangeDialog | “OK” | heldWarn = null
+GroupTrackScreen.kt:2800 | GroupTrackScreen | “OK” | roleConflict = null
+GroupTrackScreen.kt:2954 | GroupTrackScreen | “DELETE THEM” | val n = RouteDraftStore.deleteAllRouteFiles() gtClearAsk = false android.widget.Toast.makeText(context, "Cleared $n rou…
+GroupTrackScreen.kt:3433 | CollapsedPill | “$totalNodes UNITS” | onExpand()
+GroupTrackScreen.kt:3560 | CartPickerPanel | “CHANGE MY ROLE · now ” | onChangeMyRole()
+GroupTrackScreen.kt:3569 | CartPickerPanel | “CART ROLES · ${nodes.size} radio” | listOpen = !listOpen
+GroupTrackScreen.kt:3596 | CartPickerPanel | “REMOVE” | onSelect(node)
+GroupTrackScreen.kt:3612 | CartPickerPanel | “○” | onToggleActive(node.nodeId, node.callsign)
+GroupTrackScreen.kt:3629 | CartPickerPanel | “✔ checked in    ● not checked in — a bare radio, or a rider who has not checked in yet: ” | onToggleActive(rid, rcall)
+GroupTrackScreen.kt:3703 | GpsLocationRow | “??” | onOpen()
+GroupTrackScreen.kt:3727 | GpsLocationRow | “switch the text light/dark” | onToggleText()
+GroupTrackScreen.kt:3793 | GpsIntervalDialog | “Every radio in the group must be on the same preset -- a radio on another preset hears nobody. ” | preset = key
+GroupTrackScreen.kt:3804 | GpsIntervalDialog | “Raise the wait if your cart does not reappear after APPLY.” | timingOpen = !timingOpen
+GroupTrackScreen.kt:3832 | GpsIntervalDialog | “APPLY” | val p = preset; if (secs != null && p != null) onApply(secs, p)
+GroupTrackScreen.kt:3888 | RoleChangeDialog | “To give up a role, choose Rider. A role someone holds must be released first. The Leader is changed last.” | if (heldBy[v] != null) heldWarn = v else role = v
+GroupTrackScreen.kt:3896 | RoleChangeDialog | “APPLY” | onApply(role)
+GroupTrackScreen.kt:3910 | RoleChangeDialog | “OK” | heldWarn = null
 GtHelpViewer.kt:40 | GtHelpButton | “HELP” | GtHelpView.open(id)
 GtIssue.kt:184 | GtIssueButton | “ISSUE” | GtIssue.start(view, id)
-GtPanel.kt:151 | GtButton | “screens write Gt.<role>, never a colour of their own.” | // BTNDIM-2026-11-18 (Fred 07:46): "hate to read, the text is grey on blue in buttons. make text // white." The disable…
-GtPanel.kt:177 | GtIconButton | “?” | 
-GtPanel.kt:237 | GtPanel | “HELP” | collapsed = !collapsed
-GtPanel.kt:240 | GtPanel | “HELP” | GtHelpView.open(helpId)
-KeyModule.kt:102 | StyleRow | “STYLE ›” | Sample(color, weight, dashed) Text(r.label, color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, mo…
 MapScreens.kt:98 | GtRemoveAreaScreen | “CANCEL” | onDone() Thread { DownloadQueueManager.submitDelete(ctx, bbox.north, bbox.south, bbox.east, bbox.west) }.start() androi…
 MapScreens.kt:107 | GtRemoveAreaScreen | “CANCEL” | onDone()
 MapScreens.kt:132 | GtQueueSummary | “No maps downloading” | onOpen()
@@ -1939,33 +1680,28 @@ MapScreens.kt:586 | GtRefreshSourceScreen | “Reading the store...” | slot.va
 MapScreens.kt:623 | GtRefreshSourceScreen | “PROCEED TO COPY” | val s = slot.value onDone() Thread { val queued = DownloadQueueManager.enqueueRecreateSource(context, s) gtLogger("Recr…
 MapScreens.kt:678 | GtImportFrame | “CANCEL IMPORT” | com.geeksville.mesh.convoy.HomeStateImportController.cancelImport()
 MapScreens.kt:756 | GtAreaRadiusScreen | “SAVE” | GtSearchZoom.set(ctx, z.floatValue.toInt()); onDone()
-NotesPanel.kt:108 | GtNotesPanel | “${s.lines.size}” | open = !open
-NotesPanel.kt:193 | GtNotesPanel | “?” | action()
 RouteModule.kt:1303 | GtRouteHost | “SEARCH — find your area” | searchOpen.value = !searchOpen.value
-RouteModule.kt:1388 | GtRouteHost | “YES — I'LL DROP PINS (RECOMMENDED)” | R.askWarn.value = ""; R.pinNotice.value = ""; R.aiStep.intValue = PIN_STEP_INCLUDE
-RouteModule.kt:1393 | GtRouteHost | “NO — DESIGN IT FOR ME” | R.askWarn.value = ""; R.pinNotice.value = ""; R.pinPoints.value = emptyList(); R.aiStep.intValue = PIN_STEP_SUMMARY
-RouteModule.kt:1418 | GtRouteHost | “Save as completed route” | val nm = R.routeName.value.trim() if (nm.isBlank() || nm == RouteDraftStore.UNNAMED) android.widget.Toast.makeText(ctx,…
-RouteModule.kt:1435 | GtRouteHost | “Save as in progress” | val nm = R.routeName.value.trim() if (nm.isBlank() || nm == RouteDraftStore.UNNAMED) android.widget.Toast.makeText(ctx,…
-RouteModule.kt:1461 | GtRouteHost | “Roll back” | R.showDiscardChoice.value = false RouteDraftStore.loadIntoRouteManager(R.routeName.value) scope.launch { val p = kotlin…
-RouteModule.kt:1471 | GtRouteHost | “Delete in-progress” | R.showDiscardChoice.value = false RouteManager.clearRoute() if (RouteDraftStore.isInOpenBatch(R.routeName.value)) andro…
-RouteModule.kt:1503 | GtRouteHost | “Keep” | val n = nm.value.trim() if (n.isBlank()) err.value = "Enter a name" else if (RouteDraftStore.isNameTaken(n)) err.value …
-RouteModule.kt:1513 | GtRouteHost | “Discard” | RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED) R.showResolver.value = false; R.draftTick.intValue++ if (R.manualD…
-RouteModule.kt:1535 | GtRouteHost | “${di.pointCount} points” | R.showPicker.value = false; R.resumeReq.value = di.name // GTROUTE1F-2026-10-23: the one resume path
-RouteModule.kt:1538 | GtRouteHost | “Delete” | if (RouteDraftStore.isInOpenBatch(di.name)) { android.widget.Toast.makeText(ctx, "This route is part of an open compare…
-RouteModule.kt:1548 | GtRouteHost | “+ Build it myself” | if (RouteDraftStore.draftExists(RouteDraftStore.UNNAMED)) { android.widget.Toast.makeText(ctx, "Rename or delete \"" + …
-RouteModule.kt:1554 | GtRouteHost | “+ AI route design” | R.showPicker.value = false; R.startAi()
-RouteModule.kt:1572 | GtRouteHost | “CREATE TRAILHEAD” | val f = RouteManager.routeVertices().firstOrNull() R.thPrompt.value = false if (f != null) scope.launch { val ok = kotl…
-RouteModule.kt:1585 | GtRouteHost | “Cancel” | R.thPrompt.value = false
-RouteModule.kt:1599 | GtRouteHost | “SHOW ALL LAND AND SEARCH AGAIN” | R.showAllLandAndSearch(nctx)
-RouteModule.kt:1600 | GtRouteHost | “OK” | R.notice.value = ""; R.noticeFilter.value = false; R.noticeAllLand.value = false
-RouteModule.kt:1604 | GtRouteHost | “OPEN FILTER” | R.notice.value = ""; R.noticeFilter.value = false; R.noticeAllLand.value = false; R.filterPeek.value = true; GtOpenModu…
-RouteModule.kt:1710 | GtRouteHost | “Save” | R.batchAreaPrompt.value = false runBatchSave(R.batchAreaName.value)
-RouteModule.kt:1715 | GtRouteHost | “Cancel” | R.batchAreaPrompt.value = false
-RouteModule.kt:1723 | GtRouteHost | “Delete” | R.batchDeleteConfirm.value = false; runBatchSave("")
-RouteModule.kt:1724 | GtRouteHost | “Cancel” | R.batchDeleteConfirm.value = false
-SearchModule.kt:157 | GtSearchBody | “Offline — places are left out; your trails, routes, tracks and waypoints are searched.” | pick = g; inState = true; choosing = false; if (searched.isNotEmpty()) run()
-SearchModule.kt:212 | ScopeSeg | “✓ ” | Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelText, fontSize = 13.sp, fontWeight = Font…
-SearchModule.kt:224 | TypeChip | “✓ ” | Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelDim, fontSize = 13.sp, fontWeight = FontW…
+RouteModule.kt:1394 | GtRouteHost | “YES — I'LL DROP PINS (RECOMMENDED)” | R.askWarn.value = ""; R.pinNotice.value = ""; R.aiStep.intValue = PIN_STEP_INCLUDE
+RouteModule.kt:1399 | GtRouteHost | “NO — DESIGN IT FOR ME” | R.askWarn.value = ""; R.pinNotice.value = ""; R.pinPoints.value = emptyList(); R.aiStep.intValue = PIN_STEP_SUMMARY
+RouteModule.kt:1424 | GtRouteHost | “Save as completed route” | val nm = R.routeName.value.trim() if (nm.isBlank() || nm == RouteDraftStore.UNNAMED) android.widget.Toast.makeText(ctx,…
+RouteModule.kt:1441 | GtRouteHost | “Save as in progress” | val nm = R.routeName.value.trim() if (nm.isBlank() || nm == RouteDraftStore.UNNAMED) android.widget.Toast.makeText(ctx,…
+RouteModule.kt:1467 | GtRouteHost | “Roll back” | R.showDiscardChoice.value = false RouteDraftStore.loadIntoRouteManager(R.routeName.value) scope.launch { val p = kotlin…
+RouteModule.kt:1477 | GtRouteHost | “Delete in-progress” | R.showDiscardChoice.value = false RouteManager.clearRoute() if (RouteDraftStore.isInOpenBatch(R.routeName.value)) andro…
+RouteModule.kt:1509 | GtRouteHost | “Keep” | val n = nm.value.trim() if (n.isBlank()) err.value = "Enter a name" else if (RouteDraftStore.isNameTaken(n)) err.value …
+RouteModule.kt:1519 | GtRouteHost | “Discard” | RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED) R.showResolver.value = false; R.draftTick.intValue++ if (R.manualD…
+RouteModule.kt:1541 | GtRouteHost | “${di.pointCount} points” | R.showPicker.value = false; R.resumeReq.value = di.name // GTROUTE1F-2026-10-23: the one resume path
+RouteModule.kt:1544 | GtRouteHost | “Delete” | if (RouteDraftStore.isInOpenBatch(di.name)) { android.widget.Toast.makeText(ctx, "This route is part of an open compare…
+RouteModule.kt:1554 | GtRouteHost | “+ Build it myself” | if (RouteDraftStore.draftExists(RouteDraftStore.UNNAMED)) { android.widget.Toast.makeText(ctx, "Rename or delete \"" + …
+RouteModule.kt:1560 | GtRouteHost | “+ AI route design” | R.showPicker.value = false; R.startAi()
+RouteModule.kt:1578 | GtRouteHost | “CREATE TRAILHEAD” | val f = RouteManager.routeVertices().firstOrNull() R.thPrompt.value = false if (f != null) scope.launch { val ok = kotl…
+RouteModule.kt:1591 | GtRouteHost | “Cancel” | R.thPrompt.value = false
+RouteModule.kt:1605 | GtRouteHost | “SHOW ALL LAND AND SEARCH AGAIN” | R.showAllLandAndSearch(nctx)
+RouteModule.kt:1606 | GtRouteHost | “OK” | R.notice.value = ""; R.noticeFilter.value = false; R.noticeAllLand.value = false
+RouteModule.kt:1610 | GtRouteHost | “OPEN FILTER” | R.notice.value = ""; R.noticeFilter.value = false; R.noticeAllLand.value = false; R.filterPeek.value = true; GtOpenModu…
+RouteModule.kt:1716 | GtRouteHost | “Save” | R.batchAreaPrompt.value = false runBatchSave(R.batchAreaName.value)
+RouteModule.kt:1721 | GtRouteHost | “Cancel” | R.batchAreaPrompt.value = false
+RouteModule.kt:1729 | GtRouteHost | “Delete” | R.batchDeleteConfirm.value = false; runBatchSave("")
+RouteModule.kt:1730 | GtRouteHost | “Cancel” | R.batchDeleteConfirm.value = false
 TrailCleanup.kt:123 | CleanTick | “?” | set(!on)
 TrailCleanup.kt:159 | GtRemoveFeaturesScreen | “CANCEL” | busy = true scope.launch { val r = withContext(Dispatchers.IO) { GtTrailCleanup.removeArea(bbox, tracks, rider, other) …
 TrailCleanup.kt:169 | GtRemoveFeaturesScreen | “CANCEL” | onDone()
@@ -1985,9 +1721,7 @@ ConvoyMyRidesScreen.kt:119 | ConvoyMyRidesScreen | “Following organizer” |
 ConvoyMyRidesScreen.kt:119 | ConvoyMyRidesScreen | “Following organizer” | 
 GroupTrackTheme.kt:82 | GroupTrackHeader | “grouptrack_logo” | 
 GroupTrackTheme.kt:95 | GroupTrackHeader | “DEV MENU” | 
-GtPanel.kt:177 | GtIconButton | “?” | 
 GroupTrackTheme.kt:376 | GtMenuLabel | “?” | 
-GroupTrack.kt:86 | GtMenuLine | “OVERVIEW” | 
 RadioConfigScreen.kt:224 | RadioConfigScreen | “Apply ride to radio” | 
 RidesScreen.kt:128 | RidesScreen | “Rides” | 
-(11 unresolved)
+(9 unresolved)

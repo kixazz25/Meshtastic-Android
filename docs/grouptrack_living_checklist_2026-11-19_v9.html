@@ -36,6 +36,761 @@ th{background:#12203a;color:var(--accent)}
 </header>
 <main>
 
+<h2>⭐ OPENED 2026-11-19 EOD &mdash; THE SERVICE LAYER BUILT TODAY (C28-26346)</h2>
+
+<div class="card">
+<h3>⭐ 2.8b C28-26346 &middot; SERVICELAYER &mdash; what is now a reusable service, and how to reach it</h3>
+<p><b>Fred 11-19 15:42:</b> <i>"share and export should be created as a service we can reuse."</i>
+<b>15:45:</b> <i>"we made gr[e]at progress completing the service layer[;] everything we touch gets simpler
+because the service layers exist... going down the stack lets us create and define the service layers [s]o the
+next time that feature is used we have [a] method to model and use."</i></p>
+
+<p><b>⭐ THE GOVERNING PRINCIPLE, Fred 11-19 15:45, verbatim &mdash; this is the one to keep:</b>
+<i>"We cannot stop the process at a level because the service doesn't exist. We need to address the missing
+service and continue the current process function."</i>
+A missing service is not a stopping condition. It is the next thing to build, and then you finish the function
+you were in. Stopping at the level where the service is absent is what produced every half-depth port found
+today.</p>
+
+<p><b>⭐ THE COMPOUNDING, measured.</b> SIX times on 11-19 the shared layer had already done the hard half,
+so the day's later work cost a fraction of the earlier work:</p>
+<table>
+<tr><th>What was needed</th><th>Already shared</th><th>So the work was</th></tr>
+<tr><td>delete / remove alias</td><td>GtWrite :54 :68 :127 :158 :212, GtRead.routeUsingTrailhead :173</td><td>open a writable handle</td></tr>
+<tr><td>share / export GPX text</td><td>GtGpx.waypoint / .route / .trail</td><td>a query and a hand-off</td></tr>
+<tr><td>route narrative</td><td>GtRead.readRouteNotesPayload :194, notesObject :199</td><td>one branch + a kotlinx transcription</td></tr>
+<tr><td>the SELECT list</td><td>GtRead.queryArtifactList :130 (shared since STEP7-2026-11-07)</td><td>call it and show the panel</td></tr>
+<tr><td>waypoint creation (not yet built)</td><td>GtTracks.insertWaypoint :287</td><td>the dialog only</td></tr>
+<tr><td>map frame restore</td><td>GtMapState.readMap / saveMap :144 :192</td><td>the iPad never calls saveMap</td></tr>
+</table>
+
+<p><b>SERVICES AS THEY NOW STAND &mdash; use these rather than writing a second copy:</b></p>
+<table>
+<tr><th>Service</th><th>Where</th><th>What it owns</th><th>Platform seam</th></tr>
+<tr><td><b>GtArtifactFiles</b></td><td>commonMain/.../artifact/GtArtifactFiles.kt</td>
+    <td>build GPX &rarr; name the file &rarr; write to GroupTrack Map Features &rarr; hand off.
+        <b>export</b> stops after the write; <b>share</b> is export plus the hand-off, so they cannot drift.</td>
+    <td>GtArtifactSink (saveToMapFeatures, email) + GtTrackFileReader</td></tr>
+<tr><td><b>IosArtifactSink / IosTrackFiles</b></td><td>iosMain/.../platform/GtIosArtifactSink.kt</td>
+    <td>the iPad's write and delivery. UIActivityViewController as a FORM SHEET (a popover with no anchor
+        raises on iPad, and popoverPresentationController is not in the K/N bindings &mdash; measured 15:57).</td><td>&mdash;</td></tr>
+<tr><td><b>GtSpatial.viewport</b></td><td>commonMain/.../spatial/GtSpatial.kt</td>
+    <td>VIEWFILTER-2026-11-19: now takes <code>states</code> and <code>selected</code> and gates per type exactly as
+        SpatialDisplayManager.processArtifact :182-272 &mdash; OFF hides without querying, below minZoom hides,
+        SELECTED filters rows to the checked ids, land follows the Trails state.</td>
+    <td>displayState lambda on GtVecMap (REQUIRED, not defaulted)</td></tr>
+<tr><td><b>GtRead</b> additions</td><td>commonMain/.../spatial/GtRead.kt</td>
+    <td>bboxForArtifact (the fit's box, from the DB), typeNameForId (WHICH TABLE holds an id),
+        waypointRow / routeRow / trailRow / trackNameAndHash (the GPX builders' reads), routeNarrative.</td><td>&mdash;</td></tr>
+<tr><td><b>GtNotesPanel</b> + builders</td><td>commonMain/.../grouptrack/NotesPanel.kt, convoy/GtNoteBuilders.kt, convoy/GtNoteSections.kt</td>
+    <td>the route narrative panel and its sections, on kotlinx instead of org.json.</td>
+    <td>help: @Composable (String) -&gt; Unit</td></tr>
+<tr><td><b>ArtifactListPanel</b></td><td>commonMain/.../convoy/ArtifactListPanel.kt</td>
+    <td>the SELECT list. Moved with its dead <code>ctx</code> and <code>fitWebView</code> removed (both declared, never used).</td>
+    <td>help seam</td></tr>
+</table>
+
+<p><b>⚠ TWO SECOND COPIES THAT MUST NOT DRIFT, named so they are findable:</b>
+<b>(1)</b> the folder name <code>"GroupTrack Map Features"</code> is a literal in IosArtifactSink and an enum in
+Android's GtFileOpen.Family :71. If they disagree a file lands where the other platform does not look. The fix is
+moving that enum to commonMain, and it belongs with the app-side switchover.
+<b>(2)</b> gtNotesFromNarrative (kotlinx) and notesFromDraft (org.json) are the same logic twice. Android keeps its
+copy until the app side switches &mdash; NOT today, because Droid 1 carries 2.8a into the ride.</p>
+
+<p><b>⚠ ANDROID STILL RUNS ITS OWN ConvoyArtifactOps.</b> GtArtifactFiles is a service available to both, not yet
+used by both. "One implementation" becomes true when the app side is switched over, and not before.</p>
+<div class="src">Written 2026-11-19 EOD. Sources: GtArtifactFiles.kt, GtIosArtifactSink.kt, GtSpatial.kt, GtRead.kt, NotesPanel.kt, ArtifactListPanel.kt, GtIosPanels.kt.</div>
+</div>
+
+<h2>⭐ OPENED 2026-11-19 EOD &mdash; THE LEVEL-2 DEPTH CHECK (C28-26347)</h2>
+
+<div class="card">
+<h3>⭐ 2.8b C28-26347 &middot; DEPTHCHECK &mdash; how to find a port that stops two layers down, and what is still unchecked</h3>
+<p><b>Fred 11-19 15:37, the diagnosis in one sentence:</b> <i>"you went [two] layers down and said t[h]at['s] enough."</i>
+<b>16:49:</b> <i>"we need to detail the check for items below the level 2 invocation."</i></p>
+
+<p><b>⛔ THE FAILURE SHAPE.</b> A panel is called with the right name and the right arguments, and the layer under
+those arguments is missing. It compiles, it draws, it passes a symbol sweep, and it is wrong on glass. Every
+defect found on 11-19 had this shape:</p>
+<table>
+<tr><th>Symptom Fred reported</th><th>What was actually missing, one layer down</th></tr>
+<tr><td>"search returns me to the same point I exited from" (13:52)</td><td>openArtifact was Android's FALLBACK branch; gtFitOne (the DB bbox, the 10% pad, the display set) was never ported</td></tr>
+<tr><td>"no options display under fit" (15:33)</td><td>ArtifactDetailPanel takes 15 parameters; TEN action callbacks defaulted to null and the iPad passed none. Android passes 14 of 15.</td></tr>
+<tr><td>"the filter has no impact on the map display" (16:10)</td><td>GtSpatial.viewport took no display states at all &mdash; its own comment said "with every type ON"</td></tr>
+<tr><td>"fit... not executing from route detail panel" (16:37)</td><td>the panel's FIT is onDismiss(type, id) and the host ignored both arguments, making FIT a second CLOSE button</td></tr>
+<tr><td>settings panel showed one sentence (11-19 midday)</td><td>seven rows omitted inside a transcribed file &mdash; no seam involved at all</td></tr>
+</table>
+
+<p><b>⭐ THE CHECK, three passes. The first two are mechanical and take seconds.</b></p>
+<p><b>1. SEAM DIFF &mdash; catches a substituted argument.</b> Parse the SAME call on both platforms
+(GroupTrackLaunchLayer, GtSearchBridge, GtFilterBridge, each panel) and compare argument by argument: where
+Android's expression names a function and the iPad's is inline JS, a message or <code>{}</code>, that is a stub.
+This found the autoPan question, routePrecheck = <code>{ false }</code>, mapsDownloading = <code>false</code>,
+onToggleView, viewLabel, mapType/mapTypes, onHelp, openSelect, toggleHide and setOffGrid*.</p>
+<p><b>2. SCOPED LABEL DIFF &mdash; catches content omitted INSIDE a port.</b> A seam diff cannot see this, because
+nothing crosses a seam. Extract the user-visible string literals from the port and from the Android ORIGIN RANGE
+and diff them: missing labels are missing rows. This is what would have caught the settings panel.</p>
+<p><b>3. THE DISCIPLINE THAT MAKES PASS 2 POSSIBLE: every ported file cites its Android origin by line range in
+its header.</b> Measured 11-19 15:2x: GtRecordButton, GtGpsHudRow and GtDocsChooser all cite one and check clean;
+GtAlertSettingsPanel cites <code>MapKeysPanel.kt</code>, which does not exist &mdash; so it cannot be checked at all,
+and it is the one panel that failed. <b>A port with no resolvable origin range is unverifiable by construction.</b></p>
+<p><b>⚠ NEITHER PASS catches logic that is present but wrong.</b> That still needs glass. The two passes cover
+omission, which is most of what 11-19 produced.</p>
+
+<p><b>⭐ CODE RULE 1 EARNED ITS KEEP TWICE TODAY, both worth remembering:</b>
+<b>(a)</b> ArtifactDetailPanel's ten nullable action callbacks are the rule's exact failure mode &mdash; "optional
+defers the 'is every caller wiring this correctly?' check to silent field discovery", and the discovery was Fred
+on the glass.
+<b>(b)</b> Making <code>displayState</code> REQUIRED on GtVecMap found a second call site (the bare Map tab) in four
+seconds. Had it defaulted, that tab would have compiled and the GroupTrack tab's filter would have kept doing
+nothing, with two candidate paths and no way to tell them apart.</p>
+
+<p><b>⛔ PROVEN ON GLASS 11-19 vs COMPILED BUT NEVER EXERCISED.</b> This is tomorrow's cleanup scope &mdash; it is
+a definite list, not "re-test everything":</p>
+<table>
+<tr><th>Proven on glass</th><th>Compiled and wired, NEVER exercised</th></tr>
+<tr><td>filter gating the map (Trails 0 in the spatial line)<br>
+        fit from search<br>
+        fit from the detail panel<br>
+        the detail panel rendering its ten actions<br>
+        finger panning (two onViewportChanged, same zoom to the last digit)<br>
+        the data baseline matching Droid 2's counts</td>
+    <td>the route narrative panel and its notes chain<br>
+        Delete<br>
+        Remove alias<br>
+        Export<br>
+        Share<br>
+        the SELECT list and its ticks<br>
+        grp.open's activate dialog</td></tr>
+</table>
+
+<p><b>⭐ FIRST RESULT OF THE DEPTH CHECK, already found (16:45):</b> the baseline has <b>no <code>my_tracks</code>
+directory and no recorded .gpx files</b>. A track's export IS the file written at record time (MYTRACKSDB-2026-09-12)
+&mdash; it is never rebuilt, because rebuilding re-rounds every coordinate. Android's <code>tracksDir() = root / "my_tracks"</code>,
+so the iPad path is correct and the data is simply absent; it is not in the 13 app-private files either.
+<b>So export and share work for routes, trails and waypoints (built from the database) and FAIL for tracks &mdash;
+on the iPad and on Droid 2 alike.</b> Droid 2 holds 136 track ROWS and zero track FILES. A baseline fact, not a
+code defect, and it must be settled before export is certified.</p>
+<div class="src">Written 2026-11-19 EOD. Method proven against five defects found the same day.</div>
+</div>
+
+<h2>⭐ OPENED 2026-11-19 EOD &mdash; TOMORROW'S ORDER (C28-26348)</h2>
+
+<div class="card">
+<h3>⭐ 2.8b C28-26348 &middot; IOSSEQ-C &mdash; the cleanup pass, then C, D, E as Fred restated them</h3>
+<p><b>Fred 11-19 16:49:</b> <i>"we need to move items to completion... add that cleanup to tomorrow's list prior to
+item C. [C] should be bottom tabs except maps and email functions (including map emails)... then simple map items.
+th[en] file import items from internet."</i></p>
+<p><b>⚠ ONE CLARIFICATION, because the two statements of C differ and BOTH exclusions hold.</b> The 12:23 list said
+C was <i>"all bottom buttons except maps and Radio setup"</i>; 16:49 says except maps <i>and email</i>. They are not in
+conflict &mdash; the excluded things land in different letters: <b>Radio Setup is G</b> (Meshtastic, the one item out
+of scope for 2.8b) and <b>email is D</b> (<i>"including ios email solution"</i>, which is where map emails arrive).</p>
+<table>
+<tr><th>Order</th><th>What</th><th>Scope</th></tr>
+<tr><td><b>0. CLEANUP</b></td><td>the level-2 pass, BEFORE C</td>
+    <td>Exercise the seven items in C28-26347's right-hand column and walk each one layer below where it was
+        wired. Highest risk first: <b>Delete</b> (destructive, and it runs on a SECOND writable connection while
+        the search holds a read-only one &mdash; two SQLite handles on one file is its own hazard);
+        <b>the SELECT ticks</b> (they now write checkedIds and flip a slot; nothing has confirmed the map agrees);
+        <b>the notes chain</b> (a fresh kotlinx transcription of an org.json builder &mdash; a key-name typo renders an
+        EMPTY panel rather than failing). Then the my_tracks question above.</td></tr>
+<tr><td><b>C</b></td><td>the bottom tabs</td><td>Add Route, Rides, Search. NOT Map. NOT Radio Setup. Nothing that ends in an email, map emails included.</td></tr>
+<tr><td><b>D</b></td><td>simple map functions</td><td>Zero internet file processing, PLUS the iOS email solution &mdash; which brings in the three settings tools still unbuilt (conversion record, trail check, issue report), EXPORTPICK's EMAIL, and MAPMENU item 2's one-file DR save.</td></tr>
+<tr><td><b>E</b></td><td>maps with internet downloads</td><td>File import from the internet. Needs the download-queue runtime &mdash; GtQueuePlatform has NO iOS implementation and refuses by design (IOSQUEUE-2026-11-17). That one service unlocks Save maps and Save a corridor on the detail panel too.</td></tr>
+</table>
+<p><b>STILL OPEN ON THE iPAD, by the service each one needs rather than by the button:</b>
+<b>(1)</b> the help link table &mdash; one service, closes <code>help</code> on EVERY panel at once and the A-level
+<code>onHelp</code> with it; best return of the four.
+<b>(2)</b> the map frame never saving &mdash; needs NO new service: GtMapState.saveMap :144 is shared and the iPad only
+ever calls readMap, so it cannot remember where you left it. Cheapest item on the list and it costs a continent of
+panning on every launch.
+<b>(3)</b> the download-queue runtime (E).
+<b>(4)</b> the recipe builder (RouteModule, app-side, 2,674 lines) &mdash; the largest, and the one that most needs a
+service boundary drawn before it is touched.</p>
+<p><b>LEVEL B MAP INTERACTIONS &mdash; what is done and what is not.</b> The relay handles five:
+onTrackTap, onTrailTap, onRouteTap, onWaypointTap, onViewportChanged. Not handled, all of them inside Fred's own
+12:54&ndash;13:05 scope: <b>onMapLongPress</b> (artifact creation &mdash; cheapest, GtTracks.insertWaypoint is already
+shared, so it is the dialog plus a call), <b>onMarkerTapped</b> (the cart tap), <b>onAreaSelected</b>,
+<b>onProximityTap</b>, <b>onBearing</b> (the compass &mdash; the launch layer takes a bearing value and nothing appears
+to update it).
+<b>⚠ That inventory is a FLOOR, not a complete list:</b> the grep that produced it read only <code>vecmap/*.js</code> and
+did not find onTrackTap or onRouteTap even though route tap demonstrably fires. The viewer is 23 files.</p>
+<p><b>GESTURES &mdash; nothing of ours to build.</b> vec_ports.js <code>gtGestures(on)</code> enables/disables
+dragPan, dragRotate, touchZoomRotate, touchPitch, doubleClickZoom and boxZoom, and is called with <code>false</code>
+ONLY while drawing an area box. All six are MapLibre's and on by default. <code>gtEvLL</code> returns null when
+<code>touches.length &gt; 1</code>, so a two-finger gesture never registers as a feature tap. Pan is proven; pinch and
+two-finger tilt are enabled but untested, and tilt needs testing with <b>3D ON</b> because gtSet3D(false) means
+"flat, tilt 0". On the simulator: pinch is Option-drag, tilt is Option-Shift-drag.</p>
+<div class="src">Written 2026-11-19 EOD from Fred 16:42&ndash;16:49.</div>
+</div>
+
+
+<h2>⭐ OPENED 2026-11-19 &mdash; LEVEL B SCOPED: THE MAP-FEATURE SURFACE (C28-26345)</h2>
+
+<div class="card">
+<h3>⭐ 2.8b C28-26345 &middot; IOSARTIFACT &mdash; level B measured: SEVEN interactions (4 taps, long-press creation, cart tap, area select)</h3>
+<p><b>Fred 11-19 12:54:</b> <i>"next task is any screen o[r] pr[o]cess launch[ed] from clicks on map
+features. up and down the stack from the feature launched."</i></p>
+
+<p><b>THE BRIDGE INVENTORY &mdash; AND B IS ALL OF IT.</b> The page reaches the host through 13
+distinct methods (they appear twice in GroupTrackScreen because there are TWO bridge objects, the reuse
+path and the create path; the iPad's SHIM is a <code>Proxy</code> forwarding any name, which is why
+C28-26319 B3 found "all 14 names ARRIVE" while only <code>onViewportChanged</code> drives anything).
+<b>Scope settled by Fred across 12:54&ndash;13:05, in three corrections to my first cut &mdash; each one
+widening it:</b> the feature taps, then <i>"it should also include artifact creation. long press"</i>,
+then <i>"now that you mention gestures I kind of took them for granted they should be included here as
+well"</i>, then <i>"cart ta[p] should [be] in there also. it is a m[a]p feature interaction."</i>
+<b>So level B is EVERY map interaction except the plumbing.</b></p>
+
+<ol>
+<li><b>READING an artifact &mdash; four taps, ONE panel.</b> <code>onTrackTap(id)</code>,
+<code>onTrailTap(id)</code>, <code>onRouteTap(id)</code>, <code>onWaypointTap(id)</code> all open
+<b>ArtifactDetailPanel</b>. Three couplings, detailed below.</li>
+
+<li><b>MAKING one &mdash; long press.</b> <code>onMapLongPress(lat, lon)</code> sets
+<code>pendingWaypoint</code>; the NEW WAYPOINT dialog (GroupTrackScreen.kt:1590-1650) is 12 FilterChips
+(hazard, gate, water, fuel, shelter, trailhead, viewpoint, campsite, parking, junction, rally, other), a
+name auto-filled from the type's label, and WPTTAP-2026-09-30's DOUBLE CONFIRM on "other" (the Create
+button becomes "Save as Other?" &mdash; "other" should be hard to pick by accident).
+<br>⭐ <b>IT PERSISTS FOR REAL:</b> <code>GtTracks.insertWaypoint</code> is ALREADY SHARED
+(GtTracks.kt:287) and Android's <code>SpatialDbManager.insertWaypoint</code> is only a front door to it
+(STEP15CDE-SWITCH-2026-11-10). Its header names the substitutions it was built for &mdash;
+<i>"UUID.randomUUID() / Instant.now() -&gt; env.ids.newId() / env.clock.nowInstant()"</i> &mdash; and
+<code>IosIds</code> / <code>IosClock</code> exist. THIRD time today the seam work had already done the
+hard half (GtProfileStore, GtRideSettings, now the waypoint write).</li>
+
+<li><b>⛔⛔ GESTURES &mdash; CORRECTED 11-19 13:05, AND I HAD IT BACKWARDS TWICE.</b>
+<br>Fred: <i>"on taps route build in a function not launched fro[m] a map touch ... I think y[o]u may be
+confusing the route record state and it[s] imp[a]ct on touches but that is handled b[y] the existing
+processes."</i> He is right, and the VIEWER'S OWN CODE says so &mdash; <code>vec_spatial.js:252-266</code>:
+<br><code>if (!window.gtOneMapRoute) window.__routeMode = false;</code>
+<br><code>if (window.__routeMode &amp;&amp; window.Android) { ... Android.onMapTap(...); return; }</code>
+<br>&mdash; then, only after that block returns, the feature search (routes, tracks, trails).
+<br><b>So <code>onMapTap</code> and <code>onProximityTap</code> are sent ONLY while
+<code>__routeMode</code> is on</b>, and that flag is forced false unless <code>gtOneMapRoute</code> is
+set. An ORDINARY MAP TOUCH NEVER REACHES THEM; it falls through to the feature taps. Route building is a
+MODE entered deliberately (<code>setRouteMode</code>), and the state's effect on touches is already
+handled in the page. The two route gestures therefore belong to the Route+ process, NOT to B.
+<br><b>⛔ MY TWO ERRORS, both from reading the Kotlin and not the page.</b> First I called these gestures
+"not features" and left them out. Then, told to include them, I read
+<code>onMapTap</code>'s Kotlin body &mdash; whose second branch really does snap, add a vertex and draw a
+build line &mdash; and announced it "the HEAVIEST item in B", building the day's estimate on it. The
+branch is real; it is simply unreachable from a plain touch. <b>The lesson is the one already written
+down: the Kotlin says what WOULD happen, the page says WHETHER it happens.</b> I grepped
+<code>vecmap_main.html</code> alone and got zeros for every method, including
+<code>onViewportChanged</code>, which demonstrably works &mdash; the viewer is a FOLDER of 23 files
+(vec_spatial.js, vec_ports.js, vec_carts.js, vec_compass.js), and one more grep would have said so.
+<br><b>WHAT SURVIVES AS B GESTURES:</b>
+<br>&middot; <code>onMapLongPress</code> &mdash; waypoint creation (item 2 above).
+<br>&middot; <code>onAreaSelected</code> (vec_ports.js, gated by <code>gtDrawOn</code>) &mdash; the AREA
+service; downloads are E/F.
+<br>&middot; <code>onRouteModeOffRequested</code> &mdash; the PAGE&rarr;HOST callback is DEAD on the
+vector viewer (zero references in all 23 files; it was the Leaflet badge tap). <b>⚠ BUT ROUTE-MODE-OFF
+ITSELF IS VERY MUCH ALIVE</b>, which Fred asked to be checked (13:07: <i>"on route mode off has impact in
+the tap functionality. lets be sure it still exists maybe under a different name. tap adds point to a
+route [i]n planning and it opens map[] features when route planning is off."</i>). He is right that it
+matters and right that it has another name:
+<br>&nbsp;&nbsp;&middot; <code>setRouteMode(on)</code> lives in <code>vec_spatial.js:252</code> and in
+vecmap_main.html's stub list, and is turned OFF from EIGHT host call sites &mdash; GroupTrackScreen 940,
+1030, 1351 and RouteModule 146, 275, 860, 866.
+<br>&nbsp;&nbsp;&middot; the viewer also resets it on EVERY click:
+<code>if (!window.gtOneMapRoute) window.__routeMode = false;</code> &mdash; so a click outside ONE MAP's
+route context clears it even if the host forgot. <code>window.gtOneMapRoute = true</code>
+(GroupTrackScreen:1034) is what lets ONE MAP have route mode at all.
+<br>&nbsp;&nbsp;&middot; ⚠ <b>AND IT HAS BITTEN BEFORE.</b> <code>vec_ports.js:5</code> records it:
+<i>"renderPins / clearPins (the missing clearPins left the map in route mode)"</i>. The map got STUCK in
+route mode once, and the fix was adding clearPins. Fred's worry is a failure with history, not a
+hypothetical &mdash; which is exactly why the per-click reset is there.
+<br>&nbsp;&nbsp;&middot; <b>ON THE iPAD TODAY:</b> the viewer has <code>setRouteMode</code>, but nothing
+in iosMain calls it and <code>gtOneMapRoute</code> is never set, so <code>__routeMode</code> is
+permanently false and every tap reaches the feature search. The iPad CANNOT get stuck. When Route+ comes
+to the iPad, <b>that per-click reset must come with it</b>, or the iPad inherits the 10-31 bug.
+<br>&nbsp;&nbsp;&middot; ⭐⭐ <b>A THIRD MECHANISM, and Fred named it from memory (13:09: <i>"the route
+on/off mode is recorded in the m[a]p persi[st]ance json and may be read from the[re] when maps
+refresh"</i>). CONFIRMED in the shared code:</b> <code>GtMapState.kt:87</code> &mdash;
+<code>data class GtRouteState(val open: Boolean, val status: String, val draftName: String)</code>, whose
+own comment reads <i>"open = route-add mode active"</i>. It hangs off
+<code>GtMapSnapshot.routeState</code>, written at :175 and read back at :227. So route-add mode PERSISTS
+IN THE MAP JSON and is restored on refresh &mdash; in the SHARED GtMapState, which the iPad already uses.
+<br>&nbsp;&nbsp;&middot; ⚠ <b>AND ONE MAP DID NOT REMOVE IT &mdash; ONE MAP IS WHAT STARTED WRITING
+IT.</b> Fred 13:10: <i>"I believe we removed that w[hen] we went to one map. everything got simpler."</i>
+Measured, and it went the other way. <code>GroupTrackScreen.kt:346-347</code> passes
+<code>GtRoute.routeState()</code> into the snapshot, and the comment on that very line reads
+<b>"GTROUTE1-2026-10-23: ONE MAP's RouteState (was null)"</b> &mdash; so the argument WAS null before ONE
+MAP and ONE MAP populated it. It is also load-bearing rather than vestigial:
+<code>RouteModule.kt:836</code> is
+<code>recoveryDetected.value = MapStateStore.readMap(rideKey()).routeState?.open == true</code> &mdash;
+ROUTE-BUILD RECOVERY, which is what makes an interrupted route reopenable. The ONE MAP simplification was
+real but landed elsewhere; this field gained use. <b>Recorded because a wrong belief here would have had
+the iPad safely ignoring a field that is actually live on Android.</b>
+<br>&nbsp;&nbsp;&middot; ⚠ <b>A LATENT DIVERGENCE IS SITTING IN THE SEEDED DATA.</b>
+<code>GtVecMap.ios.kt:166</code> reads that same JSON and takes <b>only the bbox</b>:
+<code>GtMapState(IosFiles(), IosImportPaths()).readMap(GtMapState.rideKey()).bbox</code>. It never looks
+at <code>routeState</code>. The iPad's dataset came from Droid 1's snapshot (11-16), so if that snapshot
+holds <code>routeState.open = true</code>, ANDROID RESTORES ROUTE MODE FROM IT AND THE iPAD IGNORES IT
+&mdash; one file, two behaviours. Harmless today (no Route+ on the iPad) and exactly the kind of thing
+that reads as a port defect weeks later. <b>Worth checking the seed's actual value before it is anyone's
+mystery.</b>
+<br>&nbsp;&nbsp;&middot; ⛔ <b>SO ROUTE+ ON THE iPAD NEEDS ALL THREE TOGETHER:</b> honour
+<code>routeState.open</code> on restore, accept <code>setRouteMode</code> from the host, and carry the
+per-click reset. Honouring the persisted flag WITHOUT the reset is the 10-31 stuck-in-route-mode bug
+pre-loaded from disk at startup &mdash; worse than the original, because the user never did anything to
+cause it.
+<br>&nbsp;&nbsp;&middot; So: do not port the dead callback; DO carry the three mechanisms that replaced it.</li>
+
+<li><b>THE CART TAP &mdash; in B (Fred 12:58).</b> <code>onMarkerTapped(nodeId)</code> finds the node in
+<code>convoyState.value.nodes</code> and opens its panel. I had filed this under level G because the
+state behind it is radio-fed; Fred's point stands &mdash; it is a map feature interaction and belongs
+with the others. <b>What that means concretely:</b> the TAP and the PANEL are B; the CARTS in it come
+from the mesh, so on the iPad the panel opens on an empty or seeded node list until G. Build it to Fred's
+12:26 standard (look and feel, machinery backfilled) rather than deferring the whole interaction.</li>
+
+<li><b>PLUMBING, not B.</b> <code>onBearing</code>, <code>onMapReady</code>,
+<code>onMapBoundsReady</code>, <code>onViewportChanged</code> (the only one wired today).</li>
+</ol>
+
+<p><b>⭐⭐ THE ORGANISING PRINCIPLE OF LEVEL B &mdash; Fred 11-19 13:00: <i>"agreed 100% area selected
+becomes a service. here we are defining that service."</i></b></p>
+<p><b>B DEFINES THE SERVICES. D THROUGH G IMPLEMENT THEM.</b> That is the rule, and it resolves what
+looked like a scoping problem a minute earlier. An interaction does not wait for the thing it launches:
+the interaction is certified at B by defining the SERVICE it calls, and the later level fills that
+service in. So:</p>
+<ul>
+<li><code>onAreaSelected</code> &rarr; an AREA service. B defines it &mdash; what an area selection hands
+over (the four bounds, and what it means to take one). The map DOWNLOADS behind it are E/F.</li>
+<li><code>onMarkerTapped</code> &rarr; a CART service. B defines it and opens the panel; the carts come
+from the mesh at G.</li>
+<li><code>onShare</code> / <code>onExport</code> on ArtifactDetailPanel &rarr; already lambdas. B defines
+what they promise; the iOS EMAIL half is D (<i>"including ios email solution"</i>).</li>
+<li><code>onMapTap</code>'s route building &rarr; the ROUTE service. <code>GtRoute</code> (2,674 lines)
+and <code>RouteManager</code> (296, one platform touch) are the implementation and they largely exist
+already; B defines how the map hands a tap to them.</li>
+</ul>
+<p><b>⭐ WHY THIS IS THE RIGHT CUT, not just a convenient one.</b> It is the same line the whole port has
+been drawn on: SEAMRULE-2026-11-19 says a panel that READS or TOGGLES host state takes a lambda, and
+anything that ACQUIRES or ADMITS a platform resource stays with the host. A service definition IS that
+lambda, named and given a shape. It also means B is finishable: nine interactions, each ending at a
+defined service, with no level-B item blocked on a radio, the internet or a file. And it is why the
+INGRESS taxonomy put A to C on the simulator &mdash; defining a service needs no ingress; honouring one
+does.</p>
+<p><b>⚠ THE DISCIPLINE THIS REQUIRES.</b> A defined-but-unimplemented service must SAY SO when called,
+as every level-A stub does (the status strip reports "not built on the iPad yet"). A service that
+silently does nothing is indistinguishable from a broken interaction &mdash; which is the whole reason
+TrackGrounds got a LOUD no-op rather than a quiet one this morning (TRACKGROUNDS-2026-11-19).</p>
+
+<p><b>SEVEN MESSAGES, NOT NINE.</b> The four feature taps, the long press, the cart tap and the area select &mdash; all already delivered to the iPad by the SHIM, all doing nothing. The two route gestures belong to the Route+ mode, and <code>onRouteModeOffRequested</code> is dead on this viewer. So B is answering SEVEN messages that already arrive.</p>
+
+<p><b>⭐⭐ ArtifactDetailPanel IS THE BEST-SEAMED PANEL IN THE PROJECT, and this is the measurement that
+says so.</b> 665 lines, and its signature is already ELEVEN nullable lambdas &mdash;
+<code>onLoadDetail</code>, <code>onLoadAliases</code>, <code>onRename</code>, <code>onDelete</code>,
+<code>onShare</code>, <code>onExport</code>, <code>onShowNotes</code>, <code>onAddRide</code>,
+<code>onCreateRideFromTrack</code>, <code>onBuildFromRecipe</code>, <code>onDownloadMaps</code>,
+<code>onDownloadCorridor</code>, <code>onChangeType</code>, <code>onDeleteAlias</code> &mdash; each with a
+CODE RULE 1 justification in place ("Nullable like its siblings: a screen that does not offer it passes
+nothing"). The panel already knows how to be given its world. Its buttons: DETAILS, ALIASES, RENAME,
+DELETE, SHARE, EXPORT, SAVE MAPS, CREATE A RIDE, CONTINUE, CANCEL.</p>
+
+<p><b>THE COUPLINGS, measured &mdash; there are only THREE:</b></p>
+<ol>
+<li><code>fitWebView: android.webkit.WebView?</code> &mdash; a PARAMETER, used ONCE (line 188) to call
+<code>triggerViewportUpdate()</code>. Becomes <code>onRefreshMap: () -&gt; Unit</code>; the iPad already
+has that exact call in its <code>js()</code>.</li>
+<li><code>SpatialDbManager</code> &times;3 (lines 163, 185, 196: <code>trailheadsNear</code>,
+<code>insertWaypoint</code>, <code>routeNameExists</code>) &mdash; ALL inside the CREATE A RIDE path,
+which is ALREADY gated behind the nullable <code>onCreateRideFromTrack</code>. So a host that does not
+offer ride creation never reaches them.</li>
+<li><code>android.graphics.Color.parseColor(hex)</code> (line 628) &mdash; needs a shared hex&rarr;Color.
+Six lines.</li>
+</ol>
+
+<p><b>⭐ AND <code>LocalContext</code> IS NOT A COUPLING AT ALL.</b> <code>val ctx =
+LocalContext.current</code> at line 86 is <b>DEAD</b> &mdash; declared once, used nowhere in 665 lines.
+Deleting that one line removes the import and the dependency. Found by grepping for <code>\bctx\b</code>
+rather than assuming the declaration meant a use.</p>
+
+<p><b>WHAT THIS MEANS FOR THE WORK.</b> B is not a 665-line port with a dozen seams; it is one WebView
+parameter turned into a lambda, one colour parser, one dead line deleted, and a ride-creation sub-flow
+that is already optional. The iPad side then needs the four tap messages routed (the SHIM already
+delivers them) and <code>onLoadDetail</code> / <code>onLoadAliases</code> answered from the spatial
+database &mdash; which <code>IosSearchDb</code> already opens and reads through the shared
+<code>GtRead</code>.</p>
+
+<p><b>⚠ WHAT IS STILL FRED'S DECISION, and it gates part of B.</b> EXPORTPICK (C28-26321) is marked
+PROVISIONAL on Fred's own words of 11-17 15:17: <i>"let me finish my testing and I will return with a
+better overview of functions."</i> What IS settled there: EXPORT writes and stops, SHARE is REDUNDANT and
+comes off the panel, EMAIL lives in the picker. So the panel's button SET is not final, and the SHARE
+button measured above is one Fred has already said should go. <b>Do not port the button set as it stands
+without raising this.</b> The EMAIL half is level D anyway ("including ios email solution").</p>
+<p><b>comment</b> 11-19 12:55: scoped, not built. Level A is complete and signed off; this is the next
+build once the button-set question is answered or deliberately deferred.</p>
+</div>
+
+<h2>⭐⭐ OPENED 2026-11-19 &mdash; THE iOS CERTIFICATION SEQUENCE, A to G (C28-26344)</h2>
+
+<div class="card">
+<h3>⭐ 2.8b C28-26344 &middot; IOSSEQ &mdash; the order the iPad gets certified in, A through G</h3>
+<p><b>Fred 11-19 12:23, verbatim.</b> <i>"my sense of where we are and the sequences we should proceed
+in. [i]OS Implementation of screen and Processes"</i></p>
+<ol>
+<li><b>A.</b> <i>"1A-I and M. - basic screen c[e]rt[i]fication for all screen type and map ove[rl]ay of
+launch points. added HUD [d]i[s]play to th[i]s level."</i></li>
+<li><b>B.</b> <i>"Next cert[i]fication of th[e] [s]creen and menu launched from map interactions
+(clicking on a track or tri[a]l etc."</i></li>
+<li><b>C.</b> <i>"all bottom buttons except maps and Radio setup."</i></li>
+<li><b>D.</b> <i>"Maps simple functions ( screen with zero int[er]net file processing) includ[i]ng ios
+email solution)"</i></li>
+<li><b>E.</b> <i>"Maps function with internet downloads"</i></li>
+<li><b>F.</b> <i>"Maps function or downloads function using click to action t[o] launch."</i></li>
+<li><b>G.</b> <i>"Comm function for mesht[a]tsic blu[e]to[o]th services"</i></li>
+</ol>
+
+<p><b>⭐ WHY THIS ORDER IS THE SAME SHAPE AS THE INGRESS TAXONOMY, not a second plan.</b> A to C are
+READ / DISPLAY and state the rider already has, so they certify on a SIMULATOR. D onward introduce
+something from OUTSIDE the device &mdash; a file, the internet, a radio &mdash; which is why they are
+later and why they need real hardware. That is INGRESS-2026-11-19 restated as a work order: A to C are
+sim-certifiable, D to G are device work.</p>
+
+<p><b>⭐ WHERE THIS PLACES THE EMAIL / SHARE WORK, which settles an open question from this morning.</b>
+Fred 11-18: <i>"that is why [we] operated the external heavy lifting to the second round of the build.
+email send, file imports and exports, and comm modules."</i> That said WHEN but not WHERE. <b>D names
+it: "including ios email solution".</b> So the three TOOLS left off the iPad's settings panel today
+(IOSSETTINGS-2026-11-19 &mdash; the conversion record, the trail check and the issue report, each ending
+in <code>Intent.ACTION_SEND</code> + <code>createChooser</code>) are <b>D work</b>, not indefinitely
+deferred. Likewise EXPORTPICK's EMAIL-in-the-picker (C28-26321) and MAPMENU item 2's one-file DR save.</p>
+
+<p><b>LEVEL A &mdash; WHERE IT ACTUALLY STANDS AT 12:25 TODAY.</b></p>
+<ul>
+<li>✅ the A&ndash;I + M panels on glass and certified by Fred's own pass (PANELZERO closed: 0 of 17 to all of them compiling and drawn)</li>
+<li>✅ FILTER / KEY redraw, 3D, search + map fit, CENTRE ON ME, state list in search, online/offline</li>
+<li>✅ A&middot;MENU's three rows WIRED 11-19 &mdash; menu.account (IOSPROFILE), menu.help (IOSHELP),
+menu.settings (IOSSETTINGS). Each opens a SHARED panel on the rider's real store.</li>
+<li>✅ <b>THE HUD &mdash; BUILT 11-19 12:32, both halves.</b> Fred 12:26 set the standard:
+<i>"build panel and w[i]th no radio functions built underneath. not wired yet. we are after look and
+feel and functionality will be backfilled if it is missing. per my list above."</i>
+<br>&middot; <b>IOSREC-2026-11-19</b> &mdash; the top-centre RECORD control is no longer an inert chip.
+<code>GtRecordButton</code> (shared) carries Android's five colours and five labels, the collapsed
+button and the expanded PAUSE/CONTINUE + END menu; the state machine CYCLES
+(CHECK_IN &rarr; IDLE &rarr; RECORDING &rarr; menu &rarr; PAUSED &rarr; END &rarr; CHECK_IN) so every
+state can be judged. <code>RecordingState</code> moved app &rarr; commonMain, same package, so all
+three Android consumers compiled untouched.
+<br>&middot; <b>IOSHUD-2026-11-19</b> &mdash; the HUD's GPS line at bottom-left, 72 dp up
+(SHELL7-2026-10-22), HUDRIDE-gated on <code>recState != CHECK_IN</code>. The satellite, the
+interval/channel meter and the drawn light/dark toggle, transcribed value for value from
+GroupTrackScreen.kt:3672-3726.
+<br>&middot; ⭐ IT IS HONEST WITH NO RADIO: the meter's two numbers come from the mesh, so the iPad shows
+<code>-- s</code> and a green <code>0%</code> &mdash; which is EXACTLY what Android shows with no radio
+(<code>intervalSecs &lt;= 0</code> gives "-- s"; <code>gpsChColor(0f)</code> is green). Not a placeholder
+standing in for Android's behaviour; it IS Android's behaviour for a device with no radio.
+<br>&middot; ⛔ NOT BUILT, deliberately: the GROUP / NODE readouts under that line. Both render from
+<code>convoyState</code> &mdash; the carts, their roles, their signal &mdash; which has no iPad
+equivalent. An empty cart list would read as a ride with nobody in it, so it waits for level B / G
+rather than becoming a stub. Also absent and reported on tap: the check-in (no <code>GtRideEnv</code> in
+iosMain) and the recorder (no shared one exists; Android's is a foreground Service).</li>
+
+<li><b>⭐ LEVEL A IS COMPLETE &mdash; CONFIRMED BY FRED 12:53:</b> <i>"item 1 on my list with the addition of the hud displa[y] are completed."</i> On glass and signed off at 12:53; Three menu rows, the record control and the HUD all on
+glass, both platforms compiling green. B is next and is UNSCOPED &mdash; a tap on a track or trail
+reaches ArtifactDetailPanel and the artifact tools, a different surface from the launch points, and
+EXPORTPICK is still marked provisional pending Fred's <i>"better overview of functions"</i>.</li>
+<li>⚠ KNOWN GAPS inside A, each recorded where it lives: HELP is <code>{}</code> in all three menu
+panels until GtHelp's link table is shared; the settings panel uses Gt roles where Android's screen
+uses MaterialTheme; document FRAGMENTS and the document BACK STACK are not on the iPad.</li>
+</ul>
+<p><b>comment</b> 11-19: A closes when the HUD is wired. B is the next certification and has not been
+scoped &mdash; map interactions (a tap on a track or a trail) reach ArtifactDetailPanel and the artifact
+tools, which is a different surface from the launch points.</p>
+</div>
+
+<h2>CARRIED FORWARD 2026-11-19 &mdash; MAPMENU, WHICH v7 AND v8 REFERENCED BUT DID NOT CONTAIN</h2>
+<p><b>Why it is here.</b> Fred 11-19 11:43 pointed at the menu revision in his <i>prior posting</i>. Measured: the card was written into v6, then dropped from v7 and v8 &mdash; while BOTH still refer to it, v8 saying &ldquo;specced in MAPMENU <b>above</b>&rdquo;. It has been a dangling reference for two versions. That is the exact failure the DOC-PROCESS DURABILITY MANDATE exists to prevent (Fred 07-06: <i>&ldquo;if the living doc references a doc I cannot see or get to, it never existed&rdquo;</i>). Carried forward from v6 unedited; nothing below is re-interpreted.</p>
+<div class="card"><h3><span class="tag t-prog">QUEUED POST-2.8 &mdash; FRED 11-17 16:32</span> <code>C28-26321</code> &middot; MAPMENU &mdash; Maps menu revisions (Fred 11-17 16:32: <i>"post 2.8 revisions to be queued"</i>)</h3>
+<p><b>Fred's list, verbatim</b></p>
+<ul>
+<li>"Remove option. Remove Maps for all tacks dead"</li>
+<li>"Back up GroupTrack Date email. Replace to one file attachments. change to write to directory one file that restore all components, no more email. drites to dr directory. runs automated very 7 days to add new version"</li>
+<li>"Import files open wMapfeatures view with import from Mp features directory. save or email or delete."</li>
+<li>"Export all routes to one gpx file. write to map features directory"</li>
+<li>"Export all tracks to one gpx file write to map features"</li>
+<li>"Export all waypoints to Gpx file write to map features"</li>
+<li>"Export rider trails to gpx file Write to map features"</li>
+</ul>
+<p><b>&#11088; ALREADY SHIPPING &mdash; items 3 to 7, verified in code 11-17 16:33</b> Import files (<code>map.gpx</code>) opens <code>GtFilePickerBody</code> on GroupTrack Map Features with IMPORT / EMAIL / DELETE (ONEPICKER-2026-11-17). All four exports already bundle ONE gpx per type &mdash; EXPORTALL-2026-11-03, Fred then: <i>"it should bundle all objects in one gpx file for importing. one type at a time"</i> &mdash; named <code>GroupTrack_ROUTES_&lt;date&gt;.gpx</code> etc., and EXPORTFAM-2026-11-17 routed all four to Map Features. So items 3-7 need confirming on device, not building.</p>
+<p><b>item 1 &mdash; HALF DONE</b> The launch handler for <code>map.rm_track</code> is already commented out (<code>GroupTrackScreen.kt:3053</code>, GTHEAVY-2026-10-23) so tapping it does nothing. What survives is the LABEL at <code>LaunchModules.kt:97</code> &mdash; <i>"rm_track" to "Remove maps for all tracks"</i>, carrying the note "stays (Fred 10:14)" &mdash; and the dialog at <code>MapScreens.kt:437</code>. Removing the entry means the label and the dialog; the handler is already gone.</p>
+<p><b>item 2 &mdash; THE REAL WORK, four changes to GtBackup</b></p>
+<ul>
+<li>ONE file restoring all components, instead of today's four (<code>TYPES</code> = routes, tracks, waypoints, rider trails)</li>
+<li>written to the <b>DR directory</b> (<code>Family.ROOT</code>, "GroupTrack") &mdash; <code>archive()</code> currently writes to Map Features / Maps</li>
+<li><b>no email</b> &mdash; <code>send()</code> and its <code>ACTION_SEND_MULTIPLE</code> + <code>EXTRA_EMAIL</code> come out</li>
+<li><b>automatic every 7 days, adding a new version</b>, replacing today's rider prompt (<code>ready</code> / <code>sendReady</code>). The 7-day machinery already exists: <code>weekOld()</code> and the <code>sentAtMs</code> pref, added 11-17 for ARCHIVEGATE.</li>
+</ul>
+<p><b>&#9888; DECISION OWED &mdash; what "a new version" means.</b> <code>GtFileHome.save</code> OVERWRITES a same-named file deliberately (<i>"the local directories are the CURRENT recovery position and stay small and browsable"</i>, Fred 11-17), which is the opposite of accumulating versions. Dated filenames reconcile the two: <code>GroupTrack_DR_2026-11-17</code> differs from <code>..._2026-11-24</code>, so versions accumulate by date and only a same-day rerun overwrites. Confirm that is the intent rather than a numbered sequence.</p>
+<p><b>&#9888; and one consequence</b> With no email in the DR job, the recovery position exists only on the tablet until the Drive mirror lands &mdash; and the mirror is explicitly ON HOLD pending an iPad equivalent (Fred 11-17). So between this change and the mirror, a lost tablet loses the backup. Worth stating out loud before the email goes.</p>
+</div>
+
+<h2>OPENED 2026-11-19 &mdash; THE END-OF-DAY COMMITMENT (C28-26343)</h2>
+
+<div class="card">
+<h3>⭐ 2.8b &mdash; THE RIDE IS <b>FRIDAY 2026-11-20, MORNING</b> (Fred 11-19 12:53) C28-26343 &middot; SIDEBYSIDE &mdash; 2.8a on Droid 1, two GPX files against Droid 2</h3>
+<p><b>Release:</b> 2.8a build / 2.8b certification. <b>Fred 10:57, a DATED COMMITMENT, not a backlog item.</b></p>
+<p><b>⭐ STATUS 11-19 12:53 &mdash; THE BUILD HALF IS DONE; THE RIDE IS TOMORROW MORNING.</b> Fred 12:53:
+<i>"ride takes place tomorrow morning."</i> So the 10:57 wording "by end of day" applied to the BUILD and
+the DEPLOY, both of which landed: 2.8a = <code>55704d1a5</code> was built at 11:27 and installed on
+Droid 1 at 11:28:54 (versionCode 29321690), with Droid 2 untouched on 2.7f. That commit carries BOTH the
+TrackRules move and MYCARTSNAP, and nothing committed since touches the Android recorder, so the APK on
+Droid 1 is the right one to ride.</p>
+<p><b>⚠ THE TWO THINGS STILL OWED BEFORE THE RIDE, neither of them a build:</b></p>
+<ul>
+<li><b>A two-minute recording in the driveway.</b> Three things in that APK have never run on hardware:
+<code>TrackGrounds.assertSet</code> at record-start, <code>MyCartProcess</code> with
+<code>fill = true</code> for the first time ever (MYCARTSNAP), and the <code>MY DEVICE GPS n</code> lamp
+at 16 characters where 12 fitted. One short recording plus
+<code>grep -i "TRACKGROUNDS\|TRACKRULES" ~/Downloads/gt_logs/droid1_1119_1128.log</code> answers all
+three. <code>source = DbLineSource (set at startup)</code> is the good answer; <b>IS UNSET</b> means the
+ride would certify nothing.</li>
+<li><b>"Create trails from tracks" on Droid 1 BETWEEN THE LEGS.</b> Measured 11-19:
+<code>ConvoyGpsService</code> contains NO rider-trail call of any kind &mdash; the only triggers are that
+dialog (MapScreens.kt:392) and the track-import screen. Without that step the return leg has nothing
+within <code>SNAP_M</code> (50 m), Droid 1 writes raw exactly like Droid 2, and the ride proves nothing.</li>
+</ul>
+<p><b>Fred's words:</b> <i>"make a note to regen 2.8a model and deploy to droid 1 by end of day. I wan[t] to record track with dr[oi]d 1 and droid 2 together. I want to use 2.8a on d[r]oid1[,] 2.7f on dorid 2 and record two sep[a]rate gpx files [we] can evaluate. trail databases are duplicated."</i></p>
+<p><b>⭐⭐ WHY THIS IS THE CERTIFICATION, NOT JUST A TEST.</b> Today's TrackRules move substitutes
+<code>Math.cos</code> / <code>Math.hypot</code> for <code>GtMath.cos</code> / <code>GtMath.hypot</code> on
+the code path that decides <b>what every recorded track looks like</b> (TRACKRULES-2026-10-19: the snap
+rules, interpolated road points, the hold-at-intersection rule). GtMath exists precisely for this
+(GTMATH2-2026-11-10, "Android's math on every platform") and MATHPROBE certifies its functions on seeded
+and real inputs &mdash; but <b>two devices riding the same trail with duplicated databases and producing
+two GPX files is stronger evidence than any synthetic probe</b>: it exercises the rules, the snapping, the
+timing and the writer together, on real GPS noise.</p>
+<p><b>THE SETUP, as Fred specified it:</b><br>
+&middot; <b>Droid 1</b> &mdash; 2.8a (today's build, with TrackRules moved to shared + GtMath)<br>
+&middot; <b>Droid 2</b> &mdash; 2.7f (the comparison baseline, with Android's own Math)<br>
+&middot; trail databases <b>duplicated</b> across both, so the snap targets are identical<br>
+&middot; recorded <b>together</b>, one ride, two GPX files<br>
+&middot; then evaluate the two files against each other</p>
+<p><b>⛔ CORRECTED 11-19 11:05 &mdash; THIS IS NOT A GtMath TEST. I had it backwards this morning.</b>
+<code>GtMath.android.kt</code> delegates every function straight to <code>java.lang.Math</code>, and
+GTMATH-2026-11-10 says so outright: <i>"Android: GtMath IS java.lang.Math &mdash; exactly what 2.7e and every
+certified step already call. Android does not change by a bit."</i> The <code>Math.cos</code> /
+<code>Math.hypot</code> substitutions are therefore <b>bit-for-bit identical on Droid, provably, before anyone
+drives anywhere</b>. <code>Math.toRadians</code> went to <code>GtJava.toRadians</code>
+(<code>deg * 0.017453292519943295</code>, proven on Droid 1 to equal <code>java.lang.Math.toRadians</code>)
+and NOT to <code>deg * PI / 180.0</code>, which is a third, differently-rounded variant.
+<b>So a divergence between the two GPX files is a REFACTOR defect &mdash; something moved wrong &mdash; never a
+math defect.</b> GtMath against Apple's libm is the iPad's test, and that comes later (Fred 11:00: iPad certs
+follow when a test instance is deployed there).</p>
+
+<p><b>⛔⛔ THREE-WAY CERTIFICATION &mdash; DROID 2 MUST NOT BE TOUCHED.</b> Fred 11-19 11:22:
+<i>"droid 2 ha[s] [to] stay on 2.7f for certification[:] old code droid, new code droid, and 2.8b Mac."</i>
+<b>Droid 2 = 2.7f = THE ORACLE.</b> It is the only record of what the old code does, and it cannot be
+regenerated once overwritten.</p>
+<p><b>THE INSTALL HAZARD, measured 11-19 11:21.</b> Since 10-13 BOTH tablets plug into the Mac, and
+<code>deploy_v3.sh:45</code> reads <code>DEVS=$(adb devices ...)</code> &mdash; it installs on
+<b>EVERY connected device</b> unless given a serial. So:</p>
+<ul>
+<li>⛔ NEVER <code>gt_build_v2.sh --deploy</code> during this certification &mdash; it calls
+<code>deploy_v3.sh</code> with no serial and would put 2.8a on Droid 2, destroying the oracle.</li>
+<li>⛔ NEVER <code>deploy_v3.sh latest</code> without a serial, for the same reason.</li>
+<li>✅ Build plain (<code>bash "$GT_CMDS/gt_build_v2.sh"</code>, no flag &mdash; it does not install), then
+<code>bash "$GT_CMDS/deploy_v3.sh" &lt;build&gt; &lt;DROID-1-SERIAL&gt;</code>.</li>
+<li>Unplugging Droid 2 for the duration is the belt-and-braces version, and costs nothing.</li>
+</ul>
+
+<p><b>⭐ WHAT THE RIDE ACTUALLY MEASURES, after MYCARTSNAP-2026-11-19.</b> Fred reversed MYCARTRAW-2026-10-19
+himself at 11:06 (<i>"my return track should not stay raw it should snap to the outbound trail created by my
+track recording"</i>), so <code>MyCartProcess</code> now takes the route / trail rules. With the flip on Droid 1
+only, the two devices stop being a before/after pair and become <b>truth and rules side by side for the whole
+98 miles</b>:</p>
+<ul>
+<li><b>Droid 2 (2.7f, raw)</b> &mdash; ground truth. Where he actually drove, both legs.</li>
+<li><b>Droid 1 (2.8a, snapped)</b> &mdash; what the rules did with it. Snaps to published trail wherever the
+duplicated databases have it, and to his own rider trail on the return where they do not.</li>
+</ul>
+<p>This is a STRONGER certification of the snap rules than two raw tracks, and it costs nothing extra on the
+drive. Droid 1 is only raw on virgin ground &mdash; which is exactly where <code>RiderTrailWriter</code> creates
+the trail (source <code>'rider'</code>, <i>"the ground you rode where no trail is published"</i>) that the return
+leg then snaps to. Fred 11:03: <i>"tracks write creates a trail if the track is overground with no trails."</i></p>
+
+<p><b>THE ROUTE TIER &mdash; BY DESIGN, AND NOT IN PLAY HERE.</b> Fred 11:09: <i>"a route is a preplanned item
+and has n[o] bearing on my trails. there will be no rout[e] in this instance. all that means is if a route was
+planned it[s] course takes precedence over known trails."</i> A route is the rider's DECLARED INTENT, so it
+outranks known trails on purpose. There is no route in this test, so the gate never fires. Recorded here only so
+the tier order is not mistaken for a defect when someone reads the rules later. Measured at the tier gate: <code>if (shown != null) return Fill(listOf(a, b), "STRAIGHT", emptyList())</code>
+&mdash; GAPFILL-2026-10-20, <i>"off the displayed route = straight (no trails)"</i>. With a route on the map the
+rules use that route ALONE and never reach the trail lookup, so the outbound trail is ignored and the return
+track is written as straight joins. With no route shown, the tier is <code>tracksNear</code> (which finds the
+outbound TRACK) falling through to <code>trail()</code> (which finds the rider TRAIL) &mdash; either path is the
+outbound geometry, which is what Fred asked for at 11:08.</p>
+
+<p><b>HOW TO READ THE TWO FILES.</b> The devices have different GPS chips, so nothing will be byte-identical and
+should not be expected to be. On the OUTBOUND leg both are near-raw over virgin ground, so that leg is the
+apples-to-apples check. On the RETURN leg the comparison is deliberately asymmetric: Droid 2 shows where he
+drove, Droid 1 shows where the rules put him. A Droid 1 return point that sits ON the outbound line where
+Droid 2 wandered off it is the rules WORKING. A Droid 1 return point that snapped to the wrong line, or that
+stayed off the outbound line entirely, is the defect.</p>
+<p><b>OWED TO MAKE IT POSSIBLE:</b> regen the 2.8a build and install it on Droid 1. Confirm what "2.7f"
+is on Droid 2 &mdash; the newest tag measured on 11-18 was <code>2.7e-2026-11-11f</code>, so the name
+needs pinning before the comparison is recorded, or the evaluation will not say which baseline it beat.</p>
+</div>
+
+<h2>OPENED 2026-11-19 &mdash; FOUND DURING THE FIRST CERTIFICATION PASS (C28-26340 &hellip; C28-26342)</h2>
+
+<div class="card">
+<h3>ACTIVE 2.8b &mdash; TOOL DEFECT C28-26340 &middot; VECSYNC &mdash; gt_vecopaque is a one-shot installer, not a sync</h3>
+<p><b>Release:</b> 2.8b, and it will bite again the next time the viewer changes.</p>
+<p><b>FOUND 11-19</b> applying ATTRIB. The viewer exists TWICE: the canonical
+<code>app/src/main/assets/vecmap</code> (in git, what Android reads) and
+<code>iosapp/iosapp/Resources/vecmap</code> (gitignored, shipped as an opaque folder,
+VECOPAQUE-2026-11-18). <code>gt_vecopaque_2026-11-18_v1.py --apply</code> is the tool that creates the
+second from the first &mdash; but it is <b>MARKER-GUARDED</b>. After the attribution edit it answered
+<i>"ALREADY APPLIED -- nothing to do"</i> and copied nothing, leaving the iOS viewer at the old 7,351
+bytes while Android had 8,113.</p>
+<p><b>WHY IT MATTERS AND WHY IT IS SILENT:</b> the iOS copy is gitignored, so git will never show the
+drift, and the app builds green with the stale viewer. The failure mode is "the fix did not appear on the
+iPad" with nothing anywhere saying why. This time it was caught by diffing the two trees; nothing in the
+process would have caught it.</p>
+<p><b>WORKED AROUND, NOT FIXED:</b> the single changed file was copied by hand. The marker was left alone
+rather than defeated &mdash; a guard that is wrong should be corrected, not bypassed per-use.</p>
+<p><b>NEXT:</b> give the tool a <code>--sync</code> that re-copies when the source is newer (or compares
+and copies the differences), so one command is always the answer to "the viewer changed".</p>
+</div>
+
+<div class="card">
+<h3>ACTIVE 2.8b &mdash; FIXED SAME DAY C28-26341 &middot; FILTERTICK &mdash; the ticks looked identical on and off</h3>
+<p><b>Release:</b> 2.8b. <b>Fred found it on the iPad within minutes of the first launch.</b></p>
+<p><b>Fred 09:25:</b> <i>"checks for sel[e]ction on filter type for motorized a[nd] trail types lo[ok] the
+same for on or off. check box. the same color as box background?"</i> &mdash; and he was right about the
+cause as well as the symptom.</p>
+<p><b>MEASURED:</b> <code>Gt.accent</code> and <code>Gt.dim</code> are <b>BOTH</b>
+<code>GtScheme.panelText</code> (GtPanel.kt:82 and :84), and
+<code>boxColors() = CheckboxDefaults.colors(checkedColor = Gt.accent, uncheckedColor = Gt.dim)</code>
+&mdash; so checked and unchecked were <b>the same value</b>. <code>checkmarkColor</code> was never set, so
+it fell back to Material's <code>onPrimary</code>, which <code>GtTheme</code> sets to the PANEL
+background. "The same color as box background" was literally true.</p>
+<p><b>⭐ accent == dim IS DELIBERATE</b> (STD1C-2026-10-24: dim/accent/good/warn/bad all read the text
+colour <i>"until a use is given its own colour for a reason"</i>). This was that reason, so the ROLES were
+left alone and the control stopped asking two identical roles to carry a distinction. The fix is
+STD1H-2026-10-24's own rule &mdash; <i>"a SELECTION shows a check mark, never a coloured box"</i>: OFF is
+an outlined empty box, ON is a check mark in the text colour.</p>
+<p><b>⚠ STILL OPEN, AND IT IS THE SAME ROOT:</b> <code>Gt.good</code>, <code>Gt.warn</code> and
+<code>Gt.bad</code> are ALSO all <code>panelText</code>. Anywhere a screen uses those three to mean
+green / amber / red they render identically. <b>E&middot;Status is the obvious next one to look at.</b>
+And the condition is not iPad-specific: <code>GroupTrackScreen.kt:3055</code> passes
+<code>mapType = if (hudOnDark) "SAT" else "VEC"</code>, and <code>forMap</code> sends anything that is not
+SAT/HYB to the topo scheme &mdash; so accent == dim on the Droid too. <b>Whether it READS wrong on Android
+is Fred's call from Droid 1; it is not asserted here as an Android defect.</b></p>
+</div>
+
+<div class="card">
+<h3>ACTIVE 2.8b &mdash; UNPORTED HOST CHROME C28-26342 &middot; RECORDCLUSTER &mdash; RECORD, the GPS lamp and the zoom readout are not in the launch layer</h3>
+<p><b>Release:</b> 2.8b.</p>
+<p><b>Fred 09:41, certifying:</b> <i>"no record button. no g[p]s mode above record no z button."</i>
+<b>Correct, and not a defect:</b> <code>GroupTrack.kt:187-189</code> says so in its own comments &mdash;
+<i>"top centre: drawn by ConvoyScreen (SHELL2-2026-10-22)... RECORD is RE-POINTED: ConvoyScreen's own REC
+control moves to the top centre in ONE MAP... with the GPS light beside N &middot; Z&lt;zoom&gt; above
+it"</i>. All three are the Android HOST's chrome, which <code>GroupTrackLaunchLayer</code> never
+owned.</p>
+<p><b>⭐ THE SCOPE LESSON:</b> porting A&ndash;I does NOT by itself give the whole screen, because
+<code>ConvoyScreen</code> contributes chrome outside the launch layer. That was not visible from the
+launch-point inventory and only appeared when Fred looked at the glass.</p>
+<p><b>SIZED:</b> <code>GroupTrackScreen.kt:1736-1760</code>, roughly 25 lines of Compose. Its inputs are
+<code>viewModel.gpsLamp()</code> (ConvoyViewModel) and <code>recordingState</code>, so on the iPad they
+become host-supplied values &mdash; the same SEAMRULE shape as everything else today. B&middot;Check in's
+own logic (check-in / REC / PAUSE / END) is a separate and larger piece.</p>
+<p><b>NEXT:</b> port the cluster's LAYOUT into the launch layer's TOP slot with its two values passed in,
+so both platforms draw it from one place instead of Android drawing it beside the layer.</p>
+</div>
+
+<h2>OPENED 2026-11-19 &mdash; FOUND WHILE PUTTING A&ndash;I AND M ON THE GLASS (C28-26334 &hellip; C28-26339)</h2>
+
+<div class="card">
+<h3>ACTIVE 2.8b &mdash; COMPILER SAYS SO C28-26334 &middot; MATHZERO &mdash; "Division by zero" in iosMain</h3>
+<p><b>Release:</b> 2.8b. Pre-existing, unrelated to today's port.</p>
+<p><b>MEASURED 11-19</b> in the iOS compile output, on every run:
+<code>grouptrack-shared/src/iosMain/.../text/GtMathLog.kt:125:40 Division by zero.</code></p>
+<p><b>WHY IT MATTERS:</b> this is not a style note. The compiler has evaluated a constant expression and
+found a division by zero, which means that line either never runs or produces an infinity/NaN that then
+flows into whatever consumes it. <code>GtMathLog</code> exists so the iPad reproduces <b>Android's</b>
+maths (GTMATH2-2026-11-10, "Android's math on every platform"), so a divergence here is exactly the class
+of defect that file was created to prevent.</p>
+<p><b>NEXT:</b> read line 125, decide whether it is dead or wrong, and if it is reachable check the value
+against Android's for the same input.</p>
+</div>
+
+<div class="card">
+<h3>ACTIVE 2.8b &mdash; WORDING C28-26335 &middot; DEVICEWORD &mdash; the mode button still says "Droid"</h3>
+<p><b>Release:</b> 2.8b.</p>
+<p><b>Fred 11-19, first item of the day:</b> the Droid / GRP Awareness mode button should say <b>DEVICE</b>,
+not <b>Droid</b>. Named before the port work started and carded here so it is not lost in it.</p>
+<p><b>WHY IT MATTERS NOW:</b> "Droid" is Android-specific wording on a control that, as of commit
+<code>e365479ec</code>, draws on the iPad too. It is the first user-visible place the Android assumption
+leaks into the shared launch layer, and the whole point of C&middot;Mode is to say which device you are
+looking at.</p>
+<p><b>NEXT:</b> one label change in the shared launch layer, plus the manual section for C&middot;Mode.</p>
+</div>
+
+<div class="card">
+<h3>ACTIVE 2.8b &mdash; KNOWN GAP C28-26336 &middot; MAPVIEWPORT &mdash; the iPad's search has no origin</h3>
+<p><b>Release:</b> 2.8b. Chosen, documented, not a defect.</p>
+<p><b>MEASURED 11-19</b> in <code>GtIosPanels.kt</code>: <code>mapCenter = { doubleArrayOf(0.0, 0.0) }</code>.
+The iPad's map does not report its viewport back to the host yet, so M&middot;Search's distance column has
+no real origin. <b>0,0 was chosen over a plausible-looking fake</b> so the gap is visible rather than
+believable.</p>
+<p><b>RELATED, SAME ROOT:</b> <code>bearing = 0f</code>, <code>tilt = false</code>,
+<code>headingUp = false</code> are the map's actual flat/north-up state rather than reported values, and
+the MAPFRAME <b>write</b> half (viewport &rarr; <code>saveMap</code>) is still owed &mdash; without it the
+page opens on its hardcoded <code>center: [-98.5, 39.5], zoom: 4</code>, the middle of the United States.
+One mechanism (the map reporting its frame to the host) closes all of it.</p>
+<p><b>NEXT:</b> route <code>onViewportChanged</code> into host state, feed <code>mapCenter</code>,
+<code>bearing</code>, <code>tilt</code> and <code>headingUp</code> from it, and land the saveMap write.</p>
+</div>
+
+<div class="card">
+<h3>ACTIVE 2.8b &mdash; KNOWN GAP C28-26337 &middot; IOSSTATES &mdash; M&middot;Search runs unbounded on the iPad</h3>
+<p><b>Release:</b> 2.8b. CODE RULE 1 compliant, and the bridge documents it.</p>
+<p><b>MEASURED 11-19:</b> <code>states = { emptyList() }</code> in <code>GtIosPanels.kt</code>.
+<code>GeofabrikCatalog.load(context)</code> is the Android asset parse and stayed in <code>app/</code>; only
+the <code>GeofabrikState</code> data class moved to shared. An empty list is a <b>legitimate value</b> &mdash;
+the search then runs UNBOUNDED, exactly as it does on Android when the map sits outside every state outline
+&mdash; so this degrades the "in this state only" filter, not the search.</p>
+<p><b>CHEAP TO CLOSE:</b> <code>geofabrik_states.json</code> is <b>already one of the bundled iOS assets</b>,
+so this is a parse in shared or iosMain, not a data problem.</p>
+<p><b>NEXT:</b> move the catalogue parse to shared (it should be portable &mdash; read the consumer first) and
+supply it from <code>iosBundleAsset</code>.</p>
+</div>
+
+<div class="card">
+<h3>ACTIVE 2.8b &mdash; LOUD STUBS C28-26338 &middot; IOSCHROME &mdash; four panel services say "not attached yet" on the iPad</h3>
+<p><b>Release:</b> 2.8b for help and issue; <b>round 2</b> for the two download panels.</p>
+<p><b>BUILT 11-19</b> as <code>GtPanelChromeIos</code>. Per SKIPLOUD these are stubs that SAY SO in the
+codebase's own "not attached yet" idiom, so a missing control is visible during certification instead of
+being an empty space nobody questions:<br>
+&middot; <b>openHelp</b> &mdash; logs; there is no iOS docs viewer yet, so OVERVIEW leaves a trace and
+nothing opens. <b>This is the one that matters for A&ndash;I certification</b>, because MENUOVERVIEW put an
+OVERVIEW control on every menu row.<br>
+&middot; <b>IssueButton / IssueHost</b> &mdash; drawn dim and inert; Android needs <code>LocalView</code> to
+capture the screen.<br>
+&middot; <b>QueueSummary / DownloadSettingsPanel</b> &mdash; J&middot;Map, round 2 by agreement.<br>
+&middot; <b>UtahPrivatePanel</b> &mdash; draws nothing, which is the interface's own documented intent.</p>
+<p><b>NEXT:</b> decide whether the iPad's help viewer is a WKWebView over the bundled manual (the manual is
+already a bundled asset) &mdash; that would close the OVERVIEW gap for all of A&ndash;I in one change.</p>
+</div>
+
+<div class="card">
+<h3>ACTIVE 2.8b &mdash; METHOD C28-26339 &middot; PORTCHECK &mdash; the preprocessing pass belongs in a tool, not in Claude's head</h3>
+<p><b>Release:</b> 2.8b, before K&middot;Add Route and L&middot;Rides are touched.</p>
+<p><b>Fred 11-19 08:42:</b> <i>"so have you established patterns to preprocess the rest of the code as we
+continue to extend our build to the remaining functions?"</i></p>
+<p><b>THE EVIDENCE:</b> seven files cost about <b>six builds</b> today. Every failure was one of eight
+mechanical categories, all scriptable, and the full list with its provenance is in the handoff under
+PORTCHECK-2026-11-19. The facade trap alone cost four builds, and the sweep that proved it was the only
+such collision took <b>one command</b>.</p>
+<p><b>WHY A TOOL AND NOT A NOTE:</b> twice today a guard of mine read raw text instead of code and blocked
+a correct patch, and <b>both times I had already written the comment-stripping helper that morning and
+wrote a fresh naive one instead</b>. A check that is re-derived each time is not a check.</p>
+<p><b>NEXT:</b> <code>gt_portcheck_&lt;date&gt;_v1.py</code> &mdash; takes a file list, reports blockers by
+category, carries <code>code_only()</code> once. Then add it to the start-of-day gate beside the
+declared-version and recommit-owed checks.</p>
+</div>
+
 <h2>OPENED 2026-11-19 &mdash; FOUND WHILE PORTING THE LAUNCH LAYER (C28-26333)</h2>
 
 <div class="card">

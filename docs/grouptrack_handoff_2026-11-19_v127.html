@@ -36,6 +36,109 @@ th{background:#12203a;color:var(--accent)}
 </header>
 <main>
 
+<h2>&#11088;&#11088; 11-19 AFTERNOON &mdash; DATA BASELINE, THE RECONCILIATION, AND WHAT IS PROVEN (EOD)</h2>
+
+<div class="card">
+<p><b>Fred 13:52:</b> <i>&ldquo;the cornerstone of our testing was the data is consistent... we are not at that
+point with data.&rdquo;</i> &middot; <b>14:50:</b> <i>&ldquo;pull droid 2 and seed the Mac sim with th[at] data.
+period.&rdquo;</i> &middot; <b>16:50:</b> <i>&ldquo;good recovery today. we have data in synch and processes we can
+vet across multiple release[s] t[o] inspect behavior.&rdquo;</i></p>
+
+<p><b>&#11088; THE NAMED BASELINE &mdash; <code>droid2_full_2026-11-19_1509</code>.</b> Droid 2's WHOLE GroupTrack
+directory, 747 files, 3.1 GB, pulled read-only. It is the reference because it is the only clean artifact set we
+hold, and that is measured rather than preferred:</p>
+<table>
+<tr><th></th><th>routes</th><th>tracks</th><th>waypoints</th><th>trails</th><th>dupes (raw hash / normalised geometry)</th></tr>
+<tr><td><b>Droid 2 = the baseline</b></td><td>23</td><td>136</td><td>599</td><td>229,363</td><td><b>0 / 0</b> in all three tables</td></tr>
+<tr><td>Droid 1 (left alone)</td><td>25</td><td>136</td><td>599</td><td>229,359</td><td>0 / <b>3</b> &mdash; Panguitch, Hot Springs, Beryl, all created 2026-11-17T18:22</td></tr>
+<tr><td>the sim BEFORE reseeding</td><td>23</td><td>130</td><td>595</td><td>229,178</td><td>0 / 0, but it was the <b>11-06</b> state &mdash; thirteen days stale</td></tr>
+</table>
+<p><b>&#9888; THE TRAP THAT NEARLY HID IT:</b> the stale sim ALSO reported 23 routes. The count agreed for the
+wrong reason &mdash; it held <code>beryl fk 3</code> where the baseline holds two <code>Beryl</code>s. <b>Route count
+alone is not a valid check.</b> The daily check is the four counts together plus the Beryl names.</p>
+<p><b>FINGERPRINT, for the checklist's record:</b> spatial 543,965,184 bytes md5
+<code>1d6a131a4ef361ad777b25aeeebe8d09</code>; extension 65,089,536 bytes md5
+<code>2021a390c4977775f117edd4f5d1db5e</code>. <b>&#9888; The extension md5 moves every time the app runs</b>
+(both phones' extension files had today's timestamps while Droid 2's spatial had not changed since 11-14 20:30).
+Fingerprint the SPATIAL file by md5; check the extension by COUNTS.</p>
+<p><b>WHAT WAS SEEDED AND WHAT WAS NOT.</b> 13 of 765 files are app-private and unreadable to the adb shell user
+(maps/tiles/VEC.mbtiles + DEM, six route_drafts, batch/open_batch.json, two recipes). Named in
+<code>_NOT_PULLED_app_private.txt</code> inside the pull. Reading them needs a debuggable build, and Droid 2 must
+stay 2.7.14 (29321521) as the ride oracle, so that waits until after the ride. The sim keeps the 11-06
+VEC.mbtiles, which is tile imagery and not artifact data.</p>
+<p><b>DROID 1 DELIBERATELY LEFT ALONE.</b> It carries 4 extra route rows from the 11-17 18:22 conversion batch.
+Pushing data onto the ride phone the afternoon before adds a variable to the one test that matters, and routes
+take no part in a track/trail recording. <b>&#9888; 14 trails differ between the phones</b> (9 only on Droid 2,
+5 only on Droid 1, all unnamed rider trails) &mdash; ten in Utah, which cannot matter here, and <b>four local at
+42.76&ndash;42.80 N / &minus;71.21 to &minus;71.28 W</b>, three of them 20&ndash;250 m driveway-length. If the two
+GPX files differ in the first few hundred metres tomorrow and agree for the other 49 miles, that is why, and it
+is not the code.</p>
+</div>
+
+<div class="card">
+<h3>&#11088; THE RECONCILIATION &mdash; how the afternoon's defects were found, and what each one actually was</h3>
+<p>Full method in the checklist (C28-26347). In short: a <b>seam diff</b> catches a substituted argument; a
+<b>scoped label diff</b> catches content omitted inside a ported file; and the second only works if the port cites
+its Android origin by line range. Five defects, all the same shape &mdash; right symbol, missing layer:</p>
+<table>
+<tr><th>Fixed 11-19 PM</th><th>What it was</th></tr>
+<tr><td><b>SEARCHFIT4/5/6 &middot; the fit</b></td><td>openArtifact was Android's FALLBACK branch. Now gtFitOne properly: the box from the DATABASE (new shared <code>GtRead.bboxForArtifact</code>), 10% pad or 0.01&deg; when degenerate, display set, viewport refresh. Type resolved by <code>typeNameForId</code> &mdash; Android deliberately does NOT trust a search row's type ("a waypoint row carries its waypoint type"), and trusting it sent every fit to <code>else -&gt; routes</code>.</td></tr>
+<tr><td><b>FITONE &middot; fit from the detail panel</b></td><td>The panel's FIT is <code>onDismiss(artifactType, id)</code> &mdash; it hands the job to the HOST (Android's reason is written beside it at ArtifactDetailPanel.kt:299). The iPad host ignored both arguments, so FIT was a second CLOSE button. One <code>fitArtifact</code> now serves both paths.</td></tr>
+<tr><td><b>VIEWFILTER &middot; the filter</b></td><td><code>GtSpatial.viewport</code> took no display states &mdash; its own comment said "with every type ON". Now gates per type exactly as SpatialDisplayManager.processArtifact does, with checked ids, and land follows the Trails state. Making <code>displayState</code> REQUIRED on GtVecMap immediately found a second call site (the bare Map tab).</td></tr>
+<tr><td><b>IOSDETAIL &middot; the detail panel</b></td><td>15 parameters, TEN action callbacks defaulting to null, and the iPad passed none &mdash; so every gated button was invisible. Android passes 14 of 15. Four are now real (name/mapKey/onRefreshMap/routeNameExists), and Delete, Remove alias, Export, Share and Route notes followed.</td></tr>
+<tr><td><b>ROUTETAP &middot; the route tap</b></td><td>Android's onRouteTap is TWO branches: a route WITH a narrative opens the overview first, one without opens the card. The iPad sent every route to the card.</td></tr>
+<tr><td><b>SELECTWIRE &middot; the SELECT list</b></td><td>Fred 16:05: the SQL that builds the list "is not being created". <code>GtRead.queryArtifactList</code> has been shared since STEP7-2026-11-07 and nothing on iOS called it. It is a SECOND query, distinct from the map's draw (Fred 16:06), against the live frame, LIMIT 200 &mdash; safe because the frame is tight and Trails go to the category filter instead.</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3>&#9888; TOOLING FACTS LEARNED TODAY &mdash; they cost time and will cost it again if not written down</h3>
+<p><b>1 &middot; THE APP'S LOGGING DOES NOT REACH <code>log stream</code>.</b> Three attempts
+(<code>--predicate</code>, <code>--level debug</code>, <code>--console-pty</code>) returned only UIKit and Network
+chatter. <b>Every "check the log" instruction was worthless.</b> The instrument that DOES work is the on-screen
+<b>LOG +</b> panel, top-right of the GroupTrack tab (GroupTrackPanels.swift). Its type was 9&ndash;10 pt in a
+430-wide box and unreadable on a scaled simulator; now 19 pt live line, 15 pt history, 860&times;420. <b>Report
+diagnostics through <code>onMessage</code>, not the logger.</b></p>
+<p><b>2 &middot; ZSH BREAKS THE LONG BUILD CHAIN.</b> Three times today the ~450-character <code>&amp;&amp;</code>
+one-liner left the shell at <code>cmdand cmdand&gt;</code>. Fixed properly:
+<code>gt_iosbuild_2026-11-19_v1.sh</code> &mdash; one short line, stops at the first failing step, and prints the
+app's build timestamp so "did I just test the new binary?" is answerable from the output.</p>
+<p><b>3 &middot; THE BRIDGE IS A LINUX CONTAINER WITH THE MAC'S FOLDERS MOUNTED</b> &mdash; <code>uname -s</code> is
+Linux, and there is no <code>xcrun</code>, <code>adb</code> or <code>sqlite3</code> in it. So
+<code>gt_env.sh</code> hits its "unknown machine" branch and anything needing the Mac's own toolchain must be run
+by Fred. Reading and editing files through it is fine; that is how every Kotlin change today was applied.</p>
+<p><b>4 &middot; A SCRIPT THAT ABORTS MID-WAY STILL PRINTS WHAT IT PRINTED BEFORE DYING.</b>
+<code>GtNoteBuilders.kt</code> was reported written and was not &mdash; the script died two steps earlier on a
+permission error. <b>Check the file exists; do not trust the log line.</b></p>
+<p><b>5 &middot; <code>/*</code> INSIDE A KDOC OPENS A NESTED COMMENT.</b> Kotlin nests block comments, so
+<code>"*\/*"</code> written to avoid closing one actually opened one and swallowed the rest of the file &mdash; 28
+"unresolved reference" errors from a single stray sequence.</p>
+</div>
+
+<div class="card">
+<h3>&#11088; WHERE IT STANDS AT EOD, and the first moves tomorrow</h3>
+<p><b>PROVEN ON GLASS:</b> the filter gating the map &middot; fit from search &middot; fit from the detail panel
+&middot; the detail panel rendering its ten actions &middot; finger panning &middot; the sim reading the baseline's
+own counts (23 / 136 / 599 / 229,363).</p>
+<p><b>COMPILED AND WIRED, NEVER EXERCISED</b> &mdash; this is tomorrow's cleanup scope, ahead of C: the route
+narrative panel and its notes chain &middot; Delete &middot; Remove alias &middot; Export &middot; Share &middot;
+the SELECT list and its ticks &middot; grp.open's activate dialog.</p>
+<p><b>FIRST DEPTH-CHECK RESULT, already found:</b> the baseline has <b>no <code>my_tracks</code> directory and no
+recorded .gpx files</b>. A track's export IS the recorded file. So export/share work for routes, trails and
+waypoints and FAIL for tracks &mdash; on the iPad and on Droid 2 alike (136 track rows, zero track files).</p>
+<p><b>THE ORDER (C28-26348):</b> cleanup &rarr; <b>C</b> bottom tabs (Add Route, Rides, Search; not Map, not Radio
+Setup, nothing ending in an email) &rarr; <b>D</b> simple map functions + the iOS email solution &rarr; <b>E</b>
+maps with internet downloads and file import &rarr; <b>F</b> &rarr; <b>G</b> Meshtastic radio services, last and
+the one item out of scope for 2.8b.</p>
+<p><b>&#9888;&#9888; FRIDAY MORNING, BEFORE THE RIDE &mdash; two items that are easy to lose:</b>
+<b>(1)</b> a two-minute driveway recording on Droid 1 to prove the track/trail path on 2.8a before the real 49
+miles, then <code>grep -i "TRACKGROUNDS\|TRACKRULES" ~/Downloads/gt_logs/&lt;log&gt;</code>;
+<b>(2)</b> <b>&ldquo;Create trails from tracks&rdquo; must be run BETWEEN the legs</b> &mdash; ConvoyGpsService
+contains no rider-trail call, so without it the return leg has nothing within SNAP_M (50 m) to snap to and the
+whole point of the test is lost. Droid 2 stays untouched: 2.7.14 (29321521), no apk, no data pushed back.</p>
+</div>
+
+
 <h2>&#11088;&#11088; 11-19 &mdash; THE SCAFFOLD DECOUPLING, READY AND PROVEN (SCAFFOLD-2026-11-19)</h2>
 <div class="card">
 <p><b>Fred 07:49:</b> <i>&ldquo;I prefer moving the entire scaffold.&rdquo;</i> &middot; <b>07:48:</b>
@@ -716,6 +819,133 @@ and tile stores, which a host cannot pre-compute into a Boolean, so <b>round 2 i
 (expect/actual, or a service contract) are expected to be needed rather than parameters</b>. If J turns out to
 be seamable by parameters as well, that is a finding worth recording; if it needs interfaces, we were not
 surprised by it.</p>
+<p><b>&#11088;&#11088;&#11088; DONE 2026-11-19 09:10 &mdash; A&ndash;I AND M COMPILE AND ARE ON THE IPAD'S GLASS
+(PANELMOVE2 / PANELGLASS / PANELSWIFT).</b> Commit <code>e365479ec</code>, 15 files, 360 insertions.
+<b>PANELZERO is closed.</b> Seven files are now in commonMain and compiling for
+<code>iosSimulatorArm64</code>, every package unchanged so not one app import was touched:
+<code>GroupTrack.kt</code> (the launch layer: A&middot;MENU, C&middot;Mode, D&middot;GRP Awareness,
+E&middot;Status, F&middot;Map view, G&middot;MAP KEY, H&middot;FILTER, I&middot;CENTRE ON ME,
+M&middot;Search), <code>FilterModule.kt</code>, <code>KeyModule.kt</code>, <code>SearchModule.kt</code>,
+<code>MapKeysPanel.kt</code>, <code>TrailStylePanel.kt</code>, <code>ArtifactSearch.kt</code>, plus the
+new <code>GeofabrikState.kt</code>. Git recorded all seven as RENAMES with similarity scores &mdash;
+<code>ArtifactSearch.kt</code> at <b>100%</b> (a pure move, not one character changed),
+<code>GroupTrack.kt</code> 86%, <code>SearchModule.kt</code> 81% as the most edited.</p>
+<p><b>&#9940; THE FACADE TRAP &mdash; FOUR BUILDS, AND THE METHOD FIX IT FORCED (FACADE-2026-11-19).</b>
+There are <b>TWO</b> <code>object TrailFilterState</code>: <code>com.geeksville.mesh.convoy</code>, an
+Android FACADE that delegates every member, and <code>com.grouptrack.shared.filter</code>, the real one.
+My symbol check matched by <b>SIMPLE NAME</b>, found the shared declaration, and passed the panels as
+portable &mdash; while they imported the facade. Worse, <code>MapKeysPanel</code> and
+<code>TrailStylePanel</code> named <b>no import at all</b>: they sat in the facade's own package and
+resolved by SAME-PACKAGE, which off Android simply is not there. <b>The rule: resolve FULLY-QUALIFIED
+names, and flag any simple name declared in both trees.</b> A sweep across every shared file under
+<code>com/geeksville/mesh</code> then proved <code>TrailFilterState</code> is the ONLY such collision and
+<code>TrailStylePanel</code> the only file missing the import &mdash; so it was the last one, not the next
+one. The app-facade-over-shared pattern is DELIBERATE here, so every future panel move meets it.</p>
+<p><b>THE OTHER THREE iOS-ONLY CAUSES, for the next batch:</b><br>
+&middot; <b>Icons</b> &mdash; <code>Icons.Filled.{Key,FilterAlt,Adjust,Navigation}</code> are in
+material-icons-<b>EXTENDED</b>, not the ~40-icon core set, and shared did not depend on it. A DEPENDENCY
+gap, invisible to any both-tree grep because the symbol is declared in neither. Kotlin/Native strips the
+icons the binary does not use.<br>
+&middot; <b>JVM-only APIs</b> &mdash; <code>android.graphics.Color.parseColor</code> went to
+<code>gtHexColor</code> (written that same morning for exactly this, and I failed to connect it), and
+<code>String.format</code> to hex by hand. <code>TrailStylePanel</code> was FIXED AND MOVED rather than
+seamed: a chrome member would have left MAP KEY's STYLE &rsaquo; dead on the iPad, which fails the
+screen-completeness bar.<br>
+&middot; <b>&#9940; <code>Dispatchers.IO</code> IS INTERNAL ON NATIVE</b> in coroutines 1.10.2 &mdash;
+<b>correcting an earlier note of mine that said it works in commonMain. It does not.</b> The panel now
+chooses no dispatcher at all: <code>withContext(Dispatchers.IO)</code> became
+<code>coroutineScope</code>, and the two DB bridge members became <code>suspend</code> so the platform
+decides the thread.</p>
+<p><b>&#11088;&#11088; THE SEAM RULE HELD FOR EVERY COUPLING IN A&ndash;I AND M, WITHOUT EXCEPTION
+(SEAMRULE-2026-11-19):</b> a panel that <b>READS or TOGGLES</b> host state takes a parameter or a lambda;
+anything that <b>ACQUIRES or ADMITS</b> a platform resource stays with the host behind a seam.
+<code>GroupMode</code> (SharedPreferences + RadioSetupState), <code>DownloadQueueManager</code> (1,358
+lines, J&middot;Map), <code>GtOffGrid</code> (Thread, java.lang.Math, MBTilesStore, VectorTiles,
+GtMapEngine), <code>SpatialDbManager</code> (needs a Context), Geocoder and the asset reader all sorted
+correctly by that one test. <b>And every class and method added today is a SEAM &mdash; not one line of new
+application function</b>, which is what makes the Android build a free CONTROL: A&ndash;I + M must behave
+identically on Droid 1, so any difference certification finds is a seam defect from today.
+<code>GtOpenModule.closeTick</code> is the single borderline case (a new mechanism, added so the relocated
+effects keep today's behaviour) and is the one to watch.</p>
+<p><b>&#11088; ON THE GLASS (PANELGLASS-2026-11-19).</b> One new iosMain file,
+<code>GtIosPanels.kt</code> &mdash; nothing edited, so Android cannot be affected and it needed no control
+build. It stacks <code>GroupTrackLaunchLayer</code> over <code>GtVecMap</code> inside <code>GtTheme</code>
+with <code>LocalGtPanelChrome</code> provided, and a <code>gtGroupTrackController(onMessage:)</code> entry
+point. <b>REAL function:</b> G&middot;MAP KEY and H&middot;FILTER against the actual
+<code>TrailFilterState</code> (iOS already sets <code>pathProvider</code> at
+<code>GtIosHkEnv:173</code>), and M&middot;Search against the real <code>GtRead.searchByName</code> on the
+iPad's own <code>grouptrack_spatial.db</code>. <b>LOUD STUBS</b> in the codebase's own "not attached yet"
+idiom, so a gap is VISIBLE in certification: help viewer, issue report, download queue, download settings,
+online places. The map-side half (zoom, centre, the trail redraw after FILTER) reports through
+<code>onMessage</code> rather than pretending &mdash; and the status strip is therefore the
+<b>certification instrument</b>: it shows a control FIRED even where the map cannot answer, which is the
+difference between "not wired" and "broken". <b>Known and chosen, not defects:</b>
+<code>mapCenter</code> returns 0,0 until the map reports its viewport (so search distances have nothing
+real to work from), <code>online = false</code>, <code>routePrecheck = { false }</code> (K is not in this
+batch) and <code>group = false</code> (no radio in this batch; <code>true</code> would grey controls on a
+promise nothing can keep).</p>
+<p><b>&#9940;&#9940; THE MUTEX, AND WHY IT IS NOT OPTIONAL (SEARCHLOCK-2026-11-19).</b>
+<code>GtIosRideSpatial</code>'s own header: <i>"two threads stepping one SQLiteConnection corrupts the
+read, and the symptom is a wrong row rather than a crash."</i> <code>GtSearchBody</code> runs the four
+tables as <b>parallel <code>async</code> jobs</b>. Android gets its lock from
+<code>SpatialDbManager</code>'s holder; iOS had none. So <code>IosSearchDb</code> opens its <b>own</b>
+read-only connection &mdash; not the map's &mdash; and serialises every call through a
+<code>Mutex</code>. Making <code>searchByName</code> suspend for the Dispatchers fix is what made that
+expressible, so that correction paid for itself twice.</p>
+<p><b>&#9940; SWIFT NAMES: READ THE <code>swift_name</code> ATTRIBUTE, NOT THE <code>@interface</code>
+NAME (SWIFTNAME-2026-11-19).</b> The generated header carries BOTH:
+<code>@interface GTSGtIosPanelsKt ... swift_name("GtIosPanelsKt")</code>. ObjC sees the GTS-prefixed name;
+<b>Swift sees the swift_name</b>, because the importer strips the framework prefix. My guard read the
+header &mdash; the right file, the <b>wrong field</b> &mdash; and wrote <code>GTSGtIosPanelsKt</code> into
+the Swift. This SHARPENS the 11-18 rule rather than replacing it: that one is about the DOT
+(<code>GtVecMap.ios.kt</code> &rarr; <code>GtVecMap_iosKt</code>), this one is about the PREFIX, and both
+live in the same line of the same header. <b>What caught it cost no build at all:</b> comparing the
+generated call against <b>two working precedents in the same directory</b> &mdash;
+<code>ComposeProbe.swift</code> writes <code>GtIosRootKt</code> while the header declares
+<code>GTSGtIosRootKt</code>. Not "is this name plausible" but "what does the file next door actually
+write".</p>
+<p><b>&#11088;&#11088;&#11088; PORTCHECK &mdash; THE PREPROCESSING PASS, EARNED NOT INVENTED
+(PORTCHECK-2026-11-19).</b> Fred 08:42: <i>"so have you established patterns to preprocess the rest of the
+code as we continue to extend our build to the remaining functions?"</i> Seven files cost about SIX builds
+today; this pass would have made it two, and across J&middot;Map's 27 sub-topics that gap is most of a day.
+Eight mechanical checks, each from the failure that taught it:<br>
+1 &middot; resolve symbols by <b>fully-qualified</b> name; flag any simple name declared in both trees
+&mdash; <i>the facade trap, 4 builds</i><br>
+2 &middot; resolve <b>declarations</b>, never imports &mdash; <i>same-package references name no import:
+GtIssueHost, MapKeysPanel, TrailStylePanel</i><br>
+3 &middot; after deleting a declaration, grep every remaining <b>use of its name</b> &mdash; <i>ctx was a
+LOCAL VARIABLE, which no import can name; 1 build</i><br>
+4 &middot; a separate <b>JDK-API</b> scan (Math, Thread, System, String.format, java.*) &mdash;
+<i>declared in NEITHER tree, so invisible to a both-tree grep</i><br>
+5 &middot; check imports against the <b>shared module's declared dependencies</b> &mdash; <i>Icons, 9
+errors</i><br>
+6 &middot; check kotlinx APIs for <b>native availability</b> &mdash; <i>Dispatchers.IO</i><br>
+7 &middot; <b>strip comments</b> before any symbol check &mdash; <i>this codebase documents the seams it
+removes; cost two false aborts, and BOTH times I wrote a fresh naive guard instead of reusing the
+<code>code_only()</code> helper I had already written that morning</i><br>
+8 &middot; <b>strip string literals</b> too &mdash; <i><code>Text("Downloading")</code> is not the sealed
+class</i><br>
+Plus two judgment rules: the SEAMRULE above, and &mdash; <b>before writing any
+<code>expect</code>/<code>actual</code>, grep shared for an IDENTICAL-SIGNATURE TWIN.</b>
+<code>GtRead.searchByName</code> was already there and <code>SpatialDbManager</code> was already
+delegating to it; one measurement saved a whole abstraction. <b>Honest limits:</b> this catches the
+categories we have HIT &mdash; J&middot;Map will add its own (<code>contentResolver</code>, the document
+launcher, background work surviving navigation) &mdash; and the compiler stays the authority. It reduces
+build iterations; it does not replace the build.</p>
+<p><b>PROCESS FAILURES TODAY, recorded because the method is the deliverable.</b> Four misses, and they
+are ONE pattern: <b>an import or substring grep cannot stand in for the compiler, and a check I have
+already written down is worth more than one I re-derive.</b> (1) <code>GtIssueHost</code> &amp;c were
+same-package, so clean imports proved nothing &mdash; the exact caveat I had written the day before.
+(2) <code>ctx</code> was a local, so I grepped <code>LocalContext</code> and missed it. (3) The facade
+trap, four times, after the sweep that would have caught all four took one command. (4)
+<code>GTSGtIosPanelsKt</code> &mdash; right file, wrong field. Twice more a GUARD of mine blocked a
+CORRECT patch by reading raw text instead of code; both cost a round trip rather than a build, which is
+the right direction for a guard to fail. <b>What did NOT happen, and is the day's real result:</b> every
+one of those was caught by a measurement or a compiler, none reached a commit, and the Android control
+stayed green throughout.</p>
+<p><b>PACING FACT worth keeping:</b> <code>linkDebugFrameworkIosSimulatorArm64</code> took <b>8m54s</b>.
+That is the true cost of any Kotlin change from here, so batch Kotlin edits and keep Xcode-only
+iterations separate. A Swift-only change needs NO relink.</p>
 <p><b>&#9940;&#9940;&#9940; THE BASELINE, STATED PLAINLY: ZERO PANELS (PANELZERO-2026-11-18).</b> Fred
 21:34: <i>&ldquo;panels are the cornerstone of what is left and we have not covered 1.&rdquo;</i> <b>Correct, and
 measured:</b> <code>grouptrack-shared</code> contains <b>5 files with 6 <code>@Composable</code></b>, and its
