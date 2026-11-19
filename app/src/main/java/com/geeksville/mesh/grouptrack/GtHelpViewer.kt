@@ -42,11 +42,8 @@ fun GtHelpButton(id: String, color: Color = Gt.accent) {
     }
 }
 
-/** CLOSEX-2026-10-22 (Fred 12:18): the standard close control -- ✕, top right, beside HELP, on every screen. */
-@Composable
-fun GtCloseButton(onClose: () -> Unit, enabled: Boolean = true, color: Color = Gt.accent) {
-    TextButton(onClick = onClose, enabled = enabled) { Text("\u2715", color = color, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-}
+// PANELCHROME-2026-11-19: GtCloseButton moved to the shared GtPanelChrome.kt (same package, so its
+// 46 call sites are unchanged). It is 3 lines of pure Compose and belongs with the chrome it sits in.
 
 @Composable
 fun GtHelpViewer() {

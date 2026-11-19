@@ -48,7 +48,12 @@ import com.geeksville.mesh.convoy.ConvoyRouteCreateScreen
 inline fun <reified T : Any> NavGraphBuilder.gtComposable(
     noinline content: @androidx.compose.runtime.Composable androidx.compose.animation.AnimatedContentScope.(androidx.navigation.NavBackStackEntry) -> Unit
 ) {
-    composable<T> { entry -> val scope = this; com.geeksville.mesh.grouptrack.GtTheme { scope.content(entry) } }
+    // PANELCHROME-2026-11-19: the panel chrome is provided ABOVE GtTheme, because GtTheme is what draws
+    // IssueHost on every screen. One place, for every GroupTrack route.
+    composable<T> { entry -> val scope = this
+        androidx.compose.runtime.CompositionLocalProvider(
+            com.geeksville.mesh.grouptrack.LocalGtPanelChrome provides com.geeksville.mesh.grouptrack.GtPanelChromeAndroid
+        ) { com.geeksville.mesh.grouptrack.GtTheme { scope.content(entry) } } }
 }
 
 fun NavGraphBuilder.convoyGraph(

@@ -120,7 +120,7 @@ fun GtTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = cs, typography = typo, shapes = MaterialTheme.shapes) {
         // STD1E-2026-10-24: content text is MEDIUM weight unless it sets its own -- it no longer reads paler than the bold titles.
         CompositionLocalProvider(LocalContentColor provides text,
-            LocalTextStyle provides LocalTextStyle.current.copy(fontWeight = FontWeight.Medium)) { content(); GtIssueHost() }   // ISSUE-2026-10-24
+            LocalTextStyle provides LocalTextStyle.current.copy(fontWeight = FontWeight.Medium)) { content(); LocalGtPanelChrome.current.IssueHost() }   // ISSUE-2026-10-24
     }
 }
 
@@ -211,6 +211,9 @@ fun GtPanel(
     var dy by remember(title) { mutableFloatStateOf(0f) }
     var collapsed by remember(title) { mutableStateOf(false) }
     val s = GtScheme.current.value   // SHELL2-2026-10-22
+    // CHROMEHOIST-2026-11-19: read the host chrome HERE. A Modifier.clickable lambda is an event
+    // handler, not a composable scope, so LocalGtPanelChrome.current cannot be read inside one.
+    val chrome = LocalGtPanelChrome.current
     Column(
         modifier = modifier
             .offset { IntOffset(dx.roundToInt(), dy.roundToInt()) }
@@ -237,8 +240,8 @@ fun GtPanel(
                     modifier = Modifier.clickable { collapsed = !collapsed }.padding(6.dp))
             }
             Text("HELP", color = Gt.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { GtHelpView.open(helpId) }.padding(6.dp))   // PANELX-2026-10-22: the one help viewer
-            GtIssueButton(helpId)   // ISSUE-2026-10-24: HELP - ISSUE - close, on every panel
+                modifier = Modifier.clickable { chrome.openHelp(helpId) }.padding(6.dp))   // PANELX-2026-10-22: the one help viewer
+            chrome.IssueButton(helpId, Gt.accent)   // ISSUE-2026-10-24: HELP - ISSUE - close, on every panel
             GtCloseButton(onDone)   // PANELX-2026-10-22: DONE -> ✕, as every screen
         }
         if (!collapsed) {
