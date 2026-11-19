@@ -124,6 +124,23 @@ fun GtTheme(content: @Composable () -> Unit) {
     }
 }
 
+/**
+ * BODIES-2026-11-19: #RRGGBB / #AARRGGBB -> Color, in shared code.
+ *
+ * KeyModule used android.graphics.Color.parseColor, which does not exist off Android. This is the
+ * same two cases that call site actually passes (the map-key palette writes 6- and 8-digit hex),
+ * and it returns null on anything else so the caller keeps its existing fallback.
+ */
+fun gtHexColor(s: String): Color? {
+    val h = s.trim().removePrefix("#")
+    val v = h.toULongOrNull(16)?.toLong() ?: return null
+    return when (h.length) {
+        6 -> Color(0xFF000000L or v)   // opaque: the palette writes #RRGGBB
+        8 -> Color(v)                  // #AARRGGBB, alpha included
+        else -> null
+    }
+}
+
 object GtScheme {
     private val Blue = Color(0xFF0D47A1)   // STD1E-2026-10-24 (Fred 09:54): was 1565C0 (5.7:1 on white, washed out); 0D47A1 is 8.6:1
     // Fred 10:09: satellite imagery labels every feature in WHITE, so a dark panel with white letters is lost on it.

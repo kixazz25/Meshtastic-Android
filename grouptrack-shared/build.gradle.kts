@@ -52,6 +52,10 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
+            // IOSFIX-2026-11-19: Icons.Filled.{Key,FilterAlt,Adjust,Navigation} in GroupTrack.kt's
+            // MENU and map bar. Those four are NOT in the ~40-icon core set, so the extended
+            // artifact is required; Kotlin/Native strips every icon the binary does not use.
+            implementation(compose.materialIconsExtended)
         }
         androidMain.dependencies { implementation("androidx.sqlite:sqlite-framework:2.5.2") }   // Android's own SQLite
         iosMain.dependencies { implementation("androidx.sqlite:sqlite-bundled:2.5.2") }         // as proved in the spike 11-06

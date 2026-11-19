@@ -33,7 +33,8 @@ import com.geeksville.mesh.convoy.CATEGORY_HELP
 import com.geeksville.mesh.convoy.MOTORIZED_ROWS
 import com.geeksville.mesh.convoy.MapKeyRow
 import com.geeksville.mesh.convoy.NON_MOTORIZED_ROWS
-import com.geeksville.mesh.convoy.TrailFilterState
+import com.grouptrack.shared.filter.TrailFilterState   // IOSFIX-2026-11-19: the SHARED object,
+// not the Android facade of the same name in com.geeksville.mesh.convoy (which delegates to this).
 
 /**
  * GTFILTER-2026-10-22 (2.7c, Fred 12:30 "ok lets build it" -- the FILTER mock of 12:28). What is ON the map, in one panel:
@@ -55,6 +56,16 @@ class GtFilterBridge(
     val toggleHide: () -> Unit,
     /** the map re-reads its trails (after a category or land change). */
     val trailsChanged: () -> Unit,
+    /** SCAFFOLDDEPS-2026-11-19: FILTER > OFF-GRID MAPS, the two overlay ticks. GtOffGrid drives the
+     *  map page directly (Thread, java.lang.Math, MBTilesStore, VectorTiles, GtMapEngine), so it
+     *  stays with the host and FILTER is given a read and a toggle for each overlay.
+     *  LAMBDAS, not Booleans, deliberately: the read then happens during composition, so the
+     *  snapshot read is recorded and the tick still recomposes when the host's state changes.
+     *  Required (CODE RULE 1) -- a platform with no tile store supplies { false } and a no-op. */
+    val offGridAvailable: () -> Boolean,
+    val setOffGridAvailable: (Boolean) -> Unit,
+    val offGridDownloading: () -> Boolean,
+    val setOffGridDownloading: (Boolean) -> Unit,
 )
 
 @Composable
@@ -90,12 +101,12 @@ fun GtFilterBody(f: GtFilterBridge, onSelect: (String) -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text("OFF-GRID MAPS", color = s.panelDim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             // GTOFFGRID-2026-10-23: WIRED -- tick to show on the map at once, untick to clear.
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { GtOffGrid.setAvailable(!GtOffGrid.available.value) }) {
-                Checkbox(checked = GtOffGrid.available.value, onCheckedChange = null, colors = boxColors())
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { f.setOffGridAvailable(!f.offGridAvailable()) }) {
+                Checkbox(checked = f.offGridAvailable(), onCheckedChange = null, colors = boxColors())
                 Text("Available", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { GtOffGrid.setDownloading(!GtOffGrid.downloading.value) }) {
-                Checkbox(checked = GtOffGrid.downloading.value, onCheckedChange = null, colors = boxColors())
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { f.setOffGridDownloading(!f.offGridDownloading()) }) {
+                Checkbox(checked = f.offGridDownloading(), onCheckedChange = null, colors = boxColors())
                 Text("Downloading", color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }

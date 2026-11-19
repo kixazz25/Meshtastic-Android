@@ -1,6 +1,9 @@
 package com.geeksville.mesh.convoy
 
 import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
+import com.geeksville.mesh.grouptrack.gtHexColor   // IOSFIX-2026-11-19
+import com.grouptrack.shared.filter.TrailFilterState   // IOSFIX2-2026-11-19: the SHARED object. This
+// file named no import because it sat in the same package as the Android facade of the same name.
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -217,19 +220,19 @@ private fun Chip(text: String, on: Boolean, modifier: Modifier = Modifier,
 
 /** "#RRGGBB" -> Color. ⚠ Falls back to cyan rather than throwing: a bad value
  *  in a hand-edited map_keys.json must not stop the panel opening. */
-fun parseHex(hex: String): Color = try {
-    Color(android.graphics.Color.parseColor(hex))
-} catch (e: Exception) {
-    Gt.accent
-}
+fun parseHex(hex: String): Color = gtHexColor(hex) ?: Gt.accent   // IOSFIX-2026-11-19:
+// was android.graphics.Color.parseColor in a try/catch. gtHexColor returns null on a bad
+// value, so the cyan fallback for a hand-edited map_keys.json is preserved exactly.
 
 /** Color -> "#RRGGBB", for seeding the picker from a row's shipped default. */
 fun colorHex(c: Color): String {
-    // ⚠ Color.value is a ULong and bit-shifting it lands in ULong arithmetic,
-    // which String.format will not take. Compose exposes the channels as 0..1
-    // floats -- use those and let the maths stay in Int.
-    return String.format("#%02X%02X%02X",
-        (c.red * 255f + 0.5f).toInt(),
-        (c.green * 255f + 0.5f).toInt(),
-        (c.blue * 255f + 0.5f).toInt())
+    // IOSFIX-2026-11-19: String.format is JVM-only. Identical arithmetic and identical
+    // output, done by hand so it compiles for iOS. Compose exposes the channels as 0..1
+    // floats, so the maths stays in Int (Color.value is a ULong -- do not shift it).
+    fun hx(f: Float): String {
+        val v = (f * 255f + 0.5f).toInt().coerceIn(0, 255)
+        val d = "0123456789ABCDEF"
+        return "" + d[v shr 4] + d[v and 15]
+    }
+    return "#" + hx(c.red) + hx(c.green) + hx(c.blue)
 }

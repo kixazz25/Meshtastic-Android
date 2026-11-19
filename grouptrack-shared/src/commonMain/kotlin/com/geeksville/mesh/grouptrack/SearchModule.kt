@@ -1,6 +1,5 @@
 package com.geeksville.mesh.grouptrack
 
-import android.location.Geocoder
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,19 +30,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geeksville.mesh.convoy.ArtifactResult
-import com.geeksville.mesh.convoy.GeofabrikCatalog
-import com.geeksville.mesh.convoy.SpatialDbManager
 import com.geeksville.mesh.convoy.assignNameSequence
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * GTSEARCH-2026-10-22 (2.7c, Fred 12:56-13:02): ONE box searches EVERYTHING -- no type to pick first (riders blew past the old
@@ -61,21 +56,40 @@ class GtSearchBridge(
     val online: Boolean,
     val openArtifact: (ArtifactResult) -> Unit,
     val goToPlace: (Double, Double) -> Unit,
+    /** BODIES-2026-11-19: the state outlines, from the host. The catalogue parse needs a platform
+     *  asset reader (GeofabrikCatalog.load(context)); the STATE itself is a shared data class.
+     *  Required (CODE RULE 1) -- an empty list is a legitimate value (the map is outside every
+     *  outline) and the search then runs unbounded, exactly as it does today. */
+    val states: () -> List<com.geeksville.mesh.convoy.GeofabrikState>,
+    /** BODIES-2026-11-19: the place-name lookup, ONLINE ONLY -- see the note at the top of this
+     *  file. Android keeps Geocoder AND its IO dispatch; a platform without one returns empty and
+     *  the panel already says "Offline -- places are left out". Required (CODE RULE 1). */
+    val findPlaces: suspend (String, com.geeksville.mesh.convoy.GeofabrikState?) -> List<GtPlace>,
+    /** SEARCHDB-2026-11-19: the spatial DB is OPENED by the host -- SpatialDbManager.init needs a
+     *  Context, and the connection is the host's to own. Called on the IO dispatcher, in exactly
+     *  the place init(ctx) stood. Required (CODE RULE 1) -- a platform with no spatial DB supplies
+     *  a no-op and searchByName returns empty, which the panel already renders as no results. */
+    val initSearch: suspend () -> Unit,
+    /** SEARCHDB-2026-11-19: the name search. The shared GtRead.searchByName has the IDENTICAL
+     *  signature -- (type, term, limit = 200) -> List<Map<String, String?>> -- so iOS supplies it
+     *  directly, and Android keeps SpatialDbManager, whose searchByName already delegates to
+     *  GtRead. The query rules (Q1-Q4) live with the engine; see ArtifactSearch.kt. */
+    val searchByName: suspend (String, String) -> List<Map<String, String?>>,
 )
 
-private class GtPlace(val name: String, val lat: Double, val lon: Double)
+/** BODIES-2026-11-19: public, because the bridge's findPlaces returns these. */
+class GtPlace(val name: String, val lat: Double, val lon: Double)
 
 @Composable
 fun GtSearchBody(b: GtSearchBridge, close: () -> Unit, autoFocus: Boolean) {   // GTAI5C-2026-10-23: autoFocus -- the caller decides
     val s = GtScheme.current.value
-    val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val c = remember { b.mapCenter() }
     val state = remember(c[0], c[1]) {
-        GeofabrikCatalog.findByLocation(GeofabrikCatalog.load(ctx), c[0], c[1])   // null = the map is outside every state outline
+        b.states().firstOrNull { it.containsPoint(c[0], c[1]) }   // null = the map is outside every state outline
     }
     // GTSEARCH (Fred 13:06 "state can be selected, in case I am searching AR or NV"): the state is CHOSEN -- default the map's state.
-    val allStates = remember { GeofabrikCatalog.load(ctx).sortedBy { it.name } }
+    val allStates = remember { b.states().sortedBy { it.name } }
     var pick by remember { mutableStateOf(state) }   // null = no state chosen yet (the map is outside every outline)
     var inState by remember { mutableStateOf(state != null) }
     var choosing by remember { mutableStateOf(false) }
@@ -98,11 +112,12 @@ fun GtSearchBody(b: GtSearchBridge, close: () -> Unit, autoFocus: Boolean) {   /
         busy = true
         scope.launch {
             val types = listOf("trails" to "Trails", "routes" to "Routes", "tracks" to "Tracks", "waypoints" to "Waypoints")
-            val found = withContext(Dispatchers.IO) {
-                SpatialDbManager.init(ctx)
+            val found = coroutineScope {   // IOSFIX-2026-11-19: Dispatchers.IO is internal on
+                // native; the HOST now owns the dispatch, through the two suspend members above.
+                b.initSearch()
                 types.map { (table, label) ->
                     async {
-                        val rows = SpatialDbManager.searchByName(table, t)
+                        val rows = b.searchByName(table, t)
                         val kept = if (st == null) rows else rows.filter { r ->
                             val so = r["min_lat"]?.toDoubleOrNull(); val no = r["max_lat"]?.toDoubleOrNull()
                             val we = r["min_lon"]?.toDoubleOrNull(); val ea = r["max_lon"]?.toDoubleOrNull()
@@ -112,17 +127,10 @@ fun GtSearchBody(b: GtSearchBridge, close: () -> Unit, autoFocus: Boolean) {   /
                     }
                 }.map { it.await() }
             }
-            val pl = if (!b.online) emptyList() else withContext(Dispatchers.IO) {
-                runCatching {
-                    @Suppress("DEPRECATION")
-                    val a = if (st != null) Geocoder(ctx).getFromLocationName(t, 6, st.bboxSouth, st.bboxWest, st.bboxNorth, st.bboxEast)
-                            else Geocoder(ctx).getFromLocationName(t, 6)
-                    // GTSEARCH (Fred 13:06 "Smithtown exists in a lot of places"): a state outline is a RECTANGLE that overlaps its
-                    // neighbours, so a place must also NAME that state ("California North" starts with "California").
-                    a.orEmpty().filter { p -> st == null || p.adminArea.isNullOrBlank() || st.name.startsWith(p.adminArea!!, ignoreCase = true) }
-                        .map { GtPlace(listOfNotNull(it.featureName, it.locality, it.adminArea).distinct().joinToString(", "), it.latitude, it.longitude) }
-                }.getOrDefault(emptyList())
-            }
+            // BODIES-2026-11-19: the place lookup is the HOST's -- Geocoder, its IO dispatch and the
+            // state-name filter all moved into findPlaces, unchanged. This half stays exactly as it was:
+            // offline means no places, and the panel already says so.
+            val pl = if (!b.online) emptyList() else b.findPlaces(t, st)
             groups = found; places = pl; searched = t; busy = false; hiddenTypes = emptySet()
         }
     }

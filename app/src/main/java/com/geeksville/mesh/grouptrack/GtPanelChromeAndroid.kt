@@ -18,4 +18,14 @@ object GtPanelChromeAndroid : GtPanelChrome {
 
     @Composable
     override fun IssueHost() = GtIssueHost()
+
+    @Composable
+    override fun UtahPrivatePanel() = GtUtahPrivatePanel()
+
+    @Composable
+    override fun QueueSummary(onOpen: () -> Unit, modifier: androidx.compose.ui.Modifier) =
+        GtQueueSummary(onOpen = onOpen, modifier = modifier)
+
+    @Composable
+    override fun DownloadSettingsPanel() = GtDownloadSettingsPanel()
 }

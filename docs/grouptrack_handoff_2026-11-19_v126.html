@@ -36,6 +36,55 @@ th{background:#12203a;color:var(--accent)}
 </header>
 <main>
 
+<h2>&#11088;&#11088; 11-19 &mdash; THE SCAFFOLD DECOUPLING, READY AND PROVEN (SCAFFOLD-2026-11-19)</h2>
+<div class="card">
+<p><b>Fred 07:49:</b> <i>&ldquo;I prefer moving the entire scaffold.&rdquo;</i> &middot; <b>07:48:</b>
+<i>&ldquo;you can move the entire scaffold. we will just limit what we test.&rdquo;</i></p>
+<p><b>&#11088; THE ORDER CHOSEN, and why:</b> decouple <code>GroupTrack.kt</code> <b>where it stands</b>, build
+Android, and only then <code>git mv</code> it. The decoupling is the part that can be wrong; done in
+<code>app/</code> the Android build proves it before anything relocates, and the move is then mechanical. This
+is &ldquo;simulate before patching&rdquo; applied to a port.</p>
+<p><b>THIRTEEN SITES, located and their text captured.</b> Four kinds:</p>
+<p><b>1 &middot; REMOVED &mdash; host concerns that had accumulated inside a composable:</b>
+<code>GtHelp.load</code> at :79 (called once per menu row) and :126 &middot; <code>val ctx</code> at :125
+&middot; the three startup jobs at :140 (C28-26333) &middot; the <code>GtRecipes.openQueue</code> effect
+&middot; the <code>routeRecipe</code> effect with <code>org.json</code> and <code>Toast</code> &middot; the
+<code>GtRoute.wantChooser</code> effect. All reinstated in the host <b>verbatim</b>.</p>
+<p><b>2 &middot; BECAME PARAMETERS</b> &mdash; state the host already owns:
+<code>bearing</code>, <code>tilt</code>, <code>headingUp</code> (were <code>GtMapView.*</code>, and
+<code>MapEngine.kt</code> is Android-only) and <code>routePrecheck</code> (was
+<code>GtRoute.precheck()</code>; GtRoute is <b>1,884 lines with 43 Android sites</b>).</p>
+<p><b>3 &middot; BECAME HOST CHROME</b> &mdash; panels that cannot move:
+<code>UtahPrivatePanel()</code> and <code>QueueSummary(onOpen, modifier)</code> join
+<code>GtPanelChrome</code>. <code>GtQueueSummary</code> lives in a 760-line file with 18 Android sites.</p>
+<p><b>4 &middot; REPLACED</b> &mdash; <code>GtHelp.has(id)</code> &rarr;
+<code>GtHelpLinks.has(id)</code>, the shared table that already backs it.</p>
+<p><b>&#11088; THE ONE NEW MECHANISM, and it is not an invention.</b> Three removed effects set the layer's
+INTERNAL <code>open</code> state, so they cannot simply move out. <code>GtOpenModule</code> already exists as
+the &ldquo;another screen asks the shell to open a module&rdquo; channel (AIFAIL-2026-11-03); it gains a
+<b>close tick</b>, the counterpart of <code>req</code>. The host then reproduces today's behaviour exactly:
+<code>openQueue &rarr; closeTick++ ; queuesOpen = true</code> (today's
+<code>actions["map.queues"]</code> is <code>{ queuesOpen = true }</code> at GroupTrackScreen:3025) &middot;
+<code>routeRecipe &rarr; closeTick++ ; buildFromRecipeJson / Toast</code> &middot;
+<code>wantChooser &rarr; req = "route"</code>.</p>
+<p><b>STATUS:</b> <code>gt_scaffolddecouple_2026-11-19_v1.py</code> &mdash; <b>21/21 anchors place across 4
+files</b>, verified by running the sim read-only from the bridge. No moves, Android behaviour unchanged.
+Owed after it builds: the <code>git mv</code>, then KeyModule / SearchModule / GeofabrikState.</p>
+<p><b>WHAT WAS SETTLED FOR M&middot;SEARCH while sizing it</b> (its decoupling is the next script):
+<code>SearchModule.kt:51</code> documents its own split &mdash; <i>&ldquo;Trails, routes, tracks, waypoints:
+the tablet's own database (works offline). Places: the place-name lookup, ONLINE ONLY&rdquo;</i> &mdash; and
+:161 already degrades gracefully (<i>&ldquo;Offline &mdash; places are left out&hellip;&rdquo;</i>). So the
+local half is portable and the UI already copes when places are absent. The two seams ride
+<code>GtSearchBridge</code>, which the host already constructs (GroupTrackScreen:2955), so <b>no
+expect/actual is needed</b>: a <code>findPlaces</code> member (Android keeps <code>Geocoder</code>) and a
+<code>states</code> member. <code>GeofabrikState</code> is a <b>pure data class</b> (name, slug, four bbox
+doubles, containsPoint, intersectsBbox) so it moves; only <code>GeofabrikCatalog.load(context)</code> is
+platform-bound. And <code>geofabrik_states.json</code> <b>is already bundled on iOS</b> &mdash; one of the 13
+JSON assets, present in <code>iosapp/iosapp/Resources/</code> &mdash; so the state bounding can work there.</p>
+<p><b>KeyModule</b> needs one thing: <code>android.graphics.Color.parseColor</code> at :99 &rarr; a small
+shared hex parser beside <code>Gt</code>/<code>GtColors</code> in GtPanel.kt.</p>
+</div>
+
 <h2>&#11088;&#11088;&#11088; 11-19 &mdash; THE FIRST PANEL CODE COMPILES FOR THE IPAD (PANELMOVE1 / PANELCHROME / CHROMEHOIST-2026-11-19)</h2>
 <div class="card">
 <p><b>Target for the day (Fred 07:23):</b> <i>&ldquo;all items in the manual labeled a-I and (m) search are t[o]
@@ -635,6 +684,38 @@ certified identical (step 15 &mdash; GPX import, agency trail import, OSM state 
 <b>ingress surface around them</b> &mdash; <code>contentResolver</code>, the file picker, the document launcher,
 background progress that must survive navigation. That is <b>L2b</b> on the living checklist, it is the one
 genuinely new piece rather than a port, and <b>it is the part the simulator cannot judge at all</b>.</p>
+<p><b>&#11088;&#11088;&#11088; AND THE COST OF ROUND 2, NAMED BY FRED (ROUND2-2026-11-19).</b> Fred 08:25,
+verbatim: <i>&ldquo;that is why Wes operated the external heavy lifting to the second round of the build. email
+send, file imports and exports, and comm modules. all will require a lot of otocuhes and the a new android
+version to prove no breakage.&rdquo;</i> Read as: the external heavy lifting was deliberately held back to the
+second round, and each of those modules will take many touches and then <b>a new Android version to prove no
+breakage</b>. This is the <b>economic</b> half of INGRESS &mdash; the reason the order is not arbitrary.</p>
+<p><b>WHY ROUND 1 IS CHEAP: THE ANDROID BUILD IS A FREE CONTROL.</b> Everything added on 11-19 is a
+<b>seam</b> &mdash; not one line of new application function. Measured: <code>GtPanelChrome</code> (6 members)
+plus <code>GtCloseButton</code>; <code>GtSearchBridge</code> +4 (<code>states</code>, <code>findPlaces</code>,
+<code>initSearch</code>, <code>searchByName</code>); <code>GtFilterBridge</code> +4 (the off-grid overlays);
+<code>GroupTrackLaunchLayer</code> +6 parameters (<code>bearing</code>, <code>tilt</code>,
+<code>headingUp</code>, <code>routePrecheck</code>, <code>group</code>, <code>mapsDownloading</code>); and
+<code>GtOpenModule.closeTick</code>. <code>ArtifactSearch.kt</code>, <code>GeofabrikState</code>,
+<code>LaunchModules</code>, <code>GtPanel</code>, <code>RideStart</code> and <code>MapKeysPanel</code> are
+<b>moves</b>, logic untouched. <b>So A&ndash;I + M must behave IDENTICALLY on Droid 1 after this work</b>, and
+any difference certification finds is a seam defect introduced today, not a feature change to reason about.
+<code>closeTick</code> is the one borderline case &mdash; a new mechanism, added so the relocated effects keep
+today's behaviour &mdash; and is therefore the one to watch.</p>
+<p><b>WHY ROUND 2 IS NOT: THE CONTROL BECOMES A DELIVERABLE.</b> Email send, file import/export and the comm
+modules are code <b>Android itself runs</b>. Moving them changes the Android binary, so &ldquo;prove no
+breakage&rdquo; stops being a free side effect of the port and becomes <b>its own Android release and
+certification pass</b> &mdash; Fred's &ldquo;a new android version&rdquo;. Doing that work now would have put
+regression risk on the <b>2.8a beta the riders are running</b>, to buy iPad function that cannot be tested
+without a device anyway.</p>
+<p><b>THE PREDICTION THIS MAKES, RECORDED SO IT CAN BE CHECKED LATER:</b> a parameter or a lambda is sufficient
+whenever a panel only READS or TOGGLES host state &mdash; which covered <b>every</b> coupling in A&ndash;I + M
+without exception (<code>GroupMode</code>, <code>DownloadQueueManager</code>, <code>GtOffGrid</code>,
+<code>SpatialDbManager</code>, Geocoder, the asset reader). J&middot;Map admits internet downloads, file imports
+and tile stores, which a host cannot pre-compute into a Boolean, so <b>round 2 is where real interfaces
+(expect/actual, or a service contract) are expected to be needed rather than parameters</b>. If J turns out to
+be seamable by parameters as well, that is a finding worth recording; if it needs interfaces, we were not
+surprised by it.</p>
 <p><b>&#9940;&#9940;&#9940; THE BASELINE, STATED PLAINLY: ZERO PANELS (PANELZERO-2026-11-18).</b> Fred
 21:34: <i>&ldquo;panels are the cornerstone of what is left and we have not covered 1.&rdquo;</i> <b>Correct, and
 measured:</b> <code>grouptrack-shared</code> contains <b>5 files with 6 <code>@Composable</code></b>, and its

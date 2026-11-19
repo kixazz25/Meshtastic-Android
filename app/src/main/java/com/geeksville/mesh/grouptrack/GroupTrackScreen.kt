@@ -2971,6 +2971,29 @@ fun GroupTrackScreen(
                     }
                     // SEARCHFIT-2026-10-31 (Fred 15:38): the map fits to the result; its detail panel is NOT opened on top (D27)
                 },
+                // BODIES-2026-11-19: the state catalogue and the place lookup stay HERE, where
+                // Geocoder and the Context live. Both are verbatim from SearchModule.
+                // SEARCHDB-2026-11-19: the DB CONNECTION stays here, where the Context lives.
+                // Both lambdas are verbatim from SearchModule -- same calls, and the panel still
+                // invokes them inside withContext(Dispatchers.IO), as it did before the seam.
+                initSearch = { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO)
+                    { com.geeksville.mesh.convoy.SpatialDbManager.init(context) } },
+                searchByName = { table, term -> kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO)
+                    { com.geeksville.mesh.convoy.SpatialDbManager.searchByName(table, term) } },
+                states = { com.geeksville.mesh.convoy.GeofabrikCatalog.load(context) },
+                findPlaces = { t, st ->
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        runCatching {
+                            @Suppress("DEPRECATION")
+                            val a = if (st != null) android.location.Geocoder(context).getFromLocationName(t, 6, st.bboxSouth, st.bboxWest, st.bboxNorth, st.bboxEast)
+                                    else android.location.Geocoder(context).getFromLocationName(t, 6)
+                            // GTSEARCH (Fred 13:06 "Smithtown exists in a lot of places"): a state outline is a RECTANGLE
+                            // that overlaps its neighbours, so a place must also NAME that state.
+                            a.orEmpty().filter { p -> st == null || p.adminArea.isNullOrBlank() || st.name.startsWith(p.adminArea!!, ignoreCase = true) }
+                                .map { com.geeksville.mesh.grouptrack.GtPlace(listOfNotNull(it.featureName, it.locality, it.adminArea).distinct().joinToString(", "), it.latitude, it.longitude) }
+                        }.getOrDefault(emptyList())
+                    }
+                },
                 goToPlace = { la, lo ->
                     viewModel.setAutoPan(false); gtSearchHold = true   // SEARCHPAN-2026-09-15: a search moved the map -- stop following first; SEARCHHOLD-2026-11-03
                     val wv = webViewRef.value
@@ -2981,8 +3004,52 @@ fun GroupTrackScreen(
             )
         val gtRecipeFile = com.geeksville.mesh.grouptrack.rememberRecipeFile()   // AIFAIL-2026-11-03: Route > Build from a recipe file
         val gtRideImport = rememberRideImport(onDone = {})   // GTRIDES-2026-10-22: Rides › Import a ride (ONE MAP has no menu to close)
+        // SCAFFOLD-2026-11-19: what the launch layer used to do for itself, reinstated here VERBATIM.
+        // The help table is loaded once, not per menu row.
+        com.geeksville.mesh.grouptrack.GtHelp.load(context)
+        // C28-26333: three startup jobs that used to run from the layer's composition. They belong in
+        // GtStartupHousekeeping; until the card is done they run here, where they ran before.
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            com.geeksville.mesh.grouptrack.GtDbAudit.repair(context.applicationContext)
+            com.geeksville.mesh.convoy.GtFileHome.resetOnce(context.applicationContext)
+            com.geeksville.mesh.grouptrack.GtBackup.autoCheck(context.applicationContext)
+        }
+        // RESTOREQUEUE-2026-11-03: a recipe restore was queued -> the download queue.
+        androidx.compose.runtime.LaunchedEffect(com.geeksville.mesh.grouptrack.GtRecipes.openQueue.value) {
+            if (com.geeksville.mesh.grouptrack.GtRecipes.openQueue.value) {
+                com.geeksville.mesh.grouptrack.GtRecipes.openQueue.value = false
+                com.geeksville.mesh.grouptrack.GtOpenModule.closeTick.intValue++
+                queuesOpen = true
+            }
+        }
+        // MAPRECIPES-2026-11-03: an AI route recipe opened from an email / Downloads.
+        val rcvRoute = com.geeksville.mesh.grouptrack.GtRecipes.routeRecipe.value
+        androidx.compose.runtime.LaunchedEffect(rcvRoute) {
+            if (rcvRoute.isNotEmpty()) {
+                com.geeksville.mesh.grouptrack.GtRecipes.routeRecipe.value = ""
+                com.geeksville.mesh.grouptrack.GtOpenModule.closeTick.intValue++
+                try { com.geeksville.mesh.grouptrack.GtRoute.buildFromRecipeJson(context, org.json.JSONObject(rcvRoute), true) }
+                catch (e: Exception) { android.widget.Toast.makeText(context, "Could not open the route recipe: ${e.message}", android.widget.Toast.LENGTH_LONG).show() }
+            }
+        }
+        // GTROUTE1-2026-10-23: the in-progress picker's "+ Plan a new route" -> the Route panel.
+        androidx.compose.runtime.LaunchedEffect(com.geeksville.mesh.grouptrack.GtRoute.wantChooser.value) {
+            if (com.geeksville.mesh.grouptrack.GtRoute.wantChooser.value) {
+                com.geeksville.mesh.grouptrack.GtRoute.wantChooser.value = false
+                com.geeksville.mesh.grouptrack.GtOpenModule.req.value = "route"
+            }
+        }
         if (docsView == null) com.geeksville.mesh.grouptrack.GroupTrackLaunchLayer(
             onHelp = { name -> docsOpen(name) },
+            // SCAFFOLD-2026-11-19: the map view's state and the route pre-check, from the host.
+            bearing = com.geeksville.mesh.grouptrack.GtMapView.bearing.value,
+            tilt = com.geeksville.mesh.grouptrack.GtMapView.tilt.value,
+            headingUp = com.geeksville.mesh.grouptrack.GtMapView.headingUp.value,
+            routePrecheck = { com.geeksville.mesh.grouptrack.GtRoute.precheck() },
+            // SCAFFOLDDEPS-2026-11-19: GRP Awareness and the download queue, read HERE (both Android).
+            group = com.geeksville.mesh.convoy.GroupMode.on.value,
+            mapsDownloading = com.geeksville.mesh.convoy.DownloadQueueManager.queue.collectAsState().value.any {
+                it.status == com.geeksville.mesh.convoy.QueueStatus.DOWNLOADING || it.status == com.geeksville.mesh.convoy.QueueStatus.QUEUED },
             // VIEWHOUSE-2026-10-30 (Fred 14:16): the black-and-white HUD icon switches the WHOLE APP -- white HUD text = the satellite
             // colour set (white panels), dark HUD text = the topo set (blue panels). Defaults per map key as before (SAT dark, VEC light).
             mapType = if (hudOnDark) "SAT" else "VEC",
@@ -3088,6 +3155,11 @@ fun GroupTrackScreen(
             centreLabel = "CENTRE ON ME",   // CENTREME-2026-11-03 (Fred 18:13): it centres on me, period -- no FOLLOWING labels
             keyStyleChanged = { webViewRef.value?.evaluateJavascript("setTrailStyles(" + TrailFilterState.styleJson() + ")", null) },   // GTKEY-2026-10-22: as Map Keys does
             filter = com.geeksville.mesh.grouptrack.GtFilterBridge(   // GTFILTER-2026-10-22: FILTER -- the same functions Map Features used
+                // SCAFFOLDDEPS-2026-11-19: the off-grid overlays stay HERE -- verbatim calls.
+                offGridAvailable = { com.geeksville.mesh.grouptrack.GtOffGrid.available.value },
+                setOffGridAvailable = { on -> com.geeksville.mesh.grouptrack.GtOffGrid.setAvailable(on) },
+                offGridDownloading = { com.geeksville.mesh.grouptrack.GtOffGrid.downloading.value },
+                setOffGridDownloading = { on -> com.geeksville.mesh.grouptrack.GtOffGrid.setDownloading(on) },
                 state = { t -> when (t) { "Trails" -> trailState; "Tracks" -> trackState; "Waypoints" -> waypointState; else -> routeState } },
                 setState = { t, v -> gtHideSaved = emptyMap(); gtSetDisplay(t, v) },
                 openSelect = { t -> gtHideSaved = emptyMap(); gtEditDisplay(t) },

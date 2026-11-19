@@ -1,5 +1,7 @@
 package com.geeksville.mesh.grouptrack
 
+import com.grouptrack.shared.help.GtHelpLinks   // SCAFFOLD-2026-11-19: the shared help table, directly
+
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background   // GRPONEMAP-2026-10-22
 import androidx.compose.foundation.clickable   // GRPONEMAP-2026-10-22
@@ -28,11 +30,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.geeksville.mesh.convoy.GroupMode
 
 /**
  * SHELL-2026-10-22 (2.7c ONE MAP, Fred 10-22): the launch layer -- the new start screen's scaffolding, drawn over the map.
@@ -76,7 +76,9 @@ val GT_RETIRED: Map<String, String> = mapOf(
 @Composable
 private fun GtMenuLine(label: String, live: Boolean, indent: Boolean, overviewId: String, onTap: () -> Unit) {   // MENUOVERVIEW-2026-11-04: + overviewId (CODE RULE 1: required; the row's id)
     val s = GtScheme.current.value
-    GtHelp.load(androidx.compose.ui.platform.LocalContext.current)
+    // SCAFFOLD-2026-11-19: the help table is loaded ONCE by the host, not per menu row.
+    // BODIES-2026-11-19: GtMenuLine is its own composable, so it reads the chrome itself.
+    val chrome = LocalGtPanelChrome.current
     androidx.compose.foundation.layout.Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             // CORRRETIRE-2026-11-13: a retired row says so; only a never-wired row says "not attached yet".
@@ -87,10 +89,10 @@ private fun GtMenuLine(label: String, live: Boolean, indent: Boolean, overviewId
                 .padding(start = if (indent) 20.dp else 2.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)
         )
         // MENUOVERVIEW-2026-11-04 (Fred 09:40): read before running -- opens the manual at this function; does NOT run it.
-        if (GtHelp.has(overviewId)) Text("OVERVIEW", color = s.panelText, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+        if (GtHelpLinks.has(overviewId)) Text("OVERVIEW", color = s.panelText, fontSize = 12.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.border(androidx.compose.foundation.BorderStroke(1.dp, s.panelText.copy(alpha = 0.6f)),
                     androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
-                .clickable { GtHelpView.open(overviewId) }.padding(horizontal = 8.dp, vertical = 5.dp))
+                .clickable { chrome.openHelp(overviewId) }.padding(horizontal = 8.dp, vertical = 5.dp))
     }
 }
 
@@ -120,41 +122,59 @@ fun GroupTrackLaunchLayer(
     /** GTSEARCH-2026-10-22: the one-box search's link to the map. Required. */
     search: GtSearchBridge,
     onToggleView: () -> Unit,
+    /** VIEWSTATE-2026-11-19: the map view's own state, PASSED IN rather than read from GtMapView
+     *  (MapEngine.kt is Android-only). Required (CODE RULE 1) -- the host always knows these. */
+    bearing: Float,
+    tilt: Boolean,
+    headingUp: Boolean,
+    /** GTROUTE1-2026-10-23: Add Route checks BEFORE opening its choices. Required (CODE RULE 1) --
+     *  GtRoute is 1,884 lines of Android, so the host owns the check. */
+    routePrecheck: () -> Boolean,
+    /** SCAFFOLDDEPS-2026-11-19: GRP Awareness is ON. GroupMode persists to SharedPreferences and
+     *  reads RadioSetupState, so the HOST owns it and the shell is only told the answer.
+     *  Required (CODE RULE 1) -- the host always knows, and both values are legitimate. */
+    group: Boolean,
+    /** SCAFFOLDDEPS-2026-11-19: a map download is running or queued -- the MENU row says so.
+     *  DownloadQueueManager is 1,358 lines of Android download machinery (J.Map), so the host
+     *  derives the one Boolean the shell needs. Required (CODE RULE 1). */
+    mapsDownloading: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val ctx = LocalContext.current
-    GtHelp.load(ctx)
+    // SCAFFOLD-2026-11-19: no Context here. The host loads the help table and owns every
+    // Android service this layer used to reach for; see the removals below.
+    val chrome = LocalGtPanelChrome.current
     GtScheme.current.value = GtScheme.forMap(mapType)   // SHELL2-2026-10-22: buttons and panels follow the map type
-    val group = GroupMode.on.value
     var open by rememberSaveable { mutableStateOf("") }   // the open module's id; "" = none (CODE RULE 1: no null)
     // AIFAIL-2026-11-03: another screen asks for a module (the failed AI build's OPEN FILTER) -- "" = no request
     val openReq = GtOpenModule.req.value
     androidx.compose.runtime.LaunchedEffect(openReq) { if (openReq.isNotEmpty()) { open = openReq; GtOpenModule.req.value = "" } }
     // AIFAIL-2026-11-03 v4: another screen changed FILTER (SHOW ALL LAND AND SEARCH AGAIN) -- redraw the trails as FILTER itself does
+    // SCAFFOLD-2026-11-19: the host asks the shell to CLOSE its panel the same way it already asks
+    // it to OPEN one. This is what lets the relocated effects keep today's behaviour exactly.
+    androidx.compose.runtime.LaunchedEffect(GtOpenModule.closeTick.intValue) {
+        if (GtOpenModule.closeTick.intValue > 0) open = ""
+    }
     val trailsTick = GtOpenModule.trailsTick.intValue
     androidx.compose.runtime.LaunchedEffect(trailsTick) { if (trailsTick > 0) filter.trailsChanged() }
     // MAPRECIPES-2026-11-03: an AI route recipe opened from an email / Downloads -> the AI build at its summary, its FILTER applied
     // BACKUP-2026-11-03 (Fred 11:41), rewritten DRFILE-2026-11-18: every start with internet -- a CHANGED
     // (or week-old) backup WRITES its five files to the DR directory. No offer and no dialog: Fred 11-18
     // "no more email", and nothing is asked of the rider for a file written to their own folder.
-    androidx.compose.runtime.LaunchedEffect(Unit) { GtDbAudit.repair(ctx.applicationContext); com.geeksville.mesh.convoy.GtFileHome.resetOnce(ctx.applicationContext); GtBackup.autoCheck(ctx.applicationContext) }   // TRACKSFIX-2026-11-03: repair first
+    // SCAFFOLD-2026-11-19 / C28-26333: three STARTUP jobs used to run from this composable --
+    // GtDbAudit.repair, GtFileHome.resetOnce, GtBackup.autoCheck. None of them is in housekeeping
+    // on either platform, so on the iPad (which reaches the map through the startup road) they
+    // would never have run and nothing would have said so. They are the HOST's now, and the card
+    // moves them into GtStartupHousekeeping where they belong.
     // RESTOREQUEUE-2026-11-03: a recipe restore was queued -> the download queue
-    androidx.compose.runtime.LaunchedEffect(GtRecipes.openQueue.value) { if (GtRecipes.openQueue.value) { GtRecipes.openQueue.value = false; open = ""; actions["map.queues"]?.invoke() } }
-    val rcvRoute = GtRecipes.routeRecipe.value
-    androidx.compose.runtime.LaunchedEffect(rcvRoute) { if (rcvRoute.isNotEmpty()) { GtRecipes.routeRecipe.value = ""; open = ""
-        try { GtRoute.buildFromRecipeJson(ctx, org.json.JSONObject(rcvRoute), true) }
-        catch (e: Exception) { android.widget.Toast.makeText(ctx, "Could not open the route recipe: ${e.message}", android.widget.Toast.LENGTH_LONG).show() } } }
+    // SCAFFOLD-2026-11-19: GtRecipes/GtRoute wiring moved to the host (see GtOpenModule.closeTick).
     var sub by rememberSaveable { mutableStateOf("") }   // MAPTARGET-2026-10-23: the open submenu's id; "" = the module's top level
     val openModule = LaunchModules.all.firstOrNull { it.id == open }
     // GTROUTE1-2026-10-23: the in-progress picker's "+ Plan a new route" -> the Route panel's choices.
-    androidx.compose.runtime.LaunchedEffect(GtRoute.wantChooser.value) { if (GtRoute.wantChooser.value) { GtRoute.wantChooser.value = false; open = "route" } }
     // RIDESEARCH-2026-10-24: Rides > Create a ride opens Search first.
     androidx.compose.runtime.LaunchedEffect(GtRideStart.wantSearch.value) { if (GtRideStart.wantSearch.value) { GtRideStart.wantSearch.value = false; open = "search" } }
     // RIDESEARCH3-2026-10-24: Search's PROCEED TO RIDE CREATION.
     androidx.compose.runtime.LaunchedEffect(GtRideStart.wantProceed.value) { if (GtRideStart.wantProceed.value) { GtRideStart.wantProceed.value = false; open = ""; actions["rides.ride.form"]?.invoke() } }
     // MAPTARGET4-2026-10-23 (Fred 09:54): maps downloading -> the Map button is GREEN with a dot; the menu's summary says so.
-    val mapsDownloading = com.geeksville.mesh.convoy.DownloadQueueManager.queue.collectAsState().value.any {
-        it.status == com.geeksville.mesh.convoy.QueueStatus.DOWNLOADING || it.status == com.geeksville.mesh.convoy.QueueStatus.QUEUED }
     // ATTACH1-2026-10-22 ONE-OPTION RULE (Fred 11:09): one process, attached -> the button runs it; otherwise it opens the panel.
     fun tap(m: LaunchModule) {
         val act = m.processes.singleOrNull()?.let { actions[it.id] }
@@ -176,7 +196,7 @@ fun GroupTrackLaunchLayer(
             // VECCOMPASS-2026-10-30 (Fred 17:36): the compass to the right of MENU (replaces the fixed "N" in front of the zoom)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 LaunchModules.bySlot(LaunchSlot.LEFT, group).forEach { m -> GtButton(m.label, { tap(m) }) }
-                GtCompass(GtMapView.bearing.value, { actions["view.north"]?.invoke() })
+                GtCompass(bearing, { actions["view.north"]?.invoke() })
             }
             GtButton("+", { onZoom(1) })
             GtButton("−", { onZoom(-1) })
@@ -203,8 +223,8 @@ fun GroupTrackLaunchLayer(
                     "internet" -> GtButton(if (online) "Status: Online" else "Status: Offline", { tap(m) })   // SHELL4 (Fred 10:21)
                     // VIEWHOUSE-2026-10-30 (Fred 14:02/14:16): one source, nothing to pick -- the map button becomes 3D and orientation
                     "maptype" -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        GtButton(if (GtMapView.tilt.value) "3D" else "2D", { actions["view.3d"]?.invoke() })
-                        GtButton(if (GtMapView.headingUp.value) "My dir" else "N up", { actions["view.heading"]?.invoke() })
+                        GtButton(if (tilt) "3D" else "2D", { actions["view.3d"]?.invoke() })
+                        GtButton(if (headingUp) "My dir" else "N up", { actions["view.heading"]?.invoke() })
                     }
                     "key" -> GtIconButton(m.label, Icons.Filled.Key, { tap(m) })
                     "filter" -> GtIconButton(m.label, Icons.Filled.FilterAlt, { tap(m) })
@@ -224,7 +244,7 @@ fun GroupTrackLaunchLayer(
                 // SHELL11-2026-10-22 (Fred 11:19): Add Route and View SHARE one slot -- Add Route before the ride, View once on it.
                 LaunchModules.bySlot(LaunchSlot.BOTTOM_BAR, group).forEach { m ->
                     if (m.id == "route") {
-                        if (!onRide) GtButton("Add Route", { if (!GtRoute.precheck()) tap(m) })   // GTROUTE1-2026-10-23: checks BEFORE the choices
+                        if (!onRide) GtButton("Add Route", { if (!routePrecheck()) tap(m) })   // GTROUTE1-2026-10-23: checks BEFORE the choices
                         else if (group) GtButton(viewLabel, onToggleView)   /* HUDHIDE-2026-11-01 */
                     } else if (m.id == "map" && mapsDownloading) GtButton(m.label + "  \u25cf", { tap(m) }, emphasis = androidx.compose.ui.graphics.Color(0xFF35C46A))   /* GRPSTATUS-2026-10-24: downloading = green */   // MAPTARGET4
                     else GtButton(m.label, { tap(m) })
@@ -232,8 +252,8 @@ fun GroupTrackLaunchLayer(
             }
         }
 
-        GtDownloadSettingsPanel()   // DLDEFAULTS-2026-10-24: Map > Download settings
-        GtUtahPrivatePanel()   // UTAHPRIV-2026-10-24: Map > Assign Utah private property
+        chrome.DownloadSettingsPanel()   // DLDEFAULTS-2026-10-24: drawn by the host (BODIES-2026-11-19)
+        chrome.UtahPrivatePanel()   // UTAHPRIV-2026-10-24: drawn by the host (SCAFFOLD-2026-11-19)
         // RIDESEARCH-2026-10-24: step 2 of Create a ride -- Search has closed and the map shows the area; the form lists its routes.
         if (GtRideStart.pending.value && open != "search") {
             val rs = GtScheme.current.value
@@ -282,7 +302,7 @@ fun GroupTrackLaunchLayer(
                     // MAPTARGET4-2026-10-23 (Fred 10:04): the queue summary FIRST -- DETAILS opens the downloads panel. MAP TYPE left the
                     // menu (Fred 10:09): it is the Map: TYPE button on the map.
                     if (openModule.id == "map") {
-                        GtQueueSummary(onOpen = { open = ""; actions["map.queues"]?.invoke() }, modifier = Modifier.fillMaxWidth())   // GTQSUM-2026-10-23: always
+                        chrome.QueueSummary(onOpen = { open = ""; actions["map.queues"]?.invoke() }, modifier = Modifier.fillMaxWidth())   // GTQSUM-2026-10-23: always
                         // MENUHINT-2026-11-04 (Fred 09:49): how the menu works, where it is used
                         Text("Tap a function's name to run it.\nTap OVERVIEW first to see what it does and how to use it.",   // MENUHINTFIX-2026-11-04
                             color = GtScheme.current.value.panelText, fontSize = 15.sp, fontWeight = FontWeight.Bold,
@@ -357,6 +377,10 @@ private fun GtCompass(bearing: Float, onClick: () -> Unit) {
 /** AIFAIL-2026-11-03: a module another screen asks the shell to open ("" = none). */
 object GtOpenModule {
     val req = androidx.compose.runtime.mutableStateOf("")
+    /** SCAFFOLD-2026-11-19: bumped when another screen wants the shell's panel CLOSED. 0 = never.
+     *  The counterpart of [req]: the host can now ask for close as well as open, which is what the
+     *  recipe and route effects need after they moved out of the layer. */
+    val closeTick = androidx.compose.runtime.mutableIntStateOf(0)
     /** AIFAIL-2026-11-03 v4: bumped when another screen changes FILTER -- the shell redraws the trails. 0 = never. */
     val trailsTick = androidx.compose.runtime.mutableIntStateOf(0)
 }

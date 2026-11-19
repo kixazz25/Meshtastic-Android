@@ -29,7 +29,8 @@ import com.geeksville.mesh.convoy.ARTIFACT_ROWS
 import com.geeksville.mesh.convoy.MOTORIZED_ROWS
 import com.geeksville.mesh.convoy.MapKeyRow
 import com.geeksville.mesh.convoy.NON_MOTORIZED_ROWS
-import com.geeksville.mesh.convoy.TrailFilterState
+import com.grouptrack.shared.filter.TrailFilterState   // IOSFIX-2026-11-19: the SHARED object,
+// not the Android facade of the same name in com.geeksville.mesh.convoy (which delegates to this).
 import com.geeksville.mesh.convoy.TrailStylePanel
 
 /**
@@ -96,7 +97,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 private fun StyleRow(r: MapKeyRow, onStyle: () -> Unit) {
     val s = GtScheme.current.value
     val saved = TrailFilterState.style[r.name]
-    val color = saved?.first?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: r.color
+    val color = saved?.first?.let { gtHexColor(it) } ?: r.color   // BODIES-2026-11-19: was android.graphics.Color.parseColor
     val dashed = if (saved != null) saved.second != null else r.dashed
     val weight = saved?.third ?: r.weight
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable(onClick = onStyle).padding(vertical = 8.dp)) {

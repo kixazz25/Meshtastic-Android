@@ -1,6 +1,8 @@
 package com.geeksville.mesh.convoy
 
 import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
+import com.grouptrack.shared.filter.TrailFilterState   // IOSFIX-2026-11-19: was resolved by being
+// in the SAME PACKAGE as the Android facade; off Android that no longer finds it, so name it.
 import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border

@@ -35,6 +35,21 @@ interface GtPanelChrome {
     /** The report panel and the CAPTURE bar, drawn on every screen by GtTheme. */
     @Composable
     fun IssueHost()
+
+    /** SCAFFOLD-2026-11-19: UTAHPRIV-2026-10-24's panel. Android-only today (5 fully-qualified
+     *  android.* sites), so the host draws it and iOS draws nothing. */
+    @Composable
+    fun UtahPrivatePanel()
+
+    /** SCAFFOLD-2026-11-19: GTQSUM-2026-10-23's download-queue summary at the top of the Map menu.
+     *  It lives in a 760-line Android file, so the host draws it. */
+    @Composable
+    fun QueueSummary(onOpen: () -> Unit, modifier: androidx.compose.ui.Modifier)
+
+    /** BODIES-2026-11-19: DLDEFAULTS-2026-10-24's panel. It belongs to J (map downloads), not to
+     *  A-I, so the host draws it rather than moving it today. */
+    @Composable
+    fun DownloadSettingsPanel()
 }
 
 val LocalGtPanelChrome = staticCompositionLocalOf<GtPanelChrome> {
