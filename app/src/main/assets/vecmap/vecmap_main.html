@@ -6,7 +6,19 @@
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <link rel="stylesheet" href="maplibre-gl.css"><script src="maplibre-gl.js"></script>
 <style>html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden}
-#map{position:fixed;top:0;right:0;bottom:0;left:0}  /* VECMAINFIXED-2026-10-30: as convoy_map.html:13 (absolute measured 0 high) */</style>
+#map{position:fixed;top:0;right:0;bottom:0;left:0}  /* VECMAINFIXED-2026-10-30: as convoy_map.html:13 (absolute measured 0 high) */
+/* ATTRIB-2026-11-19 (Fred 09:57): "the map attribution runs right through the bottom row
+   buttons". The launch layer's own clearance for that row is 72-76 dp (GroupTrack.kt:260
+   uses 76.dp, :288 uses 72.dp for panels above it), so the map's bottom controls are
+   lifted clear of it. Both corners, because the attribution can sit in either.
+   ⚠ LIFTED, NOT HIDDEN: OpenMapTiles' licence requires the attribution be visible --
+   CORRCREDITS-2026-11-13 is why map.sources stayed alive. Hiding it would breach that.
+   One file for BOTH platforms: Android reads this tree from assets, iOS gets the opaque
+   folder copy (VECOPAQUE-2026-11-18), so gt_vecopaque syncs it after this. */
+.maplibregl-ctrl-bottom-left,.maplibregl-ctrl-bottom-right{bottom:38px}
+/* ATTRIB2-2026-11-19 (Fred 10:19): 76px cleared the row but lifted it further than needed --
+   "can come down by about half the distance you [in]creased it". 38px is his number, measured
+   on the 13-inch glass, not my 72-76 dp inference from GroupTrack.kt's panel clearance. */</style>
 </head><body><div id="map"></div>
 <script>
 window.__htmlVersion = 'VECMAIN-2026-10-30';

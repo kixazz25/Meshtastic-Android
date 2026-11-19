@@ -46,7 +46,9 @@ object LaunchModules {
     val all: List<LaunchModule> = listOf(
         LaunchModule("record", "RECORD", LaunchSlot.TOP_CENTRE, 1, groupOnly = false, stays = false, processes = p("record",
             "checkin" to "CHECK IN (Group) — ride, role and radio on one screen, then records",
-            "rec" to "REC (Android only) — start recording",
+            // MYDEVICE-2026-11-19 (Fred 09:50): "Record is my device by definition. no reference to
+            // droid." The qualifier GOES rather than being reworded -- it never said anything.
+            "rec" to "REC — start recording",
             "end" to "END RIDE — name, survey and share on one screen")),
         LaunchModule("menu", "MENU", LaunchSlot.LEFT, 1, groupOnly = false, stays = false, processes = p("menu",
             "settings" to "Settings",
@@ -56,7 +58,7 @@ object LaunchModules {
         LaunchModule("grp", "GRP Awareness", LaunchSlot.RIGHT, 1, /* MODEFIRST-2026-10-26 (Fred 11:51): after MODE */ groupOnly = false, stays = false, processes = p("grp",
             "open" to "GRP Awareness \u2014 radio link status, connect, apply the ride's settings")),
         LaunchModule("mode", "MODE", LaunchSlot.RIGHT, 0, /* MODEFIRST-2026-10-26: first on the right */ groupOnly = false, stays = false, processes = p("mode",
-            "switch" to "ANDROID ONLY ⇄ GROUP (blocked while recording)")),
+            "switch" to "MY DEVICE ⇄ GROUP (blocked while recording)")),   // MYDEVICE-2026-11-19 (Fred 09:48)
         LaunchModule("internet", "INTERNET", LaunchSlot.RIGHT, 2, groupOnly = false, stays = false, processes = p("internet",
             "switch" to "Internet ON / OFF — shows the current state, allows OFF")),
         // MAPCHIP-2026-10-23 (Fred 08:54): the map type ON the map, under STATUS. Its panel is the list of types (drawn by GroupTrack).

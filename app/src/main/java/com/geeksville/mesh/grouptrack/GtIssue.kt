@@ -128,7 +128,7 @@ object GtIssue {
 
     private fun details(ctx: Context): String {
         val ver = runCatching { com.geeksville.mesh.BuildConfig.VERSION_NAME + " (" + com.geeksville.mesh.BuildConfig.VERSION_CODE + ")" }.getOrDefault("?")
-        val mode = runCatching { if (com.geeksville.mesh.convoy.GroupMode.on.value) "Group" else "Android only" }.getOrDefault("?")
+        val mode = runCatching { if (com.geeksville.mesh.convoy.GroupMode.on.value) "Group" else "My device" }.getOrDefault("?")
         return "Function: $function\nApp: $ver\nMode: $mode\nDevice: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE}\n" +
             "When: ${stamp.replace('_', ' ')}\nScreens: ${shots.size}\n\nWhat is wrong:\n${note.value.trim()}\n" +
             // AIFAIL-2026-11-03 (Fred 11-02 19:34): a report from the Route screens carries the last AI search

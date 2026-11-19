@@ -222,7 +222,11 @@ class ConvoyViewModel @Inject constructor(
      *  Tablet without GPS (my cart from the radio): green when my radio sent a fresh fix in the last 45 s. first = green, second = label. */
     fun gpsLamp(): Pair<Boolean, String> = if (tabletHasGps) {
         val n = TabletPosition.satsInFix()
-        Pair(n >= 4, if (n >= 4) "DROID GPS " + n else "NO DROID GPS")   // DROIDGPS-2026-10-25 (Fred 10-24 13:48): the tablet's own GPS
+        Pair(n >= 4, if (n >= 4) "MY DEVICE GPS " + n else "NO MY DEVICE GPS")   // DROIDGPS-2026-10-25 (Fred 10-24 13:48): the tablet's own GPS
+        // MYDEVICE-2026-11-19 (Fred 09:50): "gps type above record mention droid s/b my device or
+        // radio." This function ALREADY branches by source -- the else branch below is RADIO GPS --
+        // so only this branch's wording was wrong. ⚠ 16 chars where DROID was 12, in a 12 sp
+        // monospace lamp: if it clips, "DEVICE GPS" parallels "RADIO GPS" and fits.
     } else {
         val ok = System.currentTimeMillis() - myRadioFixMs < 45_000L
         Pair(ok, if (ok) "RADIO GPS" else "NO RADIO GPS")

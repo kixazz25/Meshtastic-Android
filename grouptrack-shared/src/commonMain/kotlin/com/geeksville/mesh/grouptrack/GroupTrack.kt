@@ -219,7 +219,10 @@ fun GroupTrackLaunchLayer(
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) { Text(m.label, color = androidx.compose.ui.graphics.Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold) }   // GRPSTATUS-2026-10-24: white on the status colour
-                    "mode" -> GtButton(if (group) "Mode: Group" else "Mode: Android only", { tap(m) })   // SHELL4 (Fred 10:21)
+                    // MYDEVICE-2026-11-19 (Fred 09:48): was "Mode: Android only". Shared code drawing on BOTH
+                    // platforms since e365479ec, so Android-specific wording was wrong on the iPad and
+                    // imprecise on the Droid -- the mode means ONE RIDER, NO RADIO, not an operating system.
+                    "mode" -> GtButton(if (group) "Mode: Group" else "Mode: My device", { tap(m) })   // SHELL4 (Fred 10:21)
                     "internet" -> GtButton(if (online) "Status: Online" else "Status: Offline", { tap(m) })   // SHELL4 (Fred 10:21)
                     // VIEWHOUSE-2026-10-30 (Fred 14:02/14:16): one source, nothing to pick -- the map button becomes 3D and orientation
                     "maptype" -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

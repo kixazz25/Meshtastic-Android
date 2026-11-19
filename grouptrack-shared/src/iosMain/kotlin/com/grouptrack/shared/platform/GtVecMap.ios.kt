@@ -366,7 +366,22 @@ private class GtVecServer(private val log: (String) -> Unit) : NSObject(), WKURL
  *  panels will later sit OVER the map rather than beside it. */
 @OptIn(ExperimentalForeignApi::class)
 @Composable
-fun GtVecMap(modifier: Modifier = Modifier, onMessage: (String, String) -> Unit) {
+fun GtVecMap(
+    modifier: Modifier = Modifier,
+    onMessage: (String, String) -> Unit,
+    /** MAPWIRE-2026-11-19: the host receives the web view so it can evaluate the SAME JS the
+     *  Android host evaluates (zoom, gtSet3D, gtNorthUp, gtSetHeadingUp, setTrailStyles).
+     *  REQUIRED, not defaulted (CODE RULE 1): a host that wants no map controls passes {} and
+     *  says so at the call site, rather than a default hiding a miswiring. */
+    onWeb: (WKWebView) -> Unit,
+    /** SEARCHFIT2-2026-11-19: the host receives the TILE SERVER too, because E.Status is one
+     *  flag on it -- GtVecServer.offline already means Android's VecOnline.localOnly. REQUIRED
+     *  (CODE RULE 1): a host with no STATUS control passes {} and says so. */
+    /** OFFLINEFLOW-2026-11-19: E.Status, as a VALUE rather than by handing the host the
+     *  server. true = stored tiles only, even with internet -- Android's VecOnline.localOnly.
+     *  REQUIRED (CODE RULE 1): false is a legitimate value and the host always knows which. */
+    offline: Boolean,
+) {
     // VECSTORE-2026-11-18: onViewportChanged drives the spatial layer, exactly as on Android.
     val runner = remember { SpatialRunner { s -> onMessage("spatial", s) } }
     val messages = remember {
@@ -379,6 +394,9 @@ fun GtVecMap(modifier: Modifier = Modifier, onMessage: (String, String) -> Unit)
         }
     }
     val server = remember { GtVecServer { s -> onMessage("server", s) } }
+    // OFFLINEFLOW-2026-11-19: assigned every composition, so the server always carries the
+    // host's current answer. GtVecServer.offline is read per tile request, not cached.
+    server.offline = offline
     UIKitView(
         factory = {
             val config = WKWebViewConfiguration()
@@ -392,6 +410,7 @@ fun GtVecMap(modifier: Modifier = Modifier, onMessage: (String, String) -> Unit)
             web.inspectable = true
             web.loadRequest(NSURLRequest.requestWithURL(NSURL.URLWithString(NEW_BASE + "a/vecmap_main.html")!!))
             runner.web = web   // VECSTORE-2026-11-18
+            onWeb(web)         // MAPWIRE-2026-11-19: the host's handle on the page
             web
         },
         modifier = modifier,
@@ -406,5 +425,8 @@ fun GtVecMap(modifier: Modifier = Modifier, onMessage: (String, String) -> Unit)
  */
 fun gtVecMapController(onMessage: (String, String) -> Unit): UIViewController =
     ComposeUIViewController(configure = { enforceStrictPlistSanityCheck = false }) {
-        GtVecMap(Modifier.fillMaxSize(), onMessage)
+        // MAPWIRE-2026-11-19: the bare Map tab is the CONTROL -- no launch layer, so no host
+        // controls and nothing to drive the page with.
+        // The bare Map tab is the CONTROL: no launch layer, so no STATUS control either.
+        GtVecMap(Modifier.fillMaxSize(), onMessage, onWeb = {}, offline = false)
     }

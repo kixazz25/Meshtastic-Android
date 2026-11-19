@@ -91,6 +91,8 @@ struct AppAfterStartup: View {
         TabView {
             VecMapScreen()
                 .tabItem { Label("Map", systemImage: "map") }
+            GroupTrackPanelsScreen()
+                .tabItem { Label("GroupTrack", systemImage: "square.3.layers.3d") }
             ContentView()
                 .tabItem { Label("Probes", systemImage: "checkmark.seal") }
             ComposeProbeScreen()

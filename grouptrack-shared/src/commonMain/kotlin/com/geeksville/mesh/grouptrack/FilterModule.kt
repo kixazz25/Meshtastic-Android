@@ -147,7 +147,7 @@ fun GtFilterBody(f: GtFilterBridge, onSelect: (String) -> Unit) {
             }
         }
 
-        TrailGroup("MOTORIZED", MOTORIZED_ROWS, help, f) { tick++ }
+        TrailGroup("MOTORIZED", MOTORIZED_ROWS, help, f, tick) { tick++ }
         // RESTRICTEDNEVER-2026-11-03 (Fred 20:18-20:20): restricted trails and pieces -- MAP KEY ONLY: shown red or hidden, never in a route
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 18.dp)
             .clickable { TrailFilterState.setRestricted(!TrailFilterState.restricted); tick++; f.trailsChanged() }) {
@@ -160,12 +160,18 @@ fun GtFilterBody(f: GtFilterBridge, onSelect: (String) -> Unit) {
                 Text("Map key only: shown red on the map, never in a route", color = s.panelDim, fontSize = 12.sp)
             }
         }
-        TrailGroup("NON-MOTORIZED", NON_MOTORIZED_ROWS, help, f) { tick++ }
+        TrailGroup("NON-MOTORIZED", NON_MOTORIZED_ROWS, help, f, tick) { tick++ }
     }
 }
 
 @Composable
-private fun TrailGroup(title: String, rows: List<MapKeyRow>, help: Map<String, String>, f: GtFilterBridge, bump: () -> Unit) {
+// FILTERTICK2-2026-11-19 (Fred 10:26, certifying FILTER on the iPad): this took NO tick, so Compose
+// skipped it as unchanged and MOTORIZED / NON-MOTORIZED stayed put while TrailFilterState changed
+// underneath. MapKeysPanel.kt:60-66 recorded this exact failure -- "KeyColumn took it; KeyRowItem
+// did not; the headings worked and the rows appeared dead" -- and the rule is that EVERY composable
+// reading TrailFilterState must take tick AS A PARAMETER. This one now does.
+private fun TrailGroup(title: String, rows: List<MapKeyRow>, help: Map<String, String>, f: GtFilterBridge, tick: Int, bump: () -> Unit) {
+    @Suppress("UNUSED_EXPRESSION") tick   // the read is the point: it is what stops Compose skipping this
     val s = GtScheme.current.value
     val names = rows.map { it.name }
     val anyOn = names.any { TrailFilterState.isOn(it) }
@@ -203,4 +209,23 @@ private fun Seg(label: String, on: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun boxColors() = CheckboxDefaults.colors(checkedColor = Gt.accent, uncheckedColor = Gt.dim)
+// BOXCHECK-2026-11-19 (Fred 09:25, certifying FILTER on the iPad): the ticks looked the SAME on and
+// off. Measured: Gt.accent and Gt.dim are BOTH GtScheme.panelText (GtPanel.kt:82 and :84), so
+// checkedColor == uncheckedColor by value, and checkmarkColor was never set -- it fell back to
+// Material's onPrimary, which GtTheme sets to the PANEL background. Hence "the same color as box
+// background", which is literally what it was.
+//
+// accent == dim is DELIBERATE (STD1C-2026-10-24: dim/accent/good/warn/bad read the text colour
+// "until a use is given its own colour for a reason"). This is that reason, so the ROLES are left
+// alone and the control stops asking two identical roles to carry a distinction.
+//
+// The shape is STD1H-2026-10-24's own rule -- "a SELECTION shows a check mark, never a coloured
+// box; panels are solid everywhere":
+//   OFF = an outlined, empty box (Gt.dim)
+//   ON  = a CHECK MARK in the text colour, the box itself blending into the panel
+// Still all Gt.<role>, so it follows the scheme on both platforms (STD1).
+private fun boxColors() = CheckboxDefaults.colors(
+    checkedColor = Gt.panel,
+    uncheckedColor = Gt.dim,
+    checkmarkColor = Gt.text,
+)
