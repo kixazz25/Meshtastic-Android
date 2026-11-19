@@ -489,6 +489,19 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // IOSLOC-2026-11-19: GroupTrackScreen.kt:3134-3142. MAP_CART_ZOOM is SHARED, so this is
         // Android's own zoom. No position yet -> say so; Android shows a "No position yet" toast
         // and the iPad has no toast, so it goes to the status strip instead of being silent.
+        // IOSMODE-2026-11-19 (Fred 11-19 12:45): "we had the mode switch turned off on the map panel but
+        // the control [i]s setting is now active so both should [be] active." Android's own comment on this
+        // row says it IS the settings switch's call (ATTACH3-2026-10-22), so both reach ONE flag -- the same
+        // group.value the GRP Awareness colour, the launch layer and the settings switch all read.
+        // Transcribed with its guard: GroupTrackScreen.kt:3066-3069 allows the change only in CHECK_IN or
+        // IDLE and otherwise says "End the ride before changing mode." A mode flip mid-recording would
+        // change what the recorder is doing underneath a running track.
+        "mode.switch" to {
+            if (recState.value == RecordingState.CHECK_IN || recState.value == RecordingState.IDLE) {
+                group.value = !group.value
+                onMessage("mode", if (group.value) "Group" else "My device")
+            } else onMessage("mode", "End the ride before changing mode.")
+        },
         // IOSPROFILE-2026-11-19: Android is "menu.account" to { onNavigateToProfile() }
         // (GroupTrackScreen.kt:3063). Same row, same id, an overlay instead of a navigation.
         "menu.account" to { profileOpen.value = true },
