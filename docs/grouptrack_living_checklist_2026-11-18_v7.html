@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GroupTrack — Living Checklist — v1 (2026-11-14)</title>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GroupTrack &mdash; Living Checklist &mdash; v7 (2026-11-18)</title>
 <style>
 :root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
@@ -271,29 +271,6 @@ TIED TO 2.8a &mdash; the Android refactor release</h2>
 <p><b>comment</b> 11-17: the SAVE half is specced in MAPMENU above (one file, DR directory, no email, automatic on 7 days). This is the RECOVERY half. Both automated, per Fred.</p>
 </div>
 
-<div class="card"><h3><span class="tag t-prog">QUEUED POST-2.8 &mdash; FRED 11-17 16:32</span> <code>C28-26321</code> &middot; MAPMENU &mdash; Maps menu revisions (Fred 11-17 16:32: <i>"post 2.8 revisions to be queued"</i>)</h3>
-<p><b>Fred's list, verbatim</b></p>
-<ul>
-<li>"Remove option. Remove Maps for all tacks dead"</li>
-<li>"Back up GroupTrack Date email. Replace to one file attachments. change to write to directory one file that restore all components, no more email. drites to dr directory. runs automated very 7 days to add new version"</li>
-<li>"Import files open wMapfeatures view with import from Mp features directory. save or email or delete."</li>
-<li>"Export all routes to one gpx file. write to map features directory"</li>
-<li>"Export all tracks to one gpx file write to map features"</li>
-<li>"Export all waypoints to Gpx file write to map features"</li>
-<li>"Export rider trails to gpx file Write to map features"</li>
-</ul>
-<p><b>&#11088; ALREADY SHIPPING &mdash; items 3 to 7, verified in code 11-17 16:33</b> Import files (<code>map.gpx</code>) opens <code>GtFilePickerBody</code> on GroupTrack Map Features with IMPORT / EMAIL / DELETE (ONEPICKER-2026-11-17). All four exports already bundle ONE gpx per type &mdash; EXPORTALL-2026-11-03, Fred then: <i>"it should bundle all objects in one gpx file for importing. one type at a time"</i> &mdash; named <code>GroupTrack_ROUTES_&lt;date&gt;.gpx</code> etc., and EXPORTFAM-2026-11-17 routed all four to Map Features. So items 3-7 need confirming on device, not building.</p>
-<p><b>item 1 &mdash; HALF DONE</b> The launch handler for <code>map.rm_track</code> is already commented out (<code>GroupTrackScreen.kt:3053</code>, GTHEAVY-2026-10-23) so tapping it does nothing. What survives is the LABEL at <code>LaunchModules.kt:97</code> &mdash; <i>"rm_track" to "Remove maps for all tracks"</i>, carrying the note "stays (Fred 10:14)" &mdash; and the dialog at <code>MapScreens.kt:437</code>. Removing the entry means the label and the dialog; the handler is already gone.</p>
-<p><b>item 2 &mdash; THE REAL WORK, four changes to GtBackup</b></p>
-<ul>
-<li>ONE file restoring all components, instead of today's four (<code>TYPES</code> = routes, tracks, waypoints, rider trails)</li>
-<li>written to the <b>DR directory</b> (<code>Family.ROOT</code>, "GroupTrack") &mdash; <code>archive()</code> currently writes to Map Features / Maps</li>
-<li><b>no email</b> &mdash; <code>send()</code> and its <code>ACTION_SEND_MULTIPLE</code> + <code>EXTRA_EMAIL</code> come out</li>
-<li><b>automatic every 7 days, adding a new version</b>, replacing today's rider prompt (<code>ready</code> / <code>sendReady</code>). The 7-day machinery already exists: <code>weekOld()</code> and the <code>sentAtMs</code> pref, added 11-17 for ARCHIVEGATE.</li>
-</ul>
-<p><b>&#9888; DECISION OWED &mdash; what "a new version" means.</b> <code>GtFileHome.save</code> OVERWRITES a same-named file deliberately (<i>"the local directories are the CURRENT recovery position and stay small and browsable"</i>, Fred 11-17), which is the opposite of accumulating versions. Dated filenames reconcile the two: <code>GroupTrack_DR_2026-11-17</code> differs from <code>..._2026-11-24</code>, so versions accumulate by date and only a same-day rerun overwrites. Confirm that is the intent rather than a numbered sequence.</p>
-<p><b>&#9888; and one consequence</b> With no email in the DR job, the recovery position exists only on the tablet until the Drive mirror lands &mdash; and the mirror is explicitly ON HOLD pending an iPad equivalent (Fred 11-17). So between this change and the mirror, a lost tablet loses the backup. Worth stating out loud before the email goes.</p>
-</div>
 <div class="card"><h3><span class="tag t-prog">CANDIDATE DIRECTION</span> <code>C28-26319</code> &middot; shift LOCAL duplicate detection from hash to SHAPE</h3>
 <table>
 <tr><td><b>ties to</b></td><td><b>POST-2.8</b> &mdash; it touches every import path, so it waits until the refactor has shipped. &#9888; But it should be <b>decided</b> before 2.9's download rules are written, because they are the same mechanism.</td></tr>
@@ -378,19 +355,68 @@ TIED TO POST-2.8 &mdash; found by using the app, fix after the refactor ships</h
 <h2 id="r28b">TIED TO 2.8b &mdash; the iPad release</h2>
 TIED TO 2.8b &mdash; the iPad release</h2>
 <div class="card">
-<h3><span class="tag t-warn">ACTIVE</span> <code>C28-26318</code> &middot; No framework output from <code>grouptrack-shared</code></h3>
-<table>
-<tr><td><b>problem</b></td><td><code>iosArm64()</code> and <code>iosSimulatorArm64()</code> are declared and <code>compileKotlinIosArm64</code> passes (BUILD SUCCESSFUL in 18 s, first run 11-14), but there is <b>no <code>binaries.framework { }</code> block</b> &mdash; nothing produces something an Xcode app can link against.</td></tr>
-<tr><td><b>anticipated solution</b></td><td>Add the framework (or an XCFramework) output, build it, link it into a stub app target. Deployment target <b>iOS 16</b> so one binary runs on both iPads. Seed the device from the snapshot via <b>Xcode &rarr; Devices and Simulators &rarr; Replace Container</b> (Fred 20:29 wants the physical devices side by side, not a simulator).</td></tr>
-<tr><td><b>comment</b></td><td><b>&#9888; Premise correction:</b> an iPad build <b>cannot</b> find step-3 removal problems &mdash; iOS has no callers of Android objects. What it finds is what is <b>MISSING</b> for iOS. That is still the forced ordering the V3 sequence needs, but by absence, not removal.</td></tr>
-</table>
-</div>
-<div class="card">
 <h3><span class="tag t-bad">DO NOT TOUCH</span> <code>C28-26318</code> &middot; <code>iosMain/text/GtMathLog.kt:125</code> &mdash; the "Division by zero" warning is correct</h3>
 <table>
 <tr><td><b>problem</b></td><td>The compiler warns <code>Division by zero</code> on <code>return -1.0 / 0.0</code>. It looks like a bug and is not.</td></tr>
 <tr><td><b>anticipated solution</b></td><td><b>NONE &mdash; leave it.</b> Negative infinity is the correct IEEE result for <code>log(0)</code>, mirroring <code>__math_divzero</code>. The file is a bit-exact port of ARM's optimized <code>log()</code> (the <code>B[]</code> polynomial, <code>INVC</code>/<code>LOGC</code> tables, <code>fma</code>, N=128) so iOS produces identical bits to Android's libm. Rewriting the line as <code>Double.NEGATIVE_INFINITY</code> is harmless; <b>touching anything else in the file breaks the bit-exactness that is its entire purpose.</b></td></tr>
 </table>
+</div>
+
+<h2>OPENED 2026-11-18 EVENING &mdash; THE MARKER HAZARD AND THE DEVICE-ONLY TESTS (CL18C-2026-11-18) (C28-26331 &hellip; C28-26332)</h2>
+
+<div class="card">
+<h3>C28-26331 &mdash; A DR RESTORE THAT REPLACES THE GROUPTRACK DIRECTORY SILENTLY DELETES EVERY TRAIL (MARKERDR-2026-11-18)</h3>
+<p><b>Release:</b> 2.8b, and it affects <b>shipping Android</b> &mdash; not iOS-only.</p>
+<p><b>PROBLEM DEFINITION.</b> <code>GtStartupHousekeeping.jobSchemaConverge</code> decides whether to wipe the
+trails table by testing for a <b>dotfile</b>:
+<code>const val SCHEMA_MARKER = ".schema_2026-09-03A"</code> in the GroupTrack root. Marker absent &rarr;
+<code>DELETE FROM trails</code> + <code>DELETE FROM trail_properties</code>, ALTER the missing columns, write
+the marker, return <code>needsReload = true</code>. Marker present &rarr; return immediately.</p>
+<p><b>MEASURED 11-18 ON THE SIMULATOR.</b> Seeding from the Nov 6 Droid 1 capture gave a full database with
+<b>no dotfiles at all</b> &mdash; the capture contains none. Converge cleared <b>322 trails</b>; tracks (130)
+and waypoints (595) survived. Re-seeded with the marker present: <b>229,178 trails intact, no clear, no
+banner.</b> So the code is behaving as written; the input state is new.</p>
+<p><b>WHY ANDROID HAS NEVER HIT IT IN NINE MONTHS.</b> Fresh install &rarr; no marker but an empty trails table,
+so the clear is a no-op. Existing install &rarr; marker present. <b>Only a restore or a seed creates the third
+state</b> (full data, no marker), and that state is handled destructively.</p>
+<p><b>THE RULE (Fred 11-18):</b> <i>&ldquo;what that means on the real iPad is we have to install once before
+downloading and restoring db.&rdquo;</i> &rarr; <b>install &rarr; launch once &rarr; restore.</b> And the
+restore must write <b>over the top</b> of the existing directory; a restore that <b>replaces</b> the directory
+carries the marker away with it and the next launch clears the trails.</p>
+<p><b>THE WORK.</b> 1 &middot; Audit the Android DR restore path for delete-then-write behaviour on the
+GroupTrack root. 2 &middot; Either preserve the dotfiles across a restore or have the restore write the marker
+itself. 3 &middot; Decide whether converge should refuse to clear a NON-EMPTY trails table without an explicit
+confirmation &mdash; a clear of 229,178 rows should not be a silent consequence of a missing zero-byte file.
+4 &middot; Document the install-then-restore order in the DR procedure and the iPad install notes.</p>
+<p><b>ALSO AT RISK, same root, same reason:</b> <code>.db_schema_version</code>,
+<code>.trails_cleared_2026-09-02B</code>, <code>.nomedia</code>.</p>
+<p><b>TO VERIFY, NOT ASSERTED:</b> <code>gt_sidebyside_v7.sh:159</code> uses <code>ls -A</code>, so the newer
+capture tool <i>should</i> include dotfiles. Unrun, unconfirmed. Until confirmed, treat every capture as
+dotfile-free.</p>
+</div>
+
+<div class="card">
+<h3>C28-26332 &mdash; THE DEVICE-ONLY TEST CASES (DEVTEST-2026-11-18)</h3>
+<p><b>Release:</b> 2.8b. <b>Why this card exists:</b> these cannot be certified on the simulator, and until now
+they were scattered across sections rather than collected anywhere. Fred 11-18, on the reconnect behaviour:
+<i>&ldquo;the reconnect issues can be explored once we have a device connected. add it to the test
+cases.&rdquo;</i></p>
+<p><b>1 &middot; BTREPAIR</b> &mdash; reconnect after forget/re-pair. No BLE stack on the simulator at all.</p>
+<p><b>2 &middot; NOSIMRADIO</b> &mdash; the radio and mesh menus are <b>untestable</b> on the simulator, not
+merely deferred. Every radio function, channel config and mesh exchange is device work.</p>
+<p><b>3 &middot; IMPORTS</b> &mdash; email, download and share-in. Fred: <i>&ldquo;not a sim function.&rdquo;</i>
+The device builds its own data from the internal processes and certifies startup + imports there.</p>
+<p><b>4 &middot; GPS REALITY</b> &mdash; the simulator gives a settable fix
+(<code>xcrun simctl location</code>, or a GPX route) and that is enough for
+<code>I &middot; CENTRE ON ME</code>. <b>Drift, accuracy values, loss of fix and reacquisition are
+device-only.</b></p>
+<p><b>5 &middot; MEMLIMIT</b> &mdash; memory ceilings and <code>ApplicationExitInfo</code>-equivalent reporting
+under real pressure.</p>
+<p><b>6 &middot; CFBundleDocumentTypes</b> &mdash; open-in / file-association handling from other apps.</p>
+<p><b>7 &middot; releaseFramework</b> &mdash; produced today but never linked; a release-configuration build is
+a device-path concern.</p>
+<p><b>8 &middot; MARKERDR (C28-26331)</b> &mdash; the install &rarr; launch once &rarr; restore order must be
+executed and verified on the real iPad, not reasoned about.</p>
 </div>
 
 <h2>OPENED 2026-11-18 &mdash; THE EIGHT CARDS OWED FROM SDK 37 AND XCODESTEPS (CL18B-2026-11-18) (C28-26323 &hellip; C28-26330)</h2>
@@ -499,6 +525,13 @@ reader's failures are SILENT: <code>GtHelpLinks.load</code> wraps <code>iosBundl
 merely prints its findings into a view nobody reads does not catch any of those in a real build.</p>
 <p><b>The work:</b> make a failed assertion refuse to proceed, with the missing name in the message. Then it is a
 gate, not a report.</p>
+<p><b>&#9940; SUPERSEDED 11-18 EVENING (VECMAPIOS-2026-11-18).</b> The paragraph below is left for the
+record and is <b>no longer true</b>: <code>GtVecMap.ios.kt</code> now exists (commit <code>4cb618065</code>) and
+reads the bundled vecmap viewer on every launch. The viewer ships with its directory structure intact via
+<code>opaque-folders</code> (commit <code>b0dbe8245</code>), and <b>vecmap belongs in the startup assertion
+&mdash; 19 becomes 20</b>, because <code>Resources/</code> is gitignored and a fresh clone would otherwise build
+a green app with no viewer. The measured file counts below are correct and are exactly why a flattening add was
+unacceptable.</p>
 <p><b>Resolved, so not part of this card:</b> <b>vecmap does not need to go to iOS.</b> Measured 11-18 &mdash; 69
 files, 10 dirs, 33 distinct basenames (a flattening add would lose 36), and the Android server resolves by full
 path (<code>VectorMapTest.kt:73</code>). But <b>nothing in iosMain reads vecmap</b>: every reference there is a
@@ -621,19 +654,6 @@ a change was built on the one email path in the app that had never worked.</p>
 <tr><td><b>problem</b></td><td><b>(1)</b> <code>GtManifestSweep</code> (<code>commonMain</code>, 90 lines) duplicates <code>HomeStateImportController.sweepManifests</code>, which Android still calls. <b>(2)</b> <code>GtRead</code> gained <code>routeGpx</code>, <code>waypointGpx</code>, <code>routeRecipeText</code>, <code>routeNotesText</code>, which duplicate <code>SpatialDbManager</code>&rsquo;s versions, which Android still calls. Both pairs are identical BY CONSTRUCTION today and will drift the moment one side is touched.</td></tr>
 <tr><td><b>anticipated solution</b></td><td>Switch Android onto the shared copies &mdash; its own change, its own build, its own three-column certification per pair. Until then <b>&#9940; DO NOT EDIT ONE WITHOUT THE OTHER.</b></td></tr>
 <tr><td><b>comment</b></td><td>Both were added ADDITIVELY on purpose (the <code>GtRead</code> change was 63 insertions, 0 deletions, no caller), so Android&rsquo;s behaviour cannot have moved today. That is what makes deferring the switch safe.</td></tr>
-</table>
-</div>
-<div class="card">
-<h3><span class="tag t-good">DECIDED 11-17 &mdash; RETIRED RETIRE18-2026-11-18</span> <code>C28-26320</code> &middot; The iOS bundle identifier &mdash; <code>com.grouptrack.ios</code></h3>
-<div class="card">
-<p><b>RESOLVED, and this card is retired.</b> The Xcode project carries <code>com.grouptrack.ios</code>, which was the spec's own recommendation; the decision was taken 11-17 and has been in the project ever since. Confirmed on 11-18 by reading the project, not from memory.</p>
-<p><b>Why it sat here as "owed" for two days:</b> the card was written before the project existed, and nothing re-read it once the value was in place. It was still being reported as a decision owed on the 11-18 morning pass. &#9940; A card that asks Fred for a decision must be re-checked against the code before it is reported again &mdash; the answer may already be in the repo.</p>
-<p><b>Original card body, kept for the record:</b></p>
-</div>
-<table>
-<tr><td><b>problem</b></td><td>Nothing in this repo defines an iOS <code>PRODUCT_BUNDLE_IDENTIFIER</code> (verified 11-16). The seed procedure needs it &mdash; <code>xcrun simctl get_app_container booted &lt;BUNDLE_ID&gt; data</code> cannot be run without it.</td></tr>
-<tr><td><b>anticipated solution</b></td><td>Recommend <code>com.grouptrack.ios</code>. <b>&#9940; It must NOT be <code>com.grouptrack.android</code></b>, which is the Android APPLICATION ID and carries its own history of confusion with the Kotlin source path <code>com/geeksville/mesh/convoy/</code>.</td></tr>
-<tr><td><b>comment</b></td><td>Decide before STEP 6 of XCODESTEPS-2026-11-16, not during it.</td></tr>
 </table>
 </div>
 <div class="card">

@@ -9,33 +9,33 @@ GtFileHome.kt:87:        val out = ArrayList<Row>()
 GtFileHome.kt:96:                    val path = (c.getString(2) ?: "").trimEnd('/')
 GtFileHome.kt:98:                    val name = c.getString(1) ?: continue
 GtFileHome.kt:99:                    val id = c.getLong(0)
-GtFileHome.kt:115:    fun listFiles(ctx: Context, family: GtFileOpen.Family, exts: List<String>): List<Row> =
-GtFileHome.kt:120:    private fun relativePath(family: GtFileOpen.Family): String =
-GtFileHome.kt:124:    private fun legacyDir(family: GtFileOpen.Family): File =
-GtFileHome.kt:132:    fun save(ctx: Context, family: GtFileOpen.Family, name: String, content: String): String? =
-GtFileHome.kt:136:    fun save(ctx: Context, family: GtFileOpen.Family, f: File): String? =
-GtFileHome.kt:139:    private fun save(ctx: Context, family: GtFileOpen.Family, name: String, body: (java.io.OutputStream) -> Unit): String? {
-GtFileHome.kt:144:                val dir = legacyDir(family).also { it.mkdirs() }
-GtFileHome.kt:145:                val t = File(dir, name)
-GtFileHome.kt:150:            val cr = ctx.contentResolver
-GtFileHome.kt:151:            val rel = relativePath(family)
-GtFileHome.kt:155:            val existing = rowsIn(ctx, family).firstOrNull { it.name.equals(name, ignoreCase = true) }?.id
-GtFileHome.kt:157:            val uri = if (existing != null) {
-GtFileHome.kt:160:                val v = ContentValues().apply {
-GtFileHome.kt:176:                val v = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
-GtFileHome.kt:218:    fun dumpPaths(ctx: Context) {
-GtFileHome.kt:220:        val cols = arrayOf(
-GtFileHome.kt:231:            var n = 0
-GtFileHome.kt:257:    fun resetAll(ctx: Context): Pair<Int, Int> {
-GtFileHome.kt:259:        var deleted = 0
-GtFileHome.kt:261:            val cr = ctx.contentResolver
-GtFileHome.kt:285:        val created = ensure(ctx)
-GtFileHome.kt:304:    fun resetOnce(ctx: Context): Int {
-GtFileHome.kt:305:        val p = ctx.getSharedPreferences("gt_filehome", Context.MODE_PRIVATE)
-GtFileHome.kt:308:        val (deleted, created) = resetAll(ctx)
-GtFileHome.kt:314:    fun ensure(ctx: Context): Int {
-GtFileHome.kt:315:        var made = 0
-GtFileHome.kt:321:            val text = "This folder holds your GroupTrack OG " + when (f) {
+GtFileHome.kt:125:    fun listFiles(ctx: Context, family: GtFileOpen.Family, exts: List<String>): List<Row> =
+GtFileHome.kt:131:    private fun relativePath(family: GtFileOpen.Family): String =
+GtFileHome.kt:135:    private fun legacyDir(family: GtFileOpen.Family): File =
+GtFileHome.kt:143:    fun save(ctx: Context, family: GtFileOpen.Family, name: String, content: String): String? =
+GtFileHome.kt:147:    fun save(ctx: Context, family: GtFileOpen.Family, f: File): String? =
+GtFileHome.kt:150:    private fun save(ctx: Context, family: GtFileOpen.Family, name: String, body: (java.io.OutputStream) -> Unit): String? {
+GtFileHome.kt:155:                val dir = legacyDir(family).also { it.mkdirs() }
+GtFileHome.kt:156:                val t = File(dir, name)
+GtFileHome.kt:161:            val cr = ctx.contentResolver
+GtFileHome.kt:162:            val rel = relativePath(family)
+GtFileHome.kt:166:            val existing = rowsIn(ctx, family).firstOrNull { it.name.equals(name, ignoreCase = true) }?.id
+GtFileHome.kt:168:            val uri = if (existing != null) {
+GtFileHome.kt:171:                val v = ContentValues().apply {
+GtFileHome.kt:187:                val v = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
+GtFileHome.kt:229:    fun dumpPaths(ctx: Context) {
+GtFileHome.kt:231:        val cols = arrayOf(
+GtFileHome.kt:242:            var n = 0
+GtFileHome.kt:268:    fun resetAll(ctx: Context): Pair<Int, Int> {
+GtFileHome.kt:270:        var deleted = 0
+GtFileHome.kt:272:            val cr = ctx.contentResolver
+GtFileHome.kt:296:        val created = ensure(ctx)
+GtFileHome.kt:315:    fun resetOnce(ctx: Context): Int {
+GtFileHome.kt:316:        val p = ctx.getSharedPreferences("gt_filehome", Context.MODE_PRIVATE)
+GtFileHome.kt:319:        val (deleted, created) = resetAll(ctx)
+GtFileHome.kt:325:    fun ensure(ctx: Context): Int {
+GtFileHome.kt:326:        var made = 0
+GtFileHome.kt:332:            val text = "This folder holds your GroupTrack OG " + when (f) {
 ConvoyPrivacyScreen.kt:19:fun ConvoyPrivacyScreen(
 ConvoyPrivacyScreen.kt:23:    val context = LocalContext.current
 ConvoyPrivacyScreen.kt:24:    val scrollState = rememberScrollState()
@@ -7366,18 +7366,18 @@ GtFilePicker.kt:57:object GtFilePicker {
 GtFilePicker.kt:60:    fun title(family: GtFileOpen.Family): String = when (family) {
 GtFilePicker.kt:71:    fun section(family: GtFileOpen.Family): String = family.dirName
 GtFilePicker.kt:79:    fun exts(family: GtFileOpen.Family): List<String> = when (family) {
-GtFilePicker.kt:96:fun GtFilePickerBody(
-GtFilePicker.kt:100:    val ctx = LocalContext.current
-GtFilePicker.kt:101:    var rows by remember { mutableStateOf<List<GtFileHome.Row>>(emptyList()) }
-GtFilePicker.kt:102:    var chosen by remember { mutableStateOf<Set<Long>>(emptySet()) }
-GtFilePicker.kt:103:    var confirmDelete by remember { mutableStateOf(false) }
-GtFilePicker.kt:104:    var status by remember { mutableStateOf("") }
-GtFilePicker.kt:105:    var reload by remember { mutableStateOf(0) }
-GtFilePicker.kt:113:    val picked = rows.filter { chosen.contains(it.id) }
-GtFilePicker.kt:131:            val on = chosen.contains(r.id)
-GtFilePicker.kt:152:                    val uris = ArrayList<Uri>(picked.map { it.uri })
-GtFilePicker.kt:153:                    val mail = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-GtFilePicker.kt:189:                    var gone = 0
+GtFilePicker.kt:104:fun GtFilePickerBody(
+GtFilePicker.kt:109:    val ctx = LocalContext.current
+GtFilePicker.kt:110:    var rows by remember { mutableStateOf<List<GtFileHome.Row>>(emptyList()) }
+GtFilePicker.kt:111:    var chosen by remember { mutableStateOf<Set<Long>>(emptySet()) }
+GtFilePicker.kt:112:    var confirmDelete by remember { mutableStateOf(false) }
+GtFilePicker.kt:113:    var status by remember { mutableStateOf("") }
+GtFilePicker.kt:114:    var reload by remember { mutableStateOf(0) }
+GtFilePicker.kt:122:    val picked = rows.filter { chosen.contains(it.id) }
+GtFilePicker.kt:140:            val on = chosen.contains(r.id)
+GtFilePicker.kt:161:                    val uris = ArrayList<Uri>(picked.map { it.uri })
+GtFilePicker.kt:162:                    val mail = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+GtFilePicker.kt:198:                    var gone = 0
 TabletPosition.kt:15:object TabletPosition {
 TabletPosition.kt:16:    fun interface Listener { fun onPosition(loc: android.location.Location) }
 TabletPosition.kt:18:    private val listeners = java.util.concurrent.CopyOnWriteArrayList<Listener>()
@@ -9857,47 +9857,47 @@ grouptrack/MapScreens.kt:577:    val jobs = if (total.value <= 0L) 0 else ((tota
 grouptrack/MapScreens.kt:585:                        val key = src.first
 grouptrack/MapScreens.kt:624:                val s = slot.value
 grouptrack/MapScreens.kt:627:                    val queued = DownloadQueueManager.enqueueRecreateSource(context, s)
-grouptrack/MapScreens.kt:638:fun GtScreenFrame(title: String, helpId: String, onClose: () -> Unit, note: String = "",
-grouptrack/MapScreens.kt:657:fun GtImportFrame(onClose: () -> Unit, content: @Composable () -> Unit) {
-grouptrack/MapScreens.kt:659:    val importing = com.geeksville.mesh.convoy.HomeStateImportController.isImporting
-grouptrack/MapScreens.kt:669:fun GtDialogTitle(title: String, helpId: String, onClose: () -> Unit, closeEnabled: Boolean = true) {
-grouptrack/MapScreens.kt:680:fun GtSyncTracksScreen(onDone: () -> Unit) {
-grouptrack/MapScreens.kt:681:    val ctx = LocalContext.current
-grouptrack/MapScreens.kt:682:    val lines = remember { androidx.compose.runtime.mutableStateOf(listOf<String>()) }
-grouptrack/MapScreens.kt:683:    val running = remember { androidx.compose.runtime.mutableStateOf(false) }
-grouptrack/MapScreens.kt:684:    val result = remember { androidx.compose.runtime.mutableStateOf<com.geeksville.mesh.convoy.SpatialDbManager.TrackSyncResult?>(null) }
-grouptrack/MapScreens.kt:695:                val r = com.geeksville.mesh.convoy.SpatialDbManager.syncTracksFromFiles(ctx) { line ->
-grouptrack/MapScreens.kt:706:object GtSearchZoom {
-grouptrack/MapScreens.kt:707:    private const val PREFS = "grouptrack_search"
-grouptrack/MapScreens.kt:708:    private const val KEY = "fly_zoom"
-grouptrack/MapScreens.kt:709:    fun get(ctx: android.content.Context): Int =
-grouptrack/MapScreens.kt:711:    fun set(ctx: android.content.Context, z: Int) {
-grouptrack/MapScreens.kt:718:fun GtAreaRadiusScreen(onDone: () -> Unit) {
-grouptrack/MapScreens.kt:719:    val ctx = LocalContext.current
-grouptrack/MapScreens.kt:720:    val z = remember { androidx.compose.runtime.mutableFloatStateOf(GtSearchZoom.get(ctx).toFloat()) }
+grouptrack/MapScreens.kt:654:fun GtScreenFrame(title: String, helpId: String, onClose: () -> Unit, note: String = "",
+grouptrack/MapScreens.kt:673:fun GtImportFrame(onClose: () -> Unit, content: @Composable () -> Unit) {
+grouptrack/MapScreens.kt:675:    val importing = com.geeksville.mesh.convoy.HomeStateImportController.isImporting
+grouptrack/MapScreens.kt:686:fun GtDialogTitle(title: String, helpId: String, onClose: () -> Unit, closeEnabled: Boolean = true) {
+grouptrack/MapScreens.kt:697:fun GtSyncTracksScreen(onDone: () -> Unit) {
+grouptrack/MapScreens.kt:698:    val ctx = LocalContext.current
+grouptrack/MapScreens.kt:699:    val lines = remember { androidx.compose.runtime.mutableStateOf(listOf<String>()) }
+grouptrack/MapScreens.kt:700:    val running = remember { androidx.compose.runtime.mutableStateOf(false) }
+grouptrack/MapScreens.kt:701:    val result = remember { androidx.compose.runtime.mutableStateOf<com.geeksville.mesh.convoy.SpatialDbManager.TrackSyncResult?>(null) }
+grouptrack/MapScreens.kt:712:                val r = com.geeksville.mesh.convoy.SpatialDbManager.syncTracksFromFiles(ctx) { line ->
+grouptrack/MapScreens.kt:723:object GtSearchZoom {
+grouptrack/MapScreens.kt:724:    private const val PREFS = "grouptrack_search"
+grouptrack/MapScreens.kt:725:    private const val KEY = "fly_zoom"
+grouptrack/MapScreens.kt:726:    fun get(ctx: android.content.Context): Int =
+grouptrack/MapScreens.kt:728:    fun set(ctx: android.content.Context, z: Int) {
+grouptrack/MapScreens.kt:735:fun GtAreaRadiusScreen(onDone: () -> Unit) {
+grouptrack/MapScreens.kt:736:    val ctx = LocalContext.current
+grouptrack/MapScreens.kt:737:    val z = remember { androidx.compose.runtime.mutableFloatStateOf(GtSearchZoom.get(ctx).toFloat()) }
 grouptrack/GroupTrack.kt:65:val GT_RETIRED: Map<String, String> = mapOf(
-grouptrack/GroupTrack.kt:77:    val s = GtScheme.current.value
-grouptrack/GroupTrack.kt:97:fun GroupTrackLaunchLayer(
-grouptrack/GroupTrack.kt:124:    val ctx = LocalContext.current
-grouptrack/GroupTrack.kt:127:    val group = GroupMode.on.value
-grouptrack/GroupTrack.kt:130:    val openReq = GtOpenModule.req.value
-grouptrack/GroupTrack.kt:133:    val trailsTick = GtOpenModule.trailsTick.intValue
-grouptrack/GroupTrack.kt:141:    val rcvRoute = GtRecipes.routeRecipe.value
-grouptrack/GroupTrack.kt:146:    val openModule = LaunchModules.all.firstOrNull { it.id == open }
-grouptrack/GroupTrack.kt:154:    val mapsDownloading = com.geeksville.mesh.convoy.DownloadQueueManager.queue.collectAsState().value.any {
-grouptrack/GroupTrack.kt:157:    fun tap(m: LaunchModule) {
-grouptrack/GroupTrack.kt:158:        val act = m.processes.singleOrNull()?.let { actions[it.id] }
-grouptrack/GroupTrack.kt:163:        val landscape = maxWidth > maxHeight
-grouptrack/GroupTrack.kt:237:            val rs = GtScheme.current.value
-grouptrack/GroupTrack.kt:256:            val mapFull = openModule.id == "map"
-grouptrack/GroupTrack.kt:257:            val panelWidth = if (mapFull) maxWidth - 16.dp else if (landscape) 380.dp else maxWidth - 16.dp
-grouptrack/GroupTrack.kt:258:            val panelMax = if (mapFull) maxHeight - 16.dp
-grouptrack/GroupTrack.kt:334:private fun GtCompass(bearing: Float, onClick: () -> Unit) {
-grouptrack/GroupTrack.kt:335:    val s = GtScheme.current.value
-grouptrack/GroupTrack.kt:336:    val red = androidx.compose.ui.graphics.Color(0xFFD32F2F)
-grouptrack/GroupTrack.kt:356:object GtOpenModule {
-grouptrack/GroupTrack.kt:357:    val req = androidx.compose.runtime.mutableStateOf("")
-grouptrack/GroupTrack.kt:359:    val trailsTick = androidx.compose.runtime.mutableIntStateOf(0)
+grouptrack/GroupTrack.kt:78:    val s = GtScheme.current.value
+grouptrack/GroupTrack.kt:98:fun GroupTrackLaunchLayer(
+grouptrack/GroupTrack.kt:125:    val ctx = LocalContext.current
+grouptrack/GroupTrack.kt:128:    val group = GroupMode.on.value
+grouptrack/GroupTrack.kt:131:    val openReq = GtOpenModule.req.value
+grouptrack/GroupTrack.kt:134:    val trailsTick = GtOpenModule.trailsTick.intValue
+grouptrack/GroupTrack.kt:143:    val rcvRoute = GtRecipes.routeRecipe.value
+grouptrack/GroupTrack.kt:148:    val openModule = LaunchModules.all.firstOrNull { it.id == open }
+grouptrack/GroupTrack.kt:156:    val mapsDownloading = com.geeksville.mesh.convoy.DownloadQueueManager.queue.collectAsState().value.any {
+grouptrack/GroupTrack.kt:159:    fun tap(m: LaunchModule) {
+grouptrack/GroupTrack.kt:160:        val act = m.processes.singleOrNull()?.let { actions[it.id] }
+grouptrack/GroupTrack.kt:165:        val landscape = maxWidth > maxHeight
+grouptrack/GroupTrack.kt:239:            val rs = GtScheme.current.value
+grouptrack/GroupTrack.kt:258:            val mapFull = openModule.id == "map"
+grouptrack/GroupTrack.kt:259:            val panelWidth = if (mapFull) maxWidth - 16.dp else if (landscape) 380.dp else maxWidth - 16.dp
+grouptrack/GroupTrack.kt:260:            val panelMax = if (mapFull) maxHeight - 16.dp
+grouptrack/GroupTrack.kt:336:private fun GtCompass(bearing: Float, onClick: () -> Unit) {
+grouptrack/GroupTrack.kt:337:    val s = GtScheme.current.value
+grouptrack/GroupTrack.kt:338:    val red = androidx.compose.ui.graphics.Color(0xFFD32F2F)
+grouptrack/GroupTrack.kt:358:object GtOpenModule {
+grouptrack/GroupTrack.kt:359:    val req = androidx.compose.runtime.mutableStateOf("")
+grouptrack/GroupTrack.kt:361:    val trailsTick = androidx.compose.runtime.mutableIntStateOf(0)
 grouptrack/GtConfigPdf.kt:17:object GtConfigPdf {
 grouptrack/GtConfigPdf.kt:18:    private const val W = 612
 grouptrack/GtConfigPdf.kt:19:    private const val H = 792
@@ -10056,6 +10056,15 @@ grouptrack/GtCert17g2g.kt:38:        var same = 0
 grouptrack/GtCert17g2g.kt:39:        var diff = 0
 grouptrack/GtCert17g2g.kt:41:            val o = oldMap[k] ?: "(missing)"
 grouptrack/GtCert17g2g.kt:42:            val n = newMap[k] ?: "(missing)"
+grouptrack/ExportFeatures.kt:45:fun GtExportFeaturesScreen(onDone: () -> Unit) {
+grouptrack/ExportFeatures.kt:46:    val ctx = LocalContext.current
+grouptrack/ExportFeatures.kt:47:    val scope = rememberCoroutineScope()
+grouptrack/ExportFeatures.kt:48:    var picked by remember { mutableStateOf(setOf<String>()) }
+grouptrack/ExportFeatures.kt:49:    var alsoEmail by remember { mutableStateOf(false) }
+grouptrack/ExportFeatures.kt:50:    var busy by remember { mutableStateOf(false) }
+grouptrack/ExportFeatures.kt:74:                            val files = withContext(Dispatchers.IO) { GtExportAll.exportMany(ctx, picked) }
+grouptrack/ExportFeatures.kt:109:fun GtSavedFeaturesScreen(onDone: () -> Unit) {
+grouptrack/ExportFeatures.kt:122:private fun ExportTick(label: String, on: Boolean, enabled: Boolean, set: (Boolean) -> Unit) {
 grouptrack/GtCert17mbtiles.kt:39:object GtCert17mbtiles {
 grouptrack/GtCert17mbtiles.kt:41:    private fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r")
 grouptrack/GtCert17mbtiles.kt:47:    private class CertTileEnv(private val dir: File) : GtTileStoreEnv {
@@ -10451,12 +10460,12 @@ grouptrack/GtPanel.kt:136:    fun forMap(mapType: String): GtButtonScheme {
 grouptrack/GtPanel.kt:137:        val k = mapType.uppercase()
 grouptrack/GtPanel.kt:145:fun GtButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, emphasis: Color = Color.Unspecified, enabled: Boolean = true) {
 grouptrack/GtPanel.kt:146:    val s = GtScheme.current.value
-grouptrack/GtPanel.kt:163:fun GtIconButton(label: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
-grouptrack/GtPanel.kt:164:    val s = GtScheme.current.value
-grouptrack/GtPanel.kt:191:fun GtPanel(
-grouptrack/GtPanel.kt:202:    var dx by remember(title) { mutableFloatStateOf(0f) }
-grouptrack/GtPanel.kt:203:    var dy by remember(title) { mutableFloatStateOf(0f) }
-grouptrack/GtPanel.kt:204:    var collapsed by remember(title) { mutableStateOf(false) }
+grouptrack/GtPanel.kt:171:fun GtIconButton(label: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
+grouptrack/GtPanel.kt:172:    val s = GtScheme.current.value
+grouptrack/GtPanel.kt:199:fun GtPanel(
+grouptrack/GtPanel.kt:210:    var dx by remember(title) { mutableFloatStateOf(0f) }
+grouptrack/GtPanel.kt:211:    var dy by remember(title) { mutableFloatStateOf(0f) }
+grouptrack/GtPanel.kt:212:    var collapsed by remember(title) { mutableStateOf(false) }
 grouptrack/DownloadDefaults.kt:40:object GtDownloadDefaults {
 grouptrack/DownloadDefaults.kt:41:    private const val PREF = "gt_download_defaults"
 grouptrack/DownloadDefaults.kt:43:    val open = mutableStateOf(false)
@@ -11318,73 +11327,73 @@ grouptrack/GroupTrackScreen.kt:2965:                        fun inTable(tb: Stri
 grouptrack/GroupTrackScreen.kt:2966:                        val typeName = when { inTable("tracks", "track_id") -> "Tracks"; inTable("routes", "route_id") -> "Routes"; inTable("waypoints", "waypoint_id") -> "Waypoints"; inTable("trails", "trail_id") -> "Trails"; else -> "" }
 grouptrack/GroupTrackScreen.kt:2976:                    val wv = webViewRef.value
 grouptrack/GroupTrackScreen.kt:2979:                    wv?.postDelayed({ wv.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }, 550)
-grouptrack/GroupTrackScreen.kt:3071:                    val me = convoyState.nodes.firstOrNull { it.isMyCart && it.latitude != 0.0 && it.longitude != 0.0 }
-grouptrack/GroupTrackScreen.kt:3072:                    val here = if (me != null) Pair(me.latitude, me.longitude) else try {
-grouptrack/GroupTrackScreen.kt:3073:                        val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
-grouptrack/GroupTrackScreen.kt:3099:                        val was = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState)
-grouptrack/GroupTrackScreen.kt:3103:                        val was = gtHideSaved
-grouptrack/GroupTrackScreen.kt:3108:                trailsChanged = { webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) },
-grouptrack/GroupTrackScreen.kt:3128:fun GroupHud(
-grouptrack/GroupTrackScreen.kt:3139:    val chColor = when {
-grouptrack/GroupTrackScreen.kt:3239:fun MyCartHud(
-grouptrack/GroupTrackScreen.kt:3245:    val myCart = state.nodes.firstOrNull { it.isMyCart }
-grouptrack/GroupTrackScreen.kt:3297:fun NodeDetailHud(
-grouptrack/GroupTrackScreen.kt:3335:fun CollapsedPill(
-grouptrack/GroupTrackScreen.kt:3341:    val infiniteTransition = rememberInfiniteTransition(label = "pill_blink")
-grouptrack/GroupTrackScreen.kt:3342:    val alpha by infiniteTransition.animateFloat(
-grouptrack/GroupTrackScreen.kt:3374:fun ContactLostBanner(lostCount: Int, lostNames: List<String> = emptyList(), modifier: Modifier = Modifier) {
-grouptrack/GroupTrackScreen.kt:3375:    val infiniteTransition = rememberInfiniteTransition(label = "banner_blink")
-grouptrack/GroupTrackScreen.kt:3376:    val alpha by infiniteTransition.animateFloat(
-grouptrack/GroupTrackScreen.kt:3381:    val nameStr = if (lostNames.isNotEmpty()) lostNames.joinToString(", ") else ""
-grouptrack/GroupTrackScreen.kt:3410:fun HudCard(content: @Composable ColumnScope.() -> Unit) {
-grouptrack/GroupTrackScreen.kt:3437:fun CartPickerPanel(
-grouptrack/GroupTrackScreen.kt:3448:    fun roleLabel(r: String) = when (r) { "leader" -> "Leader"; "middle" -> "Middle"; "tail_gunner" -> "Tail gunner"; else -> "Rider" }
-grouptrack/GroupTrackScreen.kt:3499:                    fun rank(n: com.geeksville.mesh.convoy.ConvoyNode): Int {
-grouptrack/GroupTrackScreen.kt:3501:                        val ci = r.isNotBlank()
-grouptrack/GroupTrackScreen.kt:3506:                        val nodeRole = node.rideRole.ifBlank { if (node.isMyCart) myRole else "" }
-grouptrack/GroupTrackScreen.kt:3507:                        val checkedIn = nodeRole.isNotBlank()
-grouptrack/GroupTrackScreen.kt:3508:                        val role = if (checkedIn) roleLabel(nodeRole) else "Rider"
-grouptrack/GroupTrackScreen.kt:3569:fun convoyParseKml(text: String): List<Pair<Double, Double>> {
-grouptrack/GroupTrackScreen.kt:3570:    val coords = mutableListOf<Pair<Double, Double>>()
-grouptrack/GroupTrackScreen.kt:3571:    val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
-grouptrack/GroupTrackScreen.kt:3574:            val parts = line.trim().split(",")
-grouptrack/GroupTrackScreen.kt:3576:                val lon = parts[0].toDoubleOrNull()
-grouptrack/GroupTrackScreen.kt:3577:                val lat = parts[1].toDoubleOrNull()
-grouptrack/GroupTrackScreen.kt:3587:fun convoyParseGpx(text: String): List<Pair<Double, Double>> {
-grouptrack/GroupTrackScreen.kt:3588:    val coords = mutableListOf<Pair<Double, Double>>()
-grouptrack/GroupTrackScreen.kt:3589:    val pattern = Regex("""<trkpt\s+lat="([^"]+)"\s+lon="([^"]+)"""")
-grouptrack/GroupTrackScreen.kt:3591:        val lat = match.groupValues[1].toDoubleOrNull()
-grouptrack/GroupTrackScreen.kt:3592:        val lon = match.groupValues[2].toDoubleOrNull()
-grouptrack/GroupTrackScreen.kt:3602:private fun gpsChColor(util: Float): Color = when {
-grouptrack/GroupTrackScreen.kt:3612:    val c = gpsChColor(channelUtil)
-grouptrack/GroupTrackScreen.kt:3659:fun GpsIntervalDialog(currentSecs: Int, currentPreset: String?, channelUtil: Float, carts: Int, status: String?, busy: Boolean,
-grouptrack/GroupTrackScreen.kt:3661:    var text by remember { mutableStateOf(if (currentSecs in 3..10) currentSecs.toString() else "") }
-grouptrack/GroupTrackScreen.kt:3663:    var preset by remember { mutableStateOf(currentPreset?.takeIf { p -> GpsPresets.choices.any { it.first == p } }) }
-grouptrack/GroupTrackScreen.kt:3666:    var timingOpen by remember { mutableStateOf(false) }
-grouptrack/GroupTrackScreen.kt:3667:    var waitText by remember { mutableStateOf(GpsReconnectTiming.waitSecs.toString()) }
-grouptrack/GroupTrackScreen.kt:3668:    var gapText by remember { mutableStateOf(GpsReconnectTiming.gapSecs.toString()) }
-grouptrack/GroupTrackScreen.kt:3669:    val secs = text.trim().toIntOrNull()
-grouptrack/GroupTrackScreen.kt:3670:    val valid = secs != null && secs in 3..10
-grouptrack/GroupTrackScreen.kt:3671:    val done = status?.startsWith("Done") == true
-grouptrack/GroupTrackScreen.kt:3672:    val c = gpsChColor(channelUtil)
-grouptrack/GroupTrackScreen.kt:3706:                        val on = preset == key
-grouptrack/GroupTrackScreen.kt:3763:object GpsReconnectTiming {
-grouptrack/GroupTrackScreen.kt:3764:    const val DEFAULT_WAIT_SECS = 20
-grouptrack/GroupTrackScreen.kt:3765:    const val DEFAULT_GAP_SECS = 4
-grouptrack/GroupTrackScreen.kt:3766:    var waitSecs by mutableStateOf(DEFAULT_WAIT_SECS)
-grouptrack/GroupTrackScreen.kt:3767:    var gapSecs by mutableStateOf(DEFAULT_GAP_SECS)
-grouptrack/GroupTrackScreen.kt:3773:private fun GpsOutlinedText(text: String, color: Color, sizeSp: Int, weight: FontWeight) {
-grouptrack/GroupTrackScreen.kt:3785:fun RoleChangeDialog(currentRole: String, heldBy: Map<String, String>, onApply: (String) -> Unit, onDismiss: () -> Unit) {
-grouptrack/GroupTrackScreen.kt:3786:    val roles = listOf("leader" to "Leader", "rider" to "Rider", "middle" to "Middle", "tail_gunner" to "Tail gunner")
-grouptrack/GroupTrackScreen.kt:3787:    val now = currentRole.ifBlank { "rider" }
-grouptrack/GroupTrackScreen.kt:3788:    var role by remember { mutableStateOf(now) }
-grouptrack/GroupTrackScreen.kt:3789:    var heldWarn by remember { mutableStateOf<String?>(null) }
-grouptrack/GroupTrackScreen.kt:3818:        val label = roles.firstOrNull { it.first == w }?.second ?: w
-grouptrack/GroupTrackScreen.kt:3843:val LocalHudOnDark = androidx.compose.runtime.compositionLocalOf { true }
-grouptrack/GroupTrackScreen.kt:3846:fun HiVisText(
-grouptrack/GroupTrackScreen.kt:3863:    val fill = when {
-grouptrack/GroupTrackScreen.kt:3868:    val sizePx = with(androidx.compose.ui.platform.LocalDensity.current) {
-grouptrack/GroupTrackScreen.kt:3886:private fun mapFrameOk(s: Double, w: Double, n: Double, e: Double): Boolean =
+grouptrack/GroupTrackScreen.kt:3069:                    val me = convoyState.nodes.firstOrNull { it.isMyCart && it.latitude != 0.0 && it.longitude != 0.0 }
+grouptrack/GroupTrackScreen.kt:3070:                    val here = if (me != null) Pair(me.latitude, me.longitude) else try {
+grouptrack/GroupTrackScreen.kt:3071:                        val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+grouptrack/GroupTrackScreen.kt:3097:                        val was = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState)
+grouptrack/GroupTrackScreen.kt:3101:                        val was = gtHideSaved
+grouptrack/GroupTrackScreen.kt:3106:                trailsChanged = { webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) },
+grouptrack/GroupTrackScreen.kt:3126:fun GroupHud(
+grouptrack/GroupTrackScreen.kt:3137:    val chColor = when {
+grouptrack/GroupTrackScreen.kt:3237:fun MyCartHud(
+grouptrack/GroupTrackScreen.kt:3243:    val myCart = state.nodes.firstOrNull { it.isMyCart }
+grouptrack/GroupTrackScreen.kt:3295:fun NodeDetailHud(
+grouptrack/GroupTrackScreen.kt:3333:fun CollapsedPill(
+grouptrack/GroupTrackScreen.kt:3339:    val infiniteTransition = rememberInfiniteTransition(label = "pill_blink")
+grouptrack/GroupTrackScreen.kt:3340:    val alpha by infiniteTransition.animateFloat(
+grouptrack/GroupTrackScreen.kt:3372:fun ContactLostBanner(lostCount: Int, lostNames: List<String> = emptyList(), modifier: Modifier = Modifier) {
+grouptrack/GroupTrackScreen.kt:3373:    val infiniteTransition = rememberInfiniteTransition(label = "banner_blink")
+grouptrack/GroupTrackScreen.kt:3374:    val alpha by infiniteTransition.animateFloat(
+grouptrack/GroupTrackScreen.kt:3379:    val nameStr = if (lostNames.isNotEmpty()) lostNames.joinToString(", ") else ""
+grouptrack/GroupTrackScreen.kt:3408:fun HudCard(content: @Composable ColumnScope.() -> Unit) {
+grouptrack/GroupTrackScreen.kt:3435:fun CartPickerPanel(
+grouptrack/GroupTrackScreen.kt:3446:    fun roleLabel(r: String) = when (r) { "leader" -> "Leader"; "middle" -> "Middle"; "tail_gunner" -> "Tail gunner"; else -> "Rider" }
+grouptrack/GroupTrackScreen.kt:3497:                    fun rank(n: com.geeksville.mesh.convoy.ConvoyNode): Int {
+grouptrack/GroupTrackScreen.kt:3499:                        val ci = r.isNotBlank()
+grouptrack/GroupTrackScreen.kt:3504:                        val nodeRole = node.rideRole.ifBlank { if (node.isMyCart) myRole else "" }
+grouptrack/GroupTrackScreen.kt:3505:                        val checkedIn = nodeRole.isNotBlank()
+grouptrack/GroupTrackScreen.kt:3506:                        val role = if (checkedIn) roleLabel(nodeRole) else "Rider"
+grouptrack/GroupTrackScreen.kt:3567:fun convoyParseKml(text: String): List<Pair<Double, Double>> {
+grouptrack/GroupTrackScreen.kt:3568:    val coords = mutableListOf<Pair<Double, Double>>()
+grouptrack/GroupTrackScreen.kt:3569:    val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
+grouptrack/GroupTrackScreen.kt:3572:            val parts = line.trim().split(",")
+grouptrack/GroupTrackScreen.kt:3574:                val lon = parts[0].toDoubleOrNull()
+grouptrack/GroupTrackScreen.kt:3575:                val lat = parts[1].toDoubleOrNull()
+grouptrack/GroupTrackScreen.kt:3585:fun convoyParseGpx(text: String): List<Pair<Double, Double>> {
+grouptrack/GroupTrackScreen.kt:3586:    val coords = mutableListOf<Pair<Double, Double>>()
+grouptrack/GroupTrackScreen.kt:3587:    val pattern = Regex("""<trkpt\s+lat="([^"]+)"\s+lon="([^"]+)"""")
+grouptrack/GroupTrackScreen.kt:3589:        val lat = match.groupValues[1].toDoubleOrNull()
+grouptrack/GroupTrackScreen.kt:3590:        val lon = match.groupValues[2].toDoubleOrNull()
+grouptrack/GroupTrackScreen.kt:3600:private fun gpsChColor(util: Float): Color = when {
+grouptrack/GroupTrackScreen.kt:3610:    val c = gpsChColor(channelUtil)
+grouptrack/GroupTrackScreen.kt:3657:fun GpsIntervalDialog(currentSecs: Int, currentPreset: String?, channelUtil: Float, carts: Int, status: String?, busy: Boolean,
+grouptrack/GroupTrackScreen.kt:3659:    var text by remember { mutableStateOf(if (currentSecs in 3..10) currentSecs.toString() else "") }
+grouptrack/GroupTrackScreen.kt:3661:    var preset by remember { mutableStateOf(currentPreset?.takeIf { p -> GpsPresets.choices.any { it.first == p } }) }
+grouptrack/GroupTrackScreen.kt:3664:    var timingOpen by remember { mutableStateOf(false) }
+grouptrack/GroupTrackScreen.kt:3665:    var waitText by remember { mutableStateOf(GpsReconnectTiming.waitSecs.toString()) }
+grouptrack/GroupTrackScreen.kt:3666:    var gapText by remember { mutableStateOf(GpsReconnectTiming.gapSecs.toString()) }
+grouptrack/GroupTrackScreen.kt:3667:    val secs = text.trim().toIntOrNull()
+grouptrack/GroupTrackScreen.kt:3668:    val valid = secs != null && secs in 3..10
+grouptrack/GroupTrackScreen.kt:3669:    val done = status?.startsWith("Done") == true
+grouptrack/GroupTrackScreen.kt:3670:    val c = gpsChColor(channelUtil)
+grouptrack/GroupTrackScreen.kt:3704:                        val on = preset == key
+grouptrack/GroupTrackScreen.kt:3761:object GpsReconnectTiming {
+grouptrack/GroupTrackScreen.kt:3762:    const val DEFAULT_WAIT_SECS = 20
+grouptrack/GroupTrackScreen.kt:3763:    const val DEFAULT_GAP_SECS = 4
+grouptrack/GroupTrackScreen.kt:3764:    var waitSecs by mutableStateOf(DEFAULT_WAIT_SECS)
+grouptrack/GroupTrackScreen.kt:3765:    var gapSecs by mutableStateOf(DEFAULT_GAP_SECS)
+grouptrack/GroupTrackScreen.kt:3771:private fun GpsOutlinedText(text: String, color: Color, sizeSp: Int, weight: FontWeight) {
+grouptrack/GroupTrackScreen.kt:3783:fun RoleChangeDialog(currentRole: String, heldBy: Map<String, String>, onApply: (String) -> Unit, onDismiss: () -> Unit) {
+grouptrack/GroupTrackScreen.kt:3784:    val roles = listOf("leader" to "Leader", "rider" to "Rider", "middle" to "Middle", "tail_gunner" to "Tail gunner")
+grouptrack/GroupTrackScreen.kt:3785:    val now = currentRole.ifBlank { "rider" }
+grouptrack/GroupTrackScreen.kt:3786:    var role by remember { mutableStateOf(now) }
+grouptrack/GroupTrackScreen.kt:3787:    var heldWarn by remember { mutableStateOf<String?>(null) }
+grouptrack/GroupTrackScreen.kt:3816:        val label = roles.firstOrNull { it.first == w }?.second ?: w
+grouptrack/GroupTrackScreen.kt:3841:val LocalHudOnDark = androidx.compose.runtime.compositionLocalOf { true }
+grouptrack/GroupTrackScreen.kt:3844:fun HiVisText(
+grouptrack/GroupTrackScreen.kt:3861:    val fill = when {
+grouptrack/GroupTrackScreen.kt:3866:    val sizePx = with(androidx.compose.ui.platform.LocalDensity.current) {
+grouptrack/GroupTrackScreen.kt:3884:private fun mapFrameOk(s: Double, w: Double, n: Double, e: Double): Boolean =
 grouptrack/GtHelpViewer.kt:28:object GtHelpView {
 grouptrack/GtHelpViewer.kt:29:    val doc = mutableStateOf("")
 grouptrack/GtHelpViewer.kt:30:    fun open(id: String) { doc.value = GtHelp.linkFor(id) }
@@ -11507,50 +11516,35 @@ grouptrack/GtHkAndroid.kt:93:    override fun markerExists(name: String): Boolea
 grouptrack/GtHkAndroid.kt:94:    override fun markerWrite(name: String, body: String) {
 grouptrack/GtHkAndroid.kt:95:        val m = File(SpatialDbManager.dbDir(), name)
 grouptrack/GtHkAndroid.kt:100:    override fun log(line: String) { gtLogger(tag).i { line } }
-grouptrack/Backup.kt:28:object GtBackup {
-grouptrack/Backup.kt:29:    private const val TAG = "Backup"
-grouptrack/Backup.kt:31:    private const val PREF = "gt_backup"
-grouptrack/Backup.kt:32:    private val TYPES = listOf("routes" to "routes", "tracks" to "tracks", "waypoints" to "waypoints", "trails" to "rider trails")
-grouptrack/Backup.kt:35:    val ready = androidx.compose.runtime.mutableStateOf("")
-grouptrack/Backup.kt:37:    private class Built(val files: List<File>, val list: String, val print: String)
-grouptrack/Backup.kt:41:    private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-grouptrack/Backup.kt:42:    private fun today() = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
-grouptrack/Backup.kt:55:    private fun weekOld(ctx: Context): Boolean {
-grouptrack/Backup.kt:56:        val at = prefs(ctx).getLong("sentAtMs", 0L)
-grouptrack/Backup.kt:58:        val days = (System.currentTimeMillis() - at) / 86_400_000L
-grouptrack/Backup.kt:63:    private fun online(ctx: Context): Boolean = try {
-grouptrack/Backup.kt:64:        val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java)
-grouptrack/Backup.kt:69:    fun autoCheck(ctx: Context) {
-grouptrack/Backup.kt:86:                val b = build(ctx, false)
-grouptrack/Backup.kt:93:                        val was = (prefs(ctx).getString("sent", "") ?: "").split(';').filter { it.contains('=') }.associate { it.substringBefore('=') to it.substringAfter('=') }
-grouptrack/Backup.kt:94:                        val now = b.print.split(';').filter { it.contains('=') }.associate { it.substringBefore('=') to it.substringAfter('=') }
-grouptrack/Backup.kt:95:                        val diff = (was.keys + now.keys).filter { was[it] != now[it] }.joinToString(", ") { k -> "$k ${was[k]?.take(8) ?: "none"}->${now[k]?.take(8) ?: "none"}" }
-grouptrack/Backup.kt:107:    fun start(ctx: Context) {
-grouptrack/Backup.kt:111:            val b = try { build(ctx, true) } catch (e: Exception) { log.e(e) { "BACKUP build" }; Built(emptyList(), "Backup failed: ${e.message}", "") }
-grouptrack/Backup.kt:119:    fun sendReady(ctx: Context) { val b = waiting; ready.value = ""; waiting = null; if (b != null) send(ctx, b) }
-grouptrack/Backup.kt:120:    fun notNow(ctx: Context) { prefs(ctx).edit().putString("notNow", today()).apply(); ready.value = ""; waiting = null; log.i { "BACKUP NOT NOW" } }
-grouptrack/Backup.kt:122:    private fun sha(s: String): String = java.security.MessageDigest.getInstance("SHA-256").digest(s.toByteArray())
-grouptrack/Backup.kt:135:    private fun archive(ctx: Context, b: Built) {
-grouptrack/Backup.kt:136:        var n = 0
-grouptrack/Backup.kt:138:            val fam = when {
-grouptrack/Backup.kt:149:    private fun build(ctx: Context, toDownloads: Boolean): Built {
-grouptrack/Backup.kt:150:        val dir = File(GtPathsAndroid.cache(ctx), "backup").also { it.mkdirs(); it.listFiles()?.forEach { x -> x.delete() } }
-grouptrack/Backup.kt:151:        val files = ArrayList<File>(); val list = StringBuilder(); val print = StringBuilder()
-grouptrack/Backup.kt:153:            val msg = GtExportAll.run(ctx, type, toDownloads)
-grouptrack/Backup.kt:155:            val copy = File(dir, f.name); f.copyTo(copy, overwrite = true); files.add(copy)
-grouptrack/Backup.kt:156:            val n = Regex("Exported (\\d+)").find(msg)?.groupValues?.get(1) ?: "?"
-grouptrack/Backup.kt:160:        val recipe = GroupTrackStorage.dir("recipes", ctx).listFiles()
-grouptrack/Backup.kt:163:            val day = recipe.name.removePrefix("grouptrack_maps_").removeSuffix(".gtmaps")
-grouptrack/Backup.kt:174:    private fun send(ctx: Context, b: Built) {
-grouptrack/Backup.kt:175:        val day = today()
-grouptrack/Backup.kt:176:        val me = try { com.geeksville.mesh.convoy.ConvoyProfileStore.load()?.email?.trim() ?: "" } catch (e: Exception) { "" }
-grouptrack/Backup.kt:177:        val uris = ArrayList(b.files.map { FileProvider.getUriForFile(ctx, ctx.packageName + ".provider", it) })
-grouptrack/Backup.kt:178:        val body = "My GroupTrack OG backup, $day. Keep this email — it recreates GroupTrack OG on a new or reloaded phone.\n\n" +
-grouptrack/Backup.kt:186:        val mail = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-grouptrack/Backup.kt:195:            val gmail = Intent(mail).setPackage("com.google.android.gm")
-grouptrack/Backup.kt:209:fun GtBackupReadyDialog() {
-grouptrack/Backup.kt:210:    val list = GtBackup.ready.value
-grouptrack/Backup.kt:212:    val ctx = LocalContext.current
+grouptrack/Backup.kt:17:object GtBackup {
+grouptrack/Backup.kt:18:    private const val TAG = "Backup"
+grouptrack/Backup.kt:20:    private const val PREF = "gt_backup"
+grouptrack/Backup.kt:22:    private class Built(val files: List<File>, val list: String, val print: String)
+grouptrack/Backup.kt:25:    private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+grouptrack/Backup.kt:26:    private fun today() = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+grouptrack/Backup.kt:41:    private fun weekOld(ctx: Context): Boolean {
+grouptrack/Backup.kt:42:        val at = prefs(ctx).getLong("sentAtMs", 0L)
+grouptrack/Backup.kt:44:        val days = (System.currentTimeMillis() - at) / 86_400_000L
+grouptrack/Backup.kt:49:    private fun online(ctx: Context): Boolean = try {
+grouptrack/Backup.kt:50:        val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java)
+grouptrack/Backup.kt:55:    fun autoCheck(ctx: Context) {
+grouptrack/Backup.kt:71:                val b = build(ctx, false)
+grouptrack/Backup.kt:78:                        val was = (prefs(ctx).getString("sent", "") ?: "").split(';').filter { it.contains('=') }.associate { it.substringBefore('=') to it.substringAfter('=') }
+grouptrack/Backup.kt:79:                        val now = b.print.split(';').filter { it.contains('=') }.associate { it.substringBefore('=') to it.substringAfter('=') }
+grouptrack/Backup.kt:80:                        val diff = (was.keys + now.keys).filter { was[it] != now[it] }.joinToString(", ") { k -> "$k ${was[k]?.take(8) ?: "none"}->${now[k]?.take(8) ?: "none"}" }
+grouptrack/Backup.kt:96:    fun start(ctx: Context) {
+grouptrack/Backup.kt:100:            val b = try { build(ctx, false) } catch (e: Exception) { log.e(e) { "BACKUP build" }; Built(emptyList(), "Backup failed: ${e.message}", "") }
+grouptrack/Backup.kt:111:    private fun sha(s: String): String = java.security.MessageDigest.getInstance("SHA-256").digest(s.toByteArray())
+grouptrack/Backup.kt:142:    private fun archive(ctx: Context, b: Built) {
+grouptrack/Backup.kt:143:        var n = 0
+grouptrack/Backup.kt:154:    private fun build(ctx: Context, toDownloads: Boolean): Built {
+grouptrack/Backup.kt:155:        val dir = File(GtPathsAndroid.cache(ctx), "backup").also { it.mkdirs(); it.listFiles()?.forEach { x -> x.delete() } }
+grouptrack/Backup.kt:156:        val files = ArrayList<File>(); val list = StringBuilder(); val print = StringBuilder()
+grouptrack/Backup.kt:158:            val msg = GtExportAll.run(ctx, type, toDownloads)
+grouptrack/Backup.kt:160:            val copy = File(dir, f.name); f.copyTo(copy, overwrite = true); files.add(copy)
+grouptrack/Backup.kt:161:            val n = Regex("Exported (\\d+)").find(msg)?.groupValues?.get(1) ?: "?"
+grouptrack/Backup.kt:165:        val recipe = GroupTrackStorage.dir("recipes", ctx).listFiles()
+grouptrack/Backup.kt:168:            val day = recipe.name.removePrefix("grouptrack_maps_").removeSuffix(".gtmaps")
 grouptrack/GtCertRun.kt:23:object GtCertRun {
 grouptrack/GtCertRun.kt:24:    private const val TAG = "CertRun"
 grouptrack/GtCertRun.kt:29:    @Volatile var active = false
@@ -11830,42 +11824,45 @@ grouptrack/GtCert17d.kt:90:                val o = oldMap[k]; val n = newMap[k]
 grouptrack/ExportAll.kt:15:object GtExportAll {
 grouptrack/ExportAll.kt:16:    private const val TAG = "ExportAll"
 grouptrack/ExportAll.kt:18:    private const val HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-grouptrack/ExportAll.kt:23:    private fun xml(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
-grouptrack/ExportAll.kt:26:    private fun body(gpx: String): String {
-grouptrack/ExportAll.kt:27:        val open = Regex("<gpx\\b[^>]*>").find(gpx) ?: return ""
-grouptrack/ExportAll.kt:28:        val end = gpx.lastIndexOf("</gpx>")
-grouptrack/ExportAll.kt:34:    private fun named(body: String, name: String): String {
-grouptrack/ExportAll.kt:35:        val withName = Regex("(?s)(<trk>\\s*)<name>.*?</name>")
-grouptrack/ExportAll.kt:44:    private fun trailsGpx(ctx: Context, db: android.database.sqlite.SQLiteDatabase, toDownloads: Boolean): String {
-grouptrack/ExportAll.kt:45:        val sb = StringBuilder(HEADER)
-grouptrack/ExportAll.kt:46:        var n = 0
-grouptrack/ExportAll.kt:49:                val wkt = c.getString(1) ?: continue
-grouptrack/ExportAll.kt:50:                val parts = Regex("\\(([^()]+)\\)").findAll(wkt).map { it.groupValues[1] }.toList()
-grouptrack/ExportAll.kt:56:                        val xy = pt.trim().split(Regex("\\s+"))
-grouptrack/ExportAll.kt:66:        val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
-grouptrack/ExportAll.kt:67:        val file = "GroupTrack_RIDER_TRAILS_$day"
-grouptrack/ExportAll.kt:69:        val ok = if (toDownloads) com.geeksville.mesh.convoy.GtFileHome.save(
-grouptrack/ExportAll.kt:79:    fun start(ctx: Context, type: String) {
-grouptrack/ExportAll.kt:82:            val msg = try { run(ctx, type, true) } catch (e: Exception) { log.e(e) { "EXPORTALL $type" }; "Export failed: ${e.message}" }
-grouptrack/ExportAll.kt:93:    @Volatile private var pending: java.io.File? = null
-grouptrack/ExportAll.kt:95:    private fun keepForShare(ctx: Context, name: String, gpx: String) {
-grouptrack/ExportAll.kt:96:        val dir = java.io.File(GtPathsAndroid.cache(ctx), "exports").also { it.mkdirs(); it.listFiles()?.forEach { x -> x.delete() } }
-grouptrack/ExportAll.kt:101:    fun takeWritten(): java.io.File? { val f = pending; pending = null; return f }
-grouptrack/ExportAll.kt:103:    private fun shareNow(ctx: Context) {
-grouptrack/ExportAll.kt:104:        val f = pending ?: return
-grouptrack/ExportAll.kt:107:            val uri = androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".provider", f)
-grouptrack/ExportAll.kt:108:            val what = f.nameWithoutExtension.replace('_', ' ')
-grouptrack/ExportAll.kt:109:            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-grouptrack/ExportAll.kt:129:    fun run(ctx: Context, type: String, toDownloads: Boolean): String {
-grouptrack/ExportAll.kt:131:        val db = SpatialDbManager.getSpatialDb() ?: return "Export failed: the map features database is not open."
-grouptrack/ExportAll.kt:133:        val sql = when (type) { "routes" -> "SELECT route_id FROM routes"; "tracks" -> "SELECT track_id FROM tracks WHERE (type='TRACK' OR type IS NULL)";   /* DBAUDIT-2026-11-03: not the old ROUTE rows */ else -> "SELECT waypoint_id FROM waypoints" }
-grouptrack/ExportAll.kt:134:        val ids = ArrayList<String>()
-grouptrack/ExportAll.kt:137:        val sb = StringBuilder(HEADER)
-grouptrack/ExportAll.kt:140:            val g = try {
-grouptrack/ExportAll.kt:148:            var b = body(g.second)
-grouptrack/ExportAll.kt:154:        val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
-grouptrack/ExportAll.kt:155:        val file = "GroupTrack_${type.uppercase(java.util.Locale.US)}_$day"
-grouptrack/ExportAll.kt:157:        val ok = if (toDownloads) com.geeksville.mesh.convoy.GtFileHome.save(
+grouptrack/ExportAll.kt:29:    val TYPES = listOf("routes" to "routes", "tracks" to "tracks",
+grouptrack/ExportAll.kt:42:    fun exportMany(ctx: Context, types: Set<String>): List<java.io.File> {
+grouptrack/ExportAll.kt:43:        val dir = java.io.File(GtPathsAndroid.cache(ctx), "exportrun")
+grouptrack/ExportAll.kt:45:        val out = ArrayList<java.io.File>()
+grouptrack/ExportAll.kt:48:            val msg = try { run(ctx, type, true) } catch (e: Exception) { log.e(e) { "EXPORTONE-2026-11-18 $type" }; continue }
+grouptrack/ExportAll.kt:49:            val f = takeWritten()
+grouptrack/ExportAll.kt:51:            val copy = java.io.File(dir, f.name)
+grouptrack/ExportAll.kt:75:    fun emailWritten(ctx: Context, files: List<java.io.File>) {
+grouptrack/ExportAll.kt:78:            val uris = ArrayList(files.map {
+grouptrack/ExportAll.kt:80:            val send = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
+grouptrack/ExportAll.kt:100:    private fun xml(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+grouptrack/ExportAll.kt:103:    private fun body(gpx: String): String {
+grouptrack/ExportAll.kt:104:        val open = Regex("<gpx\\b[^>]*>").find(gpx) ?: return ""
+grouptrack/ExportAll.kt:105:        val end = gpx.lastIndexOf("</gpx>")
+grouptrack/ExportAll.kt:111:    private fun named(body: String, name: String): String {
+grouptrack/ExportAll.kt:112:        val withName = Regex("(?s)(<trk>\\s*)<name>.*?</name>")
+grouptrack/ExportAll.kt:121:    private fun trailsGpx(ctx: Context, db: android.database.sqlite.SQLiteDatabase, toDownloads: Boolean): String {
+grouptrack/ExportAll.kt:122:        val sb = StringBuilder(HEADER)
+grouptrack/ExportAll.kt:123:        var n = 0
+grouptrack/ExportAll.kt:126:                val wkt = c.getString(1) ?: continue
+grouptrack/ExportAll.kt:127:                val parts = Regex("\\(([^()]+)\\)").findAll(wkt).map { it.groupValues[1] }.toList()
+grouptrack/ExportAll.kt:133:                        val xy = pt.trim().split(Regex("\\s+"))
+grouptrack/ExportAll.kt:143:        val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+grouptrack/ExportAll.kt:144:        val file = "GroupTrack_RIDER_TRAILS_$day"
+grouptrack/ExportAll.kt:146:        val ok = if (toDownloads) com.geeksville.mesh.convoy.GtFileHome.save(
+grouptrack/ExportAll.kt:164:    @Volatile private var pending: java.io.File? = null
+grouptrack/ExportAll.kt:166:    private fun keepForShare(ctx: Context, name: String, gpx: String) {
+grouptrack/ExportAll.kt:167:        val dir = java.io.File(GtPathsAndroid.cache(ctx), "exports").also { it.mkdirs(); it.listFiles()?.forEach { x -> x.delete() } }
+grouptrack/ExportAll.kt:172:    fun takeWritten(): java.io.File? { val f = pending; pending = null; return f }
+grouptrack/ExportAll.kt:177:    fun run(ctx: Context, type: String, toDownloads: Boolean): String {
+grouptrack/ExportAll.kt:179:        val db = SpatialDbManager.getSpatialDb() ?: return "Export failed: the map features database is not open."
+grouptrack/ExportAll.kt:181:        val sql = when (type) { "routes" -> "SELECT route_id FROM routes"; "tracks" -> "SELECT track_id FROM tracks WHERE (type='TRACK' OR type IS NULL)";   /* DBAUDIT-2026-11-03: not the old ROUTE rows */ else -> "SELECT waypoint_id FROM waypoints" }
+grouptrack/ExportAll.kt:182:        val ids = ArrayList<String>()
+grouptrack/ExportAll.kt:185:        val sb = StringBuilder(HEADER)
+grouptrack/ExportAll.kt:188:            val g = try {
+grouptrack/ExportAll.kt:196:            var b = body(g.second)
+grouptrack/ExportAll.kt:202:        val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+grouptrack/ExportAll.kt:203:        val file = "GroupTrack_${type.uppercase(java.util.Locale.US)}_$day"
+grouptrack/ExportAll.kt:205:        val ok = if (toDownloads) com.geeksville.mesh.convoy.GtFileHome.save(
 grouptrack/GtOsmAndroid.kt:20:class GtOsmAndroid(context: Context) : GtOsmPlatform {
 grouptrack/GtOsmAndroid.kt:21:    private val ctx: Context = context.applicationContext
 grouptrack/GtOsmAndroid.kt:24:    override fun onOsmRoot(root: Path) {
@@ -11917,7 +11914,7 @@ grouptrack/LaunchModules.kt:40:object LaunchModules {
 grouptrack/LaunchModules.kt:41:    private fun p(module: String, vararg rows: Pair<String, String>) = rows.map { (id, label) -> GtProcess("$module.$id", label) }
 grouptrack/LaunchModules.kt:43:    private fun g(module: String, id: String, label: String, vararg rows: Pair<String, String>) =
 grouptrack/LaunchModules.kt:46:    val all: List<LaunchModule> = listOf(
-grouptrack/LaunchModules.kt:150:    fun bySlot(slot: LaunchSlot, group: Boolean): List<LaunchModule> =
+grouptrack/LaunchModules.kt:147:    fun bySlot(slot: LaunchSlot, group: Boolean): List<LaunchModule> =
 grouptrack/RouteModule.kt:64:object GtRoute {
 grouptrack/RouteModule.kt:66:    var js: (String) -> Unit = {}
 grouptrack/RouteModule.kt:68:    @Volatile var vp: DoubleArray = doubleArrayOf(0.0, 0.0, 0.0, 0.0, 15.0)
@@ -12814,6 +12811,8 @@ grouptrack/UtahPrivate.kt:189:    val result = GtUtahPrivate.result.value
 grouptrack/UtahPrivate.kt:190:    val line = remember(busy, result) { GtUtahPrivate.dataLine(ctx) }
 grouptrack/UtahPrivate.kt:192:    val close = { GtUtahPrivate.open.value = false }
 grouptrack/UtahPrivate.kt:208:                val p = GtUtahPrivate.progress.value
+SHARED:ui/GtIpadProbeScreen.kt:38:fun GtIpadProbeScreen() {
+SHARED:ui/GtIpadProbeScreen.kt:43:            var taps by remember { mutableStateOf(0) }
 SHARED:settings/GtRideSettings.kt:13:class GtRideSettings(private val settings: GtSettings, private val storeName: String, private val epochDay: () -> Long) {
 SHARED:settings/GtRideSettings.kt:14:    companion object {
 SHARED:settings/GtRideSettings.kt:15:        const val STORE = "convoy_settings"
@@ -15855,17 +15854,17 @@ SHARED:json/GtOrgJson.kt:167:    fun num(l: Long): JsonElement = JsonUnquotedLit
 SHARED:json/GtOrgJson.kt:168:    fun num(i: Int): JsonElement = JsonUnquotedLiteral(i.toString())
 SHARED:json/GtOrgJson.kt:169:    fun str(s: String): JsonElement = JsonPrimitive(s)
 SHARED:json/GtOrgJson.kt:170:    fun bool(b: Boolean): JsonElement = JsonPrimitive(b)
-SHARED:json/GtOrgJson.kt:171:    val NULL: JsonElement get() = JsonNull
-SHARED:json/GtOrgJson.kt:175:    fun numberText(k: OrgNum): String = when (k) {
-SHARED:json/GtOrgJson.kt:179:            val d = k.v
-SHARED:json/GtOrgJson.kt:182:            else { val l = d.toLong(); if (d == l.toDouble()) l.toString() else GtJava.jd(d) }
-SHARED:json/GtOrgJson.kt:187:    fun compact(e: JsonElement): String = StringBuilder().also { write(it, e, null, 0) }.toString()
-SHARED:json/GtOrgJson.kt:189:    fun pretty(e: JsonElement, indentSpaces: Int = 2): String = StringBuilder().also { write(it, e, " ".repeat(indentSpaces), 0) }.toString()
-SHARED:json/GtOrgJson.kt:191:    private fun newline(sb: StringBuilder, indent: String?, depth: Int) {
-SHARED:json/GtOrgJson.kt:197:    private fun write(sb: StringBuilder, e: JsonElement, indent: String?, depth: Int) {
-SHARED:json/GtOrgJson.kt:201:                var first = true
-SHARED:json/GtOrgJson.kt:234:    fun quote(s: String): String {
-SHARED:json/GtOrgJson.kt:235:        val sb = StringBuilder(s.length + 2)
+SHARED:json/GtOrgJson.kt:179:    val jsonNull: JsonElement get() = JsonNull
+SHARED:json/GtOrgJson.kt:183:    fun numberText(k: OrgNum): String = when (k) {
+SHARED:json/GtOrgJson.kt:187:            val d = k.v
+SHARED:json/GtOrgJson.kt:190:            else { val l = d.toLong(); if (d == l.toDouble()) l.toString() else GtJava.jd(d) }
+SHARED:json/GtOrgJson.kt:195:    fun compact(e: JsonElement): String = StringBuilder().also { write(it, e, null, 0) }.toString()
+SHARED:json/GtOrgJson.kt:197:    fun pretty(e: JsonElement, indentSpaces: Int = 2): String = StringBuilder().also { write(it, e, " ".repeat(indentSpaces), 0) }.toString()
+SHARED:json/GtOrgJson.kt:199:    private fun newline(sb: StringBuilder, indent: String?, depth: Int) {
+SHARED:json/GtOrgJson.kt:205:    private fun write(sb: StringBuilder, e: JsonElement, indent: String?, depth: Int) {
+SHARED:json/GtOrgJson.kt:209:                var first = true
+SHARED:json/GtOrgJson.kt:242:    fun quote(s: String): String {
+SHARED:json/GtOrgJson.kt:243:        val sb = StringBuilder(s.length + 2)
 SHARED:cert/CertAssets.kt:33:object CertAssets {
 SHARED:cert/CertAssets.kt:35:    val EXPECTED_DIFF: Map<String, String> = emptyMap()
 SHARED:cert/CertAssets.kt:43:    val ASSETS: List<String> = listOf(
@@ -19137,6 +19136,7 @@ SHARED-android:text/GtMath.android.kt:7:internal actual fun gtMathHypot(x: Doubl
 SHARED-android:text/GtMath.android.kt:10:internal actual fun gtMathAtan(x: Double): Double = java.lang.Math.atan(x)
 SHARED-android:text/GtMath.android.kt:11:internal actual fun gtMathSinh(x: Double): Double = java.lang.Math.sinh(x)
 SHARED-android:text/GtMath.android.kt:12:internal actual fun gtMathLn(x: Double): Double = java.lang.Math.log(x)
+SHARED-ios:ui/GtIosRoot.kt:27:fun gtIpadProbeController(): UIViewController =
 SHARED-ios:platform/GtIosRideFiles.kt:36:class IosRideFiles(
 SHARED-ios:platform/GtIosRideFiles.kt:37:    private val paths: GtImportPaths = IosImportPaths(),
 SHARED-ios:platform/GtIosRideFiles.kt:38:    private val fs: FileSystem = FileSystem.SYSTEM,
@@ -19242,41 +19242,42 @@ SHARED-ios:platform/GtIosHkEnv.kt:138:    private companion object {
 SHARED-ios:platform/GtIosHkEnv.kt:145:    override fun now(): Long = clock.epochMs()
 SHARED-ios:platform/GtIosHkEnv.kt:149:    /** ⚠ MUST NOT THROW -- its caller is unguarded. See the class note. */
 SHARED-ios:platform/GtIosHkEnv.kt:150:    override fun initDb() {
-SHARED-ios:platform/GtIosHkEnv.kt:155:            val sp = (dir / SPATIAL_DB).toString()
-SHARED-ios:platform/GtIosHkEnv.kt:156:            val dt = (dir / DATA_DB).toString()
-SHARED-ios:platform/GtIosHkEnv.kt:157:            val s = gtOpenDatabase(sp, false)
-SHARED-ios:platform/GtIosHkEnv.kt:158:            val d = gtOpenDatabase(dt, false)
-SHARED-ios:platform/GtIosHkEnv.kt:159:            val v = GtSchema.ensure(s, d) { name -> iosBundleAsset(name) }
-SHARED-ios:platform/GtIosHkEnv.kt:170:    override fun dbDir(): String = paths.groupTrackRoot().toString()
-SHARED-ios:platform/GtIosHkEnv.kt:171:    override fun spatialDb(): GtHkDb? = spatial?.let { IosHkDb(it, spatialFile) }
-SHARED-ios:platform/GtIosHkEnv.kt:172:    override fun extDb(): GtHkDb? = data?.let { IosHkDb(it, (paths.groupTrackRoot() / DATA_DB).toString()) }
-SHARED-ios:platform/GtIosHkEnv.kt:173:    override fun spatialPath(): String? = spatialFile
-SHARED-ios:platform/GtIosHkEnv.kt:175:    override fun parseGpxTrackPoints(text: String): List<Pair<Double, Double>> =
-SHARED-ios:platform/GtIosHkEnv.kt:178:    override fun computeGeomHash(wkt: String): String = GtRead.computeGeomHash(wkt)
-SHARED-ios:platform/GtIosHkEnv.kt:182:    override fun ensureDefaults() = TrailFilterState.ensureDefaults { iosBundleAsset(DEFAULTS_ASSET) }
-SHARED-ios:platform/GtIosHkEnv.kt:184:    override fun mergeShippedCategories(): List<String> =
-SHARED-ios:platform/GtIosHkEnv.kt:189:    override fun ownershipFilePath(): String = (paths.groupTrackRoot() / OWNERSHIP_FILE).toString()
-SHARED-ios:platform/GtIosHkEnv.kt:190:    override fun fileExists(path: String): Boolean = try { fs.exists(path.toPath()) } catch (e: Exception) { false }
-SHARED-ios:platform/GtIosHkEnv.kt:191:    override fun fileLength(path: String): Long =
-SHARED-ios:platform/GtIosHkEnv.kt:196:    override fun fileDelete(path: String): Boolean =
-SHARED-ios:platform/GtIosHkEnv.kt:201:    /** ⚠ The text is NOT loaded here -- see readText and the class note. */
-SHARED-ios:platform/GtIosHkEnv.kt:202:    override fun trackFiles(): List<GtHkFile> {
-SHARED-ios:platform/GtIosHkEnv.kt:203:        val dir = paths.tracksDir()
-SHARED-ios:platform/GtIosHkEnv.kt:204:        val entries = try { fs.list(dir) } catch (e: Exception) { return emptyList() }
-SHARED-ios:platform/GtIosHkEnv.kt:205:        val out = ArrayList<GtHkFile>()
-SHARED-ios:platform/GtIosHkEnv.kt:207:            val md = try { fs.metadataOrNull(p) } catch (e: Exception) { null } ?: continue
-SHARED-ios:platform/GtIosHkEnv.kt:214:    override fun readText(f: GtHkFile): String =
-SHARED-ios:platform/GtIosHkEnv.kt:217:    override fun tracksDirName(): String = paths.tracksDir().name
-SHARED-ios:platform/GtIosHkEnv.kt:221:    override fun useOf(cartoCode: String): String = IosTrailClass().useOf(cartoCode)
-SHARED-ios:platform/GtIosHkEnv.kt:229:     * [killedImportArea] mirrors HomeStateImportController's @Volatile var -- the shared port RETURNS
-SHARED-ios:platform/GtIosHkEnv.kt:232:    var killedImportArea: String? = null
-SHARED-ios:platform/GtIosHkEnv.kt:235:    override fun sweepManifests() {
-SHARED-ios:platform/GtIosHkEnv.kt:236:        val dir = paths.dir("imports")
-SHARED-ios:platform/GtIosHkEnv.kt:238:        val r = GtManifestSweep.run(
-SHARED-ios:platform/GtIosHkEnv.kt:251:    override fun markerExists(name: String): Boolean =
-SHARED-ios:platform/GtIosHkEnv.kt:254:    override fun markerWrite(name: String, body: String) {
-SHARED-ios:platform/GtIosHkEnv.kt:255:        val m = paths.groupTrackRoot() / name
-SHARED-ios:platform/GtIosHkEnv.kt:262:    override fun log(line: String) { log.i { line } }
+SHARED-ios:platform/GtIosHkEnv.kt:164:            val dir = paths.groupTrackRoot()
+SHARED-ios:platform/GtIosHkEnv.kt:166:            val sp = (dir / SPATIAL_DB).toString()
+SHARED-ios:platform/GtIosHkEnv.kt:167:            val dt = (dir / DATA_DB).toString()
+SHARED-ios:platform/GtIosHkEnv.kt:168:            val s = gtOpenDatabase(sp, false)
+SHARED-ios:platform/GtIosHkEnv.kt:169:            val d = gtOpenDatabase(dt, false)
+SHARED-ios:platform/GtIosHkEnv.kt:170:            val v = GtSchema.ensure(s, d) { name -> iosBundleAsset(name) }
+SHARED-ios:platform/GtIosHkEnv.kt:181:    override fun dbDir(): String = paths.groupTrackRoot().toString()
+SHARED-ios:platform/GtIosHkEnv.kt:182:    override fun spatialDb(): GtHkDb? = spatial?.let { IosHkDb(it, spatialFile) }
+SHARED-ios:platform/GtIosHkEnv.kt:183:    override fun extDb(): GtHkDb? = data?.let { IosHkDb(it, (paths.groupTrackRoot() / DATA_DB).toString()) }
+SHARED-ios:platform/GtIosHkEnv.kt:184:    override fun spatialPath(): String? = spatialFile
+SHARED-ios:platform/GtIosHkEnv.kt:186:    override fun parseGpxTrackPoints(text: String): List<Pair<Double, Double>> =
+SHARED-ios:platform/GtIosHkEnv.kt:189:    override fun computeGeomHash(wkt: String): String = GtRead.computeGeomHash(wkt)
+SHARED-ios:platform/GtIosHkEnv.kt:193:    override fun ensureDefaults() = TrailFilterState.ensureDefaults { iosBundleAsset(DEFAULTS_ASSET) }
+SHARED-ios:platform/GtIosHkEnv.kt:195:    override fun mergeShippedCategories(): List<String> =
+SHARED-ios:platform/GtIosHkEnv.kt:200:    override fun ownershipFilePath(): String = (paths.groupTrackRoot() / OWNERSHIP_FILE).toString()
+SHARED-ios:platform/GtIosHkEnv.kt:201:    override fun fileExists(path: String): Boolean = try { fs.exists(path.toPath()) } catch (e: Exception) { false }
+SHARED-ios:platform/GtIosHkEnv.kt:202:    override fun fileLength(path: String): Long =
+SHARED-ios:platform/GtIosHkEnv.kt:207:    override fun fileDelete(path: String): Boolean =
+SHARED-ios:platform/GtIosHkEnv.kt:212:    /** ⚠ The text is NOT loaded here -- see readText and the class note. */
+SHARED-ios:platform/GtIosHkEnv.kt:213:    override fun trackFiles(): List<GtHkFile> {
+SHARED-ios:platform/GtIosHkEnv.kt:214:        val dir = paths.tracksDir()
+SHARED-ios:platform/GtIosHkEnv.kt:215:        val entries = try { fs.list(dir) } catch (e: Exception) { return emptyList() }
+SHARED-ios:platform/GtIosHkEnv.kt:216:        val out = ArrayList<GtHkFile>()
+SHARED-ios:platform/GtIosHkEnv.kt:218:            val md = try { fs.metadataOrNull(p) } catch (e: Exception) { null } ?: continue
+SHARED-ios:platform/GtIosHkEnv.kt:225:    override fun readText(f: GtHkFile): String =
+SHARED-ios:platform/GtIosHkEnv.kt:228:    override fun tracksDirName(): String = paths.tracksDir().name
+SHARED-ios:platform/GtIosHkEnv.kt:232:    override fun useOf(cartoCode: String): String = IosTrailClass().useOf(cartoCode)
+SHARED-ios:platform/GtIosHkEnv.kt:240:     * [killedImportArea] mirrors HomeStateImportController's @Volatile var -- the shared port RETURNS
+SHARED-ios:platform/GtIosHkEnv.kt:243:    var killedImportArea: String? = null
+SHARED-ios:platform/GtIosHkEnv.kt:246:    override fun sweepManifests() {
+SHARED-ios:platform/GtIosHkEnv.kt:247:        val dir = paths.dir("imports")
+SHARED-ios:platform/GtIosHkEnv.kt:249:        val r = GtManifestSweep.run(
+SHARED-ios:platform/GtIosHkEnv.kt:262:    override fun markerExists(name: String): Boolean =
+SHARED-ios:platform/GtIosHkEnv.kt:265:    override fun markerWrite(name: String, body: String) {
+SHARED-ios:platform/GtIosHkEnv.kt:266:        val m = paths.groupTrackRoot() / name
+SHARED-ios:platform/GtIosHkEnv.kt:273:    override fun log(line: String) { log.i { line } }
 SHARED-ios:platform/GtIosRecipeEnv.kt:23: *  mechanism exists -- but the registry itself is ~400 lines of Android object and porting it is its
 SHARED-ios:platform/GtIosRecipeEnv.kt:37:class IosRecipeEnv(
 SHARED-ios:platform/GtIosRecipeEnv.kt:38:    private val paths: GtImportPaths = IosImportPaths(),
@@ -19298,6 +19299,15 @@ SHARED-ios:platform/GtIosAssets.kt:26:    val ext = if (dot > 0) name.substring(
 SHARED-ios:platform/GtIosAssets.kt:27:    val p = NSBundle.mainBundle.pathForResource(stem, ext)
 SHARED-ios:platform/GtIosAssets.kt:33:class IosHelpAssets : GtHelpAssets {
 SHARED-ios:platform/GtIosAssets.kt:34:    override fun text(name: String): String = iosBundleAsset(name)
+SHARED-ios:platform/GtIosStartup.kt:23:object GtIosStartup {
+SHARED-ios:platform/GtIosStartup.kt:26:    data class Result(
+SHARED-ios:platform/GtIosStartup.kt:27:        val ran: Boolean,
+SHARED-ios:platform/GtIosStartup.kt:28:        val cleared: Int,
+SHARED-ios:platform/GtIosStartup.kt:29:        val needsReload: Boolean,
+SHARED-ios:platform/GtIosStartup.kt:30:        val error: String?,
+SHARED-ios:platform/GtIosStartup.kt:34:    fun everyLaunch() {
+SHARED-ios:platform/GtIosStartup.kt:42:    fun run(): Result {
+SHARED-ios:platform/GtIosStartup.kt:43:        val r = GtStartupHousekeeping.run(IosHkEnv())
 SHARED-ios:platform/GtIosRideNetworks.kt:40:class IosRideNetworks(
 SHARED-ios:platform/GtIosRideNetworks.kt:43:    private val db: () -> SQLiteConnection?,
 SHARED-ios:platform/GtIosRideNetworks.kt:44:    private val clock: GtClock = IosClock,
@@ -19545,6 +19555,80 @@ SHARED-ios:platform/GtIosEnv.kt:223:    override val paths: GtImportPaths = p
 SHARED-ios:platform/GtIosEnv.kt:224:    override val http: GtHttp = IosHttp
 SHARED-ios:platform/GtIosEnv.kt:225:    override val trailClass: GtTrailClass = IosTrailClass()
 SHARED-ios:platform/GtIosEnv.kt:226:    override val platform: GtImportPlatform = IosImportPlatform(p, FileSystem.SYSTEM)
+SHARED-ios:platform/GtVecMap.ios.kt:71:private const val SCHEME = "gtvec"
+SHARED-ios:platform/GtVecMap.ios.kt:76:private val SHIM = """
+SHARED-ios:platform/GtVecMap.ios.kt:83:  var o = console.log.bind(console);
+SHARED-ios:platform/GtVecMap.ios.kt:90:private class GtVecMessages(private val onMessage: (String, String) -> Unit) : NSObject(), WKScriptMessageHandlerProtocol {
+SHARED-ios:platform/GtVecMap.ios.kt:91:    override fun userContentController(userContentController: WKUserContentController, didReceiveScriptMessage: WKScriptMessage) {
+SHARED-ios:platform/GtVecMap.ios.kt:92:        val text = didReceiveScriptMessage.body.toString()
+SHARED-ios:platform/GtVecMap.ios.kt:93:        val i = text.indexOf('\u0001')
+SHARED-ios:platform/GtVecMap.ios.kt:105:private fun bundleVecFile(rel: String): String? {
+SHARED-ios:platform/GtVecMap.ios.kt:106:    val root = NSBundle.mainBundle.resourcePath ?: return null
+SHARED-ios:platform/GtVecMap.ios.kt:116:private fun gtRoot(): String =
+SHARED-ios:platform/GtVecMap.ios.kt:119:private fun gtFile(rel: String): String = gtRoot() + "/" + rel
+SHARED-ios:platform/GtVecMap.ios.kt:130:private class VecStore(val path: String) {
+SHARED-ios:platform/GtVecMap.ios.kt:131:    private val stmt: SQLiteStatement? = if (!NSFileManager.defaultManager.fileExistsAtPath(path)) null else try {
+SHARED-ios:platform/GtVecMap.ios.kt:136:    val ok: Boolean get() = stmt != null
+SHARED-ios:platform/GtVecMap.ios.kt:138:    fun read(z: Int, x: Int, y: Int): NSData? {
+SHARED-ios:platform/GtVecMap.ios.kt:139:        val s = stmt ?: return null
+SHARED-ios:platform/GtVecMap.ios.kt:143:        val b = s.getBlob(0)
+SHARED-ios:platform/GtVecMap.ios.kt:160:private fun mapFrameOk(s: Double, w: Double, n: Double, e: Double): Boolean =
+SHARED-ios:platform/GtVecMap.ios.kt:164:private fun restoreFrame(web: WKWebView, log: (String) -> Unit) {
+SHARED-ios:platform/GtVecMap.ios.kt:165:    val bb = try {
+SHARED-ios:platform/GtVecMap.ios.kt:189:private class SpatialRunner(private val log: (String) -> Unit) {
+SHARED-ios:platform/GtVecMap.ios.kt:190:    var web: WKWebView? = null
+SHARED-ios:platform/GtVecMap.ios.kt:191:    private val queue = dispatch_queue_create("gt.spatial", null)
+SHARED-ios:platform/GtVecMap.ios.kt:192:    private var spatial: GtSpatial? = null
+SHARED-ios:platform/GtVecMap.ios.kt:193:    private var opened = false
+SHARED-ios:platform/GtVecMap.ios.kt:194:    private var seq = 0
+SHARED-ios:platform/GtVecMap.ios.kt:196:    fun request(args: String) {
+SHARED-ios:platform/GtVecMap.ios.kt:197:        val v = args.trim().removePrefix("[").removeSuffix("]").split(",").mapNotNull { it.trim().toDoubleOrNull() }
+SHARED-ios:platform/GtVecMap.ios.kt:199:        val my = ++seq
+SHARED-ios:platform/GtVecMap.ios.kt:204:                val sp = gtFile("grouptrack_spatial.db")
+SHARED-ios:platform/GtVecMap.ios.kt:205:                val dp = gtFile("grouptrack_data.db")
+SHARED-ios:platform/GtVecMap.ios.kt:207:                    val data = if (NSFileManager.defaultManager.fileExistsAtPath(dp))
+SHARED-ios:platform/GtVecMap.ios.kt:215:            val sp2 = spatial
+SHARED-ios:platform/GtVecMap.ios.kt:220:            val t0 = NSDate().timeIntervalSince1970
+SHARED-ios:platform/GtVecMap.ios.kt:221:            val b = try { sp2.viewport(v[0], v[1], v[2], v[3], v[4].toInt()) } catch (e: Throwable) {
+SHARED-ios:platform/GtVecMap.ios.kt:225:            val ms = ((NSDate().timeIntervalSince1970 - t0) * 1000).toInt()
+SHARED-ios:platform/GtVecMap.ios.kt:227:                val w = web ?: return@dispatch_async
+SHARED-ios:platform/GtVecMap.ios.kt:230:                        val r = res?.toString() ?: ""
+SHARED-ios:platform/GtVecMap.ios.kt:241:private class GtVecServer(private val log: (String) -> Unit) : NSObject(), WKURLSchemeHandlerProtocol {
+SHARED-ios:platform/GtVecMap.ios.kt:243:    private var template: String? = null
+SHARED-ios:platform/GtVecMap.ios.kt:244:    private var templateAsked = false
+SHARED-ios:platform/GtVecMap.ios.kt:245:    private val waiting = mutableListOf<(String?) -> Unit>()
+SHARED-ios:platform/GtVecMap.ios.kt:246:    private var assets = 0; private var stored = 0; private var tiles = 0; private var empty = 0; private var missing = 0
+SHARED-ios:platform/GtVecMap.ios.kt:249:    private val store = VecStore(gtFile("maps/tiles/VEC.mbtiles"))
+SHARED-ios:platform/GtVecMap.ios.kt:252:    var offline = false
+SHARED-ios:platform/GtVecMap.ios.kt:254:    private fun status(last: String) =
+SHARED-ios:platform/GtVecMap.ios.kt:259:    override fun webView(webView: WKWebView, startURLSchemeTask: WKURLSchemeTaskProtocol) {
+SHARED-ios:platform/GtVecMap.ios.kt:260:        val task = startURLSchemeTask
+SHARED-ios:platform/GtVecMap.ios.kt:262:        val url = task.request.URL ?: return
+SHARED-ios:platform/GtVecMap.ios.kt:263:        val path = url.path ?: ""
+SHARED-ios:platform/GtVecMap.ios.kt:272:    override fun webView(webView: WKWebView, stopURLSchemeTask: WKURLSchemeTaskProtocol) {
+SHARED-ios:platform/GtVecMap.ios.kt:276:    private fun reply(task: WKURLSchemeTaskProtocol, url: NSURL, code: Long, mime: String, data: NSData?, held: String? = null) {
+SHARED-ios:platform/GtVecMap.ios.kt:279:        val h = mutableMapOf<Any?, Any?>("Content-Type" to mime, "Access-Control-Allow-Origin" to "*",
+SHARED-ios:platform/GtVecMap.ios.kt:287:    private fun asset(task: WKURLSchemeTaskProtocol, url: NSURL, rel: String) {
+SHARED-ios:platform/GtVecMap.ios.kt:289:        val file = bundleVecFile(rel)
+SHARED-ios:platform/GtVecMap.ios.kt:290:        var data = if (file == null) null else NSData.dataWithContentsOfFile(file)
+SHARED-ios:platform/GtVecMap.ios.kt:299:            val s = NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
+SHARED-ios:platform/GtVecMap.ios.kt:307:    private fun tile(task: WKURLSchemeTaskProtocol, url: NSURL, path: String) {
+SHARED-ios:platform/GtVecMap.ios.kt:308:        val seg = path.removePrefix("/t/").removeSuffix(".pbf").split("/")
+SHARED-ios:platform/GtVecMap.ios.kt:309:        val z = seg.getOrNull(0)?.toIntOrNull(); val x = seg.getOrNull(1)?.toIntOrNull(); val y = seg.getOrNull(2)?.toIntOrNull()
+SHARED-ios:platform/GtVecMap.ios.kt:323:            val src = t?.let { NSURL.URLWithString(it.replace("{z}", "$z").replace("{x}", "$x").replace("{y}", "$y")) }
+SHARED-ios:platform/GtVecMap.ios.kt:328:                val code = (r as? NSHTTPURLResponse)?.statusCode ?: 0L
+SHARED-ios:platform/GtVecMap.ios.kt:338:    private fun withTemplate(then: (String?) -> Unit) {
+SHARED-ios:platform/GtVecMap.ios.kt:344:            val s = d?.let { NSString.create(data = it, encoding = NSUTF8StringEncoding)?.toString() } ?: ""
+SHARED-ios:platform/GtVecMap.ios.kt:345:            val t = Regex("\"tiles\"\\s*:\\s*\\[\\s*\"([^\"]+)\"").find(s)?.groupValues?.get(1)
+SHARED-ios:platform/GtVecMap.ios.kt:349:                val w = waiting.toList(); waiting.clear(); w.forEach { it(t) }
+SHARED-ios:platform/GtVecMap.ios.kt:354:    private fun mimeOf(p: String) = when {
+SHARED-ios:platform/GtVecMap.ios.kt:369:fun GtVecMap(modifier: Modifier = Modifier, onMessage: (String, String) -> Unit) {
+SHARED-ios:platform/GtVecMap.ios.kt:371:    val runner = remember { SpatialRunner { s -> onMessage("spatial", s) } }
+SHARED-ios:platform/GtVecMap.ios.kt:372:    val messages = remember {
+SHARED-ios:platform/GtVecMap.ios.kt:381:    val server = remember { GtVecServer { s -> onMessage("server", s) } }
+SHARED-ios:platform/GtVecMap.ios.kt:384:            val config = WKWebViewConfiguration()
+SHARED-ios:platform/GtVecMap.ios.kt:391:            val web = WKWebView(frame = CGRectMake(0.0, 0.0, 0.0, 0.0), configuration = config)
+SHARED-ios:platform/GtVecMap.ios.kt:407:fun gtVecMapController(onMessage: (String, String) -> Unit): UIViewController =
 SHARED-ios:db/GtDb.ios.kt:10:actual fun gtOpenDatabase(path: String, readOnly: Boolean): SQLiteConnection =
 SHARED-ios:text/GtMathPow.kt:28:internal object GtMathPow {
 SHARED-ios:text/GtMathPow.kt:29:    private fun f(u: ULong): Double = Double.fromBits(u.toLong())
