@@ -48,6 +48,31 @@ import com.grouptrack.shared.log.gtLogger
 import com.grouptrack.shared.platform.GtVecMap
 import com.grouptrack.shared.platform.iosStorage
 import com.grouptrack.shared.spatial.GtRead
+import com.geeksville.mesh.convoy.GtRiderProfilePanel   // IOSPROFILE-2026-11-19: A.MENU > menu.account
+import com.grouptrack.shared.net.GtProfileStore
+import com.grouptrack.shared.net.GtRiderProfile
+import com.grouptrack.shared.platform.IosClock
+import com.grouptrack.shared.platform.IosIds
+import com.grouptrack.shared.text.GtTime
+import kotlinx.cinterop.ExperimentalForeignApi   // IOSHELP-2026-11-19: CGRectMake
+import com.geeksville.mesh.grouptrack.GtDocsChooser   // IOSHELP-2026-11-19: A.MENU > menu.help
+import com.geeksville.mesh.grouptrack.GtAlertSettingsPanel   // IOSSETTINGS-2026-11-19: A.MENU > menu.settings
+import com.geeksville.mesh.grouptrack.GtRecordButton   // IOSREC-2026-11-19: the top-centre RECORD control
+import com.geeksville.mesh.grouptrack.GtGpsHudRow   // IOSHUD-2026-11-19: the HUD's GPS line
+import com.geeksville.mesh.convoy.RecordingState
+import com.grouptrack.shared.settings.GtRideSettings
+import com.grouptrack.shared.platform.IosSettings
+import com.geeksville.mesh.grouptrack.docsAssetFor
+import com.grouptrack.shared.platform.iosBundleAssetPath
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.viewinterop.UIKitView
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.background
+import platform.CoreGraphics.CGRectMake
+import platform.Foundation.NSURL
+import platform.WebKit.WKWebViewConfiguration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import platform.WebKit.WKWebView
@@ -173,6 +198,100 @@ private object IosSearchDb {
  * half (zoom, centre, the trail redraw after a FILTER change) is the next change, and a
  * reported no-op is honest where a silent one would look like a working control.
  */
+/**
+ * IOSPROFILE-2026-11-19 (Fred 11-19 11:34 "still do not attach any of the three option to menu"):
+ * A.MENU > menu.account's store on the iPad. Android is ConvoyProfileStore, itself only a front door to
+ * this same shared GtProfileStore (SWITCH17G2C1-2026-11-12), so both platforms reach ONE implementation.
+ *
+ * ⚠ THREE THINGS THE OBVIOUS CALL GETS WRONG, all taken from IosRideNetworks' header rather than guessed:
+ *  1. WRITABLE. IosSearchDb above opens read-only (gtOpenDatabase(path, true)); a profile SAVE needs
+ *     readOnly = false, or every save would fail at the first INSERT and look like a refused callsign.
+ *  2. nowUtc is SECONDS. Android's ConvoyProfileStore is SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+ *     so GtTime.formatUtcSeconds -- NOT IosClock.nowInstant(), which carries MILLISECONDS and would write
+ *     "...:33.456Z" into a column Android fills with "...:33Z" (IOSRIDENET-2026-11-17 trap 1).
+ *  3. the id is LOWERCASE. Android is UUID.randomUUID().toString(); NSUUID().UUIDString is UPPERCASE, and
+ *     IosIds.newId() already lowercases it. Using NSUUID directly here would diverge on every new profile.
+ *
+ * CODE RULE 1: db() null = no extension database, which GtProfileStore already treats as "refuse, do not
+ * pretend" on every member -- exactly 2.7e's behaviour when the extension db is absent.
+ */
+private object IosProfile {
+    private val log = gtLogger("GtIosProfile")
+    private var conn: androidx.sqlite.SQLiteConnection? = null
+    private var tried = false
+
+    private fun db(): androidx.sqlite.SQLiteConnection? {
+        if (!tried) {
+            tried = true
+            conn = try {
+                gtOpenDatabase(iosStorage().root().toString() + "/grouptrack_data.db", false)
+            } catch (e: Throwable) {
+                log.i { "IOSPROFILE-2026-11-19: no extension db for the profile -- " + e.message }
+                null
+            }
+        }
+        return conn
+    }
+
+    val store = GtProfileStore(
+        { db() },
+        { GtTime.formatUtcSeconds(IosClock.epochMs()) },   // ⚠ trap 2 -- seconds, not nowInstant()
+        { IosIds.newId() },                                 // ⚠ trap 3 -- lowercased UUID
+    )
+}
+
+/**
+ * IOSHELP-2026-11-19: A.MENU > menu.help's document viewer. Its own function so
+ * @OptIn(ExperimentalForeignApi::class) covers CGRectMake alone -- GtVecMap.ios.kt annotates per
+ * function for the same reason, and putting it on GtGroupTrackScreen would opt the whole screen in.
+ */
+@OptIn(ExperimentalForeignApi::class)
+@Composable
+private fun IosDocView(key: String, onClose: () -> Unit) {
+                // IOSHELP-2026-11-19: the document, read from the BUNDLE by file path and shown in a
+                // WKWebView -- the UIKitView + WKWebView pattern GtVecMap.ios.kt already proves.
+                // ⚠ loadFileURL, not loadHTMLString: the manual is 10.8 MB of base64 screenshots.
+                // ⚠ A FRAGMENT is dropped. Android's docsView can carry "manual#figure"
+                //   (DOCSTACK-2026-09-06) and scrolls to it; the iPad opens the document at the top.
+                //   Said here rather than discovered later -- nothing on the iPad passes a fragment yet,
+                //   because only the manual's own cross-links do and those are inside the page.
+                val asset = docsAssetFor(key.substringBefore("#"))
+                val path = if (asset == null) null else iosBundleAssetPath(asset)
+                Box(Modifier.fillMaxSize().background(Gt.panel)) {
+                    if (path == null) {
+                        // CODE RULE 1: a build made before gt_iosres_2026-11-19_v2.py ran has no
+                        // documents in its bundle. Say so; do not pretend and do not throw.
+                        Text(
+                            "This document is not in this build.\n\nRun gt_iosres_2026-11-19_v2.py --apply and rebuild.",
+                            color = Gt.text, fontSize = 15.sp,
+                            modifier = Modifier.statusBarsPadding().padding(24.dp),
+                        )
+                    } else {
+                        UIKitView(
+                            factory = {
+                                val web = WKWebView(
+                                    frame = CGRectMake(0.0, 0.0, 0.0, 0.0),
+                                    configuration = WKWebViewConfiguration(),
+                                )
+                                val u = NSURL.fileURLWithPath(path)
+                                web.loadFileURL(u, allowingReadAccessToURL = u)
+                                web
+                            },
+                            modifier = Modifier.fillMaxSize().statusBarsPadding(),
+                        )
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().statusBarsPadding().padding(8.dp),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End,
+                    ) {
+                        // DOCSCHOOSER-2026-09-02's lesson: a document must have a visible way out.
+                        TextButton(onClick = onClose) {
+                            Text("CLOSE", color = Gt.accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+}
+
 @Composable
 fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
 
@@ -208,6 +327,48 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // IOSREADOUT-2026-11-19: the page reports zoom as onViewportChanged's FIFTH value, which the
     // relay was discarding. Android polls map.getZoom() once a second; this needs no poll.
     val zoom = remember { mutableIntStateOf(0) }
+    // GRPIOS-2026-11-19: the radio link's two states, as Android's GrpAwarenessLauncher reports them
+    // (connected, and TALKING -- they are not the same thing, LINKFIX-2026-10-03). BUILT and read by the
+    // GRP colour above; there is no iOS radio yet, so both stay false and the button reads grey.
+    // GRPIOS-2026-11-19: MODE. Android's GroupMode (app-side, SharedPreferences-backed) has no iOS source yet,
+    // so this is the host's own state: BUILT and driving both the GRP colour and the launch layer's group flag,
+    // false until the iPad has a radio. Android is untouched.
+    val group = remember { mutableStateOf(false) }
+    // IOSPROFILE-2026-11-19: menu.account's panel. Android navigates to a screen (onNavigateToProfile);
+    // the iPad host has no navigator, so the panel is an overlay over the map, as the other panels are.
+    val profileOpen = remember { mutableStateOf(false) }
+    // IOSHELP-2026-11-19: menu.help. Android keeps a docsView + a back stack (GroupTrackScreen.kt:397);
+    // the iPad shows ONE document at a time over the map, which is all the chooser can reach.
+    val helpOpen = remember { mutableStateOf(false) }
+    val docView = remember { mutableStateOf("") }
+    // IOSSETTINGS-2026-11-19: menu.settings. GtRideSettings is SHARED and already certified on the iPad
+    // (GtRideSettingsMacTest); IosSettings puts it on NSUserDefaults, suite "convoy_settings", the same
+    // keys Android writes through GtSettingsAndroid. So this panel saves the rider's REAL settings.
+    // ⚠ epochDay must be the LOCAL date, because Android is LocalDate.now().toEpochDay(). GtTime's
+    // gregorianEpochDay over IosClock.localNow() is that; IosClock.epochMs() / 86_400_000 would be the
+    // UTC day and would disagree with Android for the hours either side of local midnight.
+    val rideSettings = remember {
+        GtRideSettings(IosSettings(), GtRideSettings.STORE) {
+            val d = IosClock.localNow()
+            GtTime.gregorianEpochDay(d.year.toLong(), d.month, d.day)
+        }
+    }
+    val settingsOpen = remember { mutableStateOf(false) }
+    // IOSSETTINGS-2026-11-19: ISSUE-2026-10-24's choice. Android persists it through GtIssue.sendsEmail
+    // (a Context read); here it is host state so the row works, and WHERE the report goes is D work.
+    val issueEmail = remember { mutableStateOf(true) }
+    // IOSSETTINGS-2026-11-19: Android reads this from ConvoyViewModel.showLeadTrack (GRPMODE2-2026-10-13).
+    // The iPad has no convoy view model yet, so it is host state -- BUILT and driving the switch.
+    val showLeadTrack = remember { mutableStateOf(true) }
+    // IOSREC-2026-11-19: the record control's state. CHECK_IN first (CHECKIN-2026-09-27).
+    val recState = remember { mutableStateOf(RecordingState.CHECK_IN) }
+    val recMenu = remember { mutableStateOf(false) }
+    // IOSHUD-2026-11-19: the HUD's text colour. Android keeps one per MAP TYPE
+    // (viewModel.hudTextWhiteByMap[hudMapKey], COSMETICS-2026-10-06); the iPad has one map type, so one
+    // flag. HUDSWITCH-2026-11-03 (Fred 11:15): DARK BY DEFAULT -- true = white text on a dark backing.
+    val hudOnDark = remember { mutableStateOf(true) }
+    val radioConnected = remember { mutableStateOf(false) }
+    val radioTalking = remember { mutableStateOf(false) }
     val tilt = remember { mutableStateOf(false) }
     val headingUp = remember { mutableStateOf(false) }
 
@@ -328,6 +489,15 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // IOSLOC-2026-11-19: GroupTrackScreen.kt:3134-3142. MAP_CART_ZOOM is SHARED, so this is
         // Android's own zoom. No position yet -> say so; Android shows a "No position yet" toast
         // and the iPad has no toast, so it goes to the status strip instead of being silent.
+        // IOSPROFILE-2026-11-19: Android is "menu.account" to { onNavigateToProfile() }
+        // (GroupTrackScreen.kt:3063). Same row, same id, an overlay instead of a navigation.
+        "menu.account" to { profileOpen.value = true },
+        // IOSHELP-2026-11-19: Android is "menu.help" to { showDocsChooser = true }
+        // (GroupTrackScreen.kt:3062). Same row, same id, the SHARED chooser.
+        "menu.help" to { helpOpen.value = true },
+        // IOSSETTINGS-2026-11-19: Android is "menu.settings" to { onNavigateToSettings() }
+        // (GroupTrackScreen.kt:3061). The iPad opens the SHARED settings panel.
+        "menu.settings" to { settingsOpen.value = true },
         "centre.me" to {
             val h = GtIosLocation.here()
             if (h != null) js("setView(" + h[0] + ", " + h[1] + ", " + GtConfig.MAP_CART_ZOOM + ")")
@@ -390,38 +560,91 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                     }
                 }
 
-                // IOSRECBTN-2026-11-19 (Fred 10:43): "two step [process] first step is option[al].
-                // record button always launches the second step[;] issue is is the record button
-                // [or the check-in button] presented." PRESENTED, in the state Android presents for
-                // this device: GroupTrackScreen.kt:1830-1831 -- group OFF and no radio connected
-                // gives "REC", not "CHK IN" (SOLOREC-2026-09-28). Colour, size, shape, padding and
-                // elevation are Android's (0xFFD32F2F, 22 sp monospace bold, 32/18, corner 10,
-                // elevation 6).
+                // IOSREC-2026-11-19 (Fred 11-19 12:26): "build panel and w[i]th no radio functions built
+                // underneath. not wired yet. we are after look and feel and functionality will be
+                // backfilled if it is missing. per my list above." So: the CONTROL is real -- Android's
+                // five colours, five labels, collapsed button and expanded PAUSE/END menu, from the
+                // shared GtRecordButton -- and the STATE MACHINE cycles, so every state can be seen and
+                // judged. What is deliberately absent is the machinery under it.
                 //
-                // ⛔ INERT, AND IT SAYS SO. Neither step can run on the iPad yet:
-                //   step 1  GtRideStore.checkIn needs env.profile(), and NOTHING in iosMain supplies
-                //           a GtRideEnv -- measured, there is no profile() in iosMain at all. Calling
-                //           it unconfigured risks a throw, and an uncaught Kotlin throw on Native
-                //           ABORTS THE PROCESS rather than returning an error.
-                //   step 2  there is NO shared track recorder. Android's is ConvoyGpsService, a
-                //           foreground Service; iOS needs background location updates and its own.
-                // So the tap reports through the status strip, exactly as every other unattached
-                // launch point does (ATTACH1). A button that looked like it worked would be worse
-                // than its absence.
-                androidx.compose.material3.Surface(
-                    modifier = Modifier.clickable {
-                        onMessage("record", "not attached yet -- step 1 needs the ride env, step 2 needs an iOS recorder")
+                // ⛔ WHAT IS NOT BUILT, and why each is a real absence rather than laziness:
+                //   the check-in   GtRideStore.checkIn needs env.profile(), and there is NO GtRideEnv in
+                //                  iosMain (measured). An uncaught Kotlin throw on Native ABORTS THE
+                //                  PROCESS, so calling it unconfigured is worse than not calling it.
+                //   the recorder   there is no shared track recorder. Android's is ConvoyGpsService, a
+                //                  foreground Service; the iPad needs background location and its own.
+                //   the radio      no iOS radio, so radioConnected stays false -- which is why the
+                //                  CHECK_IN label reads "REC" here and not "CHK IN" (SOLOREC-2026-09-28).
+                // Each transition reports through the status strip, so a tap is never silent.
+                //
+                // THE TRANSITIONS, Android's shape (GroupTrackScreen.kt:1762-1816) minus what it gates on:
+                //   CHECK_IN  -> IDLE      Android's SOLOREC path with no radio and no group: it checks in
+                //                          silently, then records if ACCESS_BACKGROUND_LOCATION is held.
+                //                          Here it stops at IDLE, because neither half exists.
+                //   IDLE      -> RECORDING Android also picks a lead (one cart = auto-assign); nothing to pick.
+                //   RECORDING -> the menu   PAUSED -> the menu   SLEEPING -> nothing (Android: the overlay wakes it)
+                GtRecordButton(
+                    state = recState.value,
+                    group = group.value,
+                    radioConnected = radioConnected.value,
+                    menuOpen = recMenu.value,
+                    onTap = {
+                        when (recState.value) {
+                            RecordingState.CHECK_IN -> {
+                                recState.value = RecordingState.IDLE
+                                onMessage("record", "checked in (the ride env is not built on the iPad yet)")
+                            }
+                            RecordingState.IDLE -> {
+                                recState.value = RecordingState.RECORDING
+                                onMessage("record", "recording (no iOS recorder yet -- nothing is written)")
+                            }
+                            RecordingState.RECORDING -> recMenu.value = true
+                            RecordingState.PAUSED -> recMenu.value = true
+                            RecordingState.SLEEPING -> { }
+                        }
                     },
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-                    color = Color(0xFFD32F2F),
-                    shadowElevation = 6.dp,
-                ) {
-                    Text("\u23FA  REC", color = Color.White, fontSize = 22.sp,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 18.dp))
-                }
+                    onPause = {
+                        recState.value =
+                            if (recState.value == RecordingState.PAUSED) RecordingState.RECORDING
+                            else RecordingState.PAUSED
+                        recMenu.value = false
+                        onMessage("record", if (recState.value == RecordingState.PAUSED) "paused" else "resumed")
+                    },
+                    onEnd = {
+                        // CHECKIN-2026-09-27: each recording starts with its own check-in, so END returns
+                        // to CHECK_IN -- not IDLE. Android also opens the name dialog here; that is B work.
+                        recState.value = RecordingState.CHECK_IN
+                        recMenu.value = false
+                        onMessage("record", "ended (the track-name dialog is not built on the iPad yet)")
+                    },
+                )
             }
+        }
+
+        // IOSHUD-2026-11-19: the HUD, bottom-left, 72 dp up -- SHELL7-2026-10-22 ("the HUD (GPS line +
+        // MY CART / GROUP) shows in ONE MAP too, above the bottom bar"), the same 72 dp the launch layer
+        // clears for the bottom row.
+        // HUDRIDE-2026-11-01 (Fred 18:56-19:31): the HUD is a RIDE feature -- Android's gate is
+        // `recordingState != RecordingState.CHECK_IN`, so it appears once the rider has checked in or
+        // started recording, and the light/dark button shows alone before that.
+        // ⛔ NOT BUILT: the GROUP / NODE readouts below this line on Android (HudMode's GroupHud and the
+        // tapped-cart readout). Both are rendered from convoyState -- the carts, their roles, their signal
+        // -- and there is no convoy state on the iPad. That is Fred's level B / G work, not a stub to fake:
+        // an empty cart list would look like a ride with nobody in it.
+        Box(
+            modifier = Modifier.align(androidx.compose.ui.Alignment.BottomStart)
+                .padding(bottom = 72.dp),
+        ) {
+            GtGpsHudRow(
+                showGps = recState.value != RecordingState.CHECK_IN,
+                // the mesh's two numbers. No radio on the iPad, so 0 and 0f -- which Android renders as
+                // "-- s" and a green 0%, not as an error.
+                intervalSecs = 0,
+                channelUtil = 0f,
+                group = group.value,
+                onOpen = { onMessage("gps", "the GPS interval panel is not built on the iPad yet") },
+                onToggleText = { hudOnDark.value = !hudOnDark.value },
+            )
         }
 
         // ABOVE GtTheme, as GtPanelChrome's own message instructs -- GtTheme draws IssueHost.
@@ -440,7 +663,23 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                     actions = actions,
                     // No bearing message exists yet, so the compass has nothing real to show and
                     // D.GRP Awareness has no radio in this batch.
-                    grpColor = Gt.dim,
+                    // GRPIOS-2026-11-19 (Fred 11:39 "Grp awareness button is a white space now"): it was
+                    // Gt.dim -- a ROLE colour. GroupTrack.kt:221 draws the label in WHITE on this colour, and
+                    // on satellite the scheme's panel IS white, so the text was invisible rather than missing.
+                    // Transcribed from Android's grpAwarenessColor() (GrpAwareness.kt), colour for colour:
+                    //   GroupMode OFF        -> 0xFF5A6470 grey   (GRPMODE-2026-10-13)
+                    //   connected + talking  -> 0xFF35C46A green  (LINKFIX-2026-10-03: green only while TALKING)
+                    //   otherwise            -> 0xFFE0453A red    (connected but silent is RED)
+                    // SETTLED 11-19 11:44 (Fred): "stay with grey". He had asked at 11:39 for RED when My Device
+                    // is selected; measured against GrpAwareness.kt, Android gives GREY there and reserves RED for
+                    // GROUP MODE WITH A SILENT RADIO (LINKFIX-2026-10-03) -- which is the distinction the colour
+                    // exists to carry. Android's rule stands on both platforms. Nothing was changed, because this
+                    // was transcribed from Android rather than from the request.
+                    // No pulse here: the alpha pulse reads GrpAwarenessLauncher.pulseAt, which has no iOS source
+                    // yet, so the steady 0.62f of Android's unlit state is used.
+                    grpColor = (if (!group.value) Color(0xFF5A6470)
+                        else if (radioConnected.value && radioTalking.value) Color(0xFF35C46A)
+                        else Color(0xFFE0453A)).copy(alpha = 0.62f),
                     filter = filter,
                     // GroupTrackScreen.kt:3156 -- as Map Keys does.
                     keyStyleChanged = { js("setTrailStyles(" + TrailFilterState.styleJson() + ")") },
@@ -453,9 +692,64 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                     tilt = tilt.value,
                     headingUp = headingUp.value,
                     routePrecheck = { false },
-                    group = false,
+                    group = group.value,   // GRPIOS-2026-11-19: was the literal false
                     mapsDownloading = false,
                 )
+                if (settingsOpen.value) {
+                    // IOSSETTINGS-2026-11-19: the four alert thresholds and the lead-track switch, saving
+                    // to the rider's real store. The three TOOLS on Android's settings screen (the
+                    // conversion record, the trail check and the issue report) are NOT here -- each ends
+                    // in Intent.ACTION_SEND, which is round two's email / share work.
+                    // help = {} as menu.account: HELP needs GtHelp's link table.
+                    GtAlertSettingsPanel(
+                        rs = rideSettings,
+                        showLeadTrack = showLeadTrack.value,
+                        onShowLeadTrack = { v -> showLeadTrack.value = v },
+                        // FUNCTIONAL: the same flag the GRP Awareness colour and the launch layer read, so
+                        // flipping it here changes the button and the group-only rows at once.
+                        group = group.value,
+                        onGroup = { v -> group.value = v },
+                        // FUNCTIONAL as a setting; Android also writes it through GtIssue.setSendsEmail,
+                        // which needs a Context. Where ISSUE reports actually go on the iPad is D work.
+                        issueEmail = issueEmail.value,
+                        onIssueEmail = { v -> issueEmail.value = v },
+                        // ⛔ NOT BUILT -- each is an Android subsystem, and three of them end in
+                        // Intent.ACTION_SEND, which Fred's list puts at D ("including ios email solution").
+                        onConversionRecord = { onMessage("settings", "the conversion record is Android's GroupTrackConversion -- not on the iPad yet") },
+                        onRemoveTrailData = { onMessage("settings", "removing trail data is not built on the iPad yet") },
+                        onCheckTrail = { onMessage("settings", "the trail check is Android's TrailCheck -- not on the iPad yet") },
+                        onMapCredits = { onMessage("settings", "the map source credits screen is not built on the iPad yet") },
+                        // FUNCTIONAL: straight into the profile panel that menu.account opens.
+                        onProfile = { settingsOpen.value = false; profileOpen.value = true },
+                        onClose = { settingsOpen.value = false },
+                        help = {},
+                    )
+                }
+                if (helpOpen.value) {
+                    // IOSHELP-2026-11-19: the SHARED chooser. VIDEOS opens the site through
+                    // LocalUriHandler inside it and needs nothing from the host.
+                    GtDocsChooser(
+                        onOpen = { key -> docView.value = key },
+                        onClose = { helpOpen.value = false },
+                    )
+                }
+                // IOSHELP-2026-11-19: extracted so the cinterop opt-in stays on ONE small function
+                // rather than the whole screen -- the shape GtVecMap.ios.kt uses (@OptIn per function).
+                if (docView.value.isNotEmpty()) IosDocView(docView.value) { docView.value = "" }
+                if (profileOpen.value) {
+                    // IOSPROFILE-2026-11-19: the SHARED panel (PANELMOVE4-2026-11-19). onCancel non-null
+                    // puts it in EDIT mode, which is right here -- the iPad reaches it from the menu, not
+                    // from the authority gate, so it must have a way out (TOUCHSTD-2026-10-22).
+                    // help = {} for now: HELP is GtHelpButton, which needs GtHelp's link table -- that
+                    // arrives with menu.help. The row is BUILT and the panel is attached; HELP is the stub.
+                    GtRiderProfilePanel(
+                        onSaved = { profileOpen.value = false; onMessage("profile", "saved") },
+                        onCancel = { profileOpen.value = false },
+                        load = { IosProfile.store.load() },
+                        save = { p: GtRiderProfile -> IosProfile.store.save(p) },
+                        help = {},
+                    )
+                }
             }
         }
     }

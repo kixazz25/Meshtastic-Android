@@ -1,6 +1,9 @@
 package com.geeksville.mesh.convoy
 
 // ONEMAPHOST-2026-10-25: moved here from ConvoyScreen.kt when ONE MAP became GroupTrackScreen -- the convoy services use them.
+// IOSREC-2026-11-19: moved again, app -> commonMain, so the iPad's record control is the SAME state machine.
+// The package name does not change, so all three consumers (GroupTrackScreen, ConvoyViewModel, RideStats)
+// compile untouched -- no facade and no typealiases. Pure Kotlin: nothing here was platform-bound.
 
 /** The recording state of the ride (REC / CHK IN / PAUSE ...). */
 enum class RecordingState { CHECK_IN, IDLE, RECORDING, PAUSED, SLEEPING }   // CHECKIN-2026-09-27: CHECK_IN first

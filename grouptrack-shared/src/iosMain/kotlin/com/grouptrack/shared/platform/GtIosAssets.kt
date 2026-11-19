@@ -29,6 +29,23 @@ internal fun iosBundleAsset(name: String): String {
     return FileSystem.SYSTEM.read(p.toPath()) { readUtf8() }
 }
 
+/**
+ * IOSHELP-2026-11-19: the same lookup, returning the FILE PATH instead of the contents.
+ * ⚠ WHY A SECOND READER AND NOT iosBundleAsset(): grouptrack_manual.html is 10.8 MB of base64-embedded
+ * screenshots. Reading that into a Kotlin String and handing it to WKWebView.loadHTMLString would copy
+ * it twice through memory for no reason; loadFileURL reads it off disk. The three documents are the only
+ * assets large enough for the difference to matter.
+ * CODE RULE 1: null = not in the bundle, which is a real state -- the documents are staged by
+ * gt_iosres_2026-11-19_v2.py and a build made before that script ran will not have them. The caller says
+ * so on screen rather than throwing, because a missing document is not a reason to lose the map.
+ */
+internal fun iosBundleAssetPath(name: String): String? {
+    val dot = name.lastIndexOf('.')
+    val stem = if (dot > 0) name.substring(0, dot) else name
+    val ext = if (dot > 0) name.substring(dot + 1) else ""
+    return NSBundle.mainBundle.pathForResource(stem, ext)
+}
+
 /** GtHelp.AndroidAssets' one member, on the bundle. */
 class IosHelpAssets : GtHelpAssets {
     override fun text(name: String): String = iosBundleAsset(name)
