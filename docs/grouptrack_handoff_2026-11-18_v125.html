@@ -761,6 +761,27 @@ to be the one-key standard answer).</p>
 ICU-18.5-vs-iOS-16 link warning &middot; <code>vecmap</code> into the startup assertion (19 &rarr; 20), since
 <code>Resources/</code> is gitignored and a fresh clone would build a green app with no viewer &middot; the
 share seam (C28-26330).</p>
+
+<p><b>&#9940; WHY THE PLIST FAILURE READS AS A COMPOSE CRASH (CMPPLIST-2026-11-18 &mdash; recovered at the EOD
+from a script that was never applied).</b> The exact exception, off the simulator console at 12:38:
+<code>kotlin.IllegalStateException: Error: `Info.plist` doesn't have a valid
+`CADisableMinimumFrameDurationOnPhone` entry, or has it set to `false`</code>. CMP's
+<code>PlistSanityCheck</code> runs <b>on a dispatch queue</b>, so the throw is an <b>unhandled exception on a
+background thread</b> &mdash; and in Kotlin/Native that <b>aborts the process</b> rather than surfacing an
+error. <b>Compose itself was fine</b>: the main thread was already inside
+<code>SurfaceMetalRedrawer.renderAndPresentFrame</code>, i.e. it had already drawn. Consequence for the fix,
+which is the part worth keeping: it needs <b>no Kotlin changes</b>, so <b>no Gradle relink &mdash; an Xcode
+build only</b>.</p>
+<p><b>&#9940;&#9940; HOW THIS WAS NEARLY LOST, AND THE RULE IT PRODUCES.</b> That measurement existed only in
+the docstring of <code>gt_cmpplist_2026-11-18_v1.py</code>, written at 17:38 and never applied. An orphan audit
+at this EOD compared every marker in today's 56 doc-bearing scripts against the code, the commit messages and
+the doc set, and found <b>five markers that live nowhere</b>: CMPPLIST, SEEDSIM, TONIGHT, VECBUNDLE,
+CMPAUTOTICK. Four carried nothing that is not recorded elsewhere &mdash; TONIGHT is superseded by this section,
+VECBUNDLE and VECRES by VECOPAQUE, SEEDSIM's procedure survives above (<code>simctl</code> &times;9,
+<code>get_app_container</code> &times;4). This one carried a real measurement.
+<b>A SCRIPT IS NOT A DOCUMENT.</b> Writing a finding into a patch script's docstring files it where nobody
+looks and where an unapplied script takes it to the grave. That is SODV8 step 8b with a name attached, and the
+orphan audit is now part of the EOD.</p>
 <p><b>Monday, unchanged.</b> Manual v141/v142 content completion, screen captures, section removals,
 <code>map.rm_track</code> deletion, the new-release quickstart &mdash; with MANUALIMG (extract 183 base64
 images) sequenced first.</p>
