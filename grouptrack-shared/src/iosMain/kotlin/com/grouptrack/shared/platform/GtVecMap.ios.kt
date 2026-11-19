@@ -6,9 +6,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.window.ComposeUIViewController
+import androidx.sqlite.SQLiteStatement
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.driver.bundled.SQLITE_OPEN_READONLY
+import com.grouptrack.shared.db.gtOpenDatabase
+import com.grouptrack.shared.spatial.GtSpatial
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCSignatureOverride
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.usePinned
+import platform.Foundation.NSDate
+import platform.Foundation.NSDocumentDirectory
+import platform.Foundation.NSFileManager
+import platform.Foundation.NSSearchPathForDirectoriesInDomains
+import platform.Foundation.NSUserDomainMask
+import platform.Foundation.dataWithBytes
+import platform.Foundation.timeIntervalSince1970
+import platform.darwin.dispatch_queue_create
 import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSBundle
 import platform.Foundation.NSData
@@ -91,19 +106,123 @@ private fun bundleVecFile(rel: String): String? {
     return "$root/vecmap/$rel"
 }
 
+/**
+ * VECSTORE-2026-11-18: the GroupTrack root on iOS, and files inside it.
+ * DBPROBE 8/8 proved the app builds Documents/GroupTrack itself, and the seed is a directory
+ * copy of Droid 1's GroupTrack root -- so these paths are ANDROID's layout, not the spike's
+ * (which put VEC.mbtiles at Documents root).
+ */
+private fun gtRoot(): String =
+    (NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, true).firstOrNull()?.toString() ?: "") + "/GroupTrack"
+
+private fun gtFile(rel: String): String = gtRoot() + "/" + rel
+
+/**
+ * VECSTORE-2026-11-18: Droid 1's VEC.mbtiles, read in place -- the same table and raw z/x/y key
+ * as MBTilesStore.readTile (tiles(zoom_level, tile_column, tile_row, tile_data), scheme xyz).
+ * Read-only, main thread only. Through androidx.sqlite, as the spike concluded; the hand-made
+ * cinterop hookup it started with was retired.
+ * CODE RULE 1: stmt null = NO STORE (file missing or unreadable), and every read then says
+ * "not held" so the server falls through to the internet. That is a real state, not a shortcut.
+ */
+@OptIn(ExperimentalForeignApi::class)
+private class VecStore(val path: String) {
+    private val stmt: SQLiteStatement? = if (!NSFileManager.defaultManager.fileExistsAtPath(path)) null else try {
+        BundledSQLiteDriver().open(path, SQLITE_OPEN_READONLY)
+            .prepare("SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=? LIMIT 1")
+    } catch (e: Throwable) { null }
+
+    val ok: Boolean get() = stmt != null
+
+    fun read(z: Int, x: Int, y: Int): NSData? {
+        val s = stmt ?: return null
+        s.reset()
+        s.bindLong(1, z.toLong()); s.bindLong(2, x.toLong()); s.bindLong(3, y.toLong())
+        if (!s.step()) return null
+        val b = s.getBlob(0)
+        if (b.isEmpty()) return NSData()
+        return b.usePinned { NSData.dataWithBytes(it.addressOf(0), b.size.toULong()) }
+    }
+}
+
+/**
+ * VECSTORE-2026-11-18: the page's onViewportChanged -> the SHARED GtSpatial (on its own queue)
+ * -> the page's updateX + showX. As SpatialDisplayManager.processViewport on Android.
+ * Only the newest viewport is worked; older ones still waiting are skipped.
+ *
+ * GtSpatial is ALREADY in commonMain here and takes CONNECTIONS, not a path -- and a second one
+ * for grouptrack_data.db, which the spike's copy did not have. Connections come from
+ * gtOpenDatabase(), the opener DBPROBE proved on device.
+ */
+@OptIn(ExperimentalForeignApi::class)
+private class SpatialRunner(private val log: (String) -> Unit) {
+    var web: WKWebView? = null
+    private val queue = dispatch_queue_create("gt.spatial", null)
+    private var spatial: GtSpatial? = null
+    private var opened = false
+    private var seq = 0
+
+    fun request(args: String) {
+        val v = args.trim().removePrefix("[").removeSuffix("]").split(",").mapNotNull { it.trim().toDoubleOrNull() }
+        if (v.size < 5) return
+        val my = ++seq
+        dispatch_async(queue) {
+            if (my != seq) return@dispatch_async          // a newer viewport already arrived
+            if (!opened) {
+                opened = true
+                val sp = gtFile("grouptrack_spatial.db")
+                val dp = gtFile("grouptrack_data.db")
+                spatial = if (!NSFileManager.defaultManager.fileExistsAtPath(sp)) null else try {
+                    val data = if (NSFileManager.defaultManager.fileExistsAtPath(dp))
+                        try { gtOpenDatabase(dp, true) } catch (e: Throwable) { null } else null
+                    GtSpatial(gtOpenDatabase(sp, true), data)
+                } catch (e: Throwable) {
+                    dispatch_async(dispatch_get_main_queue()) { log("could not open grouptrack_spatial.db: " + e.message) }
+                    null
+                }
+            }
+            val sp2 = spatial
+            if (sp2 == null) {
+                dispatch_async(dispatch_get_main_queue()) { log("NO spatial database in " + gtRoot()) }
+                return@dispatch_async
+            }
+            val t0 = NSDate().timeIntervalSince1970
+            val b = try { sp2.viewport(v[0], v[1], v[2], v[3], v[4].toInt()) } catch (e: Throwable) {
+                dispatch_async(dispatch_get_main_queue()) { log("query failed: " + e.message) }
+                return@dispatch_async
+            }
+            val ms = ((NSDate().timeIntervalSince1970 - t0) * 1000).toInt()
+            dispatch_async(dispatch_get_main_queue()) {
+                val w = web ?: return@dispatch_async
+                b.js.forEach { js ->
+                    w.evaluateJavaScript(js) { res, _ ->
+                        val r = res?.toString() ?: ""
+                        if (r.startsWith("ERR")) log("PAGE " + r.take(160))
+                    }
+                }
+                log("app z" + v[4].toInt() + " · " + b.counts.entries.joinToString(" · ") { it.key + " " + it.value } + " · query " + ms + " ms")
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 private class GtVecServer(private val log: (String) -> Unit) : NSObject(), WKURLSchemeHandlerProtocol {
     private val live = mutableSetOf<Any>()          // tasks not yet stopped by the web view (main thread only)
     private var template: String? = null
     private var templateAsked = false
     private val waiting = mutableListOf<(String?) -> Unit>()
-    private var assets = 0; private var tiles = 0; private var empty = 0; private var missing = 0
+    private var assets = 0; private var stored = 0; private var tiles = 0; private var empty = 0; private var missing = 0
 
-    // VECMAPIOS-2026-11-18 divergence 2: no store in v1. The oracle's VecStore returns null for
-    // every read when Documents/VEC.mbtiles is absent, which is an unseeded iPad exactly. The
-    // store returns with the seed step, on androidx.sqlite.
+    // VECSTORE-2026-11-18: Droid 1's tile store, at ANDROID's path under the GroupTrack root.
+    private val store = VecStore(gtFile("maps/tiles/VEC.mbtiles"))
+
+    /** OFFLINE MODE (Android's STATUS toggle): stored tiles only, even with internet. */
+    var offline = false
+
     private fun status(last: String) =
-        log("NO STORE (v1) · assets $assets · internet $tiles · empty $empty · missing $missing · $last")
+        log((if (store.ok) "store OPEN" else "NO STORE") + (if (offline) " · INTERNET OFF" else "") +
+            " · assets $assets · from store $stored · internet $tiles · empty $empty · missing $missing · $last")
 
     @ObjCSignatureOverride
     override fun webView(webView: WKWebView, startURLSchemeTask: WKURLSchemeTaskProtocol) {
@@ -160,6 +279,15 @@ private class GtVecServer(private val log: (String) -> Unit) : NSObject(), WKURL
         if (z == null || x == null || y == null || z > 14) {
             empty++; return reply(task, url, 200, "application/x-protobuf", NSData(), "0")
         }
+        // VECSTORE-2026-11-18: stored first, then the internet -- VecOnline's rule on Android.
+        store.read(z, x, y)?.let { d ->
+            stored++; status("store z$z/$x/$y ${d.length} B")
+            return reply(task, url, 200, "application/x-protobuf", d, "1")
+        }
+        if (offline) {
+            empty++; status("not held z$z/$x/$y (internet off)")
+            return reply(task, url, 200, "application/x-protobuf", NSData(), "0")
+        }
         withTemplate { t ->
             val src = t?.let { NSURL.URLWithString(it.replace("{z}", "$z").replace("{x}", "$x").replace("{y}", "$y")) }
             if (src == null) {
@@ -208,7 +336,14 @@ private class GtVecServer(private val log: (String) -> Unit) : NSObject(), WKURL
 @OptIn(ExperimentalForeignApi::class)
 @Composable
 fun GtVecMap(modifier: Modifier = Modifier, onMessage: (String, String) -> Unit) {
-    val messages = remember { GtVecMessages(onMessage) }
+    // VECSTORE-2026-11-18: onViewportChanged drives the spatial layer, exactly as on Android.
+    val runner = remember { SpatialRunner { s -> onMessage("spatial", s) } }
+    val messages = remember {
+        GtVecMessages { fn, args ->
+            onMessage(fn, args)
+            if (fn == "onViewportChanged") runner.request(args)
+        }
+    }
     val server = remember { GtVecServer { s -> onMessage("server", s) } }
     UIKitView(
         factory = {
@@ -222,6 +357,7 @@ fun GtVecMap(modifier: Modifier = Modifier, onMessage: (String, String) -> Unit)
             val web = WKWebView(frame = CGRectMake(0.0, 0.0, 0.0, 0.0), configuration = config)
             web.inspectable = true
             web.loadRequest(NSURLRequest.requestWithURL(NSURL.URLWithString(NEW_BASE + "a/vecmap_main.html")!!))
+            runner.web = web   // VECSTORE-2026-11-18
             web
         },
         modifier = modifier,
