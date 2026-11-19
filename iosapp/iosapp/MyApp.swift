@@ -9,6 +9,10 @@ import SwiftUI
     var body: some Scene {
         WindowGroup {
             TabView {
+                // VECMAPWIRE-2026-11-18: the map opens FIRST -- it is what tonight is for,
+                // and a headless screenshot then lands on it.
+                VecMapScreen()
+                    .tabItem { Label("Map", systemImage: "map") }
                 ContentView()
                     .tabItem { Label("Probes", systemImage: "checkmark.seal") }
                 ComposeProbeScreen()
