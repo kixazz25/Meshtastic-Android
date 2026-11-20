@@ -459,7 +459,16 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // GRPIOS-2026-11-19: MODE. Android's GroupMode (app-side, SharedPreferences-backed) has no iOS source yet,
     // so this is the host's own state: BUILT and driving both the GRP colour and the launch layer's group flag,
     // false until the iPad has a radio. Android is untouched.
-    val group = remember { mutableStateOf(false) }
+    // GRPMODESHARED-2026-11-20: the SHARED group-awareness state, persisted through GtSettings on both
+    // platforms (iOS: NSUserDefaults), replacing the host-local `mutableStateOf(false)` that could never let
+    // the groupOnly launch modules -- RADIO SETUP among them -- appear on the iPad. Fred 07:14: group mode is
+    // a mesh function behind the comm boundary, not a per-platform flag. load() is idempotent.
+    // defaultWhenUnset = true matches Android's own default; Android's first-start radio question
+    // (RadioSetupState) has no iOS source yet, so there is nothing better to derive it from here.
+    val group = remember {
+        com.grouptrack.shared.settings.GtGroupMode.load(IosSettings(), defaultWhenUnset = true)
+        com.grouptrack.shared.settings.GtGroupMode.on
+    }
     // IOSGRP-2026-11-19: D.GRP Awareness's popup. MEASURED -- GrpAwarenessLauncher.open()
     // (GrpAwareness.kt:65-68) is TWO branches, and only one of them is Meshtastic:
     //     if (!GroupMode.on.value) { GroupMode.askToActivate(); return }

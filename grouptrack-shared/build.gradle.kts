@@ -58,7 +58,17 @@ kotlin {
             implementation(compose.materialIconsExtended)
         }
         androidMain.dependencies { implementation("androidx.sqlite:sqlite-framework:2.5.2") }   // Android's own SQLite
-        iosMain.dependencies { implementation("androidx.sqlite:sqlite-bundled:2.5.2") }         // as proved in the spike 11-06
+        iosMain.dependencies {
+            implementation("androidx.sqlite:sqlite-bundled:2.5.2")                                 // as proved in the spike 11-06
+            // IOSSDK-2026-11-20 (Path B): the official Meshtastic KMP SDK is the iPad's mesh layer. PINNED --
+            // it is pre-1.0 and its own README warns APIs may change between minor versions. 0.2.0 = 2026-10-03.
+            implementation("org.meshtastic:sdk-core:0.2.0")
+            implementation("org.meshtastic:sdk-transport-ble:0.2.0")
+            // IOSSDK-2026-11-20 v2: Kable is declared HERE because transport-ble 0.2.0 declares it
+            // implementation(), not api(), while BleTransport's public constructor takes a Kable Peripheral.
+            // PINNED to the version the SDK was built against -- its own catalog says the klib ABI must match.
+            implementation("com.juul.kable:kable-core:0.45.0")
+        }
         commonTest.dependencies { implementation(kotlin("test")); implementation(libs.kotlinx.coroutines.core) }   // STEP17G2E2F-2026-11-12: runBlocking in the 17e2 iPad test
     }
 }
