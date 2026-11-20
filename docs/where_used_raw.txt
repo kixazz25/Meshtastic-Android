@@ -8336,7 +8336,7 @@ grouptrack/GroupTrackScreen.kt:543:                leadEstimate?.let { latL.add(
 grouptrack/GroupTrackScreen.kt:544:                if (latL.isNotEmpty()) {
 grouptrack/GroupTrackScreen.kt:545:                    val lats = latL.joinToString(",")
 grouptrack/GroupTrackScreen.kt:546:                    val lons = lonL.joinToString(",")
-grouptrack/GroupTrackScreen.kt:547:                    wv.evaluateJavascript("fitBounds([$lats], [$lons], 0, 0.1)", null)   // GROUPFIT-2026-10-26: the middle 80%
+grouptrack/GroupTrackScreen.kt:547:                    wv.evaluateJavascript("fitBounds([$lats], [$lons], 0, 0.15)", null)   // GROUPFIT70-2026-11-20 (Fred 10:52): the middle 70% -- 15% clear at each end so the trail ahead shows (was 0.1 / 80%, GROUPFIT-2026-10-26)
 grouptrack/GroupTrackScreen.kt:556:    var gtHudFitArmed by remember { mutableStateOf(false) }
 grouptrack/GroupTrackScreen.kt:557:    LaunchedEffect(hudMode, selectedNode?.nodeId) {
 grouptrack/GroupTrackScreen.kt:558:        if (!gtHudFitArmed) { gtHudFitArmed = true; return@LaunchedEffect }
@@ -8345,7 +8345,7 @@ grouptrack/GroupTrackScreen.kt:560:        val nodes = convoyState.nodes.filter 
 grouptrack/GroupTrackScreen.kt:561:        when (hudMode) {
 grouptrack/GroupTrackScreen.kt:562:            HudMode.MY_CART -> nodes.firstOrNull { it.isMyCart }?.let { wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null) }
 grouptrack/GroupTrackScreen.kt:563:            HudMode.NODE -> selectedNode?.let { if (it.latitude != 0.0) wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null) }
-grouptrack/GroupTrackScreen.kt:564:            HudMode.GROUP -> if (nodes.isNotEmpty()) wv.evaluateJavascript("fitBounds([" + nodes.joinToString(",") { "${it.latitude}" } + "], [" + nodes.joinToString(",") { "${it.longitude}" } + "], 0, 0.1)", null)
+grouptrack/GroupTrackScreen.kt:564:            HudMode.GROUP -> if (nodes.isNotEmpty()) wv.evaluateJavascript("fitBounds([" + nodes.joinToString(",") { "${it.latitude}" } + "], [" + nodes.joinToString(",") { "${it.longitude}" } + "], 0, 0.15)", null)
 grouptrack/GroupTrackScreen.kt:567:        gtLogger("ConvoyMap").i { "HUDFIT $hudMode -> fitted (${nodes.size} cart(s) with a position)" }
 grouptrack/GroupTrackScreen.kt:572:    val rawSegments by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
 grouptrack/GroupTrackScreen.kt:573:    val gpsTrail by viewModel.gpsTrailSegments.collectAsStateWithLifecycle()
@@ -15484,6 +15484,7 @@ comm/MeshCommMessaging.kt:205:        .map { cfg -> cfg.lora?.takeIf { it.use_pr
 comm/MeshCommMessaging.kt:207:     * HEARDSHADOW-2026-10-13 (P5.1a) -- what the radio has heard, RAW: one Member per node in Meshtastic's node database. No filtering:
 comm/MeshCommMessaging.kt:208:     * the admission window, stale fixes, removed carts, the previous-tick hold and speed are GroupTrack's display rules (Fred
 comm/MeshCommMessaging.kt:209:     * 10-13, D3). Seconds -> milliseconds here (the one place). memberId = node number as text (as reportedRole / memberName).
+comm/MeshCommMessaging.kt:211:    override fun members(): List<Member> {
 comm/MeshCommMessaging.kt:213:        val nodes = runCatching { nodeRepository.nodeDBbyNum.value }.getOrNull() ?: return emptyList()
 comm/MeshCommMessaging.kt:214:        return nodes.values.map { memberOf(it) }
 comm/MeshCommMessaging.kt:217:    private fun memberOf(node: org.meshtastic.core.model.Node): Member {
@@ -25351,253 +25352,291 @@ ConvoyViewModel.kt:1055:        if (mine != "!phone") boardCarts.remove("!phone"
 ConvoyViewModel.kt:1057:        if (!GroupMode.on.value && boardCarts.keys.any { it != mine }) {
 ConvoyViewModel.kt:1058:            boardCarts.keys.retainAll { it == mine }; boardSpeedStart.keys.retainAll { it == mine }; boardSpeedLast.keys.retainAll { it == mine }
 ConvoyViewModel.kt:1059:            gtLogger("TICKSHADOW").i { "board: group awareness off -- my cart only (${boardCarts.size})" }
-ConvoyViewModel.kt:1061:        val nodes = boardCarts.values.toList()
-ConvoyViewModel.kt:1064:        val reportedLeader = nodes.firstOrNull { it.rideRole == "leader" }?.nodeId
-ConvoyViewModel.kt:1065:        if (reportedLeader != null) {
-ConvoyViewModel.kt:1066:            if (reportedLeader != lockedLeadNodeId) {
-ConvoyViewModel.kt:1067:                setLeadCart(reportedLeader)
-ConvoyViewModel.kt:1068:                gtLogger("ROLEREPORT").i { "LEADBOARD-2026-10-15 applied at ${System.currentTimeMillis()}: lead = " + reportedLeader }
-ConvoyViewModel.kt:1070:            reportedLeadId = reportedLeader   // LEADCLEAR-2026-10-15
-ConvoyViewModel.kt:1071:        } else if (reportedLeadId != null && lockedLeadNodeId == reportedLeadId) {
-ConvoyViewModel.kt:1073:            setLeadCart(null)
-ConvoyViewModel.kt:1074:            gtLogger("ROLEREPORT").i { "LEADCLEAR-2026-10-15: no Leader reported any more -- lead " + reportedLeadId + " cleared" }
-ConvoyViewModel.kt:1075:            reportedLeadId = null
-ConvoyViewModel.kt:1077:        boardState = if (nodes.isEmpty()) ConvoyEngine.ConvoyState.empty() else ConvoyEngine.compute(
-ConvoyViewModel.kt:1078:            nodes = nodes, myCartId = mine, nowMs = now,
-ConvoyViewModel.kt:1079:            leadLocked = _leadLockedFlag, lockedLeadNodeId = lockedLeadNodeId,
-ConvoyViewModel.kt:1080:            tailNodeId = nodes.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId)
-ConvoyViewModel.kt:1081:        run {   // BOARDSHOW2-2026-10-15: the screen draws from the board -- updated only when something VISIBLE changed (TICKREMOVE-2026-10-20: no flag)
-ConvoyViewModel.kt:1082:            val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
-ConvoyViewModel.kt:1083:            if (sig != boardShownSig) { boardShownSig = sig; _convoyState.value = boardState }
-ConvoyViewModel.kt:1084:            GrpAwarenessLauncher.ridingGroup.value = boardState.nodes.any { !it.isMyCart }   // TICKSMALL-2026-10-15: the power-cycle banner's condition
-ConvoyViewModel.kt:1086:            if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
-ConvoyViewModel.kt:1087:                _selectedNode.value = boardState.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
-ConvoyViewModel.kt:1099:    private fun getPhoneLocation(): android.location.Location? {
-ConvoyViewModel.kt:1101:        val svcLat = gpsService?.lastLat
-ConvoyViewModel.kt:1102:        val svcLon = gpsService?.lastLon
-ConvoyViewModel.kt:1103:        if (svcLat != null && svcLon != null && svcLat != 0.0 && svcLon != 0.0) {
-ConvoyViewModel.kt:1104:            val loc = android.location.Location("gps")
-ConvoyViewModel.kt:1105:            loc.latitude = svcLat
-ConvoyViewModel.kt:1106:            loc.longitude = svcLon
-ConvoyViewModel.kt:1110:        val live = livePhoneLocation
-ConvoyViewModel.kt:1111:        if (live != null && live.latitude != 0.0 && live.longitude != 0.0) {
-ConvoyViewModel.kt:1112:            return live
-ConvoyViewModel.kt:1116:            val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
-ConvoyViewModel.kt:1117:            lm?.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-ConvoyViewModel.kt:1123:    /** TRACKRULES-2026-10-19: the receiving queue's consumer -- the LEAD CART routine (TrackRules.kt) and off-track. One coroutine: no locking.
-ConvoyViewModel.kt:1124:     *  My track is the recorder's (MyCartProcess in ConvoyGpsService); my cart's reports move my cart icon only. */
-ConvoyViewModel.kt:1125:    private fun trackConsume(e: TrackEntry) {
-ConvoyViewModel.kt:1127:            is TrackEntry.Reset -> { leadCart.reset(); _offTrackIds.value = emptySet(); trackPublish(); leadEst.reset(); _leadEstimate.value = null }   // LEADEST-2026-10-20
-ConvoyViewModel.kt:1128:            is TrackEntry.Poly -> {   // POLYLINE-2026-10-20: the lead's gap polyline -> the lead track is pinned to it
-ConvoyViewModel.kt:1129:                val ok = leadCart.onGapPolyline(e.cartId, e.poly)
-ConvoyViewModel.kt:1130:                gtLogger("POLYLINE").i { ("POLYLINE-2026-10-20 lead " + e.cartId + " polyline " + e.key + " (" + e.poly.size + " points): " +
-ConvoyViewModel.kt:1131:                    (if (ok) "lead track pinned, " + leadCart.dots().size + " dot(s)" else "NOT applied -- not this lead's track, or no track yet")) }
-ConvoyViewModel.kt:1132:                if (ok) trackPublish()
-ConvoyViewModel.kt:1136:                if (e.isLead && !e.isMine) {
-ConvoyViewModel.kt:1137:                    if (leadCart.onLeadReport(e.cartId, e.p, e.rxMs)) { trackPublish(); gtLogger("LEADTRACK").d { "TRACKRULES-2026-10-19: lead " + e.cartId + " written" } }
-ConvoyViewModel.kt:1139:                    leadEst.onReport(e.cartId, e.p, e.rxMs, estRouteNow())?.let { o ->
-ConvoyViewModel.kt:1140:                        gtLogger("LEADEST").i { "LEADEST-2026-10-20 heard after " + o.silentMs / 1000 + " s: estimate off by " + o.errorM.toInt() + " m (" + (if (o.onRoute) "on route" else "in place") + ", " + (o.speedMps * 2.237).toInt() + " mph)" }
-ConvoyViewModel.kt:1141:                        if (GroupMode.on.value) RideStats.onEstimate(o)
-ConvoyViewModel.kt:1143:                    _leadEstimate.value = null
-ConvoyViewModel.kt:1144:                } else if (e.isMine) {
-ConvoyViewModel.kt:1146:                    if (leadCart.trimTo(e.p)) {
-ConvoyViewModel.kt:1147:                        trackPublish()
-ConvoyViewModel.kt:1148:                        if (e.rxMs - trimLogMs >= 30_000L) { trimLogMs = e.rxMs; gtLogger("LEADTRACK").i { "TRIM-2026-10-20 lead track shown from " + leadCart.trimmedAtMs() + " (UTC ms), " + leadCart.segments().size + " segs" } }
-ConvoyViewModel.kt:1152:                    val d = leadCart.metresFromTrack(e.p)
-ConvoyViewModel.kt:1153:                    val off = d != null && d > ConvoyConfig.OFF_TRACK_MILES.toDouble() * 1609.344
-ConvoyViewModel.kt:1154:                    val cur = _offTrackIds.value
-ConvoyViewModel.kt:1155:                    if (off != (e.cartId in cur)) _offTrackIds.value = if (off) cur + e.cartId else cur - e.cartId
-ConvoyViewModel.kt:1160:    /** TRACKRULES-2026-10-19: the map gets the WHOLE written lead track (R1: no location test, no trim). The cart icon is the board's. */
-ConvoyViewModel.kt:1161:    private fun trackPublish() {
-ConvoyViewModel.kt:1162:        val segs = leadCart.segments()
-ConvoyViewModel.kt:1163:        _routeTrailSegments.value = segs
-ConvoyViewModel.kt:1164:        _leadTrackSegments.value = segs
-ConvoyViewModel.kt:1165:        _leadDots.value = leadCart.dots()   // POLYLINE-2026-10-20
-ConvoyViewModel.kt:1168:    /** POLYLINE-2026-10-20 (Fred 10-20 13:46-14:45) THE LEAD'S SIDE. Dead air = the time the lead hears NO other cart (one cart heard = the hops
-ConvoyViewModel.kt:1169:     *  relay to the rest). After at least 60 s of it, the first report heard from another cart sends ONE gap polyline: 20 points at EQUAL
-ConvoyViewModel.kt:1170:     *  TIME steps across [last heard .. heard again], from the lead's own radio fixes; one repeat at the next report heard >= 10 s later.
-ConvoyViewModel.kt:1171:     *  Not the lead: nothing sent. A stored report replayed at connect is not "heard". */
-ConvoyViewModel.kt:1172:    private fun polyOnMessage(num: Int, myNum: Int?, msg: com.grouptrack.comm.CommMessage, now: Long) {
-ConvoyViewModel.kt:1173:        if (myNum == null || msg.timeMs < now - 60_000L) return
-ConvoyViewModel.kt:1174:        if (num == myNum) {
-ConvoyViewModel.kt:1176:            polyOwnFixes.addLast(Triple(now, p.latitude, p.longitude))
-ConvoyViewModel.kt:1177:            while ((polyOwnFixes.peekFirst()?.first ?: now) < now - 1_800_000L) polyOwnFixes.pollFirst()
-ConvoyViewModel.kt:1180:        val last = polyLastHeardMs
-ConvoyViewModel.kt:1181:        polyLastHeardMs = now
-ConvoyViewModel.kt:1182:        val iLead = (checkIn.value?.role ?: "") == "leader" || "!%08x".format(myNum) == lockedLeadNodeId
-ConvoyViewModel.kt:1183:        if (!iLead) { polyRepeat = null; return }
-ConvoyViewModel.kt:1184:        if (last > 0L && now - last >= POLY_DEAD_AIR_MS) {
-ConvoyViewModel.kt:1185:            val p = polyBuild(myNum, last, now) ?: return
-ConvoyViewModel.kt:1186:            polyRepeat = p; polyRepeatAfterMs = now + 10_000L
-ConvoyViewModel.kt:1187:            polySend(p, "sent")
-ConvoyViewModel.kt:1190:            if (r != null && now >= polyRepeatAfterMs) { polyRepeat = null; polySend(r, "repeat") }
-ConvoyViewModel.kt:1193:    private val POLY_DEAD_AIR_MS = 60_000L   // POLYLINE-2026-10-20 (Fred 14:45 "60 seconds is a good even number"): a real loss
-ConvoyViewModel.kt:1194:    /** POLYLINE-2026-10-20: 20 equal-time points across [t0, t1] from my own radio fixes (linear between fixes). CODE RULE 1: null = fewer than 2
-ConvoyViewModel.kt:1195:     *  of my own fixes inside the window (my radio was not reporting) -- nothing honest to send. */
-ConvoyViewModel.kt:1196:    private fun polyBuild(myNum: Int, t0: Long, t1: Long): com.grouptrack.comm.GapPolyline? {
-ConvoyViewModel.kt:1197:        val fx = polyOwnFixes.toList()
-ConvoyViewModel.kt:1198:        val inside = fx.count { it.first in t0..t1 }
-ConvoyViewModel.kt:1199:        if (inside < 2) {
-ConvoyViewModel.kt:1200:            gtLogger("POLYLINE").w { "POLYLINE-2026-10-20 lead: dead air " + (t1 - t0) / 1000 + " s but only " + inside + " own fix(es) in it -- nothing sent" }
-ConvoyViewModel.kt:1203:        val step = (t1 - t0) / 19
-ConvoyViewModel.kt:1205:            if (t <= fx.first().first) return Pair(fx.first().second, fx.first().third)
-ConvoyViewModel.kt:1206:            if (t >= fx.last().first) return Pair(fx.last().second, fx.last().third)
-ConvoyViewModel.kt:1207:            val i = fx.indexOfFirst { it.first >= t }
-ConvoyViewModel.kt:1209:            val f = if (b.first == a.first) 0.0 else (t - a.first).toDouble() / (b.first - a.first)
-ConvoyViewModel.kt:1210:            return Pair(a.second + (b.second - a.second) * f, a.third + (b.third - a.third) * f)
-ConvoyViewModel.kt:1212:        val pts = (0 until 20).map { at(t0 + it * step) }
-ConvoyViewModel.kt:1213:        val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
-ConvoyViewModel.kt:1214:        return com.grouptrack.comm.GapPolyline(myNum.toString(), cs, t0, step, pts.map { it.first }, pts.map { it.second })
-ConvoyViewModel.kt:1216:    private fun polySend(p: com.grouptrack.comm.GapPolyline, what: String) {
-ConvoyViewModel.kt:1217:        val secs = p.stepMs * 19 / 1000
-ConvoyViewModel.kt:1218:        viewModelScope.launch {
-ConvoyViewModel.kt:1220:            gtLogger("POLYLINE").i { "POLYLINE-2026-10-20 lead " + what + ": dead air " + secs + " s, " + p.lats.size + " points -> " + r }
-ConvoyViewModel.kt:1221:            if (what == "sent" && r is com.grouptrack.comm.CommResult.Ok)
-ConvoyViewModel.kt:1222:                android.widget.Toast.makeText(appContext, "Gap polyline sent: " + (secs / 60) + ":" + "%02d".format(secs % 60) + " of dead air", android.widget.Toast.LENGTH_LONG).show()
-ConvoyViewModel.kt:1225:    /** POLYLINE-2026-10-20 THE RECEIVER: another cart's gap polyline. Shown as a pop-up (the field test); when it is the LEAD's and REC is on, the
-ConvoyViewModel.kt:1226:     *  lead track is pinned to it (TrackRules pin). The repeat is recognised (same sender + start) and not applied twice. */
-ConvoyViewModel.kt:1227:    private fun onGapPolylineReceived(p: com.grouptrack.comm.GapPolyline) {
-ConvoyViewModel.kt:1229:        if (num == myRadioNum()) return
-ConvoyViewModel.kt:1230:        val id = "!%08x".format(num)
-ConvoyViewModel.kt:1232:        val first = polyApplied.add(key)
-ConvoyViewModel.kt:1233:        val n = minOf(p.lats.size, p.lons.size)
-ConvoyViewModel.kt:1234:        val secs = p.stepMs * (n - 1) / 1000
-ConvoyViewModel.kt:1235:        val isLead = id == lockedLeadNodeId
-ConvoyViewModel.kt:1236:        gtLogger("POLYLINE").i { ("POLYLINE-2026-10-20 received from " + id + " (" + p.callsign + "): " + n + " points over " + secs + " s" +
-ConvoyViewModel.kt:1237:            (if (first) "" else " -- the repeat, already have it") + " lead=" + isLead + " rec=" + _trackActive.value + " group=" + GroupMode.on.value +
-ConvoyViewModel.kt:1238:            " | lead's last point " + (System.currentTimeMillis() - (p.t0Ms + (n - 1) * p.stepMs)) + " ms before my clock (UTC ms: delivery + clock difference) " + "TRIM-2026-10-20") }
-ConvoyViewModel.kt:1239:        if (!first) return
-ConvoyViewModel.kt:1240:        android.widget.Toast.makeText(appContext, "Gap polyline from " + p.callsign.ifBlank { id } + ": " + n + " points, " + (secs / 60) + ":" + "%02d".format(secs % 60), android.widget.Toast.LENGTH_LONG).show()
-ConvoyViewModel.kt:1241:        if (!GroupMode.on.value || !_trackActive.value || !isLead || n < 2) return
-ConvoyViewModel.kt:1242:        trackQueue.trySend(TrackEntry.Poly(id, (0 until n).map { Pair(TrackPoint(p.lats[it], p.lons[it]), p.t0Ms + it * p.stepMs) }, key))
-ConvoyViewModel.kt:1245:    /** COTBOARD-2026-10-15 (T5.4a-2): a CoT message was received -- the board's input (the twin of onBoardHeard, which T5.5 removes). */
-ConvoyViewModel.kt:1246:    private fun onBoardMessage(msg: com.grouptrack.comm.CommMessage, fromTablet: Boolean = false) {   // MYCARTMSG-2026-10-15: fromTablet = my cart from the tablet's GPS
-ConvoyViewModel.kt:1247:        if (!GroupMode.on.value) return                                  // Android only: no radios
-ConvoyViewModel.kt:1250:        val myNum = myRadioNum()
-ConvoyViewModel.kt:1253:        val nowMine = System.currentTimeMillis()
-ConvoyViewModel.kt:1254:        if (!fromTablet && num == myNum) {
-ConvoyViewModel.kt:1256:            val rp = msg.point   // ROLEPOS-2026-10-19: keep the position with the time
-ConvoyViewModel.kt:1257:            if (rp != null && msg.timeMs > nowMine - 60_000L) { myRadioFixMs = nowMine; myRadioLat = rp.latitude; myRadioLon = rp.longitude
-ConvoyViewModel.kt:1258:                if (GroupMode.on.value) RideStats.onMine(nowMine, rp.latitude, rp.longitude) }   // STATSPANEL-2026-10-20
-ConvoyViewModel.kt:1260:        if (!fromTablet) polyOnMessage(num, myNum, msg, nowMine)   // POLYLINE-2026-10-20: the lead's dead air + its own fixes
-ConvoyViewModel.kt:1261:        if (fromTablet && myNum != null && !tabletHasGps && commLink.health.value.talking && nowMine - myRadioFixMs < 45_000L) return   // the radio is driving my cart (ONEFEED-2026-10-19: only on a tablet without GPS)
-ConvoyViewModel.kt:1262:        val id = "!%08x".format(num)
-ConvoyViewModel.kt:1266:        val skipMine = !fromTablet && num == myNum && tabletHasGps
-ConvoyViewModel.kt:1267:        val cart = if (skipMine) null else cartFromMessage(msg, num, now, myNum, getPhoneLocation(), { boardCarts[it] }, boardSpeedStart, boardSpeedLast)
-ConvoyViewModel.kt:1268:        if (!skipMine) { if (cart == null) boardCarts.remove(id) else boardCarts[id] = cart }
-ConvoyViewModel.kt:1271:        if (cart != null && qp != null && _trackActive.value && msg.timeMs > (trackLastMsgT[id] ?: 0L)) {   // TRACKORDER-2026-10-18: newer only
-ConvoyViewModel.kt:1272:            trackLastMsgT[id] = msg.timeMs
-ConvoyViewModel.kt:1273:            trackQueue.trySend(TrackEntry.Real(id, TrackPoint(qp.latitude, qp.longitude), now, msg.timeMs, id == lockedLeadNodeId, id == resolveMyCartId()))
-ConvoyViewModel.kt:1277:        if (num == myNum && rp != null && msg.timeMs != radioTrackLastFixMs && gpsService?.useRadioGps == true && _routeRecording.value) {
-ConvoyViewModel.kt:1278:            radioTrackLastFixMs = msg.timeMs
-ConvoyViewModel.kt:1279:            gpsService?.onRadioPosition(rp.latitude, rp.longitude, rp.haeM ?: 0.0)   // CODE RULE 1: haeM null = no altitude sent -> 0
-ConvoyViewModel.kt:1281:        boardRecompute(now)
-ConvoyViewModel.kt:1285:     * COTBOARD-2026-10-15 (T5.4a-2, Plan v3 4a/4d): the board's display rules READING CoT -- the same rules as cartFromMember (which the tick
-ConvoyViewModel.kt:1286:     * keeps until T5.5 removes both), CoT fields in. Board only: no tick logs, no last-known map, no GPS start.
-ConvoyViewModel.kt:1287:     * Speed: the radio's ground_speed when sent, else the 60-s window as before. Heard = the moment the message arrived.
-ConvoyViewModel.kt:1288:     * CODE RULE 1 (return): null = not shown (removed on this tablet, or no position and nothing to fall back on).
-ConvoyViewModel.kt:1290:    private fun cartFromMessage(
-ConvoyViewModel.kt:1291:        msg: com.grouptrack.comm.CommMessage, num: Int, nowMs: Long, myNum: Int?, myTablet: android.location.Location?,
-ConvoyViewModel.kt:1292:        prev: (String) -> ConvoyNode?,
-ConvoyViewModel.kt:1295:        val nodeId = "!%08x".format(num)
-ConvoyViewModel.kt:1296:        if (nodeId in _removedCarts.value && num != myNum) return null   // CARTACTIVE-2026-09-30: removed on this tablet
-ConvoyViewModel.kt:1298:        val prevPos = prev(nodeId)?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }?.let { Pair(it.latitude, it.longitude) }
-ConvoyViewModel.kt:1299:        val latLon: Pair<Double, Double> = if (p != null) {
-ConvoyViewModel.kt:1301:            val isStale = rideStartTimeMs > 0L && msg.timeMs > 0L && msg.timeMs < rideStartTimeMs
-ConvoyViewModel.kt:1302:            if (isStale) prevPos ?: Pair(p.latitude, p.longitude) else Pair(p.latitude, p.longitude)
-ConvoyViewModel.kt:1303:        } else if (num != myNum) {
-ConvoyViewModel.kt:1304:            prevPos ?: return null                                       // LINKFIX: others -- the previous position, else not shown
-ConvoyViewModel.kt:1307:            if (phone.latitude == 0.0 && phone.longitude == 0.0) return null
-ConvoyViewModel.kt:1308:            Pair(phone.latitude, phone.longitude)
-ConvoyViewModel.kt:1310:        val windowMph = run {   // the 60-second window, as cartFromMember
-ConvoyViewModel.kt:1311:            val windowStart = speedStart[nodeId]
-ConvoyViewModel.kt:1312:            if (windowStart == null) {
-ConvoyViewModel.kt:1313:                speedStart[nodeId] = Triple(nowMs, latLon.first, latLon.second); 0f
-ConvoyViewModel.kt:1315:                val (startMs, startLat, startLon) = windowStart
-ConvoyViewModel.kt:1316:                if (nowMs - startMs >= 60_000L) {
-ConvoyViewModel.kt:1317:                    val speed = ConvoyEngine.haversineMiles(startLat, startLon, latLon.first, latLon.second) * 60f
-ConvoyViewModel.kt:1318:                    speedLast[nodeId] = speed
-ConvoyViewModel.kt:1319:                    speedStart[nodeId] = Triple(nowMs, latLon.first, latLon.second)
-ConvoyViewModel.kt:1320:                    speed
-ConvoyViewModel.kt:1321:                } else speedLast[nodeId] ?: 0f
-ConvoyViewModel.kt:1324:        val radioMph = msg.track?.speedMps?.let { (it * 2.23694).toFloat() }   // CODE RULE 1: null = the radio sent no ground_speed
-ConvoyViewModel.kt:1325:        val mine = num == myNum
-ConvoyViewModel.kt:1327:            nodeId = nodeId,
-ConvoyViewModel.kt:1328:            callsign = msg.callsign,
-ConvoyViewModel.kt:1330:            rideRole = if (checkIn.value == null) "" else takRideRole(num).ifBlank { if (mine) (checkIn.value?.role ?: "") else "" },   // OWNROLE (as cartFromMember)
-ConvoyViewModel.kt:1331:            latitude = latLon.first,
-ConvoyViewModel.kt:1332:            longitude = latLon.second,
-ConvoyViewModel.kt:1333:            altitude_m = ((p?.haeM ?: 0.0) * 3.28084).toInt(),          // feet (the field is misnamed); radios send sea level (COTMSG log)
-ConvoyViewModel.kt:1334:            speed_mph = radioMph ?: windowMph,
-ConvoyViewModel.kt:1335:            heading_deg = msg.track?.courseDeg?.toFloat() ?: 0f,
-ConvoyViewModel.kt:1336:            battery_pct = msg.batteryPct ?: 0,
-ConvoyViewModel.kt:1337:            radioLat = if (mine) p?.latitude else null, radioLon = if (mine) p?.longitude else null,
-ConvoyViewModel.kt:1338:            radioFixMs = if (mine) msg.timeMs else null,
-ConvoyViewModel.kt:1339:            tabletLat = if (mine) myTablet?.latitude else null, tabletLon = if (mine) myTablet?.longitude else null,
-ConvoyViewModel.kt:1340:            tabletFixMs = if (mine) myTablet?.let { if (it.time > 0L) it.time else nowMs } else null,
-ConvoyViewModel.kt:1341:            lastSeenMs = nowMs,
-ConvoyViewModel.kt:1342:            prevSeenMs = prev(nodeId)?.lastSeenMs ?: 0L,   // PANELGAP-2026-10-15: the previous report's time (0 = first report)
-ConvoyViewModel.kt:1343:            cotType = msg.type,
-ConvoyViewModel.kt:1344:            timestampUtc = java.time.Instant.ofEpochMilli(nowMs).toString()
-ConvoyViewModel.kt:1348:    /** HEARDBOARD-2026-10-14: my cart from the TABLET (Android mode / Android data) -- MOVED unchanged from readLiveNodes' phone path so the
-ConvoyViewModel.kt:1349:     *  tick and the cart board build it the same way. CODE RULE 1: loc null = no live fix (the tick's previous position is used). */
-ConvoyViewModel.kt:1350:    private fun myTabletCart(lat: Double, lon: Double, alt: Int, spd: Float, hdg: Float, loc: android.location.Location?, nowMs: Long): ConvoyNode = ConvoyNode(
-ConvoyViewModel.kt:1351:        nodeId = resolveMyCartId(),   // LINKFIX-2026-10-03: the SAME cart id in both modes (my radio's, else !phone)
-ConvoyViewModel.kt:1353:        callsign = tickCallsign(),
-ConvoyViewModel.kt:1354:        rideRole = checkIn.value?.role ?: "",
-ConvoyViewModel.kt:1355:        latitude = lat,
-ConvoyViewModel.kt:1356:        longitude = lon,
-ConvoyViewModel.kt:1357:        altitude_m = alt,
-ConvoyViewModel.kt:1358:        speed_mph = spd,
-ConvoyViewModel.kt:1359:        heading_deg = hdg,
-ConvoyViewModel.kt:1360:        battery_pct = 100,
-ConvoyViewModel.kt:1361:        lastSeenMs = nowMs,
-ConvoyViewModel.kt:1362:        status = ConvoyStatus.ACTIVE,
-ConvoyViewModel.kt:1363:        tabletLat = loc?.latitude, tabletLon = loc?.longitude,   // HEARDSWITCH-2026-10-13: my cart's tablet fix (recorded)
-ConvoyViewModel.kt:1364:        tabletFixMs = loc?.let { if (it.time > 0L) it.time else nowMs }
-ConvoyViewModel.kt:1370:        data class Downloading(val downloaded: Int, val total: Int, val failCount: Int) : DownloadState()
-ConvoyViewModel.kt:1371:        data class Complete(val summary: DownloadSummary) : DownloadState()
-ConvoyViewModel.kt:1373:        data class Error(val message: String) : DownloadState()
-ConvoyViewModel.kt:1376:    data class PendingDownload(
-ConvoyViewModel.kt:1377:        val tileCount: Int, val sizeMB: Float, val withinCeiling: Boolean,
-ConvoyViewModel.kt:1378:        val north: Double, val south: Double, val east: Double, val west: Double,
-ConvoyViewModel.kt:1379:        val sourceName: String, val sourceUrl: String
-ConvoyViewModel.kt:1382:    private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
-ConvoyViewModel.kt:1383:    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
-ConvoyViewModel.kt:1384:    private val _pendingDownload = MutableStateFlow<PendingDownload?>(null)
-ConvoyViewModel.kt:1385:    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
-ConvoyViewModel.kt:1386:    private var activeEntryId: String? = null
-ConvoyViewModel.kt:1387:    var downloadStartTime: Long = 0L
-ConvoyViewModel.kt:1389:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
-ConvoyViewModel.kt:1390:    fun clearPendingDownload() { _pendingDownload.value = null }
-ConvoyViewModel.kt:1392:    fun startDownload(context: android.content.Context, pending: PendingDownload) {
-ConvoyViewModel.kt:1393:        clearPendingDownload()
-ConvoyViewModel.kt:1394:        downloadStartTime = System.currentTimeMillis()
-ConvoyViewModel.kt:1396:        val entry = DownloadQueueManager.enqueue(
-ConvoyViewModel.kt:1397:            context, pending.north, pending.south, pending.east, pending.west,
-ConvoyViewModel.kt:1398:            label = pending.sourceName
-ConvoyViewModel.kt:1400:        activeEntryId = entry.id
-ConvoyViewModel.kt:1401:        observeQueueEntry(entry.id)
-ConvoyViewModel.kt:1404:    /** Observe a queue entry and bridge its progress to the existing DownloadState flow. */
-ConvoyViewModel.kt:1405:    private fun observeQueueEntry(entryId: String) {
-ConvoyViewModel.kt:1406:        viewModelScope.launch {
-ConvoyViewModel.kt:1407:            DownloadQueueManager.queue.collect { entries ->
-ConvoyViewModel.kt:1408:                val entry = entries.find { it.id == entryId } ?: return@collect
-ConvoyViewModel.kt:1409:                _downloadState.value = when (entry.status) {
-ConvoyViewModel.kt:1410:                    QueueStatus.QUEUED -> DownloadState.Downloading(0, entry.totalTiles, 0)
-ConvoyViewModel.kt:1412:                        entry.downloadedTiles, entry.totalTiles, entry.failedTiles
-ConvoyViewModel.kt:1415:                        val avgBytes = 15_360L
-ConvoyViewModel.kt:1416:                        val mb = (entry.downloadedTiles * avgBytes) / (1024f * 1024f)
-ConvoyViewModel.kt:1417:                        DownloadState.Complete(DownloadSummary(entry.downloadedTiles, entry.failedTiles, mb))
-ConvoyViewModel.kt:1419:                    QueueStatus.FAILED -> DownloadState.Error("Download failed after ${entry.retryCount} retries")
-ConvoyViewModel.kt:1422:                        entry.downloadedTiles, entry.totalTiles, entry.failedTiles
-ConvoyViewModel.kt:1429:    fun cancelDownload() {
-ConvoyViewModel.kt:1430:        activeEntryId?.let { DownloadQueueManager.cancel(it) }
-ConvoyViewModel.kt:1431:        _downloadState.value = DownloadState.Cancelled
-ConvoyViewModel.kt:1432:        viewModelScope.launch {
-ConvoyViewModel.kt:1434:            _downloadState.value = DownloadState.Idle
-ConvoyViewModel.kt:1438:    override fun onCleared() {
-ConvoyViewModel.kt:1439:        super.onCleared()
+ConvoyViewModel.kt:1071:        val nodes = run {
+ConvoyViewModel.kt:1072:            val floorMs = now - admissionWindowHours * 3_600_000L
+ConvoyViewModel.kt:1076:            if (!GroupMode.on.value) return@run listOfNotNull(boardCarts[mine])
+ConvoyViewModel.kt:1077:            val members = runCatching { commMessaging.members() }.getOrNull().orEmpty()
+ConvoyViewModel.kt:1078:            val admitted = members.mapNotNull { m ->
+ConvoyViewModel.kt:1080:                ("!%08x".format(num)) to m
+ConvoyViewModel.kt:1081:            }.filter { (_, m) -> m.lastHeardMs >= floorMs }
+ConvoyViewModel.kt:1083:            boardCarts[mine]?.let { out.add(it) }                       // MY CART IS NEVER DROPPED
+ConvoyViewModel.kt:1084:            for ((nodeId, m) in admitted) {
+ConvoyViewModel.kt:1085:                if (nodeId == mine) continue
+ConvoyViewModel.kt:1086:                if (nodeId in _removedCarts.value) continue             // CARTACTIVE-2026-09-30: removed on this tablet
+ConvoyViewModel.kt:1087:                val existing = boardCarts[nodeId]
+ConvoyViewModel.kt:1091:                    existing == null -> cartFromMember(nodeId, m)
+ConvoyViewModel.kt:1092:                    existing.latitude == 0.0 && existing.longitude == 0.0 && m.latitude != null && m.longitude != null ->
+ConvoyViewModel.kt:1093:                        existing.copy(latitude = m.latitude!!, longitude = m.longitude!!)
+ConvoyViewModel.kt:1094:                    else -> existing
+ConvoyViewModel.kt:1098:            android.util.Log.i("ADMITWINDOW", "window " + admissionWindowHours + " hr -> " + out.size + " cart(s) from " +
+ConvoyViewModel.kt:1099:                members.size + " node(s) in the node db: " + members.joinToString("; ") { m ->
+ConvoyViewModel.kt:1100:                    m.id + " " + m.callsign + " heard " + ((now - m.lastHeardMs) / 60_000L) + " min ago" +
+ConvoyViewModel.kt:1101:                        (if (m.latitude == null) " NO POSITION" else "") +
+ConvoyViewModel.kt:1102:                        " -> " + (if (m.lastHeardMs >= floorMs) "IN" else "OUT")
+ConvoyViewModel.kt:1108:        val reportedLeader = nodes.firstOrNull { it.rideRole == "leader" }?.nodeId
+ConvoyViewModel.kt:1109:        if (reportedLeader != null) {
+ConvoyViewModel.kt:1110:            if (reportedLeader != lockedLeadNodeId) {
+ConvoyViewModel.kt:1111:                setLeadCart(reportedLeader)
+ConvoyViewModel.kt:1112:                gtLogger("ROLEREPORT").i { "LEADBOARD-2026-10-15 applied at ${System.currentTimeMillis()}: lead = " + reportedLeader }
+ConvoyViewModel.kt:1114:            reportedLeadId = reportedLeader   // LEADCLEAR-2026-10-15
+ConvoyViewModel.kt:1115:        } else if (reportedLeadId != null && lockedLeadNodeId == reportedLeadId) {
+ConvoyViewModel.kt:1117:            setLeadCart(null)
+ConvoyViewModel.kt:1118:            gtLogger("ROLEREPORT").i { "LEADCLEAR-2026-10-15: no Leader reported any more -- lead " + reportedLeadId + " cleared" }
+ConvoyViewModel.kt:1119:            reportedLeadId = null
+ConvoyViewModel.kt:1124:        val positioned = nodes.filter { it.latitude != 0.0 || it.longitude != 0.0 }
+ConvoyViewModel.kt:1125:        val unpositioned = nodes.filter { it.latitude == 0.0 && it.longitude == 0.0 }
+ConvoyViewModel.kt:1126:        boardState = (if (positioned.isEmpty()) ConvoyEngine.ConvoyState.empty() else ConvoyEngine.compute(
+ConvoyViewModel.kt:1127:            nodes = positioned, myCartId = mine, nowMs = now,
+ConvoyViewModel.kt:1128:            leadLocked = _leadLockedFlag, lockedLeadNodeId = lockedLeadNodeId,
+ConvoyViewModel.kt:1129:            tailNodeId = positioned.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId))
+ConvoyViewModel.kt:1130:            .let { st -> if (unpositioned.isEmpty()) st else st.copy(nodes = st.nodes + unpositioned.map { it.copy(convoyPosition = 0) }) }
+ConvoyViewModel.kt:1131:        run {   // BOARDSHOW2-2026-10-15: the screen draws from the board -- updated only when something VISIBLE changed (TICKREMOVE-2026-10-20: no flag)
+ConvoyViewModel.kt:1132:            val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
+ConvoyViewModel.kt:1133:            if (sig != boardShownSig) { boardShownSig = sig; _convoyState.value = boardState }
+ConvoyViewModel.kt:1134:            GrpAwarenessLauncher.ridingGroup.value = boardState.nodes.any { !it.isMyCart }   // TICKSMALL-2026-10-15: the power-cycle banner's condition
+ConvoyViewModel.kt:1136:            if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
+ConvoyViewModel.kt:1137:                _selectedNode.value = boardState.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
+ConvoyViewModel.kt:1149:    private fun getPhoneLocation(): android.location.Location? {
+ConvoyViewModel.kt:1151:        val svcLat = gpsService?.lastLat
+ConvoyViewModel.kt:1152:        val svcLon = gpsService?.lastLon
+ConvoyViewModel.kt:1153:        if (svcLat != null && svcLon != null && svcLat != 0.0 && svcLon != 0.0) {
+ConvoyViewModel.kt:1154:            val loc = android.location.Location("gps")
+ConvoyViewModel.kt:1155:            loc.latitude = svcLat
+ConvoyViewModel.kt:1156:            loc.longitude = svcLon
+ConvoyViewModel.kt:1160:        val live = livePhoneLocation
+ConvoyViewModel.kt:1161:        if (live != null && live.latitude != 0.0 && live.longitude != 0.0) {
+ConvoyViewModel.kt:1162:            return live
+ConvoyViewModel.kt:1166:            val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
+ConvoyViewModel.kt:1167:            lm?.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+ConvoyViewModel.kt:1173:    /** TRACKRULES-2026-10-19: the receiving queue's consumer -- the LEAD CART routine (TrackRules.kt) and off-track. One coroutine: no locking.
+ConvoyViewModel.kt:1174:     *  My track is the recorder's (MyCartProcess in ConvoyGpsService); my cart's reports move my cart icon only. */
+ConvoyViewModel.kt:1175:    private fun trackConsume(e: TrackEntry) {
+ConvoyViewModel.kt:1177:            is TrackEntry.Reset -> { leadCart.reset(); _offTrackIds.value = emptySet(); trackPublish(); leadEst.reset(); _leadEstimate.value = null }   // LEADEST-2026-10-20
+ConvoyViewModel.kt:1178:            is TrackEntry.Poly -> {   // POLYLINE-2026-10-20: the lead's gap polyline -> the lead track is pinned to it
+ConvoyViewModel.kt:1179:                val ok = leadCart.onGapPolyline(e.cartId, e.poly)
+ConvoyViewModel.kt:1180:                gtLogger("POLYLINE").i { ("POLYLINE-2026-10-20 lead " + e.cartId + " polyline " + e.key + " (" + e.poly.size + " points): " +
+ConvoyViewModel.kt:1181:                    (if (ok) "lead track pinned, " + leadCart.dots().size + " dot(s)" else "NOT applied -- not this lead's track, or no track yet")) }
+ConvoyViewModel.kt:1182:                if (ok) trackPublish()
+ConvoyViewModel.kt:1186:                if (e.isLead && !e.isMine) {
+ConvoyViewModel.kt:1187:                    if (leadCart.onLeadReport(e.cartId, e.p, e.rxMs)) { trackPublish(); gtLogger("LEADTRACK").d { "TRACKRULES-2026-10-19: lead " + e.cartId + " written" } }
+ConvoyViewModel.kt:1189:                    leadEst.onReport(e.cartId, e.p, e.rxMs, estRouteNow())?.let { o ->
+ConvoyViewModel.kt:1190:                        gtLogger("LEADEST").i { "LEADEST-2026-10-20 heard after " + o.silentMs / 1000 + " s: estimate off by " + o.errorM.toInt() + " m (" + (if (o.onRoute) "on route" else "in place") + ", " + (o.speedMps * 2.237).toInt() + " mph)" }
+ConvoyViewModel.kt:1191:                        if (GroupMode.on.value) RideStats.onEstimate(o)
+ConvoyViewModel.kt:1193:                    _leadEstimate.value = null
+ConvoyViewModel.kt:1194:                } else if (e.isMine) {
+ConvoyViewModel.kt:1196:                    if (leadCart.trimTo(e.p)) {
+ConvoyViewModel.kt:1197:                        trackPublish()
+ConvoyViewModel.kt:1198:                        if (e.rxMs - trimLogMs >= 30_000L) { trimLogMs = e.rxMs; gtLogger("LEADTRACK").i { "TRIM-2026-10-20 lead track shown from " + leadCart.trimmedAtMs() + " (UTC ms), " + leadCart.segments().size + " segs" } }
+ConvoyViewModel.kt:1202:                    val d = leadCart.metresFromTrack(e.p)
+ConvoyViewModel.kt:1203:                    val off = d != null && d > ConvoyConfig.OFF_TRACK_MILES.toDouble() * 1609.344
+ConvoyViewModel.kt:1204:                    val cur = _offTrackIds.value
+ConvoyViewModel.kt:1205:                    if (off != (e.cartId in cur)) _offTrackIds.value = if (off) cur + e.cartId else cur - e.cartId
+ConvoyViewModel.kt:1210:    /** TRACKRULES-2026-10-19: the map gets the WHOLE written lead track (R1: no location test, no trim). The cart icon is the board's. */
+ConvoyViewModel.kt:1211:    private fun trackPublish() {
+ConvoyViewModel.kt:1212:        val segs = leadCart.segments()
+ConvoyViewModel.kt:1213:        _routeTrailSegments.value = segs
+ConvoyViewModel.kt:1214:        _leadTrackSegments.value = segs
+ConvoyViewModel.kt:1215:        _leadDots.value = leadCart.dots()   // POLYLINE-2026-10-20
+ConvoyViewModel.kt:1218:    /** POLYLINE-2026-10-20 (Fred 10-20 13:46-14:45) THE LEAD'S SIDE. Dead air = the time the lead hears NO other cart (one cart heard = the hops
+ConvoyViewModel.kt:1219:     *  relay to the rest). After at least 60 s of it, the first report heard from another cart sends ONE gap polyline: 20 points at EQUAL
+ConvoyViewModel.kt:1220:     *  TIME steps across [last heard .. heard again], from the lead's own radio fixes; one repeat at the next report heard >= 10 s later.
+ConvoyViewModel.kt:1221:     *  Not the lead: nothing sent. A stored report replayed at connect is not "heard". */
+ConvoyViewModel.kt:1222:    private fun polyOnMessage(num: Int, myNum: Int?, msg: com.grouptrack.comm.CommMessage, now: Long) {
+ConvoyViewModel.kt:1223:        if (myNum == null || msg.timeMs < now - 60_000L) return
+ConvoyViewModel.kt:1224:        if (num == myNum) {
+ConvoyViewModel.kt:1226:            polyOwnFixes.addLast(Triple(now, p.latitude, p.longitude))
+ConvoyViewModel.kt:1227:            while ((polyOwnFixes.peekFirst()?.first ?: now) < now - 1_800_000L) polyOwnFixes.pollFirst()
+ConvoyViewModel.kt:1230:        val last = polyLastHeardMs
+ConvoyViewModel.kt:1231:        polyLastHeardMs = now
+ConvoyViewModel.kt:1232:        val iLead = (checkIn.value?.role ?: "") == "leader" || "!%08x".format(myNum) == lockedLeadNodeId
+ConvoyViewModel.kt:1233:        if (!iLead) { polyRepeat = null; return }
+ConvoyViewModel.kt:1234:        if (last > 0L && now - last >= POLY_DEAD_AIR_MS) {
+ConvoyViewModel.kt:1235:            val p = polyBuild(myNum, last, now) ?: return
+ConvoyViewModel.kt:1236:            polyRepeat = p; polyRepeatAfterMs = now + 10_000L
+ConvoyViewModel.kt:1237:            polySend(p, "sent")
+ConvoyViewModel.kt:1240:            if (r != null && now >= polyRepeatAfterMs) { polyRepeat = null; polySend(r, "repeat") }
+ConvoyViewModel.kt:1243:    private val POLY_DEAD_AIR_MS = 60_000L   // POLYLINE-2026-10-20 (Fred 14:45 "60 seconds is a good even number"): a real loss
+ConvoyViewModel.kt:1244:    /** POLYLINE-2026-10-20: 20 equal-time points across [t0, t1] from my own radio fixes (linear between fixes). CODE RULE 1: null = fewer than 2
+ConvoyViewModel.kt:1245:     *  of my own fixes inside the window (my radio was not reporting) -- nothing honest to send. */
+ConvoyViewModel.kt:1246:    private fun polyBuild(myNum: Int, t0: Long, t1: Long): com.grouptrack.comm.GapPolyline? {
+ConvoyViewModel.kt:1247:        val fx = polyOwnFixes.toList()
+ConvoyViewModel.kt:1248:        val inside = fx.count { it.first in t0..t1 }
+ConvoyViewModel.kt:1249:        if (inside < 2) {
+ConvoyViewModel.kt:1250:            gtLogger("POLYLINE").w { "POLYLINE-2026-10-20 lead: dead air " + (t1 - t0) / 1000 + " s but only " + inside + " own fix(es) in it -- nothing sent" }
+ConvoyViewModel.kt:1253:        val step = (t1 - t0) / 19
+ConvoyViewModel.kt:1255:            if (t <= fx.first().first) return Pair(fx.first().second, fx.first().third)
+ConvoyViewModel.kt:1256:            if (t >= fx.last().first) return Pair(fx.last().second, fx.last().third)
+ConvoyViewModel.kt:1257:            val i = fx.indexOfFirst { it.first >= t }
+ConvoyViewModel.kt:1259:            val f = if (b.first == a.first) 0.0 else (t - a.first).toDouble() / (b.first - a.first)
+ConvoyViewModel.kt:1260:            return Pair(a.second + (b.second - a.second) * f, a.third + (b.third - a.third) * f)
+ConvoyViewModel.kt:1262:        val pts = (0 until 20).map { at(t0 + it * step) }
+ConvoyViewModel.kt:1263:        val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
+ConvoyViewModel.kt:1264:        return com.grouptrack.comm.GapPolyline(myNum.toString(), cs, t0, step, pts.map { it.first }, pts.map { it.second })
+ConvoyViewModel.kt:1266:    private fun polySend(p: com.grouptrack.comm.GapPolyline, what: String) {
+ConvoyViewModel.kt:1267:        val secs = p.stepMs * 19 / 1000
+ConvoyViewModel.kt:1268:        viewModelScope.launch {
+ConvoyViewModel.kt:1270:            gtLogger("POLYLINE").i { "POLYLINE-2026-10-20 lead " + what + ": dead air " + secs + " s, " + p.lats.size + " points -> " + r }
+ConvoyViewModel.kt:1271:            if (what == "sent" && r is com.grouptrack.comm.CommResult.Ok)
+ConvoyViewModel.kt:1272:                android.widget.Toast.makeText(appContext, "Gap polyline sent: " + (secs / 60) + ":" + "%02d".format(secs % 60) + " of dead air", android.widget.Toast.LENGTH_LONG).show()
+ConvoyViewModel.kt:1275:    /** POLYLINE-2026-10-20 THE RECEIVER: another cart's gap polyline. Shown as a pop-up (the field test); when it is the LEAD's and REC is on, the
+ConvoyViewModel.kt:1276:     *  lead track is pinned to it (TrackRules pin). The repeat is recognised (same sender + start) and not applied twice. */
+ConvoyViewModel.kt:1277:    private fun onGapPolylineReceived(p: com.grouptrack.comm.GapPolyline) {
+ConvoyViewModel.kt:1279:        if (num == myRadioNum()) return
+ConvoyViewModel.kt:1280:        val id = "!%08x".format(num)
+ConvoyViewModel.kt:1282:        val first = polyApplied.add(key)
+ConvoyViewModel.kt:1283:        val n = minOf(p.lats.size, p.lons.size)
+ConvoyViewModel.kt:1284:        val secs = p.stepMs * (n - 1) / 1000
+ConvoyViewModel.kt:1285:        val isLead = id == lockedLeadNodeId
+ConvoyViewModel.kt:1286:        gtLogger("POLYLINE").i { ("POLYLINE-2026-10-20 received from " + id + " (" + p.callsign + "): " + n + " points over " + secs + " s" +
+ConvoyViewModel.kt:1287:            (if (first) "" else " -- the repeat, already have it") + " lead=" + isLead + " rec=" + _trackActive.value + " group=" + GroupMode.on.value +
+ConvoyViewModel.kt:1288:            " | lead's last point " + (System.currentTimeMillis() - (p.t0Ms + (n - 1) * p.stepMs)) + " ms before my clock (UTC ms: delivery + clock difference) " + "TRIM-2026-10-20") }
+ConvoyViewModel.kt:1289:        if (!first) return
+ConvoyViewModel.kt:1290:        android.widget.Toast.makeText(appContext, "Gap polyline from " + p.callsign.ifBlank { id } + ": " + n + " points, " + (secs / 60) + ":" + "%02d".format(secs % 60), android.widget.Toast.LENGTH_LONG).show()
+ConvoyViewModel.kt:1291:        if (!GroupMode.on.value || !_trackActive.value || !isLead || n < 2) return
+ConvoyViewModel.kt:1292:        trackQueue.trySend(TrackEntry.Poly(id, (0 until n).map { Pair(TrackPoint(p.lats[it], p.lons[it]), p.t0Ms + it * p.stepMs) }, key))
+ConvoyViewModel.kt:1295:    /** COTBOARD-2026-10-15 (T5.4a-2): a CoT message was received -- the board's input (the twin of onBoardHeard, which T5.5 removes). */
+ConvoyViewModel.kt:1296:    private fun onBoardMessage(msg: com.grouptrack.comm.CommMessage, fromTablet: Boolean = false) {   // MYCARTMSG-2026-10-15: fromTablet = my cart from the tablet's GPS
+ConvoyViewModel.kt:1297:        if (!GroupMode.on.value) return                                  // Android only: no radios
+ConvoyViewModel.kt:1300:        val myNum = myRadioNum()
+ConvoyViewModel.kt:1303:        val nowMine = System.currentTimeMillis()
+ConvoyViewModel.kt:1304:        if (!fromTablet && num == myNum) {
+ConvoyViewModel.kt:1306:            val rp = msg.point   // ROLEPOS-2026-10-19: keep the position with the time
+ConvoyViewModel.kt:1307:            if (rp != null && msg.timeMs > nowMine - 60_000L) { myRadioFixMs = nowMine; myRadioLat = rp.latitude; myRadioLon = rp.longitude
+ConvoyViewModel.kt:1308:                if (GroupMode.on.value) RideStats.onMine(nowMine, rp.latitude, rp.longitude) }   // STATSPANEL-2026-10-20
+ConvoyViewModel.kt:1310:        if (!fromTablet) polyOnMessage(num, myNum, msg, nowMine)   // POLYLINE-2026-10-20: the lead's dead air + its own fixes
+ConvoyViewModel.kt:1311:        if (fromTablet && myNum != null && !tabletHasGps && commLink.health.value.talking && nowMine - myRadioFixMs < 45_000L) return   // the radio is driving my cart (ONEFEED-2026-10-19: only on a tablet without GPS)
+ConvoyViewModel.kt:1312:        val id = "!%08x".format(num)
+ConvoyViewModel.kt:1316:        val skipMine = !fromTablet && num == myNum && tabletHasGps
+ConvoyViewModel.kt:1317:        val cart = if (skipMine) null else cartFromMessage(msg, num, now, myNum, getPhoneLocation(), { boardCarts[it] }, boardSpeedStart, boardSpeedLast)
+ConvoyViewModel.kt:1318:        if (!skipMine) { if (cart == null) boardCarts.remove(id) else boardCarts[id] = cart }
+ConvoyViewModel.kt:1321:        if (cart != null && qp != null && _trackActive.value && msg.timeMs > (trackLastMsgT[id] ?: 0L)) {   // TRACKORDER-2026-10-18: newer only
+ConvoyViewModel.kt:1322:            trackLastMsgT[id] = msg.timeMs
+ConvoyViewModel.kt:1323:            trackQueue.trySend(TrackEntry.Real(id, TrackPoint(qp.latitude, qp.longitude), now, msg.timeMs, id == lockedLeadNodeId, id == resolveMyCartId()))
+ConvoyViewModel.kt:1327:        if (num == myNum && rp != null && msg.timeMs != radioTrackLastFixMs && gpsService?.useRadioGps == true && _routeRecording.value) {
+ConvoyViewModel.kt:1328:            radioTrackLastFixMs = msg.timeMs
+ConvoyViewModel.kt:1329:            gpsService?.onRadioPosition(rp.latitude, rp.longitude, rp.haeM ?: 0.0)   // CODE RULE 1: haeM null = no altitude sent -> 0
+ConvoyViewModel.kt:1331:        boardRecompute(now)
+ConvoyViewModel.kt:1335:     * COTBOARD-2026-10-15 (T5.4a-2, Plan v3 4a/4d): the board's display rules READING CoT -- the same rules as cartFromMember (which the tick
+ConvoyViewModel.kt:1336:     * keeps until T5.5 removes both), CoT fields in. Board only: no tick logs, no last-known map, no GPS start.
+ConvoyViewModel.kt:1337:     * Speed: the radio's ground_speed when sent, else the 60-s window as before. Heard = the moment the message arrived.
+ConvoyViewModel.kt:1338:     * CODE RULE 1 (return): null = not shown (removed on this tablet, or no position and nothing to fall back on).
+ConvoyViewModel.kt:1341:     * ADMITWINDOW-2026-11-20 v4: a cart built from the NODE DATABASE (Member), for a radio heard inside the admission window
+ConvoyViewModel.kt:1342:     * that has not yet produced a CoT message on this board. COTBOARD-2026-10-15 referenced cartFromMember and never wrote it.
+ConvoyViewModel.kt:1343:     * CODE RULE 1 on every null below: the transport did not report that value (an IP transport carries no radio link quality),
+ConvoyViewModel.kt:1344:     * so the cart shows the field's own "not reported" value, exactly as cartFromMessage does.
+ConvoyViewModel.kt:1346:    private fun cartFromMember(nodeId: String, m: com.grouptrack.comm.Member): ConvoyNode = ConvoyNode(
+ConvoyViewModel.kt:1347:        nodeId = nodeId,
+ConvoyViewModel.kt:1348:        callsign = m.callsign,
+ConvoyViewModel.kt:1349:        latitude = m.latitude ?: 0.0,            // 0,0 = this radio has sent no position: listed, and no map path draws it
+ConvoyViewModel.kt:1350:        longitude = m.longitude ?: 0.0,
+ConvoyViewModel.kt:1351:        altitude_m = m.altitudeM ?: 0,
+ConvoyViewModel.kt:1352:        heading_deg = m.headingDeg ?: 0f,
+ConvoyViewModel.kt:1353:        battery_pct = m.batteryPct ?: 100,
+ConvoyViewModel.kt:1354:        snr_db = m.snr ?: 0f,
+ConvoyViewModel.kt:1355:        lastSeenMs = m.lastHeardMs,              // the radio's clock -- the value the window was compared against
+ConvoyViewModel.kt:1356:        rideRole = "",                           // no TAK ride role until this radio reports one
+ConvoyViewModel.kt:1359:    private fun cartFromMessage(
+ConvoyViewModel.kt:1360:        msg: com.grouptrack.comm.CommMessage, num: Int, nowMs: Long, myNum: Int?, myTablet: android.location.Location?,
+ConvoyViewModel.kt:1361:        prev: (String) -> ConvoyNode?,
+ConvoyViewModel.kt:1364:        val nodeId = "!%08x".format(num)
+ConvoyViewModel.kt:1365:        if (nodeId in _removedCarts.value && num != myNum) return null   // CARTACTIVE-2026-09-30: removed on this tablet
+ConvoyViewModel.kt:1367:        val prevPos = prev(nodeId)?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }?.let { Pair(it.latitude, it.longitude) }
+ConvoyViewModel.kt:1368:        val latLon: Pair<Double, Double> = if (p != null) {
+ConvoyViewModel.kt:1370:            val isStale = rideStartTimeMs > 0L && msg.timeMs > 0L && msg.timeMs < rideStartTimeMs
+ConvoyViewModel.kt:1371:            if (isStale) prevPos ?: Pair(p.latitude, p.longitude) else Pair(p.latitude, p.longitude)
+ConvoyViewModel.kt:1372:        } else if (num != myNum) {
+ConvoyViewModel.kt:1373:            prevPos ?: return null                                       // LINKFIX: others -- the previous position, else not shown
+ConvoyViewModel.kt:1376:            if (phone.latitude == 0.0 && phone.longitude == 0.0) return null
+ConvoyViewModel.kt:1377:            Pair(phone.latitude, phone.longitude)
+ConvoyViewModel.kt:1379:        val windowMph = run {   // the 60-second window, as cartFromMember
+ConvoyViewModel.kt:1380:            val windowStart = speedStart[nodeId]
+ConvoyViewModel.kt:1381:            if (windowStart == null) {
+ConvoyViewModel.kt:1382:                speedStart[nodeId] = Triple(nowMs, latLon.first, latLon.second); 0f
+ConvoyViewModel.kt:1384:                val (startMs, startLat, startLon) = windowStart
+ConvoyViewModel.kt:1385:                if (nowMs - startMs >= 60_000L) {
+ConvoyViewModel.kt:1386:                    val speed = ConvoyEngine.haversineMiles(startLat, startLon, latLon.first, latLon.second) * 60f
+ConvoyViewModel.kt:1387:                    speedLast[nodeId] = speed
+ConvoyViewModel.kt:1388:                    speedStart[nodeId] = Triple(nowMs, latLon.first, latLon.second)
+ConvoyViewModel.kt:1389:                    speed
+ConvoyViewModel.kt:1390:                } else speedLast[nodeId] ?: 0f
+ConvoyViewModel.kt:1393:        val radioMph = msg.track?.speedMps?.let { (it * 2.23694).toFloat() }   // CODE RULE 1: null = the radio sent no ground_speed
+ConvoyViewModel.kt:1394:        val mine = num == myNum
+ConvoyViewModel.kt:1396:            nodeId = nodeId,
+ConvoyViewModel.kt:1397:            callsign = msg.callsign,
+ConvoyViewModel.kt:1399:            rideRole = if (checkIn.value == null) "" else takRideRole(num).ifBlank { if (mine) (checkIn.value?.role ?: "") else "" },   // OWNROLE (as cartFromMember)
+ConvoyViewModel.kt:1400:            latitude = latLon.first,
+ConvoyViewModel.kt:1401:            longitude = latLon.second,
+ConvoyViewModel.kt:1402:            altitude_m = ((p?.haeM ?: 0.0) * 3.28084).toInt(),          // feet (the field is misnamed); radios send sea level (COTMSG log)
+ConvoyViewModel.kt:1403:            speed_mph = radioMph ?: windowMph,
+ConvoyViewModel.kt:1404:            heading_deg = msg.track?.courseDeg?.toFloat() ?: 0f,
+ConvoyViewModel.kt:1405:            battery_pct = msg.batteryPct ?: 0,
+ConvoyViewModel.kt:1406:            radioLat = if (mine) p?.latitude else null, radioLon = if (mine) p?.longitude else null,
+ConvoyViewModel.kt:1407:            radioFixMs = if (mine) msg.timeMs else null,
+ConvoyViewModel.kt:1408:            tabletLat = if (mine) myTablet?.latitude else null, tabletLon = if (mine) myTablet?.longitude else null,
+ConvoyViewModel.kt:1409:            tabletFixMs = if (mine) myTablet?.let { if (it.time > 0L) it.time else nowMs } else null,
+ConvoyViewModel.kt:1410:            lastSeenMs = nowMs,
+ConvoyViewModel.kt:1411:            prevSeenMs = prev(nodeId)?.lastSeenMs ?: 0L,   // PANELGAP-2026-10-15: the previous report's time (0 = first report)
+ConvoyViewModel.kt:1412:            cotType = msg.type,
+ConvoyViewModel.kt:1413:            timestampUtc = java.time.Instant.ofEpochMilli(nowMs).toString()
+ConvoyViewModel.kt:1417:    /** HEARDBOARD-2026-10-14: my cart from the TABLET (Android mode / Android data) -- MOVED unchanged from readLiveNodes' phone path so the
+ConvoyViewModel.kt:1418:     *  tick and the cart board build it the same way. CODE RULE 1: loc null = no live fix (the tick's previous position is used). */
+ConvoyViewModel.kt:1419:    private fun myTabletCart(lat: Double, lon: Double, alt: Int, spd: Float, hdg: Float, loc: android.location.Location?, nowMs: Long): ConvoyNode = ConvoyNode(
+ConvoyViewModel.kt:1420:        nodeId = resolveMyCartId(),   // LINKFIX-2026-10-03: the SAME cart id in both modes (my radio's, else !phone)
+ConvoyViewModel.kt:1422:        callsign = tickCallsign(),
+ConvoyViewModel.kt:1423:        rideRole = checkIn.value?.role ?: "",
+ConvoyViewModel.kt:1424:        latitude = lat,
+ConvoyViewModel.kt:1425:        longitude = lon,
+ConvoyViewModel.kt:1426:        altitude_m = alt,
+ConvoyViewModel.kt:1427:        speed_mph = spd,
+ConvoyViewModel.kt:1428:        heading_deg = hdg,
+ConvoyViewModel.kt:1429:        battery_pct = 100,
+ConvoyViewModel.kt:1430:        lastSeenMs = nowMs,
+ConvoyViewModel.kt:1431:        status = ConvoyStatus.ACTIVE,
+ConvoyViewModel.kt:1432:        tabletLat = loc?.latitude, tabletLon = loc?.longitude,   // HEARDSWITCH-2026-10-13: my cart's tablet fix (recorded)
+ConvoyViewModel.kt:1433:        tabletFixMs = loc?.let { if (it.time > 0L) it.time else nowMs }
+ConvoyViewModel.kt:1439:        data class Downloading(val downloaded: Int, val total: Int, val failCount: Int) : DownloadState()
+ConvoyViewModel.kt:1440:        data class Complete(val summary: DownloadSummary) : DownloadState()
+ConvoyViewModel.kt:1442:        data class Error(val message: String) : DownloadState()
+ConvoyViewModel.kt:1445:    data class PendingDownload(
+ConvoyViewModel.kt:1446:        val tileCount: Int, val sizeMB: Float, val withinCeiling: Boolean,
+ConvoyViewModel.kt:1447:        val north: Double, val south: Double, val east: Double, val west: Double,
+ConvoyViewModel.kt:1448:        val sourceName: String, val sourceUrl: String
+ConvoyViewModel.kt:1451:    private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
+ConvoyViewModel.kt:1452:    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
+ConvoyViewModel.kt:1453:    private val _pendingDownload = MutableStateFlow<PendingDownload?>(null)
+ConvoyViewModel.kt:1454:    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
+ConvoyViewModel.kt:1455:    private var activeEntryId: String? = null
+ConvoyViewModel.kt:1456:    var downloadStartTime: Long = 0L
+ConvoyViewModel.kt:1458:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
+ConvoyViewModel.kt:1459:    fun clearPendingDownload() { _pendingDownload.value = null }
+ConvoyViewModel.kt:1461:    fun startDownload(context: android.content.Context, pending: PendingDownload) {
+ConvoyViewModel.kt:1462:        clearPendingDownload()
+ConvoyViewModel.kt:1463:        downloadStartTime = System.currentTimeMillis()
+ConvoyViewModel.kt:1465:        val entry = DownloadQueueManager.enqueue(
+ConvoyViewModel.kt:1466:            context, pending.north, pending.south, pending.east, pending.west,
+ConvoyViewModel.kt:1467:            label = pending.sourceName
+ConvoyViewModel.kt:1469:        activeEntryId = entry.id
+ConvoyViewModel.kt:1470:        observeQueueEntry(entry.id)
+ConvoyViewModel.kt:1473:    /** Observe a queue entry and bridge its progress to the existing DownloadState flow. */
+ConvoyViewModel.kt:1474:    private fun observeQueueEntry(entryId: String) {
+ConvoyViewModel.kt:1475:        viewModelScope.launch {
+ConvoyViewModel.kt:1476:            DownloadQueueManager.queue.collect { entries ->
+ConvoyViewModel.kt:1477:                val entry = entries.find { it.id == entryId } ?: return@collect
+ConvoyViewModel.kt:1478:                _downloadState.value = when (entry.status) {
+ConvoyViewModel.kt:1479:                    QueueStatus.QUEUED -> DownloadState.Downloading(0, entry.totalTiles, 0)
+ConvoyViewModel.kt:1481:                        entry.downloadedTiles, entry.totalTiles, entry.failedTiles
+ConvoyViewModel.kt:1484:                        val avgBytes = 15_360L
+ConvoyViewModel.kt:1485:                        val mb = (entry.downloadedTiles * avgBytes) / (1024f * 1024f)
+ConvoyViewModel.kt:1486:                        DownloadState.Complete(DownloadSummary(entry.downloadedTiles, entry.failedTiles, mb))
+ConvoyViewModel.kt:1488:                    QueueStatus.FAILED -> DownloadState.Error("Download failed after ${entry.retryCount} retries")
+ConvoyViewModel.kt:1491:                        entry.downloadedTiles, entry.totalTiles, entry.failedTiles
+ConvoyViewModel.kt:1498:    fun cancelDownload() {
+ConvoyViewModel.kt:1499:        activeEntryId?.let { DownloadQueueManager.cancel(it) }
+ConvoyViewModel.kt:1500:        _downloadState.value = DownloadState.Cancelled
+ConvoyViewModel.kt:1501:        viewModelScope.launch {
+ConvoyViewModel.kt:1503:            _downloadState.value = DownloadState.Idle
+ConvoyViewModel.kt:1507:    override fun onCleared() {
+ConvoyViewModel.kt:1508:        super.onCleared()
 ConvoyGpsService.kt:1:package com.geeksville.mesh.convoy
 ConvoyGpsService.kt:3:import android.app.Notification
 ConvoyGpsService.kt:4:import android.app.NotificationChannel
@@ -41011,6 +41050,7 @@ MapSpecCertOld.kt:20: * ⭐ BOTH SIDES TAKE THE SAME [GtMapSpecEnv] — the G2f 
 MapSpecCertOld.kt:21: * HTTP answer, handed to OLD and NEW alike, so a difference cannot come from the network moving or
 MapSpecCertOld.kt:22: * the asset differing.
 MapSpecCertOld.kt:28: *  1. object names                                                            ×2
+MapSpecCertOld.kt:29: *       VectorTiles / ElevationTiles  ->  this one object, members prefixed
 MapSpecCertOld.kt:30: *     (2.7e has two objects; both are small and share the asset, so the OLD side keeps them
 MapSpecCertOld.kt:31: *     together and names the members vector* / elevation*, matching GtMapSpec's shape. ⚠ The
 MapSpecCertOld.kt:32: *     BODIES are unchanged — only the enclosing object and the member names.)
@@ -57226,6 +57266,7 @@ SHARED:cert/Cert17mbtiles.kt:8: * CERT17MBTILES-2026-11-14 (2.8 step 17, Phase 2
 SHARED:cert/Cert17mbtiles.kt:11: * expected values are MEASURED, not modelled): 63 compared keys, no collisions, every call returned.
 SHARED:cert/Cert17mbtiles.kt:12: * The simulation caught its own first fixture being useless for reclaimableBytes (26 tiles of 16
 SHARED:cert/Cert17mbtiles.kt:13: * bytes fit in four pages, and deleting rows INSIDE a page frees none), which is why [CHURN] exists.
+SHARED:cert/Cert17mbtiles.kt:15: * ⛔ THE DRIVING SEQUENCE LIVES HERE AND NOWHERE ELSE. [Side] exposes all 18 members and
 SHARED:cert/Cert17mbtiles.kt:16: * [run] calls them in one place, so neither side chooses what to exercise or in what order. Passes
 SHARED:cert/Cert17mbtiles.kt:17: * 1 and 2 both paid for this lesson in a different shape (a private formatter, then a per-side
 SHARED:cert/Cert17mbtiles.kt:18: * read-back with different defaults): anything duplicated per side can differ per side, and then a
@@ -65171,6 +65212,7 @@ SHARED-ios:platform/GtIosRideFiles.kt:3:import com.grouptrack.shared.imports.GtI
 SHARED-ios:platform/GtIosRideFiles.kt:4:import com.grouptrack.shared.ride.RideFiles
 SHARED-ios:platform/GtIosRideFiles.kt:5:import okio.FileSystem
 SHARED-ios:platform/GtIosRideFiles.kt:6:import okio.Path.Companion.toPath
+SHARED-ios:platform/GtIosRideFiles.kt:9: * GTIOSRIDEFILES-2026-11-16: the iPad's RideFiles. Mirrors GtRidesAndroid's 15 members.
 SHARED-ios:platform/GtIosRideFiles.kt:11: * Every member is a path or file operation, so the port is mechanical -- but java.io.File's RETURN
 SHARED-ios:platform/GtIosRideFiles.kt:12: * CONVENTIONS are not okio's, and four of them would be wrong if translated by shape instead of by
 SHARED-ios:platform/GtIosRideFiles.kt:13: * behaviour. Each is measured against the Android original, not assumed:
@@ -65238,6 +65280,7 @@ SHARED-ios:platform/GtIosRideFiles.kt:108:    override fun readAsset(name: Strin
 SHARED-ios:platform/GtIosRideImport.kt:1:package com.grouptrack.shared.platform
 SHARED-ios:platform/GtIosRideImport.kt:3:import com.grouptrack.shared.log.gtLogger
 SHARED-ios:platform/GtIosRideImport.kt:4:import com.grouptrack.shared.ride.RideImportPlatform
+SHARED-ios:platform/GtIosRideImport.kt:7: * IOSRIDEIMP-2026-11-17: RideImportPlatform on the iPad. All three members are PLATFORM ABSENCES, and
 SHARED-ios:platform/GtIosRideImport.kt:8: * each one is handled differently on purpose -- "not available here" is not one behaviour.
 SHARED-ios:platform/GtIosRideImport.kt:10: * ⚠ NONE OF THEM IS A BARE NO-OP. A silent no-op is the failure mode this project keeps paying for
 SHARED-ios:platform/GtIosRideImport.kt:11: * (GtHelpLinks and GtMapSpec both catch-and-fall-back; the vecmap server answers a miss with an empty
@@ -66320,6 +66363,7 @@ SHARED-ios:platform/GtIosImportPlatform.kt:13: * Fred 11-16 09:50: "the key vari
 SHARED-ios:platform/GtIosImportPlatform.kt:14: * Fred 11-16 09:27: "we are not changing the android target for exports. they remain in download, in
 SHARED-ios:platform/GtIosImportPlatform.kt:15: *   fact I would make the case the the iPad version should duplicate the android solution. lets not
 SHARED-ios:platform/GtIosImportPlatform.kt:16: *   introduce a implementation specific difference when we do not have to."
+SHARED-ios:platform/GtIosImportPlatform.kt:18: * WHAT IS REAL HERE, AND WHAT IS NOT. Two of the four members are implemented; two are not, and the
 SHARED-ios:platform/GtIosImportPlatform.kt:19: * reason is recorded rather than hidden behind a bare throw:
 SHARED-ios:platform/GtIosImportPlatform.kt:20: *   readAsset        REAL -- 7 shared call sites (osm_layers.json, trail_sources.json, the schema SQL)
 SHARED-ios:platform/GtIosImportPlatform.kt:21: *   saveToDownloads  REAL -- 2 shared call sites, GtGpxImport:153, the export Fred named
@@ -66486,6 +66530,7 @@ SHARED-ios:platform/GtIosRideSpatial.kt:1:package com.grouptrack.shared.platform
 SHARED-ios:platform/GtIosRideSpatial.kt:3:import androidx.sqlite.SQLiteConnection
 SHARED-ios:platform/GtIosRideSpatial.kt:4:import com.grouptrack.shared.ride.RideSpatial
 SHARED-ios:platform/GtIosRideSpatial.kt:5:import com.grouptrack.shared.spatial.GtRead
+SHARED-ios:platform/GtIosRideSpatial.kt:8: * RIDESPATIAL-2026-11-16: the iPad's RideSpatial. All five members are GtRead, so there is no iOS-specific
 SHARED-ios:platform/GtIosRideSpatial.kt:9: * behaviour here at all -- the SQL, the GPX text (GtGpx, "2.7e byte for byte") and the org.json serialisation
 SHARED-ios:platform/GtIosRideSpatial.kt:10: * (GtOrgJson) are shared Kotlin that the Droid runs too.
 SHARED-ios:platform/GtIosRideSpatial.kt:12: * ⚠ A CONNECTION IS NOT THREAD-SAFE, and GtRead says so: "the platform serialises calls (Android: the lock in
