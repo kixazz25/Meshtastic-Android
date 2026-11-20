@@ -8019,19 +8019,16 @@ StateDataQueue.kt:52:    fun stop(id: String) = core.stop(id)
 StateDataQueue.kt:55:    fun retry(id: String) = core.retry(id)
 StateDataQueue.kt:58:    fun cancelAll() = core.cancelAll()
 StateDataQueue.kt:65:    suspend fun run(list: List<JSONObject>, fetch: (JSONObject) -> Boolean, onChange: () -> Unit): Boolean =
-GroupMode.kt:20:object GroupMode {
-GroupMode.kt:21:    private const val PREFS = "grouptrack_group_mode"
-GroupMode.kt:22:    private const val KEY = "group_awareness"
-GroupMode.kt:23:    const val ACTIVATE_MESSAGE = "Group mode needs to be activated in Settings. Do not activate unless your mesh device is available."
-GroupMode.kt:26:    val on = mutableStateOf(true)
-GroupMode.kt:28:    val askActivate = mutableStateOf(false)
-GroupMode.kt:29:    @Volatile private var loaded = false
-GroupMode.kt:31:    fun load(ctx: Context) {
-GroupMode.kt:33:        val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-GroupMode.kt:40:    fun set(ctx: Context, value: Boolean) {
-GroupMode.kt:47:    fun askToActivate() { askActivate.value = true }
-GroupMode.kt:52:fun GroupModeActivatePopup() {
-GroupMode.kt:53:    val ctx = LocalContext.current
+GroupMode.kt:21: * This object is the ANDROID FACE of it and is deliberately unchanged in shape: `on`, `askActivate`,
+GroupMode.kt:27:object GroupMode {
+GroupMode.kt:28:    const val ACTIVATE_MESSAGE = GtGroupMode.ACTIVATE_MESSAGE
+GroupMode.kt:31:    val on get() = GtGroupMode.on
+GroupMode.kt:34:    val askActivate get() = GtGroupMode.askActivate
+GroupMode.kt:38:    fun load(ctx: Context) =
+GroupMode.kt:44:    fun set(ctx: Context, value: Boolean) =
+GroupMode.kt:48:    fun askToActivate() = GtGroupMode.askToActivate()
+GroupMode.kt:53:fun GroupModeActivatePopup() {
+GroupMode.kt:54:    val ctx = LocalContext.current
 ConvoyEnrollmentQueue.kt:14:object ConvoyEnrollmentQueue {
 ConvoyEnrollmentQueue.kt:16:    private const val TAG = "ConvoyEnrollmentQueue"
 ConvoyEnrollmentQueue.kt:21:    fun checkPendingDistributions(ctx: Context) {
@@ -12323,6 +12320,18 @@ grouptrack/UtahPrivate.kt:192:    val close = { GtUtahPrivate.open.value = false
 grouptrack/UtahPrivate.kt:208:                val p = GtUtahPrivate.progress.value
 SHARED:ui/GtIpadProbeScreen.kt:38:fun GtIpadProbeScreen() {
 SHARED:ui/GtIpadProbeScreen.kt:43:            var taps by remember { mutableStateOf(0) }
+SHARED:settings/GtGroupMode.kt:28:object GtGroupMode {
+SHARED:settings/GtGroupMode.kt:30:    const val STORE = "grouptrack_group_mode"
+SHARED:settings/GtGroupMode.kt:32:    const val KEY = "group_awareness"
+SHARED:settings/GtGroupMode.kt:33:    const val ACTIVATE_MESSAGE =
+SHARED:settings/GtGroupMode.kt:37:    val on = mutableStateOf(true)
+SHARED:settings/GtGroupMode.kt:40:    val askActivate = mutableStateOf(false)
+SHARED:settings/GtGroupMode.kt:42:    private var loaded = false
+SHARED:settings/GtGroupMode.kt:52:    fun load(settings: GtSettings, defaultWhenUnset: Boolean) {
+SHARED:settings/GtGroupMode.kt:54:        val p = settings.store(STORE)
+SHARED:settings/GtGroupMode.kt:55:        val stored = p.contains(KEY)
+SHARED:settings/GtGroupMode.kt:65:    fun set(settings: GtSettings, value: Boolean) {
+SHARED:settings/GtGroupMode.kt:73:    fun askToActivate() { askActivate.value = true }
 SHARED:settings/GtRideSettings.kt:13:class GtRideSettings(private val settings: GtSettings, private val storeName: String, private val epochDay: () -> Long) {
 SHARED:settings/GtRideSettings.kt:14:    companion object {
 SHARED:settings/GtRideSettings.kt:15:        const val STORE = "convoy_settings"
@@ -18879,138 +18888,143 @@ SHARED-android:text/GtMath.android.kt:7:internal actual fun gtMathHypot(x: Doubl
 SHARED-android:text/GtMath.android.kt:10:internal actual fun gtMathAtan(x: Double): Double = java.lang.Math.atan(x)
 SHARED-android:text/GtMath.android.kt:11:internal actual fun gtMathSinh(x: Double): Double = java.lang.Math.sinh(x)
 SHARED-android:text/GtMath.android.kt:12:internal actual fun gtMathLn(x: Double): Double = java.lang.Math.log(x)
-SHARED-ios:ui/GtIosPanels.kt:102:object GtPanelChromeIos : GtPanelChrome {
-SHARED-ios:ui/GtIosPanels.kt:104:    private val log = gtLogger("GtChromeIos")
-SHARED-ios:ui/GtIosPanels.kt:107:    override fun openHelp(id: String) {
-SHARED-ios:ui/GtIosPanels.kt:113:    override fun IssueButton(id: String, color: Color) {
-SHARED-ios:ui/GtIosPanels.kt:119:    override fun IssueHost() {
-SHARED-ios:ui/GtIosPanels.kt:124:    override fun UtahPrivatePanel() {
-SHARED-ios:ui/GtIosPanels.kt:129:    override fun QueueSummary(onOpen: () -> Unit, modifier: Modifier) {
-SHARED-ios:ui/GtIosPanels.kt:135:    override fun DownloadSettingsPanel() {
-SHARED-ios:ui/GtIosPanels.kt:160:private object IosStates {
-SHARED-ios:ui/GtIosPanels.kt:161:    private val log = gtLogger("IosStates")
-SHARED-ios:ui/GtIosPanels.kt:162:    private var cached: List<GeofabrikState>? = null
-SHARED-ios:ui/GtIosPanels.kt:163:    fun get(): List<GeofabrikState> {
-SHARED-ios:ui/GtIosPanels.kt:165:        val v = try {
-SHARED-ios:ui/GtIosPanels.kt:177:private object IosSearchDb {
-SHARED-ios:ui/GtIosPanels.kt:179:    private val log = gtLogger("GtIosSearch")
-SHARED-ios:ui/GtIosPanels.kt:180:    private val lock = Mutex()
-SHARED-ios:ui/GtIosPanels.kt:181:    private var read: GtRead? = null
-SHARED-ios:ui/GtIosPanels.kt:182:    private var opened = false
-SHARED-ios:ui/GtIosPanels.kt:184:    private fun reader(): GtRead? {
-SHARED-ios:ui/GtIosPanels.kt:188:                val root = iosStorage().root().toString()
-SHARED-ios:ui/GtIosPanels.kt:198:                val data = try {
-SHARED-ios:ui/GtIosPanels.kt:229:    fun detail(type: String, id: String): LinkedHashMap<String, String?> =
-SHARED-ios:ui/GtIosPanels.kt:232:    fun aliases(type: String, id: String): List<Map<String, String?>> =
-SHARED-ios:ui/GtIosPanels.kt:237:    fun bbox(type: String, id: String): DoubleArray? = reader()?.bboxForArtifact(type, id)
-SHARED-ios:ui/GtIosPanels.kt:240:    fun typeFor(id: String): String = reader()?.typeNameForId(id) ?: ""
-SHARED-ios:ui/GtIosPanels.kt:250:    fun listInView(table: String, s: Double, w: Double, n: Double, e: Double): List<Map<String, String?>> =
-SHARED-ios:ui/GtIosPanels.kt:254:    fun narrative(routeId: String) = reader()?.routeNarrative(routeId)
-SHARED-ios:ui/GtIosPanels.kt:258:    fun routeNameExists(name: String): Boolean {
-SHARED-ios:ui/GtIosPanels.kt:259:        val n = name.trim()
-SHARED-ios:ui/GtIosPanels.kt:266:    suspend fun searchByName(type: String, term: String): List<Map<String, String?>> =
-SHARED-ios:ui/GtIosPanels.kt:305: * and GtRead.routeUsingTrailhead :173 carries the trailhead guard. This object only opens the
-SHARED-ios:ui/GtIosPanels.kt:308:private object IosWriteDb {
-SHARED-ios:ui/GtIosPanels.kt:309:    private val log = gtLogger("GtIosWrite")
-SHARED-ios:ui/GtIosPanels.kt:310:    private var spatial: androidx.sqlite.SQLiteConnection? = null
-SHARED-ios:ui/GtIosPanels.kt:311:    private var data: androidx.sqlite.SQLiteConnection? = null
-SHARED-ios:ui/GtIosPanels.kt:312:    private var tried = false
-SHARED-ios:ui/GtIosPanels.kt:314:    private fun open() {
-SHARED-ios:ui/GtIosPanels.kt:318:            val root = iosStorage().root().toString()
-SHARED-ios:ui/GtIosPanels.kt:329:    fun writer(): GtWrite? {
-SHARED-ios:ui/GtIosPanels.kt:331:        val s = spatial ?: return null
-SHARED-ios:ui/GtIosPanels.kt:336:    fun reader(): GtRead? { open(); val s = spatial ?: return null; return GtRead(s, data) }
-SHARED-ios:ui/GtIosPanels.kt:338:    val artifacts: GtArtifactFiles? by lazy {
-SHARED-ios:ui/GtIosPanels.kt:339:        val r = reader() ?: return@lazy null
-SHARED-ios:ui/GtIosPanels.kt:344:private object IosProfile {
-SHARED-ios:ui/GtIosPanels.kt:345:    private val log = gtLogger("GtIosProfile")
-SHARED-ios:ui/GtIosPanels.kt:346:    private var conn: androidx.sqlite.SQLiteConnection? = null
-SHARED-ios:ui/GtIosPanels.kt:347:    private var tried = false
-SHARED-ios:ui/GtIosPanels.kt:349:    private fun db(): androidx.sqlite.SQLiteConnection? {
-SHARED-ios:ui/GtIosPanels.kt:362:    val store = GtProfileStore(
-SHARED-ios:ui/GtIosPanels.kt:376:private fun IosDocView(key: String, onClose: () -> Unit) {
-SHARED-ios:ui/GtIosPanels.kt:384:                val asset = docsAssetFor(key.substringBefore("#"))
-SHARED-ios:ui/GtIosPanels.kt:385:                val path = if (asset == null) null else iosBundleAssetPath(asset)
-SHARED-ios:ui/GtIosPanels.kt:398:                                val web = WKWebView(
-SHARED-ios:ui/GtIosPanels.kt:402:                                val u = NSURL.fileURLWithPath(path)
-SHARED-ios:ui/GtIosPanels.kt:422:fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
-SHARED-ios:ui/GtIosPanels.kt:438:    val web = remember { mutableStateOf<WKWebView?>(null) }
-SHARED-ios:ui/GtIosPanels.kt:441:    val offline = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:442:    fun js(script: String) { web.value?.evaluateJavaScript(script, null) }
-SHARED-ios:ui/GtIosPanels.kt:446:    val viewportJs = "try{var b=map.getBounds();Android.onViewportChanged(" +
-SHARED-ios:ui/GtIosPanels.kt:450:    val centre = remember { mutableStateOf(doubleArrayOf(0.0, 0.0)) }
-SHARED-ios:ui/GtIosPanels.kt:455:    val zoom = remember { mutableIntStateOf(0) }
-SHARED-ios:ui/GtIosPanels.kt:462:    val group = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:474:    val grpAskActivate = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:478:    val notesRouteId = remember { mutableStateOf("") }
-SHARED-ios:ui/GtIosPanels.kt:485:    val bounds = remember { mutableStateOf<DoubleArray?>(null) }
-SHARED-ios:ui/GtIosPanels.kt:486:    val artifactList = remember { mutableStateOf<List<Map<String, String?>>>(emptyList()) }
-SHARED-ios:ui/GtIosPanels.kt:487:    val selectedIds = remember { mutableStateOf<Set<String>>(emptySet()) }
-SHARED-ios:ui/GtIosPanels.kt:488:    val activeListType = remember { mutableStateOf("") }
-SHARED-ios:ui/GtIosPanels.kt:492:    val checkedIds = remember { mutableStateOf<Map<String, Set<String>?>>(emptyMap()) }
-SHARED-ios:ui/GtIosPanels.kt:496:    val profileOpen = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:499:    val helpOpen = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:500:    val docView = remember { mutableStateOf("") }
-SHARED-ios:ui/GtIosPanels.kt:507:    val rideSettings = remember {
-SHARED-ios:ui/GtIosPanels.kt:509:            val d = IosClock.localNow()
-SHARED-ios:ui/GtIosPanels.kt:513:    val settingsOpen = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:516:    val issueEmail = remember { mutableStateOf(true) }
-SHARED-ios:ui/GtIosPanels.kt:519:    val showLeadTrack = remember { mutableStateOf(true) }
-SHARED-ios:ui/GtIosPanels.kt:521:    val recState = remember { mutableStateOf(RecordingState.CHECK_IN) }
-SHARED-ios:ui/GtIosPanels.kt:522:    val recMenu = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:526:    val detailType = remember { mutableStateOf("") }
-SHARED-ios:ui/GtIosPanels.kt:527:    val detailId = remember { mutableStateOf("") }
-SHARED-ios:ui/GtIosPanels.kt:531:    val hudOnDark = remember { mutableStateOf(true) }
-SHARED-ios:ui/GtIosPanels.kt:532:    val radioConnected = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:533:    val radioTalking = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:534:    val tilt = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:535:    val headingUp = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:538:    val trails = remember { mutableIntStateOf(1) }
-SHARED-ios:ui/GtIosPanels.kt:539:    val tracks = remember { mutableIntStateOf(1) }
-SHARED-ios:ui/GtIosPanels.kt:540:    val routes = remember { mutableIntStateOf(1) }
-SHARED-ios:ui/GtIosPanels.kt:541:    val waypoints = remember { mutableIntStateOf(1) }
-SHARED-ios:ui/GtIosPanels.kt:542:    val hidden = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:543:    val offAvailable = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:544:    val offDownloading = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:546:    fun slot(t: String) = when (t) {
-SHARED-ios:ui/GtIosPanels.kt:568:    val fitArtifact: (String, String, DoubleArray?) -> Unit = { typeIn, artifactId, fallback ->
-SHARED-ios:ui/GtIosPanels.kt:569:        val type = IosSearchDb.typeFor(artifactId).ifEmpty { typeIn }
-SHARED-ios:ui/GtIosPanels.kt:576:        val bb = IosSearchDb.bbox(type, artifactId)
-SHARED-ios:ui/GtIosPanels.kt:577:        val s0 = bb?.get(0) ?: fallback?.get(0)
-SHARED-ios:ui/GtIosPanels.kt:578:        val w0 = bb?.get(1) ?: fallback?.get(1)
-SHARED-ios:ui/GtIosPanels.kt:579:        val n0 = bb?.get(2) ?: fallback?.get(2)
-SHARED-ios:ui/GtIosPanels.kt:580:        val e0 = bb?.get(3) ?: fallback?.get(3)
-SHARED-ios:ui/GtIosPanels.kt:582:            val latPad = (n0 - s0).let { if (it > 0.0) it * 0.10 else 0.01 }
-SHARED-ios:ui/GtIosPanels.kt:583:            val lonPad = (e0 - w0).let { if (it > 0.0) it * 0.10 else 0.01 }
-SHARED-ios:ui/GtIosPanels.kt:596:    val relay: (String, String) -> Unit = { name, args ->
-SHARED-ios:ui/GtIosPanels.kt:598:            val v = args.trim().removePrefix("[").removeSuffix("]")
-SHARED-ios:ui/GtIosPanels.kt:612:            val id = args.trim().removePrefix("[").removeSuffix("]").trim().trim('"')
-SHARED-ios:ui/GtIosPanels.kt:640:    val filter = GtFilterBridge(
-SHARED-ios:ui/GtIosPanels.kt:650:                val table = when (typeName) {
-SHARED-ios:ui/GtIosPanels.kt:653:                val b = bounds.value
-SHARED-ios:ui/GtIosPanels.kt:657:                    val list = IosSearchDb.listInView(table, b[0], b[1], b[2], b[3])
-SHARED-ios:ui/GtIosPanels.kt:668:                        val cur = slot(typeName).intValue
-SHARED-ios:ui/GtIosPanels.kt:669:                        val saved = checkedIds.value[typeName]
-SHARED-ios:ui/GtIosPanels.kt:692:    val search = GtSearchBridge(
-SHARED-ios:ui/GtIosPanels.kt:705:            val s0 = r.minLat; val n0 = r.maxLat; val w0 = r.minLon; val e0 = r.maxLon
-SHARED-ios:ui/GtIosPanels.kt:706:            val fallback = if (s0 != null && n0 != null && w0 != null && e0 != null)
-SHARED-ios:ui/GtIosPanels.kt:738:    val actions = mapOf<String, () -> Unit>(
-SHARED-ios:ui/GtIosPanels.kt:800:            val h = GtIosLocation.here()
-SHARED-ios:ui/GtIosPanels.kt:846:            val lamp = GtIosLocation.lamp()
-SHARED-ios:ui/GtIosPanels.kt:960:                onOpen = { onMessage("gps", "the GPS interval panel is not built on the iPad yet") },
-SHARED-ios:ui/GtIosPanels.kt:1041:                        val notBuilt: (String, String) -> Unit = { what, why ->
-SHARED-ios:ui/GtIosPanels.kt:1077:                                val ty = detailType.value
-SHARED-ios:ui/GtIosPanels.kt:1078:                                val w = IosWriteDb.writer()
-SHARED-ios:ui/GtIosPanels.kt:1084:                                    val blockedBy = if (ty == "Waypoints") IosWriteDb.reader()?.routeUsingTrailhead(aid) else null
-SHARED-ios:ui/GtIosPanels.kt:1109:                                val w = IosWriteDb.writer()
-SHARED-ios:ui/GtIosPanels.kt:1117:                                val svc = IosWriteDb.artifacts
-SHARED-ios:ui/GtIosPanels.kt:1119:                                else when (val r = svc.share(detailType.value, aid)) {
-SHARED-ios:ui/GtIosPanels.kt:1127:                                val svc = IosWriteDb.artifacts
-SHARED-ios:ui/GtIosPanels.kt:1129:                                else when (val r = svc.export(detailType.value, aid)) {
-SHARED-ios:ui/GtIosPanels.kt:1236:                    val rid = notesRouteId.value
-SHARED-ios:ui/GtIosPanels.kt:1239:                            val nm = IosSearchDb.detail("Routes", rid)["name"]
-SHARED-ios:ui/GtIosPanels.kt:1240:                            val also = IosSearchDb.aliases("route", rid).mapNotNull { it["alias"] }.filter { it != nm }
-SHARED-ios:ui/GtIosPanels.kt:1290:fun gtGroupTrackController(onMessage: (String, String) -> Unit): UIViewController =
+SHARED-ios:ui/GtIosPanels.kt:104:object GtPanelChromeIos : GtPanelChrome {
+SHARED-ios:ui/GtIosPanels.kt:106:    private val log = gtLogger("GtChromeIos")
+SHARED-ios:ui/GtIosPanels.kt:109:    override fun openHelp(id: String) {
+SHARED-ios:ui/GtIosPanels.kt:115:    override fun IssueButton(id: String, color: Color) {
+SHARED-ios:ui/GtIosPanels.kt:121:    override fun IssueHost() {
+SHARED-ios:ui/GtIosPanels.kt:126:    override fun UtahPrivatePanel() {
+SHARED-ios:ui/GtIosPanels.kt:131:    override fun QueueSummary(onOpen: () -> Unit, modifier: Modifier) {
+SHARED-ios:ui/GtIosPanels.kt:137:    override fun DownloadSettingsPanel() {
+SHARED-ios:ui/GtIosPanels.kt:162:private object IosStates {
+SHARED-ios:ui/GtIosPanels.kt:163:    private val log = gtLogger("IosStates")
+SHARED-ios:ui/GtIosPanels.kt:164:    private var cached: List<GeofabrikState>? = null
+SHARED-ios:ui/GtIosPanels.kt:165:    fun get(): List<GeofabrikState> {
+SHARED-ios:ui/GtIosPanels.kt:167:        val v = try {
+SHARED-ios:ui/GtIosPanels.kt:179:private object IosSearchDb {
+SHARED-ios:ui/GtIosPanels.kt:181:    private val log = gtLogger("GtIosSearch")
+SHARED-ios:ui/GtIosPanels.kt:182:    private val lock = Mutex()
+SHARED-ios:ui/GtIosPanels.kt:183:    private var read: GtRead? = null
+SHARED-ios:ui/GtIosPanels.kt:184:    private var opened = false
+SHARED-ios:ui/GtIosPanels.kt:186:    private fun reader(): GtRead? {
+SHARED-ios:ui/GtIosPanels.kt:190:                val root = iosStorage().root().toString()
+SHARED-ios:ui/GtIosPanels.kt:200:                val data = try {
+SHARED-ios:ui/GtIosPanels.kt:231:    fun detail(type: String, id: String): LinkedHashMap<String, String?> =
+SHARED-ios:ui/GtIosPanels.kt:234:    fun aliases(type: String, id: String): List<Map<String, String?>> =
+SHARED-ios:ui/GtIosPanels.kt:239:    fun bbox(type: String, id: String): DoubleArray? = reader()?.bboxForArtifact(type, id)
+SHARED-ios:ui/GtIosPanels.kt:242:    fun typeFor(id: String): String = reader()?.typeNameForId(id) ?: ""
+SHARED-ios:ui/GtIosPanels.kt:252:    fun listInView(table: String, s: Double, w: Double, n: Double, e: Double): List<Map<String, String?>> =
+SHARED-ios:ui/GtIosPanels.kt:256:    fun narrative(routeId: String) = reader()?.routeNarrative(routeId)
+SHARED-ios:ui/GtIosPanels.kt:260:    fun routeNameExists(name: String): Boolean {
+SHARED-ios:ui/GtIosPanels.kt:261:        val n = name.trim()
+SHARED-ios:ui/GtIosPanels.kt:268:    suspend fun searchByName(type: String, term: String): List<Map<String, String?>> =
+SHARED-ios:ui/GtIosPanels.kt:307: * and GtRead.routeUsingTrailhead :173 carries the trailhead guard. This object only opens the
+SHARED-ios:ui/GtIosPanels.kt:310:private object IosWriteDb {
+SHARED-ios:ui/GtIosPanels.kt:311:    private val log = gtLogger("GtIosWrite")
+SHARED-ios:ui/GtIosPanels.kt:312:    private var spatial: androidx.sqlite.SQLiteConnection? = null
+SHARED-ios:ui/GtIosPanels.kt:313:    private var data: androidx.sqlite.SQLiteConnection? = null
+SHARED-ios:ui/GtIosPanels.kt:314:    private var tried = false
+SHARED-ios:ui/GtIosPanels.kt:316:    private fun open() {
+SHARED-ios:ui/GtIosPanels.kt:320:            val root = iosStorage().root().toString()
+SHARED-ios:ui/GtIosPanels.kt:331:    fun writer(): GtWrite? {
+SHARED-ios:ui/GtIosPanels.kt:333:        val s = spatial ?: return null
+SHARED-ios:ui/GtIosPanels.kt:338:    fun reader(): GtRead? { open(); val s = spatial ?: return null; return GtRead(s, data) }
+SHARED-ios:ui/GtIosPanels.kt:340:    val artifacts: GtArtifactFiles? by lazy {
+SHARED-ios:ui/GtIosPanels.kt:341:        val r = reader() ?: return@lazy null
+SHARED-ios:ui/GtIosPanels.kt:346:private object IosProfile {
+SHARED-ios:ui/GtIosPanels.kt:347:    private val log = gtLogger("GtIosProfile")
+SHARED-ios:ui/GtIosPanels.kt:348:    private var conn: androidx.sqlite.SQLiteConnection? = null
+SHARED-ios:ui/GtIosPanels.kt:349:    private var tried = false
+SHARED-ios:ui/GtIosPanels.kt:351:    private fun db(): androidx.sqlite.SQLiteConnection? {
+SHARED-ios:ui/GtIosPanels.kt:364:    val store = GtProfileStore(
+SHARED-ios:ui/GtIosPanels.kt:378:private fun IosDocView(key: String, onClose: () -> Unit) {
+SHARED-ios:ui/GtIosPanels.kt:386:                val asset = docsAssetFor(key.substringBefore("#"))
+SHARED-ios:ui/GtIosPanels.kt:387:                val path = if (asset == null) null else iosBundleAssetPath(asset)
+SHARED-ios:ui/GtIosPanels.kt:400:                                val web = WKWebView(
+SHARED-ios:ui/GtIosPanels.kt:404:                                val u = NSURL.fileURLWithPath(path)
+SHARED-ios:ui/GtIosPanels.kt:424:fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
+SHARED-ios:ui/GtIosPanels.kt:440:    val web = remember { mutableStateOf<WKWebView?>(null) }
+SHARED-ios:ui/GtIosPanels.kt:443:    val offline = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:444:    fun js(script: String) { web.value?.evaluateJavaScript(script, null) }
+SHARED-ios:ui/GtIosPanels.kt:448:    val viewportJs = "try{var b=map.getBounds();Android.onViewportChanged(" +
+SHARED-ios:ui/GtIosPanels.kt:452:    val centre = remember { mutableStateOf(doubleArrayOf(0.0, 0.0)) }
+SHARED-ios:ui/GtIosPanels.kt:457:    val zoom = remember { mutableIntStateOf(0) }
+SHARED-ios:ui/GtIosPanels.kt:470:    val group = remember {
+SHARED-ios:ui/GtIosPanels.kt:478:    val commScope = rememberCoroutineScope()
+SHARED-ios:ui/GtIosPanels.kt:479:    val comm = remember { com.grouptrack.shared.comm.GtIosCommLink(commScope) }
+SHARED-ios:ui/GtIosPanels.kt:491:    val grpAskActivate = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:495:    val notesRouteId = remember { mutableStateOf("") }
+SHARED-ios:ui/GtIosPanels.kt:502:    val bounds = remember { mutableStateOf<DoubleArray?>(null) }
+SHARED-ios:ui/GtIosPanels.kt:503:    val artifactList = remember { mutableStateOf<List<Map<String, String?>>>(emptyList()) }
+SHARED-ios:ui/GtIosPanels.kt:504:    val selectedIds = remember { mutableStateOf<Set<String>>(emptySet()) }
+SHARED-ios:ui/GtIosPanels.kt:505:    val activeListType = remember { mutableStateOf("") }
+SHARED-ios:ui/GtIosPanels.kt:509:    val checkedIds = remember { mutableStateOf<Map<String, Set<String>?>>(emptyMap()) }
+SHARED-ios:ui/GtIosPanels.kt:513:    val profileOpen = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:516:    val helpOpen = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:517:    val docView = remember { mutableStateOf("") }
+SHARED-ios:ui/GtIosPanels.kt:524:    val rideSettings = remember {
+SHARED-ios:ui/GtIosPanels.kt:526:            val d = IosClock.localNow()
+SHARED-ios:ui/GtIosPanels.kt:530:    val settingsOpen = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:533:    val issueEmail = remember { mutableStateOf(true) }
+SHARED-ios:ui/GtIosPanels.kt:536:    val showLeadTrack = remember { mutableStateOf(true) }
+SHARED-ios:ui/GtIosPanels.kt:538:    val recState = remember { mutableStateOf(RecordingState.CHECK_IN) }
+SHARED-ios:ui/GtIosPanels.kt:539:    val recMenu = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:543:    val detailType = remember { mutableStateOf("") }
+SHARED-ios:ui/GtIosPanels.kt:544:    val detailId = remember { mutableStateOf("") }
+SHARED-ios:ui/GtIosPanels.kt:548:    val hudOnDark = remember { mutableStateOf(true) }
+SHARED-ios:ui/GtIosPanels.kt:549:    val radioConnected = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:550:    val radioTalking = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:551:    val tilt = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:552:    val headingUp = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:555:    val trails = remember { mutableIntStateOf(1) }
+SHARED-ios:ui/GtIosPanels.kt:556:    val tracks = remember { mutableIntStateOf(1) }
+SHARED-ios:ui/GtIosPanels.kt:557:    val routes = remember { mutableIntStateOf(1) }
+SHARED-ios:ui/GtIosPanels.kt:558:    val waypoints = remember { mutableIntStateOf(1) }
+SHARED-ios:ui/GtIosPanels.kt:559:    val hidden = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:560:    val offAvailable = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:561:    val offDownloading = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:563:    fun slot(t: String) = when (t) {
+SHARED-ios:ui/GtIosPanels.kt:585:    val fitArtifact: (String, String, DoubleArray?) -> Unit = { typeIn, artifactId, fallback ->
+SHARED-ios:ui/GtIosPanels.kt:586:        val type = IosSearchDb.typeFor(artifactId).ifEmpty { typeIn }
+SHARED-ios:ui/GtIosPanels.kt:593:        val bb = IosSearchDb.bbox(type, artifactId)
+SHARED-ios:ui/GtIosPanels.kt:594:        val s0 = bb?.get(0) ?: fallback?.get(0)
+SHARED-ios:ui/GtIosPanels.kt:595:        val w0 = bb?.get(1) ?: fallback?.get(1)
+SHARED-ios:ui/GtIosPanels.kt:596:        val n0 = bb?.get(2) ?: fallback?.get(2)
+SHARED-ios:ui/GtIosPanels.kt:597:        val e0 = bb?.get(3) ?: fallback?.get(3)
+SHARED-ios:ui/GtIosPanels.kt:599:            val latPad = (n0 - s0).let { if (it > 0.0) it * 0.10 else 0.01 }
+SHARED-ios:ui/GtIosPanels.kt:600:            val lonPad = (e0 - w0).let { if (it > 0.0) it * 0.10 else 0.01 }
+SHARED-ios:ui/GtIosPanels.kt:613:    val relay: (String, String) -> Unit = { name, args ->
+SHARED-ios:ui/GtIosPanels.kt:615:            val v = args.trim().removePrefix("[").removeSuffix("]")
+SHARED-ios:ui/GtIosPanels.kt:629:            val id = args.trim().removePrefix("[").removeSuffix("]").trim().trim('"')
+SHARED-ios:ui/GtIosPanels.kt:657:    val filter = GtFilterBridge(
+SHARED-ios:ui/GtIosPanels.kt:667:                val table = when (typeName) {
+SHARED-ios:ui/GtIosPanels.kt:670:                val b = bounds.value
+SHARED-ios:ui/GtIosPanels.kt:674:                    val list = IosSearchDb.listInView(table, b[0], b[1], b[2], b[3])
+SHARED-ios:ui/GtIosPanels.kt:685:                        val cur = slot(typeName).intValue
+SHARED-ios:ui/GtIosPanels.kt:686:                        val saved = checkedIds.value[typeName]
+SHARED-ios:ui/GtIosPanels.kt:709:    val search = GtSearchBridge(
+SHARED-ios:ui/GtIosPanels.kt:722:            val s0 = r.minLat; val n0 = r.maxLat; val w0 = r.minLon; val e0 = r.maxLon
+SHARED-ios:ui/GtIosPanels.kt:723:            val fallback = if (s0 != null && n0 != null && w0 != null && e0 != null)
+SHARED-ios:ui/GtIosPanels.kt:755:    val actions = mapOf<String, () -> Unit>(
+SHARED-ios:ui/GtIosPanels.kt:801:                val rs = comm.listRadios()
+SHARED-ios:ui/GtIosPanels.kt:820:                val next = !group.value
+SHARED-ios:ui/GtIosPanels.kt:844:                val h = comm.health.value
+SHARED-ios:ui/GtIosPanels.kt:862:            val h = GtIosLocation.here()
+SHARED-ios:ui/GtIosPanels.kt:908:            val lamp = GtIosLocation.lamp()
+SHARED-ios:ui/GtIosPanels.kt:1022:                onOpen = { onMessage("gps", "the GPS interval panel is not built on the iPad yet") },
+SHARED-ios:ui/GtIosPanels.kt:1103:                        val notBuilt: (String, String) -> Unit = { what, why ->
+SHARED-ios:ui/GtIosPanels.kt:1139:                                val ty = detailType.value
+SHARED-ios:ui/GtIosPanels.kt:1140:                                val w = IosWriteDb.writer()
+SHARED-ios:ui/GtIosPanels.kt:1146:                                    val blockedBy = if (ty == "Waypoints") IosWriteDb.reader()?.routeUsingTrailhead(aid) else null
+SHARED-ios:ui/GtIosPanels.kt:1171:                                val w = IosWriteDb.writer()
+SHARED-ios:ui/GtIosPanels.kt:1179:                                val svc = IosWriteDb.artifacts
+SHARED-ios:ui/GtIosPanels.kt:1181:                                else when (val r = svc.share(detailType.value, aid)) {
+SHARED-ios:ui/GtIosPanels.kt:1189:                                val svc = IosWriteDb.artifacts
+SHARED-ios:ui/GtIosPanels.kt:1191:                                else when (val r = svc.export(detailType.value, aid)) {
+SHARED-ios:ui/GtIosPanels.kt:1298:                    val rid = notesRouteId.value
+SHARED-ios:ui/GtIosPanels.kt:1301:                            val nm = IosSearchDb.detail("Routes", rid)["name"]
+SHARED-ios:ui/GtIosPanels.kt:1302:                            val also = IosSearchDb.aliases("route", rid).mapNotNull { it["alias"] }.filter { it != nm }
+SHARED-ios:ui/GtIosPanels.kt:1352:fun gtGroupTrackController(onMessage: (String, String) -> Unit): UIViewController =
 SHARED-ios:ui/GtIosRoot.kt:27:fun gtIpadProbeController(): UIViewController =
 SHARED-ios:platform/GtIosLocation.kt:30: * The state lives in the delegate, not in this object: a nested class cannot reach an outer
 SHARED-ios:platform/GtIosLocation.kt:34:internal object GtIosLocation {
@@ -19563,6 +19577,92 @@ SHARED-ios:platform/GtVecMap.ios.kt:409:    val server = remember { GtVecServer 
 SHARED-ios:platform/GtVecMap.ios.kt:415:            val config = WKWebViewConfiguration()
 SHARED-ios:platform/GtVecMap.ios.kt:422:            val web = WKWebView(frame = CGRectMake(0.0, 0.0, 0.0, 0.0), configuration = config)
 SHARED-ios:platform/GtVecMap.ios.kt:439:fun gtVecMapController(onMessage: (String, String) -> Unit): UIViewController =
+SHARED-ios:comm/GtIosCommLink.ios.kt:48:class GtIosCommLink(private val scope: CoroutineScope) : CommLink {
+SHARED-ios:comm/GtIosCommLink.ios.kt:50:    private val log = gtLogger("GtIosCommLink")
+SHARED-ios:comm/GtIosCommLink.ios.kt:52:    private val _link = MutableStateFlow(Link.DISCONNECTED)
+SHARED-ios:comm/GtIosCommLink.ios.kt:53:    override val link: StateFlow<Link> = _link.asStateFlow()
+SHARED-ios:comm/GtIosCommLink.ios.kt:55:    private val _health = MutableStateFlow(LinkHealth(talking = false, recovering = false, attempts = 0, reason = "NOT_CONNECTED"))
+SHARED-ios:comm/GtIosCommLink.ios.kt:56:    override val health: StateFlow<LinkHealth> = _health.asStateFlow()
+SHARED-ios:comm/GtIosCommLink.ios.kt:60:    private val _onBoxWifi = MutableStateFlow<String?>(null)
+SHARED-ios:comm/GtIosCommLink.ios.kt:61:    override val onBoxWifi: StateFlow<String?> = _onBoxWifi.asStateFlow()
+SHARED-ios:comm/GtIosCommLink.ios.kt:63:    private val _radios = MutableStateFlow<List<RadioEntry>>(emptyList())
+SHARED-ios:comm/GtIosCommLink.ios.kt:64:    override val radios: StateFlow<List<RadioEntry>> = _radios.asStateFlow()
+SHARED-ios:comm/GtIosCommLink.ios.kt:66:    private val _selectedRadioId = MutableStateFlow<String?>(null)
+SHARED-ios:comm/GtIosCommLink.ios.kt:67:    override val selectedRadioId: StateFlow<String?> = _selectedRadioId.asStateFlow()
+SHARED-ios:comm/GtIosCommLink.ios.kt:69:    private val _scanProblem = MutableStateFlow<String?>(null)
+SHARED-ios:comm/GtIosCommLink.ios.kt:70:    override val scanProblem: StateFlow<String?> = _scanProblem.asStateFlow()
+SHARED-ios:comm/GtIosCommLink.ios.kt:72:    private var scanJob: Job? = null
+SHARED-ios:comm/GtIosCommLink.ios.kt:73:    private var linkJob: Job? = null
+SHARED-ios:comm/GtIosCommLink.ios.kt:74:    private var client: RadioClient? = null
+SHARED-ios:comm/GtIosCommLink.ios.kt:77:    private var active = true
+SHARED-ios:comm/GtIosCommLink.ios.kt:78:    private var rememberedRadioId: String? = null
+SHARED-ios:comm/GtIosCommLink.ios.kt:86:    override fun startScan(): CommResult {
+SHARED-ios:comm/GtIosCommLink.ios.kt:91:                val scanner = Scanner { filters { match { services = listOf(BleConstants.MESH_SERVICE_UUID) } } }
+SHARED-ios:comm/GtIosCommLink.ios.kt:93:                    val id = ad.identifier.toString()
+SHARED-ios:comm/GtIosCommLink.ios.kt:94:                    val entry = RadioEntry(
+SHARED-ios:comm/GtIosCommLink.ios.kt:113:    override fun stopScan() {
+SHARED-ios:comm/GtIosCommLink.ios.kt:118:    override suspend fun listRadios(): List<RadioEntry> = _radios.value
+SHARED-ios:comm/GtIosCommLink.ios.kt:124:    override fun radioName(radioId: String, memberId: String?, bluetoothName: String): String? = null
+SHARED-ios:comm/GtIosCommLink.ios.kt:128:    override suspend fun connect(radioId: String): CommResult {
+SHARED-ios:comm/GtIosCommLink.ios.kt:135:        val scanner = Scanner { filters { match { services = listOf(BleConstants.MESH_SERVICE_UUID) } } }
+SHARED-ios:comm/GtIosCommLink.ios.kt:136:        val ad = withTimeoutOrNull(SCAN_TIMEOUT_MS) {
+SHARED-ios:comm/GtIosCommLink.ios.kt:143:            val transport = BleTransport(peripheral = Peripheral(ad), address = radioId)
+SHARED-ios:comm/GtIosCommLink.ios.kt:144:            val c = RadioClient.Builder()
+SHARED-ios:comm/GtIosCommLink.ios.kt:163:    override suspend fun disconnect(): CommResult {
+SHARED-ios:comm/GtIosCommLink.ios.kt:169:    override suspend fun reconnect(): CommResult {
+SHARED-ios:comm/GtIosCommLink.ios.kt:170:        val id = _selectedRadioId.value ?: rememberedRadioId ?: return CommResult.Failed("NOT_CONNECTED")
+SHARED-ios:comm/GtIosCommLink.ios.kt:177:    override suspend fun forget(radioId: String): CommResult {
+SHARED-ios:comm/GtIosCommLink.ios.kt:183:    override suspend fun setActive(active: Boolean): CommResult {
+SHARED-ios:comm/GtIosCommLink.ios.kt:198:    private suspend fun disconnectInternal() {
+SHARED-ios:comm/GtIosCommLink.ios.kt:200:        val c = client
+SHARED-ios:comm/GtIosCommLink.ios.kt:213:    private fun watchConnection(c: RadioClient) {
+SHARED-ios:comm/GtIosCommLink.ios.kt:216:                val attempts = when (st) {
+SHARED-ios:comm/GtIosCommLink.ios.kt:221:                val recovering = st is ConnectionState.Reconnecting
+SHARED-ios:comm/GtIosCommLink.ios.kt:236:    internal fun radioClient(): RadioClient? = client
+SHARED-ios:comm/GtIosCommLink.ios.kt:238:    private fun setHealth(l: Link, reason: String?, attempts: Int, recovering: Boolean) {
+SHARED-ios:comm/GtIosCommLink.ios.kt:243:    private companion object {
+SHARED-ios:comm/GtIosCommLink.ios.kt:245:        const val SCAN_TIMEOUT_MS = 10_000L
+SHARED-ios:comm/GtIosCommConfig.ios.kt:39:class GtIosCommConfig(private val clientOf: () -> RadioClient?) : CommConfig {
+SHARED-ios:comm/GtIosCommConfig.ios.kt:41:    private val log = gtLogger("GtIosCommConfig")
+SHARED-ios:comm/GtIosCommConfig.ios.kt:43:    private val _report = MutableStateFlow<ApplyReport?>(null)
+SHARED-ios:comm/GtIosCommConfig.ios.kt:45:    override val applyReport: StateFlow<ApplyReport?> = _report.asStateFlow()
+SHARED-ios:comm/GtIosCommConfig.ios.kt:51:     * reporting interval replaced. Every radio in a group must share the preset, which is why this is one
+SHARED-ios:comm/GtIosCommConfig.ios.kt:60:    override suspend fun applyRadioChange(preset: String, movingIntervalSecs: Int): CommResult {
+SHARED-ios:comm/GtIosCommConfig.ios.kt:61:        val c = clientOf() ?: return notConnected("applyRadioChange")
+SHARED-ios:comm/GtIosCommConfig.ios.kt:62:        val lines = mutableListOf<String>()
+SHARED-ios:comm/GtIosCommConfig.ios.kt:63:        fun step(line: String) { lines.add(line); publish(running = true, lines = lines, checks = emptyList(), verified = false) }
+SHARED-ios:comm/GtIosCommConfig.ios.kt:65:        val wanted = runCatching { Config.LoRaConfig.ModemPreset.valueOf(preset) }.getOrNull()
+SHARED-ios:comm/GtIosCommConfig.ios.kt:76:        val loraNow = c.admin.getConfig(AdminMessage.ConfigType.LORA_CONFIG)
+SHARED-ios:comm/GtIosCommConfig.ios.kt:78:        val loraCur = loraNow.value.lora ?: return stopped(lines, "lora.read", "the radio returned no LoRa section")
+SHARED-ios:comm/GtIosCommConfig.ios.kt:80:        val a = c.admin.setConfig(
+SHARED-ios:comm/GtIosCommConfig.ios.kt:88:        val posNow = c.admin.getConfig(AdminMessage.ConfigType.POSITION_CONFIG)
+SHARED-ios:comm/GtIosCommConfig.ios.kt:90:        val posCur = posNow.value.position ?: return stopped(lines, "position.read", "the radio returned no position section")
+SHARED-ios:comm/GtIosCommConfig.ios.kt:92:        val b = c.admin.setConfig(
+SHARED-ios:comm/GtIosCommConfig.ios.kt:101:        val checks = mutableListOf<ConfigCheck>()
+SHARED-ios:comm/GtIosCommConfig.ios.kt:102:        val lora = c.admin.getConfig(AdminMessage.ConfigType.LORA_CONFIG)
+SHARED-ios:comm/GtIosCommConfig.ios.kt:107:        val pos = c.admin.getConfig(AdminMessage.ConfigType.POSITION_CONFIG)
+SHARED-ios:comm/GtIosCommConfig.ios.kt:116:        val verified = checks.all { it.ok }
+SHARED-ios:comm/GtIosCommConfig.ios.kt:125:    override suspend fun currentNetwork(): String? {
+SHARED-ios:comm/GtIosCommConfig.ios.kt:126:        val c = clientOf() ?: return null
+SHARED-ios:comm/GtIosCommConfig.ios.kt:127:        val r = c.admin.listChannels()
+SHARED-ios:comm/GtIosCommConfig.ios.kt:142:    override suspend fun previewConfig(configDoc: String, callsign: String): Pair<List<ConfigChange>, CommResult> =
+SHARED-ios:comm/GtIosCommConfig.ios.kt:145:    override suspend fun applyConfig(configDoc: String, callsign: String): CommResult = CommResult.NotSupported
+SHARED-ios:comm/GtIosCommConfig.ios.kt:147:    override suspend fun applyRide(request: ApplyRequest): CommResult = CommResult.NotSupported
+SHARED-ios:comm/GtIosCommConfig.ios.kt:149:    override suspend fun applySaved(id: String, saveTitle: String): CommResult = CommResult.NotSupported
+SHARED-ios:comm/GtIosCommConfig.ios.kt:151:    override suspend fun previewSaved(id: String): Pair<List<ConfigChange>, CommResult> =
+SHARED-ios:comm/GtIosCommConfig.ios.kt:154:    override suspend fun restoreSaved(id: String): CommResult = CommResult.NotSupported
+SHARED-ios:comm/GtIosCommConfig.ios.kt:156:    override suspend fun compareSaved(a: String, b: String): Pair<List<ConfigChange>, CommResult> =
+SHARED-ios:comm/GtIosCommConfig.ios.kt:159:    override suspend fun compareConfigs(a: String, b: String): Pair<List<ConfigDifference>, CommResult> =
+SHARED-ios:comm/GtIosCommConfig.ios.kt:163:    override suspend fun savedConfigs(): List<SavedConfig> = emptyList()
+SHARED-ios:comm/GtIosCommConfig.ios.kt:165:    override suspend fun savedSetups(): List<SavedSetup> = emptyList()
+SHARED-ios:comm/GtIosCommConfig.ios.kt:168:    override suspend fun driftSinceLastSave(): List<ConfigChange> = emptyList()
+SHARED-ios:comm/GtIosCommConfig.ios.kt:171:    override suspend fun networkLink(): Pair<String?, CommResult> = null to CommResult.NotSupported
+SHARED-ios:comm/GtIosCommConfig.ios.kt:175:    private fun notConnected(what: String): CommResult {
+SHARED-ios:comm/GtIosCommConfig.ios.kt:181:    private fun stopped(lines: MutableList<String>, at: String, reason: String): CommResult {
+SHARED-ios:comm/GtIosCommConfig.ios.kt:188:    private fun publish(
+SHARED-ios:comm/GtMeshBle.ios.kt:23:internal object GtMeshBle {
+SHARED-ios:comm/GtMeshBle.ios.kt:26:    val meshServiceUuid = BleConstants.MESH_SERVICE_UUID
+SHARED-ios:comm/GtMeshBle.ios.kt:32:    fun transportFor(peripheral: Peripheral, address: String): BleTransport =
 SHARED-ios:db/GtDb.ios.kt:10:actual fun gtOpenDatabase(path: String, readOnly: Boolean): SQLiteConnection =
 SHARED-ios:text/GtMathPow.kt:28:internal object GtMathPow {
 SHARED-ios:text/GtMathPow.kt:29:    private fun f(u: ULong): Double = Double.fromBits(u.toLong())

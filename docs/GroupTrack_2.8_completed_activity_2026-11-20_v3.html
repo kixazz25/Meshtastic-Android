@@ -1,0 +1,375 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack &mdash; COMPLETED ACTIVITY 2.8 &mdash; v3 (2026-11-20)</title></head><body>
+<h1>COMPLETED 2026-11-20</h1>
+<p>One row per item that closed today, with its EVIDENCE (a measurement, a commit, a device
+observation) and its commit number. Items ARRIVE here by being MOVED out of the handoff interim
+or the checklist interim -- never by being retyped. Becomes the day&rsquo;s completed-activity
+record at the EOD process, so that pruning never loses the fact that something was addressed.</p>
+<p style="margin:10px 0;padding:8px 12px;border-left:3px solid #d29922;background:rgba(210,153,34,.12);font-size:13.5px"><b>Why this is v3 and there is no v2.</b> A <code>..._v2.html</code> was written earlier this evening in the wrong shape &mdash; a four-column table of my own invention, built straight into a version filename instead of into the day&rsquo;s interim. It was never committed and never released; it now sits in <code>~/Downloads/gt_scratch_2026-11-20/</code>. The GOLDEN RULE forbids reusing a filename even for a file that went nowhere, so this document is v3, and the gap is explained here rather than left to look like a dropped version.</p>
+<h2 id="closed1120">CLOSED 2026-11-20 (CLOSED1120-2026-11-20)</h2>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>Item</th><th>Evidence</th><th>Commit</th></tr>
+
+<tr><td>ADMITWINDOW &mdash; group membership is the node database intersected with the Admission Window slider</td>
+<td>ON DEVICE, Droid 1: at a 1-hour window two radios boxed and powered off 16 days (23,087 min) read OUT, the live pair read IN, and it held across a two-hour app-closed gap. Logged via <code>android.util.Log</code> (gtLogger does not reach logcat).</td><td><code>26555bc27</code></td></tr>
+
+<tr><td><code>cartFromMember</code> WRITTEN &mdash; COTBOARD-2026-10-15 referenced it at :1328 and never wrote it</td>
+<td>Why a radio in the node db only became a cart if a CoT position packet happened to arrive. Positionless carts held out of ConvoyEngine, whose haversine at :132-151 is unguarded.</td><td><code>26555bc27</code></td></tr>
+
+<tr><td>ADMITWINDOW v5 &mdash; group awareness OFF means MY CART ONLY</td>
+<td>Without the guard the node-db build would re-admit every cart ANDROIDMODE1-2026-10-14 had just cleared. On Droid 1 from the 15:00 build (versionCode 29321696, installed 15:07).</td><td><code>26555bc27</code></td></tr>
+
+<tr><td>FITBEARING &mdash; <code>fitBounds</code> passed no bearing, and MapLibre defaults it to 0</td>
+<td>The follow path uses fitBounds for GROUP and for COLLAPSED, so riding with the HUD collapsed forced the map north every refresh. Now passes <code>map.getBearing()</code>. The IN-MOTION spin is NOT closed by this (C28-26354 stays open).</td><td><code>26555bc27</code></td></tr>
+
+<tr><td>GROUPFIT70 &mdash; group fitBounds padding 0.1 &rarr; 0.15 at GroupTrackScreen :547 and :564</td>
+<td>The four unpadded fitBounds calls (:771, :1081, :2304, :2983) are deliberately full-map and were left alone.</td><td><code>26555bc27</code></td></tr>
+
+<tr><td>Toolchain to upstream's: kotlin 2.4.21, devtools-ksp 2.3.14, hilt 2.60.1 (AGP 9.1.1 and compose-multiplatform 1.12.2 unchanged)</td>
+<td>FORCED: every published Meshtastic KMP SDK release carries klib ABI 2.4.0 and our 2.3.10 compiler consumes &le; 2.3.0. Android BUILD SUCCESSFUL 4m50s cold, then 3m19s; value-parity suite 22 tests, 0 failures, 0 errors.</td><td><code>be2762650</code></td></tr>
+
+<tr><td>IOSSDK step 1 &mdash; Path B: the iPad's mesh layer is the official Meshtastic KMP SDK, pinned 0.2.0</td>
+<td><code>:grouptrack-shared:compileKotlinIosSimulatorArm64</code> green with sdk-core + sdk-transport-ble + kable-core linked, and the Kotlin/Native TEST BINARY links and runs &mdash; which proves the whole graph, not just compilation.</td><td><code>be2762650</code></td></tr>
+
+<tr><td>GRPMODESHARED &mdash; group awareness is one shared source for both platforms</td>
+<td>Uses ANDROID'S OWN store name and key, so every existing install reads its setting where it already sits: no migration, no device data touched. Android's GroupMode keeps its exact public API and delegates, so all 20+ ConvoyViewModel and 7 GroupTrackScreen call sites are untouched. Android green; iOS compile green.</td><td><code>be2762650</code></td></tr>
+
+<tr><td>IOSCOMM &mdash; <code>GtIosCommLink</code>, all 16 CommLink members over the SDK</td>
+<td>iOS compile green. Honest <code>NotSupported</code> where iOS has no API: forget (no unpair), onBoxWifi, radioName, paired=false. ⚠ Nothing here can EXECUTE on the simulator (no Bluetooth).</td><td><code>22a3475fe</code></td></tr>
+
+<tr><td>IOSCONFIG &mdash; <code>GtIosCommConfig</code>: the radio settings write, re-read and report</td>
+<td>applyRadioChange writes the LoRa preset and the moving reporting interval, then RE-READS both and reports a ConfigCheck per setting; currentNetwork reads the primary channel's name. Saved-setups half returns NotSupported (needs GroupTrack's config-doc format + RadioBackups).</td><td><code>22a3475fe</code></td></tr>
+
+<tr><td>IOSCOMMWIRE &mdash; the panels CALL the container</td>
+<td>mode.switch persists through GtGroupMode AND calls setActive &mdash; fixing a regression the group-mode commit itself introduced; grp.open reports the real link state; RADIO SETUP's two rows attached.</td><td><code>22a3475fe</code></td></tr>
+
+<tr><td>DEPLOYGUARD &mdash; <code>deploy_v4.sh</code>: the 2.7e baseline is opt-in, not opt-out</td>
+<td>CAUSE: <code>gt_build_v2.sh --deploy</code> calls deploy_v3.sh with no arguments, and v3 installs to EVERY connected device by design. Droid 2 verified intact: versionCode 29321521, last updated 11-14. ⚠ STILL OPEN &mdash; gt_build_v2.sh line 21 still calls deploy_v3.sh.</td><td><code>(tooling)</code></td></tr>
+
+<tr><td>Docs recommit, 11-20 midday</td>
+<td>handoff v128, checklist v10/v11, QuickStart v101 carried forward</td><td><code>5c6e7e5aa</code></td></tr>
+
+</table>
+<p>⚠ <b>One file from today is still uncommitted:</b> <code>grouptrack-shared/src/iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt</code> &mdash; the <code>rides.ride</code> wiring (IOSRIDE-2026-11-20). It is owed a commit before the recommit; it is listed here so it cannot be lost between the two.</p>
+<h2>WORK PAPERS &mdash; GRADUATED OUT OF THE HANDOFF AND THE CHECKLIST, 2026-11-20</h2>
+<p>The three cards below were <b>MOVED</b> here out of <code>grouptrack_living_checklist_interim_2026-11-20.html</code>, verbatim, with their card numbers intact. Each left a MOVED breadcrumb at its old place naming this document, so pruning the checklist can never lose the fact that the item existed (DOCMOVE-2026-11-20). They are not retyped and not summarised.</p>
+
+<!-- MOVED verbatim from the checklist interim, C28-26350_ADMITWINDOW -->
+
+<h3>⛔ 2.8a C28-26350 &middot; ADMITWINDOW &mdash; the admission window is written and never read, so week-old nodes join the group</h3>
+
+<p><b>Fred 11-20 10:44:</b> <i>"supposed to be a window that restricts devices includ[ed] in the group that
+have to be visible in the last 24 hours. I had devices over a week old appear in my group a[nd] they never
+left my house. included in the my group view those phantom carts."</i></p>
+
+<p><b>MEASURED, and it is a level-2 case of the exact shape we carded yesterday.</b> In
+<code>ConvoyViewModel.kt</code> the identifier <code>admissionWindowHours</code> appears <b>exactly
+twice</b>: declared at <b>:536</b> (<code>private var admissionWindowHours: Int = 1</code>) and assigned at
+<b>:555</b> (<code>settingsRepository.admissionWindowHours.collect { admissionWindowHours = it }</code>).
+<b>It is never read.</b> The only heard-time state in the view model is
+<code>polyLastHeardMs</code> (:154, :1180-1181), which belongs to the lead polyline, not to cart admission.</p>
+
+<p><b>EVERYTHING ELSE ABOUT THE FEATURE EXISTS.</b> The setting is plumbed end to end and even carries cert
+coverage, which is why it reads as finished: <code>GtRideSettings.admissionWindowHours()</code>
+(grouptrack-shared, K_ADM) · <code>ConvoySettingsRepository</code>:43/50/55/72 ·
+<code>ConvoySettingsViewModel</code>:18/43/50/70 · the Settings slider at
+<code>ConvoySettingsScreen.kt</code>:376-380 showing <i>"N hr"</i> · <code>GtAlertSettingsPanel</code>:86/198
+· and both cert paths, <code>GtCert17b2.kt</code>:54/71/84 and <code>GtRideSettingsMacTest</code>:74/80/87.
+A slider the rider can move, persisted, certified on two platforms, with <b>no consumer</b>.</p>
+
+<p><b>⚠ AND THE DEFAULT DISAGREES WITH THE INTENT.</b> Two independent defaults are <b>1 hour</b>, not 24:
+<code>GtRideSettings:29</code> <code>getInt(K_ADM, 1)</code> and <code>SettingsRepoCertOld:56</code>
+<code>?: 1</code>. Fred's statement of the rule is 24 hours. So even once the window is applied, the shipped
+default is wrong by a factor of 24 &mdash; and the two must be decided together, or applying the window will
+hide carts a rider expects to see.</p>
+
+<p><b>why the phantom carts are stationary.</b> Nodes that never left the house are precisely the ones a
+heard-time window exists to drop: they report once, then sit in the node database. With no window applied,
+the group view shows every node the radio has ever heard.</p>
+
+<p><b>fix shape</b> &mdash; one filter at the point the group list is built, reading the field already being
+collected, plus the 1-vs-24 default decision. <b>Not</b> a new setting; the setting is there.</p>
+<div class="src">Measured 2026-11-20 against the 2.8 branch (RIDEDEFECTS-2026-11-20). Reported by Fred from the
+driveway record test on 2.8a.</div>
+</div>
+
+<div class="card">
+
+
+<!-- MOVED verbatim from the checklist interim, C28-26355_GROUPFIT70 -->
+
+<h2>⛔ OPENED 2026-11-20 &mdash; RIDE TEST ITEM 5: THE GROUP FIT LEAVES NO ROOM AHEAD (C28-26355)</h2>
+
+<div class="card">
+<h3>⛔ 2.8a C28-26355 &middot; GROUPFIT70 &mdash; the group view fits the middle 80%; Fred wants 70% so the trail ahead is visible</h3>
+
+<p><b>Fred 11-20 10:52:</b> <i>"it also appears that the group view ta[ke]s the whole map vertically so you
+can[not] see the path [you] are riding. group view should consume ~70% of map so it stays centered and shows
+trail ahead."</i></p>
+
+<p><b>MEASURED &mdash; the padding exists and the number is 0.1.</b> Both group call sites pass it:
+<code>GroupTrackScreen.kt:547</code> (<i>"GROUPFIT-2026-10-26: the middle 80%"</i>) and
+<code>:564</code> (the HUDFIT-2026-11-03 selection fit), each calling
+<code>fitBounds([lats], [lons], 0, 0.1)</code>. The page turns that into pixels at
+<code>vec_spatial.js:249-250</code>:</p>
+<pre>var px = (pad &amp;&amp; pad &gt; 0) ? Math.round(Math.min(c.clientWidth, c.clientHeight) * pad) : 0;
+map.fitBounds([[w, s], [e, n]], { padding: px, maxZoom: 18 - GT_ZOFF, duration: 0 });</pre>
+
+<p>So 0.1 on each side leaves the group the <b>middle 80%</b>. With riders strung along the direction of
+travel, 10% beyond the lead cart is not enough ground to see what is coming &mdash; which is the complaint.</p>
+
+<p><b>fix</b> &mdash; <code>pad</code> 0.1 &rarr; <b>0.15</b> at BOTH call sites (:547 and :564), giving the
+middle <b>70%</b> with 15% clear at each end. Update the two comments; "the middle 80%" becomes wrong the
+moment the number changes, and a stale comment is what cost us C28-26351 today.</p>
+
+<p><b>⚠ TWO THINGS TO KNOW BEFORE PICKING THE NUMBER.</b></p>
+<ul>
+<li><b>The pad is scaled by the SHORTER side</b> &mdash; <code>Math.min(clientWidth, clientHeight)</code>.
+In landscape, the riding mode, that is the height. So 0.15 yields 70% of the <b>height</b> but a larger share
+of the width, because the same pixel padding is a smaller fraction of a wider viewport. If "70% of the map"
+means 70% in both directions, the padding has to be computed per axis, not from the minimum.</li>
+<li><b>"Shows trail ahead" and "stays centered" pull in different directions.</b> Symmetric padding keeps the
+group centred with equal room fore and aft. Genuinely favouring the ground ahead means asymmetric padding
+&mdash; MapLibre's <code>padding</code> accepts <code>{top, bottom, left, right}</code>, so more room at the
+top is available once "My dir" holds the heading up (C28-26354). Fred asked for centred at 70%, so that is
+what this card specifies; the asymmetric version is a later choice, not a correction.</li>
+</ul>
+
+<p><b>⚠ DO NOT change the unpadded call sites.</b> :771, :1081, :2304 and :2983 call
+<code>fitBounds</code> with no <code>pad</code> argument, so <code>px = 0</code> and the box fills the map.
+That is correct for restoring a saved viewport or a stored bbox, where the bounds <i>are</i> the intended
+view.</p>
+<div class="src">Measured 2026-11-20 against the 2.8 branch (GROUPFIT70-2026-11-20). Reported by Fred 10:52 from
+the driveway record test on 2.8a.</div>
+</div>
+
+
+
+<!-- MOVED verbatim from the checklist interim, C28-26349_IOSCOMM -->
+
+<h2>⭐⭐ OPENED 2026-11-20 &mdash; THE iOS COMM MODULE: APPROACH SETTLED BY MEASUREMENT (C28-26349)</h2>
+
+<div class="card">
+<h3>⭐⭐ 2.8b C28-26349 &middot; IOSCOMM &mdash; the contract exists; the data layer is already multiplatform; only BLE is a rewrite</h3>
+
+<p><b>Fred 11-20 07:31:</b> <i>"so our task now is activating grp awareness features, the radio setting
+activities, and building the iOS comm module to support that."</i> And 07:16: <i>"I am not worried about
+traffic but building code and functions in our comm container to support the app when we install on the
+iPad."</i> And 07:26 &mdash; the reason the order changed: <i>"this way we do not have to do more
+development before we begin certification on the iPad vs 2.8a vs 2.7e."</i></p>
+
+<p><b>⚠ THIS SUPERSEDES L2a's SEQUENCING.</b> C28-26318 / L2a reads <i>"NOT on the critical path for the
+first iPad generation&hellip; Keep it there."</i> That is no longer the plan: the comm container is built now, so
+certification runs end to end without stopping to develop mid-run. L2a's ANALYSIS stands unchanged and was
+independently confirmed today &mdash; adoption behind the API boundary, not translation of 281 Android BLE
+call sites. Only its scheduling changed.</p>
+
+<p><b>THE CONTRACT ALREADY EXISTS AND NEEDS NO CHANGE.</b> <code>:grouptrack-comm</code> is contract only by
+its own build file (<i>"the GroupTrack Comm API (contract only). COMMAPI3-2026-10-08"</i>): one file, 365
+lines, <code>GroupCommPlugin</code> composing CommLink, CommIdentity, CommConfig, CommMessaging, CommSession,
+CommMenus, plus GroupState and CommSetupStore. <b>GroupTrack asks by id and never names a screen</b>
+(MeshCommMenus.kt:13), which is precisely why an iOS implementation needs no contract edit.</p>
+
+<p><b>WHAT ANDROID IMPLEMENTS, AND WHERE THE PLATFORM ACTUALLY TOUCHES.</b> Thirteen files, 1,979 lines, in
+<code>app/.../comm/</code>. Measured: <b>exactly one file touches UI or navigation</b> (MeshCommMenus, 89
+lines); every other file scores zero. The whole platform surface is <b>10 distinct symbols over 30
+occurrences, and 16 of those are Context/ApplicationContext dependency injection</b>. All real hardware
+behaviour is <b>four functions, all in MeshCommLink</b>: <code>setActive</code> (L103, L118),
+<code>forget</code> (L124), <code>reconnect</code> (L159-204, a BroadcastReceiver on Bluetooth state) and
+<code>holdReconnects</code> (L214). Bluetooth is five types: BluetoothManager (3), BluetoothDevice (5),
+BroadcastReceiver/IntentFilter/Intent (3), ContextCompat (2). Plus <code>android.hardware.usb</code> in
+MeshRadioList (USB radios &mdash; out of scope on iPad) and Context in RadioBackups (file paths only).</p>
+
+<p><b>THE iOS MAPPING IS NEARLY ONE-TO-ONE.</b> BluetoothManager adapter state &rarr;
+<code>CBCentralManager.state</code>; the BroadcastReceiver &rarr; <code>centralManagerDidUpdateState</code>;
+BluetoothDevice &rarr; <code>CBPeripheral</code>; <code>forget</code> &rarr; iPad cannot, which the contract
+<b>already says</b> at CommLink.forget (<i>"iPad: partial &mdash; system pairing is the rider's"</i>). And the
+contract already expresses Bluetooth on/off: <code>scanProblem</code> is documented BLUETOOTH_OFF /
+PERMISSION_MISSING, which maps straight onto <code>CBManagerState</code> (.poweredOff, .unauthorized). No
+contract change; only the implementation differs.</p>
+
+<p><b>THE TWO MESHTASTIC SCREENS ARE ABSENT BY NOT BEING OFFERED &mdash; already built behaviour.</b>
+GrpAwareness.kt:169 takes <code>menus: Set&lt;String&gt;</code> from CommMenus.items() with the note
+<i>"a button shows only when offered."</i> So the iPad's items() returns fewer ids and the NODES button
+(L285) and radio-settings button simply never render. <b>No stub, no NotSupported path, no new code.</b>
+Of the three ids only two are affected: <code>mesh-menu</code> unfolds MeshNavFold, which is GroupTrack's own
+state. <b>Fred 11-20 07:27:</b> <i>"nodes is a full functional display to managing and controlling nodes. it
+[is] a screen panels and function that must come from mesh."</i></p>
+
+<p><b>⚠ TWO SYSTEM ESCAPES ON THAT PANEL, ONE OF WHICH CANNOT EXIST ON iOS.</b>
+<code>openBluetoothSettings(ctx)</code> (L232, the BLUETOOTH button shown when scanning is blocked) has
+<b>no iOS equivalent</b> &mdash; Apple removed deep-linking to Bluetooth settings. It must not render.
+<code>openAppSettings(ctx)</code> (L236, ALLOW) <b>does</b> port, via
+<code>UIApplication.openSettingsURLString</code>. Consequence: on the iPad, BLUETOOTH_OFF has no actionable
+button and the text has to carry it.</p>
+
+<p><b>⭐⭐ THE FINDING THAT DECIDES THE STRATEGY: NO SECOND UPSTREAM.</b> Everything the comm layer
+calls lives in modules of our OWN fork, and upstream has already begun the KMP migration. Measured 11-20:</p>
+<ul>
+<li><code>core/repository</code> &mdash; 31 files, 1,937 lines, <b>commonMain ONLY</b>, zero Android imports,
+zero Hilt. Holds NodeRepository (38 refs from comm), RadioInterfaceService (23), ServiceRepository (22),
+RadioConfigRepository (19).</li>
+<li><code>core/model</code> &mdash; <b>46 files / 3,609 lines in commonMain</b>, 7 files / 442 lines in
+androidMain where they belong. Holds Node, DataPacket, ConnectionState, RadioController, MyNodeInfo.</li>
+<li><code>core/common</code> &mdash; 16 commonMain files, and <b>the Parcelable problem is already solved
+upstream</b>: Parcelable.kt declares <code>expect interface CommonParcelable</code>,
+<code>expect annotation class CommonParcelize()</code>, CommonIgnoredOnParcel, CommonParceler,
+CommonTypeParceler and <code>expect class CommonParcel</code>, with the Android actuals isolated in
+<code>androidMain/Parcelable.android.kt</code>. iOS needs ONE new file of no-op actuals.</li>
+<li><code>core/proto</code> &mdash; <b>zero hand-written Kotlin</b>; Wire generates from
+<code>src/main/proto</code>. Its only dependency is wire.runtime, and Wire demonstrably targets iOS: the
+repo's own <code>packages/kmp</code> publishes <code>org.meshtastic:protobufs-iosarm64</code> and
+<code>-iossimulatorarm64</code>.</li>
+<li><code>core/resources</code> &mdash; 2 files.</li>
+<li><code>core/data</code> &mdash; 43 files, 6,459 lines, 83% free of Android imports and <b>zero Room</b>.
+Holds <b>MeshDataHandlerImpl</b> (the receive path that parses packets), TakRole/TakSeen/TakShape stores,
+RadioNameStore. Of its 7 Android-touching files only <b>NodeRepositoryImpl</b> is in our path, and its use is
+<code>androidx.lifecycle.repeatOnLifecycle</code> &mdash; replaceable with a plain coroutine scope.</li>
+<li><code>core/ui</code> &mdash; 92 files, <b>10,907 lines, OUT OF SCOPE</b>. GroupTrack owns its panels
+(Fred's 10-08 governing rule).</li>
+</ul>
+
+<p><b>⛔ THE REAL GATE, and it is not the Android imports.</b>
+<code>configureKotlinMultiplatform()</code> declares <b>only the Android KMP target</b> &mdash; no iOS. The
+build output confirms it: <code>core/model/build/classes/kotlin</code> contains <code>android</code> and
+nothing else. So ~5,546 lines sit in commonMain and <b>have never once been compiled for Kotlin/Native.</b>
+Structurally multiplatform is not the same as known to compile.</p>
+
+<p><b>HILT DOES NOT REACH THE PROBE CHAIN.</b> javax.inject/dagger file counts: core/proto 0, core/common 1,
+core/model 0, core/repository 0. Hilt is concentrated in core/data (36 files), core/domain and core/ble
+&mdash; all later steps. Those classes are already <code>@Inject constructor</code>, so their dependencies
+are explicit: removing Hilt is wiring by hand once, not restructuring.</p>
+
+<p><b>THE PROBE SEQUENCE &mdash; bottom-up, one module per build, each compile answering one thing.</b>
+<code>core/proto</code> (free &mdash; Wire generates) &rarr; <code>core/common</code> (+1 iosMain Parcelable
+file) &rarr; <code>core/resources</code> (2 files) &rarr; <code>core/model</code> &rarr;
+<code>core/repository</code>. Then <code>core/data</code> (Hilt &times;36 + the lifecycle call),
+<code>core/ble</code> &rarr; CoreBluetooth, then storage (Room &rarr; androidx.sqlite, the pattern
+grouptrack-shared already uses and DBPROBE already proved on the iPad; prefs/DataStore &rarr; expect/actual
+needed anyway for CommSetupStore).</p>
+
+<p><b>THREE UNKNOWNS ONLY A COMPILER CAN SETTLE</b> &mdash; named so they are not re-derived:
+<code>wire.runtime</code> on Kotlin/Native (the published iOS artifacts suggest fine),
+<code>androidx.paging:paging-common</code> 3.4.1 (multiplatform since 3.3), and
+<code>kermit</code> (multiplatform by design). Each surfaces at step 1, 5 and 2 respectively.</p>
+
+<p><b>PREREQUISITE, now load-bearing:</b> CoreBluetooth requires
+<code>NSBluetoothAlwaysUsageDescription</code> in a real <code>Info.plist</code>. The iPad has none &mdash;
+it runs with <code>enforceStrictPlistSanityCheck = false</code> because <code>INFOPLIST_KEY_*</code> only
+passes Xcode's allowlist and silently drops anything else. Already on the owed list; it now gates the comm
+container.</p>
+
+<div class="src">Written 2026-11-20 by measurement against the 2.8 branch (IOSCOMM-2026-11-20). Corrections
+recorded the same day: an earlier claim that 756 lines "port unchanged" counted only android.*/Context and
+missed imports of Meshtastic-Android's own modules &mdash; the honest split is 567 lines truly portable, 284
+portable but for one type each, 1,128 needing the platform side. An earlier claim that node management and
+radio settings "cannot exist on iOS" was wrong: Meshtastic ships an iOS app, and L2a already named it as the
+reference.</div>
+</div>
+
+
+
+<h2>⭐⭐⭐ TODAY 2026-11-20 &mdash; THE TOOLCHAIN MOVED, AND THE MESH LAYER THE APP CANNOT SHIP WITHOUT GOT BUILT (COMM1120-2026-11-20)</h2>
+<p>Fred 15:57: <i>&ldquo;GREAT JO[B] ON THE MESH SERVICES. THAT WAS THE ONE I WAS AFRAID OF. NO APP WITHOUT THAT.&rdquo;</i>
+The write-ups below are the ones with no card of their own; the carded work is in the WORK PAPERS above.</p>
+
+<h3>⭐⭐ KOTLIN2421 &mdash; THE TOOLCHAIN MOVE WAS FORCED, NOT CHOSEN (KOTLIN2421-2026-11-20)</h3>
+<p>Every published Meshtastic KMP SDK release carries klib ABI 2.4.0, and our 2.3.10 compiler reports it
+<i>&ldquo;can consume libraries having ABI version &le; 2.3.0&rdquo;</i>. There was no older SDK to fall back to, so the
+choice was the toolchain or Path A.</p>
+<p>We caught up to UPSTREAM rather than inventing a combination: upstream pairs kotlin 2.4.21 with ksp 2.3.14 and the
+<b>same</b> compose-multiplatform 1.12.2 we already run. Hilt was the only casualty &mdash; 2.59.2 caps
+kotlin-metadata-jvm at metadata 2.3.0 (google/dagger #5190 names our exact version); 2.60.1 bundles 2.3.21.
+<b>Not</b> followed: upstream's Koin migration (we use Hilt) and Room 3.1.0-alpha04 (we use 2.8.4). AGP stayed 9.1.1
+because it was not required. Fred 13:35: <i>&ldquo;I would rather deal with that now before we build a whole model
+under an old release.&rdquo;</i></p>
+
+<h3>⭐⭐ WHY PATH B, AND WHY PATH A WAS PRICED FIRST (IOSSDK-2026-11-20)</h3>
+<p>Path A &mdash; porting our own <code>core/*</code> to iOS &mdash; was measured, not guessed: core/proto compiled,
+core/common needed 3 fixes and 6 iosMain actuals, core/model failed on 17 JVM-stdlib sites in commonMain, and core/data
+(Room + Hilt + zstd-jni) was never reached. That probe was <b>REVERTED, not committed</b>.</p>
+<p>The SDK was then verified against its <b>source</b>, not its README: <code>AdminApi</code> covers the whole
+radio-settings surface, which its documentation never mentions. ⛔ One trap found on the way: we read the SDK's
+<code>main</code> branch instead of the <code>v0.2.0</code> tag and got unresolved <code>BleScanner</code> /
+<code>DiscoveredRadio</code>. Read the tag, not the branch.</p>
+
+<h3>⛔⛔ THE SDK TRAP THAT WOULD HAVE BRICKED A RADIO (LORAWRITE-2026-11-20)</h3>
+<p>The SDK's <code>setLoraConfig</code> / <code>setPositionConfig</code> helpers must <b>not</b> be used for a partial
+update. Their <code>initial</code> is <code>Config.X.Builder().build()</code> &mdash; a FRESH EMPTY SECTION &mdash; so
+whatever the block builds is what gets sent. Setting two fields would reset every other field in that section to its
+proto default, <b>LoRa <code>region</code> among them</b>, and an unset region means the radio will not transmit
+legally. A first version of our code did exactly that; reading the helper body is what caught it.</p>
+<p>Correct form, and the comment is in the file so it is not re-introduced:
+<code>getConfig(section)</code> &rarr; <code>newBuilder()</code> on what the RADIO holds &rarr; set only the managed
+fields &rarr; <code>setConfig</code>.</p>
+
+<h3>⛔ TWO GENERATIONS OF THE SAME PROTO (PROTOGEN-2026-11-20)</h3>
+<p>The SDK's published <code>org.meshtastic:protobufs</code> is a Wire <i>javaInterop</i> build &mdash; Builders, no
+<code>copy()</code>. Our own <code>core/proto</code> is the opposite: <code>copy()</code> exists and
+<code>newBuilder()</code> THROWS. So iosMain code against the SDK uses <code>x.newBuilder().also{}.build()</code> and
+commonMain/Android uses <code>x.copy(...)</code>. The same expression cannot be shared between them. This is a
+permanent property of the two dependency sets, not a transition state.</p>
+
+<h3>⭐ HARNESS &mdash; THE VALUE-PARITY RUN THAT CERTIFIED THE TOOLCHAIN MOVE (VALPARITY-2026-11-20)</h3>
+<ul>
+<li><b>INTENT.</b> Prove that moving the compiler from Kotlin 2.3.10 to 2.4.21 changed no COMPUTED VALUE in the shared
+services.</li>
+<li><b>PURPOSE.</b> The toolchain had to move before the iPad comm module could exist. A compiler change is exactly the
+kind of change that alters a rounding, a format or a projection silently, and the three-column certification would then
+be comparing against a shifted baseline without knowing it.</li>
+<li><b>METHOD.</b> <code>./gradlew :grouptrack-shared:iosSimulatorArm64Test</code> filtered to the classes a compiler
+change could plausibly move: <code>*GtMath*</code> (the fdlibm ports), <code>*GtFmt*</code>, <code>*CertValues*</code>,
+<code>*GtCertGeom*</code>, <code>*CertPaths*</code>, <code>*GtFoundation*</code>. Nine classes, 22 tests.</li>
+<li><b>HOW WE VERIFY.</b> Per-class XML in
+<code>grouptrack-shared/build/test-results/iosSimulatorArm64Test/</code> &mdash; tests, failures, errors and time per
+class, read directly rather than inferred from the exit code.</li>
+<li><b>RESULT.</b> 22 tests, 0 failures, 0 errors.</li>
+<li><b>WHAT IT DOES NOT COVER.</b> (a) It is a VALUE check, not a behaviour check &mdash; application-layer differences
+are invisible to it, which is the 11-19 lesson that a mechanical diff would never have found the settings substitution.
+(b) It does not touch the Android side; the three-column run against Droid 1 is still owed.
+(c) ⚠ <b>Three suites in it are suspect:</b> <code>GtCertPathsMacTest</code> (0.0 s),
+<code>GtCertValuesMacTest</code> (0.001 s) and <code>GtMathProbeMacTest</code> (0.002 s) are too fast to have compared
+anything meaningful. They may be table lookups, or they may short-circuit on an absent fixture and pass
+<b>VACUOUSLY</b>. NOT investigated &mdash; a suite that reads as certified without asserting is worse than one that
+fails. <b>This is exactly the class of thing the completion register exists to catch, and it is carded for tomorrow.</b></li>
+<li><b>COST, for whoever wires this into CI.</b> <code>GtCertGeomMacTest</code> alone runs <b>568 seconds</b>. The full
+45-class suite is tens of minutes &mdash; long, not hung. An earlier run was misread as hung: Gradle buffers test
+events, so an empty <code>output-events.bin</code> proves nothing and the progress counter is the signal.</li>
+</ul>
+
+<h2>FOUND AND FIXED AT THIS EOD (DOCFIX-2026-11-20)</h2>
+<ol>
+<li><b>The version of record was wrong inside two more docs</b> &mdash; the same defect as DOCVER-2026-11-18, recurred.
+<code>GroupTrack_QuickStart_2.8_2026-11-19_v101.html</code> carried <i>&ldquo;v101, 2026-11-17&rdquo;</i> in its title,
+and <code>grouptrack_release_notes_2026-11-19_v87.html</code> called itself <i>&ldquo;Release Notes v86&rdquo;</i>.
+Both corrected in v102 / v88. MANUALBASE (method rule 3) says the version of record is INSIDE the file; the check that
+would enforce it does not exist, which is why this keeps coming back.</li>
+<li><b>Admission Window was in the app and not in the manual at all.</b> The slider shipped with the words
+&ldquo;a radio must have been heard within this time to appear on the map&rdquo; and the manual had no section for it.
+Added as <code>menu.settings.admission</code> in manual v144, in the manual's own three-question OVERVIEW form, and the
+QuickStart now links to it. ⚠ <b>A setting can ship with no documentation and nothing notices</b> &mdash; the same
+silence the completion register is for.</li>
+<li><b>I broke the doc process twice today and both are recorded, not quietly fixed.</b> (a) I wrote the completion
+register into a brand-new standalone document and format; Fred: <i>&ldquo;WE ARE NO[T] CREATING NEW DOCS AND FORMATS
+ARE WE?&rdquo;</i> (b) I then typed new VERSION files by hand instead of working in the day's INTERIM copies that
+<code>start_of_day_v6.sh</code> step 5 creates, and built a 4-column table where this document has used
+<b>Item / Evidence / Commit</b> since 11-18. Fred: <i>&ldquo;WE NEED TO ADHERE TO THE PROCESS. I EVEN ANNOTATED THE
+STARTUP DOC PROCESS WITH THAT DETAIL SO WE READ IT EVERY MORNING.&rdquo;</i> Rebuilt on the real template, read from
+the file rather than from memory.</li>
+<li><b>39 superseded/void docs sit in <code>docs/</code></b>, which step 6 of start of day reports every morning as
+&ldquo;must NOT reach the recommit&rdquo;. It is already carded (HOUSEKEEPING C28-26321, written when the count was 38)
+and the count has gone UP. A check that is reported and never acted on is the thing it was built to prevent.</li>
+</ol>
+
+<h2>DOC CHURN TODAY, STATED (DOCCHURN-2026-11-20)</h2>
+<p>The living checklist was minted three times today: <b>v11</b> before I had read
+<code>start_of_day_v6.sh</code> step 5, carrying the completion register that has since MOVED to the EOD handoff;
+<b>v12</b>, the legitimate EOD rename of the day's interim; and <b>v13</b>, three minutes later, carrying Fred's
+16:22 horizon (C28-26358 &middot; SEQHORIZON). <b>v13 is the version of record for 2026-11-20.</b> v11 and v12 are
+kept in <code>~/Downloads/gt_scratch_2026-11-20/superseded_same_pass/</code> and were removed from
+<code>docs/</code> so that three versions of one day's checklist cannot reach AllDocs and leave the next session
+guessing which is current.</p>
+<p>This is the exact cost the doc cycle names &mdash; <i>&ldquo;handoff v117, v118, v119, v120, v121 before noon
+today, four marked .SUPERSEDED_SAME_PASS or .VOID_DO_NOT_USE. One interim would have been one file.&rdquo;</i>
+The interim existed today and I bypassed it. Recorded here because the process is the deliverable.</p>
+</body></html>
