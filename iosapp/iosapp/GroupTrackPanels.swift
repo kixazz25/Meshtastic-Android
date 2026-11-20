@@ -6,6 +6,11 @@
 //  GtVecMap with GroupTrackLaunchLayer OVER it, which is the 11-18 note
 //  ("so the 17 Compose panels can later sit OVER the map") actually done.
 //
+//  READABILITY-2026-11-19 (Fred 16:26: "it looks li[k]e miniture print"): the sizes were 9pt and
+//  10pt in a 430-wide box. On a 13-inch iPad simulator scaled onto a 22-inch monitor that is
+//  unreadable, and an instrument nobody can read certifies nothing. Now 19pt for the live line,
+//  15pt for the history, in an 860-wide box 420 tall.
+//
 //  The status strip is the CERTIFICATION INSTRUMENT here, not decoration. Every
 //  launch point whose function is a map-side job it does not have yet reports
 //  through onMessage -- zoom, setDisplay, trailsChanged, centre. So the strip
@@ -68,7 +73,7 @@ struct GroupTrackPanelsScreen: View {
                     // so it is hidden by default and summoned when a tab is wanted.
                     Button(action: { hideTabs.toggle() }) {
                         Text(hideTabs ? "TABS" : "HIDE")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .font(.system(size: 15, weight: .bold, design: .monospaced))
                             .padding(.horizontal, 7).padding(.vertical, 4)
                             .background(.black.opacity(0.72))
                             .foregroundStyle(.white)
@@ -76,7 +81,7 @@ struct GroupTrackPanelsScreen: View {
                     }
                     Button(action: { showLog.toggle() }) {
                         Text(showLog ? "LOG -" : "LOG +")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .font(.system(size: 15, weight: .bold, design: .monospaced))
                             .padding(.horizontal, 7).padding(.vertical, 4)
                             .background(.black.opacity(0.72))
                             .foregroundStyle(.green)
@@ -87,23 +92,23 @@ struct GroupTrackPanelsScreen: View {
                 if showLog {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(log.last)
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(.system(size: 19, weight: .bold, design: .monospaced))
                             .foregroundStyle(.green)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         ScrollView {
                             VStack(alignment: .leading, spacing: 1) {
                                 ForEach(Array(log.lines.suffix(60).enumerated()), id: \.offset) { _, l in
                                     Text(l)
-                                        .font(.system(size: 9, design: .monospaced))
+                                        .font(.system(size: 15, design: .monospaced))
                                         .foregroundStyle(.white)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                             }
                         }
-                        .frame(height: 220)
+                        .frame(height: 420)
                     }
                     .padding(6)
-                    .frame(width: 430)
+                    .frame(width: 860)
                     .background(.black.opacity(0.80))
                 }
             }

@@ -141,7 +141,7 @@ object ConvoyArtifactOps {
     }
 
     /** ROUTETH-2026-09-27 (Fred): the route's trailhead, chosen when the route is saved. isNew = add it as a waypoint. */
-    data class RouteTrailhead(val name: String, val lat: Double, val lon: Double, val isNew: Boolean)
+    // IOSARTIFACT-2026-11-19: RouteTrailhead moved to its own file (same package) for the shared panel.
 
     /** ROUTETH-2026-09-27: a track's first recorded point (lon, lat). CODE RULE 1: null = no geometry. */
     fun trackStart(trackId: String): Pair<Double, Double>? =

@@ -247,7 +247,10 @@ window.fitBounds = function (lats, lons, tries, pad) {
   if (lats.length === 1) { map.jumpTo({ center: [lons[0], lats[0]], zoom: 16 - GT_ZOFF }); return; }
   var s = Math.min.apply(null, lats), n = Math.max.apply(null, lats), w = Math.min.apply(null, lons), e = Math.max.apply(null, lons);
   var px = (pad && pad > 0) ? Math.round(Math.min(c.clientWidth, c.clientHeight) * pad) : 0;
-  map.fitBounds([[w, s], [e, n]], { padding: px, maxZoom: 18 - GT_ZOFF, duration: 0 });
+  // FITBEARING-2026-11-20: MapLibre defaults bearing to 0, so a fit SNAPPED THE MAP TO NORTH on every
+  // follow refresh -- which fought heading-up and read as a continuously spinning map (and is why the
+  // group view was always north). A fit changes where we look, not which way is up: keep the bearing.
+  map.fitBounds([[w, s], [e, n]], { padding: px, maxZoom: 18 - GT_ZOFF, duration: 0, bearing: map.getBearing() });
 };
 window.setRouteMode = function (on) { window.__routeMode = !!on; console.log('ROUTEMODE -> ' + window.__routeMode); };
 window.__routeMode = false;

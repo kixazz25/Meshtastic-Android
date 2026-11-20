@@ -61,41 +61,6 @@ private val npDim   = Color(0xFF8899AA)
 private val npFaint = Color(0xFF667788)
 private val npMono  = FontFamily.Monospace
 
-/** How a section is drawn. The CALLER picks; the panel does not infer. */
-enum class NoteStyle {
-    /** Ordinary lines. Stops, features, prose. */
-    PLAIN,
-    /** Label/value pairs, monospace values. Distance, time, counts. */
-    STATS,
-    /** Amber blocks. Warnings the rider should not skim past. */
-    WARN,
-    /** Dim italic. Provenance, caveats, "not reported". */
-    QUIET,
-}
-
-/**
- * One block of the panel. `lines` for PLAIN/WARN/QUIET; `pairs` for STATS.
- * A section with neither is skipped.
- */
-data class NoteSection(
-    val heading: String? = null,
-    val lines: List<String> = emptyList(),
-    val pairs: List<Pair<String, String>> = emptyList(),
-    val style: NoteStyle = NoteStyle.PLAIN,
-    /**
-     * NOTESTWISTY-2026-09-03: start folded, opened by tapping the heading.
-     *
-     * ⭐ Fred, 09-03, on why this panel needs it: the route narrative is long --
-     * a headline, four stats, ten features, ten stops in order, ground covered
-     * and a warning. All of it worth having, and all of it at once buries the
-     * three things a rider decides on.
-     * ⚠ A section with NO HEADING cannot fold -- there would be nothing to tap.
-     * The headline is one of those, which is correct: it is the first thing you
-     * should see.
-     */
-    val collapsed: Boolean = false,
-)
-
 // DEADCODE2-2026-10-23: ConvoyNotesPanel (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyNotesPanel.pieces.txt
 
 // ─────────────────────────────────────────────────────────────────────────

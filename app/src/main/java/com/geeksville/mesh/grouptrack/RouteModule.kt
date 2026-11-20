@@ -1356,6 +1356,11 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
             onClose = { R.savedNotesRouteId.value = "" },
             onBuildFromRecipe = if (hasRecipe) ({ R.savedNotesRouteId.value = ""; R.buildFromRecipe(ctx, rid) }) else null,
             onRouteDetails = { R.savedNotesRouteId.value = ""; R.openDetail("Routes", rid) },
+            // NOTESMOVE-2026-11-19: GtNotesPanel moved to commonMain and HELP became a seam, because
+            // GtHelpButton needs GtHelp's link table and that is app-side. Passed EXPLICITLY here so
+            // Android keeps the button it has always had -- the seam defaults to {}, and relying on
+            // that default would have deleted Android's help button without a word.
+            help = { hid -> GtHelpButton(hid) },
             onCreateRide = { R.savedNotesRouteId.value = ""; R.addRide(rid) }   // ROUTERIDE-2026-11-05
         )
     }
@@ -1373,7 +1378,8 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
             title = R.routeName.value,
             subtitle = "Work in progress \u2014 not saved yet",
             sections = com.geeksville.mesh.convoy.notesFromDraft(RouteDraftStore.readNotes(R.routeName.value)),
-            onClose = { R.showWipNotes.value = false }
+            onClose = { R.showWipNotes.value = false },
+            help = { hid -> GtHelpButton(hid) }   // NOTESMOVE-2026-11-19, as above
         )
     }
 

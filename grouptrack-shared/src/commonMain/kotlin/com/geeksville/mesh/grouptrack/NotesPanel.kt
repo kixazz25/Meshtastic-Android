@@ -1,5 +1,12 @@
 package com.geeksville.mesh.grouptrack
 
+/*
+ * NOTESMOVE-2026-11-19: moved app -> commonMain unchanged but for the unused org.json import.
+ * MEASURED before moving: no Context, no android.*, no .format(), no R.string anywhere in the
+ * file -- 214 lines of Compose over NoteSection, which is now shared too. Same package, so the
+ * three Android call sites in RouteModule.kt compile untouched.
+ */
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,7 +27,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.json.JSONObject
 import com.geeksville.mesh.convoy.NoteSection
 import com.geeksville.mesh.convoy.NoteStyle   // HOME1B-2026-10-23
 
@@ -46,6 +52,15 @@ fun GtNotesPanel(
         "what the surface is like, or what is on it. Zoom in on the satellite view " +
         "before you commit.",
     onClose: () -> Unit = {},
+    /**
+     * NOTESMOVE-2026-11-19: HELP as a seam, not a direct call.
+     * The body used to call GtHelpButton("route.notes") directly, which is app-side (it needs
+     * GtHelp's link table). That is the ONE thing in these 214 lines that was not portable, and my
+     * "nothing Android-only here" check missed it because it looked for Context and android.* and
+     * not for an app-side SYMBOL. Default {} so the three Android call sites in RouteModule compile
+     * untouched; Android passes GtHelpButton, the iPad passes {} until the help table is shared.
+     */
+    help: @Composable (String) -> Unit = {},
     /**
      * NOTESACTIONS-2026-09-03: what a rider can DO from here, without leaving.
      *
@@ -76,7 +91,7 @@ fun GtNotesPanel(
             ) {
                 Text(title.ifBlank { "Details" }, color = npGreen, fontSize = 17.sp,
                     fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                GtHelpButton("route.notes")   // HOME1-2026-10-23: the HELP X standard (was CLOSE)
+                help("route.notes")   // HOME1-2026-10-23: the HELP X standard (was CLOSE)
                 GtCloseButton(onClose)
             }
             subtitle?.takeIf { it.isNotBlank() }?.let {

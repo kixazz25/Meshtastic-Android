@@ -1,7 +1,14 @@
 package com.geeksville.mesh.convoy
 
-import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
-import androidx.compose.ui.platform.LocalContext
+import com.geeksville.mesh.grouptrack.Gt
+import com.geeksville.mesh.grouptrack.gtHexColor
+import com.grouptrack.shared.text.GtJava   // IOSARTIFACT-2026-11-19: GtJava.round = java.lang.Math.round
+import kotlin.math.floor
+// ⛔ FACADE-2026-11-19: there are TWO TrailFilterState objects -- the app facade
+// (com.geeksville.mesh.convoy, which is THIS package on the app side and is why the unqualified name
+// resolved before the move) and the real one in shared. This import names the SHARED one. Matching by
+// simple name is what cost four builds on 11-19; it cost one more here.
+import com.grouptrack.shared.filter.TrailFilterState   // STD1-2026-10-24
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,7 +47,21 @@ fun ArtifactDetailPanel(
     id: String,
     name: String? = null,
     mapKey: String = "convoy",
-    fitWebView: android.webkit.WebView? = null,
+    /** SEAMRULE-2026-11-19: was fitWebView: android.webkit.WebView?. The panel only ever used it to ask
+     *  the map to redraw after writing a trailhead, so it hands that over instead of holding a WebView.
+     *  Android passes its evaluateJavascript; the iPad passes its js(). */
+    onRefreshMap: (() -> Unit)? = null,
+    /** ROUTETH-2026-09-27: the track's first recorded point (lon, lat). Android: ConvoyArtifactOps.trackStart,
+     *  itself SpatialDbManager.trackGeometry + parseWktLine, both already on the shared GtRead. */
+    trackStart: ((String) -> Pair<Double, Double>?)? = null,
+    /** The trailheads near a point, nearest first. Android: SpatialDbManager.trailheadsNear (shared GtRead,
+     *  STEP7-2026-11-07). The panel takes the first within 0.1 mile. */
+    trailheadsNear: ((Double, Double, Double) -> List<RouteTrailhead>)? = null,
+    /** Writes a trailhead waypoint at the track's first point. Android: SpatialDbManager.insertWaypoint,
+     *  itself the shared GtTracks.insertWaypoint. */
+    insertTrailhead: ((String, Double, Double) -> Unit)? = null,
+    /** D26-2026-10-29: refuses a duplicate route name. Android: SpatialDbManager.routeNameExists (shared GtRead). */
+    routeNameExists: ((String) -> Boolean)? = null,
     onLoadDetail: ((String, String) -> Map<String, String?>)? = null,
     onLoadAliases: ((String, String) -> List<Map<String, String?>>)? = null,
     onRename: ((String, String) -> Unit)? = null,
@@ -63,7 +84,7 @@ fun ArtifactDetailPanel(
     // TRACKRIDE-2026-09-26 (Fred): CREATE RIDE on a TRACK -> (track id, route name). Optional like onAddRide (CODE
     // RULE 1): only the planner, which can create rides, passes it; other callers show no button.
     // ROUTETH-2026-09-27 (Fred): + the route's TRAILHEAD, chosen in the dialog (a route is never saved without one).
-    onCreateRideFromTrack: ((String, String, String, ConvoyArtifactOps.RouteTrailhead) -> Unit)? = null,   // TRACKDESC-2026-09-26: (track id, route name, description)
+    onCreateRideFromTrack: ((String, String, String, RouteTrailhead) -> Unit)? = null,   // TRACKDESC-2026-09-26: (track id, route name, description)
     /* SATFIXES-2026-08-29: build six more from this route's recipe.
      * ⚠ Unlike onShowNotes, which is offered unconditionally, this one is
      * passed only when the route DB actually holds a recipe — a hand-drawn or
@@ -76,6 +97,10 @@ fun ArtifactDetailPanel(
     onDownloadCorridor: ((String) -> Unit)? = null,
     onChangeType: ((String, String) -> Unit)? = null,
     onDeleteAlias: ((String) -> Unit)? = null,
+    /** SEAMRULE-2026-11-19: HELP is the HOST's. GtHelpButton calls GtHelp.load(LocalContext.current),
+     *  which does not exist off Android, so the host supplies the control and the panel tells it which
+     *  help id to show ("detail." + the singular artifact type). Same seam as GtRiderProfilePanel. */
+    help: @Composable (String) -> Unit = {},
     onDismiss: (String?, String?) -> Unit
 ) {
     val aMono = FontFamily.Monospace
@@ -83,7 +108,6 @@ fun ArtifactDetailPanel(
     val aBlue = Gt.accent
     val aOrange = Gt.warn
     val aDim = Gt.dim
-    val ctx = LocalContext.current
 
     val singular = artifactType.lowercase().removeSuffix("s")
     var showRideNameDialog by remember { mutableStateOf(false) }   // TRACKRIDE-2026-09-26
@@ -94,7 +118,7 @@ fun ArtifactDetailPanel(
     var thPick by remember { mutableStateOf(-1) }
     var thNewName by remember { mutableStateOf("") }
     var showThPopup by remember { mutableStateOf(false) }   // FIRSTPOINT-2026-09-27
-    var chosenTh by remember { mutableStateOf<ConvoyArtifactOps.RouteTrailhead?>(null) }   // CODE RULE 1: null = not settled yet
+    var chosenTh by remember { mutableStateOf<RouteTrailhead?>(null) }   // CODE RULE 1: null = not settled yet
     val detailFields = remember(id) { onLoadDetail?.invoke(singular, id) ?: emptyMap() }
     val dName = detailFields["name"] ?: name ?: "Unnamed"
 
@@ -110,6 +134,21 @@ fun ArtifactDetailPanel(
 
     AlertDialog(
         onDismissRequest = { onDismiss(null, null) },
+        // ⛔ STD1-2026-10-24 (Fred 11-19 13:28 "colors are wrong white background white text. background
+        // s/b blue", 13:30 "can we move to default please"): AlertDialog's container defaults to
+        // MaterialTheme.colorScheme.surface. On Android that happened to be the app's dark surface, so
+        // Gt.text (white) read fine and the panel never needed to say so. Off Android it is Material's
+        // LIGHT default -- white container, white text, an invisible panel.
+        // The standard is explicit: a screen writes Gt.panel / Gt.text, a ROLE, and one place decides
+        // what the role is (GtScheme.current). So the panel now names its own roles instead of inheriting
+        // whatever surface it happens to be nested in. GtScheme.forMap("VEC") is OnTopo -- blue panel,
+        // white text -- which is exactly what Fred expects to see.
+        // ⚠ ANDROID IS UNCHANGED IN PRACTICE: inside GtTheme, colorScheme.surface IS Gt.panel already
+        // (GtPanel.kt:108), so this names the colour it was already getting.
+        containerColor = Gt.panel,
+        titleContentColor = Gt.text,
+        textContentColor = Gt.text,
+        iconContentColor = Gt.accent,
         title = {
             Row(verticalAlignment = Alignment.Top) {   // GTRIDES-2026-10-22: HELP ✕ top right
             Column(Modifier.weight(1f)) {
@@ -119,7 +158,7 @@ fun ArtifactDetailPanel(
                 Text("Type: ${singular.uppercase()}", color = aDim, fontSize = 12.sp,
                     fontFamily = aMono)
             }
-            com.geeksville.mesh.grouptrack.GtHelpButton("detail." + singular)
+            help("detail." + singular)
             com.geeksville.mesh.grouptrack.GtCloseButton({ onDismiss(null, null) })
             }
         },
@@ -160,14 +199,15 @@ fun ArtifactDetailPanel(
                     if (onShowNotes != null) { DetailActionButton("OVERVIEW", aOrange) { onShowNotes(id) } }
                     // TRACKRIDE-2026-09-26 (Fred): a track -> a route (named, editable) -> the ride form.
                     if (onCreateRideFromTrack != null && singular == "track") {
-                        DetailActionButton("CREATE A RIDE", aGreen) {   /* RIDENAME-2026-10-29 (D16) */ rideRouteName = dName; thPick = -1; thNewName = dName + " trailhead"; chosenTh = ConvoyArtifactOps.trackStart(id)?.let { f -> SpatialDbManager.trailheadsNear(f.second, f.first, 0.1).firstOrNull()?.let { t -> ConvoyArtifactOps.RouteTrailhead(t.name, t.lat, t.lon, false) } }; if (chosenTh != null) showRideNameDialog = true else showThPopup = true }
+                        DetailActionButton("CREATE A RIDE", aGreen) {   /* RIDENAME-2026-10-29 (D16) */ rideRouteName = dName; thPick = -1; thNewName = dName + " trailhead"; chosenTh = trackStart?.invoke(id)?.let { f -> trailheadsNear?.invoke(f.second, f.first, 0.1)?.firstOrNull() }; if (chosenTh != null) showRideNameDialog = true else showThPopup = true }
                     }
                     // FIRSTPOINT-2026-09-27 (Fred): the trail's FIRST POINT is its trailhead -- an existing Trailhead within 0.1 mile is
                     // reused (no popup); otherwise this popup only asks for the new trailhead's NAME, creates it at the first point
                     // right here and refreshes the map -- before the conversion, so the fit and the picture include it.
                     if (showThPopup && onCreateRideFromTrack != null) {
-                        val first = remember(id) { ConvoyArtifactOps.trackStart(id) }   // (lon, lat)
+                        val first = remember(id) { trackStart?.invoke(id) }   // (lon, lat)
                         androidx.compose.material3.AlertDialog(
+                            containerColor = Gt.panel, titleContentColor = Gt.text, textContentColor = Gt.text,   // STD1-2026-10-24: the roles, not Material's default surface
                             onDismissRequest = { showThPopup = false },
                             title = { androidx.compose.material3.Text("This route needs a trailhead") },
                             text = {
@@ -182,10 +222,10 @@ fun ArtifactDetailPanel(
                             confirmButton = {
                                 androidx.compose.material3.TextButton(enabled = thNewName.isNotBlank() && first != null, onClick = {
                                     val f = first!!
-                                    runCatching { SpatialDbManager.insertWaypoint(thNewName.trim(), f.second, f.first, "trailhead") }
-                                    chosenTh = ConvoyArtifactOps.RouteTrailhead(thNewName.trim(), f.second, f.first, false)   // exists now
+                                    runCatching { insertTrailhead?.invoke(thNewName.trim(), f.second, f.first) }
+                                    chosenTh = RouteTrailhead(thNewName.trim(), f.second, f.first, false)   // exists now
                                     showThPopup = false; showRideNameDialog = true
-                                    fitWebView?.evaluateJavascript("triggerViewportUpdate()", null)
+                                    onRefreshMap?.invoke()
                                 }) { androidx.compose.material3.Text("CONTINUE") }
                             },
                             dismissButton = { androidx.compose.material3.TextButton(onClick = { showThPopup = false }) { androidx.compose.material3.Text("Cancel") } },
@@ -193,8 +233,9 @@ fun ArtifactDetailPanel(
                     }
                     if (showRideNameDialog && onCreateRideFromTrack != null) {
                         val thReady = chosenTh != null   // FIRSTPOINT-2026-09-27: settled before this dialog
-                        val taken = rideRouteName.isNotBlank() && SpatialDbManager.routeNameExists(rideRouteName.trim())
+                        val taken = rideRouteName.isNotBlank() && (routeNameExists?.invoke(rideRouteName.trim()) ?: false)
                         androidx.compose.material3.AlertDialog(
+                            containerColor = Gt.panel, titleContentColor = Gt.text, textContentColor = Gt.text,   // STD1-2026-10-24: the roles, not Material's default surface
                             onDismissRequest = { showRideNameDialog = false },
                             title = { androidx.compose.material3.Text("Create a ride from this track" /* TRACKRIDE2-2026-09-26 */) },
                             text = {
@@ -377,6 +418,7 @@ fun ArtifactDetailPanel(
     // -- Rename Dialog --
     if (showRenameDialog) {
         AlertDialog(
+            containerColor = Gt.panel, titleContentColor = Gt.text, textContentColor = Gt.text,   // STD1-2026-10-24: the roles, not Material's default surface
             onDismissRequest = { showRenameDialog = false },
             title = { Text("Rename $artifactType") },
             text = {
@@ -396,6 +438,7 @@ fun ArtifactDetailPanel(
     // -- Delete Confirmation --
     if (showDeleteConfirm) {
         AlertDialog(
+            containerColor = Gt.panel, titleContentColor = Gt.text, textContentColor = Gt.text,   // STD1-2026-10-24: the roles, not Material's default surface
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("Delete $dName?") },
             text = { Text("This cannot be undone.") },
@@ -413,6 +456,7 @@ fun ArtifactDetailPanel(
     // -- Type Chooser (Waypoints only) --
     if (showTypeChooser) {
         AlertDialog(
+            containerColor = Gt.panel, titleContentColor = Gt.text, textContentColor = Gt.text,   // STD1-2026-10-24: the roles, not Material's default surface
             onDismissRequest = { showTypeChooser = false },
             title = { Text("Change Waypoint Type") },
             text = {
@@ -517,15 +561,19 @@ private fun formatDetailValue(key: String, raw: String): String {
     val v = raw.trim()
     if (v.isEmpty()) return v
     fun num(): Double? = v.toDoubleOrNull()
-    fun oneDp(d: Double): String = (Math.round(d * 10.0) / 10.0).let {
-        if (it == Math.floor(it)) it.toInt().toString() else it.toString()
+    // IOSARTIFACT-2026-11-19: was Math.round / Math.floor, which do not exist off Android.
+    // GtJava.round IS java.lang.Math.round (GtJava.kt:26, "Java's number rules"), so the rounding is
+    // unchanged -- ties toward positive infinity, not Kotlin's round(), which breaks ties to even.
+    // floor is IEEE and identical in kotlin.math.
+    fun oneDp(d: Double): String = (GtJava.round(d * 10.0) / 10.0).let {
+        if (it == floor(it)) it.toInt().toString() else it.toString()
     }
     return when (key) {
         "distance_miles", "length_miles", "distance" -> num()?.let { "${oneDp(it)} mi" } ?: v
         "duration_minutes" -> num()?.let { "${it.toInt()} min" } ?: v
         "avg_speed_mph", "max_speed_mph" -> num()?.let { "${it.toInt()} mph" } ?: v
         "elevation_gain_ft" -> num()?.let { "${it.toInt()} ft" } ?: v
-        "point_count" -> num()?.let { "%,d".format(it.toInt()) } ?: v
+        "point_count" -> num()?.let { gtGrouped(it.toInt()) } ?: v
         "shared" -> if (v == "1") "Yes" else if (v == "0") "No" else v
         "source_format" -> v.uppercase()
         "recorded_at" -> v.take(10)   // YYYY-MM-DD
@@ -625,7 +673,11 @@ private fun cartoStyle(code: String?): Pair<Color, String> {
     // The rider's own palette, when it is loaded.
     TrailFilterState.style[key]?.let { (hex, _, _) ->
         try {
-            return Color(android.graphics.Color.parseColor(hex)) to labelOfCategory(key)
+            // IOSARTIFACT-2026-11-19: was android.graphics.Color.parseColor, which does not exist off
+            // Android. gtHexColor (GtPanel.kt:135) is the shared port and returns NULL on a malformed
+            // value rather than throwing -- so the rider's bad colour still cannot break the panel,
+            // which is what the catch below was for.
+            gtHexColor(hex)?.let { return it to labelOfCategory(key) }
         } catch (_: IllegalArgumentException) {
             // A malformed colour in the rider's file must not break the panel.
         }
@@ -662,4 +714,27 @@ private fun labelOfCategory(key: String): String = when (key) {
     "steps/bridge" -> "Steps / Bridge"
     "unknown" -> "Unknown"
     else -> key
+}
+
+/**
+ * IOSARTIFACT-2026-11-19: was "%,d".format(n). String.format is a JVM extension and is not in
+ * commonMain, so the grouping is written out -- threes, from the right, comma-separated.
+ *
+ * ⚠ A REAL FIDELITY DIVERGENCE, recorded rather than buried. Android's "%,d" uses the DEVICE'S LOCALE,
+ * so a tablet set to German renders 12.345 where this renders 12,345. point_count is the only grouped
+ * number in the panel (every other figure here is ungrouped and locale-independent), so the exposure is
+ * one field -- but it IS a divergence, and if locale-correct grouping is wanted it belongs in GtJava
+ * beside the other Java number rules, not in a helper here.
+ *
+ * Int.MIN_VALUE is handled through Long, because -Int.MIN_VALUE overflows.
+ */
+internal fun gtGrouped(n: Int): String {
+    val a = n.toLong()
+    val s = (if (a < 0) -a else a).toString()
+    val sb = StringBuilder()
+    for (i in s.indices) {
+        if (i > 0 && (s.length - i) % 3 == 0) sb.append(',')
+        sb.append(s[i])
+    }
+    return (if (a < 0) "-" else "") + sb.toString()
 }

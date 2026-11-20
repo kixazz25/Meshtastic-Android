@@ -196,6 +196,74 @@ class GtRead(private val conn: SQLiteConnection, private val dataConn: SQLiteCon
         return try { first(edb, "SELECT payload FROM route_notes WHERE route_id=? AND kind='narrative' LIMIT 1", listOf(routeId)) }
         catch (e: Exception) { log.w { "readRouteNotes: ${e.message}" }; null }
     }
+    /**
+     * SEARCHFIT5-2026-11-19: WHICH TABLE holds this artifact id -- "Tracks" / "Routes" /
+     * "Waypoints" / "Trails", or "" when no table has it.
+     *
+     * ⛔ DO NOT DERIVE THIS FROM A SEARCH ROW'S `type`. Android says so in as many words at
+     * GroupTrackScreen.kt:2975: "the TABLE the id is in (r.type is not always the table -- a
+     * waypoint row carries its waypoint type)". A waypoint's row type is hazard / gate / trailhead
+     * / viewpoint and so on, not "Waypoints", and the table names in a search row are LOWERCASE.
+     * Fred 11-19 16:03 found the consequence on glass: the iPad's fit set its display slot from
+     * r.type, slot() matches capitalised names, so every fit fell through to `else -> routes` and
+     * turned routes on whatever had been selected.
+     *
+     * Probe order is Android's, exactly: tracks, routes, waypoints, trails.
+     */
+    fun typeNameForId(artifactId: String): String {
+        // ⛔ SELECT THE ID COLUMN, NOT `SELECT 1`. rows() reads every cell through cellText, and a
+        // literal 1 is an INTEGER -- reading it as text can throw, the catch below swallows it,
+        // every table reports false and the caller gets "". The id column is TEXT, always.
+        fun inTable(table: String, col: String): Boolean = try {
+            rows(conn, "SELECT " + col + " FROM " + table + " WHERE " + col + "=? LIMIT 1", listOf(artifactId), 1).isNotEmpty()
+        } catch (e: Exception) { log.e { "typeNameForId($table): ${e.message}" }; false }
+        return when {
+            inTable("tracks", "track_id") -> "Tracks"
+            inTable("routes", "route_id") -> "Routes"
+            inTable("waypoints", "waypoint_id") -> "Waypoints"
+            inTable("trails", "trail_id") -> "Trails"
+            else -> ""
+        }
+    }
+
+    // ---- ARTIFACTSVC-2026-11-19: the four rows share/export builds a GPX from ------------------
+    // Android reads these inside SpatialDbManager.buildXxxGpxById (:1675, :1698, :1736, :1804).
+    // Same SELECTs, same columns, same order -- the GPX text itself is GtGpx's and already shared.
+
+    /** (name, type, geometry) for a waypoint. Null when the row or its geometry is missing. */
+    fun waypointRow(waypointId: String): Triple<String, String, String>? = try {
+        rows(conn, "SELECT name, type, geometry FROM waypoints WHERE waypoint_id=?", listOf(waypointId), 3)
+            .firstOrNull()?.let { r ->
+                val geom = r[2] ?: return@let null
+                Triple(r[0] ?: "Unnamed", r[1] ?: "", geom)
+            }
+    } catch (e: Exception) { log.e { "waypointRow: ${e.message}" }; null }
+
+    /** (name, geometry) for a route. */
+    fun routeRow(routeId: String): Pair<String, String>? = try {
+        rows(conn, "SELECT name, geometry FROM routes WHERE route_id=?", listOf(routeId), 2)
+            .firstOrNull()?.let { r -> val g = r[1] ?: return@let null; (r[0] ?: "Unnamed") to g }
+    } catch (e: Exception) { log.e { "routeRow: ${e.message}" }; null }
+
+    /** (name, geometry) for a trail. */
+    fun trailRow(trailId: String): Pair<String, String>? = try {
+        rows(conn, "SELECT name, geometry FROM trails WHERE trail_id=?", listOf(trailId), 2)
+            .firstOrNull()?.let { r -> val g = r[1] ?: return@let null; (r[0] ?: "Unnamed") to g }
+    } catch (e: Exception) { log.e { "trailRow: ${e.message}" }; null }
+
+    /**
+     * (name, geom_hash) for a track. ⚠ track_id is a UUID; the FILE on disk is named by geom_hash
+     * (MYTRACKSDB-2026-09-12), which is why both come back. Android falls back to the id for each
+     * when the row is missing, and so does this.
+     */
+    fun trackNameAndHash(trackId: String): Pair<String, String>? = try {
+        val r = rows(conn, "SELECT name, geom_hash FROM tracks WHERE track_id=? LIMIT 1", listOf(trackId), 2).firstOrNull()
+        if (r == null) trackId to trackId else (r[0] ?: trackId) to (r[1] ?: trackId)
+    } catch (e: Exception) { log.e { "trackNameAndHash: ${e.message}" }; trackId to trackId }
+
+    /** NOTESMOVE-2026-11-19: the narrative object for a route, for the notes panel and the route tap. */
+    fun routeNarrative(routeId: String): JsonObject? = notesObject(routeId)
+
     private fun notesObject(routeId: String): JsonObject? = readRouteNotesPayload(routeId)?.let { try { Json.parseToJsonElement(it).jsonObject } catch (e: Exception) { null } }
 
     // ---- RIDESPATIAL-2026-11-16: the four reads the ride model needs (2.7e SpatialDbManager, same SQL, same bytes) ------------
@@ -386,6 +454,30 @@ class GtRead(private val conn: SQLiteConnection, private val dataConn: SQLiteCon
         if (coords.isEmpty()) null else first(conn, "SELECT track_id FROM tracks WHERE geom_hash=? LIMIT 1",
             listOf(GtGeom.lineLonLat(coords).hash))   // GEOMONE-2026-11-09: the one module (coords are (lon, lat)); Java's number text on the iPad too
     } catch (e: Exception) { log.w { "ENDRIDE: trackIdForGpxText failed: ${e.message}" }; null }
+
+    /**
+     * SEARCHFIT4-2026-11-19: the artifact's own bounding box, from the SPATIAL DATABASE.
+     *
+     * Android has had this since the fit was built -- SpatialDbManager.bboxForArtifact
+     * (SpatialDbManager.kt:2237) -- and gtFitOne calls it rather than trusting whatever bounds a
+     * caller happens to be holding. The iPad had no shared equivalent, so its openArtifact fitted
+     * from the SEARCH ROW's bounds and did nothing at all when they were null. Fred 11-19 13:52:
+     * "on the iOS map the search returns me to the same point I exited fro[m] with the same
+     * t[i]les displaying" -- a null-bounds row fits nothing and the map never moves.
+     *
+     * Returns [south, west, north, east], Android's order exactly, or null when the row has no
+     * box. CODE RULE 1: null is the honest answer for an artifact with no geometry extent, and
+     * every caller must decide what to do about it rather than being handed a zero box.
+     */
+    fun bboxForArtifact(type: String, artifactId: String): DoubleArray? {
+        val (table, idCol) = spatialTableFor(type) ?: return null
+        val r = rows(conn, "SELECT min_lat, min_lon, max_lat, max_lon FROM " + table +
+            " WHERE " + idCol + " = ? LIMIT 1", listOf(artifactId), 4).firstOrNull() ?: return null
+        val s = r[0]?.toDoubleOrNull(); val w = r[1]?.toDoubleOrNull()
+        val n = r[2]?.toDoubleOrNull(); val e = r[3]?.toDoubleOrNull()
+        if (s == null || w == null || n == null || e == null) return null
+        return doubleArrayOf(s, w, n, e)
+    }
 
     companion object {
         fun spatialTableFor(type: String): Pair<String, String>? = when (type.lowercase()) {

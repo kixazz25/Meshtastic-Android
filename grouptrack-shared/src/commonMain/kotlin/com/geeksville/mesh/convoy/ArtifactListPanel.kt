@@ -1,7 +1,24 @@
 package com.geeksville.mesh.convoy
 
+/*
+ * SELECTMOVE-2026-11-19 (2.8b): the SELECT list, moved app -> commonMain, SAME package.
+ *
+ * Fred 16:05: "fit was using the [s]elect to [s]elect the artifact t[o] be presented. there is
+ * no artifact list in the iOS version -- the sql th[at] turn[s] feature[s] of that type [in]to
+ * [a] valid li[s]t to be selected from is not being created."
+ *
+ * He is right about the mechanism and the SQL already exists: GtRead.queryArtifactList :130 has
+ * been shared since STEP7-2026-11-07, and Android's SpatialDbManager.queryArtifactList :1534 is
+ * only a front door to it. Nothing on iOS called it, so there was no list, so DS_SELECTED could
+ * never mean "this one artifact" and fit could not restrict.
+ *
+ * MEASURED BEFORE MOVING: the only Android-bound things in these 224 lines were DEAD --
+ * `val ctx = LocalContext.current` (declared, never used) and a `fitWebView: WebView?` parameter
+ * (declared, never used, and passed by its one caller). Both removed rather than seamed. HELP is
+ * the single real seam, as in NotesPanel.
+ */
+
 import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -52,8 +69,9 @@ fun ArtifactListPanel(
     onAddAlias: ((String, String, String) -> Unit)? = null,
     onStarAlias: ((String, String, String) -> Unit)? = null,
     mapKey: String = "convoy",
-    fitWebView: android.webkit.WebView? = null,
-    onOpenDetail: (String, String) -> Unit = { _, _ -> }
+    onOpenDetail: (String, String) -> Unit = { _, _ -> },
+    /** SELECTMOVE-2026-11-19: HELP as a seam -- GtHelpButton needs GtHelp's link table, app-side. */
+    help: @Composable (String) -> Unit = {},
 ) {
     // PROBESOUT-2026-09-03: stage 5 removed with the rest. The trail it was
     // hunting was two roads sharing a name; there was never a display bug.
@@ -64,7 +82,6 @@ fun ArtifactListPanel(
     val aDim = Gt.dim
     val aBg = Gt.panel
     val aItem = Gt.panel
-    val ctx = LocalContext.current
 
 
     // LISTSIZE-2026-10-22 (Fred 12:44): smaller (300 dp, was the full column) and DRAGGABLE by ☰ MOVE; HIDE folds it to its header.
@@ -91,7 +108,7 @@ fun ArtifactListPanel(
                 Text(if (gtFolded) "SHOW" else "HIDE", color = aBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.clickable { gtFolded = !gtFolded }.padding(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {   // GTFILTER-2026-10-22: the standard HELP ✕ (was CLOSE); ✕ applies the ticks, as CLOSE did
-                    com.geeksville.mesh.grouptrack.GtHelpButton("filter.select")
+                    help("filter.select")
                     com.geeksville.mesh.grouptrack.GtCloseButton(onDismiss)
                 }
             }

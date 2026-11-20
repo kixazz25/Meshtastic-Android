@@ -544,7 +544,7 @@ fun GroupTrackScreen(
                 if (latL.isNotEmpty()) {
                     val lats = latL.joinToString(",")
                     val lons = lonL.joinToString(",")
-                    wv.evaluateJavascript("fitBounds([$lats], [$lons], 0, 0.1)", null)   // GROUPFIT-2026-10-26: the middle 80%
+                    wv.evaluateJavascript("fitBounds([$lats], [$lons], 0, 0.15)", null)   // GROUPFIT70-2026-11-20 (Fred 10:52): the middle 70% -- 15% clear at each end so the trail ahead shows (was 0.1 / 80%, GROUPFIT-2026-10-26)
                 }
             }
         }
@@ -561,7 +561,7 @@ fun GroupTrackScreen(
         when (hudMode) {
             HudMode.MY_CART -> nodes.firstOrNull { it.isMyCart }?.let { wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null) }
             HudMode.NODE -> selectedNode?.let { if (it.latitude != 0.0) wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null) }
-            HudMode.GROUP -> if (nodes.isNotEmpty()) wv.evaluateJavascript("fitBounds([" + nodes.joinToString(",") { "${it.latitude}" } + "], [" + nodes.joinToString(",") { "${it.longitude}" } + "], 0, 0.1)", null)
+            HudMode.GROUP -> if (nodes.isNotEmpty()) wv.evaluateJavascript("fitBounds([" + nodes.joinToString(",") { "${it.latitude}" } + "], [" + nodes.joinToString(",") { "${it.longitude}" } + "], 0, 0.15)", null)
             else -> {}
         }
         gtLogger("ConvoyMap").i { "HUDFIT $hudMode -> fitted (${nodes.size} cart(s) with a position)" }
@@ -2446,7 +2446,8 @@ fun GroupTrackScreen(
                         onSelectAll = { gtApplyList(artifactList.mapNotNull { it["id"] }.toSet()) },   // LIVESEL
                         onDeselectAll = { gtApplyList(emptySet()) },   // LIVESEL
                         mapKey = MapStateStore.rideKey(),   // PERSISTKEY-2026-10-23
-                        fitWebView = webViewRef.value,
+                        // SELECTMOVE-2026-11-19: fitWebView removed -- the panel never used it.
+                        help = { hid -> com.geeksville.mesh.grouptrack.GtHelpButton(hid) },
                         onOpenDetail = { t, id -> activeListType = null; pendingDetailType = t; pendingDetailId = id }
                     )
                 }
@@ -2581,7 +2582,7 @@ fun GroupTrackScreen(
                     // No picture capture here: it would fit the map to the route, moving the rider's view away from the
                     // carts; the ride form falls back to the drawn route line (RidePreview: "never blocks").
                     onAddRide = { a: String, b: String -> onAddRide(a, b) },
-                    onCreateRideFromTrack = { tid: String, name: String, desc: String, th: ConvoyArtifactOps.RouteTrailhead ->
+                    onCreateRideFromTrack = { tid: String, name: String, desc: String, th: com.geeksville.mesh.convoy.RouteTrailhead ->
                         coroutineScope.launch {
                             val rid = ConvoyArtifactOps.trackToRoute(context, tid, name, desc, th)
                             if (rid == null) {
@@ -2595,7 +2596,19 @@ fun GroupTrackScreen(
                     artifactType = pendingDetailType!!,
                     id = pendingDetailId!!,
                     mapKey = MapStateStore.rideKey(),   // PERSISTKEY-2026-10-23
-                    fitWebView = webViewRef.value,
+                    // IOSARTIFACT-2026-11-19: was fitWebView = webViewRef.value. Android supplies the
+                    // redraw and the four database reads the panel used to make for itself.
+                    onRefreshMap = { webViewRef.value?.evaluateJavascript("triggerViewportUpdate()", null) },
+                    trackStart = { tid -> ConvoyArtifactOps.trackStart(tid) },
+                    trailheadsNear = { lat, lon, mi ->
+                        SpatialDbManager.trailheadsNear(lat, lon, mi).map {
+                            com.geeksville.mesh.convoy.RouteTrailhead(it.name, it.lat, it.lon, false)
+                        }
+                    },
+                    insertTrailhead = { nm, lat, lon -> SpatialDbManager.insertWaypoint(nm, lat, lon, "trailhead") },
+                    routeNameExists = { n -> SpatialDbManager.routeNameExists(n) },
+                    // IOSARTIFACT-2026-11-19: HELP is Android's (GtHelpButton needs a Context).
+                    help = { hid -> com.geeksville.mesh.grouptrack.GtHelpButton(hid) },
                     // HOME1-2026-10-23: the planner's OVERVIEW (a saved route's narrative) and BUILD FROM RECIPE, on ONE MAP's detail card.
                     onShowNotes = if (pendingDetailType == "Routes") {
                         { rid -> pendingDetailId = null; pendingDetailType = null; com.geeksville.mesh.grouptrack.GtRoute.savedNotesRouteId.value = rid }

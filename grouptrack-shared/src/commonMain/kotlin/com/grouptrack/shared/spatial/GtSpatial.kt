@@ -118,21 +118,54 @@ class GtSpatial(private val conn: SQLiteConnection, private val dataConn: SQLite
     // ---- the iPad's whole viewport (SpatialDisplayManager.processViewport with every type ON) --------------------------------------
     class Batch(val js: List<String>, val counts: Map<String, Int>)
 
-    fun viewport(north: Double, south: Double, east: Double, west: Double, zoom: Int): Batch {
+    /**
+     * VIEWFILTER-2026-11-19: the viewport, GATED BY DISPLAY STATE.
+     *
+     * ⛔ WHAT THIS FIXES. The old signature took no states, and the comment above said so --
+     * "SpatialDisplayManager.processViewport with every type ON". That was an honest simplification
+     * when the iPad could not draw at all; it became a defect the moment the FILTER existed, because
+     * the filter set host state that nothing downstream read. Fred 11-19 16:10: "the filter has no
+     * impact on the map display. I have turned all values off and the artifacts still display."
+     *
+     * Transcribed from SpatialDisplayManager.processArtifact (:182-272), decision for decision:
+     *     state == DS_OFF        -> hide, return. Do not query.
+     *     zoom  <  minZoom       -> hide, return. Do not query.
+     *     state == DS_SELECTED   -> query, then keep ONLY the checked ids (:270-272)
+     *     otherwise              -> query, keep everything
+     * and the land areas additionally follow the TRAILS state, as processViewport :401 does.
+     *
+     * ⚠ [states] DEFAULTS TO EVERY TYPE ON, so every existing caller -- the certs above all --
+     * behaves exactly as before. CODE RULE 1: the default is not a shortcut, it is the documented
+     * previous contract, and a caller that passes nothing is asking for the old behaviour.
+     */
+    fun viewport(north: Double, south: Double, east: Double, west: Double, zoom: Int,
+                 states: Map<String, Int> = emptyMap(),
+                 selected: Map<String, Set<String>?> = emptyMap()): Batch {
         val js = ArrayList<String>(); val counts = LinkedHashMap<String, Int>()
-        fun send(type: String, minZoom: Int, rows: () -> List<Map<String, String?>>, build: (List<Map<String, String?>>) -> String) {
-            if (zoom < minZoom) { js.add("hide$type()"); counts[type] = 0; return }
-            val r = rows(); counts[type] = r.size
+        fun send(type: String, minZoom: Int, idField: String,
+                 rows: () -> List<Map<String, String?>>, build: (List<Map<String, String?>>) -> String) {
+            val st = states[type] ?: DS_ON
+            if (st == DS_OFF || zoom < minZoom) { js.add("hide$type()"); counts[type] = 0; return }
+            val raw = rows()
+            val ids = selected[type]
+            // processArtifact :270 -- FIT and a ticked SELECT list both arrive here.
+            val r = if (st == DS_SELECTED && ids != null) raw.filter { it[idField] in ids } else raw
+            counts[type] = r.size
             js.add("(function(){try{update$type(" + build(r) + ");show$type();return 'ok';}catch(e){return 'ERR $type '+e;}})()")
         }
-        send("Trails", TRAILS_MIN_ZOOM, { queryTrails(south, west, north, east, TRAILS_LIMIT) }, ::trailGeoJson)
-        send("Tracks", 0, { queryTracks(south, west, north, east, TRACKS_LIMIT) }, ::trackGeoJson)
+        send("Trails", TRAILS_MIN_ZOOM, "trail_id", { queryTrails(south, west, north, east, TRAILS_LIMIT) }, ::trailGeoJson)
+        send("Tracks", 0, "track_id", { queryTracks(south, west, north, east, TRACKS_LIMIT) }, ::trackGeoJson)
         val lim = otherLimit(zoom)
-        send("Waypoints", 0, { queryWaypoints(south, west, north, east, lim) }, ::waypointGeoJson)
-        send("Routes", 0, { queryRoutes(south, west, north, east, lim) }, ::routeGeoJson)
+        send("Waypoints", 0, "waypoint_id", { queryWaypoints(south, west, north, east, lim) }, ::waypointGeoJson)
+        send("Routes", 0, "route_id", { queryRoutes(south, west, north, east, lim) }, ::routeGeoJson)
         val pub = TrailFilterState.areaPublic; val rst = TrailFilterState.areaRestricted
-        if (zoom < LAND_MIN_ZOOM || (!pub && !rst)) { js.add("window.updateLandAreas&&updateLandAreas(null,false,false)"); counts["Land"] = 0 }
-        else { val (json, n) = landGeoJson(south, west, north, east, pub, rst, LAND_LIMIT); counts["Land"] = n; js.add("window.updateLandAreas&&updateLandAreas($json,$pub,$rst)") }
+        val trailsOn = (states["Trails"] ?: DS_ON) != DS_OFF   // processViewport :401
+        if (zoom < LAND_MIN_ZOOM || !trailsOn || (!pub && !rst)) {
+            js.add("window.updateLandAreas&&updateLandAreas(null,false,false)"); counts["Land"] = 0
+        } else {
+            val (json, n) = landGeoJson(south, west, north, east, pub, rst, LAND_LIMIT)
+            counts["Land"] = n; js.add("window.updateLandAreas&&updateLandAreas($json,$pub,$rst)")
+        }
         return Batch(js, counts)
     }
 
@@ -154,6 +187,10 @@ class GtSpatial(private val conn: SQLiteConnection, private val dataConn: SQLite
 
     companion object {
         // SpatialDisplayManager's gates and limits (2.7e), in app (Leaflet) zoom
+        // VIEWFILTER-2026-11-19: SpatialDisplayManager.kt:62-64, the one set of display states.
+        const val DS_OFF = 0
+        const val DS_ON = 1
+        const val DS_SELECTED = 2
         const val TRAILS_MIN_ZOOM = 9
         const val TRAILS_LIMIT = 1_000      // VECWELCOME-2026-10-31
         const val TRACKS_LIMIT = 500

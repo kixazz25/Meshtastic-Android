@@ -47,6 +47,12 @@ import com.grouptrack.shared.filter.TrailFilterState
 import com.grouptrack.shared.log.gtLogger
 import com.grouptrack.shared.platform.GtVecMap
 import com.grouptrack.shared.platform.iosStorage
+import com.grouptrack.shared.mapstate.GtMapState   // IOSDETAIL-2026-11-19: rideKey()
+import com.grouptrack.shared.spatial.GtWrite
+import com.grouptrack.shared.artifact.GtArtifactFiles
+import com.grouptrack.shared.artifact.GtArtifactResult
+import com.grouptrack.shared.platform.IosArtifactSink
+import com.grouptrack.shared.platform.IosTrackFiles
 import com.grouptrack.shared.spatial.GtRead
 import com.geeksville.mesh.convoy.GtRiderProfilePanel   // IOSPROFILE-2026-11-19: A.MENU > menu.account
 import com.grouptrack.shared.net.GtProfileStore
@@ -55,16 +61,22 @@ import com.grouptrack.shared.platform.IosClock
 import com.grouptrack.shared.platform.IosIds
 import com.grouptrack.shared.text.GtTime
 import kotlinx.cinterop.ExperimentalForeignApi   // IOSHELP-2026-11-19: CGRectMake
+import com.geeksville.mesh.grouptrack.GtNotesPanel   // NOTESMOVE-2026-11-19
+import com.geeksville.mesh.convoy.gtNotesFromNarrative   // NOTESMOVE-2026-11-19
+import com.geeksville.mesh.convoy.gtNarrativeHasDescription   // NOTESMOVE-2026-11-19
 import com.geeksville.mesh.grouptrack.GtDocsChooser   // IOSHELP-2026-11-19: A.MENU > menu.help
 import com.geeksville.mesh.grouptrack.GtAlertSettingsPanel   // IOSSETTINGS-2026-11-19: A.MENU > menu.settings
 import com.geeksville.mesh.grouptrack.GtRecordButton   // IOSREC-2026-11-19: the top-centre RECORD control
 import com.geeksville.mesh.grouptrack.GtGpsHudRow   // IOSHUD-2026-11-19: the HUD's GPS line
+import com.geeksville.mesh.convoy.ArtifactDetailPanel
+import com.geeksville.mesh.convoy.ArtifactListPanel   // IOSARTIFACT-2026-11-19: level B's one panel
 import com.geeksville.mesh.convoy.RecordingState
 import com.grouptrack.shared.settings.GtRideSettings
 import com.grouptrack.shared.platform.IosSettings
 import com.geeksville.mesh.grouptrack.docsAssetFor
 import com.grouptrack.shared.platform.iosBundleAssetPath
 import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.AlertDialog   // IOSGRP-2026-11-19: the activate popup
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.text.font.FontWeight
@@ -176,7 +188,25 @@ private object IosSearchDb {
                 val root = iosStorage().root().toString()
                 // CODE RULE 1 as in 2.7e: without grouptrack_data.db the aliases and notes are
                 // absent, which is Android's behaviour when the extension db is missing.
-                val data = try { gtOpenDatabase(root + "/grouptrack_data.db", true) } catch (e: Throwable) { null }
+                // ⛔ IOSDATADB-2026-11-19 (Fred 13:40 "that artifacts detail i[s] incomplete"): this catch
+                // USED TO SWALLOW THE FAILURE SILENTLY. GtRead.getArtifactDetail:105 is
+                // `val edb = dataConn ?: return out` -- with no extension database it returns ONLY the
+                // spatial columns and drops every property, with no error anywhere. So a detail card that
+                // is missing half its fields looked identical to a card that simply has few fields, and
+                // nothing in the log distinguished them. Same shape as TRACKGROUNDS-2026-11-19: a silent
+                // no-op is indistinguishable from working. Now it says so, once, at open.
+                val data = try {
+                    gtOpenDatabase(root + "/grouptrack_data.db", true).also {
+                        log.i { "IOSDATADB-2026-11-19: grouptrack_data.db OPEN -- artifact properties, aliases and route notes are available" }
+                    }
+                } catch (e: Throwable) {
+                    log.e {
+                        "IOSDATADB-2026-11-19 grouptrack_data.db DID NOT OPEN (" + e.message + ") -- every " +
+                            "artifact detail will show its spatial columns ONLY: no properties, no aliases, " +
+                            "no route notes. Not a panel defect."
+                    }
+                    null
+                }
                 GtRead(gtOpenDatabase(root + "/grouptrack_spatial.db", true), data)
             } catch (e: Throwable) {
                 log.i { "PANELGLASS-2026-11-19: no spatial db for search -- " + e.message }
@@ -184,6 +214,53 @@ private object IosSearchDb {
             }
         }
         return read
+    }
+
+    /**
+     * IOSARTIFACT-2026-11-19: the detail panel's two reads, on the SAME read-only connection the search
+     * already opens. Both are the SHARED GtRead (getArtifactDetail :92, getAliasesFor :121) that Android
+     * reaches through SpatialDbManager (STEP7-2026-11-07) -- ONE implementation, so the iPad gets the
+     * same LinkedHashMap keys the panel's 60-odd column labels are written against. No separate key set
+     * to drift.
+     * ⚠ NOT suspend and NOT behind the Mutex, unlike searchByName: the panel calls onLoadDetail once,
+     * synchronously, inside remember(id). The Mutex exists because GtSearchBody runs four parallel
+     * asyncs; one call on open does not need it.
+     */
+    fun detail(type: String, id: String): LinkedHashMap<String, String?> =
+        reader()?.getArtifactDetail(type, id) ?: LinkedHashMap()
+
+    fun aliases(type: String, id: String): List<Map<String, String?>> =
+        reader()?.getAliasesFor(type, id) ?: emptyList()
+
+    /** SEARCHFIT4-2026-11-19: the fit reads the box from the DB, as gtFitOne does. Same connection,
+     *  not suspend -- openArtifact is a tap handler and runs once. */
+    fun bbox(type: String, id: String): DoubleArray? = reader()?.bboxForArtifact(type, id)
+
+    /** SEARCHFIT5-2026-11-19: which TABLE holds this id, on the search's own connection. */
+    fun typeFor(id: String): String = reader()?.typeNameForId(id) ?: ""
+
+    /**
+     * SELECTWIRE-2026-11-19: the SELECT list. Fred 16:06: "two [se]parate functions -- webv[ie]w
+     * present[s] items in the view[;] Select runs a separate [query] ... to create a list of w[ha]t
+     * i[s] there so we can restrict."
+     * This is that SECOND query, and it is NOT derived from what the map drew: GtRead's own
+     * statement, its own ORDER BY name, its own LIMIT 200 (GtRead.kt:130, shared since
+     * STEP7-2026-11-07 -- Android's SpatialDbManager.queryArtifactList :1534 is a front door to it).
+     */
+    fun listInView(table: String, s: Double, w: Double, n: Double, e: Double): List<Map<String, String?>> =
+        reader()?.queryArtifactList(table, s, w, n, e) ?: emptyList()
+
+    /** NOTESMOVE-2026-11-19: the route's narrative payload, parsed. Null = no narrative row. */
+    fun narrative(routeId: String) = reader()?.routeNarrative(routeId)
+
+    /** IOSDETAIL-2026-11-19: CREATE A RIDE asks whether a route name is taken. A real query --
+     *  Android's routeNameExists is the same question against the same table. */
+    fun routeNameExists(name: String): Boolean {
+        val n = name.trim()
+        if (n.isEmpty()) return false
+        return reader()?.searchByName("routes", n)?.any {
+            (it["name"] ?: "").trim().equals(n, ignoreCase = true)
+        } ?: false
     }
 
     suspend fun searchByName(type: String, term: String): List<Map<String, String?>> =
@@ -215,6 +292,55 @@ private object IosSearchDb {
  * CODE RULE 1: db() null = no extension database, which GtProfileStore already treats as "refuse, do not
  * pretend" on every member -- exactly 2.7e's behaviour when the extension db is absent.
  */
+/**
+ * ARTIFACTSVC-2026-11-19 / IOSWRITE-2026-11-19: the iPad's WRITABLE spatial pair.
+ *
+ * IosSearchDb opens read-only (gtOpenDatabase(path, true)) and must stay that way -- it is the
+ * search's connection and four parallel asyncs run on it. Delete is a WRITE, so it needs its own
+ * handle, exactly as IosProfile already opens one for a profile save.
+ *
+ * ⭐ NO NEW DATABASE CODE. Shared GtWrite already has every delete the detail panel offers:
+ *     deleteWaypoint :54   deleteRoute :68 (cascades notes + aliases, as ConvoyArtifactOps does)
+ *     deleteTrackFromDb :158   deleteTrailFromDb :212   deleteAlias :127
+ * and GtRead.routeUsingTrailhead :173 carries the trailhead guard. This object only opens the
+ * connections and hands them over.
+ */
+private object IosWriteDb {
+    private val log = gtLogger("GtIosWrite")
+    private var spatial: androidx.sqlite.SQLiteConnection? = null
+    private var data: androidx.sqlite.SQLiteConnection? = null
+    private var tried = false
+
+    private fun open() {
+        if (tried) return
+        tried = true
+        try {
+            val root = iosStorage().root().toString()
+            spatial = gtOpenDatabase(root + "/grouptrack_spatial.db", false)
+            data = try { gtOpenDatabase(root + "/grouptrack_data.db", false) } catch (e: Throwable) {
+                log.e { "IOSWRITE-2026-11-19: extension db will not open writable -- alias writes will refuse: " + e.message }
+                null
+            }
+        } catch (e: Throwable) {
+            log.e { "IOSWRITE-2026-11-19: spatial db will not open writable: " + e.message }
+        }
+    }
+
+    fun writer(): GtWrite? {
+        open()
+        val s = spatial ?: return null
+        return GtWrite(s, data, { IosIds.newId() }, { IosClock.nowInstant() })
+    }
+
+    /** the guard's read, on the same writable pair so it cannot disagree with what is about to change */
+    fun reader(): GtRead? { open(); val s = spatial ?: return null; return GtRead(s, data) }
+
+    val artifacts: GtArtifactFiles? by lazy {
+        val r = reader() ?: return@lazy null
+        GtArtifactFiles(r, IosTrackFiles(), IosArtifactSink())
+    }
+}
+
 private object IosProfile {
     private val log = gtLogger("GtIosProfile")
     private var conn: androidx.sqlite.SQLiteConnection? = null
@@ -334,6 +460,37 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // so this is the host's own state: BUILT and driving both the GRP colour and the launch layer's group flag,
     // false until the iPad has a radio. Android is untouched.
     val group = remember { mutableStateOf(false) }
+    // IOSGRP-2026-11-19: D.GRP Awareness's popup. MEASURED -- GrpAwarenessLauncher.open()
+    // (GrpAwareness.kt:65-68) is TWO branches, and only one of them is Meshtastic:
+    //     if (!GroupMode.on.value) { GroupMode.askToActivate(); return }
+    //     showing.value = true
+    // Branch 1, group mode OFF, is GroupModeActivatePopup (GroupMode.kt:51-60): an AlertDialog with
+    // a fixed title, a fixed message and OK. No radio, no Context beyond prefs, nothing to port
+    // around -- and it is the branch the iPad actually takes, because group starts false here.
+    // Branch 2, group mode ON, is GrpAwarenessPanel: 14 parameters of RadioEntry, scan problems,
+    // connect/pair/forget, CommMenus and the Meshtastic side menu. THAT is the one thing Fred is
+    // leaving out (14:44: "there is one item we are leaving... it is mesh[t]a[s]tic"), so it says so
+    // by name on contact instead of being a silent no-op -- GtIosOsmPlatform.kt:17's rule.
+    val grpAskActivate = remember { mutableStateOf(false) }
+    // NOTESMOVE-2026-11-19: the route narrative panel. Android holds this in
+    // GtRoute.savedNotesRouteId (RouteModule.kt:460) and RouteModule.kt:1344 renders GtNotesPanel
+    // from it. Same state, same panel -- the panel itself is shared now.
+    val notesRouteId = remember { mutableStateOf("") }
+    // SELECTWIRE-2026-11-19: the SELECT list's state. Android holds artifactList /
+    // selectedArtifactIds / activeListType on the screen (GroupTrackScreen.kt:2390-2402); same three.
+    // `bounds` is the LIVE map frame -- Android re-reads it from the page at SELECT time rather than
+    // trusting a cached lastViewport, because "cache can lag/hold GPS point -> empty list"
+    // (GroupTrackScreen.kt:2376). The iPad gets it from every onViewportChanged, which is the same
+    // freshness without a round trip.
+    val bounds = remember { mutableStateOf<DoubleArray?>(null) }
+    val artifactList = remember { mutableStateOf<List<Map<String, String?>>>(emptyList()) }
+    val selectedIds = remember { mutableStateOf<Set<String>>(emptySet()) }
+    val activeListType = remember { mutableStateOf("") }
+    // VIEWFILTER-2026-11-19: the checked ids per type -- Android's trailCheckedIds /
+    // trackCheckedIds / waypointCheckedIds / routeCheckedIds, in one map. Null for a type means
+    // "no subset", which with DS_SELECTED draws nothing and with DS_ON draws everything.
+    val checkedIds = remember { mutableStateOf<Map<String, Set<String>?>>(emptyMap()) }
+
     // IOSPROFILE-2026-11-19: menu.account's panel. Android navigates to a screen (onNavigateToProfile);
     // the iPad host has no navigator, so the panel is an overlay over the map, as the other panels are.
     val profileOpen = remember { mutableStateOf(false) }
@@ -363,6 +520,11 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // IOSREC-2026-11-19: the record control's state. CHECK_IN first (CHECKIN-2026-09-27).
     val recState = remember { mutableStateOf(RecordingState.CHECK_IN) }
     val recMenu = remember { mutableStateOf(false) }
+    // IOSARTIFACT-2026-11-19 (Fred 13:11 "we are implement[ing] the service handing off the touches"):
+    // the artifact the rider tapped. CODE RULE 1: empty = nothing tapped. The PANEL is Android's,
+    // unchanged -- this is only the handoff.
+    val detailType = remember { mutableStateOf("") }
+    val detailId = remember { mutableStateOf("") }
     // IOSHUD-2026-11-19: the HUD's text colour. Android keeps one per MAP TYPE
     // (viewModel.hudTextWhiteByMap[hudMapKey], COSMETICS-2026-10-06); the iPad has one map type, so one
     // flag. HUDSWITCH-2026-11-03 (Fred 11:15): DARK BY DEFAULT -- true = white text on a dark backing.
@@ -388,6 +550,45 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         else -> routes
     }
 
+    /**
+     * FITONE-2026-11-19: THE fit, called by BOTH paths.
+     *
+     * ⛔ WHY THIS IS NOW A FUNCTION. There are two ways to fit an artifact and only one of them
+     * was wired. The SEARCH path goes through GtSearchBridge.openArtifact, which I ported. The
+     * DETAIL PANEL's FIT button does NOT do the work itself -- ArtifactDetailPanel.kt:298-302 is
+     * onDismiss-only, with Android's reason written beside it ("ConvoyScreen's FIT branch owns the
+     * write... the earlier double-call wrote a second JSON that the onDismiss save then
+     * clobbered"). So the panel hands FIT back to the HOST as onDismiss(artifactType, id), and
+     * plain CLOSE as onDismiss(null, null). My host ignored both and only closed the panel, so
+     * FIT closed and did nothing -- Fred 16:37: "that ran fit. it is not executing from route
+     * detail panel."
+     *
+     * gtFitOne's four steps, once, for both callers.
+     */
+    val fitArtifact: (String, String, DoubleArray?) -> Unit = { typeIn, artifactId, fallback ->
+        val type = IosSearchDb.typeFor(artifactId).ifEmpty { typeIn }
+        onMessage("fit", "fit " + type + " " + artifactId.take(8))
+        if (type.isNotEmpty()) {
+            trails.intValue = 0; tracks.intValue = 0; waypoints.intValue = 0; routes.intValue = 0
+            slot(type).intValue = 2   // DS_SELECTED -- "FIT = one artifact by definition"
+            checkedIds.value = mapOf(type to setOf(artifactId))
+        }
+        val bb = IosSearchDb.bbox(type, artifactId)
+        val s0 = bb?.get(0) ?: fallback?.get(0)
+        val w0 = bb?.get(1) ?: fallback?.get(1)
+        val n0 = bb?.get(2) ?: fallback?.get(2)
+        val e0 = bb?.get(3) ?: fallback?.get(3)
+        if (s0 != null && n0 != null && w0 != null && e0 != null) {
+            val latPad = (n0 - s0).let { if (it > 0.0) it * 0.10 else 0.01 }
+            val lonPad = (e0 - w0).let { if (it > 0.0) it * 0.10 else 0.01 }
+            js("fitBounds([" + (s0 - latPad) + "," + (n0 + latPad) + "],[" +
+                (w0 - lonPad) + "," + (e0 + lonPad) + "])")
+            js(viewportJs)
+        } else {
+            onMessage("fit", "no extent for " + type + " " + artifactId.take(8) + " -- map not moved")
+        }
+    }
+
     // MAPWIRE-2026-11-19: the page's onViewportChanged is the ONLY thing that knows where the map
     // is. The SHIM posts JSON.stringify(arguments), so args is "[north,south,east,west,zoom]" --
     // parsed exactly as SpatialRunner.request parses it. Centre = ((n+s)/2, (e+w)/2), which is what
@@ -397,7 +598,41 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
             val v = args.trim().removePrefix("[").removeSuffix("]")
                 .split(",").mapNotNull { it.trim().toDoubleOrNull() }
             if (v.size >= 4) centre.value = doubleArrayOf((v[0] + v[1]) / 2.0, (v[2] + v[3]) / 2.0)
+            // SELECTWIRE-2026-11-19: args are [north, south, east, west, zoom]; keep the frame
+            // itself, not only its centre, because SELECT queries against the frame.
+            if (v.size >= 4) bounds.value = doubleArrayOf(v[1], v[3], v[0], v[2])   // s, w, n, e
             if (v.size >= 5) zoom.intValue = v[4].toInt()   // IOSREADOUT-2026-11-19
+        }
+        // ⭐ IOSARTIFACT-2026-11-19: THE HANDOFF. These four names already arrived and were discarded
+        // (C28-26319 B3: "all 14 names ARRIVE; only onViewportChanged currently drives anything").
+        // vec_spatial.js sends them only AFTER its route-mode block returns, so a tap here is always a
+        // feature tap -- the route gestures are a different path and belong to Route+ (11-19 13:05).
+        // The args are JSON.stringify([id]), so one quoted string.
+        else if (name == "onTrackTap" || name == "onTrailTap" || name == "onRouteTap" || name == "onWaypointTap") {
+            val id = args.trim().removePrefix("[").removeSuffix("]").trim().trim('"')
+            if (id.isNotEmpty()) {
+                if (name == "onRouteTap") {
+                    // ROUTETAP-2026-11-19 (Fred 15:32: "the detail panel for route click is still
+                    // the wrong call"). Android's onRouteTap is TWO branches, not one --
+                    // GroupTrackScreen.kt:944-956 and again at 1355 on the second bridge object:
+                    //     if (routeHasDescription(id)) GtRoute.savedNotesRouteId.value = id
+                    //     else { pendingDetailType = "Routes"; pendingDetailId = id }
+                    // HOME1C-2026-10-23: "a route WITH a narrative opens it first (description,
+                    // BUILD FROM RECIPE, ROUTE DETAILS -> the card); a route without one opens the
+                    // card, as before." The iPad sent every route straight to the card, which is why
+                    // the wrong panel came up. ROUTEDESC-2026-10-23: a row carrying only the summary
+                    // numbers is NOT a description -- the card already shows those.
+                    if (gtNarrativeHasDescription(IosSearchDb.narrative(id))) notesRouteId.value = id
+                    else { detailType.value = "Routes"; detailId.value = id }
+                } else {
+                    detailType.value = when (name) {
+                        "onTrackTap" -> "Tracks"
+                        "onTrailTap" -> "Trails"
+                        else -> "Waypoints"
+                    }
+                    detailId.value = id
+                }
+            }
         }
         onMessage(name, args)
     }
@@ -405,7 +640,43 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     val filter = GtFilterBridge(
         state = { t -> slot(t).intValue },
         setState = { t, v -> slot(t).intValue = v; js(viewportJs); onMessage("setDisplay", t + "=" + v) },
-        openSelect = { t -> onMessage("editDisplay", t) },
+        // SELECTWIRE-2026-11-19: gtEditDisplay (GroupTrackScreen.kt:2367-2405) transcribed.
+        openSelect = { typeName ->
+            if (typeName == "Trails") {
+                // TRAILSELECT-2026-09-02 (Fred 09-02, "all the selects in one place"): SELECT on
+                // Trails opens the CATEGORY filter, not a list of trails. There are 229,363 of them.
+                onMessage("editDisplay", "Trails")
+            } else {
+                val table = when (typeName) {
+                    "Tracks" -> "tracks"; "Waypoints" -> "waypoints"; "Routes" -> "routes"; else -> ""
+                }
+                val b = bounds.value
+                if (table.isEmpty()) Unit
+                else if (b == null) onMessage("editDisplay", "Map not ready")
+                else {
+                    val list = IosSearchDb.listInView(table, b[0], b[1], b[2], b[3])
+                    if (list.isEmpty()) onMessage("editDisplay", "No " + typeName + " in current view")
+                    else {
+                        artifactList.value = list
+                        // Android restores the ticks from the CURRENT state: SELECTED keeps its
+                        // checked ids, ALL ticks everything, anything else ticks nothing. The iPad
+                        // has no checked-id store yet, so ALL and SELECTED both tick everything --
+                        // named, not hidden: until the checked-id channel exists, SELECTED cannot
+                        // remember a subset across openings.
+                        // gtEditDisplay :2394-2399 -- SELECTED keeps its ticks, ALL ticks
+                        // everything, anything else ticks nothing. Real now that ids persist.
+                        val cur = slot(typeName).intValue
+                        val saved = checkedIds.value[typeName]
+                        selectedIds.value = when {
+                            cur == 2 && saved != null -> saved
+                            cur == 1 -> list.mapNotNull { it["id"] }.toSet()
+                            else -> emptySet()
+                        }
+                        activeListType.value = typeName
+                    }
+                }
+            }
+        },
         hidden = hidden.value,
         toggleHide = { hidden.value = !hidden.value; js(viewportJs); onMessage("hideEverything", hidden.value.toString()) },
         // GroupTrackScreen.kt:3178 -- the trails re-read after a category or land change.
@@ -428,14 +699,13 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // SEARCHFIT2-2026-11-19: the result MOVES THE MAP, as GroupTrackScreen:2970 does. This is
         // how the map gets positioned over real features without any location services, which is
         // what the FILTER / MAP KEY / offline tests need (Fred 09:51).
+        // FITONE-2026-11-19: the search path calls the ONE fit. The row's own bounds are passed
+        // as a fallback for an artifact with no stored extent; the DB box wins when there is one.
         openArtifact = { r ->
             val s0 = r.minLat; val n0 = r.maxLat; val w0 = r.minLon; val e0 = r.maxLon
-            if (s0 != null && n0 != null && w0 != null && e0 != null) {
-                // fitBounds takes [lats] then [lons] -- GroupTrackScreen.kt:1081 verbatim.
-                js("fitBounds([" + s0 + "," + n0 + "],[" + w0 + "," + e0 + "])")
-            }
-            // CODE RULE 1: the four are nullable WITH MEANING -- an alias hit carries no bounds,
-            // and Android skips the fit in that case rather than guessing a frame.
+            val fallback = if (s0 != null && n0 != null && w0 != null && e0 != null)
+                doubleArrayOf(s0, w0, n0, e0) else null
+            fitArtifact(r.type, r.id, fallback)
             onMessage("searchOpen", r.type + "|" + r.id)
         },
         // SEARCHFIT2-2026-11-19: GroupTrackScreen:3000. Android reads the zoom from
@@ -504,6 +774,21 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         },
         // IOSPROFILE-2026-11-19: Android is "menu.account" to { onNavigateToProfile() }
         // (GroupTrackScreen.kt:3063). Same row, same id, an overlay instead of a navigation.
+        // IOSGRP-2026-11-19: Android is "grp.open" to { GrpAwarenessLauncher.open() }
+        // (GroupTrackScreen.kt:3161). Transcribed branch for branch.
+        "grp.open" to {
+            if (!group.value) {
+                grpAskActivate.value = true
+            } else {
+                gtLogger("GtIosPanels").e {
+                    "IOSGRP-2026-11-19 grp.open with group mode ON wants GrpAwarenessPanel -- " +
+                        "14 parameters of Meshtastic (RadioEntry list, scan state, connect/pair/forget, " +
+                        "CommMenus, the Meshtastic side menu). There is no iOS comm side. NOT BUILT, " +
+                        "and deliberately so: Meshtastic is the one item out of scope for 2.8b."
+                }
+                onMessage("grp", "GRP Awareness needs the radio, which is not built on the iPad yet")
+            }
+        },
         "menu.account" to { profileOpen.value = true },
         // IOSHELP-2026-11-19: Android is "menu.help" to { showDocsChooser = true }
         // (GroupTrackScreen.kt:3062). Same row, same id, the SHARED chooser.
@@ -534,7 +819,24 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
 
     Box(Modifier.fillMaxSize()) {
         GtVecMap(Modifier.fillMaxSize(), relay, onWeb = { web.value = it },
-            offline = offline.value)
+            offline = offline.value,
+            // VIEWFILTER-2026-11-19: the FILTER finally reaches the map. These four slots are the
+            // same ones H.FILTER writes and the fit sets; before this they were host state that
+            // nothing downstream read, so turning everything off still drew everything
+            // (Fred 16:10). Checked ids go beside them so DS_SELECTED can mean "only these".
+            displayState = {
+                mapOf(
+                    "Trails" to trails.intValue,
+                    "Tracks" to tracks.intValue,
+                    "Waypoints" to waypoints.intValue,
+                    "Routes" to routes.intValue,
+                ) to mapOf<String, Set<String>?>(
+                    "Trails" to checkedIds.value["Trails"],
+                    "Tracks" to checkedIds.value["Tracks"],
+                    "Waypoints" to checkedIds.value["Waypoints"],
+                    "Routes" to checkedIds.value["Routes"],
+                )
+            })
         // IOSREADOUT-2026-11-19: the top-centre stack, transcribed from GroupTrackScreen.kt:1747-1757.
         // RECORD is NOT here: lines 1758+ are the check-in / recording engine (B.Check in), not a
         // button. ⚠ This belongs in GroupTrackLaunchLayer's TOP slot eventually -- it is here
@@ -708,7 +1010,149 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                     group = group.value,   // GRPIOS-2026-11-19: was the literal false
                     mapsDownloading = false,
                 )
-                if (settingsOpen.value) {
+if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
+                    // IOSARTIFACT-2026-11-19: ANDROID'S PANEL, unchanged. Only the seams are supplied,
+                    // and every optional action is omitted -- which the panel already handles by not
+                    // drawing that button ("Nullable like its siblings: a screen that does not offer it
+                    // passes nothing"). So RENAME, DELETE, SHARE, EXPORT, SAVE MAPS, CREATE A RIDE and
+                    // the narrative are absent here rather than broken: they are D (email/share), E/F
+                    // (maps) and the ride flow. DETAILS and ALIASES are what a tap gives today.
+                    Box(Modifier.fillMaxSize()) {
+                        // ============================================================
+                        // IOSDETAIL-2026-11-19 -- every action the panel offers, supplied.
+                        // ============================================================
+                        // Fred 15:33: "all the artifact panels are incomplete on the left hand
+                        // panel no options display under fit."
+                        //
+                        // MEASURED: ArtifactDetailPanel takes 15 parameters. TEN are action
+                        // callbacks defaulting to null, and this call site passed NONE of them, so
+                        // every button gated on one rendered as nothing at all. That is CODE RULE 1
+                        // (07-08) exactly: "a nullable parameter must have its justification
+                        // explained before it is used. Optional defers the 'is every caller wiring
+                        // this correctly?' check to silent field discovery." I made them optional
+                        // when the file moved to commonMain, and the check landed on the glass.
+                        //
+                        // Fred 14:59 set the standard for the repair: "I would rather compile the
+                        // s[it]e objects and have them fail the[n] compile placeholder that we
+                        // forget about." So EVERY action is supplied. The ones the iPad can do, it
+                        // does. The ones it cannot YET do are named, dated, loud lambdas -- the
+                        // button renders, the rider gets an answer, and the gap is visible on the
+                        // screen and in the log instead of being an absence nobody can see.
+                        val notBuilt: (String, String) -> Unit = { what, why ->
+                            gtLogger("GtIosDetail").e {
+                                "IOSDETAIL-2026-11-19 " + what + " is NOT BUILT on the iPad -- " + why
+                            }
+                            onMessage("detail", what + " is not built on the iPad yet")
+                        }
+                        ArtifactDetailPanel(
+                            artifactType = detailType.value,
+                            id = detailId.value,
+                            onLoadDetail = { ty, did -> IosSearchDb.detail(ty, did) },
+                            onLoadAliases = { ty, did -> IosSearchDb.aliases(ty, did) },
+                            // ---- REAL on the iPad ----
+                            // DETAILMATCH-2026-11-19: `name` is NOT passed here, because ANDROID does
+                            // not pass it either -- measured at its own call site, which supplies 14 of
+                            // the 15 and leaves this one to default. I had added it, which is a
+                            // divergence I introduced rather than a gap I closed. Matching production.
+                            // Android's mapKey here is the convoy map; ONE MAP made that "grouptrack"
+                            // for this screen (GtMapState.rideKey()). Matching the host, not the default.
+                            mapKey = GtMapState.rideKey(),
+                            // the map redraw after an edit -- the page's own viewport round trip,
+                            // which is what Android's onRefreshMap does through evaluateJavascript
+                            // Android calls the page's triggerViewportUpdate(), not a raw getBounds
+                            // round trip. Same intent, different function -- matching the real one.
+                            onRefreshMap = { js("try{if(window.triggerViewportUpdate)triggerViewportUpdate()}catch(e){}") },
+                            // a real query against the real database, so CREATE A RIDE can tell the
+                            // rider a name is taken instead of guessing
+                            routeNameExists = { nm -> IosSearchDb.routeNameExists(nm) },
+                            // ---- NOT BUILT, each saying which piece is missing ----
+                            // NOTESMOVE-2026-11-19: REAL -- the panel is shared now.
+                            // Android supplies this ONLY when the type is Routes, so the button does not
+                            // appear on a track or a waypoint. Same gate here.
+                            onShowNotes = if (detailType.value == "Routes") ({ rid: String ->
+                                detailType.value = ""; detailId.value = ""; notesRouteId.value = rid
+                            }) else null,
+                            // ---- REAL: ConvoyArtifactOps.delete (:79) transcribed onto shared GtWrite ----
+                            onDelete = { aid ->
+                                val ty = detailType.value
+                                val w = IosWriteDb.writer()
+                                if (w == null) {
+                                    onMessage("detail", "the database will not open for writing \u2014 nothing was deleted")
+                                } else {
+                                    // WPTTAP-2026-09-30: a route's trailhead cannot be deleted while the
+                                    // route exists. Android refuses with the route's name; same guard, same words.
+                                    val blockedBy = if (ty == "Waypoints") IosWriteDb.reader()?.routeUsingTrailhead(aid) else null
+                                    if (blockedBy != null) {
+                                        gtLogger("GtIosDetail").d { "DELETE REFUSED " + aid + " -- trailhead of " + blockedBy }
+                                        onMessage("detail", "This is the trailhead of route \"" + blockedBy +
+                                            "\". Remove the route first.")
+                                    } else {
+                                        when (ty) {
+                                            "Waypoints" -> w.deleteWaypoint(aid)
+                                            // GtWrite.deleteRoute already cascades notes + aliases (:68),
+                                            // which is the three calls ConvoyArtifactOps makes by hand.
+                                            "Routes" -> w.deleteRoute(aid)
+                                            "Tracks" -> w.deleteTrackFromDb(aid)
+                                            // RIDERTRAILDELETE-2026-09-08: this branch is the one that was
+                                            // MISSING on Android for months -- a trail delete fell through
+                                            // the when(), logged success and did nothing. It is here.
+                                            "Trails" -> w.deleteTrailFromDb(aid)
+                                        }
+                                        gtLogger("GtIosDetail").d { "DELETE " + ty + " " + aid }
+                                        detailType.value = ""; detailId.value = ""
+                                        js("try{if(window.triggerViewportUpdate)triggerViewportUpdate()}catch(e){}")
+                                        onMessage("detail", "deleted")
+                                    }
+                                }
+                            },
+                            onDeleteAlias = { aliasId ->
+                                val w = IosWriteDb.writer()
+                                if (w == null) onMessage("detail", "the database will not open for writing")
+                                else { w.deleteAlias(aliasId); onMessage("detail", "alias removed") }
+                            },
+                            // ---- REAL: the shared share/export SERVICE (ARTIFACTSVC-2026-11-19) ----
+                            // Fred 15:42: "share and export should be created as a service we can reuse."
+                            // Both call ONE object; share is export plus the hand-off, so they cannot drift.
+                            onShare = { aid ->
+                                val svc = IosWriteDb.artifacts
+                                if (svc == null) onMessage("detail", "the database will not open \u2014 nothing was shared")
+                                else when (val r = svc.share(detailType.value, aid)) {
+                                    is GtArtifactResult.Mailed -> onMessage("detail", "Saved to GroupTrack Map Features \u2014 pick your mail app")
+                                    is GtArtifactResult.NoMailApp -> onMessage("detail", "The file is in GroupTrack Map Features \u2014 nothing took the send.")
+                                    is GtArtifactResult.Failed -> onMessage("detail", "Share failed: " + r.why)
+                                    else -> onMessage("detail", "Shared")
+                                }
+                            },
+                            onExport = { aid ->
+                                val svc = IosWriteDb.artifacts
+                                if (svc == null) onMessage("detail", "the database will not open \u2014 nothing was exported")
+                                else when (val r = svc.export(detailType.value, aid)) {
+                                    is GtArtifactResult.Ok -> onMessage("detail", "Exported to GroupTrack Map Features")
+                                    is GtArtifactResult.Failed -> onMessage("detail", "Export failed: " + r.why)
+                                    else -> onMessage("detail", "Exported")
+                                }
+                            },
+                            onDownloadMaps = { _ -> notBuilt("Save maps",
+                                "needs the download queue runtime; GtQueuePlatform has no iOS " +
+                                "implementation and refuses by design (IOSQUEUE-2026-11-17)") },
+                            onDownloadCorridor = { _ -> notBuilt("Save a corridor",
+                                "same download queue as Save maps") },
+                            onBuildFromRecipe = { _ -> notBuilt("Build from recipe",
+                                "the recipe builder is in RouteModule, app-side, 2,674 lines") },
+                            // HELP needs GtHelp's link table, as in the three menu panels.
+                            help = {},
+                            // FITONE-2026-11-19: the panel hands FIT back as (type, id) and plain
+                            // CLOSE as (null, null) -- ArtifactDetailPanel.kt:136 and :302. Both
+                            // close the panel; only FIT fits. Ignoring the arguments, as this did,
+                            // made the FIT button a second close button.
+                            onDismiss = { ty, aid ->
+                                detailType.value = ""; detailId.value = ""
+                                if (ty != null && aid != null) fitArtifact(ty, aid, null)
+                            },
+                        )
+                    }
+                }
+                                if (settingsOpen.value) {
                     // IOSSETTINGS-2026-11-19: the four alert thresholds and the lead-track switch, saving
                     // to the rider's real store. The three TOOLS on Android's settings screen (the
                     // conversion record, the trail check and the issue report) are NOT here -- each ends
@@ -749,6 +1193,73 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                 // IOSHELP-2026-11-19: extracted so the cinterop opt-in stays on ONE small function
                 // rather than the whole screen -- the shape GtVecMap.ios.kt uses (@OptIn per function).
                 if (docView.value.isNotEmpty()) IosDocView(docView.value) { docView.value = "" }
+                // IOSGRP-2026-11-19: GroupModeActivatePopup (GroupMode.kt:51-60) word for word.
+                // The colours are named rather than left to Material's defaults -- on Android
+                // GtTheme makes colorScheme.surface equal Gt.panel so the default was right BY
+                // ACCIDENT; on the iPad it rendered white text on white (Fred 11-19 13:34).
+                // NOTESMOVE-2026-11-19: RouteModule.kt:1344-1360 transcribed. The title names the
+                // route and its other names (ROUTENAME-2026-10-28, D11); ROUTE DETAILS hands off to
+                // the card, which is the same ArtifactDetailPanel this screen already draws.
+                // SELECTWIRE-2026-11-19: the SELECT list itself (moved to commonMain today).
+                if (activeListType.value.isNotEmpty()) {
+                    ArtifactListPanel(
+                        artifactType = activeListType.value,
+                        artifacts = artifactList.value,
+                        selectedIds = selectedIds.value,
+                        onDismiss = { activeListType.value = ""; artifactList.value = emptyList() },
+                        onToggleItem = { id, on ->
+                            selectedIds.value = if (on) selectedIds.value + id else selectedIds.value - id
+                            // VIEWFILTER-2026-11-19: a tick is a display decision, so it goes
+                            // straight to the map's checked ids and the type becomes SELECTED.
+                            checkedIds.value = checkedIds.value + (activeListType.value to selectedIds.value)
+                            slot(activeListType.value).intValue = 2   // DS_SELECTED
+                            js(viewportJs)
+                        },
+                        onSelectAll = {
+                            selectedIds.value = artifactList.value.mapNotNull { it["id"] }.toSet()
+                            checkedIds.value = checkedIds.value + (activeListType.value to null)
+                            slot(activeListType.value).intValue = 1   // DS_ON -- all of the type, not a subset
+                            js(viewportJs)
+                        },
+                        onDeselectAll = {
+                            selectedIds.value = emptySet()
+                            checkedIds.value = checkedIds.value + (activeListType.value to emptySet())
+                            slot(activeListType.value).intValue = 2   // DS_SELECTED with nothing ticked = nothing drawn
+                            js(viewportJs)
+                        },
+                        onOpenDetail = { ty, id -> activeListType.value = ""; detailType.value = ty; detailId.value = id },
+                        mapKey = GtMapState.rideKey(),
+                        help = {},
+                    )
+                }
+                if (notesRouteId.value.isNotEmpty()) {
+                    val rid = notesRouteId.value
+                    GtNotesPanel(
+                        title = run {
+                            val nm = IosSearchDb.detail("Routes", rid)["name"]
+                            val also = IosSearchDb.aliases("route", rid).mapNotNull { it["alias"] }.filter { it != nm }
+                            if (nm == null) "Route details"
+                            else nm + (if (also.isEmpty()) "" else " (also: " + also.joinToString(", ") + ")") + " \u2014 route details"
+                        },
+                        sections = gtNotesFromNarrative(IosSearchDb.narrative(rid)),
+                        onClose = { notesRouteId.value = "" },
+                        onRouteDetails = { notesRouteId.value = ""; detailType.value = "Routes"; detailId.value = rid },
+                    )
+                }
+                if (grpAskActivate.value) AlertDialog(
+                    onDismissRequest = { grpAskActivate.value = false },
+                    title = { Text("Group awareness is off") },
+                    // GroupMode.ACTIVATE_MESSAGE verbatim. ⚠ It is a const in the APP's GroupMode
+                    // object, so this is a SECOND copy of the string and the two can drift. The fix
+                    // is to move the const to commonMain and have Android read it from there -- one
+                    // line of Android, deliberately NOT done today because Droid 1 carries 2.8a into
+                    // tomorrow's ride and nothing Android-side should change before it.
+                    text = { Text("Group mode needs to be activated in Settings. Do not activate unless your mesh device is available.") },
+                    confirmButton = { TextButton(onClick = { grpAskActivate.value = false }) { Text("OK") } },
+                    containerColor = Gt.panel,
+                    titleContentColor = Gt.text,
+                    textContentColor = Gt.text,
+                )
                 if (profileOpen.value) {
                     // IOSPROFILE-2026-11-19: the SHARED panel (PANELMOVE4-2026-11-19). onCancel non-null
                     // puts it in EDIT mode, which is right here -- the iPad reaches it from the menu, not

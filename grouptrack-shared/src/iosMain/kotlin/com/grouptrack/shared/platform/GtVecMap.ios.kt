@@ -187,6 +187,13 @@ private fun restoreFrame(web: WKWebView, log: (String) -> Unit) {
  */
 @OptIn(ExperimentalForeignApi::class)
 private class SpatialRunner(private val log: (String) -> Unit) {
+    /**
+     * VIEWFILTER-2026-11-19: WHAT THE FILTER SAYS, read at request time.
+     * A lambda, not a snapshot: this runner answers viewports for the life of the screen, and a
+     * value captured when the map was built would freeze the filter at that moment. Returns
+     * (states, checked ids) -- GtSpatial.viewport's two new arguments.
+     */
+    var display: () -> Pair<Map<String, Int>, Map<String, Set<String>?>> = { emptyMap<String, Int>() to emptyMap() }
     var web: WKWebView? = null
     private val queue = dispatch_queue_create("gt.spatial", null)
     private var spatial: GtSpatial? = null
@@ -218,7 +225,7 @@ private class SpatialRunner(private val log: (String) -> Unit) {
                 return@dispatch_async
             }
             val t0 = NSDate().timeIntervalSince1970
-            val b = try { sp2.viewport(v[0], v[1], v[2], v[3], v[4].toInt()) } catch (e: Throwable) {
+            val b = try { run { val d = display(); sp2.viewport(v[0], v[1], v[2], v[3], v[4].toInt(), d.first, d.second) } } catch (e: Throwable) {
                 dispatch_async(dispatch_get_main_queue()) { log("query failed: " + e.message) }
                 return@dispatch_async
             }
@@ -381,9 +388,15 @@ fun GtVecMap(
      *  server. true = stored tiles only, even with internet -- Android's VecOnline.localOnly.
      *  REQUIRED (CODE RULE 1): false is a legitimate value and the host always knows which. */
     offline: Boolean,
+    /** VIEWFILTER-2026-11-19: the display states and checked ids the FILTER holds, read on EVERY
+     *  viewport. REQUIRED (CODE RULE 1): a host with no filter passes
+     *  `{ emptyMap<String, Int>() to emptyMap() }` and says so at the call site. A default here
+     *  would hide exactly the miswiring Fred found at 16:10 -- a filter that changed nothing. */
+    displayState: () -> Pair<Map<String, Int>, Map<String, Set<String>?>>,
 ) {
     // VECSTORE-2026-11-18: onViewportChanged drives the spatial layer, exactly as on Android.
     val runner = remember { SpatialRunner { s -> onMessage("spatial", s) } }
+    runner.display = displayState   // VIEWFILTER-2026-11-19: re-bound every recomposition, so it never goes stale
     val messages = remember {
         GtVecMessages { fn, args ->
             onMessage(fn, args)
@@ -428,5 +441,10 @@ fun gtVecMapController(onMessage: (String, String) -> Unit): UIViewController =
         // MAPWIRE-2026-11-19: the bare Map tab is the CONTROL -- no launch layer, so no host
         // controls and nothing to drive the page with.
         // The bare Map tab is the CONTROL: no launch layer, so no STATUS control either.
-        GtVecMap(Modifier.fillMaxSize(), onMessage, onWeb = {}, offline = false)
+        // VIEWFILTER-2026-11-19: the CONTROL passes NO filter, explicitly. This tab has no launch
+        // layer, so there is no FILTER to read and every type draws -- which is the point of a
+        // control. Said at the call site rather than hidden in a default, per the parameter's own
+        // contract (CODE RULE 1).
+        GtVecMap(Modifier.fillMaxSize(), onMessage, onWeb = {}, offline = false,
+            displayState = { emptyMap<String, Int>() to emptyMap() })
     }

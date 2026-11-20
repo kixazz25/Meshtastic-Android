@@ -1058,7 +1058,51 @@ class ConvoyViewModel @Inject constructor(
             boardCarts.keys.retainAll { it == mine }; boardSpeedStart.keys.retainAll { it == mine }; boardSpeedLast.keys.retainAll { it == mine }
             gtLogger("TICKSHADOW").i { "board: group awareness off -- my cart only (${boardCarts.size})" }
         }
-        val nodes = boardCarts.values.toList()
+        // ADMITWINDOW-2026-11-20 v4 (Fred 11-20 12:19): "when we populate the map and the cart array which populates the map
+        // the radio has to be heard from within the time period on the slider's setting. that means we need to retrieve the
+        // values from the node database and compare."  THE CART ARRAY IS THE NODE DATABASE INTERSECTED WITH THE WINDOW.
+        // The clock is node.lastHeard (Node.kt:51, "the last time we've seen this node"), reached through
+        // commMessaging.members() as Member.lastHeardMs -- the half of HEARDSHADOW-2026-10-13 D3 that was never built
+        // ("the admission window ... are GroupTrack display rules", Fred 10-13 D3).
+        // Not the cart's own report clock: a parked cart sends no position packets (smart broadcast, RADIODIST30), so its cart
+        // goes quiet while its radio is still heard -- v1 tested that clock and dropped exactly the carts that are present.
+        // A radio outside the window is not in the group, so it is never on the map, whatever created its cart and whether or
+        // not the node database still holds a position for it. CODE RULE 2: compared here, at the point of contact, every tick.
+        val nodes = run {
+            val floorMs = now - admissionWindowHours * 3_600_000L
+            // ADMITWINDOW-2026-11-20 v5: group awareness OFF -> MY CART ONLY. ANDROIDMODE1-2026-10-14 (Fred 10-14): Android mode
+            // starts empty and nothing from before can come back -- so the node database is not read at all in that mode,
+            // or it would re-admit every radio the guard above (:1057) just cleared out of boardCarts.
+            if (!GroupMode.on.value) return@run listOfNotNull(boardCarts[mine])
+            val members = runCatching { commMessaging.members() }.getOrNull().orEmpty()
+            val admitted = members.mapNotNull { m ->
+                val num = m.id.toLongOrNull()?.toInt() ?: return@mapNotNull null
+                ("!%08x".format(num)) to m
+            }.filter { (_, m) -> m.lastHeardMs >= floorMs }
+            val out = ArrayList<ConvoyNode>()
+            boardCarts[mine]?.let { out.add(it) }                       // MY CART IS NEVER DROPPED
+            for ((nodeId, m) in admitted) {
+                if (nodeId == mine) continue
+                if (nodeId in _removedCarts.value) continue             // CARTACTIVE-2026-09-30: removed on this tablet
+                val existing = boardCarts[nodeId]
+                // an existing cart was built from a CoT message and carries more (speed window, roles) -- keep it, but take the
+                // node database's position when the cart has none yet.
+                out.add(when {
+                    existing == null -> cartFromMember(nodeId, m)
+                    existing.latitude == 0.0 && existing.longitude == 0.0 && m.latitude != null && m.longitude != null ->
+                        existing.copy(latitude = m.latitude!!, longitude = m.longitude!!)
+                    else -> existing
+                })
+            }
+            // android.util.Log, NOT gtLogger -- gtLogger output does not reach logcat (proven 11-20).
+            android.util.Log.i("ADMITWINDOW", "window " + admissionWindowHours + " hr -> " + out.size + " cart(s) from " +
+                members.size + " node(s) in the node db: " + members.joinToString("; ") { m ->
+                    m.id + " " + m.callsign + " heard " + ((now - m.lastHeardMs) / 60_000L) + " min ago" +
+                        (if (m.latitude == null) " NO POSITION" else "") +
+                        " -> " + (if (m.lastHeardMs >= floorMs) "IN" else "OUT")
+                })
+            out
+        }
         // LEADBOARD-2026-10-15 (T5.4b, ROLETICK moved): a cart reporting Leader is the lead -- set through setLeadCart only when it differs.
         // No Leader reported -> the lead keeps its value (as before). The tail comes from roles below (tail_gunner), as before.
         val reportedLeader = nodes.firstOrNull { it.rideRole == "leader" }?.nodeId
@@ -1074,10 +1118,16 @@ class ConvoyViewModel @Inject constructor(
             gtLogger("ROLEREPORT").i { "LEADCLEAR-2026-10-15: no Leader reported any more -- lead " + reportedLeadId + " cleared" }
             reportedLeadId = null
         }
-        boardState = if (nodes.isEmpty()) ConvoyEngine.ConvoyState.empty() else ConvoyEngine.compute(
-            nodes = nodes, myCartId = mine, nowMs = now,
+        // ADMITWINDOW-2026-11-20 v4: ConvoyEngine orders by projection (:87) and measures with haversine (:132-151), neither
+        // guarded against 0,0 -- a cart with no position would sort to an end and read thousands of miles. The engine sees only
+        // positioned carts; one with no position is appended after, convoyPosition 0. It is in the group and has nowhere to draw.
+        val positioned = nodes.filter { it.latitude != 0.0 || it.longitude != 0.0 }
+        val unpositioned = nodes.filter { it.latitude == 0.0 && it.longitude == 0.0 }
+        boardState = (if (positioned.isEmpty()) ConvoyEngine.ConvoyState.empty() else ConvoyEngine.compute(
+            nodes = positioned, myCartId = mine, nowMs = now,
             leadLocked = _leadLockedFlag, lockedLeadNodeId = lockedLeadNodeId,
-            tailNodeId = nodes.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId)
+            tailNodeId = positioned.firstOrNull { it.rideRole == "tail_gunner" }?.nodeId))
+            .let { st -> if (unpositioned.isEmpty()) st else st.copy(nodes = st.nodes + unpositioned.map { it.copy(convoyPosition = 0) }) }
         run {   // BOARDSHOW2-2026-10-15: the screen draws from the board -- updated only when something VISIBLE changed (TICKREMOVE-2026-10-20: no flag)
             val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
             if (sig != boardShownSig) { boardShownSig = sig; _convoyState.value = boardState }
@@ -1287,6 +1337,25 @@ class ConvoyViewModel @Inject constructor(
      * Speed: the radio's ground_speed when sent, else the 60-s window as before. Heard = the moment the message arrived.
      * CODE RULE 1 (return): null = not shown (removed on this tablet, or no position and nothing to fall back on).
      */
+    /**
+     * ADMITWINDOW-2026-11-20 v4: a cart built from the NODE DATABASE (Member), for a radio heard inside the admission window
+     * that has not yet produced a CoT message on this board. COTBOARD-2026-10-15 referenced cartFromMember and never wrote it.
+     * CODE RULE 1 on every null below: the transport did not report that value (an IP transport carries no radio link quality),
+     * so the cart shows the field's own "not reported" value, exactly as cartFromMessage does.
+     */
+    private fun cartFromMember(nodeId: String, m: com.grouptrack.comm.Member): ConvoyNode = ConvoyNode(
+        nodeId = nodeId,
+        callsign = m.callsign,
+        latitude = m.latitude ?: 0.0,            // 0,0 = this radio has sent no position: listed, and no map path draws it
+        longitude = m.longitude ?: 0.0,
+        altitude_m = m.altitudeM ?: 0,
+        heading_deg = m.headingDeg ?: 0f,
+        battery_pct = m.batteryPct ?: 100,
+        snr_db = m.snr ?: 0f,
+        lastSeenMs = m.lastHeardMs,              // the radio's clock -- the value the window was compared against
+        rideRole = "",                           // no TAK ride role until this radio reports one
+    )
+
     private fun cartFromMessage(
         msg: com.grouptrack.comm.CommMessage, num: Int, nowMs: Long, myNum: Int?, myTablet: android.location.Location?,
         prev: (String) -> ConvoyNode?,
