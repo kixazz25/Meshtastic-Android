@@ -19,6 +19,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.clickable
@@ -86,6 +87,7 @@ import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSURL
 import platform.WebKit.WKWebViewConfiguration
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import platform.WebKit.WKWebView
 import kotlinx.coroutines.sync.Mutex
@@ -469,6 +471,12 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         com.grouptrack.shared.settings.GtGroupMode.load(IosSettings(), defaultWhenUnset = true)
         com.grouptrack.shared.settings.GtGroupMode.on
     }
+    // IOSCOMMWIRE-2026-11-20: ONE comm link for this screen, and the scope it runs in. Everything mesh goes
+    // through it (Fred 07:14: one boundary -- the comm module exposes the mesh functions AND options, and
+    // GroupTrack calls the API). It cannot execute on the simulator; it is wired so it never has to be wired
+    // mid-certification (Fred 11-19 10:48).
+    val commScope = rememberCoroutineScope()
+    val comm = remember { com.grouptrack.shared.comm.GtIosCommLink(commScope) }
     // IOSGRP-2026-11-19: D.GRP Awareness's popup. MEASURED -- GrpAwarenessLauncher.open()
     // (GrpAwareness.kt:65-68) is TWO branches, and only one of them is Meshtastic:
     //     if (!GroupMode.on.value) { GroupMode.askToActivate(); return }
@@ -775,10 +783,37 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // Transcribed with its guard: GroupTrackScreen.kt:3066-3069 allows the change only in CHECK_IN or
         // IDLE and otherwise says "End the ride before changing mode." A mode flip mid-recording would
         // change what the recorder is doing underneath a running track.
+        // IOSCOMMWIRE-2026-11-20: RADIO SETUP (LaunchModules slot 5, groupOnly) had NO actions entry, so
+        // both rows drew as "not attached yet" even once the button could appear. Attached now.
+        "group.configure" to {
+            comm.startScan()
+            commScope.launch {
+                // Give the scan a moment to report before naming what is in range -- a scan answers over
+                // time, not at once, so an immediate read would always say "none".
+                kotlinx.coroutines.delay(2_000L)
+                val rs = comm.listRadios()
+                onMessage(
+                    "group",
+                    comm.scanProblem.value?.let { p -> "Radio scan unavailable: " + p }
+                        ?: if (rs.isEmpty()) "No radios in range yet"
+                        else "Radios in range: " + rs.joinToString { r -> r.name },
+                )
+            }
+        },
+        // Android keeps archived setups in its own store; there is no iOS store for them yet. Said plainly
+        // rather than left as a dead row.
+        "group.archive" to {
+            onMessage("group", "Archived radio setups are not stored on the iPad yet")
+        },
         "mode.switch" to {
             if (recState.value == RecordingState.CHECK_IN || recState.value == RecordingState.IDLE) {
-                group.value = !group.value
-                onMessage("mode", if (group.value) "Group" else "My device")
+                // IOSCOMMWIRE-2026-11-20: was `group.value = !group.value`, which after GRPMODESHARED
+                // updated the shared state WITHOUT persisting it and without telling the comm side. Both
+                // now happen here, as ConvoyViewModel.setGroupMode does on Android (:723).
+                val next = !group.value
+                com.grouptrack.shared.settings.GtGroupMode.set(IosSettings(), next)
+                commScope.launch { comm.setActive(next) }
+                onMessage("mode", if (next) "Group" else "My device")
             } else onMessage("mode", "End the ride before changing mode.")
         },
         // IOSPROFILE-2026-11-19: Android is "menu.account" to { onNavigateToProfile() }
@@ -792,10 +827,21 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                 gtLogger("GtIosPanels").e {
                     "IOSGRP-2026-11-19 grp.open with group mode ON wants GrpAwarenessPanel -- " +
                         "14 parameters of Meshtastic (RadioEntry list, scan state, connect/pair/forget, " +
-                        "CommMenus, the Meshtastic side menu). There is no iOS comm side. NOT BUILT, " +
-                        "and deliberately so: Meshtastic is the one item out of scope for 2.8b."
+                        "CommMenus, the Meshtastic side menu). IOSCOMMWIRE-2026-11-20: the iOS comm " +
+                        "side NOW EXISTS (GtIosCommLink over the Meshtastic KMP SDK) and the link state " +
+                        "below is real; the full GrpAwarenessPanel is still to be ported."
                 }
-                onMessage("grp", "GRP Awareness needs the radio, which is not built on the iPad yet")
+                // IOSCOMMWIRE-2026-11-20: the real link, from the comm module. On the simulator this
+                // reports BLUETOOTH_UNAVAILABLE, which is a true answer rather than a missing feature.
+                comm.startScan()
+                val h = comm.health.value
+                onMessage(
+                    "grp",
+                    "Radio link: " + comm.link.value.name.lowercase() +
+                        (h.reason?.let { r -> " (" + r + ")" } ?: "") +
+                        " \u00b7 radio: " + (comm.selectedRadioId.value ?: "none selected") +
+                        (comm.scanProblem.value?.let { p -> " \u00b7 " + p } ?: ""),
+                )
             }
         },
         "menu.account" to { profileOpen.value = true },

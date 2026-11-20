@@ -68,6 +68,9 @@ kotlin {
             // implementation(), not api(), while BleTransport's public constructor takes a Kable Peripheral.
             // PINNED to the version the SDK was built against -- its own catalog says the klib ABI must match.
             implementation("com.juul.kable:kable-core:0.45.0")
+            // IOSCOMM-2026-11-20: RadioClient.Builder requires storage(); baseDir = "" is the SDK's own
+            // in-memory mode, so this adds no files and no paths until persistence is wired.
+            implementation("org.meshtastic:sdk-storage-sqldelight:0.2.0")
         }
         commonTest.dependencies { implementation(kotlin("test")); implementation(libs.kotlinx.coroutines.core) }   // STEP17G2E2F-2026-11-12: runBlocking in the 17e2 iPad test
     }
