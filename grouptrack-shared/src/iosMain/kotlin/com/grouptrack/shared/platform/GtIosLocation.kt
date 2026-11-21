@@ -42,6 +42,16 @@ internal object GtIosLocation {
         get() = del?.onHeading
         set(v) { del?.onHeading = v }
 
+    /**
+     * IOSPOSFEED-2026-11-21: called whenever a fresh POSITION arrives: (lat, lon, altitude metres).
+     * The recorder's feed -- B2.REC hands each one to MyCartProcess.onPosition, as Android's
+     * ConvoyGpsService.kt:352 does. Distinct from [onHeading] on purpose: a compass update is
+     * not a new position, and feeding the recorder from one would duplicate points at a standstill.
+     */
+    var onPosition: ((Double, Double, Double) -> Unit)?
+        get() = del?.onPosition
+        set(v) { del?.onPosition = v }
+
     /** Idempotent: the first call asks for permission and starts the updates. */
     fun start() {
         if (mgr != null) return
@@ -86,6 +96,10 @@ internal object GtIosLocation {
         var speedMph = 0.0
         var accuracy = -1.0   // IOSREADOUT-2026-11-19: metres; CoreLocation gives negative when invalid
         var onHeading: ((Double, Double) -> Unit)? = null
+        // IOSPOSFEED-2026-11-21: CLLocation.altitude, metres. The recorder writes it as <ele>; nothing
+        // read it before, so it was never kept.
+        var altitude = 0.0
+        var onPosition: ((Double, Double, Double) -> Unit)? = null
 
         private fun push() {
             val h = if (courseDeg >= 0.0) courseDeg else headingDeg
@@ -100,6 +114,10 @@ internal object GtIosLocation {
             courseDeg = if (loc.course >= 0.0) loc.course else -1.0
             // CLLocation.speed is m/s and negative when invalid; the page wants mph.
             speedMph = if (loc.speed >= 0.0) loc.speed * 2.236936 else 0.0
+            altitude = loc.altitude   // IOSPOSFEED-2026-11-21
+            // IOSPOSFEED-2026-11-21: a POSITION arrived. Deliberately here and NOT in push(), which also
+            // runs for heading updates -- that would re-feed the same position on every compass tick.
+            onPosition?.invoke(lat, lon, altitude)
             push()
         }
 

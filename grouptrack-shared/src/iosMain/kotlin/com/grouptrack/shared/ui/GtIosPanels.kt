@@ -1171,6 +1171,27 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         }
     }
 
+    // IOSREC-2026-11-21: B2.REC's recorder, assembled from pieces that already exist. MyCartProcess is
+    // the SHARED track-rules engine (track/TrackRules.kt:578) that Android drives from ConvoyGpsService;
+    // it holds TrackWriter + ScreenWriter inside itself, so the host only has to feed it positions and
+    // keep what it writes. Declared HERE, above the record button, because declaration order is
+    // enforced in a composable body.
+    val gtMyCart = androidx.compose.runtime.remember { com.grouptrack.shared.track.MyCartProcess(updateFrequency = 1) }
+    val gtRecPoints = androidx.compose.runtime.remember { mutableListOf<com.grouptrack.shared.track.WPoint>() }
+
+    // IOSREC-2026-11-21: every fix goes through the rules while RECORDING. The engine returns only the
+    // points it actually WROTE -- it writes nothing while it holds a point at an intersection -- so
+    // what is kept here is exactly the track, not the raw fixes.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        GtIosLocation.onPosition = { lat, lon, alt ->
+            if (recState.value == RecordingState.RECORDING) {
+                gtRecPoints.addAll(
+                    gtMyCart.onPosition(com.grouptrack.shared.track.TrackPoint(lat, lon), com.grouptrack.shared.platform.IosClock.epochMs(), alt),
+                )
+            }
+        }
+    }
+
     Box(Modifier.fillMaxSize()) {
         GtVecMap(Modifier.fillMaxSize(), relay, onWeb = { web.value = it },
             offline = offline.value,
@@ -1260,12 +1281,35 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                     onTap = {
                         when (recState.value) {
                             RecordingState.CHECK_IN -> {
-                                recState.value = RecordingState.IDLE
-                                onMessage("record", "checked in (the ride env is not built on the iPad yet)")
+                                // IOSRIDEENV-2026-11-21: the REAL check-in. GtRideStore.checkIn has existed and
+                                // been certified since step 14 (ride/GtRides.kt:663); it was unreachable
+                                // only because the iPad had no GtRideEnv. Android's SOLO path is what is
+                                // followed here -- no scheduled ride (null is a real value: "No scheduled
+                                // ride"), the rider's own callsign, the default role. Picking a ride is
+                                // CheckInSheet's job and that panel moves to commonMain in its own step.
+                                com.grouptrack.shared.platform.installIosRideEnv()
+                                val gtMe = com.grouptrack.shared.ride.GtRideStore.env.profile()
+                                val gtCall = gtMe?.callsign ?: ""
+                                if (gtCall.isBlank()) {
+                                    // Said plainly rather than writing a record with no rider on it.
+                                    onMessage("record", "check in needs a callsign -- set it in the rider profile")
+                                } else {
+                                    val gtCi = com.grouptrack.shared.ride.GtRideStore.checkIn(null, gtCall, "rider")
+                                    if (gtCi == null) {
+                                        onMessage("record", "check in refused")
+                                    } else {
+                                        recState.value = RecordingState.IDLE
+                                        onMessage("record", "checked in as " + gtCi.callsign + " (" + gtCi.role + ")")
+                                    }
+                                }
                             }
                             RecordingState.IDLE -> {
+                                // IOSREC-2026-11-21: START. A new recording is a new track, as
+                                // ConvoyGpsService.kt:178 does it (TRACKRULES-2026-10-19).
+                                gtMyCart.reset()
+                                gtRecPoints.clear()
                                 recState.value = RecordingState.RECORDING
-                                onMessage("record", "recording (no iOS recorder yet -- nothing is written)")
+                                onMessage("record", "recording")
                             }
                             RecordingState.RECORDING -> recMenu.value = true
                             RecordingState.PAUSED -> recMenu.value = true
@@ -1282,9 +1326,35 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                     onEnd = {
                         // CHECKIN-2026-09-27: each recording starts with its own check-in, so END returns
                         // to CHECK_IN -- not IDLE. Android also opens the name dialog here; that is B work.
+                        // IOSREC-2026-11-21: END. stop() writes any point still held at an
+                        // intersection on its nearest place (ConvoyGpsService.kt:231), then the track
+                        // goes to my_tracks as GPX through the certified writer.
+                        val gtEndMs = com.grouptrack.shared.platform.IosClock.epochMs()
+                        gtRecPoints.addAll(gtMyCart.stop(gtEndMs))
                         recState.value = RecordingState.CHECK_IN
                         recMenu.value = false
-                        onMessage("record", "ended (the track-name dialog is not built on the iPad yet)")
+                        if (gtRecPoints.isEmpty()) {
+                            onMessage("record", "ended with no points written")
+                        } else {
+                            // WKT is "lon lat", in that order -- the stored LINESTRING's own order.
+                            val gtGeom = gtRecPoints.joinToString(", ", "LINESTRING(", ")") { p ->
+                                p.lon.toString() + " " + p.lat.toString()
+                            }
+                            val gtFiles = com.grouptrack.shared.platform.IosRideFiles()
+                            val gtDir = com.grouptrack.shared.platform.IosImportPaths().tracksDir().toString()
+                            val gtName = "convoy_track_" + gtEndMs + ".gpx"
+                            val gtPath = gtFiles.child(gtDir, gtName)
+                            val gtCount = gtRecPoints.size
+                            try {
+                                gtFiles.writeText(gtPath, com.grouptrack.shared.gpx.GtGpx.trail("Convoy Track", gtGeom))
+                                onMessage("record", "ended -- " + gtCount + " points to " + gtName)
+                            } catch (e: Exception) {
+                                // Said out loud rather than swallowed: a ride that did not save must not
+                                // look like one that did.
+                                onMessage("record", "ended -- WRITE FAILED: " + (e.message ?: "unknown"))
+                            }
+                            gtRecPoints.clear()
+                        }
                     },
                 )
             }
