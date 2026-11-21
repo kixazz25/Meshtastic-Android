@@ -61,6 +61,28 @@ interface GtArtifactSink {
      * not an error.
      */
     fun emailAll(handles: List<String>, subject: String, body: String): Boolean
+
+    /**
+     * EMAILTEXT-2026-11-21: the same hand-off with NO FILE -- the body alone.
+     *
+     * A SECOND service, built beside [email] and [emailAll] rather than relaxing either of them
+     * (C28-26366 SVCEXT, Fred 11-21 07:29/07:31): both of those already have consumers, and editing a
+     * service that other features already use, while certifying a different one, spends the stable baseline. Whether
+     * the three should later collapse into one interaction is FLAGGED as C28-26367, to be evaluated
+     * after this loop is tested and certified -- not before.
+     *
+     * Android: ACTION_SEND with type "text/plain", EXTRA_SUBJECT and EXTRA_TEXT, through createChooser
+     * -- what ConvoySettingsScreen.kt:248-253 does inline today for the trail check.
+     * iOS: the share sheet with the body as its only item.
+     *
+     * ⚠ The SUBJECT is dropped on iOS, as it is for [email] and [emailAll] (UIActivityViewController
+     * takes none). A caller that needs it visible puts it in the body's first line. This service
+     * invents no fallback -- composing the body is the caller's business, not the platform's.
+     *
+     * Returns false when nothing took it, exactly as [email] does. The caller reports that; it is not
+     * an error.
+     */
+    fun emailText(subject: String, body: String): Boolean
 }
 
 /** A track's .gpx on disk, by geom_hash. Android: ConvoyTrackOps.tracksDir(); iOS: the storage root. */

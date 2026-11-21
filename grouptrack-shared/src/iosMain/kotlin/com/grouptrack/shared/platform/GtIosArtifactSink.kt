@@ -107,6 +107,41 @@ class IosArtifactSink(private val storage: GtStorage = iosStorage()) : GtArtifac
         log.e { "EMAILALL-2026-11-20: emailAll(" + handles.size + " file(s)) failed: " + e.message }
         false
     }
+
+    /**
+     * EMAILTEXT-2026-11-21: the body alone, no attachment. A SECOND service built BESIDE emailAll,
+     * which is left exactly as it was -- Fred 07:31: "build the second service[,] flag the services to
+     * be evaluated when we have completed this loop and tested [a]nd certified code. not before."
+     * Whether the three email methods should later collapse into one is C28-26367, and it waits for a
+     * certified baseline and a count of each one's consumers.
+     *
+     * Android does this inline today for the trail check: ACTION_SEND, type "text/plain",
+     * EXTRA_SUBJECT and EXTRA_TEXT, through createChooser (ConvoySettingsScreen.kt:248-253).
+     *
+     * ⚠ The SUBJECT is dropped, as it is for email and emailAll -- UIActivityViewController takes none.
+     * A caller that needs it visible puts it in the body's first line. This service invents no
+     * fallback: composing the body is the caller's business, not the platform's.
+     * ⚠ Same popover rule as emailAll: on iPad UIActivityViewController defaults to a POPOVER, and a
+     * popover with no anchor raises NSInvalidArgumentException on present. sourceView is not in the
+     * Kotlin/Native bindings, so the presentation style is forced to a form sheet instead.
+     */
+    @OptIn(ExperimentalForeignApi::class)
+    override fun emailText(subject: String, body: String): Boolean = try {
+        val root = UIApplication.sharedApplication.keyWindow?.rootViewController
+        if (root == null) {
+            log.e { "EMAILTEXT-2026-11-21: no root view controller -- cannot present the share sheet" }
+            false
+        } else {
+            val vc = UIActivityViewController(listOf(body), null)
+            vc.modalPresentationStyle = UIModalPresentationFormSheet
+            root.presentViewController(vc, animated = true, completion = null)
+            log.i { "EMAILTEXT-2026-11-21: presented the body alone (" + body.length + " chars); iOS drops the subject" }
+            true
+        }
+    } catch (e: Throwable) {
+        log.e { "EMAILTEXT-2026-11-21: " + (e.message ?: "failed") }
+        false
+    }
 }
 
 /**

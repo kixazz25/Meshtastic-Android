@@ -99,6 +99,21 @@ import com.grouptrack.shared.help.GtHelpLinks
 import com.grouptrack.shared.platform.IosHelpAssets
 import com.grouptrack.shared.platform.IosScreenCapture
 import com.grouptrack.shared.platform.IosBuildInfo
+import com.grouptrack.shared.platform.GtAssetVersion
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Column
+import com.geeksville.mesh.convoy.GtTrailCheck
+import com.grouptrack.shared.json.GtOrgJson
+import com.grouptrack.shared.platform.IosFiles
+import com.grouptrack.shared.platform.IosHkEnv
+import com.grouptrack.shared.platform.IosImportPaths
+import kotlinx.serialization.json.JsonObject
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.font.FontFamily
+import com.geeksville.mesh.convoy.RideStats
 
 /**
  * The iPad's panel chrome.
@@ -450,6 +465,18 @@ private object IosWriteDb {
     /** the guard's read, on the same writable pair so it cannot disagree with what is about to change */
     fun reader(): GtRead? { open(); val s = spatial ?: return null; return GtRead(s, data) }
 
+    /**
+     * TRAILCHECKWIRE-2026-11-21: the OPEN pair, for a reader that needs raw SQL rather than GtRead --
+     * GtTrailCheck runs the map's real queries, including the Map Keys WHERE and the rank-in-view
+     * count. ⛔ It REUSES this pair instead of opening a second connection: two connections to the
+     * same file can disagree, and the whole point of the check is that it sees what the map sees.
+     */
+    fun conns(): Pair<androidx.sqlite.SQLiteConnection, androidx.sqlite.SQLiteConnection?>? {
+        open()
+        val s = spatial ?: return null
+        return s to data
+    }
+
     val artifacts: GtArtifactFiles? by lazy {
         val r = reader() ?: return@lazy null
         GtArtifactFiles(r, IosTrackFiles(), IosArtifactSink())
@@ -759,6 +786,30 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // three states, transcribed: ask, busy, done. The engine is shared (GtWrite.clearAllTrailData);
     // only these three states and the dialogs were missing on the iPad.
     val trailClearAsk = remember { mutableStateOf(false) }
+    // RIDESTATSPANEL-2026-11-21: the ride-statistics dialog. Android holds the same two in
+    // ConvoySettingsScreen (statsOpen, statsText).
+    val statsOpen = remember { mutableStateOf(false) }
+    // TRAILCHECKWIRE-2026-11-21: Android holds the same four in ConvoySettingsScreen (tcOpen,
+    // tcInput, tcResult, tcBusy).
+    val tcOpen = remember { mutableStateOf(false) }
+    val tcInput = remember { mutableStateOf("") }
+    val tcResult = remember { mutableStateOf<JsonObject?>(null) }
+    val tcBusy = remember { mutableStateOf(false) }
+    val tcScope = rememberCoroutineScope()
+    val statsText = remember { mutableStateOf("") }
+    // The device's UTC offset, from pieces that are already certified: IosClock.localNow() against
+    // IosClock.epochMs(), differenced through GtTime.gregorianEpochDay. NSTimeZone's Kotlin/Native
+    // binding shape is deliberately not guessed at.
+    val rideStatsNow: () -> String = {
+        val l = IosClock.localNow()
+        val localSec = GtTime.gregorianEpochDay(l.year.toLong(), l.month, l.day) * 86_400L +
+            l.hour * 3_600L + l.minute * 60L + l.second
+        val nowMs = IosClock.epochMs()
+        val offMin = ((localSec - nowMs / 1_000L) / 60L).toInt()
+        // preset / intervalSecs / avgChannel are null: the iPad has no radio reporting figures yet
+        // (RADIO SETUP's data). They print "--" rather than a fabricated value -- C28-26356.
+        RideStats.report(nowMs, offMin, null, null, null)
+    }
     val trailClearBusy = remember { mutableStateOf(false) }
     val trailClearDone = remember { mutableStateOf<String?>(null) }
     val trailClearScope = rememberCoroutineScope()
@@ -1465,6 +1516,9 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                     // help = {} as menu.account: HELP needs GtHelp's link table.
                     GtAlertSettingsPanel(
                         rs = rideSettings,
+                        // BUILDSTAMP-2026-11-21: the host supplies the service (SEAMRULE-2026-11-19).
+                        build = IosBuildInfo(),
+                        mapHtmlVersion = GtAssetVersion.of(GtAssetVersion.MAP_HTML),
                         showLeadTrack = showLeadTrack.value,
                         onShowLeadTrack = { v -> showLeadTrack.value = v },
                         // FUNCTIONAL: the same flag the GRP Awareness colour and the launch layer read, so
@@ -1491,7 +1545,12 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                         // TRAILCLEAR-2026-11-20: BUILT. Android's row is clickable(enabled = !busy)
                         // (ConvoySettingsScreen:141); same guard, so a second tap while it runs does nothing.
                         onRemoveTrailData = { if (!trailClearBusy.value) trailClearAsk.value = true },
-                        onCheckTrail = { onMessage("settings", "the trail check is Android's TrailCheck -- not on the iPad yet") },
+                        // RIDESTATSPANEL-2026-11-21: report FIRST, then open -- Android's order
+                        // (ConvoySettingsScreen.kt:408), so the dialog never shows a stale body.
+                        onRideStats = { statsText.value = rideStatsNow(); statsOpen.value = true },
+                        // TRAILCHECKWIRE-2026-11-21: was a message saying the check was Android's.
+                        // GtTrailCheck is shared now, so the row opens the real dialog.
+                        onCheckTrail = { tcResult.value = null; tcInput.value = ""; tcOpen.value = true },
                         // SRCCREDITS-2026-11-20: BUILT. The settings panel stays open underneath, so
                         // CLOSE puts the rider back on the row they tapped.
                         onMapCredits = { creditsOpen.value = true },
@@ -1630,6 +1689,109 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                         textContentColor = Gt.text,
                     )
                 }
+                // RIDESTATSPANEL-2026-11-21: Android's dialog, ConvoySettingsScreen.kt:411-426.
+                // ⚠ On the simulator this reads "Nothing recorded yet" and that is CORRECT -- nothing
+                // FEEDS RideStats on the iPad yet (onHeard/onMine/onEstimate are unwired; the feed is
+                // carded to D-GRP AWARENESS). An empty report is therefore NOT evidence of a defect,
+                // and NOT evidence the port works either.
+                if (statsOpen.value) AlertDialog(
+                    onDismissRequest = { statsOpen.value = false },
+                    title = { Text("Ride statistics") },
+                    text = {
+                        Text(
+                            statsText.value,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            color = Gt.text,
+                            modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                        )
+                    },
+                    confirmButton = { TextButton(onClick = { statsText.value = rideStatsNow() }) { Text("REFRESH") } },
+                    dismissButton = {
+                        Row {
+                            // RESET then RE-REPORT, as Android does -- a reset that leaves the old text on
+                            // screen has not been consumed.
+                            TextButton(onClick = { RideStats.reset(); statsText.value = rideStatsNow() }) { Text("RESET") }
+                            TextButton(onClick = { statsOpen.value = false }) { Text("CLOSE") }
+                        }
+                    },
+                )
+                // TRAILCHECKWIRE-2026-11-21: Android's dialog, ConvoySettingsScreen.kt:209-254.
+                if (tcOpen.value) AlertDialog(
+                    onDismissRequest = { tcOpen.value = false; tcResult.value = null },
+                    title = { Text("Check a trail") },
+                    text = {
+                        Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                            Text(
+                                "First open the map on the spot where the trail should be \u2014 the check uses " +
+                                    "each map's last view.\n\nThen enter the trail's Agency Id (from its detail " +
+                                    "panel on a tablet that shows it), its Id, or part of its name.",
+                                color = Gt.dim, fontSize = 13.sp,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            androidx.compose.material3.OutlinedTextField(
+                                value = tcInput.value,
+                                onValueChange = { tcInput.value = it; tcResult.value = null },
+                                singleLine = true,
+                                label = { Text("Agency Id, Id or name") },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            if (tcBusy.value) Text("Checking\u2026", color = Gt.dim, fontSize = 13.sp)
+                            tcResult.value?.let { r ->
+                                Spacer(Modifier.height(8.dp))
+                                Text(GtOrgJson.optString(r, "verdict"), color = Gt.text, fontSize = 13.sp)
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        if (tcResult.value == null) {
+                            TextButton(
+                                enabled = !tcBusy.value && tcInput.value.isNotBlank(),
+                                onClick = {
+                                    tcBusy.value = true
+                                    val q = tcInput.value
+                                    tcScope.launch {
+                                        // ⛔ Dispatchers.Default, NOT IO -- IO is internal on
+                                        // Kotlin/Native (see the note at the top of this file).
+                                        // run() reads every trail id, so it leaves the main thread.
+                                        val r = withContext(Dispatchers.Default) {
+                                            try {
+                                                val c = IosWriteDb.conns()
+                                                if (c == null) null
+                                                else GtTrailCheck.run(
+                                                    spatial = c.first,
+                                                    ext = c.second,
+                                                    mapState = GtMapState(IosFiles(), IosImportPaths()),
+                                                    ownershipPath = IosHkEnv().ownershipFilePath(),
+                                                    importsDir = IosImportPaths().dir("imports"),
+                                                    fs = okio.FileSystem.SYSTEM,
+                                                    build = IosBuildInfo(),
+                                                    nowMs = IosClock.epochMs(),
+                                                    input = q,
+                                                )
+                                            } catch (e: Throwable) { null }
+                                        }
+                                        tcBusy.value = false
+                                        if (r == null) onMessage("settings", "The check failed \u2014 the trail database did not open")
+                                        else tcResult.value = r
+                                    }
+                                },
+                            ) { Text("CHECK") }
+                        } else {
+                            TextButton(onClick = {
+                                val r = tcResult.value
+                                if (r != null) {
+                                    // iOS drops the subject, so Android's subject line leads the BODY.
+                                    val subject = "GroupTrack OG trail check: " + tcInput.value.trim()
+                                    IosArtifactSink().emailText(subject, subject + "\n\n" + GtTrailCheck.pretty(r))
+                                }
+                            }) { Text("SEND") }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(enabled = !tcBusy.value, onClick = { tcOpen.value = false; tcResult.value = null }) { Text("CLOSE") }
+                    },
+                )
                 if (creditsOpen.value) AlertDialog(
                     onDismissRequest = { creditsOpen.value = false },
                     title = { Text("Map source credits") },

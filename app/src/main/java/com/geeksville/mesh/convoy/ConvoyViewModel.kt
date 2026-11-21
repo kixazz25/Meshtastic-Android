@@ -612,7 +612,7 @@ class ConvoyViewModel @Inject constructor(
                     // STATSPANEL-2026-10-20: the ride statistics keep every report -- only while group awareness is on (Fred 10-20)
                     if (GroupMode.on.value) {
                         val fresh = System.currentTimeMillis() - myRadioFixMs < 120_000L
-                        RideStats.onHeard(e.member, myRadioNum()?.toString(), if (fresh) myRadioLat else null, if (fresh) myRadioLon else null)
+                        RideStats.onHeard(e.member, myRadioNum()?.toString(), if (fresh) myRadioLat else null, if (fresh) myRadioLon else null, System.currentTimeMillis())   // RIDESTATS-2026-11-21: the clock is the caller's
                     }
                 }
             }
@@ -783,9 +783,12 @@ class ConvoyViewModel @Inject constructor(
             })
         }
     }
-    fun rideStatsJson(): String = RideStats.json(System.currentTimeMillis())   // RIDESTATSSEND-2026-10-26
+    fun rideStatsJson(): String = RideStatsJson.json(System.currentTimeMillis())   // RIDESTATSSEND-2026-10-26; RIDESTATS-2026-11-21: json() stayed on Android
     fun leadTrackWritten(): List<WPoint> = leadCart.writtenPoints()             // RIDESTATSSEND-2026-10-26
-    fun rideStatsReport(): String = RideStats.report(System.currentTimeMillis(), reportingPreset.value, reportingNowSecs.value, _avgChannelUtil.value)
+    // RIDESTATS-2026-11-21: shared code has no time zone, so the host passes the device's offset.
+    fun rideStatsReport(): String = System.currentTimeMillis().let { now ->
+        RideStats.report(now, java.util.TimeZone.getDefault().getOffset(now) / 60_000, reportingPreset.value, reportingNowSecs.value, _avgChannelUtil.value)
+    }
     fun resetRideStats() = RideStats.reset()
 
     fun applyLocationInterval(secs: Int, preset: String) {   // PRESETPANEL-2026-10-20 (Fred 10-20): + the preset, through the radio SETUP (one process)
@@ -1188,7 +1191,7 @@ class ConvoyViewModel @Inject constructor(
                     // LEADEST-2026-10-20: heard -> the estimate (if one was showing) ends; its error to the ride statistics
                     leadEst.onReport(e.cartId, e.p, e.rxMs, estRouteNow())?.let { o ->
                         gtLogger("LEADEST").i { "LEADEST-2026-10-20 heard after " + o.silentMs / 1000 + " s: estimate off by " + o.errorM.toInt() + " m (" + (if (o.onRoute) "on route" else "in place") + ", " + (o.speedMps * 2.237).toInt() + " mph)" }
-                        if (GroupMode.on.value) RideStats.onEstimate(o)
+                        if (GroupMode.on.value) RideStats.onEstimate(RideStats.RideLeadOutcome(o.tMs, o.silentMs, o.errorM, o.speedMps, o.onRoute, o.moving))   // RIDESTATS-2026-11-21
                     }
                     _leadEstimate.value = null
                 } else if (e.isMine) {

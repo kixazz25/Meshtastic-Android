@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.grouptrack.shared.platform.GtBuildInfo
 import com.grouptrack.shared.settings.GtRideSettings
 import kotlin.math.roundToInt
 
@@ -73,9 +74,25 @@ fun GtAlertSettingsPanel(
     onIssueEmail: (Boolean) -> Unit,
     onRemoveTrailData: () -> Unit,
     onCheckTrail: () -> Unit,
+    /** RIDESTATSPANEL-2026-11-21: opens the ride-statistics dialog. The HOST shows it, as it does for
+     *  trail clear and map credits -- this panel raises callbacks and does not own dialogs. */
+    onRideStats: () -> Unit,
     onProfile: () -> Unit,
     onMapCredits: () -> Unit,
     onClose: () -> Unit,
+    /** BUILDSTAMP-2026-11-21: the platform's own version TEXT. Android's GtBuildInfo reports its
+     *  release/built/flavor line; the iPad's reports CFBundleShortVersionString (CFBundleVersion).
+     *  The panel LABELS it and never formats it, so the two platforms' lines cannot drift apart.
+     *  CODE RULE 1: no default -- the caller wires it or the build says so. */
+    build: GtBuildInfo,
+    /** BUILDSTAMP-2026-11-21: runtime state from the MAP PAGE, not a build fact -- so it is a String
+     *  and it is NOT on GtBuildInfo. The host owns it: ConvoyConfig.MAP_HTML_VERSION on Android
+     *  (ConvoyConfig.kt:30, set from the page at GroupTrackScreen.kt:1025), and the shared
+     *  GtAssetVersion.of(GtAssetVersion.MAP_HTML) registry since ASSETVER-2026-11-21 -- which Android's
+     *  ConvoyConfig can delegate to, so the two stop being separate sources of truth.
+     *  "not reported" is the CORRECT reading before a map has been opened and is Android's own
+     *  default -- it is not a stub. CODE RULE 1: no default. */
+    mapHtmlVersion: String,
     /** SEAMRULE-2026-11-19: HELP needs LocalContext on Android (GtHelp.load), so the host supplies it. */
     help: @Composable () -> Unit = {},
 ) {
@@ -202,6 +219,16 @@ fun GtAlertSettingsPanel(
                 ) { v -> adm.intValue = v.roundToInt(); rs.setAdmissionWindowHours(v.roundToInt()) }
 
                 Spacer(Modifier.height(8.dp))
+                // RIDESTATSPANEL-2026-11-21: Android's row at ConvoySettingsScreen.kt:405-410, inside the
+                // group section because RideStats only records while group awareness is on.
+                GtSettingRow(
+                    "Ride statistics",
+                    "Range, losses, signal and channel use for each cart heard while group awareness is on",
+                    onRideStats,
+                )
+                HorizontalDivider(color = Gt.line)
+
+                Spacer(Modifier.height(8.dp))
                 GtSectionLabel("Lead track")
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -227,6 +254,21 @@ fun GtAlertSettingsPanel(
                     color = Gt.dim, fontSize = 13.sp, modifier = Modifier.padding(16.dp),
                 )
             }
+            // BUILDSTAMP-2026-11-21: Android draws these two last on the screen, labelSmall and dimmed
+            // (ConvoySettingsScreen.kt:430-446). STD1-2026-10-24: Gt.dim is the ROLE for dimmed text --
+            // do NOT copy Android's onSurfaceVariant.copy(alpha = 0.5f) literal in here.
+            // On a SIDELOADED iPad with no store version, these two lines are the only way to tell
+            // which build is in your hands. That is what HTMLVER-2026-08-13B was written for.
+            Text(
+                "GroupTrack OG Rel. " + build.appVersion(),
+                color = Gt.dim, fontSize = 11.sp,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            Text(
+                "Map HTML: " + mapHtmlVersion,
+                color = Gt.dim, fontSize = 11.sp,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            )
             Spacer(Modifier.height(24.dp))
         }
     }
