@@ -117,7 +117,10 @@ fun GtRiderProfilePanel(
             // TOUCHSTD-2026-10-22: the standard top bar -- HELP, and Close (= Cancel) in edit mode. First launch has no way out (by design).
             androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 help()
-                if (editMode) com.geeksville.mesh.grouptrack.GtCloseButton({ onCancel?.invoke() })   // CLOSEX-2026-10-22
+                // PROFILECANCEL-2026-11-20: onCancel(), not onCancel?.invoke() -- inside `if (editMode)`
+                // Kotlin 2.4.21 smart-casts it non-null (editMode IS `onCancel != null`), so the safe
+                // call is redundant. Same behaviour; the warning came with the toolchain, not with code.
+                if (editMode) com.geeksville.mesh.grouptrack.GtCloseButton({ onCancel() })   // CLOSEX-2026-10-22
             }
             Text(
                 if (editMode) "YOUR RIDER PROFILE" else "SET UP YOUR RIDER PROFILE",
@@ -200,7 +203,8 @@ fun GtRiderProfilePanel(
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 if (editMode) {
                     Surface(
-                        modifier = Modifier.weight(1f).height(52.dp).clickable { onCancel?.invoke() },
+                        // PROFILECANCEL-2026-11-20: see :120 -- smart-cast inside `if (editMode)`.
+                        modifier = Modifier.weight(1f).height(52.dp).clickable { onCancel() },
                         shape = RoundedCornerShape(10.dp),
                         color = Gt.panel,
                         border = androidx.compose.foundation.BorderStroke(1.dp, LINE)

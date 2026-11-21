@@ -42,6 +42,25 @@ interface GtArtifactSink {
      * Returns false when nothing took it, which the caller reports -- it is not an error.
      */
     fun email(handle: String, fileName: String, subject: String, body: String): Boolean
+
+    /**
+     * EMAILALL-2026-11-20: the same hand-off with SEVERAL already-saved files.
+     *
+     * A generic service: it takes a list of handles and delivers them together. It knows nothing
+     * about what the files are or which function produced them.
+     *
+     * [handles] are platform handles for files already written -- a uri on Android, a path on iOS.
+     *
+     * ⚠ ORDER IS THE CALLER'S AND IS PRESERVED. Both platforms present the list as given, so a sink
+     * must not sort, group or de-duplicate it: a caller that puts one file first means it.
+     *
+     * An EMPTY list is a caller error, not a delivery failure -- it returns false having presented
+     * nothing, and says so in the log.
+     *
+     * Returns false when nothing took it, exactly as [email] does. The caller reports that; it is
+     * not an error.
+     */
+    fun emailAll(handles: List<String>, subject: String, body: String): Boolean
 }
 
 /** A track's .gpx on disk, by geom_hash. Android: ConvoyTrackOps.tracksDir(); iOS: the storage root. */

@@ -71,7 +71,6 @@ fun GtAlertSettingsPanel(
     /** GtIssue.sendsEmailState -- ISSUE-2026-10-24: email to support, or saved on this device. */
     issueEmail: Boolean,
     onIssueEmail: (Boolean) -> Unit,
-    onConversionRecord: () -> Unit,
     onRemoveTrailData: () -> Unit,
     onCheckTrail: () -> Unit,
     onProfile: () -> Unit,
@@ -102,13 +101,18 @@ fun GtAlertSettingsPanel(
             // nothing else. Android's settings screen has SEVEN rows ABOVE the gate that show in BOTH
             // modes, and they are the ones a solo rider actually needs. Labels and supporting text below
             // are ConvoySettingsScreen's, word for word.
+            // CONVREC-2026-11-20 (Fred 20:43): "this function is an old function for android public
+            // storage[,] it no longer exists. it can be removed from iPad implementation. iPad is
+            // implemented at current level[,] no conversion is necessary. this display conversion results
+            // android only."
+            // REMOVED, not reworded to "Android only": the row said "not on the iPad yet", and "yet"
+            // promises work that will never come -- CONVERSION-2026-09-12 copies GroupTrack out of SHARED
+            // STORAGE through a SAF TREE GRANT because MANAGE_EXTERNAL_STORAGE is leaving the manifest.
+            // Shared storage, SAF and that permission are all Android; an iPad app is sandboxed from birth
+            // and builds its own container (DBPROBE-2026-11-18), so there is no conversion to record.
+            // Android keeps its own row in ConvoySettingsScreen -- the function is Android's, not missing.
+            // The Storage label stays: "Remove all trail data" sits under it.
             GtSectionLabel("Storage")
-            GtSettingRow(
-                "View conversion record",
-                "What moved to private storage, what it weighed, and what failed",
-                onConversionRecord,
-            )
-            HorizontalDivider(color = Gt.line)
             GtSettingRow(
                 "Remove all trail data",
                 "Every trail and its details, so trails can be imported again clean. " +

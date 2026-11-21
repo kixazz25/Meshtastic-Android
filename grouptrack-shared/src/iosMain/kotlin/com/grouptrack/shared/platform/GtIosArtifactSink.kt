@@ -58,13 +58,38 @@ class IosArtifactSink(private val storage: GtStorage = iosStorage()) : GtArtifac
      * ⚠ @OptIn kept on this ONE function, not the file -- GtVecMap.ios.kt's pattern, so the
      * cinterop surface stays visible where it is actually used.
      */
+    override fun email(handle: String, fileName: String, subject: String, body: String): Boolean {
+        // EMAILALL-2026-11-20: one attachment is the one-item case. Kept as its own member because
+        // the interface declares it and its log line carries the file name.
+        val ok = emailAll(listOf(handle), subject, body)
+        if (ok) log.i { "ARTIFACTSVC-2026-11-19: share sheet presented for " + fileName }
+        else log.e { "ARTIFACTSVC-2026-11-19: email(" + fileName + ") did not present" }
+        return ok
+    }
+
+    /**
+     * EMAILALL-2026-11-20: the multi-attachment send, and the ONE place the presentation lives --
+     * the single-file send above now goes through it, so the two cannot drift.
+     *
+     * ⚠ The [subject] is ACCEPTED AND DROPPED, as it was for the single-file send.
+     * UIActivityViewController takes no subject from an item list; carrying one needs a
+     * UIActivityItemSource implementing activityViewController(_:subjectForActivityType:). Android
+     * sets EXTRA_SUBJECT. A REAL DELTA, named here rather than left to be discovered.
+     */
     @OptIn(ExperimentalForeignApi::class)
-    override fun email(handle: String, fileName: String, subject: String, body: String): Boolean = try {
-        val url = NSURL.fileURLWithPath(handle)
-        val vc = UIActivityViewController(listOf(body, url), null)
+    override fun emailAll(handles: List<String>, subject: String, body: String): Boolean = try {
+        if (handles.isEmpty()) {
+            // CODE RULE 1: an empty list is a CALLER error, not "no mail app". Said, not swallowed.
+            log.e { "EMAILALL-2026-11-20: no attachments given -- nothing presented" }
+            return false
+        }
+        val items = ArrayList<Any>(handles.size + 1)
+        items.add(body)
+        handles.forEach { items.add(NSURL.fileURLWithPath(it)) }
+        val vc = UIActivityViewController(items, null)
         val root = UIApplication.sharedApplication.keyWindow?.rootViewController
         if (root == null) {
-            log.e { "ARTIFACTSVC-2026-11-19: no root view controller -- cannot present the share sheet for " + fileName }
+            log.e { "EMAILALL-2026-11-20: no root view controller -- cannot present the share sheet for " + handles.size + " file(s)" }
             false
         } else {
             // ⚠ iPad: UIActivityViewController defaults to a POPOVER, and a popover with no
@@ -75,11 +100,11 @@ class IosArtifactSink(private val storage: GtStorage = iosStorage()) : GtArtifac
             // source rect, and it is a reasonable presentation for a share sheet on a 13-inch iPad.
             vc.setModalPresentationStyle(UIModalPresentationFormSheet)
             root.presentViewController(vc, animated = true, completion = null)
-            log.i { "ARTIFACTSVC-2026-11-19: share sheet presented for " + fileName }
+            log.i { "EMAILALL-2026-11-20: share sheet presented with " + handles.size + " attachment(s)" }
             true
         }
     } catch (e: Throwable) {
-        log.e { "ARTIFACTSVC-2026-11-19: email(" + fileName + ") failed: " + e.message }
+        log.e { "EMAILALL-2026-11-20: emailAll(" + handles.size + " file(s)) failed: " + e.message }
         false
     }
 }

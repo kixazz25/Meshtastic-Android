@@ -73,6 +73,8 @@ import com.geeksville.mesh.convoy.ArtifactDetailPanel
 import com.geeksville.mesh.convoy.ArtifactListPanel   // IOSARTIFACT-2026-11-19: level B's one panel
 import com.geeksville.mesh.convoy.RecordingState
 import com.grouptrack.shared.settings.GtRideSettings
+import com.grouptrack.shared.settings.GtIssueMode   // IOSISSUEIMPORTS-2026-11-20: the ISSUE report reads both
+import com.grouptrack.shared.settings.GtGroupMode   // IOSISSUEIMPORTS-2026-11-20: the ISSUE report reads both
 import com.grouptrack.shared.platform.IosSettings
 import com.geeksville.mesh.grouptrack.docsAssetFor
 import com.grouptrack.shared.platform.iosBundleAssetPath
@@ -92,6 +94,11 @@ import kotlinx.coroutines.withContext
 import platform.WebKit.WKWebView
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import com.grouptrack.shared.text.GtFmt   // TRAILCLEAR-2026-11-20: GtFmt.d() IS "%,d"
+import com.grouptrack.shared.help.GtHelpLinks
+import com.grouptrack.shared.platform.IosHelpAssets
+import com.grouptrack.shared.platform.IosScreenCapture
+import com.grouptrack.shared.platform.IosBuildInfo
 
 /**
  * The iPad's panel chrome.
@@ -105,20 +112,126 @@ object GtPanelChromeIos : GtPanelChrome {
 
     private val log = gtLogger("GtChromeIos")
 
-    /** No docs viewer on iOS yet. Logged rather than silent, so a tapped OVERVIEW leaves a trace. */
+    /**
+     * IOSHELPCHROME-2026-11-20: where this host's document viewer is.
+     *
+     * CODE RULE 1 -- why nullable: this chrome is an OBJECT and outlives every composable, so before
+     * GtGroupTrackScreen has composed there is no viewer to open. Null is that real state, and a tap
+     * then is LOGGED rather than swallowed (SKIPLOUD).
+     */
+    var opener: ((String) -> Unit)? = null
+
+    /**
+     * IOSHELPCHROME-2026-11-20: the iPad's half of standard 5 -- "every panel has HELP, opening the
+     * manual page for its function" (SHELL-2026-10-22, via GtPanel's header).
+     *
+     * This method was EMPTY: it logged "no iOS docs viewer yet" and returned, so HELP was dead on
+     * every panel that draws in GtPanel, and on the launch layer too, because GroupTrackLaunchLayer's
+     * onHelp is routed here (:1043). Android's half has always been real
+     * (GtPanelChromeAndroid.openHelp = GtHelpView.open(id)); only this side was missing, and
+     * everything it needed was already built.
+     *
+     * GtHelpLinks' lookup order IS the service and is not reimplemented here: the process's own
+     * entry, else its MODULE's entry, else the manual's front page -- so an unmapped id still opens
+     * the manual rather than doing nothing.
+     *
+     * ⚠ IosDocView drops the "#page" fragment (IOSHELP-2026-11-19): the right DOCUMENT opens, at the
+     * top, where Android scrolls to the section. Landing on the section needs an NSURL carrying the
+     * fragment, which is its own item.
+     */
     override fun openHelp(id: String) {
-        log.i { "PANELGLASS-2026-11-19: openHelp(" + id + ") -- no iOS docs viewer yet" }
+        GtHelpLinks.load(IosHelpAssets())
+        val link = GtHelpLinks.linkFor(id)
+        val open = opener
+        if (open == null) {
+            log.w { "IOSHELPCHROME-2026-11-20: openHelp(" + id + ") -> " + link + " -- no opener set yet" }
+            return
+        }
+        log.i { "IOSHELPCHROME-2026-11-20: openHelp(" + id + ") -> " + link }
+        open(link)
     }
 
     /** Drawn dim and inert: present, so its absence is a visible gap, not a missing control. */
     @Composable
+    /**
+     * IOSISSUE-2026-11-20: LIVE. It sits in GtPanel's header beside HELP by the standard
+     * (GtPanel.kt:261, ISSUE-2026-10-24); only this platform half was missing. It drew dim and inert
+     * so the absence was visible -- that was deliberate, and it is no longer an absence.
+     */
     override fun IssueButton(id: String, color: Color) {
-        Text("ISSUE", color = Gt.dim, fontSize = 12.sp)
+        Text(
+            "ISSUE",
+            color = color,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable { IosIssue.start(id) },
+        )
     }
 
-    /** Android draws the report panel and the CAPTURE bar here. iOS has neither yet. */
+    /**
+     * IOSISSUE-2026-11-20: the report panel and the CAPTURE bar. GtTheme draws this over every
+     * screen (GtPanel.kt:123), which is why ISSUE works everywhere once this exists.
+     */
     @Composable
     override fun IssueHost() {
+        if (IosIssue.open.value) {
+            AlertDialog(
+                onDismissRequest = { IosIssue.cancel() },
+                title = { Text("Report an issue \u00b7 " + IosIssue.function) },
+                text = {
+                    androidx.compose.foundation.layout.Column {
+                        Text(
+                            "Screens captured: " + IosIssue.shotCount() +
+                                ". Say what went wrong; the screens go with it.",
+                            color = Gt.dim, fontSize = 13.sp,
+                        )
+                        androidx.compose.material3.OutlinedTextField(
+                            value = IosIssue.note.value,
+                            onValueChange = { v -> IosIssue.note.value = v },
+                            label = { Text("What is wrong") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { IosIssue.finish() }) {
+                        // The label says where it is going, as Android's two paths do.
+                        Text(if (GtIssueMode.sendsEmail.value) "SEND" else "SAVE HERE")
+                    }
+                },
+                dismissButton = {
+                    Row {
+                        TextButton(onClick = {
+                            // Android: hide the panel so the rider can navigate, then CAPTURE.
+                            IosIssue.open.value = false
+                            IosIssue.nextPending.value = true
+                        }) { Text("+ NEXT SCREEN") }
+                        TextButton(onClick = { IosIssue.cancel() }) { Text("CANCEL") }
+                    }
+                },
+                containerColor = Gt.panel,
+                titleContentColor = Gt.text,
+                textContentColor = Gt.text,
+            )
+        } else if (IosIssue.nextPending.value) {
+            // The CAPTURE bar: the rider has navigated; one tap takes the next screen.
+            Row(
+                modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(8.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+            ) {
+                Text(
+                    "\u23fa  CAPTURE THIS SCREEN",
+                    color = Gt.accent,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .background(Gt.panel)
+                        .clickable { IosIssue.captureNext() }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                )
+                TextButton(onClick = { IosIssue.cancel() }) { Text("CANCEL") }
+            }
+        }
     }
 
     /** The interface's own note: Android-only today, iOS draws nothing. */
@@ -343,6 +456,110 @@ private object IosWriteDb {
     }
 }
 
+/**
+ * IOSISSUE-2026-11-20: the iPad's ISSUE report, from GtIssue.kt:86-172.
+ *
+ * An OBJECT, like Android's: the chrome that draws the control is an object too, and a report must
+ * survive the rider navigating to another screen -- that IS the "+ NEXT SCREEN" flow.
+ */
+private object IosIssue {
+    private val log = gtLogger("GtIosIssue")
+    private val capture = IosScreenCapture()
+    private val sink = IosArtifactSink()
+
+    /** the report panel is showing */
+    val open = mutableStateOf(false)
+    /** between "+ NEXT SCREEN" and CAPTURE: the rider is moving to the next screen */
+    val nextPending = mutableStateOf(false)
+    val note = mutableStateOf("")
+    var function = ""
+        private set
+    private var stamp = ""
+    private val shots = ArrayList<String>()
+
+    fun shotCount(): Int = shots.size
+
+    /** Android's stamp format, SimpleDateFormat("yyyy-MM-dd_HHmmss") (GtIssue.kt:99). */
+    private fun stampNow(): String {
+        val t = IosClock.localNow()
+        fun p(n: Int, w: Int = 2): String = n.toString().padStart(w, '0')
+        return p(t.year, 4) + "-" + p(t.month) + "-" + p(t.day) + "_" + p(t.hour) + p(t.minute) + p(t.second)
+    }
+
+    /** ISSUE pressed: a new report, the screen captured as it is (GtIssue.start). */
+    fun start(fid: String) {
+        GtIssueMode.load(IosSettings())
+        capture.clear(); shots.clear()
+        note.value = ""; function = fid
+        stamp = stampNow()
+        shoot()
+        open.value = true
+    }
+
+    /** "+ NEXT SCREEN" -> CAPTURE: the screen now showing (GtIssue.captureNext). */
+    fun captureNext() {
+        shoot()
+        nextPending.value = false
+        open.value = true
+    }
+
+    private fun shoot() {
+        val name = "issue_" + stamp + "_" + (shots.size + 1) + ".jpg"
+        val h = capture.capture(name)
+        if (h == null) log.e { "IOSISSUE-2026-11-20: no shot for " + name }
+        else shots.add(h)
+    }
+
+    /** GtIssue.details(), transcribed. */
+    private fun details(): String {
+        val b = IosBuildInfo()
+        val mode = if (GtGroupMode.on.value) "Group" else "My device"
+        return "Function: " + function + "\nApp: " + b.appVersion() + "\nMode: " + mode +
+            "\nDevice: " + b.device() +
+            "\nWhen: " + stamp.replace('_', ' ') + "\nScreens: " + shots.size +
+            "\n\nWhat is wrong:\n" + note.value.trim() + "\n"
+        // ⚠ Android appends GtRoute.issueText() for route reports (AIFAIL-2026-11-03). Those live in
+        // RouteModule.kt, app-side -- not in shared GtRoute -- so an iPad route report does not
+        // carry the recipe. Stated, not silently dropped.
+    }
+
+    /** SEND (email) or keep it here (GtIssue.finish). */
+    fun finish() {
+        val text = details()
+        // Android also writes issue_<stamp>.txt beside the shots, so the report exists even if no
+        // mail app takes it. Same here, and it goes out as an attachment too.
+        val txt = capture.let { _ ->
+            val p = IosArtifactSink().saveToMapFeatures("issue_" + stamp + ".txt", text)
+            if (p == null) log.e { "IOSISSUE-2026-11-20: could not write the report text" }
+            p
+        }
+        open.value = false
+        nextPending.value = false
+        if (GtIssueMode.sendsEmail.value) {
+            val handles = ArrayList<String>(shots)
+            if (txt != null) handles.add(txt)
+            // ⚠ UIActivityViewController drops the subject (EMAILALL-2026-11-20), so Android's
+            // "GroupTrack issue - <function>" subject is put in the body's first line instead.
+            val subject = "GroupTrack issue \u00b7 " + function + " \u00b7 " + IosBuildInfo().appVersion()
+            val body = subject + "\nTo: " + ISSUE_TO + "\n\n" + text
+            val ok = sink.emailAll(handles, subject, body)
+            log.i { "IOSISSUE-2026-11-20: " + (if (ok) "share sheet presented" else "nothing took it") +
+                " with " + handles.size + " file(s)" }
+        } else {
+            log.i { "IOSISSUE-2026-11-20: kept on this iPad -- " + shots.size + " screen(s)" }
+        }
+        shots.clear()
+    }
+
+    fun cancel() {
+        capture.clear(); shots.clear()
+        open.value = false; nextPending.value = false
+    }
+}
+
+/** GtIssue.TO (GtIssue.kt:67). ⚠ UIActivityViewController cannot pre-address mail, so it is stated in the body. */
+private const val ISSUE_TO = "support@grouptrack.org"
+
 private object IosProfile {
     private val log = gtLogger("GtIosProfile")
     private var conn: androidx.sqlite.SQLiteConnection? = null
@@ -515,6 +732,12 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // the iPad shows ONE document at a time over the map, which is all the chooser can reach.
     val helpOpen = remember { mutableStateOf(false) }
     val docView = remember { mutableStateOf("") }
+    // IOSHELPCHROME-2026-11-20: hand the chrome the document viewer that already exists in this
+    // screen. A SideEffect, not a one-shot: it re-points at the LIVE state holder on every
+    // composition instead of capturing one that may be discarded.
+    androidx.compose.runtime.SideEffect {
+        GtPanelChromeIos.opener = { key -> docView.value = key }
+    }
     // IOSSETTINGS-2026-11-19: menu.settings. GtRideSettings is SHARED and already certified on the iPad
     // (GtRideSettingsMacTest); IosSettings puts it on NSUserDefaults, suite "convoy_settings", the same
     // keys Android writes through GtSettingsAndroid. So this panel saves the rider's REAL settings.
@@ -528,9 +751,27 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         }
     }
     val settingsOpen = remember { mutableStateOf(false) }
-    // IOSSETTINGS-2026-11-19: ISSUE-2026-10-24's choice. Android persists it through GtIssue.sendsEmail
-    // (a Context read); here it is host state so the row works, and WHERE the report goes is D work.
-    val issueEmail = remember { mutableStateOf(true) }
+    // SRCCREDITS-2026-11-20: menu.settings > "Map source credits". Reached ONLY from settings, as on
+    // Android. There is no service behind it -- CORRCREDITS-2026-11-13 found the screen is a credits
+    // page whose picker is unreachable -- so the iPad carries the text, which is a licence obligation.
+    val creditsOpen = remember { mutableStateOf(false) }
+    // TRAILCLEAR-2026-11-20: menu.settings > "Remove all trail data". REMOVEALLTRAILS-2026-10-10's
+    // three states, transcribed: ask, busy, done. The engine is shared (GtWrite.clearAllTrailData);
+    // only these three states and the dialogs were missing on the iPad.
+    val trailClearAsk = remember { mutableStateOf(false) }
+    val trailClearBusy = remember { mutableStateOf(false) }
+    val trailClearDone = remember { mutableStateOf<String?>(null) }
+    val trailClearScope = rememberCoroutineScope()
+    // ISSUEMODE-2026-11-20: the rider's choice, PERSISTED, in Android's own "gt_issue"/"send_to"
+    // form. It was `remember { mutableStateOf(true) }` -- the switch moved and forgot, and the old
+    // comment here called that "host state so the row works".
+    // ⚠ That comment also said "WHERE the report goes is D work". That stopped being true on 11-17:
+    // the share/email service exists (ARTIFACTSVC-2026-11-19) and the multi-attachment send was
+    // added at EMAILALL-2026-11-20. A stale reason reads as a blocker that is not there.
+    val issueEmail = remember {
+        com.grouptrack.shared.settings.GtIssueMode.load(IosSettings())
+        com.grouptrack.shared.settings.GtIssueMode.sendsEmail
+    }
     // IOSSETTINGS-2026-11-19: Android reads this from ConvoyViewModel.showLeadTrack (GRPMODE2-2026-10-13).
     // The iPad has no convoy view model yet, so it is host state -- BUILT and driving the switch.
     val showLeadTrack = remember { mutableStateOf(true) }
@@ -783,6 +1024,13 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // Transcribed with its guard: GroupTrackScreen.kt:3066-3069 allows the change only in CHECK_IN or
         // IDLE and otherwise says "End the ride before changing mode." A mode flip mid-recording would
         // change what the recorder is doing underneath a running track.
+        // IOSRIDE-2026-11-20: Create a ride, step 1. GtRideStart is SHARED and the shell turns wantSearch
+        // into the Search panel (GroupTrack.kt:174) -- which is exactly step 1 (RIDESEARCH-2026-10-24,
+        // Fred 10:30: "Search positions the map, then the form lists the routes in the map area").
+        // Step 2 (rides.ride.form) is deliberately NOT attached: Android hands off to ConvoyRideCreateScreen,
+        // 596 lines of Android that are not ported. An unattached row reads "not attached yet"
+        // (ATTACH1-2026-10-22), which is the truth; wiring it to nothing would not be.
+        "rides.ride" to { com.geeksville.mesh.grouptrack.GtRideStart.begin() },
         // IOSCOMMWIRE-2026-11-20: RADIO SETUP (LaunchModules slot 5, groupOnly) had NO actions entry, so
         // both rows drew as "not attached yet" even once the button could appear. Attached now.
         "group.configure" to {
@@ -1209,9 +1457,11 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                 }
                                 if (settingsOpen.value) {
                     // IOSSETTINGS-2026-11-19: the four alert thresholds and the lead-track switch, saving
-                    // to the rider's real store. The three TOOLS on Android's settings screen (the
-                    // conversion record, the trail check and the issue report) are NOT here -- each ends
-                    // in Intent.ACTION_SEND, which is round two's email / share work.
+                    // to the rider's real store. The TWO TOOLS on Android's settings screen that are not
+                    // here -- the trail check and the issue report -- each end in Intent.ACTION_SEND,
+                    // which is round two's email / share work.
+                    // CONVREC-2026-11-20: the conversion record is no longer counted here at all. It is
+                    // an Android-only function (SAF migration off shared storage), not an iPad gap.
                     // help = {} as menu.account: HELP needs GtHelp's link table.
                     GtAlertSettingsPanel(
                         rs = rideSettings,
@@ -1224,13 +1474,27 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                         // FUNCTIONAL as a setting; Android also writes it through GtIssue.setSendsEmail,
                         // which needs a Context. Where ISSUE reports actually go on the iPad is D work.
                         issueEmail = issueEmail.value,
-                        onIssueEmail = { v -> issueEmail.value = v },
-                        // ⛔ NOT BUILT -- each is an Android subsystem, and three of them end in
-                        // Intent.ACTION_SEND, which Fred's list puts at D ("including ios email solution").
-                        onConversionRecord = { onMessage("settings", "the conversion record is Android's GroupTrackConversion -- not on the iPad yet") },
-                        onRemoveTrailData = { onMessage("settings", "removing trail data is not built on the iPad yet") },
+                        // ISSUEMODE-2026-11-20: persist, do not just move the switch.
+                        onIssueEmail = { v -> com.grouptrack.shared.settings.GtIssueMode.set(IosSettings(), v) },
+                        // ⛔ NOT BUILT -- TWO rows, each owed its own call-stack walk and its own
+                        // remedy: REMOVE ALL TRAIL DATA (wiring only -- GtWrite.clearAllTrailData is in
+                        // commonMain and IosWriteDb.writer() already hands out a GtWrite) and CHECK A
+                        // TRAIL (a port of TrailCheck's 291 lines; every service it needs exists,
+                        // measured 2026-11-20).
+                        // The conversion record came out at CONVREC-2026-11-20 as Android-only; map
+                        // source credits was BUILT at SRCCREDITS-2026-11-20.
+                        // ⚠ THE OLD REASON IS GONE: these were called "at D for the ios email
+                        // solution", and that stopped being true on 11-17. The share/email service
+                        // exists (ARTIFACTSVC-2026-11-19) and the multi-attachment send was added at
+                        // EMAILALL-2026-11-20. A stale reason reads as a blocker that is not there --
+                        // it cost most of 2026-11-20 to find that out.
+                        // TRAILCLEAR-2026-11-20: BUILT. Android's row is clickable(enabled = !busy)
+                        // (ConvoySettingsScreen:141); same guard, so a second tap while it runs does nothing.
+                        onRemoveTrailData = { if (!trailClearBusy.value) trailClearAsk.value = true },
                         onCheckTrail = { onMessage("settings", "the trail check is Android's TrailCheck -- not on the iPad yet") },
-                        onMapCredits = { onMessage("settings", "the map source credits screen is not built on the iPad yet") },
+                        // SRCCREDITS-2026-11-20: BUILT. The settings panel stays open underneath, so
+                        // CLOSE puts the rider back on the row they tapped.
+                        onMapCredits = { creditsOpen.value = true },
                         // FUNCTIONAL: straight into the profile panel that menu.account opens.
                         onProfile = { settingsOpen.value = false; profileOpen.value = true },
                         onClose = { settingsOpen.value = false },
@@ -1301,6 +1565,80 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                         onRouteDetails = { notesRouteId.value = ""; detailType.value = "Routes"; detailId.value = rid },
                     )
                 }
+                // SRCCREDITS-2026-11-20: ConvoyMapSourceScreen.kt:161-172, transcribed word for word.
+                // ⚠ THIS TEXT IS A SECOND COPY of Android's and the two can drift -- and it is the
+                // copy that carries OpenMapTiles' required credit, so a drift here is a licence
+                // problem, not a cosmetic one. The fix is to move the strings to commonMain and have
+                // Android read them from there; that belongs with the app-side switchover, as
+                // GtIosArtifactSink's MAP_FEATURES_DIR note already says for the folder name.
+                // TRAILCLEAR-2026-11-20: ConvoySettingsScreen.kt:145-196, transcribed.
+                if (trailClearAsk.value) AlertDialog(
+                    onDismissRequest = { trailClearAsk.value = false },
+                    title = { Text("Remove all trail data?") },
+                    text = { Text("This deletes every trail on this tablet — state trails and rider trails — and their details.\n\nYour tracks, routes, waypoints and downloaded maps are not touched.\n\nTrails stay gone until you import them again: Import Trails by State, then ADD TRAILS FROM TRACKS.\n\nThis cannot be undone.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            trailClearAsk.value = false
+                            trailClearBusy.value = true
+                            trailClearScope.launch {
+                                // ⚠ Dispatchers.Default, not IO: IO is internal on native (:749).
+                                val r = withContext(Dispatchers.Default) {
+                                    IosWriteDb.writer()?.clearAllTrailData()
+                                }
+                                trailClearBusy.value = false
+                                trailClearDone.value = when {
+                                    // SpatialDbManager:1598's own words for the no-writer case.
+                                    r == null -> "Removed 0 trails and 0 trail details, but not everything worked:\nthe trail database is not open\n\nRun Remove all trail data again before importing."
+                                    r.error == null ->
+                                        "Removed " + GtFmt.d(r.trails) + " trails and " + GtFmt.d(r.properties) +
+                                        " trail details.\n\nNext: Import Trails by State for your states, then ADD TRAILS FROM TRACKS."
+                                    else ->
+                                        "Removed " + GtFmt.d(r.trails) + " trails and " + GtFmt.d(r.properties) +
+                                        " trail details, but not everything worked:\n" + r.error +
+                                        "\n\nRun Remove all trail data again before importing."
+                                }
+                                // Android: if (r.trails > 0) RiderTrailWriter.trailsChanged.value = now
+                                // -- "the maps reload". js(viewportJs) is this screen's equivalent (:704).
+                                if ((r?.trails ?: 0) > 0) js(viewportJs)
+                            }
+                        }) { Text("REMOVE") }
+                    },
+                    dismissButton = { TextButton(onClick = { trailClearAsk.value = false }) { Text("CANCEL") } },
+                    containerColor = Gt.panel,
+                    titleContentColor = Gt.text,
+                    textContentColor = Gt.text,
+                )
+                // Android gives the busy dialog no buttons and swallows the dismiss, so the rider
+                // cannot start a second pass while the first is deleting. Transcribed.
+                if (trailClearBusy.value) AlertDialog(
+                    onDismissRequest = { },
+                    confirmButton = { },
+                    title = { Text("Removing trail data…") },
+                    text = { Text("This can take a minute on a tablet with many trails.") },
+                    containerColor = Gt.panel,
+                    titleContentColor = Gt.text,
+                    textContentColor = Gt.text,
+                )
+                trailClearDone.value?.let { msg ->
+                    AlertDialog(
+                        onDismissRequest = { trailClearDone.value = null },
+                        confirmButton = { TextButton(onClick = { trailClearDone.value = null }) { Text("OK") } },
+                        title = { Text("Trail data") },
+                        text = { Text(msg) },
+                        containerColor = Gt.panel,
+                        titleContentColor = Gt.text,
+                        textContentColor = Gt.text,
+                    )
+                }
+                if (creditsOpen.value) AlertDialog(
+                    onDismissRequest = { creditsOpen.value = false },
+                    title = { Text("Map source credits") },
+                    text = { Text("The map\n\nGroupTrack OG has one map: a vector map drawn on your tablet, with the shape of the ground underneath for 3D. Downloads store it to zoom 14; it is drawn sharp to zoom 20. Online, areas you have not downloaded come from the internet.\n\nSources and credits\n\nMap: OpenFreeMap — © OpenMapTiles, data © OpenStreetMap contributors (open data)\nElevation: USGS 3DEP, SRTM, GMTED2010 (AWS Terrain Tiles)\n\nThe credits also show at the bottom of the map (tap the i).") },
+                    confirmButton = { TextButton(onClick = { creditsOpen.value = false }) { Text("CLOSE") } },
+                    containerColor = Gt.panel,
+                    titleContentColor = Gt.text,
+                    textContentColor = Gt.text,
+                )
                 if (grpAskActivate.value) AlertDialog(
                     onDismissRequest = { grpAskActivate.value = false },
                     title = { Text("Group awareness is off") },
