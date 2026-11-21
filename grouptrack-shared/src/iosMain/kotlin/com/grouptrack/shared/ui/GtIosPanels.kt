@@ -838,6 +838,9 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // (viewModel.hudTextWhiteByMap[hudMapKey], COSMETICS-2026-10-06); the iPad has one map type, so one
     // flag. HUDSWITCH-2026-11-03 (Fred 11:15): DARK BY DEFAULT -- true = white text on a dark backing.
     val hudOnDark = remember { mutableStateOf(true) }
+    // HUDVIEW-2026-11-21: the HUD view, Android's default (ConvoyViewModel.kt:106 = GROUP). The
+    // three-state cycle, the labels and the group-awareness guard all live in the shared atom.
+    val hudView = remember { mutableStateOf(com.geeksville.mesh.grouptrack.GtHudView.GROUP) }
     val radioConnected = remember { mutableStateOf(false) }
     val radioTalking = remember { mutableStateOf(false) }
     val tilt = remember { mutableStateOf(false) }
@@ -1375,7 +1378,11 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                 .padding(bottom = 72.dp),
         ) {
             GtGpsHudRow(
-                showGps = recState.value != RecordingState.CHECK_IN,
+                // HUDVIEW-2026-11-21: HIDDEN takes the GPS line with it -- the enum's own rule. The
+                // ride gate alone would have left the GPS line showing under "View: No HUD".
+                showGps = com.geeksville.mesh.grouptrack.GtHudViews.showGps(
+                    hudView.value, recState.value != RecordingState.CHECK_IN,
+                ),
                 // the mesh's two numbers. No radio on the iPad, so 0 and 0f -- which Android renders as
                 // "-- s" and a green 0%, not as an error.
                 intervalSecs = 0,
@@ -1397,8 +1404,14 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                     mapTypes = listOf("VEC"),
                     onMapType = { t -> onMessage("mapType", t) },
                     online = !offline.value,
-                    viewLabel = "View: No HUD",
-                    onRide = false,
+                    // HUDVIEW-2026-11-21: was hardcoded, so the label never changed.
+                    viewLabel = com.geeksville.mesh.grouptrack.GtHudViews.label(hudView.value),
+                    // IOSONRIDE-2026-11-21: Android is
+                    //   onRide = recordingState != RecordingState.CHECK_IN   (GroupTrackScreen.kt:3194)
+                    // and the SHARED row gives the slot to View once on a ride (GroupTrack.kt:250).
+                    // Hardcoded false meant Add Route never gave the slot up, so the View button
+                    // could never appear on the iPad. Same expression as Android, same state.
+                    onRide = recState.value != RecordingState.CHECK_IN,
                     actions = actions,
                     // No bearing message exists yet, so the compass has nothing real to show and
                     // D.GRP Awareness has no radio in this batch.
@@ -1424,7 +1437,13 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                     keyStyleChanged = { js("setTrailStyles(" + TrailFilterState.styleJson() + ")") },
                     centreLabel = "CENTRE ON ME",
                     search = search,
-                    onToggleView = { onMessage("toggleView", "") },
+                    // HUDVIEW-2026-11-21: was a log line. Android's cycle and its guard, from the atom.
+                    onToggleView = {
+                        hudView.value = com.geeksville.mesh.grouptrack.GtHudViews.applyRequest(
+                            com.geeksville.mesh.grouptrack.GtHudViews.nextFromButton(hudView.value),
+                            group.value,
+                        )
+                    },
                     // VIEWSTATE: the host always knows these. bearing stays 0 because NOTHING
                     // reports the page's bearing yet -- a fabricated value would be worse.
                     bearing = 0f,
