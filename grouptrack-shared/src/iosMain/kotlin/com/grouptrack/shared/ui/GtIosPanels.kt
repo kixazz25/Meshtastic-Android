@@ -1421,7 +1421,13 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                     onHelp = { id -> GtPanelChromeIos.openHelp(id) },
                     // GroupTrackScreen.kt:3184
                     onZoom = { d -> js(if (d > 0) "map.zoomIn()" else "map.zoomOut()") },
-                    mapType = "VEC",
+                    // IOSMAPTYPE-2026-11-21: Android is
+                    //   mapType = if (hudOnDark) "SAT" else "VEC"   (GroupTrackScreen.kt:3068)
+                    // and mapType is read in ONE place -- GtScheme.forMap(mapType) at
+                    // GroupTrack.kt:146 -- which only asks SAT/HYB vs everything else. So this is
+                    // the SCHEME switch, driven by the dark/light flag on both platforms. The
+                    // literal gave the iPad topo colours while its HUD defaulted to dark.
+                    mapType = if (hudOnDark.value) "SAT" else "VEC",
                     mapTypes = listOf("VEC"),
                     onMapType = { t -> onMessage("mapType", t) },
                     online = !offline.value,
