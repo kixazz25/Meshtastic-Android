@@ -841,6 +841,15 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // HUDVIEW-2026-11-21: the HUD view, Android's default (ConvoyViewModel.kt:106 = GROUP). The
     // three-state cycle, the labels and the group-awareness guard all live in the shared atom.
     val hudView = remember { mutableStateOf(com.geeksville.mesh.grouptrack.GtHudView.GROUP) }
+    // IOSINTERNET-2026-11-21: internet status, held in state so the row recomposes when signal drops
+    // mid-ride. Android starts optimistic (mutableStateOf(true)) and so does the service.
+    val online = remember { mutableStateOf(com.grouptrack.shared.platform.IosReachability.online()) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        // ⛔ REQUIRED, not decoration: online() returns the LAST KNOWN value and only moves while
+        // a watcher is registered. Without this the answer would stay true for ever and the
+        // no-internet branch below could never fire.
+        com.grouptrack.shared.platform.IosReachability.watch { up -> online.value = up }
+    }
     val radioConnected = remember { mutableStateOf(false) }
     val radioTalking = remember { mutableStateOf(false) }
     val tilt = remember { mutableStateOf(false) }
@@ -1064,9 +1073,21 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // when there is no internet AND no offline mode; iOS has no reachability check yet, so
         // this is a straight toggle of "stored tiles only".
         "internet.switch" to {
-            offline.value = !offline.value
-            js(viewportJs)
-            onMessage("offline", offline.value.toString())
+            // IOSINTERNET-2026-11-21: GroupTrackScreen.kt:3160-3164, branch for branch. The toggle is MAPS
+            // only -- stored tiles instead of the internet; it changes no internet service.
+            // The third branch is a NOTIFICATION of the state and whether it can be changed,
+            // not a guard, and it carries Android's own words.
+            if (offline.value) {
+                offline.value = false
+                js(viewportJs)
+                onMessage("offline", "false")
+            } else if (online.value) {
+                offline.value = true
+                js(viewportJs)
+                onMessage("offline", "true")
+            } else {
+                onMessage("offline", "No internet \u2014 the map is using downloaded maps.")
+            }
         },
         // IOSLOC-2026-11-19: GroupTrackScreen.kt:3134-3142. MAP_CART_ZOOM is SHARED, so this is
         // Android's own zoom. No position yet -> say so; Android shows a "No position yet" toast
