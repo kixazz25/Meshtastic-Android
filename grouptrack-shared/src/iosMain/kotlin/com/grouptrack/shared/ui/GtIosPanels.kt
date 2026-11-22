@@ -770,6 +770,11 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // IOSGRP2-2026-11-22: the iPad's OWN GRP Awareness panel exists now (GtIosGrpAwareness.kt),
     // so group mode ON opens a panel instead of only logging that one was missing. Android untouched.
     val grpPanelOpen = remember { mutableStateOf(false) }
+    // IOSRIDEPICK-2026-11-22: Rides > Import a ride. LaunchModules.kt:137 declares the row;
+    // iOS had no action for it, so it drew as 'not attached yet'.
+    val ridePickOpen = remember { mutableStateOf(false) }
+    // IOSMYRIDES-2026-11-22: Rides > My rides. LaunchModules.kt:136 declares the row.
+    val myRidesOpen = remember { mutableStateOf(false) }
     // IOSGRP2-2026-11-22: the iOS half of CommMenus, which did not exist. It offers ONE item --
     // iOS Bluetooth -- and owns the one platform act behind it (Fred 13:08: called from our menu,
     // ala meshmenus). GroupTrack asks by id and never names an OS screen.
@@ -1241,6 +1246,65 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // 596 lines of Android that are not ported. An unattached row reads "not attached yet"
         // (ATTACH1-2026-10-22), which is the truth; wiring it to nothing would not be.
         "rides.ride" to { com.geeksville.mesh.grouptrack.GtRideStart.begin() },
+        // IOSRIDEPICK-2026-11-22: Android is "rides.import" to { gtRideImport() }
+        // (GroupTrackScreen.kt:3088). Same row, same id -- a picker over GroupTrack's own
+        // rides folder instead of Android's OpenDocument launcher (Fred 13:47, 14:03).
+        "rides.import" to { ridePickOpen.value = true },
+        // IOSMYRIDES-2026-11-22: Android is "rides.mine" to { RidesLauncher.open() }
+        // (GroupTrackScreen.kt:3089). Same row, same id.
+        "rides.mine" to { myRidesOpen.value = true },
+        // IOSRIDEEMAIL-2026-11-22: Android is "rides.email" to { GtRideStatsSend.send(context, ...) }
+        // (GroupTrackScreen.kt:3090). Fred 14:29: "this is the function we built all mail for" --
+        // emailAll (EMAILALL-2026-11-20) is that service, so nothing new is built here.
+        // ⛔ THREE ATTACHMENTS, not Android's five, and each absence is accounted for:
+        //   json   -- json() did not cross the seam (RideStats.kt:21; moving it changes ANDROID's
+        //             bytes, and 2.8a is frozen). C28-26367 settles it in the post-cert pass.
+        //   lead   -- LeadCartProcess.writtenPoints() is shared, but the iPad has NO instance of it
+        //             (only ConvoyViewModel:176). It arrives with the cart board, N37.
+        //   NOTE   -- the REAL fix is Fred 14:34: persist the stats after each group ride (2.8n),
+        //             which removes the in-memory dependency and the after-a-ride rule entirely.
+        // ⚠⚠ The map may capture BLANK: the map is a WKWebView and draws out of process
+        // (GtIosScreenCapture.kt:28-38). It must be eyeballed on a real iPad before this is trusted.
+        "rides.email" to {
+            val stamp = com.grouptrack.shared.text.GtTime.local(IosClock.localNow(), "yyyy-MM-dd_HHmm")
+            val handles = ArrayList<String>()
+            // the map first, as Android puts it at index 0
+            com.grouptrack.shared.platform.IosScreenCapture()
+                .capture("map_" + stamp + ".jpg")?.let { handles.add(it) }
+            val report = rideStatsNow()
+            com.grouptrack.shared.platform.IosArtifactSink()
+                .saveToMapFeatures("ride_stats_" + stamp + ".txt", report)
+                ?.let { handles.add(it) }
+            // the newest my_cart track, as Android attaches. RideFiles has no modification time, so
+            // okio is used directly -- tracksDir() already hands back an okio Path, so nothing is
+            // added to a shared interface and the WRONG track cannot be picked.
+            runCatching {
+                val tracks = com.grouptrack.shared.platform.IosImportPaths().tracksDir()
+                okio.FileSystem.SYSTEM.list(tracks)
+                    .filter { it.name.endsWith(".gpx", ignoreCase = true) }
+                    .maxByOrNull { okio.FileSystem.SYSTEM.metadata(it).lastModifiedAtMillis ?: 0L }
+                    ?.let { handles.add(it.toString()) }
+            }.onFailure { e ->
+                // said, never swallowed -- an absent tracks folder is normal, a read error is not
+                gtLogger("GtIosRideEmail").i { "IOSRIDEEMAIL-2026-11-22: no track to attach: " + e.message }
+            }
+            if (handles.isEmpty()) {
+                // CODE RULE 1 territory: nothing to send is said, never a silent success.
+                onMessage("rides.email", "Could not build the ride statistics files.")
+            } else {
+                // ⚠ UIActivityViewController drops the subject, so it leads the body
+                // (EMAILALL-2026-11-20) -- the same shape as the issue report at :590.
+                val subject = "GroupTrack ride statistics \u00b7 " + stamp
+                val body = subject + "\n\n" + report
+                val ok = com.grouptrack.shared.platform.IosArtifactSink()
+                    .emailAll(handles, subject, body)
+                onMessage(
+                    "rides.email",
+                    if (ok) "Ride statistics \u2014 " + handles.size + " file(s) ready to send."
+                    else "Nothing took the email; the files are in GroupTrack Map Features.",
+                )
+            }
+        },
         // IOSCOMMWIRE-2026-11-20: RADIO SETUP (LaunchModules slot 5, groupOnly) had NO actions entry, so
         // both rows drew as "not attached yet" even once the button could appear. Attached now.
         "group.configure" to {
@@ -2204,6 +2268,21 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                     titleContentColor = Gt.text,
                     textContentColor = Gt.text,
                 )
+                if (myRidesOpen.value) {
+                    // IOSMYRIDES-2026-11-22: the screen's ONE GtIosCommConfig (:965) is passed in, so
+                    // the apply path and the check-in path cannot diverge.
+                    GtIosMyRides(
+                        config = commConfig,
+                        onClose = { myRidesOpen.value = false },
+                        onMessage = onMessage,
+                    )
+                }
+                if (ridePickOpen.value) {
+                    GtIosRidePicker(
+                        onClose = { ridePickOpen.value = false },
+                        onMessage = onMessage,
+                    )
+                }
                 if (grpPanelOpen.value) {
                     // IOSGRP2-2026-11-22: every fact from the comm API. `network` is null until radio
                     // settings lands (N38) -- CODE RULE 1, and Android defines null as 'not read yet'.

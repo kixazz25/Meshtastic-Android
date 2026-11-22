@@ -61,7 +61,12 @@ import okio.Path.Companion.toPath
  * ⚠ TrailFilterState.pathProvider IS A PLATFORM INPUT AND IS SET HERE. The shared object throws
  * IllegalStateException("pathProvider not set by the platform") if it is not, and ensureDefaults IS
  * guarded by its caller -- so a missed assignment would present as an app with no trail filter
- * defaults and one line in the log. Set in initDb, before anything can call load().
+ * defaults and one line in the log.
+ * ⛔ TRAILPATH-2026-11-22 CORRECTION. This note used to end "Set in initDb, before anything can
+ * call load()". THAT WAS BACKWARDS and it cost five hours on 11-22: shared run() calls jobPalette
+ * (ensureDefaults, mergeShippedCategories, and the load() inside them) at :97 and initDb at :102,
+ * so initDb is AFTER the first caller, not before it. It is now set in this class's init{} block.
+ * The symptom was the rider's trail filter and map keys reverting on every cold start.
  *
  * ⚠ trackFiles() IS OKIO-SORTED where java.io.File.listFiles() guarantees no order. Accepted under
  * owner decision 11 (recorded in GtIosEnv.kt: "list() stays okio-sorted per owner decision 11").
@@ -130,6 +135,35 @@ class IosHkEnv(
     private val fs = FileSystem.SYSTEM
     private val log = gtLogger(tag)
 
+    /**
+     * ⛔⛔ TRAILPATH-2026-11-22: THE PATH PROVIDER IS SET AT CONSTRUCTION, NOT IN initDb.
+     *
+     * MEASURED on the simulator 14:17:48 -- six log lines inside 2.4ms proving the order:
+     * jobPalette ran, ensureDefaults threw "pathProvider not set", load() threw and fell back to
+     * reset() while latching `loaded = true`, mergeShippedCategories added 11 categories to those
+     * defaults, save() threw -- and THEN initDb logged its schema line. Shared
+     * GtStartupHousekeeping.run() calls jobPalette at :97 and initDb at :102 IN THAT ORDER BY
+     * DESIGN (":94 PHASE 1 -- the database FILES may move. They must be CLOSED."), so a platform
+     * input set inside initDb does not exist when PHASE 1 needs it.
+     *
+     * The rider's symptom was the trail filter and the map keys reverting on every cold start,
+     * reported 11-22 09:57 and chased for five hours. The rider's file was never damaged -- save()
+     * threw too -- which is what made every "something overwrote it" theory wrong.
+     *
+     * ⭐ WHY HERE IS THE RIGHT LAYER, not simply earlier inside initDb: the path has NO database
+     * dependency. It is paths.groupTrackRoot() -- the same root initDb computes on its own first
+     * line -- so there is nothing to wait for. Setting it at construction means every GtHkEnv
+     * member can rely on it regardless of the order shared code calls them in, and a future job
+     * added ahead of initDb cannot reintroduce this.
+     * ⛔ DO NOT "fix" this by reordering GtStartupHousekeeping.run(). That order is deliberate,
+     * it is Android's, and 2.8a is frozen.
+     */
+    init {
+        TrailFilterState.pathProvider = {
+            (paths.groupTrackRoot() / TrailFilterState.FILE_NAME).toString()
+        }
+    }
+
     private var spatial: SQLiteConnection? = null
     private var data: SQLiteConnection? = null
     private var spatialFile: String? = null
@@ -169,8 +203,11 @@ class IosHkEnv(
             val d = gtOpenDatabase(dt, false)
             val v = GtSchema.ensure(s, d) { name -> iosBundleAsset(name) }
             spatial = s; data = d; spatialFile = sp
-            // the platform input the shared object requires, set ONCE before any load()
-            TrailFilterState.pathProvider = { (dir / TrailFilterState.FILE_NAME).toString() }
+            // TRAILPATH-2026-11-22: the pathProvider assignment WAS HERE and was too late --
+            // jobPalette (shared run():97) runs before initDb (:102) by design, so it ran without
+            // the platform input and fell back to defaults. It is now set in this class's init{}
+            // block; one source, and nothing in PHASE 1 can find it missing. `dir` below is the
+            // same paths.groupTrackRoot() the init block uses.
             log.i { "GTIOSHK-2026-11-16 initDb: schema v$v at $dir" }
         } catch (e: Exception) {
             // leave the connections null -- the contract's "database unavailable"
