@@ -1,0 +1,611 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack &mdash; 2.8b LAUNCH POINT DIFFERENCES B&ndash;I, M &mdash; v1 (2026-11-21)</title></head><body>
+<h1>LAUNCH POINT DIFFERENCES &mdash; B through I, and M (DIFFS1121-2026-11-21) &mdash; with the CRAWL close-out and the 95% test</h1>
+
+<p><b>Fred 11-21 08:06:</b> <i>&ldquo;walk items B-M one row at a time. using navxref ref to identify code
+exec[ut]ed on android version. then use nav ref to to document the IOS version and identify differences. the last
+step in the differences identification [is] to read the code[,] identify services needed and inspect our services
+catalog and identify the service to be used and or the service to be created. log these items in a work list and we
+will begin work when I return.&rdquo;</b></p>
+<p><b>08:11:</b> <i>&ldquo;we only need to see differences, not every [row]. only those that need
+completion.&rdquo;</i> &mdash; so a MATCHED row gets a count here and nothing else.<br>
+<b>08:12:</b> <i>&ldquo;highlight the existing services to be used and new services we think are required. remember
+ser[vic]es are atomic core level functions to be reused.&rdquo;</i></p>
+
+<h2>⛔ TWO THINGS TO KNOW BEFORE READING</h2>
+<ol>
+<li><b>navxref could NOT document the iOS side.</b> It does not scan <code>grouptrack-shared</code> at all &mdash;
+one of its three measured gaps (the others: a computed label shows as <code>""</code>, and switches and sliders are
+absent from the click tree). Android's side is from navxref and its dispatch map as asked; <b>the iOS side was read
+directly</b> from <code>GtIosPanels.kt</code>, <code>GroupTrack.kt</code> and <code>LaunchModules.kt</code>. Any row
+whose control is a switch or slider may be UNDER-reported on the Android side.</li>
+<li><b>THE LETTERS MAP TO MODULES BY SLOT.</b> The RIGHT side has exactly seven slots (0&ndash;6) and C&ndash;I is
+exactly seven items: <b>C</b>=mode(0), <b>D</b>=grp(1), <b>E</b>=internet(2) &ldquo;Status&rdquo;,
+<b>F</b>=maptype(3) &ldquo;Map view&rdquo;, <b>G</b>=key(4), <b>H</b>=filter(5), <b>I</b>=centre(6).
+<b>B</b>=record (TOP_CENTRE), <b>M</b>=search (bottom bar). ⚠ Confirm against the manual's diagram before working
+from it &mdash; the manual is the authority on the lettering and it was not re-read for this pass.</li>
+</ol>
+<p><b>SCOPE:</b> B&ndash;I and M. <b>J&middot;Map excluded</b> on Fred's instruction (11-21 08:06:
+&ldquo;do not plan J (maps). we will do that last[,] it is hal[f] the code&rdquo;). K&middot;Add Route and
+L&middot;Rides excluded: the 11-18 ingress cut puts them in the CREATE-INTERNAL-DATA class, sequenced after this
+cleanup (C28-26358 SEQHORIZON).</p>
+
+<h2>⭐ THE SHAPE OF IT &mdash; most of B&ndash;M is already built</h2>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>Letter</th><th>Rows</th><th>Needs completion</th><th>One line</th></tr>
+<tr><td><b>B</b> RECORD / CHK IN</td><td>3</td><td><b>3</b></td><td>⛔ the only real work in this list. All three
+rows change a local state value and do nothing else</td></tr>
+<tr><td><b>C</b> MODE</td><td>1</td><td>0</td><td>MATCHED &mdash; transcribed with Android's guard, writes the
+shared flag AND the comm side</td></tr>
+<tr><td><b>D</b> GRP Awareness</td><td>1</td><td>0</td><td>MATCHED &mdash; transcribed branch for branch; reports
+BLUETOOTH_UNAVAILABLE on the sim, which is a true answer</td></tr>
+<tr><td><b>E</b> Status (internet)</td><td>1</td><td><b>1</b></td><td>toggles, but has no reachability check &mdash;
+Android also refuses when offline with no offline mode</td></tr>
+<tr><td><b>F</b> Map view (map type)</td><td>0 + 3 view</td><td><b>1</b></td><td>view.3d / north / heading are
+transcribed; the iPad offers ONE map type where Android offers the catalogue</td></tr>
+<tr><td><b>G</b> MAP KEY</td><td>5</td><td>0</td><td>⭐ ALREADY SHARED &mdash; <code>MapKeysPanel.kt</code> is in
+commonMain, drawn by <code>GroupTrack.kt:319</code></td></tr>
+<tr><td><b>H</b> FILTER</td><td>3</td><td>0</td><td>⭐ ALREADY SHARED AND REAL &mdash;
+<code>GtFilterBridge</code> in commonMain, the iPad's wiring writes state and re-renders</td></tr>
+<tr><td><b>I</b> CENTRE ON ME</td><td>1</td><td>0</td><td>MATCHED &mdash; a named platform difference only (toast
+vs the status strip)</td></tr>
+<tr><td><b>M</b> Search</td><td>1</td><td><b>2 carded</b></td><td>built and real; two known gaps already on the
+checklist</td></tr>
+</table>
+<p><b>⇒ Four items need work, two of them already carded.</b> Fred 11-21 08:06 called this before it was measured:
+<i>&ldquo;the rest is more manageable as it is retouches and most of the code has been built.&rdquo;</i>
+⚠ This counts ROWS REACHABLE FROM THE LAUNCH LAYER. It does not certify what each row's stack does below its first
+hop &mdash; that is the per-row walk (C28-26360 LAUNCHCERT), and it is what found A4 and A3's missing feed.</p>
+
+<h2>⛔⛔ B &middot; RECORD / CHK IN &mdash; three rows, all HOLLOW</h2>
+<p><b>iOS, <code>GtIosPanels.kt:1234-1252</code>:</b> the RECORD button advances a local value and nothing else
+&mdash; <code>CHECK_IN &rarr; IDLE</code>, <code>IDLE &rarr; RECORDING</code>, <code>RECORDING/PAUSED &rarr;</code>
+opens a menu, and pause/resume writes <code>onMessage("record", "paused"/"resumed")</code>. <b>There is no
+<code>record.*</code> entry in the iOS dispatch map at all</b> (its ten entries are centre.me, group.archive,
+group.configure, grp.open, internet.switch, menu.account, menu.help, menu.settings, mode.switch, rides.ride).</p>
+<p><b>ANDROID, <code>GroupTrackScreen.kt:1762-1800+</code>:</b> the same tap does the work.</p>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>Row</th><th>What Android does</th><th>What the iPad does</th></tr>
+<tr><td><b>B1 checkin</b><br>&ldquo;CHECK IN (Group)&rdquo;</td>
+<td><code>:1767</code> radio connected OR group mode &rarr; the check-in screen.
+<code>:1769</code> otherwise a SOLO ride: <code>ConvoyRideStore.checkIn(null, "", "rider")</code> &rarr;
+<code>viewModel.checkIn.value</code>, state &rarr; IDLE. <b>SOLOREC-2026-09-28: the button follows the
+radio.</b></td>
+<td>⛔ state &rarr; IDLE. <b>No check-in record is written.</b> The rider appears checked in and nothing was
+stored</td></tr>
+<tr><td><b>B2 rec</b><br>&ldquo;REC &mdash; start recording&rdquo;</td>
+<td><code>:1785-1794</code> checks ACCESS_BACKGROUND_LOCATION; if <code>leadLocked</code> &rarr;
+<code>startRecording(context)</code> + <code>startGroupTrack()</code>; else with &le;1 mesh node auto-assigns the
+lead (<code>setLeadCart</code>) and records</td>
+<td>⛔ state &rarr; RECORDING. <b>No recorder starts, no lead is assigned, no permission is checked.</b> The button
+says RECORDING while nothing is written</td></tr>
+<tr><td><b>B3 end</b><br>&ldquo;END RIDE&rdquo;</td>
+<td>opens the end-ride screen &mdash; name, survey and share on one screen</td>
+<td>⛔ opens <code>recMenu</code>. The end-ride screen is not ported</td></tr>
+</table>
+<p><b>⚠ WHY B IS THE WORST ONE IN THE LIST, and it is CONDVAL exactly:</b> all three rows LOOK like they worked. The
+button changes colour and its label, the state machine advances, pause even reports &ldquo;paused&rdquo;. A tester
+would conclude recording works and go looking for the track file &mdash; and the failure would be filed against
+storage, or the GPS, or the recorder, none of which was ever called.</p>
+
+<h3>B &middot; SERVICES</h3>
+<p><b>⭐ EXISTING &mdash; USE THESE (all verified present):</b></p>
+<ul>
+<li><b><code>GtRides.checkIn(ride, callsign, role): CheckIn?</code></b> &mdash;
+<code>commonMain/ride/GtRides.kt:663</code>. <b>B1's service already exists and is SHARED</b>: Android's
+<code>ConvoyRideStore.checkIn</code> (<code>:96</code>) is a delegate to it. ⚠ It RETURNS NULL on failure rather
+than throwing (measured 11-20) &mdash; the caller must handle null or a failed check-in passes silently.</li>
+<li><b><code>TrackRules</code>: <code>MyCartProcess</code>, <code>LeadCartProcess</code></b> &mdash; commonMain.
+The recorder's RULES are shared and certified: the writers, the gap fills, the trim, <code>drawnLine()</code>,
+<code>dots()</code>, <code>leadId()</code>.</li>
+<li><code>GtLock</code> (serialising the recorder's state), <code>GtStorage</code> (where the track is written),
+<code>GtRideSettings</code>, <code>GtIosLocation.here()/lamp()</code> (the fix and the GPS lamp).</li>
+</ul>
+<p><b>⛔ NEW SERVICE REQUIRED &mdash; ONE, atomic and reusable. SVCFIRST negatives shown:</b></p>
+<p><b><code>GtBackgroundLocation</code></b> &mdash; <code>authorised(): Boolean</code>,
+<code>start()</code>, <code>stop()</code>.<br>
+<b>Why atomic and core:</b> it answers one question (&ldquo;may this app receive fixes while backgrounded&rdquo;)
+and performs one platform act (begin/end background delivery). It is not the recorder and knows nothing about
+rides.<br>
+<b>Why it is needed:</b> Android gates recording on <code>ACCESS_BACKGROUND_LOCATION</code> at <code>:1771</code>
+and <code>:1785</code> &mdash; and that gate is the REASON the solo path sometimes stops at REC rather than
+recording. Without the iOS equivalent, B2 either records with no background delivery (the track stops when the
+rider locks the iPad &mdash; on a ride, silently) or ignores a gate Android enforces.<br>
+<b>SVCFIRST &mdash; six negatives, run 11-21 08:14:</b> not in <code>commonMain/platform/</code> (GtBuildInfo,
+GtScreenCapture, GtAssetVersion only) &middot; not in <code>commonMain/concurrent/</code> (GtLock only) &middot;
+<b><code>GtIosLocation</code> has <code>start()</code> with <code>requestWhenInUseAuthorization()</code>,
+<code>lamp()</code> and <code>here()</code> &mdash; and NO authorisation query, NO
+<code>requestAlwaysAuthorization</code>, NO <code>allowsBackgroundLocationUpdates</code></b> &middot; not among the
+nine implemented seams &middot; not in <code>artifact/</code> or <code>settings/</code> &middot; not in
+&sect;20.<br>
+⚠ <b>It EXTENDS a service that has consumers, so by C28-26366 SVCEXT it is built BESIDE
+<code>GtIosLocation</code>, not bolted into it.</b></p>
+<p><b>NOT services &mdash; application processes, to be ported as such:</b>
+<code>startRecording</code>, <code>startGroupTrack</code>, <code>setLeadCart</code> (all
+<code>ConvoyViewModel</code>, Android-only), the CHECK IN screen, and the END RIDE screen.
+<b>Fred 07:27: a service is object interaction, not application manipulation of the data.</b></p>
+
+<h2>E &middot; Status (internet) &mdash; one difference</h2>
+<p><b>iOS <code>:1026-1035</code>:</b> a straight toggle of &ldquo;stored tiles only&rdquo;. Its own comment states
+the gap: <i>&ldquo;Android also refuses when there is no internet AND no offline mode; iOS has no reachability check
+yet.&rdquo;</i> <b>ANDROID <code>GroupTrackScreen.kt:3147-3150</code></b> refuses in that case.</p>
+<h3>E &middot; SERVICES</h3>
+<p><b>⛔ NEW SERVICE REQUIRED &mdash; ONE, atomic and reusable:</b><br>
+<b><code>GtReachability.online(): Boolean</code></b><br>
+<b>Why atomic and core:</b> one question, one boolean, no policy. What the caller DOES about being offline is the
+application's business &mdash; E refuses a toggle, J would refuse a download.<br>
+<b>Why it is needed beyond E:</b> J&middot;Map's downloads and imports all need it, and it is the difference between
+&ldquo;offline&rdquo; and &ldquo;failed&rdquo; in every error message. Building it for E means J finds it already
+there.<br>
+<b>SVCFIRST &mdash; six negatives, run 11-21 08:14:</b> no <code>reachab*</code>, <code>NWPath</code>,
+<code>isOnline</code>, <code>networkAvailable</code> or <code>hasInternet</code> implementation anywhere in
+<code>grouptrack-shared</code>. The one near-hit is <code>GtSettings.kt:86-87</code>
+<code>resolveLaunchRoute(hasInternet)</code>, whose own KDoc says the parameter <b>&ldquo;is unused, as in 2.7e
+(kept so the callers do not change)&rdquo;</b> &mdash; a parameter, not a service. ⇒ genuinely absent.<br>
+iOS = <code>NWPathMonitor</code>; Android = <code>ConnectivityManager</code>.</p>
+
+<h2>F &middot; Map view &mdash; one difference</h2>
+<p><b>iOS <code>GtIosPanels.kt:1298-1300</code>:</b> <code>mapType = "VEC"</code>,
+<code>mapTypes = listOf("VEC")</code> &mdash; ONE type. Android passes its catalogue (SAT, TOPO, &hellip;), and
+<code>GroupTrack.kt:146</code> drives the whole colour scheme off the type
+(<code>GtScheme.forMap(mapType)</code>), so a single type also means the iPad never exercises the scheme switch.
+<b>The three view controls are done:</b> <code>view.3d</code>, <code>view.north</code>,
+<code>view.heading</code>, all transcribed from <code>GroupTrackScreen.kt:3125-3144</code>.</p>
+<h3>F &middot; SERVICES</h3>
+<p><b>⭐ EXISTING &mdash; NO NEW SERVICE.</b> The map-source catalogue is <code>GtMapSpec</code> /
+<code>GtMapSpecEnv</code> (an implemented seam, <code>GtIosRecipeEnv</code>/<code>GtIosEnv</code> side present).
+The work is handing the iPad the real list instead of a literal, which is a WIRING row, not a service.
+⚠ It touches the map layer, so it may belong with J rather than F &mdash; <b>Fred's call when he returns.</b></p>
+
+<h2>M &middot; Search &mdash; two gaps, both already carded</h2>
+<p>Search is BUILT and real: <code>IosSearchDb</code> (<code>GtIosPanels.kt:298</code>) does
+<code>searchByName</code>, <code>listInView</code>, <code>bbox</code>, <code>detail</code>,
+<code>aliases</code>, <code>narrative</code>, <code>typeFor</code>, read-only by design. It is also what
+H&middot;FILTER's SELECT lists lean on.</p>
+<ul>
+<li><b>C28-26336 MAPVIEWPORT</b> &mdash; the iPad's search has no origin.</li>
+<li><b>C28-26337 IOSSTATES</b> &mdash; M&middot;Search runs unbounded on the iPad.</li>
+</ul>
+<p><b>No new service</b> &mdash; both are bounds/origin inputs the host must supply, and the map's viewport is the
+source. ⚠ Same note as F: the origin comes from the map layer.</p>
+
+<h2>⭐ WHAT IS ALREADY DONE &mdash; counted, not listed (Fred 08:11)</h2>
+<ul>
+<li><b>C&middot;MODE</b> 1/1. <code>mode.switch</code> is transcribed WITH Android's guard
+(<code>GroupTrackScreen.kt:3066-3069</code>: only in CHECK_IN or IDLE, else &ldquo;End the ride before changing
+mode&rdquo;), and it writes the shared flag and the comm side as <code>ConvoyViewModel.setGroupMode</code> does.</li>
+<li><b>D&middot;GRP Awareness</b> 1/1, transcribed branch for branch from <code>:3161</code>.</li>
+<li><b>G&middot;MAP KEY</b> 5/5 &mdash; <code>MapKeysPanel.kt</code> is in <b>commonMain</b>, drawn by
+<code>GroupTrack.kt:319</code> (<code>GtKeyBody</code>). The rows are panel SECTIONS, not launched processes, which
+is why there is no <code>key.*</code> dispatch entry on EITHER platform.</li>
+<li><b>H&middot;FILTER</b> 3/3 &mdash; <code>GtFilterBridge</code> is in <b>commonMain</b>
+(<code>FilterModule.kt:50</code>), drawn by <code>GroupTrack.kt:318</code>, and the iPad's wiring
+(<code>GtIosPanels.kt:921-960</code>) is REAL: <code>setState</code> writes the slot and re-renders the map,
+<code>openSelect</code> transcribes <code>gtEditDisplay</code> (<code>GroupTrackScreen.kt:2367-2405</code>) including
+the ALL/SELECTED tick restore from the persisted checked ids.</li>
+<li><b>I&middot;CENTRE ON ME</b> 1/1 &mdash; <code>GroupTrackScreen.kt:3134-3142</code> transcribed,
+<code>GtConfig.MAP_CART_ZOOM</code> shared. The only difference is named and deliberate: Android shows a toast for
+&ldquo;no position yet&rdquo;, the iPad has no toasts so it goes to the status strip.</li>
+</ul>
+
+<h2>⛔ THE SERVICE ANSWER, IN ONE PLACE</h2>
+<p><b>Across all of B&ndash;I and M, TWO services are genuinely absent.</b> Everything else these rows need already
+exists and is shared.</p>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>New service</th><th>Shape</th><th>Needed by</th><th>Also serves</th></tr>
+<tr><td><b><code>GtReachability</code></b></td><td><code>online(): Boolean</code></td><td>E&middot;Status</td>
+<td>every J&middot;Map download and import; every &ldquo;offline&rdquo; vs &ldquo;failed&rdquo; message</td></tr>
+<tr><td><b><code>GtBackgroundLocation</code></b></td><td><code>authorised(): Boolean</code>,
+<code>start()</code>, <code>stop()</code></td><td>B2&middot;REC</td><td>any future work that must continue while
+the iPad is locked</td></tr>
+</table>
+<p><b>Existing services these rows consume:</b> <code>GtRides.checkIn</code> &middot; <code>TrackRules</code>
+(MyCartProcess, LeadCartProcess) &middot; <code>TrailFilterState</code> &middot; <code>GtMapState</code> &middot;
+<code>GtFilterBridge</code> &middot; <code>MapKeysPanel</code>/<code>GtKeyBody</code> &middot;
+<code>IosSearchDb</code> &middot; <code>GtMapSpec</code> &middot; <code>GtIosLocation</code> &middot;
+<code>GtConfig</code> &middot; <code>GtLock</code> &middot; <code>GtStorage</code> &middot;
+<code>GtSettings</code>/<code>GtRideSettings</code> &middot; <code>GtOrgJson</code> &middot; <code>GtFmt</code>
+&middot; <code>GtMath</code> &middot; <code>GtBuildInfo</code>.</p>
+
+
+<p><b>&#9211;&#9211; THE UNIT IS THE PROCESS, NOT THE LETTER &mdash; added 11-21 after Fred 13:38
+(ONMESSAGE-2026-11-21, C28-26371).</b> Fred: <i>&ldquo;Your attacking a list, not a process... we are
+reviewing every process from cradle to grave.&rdquo;</i> Walking H&middot;FILTER properly showed why this
+table cannot close a letter on its own: the panel is shared and identical to Android's, the tick moves and
+stays moved &mdash; and the last hop is <code>onMessage("setDisplay",...)</code> &rarr;
+<code>GroupTrackPanels.swift</code> &rarr; <code>log.add</code>, <b>so the map is never told</b>.
+<b>43 sends, 19 distinct names, not one consumer.</b> C, D, F, I and H all terminate this way. Their
+&ldquo;0 differences&rdquo; was a panel-level reading, correct about the panel and silent about the
+process. <b>Every letter below must be walked as its processes, cradle to grave; a row's verdict closes
+nothing.</b></p>
+<h2 id="closeout">&#9211; THE CRAWL &mdash; ONE LETTER AT A TIME, CLOSED ONLY WHEN NO DIFFERENCE REMAINS (CRAWL-2026-11-21)</h2>
+<p>Fred 11-21 08:46: <i>&ldquo;we will crawl through that difference document one launch letter row at a
+time resolving each difference. closing each launch letter by [certifying] no differences.&rdquo;</i></p>
+<p><b>The rule for CLOSED.</b> A letter goes to CLOSED when every one of its rows has been walked to the
+end of its call stack on BOTH platforms and no difference remains. CLOSED is not &ldquo;it compiles&rdquo;
+and not &ldquo;the row no longer reports&rdquo; &mdash; per WITNESS-2026-11-20 each close needs a witness: a
+value only the real work could produce, a reached call the stack shows, or an observation on hardware.
+A letter with a deferred row stays OPEN and names what it is waiting on; it is never closed on the
+strength of the other rows.</p>
+<p><b>&#9888; A letter already marked MATCHED here is not CLOSED.</b> MATCHED was a difference finding,
+made per row against Android. CLOSED is the certification on top of it. C, D, G, H and I show no
+differences, so their close should be quick &mdash; but the walk still happens, because the previous
+error (Fred 11-21) was exactly that <i>&ldquo;we did [not] traverse the full function.&rdquo;</i></p>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>Letter</th><th>Rows</th><th>Differences open</th><th>State</th><th>What closing it needs</th></tr>
+<tr><td><b>B</b> &middot; RECORD / CHK IN</td><td>3</td><td><b>3</b></td><td>OPEN</td>
+    <td>The real work of this list. B1 check-in record, B2 recorder + lead assignment
+        (needs <code>GtBackgroundLocation</code>), B3 end-ride screen.</td></tr>
+<tr><td><b>C</b> &middot; MODE</td><td>1</td><td>0</td><td><b>CLOSED 11-21 16:05</b></td>
+    <td>Walked to end of stack. Hop 1 matched (guard + shared GtGroupMode.set + comm.setActive).
+        Hop 2 found two live placeholders, both fixed: <code>onRide = false</code> hardcoded so the
+        View button could never appear, and the HUD view was a hardcoded label + an onMessage log
+        line. Both now run the SHARED <code>GtHudView</code> atom (five states, Android's cycle,
+        labels, the group-awareness guard, and HIDDEN hiding the GPS line). Commits 1245364a8.
+        <b>Not in scope:</b> GroupHud / MyCartHud content &mdash; Fred 16:07, not touching it. The
+        cart render surface already exists on the iPad (<code>vec_carts.js</code>: addMarker,
+        removeMarker, findNearestMarker, setLastHeard, setLeadDots); only the cart FEED is absent,
+        and that is the radio.</td></tr>
+<tr><td><b>D</b> &middot; GRP Awareness</td><td>1</td><td>0</td><td>OPEN &mdash; walk pending</td>
+    <td>Row itself MATCHED, but D is where A&rsquo;s lead-track renderer (C28-26364) and the
+        ride-stats feed land. D cannot close until those two are resolved.</td></tr>
+<tr><td><b>E</b> &middot; Status (internet)</td><td>1</td><td><b>1</b></td><td>OPEN</td>
+    <td><code>GtReachability</code> &mdash; new service. Android refuses too, so match its behaviour.</td></tr>
+<tr><td><b>F</b> &middot; Map view</td><td>0 + 3 view</td><td><b>1</b></td><td>OPEN</td>
+    <td>The map-layer item. 3d / north / heading are transcribed.</td></tr>
+<tr><td><b>G</b> &middot; MAP KEY</td><td>5</td><td>0</td><td><b>CLOSED 11-21 16:39</b></td>
+    <td>Walked end to end both platforms. Tap &rarr; <code>GtKeyBody</code>
+        (<code>KeyModule.kt:45</code>, shared, reached from <code>GroupTrack.kt:319</code>) &rarr;
+        <code>keyStyleChanged</code> &rarr; <code>js("setTrailStyles(...)")</code> &rarr; the page
+        applies it. Payload from the shared <code>TrailFilterState.styleJson()</code> on both sides;
+        only the bridge call differs (evaluateJavascript vs js), which is the legitimate seam.
+        <b>Witness:</b> the page function exists and runs &mdash; not just a compile.
+        <b>&#9888; Retracted:</b> an earlier note here called the iPad's THREE
+        <code>setTrailStyles</code> definitions a last-load-wins collision. They are a deliberate
+        DECORATOR CHAIN &mdash; <code>vec_spatial.js:114</code> defines the base,
+        <code>vec_artstyle.js:24</code> wraps it (<code>base(json); apply()</code>),
+        <code>vec_tracks.js:81</code> wraps that (<code>baseStyles(json); layers(); rideStyles()</code>)
+        &mdash; and <code>vecmap_main.html</code> loads them in that exact order (:93, :101, :103).
+        One call runs all three stages. Order-dependent by design; reordering those script tags
+        would silently capture the wrong base.
+        <b>Android differs and is the weaker one:</b> its two copies
+        (<code>spatial_artifacts.js:52</code>, <code>convoy_map.html:856</code>) are plain function
+        declarations, which hoist, so the later simply replaces the earlier &mdash; no chain, and one
+        of the two is dead. Recorded, not changed.</td></tr>
+<tr><td><b>H</b> &middot; FILTER</td><td>3</td><td>0</td><td>OPEN &mdash; walk pending</td>
+    <td>Already shared and real (<code>GtFilterBridge</code>). Walk and close.</td></tr>
+<tr><td><b>I</b> &middot; CENTRE ON ME</td><td>1</td><td>0</td><td>OPEN &mdash; walk pending</td>
+    <td>A named platform difference only. Walk and close.</td></tr>
+<tr><td><b>M</b> &middot; Search</td><td>1</td><td><b>2 carded</b></td><td>OPEN</td>
+    <td>Built and real; two known gaps already on the living checklist.</td></tr>
+<tr><td><b>J</b> &middot; MAPS</td><td>&mdash;</td><td>&mdash;</td><td>NOT PLANNED &mdash; last</td>
+    <td>Deferred by Fred 11-21: <i>&ldquo;do not plan J (maps). we will do that last it is hard f the
+        code.&rdquo;</i> A&rsquo;s Map-HTML number (C28-26363) rides with it.</td></tr>
+<tr><td><b>N</b> &middot; RADIO SETUP</td><td>2 known</td><td><b>2</b></td><td>OPEN</td>
+    <td>Group-only launch point. <code>group.configure</code> (the configurator) and
+        <code>group.archive</code> (Saved configs). The archive row is GENUINELY absent on the iPad, not
+        merely unwired &mdash; see the section below. The CommConfig surface behind both needs its own
+        per-member walk here.</td></tr>
+<tr><td><b>A</b> &middot; Settings</td><td>13</td><td><b>4 carded</b></td><td>OPEN</td>
+    <td>Re-walked 11-21, all 13 rows to end of stack. Four carded items remain: Map-HTML number
+        (&rarr;J), lead-track renderer (&rarr;D), ride-stats feed (&rarr;D), capture contents (device).</td></tr>
+</table>
+
+<p><b>&#9211; CERTIFICATION SOURCE &mdash; added 11-21 after Fred 13:18 (NAVXREFLIMIT-2026-11-21,
+C28-26370).</b> The &ldquo;differences open&rdquo; column above came from a HAND WALK, and for five letters it
+has <b>no instrument behind it</b>. Nav xref holds no dispatch ids and does not scan
+<code>grouptrack-shared</code>, so it cannot say what Android does at a launch row's hop; iosxref reads only
+the iPad's half. <b>Exactly one row is certified from an instrument today:</b> B1 <code>record.checkin</code>
+is a real difference (nav xref: <code>CheckInSheet</code> at <code>ConvoyCheckIn.kt:52</code>, 8 clickables,
+opener <code>showCheckIn</code>; no iPad dispatch). <b>C, D, G, H and I at &ldquo;0 differences&rdquo; are
+asserted, not certified</b> &mdash; which is exactly why they get walked in the crawl instead of closed off
+this table. Read a 0 here as &ldquo;expected to close quickly&rdquo;, never as &ldquo;already closed&rdquo;.</p>
+<h2 id="nradio">N &middot; RADIO SETUP &mdash; two rows, measured 11-21 (RADIOARCHIVE-2026-11-21)</h2>
+<p>Fred 11-21 14:44 / 14:45: <i>&ldquo;lets add the radio fix to the mesh radio setting tab and we will
+address it with other radio config issues&rdquo;</i> &hellip; <i>&ldquo;add the[m] to the radio setting
+function review a-M that we are now performing.&rdquo;</i> So it is reviewed here with the other letters,
+not carried as a card.</p>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>Row</th><th>What Android does</th><th>What the iPad does</th></tr>
+<tr><td><code>group.configure</code><br>the radio configurator</td>
+    <td><code>GroupTrackScreen.kt:3077</code> &rarr;
+        <code>RadioConfigLauncher.open()</code> (RADIOSETUP-2026-10-22)</td>
+    <td>Not walked yet &mdash; walk it when we reach N.</td></tr>
+<tr><td><code>group.archive</code><br>Saved configs</td>
+    <td><code>GroupTrackScreen.kt:3078</code> &rarr;
+        <code>ConfigReviewLauncher.open()</code> (RADIOSETUP-2026-10-22)</td>
+    <td>&#9211; REPORTS: <code>onMessage("group", "Archived radio setups are not stored on the iPad yet")</code>
+        at <code>GtIosPanels.kt:1105</code>.</td></tr>
+</table>
+<p><b>&#11088; WHY THIS ROW IS DIFFERENT FROM THE REST OF THE REVIEW, and it is the useful part.</b>
+Five iPad stub messages claim something is &ldquo;not built on the iPad yet&rdquo;. Queried against the
+service layer on 11-21, <b>four of the five were stale</b> &mdash; the recorder
+(<code>MyCartProcess</code>, <code>TrackWriter</code>, <code>ScreenWriter</code>, <code>GtTracks</code>),
+the ride env (<code>GtRideStore</code>, <code>GtProfileStore</code>), the track-name save path
+(<code>GtRideStore</code>, <code>GtWrite</code>) and the GPS presets (<code>GpsPresets</code>, in
+<code>convoy/RecordingState.kt:12</code>) had all been built underneath them by the 11-19 seam work, and
+only a panel or a call site was missing. <b>This row is the one whose claim held up:</b> the query finds no
+shared counterpart to <code>ConfigReviewLauncher</code>. So it is <b>genuinely absent, not unwired</b>.</p>
+<p><b>&#11088;&#11088; RADIO SETUP IS A SET OF FUNCTIONS, AND ONE OF THEM IS REQUIRED BY B1
+(APPLYCHAIN-2026-11-21).</b> Fred 14:46: <i>&ldquo;radio setup is a set of functions[;] one of those
+functions is the same apply radio config required in [the] chain.&rdquo;</i> Measured, and it is exactly
+so &mdash; <code>applyRide</code> is a <code>CommConfig</code> member serving BOTH launch points:</p>
+<ul>
+<li><b>N uses it:</b> <code>RadioConfigScreen.kt:177</code> &rarr; <code>config.applyRide(ApplyRequest(...))</code>.</li>
+<li><b>B1 uses it:</b> <code>ConvoyCheckIn.kt:79</code> &rarr; <code>lastAppliedRide(ctx, nodeNum)</code>,
+    which <code>GrpAwareness.kt:130</code> routes <i>through the Comm API</i>
+    (COMMSAVES-2026-10-14). The check-in compares the connected radio's last applied ride against the
+    chosen ride's network, and CHECKINAPPLY-2026-09-28 closes and reopens the sheet around that apply.</li>
+<li><b>Android:</b> <code>MeshCommConfig.kt:90</code>, real.
+    <b>iPad:</b> <code>GtIosCommConfig.ios.kt:147</code> &rarr; <code>CommResult.NotSupported</code>.
+    <code>lastAppliedRide</code> has <b>no shared or iOS counterpart at all</b>.</li>
+</ul>
+<p><b>&#9888; NAME COLLISION, noted so the next walk does not take the wrong one:</b>
+<code>GtRideApply</code> (<code>ride/GtRides.kt:1371</code>) is NOT this function &mdash; it is the ride
+list's date filter (<code>loadAll</code>, <code>isCurrent</code>). The radio apply is
+<code>CommConfig.applyRide</code>.</p>
+<p><b>WHAT THIS MEANS FOR THE ORDER OF WORK.</b> B1 splits: the check-in panel and the check-in record
+write rest on services that exist (<code>GtRideStore</code>, <code>GtProfileStore</code>,
+<code>GtIsoDays</code>) and can be built now; <b>the radio-apply branch of B1 cannot</b>, because it is the
+same comm member N is waiting on and there is no iOS radio yet. That branch is a hardware/comm boundary,
+not a missing service &mdash; so it does not get a stub that claims otherwise. It is the one place in B
+where the honest answer is &ldquo;no radio on this platform yet&rdquo;.</p>
+<p><b>&#9211; WHAT IS NOT ASSERTED HERE.</b> The CommConfig surface behind these two rows was inventoried
+earlier from a card, and Fred 14:45: <i>&ldquo;forget the cards, they are wr[o]ng.&rdquo;</i> Those counts
+are therefore NOT carried into this review. The surface gets a fresh per-member walk when N is reached
+&mdash; read from the code then, the way B's rows were read today.</p>
+<h2 id="darkflag">&#11088; QUEUED &mdash; ONE DARK/LIGHT FLAG FOR EVERY APP DISPLAY (DARKFLAG-2026-11-21)</h2>
+<p>Fred 11-21 16:34: <i>&ldquo;we should queue that to our dark light flag for our app displays. [the]
+to[gg]le [is the] Black and white sphere on the desktop.&rdquo;</i></p>
+<p><b>WHAT THE FLAG IS AND WHERE IT ALREADY REACHES.</b> The control is the black-and-white sphere on the
+HUD &mdash; Android <code>viewModel.hudTextWhiteByMap[hudMapKey]</code> (COSMETICS-2026-10-06, one per map
+type), iPad <code>hudOnDark</code> (one flag, one map type). As of IOSMAPTYPE-2026-11-21 it reaches two
+things on BOTH platforms:</p>
+<ul>
+<li>the HUD's own text colour (the shared <code>GtGpsHudRow</code>, via <code>onToggleText</code>)</li>
+<li>the launch layer's buttons and panels &mdash; <code>mapType</code> &rarr;
+    <code>GtScheme.forMap()</code> &rarr; <code>OnSatellite</code> or <code>OnTopo</code>
+    (<code>GtPanel.kt:153</code>)</li>
+</ul>
+<p><b>WHAT IS QUEUED:</b> every OTHER app display following the same flag, rather than each surface
+carrying its own colours. The honest first step is to count the surfaces that do not consult
+<code>GtScheme</code> today &mdash; dialogs, the readouts, the doc viewer, the issue panel &mdash; before
+deciding how the flag reaches them.</p>
+<p><b>&#9888; ONE MECHANISM NOTE, so this is not mistaken for a rename.</b> The flag travels today as the
+<code>mapType</code> STRING: <code>GtScheme.forMap</code> only asks whether the type starts with SAT or
+contains HYB. That works, and both platforms now do it identically, but it means a map type and a colour
+scheme are one value. If the flag is to drive displays generally, that coupling is the thing to decide
+about first &mdash; a scheme is not a map type, and 2.7e left the iPad with one source anyway.</p>
+<p><b>&#11088; FRED 16:35 &mdash; DECIDED: &ldquo;legacy, only one map type.&rdquo;
+(MAPTYPELEGACY-2026-11-21)</b> So the whole map-type path through this layer is legacy, and the queued
+work above has its shape:</p>
+<ul>
+<li><code>GtScheme.forMap(mapType: String)</code> (<code>GtPanel.kt:153</code>) becomes
+    <code>forDark(onDark: Boolean)</code> &mdash; the scheme takes the flag directly instead of sniffing
+    SAT/HYB out of a type name.</li>
+<li><code>mapType</code> and <code>mapTypes</code> leave <code>GroupTrackLaunchLayer</code>'s signature
+    (<code>GroupTrack.kt:103</code>, <code>:105</code>), replaced by the one flag.</li>
+<li>Android drops <code>MapSourceManager.getSlotSources().map { it.first }</code>
+    (<code>GroupTrackScreen.kt:3069</code>) and <code>if (hudOnDark) "SAT" else "VEC"</code>
+    (<code>:3068</code>), passing <code>hudOnDark</code> instead.</li>
+<li>The iPad drops the IOSMAPTYPE-2026-11-21 expression for the same flag.</li>
+</ul>
+<p><b>Why it is recorded and not done today:</b> it changes a shared signature and both call sites at
+once, which is the one thing that must not happen mid-loop. IOSMAPTYPE-2026-11-21 stands as the interim
+&mdash; it makes the two platforms behave IDENTICALLY through the legacy path, so the cleanup is a
+refactor with no behaviour change left in it.</p>
+<p><b>Also recorded here:</b> <code>mapTypes</code> (<code>GroupTrack.kt:105</code>) is <b>read nowhere</b>
+in the shared layer. Android computes <code>MapSourceManager.getSlotSources()</code> for it on every
+recomposition and nothing consumes the result. A dead parameter on both platforms &mdash; not fixed
+today, because fixing it on one side is how the two drift.</p>
+<h2 id="rollup">&#11088; THE ROLL-UP &mdash; FIXES, SERVICES REUSED, SERVICES TO BUILD (Fred 08:39)</h2>
+<p>Fred 11-21 08:39: <i>&ldquo;after building the target list th[e] number of fixes for a-m have been
+identified and how man[y] existing services will be reused and how man[y] candidates for new services
+have been identified.&rdquo;</i> Counted off the rows above, not estimated.</p>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>&nbsp;</th><th>Count</th><th>Where</th></tr>
+<tr><td><b>Open fixes, A&ndash;M</b> (J excluded)</td><td><b>11</b></td>
+    <td>A 4 carded &middot; B 3 rows &middot; E 1 &middot; F 1 &middot; M 2 carded.
+        C, D, G, H, I contribute 0 &mdash; no differences.</td></tr>
+<tr><td><b>Letters with no differences</b></td><td><b>5 of 10</b></td>
+    <td>C, D, G, H, I &mdash; walk-and-close only.</td></tr>
+<tr><td><b>New services identified</b></td><td><b>4</b></td>
+    <td>Built today: <code>GtAssetVersion</code>, <code>GtArtifactSink.emailText</code>
+        (a <i>second</i> service, SVCEXT, not a reshape).
+        Candidates: <code>GtReachability</code> (E), <code>GtBackgroundLocation</code> (B2).</td></tr>
+<tr><td><b>Existing services reused</b></td><td><b>every other need</b></td>
+    <td>Measured, not asserted &mdash; see the 95% test below.</td></tr>
+</table>
+
+<h2 id="test95">&#11088; THE TEST OF THE 95% NUMBER (SVC95-2026-11-21, Fred 08:43)</h2>
+<p>Fred&rsquo;s standing claim (SVCSTALE) is that <i>&ldquo;95% of needed services already exist[].&rdquo;</i>
+It was asserted, so it was worth measuring. <b>Method:</b> every capability actually needed by today&rsquo;s
+work was queried against the generated services index
+(<code>svcref_2026-11-21_v2.py --find &lt;capability&gt;</code>), <b>by capability only &mdash; never by a
+symbol name already known</b>, since searching by the other platform&rsquo;s name is the mistake that
+produced the nine phantom holes.</p>
+<p><b>Result: 14 of 16 capability probes landed on an existing cross-platform service. 2 missed.</b></p>
+<p><b>The two misses were not random, and that is the finding.</b> They are
+<code>reachability / internet / online</code> and <code>background location permission</code> &mdash;
+<i>precisely</i> the two new-service candidates the hand walk of B&ndash;M had already named, reproduced
+independently by a tool that had not seen that walk. Both are <b>platform-capability seams</b>
+(network state, OS permission), not computation. Every computational need &mdash; haversine distance,
+number formatting, time-zone arithmetic, JSON, locking, file access, SQLite, build info, the lead-track
+producer, map key, filter &mdash; was already there.</p>
+<p><b>Verdict, stated honestly:</b> 87.5% on this sample, and <b>n=16 is far too small to tell 87% from
+95%</b> &mdash; two probes either way moves it six points. What the test does establish is the <i>shape</i>
+of the remaining 5%: the service layer is essentially complete for logic and computation, and the holes
+are concentrated where the shared layer has to reach a platform capability. That is a better planning
+rule than the percentage: <b>assume the computation exists; expect to build at a platform seam.</b></p>
+<p><b>&#9888; AND IT IS AN ESTIMATE, WHICH DOES NOT REPLACE THE HAND CHECK.</b> Fred 11-21 08:47: <i>&ldquo;calc is an estimate anyway. we will examine by hand before [creation].&rdquo;</i> So this percentage is a planning number and nothing more. The gate before any service is created stays what it was (C28-26361 SVCFIRST): query the index, then examine by hand &mdash; iosMain and androidMain greps, the service-layer design catalog, and what ANDROID calls at the same hop. A query is how you find a service; a hand walk is how you establish one is absent. The tool narrows the search; it never closes the question.</p>
+<p><b>&#9888; The negative witness for this test.</b> If the index were merely matching on common words,
+the probes would have hit on everything, misses included &mdash; and
+<code>reachability</code> would have come back with a false positive instead of three weak hits in
+unrelated packages. It did not.</p>
+
+<h2>THE WORK LIST, in the order I would take it</h2>
+<ol>
+<li><b>B1 checkin</b> &mdash; <code>GtRides.checkIn</code> exists; wire it and handle its null. Smallest real win in
+the list, and it stops the rider being told they checked in when nothing was stored.</li>
+<li><b>GtReachability</b> &mdash; one boolean, two platforms. Unblocks E and pre-pays J.</li>
+<li><b>E&middot;Status</b> &mdash; add Android's refusal once reachability answers.</li>
+<li><b>GtBackgroundLocation</b> &mdash; beside <code>GtIosLocation</code>, per SVCEXT.</li>
+<li><b>B2 rec</b> &mdash; the recorder: the gate, the lead auto-assign, and the start. The RULES are shared
+already; this is the process around them.</li>
+<li><b>B3 end</b> &mdash; the END RIDE screen (name, survey, share). The largest single port left in B.</li>
+<li><b>F / M's three</b> &mdash; the map type list and Search's origin/bounds. ⚠ All three read from the map layer;
+<b>Fred decides whether they go here or with J.</b></li>
+</ol>
+<p><b>&#9888; THE LINE THAT USED TO BE HERE &mdash; &ldquo;nothing in this document is built&rdquo; &mdash; WAS TRUE AT
+08:20 AND IS NO LONGER.</b> It is superseded by the record below, which is what was built on 11-21 and
+what the hand walk found. Read the record, not the work list above it: items 1&ndash;5 of that list are
+done or part-done.</p>
+
+<h2 id="built1121">WHAT WAS BUILT ON 11-21, with its commit</h2>
+<table>
+<tr><th>letter</th><th>what landed</th><th>commit</th></tr>
+<tr><td>A</td><td>A's code</td><td><code>d978d511c</code></td></tr>
+<tr><td>B</td><td>the three stubs replaced by the real calls (B1 check-in, B2 rec, B3 end)</td><td><code>4cae746dd</code></td></tr>
+<tr><td>C</td><td>the View button + the shared HUD atom (<code>GtHudView</code>/<code>GtHudViews</code>)</td><td><code>1245364a8</code></td></tr>
+<tr><td>E</td><td><code>GtReachability</code> + Android's three refusal branches</td><td><code>f14e266e6</code></td></tr>
+<tr><td>F</td><td>the scheme</td><td><code>60a3bb732</code></td></tr>
+<tr><td>G</td><td>reviewed and closed &mdash; the three <code>setTrailStyles</code> definitions are a deliberate decorator chain (spatial &rarr; artstyle &rarr; tracks, loaded in that order), NOT a last-load-wins collision. Retracted.</td><td>&mdash;</td></tr>
+</table>
+<p>Also committed with D: <code>GtBluetoothSettings</code> / <code>GtIosBluetoothSettings</code>. Both targets
+compiled throughout; Android's app module green (304 tasks, 16 executed); Droid 1 carries a current
+build; the iOS app built, installed and launched on the 13-inch iPad Pro simulator.</p>
+
+<h2 id="trails1121">H&middot;FILTER &mdash; THE NO-TRAILS REGRESSION, AND THE THREE THEORIES THAT WERE WRONG</h2>
+<p>Fred 16:45: <i>&ldquo;filter is no longer showing trails&rdquo;</i> &middot; 16:52: <i>&ldquo;works on android...
+difference in in iPad implementation.&rdquo;</i> Trails absent on the iPad, every other artifact type fine.</p>
+<p><b>&#11088; WHAT THE DATABASE TEST SETTLED (Fred 17:09: &ldquo;test the db&rdquo;).</b> Measured against the pull the
+simulator was actually seeded from, <code>_data/ref/droid2_full_2026-11-19_1509</code>:</p>
+<ul>
+<li><code>trails</code> has all 18 columns &mdash; <code>open_geom</code> and <code>restricted_geom</code> present;
+<code>user_version</code> 1; <b>229,363 rows</b>.</li>
+<li><code>queryTrails</code> run VERBATIM returns <b>1000 rows, all with geometry</b>, under an empty WHERE and
+under the real one, and at every clause step (status &rarr; land_status &rarr; use_type &rarr; categories).</li>
+<li>the seeded <code>map_keys.json</code> is healthy: <code>land=ALL</code>, <code>use=MOTORIZED</code>,
+<code>off</code> = the five non-motorized rows &rarr; <b>199,494 rows pass</b>. <code>use_type</code> is populated
+(200,362 MOTORIZED / 29,001 NON-MOTORIZED).</li>
+</ul>
+<p>&rArr; <b>Nothing below the query was ever wrong.</b> The data, the SQL and the filter state are all clean.</p>
+<p><b>&#9888; THREE THEORIES OF MINE DIED HERE. They are recorded so they are not re-derived:</b></p>
+<ol>
+<li><b>The missing <code>TrailFilterState.load()</code></b> (IOSTRAILLOAD-2026-11-21). A REAL
+Android/iPad difference &mdash; Android calls it at <code>GroupTrackScreen.kt:262</code> and nothing in
+<code>iosMain</code> did &mdash; and it is kept. But it was NOT this symptom:
+<code>trailStyleOf</code> ends in <code>return { c:'#00FFFF', w:2, d:null }</code>, so an unstyled trail
+draws cyan, not invisible. <b>An unstyled layer is visible.</b></li>
+<li><b>The missing <code>open_geom</code> column.</b> Came from the Nov-2 Droid 1 pull, which predates
+RSTOPEN-2026-11-02. Fred 17:08: <i>&ldquo;you are querying the wrong item.&rdquo;</i> Correct &mdash;
+<code>GtSchema.versionOne:49-50</code> adds all seven columns and
+<code>GtStartupHousekeeping:184-190</code> converges them again. <b>A stale artefact is not evidence
+about the current device.</b></li>
+<li><b>The zoom-unit mismatch as the sole cause</b> (IOSVPZOOM-2026-11-21). The host posted
+<code>map.getZoom()</code> while the page posts <code>gtAppZoom()</code> = <code>+ GT_ZOFF</code>, and the
+gates are documented &ldquo;in app (Leaflet) zoom&rdquo;. A real defect, fixed and kept. But Fred 17:16:
+<i>&ldquo;it works on android you said both maps would fail.&rdquo;</i> Android has the same line, is on VEC
+(<code>map_engine.txt</code> = VEC, <code>isVector()</code> hardcoded true), and does not fail. <b>So the
+explanation is incomplete, and it is recorded as incomplete.</b></li>
+</ol>
+<p><b>&#9888; AND A FOURTH THING THAT WAS NOT A THEORY BUT A PROCESS FAILURE.</b> The IOSTRAILLOAD compile
+reported &ldquo;BUILD SUCCESSFUL in 1s / 3 executed&rdquo; with NO task block. That was challenged, and a
+check of the compile output's timestamps was run with a 23-second-wide window &mdash; which a previous
+build's artefact satisfied. It proved nothing. Fred 17:29: <i>&ldquo;that 1 second compile was something
+wrong. we rebuilt with nothing but instrumentation that kotlin picked up and rebuilt.&rdquo;</i> He was
+right. <b>&#11088; RULE: no task block means no compile, and a timestamp window must be tighter than the
+edit it is testing.</b> Consequence: three patches reached the simulator in ONE build, so the fix is
+<b>entangled</b> and no single patch is proven to be the cause.</p>
+<p><b>WHERE IT LANDED.</b> Trails draw at z9 and not at z8 &mdash; <code>TRAILS_MIN_ZOOM = 9</code>, behaving
+exactly as written, the same rule as Android. Fred 17:32: <i>&ldquo;lets leave the zoom limit so the apps
+behave the same way when we certify.&rdquo;</i> So the gate STAYS AT 9; the patch that would have made it 7
+was retired <code>_DO_NOT_RUN_gate_stays_9_for_certification</code>.</p>
+<p><b>&#11088; THE REMAINING IPAD-ONLY DEFECT, which is what &ldquo;not on open&rdquo; is.</b>
+<code>GtVecMap.ios.kt:150-153</code> already says it: the page opens at its own hardcoded default (center
+[-98.5,39.5] zoom 4) and holds no localStorage. <code>restoreFrame</code> READS the saved frame on
+<code>onMapReady</code> and works &mdash; but nothing ever WRITES one, so every launch opens at zoom 4,
+below the trails gate, while Android opens at the rider's saved frame. Same gate, same database,
+opposite result. <code>gt_iosframewrite_2026-11-21_v1.py</code> is written and NOT APPLIED.</p>
+
+<h2 id="filterdiffs">H&middot;FILTER &mdash; THE BRIDGE, MEMBER BY MEMBER (Fred 17:32: &ldquo;any other filter diffs?&rdquo;)</h2>
+<p>The panel itself is shared &mdash; <code>GtFilterBody</code> has ONE caller,
+<code>GroupTrack.kt:318</code>, on both platforms &mdash; so every difference is in the bridge each host
+supplies. Trails deliberately has no SELECT segment on EITHER platform
+(<code>FilterModule.kt:91</code>, TRAILSELECT-2026-09-02); its selector is the MOTORIZED /
+NON-MOTORIZED category rows in the same panel.</p>
+<table>
+<tr><th>member</th><th>Android</th><th>iPad</th><th>verdict</th></tr>
+<tr><td><code>hidden</code> / <code>toggleHide</code></td><td>saves all four states, writes <code>DS_OFF</code> to each (firing <code>hide&lt;Type&gt;()</code>), SHOW AGAIN restores exactly what was on</td><td>flipped a boolean and re-posted</td><td><b>WAS A NO-OP</b> &mdash; <code>hidden.value</code> was read only by its own label and its own toggle, never by <code>displayState</code>. FIXED: IOSHIDE-2026-11-21 adds <code>hiddenSaved</code> and writes the slots.</td></tr>
+<tr><td><code>setState</code></td><td>writes state &rarr; <code>saveConvoyState()</code> &rarr; immediate <code>show/hide&lt;Type&gt;()</code></td><td>writes an in-memory slot, re-posts</td><td>map updates; <b>nothing persists</b> &mdash; OPEN</td></tr>
+<tr><td><code>openSelect("Trails")</code></td><td><code>showTrailFilter = true</code> &mdash; opens the category panel</td><td><code>onMessage("editDisplay","Trails")</code> &mdash; a log line</td><td><b>stub</b>; unreachable today because no SELECT is rendered for Trails</td></tr>
+<tr><td><code>offGrid</code> &times;4</td><td>drives <code>GtOffGrid</code></td><td>keeps tick state only</td><td>deliberate &mdash; waits for J</td></tr>
+<tr><td><code>trailsChanged</code></td><td>re-posts bounds + zoom</td><td>re-posts (same unit since IOSVPZOOM)</td><td>matched</td></tr>
+</table>
+
+<h2 id="b1checkin">B&middot;CHECK IN &mdash; THREE FUNCTION LEVELS MISSED, FOUND BY FRED'S CERT TEST 17:36</h2>
+<p>Fred: <i>&ldquo;B launch has checkin and record. selecting checkin displays no screens. is this a sim
+issue or did we miss a function level from a bypass of checkin with a placeholder&rdquo;</i> &mdash; then
+17:39: <i>&ldquo;the exercise was to port all screen and function not bypass.&rdquo;</i></p>
+<p><b>Not a sim issue.</b> The rider profile IS present in the seeded data
+(<code>users</code>, 1 row, <code>is_self=1</code>, callsign <code>Beanie baby</code>, role
+<code>rider</code>), so no blank-callsign path is involved. And NO SCREEN IS CORRECT with no radio:
+Android opens <code>CheckInSheet</code> only when
+<code>GrpAwarenessLauncher.connected.value || GroupMode.on.value</code> (SOLOREC-2026-09-28,
+<code>GroupTrackScreen.kt:1767</code>). The iPad has no radio yet, so it is permanently in Android's
+solo branch, which shows no screen either.</p>
+<p><b>The divergences, all inside ten lines of <code>GroupTrackScreen.kt:1764-1783</code>:</b></p>
+<ol>
+<li><b>The radio test is not wired.</b> The iPad never evaluates it, so it could never open the sheet
+even once an iOS radio exists.</li>
+<li><b>Android's solo path does not stop at IDLE.</b> With background location granted it assigns the
+lead (<code>setLeadCart(... ?: "!phone")</code>), sets <code>RECORDING</code>, and calls
+<code>startRecording</code> + <code>startGroupTrack</code>. <b>A solo check-in BEGINS RECORDING on
+Android.</b> The iPad sets IDLE and waits for a second tap.</li>
+<li><b>&#9888; A refusal was INVENTED, not ported.</b> The iPad refuses a blank callsign; Android passes
+<code>checkIn(null, "", "rider")</code> deliberately. That refusal is mine, it has no Android
+counterpart, and it comes OUT.</li>
+<li><b><code>CheckInSheet</code> is not ported</b> &mdash; named at <code>GtIosPanels.kt:1349</code> as its
+own step. It is the screen one would expect WITH a radio.</li>
+</ol>
+<p><b>&#11088; THE LESSON, in Fred's words:</b> <i>&ldquo;port all screen and function, not bypass.&rdquo;</i> B1
+was certified at 14:41 as &ldquo;the real call, wired&rdquo; &mdash; and it was, but the BRANCH around the call
+was not transcribed. <b>Wiring a service is not porting a process. The unit of work is the branch, not
+the call.</b></p>
+
+<h2 id="cards1121">CARDS OPENED 11-21, not yet patched</h2>
+<ol>
+<li><b>The iPad's <code>vec_spatial.js</code> is a day behind.</b> Every vecmap asset is byte-identical
+to Android's except this one: the iPad carries Android's PRE-FITBEARING file (20542 b, Nov 3) and
+Android carries the patched one (20878 b, Nov 20). The single hunk passes
+<code>bearing: map.getBearing()</code> to <code>fitBounds</code>. <b>So the iPad still snaps north on
+every follow refresh and fights heading-up.</b> It cannot hide a trail.</li>
+<li><b><code>TRAILS_MIN_ZOOM</code> is written in FOUR places</b> and only one is shared:
+<code>GtSpatial.kt:194</code> (the iPad's gate), a bare literal <code>9</code> in
+<code>SpatialDisplayManager.bindingFor</code> (Android's gate), and two diagnostic copies
+(<code>TrailCheck.kt:28</code>, <code>GtTrailCheck.kt:42</code>). Android's gate should READ the shared
+constant. Exactly the duplication the shared-services work exists to remove.</li>
+<li><b>The iPad's initial slots are all 1</b> while <code>GtMapState.typeDefault</code> is Trails 1 /
+rest 0. A pre-existing disagreement; it becomes live the moment display-state persist lands.</li>
+<li><b>Display-state persist</b> &mdash; <code>setState</code> writes an in-memory slot.
+<code>GtMapState.saveMap</code> exists and is bypassed. Needs Android's
+&ldquo;<code>gtHideSaved</code> cleared on <code>setState</code>&rdquo; rule transcribed with it.</li>
+<li><b>TEMPORARY, PULL BEFORE COMMIT:</b> <code>TRAILSWITNESS-2026-11-21</code> in
+<code>GtVecMap.ios.kt</code> (the extra LOG + fields; backup beside the file). And
+<code>gt_trailsprobe_2026-11-21_v1.py</code> was WRITTEN AND NEVER RUN &mdash; it forces Trails to
+DS_ON and must not be applied.</li>
+<li><b><code>iosApp</code> is 113 files untracked in git.</b> Unchanged from 11-20.</li>
+</ol>
+
+<h2 id="next1121">WHERE THE CRAWL STANDS</h2>
+<p><b>Closed:</b> A, B (stubs; the B&middot;CHECK IN branch work above re-opens B at the process level),
+C, E, F, G.<br/>
+<b>H&middot;FILTER:</b> hide FIXED; frame write written and not applied; persist and the Trails
+<code>openSelect</code> stub carded.<br/>
+<b>Open:</b> D (<code>GrpAwarenessPanel</code> move &mdash; one callback and two reference swaps),
+J (Map), M (Search &mdash; two carded gaps), N (RADIO SETUP &mdash; the per-member walk of the 15
+<code>CommConfig</code> overrides, with <code>GtRadioApply</code> built and committed).</p>
+<p><b>Next, agreed with Fred 17:39:</b> build out B&middot;CHECK IN properly &mdash; the radio test,
+Android's full solo path, the invented refusal removed, and <code>CheckInSheet</code> ported.</p>
+
+</body></html>

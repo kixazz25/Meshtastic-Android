@@ -1,0 +1,2459 @@
+============================================================================================
+GROUPTRACK -- CROSS-PLATFORM SERVICES INDEX   (SVCREF-2026-11-21)
+============================================================================================
+branch 2.8 @ e39a4c202   generated 2026-11-21 13:43
+221 shared files scanned   170 services   45 data/state holders   (commonMain = BOTH platforms)
+
+⛔ THIS DOCUMENT IS QUERYABLE. BEFORE DECIDING A SERVICE DOES NOT EXIST, ASK IT:
+
+      python3 ~/Downloads/svcref_2026-11-21_v2.py --find haversine distance
+      python3 ~/Downloads/svcref_2026-11-21_v2.py --find "time zone" offset
+
+   The query searches each service's NAME, its doc line AND every function signature, so it finds
+   a capability sitting on a service whose name looks unrelated. Reading instead of querying is
+   what failed on 11-20: nine services were reported missing and all nine existed (C28-26361).
+   A no-match result is still not absence -- the query prints the five checks that must follow.
+
+READ THIS BEFORE BUILDING ANY SERVICE. The layer is ~95% complete and the comments in the code are
+out of date, so the default is that a service EXISTS. Absence must be SHOWN, not inferred.
+
+⚠ SEARCH BY CAPABILITY, NOT BY THE OTHER PLATFORM'S SYMBOL NAME. A seam done properly RENAMES
+  things, so Android's name finds nothing exactly where the work HAS been done -- twice on 11-20/21:
+  the nine phantom holes, and the lead track's producer, which is LeadCartProcess.drawnLine().
+
+⚠ TO EXTEND A SERVICE, ADD A SECOND ONE BESIDE IT (SVCEXT, C28-26366): 'build [a] second service
+  for that use case rather then retouching all existing service consumers' (Fred 11-21).
+
+PROVIDES lines are quoted from each declaration's own doc comment in the source -- nothing in that
+column was composed by the generator. '(no doc line in source)' means the source says nothing, and
+the atoms below it are then the only honest statement of what the service provides.
+
+consumers = (files, references) across grouptrack-shared AND app/, Fred's input for consolidation
+(C28-26367). A common-word name reads high -- order of magnitude, not a call count.
+
+--------------------------------------------------------------------------------------------
+## QUICK INDEX  (alphabetical -- 170 services)
+--------------------------------------------------------------------------------------------
+  ArtifactResult         Cert15b                Cert15c                Cert15d
+  Cert15e                Cert15f                Cert15g                Cert16c
+  Cert17c2               Cert17corridor         Cert17d                Cert17e1
+  Cert17e2               Cert17g1a              Cert17g1c              Cert17g2f
+  Cert17g2g              Cert17jobsurface       Cert17maprecipe        Cert17mapstate
+  Cert17mbtiles          CertAssets             CertGeom               CertLog
+  CertMap                CertPaths              CertRead               CertSchema
+  CertValues             CertWrite              GDate                  GDateCert
+  GeofabrikState         GpsPresets             Gt                     GtArtifactFiles
+  GtArtifactSink         GtAssetVersion         GtBase64               GtBlobProbe
+  GtBuildInfo            GtCert                 GtClock                GtColors
+  GtConfig               GtDbAuditPort          GtDownloadPriority     GtEventConfig
+  GtEventStore           GtFiles                GtFilterBridge         GtFmt
+  GtGeom                 GtGpkgDecoder          GtGpx                  GtGpxImport
+  GtGpxParse             GtGroupMode            GtHelpAssets           GtHelpFixture
+  GtHelpLinks            GtHkDb                 GtHkEnv                GtHkScriptEnv
+  GtHttp                 GtIds                  GtImportConverter      GtImportDb
+  GtImportEnv            GtImportPaths          GtImportPlatform       GtIsoDate
+  GtIsoDays              GtIssueMode            GtJava                 GtJavaHashMapLong
+  GtJavaParse            GtJobSurface           GtLock                 GtMBTiles
+  GtManifestSweep        GtMapRecipe            GtMapSpec              GtMapSpecEnv
+  GtMapState             GtMasterConfig         GtMasterConfigStore    GtMath
+  GtMathFdlibm           GtMathPort             GtNetworkConfig        GtNetworkGenerator
+  GtNetworkStore         GtOpenModule           GtOrgJson              GtOsmClassifier
+  GtOsmExtract           GtOsmImport            GtOsmLayers            GtOsmLedger
+  GtOsmPlatform          GtOsmProgress          GtOsmStage             GtPanelChrome
+  GtPbfTags              GtPlace                GtProfileStore         GtQueueJson
+  GtQueuePlatform        GtQueueRow             GtRandom               GtRead
+  GtRecipeEnv            GtRideApply            GtRideImport           GtRideJson
+  GtRideSettings         GtRideStart            GtRideStore            GtRiderScan
+  GtRiderTrails          GtRoute                GtRx                   GtSchema
+  GtScheme               GtScreenCapture        GtSession              GtSettings
+  GtSettingsEditor       GtSettingsStore        GtSpatial              GtStartupHousekeeping
+  GtStateData            GtStateDataQueue       GtStateDataRun         GtStorage
+  GtStorageBase          GtTileCalc             GtTileKey              GtTileMath
+  GtTileStoreEnv         GtTime                 GtTrackFileReader      GtTracks
+  GtTrailCheck           GtTrailClass           GtTrailImport          GtTrailUse
+  GtUrlHost              GtUser                 GtUserStore            GtVectorQueue
+  GtWrite                LaunchModules          LeadCartProcess        Line
+  LineSource             MyCartProcess          RideFiles              RideImportPlatform
+  RideNet                RideNetworks           RideSpatial            RideStats
+  ScreenWriter           TrackGeo               TrackGrounds           TrackPath
+  TrackWriter            TrailFilterState
+
+--------------------------------------------------------------------------------------------
+## BY PACKAGE  (what each group of services is for)
+--------------------------------------------------------------------------------------------
+  com.geeksville.mesh.convoy                            5  ArtifactResult, GeofabrikState, GpsPresets, GtTrailCheck ...
+  com.geeksville.mesh.grouptrack                        9  Gt, GtColors, GtFilterBridge, GtOpenModule ...
+  com.grouptrack.shared.artifact                        3  GtArtifactFiles, GtArtifactSink, GtTrackFileReader
+  com.grouptrack.shared.cert                           31  Cert15b, Cert15c, Cert15d, Cert15e ...
+  com.grouptrack.shared.concurrent                      1  GtLock
+  com.grouptrack.shared.config                          5  GtEventConfig, GtEventStore, GtIsoDays, GtMasterConfig ...
+  com.grouptrack.shared.db                              1  GtSchema
+  com.grouptrack.shared.filter                          1  TrailFilterState
+  com.grouptrack.shared.gpx                             1  GtGpx
+  com.grouptrack.shared.help                            3  GtHelpAssets, GtHelpFixture, GtHelpLinks
+  com.grouptrack.shared.imports                        12  GtClock, GtFiles, GtGpxImport, GtGpxParse ...
+  com.grouptrack.shared.json                            1  GtOrgJson
+  com.grouptrack.shared.maprecipe                       2  GtMapRecipe, GtRecipeEnv
+  com.grouptrack.shared.mapsource                       2  GtMapSpec, GtMapSpecEnv
+  com.grouptrack.shared.mapstate                        1  GtMapState
+  com.grouptrack.shared.mbtiles                         2  GtMBTiles, GtTileStoreEnv
+  com.grouptrack.shared.net                             6  GtBase64, GtNetworkConfig, GtNetworkGenerator, GtNetworkStore ...
+  com.grouptrack.shared.osm                            10  GtGpkgDecoder, GtOsmClassifier, GtOsmExtract, GtOsmImport ...
+  com.grouptrack.shared.platform                        3  GtAssetVersion, GtBuildInfo, GtScreenCapture
+  com.grouptrack.shared.queue                           8  GtDownloadPriority, GtJavaHashMapLong, GtQueueJson, GtQueuePlatform ...
+  com.grouptrack.shared.ride                           11  GDate, GDateCert, GtRideApply, GtRideImport ...
+  com.grouptrack.shared.rider                           2  GtRiderScan, GtRiderTrails
+  com.grouptrack.shared.route                           1  GtRoute
+  com.grouptrack.shared.settings                        8  GtConfig, GtGroupMode, GtIssueMode, GtRideSettings ...
+  com.grouptrack.shared.spatial                         5  GtGeom, GtImportDb, GtRead, GtSpatial ...
+  com.grouptrack.shared.startup                         6  GtDbAuditPort, GtHkDb, GtHkEnv, GtHkScriptEnv ...
+  com.grouptrack.shared.state                           6  GtJobSurface, GtQueueRow, GtStateData, GtStateDataQueue ...
+  com.grouptrack.shared.storage                         2  GtStorage, GtStorageBase
+  com.grouptrack.shared.text                            8  GtFmt, GtJava, GtJavaParse, GtMath ...
+  com.grouptrack.shared.track                          10  GtTracks, LeadCartProcess, Line, LineSource ...
+  com.grouptrack.shared.trail                           1  GtTrailUse
+  com.grouptrack.shared.user                            3  GtIsoDate, GtUser, GtUserStore
+
+
+============================================================================================
+## com.geeksville.mesh.convoy
+============================================================================================
+
+data class ArtifactResult   [commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactSearch.kt:71]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 4 reference(s)
+   provides:  One numbered search/list result.
+      - assignNameSequence(rows: List<Map<String, String?>>): List<ArtifactResult>
+
+data class GeofabrikState   [commonMain/kotlin/com/geeksville/mesh/convoy/GeofabrikState.kt:11]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 9 file(s), 35 reference(s)
+   provides:  moved VERBATIM out of GeofabrikCatalog.kt, keeping its package so every reference resolves unchanged (LandAreas.kt, SearchModule.kt, the catalogue itself).
+      - containsPoint(lat: Double, lon: Double): Boolean
+      - intersectsBbox(south: Double, west: Double, north: Double, east: Double): Boolean
+
+object GpsPresets   [commonMain/kotlin/com/geeksville/mesh/convoy/RecordingState.kt:12]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 7 reference(s)
+   provides:  (Fred 10-20): the presets the GPS panel offers, by Meshtastic name, and their words.
+      - label(p: String?): String
+
+object GtTrailCheck   [commonMain/kotlin/com/geeksville/mesh/convoy/GtTrailCheck.kt:40]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 3 reference(s)
+   provides:  the shared port of app/.../convoy/TrailCheck.kt (291 lines), unchanged in behaviour.
+      - run( spatial: SQLiteConnection, ext: SQLiteConnection?, mapState: GtMapState, ownershipPath: String, importsDir: Path, fs: FileSystem, build: GtBuildInfo, nowMs: Long, input: String, ): JsonObject
+      - pretty(result: JsonObject): String
+      (+8 private, not part of the contract)
+
+object RideStats   [commonMain/kotlin/com/geeksville/mesh/convoy/RideStats.kt:30]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 13 reference(s)
+   provides:  (Fred 10-20 10:46): RIDE STATISTICS -- the range-test analysis inside the app, shown in Settings -> Group awareness -> Ride statistics.
+      - onHeard(m: com.grouptrack.comm.Member, myId: String?, myLat: Double?, myLon: Double?, nowMs: Long)
+      - onMine(t: Long, lat: Double, lon: Double)
+      - onEstimate(o: RideLeadOutcome)
+      - reset()
+      - startedMs(): Long
+      - heard(): List<Rx>
+      - minePositions(): List<Mine>
+      - estimates(): List<RideLeadOutcome>
+      - report(nowMs: Long, tzOffsetMinutes: Int, preset: String?, intervalSecs: Int?, avgChannel: Float?): String
+      (+6 private, not part of the contract)
+
+============================================================================================
+## com.geeksville.mesh.grouptrack
+============================================================================================
+
+object Gt   [commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:77]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 82 file(s), 1597 reference(s)
+   provides:  (Fred 10:14): a SELECTION shows a check mark, never a coloured box; panels are solid everywhere.
+      - GtTheme(content: @Composable ()
+      - floor(t: androidx.compose.ui.text.TextStyle)
+      - gtHexColor(s: String): Color?
+
+object GtColors   [commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:51]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 0 file(s), 0 reference(s)
+   provides:  (2.7c standard 2): ONE colour set for every GroupTrack panel, defined once.
+      (no functions -- a contract of properties, or a marker)
+
+class GtFilterBridge   [commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:50]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 4 reference(s)
+   provides:  (2.7c, Fred 12:30 "ok lets build it" -- the FILTER mock of 12:28).
+      - GtFilterBody(f: GtFilterBridge, onSelect: (String)
+      - setLandTicks(p: Boolean, q: Boolean)
+      (+3 private, not part of the contract)
+
+object GtOpenModule   [commonMain/kotlin/com/geeksville/mesh/grouptrack/GroupTrack.kt:381]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 8 reference(s)
+   provides:  a module another screen asks the shell to open ("" = none).
+      (no functions -- a contract of properties, or a marker)
+
+interface GtPanelChrome   [commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanelChrome.kt:26]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 2 file(s), 3 reference(s)
+   provides:  (2.8b): the PANEL STANDARD's three HOST services, seamed so the panel chrome itself is shared code.
+   iosMain      GtPanelChromeIos   [iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:117]
+      - openHelp(id: String)
+      - IssueButton(id: String, color: Color)
+      - IssueHost()
+      - UtahPrivatePanel()
+      - QueueSummary(onOpen: ()
+      - DownloadSettingsPanel()
+      - GtCloseButton(onClose: ()
+
+class GtPlace   [commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:81]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 4 reference(s)
+   provides:  public, because the bridge's findPlaces returns these.
+      - GtSearchBody(b: GtSearchBridge, close: ()
+      - run()
+      (+4 private, not part of the contract)
+
+object GtRideStart   [commonMain/kotlin/com/geeksville/mesh/grouptrack/RideStart.kt:9]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 15 reference(s)
+   provides:  (Fred 10-24 10:30): Create a ride = SEARCH positions the map, then the ride form lists the routes in the map area.
+      - begin()
+      - cancel()
+      - handOff(s: Double, n: Double, w: Double, e: Double)
+      - takeArea(): DoubleArray
+
+object GtScheme   [commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:144]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 12 file(s), 41 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - forMap(mapType: String): GtButtonScheme
+      - GtButton(label: String, onClick: ()
+      - GtIconButton(label: String, icon: ImageVector, onClick: ()
+      - GtPanel( title: String, helpId: String, onHelp: (String)
+
+object LaunchModules   [commonMain/kotlin/com/geeksville/mesh/grouptrack/LaunchModules.kt:40]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 4 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - bySlot(slot: LaunchSlot, group: Boolean): List<LaunchModule>
+      (+2 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.artifact
+============================================================================================
+
+class GtArtifactFiles   [commonMain/kotlin/com/grouptrack/shared/artifact/GtArtifactFiles.kt:100]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 3 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - safeGpxName(displayName: String): String
+      - gpxFor(artifactType: String, artifactId: String): Pair<String, String>?
+      - export(artifactType: String, artifactId: String): GtArtifactResult
+      - share(artifactType: String, artifactId: String): GtArtifactResult
+
+interface GtArtifactSink   [commonMain/kotlin/com/grouptrack/shared/artifact/GtArtifactFiles.kt:30]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 1 file(s), 2 reference(s)
+   provides:  Where a finished file goes, and how it leaves.
+      - saveToMapFeatures(fileName: String, text: String): String?
+      - email(handle: String, fileName: String, subject: String, body: String): Boolean
+      - emailAll(handles: List<String>, subject: String, body: String): Boolean
+      - emailText(subject: String, body: String): Boolean
+
+fun interface GtTrackFileReader   [commonMain/kotlin/com/grouptrack/shared/artifact/GtArtifactFiles.kt:89]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 1 file(s), 2 reference(s)
+   provides:  A track's .gpx on disk, by geom_hash.
+      - readTrackGpx(geomHash: String): String?
+
+============================================================================================
+## com.grouptrack.shared.cert
+============================================================================================
+
+object Cert15b   [commonMain/kotlin/com/grouptrack/shared/cert/Cert15b.kt:23]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 20 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 15b certification's ONE runner, used by every side so the cases, the order and the fingerprints cannot drift between them: - on the Droi
+      - readText(fs: FileSystem, path: Path): String
+      - importExt(fileName: String): String
+      - trailMarked(trk: String, file: String): Boolean
+      - extractEarliestTime(content: String): Long?
+      - sanitizeFilename(name: String): String
+      - waypoints(text: String): List<Wpt>
+      - routes(text: String): List<Rte>
+      - pointsFull(text: String): List<Pt>
+      - toGpx(fs: FileSystem, src: Path, outDir: Path, asTrails: Boolean): Conv
+      - readText(fs: FileSystem, path: Path): String
+      - importExt(fileName: String)
+      - trailMarked(trk: String, file: String)
+      - extractEarliestTime(content: String)
+      - sanitizeFilename(name: String)
+      - waypoints(text: String)
+      - routes(text: String)
+      ... and 8 more public function(s)
+      (+2 private, not part of the contract)
+
+object Cert15c   [commonMain/kotlin/com/grouptrack/shared/cert/Cert15c.kt:48]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 24 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 15c certification's ONE runner (rider trails), used by every side so the cases, their order and the fingerprints cannot drift between th
+      - text()
+      - parseGeometry(wkt: String?): List<GtRiderScan.Pt>
+      - scanAll(onProgress: (Int, Int)
+      - scanTrackByHash(geomHash: String): Pair<Int, Double>
+      - scanTrack(trackName: String?, geometry: String?): Pair<Int, Double>
+      - resetChanged()
+      - changed(): Boolean
+      - parseGeometry(wkt: String?)
+      - scanAll(onProgress: (Int, Int)
+      - scanTrackByHash(geomHash: String)
+      - scanTrack(trackName: String?, geometry: String?)
+      - resetChanged()
+      - changed(): Boolean
+      - inputs(conn: SQLiteConnection, dataConn: SQLiteConnection): Inputs
+      - sha(s: String): String
+      - esc(s: String): String
+      ... and 4 more public function(s)
+      (+13 private, not part of the contract)
+
+object Cert15d   [commonMain/kotlin/com/grouptrack/shared/cert/Cert15d.kt:62]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 14 file(s), 90 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 15d certification's ONE runner (track add / sync / properties, INVENTORY 7.2 S1), used by every side so the cases, their order and the t
+      - listing(dir: Path): List<String>
+      - sync(onProgress: (String)
+      - resolve(name: String, source: Path): String
+      - props(geomHash: String, onProgress: (String)
+      - backfill(onProgress: (String)
+      - insertWaypoint(name: String, lat: Double, lon: Double, type: String): String
+      - allTrackGeomHashes(): List<Pair<String, String?>>
+      - deleteTrack(id: String)
+      - resetChanged()
+      - changed(): Boolean
+      - syncText(processed: Int, skipped: Int, addedRenamed: Int, renamed: Int, addedNames: List<String>, propsWritten: Int, propsTotal: Int, failures: List<String>)
+      - backfillText(written: Int, total: Int, failures: List<String>)
+      - listing(dir: Path)
+      - sync(onProgress: (String)
+      - resolve(name: String, source: Path)
+      - props(geomHash: String, onProgress: (String)
+      ... and 20 more public function(s)
+      (+20 private, not part of the contract)
+
+object Cert15e   [commonMain/kotlin/com/grouptrack/shared/cert/Cert15e.kt:49]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 16 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 15e certification's ONE runner (the GPX import: the screen's per-file loop + importGpxAllArtifacts, INVENTORY 7.2 G1-G12 / K1-K2 / J1-J2
+      - importFiles(sel: List<Path>, trailsAnswer: String, trailsSource: String, mapsSkip: Set<String>, selectedSlots: List<String>, replaceExisting: Boolean, onLine: (String)
+      - calls(): List<String>
+      - resetCalls()
+      - resetChanged()
+      - changed(): Boolean
+      - importFiles(sel: List<Path>, trailsAnswer: String, trailsSource: String, mapsSkip: Set<String>, selectedSlots: List<String>, replaceExisting: Boolean, onLine: (String)
+      - calls(): List<String>
+      - resetCalls()
+      - resetChanged()
+      - changed(): Boolean
+      - totalsText(t: GtGpxImport.Totals)
+      - inputFiles(fs: FileSystem, dir: Path): List<Path>
+      - noteIds(dataConn: SQLiteConnection): Set<String>
+      - runScript(side: Side, ctx: Ctx, emit: (String, String)
+      - dumpTables(conn: SQLiteConnection, dataConn: SQLiteConnection, inputs: Cert15d.Inputs, notes: Set<String>, emit: (String, String, Boolean)
+      (+6 private, not part of the contract)
+
+object Cert15f   [commonMain/kotlin/com/grouptrack/shared/cert/Cert15f.kt:54]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 31 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 15f certification's ONE runner (the agency trail import, TrailImporter 2.7e), used by every side so the cases, their order and the dumps
+      - full(sourceId: String): String
+      - byArea(ids: List<String>, s: Double, w: Double, n: Double, e: Double): String
+      - saved(sourceId: String, files: List<Path>, s: Double, w: Double, n: Double, e: Double): String
+      - fetch(sourceId: String, s: Double, w: Double, n: Double, e: Double, dest: Path, onPage: (Int, Int, Int)
+      - trailheads(asset: String, sourceId: String, s: Double?, w: Double?, n: Double?, e: Double?): Int
+      - setAll(all: Boolean)
+      - writePending(n: Double, s: Double, e: Double, w: Double)
+      - readPending(): String?
+      - clearPending()
+      - scanAreas(): List<String>
+      - fully(sourceId: String): Boolean
+      - progress(): List<String>
+      - resetProgress()
+      - full(sourceId: String)
+      - byArea(ids: List<String>, s: Double, w: Double, n: Double, e: Double)
+      - saved(sourceId: String, files: List<Path>, s: Double, w: Double, n: Double, e: Double)
+      ... and 22 more public function(s)
+      (+12 private, not part of the contract)
+
+object Cert15g   [commonMain/kotlin/com/grouptrack/shared/cert/Cert15g.kt:51]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 20 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 15g certification's ONE runner (the OSM extract + import, 2.7e's OsmPbfTagReader / OsmExtractWorker / OsmImportWorker / OsmImportStage /
+      - catalogText(): String
+      - displayName(slug: String): String
+      - classify(t: List<String?>): String
+      - decodeLine(b: ByteArray?): String
+      - decodePoint(b: ByteArray?): String
+      - progressRound(json: String): String
+      - etaText(sec: Long): String
+      - stage(slug: String): String
+      - inFlight(): String
+      - verify(kind: String, p: Path): Boolean
+      - tagBuild(pbf: Path, out: Path, onProgress: (Long, Int)
+      - ledgerCreate(slug: String, state: String, note: String, carry: Boolean)
+      - recordAcquire(slug: String, file: String, bytes: Long, from: String)
+      - setPending(slug: String, scope: String, bbox: DoubleArray?)
+      - setPendingBbox(slug: String, s: Double, w: Double, n: Double, e: Double)
+      - pendingScope(slug: String): String?
+      ... and 64 more public function(s)
+      (+8 private, not part of the contract)
+
+object Cert16c   [commonMain/kotlin/com/grouptrack/shared/cert/Cert16c.kt:52]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 22 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the step 16c certification's ONE runner (the save-by-area writes: 2.7e VectorTiles + DownloadQueueManager.enqueueArea's VEC / DEM branch, ported
+      - setRecipesDir(dir: Path)
+      - boxesOf(f: Path): List<DoubleArray>
+      - recipeBoxes(): Pair<String, List<DoubleArray>>?
+      - squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>)
+      - squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>)
+      - enqueueWithElevation(n: Double, s: Double, e: Double, w: Double, replace: Boolean, what: String): Int
+      - queueSquares(sq: Set<Long>, replace: Boolean, why: String): Pair<Int, Int>
+      - queueSquaresNamed(sq: Set<Long>, names: Map<Long, Set<String>>, replace: Boolean, why: String): Pair<Int, Int>
+      - queueFromRecipe(count: Int): String
+      - quickEstimate(n: Double, s: Double, e: Double, w: Double, zMin: Int, zMax: Int): Est
+      - segmentCells(n: Double, s: Double, e: Double, w: Double, sizeTiles: Int, zMax: Int): List<DoubleArray>
+      - takeEntries(): Pair<List<String>, String>
+      - append(entries: List<GtQueueEntry>)
+      - downloadZoom(): Int
+      - satLayers(): Int?
+      - recipesDir(): Path
+      ... and 34 more public function(s)
+      (+3 private, not part of the contract)
+
+object Cert17c2   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17c2.kt:16]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 11 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with the certs before 2.8 is released): the G2c-2 cert script, ONE copy for every side.
+      - text()
+      - reset(fileText: String?)
+      - fileText(): String?
+      - prefActive(): String?
+      - loadAll(): List<U>
+      - saveAllAsLoaded()
+      - saveUpdated(id: String, vehicle: String)
+      - create(type: String, first: String, last: String, email: String, cell: String, vehicle: String, today: String, newId: String): U
+      - saveCreated()
+      - getActive(): U?
+      - setActive(id: String)
+      - isEnrolled(): Boolean
+      - addDevice(hw: String)
+      - resolvePairing(hw: String): U?
+      - isExpired(expiry: String, today: String): String
+      - cleanup()
+      ... and 17 more public function(s)
+      (+1 private, not part of the contract)
+
+object Cert17corridor   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17corridor.kt:26]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 8 reference(s)
+   provides:  -- mode corridor17. ⚠ TEST-ONLY (CODE RULE 3). Fred 11-17: "test harness should use existing tracks to calc areas for download queue. and validate areas are correct." ⭐ WHAT CAN ACTUALLY DIVERGE, whic
+      - oldSegments(wkt: String): List<List<Pair<Double, Double>>>?
+      - squareDigest(squares: Set<Long>): String
+      - areaDigest(areas: List<String>): String
+      - areaOf(n: Double, s: Double, e: Double, w: Double, slot: String, label: String): String
+      (+1 private, not part of the contract)
+
+object Cert17d   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17d.kt:21]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 8 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with the certs before 2.8 is released): the G2d cert script, ONE copy for every side.
+      - reset()
+      - putDevice(text: String?)
+      - setAsset(text: String?)
+      - deviceText(): String?
+      - masterLoad(): String
+      - masterExists(): String
+      - masterPretty(): String
+      - eventParse(text: String): String
+      - eventPut(name: String, text: String)
+      - eventCreate(eventName: String, eventDate: String, eventDescription: String, channelName: String, today: String, newId: String): String
+      - eventSaveCreated(): String
+      - eventFiles(): String
+      - eventLoadAll(): String
+      - cleanup()
+      - run(side: Side, asset: String, riderMaster: String?, riderEvents: List<Pair<String, String>>, emit: (String, String)
+      - reset()
+      ... and 13 more public function(s)
+      (+2 private, not part of the contract)
+
+object Cert17e1   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17e1.kt:26]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 10 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with the certs before 2.8 is released): the G2e-1 cert script (StateData), ONE copy for every side.
+      - reset()
+      - landFile(folder: String, code: String): Path
+      - landPages(folder: String, code: String): Path
+      - agencyFile(slug: String, sourceId: String): Path
+      - has(slug: String): Boolean
+      - isRefresh(slug: String): Boolean
+      - endRun()
+      - writeRecords(rows: List<GtStateData.Row>)
+      - downloadedMs(slug: String): Long
+      - ageDays(slug: String): Int
+      - sizeMb(slug: String): Long
+      - staleSlugs(slugs: List<String>): List<String>
+      - answer(slugs: List<String>, refresh: Boolean)
+      - restore(slug: String)
+      - save(slug: String)
+      - pbf(size: Int, good: Boolean = true): ByteArray
+      ... and 46 more public function(s)
+
+object Cert17e2   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17e2.kt:16]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 8 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with the certs before 2.8 is released): the G2e-2 cert script (the state-data queue), ONE copy for every side.
+      - row(fields: Map<String, String>): GtQueueRow
+      - run(rows: List<GtQueueRow>, fetch: (GtQueueRow)
+      - stop(id: String)
+      - load()
+      - savedMax(): String
+      - putSavedMax(v: Int?)
+      - aborts(): List<String>
+      - serverOf(url: String, sourceId: String): String
+      - text(r: GtQueueRow)
+      - run(side: Side, sleep: (Long)
+      - scenario(name: String, max: Int, rows: List<Map<String, String>>, sc: Script, press: (List<GtQueueRow>, (String)
+      - snap()
+      - optString(key: String): String
+      - optBoolean(key: String): Boolean
+      - put(key: String, value: String)
+      - put(key: String, value: Boolean)
+      ... and 15 more public function(s)
+      (+1 private, not part of the contract)
+
+object Cert17g1a   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17g1a.kt:41]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 7 reference(s)
+   provides:  Cert17g1a — the ONE runner for step 17 group G1a (GtTileCalc).
+      - maxZoomForSource(sourceName: String, downloadZoom: Int): Int
+      - maxZoomForSlot(slotName: String, downloadZoom: Int): Int
+      - zoomRanges(north: Double, south: Double, east: Double, west: Double, zMin: Int, zMax: Int): List<String>
+      - calculateTiles(north: Double, south: Double, east: Double, west: Double, zMin: Int, zMax: Int, sourceName: String, downloadZoom: Int): List<String>
+      - buildTileUrl(z: Int, x: Int, y: Int, sourceUrl: String): String
+      - run(side: Side, sink: (String, String)
+      - maxZoomForSource(sourceName: String, downloadZoom: Int): Int
+      - maxZoomForSlot(slotName: String, downloadZoom: Int): Int
+      - zoomRanges(north: Double, south: Double, east: Double, west: Double, zMin: Int, zMax: Int): List<String>
+      - calculateTiles(north: Double, south: Double, east: Double, west: Double, zMin: Int, zMax: Int, sourceName: String, downloadZoom: Int): List<String>
+      - buildTileUrl(z: Int, x: Int, y: Int, sourceUrl: String): String
+      (+1 private, not part of the contract)
+
+object Cert17g1c   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17g1c.kt:48]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 9 reference(s)
+   provides:  Cert17g1c — the ONE runner for step 17 group G1c (GtMapSpec).
+      - resetForCert()
+      - vectorTileTemplate(env: GtMapSpecEnv): String?
+      - vectorDownloadSources(env: GtMapSpecEnv): List<String>
+      - elevationUrlTemplate(env: GtMapSpecEnv): String?
+      - elevationDownloadSources(env: GtMapSpecEnv): List<String>
+      - oldTilesOf(recipeText: String): Long
+      - readAsset(name: String): String
+      - httpGet(url: String, timeoutMs: Int): String?
+      - run(side: Side, realAsset: String, sink: (String, String)
+      - layers(l: List<String>)
+      - s(v: String?)
+      - resetForCert()
+      - vectorTileTemplate(env: GtMapSpecEnv)
+      - vectorDownloadSources(env: GtMapSpecEnv)
+      - elevationUrlTemplate(env: GtMapSpecEnv)
+      - elevationDownloadSources(env: GtMapSpecEnv)
+      ... and 1 more public function(s)
+
+object Cert17g2f   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17g2f.kt:37]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 25 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with the certs before 2.8 is released): the G2f cert script (startup housekeeping + the database audit), ONE copy for every side.
+      - reset()
+      - everyLaunch()
+      - logs(): List<String>
+      - effects(): List<String>
+      - run(side: Side, emit: (String, String)
+      - resetAll()
+      - logs(): List<String>
+      - effects(): List<String>
+      - log(line: String)
+      - now(): Long
+      - initDb()
+      - dbDir(): String
+      - spatialDb(): GtHkDb?
+      - extDb(): GtHkDb?
+      - spatialPath(): String?
+      - parseGpxTrackPoints(text: String): List<Pair<Double, Double>>
+      ... and 47 more public function(s)
+      (+2 private, not part of the contract)
+
+object Cert17g2g   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17g2g.kt:26]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 8 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with the certs before 2.8 is released): the G2g cert script (the HELP link table), ONE copy for every side.
+      - reset()
+      - load(text: String, missing: Boolean)
+      - size(): Int
+      - has(id: String): Boolean
+      - linkFor(id: String): String
+      - run(side: Side, emit: (String, String)
+      - text(name: String): String
+      - reset()
+      - load(text: String, missing: Boolean)
+      - size(): Int
+      - has(id: String): Boolean
+      - linkFor(id: String): String
+
+object Cert17jobsurface   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17jobsurface.kt:25]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 1 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with the certs before 2.8 is released).
+      - table(): List<String>
+      - sequences(): List<String>
+      - invariants(): List<String>
+      - all(): List<String>
+
+object Cert17maprecipe   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17maprecipe.kt:48]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 24 reference(s)
+   provides:  (2.8 step 17, Phase 2 pass 2): ConvoyMapRecipe, OLD vs NEW.
+      - run(fx: Fx, fresh: Boolean): Out
+      - slotLine(slot: String, source: String, zMin: Int, zMax: Int, tiles: Long, boxCount: Int): String
+      - boxLine(n: Double, s: Double, w: Double, e: Double, tiles: Long): String
+      - todayFile(today: String): String
+      - fixtures(todayName: String): List<Fx>
+      - overlay(base: GtFiles, seeded: Map<String, Long>): GtFiles
+      - setLastModified(path: Path, epochMs: Long): Boolean
+      - lastModified(path: Path): Long
+      - list(dir: Path): List<Path>
+      - slotSources()
+      - storeExists(slot: String)
+      - deriveRecipe(slot: String)
+      - vectorBusyCount()
+      - newSide(files: GtFiles, paths: GtImportPaths, clock: GtClock): Side
+      - run(fx: Fx, fresh: Boolean): Out
+      - run(side: Side, todayName: String, sink: (String, String)
+      (+2 private, not part of the contract)
+
+object Cert17mapstate   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17mapstate.kt:28]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 19 reference(s)
+   provides:  (2.8 step 17, Phase 2 pass 1): MapStateStore, OLD vs NEW.
+      - readMapAfter(mapKey: String, text: String, exists: Boolean): Snap
+      - readViewAfter(mapKey: String, text: String, exists: Boolean): String
+      - roundTrip(mapKey: String, text: String): Snap
+      - rideKey(): String
+      - typeDefaults(): String
+      - typeLine(type: String, state: Int, rowCount: Int, ids: Set<String>?): String
+      - panelLine(tiles: Boolean, trails: Boolean, remove: Boolean): String
+      - bboxLine(s: Double?, w: Double?, n: Double?, e: Double?, z: Double?): String
+      - fitLine(id: String?, name: String?, type: String?): String
+      - routeLine(open: Boolean?, status: String?, draft: String?): String
+      - why(flat: List<String>, flatDefaults: List<String>): String
+      - snapOf(flat: List<String>, flatDefaults: List<String>): Snap
+      - flatten(s: GtMapSnapshot): List<String>
+      - newSide(files: GtFiles, paths: GtImportPaths): Side
+      - readMapAfter(mapKey: String, text: String, exists: Boolean): Snap
+      - readViewAfter(mapKey: String, text: String, exists: Boolean): String
+      ... and 4 more public function(s)
+      (+3 private, not part of the contract)
+
+object Cert17mbtiles   [commonMain/kotlin/com/grouptrack/shared/cert/Cert17mbtiles.kt:28]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 11 reference(s)
+   provides:  (2.8 step 17, Phase 2 pass 3): MBTilesStore, OLD vs NEW.
+      - blobFor(z: Int, x: Int, y: Int): ByteArray
+      - bigBlob(): ByteArray
+      - seed(slot: String, tiles: List<GtTileKey>, big: Boolean)
+      - autoVacuum(slot: String): String
+      - insertTile(slot: String, z: Int, x: Int, y: Int, bytes: ByteArray): Boolean
+      - readTile(slot: String, z: Int, x: Int, y: Int): ByteArray?
+      - hasTile(slot: String, z: Int, x: Int, y: Int): Boolean
+      - countInTileRange(slot: String, z: Int, xMin: Long, xMax: Long, yMin: Long, yMax: Long): Int
+      - countTileRange(slot: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int
+      - tileExtentAtZoom(slot: String, z: Int): LongArray?
+      - zoomLevelsPresent(slot: String): List<Int>
+      - countAtZoom(slot: String, z: Int): Int
+      - xyAtZoom(slot: String, z: Int): List<Pair<Long, Long>>
+      - countByParent(slot: String, z: Int, shift: Int): List<LongArray>
+      - scanKeys(slot: String): List<GtTileKey>
+      - tilesInBounds(slot: String, north: Double, south: Double, east: Double, west: Double): List<GtTileKey>
+      ... and 33 more public function(s)
+
+object CertAssets   [commonMain/kotlin/com/grouptrack/shared/cert/CertAssets.kt:33]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 22 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): seam 2's ASSET service -- the bundled .json files the app reads at startup.
+      - flattenShared(text: String): List<Leaf>
+      - walk(e: JsonElement, path: String)
+      - run(name: String, leaves: List<Leaf>, sink: (String, String)
+      - hashOf(leaves: List<Leaf>): Long
+      - leavesOf(name: String, leaves: List<Leaf>, sink: (String, String)
+      - tryFlatten(text: String): Pair<List<Leaf>, String?>
+      - esc(s: String): String
+
+object CertGeom   [commonMain/kotlin/com/grouptrack/shared/cert/CertGeom.kt:22]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 3 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): certifies THE ONE geometry module (GtGeom) against the data 2.7e already stored.
+      - run(conn: SQLiteConnection, out: (String)
+      - bad(why: String)
+      (+1 private, not part of the contract)
+
+object CertLog   [commonMain/kotlin/com/grouptrack/shared/cert/CertLog.kt:47]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 16 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the certification of the LOGGING seam conversion (GTLOGKERMIT-2026-11-16, 994 sites in 102 files, commit 491b15cac).
+      - emit(level: String, tag: String, text: String): Rec
+      - log(severity: Severity, message: String, tag: String, throwable: Throwable?)
+      - newSide(): Side
+      - emit(level: String, tag: String, text: String): Rec
+      - value(r: Rec): String
+      - keyOf(index: Int, c: Case): String
+      - run(cases: List<Case>, side: Side, sink: (String, String)
+      - esc(s: String): String
+      - unesc(s: String): String
+      - parseCorpus(tsv: String): Pair<List<Case>, List<String>>
+      (+1 private, not part of the contract)
+
+object CertMap   [commonMain/kotlin/com/grouptrack/shared/cert/CertMap.kt:18]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 1 reference(s)
+   provides:  harness checks 9(b) and 9(c) -- PROPERTIES of the shared map code (not OLD vs NEW): (b) every map batch is valid JSON -- trails (restricted parts shown and hidden), tracks, waypoints, routes, land -- for a view centred o
+      - run(conn: SQLiteConnection, dconn: SQLiteConnection?, emit: (String)
+      (+1 private, not part of the contract)
+
+object CertPaths   [commonMain/kotlin/com/grouptrack/shared/cert/CertPaths.kt:50]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 34 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): seam 2's ENVIRONMENT half -- where a file goes.
+      - run(side: Side, sink: (String, String)
+      - payloadHash(): Long
+      - runExport(platform: GtImportPlatform, fs: FileSystem, scratch: Path, sink: (String, String)
+      - isFact(key: String): Boolean
+      - esc(s: String): String
+      (+1 private, not part of the contract)
+
+object CertRead   [commonMain/kotlin/com/grouptrack/shared/cert/CertRead.kt:13]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 12 reference(s)
+   provides:  GTCERT-2B-2026-11-06: the batch-2b test cases -- SpatialDbManager's READING side over the whole database.
+      - search(type: String, term: String): List<Map<String, String?>>
+      - detail(type: String, id: String): Map<String, String?>
+      - aliases(type: String, id: String): List<Map<String, String?>>
+      - list(table: String): List<Map<String, String?>>
+      - corridor(): List<Map<String, String?>>
+      - trailheads(lat: Double, lon: Double): List<List<Any>>
+      - routeUsing(waypointId: String): String?
+      - routeName(id: String): String?
+      - routeHash(id: String): String?
+      - routeByHash(hash: String): String?
+      - nameExists(name: String): Boolean
+      - nextNumber(base: String): Int
+      - trackName(id: String): String?
+      - trackGeom(id: String): String?
+      - waypointAt(lat: Double, lon: Double): String?
+      - geomHash(wkt: String): String
+      ... and 23 more public function(s)
+      (+2 private, not part of the contract)
+
+object CertSchema   [commonMain/kotlin/com/grouptrack/shared/cert/CertSchema.kt:13]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 16 reference(s)
+   provides:  positions: true = column order counts (UPGRADE/AGAIN: the same database before and after).
+      - dump(c: SQLiteConnection, positions: Boolean): List<String>
+      - counts(c: SQLiteConnection): Map<String, Long>
+      (+1 private, not part of the contract)
+
+object CertValues   [commonMain/kotlin/com/grouptrack/shared/cert/CertValues.kt:39]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 15 reference(s)
+   provides:  ⚠ TEST-ONLY (CODE RULE 3 -- remove with GtCertRun before 2.8 is released): the harness for seam 2 BATCH 1, the pure-value services.
+      - useOf(category: String): String
+      - trailSideOf(t: GtTrailClass): TrailSide
+      - runTrail(side: TrailSide, sink: (String, String)
+      - runRow(row: GtQueueRow, sink: (String, String)
+      - put(k: String, v: String)
+      - runRandom(r: GtRandom, draws: Int = 4000, sink: (String, String)
+      - esc(s: String): String
+
+object CertWrite   [commonMain/kotlin/com/grouptrack/shared/cert/CertWrite.kt:15]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 6 reference(s)
+   provides:  step 10's test cases -- SpatialDbManager's WRITES, on COPIES of Droid 1's databases (never the live ones).
+      - insertWaypointWithId(id: String, name: String, lat: Double, lon: Double, type: String): Boolean
+      - renameWaypoint(id: String, n: String)
+      - insertRoute(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double): String
+      - renameRoute(id: String, n: String)
+      - writeRouteNotes(routeId: String, notesJson: String): Int
+      - deleteRouteNotes(routeId: String): Int
+      - setRouteAnchor(routeId: String, lat: Double, lon: Double, name: String): Boolean
+      - addAlias(type: String, id: String, name: String, hash: String)
+      - deleteAlias(aliasId: String)
+      - insertTrack(name: String, wkt: String, a: Double, b: Double, c: Double, d: Double): String
+      - renameTrack(id: String, n: String)
+      - beginDedup()
+      - insertTrail(id: String, name: String?, wkt: String, a: Double, b: Double, c: Double, d: Double, created: String): String
+      - deleteTrail(id: String)
+      - clearAllTrails(): String
+      - insertWaypointWithId(id: String, name: String, lat: Double, lon: Double, type: String)
+      ... and 29 more public function(s)
+      (+2 private, not part of the contract)
+
+object GtBlobProbe   [commonMain/kotlin/com/grouptrack/shared/cert/GtBlobProbe.kt:22]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 3 reference(s)
+   provides:  !! TEST-ONLY (CODE RULE 3 -- remove with the certs before 2.8 is released). WHAT IT ANSWERS, AND WHY BEFORE PASS 3: MBTilesStore is 18 live members over SQLite, and readTile / insertTile are ENTIRELY
+      - run(dbPath: String, sink: (String, String)
+      - exec(sql: String)
+      - one(sql: String): String
+      (+2 private, not part of the contract)
+
+object GtCert   [commonMain/kotlin/com/grouptrack/shared/cert/GtCert.kt:20]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 54 reference(s)
+   provides:  (2.8, Fred 13:17-13:18): THE WHOLE-DATABASE CERTIFICATION.
+      - fp(s: String): String
+      - ids(c: SQLiteConnection, sql: String): List<String>
+      - categories(c: SQLiteConnection)
+      - combos(cats: List<String>, saved: Combo): List<Combo>
+      - sampleTrailIds(c: SQLiteConnection): List<String>
+      - trailSamplePages(c: SQLiteConnection): List<Pair<String, String>>
+      - pages(c: SQLiteConnection, table: String, col: String, quoted: Boolean): List<Pair<String, String>>
+      - lit(v: String)
+      - line(kind: String, key: String, variant: String, count: Int, fingerprint: String)
+      - runNew(conn: SQLiteConnection, dataConn: SQLiteConnection?, saved: Combo, notes: (String)
+      - gpxPages(kind: String, table: String, col: String, one: (String)
+      - row(sql: String, id: String, cols: Int): List<String?>?
+
+============================================================================================
+## com.grouptrack.shared.concurrent
+============================================================================================
+
+expect class GtLock   [commonMain/kotlin/com/grouptrack/shared/concurrent/GtLock.kt:24]
+   shape:     EXPECT/ACTUAL  (one actual per platform)
+   consumers: 4 file(s), 6 reference(s)
+   provides:  the toolkit's lock. ⛔ WHY IT EXISTS. Shared code could not guard a mutable collection. `@Synchronized` is `kotlin.jvm`, so it cannot appear in commonMain, and `@Volatile` -- the only concurrency primi
+   androidMain  GtLock (actual)   [androidMain/kotlin/com/grouptrack/shared/concurrent/GtLock.android.kt:4]
+   iosMain      GtLock (actual)   [iosMain/kotlin/com/grouptrack/shared/concurrent/GtLock.ios.kt:4]
+      - withLock(block: ()
+
+============================================================================================
+## com.grouptrack.shared.config
+============================================================================================
+
+data class GtEventConfig   [commonMain/kotlin/com/grouptrack/shared/config/GtConfigs.kt:266]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 10 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - toJson(): JsonObject
+      - fromJson(o: JsonObject): GtEventConfig
+      - createFromMaster(master: GtMasterConfig, organizer: GtUser, hardwareId: String, deviceId: String, eventName: String, eventDate: String, eventDescription: String, channelName: String, channelPsk: String, today: String, newId: String): GtEventConfig
+
+class GtEventStore   [commonMain/kotlin/com/grouptrack/shared/config/GtConfigs.kt:382]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 6 reference(s)
+   provides:  2.7e ConvoyEventStore: filesDir/convoy_events.
+      - eventsDir(): Path
+      - fileName(event: GtEventConfig): String
+      - save(event: GtEventConfig)
+      - loadAll(): List<GtEventConfig>
+
+object GtIsoDays   [commonMain/kotlin/com/grouptrack/shared/config/GtConfigs.kt:26]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 0 file(s), 0 reference(s)
+   provides:  (2.8 step 17, G2d): the V2 config files -- convoy/ConvoyMasterConfig.kt (the master radio config: assets/master_config.json, copied to filesDir) and convoy/ConvoyEventConfig.kt (ConvoyEventConfig + ConvoyEventStore, file
+      - plusDays(s: String, n: Int): String
+      (+1 private, not part of the contract)
+
+data class GtMasterConfig   [commonMain/kotlin/com/grouptrack/shared/config/GtConfigs.kt:39]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 9 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - toJson(): JsonObject
+      - fromJson(o: JsonObject): GtMasterConfig
+
+class GtMasterConfigStore   [commonMain/kotlin/com/grouptrack/shared/config/GtConfigs.kt:227]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 4 reference(s)
+   provides:  2.7e ConvoyMasterConfig.load / restoreFromAsset / exists.
+      - load(): GtMasterConfig?
+      - exists(): Boolean
+      (+2 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.db
+============================================================================================
+
+object GtSchema   [commonMain/kotlin/com/grouptrack/shared/db/GtSchema.kt:19]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 7 file(s), 15 reference(s)
+   provides:  THE DATABASE SCHEMA, shared by Android and the iPad.
+      - ensure(spatial: SQLiteConnection, data: SQLiteConnection, readSchemaFile: (String)
+      - version(c: SQLiteConnection): Int
+      - hasTable(c: SQLiteConnection, name: String): Boolean
+      (+6 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.filter
+============================================================================================
+
+object TrailFilterState   [commonMain/kotlin/com/grouptrack/shared/filter/TrailFilterState.kt:34]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 24 file(s), 129 reference(s)
+   provides:  TrailFilterState -- the Map Keys panel's state, and the SQL predicate derived from it.
+      - installDefaults(readDefaults: ()
+      - ensureDefaults(readDefaults: ()
+      - load(force: Boolean = false)
+      - where(): String
+      - whereOrEmpty(): String
+      - whereFor(land: String, restricted: Boolean, use: String, off: Set<String>): String
+      - setLand(v: String)
+      - setRestricted(v: Boolean)
+      - setAreaPublic(v: Boolean)
+      - setAreaRestricted(v: Boolean)
+      - setUse(v: String)
+      - forRouteBuild()
+      - toggleCategory(name: String)
+      - setGroup(names: List<String>, on: Boolean)
+      - setStyle(name: String, colour: String, dash: String?, weight: Int)
+      - isOn(name: String): Boolean
+      ... and 3 more public function(s)
+      (+5 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.gpx
+============================================================================================
+
+object GtGpx   [commonMain/kotlin/com/grouptrack/shared/gpx/GtGpx.kt:11]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 17 reference(s)
+   provides:  GtGpx -- the GPX that GroupTrack writes for one waypoint, route or trail (Export all, an item's export, the ride package).
+      - xmlEscape(s: String): String
+      - waypoint(name: String, type: String, geom: String, desc: String): String?
+      - route(name: String, geom: String, headline: String, notesJson: String?): String
+      - trail(name: String, geom: String): String
+      (+2 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.help
+============================================================================================
+
+interface GtHelpAssets   [commonMain/kotlin/com/grouptrack/shared/help/GtHelpLinks.kt:74]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 4 file(s), 8 reference(s)
+   provides:  The asset seam. ⚠ [text] must THROW when the asset is missing, exactly as 2.7e's ctx.assets.open(...) does -- load()'s runCatching is what turns that into an empty table.
+   iosMain      IosHelpAssets   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosAssets.kt:48]
+      - text(name: String): String
+
+object GtHelpFixture   [commonMain/kotlin/com/grouptrack/shared/help/GtHelpFixture.kt:8]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 6 reference(s)
+   provides:  ⭐ ONE FIXTURE, TWO PATHS: the Droid hands this text to 2.7e's real org.json, the shared side to GtOrgJson.
+      (no functions -- a contract of properties, or a marker)
+
+object GtHelpLinks   [commonMain/kotlin/com/grouptrack/shared/help/GtHelpLinks.kt:33]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 15 reference(s)
+   provides:  The HELP link table, shared.
+      - resetForCert()
+      - load(assets: GtHelpAssets)
+      - size(): Int
+      - has(id: String): Boolean
+      - linkFor(id: String): String
+
+============================================================================================
+## com.grouptrack.shared.imports
+============================================================================================
+
+interface GtClock   [commonMain/kotlin/com/grouptrack/shared/imports/GtImportEnv.kt:24]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 27 file(s), 57 reference(s)
+   provides:  Time. 2.7e: Instant.now().toString(), LocalDateTime.now(), System.currentTimeMillis().
+   iosMain      IosClock   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosEnv.kt:91]
+      - nowInstant(): String
+      - localNow(): GtLocalTime
+      - epochMs(): Long
+
+interface GtFiles   [commonMain/kotlin/com/grouptrack/shared/imports/GtImportEnv.kt:46]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 29 file(s), 63 reference(s)
+   provides:  Files through okio, plus what okio cannot do or does differently.
+   iosMain      IosFiles   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosEnv.kt:69]
+      - setLastModified(path: Path, epochMs: Long): Boolean
+      - lastModified(path: Path): Long
+      - list(dir: Path): List<Path>
+
+class GtGpxImport   [commonMain/kotlin/com/grouptrack/shared/imports/GtGpxImport.kt:61]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 14 reference(s)
+   provides:  (2.8 step 15e): THE IMPORT PREPROCESSOR (limited cases, 2.7e rules) + THE IMPORT LOOP -- the post-conversion two-job design (claude/GroupTrack_post_conversion_import_rules_2026-11-08.md: "Import trails" and "Import track
+      - importFiles(sel: List<Path>, trailsAnswer: String, trailsSource: String, mapsSkip: Set<String>, selectedSlots: List<String>, replaceExisting: Boolean, onLine: (String)
+      - importGpxAllArtifacts( sourceFile: Path, downloadMapSlots: List<String>, replaceExisting: Boolean, asTrails: Boolean, trailBatch: String, onProgress: ((String)
+      - diag(msg: String)
+      (+5 private, not part of the contract)
+
+object GtGpxParse   [commonMain/kotlin/com/grouptrack/shared/imports/GtGpxParse.kt:18]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 7 file(s), 26 reference(s)
+   provides:  (2.8 step 15b): the import's GPX / KML text parsing in SHARED Kotlin -- MOVED AS IT IS (owner decision 11-09 18:23: no behaviour change, no fix, no improvement during the move), from 2.7e's ConvoyTrackOps (importExt, tra
+      - importExt(fileName: String): String
+      - trailMarked(trk: String, file: String): Boolean
+      - extractEarliestTime(content: String): Long?
+      - sanitizeFilename(name: String): String
+      - parseGpxWaypoints(gpxText: String): List<GpxWaypoint>
+      - mapWaypointType(rawType: String): String
+      - xmlUnescape(s: String): String
+      - parseGpxRoutes(gpxText: String): List<GpxRoute>
+      - parseGpxTrackPointsFull(gpxText: String): List<TrackPtFull>
+      - parseTime(s: String): Long?
+
+interface GtHttp   [commonMain/kotlin/com/grouptrack/shared/imports/GtImportEnv.kt:68]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 12 file(s), 26 reference(s)
+   provides:  HTTP. Android = TrailImporter.httpGet's body (timeouts, User-Agent, error body logged, catch Throwable). Downloads come in step 16.
+   iosMain      IosHttp   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosHttp.kt:139]
+      - get(url: String, readTimeoutMs: Int): String?
+
+interface GtIds   [commonMain/kotlin/com/grouptrack/shared/imports/GtImportEnv.kt:34]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 16 file(s), 32 reference(s)
+   provides:  java.util.UUID.randomUUID().toString().
+   iosMain      IosIds   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosEnv.kt:107]
+      - newId(): String
+
+object GtImportConverter   [commonMain/kotlin/com/grouptrack/shared/imports/GtImportConverter.kt:41]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 9 reference(s)
+   provides:  (D31, Fred 10-30): "Convert files to GPX" -- KML / KMZ / GeoJSON -> a GPX the import already reads.
+      - toGpx(fs: FileSystem, src: Path, outDir: Path, asTrails: Boolean): Converted
+      - zipEntryNames(fs: FileSystem, zipPath: Path): List<String>
+      - u16(b: ByteArray, i: Int)
+      - u32(b: ByteArray, i: Int)
+      (+14 private, not part of the contract)
+
+interface GtImportEnv   [commonMain/kotlin/com/grouptrack/shared/imports/GtImportEnv.kt:13]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 27 file(s), 54 reference(s)
+   provides:  (2.8 step 15): everything the shared import code needs from the platform -- INTERFACES ONLY.
+      (no functions -- a contract of properties, or a marker)
+
+interface GtImportPaths   [commonMain/kotlin/com/grouptrack/shared/imports/GtImportEnv.kt:54]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 34 file(s), 74 reference(s)
+   provides:  Where GroupTrack keeps things -- resolved on each call (Android's GroupTrackStorage can change root per session).
+   iosMain      IosTileEnv   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosEnv.kt:112]
+      - groupTrackRoot(): Path
+      - tracksDir(): Path
+      - dir(name: String): Path
+      - cacheDir(): Path
+      - filesDir(): Path
+
+interface GtImportPlatform   [commonMain/kotlin/com/grouptrack/shared/imports/GtImportEnv.kt:79]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 16 file(s), 36 reference(s)
+   provides:  The platform's own actions the import calls at 2.7e's points.
+      - readAsset(name: String): String
+      - enqueueCorridor(geomHash: String, slot: String, replaceExisting: Boolean): Int
+      - saveToDownloads(file: Path): String
+      - onTrailsChanged()
+
+interface GtTrailClass   [commonMain/kotlin/com/grouptrack/shared/imports/GtImportEnv.kt:74]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 12 file(s), 23 reference(s)
+   provides:  TrailClassifier.useOf(category) (owner decision 9: injected now, ported with step 8 in step 16).
+   iosMain      IosTrailClass   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosValues.kt:8]
+      - useOf(category: String): String
+
+class GtTrailImport   [commonMain/kotlin/com/grouptrack/shared/imports/GtTrailImport.kt:51]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 17 reference(s)
+   provides:  (2.8 step 15f): the AGENCY TRAIL IMPORT -- 2.7e's TrailImporter.kt (V2.5 trail data import engine), PORTED AS IS (Fred 11-08 18:23 "port as is, certify as is").
+      - urlEncode(s: String): String
+      - importFullSource(sourceId: String): ImportResult
+      - importByArea(sourceIds: List<String>, south: Double, west: Double, north: Double, east: Double): List<ImportResult>
+      - importSavedByArea(sourceId: String, files: List<Path>, south: Double, west: Double, north: Double, east: Double): List<ImportResult>
+      - fetchSourceToFile(sourceId: String, south: Double, west: Double, north: Double, east: Double, dest: Path, onPage: (Int, Int, Int)
+      - geojsonGeomToWkt(geom: JsonObject): String
+      - computeBbox(geom: JsonObject): DoubleArray
+      - p(v: Int, n: Int)
+      - writePendingArea(north: Double, south: Double, east: Double, west: Double)
+      - readPendingArea(): JsonObject?
+      - clearPendingArea()
+      - scanTrailAreas(): List<JsonObject>
+      - isSourceFullyImported(sourceId: String): Boolean
+      - importTrailheads(assetFile: String, sourceId: String, south: Double?, west: Double?, north: Double?, east: Double?): Int
+      - loadCatalog(): List<Src>?
+      (+37 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.json
+============================================================================================
+
+object GtOrgJson   [commonMain/kotlin/com/grouptrack/shared/json/GtOrgJson.kt:40]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 37 file(s), 565 reference(s)
+   provides:  (2.8 step 15a): Android's org.json, for the shared code -- the TEXT it writes and the VALUES it hands back.
+      - parse(text: String): JsonElement
+      - orgKind(literal: String): OrgNum
+      - javaParseDouble(s0: String): Double?
+      - valueText(e: JsonElement?): String?
+      - optString(o: JsonObject?, key: String, fallback: String = ""): String
+      - optString(a: JsonArray?, i: Int, fallback: String = ""): String
+      - optDouble(o: JsonObject?, key: String, fallback: Double = Double.NaN): Double
+      - optDouble(a: JsonArray?, i: Int, fallback: Double = Double.NaN): Double
+      - optInt(o: JsonObject?, key: String, fallback: Int = 0): Int
+      - optLong(o: JsonObject?, key: String, fallback: Long = 0L): Long
+      - optBoolean(o: JsonObject?, key: String, fallback: Boolean = false): Boolean
+      - num(d: Double): JsonElement
+      - num(l: Long): JsonElement
+      - num(i: Int): JsonElement
+      - str(s: String): JsonElement
+      - bool(b: Boolean): JsonElement
+      ... and 4 more public function(s)
+      (+7 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.maprecipe
+============================================================================================
+
+class GtMapRecipe   [commonMain/kotlin/com/grouptrack/shared/maprecipe/GtMapRecipe.kt:46]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 23 reference(s)
+   provides:  (2.8 step 17, Phase 2 pass 2): 2.7e ConvoyMapRecipe, ported AS IS.
+      - lonOf(x: Long, n: Long): Double
+      - latOf(y: Long, n: Long): Double
+      - writeDaily(): Path?
+      - writeFresh(): Path?
+      (+4 private, not part of the contract)
+
+interface GtRecipeEnv   [commonMain/kotlin/com/grouptrack/shared/maprecipe/GtMapRecipe.kt:166]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 5 file(s), 13 reference(s)
+   provides:  What the recipe needs from the rest of the app.
+      - slotSources(): List<Triple<String, String, String>>
+      - storeExists(slot: String): Boolean
+      - deriveRecipe(slot: String): GtRecipeResult?
+      - vectorBusyCount(): Int
+
+============================================================================================
+## com.grouptrack.shared.mapsource
+============================================================================================
+
+object GtMapSpec   [commonMain/kotlin/com/grouptrack/shared/mapsource/GtMapSpec.kt:52]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 26 reference(s)
+   provides:  GtMapSpec — the shared port of 2.7e's VectorTiles and ElevationTiles source resolution (2.8 step 17, G1c).
+      - resetForCert()
+      - vectorTileTemplate(env: GtMapSpecEnv): String?
+      - vectorDownloadSources(env: GtMapSpecEnv): List<Pair<String, List<GtTileLayerSpec>>>
+      - elevationUrlTemplate(env: GtMapSpecEnv): String?
+      - elevationDownloadSources(env: GtMapSpecEnv): List<Pair<String, List<GtTileLayerSpec>>>
+      - oldTilesOf(recipeText: String): Long
+      (+1 private, not part of the contract)
+
+interface GtMapSpecEnv   [commonMain/kotlin/com/grouptrack/shared/mapsource/GtMapSpec.kt:172]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 5 file(s), 26 reference(s)
+   provides:  The G1c seam. Two methods, both already-established shapes — readAsset as in GtImportEnv:81 and GtHelpAssets, httpGet as in GtHttp.get (GtImportEnv:68).
+   iosMain      IosMapSpecEnv   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosHttp.kt:177]
+      - readAsset(name: String): String
+      - httpGet(url: String, timeoutMs: Int): String?
+
+============================================================================================
+## com.grouptrack.shared.mapstate
+============================================================================================
+
+class GtMapState   [commonMain/kotlin/com/grouptrack/shared/mapstate/GtMapState.kt:100]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 6 file(s), 31 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - typeDefault(type: String): Int
+      - rideKey(): String
+      - checkedIdsFor(snap: GtMapSnapshot, type: String): Set<String>?
+      - defaults(): GtMapSnapshot
+      - saveMap(mapKey: String, snap: GtMapSnapshot)
+      - deleteMap(mapKey: String)
+      - readMap(mapKey: String): GtMapSnapshot
+      - saveView(mapKey: String, mapType: String, offline: Boolean)
+      - readView(mapKey: String): GtViewState
+      (+3 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.mbtiles
+============================================================================================
+
+class GtMBTiles   [commonMain/kotlin/com/grouptrack/shared/mbtiles/GtMBTiles.kt:36]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 5 reference(s)
+   provides:  (2.8 step 17, Phase 2 pass 3): 2.7e MBTilesStore's 18 LIVE members, ported AS IS.
+      - insertTile(type: String, z: Int, x: Int, y: Int, bytes: ByteArray): Boolean
+      - readTile(type: String, z: Int, x: Int, y: Int): ByteArray?
+      - hasTile(type: String, z: Int, x: Int, y: Int): Boolean
+      - countInTileRange(type: String, z: Int, xMin: Long, xMax: Long, yMin: Long, yMax: Long): Int
+      - countTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int
+      - tileExtentAtZoom(type: String, z: Int): LongArray?
+      - zoomLevelsPresent(type: String): List<Int>
+      - countAtZoom(type: String, z: Int): Int
+      - xyAtZoom(type: String, z: Int): List<Pair<Long, Long>>
+      - countByParent(type: String, z: Int, shift: Int): List<LongArray>
+      - scanKeys(type: String): List<GtTileKey>
+      - tilesInBounds(type: String, north: Double, south: Double, east: Double, west: Double): List<GtTileKey>
+      - deleteTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int
+      - countTiles(type: String, tiles: List<GtTileKey>): Int
+      - deleteTiles(type: String, tiles: List<GtTileKey>): Int
+      - storeExists(type: String): Boolean
+      ... and 2 more public function(s)
+      (+3 private, not part of the contract)
+
+interface GtTileStoreEnv   [commonMain/kotlin/com/grouptrack/shared/mbtiles/GtMBTiles.kt:309]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 5 file(s), 10 reference(s)
+   provides:  What the tile store needs from the platform.
+      - connection(type: String): SQLiteConnection?
+      - storeExists(type: String): Boolean
+      - deleteStore(type: String): Boolean
+
+============================================================================================
+## com.grouptrack.shared.net
+============================================================================================
+
+object GtBase64   [commonMain/kotlin/com/grouptrack/shared/net/GtNetworks.kt:42]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 0 file(s), 0 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - encode(b: ByteArray): String
+
+data class GtNetworkConfig   [commonMain/kotlin/com/grouptrack/shared/net/GtNetworks.kt:28]
+   shape:     SHARED + platform parts in iosMain
+   consumers: 5 file(s), 10 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+   iosMain      IosRideNet   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosRideNetworks.kt:71]
+      (no functions -- a contract of properties, or a marker)
+
+class GtNetworkGenerator   [commonMain/kotlin/com/grouptrack/shared/net/GtNetworks.kt:58]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 9 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - isValidCallsign(s: String): Boolean
+      - newChannelId(): String
+      - newKey(): String
+      - newWifiPassword(): String
+      - generate(ownerType: GtOwnerType, ownerId: String, displayName: String, mesh: GtMeshDefaults, isTaken: (String)
+      (+1 private, not part of the contract)
+
+class GtNetworkStore   [commonMain/kotlin/com/grouptrack/shared/net/GtNetworks.kt:146]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 8 reference(s)
+   provides:  2.7e ConvoyNetworkStore: network_configs.
+      - exists(configId: String): Boolean
+      - create(ownerType: GtOwnerType, ownerId: String, displayName: String): GtNetworkConfig?
+      - deleteUnused(configId: String)
+      - load(configId: String): GtNetworkConfig?
+      - listByOwner(ownerType: GtOwnerType, ownerId: String): List<GtNetworkConfig>
+      (+1 private, not part of the contract)
+
+class GtProfileStore   [commonMain/kotlin/com/grouptrack/shared/net/GtNetworks.kt:107]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 8 reference(s)
+   provides:  2.7e ConvoyProfileStore: the rider's own row (users.is_self = 1).
+      - exists(): Boolean
+      - load(): GtRiderProfile?
+      - save(p: GtRiderProfile): String?
+
+interface GtRandom   [commonMain/kotlin/com/grouptrack/shared/net/GtNetworks.kt:19]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 7 file(s), 14 reference(s)
+   provides:  (2.8 step 17, G2c-1): the rider's profile, the radio networks and the network generator, ported AS IS from 2.7e (com.grouptrack.core.NetworkGenerator, convoy/ConvoyProfileStore, convoy/ConvoyNetworkStore).
+   iosMain      IosRandom   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosValues.kt:52]
+      - nextInt(bound: Int): Int
+      - nextBytes(b: ByteArray)
+
+============================================================================================
+## com.grouptrack.shared.osm
+============================================================================================
+
+object GtGpkgDecoder   [commonMain/kotlin/com/grouptrack/shared/osm/GtGpkgDecoder.kt:19]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 16 reference(s)
+   provides:  (2.8 step 15g): 2.7e's OsmGpkgDecoder (OSM-C2-CATALOG-2026-07-28), PORTED AS IS -- GPKG binary geometry -> the app's WKT (comma NO space, Double.toString per ordinate), its geom_hash and bounds, or a bare point.
+      - getInt(i: Int): Int
+      - getLong(i: Int): Long
+      - getDouble(i: Int): Double
+      - wkbOffset(blob: ByteArray): Int
+      - decodePoint(blob: ByteArray?): PointGeom?
+      - decodeLine(blob: ByteArray?): LineGeom?
+      - readRing(start: Int, into: StringBuilder): Int
+      - geomHash(wkt: String): String
+      - withinExtent(p: PointGeom, w: Double, s: Double, e: Double, n: Double): Boolean
+      - logSelfTest(label: String, p: PointGeom)
+      (+3 private, not part of the contract)
+
+object GtOsmClassifier   [commonMain/kotlin/com/grouptrack/shared/osm/GtOsmClassifier.kt:9]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 29 reference(s)
+   provides:  (2.8 step 15g): 2.7e's OsmTrailClassifier (TRAILCLASS-2026-08-30), PORTED AS IS -- OSM access tags -> a trail type and a carto code.
+      - classify( highway: String?, surface: String?, tracktype: String?, access: String?, motorVehicle: String?, vehicle: String?, fourWdOnly: String?, ohv: String?, atv: String?, motorcar: String?, foot: String?, bicycle: String?, ): Result
+      (+1 private, not part of the contract)
+
+class GtOsmExtract   [commonMain/kotlin/com/grouptrack/shared/osm/GtOsmExtract.kt:39]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 11 reference(s)
+   provides:  (2.8 step 15g): 2.7e's OsmExtractWorker -- C2 (REDUCE): the Geofabrik zip becomes the skinny DB, as ONE operation -- PORTED AS IS.
+      - doWork(): Result
+      - begin()
+      - successful()
+      - end()
+      - s(i: Int)
+      - javaName(e: Throwable): String
+      - exec(c: SQLiteConnection, sql: String, args: List<Any?>)
+      - rawQuery(c: SQLiteConnection, sql: String, args: List<String>, body: (SQLiteStatement)
+      - query1(c: SQLiteConnection, sql: String)
+      (+22 private, not part of the contract)
+
+class GtOsmImport   [commonMain/kotlin/com/grouptrack/shared/osm/GtOsmImport.kt:33]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 10 reference(s)
+   provides:  (2.8 step 15g): 2.7e's OsmImportWorker -- C3 IMPORT: skinny DB -> the production spatial DB -- PORTED AS IS.
+      - doWork(): Result
+      - deleteAllOsmPoints(sDb: SQLiteConnection): Int
+      (+13 private, not part of the contract)
+
+class GtOsmLayers   [commonMain/kotlin/com/grouptrack/shared/osm/GtOsmLayers.kt:21]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 17 reference(s)
+   provides:  (2.8 step 15g): 2.7e's OsmLayerCatalog (OSM-C2-CATALOG-2026-07-28), PORTED AS IS -- what C2 (REDUCE) extracts from the Geofabrik GeoPackage into the skinny DB, read override-first: override GroupTrackStorage.dir("config"
+      - overrideFile(): Path
+      - load(): List<Layer>
+      - enabledLayers(): List<Layer>
+      - parse(text: String): List<Layer>
+      - validate(layers: List<Layer>)
+      (+5 private, not part of the contract)
+
+class GtOsmLedger   [commonMain/kotlin/com/grouptrack/shared/osm/GtOsmLedger.kt:26]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 12 reference(s)
+   provides:  (2.8 step 15g): 2.7e's OsmImportLedger -- the run record for one state's OSM import -- PORTED AS IS.
+      - put(k: String, v: JsonElement): Obj
+      - put(k: String, v: String): Obj
+      - put(k: String, v: Int): Obj
+      - put(k: String, v: Long): Obj
+      - put(k: String, v: Double): Obj
+      - remove(k: String)
+      - has(k: String)
+      - optArray(k: String): JsonArray?
+      - optObject(k: String): JsonObject?
+      - json(): JsonObject
+      - pretty(): String
+      - file(slug: String): Path
+      - read(slug: String): Obj?
+      - create(slug: String, state: String, sourceNote: String, carryForwardImports: JsonArray? = null): Obj
+      - priorImports(slug: String): JsonArray?
+      - recordAcquire(slug: String, sourceFile: String, bytes: Long, movedFrom: String)
+      ... and 9 more public function(s)
+      (+3 private, not part of the contract)
+
+interface GtOsmPlatform   [commonMain/kotlin/com/grouptrack/shared/osm/GtOsmPlatform.kt:12]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 9 file(s), 13 reference(s)
+   provides:  (2.8 step 15g): what the OSM extract + import (2.7e OsmExtractWorker / OsmImportWorker / OsmImportStage) does that is the PLATFORM's own business, beyond GtImportEnv.
+      - onOsmRoot(root: Path)
+      - discardLegacy(slug: String)
+      - usableSpace(dir: Path): Long
+      - sweepDownloadedZips(slug: String)
+      - foreground(worker: String, text: String)
+
+object GtOsmProgress   [commonMain/kotlin/com/grouptrack/shared/osm/GtOsmProgress.kt:13]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 30 reference(s)
+   provides:  (2.8 step 15g): 2.7e's OsmExtractProgress (OSM-C2-WORKER-2026-07-28), PORTED AS IS -- per-type progress shared between the workers and the import screen: a counter per type, its own denominator, an ETA measured from THAT
+      - toJson(items: List<Item>): String
+      - fromJson(s: String?): List<Item>
+      - etaText(etaSec: Long): String
+
+class GtOsmStage   [commonMain/kotlin/com/grouptrack/shared/osm/GtOsmStage.kt:32]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 9 file(s), 26 reference(s)
+   provides:  (2.8 step 15g): 2.7e's OsmImportStage -- the rules engine (R1-R7) -- the DISK half, PORTED AS IS: the paths, the stage derivation, the four verifiers, the trail extent / box count, discard and the debris sweep.
+      - rootDir(): Path
+      - dirFor(slug: String): Path
+      - zipFor(slug: String): Path
+      - gpkgFor(slug: String): Path
+      - skinnyFor(slug: String): Path
+      - pbfFor(slug: String): Path
+      - tagsFor(slug: String): Path
+      - stageOf(slug: String): GtOsmStageName
+      - statesInFlight(): List<String>
+      - verifyPbf(f: Path): Boolean
+      - verifyTags(f: Path): Boolean
+      - verifyZip(f: Path): Boolean
+      - verifySkinny(f: Path): Boolean
+      - trailExtent(slug: String): DoubleArray?
+      - countTrailsInBbox(slug: String, s: Double, w: Double, n: Double, e: Double): Int
+      - discardState(slug: String): Boolean
+      ... and 2 more public function(s)
+      (+5 private, not part of the contract)
+
+object GtPbfTags   [commonMain/kotlin/com/grouptrack/shared/osm/GtPbfTags.kt:35]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 7 reference(s)
+   provides:  (2.8 step 15g): 2.7e's OsmPbfTagReader (PBFTAGS-2026-08-30), PORTED AS IS -- a Geofabrik .osm.pbf -> the interim tag table osm_way_tags (osm_id + the 14 access tags Geofabrik's GeoPackage drops), ways in the widened net
+      - build(fs: FileSystem, pbf: Path, out: Path, clockMs: ()
+      (+12 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.platform
+============================================================================================
+
+object GtAssetVersion   [commonMain/kotlin/com/grouptrack/shared/platform/GtAssetVersion.kt:30]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 3 reference(s)
+   provides:  -- WHICH VERSION OF A BUNDLED ASSET IS ACTUALLY LOADED.
+      - report(asset: String, version: String)
+      - of(asset: String): String
+      - reportedAssets(): List<String>
+      - resetForTest()
+
+interface GtBuildInfo   [commonMain/kotlin/com/grouptrack/shared/platform/GtBuildInfo.kt:24]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 3 file(s), 5 reference(s)
+   provides:  WHICH BUILD IS ON THE GLASS, and what it is running on.
+   iosMain      IosBuildInfo   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosBuildInfo.kt:5]
+      - appVersion(): String
+      - device(): String
+
+interface GtScreenCapture   [commonMain/kotlin/com/grouptrack/shared/platform/GtScreenCapture.kt:21]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 1 file(s), 1 reference(s)
+   provides:  capture what the rider is looking at, as a file.
+      - capture(fileName: String): String?
+      - clear(): Int
+
+============================================================================================
+## com.grouptrack.shared.queue
+============================================================================================
+
+object GtDownloadPriority   [commonMain/kotlin/com/grouptrack/shared/queue/GtQueueEntry.kt:21]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 2 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - forType(t: GtDownloadType): Int
+
+internal class GtJavaHashMapLong   [commonMain/kotlin/com/grouptrack/shared/queue/GtJavaHashMapLong.kt:13]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 4 reference(s)
+   provides:  java.util.HashMap<Long, V>'s ITERATION ORDER, reproduced.
+      - get(k: Long): V?
+      - set(k: Long, v: V)
+      - put(k: Long, v: V)
+      - entries(): List<Pair<Long, V>>
+      - values(): List<V>
+      (+2 private, not part of the contract)
+
+object GtQueueJson   [commonMain/kotlin/com/grouptrack/shared/queue/GtQueueEntry.kt:59]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 8 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - toJson(q: GtQueueEntry): JsonObject
+      - fileText(entries: List<GtQueueEntry>): String
+      - fromJson(j: JsonObject, ids: GtIds, clock: GtClock): GtQueueEntry
+      - parseFile(text: String, ids: GtIds, clock: GtClock): List<GtQueueEntry>
+
+interface GtQueuePlatform   [commonMain/kotlin/com/grouptrack/shared/queue/GtVectorQueue.kt:21]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 6 file(s), 10 reference(s)
+   provides:  what the save-by-area path needs from the platform.
+      - append(entries: List<GtQueueEntry>)
+      - downloadZoom(): Int
+      - satLayers(): Int?
+      - recipesDir(): Path
+
+object GtTileCalc   [commonMain/kotlin/com/grouptrack/shared/queue/GtTileCalc.kt:94]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 11 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - maxZoomForSource(sourceName: String, downloadZoom: Int): Int
+      - maxZoomForSlot(slotName: String, downloadZoom: Int): Int
+      - zoomRanges(north: Double, south: Double, east: Double, west: Double, zMin: Int, zMax: Int): List<IntArray>
+      - calculateTiles( north: Double, south: Double, east: Double, west: Double, zMin: Int, zMax: Int, sourceName: String = "", downloadZoom: Int, ): List<GtTileKey>
+      - buildTileUrl(tile: GtTileKey, sourceUrl: String): String
+
+data class GtTileKey   [commonMain/kotlin/com/grouptrack/shared/queue/GtTileCalc.kt:82]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 6 file(s), 53 reference(s)
+   provides:  GtTileCalc — the tile set arithmetic 2.7e's ConvoyTileCalculator does, PORTED AS IS.
+      - toString(): String
+      - fromString(s: String): GtTileKey
+
+object GtTileMath   [commonMain/kotlin/com/grouptrack/shared/queue/GtTileMath.kt:37]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 25 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - lon2tile(lon: Double, z: Int): Int
+      - lat2tile(lat: Double, z: Int): Int
+      - quickEstimate(north: Double, south: Double, east: Double, west: Double, zMin: Int, zMax: Int): GtDownloadEstimate
+      - areaTiles( north: Double, south: Double, east: Double, west: Double, vecZMax: Int, demZMax: Int, ): GtAreaTiles
+      - segmentCells( north: Double, south: Double, east: Double, west: Double, sizeTiles: Int, zMax: Int, segCeilingTiles: Int = 50_000, overlapTiles: Int = 3 ): List<DoubleArray>
+
+class GtVectorQueue   [commonMain/kotlin/com/grouptrack/shared/queue/GtVectorQueue.kt:48]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 11 reference(s)
+   provides:  (2.8 step 16b): THE SAVE-BY-AREA WRITE PATH, PORTED AS IS -- convoy/VectorTiles.kt: boxesOf, recipeBoxes, squaresInBox, enqueueWithElevation, sqX / sqY / lonOf / latOf, squaresFor, queueSquares, queueSquaresNamed, queueF
+      - recipeBoxes(): Pair<String, List<DoubleArray>>?
+      - boxesOf(f: Path): List<DoubleArray>
+      - squaresInBox(n: Double, s: Double, e: Double, w: Double, into: MutableSet<Long>)
+      - enqueueWithElevation(n: Double, s: Double, e: Double, w: Double, replaceExisting: Boolean, what: String): Int
+      - squaresFor(segments: List<List<Pair<Double, Double>>>, into: MutableSet<Long>)
+      - add(lat: Double, lon: Double)
+      - queueSquares(squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int>
+      - queueSquaresNamed(squares: Set<Long>, names: Map<Long, Set<String>>, replaceExisting: Boolean, why: String): Pair<Int, Int>
+      - queueFromRecipe(count: Int): String
+      - enqueueArea(slotName: String, north: Double, south: Double, east: Double, west: Double, replaceExisting: Boolean, what: String): Int
+      (+6 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.ride
+============================================================================================
+
+internal class GDate   [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:324]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 8 reference(s)
+   provides:  STEP14: java.time.LocalDate in common Kotlin -- only what the ride model used, each with java.time's own rule: [parse] = LocalDate.parse (ISO_LOCAL_DATE, STRICT: 4-digit year, or a sign and more digits for "+" / a "-" ye
+      - isBefore(o: GDate): Boolean
+      - toEpochDay(): Long
+      - plusDays(n: Long): GDate
+      - minusDays(n: Long): GDate
+      - toString(): String
+      - of(y: Int, m: Int, d: Int): GDate?
+      - ofEpochDay(epochDay: Long): GDate
+      - parse(t: String): GDate
+      - two(): Int
+      (+4 private, not part of the contract)
+
+object GDateCert   [commonMain/kotlin/com/grouptrack/shared/ride/GDateCert.kt:11]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 17 reference(s)
+   provides:  TEST-ONLY door to GDate for the app's ride certification (GtCertRides case 7: GDate against java.time on the Droid).
+      - parse(t: String): String
+      - of(y: Int, m: Int, d: Int): String
+      - plusDays(y: Int, m: Int, d: Int, n: Long): String
+      - minusDays(y: Int, m: Int, d: Int, n: Long): String
+      - toEpochDay(y: Int, m: Int, d: Int): String
+      - ofEpochDay(e: Long): String
+      - isBefore(a: String, b: String): String
+
+object GtRideApply   [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:1371]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 4 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - isCurrent(date: String, includeRecent: Boolean): Boolean
+      - loadAll(fs: RideFiles, includeRecent: Boolean = false): List<RideForApply>
+      (+1 private, not part of the contract)
+
+object GtRideImport   [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:1440]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 3 reference(s)
+   provides:  (Fred): THE ride import -- one path for an emailed ride (ConvoyFileReceiver) and for Work with Rides -> Import a ride (a file picked from Downloads).
+      - importRide(fs: RideFiles, content: String, bringForward: Boolean, platform: RideImportPlatform): String
+
+object GtRideJson   [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:1102]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 7 reference(s)
+   provides:  — writes the ride file (format 3) from the rows that already hold it.
+      - build(fs: RideFiles, rideId: String): Result?
+      - rideFile(fs: RideFiles, rideId: String): String
+      - save(fs: RideFiles, rideId: String): List<String>?
+      - mergeWpts(routeGpx: String, wpts: String): String
+      - splitGpx(gpx: String): GpxAttachments
+      (+4 private, not part of the contract)
+
+object GtRideStore   [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:482]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 11 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - listRoutes(limit: Int = 200): List<RouteSummary>
+      - routeGeometry(routeId: String): String?
+      - renameRoute(routeId: String, name: String): Boolean
+      - saveRide( rideName: String, rideDate: String, startTime: String, description: String, zipCode: String, isPublic: Boolean, rideNetworkId: String?, routeId: String ): String?
+      - openRecentRides(): List<RideChoice>
+      - checkIn(ride: RideChoice?, callsign: String, role: String): CheckIn?
+      - saveSurvey(trackId: String, s: RideSurveyInput): Boolean
+      - myNetworkName(): String?
+      - ensureMyNetworkName(): String?
+      - createRideNetwork(): RideNet?
+      - isOrganizer(): Boolean
+      - expireRides()
+      - healFromFiles(fs: RideFiles)
+      - deleteRide(fs: RideFiles, rideId: String, reason: String): Boolean
+      - rideForEdit(rideId: String): EditRide?
+      - isDistributed(rideId: String): Boolean
+      ... and 6 more public function(s)
+      (+9 private, not part of the contract)
+
+interface RideFiles   [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:119]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 4 file(s), 8 reference(s)
+   provides:  STEP14: the files the ride model touches, as java.io.File calls with paths as text.
+      - ridesDir(): String
+      - stagingDir(): String
+      - child(dir: String, name: String): String
+      - sibling(path: String, name: String): String
+      - name(path: String): String
+      - list(dir: String): List<String>?
+      - isFile(path: String): Boolean
+      - exists(path: String): Boolean
+      - delete(path: String): Boolean
+      - mkdirs(path: String): Boolean
+      - readText(path: String): String
+      - writeText(path: String, text: String)
+      - rename(from: String, to: String): Boolean
+      - length(path: String): Long
+      - readAsset(name: String): String
+
+interface RideImportPlatform   [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:149]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 3 file(s), 5 reference(s)
+   provides:  STEP14: what RideImport did after staging the GPX -- platform work, in 2.7e's order.
+   iosMain      IosRideImportPlatform   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosRideImport.kt:5]
+      - initMapSources()
+      - offer(gpxPath: String)
+      - bringForward()
+
+interface RideNet   [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:70]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 5 file(s), 13 reference(s)
+   provides:  STEP14: a stored network (com.grouptrack.core.NetworkConfig) as the ride model reads it.
+      (no functions -- a contract of properties, or a marker)
+
+interface RideNetworks   [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:90]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 4 file(s), 7 reference(s)
+   provides:  STEP14: ConvoyNetworkStore -- load / create / deleteUnused, as 2.7e called them.
+      - load(configId: String): RideNet?
+      - create(owner: RideNetOwner, ownerId: String, name: String): RideNet?
+      - deleteUnused(configId: String)
+
+interface RideSpatial   [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:99]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 3 file(s), 5 reference(s)
+   provides:  STEP14: the SpatialDbManager helpers the ride package uses (they move with SpatialDbManager, not here).
+      - routeGpx(routeId: String): Pair<String?, String?>?
+      - routeGeomHash(routeId: String): String?
+      - routeRecipe(routeId: String): String?
+      - waypointGpx(waypointId: String): String?
+      - routeNotes(routeId: String): String?
+
+============================================================================================
+## com.grouptrack.shared.rider
+============================================================================================
+
+object GtRiderScan   [commonMain/kotlin/com/grouptrack/shared/rider/GtRiderScan.kt:104]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 20 reference(s)
+   provides:  (2.8 step 15c): 2.7e's RiderTrailScanner (app/.../convoy/RiderTrailScanner.kt), MOVED AS IT IS into shared code.
+      - haversineM(la1: Double, lo1: Double, la2: Double, lo2: Double): Double
+      - scan(track: List<Pt>, network: List<List<Pt>>): List<RiderTrail>
+      - d(px: Double, py: Double, s: Seg): Double
+      (+3 private, not part of the contract)
+
+class GtRiderTrails   [commonMain/kotlin/com/grouptrack/shared/rider/GtRiderTrails.kt:91]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 6 file(s), 16 reference(s)
+   provides:  (2.8 step 15c): 2.7e's RiderTrailWriter (app/.../convoy/RiderTrailWriter.kt) MOVED AS IT IS into shared code -- the model only.
+      - parseGeometry(wkt: String?): List<GtRiderScan.Pt>
+      - scanTrackByHash(geomHash: String): Pair<Int, Double>
+      - scanTrack(trackName: String?, geometry: String?): Pair<Int, Double>
+      - scanAll(onProgress: ((Int, Int)
+      (+4 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.route
+============================================================================================
+
+object GtRoute   [commonMain/kotlin/com/grouptrack/shared/route/GtRoute.kt:104]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 45 reference(s)
+   provides:  ROUTE EXPLORER — ROUTEEXPLORE-2026-08-23 The exploratory route suggester.
+      - isNotEmpty()
+      - add(x: T)
+      - poll(): T
+      - selectionTable(db: SQLiteConnection, req: Request): SelTable
+      - useLabel(u: String)
+      - useOrder(u: String)
+      - useOn(u: String)
+      - selectionBreakdown(db: SQLiteConnection, req: Request): String
+      - fmt(n: Int)
+      - item(name: String, on: Boolean, n: Int)
+      - n(extra: String, more: List<String> = emptyList()
+      - add(c: Int, what: String)
+      - clearCache()
+      - nearestShownTrailMeters(db: SQLiteConnection, lat: Double, lon: Double, maxM: Double = TRAILHEAD_CHECK_M, filter: String = TrailFilterState.whereOrEmpty()
+      - connectedMiles(db: SQLiteConnection, req: Request): Double
+      - connectedLines( spatialDb: SQLiteConnection, req: Request, shape: RouteShape ): List<List<DoubleArray>>
+      ... and 9 more public function(s)
+      (+41 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.settings
+============================================================================================
+
+object GtConfig   [commonMain/kotlin/com/grouptrack/shared/settings/GtSettings.kt:101]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 46 reference(s)
+   provides:  ConvoyConfig's TRUE constants (2.7e, convoy/ConvoyConfig.kt), the same names and values, now shared.
+      (no functions -- a contract of properties, or a marker)
+
+object GtGroupMode   [commonMain/kotlin/com/grouptrack/shared/settings/GtGroupMode.kt:28]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 12 reference(s)
+   provides:  -- GROUP AWARENESS, one source for every platform.
+      - load(settings: GtSettings, defaultWhenUnset: Boolean)
+      - set(settings: GtSettings, value: Boolean)
+      - askToActivate()
+
+object GtIssueMode   [commonMain/kotlin/com/grouptrack/shared/settings/GtIssueMode.kt:33]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 7 reference(s)
+   provides:  -- WHERE AN ISSUE REPORT GOES, one source for every platform.
+      - load(settings: GtSettings)
+      - set(settings: GtSettings, email: Boolean)
+
+class GtRideSettings   [commonMain/kotlin/com/grouptrack/shared/settings/GtRideSettings.kt:13]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 13 reference(s)
+   provides:  (2.8 step 17, G2b-2): the ride settings (2.7e ConvoySettingsRepository, Jetpack DataStore "convoy_settings") ported onto the settings socket -- the same keys, the same defaults, the same removed-cart rules.
+      - signalDropMinutes(): Float
+      - signalLostMinutes(): Float
+      - offTrackMiles(): Float
+      - offTrackMilesSaved(): Float?
+      - admissionWindowHours(): Int
+      - removedCartsForToday(): Map<String, String>
+      - setSignalDropMinutes(value: Float)
+      - setSignalLostMinutes(value: Float)
+      - setOffTrackMiles(value: Float)
+      - setAdmissionWindowHours(value: Int)
+      - removeCart(nodeId: String, callsign: String)
+      - clearRemovedCarts()
+      - reinstateCart(nodeId: String)
+      - purgeStaleRemovedCarts()
+      - fillMissing(old: Map<String, Any?>): Int
+      (+2 private, not part of the contract)
+
+class GtSession   [commonMain/kotlin/com/grouptrack/shared/settings/GtSettings.kt:42]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 15 reference(s)
+   provides:  ConvoySessionManager (2.7e, convoy/ConvoySessionManager.kt) ported as is onto the settings socket -- the same store ("grouptrack_user" for the app; the cert passes its own copy), the same keys, defaults and versions, the
+      - getUserId(): String?
+      - isSignedIn(): Boolean
+      - isSubscribed(): Boolean
+      - isSubscriptionExpired(): Boolean
+      - termsAccepted(): Boolean
+      - privacyAccepted(): Boolean
+      - isOrganizer(): Boolean
+      - getFirstName(): String
+      - getEmail(): String
+      - getZipCode(): String
+      - getCity(): String
+      - setCity(city: String)
+      - getState(): String
+      - setState(state: String)
+      - getSearchRadius(): Int
+      - setZipCode(zip: String)
+      ... and 8 more public function(s)
+      (+1 private, not part of the contract)
+
+interface GtSettings   [commonMain/kotlin/com/grouptrack/shared/settings/GtSettings.kt:32]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 8 file(s), 15 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+   iosMain      IosSettings   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosSettings.kt:7]
+      - store(name: String): GtSettingsStore
+
+interface GtSettingsEditor   [commonMain/kotlin/com/grouptrack/shared/settings/GtSettings.kt:22]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 6 file(s), 18 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - putString(key: String, value: String?)
+      - putInt(key: String, value: Int)
+      - putLong(key: String, value: Long)
+      - putFloat(key: String, value: Float)
+      - putBoolean(key: String, value: Boolean)
+      - putStringSet(key: String, value: Set<String>?)
+      - remove(key: String)
+      - clear()
+
+interface GtSettingsStore   [commonMain/kotlin/com/grouptrack/shared/settings/GtSettings.kt:10]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 10 file(s), 26 reference(s)
+   provides:  (2.8 step 17, G2b-1): the SETTINGS socket -- typed values in NAMED stores, each read with the caller's own default, exactly as Android's SharedPreferences does (Android = SharedPreferences(name): the same files, the same
+      - getString(key: String, def: String?): String?
+      - getInt(key: String, def: Int): Int
+      - getLong(key: String, def: Long): Long
+      - getFloat(key: String, def: Float): Float
+      - getBoolean(key: String, def: Boolean): Boolean
+      - getStringSet(key: String, def: Set<String>?): Set<String>?
+      - contains(key: String): Boolean
+      - all(): Map<String, Any?>
+      - edit(block: GtSettingsEditor.()
+
+============================================================================================
+## com.grouptrack.shared.spatial
+============================================================================================
+
+object GtGeom   [commonMain/kotlin/com/grouptrack/shared/spatial/GtGeom.kt:23]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 11 file(s), 32 reference(s)
+   provides:  (Fred 07:49-07:54): THE ONE geometry module.
+      - hash(wkt: String): String
+      - pointLonLat(lon: Double, lat: Double): Geom
+      - lineLonLat(lonLat: List<Pair<Double, Double>>): Geom
+      - multiLineLonLat(parts: List<List<Pair<Double, Double>>>): Geom
+      - canonical(): Geom
+      - parse(wkt: String): Parsed?
+      - pts(s: String): List<Pair<Double, Double>>?
+      (+2 private, not part of the contract)
+
+class GtImportDb   [commonMain/kotlin/com/grouptrack/shared/spatial/GtImportDb.kt:20]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 6 reference(s)
+   provides:  (2.8 step 15): THE IMPORTS' SQL that GtWrite / GtRead do not have yet -- each function is one statement from 2.7e, with 2.7e's SQL text unchanged and 2.7e's bind types kept (INVENTORY T11: TEXT where 2.7e bound text -- r
+      - trailCandidates(maxLatGe: String, minLatLe: String, maxLonGe: String, minLonLe: String, excludeCategory: Boolean, category: String, each: (geometry: String?)
+      - trackNameGeometry(geomHash: String): Pair<String?, String?>?
+      - riderStored(category: String, each: (trailId: String?, geomHash: String?, geometry: String?)
+      - tracksForRider(each: (name: String?, geometry: String?)
+      - setTrailClass(trailId: String, cartoCode: String, cartoCodeSource: String, useType: String, landStatus: String)
+      - insertTrailPropsRider(trailId: String, sourceId: String, sourceUniqueId: String, cartoCode: String, motorizedAllowed: String, ingestedAt: String)
+      - trackIdNameByHash(geomHash: String): Pair<String?, String?>?
+      - trackOfficialName(trackId: String): String?
+      - trackAliasExists(trackId: String, alias: String): Boolean
+      - trackHashes(each: (geomHash: String?)
+      - trackHashNames(each: (geomHash: String?, name: String?)
+      - upsertTrackProps(trackId: String, filename: String, sourceFormat: String, recordedAt: String?, distanceMiles: Double, durationMinutes: Int?, maxSpeedMph: Double, avgSpeedMph: Double?, elevationGainFt: Int, pointCount: Int)
+      - insertWaypoint(waypointId: String, name: String, geometry: String, type: String, lat: Double, lon: Double, ts: String, geomHash: String)
+      - insertWaypointMinimal(waypointId: String, name: String, geometry: String, type: String, ts: String, geomHash: String)
+      - setWaypointBbox(waypointId: String, lat: Double, lon: Double)
+      - insertTrailPropsImport(trailId: String, sourceId: String, sourceUniqueId: String, cartoCode: String, motorizedAllowed: String, agencyId: String, ingestedAt: String)
+      (+2 private, not part of the contract)
+
+class GtRead   [commonMain/kotlin/com/grouptrack/shared/spatial/GtRead.kt:36]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 23 file(s), 77 reference(s)
+   provides:  GtRead -- SpatialDbManager's READING side in SHARED Kotlin (batch 2b, GTBATCH2B-2026-11-06).
+      - searchByName(type: String, term: String, limit: Int = 200): List<Map<String, String?>>
+      - getArtifactDetail(type: String, artifactId: String): LinkedHashMap<String, String?>
+      - getAliasesFor(type: String, artifactId: String): List<Map<String, String?>>
+      - queryArtifactList(table: String, south: Double, west: Double, north: Double, east: Double): List<Map<String, String?>>
+      - queryAllTracksForCorridor(): List<Map<String, String?>>
+      - trailheadsNear(lat: Double, lon: Double, radiusMiles: Double = 0.5): List<Trailhead>
+      - routeUsingTrailhead(waypointId: String): String?
+      - readRouteNotesPayload(routeId: String): String?
+      - typeNameForId(artifactId: String): String
+      - inTable(table: String, col: String): Boolean
+      - waypointRow(waypointId: String): Triple<String, String, String>?
+      - routeRow(routeId: String): Pair<String, String>?
+      - trailRow(trailId: String): Pair<String, String>?
+      - trackNameAndHash(trackId: String): Pair<String, String>?
+      - routeNarrative(routeId: String): JsonObject?
+      - routeGpx(routeId: String): Pair<String, String>?
+      ... and 26 more public function(s)
+      (+7 private, not part of the contract)
+
+class GtSpatial   [commonMain/kotlin/com/grouptrack/shared/spatial/GtSpatial.kt:23]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 28 reference(s)
+   provides:  GtSpatial -- the map display's database queries, in SHARED Kotlin (Android + iPad).
+      - close()
+      - queryTrails(s: Double, w: Double, n: Double, e: Double, limit: Int, where: String = TrailFilterState.whereOrEmpty()
+      - queryTracks(s: Double, w: Double, n: Double, e: Double, limit: Int)
+      - queryWaypoints(s: Double, w: Double, n: Double, e: Double, limit: Int)
+      - queryRoutes(s: Double, w: Double, n: Double, e: Double, limit: Int)
+      - landGeoJson(s: Double, w: Double, n: Double, e: Double, pub: Boolean, rst: Boolean, limit: Int, extraWhere: String = ""): Pair<String, Int>
+      - q(k: String)
+      - viewport(north: Double, south: Double, east: Double, west: Double, zoom: Int, states: Map<String, Int> = emptyMap()
+      - send(type: String, minZoom: Int, idField: String, rows: ()
+      - otherLimit(zoom: Int)
+      - trailGeoJson(trails: List<Map<String, String?>>, restricted: Boolean = TrailFilterState.restricted): String
+      - s(k: String): String
+      - trackGeoJson(tracks: List<Map<String, String?>>)
+      - routeGeoJson(routes: List<Map<String, String?>>)
+      - waypointGeoJson(wpts: List<Map<String, String?>>)
+      - jsonEsc(v: String): String
+      ... and 2 more public function(s)
+      (+4 private, not part of the contract)
+
+class GtWrite   [commonMain/kotlin/com/grouptrack/shared/spatial/GtWrite.kt:27]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 23 file(s), 60 reference(s)
+   provides:  GtWrite -- SpatialDbManager's WRITING side in SHARED Kotlin (step 10, GTWRITE-2026-11-06).
+      - insertWaypointWithId(waypointId: String, name: String, lat: Double, lon: Double, type: String): Boolean
+      - renameWaypoint(id: String, newName: String)
+      - deleteWaypoint(id: String)
+      - changeWaypointType(id: String, newType: String)
+      - insertRoute(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String
+      - renameRoute(id: String, newName: String)
+      - deleteRoute(id: String)
+      - writeRouteNotes(routeId: String, notesJson: String): Int
+      - deleteRouteNotes(routeId: String): Int
+      - deleteRouteAliases(routeId: String)
+      - setRouteAnchor(routeId: String, lat: Double, lon: Double, name: String): Boolean
+      - addAlias(type: String, artifactId: String, name: String, geomHash: String, creationDate: String?)
+      - renameAlias(aliasId: String, newText: String)
+      - deleteAlias(aliasId: String)
+      - setPreferredAlias(type: String, artifactId: String, aliasId: String)
+      - insertTrackToDb(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): TrackInsert
+      ... and 16 more public function(s)
+      (+7 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.startup
+============================================================================================
+
+object GtDbAuditPort   [commonMain/kotlin/com/grouptrack/shared/startup/GtDbAuditPort.kt:35]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 9 reference(s)
+   provides:  GtDbAuditPort — the shared port of 2.7e's GtDbAudit.
+      - resetForCert()
+      - repair(env: GtHkEnv, spawn: (delayMs: Long, body: ()
+      - repairNow(env: GtHkEnv): GtRepairFindings
+      - run(env: GtHkEnv): GtAuditFindings
+      (+3 private, not part of the contract)
+
+interface GtHkDb   [commonMain/kotlin/com/grouptrack/shared/startup/GtHkEnv.kt:133]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 5 file(s), 15 reference(s)
+   provides:  The database seam. ⭐ execSQL RECORDS the statement rather than running it. The statement a side DECIDED to run is a decision and is compared; whether SQLite would honour it is the database groups' cer
+      - rawQueryInt(sql: String): Int
+      - rawQueryRows(sql: String): List<List<String?>>
+      - execSQL(sql: String, bindings: List<String> = emptyList()
+      - probeColumnThrows(col: String): Boolean
+
+interface GtHkEnv   [commonMain/kotlin/com/grouptrack/shared/startup/GtHkEnv.kt:44]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 6 file(s), 18 reference(s)
+   provides:  GtHkEnv — the ONE seam for G2f.
+      - now(): Long
+      - initDb()
+      - dbDir(): String
+      - spatialDb(): GtHkDb?
+      - extDb(): GtHkDb?
+      - spatialPath(): String?
+      - parseGpxTrackPoints(text: String): List<Pair<Double, Double>>
+      - computeGeomHash(wkt: String): String
+      - ensureDefaults()
+      - mergeShippedCategories(): List<String>
+      - ownershipFilePath(): String
+      - fileExists(path: String): Boolean
+      - fileLength(path: String): Long
+      - fileDelete(path: String): Boolean
+      - trackFiles(): List<GtHkFile>
+      - readText(f: GtHkFile): String
+      ... and 6 more public function(s)
+
+class GtHkScriptEnv   [commonMain/kotlin/com/grouptrack/shared/startup/GtHkScriptEnv.kt:20]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 8 reference(s)
+   provides:  GtHkScriptEnv — the shared port's collaborators, all scripted from one [GtHkFixture].
+      - resetAll()
+      - logs(): List<String>
+      - effects(): List<String>
+      - rawQueryInt(sql: String): Int
+      - rawQueryRows(sql: String): List<List<String?>>
+      - execSQL(sql: String, bindings: List<String>)
+      - probeColumnThrows(col: String): Boolean
+      - now(): Long
+      - initDb()
+      - dbDir(): String
+      - spatialDb(): GtHkDb?
+      - extDb(): GtHkDb?
+      - spatialPath(): String?
+      - parseGpxTrackPoints(text: String): List<Pair<Double, Double>>
+      - computeGeomHash(wkt: String): String
+      - ensureDefaults()
+      ... and 13 more public function(s)
+      (+2 private, not part of the contract)
+
+object GtManifestSweep   [commonMain/kotlin/com/grouptrack/shared/startup/GtManifestSweep.kt:55]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 2 reference(s)
+   provides:  HomeStateImportController.sweepManifests, ported AS IS.
+      - run( fs: FileSystem, importsDir: Path, nowIso: String, logI: (String)
+      (+1 private, not part of the contract)
+
+object GtStartupHousekeeping   [commonMain/kotlin/com/grouptrack/shared/startup/GtStartupHousekeeping.kt:34]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 9 reference(s)
+   provides:  GtStartupHousekeeping — the shared port of 2.7e's StartupHousekeeping.
+      - everyLaunch(env: GtHkEnv)
+      - run(env: GtHkEnv): Result
+      (+4 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.state
+============================================================================================
+
+object GtJobSurface   [commonMain/kotlin/com/grouptrack/shared/state/GtJobSurface.kt:59]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 17 reference(s)
+   provides:  WHERE A RUNNING JOB'S SURFACE GOES.
+      - state(jobRunning: Boolean, otherOnTop: Boolean, riderExpanded: Boolean): Surface
+      - onDestinationChanged(): Holder
+      - tap(): Holder
+      - surface(jobRunning: Boolean, otherOnTop: Boolean): Surface
+
+interface GtQueueRow   [commonMain/kotlin/com/grouptrack/shared/state/GtStateDataQueue.kt:27]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 6 file(s), 24 reference(s)
+   provides:  (2.8 step 17, G2e-2; Fred 14:04 "1" -- kotlinx-coroutines joins the shared module): THE STATE-DATA QUEUE -- convoy/StateDataQueue.kt (DATAQUEUE / QUEUEORDER / STOPNOW / PBFSTART 2026-11-02), ported AS IS.
+      - optString(key: String): String
+      - optBoolean(key: String): Boolean
+      - put(key: String, value: String)
+      - put(key: String, value: Boolean)
+      - remove(key: String)
+
+class GtStateData   [commonMain/kotlin/com/grouptrack/shared/state/GtStateData.kt:36]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 20 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - dirFor(slug: String): Path
+      - landFile(folder: String, code: String): Path
+      - landPages(folder: String, code: String): Path
+      - agencyFile(slug: String, sourceId: String): Path
+      - has(slug: String): Boolean
+      - isRefresh(slug: String): Boolean
+      - endRun()
+      - writeRecords(rows: List<Row>)
+      - downloadedMs(slug: String): Long
+      - ageDays(slug: String): Int
+      - sizeMb(slug: String): Long
+      - staleSlugs(slugs: List<String>): List<String>
+      - answer(slugs: List<String>, refresh: Boolean)
+      - restore(slug: String)
+      - save(slug: String)
+      (+6 private, not part of the contract)
+
+class GtStateDataQueue   [commonMain/kotlin/com/grouptrack/shared/state/GtStateDataQueue.kt:66]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 9 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - serverOf(r: GtQueueRow): String
+      - load(prefs: GtSettingsStore)
+      - setMax(prefs: GtSettingsStore, v: Int)
+      - stop(id: String)
+      - retry(id: String)
+      - cancelAll()
+      - run(list: List<GtQueueRow>, fetch: (GtQueueRow)
+      - start(row: GtQueueRow)
+
+interface GtStateDataRun   [commonMain/kotlin/com/grouptrack/shared/state/GtStateData.kt:26]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 3 file(s), 7 reference(s)
+   provides:  (2.8 step 17, G2e-1): a state's kept download data -- convoy/StateData.kt (STATEDATA / FETCHFIRST / DATAQUEUE 2026-11-02), ported AS IS.
+   iosMain      IosStateDataRun   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosStateRun.kt:4]
+      - putAnswer(slug: String, refresh: Boolean)
+      - removeAnswer(slug: String): Boolean?
+      - hasAnswer(slug: String): Boolean
+      - addRefreshing(slug: String)
+      - refreshing(): List<String>
+      - clearRefreshing()
+
+object GtUrlHost   [commonMain/kotlin/com/grouptrack/shared/state/GtStateDataQueue.kt:36]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 0 file(s), 0 reference(s)
+   provides:  java.net.URL(spec).host -- null where java.net.URL throws MalformedURLException (2.7e then falls back to the text itself).
+      - host(spec0: String): String?
+
+============================================================================================
+## com.grouptrack.shared.storage
+============================================================================================
+
+class GtStorage   [commonMain/kotlin/com/grouptrack/shared/storage/GtStorage.kt:28]
+   shape:     SHARED + platform parts in iosMain
+   consumers: 9 file(s), 20 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+   iosMain      IosArtifactSink   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosArtifactSink.kt:41]
+   iosMain      IosImportEnv   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosEnv.kt:181]
+   iosMain      IosImportPaths   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosStorage.kt:102]
+   iosMain      IosScreenCapture   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosScreenCapture.kt:26]
+   iosMain      IosTrackFiles   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosArtifactSink.kt:146]
+      - root(): Path
+      - tileRoot(): Path
+      - tracksRoot(): Path
+      - cacheDir(): Path
+      - filesDir(): Path
+      - dir(name: String): Path
+      - rootReady(): Path
+
+interface GtStorageBase   [commonMain/kotlin/com/grouptrack/shared/storage/GtStorage.kt:17]
+   shape:     CONTRACT  implemented in iosMain
+   consumers: 3 file(s), 6 reference(s)
+   provides:  (2.8 step 17, G2a): ONE "where are my files" for the whole shared model -- the storage socket.
+   iosMain      IosStorageBase   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosStorage.kt:66]
+      - root(): Path
+      - tracksRoot(): Path
+      - cacheDir(): Path
+      - filesDir(): Path
+
+============================================================================================
+## com.grouptrack.shared.text
+============================================================================================
+
+object GtFmt   [commonMain/kotlin/com/grouptrack/shared/text/GtFmt.kt:13]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 7 file(s), 77 reference(s)
+   provides:  (2.8 step 13): String.format for the shared code -- common Kotlin has none.
+      - f(x: Double, n: Int): String
+      - d(v: Long): String
+      - d(v: Int): String
+      (+1 private, not part of the contract)
+
+object GtJava   [commonMain/kotlin/com/grouptrack/shared/text/GtJava.kt:20]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 26 file(s), 174 reference(s)
+   provides:  (2.8 step 15a): java.lang number behaviour for the shared code, so the iPad writes what the Droid writes.
+      - jd(x: Double): String
+      - round(x: Double): Long
+      - roundToIntJava(x: Double): Int
+      - toRadians(deg: Double): Double
+      - toDegrees(rad: Double): Double
+      - decimalParts(s: String): Pair<String, Int>
+      - javaLayout(neg: Boolean, digits: String, p: Int): String
+      - shortestJavaText(x: Double): String
+      - exactDecimal(m: Long, e2: Int): Pair<String, Int>
+      - mul(f: Long)
+      - special(x: Double): String?
+      - layoutOf(platformText: String, x: Double): String
+      - gtJavaDoubleText(x: Double): String
+      (+2 private, not part of the contract)
+
+object GtJavaParse   [commonMain/kotlin/com/grouptrack/shared/text/GtJavaParse.kt:19]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 6 file(s), 27 reference(s)
+   provides:  (2.8 step 15b): Kotlin-on-the-JVM's String.toDoubleOrNull() -- what every 2.7e GPX / KML / GeoJSON parser calls on a coordinate, an elevation or a number in a file -- for the shared code.
+      - latOrNull(s0: String): Double?
+      - lonOrNull(s0: String): Double?
+      - toDoubleOrNull(s0: String): Double?
+      (+4 private, not part of the contract)
+
+object GtMath   [commonMain/kotlin/com/grouptrack/shared/text/GtMath.kt:13]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 14 file(s), 73 reference(s)
+   provides:  (Fred 11-10 07:17-07:37): THE PLATFORM RULE -- shared code never calls kotlin.math's sin / cos / asin / hypot; it calls GtMath, so every stored or compared number is the same on Android and the iPad (V3 rule: identical o
+      - sin(x: Double): Double
+      - cos(x: Double): Double
+      - asin(x: Double): Double
+      - hypot(x: Double, y: Double): Double
+      - pow(x: Double, y: Double): Double
+      - tan(x: Double): Double
+      - atan(x: Double): Double
+      - sinh(x: Double): Double
+      - ln(x: Double): Double
+      - gtMathSin(x: Double): Double
+      - gtMathCos(x: Double): Double
+      - gtMathAsin(x: Double): Double
+      - gtMathHypot(x: Double, y: Double): Double
+      - gtMathPow(x: Double, y: Double): Double
+      - gtMathTan(x: Double): Double
+      - gtMathAtan(x: Double): Double
+      ... and 2 more public function(s)
+
+object GtMathFdlibm   [commonMain/kotlin/com/grouptrack/shared/text/GtMathFdlibm.kt:21]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 3 reference(s)
+   provides:  (2.8 step 16a, Fred 11-10 17:0x "port them to GtMath"): ANDROID's own tan / atan / sinh (+ the exp / expm1 sinh calls), in plain Kotlin, so the iPad computes exactly the bits the Droid does.
+      - tan(x: Double): Double
+      - atan(x0: Double): Double
+      - exp(x0: Double): Double
+      - expm1(x0: Double): Double
+      - sinh(x: Double): Double
+      (+7 private, not part of the contract)
+
+object GtMathPort   [commonMain/kotlin/com/grouptrack/shared/text/GtMathPort.kt:24]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 5 reference(s)
+   provides:  (Fred 11-10 07:17 "find it", 07:37 "solve the issue"): ANDROID's own sin / cos / asin / hypot, in plain Kotlin, so the iPad computes exactly the bits the Droid does.
+      - kernelRemPio2(x: DoubleArray, y: DoubleArray, e0: Int, nx: Int): Int
+      - cos(x: Double): Double
+      - sin(x: Double): Double
+      - asin(x: Double): Double
+      - hypot(x: Double, y: Double): Double
+      (+11 private, not part of the contract)
+
+object GtRx   [commonMain/kotlin/com/grouptrack/shared/text/GtRx.kt:21]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 6 file(s), 27 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - findAll(regex: Regex, input: CharSequence): Sequence<GtRxMatch>
+      - gtRxFindAll(regex: Regex, input: CharSequence): Sequence<GtRxMatch>
+
+object GtTime   [commonMain/kotlin/com/grouptrack/shared/text/GtTime.kt:36]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 18 file(s), 98 reference(s)
+   provides:  (2.8 step 15a): the 2.7e date/time text, reproduced for the shared code -- QUIRKS INCLUDED, because the values land in database rows (track_properties.recorded_at / duration_minutes / max+avg speed) and in file times.
+      - gregorianEpochDay(y: Long, m: Int, d: Int): Long
+      - julianEpochDay(y: Long, m: Int, d: Int): Long
+      - gregorianCivil(epochDay: Long): Triple<Long, Int, Int>
+      - julianCivil(epochDay: Long): Triple<Long, Int, Int>
+      - gpxTime(s: String): Long?
+      - sdfParse(text: String, pattern: SdfPattern): Long?
+      - digitAt(j: Int): Int?
+      - formatUtcSeconds(ms: Long): String
+      - isoToEpochMs(s: String): Long?
+      - lit(c: Char): Boolean
+      - two(): Int?
+      - year(): Long?
+      - fraction(): Int
+      - end()
+      - instantParse(s: String): Long?
+      - offsetDateTimeParse(s: String): Long?
+      ... and 3 more public function(s)
+      (+10 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.track
+============================================================================================
+
+class GtTracks   [commonMain/kotlin/com/grouptrack/shared/track/GtTracks.kt:65]
+   shape:     SHARED + platform parts in iosMain
+   consumers: 9 file(s), 30 reference(s)
+   provides:  (2.8 step 15d): 2.7e's TRACK ADD / SYNC / PROPERTIES (app/.../convoy/SpatialDbManager.kt) MOVED AS IT IS into shared code: resolveTrackAdd, syncTracksFromFiles ("Resync tracks with their files"), updateTrackPropertiesFor
+   iosMain      IosFlight   [iosMain/kotlin/com/grouptrack/shared/platform/GtIosFlight.kt:5]
+      - beginSync(): Boolean
+      - endSync()
+      - beginBackfill(): Boolean
+      - endBackfill()
+      - parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>>
+      - haversineMiles(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double
+      - syncTracksFromFiles(onProgress: ((String)
+      - L(msg: String)
+      - insertWaypoint(name: String, lat: Double, lon: Double, type: String): String
+      - resolveTrackAdd(name: String, sourceFile: Path): AddOutcome
+      - updateTrackPropertiesForHash(geomHash: String, onProgress: ((String)
+      - backfillAllTrackProperties(onProgress: ((String)
+      - allTrackGeomHashes(): List<Pair<String, String?>>
+      - deleteTrackFromDb(id: String)
+      (+6 private, not part of the contract)
+
+class LeadCartProcess   [commonMain/kotlin/com/grouptrack/shared/track/TrackRules.kt:481]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 3 file(s), 5 reference(s)
+   provides:  THE LEAD CART: his radio reports (any lead -- a lead change continues the ONE track).
+      - writtenPoints(): List<WPoint>
+      - reset()
+      - trimTo(my: TrackPoint): Boolean
+      - pt(k: Int)
+      - near(k: Int)
+      - trimmedAtMs(): Long
+      - dots(): List<TrackPoint>
+      - onGapPolyline(leadId: String, poly: List<Pair<TrackPoint, Long>>): Boolean
+      - onLeadReport(leadId: String, p: TrackPoint, rxMs: Long): Boolean
+      - onPolyline(nowMs: Long, t0: Long, t1: Long, poly: List<WPoint>)
+      - metresFromTrack(p: TrackPoint): Double?
+      - drawnLine(): List<WPoint>
+      - leadId(): String
+      (+1 private, not part of the contract)
+
+class Line   [commonMain/kotlin/com/grouptrack/shared/track/TrackRules.kt:49]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 21 reference(s)
+   provides:  A route or trail as the rules see it: points in order, with a local flat frame and the distance along it.
+      - x(p: TrackPoint)
+      - y(p: TrackPoint)
+      - places(p: TrackPoint): List<Place>
+      - pointAt(pl: Place): TrackPoint
+      - along(a: Place, b: Place): List<TrackPoint>
+
+interface LineSource   [commonMain/kotlin/com/grouptrack/shared/track/TrackRules.kt:117]
+   shape:     CONTRACT  (no implementor found)
+   consumers: 2 file(s), 4 reference(s)
+   provides:  Where the routes and trails come from.
+      - route(id: String): Line?
+      - routesNear(s: Double, w: Double, n: Double, e: Double): List<Line>
+      - trailsNear(s: Double, w: Double, n: Double, e: Double): List<Line>
+      - tracksNear(s: Double, w: Double, n: Double, e: Double): List<Line>
+
+class MyCartProcess   [commonMain/kotlin/com/grouptrack/shared/track/TrackRules.kt:578]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 3 reference(s)
+   provides:  MY CART: the chip every 3 s, or my radio when the tablet has no chip.
+      - reset()
+      - onPosition(p: TrackPoint, tMs: Long, alt: Double): List<WPoint>
+      - stop(nowMs: Long): List<WPoint>
+      (+1 private, not part of the contract)
+
+class ScreenWriter   [commonMain/kotlin/com/grouptrack/shared/track/TrackRules.kt:453]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 2 reference(s)
+   provides:  THE UPDATE FREQUENCY (Fred 10-19 08:51 / 09:10): screen updates per written segment.
+      - reset()
+      - resetTo(w: List<WPoint>)
+      - steps(nowMs: Long, u: TrackWriter.Update): List<Step>
+      - onUpdate(nowMs: Long, u: TrackWriter.Update): List<Step>
+
+object TrackGeo   [commonMain/kotlin/com/grouptrack/shared/track/TrackRules.kt:99]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 6 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - metres(a: TrackPoint, b: TrackPoint): Double
+      - length(pts: List<TrackPoint>): Double
+      - metresToSegment(p: TrackPoint, a: TrackPoint, b: TrackPoint): Double
+
+object TrackGrounds   [commonMain/kotlin/com/grouptrack/shared/track/TrackRules.kt:128]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 5 file(s), 9 reference(s)
+   provides:  What the tracks are laid on -- shared by both routines (the lead's in the ViewModel, mine in the recorder service).
+      - route(id: String): Line?
+      - routesNear(s: Double, w: Double, n: Double, e: Double): List<Line>
+      - trailsNear(s: Double, w: Double, n: Double, e: Double): List<Line>
+      - tracksNear(s: Double, w: Double, n: Double, e: Double): List<Line>
+      - assertSet(where: String): Boolean
+      (+1 private, not part of the contract)
+
+class TrackPath   [commonMain/kotlin/com/grouptrack/shared/track/TrackRules.kt:166]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 2 reference(s)
+   provides:  R3 + R4: one gap -> the points between.
+      - reset()
+      - fill(a: TrackPoint, b: TrackPoint, dtMs: Long, bChoice: Cand? = null, commit: Boolean = false): Fill
+      - trial(block: ()
+      (+6 private, not part of the contract)
+
+class TrackWriter   [commonMain/kotlin/com/grouptrack/shared/track/TrackRules.kt:303]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 2 reference(s)
+   provides:  R1 + R2 + R5: points in, WRITTEN points out.
+      - reset()
+      - onPoint(p: TrackPoint, tMs: Long, alt: Double): List<Update>
+      - settle(): List<Update>
+      - pin(poly: List<Pair<TrackPoint, Long>>, onLine: (TrackPoint)
+      - replaceWindow(t0: Long, t1: Long, polyline: List<WPoint>): List<Update>
+      (+5 private, not part of the contract)
+
+============================================================================================
+## com.grouptrack.shared.trail
+============================================================================================
+
+object GtTrailUse   [commonMain/kotlin/com/grouptrack/shared/trail/GtTrailUse.kt:20]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 5 reference(s)
+   provides:  the category -> use table, as DATA, shared.
+      - useOf(category: String): String
+
+============================================================================================
+## com.grouptrack.shared.user
+============================================================================================
+
+object GtIsoDate   [commonMain/kotlin/com/grouptrack/shared/user/GtUsers.kt:25]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 1 file(s), 7 reference(s)
+   provides:  ISO_LOCAL_DATE, STRICT, years 0000-9999 (LocalDate's own range beyond that needs a sign -- never written by create).
+      - leap(y: Int)
+      - days(y: Int, m: Int)
+      - parse(s: String): Triple<Int, Int, Int>
+      - format(y: Int, m: Int, d: Int): String
+      - plusYears(s: String, n: Int): String
+      - isAfter(a: String, b: String): Boolean
+
+data class GtUser   [commonMain/kotlin/com/grouptrack/shared/user/GtUsers.kt:46]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 4 file(s), 15 reference(s)
+   provides:  (no doc line in source -- read the atoms below)
+      - isExpiredOn(today: String): Boolean
+      - toJson(): JsonObject
+      - fromJson(o: JsonObject): GtUser
+      - create(userType: GtUserType, firstName: String, lastName: String, email: String, cellPhone: String, vehicleType: String, today: String, newId: String): GtUser
+      (+1 private, not part of the contract)
+
+class GtUserStore   [commonMain/kotlin/com/grouptrack/shared/user/GtUsers.kt:82]
+   shape:     PURE SHARED  (one body, both platforms)
+   consumers: 2 file(s), 8 reference(s)
+   provides:  2.7e ConvoyUserStore: the users file and the active user.
+      - loadAll(): List<GtUser>
+      - saveAll(users: List<GtUser>)
+      - save(user: GtUser)
+      - getActiveUser(): GtUser?
+      - setActiveUser(userId: String)
+      - isEnrolled(): Boolean
+      - addDeviceToActiveUser(hardwareId: String)
+      - resolvePairing(hardwareId: String): GtUser?
+
+============================================================================================
+## DATA AND STATE HOLDERS IN commonMain  (45) -- cross-platform types, NOT services
+============================================================================================
+Listed so nothing in commonMain is invisible. These carry data; they are not atoms to call.
+
+  -- com.geeksville.mesh.convoy
+     MapKeyRow                      data class       [commonMain/kotlin/com/geeksville/mesh/convoy/MapKeysPanel.kt:77]
+     NoteSection                    data class       [commonMain/kotlin/com/geeksville/mesh/convoy/GtNoteSections.kt:31]
+     NoteStyle                      enum class       [commonMain/kotlin/com/geeksville/mesh/convoy/GtNoteSections.kt:16]
+     RecordingState                 enum class       [commonMain/kotlin/com/geeksville/mesh/convoy/RecordingState.kt:9]
+     RouteTrailhead                 data class       [commonMain/kotlin/com/geeksville/mesh/convoy/RouteTrailhead.kt:12]
+
+  -- com.geeksville.mesh.grouptrack
+     GtButtonScheme                 class            [commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:67]
+     GtProcess                      class            [commonMain/kotlin/com/geeksville/mesh/grouptrack/LaunchModules.kt:17]
+     GtSearchBridge                 class            [commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:53]
+     LaunchModule                   class            [commonMain/kotlin/com/geeksville/mesh/grouptrack/LaunchModules.kt:28]
+     LaunchSlot                     enum class       [commonMain/kotlin/com/geeksville/mesh/grouptrack/LaunchModules.kt:15]
+
+  -- com.grouptrack.shared.artifact
+     GtArtifactResult               sealed class     [commonMain/kotlin/com/grouptrack/shared/artifact/GtArtifactFiles.kt:93]
+
+  -- com.grouptrack.shared.maprecipe
+     GtRecipeResult                 data class       [commonMain/kotlin/com/grouptrack/shared/maprecipe/GtMapRecipe.kt:153]
+
+  -- com.grouptrack.shared.mapstate
+     GtBBox                         data class       [commonMain/kotlin/com/grouptrack/shared/mapstate/GtMapState.kt:78]
+     GtFitArtifact                  data class       [commonMain/kotlin/com/grouptrack/shared/mapstate/GtMapState.kt:85]
+     GtMapSnapshot                  data class       [commonMain/kotlin/com/grouptrack/shared/mapstate/GtMapState.kt:89]
+     GtPanelBoxes                   data class       [commonMain/kotlin/com/grouptrack/shared/mapstate/GtMapState.kt:71]
+     GtRouteState                   data class       [commonMain/kotlin/com/grouptrack/shared/mapstate/GtMapState.kt:88]
+     GtRow                          data class       [commonMain/kotlin/com/grouptrack/shared/mapstate/GtMapState.kt:69]
+     GtTypeState                    data class       [commonMain/kotlin/com/grouptrack/shared/mapstate/GtMapState.kt:70]
+     GtViewState                    data class       [commonMain/kotlin/com/grouptrack/shared/mapstate/GtMapState.kt:98]
+
+  -- com.grouptrack.shared.net
+     GtMeshDefaults                 data class       [commonMain/kotlin/com/grouptrack/shared/net/GtNetworks.kt:37]
+     GtOwnerType                    enum class       [commonMain/kotlin/com/grouptrack/shared/net/GtNetworks.kt:26]
+     GtRiderProfile                 data class       [commonMain/kotlin/com/grouptrack/shared/net/GtNetworks.kt:88]
+
+  -- com.grouptrack.shared.osm
+     GtOsmStageName                 enum class       [commonMain/kotlin/com/grouptrack/shared/osm/GtOsmStage.kt:15]
+
+  -- com.grouptrack.shared.queue
+     GtAreaTiles                    data class       [commonMain/kotlin/com/grouptrack/shared/queue/GtTileMath.kt:30]
+     GtDownloadEstimate             data class       [commonMain/kotlin/com/grouptrack/shared/queue/GtTileMath.kt:18]
+     GtDownloadType                 enum class       [commonMain/kotlin/com/grouptrack/shared/queue/GtQueueEntry.kt:19]
+     GtQueueEntry                   data class       [commonMain/kotlin/com/grouptrack/shared/queue/GtQueueEntry.kt:35]
+     GtQueueStatus                  enum class       [commonMain/kotlin/com/grouptrack/shared/queue/GtQueueEntry.kt:17]
+
+  -- com.grouptrack.shared.ride
+     GtRideEnv                      class            [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:172]
+     RideForApply                   data class       [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:1358]
+     RideMe                         class            [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:47]
+     RideNetOwner                   enum class       [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:58]
+     RideRow                        data class       [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:471]
+     RouteSummary                   data class       [commonMain/kotlin/com/grouptrack/shared/ride/GtRides.kt:461]
+
+  -- com.grouptrack.shared.startup
+     GtAuditFindings                data class       [commonMain/kotlin/com/grouptrack/shared/startup/GtDbAuditPort.kt:224]
+     GtHkFile                       data class       [commonMain/kotlin/com/grouptrack/shared/startup/GtHkEnv.kt:112]
+     GtHkFixture                    data class       [commonMain/kotlin/com/grouptrack/shared/startup/GtHkFixture.kt:17]
+     GtHkTrackRow                   data class       [commonMain/kotlin/com/grouptrack/shared/startup/GtHkFixture.kt:15]
+     GtRepairFindings               data class       [commonMain/kotlin/com/grouptrack/shared/startup/GtDbAuditPort.kt:237]
+
+  -- com.grouptrack.shared.text
+     GtLocalTime                    data class       [commonMain/kotlin/com/grouptrack/shared/text/GtTime.kt:378]
+     GtRxMatch                      class            [commonMain/kotlin/com/grouptrack/shared/text/GtRx.kt:19]
+
+  -- com.grouptrack.shared.track
+     TrackPoint                     data class       [commonMain/kotlin/com/grouptrack/shared/track/TrackRules.kt:43]
+     WPoint                         data class       [commonMain/kotlin/com/grouptrack/shared/track/TrackRules.kt:46]
+
+  -- com.grouptrack.shared.user
+     GtUserType                     enum class       [commonMain/kotlin/com/grouptrack/shared/user/GtUsers.kt:22]

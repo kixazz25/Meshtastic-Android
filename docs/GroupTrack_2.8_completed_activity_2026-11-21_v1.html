@@ -1,0 +1,50 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack &mdash; COMPLETED ACTIVITY 2.8 &mdash; v1 (2026-11-21)</title></head><body>
+<h1>COMPLETED 2026-11-21</h1>
+<p>One row per item that closed today, with its EVIDENCE (a measurement, a commit, a device
+observation) and its commit number. Items ARRIVE here by being MOVED out of the handoff or the
+checklist -- never by being retyped. The day&rsquo;s completed-activity record, so that pruning
+never loses the fact that something was addressed.</p>
+
+<h2>CLOSED 2026-11-21 (CLOSED1121-2026-11-21)</h2>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>Item</th><th>Evidence</th><th>Commit</th></tr>
+<tr><td><b>A1 (first half) &middot; THE BUILD STAMP</b> &mdash; BUILDSTAMP-2026-11-21. The iPad's settings
+panel draws Android's tail line <code>GroupTrack OG Rel. &lt;version&gt;</code> from
+<code>GtBuildInfo.appVersion()</code>, immediately before the panel's closing spacer, at
+<code>Gt.dim</code> / 11.sp / <code>fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)</code> &mdash;
+Android's own treatment at <code>ConvoySettingsScreen.kt:430-446</code>, expressed as the STD1 role rather than
+its raw alpha literal. The panel takes <code>build: GtBuildInfo</code> (the SERVICE) and labels what it
+reports; it never formats the version, so the two platforms' lines cannot drift. Both new parameters are
+non-nullable with no default (CODE RULE 1), so the one caller had to wire them.</td>
+<td><b>WITNESS (a value only the real work can produce):</b> the line shows the version Xcode actually built,
+read from <code>CFBundleShortVersionString (CFBundleVersion)</code> at runtime &mdash; a stub cannot track a
+version bump. <b>Compiles on BOTH targets</b> (<code>commonMain</code> changed, so it ships into 2.8a too):
+<code>compileKotlinIosSimulatorArm64</code> SUCCESSFUL 07:03, <code>compileAndroidMain</code> SUCCESSFUL 07:05
+&mdash; no new warnings on either.</td>
+<td>uncommitted at 07:05; commit at EOD</td></tr>
+<tr><td><b>A1 (second half) &middot; THE MAP HTML LINE</b> &mdash; the line is BUILT and renders
+<code>Map HTML: &lt;value&gt;</code> from the host's new <code>iosMapHtmlVersion</code>, the iPad's counterpart
+to <code>ConvoyConfig.MAP_HTML_VERSION</code>. <b>⛔ NOT fully witnessed, deliberately:</b> it reads
+<code>not reported</code> until the vecmap page reports back, and that is Android's OWN default
+(<code>ConvoyConfig.kt:30</code>) &mdash; so seeing it proves only that the line renders. <b>MOVED, not
+dropped:</b> C28-26363 MAPHTMLREPORT, parked to J&middot;Map where the map layer is walked.</td>
+<td><b>Negative witness recorded with the card:</b> open the map, return to settings, and a reading of
+<code>not reported</code> is the unfixed state &mdash; indistinguishable from &ldquo;correct, no map opened&rdquo;
+unless checked in that order.</td>
+<td>same patch; card open</td></tr>
+</table>
+
+<h2>WORK PAPERS &mdash; PATCHES THIS MORNING</h2>
+<p><code>gt_buildstamp_2026-11-21_v2.py</code> applied. <b>v1 is retired as
+<code>gt_buildstamp_2026-11-21_v1_DO_NOT_RUN_dup_import.py</code></b> and the reason is written into v2's header:
+it added an <code>IosBuildInfo</code> import that <code>GtIosPanels.kt</code> ALREADY had at <code>:101</code>
+(in use at <code>:515</code> and <code>:543</code> for the ISSUE report), and it anchored a top-level
+<code>var</code> on an import at line 78 of an 87-line import block, so the declaration landed mid-imports.
+<b>⭐ THE LESSON, and it is the second instance this week (IOSISSUE-2026-11-20 was the first):
+AN ANCHOR ASSERTION PROVES UNIQUENESS, NEVER CORRECTNESS.</b> Every guard passed &mdash; marker absent,
+anchor unique &mdash; and the patch still broke the file, because the import region had been read through
+<code>grep | head</code> and the anchor was chosen from a partial view. <b>Read the WHOLE import block before
+choosing where to cut.</b> v2 asserts the host's import count directly so this exact failure cannot recur
+silently.</p>
+</body></html>

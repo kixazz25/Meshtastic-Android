@@ -1,0 +1,187 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>GroupTrack 2.8b — the launch-surface model and schedule</title>
+<style>body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1180px;margin:24px auto;padding:0 16px;color:#111}
+h1{font-size:23px}h2{font-size:19px;margin-top:30px;border-bottom:2px solid #ccc;padding-bottom:4px}
+h3{font-size:16px;margin-top:22px}table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}
+th,td{border:1px solid #bbb;padding:6px 8px;text-align:left;vertical-align:top}th{background:#eef2f7}
+code{background:#f4f4f4;padding:1px 4px;border-radius:3px;font-size:12.5px}
+pre{background:#0d1117;color:#c9d1d9;padding:12px;border-radius:6px;overflow-x:auto;font-size:12.5px}
+.note{background:#fffbe6;border-left:4px solid #e0b000;padding:9px 13px;margin:12px 0}
+.stop{background:#ffecec;border-left:4px solid #cc0000;padding:9px 13px;margin:12px 0}</style></head><body>
+
+<h1>GroupTrack 2.8b &mdash; THE LAUNCH-SURFACE MODEL AND THE SCHEDULE</h1>
+<div class="note"><b>Fred 11-21 20:51:</b> <i>&ldquo;you already built the nav[ ]ref[,] did the comparison[,]
+identified the seams and found the existing function to build the [iOS] seams. why is that not in the
+documents as the model going forward[?] I asked you to[ ]document all the remaining launch surfaces in the
+same manner so we have process[,] schedule[,] and you continue to open the code[,] read stale comments, and
+insist service[s] don't exist.&rdquo;</i>
+<br/><b>This document is the model and the schedule. It is built from the tool and from measurement, in
+one pass, and it is what the remaining walks follow.</b></div>
+
+<h2>1 &middot; THE MODEL &mdash; four steps, proven on N &middot; RADIO SETTINGS</h2>
+<ol>
+<li><b>THE ROW, FROM NAV XREF.</b> <code>~/Downloads/navigation_xref_2026-11-14.txt</code> (1,727 lines, run
+2026-11-21 03:20). Take the screen's entry: its file:line, its clickables, and what each one does. <b>Do not
+open the code first.</b></li>
+<li><b>DECOMPOSE THE CALL STACK</b> under each clickable's action, Android then iOS at the same hop.</li>
+<li><b>NAME THE SEAM</b> &mdash; the hop where shared code needs a platform implementation.</li>
+<li><b>FIND THE EXISTING FUNCTION</b> that builds it: query the service index by CAPABILITY, then read the
+comm API. Replace, compile both targets, stop.</li>
+</ol>
+<div class="stop"><b>&#9888; THE TWO SOURCES, AND NEITHER IS THE CODE'S COMMENTS.</b><br/>
+<b>(a)</b> <code>python3 ~/Downloads/svcref_2026-11-21_v2.py --find &lt;terms&gt;</code> from the repo root
+&mdash; 174 shared services, searched by name, doc line AND every signature. <b>It does NOT scan
+<code>grouptrack-comm</code>.</b><br/>
+<b>(b)</b> <code>grouptrack-comm/src/commonMain/kotlin/com/grouptrack/comm/GroupTrackComm.kt</code> &mdash;
+<b>365 lines, the WHOLE radio/mesh service layer</b>: <code>CommLink</code>, <code>CommIdentity</code>,
+<code>CommConfig</code>, <code>CommMessaging</code>, <code>CommSession</code>, <code>CommMenus</code>,
+<code>CommSetupStore</code>, <code>GroupCommPlugin</code>. <b>Everything reaches mesh through this API;
+nothing in GroupTrack calls mesh directly outside the comm module.</b></div>
+
+<h3>The worked example &mdash; N &middot; RADIO SETTINGS</h3>
+<pre>STEP 1  nav xref
+RadioConfigScreen  [RadioConfigScreen.kt:89 &middot; 2026-11-16]      &larr; reached from GRP Awareness:
+   &#9656; "Apply ride to radio"         (224)  &rarr; &#9888; no action found        "RADIO SETTINGS" and
+   &#9656; "USE MY CALLSIGN ($callsign)" (263)  &rarr; radioCallsign = callsign   "SELECT A RIDE AND APPLY
+   &#9656; "${chosen?.name}"             (268)  &rarr; choose(t)                  SETTINGS TO THE RADIO"
+   &#9656; "Back"                        (287)  &rarr; apply()      &larr; the apply, MISLABELLED by the tool
+   &#9656; "Back"                        (288)  &rarr; phase = "PICK"
+
+STEP 2  the stack under apply()  (RadioConfigScreen.kt:170-184)
+   guard   nodeId != null &amp;&amp; link == Link.CONNECTED        STEP 3  seam      STEP 4  existing function
+   write   config.applyRide(ApplyRequest(...))                the screen         GtRadioApply.write
+   verify  r is Applied &amp;&amp; r.verified                        the guard          CommLink.link / myDevice()
+   mark    RadioSetupState.markDone(context)                  the answer         CommSetupStore.read/write</pre>
+<p><b>&#9888; TWO TOOL DEFECTS ARE VISIBLE IN THAT ONE ROW</b> (C28-26370 NAVXREFLIMIT): a clickable reports
+<i>no action found</i>, and <code>apply()</code> &mdash; the point of the screen &mdash; is reported under the
+label <b>&ldquo;Back&rdquo;</b>. <b>Read the row from the tool, then verify each label against the code.</b>
+That verification is part of step 1; it is not an invitation to read the file's comments.</p>
+
+<h2>2 &middot; THE COMPARISON, MEASURED IN ONE PASS</h2>
+<p>Every remaining launch surface, checked for an implementation in <code>commonMain</code> and for any
+reference in <code>iosMain</code>. <b>Result: all 18 are Android-only.</b> The iosMain hits are references
+(a placeholder or a comment), not implementations.</p>
+<table>
+<tr><th>surface</th><th>Android, from nav xref</th><th>commonMain</th><th>iosMain</th></tr>
+<tr><td>CheckInSheet</td><td><code>ConvoyCheckIn.kt:52</code></td><td>&mdash;</td><td>ref only</td></tr>
+<tr><td>EndOfRideForm</td><td><code>ConvoyEndOfRideForm.kt:41</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>RoleChangeDialog</td><td><code>GroupTrackScreen.kt:3867</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>GrpAwarenessPanel</td><td><code>GrpAwareness.kt:158</code></td><td>&mdash;</td><td>ref only</td></tr>
+<tr><td>RadioConfigScreen</td><td><code>RadioConfigScreen.kt:89</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>GroupHud</td><td><code>GroupTrackScreen.kt:3210</code></td><td>&mdash;</td><td>ref only</td></tr>
+<tr><td>MyCartHud</td><td><code>GroupTrackScreen.kt:3321</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>NodeDetailHud</td><td><code>GroupTrackScreen.kt:3379</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>CollapsedPill</td><td><code>GroupTrackScreen.kt:3417</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>GpsIntervalDialog</td><td><code>GroupTrackScreen.kt:3741</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>GpsLocationRow</td><td><code>GroupTrackScreen.kt:3691</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>GtRouteHost</td><td><code>RouteModule.kt:941</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>DownloadQueuePanel</td><td><code>ConvoyDownloadQueuePanel.kt:54</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>GtAreaHost <i>(J's tree)</i></td><td><code>AreaDraw.kt:55</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>HomeStatePickerScreen</td><td><code>HomeStatePickerScreen.kt:58</code></td><td>&mdash;</td><td>ref only</td></tr>
+<tr><td>ConvoyTrackImportScreen</td><td><code>ConvoyTrackImportScreen.kt:69</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>GtRecipesScreen</td><td><code>MapScreens.kt:253</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+<tr><td>GtEmergencyScreen</td><td><code>EmergencyRestore.kt:97</code></td><td>&mdash;</td><td>&mdash;</td></tr>
+</table>
+<p><b>&#11088; THE SHAPE OF ALL REMAINING WORK, IN ONE SENTENCE:</b> it is <b>eighteen screen ports from
+<code>app/</code> to <code>commonMain</code></b>, each driving services that already exist. It is not
+eighteen investigations.</p>
+
+<h2>2b &middot; THE iOS SERVICE LAYER, MEASURED 11-21 20:56 &mdash; AND WHY THE INDEX UNDER-REPORTS IT</h2>
+<div class="note"><b>Fred 11-21 20:56:</b> <i>&ldquo;and how are you determining the iOS seam has not been
+accommodated yet[?] every radio seam existed after you said it did not.&rdquo;</i>
+<br/><b>The answer: I was reading the index's shape column, and that column is wrong.</b> It links an iOS
+implementation BY NAMING CONVENTION, so any implementation whose class name does not match reads as a
+gap.</div>
+<table>
+<tr><th>shape, as the index reports it</th><th>count</th><th>what it actually means for porting</th></tr>
+<tr><td><b>PURE SHARED</b></td><td><b>131</b></td><td>One body, both platforms. <b>Already running on iOS. Nothing to do.</b></td></tr>
+<tr><td><b>CONTRACT, implemented in iosMain</b> (+ SHARED with platform parts, + expect/actual)</td><td><b>21</b></td><td>The index links these.</td></tr>
+<tr><td><b>CONTRACT</b> &mdash; reported with no iOS implementation</td><td><b>18</b></td><td><b>&#9888; 17 OF THESE ARE IMPLEMENTED.</b> The index simply does not see them.</td></tr>
+</table>
+<p><b>Checked one by one against <code>iosMain</code>:</b></p>
+<table>
+<tr><th>contract</th><th>its iOS implementation</th><th>contract</th><th>its iOS implementation</th></tr>
+<tr><td><code>GtArtifactSink</code></td><td><code>GtIosArtifactSink.kt</code></td><td><code>RideFiles</code></td><td><code>GtIosRideFiles.kt</code></td></tr>
+<tr><td><code>GtImportEnv</code></td><td><code>GtIosEnv.kt</code></td><td><code>RideNet</code> / <code>RideNetworks</code></td><td><code>GtIosRideNetworks.kt</code></td></tr>
+<tr><td><code>GtImportPlatform</code></td><td><code>GtIosImportPlatform.kt</code></td><td><code>RideSpatial</code></td><td><code>GtIosRideSpatial.kt</code></td></tr>
+<tr><td><code>GtRecipeEnv</code></td><td><code>GtIosRecipeEnv.kt</code></td><td><code>GtSettingsStore</code> / <code>GtSettingsEditor</code></td><td><code>GtIosSettings.kt</code></td></tr>
+<tr><td><code>GtTileStoreEnv</code></td><td><code>GtIosEnv.kt</code> / <code>GtIosRecipeEnv.kt</code></td><td><code>GtHkEnv</code> / <code>GtHkDb</code></td><td><code>GtIosHkEnv.kt</code></td></tr>
+<tr><td><code>GtOsmPlatform</code></td><td><code>GtIosOsmPlatform.kt</code></td><td><code>GtQueueRow</code></td><td><code>GtIosValues.kt</code></td></tr>
+<tr><td><code>GtScreenCapture</code></td><td><code>GtIosScreenCapture.kt</code></td><td><b><code>LineSource</code></b></td><td><b>none &mdash; see below</b></td></tr>
+<tr><td><code>GtQueuePlatform</code></td><td><code>GtIosRecipeEnv.kt</code></td><td></td><td></td></tr>
+</table>
+<p><b><code>LineSource</code> is not an absence either.</b> Its four atoms are <code>route(id)</code>,
+<code>routesNear</code>, <code>trailsNear</code>, <code>tracksNear</code> &mdash; which is
+<code>GtSpatial.queryRoutes</code> / <code>queryTrails</code> / <code>queryTracks</code>, already called by
+the iPad's map on every viewport. It needs an object OVER <code>GtSpatial</code>, not a build.</p>
+<div class="stop"><b>&#11088;&#11088;&#11088; THE STATE OF THE iOS SERVICE LAYER, IN THREE NUMBERS:
+131 pure shared &middot; 37 contracts with iOS implementations &middot; 0 genuine absences.</b><br/>
+Porting is a LOOKUP, not a build. The service is there, under a name that is not Android's.
+<b>&#9888; NEVER judge absence from the index's shape column &mdash; it is a <code>--find</code> tool, not a
+coverage report. Ask <code>iosMain</code> directly.</b> That is the same error as trusting the code's
+comments, one layer up, and it produced eighteen phantom gaps in one reading.</div>
+
+<h2>2c &middot; J &middot; THE MAP MENU &mdash; EVERY ROW, WITH ITS SERVICE AND ITS iOS IMPLEMENTATION</h2>
+<p>From nav xref, <code>GtAreaHost [AreaDraw.kt:55]</code> and its tree. The service column is the
+<code>--find</code> result for that row's capability, run 11-21 20:58.</p>
+<table>
+<tr><th>row (nav xref name)</th><th>Android</th><th>the shared service</th><th>iOS implementation</th></tr>
+<tr><td><b>GtAreaHost</b> &mdash; the host</td><td><code>AreaDraw.kt:55</code></td><td>&mdash;</td><td>screen port</td></tr>
+<tr><td>GtRemoveAreaScreen</td><td><code>MapScreens.kt:83</code></td><td><code>GtVectorQueue</code> + <code>GtQueuePlatform</code></td><td><code>GtIosRecipeEnv.kt</code></td></tr>
+<tr><td>GtRemoveFeaturesScreen</td><td><code>TrailCleanup.kt:130</code></td><td><code>GtWrite</code> (spatial)</td><td>PURE SHARED</td></tr>
+<tr><td>GtTrailSourcesScreen</td><td><code>TrailCleanup.kt:176</code></td><td><code>GtWrite</code></td><td>PURE SHARED</td></tr>
+<tr><td>GtImportAreaScreen / GtImportFrame</td><td><code>MapScreens.kt:114</code> / <code>:672</code></td><td><code>GtStateDataRun</code>, <code>GtOsmExtract</code>, <code>GtOsmImport</code>, <code>GtOsmLedger</code>, <code>GtOsmProgress</code>, <code>GtHttp</code></td><td><code>GtIosStateRun.kt</code>, <code>GtIosOsmPlatform.kt</code>, <code>GtIosHttp.kt</code></td></tr>
+<tr><td>HomeStatePickerScreen (+ StateListPanel, AreaSourcePanel, ProgressPanel, CompletionPanel)</td><td><code>HomeStatePickerScreen.kt:58</code></td><td><code>GeofabrikState</code>, <code>GtStateDataRun</code>, <code>GtQueueRow</code></td><td><code>GtIosStateRun.kt</code>, <code>GtIosValues.kt</code></td></tr>
+<tr><td>GtImportStateScreen</td><td><code>MapScreens.kt:344</code></td><td>as GtImportAreaScreen</td><td>same</td></tr>
+<tr><td>GtRecipesScreen / GtRecipeGroup</td><td><code>MapScreens.kt:253</code> / <code>:325</code></td><td><code>GtMapRecipe</code> + <code>GtRecipeEnv</code></td><td><code>GtIosRecipeEnv.kt</code></td></tr>
+<tr><td>GtEmergencyScreen</td><td><code>EmergencyRestore.kt:97</code></td><td><code>GtVectorQueue</code>, <code>GtMBTiles</code> + <code>GtTileStoreEnv</code></td><td><code>GtIosEnv.kt</code></td></tr>
+<tr><td>GtImportGpxScreen / GtImportGpxTrailsScreen &rarr; ConvoyTrackImportScreen</td><td><code>MapScreens.kt:352</code> / <code>:360</code>, <code>ConvoyTrackImportScreen.kt:69</code></td><td><code>GtGpxImport</code></td><td>PURE SHARED (files via <code>GtIosRideFiles</code>)</td></tr>
+<tr><td>GtConvertGpxScreen &rarr; ConvertToGpxScreen</td><td><code>MapScreens.kt:368</code>, <code>ConvertToGpxScreen.kt:32</code></td><td><code>GtImportConverter</code></td><td>PURE SHARED</td></tr>
+<tr><td>GtAreaRadiusScreen</td><td><code>MapScreens.kt:734</code></td><td><code>GtSearchZoom</code> (<code>GtSettingsStore</code>)</td><td><code>GtIosSettings.kt</code></td></tr>
+<tr><td>GtRemoveTrackScreen</td><td><code>MapScreens.kt:409</code></td><td><code>GtWrite</code>, <code>GtVectorQueue</code></td><td><code>GtIosRecipeEnv.kt</code></td></tr>
+<tr><td>GtRefreshSourceScreen</td><td><code>MapScreens.kt:541</code></td><td><code>GtVectorQueue</code> (enqueueRecreateSource)</td><td><code>GtIosRecipeEnv.kt</code></td></tr>
+<tr><td>GtExportFeaturesScreen (+ ExportTick)</td><td><code>ExportFeatures.kt:44</code> / <code>:121</code></td><td><code>GtArtifactFiles</code> + <code>GtArtifactSink</code></td><td><code>GtIosArtifactSink.kt</code></td></tr>
+<tr><td>GtSavedFeaturesScreen (+ GtFilePickerBody)</td><td><code>ExportFeatures.kt:108</code>, <code>GtFilePicker.kt:103</code></td><td><code>GtArtifactFiles</code></td><td><code>GtIosArtifactSink.kt</code></td></tr>
+<tr><td>GtStateCountsScreen</td><td><code>StateCounts.kt:78</code></td><td><code>GtStateDataRun</code></td><td><code>GtIosStateRun.kt</code></td></tr>
+<tr><td>GtDownloadTracksScreen (+ ConvoyCorridorPicker)</td><td><code>MapScreens.kt:143</code>, <code>ConvoyCorridorPicker.kt:94</code></td><td><code>GtVectorQueue</code>, <code>GtRead</code> (corridor)</td><td><code>GtIosRecipeEnv.kt</code></td></tr>
+</table>
+<div class="stop"><b>&#9888;&#9888; J'S SERVICES ALREADY EXIST, AND SO DO THEIR iOS IMPLEMENTATIONS.</b>
+This was the one place new services were expected (Fred 20:47). Measured 11-21: every row above maps to a
+shared service that is either PURE SHARED or has an <code>iosMain</code> implementation already written
+&mdash; including the internet fetch (<code>GtHttp</code> &rarr; <code>IosHttp</code>,
+<code>GtIosHttp.kt:139</code>). <b>If something genuinely new is needed at J it will appear during the
+screen walk, not in the service index &mdash; because the index has no hole.</b></div>
+
+<h2>3 &middot; THE SCHEDULE &mdash; the order, and the service each surface drives</h2>
+<div class="note"><b>&#9888; THE PRIOR (Fred 20:47):</b> <i>&ldquo;no seams should need to be created[,]
+everything should map cleanly and replace and compile at this point. when we get to J with importing files
+from the Internet to update databases we will find new services.&rdquo;</i> <b>Until J, a &ldquo;new
+service&rdquo; is a failed search.</b> The right-hand column below is the starting query, not a conclusion:
+run it at the head of the walk.</div>
+<table>
+<tr><th>#</th><th>surface</th><th>the service it drives &mdash; query this first</th><th>state</th></tr>
+<tr><td>1</td><td><b>N &middot; RadioConfigScreen</b></td><td><code>GtRadioApply</code> (write, verified, noRadio, configDoc, lastAppliedRide) &middot; <code>CommConfig</code> (applyRide, previewConfig, savedConfigs, driftSinceLastSave) &middot; <code>CommLink.link</code> &middot; <code>CommSetupStore</code>. <b>VERIFIED 11-21.</b></td><td>NEXT</td></tr>
+<tr><td>2</td><td><b>D &middot; GrpAwarenessPanel</b></td><td><code>CommLink</code>: radios, selectedRadioId, startScan/stopScan, scanProblem, connect/disconnect/forget, link, health &middot; <code>GtRadioApply.lastAppliedRide</code> &middot; <code>GtBluetoothSettings</code>. <b>VERIFIED 11-21.</b></td><td>after N</td></tr>
+<tr><td>3</td><td><b>B &middot; CheckInSheet</b></td><td><code>GtRideStore</code> (openRecentRides, checkIn, RideChoice, CheckIn, rideForEdit) &middot; <code>CommSession.checkIn(CheckInRequest)</code> &middot; <code>GtRadioApply</code> &middot; <code>GtPanelChrome</code>. <b>VERIFIED 11-21.</b></td><td>after D</td></tr>
+<tr><td>4</td><td><b>B &middot; RoleChangeDialog</b></td><td><code>CommMessaging</code>: recordOwnRole, reportedRole, clearRoles &middot; <code>GtRideStore</code>. <b>VERIFIED 11-21.</b></td><td>with B</td></tr>
+<tr><td>5</td><td><b>B &middot; EndOfRideForm</b></td><td><code>GtGpx</code> (certified) &middot; <code>GtRideStore</code> &middot; the share path. <b>Query at the head of the walk.</b></td><td>with B</td></tr>
+<tr><td>6</td><td><b>C &middot; GroupHud / MyCartHud / NodeDetailHud / CollapsedPill</b></td><td>The view atom <code>GtHudViews</code> landed 11-21. <b>BLOCKED</b> on <code>ConvoyState</code>/<code>ConvoyNode</code> reaching shared &mdash; that is the seam, and it is a TYPE move, not a service.</td><td>blocked</td></tr>
+<tr><td>7</td><td><b>I &middot; GpsLocationRow / GpsIntervalDialog</b></td><td><code>GtIosLocation</code> (lamp, here, onPosition, onHeading) &middot; <code>GtRideSettings</code>. Sim-testable: <code>xcrun simctl location</code>.</td><td>not walked</td></tr>
+<tr><td>8</td><td><b>GtRouteHost</b></td><td><code>GtRoute</code> (shared, large, already in commonMain). <b>Query at the head of the walk.</b></td><td>not walked</td></tr>
+<tr><td>9</td><td><b>J &middot; GtAreaHost and its tree</b> &mdash; HomeStatePicker, ConvoyTrackImport, Recipes, Emergency, RemoveArea, RemoveFeatures, TrailSources, ImportGpx, ConvertGpx, AreaRadius, RemoveTrack, RefreshSource, ExportFeatures, SavedFeatures, StateCounts, DownloadTracks, DownloadQueuePanel</td><td><b>&#9888; THIS IS WHERE NEW SERVICES ARRIVE.</b> Internet imports updating the databases. Expect genuine absences here and only here.</td><td>LAST</td></tr>
+</table>
+
+<h2>4 &middot; WHAT CERTIFIES A SURFACE</h2>
+<p><b>Stage one, the day's work:</b> the seam is repaired from existing services and <b>both targets compile</b>
+plus the iOS build runs. That is where the day ends.</p>
+<p><b>Stage two, separately (C28-26374 UNITTEST3WAY):</b> the three-way side-by-side &mdash; <b>2.7f on Droid 2
+&middot; 2.8b on Droid 1 &middot; 2.8b on the iPad</b> &mdash; from ONE database, <b>walking the menus A to J,
+the same order as the build</b>. 1&harr;2 proves the service move changed nothing on Android; 2&harr;3 proves
+the platforms run the same process.</p>
+<div class="stop"><b>&#9888; THE RADIO EXCEPTION, from the code:</b> <code>GtIosCommConfig</code> takes
+<code>clientOf: () -&gt; RadioClient?</code> and its header says that is <b>&ldquo;always null on the
+simulator, which has no Bluetooth&rdquo;</b>. So every radio function reads NOT_CONNECTED on the sim whatever
+is built. <b>Radio surfaces certify 1&harr;2 on the droids; 2&harr;3 waits for the sideloaded iPad.</b>
+A <code>NotSupported</code> on the sim is not a port gap.</div>
+
+</body></html>

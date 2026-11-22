@@ -989,54 +989,10 @@ ConvoyDownloadActionReceiver.kt:21:    override fun onReceive(context: Context, 
 ConvoyDownloadActionReceiver.kt:25:                val entryId = intent.getStringExtra(EXTRA_ENTRY_ID) ?: return
 ConvoyDownloadActionReceiver.kt:30:                val queue = DownloadQueueManager.queue.value
 ConvoyDownloadActionReceiver.kt:31:                val cancellable = setOf(QueueStatus.DOWNLOADING, QueueStatus.QUEUED)
-RideStats.kt:11:object RideStats {
-RideStats.kt:14:    class Rx(val t: Long, val id: String, val name: String, val lat: Double?, val lon: Double?, val myLat: Double?, val myLon: Double?,
-RideStats.kt:15:             val snr: Float?, val rssi: Int?, val hops: Int?, val ch: Float?, val air: Float?)
-RideStats.kt:16:    private class Mine(val t: Long, val lat: Double, val lon: Double)
-RideStats.kt:18:    private val rx = ArrayList<Rx>()
-RideStats.kt:19:    private val mine = ArrayList<Mine>()
-RideStats.kt:20:    private var startMs = 0L
-RideStats.kt:24:    @Synchronized fun onHeard(m: com.grouptrack.comm.Member, myId: String?, myLat: Double?, myLon: Double?) {
-RideStats.kt:26:        val now = System.currentTimeMillis()
-RideStats.kt:35:    @Synchronized fun onMine(t: Long, lat: Double, lon: Double) {
-RideStats.kt:42:    @Synchronized fun reset() { rx.clear(); mine.clear(); estimates.clear(); startMs = 0L }
-RideStats.kt:44:    @Synchronized fun json(nowMs: Long): String {
-RideStats.kt:45:        fun org.json.JSONObject.p(k: String, v: Any?): org.json.JSONObject {
-RideStats.kt:49:        val o = org.json.JSONObject().p("format", "grouptrack-ride-stats-1").p("madeMs", nowMs).p("startMs", startMs)
-RideStats.kt:59:    private val estimates = ArrayList<LeadEstimate.Outcome>()
-RideStats.kt:60:    @Synchronized fun onEstimate(o: LeadEstimate.Outcome) { if (startMs == 0L) startMs = o.tMs; if (estimates.size < 5_000) estimates.add(o) }
-RideStats.kt:62:    private fun metres(aLat: Double, aLon: Double, bLat: Double, bLon: Double): Double {
-RideStats.kt:63:        val r = 6_371_000.0
-RideStats.kt:64:        val p1 = Math.toRadians(aLat); val p2 = Math.toRadians(bLat)
-RideStats.kt:65:        val dp = p2 - p1; val dl = Math.toRadians(bLon - aLon)
-RideStats.kt:66:        val h = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2)
-RideStats.kt:69:    private fun yd(m: Double): String = "%.0f yd (%.0f m)".format(m * 1.0936, m)
-RideStats.kt:70:    private fun hm(t: Long): String = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date(t))
-RideStats.kt:71:    private fun pt(lat: Double?, lon: Double?): String = if (lat == null || lon == null) "--" else "%.6f, %.6f".format(lat, lon)
-RideStats.kt:72:    private fun dist(x: Rx): Double? {
-RideStats.kt:73:        val a = x.lat; val b = x.lon; val c = x.myLat; val d = x.myLon
-RideStats.kt:76:    private fun <T : Comparable<T>> lowMedHigh(l: List<T>): Triple<T, T, T>? {
-RideStats.kt:78:        val s = l.sorted(); return Triple(s.first(), s[s.size / 2], s.last())
-RideStats.kt:81:    @Synchronized fun report(nowMs: Long, preset: String?, intervalSecs: Int?, avgChannel: Float): String {
-RideStats.kt:82:        val sb = StringBuilder()
-RideStats.kt:92:        val ids = rx.map { it.id }.distinct()
-RideStats.kt:95:            val r = rx.filter { it.id == id }
-RideStats.kt:97:            val first = r.first().t; val last = r.last().t
-RideStats.kt:98:            val mins = ((last - first) / 60_000L + 1).toInt()
-RideStats.kt:99:            val heardMins = r.map { (it.t - first) / 60_000L }.distinct().size
-RideStats.kt:105:            val dd = r.mapNotNull { x -> dist(x)?.let { Pair(x, it) } }
-RideStats.kt:107:                val far = dd.maxByOrNull { it.second }!!
-RideStats.kt:111:                val bands = listOf(0.0 to 100.0, 100.0 to 250.0, 250.0 to 500.0, 500.0 to 1000.0, 1000.0 to Double.MAX_VALUE)
-RideStats.kt:114:                    val n = dd.count { val y = it.second * 1.0936; y >= lo && y < hi }
-RideStats.kt:115:                    val label = if (hi == Double.MAX_VALUE) "over %.0f".format(lo) else "%.0f-%.0f".format(lo, hi)
-RideStats.kt:121:            val losses = ArrayList<String>()
-RideStats.kt:124:                val a = r[i - 1]; val b = r[i]
-RideStats.kt:126:                val dA = dist(a); val dB = dist(b)
-RideStats.kt:127:                val aLat = a.lat; val aLon = a.lon
-RideStats.kt:128:                val away = if (aLat != null && aLon != null)
-RideStats.kt:135:                val dL = dist(r.last())
-RideStats.kt:149:            val hops = r.mapNotNull { it.hops }.groupingBy { it }.eachCount().toSortedMap()
-RideStats.kt:151:            val ch = r.mapNotNull { it.ch }; val air = r.mapNotNull { it.air }
+RideStats.kt:23:object RideStatsJson {
+RideStats.kt:26:    fun json(nowMs: Long): String {
+RideStats.kt:27:        fun org.json.JSONObject.p(k: String, v: Any?): org.json.JSONObject {
+RideStats.kt:31:        val o = org.json.JSONObject().p("format", "grouptrack-ride-stats-1").p("madeMs", nowMs).p("startMs", RideStats.startedMs())
 TileCodec.kt:28:object TileCodec {
 TileCodec.kt:30:    private const val TAG = "TileCodec"
 TileCodec.kt:36:    fun encode(bytes: ByteArray, isOverlay: Boolean): ByteArray {
@@ -2467,172 +2423,172 @@ ConvoyViewModel.kt:773:        val lons = listOf(-71.2772086, -71.2792966, -71.2
 ConvoyViewModel.kt:775:        val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
 ConvoyViewModel.kt:776:        val p = com.grouptrack.comm.GapPolyline((myRadioNum() ?: 0).toString(), cs, System.currentTimeMillis() - 460_000L, 24_234L, lats, lons)
 ConvoyViewModel.kt:778:            val r = commMessaging.deliverPolyline(p)
-ConvoyViewModel.kt:788:    fun rideStatsReport(): String = RideStats.report(System.currentTimeMillis(), reportingPreset.value, reportingNowSecs.value, _avgChannelUtil.value)
-ConvoyViewModel.kt:789:    fun resetRideStats() = RideStats.reset()
-ConvoyViewModel.kt:796:        val pw = GpsPresets.label(preset)
-ConvoyViewModel.kt:802:            val progress = launch {
-ConvoyViewModel.kt:806:                val r = commConfig.applyRadioChange(preset, secs)
-ConvoyViewModel.kt:826:    fun removeNode(nodeId: String) {
-ConvoyViewModel.kt:829:        val current = _convoyState.value
-ConvoyViewModel.kt:835:    fun setMyCartId(nodeId: String) { _myCartId.value = nodeId }
-ConvoyViewModel.kt:836:    fun toggleLeadTrack() { _showLeadTrack.value = !_showLeadTrack.value }
-ConvoyViewModel.kt:837:    fun setShowLeadTrack(visible: Boolean) { _showLeadTrack.value = visible }
-ConvoyViewModel.kt:839:    private var gpsServiceConn: android.content.ServiceConnection? = null
-ConvoyViewModel.kt:840:    private val _distanceMiles = MutableStateFlow(0.0)
-ConvoyViewModel.kt:841:    val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
-ConvoyViewModel.kt:842:    private val _avgChannelUtil = MutableStateFlow(0f)
-ConvoyViewModel.kt:843:    val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
-ConvoyViewModel.kt:844:    private var gpsService: ConvoyGpsService? = null
-ConvoyViewModel.kt:845:    private var pendingTempFile: java.io.File? = null
-ConvoyViewModel.kt:847:    @Volatile private var lastGpsLon: Double? = null
-ConvoyViewModel.kt:849:    private fun bindGpsService(context: android.content.Context, onBound: (ConvoyGpsService) -> Unit) {
-ConvoyViewModel.kt:850:        val conn = object : android.content.ServiceConnection {
-ConvoyViewModel.kt:851:            override fun onServiceConnected(name: android.content.ComponentName, service: android.os.IBinder) {
-ConvoyViewModel.kt:852:                val svc = (service as ConvoyGpsService.LocalBinder).getService()
-ConvoyViewModel.kt:857:                    val add = ArrayList<ConvoyEngine.LeadTrackSegment>()
-ConvoyViewModel.kt:859:                        val pLat = lastGpsLat; val pLon = lastGpsLon
-ConvoyViewModel.kt:871:            override fun onServiceDisconnected(name: android.content.ComponentName) { gpsService = null }
-ConvoyViewModel.kt:874:        val intent = android.content.Intent(context, ConvoyGpsService::class.java)
-ConvoyViewModel.kt:878:    fun startRecording(context: android.content.Context) {
-ConvoyViewModel.kt:882:    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
-ConvoyViewModel.kt:887:    private var radioBeforeSleep = ""
-ConvoyViewModel.kt:888:    fun sleepRadio() {
-ConvoyViewModel.kt:893:    fun wakeRadio() {
-ConvoyViewModel.kt:894:        val r = radioBeforeSleep
-ConvoyViewModel.kt:898:    fun wakeFromSleep(context: android.content.Context) {
-ConvoyViewModel.kt:902:    fun resumeRecording(context: android.content.Context) {
-ConvoyViewModel.kt:907:    fun stopRecording() {
-ConvoyViewModel.kt:915:    fun deleteTempTrack() {
-ConvoyViewModel.kt:917:        val temp = pendingTempFile ?: return
-ConvoyViewModel.kt:927:    var pendingSurvey: ConvoyRideStore.RideSurveyInput? = null
-ConvoyViewModel.kt:929:    fun finalizeTrack(name: String, context: android.content.Context) {
-ConvoyViewModel.kt:930:        val temp = pendingTempFile ?: return
-ConvoyViewModel.kt:932:        val finalized = gpsService?.finalizeTrack(temp, name)
-ConvoyViewModel.kt:939:            val f = finalized ?: return
-ConvoyViewModel.kt:940:            var text = f.readText()
-ConvoyViewModel.kt:942:            val esc = name.trim()
-ConvoyViewModel.kt:946:            val coords = com.geeksville.mesh.convoy.SpatialDbManager.parseGpxTrackPoints(text)
-ConvoyViewModel.kt:949:            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-ConvoyViewModel.kt:950:            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-ConvoyViewModel.kt:958:            val outcome = com.geeksville.mesh.convoy.SpatialDbManager.resolveTrackAdd(name.trim(), f)
-ConvoyViewModel.kt:964:                    val tid = com.geeksville.mesh.convoy.SpatialDbManager.trackIdForGpxText(text)
-ConvoyViewModel.kt:976:    private val convoyLogFile: java.io.File by lazy {
-ConvoyViewModel.kt:981:    private fun convoyLog(msg: String) {
-ConvoyViewModel.kt:991:    private fun onMyTabletFix(lat: Double, lon: Double, loc: android.location.Location?) {
-ConvoyViewModel.kt:1000:    private fun onBoardMyFix(lat: Double, lon: Double, loc: android.location.Location?) {
-ConvoyViewModel.kt:1003:        val now = System.currentTimeMillis()
-ConvoyViewModel.kt:1009:        val everyMs = (reportingNowSecs.value ?: 6) * 1000L
-ConvoyViewModel.kt:1012:        val moved = lat != myFixLat || lon != myFixLon
-ConvoyViewModel.kt:1015:        val myNumNow = myRadioNum()
-ConvoyViewModel.kt:1018:            val myId = "!%08x".format(myNumNow)
-ConvoyViewModel.kt:1019:            val prevMine = boardCarts[myId]
-ConvoyViewModel.kt:1020:            val fixMs = loc?.time?.takeIf { it > 0L } ?: now
-ConvoyViewModel.kt:1021:            val msg = com.grouptrack.comm.CommMessage(
-ConvoyViewModel.kt:1037:        val alt = ((loc?.altitude ?: 0.0) * 3.28084).toInt()
-ConvoyViewModel.kt:1038:        val spd = (loc?.speed ?: 0f) * 2.23694f
-ConvoyViewModel.kt:1039:        val hdg = loc?.bearing ?: 0f
-ConvoyViewModel.kt:1040:        var cart = myTabletCart(lat, lon, alt, spd, hdg, loc, now)
-ConvoyViewModel.kt:1042:            val prevMe = boardCarts[cart.nodeId]
-ConvoyViewModel.kt:1053:    private fun boardRecompute(now: Long) {
-ConvoyViewModel.kt:1054:        val mine = resolveMyCartId()
-ConvoyViewModel.kt:1071:        val nodes = run {
-ConvoyViewModel.kt:1072:            val floorMs = now - admissionWindowHours * 3_600_000L
-ConvoyViewModel.kt:1077:            val members = runCatching { commMessaging.members() }.getOrNull().orEmpty()
-ConvoyViewModel.kt:1078:            val admitted = members.mapNotNull { m ->
-ConvoyViewModel.kt:1079:                val num = m.id.toLongOrNull()?.toInt() ?: return@mapNotNull null
-ConvoyViewModel.kt:1082:            val out = ArrayList<ConvoyNode>()
-ConvoyViewModel.kt:1087:                val existing = boardCarts[nodeId]
-ConvoyViewModel.kt:1108:        val reportedLeader = nodes.firstOrNull { it.rideRole == "leader" }?.nodeId
-ConvoyViewModel.kt:1124:        val positioned = nodes.filter { it.latitude != 0.0 || it.longitude != 0.0 }
-ConvoyViewModel.kt:1125:        val unpositioned = nodes.filter { it.latitude == 0.0 && it.longitude == 0.0 }
-ConvoyViewModel.kt:1132:            val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
-ConvoyViewModel.kt:1149:    private fun getPhoneLocation(): android.location.Location? {
-ConvoyViewModel.kt:1151:        val svcLat = gpsService?.lastLat
-ConvoyViewModel.kt:1152:        val svcLon = gpsService?.lastLon
-ConvoyViewModel.kt:1154:            val loc = android.location.Location("gps")
-ConvoyViewModel.kt:1160:        val live = livePhoneLocation
-ConvoyViewModel.kt:1166:            val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
-ConvoyViewModel.kt:1175:    private fun trackConsume(e: TrackEntry) {
-ConvoyViewModel.kt:1179:                val ok = leadCart.onGapPolyline(e.cartId, e.poly)
-ConvoyViewModel.kt:1202:                    val d = leadCart.metresFromTrack(e.p)
-ConvoyViewModel.kt:1203:                    val off = d != null && d > ConvoyConfig.OFF_TRACK_MILES.toDouble() * 1609.344
-ConvoyViewModel.kt:1204:                    val cur = _offTrackIds.value
-ConvoyViewModel.kt:1211:    private fun trackPublish() {
-ConvoyViewModel.kt:1212:        val segs = leadCart.segments()
-ConvoyViewModel.kt:1222:    private fun polyOnMessage(num: Int, myNum: Int?, msg: com.grouptrack.comm.CommMessage, now: Long) {
-ConvoyViewModel.kt:1225:            val p = msg.point ?: return
-ConvoyViewModel.kt:1230:        val last = polyLastHeardMs
-ConvoyViewModel.kt:1232:        val iLead = (checkIn.value?.role ?: "") == "leader" || "!%08x".format(myNum) == lockedLeadNodeId
-ConvoyViewModel.kt:1235:            val p = polyBuild(myNum, last, now) ?: return
-ConvoyViewModel.kt:1239:            val r = polyRepeat
-ConvoyViewModel.kt:1246:    private fun polyBuild(myNum: Int, t0: Long, t1: Long): com.grouptrack.comm.GapPolyline? {
-ConvoyViewModel.kt:1247:        val fx = polyOwnFixes.toList()
-ConvoyViewModel.kt:1248:        val inside = fx.count { it.first in t0..t1 }
-ConvoyViewModel.kt:1253:        val step = (t1 - t0) / 19
-ConvoyViewModel.kt:1254:        fun at(t: Long): Pair<Double, Double> {
-ConvoyViewModel.kt:1257:            val i = fx.indexOfFirst { it.first >= t }
-ConvoyViewModel.kt:1258:            val a = fx[i - 1]; val b = fx[i]
-ConvoyViewModel.kt:1259:            val f = if (b.first == a.first) 0.0 else (t - a.first).toDouble() / (b.first - a.first)
-ConvoyViewModel.kt:1262:        val pts = (0 until 20).map { at(t0 + it * step) }
-ConvoyViewModel.kt:1263:        val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
-ConvoyViewModel.kt:1266:    private fun polySend(p: com.grouptrack.comm.GapPolyline, what: String) {
-ConvoyViewModel.kt:1267:        val secs = p.stepMs * 19 / 1000
-ConvoyViewModel.kt:1269:            val r = commMessaging.deliverPolyline(p)
-ConvoyViewModel.kt:1277:    private fun onGapPolylineReceived(p: com.grouptrack.comm.GapPolyline) {
-ConvoyViewModel.kt:1278:        val num = p.senderUid.toIntOrNull() ?: return
-ConvoyViewModel.kt:1280:        val id = "!%08x".format(num)
-ConvoyViewModel.kt:1281:        val key = p.senderUid + "-" + p.t0Ms / 1000
-ConvoyViewModel.kt:1282:        val first = polyApplied.add(key)
-ConvoyViewModel.kt:1283:        val n = minOf(p.lats.size, p.lons.size)
-ConvoyViewModel.kt:1284:        val secs = p.stepMs * (n - 1) / 1000
-ConvoyViewModel.kt:1285:        val isLead = id == lockedLeadNodeId
-ConvoyViewModel.kt:1299:        val num = msg.uid.removePrefix("MESHTASTIC-!").toLongOrNull(16)?.toInt() ?: return
-ConvoyViewModel.kt:1300:        val myNum = myRadioNum()
-ConvoyViewModel.kt:1303:        val nowMine = System.currentTimeMillis()
-ConvoyViewModel.kt:1312:        val id = "!%08x".format(num)
-ConvoyViewModel.kt:1313:        val now = System.currentTimeMillis()
-ConvoyViewModel.kt:1316:        val skipMine = !fromTablet && num == myNum && tabletHasGps
-ConvoyViewModel.kt:1317:        val cart = if (skipMine) null else cartFromMessage(msg, num, now, myNum, getPhoneLocation(), { boardCarts[it] }, boardSpeedStart, boardSpeedLast)
-ConvoyViewModel.kt:1320:        val qp = msg.point
-ConvoyViewModel.kt:1326:        val rp = msg.point
-ConvoyViewModel.kt:1346:    private fun cartFromMember(nodeId: String, m: com.grouptrack.comm.Member): ConvoyNode = ConvoyNode(
-ConvoyViewModel.kt:1359:    private fun cartFromMessage(
-ConvoyViewModel.kt:1364:        val nodeId = "!%08x".format(num)
-ConvoyViewModel.kt:1366:        val p = msg.point
-ConvoyViewModel.kt:1367:        val prevPos = prev(nodeId)?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }?.let { Pair(it.latitude, it.longitude) }
-ConvoyViewModel.kt:1368:        val latLon: Pair<Double, Double> = if (p != null) {
-ConvoyViewModel.kt:1370:            val isStale = rideStartTimeMs > 0L && msg.timeMs > 0L && msg.timeMs < rideStartTimeMs
-ConvoyViewModel.kt:1380:            val windowStart = speedStart[nodeId]
-ConvoyViewModel.kt:1384:                val (startMs, startLat, startLon) = windowStart
-ConvoyViewModel.kt:1386:                    val speed = ConvoyEngine.haversineMiles(startLat, startLon, latLon.first, latLon.second) * 60f
-ConvoyViewModel.kt:1394:        val mine = num == myNum
-ConvoyViewModel.kt:1419:    private fun myTabletCart(lat: Double, lon: Double, alt: Int, spd: Float, hdg: Float, loc: android.location.Location?, nowMs: Long): ConvoyNode = ConvoyNode(
-ConvoyViewModel.kt:1437:    sealed class DownloadState {
-ConvoyViewModel.kt:1438:        object Idle : DownloadState()
-ConvoyViewModel.kt:1439:        data class Downloading(val downloaded: Int, val total: Int, val failCount: Int) : DownloadState()
-ConvoyViewModel.kt:1440:        data class Complete(val summary: DownloadSummary) : DownloadState()
-ConvoyViewModel.kt:1441:        object Cancelled : DownloadState()
-ConvoyViewModel.kt:1442:        data class Error(val message: String) : DownloadState()
-ConvoyViewModel.kt:1445:    data class PendingDownload(
-ConvoyViewModel.kt:1446:        val tileCount: Int, val sizeMB: Float, val withinCeiling: Boolean,
-ConvoyViewModel.kt:1447:        val north: Double, val south: Double, val east: Double, val west: Double,
-ConvoyViewModel.kt:1448:        val sourceName: String, val sourceUrl: String
-ConvoyViewModel.kt:1451:    private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
-ConvoyViewModel.kt:1452:    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
-ConvoyViewModel.kt:1453:    private val _pendingDownload = MutableStateFlow<PendingDownload?>(null)
-ConvoyViewModel.kt:1454:    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
-ConvoyViewModel.kt:1455:    private var activeEntryId: String? = null
-ConvoyViewModel.kt:1456:    var downloadStartTime: Long = 0L
-ConvoyViewModel.kt:1458:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
-ConvoyViewModel.kt:1459:    fun clearPendingDownload() { _pendingDownload.value = null }
-ConvoyViewModel.kt:1461:    fun startDownload(context: android.content.Context, pending: PendingDownload) {
-ConvoyViewModel.kt:1465:        val entry = DownloadQueueManager.enqueue(
-ConvoyViewModel.kt:1474:    private fun observeQueueEntry(entryId: String) {
-ConvoyViewModel.kt:1477:                val entry = entries.find { it.id == entryId } ?: return@collect
-ConvoyViewModel.kt:1484:                        val avgBytes = 15_360L
-ConvoyViewModel.kt:1485:                        val mb = (entry.downloadedTiles * avgBytes) / (1024f * 1024f)
-ConvoyViewModel.kt:1498:    fun cancelDownload() {
-ConvoyViewModel.kt:1507:    override fun onCleared() {
+ConvoyViewModel.kt:789:    fun rideStatsReport(): String = System.currentTimeMillis().let { now ->
+ConvoyViewModel.kt:792:    fun resetRideStats() = RideStats.reset()
+ConvoyViewModel.kt:799:        val pw = GpsPresets.label(preset)
+ConvoyViewModel.kt:805:            val progress = launch {
+ConvoyViewModel.kt:809:                val r = commConfig.applyRadioChange(preset, secs)
+ConvoyViewModel.kt:829:    fun removeNode(nodeId: String) {
+ConvoyViewModel.kt:832:        val current = _convoyState.value
+ConvoyViewModel.kt:838:    fun setMyCartId(nodeId: String) { _myCartId.value = nodeId }
+ConvoyViewModel.kt:839:    fun toggleLeadTrack() { _showLeadTrack.value = !_showLeadTrack.value }
+ConvoyViewModel.kt:840:    fun setShowLeadTrack(visible: Boolean) { _showLeadTrack.value = visible }
+ConvoyViewModel.kt:842:    private var gpsServiceConn: android.content.ServiceConnection? = null
+ConvoyViewModel.kt:843:    private val _distanceMiles = MutableStateFlow(0.0)
+ConvoyViewModel.kt:844:    val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
+ConvoyViewModel.kt:845:    private val _avgChannelUtil = MutableStateFlow(0f)
+ConvoyViewModel.kt:846:    val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
+ConvoyViewModel.kt:847:    private var gpsService: ConvoyGpsService? = null
+ConvoyViewModel.kt:848:    private var pendingTempFile: java.io.File? = null
+ConvoyViewModel.kt:850:    @Volatile private var lastGpsLon: Double? = null
+ConvoyViewModel.kt:852:    private fun bindGpsService(context: android.content.Context, onBound: (ConvoyGpsService) -> Unit) {
+ConvoyViewModel.kt:853:        val conn = object : android.content.ServiceConnection {
+ConvoyViewModel.kt:854:            override fun onServiceConnected(name: android.content.ComponentName, service: android.os.IBinder) {
+ConvoyViewModel.kt:855:                val svc = (service as ConvoyGpsService.LocalBinder).getService()
+ConvoyViewModel.kt:860:                    val add = ArrayList<ConvoyEngine.LeadTrackSegment>()
+ConvoyViewModel.kt:862:                        val pLat = lastGpsLat; val pLon = lastGpsLon
+ConvoyViewModel.kt:874:            override fun onServiceDisconnected(name: android.content.ComponentName) { gpsService = null }
+ConvoyViewModel.kt:877:        val intent = android.content.Intent(context, ConvoyGpsService::class.java)
+ConvoyViewModel.kt:881:    fun startRecording(context: android.content.Context) {
+ConvoyViewModel.kt:885:    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
+ConvoyViewModel.kt:890:    private var radioBeforeSleep = ""
+ConvoyViewModel.kt:891:    fun sleepRadio() {
+ConvoyViewModel.kt:896:    fun wakeRadio() {
+ConvoyViewModel.kt:897:        val r = radioBeforeSleep
+ConvoyViewModel.kt:901:    fun wakeFromSleep(context: android.content.Context) {
+ConvoyViewModel.kt:905:    fun resumeRecording(context: android.content.Context) {
+ConvoyViewModel.kt:910:    fun stopRecording() {
+ConvoyViewModel.kt:918:    fun deleteTempTrack() {
+ConvoyViewModel.kt:920:        val temp = pendingTempFile ?: return
+ConvoyViewModel.kt:930:    var pendingSurvey: ConvoyRideStore.RideSurveyInput? = null
+ConvoyViewModel.kt:932:    fun finalizeTrack(name: String, context: android.content.Context) {
+ConvoyViewModel.kt:933:        val temp = pendingTempFile ?: return
+ConvoyViewModel.kt:935:        val finalized = gpsService?.finalizeTrack(temp, name)
+ConvoyViewModel.kt:942:            val f = finalized ?: return
+ConvoyViewModel.kt:943:            var text = f.readText()
+ConvoyViewModel.kt:945:            val esc = name.trim()
+ConvoyViewModel.kt:949:            val coords = com.geeksville.mesh.convoy.SpatialDbManager.parseGpxTrackPoints(text)
+ConvoyViewModel.kt:952:            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+ConvoyViewModel.kt:953:            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+ConvoyViewModel.kt:961:            val outcome = com.geeksville.mesh.convoy.SpatialDbManager.resolveTrackAdd(name.trim(), f)
+ConvoyViewModel.kt:967:                    val tid = com.geeksville.mesh.convoy.SpatialDbManager.trackIdForGpxText(text)
+ConvoyViewModel.kt:979:    private val convoyLogFile: java.io.File by lazy {
+ConvoyViewModel.kt:984:    private fun convoyLog(msg: String) {
+ConvoyViewModel.kt:994:    private fun onMyTabletFix(lat: Double, lon: Double, loc: android.location.Location?) {
+ConvoyViewModel.kt:1003:    private fun onBoardMyFix(lat: Double, lon: Double, loc: android.location.Location?) {
+ConvoyViewModel.kt:1006:        val now = System.currentTimeMillis()
+ConvoyViewModel.kt:1012:        val everyMs = (reportingNowSecs.value ?: 6) * 1000L
+ConvoyViewModel.kt:1015:        val moved = lat != myFixLat || lon != myFixLon
+ConvoyViewModel.kt:1018:        val myNumNow = myRadioNum()
+ConvoyViewModel.kt:1021:            val myId = "!%08x".format(myNumNow)
+ConvoyViewModel.kt:1022:            val prevMine = boardCarts[myId]
+ConvoyViewModel.kt:1023:            val fixMs = loc?.time?.takeIf { it > 0L } ?: now
+ConvoyViewModel.kt:1024:            val msg = com.grouptrack.comm.CommMessage(
+ConvoyViewModel.kt:1040:        val alt = ((loc?.altitude ?: 0.0) * 3.28084).toInt()
+ConvoyViewModel.kt:1041:        val spd = (loc?.speed ?: 0f) * 2.23694f
+ConvoyViewModel.kt:1042:        val hdg = loc?.bearing ?: 0f
+ConvoyViewModel.kt:1043:        var cart = myTabletCart(lat, lon, alt, spd, hdg, loc, now)
+ConvoyViewModel.kt:1045:            val prevMe = boardCarts[cart.nodeId]
+ConvoyViewModel.kt:1056:    private fun boardRecompute(now: Long) {
+ConvoyViewModel.kt:1057:        val mine = resolveMyCartId()
+ConvoyViewModel.kt:1074:        val nodes = run {
+ConvoyViewModel.kt:1075:            val floorMs = now - admissionWindowHours * 3_600_000L
+ConvoyViewModel.kt:1080:            val members = runCatching { commMessaging.members() }.getOrNull().orEmpty()
+ConvoyViewModel.kt:1081:            val admitted = members.mapNotNull { m ->
+ConvoyViewModel.kt:1082:                val num = m.id.toLongOrNull()?.toInt() ?: return@mapNotNull null
+ConvoyViewModel.kt:1085:            val out = ArrayList<ConvoyNode>()
+ConvoyViewModel.kt:1090:                val existing = boardCarts[nodeId]
+ConvoyViewModel.kt:1111:        val reportedLeader = nodes.firstOrNull { it.rideRole == "leader" }?.nodeId
+ConvoyViewModel.kt:1127:        val positioned = nodes.filter { it.latitude != 0.0 || it.longitude != 0.0 }
+ConvoyViewModel.kt:1128:        val unpositioned = nodes.filter { it.latitude == 0.0 && it.longitude == 0.0 }
+ConvoyViewModel.kt:1135:            val sig = boardState.nodes.sortedBy { it.nodeId }.map { listOf<Any?>(it.nodeId, it.latitude, it.longitude, it.status, it.isLead, it.callsign, it.rideRole) }
+ConvoyViewModel.kt:1152:    private fun getPhoneLocation(): android.location.Location? {
+ConvoyViewModel.kt:1154:        val svcLat = gpsService?.lastLat
+ConvoyViewModel.kt:1155:        val svcLon = gpsService?.lastLon
+ConvoyViewModel.kt:1157:            val loc = android.location.Location("gps")
+ConvoyViewModel.kt:1163:        val live = livePhoneLocation
+ConvoyViewModel.kt:1169:            val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
+ConvoyViewModel.kt:1178:    private fun trackConsume(e: TrackEntry) {
+ConvoyViewModel.kt:1182:                val ok = leadCart.onGapPolyline(e.cartId, e.poly)
+ConvoyViewModel.kt:1205:                    val d = leadCart.metresFromTrack(e.p)
+ConvoyViewModel.kt:1206:                    val off = d != null && d > ConvoyConfig.OFF_TRACK_MILES.toDouble() * 1609.344
+ConvoyViewModel.kt:1207:                    val cur = _offTrackIds.value
+ConvoyViewModel.kt:1214:    private fun trackPublish() {
+ConvoyViewModel.kt:1215:        val segs = leadCart.segments()
+ConvoyViewModel.kt:1225:    private fun polyOnMessage(num: Int, myNum: Int?, msg: com.grouptrack.comm.CommMessage, now: Long) {
+ConvoyViewModel.kt:1228:            val p = msg.point ?: return
+ConvoyViewModel.kt:1233:        val last = polyLastHeardMs
+ConvoyViewModel.kt:1235:        val iLead = (checkIn.value?.role ?: "") == "leader" || "!%08x".format(myNum) == lockedLeadNodeId
+ConvoyViewModel.kt:1238:            val p = polyBuild(myNum, last, now) ?: return
+ConvoyViewModel.kt:1242:            val r = polyRepeat
+ConvoyViewModel.kt:1249:    private fun polyBuild(myNum: Int, t0: Long, t1: Long): com.grouptrack.comm.GapPolyline? {
+ConvoyViewModel.kt:1250:        val fx = polyOwnFixes.toList()
+ConvoyViewModel.kt:1251:        val inside = fx.count { it.first in t0..t1 }
+ConvoyViewModel.kt:1256:        val step = (t1 - t0) / 19
+ConvoyViewModel.kt:1257:        fun at(t: Long): Pair<Double, Double> {
+ConvoyViewModel.kt:1260:            val i = fx.indexOfFirst { it.first >= t }
+ConvoyViewModel.kt:1261:            val a = fx[i - 1]; val b = fx[i]
+ConvoyViewModel.kt:1262:            val f = if (b.first == a.first) 0.0 else (t - a.first).toDouble() / (b.first - a.first)
+ConvoyViewModel.kt:1265:        val pts = (0 until 20).map { at(t0 + it * step) }
+ConvoyViewModel.kt:1266:        val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
+ConvoyViewModel.kt:1269:    private fun polySend(p: com.grouptrack.comm.GapPolyline, what: String) {
+ConvoyViewModel.kt:1270:        val secs = p.stepMs * 19 / 1000
+ConvoyViewModel.kt:1272:            val r = commMessaging.deliverPolyline(p)
+ConvoyViewModel.kt:1280:    private fun onGapPolylineReceived(p: com.grouptrack.comm.GapPolyline) {
+ConvoyViewModel.kt:1281:        val num = p.senderUid.toIntOrNull() ?: return
+ConvoyViewModel.kt:1283:        val id = "!%08x".format(num)
+ConvoyViewModel.kt:1284:        val key = p.senderUid + "-" + p.t0Ms / 1000
+ConvoyViewModel.kt:1285:        val first = polyApplied.add(key)
+ConvoyViewModel.kt:1286:        val n = minOf(p.lats.size, p.lons.size)
+ConvoyViewModel.kt:1287:        val secs = p.stepMs * (n - 1) / 1000
+ConvoyViewModel.kt:1288:        val isLead = id == lockedLeadNodeId
+ConvoyViewModel.kt:1302:        val num = msg.uid.removePrefix("MESHTASTIC-!").toLongOrNull(16)?.toInt() ?: return
+ConvoyViewModel.kt:1303:        val myNum = myRadioNum()
+ConvoyViewModel.kt:1306:        val nowMine = System.currentTimeMillis()
+ConvoyViewModel.kt:1315:        val id = "!%08x".format(num)
+ConvoyViewModel.kt:1316:        val now = System.currentTimeMillis()
+ConvoyViewModel.kt:1319:        val skipMine = !fromTablet && num == myNum && tabletHasGps
+ConvoyViewModel.kt:1320:        val cart = if (skipMine) null else cartFromMessage(msg, num, now, myNum, getPhoneLocation(), { boardCarts[it] }, boardSpeedStart, boardSpeedLast)
+ConvoyViewModel.kt:1323:        val qp = msg.point
+ConvoyViewModel.kt:1329:        val rp = msg.point
+ConvoyViewModel.kt:1349:    private fun cartFromMember(nodeId: String, m: com.grouptrack.comm.Member): ConvoyNode = ConvoyNode(
+ConvoyViewModel.kt:1362:    private fun cartFromMessage(
+ConvoyViewModel.kt:1367:        val nodeId = "!%08x".format(num)
+ConvoyViewModel.kt:1369:        val p = msg.point
+ConvoyViewModel.kt:1370:        val prevPos = prev(nodeId)?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }?.let { Pair(it.latitude, it.longitude) }
+ConvoyViewModel.kt:1371:        val latLon: Pair<Double, Double> = if (p != null) {
+ConvoyViewModel.kt:1373:            val isStale = rideStartTimeMs > 0L && msg.timeMs > 0L && msg.timeMs < rideStartTimeMs
+ConvoyViewModel.kt:1383:            val windowStart = speedStart[nodeId]
+ConvoyViewModel.kt:1387:                val (startMs, startLat, startLon) = windowStart
+ConvoyViewModel.kt:1389:                    val speed = ConvoyEngine.haversineMiles(startLat, startLon, latLon.first, latLon.second) * 60f
+ConvoyViewModel.kt:1397:        val mine = num == myNum
+ConvoyViewModel.kt:1422:    private fun myTabletCart(lat: Double, lon: Double, alt: Int, spd: Float, hdg: Float, loc: android.location.Location?, nowMs: Long): ConvoyNode = ConvoyNode(
+ConvoyViewModel.kt:1440:    sealed class DownloadState {
+ConvoyViewModel.kt:1441:        object Idle : DownloadState()
+ConvoyViewModel.kt:1442:        data class Downloading(val downloaded: Int, val total: Int, val failCount: Int) : DownloadState()
+ConvoyViewModel.kt:1443:        data class Complete(val summary: DownloadSummary) : DownloadState()
+ConvoyViewModel.kt:1444:        object Cancelled : DownloadState()
+ConvoyViewModel.kt:1445:        data class Error(val message: String) : DownloadState()
+ConvoyViewModel.kt:1448:    data class PendingDownload(
+ConvoyViewModel.kt:1449:        val tileCount: Int, val sizeMB: Float, val withinCeiling: Boolean,
+ConvoyViewModel.kt:1450:        val north: Double, val south: Double, val east: Double, val west: Double,
+ConvoyViewModel.kt:1451:        val sourceName: String, val sourceUrl: String
+ConvoyViewModel.kt:1454:    private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
+ConvoyViewModel.kt:1455:    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
+ConvoyViewModel.kt:1456:    private val _pendingDownload = MutableStateFlow<PendingDownload?>(null)
+ConvoyViewModel.kt:1457:    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
+ConvoyViewModel.kt:1458:    private var activeEntryId: String? = null
+ConvoyViewModel.kt:1459:    var downloadStartTime: Long = 0L
+ConvoyViewModel.kt:1461:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
+ConvoyViewModel.kt:1462:    fun clearPendingDownload() { _pendingDownload.value = null }
+ConvoyViewModel.kt:1464:    fun startDownload(context: android.content.Context, pending: PendingDownload) {
+ConvoyViewModel.kt:1468:        val entry = DownloadQueueManager.enqueue(
+ConvoyViewModel.kt:1477:    private fun observeQueueEntry(entryId: String) {
+ConvoyViewModel.kt:1480:                val entry = entries.find { it.id == entryId } ?: return@collect
+ConvoyViewModel.kt:1487:                        val avgBytes = 15_360L
+ConvoyViewModel.kt:1488:                        val mb = (entry.downloadedTiles * avgBytes) / (1024f * 1024f)
+ConvoyViewModel.kt:1501:    fun cancelDownload() {
+ConvoyViewModel.kt:1510:    override fun onCleared() {
 ConvoyGpsService.kt:43:class ConvoyGpsService : Service() {
 ConvoyGpsService.kt:46:    inner class LocalBinder : Binder() {
 ConvoyGpsService.kt:47:        fun getService(): ConvoyGpsService = this@ConvoyGpsService
@@ -14411,8 +14367,24 @@ SHARED:config/GtConfigs.kt:387:        val safeDate = event.eventDate.replace("/
 SHARED:config/GtConfigs.kt:390:    fun save(event: GtEventConfig) {
 SHARED:config/GtConfigs.kt:391:        val file = eventsDir() / fileName(event)
 SHARED:config/GtConfigs.kt:395:    fun loadAll(): List<GtEventConfig> =
+SHARED:platform/GtAssetVersion.kt:8: * Fred 11-21 07:06, asking for this rather than the host-local var it replaced: "was the html item
+SHARED:platform/GtAssetVersion.kt:30:object GtAssetVersion {
+SHARED:platform/GtAssetVersion.kt:33:    const val NOT_REPORTED: String = "not reported"
+SHARED:platform/GtAssetVersion.kt:36:    const val MAP_HTML: String = "map_html"
+SHARED:platform/GtAssetVersion.kt:38:    private val lock = GtLock()
+SHARED:platform/GtAssetVersion.kt:39:    private val reported = mutableMapOf<String, String>()
+SHARED:platform/GtAssetVersion.kt:49:    fun report(asset: String, version: String) {
+SHARED:platform/GtAssetVersion.kt:50:        val clean = version.trim()
+SHARED:platform/GtAssetVersion.kt:57:    fun of(asset: String): String = lock.withLock { reported[asset] ?: NOT_REPORTED }
+SHARED:platform/GtAssetVersion.kt:60:    fun reportedAssets(): List<String> = lock.withLock { reported.keys.sorted() }
+SHARED:platform/GtAssetVersion.kt:63:    fun resetForTest() { lock.withLock { reported.clear() } }
+SHARED:platform/GtBluetoothSettings.kt:25:    fun open(): Boolean
+SHARED:platform/GtBluetoothSettings.kt:32:    val opensBluetoothDirectly: Boolean
 SHARED:platform/GtBuildInfo.kt:30:    fun appVersion(): String
 SHARED:platform/GtBuildInfo.kt:36:    fun device(): String
+SHARED:platform/GtReachability.kt:25:    fun online(): Boolean
+SHARED:platform/GtReachability.kt:31:    fun watch(onChange: (Boolean) -> Unit)
+SHARED:platform/GtReachability.kt:34:    fun stopWatching()
 SHARED:platform/GtScreenCapture.kt:29:    fun capture(fileName: String): String?
 SHARED:platform/GtScreenCapture.kt:36:    fun clear(): Int
 SHARED:ride/GtRides.kt:47:class RideMe(
@@ -14784,6 +14756,29 @@ SHARED:ride/GDateCert.kt:31:    fun toEpochDay(y: Int, m: Int, d: Int): String {
 SHARED:ride/GDateCert.kt:32:        val g = GDate.of(y, m, d) ?: return "ERR"
 SHARED:ride/GDateCert.kt:36:    fun ofEpochDay(e: Long): String {
 SHARED:ride/GDateCert.kt:41:    fun isBefore(a: String, b: String): String {
+SHARED:comm/GtRadioApply.kt:34:object GtRadioApply {
+SHARED:comm/GtRadioApply.kt:37:    const val NO_RADIO: String = "NO_RADIO"
+SHARED:comm/GtRadioApply.kt:40:    const val DEFAULT_ASSET: String = "grouptrack_default.json"
+SHARED:comm/GtRadioApply.kt:47:    fun configDoc(fs: RideFiles, fileName: String): String? {
+SHARED:comm/GtRadioApply.kt:48:        val path = fs.child(fs.ridesDir(), fileName)
+SHARED:comm/GtRadioApply.kt:58:    fun defaultConfigDoc(fs: RideFiles): String = fs.readAsset(DEFAULT_ASSET)
+SHARED:comm/GtRadioApply.kt:67:        val saveTitle: String
+SHARED:comm/GtRadioApply.kt:73:        data class Ride(
+SHARED:comm/GtRadioApply.kt:74:            val configDoc: String,
+SHARED:comm/GtRadioApply.kt:75:            val callsign: String,
+SHARED:comm/GtRadioApply.kt:76:            val title: String,
+SHARED:comm/GtRadioApply.kt:77:            override val saveTitle: String,
+SHARED:comm/GtRadioApply.kt:78:            val rideId: String?,
+SHARED:comm/GtRadioApply.kt:82:        data class Saved(
+SHARED:comm/GtRadioApply.kt:83:            val savedId: String,
+SHARED:comm/GtRadioApply.kt:84:            override val saveTitle: String,
+SHARED:comm/GtRadioApply.kt:93:    fun targetFromFile(
+SHARED:comm/GtRadioApply.kt:101:        val doc = configDoc(fs, fileName) ?: return null
+SHARED:comm/GtRadioApply.kt:110:    suspend fun write(config: CommConfig, target: Target): CommResult = when (target) {
+SHARED:comm/GtRadioApply.kt:122:    fun verified(result: CommResult): Boolean =
+SHARED:comm/GtRadioApply.kt:126:    fun noRadio(result: CommResult): Boolean =
+SHARED:comm/GtRadioApply.kt:144:    fun lastAppliedRide(config: CommConfig, nodeNum: Int?): Pair<String?, String>? {
+SHARED:comm/GtRadioApply.kt:146:        val best = config.appliedHistory(nodeNum.toString())
 SHARED:mapstate/GtMapState.kt:69:data class GtRow(val id: String, val name: String, val checked: Boolean)
 SHARED:mapstate/GtMapState.kt:70:data class GtTypeState(val state: Int, val rows: List<GtRow>)
 SHARED:mapstate/GtMapState.kt:71:data class GtPanelBoxes(
@@ -17561,32 +17556,33 @@ SHARED:log/GtLog.kt:14:fun gtLogger(tag: String): Logger = Logger(loggerConfigIn
 SHARED:artifact/GtArtifactFiles.kt:36:    fun saveToMapFeatures(fileName: String, text: String): String?
 SHARED:artifact/GtArtifactFiles.kt:44:    fun email(handle: String, fileName: String, subject: String, body: String): Boolean
 SHARED:artifact/GtArtifactFiles.kt:63:    fun emailAll(handles: List<String>, subject: String, body: String): Boolean
-SHARED:artifact/GtArtifactFiles.kt:67:fun interface GtTrackFileReader {
-SHARED:artifact/GtArtifactFiles.kt:68:    fun readTrackGpx(geomHash: String): String?
-SHARED:artifact/GtArtifactFiles.kt:71:sealed class GtArtifactResult {
-SHARED:artifact/GtArtifactFiles.kt:72:    data class Ok(val fileName: String, val handle: String) : GtArtifactResult()
-SHARED:artifact/GtArtifactFiles.kt:73:    data class Mailed(val fileName: String, val handle: String) : GtArtifactResult()
-SHARED:artifact/GtArtifactFiles.kt:74:    data class NoMailApp(val fileName: String, val handle: String) : GtArtifactResult()
-SHARED:artifact/GtArtifactFiles.kt:75:    data class Failed(val why: String) : GtArtifactResult()
-SHARED:artifact/GtArtifactFiles.kt:78:class GtArtifactFiles(
-SHARED:artifact/GtArtifactFiles.kt:79:    private val read: GtRead,
-SHARED:artifact/GtArtifactFiles.kt:80:    private val tracks: GtTrackFileReader,
-SHARED:artifact/GtArtifactFiles.kt:81:    private val sink: GtArtifactSink,
-SHARED:artifact/GtArtifactFiles.kt:83:    private val log = gtLogger("GtArtifactFiles")
-SHARED:artifact/GtArtifactFiles.kt:91:    fun safeGpxName(displayName: String): String {
-SHARED:artifact/GtArtifactFiles.kt:92:        val cleaned = displayName.trim().map { ch ->
-SHARED:artifact/GtArtifactFiles.kt:95:        val base = cleaned.ifBlank { "artifact" }
-SHARED:artifact/GtArtifactFiles.kt:104:    fun gpxFor(artifactType: String, artifactId: String): Pair<String, String>? = try {
-SHARED:artifact/GtArtifactFiles.kt:112:                val notes = read.routeNarrative(artifactId)
-SHARED:artifact/GtArtifactFiles.kt:113:                val headline = try {
-SHARED:artifact/GtArtifactFiles.kt:138:    fun export(artifactType: String, artifactId: String): GtArtifactResult {
-SHARED:artifact/GtArtifactFiles.kt:139:        val gpx = gpxFor(artifactType, artifactId)
-SHARED:artifact/GtArtifactFiles.kt:141:        val fileName = safeGpxName(gpx.first)
-SHARED:artifact/GtArtifactFiles.kt:142:        val handle = sink.saveToMapFeatures(fileName, gpx.second)
-SHARED:artifact/GtArtifactFiles.kt:149:    fun share(artifactType: String, artifactId: String): GtArtifactResult {
-SHARED:artifact/GtArtifactFiles.kt:150:        val done = export(artifactType, artifactId)
-SHARED:artifact/GtArtifactFiles.kt:152:        val subject = "GroupTrack " + artifactType.lowercase() + ": " + done.fileName
-SHARED:artifact/GtArtifactFiles.kt:153:        val body = "Attached: " + done.fileName + ", exported from GroupTrack OG.\n\n" +
+SHARED:artifact/GtArtifactFiles.kt:85:    fun emailText(subject: String, body: String): Boolean
+SHARED:artifact/GtArtifactFiles.kt:89:fun interface GtTrackFileReader {
+SHARED:artifact/GtArtifactFiles.kt:90:    fun readTrackGpx(geomHash: String): String?
+SHARED:artifact/GtArtifactFiles.kt:93:sealed class GtArtifactResult {
+SHARED:artifact/GtArtifactFiles.kt:94:    data class Ok(val fileName: String, val handle: String) : GtArtifactResult()
+SHARED:artifact/GtArtifactFiles.kt:95:    data class Mailed(val fileName: String, val handle: String) : GtArtifactResult()
+SHARED:artifact/GtArtifactFiles.kt:96:    data class NoMailApp(val fileName: String, val handle: String) : GtArtifactResult()
+SHARED:artifact/GtArtifactFiles.kt:97:    data class Failed(val why: String) : GtArtifactResult()
+SHARED:artifact/GtArtifactFiles.kt:100:class GtArtifactFiles(
+SHARED:artifact/GtArtifactFiles.kt:101:    private val read: GtRead,
+SHARED:artifact/GtArtifactFiles.kt:102:    private val tracks: GtTrackFileReader,
+SHARED:artifact/GtArtifactFiles.kt:103:    private val sink: GtArtifactSink,
+SHARED:artifact/GtArtifactFiles.kt:105:    private val log = gtLogger("GtArtifactFiles")
+SHARED:artifact/GtArtifactFiles.kt:113:    fun safeGpxName(displayName: String): String {
+SHARED:artifact/GtArtifactFiles.kt:114:        val cleaned = displayName.trim().map { ch ->
+SHARED:artifact/GtArtifactFiles.kt:117:        val base = cleaned.ifBlank { "artifact" }
+SHARED:artifact/GtArtifactFiles.kt:126:    fun gpxFor(artifactType: String, artifactId: String): Pair<String, String>? = try {
+SHARED:artifact/GtArtifactFiles.kt:134:                val notes = read.routeNarrative(artifactId)
+SHARED:artifact/GtArtifactFiles.kt:135:                val headline = try {
+SHARED:artifact/GtArtifactFiles.kt:160:    fun export(artifactType: String, artifactId: String): GtArtifactResult {
+SHARED:artifact/GtArtifactFiles.kt:161:        val gpx = gpxFor(artifactType, artifactId)
+SHARED:artifact/GtArtifactFiles.kt:163:        val fileName = safeGpxName(gpx.first)
+SHARED:artifact/GtArtifactFiles.kt:164:        val handle = sink.saveToMapFeatures(fileName, gpx.second)
+SHARED:artifact/GtArtifactFiles.kt:171:    fun share(artifactType: String, artifactId: String): GtArtifactResult {
+SHARED:artifact/GtArtifactFiles.kt:172:        val done = export(artifactType, artifactId)
+SHARED:artifact/GtArtifactFiles.kt:174:        val subject = "GroupTrack " + artifactType.lowercase() + ": " + done.fileName
+SHARED:artifact/GtArtifactFiles.kt:175:        val body = "Attached: " + done.fileName + ", exported from GroupTrack OG.\n\n" +
 SHARED:mbtiles/GtMBTiles.kt:17: * 2.7e holds `private val handles = HashMap<String, SQLiteDatabase>()`, @Synchronized, with an
 SHARED:mbtiles/GtMBTiles.kt:21: * class stateless and certifiable and is why `closeAll` being dead is convenient rather than awkward.
 SHARED:mbtiles/GtMBTiles.kt:36:class GtMBTiles(private val env: GtTileStoreEnv) {
@@ -18910,185 +18906,219 @@ SHARED-android:text/GtMath.android.kt:7:internal actual fun gtMathHypot(x: Doubl
 SHARED-android:text/GtMath.android.kt:10:internal actual fun gtMathAtan(x: Double): Double = java.lang.Math.atan(x)
 SHARED-android:text/GtMath.android.kt:11:internal actual fun gtMathSinh(x: Double): Double = java.lang.Math.sinh(x)
 SHARED-android:text/GtMath.android.kt:12:internal actual fun gtMathLn(x: Double): Double = java.lang.Math.log(x)
-SHARED-ios:ui/GtIosPanels.kt:111:object GtPanelChromeIos : GtPanelChrome {
-SHARED-ios:ui/GtIosPanels.kt:113:    private val log = gtLogger("GtChromeIos")
-SHARED-ios:ui/GtIosPanels.kt:122:    var opener: ((String) -> Unit)? = null
-SHARED-ios:ui/GtIosPanels.kt:142:    override fun openHelp(id: String) {
-SHARED-ios:ui/GtIosPanels.kt:144:        val link = GtHelpLinks.linkFor(id)
-SHARED-ios:ui/GtIosPanels.kt:145:        val open = opener
-SHARED-ios:ui/GtIosPanels.kt:161:    override fun IssueButton(id: String, color: Color) {
-SHARED-ios:ui/GtIosPanels.kt:176:    override fun IssueHost() {
-SHARED-ios:ui/GtIosPanels.kt:239:    override fun UtahPrivatePanel() {
-SHARED-ios:ui/GtIosPanels.kt:244:    override fun QueueSummary(onOpen: () -> Unit, modifier: Modifier) {
-SHARED-ios:ui/GtIosPanels.kt:250:    override fun DownloadSettingsPanel() {
-SHARED-ios:ui/GtIosPanels.kt:275:private object IosStates {
-SHARED-ios:ui/GtIosPanels.kt:276:    private val log = gtLogger("IosStates")
-SHARED-ios:ui/GtIosPanels.kt:277:    private var cached: List<GeofabrikState>? = null
-SHARED-ios:ui/GtIosPanels.kt:278:    fun get(): List<GeofabrikState> {
-SHARED-ios:ui/GtIosPanels.kt:280:        val v = try {
-SHARED-ios:ui/GtIosPanels.kt:292:private object IosSearchDb {
-SHARED-ios:ui/GtIosPanels.kt:294:    private val log = gtLogger("GtIosSearch")
-SHARED-ios:ui/GtIosPanels.kt:295:    private val lock = Mutex()
-SHARED-ios:ui/GtIosPanels.kt:296:    private var read: GtRead? = null
-SHARED-ios:ui/GtIosPanels.kt:297:    private var opened = false
-SHARED-ios:ui/GtIosPanels.kt:299:    private fun reader(): GtRead? {
-SHARED-ios:ui/GtIosPanels.kt:303:                val root = iosStorage().root().toString()
-SHARED-ios:ui/GtIosPanels.kt:313:                val data = try {
-SHARED-ios:ui/GtIosPanels.kt:344:    fun detail(type: String, id: String): LinkedHashMap<String, String?> =
-SHARED-ios:ui/GtIosPanels.kt:347:    fun aliases(type: String, id: String): List<Map<String, String?>> =
-SHARED-ios:ui/GtIosPanels.kt:352:    fun bbox(type: String, id: String): DoubleArray? = reader()?.bboxForArtifact(type, id)
-SHARED-ios:ui/GtIosPanels.kt:355:    fun typeFor(id: String): String = reader()?.typeNameForId(id) ?: ""
-SHARED-ios:ui/GtIosPanels.kt:365:    fun listInView(table: String, s: Double, w: Double, n: Double, e: Double): List<Map<String, String?>> =
-SHARED-ios:ui/GtIosPanels.kt:369:    fun narrative(routeId: String) = reader()?.routeNarrative(routeId)
-SHARED-ios:ui/GtIosPanels.kt:373:    fun routeNameExists(name: String): Boolean {
-SHARED-ios:ui/GtIosPanels.kt:374:        val n = name.trim()
-SHARED-ios:ui/GtIosPanels.kt:381:    suspend fun searchByName(type: String, term: String): List<Map<String, String?>> =
-SHARED-ios:ui/GtIosPanels.kt:420: * and GtRead.routeUsingTrailhead :173 carries the trailhead guard. This object only opens the
-SHARED-ios:ui/GtIosPanels.kt:423:private object IosWriteDb {
-SHARED-ios:ui/GtIosPanels.kt:424:    private val log = gtLogger("GtIosWrite")
-SHARED-ios:ui/GtIosPanels.kt:425:    private var spatial: androidx.sqlite.SQLiteConnection? = null
-SHARED-ios:ui/GtIosPanels.kt:426:    private var data: androidx.sqlite.SQLiteConnection? = null
-SHARED-ios:ui/GtIosPanels.kt:427:    private var tried = false
-SHARED-ios:ui/GtIosPanels.kt:429:    private fun open() {
-SHARED-ios:ui/GtIosPanels.kt:433:            val root = iosStorage().root().toString()
-SHARED-ios:ui/GtIosPanels.kt:444:    fun writer(): GtWrite? {
-SHARED-ios:ui/GtIosPanels.kt:446:        val s = spatial ?: return null
-SHARED-ios:ui/GtIosPanels.kt:451:    fun reader(): GtRead? { open(); val s = spatial ?: return null; return GtRead(s, data) }
-SHARED-ios:ui/GtIosPanels.kt:453:    val artifacts: GtArtifactFiles? by lazy {
-SHARED-ios:ui/GtIosPanels.kt:454:        val r = reader() ?: return@lazy null
-SHARED-ios:ui/GtIosPanels.kt:462: * An OBJECT, like Android's: the chrome that draws the control is an object too, and a report must
-SHARED-ios:ui/GtIosPanels.kt:465:private object IosIssue {
-SHARED-ios:ui/GtIosPanels.kt:466:    private val log = gtLogger("GtIosIssue")
-SHARED-ios:ui/GtIosPanels.kt:467:    private val capture = IosScreenCapture()
-SHARED-ios:ui/GtIosPanels.kt:468:    private val sink = IosArtifactSink()
-SHARED-ios:ui/GtIosPanels.kt:471:    val open = mutableStateOf(false)
-SHARED-ios:ui/GtIosPanels.kt:473:    val nextPending = mutableStateOf(false)
-SHARED-ios:ui/GtIosPanels.kt:474:    val note = mutableStateOf("")
-SHARED-ios:ui/GtIosPanels.kt:475:    var function = ""
-SHARED-ios:ui/GtIosPanels.kt:477:    private var stamp = ""
-SHARED-ios:ui/GtIosPanels.kt:478:    private val shots = ArrayList<String>()
-SHARED-ios:ui/GtIosPanels.kt:480:    fun shotCount(): Int = shots.size
-SHARED-ios:ui/GtIosPanels.kt:483:    private fun stampNow(): String {
-SHARED-ios:ui/GtIosPanels.kt:484:        val t = IosClock.localNow()
-SHARED-ios:ui/GtIosPanels.kt:485:        fun p(n: Int, w: Int = 2): String = n.toString().padStart(w, '0')
-SHARED-ios:ui/GtIosPanels.kt:490:    fun start(fid: String) {
-SHARED-ios:ui/GtIosPanels.kt:500:    fun captureNext() {
-SHARED-ios:ui/GtIosPanels.kt:506:    private fun shoot() {
-SHARED-ios:ui/GtIosPanels.kt:507:        val name = "issue_" + stamp + "_" + (shots.size + 1) + ".jpg"
-SHARED-ios:ui/GtIosPanels.kt:508:        val h = capture.capture(name)
-SHARED-ios:ui/GtIosPanels.kt:514:    private fun details(): String {
-SHARED-ios:ui/GtIosPanels.kt:515:        val b = IosBuildInfo()
-SHARED-ios:ui/GtIosPanels.kt:516:        val mode = if (GtGroupMode.on.value) "Group" else "My device"
-SHARED-ios:ui/GtIosPanels.kt:527:    fun finish() {
-SHARED-ios:ui/GtIosPanels.kt:528:        val text = details()
-SHARED-ios:ui/GtIosPanels.kt:531:        val txt = capture.let { _ ->
-SHARED-ios:ui/GtIosPanels.kt:532:            val p = IosArtifactSink().saveToMapFeatures("issue_" + stamp + ".txt", text)
-SHARED-ios:ui/GtIosPanels.kt:539:            val handles = ArrayList<String>(shots)
-SHARED-ios:ui/GtIosPanels.kt:543:            val subject = "GroupTrack issue \u00b7 " + function + " \u00b7 " + IosBuildInfo().appVersion()
-SHARED-ios:ui/GtIosPanels.kt:544:            val body = subject + "\nTo: " + ISSUE_TO + "\n\n" + text
-SHARED-ios:ui/GtIosPanels.kt:545:            val ok = sink.emailAll(handles, subject, body)
-SHARED-ios:ui/GtIosPanels.kt:554:    fun cancel() {
-SHARED-ios:ui/GtIosPanels.kt:561:private const val ISSUE_TO = "support@grouptrack.org"
-SHARED-ios:ui/GtIosPanels.kt:563:private object IosProfile {
-SHARED-ios:ui/GtIosPanels.kt:564:    private val log = gtLogger("GtIosProfile")
-SHARED-ios:ui/GtIosPanels.kt:565:    private var conn: androidx.sqlite.SQLiteConnection? = null
-SHARED-ios:ui/GtIosPanels.kt:566:    private var tried = false
-SHARED-ios:ui/GtIosPanels.kt:568:    private fun db(): androidx.sqlite.SQLiteConnection? {
-SHARED-ios:ui/GtIosPanels.kt:581:    val store = GtProfileStore(
-SHARED-ios:ui/GtIosPanels.kt:595:private fun IosDocView(key: String, onClose: () -> Unit) {
-SHARED-ios:ui/GtIosPanels.kt:603:                val asset = docsAssetFor(key.substringBefore("#"))
-SHARED-ios:ui/GtIosPanels.kt:604:                val path = if (asset == null) null else iosBundleAssetPath(asset)
-SHARED-ios:ui/GtIosPanels.kt:617:                                val web = WKWebView(
-SHARED-ios:ui/GtIosPanels.kt:621:                                val u = NSURL.fileURLWithPath(path)
-SHARED-ios:ui/GtIosPanels.kt:641:fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
-SHARED-ios:ui/GtIosPanels.kt:657:    val web = remember { mutableStateOf<WKWebView?>(null) }
-SHARED-ios:ui/GtIosPanels.kt:660:    val offline = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:661:    fun js(script: String) { web.value?.evaluateJavaScript(script, null) }
-SHARED-ios:ui/GtIosPanels.kt:665:    val viewportJs = "try{var b=map.getBounds();Android.onViewportChanged(" +
-SHARED-ios:ui/GtIosPanels.kt:669:    val centre = remember { mutableStateOf(doubleArrayOf(0.0, 0.0)) }
-SHARED-ios:ui/GtIosPanels.kt:674:    val zoom = remember { mutableIntStateOf(0) }
-SHARED-ios:ui/GtIosPanels.kt:687:    val group = remember {
-SHARED-ios:ui/GtIosPanels.kt:695:    val commScope = rememberCoroutineScope()
-SHARED-ios:ui/GtIosPanels.kt:696:    val comm = remember { com.grouptrack.shared.comm.GtIosCommLink(commScope) }
-SHARED-ios:ui/GtIosPanels.kt:708:    val grpAskActivate = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:712:    val notesRouteId = remember { mutableStateOf("") }
-SHARED-ios:ui/GtIosPanels.kt:719:    val bounds = remember { mutableStateOf<DoubleArray?>(null) }
-SHARED-ios:ui/GtIosPanels.kt:720:    val artifactList = remember { mutableStateOf<List<Map<String, String?>>>(emptyList()) }
-SHARED-ios:ui/GtIosPanels.kt:721:    val selectedIds = remember { mutableStateOf<Set<String>>(emptySet()) }
-SHARED-ios:ui/GtIosPanels.kt:722:    val activeListType = remember { mutableStateOf("") }
-SHARED-ios:ui/GtIosPanels.kt:726:    val checkedIds = remember { mutableStateOf<Map<String, Set<String>?>>(emptyMap()) }
-SHARED-ios:ui/GtIosPanels.kt:730:    val profileOpen = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:733:    val helpOpen = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:734:    val docView = remember { mutableStateOf("") }
-SHARED-ios:ui/GtIosPanels.kt:747:    val rideSettings = remember {
-SHARED-ios:ui/GtIosPanels.kt:749:            val d = IosClock.localNow()
-SHARED-ios:ui/GtIosPanels.kt:753:    val settingsOpen = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:757:    val creditsOpen = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:761:    val trailClearAsk = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:762:    val trailClearBusy = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:763:    val trailClearDone = remember { mutableStateOf<String?>(null) }
-SHARED-ios:ui/GtIosPanels.kt:764:    val trailClearScope = rememberCoroutineScope()
-SHARED-ios:ui/GtIosPanels.kt:771:    val issueEmail = remember {
-SHARED-ios:ui/GtIosPanels.kt:777:    val showLeadTrack = remember { mutableStateOf(true) }
-SHARED-ios:ui/GtIosPanels.kt:779:    val recState = remember { mutableStateOf(RecordingState.CHECK_IN) }
-SHARED-ios:ui/GtIosPanels.kt:780:    val recMenu = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:784:    val detailType = remember { mutableStateOf("") }
-SHARED-ios:ui/GtIosPanels.kt:785:    val detailId = remember { mutableStateOf("") }
-SHARED-ios:ui/GtIosPanels.kt:789:    val hudOnDark = remember { mutableStateOf(true) }
-SHARED-ios:ui/GtIosPanels.kt:790:    val radioConnected = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:791:    val radioTalking = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:792:    val tilt = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:793:    val headingUp = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:796:    val trails = remember { mutableIntStateOf(1) }
-SHARED-ios:ui/GtIosPanels.kt:797:    val tracks = remember { mutableIntStateOf(1) }
-SHARED-ios:ui/GtIosPanels.kt:798:    val routes = remember { mutableIntStateOf(1) }
-SHARED-ios:ui/GtIosPanels.kt:799:    val waypoints = remember { mutableIntStateOf(1) }
-SHARED-ios:ui/GtIosPanels.kt:800:    val hidden = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:801:    val offAvailable = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:802:    val offDownloading = remember { mutableStateOf(false) }
-SHARED-ios:ui/GtIosPanels.kt:804:    fun slot(t: String) = when (t) {
-SHARED-ios:ui/GtIosPanels.kt:826:    val fitArtifact: (String, String, DoubleArray?) -> Unit = { typeIn, artifactId, fallback ->
-SHARED-ios:ui/GtIosPanels.kt:827:        val type = IosSearchDb.typeFor(artifactId).ifEmpty { typeIn }
-SHARED-ios:ui/GtIosPanels.kt:834:        val bb = IosSearchDb.bbox(type, artifactId)
-SHARED-ios:ui/GtIosPanels.kt:835:        val s0 = bb?.get(0) ?: fallback?.get(0)
-SHARED-ios:ui/GtIosPanels.kt:836:        val w0 = bb?.get(1) ?: fallback?.get(1)
-SHARED-ios:ui/GtIosPanels.kt:837:        val n0 = bb?.get(2) ?: fallback?.get(2)
-SHARED-ios:ui/GtIosPanels.kt:838:        val e0 = bb?.get(3) ?: fallback?.get(3)
-SHARED-ios:ui/GtIosPanels.kt:840:            val latPad = (n0 - s0).let { if (it > 0.0) it * 0.10 else 0.01 }
-SHARED-ios:ui/GtIosPanels.kt:841:            val lonPad = (e0 - w0).let { if (it > 0.0) it * 0.10 else 0.01 }
-SHARED-ios:ui/GtIosPanels.kt:854:    val relay: (String, String) -> Unit = { name, args ->
-SHARED-ios:ui/GtIosPanels.kt:856:            val v = args.trim().removePrefix("[").removeSuffix("]")
-SHARED-ios:ui/GtIosPanels.kt:870:            val id = args.trim().removePrefix("[").removeSuffix("]").trim().trim('"')
-SHARED-ios:ui/GtIosPanels.kt:898:    val filter = GtFilterBridge(
-SHARED-ios:ui/GtIosPanels.kt:908:                val table = when (typeName) {
-SHARED-ios:ui/GtIosPanels.kt:911:                val b = bounds.value
-SHARED-ios:ui/GtIosPanels.kt:915:                    val list = IosSearchDb.listInView(table, b[0], b[1], b[2], b[3])
-SHARED-ios:ui/GtIosPanels.kt:926:                        val cur = slot(typeName).intValue
-SHARED-ios:ui/GtIosPanels.kt:927:                        val saved = checkedIds.value[typeName]
-SHARED-ios:ui/GtIosPanels.kt:950:    val search = GtSearchBridge(
-SHARED-ios:ui/GtIosPanels.kt:963:            val s0 = r.minLat; val n0 = r.maxLat; val w0 = r.minLon; val e0 = r.maxLon
-SHARED-ios:ui/GtIosPanels.kt:964:            val fallback = if (s0 != null && n0 != null && w0 != null && e0 != null)
-SHARED-ios:ui/GtIosPanels.kt:996:    val actions = mapOf<String, () -> Unit>(
-SHARED-ios:ui/GtIosPanels.kt:1042:                val rs = comm.listRadios()
-SHARED-ios:ui/GtIosPanels.kt:1061:                val next = !group.value
-SHARED-ios:ui/GtIosPanels.kt:1085:                val h = comm.health.value
-SHARED-ios:ui/GtIosPanels.kt:1103:            val h = GtIosLocation.here()
-SHARED-ios:ui/GtIosPanels.kt:1149:            val lamp = GtIosLocation.lamp()
-SHARED-ios:ui/GtIosPanels.kt:1263:                onOpen = { onMessage("gps", "the GPS interval panel is not built on the iPad yet") },
-SHARED-ios:ui/GtIosPanels.kt:1344:                        val notBuilt: (String, String) -> Unit = { what, why ->
-SHARED-ios:ui/GtIosPanels.kt:1380:                                val ty = detailType.value
-SHARED-ios:ui/GtIosPanels.kt:1381:                                val w = IosWriteDb.writer()
-SHARED-ios:ui/GtIosPanels.kt:1387:                                    val blockedBy = if (ty == "Waypoints") IosWriteDb.reader()?.routeUsingTrailhead(aid) else null
-SHARED-ios:ui/GtIosPanels.kt:1412:                                val w = IosWriteDb.writer()
-SHARED-ios:ui/GtIosPanels.kt:1420:                                val svc = IosWriteDb.artifacts
-SHARED-ios:ui/GtIosPanels.kt:1422:                                else when (val r = svc.share(detailType.value, aid)) {
-SHARED-ios:ui/GtIosPanels.kt:1430:                                val svc = IosWriteDb.artifacts
-SHARED-ios:ui/GtIosPanels.kt:1432:                                else when (val r = svc.export(detailType.value, aid)) {
-SHARED-ios:ui/GtIosPanels.kt:1555:                    val rid = notesRouteId.value
-SHARED-ios:ui/GtIosPanels.kt:1558:                            val nm = IosSearchDb.detail("Routes", rid)["name"]
-SHARED-ios:ui/GtIosPanels.kt:1559:                            val also = IosSearchDb.aliases("route", rid).mapNotNull { it["alias"] }.filter { it != nm }
-SHARED-ios:ui/GtIosPanels.kt:1585:                                val r = withContext(Dispatchers.Default) {
-SHARED-ios:ui/GtIosPanels.kt:1683:fun gtGroupTrackController(onMessage: (String, String) -> Unit): UIViewController =
+SHARED-ios:ui/GtIosPanels.kt:126:object GtPanelChromeIos : GtPanelChrome {
+SHARED-ios:ui/GtIosPanels.kt:128:    private val log = gtLogger("GtChromeIos")
+SHARED-ios:ui/GtIosPanels.kt:137:    var opener: ((String) -> Unit)? = null
+SHARED-ios:ui/GtIosPanels.kt:157:    override fun openHelp(id: String) {
+SHARED-ios:ui/GtIosPanels.kt:159:        val link = GtHelpLinks.linkFor(id)
+SHARED-ios:ui/GtIosPanels.kt:160:        val open = opener
+SHARED-ios:ui/GtIosPanels.kt:176:    override fun IssueButton(id: String, color: Color) {
+SHARED-ios:ui/GtIosPanels.kt:191:    override fun IssueHost() {
+SHARED-ios:ui/GtIosPanels.kt:254:    override fun UtahPrivatePanel() {
+SHARED-ios:ui/GtIosPanels.kt:259:    override fun QueueSummary(onOpen: () -> Unit, modifier: Modifier) {
+SHARED-ios:ui/GtIosPanels.kt:265:    override fun DownloadSettingsPanel() {
+SHARED-ios:ui/GtIosPanels.kt:290:private object IosStates {
+SHARED-ios:ui/GtIosPanels.kt:291:    private val log = gtLogger("IosStates")
+SHARED-ios:ui/GtIosPanels.kt:292:    private var cached: List<GeofabrikState>? = null
+SHARED-ios:ui/GtIosPanels.kt:293:    fun get(): List<GeofabrikState> {
+SHARED-ios:ui/GtIosPanels.kt:295:        val v = try {
+SHARED-ios:ui/GtIosPanels.kt:307:private object IosSearchDb {
+SHARED-ios:ui/GtIosPanels.kt:309:    private val log = gtLogger("GtIosSearch")
+SHARED-ios:ui/GtIosPanels.kt:310:    private val lock = Mutex()
+SHARED-ios:ui/GtIosPanels.kt:311:    private var read: GtRead? = null
+SHARED-ios:ui/GtIosPanels.kt:312:    private var opened = false
+SHARED-ios:ui/GtIosPanels.kt:314:    private fun reader(): GtRead? {
+SHARED-ios:ui/GtIosPanels.kt:318:                val root = iosStorage().root().toString()
+SHARED-ios:ui/GtIosPanels.kt:328:                val data = try {
+SHARED-ios:ui/GtIosPanels.kt:359:    fun detail(type: String, id: String): LinkedHashMap<String, String?> =
+SHARED-ios:ui/GtIosPanels.kt:362:    fun aliases(type: String, id: String): List<Map<String, String?>> =
+SHARED-ios:ui/GtIosPanels.kt:367:    fun bbox(type: String, id: String): DoubleArray? = reader()?.bboxForArtifact(type, id)
+SHARED-ios:ui/GtIosPanels.kt:370:    fun typeFor(id: String): String = reader()?.typeNameForId(id) ?: ""
+SHARED-ios:ui/GtIosPanels.kt:380:    fun listInView(table: String, s: Double, w: Double, n: Double, e: Double): List<Map<String, String?>> =
+SHARED-ios:ui/GtIosPanels.kt:384:    fun narrative(routeId: String) = reader()?.routeNarrative(routeId)
+SHARED-ios:ui/GtIosPanels.kt:388:    fun routeNameExists(name: String): Boolean {
+SHARED-ios:ui/GtIosPanels.kt:389:        val n = name.trim()
+SHARED-ios:ui/GtIosPanels.kt:396:    suspend fun searchByName(type: String, term: String): List<Map<String, String?>> =
+SHARED-ios:ui/GtIosPanels.kt:435: * and GtRead.routeUsingTrailhead :173 carries the trailhead guard. This object only opens the
+SHARED-ios:ui/GtIosPanels.kt:438:private object IosWriteDb {
+SHARED-ios:ui/GtIosPanels.kt:439:    private val log = gtLogger("GtIosWrite")
+SHARED-ios:ui/GtIosPanels.kt:440:    private var spatial: androidx.sqlite.SQLiteConnection? = null
+SHARED-ios:ui/GtIosPanels.kt:441:    private var data: androidx.sqlite.SQLiteConnection? = null
+SHARED-ios:ui/GtIosPanels.kt:442:    private var tried = false
+SHARED-ios:ui/GtIosPanels.kt:444:    private fun open() {
+SHARED-ios:ui/GtIosPanels.kt:448:            val root = iosStorage().root().toString()
+SHARED-ios:ui/GtIosPanels.kt:459:    fun writer(): GtWrite? {
+SHARED-ios:ui/GtIosPanels.kt:461:        val s = spatial ?: return null
+SHARED-ios:ui/GtIosPanels.kt:466:    fun reader(): GtRead? { open(); val s = spatial ?: return null; return GtRead(s, data) }
+SHARED-ios:ui/GtIosPanels.kt:474:    fun conns(): Pair<androidx.sqlite.SQLiteConnection, androidx.sqlite.SQLiteConnection?>? {
+SHARED-ios:ui/GtIosPanels.kt:476:        val s = spatial ?: return null
+SHARED-ios:ui/GtIosPanels.kt:480:    val artifacts: GtArtifactFiles? by lazy {
+SHARED-ios:ui/GtIosPanels.kt:481:        val r = reader() ?: return@lazy null
+SHARED-ios:ui/GtIosPanels.kt:489: * An OBJECT, like Android's: the chrome that draws the control is an object too, and a report must
+SHARED-ios:ui/GtIosPanels.kt:492:private object IosIssue {
+SHARED-ios:ui/GtIosPanels.kt:493:    private val log = gtLogger("GtIosIssue")
+SHARED-ios:ui/GtIosPanels.kt:494:    private val capture = IosScreenCapture()
+SHARED-ios:ui/GtIosPanels.kt:495:    private val sink = IosArtifactSink()
+SHARED-ios:ui/GtIosPanels.kt:498:    val open = mutableStateOf(false)
+SHARED-ios:ui/GtIosPanels.kt:500:    val nextPending = mutableStateOf(false)
+SHARED-ios:ui/GtIosPanels.kt:501:    val note = mutableStateOf("")
+SHARED-ios:ui/GtIosPanels.kt:502:    var function = ""
+SHARED-ios:ui/GtIosPanels.kt:504:    private var stamp = ""
+SHARED-ios:ui/GtIosPanels.kt:505:    private val shots = ArrayList<String>()
+SHARED-ios:ui/GtIosPanels.kt:507:    fun shotCount(): Int = shots.size
+SHARED-ios:ui/GtIosPanels.kt:510:    private fun stampNow(): String {
+SHARED-ios:ui/GtIosPanels.kt:511:        val t = IosClock.localNow()
+SHARED-ios:ui/GtIosPanels.kt:512:        fun p(n: Int, w: Int = 2): String = n.toString().padStart(w, '0')
+SHARED-ios:ui/GtIosPanels.kt:517:    fun start(fid: String) {
+SHARED-ios:ui/GtIosPanels.kt:527:    fun captureNext() {
+SHARED-ios:ui/GtIosPanels.kt:533:    private fun shoot() {
+SHARED-ios:ui/GtIosPanels.kt:534:        val name = "issue_" + stamp + "_" + (shots.size + 1) + ".jpg"
+SHARED-ios:ui/GtIosPanels.kt:535:        val h = capture.capture(name)
+SHARED-ios:ui/GtIosPanels.kt:541:    private fun details(): String {
+SHARED-ios:ui/GtIosPanels.kt:542:        val b = IosBuildInfo()
+SHARED-ios:ui/GtIosPanels.kt:543:        val mode = if (GtGroupMode.on.value) "Group" else "My device"
+SHARED-ios:ui/GtIosPanels.kt:554:    fun finish() {
+SHARED-ios:ui/GtIosPanels.kt:555:        val text = details()
+SHARED-ios:ui/GtIosPanels.kt:558:        val txt = capture.let { _ ->
+SHARED-ios:ui/GtIosPanels.kt:559:            val p = IosArtifactSink().saveToMapFeatures("issue_" + stamp + ".txt", text)
+SHARED-ios:ui/GtIosPanels.kt:566:            val handles = ArrayList<String>(shots)
+SHARED-ios:ui/GtIosPanels.kt:570:            val subject = "GroupTrack issue \u00b7 " + function + " \u00b7 " + IosBuildInfo().appVersion()
+SHARED-ios:ui/GtIosPanels.kt:571:            val body = subject + "\nTo: " + ISSUE_TO + "\n\n" + text
+SHARED-ios:ui/GtIosPanels.kt:572:            val ok = sink.emailAll(handles, subject, body)
+SHARED-ios:ui/GtIosPanels.kt:581:    fun cancel() {
+SHARED-ios:ui/GtIosPanels.kt:588:private const val ISSUE_TO = "support@grouptrack.org"
+SHARED-ios:ui/GtIosPanels.kt:590:private object IosProfile {
+SHARED-ios:ui/GtIosPanels.kt:591:    private val log = gtLogger("GtIosProfile")
+SHARED-ios:ui/GtIosPanels.kt:592:    private var conn: androidx.sqlite.SQLiteConnection? = null
+SHARED-ios:ui/GtIosPanels.kt:593:    private var tried = false
+SHARED-ios:ui/GtIosPanels.kt:595:    private fun db(): androidx.sqlite.SQLiteConnection? {
+SHARED-ios:ui/GtIosPanels.kt:608:    val store = GtProfileStore(
+SHARED-ios:ui/GtIosPanels.kt:622:private fun IosDocView(key: String, onClose: () -> Unit) {
+SHARED-ios:ui/GtIosPanels.kt:630:                val asset = docsAssetFor(key.substringBefore("#"))
+SHARED-ios:ui/GtIosPanels.kt:631:                val path = if (asset == null) null else iosBundleAssetPath(asset)
+SHARED-ios:ui/GtIosPanels.kt:644:                                val web = WKWebView(
+SHARED-ios:ui/GtIosPanels.kt:648:                                val u = NSURL.fileURLWithPath(path)
+SHARED-ios:ui/GtIosPanels.kt:668:fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
+SHARED-ios:ui/GtIosPanels.kt:691:    val web = remember { mutableStateOf<WKWebView?>(null) }
+SHARED-ios:ui/GtIosPanels.kt:694:    val offline = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:695:    fun js(script: String) { web.value?.evaluateJavaScript(script, null) }
+SHARED-ios:ui/GtIosPanels.kt:704:    val viewportJs = "try{var b=map.getBounds();Android.onViewportChanged(" +
+SHARED-ios:ui/GtIosPanels.kt:708:    val centre = remember { mutableStateOf(doubleArrayOf(0.0, 0.0)) }
+SHARED-ios:ui/GtIosPanels.kt:713:    val zoom = remember { mutableIntStateOf(0) }
+SHARED-ios:ui/GtIosPanels.kt:726:    val group = remember {
+SHARED-ios:ui/GtIosPanels.kt:734:    val commScope = rememberCoroutineScope()
+SHARED-ios:ui/GtIosPanels.kt:735:    val comm = remember { com.grouptrack.shared.comm.GtIosCommLink(commScope) }
+SHARED-ios:ui/GtIosPanels.kt:747:    val grpAskActivate = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:751:    val notesRouteId = remember { mutableStateOf("") }
+SHARED-ios:ui/GtIosPanels.kt:758:    val bounds = remember { mutableStateOf<DoubleArray?>(null) }
+SHARED-ios:ui/GtIosPanels.kt:759:    val artifactList = remember { mutableStateOf<List<Map<String, String?>>>(emptyList()) }
+SHARED-ios:ui/GtIosPanels.kt:760:    val selectedIds = remember { mutableStateOf<Set<String>>(emptySet()) }
+SHARED-ios:ui/GtIosPanels.kt:761:    val activeListType = remember { mutableStateOf("") }
+SHARED-ios:ui/GtIosPanels.kt:765:    val checkedIds = remember { mutableStateOf<Map<String, Set<String>?>>(emptyMap()) }
+SHARED-ios:ui/GtIosPanels.kt:769:    val profileOpen = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:772:    val helpOpen = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:773:    val docView = remember { mutableStateOf("") }
+SHARED-ios:ui/GtIosPanels.kt:786:    val rideSettings = remember {
+SHARED-ios:ui/GtIosPanels.kt:788:            val d = IosClock.localNow()
+SHARED-ios:ui/GtIosPanels.kt:792:    val settingsOpen = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:796:    val creditsOpen = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:800:    val trailClearAsk = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:803:    val statsOpen = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:806:    val tcOpen = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:807:    val tcInput = remember { mutableStateOf("") }
+SHARED-ios:ui/GtIosPanels.kt:808:    val tcResult = remember { mutableStateOf<JsonObject?>(null) }
+SHARED-ios:ui/GtIosPanels.kt:809:    val tcBusy = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:810:    val tcScope = rememberCoroutineScope()
+SHARED-ios:ui/GtIosPanels.kt:811:    val statsText = remember { mutableStateOf("") }
+SHARED-ios:ui/GtIosPanels.kt:815:    val rideStatsNow: () -> String = {
+SHARED-ios:ui/GtIosPanels.kt:816:        val l = IosClock.localNow()
+SHARED-ios:ui/GtIosPanels.kt:817:        val localSec = GtTime.gregorianEpochDay(l.year.toLong(), l.month, l.day) * 86_400L +
+SHARED-ios:ui/GtIosPanels.kt:819:        val nowMs = IosClock.epochMs()
+SHARED-ios:ui/GtIosPanels.kt:820:        val offMin = ((localSec - nowMs / 1_000L) / 60L).toInt()
+SHARED-ios:ui/GtIosPanels.kt:825:    val trailClearBusy = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:826:    val trailClearDone = remember { mutableStateOf<String?>(null) }
+SHARED-ios:ui/GtIosPanels.kt:827:    val trailClearScope = rememberCoroutineScope()
+SHARED-ios:ui/GtIosPanels.kt:834:    val issueEmail = remember {
+SHARED-ios:ui/GtIosPanels.kt:840:    val showLeadTrack = remember { mutableStateOf(true) }
+SHARED-ios:ui/GtIosPanels.kt:842:    val recState = remember { mutableStateOf(RecordingState.CHECK_IN) }
+SHARED-ios:ui/GtIosPanels.kt:843:    val recMenu = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:847:    val detailType = remember { mutableStateOf("") }
+SHARED-ios:ui/GtIosPanels.kt:848:    val detailId = remember { mutableStateOf("") }
+SHARED-ios:ui/GtIosPanels.kt:852:    val hudOnDark = remember { mutableStateOf(true) }
+SHARED-ios:ui/GtIosPanels.kt:855:    val hudView = remember { mutableStateOf(com.geeksville.mesh.grouptrack.GtHudView.GROUP) }
+SHARED-ios:ui/GtIosPanels.kt:858:    val online = remember { mutableStateOf(com.grouptrack.shared.platform.IosReachability.online()) }
+SHARED-ios:ui/GtIosPanels.kt:865:    val radioConnected = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:866:    val radioTalking = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:867:    val tilt = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:868:    val headingUp = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:871:    val trails = remember { mutableIntStateOf(1) }
+SHARED-ios:ui/GtIosPanels.kt:872:    val tracks = remember { mutableIntStateOf(1) }
+SHARED-ios:ui/GtIosPanels.kt:873:    val routes = remember { mutableIntStateOf(1) }
+SHARED-ios:ui/GtIosPanels.kt:874:    val waypoints = remember { mutableIntStateOf(1) }
+SHARED-ios:ui/GtIosPanels.kt:875:    val hidden = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:879:    val hiddenSaved = remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+SHARED-ios:ui/GtIosPanels.kt:880:    val offAvailable = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:881:    val offDownloading = remember { mutableStateOf(false) }
+SHARED-ios:ui/GtIosPanels.kt:883:    fun slot(t: String) = when (t) {
+SHARED-ios:ui/GtIosPanels.kt:905:    val fitArtifact: (String, String, DoubleArray?) -> Unit = { typeIn, artifactId, fallback ->
+SHARED-ios:ui/GtIosPanels.kt:906:        val type = IosSearchDb.typeFor(artifactId).ifEmpty { typeIn }
+SHARED-ios:ui/GtIosPanels.kt:913:        val bb = IosSearchDb.bbox(type, artifactId)
+SHARED-ios:ui/GtIosPanels.kt:914:        val s0 = bb?.get(0) ?: fallback?.get(0)
+SHARED-ios:ui/GtIosPanels.kt:915:        val w0 = bb?.get(1) ?: fallback?.get(1)
+SHARED-ios:ui/GtIosPanels.kt:916:        val n0 = bb?.get(2) ?: fallback?.get(2)
+SHARED-ios:ui/GtIosPanels.kt:917:        val e0 = bb?.get(3) ?: fallback?.get(3)
+SHARED-ios:ui/GtIosPanels.kt:919:            val latPad = (n0 - s0).let { if (it > 0.0) it * 0.10 else 0.01 }
+SHARED-ios:ui/GtIosPanels.kt:920:            val lonPad = (e0 - w0).let { if (it > 0.0) it * 0.10 else 0.01 }
+SHARED-ios:ui/GtIosPanels.kt:933:    val relay: (String, String) -> Unit = { name, args ->
+SHARED-ios:ui/GtIosPanels.kt:935:            val v = args.trim().removePrefix("[").removeSuffix("]")
+SHARED-ios:ui/GtIosPanels.kt:949:            val id = args.trim().removePrefix("[").removeSuffix("]").trim().trim('"')
+SHARED-ios:ui/GtIosPanels.kt:977:    val filter = GtFilterBridge(
+SHARED-ios:ui/GtIosPanels.kt:987:                val table = when (typeName) {
+SHARED-ios:ui/GtIosPanels.kt:990:                val b = bounds.value
+SHARED-ios:ui/GtIosPanels.kt:994:                    val list = IosSearchDb.listInView(table, b[0], b[1], b[2], b[3])
+SHARED-ios:ui/GtIosPanels.kt:1005:                        val cur = slot(typeName).intValue
+SHARED-ios:ui/GtIosPanels.kt:1006:                        val saved = checkedIds.value[typeName]
+SHARED-ios:ui/GtIosPanels.kt:1051:    val search = GtSearchBridge(
+SHARED-ios:ui/GtIosPanels.kt:1064:            val s0 = r.minLat; val n0 = r.maxLat; val w0 = r.minLon; val e0 = r.maxLon
+SHARED-ios:ui/GtIosPanels.kt:1065:            val fallback = if (s0 != null && n0 != null && w0 != null && e0 != null)
+SHARED-ios:ui/GtIosPanels.kt:1097:    val actions = mapOf<String, () -> Unit>(
+SHARED-ios:ui/GtIosPanels.kt:1155:                val rs = comm.listRadios()
+SHARED-ios:ui/GtIosPanels.kt:1174:                val next = !group.value
+SHARED-ios:ui/GtIosPanels.kt:1198:                val h = comm.health.value
+SHARED-ios:ui/GtIosPanels.kt:1216:            val h = GtIosLocation.here()
+SHARED-ios:ui/GtIosPanels.kt:1241:    val gtMyCart = androidx.compose.runtime.remember { com.grouptrack.shared.track.MyCartProcess(updateFrequency = 1) }
+SHARED-ios:ui/GtIosPanels.kt:1242:    val gtRecPoints = androidx.compose.runtime.remember { mutableListOf<com.grouptrack.shared.track.WPoint>() }
+SHARED-ios:ui/GtIosPanels.kt:1283:            val lamp = GtIosLocation.lamp()
+SHARED-ios:ui/GtIosPanels.kt:1353:                                val gtMe = com.grouptrack.shared.ride.GtRideStore.env.profile()
+SHARED-ios:ui/GtIosPanels.kt:1354:                                val gtCall = gtMe?.callsign ?: ""
+SHARED-ios:ui/GtIosPanels.kt:1359:                                    val gtCi = com.grouptrack.shared.ride.GtRideStore.checkIn(null, gtCall, "rider")
+SHARED-ios:ui/GtIosPanels.kt:1394:                        val gtEndMs = com.grouptrack.shared.platform.IosClock.epochMs()
+SHARED-ios:ui/GtIosPanels.kt:1402:                            val gtGeom = gtRecPoints.joinToString(", ", "LINESTRING(", ")") { p ->
+SHARED-ios:ui/GtIosPanels.kt:1405:                            val gtFiles = com.grouptrack.shared.platform.IosRideFiles()
+SHARED-ios:ui/GtIosPanels.kt:1406:                            val gtDir = com.grouptrack.shared.platform.IosImportPaths().tracksDir().toString()
+SHARED-ios:ui/GtIosPanels.kt:1407:                            val gtName = "convoy_track_" + gtEndMs + ".gpx"
+SHARED-ios:ui/GtIosPanels.kt:1408:                            val gtPath = gtFiles.child(gtDir, gtName)
+SHARED-ios:ui/GtIosPanels.kt:1409:                            val gtCount = gtRecPoints.size
+SHARED-ios:ui/GtIosPanels.kt:1450:                onOpen = { onMessage("gps", "the GPS interval panel is not built on the iPad yet") },
+SHARED-ios:ui/GtIosPanels.kt:1549:                        val notBuilt: (String, String) -> Unit = { what, why ->
+SHARED-ios:ui/GtIosPanels.kt:1585:                                val ty = detailType.value
+SHARED-ios:ui/GtIosPanels.kt:1586:                                val w = IosWriteDb.writer()
+SHARED-ios:ui/GtIosPanels.kt:1592:                                    val blockedBy = if (ty == "Waypoints") IosWriteDb.reader()?.routeUsingTrailhead(aid) else null
+SHARED-ios:ui/GtIosPanels.kt:1617:                                val w = IosWriteDb.writer()
+SHARED-ios:ui/GtIosPanels.kt:1625:                                val svc = IosWriteDb.artifacts
+SHARED-ios:ui/GtIosPanels.kt:1627:                                else when (val r = svc.share(detailType.value, aid)) {
+SHARED-ios:ui/GtIosPanels.kt:1635:                                val svc = IosWriteDb.artifacts
+SHARED-ios:ui/GtIosPanels.kt:1637:                                else when (val r = svc.export(detailType.value, aid)) {
+SHARED-ios:ui/GtIosPanels.kt:1768:                    val rid = notesRouteId.value
+SHARED-ios:ui/GtIosPanels.kt:1771:                            val nm = IosSearchDb.detail("Routes", rid)["name"]
+SHARED-ios:ui/GtIosPanels.kt:1772:                            val also = IosSearchDb.aliases("route", rid).mapNotNull { it["alias"] }.filter { it != nm }
+SHARED-ios:ui/GtIosPanels.kt:1798:                                val r = withContext(Dispatchers.Default) {
+SHARED-ios:ui/GtIosPanels.kt:1906:                                    val q = tcInput.value
+SHARED-ios:ui/GtIosPanels.kt:1911:                                        val r = withContext(Dispatchers.Default) {
+SHARED-ios:ui/GtIosPanels.kt:1913:                                                val c = IosWriteDb.conns()
+SHARED-ios:ui/GtIosPanels.kt:1936:                                val r = tcResult.value
+SHARED-ios:ui/GtIosPanels.kt:1939:                                    val subject = "GroupTrack OG trail check: " + tcInput.value.trim()
+SHARED-ios:ui/GtIosPanels.kt:1999:fun gtGroupTrackController(onMessage: (String, String) -> Unit): UIViewController =
 SHARED-ios:ui/GtIosRoot.kt:27:fun gtIpadProbeController(): UIViewController =
 SHARED-ios:platform/GtIosLocation.kt:30: * The state lives in the delegate, not in this object: a nested class cannot reach an outer
 SHARED-ios:platform/GtIosLocation.kt:34:internal object GtIosLocation {
@@ -19096,27 +19126,30 @@ SHARED-ios:platform/GtIosLocation.kt:36:    private val log = gtLogger("GtIosLoc
 SHARED-ios:platform/GtIosLocation.kt:37:    private var mgr: CLLocationManager? = null
 SHARED-ios:platform/GtIosLocation.kt:38:    private var del: Del? = null
 SHARED-ios:platform/GtIosLocation.kt:41:    var onHeading: ((Double, Double) -> Unit)?
-SHARED-ios:platform/GtIosLocation.kt:46:    fun start() {
-SHARED-ios:platform/GtIosLocation.kt:48:        val d = Del(log)
-SHARED-ios:platform/GtIosLocation.kt:49:        val m = CLLocationManager()
-SHARED-ios:platform/GtIosLocation.kt:70:    fun lamp(): Pair<Boolean, String> {
-SHARED-ios:platform/GtIosLocation.kt:71:        val d = del
-SHARED-ios:platform/GtIosLocation.kt:72:        val acc = d?.accuracy ?: -1.0
-SHARED-ios:platform/GtIosLocation.kt:78:    fun here(): DoubleArray? = del?.let { if (it.fixed) doubleArrayOf(it.lat, it.lon) else null }
-SHARED-ios:platform/GtIosLocation.kt:80:    private class Del(private val log: co.touchlab.kermit.Logger) : NSObject(), CLLocationManagerDelegateProtocol {
-SHARED-ios:platform/GtIosLocation.kt:81:        var lat = 0.0
-SHARED-ios:platform/GtIosLocation.kt:82:        var lon = 0.0
-SHARED-ios:platform/GtIosLocation.kt:83:        var fixed = false
-SHARED-ios:platform/GtIosLocation.kt:84:        var courseDeg = -1.0
-SHARED-ios:platform/GtIosLocation.kt:85:        var headingDeg = -1.0
-SHARED-ios:platform/GtIosLocation.kt:86:        var speedMph = 0.0
-SHARED-ios:platform/GtIosLocation.kt:88:        var onHeading: ((Double, Double) -> Unit)? = null
-SHARED-ios:platform/GtIosLocation.kt:90:        private fun push() {
-SHARED-ios:platform/GtIosLocation.kt:91:            val h = if (courseDeg >= 0.0) courseDeg else headingDeg
-SHARED-ios:platform/GtIosLocation.kt:95:        override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
-SHARED-ios:platform/GtIosLocation.kt:96:            val loc = didUpdateLocations.lastOrNull() as? CLLocation ?: return
-SHARED-ios:platform/GtIosLocation.kt:106:        override fun locationManager(manager: CLLocationManager, didUpdateHeading: CLHeading) {
-SHARED-ios:platform/GtIosLocation.kt:111:        override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
+SHARED-ios:platform/GtIosLocation.kt:51:    var onPosition: ((Double, Double, Double) -> Unit)?
+SHARED-ios:platform/GtIosLocation.kt:56:    fun start() {
+SHARED-ios:platform/GtIosLocation.kt:58:        val d = Del(log)
+SHARED-ios:platform/GtIosLocation.kt:59:        val m = CLLocationManager()
+SHARED-ios:platform/GtIosLocation.kt:80:    fun lamp(): Pair<Boolean, String> {
+SHARED-ios:platform/GtIosLocation.kt:81:        val d = del
+SHARED-ios:platform/GtIosLocation.kt:82:        val acc = d?.accuracy ?: -1.0
+SHARED-ios:platform/GtIosLocation.kt:88:    fun here(): DoubleArray? = del?.let { if (it.fixed) doubleArrayOf(it.lat, it.lon) else null }
+SHARED-ios:platform/GtIosLocation.kt:90:    private class Del(private val log: co.touchlab.kermit.Logger) : NSObject(), CLLocationManagerDelegateProtocol {
+SHARED-ios:platform/GtIosLocation.kt:91:        var lat = 0.0
+SHARED-ios:platform/GtIosLocation.kt:92:        var lon = 0.0
+SHARED-ios:platform/GtIosLocation.kt:93:        var fixed = false
+SHARED-ios:platform/GtIosLocation.kt:94:        var courseDeg = -1.0
+SHARED-ios:platform/GtIosLocation.kt:95:        var headingDeg = -1.0
+SHARED-ios:platform/GtIosLocation.kt:96:        var speedMph = 0.0
+SHARED-ios:platform/GtIosLocation.kt:98:        var onHeading: ((Double, Double) -> Unit)? = null
+SHARED-ios:platform/GtIosLocation.kt:101:        var altitude = 0.0
+SHARED-ios:platform/GtIosLocation.kt:102:        var onPosition: ((Double, Double, Double) -> Unit)? = null
+SHARED-ios:platform/GtIosLocation.kt:104:        private fun push() {
+SHARED-ios:platform/GtIosLocation.kt:105:            val h = if (courseDeg >= 0.0) courseDeg else headingDeg
+SHARED-ios:platform/GtIosLocation.kt:109:        override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
+SHARED-ios:platform/GtIosLocation.kt:110:            val loc = didUpdateLocations.lastOrNull() as? CLLocation ?: return
+SHARED-ios:platform/GtIosLocation.kt:124:        override fun locationManager(manager: CLLocationManager, didUpdateHeading: CLHeading) {
+SHARED-ios:platform/GtIosLocation.kt:129:        override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
 SHARED-ios:platform/GtIosArtifactSink.kt:32:private val log = gtLogger("GtIosArtifact")
 SHARED-ios:platform/GtIosArtifactSink.kt:40:private const val MAP_FEATURES_DIR = "GroupTrack Map Features"
 SHARED-ios:platform/GtIosArtifactSink.kt:42:class IosArtifactSink(private val storage: GtStorage = iosStorage()) : GtArtifactSink {
@@ -19130,10 +19163,13 @@ SHARED-ios:platform/GtIosArtifactSink.kt:80:    override fun emailAll(handles: L
 SHARED-ios:platform/GtIosArtifactSink.kt:86:        val items = ArrayList<Any>(handles.size + 1)
 SHARED-ios:platform/GtIosArtifactSink.kt:89:        val vc = UIActivityViewController(items, null)
 SHARED-ios:platform/GtIosArtifactSink.kt:90:        val root = UIApplication.sharedApplication.keyWindow?.rootViewController
-SHARED-ios:platform/GtIosArtifactSink.kt:118:class IosTrackFiles(private val storage: GtStorage = iosStorage()) : GtTrackFileReader {
-SHARED-ios:platform/GtIosArtifactSink.kt:119:    override fun readTrackGpx(geomHash: String): String? = try {
-SHARED-ios:platform/GtIosArtifactSink.kt:120:        val fs = okio.FileSystem.SYSTEM
-SHARED-ios:platform/GtIosArtifactSink.kt:121:        val p: Path = storage.root().toString().toPath() / "my_tracks" / (geomHash + ".gpx")
+SHARED-ios:platform/GtIosArtifactSink.kt:129:    override fun emailText(subject: String, body: String): Boolean = try {
+SHARED-ios:platform/GtIosArtifactSink.kt:130:        val root = UIApplication.sharedApplication.keyWindow?.rootViewController
+SHARED-ios:platform/GtIosArtifactSink.kt:135:            val vc = UIActivityViewController(listOf(body), null)
+SHARED-ios:platform/GtIosArtifactSink.kt:153:class IosTrackFiles(private val storage: GtStorage = iosStorage()) : GtTrackFileReader {
+SHARED-ios:platform/GtIosArtifactSink.kt:154:    override fun readTrackGpx(geomHash: String): String? = try {
+SHARED-ios:platform/GtIosArtifactSink.kt:155:        val fs = okio.FileSystem.SYSTEM
+SHARED-ios:platform/GtIosArtifactSink.kt:156:        val p: Path = storage.root().toString().toPath() / "my_tracks" / (geomHash + ".gpx")
 SHARED-ios:platform/GtIosRideFiles.kt:36:class IosRideFiles(
 SHARED-ios:platform/GtIosRideFiles.kt:37:    private val paths: GtImportPaths = IosImportPaths(),
 SHARED-ios:platform/GtIosRideFiles.kt:38:    private val fs: FileSystem = FileSystem.SYSTEM,
@@ -19326,6 +19362,12 @@ SHARED-ios:platform/GtIosStartup.kt:30:        val error: String?,
 SHARED-ios:platform/GtIosStartup.kt:34:    fun everyLaunch() {
 SHARED-ios:platform/GtIosStartup.kt:42:    fun run(): Result {
 SHARED-ios:platform/GtIosStartup.kt:43:        val r = GtStartupHousekeeping.run(IosHkEnv())
+SHARED-ios:platform/GtIosBluetoothSettings.kt:20:class IosBluetoothSettings : GtBluetoothSettings {
+SHARED-ios:platform/GtIosBluetoothSettings.kt:22:    private val log = gtLogger("GtIosBluetoothSettings")
+SHARED-ios:platform/GtIosBluetoothSettings.kt:24:    override val opensBluetoothDirectly: Boolean = false
+SHARED-ios:platform/GtIosBluetoothSettings.kt:26:    override fun open(): Boolean {
+SHARED-ios:platform/GtIosBluetoothSettings.kt:27:        val url = NSURL(string = UIApplicationOpenSettingsURLString)
+SHARED-ios:platform/GtIosBluetoothSettings.kt:28:        val app = UIApplication.sharedApplication
 SHARED-ios:platform/GtIosRideNetworks.kt:40:class IosRideNetworks(
 SHARED-ios:platform/GtIosRideNetworks.kt:43:    private val db: () -> SQLiteConnection?,
 SHARED-ios:platform/GtIosRideNetworks.kt:44:    private val clock: GtClock = IosClock,
@@ -19550,6 +19592,14 @@ SHARED-ios:platform/GtIosValues.kt:88:    override fun nextBytes(b: ByteArray) {
 SHARED-ios:platform/GtIosValues.kt:89:        var i = 0
 SHARED-ios:platform/GtIosValues.kt:91:            var r = arc4random()
 SHARED-ios:platform/GtIosValues.kt:92:            var k = 0
+SHARED-ios:platform/GtIosReachability.kt:26:object IosReachability : GtReachability {
+SHARED-ios:platform/GtIosReachability.kt:28:    private val log = gtLogger("GtIosReachability")
+SHARED-ios:platform/GtIosReachability.kt:31:    private var onChange: ((Boolean) -> Unit)? = null
+SHARED-ios:platform/GtIosReachability.kt:33:    override fun online(): Boolean = last
+SHARED-ios:platform/GtIosReachability.kt:35:    override fun watch(onChange: (Boolean) -> Unit) {
+SHARED-ios:platform/GtIosReachability.kt:38:        val m = nw_path_monitor_create()
+SHARED-ios:platform/GtIosReachability.kt:42:            val now = nw_path_get_status(path) == nw_path_status_satisfied
+SHARED-ios:platform/GtIosReachability.kt:52:    override fun stopWatching() {
 SHARED-ios:platform/GtIosEnv.kt:4: *  timeIntervalSinceReferenceDate, which counts from 2001-01-01. The class method
 SHARED-ios:platform/GtIosEnv.kt:66: *  class that makes the same call -- this is copied from code the compiler already accepts,
 SHARED-ios:platform/GtIosEnv.kt:69:class IosFiles : GtFiles {
@@ -19667,6 +19717,23 @@ SHARED-ios:platform/GtVecMap.ios.kt:409:    val server = remember { GtVecServer 
 SHARED-ios:platform/GtVecMap.ios.kt:415:            val config = WKWebViewConfiguration()
 SHARED-ios:platform/GtVecMap.ios.kt:422:            val web = WKWebView(frame = CGRectMake(0.0, 0.0, 0.0, 0.0), configuration = config)
 SHARED-ios:platform/GtVecMap.ios.kt:439:fun gtVecMapController(onMessage: (String, String) -> Unit): UIViewController =
+SHARED-ios:platform/GtIosRideEnv.kt:28: * ⚠ WHY NOBODY NOTICED: [GtRideEnv] is a class of function-typed properties with no member functions, so
+SHARED-ios:platform/GtIosRideEnv.kt:30: * never return it. Every Env-pattern class is hidden the same way.
+SHARED-ios:platform/GtIosRideEnv.kt:32:private val log = gtLogger("GtIosRideEnv")
+SHARED-ios:platform/GtIosRideEnv.kt:34:private var spatialConn: SQLiteConnection? = null
+SHARED-ios:platform/GtIosRideEnv.kt:35:private var dataConn: SQLiteConnection? = null
+SHARED-ios:platform/GtIosRideEnv.kt:38:private fun conn(name: String, current: SQLiteConnection?): SQLiteConnection? {
+SHARED-ios:platform/GtIosRideEnv.kt:49:private fun spatialDb(): SQLiteConnection? {
+SHARED-ios:platform/GtIosRideEnv.kt:53:private fun dataDb(): SQLiteConnection? {
+SHARED-ios:platform/GtIosRideEnv.kt:58:private fun nowUtc(): String = GtTime.formatUtcSeconds(IosClock.epochMs())
+SHARED-ios:platform/GtIosRideEnv.kt:61:private fun today(): String = GtTime.local(IosClock.localNow(), "yyyy-MM-dd")
+SHARED-ios:platform/GtIosRideEnv.kt:68:private fun epochMsToLocalDate(ms: Long): String {
+SHARED-ios:platform/GtIosRideEnv.kt:72:    val d = NSDate(timeIntervalSinceReferenceDate = ms / 1000.0 - 978300800.0)
+SHARED-ios:platform/GtIosRideEnv.kt:73:    val c = NSCalendar.currentCalendar
+SHARED-ios:platform/GtIosRideEnv.kt:74:    val u = NSCalendarUnitYear or NSCalendarUnitMonth or NSCalendarUnitDay
+SHARED-ios:platform/GtIosRideEnv.kt:75:    val p = c.components(u, fromDate = d)
+SHARED-ios:platform/GtIosRideEnv.kt:80:private fun profile(): RideMe? =
+SHARED-ios:platform/GtIosRideEnv.kt:91:fun installIosRideEnv() {
 SHARED-ios:comm/GtIosCommLink.ios.kt:48:class GtIosCommLink(private val scope: CoroutineScope) : CommLink {
 SHARED-ios:comm/GtIosCommLink.ios.kt:50:    private val log = gtLogger("GtIosCommLink")
 SHARED-ios:comm/GtIosCommLink.ios.kt:52:    private val _link = MutableStateFlow(Link.DISCONNECTED)

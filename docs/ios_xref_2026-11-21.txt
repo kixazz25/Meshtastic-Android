@@ -1,0 +1,479 @@
+==============================================================================
+GROUPTRACK -- iOS / SHARED CROSS-REFERENCE, v5 with the ANDROID column  (IOSXREF5-2026-11-21)
+==============================================================================
+branch 2.8 @ e39a4c202   generated 2026-11-21 18:18
+files 171   composables 52   controls 101   dispatch entries 12   declared launch rows 54
+
+The companion to navigation_xref.txt, which reads the ANDROID app only. This reads
+grouptrack-shared (commonMain + iosMain) -- the iPad's half of every row.
+
+HOW TO READ THE VERDICTS, and the warning that matters most:
+  WORK        the body calls a named function
+  REPORT      the body only messages or logs -- it ANSWERS and does not ACT
+  OPENS-PANEL the body sets a flag a panel is bound to -- that IS the work (the panel is named)
+  STATE-ONLY  the body assigns state that NO panel reads -- suspicious
+  EMPTY       no body found
+  *** A verdict covers ONE HOP. WORK says nothing about what the called function does. The row
+  *** that cost 11-21 read WORK here and called a function that was itself a REPORT. WALK THE STACK.
+
+=== 1. UNATTACHED LAUNCH ROWS -- declared in LaunchModules, NO iPad dispatch entry ===
+    These read "not attached yet" AND DISABLED (ATTACH1-2026-10-22). This is the list the
+    completion register could not produce, and the reason B.RECORD's three rows went unnoticed.
+
+    *** EACH ROW IS CLASSIFIED AGAINST ANDROID'S LIVE DISPATCH (365 files scanned, .bak excluded):
+        DIFFERENCE  Android dispatches this id, the iPad does not -> real porting work.
+        BOTH        NEITHER platform dispatches it -> NOT a difference. Decide what it is: a row
+                    its own panel handles internally, or a dead declaration. Do not port it blind.
+    *** v4 printed this list with no Android column, so it read as a list of differences when it
+    *** only knew the iPad's half. Every key.* and filter.* row sat in it while the hand walk had
+    *** G and H at zero differences -- and both were right. That is why this column exists.
+
+    -- DIFFERENCE: Android dispatches it, the iPad does not (28) -------------------
+    >> map.sources             Map source credits
+    >> map.dl_area             Download maps by area
+    >> map.dl_tracks           Download maps along tracks
+    >> map.dl_settings         Download settings \u2014 replace existing tiles
+    >> map.rm_area             Remove maps by area
+    >> map.restartconv         Emergency download \u2014 maps as of the conversion date (if the conversion was interrupted)
+    >> map.recipes             Saved map recipes \u2014 restore maps or send them by email (60 days)
+    >> map.backup              Save my GroupTrack OG data for disaster recovery \u2014 five files in your GroupTrack folder, saved automatically every week
+    >> map.imported            Display trail, waypoint counts by state
+    >> map.trails_state        Import trails by state
+    >> map.trails_area         Import trails by area \u2014 part of a state, or across state borders
+    >> map.gpx                 Import files \u2014 GPX, KML, KMZ, GeoJSON (tracks, routes, waypoints or trails)
+    >> map.export_all          Export map features \u2014 routes, tracks, waypoints or rider trails, each one GPX file
+    >> map.features            Work with exported map features \u2014 email or delete a file you saved earlier
+    >> map.utahprivate         Update public / private land \u2014 align trails with the state\'s public-lands data
+    >> map.ridertrails         Create trails from tracks
+    >> map.synctracks          Resync tracks with their files
+    >> map.trailsrc            Delete imported trails by source
+    >> map.rm_feat             Remove tracks and trails by area
+    >> map.flyover             Area Search Radius \u2014 how much a search shows
+    >> route.manual            Build it myself \u2014 tap points, the route follows the trails
+    >> route.ai                AI route design \u2014 with your guidance
+    >> route.recipefile        Build from a recipe file \u2014 an AI search sent with an issue report
+    >> route.clear             Clear leftover routes \u2014 in progress and AI compare (asks first)
+    >> rides.carts             View checked-in carts / change roles
+    >> rides.mine              My rides — Send / Edit / Apply to radio / Delete
+    >> rides.import            Import a ride
+    >> rides.email             Email last ride statistics to GroupTrack OG
+
+    -- BOTH: no platform dispatches this id (16) -- NOT a difference ---------------
+       record.checkin          CHECK IN (Group) — ride, role and radio on one screen, then records
+       record.rec              REC — start recording
+       record.end              END RIDE — name, survey and share on one screen
+       key.trails              Trails — STYLE ›
+       key.tracks              My tracks
+       key.routes              My routes
+       key.work                While you work (route being built, lead track, my track)
+       key.group               Group riding (carts, lead, tail)
+       filter.hide             Hide everything
+       filter.types            Each type — OFF / ALL / SELECT
+       filter.trails           Trails — motorized / non-motorized, public / private
+       readout.tabs            MY CART | GROUP
+       readout.cart            Tap a cart for its readout
+       readout.gps             GPS every n s · Medium Fast / Long Fast
+       readout.distance        Distance traveled
+       search.search           Search
+
+    attached on the iPad: 10 of 54 declared rows
+    of the 44 unattached: 28 REAL DIFFERENCE(S), 16 unattached on both platforms
+    Android dispatch ids found: 44
+
+=== 2. THE LAUNCH DISPATCH -- every wired row, with its first-hop verdict ===
+
+  [centre]
+    centre.me              WORK        GtIosPanels.kt:1153
+        calls: GtIosLocation.here, js, setView
+
+  [group]
+    group.archive          REPORT      GtIosPanels.kt:1104
+    group.configure        WORK        GtIosPanels.kt:1087
+        calls: delay, listRadios, startScan
+
+  [grp]
+    grp.open               WORK        GtIosPanels.kt:1122
+        calls: EXISTS, Meshtastic, gtLogger, lowercase, startScan
+
+  [internet]
+    internet.switch        WORK        GtIosPanels.kt:1063
+        calls: js
+
+  [menu]
+    menu.account           STATE-ONLY  GtIosPanels.kt:1146
+    menu.help              STATE-ONLY  GtIosPanels.kt:1149
+    menu.settings          STATE-ONLY  GtIosPanels.kt:1152
+
+  [mode]
+    mode.switch            WORK        GtIosPanels.kt:1107
+        calls: GtGroupMode.set, IosSettings, setActive
+
+  [rides]
+    rides.ride             WORK        GtIosPanels.kt:1084
+        calls: GtRideStart.begin
+
+  [view]
+    view.heading           WORK        GtIosPanels.kt:1159
+        calls: gtSetHeadingUp, js
+    view.north             WORK        GtIosPanels.kt:1054
+        calls: gtNorthUp, gtSetHeadingUp, js
+
+=== 3. REPORTS AND STATE-ONLY -- every control that answers instead of acting ===
+    Read this list first. A row here is attached, compiles, and does nothing.
+
+    EMPTY       tap     ArtifactDetailPanel.kt:13
+        label: (computed -- no literal in source)
+        does : {}
+    EMPTY       tap     ArtifactListPanel.kt:22
+        label: (computed -- no literal in source)
+        does : { _, _ -> }
+    EMPTY       tap     MapKeysPanel.kt:9
+        label: (computed -- no literal in source)
+        does : { "OHV", "Track", "Forestry / access", "Shape only", "Rider trails", "Unofficial / uncertain" -> "M…
+    EMPTY       tap     GtAlertSettingsPanel.kt:3
+        label: (computed -- no literal in source)
+        does : {}
+    EMPTY       tap     NotesPanel.kt:11
+        label: (computed -- no literal in source)
+        does : {}
+    EMPTY       tap     GtIpadProbeScreen.kt:65
+        label: “TAP TO PROVE RECOMPOSITION”
+        does : { taps++ }
+    STATE-ONLY  slider  ArtifactDetailPanel.kt:217
+        label: “Trailhead name”
+        does : { thNewName = it }
+    STATE-ONLY  tap     ArtifactDetailPanel.kt:231
+        label: “Cancel”
+        does : { showThPopup = false }
+    STATE-ONLY  slider  ArtifactDetailPanel.kt:244
+        label: “Route name”
+        does : { rideRouteName = it }
+    STATE-ONLY  slider  ArtifactDetailPanel.kt:248
+        label: “Route description”
+        does : { rideRouteDesc = it }
+    STATE-ONLY  tap     ArtifactDetailPanel.kt:261
+        label: “Cancel”
+        does : { showRideNameDialog = false }
+    STATE-ONLY  tap     ArtifactDetailPanel.kt:393
+        label: “\u25b8 technical”
+        does : { showTech = !showTech }
+    STATE-ONLY  slider  ArtifactDetailPanel.kt:425
+        label: “RENAME”
+        does : { renameText = it }
+    STATE-ONLY  tap     ArtifactDetailPanel.kt:433
+        label: “CANCEL”
+        does : { showRenameDialog = false }
+    STATE-ONLY  tap     ArtifactDetailPanel.kt:451
+        label: “CANCEL”
+        does : { showDeleteConfirm = false }
+    STATE-ONLY  tap     ArtifactDetailPanel.kt:475
+        label: “CANCEL”
+        does : { showTypeChooser = false }
+    STATE-ONLY  tap     ArtifactListPanel.kt:109
+        label: “HIDE”
+        does : { gtFolded = !gtFolded }
+    STATE-ONLY  tap     GtRiderProfilePanel.kt:155
+        label: “\u2713 ”
+        does : { role = key }
+    STATE-ONLY  tap     GtRiderProfilePanel.kt:174
+        label: (computed -- no literal in source)
+        does : { team = name }
+    STATE-ONLY  tap     TrailStylePanel.kt:127
+        label: “PATTERN”
+        does : { c = hex }
+    STATE-ONLY  tap     FilterModule.kt:205
+        label: “\u2713 ”
+        does : { Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelText, fontSize = 13…
+    STATE-ONLY  slider  GtAlertSettingsPanel.kt:310
+        label: (computed -- no literal in source)
+        does : { latest.floatValue = it }
+    STATE-ONLY  tap     GtPanel.kt:168
+        label: (computed -- no literal in source)
+        does : { Text(label, color = if (!enabled) s.panelDim else if (emphasis == Color.Unspecified) s.text else …
+    STATE-ONLY  tap     GtPanel.kt:257
+        label: “HIDE”
+        does : { collapsed = !collapsed }
+    STATE-ONLY  tap     NotesPanel.kt:123
+        label: “\u25BE”
+        does : { open = !open }
+    STATE-ONLY  slider  SearchModule.kt:147
+        label: “Trail, route, track, waypoint or place”
+        does : { term = it }
+    STATE-ONLY  tap     SearchModule.kt:165
+        label: “Offline — places are left out; your trails, routes, tracks and waypoints are searched.”
+        does : { pick = g; inState = true; choosing = false; if (searched.isNotEmpty()) run() }
+    STATE-ONLY  tap     SearchModule.kt:220
+        label: “\u2713 ”
+        does : { Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelText, fontSize = 13…
+    STATE-ONLY  tap     SearchModule.kt:232
+        label: “\u2713 ”
+        does : { Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelDim, fontSize = 13.…
+    STATE-ONLY  slider  GtIosPanels.kt:205
+        label: “What is wrong”
+        does : { v -> IosIssue.note.value = v }
+    STATE-ONLY  tap     GtIosPanels.kt:219
+        label: “+ NEXT SCREEN”
+        does : { IosIssue.open.value = false IosIssue.nextPending.value = true }
+    STATE-ONLY  tap     GtIosPanels.kt:1665
+        label: “CANCEL”
+        does : { trailClearAsk.value = false }
+    STATE-ONLY  tap     GtIosPanels.kt:1684
+        label: “OK”
+        does : { trailClearDone.value = null }
+    STATE-ONLY  tap     GtIosPanels.kt:1715
+        label: “CLOSE”
+        does : { statsOpen.value = false }
+    STATE-ONLY  slider  GtIosPanels.kt:1734
+        label: “Agency Id, Id or name”
+        does : { tcInput.value = it; tcResult.value = null }
+    STATE-ONLY  tap     GtIosPanels.kt:1792
+        label: “CLOSE”
+        does : { tcOpen.value = false; tcResult.value = null }
+    STATE-ONLY  tap     GtIosPanels.kt:1799
+        label: “CLOSE”
+        does : { creditsOpen.value = false }
+    STATE-ONLY  tap     GtIosPanels.kt:1813
+        label: “OK”
+        does : { grpAskActivate.value = false }
+
+    38 of 101 controls answer instead of acting
+
+=== 4. SHARED PANEL CALLBACKS -- the panel's parameter, and what the HOST passes ===
+    The hop where "the panel is built" and "the row works" come apart.
+
+  ArtifactDetailPanel   [commonMain declares 15 callback(s)]
+    onRefreshMap              WORK        iosMain:1418  calls: js, triggerViewportUpdate
+    onLoadDetail              WORK        iosMain:1404  calls: IosSearchDb.detail
+    onLoadAliases             WORK        iosMain:1405  calls: IosSearchDb.aliases
+    onRename                  ** NOT PASSED by any iOS caller **
+    onDelete                  WORK        iosMain:1430  calls: IosWriteDb.reader, IosWriteDb.writer, deleteRoute, deleteTrackFromDb, deleteTrailFromDb, deleteWaypoint
+    onShare                   REPORT      iosMain:1470
+    onExport                  ** NOT PASSED by any iOS caller **
+    onShowNotes               ** NOT PASSED by any iOS caller **
+    onAddRide                 ** NOT PASSED by any iOS caller **
+    onCreateRideFromTrack     ** NOT PASSED by any iOS caller **
+    onBuildFromRecipe         ** NOT PASSED by any iOS caller **
+    onDownloadMaps            ** NOT PASSED by any iOS caller **
+    onDownloadCorridor        ** NOT PASSED by any iOS caller **
+    onChangeType              ** NOT PASSED by any iOS caller **
+    onDeleteAlias             WORK        iosMain:1462  calls: IosWriteDb.writer, deleteAlias
+
+  ArtifactListPanel   [commonMain declares 9 callback(s)]
+    onDismiss                 WORK        iosMain:1587  calls: emptyList
+    onToggleItem              WORK        iosMain:1588  calls: js, slot
+    onSelectAll               WORK        iosMain:1596  calls: js, slot, toSet
+    onDeselectAll             WORK        iosMain:1602  calls: emptySet, js, slot
+    onViewAliases             ** NOT PASSED by any iOS caller **
+    onFitToSelected           ** NOT PASSED by any iOS caller **
+    onAddAlias                ** NOT PASSED by any iOS caller **
+    onStarAlias               ** NOT PASSED by any iOS caller **
+    onOpenDetail              STATE-ONLY  iosMain:1608
+
+  GroupTrackLaunchLayer   [commonMain declares 5 callback(s)]
+    onHelp                    WORK        iosMain:1323  calls: GtPanelChromeIos.openHelp
+    onZoom                    WORK        iosMain:1325  calls: js, zoomIn, zoomOut
+    onMapType                 REPORT      iosMain:1328
+    onRide                    ** NOT PASSED by any iOS caller **
+    onToggleView              REPORT      iosMain:1357
+
+  GtAlertSettingsPanel   [commonMain declares 9 callback(s)]
+    onShowLeadTrack           STATE-ONLY  iosMain:1523
+    onGroup                   STATE-ONLY  iosMain:1527
+    onIssueEmail              WORK        iosMain:1532  calls: GtIssueMode.set, IosSettings
+    onRemoveTrailData         STATE-ONLY  iosMain:1547
+    onCheckTrail              STATE-ONLY  iosMain:1553
+    onRideStats               WORK        iosMain:1550  calls: rideStatsNow
+    onProfile                 STATE-ONLY  iosMain:1558
+    onMapCredits              STATE-ONLY  iosMain:1556
+    onClose                   STATE-ONLY  iosMain:1559
+
+  GtDocsChooser   [commonMain declares 2 callback(s)]
+    onOpen                    STATE-ONLY  iosMain:1567
+    onClose                   STATE-ONLY  iosMain:1568
+
+  GtGpsHudRow   [commonMain declares 2 callback(s)]
+    onOpen                    REPORT      iosMain:1314
+    onToggleText              STATE-ONLY  iosMain:1315
+
+  GtNotesPanel   [commonMain declares 5 callback(s)]
+    onClose                   STATE-ONLY  iosMain:1623
+    onBuildFromRecipe         ** NOT PASSED by any iOS caller **
+    onRouteDetails            STATE-ONLY  iosMain:1624
+    onDownloadMaps            ** NOT PASSED by any iOS caller **
+    onCreateRide              ** NOT PASSED by any iOS caller **
+
+  GtRecordButton   [commonMain declares 3 callback(s)]
+    onTap                     WORK        iosMain:1260  calls: in, recording
+    onPause                   REPORT      iosMain:1275
+    onEnd                     WORK        iosMain:1282  calls: ended
+
+  GtRiderProfilePanel   [commonMain declares 2 callback(s)]
+    onSaved                   REPORT      iosMain:1825
+    onCancel                  STATE-ONLY  iosMain:1826
+
+  IssueButton   [commonMain declares 2 callback(s)]
+    onOpen                    ** NOT PASSED by any iOS caller **
+    onClose                   ** NOT PASSED by any iOS caller **
+
+  IssueHost   [commonMain declares 2 callback(s)]
+    onOpen                    ** NOT PASSED by any iOS caller **
+    onClose                   ** NOT PASSED by any iOS caller **
+
+=== 5. EVERY CONTROL (flat) -- file:line | kind | verdict | label ===
+    Includes SWITCHES and SLIDERS, which navigation_xref.txt omits.
+
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:13 tap       EMPTY       (computed)
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:217 slider    STATE-ONLY  Trailhead name
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:223 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:231 tap       STATE-ONLY  Cancel
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:244 slider    STATE-ONLY  Route name
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:248 slider    STATE-ONLY  Route description
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:256 tap       WORK        CREATE ROUTE & RIDE
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:261 tap       STATE-ONLY  Cancel
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:326 tap       WORK        \u2606
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:337 tap       WORK        \u00d7
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:393 tap       STATE-ONLY  \u25b8 technical
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:425 slider    STATE-ONLY  RENAME
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:428 tap       WORK        RENAME
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:433 tap       STATE-ONLY  CANCEL
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:446 tap       WORK        DELETE
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:451 tap       STATE-ONLY  CANCEL
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:467 tap       WORK        CANCEL
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:475 tap       STATE-ONLY  CANCEL
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:488 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactListPanel.kt:22 tap       EMPTY       (computed)
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactListPanel.kt:109 tap       STATE-ONLY  HIDE
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactListPanel.kt:133 tap       WORK        SELECT ALL
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactListPanel.kt:138 tap       WORK        DESELECT ALL
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactListPanel.kt:144 tap       WORK        FIT
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactListPanel.kt:206 switch    WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactListPanel.kt:221 tap       WORK        Waypoints
+  commonMain/kotlin/com/geeksville/mesh/convoy/GtRiderProfilePanel.kt:17 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/convoy/GtRiderProfilePanel.kt:155 tap       STATE-ONLY  \u2713 
+  commonMain/kotlin/com/geeksville/mesh/convoy/GtRiderProfilePanel.kt:174 tap       STATE-ONLY  (computed)
+  commonMain/kotlin/com/geeksville/mesh/convoy/GtRiderProfilePanel.kt:207 tap       WORK        Cancel
+  commonMain/kotlin/com/geeksville/mesh/convoy/GtRiderProfilePanel.kt:216 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/convoy/MapKeysPanel.kt:9 tap       EMPTY       (computed)
+  commonMain/kotlin/com/geeksville/mesh/convoy/TrailStylePanel.kt:9 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/convoy/TrailStylePanel.kt:96 tap       WORK        \u2715
+  commonMain/kotlin/com/geeksville/mesh/convoy/TrailStylePanel.kt:127 tap       STATE-ONLY  PATTERN
+  commonMain/kotlin/com/geeksville/mesh/convoy/TrailStylePanel.kt:214 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:6 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:104 tap       WORK        Available
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:108 tap       WORK        Downloading
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:123 tap       WORK        Public
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:127 tap       WORK        Private
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:138 tap       WORK        Public
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:143 tap       WORK        Restricted
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:153 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:181 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:187 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:205 tap       STATE-ONLY  \u2713 
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GroupTrack.kt:7 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GroupTrack.kt:88 tap       WORK        not attached yet
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GroupTrack.kt:95 tap       WORK        OVERVIEW
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GroupTrack.kt:218 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GroupTrack.kt:366 tap       WORK        N
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtAlertSettingsPanel.kt:3 tap       EMPTY       (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtAlertSettingsPanel.kt:310 slider    STATE-ONLY  (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtAlertSettingsPanel.kt:330 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtDocsChooser.kt:3 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtDocsChooser.kt:51 tap       WORK        videos
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtGpsHudRow.kt:5 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtGpsHudRow.kt:73 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtGpsHudRow.kt:112 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:6 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:168 tap       STATE-ONLY  (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:194 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:257 tap       STATE-ONLY  HIDE
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:260 tap       WORK        HELP
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtRecordButton.kt:3 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtRecordButton.kt:59 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtRecordButton.kt:75 tap       WORK        ▶  CONTINUE
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/GtRecordButton.kt:86 tap       WORK        ⏹  END
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/KeyModule.kt:4 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/KeyModule.kt:103 tap       WORK        STYLE ›
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/NotesPanel.kt:11 tap       EMPTY       (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/NotesPanel.kt:123 tap       STATE-ONLY  \u25BE
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/NotesPanel.kt:208 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:5 tap       WORK        (computed)
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:147 slider    STATE-ONLY  Trail, route, track, waypoint or place
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:165 tap       STATE-ONLY  Offline — places are left out; your trails, routes, tracks and waypoints are searched.
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:208 tap       WORK        found as: 
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:220 tap       STATE-ONLY  \u2713 
+  commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:232 tap       STATE-ONLY  \u2713 
+  commonMain/kotlin/com/grouptrack/shared/ui/GtIpadProbeScreen.kt:65 tap       EMPTY       TAP TO PROVE RECOMPOSITION
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:25 tap       WORK        (computed)
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:182 tap       WORK        ISSUE
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:205 slider    STATE-ONLY  What is wrong
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:212 tap       WORK        SEND
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:219 tap       STATE-ONLY  + NEXT SCREEN
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:224 tap       WORK        CANCEL
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:244 tap       WORK        \u23fa  CAPTURE THIS SCREEN
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:247 tap       WORK        CANCEL
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:1639 tap       WORK        (computed)
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:1665 tap       STATE-ONLY  CANCEL
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:1684 tap       STATE-ONLY  OK
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:1709 tap       WORK        REFRESH
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:1714 tap       WORK        RESET
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:1715 tap       STATE-ONLY  CLOSE
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:1734 slider    STATE-ONLY  Agency Id, Id or name
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:1750 tap       WORK        (computed)
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:1781 tap       WORK        GroupTrack OG trail check: 
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:1792 tap       STATE-ONLY  CLOSE
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:1799 tap       STATE-ONLY  CLOSE
+  iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:1813 tap       STATE-ONLY  OK
+
+=== 6. COMPOSABLES -- name, file, line ===
+  AreaRow                              commonMain/kotlin/com/geeksville/mesh/grouptrack/KeyModule.kt:123
+  ArtifactDetailPanel                  commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:44
+  ArtifactListItem                     commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactListPanel.kt:186
+  ArtifactListPanel                    commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactListPanel.kt:58
+  Chip                                 commonMain/kotlin/com/geeksville/mesh/convoy/TrailStylePanel.kt:206
+  DetailActionButton                   commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:481
+  DownloadSettingsPanel                commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanelChrome.kt:51
+  Field                                commonMain/kotlin/com/geeksville/mesh/convoy/GtRiderProfilePanel.kt:243
+  FixedRow                             commonMain/kotlin/com/geeksville/mesh/grouptrack/KeyModule.kt:110
+  GroupTrackLaunchLayer                commonMain/kotlin/com/geeksville/mesh/grouptrack/GroupTrack.kt:99
+  GtAlertSettingsPanel                 commonMain/kotlin/com/geeksville/mesh/grouptrack/GtAlertSettingsPanel.kt:61
+  GtAlertSlider                        commonMain/kotlin/com/geeksville/mesh/grouptrack/GtAlertSettingsPanel.kt:287
+  GtButton                             commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:161
+  GtCloseButton                        commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanelChrome.kt:65
+  GtCompass                            commonMain/kotlin/com/geeksville/mesh/grouptrack/GroupTrack.kt:358
+  GtDocsChooser                        commonMain/kotlin/com/geeksville/mesh/grouptrack/GtDocsChooser.kt:38
+  GtFilterBody                         commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:71
+  GtGpsHudRow                          commonMain/kotlin/com/geeksville/mesh/grouptrack/GtGpsHudRow.kt:51
+  GtGpsOutlinedText                    commonMain/kotlin/com/geeksville/mesh/grouptrack/GtGpsHudRow.kt:135
+  GtGroupTrackScreen                   iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:667
+  GtIconButton                         commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:187
+  GtIpadProbeScreen                    commonMain/kotlin/com/grouptrack/shared/ui/GtIpadProbeScreen.kt:37
+  GtKeyBody                            commonMain/kotlin/com/geeksville/mesh/grouptrack/KeyModule.kt:44
+  GtMenuLine                           commonMain/kotlin/com/geeksville/mesh/grouptrack/GroupTrack.kt:76
+  GtNotesPanel                         commonMain/kotlin/com/geeksville/mesh/grouptrack/NotesPanel.kt:44
+  GtPanel                              commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:215
+  GtRecordButton                       commonMain/kotlin/com/geeksville/mesh/grouptrack/GtRecordButton.kt:44
+  GtRiderProfilePanel                  commonMain/kotlin/com/geeksville/mesh/convoy/GtRiderProfilePanel.kt:75
+  GtSearchBody                         commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:83
+  GtSectionLabel                       commonMain/kotlin/com/geeksville/mesh/grouptrack/GtAlertSettingsPanel.kt:277
+  GtSettingRow                         commonMain/kotlin/com/geeksville/mesh/grouptrack/GtAlertSettingsPanel.kt:327
+  GtSwitchRow                          commonMain/kotlin/com/geeksville/mesh/grouptrack/GtAlertSettingsPanel.kt:338
+  GtTheme                              commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:97
+  GtVecMap                             iosMain/kotlin/com/grouptrack/shared/platform/GtVecMap.ios.kt:375
+  Header                               commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:199
+  IosDocView                           iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:621
+  IssueButton                          commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanelChrome.kt:32
+  IssueHost                            commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanelChrome.kt:36
+  Label                                commonMain/kotlin/com/geeksville/mesh/convoy/TrailStylePanel.kt:174
+  LineSample                           commonMain/kotlin/com/geeksville/mesh/convoy/TrailStylePanel.kt:186
+  QueueSummary                         commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanelChrome.kt:46
+  ResultRow                            commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:204
+  Sample                               commonMain/kotlin/com/geeksville/mesh/grouptrack/KeyModule.kt:146
+  ScopeSeg                             commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:217
+  Section                              commonMain/kotlin/com/geeksville/mesh/grouptrack/KeyModule.kt:86
+  Seg                                  commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:202
+  StyleRow                             commonMain/kotlin/com/geeksville/mesh/grouptrack/KeyModule.kt:96
+  TrailGroup                           commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:167
+  TrailStylePanel                      commonMain/kotlin/com/geeksville/mesh/convoy/TrailStylePanel.kt:60
+  TypeChip                             commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:227
+  UtahPrivatePanel                     commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanelChrome.kt:41
+  boxColors                            commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:211

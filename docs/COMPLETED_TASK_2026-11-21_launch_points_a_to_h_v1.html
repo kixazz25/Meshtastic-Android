@@ -1,0 +1,56 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>GroupTrack 2.8b — COMPLETED 2026-11-21</title>
+<style>body{font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#111}
+h1{font-size:22px}h2{font-size:18px;margin-top:28px;border-bottom:2px solid #ddd;padding-bottom:4px}
+table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#f2f2f2}code{background:#f4f4f4;padding:1px 4px;border-radius:3px;font-size:13px}
+.note{background:#fffbe6;border-left:4px solid #e0b000;padding:8px 12px;margin:10px 0}</style></head><body>
+<h1>GroupTrack 2.8b — COMPLETED ITEMS, 2026-11-21</h1>
+<p>The work performed on 11-21, with its commit. Generated at the EOD process so the handoff carries only
+what is NOT finished. Fred 20:24: <i>&ldquo;we do not need to include the items that are finished. we start at
+radio settings tomorrow.&rdquo;</i></p>
+
+<h2>Launch rows closed</h2>
+<table>
+<tr><th>row</th><th>what closed</th><th>commit</th></tr>
+<tr><td><b>A · MENU</b></td><td>A's five work orders (AWORK-2026-11-20). No service gaps at any hop.</td><td><code>d978d511c</code></td></tr>
+<tr><td><b>C · VIEW</b></td><td>The View button and the shared HUD atom <code>GtHudView</code> / <code>GtHudViews</code> (label, nextFromButton, applyRequest, showGps), transcribed from <code>ConvoyViewModel</code> and <code>GroupTrackScreen</code>.</td><td><code>1245364a8</code></td></tr>
+<tr><td><b>E · STATUS</b></td><td><code>GtReachability</code> / <code>GtIosReachability</code> (<code>nw_path_monitor</code> on the main queue) plus Android's three refusal branches with Android's own string. <code>platform.Network</code> compiled first try.</td><td><code>f14e266e6</code></td></tr>
+<tr><td><b>F · MAP VIEW</b></td><td>The scheme.</td><td><code>60a3bb732</code></td></tr>
+<tr><td><b>G · TRAIL STYLES</b></td><td>Reviewed and closed. The three <code>setTrailStyles</code> definitions are a deliberate decorator chain (spatial &rarr; artstyle &rarr; tracks, loaded in that order at <code>:93/:101/:103</code>), NOT a collision — my claim retracted. Android's two are plain declarations, so one of ANDROID's is dead: 2.8a, carded.</td><td>&mdash;</td></tr>
+</table>
+
+<h2>Other work completed</h2>
+<table>
+<tr><th>item</th><th>what it was</th></tr>
+<tr><td><b>B's three stubs</b></td><td>Replaced by the real calls (<code>4cae746dd</code>). Each call is correct; the BRANCH around B1 was not transcribed, so B stays open at the process level — see the handoff.</td></tr>
+<tr><td><b>D · Bluetooth settings</b></td><td><code>GtBluetoothSettings</code> / <code>GtIosBluetoothSettings</code>: <code>open()</code> + <code>opensBluetoothDirectly</code> (false on iOS — the Bluetooth pane has no public API and <code>App-Prefs:</code> fails App Review).</td></tr>
+<tr><td><b><code>GtRadioApply</code></b></td><td>The shared RADIO WRITE service: <code>configDoc(fs, fileName)</code> by NAME, <code>defaultConfigDoc</code>, <code>targetFromFile</code>, <code>Target.Ride/Saved</code>, <code>write</code> &rarr; <code>applyRide</code>, <code>verified</code>, <code>noRadio</code>. Serves BOTH chains (N · RADIO SETUP and B1 · CHECK IN).</td></tr>
+<tr><td><b><code>GtRadioApply.lastAppliedRide</code></b></td><td>Added at this EOD (CHECKINBASE-2026-11-21): <code>GrpAwareness.kt:130-134</code> with the comm instance passed in place of a Context. Reads the comm side's record, not the radio. Both compiles green.</td></tr>
+<tr><td><b>H · HIDE EVERYTHING</b></td><td>IOSHIDE-2026-11-21. It was a NO-OP: <code>hidden.value</code> was read only by its own label and its own toggle, never by <code>displayState</code>, so the button relabelled itself and every artifact stayed drawn. Now carries Android's <code>gtHideSaved</code> — the second tap restores the rider's own states, not &ldquo;everything on&rdquo;.</td></tr>
+<tr><td><b>The no-trails regression</b></td><td>Resolved. Trails draw at z9 and not z8, which is <code>TRAILS_MIN_ZOOM = 9</code> behaving as written — Android's rule. The gate STAYS at 9 so both platforms certify the same (Fred 17:32); the patch that would have made it 7 is retired <code>_DO_NOT_RUN_gate_stays_9_for_certification</code>. Two patches landed in the same build (IOSTRAILLOAD, IOSVPZOOM), so the fix is ENTANGLED and neither is individually proven.</td></tr>
+</table>
+
+<h2>What the database test settled — keep this, it closes three theories</h2>
+<p>Measured against the pull the simulator was seeded from, <code>_data/ref/droid2_full_2026-11-19_1509</code>:</p>
+<ul>
+<li><code>trails</code>: all 18 columns (<code>open_geom</code> and <code>restricted_geom</code> present), <code>user_version</code> 1, <b>229,363 rows</b>.</li>
+<li><code>queryTrails</code> run VERBATIM: <b>1000 rows, all with geometry</b>, under an empty WHERE and under the real one, at every clause step.</li>
+<li>the seeded <code>map_keys.json</code>: <code>land=ALL</code>, <code>use=MOTORIZED</code>, <code>off</code> = the five non-motorized rows &rarr; <b>199,494 rows pass</b>. <code>use_type</code> populated: 200,362 MOTORIZED / 29,001 NON-MOTORIZED.</li>
+</ul>
+<div class="note"><b>⛔ THREE THEORIES DIED AGAINST THAT, recorded so they are not re-derived:</b>
+<b>(1)</b> the missing <code>TrailFilterState.load()</code> — a real Android/iPad difference and kept, but <code>trailStyleOf</code> ends in a cyan fallback, so an unstyled trail is VISIBLE.
+<b>(2)</b> the missing <code>open_geom</code> column — from a Nov-2 pull that predates RSTOPEN-2026-11-02; <code>GtSchema.versionOne:49-50</code> adds all seven columns. Fred: <i>&ldquo;you are querying the wrong item.&rdquo;</i>
+<b>(3)</b> the zoom-unit mismatch as the SOLE cause — real and fixed, but Android has the same line, is on VEC, and does not fail.
+And a process failure: a &ldquo;BUILD SUCCESSFUL in 1s / 3 executed&rdquo; with NO task block was accepted after a timestamp check 23 seconds wider than the edit it tested. <b>No task block means no compile.</b></div>
+
+<h2>Cards opened 11-21</h2>
+<ol>
+<li>The iPad's <code>vec_spatial.js</code> is Android's PRE-FITBEARING file (20542 b, Nov 3 vs 20878 b, Nov 20) — every other vecmap asset is byte-identical. The one hunk passes <code>bearing: map.getBearing()</code> to <code>fitBounds</code>, so <b>the iPad still snaps north on every follow refresh</b>. Cannot hide a trail.</li>
+<li><code>TRAILS_MIN_ZOOM</code> is written in FOUR places and only one is shared: <code>GtSpatial.kt:194</code> (the iPad's gate), a bare literal <code>9</code> in <code>SpatialDisplayManager.bindingFor</code> (Android's gate), and two diagnostic copies. Android's gate should READ the shared constant.</li>
+<li>The iPad's initial slots are all 1 while <code>GtMapState.typeDefault</code> is Trails 1 / rest 0 — live the moment display-state persist lands.</li>
+<li>Android's <code>trailsChanged</code> (<code>GroupTrackScreen.kt:3191</code>) posts the raw MapLibre zoom into a gate measured in app zoom. Does not stick there; 2.8a, not touched.</li>
+<li>The profile's <code>default_role</code> governs the COMMUNITY SITE; the ride role is SELECTED per ride and may differ every ride (Fred 20:14). Nothing about the profile role belongs in the check-in's shared types.</li>
+<li>Group mode's OFF label is <b>&ldquo;My device&rdquo;</b> (<code>GtIosPanels:543</code>) — not &ldquo;droid&rdquo;.</li>
+</ol>
+</body></html>
