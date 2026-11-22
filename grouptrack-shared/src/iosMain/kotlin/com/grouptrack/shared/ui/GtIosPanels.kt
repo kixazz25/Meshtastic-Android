@@ -676,6 +676,13 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                 iosStorage().root().toString() + "/" + TrailFilterState.FILE_NAME
             }
         }
+        // IOSTRAILLOAD-2026-11-21: Android is `remember { TrailFilterState.load(); true }`
+        // (GroupTrackScreen.kt:262), before the WebView is built. The iPad set the pathProvider --
+        // where the file IS -- and never READ it, so `style` stayed empty and styleJson() handed the
+        // page {} for the trail layer: trails were queried and sent, then painted with nothing.
+        // It also meant the rider's saved map_keys.json and the bundled map_keys_defaults.json were
+        // both ignored. After the pathProvider, deliberately -- load() reads through it.
+        TrailFilterState.load()
         true
     }
 
@@ -689,8 +696,13 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
 
     // GroupTrackScreen.kt:3178 verbatim -- asks the page to re-report its viewport, which is what
     // makes the trails redraw after a FILTER or MAP KEY change.
+    // IOSVPZOOM-2026-11-21: gtAppZoom(), NOT map.getZoom(). The page posts gtAppZoom()
+    // (vec_spatial.js:235) = map.getZoom() + GT_ZOFF, and GtSpatial's gates are "in app (Leaflet)
+    // zoom" -- so posting the raw MapLibre zoom here was one step too low. Only Trails and Land
+    // have a zoom gate (both 9), so it hid exactly those two and nothing else, and it stuck
+    // because after a category change nothing re-posts until the rider pans.
     val viewportJs = "try{var b=map.getBounds();Android.onViewportChanged(" +
-        "b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}"
+        "b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),gtAppZoom())}catch(e){}"
 
     // The map's own state, from the page. GtMapView holds these on Android (MapEngine.kt:52).
     val centre = remember { mutableStateOf(doubleArrayOf(0.0, 0.0)) }
@@ -861,6 +873,10 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     val routes = remember { mutableIntStateOf(1) }
     val waypoints = remember { mutableIntStateOf(1) }
     val hidden = remember { mutableStateOf(false) }
+    // IOSHIDE-2026-11-21: the states HIDE EVERYTHING put away, so the second tap restores exactly what
+    // the rider had -- Android's gtHideSaved. Empty = nothing hidden. A rider who had Tracks off
+    // keeps Tracks off when they come back; "show everything" would be a different feature.
+    val hiddenSaved = remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     val offAvailable = remember { mutableStateOf(false) }
     val offDownloading = remember { mutableStateOf(false) }
 
@@ -999,7 +1015,29 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
             }
         },
         hidden = hidden.value,
-        toggleHide = { hidden.value = !hidden.value; js(viewportJs); onMessage("hideEverything", hidden.value.toString()) },
+        // IOSHIDE-2026-11-21: Android's toggleHide, transcribed. Before this it flipped `hidden`
+        // and nothing else -- and `hidden` is read ONLY for the panel's wording, never by
+        // displayState, so HIDE EVERYTHING changed a label while every artifact stayed drawn.
+        // Writing the SLOTS is what the map reads (displayState at :1222), and fitArtifact already
+        // proves that path works. DS_OFF is 0 (FilterModule.kt:51).
+        toggleHide = {
+            if (hiddenSaved.value.isEmpty()) {
+                hiddenSaved.value = mapOf(
+                    "Trails" to trails.intValue,
+                    "Tracks" to tracks.intValue,
+                    "Waypoints" to waypoints.intValue,
+                    "Routes" to routes.intValue,
+                )
+                trails.intValue = 0; tracks.intValue = 0; waypoints.intValue = 0; routes.intValue = 0
+                hidden.value = true
+            } else {
+                hiddenSaved.value.forEach { (t, v) -> slot(t).intValue = v }
+                hiddenSaved.value = emptyMap()
+                hidden.value = false
+            }
+            js(viewportJs)
+            onMessage("hideEverything", hidden.value.toString())
+        },
         // GroupTrackScreen.kt:3178 -- the trails re-read after a category or land change.
         trailsChanged = { js(viewportJs) },
         // GtOffGrid is Android's (Thread, MBTilesStore, VectorTiles, GtMapEngine), so the iPad

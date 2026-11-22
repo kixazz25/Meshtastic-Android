@@ -125,4 +125,26 @@ object GtRadioApply {
     /** The failure both callers message on by name rather than showing the raw reason. */
     fun noRadio(result: CommResult): Boolean =
         result is CommResult.Failed && result.reason == NO_RADIO
+
+    /**
+     * CHECKINBASE-2026-11-21: what was LAST WRITTEN to this radio -- (rideId, title), or null.
+     *
+     * GrpAwareness.kt:130-134 verbatim, with the comm instance passed in instead of a Context
+     * (the Context only ever served to reach it). CheckInSheet compares this ride's network with
+     * this to decide whether the radio needs setting up before the check-in.
+     *
+     * ⚠ "As found" is excluded, as Android excludes it: that record is the backup taken BEFORE a
+     * write, so it says where the radio came from, never what GroupTrack put on it.
+     *
+     * ⭐ This reads the COMM SIDE'S RECORD, not the radio -- so this file's rule (the comm side
+     * owns reading the radio's current configuration) is intact. On the iPad GtIosCommConfig does
+     * not override appliedHistory, so it returns the interface default emptyList() and this
+     * returns null: nothing written, nothing to re-apply.
+     */
+    fun lastAppliedRide(config: CommConfig, nodeNum: Int?): Pair<String?, String>? {
+        if (nodeNum == null || nodeNum == 0) return null
+        val best = config.appliedHistory(nodeNum.toString())
+            .firstOrNull { it.title != "As found" } ?: return null
+        return Pair(best.rideId, best.title.ifBlank { "a saved configuration" })
+    }
 }

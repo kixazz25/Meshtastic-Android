@@ -2,7 +2,7 @@
 <!-- RELNOTE-2026-11-17: 2.8 block opened. Items marked QUEUED are decided, not built. -->
 <!-- DOCOG-2026-11-07 (Fred 11:19): GroupTrack as a brand name is drawn as the GroupTrack OG mark; titles say GroupTrack Off Grid. -->
 <html><head><meta charset="utf-8">
-<title>GroupTrack Off Grid Release Notes v86 &mdash; 2.8</title>
+<title>GroupTrack Off Grid Release Notes v88 &mdash; 2.8</title>
 <style>
 body{font:14px/1.6 system-ui,sans-serif;max-width:900px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
 h1{font-size:20px;border-bottom:2px solid #7bb661;padding-bottom:6px;margin-bottom:4px}
@@ -39,7 +39,7 @@ details details>summary{font-weight:500;color:#333;font-size:13.5px}
 <!-- RELNOTES v75 (2026-11-07 09:05, Fred): "Rider" capitalised and quoted as a trail category FILTER can isolate. -->
 <!-- RELNOTES v74 (2026-11-07, Fred 08:52-09:01): the two notices at the very start -- start over if not updated since Rel 2.6c (22 July 2026); every rider: import your track history. -->
 
-<p style="font:11px monospace;color:#8b949e">DOCUMENT ID: RELNOTES-2026-09-30 · Rel 2.7e · v80 2026-11-09</p>
+<p style="font:11px monospace;color:#8b949e">DOCUMENT ID: RELNOTES-2026-09-30 · Rel 2.8b · v90 2026-11-21</p>
 <!-- RELNOTES v70 (2026-11-04, Fred 14:13 "release notes start with a 2.7c section"): newest release first -- 2.7e opens the notes; 2.7d and 2.7c fold under twisties like 2.7b. No text changed. -->
 <!-- RELNOTES v71 (2026-11-04, Fred 14:19): 2.7e is the PUBLIC release, Friday 6 November 2026 -- "internal testing" removed from the 2.7e headings; 2.7c / 2.7b keep theirs (they were internal builds). -->
 <div style="border-left:4px solid #d29922;background:rgba(210,153,34,.12);border-radius:6px;padding:10px 14px;margin:12px 0">
@@ -97,6 +97,90 @@ details details>summary{font-weight:500;color:#333;font-size:13.5px}
      NOT rider-visible, deliberately out of these notes: all of today's iPad work (the vector map rendering on
      iPadOS, the tile store, the startup road, the Compose Multiplatform pipe). Nothing there reaches riders
      until 2.8b. -->
+<!-- RELNOTES v87 (2026-11-19 EOD): 2.8b, the iPad build, opens the notes -- newest release first (Fred v70).
+     Nothing in this section changes the Android app, and it says so at the top. -->
+<h1 id="rn-28b"><span class="gtL">GroupTrack<sup>OG</sup></span> 2.8b &mdash; iPad, internal testing</h1>
+
+<div style="border-left:4px solid #58a6ff;background:rgba(88,166,255,.10);border-radius:6px;padding:10px 14px;margin:12px 0">
+<p style="margin:4px 0"><b>&#9888; Android riders: nothing to do, nothing to notice.</b> Rel 2.8b is the iPad
+build. Everything below happened on the iPad, and the Android app behaves exactly as it did on 18 November. Where
+shared code moved between the two, the Android screens were wired explicitly so they keep the buttons they already
+had &mdash; the HELP button on the route-notes panel and on the SELECT list is passed by name rather than left to
+a default that would have quietly removed it.</p>
+</div>
+
+<h2>Rel 2.8b &middot; 21 November 2026 &mdash; the map draws what the controls say, and the controls remember</h2>
+
+<h3>FIX Trails are back on the iPad map</h3>
+<p>Trails had stopped drawing on the iPad while tracks, routes and waypoints carried on as normal. They
+draw again. Trails appear from zoom 9 in, exactly as they do on Android &mdash; zoom out past that and they
+step aside so the wider view stays readable.</p>
+
+<h3>FIX HIDE EVERYTHING now clears the map, and SHOW AGAIN puts back what you had</h3>
+<p>On the iPad the button changed its own label and left every artifact on screen. It now clears the map,
+and the second tap restores <b>exactly the types you had switched on</b> &mdash; not everything. If you were
+riding with tracks off, they stay off when you come back.</p>
+
+<h3>NEW The iPad tells you when it has no internet, in the same words as Android</h3>
+<p>The status line now knows whether the iPad is actually online, and the offline-maps switch explains
+itself the same way on both. Switching maps offline is still about maps only &mdash; it does not turn
+anything else off.</p>
+
+<h3>NEW The View button cycles the heads-up displays</h3>
+<p>Group, My cart, Node and collapsed, in the same order and with the same labels as Android, and the GPS
+readout follows the same rule it follows there.</p>
+
+<h3>Mesh radio settings</h3>
+<p>Applying a radio configuration now runs through one shared service on both platforms, so a ride's radio
+setup behaves identically wherever it is applied. On the iPad the radio itself is still being brought up:
+the link, scanning and connecting are in place, and writing a full configuration is the next step.</p>
+
+<h3>&#9888; For testers on the simulator</h3>
+<p>The simulator has no Bluetooth, so no radio can connect there and every radio function will report that
+honestly rather than pretending. Everything that does not need a radio &mdash; the map, trails, filters,
+recording, importing, route building &mdash; is fully testable on it.</p>
+
+<h2>Rel 2.8b &middot; 19 November 2026 &mdash; the iPad map answers the controls around it</h2>
+
+<p><b>The FILTER now changes the map.</b> Turning a type off removes it from the map rather than only changing the
+button, and turning everything off leaves an empty map, as it should. The land-ownership shading follows Trails,
+the same way it does on the tablet.</p>
+
+<p><b>FIT frames one artifact.</b> Choosing a search result, or pressing FIT on an artifact's details, moves the
+map to that artifact and shows <i>only</i> that artifact. The frame comes from the artifact's own stored extent
+with a 10% margin, and a single-point waypoint gets a sensible box instead of a zero-size one. FIT works from both
+places now &mdash; previously it worked from search only, and the FIT button on the details panel closed the panel
+without moving the map.</p>
+
+<p><b>SELECT lists what is in view.</b> SELECT on Tracks, Routes or Waypoints asks the database what lies inside
+the frame you are looking at and lists it with ticks; the ticks drive the map immediately and are still there when
+you reopen the list. SELECT on Trails opens the trail <b>category</b> filter instead of a list, as on the tablet
+&mdash; there are 229,363 trails and a list of them would help nobody.</p>
+
+<p><b>Tapping a route opens the route's story first.</b> A route with a written narrative opens its overview
+&mdash; the headline, distance and riding time, what you will see, the stops in order, the ground covered, and
+anything to know before you go &mdash; with ROUTE DETAILS taking you on to the data card. A route without a
+narrative opens the card directly. This is the tablet's behaviour; the iPad used to open the card for every route.</p>
+
+<p><b>An artifact's details panel offers its actions.</b> Delete, Remove alias, Export, Share and Route notes are
+there and working. Export writes a GPX into <b>GroupTrack Map Features</b>; Share writes the same file and then
+offers it to your mail app. Deleting a waypoint that a route uses as its trailhead is refused and names the route,
+exactly as on the tablet.</p>
+
+<p><b>GRP Awareness explains itself.</b> With group awareness off, tapping it now says so and tells you where to
+turn it on, instead of doing nothing.</p>
+
+<p><b>&#9888; Known, and deliberate, on this build.</b> Exporting or sharing a <b>track</b> does not work yet
+&mdash; a track's export is the file written while you recorded it, and those files are not on the iPad. Routes,
+trails and waypoints export normally. Save maps, Save a corridor and Build from recipe each report what they still
+need rather than failing silently. Mesh radio is not part of 2.8b at all.</p>
+
+<div style="border-left:4px solid #d29922;background:rgba(210,153,34,.12);border-radius:6px;padding:10px 14px;margin:12px 0">
+<p style="margin:4px 0"><b>Testing note.</b> The iPad simulator now carries the same artifact data as the tablets
+&mdash; 23 routes, 136 tracks, 599 waypoints, 229,363 trails &mdash; so a difference between the two is a
+difference in the software, not in the data.</p>
+</div>
+
 <h1 id="rn-27f"><span class="gtL">GroupTrack<sup>OG</sup></span> 2.7f — 11 November 2026</h1>
 <!-- RELNOTES v84 (2026-11-11 21:35, Fred 21:26): the current release is named 2.7f (Play version 29321521; built as 2.7e update f, tag 2.7e-2026-11-11f). The 2.7e sections below stay as they are, under their own heading. -->
 <h2 id="rn-27f-1111">Rel 2.7f · 11 November 2026 — the AI route planner: no crash, longer rides, and it tells you what an area can do</h2>
@@ -521,8 +605,21 @@ of the files found; importing it fails with <i>Not a GPX file</i>. Import ride f
 <p style="font:11px monospace;color:#8b949e">DOCUMENT ID: RELNOTES-2026-08-29-B</p>
 
 <h1><span class="gtL">GroupTrack<sup>OG</sup></span> 2.8 &mdash; in development</h1>
-<p class="rel">Not yet on Google Play. These entries are on the test tablets only &mdash; build 2026-11-17_1501.
+<p class="rel">Not yet on Google Play. These entries are on the test tablets only &mdash; build 2026-11-20_1500.
 Items marked <b>QUEUED</b> are decided but not built; they carry no behaviour yet.</p>
+
+<h2>Rel 2.8 &middot; 20 November 2026 &mdash; the map shows the riders who are actually there</h2>
+
+<h3><span class="tag fix">FIX</span> A cart is only drawn for a radio that has been heard from</h3>
+<p>MENU &rsaquo; Settings &rsaquo; <b>Node Filter</b> &rsaquo; <b>Admission Window</b> has always said &ldquo;a radio must have been heard within this time to appear on the map&rdquo;. It did not do that. Every radio <span class="gtL">GroupTrack<sup>OG</sup></span> had ever met stayed on the map, so riders who had gone home &mdash; or radios sitting switched off in a box &mdash; still held carts, and the group view framed itself around them.</p>
+<p>Now the window governs the map. A radio heard from inside it gets a cart; one that has not been heard from does not, and its cart leaves the map when the window passes. It returns by itself on the next position that radio sends. The default is one hour and the slider goes to twelve. <b>Your own cart is never removed</b>, however long you have been out of touch. Riding alone with group awareness off, the map shows your cart and nothing else.</p>
+<p class="muted">If a rider you can see is missing from your map, their radio is not being heard &mdash; switched off, out of range, or with its serial connection turned off on the radio itself.</p>
+
+<h3><span class="tag fix">FIX</span> The map stops snapping back to north</h3>
+<p>With the readout collapsed, or while the group view was framing the whole group, every refresh turned the map north again &mdash; and if you were in <b>My dir</b>, it rotated straight back, so the map twitched as you rode. The refresh now keeps the direction the map is already facing.</p>
+
+<h3><span class="tag change">CHANGE</span> The group view leaves room ahead of you</h3>
+<p>When the readout is set to <b>Group</b>, the map frames everyone with a wider margin, so the group sits in about the middle of the screen and you can see the trail ahead instead of having the lead cart pinned at the edge.</p>
 
 <h2>Rel 2.8 &middot; 17 November 2026 &mdash; your files, in your own folders</h2>
 
