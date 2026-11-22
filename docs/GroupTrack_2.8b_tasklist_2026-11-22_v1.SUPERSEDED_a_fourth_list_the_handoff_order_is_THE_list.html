@@ -1,0 +1,81 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>GroupTrack 2.8b — THE TASK LIST</title>
+<style>
+:root{--bg:#0d1117;--fg:#c9d1d9;--dim:#8b949e;--accent:#4AB8E8;--line:#263449;--mono:ui-monospace,Consolas,monospace}
+body{background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,Segoe UI,sans-serif;margin:0;padding:24px 28px;max-width:1100px}
+header{border-bottom:2px solid var(--accent);padding-bottom:10px;margin-bottom:18px}
+.ttl{font-size:19px;font-weight:700}.sub{color:var(--dim);font:12px var(--mono);margin-top:4px}
+h2{color:var(--accent);font-size:15px;border-bottom:1px solid var(--line);padding-bottom:5px;margin:26px 0 10px}
+table{border-collapse:collapse;width:100%;font:12.5px var(--mono);margin:8px 0}
+th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+th{background:#12203a;color:var(--accent)}
+.d{color:#35C46A;font-weight:700}.x{color:#E0453A;font-weight:700}.p{color:#FFD24A;font-weight:700}
+.warn{background:#1b2a3a;border-left:3px solid var(--accent);padding:8px 12px;margin:10px 0}
+code{font:12px var(--mono);color:#9fd0ff}
+small{color:var(--dim)}
+</style></head><body>
+<header>
+<div class="ttl">GroupTrack <b>2.8b — THE TASK LIST</b></div>
+<div class="sub">v1 &middot; 2026-11-22 11:11 &middot; Fred: &ldquo;we have to have a tasklist to manage ourselves to&rdquo;
+&middot; built from MEASURED sources, not memory</div>
+</header>
+
+<div class="warn"><b>WHERE WE ARE IN ONE PARAGRAPH.</b> 2.8b is a PORT and Android is the specification.
+The launch surface is 13 lettered points; <b>18 screens</b> remain to port from <code>app/</code> to
+<code>commonMain</code>, and the launch-surface doc's own verdict is that each one <i>&ldquo;drives services
+that already exist &mdash; it is not eighteen investigations&rdquo;</i>. <b>A</b> is certified. <b>B</b> was
+built today and the check-in sheet was witnessed on the sim at 09:56. <b>C&ndash;I and M are untouched.</b>
+<b>N has not been started</b> and was item 1 for today. One subsystem is stubbed on purpose (map downloads).
+One thing is genuinely missing rather than unported: the <b>cart board</b>, so the iPad map shows no other
+carts at all.</div>
+
+<h2>1 &middot; THE CRITICAL PATH &mdash; in order</h2>
+<table>
+<tr><th>#</th><th>task</th><th>state</th><th>why it is here</th></tr>
+<tr><td>1</td><td><b>COMMIT</b> &mdash; 11-20's eleven patches + today's eight</td><td class="x">owed</td>
+<td>19 patches, none in git. Biggest exposure on the board. Pull TRAILSWITNESS from <code>GtVecMap.ios.kt</code> first; <code>iosApp</code> is 113 files untracked.</td></tr>
+<tr><td>2</td><td><b>N &middot; RADIO SETTINGS</b> &mdash; seams 1,2,3; the 15 <code>GtIosCommConfig</code> overrides (writer); <code>RadioBackups</code> port (reader, 63 lines onto GtStorage+GtOrgJson); <code>RadioSetupPrompt</code>; nodeNum via <code>radio_names.json</code></td><td class="x">not started</td>
+<td>Item 1 for today, never reached. Services measured present 11-21. On the critical path.</td></tr>
+<tr><td>3</td><td><b>THE RETOUCH PASS</b> &mdash; for every row called done, list the values its Android host block passes, flag every <code>emptyMap()</code>/<code>emptyList()</code>/<code>null</code>/<code>false</code> written on the iOS side</td><td class="x">not started</td>
+<td>Fred 08:52. Known instance: <code>heldBy = emptyMap()</code> at GtIosPanels:1957. Greppable and bounded.</td></tr>
+<tr><td>4</td><td><b>I &middot; CENTRE ON ME</b></td><td class="x">never walked</td><td>The only lettered row never walked at all. Carries autoPan (Fred 09:20).</td></tr>
+<tr><td>5</td><td><b>THE BOARD</b> &mdash; 2) board state out of ConvoyViewModel 3) iOS <code>CommMessaging</code> 4) the <code>addMarker</code> loop 5) CartPicker + RoleChange + heldBy</td><td class="p">1 of 5 done</td>
+<td>Step 1 (GtConvoyNode + GtConvoyEngine) landed and compiles. Steps 3&ndash;5 cannot be WITNESSED without an iPad and radios, so they earn nothing this week.</td></tr>
+<tr><td>6</td><td><b>The remaining screen ports</b> &mdash; 16 of the 18</td><td class="x">todo</td>
+<td>TrailFilterPanel, SyncTracksDialog, RiderTrailsDialog, J's 3 import dialogs, GroupHud, MyCartHud, NodeDetailHud, CollapsedPill, GpsIntervalDialog, GpsLocationRow, GtRouteHost, DownloadQueuePanel, GtAreaHost, HomeStatePickerScreen, GtRecipesScreen, GtEmergencyScreen</td></tr>
+<tr><td>7</td><td><b>Regenerate the register</b></td><td class="x">stale</td><td>Still the 11-20 count (DONE 5 &middot; STUB 5 &middot; SHELL 17 &middot; TODO 30). Mechanical.</td></tr>
+</table>
+
+<h2>2 &middot; DONE TODAY (2026-11-22)</h2>
+<table>
+<tr><th>what</th><th>witnessed?</th></tr>
+<tr><td>MESHFIELDS &mdash; config field names get one owner (the hopLimit-3-vs-2 defect)</td><td>compile only</td></tr>
+<tr><td>NOCONFIG &mdash; no config, no write; the swallowed catch removed</td><td>compile only</td></tr>
+<tr><td>IOSFRAMEWRITE (seam 9) &middot; IOSGROUPPERSIST (seam 10)</td><td>compile only</td></tr>
+<tr><td><b>B1 &middot; CHECK IN</b> &mdash; sheet, branch, help, radioConnected/radioTalking from <code>comm</code></td><td class="d">YES &mdash; Fred 09:56, sheet presented on the sim</td></tr>
+<tr><td><b>B3 &middot; END</b> &mdash; the track now enters the DB via <code>resolveTrackAdd</code> instead of an orphan GPX; async save</td><td>deferred to cert</td></tr>
+<tr><td>navxref v3 &mdash; two-platform diff tool</td><td>verified against v2</td></tr>
+<tr><td>BOARDMATH &mdash; GtConvoyNode + GtConvoyEngine to commonMain, certified primitives</td><td>compile only</td></tr>
+<tr><td>GRPDEFAULTS &mdash; signal lost 5 min (was 10); thresholds on the strip at both iOS switches</td><td>compile only</td></tr>
+</table>
+
+<h2>3 &middot; OFF THE CRITICAL PATH &mdash; carded, do not chase</h2>
+<table>
+<tr><th>card</th><th>what</th><th>when</th></tr>
+<tr><td>C28-26378</td><td>ENDSAVEFLOW &mdash; hide the save behind the survey, both platforms</td><td>after the loop</td></tr>
+<tr><td>C28-26379</td><td>SIGNALSTATES &mdash; what drop/lost DO; no LOST marker branch; 2 dead blink constants; ut23 stale</td><td>before ship</td></tr>
+<tr><td>C28-26380</td><td>ALERTDEFAULTS &mdash; 8 rider-facing numbers out of Kotlin into an asset</td><td>before ship</td></tr>
+<tr><td>C28-26381</td><td>GRPMSGDROID &mdash; the threshold message on Android's switch</td><td>after 2.8b certified</td></tr>
+<tr><td>&mdash;</td><td>Light/dark presentation not preserved on iOS &mdash; no theme state anywhere in <code>iosApp</code> or shared UI; Android's comes from upstream Meshtastic's DataStore. NEW work, not a port miss.</td><td>needs a card</td></tr>
+<tr><td>&mdash;</td><td>Trail colours/filters not persisting on the sim &mdash; the save path is complete and shared; <code>save()</code> swallows its error to a log line. Needs one LOG + reading to tell which.</td><td>needs a card</td></tr>
+<tr><td>&mdash;</td><td>The 5 deliberate stubs: Save maps, Save a corridor, Build from recipe, Map downloads panel, Download settings (all ONE subsystem) + archived radio setups</td><td>J's download family</td></tr>
+</table>
+
+<h2>4 &middot; THE RULE THIS LIST EXISTS TO ENFORCE</h2>
+<p>A discovery made while walking a row does <b>not</b> become the next task. It becomes a card, and the walk
+continues down this list. Today lost its morning to three discoveries that were each real and none of which
+were on any list: the hopLimit defect, the thresholds, and the board. Two of the three should have been cards.</p>
+<div class="sub">Sources: GroupTrack_2.8b_launch_surface_model_and_schedule_2026-11-22_v3.html &sect;2 (the 18-screen table),
+grouptrack_handoff_2026-11-22_v155.html (the 13 letters, the 11-20 register, the 11-22 order, the pull-before-commit list),
+grouptrack_living_checklist_2026-11-22_v27.html (the cards), and live greps of iosMain for the stub markers.</div>
+</body></html>

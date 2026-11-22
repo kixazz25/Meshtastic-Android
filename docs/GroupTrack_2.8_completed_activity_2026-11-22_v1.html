@@ -1,0 +1,41 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack &mdash; COMPLETED ACTIVITY 2.8 &mdash; v1 (2026-11-22)</title></head><body>
+<h1>COMPLETED 2026-11-22</h1>
+<p>One row per item that closed today, with its EVIDENCE (a measurement, a commit, a device
+observation) and its commit number. Items ARRIVE here by being MOVED out of the handoff or the
+checklist -- never by being retyped. The day&rsquo;s completed-activity record, so that pruning
+never loses the fact that something was addressed.</p>
+
+<h2>MOVED OUT OF THE HANDOFF &sect;1 SEAM TABLE &mdash; SEAMMOVE-2026-11-22 11:20</h2>
+<p><b>Fred 11:20:</b> <i>&ldquo;please move the totally complet[e] either off their list into a completed
+document. the l[i]st start[s] with the remaining rec[t]ify tasks on the list. and then deal with item[s] not
+yet touched to review and build those items.&rdquo;</i></p>
+<table>
+<tr><th>row</th><th>seam</th><th>what closed it</th><th>evidence</th></tr>
+<tr><td>4</td><td>CheckInSheet &mdash; 247 lines, ConvoyCheckIn.kt &rarr; commonMain</td>
+<td>GtCheckInSheet.kt (366 lines) + CHECKINHELP (the help: parameter precedent) + CHECKINWARN</td>
+<td><b>WITNESSED</b> &mdash; Fred 09:56: &ldquo;check in screen was presented. I did not complete as we have no radio.&rdquo;</td></tr>
+<tr><td>5</td><td>The CHECK_IN branch</td>
+<td>CHECKINBRANCH v4: branch transcribed from GroupTrackScreen.kt:1764-1783; the INVENTED blank-callsign refusal removed; radioConnected/radioTalking now from <code>comm.link</code> / <code>comm.health.talking</code> (were two hardcoded <code>false</code>s)</td>
+<td>both targets compile; the sheet opens on the sim, which the hardcoded falses prevented</td></tr>
+<tr><td>6</td><td>Background-location permission &mdash; Android's soloBg gate</td>
+<td><code>GtIosLocation.backgroundGranted()</code> &mdash; kCLAuthorizationStatusAuthorizedAlways</td><td>compiles; EXTEND as the row predicted, not CREATE</td></tr>
+<tr><td>7</td><td>Lead assign (setLeadCart)</td><td><code>leadId</code> / <code>leadLocked</code> host state wired to LeadCartProcess</td><td>compiles</td></tr>
+<tr><td>9</td><td>The map frame write</td><td><code>gt_iosframewrite_2026-11-21_v1.py</code> applied &mdash; the map now opens at the last saved zoom and centre</td><td>compiles; Fred confirmed the intent 11-22 (&ldquo;the map is supposed to open at the last saved zoom and the last save location&rdquo;)</td></tr>
+<tr><td>10</td><td>The group switch in ALERT SETTINGS</td><td><code>gt_iosgrouppersist_2026-11-21_v1.py</code> applied &mdash; <code>GtGroupMode.set</code> persists instead of only moving the switch</td><td>compiles</td></tr>
+<tr><td>12</td><td>The share seam / ISSUE mail</td><td>Nothing to build &mdash; the service exists on BOTH sides (<code>GtArtifactSink</code> + <code>IosArtifactSink</code>). The row's own verdict was CORRECTED from &ldquo;CREATE (sized)&rdquo; to PRESENT on 11-22.</td><td>GtArtifactFiles.kt:30,36,44,63,85,160,171 &middot; GtIosArtifactSink.kt</td></tr>
+<tr><td>15b</td><td>J &middot; MAP / OFF-GRID</td><td>WALKED 11-22 &mdash; five function-level seams, ALL SERVED: the queue fa&ccedil;ade's Context (GtVectorQueue/IosQueuePlatform), JVM Thread + Dispatchers.IO (&rarr; Dispatchers.Default), the Toast (&rarr; onMessage status strip, tested and accepted), a Context-taking settings write (GtSettings/IosSettings), the import-run controller (GtStateDataRun/IosStateDataRun)</td><td>launch_surface_model v3 &sect;2c, &sect;2d. <b>This row previously said NEVER WALKED, which was wrong.</b></td></tr>
+</table>
+
+<h2>CLOSED 2026-11-22 BUT NOT ON THE SEAM TABLE</h2>
+<table>
+<tr><th>item</th><th>what it was</th><th>evidence</th></tr>
+<tr><td><b>MESHFIELDS</b></td><td>The iPad wrote hop limit <b>3</b> into every ride network while the file and the Droid said <b>2</b>. <code>IosMeshDefaults.now()</code> used DB column spellings as JSON keys; the first miss threw; a catch swallowed it; the all-six-or-none rule made every value fall back &mdash; five matching the file by coincidence. Config-doc field names now have ONE owner (<code>GtRadioDoc</code>).</td><td>both targets compile; the six <code>GtMeshDefaults</code> constructor defaults DELETED so no fallback can exist</td></tr>
+<tr><td><b>NOCONFIG</b></td><td>Fred 09:34: <i>&ldquo;no hard coded values, no va[lues] no write to the radio &hellip; the[se] are the sloppy fixes to solve perceived problems when I would rather identify the problem and stop the process.&rdquo;</i> The catch removed; a ride network now REFUSES when the mesh configuration cannot be read, and says so.</td><td>compiles; the cert assertion that pinned the deleted fallback was removed with it</td></tr>
+<tr><td><b>B3 &middot; END</b></td><td>The iPad wrote an ORPHAN GPX (<code>convoy_track_&lt;ms&gt;.gpx</code>) and never called <code>GtTracks.resolveTrackAdd</code> &mdash; no row in <code>tracks</code>, no hash rename, no alias resolution, no metrics, invisible to the app. Now the rider names the track and it enters the database. Save is async (Fred 09:43).</td><td>compiles. <b>Witness owed</b>: the bracketed word on the strip (<code>insert</code>/<code>alias</code>/<code>drop_name</code>) comes from resolveTrackAdd's own outcome and no stub can produce it.</td></tr>
+<tr><td><b>BOARDMATH</b></td><td><b>Answers seam-table row 13's parked open question</b> &mdash; &ldquo;where do ConvoyState and ConvoyNode land?&rdquo; They land in commonMain: <code>GtConvoyNode</code> + <code>GtConvoyEngine</code>, transformed from Android's files, every body byte-identical, only <code>Math.toRadians</code>&rarr;<code>GtJava.toRadians</code> and <code>x.pow(2)</code>&rarr;<code>GtMath.pow</code> rewritten. Android UNTOUCHED. <b>Row 13's HUD panels are now buildable.</b></td><td>both targets compile, zero new warnings; diff verified to contain only the intended lines</td></tr>
+<tr><td><b>GRPDEFAULTS</b></td><td>signal lost defaulted to 10 minutes; it is 5 (Fred 10:52). The slider's own floor (<code>5f..30f</code>) and <code>ut03_nodeAt300sIsLost</code> both already said so &mdash; the test was right and the code was wrong. Corrected in five places. The thresholds now post to the status strip when group awareness comes on, read live.</td><td>compiles; verified on disk at 11:02:44</td></tr>
+<tr><td><b>navxref v3</b></td><td>Two-platform nav xref: <code>--platform android|ios</code>, <code>--diff</code>, an ALIASES map for deliberate renames. Android pass verified byte-for-byte against the real v2 run.</td><td>android 273 files/216 composables/375 clickables &middot; iOS 183/51/83</td></tr>
+</table>
+
+</body></html>
