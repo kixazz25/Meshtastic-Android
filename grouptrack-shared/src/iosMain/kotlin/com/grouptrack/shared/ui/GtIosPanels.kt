@@ -775,6 +775,9 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     val ridePickOpen = remember { mutableStateOf(false) }
     // IOSMYRIDES-2026-11-22: Rides > My rides. LaunchModules.kt:136 declares the row.
     val myRidesOpen = remember { mutableStateOf(false) }
+    // IOSRIDEFORM-2026-11-22: the ride form. CODE RULE 1: null = closed, "" = creating,
+    // an id = editing that ride. ONE screen behind rides.ride step 2, rides.ride.form and Edit.
+    val rideFormFor = remember { mutableStateOf<String?>(null) }
     // IOSGRP2-2026-11-22: the iOS half of CommMenus, which did not exist. It offers ONE item --
     // iOS Bluetooth -- and owns the one platform act behind it (Fred 13:08: called from our menu,
     // ala meshmenus). GroupTrack asks by id and never names an OS screen.
@@ -1253,6 +1256,10 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // IOSMYRIDES-2026-11-22: Android is "rides.mine" to { RidesLauncher.open() }
         // (GroupTrackScreen.kt:3089). Same row, same id.
         "rides.mine" to { myRidesOpen.value = true },
+        // IOSRIDEFORM-2026-11-22: Android is "rides.ride.form" to { GtRideStart.handOff(...) }
+        // (GroupTrackScreen.kt:3086). The iPad opens the form directly; the area hand-off is
+        // what Search feeds it, below.
+        "rides.ride.form" to { rideFormFor.value = "" },
         // IOSRIDEEMAIL-2026-11-22: Android is "rides.email" to { GtRideStatsSend.send(context, ...) }
         // (GroupTrackScreen.kt:3090). Fred 14:29: "this is the function we built all mail for" --
         // emailAll (EMAILALL-2026-11-20) is that service, so nothing new is built here.
@@ -2268,11 +2275,32 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                     titleContentColor = Gt.text,
                     textContentColor = Gt.text,
                 )
+                // IOSRIDEFORM-2026-11-22: CREATE A RIDE, STEP 2. GtRideStart.begin() set wantSearch and
+                // the iPad opened Search; PROCEED sets wantProceed, and until now nothing consumed it --
+                // which is why rides.ride stopped after Search (its comment said "step 1").
+                androidx.compose.runtime.LaunchedEffect(
+                    com.geeksville.mesh.grouptrack.GtRideStart.wantProceed.value,
+                ) {
+                    if (com.geeksville.mesh.grouptrack.GtRideStart.wantProceed.value) {
+                        com.geeksville.mesh.grouptrack.GtRideStart.wantProceed.value = false
+                        rideFormFor.value = ""
+                    }
+                }
+                rideFormFor.value?.let { formFor ->
+                    GtIosRideForm(
+                        initialRouteId = null,
+                        editRideId = formFor.ifBlank { null },
+                        onRideCreated = { rideFormFor.value = null },
+                        onBack = { rideFormFor.value = null },
+                        onMessage = onMessage,
+                    )
+                }
                 if (myRidesOpen.value) {
                     // IOSMYRIDES-2026-11-22: the screen's ONE GtIosCommConfig (:965) is passed in, so
                     // the apply path and the check-in path cannot diverge.
                     GtIosMyRides(
                         config = commConfig,
+                        onEdit = { id -> myRidesOpen.value = false; rideFormFor.value = id },
                         onClose = { myRidesOpen.value = false },
                         onMessage = onMessage,
                     )

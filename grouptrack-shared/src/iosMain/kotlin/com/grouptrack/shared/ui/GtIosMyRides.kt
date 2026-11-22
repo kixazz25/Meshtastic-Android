@@ -61,6 +61,8 @@ fun GtIosMyRides(
     /** GtIosPanels:965 holds ONE GtIosCommConfig for the screen -- passed in so the apply path and
      *  the check-in path cannot diverge. */
     config: CommConfig,
+    /** IOSRIDEFORM-2026-11-22: Edit hands the ride to the form the host owns. */
+    onEdit: (String) -> Unit,
     onClose: () -> Unit,
     onMessage: (String, String) -> Unit,
 ) {
@@ -172,6 +174,11 @@ fun GtIosMyRides(
                                         }
                                     },
                                 ) { Text(if (busy == r.rideId) "SENDING\u2026" else "SEND", color = Gt.accent) }
+                                // IOSRIDEFORM-2026-11-22: Edit opens the ride form on this ride,
+                                // as RidesScreen.kt:170 does -- the same screen Create uses.
+                                TextButton(enabled = busy.isBlank(), onClick = { onEdit(r.rideId) }) {
+                                    Text("EDIT", color = Gt.accent)
+                                }
                                 TextButton(enabled = busy.isBlank(), onClick = { confirmDelete = r }) {
                                     Text("DELETE", color = Gt.bad)
                                 }
