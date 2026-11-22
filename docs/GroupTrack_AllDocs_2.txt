@@ -36539,7 +36539,7 @@ Firmware 2.8 bench list before any fleet upgrade: 6 h stationary floor, position
 GroupTrack — Harness Register — MOVEDMOVED 2026-11-15 — the harness register is part of the COMPLETED DOCUMENTSFred, 2026-11-15 07:55: "that should be in the completed documents['] work processes now. not in the eod doc."A harness is completed work, so its intent, purpose, method and verification are work papers. They live in GroupTrack_2.8_completed_activity_step17_2026-11-15_v1.html, section C, not in a document of their own and not in the EOD handoff.This file existed for about three minutes on 2026-11-15 and is kept only so the name does not dangle.
 
 
-=== grouptrack_handoff_2026-11-22_v155.html ===
+=== grouptrack_handoff_2026-11-22_v157.html ===
 GroupTrack &mdash; Handoff &mdash; v155 (2026-11-22)
 :root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
@@ -36743,6 +36743,352 @@ ConfigReviewScreen. Each drives services that already exist.7
 B8Blocked on B6CartPickerPanel &middot; ContactLostBanner
 &mdash; both read the cart board. CartPicker's removed-carts half is already shared and cert'd
 (GtRideSettings.removedCartsForToday/removeCart/reinstateCart).2
+&#11088;&#11088; SEARCH, RIDES AND AI &mdash; EXAMINED 11-22 13:40&ndash;13:49 (SEARCHRIDESAI-2026-11-22)
+Fred 13:35: &ldquo;the[n] finish the day with rides and ai&hellip; seams all exist we just need to
+implement iOS solutions.&rdquo; &middot; 13:43 on search: &ldquo;it exists and I run it
+everyday.&rdquo;
+&#9745; SEARCH &mdash; NOTHING THERE, AS FRED PREDICTED. Shared top to bottom.
+GtSearchBridge AND GtSearchBody both live in commonMain
+(SearchModule.kt:53 and :84); the iPad builds the bridge at
+GtIosPanels.kt:1148 and hands it to the shared module host at :1635, which draws the
+body at GroupTrack.kt:320 (openModule.id == "search").
+&#9888; A FALSE ALARM WORTH RECORDING: grepping the iOS file for GtSearchBody returns only
+two COMMENTS, which looks exactly like an undrawn panel. It is drawn &mdash; from shared code, which is the
+better place. Do not conclude a panel is missing from the absence of a call in the platform file.
+ONE REAL DELTA, worth a card: Area Search Radius. Android reads the rider&rsquo;s saved
+Z12&ndash;Z18 setting &mdash; GtSearchZoom.get(context) at
+GroupTrackScreen.kt:3013 (GTRADIUS-2026-10-23, whose release note says &ldquo;It was saved
+before but never used&rdquo;). The iPad uses a hardcoded 13, stated in the source as &ldquo;A
+chosen constant, stated, not a ported setting.&rdquo; GtSearchZoom is
+MapScreens.kt:723, Android-only &mdash; so it belongs with the MAPS block, not on its
+own.
+NOT a delta: initSearch = { } on iOS vs Android&rsquo;s
+SpatialDbManager.init(context). iOS opens its own read-only spatial connection and guards it with
+a Mutex because GtSearchBody runs four tables as parallel asyncs. Different mechanism, same
+guarantee. The geocoder region hint also differs in SHAPE (CLGeocoder circular, Android rectangular),
+documented at the call site.
+RIDES AND AI &mdash; THE iPAD HAS 1 OF 10 ROWS. Measured from both action maps: Android has
+rides.carts, rides.ride, rides.ride.form, rides.import,
+rides.mine, rides.email, route.ai, route.manual,
+route.recipefile, route.clear. The iPad has rides.ride alone
+(GtIosPanels.kt:1243) &mdash; and it is attached precisely because GtRideStart is
+the only one of these services already in commonMain (RideStart.kt:9). That is
+SVCFIRST visible in the data.
+RowServiceVerdict
+rides.emailBUILT, both platforms
+NO new plumbing. emailAll (EMAILALL-2026-11-20) is declared in
+GtArtifactFiles.kt:52 and implemented on iOS in GtIosArtifactSink via
+UIActivityViewController with a list of file URLs; single-file email() calls it with
+a one-item list so the two cannot drift. The row is only: assemble the ride&rsquo;s files and call it.
+&#9888; Named delta: iOS ACCEPTS AND DROPS the subject (no subject from an item list without a
+UIActivityItemSource); Android sets EXTRA_SUBJECT.
+rides.importroute.recipefiledeferred
+&#9940; OFF THE LIST &mdash; Fred 13:49: &ldquo;do not worry about imports we are not there yet.
+two methods: we unpack the rides into a directory and process them, or we use click to action. either will
+work. we already use click to action on the android to launch import.&rdquo; Both methods are
+acceptable; the choice is not made. For the record: Android&rsquo;s click-to-action is
+ConvoyFileReceiver (AndroidManifest.xml:316, whose own comment at :250 reads
+&ldquo;ConvoyFileReceiver alone opens these files now&rdquo;). The OpenDocument() pickers
+in RideImportAction.kt / RouteModule.kt:1792 are the SECOND entry point, not the
+mechanism &mdash; Fred 13:47: &ldquo;we do not use the documentpicker.&rdquo; The iPad today has
+NEITHER: no app Info.plist in the project and zero Swift handling of an incoming file (no
+onOpenURL, openURL, UIDocument or
+NSFileCoordinator).
+rides.minerides.ride.formexists, Android-side
+Screen ports. RidesLauncher is RidesScreen.kt:51; rides.ride.form
+is GtRideStart.handOff(viewport&hellip;) on the already-shared GtRideStart.
+rides.cartsbehind the board
+CartPickerLauncher is Android-only (CartPickerLauncher.kt:10) AND it is the
+checked-in-carts picker, so it needs N37 steps 2&ndash;5. Another reason the board goes first.
+route.airoute.manual&#9888; ASKED, NOT ANSWERED
+GroupTrackScreen.kt:3098 says ROUTEPARK-2026-10-22 (Fred 14:31): route.manual /
+route.ai PARKED &mdash; they opened the planning map and stranded the rider there. They return when Route+ is
+hosted in ONE MAP. The action entries still exist two lines below that comment. If they are still
+parked, N27 and N28 leave the list &mdash; they are not iOS gaps, they are parked on BOTH platforms, and
+building them on the iPad would strand an iPad rider the same way. A COMMENT IS NOT A DECISION: this needs
+Fred&rsquo;s confirmation before either is built or dropped.
+route.cleartrivial
+gtClearAsk = true &mdash; a local flag opening a confirm dialog. No service.
+&#9888; TWO GtRoute OBJECTS, STILL. route.ai / route.manual
+call Android&rsquo;s GtRoute (RouteModule.kt:64, with precheck /
+startAi / startNew) &mdash; NOT the shared engine at
+shared/route/GtRoute.kt:104. Same trap as the four haversines. Whoever ports these must say which
+one they mean.
+&#11088;&#11088; RIDES &mdash; WALKED AND BUILT 11-22 14:00&ndash;15:02 (RIDESBLOCK-2026-11-22)
+Fred 14:27: &ldquo;lets finish all of rides and commit as a group.&rdquo; &middot;
+14:46: &ldquo;so we are building out the complete function like every radio service but it cannot be
+tested until we are on an iPad.&rdquo; Committed 2f29fd832 (4 files, 604 insertions);
+compiles; ANDROID NOT TOUCHED anywhere in this block.
+RowStateWhat it is
+rides.import&#9745; BUILT
+GtIosRidePicker lists the rides folder through RideFiles.list() and a tap calls
+shared GtRideImport.importRide. No OS picker, no MediaStore &mdash; Android needs
+MediaStore only because its files sit in the PUBLIC Download folder. Nine ride files listed on the first
+run.
+rides.email&#9745; BUILT
+The report (already produced on the iPad at GtIosPanels:876), the map capture
+(IosScreenCapture) and the newest my_cart GPX, through
+emailAll. &#9888; The report is EMPTY until the feed exists &mdash;
+onHeard/onMine/onEstimate have ZERO iOS callers (measured; all three
+are ConvoyViewModel), so it waits on the board. The real fix is C28-26387.
+rides.mine&#9745; BUILT (3 of 4)
+GtIosMyRides: the list from GtRideStore.listRides(), SEND, APPLY TO
+RADIO, DELETE. Send attaches the STORED package (the same bytes apply reads) plus the route and
+trailhead GPX cut by shared splitGpx, with the invite copy verbatim, and calls
+markDistributed &mdash; THE LOCK, which is shared, so the iPad locks as the droid does.
+Apply goes through GtRadioApply and reports verified / written-not-confirmed / NO_RADIO /
+NotSupported by name. EDIT is the 4th &mdash; see below.
+rides.ride&#9888; HALF &mdash; corrected
+Listed as done earlier today. It is STEP 1 ONLY: GtRideStart.begin() sets
+pending + wantSearch, the iPad opens Search, and the form that follows does not
+exist. The iOS comment says so: &ldquo;Create a ride, step 1.&rdquo;
+rides.cartsboard
+CartPickerLauncher is Android-only AND it is the checked-in-carts picker &mdash; N37.
+&#11088;&#11088; THE FINDING THAT CHANGES TOMORROW: ONE SCREEN SITS BEHIND THREE ROWS. Fred 14:58
+asked what Edit is. Measured at RidesScreen.kt:110-115: Edit opens
+ConvoyRideCreateScreen(initialRouteId, editRideId = rid, &hellip;) &mdash; the SAME screen
+Create-a-ride uses, pre-loaded with that ride, and the name is edited in it. So
+ConvoyRideCreateScreen (596 lines) is the single missing piece behind
+rides.ride step 2, rides.ride.form (the
+GtRideStart.handOff row, which exists to feed it) and Edit on My rides. One port, three
+rows &mdash; the same shape as GtArea for the launch surface, and the highest-leverage item in
+the rides block.
+TWO 2.8b FOLLOW-ONS FILED FROM THIS WALK, both Fred&rsquo;s designs rather than Claude&rsquo;s:
+C28-26387 RIDESTATSAVE (14:34 &mdash; persist the stats after each group ride, so the email sends a
+saved file; removes the in-memory dependency AND the &ldquo;only right after a ride&rdquo; rule, and
+dissolves the json byte-parity standoff) and C28-26388 RIDEICS (14:53 &mdash; a calendar entry in the
+invite, one SHARED builder so both platforms attach the same thing, reading the existing
+step22_ride_time_zone_calendar doc first).
+⚠ What a simulator can certify here: the rows open, the picker lists, the import stores and
+stages, the share sheet appears with N files. What it CANNOT: whether a mail app takes them, whether the map
+capture contains the map (WKWebView draws out of process &mdash; GtIosScreenCapture.kt:28-38), and anything
+needing a radio. Fred 14:46: the complete function now, certified on the device later.
+&#9989;&#9989;&#9989; TODAY &mdash; 2026-11-22 COMPLETED. MOVED OFF THE OPEN LIST (DONE1122-2026-11-22)
+Fred 15:22: &ldquo;all completed items must be moved from eod to todays completed.&rdquo;
+Everything below was on an EOD or tomorrow list this morning and is off it now. Four commits.
+#WhatEvidence
+1R3 &middot; TRAILPATH &mdash; THE FIVE-HOUR BUG, FIXED. Trail filters and map
+keys reverted on every iPad launch. TrailFilterState.pathProvider was set on the LAST line of
+initDb(), and jobPalette() runs BEFORE initDb() &mdash; so
+load(), ensureDefaults() and save() all threw, defaults latched, and
+the rider&rsquo;s file was never read. Moved into an init{} block in
+GtIosHkEnv.kt.
+Cause named by Fred 14:12; proved by six log lines inside 2.4 ms at 14:17:48. Fred 14:22:
+&ldquo;fixed!!&rdquo; An intact file with a wrong screen means the READ never happened &mdash;
+which is why every &ldquo;something overwrote it&rdquo; theory was wrong.
+2IOSLOGSTREAM &mdash; a standing note was wrong. &ldquo;App logging does NOT
+reach log stream&rdquo; is false. Every gtLogger line arrives with microsecond
+timestamps.xcrun simctl spawn booted log stream --level debug, bundle id
+com.grouptrack.ios. This is now the instrument for any iOS startup or ordering question
+&mdash; LOG+ can never see startup.
+3IOSGRP2 &middot; GRP Awareness on the iPad + GtIosCommMenus.ios.kt,
+the FIRST CommMenus implementation on iOS, + the one iOS Bluetooth-settings button.
+Commit 1465df95e (18 files). Framed as a PROTOTYPING TOOL per Fred 13:14, behaviours not
+yet set (C28-26382). Bluetooth itself deliberately untouched until after certification (Fred 13:03).
+4SEARCH &mdash; examined, nothing owed. Fred: &ldquo;there will be nothing
+there&hellip; it exists and I run it everyday.&rdquo; Correct.Drawn from shared code at
+GroupTrack.kt:320. Do not conclude a panel is missing from the absence of a call in the
+platform file.
+5RIDES &mdash; FINISHED. rides.import (our own picker, no document
+picker), rides.email (ride statistics), rides.mine (SEND / APPLY TO RADIO /
+DELETE / the distributed lock), rides.ride step 2, rides.ride.form, and Edit.
+Commits 2f29fd832 (4 files, 604 ins) and e457d4ee1 (3 files, 455 ins). Fred
+15:04: &ldquo;I hate leaving things up in the air.&rdquo;
+6The ride form &mdash; ONE SCREEN, THREE ROWS. GtIosRideForm.kt:
+name, date, start time, description, zip, public/private, the three network choices, route selection with
+the Canvas vignette, SAVE, CANCEL.Every store call it makes was already shared &mdash; 12 of
+them, each read from its declaration. So it adds a form and no engine. rides.ride stopped after
+Search because GtRideStart.wantProceed had no consumer on iOS; it has one now.
+7Docs &mdash; cards C28-26382 through C28-26388 written; the 11-22 handoff and
+checklist carried forward.Docs commit 6529fdfb1, pushed.
+&#9888; Still owed from today, not done: the TrailFilterState.load()
+loaded = true latch (one line, commonMain &mdash; Android shares it, so it waits for the one
+post-certification pass) &middot; light/dark theme on the iPad &middot;
+gt_hudfitlock_2026-11-22_v1.py written and never run &middot; the
+navxref_2026-11-22_v3.py move into commands/ &middot; the stale register
+regeneration.
+&#129517;&#129517;&#129517; THE OPEN LIST &mdash; ROUTE ADD AND MAP. EVERY ROW, ITS SERVICE, AND THE iOS SEAM (ROWSEAM2-2026-11-22)
+Fred 15:28: &ldquo;we have no open map services that have not been written and tested in the
+current app. route add mode has been tested.&rdquo; &middot; 15:29: &ldquo;there is no c d or g
+list that means anything. the only thing that matters is your list of launch points and rows with services.
+do not redirect old items again.&rdquo;
+SO READ THIS LIST THE RIGHT WAY ROUND. Every service named below is written and tested in the
+current Android app. Nothing here is a service to design, and nothing here is blocked on one. What is
+owed is the iOS seam for each row &mdash; and for most rows that seam already exists and is
+certified. The 11-11 group lettering is dead and is not used again.
+ROUTE ADD &mdash; FOUR ROWS, ONE PORT
+All four enter the same object: object GtRoute at RouteModule.kt:64
+&mdash; 1,890 lines, 51 funs, one @Composable. It is almost all state and logic.
+&#9888;&#9888; THE HANDOFF ROW LINE WAS WRONG AND THIS CORRECTS IT. The old line read
+&ldquo;GtRoute [SHARED &mdash; commonMain/&hellip;/route/GtRoute.kt] WIRE, not port. The service
+is already across.&rdquo; There are two different GtRoute objects.
+startAi() and startNew() are in RouteModule.kt (Android). The shared
+GtRoute is the engine &mdash; selectionTable,
+selectionBreakdown, the math &mdash; and iosMain mentions it in comments only.
+Route add is a PORT of a tested service, not a wire-up of a ported one.
+RowThe service &mdash; written and TESTED on AndroidThe iOS seamOwed
+route.aiGroupTrackScreen.kt:3100
+GtRoute.startAi() &mdash; RouteModule.kt:236. Route mode on, taps become pins,
+trails on for the build, js("window.__routeMode=true;setRouteMode(true)"), then the pin
+steps.
+fun js() at GtIosPanels.kt:717 &mdash; certified: draw mode and the layer
+click-to-actions were tested together (Fred 15:25). Host state at
+GtIosPanels.kt:772&ndash;780.
+the planner state object
+route.manual:3101
+GtRoute.startNew(ROUTE_METHOD_P2P) &mdash; RouteModule.kt:844. One locked
+mode.same two seamssame object
+route.recipefile &mdash; ROUTE RECIPES:3102
+Fred 15:33: &ldquo;route build using a prior recipe to rebuild ai route options&hellip; the
+service is the ai build command once all route questions are answered. the recipe replace in the screen
+inputs.&rdquo; Exactly so: gtRecipeFile() (:1789) picks the file and hands it to
+buildFromRecipeJson(ctx, r, applyFilter = true) at :480. The recipe replaces the
+screen inputs &mdash; start name + GPS, miles, mph, finish, places, trail selection
+(recipeText :547) &mdash; its own FILTER wins (applyRecipeFilter :533), the pins
+are re-qualified on this device first (CLOSEPLANNER: a recipe&rsquo;s pins were never validated
+here), and then the same AI build runs. :468 is the saved-route twin,
+applyFilter = false.
+the picker built TODAY &mdash; GtIosRidePicker.kt, our own directory, no document picker
+&mdash; then the same build command.&#9888;&#9888; MAP RECIPES vs ROUTE RECIPES (Fred 15:34).
+These are two different things and each gets its two-word name from here on. MAP RECIPES are
+the tile store&rsquo;s &mdash; the map.recipes row, MapRecipes.kt,
+GtIosRecipeEnv.deriveRecipe(slot), a saved area to pull tiles for. ROUTE RECIPES are
+this row &mdash; the rider&rsquo;s answers to the route questions, replayed into the AI build. Never
+&ldquo;recipe&rdquo; unqualified in a doc, a row or a comment again.a picker over the recipes directory, then the port above
+route.clear:3103
+gtClearAsk = true &mdash; host state, nothing more.
+the GtIosPanels.kt:772&ndash;780 pattern (ridePickOpen,
+rideFormFor&hellip;)one line
+THE PLATFORM DEBT INSIDE RouteModule.kt, MEASURED 11-22 &mdash; not Compose. Compose
+Multiplatform covers the Compose imports. What needs replacing:
+android.os.Handler(Looper.getMainLooper()).post throughout &middot;
+android.widget.Toast &middot; var wv: () -&gt; android.webkit.WebView? (:74)
+&middot; android.content.Context on seven funs (runAssess,
+showConnected, onPinTap, buildFromRecipe,
+buildFromRecipeJson, buildLine, buildLineById) &middot;
+java.util.Locale.US "%.6f".format. The iOS answers in order: main-queue dispatch,
+onMessage, the js() + web-state seam, and GtFmt.
+MAP &mdash; 25 ROWS, AND THE SERVICES ARE ALL TESTED
+RowsThe service &mdash; written and TESTED on AndroidThe iOS seamOwed
+20 rows &mdash; map.convert, dl_area, dl_tracks,
+export_all, features, flyover, gpx,
+gpxtrails, imported, recipes (MAP RECIPES), repair,
+restartconv, ridertrails, rm_area, rm_feat,
+rm_track, synctracks, trails_area, trails_state,
+trailsrc
+object GtArea &mdash; AreaDraw.kt:25, 13 lines (purpose,
+ready, box, label()), with
+when (GtArea.ready.value) at :77 fanning out to 20 destination screens. 41 live
+references. Draw mode is in place and was certified with the map layers and their click-to-actions
+(Fred 15:25).
+fun js() GtIosPanels.kt:717 &middot; activateDrawMode() is present in
+vecmap_main.html, shipped into the iPad bundle by VECOPAQUE at
+&lt;bundle&gt;/vecmap/ (69 files; GtVecMap.ios.kt:61, :106) &middot;
+and for a shared launcher object the host must consume, the bridge built today at
+GtIosPanels.kt:2278&ndash;2290 (LaunchedEffect on the shared state, clear it, open the
+overlay) is the working model.
+the 13-line object + the when-block. One port, 20 rows.
+map.queuesqueuesOpen = true &mdash; host state
+(:3105).GtIosDownloadQueue.kt and
+GtIosQueuePlatform.kt are both present in iosMain.host state
+map.sourcesonNavigateToMapSources() &mdash; host navigation
+(:3136).the IOSPROFILE overlay pattern &mdash; Android navigates to a screen, the
+iPad opens an overlay.one host callback
+map.dl_settingsGtDownloadDefaults.open.value = true
+(:3106).the same shared-launcher bridge as the 20 rows above.launcher
+map.utahprivateGtUtahPrivate.open.value = true
+(:3112).same.launcher. &#9888; the PANEL may already be ported &mdash; it is
+in navxref&rsquo;s ALIASES. Check before building.
+map.backupGtBackup.start(context)
+(:3119).GtIosStorage.kt / GtIosEnv.kt for the paths;
+GtIosArtifactSink.kt for the send.the content port; it takes a
+Context
+SO THE WHOLE OPEN LIST IS: one 13-line object (20 map rows), one 1,890-line planner
+object (4 route rows), three launchers, two host-state lines, and one host callback. Every service behind
+them is already tested. Also still open, unchanged: the cart board steps 2&ndash;5 (the iPad has no
+addMarker in iosMain and no CommMessaging) &middot; R6 &middot; B3
+&middot; END, built 11-22 and never witnessed &middot; row 15a centre-on-me, never walked &middot; RADIO
+SETTINGS, whose behaviours need hardware.
+&#11088;&#11088;&#11088; TOMORROW &mdash; ROUTE ADD FIRST, THEN THE MAP ROWS (TOMORROW2-2026-11-22, 15:30)
+Fred 15:22: &ldquo;Tommrow we I will start with rotes add and then work to complete aim map
+rows.&rdquo; This replaces TOMORROWTOP below, whose item 3 was finished today.
+#ItemWhy here
+1ROUTE ADD &mdash; the four rows, one port
+Fred&rsquo;s own order, and the row list above has every seam. Start by reading
+RouteModule.kt:64&rsquo;s declarations &mdash; not its comments (COMMENTSTALE) and not
+the handoff&rsquo;s old &ldquo;WIRE&rdquo; line, which pointed at the wrong
+GtRoute.
+2THE MAP ROWS &mdash; GtArea + GtAreaHost first, then
+the three launchers, the two host-state rows and the one callback
+13 lines unlock 20 rows; the js() seam and activateDrawMode() are already
+certified on the iPad side. Nothing here waits on a service.
+3the cart board, steps 2&ndash;5Unchanged and still the thing that cannot
+be kicked again &mdash; without it there is no group visibility. Steps 3&ndash;5 cannot be WITNESSED
+without an iPad and radios.
+4R6 &middot; B3 &middot; END &mdash; the witnessSim-testable today, closes a
+rectify row. The witness is the bracketed word on the strip &mdash; insert /
+alias / drop_name.
+&#11088;&#11088;&#11088; TOMORROW &mdash; SUPERSEDED 11-22 15:30 BY TOMORROW2 ABOVE. KEPT FOR THE REASONING (TOMORROWTOP-2026-11-22)
+Fred 11-22 13:40: &ldquo;that means those three open items go to the top of tomorrow&rsquo;s list
+because we cannot build functions without the services.&rdquo; &middot; and 13:35: &ldquo;we will stop
+on maps and leave that for a fresh start.&rdquo;
+THE REASON IS SVCFIRST, NOT PRIORITY. Each of these is the SERVICE under a pile of functions. Build
+a function first and it is built against nothing &mdash; which is how the iPad ended up with launch rows that
+drew but did nothing.
+#ItemWhat it unblocks, and why it is the service
+1N1 &middot; GtArea + GtAreaHost
+THE CHEAPEST ITEM ON THE WHOLE LIST AND THE BIGGEST UNLOCK. object GtArea is
+13 lines (AreaDraw.kt:25: purpose, ready, box,
+label()). The when (GtArea.ready.value) at AreaDraw.kt:77 fans out to
+exactly 20 destination screens &mdash; which is why Fred&rsquo;s &ldquo;launch point has 20 rows&rdquo;
+was exact and why the old 18-screen table was hiding nineteen of them. 20 of the 38 Part-2 rows ride on
+this one port. Nothing else on the list has that ratio.
+2N37 &middot; the cart board, steps 2&ndash;5
+THE SERVICE BEHIND GROUP VISIBILITY &mdash; the thing Fred said could not be kicked again
+(11-22: &ldquo;this has to be built&hellip; or there is no group visibility&rdquo;). Step 1 landed
+11-22 as BOARDMATH (GtConvoyNode + GtConvoyEngine, every function body
+byte-identical to Android&rsquo;s, committed 1465df95e), which unblocked the 3 HUD panels
+(N36) &mdash; and the panels are the FUNCTIONS that cannot be built before the rest of the board.
+Measured: the iPad has zero addMarker in iosMain and no CommMessaging, and
+Android&rsquo;s apply chain takes only platform-free input (CommMessage, Member),
+so steps 2&ndash;5 are a port, not a design. Not maps, so a fresh start on maps will not pick it
+up.
+4R6 &middot; B3 &middot; END &mdash; the witness
+The odd one out: not a service, but it CLOSES a rectify row instead of opening one, and it is
+sim-testable today. Built 11-22, never seen. The witness is the bracketed word on the strip &mdash;
+insert / alias / drop_name &mdash; because it comes from
+resolveTrackAdd&rsquo;s own outcome and no stub can produce it. Cheap, and it is the last
+thing standing between Part 1 and a clean sweep.
+&#9989; ITEM 3 IS GONE FROM THIS TABLE &mdash;
+ConvoyRideCreateScreen was ported and committed (e457d4ee1) at 15:19 on 11-22 and
+has moved to TODAY&rsquo;S COMPLETED above. MAPS (N22&ndash;N26, plus R3&rsquo;s light/dark and
+GtMapState) was deliberately NOT here &mdash; Fred 13:35, a fresh start; it is now item 2 of
+TOMORROW2. RADIO SETTINGS (N38) also waits: it is the one area whose
+behaviours cannot be set without hardware (C28-26382).
+&#9940;&#9940;&#9940; TWO DEEP, AND NO DEEPER &mdash; THE DEPTH RULE FOR EVERY ROW (TWODEEP-2026-11-22)
+Fred 11-22 15:35, for the EOD instructions: &ldquo;if we are reading codes notes are analyzing
+process code we are two deep. these are service layer replacements not, calls, no processes other then the
+service itself. if we are making questions any deeper than that we are in trouble.&rdquo;
+THE TWO LEVELS, AND THEY ARE THE ONLY TWO.
+DepthWhat it isWhat it answers
+1the row, on its launch pointwhich row, and what the rider
+taps
+2the service the row calls &mdash; its declared name, its file, whether an
+iOS seam for it existsport, wire, launcher, or host state. Then stop.
+DEPTH 3 IS THE TROUBLE SIGN. Reading the service&rsquo;s internal process. Reading its callers.
+Reading the notes beside it. None of that is needed to replace a service layer, and all of it costs the day
+&mdash; it is the same failure as chasing conditional values (CONDVAL) and the same failure as trusting
+comments (COMMENTSTALE: reading notes IS depth 3).
+An instance from the hour this rule was written, so it is not pretended otherwise.
+Having found GtRoute.startAi() at RouteModule.kt:236 &mdash; depth 2, and enough
+&mdash; Claude went on into the pin steps, the recipe FILTER precedence and CLOSEPLANNER&rsquo;s pin
+re-qualification. Process. Depth 3. The route rows needed four facts and no more: the object is
+Android, it is 1,890 lines, these are its four entry points, and the iOS seam is js() plus host
+state. Everything past that was reading, not building.
+The one legitimate reason to go deeper is a measured platform dependency of the
+service being replaced &mdash; a Context parameter, a Handler, a
+Toast &mdash; because that IS the replacement&rsquo;s shape. Naming those is depth 2. Explaining
+what the service does with them is depth 3.
 &#9745; THE CHECKLIST &mdash; RECTIFY FIRST, THEN THE NEW WORLD (CHECKOFF-2026-11-22 11:27)
 Fred 11:27: &ldquo;lets list the rows so we can check them off, and let[']s put the
 rectify one[s] first [so] we know when we have finished rectifying the function[s] we thought we finished. the
@@ -36758,27 +37104,41 @@ already found and fixed in B1 today, which is why this pass exists. Finding the 
 &#9744;R2centre.me &mdash; I &middot; CENTRE ON ME
 ATTACHED on both sides but NEVER WALKED (seam row 15a) &mdash; the only lettered row in that state.
 Carries autoPan (Fred 09:20: set by centre-on-my-cart or GRP Awareness, NOT by TRACK START). Sim-testable.
-&#9744;R3row 11 &mdash; display-state persist
+&#9745;R3row 11 &mdash; display-state persist
 Fred 09:57: filters and trail colours do not stay; light/dark not preserved. Service PRESENT
 (GtMapState.saveMap/readMap), verdict WIRE. The sim is NOT the cause (install-over-the-top,
 Documents survives). TrailFilterState.save() swallows failure to a log line &mdash;
 ONE LOG + reading decides which half is at fault before any code is written. Light/dark is separate NEW
-work: no theme state exists anywhere in iosApp or the shared UI.
-&#9744;R4row 3 &mdash; GrpAwarenessPanel
-Verdict MOVE &mdash; one callback, two reference swaps. &#9888; Fred reports the button opens and mesh
-screens appear, so confirm what is on the glass first; it may already be host-provided.
-&#9744;R55 attached rows with no seam named
-group.archive &middot; group.configure &middot; grp.open &middot;
-internet.switch &middot; mode.switch &mdash; they work, but their handler was never
-classified, so nobody has checked what they do on iOS versus Android.
+work: no theme state exists anywhere in iosApp or the shared UI.&#9681; 11-22 13:26 OUTCOME: THE WRITES LAND. map_keys.json was read straight out of the simulator container and held every change Fred had made (off = six categories, restricted:false, area_public:false, eleven styled categories; 1137 bytes). He relaunched and confirmed. The systemic-JSON worry is dead. The install question could NOT be answered by birth time: save() ends in fs.atomicMove, which REPLACES the inode, so birth always equals the last save (measured: born = modified = changed = 12:23:19). Fred 13:03: tabled to the next sim install. Note for whoever runs it: gt_iosbuild_2026-11-19_v1.sh installs OVER the top, so a routine rebuild will NOT recreate the file &mdash; only an uninstall or simctl erase answers whether ensureDefaults ever runs on iOS. Still open: light/dark (new work, no theme state) and seam row 11's GtMapState files (one ls of the same container settles it).&#9745;&#9745; FIXED 14:22 &mdash; TRAILPATH-2026-11-22, and it was neither half we suspected. Fred 14:12 named it: &ldquo;it has to be housekeeping setting up the first install default values. it is both functions.&rdquo; The simulator log proved it in six lines inside 2.4 milliseconds: jobPalette ran, ensureDefaults threw pathProvider not set, load() threw and latched loaded = true on defaults (off=0), mergeShippedCategories added 11 categories back, save() threw &mdash; and THEN initDb logged its schema line. GtStartupHousekeeping.run() calls jobPalette at :97 and initDb at :102 by design (:94 &ldquo;PHASE 1 &mdash; the database FILES may move&rdquo;), and the iPad had set TrailFilterState.pathProvider on initDb's LAST line. Fix: set it in IosHkEnv's init{} block &mdash; the path never had a database dependency. iOS only, no shared code, no Android line. &#9888; WHY IT TOOK FIVE HOURS, worth keeping: save() threw too, so the rider's file was NEVER TOUCHED &mdash; 1137 bytes at 12:23, intact after the 14:09 install. An intact file with a wrong screen means the READ never happened, and two of Claude's theories assumed a bad write instead. It also answers the install question we tabled: ensureDefaults was throwing every launch, so the shipped palette never landed on iOS &mdash; no erase needed. Still owed: the loaded = true latch (one line, commonMain &rarr; Android shares it &rarr; post-certification pass) and light/dark, which is untouched new work. Full record: C28-26385, and the diagnostic channel that found it: C28-26386.
+&#9745;N34rides.import &mdash; Import a ride
+BUILT AND WORKING 11-22 14:22 (IOSRIDEPICK-2026-11-22), ahead of its place in Part 2. Fred 14:03: &ldquo;forget the four components[,] just launch the import when clicked from email or file picker from group tracks file folder.&rdquo; GtIosRidePicker lists the .json files in GroupTrack&rsquo;s own rides folder through RideFiles.list() &mdash; no OS document picker (Fred 13:47) and no MediaStore; Android needs MediaStore only because its files sit in the public Download folder. A tap calls shared GtRideImport.importRide, the same path the emailed ride uses, and the four processes Fred named &mdash; ride, radio config, gpx, mapping &mdash; all run off that one JSON. No engine was added. The row existed at LaunchModules.kt:137 and had simply never been given an action on iOS. Nine ride files in the sim container listed on the first run. &#9888; The route does not reach the map yet: importRide ends in platform.offer(), which only HOLDS the staged GPX because nothing consumes IosRideImportLauncher.pending &mdash; the panel says so on the glass rather than implying the route landed. Calling GtGpxImport from the picker was deliberately NOT done: that is the parallel helper ruled out 11-18 19:51. The real consumer is the staged-GPX surface (Android&rsquo;s ConvoyTrackImportScreen), still unported.
+&#9745;R4row 3 &mdash; GrpAwarenessPanel
+DONE 11-22 as IOSGRP2 &mdash; and NOT as a MOVE. The row said &ldquo;MOVE, one callback, two
+reference swaps&rdquo;; that was wrong three times over and the record is in C28-26382. Fred 13:03:
+&ldquo;leave android and write the new iOS version of functions we can test alongside each other, or every
+message etc will be impacted by the changes.&rdquo; So the iPad got its OWN panel
+(GtIosGrpAwareness.kt) and iOS got its FIRST CommMenus implementation
+(GtIosCommMenus.ios.kt, which did not exist at all). Android: not one line. Compiles
+(:grouptrack-shared:compileKotlinIosSimulatorArm64, 4 executed). Committed
+1465df95e. &#9940; The BEHAVIOURS are not set &mdash; no radio, no simulator Bluetooth; five
+named questions wait on hardware in C28-26382. Under the MOVE reading the panel needed three platform acts;
+under create-alongside it needs ONE, which is what BTSETTINGS-2026-11-21 said in the first place.
+&#9744;R54 attached rows with no seam named <span
+class="tag t-warn">was 5
+group.archive &middot; internet.switch &middot; mode.switch
+&middot; and group.configure, which is RADIO SETUP and is already attached
+(GtIosPanels.kt:1235, IOSCOMMWIRE-2026-11-20 &mdash; found 11-22 only because the
+comm.startScan() patch anchor matched two sites). grp.open is RESOLVED by
+IOSGRP2: it opened a log line and a toast, and now opens the panel. The rest work, but their handler was
+never classified, so nobody has checked what they do on iOS versus Android.
 &#9744;R6B3 &middot; END &mdash; witness owed
 Built 11-22, never seen. The witness is the bracketed word on the strip &mdash;
 insert/alias/drop_name &mdash; because it comes from
 resolveTrackAdd's own outcome and no stub can produce it.
-&#9744;R73 rows with no seam measured
+&#9745;R73 rows with no seam measured
 rides.email (handler unclassified) &middot; rides.import
 (gtRideImport(), not located) &middot; route.recipefile
-(gtRecipeFile(), not located).
+(gtRecipeFile(), not located).&#9745; ALL THREE LOCATED AND MEASURED 11-22 13:49. They were not located before because they are not top-level functions: gtRideImport = rememberRideImport(onDone = {}) (GroupTrackScreen.kt:3019 &rarr; RideImportAction.kt:12) and gtRecipeFile = rememberRecipeFile() (:3018 &rarr; RouteModule.kt:1792) &mdash; both remember* composables holding an Android ActivityResultContracts.OpenDocument() launcher. rides.email = GtRideStatsSend.send(context, &hellip;), Android-only (Context + listFiles), but its SERVICE is already shared and built. See SEARCHRIDESAI-2026-11-22 below.
 &#9744;R8row 14 &mdash; Trails openSelect
 Confirm it is a STUB BY DESIGN (FilterModule:91 renders no SELECT for Trails, so there is
 nothing to open) and stop re-finding it.
@@ -52776,7 +53136,7 @@ Imported from grouptrack_living_master_2026-11-14_v238.html on 2026-11-15. The m
 Created 2026-11-14 by extracting the "2.8 CHECKLIST" and "POST-2.8 DEFECT REGISTER" material out of grouptrack_living_master_2026-11-14_v238.html, at Fred's direction (20:43&ndash;20:46). The master retains open design, the durable rules, and a pointer to this file.
 
 
-=== grouptrack_living_checklist_2026-11-22_v27.html ===
+=== grouptrack_living_checklist_2026-11-22_v29.html ===
 GroupTrack &mdash; Living Checklist &mdash; v27 (2026-11-22)
 :root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
@@ -52804,6 +53164,332 @@ th{background:#12203a;color:var(--accent)}
   font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#8b949e;overflow-x:auto;margin:12px 0}
 GroupTrack &mdash; LIVING CHECKLIST &mdash; kick-the-can issues, tied to a release
 v1 &middot; 2026-11-14 &middot; companion to grouptrack_living_master_2026-11-14_v238.html
+&#9940;&#9940;&#9940; 2.8b C28-26393 &middot; TWODEEP &mdash; A ROW IS TWO LEVELS DEEP: THE ROW, THEN ITS SERVICE. DEPTH 3 IS THE TROUBLE SIGN
+Fred 11-22 15:35, to go into the EOD instructions: &ldquo;if we are reading codes notes are
+analyzing process code we are two deep. these are service layer replacements not, calls, no processes other
+then the service itself. if we are making questions any deeper than that we are in trouble.&rdquo;
+Depth 1 is the row on its launch point. Depth 2 is the service it calls &mdash; declared
+name, file, and whether an iOS seam exists &mdash; which yields the verdict: port, wire, launcher, or host
+state. That is the whole question. Depth 3 is the service&rsquo;s internal process, its callers, or
+the notes beside it, and none of those are needed to replace a service layer.
+Owned instance, same hour: after finding GtRoute.startAi() at
+RouteModule.kt:236 &mdash; which was the answer &mdash; Claude read on into the pin steps, the
+route-recipe FILTER precedence and CLOSEPLANNER&rsquo;s pin re-qualification. The four route rows needed:
+the object is Android, 1,890 lines, four entry points, iOS seam is js() + host state.
+Companion to C28-26391 ROWSONLY (the only structure is launch points and rows) and
+C28-26392 COMMENTSTALE (reading notes is itself depth 3). The exception that is still depth 2: a measured
+platform dependency of the service being replaced &mdash; a Context, a Handler, a
+Toast &mdash; because that is the shape of the replacement.
+&#11088;&#11088; 2.8b C28-26394 &middot; RECIPEWORDS &mdash; MAP RECIPES AND ROUTE RECIPES ARE TWO THINGS. EACH KEEPS ITS TWO-WORD NAME
+Fred 11-22 15:34: &ldquo;s/b map recipes vs route recipes.&rdquo;
+NameWhat it isWhere
+MAP RECIPESa saved area to pull map tiles forthe
+map.recipes row &middot; MapRecipes.kt &middot;
+GtIosRecipeEnv.deriveRecipe(slot) &middot; the recipes/ directory
+ROUTE RECIPESthe rider&rsquo;s answers to the route questions &mdash; start name and
+GPS, miles, mph, finish, places, trail selection &mdash; replayed into the AI build in place of the screen
+inputsthe route.recipefile row &middot;
+RouteModule.kt:1789 picks it, buildFromRecipeJson at :480 runs
+it
+Why it earns a card: the two were one word apart from being confused today &mdash;
+GtIosRecipeEnv.kt reads like the iOS seam for route.recipefile and is the seam for
+the other one entirely. &ldquo;Recipe&rdquo; unqualified does not appear in a doc, a row or a new comment
+again.
+&#11088;&#11088;&#11088; 2.8b C28-26391 &middot; ROWSONLY &mdash; THE ONLY STRUCTURE IS THE LAUNCH POINTS AND THEIR ROWS. THE OLD LETTERED LISTS ARE DEAD
+Fred 11-22 15:29: &ldquo;there is no c d or g list that means anything. the only thing that
+matters is your list of launch points and rows with services. do not redirect old items again.&rdquo;
+&middot; 15:26: &ldquo;what is g3 and g6. that are old items and what are we using the
+for?&rdquo;
+What happened, so it is not repeated. Asked whether the seam document still existed, Claude found
+it, and then started re-filing live 11-22 work under its 11-11 group lettering &mdash; G4 &ldquo;map-page
+talkers&rdquo;, G6 &ldquo;exports and sharing&rdquo; &mdash; and even reported a &ldquo;gap&rdquo; in that
+inventory as though it governed today&rsquo;s work. It does not. That is the redirect Fred has named before:
+an old classification is picked up, today&rsquo;s rows are poured into it, and the work moves sideways
+instead of forward.
+THE RULE. Work is tracked as launch points and their rows, each row with the service behind
+it. A document may be read for a measured fact &mdash; a file, a line, a mime type. Its groupings,
+sequences and letterings are not carried into live work, and a finding is never re-expressed in them.
+The seam document is still useful for exactly two things, both facts and not structure:
+METHOD RULE 1 (verify by declared name, never filename) and METHOD RULE 2 (enumerate by platform primitive,
+not by our own function names). Those are how to measure. They are not a work list.
+&#11088;&#11088;&#11088; 2.8b C28-26392 &middot; COMMENTSTALE &mdash; A COMMENT IN THE CODE IS NOT A STATEMENT OF CURRENT STATE
+Fred 11-22 15:23: &ldquo;remember notes in code an old and don reject current state and you must
+search iOS seam code specifically for replacement seams.&rdquo;
+Two rules in one sentence, and the day produced an instance of each.
+1 &mdash; A COMMENT IS EVIDENCE OF WHAT SOMEONE BELIEVED ONCE. The header of
+GtIosHkEnv.kt read &ldquo;Set in initDb, before anything can call load()&rdquo;. The
+truth was the exact opposite &mdash; jobPalette() runs first &mdash; and that comment is part of
+why the filter bug survived five hours. Fred, of the same file, 14:14: &ldquo;that is an ancient
+comment.&rdquo; Verify against the declaration and the call order, never the prose beside it.
+2 &mdash; SEARCH iosMain FOR THE REPLACEMENT SEAM, AND OPEN IT. Not the Android
+comment that mentions iOS; the iOS file. Today this was the difference between right and wrong twice:
+GtIosRecipeEnv.kt looks like the seam for route.recipefile and is not &mdash;
+it is the map-tile store&rsquo;s deriveRecipe(slot). And fun js() at
+GtIosPanels.kt:717 plus activateDrawMode() in the bundled
+vecmap_main.html meant the map rows&rsquo; hardest-looking seam was already built and
+certified.
+&#11088;&#11088;&#11088; 2.8b C28-26390 &middot; ROUTE2OBJ &mdash; THERE ARE TWO GtRoute OBJECTS, AND THE ROW LIST NAMED THE WRONG ONE
+The handoff&rsquo;s seam line for route.ai and route.manual read
+&ldquo;GtRoute [SHARED &mdash; commonMain/&hellip;/route/GtRoute.kt] WIRE, not
+port. The service is already across.&rdquo; Wrong object. Measured 11-22 15:20:
+  com.geeksville.mesh.grouptrack.GtRoute   RouteModule.kt:64     1,890 ln, 51 funs, 1 @Composable
+      startAi()        :236      startNew(ROUTE_METHOD_P2P)  :844
+      buildFromRecipeJson(ctx, r, applyFilter)  :480          gtRecipeFile picker  :1789
+  com.grouptrack.shared.route.GtRoute      commonMain/route/     THE ENGINE -- selectionTable,
+                                           GtRoute.kt (140 KB)   selectionBreakdown, the math
+iosMain mentions the shared one in comments only. So route add is a port of a
+tested service, not the wiring of a ported one &mdash; and it is the first thing on tomorrow&rsquo;s
+list, which is why this is corrected tonight rather than discovered at 08:00.
+This also closes an owed measurement. The row list carried
+route.recipefile &rarr; gtRecipeFile() &mdash; NOT LOCATED, measurement owed. It is
+RouteModule.kt:1789, and Fred 15:33 gave the service it feeds: &ldquo;the service is the ai
+build command once all route questions are answered. the recipe replace in the screen inputs.&rdquo;
+&mdash; buildFromRecipeJson at :480, the recipe&rsquo;s own FILTER winning and the
+pins re-qualified on this device first.
+&#11088;&#11088; 2.8b C28-26389 &middot; IOSRIDEFORM &mdash; RIDES IS FINISHED. ONE SCREEN CLOSED THREE ROWS
+Fred 15:05: &ldquo;lets finish rides today.&rdquo; Done at 15:19, commit
+e457d4ee1 (3 files, 455 insertions).
+RowBeforeNow
+rides.ridestep 1 only &mdash; begin() set
+wantSearch, the iPad opened Search, and wantProceed had no
+consumerstep 2: PROCEED lands on the form
+rides.ride.formmissingthe form, create mode
+Edit (My rides)no buttonEDIT &rarr; the same form, edit mode
+Why it was one sitting and not a rewrite: all 12 store calls the form needs were already shared,
+each verified from its declaration rather than from the form&rsquo;s own variable names. Two things expected
+to need cutting turned out portable as they stand &mdash; material3&rsquo;s
+DatePickerDialog/rememberDatePickerState (only its java.time
+conversions replaced, by the certified GtTime.gregorianEpochDay /
+gregorianCivil), and the route vignette, which is pure Compose Canvas.
+Named, not hidden: the trailhead search (setRouteAnchor + the geocoder) and the stored
+route preview are left out, in the file head. Zip starts blank on the iPad &mdash;
+getZipCode has no iOS source and the field is rider-editable. A sent ride takes only its date,
+and the store enforces that, so the form asks only for the date rather than offering fields that
+would be silently dropped.
+&#9888; Two compile misses on the way, both the same shape as the morning&rsquo;s
+GtNetworks: a name taken from how the form&rsquo;s own variables are spelled instead of from the
+declaration. EditRide&rsquo;s fields are name and date
+(GtRides.kt:938), not rideName/rideDate. Read the
+declaration.
+&#11088; 2.8b FOLLOW-ON C28-26388 &middot; RIDEICS &mdash; PUT A CALENDAR ENTRY IN THE RIDE INVITE
+Fred 11-22 14:53: &ldquo;lets add a task for 2.8b follow up to add a calendar entry to this
+email.&rdquo;
+WHAT: the ride invite (RIDESEND-2026-09-23) currently tells the rider the date in prose &mdash;
+&ldquo;You're invited: &lt;name&gt; (&lt;date&gt;)&rdquo;. Attaching an .ics
+(VCALENDAR/VEVENT) puts the ride in the rider's own calendar, with a reminder, instead of asking them to copy
+it across by hand. Named like the other attachments: &lt;label&gt;.ics.
+WHERE IT BELONGS: SHARED. An .ics is plain text with no platform API, so the builder
+goes in commonMain beside GtRideJson and BOTH send paths attach it &mdash;
+Android's ConvoyRideSend and the iPad's sendRide (IOSMYRIDES-2026-11-22). ⛔ One
+builder, or the two platforms will send different calendar entries for the same ride &mdash; the four-haversines
+pattern again.
+WHAT IT NEEDS FROM THE RIDE, all already in the package: ride.name (summary),
+ride.date + ride.startTime (start), ride.description,
+originator.name (organiser), and the trailhead for the location if one is carried.
+&#9888; THE TIME ZONE IS THE REAL QUESTION, AND IT HAS ALREADY BEEN STUDIED. A calendar entry
+without a zone lands at the wrong hour for anyone in a different one, and a ride's start time is a LOCAL time
+at the trailhead, not a UTC instant. See the existing project doc
+GroupTrack_2.8_step22_ride_time_zone_calendar_2026-11-08.md &mdash; read it before writing
+the VEVENT rather than choosing a representation here. Floating local time
+(DTSTART;VALUE=DATE-TIME with no Z and no TZID) is the simplest
+behaviour that is right for a rider in the ride's own zone, and wrong for one travelling to it; a
+TZID needs the trailhead's zone, which is what that doc is about.
+Timing: 2.8b follow-on, with C28-26387. Additive on both platforms &mdash; one new shared
+text builder and one extra attachment in each send path, no change to the package format.
+&#11088;&#11088; 2.8b FOLLOW-ON C28-26387 &middot; RIDESTATSAVE &mdash; PERSIST THE RIDE STATISTICS AFTER EACH GROUP RIDE, THEN EMAIL THE SAVED FILE
+Fred 11-22 14:34: &ldquo;the real solution is to capture state after ride and save to be sent. we
+will add to 2.8n follow on. save stat are created after each grp ride.&rdquo; &middot; 14:40:
+&ldquo;I hate doing things twice. lets finish this.&rdquo; &middot; 14:41: confirmed as the
+2.8b follow-on.
+HOW IT WORKS TODAY, measured &mdash; and one part of Fred's picture was off, which matters for the
+design. Fred 14:38 asked whether the stats are &ldquo;captured in a series of json which are assembled in
+a report which is then sent via email&rdquo;. Not quite:
+Capture is IN MEMORY, never JSON. RideStats holds three lists behind a
+GtLock &mdash; rx (every report heard), mine (my radio's own
+positions), estimates (lead outcomes) &mdash; plus startMs. Session-only.
+reset() empties them, which means RESET destroys the very thing the rider wanted to
+email.
+TWO independent renderings come off that state, neither derived from the other.
+report(...) builds the human-readable TEXT inside the lock, straight from the lists (shared; it
+is what the iPad's panel displays). RideStatsJson.json(...) serialises the RAW records
+(format: "grouptrack-ride-stats-1", heard[] / mine[] /
+leadEstimates[]) &mdash; Android only.
+The email carries FIVE files (GtRideStatsSend.kt:22-50): report .txt,
+the .json, the lead track .csv, the newest my_cart
+.gpx, and a map .jpg.
+⇒ So the JSON is the COMPLETE raw record and the text report is LOSSY. The JSON is therefore the thing
+to persist, and the report should be built FROM it.
+THE WORK, in order. Five pieces; only one is a judgement call.
+#WhatSize / note
+1GtOrgJson.num(Float) &mdash; emit v.toString()
+~5 lines, shared, ADDITIVE (no existing caller affected). Required: GtOrgJson offers
+num(Double/Long/Int) only, and snr/ch/air are Float.
+Widening to Double turns 0.1f into "0.10000000149011612" &mdash; the exact reason
+json() never crossed the seam (RideStats.kt:10-21).
+2Move json() into shared RideStats
+Android's RideStatsJson (40 lines) DELETES. ⚠ THE ONLY ANDROID-SIDE CHANGE.
+Byte-identity is provable by the three-column cert harness &mdash; the golden run it exists for
+(STEP15A-2026-11-08).
+3Split report() so ONE renderer serves BOTH sources
+~20 lines, no behaviour change. It currently reads the live lists inside the lock; it must take the record
+as input so the same code renders live stats AND a saved file. ⭐ THIS IS THE PIECE THAT MAKES &ldquo;not
+twice&rdquo; TRUE &mdash; one renderer, two sources, permanently.
+4Persist at END
+~15 lines + a filename rule. Write the JSON to the rides directory through
+RideFiles.writeText. The hook already exists &mdash; the end-of-ride flow (B3;
+GtEndOfRideForm is already shared).
+5rides.email reads the newest saved file
+Render through (3), attach both, emailAll. One action, BOTH platforms, and no radio needed
+to SEND.
+WHAT IT BUYS, and why it is worth doing once instead of wiring the row twice:
+The &ldquo;only right after a ride&rdquo; rule disappears (Fred 14:31) &mdash; a file outlives the
+ride. And that rule is NOT in Android's code today: GroupTrackScreen.kt:3090 fires
+unconditionally, no gate anywhere. So no gate was added on one platform; the saved-file design makes it
+unnecessary on both.
+reset() stops destroying the record.
+The iPad stops being a special case &mdash; it sends a saved file like any other attachment.
+The json-parity worry evaporates. Once the saved file is the record of truth, moving
+json() is no longer changing the bytes of a CERTIFIED email &mdash; it is writing a new file.
+That reframing is what turns C28-26367 from a standoff into a task.
+&#9940; AND IT STILL NEEDS THE FEED. onHeard / onMine /
+onEstimate have exactly three call sites in the whole repository, all Android
+(ConvoyViewModel.kt:615, :1194, :1311) and ZERO in iosMain &mdash;
+iOS touches RideStats only for report() (:876) and reset() (:2110).
+Measured 11-22 14:37 against the code, after Fred rightly challenged the comment that said so
+(&ldquo;that is an ancient comment&rdquo;) &mdash; the comment was accurate. The feed is driven
+from ConvoyViewModel, so it arrives with the cart board, N37. Persistence makes the iPad's
+row CORRECT immediately and USEFUL when the board lands. One missing service sits behind four things:
+this feed, rides.carts, the three HUD panels, and group visibility itself.
+Timing: the 2.8b FOLLOW-ON (Fred 14:41). Items 1&ndash;3 touch shared code and delete 40 lines
+of Android, which is frozen &mdash; so it waits for the one post-certification pass rather than being done
+piecemeal now. Items 4&ndash;5 are additive.
+&#11088;&#11088;&#11088; 2.8b C28-26385 &middot; TRAILPATH &mdash; FIXED 11-22 14:22. THE FILTER/MAP-KEY REVERT WAS A PLATFORM INPUT SET ONE PHASE TOO LATE
+Reported 11-22 09:57 (&ldquo;on sim only changes I make to trails, light or dark screen mode or
+filters in not saved and remembered for next sim launch&rdquo;). Cause named by Fred 14:12:
+&ldquo;it has to be housekeeping setting up the first install default values. it is both
+functions.&rdquo; He was right. Proved by the simulator log at 14:17:48 &mdash; six lines inside 2.4
+MILLISECONDS:
+  .773217  (Housekeeping) jobPalette: ensureDefaults: pathProvider not set by the platform
+  .773860  (TrailFilter)  load failed, using defaults: pathProvider not set by the platform
+  .773911  (TrailFilter)  loaded: land=PUBLIC use=ALL off=0 -&gt; ...        &lt;- DEFAULTS LATCHED
+  .773973  (TrailFilter)  merged 11 new categor(y/ies): [__unofficial, hiking and biking, ...]
+  .774775  (TrailFilter)  save failed: pathProvider not set by the platform
+  .775603  (Housekeeping) GTIOSHK-2026-11-16 initDb: schema v1 at .../Documents/GroupTrack
+&#11088; THE CAUSE. GtStartupHousekeeping.run() calls jobPalette at :97
+and initDb at :102 in that order by design &mdash; its own comment at :94 reads
+&ldquo;PHASE 1 &mdash; the database FILES may move. They must be CLOSED.&rdquo; The iPad had put
+TrailFilterState.pathProvider on the LAST line of initDb, so the platform input did
+not exist when PHASE 1 needed it. Android has no equivalent problem; this was iOS-only.
+EVERY SYMPTOM, ACCOUNTED FOR &mdash; and this is why five hours went into it:
+ensureDefaults threw and was swallowed &rarr; the shipped palette never installed. That
+also answers the 13:26 question we had tabled to &ldquo;the next sim install&rdquo; &mdash; the defaults
+never land on iOS, and no erase was needed to find out.
+load() threw &rarr; reset() &rarr; loaded = true LATCHED &rarr;
+defaults on screen with off=0, and GtIosPanels:707's own load() then
+returned without reading anything.
+mergeShippedCategories added 11 categories back on top of those defaults &mdash; that is
+Fred's &ldquo;my categories were turning non-motorized and the two categories kept coming back&rdquo;,
+by name, in the log.
+save() ALSO threw &mdash; so the rider's file was NEVER TOUCHED.
+map_keys.json still read 1137 bytes at 12:23 after the 14:09 install. ⛔ THAT IS WHY EVERY
+&ldquo;something overwrote your file&rdquo; THEORY WAS WRONG, including two of Claude's. An intact file
+with a wrong screen means the READ never happened, not that the write misfired.
+It &ldquo;worked in session&rdquo; because after the first edit the in-memory state was the rider's and
+save() succeeded &mdash; initDb had set the provider by then.
+THE FIX (iOS only, no shared code, no Android line). pathProvider is set in
+IosHkEnv's init{} block. The path never had a database dependency &mdash; it is
+paths.groupTrackRoot(), the same value initDb computes on its own first line &mdash;
+so there was nothing to wait for. At construction, every GtHkEnv member can rely on it whatever
+order shared code calls them in, and a future job added ahead of initDb cannot reintroduce
+this. ⛔ Fixing it by reordering shared run() was rejected: that order is deliberate, it is
+Android's, and 2.8a is frozen. Verified by Fred 14:22 (&ldquo;fixed!!&rdquo;).
+&#9888; THE STALE COMMENT THAT HID IT, now corrected in place. GtIosHkEnv's header
+read &ldquo;Set in initDb, before anything can call load().&rdquo; Exactly backwards. Anyone
+checking the ordering question would have read that line and stopped. Same class of defect as the 11-21
+stale comments and the &ldquo;cycle three&rdquo; schedule that was never a schedule.
+&#9940; STILL OWED &mdash; THE LATCH (one line, commonMain, so Android shares it).
+TrailFilterState.load() sets loaded = true even when the read threw. With the
+provider set early that path is gone, but ANY future read failure &mdash; a corrupt file, a permission change
+&mdash; still latches defaults for the session, and then the next setter's save() writes those
+defaults over the rider's file. Today it was harmless only because save() was failing too.
+Do it in the post-certification pass, where an Android-visible change belongs.
+&#11088;&#11088;&#11088; 2.8b C28-26386 &middot; IOSLOGSTREAM &mdash; THE iPAD DOES HAVE A LOG CHANNEL, AND WE HAD RECORDED THAT IT DID NOT
+⛔ A STANDING BELIEF IN THIS PROJECT WAS WRONG, and correcting it is worth more than the bug it
+found. The handoffs carried: &ldquo;App logging does NOT reach log stream. The instrument
+is the on-screen LOG + panel, fed by onMessage.&rdquo; On 11-22 that cost a
+whole diagnostic cycle: Claude asked Fred repeatedly for a LOG + reading that cannot
+exist, because gtLogger is Kermit with platformLogWriter()
+(GtLog.kt:14) &rarr; NSLog/os_log, which never reaches the in-app panel. Fred 13:0x:
+&ldquo;the only difference is now we know its not working, not failing silently&hellip; but we still have
+no solution.&rdquo;
+⭐ THIS WORKS, AND IT IS NOW THE INSTRUMENT FOR ANY iOS DIAGNOSIS:
+  xcrun simctl spawn booted log stream --level debug \
+    --predicate 'eventMessage CONTAINS "TrailFilter" OR eventMessage CONTAINS "pathProvider" OR eventMessage CONTAINS "initDb"'
+  # then, in a second terminal:
+  xcrun simctl terminate booted com.grouptrack.ios; sleep 1; xcrun simctl launch booted com.grouptrack.ios
+Kermit's lines come through with their logger name in parentheses and their emoji level &mdash;
+&#x1F7E2; (Housekeeping), &#x1F534; (TrailFilter) &mdash; so the predicate can
+filter by logger name or by message text. The bundle id is com.grouptrack.ios (from
+gt_iosbuild_2026-11-19_v1.sh:20), not the Android application id.
+WHY IT MATTERS BEYOND THIS BUG: every ordering, lifecycle and startup question on the iPad was
+previously unanswerable &mdash; the LOG+ panel only shows what onMessage is given, which is
+nothing from shared code, and nothing at all before the first composition. Startup is exactly where the
+hardest iPad defects live (housekeeping, initDb, the schema converge, the manifest sweep) and it is the
+window LOG+ can never see. This channel reads all of it, with microsecond timestamps &mdash; which is the
+only reason the 2.4ms race above was visible as a race rather than a mystery.
+&#9888; ONE CONTAINER-PATH TRAP, learned the same hour: the app's data container UUID CHANGES on
+install (385B11C3&hellip; &rarr; 9A3049E1&hellip; on 11-22, Documents carried
+across intact). Never write an absolute container path into a doc or a script. Find it each time:
+find ~/Library/Developer/CoreSimulator/Devices -name "map_keys.json".
+&#11088; 2.8b C28-26383 &middot; CHECKINFLAG &mdash; ANDROID&rsquo;S thenCheckIn IS DEAD, AND THE CHECK-IN NEVER AUTO-OPENS (an ANDROID defect, found 11-22)
+&#9888; THIS IS A LIVE ANDROID REGRESSION, NOT AN iPAD GAP. Found 11-22 while measuring
+GrpAwarenessPanel for the port. 2.8a is frozen, so it is carded rather than fixed.
+THE FACT, MEASURED: thenCheckIn exists TWICE &mdash; Android&rsquo;s
+GrpAwarenessLauncher.thenCheckIn (GrpAwareness.kt:70) and the shared
+GtCheckIn.thenCheckIn (GtCheckInSheet.kt:89). Nothing anywhere in the repository
+sets Android&rsquo;s one to true. The only = true is
+GtCheckIn.thenCheckIn = true at GtCheckInSheet.kt:319. Verified by grepping every
+assignment to any thenCheckIn: four hits, and the only one that writes true writes
+the SHARED flag.
+WHAT IS THEREFORE DEAD ON THE DROID &mdash; the CHECKINCONNECT-2026-09-28 behaviour (Fred:
+&ldquo;CHK IN with no radio opens GRP Awareness; once a radio connects, on to the check-in&rdquo;):
+GrpAwareness.kt:199 &mdash; the line &ldquo;Connect your radio to check in.&rdquo;
+never appears.
+Main.kt:645 &mdash; the LaunchedEffect(grpLink) that closes GRP Awareness and
+opens the check-in on connect never fires.
+HOW IT BROKE: when the check-in sheet moved to commonMain, the sheet started writing
+the NEW shared flag and the two readers were left on the old one. Same shape as the four haversines and
+the two GtRoute objects: one fact, two copies, writers on one and readers on the other. The iPad
+is unaffected &mdash; GtIosPanels.kt:917 already reads the live flag.
+THE FIX IS TWO LINES (point both readers at GtCheckIn.thenCheckIn), and it is an
+Android behaviour change, which is why it waits. Do it with the one post-certification wording/behaviour
+pass, not before (Fred 13:03: &ldquo;one final set of adjustments so we do not update the manual the
+software etc 8 times&rdquo;).
+Found because the moved panel would have read one flag while Android wrote the other &mdash;
+the port exposed it. Nobody had noticed on the device because the symptom is an absence.
+&#11088; 2.8b C28-26384 &middot; TOOLINBOX &mdash; A NEW TOOL DROPPED IN DOWNLOADS IS INVISIBLE TO RECOMMIT (an instance of XREFDRIFT C28-26377)
+OBSERVED 11-22 13:32 in recommit v26&rsquo;s own output:
+  Step -1: -&gt; inbox: navxref_2026-11-22_v3.py
+  Step 1b: tool: .../commands/navxref_2026-11-14_v2.py
+           Wrote /Users/kixazz25/Downloads/navigation_xref_2026-11-14.txt
+THE MECHANISM: gen_xrefs_v3.sh:92 picks the newest navxref_*.py from
+$GT_CMDS or $DOCS, requiring the marker THE CLICK TREE. Step -1
+of recommit sweeps today&rsquo;s GroupTrack files out of Downloads into inbox/ &mdash;
+which the picker never looks in. Step 2 then classifies a .py as &ldquo;not a document&rdquo; and
+leaves it in the inbox permanently (169 files were sitting there on 11-22). So every index built since
+v3 was written used the 11-14 tool.
+FIXED 11-22 by moving v3 into commands/. No retirement of v2 was needed: v3 carries the
+THE CLICK TREE marker and sort -V picks 2026-11-22_v3 over
+2026-11-14_v2. The verification is one line of the next recommit: Step 1b must report
+navxref_2026-11-22_v3.py. That is the ONLY place the swap is visible.
+THE GENERAL PROBLEM REMAINS: any future tool downloaded to Downloads will do exactly the same thing
+&mdash; the sweep puts tools where the picker cannot see them. Either the picker should also search
+inbox/, or Step -1 should route *xref*.py / known tool names to
+commands/. Until then a new tool must be moved to commands/ by hand, and Step 1b
+must be read to confirm it.
+Two neighbours, not fixed, not urgent: the inbox holds 169 files classified &ldquo;not a
+document&rdquo; (a dead-letter pile), and Step 2b skips 32 manual files over the 10 MB cap, so those never
+reach AllDocs 2.
 &#11088;&#11088;&#11088; 2.8b C28-26382 &middot; IOSGRP2 &mdash; GRP AWARENESS AND RADIO SETTINGS ARE PROTOTYPING TOOLS, AND THE BEHAVIOURS ARE NOT YET KNOWN
 Fred 11-22 13:14: &ldquo;think of radio setting as the grp awareness connections panels as
 prototyping tools. broadest possible blue net for iOS functioning and limited connect disconnect function in
@@ -87977,7 +88663,7 @@ window.addEventListener('load', openHash); window.addEventListener('hashchange',
 document.addEventListener('click', function(ev){ var a = ev.target.closest && ev.target.closest('a[href^="#"]'); if(a){ setTimeout(openHash, 0); } });
 
 
-=== grouptrack_manual_APP_v144.html ===
+=== grouptrack_manual_APP_v145.html ===
 <!-- MANUAL v144 (2026-11-20 EOD): ONE new section -- menu.settings.admission (Admission Window,
      under Node Filter), written in the manual's own three-question OVERVIEW form. The slider shipped with the words
      "a radio must have been heard within this time to appear on the map" and the manual had NO section for it at all;
@@ -88234,7 +88920,7 @@ My device: the ride button is REC; GRP Awareness is grey. Maps, trails, routes, 
 Group: the group buttons appear — GRP Awareness, CHK IN, View: My Cart / Group and RADIO SETUP.
 Mode cannot be switched while you are recording: end the ride first. In My device, the GPS lamp at the top (MY DEVICE GPS n) places your
 cart, so it should be green before you ride.My device: one rider, no radio — REC, GRP Awareness greyGroup: riders with radios — CHK IN, GRP Awareness, View: My Cart / Group, RADIO SETUPWhat does it mean to me?The screen shows only what your kind of ride needs: nothing about radios when you ride alone, the whole group when you ride together.
-D · GRP Awareness — connect your radioGRP Awareness: the buttons, outlinedWhat is it?GRP Awareness is your link to your mesh radio. The button's colour tells you its state at a glance — green: your radio is
+D · GRP Awareness — connect your radio🚧 TO FILL (2.8b) &mdash; RECAPTURE + REWRITE: the iPad&rsquo;s GRP Awareness was built 11-22 and is deliberately not the Android panel. Four differences to write, not to hide: there is no PAIR / CONNECT split (connect IS reconnect on iOS), no &ldquo;NEW TO THIS ANDROID&rdquo; line, the radio id is shown whole (Android drops its first character, which would eat the first character of an iOS UUID), and there is no FORGET &mdash; see grp.forget. BLUETOOTH_UNAVAILABLE is named on the glass instead of falling into Android&rsquo;s silent else. Screens cannot be captured until a real iPad (C28-26382: this panel is a PROTOTYPING TOOL and its behaviours are not set yet).GRP Awareness: the buttons, outlinedWhat is it?GRP Awareness is your link to your mesh radio. The button's colour tells you its state at a glance — green: your radio is
 connected and talking to GroupTrackOG; red: it is not — and a tap opens the panel where you connect, pair or forget a radio.How do I use it?Tap GRP Awareness on the right side (Group mode). The panel is shown below, with what to tap beside it. The lines under it lead on
 to each job in its own section: Bluetooth, FORGET, NODES, RADIO SETTINGS, and selecting a ride and applying its settings.Red: no radio talking to GroupTrackOGGreen: your radio is connected and talkingRadio settings connect, forget, pair. select a ride, radio settings nodesThe panel.
 To connect your radio: tap CONNECT beside it under AVAILABLE RADIOS. It moves to CONNECTED TO; the button turns green when it talks.
@@ -88254,15 +88940,15 @@ Put strong radios at the lead, the tail and the middle of a long group. The lead
 everyone behind.
 Every radio on a ride must use the same setting. GroupTrackOG sets it when the ride is applied; radios set differently cannot hear each
 other at all.Carried from the 2.7b manual — check the wording.
-Bluetooth off🚧 TO FILL (2.7d) — Screen: the new row Bluetooth is on. TURN BLUETOOTH OFF under the radio list (BTOFF, build c) — capture it with no radio connected, beside Android's Bluetooth page (side by side).What is it?Your radio talks to the tablet over Bluetooth. GRP Awareness tells you when Bluetooth is off, and turns it on or off from the panel.How do I use it?To turn it on: the panel says Bluetooth is off. Tap BLUETOOTH; Android asks GroupTrackOG wants to turn on
+Bluetooth off🚧 TO FILL (2.8b) &mdash; RECAPTURE + REWRITE: on the iPad this is one button that opens the iOS Bluetooth settings panel, reached through our own comm-module API (Fred 13:06: nothing reaches into mesh or the OS alone). It replaces Android&rsquo;s in-app Bluetooth on/off. Connect and disconnect stay in GroupTrack; everything the OS owns happens in iOS Settings. Android&rsquo;s wording stays as it is.🚧 TO FILL (2.7d) — Screen: the new row Bluetooth is on. TURN BLUETOOTH OFF under the radio list (BTOFF, build c) — capture it with no radio connected, beside Android's Bluetooth page (side by side).What is it?Your radio talks to the tablet over Bluetooth. GRP Awareness tells you when Bluetooth is off, and turns it on or off from the panel.How do I use it?To turn it on: the panel says Bluetooth is off. Tap BLUETOOTH; Android asks GroupTrackOG wants to turn on
 Bluetooth — tap Allow. Your radios appear.
 To turn it off (no radio connected): under the radio list, tap TURN BLUETOOTH OFF. Android's Bluetooth page opens: use the
 switch at the top, then come back. A radio connected? DISCONNECT it first.Bluetooth off: GRP Awareness says so — tap BLUETOOTHAndroid asks: GroupTrackOG wants to turn on Bluetooth — tap AllowWhat does it mean to me?Bluetooth on or off without leaving GroupTrackOG to hunt through Android's settings.
-FORGETWhat is it?FORGET removes a radio from GroupTrackOG and from this tablet's Bluetooth pairings.How do I use it?In the GRP Awareness panel, tap FORGET beside the radio.Confirm: FORGET (or CANCEL).
+FORGET🚧 TO FILL (2.8b) &mdash; RECAPTURE + REWRITE: FORGET is gone from the iPad panel (Fred 13:01: &ldquo;so forget on iPad needs to removed from grouptrack panel&rdquo;). On iOS a radio is forgotten in the iOS Bluetooth settings panel, and pairing a new radio is prompted by the OS on first connect. The Android instructions are unchanged. Needs a real iPad to capture.What is it?FORGET removes a radio from GroupTrackOG and from this tablet's Bluetooth pairings.How do I use it?In the GRP Awareness panel, tap FORGET beside the radio.Confirm: FORGET (or CANCEL).
 If Android needs you to do it, GroupTrackOG says so and opens Android's Bluetooth page: tap the radio, then Forget, and come back.
 To use the radio again, PAIR it again.ForgetWhat does it mean to me?A radio you sold, lent or replaced no longer shows up — and cannot connect by mistake.
 NODESWhat is it?NODES lists every radio your radio has heard, with its details.How do I use it?In the GRP Awareness panel, tap NODES. It is for looking only — for experienced Meshtastic users researching a radio problem.Node infoWhat does it mean to me?Nothing to do here on an ordinary ride; when a radio misbehaves, it shows what your radio has heard.
-RADIO SETTINGSWhat is it?The radio's own full settings, in the Meshtastic screens.How do I use it?In the GRP Awareness panel, tap RADIO SETTINGS. For experienced mesh operators only: GroupTrackOG sets everything a ride
+RADIO SETTINGS🚧 TO FILL (2.8b) &mdash; RECAPTURE + REWRITE: the iPad&rsquo;s radio panels are prototyping tools (Fred 13:14) and 11-22 left their behaviours deliberately unset &mdash; broadest possible net for iOS Bluetooth, with connect/disconnect the only two things the app controls. RECONNECT and ADD DEVICE were considered and left out until it is known whether they are needed (Fred 13:21). No values, no write to the radio still holds. Final screens and wording wait on hardware (C28-26382) &mdash; do not capture from the simulator.What is it?The radio's own full settings, in the Meshtastic screens.How do I use it?In the GRP Awareness panel, tap RADIO SETTINGS. For experienced mesh operators only: GroupTrackOG sets everything a ride
 needs itself (N · RADIO SETUP), and a change made here can stop your radio from hearing the group.Mesh radio configWhat does it mean to me?Nothing to do here for an ordinary ride — it is there for those who know the radios.
 Select a ride and apply settings to the radioWhat is it?Puts a ride's radio settings on your radio — the same job as RADIO SETUP › Configure radio (N).How do I use it?In the GRP Awareness panel, tap SELECT A RIDE AND APPLY SETTINGS TO THE RADIO.
 Tap the ride (or the default settings), then apply. The radio is set up — about a minute, with its progress on screen.
@@ -88445,7 +89131,7 @@ Two claims of one role at the same moment — both go back to Rider, and a flash
 takes it; that rider claims it again.
 No Leader yet? When recording starts with no Leader known, GroupTrackOG asks which cart leads — on your tablet only. As soon as a Leader
 is heard, the lead moves to them.Carried from the 2.7b manual — check the wording.
-Create a ride🚧 TO FILL (2.7d) — Screens: CREATE A RIDE from a route's panel and from a track's panel → the ride form (also P › Route and P › Track, and daily ads 5 and 6).What is it?Makes a ride from one of your routes: name, date and rollout time, route, trailhead, maps and radio network.How do I use it?Rides › Create a ride, then follow the screens below. GroupTrackOG looks for trailheads within ½ mile (2,640 ft) of the route's start:
+Create a ride🚧 TO FILL (2.8b) &mdash; RECAPTURE + REWRITE: Create a ride is whole on the iPad as of 11-22. Before today it stopped after the area search; the form (name, date, start time, description, zip, private, the three network choices, route selection with the route sketch, SAVE, CANCEL) now follows PROCEED. Two things the iPad form does not have, and the text must not promise them: the trailhead search and the stored route preview thumbnail. The zip code starts blank on the iPad and the rider types it. CANCEL writes nothing.🚧 TO FILL (2.7d) — Screens: CREATE A RIDE from a route's panel and from a track's panel → the ride form (also P › Route and P › Track, and daily ads 5 and 6).What is it?Makes a ride from one of your routes: name, date and rollout time, route, trailhead, maps and radio network.How do I use it?Rides › Create a ride, then follow the screens below. GroupTrackOG looks for trailheads within ½ mile (2,640 ft) of the route's start:
 one is used, several give you a choice, none — you describe where to meet. Only the name is needed to save; the ride can be sent once it is complete.Search result obtained and map position, select proceed to create a rideSearch for the area; the map moves there. Tap PROCEED.
 Create a ride after search positioningThe new ride, ready to fill in.
 Ride creationName the ride and choose public or private and the radio network.
@@ -88469,7 +89155,7 @@ completed once it has a route, trailhead, date and description — only a comple
 gone out. After sending, only the date can change (to reschedule); send it again so your riders get the new date.
 Public or private. A public ride's invitation says riders may forward it; at the end each rider rates it and chooses whether to share
 their track. A private ride is for the riders you choose — no survey and no sharing; every track stays on its rider's tablet.Carried from the 2.7b manual — check the wording.
-Import a ride⚠ TO FILL (2.8) &mdash; Screens: a ride file sitting in the rides folder is now picked from GroupTrackOG’s own list — the same picker as every other import. “Open with GroupTrackOG” from the email still works, and is now the second way in, not the first.🚧 TO FILL (2.7d) — Screens: opening a ride you were sent: the email with the .convoy attachment → Open with GroupTrackOG → the ride arrives → its maps to download (folder Open a ride file, side by side where the state changes). HELP button on Import a ride (D6).What is it?Brings in a ride someone sent you — its route, trailhead, map download and
+Import a ride🚧 TO FILL (2.8b) &mdash; RECAPTURE + REWRITE: the iPad import is our own picker over the app&rsquo;s own rides folder (built 11-22) &mdash; not a system document picker (Fred: &ldquo;we do not use the documentpicker&rdquo;). Two ways in, and both need writing: tap the attachment in the email, or pick the ride from the folder. One tap on the ride processes the whole package &mdash; ride, radio configuration and the map GPX &mdash; so the rider is never asked to pick four files.⚠ TO FILL (2.8) &mdash; Screens: a ride file sitting in the rides folder is now picked from GroupTrackOG’s own list — the same picker as every other import. “Open with GroupTrackOG” from the email still works, and is now the second way in, not the first.🚧 TO FILL (2.7d) — Screens: opening a ride you were sent: the email with the .convoy attachment → Open with GroupTrackOG → the ride arrives → its maps to download (folder Open a ride file, side by side where the state changes). HELP button on Import a ride (D6).What is it?Brings in a ride someone sent you — its route, trailhead, map download and
 radio setup — from the ride file (it ends in .convoy).How do I use it?Easiest: tap the ride attachment in
 your email and choose Open with GroupTrackOG. If the file is already on your tablet:
 Rides › Import a ride. Read the notice and tap CONTINUE.
@@ -88483,7 +89169,7 @@ Names cut short? Tap the list button at the right of Files in Download: one file
 Not in Downloads? Tap ☰ at the top left and choose where it is — for example Google Drive.
 Changed your mind? The back arrow, or a swipe in from the right edge, takes you back to GroupTrackOG without a file.What does it mean to me?One file sets you up for the ride: the route on your map, the
 maps to download and the settings for your radio.
-My ridesWhat is it?Your rides, each with Send, Edit, Apply to radio and Delete.How do I use it?To send a ride: tap it, then Send. Your email app opens with the ride attached — add the riders' addresses and send.
+My rides🚧 TO FILL (2.8b) &mdash; RECAPTURE + REWRITE: My rides gained an EDIT button on 11-22 (commit e457d4ee1), so the row now reads EDIT &middot; SEND &middot; APPLY TO RADIO &middot; DELETE and the four-option description is stale. EDIT opens the same screen Create a ride uses. A ride that has been sent takes only its date &mdash; the store refuses the rest &mdash; and the screen says so in amber, which the instructions must explain.What is it?Your rides, each with Send, Edit, Apply to radio and Delete.How do I use it?To send a ride: tap it, then Send. Your email app opens with the ride attached — add the riders' addresses and send.
 A ride cannot be sent until it is complete.To finish or change one: Edit.
 To put its settings on your radio: Apply to radio.To remove it: Delete.Display my rides. cannot send until all info is complete. incomplete items can be editedTap a ride for its actions; an incomplete one shows what is missing — tap Edit.
 Ride selected to be editedEdit the ride, then save.
