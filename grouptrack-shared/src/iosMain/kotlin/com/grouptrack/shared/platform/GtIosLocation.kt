@@ -7,6 +7,7 @@ import platform.CoreLocation.CLHeading
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.CLLocationManagerDelegateProtocol
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedAlways
 import platform.CoreLocation.kCLLocationAccuracyBest
 import platform.Foundation.NSError
 import platform.darwin.NSObject
@@ -86,6 +87,24 @@ internal object GtIosLocation {
 
     /** [lat, lon], or null when there is no fix yet -- the caller must say so, never guess one. */
     fun here(): DoubleArray? = del?.let { if (it.fixed) doubleArrayOf(it.lat, it.lon) else null }
+
+    /**
+     * CHECKINBRANCH-2026-11-22 (seam 6) -- IS BACKGROUND LOCATION GRANTED?
+     *
+     * Android's soloBg gate (GroupTrackScreen.kt:1771-1774) is ACCESS_BACKGROUND_LOCATION granted,
+     * or SDK < Q. The iOS equivalent is AuthorizedAlways: WhenInUse -- which [start] requests -- is
+     * FOREGROUND ONLY, so a WhenInUse grant must answer false here or a solo ride would start
+     * recording and then stop the moment the rider pockets the iPad.
+     *
+     * ⚠ NOT A NEW SERVICE. The platform-services contract (service-layer design §20) already carries
+     * the row "my position, recording | LocationManager | CoreLocation", and this object already owns
+     * the CLLocationManager. This is one authorisation read added beside onPosition/onHeading.
+     *
+     * CODE RULE 1: false = not granted, or not yet asked -- which is exactly Android's own false, and
+     * Android's own behaviour then is to leave the button at REC so the next tap asks.
+     */
+    fun backgroundGranted(): Boolean =
+        CLLocationManager.authorizationStatus() == kCLAuthorizationStatusAuthorizedAlways
 
     private class Del(private val log: co.touchlab.kermit.Logger) : NSObject(), CLLocationManagerDelegateProtocol {
         var lat = 0.0

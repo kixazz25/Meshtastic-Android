@@ -3155,7 +3155,15 @@ fun GroupTrackScreen(
                     if (here != null) webViewRef.value?.evaluateJavascript("setView(${here.first}, ${here.second}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
                     else android.widget.Toast.makeText(context, "No position yet", android.widget.Toast.LENGTH_SHORT).show()
                     // while RECORDING my cart / the group drive the view: the button also resumes that
-                    if (recordingState == RecordingState.RECORDING) viewModel.setAutoPan(true)
+                    // CENTREME-2026-11-22 (Fred 11:59): pressed while recording it ALSO switches to MY CART,
+                    // so centring and panning then run under my-cart's rules. setAutoPan alone resumed
+                    // following in whatever mode was current -- from GROUP that meant the follow dragged
+                    // the view straight back to the group fit after bringing the rider home.
+                    // setHudMode only intercepts GROUP (ConvoyViewModel:717), so MY_CART passes through.
+                    if (recordingState == RecordingState.RECORDING) {
+                        viewModel.setAutoPan(true)
+                        viewModel.setHudMode(HudMode.MY_CART)
+                    }
                 },   // ATTACH4-2026-10-22: follow again (the readout's view)
                 "internet.switch" to {   // ATTACH3-2026-10-22: the old LOCAL / NET toggle
                     if (isOfflineMode) offlineToggle(false)

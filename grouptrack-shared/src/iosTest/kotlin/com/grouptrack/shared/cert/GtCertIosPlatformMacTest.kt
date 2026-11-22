@@ -579,9 +579,11 @@ class GtCertIosPlatformMacTest {
             eq("ridenet|jRole", "\"TAK_TRACKER\"", n.jRole)
         }
 
-        // --- IosMeshDefaults: the fallbacks ARE 2.7e's literals ---------------------------------
-        eq("mesh|fallback = 2.7e's MeshDefaults literals",
-            GtMeshDefaults("US", "MEDIUM_FAST", 3, 0, 0, "TAK_TRACKER"), GtMeshDefaults())
+        // --- IosMeshDefaults: NOCONFIG-2026-11-22 ----------------------------------------------
+        // ⛔ THE FALLBACK ASSERTION IS GONE because the fallback is gone. It used to certify that
+        // GtMeshDefaults()'s defaults equalled 2.7e's literals -- i.e. it certified the very
+        // behaviour that let a total read failure pass as success. There is nothing to fall back to
+        // now, so now() either returns the file's values or throws naming the field.
         fact("mesh|now() in this bundle", IosMeshDefaults.now())
 
         // --- IosRideNetworks with no database: refuse, never pretend -----------------------------

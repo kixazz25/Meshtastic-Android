@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 data class ConvoySettingsUiState(
     val signalDropMinutes:    Float              = 2f,
-    val signalLostMinutes:    Float              = 10f,
+    val signalLostMinutes:    Float              = 5f,    // GRPDEFAULTS-2026-11-22: was 10f
     val offTrackMiles:        Float              = 0.5f,
     val admissionWindowHours: Int                = 1,
     // Map of nodeId -> callsign for removed carts today

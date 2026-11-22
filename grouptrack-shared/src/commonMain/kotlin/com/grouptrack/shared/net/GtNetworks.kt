@@ -34,8 +34,21 @@ data class GtNetworkConfig(
 )
 
 /** 2.7e NetworkGenerator.MeshDefaults: the fallback literals; the app passes what grouptrack_default.json said. */
-data class GtMeshDefaults(val region: String = "US", val modemPreset: String = "MEDIUM_FAST", val hopLimit: Int = 3, val txPower: Int = 0,
-                          val frequencySlot: Int = 0, val role: String = "TAK_TRACKER") {
+/**
+ * NOCONFIG-2026-11-22 -- ⛔ NO DEFAULTS. EVERY VALUE COMES FROM grouptrack_default.json.
+ *
+ * [stated] Fred 11-22 09:34: "no hard coded values, no values no write to the radio. config are the
+ * most important step and we cannot be hiding errors to force incorrect writes."
+ *
+ * These six used to carry constructor defaults, and IosMeshDefaults.now() returned them whenever the
+ * file could not be read. Five of the six happened to equal the file, so a TOTAL read failure was
+ * indistinguishable from success -- which is how the iPad wrote hopLimit 3 while the file said 2
+ * (MESHFIELDS-2026-11-22). These values reach a radio through the ride network, so a hidden read
+ * failure became a guessed radio configuration. There is now nothing to fall back to: a caller that
+ * cannot read the file must REFUSE and say which field failed.
+ */
+data class GtMeshDefaults(val region: String, val modemPreset: String, val hopLimit: Int, val txPower: Int,
+                          val frequencySlot: Int, val role: String) {
     companion object { const val BASE_VERSION = 1; const val TX_POWER_CAP = 30 }
 }
 

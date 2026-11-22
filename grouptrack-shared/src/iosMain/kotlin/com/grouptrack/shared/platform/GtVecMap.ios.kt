@@ -10,6 +10,7 @@ import androidx.sqlite.SQLiteStatement
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_READONLY
 import com.grouptrack.shared.db.gtOpenDatabase
+import com.grouptrack.shared.mapstate.GtBBox   // IOSFRAMEWRITE-2026-11-21
 import com.grouptrack.shared.mapstate.GtMapState
 import com.grouptrack.shared.spatial.GtSpatial
 import kotlinx.cinterop.BetaInteropApi
@@ -199,6 +200,8 @@ private class SpatialRunner(private val log: (String) -> Unit) {
     private var spatial: GtSpatial? = null
     private var opened = false
     private var seq = 0
+    // IOSFRAMEWRITE-2026-11-21: the last frame written, so a pan that ends where it began writes nothing.
+    private var lastFrame = ""
 
     fun request(args: String) {
         val v = args.trim().removePrefix("[").removeSuffix("]").split(",").mapNotNull { it.trim().toDoubleOrNull() }
@@ -230,6 +233,26 @@ private class SpatialRunner(private val log: (String) -> Unit) {
                 return@dispatch_async
             }
             val ms = ((NSDate().timeIntervalSince1970 - t0) * 1000).toInt()
+            // IOSFRAMEWRITE-2026-11-21: save the frame the rider is looking at, so the next launch opens here
+            // instead of the page default (zoom 4, mid-US) where trails are below TRAILS_MIN_ZOOM.
+            // readMap -> copy -> saveMap because saveMap writes the WHOLE snapshot. Only frames
+            // mapFrameOk accepts are written, so a wide view never overwrites a usable one.
+            run {
+                val fn = v[0]; val fs = v[1]; val fe = v[2]; val fw = v[3]
+                if (mapFrameOk(fs, fw, fn, fe)) {
+                    val key = "" + fs + "," + fw + "," + fn + "," + fe
+                    if (key != lastFrame) {
+                        lastFrame = key
+                        try {
+                            val st = GtMapState(IosFiles(), IosImportPaths())
+                            val k = GtMapState.rideKey()
+                            st.saveMap(k, st.readMap(k).copy(bbox = GtBBox(fs, fw, fn, fe, v[4])))
+                        } catch (ex: Throwable) {
+                            dispatch_async(dispatch_get_main_queue()) { log("frame save failed: " + ex.message) }
+                        }
+                    }
+                }
+            }
             dispatch_async(dispatch_get_main_queue()) {
                 val w = web ?: return@dispatch_async
                 b.js.forEach { js ->

@@ -4,7 +4,7 @@ package com.grouptrack.shared.settings
  * STEP17G2B2-2026-11-12 (2.8 step 17, G2b-2): the ride settings (2.7e ConvoySettingsRepository, Jetpack DataStore "convoy_settings")
  * ported onto the settings socket -- the same keys, the same defaults, the same removed-cart rules. Fred 10:59: "let's finish in here,
  * less to do later if this is certified".
- *   signal_drop_minutes (2f) · signal_lost_minutes (10f) · off_track_miles (0.5f; "saved" = present) · admission_window_hours (1)
+ *   signal_drop_minutes (2f) · signal_lost_minutes (5f, GRPDEFAULTS-2026-11-22; was 10f) · off_track_miles (0.5f; "saved" = present) · admission_window_hours (1)
  *   removed_carts: a set of "nodeId|callsign|epochDay"; "for today" = the entries ending "|<today>", nodeId -> callsign
  * [epochDay] = today's day number (2.7e LocalDate.now().toEpochDay()). Flows stay in the Android repository (the screens read them).
  * [fillMissing] = the ONE-TIME copy from the old DataStore (CODE RULE 3): it only fills keys this store does not have yet, so a key
@@ -22,7 +22,10 @@ class GtRideSettings(private val settings: GtSettings, private val storeName: St
     private fun p() = settings.store(storeName)
 
     fun signalDropMinutes(): Float = p().getFloat(K_DROP, 2f)
-    fun signalLostMinutes(): Float = p().getFloat(K_LOST, 10f)
+    /** GRPDEFAULTS-2026-11-22: was 10f. Fred 10:52 -- signal lost is 5 MINUTES, which the slider's own
+     *  floor already says (GtAlertSettingsPanel: 5f..30f) and ut03_nodeAt300sIsLost asserts.
+     *  Where this default LIVES moves to an asset at C28-26380; this is the value. */
+    fun signalLostMinutes(): Float = p().getFloat(K_LOST, 5f)
     fun offTrackMiles(): Float = p().getFloat(K_OFF, 0.5f)
     /** CODE RULE 1: null = never saved -- ConvoyViewModel applies only a SAVED value (2.7e offTrackMilesSaved) */
     fun offTrackMilesSaved(): Float? = if (p().contains(K_OFF)) p().getFloat(K_OFF, 0.5f) else null

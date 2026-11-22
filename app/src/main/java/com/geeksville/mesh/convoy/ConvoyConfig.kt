@@ -82,7 +82,8 @@ object ConvoyConfig {
     const val MARKER_SIZE_LARGE_DP = com.grouptrack.shared.settings.GtConfig.MARKER_SIZE_LARGE_DP   // SWITCH17G2B1-2026-11-12 -- was: 24
     const val MARKER_SIZE_MEDIUM_DP = com.grouptrack.shared.settings.GtConfig.MARKER_SIZE_MEDIUM_DP   // SWITCH17G2B1-2026-11-12 -- was: 16
     var SIGNAL_DROP_MINUTES = 2f
-    var LOST_MINUTES = 10f
+    var LOST_MINUTES = 5f   // GRPDEFAULTS-2026-11-22: was 10f. Overwritten at start from the store
+                            // (ConvoyViewModel:559); corrected so the literal is not a lie.
     var OFF_TRACK_MILES = 0.028f  // 150 feet
     const val API_BASE_URL = com.grouptrack.shared.settings.GtConfig.API_BASE_URL   // SWITCH17G2B1-2026-11-12 -- was: "https://grouptrack.org/convoy_api.php/"  // V3.0 backend
     /* V3-REFRESH (RETIRE26-2026-10-08, Fred): V3 PICK-UP PLANNING -- these legacy items MUST be addressed before

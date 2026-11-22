@@ -60,6 +60,8 @@ import com.grouptrack.shared.net.GtProfileStore
 import com.grouptrack.shared.net.GtRiderProfile
 import com.grouptrack.shared.platform.IosClock
 import com.grouptrack.shared.platform.IosIds
+import com.grouptrack.shared.platform.IosDownloadQueue   // R1QUEUE-2026-11-22
+import com.grouptrack.shared.queue.GtQueueStatus         // R1QUEUE-2026-11-22
 import com.grouptrack.shared.text.GtTime
 import kotlinx.cinterop.ExperimentalForeignApi   // IOSHELP-2026-11-19: CGRectMake
 import com.geeksville.mesh.grouptrack.GtNotesPanel   // NOTESMOVE-2026-11-19
@@ -73,6 +75,7 @@ import com.geeksville.mesh.convoy.ArtifactDetailPanel
 import com.geeksville.mesh.convoy.ArtifactListPanel   // IOSARTIFACT-2026-11-19: level B's one panel
 import com.geeksville.mesh.convoy.RecordingState
 import com.grouptrack.shared.settings.GtRideSettings
+import kotlin.math.roundToInt   // GRPDEFAULTS-2026-11-22
 import com.grouptrack.shared.settings.GtIssueMode   // IOSISSUEIMPORTS-2026-11-20: the ISSUE report reads both
 import com.grouptrack.shared.settings.GtGroupMode   // IOSISSUEIMPORTS-2026-11-20: the ISSUE report reads both
 import com.grouptrack.shared.platform.IosSettings
@@ -466,6 +469,25 @@ private object IosWriteDb {
     fun reader(): GtRead? { open(); val s = spatial ?: return null; return GtRead(s, data) }
 
     /**
+     * ENDOFRIDE-2026-11-22: the TRACK ADD. [com.grouptrack.shared.track.GtTracks.resolveTrackAdd] is
+     * the UNIFIED ADD -- it inserts the row, renames the file to <hash>.gpx, deletes the source,
+     * feeds the metrics and resolves INSERT / DROP_NAME / DROP_ALIAS / ALIAS. It is shared and
+     * certified and had ZERO iosMain callers, which is why the iPad's END wrote an orphan GPX that
+     * never entered the database. All four of its dependencies already exist on iOS.
+     * CODE RULE 1: null = the spatial db would not open writable, which is this object's own meaning.
+     */
+    fun tracks(): com.grouptrack.shared.track.GtTracks? {
+        open()
+        val s = spatial ?: return null
+        val w = writer() ?: return null
+        return com.grouptrack.shared.track.GtTracks(
+            s, data, w,
+            com.grouptrack.shared.platform.IosImportEnv(),
+            com.grouptrack.shared.platform.IosFlight,
+        )
+    }
+
+    /**
      * TRAILCHECKWIRE-2026-11-21: the OPEN pair, for a reader that needs raw SQL rather than GtRead --
      * GtTrailCheck runs the map's real queries, including the Map Keys WHERE and the rank-in-view
      * count. ⛔ It REUSES this pair instead of opening a second connection: two connections to the
@@ -745,6 +767,17 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // leaving out (14:44: "there is one item we are leaving... it is mesh[t]a[s]tic"), so it says so
     // by name on contact instead of being a silent no-op -- GtIosOsmPlatform.kt:17's rule.
     val grpAskActivate = remember { mutableStateOf(false) }
+    // IOSGRP2-2026-11-22: the iPad's OWN GRP Awareness panel exists now (GtIosGrpAwareness.kt),
+    // so group mode ON opens a panel instead of only logging that one was missing. Android untouched.
+    val grpPanelOpen = remember { mutableStateOf(false) }
+    // IOSGRP2-2026-11-22: the iOS half of CommMenus, which did not exist. It offers ONE item --
+    // iOS Bluetooth -- and owns the one platform act behind it (Fred 13:08: called from our menu,
+    // ala meshmenus). GroupTrack asks by id and never names an OS screen.
+    val grpMenus = remember {
+        com.grouptrack.shared.comm.GtIosCommMenus(
+            com.grouptrack.shared.platform.IosBluetoothSettings(),
+        )
+    }
     // NOTESMOVE-2026-11-19: the route narrative panel. Android holds this in
     // GtRoute.savedNotesRouteId (RouteModule.kt:460) and RouteModule.kt:1344 renders GtNotesPanel
     // from it. Same state, same panel -- the panel itself is shared now.
@@ -788,6 +821,23 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
             val d = IosClock.localNow()
             GtTime.gregorianEpochDay(d.year.toLong(), d.month, d.day)
         }
+    }
+    // GRPDEFAULTS-2026-11-22 (Fred 10:53): turning group awareness ON says which thresholds are in force.
+    // Read LIVE from rideSettings -- the numbers are never written into the text (Fred 09:34,
+    // "no hard coded values"). roundToInt to match how GtAlertSettingsPanel labels the sliders.
+    val grpThresholds = {
+        "signal drop " + rideSettings.signalDropMinutes().roundToInt() + " min \u00b7 " +
+            "signal lost " + rideSettings.signalLostMinutes().roundToInt() + " min"
+    }
+    // R1QUEUE-2026-11-22: the download queue, read-only -- ensureLoaded reads download_queue.json and
+    // schedules nothing (initAndResume is the one that starts work). fetch refuses loudly: a
+    // read-only queue never calls it and the iPad has no URLSession worker yet.
+    val dlQueue = remember {
+        IosDownloadQueue(IosIds, IosClock, fetch = { e, _ ->
+            com.grouptrack.shared.log.gtLogger("DownloadQueue")
+                .e { "R1QUEUE-2026-11-22: fetch called for " + e.id + " -- no download worker on the iPad" }
+            false
+        }).also { it.ensureLoaded() }
     }
     val settingsOpen = remember { mutableStateOf(false) }
     // SRCCREDITS-2026-11-20: menu.settings > "Map source credits". Reached ONLY from settings, as on
@@ -864,6 +914,53 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     }
     val radioConnected = remember { mutableStateOf(false) }
     val radioTalking = remember { mutableStateOf(false) }
+    // CHECKINBRANCH-2026-11-22: these two were HARDCODED false while the real values sat in `comm`
+    // (:735). Fred 11-22 09:15: "they states are used already ... grp awareness button colors are
+    // driven by that state" -- and they were, from two falses, so the GRP button could only ever
+    // paint disconnected. comm.link and comm.health are the sources; this is wiring, not a service.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        comm.link.collect { st ->
+            radioConnected.value = st == com.grouptrack.comm.Link.CONNECTED
+            // CHECKINCONNECT-2026-09-28 (Android: Main.kt:645-648): CHK IN with no radio opens GRP
+            // Awareness, and once a radio CONNECTS the check-in comes back by itself. The flag is
+            // the panel's; this watcher is the host's half, which is why it lives here.
+            if (st == com.grouptrack.comm.Link.CONNECTED &&
+                com.geeksville.mesh.grouptrack.GtCheckIn.thenCheckIn) {
+                com.geeksville.mesh.grouptrack.GtCheckIn.thenCheckIn = false
+                com.geeksville.mesh.grouptrack.GtOpenModule.closeTick.intValue++   // close GRP Awareness
+                com.geeksville.mesh.grouptrack.GtCheckIn.showing.value = true
+            }
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        comm.health.collect { h -> radioTalking.value = h.talking }
+    }
+    // CHECKINBRANCH-2026-11-22 (seam 7): the LEAD IDENTITY. ConvoyViewModel.setLeadCart (:434) is
+    // lockedLeadNodeId + _leadLockedFlag + _leadLocked + a log line -- host state, no service. The
+    // iPad had none at all (showLeadTrack is the DISPLAY toggle, a different thing).
+    // CODE RULE 1: "" = no lead assigned, which is Android's own null-cleared state.
+    val leadId = remember { mutableStateOf("") }
+    val leadLocked = remember { mutableStateOf(false) }
+    // ENDOFRIDE-2026-11-22 (B3): the ride waiting to be NAMED. Android holds a temp GPX file and
+    // finalizes it; the iPad holds the geometry in memory and writes nothing until the rider names
+    // it -- so DELETE has no file to remove, which is a real and simpler difference, not a shortcut.
+    // CODE RULE 1: null = nothing waiting to be saved.
+    val endGeom = remember { mutableStateOf<String?>(null) }
+    val endCount = remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val pendingTrackName = remember { mutableStateOf("") }
+    // Android: viewModel.endingCheckIn -- the form reads it for the ride name, the survey and
+    // isPublic. The iPad used to DISCARD the check-in result, so the form had nothing to read.
+    val endingCheckIn = remember { mutableStateOf<com.grouptrack.shared.ride.GtRideStore.CheckIn?>(null) }
+    val endScope = androidx.compose.runtime.rememberCoroutineScope()
+    // CHECKINBRANCH-2026-11-22: the comm CONFIG, for GtRadioApply.lastAppliedRide and the ride apply.
+    // ⭐ clientOf is the LIVE CLIENT, not null. GtIosCommLink exposes it on purpose --
+    // `internal fun radioClient(): RadioClient?` (GtIosCommLink.ios.kt:236), whose own comment says
+    // "the connected client, for the sibling APIs of this contract (CommConfig today)". So this is
+    // the module call put back in line, not a new wire. On the simulator it answers null because
+    // there is no Bluetooth, which is the same honest NotSupported path -- but the moment a real
+    // iPad has a radio, the config works without touching this line.
+    val commConfig = remember { com.grouptrack.shared.comm.GtIosCommConfig { comm.radioClient() } }
+    val checkInFiles = remember { com.grouptrack.shared.platform.IosRideFiles() }
     val tilt = remember { mutableStateOf(false) }
     val headingUp = remember { mutableStateOf(false) }
 
@@ -1175,6 +1272,7 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                 com.grouptrack.shared.settings.GtGroupMode.set(IosSettings(), next)
                 commScope.launch { comm.setActive(next) }
                 onMessage("mode", if (next) "Group" else "My device")
+                if (next) onMessage("mode", grpThresholds())   // GRPDEFAULTS-2026-11-22
             } else onMessage("mode", "End the ride before changing mode.")
         },
         // IOSPROFILE-2026-11-19: Android is "menu.account" to { onNavigateToProfile() }
@@ -1196,6 +1294,7 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                 // reports BLUETOOTH_UNAVAILABLE, which is a true answer rather than a missing feature.
                 comm.startScan()
                 val h = comm.health.value
+                grpPanelOpen.value = true   // IOSGRP2-2026-11-22
                 onMessage(
                     "grp",
                     "Radio link: " + comm.link.value.name.lowercase() +
@@ -1212,10 +1311,19 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // IOSSETTINGS-2026-11-19: Android is "menu.settings" to { onNavigateToSettings() }
         // (GroupTrackScreen.kt:3061). The iPad opens the SHARED settings panel.
         "menu.settings" to { settingsOpen.value = true },
+        // CENTREME-2026-11-22 (Fred 11:59): CENTRE ON ME is the home button -- it ALWAYS positions you,
+        // like "go home" on a GPS. Pressed while RECORDING it also switches to MY CART so centring
+        // and panning run under my-cart's rules (Android: GroupTrackScreen.kt:3158).
+        // The iPad has no autoPan yet -- that is its own row -- so the mode switch is what applies,
+        // and having it here means the switch is already correct when the follow lands.
+        // applyRequest only gates GROUP (GtHudView.kt:52), so MY_CART is set directly.
         "centre.me" to {
             val h = GtIosLocation.here()
             if (h != null) js("setView(" + h[0] + ", " + h[1] + ", " + GtConfig.MAP_CART_ZOOM + ")")
             else onMessage("centre", "no position yet")
+            if (recState.value == RecordingState.RECORDING) {
+                hudView.value = com.geeksville.mesh.grouptrack.GtHudView.MY_CART
+            }
         },
         // GroupTrackScreen.kt:3131-3132
         "view.heading" to {
@@ -1343,25 +1451,52 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                     onTap = {
                         when (recState.value) {
                             RecordingState.CHECK_IN -> {
-                                // IOSRIDEENV-2026-11-21: the REAL check-in. GtRideStore.checkIn has existed and
-                                // been certified since step 14 (ride/GtRides.kt:663); it was unreachable
-                                // only because the iPad had no GtRideEnv. Android's SOLO path is what is
-                                // followed here -- no scheduled ride (null is a real value: "No scheduled
-                                // ride"), the rider's own callsign, the default role. Picking a ride is
-                                // CheckInSheet's job and that panel moves to commonMain in its own step.
+                                // CHECKINBRANCH-2026-11-22: Android's branch, GroupTrackScreen.kt:1764-1783,
+                                // transcribed -- the CONDITION included, which is what was missing.
+                                // SOLOREC-2026-09-28 (Fred): THE BUTTON FOLLOWS THE RADIO. A radio (or GROUP
+                                // mode) -> the check-in sheet. No radio -> a solo ride: a silent
+                                // "No scheduled ride" check-in, then REC's own solo path.
+                                // CHKIN1MAP-2026-10-22: ONE MAP follows GROUP mode, as its label does.
+                                // ⚠ GROUP MODE DEFAULTS ON, so the SHEET is the default path, not the rare one.
                                 com.grouptrack.shared.platform.installIosRideEnv()
-                                val gtMe = com.grouptrack.shared.ride.GtRideStore.env.profile()
-                                val gtCall = gtMe?.callsign ?: ""
-                                if (gtCall.isBlank()) {
-                                    // Said plainly rather than writing a record with no rider on it.
-                                    onMessage("record", "check in needs a callsign -- set it in the rider profile")
+                                if (radioConnected.value ||
+                                    com.grouptrack.shared.settings.GtGroupMode.on.value) {
+                                    com.geeksville.mesh.grouptrack.GtCheckIn.showing.value = true
                                 } else {
-                                    val gtCi = com.grouptrack.shared.ride.GtRideStore.checkIn(null, gtCall, "rider")
-                                    if (gtCi == null) {
-                                        onMessage("record", "check in refused")
-                                    } else {
-                                        recState.value = RecordingState.IDLE
-                                        onMessage("record", "checked in as " + gtCi.callsign + " (" + gtCi.role + ")")
+                                    // ⛔ THE BLANK CALLSIGN IS ANDROID'S OWN VALUE, not an oversight:
+                                    // ConvoyRideStore.checkIn(null, "", "rider"). The earlier iPad code
+                                    // REFUSED a blank callsign -- that refusal was INVENTED here and is
+                                    // removed. A solo check-in names no rider by design.
+                                    endingCheckIn.value =
+                                        com.grouptrack.shared.ride.GtRideStore.checkIn(null, "", "rider")
+                                    recState.value = RecordingState.IDLE
+                                    val soloBg = com.grouptrack.shared.platform.GtIosLocation.backgroundGranted()
+                                    if (soloBg) {
+                                        // as REC does for one cart or none: auto-assign the lead and record.
+                                        // LEADCLEAN-2026-09-29: one cart -> it; none -> my cart. The iPad has
+                                        // no other carts (no radio), so it is my cart, and Android's own
+                                        // fallback string for a phone with no radio node is "!phone".
+                                        leadId.value = "!phone"
+                                        leadLocked.value = true
+                                        // seam 8: startGroupTrack's own work, ConvoyViewModel.kt:299.
+                                        // Its LEADCLEAN block is DELIBERATELY SKIPPED because the lead is
+                                        // already locked above -- that is Android's ordering, not a shortcut.
+                                        recState.value = RecordingState.RECORDING
+                                        gtMyCart.reset()
+                                        gtRecPoints.clear()
+                                        // ⚠ AUTO-PAN IS NOT THIS ROW'S STATE. Android also sets
+                                        // _autoPan.value = true here (ConvoyViewModel:299, TRACK
+                                        // START), but [stated] Fred 11-22 09:20: "auto pan is set
+                                        // when center in my cart is selected. or group awareness is
+                                        // selected." ⇒ it belongs to I - CENTRE ON ME and
+                                        // D - GRP AWARENESS, which own it. The iPad has no autoPan
+                                        // state at all yet, and I has NEVER BEEN WALKED (seam 15a),
+                                        // so the card goes to I. Creating the state here would put
+                                        // it in the wrong row and make B own something it does not.
+                                    }   // else it stays at REC: that tap asks for the permission, as always
+                                    com.grouptrack.shared.log.gtLogger("GtIosPanels").i {
+                                        // Android's own line, ConvoyScreen tag (GroupTrackScreen.kt:1782).
+                                        "SOLOREC: no radio -> solo ride (no check-in), recording=" + soloBg
                                     }
                                 }
                             }
@@ -1398,24 +1533,20 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                         if (gtRecPoints.isEmpty()) {
                             onMessage("record", "ended with no points written")
                         } else {
+                            // ENDOFRIDE-2026-11-22: ⛔ NOTHING IS WRITTEN HERE ANY MORE. The iPad used to write
+                            // convoy_track_<ms>.gpx with the trk name "Convoy Track" and never add it to the
+                            // database -- an orphan file the app could not see: no row in `tracks`, no <hash>.gpx
+                            // rename, no alias resolution, no metrics. Android opens EndOfRideForm first
+                            // (GroupTrackScreen.kt:785) and writes only once the rider has named it, through
+                            // resolveTrackAdd. The deferral had been sitting in a COMMENT here as "that is B work".
                             // WKT is "lon lat", in that order -- the stored LINESTRING's own order.
-                            val gtGeom = gtRecPoints.joinToString(", ", "LINESTRING(", ")") { p ->
+                            endGeom.value = gtRecPoints.joinToString(", ", "LINESTRING(", ")") { p ->
                                 p.lon.toString() + " " + p.lat.toString()
                             }
-                            val gtFiles = com.grouptrack.shared.platform.IosRideFiles()
-                            val gtDir = com.grouptrack.shared.platform.IosImportPaths().tracksDir().toString()
-                            val gtName = "convoy_track_" + gtEndMs + ".gpx"
-                            val gtPath = gtFiles.child(gtDir, gtName)
-                            val gtCount = gtRecPoints.size
-                            try {
-                                gtFiles.writeText(gtPath, com.grouptrack.shared.gpx.GtGpx.trail("Convoy Track", gtGeom))
-                                onMessage("record", "ended -- " + gtCount + " points to " + gtName)
-                            } catch (e: Exception) {
-                                // Said out loud rather than swallowed: a ride that did not save must not
-                                // look like one that did.
-                                onMessage("record", "ended -- WRITE FAILED: " + (e.message ?: "unknown"))
-                            }
+                            endCount.intValue = gtRecPoints.size
+                            pendingTrackName.value = ""   // the form fills it from the ride, when there is one
                             gtRecPoints.clear()
+                            onMessage("record", "ended -- " + endCount.intValue + " points; name it to save")
                         }
                     },
                 )
@@ -1516,7 +1647,11 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                     headingUp = headingUp.value,
                     routePrecheck = { false },
                     group = group.value,   // GRPIOS-2026-11-19: was the literal false
-                    mapsDownloading = false,
+                    // R1QUEUE-2026-11-22: was `false`. Android asks the queue (GroupTrackScreen.kt:3064);
+                    // so does this. The producers not existing yet is not a reason not to ask.
+                    mapsDownloading = dlQueue.queue().any {
+                        it.status == GtQueueStatus.QUEUED || it.status == GtQueueStatus.DOWNLOADING
+                    },
                 )
 if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                     // IOSARTIFACT-2026-11-19: ANDROID'S PANEL, unchanged. Only the seams are supplied,
@@ -1678,7 +1813,15 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                         // FUNCTIONAL: the same flag the GRP Awareness colour and the launch layer read, so
                         // flipping it here changes the button and the group-only rows at once.
                         group = group.value,
-                        onGroup = { v -> group.value = v },
+                        // IOSGROUPPERSIST-2026-11-21: persist, do not just move the switch -- the same
+                        // correction the issueEmail row below already carries. GtGroupMode.set
+                        // writes the store and sets on.value, so the UI still follows at once;
+                        // `group.value = v` alone was forgotten on the next launch because
+                        // load() then finds nothing stored and falls back to the default.
+                        onGroup = { v ->
+                            com.grouptrack.shared.settings.GtGroupMode.set(IosSettings(), v)
+                            if (v) onMessage("mode", grpThresholds())   // GRPDEFAULTS-2026-11-22
+                        },
                         // FUNCTIONAL as a setting; Android also writes it through GtIssue.setSendsEmail,
                         // which needs a Context. Where ISSUE reports actually go on the iPad is D work.
                         issueEmail = issueEmail.value,
@@ -1785,6 +1928,98 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                 // Android read them from there; that belongs with the app-side switchover, as
                 // GtIosArtifactSink's MAP_FEATURES_DIR note already says for the folder name.
                 // TRAILCLEAR-2026-11-20: ConvoySettingsScreen.kt:145-196, transcribed.
+                // ENDOFRIDE-2026-11-22 (B3): the END-OF-RIDE form. Android renders it at
+                // GroupTrackScreen.kt:785-797 from showNameDialog; here the held geometry IS the flag.
+                endGeom.value?.let { gtEndGeom ->
+                    com.geeksville.mesh.grouptrack.GtEndOfRideForm(
+                        name = pendingTrackName.value,
+                        onNameChange = { pendingTrackName.value = it },
+                        checkIn = endingCheckIn.value,
+                        onSave = { gtSurvey ->
+                            val gtNm = pendingTrackName.value.trim()
+                            val gtPts = endCount.intValue
+                            // ⭐ CLOSE FIRST, SAVE AFTER (Fred 11-22 09:43). The form goes now; the file
+                            // and the database happen off the main thread; the strip confirms. Android
+                            // closes its dialog first too but then blocks on finalizeTrack.
+                            endGeom.value = null
+                            onMessage("record", "saving \u201c" + gtNm + "\u201d\u2026")
+                            endScope.launch {
+                                // ⚠ Dispatchers.Default, not IO: IO is internal on native (:749).
+                                val gtSaid = withContext(Dispatchers.Default) {
+                                    try {
+                                        val gtText = com.grouptrack.shared.gpx.GtGpx.trail(gtNm, gtEndGeom)
+                                        val gtDir = com.grouptrack.shared.platform.IosImportPaths().tracksDir()
+                                        val gtFile = gtDir.resolve(gtNm + ".gpx")
+                                        com.grouptrack.shared.platform.IosRideFiles()
+                                            .writeText(gtFile.toString(), gtText)
+                                        // THE UNIFIED ADD -- the row, the <hash>.gpx rename, the source
+                                        // delete, the metrics and the alias resolution, all its own.
+                                        val gtAdd = IosWriteDb.tracks()?.resolveTrackAdd(gtNm, gtFile)
+                                        when (gtAdd) {
+                                            null -> "saved the file but the database would not open -- not added"
+                                            com.grouptrack.shared.track.GtTracks.AddOutcome.ERROR ->
+                                                "the track could not be added"
+                                            com.grouptrack.shared.track.GtTracks.AddOutcome.NO_GEOMETRY ->
+                                                "no geometry -- not a track"
+                                            else -> {
+                                                // Android: the survey is written only when the track exists.
+                                                if (gtSurvey != null) {
+                                                    val gtTid = IosWriteDb.reader()?.trackIdForGpxText(gtText)
+                                                    if (gtTid != null) {
+                                                        com.grouptrack.shared.ride.GtRideStore.saveSurvey(gtTid, gtSurvey)
+                                                    }
+                                                }
+                                                "saved \u201c" + gtNm + "\u201d -- " + gtPts +
+                                                    " points (" + gtAdd.name.lowercase() + ")"
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        // A ride that did not save must never look like one that did.
+                                        "SAVE FAILED: " + (e.message ?: "unknown")
+                                    }
+                                }
+                                endingCheckIn.value = null
+                                onMessage("record", gtSaid)
+                            }
+                        },
+                        onDelete = {
+                            // Android deletes its temp GPX; the iPad never wrote one, so discarding the
+                            // held geometry IS the delete. Nothing to undo and nothing left behind.
+                            endGeom.value = null
+                            endingCheckIn.value = null
+                            onMessage("record", "track discarded -- nothing was written")
+                        },
+                    )
+                }
+                // CHECKINBRANCH-2026-11-22 (seam 4 wired): the check-in panel. Android renders it
+                // at GroupTrackScreen.kt:741-782 from the same shared flag.
+                // ⚠ ON THE SIMULATOR this opens and shows "You can't check in without a radio" with
+                // CHECK IN disabled -- Android's own CHECKINRADIO-2026-09-28 behaviour, and CORRECT here.
+                if (com.geeksville.mesh.grouptrack.GtCheckIn.showing.value) {
+                    com.geeksville.mesh.grouptrack.GtCheckInSheet(
+                        radioOn = radioConnected.value,
+                        // CODE RULE 1 + the contract's own words: CommIdentity says "null = the transport
+                        // has not yet reported it". There is no iOS CommIdentity actual yet (N's work), so
+                        // null is the contract being used correctly, not a stub.
+                        nodeNum = null,
+                        // The roles other carts hold. The iPad has no group role map yet -- carded.
+                        heldBy = emptyMap(),
+                        config = commConfig,
+                        fs = checkInFiles,
+                        onDone = { ci, _ ->
+                            com.geeksville.mesh.grouptrack.GtCheckIn.showing.value = false
+                            recState.value = RecordingState.IDLE
+                            // ENDOFRIDE-2026-11-22: Android keeps this as viewModel.endingCheckIn --
+                            // the END form reads the ride name, isPublic and the survey from it.
+                            endingCheckIn.value = ci
+                            onMessage("record", "checked in as " + ci.callsign + " (" + ci.role + ")")
+                        },
+                        onCancel = { com.geeksville.mesh.grouptrack.GtCheckIn.showing.value = false },
+                        onOpenGrpAwareness = {
+                            com.geeksville.mesh.grouptrack.GtOpenModule.req.value = "grp"
+                        },
+                    )
+                }
                 if (trailClearAsk.value) AlertDialog(
                     onDismissRequest = { trailClearAsk.value = false },
                     title = { Text("Remove all trail data?") },
@@ -1969,6 +2204,16 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                     titleContentColor = Gt.text,
                     textContentColor = Gt.text,
                 )
+                if (grpPanelOpen.value) {
+                    // IOSGRP2-2026-11-22: every fact from the comm API. `network` is null until radio
+                    // settings lands (N38) -- CODE RULE 1, and Android defines null as 'not read yet'.
+                    GtIosGrpAwareness(
+                        comm = comm,
+                        menus = grpMenus,
+                        network = null,
+                        onClose = { grpPanelOpen.value = false },
+                    )
+                }
                 if (profileOpen.value) {
                     // IOSPROFILE-2026-11-19: the SHARED panel (PANELMOVE4-2026-11-19). onCancel non-null
                     // puts it in EDIT mode, which is right here -- the iPad reaches it from the menu, not

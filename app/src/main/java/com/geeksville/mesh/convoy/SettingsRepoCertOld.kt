@@ -43,7 +43,9 @@ class SettingsRepoCertOld(
         .map { it[KEY_SIGNAL_DROP_MINUTES] ?: 2f }
 
     val signalLostMinutes: Flow<Float> = context.certOldDataStore17b2.data
-        .map { it[KEY_SIGNAL_LOST_MINUTES] ?: 10f }
+        // GRPDEFAULTS-2026-11-22: was 10f, the same defect the new side carried -- so this cert was
+        // comparing wrong to wrong and passing. Both move together; the cert still tests old == new.
+        .map { it[KEY_SIGNAL_LOST_MINUTES] ?: 5f }
 
     val offTrackMiles: Flow<Float> = context.certOldDataStore17b2.data
         .map { it[KEY_OFF_TRACK_MILES] ?: 0.5f }

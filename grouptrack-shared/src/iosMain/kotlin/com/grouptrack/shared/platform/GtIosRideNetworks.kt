@@ -4,6 +4,7 @@ import androidx.sqlite.SQLiteConnection
 import com.grouptrack.shared.imports.GtClock
 import com.grouptrack.shared.json.GtOrgJson
 import com.grouptrack.shared.log.gtLogger
+import com.grouptrack.shared.comm.GtRadioDoc
 import com.grouptrack.shared.net.GtMeshDefaults
 import com.grouptrack.shared.net.GtNetworkConfig
 import com.grouptrack.shared.net.GtNetworkGenerator
@@ -48,6 +49,8 @@ class IosRideNetworks(
     private val mesh: () -> GtMeshDefaults = { IosMeshDefaults.now() },
 ) : RideNetworks {
 
+    private val log = gtLogger("IosRideNetworks")   // NOCONFIG-2026-11-22: the refusal must be readable
+
     private val store = GtNetworkStore(
         db,
         GtNetworkGenerator(rng),
@@ -57,7 +60,24 @@ class IosRideNetworks(
 
     override fun load(configId: String): RideNet? = store.load(configId)?.let { IosRideNet(it) }
 
-    override fun create(owner: RideNetOwner, ownerId: String, name: String): RideNet? =
+    /**
+     * NOCONFIG-2026-11-22: the mesh values are read at EACH create (2.7e reads them inside generate()).
+     * If they cannot be read, this REFUSES and names the reason -- it does not create a network from
+     * guessed values, because that network is what a later apply writes to a radio.
+     * CODE RULE 1: null = refused, which is this contract's existing meaning (the no-database case,
+     * already certified "refuse, never pretend").
+     */
+    override fun create(owner: RideNetOwner, ownerId: String, name: String): RideNet? = try {
+        createOrThrow(owner, ownerId, name)
+    } catch (e: Exception) {
+        log.e {
+            "NOCONFIG-2026-11-22: ride network REFUSED -- the mesh configuration could not be read: " +
+                e.message + " (nothing was written)"
+        }
+        null
+    }
+
+    private fun createOrThrow(owner: RideNetOwner, ownerId: String, name: String): RideNet? =
         store.create(
             when (owner) {
                 RideNetOwner.RIDE -> GtOwnerType.RIDE
@@ -101,36 +121,31 @@ class IosRideNet(val cfg: GtNetworkConfig) : RideNet {
 /**
  * IOSRIDENET-2026-11-17: 2.7e NetworkGenerator.MeshDefaults.loadFrom + meshNow, on the bundle.
  *
- * ⚠ ALL SIX OR NONE. 2.7e reads them with getString/getInt, which THROW on a missing key, and loadFrom
- * catches and keeps the fallbacks -- so one absent field means EVERY value falls back, not just that
- * one. Applying them field by field would be a divergence invisible in any single run.
- * ⭐ The fallbacks are GtMeshDefaults()'s own defaults, which are byte-identical to 2.7e's literals
- * (US / MEDIUM_FAST / hop 3 / tx 0 / slot 0 / TAK_TRACKER) -- so there is nothing retyped here to drift.
+ * ⛔ NOCONFIG-2026-11-22: THERE ARE NO FALLBACKS ANY MORE. 2.7e read these with getString/getInt and
+ * its loadFrom caught the throw and kept hardcoded literals -- five of which equalled the file, so a
+ * total read failure looked like success. That is how hopLimit 3 reached every ride network the iPad
+ * created. [stated] Fred: "no hard coded values, no values no write to the radio." The read now throws
+ * naming the field and [IosRideNetworks.create] refuses. ⚠ Android's loadFrom still has the old catch;
+ * by this rule that is the same defect, FLAGGED for 2.8a rather than changed mid-loop.
  * The log lines and the tag are 2.7e's, so the ONEDEFAULT line reads the same in both logs.
  */
 object IosMeshDefaults {
     private val log = gtLogger("NetworkGenerator")
 
-    fun now(): GtMeshDefaults = try {
-        val root = GtOrgJson.parse(iosBundleAsset("grouptrack_default.json")) as JsonObject
-        val net = root["network"] as? JsonObject ?: error("no network")
-        val mesh = net["mesh"] as? JsonObject ?: error("no network.mesh")
-        fun req(k: String): String = GtOrgJson.valueText(mesh[k] ?: error("no mesh." + k)) ?: error("null mesh." + k)
-        val d = GtMeshDefaults(
-            region = req("region"),
-            modemPreset = req("modem_preset"),
-            hopLimit = req("hop_limit").toInt(),
-            txPower = req("tx_power").toInt(),
-            frequencySlot = req("frequency_slot").toInt(),
-            role = req("role"),
-        )
+    /**
+     * NOCONFIG-2026-11-22: ⛔ NO CATCH, NO FALLBACK. This THROWS, naming the field that failed
+     * (GtRadioDoc's readers each name their own), and the caller refuses the operation. Hiding the
+     * failure is what let hopLimit 3 reach every ride network the iPad created.
+     */
+    fun now(): GtMeshDefaults = run {
+        // MESHFIELDS-2026-11-22 -- the field names are GtRadioDoc's, not this file's. The four keys
+        // that used to be named here (modem_preset / hop_limit / tx_power / frequency_slot) were
+        // GtNetworkStore's DB COLUMNS, not keys in the file.
+        val d = GtRadioDoc.meshDefaults(iosBundleAsset("grouptrack_default.json"))
         log.i {
             "ONEDEFAULT: mesh values from grouptrack_default.json -- " + d.region + " " + d.modemPreset +
                 " hop " + d.hopLimit + " tx " + d.txPower + " slot " + d.frequencySlot + " " + d.role
         }
         d
-    } catch (e: Exception) {
-        log.e { "ONEDEFAULT: grouptrack_default.json not read (" + e.message + ") -- using the fallback values" }
-        GtMeshDefaults()
     }
 }
