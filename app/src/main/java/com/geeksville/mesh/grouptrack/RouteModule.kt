@@ -87,12 +87,13 @@ object GtRoute {
     val batchPrevView = mutableStateOf(DoubleArray(0))   // GTAI2B-2026-10-23: the view before the table (S, W, N, E, zoom); empty = none
     private val LAYERS = listOf("Trails", "Tracks", "Waypoints", "Routes")
 
-    val routeMode = mutableStateOf(false)
-    val addPointMode = mutableStateOf(false)
+    // ROUTEMANUAL-2026-11-23: one copy, in shared code. Reads and writes are unchanged.
+    val routeMode get() = GtAiFlow.routeMode
+    val addPointMode get() = GtAiFlow.addPointMode
     val routeMethod = mutableIntStateOf(ROUTE_METHOD_P2P)
-    val routeName = mutableStateOf("")
+    val routeName get() = GtAiFlow.routeName   // ROUTEMANUAL-2026-11-23
     val routeLifecycleState = mutableIntStateOf(ROUTE_LS_NEW)
-    val routeEntryNonce = mutableIntStateOf(0)
+    val routeEntryNonce get() = GtAiFlow.routeEntryNonce   // ROUTEMANUAL-2026-11-23
     val showSaveChoice = mutableStateOf(false)
     val showDiscardChoice = mutableStateOf(false)
     val showPicker = mutableStateOf(false)
@@ -1315,6 +1316,8 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                 // GTAI5B-2026-10-23 (Fred 16:07): the trailhead SEARCH lives IN the step panel (below) -- it opens and closes with it.
                 if (step < PIN_STEP_SUMMARY) {
                     GtAiStepScreen(   /* GTAI4 */
+                        // AIGUIDEDSHARED-2026-11-23: the panel is shared now, so the host passes HELP.
+                        help = { GtHelpButton("route.ai", color = GtScheme.current.value.panelText) },
                         steps = steps,
                         onStartOver = { R.pinReset() },
                         onCancelBuild = { R.aiCancel() },
@@ -1349,6 +1352,8 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                         modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp))
                 } else {
                     GtGuidedSummaryPanel(   /* GTAI4 */
+                        // AIGUIDEDSHARED-2026-11-23: the panel is shared now, so the host passes HELP.
+                        help = { GtHelpButton("route.ai") },
                         title = R.pinRideName.value,
                         body = summary,
                         onFilter = { R.filterPeek.value = true; GtOpenModule.req.value = "filter" },   // AIFAIL-2026-11-03 v3

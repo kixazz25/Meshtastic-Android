@@ -41,8 +41,35 @@ object GtAiFlow {
     val mphLow = mutableIntStateOf(12)
     val mphHigh = mutableIntStateOf(18)
 
+    // ---- ROUTEMANUAL-2026-11-23: the route-building mode, shared ----------------
+    /** RouteDraftStore.UNNAMED (:703) -- the unnamed-draft literal. ONE COPY: Android's const now
+     *  reads from here. \u26d4 Live rider data: never reworded. */
+    const val UNNAMED = "Auto Saved In Progress"
+
+    /** RouteModule.kt:90-95's four. Same names, same types, same initial values; RouteModule points
+     *  at these, so its call sites are untouched and the two platforms cannot disagree. */
+    val routeMode = mutableStateOf(false)
+    val addPointMode = mutableStateOf(false)
+    val routeName = mutableStateOf("")
+    val routeEntryNonce = mutableIntStateOf(0)
+
     /** The row's action: raise the launch panel and stop. */
     fun launch() { step.intValue = STEP_LAUNCH }
+
+    /**
+     * ROW 1's ACTION -- RouteModule.startNew's state work, for a host that has no RouteModule.
+     * \u26a0 Android still runs its own startNew (frozen, and it also sets the method and lifecycle
+     *   ints and calls its two host lambdas). This is the same five steps in the same order; the
+     *   duplication closes when RouteModule moves.
+     * [js] is the host's map channel -- Android's GtRoute.js, the iPad's own js(), same script.
+     */
+    fun manualLaunch(js: (String) -> Unit) {
+        routeName.value = UNNAMED
+        routeEntryNonce.intValue++
+        addPointMode.value = true        // taps are vertices, not pins
+        routeMode.value = true           // the planner's outer gate
+        js("window.__routeMode=true;setRouteMode(true)")
+    }
 
     /** CANCEL on any of the panels. */
     fun cancel() { step.intValue = STEP_NONE }

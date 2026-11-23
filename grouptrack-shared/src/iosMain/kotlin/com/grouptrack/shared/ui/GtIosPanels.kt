@@ -1336,6 +1336,13 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // IOSRADIOWIRE-2026-11-23: the row opens the SHARED screen, as Android's row does. The
         // scan-and-report stand-in is gone -- RadioConfigScreen is the same code on both platforms,
         // and it is the screen that names the target and drives the apply.
+        // ROUTEMANUAL-2026-11-23: ADD ROUTE row 1. Android is
+        // "route.manual" to { GtRoute.startNew(ROUTE_METHOD_P2P) } (GroupTrackScreen.kt:3103).
+        // \u26a0 Route mode comes on and the map is told; taps do not become pins until the tap
+        //   handler (RouteModule.onTap) is shared. RouteManager, the vertex engine, already is.
+        "route.manual" to {
+            com.geeksville.mesh.grouptrack.GtAiFlow.manualLaunch { s -> js(s) }
+        },
         // ROUTECLEAR-2026-11-23: ADD ROUTE row 4. Android is "route.clear" to { gtClearAsk = true }
         // (GroupTrackScreen.kt:3105) -- the same ask-first row, over the shared json primitives.
         "route.clear" to { routeClearAsk.value = true },

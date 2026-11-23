@@ -746,7 +746,8 @@ object RouteDraftStore {
 
     /** [draft-resolver 2026-08-01] The unnamed-draft literal. A draft under this name is a
      *  crash remnant: Route+ arms with it, and a clean exit always renames or deletes it. */
-    const val UNNAMED = "Auto Saved In Progress"
+    // ROUTEMANUAL-2026-11-23: one copy, in shared code. The literal is unchanged -- live rider data.
+    const val UNNAMED = com.geeksville.mesh.grouptrack.GtAiFlow.UNNAMED
 
     /** List drafts for the In-Progress picker: name + date + point count. */
     /**
