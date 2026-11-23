@@ -98,7 +98,14 @@ fun GtIosMyRides(
             ) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("My rides", color = Gt.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onClose) { Text("\u2715", color = Gt.accent, fontSize = 18.sp) }
+                    // IOSRIDEHDR2-2026-11-23: the panel standard -- HELP . ISSUE . close, from the host chrome
+                    // (GtPanel.kt:260-262). Was a hand-rolled X with no HELP and no ISSUE.
+                    val chrome = com.geeksville.mesh.grouptrack.LocalGtPanelChrome.current
+                    TextButton(onClick = { chrome.openHelp("rides.mine") }) {
+                        Text("HELP", color = Gt.accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                    chrome.IssueButton("rides.mine", Gt.accent)
+                    com.geeksville.mesh.grouptrack.GtCloseButton(onClose)
                 }
                 if (status.isNotBlank()) Text(status, color = Gt.warn, fontSize = 13.sp)
 

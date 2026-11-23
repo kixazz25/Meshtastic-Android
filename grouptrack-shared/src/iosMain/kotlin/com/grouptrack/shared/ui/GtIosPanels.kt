@@ -907,7 +907,12 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // IOSHUD-2026-11-19: the HUD's text colour. Android keeps one per MAP TYPE
     // (viewModel.hudTextWhiteByMap[hudMapKey], COSMETICS-2026-10-06); the iPad has one map type, so one
     // flag. HUDSWITCH-2026-11-03 (Fred 11:15): DARK BY DEFAULT -- true = white text on a dark backing.
-    val hudOnDark = remember { mutableStateOf(true) }
+    // IOSSTD-2026-11-23: Android derives this, it does not assume it. hudMapKey is "VEC" because
+    // the map is vector, and hudDefaultWhite = startsWith("SAT") || contains("HYB") is therefore
+    // FALSE (GroupTrackScreen.kt:2860-2863). true here put the iPad on OnSatellite -- a WHITE panel
+    // with BLUE text -- while the Droid runs OnTopo, dark blue with white text, on every shared
+    // screen. The rider's own toggle is unchanged; only the seed matches Android now.
+    val hudOnDark = remember { mutableStateOf(false) }
     // HUDVIEW-2026-11-21: the HUD view, Android's default (ConvoyViewModel.kt:106 = GROUP). The
     // three-state cycle, the labels and the group-awareness guard all live in the shared atom.
     val hudView = remember { mutableStateOf(com.geeksville.mesh.grouptrack.GtHudView.GROUP) }
@@ -2315,6 +2320,20 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                 // the contract defines null as "the transport has not reported it", which these screens
                 // already show as "No radio connected".
                 if (com.geeksville.mesh.convoy.RadioConfigLauncher.showing) {
+                    // IOSRADIOWIREFIX-2026-11-23: GtRideStore.env is lateinit and is NOT set at
+                    // startup (GtRides.kt:489). RadioConfigScreen reads env.profile() for the
+                    // callsign DURING COMPOSITION, so the install cannot wait for a LaunchedEffect --
+                    // an uncaught throw on Native aborts the process, which is what it did.
+                    // Same call GtIosMyRides:83 and GtIosRideForm:102 make; idempotent by its own doc.
+                    val rideEnvReady = remember {
+                        runCatching { com.grouptrack.shared.platform.installIosRideEnv() }.isSuccess
+                    }
+                    if (!rideEnvReady) {
+                        androidx.compose.runtime.LaunchedEffect(Unit) {
+                            onMessage("group", "Radio setup needs the ride store, which did not open")
+                            com.geeksville.mesh.convoy.RadioConfigLauncher.close()
+                        }
+                    } else
                     com.geeksville.mesh.convoy.RadioConfigScreen(
                         config = commConfig,
                         link = comm.link,
@@ -2323,7 +2342,29 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                         settings = com.grouptrack.shared.platform.IosSettings(),
                         backHandler = { _, _ -> },
                         onClose = { com.geeksville.mesh.convoy.RadioConfigLauncher.close() },
-                        help = {},
+                        help = {
+                            // IOSSTD-2026-11-23: the control Android's host passes. GtHelpButton is
+                            // Row { TextButton("HELP") ; GtIssueButton(id) }, and both halves come
+                            // from GtPanelChromeIos, which this host already provides at :1656.
+                            val chrome = com.geeksville.mesh.grouptrack.LocalGtPanelChrome.current
+                            androidx.compose.foundation.layout.Row(
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            ) {
+                                androidx.compose.material3.TextButton(
+                                    onClick = { chrome.openHelp("group.configure") },
+                                ) {
+                                    androidx.compose.material3.Text(
+                                        "HELP",
+                                        color = com.geeksville.mesh.grouptrack.Gt.accent,
+                                        fontSize = androidx.compose.ui.unit.TextUnit(
+                                            15f, androidx.compose.ui.unit.TextUnitType.Sp,
+                                        ),
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    )
+                                }
+                                chrome.IssueButton("group.configure", com.geeksville.mesh.grouptrack.Gt.accent)
+                            }
+                        },
                     )
                 }
                 if (com.geeksville.mesh.convoy.ConfigReviewLauncher.showing) {
@@ -2334,7 +2375,29 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                         sheets = radioSheets,
                         backHandler = { _, _ -> },
                         onClose = { com.geeksville.mesh.convoy.ConfigReviewLauncher.close() },
-                        help = {},
+                        help = {
+                            // IOSSTD-2026-11-23: the control Android's host passes. GtHelpButton is
+                            // Row { TextButton("HELP") ; GtIssueButton(id) }, and both halves come
+                            // from GtPanelChromeIos, which this host already provides at :1656.
+                            val chrome = com.geeksville.mesh.grouptrack.LocalGtPanelChrome.current
+                            androidx.compose.foundation.layout.Row(
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            ) {
+                                androidx.compose.material3.TextButton(
+                                    onClick = { chrome.openHelp("group.archive") },
+                                ) {
+                                    androidx.compose.material3.Text(
+                                        "HELP",
+                                        color = com.geeksville.mesh.grouptrack.Gt.accent,
+                                        fontSize = androidx.compose.ui.unit.TextUnit(
+                                            15f, androidx.compose.ui.unit.TextUnitType.Sp,
+                                        ),
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    )
+                                }
+                                chrome.IssueButton("group.archive", com.geeksville.mesh.grouptrack.Gt.accent)
+                            }
+                        },
                     )
                 }
                 if (grpPanelOpen.value) {

@@ -89,7 +89,14 @@ fun GtIosRidePicker(
             ) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Import a ride", color = Gt.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onClose) { Text("\u2715", color = Gt.accent, fontSize = 18.sp) }
+                    // IOSRIDEHDR2-2026-11-23: the panel standard -- HELP . ISSUE . close, from the host chrome
+                    // (GtPanel.kt:260-262). Was a hand-rolled X with no HELP and no ISSUE.
+                    val chrome = com.geeksville.mesh.grouptrack.LocalGtPanelChrome.current
+                    TextButton(onClick = { chrome.openHelp("rides.import") }) {
+                        Text("HELP", color = Gt.accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                    chrome.IssueButton("rides.import", Gt.accent)
+                    com.geeksville.mesh.grouptrack.GtCloseButton(onClose)
                 }
                 Text("GroupTrack rides folder", color = Gt.dim, fontSize = 12.sp, fontWeight = FontWeight.Bold)
 
