@@ -127,6 +127,7 @@ fun NavGraphBuilder.convoyGraph(
     // panel will open it with a route already chosen (backfilled later).
     gtComposable<ConvoyRoutes.ConvoyRideCreate> { entry ->
         com.geeksville.mesh.convoy.ConvoyRideCreateScreen(
+            b = com.geeksville.mesh.convoy.androidRideCreateBridge(),
             initialRouteId = entry.toRoute<ConvoyRoutes.ConvoyRideCreate>().routeId,
             onRideCreated = { navController?.popBackStack() },
             onBack = { navController?.popBackStack() }

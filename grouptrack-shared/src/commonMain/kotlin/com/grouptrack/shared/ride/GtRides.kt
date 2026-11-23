@@ -1038,6 +1038,38 @@ object GtRideStore {
 
     /** Rides on this tablet, newest first. */
     // STEP14 CODE RULE 1 (2.7e's default): no caller passes [limit]; 100 is 2.7e's list length.
+    /**
+     * RIDESCONV-2026-11-23: RidesScreen's own list, MOVED VERBATIM from
+     * convoy/RidesScreen.kt:70-93 when that screen was converted to commonMain -- same columns,
+     * same WHERE, same ORDER BY created_at DESC, same LIMIT 200, so the converted screen shows
+     * the IDENTICAL list in the IDENTICAL order (Fred 11-23 07:30: "lets keep the code identical").
+     *
+     * ⛔ NOT a widening of [listRides], which is CERTIFIED against ConvoyRideStoreCertOld --
+     * GtCertRides compares it line by line, so adding columns there changes bytes a cert reads.
+     * ⚠ Overlaps [openRecentRides], which answers a different question (every ride not yet
+     * removed, date order, expireRides first). Carded for the consolidation pass, deliberately
+     * NOT merged now: merging is a behaviour change, and this conversion makes none.
+     */
+    data class RideListRow(
+        val rideId: String, val rideName: String, val rideDate: String,
+        val organizerId: String, val organizerName: String, val distributedAt: String,
+    )
+
+    fun ridesForList(): List<RideListRow> = try {
+        val out = ArrayList<RideListRow>()
+        env.dataDb()?.let { db -> rawQuery(db,
+            "SELECT ride_id, ride_name, ride_date, COALESCE(organizer_id,''), COALESCE(organizer_name,''), " +
+                "COALESCE(distributed_at,'') FROM rides WHERE COALESCE(status,'open') <> 'expired' ORDER BY created_at DESC LIMIT 200",
+            emptyList()) { c ->
+            while (c.step()) {
+                val id = str(c, 0) ?: continue
+                out += RideListRow(id, str(c, 1) ?: "Ride", str(c, 2) ?: "",
+                    str(c, 3) ?: "", str(c, 4) ?: "", str(c, 5) ?: "")
+            }
+        } }
+        out
+    } catch (e: Exception) { log.w { "RIDESCONV-2026-11-23: ridesForList failed: ${e.message}" }; emptyList() }
+
     fun listRides(limit: Int = 100): List<RideRow> {
         val db = env.dataDb() ?: return emptyList()
         val out = mutableListOf<RideRow>()

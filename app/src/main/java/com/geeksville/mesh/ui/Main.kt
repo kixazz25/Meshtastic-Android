@@ -616,7 +616,9 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
 
         // RIDESLIST-2026-09-26: Rides -- send, edit, delete (Work with Rides).
         if (com.geeksville.mesh.convoy.RidesLauncher.showing) {
-            com.geeksville.mesh.convoy.RidesScreen(onClose = { com.geeksville.mesh.convoy.RidesLauncher.close() })
+            com.geeksville.mesh.convoy.RidesScreen(
+                b = com.geeksville.mesh.convoy.androidRidesBridge(),
+                onClose = { com.geeksville.mesh.convoy.RidesLauncher.close() })
         }
 
         // GRPAWARE-2026-09-28 (Fred): GRP Awareness -- the label's state (connected; the pulse on every node-list update),
