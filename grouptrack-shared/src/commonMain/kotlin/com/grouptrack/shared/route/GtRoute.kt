@@ -106,17 +106,43 @@ object GtRoute {
     private const val TAG = "RouteExplorer"
     private val log = gtLogger(TAG)   // STEP13: android.util.Log(TAG, ..) -- the same tag, so the logs read as 2.7e's
 
-    /* STEP13-2026-11-07: what the platform gives the route builder -- the two things 2.7e took from the JVM / the app.
-     *  nowIso     -- 2.7e: java.time.Instant.now().toString() (createdAt / updatedAt / generated in each draft).
-     *  writeDraft -- 2.7e: RouteDraftStore.writeRawDraft(name, JSONObject). Given the draft as JSON text (JsonObject.toString());
-     *                the Boolean is returned as writeRawDraft returns it, and -- as in 2.7e -- not looked at.
+    /* STEP13-2026-11-07 / ROUTEJSONPRIM-2026-11-23 (2.8b): what the platform gives the route builder.
+     *
+     * ⭐ THE FOUR JSON PRIMITIVES (Fred 11:41): "the json has four primitives read write, delete and create." Route json has
+     *   those four operations and no others, and EVERY route file operation of EVERY process above reaches the file system
+     *   through them. There is deliberately no member per process call and there never will be: a member that bundled a
+     *   decision with its file access would put process into the service layer. So --
+     *     "does it exist"      is [jsonRead] coming back null
+     *     "clear the batch"    is [jsonDelete]
+     *     "save a draft"       is [jsonWrite]   (2.7e: RouteDraftStore.writeRawDraft)
+     *   and the seam is five members whatever the stack asks of it next.
+     *
+     *  nowIso -- 2.7e: java.time.Instant.now().toString() (createdAt / updatedAt / generated in each draft). Not a json
+     *            operation, so it stays as its own member.
+     *  path   -- RELATIVE TO THE ROUTE JSON ROOT (Android: GroupTrackStorage.root()/route_drafts, RouteDraftStore.DIR_NAME :49):
+     *            "Bar 10 Loop.json", "batch/open_batch.json", "batch/last_ai_search.json". The PLATFORM resolves the root, makes
+     *            any folder on the way, and sanitises the last segment exactly as RouteDraftStore.fileFor does (:625-630 -- the
+     *            characters a file name cannot hold become '_', blank becomes "Not Named"): a property of the file system, not
+     *            of any process.
+     *  ⚠ NULLABLE [jsonRead] (CODE RULE 1): null means "there is no such file" -- the answer Android's own reads give
+     *            (`takeIf { it.exists() }` / `if (!f.exists()) return null`), not a failure. A read that throws also answers
+     *            null and logs, exactly as RouteDraftStore's runCatching reads do.
      * ⭐ ONE SETUP POINT, NOT A PARAMETER ON EVERY CALL: the Android wrapper (convoy/RouteExplorer.kt) sets it once in its init, so
      *   every call site keeps its 2.7e signature. lateinit, not nullable (CODE RULE 1): a platform that forgot to set it fails on the
      *   first draft with UninitializedPropertyAccessException instead of silently writing nothing. Set before any thread can call in
      *   (the wrapper's object initialiser), so it needs no @Volatile. */
     class Env(
         val nowIso: () -> String,
-        val writeDraft: (name: String, json: String) -> Boolean,
+        val jsonCreate: (path: String) -> Boolean,
+        val jsonRead: (path: String) -> String?,
+        val jsonWrite: (path: String, text: String) -> Boolean,
+        val jsonDelete: (path: String) -> Boolean,
+        /** ROUTECLEAR-2026-11-23: LIST -- the route json files directly under the root, by file name
+         *  ("Bar 10 Loop.json"). RouteDraftStore.listDrafts' own enumeration
+         *  (`dir.listFiles { it.isFile && it.name.endsWith(".json") }`), and like it this does NOT
+         *  descend into batch/. Empty list when the folder is absent or unreadable -- "no route files"
+         *  is the answer, not a failure. */
+        val jsonList: () -> List<String>,
     )
     lateinit var env: Env
 
@@ -2515,7 +2541,9 @@ object GtRoute {
             put("notes", notes)
         }
 
-        env.writeDraft(draftName, draft.toString())   // STEP13: was RouteDraftStore.writeRawDraft(draftName, draft)
+        // ROUTEJSONPRIM-2026-11-23: the same write, through the primitive. 2.7e: RouteDraftStore.writeRawDraft(draftName,
+        // draft) -- which named the file fileFor(draftName) = <draftName>.json in route_drafts/, so that is the path.
+        env.jsonWrite(draftName + ".json", draft.toString())
 
         return Suggestion(
             draftName, miles, hoursLow, hoursHigh, poiOrder.size, mixStr, draftName

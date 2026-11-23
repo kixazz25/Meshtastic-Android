@@ -3097,7 +3097,9 @@ fun GroupTrackScreen(
                 // Same gates as the old Ride Planning button: a known position, and internet.
                 // ROUTEPARK-2026-10-22 (Fred 14:31): route.manual / route.ai PARKED -- they opened the planning map and stranded
                 // the rider there. They return when Route+ is hosted in ONE MAP. (gtStartRoute is kept for that.)
-                "route.ai" to { com.geeksville.mesh.grouptrack.GtRoute.startAi() },   // GTAI3-2026-10-23: AI route design -- compare table or a new build
+                // AILAUNCH-2026-11-23: the row raises the launch panel; the panel's effect runs the
+                // same eval startAi always ran -- compare table, or a new build at step 1/6.
+                "route.ai" to { com.geeksville.mesh.grouptrack.GtRoute.aiLaunch() },   // GTAI3-2026-10-23: AI route design -- compare table or a new build
                 "route.manual" to { com.geeksville.mesh.grouptrack.GtRoute.startNew(ROUTE_METHOD_P2P) },   // GTROUTE1-2026-10-23: Build it myself, LOCKED (one mode)
                 "route.recipefile" to { gtRecipeFile() },   // AIFAIL-2026-11-03
                 "route.clear" to { gtClearAsk = true },   // CLEARROUTES-2026-10-22   // GTRIDES (Fred 13:22): ADD ROUTE -- New route or In progress, as +ROUTE

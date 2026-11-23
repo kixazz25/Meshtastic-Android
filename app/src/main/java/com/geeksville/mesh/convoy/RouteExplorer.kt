@@ -27,7 +27,15 @@ object RouteExplorer {
             nowIso = { java.time.Instant.now().toString() },
             // 2.7e wrote the org.json object it built; the shared code builds the same keys in the same order as JSON text, and
             // org.json reads it back to the same values (and writes 2.0 as 2, as 2.7e's own JSONObject did).
-            writeDraft = { name, json -> RouteDraftStore.writeRawDraft(name, org.json.JSONObject(json)) },
+            // ROUTEJSONPRIM-2026-11-23: the four json primitives, over RouteDraftStore's own route_drafts tree.
+            // ⚠ jsonWrite replaces writeDraft and is the SAME WRITE: writeRawDraft did draftDir(); fileFor(name).writeText
+            //   (:743-751), which is what jsonWrite("<name>.json", text) does. The org.json round trip is gone with it -- the
+            //   shared code already has the text, and 2.7e's JSONObject(json).toString() returned that same text.
+            jsonCreate = { path -> RouteDraftStore.jsonCreate(path) },
+            jsonRead = { path -> RouteDraftStore.jsonRead(path) },
+            jsonWrite = { path, text -> RouteDraftStore.jsonWrite(path, text) },
+            jsonDelete = { path -> RouteDraftStore.jsonDelete(path) },
+            jsonList = { RouteDraftStore.jsonList() },
         )
     }
 

@@ -773,6 +773,8 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // IOSRIDEPICK-2026-11-22: Rides > Import a ride. LaunchModules.kt:137 declares the row;
     // iOS had no action for it, so it drew as 'not attached yet'.
     val ridePickOpen = remember { mutableStateOf(false) }
+    // ROUTECLEAR-2026-11-23: ADD ROUTE row 4's confirm, the same shape as trailClearAsk (:2105).
+    val routeClearAsk = remember { mutableStateOf(false) }
     // IOSMYRIDES-2026-11-22: Rides > My rides. LaunchModules.kt:136 declares the row.
     val myRidesOpen = remember { mutableStateOf(false) }
     // IOSRIDEFORM-2026-11-22: the ride form. CODE RULE 1: null = closed, "" = creating,
@@ -1334,6 +1336,12 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // IOSRADIOWIRE-2026-11-23: the row opens the SHARED screen, as Android's row does. The
         // scan-and-report stand-in is gone -- RadioConfigScreen is the same code on both platforms,
         // and it is the screen that names the target and drives the apply.
+        // ROUTECLEAR-2026-11-23: ADD ROUTE row 4. Android is "route.clear" to { gtClearAsk = true }
+        // (GroupTrackScreen.kt:3105) -- the same ask-first row, over the shared json primitives.
+        "route.clear" to { routeClearAsk.value = true },
+        // AIFLOW-2026-11-23: ADD ROUTE row 2. Android is "route.ai" to { GtRoute.aiLaunch() }
+        // (GroupTrackScreen.kt:3100) -- the same launch, raising the same shared panel.
+        "route.ai" to { com.geeksville.mesh.grouptrack.GtAiFlow.launch() },
         "group.configure" to {
             com.geeksville.mesh.convoy.RadioConfigLauncher.open()
         },
@@ -2301,6 +2309,134 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                         onRideCreated = { rideFormFor.value = null },
                         onBack = { rideFormFor.value = null },
                         onMessage = onMessage,
+                    )
+                }
+                // AIFLOW-2026-11-23: ADD ROUTE row 2 -- the SHARED panels, the same code the Droid
+                // draws, over the SHARED flow state. Launch panel -> the eval -> 1/6 -> 2/6.
+                // \u26a0 It stops at 2/6: step 3 is the trailhead, which is map work and still lives in
+                //   RouteModule. CONTINUE from 2/6 says so rather than going nowhere.
+                val aiStep = com.geeksville.mesh.grouptrack.GtAiFlow.step.intValue
+                if (aiStep != com.geeksville.mesh.grouptrack.GtAiFlow.STEP_NONE) {
+                    Box(Modifier.fillMaxSize()) {
+                        val panelMod = Modifier.fillMaxSize().padding(24.dp)
+                        val aiHelp: @androidx.compose.runtime.Composable () -> Unit = {
+                            // IOSSTD-2026-11-23: the same control the radio screens are given.
+                            val chrome = com.geeksville.mesh.grouptrack.LocalGtPanelChrome.current
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                androidx.compose.material3.TextButton(
+                                    onClick = { chrome.openHelp("route.ai") },
+                                ) {
+                                    androidx.compose.material3.Text(
+                                        "HELP",
+                                        color = com.geeksville.mesh.grouptrack.Gt.accent,
+                                        fontSize = androidx.compose.ui.unit.TextUnit(
+                                            15f, androidx.compose.ui.unit.TextUnitType.Sp,
+                                        ),
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    )
+                                }
+                                chrome.IssueButton("route.ai", com.geeksville.mesh.grouptrack.Gt.accent)
+                            }
+                        }
+                        if (aiStep == com.geeksville.mesh.grouptrack.GtAiFlow.STEP_LAUNCH) {
+                            androidx.compose.runtime.LaunchedEffect(Unit) {
+                                if (com.geeksville.mesh.grouptrack.GtAiFlow.eval()) {
+                                    onMessage(
+                                        "route",
+                                        "A previous AI compare set is still open -- the compare table is not on the iPad yet",
+                                    )
+                                }
+                            }
+                            com.geeksville.mesh.grouptrack.GtAiLaunchPanel(
+                                onCancel = { com.geeksville.mesh.grouptrack.GtAiFlow.cancel() },
+                                modifier = panelMod,
+                                help = aiHelp,
+                            )
+                        } else {
+                            val overview = aiStep == com.geeksville.mesh.grouptrack.GtAiFlow.STEP_WELCOME
+                            com.geeksville.mesh.grouptrack.GtAiStepPanel(
+                                isOverview = overview,
+                                stepLabel = if (overview) "1 / 6" else "2 / 6",
+                                dontShowAgain = com.geeksville.mesh.grouptrack.GtAiFlow.skipOverview.value,
+                                onDontShowAgain = { com.geeksville.mesh.grouptrack.GtAiFlow.skipOverview.value = it },
+                                miLow = com.geeksville.mesh.grouptrack.GtAiFlow.miLow.intValue,
+                                miHigh = com.geeksville.mesh.grouptrack.GtAiFlow.miHigh.intValue,
+                                mphLow = com.geeksville.mesh.grouptrack.GtAiFlow.mphLow.intValue,
+                                mphHigh = com.geeksville.mesh.grouptrack.GtAiFlow.mphHigh.intValue,
+                                onMiles = { lo, hi ->
+                                    com.geeksville.mesh.grouptrack.GtAiFlow.miLow.intValue = lo
+                                    com.geeksville.mesh.grouptrack.GtAiFlow.miHigh.intValue = hi
+                                },
+                                onSpeed = { lo, hi ->
+                                    com.geeksville.mesh.grouptrack.GtAiFlow.mphLow.intValue = lo
+                                    com.geeksville.mesh.grouptrack.GtAiFlow.mphHigh.intValue = hi
+                                },
+                                hoursText = com.geeksville.mesh.grouptrack.GtAiFlow.hoursText(),
+                                onCancel = { com.geeksville.mesh.grouptrack.GtAiFlow.cancel() },
+                                onContinue = {
+                                    if (overview) {
+                                        com.geeksville.mesh.grouptrack.GtAiFlow.step.intValue =
+                                            com.geeksville.mesh.grouptrack.GtAiFlow.STEP_DISTANCE
+                                    } else {
+                                        onMessage(
+                                            "route",
+                                            "Trailhead selection (step 3) is map work and is not on the iPad yet",
+                                        )
+                                    }
+                                },
+                                modifier = panelMod,
+                                help = aiHelp,
+                            )
+                        }
+                    }
+                }
+                if (routeClearAsk.value) {
+                    // ROUTECLEAR-2026-11-23: Android's dialog (GroupTrackScreen.kt:2931-2960), same
+                    // words and the same order of work: the compare set first, then every route file.
+                    // \u26a0 THE LIST IS FILE NAMES. Android lists the name INSIDE each json; this lists
+                    //   the file. They differ only for a draft whose stored name was edited by hand.
+                    val names = com.grouptrack.shared.route.GtRoute.env.jsonList()
+                    AlertDialog(
+                        onDismissRequest = { routeClearAsk.value = false },
+                        title = { androidx.compose.material3.Text("Clear leftover routes") },
+                        text = {
+                            Column {
+                                if (names.isEmpty()) {
+                                    androidx.compose.material3.Text(
+                                        "Nothing to clear -- no routes in progress.",
+                                    )
+                                } else {
+                                    androidx.compose.material3.Text(
+                                        "These are deleted. Finished, saved routes are NOT touched.",
+                                    )
+                                    names.forEach {
+                                        androidx.compose.material3.Text("\u2022 " + it.removeSuffix(".json"))
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            if (names.isNotEmpty()) androidx.compose.material3.TextButton(
+                                onClick = {
+                                    val env = com.grouptrack.shared.route.GtRoute.env
+                                    env.jsonDelete("batch/open_batch.json")   // the compare set first
+                                    var n = 0
+                                    names.forEach { if (env.jsonDelete(it)) n++ }
+                                    routeClearAsk.value = false
+                                    onMessage("route", "Cleared " + n + " route file(s).")
+                                },
+                            ) {
+                                androidx.compose.material3.Text(
+                                    "DELETE THEM",
+                                    color = androidx.compose.ui.graphics.Color(0xFFE0453A),
+                                )
+                            }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = { routeClearAsk.value = false },
+                            ) { androidx.compose.material3.Text("CANCEL") }
+                        },
                     )
                 }
                 if (myRidesOpen.value) {

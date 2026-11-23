@@ -193,10 +193,10 @@ object GtRoute {
 
     // ── GTAI3-2026-10-23: AI ROUTE DESIGN -- the planner's guided flow (ConvoyMapViewerScreen pinStep / pin* / gpRunAssess /
     //    onProximityTap / FIND MY RIDES), COPIED into one place. AI either opens the compare table or starts a new build (Fred 14:43).
-    val aiStep = mutableIntStateOf(PIN_STEP_NONE)
+    val aiStep get() = GtAiFlow.step   // AIFLOW-2026-11-23: one copy, in shared code
     val aiBusy = mutableStateOf(false)
     val aiProgress = mutableStateOf("")
-    val aiSkipOverview = mutableStateOf(false)
+    val aiSkipOverview get() = GtAiFlow.skipOverview   // AIFLOW-2026-11-23
     val pinNotice = mutableStateOf("")
     // AIPERIMCOUNT-2026-11-11 v6 (Fred 09:19): a poor area for AI route planning -> a pop-up the rider must answer (drop pins, or design it anyway)
     val askWarn = mutableStateOf("")
@@ -204,10 +204,12 @@ object GtRoute {
     val pinTrailLat = mutableStateOf(0.0)
     val pinTrailLon = mutableStateOf(0.0)
     val pinRideName = mutableStateOf("")
-    val pinMiLow = mutableIntStateOf(55)
-    val pinMiHigh = mutableIntStateOf(80)
-    val pinMphLow = mutableIntStateOf(12)
-    val pinMphHigh = mutableIntStateOf(18)
+    // AIFLOW-2026-11-23: the rider's distance and speed answers, one copy, in shared code. Same
+    // defaults, same types -- every call site here reads and writes them exactly as before.
+    val pinMiLow get() = GtAiFlow.miLow
+    val pinMiHigh get() = GtAiFlow.miHigh
+    val pinMphLow get() = GtAiFlow.mphLow
+    val pinMphHigh get() = GtAiFlow.mphHigh
     // null = not answered yet -- the planner's three states (loop / point-to-point / unasked), which the steps read (CODE RULE 1).
     val pinIsLoop = mutableStateOf<Boolean?>(null)
     val pinEndLat = mutableStateOf(0.0)
@@ -248,6 +250,14 @@ object GtRoute {
         layersOnForAi()   // GTAI4-2026-10-23 (Fred 15:36): trails on for the AI build -- from the start, not at the trailhead step
         aiMapReady = true
         aiStep.intValue = PIN_STEP_WELCOME
+    }
+
+    /** AILAUNCH-2026-11-23: what the ADD ROUTE row calls now. It raises the launch panel and stops --
+     *  the eval below ([startAi], unchanged) runs from the step effect and replaces the panel. */
+    fun aiLaunch() {
+        filterPeek.value = false   // AIFAIL-2026-11-03 v3, as startAi does
+        if (routeMode.value) return
+        aiStep.intValue = PIN_STEP_LAUNCH
     }
 
     private fun clearPins() {
@@ -1023,6 +1033,16 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
     // ── GTAI3-2026-10-23: the AI flow's map effects (the planner's LaunchedEffect(pinStep) / LaunchedEffect(pinPoints), copied) ──
     androidx.compose.runtime.LaunchedEffect(R.aiStep.intValue) {
         val step = R.aiStep.intValue
+        /* AILAUNCH-2026-11-23: the launch panel is up; now run THE EXISTING EVAL, unchanged.
+         * [startAi] is called exactly as the row called it before -- its own hasOpenBatch check opens
+         * the compare table, or it begins the build and moves to step 1/6.
+         * ⚠ When compare wins, the launch panel stands down (the step goes back to NONE), because
+         *   startAi returns early there and would otherwise leave this panel over the table. */
+        if (step == PIN_STEP_LAUNCH) {
+            R.startAi()
+            if (R.batchOpen.value) R.aiStep.intValue = PIN_STEP_NONE
+            return@LaunchedEffect
+        }
         val on = step == PIN_STEP_TRAILHEAD || step == PIN_STEP_ENDPOINT || step == PIN_STEP_INCLUDE
         R.js("window.__pinSelect=" + on + ";")
         if (step == PIN_STEP_WELCOME) {
@@ -1159,7 +1179,15 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
         }
         val step = R.aiStep.intValue
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
-            if (step == PIN_STEP_WELCOME || step == PIN_STEP_DISTANCE) {
+            if (step == PIN_STEP_LAUNCH) {
+                // AILAUNCH-2026-11-23: the SHARED panel, in the same place and the same frame as 1/6.
+                GtAiLaunchPanel(
+                    onCancel = { R.aiCancel() },
+                    help = { GtHelpButton("route.ai") },
+                    modifier = Modifier.align(Alignment.Center).fillMaxWidth(0.94f).fillMaxHeight(0.55f)
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                )
+            } else if (step == PIN_STEP_WELCOME || step == PIN_STEP_DISTANCE) {
                 GtAiStepPanel(   /* GTAI4-2026-10-23: ONE MAP's copy, HELP X */
                     isOverview = step == PIN_STEP_WELCOME,
                     stepLabel = if (step == PIN_STEP_WELCOME) "1 / 6" else "2 / 6",
@@ -1174,6 +1202,8 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                         val hi = Math.round(R.pinMiHigh.intValue.toDouble() / R.pinMphLow.intValue.toDouble().coerceAtLeast(1.0))
                         "$lo to $hi hours"
                     },
+                    // AISTEPSHARED-2026-11-23: the panel is shared now, so the HOST passes HELP.
+                    help = { GtHelpButton("route.ai") },
                     onCancel = { R.aiCancel() },
                     onContinue = {
                         if (step == PIN_STEP_WELCOME) R.aiStep.intValue = PIN_STEP_DISTANCE
@@ -1733,9 +1763,14 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
 }
 
 // ── GTAI3-2026-10-23: the planner's guided-flow constants and trailhead helpers (ConvoyMapViewerScreen, private there), copied ──
-private const val PIN_STEP_WELCOME   = -2
-private const val PIN_STEP_DISTANCE  = -1
-private const val PIN_STEP_NONE      = 0
+// AILAUNCH-2026-11-23: the launch panel's step. aiActive() is `aiStep != PIN_STEP_NONE`, so it counts
+// as the flow being up without a word changed there.
+// AIFLOW-2026-11-23: the four steps the shared flow also names. One copy; the other six are the
+// map's own and stay here.
+private const val PIN_STEP_LAUNCH    = GtAiFlow.STEP_LAUNCH
+private const val PIN_STEP_WELCOME   = GtAiFlow.STEP_WELCOME
+private const val PIN_STEP_DISTANCE  = GtAiFlow.STEP_DISTANCE
+private const val PIN_STEP_NONE      = GtAiFlow.STEP_NONE
 private const val PIN_STEP_TRAILHEAD = 1
 private const val PIN_STEP_RETURN    = 2
 private const val PIN_STEP_ENDPOINT  = 3

@@ -631,6 +631,52 @@ object RouteDraftStore {
 
     private fun now(): String = Instant.now().toString()
 
+    // ----- ROUTEJSONPRIM-2026-11-23: THE FOUR JSON PRIMITIVES -------------------
+    /* Fred 11:41: "the json has four primitives read write, delete and create." The shared route code reaches every route
+     * file through these four and nothing else (GtRoute.Env, supplied in RouteExplorer's init).
+     * ⚠ THEY ARE FILE OPERATIONS ONLY -- no batch rule, no name rule, no decision. Every process above keeps all of
+     * that unchanged: hasOpenBatch (:153), deleteDraft's BATCHDELETE refusal (:860), renameDraft's isNameTaken, writeBatch's
+     * empty-list guard, listDrafts' parse. Nothing in this file was altered to add them.
+     * [path] is relative to [draftDir]; folders on the way are made; the last segment is sanitised as [fileFor] sanitises a
+     * draft name, except that the extension is already part of the path. */
+    private fun jsonFile(path: String): File {
+        val parts = path.split('/').filter { it.isNotEmpty() }
+        var dir = draftDir()
+        for (p in parts.dropLast(1)) { dir = File(dir, p); if (!dir.exists()) dir.mkdirs() }
+        val safe = parts.lastOrNull().orEmpty().trim()
+            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            .ifBlank { "Not Named" }
+        return File(dir, safe)
+    }
+
+    /** CREATE: the file exists and is empty if it was not there. True if it exists afterwards. */
+    fun jsonCreate(path: String): Boolean = runCatching {
+        val f = jsonFile(path)
+        if (!f.exists()) f.createNewFile()
+        f.exists()
+    }.getOrElse { log.w { "ROUTEJSONPRIM: create '$path' failed: ${it.message}" }; false }
+
+    /** READ: the file's text, or null when there is no such file (or it cannot be read). */
+    fun jsonRead(path: String): String? = runCatching {
+        jsonFile(path).takeIf { it.exists() }?.readText()
+    }.getOrElse { log.w { "ROUTEJSONPRIM: read '$path' failed: ${it.message}" }; null }
+
+    /** WRITE: replace the file's text. */
+    fun jsonWrite(path: String, text: String): Boolean = runCatching {
+        jsonFile(path).writeText(text); true
+    }.getOrElse { log.w { "ROUTEJSONPRIM: write '$path' failed: ${it.message}" }; false }
+
+    /** LIST: the route json files directly under [draftDir], by file name. listDrafts' own filter. */
+    fun jsonList(): List<String> = runCatching {
+        draftDir().listFiles { f -> f.isFile && f.name.endsWith(".json") }?.map { it.name }.orEmpty()
+    }.getOrElse { log.w { "ROUTEJSONPRIM: list failed: ${it.message}" }; emptyList() }
+
+    /** DELETE: remove the file. True when it is gone, which includes "was not there". */
+    fun jsonDelete(path: String): Boolean = runCatching {
+        val f = jsonFile(path)
+        if (f.exists()) f.delete() else true
+    }.getOrElse { log.w { "ROUTEJSONPRIM: delete '$path' failed: ${it.message}" }; false }
+
     // ----- write / overwrite ----------------------------------------------
 
     /**

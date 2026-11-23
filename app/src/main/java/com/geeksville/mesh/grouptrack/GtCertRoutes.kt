@@ -58,7 +58,15 @@ object GtCertRoutes {
                 val nReq = New.Request(r.lat, r.lon, name, r.mLo, r.mHi, r.sLo, r.sHi, includePoints = r.pins)
                 val oDrafts = LinkedHashMap<String, String>(); val nDrafts = LinkedHashMap<String, String>()
                 Old.certDraftSink = { n, j -> oDrafts[n] = j; true }
-                New.env = New.Env(nowIso = { "2026-11-07T00:00:00Z" }, writeDraft = { n, j -> nDrafts[n] = j; true })
+                // ROUTEJSONPRIM-2026-11-23: the four primitives over the in-memory map this certification already used.
+                // ⭐ THE KEYS STAY PLAIN DRAFT NAMES (removeSuffix): the old side's sink is keyed by name, and this
+                //   comparison must not change because the seam did.
+                New.env = New.Env(nowIso = { "2026-11-07T00:00:00Z" },
+                    jsonCreate = { p -> nDrafts.getOrPut(p.removeSuffix(".json")) { "" }; true },
+                    jsonRead = { p -> nDrafts[p.removeSuffix(".json")] },
+                    jsonWrite = { p, t -> nDrafts[p.removeSuffix(".json")] = t; true },
+                    jsonDelete = { p -> nDrafts.remove(p.removeSuffix(".json")); true },
+                    jsonList = { nDrafts.keys.map { it + ".json" } })
                 if (r.end == null || r.pins.isEmpty()) {
                     val ta = System.currentTimeMillis()
                     val o = try { Old.explore(fS, oReq).joinToString("\n") { s -> "${s.name}|${s.miles}|${s.hoursLow}|${s.hoursHigh}|${s.featureCount}|${s.featureMix}|${s.draftName}" } } catch (e: Exception) { "EXCEPTION $e" }
