@@ -36539,7 +36539,7 @@ Firmware 2.8 bench list before any fleet upgrade: 6 h stationary floor, position
 GroupTrack — Harness Register — MOVEDMOVED 2026-11-15 — the harness register is part of the COMPLETED DOCUMENTSFred, 2026-11-15 07:55: "that should be in the completed documents['] work processes now. not in the eod doc."A harness is completed work, so its intent, purpose, method and verification are work papers. They live in GroupTrack_2.8_completed_activity_step17_2026-11-15_v1.html, section C, not in a document of their own and not in the EOD handoff.This file existed for about three minutes on 2026-11-15 and is kept only so the name does not dangle.
 
 
-=== grouptrack_handoff_2026-11-22_v157.html ===
+=== grouptrack_handoff_2026-11-22_v159.html ===
 GroupTrack &mdash; Handoff &mdash; v155 (2026-11-22)
 :root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
@@ -37065,6 +37065,106 @@ has moved to TODAY&rsquo;S COMPLETED above. MAPS (N22&ndash;N26, plus R3&rsquo;s
 GtMapState) was deliberately NOT here &mdash; Fred 13:35, a fresh start; it is now item 2 of
 TOMORROW2. RADIO SETTINGS (N38) also waits: it is the one area whose
 behaviours cannot be set without hardware (C28-26382).
+&#128202;&#128202;&#128202; THE EOD PROCESS GAINS TWO MANAGED ITEMS (EODMANAGE-2026-11-22)
+Both came out of the same hour and both exist for one reason: a thing that depends on someone
+remembering is drift. The asset copy proved it today &mdash; the tool was right, had been right since
+11-19, and the iPad still shipped an 11-19 manual and an 11-17 quickstart because its last line asks a
+person to re-run it.
+1 &middot; ASSET SYNC &mdash; done, enforced in the build
+&nbsp;&nbsp;
+The ruleAn asset edit is not finished until both copies are written in the
+same pass. The iOS stage is the tail of the edit, not a later step. Fred 15:47: &ldquo;they should never
+be different&hellip; this ia a one man show and we cannot afford to drift.&rdquo;
+The beltThe standing iOS build is now
+gt_iosbuild_2026-11-22_v2.sh (v1 renamed
+_SUPERSEDED_DO_NOT_RUN). Step 0 runs gt_iosres --apply, then re-reads it and
+refuses to build unless the report says 0 new, 0 stale. Step 5 prints the three
+document sizes the iPad is carrying.
+Verified11-22 15:46, byte-identical both sides: manual 10,820,590 &middot;
+quickstart 22,612 &middot; release notes 205,142.
+2 &middot; PLATFORM PARITY PER ROW &mdash; to build, first customer is the map rows
+What it is. navxref gains an iOS column: for every row id, the modules Android calls and
+the modules iOS calls. Measured 11-22 15:50 &mdash; navxref is Android-only today. Its
+ROOTS are four paths under app/src/main/java and it aborts outright if
+app/src/main/java is missing, so the 1,727-line click tree is one platform. The row id is the
+join key, and both action maps are literal id &rarr; lambda maps, so nothing has to be
+inferred.
+WHY IT IS WORTH BUILDING, in Fred&rsquo;s words (15:52): &ldquo;hand measuring inevitably
+means reading code and notes and can lead to rabbit holes that are not productive.&rdquo; That is the
+whole case, and it is stronger than &ldquo;it saves time&rdquo;: a generated column answers the
+row&rsquo;s question without anyone opening the file, so depth 3 is never entered (TWODEEP). Four times
+in one afternoon a hand measurement turned into reading and the reading went sideways:
+The hand measurementWhere it went
+route.ai&rsquo;s serviceopened RouteModule.kt, read its
+comments, ended in the pin steps and CLOSEPLANNER &mdash; depth 3
+is GtArea still live?the grep hit only .bak files; a live object
+with 41 references was nearly reported as gone
+the iOS seam for route recipesGtIosRecipeEnv looked right by name;
+only opening it showed it serves MAP recipes
+&ldquo;is there a seam document?&rdquo;read an 11-11 inventory and began re-filing live
+rows under its dead G-groups &mdash; the redirect Fred named at 15:29
+HOW IT IS MANAGED (Fred 15:50): &ldquo;approve the differences and only manage new
+diff&rsquo;s.&rdquo; The first run is a baseline, Fred walks it once, and from then on EOD reports
+only what is new. Two buckets, not one, or the baseline becomes where the backlog hides:
+BucketExamplesReported again?
+APPROVED BY DESIGNno FORGET on the iPad &middot; the radio id shown whole &middot;
+one button to the iOS settings panel &middot; commonMain serving bothnever
+KNOWN OPENthe 20 GtArea map rows &middot; route add &middot; the cart
+boardnot as NEW &mdash; but it stays on the row list until it closes, and the bucket shrinks as
+rows close
+The EOD line is three numbers and a name:
+N approved-by-design &middot; M known-open &middot; 0 new, with any new difference NAMED rather
+than counted. Constraints the tool must carry: commonMain counts as present on both (or
+it reports Search as missing on iOS, which was a false alarm caught 11-22 13:45) &middot;
+.bak excluded, loudly &middot; one line per row id &middot; depth 2 only &mdash;
+&ldquo;called&rdquo; means named in the lambda, never a traced call chain, because a parity index that walks
+call graphs becomes the thing TWODEEP forbids.
+&#9888; Also promoted in the same pass: svcref_2026-11-21_v2.py &mdash;
+the queryable shared-services index, whose --find mode exists to stop the 11-20 failure (nine
+services reported missing, all nine existed). It is sitting in the INBOX, never moved to
+commands/, never wired into gen_xrefs_v3 &mdash; TOOLINBOX again, the same
+shape as the asset copy. Generated daily or it drifts. NOT promoted:
+iosxref_2026-11-21_v5, which is HELD for a stated reason &mdash; &ldquo;android column is a
+grep&rdquo; &mdash; and wiring it in would publish a grep as a measured fact every day.
+3 &middot; THE GATE IS AN EXPLANATION, NOT AN APPROVAL (Fred 15:55)
+Fred 11-22 15:55: &ldquo;we will plot that build so we know what it looks like. every
+difference should have an explanation to be removed from the document. that will keep us from
+investigating things that are known differences (bluetooth/radio management functions).&rdquo;
+This replaces &ldquo;approve the differences&rdquo; with something checkable. A difference leaves the
+active report only when it carries a written explanation. With no explanation it stays visible &mdash;
+there is no way to wave one through, and the report cannot be quietly emptied. It is the cert&rsquo;s own
+discipline applied to platform parity: every DIFF traced to its cause.
+StateMeansIn the active report?
+EXPLAINED &middot; BY DESIGNthe difference is correct and permanent, and the
+explanation says whyno &mdash; cited from the baseline when the column shows it
+EXPLAINED &middot; STILL OWEDunderstood, and the work exists on the row
+listnot as NEW; the row carries it until it closes
+UNEXPLAINEDnobody has said why yetYES, every day, until someone writes
+the reason
+THE EXPLANATION'S JOB IS TO STOP RE-INVESTIGATION, which is why Fred named bluetooth and radio
+management: those two produce a parity gap on every single run, and without a written reason each run
+invites the file to be opened again &mdash; the exact rabbit hole TWODEEP exists to prevent. Their
+explanations, written once:
+Difference the column will showThe explanation &mdash; cite, do not re-investigate
+iOS has no in-app Bluetooth management (no on/off, no FORGET, no PAIR/CONNECT split)
+BY DESIGN. On iOS the OS owns pairing, forgetting and the radio&rsquo;s Bluetooth state.
+GroupTrack keeps connect and disconnect, and one button opens the iOS Bluetooth settings panel
+through our own comm-module API. Fred 13:01 and 13:06; C28-26382.
+the radio management functions differ, and iOS leaves controls off
+BY DESIGN, FOR NOW. The iPad&rsquo;s radio panels are prototyping tools and their
+behaviours are deliberately unset until real hardware (Fred 13:14). RECONNECT and ADD DEVICE were
+considered and left out until it is known whether they are needed (13:21). No values, no write to the
+radio. C28-26382. Revisit when the hardware is in hand, not when the column shows the gap.
+the radio id is shown whole on iOSBY DESIGN. Android&rsquo;s
+.drop(1) would eat the first character of an iOS UUID.
+&ldquo;Plot that build&rdquo; &mdash; the first run is the picture: every row, both
+columns, every difference and its explanation or its absence. That is the baseline document, and it goes in
+docs/ so it reaches AllDocs (DOC-PROCESS MANDATE: a living doc that merely references a file
+Fred cannot reach never existed).
+&#9888; And navxref_2026-11-22_v3.py is not this. The file in the inbox
+carrying today&rsquo;s date is NAVXREFARG-2026-11-14 internally &mdash; a label_near fix for
+labels passed as earlier named arguments. A label fix wearing a new date. It still owes its move into
+commands/, and that move is not the iOS column.
 &#9940;&#9940;&#9940; TWO DEEP, AND NO DEEPER &mdash; THE DEPTH RULE FOR EVERY ROW (TWODEEP-2026-11-22)
 Fred 11-22 15:35, for the EOD instructions: &ldquo;if we are reading codes notes are analyzing
 process code we are two deep. these are service layer replacements not, calls, no processes other then the
@@ -37075,6 +37175,12 @@ DepthWhat it isWhat it answers
 taps
 2the service the row calls &mdash; its declared name, its file, whether an
 iOS seam for it existsport, wire, launcher, or host state. Then stop.
+AND HERE IS THE MECHANISM, which Fred named at 15:52: &ldquo;hand measuring inevitably
+means reading code and notes and can lead to rabbit holes that are not productive.&rdquo; Depth 3 is not
+usually chosen &mdash; it is arrived at, because hand measurement requires opening the file, and an
+open file offers its comments. That is why the parity instrument (EODMANAGE-2026-11-22) is a depth
+control and not a convenience: a generated column answers the row without anyone opening
+anything.
 DEPTH 3 IS THE TROUBLE SIGN. Reading the service&rsquo;s internal process. Reading its callers.
 Reading the notes beside it. None of that is needed to replace a service layer, and all of it costs the day
 &mdash; it is the same failure as chasing conditional values (CONDVAL) and the same failure as trusting
@@ -53136,7 +53242,7 @@ Imported from grouptrack_living_master_2026-11-14_v238.html on 2026-11-15. The m
 Created 2026-11-14 by extracting the "2.8 CHECKLIST" and "POST-2.8 DEFECT REGISTER" material out of grouptrack_living_master_2026-11-14_v238.html, at Fred's direction (20:43&ndash;20:46). The master retains open design, the durable rules, and a pointer to this file.
 
 
-=== grouptrack_living_checklist_2026-11-22_v29.html ===
+=== grouptrack_living_checklist_2026-11-22_v31.html ===
 GroupTrack &mdash; Living Checklist &mdash; v27 (2026-11-22)
 :root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
@@ -53164,6 +53270,82 @@ th{background:#12203a;color:var(--accent)}
   font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#8b949e;overflow-x:auto;margin:12px 0}
 GroupTrack &mdash; LIVING CHECKLIST &mdash; kick-the-can issues, tied to a release
 v1 &middot; 2026-11-14 &middot; companion to grouptrack_living_master_2026-11-14_v238.html
+&#128202;&#128202;&#128202; 2.8b C28-26397 &middot; DIFFEXPLAIN &mdash; A PARITY DIFFERENCE LEAVES THE REPORT ONLY WITH A WRITTEN EXPLANATION
+Fred 11-22 15:55: &ldquo;every difference should have an explanation to be removed from the
+document. that will keep us from investigating things that are known differences (bluetooth/radio
+management functions).&rdquo;
+This replaces &ldquo;approve the differences&rdquo; (C28-26396) with a gate that can be checked. No
+explanation, no removal. There is no approval flag to set and the report cannot be quietly emptied
+&mdash; the cert&rsquo;s own rule, applied to parity: every DIFF traced to its cause.
+StateIn the active report?
+EXPLAINED &middot; BY DESIGN &mdash; correct and permanentno; cited from the
+baseline
+EXPLAINED &middot; STILL OWED &mdash; understood, work on the row listnot as NEW;
+the row holds it
+UNEXPLAINEDyes, every day, until a reason is written
+Why Fred named bluetooth and radio management: those two show a gap on every run. Without a
+written reason, each run invites the file to be opened again &mdash; the rabbit hole of C28-26393. Their
+explanations are written once and cited: on iOS the OS owns pairing, forgetting and Bluetooth state while
+GroupTrack keeps connect/disconnect behind one button to the iOS settings panel (Fred 13:01, 13:06); the
+iPad&rsquo;s radio panels are prototyping tools whose behaviours wait on hardware, with RECONNECT and ADD
+DEVICE deliberately left off (13:14, 13:21) and no values written to a radio; and the radio id shows whole
+because Android&rsquo;s .drop(1) would eat a UUID&rsquo;s first character.
+&ldquo;Plot that build&rdquo;: the first run is the picture &mdash; every row, both
+columns, each difference with its explanation or its absence &mdash; and it lands in docs/ so
+it reaches AllDocs.
+&#128202;&#128202;&#128202; 2.8b C28-26396 &middot; PARITY &mdash; navxref GAINS AN iOS COLUMN. APPROVE TODAY'S DIFFERENCES ONCE, THEN MANAGE ONLY NEW ONES
+Fred 11-22 15:50: &ldquo;naxxref nmapping atj=ll the models cal led in each row android vs
+ios&rdquo; &middot; &ldquo;I would recommend we approve the differences and only manage new
+diff&rsquo;s.&rdquo; &middot; 15:52: &ldquo;and hand measuring inevitably means reading code
+and notes and can lead to rabbit holes that are not productive.&rdquo;
+MEASURED 11-22 15:50: navxref is ANDROID-ONLY. Its ROOTS are four paths under
+app/src/main/java and it aborts if that directory is missing, so today&rsquo;s 1,727-line
+click tree covers one platform. The per-row Android-vs-iOS mapping does not exist yet.
+WHY IT IS FEASIBLE: both action maps are literal id &rarr; lambda maps, so the
+row id is the join key and nothing is inferred. The work is two extractors and live-file filtering,
+not a call graph.
+WHY IT IS WORTH IT: it is a depth control, not a time-saver. Hand measurement forces the
+file open, and an open file offers its comments &mdash; which is how four measurements went sideways in one
+afternoon: route.ai into CLOSEPLANNER (depth 3); GtArea nearly reported gone
+because the grep hit only .bak copies of a 41-reference live object; GtIosRecipeEnv
+nearly named as the route-recipe seam when it serves MAP recipes; and an 11-11 inventory read, then live
+rows re-filed under its dead groups.
+HOW IT IS MANAGED &mdash; TWO BUCKETS, NEVER ONE. APPROVED BY DESIGN (no FORGET on the
+iPad, the radio id whole, one button to the iOS settings panel, commonMain serving both) is
+never reported again. KNOWN OPEN (the 20 GtArea map rows, route add, the cart board) is
+not reported as NEW but stays on the row list until it closes. One bucket would mean approving the
+20 map rows and then reading a clean parity report while the iPad still cannot draw an area.
+EOD line: N approved-by-design &middot; M known-open &middot; 0 new,
+new differences NAMED. Constraints: commonMain present on both &middot;
+.bak excluded loudly &middot; one line per row id &middot; depth 2 only
+(C28-26393). Order: after route add, with the 20 map rows as its first customer &mdash; it generates
+their parity instead of 20 more hand measurements. Same pass: promote
+svcref_2026-11-21_v2.py from the inbox into commands/ and wire it into
+gen_xrefs_v3. Do NOT promote iosxref_2026-11-21_v5 &mdash; HELD because
+its &ldquo;android column is a grep&rdquo;, and publishing a grep daily is worse than having no
+number.
+&#11088;&#11088;&#11088; 2.8b C28-26395 &middot; ASSETSYNC &mdash; AN ASSET EDIT IS NOT FINISHED UNTIL BOTH COPIES ARE WRITTEN IN THE SAME PASS
+Fred 11-22 15:47: &ldquo;I disagree both assets should be updated in the same pass. they should
+never be different. we need to keep the ode and assets in synch. this ia a one man show and we cannot
+afford to drift.&rdquo;
+WHAT HAD DRIFTED. The iPad was bundling a manual from 11-19 and a quickstart from
+11-17 while Android shipped manual v144 and quickstart v102.
+gt_iosres_2026-11-19_v2.py already copied all three documents &mdash; it had simply not
+been re-run, because its own last line asks a person to remember: &ldquo;Re-run this before an Xcode
+build whenever an asset changes.&rdquo; The tool was right and the process was skippable, which
+is the same shape as TOOLINBOX (C28-26384) and XREFDRIFT (C28-26377).
+Claude&rsquo;s own pass was the instance. MANUALSTUB wrote the Android asset and left the iOS copy
+to a later step &mdash; precisely the drift Fred objected to, committed while writing about it.
+THE FIX IS STRUCTURAL, NOT A REMINDER. The standing iOS build command is now
+gt_iosbuild_2026-11-22_v2.sh; gt_iosbuild_2026-11-19_v1.sh is renamed
+_SUPERSEDED_DO_NOT_RUN. Step 0 stages the assets and then re-reads the report and refuses to
+build unless it says 0 new, 0 stale; step 5 prints what the iPad is carrying. Verified
+byte-identical 15:46 &mdash; manual 10,820,590, quickstart 22,612, release notes 205,142.
+&#9888; The environment doc owes an update: the standing iOS build command has
+changed name and gained a step. &#9888; Also found in the 15:45 recommit: it classified
+gt_iosrideemail_2026-11-22_v1.DO_NOT_RUN_&hellip; as PRIVATE (secret pattern) and routed it to
+GroupTrack_private instead of the inbox &mdash; a false positive on a filename, recorded so the
+script is not hunted for later.
 &#9940;&#9940;&#9940; 2.8b C28-26393 &middot; TWODEEP &mdash; A ROW IS TWO LEVELS DEEP: THE ROW, THEN ITS SERVICE. DEPTH 3 IS THE TROUBLE SIGN
 Fred 11-22 15:35, to go into the EOD instructions: &ldquo;if we are reading codes notes are
 analyzing process code we are two deep. these are service layer replacements not, calls, no processes other
