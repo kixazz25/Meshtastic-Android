@@ -38,6 +38,7 @@ fun installIosRouteEnv() {
         jsonWrite = { path, text -> jsonWrite(path, text) },
         jsonDelete = { path -> jsonDelete(path) },
         jsonList = { jsonList() },
+        jsonRename = { f, t -> jsonRename(f, t) },   // JSONRENAME-2026-11-23
     )
     routeEnvLog.i { "IOSROUTEENV-2026-11-23: GtRoute.env installed" }
 }
@@ -88,6 +89,17 @@ private fun jsonWrite(path: String, text: String): Boolean = try {
 }
 
 /** DELETE: remove the file. True when it is gone, which includes "was not there". */
+/** RENAME: JSONRENAME-2026-11-23 -- okio's atomicMove, which replaces the target. Android is File.renameTo. */
+private fun jsonRename(from: String, to: String): Boolean = try {
+    val s = jsonPath(from)
+    val t = jsonPath(to)
+    if (!FileSystem.SYSTEM.exists(s)) false
+    else { t.parent?.let { FileSystem.SYSTEM.createDirectories(it) }; FileSystem.SYSTEM.atomicMove(s, t); true }
+} catch (e: Exception) {
+    routeEnvLog.w { "ROUTEJSONPRIM: rename '" + from + "' -> '" + to + "' failed: " + e.message }
+    false
+}
+
 private fun jsonDelete(path: String): Boolean = try {
     val f = jsonPath(path)
     if (FileSystem.SYSTEM.exists(f)) FileSystem.SYSTEM.delete(f)

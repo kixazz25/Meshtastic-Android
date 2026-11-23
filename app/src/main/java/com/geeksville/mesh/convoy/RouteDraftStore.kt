@@ -666,6 +666,13 @@ object RouteDraftStore {
         jsonFile(path).writeText(text); true
     }.getOrElse { log.w { "ROUTEJSONPRIM: write '$path' failed: ${it.message}" }; false }
 
+    /** RENAME: move [from] onto [to], replacing it. JSONRENAME-2026-11-23 -- what makes persist atomic. */
+    fun jsonRename(from: String, to: String): Boolean = runCatching {
+        val s = jsonFile(from)
+        val t = jsonFile(to)
+        if (!s.exists()) false else { if (t.exists()) t.delete(); s.renameTo(t) }
+    }.getOrElse { log.w { "ROUTEJSONPRIM: rename '$from' -> '$to' failed: ${it.message}" }; false }
+
     /** LIST: the route json files directly under [draftDir], by file name. listDrafts' own filter. */
     fun jsonList(): List<String> = runCatching {
         draftDir().listFiles { f -> f.isFile && f.name.endsWith(".json") }?.map { it.name }.orEmpty()

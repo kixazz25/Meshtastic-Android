@@ -63,11 +63,17 @@ import com.grouptrack.shared.log.gtLogger
  */
 object GtRoute {
     /** The host map's page; set by the host (ConvoyScreen) -- runs one JS call. */
-    var js: (String) -> Unit = {}
+    var js: (String) -> Unit                      // ROUTELAUNCH-2026-11-23: the host's, in shared code
+        get() = GtRouteLaunch.js
+        set(v) { GtRouteLaunch.js = v }
     /** The host map's last view: S, W, N, E, zoom -- set by the host's onViewportChanged. */
-    @Volatile var vp: DoubleArray = doubleArrayOf(0.0, 0.0, 0.0, 0.0, 15.0)
+    var vp: DoubleArray                           // ROUTELAUNCH-2026-11-23
+        get() = GtRouteLaunch.vp
+        set(v) { GtRouteLaunch.vp = v }
     /** The host map's state save (writes RouteState under the map's own key). */
-    var persist: () -> Unit = {}
+    var persist: () -> Unit                       // ROUTELAUNCH-2026-11-23
+        get() = GtRouteLaunch.persist
+        set(v) { GtRouteLaunch.persist = v }
     // GTAI2-2026-10-23: set by the map that hosts Route+. wv -- the map's WebView: null until the page exists (CODE RULE 1: the
     // planner's drawBatch takes WebView?, and before the page loads there is nothing to draw on). layersNow -- the map's four layer
     // switches (Trails, Tracks, Waypoints, Routes), so the compare table can put them back exactly as they were.
@@ -87,13 +93,14 @@ object GtRoute {
     val batchPrevView = mutableStateOf(DoubleArray(0))   // GTAI2B-2026-10-23: the view before the table (S, W, N, E, zoom); empty = none
     private val LAYERS = listOf("Trails", "Tracks", "Waypoints", "Routes")
 
-    // ROUTEMANUAL-2026-11-23: one copy, in shared code. Reads and writes are unchanged.
-    val routeMode get() = GtAiFlow.routeMode
-    val addPointMode get() = GtAiFlow.addPointMode
-    val routeMethod = mutableIntStateOf(ROUTE_METHOD_P2P)
-    val routeName get() = GtAiFlow.routeName   // ROUTEMANUAL-2026-11-23
-    val routeLifecycleState = mutableIntStateOf(ROUTE_LS_NEW)
-    val routeEntryNonce get() = GtAiFlow.routeEntryNonce   // ROUTEMANUAL-2026-11-23
+    // ROUTELAUNCH-2026-11-23: one copy, in shared GtRouteLaunch. Same names, same types, so every
+    // read and write in this file and in GroupTrackScreen is unchanged.
+    val routeMode get() = GtRouteLaunch.routeMode
+    val addPointMode get() = GtRouteLaunch.addPointMode
+    val routeMethod get() = GtRouteLaunch.routeMethod
+    val routeName get() = GtRouteLaunch.routeName
+    val routeLifecycleState get() = GtRouteLaunch.routeLifecycleState
+    val routeEntryNonce get() = GtRouteLaunch.routeEntryNonce
     val showSaveChoice = mutableStateOf(false)
     val showDiscardChoice = mutableStateOf(false)
     val showPicker = mutableStateOf(false)
@@ -225,7 +232,9 @@ object GtRoute {
     private var pinCheckAgain = false
     var aiMapReady = false
     // set by the host map: turn Trails, Tracks and Waypoints on for the trailhead step (the planner's AISTEPS layer defaults).
-    var layersOnForAi: () -> Unit = {}
+    var layersOnForAi: () -> Unit                 // ROUTELAUNCH-2026-11-23
+        get() = GtRouteLaunch.layersOnForAi
+        set(v) { GtRouteLaunch.layersOnForAi = v }
     // GTAI4B-2026-10-23 (Fred 15:43): set by the host map -- the compare table closes EVERYTHING in the filter and puts it back.
     var hideAll: () -> Unit = {}
     var restoreAll: () -> Unit = {}
@@ -852,33 +861,14 @@ object GtRoute {
     }
 
     /** Launch Route+ in ONE mode, locked (stage 1: Build it myself). A new route starts as the UNNAMED draft. */
-    fun startNew(method: Int) {
-        routeLifecycleState.intValue = ROUTE_LS_NEW
-        routeMethod.intValue = method
-        routeName.value = RouteDraftStore.UNNAMED
-        routeEntryNonce.intValue++
-        addPointMode.value = true
-        routeMode.value = true
-        layersOnForAi()   // ROUTEFILTER-2026-11-03 (Fred 18:27): Build it myself shows the current selection first too
-        js("window.__routeMode=true;setRouteMode(true)")
-        persist()
-    }
+    // ROUTELAUNCH-2026-11-23: the body moved to shared GtRouteLaunch.startNew, unchanged.
+    fun startNew(method: Int) = GtRouteLaunch.startNew(method)
 
     /** Leave Route+ (toolbar X): nothing is torn down -- what is on disk stays, and the picker finds it (ROUTECLOSE-2026-09-02). */
-    fun close() {
-        routeMode.value = false
-        addPointMode.value = false
-        js("window.__routeMode=false;setRouteMode(false)")
-        persist()
-    }
+    fun close() = GtRouteLaunch.close()   // ROUTELAUNCH-2026-11-23
 
     /** Route finished or discarded: clear the build line, route mode off. */
-    fun endBuild() {
-        js("setRouteMode(false); clearBuildLine();")
-        addPointMode.value = false
-        routeMode.value = false
-        persist()
-    }
+    fun endBuild() = GtRouteLaunch.endBuild()   // ROUTELAUNCH-2026-11-23
 
     private fun methodStr(): String = when (routeMethod.intValue) { ROUTE_METHOD_DRAW -> "draw"; ROUTE_METHOD_SUGGEST -> "suggest"; else -> "point" }
 
@@ -897,11 +887,9 @@ object GtRoute {
         SpatialDbManager.init(ctx)
         val tl = SpatialDbManager.queryTrailsByViewport(v[0], v[1], v[2], v[3])
         val tk = SpatialDbManager.queryTracksByViewport(v[0], v[1], v[2], v[3])
-        val byId = HashMap<String, String>()
-        for (m in tl) { val id = m["trail_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
-        for (m in tk) { val id = m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
-        return RouteManager.buildSegments { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
-            .joinToString(",", "[", "]") { "[${it[1]},${it[0]}]" }
+        // VERTEXDROP-2026-11-23: the assembly is shared now (GtRouteLaunch.buildLinePts), the reads
+        // stay Android's. Signature unchanged, so :1009, :1141 and :1491 are untouched.
+        return GtRouteLaunch.buildLinePts(tl, tk)
     }
 
     /** The build line for a RESUMED draft: the snapped lines by id (it may lie outside the view). (IO) */
@@ -919,29 +907,22 @@ object GtRoute {
      * A map tap while Route+ runs -- the planner's onMapTap, as is: snap to TRAILS ONLY within 44 px (15-150 m) at this
      * zoom, else a free point; log trailheads near the first point; add it; auto-save; redraw.
      */
+    // ROUTELAUNCH-2026-11-23: the body moved to shared GtRouteLaunch.onTap, unchanged. This keeps the
+    // same signature so every call site is untouched, supplies the four primitives the shared body
+    // reads (ctx is only available here), and keeps Android's own IO dispatch exactly as it was.
     fun onTap(ctx: android.content.Context, lat: Double, lon: Double) {
-        if (!routeMode.value || !addPointMode.value) return
-        kotlinx.coroutines.MainScope().launch {
-            val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        GtRouteLaunch.trailsInView = { b ->
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 SpatialDbManager.init(ctx)
-                val b = vp
-                val trails = SpatialDbManager.queryTrailsByViewport(b[0], b[1], b[2], b[3])
-                val mPerPx = 156543.03392 * kotlin.math.cos(Math.toRadians(lat)) / Math.pow(2.0, b[4])
-                val snapRadiusM = (44.0 * mPerPx).coerceIn(15.0, 150.0)
-                val s = RouteManager.snapTrailsOnly(lat, lon, trails, snapRadiusM)
-                gtLogger("RouteBridge").d { ("GTROUTE1 tap $lat,$lon zoom=${b[4]} radius=${snapRadiusM.toInt()}m trails=${trails.size} -> " +
-                    if (s != null) "SNAPPED ${s.lineType} ${s.lineId}" else "FREE") }
-                if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
+                SpatialDbManager.queryTrailsByViewport(b[0], b[1], b[2], b[3])
             }
-            if (RouteManager.routeVertices().isEmpty()) {
-                val nearby = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SpatialDbManager.trailheadsNear(lat, lon) }
-                gtLogger("RouteBridge").i { "GTROUTE1 FIRSTPOINT at $lat,$lon -- trailheads near: ${nearby.size}" }
-            }
-            RouteManager.addVertex(v)
-            autosave()
-            val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { buildLine(ctx) }
-            js("drawBuildLine('$pts')")
         }
+        GtRouteLaunch.trailheadCountNear = { la, lo ->
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SpatialDbManager.trailheadsNear(la, lo).size }
+        }
+        GtRouteLaunch.autosave = { autosave() }
+        GtRouteLaunch.buildLine = { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { buildLine(ctx) } }
+        kotlinx.coroutines.MainScope().launch { GtRouteLaunch.onTap(lat, lon) }
     }
 }
 
@@ -1137,6 +1118,8 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
         }
         ConvoyRouteToolbar(
             isConvoyMap = false,
+            // ROUTETOOLBAR-2026-11-23: the panel is shared now, so the host passes HELP.
+            help = { GtHelpButton("route") },
             vertexCount = RouteManager.routeVertexCount(),
             routeEntryNonce = R.routeEntryNonce.intValue,
             presetMethod = R.routeMethod.intValue,

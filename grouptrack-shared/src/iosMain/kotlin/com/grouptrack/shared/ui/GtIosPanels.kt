@@ -307,6 +307,70 @@ private object IosStates {
     }
 }
 
+/**
+ * VERTEXDROP-2026-11-23: THE iPAD'S SIDE OF Route+. Assignment only -- every line calls a service that
+ * already exists, the same one Android calls. Android assigns these in GroupTrackScreen's Route+
+ * run{} block and in GtRoute.onTap.
+ */
+private object IosRouteSeams {
+
+    private val log = gtLogger("IosRouteSeams")
+    private var opened = false
+    private var sp: com.grouptrack.shared.spatial.GtSpatial? = null
+    private var rd: GtRead? = null
+    private const val LIMIT = 2000   // GtSpatial takes a limit; Android's wrapper did not expose one
+
+    private fun open() {
+        if (opened) return
+        opened = true
+        try {
+            val root = iosStorage().root().toString()
+            val data = try { gtOpenDatabase(root + "/grouptrack_data.db", true) } catch (e: Throwable) { null }
+            sp = com.grouptrack.shared.spatial.GtSpatial(gtOpenDatabase(root + "/grouptrack_spatial.db", true), data)
+            rd = GtRead(gtOpenDatabase(root + "/grouptrack_spatial.db", true), data)
+        } catch (e: Throwable) {
+            log.e { "VERTEXDROP-2026-11-23: no spatial db -- Route+ cannot snap or draw: " + e.message }
+        }
+    }
+
+    fun install(js: (String) -> Unit) {
+        open()
+        com.geeksville.mesh.grouptrack.GtRouteLaunch.js = js
+        com.geeksville.mesh.grouptrack.GtRouteLaunch.trailsInView = { b -> sp?.queryTrails(b[0], b[1], b[2], b[3], LIMIT) ?: emptyList() }
+        com.geeksville.mesh.grouptrack.GtRouteLaunch.trailheadCountNear = { la, lo -> rd?.trailheadsNear(la, lo)?.size ?: 0 }
+        com.geeksville.mesh.grouptrack.GtRouteLaunch.buildLine = {
+            val s = sp
+            if (s == null) "[]" else {
+                val v = com.geeksville.mesh.grouptrack.GtRouteLaunch.vp
+                com.geeksville.mesh.grouptrack.GtRouteLaunch.buildLinePts(
+                    s.queryTrails(v[0], v[1], v[2], v[3], LIMIT),
+                    s.queryTracks(v[0], v[1], v[2], v[3], LIMIT))
+            }
+        }
+        // PINPATH-2026-11-23: persist is NOT assigned on the iPad. It has nothing to do with
+        // placing a vertex -- it is the map-state save, read back at startup as recoveryDetected.
+        // Left unassigned deliberately, and it says so rather than looking done.
+        com.geeksville.mesh.grouptrack.GtRouteLaunch.persist = {
+            log.i { "PINPATH-2026-11-23: no iPad map-state save yet -- the route is not recoverable after a restart" }
+        }
+        // STUBRULE: not built for the iPad -- these SAY so, they do not silently no-op.
+        // AUTOSAVE-2026-11-23: Android is RouteModule.kt:876-882. The draft is written after every
+        // point and every undo, through the shared GtRouteDraft over the json primitives -- the
+        // write is atomic (tmp + rename), so a crash mid-write keeps the previous draft.
+        com.geeksville.mesh.grouptrack.GtRouteLaunch.autosave = {
+            val nm = com.geeksville.mesh.grouptrack.GtRouteLaunch.routeName.value
+            if (nm.isNotBlank()) runCatching {
+                val m = com.geeksville.mesh.grouptrack.GtRouteLaunch.methodStr()
+                if (com.geeksville.mesh.convoy.GtRouteDraft.draftExists(nm)) com.geeksville.mesh.convoy.GtRouteDraft.overwriteDraft(nm, m)
+                else com.geeksville.mesh.convoy.GtRouteDraft.writeDraft(nm, m)
+            }.onFailure { log.w { "AUTOSAVE-2026-11-23: autosave '" + nm + "' failed: " + it.message } }
+        }
+        com.geeksville.mesh.grouptrack.GtRouteLaunch.layersOnForAi = {
+            log.i { "VERTEXDROP-2026-11-23: no Route+ layer switches on the iPad" }
+        }
+    }
+}
+
 private object IosSearchDb {
 
     private val log = gtLogger("GtIosSearch")
@@ -714,7 +778,12 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // SEARCHFIT2-2026-11-19: E.Status. GtVecServer.offline already means "stored tiles only,
     // even with internet" -- Android's VecOnline.localOnly. Nothing set it until now.
     val offline = remember { mutableStateOf(false) }
-    fun js(script: String) { web.value?.evaluateJavaScript(script, null) }
+    fun js(script: String) {   // ROUTEMANUALLOG-2026-11-23
+        com.grouptrack.shared.log.gtLogger("ROUTEMANUALLOG-2026-11-23").i {
+            "js webview=" + (if (web.value == null) "NULL -- SCRIPT DROPPED" else "BOUND") +
+            " script=" + script.take(70) }
+        web.value?.evaluateJavaScript(script, null)
+    }
 
     // GroupTrackScreen.kt:3178 verbatim -- asks the page to re-report its viewport, which is what
     // makes the trails redraw after a FILTER or MAP KEY change.
@@ -775,6 +844,8 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     val ridePickOpen = remember { mutableStateOf(false) }
     // ROUTECLEAR-2026-11-23: ADD ROUTE row 4's confirm, the same shape as trailClearAsk (:2105).
     val routeClearAsk = remember { mutableStateOf(false) }
+    // ROUTERECIPE-2026-11-23: ADD ROUTE row 3's route picker.
+    val recipePickOpen = remember { mutableStateOf(false) }
     // IOSMYRIDES-2026-11-22: Rides > My rides. LaunchModules.kt:136 declares the row.
     val myRidesOpen = remember { mutableStateOf(false) }
     // IOSRIDEFORM-2026-11-22: the ride form. CODE RULE 1: null = closed, "" = creating,
@@ -1063,6 +1134,19 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
             // itself, not only its centre, because SELECT queries against the frame.
             if (v.size >= 4) bounds.value = doubleArrayOf(v[1], v[3], v[0], v[2])   // s, w, n, e
             if (v.size >= 5) zoom.intValue = v[4].toInt()   // IOSREADOUT-2026-11-19
+            // VERTEXDROP-2026-11-23: GtRouteLaunch.vp is Android's GtRoute.vp -- S, W, N, E, zoom.
+            if (v.size >= 5) com.geeksville.mesh.grouptrack.GtRouteLaunch.vp = doubleArrayOf(v[1], v[3], v[0], v[2], v[4])
+        }
+        // VERTEXDROP-2026-11-23: THE ROUTE GESTURE. vec_spatial.js:262 sends it now that the dead
+        // gtOneMapRoute gate is gone. The body is Android's (GtRouteLaunch.onTap) and MainScope()
+        // is Android's dispatch (RouteModule.kt:924).
+        else if (name == "onMapTap") {
+            val c = args.trim().removePrefix("[").removeSuffix("]")
+                .split(",").mapNotNull { it.trim().toDoubleOrNull() }
+            if (c.size >= 2) {
+                IosRouteSeams.install { s -> js(s) }
+                kotlinx.coroutines.MainScope().launch { com.geeksville.mesh.grouptrack.GtRouteLaunch.onTap(c[0], c[1]) }
+            }
         }
         // ⭐ IOSARTIFACT-2026-11-19: THE HANDOFF. These four names already arrived and were discarded
         // (C28-26319 B3: "all 14 names ARRIVE; only onViewportChanged currently drives anything").
@@ -1336,11 +1420,17 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // IOSRADIOWIRE-2026-11-23: the row opens the SHARED screen, as Android's row does. The
         // scan-and-report stand-in is gone -- RadioConfigScreen is the same code on both platforms,
         // and it is the screen that names the target and drives the apply.
+        // ROUTERECIPE-2026-11-23: ADD ROUTE row 3. Android is "route.recipefile" to { gtRecipeFile() }
+        // (GroupTrackScreen.kt:3104), whose picker takes a standalone .json -- the ISSUE-attachment
+        // path (MapRecipes.kt:111). The iPad uses GroupTrack's OWN routes, where a rider's recipe
+        // actually lives (notes.recipe, which the route GPX carries).
+        "route.recipefile" to { recipePickOpen.value = true },
         // ROUTEMANUAL-2026-11-23: ADD ROUTE row 1. Android is
         // "route.manual" to { GtRoute.startNew(ROUTE_METHOD_P2P) } (GroupTrackScreen.kt:3103).
         // \u26a0 Route mode comes on and the map is told; taps do not become pins until the tap
         //   handler (RouteModule.onTap) is shared. RouteManager, the vertex engine, already is.
         "route.manual" to {
+            com.grouptrack.shared.log.gtLogger("ROUTEMANUALLOG-2026-11-23").i { "ROW route.manual TAPPED" }   // ROUTEMANUALLOG-2026-11-23
             com.geeksville.mesh.grouptrack.GtAiFlow.manualLaunch { s -> js(s) }
         },
         // ROUTECLEAR-2026-11-23: ADD ROUTE row 4. Android is "route.clear" to { gtClearAsk = true }
@@ -2396,6 +2486,155 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                             )
                         }
                     }
+                }
+                // ROUTETOOLBAR-2026-11-23: THE ROUTE+ PANEL, drawn while route mode is on -- the
+                // same shared panel Android's GtRouteHost composes (RouteModule.kt:1138).
+                // ⚠ help is passed the REAL control, never {} -- that empty default is what left the
+                //   iPad with headerless panels on 11-21/11-22.
+                // ⚠ SAVE / DISCARD / EXIT and the in-progress picker are process (GtRouteHost's
+                //   saveCompleted and its dialogs) and are not on the iPad yet; each says so rather
+                //   than doing nothing silently.
+                if (com.geeksville.mesh.grouptrack.GtAiFlow.routeMode.value) {
+                    com.geeksville.mesh.convoy.ConvoyRouteToolbar(
+                        isConvoyMap = false,
+                        vertexCount = com.geeksville.mesh.convoy.RouteManager.routeVertexCount(),
+                        routeEntryNonce = com.geeksville.mesh.grouptrack.GtAiFlow.routeEntryNonce.intValue,
+                        // TOOLBARPARAMS-2026-11-23: Android passes routeMethod, not a constant
+                        // (RouteModule.kt:1125/1128). selectedMethod and routeLifecycleState were
+                        // never passed at all, and onNewRoute did nothing -- all three defaulted
+                        // silently because the panel gives every parameter a default.
+                        presetMethod = com.geeksville.mesh.grouptrack.GtRouteLaunch.routeMethod.intValue,
+                        selectedMethod = com.geeksville.mesh.grouptrack.GtRouteLaunch.routeMethod.intValue,
+                        routeLifecycleState = com.geeksville.mesh.grouptrack.GtRouteLaunch.routeLifecycleState.intValue,
+                        onNewRoute = {
+                            com.geeksville.mesh.grouptrack.GtRouteLaunch.routeLifecycleState.intValue = com.geeksville.mesh.convoy.ROUTE_LS_NEW
+                            com.geeksville.mesh.grouptrack.GtRouteLaunch.routeName.value = com.geeksville.mesh.grouptrack.GtRouteLaunch.UNNAMED
+                        },
+                        methodLocked = true,
+                        addArmed = com.geeksville.mesh.grouptrack.GtAiFlow.addPointMode.value,
+                        // TAPHANDLER-2026-11-23: Android is RouteModule.kt:1133-1136 -- it sets
+                        // __routeMode and NEVER touches __pinSelect (that is the AI flow's,
+                        // RouteModule.kt:1031). This is that callback, exactly.
+                        onAddModeChanged = { armed ->
+                            com.geeksville.mesh.grouptrack.GtAiFlow.addPointMode.value = armed
+                            js("window.__routeMode=" + armed + ";setRouteMode(" + armed + ")")
+                        },
+                        // UNDOREDRAW-2026-11-23: Android is RouteModule.kt:1135-1142 -- undo, autosave,
+                        // then REDRAW. The iPad had only undoVertex(), so the line never changed.
+                        onUndo = {
+                            com.geeksville.mesh.convoy.RouteManager.undoVertex()
+                            IosRouteSeams.install { s -> js(s) }
+                            com.geeksville.mesh.grouptrack.GtRouteLaunch.autosave()
+                            kotlinx.coroutines.MainScope().launch {
+                                js("drawBuildLine('" + com.geeksville.mesh.grouptrack.GtRouteLaunch.buildLine() + "')")
+                            }
+                        },
+                        // TOOLBARPARAMS-2026-11-23: Android is onClose = { R.close() } (RouteModule.kt:1148).
+                        // close() is already shared and does exactly these three things plus persist;
+                        // the iPad was running its own copy of the body.
+                        onClose = {
+                            IosRouteSeams.install { s -> js(s) }
+                            com.geeksville.mesh.grouptrack.GtRouteLaunch.close()
+                        },
+                        onSaveCompleted = { onMessage("route", "Saving a route is not on the iPad yet") },
+                        onSaveRequested = { onMessage("route", "Saving a route is not on the iPad yet") },
+                        // DISCARD-2026-11-23: Android is RouteModule.kt:1495-1504, the "Delete
+                        // in-progress" branch. Roll back needs the draft store, which the iPad
+                        // does not have yet, so only this branch runs and the message says so.
+                        onDiscardRequested = {
+                            IosRouteSeams.install { s -> js(s) }
+                            com.geeksville.mesh.convoy.RouteManager.clearRoute()
+                            com.geeksville.mesh.grouptrack.GtRouteLaunch.endBuild()
+                            com.geeksville.mesh.grouptrack.GtRouteLaunch.routeName.value = ""
+                            onMessage("route", "In-progress route deleted. Rolling back to a saved draft is not on the iPad yet.")
+                        },
+                        onSelectInProgress = { onMessage("route", "In-progress routes are not on the iPad yet") },
+                        // EXITCLEAR-2026-11-23: Android is RouteModule.kt:1149-1154. DISCARD on a NEW
+                        // route fires onExit (ConvoyRouteToolbar.kt:341), and this is what it
+                        // must do: clear the vertices, then endBuild -- whose clearBuildLine()
+                        // is what takes the line off the map. The draft delete is moot here.
+                        onExit = {
+                            IosRouteSeams.install { s -> js(s) }
+                            com.geeksville.mesh.convoy.RouteManager.clearRoute()
+                            com.geeksville.mesh.grouptrack.GtRouteLaunch.endBuild()
+                        },
+                        help = {
+                            val chrome = com.geeksville.mesh.grouptrack.LocalGtPanelChrome.current
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                androidx.compose.material3.TextButton(
+                                    onClick = { chrome.openHelp("route") },
+                                ) {
+                                    androidx.compose.material3.Text(
+                                        "HELP",
+                                        color = com.geeksville.mesh.grouptrack.Gt.accent,
+                                        fontSize = androidx.compose.ui.unit.TextUnit(
+                                            15f, androidx.compose.ui.unit.TextUnitType.Sp,
+                                        ),
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    )
+                                }
+                                chrome.IssueButton("route", com.geeksville.mesh.grouptrack.Gt.accent)
+                            }
+                        },
+                        // ROUTEBARWIDTH-2026-11-23: the panel sets its OWN width
+                        // (ConvoyRouteToolbar.kt:164 widthIn 280..340.dp). fillMaxWidth()
+                        // overrode it and made the panel the width of the screen. Android
+                        // passes no width either (GroupTrackScreen.kt:3212), only the offset.
+                        modifier = Modifier.padding(top = 110.dp),
+                    )
+                }
+                if (recipePickOpen.value) {
+                    // ROUTERECIPE-2026-11-23: the route picker. Both reads are existing services with
+                    // iOS actuals -- GtRideStore.listRoutes() and env.spatial.routeRecipe(id).
+                    val routes = remember(recipePickOpen.value) {
+                        runCatching { com.grouptrack.shared.ride.GtRideStore.listRoutes() }
+                            .getOrElse { emptyList() }
+                    }
+                    AlertDialog(
+                        onDismissRequest = { recipePickOpen.value = false },
+                        title = { androidx.compose.material3.Text("Build from a recipe") },
+                        text = {
+                            Column {
+                                if (routes.isEmpty()) {
+                                    androidx.compose.material3.Text(
+                                        "No saved routes on this device to take a recipe from.",
+                                    )
+                                } else {
+                                    androidx.compose.material3.Text(
+                                        "Pick the route whose recipe you want to build from:",
+                                    )
+                                    routes.forEach { r ->
+                                        androidx.compose.material3.TextButton(
+                                            onClick = {
+                                                val recipe = runCatching {
+                                                    com.grouptrack.shared.ride.GtRideStore.env.spatial
+                                                        .routeRecipe(r.routeId)
+                                                }.getOrNull()
+                                                recipePickOpen.value = false
+                                                when {
+                                                    recipe.isNullOrBlank() -> onMessage(
+                                                        "route",
+                                                        "\"" + r.name + "\" carries no recipe -- only AI-built routes do",
+                                                    )
+                                                    !com.geeksville.mesh.grouptrack.GtAiFlow
+                                                        .applyRecipe(recipe) -> onMessage(
+                                                        "route",
+                                                        "That file is not a GroupTrack route recipe.",
+                                                    )
+                                                    else -> {}
+                                                }
+                                            },
+                                        ) { androidx.compose.material3.Text(r.name) }
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = { recipePickOpen.value = false },
+                            ) { androidx.compose.material3.Text("CANCEL") }
+                        },
+                    )
                 }
                 if (routeClearAsk.value) {
                     // ROUTECLEAR-2026-11-23: Android's dialog (GroupTrackScreen.kt:2931-2960), same

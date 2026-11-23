@@ -66,7 +66,14 @@ object GtCertRoutes {
                     jsonRead = { p -> nDrafts[p.removeSuffix(".json")] },
                     jsonWrite = { p, t -> nDrafts[p.removeSuffix(".json")] = t; true },
                     jsonDelete = { p -> nDrafts.remove(p.removeSuffix(".json")); true },
-                    jsonList = { nDrafts.keys.map { it + ".json" } })
+                    jsonList = { nDrafts.keys.map { it + ".json" } },
+                    // JSONRENAMECERT-2026-11-23: RENAME over the same in-memory map, keyed by plain
+                    // draft name like its neighbours. false when the source is not there,
+                    // which is File.renameTo's and atomicMove's answer too.
+                    jsonRename = { f, t ->
+                        nDrafts.remove(f.removeSuffix(".json"))
+                            ?.let { v -> nDrafts[t.removeSuffix(".json")] = v; true } ?: false
+                    })
                 if (r.end == null || r.pins.isEmpty()) {
                     val ta = System.currentTimeMillis()
                     val o = try { Old.explore(fS, oReq).joinToString("\n") { s -> "${s.name}|${s.miles}|${s.hoursLow}|${s.hoursHigh}|${s.featureCount}|${s.featureMix}|${s.draftName}" } } catch (e: Exception) { "EXCEPTION $e" }

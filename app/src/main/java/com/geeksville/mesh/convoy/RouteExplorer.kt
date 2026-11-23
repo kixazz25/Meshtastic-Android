@@ -36,6 +36,7 @@ object RouteExplorer {
             jsonWrite = { path, text -> RouteDraftStore.jsonWrite(path, text) },
             jsonDelete = { path -> RouteDraftStore.jsonDelete(path) },
             jsonList = { RouteDraftStore.jsonList() },
+            jsonRename = { f, t -> RouteDraftStore.jsonRename(f, t) },   // JSONRENAME-2026-11-23
         )
     }
 

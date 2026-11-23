@@ -143,6 +143,12 @@ object GtRoute {
          *  descend into batch/. Empty list when the folder is absent or unreadable -- "no route files"
          *  is the answer, not a failure. */
         val jsonList: () -> List<String>,
+        /** JSONRENAME-2026-11-23: RENAME -- move [from] onto [to], replacing it. false when [from] is not
+         *  there or the move fails. This is what makes the draft write ATOMIC: persist writes a
+         *  .tmp and renames it on, so a crash mid-write leaves the previous draft intact
+         *  (RouteDraftStore.persist:724-734). Both platforms have a real rename -- File.renameTo
+         *  on Android, okio atomicMove on the iPad -- so neither falls back to copy-and-delete. */
+        val jsonRename: (from: String, to: String) -> Boolean,
     )
     lateinit var env: Env
 

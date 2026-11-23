@@ -58,6 +58,16 @@ private val rtDis: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF44505C disab
 
 // DEADCODE2-2026-10-23: EntryBtnDisabled (unused) moved to retired/2.7c_dead/pieces/convoy/ConvoyRouteToolbar.pieces.txt
 
+/*
+ * ROUTETOOLBAR-2026-11-23 (2.8b): MOVED HERE from app/src/main/java/com/geeksville/mesh/convoy/
+ * ConvoyRouteToolbar.kt, BYTE FOR BYTE -- same package, same name, so every Android call site and
+ * every import of its ROUTE_METHOD_* / ROUTE_LS_* constants is unchanged.
+ *
+ * THIS IS THE PANEL ROUTE MODE SHOWS. Row 1 ("Build it myself") turns route mode on; this is what
+ * the rider then sees. It is stateless by design -- every value and every action is passed in -- so
+ * it needed no seam at all: zero android., no chrome, no stores, no String.format.
+ * The Android original is kept as ConvoyRouteToolbar.kt.MOVED_TO_SHARED_2026-11-23, not compiled.
+ */
 @Composable
 fun ConvoyRouteToolbar(
     isConvoyMap: Boolean,
@@ -111,6 +121,9 @@ fun ConvoyRouteToolbar(
     presetMethod: Int = -1,
     /** ROUTESTART-2026-10-22: true = the METHOD row is not shown -- no change allowed (Fred 13:49). */
     methodLocked: Boolean = false,
+    /** SEAMRULE-2026-11-19: the HOST passes the HELP control. GtHelpButton needs LocalView for the
+     *  issue capture and is not in commonMain; the same parameter the AI panels take. */
+    help: @Composable () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var offsetX by remember { mutableFloatStateOf(0f) }
@@ -188,7 +201,7 @@ fun ConvoyRouteToolbar(
                 // colour as the text beside it. A close nobody can see is the
                 // same as no close.
                 // ROUTESTART-2026-10-22: the standard HELP ✕ (✕ still only CLOSES -- ROUTECLOSE-2026-09-02, nothing torn down)
-                com.geeksville.mesh.grouptrack.GtHelpButton("route")
+                help()   // ROUTESTART-2026-10-22: the standard HELP (host-supplied, ROUTETOOLBAR-2026-11-23)
                 com.geeksville.mesh.grouptrack.GtCloseButton({ onClose() })
             }
 

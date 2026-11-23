@@ -260,7 +260,9 @@ map.on('click', function (e) {
   if (window.gtDrawOn) return;   // VECPORTS-2026-10-31: drawing a box
   if (Date.now() - gtMarkerTapAt < 400) return;
   try {
-    if (!window.gtOneMapRoute) window.__routeMode = false;
+    /* TAPHANDLER-2026-11-23: the gtOneMapRoute gate is GONE -- there is ONE map, and Android set
+       the flag unconditionally (GroupTrackScreen.kt:1034), so this only ever cleared route
+       mode on the iPad. __routeMode is the single global. */
     if (window.__routeMode && window.Android) {
       if (window.__pinSelect && Android.onProximityTap) Android.onProximityTap(e.lngLat.lat, e.lngLat.lng);
       else if (Android.onMapTap) Android.onMapTap(e.lngLat.lat, e.lngLat.lng);

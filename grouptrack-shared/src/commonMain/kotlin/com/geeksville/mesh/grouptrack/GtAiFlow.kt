@@ -44,17 +44,46 @@ object GtAiFlow {
     // ---- ROUTEMANUAL-2026-11-23: the route-building mode, shared ----------------
     /** RouteDraftStore.UNNAMED (:703) -- the unnamed-draft literal. ONE COPY: Android's const now
      *  reads from here. \u26d4 Live rider data: never reworded. */
-    const val UNNAMED = "Auto Saved In Progress"
+    const val UNNAMED = GtRouteLaunch.UNNAMED   // ROUTELAUNCH-2026-11-23: one copy, in GtRouteLaunch
 
     /** RouteModule.kt:90-95's four. Same names, same types, same initial values; RouteModule points
      *  at these, so its call sites are untouched and the two platforms cannot disagree. */
-    val routeMode = mutableStateOf(false)
-    val addPointMode = mutableStateOf(false)
-    val routeName = mutableStateOf("")
-    val routeEntryNonce = mutableIntStateOf(0)
+    // ROUTELAUNCH-2026-11-23: the route-building state is GtRouteLaunch's -- these point at it, so the
+    // iPad host's existing reads and writes are unchanged and both platforms share one copy.
+    val routeMode get() = GtRouteLaunch.routeMode
+    val addPointMode get() = GtRouteLaunch.addPointMode
+    val routeName get() = GtRouteLaunch.routeName
+    val routeEntryNonce get() = GtRouteLaunch.routeEntryNonce
 
     /** The row's action: raise the launch panel and stop. */
     fun launch() { step.intValue = STEP_LAUNCH }
+
+    /**
+     * ROUTERECIPE-2026-11-23: ROW 3 HANDS THE FLOW A RECIPE. [recipeJson] is a route's notes.recipe,
+     * read by the caller through the existing service (RideSpatial.routeRecipe).
+     * \u26a0 ANDROID'S VALIDATION, unchanged (RouteModule.kt:1836-1840): a recipe is recognised by
+     *   anchorLat AND milesHigh, bare or under "recipe". False = "that is not a GroupTrack route
+     *   recipe", which the caller reports.
+     * It loads ONLY what this flow holds -- the distance and speed answers -- and stops. The anchor,
+     * pins and finish belong to the map steps, which are not driven here yet.
+     */
+    fun applyRecipe(recipeJson: String): Boolean {
+        val o = (runCatching { GtOrgJson.parse(recipeJson) }.getOrNull()) as? JsonObject ?: return false
+        val r = (o["recipe"] as? JsonObject) ?: o
+        if (r["anchorLat"] == null || r["milesHigh"] == null) return false
+        fun intOf(key: String, fallback: Int): Int {
+            val d = GtOrgJson.optDouble(r, key, Double.NaN)
+            return if (d.isNaN()) fallback else d.toInt()
+        }
+        miLow.intValue = intOf("milesLow", miLow.intValue)
+        miHigh.intValue = intOf("milesHigh", miHigh.intValue)
+        mphLow.intValue = intOf("mphLow", mphLow.intValue)
+        mphHigh.intValue = intOf("mphHigh", mphHigh.intValue)
+        step.intValue = STEP_DISTANCE
+        log.i { "ROUTERECIPE-2026-11-23: recipe loaded -- " + miLow.intValue + "-" + miHigh.intValue +
+            " mi at " + mphLow.intValue + "-" + mphHigh.intValue + " mph" }
+        return true
+    }
 
     /**
      * ROW 1's ACTION -- RouteModule.startNew's state work, for a host that has no RouteModule.
@@ -64,11 +93,15 @@ object GtAiFlow {
      * [js] is the host's map channel -- Android's GtRoute.js, the iPad's own js(), same script.
      */
     fun manualLaunch(js: (String) -> Unit) {
+        log.i { "ROUTEMANUALLOG-2026-11-23: manualLaunch ENTERED" }   // ROUTEMANUALLOG-2026-11-23
         routeName.value = UNNAMED
         routeEntryNonce.intValue++
         addPointMode.value = true        // taps are vertices, not pins
         routeMode.value = true           // the planner's outer gate
         js("window.__routeMode=true;setRouteMode(true)")
+        log.i { "ROUTEMANUALLOG-2026-11-23: state set routeMode=" + routeMode.value +
+            " addPointMode=" + addPointMode.value + " name=" + routeName.value +
+            " nonce=" + routeEntryNonce.intValue }   // ROUTEMANUALLOG-2026-11-23
     }
 
     /** CANCEL on any of the panels. */
