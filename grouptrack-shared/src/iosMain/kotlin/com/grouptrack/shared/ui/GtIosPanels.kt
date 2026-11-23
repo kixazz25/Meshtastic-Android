@@ -974,6 +974,11 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // iPad has a radio, the config works without touching this line.
     val commConfig = remember { com.grouptrack.shared.comm.GtIosCommConfig { comm.radioClient() } }
     val checkInFiles = remember { com.grouptrack.shared.platform.IosRideFiles() }
+    // IOSROUTEENVWIRE-2026-11-23: GtRoute.env is lateinit and its own comment says a platform that
+    // forgets it "fails on the first draft with UninitializedPropertyAccessException". Android sets
+    // it in RouteExplorer's object init (convoy/RouteExplorer.kt:26); the iPad has no such object,
+    // so the host sets it once here. Both lambdas are inert until called, so nothing can fail now.
+    remember { com.grouptrack.shared.platform.installIosRouteEnv() }
     // IOSRADIOWIRE-2026-11-23: what RADIO SETUP's two shared screens need, remembered once here
     // beside commConfig (:970) so the apply path and the archive path cannot diverge.
     val radioFiles = remember { com.grouptrack.shared.platform.IosRideFiles() }
