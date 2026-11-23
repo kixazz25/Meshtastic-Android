@@ -1,0 +1,354 @@
+// RADIOCONV-2026-11-23: converted to commonMain -- ONE source for Android and the iPad.
+//
+// SEAMS ONLY (Fred 11-23 08:56). The body below is the Android screen's own, unchanged except where a
+// seam had to be replaced, and every replacement is a service that already existed. The Android
+// ViewModel parameter was a pass-through to the comm API (`radioConfig get() = commConfig`,
+// `link = commLink.link`, `myDevice` holding CommIdentity.device), so the screen takes those three
+// directly. HELP is host-supplied under SEAMRULE-2026-11-19. Colours were already Gt.*, so the HUD
+// light/dark switch drives this screen with no change.
+package com.geeksville.mesh.convoy
+
+import com.geeksville.mesh.grouptrack.Gt   // STD1-2026-10-24
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.serialization.json.JsonObject
+import com.grouptrack.comm.ApplyRequest
+import com.grouptrack.comm.ConfigChange
+import com.grouptrack.shared.comm.GtRadioApply
+import com.grouptrack.shared.json.GtOrgJson
+import com.grouptrack.shared.log.gtLogger
+import com.grouptrack.shared.net.GtNetworkGenerator
+import com.grouptrack.shared.ride.GtRideStore
+import com.grouptrack.shared.ride.RideFiles
+import com.grouptrack.shared.settings.GtSettings
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import com.grouptrack.comm.CommConfig
+import com.grouptrack.comm.CommResult
+import com.grouptrack.comm.DeviceInfo
+import com.grouptrack.comm.Link
+import com.grouptrack.shared.comm.GtSheetOut
+
+/*
+ * RADIOCFG4-2026-09-25 (GroupTrack 2.7) -- the radio configurator, part 4: the SCREEN.
+ * [SAVETITLE-2026-09-25: saves titled with the ride they were applied from; CONFIGREVIEW preselect]
+ * Work with Rides -> "Apply ride to radio / Nucleus" opens it (RadioConfigLauncher; Main.kt shows it as an overlay).
+ *
+ *   PICK     the target: the GroupTrack DEFAULT first, then rides, then this radio's backups
+ *   PREVIEW  the managed changes (part 1) + what changed on the radio since its last backup (part 3)
+ *   APPLY    part 2's writer, live log; CLOSE IS DISABLED while it runs (never walk away mid-transaction)
+ *   RESULT   the 19 checks; the backup saved as "<config> -- <date>" (or "... unverified")
+ * COMMCONFIG-2026-10-12 (P4.2): the plan, the writer, the verify and the saves are the COMM SIDE's (CommConfig); this screen
+ *   sends the ride file + the callsign and shows the change list, the log, the checks and the save it reports.
+ * Backups: convoy_backups/<radio id>/<id>_<yyyyMMdd>_<HHmmss>_<label>.cfg. If the radio's folder has no .cfg yet,
+ * its state is saved FIRST as "as-found". Radios GroupTrack configures only (T1000-E / app-attached);
+ * Nucleus radios are Natak's (the "/ Nucleus" half of this entry comes with Nathan's API).
+ */
+
+object RadioConfigLauncher {
+    var showing by mutableStateOf(false)
+    /** CONFIGREVIEW-2026-09-25: a save chosen in Saved configs -> Apply; cleared once used or on close. */
+    var preselect: String? = null   // SAVEDCFG-2026-10-12: the save's id (CommConfig.savedSetups) -- CODE RULE 1: null = none chosen
+    /** CHECKINAPPLY-2026-09-28 (Fred): opened by CHECK IN -- apply THIS ride straight away, then report back.
+     *  CODE RULE 1: null = normal use (the rider picks). */
+    var autoRideId: String? = null
+    /** CHECKINAPPLY: told the result of that apply: true = done and verified. Null = nobody waiting. */
+    var onAutoResult: ((Boolean) -> Unit)? = null
+    fun open() { showing = true }
+    fun close() { showing = false; preselect = null }
+}
+
+private class RadioTarget(val name: String, val detail: String, val json: JsonObject?, val savedId: String?, val rideId: String? = null)
+
+private val BG: Color get() = Gt.panel  // STD1-2026-10-24 was 0xF20F1216 
+private val INK: Color get() = Gt.text  // STD1-2026-10-24 was 0xFFE8EEF5 
+private val DIM: Color get() = Gt.dim  // STD1-2026-10-24 was 0xFF8B949E 
+private val GOOD: Color get() = Gt.good  // STD1-2026-10-24 was 0xFF3FB950 
+private val BAD: Color get() = Gt.bad  // STD1-2026-10-24 was 0xFFF85149 
+private val ACCENT: Color get() = Gt.accent  // STD1-2026-10-24 was 0xFF58A6FF 
+
+/** COMMCONFIG-2026-10-12: a change line as the configurator wrote it ("field: old -> new", or a whole line such as "channel key: changed"). */
+private fun ConfigChange.line(): String = if (from.isEmpty() && to.isEmpty()) field else "$field: $from -> $to"
+
+@Composable
+fun RadioConfigScreen(
+    /** COMMCONFIG-2026-10-12: the Comm API. The Android ViewModel was `radioConfig get() = commConfig`. */
+    config: CommConfig,
+    /** COMMLINK-2026-10-11: as the ViewModel exposed it (`link = commLink.link`). */
+    link: StateFlow<Link>,
+    /** COMMIDENT-2026-10-09 (B7): as the ViewModel held it (CommIdentity.device). */
+    device: StateFlow<DeviceInfo?>,
+    /** the rides folder and the bundled config asset. */
+    files: RideFiles,
+    /** RADIOSETUPTEST-2026-10-01: the settings socket -- file "grouptrack_radio_setup". */
+    settings: GtSettings,
+    /** the system back gesture; the shape RidesScreen already uses. */
+    backHandler: @Composable (Boolean, () -> Unit) -> Unit,
+    onClose: () -> Unit,
+    /** SEAMRULE-2026-11-19: HELP needs LocalContext on Android, so the host supplies the control. */
+    help: @Composable () -> Unit = {},
+) {
+    val scope = rememberCoroutineScope()
+    var phase by remember { mutableStateOf("PICK") }
+    var message by remember { mutableStateOf("") }
+    var targets by remember { mutableStateOf(listOf<RadioTarget>()) }
+    var chosen by remember { mutableStateOf<RadioTarget?>(null) }
+    var changes by remember { mutableStateOf<List<ConfigChange>?>(null) }   // CODE RULE 1: null = nothing previewed yet
+    var drift by remember { mutableStateOf(listOf<ConfigChange>()) }
+    var applied by remember { mutableStateOf<CommResult?>(null) }          // CODE RULE 1: null = not applied yet
+    val report by config.applyReport.collectAsState()
+
+    // B7: radioNodeNum() was the ViewModel's own one-liner over this same value.
+    val myDev by device.collectAsState()
+    val nodeNum = myDev?.id?.toIntOrNull()
+    val nodeId = nodeNum?.let { gtNodeId(it) }
+    val callsign = remember { GtRideStore.env.profile()?.callsign?.trim().orEmpty() }
+    // CALLSIGNOVR-2026-09-26 (Fred): the callsign THIS radio gets -- defaults to the profile's; type another rider's to
+    // set up their radio. The profile never changes. Written to the radio's owner name and verified like the rest.
+    var radioCallsign by remember { mutableStateOf("") }   // RADIONAME-2026-10-31 (Fred 16:03): blank = the radio keeps its own name
+    // RADIONAME-2026-10-31b (Fred 16:15): the field starts as the RADIO'S CURRENT NAME; left as it is, nothing is renamed
+    val radioName = myDev?.name?.trim().orEmpty()
+    var nameTouched by remember { mutableStateOf(false) }
+    LaunchedEffect(radioName) { if (!nameTouched && radioName.isNotEmpty()) radioCallsign = radioName }
+    val defaultJson = remember {
+        // GtRadioApply.DEFAULT_ASSET is "grouptrack_default.json"; readAsset is RideFiles' own.
+        runCatching { GtOrgJson.parse(GtRadioApply.defaultConfigDoc(files)) as? JsonObject }.getOrNull()
+    }
+
+    backHandler(true) { if (phase != "APPLYING") onClose() }
+
+    LaunchedEffect(nodeId) {
+        val list = mutableListOf<RadioTarget>()
+        if (defaultJson != null) list += RadioTarget("GroupTrack default", "GroupTrack's own channel -- any radio, for testing", defaultJson, null)
+        // RideFiles.list gives a directory's entries in the PLATFORM's own order, as listFiles() did.
+        val ridesDir = files.ridesDir()
+        val rideFiles = (files.list(ridesDir) ?: emptyList())
+            .filter { it.endsWith(".json") }
+            .map { files.child(ridesDir, it) }
+            .filter { files.isFile(it) }
+        rideFiles.mapNotNull { p -> runCatching { GtOrgJson.parse(files.readText(p)) as? JsonObject }.getOrNull() }
+            .sortedByDescending { GtOrgJson.optString(it["ride"] as? JsonObject, "date") }
+            .forEach { j ->
+                val r = j["ride"] as? JsonObject
+                val name = GtOrgJson.optString(r, "name").takeIf { it.isNotBlank() && it != "null" } ?: "Unnamed ride"
+                val rid = GtOrgJson.optString(r, "rideId").takeIf { it.isNotBlank() && it != "null" }
+                val date = GtOrgJson.optString(r, "date").takeIf { it.isNotBlank() && it != "null" } ?: "no date"
+                list += RadioTarget(name, "Ride • " + date, j, null, rid)
+            }
+        // SPLITLISTS-2026-09-26 (Fred): Apply ride to radio shows the DEFAULT and RIDES only -- saves are applied from
+        // Saved configs (Review / apply saved configs). A save chosen THERE arrives here as the preselect: it alone.
+        RadioConfigLauncher.preselect?.let { id ->   // SAVEDCFG-2026-10-12
+            config.savedSetups().firstOrNull { it.id == id }?.let { s ->
+                list += RadioTarget(s.title, "This radio's save • " + s.detail, null, s.id, s.rideId)
+            }
+        }
+        targets = list
+    }
+
+    // RADIONAME-2026-10-31: CHECK IN (automatic, the rider's own radio) names it with the rider's callsign; by hand, only a typed name renames
+    fun forThisRadio() = radioCallsign.trim()   // RADIONAME-2026-10-31b: CHECK IN too -- it only runs on by itself when the names match
+    fun saveTitle(t: RadioTarget) =
+        t.name + (if (radioCallsign.trim().isNotEmpty() && radioCallsign.trim() != callsign) " — for ${radioCallsign.trim()}" else "")
+
+    fun choose(t: RadioTarget) {
+        if (phase == "APPLYING") return   // APPLYGUARD-2026-10-10: never re-prepared in the middle of an apply
+        scope.launch {
+            // COMMCONFIG-2026-10-12: the comm side plans against the radio as it is; GroupTrack shows the changes.
+            val (c, r) = if (t.json != null) config.previewConfig(GtOrgJson.compact(t.json), forThisRadio()) else config.previewSaved(t.savedId!!)
+            if (r is CommResult.Failed) { message = "Cannot use this target: ${r.reason}"; return@launch }
+            chosen = t; changes = c
+            drift = config.driftSinceLastSave()
+            phase = "PREVIEW"
+        }
+    }
+
+    // CONFIGREVIEW-2026-09-25: opened from Saved configs -> Apply: straight to that save's preview.
+    LaunchedEffect(targets) {
+        val f = RadioConfigLauncher.preselect ?: return@LaunchedEffect
+        val t = targets.firstOrNull { it.savedId == f } ?: return@LaunchedEffect   // SAVEDCFG-2026-10-12: by id
+        RadioConfigLauncher.preselect = null
+        choose(t)
+    }
+
+    fun apply() {
+        val t = chosen ?: return
+        if (changes == null) return
+        if (nodeId == null || link.value != Link.CONNECTED) { message = "No radio connected."; return }
+        phase = "APPLYING"; applied = null
+        scope.launch {
+            // COMMCONFIG-2026-10-12: WHAT goes on the radio; the comm side does the HOW (first save, writer, verify, save) and reports.
+            val r = if (t.json != null) config.applyRide(ApplyRequest(GtOrgJson.compact(t.json), forThisRadio(), t.name, saveTitle(t), t.rideId))
+                    else config.applySaved(t.savedId!!, saveTitle(t))
+            applied = r
+            if (r is CommResult.Applied && r.verified) settings.store("grouptrack_radio_setup").edit { putString("answer", "done") } // RADIOSETUPTEST-2026-10-01
+            if (r is CommResult.Failed && r.reason == "NO_RADIO") message = "No radio connected."
+            phase = "RESULT"
+        }
+    }
+
+    // CHECKINAPPLY-2026-09-28 (Fred): opened by CHECK IN -- that ride, no picking, no preview: apply, then report back.
+    LaunchedEffect(targets, radioName) {   // RADIONAME-2026-10-31b: + the radio's name
+        val rid = RadioConfigLauncher.autoRideId ?: return@LaunchedEffect
+        if (targets.isEmpty()) return@LaunchedEffect
+        // APPLYGUARD-2026-10-10: only the FIRST target list may start the automatic apply. The list is rebuilt when
+        // the radio reconnects (its node id goes null and back during the apply's restart after group 1b).
+        if (phase != "PICK") return@LaunchedEffect
+        // RADIONAME-2026-10-31b (Fred 16:16): CHECK IN never renames silently -- radio name and this device's callsign must match, else it
+        // waits on this screen for the rider (the prompt below)
+        if (radioName.isEmpty() || radioName != callsign) {
+            gtLogger("RadioConfig").i { "CHECKINAPPLY: radio '$radioName' vs callsign '$callsign' -- held for the rider" }; return@LaunchedEffect
+        }
+        // NORIDEDEFAULT-2026-10-10: "GroupTrack" asks for the GroupTrack default target (it carries no ride id).
+        val t = if (rid == GtNetworkGenerator.DEFAULT_CHANNEL)
+            targets.firstOrNull { it.rideId == null && it.savedId == null && it.name == "GroupTrack default" }
+        else targets.firstOrNull { it.rideId == rid }
+        if (t == null) {
+            gtLogger("RadioConfig").i { "CHECKINAPPLY: ride $rid not found on this tablet" }
+            val cb = RadioConfigLauncher.onAutoResult
+            RadioConfigLauncher.autoRideId = null; RadioConfigLauncher.onAutoResult = null
+            onClose(); cb?.invoke(false)
+        } else choose(t)
+    }
+    LaunchedEffect(phase) {
+        if (RadioConfigLauncher.autoRideId == null) return@LaunchedEffect
+        val autoDefault = RadioConfigLauncher.autoRideId == GtNetworkGenerator.DEFAULT_CHANNEL &&
+            chosen?.rideId == null && chosen?.name == "GroupTrack default"   // NORIDEDEFAULT-2026-10-10
+        if (phase == "PREVIEW" && (chosen?.rideId == RadioConfigLauncher.autoRideId || autoDefault)) apply()
+        if (phase == "RESULT") {
+            val ok = (applied as? CommResult.Applied)?.verified == true
+            gtLogger("RadioConfig").i { "CHECKINAPPLY: ride ${RadioConfigLauncher.autoRideId} applied, verified=$ok" }
+            kotlinx.coroutines.delay(1500)   // the result shows briefly
+            val cb = RadioConfigLauncher.onAutoResult
+            RadioConfigLauncher.autoRideId = null; RadioConfigLauncher.onAutoResult = null
+            onClose(); cb?.invoke(ok)
+        }
+    }
+
+    Box(Modifier.fillMaxSize().background(BG).clickable(enabled = false) {}) {
+        Column(Modifier.fillMaxSize().padding(18.dp).verticalScroll(rememberScrollState())) {
+            // TOUCHSTD-2026-10-22 (Fred 12:05): HELP and Close at the TOP, beside the title (Close was only at the bottom, off screen).
+            Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Apply ride to radio", color = INK, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                help()
+                if (phase != "APPLYING") com.geeksville.mesh.grouptrack.GtCloseButton(onClose)   // CLOSEX-2026-10-22
+            }
+            Text("Radio ${nodeId ?: "(none)"} • callsign ${callsign.ifEmpty { "(no profile)" }}", color = DIM, fontSize = 13.sp)
+            Spacer(Modifier.height(10.dp))
+
+            val connected = link.value == Link.CONNECTED   // COMMRADIOOPS-2026-10-12
+            when {
+                phase == "PICK" && (nodeId == null || !connected) ->
+                    Text("No radio connected. Connect your radio first, then open this again.", color = BAD)
+                phase == "PICK" && callsign.isEmpty() && RadioConfigLauncher.autoRideId != null ->   // RADIONAME-2026-10-31: only CHECK IN needs the profile
+                    Text("Set your rider profile first (Settings → Your Profile): your callsign becomes the radio's name.", color = BAD)
+                phase == "PICK" -> {
+                    // CALLSIGNOVR-2026-09-26: whose radio is this? Your callsign unless you type another rider's.
+                    // RADIONAME-2026-10-31b (Fred 16:15): this device's callsign and the radio's name now, above the field
+                    Text("This device's callsign: ${callsign.ifEmpty { "(no profile)" }}   •   Radio's name now: ${radioName.ifEmpty { "(not known yet)" }}",
+                        color = INK, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    // RADIONAME-2026-10-31 (Fred 16:03): dark blue with white text (was light grey on white); blank = keep the radio's name
+                    OutlinedTextField(value = radioCallsign, onValueChange = { radioCallsign = it.take(39); nameTouched = true }, singleLine = true,
+                        label = { Text("Radio name — as it is, the radio keeps its name") }, modifier = Modifier.fillMaxWidth(),
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF0D47A1), unfocusedContainerColor = Color(0xFF0D47A1),
+                            focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.White,
+                            focusedLabelColor = Color.White, unfocusedLabelColor = Color.White,
+                            focusedBorderColor = Color.White, unfocusedBorderColor = Color(0xFF90CAF9)))
+                    // CALLSIGNHINT-2026-09-27 (Fred): what the field is for, on the screen itself.
+                    Text("Left as it is (or blank), the radio keeps its name. Type a name to rename it.",
+                        color = INK, fontSize = 12.sp)   // RADIONAME-2026-10-31: readable (was dim grey)
+                    // RADIONAME-2026-10-31b (Fred 16:15-16:16): name and callsign do not match -> ask; CHECK IN waits here
+                    val typed = radioCallsign.trim().ifEmpty { radioName }
+                    if (callsign.isNotEmpty() && typed != callsign) {
+                        Text("These don't match. Setting this radio up for someone else? Leave the name. Your own radio? Tap USE MY CALLSIGN." +
+                            (if (RadioConfigLauncher.autoRideId != null) " Check-in waits until you choose, then tap the ride below." else ""),
+                            color = ACCENT, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        OutlinedButton(onClick = { radioCallsign = callsign; nameTouched = true }) { Text("USE MY CALLSIGN ($callsign)") }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text("Choose what to put on the radio:", color = INK)
+                    targets.forEach { t ->
+                        Column(Modifier.fillMaxWidth().clickable { choose(t) }.padding(vertical = 9.dp)) {
+                            Text(t.name, color = ACCENT, fontSize = 16.sp)
+                            Text(t.detail, color = DIM, fontSize = 12.sp)
+                        }
+                    }
+                }
+                phase == "PREVIEW" -> {
+                    val c = changes.orEmpty()
+                    Text("${chosen?.name}", color = ACCENT, fontSize = 17.sp)
+                    Spacer(Modifier.height(6.dp))
+                    if (c.isEmpty()) Text("The radio already holds these values. Applying will only verify them.", color = GOOD)
+                    else { Text("Will change (${c.size}):", color = INK); c.forEach { Text("  • ${it.line()}", color = INK, fontSize = 13.sp) } }
+                    Spacer(Modifier.height(8.dp))
+                    if (drift.isNotEmpty()) {
+                        Text("Changed on this radio since its last backup (not touched):", color = DIM)
+                        drift.forEach { Text("  ${it.field}: ${it.from} → ${it.to}", color = DIM, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(onClick = { apply() }) { Text(if (c.isEmpty()) "Verify" else "Apply") }
+                        OutlinedButton(onClick = { phase = "PICK" }) { Text("Back") }
+                    }
+                }
+                phase == "APPLYING" || phase == "RESULT" -> {
+                    Text(if (phase == "APPLYING") "Applying — do not close. The radio restarts; Bluetooth reconnects after each step." else "Done", color = INK)
+                    if (phase == "RESULT") Button(onClick = onClose) { Text("Done — back to the map") } // CLEANUP-2026-09-25
+                    Spacer(Modifier.height(6.dp))
+                    val rep = report
+                    rep?.log?.forEach { Text(it, color = DIM, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
+                    if (rep != null && !rep.running) when {
+                        rep.stoppedAt != null ->
+                            Text("Stopped at ${rep.stoppedAt}: ${rep.stopReason}. Written before it: ${rep.groupsWritten}", color = BAD)
+                        rep.checks.isNotEmpty() -> {
+                            Spacer(Modifier.height(8.dp))
+                            Text(if (rep.verified) "Verified: all ${rep.checks.size} settings are on the radio." else "NOT verified — see the red lines.",
+                                color = if (rep.verified) GOOD else BAD, fontWeight = FontWeight.Bold)
+                            rep.checks.forEach { c ->
+                                Text("${if (c.ok) "✓" else "✗"} ${c.field}: ${c.actual}" + if (c.ok) "" else " (expected ${c.expected})",
+                                    color = if (c.ok) GOOD else BAD, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                            }
+                            rep.savedAs?.let { Text("Saved as: $it", color = INK, fontSize = 13.sp) }
+                        }
+                        else -> {}
+                    }
+                }
+            }
+            if (message.isNotEmpty()) Text(message, color = BAD, fontSize = 13.sp)
+            Spacer(Modifier.height(14.dp))
+            // TOUCHSTD-2026-10-22: the bottom Close moved to the top.
+        }
+    }
+}
+
+/** COMMIDENT-2026-10-09: the node number as 2.7e wrote it everywhere -- "!%08x". */
+internal fun gtNodeId(num: Int): String = "!" + num.toUInt().toString(16).padStart(8, '0')

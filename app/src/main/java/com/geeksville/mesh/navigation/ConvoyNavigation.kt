@@ -207,7 +207,7 @@ fun NavGraphBuilder.convoyGraph(
         // NORESTORE-2026-09-25 (Fred): there is NO whole-image restore. Every path that led here (developer panel,
         // old apply screens) now opens SAVED CONFIGS: Apply = the configurator, managed fields only; Compare =
         // information. The old ConvoyArchiveRestoreScreen was deleted (RETIRE26-2026-10-08).
-        com.geeksville.mesh.convoy.ConfigReviewScreen(onClose = { navController?.popBackStack() })
+        com.geeksville.mesh.convoy.AndroidConfigReviewScreen(onClose = { navController?.popBackStack() })
     }
 
     // ── Track Export ─────────────────────────────────────────────────────

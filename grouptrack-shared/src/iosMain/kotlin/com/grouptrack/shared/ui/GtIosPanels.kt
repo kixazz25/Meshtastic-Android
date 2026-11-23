@@ -969,6 +969,13 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // iPad has a radio, the config works without touching this line.
     val commConfig = remember { com.grouptrack.shared.comm.GtIosCommConfig { comm.radioClient() } }
     val checkInFiles = remember { com.grouptrack.shared.platform.IosRideFiles() }
+    // IOSRADIOWIRE-2026-11-23: what RADIO SETUP's two shared screens need, remembered once here
+    // beside commConfig (:970) so the apply path and the archive path cannot diverge.
+    val radioFiles = remember { com.grouptrack.shared.platform.IosRideFiles() }
+    val radioSheets = remember { com.grouptrack.shared.platform.IosSheetOut() }
+    val radioDevice = remember {
+        kotlinx.coroutines.flow.MutableStateFlow<com.grouptrack.comm.DeviceInfo?>(null)
+    }
     val tilt = remember { mutableStateOf(false) }
     val headingUp = remember { mutableStateOf(false) }
 
@@ -1314,25 +1321,16 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         },
         // IOSCOMMWIRE-2026-11-20: RADIO SETUP (LaunchModules slot 5, groupOnly) had NO actions entry, so
         // both rows drew as "not attached yet" even once the button could appear. Attached now.
+        // IOSRADIOWIRE-2026-11-23: the row opens the SHARED screen, as Android's row does. The
+        // scan-and-report stand-in is gone -- RadioConfigScreen is the same code on both platforms,
+        // and it is the screen that names the target and drives the apply.
         "group.configure" to {
-            comm.startScan()
-            commScope.launch {
-                // Give the scan a moment to report before naming what is in range -- a scan answers over
-                // time, not at once, so an immediate read would always say "none".
-                kotlinx.coroutines.delay(2_000L)
-                val rs = comm.listRadios()
-                onMessage(
-                    "group",
-                    comm.scanProblem.value?.let { p -> "Radio scan unavailable: " + p }
-                        ?: if (rs.isEmpty()) "No radios in range yet"
-                        else "Radios in range: " + rs.joinToString { r -> r.name },
-                )
-            }
+            com.geeksville.mesh.convoy.RadioConfigLauncher.open()
         },
-        // Android keeps archived setups in its own store; there is no iOS store for them yet. Said plainly
-        // rather than left as a dead row.
+        // IOSRADIOWIRE-2026-11-23: the saved setups come from CommConfig.savedSetups(), which
+        // GtIosCommConfig already answers -- so the row opens the SHARED screen, as Android's does.
         "group.archive" to {
-            onMessage("group", "Archived radio setups are not stored on the iPad yet")
+            com.geeksville.mesh.convoy.ConfigReviewLauncher.open()
         },
         "mode.switch" to {
             if (recState.value == RecordingState.CHECK_IN || recState.value == RecordingState.IDLE) {
@@ -2309,6 +2307,34 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                     GtIosRidePicker(
                         onClose = { ridePickOpen.value = false },
                         onMessage = onMessage,
+                    )
+                }
+                // IOSRADIOWIRE-2026-11-23: RADIO SETUP's two rows, drawn from the SHARED screens
+                // (commonMain/convoy). The launchers moved with them, so open/close is the same object
+                // Android uses. device = null: there is no iOS CommIdentity actual yet (see :2072) and
+                // the contract defines null as "the transport has not reported it", which these screens
+                // already show as "No radio connected".
+                if (com.geeksville.mesh.convoy.RadioConfigLauncher.showing) {
+                    com.geeksville.mesh.convoy.RadioConfigScreen(
+                        config = commConfig,
+                        link = comm.link,
+                        device = radioDevice,
+                        files = radioFiles,
+                        settings = com.grouptrack.shared.platform.IosSettings(),
+                        backHandler = { _, _ -> },
+                        onClose = { com.geeksville.mesh.convoy.RadioConfigLauncher.close() },
+                        help = {},
+                    )
+                }
+                if (com.geeksville.mesh.convoy.ConfigReviewLauncher.showing) {
+                    com.geeksville.mesh.convoy.ConfigReviewScreen(
+                        config = commConfig,
+                        link = comm.link,
+                        device = radioDevice,
+                        sheets = radioSheets,
+                        backHandler = { _, _ -> },
+                        onClose = { com.geeksville.mesh.convoy.ConfigReviewLauncher.close() },
+                        help = {},
                     )
                 }
                 if (grpPanelOpen.value) {

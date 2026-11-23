@@ -606,12 +606,12 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
 
         // RADIOCFG4-2026-09-25: the new radio configurator (Work with Rides -> Apply ride to radio / Nucleus).
         if (com.geeksville.mesh.convoy.RadioConfigLauncher.showing) {
-            com.geeksville.mesh.convoy.RadioConfigScreen(onClose = { com.geeksville.mesh.convoy.RadioConfigLauncher.close() })
+            com.geeksville.mesh.convoy.AndroidRadioConfigScreen(onClose = { com.geeksville.mesh.convoy.RadioConfigLauncher.close() })
         }
 
         // CONFIGREVIEW-2026-09-25: Saved configs (Work with Rides -> Review / apply saved configs).
         if (com.geeksville.mesh.convoy.ConfigReviewLauncher.showing) {
-            com.geeksville.mesh.convoy.ConfigReviewScreen(onClose = { com.geeksville.mesh.convoy.ConfigReviewLauncher.close() })
+            com.geeksville.mesh.convoy.AndroidConfigReviewScreen(onClose = { com.geeksville.mesh.convoy.ConfigReviewLauncher.close() })
         }
 
         // RIDESLIST-2026-09-26: Rides -- send, edit, delete (Work with Rides).
