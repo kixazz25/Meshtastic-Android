@@ -1,0 +1,594 @@
+==============================================================================
+GROUPTRACK -- NAVIGATION CROSS-REFERENCE v3 -- IOS (the click tree)
+==============================================================================
+⚠ iOS HAS NO NAVIGATION ROUTES. Android's routes come from its navigation graph; the iPad is
+  entered through GtIosRoot. So section 1 will be mostly the 'not reached from any route' list,
+  and that is CORRECT here -- it is not a finding. Section 3 is the one to read.
+Generated: 2026-11-23 10:56   branch 2.8 @ a0eb12847   files scanned: 195   composables: 66
+Clickables: 136   state-opened panels: 18   routes: 0
+Each panel shows [file last commit date]: a screenshot whose build date is OLDER than that date needs a recapture.
+
+=== 1. THE CLICK TREE (from each screen downward) ===
+
+### Panels with clickables not reached from any route (entered some other way — check each)
+
+ArtifactDetailPanel  [ArtifactDetailPanel.kt:44 · 2026-11-20]
+   ▸ “CONTINUE”  (line 223)
+      → calls back GtGroupTrackScreen  (onRefreshMap → js("try{if(window.triggerViewportUpdate)triggerViewportUpdate()}catch(e){}"))
+   ▸ “Cancel”  (line 231)
+      → does: showThPopup = false
+   ▸ “CREATE ROUTE & RIDE”  (line 256)
+      → does: val th = chosenTh!! // FIRSTPOINT-2026-09-27 showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteN…
+   ▸ “Cancel”  (line 261)
+      → does: showRideNameDialog = false
+   ▸ “×”  (line 326)
+      → does: gtLogger("ArtifactDetail").i { "Preferred name-swap not yet built" }
+   ▸ “DETAILS”  (line 337)
+      → calls back GtGroupTrackScreen  (onDeleteAlias → aliasId -> val w = IosWriteDb.writer() if (w == null) onMessage("detail", "the …)
+   ▸ “geom_hash”  (line 393)
+      → does: showTech = !showTech
+   ▸ “RENAME”  (line 428)
+      → calls back GtGroupTrackScreen  (onDismiss → ty, aid -> detailType.value = ""; detailId.value = "" if (ty != null && aid != …)
+   ▸ “CANCEL”  (line 433)
+      → does: showRenameDialog = false
+   ▸ “DELETE”  (line 446)
+      → calls back GtGroupTrackScreen  (onDelete → aid -> val ty = detailType.value val w = IosWriteDb.writer() if (w == null) { o…)
+   ▸ “CANCEL”  (line 451)
+      → does: showDeleteConfirm = false
+   ▸ “CANCEL”  (line 467)
+      → calls back GtGroupTrackScreen  (onDismiss → ty, aid -> detailType.value = ""; detailId.value = "" if (ty != null && aid != …)
+   ▸ “CANCEL”  (line 475)
+      → does: showTypeChooser = false
+
+ArtifactListItem  [ArtifactListPanel.kt:186 · 2026-11-20]
+   ▸ “Waypoints”  (line 221)
+      → calls back GtGroupTrackScreen  (via ArtifactListPanel.onNameClick)
+
+ArtifactListPanel  [ArtifactListPanel.kt:58 · 2026-11-20]
+   ▸ “$artifactType (${artifacts.size})”  (line 109)
+      ArtifactListItem  [ArtifactListPanel.kt:186 · 2026-11-20]  ← opens (gtFolded)  (expanded above)
+   ▸ “DESELECT ALL”  (line 133)
+      → calls back GtGroupTrackScreen  (onSelectAll → selectedIds.value = artifactList.value.mapNotNull { it["id"] }.toSet() checkedI…)
+   ▸ “FIT”  (line 138)
+      → calls back GtGroupTrackScreen  (onDeselectAll → selectedIds.value = emptySet() checkedIds.value = checkedIds.value + (activeLis…)
+   ▸ “No $artifactType in current map view”  (line 144)
+      → does: onFitToSelected()
+
+Chip  [TrailStylePanel.kt:206 · 2026-11-19]
+   ▸ “?”  (line 214)
+      → does: onClick()
+
+ConfigReviewScreen  [ConfigReviewScreen.kt:77 · 2026-11-23]
+   ▸ “Saved configs”  (line 158)
+      → ⚠ no action found
+   ▸ “Back to the list”  (line 178)
+      → does: compared = null; selected = null
+   ▸ “Cancel compare”  (line 183)
+      → does: comparing = false
+   ▸ “Apply”  (line 187)
+      → does: apply(sel)
+   ▸ “Compare with…”  (line 188)
+      → does: comparing = true
+   ▸ “View PDF”  (line 189)
+      → does: pdf(sel, email = false)
+   ▸ “Email PDF”  (line 190)
+      → does: pdf(sel, email = true)
+   ▸ “Cancel”  (line 191)
+      → does: selected = null
+   ▸ “Identical.”  (line 209)
+      → does: tap(k)
+
+ConvoyRideCreateScreen  [ConvoyRideCreateScreen.kt:117 · 2026-11-23]
+   ▸ “Network assigned: ”  (line 312)
+      → does: // EDITRIDE: a ride's network is not changed here useDefaultNetwork = opt == 0 newNetworkForRide = opt == 2 i…
+   ▸ “time should be a picker also no keymh am pm etc”  (line 343)
+      → does: showDatePicker = true
+   ▸ “No trailhead waypoint near this route's start. Describe where to meet — it goes at the top of the ride's description.”  (line 351)
+      → does: showTimePicker = true
+   ▸ “ROUTE”  (line 383)
+      → does: trailhead = c
+   ▸ “›”  (line 402)
+      → does: showAll = !showAll
+   ▸ “›”  (line 412)
+      → does: routeId = r.routeId; routeName = r.name; pickerOpen = false
+   ▸ “CHANGE ROUTE”  (line 432)
+      → does: b.toast("A ride's route can't be changed. To use a " + "different route, delete this ride and create a new on…
+   ▸ “✗ Cannot save yet — a ride needs a name.”  (line 456)
+      → calls back RidesScreen  (onRideCreated → editing = null; rides = loadRideLines(b))
+   ▸ “CANCEL”  (line 524)
+      → calls back RidesScreen  (onBack → editing = null)
+   RideDatePickerDialog  [ConvoyRideCreateScreen.kt:543 · 2026-11-23]  ← part of this screen
+      ▸ “OK”  (line 555)
+         → calls back ConvoyRideCreateScreen  (onPick → rideDate = it; showDatePicker = false)
+   RideTimePickerDialog  [ConvoyRideCreateScreen.kt:601 · 2026-11-23]  ← part of this screen
+      ▸ “OK”  (line 609)
+         → calls back ConvoyRideCreateScreen  (onPick → startTime = it; showTimePicker = false)
+
+DetailActionButton  [ArtifactDetailPanel.kt:481 · 2026-11-20]
+   ▸ “?”  (line 488)
+      → does: onClick()
+
+GroupTrackLaunchLayer  [GroupTrack.kt:99 · 2026-11-19]
+   ▸ “Mode: Android only”  (line 218)
+      → does: tap(m)
+   GtCompass  [GroupTrack.kt:358 · 2026-11-19]  ← part of this screen
+      ▸ “N”  (line 366)
+         → does: Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.rotate(-bearing)) { Text("N", …
+   GtIconButton  [GtPanel.kt:187 · 2026-11-19]  ← part of this screen
+      ▸ “?”  (line 194)
+         → ⚠ no action found
+   GtFilterBody  [FilterModule.kt:71 · 2026-11-19]  ← part of this screen
+      ▸ “Available”  (line 104)
+         → does: f.setOffGridAvailable(!f.offGridAvailable())
+      ▸ “Downloading”  (line 108)
+         → does: f.setOffGridDownloading(!f.offGridDownloading())
+      ▸ “Public”  (line 123)
+         → does: setLandTicks(!pubOn, privOn)
+      ▸ “Private”  (line 127)
+         → does: setLandTicks(pubOn, !privOn)
+      ▸ “Public”  (line 138)
+         → does: TrailFilterState.setAreaPublic(!TrailFilterState.areaPublic); tick++; f.trailsChanged()
+      ▸ “Restricted”  (line 143)
+         → does: TrailFilterState.setAreaRestricted(!TrailFilterState.areaRestricted); tick++; f.trailsChanged()
+      ▸ “Restricted — closed to motor vehicles”  (line 153)
+         → does: TrailFilterState.setRestricted(!TrailFilterState.restricted); tick++; f.trailsChanged()
+      Seg  [FilterModule.kt:202 · 2026-11-19]  ← part of this screen
+         ▸ “✓ ”  (line 205)
+            → does: Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelText, fontSize = 13.sp, fontWei…
+   GtKeyBody  [KeyModule.kt:44 · 2026-11-19]  ← part of this screen
+      StyleRow  [KeyModule.kt:96 · 2026-11-19]  ← part of this screen
+         ▸ “STYLE ›”  (line 103)
+            Sample  [KeyModule.kt:146 · 2026-11-19]  ← shows (direct)
+      FixedRow  [KeyModule.kt:110 · 2026-11-19]  ← part of this screen
+   GtSearchBody  [SearchModule.kt:83 · 2026-11-19]  ← part of this screen
+      ▸ “Offline — places are left out; your trails, routes, tracks and waypoints are searched.”  (line 165)
+         → does: pick = g; inState = true; choosing = false; if (searched.isNotEmpty()) run()
+      ScopeSeg  [SearchModule.kt:217 · 2026-11-19]  ← part of this screen
+         ▸ “✓ ”  (line 220)
+            → does: Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelText, fontSize = 13.sp, fontWei…
+      TypeChip  [SearchModule.kt:227 · 2026-11-19]  ← part of this screen
+         ▸ “✓ ”  (line 232)
+            → does: Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelDim, fontSize = 13.sp, fontWeig…
+
+GtButton  [GtPanel.kt:161 · 2026-11-19]
+   ▸ “screens write Gt.<role>, never a colour of their own.”  (line 168)
+      → does: // BTNDIM-2026-11-18 (Fred 07:46): "hate to read, the text is grey on blue in buttons. make text // white." T…
+
+GtCheckInSheet  [GtCheckInSheet.kt:104 · 2026-11-22]
+   ▸ “All”  (line 206)
+      → does: rideFilter = ""
+   ▸ “No rides on this tablet.”  (line 208)
+      → does: rideFilter = o
+   ▸ “No scheduled ride”  (line 227)
+      → does: chosen = r; picked = true; role = defaultRole(r)
+   ▸ “No scheduled ride”  (line 240)
+      → does: chosen = null; picked = true
+   ▸ “⛔ ”  (line 273)
+      → does: role = v
+   ▸ “CHOOSE ANOTHER ROLE”  (line 297)
+      → does: heldWarn = null
+   ▸ “OPEN GRP AWARENESS”  (line 316)
+      → calls back GtGroupTrackScreen  (onCancel → com.geeksville.mesh.grouptrack.GtCheckIn.showing.value = false)
+   ▸ “CHECK IN”  (line 350)
+      → calls back GtGroupTrackScreen  (onCancel → com.geeksville.mesh.grouptrack.GtCheckIn.showing.value = false)
+
+GtCompass  [GroupTrack.kt:358 · 2026-11-19]  (expanded above)
+
+GtDocsChooser  [GtDocsChooser.kt:38 · 2026-11-19]
+   ▸ “Cancel”  (line 51)
+      → calls back GtGroupTrackScreen  (onClose → helpOpen.value = false)
+
+GtEndOfRideForm  [GtEndOfRideForm.kt:50 · 2026-11-22]
+   ▸ “Difficulty”  (line 98)
+      → does: rating = n
+   ▸ “Would you recommend it?”  (line 109)
+      → does: difficulty = v
+   ▸ “Yes”  (line 114)
+      → does: recommend = true
+   ▸ “No”  (line 115)
+      → does: recommend = false
+   ▸ “Yes, share it”  (line 125)
+      → does: share = true
+   ▸ “No, keep it”  (line 126)
+      → does: share = false
+   ▸ “SAVE”  (line 153)
+      → calls back GtGroupTrackScreen  (onSave → gtSurvey -> val gtNm = pendingTrackName.value.trim() val gtPts = endCount.intVa…)
+
+GtFilterBody  [FilterModule.kt:71 · 2026-11-19]  (expanded above)
+
+GtGpsHudRow  [GtGpsHudRow.kt:51 · 2026-11-19]
+   ▸ “🛰”  (line 73)
+      → calls back GtGroupTrackScreen  (onOpen → onMessage("gps", "the GPS interval panel is not built on the iPad yet"))
+   ▸ “switch the text light/dark”  (line 112)
+      → calls back GtGroupTrackScreen  (onToggleText → hudOnDark.value = !hudOnDark.value)
+
+GtGroupTrackScreen  [GtIosPanels.kt:689 · 2026-11-23]
+   ▸ “Removed 0 trails and 0 trail details, but not everything worked:\nthe trail database is not open\n\nRun Remove all trail data again before importing.”  (line 2102)
+      → does: trailClearAsk.value = false trailClearBusy.value = true trailClearScope.launch { // ⚠ Dispatchers.Default, no…
+   ▸ “CANCEL”  (line 2128)
+      → does: trailClearAsk.value = false
+   ▸ “OK”  (line 2147)
+      → does: trailClearDone.value = null
+   ▸ “REFRESH”  (line 2172)
+      → does: statsText.value = rideStatsNow()
+   ▸ “RESET”  (line 2177)
+      → does: RideStats.reset(); statsText.value = rideStatsNow()
+   ▸ “CLOSE”  (line 2178)
+      → does: statsOpen.value = false
+   ▸ “imports”  (line 2213)
+      → does: tcBusy.value = true val q = tcInput.value tcScope.launch { // ⛔ Dispatchers.Default, NOT IO -- IO is internal…
+   ▸ “SEND”  (line 2244)
+      → does: val r = tcResult.value if (r != null) { // iOS drops the subject, so Android's subject line leads the BODY. v…
+   ▸ “CLOSE”  (line 2255)
+      → does: tcOpen.value = false; tcResult.value = null
+   ▸ “CLOSE”  (line 2262)
+      → does: creditsOpen.value = false
+   ▸ “OK”  (line 2276)
+      → does: grpAskActivate.value = false
+   ▸ “HELP”  (line 2354)
+      → does: chrome.openHelp("group.configure")
+   ▸ “HELP”  (line 2387)
+      → does: chrome.openHelp("group.archive")
+   GtRecordButton  [GtRecordButton.kt:44 · 2026-11-19]  ← part of this screen
+      ▸ “⏹  END”  (line 59)
+         → calls back GtGroupTrackScreen  (onTap → when (recState.value) { RecordingState.CHECK_IN -> { // CHECKINBRANCH-2026-11-2…)
+      ▸ “⏹  END”  (line 75)
+         → calls back GtGroupTrackScreen  (onPause → recState.value = if (recState.value == RecordingState.PAUSED) RecordingState.RE…)
+      ▸ “⏹  END”  (line 86)
+         → calls back GtGroupTrackScreen  (onEnd → // CHECKIN-2026-09-27: each recording starts with its own check-in, so END retu…)
+   GtGpsHudRow  [GtGpsHudRow.kt:51 · 2026-11-19]  ← part of this screen  (expanded above)
+   GroupTrackLaunchLayer  [GroupTrack.kt:99 · 2026-11-19]  ← part of this screen  (expanded above)
+   ArtifactDetailPanel  [ArtifactDetailPanel.kt:44 · 2026-11-20]  ← part of this screen  (expanded above)
+   ArtifactListPanel  [ArtifactListPanel.kt:58 · 2026-11-20]  ← part of this screen  (expanded above)
+   GtNotesPanel  [NotesPanel.kt:44 · 2026-11-20]  ← part of this screen
+      ▸ “${s.lines.size}”  (line 123)
+         → does: open = !open
+      ▸ “?”  (line 208)
+         → does: action()
+   GtEndOfRideForm  [GtEndOfRideForm.kt:50 · 2026-11-22]  ← part of this screen  (expanded above)
+   GtIosRideForm  [GtIosRideForm.kt:68 · 2026-11-22]  ← part of this screen
+      ▸ “Network”  (line 169)
+         → does: showDatePicker = true
+      ▸ “Network”  (line 185)
+         → does: isPrivate = !isPrivate
+      ▸ “Network assigned: ”  (line 199)
+         → does: useDefaultNetwork = opt == 0 newNetworkForRide = opt == 2 // generated now, used only when the ride is added …
+      ▸ “SAVE RIDE”  (line 229)
+         → does: routeId = r.routeId
+      ▸ “CANCEL”  (line 244)
+         → does: status = save( fs = fs, editRideId = editRideId, editSent = editSent, rideName = rideName, rideDate = rideDat…
+      ▸ “CANCEL”  (line 259)
+         → calls back GtGroupTrackScreen  (onBack → rideFormFor.value = null)
+
+GtIconButton  [GtPanel.kt:187 · 2026-11-19]  (expanded above)
+
+GtIosGrpAwarenessPanel  [GtIosGrpAwareness.kt:124 · 2026-11-22]
+   ▸ “CONNECT”  (line 236)
+      → calls back GtIosGrpAwareness  (onConnect → id -> message = "Connecting \u2014 iOS asks for the radio's PIN if it needs it.…)
+   ▸ “SELECT A RIDE AND APPLY SETTINGS TO THE RADIO”  (line 252)
+      → does: onApplyRide()
+   ▸ “pairing, forgetting and Bluetooth itself”  (line 264)
+      → calls back GtIosGrpAwareness  (onMenu → id -> // GroupTrack asks by id. It never names an OS or radio screen. message =…)
+
+GtIosMyRides  [GtIosMyRides.kt:59 · 2026-11-23]
+   ▸ “HELP”  (line 104)
+      → does: chrome.openHelp("rides.mine")
+   ▸ “”  (line 124)
+      → does: busy = r.rideId status = "" scope.launch { // RADIOAPPLY-2026-11-21. The service does its half on the iPad //…
+   ▸ “EDIT”  (line 172)
+      → does: busy = r.rideId status = "" scope.launch { val said = sendRide(fs, r, log) busy = "" status = said reload += …
+   ▸ “EDIT”  (line 186)
+      → calls back GtGroupTrackScreen  (onEdit → id -> myRidesOpen.value = false; rideFormFor.value = id)
+   ▸ “DELETE”  (line 189)
+      → does: confirmDelete = r
+   ▸ “DELETE”  (line 220)
+      → does: val ok = try { GtRideStore.deleteRide(fs, r.rideId, "deleted by the rider") } catch (e: Exception) { log.e { …
+   ▸ “CANCEL”  (line 234)
+      → does: confirmDelete = null
+   ConvoyRideCreateScreen  [ConvoyRideCreateScreen.kt:117 · 2026-11-23]  ← part of this screen  (expanded above)
+
+GtIosRideForm  [GtIosRideForm.kt:68 · 2026-11-22]  (expanded above)
+
+GtIosRidePicker  [GtIosRidePicker.kt:56 · 2026-11-23]
+   ▸ “HELP”  (line 95)
+      → does: chrome.openHelp("rides.import")
+   ▸ “”  (line 108)
+      → does: busy = name status = "" val path = fs.child(fs.ridesDir(), name) val said = try { val content = fs.readText(p…
+
+GtIpadProbeScreen  [GtIpadProbeScreen.kt:37 · 2026-11-18]
+   ▸ “TAP TO PROVE RECOMPOSITION”  (line 65)
+      → does: taps++
+
+GtMenuLine  [GroupTrack.kt:76 · 2026-11-19]
+   ▸ “OVERVIEW”  (line 88)
+      → ⚠ no action found
+   ▸ “OVERVIEW”  (line 95)
+      → does: chrome.openHelp(overviewId)
+
+GtNotesPanel  [NotesPanel.kt:44 · 2026-11-20]  (expanded above)
+
+GtPanel  [GtPanel.kt:215 · 2026-11-19]
+   ▸ “☰ MOVE”  (line 231)
+      → ⚠ no action found
+   ▸ “HELP”  (line 257)
+      → does: collapsed = !collapsed
+   ▸ “HELP”  (line 260)
+      → does: chrome.openHelp(helpId)
+
+GtRecordButton  [GtRecordButton.kt:44 · 2026-11-19]  (expanded above)
+
+GtRiderProfilePanel  [GtRiderProfilePanel.kt:75 · 2026-11-20]
+   ▸ “Team colour on the map”  (line 155)
+      → does: role = key
+   ▸ “This stays on your tablet. GroupTrack OG uses it only to identify you to your ”  (line 174)
+      → does: team = name
+   ▸ “Cancel”  (line 207)
+      → calls back GtGroupTrackScreen  (onCancel → profileOpen.value = false)
+   ▸ “Could not save -- check the callsign and email.”  (line 216)
+      → calls back GtGroupTrackScreen  (onSaved → profileOpen.value = false; onMessage("profile", "saved"))
+
+GtSearchBody  [SearchModule.kt:83 · 2026-11-19]  (expanded above)
+
+GtSettingRow  [GtAlertSettingsPanel.kt:327 · 2026-11-21]
+   ▸ “?”  (line 330)
+      → does: onClick()
+
+RadioConfigScreen  [RadioConfigScreen.kt:102 · 2026-11-23]
+   ▸ “Apply ride to radio”  (line 256)
+      → ⚠ no action found
+   ▸ “USE MY CALLSIGN ($callsign)”  (line 295)
+      → does: radioCallsign = callsign; nameTouched = true
+   ▸ “${chosen?.name}”  (line 300)
+      → does: choose(t)
+   ▸ “Back”  (line 319)
+      → does: apply()
+   ▸ “Back”  (line 320)
+      → does: phase = "PICK"
+
+RideDatePickerDialog  [ConvoyRideCreateScreen.kt:543 · 2026-11-23]  (expanded above)
+
+RideTimePickerDialog  [ConvoyRideCreateScreen.kt:601 · 2026-11-23]  (expanded above)
+
+RidesScreen  [RidesScreen.kt:132 · 2026-11-23]
+   ▸ “Rides”  (line 158)
+      → ⚠ no action found
+   ▸ “${r.date.ifBlank { ”  (line 171)
+      → does: filter = f; selected = null; message = ""
+   ▸ “${r.date.ifBlank { ”  (line 184)
+      → does: selected = if (on) null else r.id; message = ""
+   ▸ “Share”  (line 193)
+      → does: message = if (r.mine) { (b.send(r.id) ?: "").also { rides = loadRideLines(b) } } else "Forwarding a received …
+   ▸ “Edit”  (line 200)
+      → does: editing = selected
+   ▸ “Delete”  (line 201)
+      → does: confirmDelete = r
+   ▸ “Delete”  (line 218)
+      → does: val ok = GtRideStore.deleteRide(b.files, r.id, "deleted by the rider") message = if (ok) "Deleted \u201c${r.n…
+   ▸ “Cancel”  (line 224)
+      → does: confirmDelete = null
+   ConvoyRideCreateScreen  [ConvoyRideCreateScreen.kt:117 · 2026-11-23]  ← part of this screen  (expanded above)
+
+ScopeSeg  [SearchModule.kt:217 · 2026-11-19]  (expanded above)
+
+Seg  [FilterModule.kt:202 · 2026-11-19]  (expanded above)
+
+StyleRow  [KeyModule.kt:96 · 2026-11-19]  (expanded above)
+
+TrailStylePanel  [TrailStylePanel.kt:60 · 2026-11-19]
+   ▸ “✕”  (line 96)
+      → calls back GtKeyBody  (onCancel → styling = null)
+   ▸ “PATTERN”  (line 127)
+      → does: c = hex
+   Chip  [TrailStylePanel.kt:206 · 2026-11-19]  ← part of this screen  (expanded above)
+
+TypeChip  [SearchModule.kt:227 · 2026-11-19]  (expanded above)
+
+=== 2. PANELS AND SCREENS — source file and its last commit date ===
+2026-11-20  ArtifactDetailPanel                          grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:44  (13 clickables)
+2026-11-20  DetailActionButton                           grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactDetailPanel.kt:481  (1 clickables)
+2026-11-20  ArtifactListPanel                            grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactListPanel.kt:58  (4 clickables)
+2026-11-20  ArtifactListItem                             grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/ArtifactListPanel.kt:186  (1 clickables)
+2026-11-23  ConfigReviewScreen                           grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/ConfigReviewScreen.kt:77  (9 clickables)
+2026-11-23  ConvoyRideCreateScreen                       grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/ConvoyRideCreateScreen.kt:117  (9 clickables)
+2026-11-23  RideDatePickerDialog                         grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/ConvoyRideCreateScreen.kt:543  (1 clickables)
+2026-11-23  RideTimePickerDialog                         grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/ConvoyRideCreateScreen.kt:601  (1 clickables)
+2026-11-20  GtRiderProfilePanel                          grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/GtRiderProfilePanel.kt:75  (4 clickables)
+2026-11-23  RadioConfigScreen                            grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/RadioConfigScreen.kt:102  (5 clickables)
+2026-11-23  RidesScreen                                  grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/RidesScreen.kt:132  (8 clickables)
+2026-11-19  TrailStylePanel                              grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/TrailStylePanel.kt:60  (2 clickables)
+2026-11-19  Chip                                         grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/convoy/TrailStylePanel.kt:206  (1 clickables)
+2026-11-19  GtFilterBody                                 grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:71  (7 clickables)
+2026-11-19  Seg                                          grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/FilterModule.kt:202  (1 clickables)
+2026-11-19  GtMenuLine                                   grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GroupTrack.kt:76  (2 clickables)
+2026-11-19  GroupTrackLaunchLayer                        grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GroupTrack.kt:99  (1 clickables)
+2026-11-19  GtCompass                                    grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GroupTrack.kt:358  (1 clickables)
+2026-11-21  GtSettingRow                                 grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GtAlertSettingsPanel.kt:327  (1 clickables)
+2026-11-22  GtCheckInSheet                               grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GtCheckInSheet.kt:104  (8 clickables)
+2026-11-19  GtDocsChooser                                grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GtDocsChooser.kt:38  (1 clickables)
+2026-11-22  GtEndOfRideForm                              grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GtEndOfRideForm.kt:50  (7 clickables)
+2026-11-19  GtGpsHudRow                                  grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GtGpsHudRow.kt:51  (2 clickables)
+2026-11-19  GtButton                                     grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:161  (1 clickables)
+2026-11-19  GtIconButton                                 grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:187  (1 clickables)
+2026-11-19  GtPanel                                      grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GtPanel.kt:215  (3 clickables)
+2026-11-19  GtRecordButton                               grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GtRecordButton.kt:44  (3 clickables)
+2026-11-19  StyleRow                                     grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/KeyModule.kt:96  (1 clickables)
+2026-11-20  GtNotesPanel                                 grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/NotesPanel.kt:44  (2 clickables)
+2026-11-19  GtSearchBody                                 grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:83  (1 clickables)
+2026-11-19  ScopeSeg                                     grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:217  (1 clickables)
+2026-11-19  TypeChip                                     grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/SearchModule.kt:227  (1 clickables)
+2026-11-18  GtIpadProbeScreen                            grouptrack-shared/src/commonMain/kotlin/com/grouptrack/shared/ui/GtIpadProbeScreen.kt:37  (1 clickables)
+2026-11-22  GtIosGrpAwarenessPanel                       grouptrack-shared/src/iosMain/kotlin/com/grouptrack/shared/ui/GtIosGrpAwareness.kt:124  (3 clickables)
+2026-11-23  GtIosMyRides                                 grouptrack-shared/src/iosMain/kotlin/com/grouptrack/shared/ui/GtIosMyRides.kt:59  (7 clickables)
+2026-11-23  GtGroupTrackScreen                           grouptrack-shared/src/iosMain/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt:689  (13 clickables)
+2026-11-22  GtIosRideForm                                grouptrack-shared/src/iosMain/kotlin/com/grouptrack/shared/ui/GtIosRideForm.kt:68  (6 clickables)
+2026-11-23  GtIosRidePicker                              grouptrack-shared/src/iosMain/kotlin/com/grouptrack/shared/ui/GtIosRidePicker.kt:56  (2 clickables)
+
+=== 3. STATE FLAGS → PANELS THEY SHOW ===
+GtRideStart                        → GtButton
+artifactType                       → DetailActionButton
+com                                → ConfigReviewScreen, GtCheckInSheet, RadioConfigScreen
+group                              → GtSectionLabel
+grpPanelOpen                       → GtIosGrpAwareness
+gtFolded                           → ArtifactListItem
+helpOpen                           → GtDocsChooser
+m                                  → GtButton
+myRidesOpen                        → GtIosMyRides
+onAddRide                          → DetailActionButton
+onBuildFromRecipe                  → DetailActionButton
+onCreateRideFromTrack              → DetailActionButton
+onExport                           → DetailActionButton
+onShare                            → DetailActionButton
+onShowNotes                        → DetailActionButton
+openModule                         → GtMenuLine, GtPanel, QueueSummary
+profileOpen                        → GtRiderProfilePanel
+ridePickOpen                       → GtIosRidePicker
+settingsOpen                       → GtAlertSettingsPanel
+showGps                            → GtGpsOutlinedText
+st                                 → TrailStylePanel
+
+=== 4. EVERY CLICKABLE (flat) — file:line | panel | label | action ===
+ArtifactDetailPanel.kt:223 | ArtifactDetailPanel | “CONTINUE” | val f = first!! runCatching { insertTrailhead?.invoke(thNewName.trim(), f.second, f.first) } chosenTh = RouteTrailhead(…
+ArtifactDetailPanel.kt:231 | ArtifactDetailPanel | “Cancel” | showThPopup = false
+ArtifactDetailPanel.kt:256 | ArtifactDetailPanel | “CREATE ROUTE & RIDE” | val th = chosenTh!! // FIRSTPOINT-2026-09-27 showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteName.trim()…
+ArtifactDetailPanel.kt:261 | ArtifactDetailPanel | “Cancel” | showRideNameDialog = false
+ArtifactDetailPanel.kt:326 | ArtifactDetailPanel | “×” | gtLogger("ArtifactDetail").i { "Preferred name-swap not yet built" }
+ArtifactDetailPanel.kt:337 | ArtifactDetailPanel | “DETAILS” | onDeleteAlias(aId); reloadAliases()
+ArtifactDetailPanel.kt:393 | ArtifactDetailPanel | “geom_hash” | showTech = !showTech
+ArtifactDetailPanel.kt:428 | ArtifactDetailPanel | “RENAME” | onRename?.invoke(id, renameText); showRenameDialog = false; onDismiss(null, null)
+ArtifactDetailPanel.kt:433 | ArtifactDetailPanel | “CANCEL” | showRenameDialog = false
+ArtifactDetailPanel.kt:446 | ArtifactDetailPanel | “DELETE” | onDelete?.invoke(id); showDeleteConfirm = false; onDismiss(null, null)
+ArtifactDetailPanel.kt:451 | ArtifactDetailPanel | “CANCEL” | showDeleteConfirm = false
+ArtifactDetailPanel.kt:467 | ArtifactDetailPanel | “CANCEL” | onChangeType?.invoke(id, wType); showTypeChooser = false; onDismiss(null, null)
+ArtifactDetailPanel.kt:475 | ArtifactDetailPanel | “CANCEL” | showTypeChooser = false
+ArtifactDetailPanel.kt:488 | DetailActionButton | “?” | onClick()
+ArtifactListPanel.kt:109 | ArtifactListPanel | “$artifactType (${artifacts.size})” | gtFolded = !gtFolded
+ArtifactListPanel.kt:133 | ArtifactListPanel | “DESELECT ALL” | onSelectAll()
+ArtifactListPanel.kt:138 | ArtifactListPanel | “FIT” | onDeselectAll()
+ArtifactListPanel.kt:144 | ArtifactListPanel | “No $artifactType in current map view” | onFitToSelected()
+ArtifactListPanel.kt:221 | ArtifactListItem | “Waypoints” | onNameClick()
+ConfigReviewScreen.kt:158 | ConfigReviewScreen | “Saved configs” | 
+ConfigReviewScreen.kt:178 | ConfigReviewScreen | “Back to the list” | compared = null; selected = null
+ConfigReviewScreen.kt:183 | ConfigReviewScreen | “Cancel compare” | comparing = false
+ConfigReviewScreen.kt:187 | ConfigReviewScreen | “Apply” | apply(sel)
+ConfigReviewScreen.kt:188 | ConfigReviewScreen | “Compare with…” | comparing = true
+ConfigReviewScreen.kt:189 | ConfigReviewScreen | “View PDF” | pdf(sel, email = false)
+ConfigReviewScreen.kt:190 | ConfigReviewScreen | “Email PDF” | pdf(sel, email = true)
+ConfigReviewScreen.kt:191 | ConfigReviewScreen | “Cancel” | selected = null
+ConfigReviewScreen.kt:209 | ConfigReviewScreen | “Identical.” | tap(k)
+ConvoyRideCreateScreen.kt:312 | ConvoyRideCreateScreen | “Network assigned: ” | // EDITRIDE: a ride's network is not changed here useDefaultNetwork = opt == 0 newNetworkForRide = opt == 2 if (opt == …
+ConvoyRideCreateScreen.kt:343 | ConvoyRideCreateScreen | “time should be a picker also no keymh am pm etc” | showDatePicker = true
+ConvoyRideCreateScreen.kt:351 | ConvoyRideCreateScreen | “No trailhead waypoint near this route's start. Describe where to meet — it goes at the top of the ride's description.” | showTimePicker = true
+ConvoyRideCreateScreen.kt:383 | ConvoyRideCreateScreen | “ROUTE” | trailhead = c
+ConvoyRideCreateScreen.kt:402 | ConvoyRideCreateScreen | “›” | showAll = !showAll
+ConvoyRideCreateScreen.kt:412 | ConvoyRideCreateScreen | “›” | routeId = r.routeId; routeName = r.name; pickerOpen = false
+ConvoyRideCreateScreen.kt:432 | ConvoyRideCreateScreen | “CHANGE ROUTE” | b.toast("A ride's route can't be changed. To use a " + "different route, delete this ride and create a new one from the…
+ConvoyRideCreateScreen.kt:456 | ConvoyRideCreateScreen | “✗ Cannot save yet — a ride needs a name.” | // SAVEWHY-2026-09-23: the high-visibility palette hides a disabled button, so Save // is always tappable and SAYS what…
+ConvoyRideCreateScreen.kt:524 | ConvoyRideCreateScreen | “CANCEL” | rideNetwork?.configId?.let { GtRideStore.env.networks.deleteUnused(it) } // FORMLAYOUT-2026-09-27: no ghost network onB…
+ConvoyRideCreateScreen.kt:555 | RideDatePickerDialog | “OK” | val ms = state.selectedDateMillis if (ms != null) { val (yy, mm, dd) = GtTime.gregorianCivil(ms / 86_400_000L) onPick(y…
+ConvoyRideCreateScreen.kt:609 | RideTimePickerDialog | “OK” | onPick(formatRideTime(state.hour, state.minute))
+GtRiderProfilePanel.kt:155 | GtRiderProfilePanel | “Team colour on the map” | role = key
+GtRiderProfilePanel.kt:174 | GtRiderProfilePanel | “This stays on your tablet. GroupTrack OG uses it only to identify you to your ” | team = name
+GtRiderProfilePanel.kt:207 | GtRiderProfilePanel | “Cancel” | onCancel()
+GtRiderProfilePanel.kt:216 | GtRiderProfilePanel | “Could not save -- check the callsign and email.” | val id = save( GtRiderProfile( firstName = firstName.trim(), lastName = lastName.trim(), callsign = callsign.trim(), em…
+RadioConfigScreen.kt:256 | RadioConfigScreen | “Apply ride to radio” | 
+RadioConfigScreen.kt:295 | RadioConfigScreen | “USE MY CALLSIGN ($callsign)” | radioCallsign = callsign; nameTouched = true
+RadioConfigScreen.kt:300 | RadioConfigScreen | “${chosen?.name}” | choose(t)
+RadioConfigScreen.kt:319 | RadioConfigScreen | “Back” | apply()
+RadioConfigScreen.kt:320 | RadioConfigScreen | “Back” | phase = "PICK"
+RidesScreen.kt:158 | RidesScreen | “Rides” | 
+RidesScreen.kt:171 | RidesScreen | “${r.date.ifBlank { ” | filter = f; selected = null; message = ""
+RidesScreen.kt:184 | RidesScreen | “${r.date.ifBlank { ” | selected = if (on) null else r.id; message = ""
+RidesScreen.kt:193 | RidesScreen | “Share” | message = if (r.mine) { (b.send(r.id) ?: "").also { rides = loadRideLines(b) } } else "Forwarding a received ride comes…
+RidesScreen.kt:200 | RidesScreen | “Edit” | editing = selected
+RidesScreen.kt:201 | RidesScreen | “Delete” | confirmDelete = r
+RidesScreen.kt:218 | RidesScreen | “Delete” | val ok = GtRideStore.deleteRide(b.files, r.id, "deleted by the rider") message = if (ok) "Deleted \u201c${r.name}\u201d…
+RidesScreen.kt:224 | RidesScreen | “Cancel” | confirmDelete = null
+TrailStylePanel.kt:96 | TrailStylePanel | “✕” | onCancel()
+TrailStylePanel.kt:127 | TrailStylePanel | “PATTERN” | c = hex
+TrailStylePanel.kt:214 | Chip | “?” | onClick()
+FilterModule.kt:104 | GtFilterBody | “Available” | f.setOffGridAvailable(!f.offGridAvailable())
+FilterModule.kt:108 | GtFilterBody | “Downloading” | f.setOffGridDownloading(!f.offGridDownloading())
+FilterModule.kt:123 | GtFilterBody | “Public” | setLandTicks(!pubOn, privOn)
+FilterModule.kt:127 | GtFilterBody | “Private” | setLandTicks(pubOn, !privOn)
+FilterModule.kt:138 | GtFilterBody | “Public” | TrailFilterState.setAreaPublic(!TrailFilterState.areaPublic); tick++; f.trailsChanged()
+FilterModule.kt:143 | GtFilterBody | “Restricted” | TrailFilterState.setAreaRestricted(!TrailFilterState.areaRestricted); tick++; f.trailsChanged()
+FilterModule.kt:153 | GtFilterBody | “Restricted — closed to motor vehicles” | TrailFilterState.setRestricted(!TrailFilterState.restricted); tick++; f.trailsChanged()
+FilterModule.kt:205 | Seg | “✓ ” | Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelText, fontSize = 13.sp, fontWeight = Font…
+GroupTrack.kt:88 | GtMenuLine | “OVERVIEW” | 
+GroupTrack.kt:95 | GtMenuLine | “OVERVIEW” | chrome.openHelp(overviewId)
+GroupTrack.kt:218 | GroupTrackLaunchLayer | “Mode: Android only” | tap(m)
+GroupTrack.kt:366 | GtCompass | “N” | Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.rotate(-bearing)) { Text("N", color = re…
+GtAlertSettingsPanel.kt:330 | GtSettingRow | “?” | onClick()
+GtCheckInSheet.kt:206 | GtCheckInSheet | “All” | rideFilter = ""
+GtCheckInSheet.kt:208 | GtCheckInSheet | “No rides on this tablet.” | rideFilter = o
+GtCheckInSheet.kt:227 | GtCheckInSheet | “No scheduled ride” | chosen = r; picked = true; role = defaultRole(r)
+GtCheckInSheet.kt:240 | GtCheckInSheet | “No scheduled ride” | chosen = null; picked = true
+GtCheckInSheet.kt:273 | GtCheckInSheet | “⛔ ” | role = v
+GtCheckInSheet.kt:297 | GtCheckInSheet | “CHOOSE ANOTHER ROLE” | heldWarn = null
+GtCheckInSheet.kt:316 | GtCheckInSheet | “OPEN GRP AWARENESS” | // CHECKINCONNECT-2026-09-28: Android sets GrpAwarenessLauncher.thenCheckIn here, so the // check-in reopens when a rad…
+GtCheckInSheet.kt:350 | GtCheckInSheet | “CHECK IN” | if (noRideNeedsDefault) { // NORIDEDEFAULT-2026-10-10: the radio back to the GroupTrack default FIRST, then check in. o…
+GtDocsChooser.kt:51 | GtDocsChooser | “Cancel” | onClose() if (key == "videos") { try { uri.openUri(VIDEOS_URL) } catch (e: Exception) { } } else onOpen(key)
+GtEndOfRideForm.kt:98 | GtEndOfRideForm | “Difficulty” | rating = n
+GtEndOfRideForm.kt:109 | GtEndOfRideForm | “Would you recommend it?” | difficulty = v
+GtEndOfRideForm.kt:114 | GtEndOfRideForm | “Yes” | recommend = true
+GtEndOfRideForm.kt:115 | GtEndOfRideForm | “No” | recommend = false
+GtEndOfRideForm.kt:125 | GtEndOfRideForm | “Yes, share it” | share = true
+GtEndOfRideForm.kt:126 | GtEndOfRideForm | “No, keep it” | share = false
+GtEndOfRideForm.kt:153 | GtEndOfRideForm | “SAVE” | onSave( if (surveyRideId != null) GtRideStore.RideSurveyInput( rideId = surveyRideId, rating = rating, difficulty = dif…
+GtGpsHudRow.kt:73 | GtGpsHudRow | “🛰” | onOpen()
+GtGpsHudRow.kt:112 | GtGpsHudRow | “switch the text light/dark” | onToggleText()
+GtPanel.kt:168 | GtButton | “screens write Gt.<role>, never a colour of their own.” | // BTNDIM-2026-11-18 (Fred 07:46): "hate to read, the text is grey on blue in buttons. make text // white." The disable…
+GtPanel.kt:194 | GtIconButton | “?” | 
+GtPanel.kt:231 | GtPanel | “☰ MOVE” | 
+GtPanel.kt:257 | GtPanel | “HELP” | collapsed = !collapsed
+GtPanel.kt:260 | GtPanel | “HELP” | chrome.openHelp(helpId)
+GtRecordButton.kt:59 | GtRecordButton | “⏹  END” | onTap()
+GtRecordButton.kt:75 | GtRecordButton | “⏹  END” | onPause()
+GtRecordButton.kt:86 | GtRecordButton | “⏹  END” | onEnd()
+KeyModule.kt:103 | StyleRow | “STYLE ›” | Sample(color, weight, dashed) Text(r.label, color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, mo…
+NotesPanel.kt:123 | GtNotesPanel | “${s.lines.size}” | open = !open
+NotesPanel.kt:208 | GtNotesPanel | “?” | action()
+SearchModule.kt:165 | GtSearchBody | “Offline — places are left out; your trails, routes, tracks and waypoints are searched.” | pick = g; inState = true; choosing = false; if (searched.isNotEmpty()) run()
+SearchModule.kt:220 | ScopeSeg | “✓ ” | Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelText, fontSize = 13.sp, fontWeight = Font…
+SearchModule.kt:232 | TypeChip | “✓ ” | Text((if (on) "\u2713 " else "") + label, color = if (on) Gt.text else s.panelDim, fontSize = 13.sp, fontWeight = FontW…
+GtIpadProbeScreen.kt:65 | GtIpadProbeScreen | “TAP TO PROVE RECOMPOSITION” | taps++
+GtIosGrpAwareness.kt:236 | GtIosGrpAwarenessPanel | “CONNECT” | onConnect(radio.id)
+GtIosGrpAwareness.kt:252 | GtIosGrpAwarenessPanel | “SELECT A RIDE AND APPLY SETTINGS TO THE RADIO” | onApplyRide()
+GtIosGrpAwareness.kt:264 | GtIosGrpAwarenessPanel | “pairing, forgetting and Bluetooth itself” | onMenu(item.id)
+GtIosMyRides.kt:104 | GtIosMyRides | “HELP” | chrome.openHelp("rides.mine")
+GtIosMyRides.kt:124 | GtIosMyRides | “” | busy = r.rideId status = "" scope.launch { // RADIOAPPLY-2026-11-21. The service does its half on the iPad // already: …
+GtIosMyRides.kt:172 | GtIosMyRides | “EDIT” | busy = r.rideId status = "" scope.launch { val said = sendRide(fs, r, log) busy = "" status = said reload += 1 // THE L…
+GtIosMyRides.kt:186 | GtIosMyRides | “EDIT” | onEdit(r.rideId)
+GtIosMyRides.kt:189 | GtIosMyRides | “DELETE” | confirmDelete = r
+GtIosMyRides.kt:220 | GtIosMyRides | “DELETE” | val ok = try { GtRideStore.deleteRide(fs, r.rideId, "deleted by the rider") } catch (e: Exception) { log.e { "IOSMYRIDE…
+GtIosMyRides.kt:234 | GtIosMyRides | “CANCEL” | confirmDelete = null
+GtIosPanels.kt:2102 | GtGroupTrackScreen | “Removed 0 trails and 0 trail details, but not everything worked:\nthe trail database is not open\n\nRun Remove all trail data again before importing.” | trailClearAsk.value = false trailClearBusy.value = true trailClearScope.launch { // ⚠ Dispatchers.Default, not IO: IO i…
+GtIosPanels.kt:2128 | GtGroupTrackScreen | “CANCEL” | trailClearAsk.value = false
+GtIosPanels.kt:2147 | GtGroupTrackScreen | “OK” | trailClearDone.value = null
+GtIosPanels.kt:2172 | GtGroupTrackScreen | “REFRESH” | statsText.value = rideStatsNow()
+GtIosPanels.kt:2177 | GtGroupTrackScreen | “RESET” | RideStats.reset(); statsText.value = rideStatsNow()
+GtIosPanels.kt:2178 | GtGroupTrackScreen | “CLOSE” | statsOpen.value = false
+GtIosPanels.kt:2213 | GtGroupTrackScreen | “imports” | tcBusy.value = true val q = tcInput.value tcScope.launch { // ⛔ Dispatchers.Default, NOT IO -- IO is internal on // Kot…
+GtIosPanels.kt:2244 | GtGroupTrackScreen | “SEND” | val r = tcResult.value if (r != null) { // iOS drops the subject, so Android's subject line leads the BODY. val subject…
+GtIosPanels.kt:2255 | GtGroupTrackScreen | “CLOSE” | tcOpen.value = false; tcResult.value = null
+GtIosPanels.kt:2262 | GtGroupTrackScreen | “CLOSE” | creditsOpen.value = false
+GtIosPanels.kt:2276 | GtGroupTrackScreen | “OK” | grpAskActivate.value = false
+GtIosPanels.kt:2354 | GtGroupTrackScreen | “HELP” | chrome.openHelp("group.configure")
+GtIosPanels.kt:2387 | GtGroupTrackScreen | “HELP” | chrome.openHelp("group.archive")
+GtIosRideForm.kt:169 | GtIosRideForm | “Network” | showDatePicker = true
+GtIosRideForm.kt:185 | GtIosRideForm | “Network” | isPrivate = !isPrivate
+GtIosRideForm.kt:199 | GtIosRideForm | “Network assigned: ” | useDefaultNetwork = opt == 0 newNetworkForRide = opt == 2 // generated now, used only when the ride is added if (opt ==…
+GtIosRideForm.kt:229 | GtIosRideForm | “SAVE RIDE” | routeId = r.routeId
+GtIosRideForm.kt:244 | GtIosRideForm | “CANCEL” | status = save( fs = fs, editRideId = editRideId, editSent = editSent, rideName = rideName, rideDate = rideDate, startTi…
+GtIosRideForm.kt:259 | GtIosRideForm | “CANCEL” | rideNetwork?.configId?.let { id -> runCatching { GtRideStore.env.networks.deleteUnused(id) } } onBack()
+GtIosRidePicker.kt:95 | GtIosRidePicker | “HELP” | chrome.openHelp("rides.import")
+GtIosRidePicker.kt:108 | GtIosRidePicker | “” | busy = name status = "" val path = fs.child(fs.ridesDir(), name) val said = try { val content = fs.readText(path) // br…
+
+=== 5. UNRESOLVED — clickables with no action found (check each by hand) ===
+ConfigReviewScreen.kt:158 | ConfigReviewScreen | “Saved configs” | 
+GtPanel.kt:194 | GtIconButton | “?” | 
+GroupTrack.kt:88 | GtMenuLine | “OVERVIEW” | 
+GtPanel.kt:231 | GtPanel | “☰ MOVE” | 
+RadioConfigScreen.kt:256 | RadioConfigScreen | “Apply ride to radio” | 
+RidesScreen.kt:158 | RidesScreen | “Rides” | 
+(6 unresolved)
