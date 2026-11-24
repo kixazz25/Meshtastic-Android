@@ -5058,12 +5058,162 @@ navxref v3Two-platform nav xref: --platform android|ios, --diff, an ALIASES map 
 
 
 === GroupTrack_2.8_completed_activity_2026-11-23_v1.html ===
-GroupTrack &mdash; COMPLETED ACTIVITY 2.8 &mdash; v1 (2026-11-23)
+GroupTrack 2.8 &mdash; COMPLETED 2026-11-23
+body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:1100px;margin:24px auto;
+padding:0 18px;line-height:1.5;color:#1a1a1a}h1{border-bottom:3px solid #333;padding-bottom:6px}
+h2{margin-top:30px;border-bottom:1px solid #bbb;padding-bottom:4px}h3{margin-top:22px}
+code{background:#f2f2f2;padding:1px 4px;border-radius:3px;font-size:92%}
+table{border-collapse:collapse;margin:12px 0;width:100%}th,td{border:1px solid #bbb;padding:5px 7px;
+text-align:left;vertical-align:top;font-size:94%}th{background:#eee}
+.note{background:#fff8e1;border-left:4px solid #e8a33d;padding:9px 12px;margin:12px 0}
+.card{background:#f6f8fa;border-left:4px solid #5b8db8;padding:9px 12px;margin:12px 0}
+.src{background:#f0f0f0;border-left:3px solid #999;padding:7px 10px;margin:10px 0;font-size:93%}
 COMPLETED 2026-11-23
-One row per item that closed today, with its EVIDENCE (a measurement, a commit, a device
-observation) and its commit number. Items ARRIVE here by being MOVED out of the handoff or the
-checklist -- never by being retyped. The day&rsquo;s completed-activity record, so that pruning
-never loses the fact that something was addressed.
+11 code commits, not 1. This doc is the day's completed work with its notes, moved OFF the living
+lists per the 10-15 / 11-18 rule. The open items that remain are on
+grouptrack_handoff_2026-11-23_v161.html and
+grouptrack_living_checklist_2026-11-23_v33.html, not here.
+&#9888; WHY THIS DOC EXISTS AND WHY IT WAS EMPTY. It was created at 12:01 today as a
+537-byte shell &mdash; one &lt;h1&gt;, nothing under it &mdash; and never written to again, while
+the EOD handoff recorded only the LAST commit of the day. [stated] Fred 19:23:
+&ldquo;completed items should go to a daily completed list with all the work notes. never happens.&rdquo;
+It did not happen today either; an empty file with the right date on it is worse than none, because the step
+looks taken. Filled 19:30 from git log, not from recollection.
+1 &middot; THE DAY, FROM GIT
+TimeCommitWhat completedSize
+08:103178515a9RidesScreen and ConvoyRideCreateScreen converted into
+commonMain &mdash; one code base8 files, 1,040 ins
+08:13160866d9eassets: manual v145 (2.8b stub pass), release notes
+v912 files, 45 ins
+09:266e9952205RADIO SETUP ON THE iPAD &mdash;
+group.configure and group.archive open the shared screens
+11 files, 757 ins
+09:571c2c08a22radio setup: shared screens, the standard header,
+Android's colour scheme3 files, 82 ins
+10:50a0eb12847GtRouteFiles &mdash; a shared service saying
+which route jsons exist1 file, 93 ins
+11:0954ec3a155REVERTED GtRouteFiles &mdash; 19
+minutes later93 del
+11:2006bedfd80GtRoute.env gets its iOS actual &mdash;
+installIosRouteEnv, wired in the panels host2 files, 66 ins
+13:04e21ddb9d9route json primitives
+(create/read/write/delete/list), shared AI panels and flow, iPad rows route.ai and
+route.clear, RouteManager to commonMain
+17 files, 13,103 ins
+13:0650c0c4277removed the parked RouteModule
+copy1,890 del
+13:297f5e42a2cAiGuidedPanels + guided types to
+commonMain (GtFmt for String.format); iPad route rows
+manual/ai/clear8 files, 598 ins
+18:124e7a23239MANUAL ROUTE ON THE iPAD &mdash; the existing
+process, through its seams12 files, 651 ins
+18:3279fcd7b4edocs recommit v26 &mdash; handoff v161, checklist
+v3310 files
+Net code movement: ~14,400 insertions, after the revert and the removal of the parked copy.
+2 &middot; THE RADIO STUBS WERE CIRCLED BACK TO AND CLOSED
+Two of the THREE rows the 11-20 completion register flagged as &ldquo;attached but
+answers with a status message instead of opening the screen&rdquo; closed today at 09:26
+(6e9952205).
+What group.configure was, measured 07:59: the iPad's row (GtIosPanels.kt:1317) started a
+BLE scan, waited 2 s and reported TEXT through onMessage &mdash; &ldquo;Radios in range: &hellip;&rdquo;
+or &ldquo;No radios in range yet&rdquo;. It never opened a screen. Android's row is
+RadioConfigLauncher.open() (GroupTrackScreen.kt:3077) &rarr;
+RadioConfigScreen.kt, 319 lines, with ConfigReviewScreen.kt, 209 behind
+it. Neither was in shared.
+What it is now: both rows open the shared screens, carrying the standard header and Android's colour
+scheme (1c2c08a22, 09:57).
+&#9888; grp.open is the third row and still owes the same look. It stays on the
+checklist.
+[stated] Fred 11-23 08:00: &ldquo;grp awareness is fine th[e] issue is radio setting just
+hold them till we are done with rides.&rdquo; &mdash; held, then done in that order: rides at 08:10, radio
+setup at 09:26.
+3 &middot; MANUAL ROUTE &mdash; WHAT MOVED, AND WHY IT IS ONE BODY NOW
+Four things crossed into commonMain permanently. Each one leaves the two-platform comparison
+problem for good, because a module there has ONE body and cannot drift:
+MovedAndroid's side of it
+GtRouteLaunch &mdash; startNew / close /
+endBuild / onTap + the six route state fields + the pure
+buildLinePtsobject GtRoute DELEGATES (get() =); every call site
+untouched; buildLine(ctx) keeps its signature for its 3 other callers (:1009, :1141,
+:1491)
+ConvoyRouteToolbar &rarr; commonMain/&hellip;/convoy/git recorded it
+as a rename at 95%, not a rewrite
+GtRouteDraft &mdash; the draft document and storefield-for-field against
+RouteDraftStore.persist:703-722 / openDraft:839-857
+RouteManager &rarr; commonMain (13:04)the geometry the route build
+runs on
+jsonRename &mdash; the 6th json primitive, with no default, so the draft write is
+&lt;name&gt;.json.tmp then a rename onto &lt;name&gt;.json &mdash; atomic on both
+platforms. [stated] Fred 17:16: &ldquo;add the rename I prefer it over a copy and delete.&rdquo;
+It was a MISSING service, not a new one &mdash; every platform already had the call
+(File.renameTo, okio atomicMove). The no-default is what made the compiler catch the
+third supplier, GtCertRoutes.kt:69, spelled New.Env( through an import alias.
+Android unchanged: the warning list is byte-identical before and after, and the app/
+diff adds zero dialog lines.
+The two defects that actually blocked the pins, both found by reading: a dead
+gtOneMapRoute gate in vec_spatial.js (Android sets that flag unconditionally at
+GroupTrackScreen.kt:1034, so the gate is behaviour-neutral THERE and fatal on the iPad), and the
+relay having no onMapTap case (GtIosPanels.kt:1064 &mdash; the shim at
+GtVecMap.ios.kt:78-89 makes window.Android a Proxy, so all 14 names arrive and an
+unhandled one is dropped: &ldquo;dispatch gaps are SILENT BY CONSTRUCTION&rdquo;).
+[stated] Fred named both at 15:41, before either was found: &ldquo;the mode panel lets me toggle the
+mode and that did not change behavior so we either are n[ot] properly record[ing] or testing the same file for
+map code.&rdquo;
+4 &middot; DEAD CODE REMOVED, AND ONE SERVICE THAT SHOULD NEVER HAVE BEEN WRITTEN
+50c0c4277 &mdash; the parked RouteModule copy deleted,
+1,890 lines. Real clutter gone from the model.
+a0eb12847 &rarr; 54ec3a155 &mdash; GtRouteFiles created at 10:50
+and reverted at 11:09. A new service written where the question was which route jsons exist. It lasted 19
+minutes. [stated] Fred the same day: &ldquo;no new service creation, no delving into process rules, no
+discussion on them will be tolerated&rdquo; and &ldquo;all the math and geometry services exist. yu
+have ti start checking and stop writing new code.&rdquo; The revert is in the record on purpose
+&mdash; it is the clearest instance of the day's main failure, and it cost 19 minutes rather than a day only
+because it was caught immediately.
+Three more of the same kind, caught before they were committed: GtAiFlow invented past
+GtRoute.startNew(ROUTE_METHOD_P2P) which already existed (&ldquo;what is gtaiflow? it should
+not exist&rdquo;); a GtRouteBridge class started where object GtRoute already
+carried the globals (&ldquo;that should be global variables and available to the tap handler&rdquo;);
+and a second save dialog written beside Android's (&ldquo;why are you writing[ ]a dialog now why aren't we
+using the android dialog an[d] the primitive save??&rdquo;). Each was caught by Fred, not by a
+check.
+5 &middot; TOOLING
+gt_callsitediff_2026-11-23_v2.py &mdash; compares Android's draw block against the
+iPad's, parameter by parameter, per panel. It produced the 35-parameter accounting in the handoff. Its
+limit, on the tin: it proves a parameter is PASSED, not that the body MATCHES.
+Two parked, both renamed rather than deleted:
+gt_callsitediff_2026-11-23_v1_DO_NOT_RUN_underreported.py (its regex required whitespace-then-
+newline after (, so GtAiStepPanel(   /* GTAI4 */ was invisible and it reported NO
+CALL SITE for three panels Android draws &mdash; a tool that under-reports is worse than no tool) and
+gt_savedialog_2026-11-23_v1_DO_NOT_RUN_wrote_a_second_dialog.py.
+&#9888; gt_panelcheck_2026-11-23_v1.py IS DISCREDITED &mdash; do not plan from
+it. Its &ldquo;cost&rdquo; column was FILE-scoped, not panel-scoped, so the 62-item triage it produced
+counts platform lines that are not in the panel being judged. [stated] Fred caught it: &ldquo;there are no
+meshpaneles attached to grp awareness&rdquo; &mdash; GrpAwarenessPanel was reported at cost 12
+and has ONE platform line inside it. Its twin matcher was also wrong.
+gt_iosempty_2026-11-23_v1.py would have wrongly retired GtIosRidePicker,
+which is legitimately iOS-only (Android imports rides through the OS intent); Fred raised the risk before it
+ran.
+Not run, awaiting an explicit OK: gt_savedialoglift_2026-11-23_v1.py &mdash; lifts
+Android's save dialog to shared. It declares 2 creations in its first output line.
+6 &middot; THE TWO MECHANICAL CONTROLS, AGREED TODAY 18:01&ndash;18:05
+1 &middot; Any script that creates a function, object or file says so in its first output line.
+Verify before running:
+grep -nE "fun [A-Za-z]+\(|^ *object |^ *class |created " script.py
+2 &middot; One file per script unless Fred asks for more.
+Both exist because GtAiFlow and a second dialog were created inside scripts whose output
+announced neither.
+7 &middot; WHAT DID NOT COMPLETE &mdash; pointer only, it stays on the lists
+35 view parameters unaccounted for across the two route processes: 3 silent omissions, 5 stubs, 27
+belonging to three panels the iPad never draws. Per-parameter detail with each consequence is in
+grouptrack_handoff_2026-11-23_v161.html &sect; 3 and the project doc
+claude/GroupTrack_2.8b_EOD_2026-11-23_route_parameter_accounting.md.
+Not repeated here, because this doc holds completed work only.
+Also carried forward, not closed: grp.open (the third status-message row)
+&middot; the iPad's vec_spatial.js gate deletion is NOT in git (Resources/ is
+gitignored, 0 tracked files) &middot; app/src/main/java/com/geeksville/mesh/convoy/ConvoyRouteToolbar.kt.MOVED_TO_SHARED_2026-11-23
+to remove by hand &middot; 1,062 .bak* files (70 MB, untracked) inside the source tree, which
+corrupt ad-hoc greps though NOT the generated indexes (measured clean) &middot; 4,498 of 5,805 dated markers in
+live code predate 11-12 &mdash; a population to triage, not a measured dead count.
 
 
 === GroupTrack_2.8_completed_activity_step17_2026-11-15_v1.html ===
@@ -57140,7 +57290,7 @@ nearly named as the route-recipe seam when it serves MAP recipes; and an 11-11 i
 rows re-filed under its dead groups.
 HOW IT IS MANAGED &mdash; TWO BUCKETS, NEVER ONE. APPROVED BY DESIGN (no FORGET on the
 iPad, the radio id whole, one button to the iOS settings panel, commonMain serving both) is
-never reported again. KNOWN OPEN (the 20 GtArea map rows, route add, the cart board) is
+never reported again. KNOWN OPEN (the 20 GtArea map rows, route add &mdash; MANUAL LANDED 11-23 4e7a23239; 5 stubs + 3 silent omissions open, AI route untouched, the cart board) is
 not reported as NEW but stays on the row list until it closes. One bucket would mean approving the
 20 map rows and then reading a clean parity report while the iPad still cannot draw an area.
 EOD line: N approved-by-design &middot; M known-open &middot; 0 new,
@@ -57423,10 +57573,7 @@ GtRadioApply's own header already says the file half works on the iPad today and
 write does not.
 ⚠ This is one of the THREE rows the 11-20 register flagged as &ldquo;attached but
 answers with a status message instead of opening the screen&rdquo; &mdash; grp.open,
-group.configure, group.archive. group.archive says so out loud
-(&ldquo;Archived radio setups are not stored on the iPad yet&rdquo;), so it is honest rather than
-hidden; this card closes the group.configure one. grp.open still owes the
-same look.
+group.configure, group.archive. CLOSED 11-23 09:26 (6e9952205): group.configure AND group.archive both open the shared screens now, carrying the standard header and Android's colour scheme (1c2c08a22 09:57). Work notes: GroupTrack_2.8_completed_activity_2026-11-23_v1.html &sect; 2. &#9888; grp.open is the third of those rows and STILL OWES the same look &mdash; it stays on this list.
 &#11088; 2.8b FOLLOW-ON C28-26388 &middot; RIDEICS &mdash; PUT A CALENDAR ENTRY IN THE RIDE INVITE
 &#11088;&#11088; FRED 11-23 07:39 &mdash; TIMING FIXED AND ONE REQUIREMENT ADDED.
 &ldquo;leave the calendar entry out. add it op open 2.8b post certification tasks. remember to add
