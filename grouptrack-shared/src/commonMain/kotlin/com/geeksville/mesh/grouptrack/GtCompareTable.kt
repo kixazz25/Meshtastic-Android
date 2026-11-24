@@ -1,9 +1,10 @@
+// COMPARETABLE-2026-11-24: MOVED from app/src/main/java/com/geeksville/mesh/grouptrack/
+// AiCompareTable.kt into commonMain, SAME package so its call sites resolve unchanged.
+// The drag and the collapse are local Compose state and ported for free.
 package com.geeksville.mesh.grouptrack
 
 /* GTAI4-2026-10-23: ConvoyBatchGridPanel (the AI compare table), COPIED for ONE MAP with the HELP X standard. The planner keeps its copy. */
 
-import com.geeksville.mesh.convoy.BatchRow
-import com.geeksville.mesh.convoy.SpatialDbManager
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
+import com.grouptrack.shared.text.GtFmt   // COMPAREFIX-2026-11-24
 import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -66,9 +68,20 @@ private val mono = FontFamily.Monospace
 @Composable
 fun GtCompareTable(
     batchName: String,
-    rows: List<BatchRow>,
+    rows: List<com.geeksville.mesh.convoy.GtRouteBatch.GtBatchRow>,
     hidden: Set<String>,
     saveTicks: Set<String>,
+    /** COMPARETABLE-2026-11-24: trail name -> surface label. Was two raw SQLiteDatabase
+     *  queries inside this composable (SpatialDbManager.getSpatialDb + getExtensionDb); the
+     *  host owns database access, so it is a parameter now. The block itself moved verbatim
+     *  to Android's call site. CODE RULE 1: the default is an empty map, which is exactly
+     *  what the old code produced when either database was null -- the label falls back to
+     *  the bare trail name, as it always did. */
+    surfaceOf: (List<String>) -> Map<String, String> = { emptyMap() },
+    /** SEAMRULE-2026-11-19: the HOST passes the HELP control -- GtHelpButton needs GtHelp's
+     *  link table, which is app-side. Both call sites pass a real one; the empty default is
+     *  never relied on, because relying on it silently deletes the control. */
+    help: @Composable () -> Unit = {},
     onToggleShown: (String) -> Unit,
     onSaveTick: (String, Boolean) -> Unit,
     onSaveSelected: () -> Unit,
@@ -125,47 +138,7 @@ fun GtCompareTable(
     // ⚠ Keyed on NAME because that is what BatchRow.trails carries; duplicate
     // names collapse to whichever row comes first, which is fine for a label
     // and would NOT be for anything that routes.
-    val surfaceOf = remember(rows) {
-        val out = HashMap<String, String>()
-        try {
-            val names = rows.flatMap { it.trails.keys }.distinct()
-            val sdb = SpatialDbManager.getSpatialDb()
-            val edb = SpatialDbManager.getExtensionDb()
-            if (names.isNotEmpty() && sdb != null && edb != null) {
-                // 1. names -> ids, from the spatial database
-                val idToName = HashMap<String, String>()
-                val marks = names.joinToString(",") { "?" }
-                sdb.rawQuery(
-                    "SELECT trail_id, name FROM trails WHERE name IN ($marks)",
-                    names.toTypedArray()
-                ).use { c ->
-                    while (c.moveToNext()) {
-                        val id = c.getString(0) ?: continue
-                        idToName[id] = c.getString(1) ?: continue
-                    }
-                }
-                // 2. ids -> surface, from the extension database
-                if (idToName.isNotEmpty()) {
-                    val ids = idToName.keys.toList()
-                    val m2 = ids.joinToString(",") { "?" }
-                    edb.rawQuery(
-                        "SELECT trail_id, surface_type FROM trail_properties " +
-                            "WHERE trail_id IN ($m2) AND surface_type IS NOT NULL " +
-                            "AND TRIM(surface_type) <> ''",
-                        ids.toTypedArray()
-                    ).use { c ->
-                        while (c.moveToNext()) {
-                            val n = idToName[c.getString(0)] ?: continue
-                            if (!out.containsKey(n)) out[n] = c.getString(1)
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            gtLogger("BatchGrid").w { "surface lookup: ${e.message}" }
-        }
-        out
-    }
+val surfaceMap = remember(rows) { surfaceOf(rows.flatMap { it.trails.keys }.distinct()) }
 
     var offsetX by remember { mutableStateOf(0f) }
     var offsetY by remember { mutableStateOf(0f) }
@@ -203,7 +176,7 @@ fun GtCompareTable(
                 Text(batchName.uppercase(), color = accentBlue, fontSize = 12.sp,
                     fontFamily = mono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f))
-                GtHelpButton("route.compare")   // GTAI4-2026-10-23: the HELP X standard (X = EXIT, the set stays open)
+                help()   // COMPAREFIX-2026-11-24: GTAI4-2026-10-23's HELP X standard, host-supplied
                 GtCloseButton(onExit)
             }
             // ⚠ (7) tapping a header is not discoverable, and the dimming only
@@ -267,8 +240,8 @@ fun GtCompareTable(
                         .heightIn(max = 260.dp)
                         .verticalScroll(tableScroll)
                 ) {
-                DataRow("Miles", rows) { "%.1f".format(it.miles) }
-                DataRow("Hours", rows) { "%.1f".format(it.hoursLow) }
+                DataRow("Miles", rows) { GtFmt.f(it.miles, 1) }
+                DataRow("Hours", rows) { GtFmt.f(it.hoursLow, 1) }
 
                 if (featureRows.isNotEmpty()) {
                     SectionRow("FEATURES")
@@ -306,12 +279,12 @@ fun GtCompareTable(
                         // of the motorized set -- the best-covered attribute we
                         // have, and still a minority. A trail with none says
                         // nothing rather than guessing.
-                        val label = surfaceOf[t]?.let { s -> "$t  ·  $s" } ?: t
+                        val label = surfaceMap[t]?.let { s -> "$t  ·  $s" } ?: t
                         DataRow(label, rows) { r ->
                             val mi = r.trails[t]
                             // ⚠ mileage STAYS on trails — 12 miles of a trail is
                             // a different ride from 2, and that IS the comparison
-                            if (mi != null && mi > 0) "%.1f".format(mi) else ""
+                            if (mi != null && mi > 0) GtFmt.f(mi, 1) else ""
                         }
                     }
                 }
@@ -365,8 +338,8 @@ private fun SectionRow(label: String) {
 
 @Composable
 private fun DataRow(
-    label: String, rows: List<BatchRow>, bold: Boolean = false,
-    cell: (BatchRow) -> String,
+    label: String, rows: List<com.geeksville.mesh.convoy.GtRouteBatch.GtBatchRow>, bold: Boolean = false,
+    cell: (com.geeksville.mesh.convoy.GtRouteBatch.GtBatchRow) -> String,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(vertical = 1.dp)) {
@@ -395,7 +368,10 @@ private fun shortName(name: String, batchName: String): String =
     else name
 
 private fun parseColour(hex: String): Color =
-    runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(accentBlue)
+    // COMPARETABLE-2026-11-24: was android.graphics.Color.parseColor in a runCatching.
+    // gtHexColor (GtPanel.kt:134) is the shared port and returns null on a malformed value,
+    // so the accentBlue fallback is preserved exactly. Same line TrailStylePanel.kt:223 uses.
+    gtHexColor(hex) ?: accentBlue
 
 @Composable
 private fun TableButton(

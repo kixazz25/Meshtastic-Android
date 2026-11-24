@@ -336,6 +336,16 @@ private object IosRouteSeams {
     fun install(js: (String) -> Unit) {
         open()
         com.geeksville.mesh.grouptrack.GtRouteLaunch.js = js
+        // IOSMANUAL-2026-11-24: the iPad's half of the recheck and the resume, over the SHARED draft
+        // store (GtRouteDraft on GtRoute.env -- the same route_drafts tree Android writes).
+        // hasOpenBatch / openCompare / showPicker stay at their no-op defaults: there is no AI flow
+        // and no WIP picker on the iPad yet, so neither branch can fire here.
+        com.geeksville.mesh.grouptrack.GtRouteLaunch.listDrafts = {
+            com.geeksville.mesh.convoy.GtRouteDraft.listDrafts().map { it.name to it.pointCount }
+        }
+        com.geeksville.mesh.grouptrack.GtRouteLaunch.loadDraft = { n ->
+            com.geeksville.mesh.convoy.GtRouteDraft.loadIntoRouteManager(n)?.method
+        }
         com.geeksville.mesh.grouptrack.GtRouteLaunch.trailsInView = { b -> sp?.queryTrails(b[0], b[1], b[2], b[3], LIMIT) ?: emptyList() }
         com.geeksville.mesh.grouptrack.GtRouteLaunch.trailheadCountNear = { la, lo -> rd?.trailheadsNear(la, lo)?.size ?: 0 }
         com.geeksville.mesh.grouptrack.GtRouteLaunch.buildLine = {
@@ -365,9 +375,10 @@ private object IosRouteSeams {
                 else com.geeksville.mesh.convoy.GtRouteDraft.writeDraft(nm, m)
             }.onFailure { log.w { "AUTOSAVE-2026-11-23: autosave '" + nm + "' failed: " + it.message } }
         }
-        com.geeksville.mesh.grouptrack.GtRouteLaunch.layersOnForAi = {
-            log.i { "VERTEXDROP-2026-11-23: no Route+ layer switches on the iPad" }
-        }
+        // LAYERSFORAI-2026-11-24: the real wiring moved to the composable's outer level --
+        // this object has `js` but not the layer slots (:1102-1105) or viewportJs, which the
+        // switches need. The log-only stub it replaced said "no Route+ layer switches on the
+        // iPad" (VERTEXDROP-2026-11-23), and that was true until now.
     }
 }
 
@@ -502,6 +513,29 @@ private object IosSearchDb {
  * and GtRead.routeUsingTrailhead :173 carries the trailhead guard. This object only opens the
  * connections and hands them over.
  */
+/**
+ * SEARCHOFFMAIN-2026-11-24: the AI search's OWN spatial handle, opened once, READ-ONLY.
+ * IosSearchDb already opens two independent read-only handles to this same file (:329-330),
+ * so a third is the established pattern rather than a new idea. It exists so the search can
+ * run off the main thread without touching IosWriteDb's pair, whose own comment says it is
+ * reused deliberately because two connections to one file can disagree -- that reasoning is
+ * about WRITES, and this handle never writes.
+ * CODE RULE 1: null = the spatial db would not open, which runSearch reports as
+ * "No trail data on this device yet" -- the same words Android uses.
+ */
+private object IosAiSearchDb {
+    private var conn: androidx.sqlite.SQLiteConnection? = null
+    fun conn(): androidx.sqlite.SQLiteConnection? {
+        if (conn == null) {
+            conn = try {
+                com.grouptrack.shared.db.gtOpenDatabase(
+                    iosStorage().root().toString() + "/grouptrack_spatial.db", true)
+            } catch (e: Throwable) { null }
+        }
+        return conn
+    }
+}
+
 private object IosWriteDb {
     private val log = gtLogger("GtIosWrite")
     private var spatial: androidx.sqlite.SQLiteConnection? = null
@@ -1038,6 +1072,9 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
     // isPublic. The iPad used to DISCARD the check-in result, so the form had nothing to read.
     val endingCheckIn = remember { mutableStateOf<com.grouptrack.shared.ride.GtRideStore.CheckIn?>(null) }
     val endScope = androidx.compose.runtime.rememberCoroutineScope()
+    // IOSSAVE-2026-11-24: Android keeps this on its object (RouteModule.kt showSaveChoice); the iPad
+    // holds it beside the panel, like its other route dialog asks.
+    val routeSaveAsk = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     // CHECKINBRANCH-2026-11-22: the comm CONFIG, for GtRadioApply.lastAppliedRide and the ride apply.
     // ⭐ clientOf is the LIVE CLIENT, not null. GtIosCommLink exposes it on purpose --
     // `internal fun radioClient(): RadioClient?` (GtIosCommLink.ios.kt:236), whose own comment says
@@ -1146,6 +1183,46 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
             if (c.size >= 2) {
                 IosRouteSeams.install { s -> js(s) }
                 kotlinx.coroutines.MainScope().launch { com.geeksville.mesh.grouptrack.GtRouteLaunch.onTap(c[0], c[1]) }
+            }
+        }
+        // AIPIN-2026-11-24: THE AI PIN TAP. vec_spatial.js:180 / :264 already send it, gated on
+        // window.__pinSelect -- it ARRIVED and fell through for want of a branch (C28-26319 B3:
+        // "all 14 names ARRIVE"). Same shape as onMapTap above: args are [lat,lon]; MainScope()
+        // is Android's dispatch (RouteModule.kt:924).
+        else if (name == "onProximityTap") {
+            val c = args.trim().removePrefix("[").removeSuffix("]")
+                .split(",").mapNotNull { it.trim().toDoubleOrNull() }
+            if (c.size >= 2) {
+                // AIPINWIRE-2026-11-24: the three spatial seams, wired to primitives that ALREADY
+                // exist: GtRead.trailheadsNear (GtRead.kt:149 -- the same "type='trailhead', nearest
+                // within radius" query as Android's gpNearestTrailhead, RouteModule.kt:1709) and
+                // GtRoute.nearestShownTrailMeters (GtRoute.kt:574). IosWriteDb.reader() / .conns()
+                // hand back the map's OWN connection pair, so the check sees what the map sees.
+                com.geeksville.mesh.grouptrack.GtAiFlow.nearestTrailheadAt = { la, lo ->
+                    IosWriteDb.reader()?.trailheadsNear(la, lo, com.geeksville.mesh.grouptrack.GtAiFlow.TRAILHEAD_SELECT_MI)
+                        ?.firstOrNull()?.let { th -> th.name to doubleArrayOf(th.lat, th.lon) }
+                }
+                com.geeksville.mesh.grouptrack.GtAiFlow.shownTrailMetersAt = { la, lo ->
+                    IosWriteDb.conns()?.let { p ->
+                        com.grouptrack.shared.route.GtRoute.nearestShownTrailMeters(p.first, la, lo)
+                    }
+                }
+                com.geeksville.mesh.grouptrack.GtAiFlow.hiddenTrailMetersAt = { la, lo ->
+                    IosWriteDb.conns()?.let { p ->
+                        com.grouptrack.shared.route.GtRoute.nearestShownTrailMeters(
+                            p.first, la, lo,
+                            com.grouptrack.shared.route.GtRoute.TRAILHEAD_CHECK_M, "")
+                    }
+                }
+                // CODE RULE 1 -- why THIS one is permissive while the shared default is blocking:
+                // Android also tests layersNow()[0] == 0 (the whole trails layer switched off). The
+                // iPad cannot read that slot here yet, so this says "the layer is on" and lets
+                // shownTrailMetersAt be the only gate -- and that one is wired and does the real
+                // check against what the map is showing. The answer therefore matches Android in
+                // every case EXCEPT trails-layer-entirely-off, where the iPad will report the
+                // distance notice instead of the layer notice. Flagged, not hidden.
+                com.geeksville.mesh.grouptrack.GtAiFlow.trailsShown = { true }
+                kotlinx.coroutines.MainScope().launch { com.geeksville.mesh.grouptrack.GtAiFlow.onPinTap(c[0], c[1]) }
             }
         }
         // ⭐ IOSARTIFACT-2026-11-19: THE HANDOFF. These four names already arrived and were discarded
@@ -1431,7 +1508,18 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         //   handler (RouteModule.onTap) is shared. RouteManager, the vertex engine, already is.
         "route.manual" to {
             com.grouptrack.shared.log.gtLogger("ROUTEMANUALLOG-2026-11-23").i { "ROW route.manual TAPPED" }   // ROUTEMANUALLOG-2026-11-23
-            com.geeksville.mesh.grouptrack.GtAiFlow.manualLaunch { s -> js(s) }
+            // IOSMANUAL-2026-11-24: THE MANUAL START runs the recheck, the same body Android runs
+            // (MANUALRECHECK-2026-11-24: the recheck belongs to the manual start, not to the menu).
+            // install() first -- the iPad wires its route seams on this row and the recheck needs them.
+            IosRouteSeams.install { s -> js(s) }
+            com.geeksville.mesh.grouptrack.GtRouteLaunch.toast = { m -> onMessage("route", m) }
+            val rPending = com.geeksville.mesh.grouptrack.GtRouteLaunch.manualChecks()
+            val rName = com.geeksville.mesh.grouptrack.GtRouteLaunch.resumeReq.value
+            if (rName.isNotEmpty()) {
+                com.geeksville.mesh.grouptrack.GtRouteLaunch.resumeReq.value = ""
+                endScope.launch { com.geeksville.mesh.grouptrack.GtRouteLaunch.resumeDraft(rName) }
+            }
+            if (!rPending) com.geeksville.mesh.grouptrack.GtAiFlow.manualLaunch { s -> js(s) }
         },
         // ROUTECLEAR-2026-11-23: ADD ROUTE row 4. Android is "route.clear" to { gtClearAsk = true }
         // (GroupTrackScreen.kt:3105) -- the same ask-first row, over the shared json primitives.
@@ -1829,7 +1917,6 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
                     bearing = 0f,
                     tilt = tilt.value,
                     headingUp = headingUp.value,
-                    routePrecheck = { false },
                     group = group.value,   // GRPIOS-2026-11-19: was the literal false
                     // R1QUEUE-2026-11-22: was `false`. Android asks the queue (GroupTrackScreen.kt:3064);
                     // so does this. The producers not existing yet is not a reason not to ask.
@@ -2412,6 +2499,107 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                 // draws, over the SHARED flow state. Launch panel -> the eval -> 1/6 -> 2/6.
                 // \u26a0 It stops at 2/6: step 3 is the trailhead, which is map work and still lives in
                 //   RouteModule. CONTINUE from 2/6 says so rather than going nowhere.
+                // COMPAREIOS-2026-11-24: the compare table's state. Declared HERE, above the AI
+                // region, because eval() sets the step to STEP_NONE when a batch is open -- so the
+                // table has to live OUTSIDE the `aiStep != STEP_NONE` gate or it could never draw.
+                val cmpRows = androidx.compose.runtime.remember {
+                    androidx.compose.runtime.mutableStateOf<List<com.geeksville.mesh.convoy.GtRouteBatch.GtBatchRow>>(emptyList())
+                }
+                val cmpName = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+                // COMPAREFIX-2026-11-24: the table's own HELP. aiHelp (:2518 before this patch) is
+                // declared INSIDE the AI region's Box and hardcodes "route.ai"; the table draws
+                // outside that Box and wants "route.compare". Same construct, different id.
+                // ⚠ That is two copies of one control -- the tidy fix is a single shared helper
+                //   taking the id, which is a separate cleanup and not done mid-build.
+                val cmpHelp: @androidx.compose.runtime.Composable () -> Unit = {
+                    val chrome = com.geeksville.mesh.grouptrack.LocalGtPanelChrome.current
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        androidx.compose.material3.TextButton(
+                            onClick = { chrome.openHelp("route.compare") },
+                        ) {
+                            androidx.compose.material3.Text(
+                                "HELP",
+                                color = com.geeksville.mesh.grouptrack.Gt.accent,
+                                fontSize = androidx.compose.ui.unit.TextUnit(
+                                    15f, androidx.compose.ui.unit.TextUnitType.Sp,
+                                ),
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            )
+                        }
+                        chrome.IssueButton("route.compare", com.geeksville.mesh.grouptrack.Gt.accent)
+                    }
+                }
+                val cmpHidden = androidx.compose.runtime.remember {
+                    androidx.compose.runtime.mutableStateOf<Set<String>>(emptySet())
+                }
+                val cmpSave = androidx.compose.runtime.remember {
+                    androidx.compose.runtime.mutableStateOf<Set<String>>(emptySet())
+                }
+                // COMPAREMAP-2026-11-24: the four layer states as they were before compare, so
+                // exit puts them back EXACTLY (Android: batchPrevLayers + restoreAll, :192-194).
+                val cmpPrevLayers = androidx.compose.runtime.remember {
+                    androidx.compose.runtime.mutableStateOf<List<Int>>(emptyList())
+                }
+                // BATCHDELETE-2026-11-24: Android's batchDeleteConfirm (RouteModule.kt:93).
+                val cmpDeleteAsk = androidx.compose.runtime.remember {
+                    androidx.compose.runtime.mutableStateOf(false)
+                }
+
+                // COMPAREWIRE-2026-11-24: openCompare is wired HERE, at the outer level, not
+                // inside the steps 3-7 branch. It is called from the STEP_LAUNCH effect (eval()
+                // returns true when a batch is open), and that branch does not compose at
+                // STEP_LAUNCH -- so wiring it in there left the seam at its empty default and
+                // pressing AI route build did nothing. Android wires its seams the same way, in
+                // GtRouteHost's own body (RouteModule.kt:932+).
+                // LAYERSFORAI-2026-11-24: Android's GroupTrackScreen.kt:2333-2338, the three parts
+                // the iPad can do -- "AI route design -> Trails ALL, Waypoints ALL". Called from
+                // shared code (RouteLaunch.kt:106) at the start of a build.
+                // \u26a0 gtHideSaved (the filter's HIDE EVERYTHING) is a JS-side map on Android's
+                //   page and the iPad has no equivalent, so that fourth part is LEFT OUT, not faked.
+                com.geeksville.mesh.grouptrack.GtRouteLaunch.layersOnForAi = {
+                    com.grouptrack.shared.filter.TrailFilterState.forRouteBuild()
+                    trails.intValue = 1
+                    waypoints.intValue = 1
+                    js(viewportJs)
+                }
+
+                com.geeksville.mesh.grouptrack.GtAiFlow.openCompare = {
+                    // \u2b50 COMPAREMAP-2026-11-24: THE JS SEAM FIRST. drawBatch draws through
+                    //   GtRouteLaunch.js, which is assigned only inside IosRouteSeams.install
+                    //   (:338) -- and every call to install is in a branch that does not compose
+                    //   at STEP_LAUNCH. That is why none of the six drew.
+                    com.geeksville.mesh.grouptrack.GtRouteLaunch.js = { s -> js(s) }
+                    cmpName.value = (com.geeksville.mesh.convoy.GtRouteBatch.readBatch()?.get("batchName")
+                        as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
+                    cmpHidden.value = emptySet()
+                    cmpSave.value = emptySet()
+                    // COMPAREMAP-2026-11-24: close EVERYTHING in the filter, remembering it first
+                    // (Android hideAll(), RouteModule.kt:158 -- Fred 15:43). Routes, waypoints,
+                    // trails and tracks all off, so the six rides are what is on the map.
+                    cmpPrevLayers.value = listOf(
+                        trails.intValue, tracks.intValue, routes.intValue, waypoints.intValue)
+                    trails.intValue = 0; tracks.intValue = 0
+                    routes.intValue = 0; waypoints.intValue = 0
+                    js("setRouteMode(false)")   // RouteModule.kt:157
+                    js(viewportJs)
+                    // BATCHDRAW-2026-11-24: ONE pass draws the lines AND builds the rows (Fred 16:27).
+                    // The batch is NOT cleared -- it is the table's input (Fred 16:23).
+                    val rows = com.geeksville.mesh.convoy.GtRouteBatch.drawBatch()
+                    // ⭐ COMPAREWIRE-2026-11-24: HAND THE ROWS OVER. Without this the table draws
+                    //   nothing, because it renders on `if (cmpRows.value.isNotEmpty())`.
+                    cmpRows.value = rows
+                    // COMPAREMAP-2026-11-24: the rider's pins and, for a loop, the planning
+                    // perimeter -- from the set's own recipe (AICMPCTX-2026-11-11).
+                    com.geeksville.mesh.convoy.GtRouteBatch.compareContextJs()?.let { js(it) }
+                    // AFTER the draws (RouteModule.kt:161). drawBatch also sets zoom 11 as its own
+                    // GRIDFIX fallback; this frames the rides when they are all in hand.
+                    js("fitBatchRoutes()")
+                    val mi = rows.sumOf { it.miles }
+                    onMessage("route",
+                        rows.size.toString() + " ride(s) drawn, each in its own colour \u2014 " +
+                            com.grouptrack.shared.text.GtFmt.f(mi / rows.size.coerceAtLeast(1), 1) +
+                            " miles average. Drag the table or collapse it to see them.")
+                }
                 val aiStep = com.geeksville.mesh.grouptrack.GtAiFlow.step.intValue
                 if (aiStep != com.geeksville.mesh.grouptrack.GtAiFlow.STEP_NONE) {
                     Box(Modifier.fillMaxSize()) {
@@ -2438,10 +2626,11 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                         if (aiStep == com.geeksville.mesh.grouptrack.GtAiFlow.STEP_LAUNCH) {
                             androidx.compose.runtime.LaunchedEffect(Unit) {
                                 if (com.geeksville.mesh.grouptrack.GtAiFlow.eval()) {
-                                    onMessage(
-                                        "route",
-                                        "A previous AI compare set is still open -- the compare table is not on the iPad yet",
-                                    )
+                                    // COMPAREIOS-2026-11-24: Android's startAi():254 --
+                                    //   if (hasOpenBatch()) { openCompare(); return }
+                                    // An open batch opens COMPARE; it does not start a search and it
+                                    // does not post a message into a flow eval() has just closed.
+                                    com.geeksville.mesh.grouptrack.GtAiFlow.openCompare()
                                 }
                             }
                             com.geeksville.mesh.grouptrack.GtAiLaunchPanel(
@@ -2449,7 +2638,8 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                                 modifier = panelMod,
                                 help = aiHelp,
                             )
-                        } else {
+                        } else if (aiStep == com.geeksville.mesh.grouptrack.GtAiFlow.STEP_WELCOME ||
+                            aiStep == com.geeksville.mesh.grouptrack.GtAiFlow.STEP_DISTANCE) {
                             val overview = aiStep == com.geeksville.mesh.grouptrack.GtAiFlow.STEP_WELCOME
                             com.geeksville.mesh.grouptrack.GtAiStepPanel(
                                 isOverview = overview,
@@ -2475,18 +2665,213 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                                         com.geeksville.mesh.grouptrack.GtAiFlow.step.intValue =
                                             com.geeksville.mesh.grouptrack.GtAiFlow.STEP_DISTANCE
                                     } else {
-                                        onMessage(
-                                            "route",
-                                            "Trailhead selection (step 3) is map work and is not on the iPad yet",
-                                        )
+                                        // AIPIN-2026-11-24: step 3 IS reachable -- the page sends
+                                        // onProximityTap and the relay now has a branch for it.
+                                        com.geeksville.mesh.grouptrack.GtAiFlow.step.intValue = com.geeksville.mesh.grouptrack.GtAiFlow.STEP_TRAILHEAD
                                     }
                                 },
                                 modifier = panelMod,
                                 help = aiHelp,
                             )
+                        } else {
+                            // AIPIN-2026-11-24: STEPS 3-7. Both panels are already in commonMain and
+                            // both lists come from GtAiFlow (guidedSteps / guidedActions / summaryText),
+                            // so this draws exactly what Android draws. header is Android's trailhead
+                            // SEARCH twistie and is not on the iPad yet -- passed empty DELIBERATELY,
+                            // and said so, rather than left to a default nobody can see.
+                            // help is the REAL control (SEAMRULE-2026-11-19), never {}.
+                            val armed = aiStep == com.geeksville.mesh.grouptrack.GtAiFlow.STEP_TRAILHEAD ||
+                                aiStep == com.geeksville.mesh.grouptrack.GtAiFlow.STEP_ENDPOINT || aiStep == com.geeksville.mesh.grouptrack.GtAiFlow.STEP_INCLUDE
+                            androidx.compose.runtime.LaunchedEffect(armed) {
+                                // RouteModule.kt:1041 arms it exactly this way; :296 / :800 clear it.
+                                js("window.__pinSelect=" + armed + ";showAimRing(" + armed + ")")
+                            }
+                            // TRAILTABLE-2026-11-24: fill the table, and wire the redraw.
+                            // Android runs the query on its own Thread (RouteModule.kt:616); here it
+                            // runs in the effect on the main thread DELIBERATELY -- IosWriteDb's pair
+                            // is the map's own connection and is not guarded for concurrent use, and
+                            // the query is one corridor box.
+                            com.geeksville.mesh.grouptrack.GtAiFlow.refreshSelection = {
+                                IosWriteDb.conns()?.let { pr ->
+                                    com.geeksville.mesh.grouptrack.GtAiFlow.selTable.value =
+                                        com.grouptrack.shared.route.GtRoute.selectionTable(
+                                            pr.first,
+                                            com.grouptrack.shared.route.GtRoute.Request(
+                                                anchorLat = com.geeksville.mesh.grouptrack.GtAiFlow.pinTrailLat.value,
+                                                anchorLon = com.geeksville.mesh.grouptrack.GtAiFlow.pinTrailLon.value,
+                                                name = com.geeksville.mesh.grouptrack.GtAiFlow.pinRideName.value,
+                                                milesLow = com.geeksville.mesh.grouptrack.GtAiFlow.miLow.intValue.toDouble(),
+                                                milesHigh = com.geeksville.mesh.grouptrack.GtAiFlow.miHigh.intValue.toDouble(),
+                                                mphLow = com.geeksville.mesh.grouptrack.GtAiFlow.mphLow.intValue.toDouble(),
+                                                mphHigh = com.geeksville.mesh.grouptrack.GtAiFlow.mphHigh.intValue.toDouble(),
+                                                includePoints = com.geeksville.mesh.grouptrack.GtAiFlow.pinPoints.value))
+                                }
+                                Unit
+                            }
+                            com.geeksville.mesh.grouptrack.GtAiFlow.filterChanged = {
+                                js(viewportJs)
+                                com.geeksville.mesh.grouptrack.GtAiFlow.refreshSelection()
+                            }
+                            androidx.compose.runtime.LaunchedEffect(
+                                aiStep,
+                                com.geeksville.mesh.grouptrack.GtAiFlow.pinTrailLat.value,
+                                com.geeksville.mesh.grouptrack.GtAiFlow.miLow.intValue,
+                                com.geeksville.mesh.grouptrack.GtAiFlow.miHigh.intValue,
+                            ) {
+                                if (aiStep >= com.geeksville.mesh.grouptrack.GtAiFlow.STEP_SUMMARY) {
+                                    com.geeksville.mesh.grouptrack.GtAiFlow.refreshSelection()
+                                }
+                            }
+                            // FINDRIDES-2026-11-24 (B2): the AI search's host half.
+                            // ⚠ dbConn hands back the MAP's connection pair; runSearch therefore
+                            //   runs on the main thread on purpose -- see its own comment.
+                            // SEARCHOFFMAIN-2026-11-24: the search's own read-only handle, not the map's.
+                            com.geeksville.mesh.grouptrack.GtAiFlow.dbConn = { IosAiSearchDb.conn() }
+                            com.geeksville.mesh.grouptrack.GtAiFlow.waypointNameAt = { la, lo ->
+                                IosWriteDb.reader()?.waypointNameAt(la, lo)
+                            }
+                            com.geeksville.mesh.grouptrack.GtAiFlow.trace = { a, b -> onMessage("route", a + ": " + b) }
+                            com.geeksville.mesh.grouptrack.GtAiFlow.showNotice = { t, _, _ -> onMessage("route", t) }
+                            com.geeksville.mesh.grouptrack.GtAiFlow.findRides = {
+                                kotlinx.coroutines.MainScope().launch {
+                                    com.geeksville.mesh.grouptrack.GtAiFlow.runSearch()
+                                }
+                            }
+                            val startOver: () -> Unit = {
+                                com.geeksville.mesh.grouptrack.GtAiFlow.pinNotice.value = ""
+                                com.geeksville.mesh.grouptrack.GtAiFlow.pinTrailName.value = ""
+                                com.geeksville.mesh.grouptrack.GtAiFlow.pinTrailLat.value = 0.0
+                                com.geeksville.mesh.grouptrack.GtAiFlow.pinTrailLon.value = 0.0
+                                com.geeksville.mesh.grouptrack.GtAiFlow.pinIsLoop.value = null
+                                com.geeksville.mesh.grouptrack.GtAiFlow.pinEndLat.value = 0.0
+                                com.geeksville.mesh.grouptrack.GtAiFlow.pinEndLon.value = 0.0
+                                com.geeksville.mesh.grouptrack.GtAiFlow.pinPoints.value = emptyList()
+                                com.geeksville.mesh.grouptrack.GtAiFlow.step.intValue = com.geeksville.mesh.grouptrack.GtAiFlow.STEP_WELCOME
+                            }
+                            if (aiStep < com.geeksville.mesh.grouptrack.GtAiFlow.STEP_SUMMARY) {
+                                com.geeksville.mesh.grouptrack.GtAiStepScreen(
+                                    steps = com.geeksville.mesh.grouptrack.GtAiFlow.guidedSteps(),
+                                    actions = com.geeksville.mesh.grouptrack.GtAiFlow.guidedActions(),
+                                    notice = com.geeksville.mesh.grouptrack.GtAiFlow.pinNotice.value,
+                                    onStartOver = startOver,
+                                    onCancelBuild = { com.geeksville.mesh.grouptrack.GtAiFlow.cancel() },
+                                    header = {},
+                                    help = aiHelp,
+                                    // AIPINFIT-2026-11-24: BOTTOM, not fillMaxSize -- the map has to
+                                    // stay tappable so a trailhead can be selected. Android:
+                                    // RouteModule.kt:1342, the same Box, the same alignment.
+                                    modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter),
+                                )
+                            } else {
+                                com.geeksville.mesh.grouptrack.GtGuidedSummaryPanel(
+                                    title = com.geeksville.mesh.grouptrack.GtAiFlow.pinRideName.value,
+                                    body = com.geeksville.mesh.grouptrack.GtAiFlow.summaryText(),
+                                    working = aiStep == com.geeksville.mesh.grouptrack.GtAiFlow.STEP_SEARCH,
+                                    progress = com.geeksville.mesh.grouptrack.GtAiFlow.aiProgress.value,
+                                    onProceed = { com.geeksville.mesh.grouptrack.GtAiFlow.guidedActions().firstOrNull()?.second?.invoke() },
+                                    onStartOver = startOver,
+                                    onCancelBuild = { com.geeksville.mesh.grouptrack.GtAiFlow.cancel() },
+                                    onFilter = { onMessage("route", "FILTER over the plan is not on the iPad yet") },
+                                    // TRAILTABLE-2026-11-24: the trail sections, the same
+                                    // composable Android draws, from the shared SelTable.
+                                    details = { com.geeksville.mesh.convoy.GtTrailTable(
+                                        com.geeksville.mesh.grouptrack.GtAiFlow.selTable.value) },
+                                    help = aiHelp,
+                                    // AIPINFIT-2026-11-24: Android passes NO modifier here
+                                    // (RouteModule.kt:1349-1367) -- the panel's own default is the
+                                    // certified layout. Overriding it was my addition, not Android's.
+                                )
+                            }
                         }
                     }
                 }
+                // COMPAREIOS-2026-11-24: THE COMPARE TABLE. Shared since Build D1; the drag and the
+                // collapse are its own local state, so it can be moved and shrunk to see the routes
+                // underneath (Fred 16:29). Drawn outside the AI gate -- see the note above.
+                if (cmpRows.value.isNotEmpty()) {
+                    com.geeksville.mesh.grouptrack.GtCompareTable(
+                        batchName = cmpName.value,
+                        rows = cmpRows.value,
+                        hidden = cmpHidden.value,
+                        saveTicks = cmpSave.value,
+                        help = cmpHelp,
+                        // SURFACES-2026-11-24: the trail rows' surface labels. IosWriteDb.conns()
+                        // is (spatial, data) = Android's (getSpatialDb(), getExtensionDb()).
+                        surfaceOf = { names ->
+                            IosWriteDb.conns()?.let { pr ->
+                                com.geeksville.mesh.convoy.GtRouteBatch.surfacesFor(pr.first, pr.second, names)
+                            } ?: emptyMap()
+                        },
+                        onToggleShown = { n ->
+                            // RouteModule.kt:1557-1562, the same escaping and the same js call.
+                            val nowHidden = n !in cmpHidden.value
+                            cmpHidden.value = if (nowHidden) cmpHidden.value + n else cmpHidden.value - n
+                            val safe = n.replace("\\", "\\\\").replace("'", "\\'")
+                            js("showBatchRoute('" + safe + "', " + (!nowHidden) + ", 5)")
+                        },
+                        onSaveTick = { n, on ->
+                            cmpSave.value = if (on) cmpSave.value + n else cmpSave.value - n
+                        },
+                        onSaveSelected = {
+                            // BATCHDELETE-2026-11-24: RouteModule.kt:1616 -- ticking NONE is a
+                            // legitimate answer, but it deletes everything, so it asks first.
+                            if (cmpSave.value.isEmpty()) cmpDeleteAsk.value = true
+                            else onMessage("route",
+                                "Saving the ticked rides under an area name is not on the iPad yet -- " +
+                                    "they are already drafts, so nothing is lost.")
+                        },
+                        onExit = {
+                            // Clear the drawing and the table. The BATCH stays (Fred 16:23), so
+                            // pressing AI route build opens compare on it again.
+                            js("clearBatchRoutes(); if (window.clearCompareContext) clearCompareContext();")
+                            // COMPAREMAP-2026-11-24: the layers go back EXACTLY as they were
+                            // (Android restoreAll(), RouteModule.kt:193).
+                            cmpPrevLayers.value.takeIf { it.size == 4 }?.let { p ->
+                                trails.intValue = p[0]; tracks.intValue = p[1]
+                                routes.intValue = p[2]; waypoints.intValue = p[3]
+                                js(viewportJs)
+                            }
+                            cmpPrevLayers.value = emptyList()
+                            cmpRows.value = emptyList()
+                        },
+                    )
+                }
+
+                // BATCHDELETE-2026-11-24: the warning, Android's words verbatim (RouteModule.kt:1714).
+                if (cmpDeleteAsk.value) {
+                    AlertDialog(
+                        onDismissRequest = { cmpDeleteAsk.value = false },
+                        title = { Text("Delete all routes?") },
+                        text = {
+                            Text("No routes selected. All " + cmpRows.value.size +
+                                " will be deleted. If you proceed you must start over.")
+                        },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(onClick = {
+                                cmpDeleteAsk.value = false
+                                val gone = com.geeksville.mesh.convoy.GtRouteBatch.deleteWholeBatch()
+                                js("clearBatchRoutes(); if (window.clearCompareContext) clearCompareContext();")
+                                cmpPrevLayers.value.takeIf { it.size == 4 }?.let { p ->
+                                    trails.intValue = p[0]; tracks.intValue = p[1]
+                                    routes.intValue = p[2]; waypoints.intValue = p[3]
+                                    js(viewportJs)
+                                }
+                                cmpPrevLayers.value = emptyList()
+                                cmpRows.value = emptyList()
+                                onMessage("route", gone.toString() + " route(s) deleted. Start over to build more.")
+                            }) { Text("Delete") }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(onClick = { cmpDeleteAsk.value = false }) {
+                                Text("Cancel")
+                            }
+                        },
+                        containerColor = Gt.panel,
+                        titleContentColor = Gt.text,
+                        textContentColor = Gt.text,
+                    )
+                }
+
                 // ROUTETOOLBAR-2026-11-23: THE ROUTE+ PANEL, drawn while route mode is on -- the
                 // same shared panel Android's GtRouteHost composes (RouteModule.kt:1138).
                 // ⚠ help is passed the REAL control, never {} -- that empty default is what left the
@@ -2536,13 +2921,27 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                             IosRouteSeams.install { s -> js(s) }
                             com.geeksville.mesh.grouptrack.GtRouteLaunch.close()
                         },
-                        onSaveCompleted = { onMessage("route", "Saving a route is not on the iPad yet") },
-                        onSaveRequested = { onMessage("route", "Saving a route is not on the iPad yet") },
+                        // IOSSAVE-2026-11-24: the save dialog is SHARED now (convoy/GtRouteSaveDialog.kt,
+                        // Android's own body, SAVEDIALOGLIFT-2026-11-23). These two stubs become the
+                        // same two actions Android takes: SAVE opens it, SAVE COMPLETED is its commit.
+                        onSaveCompleted = { routeSaveAsk.value = true },
+                        onSaveRequested = { routeSaveAsk.value = true },
                         // DISCARD-2026-11-23: Android is RouteModule.kt:1495-1504, the "Delete
                         // in-progress" branch. Roll back needs the draft store, which the iPad
                         // does not have yet, so only this branch runs and the message says so.
                         onDiscardRequested = {
                             IosRouteSeams.install { s -> js(s) }
+                            // RECOVERDELETE-2026-11-24 (Fred 13:24: "discard should delete the file that is
+                            // the auto recovery. it does not on iPad"): Android's onExit deletes it
+                            // (RouteModule.kt:1146, RouteDraftStore.deleteDraft). This said "deleted" and
+                            // deleted nothing. Over the json primitive, the same path GtRouteDraft writes.
+                            // Taken BEFORE endBuild, while routeName is still set.
+                            val dName = com.geeksville.mesh.grouptrack.GtRouteLaunch.routeName.value
+                            if (dName.isNotEmpty()) {
+                                com.grouptrack.shared.route.GtRoute.env.jsonDelete(dName + ".json")
+                                com.grouptrack.shared.log.gtLogger("RouteDraft").i {
+                                    "RECOVERDELETE-2026-11-24 discarded draft '" + dName + "'" }
+                            }
                             com.geeksville.mesh.convoy.RouteManager.clearRoute()
                             com.geeksville.mesh.grouptrack.GtRouteLaunch.endBuild()
                             com.geeksville.mesh.grouptrack.GtRouteLaunch.routeName.value = ""
@@ -2636,7 +3035,38 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                         },
                     )
                 }
-                if (routeClearAsk.value) {
+                // IOSSAVE-2026-11-24: THE SHARED SAVE DIALOG. Android renders it in GtRouteHost when
+    // showSaveChoice is true; this is that render, with the iPad's four pieces.
+    // "Save as in progress" works here: it is a rename over the json primitive, which the iPad has.
+    // "Save as completed route" still needs saveCompleted -- trailhead proximity, buildWktAndBbox and
+    // the spatial insert (RouteModule.kt:941) -- which is a real port, not a seam, so it says so.
+    if (routeSaveAsk.value) {
+        com.geeksville.mesh.convoy.GtRouteSaveDialog(
+            title = { androidx.compose.material3.Text("Save route") },
+            name = com.geeksville.mesh.grouptrack.GtRouteLaunch.routeName.value,
+            origName = com.geeksville.mesh.grouptrack.GtRouteLaunch.routeName.value,
+            pointCount = com.geeksville.mesh.convoy.RouteManager.routeVertexCount(),
+            resumed = com.geeksville.mesh.grouptrack.GtRouteLaunch.routeLifecycleState.intValue ==
+                com.geeksville.mesh.convoy.ROUTE_LS_RESUMED,
+            onName = { com.geeksville.mesh.grouptrack.GtRouteLaunch.routeName.value = it },
+            onToast = { m -> onMessage("route", m) },
+            onDismiss = { routeSaveAsk.value = false },
+            rename = { o, n ->
+                com.grouptrack.shared.route.GtRoute.env.jsonRename(o + ".json", n + ".json")
+                Unit
+            },
+            onSaveCompleted = {
+                onMessage("route", "Saving as a completed route needs the spatial insert, which is not ported yet. Save as in progress works.")
+            },
+            onSaveInProgress = {
+                IosRouteSeams.install { s -> js(s) }
+                com.geeksville.mesh.convoy.RouteManager.clearRoute()
+                com.geeksville.mesh.grouptrack.GtRouteLaunch.endBuild()
+            },
+        )
+    }
+
+    if (routeClearAsk.value) {
                     // ROUTECLEAR-2026-11-23: Android's dialog (GroupTrackScreen.kt:2931-2960), same
                     // words and the same order of work: the compare set first, then every route file.
                     // \u26a0 THE LIST IS FILE NAMES. Android lists the name INSIDE each json; this lists

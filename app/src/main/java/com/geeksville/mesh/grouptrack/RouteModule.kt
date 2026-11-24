@@ -32,6 +32,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geeksville.mesh.convoy.ConvoyRouteToolbar
+import com.geeksville.mesh.convoy.GtTrailTable   // TRAILTABLEFIX-2026-11-24
+import com.geeksville.mesh.convoy.shared   // TRAILTABLEFIX-2026-11-24: SelTable.shared()
 import com.geeksville.mesh.convoy.MapStateStore
 import com.geeksville.mesh.convoy.ROUTE_LS_NEW
 import com.geeksville.mesh.convoy.ROUTE_LS_RESUMED
@@ -105,16 +107,19 @@ object GtRoute {
     val showDiscardChoice = mutableStateOf(false)
     val showPicker = mutableStateOf(false)
     val showResolver = mutableStateOf(false)
-    val resumeReq = mutableStateOf("")   // GTROUTE1F-2026-10-23: a draft to resume ("" = none); served by GtRouteHost
-    val recoveryDetected = mutableStateOf(false)
+    /** IOSMANUAL-2026-11-24: SHARED state now. Delegated as routeMode is, so every R.resumeReq call
+     *  site is unchanged. GTROUTE1F-2026-10-23: a draft to resume ("" = none). */
+    val resumeReq get() = GtRouteLaunch.resumeReq
+    /** IOSMANUAL-2026-11-24: SHARED state now. Delegated; the picker's wording still reads it. */
+    val recoveryDetected get() = GtRouteLaunch.recoveryDetected
     val notice = mutableStateOf("")            // "" = none (CODE RULE 1)
     val noticeFilter = mutableStateOf(false)   // AIFAIL-2026-11-03: the notice is a failed AI build -- OPEN FILTER beside OK
     val noticeAllLand = mutableStateOf(false)  // AIFAIL-2026-11-03 v4: the failed build had a land type hidden -- SHOW ALL LAND AND SEARCH AGAIN
     val selection = mutableStateOf("")        // AIFAIL-2026-11-03 v5: the plan's trails selected / left out ("" = not counted yet)
-    val checks = mutableStateOf("")           // AIFAILCHECK-2026-11-03: the plan's CHECKS BEFORE THE SEARCH ("" = not run)
+    val checks get() = GtAiFlow.checks   // AIBUILD-2026-11-24 (moved to GtAiFlow)   // AIFAILCHECK-2026-11-03: the plan's CHECKS BEFORE THE SEARCH ("" = not run)
     val trailheadOk = mutableStateOf(true)     // AIFAILCHECK-2026-11-03: a shown trail within 1/2 mile -- false = the search may not start
     val selTable = mutableStateOf(com.geeksville.mesh.convoy.RouteExplorer.SelTable())   // PLANTABLE-2026-11-03: the plan's trail table
-    val filterPeek = mutableStateOf(false)     // AIFAIL-2026-11-03 v3: FILTER open over the AI plan -- the plan waits behind BACK TO THE PLAN
+    val filterPeek get() = GtAiFlow.filterPeek   // AIBUILD-2026-11-24 (moved to GtAiFlow)   // AIFAIL-2026-11-03 v3: FILTER open over the AI plan -- the plan waits behind BACK TO THE PLAN
     val saveOrigName = mutableStateOf("")
     val thPrompt = mutableStateOf(false)
     val thName = mutableStateOf("")
@@ -129,11 +134,9 @@ object GtRoute {
     /**
      * The Route button, BEFORE its choices (Fred 13:18). true = something pending was shown -- do not open the choices.
      */
-    fun precheck(): Boolean {
-        if (routeMode.value) return true   // already building -- the toolbar is up
-        if (RouteDraftStore.hasOpenBatch()) { openCompare(); return true }   // GTAI2-2026-10-23: an open AI compare set -> the compare table
-        return manualChecks()
-    }
+    // TWOCHECKS-2026-11-24: precheck() is GONE. It held BOTH rechecks on one button, so an open AI
+    // batch hid the manual menu and a manual draft hid the AI one. The manual start now calls
+    // GtRoute.manualChecks(); the AI flow keeps startAi()'s own check (:251).
 
     /** GTAI2-2026-10-23: the planner's BATCHFORK branch, copied. Route mode stays OFF (a tap on a drawn route must not become a
      *  vertex); the layers are hidden and REMEMBERED -- the table is a detour, anything changed to show it is undone. Nothing is
@@ -202,16 +205,16 @@ object GtRoute {
     // ── GTAI3-2026-10-23: AI ROUTE DESIGN -- the planner's guided flow (ConvoyMapViewerScreen pinStep / pin* / gpRunAssess /
     //    onProximityTap / FIND MY RIDES), COPIED into one place. AI either opens the compare table or starts a new build (Fred 14:43).
     val aiStep get() = GtAiFlow.step   // AIFLOW-2026-11-23: one copy, in shared code
-    val aiBusy = mutableStateOf(false)
-    val aiProgress = mutableStateOf("")
+    val aiBusy get() = GtAiFlow.aiBusy   // AISTATE-2026-11-24
+    val aiProgress get() = GtAiFlow.aiProgress   // AISTATE-2026-11-24
     val aiSkipOverview get() = GtAiFlow.skipOverview   // AIFLOW-2026-11-23
-    val pinNotice = mutableStateOf("")
+    val pinNotice get() = GtAiFlow.pinNotice   // AISTATE-2026-11-24
     // AIPERIMCOUNT-2026-11-11 v6 (Fred 09:19): a poor area for AI route planning -> a pop-up the rider must answer (drop pins, or design it anyway)
     val askWarn = mutableStateOf("")
-    val pinTrailName = mutableStateOf("")
-    val pinTrailLat = mutableStateOf(0.0)
-    val pinTrailLon = mutableStateOf(0.0)
-    val pinRideName = mutableStateOf("")
+    val pinTrailName get() = GtAiFlow.pinTrailName   // AISTATE-2026-11-24
+    val pinTrailLat get() = GtAiFlow.pinTrailLat   // AISTATE-2026-11-24
+    val pinTrailLon get() = GtAiFlow.pinTrailLon   // AISTATE-2026-11-24
+    val pinRideName get() = GtAiFlow.pinRideName   // AISTATE-2026-11-24
     // AIFLOW-2026-11-23: the rider's distance and speed answers, one copy, in shared code. Same
     // defaults, same types -- every call site here reads and writes them exactly as before.
     val pinMiLow get() = GtAiFlow.miLow
@@ -219,10 +222,10 @@ object GtRoute {
     val pinMphLow get() = GtAiFlow.mphLow
     val pinMphHigh get() = GtAiFlow.mphHigh
     // null = not answered yet -- the planner's three states (loop / point-to-point / unasked), which the steps read (CODE RULE 1).
-    val pinIsLoop = mutableStateOf<Boolean?>(null)
-    val pinEndLat = mutableStateOf(0.0)
-    val pinEndLon = mutableStateOf(0.0)
-    val pinPoints = mutableStateOf(listOf<Pair<Double, Double>>())
+    val pinIsLoop get() = GtAiFlow.pinIsLoop   // AISTATE-2026-11-24
+    val pinEndLat get() = GtAiFlow.pinEndLat   // AISTATE-2026-11-24
+    val pinEndLon get() = GtAiFlow.pinEndLon   // AISTATE-2026-11-24
+    val pinPoints get() = GtAiFlow.pinPoints   // AISTATE-2026-11-24
     // null = not assessed yet -- the mileage HUD shows "working" until the first answer (the planner's, CODE RULE 1).
     val pinFeas = mutableStateOf<com.geeksville.mesh.convoy.RouteExplorer.PinFeasibility?>(null)
     private var pinFeasSeq = 0
@@ -851,14 +854,8 @@ object GtRoute {
     /** GTROUTE1C-2026-10-23 (Fred 14:05): drafts the rider is building -- an open AI compare set's routes are left out. */
     fun manualDrafts() = RouteDraftStore.listDrafts().filter { !RouteDraftStore.isInOpenBatch(it.name) }
 
-    fun manualChecks(): Boolean {
-        val drafts = manualDrafts()   // GTROUTE1C-2026-10-23: the AI compare set's drafts are not in-progress routes
-        recoveryDetected.value = MapStateStore.readMap(MapStateStore.rideKey()).routeState?.open == true
-        // GTROUTE1F-2026-10-23 (Fred 14:33): the unnamed route is loaded and building carries on -- no prompt.
-        if (drafts.any { it.name == RouteDraftStore.UNNAMED }) { resumeReq.value = RouteDraftStore.UNNAMED; return true }
-        if (drafts.isNotEmpty() || recoveryDetected.value) { draftTick.intValue++; showPicker.value = true; return true }
-        return false
-    }
+    /** IOSMANUAL-2026-11-24: delegates to THE ONE SHARED BODY (GtRouteLaunch.manualChecks). */
+    fun manualChecks(): Boolean = GtRouteLaunch.manualChecks()
 
     /** Launch Route+ in ONE mode, locked (stage 1: Build it myself). A new route starts as the UNNAMED draft. */
     // ROUTELAUNCH-2026-11-23: the body moved to shared GtRouteLaunch.startNew, unchanged.
@@ -936,6 +933,36 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
     val R = GtRoute
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
+    // IOSMANUAL-2026-11-24: the HOST's half of the recheck and the resume. Android keeps its own
+    // certified store, its own map state and its own picker -- only the wiring is new, and the rules
+    // it feeds are the same rules, now in commonMain where the iPad reaches them too.
+    // AIBUILD-2026-11-24: the AI builder's host calls. ctx and R are this composable's
+    // (RouteModule.kt:930-931); R is ANDROID's GtRoute (RouteModule.kt:64). The feasibility
+    // crosses as the already-shared GtRoute.PinFeasibility -- field for field Android's own
+    // RouteExplorer.PinFeasibility (RouteExplorer.kt:91), so nothing is converted by hand twice.
+    // TRAILTABLE-2026-11-24: the redraw half of a FILTER change, as Android has always done it.
+    GtAiFlow.filterChanged = { GtOpenModule.trailsTick.intValue++; R.refreshSelection() }
+    GtAiFlow.refreshSelection = { R.refreshSelection() }
+    GtAiFlow.findRides = { R.findRides(ctx) }
+    GtAiFlow.runAssess = { R.runAssess(ctx) }
+    GtAiFlow.pinReset = { R.pinReset() }
+    GtAiFlow.aiCancel = { R.aiCancel() }
+    GtAiFlow.pinFeas = {
+        R.pinFeas.value?.let { f ->
+            com.grouptrack.shared.route.GtRoute.PinFeasibility(
+                f.order, f.totalMiles, f.legMiles, f.snapFeet, f.onFragment,
+                f.unreachable, f.marginalMiles, f.overMiles, f.underMiles)
+        }
+    }
+
+    GtRouteLaunch.listDrafts = { RouteDraftStore.listDrafts().map { it.name to it.pointCount } }
+    GtRouteLaunch.isInOpenBatch = { n -> RouteDraftStore.isInOpenBatch(n) }
+    GtRouteLaunch.recoveryOpen = { MapStateStore.readMap(MapStateStore.rideKey()).routeState?.open == true }
+    GtRouteLaunch.showPicker = { R.draftTick.intValue++; R.showPicker.value = true }
+    GtRouteLaunch.loadDraft = { n -> RouteDraftStore.loadIntoRouteManager(n)?.method }
+    GtRouteLaunch.buildLineById = { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLineById(ctx) } }
+    GtRouteLaunch.toast = { msg -> android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_LONG).show() }
+
     // The planner's saveCompleted, as is: trailhead within 0.1 mi of the start (else the prompt), then the route, its
     // notes and its trailhead anchor; drafts deleted; route mode off.
     val saveCompleted: () -> Unit = {
@@ -990,25 +1017,14 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
     }
 
     // GTROUTE1F-2026-10-23: THE resume path (selector row, the unnamed route) -- the picker's body, moved unchanged.
+    // IOSMANUAL-2026-11-24: the resume is ONE SHARED BODY now (GtRouteLaunch.resumeDraft) -- load,
+    // state, draw by id, centre at z10, say it, redraw. This host supplies only the scope.
+    // GTROUTE1G-2026-10-23: clearing resumeReq restarts this effect, so the draw runs in scope.
     androidx.compose.runtime.LaunchedEffect(R.resumeReq.value) {
         val name = R.resumeReq.value
         if (name.isNotEmpty()) {
             R.resumeReq.value = ""
-            val od = RouteDraftStore.loadIntoRouteManager(name)
-            R.routeName.value = name
-            R.routeMethod.intValue = when (od?.method) { "draw" -> ROUTE_METHOD_DRAW; "suggest" -> ROUTE_METHOD_SUGGEST; else -> ROUTE_METHOD_P2P }
-            R.routeLifecycleState.intValue = ROUTE_LS_RESUMED
-            R.routeEntryNonce.intValue++
-            R.addPointMode.value = true
-            R.routeMode.value = true
-            R.persist()
-            // GTROUTE1G-2026-10-23: the host's scope -- clearing resumeReq restarts this effect and would cancel the draw.
-            scope.launch {
-                val p = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.buildLineById(ctx) }
-                R.js("window.__routeMode=true;setRouteMode(true); drawBuildLine('$p')")
-                kotlinx.coroutines.delay(400)
-                R.js("drawBuildLine('$p')")
-            }
+            scope.launch { GtRouteLaunch.resumeDraft(name) }
         }
     }
 
@@ -1198,81 +1214,18 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                         .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                 )
             } else {
+                // AIGUIDED-2026-11-24: SUMMARY / STEPS / ACTIONS are computed in commonMain now
+                // (GtAiFlow.summaryText / guidedSteps / guidedActions) so the iPad draws the same
+                // steps 3-6 from the same lists. The LaunchedEffect stays HERE: refreshSelection
+                // and the FILTER peek are host state. The panels below are unchanged.
                 val miLo = R.pinMiLow.intValue; val miHi = R.pinMiHigh.intValue
-                val mphLo = R.pinMphLow.intValue; val mphHi = R.pinMphHigh.intValue
-                val thName = R.pinTrailName.value
-                val isLoop = R.pinIsLoop.value
                 val pts = R.pinPoints.value
-                val hrLo = miLo.toDouble() / mphHi.toDouble()
-                val hrHi = miHi.toDouble() / mphLo.toDouble()
                 // AIFAIL-2026-11-03 v5 (Fred 06:54): the trails selected / left out, counted again when the start, distance or FILTER changes
                 val selKey = "" + R.pinTrailLat.value + "," + R.pinTrailLon.value + "," + miLo + "," + miHi + "," + com.geeksville.mesh.convoy.TrailFilterState.whereOrEmpty() + R.filterPeek.value
                 androidx.compose.runtime.LaunchedEffect(selKey, step) { if (step >= PIN_STEP_SUMMARY) R.refreshSelection() }
-                // PLANTABLE-2026-11-03 (Fred 07:39-07:41): the plan in one line, then the checks; the trail table is drawn below it
-                val summary = thName.ifBlank { "Your trailhead" } + " · " + miLo + "–" + miHi + " mi · " + mphLo + "–" + mphHi +
-                    " mph · about " + Math.round(hrLo) + "–" + Math.round(hrHi) + " h with stops · " +
-                    (if (isLoop == false) "finishes at your end point" else "loop back to the start") +
-                    (if (R.checks.value.isNotEmpty()) "\n\n" + R.checks.value else "")
-                val GS = com.geeksville.mesh.convoy.GP_STATE_TODO
-                val GC = com.geeksville.mesh.convoy.GP_STATE_CURRENT
-                val GD = com.geeksville.mesh.convoy.GP_STATE_DONE
-                val steps = listOf(
-                    com.geeksville.mesh.convoy.GuidedStep(
-                        title = "Select your trailhead / long press to add the trailhead",
-                        instruction = "Use search to navigate to your area — follow the area name with the two-character " +
-                            "state, since names repeat across states.\n\nThe blue circle shows the trails that can start your " +
-                            "route. Move the map if the trail you want to launch from is not inside it.\n\nTap the trailhead " +
-                            "you are starting from, or press and hold for a second to add one.",
-                        answer = thName,
-                        state = if (step == PIN_STEP_TRAILHEAD) GC else GD),
-                    com.geeksville.mesh.convoy.GuidedStep(
-                        title = "Add one if none exists",
-                        instruction = "Long press at the start of the trail, choose Trailhead, and give it a name. Then tap it to select it.",
-                        answer = if (thName.isBlank()) "" else "Not needed",
-                        state = if (step == PIN_STEP_TRAILHEAD) GC else GD),
-                    com.geeksville.mesh.convoy.GuidedStep(
-                        title = "Does the ride return there?",
-                        instruction = "Answer yes for a loop back to your trailhead.",
-                        answer = if (thName.isBlank()) "" else "Returns to " + thName,
-                        state = when { step < PIN_STEP_RETURN -> GS; step == PIN_STEP_RETURN -> GC; else -> GD }),
-                    com.geeksville.mesh.convoy.GuidedStep(
-                        title = "Where does the ride finish?",
-                        instruction = "Tap the place you want the ride to end.",
-                        answer = if (isLoop == false && R.pinEndLat.value != 0.0) "Finish point set" else "",
-                        state = when { isLoop != false -> GS; step == PIN_STEP_ENDPOINT -> GC; step > PIN_STEP_ENDPOINT -> GD; else -> GS }),
-                    com.geeksville.mesh.convoy.GuidedStep(
-                        title = "Add your own places?",
-                        instruction = "Answer yes to drop pins on places the ride should reach. Answer no and the ride is designed for you.",
-                        answer = when { step <= PIN_STEP_ASK -> ""; pts.isEmpty() -> "Designed for you"; else -> "Adding your own places" },
-                        state = when { step < PIN_STEP_ASK -> GS; step == PIN_STEP_ASK -> GC; else -> GD }),
-                    com.geeksville.mesh.convoy.GuidedStep(
-                        title = "Places to pass through",
-                        instruction = "Green trails are connected to your trailhead -- drop pins on them. " +   // AICONNECTED-2026-11-11
-                            "Tap the closest trail to each place you want the ride to reach — up to " + PIN_MAX +
-                            ". Tap a pin again to remove it. I will favour rides that pass named points of interest.",
-                        answer = if (pts.isEmpty()) "" else pts.size.toString() + " place" + (if (pts.size == 1) "" else "s") + " included",
-                        state = when { step < PIN_STEP_INCLUDE -> GS; step == PIN_STEP_INCLUDE -> GC; else -> GD }),
-                    com.geeksville.mesh.convoy.GuidedStep(
-                        title = "Review and search",
-                        instruction = if (step == PIN_STEP_SEARCH) R.aiProgress.value.ifBlank { "Working…" } else summary,
-                        answer = "",
-                        state = if (step < PIN_STEP_SUMMARY) GS else GC)
-                )
-                val actions: List<Pair<String, () -> Unit>> = when (step) {
-                    PIN_STEP_RETURN -> listOf(
-                        "YES — LOOP" to { R.pinNotice.value = ""; R.pinIsLoop.value = true; R.aiStep.intValue = PIN_STEP_ASK },
-                        "DROP ENDPOINT PIN NOW" to { R.pinNotice.value = ""; R.pinIsLoop.value = false; R.aiStep.intValue = PIN_STEP_ENDPOINT })
-                    PIN_STEP_ENDPOINT -> listOf(
-                        "CONTINUE" to { R.pinNotice.value = ""; R.aiStep.intValue = PIN_STEP_ASK })
-                    PIN_STEP_ASK -> listOf(
-                        "YES — I'LL DROP PINS" to { R.pinNotice.value = ""; R.aiStep.intValue = PIN_STEP_INCLUDE },
-                        "NO — DESIGN IT FOR ME" to { R.pinNotice.value = ""; R.pinPoints.value = emptyList(); R.aiStep.intValue = PIN_STEP_SUMMARY })
-                    PIN_STEP_INCLUDE -> listOf(
-                        "DONE" to { R.pinNotice.value = ""; R.aiStep.intValue = PIN_STEP_SUMMARY })
-                    PIN_STEP_SUMMARY -> listOf(
-                        "FIND MY RIDES" to { R.findRides(ctx) })
-                    else -> emptyList()
-                }
+                val summary = GtAiFlow.summaryText()
+                val steps = GtAiFlow.guidedSteps()
+                val actions = GtAiFlow.guidedActions()
                 if (step == PIN_STEP_ENDPOINT || step == PIN_STEP_INCLUDE) {
                     val f = R.pinFeas.value
                     val problem = when {
@@ -1340,7 +1293,7 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
                         title = R.pinRideName.value,
                         body = summary,
                         onFilter = { R.filterPeek.value = true; GtOpenModule.req.value = "filter" },   // AIFAIL-2026-11-03 v3
-                        details = { GtTrailTable(R.selTable.value) },   // PLANTABLE-2026-11-03
+                        details = { GtTrailTable(R.selTable.value.shared()) },   // TRAILTABLE-2026-11-24   // PLANTABLE-2026-11-03
                         working = step == PIN_STEP_SEARCH,
                         progress = R.aiProgress.value,
                         // AIFAILCHECK-2026-11-03 (Fred 07:16): no search from a trailhead with no shown trail within 1/2 mile
@@ -1423,55 +1376,20 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
 
     // ── save choice (the planner's, with rename) ──
     if (R.showSaveChoice.value) {
-        val pts = RouteManager.routeVertexCount()
-        AlertDialog(
-            onDismissRequest = { R.showSaveChoice.value = false },
+        // SAVEDIALOGLIFT-2026-11-23: the dialog is shared now (convoy/GtRouteSaveDialog.kt) -- Android's own
+        // body, moved, with these four pieces passed in. Same strings, same rules, same order.
+        com.geeksville.mesh.convoy.GtRouteSaveDialog(
             title = { GtDialogTitle("Save route", "route.save", { R.showSaveChoice.value = false }) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    Text(if (R.routeLifecycleState.intValue == ROUTE_LS_RESUMED) "Graduate to a saved route, or keep editing as in-progress."
-                         else "Save as a completed route (needs 2+ points), or keep as in-progress.")
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = if (R.routeName.value == RouteDraftStore.UNNAMED) "" else R.routeName.value,
-                        onValueChange = { R.routeName.value = it }, singleLine = true,
-                        label = { Text("Route name (required)") })
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val nm = R.routeName.value.trim()
-                    if (nm.isBlank() || nm == RouteDraftStore.UNNAMED) android.widget.Toast.makeText(ctx, "Enter a route name", android.widget.Toast.LENGTH_SHORT).show()
-                    else if (pts < 2) android.widget.Toast.makeText(ctx, "Need at least 2 points", android.widget.Toast.LENGTH_SHORT).show()
-                    else {
-                        R.showSaveChoice.value = false
-                        val oldNm = R.saveOrigName.value
-                        scope.launch {
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { if (oldNm != nm) RouteDraftStore.renameDraft(oldNm, nm) }
-                            R.routeName.value = nm
-                            kotlinx.coroutines.delay(400)
-                            saveCompleted()
-                        }
-                    }
-                }) { Text("Save as completed route") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    val nm = R.routeName.value.trim()
-                    if (nm.isBlank() || nm == RouteDraftStore.UNNAMED) android.widget.Toast.makeText(ctx, "Enter a route name", android.widget.Toast.LENGTH_SHORT).show()
-                    else {
-                        R.showSaveChoice.value = false
-                        val oldNm = R.saveOrigName.value
-                        scope.launch {
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { if (oldNm != nm) RouteDraftStore.renameDraft(oldNm, nm) }
-                            R.routeName.value = nm
-                            RouteManager.clearRoute()
-                            R.draftTick.intValue++
-                            R.endBuild()
-                        }
-                    }
-                }) { Text("Save as in progress") }
-            }
+            name = R.routeName.value,
+            origName = R.saveOrigName.value,
+            pointCount = RouteManager.routeVertexCount(),
+            resumed = R.routeLifecycleState.intValue == ROUTE_LS_RESUMED,
+            onName = { R.routeName.value = it },
+            onToast = { m -> android.widget.Toast.makeText(ctx, m, android.widget.Toast.LENGTH_SHORT).show() },
+            onDismiss = { R.showSaveChoice.value = false },
+            rename = { o, n -> kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { RouteDraftStore.renameDraft(o, n) } },
+            onSaveCompleted = saveCompleted,
+            onSaveInProgress = { RouteManager.clearRoute(); R.draftTick.intValue++; R.endBuild() },
         )
     }
 
@@ -1633,7 +1551,57 @@ fun GtRouteHost(toolbarModifier: Modifier, search: GtSearchBridge) {   // GTAI5-
     if (R.batchOpen.value && R.batchRows.value.isNotEmpty()) {
         GtCompareTable(   /* GTAI4 */
             batchName = R.batchName.value,
-            rows = R.batchRows.value,
+            // COMPAREFIX-2026-11-24: the help control is the host's now (SEAMRULE-2026-11-19).
+            help = { GtHelpButton("route.compare") },
+            // COMPARETABLE-2026-11-24: the table is shared now and takes GtBatchRow.
+            rows = R.batchRows.value.map { r ->
+                com.geeksville.mesh.convoy.GtRouteBatch.GtBatchRow(
+                    r.name, r.colour, r.miles, r.hoursLow, r.hoursHigh, r.features, r.trails)
+            },
+            // COMPARETABLE-2026-11-24: the surface lookup, moved OUT of the composable
+            // verbatim -- the host owns database access. Was AiCompareTable.kt:128-168.
+            surfaceOf = { wanted ->
+                // OUTDUP-2026-11-24: one `out`, not two.
+                val out = HashMap<String, String>()
+                try {
+                val names = wanted
+                val sdb = SpatialDbManager.getSpatialDb()
+                val edb = SpatialDbManager.getExtensionDb()
+                if (names.isNotEmpty() && sdb != null && edb != null) {
+                // 1. names -> ids, from the spatial database
+                val idToName = HashMap<String, String>()
+                val marks = names.joinToString(",") { "?" }
+                sdb.rawQuery(
+                "SELECT trail_id, name FROM trails WHERE name IN ($marks)",
+                names.toTypedArray()
+                ).use { c ->
+                while (c.moveToNext()) {
+                val id = c.getString(0) ?: continue
+                idToName[id] = c.getString(1) ?: continue
+                }
+                }
+                // 2. ids -> surface, from the extension database
+                if (idToName.isNotEmpty()) {
+                val ids = idToName.keys.toList()
+                val m2 = ids.joinToString(",") { "?" }
+                edb.rawQuery(
+                "SELECT trail_id, surface_type FROM trail_properties " +
+                "WHERE trail_id IN ($m2) AND surface_type IS NOT NULL " +
+                "AND TRIM(surface_type) <> ''",
+                ids.toTypedArray()
+                ).use { c ->
+                while (c.moveToNext()) {
+                val n = idToName[c.getString(0)] ?: continue
+                if (!out.containsKey(n)) out[n] = c.getString(1)
+                }
+                }
+                }
+                }
+                } catch (e: Exception) {
+                gtLogger("BatchGrid").w { "surface lookup: ${e.message}" }
+                }
+                out
+            },
             hidden = R.batchHidden.value,
             saveTicks = R.batchSave.value,
             onToggleShown = { n ->
@@ -1759,20 +1727,20 @@ private const val PIN_STEP_LAUNCH    = GtAiFlow.STEP_LAUNCH
 private const val PIN_STEP_WELCOME   = GtAiFlow.STEP_WELCOME
 private const val PIN_STEP_DISTANCE  = GtAiFlow.STEP_DISTANCE
 private const val PIN_STEP_NONE      = GtAiFlow.STEP_NONE
-private const val PIN_STEP_TRAILHEAD = 1
-private const val PIN_STEP_RETURN    = 2
-private const val PIN_STEP_ENDPOINT  = 3
-private const val PIN_STEP_ASK       = 4
-private const val PIN_STEP_INCLUDE   = 5
-private const val PIN_STEP_SUMMARY   = 6
-private const val PIN_STEP_SEARCH    = 7
+private const val PIN_STEP_TRAILHEAD = GtAiFlow.STEP_TRAILHEAD   // AISTATE-2026-11-24
+private const val PIN_STEP_RETURN    = GtAiFlow.STEP_RETURN      // AISTATE-2026-11-24
+private const val PIN_STEP_ENDPOINT  = GtAiFlow.STEP_ENDPOINT    // AISTATE-2026-11-24
+private const val PIN_STEP_ASK       = GtAiFlow.STEP_ASK         // AISTATE-2026-11-24
+private const val PIN_STEP_INCLUDE   = GtAiFlow.STEP_INCLUDE     // AISTATE-2026-11-24
+private const val PIN_STEP_SUMMARY   = GtAiFlow.STEP_SUMMARY     // AISTATE-2026-11-24
+private const val PIN_STEP_SEARCH    = GtAiFlow.STEP_SEARCH      // AISTATE-2026-11-24
 // AIPERIMCOUNT-2026-11-11 v5 (Fred 09:09-09:10): a ride is a loop through features, so they must REACH out -- the area is a good candidate when
 //  the farthest feature (straight line from the trailhead) x this factor reaches the minimum asked (a loop through features spread
 //  around that far is up to ~3x its radius; trail miles are longer than straight-line miles)
 private const val AI_REACH_FACTOR = 3.0
 // AIFLOOR10-2026-11-11 (Fred 08:54): the floor a search with no ride in the rider's band is run again from
 private const val AI_RETRY_FLOOR = 10
-private const val PIN_MAX = 5
+private const val PIN_MAX = GtAiFlow.PIN_MAX   // AIBUILD-2026-11-24
 private const val PIN_REMOVE_MI = 0.15
 private const val TRAILHEAD_SELECT_MI = 0.062
 
@@ -1835,79 +1803,3 @@ fun rememberRecipeFile(): () -> Unit {
     return { notice.ask { picker.launch(arrayOf("*/*")) } }
 }
 
-/**
- * PLANTABLE-2026-11-03 (Fred 07:39-07:41, mockup approved): the plan's trail table -- by use, one line per trail type with yes / no and
- * its public / private counts in the search area; GREEN = included in the search, RED = left out. SEE / CHANGE FILTER changes it.
- */
-@androidx.compose.runtime.Composable
-fun GtTrailTable(t: com.geeksville.mesh.convoy.RouteExplorer.SelTable) {
-    // PLANCHECK-2026-11-03 (Fred 08:28): a tick box in front of every line -- ticked = included (green numbers), unticked = left out
-    //  (red); the box or the line changes FILTER, the map redraws, the numbers recolour.
-    val sc = GtScheme.current.value
-    val inc = sc.good; val out = sc.bad; val txt = sc.panelText
-    fun fmt(n: Int) = "%,d".format(n)
-    val bold = androidx.compose.ui.text.font.FontWeight.Bold
-    val end = androidx.compose.ui.text.style.TextAlign.End
-    val gap = Modifier.width(8.dp)
-    // PLANTOAST-2026-11-03 (Fred 08:30): every tap says what changed in FILTER
-    val tctx = androidx.compose.ui.platform.LocalContext.current
-    fun said(msg: String) = android.widget.Toast.makeText(tctx, msg, android.widget.Toast.LENGTH_SHORT).show()
-    val tf = com.geeksville.mesh.convoy.TrailFilterState
-    fun landTap(pub: Boolean) {
-        val before = tf.land
-        GtRoute.toggleLand(pub)
-        if (tf.land == before) said("At least one land type stays on")
-        else said("FILTER changed: " + (if (pub) "Public" else "Private") + " land " +
-            (if ((if (pub) tf.land != "PRIVATE" else tf.land != "PUBLIC")) "included" else "left out"))
-    }
-    fun useTap(u: String) {
-        val before = tf.use
-        GtRoute.toggleUse(u)
-        if (tf.use == before) said("At least one use stays on")
-        else said("FILTER changed: $u " + (if ((if (u == "Motorized") tf.use != "NON-MOTORIZED" else tf.use != "MOTORIZED")) "included" else "left out"))
-    }
-    fun typeTap(ty: String) { GtRoute.toggleType(ty); said("FILTER changed: $ty " + (if (tf.isOn(ty)) "included" else "left out")) }
-    fun rstTap() { GtRoute.toggleRestricted(); said("FILTER changed: Restricted " + (if (tf.restricted) "included" else "left out")) }
-    Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-        if (t.total == 0) { Text("Counting the trails…", color = txt, fontSize = 13.sp); return@Column }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("TRAILS IN THE SEARCH AREA (" + t.area + ")", color = txt, fontSize = 12.sp, fontWeight = bold, modifier = Modifier.weight(1f))
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(96.dp).clickable { landTap(true) }) {
-                GtCheck(t.publicOn); Spacer(gap); Text("Public", color = txt, fontSize = 12.sp, fontWeight = bold) }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(96.dp).clickable { landTap(false) }) {
-                GtCheck(t.privateOn); Spacer(gap); Text("Private", color = txt, fontSize = 12.sp, fontWeight = bold) }
-        }
-        var lastUse = ""
-        for (r in t.rows) {
-            if (r.use != lastUse) {
-                lastUse = r.use
-                val u = r.use
-                val switchable = u == "Motorized" || u == "Non-motorized"
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clickable(enabled = switchable) { useTap(u) }) {
-                    if (switchable) { GtCheck(r.useOn); Spacer(gap) }
-                    Text(if (switchable) u else "$u (always searched)", color = txt, fontSize = 13.sp, fontWeight = bold)
-                }
-            }
-            val ty = r.type
-            val pubIn = r.useOn && r.typeOn && t.publicOn
-            val privIn = r.useOn && r.typeOn && t.privateOn
-            Row(verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(top = 3.dp).clickable { typeTap(ty) }) {
-                Spacer(Modifier.width(24.dp))
-                GtCheck(r.typeOn); Spacer(gap)
-                Text(r.type, color = txt, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                Text(fmt(r.pub), color = if (pubIn) inc else out, fontSize = 13.sp, fontWeight = bold, textAlign = end, modifier = Modifier.width(96.dp))
-                Text(fmt(r.priv), color = if (privIn) inc else out, fontSize = 13.sp, fontWeight = bold, textAlign = end, modifier = Modifier.width(96.dp))
-            }
-        }
-        // RESTRICTEDNEVER-2026-11-03 (Fred 20:18-20:20): restricted is never in a route -- information only, no tick box
-        if (t.restricted > 0 || t.pieces > 0) Text("Restricted (never in a route): " + fmt(t.restricted) + " trail" + (if (t.restricted == 1) "" else "s") +
-            " \u00b7 " + fmt(t.pieces) + " with restricted pieces (routed on their open parts)", color = out, fontSize = 13.sp, fontWeight = bold,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-        Text(fmt(t.searched) + " searched · " + fmt(t.total - t.searched) + " left out", color = txt, fontSize = 13.sp, fontWeight = bold,
-            modifier = Modifier.padding(top = 10.dp))
-        Text("Green numbers are included, red are left out. Tick a box to include those trails — SEE / CHANGE FILTER for " +
-            "everything else.", color = txt, fontSize = 11.sp)
-    }
-}

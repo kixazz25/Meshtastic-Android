@@ -838,6 +838,7 @@ fun GroupTrackScreen(
                         @android.webkit.JavascriptInterface
                         fun onMapTap(lat: Double, lon: Double) {
                             if (com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) { com.geeksville.mesh.grouptrack.GtRoute.onTap(context, lat, lon); return }   // GTROUTE1-2026-10-23
+                            gtLogger("ROUTETRACE").i { "ROUTETRACE-2026-11-24 onMapTap FALL-THROUGH (route mode OFF, indent28) -- old path about to addVertex+drawBuildLine; verts=" + com.geeksville.mesh.convoy.RouteManager.routeVertices().size }
                             gtLogger("RouteBridge").d { "onMapTap lat=$lat lon=$lon" }
                             kotlinx.coroutines.MainScope().launch {
                                 val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -1199,6 +1200,7 @@ fun GroupTrackScreen(
                             @android.webkit.JavascriptInterface
                             fun onMapTap(lat: Double, lon: Double) {
                                 if (com.geeksville.mesh.grouptrack.GtRoute.routeMode.value) { com.geeksville.mesh.grouptrack.GtRoute.onTap(context, lat, lon); return }   // GTROUTE1-2026-10-23
+                                gtLogger("ROUTETRACE").i { "ROUTETRACE-2026-11-24 onMapTap FALL-THROUGH (route mode OFF, indent32) -- old path about to addVertex+drawBuildLine; verts=" + com.geeksville.mesh.convoy.RouteManager.routeVertices().size }
                                 gtLogger("RouteBridge").d { "onMapTap lat=$lat lon=$lon" }
                                 kotlinx.coroutines.MainScope().launch {
                                     val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -3058,7 +3060,6 @@ fun GroupTrackScreen(
             bearing = com.geeksville.mesh.grouptrack.GtMapView.bearing.value,
             tilt = com.geeksville.mesh.grouptrack.GtMapView.tilt.value,
             headingUp = com.geeksville.mesh.grouptrack.GtMapView.headingUp.value,
-            routePrecheck = { com.geeksville.mesh.grouptrack.GtRoute.precheck() },
             // SCAFFOLDDEPS-2026-11-19: GRP Awareness and the download queue, read HERE (both Android).
             group = com.geeksville.mesh.convoy.GroupMode.on.value,
             mapsDownloading = com.geeksville.mesh.convoy.DownloadQueueManager.queue.collectAsState().value.any {
@@ -3100,7 +3101,10 @@ fun GroupTrackScreen(
                 // AILAUNCH-2026-11-23: the row raises the launch panel; the panel's effect runs the
                 // same eval startAi always ran -- compare table, or a new build at step 1/6.
                 "route.ai" to { com.geeksville.mesh.grouptrack.GtRoute.aiLaunch() },   // GTAI3-2026-10-23: AI route design -- compare table or a new build
-                "route.manual" to { com.geeksville.mesh.grouptrack.GtRoute.startNew(ROUTE_METHOD_P2P) },   // GTROUTE1-2026-10-23: Build it myself, LOCKED (one mode)
+                // MANUALRECHECK-2026-11-24: the recheck is part of the MANUAL START, not the menu.
+                // true = it handled it (resume, or the WIP picker); false = nothing pending, start new.
+                // precheck()'s body is unchanged -- this only moves WHERE it is called from.
+                "route.manual" to { if (!com.geeksville.mesh.grouptrack.GtRoute.manualChecks()) com.geeksville.mesh.grouptrack.GtRoute.startNew(ROUTE_METHOD_P2P) },   // GTROUTE1-2026-10-23: Build it myself, LOCKED (one mode)
                 "route.recipefile" to { gtRecipeFile() },   // AIFAIL-2026-11-03
                 "route.clear" to { gtClearAsk = true },   // CLEARROUTES-2026-10-22   // GTRIDES (Fred 13:22): ADD ROUTE -- New route or In progress, as +ROUTE
                 // MAPMOVE-2026-10-23: "map.features" (the original Map Features panel) came off the Map menu.

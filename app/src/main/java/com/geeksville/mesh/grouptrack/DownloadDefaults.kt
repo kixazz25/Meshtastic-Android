@@ -67,14 +67,6 @@ object GtDownloadDefaults {
             "  \u00b7  Replace existing tiles: " + (if (replace) "Yes" else "No")
 }
 
-/** DLDEFAULTS: the GroupTrack check -- a bordered box with a check mark when on, blank when off (the STD1H rule), readable on both maps. */
-@Composable
-fun GtCheck(checked: Boolean, modifier: Modifier = Modifier) {
-    Box(modifier.size(24.dp).border(2.dp, Gt.text, RoundedCornerShape(4.dp)).background(Gt.panel, RoundedCornerShape(4.dp)),
-        contentAlignment = Alignment.Center) {
-        if (checked) Text("\u2713", color = Gt.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-    }
-}
 
 /** DLDEFAULTS: one line on a download panel -- the settings it will use -- and CHANGE (this run only). */
 @Composable

@@ -129,7 +129,6 @@ fun GroupTrackLaunchLayer(
     headingUp: Boolean,
     /** GTROUTE1-2026-10-23: Add Route checks BEFORE opening its choices. Required (CODE RULE 1) --
      *  GtRoute is 1,884 lines of Android, so the host owns the check. */
-    routePrecheck: () -> Boolean,
     /** SCAFFOLDDEPS-2026-11-19: GRP Awareness is ON. GroupMode persists to SharedPreferences and
      *  reads RadioSetupState, so the HOST owns it and the shell is only told the answer.
      *  Required (CODE RULE 1) -- the host always knows, and both values are legitimate. */
@@ -247,7 +246,11 @@ fun GroupTrackLaunchLayer(
                 // SHELL11-2026-10-22 (Fred 11:19): Add Route and View SHARE one slot -- Add Route before the ride, View once on it.
                 LaunchModules.bySlot(LaunchSlot.BOTTOM_BAR, group).forEach { m ->
                     if (m.id == "route") {
-                        if (!onRide) GtButton("Add Route", { if (!routePrecheck()) tap(m) })   // GTROUTE1-2026-10-23: checks BEFORE the choices
+                        // MANUALRECHECK-2026-11-24 (Fred 12:45: "we do the recheck in the manual route
+                        // start process. nothing to do with the menu"): NO CHECK HERE. The four-item menu
+                        // always opens. GTROUTE1-2026-10-23 checked on this button, so one pending draft
+                        // hid the menu and took BOTH route methods with it.
+                        if (!onRide) GtButton("Add Route", { tap(m) })
                         else if (group) GtButton(viewLabel, onToggleView)   /* HUDHIDE-2026-11-01 */
                     } else if (m.id == "map" && mapsDownloading) GtButton(m.label + "  \u25cf", { tap(m) }, emphasis = androidx.compose.ui.graphics.Color(0xFF35C46A))   /* GRPSTATUS-2026-10-24: downloading = green */   // MAPTARGET4
                     else GtButton(m.label, { tap(m) })

@@ -166,3 +166,11 @@ object RouteExplorer {
             onProgress?.let { cb -> { p: Shared.Progress -> cb(Progress(p.step, p.detail)) } }
         ).map { s -> Suggestion(s.name, s.miles, s.hoursLow, s.hoursHigh, s.featureCount, s.featureMix, s.draftName) }
 }
+
+/** TRAILTABLE-2026-11-24: the shared twin, so the moved GtTrailTable takes ONE type.
+ *  Mirrors [RouteExplorer.Request.shared] -- the same answer to the same typealias problem.
+ *  TRAILTABLEFIX-2026-11-24: TOP LEVEL, not inside the object. An extension declared inside an
+ *  object is visible only in that object's scope, which is why RouteModule could not see it. */
+fun RouteExplorer.SelTable.shared() = Shared.SelTable(
+    area, rows.map { r -> Shared.SelRow(r.use, r.type, r.pub, r.priv, r.typeOn, r.useOn) },
+    restricted, restrictedOn, publicOn, privateOn, searched, total, pieces)

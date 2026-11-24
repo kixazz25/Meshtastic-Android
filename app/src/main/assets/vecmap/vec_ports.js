@@ -130,10 +130,11 @@ function gtLineOrDot(pts, props) {
   return { type: 'Feature', properties: props || {}, geometry: { type: 'LineString', coordinates: pts.map(gtLL) } };
 }
 window.drawBuildLine = function (jsonPts) {
+  try { var tp = gtJ(jsonPts) || []; console.log('ROUTETRACE-2026-11-24 drawBuildLine pts=' + tp.length + ' routeMode=' + window.__routeMode); } catch (te) { console.log('ROUTETRACE-2026-11-24 drawBuildLine pts=? ' + te); }
   try { var f = gtLineOrDot(gtJ(jsonPts)); gtSet('gt-build', BUILD_L, { type: 'FeatureCollection', features: f ? [f] : [] }); }
   catch (err) { console.log('VECPORTS drawBuildLine ' + err); }
 };
-window.clearBuildLine = function () { gtSet('gt-build', BUILD_L, EMPTY); };
+window.clearBuildLine = function () { console.log('ROUTETRACE-2026-11-24 clearBuildLine routeMode=' + window.__routeMode); gtSet('gt-build', BUILD_L, EMPTY); };
 // the aim ring: a quarter mile (402 m -- RouteExplorer's TRAILHEADNEAR radius) round the map centre, follows the map
 var AIM_L = [{ id: 'gt-aim-fill', type: 'fill', paint: { 'fill-color': '#7FC8FF', 'fill-opacity': 0.08 } },
              { id: 'gt-aim-line', type: 'line', paint: { 'line-color': '#7FC8FF', 'line-width': 2, 'line-opacity': 0.9 } }];
