@@ -45,38 +45,26 @@ import com.grouptrack.shared.log.gtLogger
  * functions are NOT changed. Copies, not moves: the planner keeps its own until it is retired (09:06 method).
  */
 
-/** Download maps by area: the standard confirm (sources, estimate, replace) -> submitDownload, one job per source. */
+/** Download maps by area -> submitDownload. AREADL-2026-11-25: Android's HOST for the SHARED GtDownloadAreaConfirm (GtAreaDraw.kt);
+ *  the estimate, submitDownload and the toast are exactly as before. */
 @Composable
 fun GtDownloadAreaScreen(bbox: DownloadBbox, onDone: () -> Unit) {
     val ctx = LocalContext.current
     val estimate = remember(bbox) { ConvoyTileCalculator.quickEstimate(bbox.north, bbox.south, bbox.east, bbox.west) }
-    val slots = remember { MapSourceManager.getSlotSources().map { (legacyKey, shortLabel, _) ->
-        SlotDisplayInfo(slotName = legacyKey, sourceName = shortLabel, directory = legacyKey, preSelected = true) } }
-    Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-      Column(modifier = Modifier.padding(16.dp).background(Gt.panel).verticalScroll(rememberScrollState())) {   // GTSTD
-        Row(modifier = Modifier.padding(start = 12.dp, top = 8.dp, end = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Text("Download maps by area", color = Gt.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            GtHelpButton("map.dl_area")
-            GtCloseButton(onDone)
-        }
-        ConvoyDownloadConfirm(
-            estimatedTiles = estimate.tileCount,
-            estimatedMB = estimate.estimatedMB,
-            areaDesc = String.format("%.3f\u00b0N to %.3f\u00b0N", bbox.south, bbox.north),
-            bbox = bbox,
-            slots = slots,
-            onProceed = { b, selectedSlots, replace ->
-                onDone()
-                Thread { DownloadQueueManager.submitDownload(ctx, b.north, b.south, b.east, b.west, selectedSlots, replace) }.start()
-                // MAPOPEN-2026-10-23 (Fred 11:08): say what happened -- the box alone did not.
-                android.widget.Toast.makeText(ctx, "Download queued \u2014 ${estimate.tileCount} tiles from " + selectedSlots.joinToString(", ") +
-                    ". See MAP DOWNLOADS.", android.widget.Toast.LENGTH_LONG).show()
-            },
-            onCancel = onDone,
-            modifier = Modifier.padding(16.dp)
-        )
-      }
-    }
+    val slots = remember { MapSourceManager.getSlotSources().map { it.first } }   // ONESOURCEUI-2026-10-30: the one map
+    GtDownloadAreaConfirm(
+        box = GtAreaBox(north = bbox.north, south = bbox.south, east = bbox.east, west = bbox.west),
+        estimatedTiles = estimate.tileCount,
+        replace = GtDownloadDefaults.initialReplace(ctx),   // REPLACEDEFAULT-2026-11-03
+        onProceed = { rep ->
+            onDone()
+            Thread { DownloadQueueManager.submitDownload(ctx, bbox.north, bbox.south, bbox.east, bbox.west, slots, rep) }.start()
+            // MAPOPEN-2026-10-23 (Fred 11:08): say what happened -- the box alone did not.
+            android.widget.Toast.makeText(ctx, "Download queued \u2014 ${estimate.tileCount} tiles from " + slots.joinToString(", ") +
+                ". See MAP DOWNLOADS.", android.widget.Toast.LENGTH_LONG).show()
+        },
+        onCancel = onDone,
+    )
 }
 
 /** Remove maps by area: the planner's confirm, as is (all sources, an upper bound, cannot be undone) -> submitDelete. */
@@ -133,8 +121,9 @@ fun GtQueueSummary(onOpen: () -> Unit, modifier: Modifier) {
     }
 }
 
-/** GTTRACKS-2026-10-23: Download maps along tracks -- the corridor picker as is (ALL or pick tracks, sources, replace)
- *  -> enqueueCorridorBatch, one job per track per source. Tracks with no line are skipped and counted. */
+/** GTTRACKS-2026-10-23: Download maps along tracks -> enqueueCorridorBatch. DLTRACKS-2026-11-25: Android's HOST for the SHARED
+ *  GtDownloadTracksPanel (commonMain convoy/GtCorridorPicker.kt): the tracks are read as before, and CONTINUE queues
+ *  and says so exactly as before. Tracks with no line are skipped and counted. */
 @Composable
 fun GtDownloadTracksScreen(onDone: () -> Unit) {
     val ctx = LocalContext.current
@@ -144,46 +133,24 @@ fun GtDownloadTracksScreen(onDone: () -> Unit) {
             com.geeksville.mesh.convoy.trackPickRowsFrom(com.geeksville.mesh.convoy.SpatialDbManager.queryAllTracksForCorridor())
         }
     }
-    val slots = remember { MapSourceManager.getSlotSources().map { (legacyKey, shortLabel, _) ->
-        SlotDisplayInfo(slotName = legacyKey, sourceName = shortLabel, directory = legacyKey, preSelected = true) } }
+    val slots = remember { MapSourceManager.getSlotSources().map { it.first } }   // ONESOURCEUI-2026-10-30: the one map
     val all = tracks.value ?: return   // still reading the tracks
-    // GTFIX1-2026-10-23 (Fred 11:24): search by track name -- narrows the list the picker is given.
-    val find = remember { androidx.compose.runtime.mutableStateOf("") }
-    val list = if (find.value.isBlank()) all else all.filter { (it.name ?: "").contains(find.value.trim(), ignoreCase = true) }
-    Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-      androidx.compose.foundation.layout.Column(modifier = Modifier.padding(16.dp).background(Gt.panel)) {
-        // GTFIX3-2026-10-23 (Fred 11:53): the standard header -- HELP and X are always reachable, keyboard or not.
-        androidx.compose.foundation.layout.Row(modifier = Modifier.padding(start = 12.dp, top = 8.dp, end = 8.dp),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Text("Download maps along tracks", color = Gt.text, fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f))
-            GtHelpButton("map.dl_tracks")
-            GtCloseButton(onDone)
-        }
-        androidx.compose.material3.OutlinedTextField(
-            value = find.value, onValueChange = { find.value = it }, singleLine = true,
-            label = { Text("Search tracks by name") },
-            modifier = Modifier.padding(12.dp)
-        )
-        com.geeksville.mesh.convoy.ConvoyCorridorPicker(
-            tracks = list,
-            slots = slots,
-            onProceed = { hashes, slotsSel, replace ->
-                onDone()
-                Thread {
-                    val r = DownloadQueueManager.enqueueCorridorBatch(ctx, hashes, slotsSel, replace)
-                    val msg = if (r.skipped > 0) "Queued ${r.jobs} job(s), ${r.tiles} tiles - ${r.skipped} track(s) skipped (no geometry)"
-                              else "Queued ${r.jobs} job(s), ${r.tiles} tiles"
-                    android.os.Handler(android.os.Looper.getMainLooper()).post {
-                        android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_LONG).show()
-                    }
-                }.start()
-            },
-            onCancel = onDone,
-            modifier = Modifier.padding(16.dp)
-        )
-      }
-    }
+    com.geeksville.mesh.convoy.GtDownloadTracksPanel(
+        tracks = all,
+        replace = GtDownloadDefaults.initialReplace(ctx),   // REPLACEDEFAULT-2026-11-03
+        onProceed = { hashes, replace ->
+            onDone()
+            Thread {
+                val r = DownloadQueueManager.enqueueCorridorBatch(ctx, hashes, slots, replace)
+                val msg = if (r.skipped > 0) "Queued ${r.jobs} job(s), ${r.tiles} tiles - ${r.skipped} track(s) skipped (no geometry)"
+                          else "Queued ${r.jobs} job(s), ${r.tiles} tiles"
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }.start()
+        },
+        onCancel = onDone,
+    )
 }
 
 /**

@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.wrapContentSize   // AREADL-2026-11-25
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.ComposeUIViewController
@@ -278,10 +279,16 @@ object GtPanelChromeIos : GtPanelChrome {
         }
     }
 
-    /** J.Map, round 2. */
+    /** DLSETTINGS-2026-11-25: map.dl_settings -- the SHARED screen over the iPad's store (Android's host: DownloadDefaults.kt). */
     @Composable
     override fun DownloadSettingsPanel() {
-        Text("Download settings  -  not attached yet (J)", color = Gt.dim, fontSize = 13.sp)
+        if (!com.geeksville.mesh.grouptrack.DlSettingsLauncher.showing) return
+        val s = IosSettings()
+        com.geeksville.mesh.grouptrack.GtDownloadSettingsScreen(
+            replace = com.geeksville.mesh.grouptrack.GtDlDefaults.replace(s),
+            onSave = { rep -> com.geeksville.mesh.grouptrack.GtDlDefaults.saveReplace(s, rep); com.geeksville.mesh.grouptrack.DlSettingsLauncher.close() },
+            onClose = { com.geeksville.mesh.grouptrack.DlSettingsLauncher.close() },
+        )
     }
 }
 
@@ -1009,6 +1016,12 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         }
     }
     GtPanelChromeIos.queue = dlQueue   // IOSQLAUNCH-2026-11-25: the chrome's QueueSummary reads it
+    // AREADL-2026-11-25: the save-by-area front door -- the SHARED GtVectorQueue (Cert16c F: submitDownload's vector path) over
+    // IosQueuePlatform handed the RUNNING queue, so append adds, saves download_queue.json and starts what can start.
+    val vecQueue = remember {
+        com.grouptrack.shared.queue.GtVectorQueue(IosIds, IosClock, IosFiles(),
+            com.grouptrack.shared.platform.IosQueuePlatform(queue = dlQueue))
+    }
     val settingsOpen = remember { mutableStateOf(false) }
     // SRCCREDITS-2026-11-20: menu.settings > "Map source credits". Reached ONLY from settings, as on
     // Android. There is no service behind it -- CORRCREDITS-2026-11-13 found the screen is a credits
@@ -1232,6 +1245,13 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // VERTEXDROP-2026-11-23: THE ROUTE GESTURE. vec_spatial.js:262 sends it now that the dead
         // gtOneMapRoute gate is gone. The body is Android's (GtRouteLaunch.onTap) and MainScope()
         // is Android's dispatch (RouteModule.kt:924).
+        // AREADL-2026-11-25: vec_ports.js:64 hands the drawn box over, as Android's onAreaSelected (GroupTrackScreen.kt:913).
+        // The relay already runs on the main thread, so the post is a direct call.
+        else if (name == "onAreaSelected") {
+            val b = args.trim().removePrefix("[").removeSuffix("]").split(",").mapNotNull { it.trim().toDoubleOrNull() }
+            if (b.size >= 4 && !com.geeksville.mesh.grouptrack.GtArea.take(b[0], b[1], b[2], b[3]) { r -> r() })
+                onMessage("area", "a box was drawn with no function waiting for it")
+        }
         else if (name == "onMapTap") {
             val c = args.trim().removePrefix("[").removeSuffix("]")
                 .split(",").mapNotNull { it.trim().toDoubleOrNull() }
@@ -1490,6 +1510,12 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         "rides.import" to { ridePickOpen.value = true },
         // IOSQLAUNCH-2026-11-25: Android is "map.queues" to { queuesOpen = true } (GroupTrackScreen.kt)
         "map.queues" to { com.geeksville.mesh.convoy.QueuesLauncher.open() },   // the shared launch standard (RidesLauncher)
+        // DLSETTINGS-2026-11-25: Android is "map.dl_settings" to { DlSettingsLauncher.open() } (GroupTrackScreen.kt). Same row, same id.
+        "map.dl_settings" to { com.geeksville.mesh.grouptrack.DlSettingsLauncher.open() },
+        // AREADL-2026-11-25: Android is "map.dl_area" to { GtArea.purpose.value = "download"; activateDrawMode() } (GroupTrackScreen.kt).
+        "map.dl_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "download"; js("activateDrawMode()") },
+        // DLTRACKS-2026-11-25: Android is "map.dl_tracks" to { GtArea.ready.value = "tracks" } (GroupTrackScreen.kt) -- no box.
+        "map.dl_tracks" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "tracks" },
         // IOSMYRIDES-2026-11-22: Android is "rides.mine" to { RidesLauncher.open() }
         // (GroupTrackScreen.kt:3089). Same row, same id.
         "rides.mine" to { myRidesOpen.value = true },
@@ -2132,6 +2158,47 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                                     ) {
                                         IosQueuePanel(dlQueue, expanded = true, onToggle = { com.geeksville.mesh.convoy.QueuesLauncher.close() }, modifier = Modifier)
                                     }
+                                }
+                                // AREADL-2026-11-25: map.dl_area -- the SHARED draw bar and confirm (Android: AreaDraw.kt GtAreaHost, MapScreens.kt).
+                                com.geeksville.mesh.grouptrack.GtAreaDrawBar(
+                                    js = { s -> js(s) },
+                                    barModifier = Modifier.fillMaxSize().wrapContentSize(androidx.compose.ui.Alignment.BottomCenter).padding(bottom = 84.dp),
+                                )
+                                if (com.geeksville.mesh.grouptrack.GtArea.ready.value == "download") {
+                                    val b = com.geeksville.mesh.grouptrack.GtArea.box.value
+                                    // Android's estimate: ConvoyTileCalculator.quickEstimate's defaults, DOWNLOAD_ZOOM_MIN .. DOWNLOAD_ZOOM (18).
+                                    val est = remember(b) { com.grouptrack.shared.queue.GtTileMath.quickEstimate(b.north, b.south, b.east, b.west, GtConfig.DOWNLOAD_ZOOM_MIN, 18).tileCount }
+                                    com.geeksville.mesh.grouptrack.GtDownloadAreaConfirm(
+                                        box = b,
+                                        estimatedTiles = est,
+                                        replace = com.geeksville.mesh.grouptrack.GtDlDefaults.replace(IosSettings()),
+                                        onProceed = { rep ->
+                                            com.geeksville.mesh.grouptrack.GtArea.ready.value = ""
+                                            vecQueue.enqueueWithElevation(b.north, b.south, b.east, b.west, rep, "")
+                                            onMessage("download", "Download queued \u2014 " + est + " tiles. See MAP DOWNLOADS.")
+                                        },
+                                        onCancel = { com.geeksville.mesh.grouptrack.GtArea.ready.value = "" },
+                                    )
+                                }
+                                // DLTRACKS-2026-11-25: map.dl_tracks -- the SHARED panel (Android: MapScreens.kt GtDownloadTracksScreen), over
+                                // GtRead's tracks, queued through the SHARED queueCorridors (Cert16c B) into the running queue.
+                                if (com.geeksville.mesh.grouptrack.GtArea.ready.value == "tracks") {
+                                    val pick = remember {
+                                        com.geeksville.mesh.convoy.trackPickRowsFrom(IosWriteDb.reader()?.queryAllTracksForCorridor() ?: emptyList())
+                                    }
+                                    com.geeksville.mesh.convoy.GtDownloadTracksPanel(
+                                        tracks = pick,
+                                        replace = com.geeksville.mesh.grouptrack.GtDlDefaults.replace(IosSettings()),
+                                        onProceed = { hashes, rep ->
+                                            com.geeksville.mesh.grouptrack.GtArea.ready.value = ""
+                                            val rd = IosWriteDb.reader()
+                                            val r = vecQueue.queueCorridors(hashes, { h -> rd?.corridorGeometry(h) }, { h -> rd?.nameForGeomHash(h) },
+                                                rep, "corridors x" + hashes.size)
+                                            onMessage("download", if (r.third > 0) "Queued " + r.first + " job(s), " + r.second + " tiles - " +
+                                                r.third + " track(s) skipped (no geometry)" else "Queued " + r.first + " job(s), " + r.second + " tiles")
+                                        },
+                                        onCancel = { com.geeksville.mesh.grouptrack.GtArea.ready.value = "" },
+                                    )
                                 }
                                 if (settingsOpen.value) {
                     // IOSSETTINGS-2026-11-19: the four alert thresholds and the lead-track switch, saving

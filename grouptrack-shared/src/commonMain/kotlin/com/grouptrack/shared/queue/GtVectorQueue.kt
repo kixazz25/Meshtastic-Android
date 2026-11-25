@@ -136,6 +136,29 @@ class GtVectorQueue(
         }
     }
 
+    /**
+     * DLTRACKS-2026-11-25: DownloadQueueManager.enqueueCorridorBatch's VECTOR branch (VECDL-2026-10-31 / VECTRACKNAMES-2026-10-31),
+     * MOVED here so both hosts queue "download along tracks" the same way -- the path Cert16c script B certified: every
+     * track's squares joined (shared ground queued once), each square labelled with the tracks it is for, one
+     * queueSquaresNamed. A track with no line is skipped and counted. [geometryOf] / [nameOf] are the host's reads
+     * (GtRead.corridorGeometry / nameForGeomHash on both). Returns (jobs, estimated tiles, skipped).
+     */
+    fun queueCorridors(geomHashes: List<String>, geometryOf: (String) -> List<List<Pair<Double, Double>>>?, nameOf: (String) -> String?,
+                       replaceExisting: Boolean, why: String): Triple<Int, Int, Int> {
+        val sq = HashSet<Long>(); var skipped = 0
+        val names = HashMap<Long, MutableSet<String>>()
+        for (hash in geomHashes) {
+            val segs = geometryOf(hash)
+            if (segs.isNullOrEmpty()) { skipped++; continue }
+            val mine = HashSet<Long>(); squaresFor(segs, mine)
+            val nm = nameOf(hash) ?: hash.take(8)
+            for (k in mine) names.getOrPut(k) { HashSet() }.add(nm)
+            sq.addAll(mine)
+        }
+        val r = queueSquaresNamed(sq, names, replaceExisting, why)
+        return Triple(r.first, r.second, skipped)
+    }
+
     fun queueSquares(squares: Set<Long>, replaceExisting: Boolean, why: String): Pair<Int, Int> =
         queueSquaresNamed(squares, emptyMap(), replaceExisting, why)
 

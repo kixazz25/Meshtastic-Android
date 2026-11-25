@@ -18,35 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geeksville.mesh.convoy.DownloadBbox
 
-/**
- * GTAREA2-2026-10-23 (2.7c, Fred 10:40): ONE way to give a function an area -- draw a box, then launch.
- * The Map menu row says what the box is FOR; nothing else is asked before the box is drawn.
- */
-object GtArea {
-    /** The function waiting for a box: "download" | "remove" | "import". "" = none (CODE RULE 1: no null). */
-    val purpose = mutableStateOf("")
-    /** The function a box was drawn for ("" = none) and the box. */
-    val ready = mutableStateOf("")
-    val box = mutableStateOf(DownloadBbox())
-    fun label(p: String): String = when (p) {
-        "download" -> "DOWNLOAD MAPS"
-        "remove" -> "REMOVE MAPS"
-        "rmfeat" -> "REMOVE TRACKS AND TRAILS"   // TRAILCLEAN-2026-11-04
-        "import" -> "IMPORT TRAILS"
-        else -> ""
-    }
-    /** Called from the map's onAreaSelected (any thread). false = nothing was waiting -- the caller keeps its own path. */
-    fun take(n: Double, s: Double, e: Double, w: Double): Boolean {
-        val p = purpose.value
-        if (p.isEmpty()) return false
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
-            box.value = DownloadBbox(north = n, south = s, east = e, west = w)
-            purpose.value = ""
-            ready.value = p
-        }
-        return true
-    }
-}
+// AREADL-2026-11-25: GtArea (purpose, ready, box, label, take) MOVED to commonMain -- GtAreaDraw.kt, same package.
 
 /**
  * The draw bar while a box is awaited, then the module the box was drawn for. [js] runs a call on the map page.
@@ -58,28 +30,15 @@ fun GtAreaHost(js: (String) -> Unit, barModifier: Modifier) {
     // GTOFFGRID: "Downloading" follows the queue while it is ticked.
     val qNow = DownloadQueueManager.queue.collectAsState().value
     LaunchedEffect(qNow) { if (GtOffGrid.downloading.value) GtOffGrid.setDownloading(true) }
-    val p = GtArea.purpose.value
-    if (p.isNotEmpty()) {
-        val s = GtScheme.current.value
-        Row(
-            modifier = barModifier.background(s.panel, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text("Draw the area \u2014 " + GtArea.label(p) + (if (p == "import") "\nPart of a state, or across state borders \u2014 " +
-                "next you see every state and source it touches and untick any; only the trails inside the box are loaded." else ""),   // AREAIMPORT-2026-10-24
-                color = s.panelText, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false))
-            GtButton("CLEAR", { js("activateDrawMode()") })
-            GtButton("CANCEL", { GtArea.purpose.value = ""; js("cancelDrawMode()") })
-        }
-    }
+    GtAreaDrawBar(js, barModifier)   // AREADL-2026-11-25: the SHARED draw bar (and its clear-the-box rule)
     val done = { GtArea.ready.value = "" }
+    val bb = GtArea.box.value.let { DownloadBbox(north = it.north, south = it.south, east = it.east, west = it.west) }   // AREADL-2026-11-25
     when (GtArea.ready.value) {
-        "download" -> GtDownloadAreaScreen(GtArea.box.value, done)
-        "remove" -> GtRemoveAreaScreen(GtArea.box.value, done)
-        "rmfeat" -> GtRemoveFeaturesScreen(GtArea.box.value, done)   // TRAILCLEAN-2026-11-04
+        "download" -> GtDownloadAreaScreen(bb, done)
+        "remove" -> GtRemoveAreaScreen(bb, done)
+        "rmfeat" -> GtRemoveFeaturesScreen(bb, done)   // TRAILCLEAN-2026-11-04
         "trailsrc" -> GtTrailSourcesScreen(done)   // TRAILCLEAN-2026-11-04
-        "import" -> GtImportAreaScreen(GtArea.box.value, done)
+        "import" -> GtImportAreaScreen(bb, done)
         "recipes" -> GtRecipesScreen(done)   // GTRECIPES-2026-10-23
         "emergency" -> GtEmergencyScreen(done)   // VECEMERGENCY-2026-10-31
         "state" -> GtImportStateScreen(done)   // GTIMPORTS-2026-10-23
@@ -96,8 +55,5 @@ fun GtAreaHost(js: (String) -> Unit, barModifier: Modifier) {
         "bystate" -> GtStateCountsScreen(done)   // AREASKIP-2026-10-24
         "tracks" -> GtDownloadTracksScreen(done)   // GTTRACKS-2026-10-23: no box -- opened straight from the menu
     }
-    // The drawn box goes when no module is using it and no box is awaited.
-    LaunchedEffect(GtArea.ready.value, GtArea.purpose.value) {
-        if (GtArea.ready.value.isEmpty() && GtArea.purpose.value.isEmpty()) js("clearAreaBoundary()")
-    }
+    // AREADL-2026-11-25: the drawn box's clear rule moved into GtAreaDrawBar with the bar.
 }

@@ -729,18 +729,11 @@ object DownloadQueueManager {
         // VECDL-2026-10-31: on the vector map the corridors are the FULL AREA -- all tracks' squares joined, shared ground queued once
         if (com.geeksville.mesh.grouptrack.GtMapEngine.isVector(context)) {
             init(context)
-            val sq = HashSet<Long>(); var skipped = 0
-            val names = HashMap<Long, MutableSet<String>>()   // VECTRACKNAMES-2026-10-31: which tracks each square is for
-            for (hash in geomHashes) {
-                val segs = SpatialDbManager.getCorridorGeometry(context, hash)
-                if (segs.isNullOrEmpty()) { skipped++; continue }
-                val mine = HashSet<Long>(); VectorTiles.squaresFor(segs, mine)
-                val nm = SpatialDbManager.nameForGeomHash(hash) ?: hash.take(8)
-                for (k in mine) names.getOrPut(k) { HashSet() }.add(nm)
-                sq.addAll(mine)
-            }
-            val r = VectorTiles.queueSquaresNamed(context, sq, names, replaceExisting, "corridors x${geomHashes.size}")
-            return CorridorBatchResult(jobs = r.first, tiles = r.second, skipped = skipped)
+            // DLTRACKS-2026-11-25: the loop is the SHARED GtVectorQueue.queueCorridors (as the iPad); the reads stay Android's.
+            val r = vecQueueFor(context).queueCorridors(geomHashes,
+                { h -> SpatialDbManager.getCorridorGeometry(context, h) }, { h -> SpatialDbManager.nameForGeomHash(h) },
+                replaceExisting, "corridors x${geomHashes.size}")
+            return CorridorBatchResult(jobs = r.first, tiles = r.second, skipped = r.third)
         }
         var jobs = 0
         var tiles = 0

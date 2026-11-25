@@ -41,14 +41,19 @@ class IosQueueRunner {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val running = HashMap<String, Job>()   // touched on the main thread only
     private val store = GtMBTiles(IosTileEnv(IosImportPaths()))
+    // IOSSTORELOCK-2026-11-25: the iPad's store connections (BundledSQLiteDriver) are ONE THREAD AT A TIME; Android's
+    // (AndroidSQLiteDriver) are safe across threads. The jobs run on background threads and share a connection per
+    // store, so every store call they make is taken under this lock. Fetching is untouched; only the database waits.
+    private val storeLock = platform.Foundation.NSRecursiveLock()
+    private fun <T> locked(block: () -> T): T { storeLock.lock(); try { return block() } finally { storeLock.unlock() } }
 
     private val jobs = GtTileJobs(
         downloader = GtTileDownloader(
             http = IosHttpBytes,
             io = Dispatchers.Default,
-            hasTile = { t, z, x, y -> store.hasTile(t, z, x, y) },
+            hasTile = { t, z, x, y -> locked { store.hasTile(t, z, x, y) } },
             // every live iPad slot (VEC, DEM) is "overlay": stored as received, as 2.7e TileCodec passes overlays through
-            insertTile = { t, z, x, y, b, _ -> store.insertTile(t, z, x, y, b) },
+            insertTile = { t, z, x, y, b, _ -> locked { store.insertTile(t, z, x, y, b) } },
             downloadZoom = { downloadZoom },
         ),
         downloadZoom = { downloadZoom },
@@ -60,9 +65,9 @@ class IosQueueRunner {
             }
         },
         storesFor = { slot -> listOf(slot) },
-        storeExists = { t -> store.storeExists(t) },
-        deleteTileRange = { t, z, x0, x1, y0, y1 -> store.deleteTileRange(t, z, x0, x1, y0, y1) },
-        reclaimableBytes = { t -> store.reclaimableBytes(t) },
+        storeExists = { t -> locked { store.storeExists(t) } },
+        deleteTileRange = { t, z, x0, x1, y0, y1 -> locked { store.deleteTileRange(t, z, x0, x1, y0, y1) } },
+        reclaimableBytes = { t -> locked { store.reclaimableBytes(t) } },
     )
 
     private fun onMain(block: () -> Unit) {

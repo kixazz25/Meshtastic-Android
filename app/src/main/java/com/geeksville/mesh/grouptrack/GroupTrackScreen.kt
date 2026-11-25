@@ -910,7 +910,7 @@ fun GroupTrackScreen(
 
                         @android.webkit.JavascriptInterface
                         fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
-                            if (com.geeksville.mesh.grouptrack.GtArea.take(north, south, east, west)) return   // GTAREA2-2026-10-23: a function was waiting
+                            if (com.geeksville.mesh.grouptrack.GtArea.take(north, south, east, west) { r -> android.os.Handler(android.os.Looper.getMainLooper()).post { r() } }) return   /* AREADL-2026-11-25 */   // GTAREA2-2026-10-23: a function was waiting
                             gtLogger("ConvoyDownload").i { "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}" }
                             val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
                             gtLogger("ConvoyDownload").i { "estimate tiles=${estimate.tileCount} mb=${estimate.estimatedMB}" }
@@ -1292,7 +1292,7 @@ fun GroupTrackScreen(
 
                             @android.webkit.JavascriptInterface
                             fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
-                                if (com.geeksville.mesh.grouptrack.GtArea.take(north, south, east, west)) return   // GTAREA2-2026-10-23: a function was waiting
+                                if (com.geeksville.mesh.grouptrack.GtArea.take(north, south, east, west) { r -> android.os.Handler(android.os.Looper.getMainLooper()).post { r() } }) return   /* AREADL-2026-11-25 */   // GTAREA2-2026-10-23: a function was waiting
                                 gtLogger("ConvoyDownload").i { "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}" }
                             val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
                             gtLogger("ConvoyDownload").i { "estimate tiles=${estimate.tileCount} mb=${estimate.estimatedMB}" }
@@ -3082,7 +3082,7 @@ fun GroupTrackScreen(
                 "route.clear" to { gtClearAsk = true },   // CLEARROUTES-2026-10-22   // GTRIDES (Fred 13:22): ADD ROUTE -- New route or In progress, as +ROUTE
                 // MAPMOVE-2026-10-23: "map.features" (the original Map Features panel) came off the Map menu.
                 "map.queues" to { com.geeksville.mesh.convoy.QueuesLauncher.open() },   // GTMAP: the download queues panel -- DROIDQLAUNCH-2026-11-25: the shared launch, as the iPad
-                "map.dl_settings" to { com.geeksville.mesh.grouptrack.GtDownloadDefaults.open.value = true },   // DLDEFAULTS-2026-10-24
+                "map.dl_settings" to { com.geeksville.mesh.grouptrack.DlSettingsLauncher.open() },   // DLDEFAULTS-2026-10-24 -- DLSETTINGS-2026-11-25: the shared launch, as the iPad
                 // GTAREA2-2026-10-23: the three area functions -- start a box for the one picked.
                 "map.dl_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "download"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },
                 "map.rm_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "remove"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },

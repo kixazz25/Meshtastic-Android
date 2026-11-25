@@ -39,8 +39,7 @@ import com.geeksville.mesh.convoy.MapSourceManager
  */
 object GtDownloadDefaults {
     private const val PREF = "gt_download_defaults"
-    /** the Download settings panel is showing. */
-    val open = mutableStateOf(false)
+    // DLSETTINGS-2026-11-25: the panel's showing state is the shared DlSettingsLauncher (common launch).
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
     /** true once the rider has saved settings; until then each panel keeps its own starting sources, and Replace starts at YES
@@ -48,7 +47,7 @@ object GtDownloadDefaults {
     fun isSet(ctx: Context): Boolean = prefs(ctx).contains("slots")
     /** the saved map sources (slot names). EMPTY = never saved (CODE RULE 1: empty, not null). */
     fun slots(ctx: Context): Set<String> = prefs(ctx).getStringSet("slots", emptySet())?.toSet() ?: emptySet()
-    fun replace(ctx: Context): Boolean = prefs(ctx).getBoolean("replace", true)   // REPLACEDEFAULT-2026-11-03: Yes until saved
+    fun replace(ctx: Context): Boolean = GtDlDefaults.replace(GtSettingsAndroid(ctx))   // REPLACEDEFAULT-2026-11-03: Yes until saved -- DLSETTINGS-2026-11-25: the shared rule
     fun save(ctx: Context, slots: Set<String>, replace: Boolean) {
         prefs(ctx).edit().putStringSet("slots", slots).putBoolean("replace", replace).apply()
     }
@@ -82,41 +81,15 @@ fun GtDownloadSummary(slots: Collection<String>, replace: Boolean, changeOpen: B
 /** DLDEFAULTS: Map > DOWNLOAD MAPS FOR OFFLINE USE > Download settings. */
 @Composable
 fun GtDownloadSettingsPanel() {
-    if (!GtDownloadDefaults.open.value) return
+    // DLSETTINGS-2026-11-25: Android's HOST for the SHARED GtDownloadSettingsScreen -- the screen is commonMain, this hands it
+    // Android's store. save() still writes the legacy "slots" key the two legacy confirm screens read, until their rows.
+    if (!DlSettingsLauncher.showing) return
     val ctx = LocalContext.current
     val all = remember { MapSourceManager.getSlotSources() }   // (slot, short label, source id)
-    var sel by remember { mutableStateOf(GtDownloadDefaults.initialSlots(ctx, all.map { it.first }, all.map { it.first }.toSet())) }
-    var rep by remember { mutableStateOf(GtDownloadDefaults.initialReplace(ctx)) }
-    Dialog(onDismissRequest = { GtDownloadDefaults.open.value = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(Modifier.padding(16.dp).width(360.dp).background(Gt.panel, RoundedCornerShape(14.dp))
-                .border(1.dp, Gt.line, RoundedCornerShape(14.dp)).padding(14.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Download settings", color = Gt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                GtHelpButton("map.dl_settings")
-                GtCloseButton({ GtDownloadDefaults.open.value = false })
-            }
-            Text("Every map download uses these. Each download shows them, and CHANGE there alters that download only.",
-                color = Gt.text, fontSize = 13.sp)
-            if (all.size > 1) Text("MAP SOURCES", color = Gt.text, fontSize = 13.sp, fontWeight = FontWeight.Bold)   // ONESOURCEUI-2026-10-30
-            if (all.size > 1) all.forEach { (slot, label, _) ->
-                val on = slot in sel
-                Row(Modifier.fillMaxWidth().clickable { sel = if (on) sel - slot else sel + slot }.padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GtCheck(on)
-                    Text("$slot  \u00b7  $label", color = Gt.text, fontSize = 14.sp)
-                }
-            }
-            Row(Modifier.fillMaxWidth().clickable { rep = !rep }.padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GtCheck(rep)
-                Text("Replace existing tiles", color = Gt.text, fontSize = 14.sp)
-            }
-            if (sel.isEmpty()) Text("Pick at least one map source.", color = Gt.text, fontSize = 13.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GtButton("SAVE", { GtDownloadDefaults.save(ctx, sel, rep); GtDownloadDefaults.open.value = false }, enabled = sel.isNotEmpty())
-                GtButton("CANCEL", { GtDownloadDefaults.open.value = false })
-            }
-        }
-    }
+    val sel = remember { GtDownloadDefaults.initialSlots(ctx, all.map { it.first }, all.map { it.first }.toSet()) }
+    GtDownloadSettingsScreen(
+        replace = GtDownloadDefaults.initialReplace(ctx),
+        onSave = { rep -> GtDownloadDefaults.save(ctx, sel, rep); DlSettingsLauncher.close() },
+        onClose = { DlSettingsLauncher.close() },
+    )
 }
