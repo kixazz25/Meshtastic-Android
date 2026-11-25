@@ -2233,10 +2233,9 @@ fun GroupTrackScreen(
             com.geeksville.mesh.convoy.GtDownloadQueueMonitor(
                 empty = DownloadQueueManager.queue.collectAsState().value.isEmpty(),
                 onClose = { com.geeksville.mesh.convoy.QueuesLauncher.close() },
-                modifier = Modifier
-                    .zIndex(5f)   // PANELTOP-2026-11-01 (Fred 19:02): above the HUD
-                    .align(Alignment.Center)
-                    .padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = 210.dp),   // QUEUESPOS-2026-10-22: left of the buttons
+                // QMONSAME-2026-11-25: placement is the shared monitor's own (the iPad's); only the stacking is the host's.
+                // (Was centred with 210 dp clear on the right -- QUEUESPOS-2026-10-22 -- the narrow, long panel.)
+                modifier = Modifier.zIndex(5f),   // PANELTOP-2026-11-01 (Fred 19:02): above the HUD
             ) {
                 DownloadQueuePanel(
                     expanded = true,

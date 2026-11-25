@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState   // IOSQLAUNCH-2026-11-25
-import androidx.compose.foundation.layout.wrapContentSize   // IOSQLAUNCH-2026-11-25
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -160,9 +159,8 @@ object GtPanelChromeIos : GtPanelChrome {
      * entry, else its MODULE's entry, else the manual's front page -- so an unmapped id still opens
      * the manual rather than doing nothing.
      *
-     * ⚠ IosDocView drops the "#page" fragment (IOSHELP-2026-11-19): the right DOCUMENT opens, at the
-     * top, where Android scrolls to the section. Landing on the section needs an NSURL carrying the
-     * fragment, which is its own item.
+     * IOSDOCFRAG-2026-11-25: IosDocView now carries the "#page" fragment, so HELP lands on the section,
+     * as Android (it dropped it under IOSHELP-2026-11-19 and opened the document at the top).
      */
     override fun openHelp(id: String) {
         GtHelpLinks.load(IosHelpAssets())
@@ -796,10 +794,10 @@ private fun IosDocView(key: String, onClose: () -> Unit) {
                 // IOSHELP-2026-11-19: the document, read from the BUNDLE by file path and shown in a
                 // WKWebView -- the UIKitView + WKWebView pattern GtVecMap.ios.kt already proves.
                 // ⚠ loadFileURL, not loadHTMLString: the manual is 10.8 MB of base64 screenshots.
-                // ⚠ A FRAGMENT is dropped. Android's docsView can carry "manual#figure"
-                //   (DOCSTACK-2026-09-06) and scrolls to it; the iPad opens the document at the top.
-                //   Said here rather than discovered later -- nothing on the iPad passes a fragment yet,
-                //   because only the manual's own cross-links do and those are inside the page.
+                // IOSDOCFRAG-2026-11-25: the FRAGMENT is carried, as Android's GtHelpViewer.kt:53-59
+                //   (file:///android_asset/<doc>#<frag>). Every panel's HELP passes "manual#<id>", and the
+                //   manual's own script opens that section from location.hash on load. (Was dropped --
+                //   IOSHELP-2026-11-19 -- so HELP opened the manual at its top.)
                 val asset = docsAssetFor(key.substringBefore("#"))
                 val path = if (asset == null) null else iosBundleAssetPath(asset)
                 Box(Modifier.fillMaxSize().background(Gt.panel)) {
@@ -819,7 +817,10 @@ private fun IosDocView(key: String, onClose: () -> Unit) {
                                     configuration = WKWebViewConfiguration(),
                                 )
                                 val u = NSURL.fileURLWithPath(path)
-                                web.loadFileURL(u, allowingReadAccessToURL = u)
+                                val frag = key.substringAfter("#", "")
+                                val s = u.absoluteString
+                                val at = if (frag.isEmpty() || s == null) u else (NSURL.URLWithString(s + "#" + frag) ?: u)
+                                web.loadFileURL(at, allowingReadAccessToURL = u)   // read access is the FILE, the URL carries the section
                                 web
                             },
                             modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -2127,7 +2128,7 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                                     com.geeksville.mesh.convoy.GtDownloadQueueMonitor(
                                         empty = dlQueue.queueState.collectAsState().value.isEmpty(),
                                         onClose = { com.geeksville.mesh.convoy.QueuesLauncher.close() },
-                                        modifier = Modifier.fillMaxSize().padding(16.dp).wrapContentSize(androidx.compose.ui.Alignment.Center),
+                                        modifier = Modifier,   // QMONSAME-2026-11-25: the placement is the shared monitor's own
                                     ) {
                                         IosQueuePanel(dlQueue, expanded = true, onToggle = { com.geeksville.mesh.convoy.QueuesLauncher.close() }, modifier = Modifier)
                                     }

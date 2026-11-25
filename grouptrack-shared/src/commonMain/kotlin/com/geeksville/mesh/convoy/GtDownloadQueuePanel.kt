@@ -331,7 +331,9 @@ fun GtDownloadQueueSummary(
  * Was Android's inline frame (GroupTrackScreen.kt, MAPTARGET4-2026-10-23 "a monitor, not a queue").
  * [panel] is the expanded queue panel, drawn by the host so its callbacks are wired once there;
  * [empty] shows the "No maps downloading" line under it, as Android's frame did.
- * The frame takes 90% of the room the host's [modifier] leaves it (Android: fillMaxWidth(0.90f)).
+ * QMONSAME-2026-11-25 (Fred 14:04, "they should be the same" / "iPad works better"): the monitor OWNS its placement, the
+ * iPad's layout -- the whole screen less a 16 dp margin, centred, the frame 90% of that width -- so both hosts draw
+ * it identically. [modifier] is for stacking only (the Droid's zIndex); it must not place or size the frame.
  */
 @Composable
 fun GtDownloadQueueMonitor(
@@ -341,7 +343,7 @@ fun GtDownloadQueueMonitor(
     panel: @Composable () -> Unit,
 ) {
     val chrome = LocalGtPanelChrome.current
-    BoxWithConstraints(modifier) {
+    BoxWithConstraints(modifier.fillMaxSize().padding(16.dp).wrapContentSize(Alignment.Center)) {   // QMONSAME-2026-11-25
         GtPanel(
             title = "MAP DOWNLOADS IN PROGRESS",
             helpId = "map.queues",
