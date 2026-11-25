@@ -97,7 +97,10 @@ object LaunchModules {
             g("map", "rm", "REMOVE MAPS",
                 "rm_area" to "Remove maps by area"),   // EXPORTONE-2026-11-18: rm_track row removed (Fred 11-18: "Remove Maps for all tacks dead")
             g("map", "repair", "MAP RECOVERY",   // MAPRECOVERY2-2026-10-23 (Fred 10:26-10:28)
-                "restartconv" to "Emergency download \u2014 maps as of the conversion date (if the conversion was interrupted)",   // VECCONVERT-2026-10-31 (Fred 10-31 18:12)
+                // HIDECONV-2026-11-25 (Fred 15:37-15:38): OFF BOTH MENUS -- the emergency download recovers an interrupted conversion from
+                // the old SAT maps, which the iPad never had; a rider with SAT maps uninstalls and reinstalls (housekeeping to
+                // say so is its own item). GtEmergencyScreen and Android's map.restartconv action stay, unreachable, until removed.
+                // "restartconv" to "Emergency download \u2014 maps as of the conversion date (if the conversion was interrupted)",   // VECCONVERT-2026-10-31 (Fred 10-31 18:12)
                 "recipes" to "Saved map recipes \u2014 restore maps or send them by email (60 days)",   // GTRECIPES-2026-10-23 (Fred 11:43); RECIPESROW-2026-11-03 (Fred 11:26)
                 "backup" to "Save my GroupTrack OG data for disaster recovery \u2014 five files in your GroupTrack folder, saved automatically every week",   // BACKUP-2026-11-03 (Fred 11:38); BACKUPROW-2026-11-03 (Fred 17:41): in MAP RECOVERY
                 // QUICKFIX-2026-11-03 (#5): hidden for the 2.7e release -- not built; bring the row back when it is
