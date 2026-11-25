@@ -67,34 +67,22 @@ fun GtDownloadAreaScreen(bbox: DownloadBbox, onDone: () -> Unit) {
     )
 }
 
-/** Remove maps by area: the planner's confirm, as is (all sources, an upper bound, cannot be undone) -> submitDelete. */
+/** Remove maps by area -> submitDelete. AREARM-2026-11-25: Android's HOST for the SHARED GtRemoveAreaConfirm (GtAreaDraw.kt);
+ *  the count, submitDelete and the toast are exactly as before. */
 @Composable
 fun GtRemoveAreaScreen(bbox: DownloadBbox, onDone: () -> Unit) {
     val ctx = LocalContext.current
     val delTiles = remember(bbox) { ConvoyTileCalculator.calculateTiles(bbox.north, bbox.south, bbox.east, bbox.west).size }
-    AlertDialog(
-        onDismissRequest = onDone,
-        title = { GtDialogTitle("Remove tiles?", "map.rm_area", onDone) },   // GTSTD
-        text = {
-            Text("Delete downloaded map tiles in this area from ALL sources.\n\n" +
-                String.format("%.3f\u00b0N to %.3f\u00b0N\n", bbox.south, bbox.north) +
-                "Up to " + delTiles + " tiles per layer.\n\nThis cannot be undone.",
-                fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+    GtRemoveAreaConfirm(
+        box = GtAreaBox(north = bbox.north, south = bbox.south, east = bbox.east, west = bbox.west),
+        tilesPerLayer = delTiles,
+        onRemove = {
+            onDone()
+            Thread { DownloadQueueManager.submitDelete(ctx, bbox.north, bbox.south, bbox.east, bbox.west) }.start()
+            android.widget.Toast.makeText(ctx, "Removing tiles in this area \u2014 see MAP DOWNLOADS.",   // MAPOPEN-2026-10-23
+                android.widget.Toast.LENGTH_LONG).show()
         },
-        confirmButton = {
-            Text("REMOVE TILES", color = Gt.bad, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable {
-                    onDone()
-                    Thread { DownloadQueueManager.submitDelete(ctx, bbox.north, bbox.south, bbox.east, bbox.west) }.start()
-                    android.widget.Toast.makeText(ctx, "Removing tiles in this area \u2014 see MAP DOWNLOADS.",   // MAPOPEN-2026-10-23
-                        android.widget.Toast.LENGTH_LONG).show()
-                }.padding(12.dp))
-        },
-        dismissButton = {
-            Text("CANCEL", color = Gt.dim, fontFamily = FontFamily.Monospace,
-                modifier = Modifier.clickable { onDone() }.padding(12.dp))
-        },
-        containerColor = Gt.panel
+        onCancel = onDone,
     )
 }
 

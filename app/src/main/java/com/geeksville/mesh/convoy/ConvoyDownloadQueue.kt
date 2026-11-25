@@ -566,7 +566,12 @@ object DownloadQueueManager {
         val slots = (listOf(VectorTiles.SLOT, ElevationTiles.SLOT) + MapSourceManager.getDownloadSources().map { it.first }).distinct()
         for (slotName in slots) {
             if (slotName != VectorTiles.SLOT && slotName != ElevationTiles.SLOT && !MBTilesStore.storeExists(slotName)) continue
-            total += enqueueDelete(context, slotName, north, south, east, west)
+            // AREARM-2026-11-25: the vector map and its elevation go through the SHARED builder (GtVectorQueue.enqueueDelete, as the iPad);
+            // an old raster store keeps Android's own enqueueDelete, whose layers come from MapSourceManager.
+            total += if (slotName == VectorTiles.SLOT || slotName == ElevationTiles.SLOT)
+                vecQueueFor(context).enqueueDelete(slotName, north, south, east, west,
+                    { t -> MBTilesStore.storeExists(t) }, { t, z, x0, x1, y0, y1 -> MBTilesStore.countTileRange(t, z, x0, x1, y0, y1) })
+            else enqueueDelete(context, slotName, north, south, east, west)
         }
         log.i { "REMOVEAREA-2026-11-03 remove by area: slots=$slots, $total tile(s) on disk in the box" }
         return total

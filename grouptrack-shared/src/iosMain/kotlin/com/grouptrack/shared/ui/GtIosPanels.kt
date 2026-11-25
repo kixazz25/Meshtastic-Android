@@ -1022,6 +1022,8 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         com.grouptrack.shared.queue.GtVectorQueue(IosIds, IosClock, IosFiles(),
             com.grouptrack.shared.platform.IosQueuePlatform(queue = dlQueue))
     }
+    // AREARM-2026-11-25: the tile store remove-by-area counts against -- <GroupTrack>/maps/tiles, the store the runner and the map use.
+    val tileStore = remember { com.grouptrack.shared.mbtiles.GtMBTiles(com.grouptrack.shared.platform.IosTileEnv(IosImportPaths())) }
     val settingsOpen = remember { mutableStateOf(false) }
     // SRCCREDITS-2026-11-20: menu.settings > "Map source credits". Reached ONLY from settings, as on
     // Android. There is no service behind it -- CORRCREDITS-2026-11-13 found the screen is a credits
@@ -1514,6 +1516,8 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         "map.dl_settings" to { com.geeksville.mesh.grouptrack.DlSettingsLauncher.open() },
         // AREADL-2026-11-25: Android is "map.dl_area" to { GtArea.purpose.value = "download"; activateDrawMode() } (GroupTrackScreen.kt).
         "map.dl_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "download"; js("activateDrawMode()") },
+        // AREARM-2026-11-25: Android is "map.rm_area" to { GtArea.purpose.value = "remove"; activateDrawMode() } (GroupTrackScreen.kt).
+        "map.rm_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "remove"; js("activateDrawMode()") },
         // DLTRACKS-2026-11-25: Android is "map.dl_tracks" to { GtArea.ready.value = "tracks" } (GroupTrackScreen.kt) -- no box.
         "map.dl_tracks" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "tracks" },
         // IOSMYRIDES-2026-11-22: Android is "rides.mine" to { RidesLauncher.open() }
@@ -2196,6 +2200,25 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                                                 rep, "corridors x" + hashes.size)
                                             onMessage("download", if (r.third > 0) "Queued " + r.first + " job(s), " + r.second + " tiles - " +
                                                 r.third + " track(s) skipped (no geometry)" else "Queued " + r.first + " job(s), " + r.second + " tiles")
+                                        },
+                                        onCancel = { com.geeksville.mesh.grouptrack.GtArea.ready.value = "" },
+                                    )
+                                }
+                                // AREARM-2026-11-25: map.rm_area -- the SHARED confirm (Android: MapScreens.kt GtRemoveAreaScreen).
+                                if (com.geeksville.mesh.grouptrack.GtArea.ready.value == "remove") {
+                                    val b = com.geeksville.mesh.grouptrack.GtArea.box.value
+                                    // Android's count: ConvoyTileCalculator.calculateTiles' defaults, DOWNLOAD_ZOOM_MIN .. DOWNLOAD_ZOOM (18).
+                                    val n = remember(b) { com.grouptrack.shared.queue.GtTileCalc.calculateTiles(b.north, b.south, b.east, b.west,
+                                        GtConfig.DOWNLOAD_ZOOM_MIN, 18, "", downloadZoom = 18).size }
+                                    com.geeksville.mesh.grouptrack.GtRemoveAreaConfirm(
+                                        box = b,
+                                        tilesPerLayer = n,
+                                        onRemove = {
+                                            com.geeksville.mesh.grouptrack.GtArea.ready.value = ""
+                                            for (slot in listOf(com.grouptrack.shared.queue.GtVectorQueue.SLOT, com.grouptrack.shared.queue.GtVectorQueue.DEM_SLOT))
+                                                vecQueue.enqueueDelete(slot, b.north, b.south, b.east, b.west,
+                                                    { t -> tileStore.storeExists(t) }, { t, z, x0, x1, y0, y1 -> tileStore.countTileRange(t, z, x0, x1, y0, y1) })
+                                            onMessage("download", "Removing tiles in this area \u2014 see MAP DOWNLOADS.")
                                         },
                                         onCancel = { com.geeksville.mesh.grouptrack.GtArea.ready.value = "" },
                                     )

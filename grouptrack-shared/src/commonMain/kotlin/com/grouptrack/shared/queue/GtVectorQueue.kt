@@ -210,6 +210,36 @@ class GtVectorQueue(
             "as $jobs job(s) -- vector and elevation together (DL VEC, DL DEM). Watch them in Download queues."
     }
 
+    /**
+     * AREARM-2026-11-25: DownloadQueueManager.enqueueDelete (DELETE-AREA-2026-07-25) for [slotName] VEC or DEM, MOVED here so both
+     * hosts queue a remove-by-area the same way. ONE entry, not segmented: a delete of the area is ~18 indexed statements.
+     * DELETE-BANDING-2026-07-25: totalTiles counts what is ACTUALLY ON DISK in the box (the geometry count gave a progress bar
+     * that could never finish). ⚠ refreshMode is FALSE ON PURPOSE -- markComplete reads it as "is a refresh" and removes such
+     * entries silently. [storeExists] / [countTileRange] are the host's tile store. Returns the tiles on disk.
+     */
+    fun enqueueDelete(slotName: String, north: Double, south: Double, east: Double, west: Double,
+                      storeExists: (String) -> Boolean, countTileRange: (String, Int, Int, Int, Int, Int) -> Int): Int {
+        require(slotName == SLOT || slotName == DEM_SLOT) { "GtVectorQueue.enqueueDelete: VEC / DEM only, not $slotName" }
+        val zr = GtTileCalc.zoomRanges(north, south, east, west, com.grouptrack.shared.settings.GtConfig.DOWNLOAD_ZOOM_MIN, plat.downloadZoom())
+        var totalTiles = 0
+        if (storeExists(slotName)) for (r in zr) totalTiles += countTileRange(slotName, r[0], r[1], r[2], r[3], r[4])
+        val boxTiles = zr.sumOf { (it[2] - it[1] + 1).toLong() * (it[4] - it[3] + 1) }
+        val entry = GtQueueEntry(
+            north = north, south = south, east = east, west = west,
+            totalTiles = totalTiles,
+            label = "DEL $slotName",
+            refreshMode = false,
+            refreshSlot = slotName,
+            downloadType = GtDownloadType.DELETE_AREA_TILES,
+            priority = GtDownloadPriority.DELETE,
+            id = ids.newId(), createdAt = clock.epochMs()
+        )
+        plat.append(listOf(entry))
+        qlog.i { "DELETE queued: slot=$slotName box=$boxTiles geom-tiles, stores=[$slotName], ACTUALLY ON DISK=$totalTiles id=${entry.id}" }
+        if (totalTiles == 0) qlog.i { "DELETE $slotName: nothing on disk in this area" }
+        return totalTiles
+    }
+
     /** DownloadQueueManager.enqueueArea for [slotName] VEC or DEM (2.7e's isVec branch). Returns the number of jobs queued. */
     fun enqueueArea(slotName: String, north: Double, south: Double, east: Double, west: Double, replaceExisting: Boolean, what: String): Int {
         require(slotName == SLOT || slotName == DEM_SLOT) { "GtVectorQueue.enqueueArea: VEC / DEM only, not $slotName" }

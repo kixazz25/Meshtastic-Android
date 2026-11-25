@@ -138,3 +138,34 @@ fun GtDownloadAreaConfirm(box: GtAreaBox, estimatedTiles: Int, replace: Boolean,
         }
     }
 }
+
+/**
+ * AREARM-2026-11-25: Remove maps by area -- the confirm (2.7e GtRemoveAreaScreen's text, word for word), on the chrome standard.
+ * [tilesPerLayer] is the host's upper bound (calculateTiles). REMOVE TILES hands over to [onRemove]; the host queues it.
+ */
+@Composable
+fun GtRemoveAreaConfirm(box: GtAreaBox, tilesPerLayer: Int, onRemove: () -> Unit, onCancel: () -> Unit) {
+    val chrome = LocalGtPanelChrome.current
+    Dialog(onDismissRequest = onCancel, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        BoxWithConstraints(Modifier.padding(16.dp)) {
+            GtPanel(
+                title = "Remove tiles?",
+                helpId = "map.rm_area",
+                onHelp = { id -> chrome.openHelp(id) },
+                onDone = onCancel,
+                stays = false,
+                width = if (maxWidth < 360.dp) maxWidth else 360.dp,
+                maxHeight = maxHeight,
+            ) {
+                Text("Delete downloaded map tiles in this area from ALL sources.\n\n" +
+                    GtFmt.f(box.south, 3) + "\u00b0N to " + GtFmt.f(box.north, 3) + "\u00b0N\n" +
+                    "Up to " + tilesPerLayer + " tiles per layer.\n\nThis cannot be undone.",
+                    color = Gt.text, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GtButton("CANCEL", onCancel)
+                    GtButton("REMOVE TILES", onRemove, emphasis = Gt.bad)
+                }
+            }
+        }
+    }
+}
