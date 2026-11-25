@@ -1520,6 +1520,8 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         "map.rm_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "remove"; js("activateDrawMode()") },
         // DLTRACKS-2026-11-25: Android is "map.dl_tracks" to { GtArea.ready.value = "tracks" } (GroupTrackScreen.kt) -- no box.
         "map.dl_tracks" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "tracks" },
+        // MAPRECIPESHARE-2026-11-25: Android is "map.recipes" to { GtArea.ready.value = "recipes" } (GroupTrackScreen.kt) -- no box.
+        "map.recipes" to { com.geeksville.mesh.grouptrack.GtArea.ready.value = "recipes" },
         // IOSMYRIDES-2026-11-22: Android is "rides.mine" to { RidesLauncher.open() }
         // (GroupTrackScreen.kt:3089). Same row, same id.
         "rides.mine" to { myRidesOpen.value = true },
@@ -2221,6 +2223,25 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                                             onMessage("download", "Removing tiles in this area \u2014 see MAP DOWNLOADS.")
                                         },
                                         onCancel = { com.geeksville.mesh.grouptrack.GtArea.ready.value = "" },
+                                    )
+                                }
+                                // MAPRECIPESHARE-2026-11-25: map.recipes -- the SHARED panel (Android: MapScreens.kt GtRecipesScreen) over the
+                                // iPad host IosRecipes; RESTORE queues through the shared GtVectorQueue and opens MAP DOWNLOADS.
+                                if (com.geeksville.mesh.grouptrack.GtArea.ready.value == "recipes") {
+                                    val recipeRows = remember { com.grouptrack.shared.platform.IosRecipes.rows(vecQueue) }
+                                    com.geeksville.mesh.grouptrack.GtRecipesPanel(
+                                        rows = recipeRows,
+                                        sentToMe = "",
+                                        estimateOf = { p -> com.grouptrack.shared.platform.IosRecipes.estimateText(vecQueue, p) },
+                                        replaceLine = com.grouptrack.shared.platform.IosRecipes.replaceLine(),
+                                        onRestore = { p, label -> com.grouptrack.shared.platform.IosRecipes.restore(vecQueue, p, label) },
+                                        onQueued = { m ->
+                                            onMessage("download", m)
+                                            com.geeksville.mesh.grouptrack.GtArea.ready.value = ""
+                                            com.geeksville.mesh.convoy.QueuesLauncher.open()
+                                        },
+                                        onSend = { p, label -> com.grouptrack.shared.platform.IosRecipes.send(p, label) },
+                                        onClose = { com.geeksville.mesh.grouptrack.GtArea.ready.value = "" },
                                     )
                                 }
                                 if (settingsOpen.value) {

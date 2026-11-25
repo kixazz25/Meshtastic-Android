@@ -56,18 +56,10 @@ object GtEmergency {
     }
 
     /** Exact tiles for the squares, vector z0-14 + elevation z0-12 (as GtMapConversion). */
-    fun tiles(sq: Set<Long>): Long {
-        fun at(zMax: Int): Long { val n = 4096L; var t = 0L
-            for (z in 0..zMax) t += if (z >= 12) sq.size.toLong() * (1L shl (2 * (z - 12)))
-                else { val s = 12 - z; sq.map { ((it / n) shr s) * n + ((it % n) shr s) }.toSet().size.toLong() }
-            return t }
-        return at(VectorTiles.Z_MAX) + at(ElevationTiles.Z_MAX)
-    }
+    // MAPRECIPESHARE-2026-11-25: the arithmetic moved to the SHARED GtRecipeMath (GtRecipesScreen.kt), so the iPad's recipes say the same.
+    fun tiles(sq: Set<Long>): Long = GtRecipeMath.tiles(sq)
 
-    fun timeText(tiles: Long): String {
-        val mins = Math.max(1, Math.ceil(tiles / TILES_PER_MIN).toInt())
-        return if (mins < 90) "$mins minute${if (mins == 1) "" else "s"}" else "${"%.1f".format(mins / 60.0)} hours"
-    }
+    fun timeText(tiles: Long): String = GtRecipeMath.timeText(tiles)
 
     fun storeMb(): Long = listOf(VectorTiles.SLOT, ElevationTiles.SLOT).sumOf { t ->
         listOf("", "-wal", "-shm").sumOf { File(ConvoyConfig.TILE_DIR, "$t.mbtiles$it").let { f -> if (f.exists()) f.length() else 0L } }
