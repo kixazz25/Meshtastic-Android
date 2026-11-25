@@ -1,0 +1,765 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack 2.8b &mdash; EOD 2026-11-24: AI route open items, trail-difference method, map rows 1-5</title></head><body>
+<h1>GroupTrack 2.8b &mdash; EOD 2026-11-24</h1>
+<p><b>Start of day tomorrow = section 2.</b> Completed work is in
+<code>GroupTrack_2.8_completed_activity_2026-11-24_v2.html</code> and is not repeated here.
+Commits: <code>08639e5e9</code> (the AI route port, 15 files, 2,320+/333-) and <code>32464b0b6</code>
+(the ConvoyRouteToolbar leftover removed, 394-).</p>
+
+<h2>&#11088;&#11088;&#11088; WHERE 2.8b STANDS ON MAPS, IN ONE SENTENCE (Fred, 18:39)</h2>
+<p><b>Verbatim:</b> <i>&ldquo;the unknown is the launch to action work from emails, and the internet download testing.
+<b>we know from receipt of file on[ward] in each process we have certified.</b>&rdquo;</i></p>
+<p><b>&rArr; FROM THE RECEIPT OF THE FILE ONWARD, EVERY PROCESS IS CERTIFIED. THERE ARE EXACTLY TWO UNKNOWNS, AND BOTH
+SIT AT THE BOUNDARY WHERE DATA ENTERS:</b></p>
+<table border="1" cellpadding="5">
+<tr><th></th><th>UNKNOWN 1 &mdash; ARRIVAL</th><th>UNKNOWN 2 &mdash; FETCH</th></tr>
+<tr><td><b>Fred&rsquo;s name for it</b></td><td>&ldquo;launch to action work from emails&rdquo;</td><td>&ldquo;the
+internet download testing&rdquo;</td></tr>
+<tr><td><b>what is missing</b></td><td>the iOS incoming-file path &mdash; document types + open-in, handing the file to
+<code>GtFileOpen.receive()</code></td><td><b>A BYTES FETCH</b> &mdash; <b>not URLSession</b>. See the correction
+below.</td></tr>
+<tr><td><b>size</b></td><td>a MOVE (<code>GtFileOpen</code>, 241 ln, 3 platform lines) + an arrival hook</td><td>one
+method beside <code>GtHttp.get</code>, + wiring the queue's job to it</td></tr>
+<tr><td><b>when</b></td><td><b>11-25</b>, inside the import work (Fred 18:28)</td><td>C28-26401, ordering open for
+Fred</td></tr>
+<tr><td><b>certifiable where</b></td><td>the real iPad &mdash; a <code>.gpx</code> tapped in Mail. The processing side
+certifies on the sim now, at full volume</td><td><b>THE SIMULATOR</b> &mdash; corrected 18:41, see below</td></tr>
+</table>
+
+<h3>&#11088;&#11088;&#11088; CORRECTION, 18:41 &mdash; URLSession IS NOT MISSING, AND THE SIM *CAN* DOWNLOAD</h3>
+<p><b>Fred, flagging his own assumption:</b> <i>&ldquo;I do not know if we can test Internet file download in sim. I am
+assuming.&rdquo;</i> <b>Measured: it can, and the code is already there.</b></p>
+<p><b><code>GtIosHttp.kt</code> has implemented NSURLSession on iOS since 11-16</b> (GTIOSHTTP-2026-11-16, 10,350
+bytes): a real <code>fetch()</code> over <code>NSURLSessionConfiguration.defaultSessionConfiguration()</code> /
+<code>NSURLSession.sessionWithConfiguration</code> / <code>dataTaskWithRequest</code>, with documented request and
+resource timeouts and a deliberate design note REJECTING a shared session (one session serialises its tasks). It
+provides <b>two</b> services, deliberately not merged because five behaviours differ between their Android originals:
+<code>IosHttp : GtHttp</code> (<code>:144</code>) and <code>IosMapSpecEnv : GtMapSpecEnv</code>
+(<code>:185</code>).</p>
+<p><b>AND IT IS WIRED:</b> <code>GtIosEnv.kt:224</code> &mdash; <code>override val http: GtHttp = IosHttp</code>, with
+the env table at <code>:195</code> recording it as <i>&ldquo;HttpURLConnection &rarr; NSURLSession&rdquo;</i>. The
+trail import&rsquo;s own Overpass calls already run over it at measured budgets of 60,000 ms and 180,000 ms
+(<code>GtTrailImport:212/:251/:287</code>), and TileJSON at 6,000 ms (<code>GtMapSpec:117</code>).</p>
+<p>&rArr; <b>SO THE SIMULATOR CAN DOWNLOAD.</b> It uses the host Mac&rsquo;s network stack, and the iOS HTTP path exists
+and is installed. Internet download testing is a <b>stage-one</b> item, not a device-only one.</p>
+<p><b>&#9940; THE ACTUAL GAP IS NARROWER AND SPECIFIC: A BYTES FETCH.</b> <code>GtHttp</code> declares exactly one
+method &mdash; <code>fun get(url: String, readTimeoutMs: Int): String?</code> (<code>GtImportEnv.kt:68-71</code>) &mdash;
+<b>text only</b>. Map tiles are binary (PBF, WebP). So what the download job needs is a bytes-returning fetch, which no
+shared interface exposes yet.</p>
+<p><b>AND THE SHAPE IS FRED&rsquo;S OWN 11-21 RULE:</b> <i>&ldquo;my gu[ide] [f]o[r] extending the services (like w[e]
+did for multiple attachment emails) is to build [a] second service for that use case rather the[n] retouching all
+existing service consumers.&rdquo;</i> &rArr; <b>a second method beside <code>GtHttp.get</code>, not a change to
+it</b> &mdash; exactly as <code>emailAll</code> was added beside <code>email</code>.</p>
+<p>&rArr; AND THE iOS HALF IS NEARLY FREE: <code>IosHttp</code>&rsquo;s <code>fetch()</code> already receives
+<code>data: NSData?</code> in its <code>dataTaskWithRequest</code> callback and then <b>converts it to a String and
+discards the bytes</b>. The bytes are already in hand.</p>
+<p>&#9888; WHAT THIS DOES <b>NOT</b> CHANGE: <code>GtIosDownloadQueue.kt:252</code>&rsquo;s note still stands for what it
+actually says &mdash; the queue&rsquo;s JOB is not written. And <code>:253</code> still governs the witness:
+<i>&ldquo;only running the JOB catches it.&rdquo;</i> But the blocker is a missing <b>job + bytes method</b>, not a
+missing network stack, and Claude calling it &ldquo;the URLSession fetch, four members, one build&rdquo; overstated it
+by reading a code comment as the whole story &mdash; the 11-20 stale-comment rule, again.</p>
+<p><b>EVERYTHING ELSE IS BEHIND THEM AND IS PROVEN.</b> Step 15&rsquo;s seven certifications (4.10) took the parsers,
+converter, rider trails, tracks, GPX import, the agency trail import and the OSM extract/import into shared code and
+certified them cross-device at <b>524,768 &middot; 572,503 &middot; 687,564</b> comparisons, <b>0 DIFF</b>, on real Utah
+data. The area seam turned out to have an implementation already (4.2). The engines are not the risk.</p>
+<p>&rArr; <b>SO THE WHOLE MAP SECTION REDUCES TO TWO PIECES OF WORK PLUS A WALK.</b> That is the 11-18 data-ingress cut
+arriving at its narrowest form: the simulator certifies everything that CONSUMES data, the device certifies the two
+things that ADMIT it, and there are only two.</p>
+
+<h3>&#9940;&#9940; AND EVERYTHING IS RE-TESTED ON THE iPAD &mdash; PLUS BLUETOOTH, WHICH IS A THIRD DEVICE-ONLY ITEM (Fred, 18:40)</h3>
+<p><b>Fred:</b> <i>&ldquo;and all have to be tested on iPad&hellip; along with bluetooth functions.&rdquo;</i></p>
+<p>&rArr; <b>The sim leg NEVER substitutes for the iPad pass.</b> This is section 0&rsquo;s two-stage plan restated as
+a floor: whatever the simulator certifies, the real iPad re-tests end to end. &ldquo;Certified on the sim&rdquo; is a
+stage-one result, never a reason to skip a row on the device.</p>
+<p><b>SO THE DEVICE-ONLY SET IS THREE, NOT TWO:</b></p>
+<table border="1" cellpadding="5"><tr><th></th><th>state</th><th>what the device settles</th></tr>
+<tr><td><b>1 &middot; ARRIVAL</b> (email click-to-action)</td><td>to be built 11-25</td><td>a <code>.gpx</code> tapped
+in Mail opens GroupTrack</td></tr>
+<tr><td><b>2 &middot; FETCH</b> (internet download)</td><td><b>NOT device-only</b> &mdash; corrected 18:41. NSURLSession
+exists and is wired; the gap is a bytes method + the queue's job, and the sim can run both</td><td>nothing the sim
+cannot &mdash; though the iPad still re-tests it in stage two</td></tr>
+<tr><td><b>3 &middot; BLUETOOTH / the comm functions</b></td><td><b>BUILT, never exercisable on the
+simulator</b></td><td>the radio link, and the two SDK traps below</td></tr>
+</table>
+<p><b>WHY BLUETOOTH IS DIFFERENT FROM THE OTHER TWO:</b> it is not missing &mdash; the iPad comm container was built
+11-20 on Path B (the official Meshtastic KMP SDK). <code>GtIosCommLink</code> implements all of
+<code>CommLink</code>; <code>GtIosCommConfig</code> does RADIO SETTINGS for real (<code>applyRadioChange</code> writes
+the LoRa preset and the moving reporting interval, then RE-READS both and reports a check per setting). The problem is
+that <b>none of it can be run without hardware</b> &mdash; Fred 11-18 12:07: <i>&ldquo;we cannot test any function on
+those menus[,] period.&rdquo;</i></p>
+<p>&#9940;&#9940; <b>AND TWO SDK TRAPS ARE WAITING THERE, BOTH RECORDED AS INVISIBLE UNTIL REAL HARDWARE</b> (commit
+<code>22a3475fe</code>). These are not speculative &mdash; they are known and dated, so the first hardware session
+should look for them deliberately rather than discover them:</p>
+<ol>
+<li><b>A PARTIAL CONFIG UPDATE SILENTLY RESETS THE REST OF ITS SECTION.</b> The SDK&rsquo;s
+<code>setLoraConfig</code> / <code>setPositionConfig</code> helpers start from an EMPTY section
+(<code>Config.X.Builder().build()</code>), so using them for a partial update resets every other field in that section
+to its proto default &mdash; <b>LoRa <code>region</code> among them, and an unset region means the radio will not
+transmit legally.</b> Always <code>getConfig</code> &rarr; <code>newBuilder()</code> on what the RADIO holds &rarr; set
+only the managed fields &rarr; <code>setConfig</code>.</li>
+<li><b>TWO GENERATIONS OF THE SAME PROTO.</b> The SDK&rsquo;s published <code>org.meshtastic:protobufs</code> is a Wire
+javaInterop build &mdash; Builders, <b>no <code>copy()</code></b>. Our own <code>core/proto</code> is the opposite:
+<code>copy()</code> exists and <code>newBuilder()</code> THROWS. So iosMain code against the SDK uses
+<code>x.newBuilder().also{}.build()</code> and commonMain/Android uses <code>x.copy(&hellip;)</code>. <b>The same
+expression cannot be shared.</b></li>
+</ol>
+<p>&#9888; HONEST NotSupported on iOS, by platform difference rather than omission: <code>forget()</code> (no unpair
+API &mdash; the rider uses iOS Settings), <code>onBoxWifi</code> (LoRa only), <code>radioName()</code>
+(Android&rsquo;s store is in <code>core/data</code>), <code>RadioEntry.paired</code> (iOS does not expose the bonded
+list). Those are explained divergences, not gaps.</p>
+<p>&#9888; THE ONE CAVEAT THAT SURVIVES THIS: step 15 certified the ENGINES through harnesses, not the ROWS through the
+UI. So each row still owes gate 3 &mdash; exercised on the sim &mdash; even though nothing beneath it is in doubt.</p>
+
+<h2>&#9940;&#9940;&#9940; THE STRESS TESTING HAPPENS ON AN iPAD (Fred, 18:40 and 18:43) &mdash; AND IT QUALIFIES EVERY "ON THE SIM" CLAIM IN THIS DOCUMENT</h2>
+<p><b>Fred 18:40:</b> <i>&ldquo;the sooner we get on an iPad the better.&rdquo;</i> <b>18:43:</b> <i>&ldquo;we will
+figure it out. <b>I would rather all my stress testing be done on an iPad.</b>&rdquo;</i></p>
+<p><b>&rArr; DECIDED: STRESS TESTING IS A DEVICE ACTIVITY, whatever the simulator turns out to be capable of.</b> And
+the reason is sound enough to write down, because it changes what a sim pass is worth: <b>a Mac-hosted simulator has
+desktop CPU, memory and SSD.</b> Running 229,000 trails there proves the import is CORRECT. It proves nothing about an
+iPad&rsquo;s memory ceiling, its thermal behaviour over a long import, or its storage throughput &mdash; and a
+falsely-optimistic number is worse than no number, because it retires a risk that is still live.</p>
+<p>&#9940; <b>SO CORRECT THE READING OF THIS WHOLE DOCUMENT:</b> everywhere it says a row or a process &ldquo;certifies
+on the sim at full volume&rdquo;, read <b>full-volume CORRECTNESS</b> &mdash; same inputs, same outputs, same row
+counts, same hashes &mdash; and <b>not</b> full-volume BEHAVIOUR. The two-stage plan is therefore sharper than
+&ldquo;consumes vs admits&rdquo;:</p>
+<table border="1" cellpadding="5">
+<tr><th></th><th>STAGE ONE &mdash; the simulator</th><th>STAGE TWO &mdash; the iPad</th></tr>
+<tr><td><b>certifies</b></td><td><b>function and correctness</b>: the row opens the real screen, the process runs, the
+data lands, the values equal Android's</td><td><b>behaviour under load, and everything else again</b>: time, memory,
+thermals, storage, and whether it survives 229,000 rows on real hardware</td></tr>
+<tr><td><b>good for</b></td><td>finding a seam, a wrong value, a missing screen &mdash; cheaply, and before
+hardware</td><td>finding what only hardware can show, and the three device-only items</td></tr>
+<tr><td><b>never proves</b></td><td>that it is fast enough, small enough, or stable over a long run</td><td>&mdash;
+</td></tr>
+</table>
+<p>&rArr; AND IT STRENGTHENS 18:40 (&ldquo;the sooner the better&rdquo;): if stress testing is a device activity by
+decision, then the sim work remaining is <b>correctness work</b>, which is bounded &mdash; and the critical path runs
+through getting onto hardware. <b>Nothing in the sim backlog is a reason to delay that.</b></p>
+<p>&#9888; ONE PRACTICAL ITEM TOWARD IT, measured 18:41 and NOT yet acted on: the Xcode project builds only for
+<code>platform=iOS Simulator</code> (<code>gt_iosbuild_2026-11-22_v2.sh:59-60</code>), and a device build needs signing.
+The project file is also at <code>iosapp/iosapp.xcodeproj/<b>project.xcproj</b></code> &mdash; <b>not</b> the standard
+<code>project.pbxproj</code> &mdash; and no <code>Info.plist</code> or <code>.entitlements</code> file was found in
+<code>iosapp/</code> at all. The simulator build works today, so none of this is broken; it is a list of things to
+confirm BEFORE a device attempt rather than during one. <b>It also bears directly on tomorrow&rsquo;s arrival work:
+there is no <code>Info.plist</code> to add <code>CFBundleDocumentTypes</code> to &mdash; one has to be created and
+wired, or the keys added as build settings.</b></p>
+
+<h2>0. THE STANDING PLAN (Fred, 18:16) &mdash; TWO STAGES, BOTH REQUIRED</h2>
+<p>Verbatim: &ldquo;again the plan is <b>certify processes and data on sim where possible</b> and then
+<b>move to iPad implementation to test all end to end functionality</b>.&rdquo;</p>
+<p>&rArr; The simulator is <b>stage one, not a lesser substitute</b>. Everything that can be certified
+without hardware is certified there now, and the real iPad then re-tests EVERYTHING end to end. So a row is
+never written off as &ldquo;device-only&rdquo; and skipped &mdash; it is split: <b>which leg certifies on
+the sim now</b>, and <b>which leg waits for the iPad</b>. Both legs are recorded per row.</p>
+
+<h2>1. THE RESTRICTIONS THAT STAY IN PLACE (Fred, 18:04)</h2>
+<p>Verbatim: &ldquo;todays restrictions in place: all shared screen revisions made in one apply file. all
+seams mapped against existing seam in iOS model. no new seams created unless it is agreed upon and no code
+revisions unless it is discussed and approved. <b>this worked well today.</b>&rdquo;</p>
+<ol>
+<li><b>ONE APPLY FILE per shared-screen revision.</b> Not one per fix. The GtTrailTable move cost three
+build cycles because each dependency was discovered by a compile instead of being measured first.</li>
+<li><b>EVERY SEAM MAPPED AGAINST AN EXISTING iOS SEAM</b> before it is written. The services list
+(<code>GroupTrack_docs/shared_services_2026-11-21.txt</code>) is read at the package, by declared name.</li>
+<li><b>NO NEW SEAM unless agreed.</b> Default is that it exists &mdash; the layer is ~95% complete.</li>
+<li><b>NO CODE REVISION unless discussed and approved.</b> Relocation and wiring over existing primitives
+proceeds without interruption; <b>a changed body stops and asks.</b> That boundary is what made today work
+&mdash; four builds, as estimated.</li>
+</ol>
+<p>Fred&rsquo;s working agreement, which sets the line: &ldquo;you make your change for screens and shared
+components using existing primitives &mdash; do that without any intervention. code changes or service
+creations require some dialog. best for you and for me.&rdquo;</p>
+
+<h2>2. TOMORROW&rsquo;S FIRST WORK &mdash; THREE OPEN AI ROUTE ITEMS, PLUS THE ATTACHMENT INGRESS (added 18:28)</h2>
+
+<h3>OPEN 1 &mdash; THE SAVE PANEL</h3>
+<p><b>State: further along than &ldquo;not started.&rdquo;</b> <code>GtRouteSaveDialog.kt</code> (99 lines) is
+in shared as of <code>08639e5e9</code>. Save-as-in-progress works on the iPad.</p>
+<p><b>THE EXACT GAP, from the iPad&rsquo;s own words at <code>GtIosPanels.kt:3059</code>:</b>
+&ldquo;Saving as a completed route needs the spatial insert, which is not ported yet. Save as in progress
+works.&rdquo; So the open work is <b>the spatial insert for a completed route</b>, not the dialog.</p>
+<p>Android&rsquo;s side: <code>runBatchSave</code> is a <code>val</code> lambda at
+<code>RouteModule.kt:1624</code>; the area prompt is part of it.</p>
+<p>DEPTH-2 QUESTION TO ANSWER FIRST (and no deeper): which shared service owns the spatial insert for a
+route, under its DECLARED name? Read <code>## com.grouptrack.shared.spatial</code> in the services list
+before grepping. Do NOT search for Android&rsquo;s function name &mdash; that failed twice on 11-23
+(<code>queryTrailsByViewport</code> was really <code>GtRead.queryArtifactList</code>).</p>
+<p>WITNESS REQUIRED: a route saved as COMPLETED on the iPad, then <b>read back from the spatial db by a
+query that did not write it</b>, with the same geom_hash Android produces for the same vertices. A
+&ldquo;Saved&rdquo; toast is not a witness.</p>
+
+<h3>OPEN 2 &mdash; SCORING TIE DETERMINISM</h3>
+<p><b>The arithmetic is already bit-identical and that is measured.</b>
+<code>GtRoute.kt:17-24</code> imports <code>GtMath.asin / cos / hypot / sin</code> under
+GTMATH2-2026-11-10 (&ldquo;Android&rsquo;s math on every platform&rdquo;), and the haversine at
+<code>:537-544</code> uses them. <b>Scores do not differ.</b></p>
+<p><b>THE DEFECT IS TIE RESOLUTION, NOT SCORING.</b> 81 unordered collections sit in the search, so when
+two candidates score EQUAL, which one wins depends on iteration order &mdash; and HashSet / HashMap
+iteration order differs between the JVM and Kotlin/Native. Named sites:</p>
+<table border="1" cellpadding="4"><tr><th>site</th><th>code</th></tr>
+<tr><td><code>GtRoute.kt:1421</code></td><td><code>anchorNet = comps.maxByOrNull { it.size }</code> &mdash;
+ties on equal component size</td></tr>
+<tr><td><code>:1995</code>, <code>:2139</code>, <code>:2156</code></td><td><code>sortedByDescending {
+scoreSet(&hellip;) }</code> &mdash; Kotlin&rsquo;s sort is stable, so the INPUT order decides ties</td></tr>
+<tr><td><code>:1962</code></td><td><code>byComp.values.sortedBy { it.second }</code></td></tr>
+</table>
+<p>THE WORK: add an explicit deterministic tiebreak to each comparator &mdash; a trail id or geom_hash,
+ascending &mdash; so equal scores order identically on both platforms. This is a <b>code revision</b>, so
+under restriction 4 it is discussed and approved before anything is written.</p>
+<p>WITNESS: same recipe, same <code>trailFilter</code>, <b>same route set in the same order</b> on both
+devices. The negative witness matters as much &mdash; before the fix, a run that produces a DIFFERENT order
+on the two devices from the same inputs proves the defect is real and not theoretical. <b>Take that
+negative reading first</b>, or there is nothing to show the fix worked.</p>
+
+<h3>OPEN 3 &mdash; RESTRICTED / UNCERTAIN MUST LEAVE THE CANDIDATE SET (Fred&rsquo;s ruling, 17:21)</h3>
+<p>THE RULING, verbatim: &ldquo;b is the solution we use on droid. should be consistently implemented. the
+user decides if he wants to view them. <b>we will not route a person where they cannot ride.</b>&rdquo;</p>
+<p>THE REASON, verbatim: &ldquo;in Utah the gov has closed too many trails that people rode. we wanted to
+display them [as] restricted area but we never wanted to include them in route builds.&rdquo;</p>
+<p>And 17:19: &ldquo;so they are in the filter &mdash; they should default to omitted in each filter.&rdquo;</p>
+<p><b>WHAT IS ALREADY RIGHT.</b> RESTRICTEDNEVER-2026-11-03 lives in the SHARED engine:
+<code>GtRoute.kt:383</code> (&ldquo;restricted never searched&rdquo;) and <code>:727-749</code> (a
+restricted trail is routed only on its open parts, via <code>restricted_geom</code>). <b>Both platforms
+already honour it.</b></p>
+<p><b>WHAT IS WRONG.</b> The route build appends <code>whereOrEmpty()</code> &mdash; which is the
+<b>DISPLAY</b> predicate &mdash; and <code>forRouteBuild()</code> keeps the filter&rsquo;s values. So the
+candidate set depends on a <b>display tick</b>. Tick RESTRICTED on to look at closed trails and they enter
+the network; tick it off and they do not. That is the inconsistency the ruling forbids.</p>
+<p>THE WORK: split the two predicates. The route-build predicate always drops RESTRICTED and uncertain,
+<b>whatever the display is showing</b>. Display stays entirely user-controlled.</p>
+<p>MEASURED, and it makes this cheap: <code>forRouteBuild()</code> is called from <b>exactly one
+place</b> &mdash; <code>GroupTrackScreen.kt:2334</code>. One call site, one predicate to split.</p>
+<p>WITNESS: tick RESTRICTED ON for display, run a build, and confirm no restricted trail is in the
+candidate set &mdash; readable from the recipe&rsquo;s own <code>trailFilter</code> in the batch json, which
+is why that field is written. Then the same with it OFF: <b>byte-identical trailFilter both times.</b></p>
+
+<h3>&#11088;&#11088; OPEN 4 &mdash; &ldquo;CLICK TO ACTION ATTACHMENTS&rdquo;: THE iOS INCOMING-FILE PATH. ADDED 18:28, FOR TOMORROW.</h3>
+<p><b>Fred 18:28:</b> <i>&ldquo;I would ad[d] the item to eod and checklist because <b>we are working on imports
+tom[o]rrow and that is the perfect time to de[a]l with click to action attachments</b>.&rdquo;</i></p>
+<p>So this is not on the week-out pre-certification list (C28-26401) &mdash; it is <b>11-25 work, done inside the
+import work</b>, because the import surface is open tomorrow and the ingress is the same surface.</p>
+<p><b>WHAT IS ABSENT, measured 18:25:</b> no <code>CFBundleDocumentTypes</code> in any Info.plist, no document-type
+registration, no share extension, no incoming-URL handling. The only <code>openURL</code> in <code>iosMain</code> is
+OUTGOING (<code>GtIosBluetoothSettings.kt:30</code>). <code>rides.import</code> (built 11-22) is GroupTrack&rsquo;s own
+picker over the rides folder &mdash; Fred: <i>&ldquo;we do not use the documentpicker&rdquo;</i> &mdash; so it reads
+files already inside the app and cannot accept one from Mail.</p>
+<p><b>WHAT IT UNBLOCKS:</b> steps 3 and 4 of the certification sequence (tracks and routes &ldquo;from the saved
+email&rdquo; / the DR emails). Without it those steps have no mechanism, and with one restore budgeted there is no
+second run to discover that on.</p>
+<p><b>THE ANDROID SPECIFICATION TO PORT AGAINST:</b> Android&rsquo;s intent filter and
+<code>ConvoyFileReceiver</code> are the existing behaviour &mdash; tapping a <code>.gpx</code> attachment launches the
+app and its import. iOS&rsquo;s equivalent is document-type registration plus open-in handling, landing the file in the
+app container where the existing picker and importers already read from. So the IMPORTERS are not the work; the
+<b>arrival</b> is.</p>
+<p><b>WITNESS:</b> a <code>.gpx</code> tapped in Mail on the device opens GroupTrack and the file appears in the
+import list. &#9888; Not a witness: the file appearing after being placed in the container by hand &mdash; that tests
+the importer, which is already certified.</p>
+<p>&rArr; MEANWHILE the <i>processing</i> leg certifies on the SIM at full volume by dropping files into the
+simulator&rsquo;s container, so the import stress test and the ingress build proceed in parallel.</p>
+<h4>&#11088;&#11088;&#11088; THE DISPATCH IS ALREADY FACTORED OUT &mdash; THIS IS A MOVE PLUS AN ARRIVAL HOOK, NOT A PORT</h4>
+<p><b>MEASURED 18:30:</b> <code>GtFileOpen</code> (<code>app/&hellip;/convoy/GtFileOpen.kt</code>, <b>241 lines</b>) is
+THE one file-open dispatch, and it was moved out of the Android activity for exactly this reason &mdash;
+ONEOPEN2-2026-11-17: <i>&ldquo;Moved out of <code>ConvoyFileReceiver.onCreate</code> so that every entry point runs the
+SAME routing, which is Fred&rsquo;s rule (11-17): &lsquo;click on an item launches the update. clicking the file
+directory (Map Features) will also launch the same update.&rsquo;&rdquo;</i></p>
+<p>Three entry points, all calling <code>receive()</code>: a file tapped from OUTSIDE (email, Downloads, any app,
+<code>bringForward = true</code>) &middot; a file tapped in our own screen &middot; a DIRECTORY tapped in our screen
+(once per file). And <b>only THREE platform-dependency lines in the whole file</b> &mdash;
+<code>android.content.Context</code>, <code>org.json.JSONObject</code>, <code>java.io.File</code> &mdash; all three of
+which already have shared equivalents (<code>GtOrgJson</code>, <code>GtStorage</code>/okio).</p>
+<p>&rArr; <b>SO THE WORK IS TWO PIECES:</b> (a) move <code>GtFileOpen</code> to commonMain; (b) build the iOS
+<b>arrival</b> (document-type registration + open-in) and have it call <code>GtFileOpen.receive()</code>. The routing,
+the order and the tests come over unchanged. <b>The importers were never the work, and neither is the dispatch &mdash;
+only the arrival is.</b></p>
+<p>&#11088;&#11088; <b>ROUTING IS BY CONTENT, NOT BY EXTENSION, AND THAT IS LOAD-BEARING FOR THE DR EMAILS.</b> Its own
+header: <i>&ldquo;Gmail hands every attachment over as application/octet-stream (GPXOPEN-2026-10-09), so an extension
+cannot be trusted.&rdquo;</i> The order is 2.7e&rsquo;s exactly: XML/GPX-KML first (a ride is JSON and could never be
+mistaken for one) &rarr; a ride (the <code>grouptrack.ride</code> marker) &rarr; a recipe (JSON, <code>.gtmaps</code>
+slots or an AI route recipe) &rarr; a <code>convoyDocType</code> document &rarr; <b>a message naming what IS accepted,
+never silent.</b> &#9940; The header says it outright: <i>&ldquo;Do not &lsquo;improve&rsquo; the order or the tests
+while moving them.&rdquo;</i></p>
+<p>&#11088; <code>HEADREAD-2026-11-17</code>: routing reads only the START of the content, so a caller may read that
+much, ask, and read the rest only if a family came back. <b>That matters at 229,000-trail volume</b> &mdash;
+<code>ConvoyFileReceiver</code> used to read the whole file into a String before routing.</p>
+<p><b>ANDROID&rsquo;S ARRIVAL SPEC TO MIRROR</b> (<code>AndroidManifest.xml:316-327</code>):
+<code>ConvoyFileReceiver</code> is its own activity, <code>exported=true</code>, <code>Theme.NoDisplay</code>, with
+intent filters on <code>application/octet-stream</code> + <code>pathPattern .*\.convoy</code>,
+<code>application/x-convoy-ride</code>, and on MainActivity (<code>:251-262</code>) <code>text/xml</code> /
+<code>application/xml</code>. &#9888; <b>ONEOPEN-2026-09-26: MainActivity deliberately NO LONGER claims
+<code>application/octet-stream</code></b> &mdash; two &ldquo;GroupTrack&rdquo; entries appeared in the chooser and the
+main screen read the file as a channel link and imported nothing. <b>One claimant per type.</b> The iOS side must not
+repeat that: one declared handler, not two.</p>
+
+<h4>TOMORROW&rsquo;S SCOPE &mdash; CORRECTED BY FRED 18:31 TO <b>THREE</b> ROWS</h4>
+<p><b>Fred 18:30:</b> <i>&ldquo;anything that says import&rdquo;</i> &mdash; then <b>18:31, narrowing it:</b>
+<i>&ldquo;<b>three imports work with exported map features. thats it.</b>&rdquo;</i></p>
+<p>&#9940; Claude first wrote this up as ELEVEN rows by matching the word &ldquo;import&rdquo; across the action maps.
+<b>That was wrong and is withdrawn.</b> Measured, the scope is three, and the measurement is mechanical: the one
+picker <code>GtFilePickerBody(GtFileOpen.Family.MAP_FEATURES)</code> has <b>two call sites serving three rows</b>.</p>
+<table border="1" cellpadding="4"><tr><th>row</th><th>screen</th><th>picker call site</th></tr>
+<tr><td><code>map.features</code></td><td><code>GtSavedFeaturesScreen</code> &mdash; &ldquo;Work with exported map
+features&rdquo;</td><td><code>ExportFeatures.kt:113</code></td></tr>
+<tr><td><code>map.gpx</code></td><td>&ldquo;Import files &mdash; GPX, KML, KMZ, GeoJSON&rdquo;
+(<code>GtImportGpxScreen</code>)</td><td><code>ConvoyTrackImportScreen.kt:493</code></td></tr>
+<tr><td><b><code>map.trails_area</code></b></td><td><b>&ldquo;IMPORT TRAILS&rdquo; by area</b>
+(<code>GtImportAreaScreen</code>) &mdash; named by Fred at 18:33</td><td><code>HomeStatePickerScreen</code>, see
+below</td></tr>
+</table>
+<p>&#9888; <code>map.gpxtrails</code> also reaches the MAP_FEATURES picker but is marked <b>&ldquo;off the
+menu&rdquo;</b> (ONEIMPORT-2026-11-04, <code>MapScreens.kt:363</code>), so it is not one of the three live rows.</p>
+
+<h4>&#11088;&#11088;&#11088; IMPORT TRAILS BY AREA IS THE STATE IMPORT WITH A BOX &mdash; AND IT IS THE 229,000-TRAIL ROW</h4>
+<p><b>MEASURED (<code>MapScreens.kt:115-118</code>):</b> <code>GtImportAreaScreen(bbox)</code> is a frame around
+<b><code>HomeStatePickerScreen(areaBbox = doubleArrayOf(south, west, north, east))</code></b>. So
+<code>map.trails_area</code> and <code>map.trails_state</code> are <b>the same screen</b> &mdash; the state import
+<i>with</i> a drawn box and <i>without</i> one.</p>
+<p>&rArr; <b>THIS CORRECTS THE CLASSIFICATION ABOVE.</b> Neither row is simply an &ldquo;internet row&rdquo;. Each has
+<b>two legs</b>:</p>
+<ul>
+<li><b>THE REFRESH LEG &mdash; internet.</b> <code>HomeStatePickerScreen:285-292</code> is the REFRESH button, whose own
+text says it <i>&ldquo;replaces the copy saved on this tablet&rdquo;</i>. That leg waits for the URLSession build.</li>
+<li><b>THE IMPORT LEG &mdash; local, and certifiable on the sim at full volume.</b> Answer NO to refresh and the
+import runs against the <b>resident saved copy</b> &mdash; which is precisely Fred 18:15: <i>&ldquo;procedure[s] store
+last copies and offer refresh yes or no. we can test [on] sim using that data which is already resident.&rdquo;</i></li>
+</ul>
+<p>&rArr; <b>AND IT IS THE ROW THAT DELIVERS STEP 2 OF THE CERTIFICATION SEQUENCE.</b> &ldquo;Add 229,000
+trails&rdquo; happens here &mdash; by area or by state, same screen. So the heavy-volume import test and the import
+three are the same work, and the volume can be exercised on the sim before the iPad ever runs it.</p>
+<p><b>THE DIRECTORY MODEL UNDERNEATH, and it is the DR directory set:</b> <code>GtFileOpen.Family</code> declares four
+&mdash; <code>MAP_FEATURES</code> (&ldquo;GroupTrack Map Features&rdquo;: routes, tracks, waypoints, rider trails) ·
+<code>RIDES</code> · <code>MAPS</code> (map recipes, route recipes) · and the FOURTH restored by FOURTHDIR-2026-11-17
+(convoy documents, and anything else part of the recovery position). One picker over all four, section and title
+changing by directory &mdash; Fred 11-17: <i>&ldquo;you can create one file picker and change section and title based
+on directory&rdquo;</i> and <i>&ldquo;we wouldn&rsquo;t use the file picker for the directories owned by the app. we
+would write our own.&rdquo;</i></p>
+
+<h4>&#11088;&#11088;&#11088; THE FOUR PROCESSOR CLASSES (Fred 18:32 and 18:34) &mdash; THIS IS THE ORGANISING PRINCIPLE FOR THE MAP SECTION</h4>
+<p><b>Fred 18:32:</b> <i>&ldquo;everything download is an internet file processor.&rdquo;</i> <b>Fred 18:34:</b>
+<i>&ldquo;dr recover processor and map recovery processor.&rdquo;</i> &rArr; <b>FOUR classes.</b> Every map row belongs
+to one, and the class &mdash; not the row&rsquo;s name &mdash; says what blocks it and where it certifies. This
+replaces matching on the word &ldquo;import&rdquo;, which produced eleven rows where there are three.</p>
+<table border="1" cellpadding="5">
+<tr><th>#</th><th>processor</th><th>rows</th><th>what arrives / is rebuilt</th><th>blocked on</th><th>sim leg</th></tr>
+<tr><td><b>1</b></td><td><b>LOCAL FILE</b><br>(the import three)</td><td><code>map.features</code> &middot;
+<code>map.gpx</code> &middot; <code>map.trails_area</code> <i>(import leg)</i><br>+ <code>rides.import</code>, built
+11-22</td><td>a file already on the device, or one tapped from Mail</td><td><b>the arrival hook</b> &mdash;
+click-to-action attachments (<b>tomorrow</b>)</td><td><b>ALL of it, at full volume</b></td></tr>
+<tr><td><b>2</b></td><td><b>INTERNET FILE</b><br>(&ldquo;everything download&rdquo;)</td><td><code>map.dl_area</code>
+&middot; <code>map.dl_settings</code> &middot; <code>map.dl_tracks</code> &middot; <code>map.queues</code> &middot;
+<code>map.trails_state</code> / <code>map.trails_area</code> <i>(refresh leg)</i></td><td>bytes fetched over the
+network</td><td><b>the URLSession fetch</b> &mdash; C28-26401, four members one build</td><td>process, arithmetic and
+queue-write only</td></tr>
+<tr><td><b>3</b></td><td><b>DR RECOVERY</b></td><td><code>map.backup</code> (<code>GtBackup.start</code>,
+BACKUP-2026-11-03) + <code>GtBackup.autoCheck</code> at startup (<code>GroupTrackScreen.kt:3030</code>) + the restore
+jobs reached from the DR directory</td><td>the whole recovery position &mdash; the DR set written to / read from the
+4th <code>Family</code> directory</td><td>nothing new; <b>the jobs already exist</b> (five of six restore steps are
+reachable today)</td><td><b>yes</b> &mdash; but see the MARKERDR dotfile rule in 4.6</td></tr>
+<tr><td><b>4</b></td><td><b>MAP RECOVERY</b></td><td><code>map.restartconv</code> &rarr;
+<code>GtEmergencyScreen</code> (emergency download, VECEMERGENCY-2026-10-31) &middot; <code>map.repair</code> &rarr;
+<code>GtRefreshSourceScreen</code> (refresh maps, ONESOURCEUI-2026-10-30)</td><td>tiles rebuilt for a slot after a
+source change or a loss</td><td><b>the URLSession fetch</b> &mdash; it re-pulls tiles, so it inherits class
+2</td><td>the scan and the plan; not the re-pull</td></tr>
+</table>
+<p>&rArr; <b>WHY THE TAXONOMY EARNS ITS KEEP:</b> two of the four blockers are the same one build (the URLSession
+fetch gates classes 2 and 4), one is tomorrow&rsquo;s work (class 1&rsquo;s arrival hook), and one needs no new code at
+all (class 3). So the whole map section stands behind <b>two</b> pieces of work, not twenty rows.</p>
+<p>&rArr; <b>CLASSIFY LEGS, NOT ROWS.</b> <code>map.trails_area</code> sits in class 1 and class 2 at once &mdash;
+import leg local, refresh leg internet &mdash; and that is normal, not a contradiction. Claude first put
+<code>map.trails_state</code> in the internet column outright; Fred naming <i>&ldquo;import trails by area&rdquo;</i>
+at 18:33 is what exposed it, because both row ids are the same screen.</p>
+<p>&#9888; AND ONE DE-DUPLICATION FACT ALREADY SETTLED, worth not re-breaking (<code>ExportAll.kt:25-27</code>): the
+artifact list <i>&ldquo;was private to GtBackup, which meant the DR set and the Map menu each carried&rdquo;</i> their
+own &mdash; now it is <b>one list, two consumers</b>. Classes 3 and 4 share machinery with export; do not give either
+its own copy while porting.</p>
+
+<h3>4.9 &#11088;&#11088;&#11088; WORK THE LIST IN ORDER &mdash; THE DECLARED ORDER *IS* THE GROUPING (Fred 18:36)</h3>
+<p><b>Fred, verbatim:</b> <i>&ldquo;we should just work the list in order. that is the natural grouping and will keep
+[us] in like seams and like processes.&rdquo;</i></p>
+<p>&rArr; ⛔ <b>THE FOUR PROCESSOR CLASSES ARE NOT A WORK ORDER.</b> They are a map of <i>what blocks what</i> &mdash;
+useful for knowing that two of the four blockers are one build, and for not expecting a fetch to run on the sim. They
+are <b>not</b> a sequence, and the rows are not to be sorted into them. Any plan that groups rows by class, by sim-leg,
+or by cheapness is a redirect of the list and is wrong. This is the 11-22 ROWSONLY rule extended to the ORDER as well
+as the structure.</p>
+<p><b>AND IT IS MEASURABLY TRUE, not just a preference &mdash; the source documents its own grouping.</b> The action
+map at <code>GroupTrackScreen.kt:3111</code> declares <b>22 live rows</b> (<code>map.rm_track</code> is retired and
+commented out), and adjacent rows share their seam:</p>
+<table border="1" cellpadding="4"><tr><th>declared group</th><th>rows, in order</th><th>the shared seam</th></tr>
+<tr><td>download surface</td><td><code>map.queues</code> &middot; <code>map.dl_settings</code></td><td>the queue and
+its defaults</td></tr>
+<tr><td><b>&ldquo;the three area functions&rdquo;</b> &mdash; the file&rsquo;s own words, GTAREA2-2026-10-23</td>
+<td><code>map.dl_area</code> &middot; <code>map.rm_area</code> &middot; <code>map.rm_feat</code></td>
+<td><code>GtArea.purpose</code> + <code>activateDrawMode()</code></td></tr>
+<tr><td>trail sources, land, counts</td><td><code>map.trailsrc</code> &middot; <code>map.utahprivate</code> &middot;
+<code>map.imported</code></td><td>the trail-source tables</td></tr>
+<tr><td>import by box</td><td><code>map.trails_area</code></td><td><code>purpose</code> + drawmode, then
+<code>HomeStatePickerScreen</code></td></tr>
+<tr><td>the ready-screens</td><td><code>map.dl_tracks</code> &middot; <code>map.restartconv</code> &middot;
+<code>map.recipes</code> &middot; <code>map.trails_state</code></td><td><code>GtArea.ready</code> &rarr; one
+screen each</td></tr>
+<tr><td>DR, export, exported features</td><td><code>map.backup</code> &middot; <code>map.export_all</code> &middot;
+<code>map.features</code></td><td>the ONE artifact list (<code>ExportAll.kt:25-27</code>)</td></tr>
+<tr><td>the file imports</td><td><code>map.gpx</code> &middot; <code>map.ridertrails</code> &middot;
+<code>map.gpxtrails</code> &middot; <code>map.convert</code> &middot; <code>map.synctracks</code></td>
+<td><code>GtFilePickerBody</code> / <code>GtFileOpen</code></td></tr>
+<tr><td>view and repair</td><td><code>map.flyover</code> &middot; <code>map.repair</code> &middot;
+<code>map.sources</code></td><td>radius, refresh, credits</td></tr>
+</table>
+<p>&rArr; So working 1&rarr;22 keeps consecutive rows inside one seam, and the three area functions, the ready-screens
+and the file imports each get solved once rather than three times. That is the cost argument for the order, and it is
+the same argument section A proved in the launch-point pass &mdash; solving the inherited components once made the rest
+faster.</p>
+<p>&#9888; AND ONE CLEANUP THE ORDER WILL REACH: <code>map.rm_track</code>&rsquo;s own comment
+(CORRRETIRE-2026-11-13) says <code>GtRemoveTrackScreen</code> and <code>ConvoyCorridorDelete.kt</code> are
+<i>&ldquo;untouched and now unreachable; <b>they come out during the iPad certification pass</b>&rdquo;</i> &mdash; a
+deletion owed, already decided, to be done when the walk passes that position.</p>
+
+<h3>4.10 &#11088;&#11088;&#11088; WHY THESE SHOULD GO QUICKLY &mdash; THE ENGINES WERE THE STRESS TEST (Fred 18:37)</h3>
+<p><b>Fred:</b> <i>&ldquo;they should ge[t] fairly quick as processes because <b>they were our test cases fo[r] seam and
+stress testing with high data volume and real data</b>.&rdquo;</i> <b>Supported, with the numbers from git.</b> Step 15
+was seven certifications, every one cross-device on real Utah data:</p>
+<table border="1" cellpadding="4"><tr><th>step</th><th>what moved to shared</th><th>certified</th></tr>
+<tr><td>15a <code>cf612fd57</code></td><td>the foundations &mdash; Java-identical Double text,
+<code>Math.round</code>, <code>toRadians/toDegrees</code>, the four date parsers, org.json-identical
+JSON</td><td><b>524,768 checks</b>; shared = Android on the Droid, iPad = Droid</td></tr>
+<tr><td>15b <code>b7d3642e2</code>, <code>3f8e3b2d2</code></td><td>import parsers + converter, then the app front
+doors onto them</td><td>Droid 529 same / 0 diff · iPad 581 same / 0 diff</td></tr>
+<tr><td>15c <code>62beefef6</code></td><td>rider trails + <code>GtRx.WS</code></td><td>Droid + iPad</td></tr>
+<tr><td>15d <code>a7b2141bb</code></td><td>tracks</td><td>certified; DIFFs were harness listing order only
+(D9)</td></tr>
+<tr><td>15e <code>aa24012ff</code></td><td>GPX import + <code>GtMath</code> (Android&rsquo;s math on the iPad) + the
+1970 file-date rule</td><td>Droid + iPad</td></tr>
+<tr><td>15f <code>6b4400f56</code>, <code>120f58e9d</code></td><td>agency trail import
+(<code>TrailImporter</code>)</td><td><b>Droid 572,503 / 0 &middot; iPad 116,299 / 0 cross-device</b></td></tr>
+<tr><td>15g <code>57cd2a8a7</code>, <code>8877ab18e</code></td><td>the OSM extract + import &mdash; nine
+files</td><td><b>Droid OLD=NEW 687,564 SAME / 0 DIFF &middot; iPad = Droid 231,365 SAME / 0 DIFF</b></td></tr>
+</table>
+<p>And 15g&rsquo;s switch was checked on live Utah state: <b>tag pass 428,801 rows, extract 93,761 trails, import
+93,599 found / 0 new / 0 errors.</b> The cert classes dump <code>trails</code>, <code>trail_properties</code>,
+<code>artifact_aliases</code>, <code>tracks</code>, <code>track_properties</code>, <code>waypoints</code> and
+<code>source_ingestions</code> &mdash; <b>every row, every column</b> (Cert15c/d/e/f).</p>
+<p>&rArr; <b>SO WHAT IS LEFT PER ROW IS THE SURFACE, NOT THE ENGINE.</b> The screen, the picker, the progress display,
+and &mdash; once &mdash; the arrival hook. The parsing, the classification, the dedup, the geometry, the hashing and the
+writes are already shared and already proven identical at half a million to seven hundred thousand comparisons on both
+platforms.</p>
+<p>&rArr; <b>AND IT SETS THE EXPECTATION HONESTLY BOTH WAYS.</b> These rows should be fast because the hard part is
+done &mdash; but that also means <b>a failure here is a SURFACE failure</b> (a seam, a screen, a missing arrival), not
+an engine failure. If an import produces different data on the iPad, the first hypothesis is the filter or the input,
+not the importer &mdash; which is exactly how today&rsquo;s route divergence turned out: identical engines, one
+filter-state difference.</p>
+<p>&#9888; THE ONE THING STEP 15 DID NOT COVER: it certified the ENGINES through harnesses, not the rows through the
+UI. Step 15&rsquo;s own witness was a cert run, not a tap. So these rows still need gate 3 &mdash; exercised on the sim
+&mdash; and the code&rsquo;s own warning applies (<code>GtIosDownloadQueue.kt:253</code>): <i>&ldquo;every member can
+return the right value and the service still be wrong&hellip; only running the JOB catches it.&rdquo;</i></p>
+
+<h2>3. METHOD FOR THE TRAIL / CANDIDATE-SET DIFFERENCES BETWEEN THE DEVICES</h2>
+<p>WHAT WAS MEASURED TODAY: the two devices build <b>identical</b> networks &mdash; 24 features, 2,891
+trails, 4,218 junctions on both. There is no engine difference and no feature-finding difference.</p>
+<p>THE ONLY DELTA: Droid <code>land_status IN ('PUBLIC','PRIVATE')</code> vs iPad <code>IN
+('PUBLIC','PRIVATE','RESTRICTED')</code>. A <b>filter-state</b> difference.</p>
+<p>THE METHOD, in this order, because each step is meaningless without the one before it:</p>
+<ol>
+<li><b>Set LAND identically on both devices</b> by hand.</li>
+<li>Re-run the same build on both: <b>Broken Ridge, 55-80 mi, 12-18 mph</b> (today&rsquo;s run, so there is
+a baseline to compare against).</li>
+<li><b>Compare the recipe&rsquo;s <code>trailFilter</code> BYTE FOR BYTE first.</b> If the predicates differ,
+nothing downstream is comparable and the route sets must not be looked at yet. This is the gate.</li>
+<li>Only then compare the route sets &mdash; and if the predicates matched but the routes differ, the cause
+is OPEN 2 (tie order), not the filter.</li>
+</ol>
+<p>&#11088; NOTE: <b>OPEN 3 removes this difference at its source.</b> Once the route-build predicate stops
+reading the display filter, the two devices cannot disagree about the candidate set no matter what is
+ticked. Hand-matching the filters is the measurement; OPEN 3 is the fix. Do OPEN 3 and this comparison
+becomes a regression check rather than an investigation.</p>
+
+<h2>4. MAP ROWS 1-5 &mdash; WHAT THE TOOL FOUND AND THE STEP-BY-STEP</h2>
+<p>Source of the row list: the <b>action map</b> at <code>GroupTrackScreen.kt:3111</code>, in declared
+order. Row id is the join key between the platforms. Not a doc, not a letter group.</p>
+
+<h3>4.1 The five rows and their real draw sets</h3>
+<table border="1" cellpadding="4">
+<tr><th>#</th><th>row</th><th>Android action</th><th>draws</th></tr>
+<tr><td>1</td><td><code>map.queues</code></td><td><code>queuesOpen = true</code></td><td>inline chrome at
+<code>GroupTrackScreen.kt:2229-2262</code> + <b><code>DownloadQueuePanel</code></b> (319 lines)</td></tr>
+<tr><td>2</td><td><code>map.dl_settings</code></td><td><code>GtDownloadDefaults.open.value =
+true</code></td><td><code>GtDownloadSettingsPanel</code> (39 lines, <code>DownloadDefaults.kt</code>)</td></tr>
+<tr><td>3</td><td><code>map.dl_area</code></td><td><code>GtArea.purpose = "download"</code> +
+<code>activateDrawMode()</code></td><td><code>GtAreaHost</code> (48 lines) &rarr;
+<code>GtDownloadAreaScreen</code></td></tr>
+<tr><td>4</td><td><code>map.rm_area</code></td><td><code>GtArea.purpose = "remove"</code> +
+<code>activateDrawMode()</code></td><td><code>GtAreaHost</code> &rarr; its remove branch</td></tr>
+<tr><td>5</td><td><code>map.rm_feat</code></td><td><code>GtArea.purpose = "rmfeat"</code> +
+<code>activateDrawMode()</code></td><td><code>GtAreaHost</code> &rarr; its rmfeat branch</td></tr>
+</table>
+
+<h3>4.2 &#11088; THE AREA SEAM WE WERE DREADING ALREADY HAS AN IMPLEMENTATION (Fred, 18:14)</h3>
+<p>Fred: &ldquo;so the area seam we were dreading had an implementation and we have a model. that is good
+news. that means most items will come right over.&rdquo; <b>Confirmed, measured:</b></p>
+<ul>
+<li><code>activateDrawMode()</code> &mdash; the map-side function rows 3, 4 and 5 all call &mdash; is
+<b>already present in BOTH copies of the map page</b>: <code>app/src/main/assets/vecmap/</code> AND
+<code>iosapp/iosapp/Resources/vecmap/</code>. <b>No map adjustment is needed for rows 3-5.</b></li>
+<li><code>GtAreaHost</code> is only <b>48 lines</b> and its blocker is <b>2 &times;
+<code>Handler(Looper.getMainLooper()).post</code></b> &mdash; the whole of its platform dependency.</li>
+<li>It carries <b>19-20 of the ~24 map rows</b>. One host, almost the whole section.</li>
+</ul>
+<p>&#9888; AND A TOOL-READING LESSON. The closure tool lists ten app-only dependencies for
+<code>GtAreaHost</code> (<code>GtDownloadAreaScreen</code>, <code>GtImportAreaScreen</code>,
+<code>GtEmergencyScreen</code>, <code>GtExportFeaturesScreen</code>, <code>GtAreaRadiusScreen</code>,
+<code>GtConvertGpxScreen</code>, <code>GtDownloadTracksScreen</code>, <code>GtImportGpxScreen</code>,
+<code>GtArea</code>, <code>DownloadQueueManager</code>). <b>That is a dispatcher&rsquo;s switch table, not a
+requirement set.</b> Eight of the ten are OTHER rows&rsquo; destinations. Rows 3-5 need
+<code>GtArea</code>, the two <code>Handler</code> calls, and their own three branches &mdash; nothing more.
+<b>Do not read a dispatcher&rsquo;s dependency list as work.</b></p>
+
+<h3>4.3 &#11088; THE SIM LEG AND THE iPAD LEG, PER ROW</h3>
+<p>Fred, 18:14: &ldquo;the map features dealing with importing have been tested and certified. the retrieval
+of internet files has not been tested. and we cannot test in sim model.&rdquo; Then 18:15, which is the
+part that unlocks the sim: &ldquo;<b>all were tested using existing files &mdash; [the] procedure[s] store
+last copies and offer refresh yes or no. we can test [on] sim using that data which is already
+resident.</b>&rdquo;</p>
+<p><b>CONFIRMED IN CODE AND IN THE DESIGN RECORD.</b> The saved copy persists and refresh is a user choice,
+so answering NO runs the processing leg against resident files with no network at all:</p>
+<ul>
+<li><code>GtStateData.kt:109</code> &mdash; and it is <b>already in commonMain/state/</b> &mdash;
+DATAQUEUE-2026-11-02 (Fred 15:59): &ldquo;refresh asked &mdash; every file downloads again; <b>the saved
+copy is kept until each new one is complete</b>.&rdquo;</li>
+<li><code>HomeStatePickerScreen.kt:285-292</code> &mdash; REFRESH is a panel button whose own text says it
+&ldquo;replaces the copy saved on this tablet&rdquo;. Not refreshing leaves that copy in place.</li>
+<li>Design record: &ldquo;state import keeps downloaded files, so a state that failed is reprocessed
+<b>without re-downloading it</b>.&rdquo;</li>
+</ul>
+<p>&rArr; <b>The resident data IS the sim test fixture, and it is real data, not a stub.</b> That satisfies
+the 11-11 certification standard (&ldquo;simulate on real data before any patch&rdquo;) which cert 17e2
+failed by using fake rows r1-r4.</p>
+
+<h4>What is actually built vs missing on the download side</h4>
+<p>MEASURED: <code>IosDownloadQueue</code> <b>exists and is certified in the harness</b> &mdash;
+<code>append</code> adds in order, saves <code>download_queue.json</code>, then starts what can start
+(<code>GtIosDownloadQueue.kt:168</code>). Queue persistence and selection are BUILT. The save-by-area
+ARITHMETIC is shared and certified (<code>GtVectorQueue</code>, STEP16B-2026-11-10).
+<code>IosQueuePlatform.append</code> throws only when that runtime is not injected, and the throw is
+deliberate (IOSQUEUE-2026-11-17).</p>
+<p><b>THE ONE MISSING PIECE IS THE URLSession FETCH</b> (<code>GtIosDownloadQueue.kt:252</code>, &ldquo;when
+real URLSession code lands&rdquo;). It gates four members and is <b>one build</b>:
+<code>GtQueuePlatform.append</code>, <code>IosImportPlatform.enqueueCorridor</code>,
+<code>GtRecipeEnv.deriveRecipe</code>, <code>GtRecipeEnv.vectorBusyCount</code>. Highest-leverage item in
+the map section &mdash; and note it blocks only the FETCH leg, not the process or the data.</p>
+<p>&#9888; THE WARNING THE CODE ALREADY CARRIES, <code>:253</code>: &ldquo;EVERY MEMBER CAN RETURN THE RIGHT
+VALUE AND THE SERVICE STILL BE WRONG. A per-member harness passes the stalled queue: append appended,
+markComplete completed. <b>Only running the JOB catches it.</b>&rdquo; So a green queue harness is not a
+witness that downloading works, and an empty queue monitor on the sim is a correct-looking default &mdash;
+which the 11-20 rule says is never a witness. <b>This is exactly why stage two exists.</b></p>
+
+<h4>Per row</h4>
+<table border="1" cellpadding="4">
+<tr><th>#</th><th>row</th><th>SIM LEG &mdash; certify now</th><th>iPAD LEG &mdash; stage two</th></tr>
+<tr><td>2</td><td><code>map.dl_settings</code></td><td><b>ALL of it.</b> Settings read/write only, no
+network</td><td>re-test in the end-to-end pass</td></tr>
+<tr><td>4</td><td><code>map.rm_area</code></td><td><b>ALL of it.</b> Draw a box over resident Utah tiles,
+delete, verify the store shrank</td><td>re-test end to end</td></tr>
+<tr><td>5</td><td><code>map.rm_feat</code></td><td><b>ALL of it.</b> Draw a box, delete features, verify
+the row counts</td><td>re-test end to end</td></tr>
+<tr><td>1</td><td><code>map.queues</code></td><td>panel draws; feed it the <b>resident</b>
+<code>download_queue.json</code> and verify every row renders (entries, status, rate, the completion
+stamp)</td><td><b>progression</b> &mdash; entries moving to DOWNLOADING and completing</td></tr>
+<tr><td>3</td><td><code>map.dl_area</code></td><td>the box draw, the <b>arithmetic</b> (boxesOf,
+squaresInBox, the zoom maths &mdash; already shared and certified), and the <b>queue write</b>: entries
+appended in order and <code>download_queue.json</code> correct on disk</td><td><b>the fetch</b> &mdash;
+after the URLSession build. The only genuinely blocked leg in the five</td></tr>
+</table>
+<p>&#9940; <b>CORRECTED BY FRED 18:36 &mdash; DO NOT REORDER THESE.</b> An earlier draft of this section said
+&ldquo;do 2, 4, 5 first, then 1, then 3&rdquo;, sorting the rows by what the sim can certify. <b>That is withdrawn.</b>
+Fred: <i>&ldquo;we should just work the list in order. that is the natural grouping and will keep [us] in like seams and
+like processes.&rdquo;</i> The table above says what each row&rsquo;s legs are; it is <b>not</b> a running order.
+Rows 1&rarr;5 in declared order. See 4.9.</p>
+
+<h3>4.4 THE SEAM FOR ROW 2, AND WHY THE TOOL SAYS SO</h3>
+<p><code>GtDownloadSettingsPanel</code> is 39 lines but its transitive closure is long:
+<code>GtDownloadDefaults</code> &rarr; <code>MapSourceManager</code> &rarr; <code>getSlotSources</code>
+&rarr; <code>ensureInit</code> &rarr; <code>init</code> &rarr; <code>loadApiKeys</code> /
+<code>syncColumnFile</code> &rarr; <code>columnFile</code> &rarr; <code>externalDir</code> &rarr;
+<code>GroupTrackStorage</code>, plus <code>writeColumnFile</code>, <code>applyColumnFile</code>,
+<code>readTerminated</code>, <code>currentVersionCode</code>, <code>apiKeysFile</code>,
+<code>externalJsonFile</code>.</p>
+<p><b>A long tail is the signal to SEAM, not to move</b> &mdash; the tool&rsquo;s own header says so, and it
+is what today proved twice (<code>findRides</code> &rarr; <code>getSpatialDb</code> collapsed to
+<code>dbConn: () -&gt; SQLiteConnection?</code>; <code>traceCompare</code> &rarr;
+<code>GroupTrackStorage</code> collapsed to one seam).</p>
+<p>&rArr; <b>THE CUT IS <code>MapSourceManager.getSlotSources</code>.</b> Seam that one read and about 18 of
+the 25 rows in that closure table vanish &mdash; everything below <code>ensureInit</code> is
+Android&rsquo;s API-key and column-file plumbing, which the iPad does not need to reproduce. Per restriction
+2, map this against the existing iOS seam first: there is already a <code>GtMapSpecEnv</code> among the nine
+implemented seams, so <b>check whether it already answers this</b> before proposing anything.</p>
+
+<h3>4.5 HOW TO READ THE CLOSURE TOOL &mdash; the four things in tonight&rsquo;s output</h3>
+<p>Command: <code>cd &lt;repo root&gt; &amp;&amp; python3 "$GT_CMDS/gt_closure_2026-11-24_v1.py"
+&lt;Symbol&gt; [&lt;Symbol&gt; &hellip;]</code>. Columns: <b>LIVES</b> (app / shared / ios),
+<b>SIZE</b>, <b>APP-ONLY DEPENDENCIES</b> (transitive, each one queued and expanded in turn).</p>
+<ol>
+<li><b>A LONG TAIL MEANS SEAM, NOT MOVE.</b> Row 2 above. Find the single read at the top of the tail and
+cut there.</li>
+<li><b>A DISPATCHER&rsquo;S LIST IS NOT WORK.</b> <code>GtAreaHost</code>&rsquo;s ten dependencies are eight
+sibling screens. Read what YOUR branch reaches.</li>
+<li><b>&ldquo;not found as a fun&rdquo; IS SOMETIMES NOISE.</b> <code>background</code>,
+<code>border</code>, <code>width</code>, <code>isEmpty</code> are Compose modifiers and stdlib members. The
+tool resolves identifiers, not members. Ignore them.</li>
+<li><b>&ldquo;not found as a fun&rdquo; IS SOMETIMES THE WHOLE FINDING.</b> It refused to resolve
+<code>ConvoyDownloadQueuePanel</code> &mdash; the name the 11-23 inventory carries. The declared function is
+<code>DownloadQueuePanel</code>, inside a file named <code>ConvoyDownloadQueuePanel.kt</code>. That is the
+guessed-name trap caught mechanically, and the 11-22 rule restated: <b>verify by declared name, never by
+filename.</b> When a symbol you expect does not resolve, go find the DECLARATION before concluding
+anything.</li>
+</ol>
+<p>LIMITS the tool does NOT check, each of which cost a build cycle today, so check them by hand: (1)
+imports are not carried by moving bytes; (2) visibility from every remaining caller; (3) platform-input
+initialisation &mdash; a host wrapper&rsquo;s <code>init</code> may install something, and
+<code>TrailFilterState.pathProvider</code>&rsquo;s default THROWS; (4) field names &mdash; it resolves
+symbols, not members.</p>
+
+<h2>4.6 &#11088;&#11088; FRED&rsquo;S ASSESSMENT OF THE MAP SECTION (18:20) AND THE FULL SIM SPAN</h2>
+<p>Verbatim: &ldquo;the issue on maps, seams, screens, and builds passed. only a few complex tasks and most
+have been tested already. everything will be rectified on sim. <b>everything from new install to restoring
+from our simple [DR] tasks.</b>&rdquo;</p>
+<p>&rArr; The map section is not an open-ended risk. The seam question is answered (4.2), the screens are
+mostly move-as-is, the build path works, and the sim can carry the <b>whole span</b> &mdash; new install
+through DR restore &mdash; because both halves already exist:</p>
+<ul>
+<li><b>THE RESTORE POINT EXISTS:</b> <code>GroupTrackSpike/_data/ref/droid2_full_2026-11-19_1509</code>
+&mdash; 747 files, 36 dirs, 3.1 GB; spatial md5 <code>1d6a131a4ef3&hellip;</code>, extension
+<code>2021a390c497&hellip;</code>, both matching the 11-19 values. &#9888; It exists in <b>ONE place</b>, on
+the Mac&rsquo;s internal disk, not Drive-synced.</li>
+<li><b>THE SIM SEED TOOL EXISTS:</b> <code>gt_seedsim_2026-11-19_v2.py</code>, which copies
+<b>file by file</b> (<code>shutil.copy2</code>) &mdash; the same reason the device side
+(<code>gt_pulldroid2_2026-11-19_v2.sh</code>) does: a whole-tree copy aborts on the first unreadable file and
+still looks like a success.</li>
+<li><b>FIVE OF THE SIX RESTORE STEPS are already reachable</b> by tapping from the DR directory (DRRESTORE,
+living checklist v9). What is missing is the automation and the sequencing, not the jobs.</li>
+</ul>
+<p>THE SEQUENCE, and the order is a real dependency order, not a preference: <b>home state import &rarr;
+rider trails &rarr; tracks &rarr; waypoints &rarr; routes &rarr; maps LAST.</b> Waypoints must precede
+routes because a route&rsquo;s recipe carries an <code>anchorLat</code>/<code>anchorLon</code> resolved
+against trailhead waypoints; maps come last because tiles are keyed on <code>geom_hash</code> and must
+follow the geometry.</p>
+
+<h3>&#9940;&#9940;&#9940; THE ONE HAZARD THAT WILL LOOK LIKE A DEFECT ON THE SIM (MARKERDR-2026-11-18)</h3>
+<p><b>A seed or restore WITHOUT THE DOTFILES SILENTLY CLEARS EVERY TRAIL.</b> This already happened to the
+iPad sim: seeding from the Nov 6 Droid 1 capture gave a full database with no dotfiles, so
+<code>jobSchemaConverge</code> did exactly what it is written to do &mdash; <code>DELETE FROM trails</code>
++ <code>DELETE FROM trail_properties</code> &mdash; and cleared the 322 trails then in view. Tracks (130)
+and waypoints (595) survived, which is what makes it look like a trail bug rather than a seeding
+artefact. Re-seeded with the marker present: <b>229,178 trails intact, no clear, no banner.</b></p>
+<p>The gate is <code>GtStartupHousekeeping.SCHEMA_MARKER = ".schema_2026-09-03A"</code>, a zero-byte
+dotfile in the GroupTrack root. Also at risk in the same root:
+<code>.db_schema_version</code>, <code>.trails_cleared_2026-09-02B</code>, <code>.nomedia</code>.</p>
+<p><b>THE THREE RULES, ALL THREE OR TRAILS ARE LOST SILENTLY:</b></p>
+<ol>
+<li><b>INSTALL &rarr; LAUNCH ONCE &rarr; THEN RESTORE.</b> The first launch writes the marker on an empty
+database, where the clear costs nothing. (Fred: &ldquo;what that means on the real iPad is we have to
+install once before downloading and restoring db.&rdquo;)</li>
+<li><b>COPY OVER THE TOP, NEVER REPLACE THE DIRECTORY.</b> A delete-then-write carries the marker away and
+the next launch clears the trails again.</li>
+<li><b>FILE BY FILE, WITH A SKIP LOG.</b> Never a single whole-tree copy.</li>
+</ol>
+<p>&#9888; TO VERIFY BEFORE THE FIRST SIM RESTORE, and currently UNCONFIRMED:
+<code>gt_sidebyside_v7.sh:159</code> uses <code>ls -A</code>, so the newer capture tool <i>should</i>
+include dotfiles. Unrun. <b>Until it is confirmed, treat every capture as dotfile-free</b> and check for
+<code>.schema_2026-09-03A</code> in the seed before launching. That one check prevents a false trail-loss
+report.</p>
+<p>AND THE VERIFICATION IS ONE-DIRECTIONAL: after a restore the device legitimately holds the baseline PLUS
+leftovers (&ldquo;our installs are non destructive and we cannot remove files during our refresh&rdquo;).
+Every baseline file must be present and md5-equal; <b>extra files are LISTED, never failed.</b> A symmetric
+diff fails every time and trains you to ignore it.</p>
+
+<h2>4.7 &#9940;&#9940;&#9940; THE iPAD CERTIFICATION SEQUENCE &mdash; ONE RESTORE, AT THE END (Fred, 18:23)</h2>
+<p>Verbatim: &ldquo;<b>we will not restore to iPad more than once.</b> we will start with a new install to test that
+process[,] then imports trails and waypoint, import tracks etc so [we] can test each process[;] once we have certified
+the processes [we] will restore droid 2&rsquo;s database for side[-by-side] test, <b>including a reimport of trails
+where the results on all three machines should be identical.</b>&rdquo;</p>
+<p>THE ORDER &mdash; a certification sequence, not a setup convenience:</p>
+<ol>
+<li><b>NEW INSTALL.</b> The install is itself a process under test, not a prerequisite to the tests.</li>
+<li><b>IMPORT TRAILS AND WAYPOINTS.</b> The iPad builds its own data.</li>
+<li><b>IMPORT TRACKS, etc.</b> Each import process exercised in turn, so a failure names one process.</li>
+<li><b>THEN, once the processes are certified: RESTORE DROID 2&rsquo;S DATABASE</b> for the side-by-side test.</li>
+<li><b>INCLUDING A RE-IMPORT OF TRAILS &mdash; identical results on all THREE machines</b> (Droid 1, Droid 2, iPad).
+That re-import is the cross-device certification key, not a data-loading step.</li>
+</ol>
+<p>&#9940; <b>WHY &ldquo;ONCE&rdquo; IS A CONSTRAINT, NOT A PREFERENCE.</b> Restoring earlier destroys the thing being
+certified: an iPad carrying Droid 2&rsquo;s database can no longer prove that ITS OWN install and import processes
+produce the right data &mdash; the data is simply someone else&rsquo;s. So the restore comes after process
+certification, and it happens once.</p>
+<p>&rArr; <b>This corrects 4.6 above where it reads as &ldquo;the sim carries new install through DR restore.&rdquo;</b>
+That span is true of the SIM and of the Droids. The <b>iPad</b> is restored exactly once, at step 4. The disaster-recovery
+record describes the baseline as &ldquo;a restore point used repeatedly&rdquo; &mdash; true for the Droids and the sim,
+<b>not</b> for the iPad.</p>
+<p>&rArr; And it sharpens the stage split: <b>the SIM certifies what CONSUMES data; the iPAD certifies what ADMITS
+it</b> (the 11-18 data-ingress cut). Steps 1-3 are exactly the admitting side, which is why they cannot run on the
+simulator &mdash; and why the sim work is not a rehearsal for them but a different, parallel certification.</p>
+<p>&#9888; AND THE MARKERDR RULES IN 4.6 APPLY TO STEP 4 IN PARTICULAR, because it is a single irreversible shot:
+<b>install &rarr; launch once &rarr; then restore</b>, <b>copy over the top</b>, <b>file by file with a skip log</b>.
+A step-4 restore that carries off <code>.schema_2026-09-03A</code> clears every trail on the next launch, and with only
+one restore budgeted there is no second attempt to notice it on.</p>
+
+<h3>4.8 THE SEQUENCE WITH ITS VOLUMES &mdash; AND THE ONE THING THAT BLOCKS STEPS 3-4 (Fred, 18:25)</h3>
+<p>Verbatim: &ldquo;I think that makes the most sense[:] <b>add 229,000 trails</b>, add all the waypoint[s], install
+a[ll] the tracks <b>from the saved email</b>, restore the route[s] <b>from sa[v]ed email</b>. <b>to test heavy volume in
+each process.</b> then reinstall droid 2 db for certification tests of results of <b>identical processes over identical
+data models</b>.&rdquo;</p>
+<p>&rArr; Each step carries a <b>volume target, and the volume is the test</b> &mdash; 229,000 trails (the full Utah
+import), then ALL waypoints, then ALL tracks, then the routes. A small import proves nothing at this step.</p>
+<p>&rArr; <b>Tracks and routes come from the SAVED EMAIL</b> &mdash; that is their source here, not a folder copy.</p>
+<p>&rArr; Step 5&rsquo;s purpose, in Fred&rsquo;s words, is <b>identical processes over identical data models</b>. It is
+not &ldquo;load data onto the iPad&rdquo;; it is the controlled comparison &mdash; same process, same data model, three
+machines.</p>
+
+<h4>&#9940;&#9940;&#9940; MEASURED 11-24: THE iPAD HAS NO INCOMING-FILE PATH, SO STEPS 3-4 HAVE NO MECHANISM YET</h4>
+<p>No <code>CFBundleDocumentTypes</code> in any Info.plist, no document-type registration, no share extension, no
+incoming-URL handling. The only <code>openURL</code> in <code>iosMain</code> is OUTGOING
+(<code>GtIosBluetoothSettings.kt:30</code>). And <code>rides.import</code>, built 11-22, is GroupTrack&rsquo;s
+<b>own</b> picker over the rides folder &mdash; Fred: &ldquo;we do not use the documentpicker&rdquo; &mdash; so it reads
+files <b>already inside the app</b> and cannot accept one from Mail.</p>
+<p>&rArr; This is one of the <b>TWO net missing features</b> named 11-16 (background tasks, and download-folder
+interaction: &ldquo;another user sends a ride or a box as an attachment, and tapping a .gpx in Downloads should launch
+the app and its import&rdquo;). It is an <b>application solution, not a port.</b></p>
+<p>&rArr; <b>THE SPLIT THAT KEEPS THE WORK MOVING.</b> The <b>processing</b> leg of steps 3-4 certifies on the SIM now,
+because files can be placed into the simulator&rsquo;s app container directly &mdash; so the track and route import
+processes can be exercised <b>at full volume</b> without any ingress path. What genuinely waits for the iPad is the
+<b>INGRESS</b> (Mail &rarr; GroupTrack), and <b>it has to be BUILT before step 3, not discovered during it</b> &mdash;
+with one restore budgeted, there is no second run to find it on.</p>
+<p><b>OPEN FOR FRED:</b> build the iOS ingress (document types + open-in handling) before the iPad sequence starts, or
+place the files into the container by hand for steps 3-4 and certify the ingress separately afterwards?</p>
+
+<h2>5. CARRIED, NOT STARTED</h2>
+<ul>
+<li><b>ROUTETRACE-2026-11-24 debug lines are IN commit <code>08639e5e9</code></b> &mdash; 9 occurrences
+across 5 files, one of them the gitignored <code>iosapp/.../vec_ports.js</code>. Remove before 2.8b closes.
+Also two <code>.bak_routetrace_2026-11-24</code> files in both vecmap copies.</li>
+<li><code>RouteManager.kt</code> and <code>RouteLaunch.kt</code> import <code>kotlin.math</code>
+(cos/sin/asin/hypot) <b>directly</b>, against the GtMath platform rule. RouteManager is the manual-route
+vertex store, so this is live code. Flagged, not touched &mdash; it is a code revision.</li>
+<li>CONSOLIDATION LIST, to be weighed when the loop closes (Fred 11-21: &ldquo;count the consumers of each
+service and weigh the consolidation benefits against the volume of changes&rdquo;): the two
+<code>object GtRoute</code> (RENAME, never collapse &mdash; zero overlapping names);
+<code>TrailFilterState</code> wrapper vs shared; <code>SelTable</code> / <code>PinFeasibility</code> local
+mirrors; <code>hasOpenBatch</code>; two <code>onPinTap</code>; two help controls.</li>
+<li>The 401 <code>&quot;null&quot;</code>-string <code>surface_type</code> rows &mdash; an Android defect,
+faithfully ported. Fix on both or neither.</li>
+</ul>
+
+<h2>6. OPEN FOR FRED</h2>
+<ol>
+<li><b>Unanswered from 18:07</b> &mdash; &ldquo;we built this for the map test and I thought we used to test
+map area import or deletes.&rdquo; <code>VectorMapTest.kt</code> is NOT it (it is
+<code>VecMapServer</code>, the <code>gtvec.local</code> tile server, no area code, unreachable from any
+action map). Did you mean <b>GtArea + AreaDraw</b>, or <b>ConvoyDevLaunchScreen /
+ConvoyDevSeeder</b>? If area import/delete was already exercised, rows 4 and 5 may already be proven and
+can close on a re-run rather than a build.</li>
+<li>OPEN 2 (tie determinism) is a <b>code revision</b> &mdash; approve before it is written.</li>
+<li>OPEN 3 (route-build predicate split) is a <b>code revision</b> &mdash; approve before it is written.
+The ruling is given; the implementation is not.</li>
+<li><b>The iOS incoming-file path (document types + open-in) does not exist</b> &mdash; measured 18:25. Steps 3 and 4
+of the iPad sequence read tracks and routes &ldquo;from the saved email&rdquo; and there is no mechanism for a file to
+arrive. Build it before the sequence, or hand-place the files and certify ingress separately? See 4.8.</li>
+<li>Does the <b>URLSession fetch</b> come before or after the first five map rows? It is one build, it unblocks four members, and after 18:15 it is the only genuinely blocked leg in the five &mdash; rows 2, 4 and 5 close on the sim without it, and row 3's process and queue legs certify on the sim too.</li>
+</ol>
+</body></html>

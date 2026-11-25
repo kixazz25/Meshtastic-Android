@@ -1,0 +1,203 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack &mdash; COMPLETED ACTIVITY 2.8 &mdash; v2 (2026-11-24)</title></head><body>
+<h1>COMPLETED 2026-11-24</h1>
+<p>One row per item that closed today, with its EVIDENCE (a measurement, a commit, a device
+observation) and its commit number. Items ARRIVE here by being MOVED out of the handoff or the
+checklist -- never by being retyped. The day&rsquo;s completed-activity record, so that pruning
+never loses the fact that something was addressed.</p>
+
+<p><b>v2 supersedes v1</b> (v1 held the preamble only). Every row below was taken from
+<b>git</b> at Fred&rsquo;s instruction (18:06: &ldquo;take complete items from git and then track to eod
+items&rdquo;), not from recollection. <b>One commit carries the day: <code>08639e5e9</code></b> &mdash;
+15 files, 2,320 insertions, 333 deletions. Per MEASURE-AFTER-2026-11-24 the measurements below were
+taken AFTER that commit.</p>
+
+<h2>THE DAY IN ONE LINE</h2>
+<p>AI route creation runs end to end on the iPad: search returns six real routes, the batch is written
+and verified on disk, the routes draw in their batch colours, the compare table opens with drag and
+collapse, layers hide and restore, and the delete warning deletes. <b>Four build cycles, as estimated
+at 16:30.</b> Work order unchanged (Fred): manual routes &rarr; AI routes &rarr; maps. Manual certified
+earlier today; AI closed tonight; maps start tomorrow.</p>
+
+<h2>CLOSED 2026-11-24 &mdash; all in commit <code>08639e5e9</code></h2>
+
+<h3>&#11088; GtRouteBatch &mdash; the route-draft JSON layer in shared (490 lines, NEW)</h3>
+<p>EVIDENCE: the batch was written by the iPad and <b>read back off disk and verified field by field</b>
+against the hand-translation: batch colours in declared order (blue, amber, green, violet, <b>red fifth</b>,
+cyan); <code>GtFmt.f(x,5)</code> &rarr; <code>37.89530, -113.66152</code>; <code>GtFmt.d</code> &rarr;
+<code>2,891</code> / <code>4,218</code>; the complete recipe including the full <code>trailFilter</code> SQL
+predicate; two-space indent; the atomic write (<code>.tmp</code> + <code>env.jsonRename</code>) intact.</p>
+<p>Fred named the shape of this at the outset &mdash; &ldquo;route draft store are the json primitives. once you
+can see and open those files the rest is easy&rdquo; &mdash; and that is what it turned out to be. The four
+primitives already existed on <code>GtRoute.Env</code> (<code>jsonCreate / jsonRead / jsonWrite / jsonDelete /
+jsonList / jsonRename</code>), all wired on iOS by <code>installIosRouteEnv()</code>; nothing new was created.</p>
+<p>&#9940; THE ORDERING RULE, carried in the code as a comment because the other order silently does nothing:
+<b>delete the batch header FIRST.</b> <code>RouteDraftStore.deleteDraft:908-914</code> refuses a draft that still
+belongs to the open batch, so <code>jsonDelete(BATCH)</code> must precede the member deletes.</p>
+
+<h3>&#11088; GtCompareTable &mdash; moved to shared (393 lines, was app/AiCompareTable.kt)</h3>
+<p>EVIDENCE, and it is a strong one: <b>git scored this a RENAME at 87% similarity</b>
+(<code>rename app/.../AiCompareTable.kt =&gt; grouptrack-shared/.../GtCompareTable.kt (87%)</code>). A rename
+score is mechanical proof the body moved rather than being rewritten &mdash; the 13% is exactly the six
+substitutions below and nothing else.</p>
+<p>Kept in the same package so Android&rsquo;s single call site (<code>RouteModule.kt:1552</code>) resolved
+unchanged. Six substitutions: <code>BatchRow</code> &rarr; <code>GtRouteBatch.GtBatchRow</code> (&times;2);
+<code>android.graphics.Color.parseColor</code> &rarr; <code>gtHexColor(hex) ?: accentBlue</code> (the
+<code>TrailStylePanel.kt:223</code> pattern); the two raw db queries &rarr; a <code>surfaceOf</code> host
+parameter; <code>GtHelpButton</code> &rarr; the <code>help</code> parameter; three
+<code>&quot;%.1f&quot;.format</code> &rarr; <code>GtFmt.f(x, 1)</code>.</p>
+<p>DEVICE: Fred, &ldquo;compare panel built completely.&rdquo; Drag and collapse ported free
+(<code>offsetX/offsetY</code> + <code>detectDragGestures</code>, <code>:170-183</code>); the offset is
+deliberately not persisted (<code>:115</code>).</p>
+
+<h3>GtTrailTable &mdash; moved out of RouteModule into shared (130 lines, NEW file)</h3>
+<p>EVIDENCE: compiles on all three targets; the four FILTER toggles
+(<code>gtToggleType / Use / Land / Restricted</code>) have one call site each and all four are in this table;
+<code>GtAiFlow.filterChanged</code> is the redraw seam. <code>&quot;%,d&quot;.format</code> &rarr;
+<code>GtFmt.d</code>.</p>
+<p>&#9940; THIS ONE COST THREE BUILD CYCLES and is why the closure tool exists. Each failure was findable
+before writing a line: imports were not carried; then <code>GtCheck</code> was app-only; then four
+<code>GtRoute.toggle*</code> were app-only; then the shared <code>TrailFilterState.pathProvider</code> turned
+out to be installed lazily by Android&rsquo;s wrapper <code>init</code> (its default <b>throws</b>). Fred found
+the resulting crash on the device and named the trigger exactly: &ldquo;I launched ai build before trails
+loaded.&rdquo;</p>
+
+<h3>GtCheck &mdash; moved to shared (27 lines, was app/DownloadDefaults.kt)</h3>
+<p>EVIDENCE: same package, so all <b>17 Android call sites</b> were untouched; <code>DownloadDefaults.kt</code>
+shows <code>8 -</code> in the commit stat, which is the declaration leaving and nothing else.</p>
+
+<h3>GtAiFlow &mdash; the AI flow&rsquo;s shared home (+403 lines)</h3>
+<p>EVIDENCE: the commit&rsquo;s own markers, counted from the diff &mdash; <code>AISTATE</code> &times;21,
+<code>TRAILTABLE</code> &times;8, <code>AIBUILD</code> &times;5, <code>AIPIN</code> &times;4,
+<code>AIGUIDED</code> &times;2, <code>FINDRIDES</code> &times;2. State (steps 1-7, busy, progress, pin fields),
+the build seams, <code>summaryText / guidedSteps / guidedActions</code> (moved verbatim from
+<code>RouteModule.kt:1213-1287</code>, <code>Math.round</code> &rarr; <code>GtJava.round</code>), pin handling
+including <code>onPinTap</code>, and the find-rides seams.</p>
+
+<h3>&#11088;&#11088; RouteModule.kt got SMALLER &mdash; the one-code-base witness</h3>
+<p>EVIDENCE: <code>RouteModule.kt | 386 ++++++----------</code> &mdash; <b>more deletions than
+insertions.</b> The Android host shrank while the iPad gained the same behaviour. That is the mechanical
+difference between delegating to a shared seam and keeping a second copy, and it is the number to cite
+against NO-CODE-BASE-DIVERGENCE (11-23 07:10).</p>
+
+<h3>layersOnForAi &mdash; a log-only stub replaced with the real behaviour (LAYERSFORAI)</h3>
+<p>EVIDENCE: the stub at <code>GtIosPanels.kt:378-380</code> said &ldquo;no Route+ layer switches on the
+iPad&rdquo; (VERTEXDROP-2026-11-23) and was removed; the real behaviour is wired at the composable&rsquo;s
+<b>outer level</b> beside <code>openCompare</code>, where the layer slots actually live &mdash;
+<code>IosRouteSeams</code>, the stub&rsquo;s home, has <code>js</code> but not the slots. Mirrors Android&rsquo;s
+<code>GroupTrackScreen.kt:2333-2338</code>: <code>forRouteBuild()</code> + trails ON + waypoints ON +
+<code>js(viewportJs)</code>. <code>gtHideSaved</code> was deliberately LEFT OUT (no iPad equivalent) rather
+than faked.</p>
+<p>This closed Fred&rsquo;s 17:12 report: &ldquo;filter have be turned off off for routes, waypoints, trails,
+and track.&rdquo;</p>
+
+<h3>surfacesFor &mdash; the compare table&rsquo;s surface labels, one shared copy (SURFACES)</h3>
+<p>EVIDENCE: added to <code>GtRouteBatch</code> in commonMain and wired on the iPad through
+<code>IosWriteDb.conns()</code>; compiles on all three targets. Android&rsquo;s own two queries
+(<code>AiCompareTable.kt:128-168</code>), placed in shared so one copy serves both platforms &mdash; Android&rsquo;s
+relocated block becomes replaceable by it.</p>
+<p>MEASURED, because Fred challenged the nullable: <code>IosWriteDb.conns()</code> returns
+<code>Pair&lt;SQLiteConnection, SQLiteConnection?&gt;?</code> &mdash; the extension handle was <b>already</b>
+nullable, for the reason <code>GtGpxImport.kt:58</code> documents under CODE RULE 1 (&ldquo;optional exactly as
+in 2.7e: getExtensionDb() may be null&rdquo;). That is the HANDLE. The TABLE is not in doubt:
+<code>GtTrailImport.kt:493</code> writes <code>INSERT OR IGNORE INTO trail_properties (&hellip;,
+surface_type, &hellip;)</code>. So a null handle is logged, not swallowed.</p>
+<p><code>GtRoute.rawQuery</code> (<code>:187</code>) is <code>private inline</code> and not callable from the
+host, so the prepare / bindText / step / close idiom was replicated, reading cells through
+<code>GtRead.cellText</code> exactly as <code>GtRoute:196</code> does.</p>
+
+<h3>The whole-batch delete and its warning (BATCHDELETE)</h3>
+<p>EVIDENCE on the simulator: Fred, 17:14 &mdash; &ldquo;if I click save delete with no trails selected the
+delete message and warning should appear&rdquo; &mdash; now appears and deletes. Android&rsquo;s words verbatim
+(<code>RouteModule.kt:1714</code>). Layers restore from <code>cmpPrevLayers</code> on confirm.</p>
+
+<h3>&#11088; THE DROID-vs-iPAD DIVERGENCE &mdash; QUESTION CLOSED, CAUSE NAMED</h3>
+<p>Fred, 17:05: &ldquo;routes are more disparate on iPad&hellip; more features and point of interest on iPad
+search?&rdquo; <b>MEASURED: no.</b> The two devices produce <b>identical</b> networks &mdash;
+<b>24 features, 2,891 trails, 4,218 junctions on both.</b> Claude&rsquo;s first answer (&ldquo;the iPad is
+better at finding features&rdquo;) was wrong and is withdrawn.</p>
+<p>THE ONLY DELTA: the Droid&rsquo;s filter is <code>land_status IN ('PUBLIC','PRIVATE')</code>; the iPad&rsquo;s
+is <code>IN ('PUBLIC','PRIVATE','RESTRICTED')</code>. That decides whether one restricted trail&rsquo;s open
+pieces enter the network before RESTRICTEDNEVER clips it. It is a <b>filter-state</b> difference, not an engine
+difference. The fix is open item 3 in tonight&rsquo;s EOD; the certification method is in there too.</p>
+
+<h3>Two tools built, installed and documented</h3>
+<p>EVIDENCE: both in <code>$GT_CMDS</code> with full headers covering purpose, why they exist (quoting Fred),
+usage, how to read the output, and <b>the limits they do NOT check</b> &mdash;
+<code>gt_closure_2026-11-24_v1.py</code> (transitive dependency closure for a move) and
+<code>gt_panelaudit_2026-11-24_v2.py</code>. Built at Fred&rsquo;s direction, 16:01: &ldquo;all the primitives and
+service function exist. it is a matter of identifying the need and solving it. if we do not know about them we
+do the same work 5 times.&rdquo; And 16:37: &ldquo;yes keep them and document their use and purpose in eod. I am
+not doing the work and the tools need to reach their audience.&rdquo;</p>
+<p><b>Already earned their keep tonight:</b> run against the first five map rows, the closure tool refused to
+resolve <code>ConvoyDownloadQueuePanel</code> &mdash; the name the 11-23 inventory carries. The declared
+function is <code>DownloadQueuePanel</code>, in a file called <code>ConvoyDownloadQueuePanel.kt</code>. That is
+the guessed-name trap caught mechanically, and it is the 11-22 rule restated: <b>verify by declared name, never
+by filename.</b></p>
+
+<h3>&#11088;&#11088;&#11088; THE COLOUR STANDARD recorded as a standard (STD1-2026-10-24)</h3>
+<p>Fred, 17:47: &ldquo;there is a standard defined and you are unaware and not using it, check memory docs and
+add standard if it is missing.&rdquo; It WAS in memory &mdash; as a footnote inside the 11-23 divergence block,
+not findable as a standard. It is now its own section.</p>
+<p>WHAT CLAUDE DID WRONG: wrote a patch adding <code>color = Gt.accent</code> to 16 button labels. The 11-23
+note says literally the opposite &mdash; &ldquo;using those tokens raw is not the colour standard; sitting the
+content inside <code>GtPanel</code> under <code>GtTheme</code> is.&rdquo; The patch was retired unrun as
+<code>gt_btncolour_2026-11-24_v1_DO_NOT_RUN_wrote_raw_colours_against_STD1_the_standard_is_GtTheme.py</code>.</p>
+<p>THE STANDARD, measured: <code>hudOnDark</code> is the light/dark flip &rarr;
+<code>mapType = if (hudOnDark) &quot;SAT&quot; else &quot;VEC&quot;</code> (IOSMAPTYPE-2026-11-21,
+<code>GtIosPanels.kt:1871</code>; Android <code>GroupTrackScreen.kt:3068</code>) &rarr; the single assignment
+<code>GtScheme.current.value = GtScheme.forMap(mapType)</code> (<code>GroupTrack.kt:145</code>) &rarr; one of two
+schemes. <code>GtTheme</code> then puts it on Material&rsquo;s own parts, and that is Fred&rsquo;s &ldquo;all
+three buttons on the panel&rdquo;: <code>primary</code>, <code>secondary</code> AND <code>tertiary</code> all set
+to <code>text</code>, with <code>onPrimary / onSecondary / onTertiary</code> all set to <code>panel</code>.
+<b>So a bare Text in a TextButton under GtTheme is already correct, and writing a colour on it opts OUT of the
+standard</b> &mdash; in the one direction invisible on the device being tested.</p>
+<p>&#9888; AND NOT LITERAL WHITE. BTNDIM-2026-11-18, Fred: &ldquo;the text is grey on blue in buttons. make text
+white.&rdquo; The fix was NOT white, and <code>GtPanel.kt:177</code> records why: &ldquo;OnSatellite&rsquo;s
+buttons ARE white, so white letters would vanish there.&rdquo; Pick the ROLE; let the scheme pick the colour.</p>
+<p>MEASURED for next time: in <code>GtIosPanels.kt</code>, <code>GtTheme</code> opens at 1859 and closes at
+3224. Everything from the compare table to the delete dialog is inside it. The two call sites outside are
+<code>:226</code> and <code>:780</code> &mdash; and <code>:780</code> is the one place in the file that
+correctly writes a colour, because it has no theme above it.</p>
+
+<h2>RETRACTED TODAY &mdash; kept because the failure mode is the lesson</h2>
+<table border="1" cellpadding="4"><tr><th>Claim</th><th>Why it was wrong</th></tr>
+<tr><td>&ldquo;<code>batchName</code> blank is a defect&rdquo;</td><td>Android&rsquo;s only assignment is
+<code>pinRideName.value = &quot;&quot;</code>, so the Droid is blank too. Android-faithful.</td></tr>
+<tr><td>&ldquo;The iPad finds more features&rdquo;</td><td>Identical: 24 / 2,891 / 4,218 on both.</td></tr>
+<tr><td>&ldquo;The surface column is always empty for OHV routes&rdquo;</td><td>Read the carto_code cut instead
+of the SOURCE cut. Surface is missing from <b>OSM</b> (0%, 69% of rows), not from a category. Every agency
+import is 99-100% &mdash; <code>ugrc_utah_trails</code> 99.3%, <code>usfs_nfs_trails</code> 99.1%,
+<code>nps_public_trails</code> 100%. For a Utah route the label populates.</td></tr>
+<tr><td>&ldquo;<code>Math.round</code> needs a body change&rdquo;</td><td>Fred: &ldquo;all math functions have
+been created.&rdquo; <code>GtJava.round</code> exists with 14 shared call sites.</td></tr>
+<tr><td>A code comment quoted as a live constraint (&ldquo;night before a ride&rdquo;)</td><td>Fred: &ldquo;I
+have no idea what you are saying.&rdquo; It was from an earlier day. A CODE COMMENT IS NOT A CURRENT FACT
+(11-22).</td></tr>
+</table>
+
+<h2>MEASURED TODAY, no action &mdash; facts worth keeping</h2>
+<ul>
+<li><b>Every trail has a carto_code: 229,359 / 229,359 = 100.0%</b> (droid1 11-19 pull), and zero trails lack a
+<code>trail_properties</code> row. Fred&rsquo;s model confirmed. <code>designated_uses</code> 93.1%,
+<code>motorized_allowed</code> 73.5%, <code>surface_type</code> 27.9%.</li>
+<li><b>401 rows hold the literal string <code>&quot;null&quot;</code></b> as <code>surface_type</code>. They
+pass Android&rsquo;s own <code>IS NOT NULL AND TRIM&lt;&gt;''</code> guard, so both platforms print the word
+&ldquo;null&rdquo; as a label. Android defect, faithfully ported; 0.17% of rows.</li>
+<li><code>RouteExplorer.kt</code> is <b>168 lines and a pure thin wrapper</b> over shared <code>GtRoute</code>
+(<code>import &hellip; as Shared</code>, 16 <code>Shared.</code> refs). Its local <code>SelTable</code> /
+<code>PinFeasibility</code> mirrors exist only because &ldquo;you cannot declare a typealias inside an
+object&rdquo; (<code>:16</code>). <b>The search engine was already shared.</b></li>
+<li><code>object GtRoute</code> exists TWICE and must be RENAMED, never collapsed: Android&rsquo;s at
+<code>RouteModule.kt:64</code> (141 members, UI state) and shared at <code>GtRoute.kt:104</code> (49 members,
+the engine). <b>ZERO overlapping names.</b></li>
+<li><code>EXTENSION_DB = &quot;grouptrack_data.db&quot;</code> &mdash; Android&rsquo;s &ldquo;extension db&rdquo;
+is the same file the iPad already opens. Fred confirmed: &ldquo;yes all db&rsquo;s are exposed on iPad.&rdquo;</li>
+<li>THE FOUR MATH SERVICES and why each exists: <code>GtJava</code> (Java number rules &mdash; geom_hash is over
+WKT text, so one digit changes identity); <code>GtMath</code> (shared code never calls kotlin.math&rsquo;s
+sin/cos/asin/hypot/pow/tan/atan/sinh/ln; on Android GtMath IS java.lang.Math); <code>GtMathPort</code> (FreeBSD
+msun cos/sin + fdlibm asin/hypot &mdash; Apple&rsquo;s libm differs in the last bit, <code>cos(0.68089&hellip;)</code>
+Apple &hellip;5005 vs Android &hellip;5006, found by the 15e cert); <code>GtMathFdlibm</code> (JDK 21 FdLibm
+tan/atan/sinh &mdash; Apple differs on tan 158,960/400,000).</li>
+</ul>
+</body></html>
