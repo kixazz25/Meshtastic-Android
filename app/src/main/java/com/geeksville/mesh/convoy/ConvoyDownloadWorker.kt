@@ -165,83 +165,40 @@ class ConvoyDownloadWorker(
         // ── Normal mode: all slots from bounding box ──
         // Calculate tile keys for the bounding box
         // VECSOURCE-2026-10-30: a VEC job runs z0-z14 (Fred: z0-14, exact boxes); maxZoomForSlot caps the top at 14.
-        val tiles = if (refreshSlot == VectorTiles.SLOT || refreshSlot == ElevationTiles.SLOT)   // DEMSOURCE-2026-10-30: DEM z0-12
-            ConvoyTileCalculator.calculateTiles(north, south, east, west, zMin = 0, zMax = if (refreshSlot == ElevationTiles.SLOT) ElevationTiles.Z_MAX else VectorTiles.Z_MAX)   // VECENQUEUE-2026-10-30: never list z15-z18
-            else ConvoyTileCalculator.calculateTiles(north, south, east, west)
-
-        // Get all layers to download from MapSourceManager
-        val allSources = MapSourceManager.getDownloadSources()
-        // VECSOURCE-2026-10-30: VEC takes its layer from VectorTiles (not a map-bar slot).
-        val downloadSources = if (refreshSlot == VectorTiles.SLOT) VectorTiles.downloadSources(appContext)
-            else if (refreshSlot == ElevationTiles.SLOT) ElevationTiles.downloadSources(appContext)   // DEMSOURCE-2026-10-30
-            else if (refreshSlot.isNotEmpty()) allSources.filter { it.first == refreshSlot } else allSources
-        if ((refreshSlot == VectorTiles.SLOT || refreshSlot == ElevationTiles.SLOT) && downloadSources.isEmpty()) {   // DEMSOURCE-2026-10-30
-            // ⛔ never a zero-tile "success": every tile is counted FAILED so the queue shows it.
-            log.e { "VECSOURCE-2026-10-30: vector TileJSON not reachable -- $label failed, nothing downloaded" }
-            DownloadQueueManager.markComplete(entryId, 0, tiles.size)
-            return Result.success()
-        }
-        val totalLayers = downloadSources.sumOf { it.second.size }
-        val totalTiles = tiles.size * totalLayers
-        var totalDownloaded = 0
-        var totalFailed = 0
-
-        log.i { "Tiles: ${tiles.size} x $totalLayers layers = $totalTiles total" }
-
-        DownloadQueueManager.updateProgress(entryId, 0, 0)
-
-        for ((slotName, layers) in downloadSources) {
-            for ((layerIndex, layer) in layers.withIndex()) {
-                // Check if WorkManager cancelled us
-                if (isStopped) {
-                    log.i { "Worker stopped by system/user" }
-                    return Result.failure()
+        // DROIDDLWORKER-2026-11-25: the job body is the SHARED GtTileJobs.download (commonMain) -- the one the iPad runs.
+        // This worker keeps the host's part: the queue entry, progress to the queue and the notification, completion.
+        val job = with(DownloadQueueManager) { DownloadQueueManager.queue.value.filter { it.id == entryId }.toGt() }.firstOrNull()
+            ?: return Result.failure()   // gone from the queue since the orphan check above
+        var doneCount = 0
+        val outcome = ConvoyTileDownloader.tileJobs(appContext).download(
+            job,
+            onProgress = { downloaded, total, failed ->
+                if (downloaded > 0) {   // 2.7e: the opening (0, 0) update moves no notification and sets no progress data
+                    showProgress(entryId, label, downloaded, total)
+                    setProgressAsync(
+                        Data.Builder()
+                            .putInt("downloaded", downloaded)
+                            .putInt("total", total)
+                            .putInt("failed", failed)
+                            .build()
+                    )
                 }
-
-                log.d { "Layer: ${layer.cacheDir} url=${layer.urlTemplate.take(60)}..." }
-
-                val result = ConvoyTileDownloader.downloadTiles(
-                    context = appContext,
-                    tiles = tiles,
-                    sourceUrl = layer.urlTemplate,
-                    sourceName = if (layerIndex == 0) slotName else layer.cacheDir,
-                    forceOverwrite = refreshMode,   // REPLACEFIX-2026-11-03: Replace = Yes overwrites what is stored
-                    isOverlay = (layer.role == "overlay")
-                ) { downloaded, _, failCount ->
-                    totalDownloaded++
-                    totalFailed = failCount
-
-                    // Throttle notification + queue updates
-                    if (totalDownloaded % PROGRESS_INTERVAL == 0 || totalDownloaded == totalTiles) {
-                        showProgress(entryId, label, totalDownloaded, totalTiles)
-                        DownloadQueueManager.updateProgress(entryId, totalDownloaded, totalFailed)
-                        setProgressAsync(
-                            Data.Builder()
-                                .putInt("downloaded", totalDownloaded)
-                                .putInt("total", totalTiles)
-                                .putInt("failed", totalFailed)
-                                .build()
-                        )
-                    }
-                }
-
-                result.onFailure { e ->
-                    log.e { "Layer ${layer.cacheDir} failed: ${e.message}" }
-                }
-            }
-        }
-
-        // -- Complete --------------------------------------
-        DownloadQueueManager.markComplete(entryId, totalDownloaded, totalFailed)
+                DownloadQueueManager.updateProgress(entryId, downloaded, failed)
+            },
+            onComplete = { downloaded, failed ->
+                doneCount = downloaded
+                DownloadQueueManager.markComplete(entryId, downloaded, failed)
+            },
+        )
+        if (outcome == com.grouptrack.shared.queue.GtTileJobs.Outcome.STOPPED) return Result.failure()
+        if (outcome == com.grouptrack.shared.queue.GtTileJobs.Outcome.NO_SOURCES) return Result.success()
 
         // Show completion notification (separate ID so it persists)
         val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(
             entryId.hashCode() + 10000,
-            ConvoyDownloadNotification.completeNotification(appContext, label, totalDownloaded).build()
+            ConvoyDownloadNotification.completeNotification(appContext, label, doneCount).build()
         )
-
-        log.i { "Complete: $label -- $totalDownloaded downloaded, $totalFailed failed" }
         return Result.success()
     }
 

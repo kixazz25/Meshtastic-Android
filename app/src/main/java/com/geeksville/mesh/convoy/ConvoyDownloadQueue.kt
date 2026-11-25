@@ -15,6 +15,7 @@ import org.json.JSONObject
 import java.io.File
 import java.util.UUID
 import okio.Path.Companion.toOkioPath   // STEP16D-2026-11-11
+import com.grouptrack.shared.queue.GtQueueRules   // DROIDQRULES-2026-11-25: the shared queue rules
 import com.grouptrack.shared.log.gtLogger
 import com.geeksville.mesh.grouptrack.GtPathsAndroid
 
@@ -178,7 +179,7 @@ object DownloadQueueManager {
 
     /** QEVAL-2026-08-08I: clamped 1..4 and persisted. */
     fun setMaxConcurrent(context: Context, value: Int) {
-        val v = value.coerceIn(1, 4)
+        val v = GtQueueRules.clampConcurrent(value)   // DROIDQRULES-2026-11-25: the shared rule
         maxConcurrent = v
         try {
             context.getSharedPreferences("convoy_queue", Context.MODE_PRIVATE)
@@ -194,8 +195,8 @@ object DownloadQueueManager {
     fun loadMaxConcurrent(context: Context) {
         maxConcurrent = try {
             context.getSharedPreferences("convoy_queue", Context.MODE_PRIVATE)
-                .getInt("max_concurrent", 4).coerceIn(1, 4)
-        } catch (e: Exception) { 4 }
+                .getInt("max_concurrent", GtQueueRules.MAX_CONCURRENT_DEFAULT).let { GtQueueRules.clampConcurrent(it) }   // DROIDQRULES-2026-11-25
+        } catch (e: Exception) { GtQueueRules.MAX_CONCURRENT_DEFAULT }
     }
     private const val QUEUE_FILE = "download_queue.json"
     private const val TAG = "DownloadQueue"
@@ -339,6 +340,16 @@ object DownloadQueueManager {
         label = label, workRequestId = workRequestId, refreshMode = refreshMode, refreshSlot = refreshSlot,
         downloadType = DownloadType.valueOf(downloadType.name), priority = priority, completedAt = completedAt, startedAt = startedAt,
         tilesPerSec = tilesPerSec, geomHash = geomHash)
+    /** DROIDQRULES-2026-11-25: the reverse of toAppEntry -- every field, enums by name -- so the queue's
+     *  decisions can be the shared GtQueueRules, the same rule the iPad calls. */
+    private fun QueueEntry.toGtEntry() = com.grouptrack.shared.queue.GtQueueEntry(
+        id = id, north = north, south = south, east = east, west = west, status = com.grouptrack.shared.queue.GtQueueStatus.valueOf(status.name),
+        totalTiles = totalTiles, downloadedTiles = downloadedTiles, failedTiles = failedTiles, retryCount = retryCount, createdAt = createdAt,
+        label = label, workRequestId = workRequestId, refreshMode = refreshMode, refreshSlot = refreshSlot,
+        downloadType = com.grouptrack.shared.queue.GtDownloadType.valueOf(downloadType.name), priority = priority, completedAt = completedAt, startedAt = startedAt,
+        tilesPerSec = tilesPerSec, geomHash = geomHash)
+    internal fun List<QueueEntry>.toGt(): List<com.grouptrack.shared.queue.GtQueueEntry> = map { it.toGtEntry() }
+    private fun List<com.grouptrack.shared.queue.GtQueueEntry>.toApp(): List<QueueEntry> = map { it.toAppEntry() }
 
     /** Unified area download: one slot, broken into grid cells */
     fun enqueueArea(
@@ -1043,14 +1054,10 @@ object DownloadQueueManager {
      *  past the decision. */
     @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     fun promote(entryId: String) {
-        val current = _queue.value.toMutableList()
-        val idx = current.indexOfFirst { it.id == entryId }
-        if (idx < 0) return
-        if (current[idx].status != QueueStatus.QUEUED) return
-        current[idx] = current[idx].copy(priority = DownloadPriority.PROMOTED)
-        _queue.value = current
+        val next = GtQueueRules.promote(_queue.value.toGt(), entryId)?.toApp() ?: return   // DROIDQRULES-2026-11-25
+        _queue.value = next
         saveQueue()
-        log.i { "Promoted to priority 1: ${current[idx].label}" }
+        log.i { "Promoted to priority 1: ${next.first { it.id == entryId }.label}" }
         startNextIfAvailable()
     }
 
@@ -1067,9 +1074,7 @@ object DownloadQueueManager {
             }
         }
         // Remove from queue entirely — cancelled jobs don't come back
-        val current = _queue.value.toMutableList()
-        current.removeAll { it.id == entryId }
-        _queue.value = current
+        _queue.value = GtQueueRules.remove(_queue.value.toGt(), entryId)?.toApp() ?: return   // DROIDQRULES-2026-11-25
         saveQueue()
         log.i { "Cancelled and removed: ${entry.label} id=$entryId" }
         startNextIfAvailable()
@@ -1099,7 +1104,7 @@ object DownloadQueueManager {
                 }
             }
         }
-        val completed = current.filter { it.status == QueueStatus.COMPLETE }
+        val completed = GtQueueRules.cancelAll(current.toGt()).toApp()   // DROIDQRULES-2026-11-25
         _queue.value = completed  // keep completed for history, remove rest
         saveQueue()
         log.i { "Cancelled all: ${current.size - completed.size} removed, ${completed.size} complete kept" }
@@ -1115,9 +1120,7 @@ object DownloadQueueManager {
                 log.e { "Remove worker cancel failed: ${e.message}" }
             }
         }
-        val current = _queue.value.toMutableList()
-        current.removeAll { it.id == entryId }
-        _queue.value = current
+        _queue.value = GtQueueRules.remove(_queue.value.toGt(), entryId)?.toApp() ?: return   // DROIDQRULES-2026-11-25
         saveQueue()
         log.i { "Removed: ${entry.label} id=$entryId" }
         startNextIfAvailable()
@@ -1125,10 +1128,7 @@ object DownloadQueueManager {
     // -- Clear completed/cancelled/failed entries ----------
     @Synchronized   // QUEUELOCK-2026-11-12: the queue list is read-changed-written under ONE lock
     fun clearCompleted() {
-        val terminal = setOf(QueueStatus.COMPLETE, QueueStatus.CANCELLED, QueueStatus.FAILED)
-        val current = _queue.value.toMutableList()
-        current.removeAll { it.status in terminal }
-        _queue.value = current
+        _queue.value = GtQueueRules.clearCompleted(_queue.value.toGt()).toApp()   // DROIDQRULES-2026-11-25
         saveQueue()
     }
 

@@ -1,6 +1,11 @@
 package com.grouptrack.shared.platform
 
 import com.grouptrack.shared.imports.GtHttp
+import com.grouptrack.shared.imports.GtHttpBytes        // IOSBYTES-2026-11-25
+import com.grouptrack.shared.imports.GtBytesResponse    // IOSBYTES-2026-11-25
+import kotlinx.cinterop.addressOf                       // IOSBYTES-2026-11-25
+import kotlinx.cinterop.usePinned                       // IOSBYTES-2026-11-25
+import platform.posix.memcpy                            // IOSBYTES-2026-11-25
 import com.grouptrack.shared.log.gtLogger
 import com.grouptrack.shared.mapsource.GtMapSpecEnv
 import kotlinx.cinterop.BetaInteropApi
@@ -84,6 +89,8 @@ private class HttpOut {
     var body: String? = null
     var failure: String? = null      // transport-level failure text, null when the server answered
     var timedOut: Boolean = false
+    var data: NSData? = null         // IOSBYTES-2026-11-25: the raw body, for the binary GET (IosHttpBytes)
+    var retryAfter: String? = null   // IOSBYTES-2026-11-25: the Retry-After header, when the server sent one
 }
 
 /**
@@ -129,6 +136,8 @@ private fun fetch(
         out.code = (response as? NSHTTPURLResponse)?.statusCode ?: 0L
         if (error != null) out.failure = error.localizedDescription
         if (data != null) out.body = NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
+        out.data = data   // IOSBYTES-2026-11-25: kept raw as well; the text above is unchanged
+        out.retryAfter = (response as? NSHTTPURLResponse)?.valueForHTTPHeaderField("Retry-After")
         dispatch_semaphore_signal(sem)
     }.resume()
 
@@ -173,6 +182,39 @@ object IosHttp : GtHttp {
         log.i { "HTTP " + code + " OK, " + text.length + " chars" }
         return text
     }
+}
+
+/**
+ * IOSBYTES-2026-11-25: the iPad's binary GET for map tiles -- 2.7e ConvoyTileDownloader's OkHttp call
+ * (connect 10 s, read 15 s) over the SAME fetch mechanism IosHttp uses. Answers only what the server said;
+ * retry, backoff and Retry-After are the shared downloader's (2.7e fetchTileBytes), not this.
+ * A 2xx with no body is an empty array, as OkHttp's body?.bytes() is.
+ */
+object IosHttpBytes : GtHttpBytes {
+    override fun getBytes(url: String, userAgent: String): GtBytesResponse {
+        val r = fetch(
+            url = url,
+            userAgent = userAgent,
+            requestTimeoutMs = 15_000,
+            resourceTimeoutMs = 25_000,
+            waitMs = 25_000L,
+        )
+        if (r.timedOut || r.failure != null) {
+            return GtBytesResponse(0, null, null, if (r.timedOut) "timed out" else r.failure)
+        }
+        val code = r.code.toInt()
+        val bytes = if (code in 200..299) (r.data?.toByteArray() ?: ByteArray(0)) else null
+        return GtBytesResponse(code, bytes, r.retryAfter?.trim()?.toLongOrNull(), null)
+    }
+}
+
+/** IOSBYTES-2026-11-25: NSData's bytes as a Kotlin ByteArray (one copy). */
+@OptIn(ExperimentalForeignApi::class)
+private fun NSData.toByteArray(): ByteArray {
+    val n = length.toInt()
+    val out = ByteArray(n)
+    if (n > 0) out.usePinned { memcpy(it.addressOf(0), bytes, length) }
+    return out
 }
 
 /**

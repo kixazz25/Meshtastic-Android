@@ -8,6 +8,11 @@ import com.grouptrack.shared.log.gtLogger
 import com.grouptrack.shared.queue.GtQueueEntry
 import com.grouptrack.shared.queue.GtQueueJson
 import com.grouptrack.shared.queue.GtQueueStatus
+import com.grouptrack.shared.queue.GtQueueRules        // IOSQRULES-2026-11-25
+import com.grouptrack.shared.settings.GtSettings       // IOSQRULES-2026-11-25
+import kotlinx.coroutines.flow.MutableStateFlow        // IOSQRULES-2026-11-25
+import kotlinx.coroutines.flow.StateFlow               // IOSQRULES-2026-11-25
+import kotlinx.coroutines.flow.asStateFlow             // IOSQRULES-2026-11-25
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import okio.FileSystem
@@ -53,25 +58,105 @@ class IosDownloadQueue(
     /** The work. True = the entry downloaded. 2.7e's ConvoyDownloadWorker / CorridorWorker /
      *  DeleteWorker; a deterministic fake in the harness. It receives a progress reporter so it can
      *  call back mid-run exactly as the Android workers do. */
-    private val fetch: (GtQueueEntry, (downloaded: Int, failed: Int) -> Unit) -> Boolean,
+    /** IOSQRUN-2026-11-25: null = the job STARTED in the background and reports through updateProgress /
+     *  markComplete / markFailed (the iPad's IosQueueRunner); true / false = finished now (the harness). */
+    private val fetch: (GtQueueEntry, (downloaded: Int, failed: Int) -> Unit) -> Boolean?,
 ) {
     private val log = gtLogger("DownloadQueue")
 
-    private var entries: List<GtQueueEntry> = emptyList()
+    // IOSQRULES-2026-11-25: 2.7e's `queue: StateFlow` (ConvoyDownloadQueue.kt:204-206). Every assignment
+    // to entries publishes, so the queue screen can watch it; no other line in this class changes.
+    private val _queue = MutableStateFlow<List<GtQueueEntry>>(emptyList())
+    val queueState: StateFlow<List<GtQueueEntry>> = _queue.asStateFlow()
+    private var entries: List<GtQueueEntry>
+        get() = _queue.value
+        set(v) { _queue.value = v }
     private var queuePaused = false
     private var initialized = false
     private var loaded = false
     private var picking = false
     private var pendingPick = false
 
+    /** IOSQRUN-2026-11-25: stop a RUNNING job -- 2.7e's WorkManager.cancelWorkById. The iPad sets it to
+     *  IosQueueRunner.stop. The default does nothing because a synchronous fetch (the harness) has nothing running. */
+    var cancelWork: (entryId: String) -> Unit = {}
+
     /** QEVAL-2026-08-08I: runtime-settable, clamped 1..4, as 2.7e's setMaxConcurrent clamps it. */
     var maxConcurrent: Int = 4
-        set(v) { field = if (v < 1) 1 else if (v > 4) 4 else v }
+        set(v) { field = GtQueueRules.clampConcurrent(v) }   // IOSQRULES-2026-11-25: the shared rule
 
     fun queue(): List<GtQueueEntry> = entries
     fun isQueuePaused(): Boolean = queuePaused
     fun holdQueue() { queuePaused = true }
     fun resumeQueue() { queuePaused = false; startNextIfAvailable() }
+
+    // ---- IOSQRULES-2026-11-25: the queue panel's operations ---------------------------------------
+    // The DECISION is GtQueueRules (commonMain) -- the same rule Android's DownloadQueueManager calls.
+    // This runtime applies it, saves, logs and reschedules exactly as 2.7e does. 2.7e also cancels the
+    // WorkManager job; the iPad fetch is synchronous (see run()), so there is no worker handle to cancel.
+
+    /** 2.7e setMaxConcurrent: clamp (the setter), persist, reschedule. */
+    fun setMaxConcurrent(settings: GtSettings, value: Int) {
+        maxConcurrent = value
+        try {
+            settings.store("convoy_queue").edit { putInt("max_concurrent", maxConcurrent) }
+        } catch (e: Exception) {
+            log.w { "setMaxConcurrent persist failed: ${e.message}" }
+        }
+        log.i { "QEVAL-2026-08-08I maxConcurrent=$maxConcurrent" }
+        startNextIfAvailable()
+    }
+
+    /** 2.7e loadMaxConcurrent: restore the saved value. Safe to call repeatedly. */
+    fun loadMaxConcurrent(settings: GtSettings) {
+        maxConcurrent = try {
+            settings.store("convoy_queue").getInt("max_concurrent", GtQueueRules.MAX_CONCURRENT_DEFAULT)
+        } catch (e: Exception) { GtQueueRules.MAX_CONCURRENT_DEFAULT }
+    }
+
+    /** 2.7e promote. */
+    fun promote(entryId: String) {
+        val next = GtQueueRules.promote(entries, entryId) ?: return
+        entries = next
+        saveQueue()
+        log.i { "Promoted to priority 1: ${next.first { it.id == entryId }.label}" }
+        startNextIfAvailable()
+    }
+
+    /** 2.7e cancel: removed entirely -- cancelled jobs don't come back. */
+    fun cancel(entryId: String) {
+        val entry = entries.find { it.id == entryId } ?: return
+        if (entry.status == GtQueueStatus.DOWNLOADING) cancelWork(entryId)   // IOSQRUN-2026-11-25: 2.7e cancelWorkById
+        entries = GtQueueRules.remove(entries, entryId) ?: return
+        saveQueue()
+        log.i { "Cancelled and removed: ${entry.label} id=$entryId" }
+        startNextIfAvailable()
+    }
+
+    /** 2.7e cancelAll: COMPLETE kept for history. (2.7e does not reschedule.) */
+    fun cancelAll() {
+        entries.filter { it.status == GtQueueStatus.DOWNLOADING }.forEach { cancelWork(it.id) }   // IOSQRUN-2026-11-25: 2.7e
+        val before = entries.size
+        entries = GtQueueRules.cancelAll(entries)
+        saveQueue()
+        log.i { "Cancelled all: ${before - entries.size} removed, ${entries.size} complete kept" }
+    }
+
+    /** 2.7e removeEntry. */
+    fun removeEntry(entryId: String) {
+        val entry = entries.find { it.id == entryId } ?: return
+        if (entry.status == GtQueueStatus.DOWNLOADING) cancelWork(entryId)   // IOSQRUN-2026-11-25: 2.7e cancelWorkById
+        entries = GtQueueRules.remove(entries, entryId) ?: return
+        saveQueue()
+        log.i { "Removed: ${entry.label} id=$entryId" }
+        startNextIfAvailable()
+    }
+
+    /** 2.7e clearCompleted. */
+    fun clearCompleted() {
+        entries = GtQueueRules.clearCompleted(entries)
+        saveQueue()
+    }
 
     // ---- the file ------------------------------------------------------------------------------
 
@@ -289,6 +374,7 @@ class IosDownloadQueue(
             log.e { "fetch threw for ${entry.id}: ${e.message}" }
             false
         }
+        if (ok == null) return   // IOSQRUN-2026-11-25: ASYNC -- started; the entry holds its slot until the job reports
         val cur = entries.firstOrNull { it.id == entry.id }
         if (ok) markComplete(entry.id, cur?.downloadedTiles ?: 0, cur?.failedTiles ?: 0)
         else markFailed(entry.id, "fetch returned false")

@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState   // IOSQLAUNCH-2026-11-25
+import androidx.compose.foundation.layout.wrapContentSize   // IOSQLAUNCH-2026-11-25
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -139,6 +141,11 @@ object GtPanelChromeIos : GtPanelChrome {
      */
     var opener: ((String) -> Unit)? = null
 
+    /** IOSQLAUNCH-2026-11-25: the iPad's download queue, for QueueSummary. CODE RULE 1 -- why nullable: the
+     *  same reason as [opener] -- this chrome is an OBJECT, and before GtGroupTrackScreen composes there is
+     *  no queue. Set by the screen right where it builds dlQueue. */
+    var queue: IosDownloadQueue? = null
+
     /**
      * IOSHELPCHROME-2026-11-20: the iPad's half of standard 5 -- "every panel has HELP, opening the
      * manual page for its function" (SHELL-2026-10-22, via GtPanel's header).
@@ -260,7 +267,17 @@ object GtPanelChromeIos : GtPanelChrome {
     /** J.Map, round 2. Said out loud at the top of the Map menu rather than left blank. */
     @Composable
     override fun QueueSummary(onOpen: () -> Unit, modifier: Modifier) {
-        Text("Map downloads  -  not attached yet", color = Gt.dim, fontSize = 13.sp, modifier = modifier)
+        // IOSQLAUNCH-2026-11-25: the SHARED summary over the iPad's queue -- Android's is GtQueueSummary.
+        val q = queue
+        if (q == null) {   // before the screen has composed: said, not blank (SKIPLOUD)
+            log.w { "IOSQLAUNCH-2026-11-25: QueueSummary drawn before the screen set the queue" }
+            Text("Map downloads  -  loading", color = Gt.dim, fontSize = 13.sp, modifier = modifier)
+            return
+        }
+        val entries = q.queueState.collectAsState().value
+        com.geeksville.mesh.convoy.GtDownloadQueueSummary(entries = entries, onOpen = onOpen, modifier = modifier) {
+            IosQueuePanel(q, expanded = false, onToggle = onOpen, modifier = modifier)
+        }
     }
 
     /** J.Map, round 2. */
@@ -268,6 +285,42 @@ object GtPanelChromeIos : GtPanelChrome {
     override fun DownloadSettingsPanel() {
         Text("Download settings  -  not attached yet (J)", color = Gt.dim, fontSize = 13.sp)
     }
+}
+
+/**
+ * IOSQLAUNCH-2026-11-25: the iPad's HOST for the shared GtDownloadQueuePanel -- Android's is DownloadQueuePanel
+ * (app/.../convoy/ConvoyDownloadQueuePanel.kt). It hands the one shared panel dlQueue's state and operations
+ * (each decision is GtQueueRules, the same as Android's), the iPad's clock, and Apple's date formatter.
+ */
+@Composable
+internal fun IosQueuePanel(q: IosDownloadQueue, expanded: Boolean, onToggle: () -> Unit, modifier: Modifier) {
+    val entries = q.queueState.collectAsState().value
+    com.geeksville.mesh.convoy.GtDownloadQueuePanel(
+        expanded = expanded,
+        onToggle = onToggle,
+        modifier = modifier,
+        entries = entries,
+        paused = q.isQueuePaused(),
+        maxConcurrent = q.maxConcurrent,
+        onLoadMaxConcurrent = { q.loadMaxConcurrent(IosSettings()) },
+        onSetMaxConcurrent = { v -> q.setMaxConcurrent(IosSettings(), v) },
+        onHold = { q.holdQueue() },
+        onResume = { q.resumeQueue() },
+        onCancel = { id -> q.cancel(id) },
+        onCancelAll = { q.cancelAll() },
+        onPromote = { id -> q.promote(id) },
+        onRemove = { id -> q.removeEntry(id) },
+        nowMs = { IosClock.epochMs() },
+        fmtDate = { ms -> iosQueueDateFmt.stringFromDate(
+            // Foundation's reference date is 2001-01-01T00:00:00Z = 978307200 s after the epoch.
+            platform.Foundation.NSDate(timeIntervalSinceReferenceDate = ms / 1000.0 - 978307200.0)) },
+    )
+}
+
+/** IOSQLAUNCH-2026-11-25: Android's SimpleDateFormat("MMM d h:mm a", Locale.US); the device's own zone. */
+private val iosQueueDateFmt = platform.Foundation.NSDateFormatter().apply {
+    dateFormat = "MMM d h:mm a"
+    locale = platform.Foundation.NSLocale(localeIdentifier = "en_US_POSIX")
 }
 
 /**
@@ -944,16 +997,17 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         "signal drop " + rideSettings.signalDropMinutes().roundToInt() + " min \u00b7 " +
             "signal lost " + rideSettings.signalLostMinutes().roundToInt() + " min"
     }
-    // R1QUEUE-2026-11-22: the download queue, read-only -- ensureLoaded reads download_queue.json and
-    // schedules nothing (initAndResume is the one that starts work). fetch refuses loudly: a
-    // read-only queue never calls it and the iPad has no URLSession worker yet.
+    // IOSQRUN-2026-11-25: the download queue, RUNNING -- its worker is IosQueueRunner (the shared GtTileJobs), and it
+    // starts as Android's init() does: load, flip interrupted jobs back to QUEUED, schedule if anything changed.
     val dlQueue = remember {
-        IosDownloadQueue(IosIds, IosClock, fetch = { e, _ ->
-            com.grouptrack.shared.log.gtLogger("DownloadQueue")
-                .e { "R1QUEUE-2026-11-22: fetch called for " + e.id + " -- no download worker on the iPad" }
-            false
-        }).also { it.ensureLoaded() }
+        val runner = com.grouptrack.shared.platform.IosQueueRunner()
+        IosDownloadQueue(IosIds, IosClock, fetch = runner::fetch).also { q ->
+            runner.queue = q
+            q.cancelWork = runner::stop
+            q.initAndResume()
+        }
     }
+    GtPanelChromeIos.queue = dlQueue   // IOSQLAUNCH-2026-11-25: the chrome's QueueSummary reads it
     val settingsOpen = remember { mutableStateOf(false) }
     // SRCCREDITS-2026-11-20: menu.settings > "Map source credits". Reached ONLY from settings, as on
     // Android. There is no service behind it -- CORRCREDITS-2026-11-13 found the screen is a credits
@@ -1433,6 +1487,8 @@ fun GtGroupTrackScreen(onMessage: (String, String) -> Unit) {
         // (GroupTrackScreen.kt:3088). Same row, same id -- a picker over GroupTrack's own
         // rides folder instead of Android's OpenDocument launcher (Fred 13:47, 14:03).
         "rides.import" to { ridePickOpen.value = true },
+        // IOSQLAUNCH-2026-11-25: Android is "map.queues" to { queuesOpen = true } (GroupTrackScreen.kt)
+        "map.queues" to { com.geeksville.mesh.convoy.QueuesLauncher.open() },   // the shared launch standard (RidesLauncher)
         // IOSMYRIDES-2026-11-22: Android is "rides.mine" to { RidesLauncher.open() }
         // (GroupTrackScreen.kt:3089). Same row, same id.
         "rides.mine" to { myRidesOpen.value = true },
@@ -2066,6 +2122,16 @@ if (detailId.value.isNotEmpty() && detailType.value.isNotEmpty()) {
                         )
                     }
                 }
+                                if (com.geeksville.mesh.convoy.QueuesLauncher.showing) {
+                                    // IOSQLAUNCH-2026-11-25: map.queues -- the SHARED frame (GtPanel chrome) around the SHARED panel, as Android.
+                                    com.geeksville.mesh.convoy.GtDownloadQueueMonitor(
+                                        empty = dlQueue.queueState.collectAsState().value.isEmpty(),
+                                        onClose = { com.geeksville.mesh.convoy.QueuesLauncher.close() },
+                                        modifier = Modifier.fillMaxSize().padding(16.dp).wrapContentSize(androidx.compose.ui.Alignment.Center),
+                                    ) {
+                                        IosQueuePanel(dlQueue, expanded = true, onToggle = { com.geeksville.mesh.convoy.QueuesLauncher.close() }, modifier = Modifier)
+                                    }
+                                }
                                 if (settingsOpen.value) {
                     // IOSSETTINGS-2026-11-19: the four alert thresholds and the lead-track switch, saving
                     // to the rider's real store. The TWO TOOLS on Android's settings screen that are not

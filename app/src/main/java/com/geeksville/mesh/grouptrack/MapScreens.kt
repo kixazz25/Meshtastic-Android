@@ -124,17 +124,12 @@ fun GtImportAreaScreen(bbox: DownloadBbox, onDone: () -> Unit) {
  *  else "No maps downloading". Tapping either opens the downloads panel (onOpen). */
 @Composable
 fun GtQueueSummary(onOpen: () -> Unit, modifier: Modifier) {
+    // DROIDQSUM-2026-11-25: the summary is the SHARED GtDownloadQueueSummary (commonMain); Android supplies its
+    // queue and its collapsed DownloadQueuePanel (the host adapter over the shared panel).
     val q = DownloadQueueManager.queue.collectAsState().value
-    val busy = q.any { it.status == com.geeksville.mesh.convoy.QueueStatus.DOWNLOADING || it.status == com.geeksville.mesh.convoy.QueueStatus.QUEUED }
-    if (busy) com.geeksville.mesh.convoy.DownloadQueuePanel(expanded = false, onToggle = onOpen, modifier = modifier)
-    else androidx.compose.foundation.layout.Row(
-        modifier = modifier.background(Gt.panel, androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-            .clickable { onOpen() }.padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-    ) {
-        Text("No maps downloading", color = Gt.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(1f))
-        Text("DETAILS \u203a", color = Gt.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    val entries = remember(q) { with(DownloadQueueManager) { q.toGt() } }
+    com.geeksville.mesh.convoy.GtDownloadQueueSummary(entries = entries, onOpen = onOpen, modifier = modifier) {
+        com.geeksville.mesh.convoy.DownloadQueuePanel(expanded = false, onToggle = onOpen, modifier = modifier)
     }
 }
 

@@ -70,6 +70,26 @@ interface GtHttp {
     fun get(url: String, readTimeoutMs: Int): String?
 }
 
+/**
+ * BYTESHTTP-2026-11-25: the BINARY GET map tiles need (PBF, PNG) -- GtHttp returns text only. A SECOND service
+ * beside GtHttp, not a member on it (Fred 11-21: "build a second service for that use case rather than retouching
+ * all existing service consumers"), so GtHttp's implementers are untouched.
+ * BLOCKING: call it from the host's io dispatcher, never the main thread.
+ * Android: 2.7e ConvoyTileDownloader's OkHttp call (connect 10 s, read 15 s). iPad: GtIosHttp's NSURLSession fetch.
+ * POLICY (retry, backoff, Retry-After) is the CALLER's -- the shared tile downloader, 2.7e's fetchTileBytes.
+ */
+interface GtHttpBytes {
+    fun getBytes(url: String, userAgent: String): GtBytesResponse
+}
+
+/**
+ * BYTESHTTP-2026-11-25: one answer, as 2.7e's fetchTileBytes reads an OkHttp Response.
+ * [code] the HTTP status, 0 when the server never answered. [bytes] the body on a 2xx, else null.
+ * [retryAfterSec] the Retry-After header in seconds -- null when absent (2.7e: toLongOrNull() ?: 0).
+ * [failure] transport failure text, null when the server answered -- 2.7e's catch branch (retry with backoff).
+ */
+class GtBytesResponse(val code: Int, val bytes: ByteArray?, val retryAfterSec: Long?, val failure: String?)
+
 /** TrailClassifier.useOf(category) (owner decision 9: injected now, ported with step 8 in step 16). */
 interface GtTrailClass {
     fun useOf(category: String): String

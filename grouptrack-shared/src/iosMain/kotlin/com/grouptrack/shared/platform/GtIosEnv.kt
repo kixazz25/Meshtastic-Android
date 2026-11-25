@@ -124,7 +124,9 @@ class IosTileEnv(private val paths: GtImportPaths) : GtTileStoreEnv {
     /** APP-LIFETIME cache -- MacTileEnv had a test teardown(); production has none and must not. */
     private val handles = HashMap<String, SQLiteConnection>()
 
-    private fun dir(): Path = paths.groupTrackRoot()
+    // IOSQRUN-2026-11-25: DEFECT FIX -- was paths.groupTrackRoot(), beside the folder the map reads. The map's store is
+    // <GroupTrack>/maps/tiles/<slot>.mbtiles (GtVecMap.ios.kt), as Android's (ConvoyConfig.TILE_DIR = maps/tiles).
+    private fun dir(): Path = paths.groupTrackRoot() / "maps" / "tiles"
     private fun path(type: String): String = (dir() / "$type.mbtiles").toString()
 
     override fun connection(type: String): SQLiteConnection? {

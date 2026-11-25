@@ -234,7 +234,8 @@ fun GroupTrackScreen(
     val mapTypeLabel by viewModel.mapTypeLabel.collectAsStateWithLifecycle()
     val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
     var trailsOn by remember { mutableStateOf(false) }
-    var queuesOpen by remember { mutableStateOf(false) }
+    // DROIDQLAUNCH-2026-11-25 (Fred 13:40): the local queues flag is gone -- map.queues opens, shows and closes through the
+    // SHARED com.geeksville.mesh.convoy.QueuesLauncher, the same launch code as the iPad (RidesLauncher's standard).
     // CORRIDOR-WIRING-2026-07-24: see the planning screen - non-null means the pending
     // confirm is a CORRIDOR job. Cleared on proceed and on cancel.
     var pendingCorridorHash by remember { mutableStateOf<String?>(null) }
@@ -1672,7 +1673,7 @@ fun GroupTrackScreen(
                 containerColor = Gt.panel
             )
         }
-        GtConversionPanel(onManual = { docsView = "manual" }, onNotes = { docsView = "notes" }, onQuickStart = { docsView = "quickstart" }, onQueue = { queuesOpen = true })   // VECWELCOME-2026-10-31
+        GtConversionPanel(onManual = { docsView = "manual" }, onNotes = { docsView = "notes" }, onQuickStart = { docsView = "quickstart" }, onQueue = { com.geeksville.mesh.convoy.QueuesLauncher.open() })   // VECWELCOME-2026-10-31
         // -- Lead Selection Dialog --
         if (showLeadDialog) {
             val dialogNodes = convoyState.nodes
@@ -2205,7 +2206,7 @@ fun GroupTrackScreen(
         // the Map menu keeps the always-shown summary (GTQSUM) so DETAILS is always one tap away.
         DownloadQueuePanel(
             expanded = false,
-            onToggle = { queuesOpen = true },
+            onToggle = { com.geeksville.mesh.convoy.QueuesLauncher.open() },
             modifier = Modifier.align(Alignment.TopStart).padding(start = 110.dp, top = 8.dp).width(300.dp)
         )
         // GTAREA2-2026-10-23: draw bar + the area module for the box (grouptrack/AreaDraw.kt, MapScreens.kt).
@@ -2226,48 +2227,21 @@ fun GroupTrackScreen(
             barModifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 84.dp)
         )
         // CLASSICGONE-2026-10-23: the classic QUEUES button -- removed (ONE MAP is the only layout).
-        if (queuesOpen) {
-            // Real download-queue monitor (matches planning "DOWNLOAD QUEUES").
-            // Locked under the fixed top-right QUEUES button. 2.6: add
-            // ALL|TILE|UPLOAD|DOWNLOAD selector when multiple queues exist.
-            androidx.compose.material3.Surface(
-                // CONVOY-QUEUES-WIDTH-2026-07-22: widened to match the Planning
-                // queues panel (was TopEnd + fixed .width(260.dp), which
-                // squeezed the shared DownloadQueuePanel content).
+        if (com.geeksville.mesh.convoy.QueuesLauncher.showing) {
+            // DROIDQMONITOR-2026-11-25 (Fred 12:05, option 1): the frame is the SHARED GtDownloadQueueMonitor on the
+            // chrome standard GtPanel -- HELP, ISSUE, close, MOVE/HIDE. Was an inline Surface (MAPTARGET4-2026-10-23).
+            com.geeksville.mesh.convoy.GtDownloadQueueMonitor(
+                empty = DownloadQueueManager.queue.collectAsState().value.isEmpty(),
+                onClose = { com.geeksville.mesh.convoy.QueuesLauncher.close() },
                 modifier = Modifier
-                    .zIndex(5f)   // PANELTOP-2026-11-01 (Fred 19:02): above the HUD -- it was drawn over this panel
+                    .zIndex(5f)   // PANELTOP-2026-11-01 (Fred 19:02): above the HUD
                     .align(Alignment.Center)
-                    .padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = 210.dp)   // QUEUESPOS-2026-10-22: ONE MAP -- left of the buttons
-                    .fillMaxWidth(0.90f),
-                shape = RoundedCornerShape(10.dp),
-                color = Gt.panel,
-                shadowElevation = 8.dp
+                    .padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = 210.dp),   // QUEUESPOS-2026-10-22: left of the buttons
             ) {
-                Column(modifier = Modifier.padding(8.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Text("MAP DOWNLOADS IN PROGRESS", color = Gt.text /* CONTRAST1-2026-11-01: was mint 1CF0A0, pale on white */,   // MAPTARGET4-2026-10-23: a monitor, not a queue
-                            fontSize = 13.sp, fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(start = 8.dp, top = 4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {   // GTMAP-2026-10-22: the standard HELP ✕ (was CLOSE)
-                            com.geeksville.mesh.grouptrack.GtHelpButton("map.queues")
-                            com.geeksville.mesh.grouptrack.GtCloseButton({ queuesOpen = false })
-                        }
-                    }
-                    DownloadQueuePanel(
-                        expanded = true,
-                        onToggle = { queuesOpen = false }
-                    )
-                    val queueState = DownloadQueueManager.queue.collectAsState()
-                    if (queueState.value.isEmpty()) {
-                        Text("No maps downloading",   // MAPTARGET4-2026-10-23
-                            color = Gt.text, fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(8.dp))
-                    }
-                }
+                DownloadQueuePanel(
+                    expanded = true,
+                    onToggle = { com.geeksville.mesh.convoy.QueuesLauncher.close() }
+                )
             }
         }
         // GTFILTER-2026-10-22: HIDE EVERYTHING -- what was on before the hide; empty = not hidden (CODE RULE 1: no null).
@@ -3034,7 +3008,7 @@ fun GroupTrackScreen(
             if (com.geeksville.mesh.grouptrack.GtRecipes.openQueue.value) {
                 com.geeksville.mesh.grouptrack.GtRecipes.openQueue.value = false
                 com.geeksville.mesh.grouptrack.GtOpenModule.closeTick.intValue++
-                queuesOpen = true
+                com.geeksville.mesh.convoy.QueuesLauncher.open()
             }
         }
         // MAPRECIPES-2026-11-03: an AI route recipe opened from an email / Downloads.
@@ -3108,7 +3082,7 @@ fun GroupTrackScreen(
                 "route.recipefile" to { gtRecipeFile() },   // AIFAIL-2026-11-03
                 "route.clear" to { gtClearAsk = true },   // CLEARROUTES-2026-10-22   // GTRIDES (Fred 13:22): ADD ROUTE -- New route or In progress, as +ROUTE
                 // MAPMOVE-2026-10-23: "map.features" (the original Map Features panel) came off the Map menu.
-                "map.queues" to { queuesOpen = true },   // GTMAP: the download queues panel, as is
+                "map.queues" to { com.geeksville.mesh.convoy.QueuesLauncher.open() },   // GTMAP: the download queues panel -- DROIDQLAUNCH-2026-11-25: the shared launch, as the iPad
                 "map.dl_settings" to { com.geeksville.mesh.grouptrack.GtDownloadDefaults.open.value = true },   // DLDEFAULTS-2026-10-24
                 // GTAREA2-2026-10-23: the three area functions -- start a box for the one picked.
                 "map.dl_area" to { com.geeksville.mesh.grouptrack.GtArea.purpose.value = "download"; webViewRef.value?.evaluateJavascript("activateDrawMode()", null) },

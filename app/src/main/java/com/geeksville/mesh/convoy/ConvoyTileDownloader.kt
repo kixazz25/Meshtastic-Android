@@ -36,11 +36,7 @@ data class DownloadSummary(
 
 object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
     // [V2.6b] Parallel tile fetch + 429/503 backoff tuning (all network-bound).
-    private const val TILE_FETCH_CONCURRENCY = 10
-    private const val TILE_MAX_RETRIES = 4
-    private const val TILE_BACKOFF_BASE_MS = 400L
 
-    private const val AVG_TILE_BYTES = 15_360L    // 15 KB average
     private const val CONNECT_TIMEOUT_S = 10L
     private const val READ_TIMEOUT_S    = 15L
 
@@ -52,13 +48,30 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
     }
 
     // ── Build the full URL for a single tile ─────────────────
-    fun buildTileUrl(tile: TileKey, sourceUrl: String): String {
-        return sourceUrl
-            .replace("{s}", (((tile.x + tile.y) % 4 + 4) % 4).toString())  // SUBDOMAIN-2026-08-02
-            .replace("{z}", tile.z.toString())
-            .replace("{x}", tile.x.toString())
-            .replace("{y}", tile.y.toString())
+    /** DROIDBYTES-2026-11-25: 2.7e's tile GET -- THIS client, THIS request -- as the shared GtHttpBytes, so the shared
+     *  downloader (item 7) runs Android's exact HTTP. Answers what the server said; retry/backoff are the caller's. */
+    val bytesHttp: com.grouptrack.shared.imports.GtHttpBytes = object : com.grouptrack.shared.imports.GtHttpBytes {
+        override fun getBytes(url: String, userAgent: String): com.grouptrack.shared.imports.GtBytesResponse = try {
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", userAgent)
+                .build()
+            client.newCall(request).execute().use { response ->
+                com.grouptrack.shared.imports.GtBytesResponse(
+                    code = response.code,
+                    bytes = if (response.isSuccessful) response.body?.bytes() else null,
+                    retryAfterSec = response.header("Retry-After")?.trim()?.toLongOrNull(),
+                    failure = null,
+                )
+            }
+        } catch (e: Exception) {
+            com.grouptrack.shared.imports.GtBytesResponse(0, null, null, e.message ?: e.javaClass.simpleName)
+        }
     }
+
+    /** TILEDL-2026-11-25: the shared GtTileDownloader.buildTileUrl (SUBDOMAIN-2026-08-02), one copy. */
+    fun buildTileUrl(tile: TileKey, sourceUrl: String): String =
+        com.grouptrack.shared.queue.GtTileDownloader.buildTileUrl(com.grouptrack.shared.queue.GtTileKey(tile.z, tile.x, tile.y), sourceUrl)
 
     // ── Build local storage path for a tile ──────────────────
     // Returns: filesDir/tiles/{sourceName}/{z}/{x}/{y}.png
@@ -76,53 +89,47 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
     // backoff on the SAME tile — never dropped — since throttling is transient and
     // silently losing tiles under load is worse than a slower download. Honors
     // Retry-After when sent. Genuine absence (404 etc.) returns null quickly.
-    suspend fun fetchTileBytes(url: String): ByteArray? {
-        var attempt = 0
-        while (attempt <= TILE_MAX_RETRIES) {
-            if (!coroutineContext.isActive) return null
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    val request = Request.Builder()
-                        .url(url)
-                        .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
-                        .build()
-                    val response = client.newCall(request).execute()
-                    val code = response.code
-                    when {
-                        response.isSuccessful -> FetchOutcome(response.body?.bytes(), false, 0L)
-                        code == 429 || code == 503 || code == 502 -> {  // [V2.6b-502] 502=transient gateway, retry
-                            val retryAfterMs = response.header("Retry-After")?.toLongOrNull()?.times(1000) ?: 0L
-                            response.close()
-                            gtLogger("TileDownloader").w { "HTTP $code (retryable) attempt=$attempt: $url" }
-                            FetchOutcome(null, true, retryAfterMs)
-                        }
-                        else -> {
-                            gtLogger("TileDownloader").w { "HTTP $code: $url" }
-                            response.close()
-                            FetchOutcome(null, false, 0L)
-                        }
-                    }
-                }
-                if (result.bytes != null) return result.bytes
-                if (!result.retryable) return null
-                val backoff = maxOf(result.retryAfterMs, TILE_BACKOFF_BASE_MS * (1L shl attempt))
-                kotlinx.coroutines.delay(backoff)
-            } catch (e: Exception) {
-                gtLogger("TileDownloader").e { "Tile fail attempt=$attempt: $url err=${e.message}" }
-                if (attempt >= TILE_MAX_RETRIES) return null
-                kotlinx.coroutines.delay(TILE_BACKOFF_BASE_MS * (1L shl attempt))
-            }
-            attempt++
-        }
-        return null
+    /** DROIDTILEDL-2026-11-25: fetchTileBytes and downloadTiles moved to the SHARED GtTileDownloader (commonMain), bodies
+     *  unchanged. This is Android's host for it: OkHttp (bytesHttp), Dispatchers.IO, MBTilesStore (TileCodec for a base
+     *  layer) and ConvoyConfig.DOWNLOAD_ZOOM. Same signatures as before, so the workers do not change. */
+    private val shared by lazy {
+        com.grouptrack.shared.queue.GtTileDownloader(
+            http = bytesHttp,
+            io = Dispatchers.IO,
+            hasTile = { t, z, x, y -> MBTilesStore.hasTile(t, z, x, y) },
+            insertTile = { t, z, x, y, b, ov -> MBTilesStore.insertTile(t, z, x, y, b, ov) },
+            downloadZoom = { ConvoyConfig.DOWNLOAD_ZOOM },
+        )
     }
 
-    // [V2.6b] Outcome of one fetch attempt.
-    private data class FetchOutcome(val bytes: ByteArray?, val retryable: Boolean, val retryAfterMs: Long)
+    /** DROIDTILEJOBS-2026-11-25: Android's host for the SHARED queue jobs (GtTileJobs -- 2.7e ConvoyDownloadWorker and
+     *  ConvoyDeleteWorker bodies). Sources and store names exactly as the two workers chose them; the downloader is the
+     *  shared instance above. The workers keep their own init, input parsing, orphan check and notifications. */
+    fun tileJobs(context: Context): com.grouptrack.shared.queue.GtTileJobs = com.grouptrack.shared.queue.GtTileJobs(
+        downloader = shared,
+        downloadZoom = { ConvoyConfig.DOWNLOAD_ZOOM },
+        sourcesFor = { slot ->
+            // 2.7e ConvoyDownloadWorker: VEC / DEM from their specs (VECSOURCE / DEMSOURCE-2026-10-30), a named slot from
+            // the map sources, "" = every download source.
+            val raw = if (slot == VectorTiles.SLOT) VectorTiles.downloadSources(context)
+                else if (slot == ElevationTiles.SLOT) ElevationTiles.downloadSources(context)
+                else MapSourceManager.getDownloadSources().let { all -> if (slot.isNotEmpty()) all.filter { it.first == slot } else all }
+            raw.map { (name, layers) ->
+                name to layers.map { com.grouptrack.shared.mapsource.GtMapSpec.GtTileLayerSpec(it.role, it.urlTemplate, it.tileFormat, it.cacheDir, it.renderOrder) }
+            }
+        },
+        storesFor = { slot ->
+            // 2.7e ConvoyDeleteWorker: the slot, plus each further layer's cacheDir.
+            val layers = MapSourceManager.getSourceByKey(slot)?.layers ?: emptyList()
+            if (layers.isEmpty()) listOf(slot) else layers.mapIndexed { i, layer -> if (i == 0) slot else layer.cacheDir }
+        },
+        storeExists = { t -> MBTilesStore.storeExists(t) },
+        deleteTileRange = { t, z, x0, x1, y0, y1 -> MBTilesStore.deleteTileRange(t, z, x0, x1, y0, y1) },
+        reclaimableBytes = { t -> MBTilesStore.reclaimableBytes(t) },
+    )
 
-    // ── Download all tiles in batch ───────────────────────────
-    // onProgress(downloaded, total, failCount) called after each tile.
-    // Checks coroutineContext.isActive before each tile — cancellable.
+    suspend fun fetchTileBytes(url: String): ByteArray? = shared.fetchTileBytes(url)
+
     suspend fun downloadTiles(
         context: Context,
         tiles: List<TileKey>,
@@ -131,80 +138,10 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
         forceOverwrite: Boolean = false,
         isOverlay: Boolean = false,   // [V2.6a-WEBP] role -> codec dispatch
         onProgress: (downloaded: Int, total: Int, failCount: Int) -> Unit
-    ): Result<DownloadSummary> {
-        return try {
-            // ZCAP2-2026-09-14: THE CAP IS ENFORCED HERE, NOT IN THE CALCULATOR.
-            // The tile set arrives from calculateTiles/corridorTiles unchanged, so
-            // segmentation, cell slicing and the queue's stored estimate are all
-            // untouched -- the estimate reads HIGH and that is accepted. We simply
-            // do not fetch above the slot ceiling.
-            // Covers corridor and area both: every download path calls this function.
-            // NOTE total is taken AFTER the filter, so the job's own progress still
-            // reaches 100%. markComplete() records counts and is not gated on the
-            // stored estimate, so a filtered run completes normally.
-            // Both DELETE paths are deliberately NOT capped -- they must still reach
-            // tiles stored above the cap by older builds.
-            val zCap = ConvoyTileCalculator.maxZoomForSlot(sourceName)
-            val capTiles = tiles.filter { it.z <= zCap }
-            if (capTiles.size != tiles.size) {
-                gtLogger("TileDownloader").i { "ZCAP2-2026-09-14: $sourceName cap z$zCap -- skipping ${tiles.size - capTiles.size} of ${tiles.size} tiles" }
-            }
-            var downloaded = 0
-            var failed = 0
-            val total = capTiles.size
-
-            // [V2.6b-CONCURRENCY] Fetch tiles in parallel batches (network is the
-            // bottleneck; OkHttp is thread-safe). INSERT serially per batch —
-            // MBTilesStore holds one cached SQLite handle per type, so concurrent
-            // inserts are unsafe. Overlaps network waits without racing the DB.
-            var loggedZ18 = 0
-            for (fetchBatch in capTiles.chunked(TILE_FETCH_CONCURRENCY)) {
-                if (!coroutineContext.isActive) {
-                    return Result.failure(
-                        kotlinx.coroutines.CancellationException("Download cancelled")
-                    )
-                }
-                // Phase 1 (parallel): resolve each tile to skip / fetched-bytes / fail. No DB.
-                val results = coroutineScope {
-                    fetchBatch.map { tile ->
-                        async {
-                            // [V2.6-PASS1-WRITE] resume-skip via MBTilesStore (sourceName = type)
-                            if (!forceOverwrite && MBTilesStore.hasTile(sourceName, tile.z, tile.x, tile.y)) {
-                                Triple(tile, null as ByteArray?, true)   // already present
-                            } else {
-                                val url = buildTileUrl(tile, sourceUrl)
-                                if (tile.z == 18 && loggedZ18 < 3) {
-                                    loggedZ18++
-                                    gtLogger("TileDownloader").i { "DL: $url -> $sourceName.mbtiles z${tile.z}/${tile.x}/${tile.y}" }
-                                }
-                                Triple(tile, fetchTileBytes(url), false)
-                            }
-                        }
-                    }.map { it.await() }
-                }
-                // Phase 2 (serial): insert in order into the single SQLite handle.
-                for ((tile, bytes, skipped) in results) {
-                    if (skipped) {
-                        downloaded++
-                    } else {
-                        val success = if (bytes != null) MBTilesStore.insertTile(sourceName, tile.z, tile.x, tile.y, bytes, isOverlay) else false
-                        if (success) downloaded++ else failed++
-                    }
-                    onProgress(downloaded, total, failed)
-                }
-            }
-
-            // Overlay download removed from here.
-            // ConvoyViewModel now iterates ALL layers from MapSourceManager,
-            // including overlays. Each layer downloaded with its own cacheDir.
-            // No source-specific logic needed in the downloader.
-            val totalMB = (downloaded * AVG_TILE_BYTES) / (1024f * 1024f)
-            Result.success(DownloadSummary(downloaded, failed, totalMB))
-
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    ): Result<DownloadSummary> =
+        shared.downloadTiles(tiles.map { com.grouptrack.shared.queue.GtTileKey(it.z, it.x, it.y) },
+            sourceUrl, sourceName, forceOverwrite, isOverlay, onProgress)
+            .map { DownloadSummary(it.downloaded, it.failed, it.totalMB) }
 
     // ── Scan existing tiles to TileKey list (for refresh) ────
     fun scanTilesToKeys(slotName: String): List<TileKey> {
