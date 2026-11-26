@@ -1,0 +1,164 @@
+<h2>⭐⭐⭐ NEXT SESSION — START HERE (11-25, written after the revert) — the repo is back at the morning's state · the first five MAP rows are NOT ported (all of today's work was reverted) · read the GATE below before touching anything</h2>
+
+<div class="card" style="border-left:4px solid #d29922"><p><b>State at the revert (11-25 11:00):</b> branch <code>2.8</code>, HEAD <code>c9f5e6ace</code> (recommit v26, mac, 11-24 19:00). Today's map-port work was reverted in full: the seven modified app files restored from git, the six new <code>commonMain</code> files deleted. <code>MapScreens.kt</code> 760 lines, <code>TrailCleanup.kt</code> 223, <code>ConvoyDownloadConfirm.kt</code> 161 — all original. <b>Deliberately kept, not today's work:</b> <code>grouptrack-shared/src/commonMain/kotlin/com/grouptrack/shared/route/GtRoute.kt</code> (uncommitted, 11-24 04:15 — the AIDUMP-2026-11-24 instrumentation, +86 lines, marked <code>⛔ REMOVE WITH ROUTETRACE-2026-11-24 BEFORE 2.8b CLOSES</code>), the modified <code>docs/GroupTrack_2.8b_EOD_2026-11-24_…html</code>, the four untracked docs in <code>docs/</code>, and <code>_patch_backups/</code>. Two stray zero-byte files in the repo root from a mistyped redirect, <code>Configure</code> and <code>Task</code> — Fred can <code>rm</code> them. <b>Still owed:</b> <code>bash "$GT_CMDS/recommit_v26.sh"</code> — the 11-24 engine-discovery doc and the 11-24 EOD doc have not reached AllDocs.</p></div>
+
+<div class="card" style="border-left:4px solid #f85149"><p><b>⛔ WHAT TODAY COST, SO IT IS NOT REPEATED.</b> Six patch attempts at relocating screens that already exist, every one reverted. The ports themselves were thirty lines of mechanical relocation; the failure was the verification. Each attempt checked that the edit would <b>apply</b> — anchors present, line boundaries correct — and never that the result would <b>compile</b>. The structural reason one mistake costs a full round trip: <b>Claude cannot compile.</b> The bridge is a Linux container with no gradle, so every patch handed to Fred is unverified against the compiler and only his build finds the error. Until that changes, patches must be SMALL (one file, one concern) and the gate must check the premise, not the anchor.</p></div>
+
+<h3>⭐ THE GATE — read this before the first tool call of the day</h3>
+<p>Fred, 11-25 10:20: <i>"I have been doing this for two weeks and you are looking at this for the first time every day. we always go through the issue in the beginning of the day because your method is to deep dive as if this is the first pass when in reality this is the final pass. most of the heavy lifting is completed and we need to test the prior two weeks worth of work performed by your counterparts."</i></p>
+<ul>
+<li><b>This is the FINAL pass, not the first.</b> The services, the primitives, the screens and the launch wiring all exist. The job is to <b>locate</b> them and wire them, not to design, evaluate or improve them.</li>
+<li><b>Verify ANCHORS, never DESIGNS.</b> A port needs to know where a declaration starts and ends and what it depends on. It does not need the design re-justified.</li>
+<li><b>A marker IS the answer — do not re-derive it.</b> ONESOURCE, GTFMT-2026-11-07, GTMATH-2026-11-10, CERTVALUES-2026-11-16, R1QUEUE, SHELL-2026-10-22, PANELCHROME, SEAMRULE-2026-11-19, DLDEFAULTS-2026-10-24, TRAILCLEAN-2026-11-04 each record a decision already made and certified.</li>
+<li><b>A code comment is not a current fact.</b> Fred, 09:59: <i>"the stub rules in that code are now three weeks old. all services have been created, no stubs, no non-executing functions. ignore the old notes in the code I did not put them there or approve."</i> Inspect the executing code, not the note above it.</li>
+<li><b>Nothing is created.</b> Fred, 09:46: <i>"no code changes, no creations of things because it is easier, looking for services and functions before creating them. that is all I ask."</i></li>
+<li><b>When a move starts escalating, lift a parameter instead.</b> Escalation means the file mixes shared and platform code. Proven three times today: <code>GtAreaHost</code>'s 21 app-only branches, <code>GtTrailCleanup</code>'s <code>rawQuery</code>, <code>GtDownloadDefaults</code>' six Context functions.</li>
+<li><b>Do not reverse a correct finding under pushback.</b> At 08:35 the <code>GtAreaHost</code> problem was found, Fred pushed back on the framing (rightly — the area path works), and the whole finding was dropped instead of only the wrong part. The compiler then proved the mechanical half stood.</li>
+</ul>
+
+<h3>🔧 The research tools — what each one answers</h3>
+<table><tr><th>Tool</th><th>Answers</th><th>How to read it</th></tr>
+<tr><td><code>gt_closure_2026-11-24_v1.py &lt;Symbol&gt;…</code></td><td>The transitive app-only dependency closure of a symbol — everything it would drag into <code>commonMain</code>.</td><td><b>Run this BEFORE writing any relocation patch, and obey it.</b> A long tail means SEAM, not MOVE. A dispatcher's list of destinations is not work. "not found as a fun" is sometimes noise (Compose modifiers) and sometimes the whole finding (a guessed name).</td></tr>
+<tr><td><code>gt_panelaudit_2026-11-24_v2.py</code></td><td>For every <code>@Composable</code> in <code>commonMain</code>, what Android passes vs what the iPad passes, and the arguments the iPad is missing.</td><td>Catches the whole set at once. Fred 11-24: <i>"verify all panels after. we do not want to check and repair sequentially."</i> Results from the 11-25 run are listed below.</td></tr>
+<tr><td><code>gen_xrefs_v4.sh</code></td><td>The four research indexes: function universe, where-used, field map, navigation.</td><td>V4 fixed the exact blind spot that matters here — <code>SHK="kotlin"</code> now covers <code>com/geeksville/mesh/…</code>, where the 2.8b port lands. Earlier versions missed it.</td></tr>
+<tr><td><code>gt_seamfn</code> · <code>gt_execscope</code> · <code>gt_refmanifest</code> · <code>gt_deadcode</code> · <code>gt_sidebyside_v7.sh</code></td><td>Seam inventory, execution scope, reference manifest, dead code, Droid-vs-iPad side-by-side.</td><td>Use before concluding something does not exist.</td></tr>
+</table>
+<p><b>The grep that answers "does this service exist on iOS?" faster than any reasoning:</b> <code>grep -rn "&lt;Symbol&gt;" grouptrack-shared/src/</code> — then check which source set the hit is in (<code>commonMain</code> = both platforms, <code>iosMain</code> = iPad only, <code>androidMain</code> = Droid only). Three claims were made and retracted today for want of this one command.</p>
+
+<h3>📍 WHERE THE iOS SERVICES ARE (the map Fred asked for)</h3>
+<p><b>There are TWO shared source roots. Both are <code>commonMain</code>; the second is the one the 2.8b screen port uses and the one that gets missed.</b></p>
+<ul>
+<li><code>grouptrack-shared/src/commonMain/kotlin/com/<b>grouptrack/shared</b>/…</code> — the service layer built over the last three weeks: <code>queue/</code>, <code>route/</code>, <code>osm/</code>, <code>text/</code>, <code>cert/</code>.</li>
+<li><code>grouptrack-shared/src/commonMain/kotlin/com/<b>geeksville/mesh</b>/…</code> — <b>49 files / 11,182 lines of already-relocated screens</b>, in the SAME package as the Android originals. A relocation here needs <b>no import change at any call site</b>, on either platform. ⚠ This root is easy to overlook; <code>gen_xrefs</code> before v4 did not index it.</li>
+<li><code>grouptrack-shared/src/<b>iosMain</b>/kotlin/com/grouptrack/shared/ui/GtIosPanels.kt</code> — <b>3,260 lines</b>: the iPad host. Not panels (there are no "iOS panels" — see the rule below); it is the host that supplies platform values to shared panels and installs the seams.</li>
+</ul>
+<p><b>⛔ Fred, 10:16: "we have no iOS panels. we have shared panels in commonMain!!!!" and 08:52: "all screens live in commonMain."</b> Never build a second screen for the iPad. One screen in <code>commonMain</code>; each platform's call site supplies the platform values as parameters.</p>
+
+<h4>GtIosPanels.kt landmarks (as of HEAD c9f5e6ace)</h4>
+<table><tr><th>Line</th><th>What</th></tr>
+<tr><td>:129</td><td><code>object GtPanelChromeIos : GtPanelChrome</code> — the iPad's chrome</td></tr>
+<tr><td>:160–162</td><td><code>openHelp</code> — calls <code>GtHelpLinks.load(IosHelpAssets())</code> inside, host-side</td></tr>
+<tr><td>:293 · :315 · :385 · :526 · :539 · :612 · :710</td><td>the private seam objects: <code>IosStates</code>, <code>IosRouteSeams</code> (<code>install(js)</code> at :336), <code>IosSearchDb</code>, <code>IosAiSearchDb</code>, <code>IosWriteDb</code>, <code>IosIssue</code>, <code>IosProfile</code></td></tr>
+<tr><td>:788–3257</td><td><code>fun GtGroupTrackScreen(onMessage)</code> — the whole iPad screen; <code>fun js(script)</code> at :815</td></tr>
+<tr><td>:878 · :884 · :949–955 · :961 · :965</td><td>state holders: <code>ridePickOpen</code>, <code>myRidesOpen</code>, <code>dlQueue</code>, <code>settingsOpen</code>/<code>creditsOpen</code>, <code>trailClearAsk</code></td></tr>
+<tr><td><b>:1382–1605</b></td><td><b><code>val actions = mapOf&lt;String, () -&gt; Unit&gt;(</code></b> — THE LAUNCH BRIDGE. Currently carries <code>rides.*</code>, <code>route.*</code>, <code>menu.*</code>, <code>view.*</code>, <code>grp.*</code>, <code>mode.*</code>, <code>internet.*</code>, <code>centre.me</code>, <code>group.*</code> — and <b>zero <code>map.*</code> entries</b>.</td></tr>
+<tr><td>:1166 · :1180 · :1192 · :1233</td><td>the JS receiver chain: <code>onViewportChanged</code>, <code>onMapTap</code>, <code>onProximityTap</code>, <code>onTrackTap/onTrailTap/onRouteTap/onWaypointTap</code>, then <code>onMessage(name, args)</code>. <b>No <code>onAreaSelected</code> branch</b> — C28-26319 B3: <i>"all 14 names ARRIVE; only onViewportChanged currently drives anything."</i></td></tr>
+<tr><td>:2077 (+:2115 · :2124 · :2128)</td><td>the <code>GtAlertSettingsPanel(</code> call — the clearest worked example of a shared panel's iPad call site</td></tr>
+</table>
+
+<h4>How a menu row becomes live on the iPad</h4>
+<ul>
+<li><code>LaunchModules</code> is shared, so the five map rows <b>already appear</b> in the iPad's Map menu. The <code>actions</code> map is what attaches them.</li>
+<li><code>GroupTrack.kt:329 / :335 / :341 / :345</code> — <code>live = actions[pr.id] != null</code>. <code>GroupTrack.kt:63</code> states it: <i>"A row listed here must also have NO entry in the <code>actions</code> bridge, or it stays live. The bridge is what decides."</i> <code>GtProcess.attached</code> is vestigial.</li>
+<li>An unattached row greys out and reads "not attached yet" (ATTACH1-2026-10-22, SHELL-2026-10-22).</li>
+<li>Row 1's launch point is <b>not</b> a menu row — it is <code>chrome.QueueSummary(onOpen)</code> at <code>GroupTrack.kt:311</code> (MAPTARGET4-2026-10-23). Row 5 sits in the <code>map.fixfeat</code> group, not beside row 4.</li>
+</ul>
+
+<h3>🪢 The shared-panel pattern (the mechanism for every screen port)</h3>
+<p>Template: <code>grouptrack-shared/src/commonMain/kotlin/com/geeksville/mesh/grouptrack/GtAlertSettingsPanel.kt:62–100</code>. Its own doc comments carry the rules:</p>
+<ul>
+<li><i>"this panel raises callbacks and does not own dialogs"</i></li>
+<li><i>"SEAMRULE-2026-11-19: HELP needs LocalContext on Android (GtHelp.load), so the host supplies it"</i> → <code>help: @Composable () -&gt; Unit</code></li>
+<li><i>"CODE RULE 1: no default — the caller wires it."</i></li>
+</ul>
+<p>Android-only calls become <b>parameters</b>: <code>LocalContext.current</code> used only to read a saved setting becomes <code>savedSelection: Set&lt;String&gt;</code>; a host composable becomes <code>@Composable (…) -&gt; Unit</code>. Each platform's call site adopts the panel as it converges — <code>GtCompareTable</code>/<code>ArtifactDetailPanel</code> from both, <code>RidesScreen</code> from Android, <code>GtAlertSettingsPanel</code> from iOS.</p>
+
+<h3>🧱 Primitives — ALL EXIST. Create nothing.</h3>
+<table><tr><th>Need</th><th>Primitive</th><th>Certification</th></tr>
+<tr><td><code>String.format("%.2f")</code>, <code>"%,d"</code></td><td><code>GtFmt.f(x, n)</code>, <code>GtFmt.d(v)</code></td><td>GTFMT-2026-11-07 — 4,300,100 values, 0 differences vs Java, plus <code>GtFmtMacTest</code> vs <code>gtfmt_golden_2026-11-07.txt</code>. <code>GtTracks.kt:56</code> states the rule.</td></tr>
+<tr><td><code>java.lang.Math</code></td><td><code>GtMath</code></td><td>GTMATH-2026-11-10</td></tr>
+<tr><td>settings / prefs</td><td><code>GtSettings.store(name)</code>, <code>GtSettingsAndroid(ctx)</code>, <code>IosSettings()</code></td><td>CERTVALUES-2026-11-16, GtCert17b</td></tr>
+<tr><td>queue types</td><td><code>GtQueueEntry</code>, <code>GtQueueStatus</code>, <code>GtDownloadType</code>, <code>GtDownloadPriority</code>, <code>GtQueueJson</code></td><td>identical constant-for-constant to Android's; <code>GtQueueJson</code> converts both ways</td></tr>
+<tr><td>tile estimate</td><td><code>GtTileMath.quickEstimate</code> — in <code>queue/GtTileMath.kt:52</code>, <b>NOT</b> <code>GtTileCalc</code></td><td>Cert16c</td></tr>
+<tr><td>tile delete / env</td><td><code>GtMBTiles.deleteTiles(type, tiles)</code>, <code>GtTileStoreEnv</code>/<code>IosTileEnv</code></td><td>Cert17mbtiles</td></tr>
+<tr><td>spatial read/write/delete</td><td><code>GtRead</code>, <code>GtWrite</code> (incl. <code>GtWrite.clearAllTrailData</code>)</td><td>certified</td></tr>
+<tr><td>panel chrome</td><td><code>GtPanel(helpId)</code> at <code>GtPanel.kt:216</code>; HELP+ISSUE drawn at <code>:259–261</code>. <code>GtPanelChrome</code>/<code>LocalGtPanelChrome</code> (no default, SKIPLOUD), <code>GtCloseButton</code>, <code>GtScheme</code>, <code>Gt</code>, <code>GtButton</code>, <code>GtCheck</code></td><td>PANELX-2026-10-22, ISSUE-2026-10-24</td></tr>
+</table>
+<p><b>Resolved systematically — do not touch, do not re-plan:</b> toast (Fred 09:48: <i>"toast is implemented in Kotlin Multiplatform as an iOS screen message. do not touch, it is resolved systematically"</i>); help (09:49: <i>"help is handled by chrome standard"</i>); <code>iosMain/text/GtMathLog.kt:125</code>'s <code>-1.0 / 0.0</code> (deliberate).</p>
+
+<h3>🆘 The help chain (verified end to end 11-25 — do not redesign)</h3>
+<p><code>GtHelpRow</code>/<code>GtPanel(helpId)</code> → <code>chrome.openHelp(id)</code> → <code>GtHelpLinks.linkFor(id)</code> → <code>grouptrack_help_links.json</code> → <code>"manual#map.dl_settings"</code> → <code>GtHelpViewer</code> splits on <code>#</code> → <code>file:///android_asset/grouptrack_manual.html#map.dl_settings</code>. Three doc keys: <code>notes</code>, <code>quickstart</code>, else the manual. The load is host-side on BOTH platforms (Android <code>GroupTrackScreen.kt:3024</code>; iOS <code>GtIosPanels.kt:160</code>) — SCAFFOLD-2026-11-19: <i>"loaded ONCE by the host, not per menu row."</i></p>
+<p>All six map ids are present in <code>grouptrack_help_links.json</code> AND as anchors in <code>grouptrack_manual.html</code>: <code>map.queues</code>, <code>map.dl_settings</code>, <code>map.dl_area</code>, <code>map.rm_area</code>, <code>map.rm_feat</code>, <code>map.trailsrc</code>.</p>
+<p><b>⚠ The silent failure to watch for in the walk-through:</b> <code>linkFor</code> falls back <code>links[id] ?: links[id.substringBefore(".")] ?: "manual"</code> — a missing id <b>opens the manual's front page and only logs</b>. So the walk-through must tap HELP on every row and confirm it lands on the <i>section</i>, not merely that the manual opened.</p>
+
+<h3>🗺 The five MAP rows — the stack for each (nothing ported; this is the starting map)</h3>
+<p>Declared order, Android action map <code>GroupTrackScreen.kt:3111–3116</code>:</p>
+<table><tr><th>#</th><th>row id</th><th>Android action</th><th>draws</th><th>what the port needs</th></tr>
+<tr><td>1</td><td><code>map.queues</code></td><td><code>queuesOpen = true</code></td><td>inline chrome <code>GroupTrackScreen.kt:2229–2262</code> + <code>DownloadQueuePanel</code></td><td><code>ConvoyDownloadQueuePanel.kt</code> (769 ln): 4 platform imports, <code>SimpleDateFormat("MMM d h:mm a", Locale.US)</code> :52, <code>System.currentTimeMillis()</code> :434/:466, <code>LocalContext</code> :68, <b>11 <code>DownloadQueueManager</code> members</b> (queue, loadMaxConcurrent, MAX_CONCURRENT, isQueuePaused, resumeQueue, cancelAll, setMaxConcurrent, holdQueue, cancel, removeEntry, promote), 6 format sites. The shared queue types already mirror Android's constant-for-constant.</td></tr>
+<tr><td>2</td><td><code>map.dl_settings</code></td><td><code>GtDownloadDefaults.open.value = true</code></td><td><code>GtDownloadSettingsPanel</code> (39 ln, <code>DownloadDefaults.kt:84</code>)</td><td>The panel is small. <code>GtDownloadDefaults</code>' six Context functions must STAY on Android — five app callers (<code>MapRecipes.kt:63/:73/:81</code>, <code>ConvoyCorridorPicker.kt:130/:134</code>, <code>GtPanelChromeAndroid.kt:30</code>). Lift what the panel reads as parameters.</td></tr>
+<tr><td>3</td><td><code>map.dl_area</code></td><td><code>GtArea.purpose = "download"</code> + <code>activateDrawMode()</code></td><td><code>GtAreaHost</code> → <code>GtDownloadAreaScreen</code></td><td><code>MapScreens.kt:48–81</code>. Uses <code>ConvoyDownloadConfirm</code> (<code>convoy/ConvoyDownloadConfirm.kt</code>, 161 ln — holds <b>both</b> <code>SlotDisplayInfo</code> :27 and <code>ConvoyDownloadConfirm</code> :37; its only platform line is <code>LocalContext</code> :49, used solely for <code>GtDownloadDefaults.initialSlots/initialReplace</code>). <code>onProceed</code> takes <code>List&lt;String&gt;</code> — <code>submitDownload</code> :458 does too; do not write <code>Set</code>.</td></tr>
+<tr><td>4</td><td><code>map.rm_area</code></td><td><code>GtArea.purpose = "remove"</code></td><td><code>GtAreaHost</code> → <code>GtRemoveAreaScreen</code></td><td><code>MapScreens.kt:84–111</code>. Platform surface: <code>LocalContext</code>, <code>ConvoyTileCalculator.calculateTiles</code>, <code>Thread { DownloadQueueManager.submitDelete(…) }</code>, the toast, and <code>String.format("%.3f°N…")</code>. <code>GtDialogTitle</code> is the chrome swap point.</td></tr>
+<tr><td>5</td><td><code>map.rm_feat</code></td><td><code>GtArea.purpose = "rmfeat"</code></td><td><code>GtAreaHost</code> → <code>GtRemoveFeaturesScreen</code></td><td><code>TrailCleanup.kt:131–173</code> + <code>private fun CleanTick</code> :122–127. <code>GtTrailCleanup</code> :45 must STAY on Android — it holds <code>SpatialDbManager.getSpatialDb()?.rawQuery</code> and <code>android.database.sqlite.SQLiteDatabase</code>. <code>GtTrailCleanup.removeArea</code> is 10 lines and <b>works</b> (it was wrongly called a stub today).</td></tr>
+</table>
+
+<h4>⛔ The GtArea / GtAreaHost split — the one structural finding worth keeping from today</h4>
+<p><code>app/.../grouptrack/AreaDraw.kt</code> (103 ln): <code>object GtArea</code> :25–50 and <code>fun GtAreaHost(js, barModifier)</code> :56–103.</p>
+<ul>
+<li><b><code>GtArea</code> can move</b> — a ~30-line state object (<code>purpose</code>, <code>ready</code>, <code>box</code>, <code>label(p)</code>, <code>take(n,s,e,w)</code>) with exactly ONE platform line: <code>android.os.Handler(android.os.Looper.getMainLooper()).post {</code> at :42.</li>
+<li><b><code>GtAreaHost</code> must NOT move</b> — it is a 21-branch <code>when</code> over <code>GtArea.ready</code> and <b>all 21 destinations are app-only</b>. Moving it whole produced 367 errors. <code>GtOffGrid</code> stays too (<code>Math.PI/atan/sinh</code> at <code>MapScreens.kt:222</code>; it is reached by the host, not by <code>GtArea</code>).</li>
+<li><b>The main-thread hop is load-bearing.</b> If <code>GtArea.take</code> moves, the hop moves to Android's two <code>@JavascriptInterface onAreaSelected</code> callbacks (<code>GroupTrackScreen.kt:911</code> and <code>:1293</code>) — the callback arrives on ANY thread and <code>take</code> sets Compose state. iOS's WKWebView script-message handler already arrives on the main queue, so the iPad side needs no hop.</li>
+<li>Android call sites <code>AreaDraw.kt:78–80</code>: <code>"download" -&gt; GtDownloadAreaScreen(GtArea.box.value, done)</code>, <code>"remove" -&gt;</code>, <code>"rmfeat" -&gt;</code> (TRAILCLEAN-2026-11-04). <code>AreaDraw.kt</code> does <b>not</b> import <code>remember</code> — any call-site edit using it must add the import.</li>
+</ul>
+
+<h4>What the iPad side still needs for rows 3/4/5</h4>
+<ol>
+<li>Three <code>map.*</code> entries in the <code>actions</code> map (<code>GtIosPanels.kt:1382–1605</code>), each setting <code>GtArea.purpose</code> and calling the draw-mode activation.</li>
+<li>An <code>onAreaSelected</code> branch in the receiver chain (currently absent) → <code>GtArea.take(n,s,e,w)</code>.</li>
+<li>A three-branch draw off <code>GtArea.ready.value</code>, host-side, supplying each panel's platform parameters.</li>
+<li><code>vec_ports.js</code> is <b>byte-identical</b> in both copies (md5 <code>c06893145823a002d8d248ab8a0b0832</code>) and <code>GtVecMap.ios.kt</code>'s SHIM proxies <b>every</b> <code>Android.*</code> call — so the JS side needs nothing.</li>
+</ol>
+
+<h3>📋 Panel audit, 11-25 run — PRE-EXISTING gaps, not caused by today</h3>
+<ul>
+<li><code>RidesScreen</code> — in <code>commonMain</code>, still <b>no iPad call site</b> (missing <code>b</code>, <code>onClose</code>)</li>
+<li><code>ConvoyPinMileageHud</code> — no iPad call site, 9 args</li>
+<li><code>ArtifactDetailPanel</code> — iPad missing 7: <code>insertTrailhead</code>, <code>onAddRide</code>, <code>onChangeType</code>, <code>onCreateRideFromTrack</code>, <code>onRename</code>, <code>trackStart</code>, <code>trailheadsNear</code></li>
+<li><code>GtNotesPanel</code> — iPad missing <code>help</code> (the SEAMRULE-2026-11-19 violation its own comment warns about), <code>onBuildFromRecipe</code>, <code>onCreateRide</code>, <code>subtitle</code></li>
+<li><code>ConvoyRideCreateScreen</code> — iPad missing <code>b</code>, <code>initialRouteId</code>, <code>onBack</code>, <code>onRideCreated</code></li>
+<li><code>GtCloseButton</code> missing <code>enabled</code>; <code>GtCompareTable</code> missing <code>modifier</code>; <code>GtDialogTitle</code> missing <code>closeEnabled</code></li>
+<li><code>GtSearchBody</code> — no iPad call site despite search working there</li>
+<li>Four <code>help = {}</code> SEAMRULE violations at <code>GtIosPanels.kt:1887, 1958, 2008, 2632</code></li>
+</ul>
+
+<h3>🔎 Live stubs (actual <code>throw</code>, verified 11-25 — not stale comments)</h3>
+<ul>
+<li><code>GtIosRecipeEnv.slotSources:95</code>, <code>.vectorBusyCount:73</code>, <code>.deriveRecipe:109</code> — <b>the recipe path only. None of the five map rows reaches these.</b> (Fred: slot sources is now attribution display, not map selection — one map source; the OSM and Meshtastic attributions belong on that one panel.)</li>
+<li><code>IosQueuePlatform.append:70</code> — but its working branch is already written (<code>if (q != null) { q.append(entries); …; return }</code>), and the class is constructed only in <code>GtCertIosPlatformMacTest.kt:118</code> (with no queue). <code>GtVectorQueue</code> is constructed only in <code>Cert16c.kt:98</code> / <code>GtCertCorridor17MacTest.kt:44</code>.</li>
+<li><code>dlQueue.fetch</code> logs and returns false (<code>GtIosPanels.kt:948–953</code>); <code>IosImportPlatform.enqueueCorridor:117</code>.</li>
+<li><b>Fred, 10:12: "we are not building a queue. this is a foreground function running attached to a screen and it works."</b> The download is a foreground function. Do not design a queue.</li>
+</ul>
+
+<h3>🖥 Environment — what the bridge can and cannot do</h3>
+<ul>
+<li><b>⛔ The bridge is a LINUX CONTAINER</b>, not the Mac. The Mac's folders are mounted at <code>$HOME/mnt/&lt;folder&gt;</code> (repo at <code>$HOME/mnt/Meshtastic-Android</code>, Downloads at <code>$HOME/mnt/Downloads</code>). <b>No gradle, no xcrun, no adb, no git commit.</b> <code>device_bash</code> timeout max 180,000 ms.</li>
+<li><b>✅ <code>python3</code> DOES work in the container</b> (<code>/usr/bin/python3</code>), and the repo is mounted — so <b>every patch script must be <code>--check</code>ed by Claude against the live files BEFORE Fred is handed a command.</b> This was done for v5 and v6 and should be unconditional. <code>git status</code>, <code>git diff</code> and <code>grep</code> also work read-only and are the fastest way to confirm state.</li>
+<li><b>Delivering a script:</b> write it, copy to <code>/mnt/user-data/outputs/</code>, then <code>device_commit_files</code> to <code>~/Downloads/</code> (a <code>stagedPath</code> outside <code>/mnt/user-data/outputs/</code> or <code>/mnt/project-files/</code> is rejected). Then <code>--check</code> it from the container before telling Fred to run it.</li>
+<li>The Mac repo is <code>/Users/kixazz25/Projects/Meshtastic-Android</code>; Fred's Downloads is <code>~/Downloads</code> when he runs it. <code>$GT_CMDS</code> = <code>My Drive/GroupTrack/commands</code>. <code>iosapp/iosapp/Resources/</code> is GITIGNORED.</li>
+<li><b>⛔ Droid 2 is deliberately unplugged</b> (gold 2.7e, serial 24039703201775). Droid 1 = <code>8624SBCEDF00001789</code>. <b>Nothing may run on any device that changes the underlying data.</b></li>
+<li><b>Patch script rules:</b> dated Python to Downloads, idempotent with a marker guard, back up the target, <b>abort cleanly with no write if an anchor is not found verbatim</b>, and <b>never reuse a filename</b> — a correction gets <code>_v2</code>, the old gets <code>_DO_NOT_RUN_&lt;reason&gt;</code>. No Claude attribution lines in commits.</li>
+</ul>
+
+<h3>⛔ Traps proven today (each cost a build)</h3>
+<ul>
+<li><b>Anchor slicing corrupts files.</b> Removing a declaration by slicing from its anchor to "the next top-level declaration" produces OVERLAPPING spans for adjacent declarations and cuts mid-word (<code>propert</code> / <code>ies = DialogProperties</code>), which ate <code>GtImportAreaScreen</code> and <code>GtTrailSourcesScreen</code>. <b>Remove by verified line range, back-to-front, asserting the text at the first and last line AND asserting the survivors are still present.</b></li>
+<li><b>Verify the PREMISE, not just the boundary.</b> v5 cut three frame declarations as "moved to commonMain"; only <code>GtDialogTitle</code> had a shared home. <code>GtScreenFrame</code> and <code>GtImportFrame</code> are <b>app-only and must stay</b> — <code>GtImportFrame</code> drives <code>convoy.HomeStateImportController</code>, and the two are called from eight app files (<code>MapScreens</code>, <code>TrailCleanup</code>, <code>StateCounts</code>, <code>ExportFeatures</code>, <code>VectorMapTest</code>, <code>GtFilePicker</code>, <code>HomeStatePickerScreen</code>, <code>ConvoyAuthorityGateScreenV2</code>). Before cutting anything, <code>grep -rn "fun &lt;Name&gt;" grouptrack-shared/src/</code> to prove it has somewhere to go.</li>
+<li><b>The closure gate must run on the FINAL FILE CONTENT, including the import block</b> — not on the extracted body. Run on the body, it never scans the imports and passes a file that cannot compile. That is exactly how six app-only imports and a missing <code>GtFmt</code> import survived.</li>
+<li><b>Check the type the existing Android code uses.</b> <code>Set&lt;String&gt;</code> vs <code>List&lt;String&gt;</code> and <code>Double</code> vs <code>Float</code> each cost a round trip. Android's own declarations win.</li>
+<li><b>Claims made and retracted today, for the record:</b> <code>GtTileMath.quickEstimate</code> "does not exist" (it does — <code>queue/GtTileMath.kt:52</code>; the wrong class was searched); <code>ConvoyTileCalculator.kt</code> and <code>ConvoyDownloadPanel.kt</code> "pure, zero platform refs" (both use <code>String.format</code>); <code>GtIosRecipeEnv.slotSources</code> "blocks rows 2/3" (recipe path only); row 5's area removal "a stub" (it works). One grep would have prevented each.</li>
+</ul>
+
+<h3>▶ Suggested order for the next session (one command at a time; Fred runs each and pastes the result)</h3><ol>
+<li><b>Confirm the baseline builds:</b> <code>cd ~/Projects/Meshtastic-Android &amp;&amp; ./gradlew :grouptrack-shared:compileKotlinIosSimulatorArm64 :grouptrack-shared:compileAndroidMain :app:compileGoogleDebugKotlin</code>. Fred, 09:29: <i>"two kotlin builds must pass and then both versions must be deployed and tested. one code base, both platforms resolved."</i></li>
+<li><b><code>bash "$GT_CMDS/recommit_v26.sh"</code></b> — the two 11-24 docs still owed to AllDocs, plus this one.</li>
+<li><b>Decide the order with Fred:</b> the AI route divergence (parked 11-25; rides A/B/C through eleven gates, <code>GtRoute.kt</code> carrying the AIDUMP instrumentation uncommitted) versus the first five map rows. Fred, 08:57: <i>"testing will not start until we have resolved our AI route creation differences."</i></li>
+<li><b>If the map rows:</b> run <code>gt_closure</code> on the exact symbols first and obey its output; then ONE small patch per row, <code>--check</code>ed from the container before Fred sees it; <code>GtArea</code> moves and <code>GtAreaHost</code> stays; then build both platforms before the next row.</li>
+<li><b>The process, unchanged (Fred 08:57):</b> build → commit → deploy → walk every screen and function to confirm every layer of code and the call stack is supported. Real certification testing follows side by side on devices against the same database. <b>The walk-through must tap HELP on each of the five rows</b> and confirm the manual lands on the section.</li>
+</ol>
+
+<h3>📣 Fred's rules of engagement, verbatim (08:30 and through the day)</h3>
+<ul>
+<li><i>"the process is you change all screens to shared through kotlin multiplatform tool. you gather us changes for screens into one patch that I apply. then we inspect seams. all seam primitives have been completed, no complex services, all the rules stay exposed in code. no seam creations unless we both agree the seam does not exist. no code changes at all unless they are discussed and approved as required."</i></li>
+<li><i>"this is a relatively straightforward port using existing components. no deep dives, no code creation. no screen building other than relocating as common shared. also screens now have a chrome default pattern that has to be utilized; it includes functions for help and opening issues."</i></li>
+<li><i>"the job is to be sure that every service call and every screen exists in the OS stack… we are ensuring that nobody stubbed a screen or a process as come back to later. it has to be complete."</i></li>
+<li><i>"all rules exist in code and should stay there."</i></li>
+</ul>

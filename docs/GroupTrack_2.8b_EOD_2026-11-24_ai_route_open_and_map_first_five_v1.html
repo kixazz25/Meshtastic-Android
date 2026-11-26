@@ -6,6 +6,169 @@
 Commits: <code>08639e5e9</code> (the AI route port, 15 files, 2,320+/333-) and <code>32464b0b6</code>
 (the ConvoyRouteToolbar leftover removed, 394-).</p>
 
+<h2>&sect;0a &mdash; 19:54: DROID 2 (FROZEN 2.7e) BUILDS THE SAME ROUTES AS DROID 1 (SHARED ENGINE)</h2>
+<div style="border:3px solid #3fb950;padding:10px 14px;margin:12px 0">
+<p><b>Fred, 19:54:</b> <i>&ldquo;also note that droid 2 build the same tracks as droid 1 on 2.7e.&rdquo;</i></p>
+<p>Droid 2 is the deliberately-unplugged <b>gold 2.7e</b> device; Droid 1 runs the <b>shared <code>GtRoute</code></b>.
+They agree on the same ground. <b>&rArr; THE SHARED REWRITE REPRODUCES 2.7e EXACTLY, PROVEN ON DEVICE</b> &mdash; not
+merely by the <code>GtCertRoutes</code> harness (153/153, 2026-11-07).</p>
+<p><b>&rArr; THIS ELIMINATES AN ENTIRE CLASS OF CAUSE: &ldquo;the port to commonMain changed the algorithm.&rdquo;</b>
+It did not. No further reading of the shared engine against the 2.7e body will find the iPad divergence &mdash; that
+line of investigation is closed.</p>
+<p><b>&rArr; WHAT REMAINS IS PURELY PLATFORM.</b> Same source, same algorithm; two JVM devices agree with each other
+and with the gold, and only the <b>Kotlin/Native</b> target differs. The surviving suspects are therefore exactly the
+platform-dependent primitives, and nothing else can produce it: <b>libm</b> (<code>GtMath</code> /
+<code>GtMathPort</code>, 15e-proven to differ in the last bit) &middot; <b>HashMap/HashSet iteration order</b>
+(<code>:2029</code> <code>poiAt.keys.toList()</code>) &middot; <b>the SQLite driver's row order</b> &middot;
+<b><code>Double.toString()</code></b> (the seven box binds that bypass <code>GtJava.jd</code>).</p>
+<p><b>&#9888; IT DOES NOT DISCRIMINATE AMONG THOSE SUSPECTS.</b> Both Droids are JVM, so they share hash order AND
+Android's libm; their agreement is predicted equally by every surviving hypothesis. <b>Its value is the elimination,
+not the selection.</b></p>
+</div>
+
+<h2>&sect;0b &mdash; 19:52: THE ANDROID BASELINE IS MEASURED; THE iPAD SIDE IS NOT MEASURABLE YET</h2>
+<div style="border:3px solid #d29922;padding:10px 14px;margin:12px 0">
+<p><b>ANDROID, Droid 1, three runs 15:50 / 17:14 / 19:06 &mdash; BYTE-IDENTICAL every time</b> (so the engine is
+deterministic within the platform, as Fred said at 19:08):</p>
+<pre>poiNodes=24  usableNodes=4218
+origin trail #88:         0 of 24 features usable
+origin Beryl Highway #0: 15 of 24 features usable
+descent starts at 7 features (of 24)
+working array 16 feature(s) of 24; 339 combos, 95 killed by the pair table, 244 solved</pre>
+<p><b>&rArr; <code>poiNodes=24</code> ON ANDROID.</b> Taken with Fred's report that the iPad also saw 24, DISCOVERY is
+equal and the whole upstream is eliminated: the corridor box (<code>radiusMi = milesHigh / 3.0</code>, 26.7 mi for an
+80-mile ceiling), the <code>reference_points</code> table content, <code>loadPoisGrid</code>, and the raw
+<code>Double.toString()</code> box binding. <b>The divergence is in sections 7&ndash;9</b> &mdash; the out-and-back
+filter, the pair table, the clique bound, or the working-array fill.</p>
+<p><b>&#9940; AND THE BLOCKER, WHICH IS BIGGER THAN THE AI ROUTE: THE iPAD'S SHARED-CODE LOGGING IS DARK.</b>
+<code>GtLog.kt:14</code> routes every shared log line through Kermit's <code>platformLogWriter()</code>. Nothing from
+it was reachable on 11-24 &mdash; not <code>xcrun simctl spawn booted log show</code> (the simulator's own store, with
+<code>--info</code>), not <code>log show</code> on the host Mac, at any severity or window tried. <b>Every
+<code>log.i</code> in the shared engine is therefore invisible on the iPad</b>, which blocks this measurement and every
+other one on that side. <b>&rArr; FIRST ITEM 11-25, ahead of any further route work:</b> make shared-code logging
+readable on iOS. The instrumentation already exists (<code>:2030 :2058 :2101 :2201</code>); only the output path is
+missing.</p>
+<p><b>&#9888; AND A CORRECTION TO THIS DOC'S OWN RETRACTION BELOW.</b> The 19:24 box retired the cap theory on the
+grounds that there was <i>no "capped to the 24" line in the iPad log.</i> If no iPad log line is reachable at all, that
+absence was <b>never evidence</b>. <b><code>maxPoi</code> is therefore UNMEASURED, not eliminated</b>, along with every
+other iPad-side stage. The code facts in both sections stand; the eliminations that rested on reading an iPad log do
+not. <b>Claude asserted a measurement from a missing log line without first confirming the log existed &mdash; the
+same failure mode as the cap claim, one level further back.</b></p>
+<p><b>WHAT IS ESTABLISHED INDEPENDENTLY OF ANY iPAD LOG:</b> (1) <b>one engine, both platforms</b> &mdash;
+<code>GtRoute.kt:2055</code> is the only live copy of <code>a + b &lt;= req.milesHigh</code>, the frozen 2.7e gold
+(<code>RouteExplorerCertOld.kt:1812</code>) matches it byte for byte, and <code>iosapp/</code> has no route engine of
+its own; (2) <b>Android carries no scoring function and no penalty of its own</b> &mdash;
+<code>fun score</code>/<code>fun *Score</code>/<code>penal</code> returns nothing outside the frozen
+<code>*CertOld</code> files, so nothing of the model was left unported; (3) <b>the out-and-back threshold is real and
+its boundary is densely populated</b> &mdash; it rejects 9 of 24 at Broken Ridge and, per the gold's own note at
+<code>RouteExplorerCertOld.kt:1741</code>, 26 of 81 on other ground.</p>
+</div>
+
+<h2>&#9940;&#9940;&#9940;&#9940; RETRACTED 19:24 &mdash; THE "ROOT CAUSE" BELOW IS NOT THE CAUSE. READ THIS BOX FIRST.</h2>
+<div style="border:3px solid #f85149;padding:10px 14px;margin:12px 0">
+<p><b>Fred, 19:24:</b> <i>&ldquo;no[,] iOS found 24 and never capped. it introduced new feature[s]. more features on
+android.&rdquo;</i> &mdash; then, 19:25, correcting himself: <i>&ldquo;I meant ipad.&rdquo;</i> And 19:28: <i>&ldquo;as I
+sa[i]d the iOS reported more features.&rdquo;</i> <b>The iPad is the side that finds MORE. Android is the limited one.</b></p>
+<p><b>&rArr; THE CAP NEVER FIRED ON iOS, SO CAP ORDERING CANNOT BE THE MECHANISM.</b> The section below was written on
+the assumption that BOTH devices hit <code>maxPoi = 24</code> and differed in which 24 survived. They did not.
+<b>Claude committed to that conclusion before the measurement existed &mdash; the third time in one evening.</b> The
+section is kept only for the code facts it records (the cap sites, their values, the stable-sort behaviour), which are
+correct and still worth having. <b>Its conclusion is withdrawn.</b></p>
+<p><b>&#9940; SUPERSEDED AGAIN 19:52 BY DEVICE DATA &mdash; SEE &sect;0b BELOW. Android's log says
+<code>poiNodes=24</code>, so Android did NOT discover fewer.</b> What this box claimed at 19:28 &mdash;
+<b>the iPad discovered 24 and never capped, Android discovered FEWER</b> &mdash; The iPad's set contains features Android never saw at all. Neither device's 24 is a
+ranked subset of the other's &mdash; <b>the universes differ before any ranking happens</b>, so the earlier
+&ldquo;identical 24 features on both devices&rdquo; reading was never a comparison of the discovered sets: 24 is the
+value of <code>maxPoi</code>, and reading the cap's own constant back as a finding is what produced it.</p>
+<p><b>AND THE SCORING CODE IS NOT THE DIFFERENCE &mdash; MEASURED 19:30, in answer to Fred's
+<i>&ldquo;I do not [know] how much o[f] the model cal[l]s were ported&rdquo;</i>:</b> <b>Android runs the shared
+engine, all of it.</b> <code>RouteExplorer.kt</code> is a pure wrapper &mdash;
+<code>import com.grouptrack.shared.route.GtRoute as Shared</code>, nine functions, every one a one-line delegate; its
+own header says <i>&ldquo;Nothing here decides anything: each function hands the app's own SQLiteDatabase to the shared
+code.&rdquo;</i> <code>RouteExplorerCertOld.kt</code> (2,363 ln) is called by <b>one</b> file, the
+<code>GtCertRoutes.kt</code> harness that certified the port 153/153 on 2026-11-07. And a grep for
+<code>fun score</code> / <code>fun *Score</code> / <code>penal</code> across all of
+<code>app/src/main/java/com/geeksville/mesh/</code> returns <b>nothing</b> outside the frozen <code>*CertOld</code>
+files. <b>So there is no Android-side scoring function and no Android-only penalty to have been left unported.</b>
+The negative term Fred was reaching for is real but is SHARED: the objective is
+<code>poiValue - miles * 0.06</code> (<code>GtRoute.kt:61</code>, with <code>:82</code> &mdash; <i>&ldquo;a
+POSITIVE-SCORE FLOOR IS REQUIRED&rdquo;</i>), and <code>PENALTY = 2.2</code> at <code>:260</code> is the
+route-DIVERSIFICATION penalty (penalise ride 1's edges, re-solve, so ride 2 avoids it &mdash;
+AIRETURNFILL-2026-11-11), not a road penalty.</p>
+<p><b>&rArr; WHICH NARROWS IT HARD.</b> Identical scoring source over identical SQL leaves exactly three ways a
+difference can enter shared code: <b>the row set SQLite returns</b>, <b>the order it returns it in</b>, and <b>the
+platform primitives the shared code calls.</b> All three act on discovery.</p>
+<p><b>&rArr; THE CAUSE IS IN DISCOVERY, NOT RANKING:</b>
+<code>poiAt = loadPoisGrid(spatialDb, box, g, usable)</code> at <code>GtRoute.kt:1975</code>. Its inputs are the
+corridor <code>box</code> (from <code>corridorBox(req)</code>), the graph <code>g</code>, and <code>usable</code>.
+A different <code>box</code>, a different <code>usable</code> set, or a different POI query yields a different
+discovered set &mdash; which is exactly the symptom, and it sits UPSTREAM of every cap and every sort.</p>
+<p>&#9888; AND IT RE-OPENS THE CONNECTIVITY QUESTION, because <code>loadPoisGrid</code> takes the graph
+<code>g</code>: features are attached to junctions, so if connectivity differs, the features reachable from the
+trailhead differ. Fred's 19:11 instinct &mdash; <i>&ldquo;the trail network and connecting trails that expand
+reachable trails&rdquo;</i> &mdash; is back in play, and was never properly excluded: the 4,218 junction count Claude
+cited is a COUNT, not an adjacency comparison.</p>
+<p><b>FIRST MEASUREMENT TOMORROW, before any fix:</b> the exact discovered feature COUNT and the feature IDs on each
+device &mdash; Android's pre-cap set (<code>24 + dropped</code>) against iOS's 24 &mdash; then diff the membership. That
+says whether iOS is missing Android features, holding extra ones, or both.</p>
+</div>
+
+<h2>&#9888; SUPERSEDED (kept for its code facts) &mdash; the cap-ordering analysis, 19:18</h2>
+<p><b>Fred described the algorithm at 19:18 and it led straight to the cause:</b> <i>&ldquo;we count [a] specific
+number of trails[,] descend[ing] by point[s], and we co[nt]i[nua]lly rank them until we fill up a[n] array and the[n]
+stop[.] we thr[o]w [out] anything above the high limit and anything below the low limit score and deliver the[] six.
+<b>for some reason we are not evaluating the same universe.</b>&rdquo;</i> He is right, and the universe is pruned
+destructively.</p>
+<p><b><code>GtRoute.kt:1993-1999</code>:</b></p>
+<pre>if (poiAt.size &gt; maxPoi) {                                  // maxPoi = 24
+    val top = poiAt.entries                                 // &larr; HashMap ENTRY ORDER
+        .sortedByDescending { scoreSet(listOf(it.key), poiAt) }  // &larr; STABLE sort
+        .take(maxPoi)                                       // &larr; fill the array, stop
+        .map { it.key }.toHashSet()
+    val dropped = poiAt.size - top.size
+    poiAt.keys.retainAll(top)                               // &larr; the rest are DELETED
+}</pre>
+<p><b>THREE THINGS STACK:</b> (1) <code>poiAt.entries</code> iterates a <b>HashMap</b> &mdash; a different order on the
+JVM than on Kotlin/Native, stable within each; (2) <code>sortedByDescending</code> is <b>STABLE</b>, so features with
+equal or near-equal scores keep whatever order the hash handed them; (3) <code>.take(24)</code> truncates and
+<code>retainAll</code> then <b>deletes the rest permanently</b>.</p>
+<p>&rArr; The feature ranked 24th versus 25th is decided by <b>hash order at the cap boundary</b>, and the loser is
+removed from the universe for the whole remainder of the search. <b>It is a mutation, not a reordering.</b></p>
+<p><b>&#9888; AND THE FILE ALREADY SAYS HOW MUCH THE CAP MATTERS</b> &mdash; Fred's own measurement at
+<code>:1988-1992</code>: <i>&ldquo;capping at 14 gave rides of 3 features, at 24 the same ground gave rides of 7.
+Beyond that they are lower-scoring and further out.&rdquo;</i> <b>A different 24 gives different rides.</b></p>
+<p><b>IT COMPOUNDS TWICE MORE.</b> <code>:2221</code> sorts candidates
+<code>compareByDescending { it.combo.size }.thenByDescending { it.miles }</code> &mdash; stable again &mdash; and
+<code>:2227</code> takes only the top <b>enrichN = 20</b> to enrich; <code>:2428</code> then takes
+<b>wantRides = 6</b>. <b>Three stacked caps, each a stable sort over a possibly hash-ordered input.</b></p>
+<table border="1" cellpadding="5"><tr><th>observation</th><th>explained by</th></tr>
+<tr><td>routes 1 and 2 identical</td><td>clear winners, well inside every cap</td></tr>
+<tr><td>route 3 differs, 3 mi longer, almost the same path</td><td>sits near a cap boundary</td></tr>
+<tr><td>iOS has longer / higher-mileage trails from 3 down</td><td>different features admitted &rarr;
+<code>thenByDescending { it.miles }</code> then selects differently</td></tr>
+<tr><td>each device reproduces its own result exactly</td><td>hash order is deterministic <i>within</i> an
+implementation &mdash; it is not random</td></tr>
+<tr><td>matching the LAND filters changed nothing (Fred, 19:00)</td><td>the filter was never the cause</td></tr>
+<tr><td>&ldquo;not evaluating the same universe&rdquo;</td><td><code>retainAll</code> deletes the dropped
+features</td></tr>
+</table>
+<p><b>THE FIX &mdash; THREE STABLE TIEBREAKS, and it changes nothing except that ties resolve by id rather than by hash
+accident:</b></p>
+<ol>
+<li><code>:1995</code> &mdash; add a secondary key to the feature sort (junction/feature key ascending).</li>
+<li><code>:2221</code> &mdash; add a secondary key to the candidate sort.</li>
+<li><code>:1897</code> &mdash; <code>for (s in g.lAdj.keys)</code> assigns component numbers in HashMap key order;
+use <code>g.lAdj.keys.sorted()</code>. Feeds <code>:1421</code>'s <code>comps.maxByOrNull { it.size }</code>, which
+takes the first on a size tie.</li>
+</ol>
+<p><b>WITNESS:</b> same recipe, same <code>trailFilter</code>, <b>same six routes in the same order</b> on both
+devices, route 3 included. Fred's 19:00-19:11 runs are the before-reading, so the negative witness already exists.</p>
+<p>&#9888; <b>WHAT THIS RETIRES:</b> the coordinate-parse / <code>cellKey</code> boundary-flip theory is no longer
+needed to explain anything &mdash; it was a reasonable lead, and the cap explains the symptom without it. Do NOT chase
+it unless the three tiebreaks fail to converge the two devices. Also retired: the junction-tolerance mismatch
+(<code>SNAP_FT = 25.0</code> is shared; the 50 ft Fred recalled is a value the <code>:93</code> sweep <b>tested and
+rejected</b> &mdash; "anything above 25 ft is invention").</p>
+
 <h2>&#11088;&#11088;&#11088; WHERE 2.8b STANDS ON MAPS, IN ONE SENTENCE (Fred, 18:39)</h2>
 <p><b>Verbatim:</b> <i>&ldquo;the unknown is the launch to action work from emails, and the internet download testing.
 <b>we know from receipt of file on[ward] in each process we have certified.</b>&rdquo;</i></p>
@@ -210,6 +373,107 @@ under restriction 4 it is discussed and approved before anything is written.</p>
 devices. The negative witness matters as much &mdash; before the fix, a run that produces a DIFFERENT order
 on the two devices from the same inputs proves the defect is real and not theoretical. <b>Take that
 negative reading first</b>, or there is nothing to show the fix worked.</p>
+
+<h3>&#9940;&#9940;&#9940; OPEN 2 SUPERSEDED BY FRED'S OWN MEASUREMENT, 19:00 &mdash; THE FILTER IS NOT THE CAUSE</h3>
+<p><b>Fred 19:00:</b> <i>&ldquo;nope[,] I chang[ed] the filters with no difference. <b>it is going to be the scoring
+method and sequence.</b>&rdquo;</i> And 18:59: <i>&ldquo;that ai one is the one that still scares me.&rdquo;</i></p>
+<p>&rArr; <b>THE CERTIFICATION TEST IN &sect;3 HAS ALREADY BEEN RUN, BY FRED, AND IT CAME BACK NEGATIVE.</b> Matching
+the LAND filters on both devices did NOT make the route sets agree. So the filter-state difference is real but is
+<b>not</b> the cause of the divergence, and &sect;3's method is now a regression check rather than an investigation.</p>
+<p>&#9888; AND IT CORRECTS CLAUDE TWICE: (1) &ldquo;tie determinism &mdash; it may not even be firing&rdquo; was wrong,
+Fred's reading is the negative witness; (2) &ldquo;same trails in, same numbers out&rdquo; over-claimed from the
+haversine alone &mdash; <code>scoreSet</code> is more than the haversine and was never measured.</p>
+
+<h4>MEASURED 19:00 &mdash; THE SEQUENCE DOES NOT JUST BREAK TIES, IT CHANGES THE SCORE</h4>
+<p><code>GtRoute.kt:898-912</code>:</p>
+<pre>private fun scoreSet(ks: List&lt;Long&gt;, poiAt: Map&lt;Long, List&lt;Poi&gt;&gt;): Double {
+    val seen = HashSet&lt;String&gt;(); val byClass = HashMap&lt;String, Int&gt;(); var v = 0.0
+    for (k in ks) for (p in poiAt[k] ?: emptyList()) {
+        if (!seen.add(p.name)) continue
+        val n = (byClass[p.fclass] ?: 0) + 1
+        byClass[p.fclass] = n
+        val base = if (p.fclass == USERPIN) USERPIN_BASE
+            else if (p.fclass in VIEW) 3.0 else if (p.fclass in WATER) 2.0 else 1.0
+        v += base / (1.0 + 0.22 * (n - 1))
+    }
+    return v
+}</pre>
+<p><b>DIMINISHING RETURNS BY ARRIVAL ORDER.</b> The first viewpoint is worth 3.0, the second 3.0/1.22, the third
+3.0/1.44. So <b>the same set of POIs in a different order yields a different number</b> &mdash; not a tie, a different
+score. <code>seen.add(p.name)</code> compounds it: which duplicate survives is also decided by arrival order.</p>
+<p>Inside <code>scoreSet</code> the iteration is over <code>ks</code> (a List) and <code>poiAt[k]</code> (a List), so
+the function is deterministic <i>given its inputs</i>. <b>The non-determinism is in the ORDER OF <code>ks</code></b>
+and in the sequences that select candidates.</p>
+
+<h4>ONE SUSPECT ELIMINATED, AND IT IS THE RIGHT ONE TO ELIMINATE FIRST</h4>
+<p><code>JPQ</code> is <b>shared code</b> &mdash; a hand-written priority queue at
+<code>GtRoute.kt:204</code>, whose header (<code>:36</code>) states it reproduces <i>&ldquo;java.util.PriorityQueue's
+own sift-up / sift-down, so equal distances leave in the same order&rdquo;</i>. Identical on both platforms by
+construction, so <b>the Dijkstra queue cannot be the cross-platform difference.</b> (Whether the reimplementation is
+faithful to the JDK is a separate question, and it would affect both platforms equally.)</p>
+
+<h4>THE MECHANISM, STATED PLAINLY</h4>
+<p><b>HashMap / HashSet iteration order differs between the JVM and Kotlin/Native &rarr; the sequence fed to
+<code>scoreSet</code> differs &rarr; the score differs &rarr; different routes.</b> The carriers are the sites where an
+unordered collection is ITERATED rather than merely looked up:</p>
+<ul>
+<li><code>:1421</code> <code>anchorNet = comps.maxByOrNull { it.size }</code></li>
+<li><code>:1962</code> <code>byComp.values.sortedBy { it.second }</code> &mdash; <code>HashMap.values</code></li>
+<li><code>:1995</code>, <code>:2139</code>, <code>:2156</code> <code>sortedByDescending { scoreSet(&hellip;) }</code>
+&mdash; Kotlin's sort is STABLE, so it preserves whatever order the unordered collection handed it</li>
+</ul>
+<p>81 unordered collections sit in the search; these are the ones on the scoring path.</p>
+
+<h4>&#9940; AND A DESIGN QUESTION UNDERNEATH IT &mdash; FRED'S CALL, NOT CLAUDE'S</h4>
+<p><code>scoreSet</code> discounts by arrival order <i>within a route</i>. So <b>on the same device</b>, one route's
+POIs traversed in a different order score differently. If the intent is &ldquo;the third viewpoint adds less than the
+first&rdquo;, that is order-<b>count</b> dependent, not order-<b>sequence</b> dependent, and could be computed per
+class and then discounted &mdash; which would be identical on both platforms whatever the iteration order, and
+arguably more correct on Android too.</p>
+<p><b>TWO POSSIBLE FIXES, and they are not the same work:</b></p>
+<ol>
+<li><b>Determinise the sequence</b> &mdash; sort by a stable key (trail or junction id, ascending) before every
+iteration of an unordered collection on the scoring path. Keeps today's scoring behaviour exactly, including its
+order-dependence, and makes the two platforms agree.</li>
+<li><b>Make the score order-independent</b> &mdash; count per class, then apply the discount. Changes Android's
+numbers, so it is a product decision and would need re-certification against 2.7e.</li>
+</ol>
+<p>&rArr; <b>(1) is the port fix. (2) is a product question.</b> They can be done in that order: determinise first, get
+the platforms agreeing, then decide separately whether the order-dependence should exist at all. Both are CODE
+REVISIONS and need approval before anything is written.</p>
+<p><b>WITNESS for (1):</b> same recipe, same <code>trailFilter</code>, <b>same route set in the same order</b> on both
+devices. Fred's 19:00 run is the before-reading, so the negative witness already exists.</p>
+
+<h4>&#11088;&#11088;&#11088; FRED'S 19:02 OBSERVATION CONFIRMS IT, AND SHARPENS THE FIX FROM TWO OPTIONS TO ONE</h4>
+<p><b>Fred:</b> <i>&ldquo;the first two tracks are identical. the third has minimal trail and mil[e]age difference. but
+it is definitely the scoring issue[:] <b>math functions performed in different sequence will provide d[iff]erent
+results</b>.&rdquo;</i></p>
+<p><b>THE SYMPTOM PATTERN IS THE SIGNATURE OF FLOAT ACCUMULATION ORDER.</b> Routes 1 and 2 identical, route 3 differing
+<i>minimally</i>: clear winners have a margin far larger than any last-bit discrepancy, so they are stable; route 3 was
+a near-tie that a last-bit score difference flipped. <b>A logic difference would not produce &ldquo;top two identical,
+third barely different&rdquo;</b> &mdash; it would diverge everywhere or nowhere.</p>
+<p>&rArr; <b>SO THERE ARE TWO ORDER EFFECTS IN <code>scoreSet</code>, NOT ONE.</b> The section above described only the
+first:</p>
+<table border="1" cellpadding="5">
+<tr><th></th><th>effect</th><th>what it produces</th></tr>
+<tr><td><b>(a)</b></td><td><b>The terms differ.</b> <code>n</code> depends on arrival order, so
+<code>base / (1.0 + 0.22*(n-1))</code> yields different values.</td><td>visible score differences</td></tr>
+<tr><td><b>(b)</b></td><td><b>Floating-point addition is not associative.</b> <code>v += &hellip;</code> accumulated in
+a different order gives a different <code>double</code> <b>even when the terms are identical</b>.</td><td><b>last-bit
+differences &mdash; which is what flips a near-tie and nothing else</b></td></tr>
+</table>
+<p>This project already knows this class of bug: <code>GtMathPort</code> exists because Apple's libm differs from
+Android's in the last bit (<code>cos(0.68089&hellip;)</code> Apple &hellip;5005 vs Android &hellip;5006, found by the
+15e cert). Same family, arising from <b>summation order</b> rather than from libm.</p>
+<p>&#11088; <b>AND IT MEANS DETERMINISING THE SEQUENCE IS NOT ONE OF TWO OPTIONS &mdash; IT IS THE NECESSARY FIX.</b>
+Determinising fixes <b>both</b> (a) and (b): identical sequence &rarr; identical terms AND identical accumulation order
+&rarr; bit-identical double. Counting per class fixes (a) but <b>NOT</b> (b) &mdash; the summation order would still
+vary, so near-ties would still flip. <b>The per-class question is a separate product decision ON TOP, never a
+substitute.</b> The two were presented as alternatives above; that was wrong.</p>
+<p>&rArr; TOMORROW'S ITEM 2 IS THEREFORE SINGULAR AND BOUNDED: <b>sort by a stable key (trail or junction id,
+ascending) before every iteration of an unordered collection on the scoring path</b> &mdash; <code>:1421</code>,
+<code>:1962</code>, <code>:1995</code>, <code>:2139</code>, <code>:2156</code> &mdash; and re-run Broken Ridge on both
+devices expecting the same route set in the same order, route 3 included.</p>
 
 <h3>OPEN 3 &mdash; RESTRICTED / UNCERTAIN MUST LEAVE THE CANDIDATE SET (Fred&rsquo;s ruling, 17:21)</h3>
 <p>THE RULING, verbatim: &ldquo;b is the solution we use on droid. should be consistently implemented. the
@@ -640,6 +904,238 @@ rider trails &rarr; tracks &rarr; waypoints &rarr; routes &rarr; maps LAST.</b> 
 routes because a route&rsquo;s recipe carries an <code>anchorLat</code>/<code>anchorLon</code> resolved
 against trailhead waypoints; maps come last because tiles are keyed on <code>geom_hash</code> and must
 follow the geometry.</p>
+
+<h3>&#11088;&#11088;&#11088; DR RESTORE &mdash; FRED'S REQUIREMENTS (17:15&ndash;17:18). DRRESTOREREQ-2026-11-25</h3>
+<p>Stated while the MAP RECOVERY rows were being scoped. <b>Restore and apply are NOT this session's
+work</b> (Fred 17:10: &ldquo;this session was importing, exporting and emailing these containers.
+restore and apply will have its turn.&rdquo;) &mdash; these are the requirements for when it does.</p>
+<p><b>&#9940;&#9940;&#9940; THE BASELINE, SO THE SIZE OF THIS IS NOT MISREAD. THERE IS NO RESTORE
+PROCESS FOR THIS RECOVERY PACKET TODAY.</b> Fred 17:20, verbatim: &ldquo;there exists <b>no restore
+process for this recovery packet</b> other than <b>manually importing from downloads in the specified
+sequence</b>.&rdquo; &rArr; The rider opens the DR folder and taps each file in turn, in the order below.
+That is the whole of it. This is corroborated by the three measured facts at the end of this block &mdash;
+<code>receiveDirectory</code> is written but has zero callers, the JSON is the map recipe and maps only,
+and no manifest ties a day's files together &mdash; so everything above is a <b>BUILD</b>, not the wiring
+of something already present. ⚠ And it is why the sequence is a requirement rather than a convenience:
+today the ORDER LIVES IN THE RIDER'S HANDS, and nothing in the code enforces it.</p>
+<p><b>&#11088;&#11088;&#11088; WHAT IT IS FOR, AND WHY IT STAYS SMALL (Fred 17:27, 17:28).</b>
+&ldquo;it is an emergency tool to be walked through for recovery. it <b>excludes a whole lot of data but
+protects what a rider wants saved so he does not lose his history</b>&hellip; and it saves <b>rider trails,
+which are the gaps he has closed to extend the trail network</b>.&rdquo;</p>
+<p><b>&#11088;&#11088;&#11088;&#11088; THE KEYSTONE &mdash; EMAIL IS THE OFF-DEVICE STORE (Fred 17:29,
+17:31).</b> &ldquo;this is the frontier of the app, with emergency <b>what if I break or lose my
+device</b> answers&hellip; and that is why the DR attachments are <b>sent via email. they will always be
+in the email directory no matter if your device is destroyed or lost</b>.&rdquo;</p>
+<p>&rArr; <b>THE EMAIL IS THE BACKUP; THE DR FOLDER IS ONLY THE LOCAL COPY.</b> A folder on the device
+answers nothing if the device is gone, so the packet's whole value is that it left the device. That is
+what makes the recovery walk: <b>open the email on the replacement device &rarr; save the attachments
+&rarr; import them in the stated sequence.</b></p>
+<p><b>&#9940;&#9940;&#9940;&#9940; AND IT PUTS THE iOS INCOMING-FILE PATH ON THE RECOVERY CRITICAL PATH,
+NOT BESIDE IT.</b> Outgoing is built on both platforms &mdash; <code>GtArtifactFiles.emailAll</code>
+(EMAILALL-2026-11-20), iOS over <code>UIActivityViewController</code>. <b>Incoming is absent on iOS</b>
+(measured 11-24: no <code>CFBundleDocumentTypes</code> in any Info.plist &mdash; there is no Info.plist in
+<code>iosapp/</code> at all &mdash; no document-type registration, no share extension, no incoming-URL
+handling; the only <code>openURL</code> in <code>iosMain</code> is OUTGOING). &rArr; <b>An iPad can SEND
+its DR packet and cannot RECEIVE one back</b>, so an iPad rider who has lost their device cannot open
+their own recovery attachments. The &ldquo;click to action attachments&rdquo; item is therefore not a
+convenience &mdash; <b>it is what makes DR work on the iPad at all</b>, and it shares the one Info.plist
+that TestFlight also needs.</p>
+<p><b>&#11088;&#11088;&#11088;&#11088; TURN THE EMAIL BACK ON &mdash; DECIDED (Fred 17:35, 17:36).</b>
+&ldquo;lets be sure the document is <b>created and email[ed] even if it is saved as a draft</b>. the
+online storage is very important and the doc is not very big.&rdquo; And the reason it is gone:
+&ldquo;we were going to mirror the directory but <b>never got there</b>[;] <b>turning email on again is
+cheap</b>.&rdquo;</p>
+<p>&rArr; <b>SO THIS IS NOT A REVERSAL OF 11-18 &mdash; IT IS A REPLACEMENT THAT NEVER LANDED.</b>
+DRFILE-2026-11-18 removed the email at Fred's own direction (06:24: &ldquo;remove the email and save the
+startup contents in the dr directory&rdquo;) because the mirror was to supersede it. The mirror was never
+built, so the packet has been <b>local-only ever since</b>, and local-only answers nothing if the device is
+gone &mdash; which is the entire scenario this feature exists for.</p>
+<p><b>&#9940; MEASURED: THERE IS NO EMAIL ANYWHERE IN THE BACKUP PATH TODAY.</b>
+<code>GtBackup.build()</code> writes to <code>cache/backup</code>; <code>archive()</code> writes the five
+files to <code>Family.ROOT</code>. No <code>emailAll</code>, no share sheet, nothing that sends. Its own
+comment: &ldquo;send() used to do that, and <b>send() is gone</b>.&rdquo;</p>
+<ul>
+<li><b>A DRAFT IS SUFFICIENT, BY DECISION.</b> A draft syncs to the mail account, so the off-device copy
+exists without delivery. The flow does not have to complete a send to count.</li>
+<li><b>WHY IT IS CHEAP:</b> the five files are already built and sitting in <code>cache/backup</code>, and
+<code>GtArtifactFiles.emailAll(handles, subject, body)</code> is SHARED and implemented on both platforms
+(EMAILALL-2026-11-20; iOS over <code>UIActivityViewController</code>). It is an offer after the build, not
+a new mechanism. &#9888; Known iOS caveat, already handled elsewhere:
+<code>UIActivityViewController</code> drops the subject and cannot pre-address, so both go in the body's
+first line (<code>GtIosPanels.kt:688</code>, <code>:707</code>).</li>
+<li><b>&#9940;&#9940; THE PREF CURRENTLY LIES, AND IT MATTERS MOST HERE.</b> The key is still named
+<code>&quot;sent&quot;</code>, but <code>archive()</code> advances it after the <b>LOCAL</b> write
+succeeds. So &ldquo;this position is backed up&rdquo; means <i>written to this device</i>, and the app
+cannot tell whether the packet ever left it: a rider whose device is then destroyed had a fingerprint
+saying done and nothing online. &rArr; <b>Record EMAILED separately from ARCHIVED</b>, so the app can say
+&ldquo;your last backup never left the device&rdquo; instead of reporting it complete. &#9888; That is a
+change to Android behaviour &mdash; <b>Fred's call, not assumed.</b> (The key name itself must stay:
+renaming it makes every existing install read an empty fingerprint and write one more full set for
+nothing.)</li>
+<li><b>&#9888; SIZE &mdash; the one measured counterpoint to &ldquo;not very big&rdquo;.</b> The
+ARCHIVEGATE comment cites <code>GroupTrack_TRACKS</code> at <b>20 MB on Droid 2</b>, so a full set is
+~21 MB, against Gmail's 25 MB attachment ceiling. Small for most riders; <b>a heavy rider's packet could
+be refused</b>, which would silently defeat the off-device copy. Worth knowing before email is the only
+copy that leaves the device.</li>
+</ul>
+
+<p><b>&#11088;&#11088;&#11088; THE ARRIVAL PLAN, DECIDED (Fred 17:32):</b> &ldquo;the document will be
+placed in downloads and <b>launched with a GroupTrack selection required</b>. that is the plan.&rdquo;
+&rArr; The rider saves the attachment out of the email into Downloads, taps it, and <b>picks GroupTrack</b>
+&mdash; the same shape as Android's chooser. <b>Nothing ingests silently</b>, which is both the simpler
+build and the safer one.</p>
+<ul>
+<li><b>WHAT IT NEEDS ON iOS:</b> document-type registration so GroupTrack appears as a handler for a
+tapped file, plus open-in handling that passes the file to the existing dispatch. The one Info.plist
+serves this, the Bluetooth usage keys and TestFlight &mdash; <b>one file, three jobs</b> (11-24).</li>
+<li>⭐ <b>IT CAN CLAIM BROADLY, AND THAT IS NOT SLOPPY &mdash; THE DISPATCH DECIDES.</b>
+<code>GtFileOpen</code>'s own header: Gmail hands every attachment over as
+<code>application/octet-stream</code> (GPXOPEN-2026-10-09), <b>so an extension cannot be trusted</b> and
+routing is <b>BY CONTENT</b>: XML/GPX-KML first &rarr; a ride (the <code>grouptrack.ride</code> marker)
+&rarr; a recipe (JSON, <code>.gtmaps</code> slots, or an AI route recipe) &rarr; a
+<code>convoyDocType</code> document &rarr; otherwise a message naming what IS accepted, never silent.
+<b>&#9940; Its header also says: do not &ldquo;improve&rdquo; the order or the tests while moving
+them.</b></li>
+<li><b>&#9940; ONE CLAIMANT PER TYPE</b> (ONEOPEN-2026-09-26, learned the hard way on Android): MainActivity
+deliberately stopped claiming <code>application/octet-stream</code> because <b>two &ldquo;GroupTrack&rdquo;
+entries appeared in the chooser</b> and the main screen read the file as a channel link and imported
+nothing. The iOS registration must declare <b>one</b> handler, not two.</li>
+<li>&rArr; <b>AND THE DISPATCH IS ALREADY THE ONE HANDLER:</b> <code>GtFileOpen.receive()</code> is reached
+from a file tapped OUTSIDE the app, from one tapped in our own screen, and from a DIRECTORY tapped in our
+screen (ONEOPEN2-2026-11-17, Fred 11-17: &ldquo;click on an item launches the update. clicking the file
+directory (Map Features) will also launch the same update.&rdquo;). <b>&#9888; But it is NOT a file move
+to commonMain</b> &mdash; measured 11-25, it dispatches to app-only destinations
+(<code>GpxOpen.stageAndOffer</code>, <code>RideImport.importRide</code>, <code>GtRecipes.receive</code>,
+<code>GtPathsAndroid.files</code>), so the 11-24 scope of &ldquo;(a) move GtFileOpen, (b) build the
+arrival&rdquo; needs revisiting: the ROUTING can be shared, the DISPATCH cannot move as it stands.</li>
+</ul>
+<p>&rArr; <b>THE EXCLUSIONS ARE THE DESIGN, NOT A GAP.</b> Everything reacquirable is left out &mdash;
+state and OSM trails, map tiles, the state and OSM downloads &mdash; and what is kept is the rider's own
+history: their tracks, routes and waypoints, and their rider trails. &rArr; <b>So do not spend time on
+this</b> (Fred 17:27): a walked-through recovery is adequate for an emergency tool, and that is a
+decision, not a shortfall.</p>
+<p>⭐ <b>AND THE CODE ALREADY ENCODES THE RIDER-TRAIL DISTINCTION EXACTLY</b>, which is why trails appear
+in an otherwise trail-excluding packet: <code>GtExportAll.trailsGpx</code> selects
+<code>WHERE carto_code_source IN ('import','rider')</code> and its own comment (TRAILEXPORT-2026-11-03)
+says <i>&ldquo;the trails the rider made &mdash; imported from GPX (&lsquo;import&rsquo;) and from tracks
+(&lsquo;rider&rsquo;). The state and OSM trails are not included (everyone gets those).&rdquo;</i> Each is
+written as a <code>&lt;trk&gt;</code> typed <code>grouptrack-trail</code> so the one GPX import brings it
+back as a trail and not a track (ONEIMPORT-2026-11-04). <b>&#9888; That filter is load-bearing for the
+rider's history &mdash; widening it would bulk the packet with data everybody already gets; narrowing it
+would lose the gaps he closed.</b></p>
+<ul>
+<li><b>THE CONTAINER IS A DAY'S SET.</b> The five files land in <code>GroupTrack</code> &mdash; the DR
+directory, a sibling of <code>GroupTrack Map Features</code> / <code>Rides</code> / <code>Maps</code>,
+not a parent of them. Fred: &ldquo;grouptrack is the dr directory, it is on the same level as rides,
+features etc. I believe there are 4 structures.&rdquo;</li>
+<li><b>SUBSET THE FOLDER BY DATE.</b> Fred 17:15: &ldquo;if you would rather subset the directory
+folder by date I have no problem with that&rdquo; &mdash; so <code>GroupTrack/&lt;yyyy-MM-dd&gt;/</code>
+holds that day's five files. ⭐ It makes &ldquo;that day's set&rdquo; a FOLDER instead of a filename
+convention, so nothing parses dates out of names or guesses which GPX belongs to which JSON.</li>
+<li><b>THE PICKER SHOWS ONLY THE CONTROLLING JSON</b> &mdash; one row per day, not five files the rider
+must tap in the right order and get right.</li>
+<li><b>THE RESTORE LAUNCHES THE FOUR RESTORE FUNCTIONS IN SEQUENCE, FROM THAT CONTAINER.</b> The JSON
+is the controlling file for the day; it drives the four, it is not one of five peers.</li>
+<li><b>MAPS LAST, AND THE REASON IS THE REASON.</b> Fred 17:04: maps &ldquo;go right to the queue and
+would fight every other process.&rdquo; Trails must be down before tracks.</li>
+<li><b>WHEN RESTORE IS BUILT: MOVE THE WHOLE FOLDER INTO AN INTERNAL RESTORE DIRECTORY AND AUTOMATE
+THE RECOVERY</b> (Fred 17:18). ⭐ Already the established shape &mdash; <code>GtFileOpen</code>'s convoy
+branch writes into an internal import directory before processing. MOVING rather than copying also makes
+the state visible: a dated folder still sitting in <code>GroupTrack</code> means that day's recovery did
+not complete, which is also the restart point if it is interrupted.</li>
+</ul>
+
+<p><b>&#11088;&#11088;&#11088;&#11088; AND THE PACKET IS A STOPGAP, NOT THE PLAN (Fred 17:22, 17:24).
+THE REAL DR IS A MIRROR OF THE WHOLE APP.</b></p>
+<p>Fred 17:22: &ldquo;this was a stopgap emergency recovery. the real dr plan was to mirror the non map,
+non trail related data in directories and restore in the same manner we read.&rdquo; And 17:24, the whole
+of it: <b>&ldquo;the whole app with the exception of the data that takes the most space, trails and maps,
+will be mirrored with its directory structure. after a new installation a user could restore that saved
+data, download trails and maps, and be running in an hour.&rdquo;</b></p>
+<ul>
+<li><b>THE UNIT IS THE APP'S OWN DIRECTORY STRUCTURE</b>, mirrored as it stands &mdash; not an export
+format. &rArr; <b>RESTORING IS READING:</b> the mirror is already in the shape the ordinary reader
+consumes, so there is no second code path to write or certify. That is the whole advantage over the
+five-file packet, which is an export that must be re-imported.</li>
+<li><b>TWO DELIBERATE EXCLUSIONS, AND THE REASON IS SIZE:</b> trails and maps. Both are re-acquired after
+the restore &mdash; trails by the home state import, maps by the recipe into the download queue &mdash;
+which is why the packet's own JSON being maps-only is survivable.</li>
+<li><b>THE RECOVERY, END TO END:</b> new installation &rarr; restore the mirrored data &rarr; download
+trails &rarr; download maps &rarr; <b>riding within the hour.</b> That is the target to design against.</li>
+<li>⚠ <b>THIS DEMOTES EVERYTHING ABOVE.</b> The dated container, the controlling JSON and the four-in-
+sequence restore are the STOPGAP's requirements. They stay (the stopgap is what exists, and a rider needs
+it before the mirror is built), but they are not the destination and should not be built as though they
+were.</li>
+</ul>
+<p><b>&#9888;&#9888; THE ONE OPEN QUESTION IN THE MIRROR, MEASURED 11-25 &mdash; TRAILS ARE NOT A
+DIRECTORY.</b> &ldquo;Everything except trails and maps&rdquo; is a clean directory exclusion everywhere
+except one place: <b>the trails live in TABLES INSIDE <code>grouptrack_spatial.db</code></b>, in the same
+file as the rider's tracks, waypoints and routes. The sim's copy is <b>543,965,184 bytes</b> and it is
+large <i>because</i> of trails. So the mirror either carries a <b>pruned spatial DB</b> (the rider's
+tables, trails dropped) or carries <b>the rider's artifacts as files</b> and leaves the trails tables to
+the state import. The other space hogs are straightforward excludes &mdash;
+<code>Land_Ownership.geojson.keep</code> (72,218,894 bytes), the OSM and state downloads, and the tile
+stores. <b>Fred to decide; not assumed here.</b></p>
+<p>&#9888; And MARKERDR-2026-11-18 (the next heading) applies to the mirror with full force: a restore
+that loses <code>.schema_2026-09-03A</code> clears every trail silently, which on this plan would happen
+<i>immediately before</i> the trail download &mdash; i.e. it would look like the import failing rather
+than the restore.</p>
+
+<p><b>&#9888;&#9888; THE SEQUENCE CONFLICT, TO SETTLE ONCE &mdash; whatever is wired will encode it
+permanently.</b></p>
+<ul>
+<li><b>This document, above:</b> home state import &rarr; rider trails &rarr; <b>tracks &rarr;
+waypoints</b> &rarr; routes &rarr; maps LAST, with the stated reason that waypoints must precede
+<i>routes</i> (a route's recipe carries <code>anchorLat</code>/<code>anchorLon</code> resolved against
+trailhead waypoints).</li>
+<li><b>Fred, 17:04:</b> trails &rarr; rider trails &rarr; <b>waypoints &rarr; tracks</b> &rarr; maps
+last. &mdash; The pair is reversed, and routes are not named.</li>
+<li>&rArr; The documented reason covers waypoints-before-ROUTES, which both orders satisfy. It does not
+decide tracks against waypoints. <b>That pair is open.</b></li>
+</ul>
+
+<p><b>THREE MEASURED FACTS THAT BEAR ON THE BUILD</b> (all verified in code 11-25, not inferred):</p>
+<ul>
+<li><b>THE SET-LEVEL RESTORE IS ALREADY WRITTEN AND HAS ZERO CALLERS.</b>
+<code>GtFileOpen.receiveDirectory(ctx, dir, bringForward)</code> (<code>:228</code>,
+ONEOPEN2-2026-11-17) lists every file in a folder, calls <code>receive()</code> on each, and collects
+each outcome so one unreadable file does not abandon the rest. <code>grep</code> across app and shared
+returns only its declaration &mdash; it is entry point 3 of the three that note describes, written and
+never wired, on either platform.
+<b>⛔ AND IT MUST NOT BE WIRED AS IT STANDS:</b> it sorts <code>sortedBy { it.name }</code>, and a space
+sorts before an underscore, so <code>GroupTrack maps &lt;day&gt;.json</code> comes FIRST &mdash; the
+download queue would be filled before anything else ran, which is precisely the fight Fred names. Its
+own comment justifies name order on the grounds that &ldquo;the DR position's own recovery steps already
+tell the rider that order&rdquo; &mdash; true for a rider tapping five files, not for a folder run.</li>
+<li><b>TODAY'S DR JSON IS THE MAP RECIPE, AND MAPS ONLY.</b> <code>MapRecipes.kt:15-17</code>: a recipe
+&ldquo;is WHAT the maps covered: its boxes. RESTORE queues those boxes vector + elevation with replace
+OFF &hellip; <b>Trails, tracks, routes and waypoints are never touched.</b>&rdquo; Its recognition rule is
+<code>o.optJSONArray(&quot;slots&quot;) != null &rarr; Kind.MAP</code> (<code>:129</code>), the only other
+kind is <code>Kind.ROUTE</code>, and <code>restore()</code> (<code>:78</code>) goes to
+<code>queueFromRecipe</code> &rarr; <code>enqueueWithElevation</code> per box, then flips
+<code>openQueue</code>. &rArr; <b>The controlling-JSON role is NEW</b>: the manifest field that names the
+day's four files does not exist yet. The fifth file in <code>GtBackup.build()</code> is a COPY of the
+newest <code>grouptrack_maps_*.gtmaps</code>, renamed <code>GroupTrack maps &lt;day&gt;.json</code>
+(RECIPEJSON-2026-11-03).</li>
+<li><b>STEP 1 IS ALREADY AUTOMATIC ON THE DROID, AND IS NOT IN THE CONTAINER.</b> Fred 17:03:
+&ldquo;it is basically the db check. if the db is empty we first offer home state import.&rdquo; Traced:
+<code>ConvoyAuthorityGateScreenV2:214</code> &mdash; gated on <code>storage &amp;&amp; background</code>
+&mdash; calls <code>HomeStateImportController.needsTrailData(context)</code> (<code>:218</code>), which at
+<code>:1749</code> returns HOME STATE when there is no spatial DB file or when
+<code>SELECT COUNT(*) FROM trails</code> is 0, and falls through to the RIDE MAP when the count is
+unreadable or the query throws &mdash; Fred's own rule in that comment: &ldquo;query has to be successful
+to request home state add&hellip; Locked, mid-write or unreadable is not evidence of emptiness, and the
+panel is always available.&rdquo; GATEZERO-2026-10-23 narrowed it to ZERO TRAILS ONLY. True resolves to
+<code>AuthorityState.NeedTrailData</code> and the gate draws
+<code>GtImportFrame { HomeStatePickerScreen(&hellip;) }</code> (<code>:910</code>); backing out
+re-evaluates rather than proceeds, so it is offered again next launch by design.
+&rArr; <b>The iPad needs the same count and the same condition, NOT a gate</b> (Fred 17:06: &ldquo;retrieve
+the record count in the db and if its zero we require&hellip; that is exactly what we are doing on the
+droid&rdquo;). It is cheaper there than on Android: <code>needsTrailData</code> opens the database
+read-only on its own because it runs before the app's connection exists, whereas the iPad already reads
+that database through <code>GtRead</code> (Android constructs one too &mdash;
+<code>SpatialDbManager.kt:561</code>). <b>Carry the failure rule verbatim.</b></li>
+</ul>
 
 <h3>&#9940;&#9940;&#9940; THE ONE HAZARD THAT WILL LOOK LIKE A DEFECT ON THE SIM (MARKERDR-2026-11-18)</h3>
 <p><b>A seed or restore WITHOUT THE DOTFILES SILENTLY CLEARS EVERY TRAIL.</b> This already happened to the

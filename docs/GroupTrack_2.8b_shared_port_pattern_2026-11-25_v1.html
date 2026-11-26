@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack 2.8b — the shared port pattern: panels, common services, common code, launch wiring (2026-11-25 v1)</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--edge:#30363d;--text:#e6edf3;--dim:#8b949e;--accent:#58a6ff;--ok:#3fb950;--warn:#d29922;--bad:#f85149}
+body{background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:1100px;margin:24px auto;padding:0 20px}
+h1{font-size:24px;margin:0 0 4px}h2{color:var(--accent);font-size:19px;margin:28px 0 8px;border-bottom:1px solid var(--edge);padding-bottom:4px}
+h3{font-size:16px;margin:16px 0 6px}
+.card{background:var(--panel);border:1px solid var(--edge);border-radius:8px;padding:12px 16px;margin:10px 0}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:10px;border:1px solid var(--edge);color:var(--dim);margin-right:6px}
+.tag.ok{color:var(--ok);border-color:var(--ok)}.tag.warn{color:var(--warn);border-color:var(--warn)}.tag.bad{color:var(--bad);border-color:var(--bad)}
+code{background:#0b0e12;border:1px solid var(--edge);border-radius:4px;padding:0 4px;font-size:13px}
+pre{background:#0b0e12;border:1px solid var(--edge);border-radius:6px;padding:10px;overflow:auto;font-size:13px}
+table{border-collapse:collapse;width:100%;margin:8px 0}td,th{border:1px solid var(--edge);padding:5px 8px;vertical-align:top;font-size:14px}th{background:#1c2128;text-align:left}
+.muted{color:var(--dim)}.q{color:var(--dim);font-style:italic}
+</style></head><body>
+
+<h1>GroupTrack 2.8b — THE SHARED PORT PATTERN</h1>
+<p class="muted">Panels · common services · common code · launch wiring. Written 2026-11-25 from map row 1 (<code>map.queues</code>), the first row taken
+through the whole cycle. Branch <code>2.8</code>, starting HEAD <code>c9f5e6ace</code>. Fred 12:14: <span class="q">"prepare one view of this process so we have a
+pattern and guideline for panels and common service, common code, and launch wiring."</span></p>
+
+<div class="card"><b>PURPOSE.</b> The repeatable method for every remaining 2.8b row: how a screen, its rules, its host wiring and its launch get
+to ONE code base that both Android and the iPad execute. <b>SCOPE.</b> Rows that exist on Android and must run on the iPad. <b>STATE.</b>
+Row 1 built through all layers on both platforms, all nine patches green on both builds; not yet committed, deployed or walked. <b>GOVERNING RULES</b> (Fred 11-25 11:17,
+verbatim in the 11-25 start-here doc): all screens in commonMain; every panel on the chrome standard; toasts and messages are handled by KMP; old notes
+and cards in the code are dated and ignored; no new service or code change without agreement; launches wired through the shared Android/iOS launch model;
+<span class="q">"we are treading lightly and making the minimal changes for iOS compliance."</span> And 11:37: <span class="q">"I do not want explicit iOS code
+that duplicate the android code. I want shared code wherever possible."</span></div>
+
+<h2>1 · THE FOUR LAYERS, AND WHERE EACH LIVES</h2>
+<table>
+<tr><th>layer</th><th>lives in</th><th>what it is</th><th>row 1 example</th></tr>
+<tr><td><b>RULES</b> (decisions)</td><td>commonMain — one copy</td><td>Pure functions, no I/O, no platform. RULEMOD-2026-11-17's admission test
+(<code>GtJobSurface.kt:41-57</code>): a DECISION · no I/O · provable by transcript · its violation is silent.</td><td><code>GtQueueRules</code> — promote, remove,
+cancelAll, clearCompleted, the 1..4 clamp</td></tr>
+<tr><td><b>RUNTIME</b> (state, files, workers)</td><td>each platform</td><td>Holds the list, writes the file, runs the work. Calls the RULES for every
+decision; adds only save / log / reschedule / worker-cancel.</td><td>Android <code>DownloadQueueManager</code> (WorkManager) · iPad
+<code>IosDownloadQueue</code> (foreground fetch)</td></tr>
+<tr><td><b>SCREENS</b> (panels)</td><td>commonMain — one copy</td><td>The body relocated from Android unchanged. Everything a shared screen cannot do
+itself becomes a parameter the host supplies.</td><td><code>GtDownloadQueuePanel</code>, <code>GtDownloadQueueSummary</code>,
+<code>GtDownloadQueueMonitor</code></td></tr>
+<tr><td><b>LAUNCH</b></td><td>commonMain launcher + one line per host</td><td>A shared launcher object (open/close/showing); each host's
+<code>actions</code> entry calls <code>open()</code>; each host draws the shared screen while <code>showing</code>.</td><td><code>QueuesLauncher</code> +
+<code>"map.queues" to { QueuesLauncher.open() }</code></td></tr>
+</table>
+<p>Platform code that remains is ONLY the host's hand-off: its runtime, its clock, its date format, its chrome slots. Row 1 measured: Android's 769-line
+panel became a 50-line adapter; the iPad's host adds one adapter of ~25 lines; the screen exists once.</p>
+
+<h2>2 · THE ORDER OF WORK FOR ONE ROW</h2>
+<div class="card">
+<ol>
+<li><b>Read the start-of-day docs first</b> — this is the final pass, not the first (Fred 11-25 09:20). Markers are answers.</li>
+<li><b>Baseline build, both platforms, before any patch.</b>
+<pre>./gradlew :grouptrack-shared:compileKotlinIosSimulatorArm64 :grouptrack-shared:compileAndroidMain :app:compileGoogleDebugKotlin 2>&amp;1 | grep -E "^e:|BUILD|FAILED"</pre></li>
+<li><b>Map the row's call stack on both platforms, at "exists and is called" level only</b> (Fred 11:20: <span class="q">"no decomposition service or
+function beyond they exist and are called"</span>). Table: action entry · chrome slot · panel · runtime — present / called on each side.</li>
+<li><b>Look in commonMain before concluding anything is missing</b> — by declared name AND by the screen's own text, under any name. iosMain holds no
+panels (Fred 11:22).</li>
+<li><b>Run <code>gt_closure</code> on the screen symbols.</b> A long tail through one Android object = a SEAM, not a move.</li>
+<li><b>PAIR ANDROID'S SERVICE AGAINST THE iOS CONTEMPORARY, member by member.</b> <span class="tag bad">the step that found row 1's gap</span>
+Fred 11:34: <span class="q">"the task is to pair the android code to the current model because shortcuts are taken in building the test harness."</span>
+The harness certifies what it exercised; a screen's buttons were never exercised, so their members were never ported. Row 1: 5 of 11 operations
+absent from <code>IosDownloadQueue</code>.</li>
+<li><b>Find the primitive for every platform line</b> (section 4). If none exists, say so and use the existing host-supplies pattern — do not build one.</li>
+<li><b>Agree every creation with Fred before writing it</b> — name it, size it, say why the existing thing does not cover it.</li>
+<li><b>Patch in this order, one file per patch, both platforms built after each:</b> shared RULES → iOS runtime calls them → Android runtime calls them →
+shared SCREEN → Android host adapter → shared chrome frame → Android frame call → iPad launch wiring.</li>
+<li><b>Commit, deploy both, walk the row on both</b> — every button, HELP lands on the section, ✕ closes.</li>
+</ol></div>
+
+<h2>3 · SCREENS — THE RELOCATION RULES</h2>
+<div class="card">
+<ul>
+<li><b>Same package as the Android original</b> (<code>com.geeksville.mesh.convoy</code> / <code>.grouptrack</code> under commonMain) so no call site's
+imports change.</li>
+<li><b>A distinct <code>Gt…</code> name for the shared screen</b> (<code>GtDownloadQueuePanel</code>); the Android original keeps its NAME and SIGNATURE as
+the HOST ADAPTER, so every Android caller is untouched.</li>
+<li><b>Callbacks and values, not a new interface</b> — the <code>GtAlertSettingsPanel</code> template: <span class="q">"this panel raises callbacks and does
+not own dialogs."</span> Fred chose option 2 (11:50). Callbacks thread into the private row composables.</li>
+<li><b>CODE RULE 1: no defaults</b> on the shared screen's parameters — each host wires every one; the patch script checks all are passed
+(row 1: 16/16).</li>
+<li><b>Body unchanged.</b> Only the platform lines are swapped. Pre-existing behaviour is carried faithfully, bugs included (e.g. HOLD does not
+recompose until the queue changes, on both).</li>
+<li><b>A host-drawn piece is a <code>@Composable</code> slot</b> (<code>panel: @Composable () -&gt; Unit</code>) so its callbacks are wired once, in the host.</li>
+</ul></div>
+
+<h2>4 · PRIMITIVES — WHAT REPLACES EACH ANDROID LINE</h2>
+<table>
+<tr><th>Android</th><th>shared replacement</th><th>note</th></tr>
+<tr><td><code>"%,d".format</code> · <code>String.format("%.1f")</code></td><td><code>GtFmt.d(v)</code> · <code>GtFmt.f(x, n)</code></td><td>GTFMT-2026-11-07, certified vs Java</td></tr>
+<tr><td><code>QueueEntry</code> / <code>QueueStatus</code> / <code>DownloadType</code></td><td><code>GtQueueEntry</code> / <code>GtQueueStatus</code> / <code>GtDownloadType</code></td><td>same 21 fields, same order, same enum names; Android converts with <code>toAppEntry</code> / <code>toGt</code></td></tr>
+<tr><td>colours</td><td><code>Gt.panel / text / dim / accent / bad</code></td><td><code>GtPanel.kt:77</code>; never write a colour on a screen (11-24 colour standard)</td></tr>
+<tr><td><code>System.currentTimeMillis()</code></td><td>host supplies <code>nowMs: () -&gt; Long</code></td><td><b>shared code has no clock or time zone</b> (<code>RideStats.kt:111</code>). Android: <code>System.currentTimeMillis</code>; iPad: <code>IosClock.epochMs</code></td></tr>
+<tr><td><code>SimpleDateFormat("MMM d h:mm a", Locale.US)</code></td><td>host supplies <code>fmtDate: (Long) -&gt; String</code></td><td><code>GtTime.local</code> has digits only. Android passes its SimpleDateFormat; iPad passes <code>NSDateFormatter</code> (same pattern, <code>en_US_POSIX</code>)</td></tr>
+<tr><td><code>LocalContext</code> for prefs</td><td>a callback (<code>onLoadMaxConcurrent</code>) or <code>GtSettings</code></td><td>iPad: <code>IosSettings()</code>, the same store name as Android's SharedPreferences</td></tr>
+<tr><td><code>GtHelpButton</code> (app-only)</td><td><code>GtPanel</code> HELP → <code>chrome.openHelp(id)</code></td><td>help is chrome standard; do not touch</td></tr>
+</table>
+
+<h2>5 · PANELS — THE CHROME STANDARD</h2>
+<div class="card">
+<ul>
+<li><b>Every frame is <code>GtPanel</code></b> (<code>GtPanel.kt:216</code>): title, HELP (by help id), ISSUE, ✕; MOVE and HIDE when <code>stays = true</code>.
+Fred 12:05 chose this over keeping Android's older inline frame, so Android's queue frame gained ISSUE / MOVE / HIDE.</li>
+<li><b>The frame is a shared composable too</b> (<code>GtDownloadQueueMonitor</code>) — both hosts call it; neither re-builds it.</li>
+<li><b>Chrome SLOTS</b> (<code>GtPanelChrome</code>: <code>QueueSummary</code>, <code>DownloadSettingsPanel</code>, …) are implemented per host, and each
+implementation CALLS THE SHARED SCREEN. A "not attached yet" text in a slot is the marker of an unported row.</li>
+<li><b>A chrome object that needs screen state</b> gets a nullable slot set by the screen — the <code>opener</code> pattern, CODE RULE 1 reason stated
+(the chrome is an object and outlives the screen). Row 1: <code>GtPanelChromeIos.queue</code>, set where <code>dlQueue</code> is built. Unset = log and
+say so on screen (SKIPLOUD), never blank.</li>
+</ul></div>
+
+<h2>6 · LAUNCH WIRING — THE SHARED STANDARD</h2>
+<div class="card">
+<p><b>THE STANDARD ALREADY EXISTED</b> (Fred 12:11 pointed at it): <code>RidesLauncher</code> (<code>RidesScreen.kt</code>), <code>RadioConfigLauncher</code>,
+<code>ConfigReviewLauncher</code>. Every row follows it:</p>
+<pre>// commonMain, beside the screen
+object QueuesLauncher {
+    var showing by mutableStateOf(false)
+    fun open() { showing = true }
+    fun close() { showing = false }
+}
+// each host's actions bridge -- the ONLY per-row launch line
+"map.queues" to { QueuesLauncher.open() },
+// each host draws the SHARED frame while showing
+if (QueuesLauncher.showing) GtDownloadQueueMonitor(..., onClose = { QueuesLauncher.close() }) { host panel }</pre>
+<ul>
+<li><b>The bridge decides</b> (<code>GroupTrack.kt:63</code>): a menu row is live only if the host's <code>actions</code> map has its id; otherwise it greys
+out "not attached yet". The menu, the rows, their labels and help ids are already shared (<code>LaunchModules</code>,
+<code>GroupTrackLaunchLayer</code>).</li>
+<li><b>No per-host open flag.</b> Row 1's first iPad draft used a local <code>queuesOpen</code>; withdrawn for the launcher. Android still has its local
+<code>queuesOpen</code> (four openers) — see open items.</li>
+</ul></div>
+
+<h2>7 · THE PATCH METHOD — WHAT EACH SCRIPT MUST DO</h2>
+<div class="card">
+<ul>
+<li>Dated name, never reused (a fix is <code>_v2</code>, the old one renamed <code>_DO_NOT_RUN_&lt;reason&gt;</code>). First output line names every
+creation. One file, or say why not (row 1 had two two-file patches, both stated up front).</li>
+<li>Dry run by default; Claude runs it against the live repo from the container BEFORE Fred is given the apply command.</li>
+<li>Anchors must match exactly once; check the PREMISE (the file is the one expected, the shared target exists, the previous patch is applied); replace a
+block by VERIFIED LINE RANGE (first line, last line, the line after, markers inside).</li>
+<li>Post-checks count, they do not test absence across a whole file — a phrase that also sits in a comment makes "absent" fail (5b v1).</li>
+<li>Backup first; on a failed verify restore; a two-file patch restores both.</li>
+<li><b>⛔ THE ESCAPE TRAP (twice on 11-25):</b> a <code>\u25BC</code>-style escape that Claude writes into a file is saved as the GLYPH, so a
+relocation stops being faithful (4a v1) and an anchor stops matching (4c v1). Build escapes from characters (<code>chr(92) + 'u203a'</code>) and
+self-test that the file holds the escape text, not the glyph.</li>
+<li><b>After a fast build (~7-8 s), prove it compiled:</b> the class from <code>compileGoogleDebugKotlin</code> must be newer than the changed source
+(<code>app/build/intermediates/built_in_kotlinc/googleDebug/compileGoogleDebugKotlin/classes/…</code>). Done after 3, 4b, 4c, 5b — all real.</li>
+</ul></div>
+
+<h2>8 · ROW 1 — THE WORKED EXAMPLE</h2>
+<table>
+<tr><th>#</th><th>script</th><th>files</th><th>what</th><th>build</th></tr>
+<tr><td>1</td><td><code>queuerules_2026-11-25_v1</code></td><td>new shared <code>queue/GtQueueRules.kt</code></td><td>the five decisions + clamp</td><td>✅ 23s</td></tr>
+<tr><td>2</td><td><code>iosqrules_2026-11-25_v1</code></td><td><code>GtIosDownloadQueue.kt</code></td><td>iPad runtime: <code>queueState</code> + 7 operations calling the rules; its own clamp replaced</td><td>✅ 13s</td></tr>
+<tr><td>3</td><td><code>droidqrules_2026-11-25_v2</code></td><td><code>ConvoyDownloadQueue.kt</code></td><td>Android runtime calls the same rules; <code>toGtEntry</code> reverse mapping</td><td>✅ verified recompiled</td></tr>
+<tr><td>4a</td><td><code>queuepanel_2026-11-25_v2</code></td><td>new shared <code>convoy/GtDownloadQueuePanel.kt</code></td><td>panel + summary relocated, 632 lines</td><td>✅ 21s</td></tr>
+<tr><td>4b</td><td><code>droidqpanel_2026-11-25_v1</code></td><td><code>ConvoyDownloadQueuePanel.kt</code> + <code>toGt</code> internal</td><td>Android host adapter, 769 → 50 lines</td><td>✅ verified</td></tr>
+<tr><td>4c</td><td><code>droidqsum_2026-11-25_v2</code></td><td><code>MapScreens.kt</code></td><td>Android summary calls the shared one</td><td>✅ verified</td></tr>
+<tr><td>5a</td><td><code>queuemonitor_2026-11-25_v1</code></td><td>shared panel file</td><td>shared frame on <code>GtPanel</code></td><td>✅ 21s</td></tr>
+<tr><td>5b</td><td><code>droidqmonitor_2026-11-25_v2</code></td><td><code>GroupTrackScreen.kt</code></td><td>Android's inline frame → shared frame</td><td>✅ verified</td></tr>
+<tr><td>5c</td><td><code>iosqlaunch_2026-11-25_v2</code></td><td><code>GtIosPanels.kt</code> + shared <code>QueuesLauncher</code></td><td>iPad launch, frame, chrome summary, host adapter</td><td>✅ 21s</td></tr>
+</table>
+<p class="muted">Withdrawn: <code>iosqops_2026-11-25_v1</code> (duplicated Android's rules in iosMain — replaced by shared GtQueueRules).</p>
+
+<h2>9 · OPEN ITEMS FROM ROW 1</h2>
+<div class="card">
+<ul>
+<li><span class="tag warn">to do</span> <b>Android onto <code>QueuesLauncher</code></b>: replace its local <code>queuesOpen</code> (actions entry, conversion panel
+<code>onQueue</code>, RESTOREQUEUE, the map pill, the frame) so both hosts use one launch flag.</li>
+<li><span class="tag warn">to do</span> <b>Commit, deploy both, walk row 1 on both</b> — RELEASE / CANCEL WORKERS / HOLD / RESUME / CANCEL scope / CLEAR /
+promote ▲ / X / slots ± / filters / HELP lands on <code>map.queues</code> / ISSUE / MOVE / HIDE / ✕. Android changed in five files and must be re-walked.</li>
+<li><span class="tag warn">known</span> <b>The iPad cannot download yet:</b> <code>dlQueue</code>'s fetch logs and returns false (R1QUEUE-2026-11-22) — the
+screen manages and shows the queue; a job does not run until the bytes fetch is wired (C28-26401, pre-certification list).</li>
+<li><span class="tag warn">known</span> <b>iPad cancel/remove have no worker to stop</b> — the fetch is synchronous; correct today, revisit when the real fetch
+lands.</li>
+<li><span class="tag bad">defect found, not fixed</span> <b><code>GtIosRideEnv.kt:72</code> uses <code>978300800</code></b> for the 1970→2001 offset; the
+correct value is <b>978307200</b> (6,400 s off). <code>epochMsToLocalDate</code> can report the previous day for a time within ~1 h 47 m after local
+midnight. The new queue formatter uses the correct value.</li>
+<li><span class="tag">note</span> 11-25 handoff v163 and checklist v35 are byte-for-byte copies of 11-24's apart from the title line; 11-25's content lives
+only in the start-here doc.</li>
+</ul></div>
+
+<p class="muted">Sources: this session's patches and dry runs against the live repo; <code>GtJobSurface.kt:41-57</code> (RULEMOD); <code>GtAlertSettingsPanel.kt</code>;
+<code>GtPanel.kt:216</code>; <code>RidesScreen.kt</code> (<code>RidesLauncher</code>); <code>GroupTrack.kt:63</code>; <code>RideStats.kt:111</code>; the 11-25 start-here doc.</p>
+</body></html>

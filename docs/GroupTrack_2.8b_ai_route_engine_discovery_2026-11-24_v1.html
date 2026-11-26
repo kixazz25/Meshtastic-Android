@@ -1,0 +1,660 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack 2.8b &mdash; the AI route engine as discovered, 2026-11-24</title></head><body>
+<h1>GroupTrack 2.8b &mdash; THE AI ROUTE ENGINE, AS DISCOVERED 2026-11-24</h1>
+
+<p><b>WHY THIS DOC EXISTS.</b> [stated] Fred, 19:57: <i>&ldquo;I think you need to document the discovery on this
+process. [I] didn't do too bad remembering how it was constructed. cannot [for] the life of me figure why they return
+different routes from the same db.&rdquo;</i> The engine was mapped end to end on 11-24 while chasing the
+Droid-vs-iPad route divergence. <b>None of it was written down outside that session.</b> This doc is the reference so
+the next session starts from the map instead of re-deriving it. Every line number was read on 11-24 against
+<code>grouptrack-shared/src/commonMain/kotlin/com/grouptrack/shared/route/GtRoute.kt</code> at commit
+<code>32464b0b6</code>. <b>Where something was not read, this doc says so rather than filling the gap.</b></p>
+
+<h2>0 &mdash; THE ONE-PARAGRAPH SHAPE</h2>
+<div style="border:3px solid #3fb950;padding:10px 14px;margin:12px 0">
+<p>The AI route is <b>not</b> a route search that collects scenery along the way. It is the inverse: <b>find the
+features, work out which combinations of them are reachable in a round trip inside the mileage window, score each
+combination, and return the best six.</b> The engine's own header states the objective at <code>:61</code> &mdash;
+<code>poiValue - miles * 0.06</code>, described there as <i>&ldquo;a CHEAPEST-PATH search wearing a POI
+costume&rdquo;</i> &mdash; and at <code>:82</code>, <i>&ldquo;a POSITIVE-SCORE FLOOR IS REQUIRED.&rdquo;</i>
+The governing design rule is at <code>:68</code>: <b>&ldquo;PENALISE, DO NOT FILTER&rdquo;</b> &mdash; rather than
+generating thousands of candidates and ranking them, find the best, penalise its edges, and re-solve, so ride 2 is the
+best ride that AVOIDS ride 1.</p>
+</div>
+
+<h2>1 &mdash; THE PIPELINE, STAGE BY STAGE</h2>
+<p>The code numbers its own sections in comments. Stages 6&ndash;9 were read line by line on 11-24; the earlier
+stages were read in part, and this doc marks which.</p>
+
+<h3>Stages 1&ndash;5 &mdash; the graph (read in part)</h3>
+<ul>
+<li><b>The corridor box</b> &mdash; <code>corridorBox:649-671</code>. <b><code>radiusMi = req.milesHigh / 3.0</code></b>
+(<code>:668</code>), so 26.7 mi for an 80-mile ceiling. <code>:650-663</code> records why: the old formula took half
+the ceiling and gave a 70&times;70 box, 53,711 edges and <b>an OutOfMemoryError</b>. Re-measured at Panguitch, the
+ceiling/3 box gave <b>40,558 edges instead of 129,474 and produced IDENTICAL routes</b> &mdash; verified, not assumed.
+<code>:665</code> warns the margin is thin: if it OOMs again, unbox the distance table rather than shrink the box,
+because <i>&ldquo;past here the routes start getting worse.&rdquo;</i></li>
+<li><b>Junction detection</b> &mdash; <code>cellKey:636-641</code> buckets endpoints into cells of
+<code>SNAP_FT / 5280.0 / 69.0</code> degrees; pass A at <code>:755-775</code> accumulates
+<code>touch[k] = HashSet&lt;tid&gt;</code> and <code>spread[k] = ArrayList&lt;point&gt;</code>. <b>25 ft, and the
+figure is not arbitrary</b> &mdash; <code>:93</code> records a sweep at 0/10/25/50/100/150 ft: <i>&ldquo;degree-4
+nodes climb to 85% by 50 ft, which is parallel tracks being WELDED TOGETHER rather than crossings&hellip; anything
+above 25 ft is invention.&rdquo;</i></li>
+<li><b>Adjacency</b> &mdash; built at <code>:820-821</code> from the ordered <code>edges: ArrayList&lt;Edge&gt;</code>,
+so per-node neighbour order is <b>deterministic given a deterministic edge list</b>.</li>
+<li><b>Components</b> &mdash; <code>:1893-1905</code> numbers them by walking <code>g.lAdj.keys</code>, a
+<b>HashMap key iteration</b>. <code>:1421</code> then picks <code>anchorNet = comps.maxByOrNull { it.size }</code>,
+which takes <b>the first on a size tie</b>.</li>
+<li><b>Origins</b> &mdash; <code>:1963</code> logs <code>origins: N trail(s) -&gt; M network(s)</code>.</li>
+</ul>
+
+<h3>Stage 5b &mdash; feature discovery: <code>loadPoisGrid:1695-1735</code></h3>
+<ul>
+<li>One SQL query: <code>SELECT name,fclass,lat,lon FROM reference_points WHERE lat BETWEEN ? AND ? AND lon BETWEEN ?
+AND ?</code>, bound at <code>:1710</code>.</li>
+<li>⛔ <b>IT HAS NO LAND OR RESTRICTION FILTER OF ITS OWN</b> &mdash; only the box bounds and <code>fc in JUNK</code>
+(<code>:1716</code>). <b>This is why matching the TRAIL filters on both devices changed nothing</b> (Fred, 19:00):
+the feature query never consulted them.</li>
+<li>Attachment: a 3&times;3 cell sweep, nearest usable graph node by <code>if (d &lt; bd)</code> &mdash;
+<b>a STRICT test, so the first row wins a tie</b> &mdash; and the POI is kept only if
+<code>bd &lt;= POI_BUF_MI</code> (0.5 mi). <b>A POI with no usable node within half a mile is discarded entirely.</b></li>
+<li>⚠ <b>The box doubles are bound as TEXT via raw <code>Double.toString()</code></b>, at all seven bbox call sites
+(<code>:367 :404 :437 :581 :732 :871 :1710</code>), <b>none through <code>GtJava.jd</code></b> &mdash; the service
+this project built precisely because Double text differs JVM vs Native (<code>GtJava.kt:24</code>, certified in 15a
+over 524,768 checks). Round-trip may make it harmless; <b>UNMEASURED, so not claimed.</b> Note also that
+<code>:1710</code> binds <code>box[0],box[1],box[2],box[3]</code> while <code>:367/404/437/732</code> bind
+<code>box[1],box[0],box[3],box[2]</code> &mdash; reversed. Understand before touching.</li>
+<li><b>The cap:</b> <code>:1993-2002</code>, <code>if (poiAt.size &gt; maxPoi)</code> &mdash; sorts descending by
+<code>scoreSet</code>, <code>.take(24)</code>, then <code>poiAt.keys.retainAll(top)</code>. <b>The losers are
+DELETED, not reordered.</b> <code>:1988-1992</code> records how much it matters: <i>&ldquo;capping at 14 gave rides of
+3 features, at 24 the same ground gave rides of 7.&rdquo;</i></li>
+<li>⭐ <b><code>:2029</code> <code>var poiNodes = poiAt.keys.toList()</code></b> &mdash; <code>poiAt</code> is a
+<b>HashMap</b>, so <b>this line freezes hash iteration order into a List</b>, and that List seeds every stage below.</li>
+</ul>
+
+<h3>Stage 6 &mdash; the distance matrix (<code>:2039-2043</code>)</h3>
+<p><code>val terms = (origins.map { it.first } + poiNodes).distinct()</code>, then one full
+<code>dijkstra(t, g, pen)</code> per term, with <code>dist(a,b)</code> reading out of it. The queue is
+<code>JPQ</code> (<code>:204</code>), a hand-written heap whose header (<code>:36</code>) says it reproduces
+<i>&ldquo;java.util.PriorityQueue's own sift-up / sift-down, so equal distances leave in the same order&rdquo;</i>
+&mdash; <b>shared code, identical on both platforms by construction.</b> <code>:932</code>'s improvement test is
+<b>strict</b> (<code>if (nd &lt; (dist[nb[0]] ?: MAX))</code>), so an equal-cost alternative never displaces the
+incumbent.</p>
+
+<h3>Stage 7 &mdash; the out-and-back filter (<code>:2051-2058</code>)</h3>
+<div style="border:3px solid #d29922;padding:10px 14px;margin:12px 0">
+<pre>val keep = poiNodes.filter { p -&gt;
+    val a = dist(ok, p); val b = dist(p, ok)
+    a != null &amp;&amp; b != null &amp;&amp; a + b &lt;= req.milesHigh
+}
+perOrigin[ok] = keep
+log.i { "origin $onm: ${keep.size} of ${poiNodes.size} features usable" }</pre>
+<p>[stated] Fred described this before reading it, 19:43: <i>&ldquo;I think what happens is we measure the shortest
+round trip to the poi and only include the poi if i[t] is reachable in a round trip.&rdquo;</i> <b>Correct, and the
+code's own section title is &ldquo;out-and-back filter&rdquo;.</b> <code>:2047-2049</code> explains the leverage:
+removing ONE feature removes every combination containing it &mdash; <i>&ldquo;dropping 4 of 14 leaves 1,024 instead
+of 16,384, and none are ever generated.&rdquo;</i></p>
+<p><b>MEASURED REJECTION RATE:</b> 9 of 24 at Broken Ridge (Droid 1, 11-24). The frozen 2.7e gold records
+<i>&ldquo;55 of 81 features usable&rdquo;</i> on other ground (<code>RouteExplorerCertOld.kt:1741</code>) &mdash;
+26 of 81 thrown out. <b>Roughly a third of candidates die here, so its boundary is densely populated.</b></p>
+</div>
+
+<h3>Stage 8 &mdash; the pair table and the clique bound (<code>:2070-2101</code>)</h3>
+<ul>
+<li><b>The pair test:</b> the minimum ride holding both A and B is <code>origin-&gt;A + A-&gt;B + B-&gt;origin</code>.
+If <code>d1 + d2 + d3 &gt; req.milesHigh</code> the pair <b>can never share a ride</b>, so every combination holding
+both is dead <b>at every size</b> and never generated. <code>:2074-2076</code>: without it, <i>&ldquo;sizes 13 down
+to 6 generated and rejected 3,302 combinations for ZERO results &mdash; most of the old 67.8s.&rdquo;</i></li>
+<li><b>The clique bound:</b> <code>:2090-2100</code> builds a <b>greedy clique</b> &mdash; for each
+<code>seed in pois</code>, add every <code>p</code> with no impossible pair against the group so far, and keep the
+largest. <code>ceilingSize</code> is the result, logged at <code>:2101</code> as
+<code>descent starts at N features (of M)</code>.</li>
+<li>⚠ <b>A greedy clique is order-dependent by construction.</b> Adding one feature forecloses others, so a different
+traversal order over the same inputs can return a different-sized clique. Both loops iterate
+<code>pois = perOrigin[ok]</code>, a List &mdash; ordered, but its order was inherited from <code>:2029</code>. And
+<code>if (grp.size &gt; best)</code> is <b>strict</b>, so the first clique wins a size tie.</li>
+</ul>
+
+<h3>Stage 9 &mdash; the descent (<code>:2103-2201</code>)</h3>
+<ul>
+<li><code>:2156</code> <b><code>val ranked = poiNodes.sortedByDescending { scoreSet(listOf(it), poiAt) }</code></b>
+&mdash; [stated] Fred's <i>&ldquo;loaded in a table descending by the value of the feature&rdquo;</i>, verbatim.
+<b>Kotlin's sort is STABLE</b>, so every tie and near-tie keeps the order <code>poiNodes</code> handed it.</li>
+<li><code>:2157</code> <code>val working = ArrayList&lt;Long&gt;()</code>, filled from <code>ranked</code> with
+<b>two early exits</b>: <code>if (working.size &gt;= workingMax) break</code> (40) and
+<code>if (survivorsOf(&hellip;) &gt;= enrichN) break</code> (20). ⚠ <b>The second means WHERE THE SEARCH STOPS
+depends on what got in first</b>, not only on what is in the table.</li>
+<li>Per origin, <code>pool = working.filter { it in perOrigin[ok] }</code>, then sizes descend from
+<code>minOf(pool.size, testedCeil[ok] ?: ceilingSize)</code> <b>down to 1</b> (AIFEATFLOOR-2026-11-10: one feature is
+enough for a ride). Within a size, <b>the longest ride first</b> &mdash; <code>:2106</code>: <i>&ldquo;a rider who
+asked for up to milesHigh wants the fullest.&rdquo;</i></li>
+<li><code>:2201</code> logs <code>working array N feature(s) of M; G combos, K killed by the pair table, S solved</code>.</li>
+<li><b>Enrichment:</b> <code>:2221-2227</code> sorts candidates
+<code>compareByDescending { combo.size }.thenByDescending { miles }</code> (stable again) and enriches only the top
+<code>enrichN = 20</code>; <code>:2282</code> logs the result.</li>
+<li><b>Return fill and variations</b> (AIRETURNFILL-2026-11-11): <code>:2299</code> / <code>:2362-2366</code> penalise
+used edges with <code>PENALTY = 2.2</code> so the ride comes back by another trail and fills toward the ceiling;
+<code>:2351</code> rejects anything over <code>MAX_RETRACE_PCT</code>.</li>
+<li><b>The six:</b> <code>:2428</code> <code>for (c in finalC.take(wantRides))</code>, logged at <code>:2430</code> as
+<code>ride: N mi, K features</code>.</li>
+</ul>
+
+<h2>2 &mdash; EVERY CONSTANT AND CAP, IN ONE PLACE</h2>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>line</th><th>name</th><th>value</th><th>what it governs</th></tr>
+<tr><td><code>:242</code></td><td><code>SNAP_FT</code></td><td>25.0 ft</td><td>junction tolerance; swept and
+justified at <code>:93</code>. Above 25 ft parallel trails weld together.</td></tr>
+<tr><td><code>:243</code></td><td><code>CAUTION_FT</code></td><td>10.0 ft</td><td>&mdash;</td></tr>
+<tr><td><code>:244</code></td><td><code>POI_BUF_MI</code></td><td>0.5 mi</td><td>a POI must sit within this of a
+usable node or it is discarded</td></tr>
+<tr><td><code>:255-256</code></td><td><code>SNAP_ANCHOR_MI</code> / <code>SNAP_POINT_MI</code></td><td>2.0 / 0.5 mi</td>
+<td>start and rider-point snapping</td></tr>
+<tr><td><code>:260</code></td><td><code>PENALTY</code></td><td>2.2</td><td><b>route diversification</b> &mdash;
+penalise ride 1's edges so ride 2 avoids it. <b>NOT a road penalty.</b></td></tr>
+<tr><td><code>:495-496</code></td><td><code>WATER</code> / <code>VIEW</code></td><td>spring / peak, cliff, volcano</td>
+<td>score classes</td></tr>
+<tr><td><code>:510</code></td><td><code>USERPIN_BASE</code></td><td>60.0</td><td>a user pin outweighs any natural
+feature twentyfold</td></tr>
+<tr><td><code>:531</code></td><td><code>JUNK</code></td><td>county, city, town, tree, village&hellip;</td>
+<td>JUNKCLASS-2026-08-26: <i>settlements are not features to ride to</i></td></tr>
+<tr><td><code>:668</code></td><td><code>radiusMi</code></td><td><b>milesHigh / 3.0</b></td><td>the corridor box.
+26.7 mi at an 80-mile ceiling. <b>Not 40 mi.</b></td></tr>
+<tr><td><code>:1852</code></td><td><code>wantRides</code></td><td>6</td><td>rides returned</td></tr>
+<tr><td><code>:1860</code></td><td><b><code>workingMax</code></b></td><td><b>40</b></td><td>the working array cap.
+<b>40 FEATURES, not 40 miles</b> &mdash; the likely source of the remembered &ldquo;40&rdquo;.</td></tr>
+<tr><td><code>:1863</code></td><td><code>enrichN</code></td><td>20</td><td>candidates enriched; also the
+<code>survivorsOf</code> early-exit threshold</td></tr>
+<tr><td><code>:1864</code></td><td><code>maxPoi</code></td><td>24</td><td>the feature cap. Fires only on
+<code>&gt; 24</code>.</td></tr>
+<tr><td><code>:898-912</code></td><td><code>scoreSet</code></td><td><code>base / (1 + 0.22(n-1))</code></td>
+<td>per-class diminishing returns, <b>counted in arrival order</b></td></tr>
+<tr><td><code>:61</code></td><td>the objective</td><td><code>poiValue - miles * 0.06</code></td><td>miles are
+penalised against features</td></tr>
+</table>
+
+<h2>3 &mdash; WHY THE SAME DATABASE RETURNS DIFFERENT ROUTES</h2>
+<div style="border:3px solid #f85149;padding:10px 14px;margin:12px 0">
+<p>[stated] Fred, 19:57: <i>&ldquo;cannot [for] the life of me figure why they return different routes from the same
+db.&rdquo;</i> <b>The answer is not that the data differs. It is that this engine is built to AMPLIFY a last-bit
+difference into a different route, and it has to be.</b></p>
+<p>To return six rides in under a second from a 2,891-trail network, the engine prunes hard and early, and <b>every
+prune is a knife-edge decision</b>. Each of these converts an arbitrarily small numeric difference into a different
+branch:</p>
+<ol>
+<li><b><code>a + b &lt;= 80.0</code></b> (<code>:2055</code>) &mdash; a float comparison against a hard constant.
+<code>a</code> and <code>b</code> are Dijkstra sums of hundreds of haversines. A POI whose round trip lands near
+80.000 mi is <b>admitted or expelled by the ninth decimal</b>, and the loser takes every combination containing it.</li>
+<li><b><code>d1 + d2 + d3 &gt; 80.0</code></b> (<code>:2084</code>) &mdash; same, but it kills a <b>pair</b>, and with
+it a whole branch of the enumeration at every size.</li>
+<li><b>The greedy clique</b> (<code>:2090-2100</code>) &mdash; order-dependent by construction, and
+<code>ceilingSize</code> is where the entire descent begins.</li>
+<li><b>Three stable sorts over possibly hash-ordered input</b> (<code>:1995 :2156 :2221</code>) &mdash; a stable sort
+preserves whatever order it was handed, so ties resolve by <b>hash accident</b>, seeded at <code>:2029</code>.</li>
+<li><b><code>survivorsOf(&hellip;) &gt;= enrichN</code></b> (<code>:2168</code>) &mdash; an early exit on accumulated
+results, so fill order decides <b>where the search stops</b>.</li>
+<li><b>Two strict comparisons</b> &mdash; <code>:932</code> Dijkstra improvement and <code>:1729</code> POI
+attachment. First-wins on every tie.</li>
+</ol>
+<p><b>AND THE PROJECT ALREADY KNOWS THE INPUT CAN DIFFER IN THE LAST BIT.</b> <code>GtMathPort</code> exists because
+Apple's libm and Android's disagree there: the 15e certification measured
+<code>cos(0.68089&hellip;)</code> as Apple &hellip;5005 against Android &hellip;5006. Feed that through a few hundred
+summed haversines and into decision 1 above, and <b>one POI changes side.</b></p>
+<p><b>THIS IS WHY THE SYMPTOM LOOKS THE WAY IT DOES.</b> [stated] Fred, 19:02: <i>&ldquo;the first two tracks are
+identical. the third has minimal trail and mil[e]age difference.&rdquo;</i> Rides 1&ndash;2 are clear winners with a
+margin far wider than any last-bit discrepancy, so they are stable. Ride 3 was a near-tie. <b>A logic difference would
+not produce &ldquo;top two identical, third barely different&rdquo; &mdash; a boundary flip is exactly what does.</b></p>
+</div>
+
+<h2>4 &mdash; WHAT IS ELIMINATED, AND BY WHAT EVIDENCE</h2>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>ruled out</th><th>evidence</th></tr>
+<tr><td><b>The port changed the algorithm</b></td><td>[stated] Fred 19:54: <b>Droid 2 (frozen 2.7e) builds the same
+routes as Droid 1 (shared engine).</b> Device-proven, beyond the <code>GtCertRoutes</code> 153/153 harness.</td></tr>
+<tr><td><b>An Android-side penalty or unported model call</b></td><td><code>fun score</code> /
+<code>fun *Score</code> / <code>penal</code> across all of <code>app/src/main/java/com/geeksville/mesh/</code> &rarr;
+<b>zero hits</b> outside the frozen <code>*CertOld</code> files. <code>RouteExplorer.kt</code> is nine one-line
+delegates to <code>Shared</code>.</td></tr>
+<tr><td><b>A second engine on iOS</b></td><td><code>iosapp/</code> has eight Swift files, all probes, panels and
+startup; <code>milesHigh|poiNodes|dijkstra</code> &rarr; nothing.</td></tr>
+<tr><td><b>Feature discovery</b></td><td>Droid 1 logcat, three runs: <code>poiNodes=24 usableNodes=4218</code>,
+byte-identical. Taken with the iPad's reported 24, discovery agrees &mdash; which also clears the corridor box, the
+<code>reference_points</code> content and the <code>Double.toString()</code> binds.</td></tr>
+<tr><td><b>The Dijkstra queue</b></td><td><code>JPQ</code> is shared code (<code>:204</code>), identical by
+construction.</td></tr>
+<tr><td><b>Junction tolerance</b></td><td><code>SNAP_FT = 25.0</code> is shared; Android's live wrapper carries no
+snap constant. Junction counts match at 4,218. The direction is backwards anyway &mdash; a larger cell connects
+MORE.</td></tr>
+<tr><td><b>The trail/LAND filters</b></td><td>Fred matched them on both devices, 19:00, with no change. Confirmed by
+code: <code>loadPoisGrid</code> has no land predicate.</td></tr>
+</table>
+
+<p><b>WHAT REMAINS &mdash; and after the Droid 2 result it can only be the platform primitives:</b> <b>libm</b>
+(<code>GtMath</code> / <code>GtMathPort</code>, 15e-proven to differ in the last bit) &middot; <b>HashMap/HashSet
+iteration order</b> (seeded at <code>:2029</code>) &middot; <b>the SQLite driver's row order</b> &middot;
+<b><code>Double.toString()</code></b>. ⚠ Two JVM devices cannot discriminate among these &mdash; they share both hash
+order and Android's libm &mdash; <b>so only the iPad can.</b></p>
+
+<h2>5 &mdash; THE MEASUREMENT METHOD (no new code needed)</h2>
+<p>⭐ <b>The funnel is already fully instrumented.</b> Six existing <code>log.i</code> lines print every stage:</p>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>line</th><th>prints</th><th>Droid 1 at Broken Ridge, 55-80 mi / 12-18 mph</th></tr>
+<tr><td><code>:2030</code></td><td><code>poiNodes= usableNodes=</code></td><td><code>24</code> / <code>4218</code></td></tr>
+<tr><td><code>:2058</code></td><td><code>origin X: N of M features usable</code></td><td>trail #88: <b>0 of 24</b>
+&middot; Beryl Highway #0: <b>15 of 24</b></td></tr>
+<tr><td><code>:2101</code></td><td><code>descent starts at N features (of M)</code></td><td><b>7</b> of 24</td></tr>
+<tr><td><code>:2201</code></td><td><code>working array N of M; combos, killed, solved</code></td><td><b>16</b> of 24;
+339 / 95 / 244</td></tr>
+<tr><td><code>:2282</code></td><td><code>enriched N ride(s), K feature(s) added</code></td><td>&mdash;</td></tr>
+<tr><td><code>:2430</code></td><td><code>ride: N mi, K features</code></td><td>six rides, 76-80 mi</td></tr>
+</table>
+<p><b>The Droid 1 baseline above is byte-identical across three runs</b> (15:50 / 17:14 / 19:06 on 11-24), which also
+proves the engine is deterministic within a platform &mdash; so a single iPad run is a valid comparison.
+<code>adb -s 8624SBCEDF00001789 logcat -d | grep -E "poiNodes=|features usable|descent starts at|working array"</code>.</p>
+<p><b>WHAT EACH OUTCOME WOULD MEAN:</b> <code>N &ne; 15</code> &rArr; the out-and-back threshold, named &middot;
+<code>N = 15</code> but descent <code>&ne; 7</code> &rArr; the greedy clique &middot; both match but working array
+<code>&ne; 16</code> &rArr; fill order and the early exit &middot; all four match &rArr; the divergence is downstream,
+in enrichment or final selection.</p>
+
+<h2>6 &mdash; ⛔ THE BLOCKER: THE iPAD'S SHARED-CODE LOGGING IS DARK</h2>
+<div style="border:3px solid #f85149;padding:10px 14px;margin:12px 0">
+<p><code>GtLog.kt:14</code> is the entire logger:
+<code>fun gtLogger(tag) = Logger(loggerConfigInit(platformLogWriter(), minSeverity = Severity.Verbose), tag)</code>.
+On Apple targets Kermit's <code>platformLogWriter()</code> is an <b>NSLog</b> writer. <b>Nothing from it was reachable
+on 11-24.</b> Tried, all empty: <code>xcrun simctl spawn booted log show --last 4h</code>, the same with
+<code>--info</code>, the same with <code>--debug</code>, and <code>log show</code> on the <b>host Mac</b> (where a
+simulator process's NSLog output is supposed to land). [stated] Fred, 19:52: <i>&ldquo;yu provided all detail. I have
+found nothing.&rdquo;</i></p>
+<p>⚠ <code>GtLog.kt</code>'s own header claims <i>&ldquo;the platform log only (Android logcat with the given tag;
+<b>the iPad's system log</b>)&rdquo;</i>. <b>A CODE COMMENT IS NOT A CURRENT FACT</b> (the 11-22 rule) &mdash; that
+clause is unverified and the evidence is against it.</p>
+<p><b>&rArr; THIS IS THE FIRST ITEM OF 11-25, AHEAD OF ALL FURTHER ROUTE WORK.</b> It is not an AI-route task: it gates
+the AI route, the map rows, the import certification and every stress test equally. <b>The measurement is not missing
+&mdash; the output path is.</b></p>
+<p><b>AND IT INVALIDATES ONE ELIMINATION THIS DOC DOES NOT MAKE.</b> The <code>maxPoi</code> cap theory was retracted
+at 19:24 on the grounds that there was no <i>&ldquo;capped to the 24&rdquo;</i> line in the iPad log. If no iPad log
+line is reachable at all, <b>that absence was never evidence</b>. <code>maxPoi</code> is therefore <b>UNMEASURED, not
+eliminated</b>, as is every other iPad-side stage. Its code facts stand; the elimination does not.</p>
+</div>
+
+<h2>7 &mdash; FRED'S RECALL AGAINST THE CODE</h2>
+<p>Recorded because the recall drove the investigation and was mostly right, which is worth knowing next time.</p>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>recalled</th><th>verdict</th></tr>
+<tr><td><i>&ldquo;we co[nt]i[nua]lly rank them until we fill up a[n] array and the[n] stop&rdquo;</i></td>
+<td>✅ <code>:2156-2168</code> &mdash; <code>ranked</code> into <code>working</code>, capped, with two breaks</td></tr>
+<tr><td><i>&ldquo;loaded in a table descending by the value of the feature&rdquo;</i></td>
+<td>✅ <code>:2156</code>, verbatim</td></tr>
+<tr><td><i>&ldquo;features also have a cap&rdquo;</i></td><td>✅ two &mdash; <code>workingMax = 40</code> and
+<code>maxPoi = 24</code></td></tr>
+<tr><td><i>&ldquo;measure the shortest round trip to the poi and only include the poi if i[t] is reachable&rdquo;</i></td>
+<td>✅ <code>:2053-2056</code>, and the code's section title is &ldquo;out-and-back filter&rdquo;</td></tr>
+<tr><td><i>&ldquo;math functions performed in different sequence will provide d[iff]erent results&rdquo;</i></td>
+<td>✅ float addition is not associative; this is section 3 above</td></tr>
+<tr><td><i>&ldquo;we restrict our poi's to within 40 miles&rdquo;</i></td><td>⚠ distance-limited, but by
+<code>milesHigh / 3.0</code> = 26.7 mi. <b>The 40 is <code>workingMax</code> &mdash; 40 features.</b></td></tr>
+<tr><td><i>&ldquo;the android model score[s] roads or features negatively&rdquo;</i></td><td>⚠ the negative term is
+real but <b>shared</b>: <code>poiValue - miles * 0.06</code>. No road penalty, and no Android-only scoring at all.</td></tr>
+<tr><td><i>&ldquo;I thought our vertex for connecting trails on [android] left more than 50 ft&rdquo;</i></td>
+<td>⚠ 25 ft, shared. 50 ft is the value the <code>:93</code> sweep tested and <b>rejected</b>.</td></tr>
+</table>
+
+<h2>7b &mdash; ⚠ PARTLY SUPERSEDED BY &sect;7f &mdash; THE CAP DIFFERENCE IS REAL BUT IS <b>NOT</b> THE CAUSE OF THE RIDE DIVERGENCE</h2>
+<p style="border:3px solid #f85149;padding:8px 12px"><b>&#9940; READ &sect;7f FIRST.</b> Everything measured in this
+section is correct &mdash; the two universes really do hold different springs, and the cap really is
+order-dependent. <b>But at 20:57 the candidate arrays showed the cap difference cannot produce the ride
+difference</b>, because all 20 peaks and the cliff are in BOTH arrays and <b>no spring appears in any ride on either
+device.</b> This section's heading called it "THE ROOT CAUSE" before that check was made. The divergence is at
+<b>QUALIFICATION</b> (<code>:2051</code>), not selection.</p>
+<div style="border:3px solid #3fb950;padding:10px 14px;margin:12px 0">
+<p><b>BOTH DUMPS, SAME REQUEST (Broken Ridge 37.89530/-113.66152, 55-80 mi, 12-18 mph), BYTE-IDENTICAL REQUEST
+BLOCK.</b> The POI universes are <b>NOT the same 24</b>:</p>
+<pre>22 of 24 features identical -- and off_mi BITS identical on all 22
+Droid 1 only:  Rock Spring (-8.6 mi)   White Rock Cabin Springs (+22.9 mi NORTH)
+iOS only:      Joel Spring (-15.5 mi)  Terry Spring (-20.1 mi)      both SOUTH
+class mix IDENTICAL both: 20 peak + 1 cliff + 3 spring = 24, at 24 distinct nodes</pre>
+<p><b>&rArr; <code>poiAt.size == 24 == maxPoi</code> EXACTLY, on both.</b> The cap tests
+<code>poiAt.size &gt; maxPoi</code>, strictly greater. Landing on exactly 24 with an identical class mix but different
+members is the signature of <b>a cap trimming a larger raw set</b>. There are at least five springs in that box and
+each platform kept three. <b>Springs score 2.0 against a peak's 3.0, so they are the cap-boundary rows</b>, and which
+survive is decided by <code>poiAt.entries</code> HashMap order through the <b>stable</b> sort at
+<code>:1993-1999</code>. All 20 peaks and the cliff are identical, with identical <code>off_mi</code> bits: <b>only the
+marginal rows moved, which is the cap's signature and not distance's.</b></p>
+<p><b>&rArr; THE 19:18 CAP THEORY WAS CORRECT.</b> It was retracted at 19:24 on the grounds that no
+<i>"capped to the 24"</i> line appeared in the iPad log &mdash; but <b>no iPad log line was readable at all</b>
+(&sect;6), so that absence was never evidence. The retraction was wrong and the original diagnosis stands.</p>
+<p><b>HOW IT PRODUCES THE VISIBLE SYMPTOM</b> ([stated] Fred 20:35: <i>"every one of those routes is south of the
+trailhead, every route on the android is north"</i>; 20:36: <i>"droid 1 has no routes south"</i>): Droid keeps a
+spring 22.9 mi NORTH, iOS keeps two 15-20 mi SOUTH &rarr; different usable sets (15 vs 14) &rarr; different pair
+tables (51 vs 41 bad pairs, an <b>order-independent set size</b>) &rarr; different cliques &rarr; iOS exhausts its
+rich northern combinations after three rides and the descent falls to 3-feature rides, which is where the southern
+features enter. iOS: <code>#1-#3 ALL NORTH (6,6,5 features)</code> then a cliff to <code>#4-#6 (3 features, dipping
+south)</code>, only <b>8 distinct candidates</b> for six slots against Droid's <b>13</b>.</p>
+<p><b>⭐ SCORING IS ELIMINATED, PROVEN ARITHMETICALLY.</b> Every iOS score reproduces <b>bit-for-bit</b> when
+recomputed from class counts alone on a third machine with a different libm. <code>scoreSet</code> is
+<code>&Sigma; base/(1+0.22k)</code> over per-class counts &mdash; no coordinates, no distances, no libm. So <i>n</i>
+peaks is one fixed double on any IEEE-754 machine (2&rarr;5.459016393442623, 3&rarr;7.5423497267759565,
+5&rarr;10.94532332328967, 6&rarr;12.3738947518611). <b>The score for a given feature set CANNOT differ between
+platforms.</b> One narrow caveat: a MIXED-class ride could differ in the last bit, since float addition is not
+associative &mdash; it does not arise here, as all eight rides are pure peaks.</p>
+<p><b>⚠ AND THE SCORING IS NEARLY DEGENERATE ON THIS GROUND.</b> Only <b>two distinct</b> solo scores exist in the
+whole universe: 3.0 (21 peaks + cliff) and 2.0 (3 springs). So <code>:1995</code>'s
+<code>sortedByDescending { scoreSet(&hellip;) }</code> ranks almost nothing &mdash; it is 21 items tied, then 5 tied,
+and <code>.take(24)</code> means <b>"all 21 peaks and the cliff, plus 3 of the 5 springs chosen by hash order."</b>
+The 3.0/2.0 class weights do no work in Utah peak country, and ride ORDER is decided by <code>:2221</code>'s
+<code>thenByDescending { miles }</code> tiebreak, not by score.</p>
+<p><b>⚠ TWO INSTRUMENT FLAWS IN THE 11-24 DUMP, for whoever reads those files:</b> (1) <code>ceiling_size</code> is
+read AFTER the descent, and <code>ceilingSize</code> is mutated during it &mdash; the dump shows 2 for Droid where the
+log printed <code>descent starts at 7</code>, so <b>the dump's ceiling figure is not the clique bound and the 2-vs-4
+comparison is invalid</b>; move the read to just after <code>:2101</code> in v2. (2) <code>usable_features</code> and
+<code>bad_pairs</code> are computed over <b>different</b> 24-member sets, so they are not directly comparable either.</p>
+</div>
+
+<h2>7c &mdash; THE FIX, IN THREE INDEPENDENT PIECES (Fred's design, 20:43-20:51)</h2>
+<div style="border:3px solid #d29922;padding:10px 14px;margin:12px 0">
+<p><b>1. DETERMINISE THE CURRENT CAP &mdash; the port fix, required, a few lines.</b> Add a secondary key to
+<code>:1995</code> so tied features resolve identically on both platforms, and change <code>:2029</code>
+<code>poiAt.keys.toList()</code> to <code>.keys.sorted()</code> so the clique seed order stops inheriting hash order.
+<b>Both are needed</b> &mdash; the same 24 can still diverge downstream without the second. ⭐ <b>Recommended
+tiebreak: distance from the trailhead, ascending</b> &mdash; stable AND defensible ("when two features score the same,
+prefer the one the rider can reach"), which keeps Rock Spring at 8.6 mi over Terry Spring at 20.1 mi and makes
+Android's behaviour better rather than merely reproducible. ⚠ Sorted order is not hash order, so Android's output
+moves: <b>re-certification against Droid 2 is the gate.</b></p>
+<p><b>2. MOVE THE CAP TO AFTER THE PAIR TABLE &mdash; removes the arbitrary choice at its root.</b>
+[stated] Fred 20:48: <i>"combine all the point in their combos&hellip; and the lowest scoring features are
+eliminated."</i> Resequence: discover ~35-40 &rarr; Dijkstra matrix over all of them &rarr; out-and-back filter &rarr;
+pair table &rarr; <b>CAP HERE</b>, dropping features with no feasible partner first, then lowest-scoring, down to 24
+&rarr; enumerate. The combinatorial step still never sees more than 24. ⭐ <b>This fixes the divergence STRUCTURALLY,
+not with a tiebreak</b>: feasibility is a property of the data, so no iteration order can change it.
+<b>THE EVIDENCE FOR IT:</b> <b>13 of the 24 features appeared in NO candidate at all</b>, while two slots went to
+isolated springs &mdash; the cap rations a scarce resource by a criterion that does not predict use.
+⚠ <b>THE ONE THING TO MEASURE, NOT ASSUME:</b> the matrix is one Dijkstra per term, so 40 features is 40 solves
+against today's 26. <code>corridorBox</code>'s header records the failure mode exactly &mdash; <i>"53,711 edges, and
+an OutOfMemoryError at java.lang.Long.valueOf while building 112 Dijkstra tables."</i> <b>26 is fine, 112 is fatal;
+run 30 / 40 / 50 at Broken Ridge and watch memory and wall time.</b> If it strains, <code>:665</code> already says
+what to do: unbox the distance table, do not shrink the box.</p>
+<p><b>3. INSERTION-FIRST CONSTRUCTION &mdash; removes the cap entirely. A 2.9 redesign.</b>
+[stated] Fred 20:51: <i>"starting [with] the &hellip; combo and ending when a working combo exceed[s] the mileage,
+working on the highest point features together and then adding the lowest features till we run out of miles or
+features."</i> That is the <b>orienteering / prize-collecting</b> formulation, and it is <b>the design intent already
+in the header</b> at <code>:68</code> (<i>"PENALISE, DO NOT FILTER&hellip; find the best, PENALISE its edges,
+re-solve"</i>) and <code>:61</code> (<i>"a CHEAPEST-PATH search wearing a POI costume"</i>). The loop: seed with the
+highest-point features that sit together &rarr; grow by insertion while it fits &rarr; stop when the next addition
+would exceed <code>milesHigh</code> &rarr; backfill with the lowest-value features that still fit &rarr; penalise this
+ride's edges &rarr; re-solve for the next, six times.
+⭐ <b>WHAT IT DELETES rather than fixes:</b> <code>maxPoi</code> (nothing discarded before reachability is known, so
+tonight's bug becomes impossible) &middot; <code>ceilingSize</code> and the greedy clique at <code>:2090</code> (the
+stop condition is the mileage budget, not a size bound) &middot; the subset enumeration and most of the pair table
+that exists to prune it. <b>Three mechanisms removed, all three of them sources of defects.</b> And the insertion
+machinery is already written and certified &mdash; enrichment <code>:2227</code> and the return-fill
+<code>:2342</code> (<code>if (add &lt; 1.0 || curM + add &gt; req.milesHigh) continue</code>) are exactly "add a
+feature if it fits"; they move from post-passes to the main loop.
+⚠ <b>RISKS:</b> greedy finds a good set, not provably the best &mdash; a feature that looks weak early but unlocks a
+rich cluster can be missed, and Droid 2 is how to measure whether that matters. And <b>determinism is still required
+inside the new design</b>: with 20 peaks tied at 3.0, "the highest-point features" ties constantly, so the seed and
+every insertion need an explicit tiebreak or the bug is rebuilt in a new place.</p>
+<p><b>SEQUENCING:</b> 1 tomorrow (it is a bug, and cheap) &rarr; 2 with its own before/after certification &rarr; 3 as
+2.9. <b>Each is independently shippable, and each makes the next easier to certify because the baseline stops
+moving.</b></p>
+<p><b>⚠ COST HEADROOM, MEASURED 11-24:</b> Droid 339 combos / 95 killed / 244 solved; iOS 642 / 407 / 235. Against the
+3,302 combinations that once cost 67.8s, <b>this ground runs orders of magnitude below where cost ever hurt</b> &mdash;
+but it is ground-dependent, and a dense area yielding a ceiling of 10-12 is where a larger pre-cap would bite.
+⇒ <b>Do not raise <code>maxPoi</code>; spend it better.</b></p>
+</div>
+
+<h2>7d &mdash; ⛔⛔ WITHDRAWN 23:54 &mdash; "VALUE PER ADDED MILE" REINTRODUCES A DOCUMENTED WRONG TURN</h2>
+<div style="border:4px solid #f85149;padding:10px 14px;margin:12px 0">
+<p><b>&#9940; DO NOT USE THIS SECTION.</b> It argued that the cap "contradicts the objective one screen above it",
+citing <code>poiValue - miles * 0.06</code> at <code>:61</code>. <b>That formula is not the objective &mdash; it is
+the REJECTED first design</b>, recorded as <b>WRONG TURN #1</b> in the engine's own design header
+(<code>GtRoute.kt:28-107</code>, carried verbatim from 2.7e): it <i>"returned 5 features on 69 miles and NO SPRINGS AT
+ALL though springs were 22 of the 39 available."</i> [stated] Fred at the time: <i>&ldquo;point value should be the
+winner.&rdquo;</i> And the rule that replaced it: <b>&ldquo;MILES ARE A BUDGET, NEVER A COST. Score the features;
+spend miles until the budget runs out. <code>scoreSet()</code> takes no distance argument and it must stay that
+way.&rdquo;</b></p>
+<p>&rArr; <b>The spring net-score arithmetic below (Rock Spring +0.34, Joel &minus;0.39, Terry &minus;0.95, White Rock
+&minus;1.75, Pine Park &minus;1.86) is therefore INVALID as a selection criterion</b> &mdash; it is wrong turn #1
+rebuilt. The straight-line distances it reports are still correct as distances; only the conclusion drawn from them is
+withdrawn.</p>
+<p><b>&#9888; THE FAILURE MODE, and it is the costliest kind:</b> Claude read a <b>rationale comment explaining a
+rejected approach</b> as if it were the current specification, then built a governing principle on it and recorded it
+in two places. <b>The engine header is the design record &mdash; read <code>:28-107</code> before proposing any
+selection change.</b> See &sect;7h for the four wrong turns and the measured benchmark.</p>
+</div>
+<h2>7d (superseded, kept for its distance measurements only)</h2>
+<div style="border:3px solid #3fb950;padding:10px 14px;margin:12px 0">
+<p><b>Fred, 20:54, naming the residual problem:</b> <i>&ldquo;we should not eliminate or resolve the 24 features until
+we have finished this exercise, then the features left in the cluster make the cut. that is the problem in a nutshell
+&mdash; you are still left [to decide] which 2 pt features in combo make the ride.&rdquo;</i> He is right that none of
+&sect;7c's three options escapes it: drop the non-participants and you may still be over 24, choosing among five
+springs that all score 2.0.</p>
+<p><b>&rArr; BUT THERE IS NO TIE. The tie is an ARTEFACT of ranking by <code>scoreSet</code> alone and discarding the
+mileage term.</b> <code>:61</code> states the objective as <b><code>poiValue - miles * 0.06</code></b>. The cap at
+<code>:1995</code> ranks on value with <b>no mileage term at all</b> &mdash; so <b>the cap contradicts the objective
+written one screen above it.</b> At 0.06 pts/mi a 2.0-point spring pays for at most <b>33.3 miles</b> of detour.
+Every spring in the Broken Ridge box, by straight-line round trip from the anchor:</p>
+<pre>Rock Spring                droid only   13.8 mi   +0.34 pts   &lt;-- the ONLY one that pays
+Joel Spring                ios only     19.9      -0.39
+Terry Spring               ios only     24.6      -0.95
+White Rock Cabin Springs   droid only   31.2      -1.75
+Pine Park Spring           BOTH         32.2      -1.86       &lt;-- the worst, and BOTH kept it</pre>
+<p><b>Four of the five springs are NET-NEGATIVE by the engine's own formula.</b> Only Rock Spring earns its slot, and
+Rock Spring is the one <b>only Droid</b> kept. Both devices kept three springs; both were wrong, Droid less so; and
+both kept the worst of the five. ⇒ <b>Five distinct numbers, no ties to break.</b> The arbitrary choice was never
+inherent &mdash; it was manufactured by dropping the cost side of the objective.</p>
+<p><b>&rArr; THE RULE, and all three of &sect;7c's options converge on it: RANK BY VALUE PER ADDED MILE.</b>
+Deterministic because it is continuous; defensible to a rider; needs no arbitrary key such as a node id; and it is the
+formula already at <code>:61</code>. <b>For the cap</b>, distance from the anchor is the cheap proxy and already breaks
+every tie. <b>For insertion-first</b>, the exact measure is <b>marginal added miles</b> &mdash; a spring on the way
+costs nearly nothing, one 20 mi off the line costs 40 &mdash; and that is already computed as <code>add</code> at
+<code>:2342</code> in the return-fill. <b>Nothing new has to be invented for either.</b></p>
+<p><b>⚠ RIGOUR, and both points strengthen the conclusion:</b> the detour figures are 2&times; straight-line, a
+<b>LOWER bound</b> &mdash; real trail mileage is longer, so these net scores are if anything more negative. And anchor
+distance is a proxy for the true marginal cost, so the cap's version is approximate while the insertion version is
+exact. ⚠ <b>UNMEASURED:</b> whether applying the objective at the cap changes the six rides on ground where the tail
+is genuinely marginal &mdash; Droid 2 is the referee.</p>
+</div>
+
+<h2>7e &mdash; THE WORKED EXAMPLE (keep as the regression case)</h2>
+<div style="border:3px solid #58a6ff;padding:10px 14px;margin:12px 0">
+<p>[stated] Fred 21:06: <i>&ldquo;let[']s do the ex[ercise] in sim with [a] very [few] features a b c d. at some point
+you exceed the ceiling on the minimum each point[;] validate [the] in range combos and scores.&rdquo;</i>
+Four features, window 55-80, all peaks. Every number explicit.</p>
+<pre>STEP 7  :2053  OUT-AND-BACK   keep if a + b &lt;= 80
+   a  round trip 40.0  USABLE        b  56.0  USABLE
+   c  round trip 76.0  USABLE        d  84.0  DROPPED -- exceeds the ceiling ALONE
+
+STEP 8  :2084  PAIR TABLE    bad if origin-&gt;A + A-&gt;B + B-&gt;origin &gt; 80
+   a+b  20.0 + 10.0 + 28.0 = 58.0  ok
+   a+c  20.0 + 25.0 + 38.0 = 83.0  BAD -- can never share a ride
+   b+c  28.0 + 12.0 + 38.0 = 78.0  ok
+
+STEP 8  :2090  CLIQUE        ceilingSize = 2   =&gt; no combo of 3 is ever generated
+
+STEP 9  ENUMERATE + VALIDATE  score = sum base/(1+0.22k);  keep 55 &lt;= miles &lt;= 80
+   {a}     40.0 mi  3.000  TOO SHORT   &lt;-- the milesLow FLOOR does real work
+   {b}     56.0 mi  3.000  VALID
+   {c}     76.0 mi  3.000  VALID
+   {a,b}   58.0 mi  5.459  VALID
+   {a,c}   KILLED by the pair table -- never generated
+   {b,c}   78.0 mi  5.459  VALID
+   {a,b,c} size 3 &gt; ceilingSize 2 -- never attempted
+
+RANK :2221  count desc, then miles desc
+   #1 {b,c} 78.0   #2 {a,b} 58.0   #3 {c} 76.0   #4 {b} 56.0
+
+FILL RULE  unique points from the highest-scoring combos
+   -&gt; array: b, c, a       'd' never enters -- it busts the ceiling on its own</pre>
+<p><b>⭐ THE PUNCHLINE, AND IT IS TONIGHT'S BUG IN MINIATURE: all four score 3.0.</b> They are four peaks, so
+<b>a solo-score cap cannot tell them apart.</b> Capping first with a budget of 3 would drop one <b>at random</b> &mdash;
+possibly <code>b</code> or <code>c</code>, destroying <code>{b,c}</code>, the best ride on the board.
+<b>Validating first drops <code>d</code> for a reason that can be stated</b>, and keeps every feature that can appear
+in a ride. On real ground on 11-24 the arbitrary choice fell on springs; here it would fall on peaks.</p>
+<p><b>⇒ KEEP THIS AS THE REGRESSION CASE.</b> Four features, hand-checkable, exercising the ceiling drop, the
+<code>milesLow</code> floor, the pair kill, the clique bound and the fill rule on one page. A reworked selection step
+that reproduces <code>b, c, a</code> and those four ranked rides is behaving.</p>
+</div>
+
+<h2>7f &mdash; ⭐⭐⭐⭐⭐ THE DECISION (Fred, 21:07): DO THE DIJKSTRA CALLS BEFORE POPULATING THE TABLES</h2>
+<div style="border:3px solid #3fb950;padding:10px 14px;margin:12px 0">
+<p>[stated] Fred 21:07: <i>&ldquo;we need to do the d[ij]kstra calls before pop[ul]ating the tables.&rdquo;</i>
+And 21:04, the reasoning: <i>&ldquo;that w[a]s the importance of the d[ij]kstra calc. it let us validate the combos
+cheaply and throw out the invalids. then we populate th[e array] with the unique points per the highest scoring combos
+until we h[i]t 24.&rdquo;</i> And 21:00, rejecting the cheap substitute: <i>&ldquo;you need t[o] use [dijkstra] to prove
+the clusters are reachable and valid&rdquo;</i> &mdash; crow-flight clustering proves nothing, since two peaks five
+miles apart can sit on unconnected networks.</p>
+<p><b>THE CURRENT ORDER IS INVERTED. Selection runs before the calc that would make it intelligent:</b></p>
+<pre>:1975  loadPoisGrid        discovery
+:1993  THE CAP             SELECTION      &lt;-- trims to 24 on SOLO SCORE
+:2029  poiNodes = keys.toList()
+:2039  dijkstra per term   THE CALC       &lt;-- reachability computed HERE, 46 lines later
+:2051  a + b &lt;= milesHigh  QUALIFICATION
+:2070  pair table          validity, pairwise, by Dijkstra
+:2090  greedy clique       "how many valid features per cluster" -&gt; ceilingSize
+:2103  the descent</pre>
+<p><b>The cap ranks on solo score because the miles half of <code>:61</code>'s
+<code>poiValue - miles * 0.06</code> does not exist yet.</b> [stated] Fred 21:02, recalling the design he built:
+<i>&ldquo;what combos are reachable, how many point[s] in total and validating the combos&rdquo;</i> &mdash; all three
+exist and all three are certified (153/153 vs 2.7e). <b>They just run after the cap.</b></p>
+<p><b>⭐ THE CHANGE IS A RELOCATION, NOT A NEW ALGORITHM:</b></p>
+<pre>1. delete the trim at :1993-2002
+2. let poiNodes carry EVERYTHING discovered into the matrix at :2039
+3. at :2090 keep the GROUPS, not just their size --
+     today's loop builds a validated combo per seed and discards it:
+         if (grp.size &gt; best) best = grp.size      // keeps the SIZE, throws away grp
+4. apply the 24-cap at :2101 -- walk the validated combos in descending score,
+     union their unique points, stop at the cap</pre>
+<p>Every value is already in scope at those lines. No new services, no new algorithm, and the criterion is one a rider
+would accept: <b>a feature earns its slot by appearing in a ride that works.</b></p>
+<p><b>⚠ THE ONE GATE, AND IT IS A MEASUREMENT NOT AN ARGUMENT:</b> the matrix becomes one Dijkstra per
+<b>discovered</b> feature instead of per capped feature. On 11-24 that is 28 solves against today's 26 &mdash; nothing.
+But <code>corridorBox</code>'s header records the failure mode exactly: <i>"53,711 edges, and an OutOfMemoryError at
+java.lang.Long.valueOf while building 112 Dijkstra tables."</i> <b>26 is fine, 112 is fatal.</b> So the raw discovery
+count on dense ground decides whether a cheap pre-cap is needed purely as an OOM guard &mdash; and <b>that is the one
+legitimate use of crow-flight geography: a catastrophe guard, never the quality judgement.</b>
+⇒ <b>Item 1 of the v2 dump answers it: raw <code>poiAt.size</code> before the cap, across Broken Ridge, Panguitch and
+the densest ground available.</b> If raw discovery is reliably under ~50, the cap moves with no pre-filter at all.</p>
+<p><b>⚠ ALSO KNOWN BEFORE ANYONE EXPECTS MORE OF IT:</b> with only two distinct feature scores, a combo's score is
+essentially its <b>feature count</b>, so "highest-scoring combos first" reduces to "largest valid combos first" on
+this ground. The rule still works; the 3.0/2.0 class weights are not doing the work one might assume.</p>
+</div>
+
+<h2>7g &mdash; ⭐⭐⭐⭐⭐ ARRAYCONTRACT-2026-11-24: THE CONTRACT FOR ARRAY POPULATION</h2>
+<div style="border:4px solid #3fb950;padding:10px 14px;margin:12px 0">
+<p><b>⭐ THE DEFECT, named by Fred at 21:18 and it is the real one:</b> <i>&ldquo;the features arrival [sequence]
+dictates the combos instead of the combos dictating the arrival sequence.&rdquo;</i></p>
+<pre>TODAY (defective):   arrival sequence -&gt; array -&gt; combos
+  :2029  poiAt.keys.toList()                 freezes HashMap order into a List
+  :2156  ranked = sortedByDescending{...}    STABLE sort, so it INHERITS that order
+  :2157  working fills from ranked, capped
+  :2171  combos enumerated from whatever landed there
+
+THE CONTRACT:        combos -&gt; array
+  1. BUILD     one combo per seed, greedy cheapest-insertion while the closed tour fits
+  2. COMPLETE  any feature in no combo gets a singleton -- nothing is lost before ranking
+  3. RANK      total score, then feature count, then shorter tour
+  4. FILL      from combo #1 down, add each combo's not-yet-present features, stop at 24</pre>
+<p><b>&rArr; THE ARRAY BECOMES AN OUTPUT OF COMBO ANALYSIS, NOT AN INPUT TO IT.</b> And that is why this matters more
+than finding the distance difference: <b>the present direction AMPLIFIES.</b> A feature missing the round-trip
+threshold by a fraction of a mile removes <b>every</b> combo containing it, which collapses the clique, shortens the
+descent, and drops the product through to 3-feature filler rides. <b>A marginal numeric difference becomes a
+structural one.</b> Inverted, a marginal distance difference makes only MARGINAL combos differ &mdash; which is
+already visible in the 11-24 data: <b>rides #1 and #2 are byte-identical on both devices</b> because they have
+margin, and everything below them is where the amplification took hold. <b>&rArr; The fix makes the engine TOLERANT of
+a distance difference rather than requiring it to be eliminated &mdash; which was never winnable across two libm
+implementations.</b></p>
+<p><b>STRAIGHT-LINE vs DIJKSTRA &mdash; each doing only what it can.</b> [stated] Fred 21:00: <i>&ldquo;you need t[o]
+use [dijkstra] to prove the clusters are reachable and valid&rdquo;</i>; 21:09: <i>&ldquo;you cannot do this with real
+data[,] just use raw distance between points&hellip; poly lines built and thrown out with total point
+counts.&rdquo;</i> Both hold, because <b>straight-line distance is a LOWER BOUND on trail distance</b>:</p>
+<pre>straight-line polylines   EXCLUDE   cheap O(n^2); proves INFEASIBILITY only; never a false negative
+Dijkstra on survivors     INCLUDE   exact; the only thing that proves feasibility
+scoreSet over valid combos  RANK     fill the array with unique points to the cap</pre>
+<p>⚠ <b>THE PROVABLE BUDGET IS THE CEILING ITSELF (80 mi).</b> An earlier draft derived a 58.8-mile straight-line
+budget from a measured 1.36&times; "detour factor" &mdash; <b>that derivation is WITHDRAWN.</b> [stated] Fred 21:14:
+<i>&ldquo;the way the route is mapped is the scenic long route to fill to th[e] ride[']s ceiling.&rdquo;</i> The engine
+PADS every ride toward <code>milesHigh</code> (<code>:2106</code>, AIRETURNFILL-2026-11-11), so the 1.36&times; is the
+<b>fill target, not the terrain</b> &mdash; making the derivation circular. ⭐ <b>AND A CONSEQUENCE WORTH KEEPING:
+every ride comes out 74-80 mi BY DESIGN, so mileage differences between devices are the fill working, not a signal.
+The FEATURE SETS are the signal; the mileage is noise.</b> (Fred's 19:04 <i>"3 miles more"</i> was fill, and knowing
+that at 19:00 would have saved an hour.)</p>
+<p><b>THE REFERENCE IMPLEMENTATION:</b> <code>$GT_CMDS/gt_arraycontract_2026-11-24_v1.py</code>, run against the two
+<code>aidump</code> files. <b>It is the contract: a Kotlin implementation must reproduce its selection.</b></p>
+<p><b>MEASURED OUTPUT, Broken Ridge, 26 features in, cap 24:</b></p>
+<pre>RANKED COMBOS  #1 10 feats 30.0 pts 76.6 mi   #2 10 feats 30.0 pts 78.9 mi
+               #3  9 feats 27.0 pts 78.3 mi   #4  8 feats 22.0 pts 79.1 mi
+
+ARRAY, in admission order -- positions 1-12 are ALL ride-builders:
+  1 Blawn Mountain      5 Mountain Spring Pk   9 Table Butte       13 Bauers Knoll
+  2 Broze Knoll         6 Observation Knoll   10 The Tetons        14 Joel Spring
+  3 Bumblebee Mountain  7 Pink Knolls         11 Burns Knoll       15 Miner Hill
+  4 Iron Mountain       8 Red Hill            12 Blue Knoll        16 Rock Spring
+  17 The Three Peaks  18 Upper Point  19 Marys Nipple  20 Canyon Peak
+  21 Government Peak  22 The Point    23 White Rock Cabin Springs  24 Honeycomb Rocks
+
+DROPPED 2:  Pine Park Spring (32.2 mi, never used) · Terry Spring (24.6 mi, never used)
+CONTRACT CHECK: PASS -- nothing that built a ride was dropped</pre>
+<p><b>⭐ IT BEATS WHAT BOTH DEVICES DO.</b> Droid kept White Rock Cabin Springs (31.2 mi, never used); iOS dropped
+Rock Spring, the <b>only</b> spring with a positive net score. <b>The contract keeps every one of the 14 features that
+built a ride on either device and discards only features neither device ever used</b> &mdash; deterministically, with
+no hash order anywhere in it. It also drops the same class of feature at either budget tried (58.8 and 80), so it is
+<b>robust to that parameter.</b></p>
+<p><b>⭐ ADMISSION ORDER IS ITSELF A QUALITY RANKING.</b> Positions 1-12 are all ride-builders, so <b>the cap becomes a
+tunable with graceful degradation rather than a cliff</b> &mdash; at a cap of 12 only two used features are lost, at 18
+only one. Compare today's cap, where the 24th and 25th rows are decided by hash accident.</p>
+<p>⚠ <b>LIMITS, stated:</b> 26 features down to 24 is a <b>weak</b> test of a rule meant for dense ground where it
+might discard 80 &mdash; the cap barely binds here. Greedy cheapest-insertion is not optimal, so a better combo may
+exist that it does not find. And the top combos at the provable budget are optimistic: a 10-feature combo at 76.6 mi
+straight-line will very likely bust the ceiling once real trail distance applies &mdash; which is correct and
+expected, since the provable budget excludes only the impossible and <b>Dijkstra decides the rest.</b></p>
+</div>
+
+<h2>7h &mdash; ⭐⭐⭐⭐⭐ THE DESIGN RECORD (<code>GtRoute.kt:28-107</code>) AND THE REAL BENCHMARK</h2>
+<div style="border:4px solid #3fb950;padding:10px 14px;margin:12px 0">
+<p><b>The header is the 2.7e design record, carried through the port verbatim. It names FOUR WRONG TURNS
+<i>"paid for once [that] must not be paid for again"</i>:</b></p>
+<pre>1  DISTANCE MUST NOT BE IN THE SCORE   the first search scored poiValue - miles*0.06 and
+     returned 5 features on 69 mi with NO SPRINGS, though springs were 22 of 39 available.
+     Fred: "point value should be the winner."
+     => MILES ARE A BUDGET, NEVER A COST. scoreSet() takes no distance argument.
+2  PENALISE, DO NOT FILTER             generate-rank-filter returns ONE route on a shared spine.
+     Find the best, penalise its edges, re-solve.  (PENALTY = 2.2)
+3  RANK, DO NOT PRE-CONSTRAIN          a narrow band "strangled it before it found anything".
+     Explore to the ceiling, score, THEN apply the rider's band as a CUTOFF on the results.
+4  THE GREEDY RUNS TO THE CEILING      one target made every restart the same length =>
+     each restart draws its OWN target from the range, so the pool spans it.
+
+A POSITIVE-SCORE FLOOR IS REQUIRED     the iterative penalty eventually makes every scoring
+     corridor too expensive and the search returns a route visiting nothing (two came back
+     score 0.0 on 08-22).  "TWO GOOD ROUTES BEAT FOUR PADDED ONES."</pre>
+<p>⭐ <b>That last rule reframes the 11-24 symptom: the iPad returning THREE rides rather than padding to six may be
+DESIGN-COMPLIANT.</b> The defect is that the three are thin, not that there are three.</p>
+<p><b>MEASURED FACTS THE HEADER RECORDS:</b> coverage is <b>~12 miles per feature, near-linear, no knee</b> &mdash;
+all 39 Arizona Strip features were reachable, at 448.7 miles &mdash; so <i>"a 60-mile ride reaching 4 features is what
+the corridor COSTS, not a bug"</i> &middot; junction tolerance 25 ft, swept at 0/10/25/50/100/150 &middot;
+<b>cautions are carried, not hidden</b>, and their count is a property of the DATA, not the setting (Broken Ridge
+produced ONE in 79 miles against 176 on the Strip, same code).</p>
+<h3>⭐⭐⭐⭐ THE REAL BENCHMARK &mdash; and both devices are below it</h3>
+<p>The research generator's proof table (<code>:52-57</code>), three corridors <b>with no retuning between
+them</b>:</p>
+<pre>corridor        best route          retrace   unconfirmed junctions
+Toroweap        78 mi /  6 feats      50%     176
+Bar 10          74 mi / 10 feats      36%      53
+Panguitch       79 mi / 13 feats      25%     104
+Broken Ridge    79 mi /  9 feats      16%       1</pre>
+<p><b>&rArr; Broken Ridge produced 9 FEATURES at 79 miles on 2026-08-22. On 11-24 the Droid's best is 6 and the
+iPad's fewer.</b> [stated] Fred 23:43 was reaching for exactly this. <b>That is a regression against the original
+proof, and a bigger finding than the gap between the two devices</b> &mdash; the target is not device parity, it is
+<b>9 features at Broken Ridge</b>. The reference implementation exists and has not been consulted: the Python is
+embedded in the living master under <b>AUTOEXPLORE-2026-08-22</b>. ⚠ Check Panguitch (13) and Bar 10 (10) too before
+drawing any conclusion about the cap.</p>
+</div>
+
+<h2>8 &mdash; ⚠ METHOD NOTE FOR THE NEXT SESSION</h2>
+<p>Five wrong claims were made on this one question in one evening: the surface column (read the wrong cut), the
+feature-count direction (twice), the cap as &ldquo;root cause&rdquo; (declared before any measurement), and then
+retracting the cap on a log line never confirmed to be readable. <b>Every one came from committing to a conclusion
+before the measurement existed.</b> The three findings that held &mdash; Droid 2's agreement, the empty Android-scoring
+grep, and the <code>poiNodes=24</code> baseline &mdash; all came from a grep or a device. <b>State the measurement or
+say nothing.</b> And an absence is only evidence once the evidence is shown it could have appeared.</p>
+
+</body></html>
