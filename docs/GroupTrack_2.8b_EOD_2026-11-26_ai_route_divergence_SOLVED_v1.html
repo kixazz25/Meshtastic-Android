@@ -1,0 +1,436 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack 2.8b &mdash; EOD 2026-11-26: the AI route divergence, solved</title></head><body>
+<h1>GroupTrack 2.8b &mdash; EOD 2026-11-26: THE AI ROUTE DIVERGENCE, SOLVED</h1>
+
+<p><b>WHY THIS DOC EXISTS.</b> The Droid-vs-iPad route divergence, open since 11-24, was closed on 11-26 between
+21:37 and 00:30 by instrumenting the engine and measuring every stage on both devices. <b>Everything below is
+measured on device or computed from the captures &mdash; no inference is presented as a finding, and where a
+conclusion is a deduction it says so.</b> Captures:
+<code>~/Downloads/aistage_droid1.txt</code> (207 lines) and <code>~/Downloads/aistage_ios.txt</code> (214 lines),
+recipe Broken Ridge <code>37.89530033364326 / &minus;113.6615177552898</code>, 55&ndash;80 mi, 12&ndash;18 mph,
+build <code>2026-11-26_2307_mac_5ff9812f8_UNCOMMITTED</code>.</p>
+
+<h2>0 &mdash; THE ANSWER, IN ONE PARAGRAPH</h2>
+<div style="border:3px solid #3fb950;padding:10px 14px;margin:12px 0">
+<p>There is <b>no code difference and no math difference</b>. One engine in commonMain, identical database,
+identical graph, identical Dijkstra distances to sixteen significant digits, identical scores, identical pair
+verdicts, and the <b>identical seventeen-stage execution sequence</b> on both platforms. The entire divergence is
+<b>the order in which an unordered collection is iterated</b>, reaching a decision at two points. The deeper finding
+is that <b>neither device chooses well</b>: both evaluate only <b>9 of their ~15 reachable features</b>, both spend
+~40% of their admission budget on features already measured as unreachable, and <b>not one distinct ride was ever
+rejected on merit anywhere in the pipeline on either device</b> &mdash; the missing rides were never built.</p>
+</div>
+
+<h2>1 &mdash; WHAT WAS PROVEN IDENTICAL (so it is never re-chased)</h2>
+<ul>
+<li><b>One engine.</b> <code>GtRoute.kt</code> is commonMain, 2,794 lines. Android's <code>RouteExplorer.kt</code> is
+176 lines with four delegate calls. <code>iosapp/</code> holds eight Swift files and <b>zero</b> route code.</li>
+<li><b>Discovery: the same 30 rows / 29 names, zero field differences</b> &mdash; fclass, lat, lon, snap distance
+<i>and the graph node id</i>. The graph build assigns the identical node to the identical feature.</li>
+<li><b>Dijkstra: 0 mismatches</b> across all 14 features usable on both. <code>Blawn Mountain out=34.70848380055364
+back=34.70848380055364</code>, both platforms.</li>
+<li><b>Solo scores: 0 mismatches</b>, and both platforms report exactly two distinct values, <code>2.0</code> and
+<code>3.0</code>.</li>
+<li><b>Pair verdicts: identical.</b> 41 pairs rejected on both; 10 Droid-only, every one involving Rock Spring (absent
+from the iPad's 24); <b>zero</b> iPad-only.</li>
+<li><b>Execution sequence: identical.</b> 17 stage blocks, same order, including running the origin loop twice in the
+same place. The capture is append-only, so line order <i>is</i> execution order.</li>
+<li><b>The two Android devices are certified identical for this corridor:</b> reference_points byte-identical
+(31,379 rows, checksum match), 229,354 shared trails with <b>zero <code>geom_hash</code> differences</b>, and
+<b>0 of the 14 differing trails lie inside the corridor box</b>.</li>
+<li>&#9888; The 60 apparent differences in the pair table are the <b>a/b label swap</b> &mdash; same numbers,
+swapped fields, because pool order decides which feature is <code>a</code>. The only genuinely different values are
+<code>a_b</code> legs at the 17th significant digit, because with a and b swapped one platform computes
+<code>dist(a&rarr;b)</code> and the other <code>dist(b&rarr;a)</code>. The same effect appears <i>within</i> one
+platform: Blue Knoll <code>out=29.139993036381906</code> against <code>back=29.13999303638191</code>. <b>No verdict
+changed.</b></li>
+</ul>
+
+<h2>2 &mdash; THE DIVERGENCE CHAIN, MEASURED</h2>
+<table border="1" cellpadding="6" cellspacing="0">
+<tr><th>#</th><th>line</th><th>what escapes</th><th>Droid</th><th>iPad</th><th>reaches a decision?</th></tr>
+<tr><td>1</td><td><code>:1894</code></td><td>component numbering</td><td><code>trail #88</code></td>
+<td><code>trail #164</code></td><td><b>no</b> &mdash; a label, but it is the <b>proof</b> the orders differ</td></tr>
+<tr><td>2</td><td><code>:1995</code></td><td>which 24 of 29 survive, among 21 ties at 3.0</td>
+<td>+Rock Spring, +White Rock Cabin</td><td>+Joel Spring, +Terry Spring</td>
+<td><b>no net effect</b> &mdash; all four are springs and <b>no spring is ever admitted</b></td></tr>
+<tr><td>3</td><td><code>:2049</code></td><td><code>poiNodes</code>, hence <code>perOrigin</code>, the clique pool
+and <code>ranked</code></td><td>15 usable</td><td>14 usable</td><td><b>yes</b> &mdash; feeds 4 and 5</td></tr>
+<tr><td>4</td><td><code>:2090</code> + <code>:2139-40</code></td>
+<td>clique membership, then which member <code>removeAt(0)</code> drops</td><td><code>testedCeil</code> <b>2</b></td>
+<td><code>testedCeil</code> <b>4</b></td><td><b>YES &mdash; THIS IS THE ONE</b></td></tr>
+<tr><td>5</td><td><code>:2192</code></td><td>admission order, stable over a 2-value key</td>
+<td><code>working</code> 16</td><td><code>working</code> 15</td>
+<td><b>yes</b> &mdash; decides which features are evaluated at all</td></tr>
+</table>
+
+<div style="border:3px solid #f85149;padding:10px 14px;margin:12px 0">
+<p><b>&#9940; THE CLIQUE IS THE SAME SEVEN FEATURES IN A DIFFERENT ORDER.</b></p>
+<pre>droid  Observation Knoll, Mtn Spring Peak, Broze Knoll, Red Hill, Blawn Mountain, Pink Knolls, Iron Mountain
+ipad   Pink Knolls, Mtn Spring Peak, Broze Knoll, Red Hill, Observation Knoll, Iron Mountain, Blawn Mountain</pre>
+<p><b>And <code>grp.sortBy</code> at <code>:2139</code> is a MEASURED NO-OP on both devices</b> &mdash; the capture
+proves the first element is always the one dropped and the list is never re-ordered by the sort, because every member
+is a peak at 3.0. So <code>removeAt(0)</code> takes whatever hash order put first:</p>
+<pre>droid  drops Observation -> Mtn Spring -> Broze -> Red Hill -> Blawn     5 removals, ceiling 2
+ipad   drops Pink Knolls -> Mtn Spring -> Broze                          3 removals, ceiling 4</pre>
+<p><b>Exhaustively verified:</b> the maximum clique over the reachable pool is <b>7</b>, there are exactly <b>two</b>
+maximum cliques, and 2,000 random iteration orders return size 7 <b>every time</b> &mdash; so the clique
+<i>size</i> is order-independent and only the <i>shrink order</i> is not.</p>
+</div>
+
+<h2>3 &mdash; THE FUNNEL, RECONCILED END TO END</h2>
+<pre>                                        DROID        iPAD
+reference_points in the database        31,379       31,379
+inside the corridor box (53x53 mi)         154          154
+after JUNK fclass exclusion                126          126
+within 0.5 mi of a connected node           29           29      <- SAME MEMBERS
+kept by the cap (maxPoi = 24)               24           24      <- different 3 springs
+REACHABLE (out+back <= 80)                  15           14      <- Rock Spring only
+admitted to working                         16           15
+   ...of which actually usable               9            9      <- 7 and 6 slots WASTED
+   ...reachable but NEVER admitted           6            5
+seeds reaching found                        29           49
+take(enrichN = 20) keeps                    20           20      (cuts 9 / cuts 29)
+entries arriving at PASS 3                  20           20      <- VARIATIONS added ZERO
+distinct feature sets there                 13            8      <- enrichment converged
+presented                                    6            6
+presented feature value                 66.766       58.320      <- 12.6% worse product</pre>
+<p><b>Of 29 discovered features only 15 are reachable, and only 9 are ever evaluated.</b> 11 of the 24 kept are
+unreachable (80.5 to 106.1 mi round trip); 3 springs were dropped by the cap <b>without ever being measured</b>
+(Desert, Log Cabin, Mud).</p>
+
+<h2>4 &mdash; DEFECTS FOUND, WITH LINES</h2>
+<ol>
+<li><b><code>:2192</code> &mdash; the admission key cannot discriminate.</b> <code>scoreSet</code> on ONE feature
+returns the bare class weight: 60.0 pin / 3.0 peak,cliff,volcano / 2.0 spring / 1.0 other. <b>21 of 24 features
+return 3.0.</b> A stable sort over one repeated key is a pass-through of hash order.</li>
+<li><b><code>:2139-40</code> &mdash; the ceiling shrink is order-decided.</b> Same cause, and it is the 2-vs-4.</li>
+<li><b><code>:2192</code> + <code>:2201</code> &mdash; <code>ranked</code> is not filtered by usability.</b> It is
+built from all 24 and the loop admits from it, so <b>7 of 16 Droid admissions and 6 of 15 iPad admissions are spent
+on features already measured as unreachable</b> &mdash; while 6 and 5 reachable features go unevaluated.</li>
+<li><b><code>:2201</code> &mdash; <code>workingMax = 40</code> is dead code.</b> <code>ranked</code> holds at most
+24 (plus pins), so the guard cannot fire without 17+ pins. <b>It has never executed.</b> And the comment block
+describing <code>maxPoi</code> sits above it; <code>val maxPoi = 24</code> three lines below is undocumented.
+"41 never needed" dates the 40 to a 56-feature world &mdash; before the cap existed.</li>
+<li><b><code>:2202</code> &mdash; the only stop that can fire is the survivor count.</b> So the engine is
+structurally guaranteed to stop on <i>candidates found</i>, never on <i>features considered</i>. Measured:
+<code>admitted=16 found=29 not_evaluated=8 next_would_have_been=Pink Knolls</code> (Droid) and
+<code>admitted=15 found=49 not_evaluated=9 next_would_have_been=Iron Mountain</code> (iPad) &mdash; <b>both stopped
+one step short of a feature they then had to enrich in anyway.</b></li>
+<li><b><code>:2334</code> &mdash; enrichment convergence is never deduped.</b> <code>found</code> dedupes by
+feature set when a <i>seed</i> is added (<code>:2239</code>); <code>enriched.add</code> has no such test. Measured:
+<b>7 of the iPad's 20 enrichment slots and 4 of the Droid's produced the identical ride.</b> 12 and 7 of the twenty
+candidate slots hold rides the engine already had.</li>
+<li><b><code>:2419</code> &mdash; <code>VARIATIONS = 2</code> contributed nothing.</b> Entries at PASS 3 equal
+<code>take(20)</code> exactly on both, so zero variations survived.</li>
+<li><b><code>:1993</code> &mdash; the cap runs before reachability is known</b>, so 11 unreachable features occupy
+array slots while 3 are discarded untested.</li>
+<li><b>PASS 3 is innocent.</b> Every kill on both devices had <code>max_overlap</code> of exactly <b>1.000</b>
+&mdash; exact duplicate leg sets. The 0.75 threshold never fired on a distinct ride. <b>No distinct ride was
+eliminated on merit anywhere in the pipeline.</b></li>
+<li><b>Enrichment draws from the full 24, not from <code>working</code></b> (<code>:2296</code>). So "this feature
+appears in a ride" is <b>no evidence of admission</b>. Iron Mountain and The Tetons are admitted on <i>neither</i>
+device and appear in rides on both.</li>
+<li><b><code>Cand.score</code> is never a comparator key.</b> <code>:1808</code>, <code>:2271</code> and
+<code>:2459</code> are all <code>feature count DESC, then miles DESC</code>. So <code>USERPIN_BASE = 60.0</code>
+buys a rider's own pin <b>nothing</b> in ranking.</li>
+<li><b><code>assess()</code> diverges from the build above 8 pins.</b> It uses <code>heldKarp</code> (exact) and a
+different corridor box (<code>corridorBoxFor</code>); the build uses <code>orderTour</code>, exact only to 8 points
+then greedy. <b>The panel can promise a pin set the build will not honour.</b> Its doc also says only
+<code>milesHigh</code> is read while <code>PinFeasibility.underMiles</code> is defined against
+<code>milesLow</code>.</li>
+</ol>
+
+<h2>5 &mdash; &#11088;&#11088;&#11088; THE ONE PRINCIPLE (Fred, 00:29) &mdash; FIVE COMMITS, ONE PROBLEM</h2>
+<div style="border:3px solid #3fb950;padding:10px 14px;margin:12px 0">
+<p>[stated] Fred, 00:29: <i>&ldquo;those 8/26 revisions look all around the problem we are c[u]rrently talking
+[a]bout.&rdquo;</i> They do. Four of the six 08-26 commits attack the same question from different sides:</p>
+<table border="1" cellpadding="6" cellspacing="0">
+<tr><th>commit</th><th>the symptom it fixed</th><th>the real question</th></tr>
+<tr><td>NEWENGINE</td><td>"all 2500 restarts began down the same spoke"</td><td>one arbitrary choice dominating</td></tr>
+<tr><td>JUNKCLASS</td><td>"my route created in towns"</td><td>wrong candidates in the set</td></tr>
+<tr><td>OVERLAP3</td><td>"ride 6 was ride 4 with one knoll dropped"</td><td>duplicates surviving to the output</td></tr>
+<tr><td>MAXPOI</td><td>"55 of 81 usable, C(55,22) never finished"</td><td>too many candidates</td></tr>
+<tr><td>ENRICH</td><td>"the pre-cap dropped features before anything was measured"</td><td>the WRONG candidates dropped</td></tr>
+</table>
+<p><b>The engine has no principled basis for deciding which candidates deserve evaluation.</b> Each commit bolted on
+a mechanism for one face of it &mdash; MAXPOI a hard cap cut by score, ENRICH an earn-your-way-in working array,
+OVERLAP3 a survivor counter plus the 75% dedupe, JUNKCLASS a class exclusion list. <b>Each is correct alone. Every
+defect above is an interaction between two of them:</b></p>
+<ul>
+<li>MAXPOI's score cut <b>+</b> ENRICH's score ordering &rarr; the two-value key, twice</li>
+<li>OVERLAP3's survivor counter <b>+</b> ENRICH's admission loop &rarr; the early exit that truncates the universe</li>
+<li>MAXPOI's 24 <b>+</b> ENRICH's 40 &rarr; a guard that can never fire</li>
+<li>MAXPOI before the distance matrix <b>+</b> the reach-and-return filter &rarr; 11 unreachable features in the array</li>
+</ul>
+<p><b>&#11088; AND THE PRINCIPLE WAS WRITTEN DOWN THE SAME DAY, in ENRICH's own commit message:</b>
+<i>&ldquo;a 3.0 peak that pairs with nothing is worthless while a 2.0 spring in five good sets is essential.&rdquo;</i>
+That is the whole answer &mdash; <b>a feature earns its slot by appearing in a combination that works</b> &mdash; and
+it is what Fred restated as ARRAYCONTRACT-2026-11-24 and again tonight. <b>It has never been the
+implementation.</b></p>
+</div>
+
+<div style="border:3px solid #3fb950;padding:10px 14px;margin:12px 0">
+<p><b>&#11088;&#11088;&#11088; AND THE CLEANEST FRAMING OF ALL (Fred, 00:31): NEWENGINE ALREADY FIXED THIS BUG, ONE
+LEVEL DOWN.</b></p>
+<p>NEWENGINE-2026-08-26's own diagnosis was <i>&ldquo;all 2500 restarts began down the same spoke&rdquo;</i> &mdash;
+<code>nearestNode</code> returned a node 613 ft away with ONE spoke, so every restart of the randomised greedy went
+down the same path and <b>every other direction was structurally excluded</b>. That is <b>one arbitrary choice
+dominating the outcome</b>.</p>
+<p><b>Tonight's defect is the same sentence with one noun changed.</b> Hash order decides which features are
+admitted, the loop stops at twenty survivors, and <b>every feature after the stop point is structurally
+excluded</b> &mdash; six on the Droid, five on the iPad, all reachable, all scoring 3.0, none ever judged.</p>
+<p><b>And NEWENGINE's fix is the fix.</b> It did not make the arbitrary choice smarter; it <b>removed the choice</b>
+&mdash; <i>&ldquo;candidate starts are every trail within 600 yards&hellip; rather than nearestNode&hellip; origins
+collapse to one per component keeping the alternatives.&rdquo;</i> Exhaustive in place of arbitrary.</p>
+<p>&rArr; <b>Tier 1 item 3 is NEWENGINE's principle applied to feature admission: admit every reachable feature and
+the arbitrary order stops mattering.</b> Not a better comparator &mdash; no comparator. The engine's own author
+solved this class of bug on 08-26 at the origin selection and left the identical pattern at the feature selection,
+four commits later the same day.</p>
+</div>
+
+<h2>6 &mdash; THE ARCHAEOLOGY: 49 COMMITS, AND EVERY CONSTANT BORN ON ONE DAY</h2>
+<pre>survivorsOf   ->  6c323f43f  OVERLAP3     2026-08-26
+maxPoi        ->  3ded23447  MAXPOI       2026-08-26
+workingMax    ->  a1a4fb39e  ENRICH       2026-08-26
+enrichN       ->  a1a4fb39e  ENRICH       2026-08-26
+val ranked    ->  a1a4fb39e  ENRICH       2026-08-26
+testedCeil    ->  7c36038f1  AIFEATFLOOR  2026-11-11</pre>
+<p><b>Not one of those values has been touched since the day it was written</b>, apart from the two port commits.
+Commit order within 08-26: NEWENGINE &rarr; JUNKCLASS &rarr; <b>OVERLAP3</b> &rarr; <b>MAXPOI</b> &rarr;
+<b>ENRICH</b> &rarr; SPLITGEOM.</p>
+<div style="border:3px solid #d29922;padding:10px 14px;margin:12px 0">
+<p><b>&#9888; THE DEFECT IS THE JOIN BETWEEN OVERLAP3 AND ENRICH.</b> <code>survivorsOf</code> was written in
+OVERLAP3 to answer <i>&ldquo;how many genuinely different rides do I have, so should I keep descending through
+smaller sizes?&rdquo;</i> Two commits later ENRICH wired the same counter into the top of the admission loop as
+<code>if (survivorsOf(found&hellip;) &gt;= enrichN) break</code>. <b>A counter built to decide when to stop going
+DOWN was repurposed to decide when to stop LETTING IN.</b> That one line truncates the evaluated universe on every
+run since 08-26, on both platforms.</p>
+<p><b>And <code>workingMax = 40</code> was stranded by a commit two hours older</b> &mdash; MAXPOI capped the pool at
+24 before ENRICH wrote the 40.</p>
+</div>
+<p><b>Other eras worth knowing:</b> <code>41d48b6c1</code> (10-24, STD1 colour roles, 1,394 uses in 72 files) is where
+this afternoon's FILLROLES defect came from. <code>851db572d</code> GRAPHCOPY-08-29 and <code>38ba294aa</code>
+GRAPHADJ-10-28 are <b>the same bug class twice</b> &mdash; shared mutable state leaking between runs, both found by
+symptom, neither covered by a test. 11-11 carries ten commits including AIFEATFLOOR (<code>testedCeil</code>),
+AIRETURNFILL (the fill) and AIVARIATIONS (measured tonight at zero effect).</p>
+
+<h2>7 &mdash; THE RESEQUENCE, SIMULATED ON THE REAL GEOMETRY (Fred's fix)</h2>
+<p>[stated] Fred, 00:04: <i>&ldquo;why wouldn't we drop the unreachable features before load[ing] the arra[y] of
+[24]? 30 features, remove the unreachable, load the array.&rdquo;</i></p>
+<pre>TODAY        29 discovered -> CAP 24 -> dijkstra -> 15 / 14 reachable   (cap fires, drops 5 UNTESTED)
+RESEQUENCED  29 discovered -> dijkstra(origin) -> reach/return -> load  (15 of 24, THE CAP NEVER FIRES)</pre>
+<p><b>And it is cheaper than today, not more expensive.</b> <code>:2039</code> builds 2 origins + 24 features =
+<b>26 Dijkstra tables</b> before anything is filtered. Resequenced: 2 origin tables, filter, then the survivors =
+<b>17 tables. Nine fewer.</b> And because the graph is undirected &mdash; proven tonight, every feature's
+<code>out</code> and <code>back</code> agree to sixteen digits &mdash; the filter needs <b>only the origin's own
+table</b>, which the engine must build anyway. <b>One Dijkstra screens all 29.</b></p>
+<p>&#9888; The sim can only use distances each run measured, so it still shows Rock Spring as Droid-only. That is a
+gap in the sim's <i>input</i>, not the design: a resequenced run tests all 29 on both, and since discovery and
+distances are proven identical, <b>the pool is identical by construction</b>.</p>
+
+<h2>7b &mdash; &#11088;&#11088; WHY THE RESEQUENCE IS THE CHEAP FIX: MAXPOI BUDGETED THE WRONG RESOURCE</h2>
+<div style="border:3px solid #3fb950;padding:10px 14px;margin:12px 0">
+<p>[stated] Fred, 00:34, recalling NEWENGINE: <i>&ldquo;I remember the relief because it [halved] our processing by
+hav[ing] starting and endpoint and combos of features to replace the dijkstra that was performed &mdash;
+dramatically reduced. Almost like the routes were built first and evaluated based on points and mileage, because we
+weren't asking create any possible route, only route between our points.&rdquo;</i> <b>Correct, and the measured
+figure is better than halved: 67.8s &rarr; 3.8s</b> (NEWENGINE-2026-08-26).</p>
+<p><b>THE ARCHITECTURE, and it is the thing to protect:</b> the engine never searches for routes. It fixes the
+terminals (origin + features), runs <b>one Dijkstra per terminal, once</b>, at <code>:2039</code> &mdash; and after
+that every combination is a <b>chained sum of pre-computed distances</b>. <code>orderTour</code> only ever calls
+<code>dist(a,b)</code> = <code>dij[a].dist[b]</code>, a hashmap lookup. <b>No graph search happens during route
+evaluation.</b> The out-and-back filter and the pair table then bound the enumeration so even the arithmetic is
+minimised.</p>
+<p>&#9940; <b>WHICH MEANS MAXPOI CAPPED THE CHEAP RESOURCE.</b> Its justification counts <b>combinations</b>
+(<i>&ldquo;24 features at size 5 is 42,504 against 3,478,761 for 55&rdquo;</i>) &mdash; and combinations are free
+array lookups. <b>The expensive step is the Dijkstra matrix, and it is sized by the number of features in the
+array.</b> Today: <b>26 tables</b> (2 origins + 24 features), <b>eleven of them for features the very next stage
+proves unreachable</b>.</p>
+<p>&rArr; <b>The resequence cuts the only costly operation in the engine by 35% &mdash; 17 tables instead of 26
+&mdash; while also removing the tie-break that caused the divergence.</b> It is cheaper, more correct, and it
+restores the architecture's own logic: spend the graph search only on terminals that can appear in a ride.</p>
+<p>&#9888; The one graph search remaining after the matrix is the fill's penalised re-routing
+(<code>routeLegs</code> &rarr; <code>dijkstra</code> per leg per attempt, up to <code>FILL_STEPS = 10</code> per
+ride &times; <code>VARIATIONS = 2</code>). <b>Tonight measured the VARIATIONS third of that work contributing
+nothing</b> &mdash; see &sect;4 item 7.</p>
+</div>
+
+<h2>8 &mdash; THE RECOMMENDATION</h2>
+<p><b>Tier 1 &mdash; measured, safe, do these.</b></p>
+<ol>
+<li><b>Reachability before the array.</b> Cap stops firing, pools identical by construction, nine fewer Dijkstra tables.</li>
+<li><b>Order the array by <code>(score DESC, bad-pair count ASC, node id)</code>.</b> Fred's rule leads, so springs
+still sort last. &#11088;&#11088; <b>The second key is measured at correlation &minus;0.951 with productivity</b>
+(rides a feature appears in) against distance's &minus;0.372 &mdash; and the pair table already exists 86 lines
+earlier, so it is free. The order it produces puts the <b>seven most productive features in the first seven
+positions</b>, identical on both platforms because every term is data.
+&#9940; <b>This also kills the planned fix:</b> RIDEORDER edit 2 ordered by distance and the correction was to flip
+to farthest-first &mdash; but <b>the single most productive feature in the corridor is the nearest</b> (Mountain
+Spring Peak, 26.2 mi, 14 rides). Both directions of that key are wrong.</li>
+<li><b>Remove the <code>survivorsOf</code> break.</b> After (1) the loop is bounded at 15 iterations, so no cost
+measurement is needed. All reachable features get evaluated &mdash; neither device has ever done that.</li>
+<li><b>Dedupe <code>enriched</code> on the feature set, then backfill from the discarded seeds.</b> Recovers 7 slots
+on the Droid and 12 on the iPad.</li>
+</ol>
+<p><b>Tier 2 &mdash; one decision for Fred.</b> Replace the clique-and-shrink ceiling with an explicit
+enumeration-size cap. This is the last place hash order reaches the screen, and tonight says <b>low wins</b>:
+ceiling 2 gave 13 distinct rides worth 66.766, ceiling 4 gave 8 worth 58.320. From a pool of 13, sizes {2,1} is
+<b>91</b> combinations per pass against {4,3,2,1} at <b>1,092</b> &mdash; twelve times the work for a worse
+product. It would delete <code>testedCeil</code> and its shrink loop entirely.</p>
+<p><b>Tier 3 &mdash; separate tasks; these deliberately change Android's output.</b> The missing negative score
+terms (&sect;9), pins-first in the ride comparator, and the 9+ pin solver mismatch in <code>assess()</code>.</p>
+<p><b>Gating, unchanged:</b> every item changes Android's output, so <b>Droid 2 is the referee</b>, and the
+references are <code>aidump_droid1_PARITY_baseline.txt</code> plus tonight's two <code>aistage</code> files.
+<b>Sequence:</b> 1 and 2 together (same region, one patch, one build), re-run the recipe on both devices, diff
+against tonight's captures; if the pools come back identical and the admitted order matches, that is the proof, and
+3 and 4 follow cheaply.</p>
+
+<h2>9 &mdash; DESIGN vs IMPLEMENTATION: THE MISSING NEGATIVE TERMS</h2>
+<p>Against the 08-17 design record (<code>grouptrack_design_trail_data_route_suggestion_2026-08-17.html</code>,
+11 sections). <b>Every <code>Cand</code> score in the engine is <code>scoreSet(combo, poiAt)</code> and nothing
+else</b> &mdash; four call sites, all identical.</p>
+<table border="1" cellpadding="6" cellspacing="0">
+<tr><th>design score term</th><th>data available</th><th>implemented</th></tr>
+<tr><td>scenic proximity</td><td>11,773 pts</td><td>&#9989; the class weights</td></tr>
+<tr><td>variety</td><td>&mdash;</td><td>&#9989; the 0.22 per-class discount</td></tr>
+<tr><td><b>loop closure</b></td><td>&mdash;</td><td>&#10060; <code>retraceOf</code> exists but is only a
+<b>refusal</b> in the fill (&gt;30% &rarr; skip). Never scored.</td></tr>
+<tr><td><b>settlement avoidance</b></td><td><b>5,220 pts, bbox-indexed</b></td><td>&#10060; <b>nothing.</b>
+Settlements are excluded as destinations and then ignored as geography.</td></tr>
+<tr><td>ride quality (fclass)</td><td>blind on 68%</td><td>&#10060;</td></tr>
+<tr><td>elevation</td><td>none</td><td>&#10060;</td></tr>
+<tr><td>legal permission</td><td>none until BLM</td><td>&#10060;</td></tr>
+</table>
+<div style="border:3px solid #f85149;padding:10px 14px;margin:12px 0">
+<p><b>&#9940; THE ENGINE HAS NO NEGATIVE TERMS AT ALL.</b> Only positive terms (features) and hard constraints
+(mileage, reachability, pair feasibility). <b>It cannot express that a route is worse for where it goes.</b></p>
+<p>[stated] Fred raised this three times on 11-26 as <i>&ldquo;roads are negatives&rdquo;</i>, and the design
+record proves him right: <b>settlement avoidance is a specified score term with 5,220 indexed points behind it, and
+it was never built.</b> The 08-26 answer was JUNKCLASS &mdash; stop treating settlements as <i>destinations</i>.
+That stops routing <b>to</b> a town and does nothing about routing <b>through</b> one.</p>
+<p><b>MEASURED on the Broken Ridge corridor &mdash; 3,045 trails:</b></p>
+<pre>shape only              1,542   50.6%   <- geometry, no classification
+forestry/access road      943   31.0%   <- ROADS
+rider                     175    5.7%
+track                     167    5.5%
+hiking and biking         150    4.9%
+OHV                        60    2.0%   <- actually classified as OHV
+hiking                      8    0.3%</pre>
+<p><b>2% of the network is OHV. 31% is roads. Half is unclassified.</b> Dijkstra's cost is
+<code>miles * (pen[ei] ?: 1.0)</code> and <code>pen</code> is populated only by the fill's
+<code>PENALTY = 2.2</code> on re-used edges &mdash; <b>so a road mile costs exactly a singletrack mile.</b></p>
+<p><b>&#9940;&#9940; AND THE FILL IS BIASED TOWARD ROADS BY CONSTRUCTION.</b> <code>:2342</code> inserts the
+via-junction with the <b>largest</b> detour that still fits (<code>if (add &gt; pickAdd)</code>). Roads are the
+longest, straightest, best-connected segments in any network. <b>The mechanism that pads every ride from a 26-mile
+feature tour to 74&ndash;80 miles preferentially selects the least rideable segments available</b>, and
+<code>retraceOf &gt; 30%</code> is the only thing it ever refuses on.</p>
+<p>&#11088; <b>All three fixes have existing machinery:</b> <code>retraceOf</code> already computes loop quality;
+settlement proximity is the same nearest-point query <code>loadPoisGrid</code> already runs; and
+<code>pen</code> is already a per-edge multiplier Dijkstra honours, with <code>carto_code</code> 100% populated in
+this corridor. The road penalty's value is a product decision &mdash; run the recipe at 1.5 / 2.0 / 3.0 and look.</p>
+</div>
+
+<h2>10 &mdash; THE BENCHMARK, AND WHY IT MATTERS MORE THAN THE PLATFORM GAP</h2>
+<p>The engine's own proof table, <code>GtRoute.kt:52-57</code>, measured 2026-08-22 with no retuning between
+corridors:</p>
+<pre>corridor        best route          retrace   unconfirmed junctions
+Toroweap        78 mi /  6 feats      50%     176
+Bar 10          74 mi / 10 feats      36%      53
+Panguitch       79 mi / 13 feats      25%     104
+Broken Ridge    79 mi /  9 features   16%       1</pre>
+<p><b>Nine features at Broken Ridge on 08-22. Tonight both devices topped out at six.</b> That run predates the
+24-cap, so it chose from the full discovered set &mdash; which is exactly what the resequence restores. <b>The
+regression against the project's own proof is larger than the gap between the two devices.</b>
+&#9888; Ceiling: the maximum clique over the 15 reachable features is <b>7</b> (exhaustively verified), so 7 is the
+pairwise limit here; how much survives the tour test depends on the shrink, which is Tier 2.</p>
+
+<h2>11 &mdash; TOOLS AND BASELINES (all in <code>~/Downloads</code>)</h2>
+<ul>
+<li><b><code>gt_routestage_2026-11-26_v1.py</code></b> &mdash; ROUTESTAGE: member lists at stages 5&ndash;13.
+APPLIED. 8 anchors, 13 <code>stage.add()</code> sites. <code>--revert</code> available.</li>
+<li><b><code>gt_routestage2_2026-11-26_v1.py</code></b> &mdash; ROUTESTAGE2: <code>found</code> pre-fill and the
+PASS 3 verdicts. APPLIED on top of ROUTESTAGE (its prerequisite guard refuses otherwise). 16 sites total.</li>
+<li><b><code>gt_watchdiff_2026-11-26_v1.py</code></b> &mdash; walks two <code>aistage</code> files stage by stage,
+<b>stops at the first divergence</b>, and reports the first gate each watched ride fails.</li>
+<li><b><code>aistage_droid1.txt</code> / <code>aistage_ios.txt</code></b> &mdash; tonight's captures. <b>The new
+reference.</b></li>
+<li><b><code>aidump_droid1_PARITY_baseline.txt</code></b> &mdash; 11-24, verified byte-identical to the pre-patch
+run: zero funnel mismatches, 13 candidates, every score bit, mile bit and leg set. Still the 2.7e-line reference.</li>
+<li>&#9940; <b>Both staged patches are uncommitted diagnostics. REMOVE WITH AIDUMP-2026-11-24 BEFORE 2.8b
+CLOSES.</b></li>
+</ul>
+
+<h2>12 &mdash; &#9888; THE CERTIFICATION GAP THAT LET THIS THROUGH</h2>
+<div style="border:3px solid #d29922;padding:10px 14px;margin:12px 0">
+<p><code>gt_cert_v11.sh routes</code> compares 2.7e <code>RouteExplorer</code> against shared <code>GtRoute</code>
+&mdash; <b>both running on the Droid</b>. It proves the port is faithful, which it is. And the 43
+<code>*MacTest.kt</code> files run shared code on the iPad simulator but <b>not one covers the route engine</b>.
+<b>No test in the suite has ever compared the two platforms' route output.</b> The suite was built to prove "the
+shared code reproduces 2.7e" and it cannot, by construction, catch a hash-order divergence while both sides of
+every comparison run on the same machine.</p>
+<p><b>The fix is the instrument built tonight:</b> same frozen database, same recipe, a Droid run and a sim run,
+and the two <code>aistage</code> files must be identical. <b>The diagnostic becomes the regression test.</b>
+Add a <code>routes-parity</code> mode to <code>gt_cert_v11.sh</code>.</p>
+<p>&#9888; <b>And nothing protects Android's current answer.</b> Hash iteration order is a function of insertion
+order, table capacity and hashCodes. Droid 1 was byte-identical across three runs because nothing changed between
+them &mdash; not because anything guarantees it. <b>A changed row count from the next trail import reshuffles the
+buckets and the Droid's six become something else, silently.</b></p>
+</div>
+
+<h2>13 &mdash; SEPARATE FINDING: RIDER-TRAIL SEGMENTATION DIFFERS BETWEEN THE DROIDS</h2>
+<p>Of 229,368 trails, <b>14 differ between Droid 1 and Droid 2</b> &mdash; all unnamed MOTORIZED rider trails, none
+inside the Broken Ridge corridor, so they do not affect anything above. But the shapes are telling: <b>Droid 1 has
+ONE trail spanning 37.7450&ndash;37.7829 / &minus;112.3930&ndash;&minus;112.3419 where Droid 2 has FOUR covering
+pieces of the same extent.</b> Two clusters: <b>lat 42.76&ndash;42.80 / lon &minus;71.2 (New Hampshire, Fred's own
+riding)</b> and <b>lon &minus;112.3 to &minus;113.0 (southern Utah, east of the corridor)</b>. The rider-trail
+matcher does not agree with itself across devices on where one trail ends and the next begins. <b>Own task</b>
+&mdash; it lands on the queued rider-trail work.</p>
+
+<h2>13b &mdash; &#9940; NEW DEFECT: THE TRAIL FILTER FAILS OPEN, AND ITS LOAD TIMING IS PLATFORM-SPECIFIC</h2>
+<div style="border:3px solid #f85149;padding:10px 14px;margin:12px 0">
+<p>Found 00:37 while testing [stated] Fred's hypothesis <i>&ldquo;old code probably left in place and reimplemented
+in the ios conversion&hellip; they are handled t[o]ta[ll]y differently.&rdquo;</i>
+<b>The hypothesis is disproven</b> &mdash; <code>RouteExplorer.kt</code> was read in full (176 lines: ~60 comment,
+the mirrored type declarations because Kotlin has no typealias inside an object, the converters, and seven one-line
+delegates; no algorithm, no request transformation, no result filtering). And the two
+<code>TrailFilterState</code> objects are <b>one state with two names</b>: <code>app/&hellip;/convoy/
+TrailFilterState.kt:5</code> is <code>import com.grouptrack.shared.filter.TrailFilterState as Shared</code>, a
+synchronised pass-through (GTBATCH1A-2026-11-06).</p>
+<p><b>But the read found this, in the shared file:</b></p>
+<pre>/** &#9888; NULL MEANS NOT LOADED -- it does NOT mean "no filter". */
+private var cachedWhere: String? = null
+fun whereOrEmpty(): String = cachedWhere ?: ""</pre>
+<p><code>buildGraph</code>'s filter parameter defaults to <code>whereOrEmpty()</code>. <b>So a route build that
+starts before <code>load()</code> has run builds an UNFILTERED graph</b> &mdash; every trail the rider switched off,
+private land included &mdash; and nothing is logged. It is deliberate (<code>RouteExplorerCertOld:520</code>:
+<i>&ldquo;whereOrEmpty(), not where(): a route build can run before a map&rdquo;</i>), which makes it a safe-looking
+default that silently <b>widens</b> the candidate set rather than narrowing it.</p>
+<p><b>&#9888; AND THE LOAD TIMING IS PLATFORM-SPECIFIC.</b> iOS sets <code>pathProvider</code> and calls
+<code>load()</code> at panel composition (<code>GtIosPanels.kt:855-866</code>,
+<code>GtIosHkEnv.kt:162</code>); Android loads through <code>TrailCheck</code> / the map draw off
+<code>GroupTrackStorage.root()</code>. <b>So which platform routes filtered and which routes unfiltered depends on
+what the rider opened first in that session.</b> Tonight both reported <code>usable_nodes</code> 4218, so they
+agreed &mdash; <b>but that is a property of this session, not a guarantee</b>, and it is the one place a genuine
+platform difference could change which trails are routable.</p>
+<p><b>Fix shape:</b> make the route build require a loaded filter rather than tolerate an unloaded one &mdash;
+either load on demand inside <code>buildGraph</code>, or refuse the build and say so. &#9888; Either changes
+Android's output wherever a build currently runs unfiltered, so <b>Droid 2 gates it</b>. <b>Own task.</b></p>
+</div>
+
+<h2>14 &mdash; NEXT SESSION</h2>
+<ol>
+<li><b>Tier 1 items 1 and 2 as one patch</b>, <code>--check</code>ed from the container, then one build and the
+recipe re-run on both devices. The proof is: pools identical, admitted order identical.</li>
+<li>Then 3 and 4, each its own patch and its own witness.</li>
+<li><b>Droid 2 gates all of it.</b></li>
+<li><b>Fred's standing order (11-26 12:50):</b> tomorrow starts on MAP RECOVERY rows 2 and 3 &mdash;
+<code>map.backup</code> (the full GroupTrack user-data save) and <code>map.imported</code> (counts of imported
+waypoints and trails). <b>This route work is queued behind that unless Fred reorders it.</b></li>
+<li>Carried: the blueprint doc
+<code>GroupTrack_2.8b_ai_route_engine_discovery_2026-11-26_v2.html</code> (the 18-step pipeline and the ledger,
+script written and <code>--check</code>ed, not yet run) and the 11-26 EOD doc set
+(<code>gt_eod_2026-11-26_v2.py</code> + <code>recommit_v26.sh</code>, still owed to AllDocs from this morning).</li>
+</ol>
+
+</body></html>
